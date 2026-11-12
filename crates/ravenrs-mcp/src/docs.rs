@@ -10,6 +10,7 @@ const QUALITY: &str = include_str!("../../../docs/QUALITY.md");
 const PARITY: &str = include_str!("../../../docs/PARITY.md");
 const REPORTING_PARITY: &str = include_str!("../../../docs/REPORTING-PARITY.md");
 const APP_PARITY: &str = include_str!("../../../docs/APP-PARITY.md");
+const APP_CONTRACTS: &str = include_str!("../../../docs/APP-CONTRACTS.md");
 const TOKENS: &str = include_str!("../../../docs/design-system/tokens.json");
 
 /// The longest piece of a guide shown in a search, in characters.
@@ -148,9 +149,16 @@ pub fn parity(
     let (mut done, mut partial, mut planned) = (0, 0, 0);
     for (name, text) in documents {
         for row in table_rows(text) {
-            // The status is in the last cell that has one: a later cell may only say which step.
-            let mut cells = row.cells.iter().enumerate().skip(1).rev();
-            let Some((at, row_status)) = cells.find_map(|(at, cell)| Some((at, row_status(cell)?))) else {
+            // The status is in the last cell that has one: the last column of the component and
+            // reporting trackers, the middle one of the application tracker.
+            let Some((at, row_status)) = row
+                .cells
+                .iter()
+                .enumerate()
+                .skip(1)
+                .rev()
+                .find_map(|(at, cell)| row_status(cell).map(|s| (at, s)))
+            else {
                 continue;
             };
             let detail = &row.cells[at];
@@ -166,9 +174,8 @@ pub fn parity(
                 "partial" => partial += 1,
                 _ => planned += 1,
             }
-            let others = row.headers.iter().zip(&row.cells).enumerate().skip(1);
+            let others = row.headers.iter().zip(&row.cells).enumerate().skip(1).filter(|(i, _)| *i != at);
             let reference: Map<String, Value> = others
-                .filter(|(position, _)| *position != at)
                 .map(|(_, pair)| pair)
                 .filter(|(_, cell)| !cell.is_empty())
                 .map(|(header, cell)| (header.clone(), json!(cell)))
@@ -327,6 +334,38 @@ pub fn guides(
         })
         .collect();
     Ok(json!({ "total": listed.len(), "documents": listed }))
+}
+
+/// The scenarios C01–C19 and the groups M01–M19 of docs/APP-CONTRACTS.md, with the issues that own
+/// them, only those whose text has the query when there is one.
+pub fn app_contracts(query: Option<&str>) -> Value {
+    let query = query.map(str::to_lowercase);
+    let wanted = |cells: &[String]| {
+        query.as_ref().is_none_or(|query| cells.join(" ").to_lowercase().contains(query.as_str()))
+    };
+    let (mut scenarios, mut groups) = (Vec::new(), Vec::new());
+    for row in table_rows(APP_CONTRACTS) {
+        if !wanted(&row.cells) {
+            continue;
+        }
+        let entry: Map<String, Value> = row
+            .headers
+            .iter()
+            .zip(&row.cells)
+            .map(|(header, cell)| (header.to_lowercase(), json!(cell)))
+            .collect();
+        match row.headers.first().map(String::as_str) {
+            Some("Scenario") => scenarios.push(Value::Object(entry)),
+            Some("Group") => groups.push(Value::Object(entry)),
+            _ => {}
+        }
+    }
+    json!({
+        "document": "docs/APP-CONTRACTS.md",
+        "status": "docs/APP-PARITY.md, through parity_status with document 'application'",
+        "scenarios": scenarios,
+        "groups": groups,
+    })
 }
 
 /// The status a parity cell opens with. A row like "✅ basics. Export ⬜" counts as done.

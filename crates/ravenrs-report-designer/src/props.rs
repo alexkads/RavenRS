@@ -10,7 +10,7 @@ use ravenrs_report::{
 use ravenrs_style::SPACING;
 
 use crate::bands::BandRef;
-use crate::editor::{Editor, Selection};
+use crate::editor::{Editor, ExpressionTarget, Selection};
 
 /// Formats offered in the format picker, with the format string they use.
 pub const FORMATS: [(&str, &str); 8] = [
@@ -36,6 +36,21 @@ pub const PALETTE: [(&str, &str); 8] = [
     ("#c93434", "Perigo"),
     ("#f4f5f8", "Fundo suave"),
 ];
+
+/// An expression's field with the button that opens it in the expression editor.
+fn with_editor(
+    e: &Editor,
+    field: TextField,
+    target: ExpressionTarget,
+) -> HStack<(Styled<TextField>, IconButton)> {
+    let e = e.clone();
+    HStack::new((
+        field.grow(1.0),
+        IconButton::new(IconName::Code).label("Editar expressão").on_click(move || e.open_expression(target)),
+    ))
+    .spacing(SPACING.s1)
+    .align(Align::Center)
+}
 
 fn section(title: &str) -> Text {
     Text::new(title.to_uppercase()).style(TextStyle::Caption).foreground(Semantic::InkMuted)
@@ -513,6 +528,8 @@ fn control_props(e: &Editor) -> impl View + use<> {
             },
         ))
         .compact();
+        let text: AnyView =
+            if is_field { Box::new(with_editor(e, text, ExpressionTarget::Control)) } else { Box::new(text) };
         rows.push(Box::new(FormField::new(if is_field { "Expressão" } else { "Texto" }, text).hint(
             if is_field {
                 "Ex.: [Preco] * [Qtd], Sum([Total]), Iif([Pago], 'Sim', 'Não')"
@@ -671,20 +688,24 @@ fn band_props(e: &Editor, band: BandRef) -> impl View + use<> {
         rows.push(Box::new(
             FormField::new(
                 "Agrupar por",
-                TextField::new(Binding::new(
-                    move || {
-                        read.report
-                            .with(|r| r.groups.get(i).map(|g| g.expression.clone()).unwrap_or_default())
-                    },
-                    move |s: String| {
-                        write.edit_as("group", |r| {
-                            if let Some(g) = r.groups.get_mut(i) {
-                                g.expression = s;
-                            }
-                        })
-                    },
-                ))
-                .compact(),
+                with_editor(
+                    e,
+                    TextField::new(Binding::new(
+                        move || {
+                            read.report
+                                .with(|r| r.groups.get(i).map(|g| g.expression.clone()).unwrap_or_default())
+                        },
+                        move |s: String| {
+                            write.edit_as("group", |r| {
+                                if let Some(g) = r.groups.get_mut(i) {
+                                    g.expression = s;
+                                }
+                            })
+                        },
+                    ))
+                    .compact(),
+                    ExpressionTarget::Group(i),
+                ),
             )
             .hint("Uma expressão, como [Regiao]"),
         ));
@@ -823,11 +844,15 @@ fn report_props(e: &Editor) -> impl View + use<> {
     ))
     .compact();
     let (read, write) = (e.clone(), e.clone());
-    let filter = TextField::new(Binding::new(
-        move || read.report.with(|r| r.filter.clone().unwrap_or_default()),
-        move |s: String| write.edit_as("filter", |r| r.filter = (!s.trim().is_empty()).then_some(s)),
-    ))
-    .compact();
+    let filter = with_editor(
+        e,
+        TextField::new(Binding::new(
+            move || read.report.with(|r| r.filter.clone().unwrap_or_default()),
+            move |s: String| write.edit_as("filter", |r| r.filter = (!s.trim().is_empty()).then_some(s)),
+        ))
+        .compact(),
+        ExpressionTarget::Filter,
+    );
     VStack::new((
         Text::new("Relatório").style(TextStyle::Headline),
         FormField::new("Nome", name),

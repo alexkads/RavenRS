@@ -162,6 +162,7 @@ const DEMONSTRATIONS: [(&str, &str); 20] = [
     ("Tipos de Action", "ActionDemo"),
     ("Todos os tipos", "EditorsDemo"),
     ("Campos personalizados", "CustomFieldsDemo"),
+    ("Textos por chave", "TextsDemo"),
     ("Uma lista, cinco visões", "ListEditorsDemo"),
     ("Variantes e filtros", "VariantsDemo"),
     ("Edição na lista", "EditableList"),
@@ -183,6 +184,46 @@ fn every_demonstration_opens(center: &mut Center) {
         assert!(center.session().error().is_none(), "{caption}: {:?}", center.session().error());
         assert!(center.says(caption), "{caption} shows its name");
     }
+}
+
+#[test]
+fn the_same_center_answers_as_a_web_api_with_the_same_permissions() {
+    use ravenrs_app_server::ApiRequest;
+    use serde_json::json;
+    let mut api = feature_center::api_service(None).expect("it starts");
+    let mut token_of = |name: &str| {
+        let body = json!({ "name": name, "password": PASSWORD });
+        let answer = api.handle(ApiRequest::new("POST", "/api/auth/token").json(&body));
+        assert_eq!(answer.status, 200, "{answer:?}");
+        answer.body["token"].as_str().expect("a token").to_owned()
+    };
+    let (bia, caio) = (token_of("bia"), token_of("caio"));
+    let documents = ApiRequest::new("GET", "/api/data/SecuredDocument").bearer(&bia);
+    let answer = api.handle(documents);
+    assert_eq!(answer.body["items"].as_array().expect("records").len(), 3);
+    assert_eq!(answer.body["items"][0]["cost"], serde_json::Value::Null, "bia does not see the cost");
+    let answer = api.handle(ApiRequest::new("GET", "/api/data/SecuredDocument").bearer(&caio));
+    assert_eq!(answer.body["items"].as_array().expect("records").len(), 2, "nor caio what is of ana");
+    let write =
+        ApiRequest::new("PATCH", "/api/data/SecuredDocument/1").bearer(&bia).json(&json!({ "name": "x" }));
+    assert_eq!(api.handle(write).status, 403, "it is of ana");
+    let form = ApiRequest::new("POST", "/api/data/ValidationRules").bearer(&bia).json(&json!({ "age": 10 }));
+    assert_eq!(api.handle(form).status, 422);
+}
+
+#[test]
+fn each_person_finds_the_theme_they_left() {
+    let database = memory_database().unwrap_or_else(|why| panic!("{why}"));
+    let space: Space = Rc::new(move || Box::new(database.space()) as Box<dyn ObjectSpace>);
+    let mut ana = Center::over(space.clone(), "ana");
+    ana.ui.theme_state().set(Theme::raven_light());
+    ana.settle();
+    let mut again = Center::over(space.clone(), "ana");
+    again.settle();
+    assert_eq!(again.ui.theme().name, Theme::raven_light().name);
+    let mut bia = Center::over(space, "bia");
+    bia.settle();
+    assert_eq!(bia.ui.theme().name, Theme::raven_dark().name);
 }
 
 #[test]
@@ -285,6 +326,16 @@ fn every_kind_of_action_runs() {
     c.press("Somar");
     assert_eq!(c.stored("ActionDemo", 1.0).get("amount"), Value::Number(78.0));
     c.select("ActionDemo", 1.0);
+    c.run("DemoBackground", ActionInput::None);
+    let start = std::time::Instant::now();
+    while !c.session().frame().jobs().is_empty() {
+        assert!(start.elapsed() < std::time::Duration::from_secs(5), "the work never ended");
+        std::thread::sleep(std::time::Duration::from_millis(5));
+        c.settle();
+    }
+    assert_eq!(c.stored("ActionDemo", 1.0).get("amount"), Value::Number(88.0), "kept from its own thread");
+    assert!(c.says("Somou 10 em segundo plano."));
+    c.select("ActionDemo", 1.0);
     let only_open = c.session().frame().action("DemoCriteria").expect("there");
     assert!(only_open.is_enabled());
     c.select("ActionDemo", 3.0);
@@ -294,6 +345,33 @@ fn every_kind_of_action_runs() {
         c.ui.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some("Carimbar")),
         "inside the form"
     );
+}
+
+#[test]
+fn a_declared_action_asks_sets_and_keeps_with_no_code() {
+    let mut c = Center::memory("ana");
+    c.open_list("ActionDemo");
+    c.select("ActionDemo", 2.0);
+    c.run("DemoDeclared", ActionInput::None);
+    assert!(c.says("Fechar e dobrar o valor dos selecionados?"), "it asks first");
+    c.press("Fechar e dobrar");
+    assert!(c.session().error().is_none(), "{:?}", c.session().error());
+    assert_eq!(c.stored("ActionDemo", 2.0).get("state"), Value::Text("closed".into()));
+    assert_eq!(c.stored("ActionDemo", 2.0).get("amount"), Value::Number(400.0));
+    c.select("ActionDemo", 2.0);
+    let declared = c.session().frame().action("DemoDeclared").expect("there");
+    assert!(!declared.is_enabled(), "only for what is open");
+}
+
+#[test]
+fn texts_by_key_replace_words_and_add_the_center_s_own() {
+    let mut c = Center::memory("ana");
+    c.open_list("TextsDemo");
+    assert!(c.says("Recarregar"), "a word of the screens the center replaced: {:?}", c.texts());
+    assert!(!c.texts().iter().any(|text| text == "Atualizar"), "and the one it replaced is gone");
+    c.select("TextsDemo", 1.0);
+    c.run("DemoHello", ActionInput::None);
+    assert!(c.says("Olá, Ana! Este texto veio do catálogo."), "a key of its own: {:?}", c.texts());
 }
 
 #[test]

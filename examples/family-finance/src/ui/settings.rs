@@ -14,8 +14,8 @@ use crate::backup::{self, CopyReason};
 use crate::db::{Database, DbResult};
 use crate::model::{date_label, parse_date};
 use crate::reminders::{self, ReminderSettings};
-use crate::seed;
 use crate::update::{self, UpdateStatus};
+use crate::{seed, themes};
 
 /// Below this width the theme's three choices no longer fit in half of it.
 const TWO_COLUMNS_FROM: f32 = 760.0;
@@ -130,21 +130,45 @@ fn test_notice(store: &Store, settings: &ReminderSettings) {
     );
 }
 
-fn make_backup(store: &Store) {
+/// Asks where to save a backup and saves it. Says whether one was saved.
+fn make_backup(store: &Store, title: &str) -> bool {
     let name = format!("raven-financas-{}.db", store.today);
-    let Some(target) =
-        SaveDialog::new(&name).title("Salvar backup").filter("Backup do Raven Finanças", &["db"]).ask()
+    let Some(target) = SaveDialog::new(&name).title(title).filter("Backup do Raven Finanças", &["db"]).ask()
     else {
-        return;
+        return false;
     };
     match backup::save_backup(&store.db, store.path.as_deref(), &target, SystemTime::now()) {
         Ok(contents) => {
             let told = format!("{}. Guardado em {}", backup::contents_label(&contents), target.display());
             store.toasts.show_for("Backup salvo", told, Tone::Success, 8.0);
             store.refresh();
+            true
         }
-        Err(e) => store.toasts.show_for("Não foi possível fazer o backup", e, Tone::Danger, 8.0),
+        Err(e) => {
+            store.toasts.show_for("Não foi possível fazer o backup", e, Tone::Danger, 8.0);
+            false
+        }
     }
+}
+
+/// Everything is about to be replaced: only after a backup made a moment ago, and with
+/// `word` typed in capitals. Without the backup nothing is asked and nothing changes.
+fn replace_everything(store: &Store, confirm: &ConfirmDialog, question: Question, run: impl Fn() + 'static) {
+    let fresh = store.path.as_deref().is_some_and(|path| backup::has_fresh_backup(path, SystemTime::now()));
+    if !fresh && !make_backup(store, "Antes, salve um backup dos seus dados") {
+        let told = "Nada foi trocado. Para continuar, salve um backup e guarde-o fora deste computador.";
+        store.toasts.show_for("Faça um backup antes", told, Tone::Warning, 8.0);
+        return;
+    }
+    confirm.ask_typing(question.title, question.message, question.action, question.word, run);
+}
+
+/// What [`replace_everything`] asks.
+struct Question {
+    title: &'static str,
+    message: &'static str,
+    action: &'static str,
+    word: &'static str,
 }
 
 /// What the file holds and what would be lost, before anything changes. A file
@@ -287,7 +311,13 @@ pub(crate) fn settings(
         UpdateStatus::NoAnswer(reason) => format!("Não consegui verificar se há versão nova: {reason}"),
     };
 
-    let appearance = titled_card("Aparência", help::APARENCIA, ThemeSwitcher);
+    let appearance = titled_card(
+        "Aparência",
+        help::APARENCIA,
+        ThemeSwitcher::new()
+            .themes(themes::dark(), themes::light(), themes::glass())
+            .on_change(themes::remember),
+    );
     let performance = titled_card(
         "Desempenho",
         help::DESEMPENHO,
@@ -306,7 +336,7 @@ pub(crate) fn settings(
                     diagnostics.start_test();
                 }),
         ))
-        .spacing(10.0)
+        .spacing(12.0)
         .align(Align::Start),
     );
     let assistant = models.map(|models| {
@@ -321,7 +351,7 @@ pub(crate) fn settings(
                 .foreground(Semantic::InkMuted),
                 models,
             ))
-            .spacing(10.0)
+            .spacing(12.0)
             .align(Align::Stretch),
         )
     });
@@ -331,13 +361,13 @@ pub(crate) fn settings(
             help::VOZ,
             VStack::new((
                 Text::new(
-                    "Opcional. Com o LFM3 Audio, o assistente lê as respostas em voz alta, gerando a fala neste computador. Nada sai daqui.",
+                    "Opcional. Com uma voz local, o assistente lê as respostas em voz alta, gerando a fala neste computador. Nada sai daqui.",
                 )
                 .style(TextStyle::Callout)
                 .foreground(Semantic::InkMuted),
                 voices,
             ))
-            .spacing(10.0)
+            .spacing(12.0)
             .align(Align::Stretch),
         )
     });
@@ -355,7 +385,9 @@ pub(crate) fn settings(
                 Button::new("Fazer backup")
                     .icon(IconName::Download)
                     .size(ButtonSize::Small)
-                    .on_click(move || make_backup(&backup_store)),
+                    .on_click(move || {
+                        make_backup(&backup_store, "Salvar backup");
+                    }),
                 Button::new("Restaurar backup")
                     .icon(IconName::Upload)
                     .size(ButtonSize::Small)
@@ -388,7 +420,7 @@ pub(crate) fn settings(
                 .foreground(Semantic::InkMuted),
                 List::new(rows),
             ))
-            .spacing(10.0)
+            .spacing(12.0)
             .align(Align::Stretch),
         )
     });
@@ -403,7 +435,7 @@ pub(crate) fn settings(
                     info_row("Versão do esquema", version.to_string()),
                     info_row("Motor", "SQLite, compilado dentro do app".to_owned()),
                 ))
-                .spacing(10.0),
+                .spacing(12.0),
             ),
             folder.map(|folder| {
                 Button::new("Abrir a pasta")
@@ -417,7 +449,7 @@ pub(crate) fn settings(
                     })
             }),
         ))
-        .spacing(10.0)
+        .spacing(12.0)
         .align(Align::Start),
     );
     let updates_card = titled_card(
@@ -444,23 +476,27 @@ pub(crate) fn settings(
             ))
             .spacing(8.0),
         ))
-        .spacing(10.0)
+        .spacing(12.0)
         .align(Align::Stretch),
     );
+    let telegram = super::telegram_card::TelegramCard::new(store);
     let start_over = titled_card(
         "Recomeçar",
         help::RECOMECAR,
         VStack::new((
-            Text::new("Trocam tudo o que está no app. Antes, ele guarda uma cópia, que aparece em Cópias automáticas.")
+            Text::new("Trocam tudo o que está no app. Antes, ele pede um backup e guarda uma cópia, que aparece em Cópias automáticas.")
                 .style(TextStyle::Callout)
                 .foreground(Semantic::InkMuted),
             HStack::new((
                 Button::new("Carregar dados de exemplo").size(ButtonSize::Small).style(ButtonStyle::Secondary).on_click(move || {
                     let store = demo_store.clone();
-                    demo_confirm.ask(
-                        "Trocar tudo pelos dados de exemplo?",
-                        "Tudo o que está no app dará lugar a uma família de exemplo. Uma cópia dos dados de agora fica guardada.",
-                        "Trocar pelos dados de exemplo",
+                    let question = Question {
+                        title: "Trocar tudo pelos dados de exemplo?",
+                        message: "Tudo o que está no app dará lugar a uma família de exemplo. Seu backup e uma cópia dos dados de agora ficam guardados.",
+                        action: "Trocar pelos dados de exemplo",
+                        word: "TROCAR",
+                    };
+                    replace_everything(&demo_store, &demo_confirm, question,
                         move || {
                             let today = store.today;
                             replace_keeping_a_copy(&store, CopyReason::BeforeSample, "Dados de exemplo carregados", |db| {
@@ -474,10 +510,13 @@ pub(crate) fn settings(
                 }),
                 Button::new("Começar do zero").icon(IconName::Trash2).size(ButtonSize::Small).style(ButtonStyle::Secondary).on_click(move || {
                     let store = wipe_store.clone();
-                    wipe_confirm.ask(
-                        "Apagar todos os dados?",
-                        "Lançamentos, contas e cadastros serão apagados. Uma cópia dos dados de agora fica guardada.",
-                        "Apagar tudo",
+                    let question = Question {
+                        title: "Apagar todos os dados?",
+                        message: "Lançamentos, contas e cadastros serão apagados. Seu backup e uma cópia dos dados de agora ficam guardados.",
+                        action: "Apagar tudo",
+                        word: "APAGAR",
+                    };
+                    replace_everything(&wipe_store, &wipe_confirm, question,
                         move || {
                             replace_keeping_a_copy(&store, CopyReason::BeforeErase, "Dados apagados", |db| {
                                 db.atomically(|db| {
@@ -492,7 +531,7 @@ pub(crate) fn settings(
             .spacing(8.0)
             .wrap(),
         ))
-        .spacing(10.0)
+        .spacing(12.0)
         .align(Align::Stretch),
     );
 
@@ -507,6 +546,7 @@ pub(crate) fn settings(
             voice,
             copies,
             Grid::new(columns, (data, updates_card)).spacing(16.0),
+            telegram,
             start_over,
         ))
         .spacing(16.0)

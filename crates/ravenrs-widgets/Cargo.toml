@@ -14,11 +14,13 @@ keywords = ["gui", "ui", "widgets", "components", "datagrid"]
 categories = ["gui"]
 
 [dependencies]
+ravenrs-app-i18n.workspace = true
 ravenrs-core.workspace = true
 ravenrs-animation.workspace = true
 ravenrs-reactive.workspace = true
 ravenrs-layout.workspace = true
 ravenrs-text.workspace = true
+ravenrs-live = { workspace = true, optional = true }
 ravenrs-style.workspace = true
 ravenrs-criteria.workspace = true
 tracing.workspace = true
@@ -29,13 +31,27 @@ ravenrs-graphics = { workspace = true, optional = true }
 ravenrs-lottie = { workspace = true, optional = true }
 
 [features]
-default = ["decode", "charts", "lottie"]
+default = ["decode", "charts", "flow", "lottie"]
 # PNG and JPEG decoding for `Image::from_bytes`.
 decode = ["dep:image"]
 # `Chart`, `BarChart`, `AreaChart` and `Barcode`, drawn with `ravenrs-graphics`.
 charts = ["dep:ravenrs-graphics"]
+# `FlowCanvas`, diagrams of nodes and connections laid out with `ravenrs-graphics`.
+flow = ["dep:ravenrs-graphics"]
 # `Lottie`, a player of Lottie animations of our own.
 lottie = ["dep:ravenrs-lottie"]
+# `CodeEditor` and `Playground`, with Fira Mono embedded in `ravenrs-text`.
+code = ["ravenrs-text/mono"]
+# `LiveRunner`: the Playground runs edited examples with the interpreter of ravenrs-live.
+live = [
+    "code",
+    "dep:ravenrs-live",
+    "ravenrs-core/live",
+    "ravenrs-style/live",
+    "ravenrs-layout/live",
+    "ravenrs-graphics?/live",
+    "ravenrs-lottie?/live",
+]
 
 [dev-dependencies]
 proptest.workspace = true

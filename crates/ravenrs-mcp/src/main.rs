@@ -1,15 +1,9 @@
-//! A read-only MCP server for developers building with RavenRS.
+//! An MCP server for developers building with RavenRS. It has no side effects: it
+//! answers questions and returns report layouts as JSON for the caller to save.
 //!
 //! Everything it answers from is embedded at build time, so it reads no files,
 //! opens no sockets and always describes the RavenRS it was built from. See the
 //! README for the tools and how to install it.
-
-mod api;
-mod docs;
-mod expression;
-mod server;
-
-use rmcp::ServiceExt;
 
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -27,7 +21,5 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             return Ok(());
         }
     }
-    let service = server::RavenServer::new().serve(rmcp::transport::stdio()).await?;
-    service.waiting().await?;
-    Ok(())
+    ravenrs_mcp::serve_stdio().await
 }

@@ -18,7 +18,7 @@ A component is ✅ in [PARITY.md](PARITY.md) only when all of these hold:
 
 ## Enforced checks
 
-`scripts/check.sh` runs every check, and nothing ships unless it passes. The project uses no hosted CI, so this script is the gate.
+`scripts/check.sh --full` runs every check below, and nothing ships unless it passes. The project uses no hosted CI, so this script is the gate. Without `--full` it is the quick check for each pull request: rustfmt, and clippy and the tests of the packages the change reaches (`scripts/changed-packages.py`).
 
 | Check | What it catches |
 |---|---|
@@ -31,8 +31,8 @@ A component is ✅ in [PARITY.md](PARITY.md) only when all of these hold:
 | `cargo deny check` | Vulnerable, yanked or unlicensed dependencies, and unknown sources |
 | `cargo +1.88 check` | The declared minimum Rust version (MSRV) still builds |
 | `--no-default-features` | Optional features really are optional |
-| `cargo bench --no-run` | Benchmarks keep compiling |
-| `cargo run --release -p ravenrs-perf -- gate` | Performance regressions: the exact work of every scene against `perf/baseline.json` |
+| `cargo bench --no-run`, only with `RAVENRS_GATE=1` | Benchmarks keep compiling. It runs when asked for, with the performance gate |
+| `cargo run --release -p ravenrs-perf -- gate`, only with `RAVENRS_GATE=1` | Performance regressions: the exact work of every scene against `perf/baseline.json`. It runs when asked for, not on every check |
 | Web builds | The examples build and bind for WebAssembly |
 
 GPU tests skip themselves, with a message, on machines without a GPU adapter. To accept an intended visual change, regenerate the golden images with `RAVENRS_UPDATE_GOLDEN=1 cargo test -p ravenrs --test visual`, then review the PNG diff in the commit. A failing run writes `*.actual.png` next to the golden image.
@@ -40,6 +40,12 @@ GPU tests skip themselves, with a message, on machines without a GPU adapter. To
 Release checks, run by hand before each publish:
 - `cargo semver-checks` against the previous release.
 - `cargo llvm-cov` for coverage, at 75% line coverage as of 0.1. Coverage is a signal, not a target.
+
+## Applications built with RavenRS
+
+The rules above that a machine can check also bind applications, through [`ravenrs-lint`](../crates/ravenrs-lint/README.md). It reads an application's syntax tree and denies, like the compiler: literal colors and font sizes, spacing off the 4px grid, button captions without a verb, icon buttons without a name, more than one primary button in a view, `State::new` and blocking work in `body` or `build`, and files over 600 lines. Every rule is an error, and every exception needs a written reason. `cargo ravenrs-lint --init` adds the strictest rustc and Clippy levels, the test that runs the rules on `cargo test`, and the instructions coding agents read; `cargo ravenrs-lint --gate` is the one command that says the work is done.
+
+A rule a machine can check goes into `ravenrs-lint`, not only into this page or the skill.
 
 ## Performance method
 
@@ -216,8 +222,11 @@ Status against the definition of done. **Behavior** names the test suites that d
 | SplashScreen | splash | | ✅ no focus stop: takes no input, focus leaves the page and returns on close, tested | Status and progress announced, tested |
 | DataGrid | datagrid, properties, editing_and_clipboard | ✅ | ✅ row navigation, Page Up/Down, Enter edits, Cmd/Ctrl+C copies rows as tab-separated text, Cmd/Ctrl+A, tested | See the DataGrid parity table in ARCHITECTURE.md |
 | Table, List, Stat | components | ✅ partial | n/a | |
+| FlowCanvas | flow | ✅ | ✅ arrows move the selection or pan, Shift for four steps, `+`/`-`/`0`, Delete, Escape, Cmd/Ctrl+A, tested | Ports take only the pointer for now; the lines' geometry is tested in `ravenrs-graphics` |
 | Chart, BarChart, AreaChart, Barcode | charts, components | ✅ a chart reads its values; a code reads its text or `alt` | n/a | The layout's own tests are in `ravenrs-graphics` |
 | Layout: stacks, Grid, ScrollView, Splitter, AspectRatio, Card, Section | layout_and_content, components, keyboard_and_basics | ✅ partial | 🟡 Splitter arrows, untested | AspectRatio content now fills its box |
+| Link, Anchor, CountUp, Ticker | page_motion | ✅ `Link` is a link with its label, focusable, tested by click | ✅ Enter opens it | Anchors glide, and jump under reduced motion; tickers stand still, tested |
+| Sticky, ScrollScene, ScrollLinked | scroll_scene | ✅ pinned content is placed before hit testing, so the tree and clicks see it where it shows, tested | n/a, takes no input | Scrolling rebuilds nothing, tested. Under reduced motion links only fade, tested |
 | Footer | footer | | ✅ no focus stop of its own; its links are buttons (Tab + Enter), tested | `contentinfo` landmark, tested. Stacks by window width, not by its container's |
 | StatusBar | status_bar | | ✅ no focus stop of its own; its actions are buttons (Tab + Enter), tested | `contentinfo` landmark; the center is a `status` |
 | Timeline, ToolRail | timeline | | 🟡 blocks, markers and tools work with Tab + Enter; moving and trimming need the pointer, so apps offer them in fields too | Blocks and markers are named buttons |

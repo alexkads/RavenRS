@@ -24,6 +24,7 @@ use crate::{AnyView, ButtonSize, IconButton, IconName, Tooltip, View};
 /// or a crop is told in the units of the content whatever the zoom.
 #[derive(Clone, Debug, Default)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ContentSpace {
     /// The widget's own box is the content, one unit per logical pixel from its top left corner.
     #[default]
@@ -35,6 +36,7 @@ pub enum ContentSpace {
     View(Binding<ZoomView>, Size),
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ContentSpace {
     /// Where the whole content lands on screen, for a widget at `frame`.
     pub fn placed(&self, frame: Rect) -> Rect {
@@ -113,6 +115,7 @@ pub(super) struct ContentMap {
     pub content: Size,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ContentMap {
     pub fn screen(&self, at: Point) -> Point {
         Point::new(self.placed.x() + at.x * self.scale, self.placed.y() + at.y * self.scale)
@@ -167,6 +170,7 @@ impl fmt::Debug for OverlayBox {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl OverlayBox {
     pub fn size(&mut self, width: f32, height: f32) {
         self.width = Some(width);
@@ -243,32 +247,35 @@ impl OverlayBox {
 
 /// The builders every overlay has, over the field that holds its box.
 macro_rules! overlay_builders {
-    ($($field:ident).+) => {
-        /// Fixed size in logical pixels, instead of taking the free space.
-        pub fn size(mut self, width: f32, height: f32) -> Self {
-            self.$($field).+.size(width, height);
-            self
-        }
+    ($ty:ident, $($field:ident).+) => {
+        #[cfg_attr(feature = "live", ravenrs_live::expose(part = "builders"))]
+        impl $ty {
+            /// Fixed size in logical pixels, instead of taking the free space.
+            pub fn size(mut self, width: f32, height: f32) -> Self {
+                self.$($field).+.size(width, height);
+                self
+            }
 
-        /// How much of the free space along the parent stack it takes: 1 by default, or 0 over a
-        /// [stage](Self::stage), which then decides the size.
-        pub fn grow(mut self, grow: f32) -> Self {
-            self.$($field).+.grow(grow);
-            self
-        }
+            /// How much of the free space along the parent stack it takes: 1 by default, or 0 over a
+            /// [stage](Self::stage), which then decides the size.
+            pub fn grow(mut self, grow: f32) -> Self {
+                self.$($field).+.grow(grow);
+                self
+            }
 
-        /// The view it goes over, such as an [`Image`](crate::Image) or a
-        /// [`ZoomPanView`](crate::ZoomPanView), which gives it its size. Without one, put it in
-        /// a [`ZStack`](crate::ZStack) with a fixed [size](Self::size).
-        pub fn stage(mut self, stage: impl View + 'static) -> Self {
-            self.$($field).+.stage(Box::new(stage));
-            self
-        }
+            /// The view it goes over, such as an [`Image`](crate::Image) or a
+            /// [`ZoomPanView`](crate::ZoomPanView), which gives it its size. Without one, put it in
+            /// a [`ZStack`](crate::ZStack) with a fixed [size](Self::size).
+            pub fn stage(mut self, stage: impl View + 'static) -> Self {
+                self.$($field).+.stage(Box::new(stage));
+                self
+            }
 
-        /// Where the content is, and so the units of its coordinates: by default, its own box.
-        pub fn space(mut self, space: ContentSpace) -> Self {
-            self.$($field).+.space = space;
-            self
+            /// Where the content is, and so the units of its coordinates: by default, its own box.
+            pub fn space(mut self, space: ContentSpace) -> Self {
+                self.$($field).+.space = space;
+                self
+            }
         }
     };
 }
@@ -291,6 +298,7 @@ pub(super) fn gesture_paint(live: bool, draw: impl Fn(Rect, &mut Scene) + 'stati
 /// The lines a [`RuleOfThirdsGrid`] draws.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CompositionGuide {
     /// Two lines each way, at a third and two thirds.
     #[default]
@@ -303,6 +311,7 @@ pub enum CompositionGuide {
     GoldenRatio,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CompositionGuide {
     /// Where the lines cross each axis, as shares of a box of this size.
     fn lines(self, width: f32, height: f32) -> (Vec<f32>, Vec<f32>) {
@@ -397,6 +406,7 @@ pub(super) fn corners_of(rect: Rect) -> [Point; 4] {
 ///     .size(300.0, 200.0);
 /// ```
 #[derive(Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RuleOfThirdsGrid {
     frame: OverlayBox,
     guide: CompositionGuide,
@@ -404,13 +414,12 @@ pub struct RuleOfThirdsGrid {
     color: Option<Color>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RuleOfThirdsGrid {
     /// Thirds over the whole content.
     pub fn new() -> Self {
         Self::default()
     }
-
-    overlay_builders!(frame);
 
     /// Which lines it draws.
     pub fn guide(mut self, guide: CompositionGuide) -> Self {
@@ -430,6 +439,8 @@ impl RuleOfThirdsGrid {
         self
     }
 }
+
+overlay_builders!(RuleOfThirdsGrid, frame);
 
 impl View for RuleOfThirdsGrid {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
@@ -490,6 +501,7 @@ struct BandMemory {
 ///     .on_select(|rect| println!("zoom to {rect:?}"))
 ///     .size(320.0, 200.0);
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RubberBand {
     selection: Binding<Option<Rect>>,
     frame: OverlayBox,
@@ -505,6 +517,7 @@ impl fmt::Debug for RubberBand {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RubberBand {
     /// A band bound to `selection`, in the units of its [space](Self::space).
     pub fn new(selection: Binding<Option<Rect>>) -> Self {
@@ -517,8 +530,6 @@ impl RubberBand {
             label: None,
         }
     }
-
-    overlay_builders!(frame);
 
     /// Runs `handler` with the rectangle when a drag ends, or on Enter.
     pub fn on_select(mut self, handler: impl Fn(Rect) + 'static) -> Self {
@@ -547,6 +558,8 @@ impl RubberBand {
     }
 }
 
+overlay_builders!(RubberBand, frame);
+
 /// `rect` moved to be inside `bounds`, and no larger than them.
 fn kept_inside(rect: Rect, bounds: Rect) -> Rect {
     let (w, h) = (rect.width().min(bounds.width()), rect.height().min(bounds.height()));
@@ -562,6 +575,7 @@ fn clamped(at: Point, bounds: Rect) -> Point {
     Point::new(at.x.clamp(bounds.x(), bounds.max_x()), at.y.clamp(bounds.y(), bounds.max_y()))
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl RubberBand {
     fn on_key(
         selection: &Binding<Option<Rect>>,
@@ -743,6 +757,7 @@ struct Strokes<'a> {
     path: Vec<PathElement>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Strokes<'_> {
     fn line(&mut self, a: Point, b: Point) {
         let (x, y) = (a.x.min(b.x), a.y.min(b.y));
@@ -814,6 +829,7 @@ fn march(points: &[Point], phase: f32, mut dash: impl FnMut(Point, Point)) {
 /// let marquee = Marquee::rect(Rect::new(20.0, 20.0, 120.0, 80.0)).size(320.0, 200.0);
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Marquee {
     lines: Rc<[Vec<Point>]>,
     frame: OverlayBox,
@@ -821,6 +837,7 @@ pub struct Marquee {
     label: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Marquee {
     /// Around a rectangle.
     pub fn rect(rect: Rect) -> Self {
@@ -846,8 +863,6 @@ impl Marquee {
         Self { lines: lines.into(), frame: OverlayBox::default(), animated: true, label: None }
     }
 
-    overlay_builders!(frame);
-
     /// Whether the dashes walk (they do by default, unless motion is reduced).
     pub fn animated(mut self, animated: bool) -> Self {
         self.animated = animated;
@@ -860,6 +875,8 @@ impl Marquee {
         self
     }
 }
+
+overlay_builders!(Marquee, frame);
 
 impl View for Marquee {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
@@ -905,6 +922,7 @@ impl View for Marquee {
 /// the area, or from whoever knows the color under the pointer through [`pick`](Self::pick).
 /// Nothing here can read the screen, so the color always comes from the caller.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EyedropperState {
     armed: State<bool>,
     picked: State<Option<Color>>,
@@ -924,6 +942,7 @@ impl Default for EyedropperState {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EyedropperState {
     /// Not armed, with no color yet.
     pub fn new() -> Self {
@@ -997,6 +1016,7 @@ impl EyedropperState {
 ///     .size(300.0, 200.0);
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Eyedropper {
     state: EyedropperState,
     icon: IconName,
@@ -1006,6 +1026,7 @@ pub struct Eyedropper {
     hint: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Eyedropper {
     /// The button of this eyedropper.
     pub fn new(state: &EyedropperState) -> Self {
@@ -1072,6 +1093,7 @@ impl View for Eyedropper {
 /// the content or a `None` picks nothing and leaves it armed. While not armed it takes no input.
 ///
 /// `CursorIcon` has no eyedropper, so while armed the cursor is the pointing hand.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EyedropperArea {
     state: EyedropperState,
     sampler: Rc<dyn Fn(Point) -> Option<Color>>,
@@ -1085,13 +1107,12 @@ impl fmt::Debug for EyedropperArea {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EyedropperArea {
     /// An area of this eyedropper that reads colors with `sampler`.
     pub fn new(state: &EyedropperState, sampler: impl Fn(Point) -> Option<Color> + 'static) -> Self {
         Self { state: state.clone(), sampler: Rc::new(sampler), frame: OverlayBox::default(), label: None }
     }
-
-    overlay_builders!(frame);
 
     /// The name screen readers announce while armed, instead of the one in
     /// [`Labels`](crate::Labels).
@@ -1100,6 +1121,8 @@ impl EyedropperArea {
         self
     }
 }
+
+overlay_builders!(EyedropperArea, frame);
 
 impl View for EyedropperArea {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {

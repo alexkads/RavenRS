@@ -1,0 +1,12 @@
+{
+ "rules.comparison": "{0} does not compare as it should",
+ "rules.duplicate": "There is already a record with this {0}",
+ "rules.invalid": "{0} is not valid",
+ "rules.must_be_true": "{0} has to be checked",
+ "rules.none_exists": "A record it needs does not exist",
+ "rules.not_referenced": "Nothing points to this record yet",
+ "rules.record": "This record is not valid",
+ "rules.required": "{0} is required",
+ "rules.too_high": "{0} cannot be above {1}",
+ "rules.too_low": "{0} cannot be below {1}"
+}

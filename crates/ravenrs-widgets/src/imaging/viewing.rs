@@ -23,6 +23,7 @@ use crate::{ButtonSize, ButtonStyle, IconButton, IconName, Motion, View, util};
 /// How a [`CompareView`] shows its two pictures.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CompareMode {
     /// One beside the other.
     #[default]
@@ -33,6 +34,7 @@ pub enum CompareMode {
 
 /// One of the two pictures of a [`CompareView`].
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CompareSide {
     /// The first picture.
     First,
@@ -72,6 +74,7 @@ fn paint_fitted(scene: &mut Scene, picture: &ZoomContent, content: Size, area: R
 ///     let compare = CompareView::new(before, after).mode(CompareMode::Divider).size(480.0, 320.0);
 /// }
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CompareView {
     first: ImageData,
     second: ImageData,
@@ -91,6 +94,7 @@ impl fmt::Debug for CompareView {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CompareView {
     /// Compares two pictures, side by side.
     pub fn new(first: ImageData, second: ImageData) -> Self {
@@ -374,11 +378,13 @@ impl View for CompareView {
 
 /// One picture of an [`ImageLightbox`].
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct LightboxItem {
     image: ImageData,
     caption: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl LightboxItem {
     /// A picture with no caption.
     pub fn new(image: ImageData) -> Self {
@@ -411,6 +417,7 @@ impl LightboxItem {
 ///     .collect();
 /// let lightbox = ImageLightbox::new(open.binding(), pictures);
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ImageLightbox {
     open: Binding<Option<usize>>,
     items: Rc<[LightboxItem]>,
@@ -424,6 +431,7 @@ impl fmt::Debug for ImageLightbox {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ImageLightbox {
     /// A lightbox over these pictures, shown while `open` holds the index of one.
     pub fn new(open: Binding<Option<usize>>, items: impl IntoIterator<Item = LightboxItem>) -> Self {
@@ -594,7 +602,7 @@ impl View for LightboxLayer<'_> {
         if let Some(caption) = &item.caption {
             words.push(util::label(cx, caption, TextStyle::Callout, None, ink));
         }
-        let counter = (labels.lightbox_counter)(index + 1, count);
+        let counter = labels.lightbox_counter(index + 1, count);
         words.push(util::label(cx, &counter, TextStyle::Caption, None, theme.color(Semantic::InkMuted)));
         let words = lightbox_chip(cx, &words);
         let bottom = lightbox_row(cx, viewport.height - 44.0, Justify::Center, &[words]);

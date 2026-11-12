@@ -35,14 +35,17 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Formas vetoriais, layout de gráfico, desenho de códigos de barras | `crates/ravenrs-graphics/src/`: `vector`, `chart`, `barcode` | Testes no próprio crate; ver quem usa em `ravenrs-report` e em `crates/ravenrs-widgets/src/chart.rs` (`Chart`, `Barcode`, feature `charts`) |
 | O que um código de barras é, GTIN | `crates/ravenrs-barcode/src/lib.rs`, sem nada de desenho | `ravenrs-graphics` reexporta; `ravenrs-nfe`, `ravenrs-pos` e o editor `Gtin` usam direto |
 | Modelo da aplicação, sem GUI | `crates/ravenrs-app/src/`: `entity`, `model/`, `space`, `action`, `controller`, `frame`, `module` | Testes no próprio crate, `tests/layers_properties.rs` e `tests/behavior.rs`; plano em `~/.claude/plans/agora-no-est-gio-que-iridescent-cray.md` |
-| Atributos de `#[derive(BusinessObject)]` | `crates/ravenrs-app-derive/src/lib.rs`, tipos em `crates/ravenrs-app/src/object.rs` | Erros em `crates/ravenrs-app/tests/ui/` (`TRYBUILD=overwrite` ao mudar, revisando o `.stderr`); `docs/APP-FRAMEWORK.md` |
+| Atributos de `#[derive(BusinessObject)]` | Leitura em `crates/ravenrs-app-spec/src/lib.rs`, código gerado em `crates/ravenrs-app-derive/src/lib.rs`, leitura em tempo de execução em `crates/ravenrs-app/src/source.rs` (feature `source`), tipos em `crates/ravenrs-app/src/object.rs`. Atributo novo entra nos três | Erros em `crates/ravenrs-app/tests/ui/` (`TRYBUILD=overwrite` ao mudar, revisando o `.stderr`); `crates/ravenrs-app-spec/tests/entities.rs` compara derive e fonte; `docs/APP-FRAMEWORK.md` |
+| Registros guardados sem banco | `Storage` em `crates/ravenrs-core/src/storage.rs`; `MemoryDatabase::stored_in`, `export_json`, `import_json` em `crates/ravenrs-app/src/space.rs`; `StoredModel` em `model/store.rs`; `App::keep_in` em `crates/ravenrs-app-ui/src/app.rs`; IndexedDB em `crates/ravenrs-platform-web/src/storage.rs` | `crates/ravenrs-app/tests/kept.rs`, `crates/ravenrs-app-ui/tests/kept.rs` |
 | Registros em SQLite | `crates/ravenrs-app-sqlite/src/lib.rs`, testes em `tests/space.rs`; `ChangeSet` e `run_query` em `crates/ravenrs-app/src/space.rs` são compartilhados entre os `ObjectSpace` | |
 | Permissões, entrada e auditoria | `crates/ravenrs-app/src/security/`; telas em `crates/ravenrs-app-ui/src/security.rs` e `model_editor.rs` | `crates/ravenrs-app/tests/security.rs`, `crates/ravenrs-app-ui/tests/security.rs`, revisão com as skills `securitymaxxing:authz` e `authn` |
 | Lista como gráfico, agenda ou árvore | `crates/ravenrs-app-ui/src/list_editors.rs` | `crates/ravenrs-app-ui/tests/list_editors.rs`, `examples/quick-plan` |
 | Estados e lembretes | `crates/ravenrs-app/src/workflow.rs`; janela em `crates/ravenrs-app-ui/src/reminders.rs` | `crates/ravenrs-app/tests/workflow.rs`, `crates/ravenrs-app-ui/tests/workflow.rs` |
+| Ações declaradas (`#[action(set = ...)]`) | `crates/ravenrs-app/src/record_action.rs` (`RecordAction`, `Action::assign`); leitura de `campo = expressão; ...` em `Criteria::assignments` (`crates/ravenrs-criteria/src/parse.rs`); atributo em `ravenrs-app-spec` e `ravenrs-app-derive` | `crates/ravenrs-app/tests/record_actions.rs`, `tests/live.rs` (pelo interpretador), `crates/ravenrs-app-spec/tests/entities.rs` |
 | Recurso novo do framework | Uma demonstração em `examples/feature-center/src/model.rs` | `examples/feature-center/tests/tour.rs` |
 | Avisos de módulo, trabalho em segundo plano, registro único, números, rascunhos, janela de balcão, bloqueio | `crates/ravenrs-app/src/`: `module`, `records`, `entity`; `crates/ravenrs-app-ui/src/`: `background`, `shell`, `session` | `crates/ravenrs-app-ui/tests/counter.rs`, "Caixa de exemplo" em `examples/feature-center` |
 | Teclas de uso o dia todo, leitor de código | `crates/ravenrs-widgets/src/counter.rs` (`KeyBar`, `ScanField`) | `crates/ravenrs-widgets/tests/counter.rs` |
+| Contratos de módulos reutilizáveis | `docs/APP-CONTRACTS.md` (estado em `docs/APP-PARITY.md`); `ModuleManifest`, `switch_off` e `GuardedObjectSpace` em `crates/ravenrs-app/src/manifest.rs` e `module.rs`; `Provider` e `EventSink` em `provider.rs`; significados de `SpaceError` em `space.rs`; kit em `crates/ravenrs-app-testkit`; pacote de exemplo `crates/ravenrs-app-requests` e dois consumidores em `examples/contracts` (fora do workspace) | `crates/ravenrs-app/tests/manifest.rs`, `crates/ravenrs-app-requests/tests/contracts.rs`, `cargo test` dentro de cada `examples/contracts/*`; ferramenta `app_contracts` do `ravenrs-mcp` |
 | Registros prontos | `crates/ravenrs-app-library/src/lib.rs`, palavras em `pt_br.json` | `crates/ravenrs-app-library/tests/library.rs` |
 | Relatório de uma lista | `crates/ravenrs-app-report/src/lib.rs`, sobre `Session::list_table` e `document_of` | `crates/ravenrs-app-report/tests/report.rs` |
 | Telas geradas do modelo | `crates/ravenrs-app-ui/src/`: `shell`, `list_view`, `detail_view`, `nested`, `dashboard`, `form`, `editors`, `container`, `system`, `session` | `crates/ravenrs-app-ui/tests/e2e.rs`, `relations.rs` e `center.rs`, que dirigem a aplicação inteira sem janela; o que faltar de componente vai antes para `ravenrs-widgets` |
@@ -64,6 +67,11 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Relatórios guardados e painéis no framework | `crates/ravenrs-app-report/src/`: `stored`, `analytics` | `crates/ravenrs-app-report/tests/stored.rs` |
 | Desempenho: cenas, gate, tempos | `crates/ravenrs-perf/src/scenes/`, `perf/baseline.json`; `Ui::stats`, `RenderStats` | Skill `ravenrs-desempenho`, `docs/QUALITY.md`, `docs/PERFORMANCE.md` |
 | Ferramentas do painel de diagnóstico | `crates/ravenrs-widgets/src/diagnostics.rs`, dados em `crates/ravenrs-core/src/diagnostics.rs` | `crates/ravenrs-widgets/tests/performance_tools.rs`, `docs/PERFORMANCE.md` |
+| Playground e interpretador | `crates/ravenrs-live/src/` (`eval`, `bridge`, `registry`); `#[expose]` em `crates/ravenrs-live-derive`; `LiveRunner` e adaptadores em `crates/ravenrs-widgets/src/live.rs` | `scripts/gen-live.py` depois de componente novo (gera `live_list.rs` em widgets, movie, app e app-ui); o que não der para gerar fica à mão em `live.rs` de cada crate; `examples/component-gallery/live-pending.txt`; `crates/ravenrs-live/tests/eval.rs`, `crates/ravenrs-widgets/tests/live.rs` |
+| Baixar projeto do playground | `crates/ravenrs-project/src/lib.rs` (`Project`: Cargo.toml, lib, main, página, seed, `.zip`); `Playground::download` em `crates/ravenrs-widgets/src/playground.rs`; `sample_project` em `examples/component-gallery/src/samples/mod.rs` | `crates/ravenrs-project/tests/project.rs`; `examples/component-gallery/tests/projects.rs` (`--ignored`, roda no `check.sh --full`) |
+| API web do framework | `crates/ravenrs-app-server/src/`: `lib` (`ApiService`), `json`, `openapi`, `http` | `crates/ravenrs-app-server/tests/api.rs`, seção "A web API" de `docs/APP-FRAMEWORK.md` |
+| Telas sobre a API | `crates/ravenrs-app-remote/src/`: `lib`, `transport`, `gate` | `crates/ravenrs-app-remote/tests/remote.rs`, com transporte imediato e tardio |
+| Bancos do framework | Comum em `crates/ravenrs-app-sql/src/lib.rs`; cada banco é um `SqlBackend` em `ravenrs-app-sqlite` e `ravenrs-app-postgres` | Testes do PostgreSQL pedem `RAVENRS_POSTGRES_URL` |
 | Ícones | `scripts/gen-icons.py` regenera a fonte e o `IconName` | Não edite `icon_set.rs` à mão |
 
 Ao entregar ou adiar algo, atualize a tabela de status em §11 do `ARCHITECTURE.md`. Foi a parte que mais ficou defasada.
@@ -73,7 +81,7 @@ Ao entregar ou adiar algo, atualize a tabela de status em §11 do `ARCHITECTURE.
 Estas regras são o que mantém o projeto testável e portátil, por isso vale parar e discutir antes de quebrar qualquer uma:
 
 - **Widgets e renderer só se encontram no `Scene`.** `ravenrs-widgets` nunca toca a GPU e `ravenrs-render` não conhece widgets. Assim os testes de widgets rodam sem GPU e o renderer continua substituível.
-- **`ravenrs-criteria` não depende de nada do RavenRS** e não recebe nada específico de um módulo. Filtros, regras de segurança e um futuro equivalente ao XAF vão usar a mesma linguagem.
+- **`ravenrs-criteria` não depende de nada do RavenRS** e não recebe nada específico de um módulo. Filtros, regras de segurança e um futuro framework de aplicações vão usar a mesma linguagem.
 - **Lógica útil a mais de um motor vai para um crate compartilhado, nunca para uma cópia.** `ravenrs-criteria`, `ravenrs-graphics` e `ravenrs-report-export` não conhecem quem os chama. Antes de escrever lógica num motor, procure se outro já tem.
 - **`ravenrs-report` não depende de GPU nem de janela**, porque também roda em servidores. Layout gera um `Document` uma vez, e visualizador e exportadores desenham esse mesmo resultado.
 - **O motor fiscal não tem GUI.** `ravenrs-nfe`, `ravenrs-pagamento` e `ravenrs-pos` não conhecem `ravenrs-app`. A tela fica em `ravenrs-app-nfe` e `ravenrs-app-pos`, e `examples/mini-pdv` só compõe.
@@ -92,7 +100,7 @@ Os módulos próprios, como o editor de relatórios, servem de exemplo para quem
 
 - Use os componentes de `ravenrs-widgets` e os tokens. O que faltar entra antes na biblioteca, e só depois é usado no módulo.
 - Evite `Paint::Quad`, `Paint::Custom`, cores literais e medidas soltas. A exceção é conteúdo de documento ou superfície de edição, como o papel do relatório, e mesmo assim as cores vêm de tokens.
-- O modelo DevExpress orienta o comportamento, mas a implementação é própria. Não copie código nem documentação de lá ou de outros projetos.
+- O produto de referência orienta o comportamento, mas a implementação é própria. Não copie código nem documentação de lá ou de outros projetos, e não cite o nome dele em nada que vai para o repositório: descreva o recurso pelo que ele faz.
 
 ## Convenções
 
@@ -113,7 +121,7 @@ cargo test -p ravenrs-widgets
 cargo clippy -p ravenrs-platform-web --target wasm32-unknown-unknown -- -D warnings
 ```
 
-O portão é `scripts/check.sh`: o projeto não tem CI hospedado, então rode antes de publicar. Ele cobre formatação, clippy em desktop e wasm32, testes, imagens de referência, documentação e builds web.
+O portão é `scripts/check.sh`, porque o projeto não tem CI hospedado. Sem argumento, ele é rápido: formatação, mais clippy e testes dos pacotes que a mudança atinge. Com `--full`, roda antes de publicar e cobre clippy em desktop e wasm32, todos os testes com as imagens de referência, documentação e builds web.
 
 Mudança visual intencional exige regenerar as imagens de referência e revisar o diff dos PNGs:
 

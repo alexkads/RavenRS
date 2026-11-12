@@ -24,6 +24,7 @@ const QUERY_SETTLE: f64 = 0.3;
 /// What a [`RemoteRows`] loader must bring.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridRequest {
     /// The first row wanted, from the start of the result.
     pub offset: usize,
@@ -47,6 +48,7 @@ pub struct GridRequest {
 /// What a [`RemoteRows`] loader brought.
 #[derive(Clone, Debug, Default, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridPage {
     /// The rows, at most as many as were asked for.
     pub rows: Vec<Row>,
@@ -58,6 +60,7 @@ pub struct GridPage {
     pub totals: Vec<Option<f64>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GridPage {
     /// These rows, with more after them or not.
     pub fn new(rows: Vec<Row>, has_more: bool) -> Self {
@@ -106,6 +109,7 @@ struct Held {
 /// Answers one [`GridRequest`], now or later. An answer to a question nobody is asking
 /// any more, because the filters changed meanwhile, is dropped.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridResponder {
     held: Rc<RefCell<Held>>,
     tick: State<u64>,
@@ -121,6 +125,7 @@ impl fmt::Debug for GridResponder {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GridResponder {
     /// Gives the rows. Call it on the UI thread.
     pub fn send(self, page: GridPage) {
@@ -132,12 +137,17 @@ impl GridResponder {
             held.in_flight.remove(&self.chunk);
             held.error = None;
             let start = self.chunk * self.chunk_size;
-            held.end = held.end.max(start + page.rows.len());
+            let ends_at = start + page.rows.len();
+            // A chunk past the end comes back empty; it does not stretch what is there.
+            if !page.rows.is_empty() {
+                held.end = held.end.max(ends_at);
+            }
             held.has_more = page.has_more;
             if page.total.is_some() {
                 held.total = page.total;
             } else if !page.has_more {
-                held.total = Some(start + page.rows.len());
+                // Chunks answer in any order: the rows end where the earliest end says.
+                held.total = Some(held.total.map_or(ends_at, |total| total.min(ends_at)));
             }
             if !page.totals.is_empty() {
                 held.totals = page.totals;
@@ -200,6 +210,7 @@ type Loader = Rc<dyn Fn(GridRequest, GridResponder)>;
 /// let grid = DataGrid::remote(rows, [GridColumn::number("N")]);
 /// ```
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RemoteRows {
     held: Rc<RefCell<Held>>,
     tick: State<u64>,
@@ -215,6 +226,7 @@ impl fmt::Debug for RemoteRows {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RemoteRows {
     /// Rows that `loader` brings, in chunks of 100, keeping 8 of them.
     pub fn new(loader: impl Fn(GridRequest, GridResponder) + 'static) -> Self {

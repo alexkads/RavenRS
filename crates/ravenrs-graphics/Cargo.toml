@@ -13,7 +13,12 @@ documentation = "https://docs.rs/ravenrs-graphics"
 keywords = ["chart", "barcode", "qrcode", "vector", "gui"]
 categories = ["graphics", "visualization"]
 
+[features]
+# Registers its types with the playground's interpreter.
+live = ["dep:ravenrs-live", "ravenrs-core/live", "ravenrs-barcode/live"]
+
 [dependencies]
+ravenrs-live = { workspace = true, optional = true }
 ravenrs-barcode.workspace = true
 ravenrs-core.workspace = true
 serde.workspace = true

@@ -2,6 +2,7 @@
 
 use std::path::PathBuf;
 
+use family_finance::themes;
 use family_finance::ui::Opening;
 use family_finance::update::{self, Updater};
 use family_finance::{icon, paths, today};
@@ -39,7 +40,7 @@ fn main() -> Result<(), PlatformError> {
     if everyday {
         family_finance::reminders::watch(path.clone());
     }
-    let options = WindowOptions::new("Raven Finanças").size(1360.0, 860.0).theme(Theme::raven_light());
+    let options = WindowOptions::new("Raven Finanças").size(1360.0, 860.0).theme(themes::remembered());
     let diagnostics = Diagnostics::default();
     let identity = AppIdentity::new(paths::APP_ID)
         .labels(Labels::pt_br())

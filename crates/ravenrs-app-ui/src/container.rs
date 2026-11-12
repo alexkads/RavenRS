@@ -3,6 +3,7 @@
 use ravenrs_app::{
     Action, ActionCategory, ActionInput, ActionKind, ChoiceItem, FieldKind, FrameContext, Value,
 };
+use ravenrs_app_a11y::AccessibleText;
 use ravenrs_core::Key;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::{
@@ -104,11 +105,13 @@ fn add_choice(
 /// A place on the screen for actions of some categories: what is in place shows, what is
 /// off shows faded, and what does not fit folds into a menu. Keys work while it shows.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ActionContainer {
     session: Session,
     categories: Vec<ActionCategory>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ActionContainer {
     /// A place for these categories, in the order the actions came; for all of them, with none.
     pub fn new(session: Session, categories: impl IntoIterator<Item = ActionCategory>) -> Self {
@@ -171,6 +174,13 @@ impl ActionContainer {
             _ => {
                 let mut entry =
                     ToolbarAction::new(action.caption().to_owned()).disabled(!action.is_enabled());
+                let spoken = AccessibleText::of_action(action);
+                if spoken.renamed {
+                    entry = entry.accessible_name(spoken.name);
+                }
+                if let Some(description) = spoken.description {
+                    entry = entry.accessible_description(description);
+                }
                 if primary {
                     entry = entry.style(ButtonStyle::Primary);
                 }
@@ -229,6 +239,7 @@ impl View for ActionContainer {
 
 /// One action as a button of its own, for a screen that places its commands itself.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ActionButton {
     session: Session,
     id: String,
@@ -237,6 +248,7 @@ pub struct ActionButton {
     hide_when_off: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ActionButton {
     /// The button of the action with this id.
     pub fn new(session: Session, id: impl Into<String>) -> Self {

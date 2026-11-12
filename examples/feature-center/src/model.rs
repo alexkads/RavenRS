@@ -3,7 +3,7 @@
 use ravenrs_app::BusinessObject;
 use ravenrs_app::{
     AppearanceRule, AppearanceTarget, DataAccess, EntityInfo, EnumOption, FieldInfo, FieldKind, ListFilter,
-    Reminder, Rule, StateMachine, Tint, ViewVariant,
+    RecordAction, Reminder, Rule, StateMachine, Tint, ViewVariant,
 };
 use ravenrs_app_ui::{CALENDAR_EDITOR, CHART_EDITOR, SCHEDULER_EDITOR, TREE_EDITOR};
 use rust_decimal::Decimal;
@@ -22,6 +22,7 @@ const COUNTER: &str = "Balcão";
 
 /// The control that shows [`crate::actions::counter_app`] inside the center.
 pub const COUNTER_WINDOW: &str = "CounterWindow";
+const ACCESSIBILITY: &str = "Acessibilidade";
 
 /// What tells a demonstration apart in the navigation.
 fn icon_of(name: &str) -> &'static str {
@@ -33,6 +34,7 @@ fn icon_of(name: &str) -> &'static str {
         "ActionDemo" => "zap",
         "EditorsDemo" => "pencil",
         "CustomFieldsDemo" => "sliders-horizontal",
+        "TextsDemo" => "languages",
         "ListEditorsDemo" => "chart-column",
         "VariantsDemo" => "filter",
         "EditableList" => "table",
@@ -47,6 +49,7 @@ fn icon_of(name: &str) -> &'static str {
         "AuditFields" => "shapes",
         "AuditOwner" => "layers",
         "StoreSettings" => "settings",
+        "AccessibilityDemo" => "keyboard",
         _ => "file",
     }
 }
@@ -155,13 +158,22 @@ fn actions() -> EntityInfo {
         "Tipos de Action",
         ACTIONS,
         "Selecione um registro e use a barra: Action simples, com confirmação, com valor digitado, com escolha, com janela e abrindo um endereço. \
-         Só para abertos só acende quando todos os selecionados estão abertos, e dentro do formulário há uma Action no próprio layout.",
+         Só para abertos só acende quando todos os selecionados estão abertos, e dentro do formulário há uma Action no próprio layout. \
+         Fechar e dobrar não tem código: é declarada com o que muda em cada registro, passa pelas regras e grava todos ou nenhum.",
     )
     .field(title())
     .field(FieldInfo::new("state", options(&[("open", "Aberto"), ("closed", "Fechado")])).caption("Situação"))
     .field(FieldInfo::new("amount", FieldKind::Integer).caption("Valor"))
     .field(FieldInfo::new("priority", options(&[("low", "Baixa"), ("high", "Alta")])).caption("Prioridade"))
     .form_actions("Tools")
+    .rule(Rule::range("amount", None, Some(10_000.0)))
+    .action(
+        RecordAction::new("Fechar e dobrar")
+            .id("DemoDeclared")
+            .enabled("[state] = 'open'")
+            .set("state = 'closed'; amount = [amount] * 2")
+            .confirm("Fechar e dobrar o valor dos selecionados?"),
+    )
 }
 
 fn all_editors() -> EntityInfo {
@@ -441,11 +453,58 @@ fn custom_fields() -> EntityInfo {
     .field(FieldInfo::new("amount", FieldKind::Integer).caption("Valor"))
 }
 
+fn texts() -> EntityInfo {
+    demo(
+        "TextsDemo",
+        "Textos por chave",
+        APPEARANCE,
+        "Os textos das telas e dos componentes vêm de um catálogo por chave, com o inglês por trás. \
+         O centro passa um JSON que troca Atualizar por Recarregar em toda a aplicação e acrescenta center.hello, \
+         que a Action Dizer olá lê, sem nenhum código de tela.",
+    )
+    .field(title())
+}
+
+/// What the center adds to the texts and what it replaces, as an application would give them.
+pub const TEXTS: &str = r#"{
+    "ui.refresh": "Recarregar",
+    "center.hello": "Olá, {0}! Este texto veio do catálogo."
+}"#;
+
 /// The difference that adds fields to [`custom_fields`], as an administrator would give it.
 pub const CUSTOM_FIELDS: &str = r#"{ "Entities": { "CustomFieldsDemo": { "Members": {
     "segment": { "$new": true, "Kind": "Text", "Caption": "Segmento" },
     "twice": { "$new": true, "Kind": "Integer", "Caption": "Valor dobrado", "Expression": "[amount] * 2" }
 } } } }"#;
+
+/// The entity of the accessibility demonstration, where its action lives.
+pub const ACCESSIBILITY_DEMO: &str = "AccessibilityDemo";
+
+fn accessibility() -> EntityInfo {
+    demo(
+        ACCESSIBILITY_DEMO,
+        "Leitores de tela e teclado",
+        ACCESSIBILITY,
+        "Tudo aqui vem do modelo, sem tela escrita à mão. De e Até se chamam Início do período e Fim do período no leitor de tela, \
+         e Até diz o que entra na conta. O Tab passa primeiro por Nome e Valor, que o formulário mostra antes, na mesma ordem. \
+         Salvar e apagar são anunciados, e a Action Conferir diz o que faz e o seu atalho, e anuncia o registro conferido.",
+    )
+    .field(FieldInfo::new("from", FieldKind::Date).caption("De").accessible_name("Início do período"))
+    .field(
+        FieldInfo::new("until", FieldKind::Date)
+            .caption("Até")
+            .accessible_name("Fim do período")
+            .accessible_description("O último dia que entra na conta"),
+    )
+    .field(title())
+    .field(FieldInfo::new("amount", FieldKind::Money).caption("Valor"))
+    .field(
+        FieldInfo::new("checked", FieldKind::Boolean)
+            .caption("Conferido")
+            .accessible_description("Marcado pela Action Conferir"),
+    )
+    .focus_order(["name", "amount"])
+}
 
 /// Every entity of the center that is not from a module.
 pub fn entities() -> Vec<EntityInfo> {
@@ -457,6 +516,7 @@ pub fn entities() -> Vec<EntityInfo> {
         actions(),
         all_editors(),
         custom_fields(),
+        texts(),
         plan(),
         variants(),
         editable(),
@@ -470,5 +530,6 @@ pub fn entities() -> Vec<EntityInfo> {
     all.push(secured());
     all.extend(audits());
     all.push(store_settings());
+    all.push(accessibility());
     all
 }

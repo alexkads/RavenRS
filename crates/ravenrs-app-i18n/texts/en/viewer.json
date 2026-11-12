@@ -1,0 +1,19 @@
+{
+ "viewer.fit_width": "Fit width",
+ "viewer.next": "Next",
+ "viewer.next_match": "Next result",
+ "viewer.no_matches": "Not found",
+ "viewer.of": "of",
+ "viewer.page": "Page",
+ "viewer.parameters.apply": "Apply",
+ "viewer.parameters.reset": "Reset",
+ "viewer.previous": "Previous",
+ "viewer.previous_match": "Previous result",
+ "viewer.print": "Print",
+ "viewer.report_error": "Problem in the report",
+ "viewer.search": "Search",
+ "viewer.thumbnail_of_page": "Thumbnail of page",
+ "viewer.thumbnails": "Thumbnails",
+ "viewer.zoom_in": "Zoom in",
+ "viewer.zoom_out": "Zoom out"
+}

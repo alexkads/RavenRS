@@ -16,6 +16,7 @@ ignore = [
     { id = "RUSTSEC-2026-0371", reason = "zbus_names merged into zbus 6; reached only through AccessKit's Linux adapter" },
     { id = "RUSTSEC-2026-0372", reason = "zvariant_derive merged into zbus 6; reached only through AccessKit's Linux adapter" },
     { id = "RUSTSEC-2024-0436", reason = "paste is finished, not vulnerable; reached only through candle in ravenrs-ai, and no replacement exists" },
+    { id = "RUSTSEC-2026-0192", reason = "ttf-parser is unmaintained, not vulnerable; reached only through lopdf in pdf-extract, which reads receipts in family-finance's Telegram bot" },
     { id = "RUSTSEC-2023-0071", reason = "rsa has no fixed release; ravenrs-nfe (beta POC) only signs locally and decrypts nothing, so no attacker times the key over a network. Revisit before any server-side signing." },
 ]
 

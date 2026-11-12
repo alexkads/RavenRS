@@ -34,6 +34,7 @@ pub(crate) struct Metrics {
     pub pane_min: f32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Metrics {
     fn limits(&self, side: DockSide) -> (f32, f32) {
         match side {

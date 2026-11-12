@@ -1,14 +1,14 @@
-# RavenRS Reporting — feature parity with DevExpress Reporting
+# RavenRS Reporting — feature parity
 
-This is a fine-tooth-comb inventory of DevExpress Reporting v26.1, the reference product, with the RavenRS status of each feature. It drives the phases in [REPORTING.md](REPORTING.md).
+This is a fine-tooth-comb inventory of what a complete commercial reporting suite offers, with the RavenRS status of each feature. It drives the phases in [REPORTING.md](REPORTING.md).
 
-Sources: the DevExpress end-user documentation repository ([dotnet-eud, branch 2026.1](https://github.com/DevExpress/dotnet-eud/tree/2026.1/eud-for-devexpress-reports)) and the developer documentation at docs.devexpress.com. Rows marked "(unverified)" could not be confirmed against a primary page.
+Sources: public end-user and developer documentation of commercial reporting suites. Rows marked "(unverified)" could not be confirmed against a primary page.
 
 Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 
 ## 1. Bands
 
-| Feature | DevExpress | RavenRS |
+| Feature | Reference | RavenRS |
 |---|---|---|
 | Detail | Once per record; keep together, fill empty space, drill-down | ✅ Detail, with zebra rows. Fill empty space ⬜ [R3], drill-down ⬜ [R4] |
 | Report Header / Footer | First band / last page; footer *print at bottom* | ✅. Print at bottom ⬜ [R3] |
@@ -22,7 +22,7 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 
 ## 2. Report controls
 
-| Control | DevExpress | RavenRS |
+| Control | Reference | RavenRS |
 |---|---|---|
 | Label | Expressions, format string, can grow/shrink, word wrap, angle, text fit, markup, duplicates/nulls handling, interactive sort, editing | ✅ text or expression, format, can grow, wrap, alignment, padding, borders, fill. Can shrink, angle, text fit, markup, suppress duplicates ⬜ [R3] |
 | Table / row / cell | Merge, split, insert, bind cells, row height grows | ✅ rows of cells, cell styles, rows grow to their tallest cell, rules on cells. Merge/split ⬜ [R3] |
@@ -48,7 +48,7 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 
 ## 3. Expressions
 
-| Feature | DevExpress | RavenRS |
+| Feature | Reference | RavenRS |
 |---|---|---|
 | Literals, `[Field]`, `?param`, relations, comments | `'text'`, `#date#`, `True`, null, `{guid}`, `[A].[B]` | ✅ all of them, with numeric suffixes, `?` for null, `[A.B]` paths, `[^.Field]` parent row and `/* comments */` |
 | Operators | Arithmetic, bitwise, comparison, `In`, `Between`, `Is Null`, logic | ✅ all, plus `Like` and `Not In` |
@@ -59,11 +59,11 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 | Date functions | Add*, DateDiff*, Get*, Now/Today/UtcNow, FromParts, relative predicates (IsThisMonth, InDateRange…) | 🟡 Add*, DateDiff*, Get*, Now/Today, FromParts, LocalDateTime*, Is* and range predicates. Tick precision, time-of-day predicates (IsLunchTime…), DateOnly/TimeOnly ⬜ |
 | Reporting functions | FormatString, NewLine, Rgb, GetDisplayText, CurrentRowIndexInGroup, GroupIndex, Prev/NextRowColumnValue | 🟡 FormatString, NewLine, Rgb, Argb, PageNumber, PageCount, CurrentRowIndexInGroup, Prev/NextRowColumnValue. GetDisplayText, GroupIndex ⬜ [R2] |
 | Custom functions | Registered by developers | ✅ `ReportEngine::register_function`, `Environment::register` |
-| Criteria as a library (XPO) | Parse, print, tree operators, evaluate in memory, translate to SQL | ✅ `ravenrs-criteria`: public tree, printing that parses back, evaluation over any `Record`, schema validation, function catalog, parameterized SQL for 4 databases |
+| Criteria as a library | Parse, print, tree operators, evaluate in memory, translate to SQL | ✅ `ravenrs-criteria`: public tree, printing that parses back, evaluation over any `Record`, schema validation, function catalog, parameterized SQL for 4 databases |
 
 ## 4. Summaries, calculated fields, data shaping
 
-| Feature | DevExpress | RavenRS |
+| Feature | Reference | RavenRS |
 |---|---|---|
 | Summary scope (report / group / page) | Summary Running | ✅ by band: group footer/header → group, report header/footer → report, page header/footer → page, detail → innermost group |
 | Summary functions | Sum, Count, Avg, Min, Max, Median, StdDev, Var, Percentage, RecordNumber, RunningSum, distinct variants, weighted average, carry-over | ✅ all, with the `sumSum` spellings, including distinct variants, median, weighted average, percentage. Carry-over ⬜ [R3] |
@@ -74,7 +74,7 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 
 ## 5. Parameters
 
-| Feature | DevExpress | RavenRS |
+| Feature | Reference | RavenRS |
 |---|---|---|
 | Types | String, dates, times, integers, decimals, Boolean, GUID | 🟡 Text, Number, Date, Boolean |
 | Default (static or expression), visible/enabled expressions, allow null | | 🟡 static default. Expression defaults, visibility ⬜ next `YY.1` |
@@ -83,7 +83,7 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 
 ## 6. Appearance
 
-| Feature | DevExpress | RavenRS |
+| Feature | Reference | RavenRS |
 |---|---|---|
 | Fonts, colors, borders per side, padding, alignment | | ✅ size, bold, color, background, borders per side, padding, horizontal/vertical alignment. Italic, underline, font families, dash styles ⬜ [R2] |
 | Named styles, odd/even styles | | ✅ |
@@ -95,7 +95,7 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 
 ## 7. Page and layout
 
-| Feature | DevExpress | RavenRS |
+| Feature | Reference | RavenRS |
 |---|---|---|
 | Paper, orientation, margins | | ✅ A4, Letter, custom, landscape, margins |
 | Multi-column | Across then down / down then across | ✅ `Report::columns`, both ways, with spacing, in the designer's panel |
@@ -108,7 +108,7 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 
 ## 8. Viewer and interactivity
 
-| Feature | DevExpress | RavenRS |
+| Feature | Reference | RavenRS |
 |---|---|---|
 | Page navigation, zoom, thumbnails, search, document map | | 🟡 `ravenrs-report-viewer`: pages, zoom, fit to width, thumbnails, search with highlights that ignores case and accents. Document map ⬜ [R3] |
 | Drill-down, drill-through, interactive sorting, editing in preview | | ⬜ [R4] |
@@ -116,7 +116,7 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 
 ## 9. Export
 
-| Format | DevExpress options | RavenRS |
+| Format | Reference options | RavenRS |
 |---|---|---|
 | PDF | PDF/A, PDF/UA, security, signatures, metadata, attachments, AcroForms | 🟡 `ravenrs-report-pdf`: PDF 1.7 vector pages, embedded font subsets, selectable text, title, images, links, outline. PDF/A and signing ⬜ [R5] |
 | XLSX / XLS | Single file, sheet per page, data-only mode, native formats | 🟡 `ravenrs-report-xlsx`: single sheet that follows the page, real numbers and dates, Excel-native formats, fills, borders, merged cells, images, hyperlinks, page header once. Sheet per page, data-only mode ⬜ [R3], XLS not planned |
@@ -127,24 +127,24 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 
 ## 10. Data
 
-| Source | DevExpress | RavenRS |
+| Source | Reference | RavenRS |
 |---|---|---|
-| JSON (inline, file, web service with headers) | | ✅ inline JSON stored with the layout. URL source ⬜ [R2] |
+| JSON (inline, file, web service with headers) | | ✅ inline JSON stored with the layout; URL source with headers on the server (`DataSourceKind::Url`, hosts allowed by configuration). URL source in the designer ⬜ [R2] |
 | Objects | .NET objects | ✅ any `serde::Serialize` Rust value |
 | SQL with query builder, stored procedures | MSSQL, Oracle, MySQL, PostgreSQL… | ⬜ [R5]: PostgreSQL, MySQL, SQL Server on the server, by connection name |
 | Excel / CSV | | ⬜ [R5] |
 | MongoDB, XML, federation (joins, unions) | | ⬜ [R5] |
-| Layout saved with its data sources | REPX | ✅ JSON layout with `dataSources` |
+| Layout saved with its data sources | One layout file | ✅ JSON layout with `dataSources` |
 
 ## 11. Designer
 
-| Feature | DevExpress | RavenRS |
+| Feature | Reference | RavenRS |
 |---|---|---|
 | Field list (drag to create controls) | | ✅ in the web designer |
-| Toolbox, property grid, report explorer, group & sort | | 🟡 toolbox on the Ribbon, property grid, band list. Group & sort panel ⬜ [R4] |
+| Toolbox, property grid, report explorer, group & sort | | 🟡 toolbox down the left and on the Ribbon, property grid docked under the field list and report explorer. Group & sort panel ⬜ [R4] |
 | Snap grid, resize, move across bands, undo/redo, zoom | | ✅ |
-| Snap lines, align/size tools, rulers, multi-select | | ⬜ [R4] |
-| Expression editor, format editor, validation (design analyzer) | | 🟡 format picker; render errors listed. Expression editor with function list ⬜ [R4] |
+| Snap lines, align/size tools, rulers, multi-select | | 🟡 rulers in centimeters marking the selected control; cut, copy, paste, bring to front and send to back on the Ribbon. Snap lines, align/size tools and multi-select ⬜ [R4] |
+| Expression editor, format editor, validation (design analyzer) | | 🟡 format picker; render errors listed; expression editor with fields, parameters, functions by group, operators, constants, search and a check while typing. Syntax highlighting and completion in the text ⬜ [R4] |
 | Report wizard (table, labels, templates) | | 🟡 table wizard (fields, grouping, totals) and templates (invoice, sales, customer list). Labels: `labels::common_stocks` and `shelf_label`, and paper in the designer's panel, with no wizard of steps yet |
 | Printing straight to a printer from the designer | | ✅ "Impressora direta": language, resolution and connection kept with the report, a preview in dots, and a file in the browser |
 | Localization editor, scripts | | ⬜ [R5]; scripts are intentionally not planned (expressions cover them safely) |
@@ -152,8 +152,8 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 
 ## 12. Server and automation
 
-| Feature | DevExpress | RavenRS |
+| Feature | Reference | RavenRS |
 |---|---|---|
-| Headless generation and export | `CreateDocument()` + `ExportTo*` | ✅ the engine has no UI dependency |
-| Scheduled jobs with email (PDF/XLSX attachment, inline HTML, link), shared folder, retention, history | Report and Dashboard Server | 🟡 `ravenrs-report-server`: cron with time zones, parameters by expression, PDF/XLSX/CSV attachments, folder delivery, skip if empty, retention, history of who received what, retries. Inline HTML and links ⬜ [R3] |
-| Report storage API | `ReportStorageWebExtension` | ✅ `ravenrs-report-server`: layouts stored with versions, over HTTP. Opening from the designer ⬜ [R3] |
+| Headless generation and export | Generate and export from code | ✅ the engine has no UI dependency |
+| Scheduled jobs with email (PDF/XLSX attachment, inline HTML, link), shared folder, retention, history | A report server | 🟡 `ravenrs-report-server`: cron with time zones, parameters by expression, PDF/XLSX/CSV attachments, folder delivery, skip if empty, retention, history of who received what, retries. Inline HTML and links ⬜ [R3] |
+| Report storage API | An extension point for storing layouts | ✅ `ravenrs-report-server`: layouts stored with versions, over HTTP. Opening from the designer ⬜ [R3] |

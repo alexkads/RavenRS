@@ -28,6 +28,7 @@ pub(crate) struct Reorder {
     pressed_at: Point,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Reorder {
     /// The gap to mark, once there is something to show and it would change anything.
     pub fn marked_gap(&self) -> Option<usize> {

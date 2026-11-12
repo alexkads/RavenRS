@@ -1030,3 +1030,34 @@ fn an_image_without_crossfade_changes_at_once() {
     assert_eq!(image_opacities(&ui), [1.0]);
     assert_eq!(ui.next_wake(), None);
 }
+
+#[test]
+fn stacked_split_panes_fill_the_height_of_their_column() {
+    let pane = |name: &'static str| SplitPane::new(VStack::new((Dot::new().label(name),)));
+    let mut ui = ui(VStack::new((SplitPanes::vertical()
+        .pane(pane("Top").size(200.0).range(100.0, 400.0))
+        .pane(pane("Bottom").range(150.0, f32::MAX)),))
+    .width(300.0)
+    .height(500.0)
+    .align(ravenrs_layout::Align::Stretch));
+    ui.update();
+    ui.update();
+    let tree = ui.access_tree();
+    assert_eq!(named(&tree, Role::Image, "Bottom").bounds.y(), 210.0, "below the first pane and the bar");
+    assert_eq!(bars(&mut ui)[0].numeric.map(|n| n.value), Some(200.0));
+}
+
+#[test]
+fn stacked_split_panes_fill_a_column_stretched_by_its_row() {
+    let pane = |name: &'static str| SplitPane::new(VStack::new((Dot::new().label(name),)));
+    let column = VStack::new((SplitPanes::vertical()
+        .pane(pane("Top").size(200.0).range(100.0, 400.0))
+        .pane(pane("Bottom").range(150.0, f32::MAX)),))
+    .width(300.0)
+    .align(ravenrs_layout::Align::Stretch);
+    let mut ui = ui(HStack::new((column,)).height(500.0).align(ravenrs_layout::Align::Stretch));
+    ui.update();
+    ui.update();
+    let tree = ui.access_tree();
+    assert_eq!(named(&tree, Role::Image, "Bottom").bounds.y(), 210.0, "below the first pane and the bar");
+}

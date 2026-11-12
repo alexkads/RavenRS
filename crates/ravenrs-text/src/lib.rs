@@ -24,6 +24,15 @@ static INTER_REGULAR: &[u8] = include_bytes!("../fonts/Inter-Regular.ttf");
 static INTER_SEMIBOLD: &[u8] = include_bytes!("../fonts/Inter-SemiBold.ttf");
 /// A subset of Lucide icons (ISC License), see `scripts/gen-icons.py`.
 static RAVEN_ICONS: &[u8] = include_bytes!("../fonts/RavenIcons.ttf");
+/// Fira Mono (SIL Open Font License), for code.
+#[cfg(feature = "mono")]
+static FIRA_MONO: &[u8] = include_bytes!("../fonts/FiraMono-Medium.ttf");
+
+/// Every built-in font, in the order of [`builtin_font_number`]: new ones go at the end.
+#[cfg(not(feature = "mono"))]
+const BUILTIN: [&[u8]; 3] = [INTER_REGULAR, INTER_SEMIBOLD, RAVEN_ICONS];
+#[cfg(feature = "mono")]
+const BUILTIN: [&[u8]; 4] = [INTER_REGULAR, INTER_SEMIBOLD, RAVEN_ICONS, FIRA_MONO];
 
 /// The family name of the embedded icon font.
 pub const ICON_FAMILY: &str = "RavenIcons";
@@ -31,17 +40,22 @@ pub const ICON_FAMILY: &str = "RavenIcons";
 /// The family name of the embedded default font.
 pub const DEFAULT_FAMILY: &str = "Inter";
 
+/// The family name of the embedded monospaced font, with the `mono` feature. It is also
+/// what the generic `monospace` family resolves to.
+#[cfg(feature = "mono")]
+pub const MONO_FAMILY: &str = "Fira Mono";
+
 /// Which built-in font these bytes are, as a number that does not change between
 /// runs: what a recording stores instead of the font itself.
 pub fn builtin_font_number(bytes: &[u8]) -> Option<u8> {
-    [INTER_REGULAR, INTER_SEMIBOLD, RAVEN_ICONS].iter().position(|font| *font == bytes).map(|i| i as u8)
+    BUILTIN.iter().position(|font| *font == bytes).map(|i| i as u8)
 }
 
 /// A built-in font by its [`builtin_font_number`], for drawing shaped glyphs back.
 pub fn builtin_font(number: u8) -> Option<FontRef> {
-    static FONTS: OnceLock<[FontRef; 3]> = OnceLock::new();
+    static FONTS: OnceLock<[FontRef; BUILTIN.len()]> = OnceLock::new();
     let fonts = FONTS.get_or_init(|| {
-        [INTER_REGULAR, INTER_SEMIBOLD, RAVEN_ICONS].map(|bytes| {
+        BUILTIN.map(|bytes| {
             let blob = Blob::new(Arc::new(bytes));
             FontRef { id: blob.id(), data: Arc::new(blob), index: 0 }
         })
@@ -205,6 +219,13 @@ impl TextSystem {
         system.register_static_font(RAVEN_ICONS);
         for generic in [GenericFamily::SansSerif, GenericFamily::SystemUi, GenericFamily::UiSansSerif] {
             system.fonts.collection.set_generic_families(generic, families.iter().copied());
+        }
+        #[cfg(feature = "mono")]
+        {
+            let mono = system.register_static_font(FIRA_MONO);
+            for generic in [GenericFamily::Monospace, GenericFamily::UiMonospace] {
+                system.fonts.collection.set_generic_families(generic, mono.iter().copied());
+            }
         }
         system
     }

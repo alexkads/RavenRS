@@ -5,11 +5,16 @@ use serde_json::{Map, Value, json};
 
 use crate::{Palette, Radii, Semantic, TextStyle, Theme, Typography};
 
+/// The least contrast for a window to count as readable, well under what the design system asks for.
+const LEAST_CONTRAST: f32 = 3.0;
+/// The sizes of text that still fit a window.
+const TEXT_SIZES: std::ops::RangeInclusive<f32> = 9.0..=64.0;
 /// The sizes a radius can take when it comes from text.
 const RADIUS_RANGE: std::ops::RangeInclusive<f64> = 0.0..=64.0;
 /// The sizes text can take when it comes from text.
 const SIZE_RANGE: std::ops::RangeInclusive<f64> = 8.0..=96.0;
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Semantic {
     /// The colors a theme chooses. The others follow from these.
     pub const TOKENS: [Self; 15] = [
@@ -59,6 +64,7 @@ impl Semantic {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Palette {
     /// Changes the color of a role. Roles that follow from others, as in charts, stay as they are.
     pub fn set(&mut self, role: Semantic, color: Color) {
@@ -83,6 +89,7 @@ impl Palette {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Radii {
     /// The radii a theme chooses, by name. `full` is not one: it only means a pill.
     pub const TOKENS: [&'static str; 4] = ["sm", "md", "lg", "xl"];
@@ -110,6 +117,7 @@ impl Radii {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TextStyle {
     /// Every step of the scale, largest first.
     pub const TOKENS: [Self; 7] =
@@ -129,6 +137,7 @@ impl TextStyle {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Typography {
     /// Changes the size of a step, with its line height in the same proportion.
     pub fn set_size(&mut self, style: TextStyle, size: f32) {
@@ -164,6 +173,7 @@ fn from_hex(text: &str) -> Option<Color> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Theme {
     /// The themes that come with RavenRS.
     pub const fn builtin() -> [Self; 3] {
@@ -194,6 +204,19 @@ impl Theme {
             .map(|style| (style.token().to_owned(), json!(self.typography.get(style).size)))
             .collect();
         (colors, radii, sizes)
+    }
+
+    /// Whether someone can read a window in this theme, and so find their way out of it. A theme
+    /// kept from another time that is not goes unused: a person can make anything while editing,
+    /// and should not open to a blank window because of it.
+    pub fn is_readable(&self) -> bool {
+        let palette = &self.palette;
+        let flat = |color: Color| palette.bg_000.lerp(color.with_alpha(1.0), color.a);
+        let grounds = [palette.bg_000, palette.bg_100, palette.bg_200];
+        let legible = |ink: Color, ground: Color| flat(ink).contrast_ratio(flat(ground)) >= LEAST_CONTRAST;
+        grounds.iter().all(|ground| legible(palette.ink, *ground) && legible(palette.ink_muted, *ground))
+            && legible(palette.on_accent, palette.accent)
+            && TextStyle::TOKENS.iter().all(|style| TEXT_SIZES.contains(&self.typography.get(*style).size))
     }
 
     /// How many tokens differ from [`base`](Self::base).
@@ -288,6 +311,22 @@ mod tests {
         assert_eq!(again.radii.md, 4.0);
         assert_eq!(again.typography.body.size, 16.0);
         assert_eq!(again.changed_tokens(), 4);
+    }
+
+    #[test]
+    fn the_themes_that_come_with_it_are_readable_and_a_blank_one_is_not() {
+        for theme in Theme::builtin() {
+            assert!(theme.is_readable(), "{}", theme.name);
+        }
+        let mut blank = Theme::raven_dark();
+        blank.palette.ink = Color::hex_alpha(0x00000000);
+        assert!(!blank.is_readable());
+        let mut same = Theme::raven_light();
+        same.palette.ink = same.palette.bg_100;
+        assert!(!same.is_readable());
+        let mut huge = Theme::raven_dark();
+        huge.typography.set_size(TextStyle::Body, 96.0);
+        assert!(!huge.is_readable());
     }
 
     #[test]

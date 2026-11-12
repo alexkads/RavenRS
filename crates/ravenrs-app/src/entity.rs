@@ -8,6 +8,7 @@ use ravenrs_criteria::{Criteria, Environment, FieldType, Record, Schema, Scope, 
 /// What a field holds, which decides how it is edited and stored.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum FieldKind {
     /// A line of text.
     Text,
@@ -45,6 +46,7 @@ pub enum FieldKind {
     Tags(Vec<EnumOption>),
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FieldKind {
     /// How expressions see it.
     fn field_type(&self) -> FieldType {
@@ -99,6 +101,7 @@ impl FieldKind {
 
 /// One of the values of a [`FieldKind::Enum`].
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EnumOption {
     /// What is stored.
     pub code: String,
@@ -106,6 +109,7 @@ pub struct EnumOption {
     pub caption: String,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EnumOption {
     /// An option stored as `code` and shown as `caption`.
     pub fn new(code: impl Into<String>, caption: impl Into<String>) -> Self {
@@ -116,6 +120,7 @@ impl EnumOption {
 /// A field of an [`EntityInfo`].
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FieldInfo {
     /// Its name, in expressions and in the model.
     pub name: String,
@@ -176,6 +181,10 @@ pub struct FieldInfo {
     pub criteria_of: Option<String>,
     /// It never leaves storage through a secured space, for anyone, and no screen shows it.
     pub secret: bool,
+    /// What screen readers call it, when the caption is not enough. The caption by default.
+    pub accessible_name: Option<String>,
+    /// What screen readers say after its name, such as what goes in it. The hint by default.
+    pub accessible_description: Option<String>,
 }
 
 /// `opening_cents` as `Opening cents`.
@@ -185,6 +194,7 @@ fn caption_of(name: &str) -> String {
     chars.next().map_or_else(String::new, |first| first.to_uppercase().chain(chars).collect())
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FieldInfo {
     /// A field shown in lists and on the form.
     pub fn new(name: impl Into<String>, kind: FieldKind) -> Self {
@@ -222,6 +232,8 @@ impl FieldInfo {
             predefined: Vec::new(),
             criteria_of: None,
             secret: false,
+            accessible_name: None,
+            accessible_description: None,
             kind,
         }
     }
@@ -312,6 +324,19 @@ impl FieldInfo {
     /// What the form says under it.
     pub fn hint(mut self, text: impl Into<String>) -> Self {
         self.hint = Some(text.into());
+        self
+    }
+
+    /// What screen readers call it, instead of its caption: for a caption that only makes sense
+    /// next to what is around it, such as `Até` for the end of a period.
+    pub fn accessible_name(mut self, name: impl Into<String>) -> Self {
+        self.accessible_name = Some(name.into());
+        self
+    }
+
+    /// What screen readers say after its name, instead of its hint.
+    pub fn accessible_description(mut self, text: impl Into<String>) -> Self {
+        self.accessible_description = Some(text.into());
         self
     }
 
@@ -451,6 +476,7 @@ impl FieldInfo {
 /// How a list gets its records.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum DataAccess {
     /// All of them at once, kept in memory, so grouping and every search work on the spot.
     #[default]
@@ -461,6 +487,7 @@ pub enum DataAccess {
     DataView,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DataAccess {
     /// Its name in the model.
     pub fn name(self) -> &'static str {
@@ -483,6 +510,7 @@ impl DataAccess {
 
 /// Something wrong in how the application was declared, in words for its developer.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModelError(pub String);
 
 impl fmt::Display for ModelError {
@@ -496,6 +524,7 @@ impl std::error::Error for ModelError {}
 /// Another way to see the list of an entity, which people pick from a menu once there are two.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ViewVariant {
     /// What it is known by.
     pub id: String,
@@ -509,6 +538,7 @@ pub struct ViewVariant {
     pub editor: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ViewVariant {
     /// A variant that shows every record.
     pub fn new(id: impl Into<String>, caption: impl Into<String>) -> Self {
@@ -537,6 +567,7 @@ impl ViewVariant {
 /// A filter ready for people to pick from a menu on a list.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ListFilter {
     /// What it is known by.
     pub id: String,
@@ -546,6 +577,7 @@ pub struct ListFilter {
     pub criteria: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ListFilter {
     /// A filter that lets everything through, as the choice that takes the others off.
     pub fn new(id: impl Into<String>, caption: impl Into<String>) -> Self {
@@ -562,6 +594,7 @@ impl ListFilter {
 /// A kind of record.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EntityInfo {
     /// Its name, in the model and in code.
     pub name: String,
@@ -581,10 +614,14 @@ pub struct EntityInfo {
     pub variants: Vec<ViewVariant>,
     /// What its list says it is there for, above the records.
     pub description: Option<String>,
+    /// What its list says when it has no records, in place of the language's own words.
+    pub empty_text: Option<String>,
     /// The states its records go through.
     pub state_machines: Vec<crate::StateMachine>,
     /// When to remind people of a record.
     pub reminder: Option<crate::Reminder>,
+    /// Actions that set fields of the records selected.
+    pub actions: Vec<crate::RecordAction>,
     /// What the list editors are told about this list: an editor's settings node, and in it names and values.
     pub editor_settings: Vec<(String, String, String)>,
     /// How many columns its form's fields go in; by how many there are, unless given.
@@ -607,8 +644,12 @@ pub struct EntityInfo {
     pub form_actions: Vec<String>,
     /// It has one record, such as settings: going to it opens the form of that record, with no list.
     pub singleton: bool,
+    /// The fields its form goes through first with the keyboard, in this order. The form shows
+    /// them in the same order, so the eye and the keyboard go the same way.
+    pub focus_order: Vec<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl EntityInfo {
     /// An entity with no fields yet.
     pub fn new(name: impl Into<String>) -> Self {
@@ -623,7 +664,9 @@ impl EntityInfo {
             appearance: Vec::new(),
             variants: Vec::new(),
             description: None,
+            empty_text: None,
             state_machines: Vec::new(),
+            actions: Vec::new(),
             reminder: None,
             editor_settings: Vec::new(),
             form_columns: None,
@@ -636,6 +679,7 @@ impl EntityInfo {
             data_access: DataAccess::Client,
             form_actions: Vec::new(),
             singleton: false,
+            focus_order: Vec::new(),
         }
     }
 
@@ -729,6 +773,13 @@ impl EntityInfo {
         self
     }
 
+    /// The fields its form goes through first with the keyboard, in this order; the others follow
+    /// in the order they were declared. The form shows them in the same order.
+    pub fn focus_order(mut self, fields: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        self.focus_order = fields.into_iter().map(Into::into).collect();
+        self
+    }
+
     /// How many columns its form's fields go in.
     pub fn form_columns(mut self, columns: u8) -> Self {
         self.form_columns = Some(columns);
@@ -738,6 +789,14 @@ impl EntityInfo {
     /// What its list says it is there for, above the records.
     pub fn description(mut self, text: impl Into<String>) -> Self {
         self.description = Some(text.into());
+        self
+    }
+
+    /// What its list says when it has no records, such as how to add the first. Without it the
+    /// list says what the language says. It lands on the list view as `EmptyText`, where the
+    /// model can change and translate it.
+    pub fn empty_text(mut self, text: impl Into<String>) -> Self {
+        self.empty_text = Some(text.into());
         self
     }
 
@@ -759,6 +818,13 @@ impl EntityInfo {
     pub fn state_appearance(self, field: &str, state: &str, rule: crate::AppearanceRule) -> Self {
         let state = state.replace('\'', "''");
         self.appearance(rule.criteria(format!("[{field}] = '{state}'")))
+    }
+
+    /// An action that sets fields of the records selected. It comes by itself on its list and
+    /// its form.
+    pub fn action(mut self, action: crate::RecordAction) -> Self {
+        self.actions.push(action);
+        self
     }
 
     /// Reminds people of its records.
@@ -833,6 +899,14 @@ impl EntityInfo {
                     return wrong(format!("the field {}: {problem}", field.name));
                 }
             }
+        }
+        for field in &self.focus_order {
+            if self.field_named(field).is_none() {
+                return wrong(format!("the focus order names {field}, which is not a field"));
+            }
+        }
+        for action in &self.actions {
+            action.check(self).map_err(|e| ModelError(format!("{}: {}", self.name, e.0)))?;
         }
         for machine in &self.state_machines {
             if self.field_named(&machine.field).is_none() {
@@ -974,11 +1048,13 @@ impl EntityInfo {
 /// A record: its entity's name and a value per field. Dynamic, so filters, rules and
 /// permissions read every entity the same way.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Object {
     entity: String,
     values: BTreeMap<String, Value>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Object {
     /// A record of this entity with these values, as storage hands them over.
     pub fn from_values(entity: impl Into<String>, values: BTreeMap<String, Value>) -> Self {
@@ -1000,6 +1076,13 @@ impl Object {
         self.values.insert(field.to_owned(), value.into());
     }
 
+    /// Leaves out what was put on it under a path, such as `class_id.teacher_id.login`: values
+    /// only what holds the record works out, for judging it, and never kept.
+    pub fn without_paths(mut self) -> Self {
+        self.values.retain(|name, _| !name.contains('.'));
+        self
+    }
+
     /// Every value, by field.
     pub fn values(&self) -> &BTreeMap<String, Value> {
         &self.values
@@ -1015,7 +1098,8 @@ impl Record for Object {
     fn field(&self, path: &[String]) -> Option<Value> {
         match path {
             [name] => self.values.get(name).cloned(),
-            _ => None,
+            // A path through references, when what holds the record has followed it.
+            path => self.values.get(&path.join(".")).cloned(),
         }
     }
 

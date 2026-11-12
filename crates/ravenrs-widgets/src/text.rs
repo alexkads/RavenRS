@@ -15,6 +15,7 @@ enum Content {
 }
 
 /// Text in the theme's type scale. It wraps to the width its container offers.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Text {
     content: Content,
     style: TextStyle,
@@ -34,6 +35,7 @@ impl fmt::Debug for Text {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Text {
     /// Static text.
     pub fn new(text: impl Into<String>) -> Self {

@@ -14,13 +14,19 @@ categories = ["gui", "graphics", "wasm"]
 readme = "README.md"
 
 [features]
-default = ["decode", "charts", "lottie"]
+default = ["decode", "charts", "flow", "lottie"]
 # PNG and JPEG decoding for `Image::from_bytes`.
 decode = ["ravenrs-widgets/decode"]
 # `Chart`, `BarChart`, `AreaChart` and `Barcode`.
 charts = ["ravenrs-widgets/charts"]
+# `FlowCanvas`: diagrams of nodes joined by connections.
+flow = ["ravenrs-widgets/flow"]
 # `Lottie`, a player of Lottie animations of our own.
 lottie = ["ravenrs-widgets/lottie"]
+# `CodeEditor` and `Playground`, with a monospaced font embedded.
+code = ["ravenrs-widgets/code"]
+# `LiveRunner`, which runs edited examples in a `Playground` without a compiler.
+live = ["ravenrs-widgets/live", "dep:ravenrs-live", "ravenrs-movie/live"]
 # The icon beside the clock of `AppIdentity::close_to_tray`, on the desktop.
 tray = ["ravenrs-platform-native/tray"]
 # The system's notifications of `SystemNotifier`, on the desktop.
@@ -35,6 +41,7 @@ ravenrs-text.workspace = true
 ravenrs-style.workspace = true
 ravenrs-render.workspace = true
 ravenrs-widgets.workspace = true
+ravenrs-live = { workspace = true, optional = true }
 ravenrs-movie.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

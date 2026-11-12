@@ -32,6 +32,7 @@ impl<V> fmt::Debug for ContextMenu<V> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<V: View> ContextMenu<V> {
     /// Wraps `content` with an initially empty menu.
     pub fn new(content: V) -> Self {
@@ -91,6 +92,7 @@ impl<A, C> fmt::Debug for HoverCard<A, C> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<A: View, C: View> HoverCard<A, C> {
     /// Shows `content` below `trigger` on hover.
     pub fn new(trigger: A, content: C) -> Self {
@@ -117,6 +119,7 @@ impl<A: View, C: View> View for HoverCard<A, C> {
 /// The edge a [`Sheet`] slides in from.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Side {
     /// The left edge.
     Left,
@@ -126,6 +129,7 @@ pub enum Side {
 }
 
 /// A panel that slides over the UI from one edge, over a dimmed backdrop.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Sheet {
     open: Binding<bool>,
     title: String,
@@ -141,6 +145,7 @@ impl fmt::Debug for Sheet {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Sheet {
     /// A sheet shown while `open` is true; slides from the right, 400 logical pixels wide.
     pub fn new(open: Binding<bool>, title: impl Into<String>) -> Self {
@@ -316,6 +321,7 @@ const SPLASH_OVERLAY_KEY: u64 = 0x7370_6c61_7368;
 ///         .progress(progress.get())
 /// });
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SplashScreen {
     visible: Binding<bool>,
     name: String,
@@ -332,6 +338,7 @@ impl fmt::Debug for SplashScreen {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SplashScreen {
     /// A splash screen for the app called `name`, shown while `visible` is true.
     pub fn new(visible: Binding<bool>, name: impl Into<String>) -> Self {
@@ -509,6 +516,7 @@ impl View for SplashScreen {
 
 /// One notification in a [`Toaster`].
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Toast {
     id: u64,
     title: String,
@@ -523,6 +531,7 @@ pub struct Toast {
 /// Where in the window a [`Toaster`] stacks its toasts.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ToastPosition {
     /// The top-left corner.
     TopLeft,
@@ -539,6 +548,7 @@ pub enum ToastPosition {
     BottomRight,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ToastPosition {
     fn placement(self) -> Placement {
         match self {
@@ -569,6 +579,7 @@ impl ToastPosition {
 /// What a toast can do besides showing: a button, something to run once it is gone, and
 /// a place of its own.
 #[derive(Clone, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ToastExtras {
     action: Option<(String, Rc<dyn Fn()>)>,
     on_close: Option<Rc<dyn Fn()>>,
@@ -597,6 +608,7 @@ impl PartialEq for ToastExtras {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ToastExtras {
     /// Nothing besides showing.
     pub fn new() -> Self {
@@ -636,11 +648,13 @@ impl ToastExtras {
 /// ui.update();
 /// ```
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Toasts {
     list: State<Vec<Toast>>,
     next: Rc<Cell<u64>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Toasts {
     /// An empty toast list.
     pub fn new() -> Self {
@@ -727,12 +741,14 @@ impl Toasts {
 /// ui.update();
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Toaster {
     toasts: Toasts,
     bottom_inset: f32,
     position: ToastPosition,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Toaster {
     /// Displays the toasts of `toasts`.
     pub fn new(toasts: Toasts) -> Self {
@@ -914,6 +930,7 @@ impl View for Toaster {
 }
 
 /// An action in the [`CommandPalette`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Command {
     label: String,
     group: String,
@@ -928,6 +945,7 @@ impl fmt::Debug for Command {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Command {
     /// A command labeled `label`; `action` runs when it is chosen.
     pub fn new(label: impl Into<String>, action: impl Fn() + 'static) -> Self {
@@ -981,6 +999,7 @@ pub(crate) fn fuzzy_match(text: &str, query: &str) -> bool {
 /// let mut ui = Ui::new(palette, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CommandPalette {
     open: Binding<bool>,
     commands: Vec<Command>,
@@ -993,6 +1012,7 @@ impl fmt::Debug for CommandPalette {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CommandPalette {
     /// A palette shown while `open` is true; Cmd/Ctrl+K toggles it.
     pub fn new(open: Binding<bool>) -> Self {
@@ -1171,6 +1191,7 @@ impl View for CommandPalette {
 
 /// A select with a search box: type to filter the options.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Combobox {
     selected: Binding<Option<usize>>,
     options: Vec<String>,
@@ -1181,6 +1202,7 @@ pub struct Combobox {
     state: util::EditorState,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Combobox {
     /// A combobox over `options`; `selected` holds the zero-based index of the choice, or `None`.
     pub fn new(

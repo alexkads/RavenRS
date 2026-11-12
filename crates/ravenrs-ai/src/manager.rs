@@ -7,12 +7,35 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Instant;
 
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_reactive::State;
 use ravenrs_widgets::{
     BuildCx, ModelChoice, ModelPicker, ModelPickerLabels, ModelStatus, NodeId, UiWaker, View,
 };
 
-use crate::{LocalAssistant, LocalEngine, LocalModel, Machine, ModelError, ModelFolder, ModelState};
+use crate::{
+    HEARING_RATE, LocalAssistant, LocalEngine, LocalModel, Machine, ModelError, ModelFamily, ModelFolder,
+    ModelState, Transcriber,
+};
+
+/// How a model that hears does on this machine, on a quiet tone it has to listen to whole.
+fn hearing_test(folder: &ModelFolder, model: &LocalModel, started: Instant) -> Option<Tested> {
+    let mut transcriber = Transcriber::load(folder, model).ok()?;
+    let tone: Vec<f32> = (0..TEST_HEARING_SECONDS * HEARING_RATE)
+        .map(|i| (i as f32 * 440.0 * std::f32::consts::TAU / HEARING_RATE as f32).sin() * 0.01)
+        .collect();
+    transcriber.transcribe(&tone, "pt").ok()?;
+    let seconds = started.elapsed().as_secs_f64();
+    let heard = TEST_HEARING_SECONDS as f64;
+    let tokens_per_second = if seconds <= heard / 5.0 {
+        FAST
+    } else if seconds <= heard {
+        USABLE
+    } else {
+        0.0
+    };
+    Some(Tested { seconds, tokens_per_second })
+}
 
 /// How many times a download tells the UI it moved: one per cent is plenty.
 const STEPS: u64 = 100;
@@ -27,6 +50,9 @@ const TEST_TOKENS: usize = 40;
 /// read as it arrives.
 const FAST: f64 = 15.0;
 const USABLE: f64 = 5.0;
+/// What a model that hears is tested with: ten seconds, heard in two feels instant, and
+/// in ten it keeps up with whoever speaks.
+const TEST_HEARING_SECONDS: usize = 10;
 
 /// The words a [`ModelManager`] shows. English by default.
 #[derive(Clone, Debug)]
@@ -64,44 +90,34 @@ pub struct ModelManagerLabels {
 
 impl Default for ModelManagerLabels {
     fn default() -> Self {
-        Self {
-            picker: ModelPickerLabels::default(),
-            understood: "Understood".into(),
-            not_measured: "not measured".into(),
-            license: "License".into(),
-            memory: "Memory".into(),
-            decimal_comma: false,
-            network_error: "The download failed. Check the connection and try again.".into(),
-            disk_error: "The model could not be written to this disk.".into(),
-            wrong_file: "What arrived is not the published model, so it was not installed.".into(),
-            answered_in: "Answered the test in".into(),
-            fast: "Fast.".into(),
-            usable: "Usable, but you will see it write.".into(),
-            slow: "Slow on this machine. You may prefer to remove it.".into(),
-            did_not_run: "This model did not run on this machine.".into(),
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
 impl ModelManagerLabels {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            picker: ModelPickerLabels::from_texts(texts),
+            understood: texts.get("ai.models.understood"),
+            not_measured: texts.get("ai.models.not_measured"),
+            license: texts.get("ai.models.license"),
+            memory: texts.get("ai.models.memory"),
+            decimal_comma: texts.char("format.decimal", '.') == ',',
+            network_error: texts.get("ai.models.network_error"),
+            disk_error: texts.get("ai.models.disk_error"),
+            wrong_file: texts.get("ai.models.wrong_file"),
+            answered_in: texts.get("ai.models.answered_in"),
+            fast: texts.get("ai.models.fast"),
+            usable: texts.get("ai.models.usable"),
+            slow: texts.get("ai.models.slow"),
+            did_not_run: texts.get("ai.models.did_not_run"),
+        }
+    }
+
     /// The words in Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            picker: ModelPickerLabels::pt_br(),
-            understood: "Acerto".into(),
-            not_measured: "não medido".into(),
-            license: "Licença".into(),
-            memory: "Memória".into(),
-            decimal_comma: true,
-            network_error: "O download falhou. Confira a conexão e tente de novo.".into(),
-            disk_error: "Não foi possível gravar o modelo neste disco.".into(),
-            wrong_file: "O que chegou não é o modelo publicado, então não foi instalado.".into(),
-            answered_in: "Respondeu o teste em".into(),
-            fast: "Rápido.".into(),
-            usable: "Dá para usar, mas você vai vê-lo escrevendo.".into(),
-            slow: "Lento nesta máquina. Talvez seja melhor remover.".into(),
-            did_not_run: "Este modelo não rodou nesta máquina.".into(),
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 
     fn details(&self, model: &LocalModel) -> String {
@@ -284,6 +300,14 @@ impl ModelManager {
         let (model, folder) = (entry.model, self.folder.clone());
         std::thread::spawn(move || {
             let started = Instant::now();
+            if model.family == ModelFamily::Whisper {
+                let outcome = hearing_test(&folder, &model, started);
+                if let Ok(mut done) = run.lock() {
+                    *done = Some(outcome);
+                }
+                waker.wake();
+                return;
+            }
             let outcome = LocalEngine::load(&folder, &model).ok().and_then(|mut engine| {
                 let generated = engine.generate(TEST_SYSTEM, TEST_USER, TEST_TOKENS, &mut |_| true).ok()?;
                 (generated.tokens > 0).then(|| Tested {

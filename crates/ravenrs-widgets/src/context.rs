@@ -22,8 +22,10 @@ use crate::view::ViewSeq;
 /// view tree (or from an explicit key, see [`BuildCx::keyed_child`]). Hover,
 /// press and focus are remembered per `WidgetId`.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct WidgetId(u64);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl WidgetId {
     pub(crate) const ROOT: Self = Self(0x5241_5645_4e52_5321);
 
@@ -43,10 +45,12 @@ impl WidgetId {
 /// A node of the element tree produced by one build. Only valid during the
 /// build that created it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct NodeId(pub(crate) u32);
 
 /// A rounded rectangle painted behind an element's children.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct QuadPaint {
     /// Fill color or gradient.
     pub fill: Brush,
@@ -58,6 +62,7 @@ pub struct QuadPaint {
     pub shadow: Option<Shadow>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl QuadPaint {
     /// A square-cornered quad with this fill, no border and no shadow.
     pub fn new(fill: impl Into<Brush>) -> Self {
@@ -91,6 +96,7 @@ pub type RichFn = Rc<dyn Fn(Rect, &mut PaintCx<'_>)>;
 /// What an element draws before its children.
 #[derive(Clone, Default)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Paint {
     /// Draws nothing.
     #[default]
@@ -123,6 +129,7 @@ pub type KeyHandler = Rc<dyn Fn(&Key, Modifiers) -> bool>;
 /// Phase of a pointer drag that started on an element.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum DragPhase {
     /// The pointer went down and started moving.
     Start,
@@ -134,6 +141,7 @@ pub enum DragPhase {
 
 /// A pointer drag on an element, in absolute logical pixels, with the element's frame.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Drag {
     /// Which part of the drag this event is.
     pub phase: DragPhase,
@@ -145,6 +153,7 @@ pub struct Drag {
     pub container: Rect,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Drag {
     /// Horizontal position inside the frame, from 0.0 (left) to 1.0 (right).
     pub fn fraction_x(&self) -> f32 {
@@ -178,6 +187,7 @@ pub type ActivityObserver = Rc<dyn Fn(UiActivity<'_>, f64)>;
 /// Where an overlay is placed relative to its anchor.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Placement {
     /// Below the anchor, left edges aligned.
     Below,
@@ -246,6 +256,7 @@ pub(crate) struct Shortcut {
 /// text inside it, text is announced as a label, and other boxes are
 /// transparent: their children belong to the nearest described ancestor.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Semantics {
     pub(crate) role: Role,
     pub(crate) name: Option<String>,
@@ -265,6 +276,7 @@ pub struct Semantics {
     pub(crate) fallback_name: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Semantics {
     /// A node with this role, named by its content when the role allows it.
     pub fn new(role: Role) -> Self {
@@ -409,6 +421,8 @@ pub(crate) struct Element {
     pub translate: Point,
     pub on_double_click: Option<Rc<dyn Fn()>>,
     pub on_pinch: Option<Rc<dyn Fn(f32)>>,
+    /// Takes the wheel over it, before any scroll container around it.
+    pub on_wheel: Option<Rc<dyn Fn(Point)>>,
     /// The wheel over it moves what this widget scrolls.
     pub scrolls_with_widget: bool,
     /// A wheel that only turns up and down moves this scroll container sideways.
@@ -426,8 +440,23 @@ pub(crate) struct Element {
     /// Report the size of the content (see [`BuildCx::measured_content`]).
     pub measure: bool,
     pub report_frame: bool,
+    /// Stays this far below the top of its scroll container while its parent passes.
+    pub pin: Option<f32>,
+    /// The track of a scroll scene: what [`crate::ScrollRange::Scene`] measures.
+    pub scroll_track: Option<crate::scroll_scene::ScrollTrack>,
+    /// Painted through this effect of the scroll position.
+    pub scroll_link: Option<crate::ScrollLink>,
+    /// A place links can scroll to (`#name`), and how far below the top it lands.
+    pub anchor: Option<(Rc<str>, f32)>,
+    /// Called once, the first time the element shows in its scroll container.
+    pub on_appear: Option<Rc<dyn Fn()>>,
+    /// Painted through this effect of the clock and the element's frame.
+    pub time_link: Option<crate::TimeLink>,
+    /// Told the scroll progress along this range before each paint.
+    pub progress_out: Option<(crate::ScrollRange, Rc<std::cell::Cell<f32>>)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Element {
     pub(crate) fn new(widget: WidgetId, layout: LayoutId) -> Self {
         Self {
@@ -449,6 +478,7 @@ impl Element {
             translate: Point::ZERO,
             on_double_click: None,
             on_pinch: None,
+            on_wheel: None,
             scrolls_with_widget: false,
             wheel_sideways: false,
             on_context_menu: None,
@@ -460,6 +490,13 @@ impl Element {
             motion: None,
             measure: false,
             report_frame: false,
+            pin: None,
+            scroll_track: None,
+            scroll_link: None,
+            anchor: None,
+            on_appear: None,
+            time_link: None,
+            progress_out: None,
         }
     }
 
@@ -518,6 +555,7 @@ pub(crate) struct LocalStore {
     used: HashSet<(WidgetId, u32)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl LocalStore {
     pub fn begin_build(&mut self) {
         self.used.clear();
@@ -568,6 +606,8 @@ pub struct BuildCx<'a> {
     pub(crate) error: Option<LayoutError>,
     pub(crate) clipboard: crate::Clipboard,
     pub(crate) sound: crate::Sound,
+    pub(crate) links: crate::Links,
+    pub(crate) full_screen: crate::FullScreen,
     pub(crate) file_picker: crate::FilePicker,
     pub(crate) files_over: State<bool>,
     pub(crate) motions: Vec<MotionEntry>,
@@ -587,6 +627,7 @@ impl fmt::Debug for BuildCx<'_> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<'a> BuildCx<'a> {
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn new(
@@ -635,6 +676,8 @@ impl<'a> BuildCx<'a> {
             error: None,
             clipboard,
             sound: crate::Sound::default(),
+            links: crate::Links::default(),
+            full_screen: crate::FullScreen::default(),
             file_picker: crate::FilePicker::default(),
             files_over: State::new(false),
             motions: Vec::new(),
@@ -697,6 +740,60 @@ impl<'a> BuildCx<'a> {
     /// The app-wide theme as state: set it to switch themes at runtime.
     pub fn theme_state(&self) -> State<Theme> {
         self.theme_state.clone()
+    }
+
+    /// Opens addresses: in the browser it navigates, on the desktop the system's
+    /// browser opens them. `#name` scrolls to the anchor of that name instead.
+    pub fn links(&self) -> crate::Links {
+        self.links.clone()
+    }
+
+    /// Puts the app in full screen and takes it out: the page's full screen in the
+    /// browser, a borderless full screen window on the desktop.
+    pub fn full_screen(&self) -> crate::FullScreen {
+        self.full_screen.clone()
+    }
+
+    /// Marks the node as the place `#name` links scroll to, landing `offset` pixels
+    /// below the top of its scroll container (the height of a bar pinned over it).
+    pub fn anchor(&mut self, node: NodeId, name: &str, offset: f32) {
+        if let Some(e) = self.element_mut(node) {
+            e.anchor = Some((Rc::from(name), offset));
+        }
+    }
+
+    /// Calls `handler` once, after the first frame in which the node shows inside its
+    /// scroll container: counters that start when they are seen, content loaded when
+    /// it is reached. The handler runs outside the build, so it may set state.
+    pub fn on_appear(&mut self, node: NodeId, handler: Rc<dyn Fn()>) {
+        if let Some(e) = self.element_mut(node) {
+            e.on_appear = Some(handler);
+        }
+    }
+
+    /// Paints the node and its subtree with the effect `link` gives for the clock and
+    /// the node's frame, on every frame while it shows: a strip that keeps moving, a
+    /// gentle float. It neither rebuilds nor lays out. With reduced motion the clock
+    /// stands at zero.
+    pub fn time_linked(&mut self, node: NodeId, link: crate::TimeLink) {
+        if let Some(e) = self.element_mut(node) {
+            e.time_link = Some(link);
+        }
+    }
+
+    /// Writes into `progress`, before each paint of the node, how far the scroll is along
+    /// `range` from 0 to 1, for drawing that follows the scroll itself, such as a
+    /// [`crate::QuadField`]. Effects that only move, fade or scale use
+    /// [`Self::scroll_linked`] instead.
+    pub fn scroll_progress(
+        &mut self,
+        node: NodeId,
+        range: crate::ScrollRange,
+        progress: Rc<std::cell::Cell<f32>>,
+    ) {
+        if let Some(e) = self.element_mut(node) {
+            e.progress_out = Some((range, progress));
+        }
     }
 
     /// The system clipboard, for copy and paste handlers.
@@ -952,6 +1049,21 @@ impl<'a> BuildCx<'a> {
         }
     }
 
+    /// Gives the control at or under `node` this name and this description, replacing what it
+    /// had: for a name that says more than the label on the screen.
+    pub(crate) fn rename_control(&mut self, node: NodeId, name: Option<&str>, description: Option<&str>) {
+        let Some(i) = self.control_in(node) else { return };
+        let e = &mut self.elements[i];
+        let s = e.semantics.get_or_insert_with(|| Box::new(Semantics::new(Role::Button)));
+        if let Some(name) = name {
+            s.name = Some(name.to_owned());
+            s.fallback_name = false;
+        }
+        if let Some(description) = description {
+            s.description = Some(description.to_owned());
+        }
+    }
+
     /// Makes the node reachable with Tab; the focus ring uses `corner_radius`.
     pub fn focusable(&mut self, node: NodeId, corner_radius: f32) {
         if let Some(e) = self.element_mut(node) {
@@ -1074,6 +1186,56 @@ impl<'a> BuildCx<'a> {
         let transition =
             if !self.motion_enabled || self.reduced_motion { Transition::Instant } else { transition };
         value.set_target(target, transition, now);
+        if value.step(now) {
+            self.value_moving = true;
+            self.wake_at(self.now);
+        }
+        value.value(now)
+    }
+
+    /// Numbers that go from where they are to `target` along a tween, in full `f64`
+    /// precision: a counter, or a chart's data changing. A new target while they move
+    /// starts from where they are, with no jump. When the count of numbers changes, or
+    /// under reduced motion, or for a spring, they take the target at once. Call it in
+    /// the same order on every build, as with [`Self::animated`].
+    pub fn animated_numbers(&mut self, target: &[f64], transition: Transition) -> Vec<f64> {
+        let cell = self.use_state(|| Rc::new(RefCell::new(Numbers::at(target)))).peek().clone();
+        let mut run = cell.borrow_mut();
+        let now = self.motion_clock;
+        let (duration, easing) = match transition {
+            Transition::Tween { duration, easing } if self.motion_enabled && !self.reduced_motion => {
+                (f64::from(duration), easing)
+            }
+            _ => (0.0, ravenrs_animation::Easing::Linear),
+        };
+        // By bits, so a gap (NaN) in the data counts as the same gap.
+        if !run.to.iter().map(|v| v.to_bits()).eq(target.iter().map(|v| v.to_bits())) {
+            let from =
+                if run.to.len() == target.len() && duration > 0.0 { run.value(now) } else { target.to_vec() };
+            *run = Numbers { from, to: target.to_vec(), start: now, duration, easing };
+        }
+        if now < run.start + run.duration {
+            self.value_moving = true;
+            self.wake_at(self.now);
+        }
+        run.value(now)
+    }
+
+    /// How far a view has appeared, from 0 to 1, since it was first built: for
+    /// content that draws itself in, such as a chart's data. A new `key` starts it
+    /// over. Under reduced motion, or with motion off, it is 1 from the start. Call
+    /// it in the same order on every build, as with [`Self::animated`].
+    pub fn appear(&mut self, key: u64, transition: Transition) -> f32 {
+        let cell = self.use_state(|| Rc::new(RefCell::new((key, Animated::new(0.0_f32))))).peek().clone();
+        let mut cell = cell.borrow_mut();
+        if cell.0 != key {
+            *cell = (key, Animated::new(0.0));
+        }
+        let now = self.motion_clock;
+        let transition =
+            if !self.motion_enabled || self.reduced_motion { Transition::Instant } else { transition };
+        let value = &mut cell.1;
+        value.set_target(1.0, transition, now);
         if value.step(now) {
             self.value_moving = true;
             self.wake_at(self.now);
@@ -1213,11 +1375,49 @@ impl<'a> BuildCx<'a> {
         }
     }
 
+    /// Keeps the node on screen while its parent scrolls past, `top` pixels below the
+    /// top of the scroll container around it, and lets it leave with the bottom of the
+    /// parent: CSS `position: sticky`. It is moved when frames are placed, so clicks,
+    /// focus and assistive technology find it where it shows. See [`crate::Sticky`].
+    pub fn pin(&mut self, node: NodeId, top: f32) {
+        if let Some(e) = self.element_mut(node) {
+            e.pin = Some(top);
+        }
+    }
+
+    /// Marks the node as the track of a scroll scene: content pinned `top` pixels
+    /// below the top of the scroll container for `length` pixels of scrolling. Links
+    /// inside it that measure [`crate::ScrollRange::Scene`] run from 0 to 1 over that
+    /// length. See [`crate::ScrollScene`].
+    pub fn scroll_track(&mut self, node: NodeId, top: f32, length: f32) {
+        if let Some(e) = self.element_mut(node) {
+            e.scroll_track = Some(crate::scroll_scene::ScrollTrack { top, length });
+        }
+    }
+
+    /// Paints the node and its subtree with the effect `link` gives for the current
+    /// scroll position, worked out on every paint without rebuilding. Layout and hit
+    /// testing are unaffected. See [`crate::ScrollLinked`].
+    pub fn scroll_linked(&mut self, node: NodeId, link: crate::ScrollLink) {
+        if let Some(e) = self.element_mut(node) {
+            e.scroll_link = Some(link);
+        }
+    }
+
     /// Calls `handler` on a zoom gesture over the node, with how much larger was
     /// asked for relative to now: 0.02 is 2% larger, and a negative value is smaller.
     pub fn on_pinch(&mut self, node: NodeId, handler: Rc<dyn Fn(f32)>) {
         if let Some(e) = self.element_mut(node) {
             e.on_pinch = Some(handler);
+        }
+    }
+
+    /// Calls `handler` with the wheel or two-finger scroll over the node, in logical pixels
+    /// (positive `y` when the content should move down), instead of scrolling a container
+    /// around it: for a surface that pans on its own, such as a diagram.
+    pub fn on_wheel(&mut self, node: NodeId, handler: Rc<dyn Fn(Point)>) {
+        if let Some(e) = self.element_mut(node) {
+            e.on_wheel = Some(handler);
         }
     }
 
@@ -1320,5 +1520,32 @@ impl<'a> BuildCx<'a> {
             self.error = Some(e);
         }
         self.placeholder
+    }
+}
+
+/// What [`BuildCx::animated_numbers`] keeps between builds.
+struct Numbers {
+    from: Vec<f64>,
+    to: Vec<f64>,
+    start: f64,
+    duration: f64,
+    easing: ravenrs_animation::Easing,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl Numbers {
+    fn at(values: &[f64]) -> Self {
+        let easing = ravenrs_animation::Easing::Linear;
+        Self { from: values.to_vec(), to: values.to_vec(), start: 0.0, duration: 0.0, easing }
+    }
+
+    /// Exactly the target once the time is up.
+    fn value(&self, now: f64) -> Vec<f64> {
+        let t = if self.duration > 0.0 { (now - self.start) / self.duration } else { 1.0 };
+        if t >= 1.0 {
+            return self.to.clone();
+        }
+        let eased = f64::from(self.easing.sample(t.max(0.0) as f32));
+        self.from.iter().zip(&self.to).map(|(a, b)| a + (b - a) * eased).collect()
     }
 }

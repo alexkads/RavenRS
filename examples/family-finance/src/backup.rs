@@ -166,6 +166,17 @@ pub fn last_backup(database: &Path) -> Option<LastBackup> {
     serde_json::from_slice(&std::fs::read(memory_file(database)).ok()?).ok()
 }
 
+/// For how long a backup just made lets the data be replaced without making another.
+pub const BACKUP_IS_FRESH_FOR_MINUTES: u64 = 15;
+
+/// Whether a backup made a moment ago is still where it went: what lets everything be
+/// erased or replaced.
+pub fn has_fresh_backup(database: &Path, now: SystemTime) -> bool {
+    let Some(last) = last_backup(database) else { return false };
+    let now = now.duration_since(SystemTime::UNIX_EPOCH).map_or(0, |elapsed| elapsed.as_secs());
+    now.saturating_sub(last.seconds) <= BACKUP_IS_FRESH_FOR_MINUTES * 60 && last.path.is_file()
+}
+
 /// How many whole days ago a backup was made.
 pub fn days_since(seconds: u64, now: SystemTime) -> u64 {
     let now = now.duration_since(SystemTime::UNIX_EPOCH).map_or(0, |elapsed| elapsed.as_secs());

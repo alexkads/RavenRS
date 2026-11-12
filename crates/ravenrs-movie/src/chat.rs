@@ -3,6 +3,7 @@
 use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_reactive::Binding;
 use ravenrs_widgets::{BuildCx, Chat, ChatMessage, List, ListItem, NodeId, UiWaker, View};
 
@@ -20,6 +21,7 @@ const MOMENTS: usize = 3;
 /// The words a [`MovieChat`] shows. English by default.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MovieChatLabels {
     /// Inside the empty field.
     pub placeholder: String,
@@ -33,27 +35,25 @@ pub struct MovieChatLabels {
 
 impl Default for MovieChatLabels {
     fn default() -> Self {
-        Self {
-            placeholder: "Ask how to do something".into(),
-            intro: "Ask how to do something and I will open the moment of the training film that shows it."
-                .into(),
-            found: "These moments of the films show it:".into(),
-            nothing_found: "No film talks about that. Try other words.".into(),
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MovieChatLabels {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            placeholder: texts.get("movie.chat.placeholder"),
+            intro: texts.get("movie.chat.intro"),
+            found: texts.get("movie.chat.found"),
+            nothing_found: texts.get("movie.chat.nothing_found"),
+        }
+    }
+
     /// The words in Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            placeholder: "Pergunte como fazer alguma coisa".into(),
-            intro:
-                "Pergunte como fazer alguma coisa, e eu abro o momento do filme de treinamento que mostra."
-                    .into(),
-            found: "Estes momentos dos filmes mostram isso:".into(),
-            nothing_found: "Nenhum filme fala sobre isso. Tente outras palavras.".into(),
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 
@@ -74,6 +74,7 @@ impl MovieChatLabels {
 ///     println!("open {}", moment.title);
 /// });
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MovieChat {
     library: MovieLibrary,
     messages: Binding<Vec<ChatMessage>>,
@@ -89,6 +90,7 @@ impl std::fmt::Debug for MovieChat {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MovieChat {
     /// A conversation over `library`, keeping `messages`.
     pub fn new(
@@ -131,6 +133,7 @@ impl MovieChat {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MovieAnswers {
     /// What to say to a question: the moments that answer it, or that nothing does.
     /// For an app whose chat does more than talk about films.
@@ -164,6 +167,7 @@ impl MovieAnswers {
 
 /// What answering a question about the films takes. See [`MovieAnswers::answer`].
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MovieAnswers {
     /// The films.
     pub library: MovieLibrary,

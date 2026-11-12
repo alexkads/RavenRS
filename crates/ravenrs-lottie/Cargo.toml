@@ -13,7 +13,12 @@ documentation = "https://docs.rs/ravenrs-lottie"
 keywords = ["lottie", "animation", "vector", "gui", "wasm"]
 categories = ["gui", "graphics"]
 
+[features]
+# Registers its types with the playground's interpreter.
+live = ["dep:ravenrs-live", "ravenrs-core/live"]
+
 [dependencies]
+ravenrs-live = { workspace = true, optional = true }
 image.workspace = true
 ravenrs-core.workspace = true
 serde_json.workspace = true

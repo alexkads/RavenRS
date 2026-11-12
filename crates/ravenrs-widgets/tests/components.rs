@@ -1,5 +1,8 @@
 //! Behavior of the component library, driven through the public `Ui` API.
 
+use std::cell::Cell;
+use std::rc::Rc;
+
 use ravenrs_core::{Event, Key, Modifiers, Point, PointerButton, Primitive, Quad, Rect, Size};
 use ravenrs_reactive::State;
 use ravenrs_style::{Semantic, Theme};
@@ -225,7 +228,7 @@ fn tooltip_appears_on_hover() {
 
 #[test]
 fn theme_switcher_changes_app_theme() {
-    let mut ui = ui(VStack::new((ThemeSwitcher,)));
+    let mut ui = ui(VStack::new((ThemeSwitcher::new(),)));
     let light = Theme::raven_light();
     // Segments: Dark, Light, Glass; each ~80px wide starting at x=3.
     let segments: Vec<Rect> = quads(&ui).into_iter().map(|q| q.rect).collect();
@@ -233,6 +236,33 @@ fn theme_switcher_changes_app_theme() {
     click(&mut ui, Point::new(control.x() + control.width() / 2.0, control.center().y));
     assert_eq!(ui.theme().name, light.name);
     assert_eq!(ui.scene().clear_color(), light.color(Semantic::Canvas));
+}
+
+#[test]
+fn theme_switcher_offers_the_apps_own_themes() {
+    let own = |name, theme: Theme| Theme { name, ..theme };
+    let light = own("Own light", Theme::raven_light());
+    let switcher = ThemeSwitcher::new().themes(
+        own("Own dark", Theme::raven_dark()),
+        light,
+        own("Own glass", Theme::raven_glass()),
+    );
+    let mut ui = ui(VStack::new((switcher,)));
+    let control = quads(&ui)[0].rect;
+    click(&mut ui, Point::new(control.x() + control.width() / 2.0, control.center().y));
+    assert_eq!(ui.theme().name, light.name);
+}
+
+#[test]
+fn theme_switcher_tells_the_app_which_theme_was_picked() {
+    let picked = Rc::new(Cell::new(None));
+    let told = picked.clone();
+    let switcher = ThemeSwitcher::new().on_change(move |theme| told.set(Some(theme.name)));
+    let mut ui = ui(VStack::new((switcher,)));
+    let control = quads(&ui)[0].rect;
+    click(&mut ui, Point::new(control.x() + control.width() / 2.0, control.center().y));
+    assert_eq!(picked.get(), Some(Theme::raven_light().name));
+    assert_eq!(ui.theme().name, Theme::raven_light().name);
 }
 
 #[test]
@@ -438,7 +468,7 @@ mod from_the_family_finance_example {
         let date = Date::new(2026, 11, 5).expect("valid");
         let pt = Labels::pt_br();
         assert_eq!(pt.month_title(date), "novembro de 2026");
-        assert_eq!((pt.short_date)(date), "05/11/2026");
+        assert_eq!(pt.short_date(date), "05/11/2026");
         assert_eq!(pt.summary(ravenrs_widgets::Summary::Sum), "Soma");
         assert_eq!(Labels::default().month_title(date), date.month_title());
     }
@@ -1362,4 +1392,20 @@ fn focus_comes_back_to_where_it_was_when_a_dialog_with_a_focused_field_closes() 
     type_a(&mut ui);
     settle(&mut ui);
     assert_eq!(behind.get(), "aa", "it goes back");
+}
+
+#[test]
+fn labels_fill_their_templates_in_each_language() {
+    let (en, pt) = (Labels::default(), Labels::pt_br());
+    let day = Date::new(2026, 11, 5).expect("a date");
+    assert_eq!(en.short_date(day), "Nov 5, 2026");
+    assert_eq!(pt.short_date(day), "05/11/2026");
+    assert_eq!(en.theme_contrast(4.53, "surface"), "Contrast 4.5:1 on surface");
+    assert_eq!(pt.theme_contrast(4.53, "surface"), "Contraste 4,5:1 sobre surface");
+    assert_eq!(pt.theme_changed(0), "Sem alterações");
+    assert_eq!(pt.theme_changed(1), "1 token alterado");
+    assert_eq!(en.theme_changed(3), "3 tokens changed");
+    assert_eq!(pt.rating_value(3, 5), "3 de 5");
+    assert_eq!(en.wizard_progress(2, 4), "Step 2 of 4");
+    assert_eq!(pt.tag_add("azul"), "Adicionar \"azul\"");
 }

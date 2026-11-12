@@ -10,6 +10,7 @@ use family_finance::model::{
 use family_finance::{reports, seed};
 use ravenrs::prelude::{Date, Frequency, RecurrenceEnd, RecurrenceRule};
 use ravenrs_report::ReportEngine;
+use rusqlite::Connection;
 
 fn date(y: i32, m: u8, d: u8) -> Date {
     Date::new(y, m, d).expect("valid date")
@@ -236,6 +237,58 @@ fn the_budget_counts_only_that_month() {
 }
 
 #[test]
+fn the_numbers_of_one_account_leave_the_others_out() {
+    let f = fixture();
+    let wallet = f.db.add_account("Carteira", AccountKind::Cash, 30_00).expect("account");
+    expense(&f, date(2026, 3, 10), "Banco em março", 10_00);
+    expense(&f, date(2026, 4, 2), "Banco em abril", 20_00);
+    f.db.add_transaction(&TransactionInput {
+        date: date(2026, 4, 3),
+        description: "Feira".to_owned(),
+        amount_cents: 5_00,
+        flow: Flow::Expense,
+        account_id: wallet,
+        category_id: f.groceries,
+        member_id: None,
+    })
+    .expect("transaction");
+    f.db.add_transaction(&TransactionInput {
+        date: date(2026, 4, 5),
+        description: "Troco".to_owned(),
+        amount_cents: 2_00,
+        flow: Flow::Income,
+        account_id: wallet,
+        category_id: f.salary,
+        member_id: None,
+    })
+    .expect("transaction");
+    let last = date(2026, 4, 20);
+
+    let months = |account| {
+        f.db.monthly_totals_of(last, 2, account)
+            .expect("totals")
+            .iter()
+            .map(|m| (m.income_cents, m.expense_cents))
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(months(Some(f.account)), [(0, 10_00), (0, 20_00)]);
+    assert_eq!(months(Some(wallet)), [(0, 0), (2_00, 5_00)]);
+    assert_eq!(months(None), [(0, 10_00), (2_00, 25_00)], "no account is every account");
+
+    let april = f.db.totals_between_of(date(2026, 4, 1), date(2026, 5, 1), Some(wallet)).expect("totals");
+    assert_eq!((april.income_cents, april.expense_cents), (2_00, 5_00));
+
+    // Each account starts from its own opening balance, not the family's.
+    assert_eq!(f.db.balance_history_of(last, 2, Some(f.account)).expect("history"), [90_00, 70_00]);
+    assert_eq!(f.db.balance_history_of(last, 2, Some(wallet)).expect("history"), [30_00, 27_00]);
+    assert_eq!(f.db.balance_history_of(last, 2, None).expect("history"), [120_00, 97_00]);
+
+    let spent = |account| f.db.budget_lines_of(last, account).expect("lines")[0].spent_cents;
+    assert_eq!((spent(Some(f.account)), spent(Some(wallet)), spent(None)), (20_00, 5_00, 25_00));
+    assert_eq!(f.db.budget_lines_of(last, Some(wallet)).expect("lines")[0].budget_cents, 500_00);
+}
+
+#[test]
 fn an_expression_filter_runs_in_the_database() {
     let f = fixture();
     expense(&f, date(2026, 3, 1), "Feira barata", 30_00);
@@ -272,7 +325,7 @@ fn a_file_database_keeps_its_data_and_migrates_once() {
     let path = folder.join("nested").join("financas.db");
     {
         let db = Database::open(&path).expect("create");
-        assert_eq!(db.schema_version().expect("version"), 2);
+        assert_eq!(db.schema_version().expect("version"), 5);
         assert!(db.is_empty().expect("empty"));
         db.add_account("Banco", AccountKind::Cash, 5_00).expect("account");
         db.backup_to(&folder.join("copia.db")).expect("backup");
@@ -283,6 +336,60 @@ fn a_file_database_keeps_its_data_and_migrates_once() {
     let copy = Database::open(&folder.join("copia.db")).expect("the backup opens");
     assert_eq!(copy.accounts().expect("accounts")[0].name, "Banco");
     drop((again, copy));
+    std::fs::remove_dir_all(&folder).expect("clean up");
+}
+
+/// The chat paired before several chats were possible stays paired, for no one in particular.
+#[test]
+fn a_chat_paired_before_the_update_stays_paired() {
+    let folder = std::env::temp_dir().join(format!("family-finance-pairing-{}", std::process::id()));
+    let path = folder.join("financas.db");
+    {
+        let db = Database::open(&path).expect("create");
+        let hash = "ab".repeat(32);
+        db.begin_telegram_pairing(&hash, None, 1_000).expect("pairing");
+        assert!(db.claim_telegram_pairing(&hash, 10, 10, 1_001).expect("paired"));
+    }
+    // The database as version 4 left it: no member column.
+    let old = Connection::open(&path).expect("open");
+    old.execute_batch("ALTER TABLE telegram_pairings DROP COLUMN member_id; PRAGMA user_version = 4;")
+        .expect("version 4");
+    drop(old);
+
+    let db = Database::open(&path).expect("migrate");
+    assert_eq!(db.schema_version().expect("version"), 5);
+    assert!(db.telegram_chat_is_linked(10, 10).expect("read"), "still paired");
+    assert_eq!(db.telegram_chat_member(10).expect("read"), None);
+    drop(db);
+    std::fs::remove_dir_all(&folder).expect("clean up");
+}
+
+#[test]
+fn a_legacy_database_gets_category_keys_without_failing_on_equivalent_names() {
+    let folder = std::env::temp_dir().join(format!("family-finance-legacy-{}", std::process::id()));
+    let path = folder.join("financas.db");
+    std::fs::create_dir_all(&folder).expect("folder");
+    let legacy = Connection::open(&path).expect("legacy database");
+    legacy
+        .execute_batch(
+            "CREATE TABLE categories (
+                id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL CHECK (length(trim(name)) > 0),
+                flow TEXT NOT NULL CHECK (flow IN ('expense', 'income')),
+                budget_cents INTEGER NOT NULL DEFAULT 0 CHECK (budget_cents >= 0),
+                UNIQUE (name, flow)
+            );
+            INSERT INTO categories (name, flow) VALUES ('Café', 'expense'), ('cafe', 'expense');
+            PRAGMA user_version = 2;",
+        )
+        .expect("legacy schema");
+    drop(legacy);
+
+    let db = Database::open(&path).expect("migrate legacy database");
+    assert_eq!(db.schema_version().expect("version"), 5);
+    assert_eq!(db.find_or_create_category("CAFE", Flow::Expense).expect("reuse"), 1);
+    assert_eq!(db.categories().expect("categories").len(), 2);
+    drop(db);
     std::fs::remove_dir_all(&folder).expect("clean up");
 }
 

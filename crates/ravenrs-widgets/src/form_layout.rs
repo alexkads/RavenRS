@@ -23,6 +23,7 @@ enum Cell {
 
 /// A titled set of fields in a [`FormLayout`], filling its columns row by row.
 #[derive(Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FormGroup {
     title: Option<String>,
     columns: Option<usize>,
@@ -35,6 +36,7 @@ impl fmt::Debug for FormGroup {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FormGroup {
     /// A group with no title.
     pub fn new() -> Self {
@@ -109,6 +111,7 @@ impl View for Shared {
 /// ui.update();
 /// ```
 #[derive(Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FormLayout {
     columns: Option<usize>,
     errors: Vec<String>,
@@ -122,6 +125,7 @@ impl fmt::Debug for FormLayout {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FormLayout {
     /// An empty form with one column.
     pub fn new() -> Self {

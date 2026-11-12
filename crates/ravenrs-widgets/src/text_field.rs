@@ -24,6 +24,7 @@ use crate::{AnyView, ButtonSize, ButtonStyle, IconButton, IconName, View, util};
 /// let mut ui = Ui::new(field, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TextField {
     value: Binding<String>,
     placeholder: String,
@@ -56,6 +57,7 @@ impl fmt::Debug for TextField {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TextField {
     /// An empty-placeholder field bound to `value`.
     pub fn new(value: Binding<String>) -> Self {
@@ -223,6 +225,7 @@ pub(crate) struct Cursor {
     pub anchor: Option<usize>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Cursor {
     /// A caret at `at` with nothing selected.
     pub fn at(at: usize) -> Self {

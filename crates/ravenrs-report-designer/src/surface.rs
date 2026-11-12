@@ -24,6 +24,12 @@ use crate::editor::{Editor, Selection, snap};
 /// is drawn on it comes from Raven Light.
 const PAPER: Palette = Theme::raven_light().palette;
 const ACCENT: Color = PAPER.accent;
+/// Height of a band's caption strip, which the vertical ruler leaves blank.
+const CAPTION_HEIGHT: f32 = 24.0;
+/// Thickness of the rulers.
+const RULER: f32 = 18.0;
+/// Report units (points) in a centimeter, the unit the rulers count in.
+const POINTS_PER_CM: f32 = 72.0 / 2.54;
 /// What the report engine prints when a control sets no color.
 const DOCUMENT_INK: Color = Color::rgba(0.0, 0.0, 0.0, 1.0);
 
@@ -51,9 +57,10 @@ impl View for Surface {
         let zoom = e.zoom.get();
         let width = report.page.content_width() * zoom;
         e.band_frames.borrow_mut().clear();
-        let bands: Vec<NodeId> = BandRef::all(&report)
-            .into_iter()
-            .map(|b| cx.keyed_child(b.key(), &BandView { editor: e.clone(), band: b, width, zoom }))
+        let all = BandRef::all(&report);
+        let bands: Vec<NodeId> = all
+            .iter()
+            .map(|&b| cx.keyed_child(b.key(), &BandView { editor: e.clone(), band: b, width, zoom }))
             .collect();
         let page = cx.container(
             LayoutStyle {
@@ -69,15 +76,64 @@ impl View for Surface {
                 ..QuadPaint::new(PAPER.bg_100)
             }),
         );
+        // Rulers in centimeters: one across the top and one beside
+        // each band, marking where the selected control starts.
+        let scale = zoom * POINTS_PER_CM;
+        let selected = e.selected_control();
+        let ruler = |cx: &mut BuildCx<'_>, ruler: Ruler, axis: Axis, length: f32| {
+            let r = cx.child(&ruler.scale(scale).thickness(RULER).min_spacing(28.0).label("Régua"));
+            let (width, height) = if axis == Axis::Horizontal {
+                (Some(length), Some(RULER))
+            } else {
+                (Some(RULER), Some(length))
+            };
+            // The ruler stretches across its parent, so the parent runs the other way.
+            let across = if axis == Axis::Horizontal { Axis::Vertical } else { Axis::Horizontal };
+            cx.container(
+                LayoutStyle { width, height, align: Align::Stretch, ..LayoutStyle::stack(across) },
+                &[r],
+                Paint::None,
+            )
+        };
+        let mut top = Ruler::horizontal();
+        if let Some((_, _, c)) = &selected {
+            top = top.marker(c.x / POINTS_PER_CM);
+        }
+        let corner = cx.container(
+            LayoutStyle { width: Some(RULER), height: Some(RULER), ..LayoutStyle::leaf() },
+            &[],
+            Paint::None,
+        );
+        let top = ruler(cx, top, Axis::Horizontal, width + 2.0);
+        let top_row = cx.container(LayoutStyle::stack(Axis::Horizontal), &[corner, top], Paint::None);
+        let mut side = Vec::new();
+        for b in &all {
+            let Some(band) = b.get(&report) else { continue };
+            side.push(cx.container(
+                LayoutStyle { width: Some(RULER), height: Some(CAPTION_HEIGHT), ..LayoutStyle::leaf() },
+                &[],
+                Paint::None,
+            ));
+            let mut r = Ruler::vertical();
+            if let Some((sb, _, c)) = &selected
+                && sb == b
+            {
+                r = r.marker(c.y / POINTS_PER_CM);
+            }
+            side.push(ruler(cx, r, Axis::Vertical, (band.height * zoom).max(8.0)));
+        }
+        let side = cx.container(LayoutStyle::stack(Axis::Vertical), &side, Paint::None);
+        let body = cx.container(LayoutStyle::stack(Axis::Horizontal), &[side, page], Paint::None);
+        let framed = cx.container(LayoutStyle::stack(Axis::Vertical), &[top_row, body], Paint::None);
         cx.container(
             LayoutStyle {
                 padding: Insets::uniform(theme.spacing.s6),
                 // At least as wide as the pane between the panels, so the page sits in its center.
-                min_width: Some(cx.viewport().width - crate::LEFT_WIDTH - crate::PROPERTIES_WIDTH - 2.0),
+                min_width: Some(cx.viewport().width - crate::TOOLBOX_WIDTH - crate::DOCK_WIDTH - 2.0),
                 align: Align::Center,
                 ..LayoutStyle::stack(Axis::Vertical)
             },
-            &[page],
+            &[framed],
             Paint::None,
         )
     }
@@ -119,8 +175,9 @@ impl View for BandView {
             ))
             .spacing(6.0)
             .align(Align::Center)
-            .padding(Insets::symmetric(4.0, 8.0))
+            .padding(Insets::symmetric(0.0, 8.0))
             .width(self.width + 2.0)
+            .height(CAPTION_HEIGHT)
             .background(if band_selected { ACCENT.into() } else { Fill::from(PAPER.bg_000) }),
         );
         let select_band = {

@@ -1,5 +1,178 @@
 [
   {
+    "versao": "0.1.38",
+    "data": "2026-11-08",
+    "titulo": "Painel do seu jeito, por conta, e bot do Telegram firme em rede ruim.",
+    "importante": false,
+    "novidades": [
+      "No Painel, cada card muda de lugar e de tamanho, pelo mouse ou pelo teclado. O arranjo fica guardado, e o botão Restaurar layout volta ao original.",
+      "O Painel mostra uma conta só ou todas: o saldo, o gráfico, as receitas, as despesas e as categorias seguem a conta escolhida, que fica guardada para a próxima vez.",
+      "O bot do Telegram não responde duas vezes depois de uma queda de rede, e um botão já usado avisa no próprio botão, sem encher o chat.",
+      "Os botões do bot respondem mais rápido, e as respostas ficaram mais claras: ✅ Lançado, ❌ Cancelado e ↩️ Desfeito.",
+      "Um comprovante em PDF com mais de um valor mostra os valores como botões para você escolher o total."
+    ],
+    "por_que_atualizar": "Para arrumar o Painel como prefere, ver cada conta separada e lançar pelo Telegram sem respostas repetidas, mesmo com a internet ruim.",
+    "contribuidores": [
+      "Matheus Braga de Carvalho",
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      199,
+      200,
+      201
+    ]
+  },
+  {
+    "versao": "0.1.37",
+    "data": "2026-11-08",
+    "titulo": "Gráficos que entram desenhando.",
+    "importante": false,
+    "novidades": [
+      "Os gráficos do Painel entram desenhando: o saldo surge da esquerda para a direita, as barras de receitas e despesas crescem a partir do zero e a rosca das despesas gira até se completar.",
+      "Ao trocar o período do gráfico de saldo, ele desenha de novo com os meses escolhidos.",
+      "Quem pediu menos movimento no sistema vê os gráficos prontos, sem animação."
+    ],
+    "por_que_atualizar": "Para ver os números chegarem na tela e perceber de relance o que mudou.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      108,
+      190
+    ]
+  },
+  {
+    "versao": "0.1.36",
+    "data": "2026-11-07",
+    "titulo": "Treinamentos com a voz no tempo certo, abertura com a logo e despedida.",
+    "importante": false,
+    "novidades": [
+      "Nos treinamentos, cada caixa fica na tela o tempo exato da narração: a fala não é mais cortada pela caixa seguinte, e o vídeo só termina depois da última palavra.",
+      "Cada vídeo abre com a logo animada do Raven Finanças e o nome do assunto, narrados pelo Santa.",
+      "E termina com uma despedida própria e otimista, como \"A casa é sua! Agora cada real tem endereço.\""
+    ],
+    "por_que_atualizar": "Para assistir aos treinamentos com a voz e as caixas juntas, do começo ao fim.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      104
+    ]
+  },
+  {
+    "versao": "0.1.35",
+    "data": "2026-11-07",
+    "titulo": "Pergunte ao bot do Telegram, receba avisos e tenha um chat por pessoa.",
+    "importante": false,
+    "novidades": [
+      "Pergunte ao bot do Telegram, por texto ou áudio: \"quanto gastei com mercado esse mês?\", \"quanto a Ana gastou?\", \"qual o saldo?\" ou \"quais contas vencem?\". Os números vêm do seu banco, nunca de um palpite.",
+      "O bot avisa das contas vencidas ou a vencer, do orçamento estourado e manda um resumo às segundas. Cada aviso tem o botão Desligar, e /avisos mostra e muda tudo.",
+      "Se o Raven estava fechado, o bot responde as mensagens que ficaram esperando e diz quantas eram.",
+      "Cada pessoa da família pode ter o próprio chat: em Ajustes, no cartão Telegram, escolha de quem é o QR. O que ela lança e pergunta sai em nome dela."
+    ],
+    "por_que_atualizar": "Para perguntar ao bot quanto foi gasto, receber os avisos no Telegram e dar um chat a cada pessoa da família.",
+    "contribuidores": [
+      "Matheus Braga de Carvalho",
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      101
+    ]
+  },
+  {
+    "versao": "0.1.34",
+    "data": "2026-11-07",
+    "titulo": "Uma voz nova e natural, com três locutores.",
+    "importante": false,
+    "novidades": [
+      "O assistente ganhou uma voz nova, que fala português do Brasil com naturalidade. Ela roda neste computador, como antes, e gera a fala mais de duas vezes mais rápido.",
+      "Escolha quem fala entre três locutores: Dora, Alex e Santa. Em Ajustes, na Voz do assistente, baixe a Kokoro 82M e escolha o locutor.",
+      "Os vídeos de treinamento foram narrados de novo, agora com o Santa."
+    ],
+    "por_que_atualizar": "Para ouvir o assistente e os treinamentos com uma voz natural em português, do locutor que você preferir.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      85,
+      93
+    ]
+  },
+  {
+    "versao": "0.1.33",
+    "data": "2026-11-07",
+    "titulo": "Lançar pelo Telegram sem comprovante, e desfazer pelo chat.",
+    "importante": false,
+    "novidades": [
+      "No Telegram, lance só com uma mensagem, escrita ou falada: \"gastei 50 no mercado, foi a Ana\". O bot lê o valor, até por extenso, como \"cinquenta reais e noventa centavos\".",
+      "Se a categoria ainda não existe, o bot mostra as mais usadas para escolher, ou Criar, e nunca cria uma sem você pedir.",
+      "Errou? O botão Desfazer, depois do \"salva\", apaga o último lançamento do chat por 5 minutos.",
+      "O bot reconhece quem gastou mesmo com uma letra trocada no áudio, e o nome depois de \"para\": \"despesa de mercado para o Mateus\".",
+      "Em Ajustes, o cartão do Telegram ficou mais organizado: o estado no topo e o token recolhido depois de salvo.",
+      "Começar do zero e Carregar dados de exemplo pedem um backup recente e a palavra digitada em caixa alta antes de apagar ou trocar os dados."
+    ],
+    "por_que_atualizar": "Para lançar pelo Telegram só dizendo o valor, sem PDF, desfazer um engano pelo chat e não perder dados por um clique sem querer.",
+    "contribuidores": [
+      "Matheus Braga de Carvalho",
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      23,
+      26
+    ]
+  },
+  {
+    "versao": "0.1.32",
+    "data": "2026-11-06",
+    "titulo": "Telegram por áudio e atualização que explica o que deu errado.",
+    "importante": false,
+    "novidades": [
+      "No Telegram, responda ao comprovante falando ou escrevendo, e diga quem gastou: \"despesa de mercado, quem gastou foi a Ana\".",
+      "Antes de lançar, o bot mostra o que vai gravar com os botões Confirmar, Corrigir e Cancelar.",
+      "Para entender áudios, baixe um modelo em Ajustes, no cartão Telegram. Ele roda só neste computador.",
+      "Se uma atualização não der certo, Ver detalhes mostra o motivo inteiro e o fim do registro do instalador, para copiar ou tentar de novo.",
+      "Em Lançamentos, o painel do filtro ganhou Editar filtro, com é um de e não é nenhum de.",
+      "Os ícones ficaram centralizados, como o check da caixa de marcação.",
+      "As novidades agora mostram quem contribuiu e as issues resolvidas em cada versão."
+    ],
+    "por_que_atualizar": "Para lançar comprovantes pelo Telegram falando, confirmar antes de gravar e entender uma atualização que falhe.",
+    "contribuidores": [
+      "Matheus Braga de Carvalho",
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      4,
+      6
+    ]
+  },
+  {
+    "versao": "0.1.31",
+    "data": "2026-11-06",
+    "titulo": "Comprovantes pelo Telegram.",
+    "importante": false,
+    "novidades": [
+      "Mande um comprovante em PDF para o seu bot do Telegram, responda se é despesa ou receita e a categoria, e o lançamento é criado.",
+      "Para ligar, abra Ajustes, cole o token do bot criado no @BotFather, escolha a conta e escaneie o QR com o celular.",
+      "O tema escolhido em Ajustes continua o mesmo quando você abre o app de novo."
+    ],
+    "por_que_atualizar": "Para lançar despesas e receitas direto do celular, sem digitar o valor.",
+    "contribuidores": [
+      "Matheus Braga de Carvalho",
+      "Alex S S Fonseca"
+    ]
+  },
+  {
+    "versao": "0.1.30",
+    "data": "2026-11-05",
+    "titulo": "Cores novas, em verde-limão.",
+    "importante": false,
+    "novidades": [
+      "O tema claro agora é o padrão, com tons de verde-limão.",
+      "O tema escuro ficou mais vivo: grafite no lugar do quase preto, com destaques em limão."
+    ],
+    "por_que_atualizar": "Para usar o app com cores mais alegres, nos dois temas."
+  },
+  {
     "versao": "0.1.29",
     "data": "2026-11-05",
     "titulo": "Gráficos mais fáceis de ler.",
