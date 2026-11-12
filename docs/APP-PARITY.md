@@ -1,6 +1,6 @@
 # Application framework parity
 
-What exists of the behavior documented for model-driven application frameworks, and the step that brings the rest. ✅ works, 🟡 in part, ⬜ planned. See [APP-FRAMEWORK.md](APP-FRAMEWORK.md).
+What exists of the behavior documented for model-driven application frameworks, and the step that brings the rest. ✅ works, 🟡 in part, ⬜ planned. See [APP-FRAMEWORK.md](APP-FRAMEWORK.md), and [APP-CONTRACTS.md](APP-CONTRACTS.md) for what reusable modules have to honor and the scenarios that prove it.
 
 | Area | State | Step |
 |---|---|---|
@@ -69,8 +69,27 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Chart and scheduler list editors | ⬜ | F9 |
 | Tree and pivot list editors | ⬜ needs the tree list and the pivot grid | F9 |
 | Report designer and definitions in a database, dashboards people create | ⬜ | F10 |
-| Web API, remote object space, other databases | ⬜ | F12 |
-| Multi-tenancy | ⬜ | F13 |
+| Web API, remote object space, other databases | ⬜ | F12, #226 |
+| Multi-tenancy | ⬜ | F13, #225 |
 | AI: natural language filters, writing help, smart paste | ⬜ local models only, so not on the web | F14 |
 | A command-line tool that creates projects step by step from templates; deployment and diagnostics guides | ⬜ | F15 |
 | An installer with Zed as the editor for projects, its extension and skills, and a graphical viewer of a project | ⬜ | F16 |
+| Modules that declare version, targets, databases, permissions, migrations, jobs and providers, and turn off without losing data | 🟡 `ModuleManifest`, checked by `ApplicationBuilder::build`; `switch_off` and `Application::guard`. The generated screens do not use the guard yet (#242); not listed by the CLI or MCP yet (#81) | #271 |
+| Failures that say a capability is missing, a failure is temporary or the outcome is unknown | ✅ `SpaceError::Unavailable`, `Temporary`, `Unknown`, with `is_temporary` and `may_have_happened`; SQLite busy is temporary | #270 |
+| Providers that declare what they can do, and a contract to send events | 🟡 `Provider`, `EventSink`, `CAN_TELL_STATUS`. No cancellation or deadline inside a send yet (#255) | #270 |
+| Events written in the same commit as the change that raised them | ✅ `ObjectSpaceExt::emit`, `Event`, `OutboxModule`: one event per organization and key, kept with the change or not at all; `Dispatcher` sends them in this process | #254 |
+| Delivering events with limited retries, reconciling before sending again | ⬜ `Job` runs inside the process only | #255 |
+| Incoming webhooks, signed and deduplicated per organization | ⬜ | #256 |
+| Signing in through an external identity provider, linked by issuer, with sessions that can be revoked | 🟡 `ExternalSignIn` over an `IdentityProvider`, `UserDirectory::link_external` and `unlink_external` by issuer and subject, `SecurityContext::signed_in_with`; roles always from the local user, `AuthError::Unavailable` when the provider is out of reach. No OIDC provider or MFA built in yet, and no screen to link | #257 |
+| Durable processes: a task inbox, delegation, deadlines and resuming after a restart | 🟡 `ravenrs-app-requests`: a task per request and step with its role and deadline, the generated list of open tasks as each role's inbox (`task_reader`), rules as expressions (`Step::when`), delegations that end (`delegate`, `delegated_roles`), resuming from storage. Escalating overdue tasks waits for #66 | #258 |
+| Conversations kept with members, delivery state and unread counts | 🟡 `Chat` draws a conversation; nothing keeps one | #259 |
+| Forms published in versions, and audiences by criteria | ⬜ | #260 |
+| Issued documents frozen at a template revision, with a hash and a checked download | 🟡 `AttachmentStore` keeps files by key; reading a key checks no permission | #261 |
+| Charges, receipts and refunds through one provider contract | ⬜ | #262 |
+| Passes checked by the service, with separate states for reading and printing | 🟡 `ravenrs-graphics` draws the code (`barcode::encode`) and reports print it as `ControlKind::Barcode`; nothing reads one or knows if it printed | #263 |
+| Pages with draft, version and audience, in an optional package | ⬜ | #264 |
+| A media player that says what each host can play | 🟡 `SoundClip` and `AudioPlayerButton` play sound; no video | #265 |
+| An MCP server of the application, acting with the person's permissions and asking before writing | ⬜ `ravenrs-mcp` answers about the framework only | #266 |
+| A test kit for reusable modules: two organizations with the same keys, units, people, example roles, a controlled clock | ✅ `ravenrs-app-testkit` | #268 |
+| Requests decided step by step, with steps, roles and rules from the application, idempotent decisions and an event in the same commit | 🟡 `ravenrs-app-requests`, in two applications of `examples/contracts`. Tasks, inboxes, deadlines and delegations since #258 | #268 |
+| Finding the contracts of reusable modules: scenarios and groups with their owners, the state of each capability | ✅ `app_contracts` and `parity_status` with `document: application` in `ravenrs-mcp`; the skill that `cargo ravenrs` installs points to them | #274 |

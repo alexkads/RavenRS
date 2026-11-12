@@ -15,7 +15,8 @@ root = pathlib.Path(__file__).resolve().parent.parent
 check = "--check" in sys.argv
 
 # Each list is written in `crate`, and registers the crates of `sources` in order: `path` is how
-# the list names them. `only_reexported` takes just what the crate re-exports, behind `feature`.
+# the list names them. `only_reexported` takes just what the crate re-exports, behind `feature`:
+# one name, or a name per module with `"*"` for the rest.
 # `traits` are traits whose implementations are exposed too, as a type's methods.
 TARGETS = [
     {
@@ -26,7 +27,12 @@ TARGETS = [
             {"dir": "ravenrs-core", "path": "ravenrs_core"},
             {"dir": "ravenrs-style", "path": "ravenrs_style"},
             {"dir": "ravenrs-layout", "path": "ravenrs_layout"},
-            {"dir": "ravenrs-graphics", "path": "ravenrs_graphics", "only_reexported": True, "feature": "charts"},
+            {
+                "dir": "ravenrs-graphics",
+                "path": "ravenrs_graphics",
+                "only_reexported": True,
+                "feature": {"flow": "flow", "*": "charts"},
+            },
             {"dir": "ravenrs-lottie", "path": "ravenrs_lottie", "only_reexported": True, "feature": "lottie"},
             {"dir": "ravenrs-widgets", "path": "crate"},
         ],
@@ -224,7 +230,10 @@ def generate(target):
         seen = {}
         for path in rust_files(crate_src):
             module = path.relative_to(crate_src).parts[0].removesuffix(".rs")
-            gate = f'feature = "{source["feature"]}"' if source.get("feature") else (gates.get(module) if own else None)
+            feature = source.get("feature")
+            if isinstance(feature, dict):
+                feature = feature.get(module, feature.get("*"))
+            gate = f'feature = "{feature}"' if feature else (gates.get(module) if own else None)
             module_cfg = f"    #[cfg({gate})]\n" if gate else ""
             out = []
             for line in path.read_text().split("\n"):

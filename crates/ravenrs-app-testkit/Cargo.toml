@@ -1,0 +1,20 @@
+[package]
+name = "ravenrs-app-testkit"
+description = "Synthetic data for testing reusable ravenrs-app modules: two organizations with the same keys, units, people, example roles and a controlled clock."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+publish = false
+
+[dependencies]
+ravenrs-app.workspace = true
+ravenrs-app-sqlite.workspace = true
+rusqlite.workspace = true
+
+[lints]
+workspace = true

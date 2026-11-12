@@ -1,0 +1,16 @@
+[package]
+name = "contrato-associacao"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.88"
+publish = false
+
+[dependencies]
+ravenrs-app = { path = "../../../crates/ravenrs-app" }
+ravenrs-app-requests = { path = "../../../crates/ravenrs-app-requests" }
+
+[dev-dependencies]
+ravenrs-app-testkit = { path = "../../../crates/ravenrs-app-testkit" }
+
+# Uma aplicação à parte: abre e compila sozinha, fora do workspace do RavenRS.
+[workspace]

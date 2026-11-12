@@ -139,9 +139,17 @@ pub trait ObjectSpaceExt {
     fn add<T: BusinessObject>(&mut self, record: &T) -> Result<(), SpaceError>;
     /// Reads records.
     fn read<T: BusinessObject>(&self, query: &Query) -> Result<Vec<T>, SpaceError>;
+    /// Adds an event to what the next commit keeps, so that the change and its event are kept
+    /// together or not at all. Its organization keeps one event per key: emitting the same key again
+    /// adds nothing. The space needs the entity of [`outbox_entity`](crate::outbox_entity).
+    fn emit(&mut self, event: &crate::Event) -> Result<crate::Emitted, SpaceError>;
 }
 
 impl<S: ObjectSpace + ?Sized> ObjectSpaceExt for S {
+    fn emit(&mut self, event: &crate::Event) -> Result<crate::Emitted, SpaceError> {
+        crate::outbox::emit(self, event)
+    }
+
     fn add<T: BusinessObject>(&mut self, record: &T) -> Result<(), SpaceError> {
         let entity = T::entity_info();
         let mut object = self.new_object(&entity.name)?;
