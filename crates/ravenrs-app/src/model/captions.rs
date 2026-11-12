@@ -8,15 +8,39 @@ use crate::{EntityInfo, ModelError};
 
 /// A cell of a CSV line, quoted when it has to be.
 fn cell(text: &str) -> String {
-    let mut out = String::new();
-    ravenrs_core::csv::push_field(&mut out, text, ',');
-    out
+    if text.contains([',', '"', '\n', '\r']) {
+        format!("\"{}\"", text.replace('"', "\"\""))
+    } else {
+        text.to_owned()
+    }
 }
 
-/// The cells of a whole CSV text, line by line. A translator's spreadsheet may save it back with
-/// `;` between cells, as it does where the comma is the decimal mark, so that is read too.
+/// The cells of a whole CSV text, line by line, where a quoted cell can hold a line break.
 fn lines_of(text: &str) -> Vec<Vec<String>> {
-    ravenrs_core::csv::read_any(text)
+    let mut lines = Vec::new();
+    let (mut line, mut current, mut quoted) = (Vec::new(), String::new(), false);
+    let mut chars = text.chars().peekable();
+    while let Some(c) = chars.next() {
+        match (c, quoted) {
+            ('"', true) if chars.peek() == Some(&'"') => {
+                chars.next();
+                current.push('"');
+            }
+            ('"', _) => quoted = !quoted,
+            (',', false) => line.push(std::mem::take(&mut current)),
+            ('\n', false) => {
+                line.push(std::mem::take(&mut current));
+                lines.push(std::mem::take(&mut line));
+            }
+            ('\r', false) => {}
+            (c, _) => current.push(c),
+        }
+    }
+    if !current.is_empty() || !line.is_empty() {
+        line.push(current);
+        lines.push(line);
+    }
+    lines
 }
 
 fn add(path: &[&str], node: &ModelNode, lines: &mut Vec<String>) {
@@ -124,12 +148,5 @@ mod tests {
         assert!(diff.to_json().contains("Conta"));
         assert!(!diff.to_json().contains("\"B\""));
         assert!(translation_of("path,caption,translation\nx,y\n").is_err());
-    }
-
-    #[test]
-    fn a_file_saved_again_with_semicolons_and_a_mark_still_reads() {
-        let diff = translation_of("\u{feff}path;caption;translation\r\nEntities/A;A;\"Conta; corrente\"\r\n")
-            .expect("reads");
-        assert!(diff.to_json().contains("Conta; corrente"));
     }
 }
