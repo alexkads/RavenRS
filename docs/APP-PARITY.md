@@ -80,7 +80,7 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Events written in the same commit as the change that raised them | ✅ `ObjectSpaceExt::emit`, `Event`, `OutboxModule`: one event per organization and key, kept with the change or not at all; `Dispatcher` sends them in this process | #254 |
 | Delivering events with limited retries, reconciling before sending again | ⬜ `Job` runs inside the process only | #255 |
 | Incoming webhooks, signed and deduplicated per organization | ⬜ | #256 |
-| Signing in through an external identity provider, linked by issuer, with sessions that can be revoked | ⬜ `Authenticator` is where a provider goes; none is built in | #257 |
+| Signing in through an external identity provider, linked by issuer, with sessions that can be revoked | 🟡 `ExternalSignIn` over an `IdentityProvider`, `UserDirectory::link_external` and `unlink_external` by issuer and subject, `SecurityContext::signed_in_with`; roles always from the local user, `AuthError::Unavailable` when the provider is out of reach. No OIDC provider or MFA built in yet, and no screen to link | #257 |
 | Durable processes: a task inbox, delegation, deadlines and resuming after a restart | 🟡 `ravenrs-app-requests`: a task per request and step with its role and deadline, the generated list of open tasks as each role's inbox (`task_reader`), rules as expressions (`Step::when`), delegations that end (`delegate`, `delegated_roles`), resuming from storage. Escalating overdue tasks waits for #66 | #258 |
 | Conversations kept with members, delivery state and unread counts | 🟡 `Chat` draws a conversation; nothing keeps one | #259 |
 | Forms published in versions, and audiences by criteria | ⬜ | #260 |

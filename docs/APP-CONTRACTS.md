@@ -99,7 +99,7 @@ Each scenario has one owner issue, where its checklist lives. The text of the in
 |---|---|---|
 | C01 | The same read through the local and the remote client returns the same allowed fields; a forged key of T2 is refused; paging and export keep the scope | #226 |
 | C02 | A relation is authorized on create too, including references the storage computes; switching organization clears the previous context | #232, #225 |
-| C03 | An external identity never widens scope: no linking by e-mail, revocation stops the next operation, provider outage has a documented recovery | #257 |
+| C03 | An external identity never widens scope: no linking by e-mail, revocation stops the next operation, provider outage has a documented recovery | #257 (done) |
 | C04 | A second writer on the same version does not overwrite silently; a backup of T1 restores on a clean install, a file of T2 is refused; migrations keep data and can be recovered | #241, #229, #243 |
 | C05 | An offline change reconciles once; a permission revoked meanwhile is refused; an online-only command shows pending, never false success; turning a module off keeps reads and exports | #240, #242 |
 | C06 | An approval survives a restart without losing or repeating a decision; self-approval follows the application's policy; delegation ends on its date | #258 (done) |
@@ -134,7 +134,7 @@ What each group of capabilities uses today and where the rest is followed. *Mast
 |---|---|---|---|---|---|
 | M01 API and client | `ravenrs-app-server`, `ravenrs-app-remote`, `ravenrs-app-sql`, `ravenrs-app-postgres` | security of `ravenrs-app` | desktop, web, server; SQLite, PostgreSQL | in PR #244 | #226 |
 | M02 Organization and unit | `SecuredObjectSpace`, `Role::object_permission`, `member_permission` | #225 for the organization in context | any; any | partial; references on create in PR #236 | #225, #232 |
-| M03 Identity | `Authenticator`, `UserDirectory`, `SecurityContext` | | any; any | partial: local passwords only | #257 |
+| M03 Identity | `Authenticator`, `UserDirectory`, `SecurityContext`, `ExternalSignIn`, `IdentityProvider`, `Claims` | | any; any | partial (master): outside identities linked by issuer and revocable (#257); no OIDC provider or MFA | #257 |
 | M04 Data and recovery | `merge_changes`, `SqliteBuilder::migration`, `SpaceError::Conflict` | | native; SQLite | partial; backup in PR #230 | #241, #229, #243 |
 | M05 Offline and features | `ApplicationBuilder::switch_off`, `Application::guard` | #241 | any; any | partial (master) | #240, #242 |
 | M06 Durable processes | `ravenrs-app-requests` (`RequestsModule`, `Step::when`, `Step::due_in`, `task_reader`, `delegate`, `delegated_roles`, `tasks_for`), `StateMachine` | #66 for escalation | any; any | partial (master): tasks, inboxes, deadlines and delegations done (#258); no escalation | #66 |
