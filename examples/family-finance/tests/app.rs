@@ -369,11 +369,69 @@ fn the_settings_say_there_is_no_backup_and_offer_both_ways() {
     std::fs::remove_dir_all(&folder).expect("clean up");
 }
 
+/// A backup made a moment ago, as "Fazer backup" leaves it, without the dialog that asks where.
+fn back_up_now(folder: &std::path::Path) {
+    let path = folder.join("financas.db");
+    let db = Database::open(&path).expect("database");
+    family_finance::backup::save_backup(
+        &db,
+        Some(&path),
+        &folder.join("backup.db"),
+        std::time::SystemTime::now(),
+    )
+    .expect("backup");
+}
+
+/// Answers "Apagar todos os dados?": the button does nothing until the word is typed.
+fn erase_typing(ui: &mut Ui) {
+    assert!(says(ui, "Apagar todos os dados?"), "it asks before erasing");
+    assert!(says(ui, "Para confirmar, digite APAGAR"));
+    press(ui, Role::Button, "Apagar tudo");
+    assert!(says(ui, "Apagar todos os dados?"), "without the word nothing is erased");
+    type_into(ui, "APAGAR", "apagar");
+    press(ui, Role::Button, "Apagar tudo");
+    assert!(says(ui, "Apagar todos os dados?"), "the word goes in capitals");
+    for _ in 0..6 {
+        ui.handle_event(&Event::KeyDown { key: Key::Backspace, modifiers: Modifiers::default() });
+    }
+    type_into(ui, "APAGAR", "APAGAR");
+    press(ui, Role::Button, "Apagar tudo");
+}
+
+#[test]
+fn erasing_everything_asks_for_a_backup_first() {
+    let (mut ui, folder) = app_on_a_file("wipe-needs-backup");
+    let old = folder.join("velho.db");
+    let db = Database::open(&folder.join("financas.db")).expect("database");
+    let long_ago = std::time::SystemTime::now() - std::time::Duration::from_secs(3600);
+    family_finance::backup::save_backup(&db, Some(&folder.join("financas.db")), &old, long_ago)
+        .expect("backup");
+    drop(db);
+    settle(&mut ui);
+    assert!(!family_finance::backup::has_fresh_backup(
+        &folder.join("financas.db"),
+        std::time::SystemTime::now()
+    ));
+    back_up_now(&folder);
+    assert!(family_finance::backup::has_fresh_backup(
+        &folder.join("financas.db"),
+        std::time::SystemTime::now()
+    ));
+    std::fs::remove_file(folder.join("backup.db")).expect("lose the backup");
+    assert!(
+        !family_finance::backup::has_fresh_backup(&folder.join("financas.db"), std::time::SystemTime::now()),
+        "a backup that is gone does not count"
+    );
+    drop(ui);
+    std::fs::remove_dir_all(&folder).expect("clean up");
+}
+
 #[test]
 fn going_back_to_a_copy_tells_what_changes_and_can_be_undone() {
     let (mut ui, folder) = app_on_a_file("restore");
+    back_up_now(&folder);
     press(&mut ui, Role::Button, "Começar do zero");
-    press(&mut ui, Role::Button, "Apagar tudo");
+    erase_typing(&mut ui);
     assert!(says(&mut ui, "Antes de apagar tudo"), "erasing kept a copy");
 
     // The copy of the day still has the sample family.
