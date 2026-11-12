@@ -22,6 +22,13 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
   navigation sheet; choosing a screen closes it. `AppShell::sidebar` shares the state with the
   application. ([#184](https://github.com/alexkads/RavenRS/issues/184))
 
+### Fixed
+
+- Dates and moments in generated lists show the language's way (`format.date`,
+  `format.date_time`: `dd/MM/yyyy` in Brazilian Portuguese) and still sort and filter as dates;
+  a column with a format of its own filters a number by what it shows when it does not compare.
+  ([#231](https://github.com/alexkads/RavenRS/issues/231))
+
 ## [27.1.27] - 2026-11-11
 
 ### Added

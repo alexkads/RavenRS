@@ -165,6 +165,10 @@ pub struct Words {
     pub thousands: char,
     /// Before decimals.
     pub decimal: char,
+    /// How a date shows in lists, such as `dd/MM/yyyy`.
+    pub date_format: String,
+    /// How a date with a time shows in lists, such as `dd/MM/yyyy HH:mm`.
+    pub date_time_format: String,
 }
 
 impl Default for Words {
@@ -249,6 +253,8 @@ impl Words {
             money_prefix: texts.get("format.money_prefix"),
             thousands: texts.char("format.thousands", ','),
             decimal: texts.char("format.decimal", '.'),
+            date_format: texts.get("format.date"),
+            date_time_format: texts.get("format.date_time"),
         }
     }
 
