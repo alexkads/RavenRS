@@ -755,13 +755,12 @@ fn the_card_pairs_without_holding_up_the_window() {
     }
     let fake = FakeTelegram::start(Duration::from_millis(800));
     let home = folder("window");
+    // The test's full name inside the binary, such as `telegram::the_card_…`: the module path
+    // without the binary's own name.
+    let module = module_path!().split_once("::").map_or("", |(_, rest)| rest);
+    let name = format!("{module}::the_card_pairs_without_holding_up_the_window");
     let mut command = Command::new(std::env::current_exe().expect("this test"));
-    command.args([
-        "--exact",
-        "the_card_pairs_without_holding_up_the_window",
-        "--nocapture",
-        "--test-threads=1",
-    ]);
+    command.args(["--exact", name.as_str(), "--nocapture", "--test-threads=1"]);
     command.env("FF_TELEGRAM_WINDOW", &home);
     isolated(&mut command, &fake, &home);
     let output = command.output().expect("the window's test");

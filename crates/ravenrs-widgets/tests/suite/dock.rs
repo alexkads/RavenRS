@@ -1,7 +1,7 @@
 //! Panels in a tree that move, resize, close and are saved: each test fails if its feature goes.
 #![allow(clippy::expect_used, clippy::unwrap_used, reason = "test helpers fail loudly")]
 
-mod lists_support;
+use super::lists_support;
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;

@@ -39,6 +39,9 @@ pub enum Lint {
     BlockingInBody,
     /// A source file longer than `max-file-lines` (600 by default).
     OversizedFile,
+    /// Top-level modules of a crate that use each other in a loop longer than `max-module-cycle`
+    /// (2 by default, a pair). They cannot be read, tested or moved to a crate of their own apart.
+    ModuleCycle,
     /// A `ravenrs-lint: allow(..)` comment that does not say why.
     AllowWithoutReason,
     /// A `ravenrs-lint: allow(..)` comment naming a rule that does not exist.
@@ -57,6 +60,7 @@ impl Lint {
         Lint::StateInBody,
         Lint::BlockingInBody,
         Lint::OversizedFile,
+        Lint::ModuleCycle,
         Lint::AllowWithoutReason,
         Lint::UnknownLint,
     ];
@@ -73,6 +77,7 @@ impl Lint {
             Lint::StateInBody => "state_in_body",
             Lint::BlockingInBody => "blocking_in_body",
             Lint::OversizedFile => "oversized_file",
+            Lint::ModuleCycle => "module_cycle",
             Lint::AllowWithoutReason => "allow_without_reason",
             Lint::UnknownLint => "unknown_lint",
         }
@@ -95,6 +100,9 @@ impl Lint {
             Lint::StateInBody => "state lives in the component, not in `body`",
             Lint::BlockingInBody => "`body` and `build` never block",
             Lint::OversizedFile => "source files stay small enough to read",
+            Lint::ModuleCycle => {
+                "modules do not use each other in a loop, so each can be read and moved apart"
+            }
             Lint::AllowWithoutReason => "every exception says why",
             Lint::UnknownLint => "exceptions name real rules",
         }
@@ -221,7 +229,7 @@ fn key(span: Span) -> (usize, usize) {
     (start.line, start.column)
 }
 
-fn is_test_code(attrs: &[syn::Attribute]) -> bool {
+pub(crate) fn is_test_code(attrs: &[syn::Attribute]) -> bool {
     attrs.iter().any(|attr| {
         let path = attr.path();
         path.is_ident("test")

@@ -3,7 +3,7 @@
 //!
 //! ```text
 //! LOTTIE_CORPUS=json LOTTIE_REFERENCE=refs LOTTIE_OUT=ours \
-//!     cargo test --release -p ravenrs --test lottie_corpus -- --nocapture
+//!     cargo test --release -p ravenrs --test suite lottie_corpus:: -- --nocapture
 //! ```
 #![allow(clippy::expect_used, clippy::print_stdout, reason = "a measuring tool")]
 
@@ -158,7 +158,7 @@ fn real_files_against_the_reference() {
 ///
 /// ```text
 /// LOTTIE_STRIP=logo.json LOTTIE_TIMES=120,300,480 LOTTIE_OUT=strip.png \
-///     cargo test --release -p ravenrs --test lottie_corpus strip -- --nocapture
+///     cargo test --release -p ravenrs --test suite lottie_corpus::strip -- --nocapture
 /// ```
 #[test]
 fn strip_of_one_file() {

@@ -45,6 +45,7 @@ cargo ravenrs-lint --gate
 | `state_in_body` | `State::new` in `body` or `build`, which run on every rebuild |
 | `blocking_in_body` | Files, processes, sleeping, blocking network calls or `block_on` in `body` or `build` |
 | `oversized_file` | Source files over 600 lines, not counting their `#[cfg(test)]` modules |
+| `module_cycle` | Top-level modules that use each other in a loop of more than two; see below |
 | `allow_without_reason` | `ravenrs-lint: allow(..)` comments that do not say why |
 | `unknown_lint` | `allow(..)` comments naming a rule that does not exist |
 
@@ -57,6 +58,7 @@ Test code (`#[test]`, `#[cfg(test)]`) and the `tests/` directory are not checked
 language = "pt-BR"                 # "en" by default
 extra-verbs = ["Ok"]               # first words accepted besides the built-in verbs
 max-file-lines = 600
+max-module-cycle = 2               # the most modules one loop may join; see "Modules that use each other"
 
 [package.metadata.ravenrs-lint.lints]
 off_grid_spacing = { level = "warn", reason = "the old reports screen is being redrawn in #42" }
@@ -69,6 +71,21 @@ A level of `"deny"` needs nothing; `"warn"` and `"allow"` need a `reason`. One p
 ```
 
 `allow-file(..)` excuses a whole file.
+
+## Modules that use each other
+
+`module_cycle` reads the whole crate instead of one file. Each top-level module (`mod grid;` in `lib.rs` or `main.rs`, with the files under it) uses another when its code names it: `use crate::grid::…`, `crate::grid::X` in an expression or a type, `crate::X` re-exported from `grid` at the root, or `super::grid` in a file right under the root. Test code does not count.
+
+Modules in a loop (`a` uses `b`, `b` uses `c`, `c` uses `a`) can only be read, tested and moved to a crate of their own together, so a loop grows into a block nobody can take apart. A pair is common (a screen and its helper) and allowed; a longer loop is an error, reported at the `use` of the module that names the most others in it:
+
+```text
+error[ravenrs::module_cycle]: 3 modules use each other in a loop, more than the 2 allowed: a → b → c → a (all of them: a, b, c)
+ --> src/a.rs:1:1
+```
+
+To untangle one, `cargo ravenrs-lint -p <package> --modules` prints each module's size, how many it uses and how many use it, and every loop. Move what two modules both need into a module below them, or let the lower one take a trait or a closure instead of naming the upper one. An `allow(module_cycle)` comment with a reason on a `use` takes that one edge out.
+
+A crate that already has a long loop holds today's size with `max-module-cycle`, so it cannot grow; once it shrinks, the rule asks for the lower number, so the limit only goes down. `--only module_cycle` checks this rule alone, and `--workspace` checks every package, not only those that depend on RavenRS.
 
 ## From a test, or as JSON
 

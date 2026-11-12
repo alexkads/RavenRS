@@ -142,7 +142,7 @@ Serve the folder over HTTP with a page that has `<canvas id="raven-canvas">`. It
 - `scripts/check.sh` is the gate, because the project has no hosted CI. It runs formatting, clippy on native and wasm32, all tests, MSRV, `cargo deny`, docs and the web builds. For a quick pass use `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo test -p <crate>`.
 - A new component needs rustdoc with an example, semantics, keyboard support, a behavior test through `Ui` and a section in `examples/component-gallery`. Update `docs/PARITY.md` and `CHANGELOG.md` under `[Unreleased]`.
 - Use only `Semantic` tokens and existing components in the repository's own modules. If something is missing, add it to the library first.
-- Versions are `YY.R.P`: until 28.1.0 any release may hold breaking changes, listed in the CHANGELOG; from then on, only in each year's `.1` release, with additions in `.2` and fixes in maintenance releases. See [docs/VERSIONING.md](https://github.com/alexkads/RavenRS/blob/master/docs/VERSIONING.md). Visual changes need a golden-image update: `RAVENRS_UPDATE_GOLDEN=1 cargo test -p ravenrs --test visual`.
+- Versions are `YY.R.P`: until 28.1.0 any release may hold breaking changes, listed in the CHANGELOG; from then on, only in each year's `.1` release, with additions in `.2` and fixes in maintenance releases. See [docs/VERSIONING.md](https://github.com/alexkads/RavenRS/blob/master/docs/VERSIONING.md). Visual changes need a golden-image update: `RAVENRS_UPDATE_GOLDEN=1 cargo test -p ravenrs --test suite visual::`.
 
 ## Reusable application modules
 

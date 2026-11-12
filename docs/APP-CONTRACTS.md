@@ -162,11 +162,11 @@ cargo test -p ravenrs-app-requests
 ```
 
 ```bash
-cargo test -p ravenrs-app --test manifest
+cargo test -p ravenrs-app --test suite manifest::
 ```
 
 ```bash
-cargo test -p ravenrs-app-sqlite --test space a_database_held_by_another_connection_is_a_temporary_failure
+cargo test -p ravenrs-app-sqlite --test suite space::a_database_held_by_another_connection_is_a_temporary_failure
 ```
 
 ```bash

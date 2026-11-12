@@ -8,7 +8,7 @@ A component is ✅ in [PARITY.md](PARITY.md) only when all of these hold:
 
 1. **API.** Typed builder methods with defaults that look right without configuration. Values come in through `Binding<T>`, events go out through closures. Every public item has rustdoc, and the type has a runnable example. Growable enums are `#[non_exhaustive]`.
 2. **States.** Rest, hover, pressed, focused (keyboard ring), disabled, selected or checked where it applies, empty, loading and error where it applies, and overflow (long text, many items, a tiny viewport).
-3. **Screen readers.** It sets a role and state with `Semantics`, and every control has a name: from its text, a `label`, a `FormField` or a `Tooltip`. The gallery audit (`examples/component-gallery/tests/accessibility.rs`) fails on any unnamed control.
+3. **Screen readers.** It sets a role and state with `Semantics`, and every control has a name: from its text, a `label`, a `FormField` or a `Tooltip`. The gallery audit (`examples/component-gallery/tests/suite/accessibility.rs`) fails on any unnamed control.
 4. **Keyboard.** Reachable with Tab. Enter and Space activate. Arrow keys, Home and End follow the [WAI-ARIA Authoring Practices](https://www.w3.org/WAI/ARIA/apg/patterns/) pattern for that widget. Escape closes overlays.
 5. **Themes.** Built only from semantic tokens, so it is correct in Raven Dark, Light and Glass. Text meets WCAG AA contrast, which `ravenrs-style` tests for every theme.
 6. **Edge cases.** Empty data, a single item, huge counts, non-ASCII text, out-of-range values (clamped, never panicking) and a zero-size viewport.
@@ -38,7 +38,7 @@ Behavior that a user can observe is documented publicly. A private comment can k
 | `cargo fmt --check` | Formatting drift |
 | `cargo clippy -D warnings` on native and `wasm32` | Lints, including `missing_docs` on every public item |
 | `cargo test --workspace` | Unit, behavior, accessibility, property ([proptest](https://docs.rs/proptest)) and doc tests |
-| GPU golden-image tests (`crates/ravenrs/tests/visual.rs`) | Visual regressions in 6 scenes × dark and light; tolerance 24/255 per channel on at most 0.4% of pixels |
+| GPU golden-image tests (`crates/ravenrs/tests/suite/visual.rs`) | Visual regressions in 6 scenes × dark and light; tolerance 24/255 per channel on at most 0.4% of pixels |
 | GPU pixel tests (`crates/ravenrs-render/tests/offscreen.rs`) | Renderer correctness: shapes, clipping, images |
 | `cargo doc -D warnings` | Broken intra-doc links |
 | `cargo deny check` | Vulnerable, yanked or unlicensed dependencies, and unknown sources |
@@ -48,7 +48,7 @@ Behavior that a user can observe is documented publicly. A private comment can k
 | `cargo run --release -p ravenrs-perf -- gate`, only with `RAVENRS_GATE=1` | Performance regressions: the exact work of every scene against `perf/baseline.json`. It runs when asked for, not on every check |
 | Web builds | The examples build and bind for WebAssembly |
 
-GPU tests skip themselves, with a message, on machines without a GPU adapter. To accept an intended visual change, regenerate the golden images with `RAVENRS_UPDATE_GOLDEN=1 cargo test -p ravenrs --test visual`, then review the PNG diff in the commit. A failing run writes `*.actual.png` next to the golden image.
+GPU tests skip themselves, with a message, on machines without a GPU adapter. To accept an intended visual change, regenerate the golden images with `RAVENRS_UPDATE_GOLDEN=1 cargo test -p ravenrs --test suite visual::`, then review the PNG diff in the commit. A failing run writes `*.actual.png` next to the golden image.
 
 Release checks, run by hand before each publish:
 - `cargo semver-checks` against the previous release.
@@ -247,7 +247,7 @@ Status against the definition of done. **Behavior** names the test suites that d
 | Chat, FloatingPanel | chat | | ✅ field, examples, send and sphere work with Tab + Enter, arrow keys move the sphere between corners and Escape closes the panel, tested | Answers are a `status`, announced as they appear; the panel is a named group |
 | ReleaseNotes, CodeBlock | release_notes | | ✅ versions and buttons work with Tab + Enter, tested | Lists its versions as buttons; the copy button says when it copied |
 | MoviePlayer, MovieAssistant, MovieEditor, BugReporter | ravenrs-movie | | ✅ controls, chapters, marks and blocks work with Tab + Enter; dragging on the canvas and the timeline has no keyboard way yet: 🟡 | Marks say what they teach; a film is an image with a name |
-| Lottie | lottie | ✅ decoration unless given `alt`, then an image with that name | n/a | Takes no input; shows its last frame still where motion is reduced, tested. `crates/ravenrs/tests/lottie_corpus.rs` measures real files against lottie-web |
+| Lottie | lottie | ✅ decoration unless given `alt`, then an image with that name | n/a | Takes no input; shows its last frame still where motion is reduced, tested. `crates/ravenrs/tests/suite/lottie_corpus.rs` measures real files against lottie-web |
 | KeyBar, ScanField | counter | ✅ the keys are buttons with their key in the name; the field is a text input with its placeholder as a name | ✅ the keys of the bar work anywhere and a disabled one does nothing; Enter submits the field, which takes the focus back when nothing has it, tested | Not tried with a physical scanner: tests send the keys a scanner would, at its pace |
 | SplitPanes, SplitHandle | structural_extensions | | ✅ Arrows, Shift and Home and End move the bar, tested | |
 | StepIndicator, StepBadge | structural_extensions | | ✅ Tab and Enter on the steps that are buttons, tested | |

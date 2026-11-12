@@ -24,6 +24,12 @@ for example in family-finance component-gallery; do
     cargo run -q -p ravenrs-lint -- -p "$example"
 done
 
+step "modules do not use each other in loops longer than each crate allows (ravenrs-lint module_cycle)"
+cargo run -q -p ravenrs-lint -- --workspace --only module_cycle
+
+step "every test file runs: tests/suite/ modules are declared"
+./scripts/check-test-suites.py
+
 if [ "${1:-}" != "--full" ]; then
     packages=$(./scripts/changed-packages.py)
     if [ -z "$packages" ]; then
@@ -88,7 +94,7 @@ else
 fi
 
 step "every example downloads from the playground as a project that builds"
-cargo test -p component-gallery --test projects -- --ignored
+cargo test -p component-gallery --test suite projects:: -- --ignored
 
 # Only when asked: RAVENRS_GATE=1 ./scripts/check.sh --full
 if [ "${RAVENRS_GATE:-0}" = "1" ]; then

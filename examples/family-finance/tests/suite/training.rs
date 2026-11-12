@@ -2,7 +2,7 @@
 //! still open. Recording runs when asked, after screens change:
 //!
 //! ```text
-//! FF_RECORD_TRAINING=1 cargo test -p family-finance --test training
+//! FF_RECORD_TRAINING=1 cargo test -p family-finance --test suite training::
 //! ```
 #![allow(clippy::expect_used, reason = "test helpers fail loudly")]
 
@@ -26,7 +26,7 @@ const ZOOM_AFTER_MS: u64 = 1_400;
 type Script = fn(&mut Recorder) -> Result<(), RecordError>;
 
 /// What the films say, recorded: each box lasts as long as its recording.
-const NARRATION: &[u8] = include_bytes!("../assets/treinamentos/narracao.voz");
+const NARRATION: &[u8] = include_bytes!("../../assets/treinamentos/narracao.voz");
 /// The line under the title of every opening.
 const OPENING_LINE: &str = "Treinamento do Raven Finanças";
 /// How long the opening and the farewell stay at least, in milliseconds.
@@ -793,7 +793,7 @@ fn the_assistant_opens_the_film_from_any_screen() {
 }
 
 /// Runs only where the real model is, as it is more than a gigabyte:
-/// `FF_AI_MODELS=folder cargo test --release -p family-finance --test training real -- --ignored --nocapture`.
+/// `FF_AI_MODELS=folder cargo test --release -p family-finance --test suite training::real -- --ignored --nocapture`.
 #[test]
 #[ignore = "needs the real model"]
 fn real_model_choices() {
@@ -901,7 +901,7 @@ fn real_model_answers_in_the_chat_with_the_numbers_of_the_database() {
 }
 
 /// Records what the films say with Kokoro's `pm_santa`, into wave files for `pack_narration`
-/// when `FF_NARRATION_WAVS` says where: `FF_AI_MODELS=folder cargo test --release -p family-finance --test training record_narration -- --ignored --nocapture`.
+/// when `FF_NARRATION_WAVS` says where: `FF_AI_MODELS=folder cargo test --release -p family-finance --test suite training::record_narration -- --ignored --nocapture`.
 /// `FF_NARRATION_SPEAKER` picks another of its voices, and `FF_NARRATION_MODEL` another model.
 /// `FF_NARRATION_ADD=1` records only what `narracao.voz` does not say yet and adds it there.
 #[test]
@@ -1079,7 +1079,7 @@ fn wav_of(sound: &[f32]) -> Vec<u8> {
     wav
 }
 
-/// Packs the recordings chosen in a folder: `FF_NARRATION_WAVS=folder cargo test --release -p family-finance --test training pack_narration -- --ignored`.
+/// Packs the recordings chosen in a folder: `FF_NARRATION_WAVS=folder cargo test --release -p family-finance --test suite training::pack_narration -- --ignored`.
 #[test]
 #[ignore = "needs the recordings"]
 fn pack_narration() {

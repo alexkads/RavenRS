@@ -14,13 +14,13 @@ use ravenrs_pagamento::{
     TipoPagamento,
 };
 
-const CRIADA: &str = include_str!("fixtures/mercado_pago/ordem_criada.json");
-const PROCESSADA: &str = include_str!("fixtures/mercado_pago/ordem_processada.json");
-const FALHOU: &str = include_str!("fixtures/mercado_pago/ordem_falhou.json");
-const CANCELADA: &str = include_str!("fixtures/mercado_pago/ordem_cancelada.json");
-const EM_CANCELAMENTO: &str = include_str!("fixtures/mercado_pago/ordem_em_cancelamento.json");
-const ESTORNADA: &str = include_str!("fixtures/mercado_pago/ordem_estornada.json");
-const NOTIFICACAO: &str = include_str!("fixtures/mercado_pago/notificacao.json");
+const CRIADA: &str = include_str!("../fixtures/mercado_pago/ordem_criada.json");
+const PROCESSADA: &str = include_str!("../fixtures/mercado_pago/ordem_processada.json");
+const FALHOU: &str = include_str!("../fixtures/mercado_pago/ordem_falhou.json");
+const CANCELADA: &str = include_str!("../fixtures/mercado_pago/ordem_cancelada.json");
+const EM_CANCELAMENTO: &str = include_str!("../fixtures/mercado_pago/ordem_em_cancelamento.json");
+const ESTORNADA: &str = include_str!("../fixtures/mercado_pago/ordem_estornada.json");
+const NOTIFICACAO: &str = include_str!("../fixtures/mercado_pago/notificacao.json");
 
 #[derive(Default)]
 struct Roteiro {

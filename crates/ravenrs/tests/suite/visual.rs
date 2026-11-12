@@ -2,7 +2,7 @@
 //! with reference images in `tests/golden/`.
 //!
 //! * A missing reference is written on first run (and the test passes).
-//! * `RAVENRS_UPDATE_GOLDEN=1 cargo test -p ravenrs --test visual` rewrites them
+//! * `RAVENRS_UPDATE_GOLDEN=1 cargo test -p ravenrs --test suite visual::` rewrites them
 //!   after an intentional visual change; review the PNG diff before committing.
 //! * Machines without a GPU adapter skip these tests.
 //!

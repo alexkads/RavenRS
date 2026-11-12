@@ -1,7 +1,7 @@
 //! The whole flow against `SefazSandbox`: what the emitter sends and what the checks answer.
 #![allow(clippy::expect_used, clippy::unwrap_used, reason = "tests fail loudly")]
 
-mod comum;
+use super::comum;
 
 use std::sync::Arc;
 
@@ -622,8 +622,8 @@ fn sandbox_environment_refuses_a_transport_that_reaches_the_network() {
     assert!(matches!(resultado, Err(NfeError::Configuracao(_))));
 
     let externo = ravenrs_nfe::RsaSigner::from_pem(
-        include_str!("../../ravenrs-dfe/fixtures/laboratorio/externo-cert.pem"),
-        include_str!("../../ravenrs-dfe/fixtures/laboratorio/externo-key.pem"),
+        include_str!("../../../ravenrs-dfe/fixtures/laboratorio/externo-cert.pem"),
+        include_str!("../../../ravenrs-dfe/fixtures/laboratorio/externo-key.pem"),
     )
     .expect("signer");
     let homologacao = Emissor::builder(BetaAck::i_understand_this_is_experimental())
