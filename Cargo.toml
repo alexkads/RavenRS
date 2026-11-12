@@ -57,6 +57,7 @@ ravenrs-criteria = { version = "27.1.27", path = "crates/ravenrs-criteria", defa
 ravenrs-ai = { version = "27.1.27", path = "crates/ravenrs-ai" }
 ravenrs-lottie = { version = "27.1.27", path = "crates/ravenrs-lottie" }
 ravenrs-movie = { version = "27.1.27", path = "crates/ravenrs-movie" }
+ravenrs-movie-video = { version = "27.1.27", path = "crates/ravenrs-movie-video" }
 ravenrs-app-spec = { version = "27.1.27", path = "crates/ravenrs-app-spec" }
 ravenrs-project = { version = "27.1.27", path = "crates/ravenrs-project" }
 
