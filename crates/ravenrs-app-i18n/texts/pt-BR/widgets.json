@@ -267,6 +267,8 @@
  "widgets.grid_delete_rows": "Excluir",
  "widgets.grid_drag_hint": "Arraste uma coluna para cá para agrupar",
  "widgets.grid_edit_filter": "Editar filtro",
+ "widgets.grid_filter_visual": "Visual",
+ "widgets.grid_filter_text": "Texto",
  "widgets.grid_edit_summary": "Editar resumo",
  "widgets.grid_empty": "(vazio)",
  "widgets.grid_expand_all": "Expandir tudo",

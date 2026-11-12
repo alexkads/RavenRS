@@ -267,6 +267,8 @@
  "widgets.grid_delete_rows": "Delete",
  "widgets.grid_drag_hint": "Drag a column here to group by it",
  "widgets.grid_edit_filter": "Edit filter",
+ "widgets.grid_filter_visual": "Visual",
+ "widgets.grid_filter_text": "Text",
  "widgets.grid_edit_summary": "Edit summary",
  "widgets.grid_empty": "(empty)",
  "widgets.grid_expand_all": "Expand all",

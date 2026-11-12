@@ -620,6 +620,11 @@ struct Cached {
 #[derive(Clone)]
 struct Handles {
     building_filter: State<bool>,
+    /// The filter editor's tab: 0 for lines, 1 for text.
+    filter_tab: State<usize>,
+    /// Text being written in the filter editor that does not read yet; the grid keeps
+    /// filtering by the last one that did.
+    filter_draft: State<Option<String>>,
     expanded: Binding<BTreeSet<usize>>,
     query: State<GridQuery>,
     widths: State<Vec<f32>>,
@@ -2519,6 +2524,8 @@ impl DataGrid {
             resize,
             modifiers: cx.modifiers(),
             building_filter: cx.use_state(|| false),
+            filter_tab: cx.use_state(|| 0),
+            filter_draft: cx.use_state(|| None),
             expanded: {
                 let local = cx.use_state(BTreeSet::new);
                 self.expanded_rows.clone().unwrap_or_else(|| local.binding())
@@ -2702,14 +2709,17 @@ impl DataGrid {
             );
         }
         if self.filter_builder {
-            let open = h.building_filter.clone();
+            let (open, draft) = (h.building_filter.clone(), h.filter_draft.clone());
             items.push(
                 cx.child(
                     &Button::new(labels.grid_filter_label.clone())
                         .style(ButtonStyle::Secondary)
                         .size(ButtonSize::Small)
                         .icon(IconName::Filter)
-                        .on_click(move || open.set(true)),
+                        .on_click(move || {
+                            draft.set(None);
+                            open.set(true);
+                        }),
                 ),
             );
         }
@@ -2862,15 +2872,39 @@ impl DataGrid {
             };
             crate::FilterField::new(column.title.clone(), column.title.clone(), kind).values(values)
         });
-        let (read, write) = (h.query.clone(), h.query.clone());
-        let text = Binding::new(
+        let fields: Vec<crate::FilterField> = fields.collect();
+        let (read, write, cols) = (h.query.clone(), h.query.clone(), columns.clone());
+        let (draft, cleared) = (h.filter_draft.clone(), h.filter_draft.clone());
+        let lines = Binding::new(
             move || read.with(whole_filter),
-            move |text: String| write.update(|q| set_whole_filter(q, &columns, text)),
+            move |text: String| {
+                cleared.set(None);
+                write.update(|q| set_whole_filter(q, &cols, text));
+            },
         );
+        // Text that does not read yet stays in the editor, and the grid keeps the last that did.
+        let (read, write, kept, known) = (h.query.clone(), h.query.clone(), draft.clone(), fields.clone());
+        let text = Binding::new(
+            move || kept.get().unwrap_or_else(|| read.with(whole_filter)),
+            move |text: String| {
+                if filter_reads(&text, &known) {
+                    draft.set(None);
+                    write.update(|q| set_whole_filter(q, &columns, text));
+                } else {
+                    draft.set(Some(text));
+                }
+            },
+        );
+        let labels = cx.labels();
+        let tabs = crate::Tabs::new(h.filter_tab.binding())
+            .variant(crate::TabsVariant::Segmented)
+            .size(ButtonSize::Small)
+            .tab(labels.grid_filter_visual.clone(), crate::FilterBuilder::new(lines, fields.clone()))
+            .tab(labels.grid_filter_text.clone(), crate::ExpressionEditor::new(text).fields(fields));
         cx.child(
-            &Dialog::new(h.building_filter.binding(), cx.labels().grid_edit_filter.clone())
-                .content(crate::FilterBuilder::new(text, fields))
-                .width(640.0),
+            &Dialog::new(h.building_filter.binding(), labels.grid_edit_filter.clone())
+                .content(tabs)
+                .width(720.0),
         )
     }
 
@@ -3187,6 +3221,26 @@ fn whole_filter(query: &GridQuery) -> String {
         Ok(all) => all.into_iter().reduce(Criteria::and).map(|c| c.to_string()).unwrap_or_default(),
         Err(_) => parts.iter().map(|f| format!("({f})")).collect::<Vec<_>>().join(" And "),
     }
+}
+
+/// Whether the filter editor's text can filter the grid: empty, or an expression
+/// that reads and names only the grid's columns.
+fn filter_reads(text: &str, fields: &[crate::FilterField]) -> bool {
+    use ravenrs_criteria::{Criteria, FieldType, Schema, validate};
+    if text.trim().is_empty() {
+        return true;
+    }
+    let Ok(criteria) = Criteria::parse(text) else { return false };
+    let schema = fields.iter().fold(Schema::new(), |schema, f| {
+        let kind = match f.kind {
+            crate::FilterFieldKind::Text => FieldType::Text,
+            crate::FilterFieldKind::Number => FieldType::Number,
+            crate::FilterFieldKind::Boolean => FieldType::Boolean,
+            crate::FilterFieldKind::Date => FieldType::Date,
+        };
+        schema.field(&f.name, kind)
+    });
+    validate(&criteria, &schema).is_empty()
 }
 
 /// Writes what the filter editor made in place of every expression the columns had,
@@ -3769,13 +3823,16 @@ impl View for DataGrid {
             let icon = util::icon(cx, IconName::Filter, 14.0, theme.color(Semantic::Accent));
             let text = format!("{}: {}", labels.grid_filter_label, filters.join(" · "));
             let label = util::label(cx, &text, TextStyle::Callout, None, muted);
-            let open = h.building_filter.clone();
+            let (open, draft) = (h.building_filter.clone(), h.filter_draft.clone());
             let edit = cx.child(
                 &Button::new(labels.grid_edit_filter.clone())
                     .style(ButtonStyle::Ghost)
                     .size(ButtonSize::Small)
                     .icon(IconName::Pencil)
-                    .on_click(move || open.set(true)),
+                    .on_click(move || {
+                        draft.set(None);
+                        open.set(true);
+                    }),
             );
             let q = h.query.clone();
             let clear = cx.child(

@@ -6,6 +6,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `DataGrid`: the "Edit filter" window has Visual and Text tabs over the same filter. Text is the `ExpressionEditor` with the grid's columns as fields; the grid filters by what is written only once it reads and names known columns, and keeps the last such filter meanwhile. `Labels::grid_filter_visual` and `grid_filter_text` name the tabs.
 - **API keys** in `ravenrs-app-server`: for other systems, shown once, kept as a hash, acting as a user and never more, with rotation, expiry and revoking. `security_entities()` has a new entity for them, so storage learns a table.
 - **`SettingsStore`**, with `MemorySettings`, `RecordSettings` and `settings_entity`: JSON under a name, for everyone or for one person, reached at `/api/settings/{name}` when declared. `App::settings` keeps the theme someone chose, also over a server with `RemoteSettings`.
 - **`ravenrs-app-remote`:** the screens over the web API, on the desktop and in the browser: a copy in memory of what the person can see, a way in with `RemoteApp`, and commits that go as one batch. `ApiOptions::allow_origin` lets a page on another origin call the API. `MemoryDatabase::replace_records`, `value_to_json` and `object_from_json` in `ravenrs-app`.
