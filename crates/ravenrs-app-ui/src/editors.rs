@@ -6,12 +6,13 @@ use std::rc::Rc;
 use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, Object, Query, Value};
 use ravenrs_core::Color;
 use ravenrs_criteria::Criteria;
-use ravenrs_layout::Align;
+use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
+use ravenrs_style::{Semantic, TextStyle};
 use ravenrs_widgets::{
     AnyView, BuildCx, Button, ButtonSize, ButtonStyle, Checkbox, ColorPicker, Combobox, Date, DatePicker,
     DateTimePicker, FileUpload, FilterBuilder, FilterField, FilterFieldKind, LookupField, LookupItem,
-    MaskedField, NodeId, NumberField, PickedFile, ProgressBar, SegmentedControl, Select, TagBox, Text,
+    MaskedField, NodeId, NumberField, Paint, PickedFile, ProgressBar, SegmentedControl, Select, TagBox, Text,
     TextArea, TextField, VStack, View,
 };
 
@@ -68,6 +69,7 @@ impl EditorRegistry {
     pub(crate) fn editor(&self, name: &str, request: &EditorRequest) -> AnyView {
         match (self.0.get(name), name, &request.field.kind) {
             (Some(factory), ..) => factory(request),
+            (None, "Gtin", FieldKind::Text) => gtin_editor(request),
             (None, "Segmented", FieldKind::Enum(options)) => segmented_editor(request, options),
             (None, "Select", FieldKind::Reference(target)) => reference_select(request, target),
             (None, "Progress", FieldKind::Integer | FieldKind::Decimal(_)) => progress_editor(request),
@@ -364,6 +366,46 @@ fn text_editor(request: &EditorRequest) -> AnyView {
         Some(text) => Box::new(field.placeholder(text.clone())),
         None => Box::new(field),
     }
+}
+
+/// A barcode number, saying as it is typed whether its check digit adds up.
+struct GtinEditor {
+    value: State<Value>,
+    field: AnyView,
+}
+
+impl View for GtinEditor {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let typed = match self.value.get() {
+            Value::Text(text) => text,
+            _ => String::new(),
+        };
+        let typed = typed.trim();
+        let mut nodes = vec![cx.child(self.field.as_ref())];
+        if !typed.is_empty() {
+            let (words, tone) = if ravenrs_barcode::is_valid_gtin(typed) {
+                let format = match typed.len() {
+                    8 => "EAN-8",
+                    12 => "UPC-A",
+                    14 => "ITF-14",
+                    _ => "EAN-13",
+                };
+                (format!("\u{2713} {format}"), Semantic::Success)
+            } else {
+                ("\u{2717} GTIN".to_owned(), Semantic::Danger)
+            };
+            nodes.push(cx.child(&Text::new(words).style(TextStyle::Callout).foreground(tone)));
+        }
+        cx.container(
+            LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+            &nodes,
+            Paint::None,
+        )
+    }
+}
+
+fn gtin_editor(request: &EditorRequest) -> AnyView {
+    Box::new(GtinEditor { value: request.value.clone(), field: text_editor(request) })
 }
 
 /// What shows a value with no control of its own: its text, which cannot be changed.

@@ -4,6 +4,18 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Breaking
+
+- `ravenrs-nfe` (beta): `Signer::sign_rsa_sha1` and `Signer::sign_rsa` return `DfeError`, and `HttpRequest` has a new field, `metodo`; build one with `HttpRequest::post`. `CasoFalha::regra` is now the trait `RegraDoCaso`. The lab keys moved to `crates/ravenrs-dfe/fixtures/laboratorio`.
+
+- `Modifiers` has a new public field, `base_key`, the letter of the key while Alt composes another character. A literal without `..Modifiers::default()` stops compiling.
+- `Key` has a new variant, `Key::Function`. `Key` was already `#[non_exhaustive]`, so a `match` still compiles, but F1 to F24 no longer arrive the way they did.
+- `Hotkey` can now carry Alt, through `Hotkey::alt`, and its `label` says so. Code that only builds hotkeys does not change.
+- `ravenrs_graphics::barcode::Pattern` moved to `ravenrs-barcode`, and is re-exported where it was. It is no longer `#[non_exhaustive]`.
+- `Item` in `ravenrs-report` has new variants, `Item::BarcodeMark` and `Item::PrinterCommand`, which print nothing. `Item` was already `#[non_exhaustive]`; an exporter of your own should pass over them.
+- `Report` has new public fields, `columns`, `continuous` and `printer`, and `ControlKind` has `ControlKind::PrinterCommand`. A `Report` literal without `..Report::default()` stops compiling.
+- `TemplateParts` has new fields, `notices`, `keys` and `kind`. It is `#[non_exhaustive]`, so only a template that builds one by hand is affected.
+
 ### Added
 
 - `Dispatcher` delivers events with limited tries: each event is kept as `sending`, with a deadline (`lease`), before it is sent, so a worker that stops between the send and the answer leaves it to be checked with the destination, never sent blindly; `backoff` waits by the clock, twice as long after each temporary failure; `run_at` takes the instant, and `run_as` reads the worker's permissions again on every run and refuses one turned off or no longer granted the events. The event entity has `next_at` and `last_error`, and the action `Reprocess` (`OUTBOX_REPROCESS`) sends a failed event again under the same key, for whoever may write events. `Report` has a new field, `waiting`. `ravenrs-app-testkit` adds `Organization::add_user`, `context_of`, `turn_off`, `roles::events_worker` and `Clock::date_time`. ([#255](https://github.com/alexkads/RavenRS/issues/255))
@@ -27,9 +39,34 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
   records, kept on the list view as `EmptyText`. Without it a grid with no rows says
   `widgets.grid_no_records` ("Nada por aqui ainda.") and keeps "no rows match the filters" for
   when its filters hid them. ([#233](https://github.com/alexkads/RavenRS/issues/233))
+- **Beta, proof of concept:** `ravenrs-nfe`, NF-e and NFC-e with no GUI, and `SefazSandbox`, a local SEFAZ in the style of MSW that replaces the `Transport` and checks what arrives. It is not homologated and has never talked to a real SEFAZ. `Ambiente` has no production variant, and an emitter only exists with `BetaAck`.
+- **Beta, proof of concept:** `ravenrs-app-nfe`, the module with the issuer, the documents issued, consulting, canceling and the receipt as a stored report. A notice that cannot be dismissed says it is a beta.
+- **Beta, proof of concept:** `ravenrs-dfe`, what the fiscal engines share: XML, C14N, enveloped XMLDSig with `Algoritmo::NFE` (SHA-1) or `Algoritmo::SHA256`, `Transport` with `Metodo` (POST, GET, HEAD), the MSW-style `Cadeia` of handlers with `Rota`, GZip + Base64 with a limit, and the laboratory of ICP-Brasil test certificates. `ravenrs-nfe` re-exports what moved, with the same paths.
+- **Beta, proof of concept:** `ravenrs-nfse`, NFS-e of the national standard: the DPS, `POST /nfse`, recovery of a lost answer by the Id of the DPS, query, cancellation and the agreement of the city, with `SefinSandbox`. Never sent to the Sefin; see its README for what is not confirmed.
+- **Beta, proof of concept:** NFS-e from an application: `NfeService::emitir_nfse`, `reenviar_nfse` and `cancelar_nfse` in `ravenrs-app-nfe`, with the record `NfseDocumento`, kept before the DPS goes so that one without a sure answer goes again with the same number. `ravenrs-app-pos` gains the services (`PosServico`) and "Vender serviço" (F8).
+- **Beta, proof of concept:** the DANFSe A4 as a stored report in `ravenrs-app-nfe`, with the QR Code and the notice of no legal validity the NT 008 asks.
+- **Beta, proof of concept:** `ravenrs-pagamento`, electronic payments with a journal, a provider simulator, the ABECS protocol and IntPos files. Never tested against a real provider, pinpad or card.
+- **Beta, proof of concept:** `ravenrs-app-pos` and `examples/mini-pdv`, a checkout used from the keyboard and a scanner, with shelf labels and receipts made in the standard report designer. `ravenrs-pos` has its rules, with no screens.
+- **Beta, proof of concept:** `ravenrs-perifericos`, printers, label printers, pinpads and scanners described as data. See `docs/PERIFERICOS.md`.
+- `docs/AUTOMACAO-COMERCIAL.md`, in Portuguese: what exists for a commercial automation product, how each part was checked and what is missing to sell it.
+- `ravenrs-report-label`: a report on label and receipt printers, as a 1-bit bitmap in ZPL II, EPL2/PPLB, PPLA, TSPL or ESC/POS, sent over TCP 9100, CUPS, a Windows share or a file. Output was read back by a parser and by a separate barcode decoder. Nothing has been printed on a physical printer.
+- `ravenrs-barcode`: barcodes as plain data, with GTIN checks and ITF-14, out of `ravenrs-graphics`, which re-exports them.
+- Reports: `Report::columns` for sheets of labels, `Report::continuous` for one long page on a roll, `Report::printer` for where it prints, `ControlKind::PrinterCommand` for cutting, opening the drawer, beeping and feeding at a place on the page, and `labels` with common rolls, sheets and a first shelf label.
+- Report designer: paper and columns in the report's panel, and "Impressora direta", with a preview in dots and printing straight to a printer. It is the one editor of layouts, receipts and labels included.
+- `KeyBar` and `KeyBarItem`: the keys of a screen always in sight, working wherever the focus is. `ScanField` and `Scan`: a field for a barcode scanner that keeps the focus, tells a scanner from fingers by the pace and empties after each code.
+- `Module::notices`, `Notice` and `NoticeKind`: what a module keeps on top of every window, and no template can leave out.
+- `Session::run_background`, `cancel_background`, `background_jobs`, `JobProgress`: work out of the way of the screens, with progress and canceling, and its result on the screens' thread. On the web it runs in line.
+- `EntityInfo::singleton` and `#[object(singleton)]`: an entity with one record, which opens on its form.
+- `AppRecordsModule`, `next_number`, `save_draft`, `drafts`, `take_draft`: numbers with no gaps within a unit of work, and work kept to pick up later.
+- `CounterTemplate` and `App::counter`: a window for use at a counter, with a bar of keys made from the actions. `App::theme`: an application that starts on its own theme. `Session::show_shortcuts` and `Session::lock`.
+- Actions take `f1` to `f24` and `alt+letter` as keys. The field editor `Gtin` checks the digit while typing, and `rust_decimal::Decimal` works as a field type, exact up to 6 places.
+- `render_to_rgba` in `ravenrs-render`: a screen as pixels, with no window.
+- `ravenrs-mcp`: the tools `search_api`, for items of any crate by words, and `guides`, for the repository's documents. `parity_status` also reads `docs/APP-PARITY.md`, and `component_examples` also reads the guides.
+- `feature-center`: a counter window with its own notice, keys, numbers, drafts, work in the background and lock, a single record, a GTIN editor, a sheet of labels and a receipt on a roll. Run it alone with `cargo run -p feature-center -- caixa`.
 
 ### Fixed
 
+- Closing a `Dialog` whose field took the focus gives it back to where it was.
 - A remote grid with no rows said it had a chunk's worth: an empty chunk past the end stretched
   its total. It now ends where the earliest end says, and shows what it says when empty.
   ([#233](https://github.com/alexkads/RavenRS/issues/233))

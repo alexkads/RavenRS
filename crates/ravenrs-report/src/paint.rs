@@ -87,7 +87,10 @@ pub fn paint_page(page: &Page, text: &mut TextSystem, scene: &mut Scene, origin:
                 }
             }
             // Nothing to print: they matter in the exported file.
-            Item::Link { .. } | Item::Bookmark { .. } => {}
+            Item::Link { .. }
+            | Item::Bookmark { .. }
+            | Item::BarcodeMark { .. }
+            | Item::PrinterCommand { .. } => {}
         }
     }
     scene.pop_clip();

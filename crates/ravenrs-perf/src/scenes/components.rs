@@ -475,6 +475,23 @@ fn calculator(interaction: &str) -> Setup {
     Setup { root: Box::new(calculator::app()), step }
 }
 
+/// What a point of sale keeps on screen all day: a field for a scanner and a bar of keys.
+fn counter_keys(interaction: &str) -> Setup {
+    let key = |number| Hotkey::key(ravenrs_core::Key::Function(number));
+    let bar = KeyBar::new()
+        .item(KeyBarItem::new(key(1), "Atalhos", || {}))
+        .item(KeyBarItem::new(key(6), "Cancelar item", || {}).disabled(true))
+        .item(KeyBarItem::new(key(8), "Nota grande", || {}))
+        .item(KeyBarItem::new(key(10), "Pendentes", || {}))
+        .item(KeyBarItem::new(key(11), "Cancelar venda", || {}))
+        .item(KeyBarItem::new(key(9), "Finalizar", || {}).primary());
+    let field = ScanField::new(|_scan| {}).placeholder("Passe o produto");
+    Setup {
+        root: Box::new(VStack::new((field, bar)).spacing(16.0)),
+        step: common(interaction, Point::new(300.0, 80.0), Point::new(900.0, 80.0)),
+    }
+}
+
 pub(super) fn scenes() -> Vec<PerfScene> {
     let scene = |name, covers, class, interactions, make, ceilings| PerfScene {
         name,
@@ -544,6 +561,14 @@ pub(super) fn scenes() -> Vec<PerfScene> {
             DOCKING,
         ),
         scene("images", &["Image", "Grid"], Class::Static, &["hover", "scroll", "idle"], images, STILL),
+        scene(
+            "counter-keys",
+            &["KeyBar", "ScanField"],
+            Class::Static,
+            &["hover", "idle", "resize"],
+            counter_keys,
+            STILL,
+        ),
         scene(
             "calculator",
             &["Button", "Grid", "Text", "VStack"],

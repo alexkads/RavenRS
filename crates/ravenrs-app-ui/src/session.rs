@@ -23,6 +23,12 @@ use crate::values::key_text;
 #[non_exhaustive]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Words {
+    /// Lists the keys of what can be done.
+    pub shortcuts: String,
+    /// Gets back to a locked window.
+    pub unlock: String,
+    /// What was typed on a locked window is not it.
+    pub unlock_wrong: String,
     /// Creates a record.
     pub new: String,
     /// Removes what is selected.
@@ -184,6 +190,9 @@ impl Words {
     /// The texts of a catalog, in its language. What it does not have comes from English.
     pub fn from_texts(texts: &Texts) -> Self {
         Self {
+            shortcuts: texts.get("ui.shortcuts"),
+            unlock: texts.get("ui.unlock"),
+            unlock_wrong: texts.get("ui.unlock_wrong"),
             new: texts.get("ui.new"),
             delete: texts.get("ui.delete"),
             save: texts.get("ui.save"),
@@ -333,6 +342,13 @@ pub(crate) type ControlFactory = Rc<dyn Fn() -> ravenrs_widgets::AnyView>;
 /// Something shown in a window over the screens, with its title.
 pub(crate) type Presented = (String, ControlFactory);
 
+/// What it takes to get back to a locked window.
+#[derive(Clone)]
+pub(crate) struct Lock {
+    pub(crate) title: String,
+    pub(crate) check: Rc<dyn Fn(&str) -> bool>,
+}
+
 struct SessionInner {
     application: Rc<RefCell<Application>>,
     new_space: SpaceFactory,
@@ -362,6 +378,8 @@ struct SessionInner {
     controls: Rc<RefCell<BTreeMap<String, ControlFactory>>>,
     settings: RefCell<Option<Rc<dyn ravenrs_app::SettingsStore>>>,
     presented: State<Option<Presented>>,
+    jobs: crate::background::SharedJobs,
+    locked: State<Option<Lock>>,
     /// Something that takes the place of the view, as an editor of its own does.
     full: State<Option<ControlFactory>>,
     /// How many reminders are due, and whether they are showing.
@@ -443,6 +461,8 @@ impl Session {
             controls: Rc::default(),
             settings: RefCell::new(None),
             presented: State::new(None),
+            jobs: Rc::new(crate::background::Jobs::default()),
+            locked: State::new(None),
             full: State::new(None),
             reminders: State::new((0, false)),
             form_caption: RefCell::default(),
@@ -524,6 +544,8 @@ impl Session {
             controls: parent.controls.clone(),
             settings: RefCell::new(parent.settings.borrow().clone()),
             presented: parent.presented.clone(),
+            jobs: parent.jobs.clone(),
+            locked: parent.locked.clone(),
             full: parent.full.clone(),
             reminders: parent.reminders.clone(),
             form_caption: RefCell::new(parent.form_caption.borrow().clone()),
@@ -720,6 +742,58 @@ impl Session {
 
     pub(crate) fn full(&self) -> Option<ControlFactory> {
         self.0.full.get()
+    }
+
+    pub(crate) fn jobs(&self) -> crate::background::SharedJobs {
+        self.0.jobs.clone()
+    }
+
+    /// Hides everything until what is typed passes `check`. What people were doing stays as it was.
+    pub fn lock(&self, title: impl Into<String>, check: impl Fn(&str) -> bool + 'static) {
+        self.0.locked.set(Some(Lock { title: title.into(), check: Rc::new(check) }));
+    }
+
+    pub(crate) fn locked(&self) -> &State<Option<Lock>> {
+        &self.0.locked
+    }
+
+    /// What its modules want everyone to know.
+    pub fn notices(&self) -> Vec<ravenrs_app::Notice> {
+        self.0.application.borrow().notices()
+    }
+
+    /// Shows the keys of what can be done here, in a window over the screens.
+    pub fn show_shortcuts(&self) {
+        let (title, rows): (String, Vec<(String, String)>) = (
+            self.words().shortcuts.clone(),
+            self.frame()
+                .actions()
+                .iter()
+                .filter(|action| action.is_active())
+                .filter_map(|action| {
+                    let keys = action.hotkey_text()?;
+                    let label =
+                        crate::container::hotkey_of(keys).map_or_else(|| keys.to_owned(), |key| key.label());
+                    Some((label, action.caption().to_owned()))
+                })
+                .collect(),
+        );
+        self.present(title, move || {
+            let lines: Vec<ravenrs_widgets::AnyView> = rows
+                .iter()
+                .map(|(keys, what)| {
+                    Box::new(
+                        ravenrs_widgets::HStack::new((
+                            ravenrs_widgets::Text::new(keys.clone())
+                                .font_weight(ravenrs_style::Weight::SEMIBOLD),
+                            ravenrs_widgets::Text::new(what.clone()),
+                        ))
+                        .spacing(12.0),
+                    ) as ravenrs_widgets::AnyView
+                })
+                .collect();
+            Box::new(ravenrs_widgets::VStack::new(lines).spacing(8.0))
+        });
     }
 
     /// Closes what [`present`](Self::present) showed.
@@ -1262,10 +1336,28 @@ impl Session {
                 if let Some(title) = model.at(&["Views", id]).and_then(|node| node.text("Caption")) {
                     self.0.announcer.polite(self.access_words().showing(title));
                 }
-                self.show(view);
+                let one_record =
+                    view.entity.as_deref().and_then(|entity| self.entity(entity)).filter(|e| e.singleton);
+                match one_record {
+                    Some(entity) => self.open_the_record(&entity),
+                    None => self.show(view),
+                }
                 self.touch();
             }
             Err(error) => self.0.error.set(Some(error.0)),
+        }
+    }
+
+    /// The form of the one record of an entity that has only one, or of a new one if it has none.
+    fn open_the_record(&self, entity: &EntityInfo) {
+        let space = self.0.frame.space();
+        let first = space.borrow().query(&entity.name, &Query::all()).ok().and_then(|all| {
+            let name = entity.key_field()?.name.clone();
+            all.first().map(|record| record.get(&name))
+        });
+        match first {
+            Some(key) => self.open_detail(&entity.name, &key),
+            None => self.open_new(&entity.name),
         }
     }
 

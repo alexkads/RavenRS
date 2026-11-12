@@ -59,6 +59,10 @@ ravenrs-criteria  (expression language, no RavenRS dependencies)
         ▲
         ├── ravenrs-widgets  (DataGrid filter expressions, number layout)
         │
+ravenrs-barcode  (what a barcode is, GTIN checks; no RavenRS dependencies, nothing about drawing)
+        ▲
+        ├── ravenrs-graphics, ravenrs-nfe, ravenrs-app-ui (GTIN editor), ravenrs-pos
+        │
 ravenrs-graphics  ──► ravenrs-core  (shapes, chart layout, barcodes; shared, knows no engine)
         ▲
         │
@@ -94,8 +98,19 @@ ravenrs-ai             ──► ravenrs-widgets (models on the machine; desktop
         ▲
         ├── ravenrs-report-server  (HTTP, schedules, delivery; only this crate has a runtime)
         │
-ravenrs-report-designer ──► ravenrs-report-viewer, ravenrs-report-export, ravenrs-widgets  (the designer)
+ravenrs-report-label    ──► ravenrs-report, ravenrs-text  (Document ──► printer language; no GUI)
+ravenrs-report-designer ──► ravenrs-report-viewer, ravenrs-report-export, ravenrs-report-label, ravenrs-widgets  (the designer)
 examples/report-designer  ──► ravenrs, ravenrs-report-designer
+
+ravenrs-dfe        (BETA: XML, C14N, XMLDSig, `Transport`, sandbox handlers, certificates; shared by the fiscal engines)
+ravenrs-nfe        ──► ravenrs-dfe, ravenrs-barcode  (BETA: NF-e and NFC-e with no GUI; everything leaves through `Transport`)
+ravenrs-nfse       ──► ravenrs-dfe  (BETA: NFS-e of the national standard with no GUI; `SefinSandbox`)
+ravenrs-pagamento  (BETA: payments with no GUI; everything goes through `ProvedorPagamento`)
+ravenrs-perifericos  (BETA: peripherals as data, in versioned manifests)
+ravenrs-pos        (the rules of a counter with no GUI and nothing fiscal)
+ravenrs-app-nfe    ──► ravenrs-nfe, ravenrs-nfse, ravenrs-app-ui, ravenrs-app-report, ravenrs-report-label  (BETA: the module)
+ravenrs-app-pos    ──► ravenrs-pos, ravenrs-app-nfe, ravenrs-app-ui, ravenrs-app-report, ravenrs-report-label  (BETA: the module)
+examples/mini-pdv  ──► ravenrs-app-pos, ravenrs-app-nfe, ravenrs-app-sqlite  (native only: it only puts them together)
 ```
 
 `ravenrs-criteria` (the expression language) depends on nothing else in RavenRS, so any module can use it for filters, rules and validation. `ravenrs-report` (the report engine) depends only on `ravenrs-core`, `ravenrs-text` and `ravenrs-criteria`, so it also runs on servers. `ravenrs-widgets` uses `ravenrs-criteria` without its JSON feature, for `DataGrid` filter expressions and number layout. The `ravenrs` facade re-exports neither of them; apps depend on them directly. See [§6.3](#63-criteria-language), [§6.4](#64-reporting) and [docs/REPORTING.md](docs/REPORTING.md).
@@ -118,6 +133,16 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-report` | `model`, `engine`, `document`, `base64`, `paint`, `wizard`, `samples` |
 | `ravenrs-graphics` | `vector`, `chart`, `plot`, `sankey`, `flow` (diagrams of nodes and the routes of their lines), `barcode`; also the optional layout behind `Chart` and `Barcode` in `ravenrs-widgets` |
 | `ravenrs-lottie` | `document` (reading a file, and what it asks for that is not done yet), `property` (keyframes), `geometry` (trim, dash, stroke), `player` (one moment as `PathFill`s) |
+| `ravenrs-barcode` | `lib` (`Symbology`, `Pattern`, `encode`, GTIN) |
+| `ravenrs-report-label` | `raster` (a page as dots), `bitmap`, `language` (`LabelJob`, `Language`, `compile`), `output` (TCP 9100, CUPS, file, Windows share), `preset` |
+| `ravenrs-dfe` | `xml`, `c14n`, `assinatura` (`Algoritmo`, `Signer`), `transporte` (`Transport`, `Metodo`), `interceptacao` (`Cadeia`, `OnUnhandled`, `Rota`), `compactacao`, `certificado_x509`, `certificados` (the laboratory), `tempo`, `http` (feature `http`, native only) |
+| `ravenrs-nfe` | `modelo`, `totais`, `chave`, `documento` (deterministic XML), `soap`, `retorno`, `urls`, `ambiente` (no production), `sandbox` (`SefazSandbox`, handlers and scenarios; `catalogo`, `analise`, `autopsia`, `certificados`, `vigencia`); re-exports `xml`, `c14n`, `assinatura`, `transporte` and `http` from `ravenrs-dfe` |
+| `ravenrs-nfse` | `modelo`, `dps` (deterministic XML), `chave`, `evento` (cancellation), `retorno` (JSON), `danfse` (the rules of the NT 008), `ambiente` (no production), `sandbox` (`SefinSandbox`, routes, scenarios, `REGRAS`) |
+| `ravenrs-pagamento` | `dominio`, `provedor`, `pagamentos`, `diario` (written before it acts), `fiscal`, `simulador`, `abecs`, `intpos`, `sitef`, `mercado_pago`, `stone` |
+| `ravenrs-perifericos` | `manifesto`, `catalogo`, `registro`, `armazem`, `comando`, `transporte`, `embutidos`, `data` |
+| `ravenrs-pos` | `lib` (`Carrinho`, `Leitura`, totals, payments), `entrada`, `preco` |
+| `ravenrs-app-nfe` | `module` (`NfeModule`), `service` (`NfeService`), `cupom` (receipt and DANFE as stored reports) |
+| `ravenrs-app-pos` | `modelo`, `modulo` (`Pos`), `caixa`, `telas`, `etiquetas`, `entrada`, `preco`, `codigos` |
 | `ravenrs-report-export` | `lib` |
 | `ravenrs-grid-export` | `lib` |
 | `ravenrs-app-spec` | `lib` |
@@ -132,9 +157,9 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-app-remote` | `lib` (`RemoteClient`, `RemoteDatabase`, `RemoteObjectSpace`), `transport`, `gate` (`RemoteApp`) |
 | `ravenrs-app-sql` | `lib` (`SqlBackend`, `SqlDatabase`, `SqlObjectSpace`, `TableMap`) |
 | `ravenrs-app-postgres` | `lib` (`PostgresBackend`, types in and out) |
-| `ravenrs-report-designer` | `lib`, `editor`, `bands`, `surface`, `props`, `preview` |
-| `ravenrs-app-ui` | `app`, `pane`, `form`, `session`, `shell`, `list_view`, `detail_view`, `nested`, `dashboard`, `editors`, `container`, `system`, `values`, `security`, `model_editor`, `list_editors`, `reminders` |
-| `ravenrs-app` | `entity`, `object`, `model` (`node`, `layers`, `store`, `generate`, `captions`), `space`, `action`, `controller`, `frame`, `module`, `functions`, `files`, `workflow`, `security` (`space`, `directory`, `password`, `records`, `audit`) |
+| `ravenrs-report-designer` | `lib`, `editor`, `bands`, `surface`, `props`, `preview`, `thermal` (printing straight to a printer) |
+| `ravenrs-app-ui` | `app`, `pane`, `form`, `session`, `background`, `shell`, `list_view`, `detail_view`, `nested`, `dashboard`, `editors`, `container`, `system`, `values`, `security`, `model_editor`, `list_editors`, `reminders` |
+| `ravenrs-app` | `entity`, `object`, `model` (`node`, `layers`, `store`, `generate`, `captions`), `space`, `action`, `controller`, `frame`, `module`, `functions`, `files`, `workflow`, `records` (numbers and drafts), `security` (`space`, `directory`, `password`, `records`, `audit`) |
 | `ravenrs-report-pdf` | `lib` (pages, fonts) |
 | `ravenrs-report-xlsx` | `lib` (grid, cells, CSV), `format` (Excel number formats) |
 | `ravenrs-report-viewer` | `lib` (`DocumentViewer`), `search`, `parameters` (`ParameterPanel`) |
@@ -162,6 +187,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `overlay`, `floating`, `shortcuts` | `Tooltip`, `Popover`, `DropdownMenu`, `Select`, `Dialog`, then `ContextMenu`, `HoverCard`, `Sheet`, `SplashScreen`, `Toaster`, `Combobox`, `CommandPalette`, then `ShortcutSheet`, `ShortcutHintBar` |
 | `chat`, `rich_text`, `conversation` | `Chat`, `ChatMedia`, `FloatingPanel`; `RichText`; `AttachmentStrip`, `AudioPlayerButton`, `SelectionBar` |
 | `display`, `status`, `data`, `extras` | Badges and alerts; `Dot`, `OverlayBadge`, `Rating`, `IconTile`, `EmptyState`, `HeroBanner`, `MultiProgress`, `ShimmerText`, `DaySeparator`; lists, tables and charts; `Spinner`, `Carousel`, `Splitter`, `SplitPanes`, `SplitHandle`, `Menubar`, `InputOtp`, `FormField` |
+| `counter` | `KeyBar`, `ScanField`: keys always in sight and a field for a scanner, with nothing about shops |
 | `grid/` | `DataGrid`: `query` (pure pipeline), `model`, `view` |
 
 Examples use the public API, among them `feature-center`, every feature of the application framework, and: `hello-world`, `component-gallery` (one demo per component), `report-designer` and `family-finance`, a desktop app on SQLite that also finds what is missing in the framework. The design tokens are defined in [docs/design-system](docs/design-system), and `ravenrs-style` mirrors them value for value.
@@ -405,6 +431,12 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | Reporting: engine, wizard, designer with preview, viewer, pictures, links, barcodes, charts, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4) | ✓ | | Other exports, parameter lookups, SQL data sources (phases R2 to R5) |
 | Benchmarks and profiling | `tracing` spans per phase, criterion benches (`crates/*/benches`), a gate of exact counters and frame times (`crates/ravenrs-perf`, budgets in [docs/QUALITY.md](docs/QUALITY.md)), the diagnostics panel with GPU timestamps ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)) | | stepping through a frozen frame, a map of what was rebuilt, invalidation by subtree |
 | Application framework: `ravenrs-app`, `ravenrs-app-ui`; see [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md) | derive, model, actions (also declared as data), frames, rules, SQLite, generated lists and forms, permissions, sign-in, audit trail | the API |  relations |
+
+| Reports on label and receipt printers: ZPL II, EPL2/PPLB, PPLA, TSPL, ESC/POS (`ravenrs-report-label`), columns, a continuous page, commands for the printer and printing straight from the designer | output read back by a parser and a separate decoder | never printed on a physical printer | checking each brand on paper |
+| NFS-e of the national standard (`ravenrs-nfse`, DANFSe in `ravenrs-app-nfe`), with `SefinSandbox` | | **beta, proof of concept**: order of the DPS read in the XSD v1.01, never validated by `xmllint` nor sent to the Sefin. No production | see [docs/NFSE.md](docs/NFSE.md) |
+| NF-e and NFC-e (`ravenrs-nfe`, `ravenrs-app-nfe`), with `SefazSandbox` | | **beta, proof of concept**: XML checked against the official XSD, signature against `openssl`, and never sent to a real SEFAZ. No production | see [docs/AUTOMACAO-COMERCIAL.md](docs/AUTOMACAO-COMERCIAL.md) |
+| Payments (`ravenrs-pagamento`), with a simulator | | **beta, proof of concept**: never tested against a real provider, pinpad or card | see [docs/PAGAMENTOS.md](docs/PAGAMENTOS.md) |
+| Point of sale (`ravenrs-pos`, `ravenrs-app-pos`, `examples/mini-pdv`) | the rules of a cart, in `ravenrs-pos` | **beta, proof of concept**: tested with no window, against the sandbox | see [docs/AUTOMACAO-COMERCIAL.md](docs/AUTOMACAO-COMERCIAL.md) |
 
 ## 12. Decisions log
 

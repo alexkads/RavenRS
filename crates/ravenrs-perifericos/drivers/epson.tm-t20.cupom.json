@@ -1,0 +1,13 @@
+{
+  "id": "epson.tm-t20.cupom",
+  "versao": "1.0.0",
+  "tipo": "impressora_termica",
+  "fabricante": "Epson",
+  "modelos": [{ "nome": "Epson TM-T20" }],
+  "conexoes": ["usb", "serial"],
+  "padroes": { "dpi": 203 },
+  "protocolo": { "nome": "esc_pos" },
+  "capacidades": { "corta": true, "corte_parcial": true, "gaveta": true },
+  "situacao": { "estado": "presumido" },
+  "observacoes": "O manual do usuário dá 203 dpi. O ESC/POS e o raster neste modelo vêm da TM-T20II e de memória, e as conexões e a largura variam por versão."
+}

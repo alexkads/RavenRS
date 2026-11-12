@@ -1,0 +1,13 @@
+{
+  "id": "elgin.l42-dt.etiqueta",
+  "versao": "1.0.0",
+  "tipo": "etiquetadora",
+  "fabricante": "Elgin",
+  "modelos": [{ "nome": "Elgin L42 DT" }],
+  "conexoes": ["usb", "serial"],
+  "padroes": { "dpi": 203 },
+  "protocolo": { "nome": "zpl", "versao": "II" },
+  "protocolos_alternativos": [{ "nome": "epl" }, { "nome": "tspl" }],
+  "situacao": { "estado": "presumido" },
+  "observacoes": "Os anúncios discordam: uns listam EPL, ZPL e TSPL, outros só EPL e ZPL. O TSPL pode depender do modelo."
+}

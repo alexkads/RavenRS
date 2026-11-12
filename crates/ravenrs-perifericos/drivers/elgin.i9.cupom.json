@@ -1,0 +1,16 @@
+{
+  "id": "elgin.i9.cupom",
+  "versao": "1.0.0",
+  "tipo": "impressora_termica",
+  "fabricante": "Elgin",
+  "modelos": [{ "nome": "Elgin i9", "variacoes": ["Elgin i9 Full", "Bematech i9 Full"] }],
+  "conexoes": ["usb", "serial", "rede"],
+  "padroes": { "dpi": 203 },
+  "protocolo": { "nome": "esc_pos" },
+  "capacidades": { "corta": true, "bipe": true, "qr_nativo": true },
+  "situacao": {
+    "estado": "so_pela_documentacao",
+    "fonte": "Folheto Elgin i9, https://www.bztech.com.br/arquivos/folheto-impressora-nao-fiscal-elgin-i9.pdf"
+  },
+  "observacoes": "O folheto diz ESC/POS, 203 dpi, guilhotina, buzzer e QRCode. Não lista GS v 0, os pontos por linha nem o comando do buzzer, então o bipe pode ficar mudo."
+}

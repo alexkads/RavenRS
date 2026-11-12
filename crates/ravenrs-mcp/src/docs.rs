@@ -2,7 +2,7 @@
 
 use serde_json::{Map, Value, json};
 
-use crate::api::{Index, has_word};
+use crate::api::{GUIDES, Index, has_word};
 
 pub const README: &str = include_str!("../../../README.md");
 pub const GETTING_STARTED: &str = include_str!("../../../docs/GETTING_STARTED.md");
@@ -12,6 +12,11 @@ const REPORTING_PARITY: &str = include_str!("../../../docs/REPORTING-PARITY.md")
 const APP_PARITY: &str = include_str!("../../../docs/APP-PARITY.md");
 const APP_CONTRACTS: &str = include_str!("../../../docs/APP-CONTRACTS.md");
 const TOKENS: &str = include_str!("../../../docs/design-system/tokens.json");
+
+/// The longest piece of a guide shown in a search, in characters.
+const MAX_EXCERPT: usize = 400;
+/// The longest part of a guide shown at once, in characters.
+const MAX_SECTION: usize = 12_000;
 
 /// Categories of `tokens.json`, under the names the tool accepts.
 pub const TOKEN_CATEGORIES: [&str; 7] =
@@ -123,7 +128,7 @@ pub fn parity(
     limit: usize,
 ) -> Result<Value, String> {
     let documents: &[(&str, &str)] = match document {
-        None => &[("components", PARITY), ("reporting", REPORTING_PARITY)],
+        None => &[("components", PARITY), ("reporting", REPORTING_PARITY), ("application", APP_PARITY)],
         Some("components") => &[("components", PARITY)],
         Some("reporting") => &[("reporting", REPORTING_PARITY)],
         Some("application") => &[("application", APP_PARITY)],
@@ -195,6 +200,140 @@ pub fn parity(
         "shown": matches.len(),
         "rows": matches,
     }))
+}
+
+/// One part of a guide: what is under a heading, up to the next heading.
+struct Section<'a> {
+    heading: &'a str,
+    text: &'a str,
+}
+
+/// The parts of a Markdown document, skipping code blocks when looking for headings.
+fn sections(markdown: &str) -> Vec<Section<'_>> {
+    let mut starts: Vec<(usize, &str)> = Vec::new();
+    let mut at = 0;
+    let mut in_code = false;
+    for line in markdown.split_inclusive('\n') {
+        let trimmed = line.trim_end();
+        if trimmed.trim_start().starts_with("```") {
+            in_code = !in_code;
+        } else if !in_code && trimmed.starts_with('#') {
+            starts.push((at, trimmed.trim_start_matches('#').trim()));
+        }
+        at += line.len();
+    }
+    let mut parts = Vec::with_capacity(starts.len() + 1);
+    if starts.first().is_none_or(|(first, _)| *first > 0) {
+        let end = starts.first().map_or(markdown.len(), |(first, _)| *first);
+        parts.push(Section { heading: "", text: &markdown[..end] });
+    }
+    for (position, (start, heading)) in starts.iter().enumerate() {
+        let end = starts.get(position + 1).map_or(markdown.len(), |(next, _)| *next);
+        parts.push(Section { heading, text: &markdown[*start..end] });
+    }
+    parts
+}
+
+fn matching_guides(document: Option<&str>) -> Result<Vec<(&'static str, &'static str)>, String> {
+    let Some(document) = document else { return Ok(GUIDES.to_vec()) };
+    let wanted = document.to_lowercase();
+    let found: Vec<_> =
+        GUIDES.iter().copied().filter(|(path, _)| path.to_lowercase().contains(&wanted)).collect();
+    if found.is_empty() {
+        return Err(format!("no guide matches '{document}'. Call guides with no arguments to list them."));
+    }
+    Ok(found)
+}
+
+/// A piece of `text` around the first of `words`, on whole characters.
+fn excerpt(text: &str, words: &[String]) -> String {
+    let lower = text.to_lowercase();
+    let first = words.iter().filter_map(|word| lower.find(word.as_str())).min().unwrap_or(0);
+    // Lowercasing can change byte lengths, so the place is only a hint, measured in characters.
+    let at = lower[..first].chars().count();
+    let start = at.saturating_sub(MAX_EXCERPT / 3);
+    let piece: String = text.chars().skip(start).take(MAX_EXCERPT).collect();
+    let piece = piece.trim();
+    if start > 0 { format!("...{piece}") } else { piece.to_owned() }
+}
+
+/// The guides: all of them, the parts of some, the text of a part, or the parts that have some words.
+pub fn guides(
+    document: Option<&str>,
+    section: Option<&str>,
+    query: Option<&str>,
+    limit: usize,
+) -> Result<Value, String> {
+    let chosen = matching_guides(document)?;
+    if let Some(query) = query {
+        let words: Vec<String> = query.to_lowercase().split_whitespace().map(str::to_owned).collect();
+        if words.is_empty() {
+            return Err("the query has no words".to_owned());
+        }
+        let mut found = Vec::new();
+        for (path, text) in &chosen {
+            for part in sections(text) {
+                let lower = part.text.to_lowercase();
+                if !words.iter().all(|word| lower.contains(word.as_str())) {
+                    continue;
+                }
+                let heading = part.heading.to_lowercase();
+                let in_heading = words.iter().filter(|word| heading.contains(word.as_str())).count();
+                let times: usize = words.iter().map(|word| lower.matches(word.as_str()).count()).sum();
+                found.push((in_heading, times, *path, part.heading, excerpt(part.text, &words)));
+            }
+        }
+        found.sort_by_key(|part| std::cmp::Reverse((part.0, part.1)));
+        let total = found.len();
+        found.truncate(limit);
+        let matches: Vec<Value> = found
+            .into_iter()
+            .map(|(_, _, path, heading, text)| json!({ "document": path, "section": heading, "excerpt": text }))
+            .collect();
+        return Ok(json!({ "query": query, "total": total, "shown": matches.len(), "matches": matches }));
+    }
+    if let Some(section) = section {
+        let wanted = section.to_lowercase();
+        let mut found = Vec::new();
+        for (path, text) in &chosen {
+            for part in sections(text) {
+                if part.heading.to_lowercase().contains(&wanted) {
+                    let whole = part.text.len() <= MAX_SECTION;
+                    let shown: String = part.text.chars().take(MAX_SECTION).collect();
+                    found.push(json!({
+                        "document": path,
+                        "section": part.heading,
+                        "text": shown,
+                        "whole": whole,
+                    }));
+                }
+            }
+        }
+        if found.is_empty() {
+            return Err(format!("no section matches '{section}'. Pass only `document` to list them."));
+        }
+        found.truncate(limit);
+        return Ok(json!({ "sections": found }));
+    }
+    if document.is_some() {
+        let listed: Vec<Value> = chosen
+            .iter()
+            .map(|(path, text)| {
+                let headings: Vec<&str> =
+                    sections(text).into_iter().map(|part| part.heading).filter(|h| !h.is_empty()).collect();
+                json!({ "document": path, "sections": headings })
+            })
+            .collect();
+        return Ok(json!({ "documents": listed }));
+    }
+    let listed: Vec<Value> = chosen
+        .iter()
+        .map(|(path, text)| {
+            let title = sections(text).into_iter().map(|part| part.heading).find(|h| !h.is_empty());
+            json!({ "document": path, "title": title.unwrap_or(path) })
+        })
+        .collect();
+    Ok(json!({ "total": listed.len(), "documents": listed }))
 }
 
 /// The scenarios C01–C19 and the groups M01–M19 of docs/APP-CONTRACTS.md, with the issues that own
@@ -338,6 +477,23 @@ mod tests {
                 assert!(!category_tokens(&document, name).is_empty(), "no tokens in '{key}'");
             }
         }
+    }
+
+    #[test]
+    fn a_guide_is_cut_at_its_headings_and_not_at_comments_in_its_code() {
+        let parts = sections("intro\n# One\ntext\n```sh\n# not a heading\n```\n## Two\nmore\n");
+        let headings: Vec<&str> = parts.iter().map(|part| part.heading).collect();
+        assert_eq!(headings, ["", "One", "Two"]);
+        assert!(parts[1].text.contains("not a heading"));
+    }
+
+    #[test]
+    fn an_excerpt_does_not_break_a_character() {
+        let text = "ação ".repeat(400);
+        let piece = excerpt(&text, &["ação".to_owned()]);
+        assert!(piece.chars().count() <= MAX_EXCERPT);
+        let later = format!("{text}alvo{text}");
+        assert!(excerpt(&later, &["alvo".to_owned()]).contains("alvo"));
     }
 
     #[test]

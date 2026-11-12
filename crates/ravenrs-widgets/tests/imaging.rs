@@ -84,8 +84,8 @@ fn images(ui: &Ui) -> Vec<(Rect, ImageData)> {
         .collect()
 }
 
-const PLAIN: Modifiers = Modifiers { shift: false, ctrl: false, alt: false, meta: false };
-const SHIFT: Modifiers = Modifiers { shift: true, ctrl: false, alt: false, meta: false };
+const PLAIN: Modifiers = Modifiers { shift: false, ctrl: false, alt: false, meta: false, base_key: None };
+const SHIFT: Modifiers = Modifiers { shift: true, ctrl: false, alt: false, meta: false, base_key: None };
 
 // ------------------------------------------------------------------------------- Histogram
 

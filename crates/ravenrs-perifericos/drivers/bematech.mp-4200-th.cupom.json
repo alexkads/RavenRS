@@ -1,0 +1,22 @@
+{
+  "id": "bematech.mp-4200-th.cupom",
+  "versao": "1.0.0",
+  "tipo": "impressora_termica",
+  "fabricante": "Bematech",
+  "modelos": [{ "nome": "Bematech MP-4200 TH" }],
+  "conexoes": ["usb", "serial", "rede"],
+  "padroes": { "dpi": 203, "largura_pontos": 576 },
+  "protocolo": { "nome": "esc_pos" },
+  "capacidades": { "corta": true, "corte_parcial": true, "gaveta": true, "bipe": true },
+  "ajustes": {
+    "corte_total": "1D 56 42 18",
+    "bipe": "1B 28 41 05 00 61 64 01 02 01",
+    "comando_modo": "1D F9 20 01"
+  },
+  "situacao": {
+    "estado": "so_pela_documentacao",
+    "fonte": "MP-4200 TH Programmer's Manual, revisão 1.0, 2010, https://www.bztech.com.br/arquivos/manual-programacao-bematech-mp-4200-th.pdf"
+  },
+  "instalacao": "A impressora tem dois modos, ESC/Bema e ESC/POS, e só um fica ativo. Este driver pede o modo ESC/POS a cada cupom, sem gravar na impressora. Nada precisa ser configurado, mas o modo gravado nela continua o que estava.",
+  "observacoes": "O manual lista só GS V 66 n como corte com avanço, sem dizer se é total, por isso o corte total usa o mesmo comando. O bipe usa a forma própria dela, com 200 ms ligado."
+}

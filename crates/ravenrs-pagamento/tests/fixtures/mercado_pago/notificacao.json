@@ -1,0 +1,14 @@
+{
+  "action": "order.processed",
+  "api_version": "v1",
+  "application_id": "1",
+  "id": "1",
+  "live_mode": false,
+  "type": "order",
+  "user_id": "1",
+  "data": {
+    "id": "ORD01",
+    "status": "processed",
+    "external_reference": "venda-1"
+  }
+}

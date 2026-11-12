@@ -179,6 +179,8 @@ pub struct Ui {
     /// Seconds since start, set by the platform.
     time: f64,
     shortcuts: Vec<Shortcut>,
+    /// Where the focus was before this build moved it.
+    moved_focus_from: Option<Option<WidgetId>>,
     activity: Option<crate::context::ActivityObserver>,
     access_tree_asked: bool,
     /// Earliest time a widget asked to be rebuilt at.
@@ -288,6 +290,7 @@ impl Ui {
             scrollbar_showing: false,
             time: 0.0,
             shortcuts: Vec::new(),
+            moved_focus_from: None,
             activity: None,
             access_tree_asked: false,
             wake: None,
@@ -848,6 +851,16 @@ impl Ui {
             Event::KeyUp { modifiers, .. } => self.modifiers.set(*modifiers),
             Event::KeyDown { key, modifiers } => {
                 self.modifiers.set(*modifiers);
+                if modifiers.alt {
+                    let base = modifiers.base_key.map(|c| Key::Character(c.to_string()));
+                    let shortcut = self.shortcuts.iter().find(|s| {
+                        s.alt && [Some(key), base.as_ref()].into_iter().flatten().any(|k| same_key(&s.key, k))
+                    });
+                    if let Some(s) = shortcut.map(|s| s.handler.clone()) {
+                        s();
+                        return self.needs_redraw();
+                    }
+                }
                 let handler = self.focused_element().and_then(|e| e.on_key.clone());
                 if let Some(handler) = handler
                     && handler(key, *modifiers)
@@ -863,12 +876,7 @@ impl Ui {
                     return self.needs_redraw();
                 }
                 let shortcut = self.shortcuts.iter().find(|s| {
-                    s.command == command
-                        && (!s.shift || modifiers.shift)
-                        && match (&s.key, key) {
-                            (Key::Character(a), Key::Character(b)) => a.eq_ignore_ascii_case(b),
-                            (a, b) => a == b,
-                        }
+                    !s.alt && s.command == command && (!s.shift || modifiers.shift) && same_key(&s.key, key)
                 });
                 if let Some(s) = shortcut.map(|s| s.handler.clone()) {
                     s();
@@ -949,8 +957,14 @@ impl Ui {
     /// Keeps focus inside an open modal layer, moving it in when the layer
     /// opens and back to where it was when the layer closes.
     fn trap_focus(&mut self) {
+        let moved_from = self.moved_focus_from.take();
         match self.modal_root() {
             Some(root) => {
+                // A field in the layer that took the focus as it opened: where to go back is where
+                // the focus was before that.
+                if let Some(before) = moved_from {
+                    self.modal_return.get_or_insert(before);
+                }
                 let focused = self.interaction.focused;
                 let layers = self.modal_layers(root);
                 let inside = (0..self.elements.len()).any(|i| {
@@ -1297,6 +1311,7 @@ impl Ui {
             // Focus moved by code keeps its ring only while the user is on the
             // keyboard (arrow keys moving through a radio group, say).
             self.interaction.focus_visible &= self.interaction.focused.is_some();
+            self.moved_focus_from = Some(self.interaction.focused);
             self.interaction.focused = Some(widget);
             self.reveal_focus = true;
             // Rebuild once so the newly focused widget can draw its focus state.
@@ -1873,6 +1888,14 @@ fn overlay_origin(placement: Placement, anchor: Rect, size: Size, gap: f32, view
     p.x = p.x.clamp(4.0, (viewport.width - size.width - 4.0).max(4.0));
     p.y = p.y.clamp(4.0, (viewport.height - size.height - 4.0).max(4.0));
     p
+}
+
+/// Whether a shortcut's key is the key pressed, whatever the case of a letter.
+fn same_key(wanted: &Key, pressed: &Key) -> bool {
+    match (wanted, pressed) {
+        (Key::Character(a), Key::Character(b)) => a.eq_ignore_ascii_case(b),
+        (a, b) => a == b,
+    }
 }
 
 #[cfg(test)]

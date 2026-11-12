@@ -1,0 +1,17 @@
+{
+  "id": "generico.hid-teclado.leitor",
+  "versao": "1.0.0",
+  "tipo": "leitor_codigo",
+  "fabricante": "Genérico",
+  "modelos": [
+    {
+      "nome": "Leitor de código USB em modo teclado (HID), de qualquer marca",
+      "variacoes": ["Modo chamado de keyboard wedge ou emulação de teclado"]
+    }
+  ],
+  "conexoes": ["usb"],
+  "protocolo": { "nome": "hid" },
+  "situacao": { "estado": "presumido" },
+  "instalacao": "Deixe o leitor no modo teclado, com Enter ao fim da leitura. Em muitos modelos isso é feito lendo um código do manual dele.",
+  "observacoes": "Serve para o aparelho que digita o código como um teclado. Não é um modelo específico, e nada aqui foi conferido em um leitor real."
+}

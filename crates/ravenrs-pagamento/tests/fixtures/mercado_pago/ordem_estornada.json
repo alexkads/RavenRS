@@ -1,0 +1,24 @@
+{
+  "id": "ORD01",
+  "status": "refunded",
+  "external_reference": "venda-1",
+  "transactions": {
+    "payments": [
+      {
+        "id": "PAY01",
+        "amount": "19.90",
+        "status": "refunded",
+        "status_detail": "refunded"
+      }
+    ],
+    "refunds": [
+      {
+        "id": "REF01",
+        "transaction_id": "PAY01",
+        "reference_id": "12345678",
+        "amount": "19.90",
+        "status": "processed"
+      }
+    ]
+  }
+}

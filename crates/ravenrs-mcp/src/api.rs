@@ -115,6 +115,31 @@ impl Index {
         self.items.iter().filter(|item| item.name.eq_ignore_ascii_case(name)).collect()
     }
 
+    /// Public items of any crate whose name or docs have every word of `query`, best first: the
+    /// name itself, then a name that contains it, then the docs.
+    pub fn search(&self, query: &str, krate: Option<&str>) -> Vec<&Item> {
+        let query = query.to_lowercase();
+        let words: Vec<&str> = query.split_whitespace().collect();
+        let mut found: Vec<(u8, &Item)> = self
+            .items
+            .iter()
+            .filter(|item| krate.is_none_or(|wanted| item.krate.eq_ignore_ascii_case(wanted)))
+            .filter_map(|item| {
+                let name = item.name.to_lowercase();
+                let docs = item.docs.to_lowercase();
+                let all = words.iter().all(|word| name.contains(word) || docs.contains(word));
+                let rank = match () {
+                    () if name == query => 0,
+                    () if words.iter().all(|word| name.contains(word)) => 1,
+                    () => 2,
+                };
+                (all && !words.is_empty()).then_some((rank, item))
+            })
+            .collect();
+        found.sort_by(|(a, one), (b, other)| (a, &one.name).cmp(&(b, &other.name)));
+        found.into_iter().map(|(_, item)| item).collect()
+    }
+
     /// The closest item names, for a name that was not found.
     pub fn suggest(&self, name: &str) -> Vec<&str> {
         let name = name.to_lowercase();

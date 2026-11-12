@@ -19,6 +19,7 @@
 //! ```
 
 mod app;
+mod background;
 mod container;
 mod dashboard;
 mod detail_view;
@@ -46,6 +47,7 @@ mod values;
 use ravenrs_widgets::AnyView;
 
 pub use app::App;
+pub use background::{JobInfo, JobProgress};
 pub use container::{ActionButton, ActionContainer};
 pub use dashboard::DashboardView;
 pub use detail_view::DetailView;
@@ -60,7 +62,7 @@ pub use pane::{EntityPane, PaneWords};
 pub use ravenrs_app_i18n::{Catalog, Language, Texts};
 pub use security::{SecuredApp, SignInAction};
 pub use session::{CollectionSource, FormCaption, Session, Words};
-pub use shell::{AppShell, FrameTemplate, MainTemplate, TemplateParts};
+pub use shell::{AppShell, CounterTemplate, FrameTemplate, MainTemplate, TemplateParts};
 pub use system::{CloneModule, SystemModule, ids};
 
 /// Registers this crate's types with a playground's interpreter (feature `live`).

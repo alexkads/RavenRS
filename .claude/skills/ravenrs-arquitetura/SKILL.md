@@ -1,6 +1,6 @@
 ---
 name: ravenrs-arquitetura
-description: Mapa da arquitetura do RavenRS, framework de GUI em Rust com wgpu para desktop e WebAssembly. Diz onde cada mudança entra, quais fronteiras entre crates preservar e como verificar. Use sempre que for criar ou alterar componentes, BuildCx, renderer, plataformas, tokens, a linguagem de expressões (ravenrs-criteria), o motor de relatórios (ravenrs-report) ou o editor de relatórios, ou ao responder como o RavenRS funciona por dentro, mesmo que o pedido não cite "arquitetura".
+description: Mapa da arquitetura do RavenRS, framework de GUI em Rust com wgpu para desktop e WebAssembly. Diz onde cada mudança entra, quais fronteiras entre crates preservar e como verificar. Use sempre que for criar ou alterar componentes, BuildCx, renderer, plataformas, tokens, a linguagem de expressões (ravenrs-criteria), o motor de relatórios (ravenrs-report), o editor de relatórios, impressoras de etiqueta e cupom, ou ao responder como o RavenRS funciona por dentro, mesmo que o pedido não cite "arquitetura".
 ---
 
 # Arquitetura do RavenRS
@@ -15,6 +15,7 @@ Esta skill é um mapa. O detalhe fica nos documentos do repositório, para exist
 | `docs/PARITY.md` | O que existe e o que falta em componentes |
 | `docs/REPORTING.md`, `docs/REPORTING-PARITY.md` | Desenho, fases e paridade dos relatórios |
 | `docs/design-system/README.md` | Regras visuais e tokens |
+| `docs/AUTOMACAO-COMERCIAL.md`, skill `ravenrs-fiscal` | NF-e, sandbox, caixa, etiquetas, pagamentos e o que falta para vender |
 
 Se o código contradisser um documento, confie no código e corrija o documento na mesma mudança.
 
@@ -31,7 +32,8 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Token ou tema | `docs/design-system/tokens.json` e `ravenrs-style`, sempre juntos | `docs/design-system/README.md` |
 | Plataforma | `ravenrs-platform-native` e `ravenrs-platform-web`; confira se a outra precisa do mesmo | §10 do `ARCHITECTURE.md` |
 | Função ou operador de expressão | `crates/ravenrs-criteria/src/`; funções no catálogo de `functions.rs` | Ida e volta em `format.rs`, `eval.rs`, `validate.rs`, `sql.rs` conforme o caso |
-| Formas vetoriais, layout de gráfico, códigos de barras | `crates/ravenrs-graphics/src/`: `vector`, `chart`, `barcode` | Testes no próprio crate; ver quem usa em `ravenrs-report` e em `crates/ravenrs-widgets/src/chart.rs` (`Chart`, `Barcode`, feature `charts`) |
+| Formas vetoriais, layout de gráfico, desenho de códigos de barras | `crates/ravenrs-graphics/src/`: `vector`, `chart`, `barcode` | Testes no próprio crate; ver quem usa em `ravenrs-report` e em `crates/ravenrs-widgets/src/chart.rs` (`Chart`, `Barcode`, feature `charts`) |
+| O que um código de barras é, GTIN | `crates/ravenrs-barcode/src/lib.rs`, sem nada de desenho | `ravenrs-graphics` reexporta; `ravenrs-nfe`, `ravenrs-pos` e o editor `Gtin` usam direto |
 | Modelo da aplicação, sem GUI | `crates/ravenrs-app/src/`: `entity`, `model/`, `space`, `action`, `controller`, `frame`, `module` | Testes no próprio crate, `tests/layers_properties.rs` e `tests/behavior.rs`; plano em `~/.claude/plans/agora-no-est-gio-que-iridescent-cray.md` |
 | Atributos de `#[derive(BusinessObject)]` | Leitura em `crates/ravenrs-app-spec/src/lib.rs`, código gerado em `crates/ravenrs-app-derive/src/lib.rs`, leitura em tempo de execução em `crates/ravenrs-app/src/source.rs` (feature `source`), tipos em `crates/ravenrs-app/src/object.rs`. Atributo novo entra nos três | Erros em `crates/ravenrs-app/tests/ui/` (`TRYBUILD=overwrite` ao mudar, revisando o `.stderr`); `crates/ravenrs-app-spec/tests/entities.rs` compara derive e fonte; `docs/APP-FRAMEWORK.md` |
 | Registros guardados sem banco | `Storage` em `crates/ravenrs-core/src/storage.rs`; `MemoryDatabase::stored_in`, `export_json`, `import_json` em `crates/ravenrs-app/src/space.rs`; `StoredModel` em `model/store.rs`; `App::keep_in` em `crates/ravenrs-app-ui/src/app.rs`; IndexedDB em `crates/ravenrs-platform-web/src/storage.rs` | `crates/ravenrs-app/tests/kept.rs`, `crates/ravenrs-app-ui/tests/kept.rs` |
@@ -41,6 +43,8 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Estados e lembretes | `crates/ravenrs-app/src/workflow.rs`; janela em `crates/ravenrs-app-ui/src/reminders.rs` | `crates/ravenrs-app/tests/workflow.rs`, `crates/ravenrs-app-ui/tests/workflow.rs` |
 | Ações declaradas (`#[action(set = ...)]`) | `crates/ravenrs-app/src/record_action.rs` (`RecordAction`, `Action::assign`); leitura de `campo = expressão; ...` em `Criteria::assignments` (`crates/ravenrs-criteria/src/parse.rs`); atributo em `ravenrs-app-spec` e `ravenrs-app-derive` | `crates/ravenrs-app/tests/record_actions.rs`, `tests/live.rs` (pelo interpretador), `crates/ravenrs-app-spec/tests/entities.rs` |
 | Recurso novo do framework | Uma demonstração em `examples/feature-center/src/model.rs` | `examples/feature-center/tests/tour.rs` |
+| Avisos de módulo, trabalho em segundo plano, registro único, números, rascunhos, janela de balcão, bloqueio | `crates/ravenrs-app/src/`: `module`, `records`, `entity`; `crates/ravenrs-app-ui/src/`: `background`, `shell`, `session` | `crates/ravenrs-app-ui/tests/counter.rs`, "Caixa de exemplo" em `examples/feature-center` |
+| Teclas de uso o dia todo, leitor de código | `crates/ravenrs-widgets/src/counter.rs` (`KeyBar`, `ScanField`) | `crates/ravenrs-widgets/tests/counter.rs` |
 | Contratos de módulos reutilizáveis | `docs/APP-CONTRACTS.md` (estado em `docs/APP-PARITY.md`); `ModuleManifest`, `switch_off` e `GuardedObjectSpace` em `crates/ravenrs-app/src/manifest.rs` e `module.rs`; `Provider` e `EventSink` em `provider.rs`; significados de `SpaceError` em `space.rs`; kit em `crates/ravenrs-app-testkit`; pacote de exemplo `crates/ravenrs-app-requests` e dois consumidores em `examples/contracts` (fora do workspace) | `crates/ravenrs-app/tests/manifest.rs`, `crates/ravenrs-app-requests/tests/contracts.rs`, `cargo test` dentro de cada `examples/contracts/*`; ferramenta `app_contracts` do `ravenrs-mcp` |
 | Registros prontos | `crates/ravenrs-app-library/src/lib.rs`, palavras em `pt_br.json` | `crates/ravenrs-app-library/tests/library.rs` |
 | Relatório de uma lista | `crates/ravenrs-app-report/src/lib.rs`, sobre `Session::list_table` e `document_of` | `crates/ravenrs-app-report/tests/report.rs` |
@@ -52,6 +56,14 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Visualizador de relatórios | `crates/ravenrs-report-viewer/src/`: `lib` (`DocumentViewer`), `search`, `parameters` | `crates/ravenrs-report-viewer/tests/viewer.rs` |
 | Filmes de treinamento e relato de bug | `crates/ravenrs-movie/src/`: `movie`, `project`, `composition`, `record`, `player`, `editor`, `flight` | Testes em `crates/ravenrs-movie/tests/`; filme é lista de desenho, nunca pixels |
 | Editor de relatórios | `crates/ravenrs-report-designer/src/`; `examples/report-designer` só o executa | `examples/report-designer/tests/designer.rs` |
+| Papel, colunas, bobina, comandos da impressora | `labels.rs` e `model.rs` em `crates/ravenrs-report/src/`; painel em `crates/ravenrs-report-designer/src/props.rs`, impressão direta em `thermal.rs` | `docs/REPORTING.md`, `docs/REPORTING-PARITY.md` |
+| Etiqueta e cupom na impressora: ZPL, EPL/PPLB, PPLA, TSPL, ESC/POS | `crates/ravenrs-report-label/src/`: `raster`, `language`, `output`, `preset` | `crates/ravenrs-report-label/tests/`, `FONTES.md` |
+| NF-e, NFC-e e sandbox, sem GUI | `crates/ravenrs-nfe/src/`; o sandbox em `sandbox/` | `REGRAS.md`, skill `ravenrs-fiscal` |
+| Módulo de notas | `crates/ravenrs-app-nfe/src/`: `module`, `service`, `cupom` | `examples/mini-pdv/tests/caixa.rs` |
+| Pagamentos, sem GUI | `crates/ravenrs-pagamento/src/`, atrás de `ProvedorPagamento` | `docs/PAGAMENTOS.md`, skill `ravenrs-fiscal` |
+| Regras de caixa, sem GUI | `crates/ravenrs-pos/src/` | Testes no próprio crate |
+| Telas de caixa, produtos e etiquetas | `crates/ravenrs-app-pos/src/`; `examples/mini-pdv` só compõe | `examples/mini-pdv/tests/`, `README.md` do exemplo |
+| O que o servidor MCP indexa | `crates/ravenrs-mcp/build.rs` acha sozinho fontes e Markdown; `src/docs.rs`, `src/api.rs`, `src/server.rs` respondem | `crates/ravenrs-mcp/tests/tools.rs`; ferramenta nova entra em `plugins/ravenrs/skills/ravenrs/SKILL.md`, que o teste confere |
 | Relatórios guardados e painéis no framework | `crates/ravenrs-app-report/src/`: `stored`, `analytics` | `crates/ravenrs-app-report/tests/stored.rs` |
 | Desempenho: cenas, gate, tempos | `crates/ravenrs-perf/src/scenes/`, `perf/baseline.json`; `Ui::stats`, `RenderStats` | Skill `ravenrs-desempenho`, `docs/QUALITY.md`, `docs/PERFORMANCE.md` |
 | Ferramentas do painel de diagnóstico | `crates/ravenrs-widgets/src/diagnostics.rs`, dados em `crates/ravenrs-core/src/diagnostics.rs` | `crates/ravenrs-widgets/tests/performance_tools.rs`, `docs/PERFORMANCE.md` |
@@ -72,6 +84,11 @@ Estas regras são o que mantém o projeto testável e portátil, por isso vale p
 - **`ravenrs-criteria` não depende de nada do RavenRS** e não recebe nada específico de um módulo. Filtros, regras de segurança e um futuro framework de aplicações vão usar a mesma linguagem.
 - **Lógica útil a mais de um motor vai para um crate compartilhado, nunca para uma cópia.** `ravenrs-criteria`, `ravenrs-graphics` e `ravenrs-report-export` não conhecem quem os chama. Antes de escrever lógica num motor, procure se outro já tem.
 - **`ravenrs-report` não depende de GPU nem de janela**, porque também roda em servidores. Layout gera um `Document` uma vez, e visualizador e exportadores desenham esse mesmo resultado.
+- **O motor fiscal não tem GUI.** `ravenrs-nfe`, `ravenrs-pagamento` e `ravenrs-pos` não conhecem `ravenrs-app`. A tela fica em `ravenrs-app-nfe` e `ravenrs-app-pos`, e `examples/mini-pdv` só compõe.
+- **O sandbox é um `Transport`.** O emissor monta os mesmos bytes e chama os mesmos endereços, sem caminho especial. O mesmo vale para o simulador atrás de `ProvedorPagamento`.
+- **O editor de relatórios é o único editor de layouts.** Cupom, DANFE e etiqueta são relatórios guardados. Faltou algo? Entra em `ravenrs-report` e `ravenrs-report-designer`, nunca num editor à parte.
+- **Impressora entra só por `ravenrs-report-label`.** `ravenrs-report` guarda o que imprimir (`Report::printer`, `ControlKind::PrinterCommand`, `Item::BarcodeMark`) e não conhece nenhuma linguagem de impressora.
+- **Produção fiscal está bloqueada no código.** `Ambiente` não tem produção. Liberar é decisão do dono, depois de homologar.
 - **Tudo que não é cola de plataforma compila para `wasm32-unknown-unknown`:** sem threads, sem `SharedArrayBuffer` e sem bloquear. Fontes são embutidas, porque o navegador não expõe as do sistema.
 - **Estado é de uma thread só:** `Rc` e `RefCell`, sem travas. Fontes de estado não mantêm observadores vivos.
 - **Nada roda entre frames.** Um app ocioso não consome CPU nem GPU, então frames só são pedidos quando a UI é invalidada.

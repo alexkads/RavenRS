@@ -1,0 +1,15 @@
+{
+  "id": "argox.x-2300.etiqueta",
+  "versao": "1.0.0",
+  "tipo": "etiquetadora",
+  "fabricante": "Argox",
+  "modelos": [{ "nome": "Argox X-2300", "variacoes": ["Argox X-2300E"] }],
+  "conexoes": ["usb", "serial"],
+  "protocolo": { "nome": "ppla" },
+  "protocolos_alternativos": [{ "nome": "epl", "versao": "PPLB" }],
+  "situacao": {
+    "estado": "so_pela_documentacao",
+    "fonte": "Manual da série X da Argox, https://www.manualsdir.com/manuals/754567/argox-x-series.html?page=116"
+  },
+  "observacoes": "O manual lista PPLA e PPLB neste modelo. O formato de imagem foi lido no manual PPLA da série Mercury, que pode variar. PPLB tratado como EPL é indício, e as conexões não vieram do manual."
+}

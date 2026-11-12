@@ -1,0 +1,35 @@
+[package]
+name = "ravenrs-dfe"
+description = "BETA, proof of concept: what Brazilian electronic fiscal documents share in RavenRS (XML, C14N, XMLDSig, transport, sandbox handlers, test ICP-Brasil certificates). Not homologated."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-dfe"
+keywords = ["nfe", "nfse", "xmldsig", "c14n", "brazil"]
+categories = ["encoding"]
+include = ["src/**", "fixtures/laboratorio/*.pem", "README.md", "Cargo.toml"]
+
+[features]
+# Real network: HttpTransport with a client certificate. Only exists on native targets.
+http = ["dep:ureq", "dep:p12-keystore", "dep:zeroize"]
+
+[dependencies]
+quick-xml = { version = "0.41", default-features = false }
+sha1 = { version = "0.10", default-features = false, features = ["std", "oid"] }
+# Without "std": it would bring a random source that WebAssembly does not have, and signing needs none.
+rsa = { version = "0.9", default-features = false, features = ["pem", "sha1", "sha2"] }
+base64 = "0.23"
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ureq = { version = "3.5", default-features = false, features = ["rustls"], optional = true }
+p12-keystore = { version = "0.4", optional = true }
+zeroize = { version = "1", optional = true }
+
+[lints]
+workspace = true

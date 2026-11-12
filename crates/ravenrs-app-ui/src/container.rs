@@ -18,23 +18,33 @@ pub(crate) fn icon_named(name: &str) -> Option<IconName> {
     IconName::ALL.iter().copied().find(|icon| icon.name() == name)
 }
 
-/// Reads keys such as `command+shift+s`.
-fn hotkey_of(text: &str) -> Option<Hotkey> {
+/// Reads keys such as `command+shift+s`, `alt+c` or `f9`.
+pub(crate) fn hotkey_of(text: &str) -> Option<Hotkey> {
     let mut command = false;
     let mut shift = false;
+    let mut alt = false;
     let mut key = None;
     for part in text.split('+') {
         match part.trim().to_lowercase().as_str() {
             "command" | "cmd" | "ctrl" => command = true,
             "shift" => shift = true,
+            "alt" | "option" => alt = true,
             "delete" => key = Some(Key::Delete),
             "enter" => key = Some(Key::Enter),
-            other => key = Some(Key::Character(other.to_owned())),
+            "esc" | "escape" => key = Some(Key::Escape),
+            other => {
+                let function = other.strip_prefix('f').and_then(|n| n.parse::<u8>().ok());
+                key = Some(match function {
+                    Some(number) if (1..=24).contains(&number) => Key::Function(number),
+                    _ => Key::Character(other.to_owned()),
+                });
+            }
         }
     }
     let key = key?;
-    let hotkey = match (&key, command) {
-        (Key::Character(letter), true) => Hotkey::command(letter),
+    let hotkey = match (&key, command, alt) {
+        (Key::Character(letter), true, _) => Hotkey::command(letter),
+        (Key::Character(letter), false, true) => Hotkey::alt(letter),
         _ => Hotkey::key(key),
     };
     Some(if shift { hotkey.shift() } else { hotkey })

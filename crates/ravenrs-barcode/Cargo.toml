@@ -1,0 +1,26 @@
+[package]
+name = "ravenrs-barcode"
+description = "Barcodes as plain data for RavenRS: EAN, UPC, Code 128, Code 39, ITF, QR Code and GTIN checks, with nothing about drawing."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-barcode"
+keywords = ["barcode", "qrcode", "ean", "gtin", "code128"]
+categories = ["encoding"]
+
+[features]
+# Registers its types with the playground's interpreter.
+live = ["dep:ravenrs-live"]
+
+[dependencies]
+ravenrs-live = { workspace = true, optional = true }
+serde.workspace = true
+qrcodegen = "1.8"
+
+[lints]
+workspace = true

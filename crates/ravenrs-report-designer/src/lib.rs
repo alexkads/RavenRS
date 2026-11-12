@@ -33,6 +33,7 @@ mod editor;
 mod preview;
 mod props;
 mod surface;
+mod thermal;
 
 use bands::BandRef;
 use editor::{Editor, FieldDrag, Selection};
@@ -177,6 +178,11 @@ impl Component for Designer {
             )),
             Divider::horizontal(),
             StatusBar { editor: e.clone(), cache: self.cache.clone(), themes: on_its_own },
+            thermal::ThermalDialog {
+                editor: e.clone(),
+                cache: self.cache.clone(),
+                params: self.params.clone(),
+            },
             on_its_own.then(|| Gallery { editor: e.clone() }),
             on_its_own.then(|| WizardDialog { editor: e.clone(), state: self.wizard.clone() }),
             ExpressionDialog(e.clone()),
@@ -459,6 +465,12 @@ impl Designer {
             .page(
                 RibbonPage::new("Saída").group(
                     RibbonGroup::new("Saída")
+                        .item({
+                            let e = e.clone();
+                            RibbonItem::button("Impressora direta", IconName::Printer)
+                                .large()
+                                .on_click(move || e.thermal_open.set(true))
+                        })
                         .item(printer(RibbonItem::button("Imprimir", IconName::Printer).large()))
                         .item(exporter(
                             RibbonItem::button("PDF", IconName::FileText).large(),
@@ -532,7 +544,7 @@ impl Designer {
 type Tool = (&'static str, IconName, fn() -> Control);
 
 /// The controls of the toolbox and of the Insert page, in order.
-const TOOLS: [Tool; 13] =
+const TOOLS: [Tool; 16] =
     [
         ("Rótulo", IconName::Type, || Control::label("Texto").at(0.0, 0.0, 140.0, 18.0)),
         ("Campo", IconName::Database, || Control::field("[Customer]").at(0.0, 0.0, 140.0, 18.0)),
@@ -568,6 +580,9 @@ const TOOLS: [Tool; 13] =
                 .at(0.0, 0.0, 160.0, 16.0)
         }),
         ("Link", IconName::Link, || Control::link("Abrir site", "https://").at(0.0, 0.0, 140.0, 18.0)),
+        ("Corte", IconName::Scissors, || Control::printer_command(ravenrs_report::PrinterAction::Cut)),
+        ("Gaveta", IconName::Inbox, || Control::printer_command(ravenrs_report::PrinterAction::OpenDrawer)),
+        ("Bipe", IconName::Bell, || Control::printer_command(ravenrs_report::PrinterAction::Beep)),
         ("Marcador", IconName::Bookmark, || Control::bookmark("[Customer]", 0).at(0.0, 0.0, 120.0, 12.0)),
     ];
 
