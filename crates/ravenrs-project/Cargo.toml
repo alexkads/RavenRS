@@ -1,0 +1,25 @@
+[package]
+name = "ravenrs-project"
+description = "Turns code written in the RavenRS playground into a Cargo project that runs on the desktop and in the browser, as files or a .zip."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-project"
+keywords = ["gui", "playground", "cargo", "template"]
+categories = ["development-tools", "gui"]
+
+[dependencies]
+proc-macro2.workspace = true
+syn = { workspace = true, features = ["full", "parsing"] }
+zip = { version = "9", default-features = false, features = ["deflate"] }
+
+[dev-dependencies]
+zip = { version = "9", default-features = false, features = ["deflate"] }
+
+[lints]
+workspace = true

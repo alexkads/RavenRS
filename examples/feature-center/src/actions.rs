@@ -4,6 +4,7 @@ use ravenrs_app::{
     Action, ActionCategory, ActionInput, ChoiceItem, CriteriaMode, FieldKind, Message, MessageKind, Module,
     Object, Selection, Value, ViewController,
 };
+use ravenrs_app_ui::Session;
 
 const ENTITY: &str = "ActionDemo";
 
@@ -96,6 +97,46 @@ impl ViewController for Showcase {
                 .selection(Selection::RequireMultiple)
                 .target_criteria("[state] = 'open'", CriteriaMode::TrueForAll)
                 .on_execute(|cx| change(cx, "state", |_| Value::Text("closed".into()))),
+            // The work runs on a thread of its own: the window shows how far it got and a way to
+            // stop it, and the records it hands back are kept here.
+            on_entity(Action::background("DemoBackground", "Em segundo plano", |job| {
+                let total = job.selected().len().max(1) as f32;
+                for (done, record) in job.selected().iter().enumerate() {
+                    if job.cancelled() {
+                        job.tell("Parou no meio; o que já foi feito ficou.", MessageKind::Warning);
+                        return Ok(());
+                    }
+                    job.progress(
+                        done as f32 / total,
+                        format!("Somando 10 em {}", record.get("name").to_text()),
+                    );
+                    std::thread::sleep(std::time::Duration::from_millis(300));
+                    let mut record = record.clone();
+                    let amount = record.get("amount").as_number().unwrap_or(0.0);
+                    record.set("amount", amount + 10.0);
+                    job.save(record);
+                }
+                job.tell("Somou 10 em segundo plano.", MessageKind::Success);
+                Ok(())
+            }))
+            .selection(Selection::RequireMultiple),
+            Action::simple("DemoHello", "Dizer olá")
+                .target_entity("TextsDemo")
+                .category(ActionCategory::Edit)
+                .selection(Selection::RequireSingle)
+                .on_execute(|cx| {
+                    let session =
+                        Session::of(cx).ok_or_else(|| "esta Action precisa das telas".to_owned())?;
+                    let name = match cx.selected.first().map(|record| record.get("name")) {
+                        Some(Value::Text(name)) => name,
+                        _ => String::new(),
+                    };
+                    cx.message(Message::new(
+                        session.texts().format("center.hello", &[&name]),
+                        MessageKind::Success,
+                    ));
+                    Ok(())
+                }),
             Action::simple("DemoInForm", "Carimbar")
                 .target_entity(ENTITY)
                 .category(ActionCategory::InForm("Tools".into()))
@@ -104,6 +145,48 @@ impl ViewController for Showcase {
                         "Esta Action fica no layout do formulário.",
                         MessageKind::Information,
                     ));
+                    Ok(())
+                }),
+        ]
+    }
+}
+
+/// The action of the accessibility demonstration: words of its own for screen readers, keys, and
+/// an announcement of what it did.
+struct Accessible;
+
+impl ViewController for Accessible {
+    fn id(&self) -> &str {
+        "AccessibilityShowcase"
+    }
+
+    fn actions(&self) -> Vec<Action> {
+        vec![
+            Action::simple("AccessibilityCheck", "Conferir")
+                .target_entity(crate::model::ACCESSIBILITY_DEMO)
+                .category(ActionCategory::Edit)
+                .selection(Selection::RequireSingle)
+                .icon("check")
+                .hotkey("command+shift+k")
+                .accessible_description("Marca o selecionado como conferido")
+                .on_execute(|cx| {
+                    let mut space = cx.space.borrow_mut();
+                    let mut names = Vec::new();
+                    for record in &cx.selected {
+                        let found = space.find(crate::model::ACCESSIBILITY_DEMO, &record.get("id"));
+                        let Some(mut stored) = found.map_err(|e| e.to_string())? else { continue };
+                        stored.set("checked", true);
+                        if let Value::Text(name) = stored.get("name") {
+                            names.push(name);
+                        }
+                        space.save(stored).map_err(|e| e.to_string())?;
+                    }
+                    space.commit().map_err(|e| e.to_string())?;
+                    drop(space);
+                    cx.records_changed();
+                    if let Some(session) = ravenrs_app_ui::Session::of(cx) {
+                        session.announcer().polite(format!("Conferido: {}", names.join(", ")));
+                    }
                     Ok(())
                 }),
         ]
@@ -120,7 +203,7 @@ impl Module for CenterModule {
     }
 
     fn view_controllers(&self) -> Vec<Box<dyn ViewController>> {
-        vec![Box::new(Showcase)]
+        vec![Box::new(Showcase), Box::new(Accessible)]
     }
 
     fn model_difference(&self) -> Option<&'static str> {

@@ -1,20 +1,25 @@
 [package]
 name = "tutorial-tasks"
-description = "RavenDevLab: primeiro app com ravenrs-app no VS Code."
+description = "A whole application from its records, in under 100 lines, in a window and in the browser."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish = false
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 ravenrs.workspace = true
 ravenrs-app.workspace = true
 ravenrs-app-ui.workspace = true
 
-[dev-dependencies]
-pollster.workspace = true
-image.workspace = true
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+console_error_panic_hook.workspace = true
+web-sys = { workspace = true, features = ["console"] }
 
 [lints]
 workspace = true

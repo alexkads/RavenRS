@@ -198,6 +198,52 @@ fn draw_the_states() {
         let mut ui = app(theme, 8, Updater::idle());
         capture(&gpu, &mut ui, size, &folder.join(format!("{label}-treinamentos.png")));
     }
+    // The dashboard of one account, in both themes.
+    for (theme, label) in [(themes::light(), "claro"), (themes::dark(), "escuro")] {
+        let mut ui = app(theme, 0, Updater::idle());
+        ui.set_viewport(size, 2.0);
+        ui.update();
+        ui.update();
+        for (role, name) in [(Role::ComboBox, "Conta"), (Role::ListBoxOption, "Carteira")] {
+            let tree = ui.access_tree();
+            let found = tree.nodes.iter().find(|n| n.role == role && n.name.as_deref() == Some(name));
+            ui.perform_action(found.unwrap_or_else(|| panic!("no {name}")).id, AccessAction::Click);
+            ui.update();
+            ui.update();
+        }
+        capture(&gpu, &mut ui, size, &folder.join(format!("painel-conta-{label}.png")));
+        // The pointer over the balance card brings out its resize corner.
+        let tree = ui.access_tree();
+        let card = tree
+            .nodes
+            .iter()
+            .find(|n| n.role == Role::Group && n.name.as_deref() == Some("Saldo de Carteira"));
+        let bounds = card.expect("no balance card").bounds;
+        ui.handle_event(&Event::PointerMove {
+            position: ravenrs::core::Point::new(bounds.max_x() - 40.0, bounds.max_y() - 40.0),
+        });
+        ui.update();
+        ui.update();
+        capture(&gpu, &mut ui, size, &folder.join(format!("painel-card-{label}.png")));
+        // Back to every account, caught partway: numbers counting, charts on their way.
+        let mut time = 0.0;
+        let mut frames = |ui: &mut Ui, seconds: f64| {
+            for _ in 0..(seconds * 60.0) as usize {
+                time += 1.0 / 60.0;
+                ui.set_time(time);
+                ui.update();
+            }
+        };
+        frames(&mut ui, 1.5);
+        for (role, name) in [(Role::ComboBox, "Conta"), (Role::ListBoxOption, "Todas as contas")] {
+            let tree = ui.access_tree();
+            let found = tree.nodes.iter().find(|n| n.role == role && n.name.as_deref() == Some(name));
+            ui.perform_action(found.unwrap_or_else(|| panic!("no {name}")).id, AccessAction::Click);
+            frames(&mut ui, 0.05);
+        }
+        frames(&mut ui, 0.15);
+        capture(&gpu, &mut ui, size, &folder.join(format!("painel-trocando-{label}.png")));
+    }
     // The agenda under the pointer: the tooltip with its row lit, and a right click.
     let mut agenda = app(themes::light(), 3, Updater::idle());
     agenda.set_viewport(size, 2.0);
@@ -623,6 +669,8 @@ fn draw_every_screen() {
         importante: false,
         novidades: vec!["Anexar boleto".to_owned()],
         por_que_atualizar: "Para não perder o papel.".to_owned(),
+        contribuidores: Vec::new(),
+        issues: Vec::new(),
     }));
     let mut update = app(themes::light(), 0, updater);
     capture(&gpu, &mut update, size, &folder.join("atualizacao.png"));
@@ -634,6 +682,8 @@ fn draw_every_screen() {
         importante: important,
         novidades: vec!["Anexar boleto".to_owned(), "Abrir o boleto a partir da conta".to_owned()],
         por_que_atualizar: "Para não perder o papel.".to_owned(),
+        contribuidores: Vec::new(),
+        issues: Vec::new(),
     };
     let states = [
         ("rodape-importante", UpdateStatus::Available(news(true, "0.2.0"))),
@@ -657,6 +707,18 @@ fn draw_every_screen() {
     let id = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Ver novidades")).expect("the button").id;
     dialog.perform_action(id, AccessAction::Click);
     capture(&gpu, &mut dialog, size, &folder.join("novidades.png"));
+
+    // Why an update failed, in full: the status bar has no room for it.
+    let updater = Updater::idle();
+    let reason = "a compilação falhou; veja ~/.raven-financas/atualizacao.log.";
+    updater.set_status(UpdateStatus::Failed(news(false, "0.2.0"), reason.to_owned()));
+    let mut details = app(themes::light(), 0, updater);
+    details.set_viewport(size, 2.0);
+    details.update();
+    let tree = details.access_tree();
+    let id = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Ver detalhes")).expect("the button").id;
+    details.perform_action(id, AccessAction::Click);
+    capture(&gpu, &mut details, size, &folder.join("atualizacao-detalhes.png"));
 
     // The agenda's month, and the form that plans something.
     for (buttons, name) in [

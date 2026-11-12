@@ -9,7 +9,7 @@ use ravenrs_criteria::{Criteria, Environment, Scope, Value};
 use ravenrs_reactive::State;
 
 use crate::frame::{FrameContext, ViewInfo, ViewKind};
-use crate::{FieldKind, ModelError, Object, ObjectSpace};
+use crate::{EntityInfo, FieldKind, ModelError, Object, ObjectSpace};
 
 /// The reason an action or a controller is off because its view is not the one it targets.
 pub const REASON_SCOPE: &str = "scope";
@@ -24,12 +24,16 @@ pub const REASON_CRITERIA: &str = "criteria";
 pub const REASON_APPEARANCE: &str = "appearance";
 /// The reason permissions turned an action off.
 pub const REASON_SECURITY: &str = "security";
+/// Off while its work runs away from the screen.
+pub const REASON_RUNNING: &str = "running";
 
 /// Why something is on or off: pairs of reason and answer. It is on only if every answer is yes,
 /// so one part of the application turning it off cannot be undone by another.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Reasons(BTreeMap<String, bool>);
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Reasons {
     /// Whether every answer is yes.
     pub fn all(&self) -> bool {
@@ -54,6 +58,7 @@ impl Reasons {
 
 /// What an action needs selected to be enabled.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Selection {
     /// Nothing in particular.
     #[default]
@@ -64,6 +69,7 @@ pub enum Selection {
     RequireMultiple,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Selection {
     fn allows(self, count: usize) -> bool {
         match self {
@@ -76,6 +82,7 @@ impl Selection {
 
 /// How [`Action::target_criteria`] counts the selected records.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CriteriaMode {
     /// All of them have to meet it.
     #[default]
@@ -87,6 +94,7 @@ pub enum CriteriaMode {
 /// Where an action belongs, which decides the place it shows in.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ActionCategory {
     /// Creating records.
     New,
@@ -112,6 +120,7 @@ pub enum ActionCategory {
 
 /// Whether views inside others count.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Nesting {
     /// Any view.
     #[default]
@@ -125,6 +134,7 @@ pub enum Nesting {
 /// Which views an action or a controller is for. Anything left out does not narrow it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TargetScope {
     /// Only views of this entity.
     pub entity: Option<String>,
@@ -136,6 +146,7 @@ pub struct TargetScope {
     pub nesting: Nesting,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TargetScope {
     /// Every view.
     pub fn any() -> Self {
@@ -188,6 +199,7 @@ impl TargetScope {
 
 /// One option of a single-choice action, which can hold others.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ChoiceItem {
     /// What the handler receives.
     pub id: String,
@@ -197,6 +209,7 @@ pub struct ChoiceItem {
     pub items: Vec<ChoiceItem>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ChoiceItem {
     /// An option with nothing under it.
     pub fn new(id: impl Into<String>, caption: impl Into<String>) -> Self {
@@ -217,6 +230,7 @@ impl ChoiceItem {
 /// How an action asks for what it needs.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ActionKind {
     /// A button: it just runs.
     Simple,
@@ -236,6 +250,7 @@ pub enum ActionKind {
 /// What the running of an action asks for next, by whoever shows the application.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ActionResult {
     /// Nothing else.
     Done,
@@ -248,11 +263,14 @@ pub enum ActionResult {
     OpenUrl(String),
     /// Records changed, so what shows them has to read again.
     RecordsChanged,
+    /// Its work started away from the screen, as the job with this id.
+    Started(u64),
 }
 
 /// What people gave an action that asks for something.
 #[derive(Clone, Debug, Default, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ActionInput {
     /// Nothing.
     #[default]
@@ -268,6 +286,7 @@ pub enum ActionInput {
 /// How much a [`Message`] matters.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum MessageKind {
     /// Something to know.
     #[default]
@@ -283,6 +302,7 @@ pub enum MessageKind {
 /// Something to tell people, which goes away by itself.
 #[derive(Clone)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Message {
     /// What it says.
     pub text: String,
@@ -302,6 +322,7 @@ impl fmt::Debug for Message {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Message {
     /// A message saying this.
     pub fn new(text: impl Into<String>, kind: MessageKind) -> Self {
@@ -327,7 +348,9 @@ impl Message {
     }
 }
 
-/// What an action sees while running.
+/// What an action sees while running. A copy is the same run: what it asks for next counts.
+#[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ActionContext {
     /// The frame it runs in.
     pub frame: crate::Frame,
@@ -339,7 +362,7 @@ pub struct ActionContext {
     pub view: Option<ViewInfo>,
     /// What people gave it.
     pub input: ActionInput,
-    next: RefCell<Option<ActionResult>>,
+    next: Rc<RefCell<Option<ActionResult>>>,
 }
 
 impl fmt::Debug for ActionContext {
@@ -348,6 +371,7 @@ impl fmt::Debug for ActionContext {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ActionContext {
     pub(crate) fn new(
         frame: crate::Frame,
@@ -356,7 +380,7 @@ impl ActionContext {
         view: Option<ViewInfo>,
         input: ActionInput,
     ) -> Self {
-        Self { frame, space, selected, view, input, next: RefCell::new(None) }
+        Self { frame, space, selected, view, input, next: Rc::default() }
     }
 
     /// Something the application gave its actions, by its type.
@@ -387,6 +411,7 @@ impl ActionContext {
 /// Why an action did not run.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum ActionError {
     /// No action has this id.
     Unknown(String),
@@ -421,6 +446,7 @@ type Guard = Rc<dyn Fn(&ActionContext) -> bool>;
 type Notice = Rc<dyn Fn(&ActionContext)>;
 type Prepare = Rc<dyn Fn(&ActionContext, &mut Object)>;
 
+#[derive(Clone)]
 struct ActionInner {
     id: String,
     caption: String,
@@ -436,11 +462,15 @@ struct ActionInner {
     prepare: Option<Prepare>,
     hotkey: Option<String>,
     icon: Option<String>,
+    accessible_name: Option<String>,
+    accessible_description: Option<String>,
     requires: Option<crate::Operation>,
     on_execute: Option<Handler>,
     on_cancel: Option<Notice>,
     on_executing: Option<Guard>,
     on_executed: Option<Notice>,
+    background: Option<crate::JobWork>,
+    problem: Option<String>,
     active: State<Reasons>,
     enabled: State<Reasons>,
 }
@@ -467,6 +497,7 @@ struct ActionInner {
 /// assert_eq!(pay.caption(), "Pagar");
 /// ```
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Action(Rc<ActionInner>);
 
 impl fmt::Debug for Action {
@@ -475,6 +506,7 @@ impl fmt::Debug for Action {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Action {
     fn new(id: impl Into<String>, caption: impl Into<String>, kind: ActionKind) -> Self {
         Self(Rc::new(ActionInner {
@@ -493,10 +525,14 @@ impl Action {
             hotkey: None,
             requires: None,
             icon: None,
+            accessible_name: None,
+            accessible_description: None,
             on_execute: None,
             on_cancel: None,
             on_executing: None,
             on_executed: None,
+            background: None,
+            problem: None,
             active: State::new(Reasons::default()),
             enabled: State::new(Reasons::default()),
         }))
@@ -505,6 +541,32 @@ impl Action {
     /// A button: it just runs.
     pub fn simple(id: impl Into<String>, caption: impl Into<String>) -> Self {
         Self::new(id, caption, ActionKind::Simple)
+    }
+
+    /// A button whose work runs away from the screen, on a thread of its own: it shows how far it
+    /// got, can be stopped, and what it hands back is kept on the screen's thread. While it runs,
+    /// the action is off, so it never runs twice at once.
+    ///
+    /// ```
+    /// use ravenrs_app::{Action, Selection};
+    ///
+    /// let archive = Action::background("Archive", "Arquivar", |job| {
+    ///     for record in job.selected() {
+    ///         let mut record = record.clone();
+    ///         record.set("Archived", true);
+    ///         job.save(record);
+    ///     }
+    ///     Ok(())
+    /// })
+    /// .selection(Selection::RequireMultiple);
+    /// assert!(archive.is_background());
+    /// ```
+    pub fn background(
+        id: impl Into<String>,
+        caption: impl Into<String>,
+        work: impl Fn(&crate::JobContext) -> Result<(), String> + Send + Sync + 'static,
+    ) -> Self {
+        Self::simple(id, caption).in_background(work)
     }
 
     /// Opens a view in a window, and runs on OK.
@@ -528,11 +590,37 @@ impl Action {
     }
 
     fn change(mut self, f: impl FnOnce(&mut ActionInner)) -> Self {
-        // While it is being declared, nothing else holds it.
+        // While it is being declared nothing else holds it, unless a copy was kept on the way, as
+        // the playground's interpreter does: then the change goes to an action of its own, which
+        // starts with the same reasons and does not share them.
+        if Rc::get_mut(&mut self.0).is_none() {
+            let mut copy = (*self.0).clone();
+            copy.active = State::new(self.0.active.get());
+            copy.enabled = State::new(self.0.enabled.get());
+            self.0 = Rc::new(copy);
+        }
         if let Some(inner) = Rc::get_mut(&mut self.0) {
             f(inner);
         }
         self
+    }
+
+    /// Runs this work away from the screen once it runs, after `on_execute`, with what people gave
+    /// it. See [`Action::background`].
+    pub fn in_background(
+        self,
+        work: impl Fn(&crate::JobContext) -> Result<(), String> + Send + Sync + 'static,
+    ) -> Self {
+        self.change(|a| a.background = Some(std::sync::Arc::new(work)))
+    }
+
+    /// Whether its work runs away from the screen.
+    pub fn is_background(&self) -> bool {
+        self.0.background.is_some()
+    }
+
+    pub(crate) fn work(&self) -> Option<crate::JobWork> {
+        self.0.background.clone()
     }
 
     /// Where it belongs.
@@ -610,9 +698,47 @@ impl Action {
         self.change(|a| a.icon = Some(icon.into()))
     }
 
+    /// What screen readers call it, instead of its caption: for a caption that only makes sense
+    /// on the screen, such as an arrow.
+    pub fn accessible_name(self, name: impl Into<String>) -> Self {
+        self.change(|a| a.accessible_name = Some(name.into()))
+    }
+
+    /// What screen readers say after its name, such as what it does to the selected records.
+    pub fn accessible_description(self, text: impl Into<String>) -> Self {
+        self.change(|a| a.accessible_description = Some(text.into()))
+    }
+
     /// What it does.
     pub fn on_execute(self, handler: impl Fn(&ActionContext) -> Result<(), String> + 'static) -> Self {
         self.change(|a| a.on_execute = Some(Rc::new(handler)))
+    }
+
+    /// Runs as an update: sets fields of every record selected of this entity, as
+    /// `field = expression; ...`, each read from the record as it was; checks them against the
+    /// rules of `Save`, and keeps them all or none. What does not parse, or names a field the
+    /// entity has not, is found when the application is put together.
+    ///
+    /// ```
+    /// use ravenrs_app::{Action, EntityInfo, FieldInfo, FieldKind, Selection};
+    ///
+    /// let task = EntityInfo::new("Task")
+    ///     .field(FieldInfo::new("id", FieldKind::Integer).key())
+    ///     .field(FieldInfo::new("state", FieldKind::Text));
+    /// let finish = Action::simple("Finish", "Concluir")
+    ///     .target_entity("Task")
+    ///     .selection(Selection::RequireMultiple)
+    ///     .assign(&task, "state = 'done'");
+    /// assert_eq!(finish.caption(), "Concluir");
+    /// ```
+    pub fn assign(self, entity: &EntityInfo, set: &str) -> Self {
+        match crate::record_action::assignments(entity, set) {
+            Ok(found) => {
+                let entity = entity.clone();
+                self.on_execute(move |cx| crate::record_action::assign(&entity, &found, cx))
+            }
+            Err(problem) => self.change(|a| a.problem = Some(problem)),
+        }
     }
 
     /// What a popup does when canceled.
@@ -686,6 +812,16 @@ impl Action {
         self.0.icon.as_deref()
     }
 
+    /// What screen readers call it, when it is not its caption.
+    pub fn accessible_name_text(&self) -> Option<&str> {
+        self.0.accessible_name.as_deref()
+    }
+
+    /// What screen readers say after its name, when anything.
+    pub fn accessible_description_text(&self) -> Option<&str> {
+        self.0.accessible_description.as_deref()
+    }
+
     /// The validation contexts to pass before it runs.
     pub fn contexts(&self) -> &[String] {
         &self.0.validation_contexts
@@ -729,6 +865,9 @@ impl Action {
 
     /// Says what is wrong with how it was declared.
     pub(crate) fn check(&self) -> Result<(), ModelError> {
+        if let Some(problem) = &self.0.problem {
+            return Err(ModelError(format!("the action {}: {problem}", self.0.id)));
+        }
         if let Some((text, _)) = &self.0.criteria {
             Criteria::parse(text).map_err(|e| ModelError(format!("the action {}: {e}", self.0.id)))?;
         }
@@ -857,6 +996,19 @@ mod tests {
 
     fn view(id: &str, kind: ViewKind, entity: Option<&str>) -> ViewInfo {
         ViewInfo::new(id, kind, entity)
+    }
+
+    #[test]
+    fn a_copy_kept_on_the_way_does_not_swallow_a_change() {
+        let first = Action::simple("a", "a");
+        let kept = first.clone();
+        kept.set_enabled("mine", false);
+        let changed = first.selection(Selection::RequireSingle);
+        assert_eq!(changed.0.selection, Selection::RequireSingle);
+        assert_eq!(kept.0.selection, Selection::Independent, "the copy stays as it was");
+        assert!(!changed.is_enabled(), "it starts with the same reasons");
+        changed.set_enabled("mine", true);
+        assert!(!kept.is_enabled(), "and does not share them");
     }
 
     #[test]

@@ -164,6 +164,11 @@ pub(crate) fn cell_of(field: &FieldInfo, value: &Value) -> Cell {
         // A pattern of its own gives up on sorting as a date, to show as it was asked.
         (FieldKind::Date, value) if field.display_format.is_some() => Cell::Text(display(field, value)),
         (FieldKind::Date, value) => date_of(value).map_or(Cell::Empty, Cell::Date),
+        // Seconds from the first day, so a column of these sorts as time goes; the column shows
+        // them in the language's way.
+        (FieldKind::DateTime, Value::Date(when)) if field.display_format.is_none() => {
+            Cell::Number(when.days as f64 * SECONDS_IN_A_DAY as f64 + f64::from(when.seconds))
+        }
         (
             FieldKind::Enum(_)
             | FieldKind::Tags(_)
@@ -206,7 +211,30 @@ pub(crate) fn column_of(field: &FieldInfo, caption: &str, words: &Words) -> Grid
                 _ => String::new(),
             })
         }
+        FieldKind::Date if field.display_format.is_none() => {
+            let pattern = words.date_format.clone();
+            GridColumn::date(caption).format(move |value| match value {
+                Cell::Date(date) => moment_text(&Moment { days: date.to_days(), seconds: 0 }, &pattern),
+                Cell::Text(text) => text.clone(),
+                _ => String::new(),
+            })
+        }
         FieldKind::Date => GridColumn::date(caption),
+        FieldKind::DateTime if field.display_format.is_none() => {
+            let pattern = words.date_time_format.clone();
+            GridColumn::text(caption).format(move |value| match value {
+                Cell::Number(seconds) => {
+                    let seconds = *seconds as i64;
+                    let moment = Moment {
+                        days: seconds.div_euclid(SECONDS_IN_A_DAY),
+                        seconds: seconds.rem_euclid(SECONDS_IN_A_DAY) as u32,
+                    };
+                    moment_text(&moment, &pattern)
+                }
+                Cell::Text(text) => text.clone(),
+                _ => String::new(),
+            })
+        }
         _ => GridColumn::text(caption),
     };
     column.field(field.name.clone())

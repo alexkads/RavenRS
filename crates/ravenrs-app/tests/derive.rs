@@ -131,3 +131,23 @@ fn wrong_attributes_point_at_what_is_wrong() {
     let cases = trybuild::TestCases::new();
     cases.compile_fail("tests/ui/*.rs");
 }
+
+#[derive(BusinessObject, Clone, Debug, PartialEq)]
+#[object(caption = "Chamadas", empty_text = "Nenhuma chamada ainda: abra uma aula para começar.")]
+struct Attendance {
+    #[field(key)]
+    id: i64,
+    #[field(default_property)]
+    class: String,
+}
+
+#[test]
+fn what_an_empty_list_says_comes_from_the_struct_and_reaches_the_model() {
+    let entity = Attendance::entity_info();
+    assert_eq!(entity.empty_text.as_deref(), Some("Nenhuma chamada ainda: abra uma aula para começar."));
+    let application = Application::builder("School").entity(entity).build().expect("valid");
+    let model = application.model();
+    let view = model.at(&["Views", "Attendance_ListView"]).expect("the list view");
+    assert_eq!(view.text("EmptyText"), Some("Nenhuma chamada ainda: abra uma aula para começar."));
+    assert_eq!(Account::entity_info().empty_text, None);
+}

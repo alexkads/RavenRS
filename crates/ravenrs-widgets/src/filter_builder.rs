@@ -9,11 +9,14 @@ use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 
 use crate::context::{BuildCx, NodeId, Paint};
-use crate::{Button, ButtonSize, ButtonStyle, IconButton, IconName, Select, TextField, View};
+use crate::{
+    Button, ButtonSize, ButtonStyle, IconButton, IconName, LookupItem, Select, TagBox, TextField, View,
+};
 
 /// What a field of a [`FilterBuilder`] holds, which says how its values are written.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum FilterFieldKind {
     /// Text.
     #[default]
@@ -28,6 +31,7 @@ pub enum FilterFieldKind {
 
 /// A field a [`FilterBuilder`] offers.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FilterField {
     /// The name in the expression.
     pub name: String,
@@ -35,12 +39,22 @@ pub struct FilterField {
     pub caption: String,
     /// What it holds.
     pub kind: FilterFieldKind,
+    /// Values to pick from for "is any of": the key as the expression writes it
+    /// (`2026-11-02` for a date) and the label people see.
+    pub values: Vec<LookupItem>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FilterField {
     /// A field with this name in the expression, and this caption on the screen.
     pub fn new(name: impl Into<String>, caption: impl Into<String>, kind: FilterFieldKind) -> Self {
-        Self { name: name.into(), caption: caption.into(), kind }
+        Self { name: name.into(), caption: caption.into(), kind, values: Vec::new() }
+    }
+
+    /// The values offered for "is any of" and "is none of". Others can still be typed.
+    pub fn values(mut self, values: impl IntoIterator<Item = LookupItem>) -> Self {
+        self.values = values.into_iter().collect();
+        self
     }
 }
 
@@ -54,11 +68,13 @@ enum Op {
     LessOrEqual,
     Contains,
     StartsWith,
+    AnyOf,
+    NoneOf,
     IsEmpty,
     IsNotEmpty,
 }
 
-const ALL_OPS: [Op; 10] = [
+const ALL_OPS: [Op; 12] = [
     Op::Equal,
     Op::NotEqual,
     Op::Greater,
@@ -67,13 +83,21 @@ const ALL_OPS: [Op; 10] = [
     Op::LessOrEqual,
     Op::Contains,
     Op::StartsWith,
+    Op::AnyOf,
+    Op::NoneOf,
     Op::IsEmpty,
     Op::IsNotEmpty,
 ];
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Op {
     fn takes_value(self) -> bool {
         !matches!(self, Op::IsEmpty | Op::IsNotEmpty)
+    }
+
+    /// It compares with a list of values rather than one.
+    fn takes_list(self) -> bool {
+        matches!(self, Op::AnyOf | Op::NoneOf)
     }
 
     fn fits(self, kind: FilterFieldKind) -> bool {
@@ -96,6 +120,8 @@ impl Op {
             Op::LessOrEqual => &labels.filter_less_or_equal,
             Op::Contains => &labels.filter_contains,
             Op::StartsWith => &labels.filter_starts_with,
+            Op::AnyOf => &labels.filter_any_of,
+            Op::NoneOf => &labels.filter_none_of,
             Op::IsEmpty => &labels.filter_is_empty,
             Op::IsNotEmpty => &labels.filter_is_not_empty,
         }
@@ -103,10 +129,11 @@ impl Op {
 }
 
 /// One line or group of the builder. What it cannot show as a line stays as `Raw`,
-/// so opening someone's expression never loses any of it.
+/// so opening someone's expression never loses any of it. `values` is what a list
+/// comparison holds; the others use `value`.
 #[derive(Clone, Debug, PartialEq)]
 enum Node {
-    Condition { field: String, op: Op, value: String },
+    Condition { field: String, op: Op, value: String, values: Vec<String> },
     Raw(String),
     Group { all: bool, items: Vec<Node> },
 }
@@ -128,7 +155,19 @@ fn field_name(criteria: &Criteria) -> Option<String> {
 fn read_node(criteria: &Criteria) -> Node {
     let condition = |field: &Criteria, op: Op, value: &Criteria| -> Option<Node> {
         let Criteria::Value(value) = value else { return None };
-        Some(Node::Condition { field: field_name(field)?, op, value: literal_text(value)? })
+        Some(Node::Condition {
+            field: field_name(field)?,
+            op,
+            value: literal_text(value)?,
+            values: Vec::new(),
+        })
+    };
+    let list = |field: &Criteria, op: Op, items: &[Criteria]| -> Option<Node> {
+        let values = items
+            .iter()
+            .map(|item| if let Criteria::Value(value) = item { literal_text(value) } else { None })
+            .collect::<Option<Vec<String>>>()?;
+        Some(Node::Condition { field: field_name(field)?, op, value: String::new(), values })
     };
     let read = match criteria {
         Criteria::Group(op, items) => {
@@ -151,15 +190,21 @@ fn read_node(criteria: &Criteria) -> Node {
             (Function::StartsWith, [field, value]) => condition(field, Op::StartsWith, value),
             _ => None,
         },
-        Criteria::IsNull(field) => {
-            field_name(field).map(|field| Node::Condition { field, op: Op::IsEmpty, value: String::new() })
-        }
+        Criteria::In(field, items) => list(field, Op::AnyOf, items),
+        Criteria::IsNull(field) => field_name(field).map(|field| Node::Condition {
+            field,
+            op: Op::IsEmpty,
+            value: String::new(),
+            values: Vec::new(),
+        }),
         Criteria::Unary(UnaryOp::Not, inner) => match inner.as_ref() {
             Criteria::IsNull(field) => field_name(field).map(|field| Node::Condition {
                 field,
                 op: Op::IsNotEmpty,
                 value: String::new(),
+                values: Vec::new(),
             }),
+            Criteria::In(field, items) => list(field, Op::NoneOf, items),
             _ => None,
         },
         _ => None,
@@ -205,12 +250,22 @@ fn write_value(value: &str, kind: FilterFieldKind) -> Option<String> {
 fn write_node(node: &Node, fields: &[FilterField]) -> Option<String> {
     match node {
         Node::Raw(text) => Some(text.trim().to_owned()).filter(|t| !t.is_empty()),
-        Node::Condition { field, op, value } => {
+        Node::Condition { field, op, value, values } => {
             let kind = fields.iter().find(|f| f.name == *field).map_or(FilterFieldKind::Text, |f| f.kind);
-            if op.takes_value() && value.trim().is_empty() {
-                return None;
-            }
-            let written = if op.takes_value() { write_value(value, kind)? } else { String::new() };
+            let written = if op.takes_list() {
+                let list = values.iter().map(|v| write_value(v, kind)).collect::<Option<Vec<String>>>()?;
+                if list.is_empty() {
+                    return None;
+                }
+                list.join(", ")
+            } else if op.takes_value() {
+                if value.trim().is_empty() {
+                    return None;
+                }
+                write_value(value, kind)?
+            } else {
+                String::new()
+            };
             Some(match op {
                 Op::Equal => format!("[{field}] = {written}"),
                 Op::NotEqual => format!("[{field}] <> {written}"),
@@ -220,6 +275,8 @@ fn write_node(node: &Node, fields: &[FilterField]) -> Option<String> {
                 Op::LessOrEqual => format!("[{field}] <= {written}"),
                 Op::Contains => format!("Contains([{field}], {written})"),
                 Op::StartsWith => format!("StartsWith([{field}], {written})"),
+                Op::AnyOf => format!("[{field}] In ({written})"),
+                Op::NoneOf => format!("Not [{field}] In ({written})"),
                 Op::IsEmpty => format!("[{field}] Is Null"),
                 Op::IsNotEmpty => format!("Not [{field}] Is Null"),
             })
@@ -264,6 +321,7 @@ fn node_at<'a>(root: &'a mut Node, path: &[usize]) -> Option<&'a mut Node> {
 /// let mut ui = Ui::new(builder, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FilterBuilder {
     value: Binding<String>,
     fields: Rc<Vec<FilterField>>,
@@ -275,6 +333,7 @@ impl fmt::Debug for FilterBuilder {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FilterBuilder {
     /// A builder over the expression in `value`, offering `fields`.
     pub fn new(value: Binding<String>, fields: impl IntoIterator<Item = FilterField>) -> Self {
@@ -290,6 +349,7 @@ struct Editor {
     fields: Rc<Vec<FilterField>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Editor {
     fn change(&self, path: &[usize], f: impl FnOnce(&mut Node)) {
         let mut tree = self.tree.get();
@@ -320,6 +380,7 @@ impl Editor {
             field: first.map_or_else(String::new, |f| f.name.clone()),
             op: if first.is_some_and(|f| f.kind == FilterFieldKind::Text) { Op::Contains } else { Op::Equal },
             value: String::new(),
+            values: Vec::new(),
         }
     }
 }
@@ -351,6 +412,7 @@ fn build_condition(
     field: &str,
     op: Op,
     value: &str,
+    values: &[String],
 ) -> NodeId {
     let labels = cx.labels();
     let fields = editor.fields.clone();
@@ -373,7 +435,7 @@ fn build_condition(
                     move |i: usize| {
                         let Some(next) = offered.get(i).cloned() else { return };
                         set.change(&there, |node| {
-                            if let Node::Condition { field, op, value } = node {
+                            if let Node::Condition { field, op, value, .. } = node {
                                 *field = next.name.clone();
                                 if !op.fits(next.kind) {
                                     *op = Op::Equal;
@@ -406,7 +468,16 @@ fn build_condition(
                     move |i: usize| {
                         let Some(next) = ops.get(i).copied() else { return };
                         set.change(&there, |node| {
-                            if let Node::Condition { op, .. } = node {
+                            if let Node::Condition { op, value, values, .. } = node {
+                                // What was written goes along to the other kind of comparison.
+                                if next.takes_list() && !op.takes_list() {
+                                    *values = Some(value.trim().to_owned())
+                                        .filter(|v| !v.is_empty())
+                                        .into_iter()
+                                        .collect();
+                                } else if !next.takes_list() && op.takes_list() {
+                                    *value = values.first().cloned().unwrap_or_default();
+                                }
                                 *op = next;
                             }
                         });
@@ -419,7 +490,29 @@ fn build_condition(
         ),
     );
 
-    if op.takes_value() {
+    if op.takes_list() {
+        let (set, there, shown) = (editor.clone(), path.to_vec(), values.to_vec());
+        let chosen = Binding::new(
+            move || shown.clone(),
+            move |picked: Vec<String>| {
+                set.change(&there, |node| {
+                    if let Node::Condition { values, .. } = node {
+                        *values = picked;
+                    }
+                });
+            },
+        );
+        let options = at.map(|i| fields[i].values.clone()).unwrap_or_default();
+        children.push(
+            cx.child(
+                &TagBox::new(chosen, options)
+                    .allow_new(true)
+                    .placeholder(labels.filter_value.clone())
+                    .label(labels.filter_value.clone())
+                    .width(190.0),
+            ),
+        );
+    } else if op.takes_value() {
         let (set, there) = (editor.clone(), path.to_vec());
         let shown = value.to_owned();
         if kind == FilterFieldKind::Boolean {
@@ -544,7 +637,9 @@ fn build_group(cx: &mut BuildCx<'_>, editor: &Editor, path: &[usize], all: bool,
         let mut child = path.to_vec();
         child.push(i);
         lines.push(match item {
-            Node::Condition { field, op, value } => build_condition(cx, editor, &child, field, *op, value),
+            Node::Condition { field, op, value, values } => {
+                build_condition(cx, editor, &child, field, *op, value, values)
+            }
             Node::Raw(text) => build_raw(cx, editor, &child, text),
             Node::Group { all, items } => build_group(cx, editor, &child, *all, items),
         });
@@ -615,6 +710,11 @@ mod tests {
             "Not [Name] Is Null",
             "[Active] = True",
             "[Due] >= #2026-11-02#",
+            "[Name] In ('Acme', 'It''s')",
+            "Not [Name] In ('Acme')",
+            "[Price] In (1, 2.5)",
+            "[Due] In (#2026-11-02#)",
+            "[Name] In ('Acme') And [Price] > 1",
             "[Price] > 1 And [Price] < 5",
             "[Price] > 1 Or [Name] = 'x'",
             "[Price] > 1 And ([Name] = 'x' Or [Name] = 'y')",
@@ -644,6 +744,7 @@ mod tests {
             field: field.to_owned(),
             op,
             value: value.to_owned(),
+            values: Vec::new(),
         };
         let tree = Node::Group {
             all: true,
@@ -658,7 +759,34 @@ mod tests {
     }
 
     #[test]
+    fn a_list_reads_as_one_line() {
+        let read = read_filter("[Name] In ('a', 'b')");
+        let Node::Group { items, .. } = &read else { panic!("{read:?}") };
+        assert_eq!(
+            items[0],
+            Node::Condition {
+                field: "Name".to_owned(),
+                op: Op::AnyOf,
+                value: String::new(),
+                values: vec!["a".to_owned(), "b".to_owned()],
+            }
+        );
+        // A list of anything but plain values stays an expression.
+        let read = read_filter("[Name] In ([Other], 'b')");
+        assert!(matches!(&read, Node::Group { items, .. } if matches!(items[0], Node::Raw(_))));
+        let empty = Node::Condition {
+            field: "Name".to_owned(),
+            op: Op::AnyOf,
+            value: String::new(),
+            values: Vec::new(),
+        };
+        assert_eq!(write_node(&empty, &fields()), None, "nothing picked says nothing yet");
+    }
+
+    #[test]
     fn comparisons_fit_the_field() {
+        assert!(Op::AnyOf.fits(FilterFieldKind::Date));
+        assert!(!Op::AnyOf.fits(FilterFieldKind::Boolean));
         assert!(Op::Contains.fits(FilterFieldKind::Text));
         assert!(!Op::Contains.fits(FilterFieldKind::Number));
         assert!(!Op::Greater.fits(FilterFieldKind::Boolean));

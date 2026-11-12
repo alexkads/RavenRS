@@ -12,7 +12,7 @@ use ravenrs_style::{Semantic, TextStyle};
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::date::Date;
 use crate::overlay::Options;
-use crate::text_field::{ClipboardAccess, Cursor, TextField, edit, index_at, insert, word_at};
+use crate::text_field::{ClipboardAccess, Cursor, TextField, byte_index, edit, index_at, insert, word_at};
 use crate::{ButtonSize, DatePicker, IconButton, IconName, VStack, View, util};
 
 // ---------------------------------------------------------------- TextArea
@@ -22,6 +22,8 @@ const DEFAULT_ROWS: usize = 4;
 /// Width assumed until the first layout says how wide a [`TextArea`] is.
 const FIRST_GUESS_WIDTH: f32 = 320.0;
 const AREA_PADDING: f32 = 12.0;
+/// What the area's border takes at its edge, focused or not, kept clear of the gutter.
+const BORDER_ROOM: f32 = 1.5;
 
 /// Breaks `text` into lines that fit `width`, as ranges of char indices. Line
 /// breaks in the text always break, the break itself belongs to no line, and
@@ -101,6 +103,32 @@ fn line_of(lines: &[(usize, usize)], caret: usize) -> usize {
     lines.iter().rposition(|(start, _)| *start <= caret).unwrap_or(0)
 }
 
+/// Colored stretches of a text, as `(from, to, color)` in char indices, sorted and apart.
+pub(crate) type Highlighter = Rc<dyn Fn(&str) -> Vec<(usize, usize, Semantic)>>;
+
+/// A line a code area marks: its index from 0, the color, and the char columns to underline.
+pub(crate) type LineMark = (usize, Semantic, Option<(usize, usize)>);
+
+/// How a text area shows code, set by [`crate::CodeEditor`]: a monospaced font, no
+/// wrapping, line numbers, colors and marks, and keys for indenting.
+#[derive(Clone)]
+pub(crate) struct CodeLook {
+    pub(crate) highlight: Option<Highlighter>,
+    pub(crate) line_numbers: bool,
+    pub(crate) marks: Rc<Vec<LineMark>>,
+    /// Spaces Tab inserts and Enter carries on; Ctrl or Cmd with Enter is left to shortcuts.
+    pub(crate) indent: usize,
+    /// Takes the height its parent gives instead of a number of rows.
+    pub(crate) fill: bool,
+    pub(crate) background: Semantic,
+}
+
+/// A marked line as drawn: its top, color, and the span to underline in pixels.
+type DrawnMark = (f32, ravenrs_core::Color, Option<(f32, f32)>);
+
+/// Room between the line numbers and the code.
+const GUTTER_GAP: f32 = 16.0;
+
 /// A multi-line text input bound to a `String`. Enter starts a new line, the
 /// arrows move between lines, and it scrolls past [`Self::rows`] lines.
 ///
@@ -113,6 +141,7 @@ fn line_of(lines: &[(usize, usize)], caret: usize) -> usize {
 /// let mut ui = Ui::new(field, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TextArea {
     value: Binding<String>,
     placeholder: String,
@@ -120,6 +149,9 @@ pub struct TextArea {
     grows: Option<(usize, usize)>,
     width: Option<f32>,
     state: util::EditorState,
+    /// Caret and selection kept by whoever built the area, so it can insert at the caret.
+    cursor: Option<State<Cursor>>,
+    code: Option<CodeLook>,
 }
 
 impl fmt::Debug for TextArea {
@@ -128,6 +160,7 @@ impl fmt::Debug for TextArea {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TextArea {
     /// An empty-placeholder area bound to `value`.
     pub fn new(value: Binding<String>) -> Self {
@@ -138,7 +171,23 @@ impl TextArea {
             grows: None,
             width: None,
             state: util::EditorState::default(),
+            cursor: None,
+            code: None,
         }
+    }
+
+    /// Shows the text as code. Only `CodeEditor`, of the `code` feature, asks for it.
+    #[cfg(feature = "code")]
+    pub(crate) fn code(mut self, look: CodeLook) -> Self {
+        self.code = Some(look);
+        self
+    }
+
+    /// Keeps the caret and selection in `cursor`, for a component that inserts text where
+    /// the caret is.
+    pub(crate) fn cursor(mut self, cursor: State<Cursor>) -> Self {
+        self.cursor = Some(cursor);
+        self
     }
 
     /// Muted text shown while the value is empty.
@@ -201,11 +250,42 @@ fn edit_area(
     key: &Key,
     modifiers: Modifiers,
     access: ClipboardAccess<'_>,
+    indent: usize,
 ) -> bool {
     let len = text.chars().count();
     c.caret = c.caret.min(len);
     let plain = !modifiers.ctrl && !modifiers.meta;
     match key {
+        Key::Enter if indent > 0 && !plain => return false,
+        Key::Enter if indent > 0 => {
+            let chars: Vec<char> = text.chars().collect();
+            let start = lines[line_of(lines, c.caret)].0;
+            let before = &chars[start..c.caret.max(start)];
+            let mut spaces = before.iter().take_while(|ch| **ch == ' ').count();
+            if before
+                .iter()
+                .rev()
+                .find(|ch| !ch.is_whitespace())
+                .is_some_and(|ch| matches!(ch, '{' | '(' | '['))
+            {
+                spaces += indent;
+            }
+            insert(text, c, &format!("\n{}", " ".repeat(spaces)));
+        }
+        Key::Tab if indent > 0 && modifiers.shift => {
+            let start = lines[line_of(lines, c.caret)].0;
+            let leading = text.chars().skip(start).take(indent).take_while(|ch| *ch == ' ').count();
+            if leading > 0 {
+                let from = byte_index(text, start);
+                text.replace_range(from..byte_index(text, start + leading), "");
+                c.caret = c.caret.saturating_sub(leading).max(start);
+                c.anchor = None;
+            }
+        }
+        Key::Tab if indent > 0 => {
+            let column = c.caret - lines[line_of(lines, c.caret)].0;
+            insert(text, c, &" ".repeat(indent - column % indent));
+        }
         Key::Enter => insert(text, c, "\n"),
         Key::ArrowUp | Key::ArrowDown if plain => {
             move_lines(lines, c, *key == Key::ArrowDown, modifiers.shift)
@@ -224,36 +304,63 @@ impl View for TextArea {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let state = self.state;
-        let cursor: State<Cursor> = cx.use_state(|| Cursor::at(usize::MAX));
+        let own: State<Cursor> = cx.use_state(|| Cursor::at(usize::MAX));
+        let cursor = self.cursor.clone().unwrap_or(own);
         let followed: State<usize> = cx.use_state(|| usize::MAX);
         let focused = cx.is_focused() && !state.disabled;
         let hovered = cx.is_hovered() && !state.disabled;
         let text = self.value.get();
         let chars: Vec<char> = text.chars().collect();
-        let attrs = util::attrs(&theme, TextStyle::Body, None);
+        let code = self.code.clone();
+        let mut attrs = util::attrs(&theme, TextStyle::Body, None);
+        if code.is_some() {
+            attrs.family = Some("monospace".to_owned());
+            attrs.size -= 1.0;
+        }
+        let attrs = attrs;
         let line_height = attrs.line_height;
 
         // The width of the last layout, known from the second build on.
         let viewport = cx.scroll_viewport();
         let outer = self.width.or(viewport.map(|v| v.width)).unwrap_or(FIRST_GUESS_WIDTH);
         let inner = (outer - 2.0 * AREA_PADDING).max(1.0);
-        let lines = {
+        let lines = if code.is_some() {
+            // Code does not wrap: a line is what lies between line breaks.
+            wrap_lines(&text, f32::INFINITY, |_| 0.0)
+        } else {
             let attrs = attrs.clone();
             wrap_lines(&text, inner, |s| cx.measure_text(s, &attrs).width)
         };
         let lines = Rc::new(lines);
-        let rows_shown = self.grows.map_or(self.rows, |(min, max)| lines.len().clamp(min, max));
+        let fill = code.as_ref().is_some_and(|c| c.fill);
+        let rows_shown = if fill {
+            viewport.map_or(self.rows, |v| ((v.height - AREA_PADDING) / line_height).ceil().max(1.0) as usize)
+        } else {
+            self.grows.map_or(self.rows, |(min, max)| lines.len().clamp(min, max))
+        };
         let height = rows_shown as f32 * line_height + AREA_PADDING;
+        // In a monospaced font a character's place is its column times one advance, which
+        // also counts the spaces a measured piece would leave out at its end.
+        let advance = code.is_some().then(|| cx.measure_text("0000000000", &attrs).width / 10.0);
+        // The line numbers' width, and the room they keep beside the code.
+        let gutter_width = code.as_ref().filter(|c| c.line_numbers).map(|_| {
+            let digits = lines.len().max(1).to_string().len().max(2);
+            digits as f32 * cx.measure_text("0", &attrs).width
+        });
+        let gutter_room = gutter_width.map_or(0.0, |w| w + GUTTER_GAP);
         let cur = cursor.get();
         let caret = cur.caret.min(chars.len());
         let caret_line = line_of(&lines, caret);
 
         // Keep the caret in view after it moves, and leave the wheel alone otherwise.
-        let mut offset = cx.scroll_offset().y;
+        let scrolled = cx.scroll_offset();
+        let mut offset = scrolled.y;
+        // Code scrolls sideways too, since it does not wrap.
+        let mut sideways = if code.is_some() { scrolled.x } else { 0.0 };
         // Everything fits again once text is deleted, and nothing is left to scroll.
         if self.grows.is_some() && lines.len() <= rows_shown && offset > 0.0 {
             offset = 0.0;
-            cx.set_scroll_offset(Point::new(0.0, 0.0));
+            cx.set_scroll_offset(Point::new(sideways, 0.0));
         }
         if focused && followed.get() != caret {
             followed.set_if_changed(caret);
@@ -268,9 +375,26 @@ impl View for TextArea {
             } else {
                 offset
             };
-            if next != offset {
+            // Sideways, the caret's column stays in view, between the line numbers and the edge.
+            let across = match (advance, viewport) {
+                (Some(advance), Some(v)) => {
+                    let column = caret - lines[caret_line].0;
+                    let x = column as f32 * advance;
+                    let visible = (v.width - 2.0 * AREA_PADDING - gutter_room).max(advance);
+                    if x < sideways {
+                        (x - advance * 4.0).max(0.0)
+                    } else if x + advance > sideways + visible {
+                        x + advance * 4.0 - visible
+                    } else {
+                        sideways
+                    }
+                }
+                _ => sideways,
+            };
+            if next != offset || across != sideways {
                 offset = next;
-                cx.set_scroll_offset(Point::new(0.0, next));
+                sideways = across;
+                cx.set_scroll_offset(Point::new(across, next));
             }
         }
 
@@ -292,16 +416,47 @@ impl View for TextArea {
             rows.push(cx.text(&self.placeholder, &attrs, color, LayoutStyle::leaf()));
             boundaries.push((0, vec![0.0]));
         } else {
+            let spans =
+                code.as_ref().and_then(|c| c.highlight.as_ref()).map(|h| h(&text)).unwrap_or_default();
             for &(a, b) in &lines[first..last] {
                 let shown = piece(a, b);
                 let color = state.ink(theme.color(Semantic::Ink));
                 let line = LayoutStyle { height: Some(line_height), ..LayoutStyle::leaf() };
+                let xs: Vec<f32> = match advance {
+                    Some(advance) => (a..=b).map(|i| (i - a) as f32 * advance).collect(),
+                    None => (a..=b).map(|i| cx.measure_text(&piece(a, i), &attrs).width).collect(),
+                };
                 rows.push(if shown.is_empty() {
                     cx.container(line, &[], Paint::None)
-                } else {
+                } else if spans.is_empty() {
                     cx.text(&shown, &attrs, color, line)
+                } else {
+                    // Each colored stretch sits where its first character falls.
+                    let mut pieces = Vec::new();
+                    let mut at = a;
+                    let mut push = |cx: &mut BuildCx<'_>, from: usize, to: usize, semantic: Semantic| {
+                        let words = piece(from, to);
+                        if words.trim().is_empty() {
+                            return;
+                        }
+                        let place =
+                            LayoutStyle { absolute: Some((xs[from - a], 0.0)), ..LayoutStyle::leaf() };
+                        pieces.push(cx.text(&words, &attrs, state.ink(theme.color(semantic)), place));
+                    };
+                    for &(from, to, semantic) in spans.iter().filter(|(from, to, _)| *to > a && *from < b) {
+                        let (from, to) = (from.max(a), to.min(b));
+                        if from > at {
+                            push(cx, at, from, Semantic::Ink);
+                        }
+                        push(cx, from, to, semantic);
+                        at = to;
+                    }
+                    if at < b {
+                        push(cx, at, b, Semantic::Ink);
+                    }
+                    cx.container(line, &pieces, Paint::None)
                 });
-                boundaries.push((a, (a..=b).map(|i| cx.measure_text(&piece(a, i), &attrs).width).collect()));
+                boundaries.push((a, xs));
             }
         }
         if last < lines.len() {
@@ -337,10 +492,52 @@ impl View for TextArea {
             .then(|| (x_at(caret, caret_line), caret_line as f32 * line_height));
         let accent = theme.color(Semantic::Accent);
         let highlight = accent.with_alpha(if focused { 0.32 } else { 0.16 });
+        // Marked lines: a band across the line, and a wavy-free underline under the columns.
+        let marks: Vec<DrawnMark> = code
+            .as_ref()
+            .map(|c| {
+                c.marks
+                    .iter()
+                    .filter(|(n, _, _)| (first..last).contains(n))
+                    .map(|&(n, semantic, columns)| {
+                        let under = columns.map(|(from, to)| {
+                            let start = lines[n].0;
+                            let (from, to) = ((start + from).min(lines[n].1), (start + to).min(lines[n].1));
+                            (x_at(from, n), x_at(to, n).max(x_at(from, n) + 8.0))
+                        });
+                        (n as f32 * line_height, theme.color(semantic), under)
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let gutter_marks: Vec<(f32, ravenrs_core::Color)> = marks.iter().map(|(y, c, _)| (*y, *c)).collect();
+        // Code is as wide as its longest line, and the area scrolls to it; room for the caret after.
+        let widest = advance.map(|advance| {
+            let columns = lines.iter().map(|&(a, b)| b - a).max().unwrap_or(0);
+            columns as f32 * advance + 2.0
+        });
         let content = cx.container(
-            LayoutStyle { align: Align::Start, ..LayoutStyle::stack(Axis::Vertical) },
+            LayoutStyle {
+                align: Align::Start,
+                grow: if code.is_some() { 1.0 } else { 0.0 },
+                min_width: widest,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
             &rows,
             Paint::Custom(Rc::new(move |f: Rect, scene| {
+                for (y, color, under) in &marks {
+                    let band = Rect::new(
+                        f.x() - AREA_PADDING / 2.0,
+                        f.y() + y,
+                        f.width() + AREA_PADDING,
+                        line_height,
+                    );
+                    scene.push_quad(Quad::new(band, color.with_alpha(0.14)));
+                    if let Some((a, b)) = under {
+                        let line = Rect::new(f.x() + a, f.y() + y + line_height - 3.0, b - a, 2.0);
+                        scene.push_quad(Quad::new(line, *color).radius(1.0));
+                    }
+                }
                 for (y, a, b) in &selected {
                     let band = Rect::new(f.x() + a, f.y() + y + 2.0, b - a, line_height - 4.0);
                     scene.push_quad(Quad::new(band, highlight).radius(2.0));
@@ -353,6 +550,81 @@ impl View for TextArea {
         );
         cx.semantics(content, Semantics::hidden());
 
+        // Line numbers, built for the same lines in view, with spacers for the rest.
+        let gutter_fill = state.fill(theme.color(code.as_ref().map_or(Semantic::Control, |c| c.background)));
+        let gutter = gutter_width.map(|width| {
+            let mut numbers = Vec::with_capacity(last - first + 2);
+            if first > 0 {
+                numbers.push(cx.container(
+                    LayoutStyle { height: Some(first as f32 * line_height), ..LayoutStyle::leaf() },
+                    &[],
+                    Paint::None,
+                ));
+            }
+            let marked: Vec<(usize, Semantic)> =
+                code.as_ref().map(|c| c.marks.iter().map(|(n, s, _)| (*n, *s)).collect()).unwrap_or_default();
+            for n in first..last.max(first + 1).min(lines.len().max(1)) {
+                let label = (n + 1).to_string();
+                let semantic = marked.iter().find(|(m, _)| *m == n).map_or(Semantic::InkMuted, |(_, s)| *s);
+                let x = width - cx.measure_text(&label, &attrs).width;
+                let place = LayoutStyle { absolute: Some((x, 0.0)), ..LayoutStyle::leaf() };
+                let number = cx.text(&label, &attrs, state.ink(theme.color(semantic)), place);
+                numbers.push(cx.container(
+                    LayoutStyle { height: Some(line_height), width: Some(width), ..LayoutStyle::leaf() },
+                    &[number],
+                    Paint::None,
+                ));
+            }
+            if last < lines.len() {
+                numbers.push(cx.container(
+                    LayoutStyle {
+                        height: Some((lines.len() - last) as f32 * line_height),
+                        ..LayoutStyle::leaf()
+                    },
+                    &[],
+                    Paint::None,
+                ));
+            }
+            let column = cx.container(
+                LayoutStyle {
+                    width: Some(width + GUTTER_GAP),
+                    // Down to the area's bottom border, even when the code ends higher.
+                    min_height: viewport.map(|v| (v.height - AREA_PADDING / 2.0 - BORDER_ROOM).max(0.0)),
+                    padding: Insets { right: GUTTER_GAP, ..Insets::default() },
+                    ..LayoutStyle::stack(Axis::Vertical)
+                },
+                &numbers,
+                Paint::Custom(Rc::new(move |f: Rect, scene| {
+                    // Over the code that scrolls under it, from inside the area's border to the gap.
+                    let under = Rect::new(
+                        f.x() - AREA_PADDING + BORDER_ROOM,
+                        f.y(),
+                        f.width() + AREA_PADDING - BORDER_ROOM - 4.0,
+                        f.height(),
+                    );
+                    scene.push_quad(Quad::new(under, gutter_fill));
+                    for (y, color) in &gutter_marks {
+                        let bar = Rect::new(f.x() - AREA_PADDING, f.y() + y, 3.0, line_height);
+                        scene.push_quad(Quad::new(bar, *color));
+                    }
+                })),
+            );
+            cx.semantics(column, Semantics::hidden());
+            // Drawn after the code and over it, and moved back by what the code scrolled
+            // sideways, so the numbers stay put.
+            let pinned = cx.container(
+                LayoutStyle { absolute: Some((AREA_PADDING, AREA_PADDING / 2.0)), ..LayoutStyle::leaf() },
+                &[column],
+                Paint::None,
+            );
+            cx.translate(pinned, Point::new(sideways, 0.0));
+            pinned
+        });
+        // What the line numbers take in the row, beside the code.
+        let gutter_space = gutter.map(|_| {
+            cx.container(LayoutStyle { width: Some(gutter_room), ..LayoutStyle::leaf() }, &[], Paint::None)
+        });
+
         let border = if focused {
             Border { width: 1.5, color: accent }
         } else {
@@ -362,24 +634,28 @@ impl View for TextArea {
                 color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),
             }
         };
+        let children: Vec<NodeId> = gutter_space.into_iter().chain([content]).chain(gutter).collect();
+        let background = code.as_ref().map_or(Semantic::Control, |c| c.background);
         let node = cx.container(
             LayoutStyle {
                 padding: Insets::symmetric(AREA_PADDING / 2.0, AREA_PADDING),
-                height: Some(height),
+                height: if fill { None } else { Some(height) },
+                min_height: fill.then_some(line_height + AREA_PADDING),
+                grow: if fill { 1.0 } else { 0.0 },
                 width: self.width,
                 min_width: Some(160.0),
                 overflow_hidden: true,
                 align_self: Some(if self.width.is_some() { Align::Start } else { Align::Stretch }),
-                ..LayoutStyle::stack(Axis::Vertical)
+                ..LayoutStyle::stack(if code.is_some() { Axis::Horizontal } else { Axis::Vertical })
             },
-            &[content],
+            &children,
             Paint::Quad(QuadPaint {
                 corner_radius: theme.radii.md,
                 border: Some(border),
-                ..QuadPaint::new(state.fill(theme.color(Semantic::Control)))
+                ..QuadPaint::new(state.fill(theme.color(background)))
             }),
         );
-        cx.scrollable_virtual(node, false);
+        cx.scrollable_virtual(node, code.is_some());
         crate::motion::control(cx, node);
         let mut semantics = Semantics::new(Role::TextInput).value(text.clone());
         if !self.placeholder.is_empty() {
@@ -432,13 +708,14 @@ impl View for TextArea {
         cx.cursor(content, CursorIcon::Text);
 
         let (value, clipboard) = (self.value.clone(), cx.clipboard());
+        let indent = code.as_ref().map_or(0, |c| c.indent);
         cx.on_key(
             node,
             Rc::new(move |key, modifiers| {
                 let mut text = value.get();
                 let mut c = cursor.get();
                 let access = ClipboardAccess { clipboard: &clipboard, secure: false, multiline: true };
-                let handled = edit_area(&mut text, &mut c, &lines, key, modifiers, access);
+                let handled = edit_area(&mut text, &mut c, &lines, key, modifiers, access, indent);
                 if handled {
                     let changed = text != value.get();
                     if changed && !state.accepts_input() {
@@ -501,6 +778,7 @@ pub(crate) fn parse_number(text: &str, decimal: char, group: char) -> Option<f64
 /// let mut ui = Ui::new(field, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct NumberField {
     value: Binding<Option<f64>>,
     min: f64,
@@ -524,6 +802,7 @@ impl std::fmt::Debug for NumberField {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl NumberField {
     /// Called when the keyboard goes elsewhere after being here.
     pub fn on_leave(mut self, handler: impl Fn() + 'static) -> Self {
@@ -767,6 +1046,7 @@ enum MaskSlot {
     Literal(char),
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MaskSlot {
     fn accepts(self, c: char) -> bool {
         match self {
@@ -853,6 +1133,7 @@ fn mask_fill(slots: &[MaskSlot], raw: &str) -> String {
 /// ui.update();
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MaskedField {
     value: Binding<String>,
     mask: String,
@@ -863,6 +1144,7 @@ pub struct MaskedField {
     state: util::EditorState,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MaskedField {
     /// A field bound to `value`, following `mask`.
     pub fn new(value: Binding<String>, mask: impl Into<String>) -> Self {
@@ -965,11 +1247,13 @@ impl View for MaskedField {
 /// assert!(Time::new(24, 0).is_none());
 /// ```
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Time {
     hour: u8,
     minute: u8,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Time {
     /// Returns `None` for an impossible time.
     pub fn new(hour: u8, minute: u8) -> Option<Self> {
@@ -995,6 +1279,7 @@ impl fmt::Display for Time {
 
 /// A date and a time of day, with no time zone.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DateTime {
     /// The day.
     pub date: Date,
@@ -1014,6 +1299,7 @@ pub struct DateTime {
 /// ui.update();
 /// ```
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TimePicker {
     value: Binding<Option<Time>>,
     step: u16,
@@ -1022,6 +1308,7 @@ pub struct TimePicker {
     state: util::EditorState,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TimePicker {
     /// A picker bound to `value`; `None` is empty.
     pub fn new(value: Binding<Option<Time>>) -> Self {
@@ -1142,6 +1429,7 @@ impl View for TimePicker {
 /// A [`DatePicker`] beside a [`TimePicker`], over one value. Picking a date first
 /// sets the time to midnight, and clearing the time clears both.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DateTimePicker {
     value: Binding<Option<DateTime>>,
     month: Date,
@@ -1150,6 +1438,7 @@ pub struct DateTimePicker {
     state: util::EditorState,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DateTimePicker {
     /// `month` is shown when no date is selected yet.
     pub fn new(value: Binding<Option<DateTime>>, month: Date) -> Self {

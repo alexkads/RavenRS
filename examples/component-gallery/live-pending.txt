@@ -1,0 +1,3 @@
+# Examples the playground's interpreter does not read yet, with why. They open compiled.
+# The test `coverage_of_the_interpreter` keeps this list exact: a new example has to run,
+# and one that starts to run comes off the list.

@@ -20,6 +20,7 @@ type KeyHandler = Rc<dyn Fn(&str)>;
 
 /// One item of a [`TreeView`], with the items under it.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TreeNode {
     key: String,
     label: String,
@@ -29,6 +30,7 @@ pub struct TreeNode {
     disabled: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TreeNode {
     /// An item the app knows by `key`, showing `label`.
     pub fn new(key: impl Into<String>, label: impl Into<String>) -> Self {
@@ -162,6 +164,7 @@ fn lines(nodes: &[TreeNode], expanded: &BTreeSet<String>, query: &str) -> Vec<Li
 /// let mut ui = Ui::new(tree, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TreeView {
     nodes: Vec<TreeNode>,
     selected: Option<Binding<Option<String>>>,
@@ -181,6 +184,7 @@ impl fmt::Debug for TreeView {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TreeView {
     /// A tree of these items, all closed.
     pub fn new(nodes: Vec<TreeNode>) -> Self {
@@ -265,6 +269,7 @@ struct TreeActions {
     active: State<Option<String>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TreeActions {
     fn set_open(&self, key: &str, open: bool) {
         self.expanded.update(|set| {

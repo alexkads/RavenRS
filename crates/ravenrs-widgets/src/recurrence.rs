@@ -7,6 +7,7 @@ use crate::date::{Date, days_in_month};
 /// How often a [`RecurrenceRule`] comes back.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Frequency {
     /// Only on its first day.
     Once,
@@ -21,6 +22,7 @@ pub enum Frequency {
     Yearly,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Frequency {
     /// Every frequency, in the order an editor offers them.
     pub const ALL: [Self; 5] = [Self::Once, Self::Daily, Self::Weekly, Self::Monthly, Self::Yearly];
@@ -29,6 +31,7 @@ impl Frequency {
 /// When a [`RecurrenceRule`] stops.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum RecurrenceEnd {
     /// It goes on.
     #[default]
@@ -56,6 +59,7 @@ pub enum RecurrenceEnd {
 /// assert_eq!(RecurrenceRule::parse(&rule.to_text()), Some(rule));
 /// ```
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RecurrenceRule {
     /// How often.
     pub frequency: Frequency,
@@ -77,6 +81,7 @@ impl Default for RecurrenceRule {
 /// iCalendar's names, from Sunday.
 const WEEKDAY_CODES: [&str; 7] = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RecurrenceRule {
     /// A rule at this frequency, every time, with no end.
     pub fn new(frequency: Frequency) -> Self {
@@ -195,6 +200,130 @@ impl fmt::Display for RecurrenceRule {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(&self.to_text())
     }
+}
+
+/// A [`RecurrenceRule`] with the days taken out of it, iCalendar's `RRULE` with its
+/// `EXDATE`s: a series where some occurrences were cancelled or moved elsewhere. An
+/// exception still counts toward the rule's `COUNT`, so taking one out never brings
+/// another day in at the end.
+///
+/// ```
+/// use ravenrs_widgets::{Date, Frequency, RecurrenceRule, RecurrenceSet};
+///
+/// let start = Date::new(2026, 11, 4).unwrap();
+/// let series = RecurrenceSet::new(RecurrenceRule::new(Frequency::Weekly))
+///     .except(Date::new(2026, 11, 11).unwrap());
+/// let days = series.occurrences(start, start, Date::new(2026, 11, 18).unwrap());
+/// assert_eq!(days, [start, Date::new(2026, 11, 18).unwrap()]);
+/// assert_eq!(series.to_text(), "RRULE:FREQ=WEEKLY\nEXDATE;VALUE=DATE:20261111");
+/// assert_eq!(RecurrenceSet::parse(&series.to_text()), Some(series));
+/// ```
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct RecurrenceSet {
+    /// How it repeats.
+    pub rule: RecurrenceRule,
+    /// The days taken out, in order and without repeats.
+    pub exceptions: Vec<Date>,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl RecurrenceSet {
+    /// A series of this rule with nothing taken out.
+    pub fn new(rule: RecurrenceRule) -> Self {
+        Self { rule, exceptions: Vec::new() }
+    }
+
+    /// Takes this day out of the series.
+    pub fn except(mut self, day: Date) -> Self {
+        self.add_exception(day);
+        self
+    }
+
+    /// Takes this day out of the series, in place; a day already out stays out once.
+    pub fn add_exception(&mut self, day: Date) {
+        if let Err(at) = self.exceptions.binary_search(&day) {
+            self.exceptions.insert(at, day);
+        }
+    }
+
+    /// Whether this day was taken out.
+    pub fn is_exception(&self, day: Date) -> bool {
+        self.exceptions.binary_search(&day).is_ok()
+    }
+
+    /// The days of the series starting at `start` that fall in `from..=to`, without the
+    /// exceptions, in order.
+    pub fn occurrences(&self, start: Date, from: Date, to: Date) -> Vec<Date> {
+        let mut days = self.rule.occurrences(start, from, to);
+        days.retain(|day| !self.is_exception(*day));
+        days
+    }
+
+    /// The series as iCalendar text: the bare rule when nothing was taken out, and an
+    /// `RRULE` line followed by an `EXDATE` line when something was.
+    pub fn to_text(&self) -> String {
+        if self.exceptions.is_empty() {
+            return self.rule.to_text();
+        }
+        format!("RRULE:{}\nEXDATE;VALUE=DATE:{}", self.rule.to_text(), exceptions_text(&self.exceptions))
+    }
+
+    /// Reads what [`Self::to_text`] writes, or a bare rule; `None` when it is neither.
+    pub fn parse(text: &str) -> Option<Self> {
+        let mut set: Option<Self> = None;
+        let mut exceptions = Vec::new();
+        for line in text.lines().map(str::trim).filter(|line| !line.is_empty()) {
+            if let Some(rule) = line.strip_prefix("RRULE:") {
+                set = Some(Self::new(RecurrenceRule::parse(rule)?));
+            } else if line.starts_with("EXDATE") {
+                let (_, days) = line.split_once(':')?;
+                exceptions.extend(parse_exceptions(days)?);
+            } else {
+                set = Some(Self::new(RecurrenceRule::parse(line)?));
+            }
+        }
+        let mut set = set?;
+        for day in exceptions {
+            set.add_exception(day);
+        }
+        Some(set)
+    }
+}
+
+impl fmt::Display for RecurrenceSet {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&self.to_text())
+    }
+}
+
+/// Days as the value of an iCalendar `EXDATE`: `20261111,20261118`.
+pub fn exceptions_text(days: &[Date]) -> String {
+    days.iter()
+        .map(|day| format!("{:04}{:02}{:02}", day.year(), day.month(), day.day()))
+        .collect::<Vec<_>>()
+        .join(",")
+}
+
+/// Reads days written by [`exceptions_text`], also as `2026-11-11`, and ignores a time
+/// after the day (`20261111T090000`); `None` when one of them is not a day. Empty text is
+/// no day at all.
+pub fn parse_exceptions(text: &str) -> Option<Vec<Date>> {
+    text.split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            let digits: String = part.split('T').next()?.chars().filter(|c| *c != '-').collect();
+            if digits.len() != 8 {
+                return None;
+            }
+            Date::new(
+                digits.get(..4)?.parse().ok()?,
+                digits.get(4..6)?.parse().ok()?,
+                digits.get(6..8)?.parse().ok()?,
+            )
+        })
+        .collect()
 }
 
 struct Occurrences {
@@ -356,5 +485,56 @@ mod tests {
         rule.interval = 0;
         let start = date(2026, 1, 1);
         assert_eq!(rule.occurrences(start, start, date(2026, 1, 3)).len(), 3);
+    }
+    #[test]
+    fn an_exception_takes_one_day_out_and_still_counts() {
+        let start = date(2026, 11, 4);
+        let rule = RecurrenceRule::new(Frequency::Weekly).end(RecurrenceEnd::After(3));
+        let series = RecurrenceSet::new(rule).except(date(2026, 11, 11));
+        assert_eq!(
+            series.occurrences(start, start, date(2026, 12, 31)),
+            [date(2026, 11, 4), date(2026, 11, 18)],
+            "the third is still the last: COUNT counts the day taken out"
+        );
+        assert!(series.is_exception(date(2026, 11, 11)));
+        assert!(!series.is_exception(date(2026, 11, 18)));
+    }
+
+    #[test]
+    fn exceptions_stay_in_order_and_once() {
+        let mut series = RecurrenceSet::new(RecurrenceRule::new(Frequency::Daily));
+        for day in [date(2026, 1, 9), date(2026, 1, 3), date(2026, 1, 9)] {
+            series.add_exception(day);
+        }
+        assert_eq!(series.exceptions, [date(2026, 1, 3), date(2026, 1, 9)]);
+    }
+
+    #[test]
+    fn a_series_survives_being_stored_as_text() {
+        let rule = RecurrenceRule::new(Frequency::Weekly).on_weekdays([1, 3]).end(RecurrenceEnd::After(9));
+        let plain = RecurrenceSet::new(rule);
+        assert_eq!(plain.to_text(), rule.to_text(), "with nothing taken out it is the bare rule");
+        let series = plain.clone().except(date(2026, 11, 9)).except(date(2026, 11, 16));
+        assert_eq!(
+            series.to_text(),
+            "RRULE:FREQ=WEEKLY;BYDAY=MO,WE;COUNT=9\nEXDATE;VALUE=DATE:20261109,20261116"
+        );
+        for set in [plain, series] {
+            assert_eq!(RecurrenceSet::parse(&set.to_text()), Some(set.clone()), "{set}");
+        }
+        for broken in ["", "EXDATE:20261109", "RRULE:FREQ=NEVER", "RRULE:FREQ=DAILY\nEXDATE:2026"] {
+            assert_eq!(RecurrenceSet::parse(broken), None, "{broken}");
+        }
+    }
+
+    #[test]
+    fn exception_days_read_in_both_ways_of_writing_them() {
+        assert_eq!(
+            parse_exceptions("20261109, 2026-11-16,20261123T090000"),
+            Some(vec![date(2026, 11, 9), date(2026, 11, 16), date(2026, 11, 23)])
+        );
+        assert_eq!(parse_exceptions(""), Some(Vec::new()));
+        assert_eq!(parse_exceptions("20261332"), None);
+        assert_eq!(exceptions_text(&[date(2026, 1, 2), date(2027, 3, 4)]), "20260102,20270304");
     }
 }

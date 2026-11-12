@@ -11,10 +11,11 @@ publish = false
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-ravenrs.workspace = true
+ravenrs = { workspace = true, features = ["code", "live"] }
 ravenrs-grid-export.workspace = true
-ravenrs-app.workspace = true
-ravenrs-app-ui.workspace = true
+ravenrs-app = { workspace = true, features = ["live"] }
+ravenrs-app-ui = { workspace = true, features = ["live"] }
+ravenrs-project.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tracing-subscriber.workspace = true
@@ -28,6 +29,10 @@ web-sys = { workspace = true, features = ["console", "Window", "Location", "UrlS
 [dev-dependencies]
 image.workspace = true
 pollster.workspace = true
+
+# The house follows its own rules: `cargo run -p ravenrs-lint -- -p component-gallery` (scripts/check.sh runs it).
+[package.metadata.ravenrs-lint]
+language = "en"
 
 [lints]
 workspace = true

@@ -4,6 +4,7 @@
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_core::{Border, Color, CursorIcon, Key, Point, Rect, Size};
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
@@ -41,6 +42,7 @@ const UNDO_LIMIT: usize = 200;
 /// The words a [`MovieEditor`] shows. English by default.
 #[derive(Clone, Debug)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EditorLabels {
     /// Tries the film the way people will watch it.
     pub try_it: String,
@@ -148,118 +150,72 @@ pub struct EditorLabels {
 
 impl Default for EditorLabels {
     fn default() -> Self {
-        Self {
-            try_it: "Try it as a learner".into(),
-            back_to_editing: "Back to editing".into(),
-            chapter: "Chapter".into(),
-            new_chapter: "New chapter".into(),
-            tab_annotations: "Notes".into(),
-            tab_screen: "Screen".into(),
-            tab_transitions: "Fades".into(),
-            tab_pointer: "Pointer".into(),
-            tab_interaction: "Clicks".into(),
-            tools: "Tools".into(),
-            library_hint: "Click to place it at the playhead.".into(),
-            track_film: "Film".into(),
-            style: "Style".into(),
-            style_balloon: "Balloon".into(),
-            style_label: "Label".into(),
-            soft: "Appear gradually".into(),
-            soft_hint: "Comes and goes little by little.".into(),
-            start: "Start".into(),
-            timeline: "Timeline".into(),
-            undo: "Undo".into(),
-            redo: "Redo".into(),
-            split: "Cut here".into(),
-            delete: "Delete and close the gap".into(),
-            save: "Save film".into(),
-            play: "Play".into(),
-            pause: "Pause".into(),
-            effects: "Effects".into(),
-            properties: "Properties".into(),
-            nothing_selected: "Select something on the timeline to change it.".into(),
-            film_clip: "Film".into(),
-            title_card: "Title card".into(),
-            callout: "Callout".into(),
-            caption: "Caption".into(),
-            spotlight: "Spotlight".into(),
-            hide: "Hide a region".into(),
-            zoom: "Zoom and pan".into(),
-            fade_in: "Fade in".into(),
-            fade_out: "Fade out".into(),
-            pointer_highlight: "Pointer highlight".into(),
-            hotspot: "Clickable spot".into(),
-            text: "Text".into(),
-            subtitle: "Second line".into(),
-            duration: "Duration".into(),
-            speed: "Clip speed".into(),
-            wait_for_click: "Wait for a click".into(),
-            timeline_zoom: "Timeline zoom".into(),
-            position: "Position".into(),
-            previous_chapter: "Previous chapter".into(),
-            next_chapter: "Next chapter".into(),
-            drag_hint: "Drag it on the canvas to place it; the corner resizes it.".into(),
-            new_text: "Write here".into(),
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EditorLabels {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            try_it: texts.get("movie.editor.try_it"),
+            back_to_editing: texts.get("movie.editor.back_to_editing"),
+            chapter: texts.get("movie.editor.chapter"),
+            new_chapter: texts.get("movie.editor.new_chapter"),
+            tab_annotations: texts.get("movie.editor.tab_annotations"),
+            tab_screen: texts.get("movie.editor.tab_screen"),
+            tab_transitions: texts.get("movie.editor.tab_transitions"),
+            tab_pointer: texts.get("movie.editor.tab_pointer"),
+            tab_interaction: texts.get("movie.editor.tab_interaction"),
+            tools: texts.get("movie.editor.tools"),
+            library_hint: texts.get("movie.editor.library_hint"),
+            track_film: texts.get("movie.editor.track_film"),
+            style: texts.get("movie.editor.style"),
+            style_balloon: texts.get("movie.editor.style_balloon"),
+            style_label: texts.get("movie.editor.style_label"),
+            soft: texts.get("movie.editor.soft"),
+            soft_hint: texts.get("movie.editor.soft_hint"),
+            start: texts.get("movie.editor.start"),
+            timeline: texts.get("movie.editor.timeline"),
+            undo: texts.get("movie.editor.undo"),
+            redo: texts.get("movie.editor.redo"),
+            split: texts.get("movie.editor.split"),
+            delete: texts.get("movie.editor.delete"),
+            save: texts.get("movie.editor.save"),
+            play: texts.get("movie.editor.play"),
+            pause: texts.get("movie.editor.pause"),
+            effects: texts.get("movie.editor.effects"),
+            properties: texts.get("movie.editor.properties"),
+            nothing_selected: texts.get("movie.editor.nothing_selected"),
+            film_clip: texts.get("movie.editor.film_clip"),
+            title_card: texts.get("movie.editor.title_card"),
+            callout: texts.get("movie.editor.callout"),
+            caption: texts.get("movie.editor.caption"),
+            spotlight: texts.get("movie.editor.spotlight"),
+            hide: texts.get("movie.editor.hide"),
+            zoom: texts.get("movie.editor.zoom"),
+            fade_in: texts.get("movie.editor.fade_in"),
+            fade_out: texts.get("movie.editor.fade_out"),
+            pointer_highlight: texts.get("movie.editor.pointer_highlight"),
+            hotspot: texts.get("movie.editor.hotspot"),
+            text: texts.get("movie.editor.text"),
+            subtitle: texts.get("movie.editor.subtitle"),
+            duration: texts.get("movie.editor.duration"),
+            speed: texts.get("movie.editor.speed"),
+            wait_for_click: texts.get("movie.editor.wait_for_click"),
+            timeline_zoom: texts.get("movie.editor.timeline_zoom"),
+            position: texts.get("movie.editor.position"),
+            previous_chapter: texts.get("movie.editor.previous_chapter"),
+            next_chapter: texts.get("movie.editor.next_chapter"),
+            drag_hint: texts.get("movie.editor.drag_hint"),
+            new_text: texts.get("movie.editor.new_text"),
+        }
+    }
+
     /// The words in Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            try_it: "Testar como aluno".into(),
-            back_to_editing: "Voltar a editar".into(),
-            chapter: "Capítulo".into(),
-            new_chapter: "Novo capítulo".into(),
-            tab_annotations: "Anotações".into(),
-            tab_screen: "Tela".into(),
-            tab_transitions: "Transições".into(),
-            tab_pointer: "Ponteiro".into(),
-            tab_interaction: "Interação".into(),
-            tools: "Ferramentas".into(),
-            library_hint: "Clique para pôr na agulha.".into(),
-            track_film: "Filme".into(),
-            style: "Estilo".into(),
-            style_balloon: "Balão".into(),
-            style_label: "Etiqueta".into(),
-            soft: "Aparecer suavemente".into(),
-            soft_hint: "Surge e some aos poucos.".into(),
-            start: "Início".into(),
-            timeline: "Linha do tempo".into(),
-            undo: "Desfazer".into(),
-            redo: "Refazer".into(),
-            split: "Cortar aqui".into(),
-            delete: "Excluir e fechar o vão".into(),
-            save: "Salvar filme".into(),
-            play: "Reproduzir".into(),
-            pause: "Pausar".into(),
-            effects: "Efeitos".into(),
-            properties: "Propriedades".into(),
-            nothing_selected: "Selecione algo na linha do tempo para alterar.".into(),
-            film_clip: "Filme".into(),
-            title_card: "Cartão de título".into(),
-            callout: "Chamada".into(),
-            caption: "Legenda".into(),
-            spotlight: "Destaque".into(),
-            hide: "Ocultar uma região".into(),
-            zoom: "Zoom e panorâmica".into(),
-            fade_in: "Surgir do preto".into(),
-            fade_out: "Sumir no preto".into(),
-            pointer_highlight: "Destacar o ponteiro".into(),
-            hotspot: "Ponto clicável".into(),
-            text: "Texto".into(),
-            subtitle: "Segunda linha".into(),
-            duration: "Duração".into(),
-            speed: "Velocidade do trecho".into(),
-            wait_for_click: "Esperar um clique".into(),
-            timeline_zoom: "Zoom da linha do tempo".into(),
-            position: "Posição".into(),
-            previous_chapter: "Capítulo anterior".into(),
-            next_chapter: "Próximo capítulo".into(),
-            drag_hint: "Arraste na tela para posicionar; o canto muda o tamanho.".into(),
-            new_text: "Escreva aqui".into(),
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 
@@ -299,11 +255,13 @@ struct Inner {
 /// What is being edited, kept by the app so that it can be read and saved. All
 /// the edits the editor can make are methods here too, for scripts and tests.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct EditorState {
     inner: Rc<Inner>,
     revision: State<u64>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EditorState {
     /// Starts editing `movie`, with whatever edits it already has.
     pub fn new(movie: Movie) -> Self {
@@ -887,6 +845,7 @@ type SaveHandler = Rc<dyn Fn(&Movie)>;
 /// });
 /// # Ok::<(), ravenrs_movie::MovieError>(())
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MovieEditor {
     state: EditorState,
     labels: EditorLabels,
@@ -915,6 +874,7 @@ fn muted(text: &str) -> Text {
     Text::new(text.to_owned()).style(TextStyle::Callout).foreground(Semantic::InkMuted)
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MovieEditor {
     /// An editor over `state`.
     pub fn new(state: EditorState) -> Self {

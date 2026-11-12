@@ -120,6 +120,7 @@ impl App {
         let training = training::TrainingState::new(path.as_deref());
         let sidebar = Self::remembered_menu(path.as_deref());
         let (ledger, bills) = (LedgerState::new(today, path.as_deref()), BillsState::new(path.as_deref()));
+        let dashboard = DashboardState::new(path.as_deref());
         let mut store = Store::new(db, today, path, updater);
         store.diagnostics = diagnostics;
         let recorder = FlightRecorder::new(FLIGHT_SECONDS);
@@ -135,7 +136,7 @@ impl App {
             recorder,
             reporter,
             forms: Forms::new(),
-            dashboard: DashboardState::new(),
+            dashboard,
             ledger,
             bills,
             agenda: AgendaState::new(today),
@@ -301,7 +302,7 @@ impl App {
                         .shortcut("⌘B")
                         .on_click(move || collapse.toggle()),
                 ))
-                .spacing(2.0)
+                .spacing(4.0)
                 .align(Align::Stretch),
             )
     }
@@ -320,7 +321,7 @@ impl App {
                     .align(Align::Center),
                 Text::new(subtitle).style(TextStyle::Callout).foreground(Semantic::InkMuted).truncate(),
             ))
-            .spacing(2.0)
+            .spacing(4.0)
             .grow(1.0),
             DropdownMenu::new("Novo")
                 .icon(IconName::Plus)
@@ -343,7 +344,7 @@ impl App {
                         .on_select(move || bill.start_new(&bill_store)),
                 ),
         ))
-        .spacing(10.0)
+        .spacing(12.0)
         .align(Align::Center)
         .padding((12.0, 24.0))
         .background(Semantic::Surface)

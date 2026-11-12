@@ -23,6 +23,7 @@ use crate::view::View;
 /// let view = Lottie::new(animation).size(96.0, 96.0).looping(false).alt("Our logo");
 /// ```
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Lottie {
     animation: Animation,
     width: f32,
@@ -43,6 +44,7 @@ impl fmt::Debug for Lottie {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Lottie {
     /// Plays `animation` at its own size, over and over.
     pub fn new(animation: Animation) -> Self {

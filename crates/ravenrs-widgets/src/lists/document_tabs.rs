@@ -26,6 +26,7 @@ const COLOR_BAND: f32 = 3.0;
 /// An open document in a [`DocumentTabs`].
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DocumentTab {
     /// What identifies it, whatever its place.
     pub id: u64,
@@ -41,6 +42,7 @@ pub struct DocumentTab {
     pub closable: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DocumentTab {
     /// A tab called `title`.
     pub fn new(id: u64, title: impl Into<String>) -> Self {
@@ -92,6 +94,7 @@ impl DocumentTab {
 /// let mut ui = Ui::new(tabs, ravenrs_style::Theme::raven_dark());
 /// ui.update();
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct DocumentTabs {
     tabs: Vec<DocumentTab>,
     active: Binding<u64>,
@@ -110,6 +113,7 @@ impl fmt::Debug for DocumentTabs {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DocumentTabs {
     /// These tabs, in this order, with the id of the open one in `active`.
     pub fn new(tabs: Vec<DocumentTab>, active: Binding<u64>) -> Self {

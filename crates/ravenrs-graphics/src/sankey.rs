@@ -10,6 +10,7 @@ use crate::vector::PathSegment;
 /// Which column a node goes to, among those its flows allow.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum SankeyAlign {
     /// As far left as its flows allow.
     Left,

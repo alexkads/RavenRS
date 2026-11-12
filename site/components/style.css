@@ -67,6 +67,7 @@ h1 { margin: 0 0 8px; font-size: 34px; line-height: 1.15; letter-spacing: -0.8px
 .block { margin: 32px 0 4px; font-size: 21px; font-weight: 600; letter-spacing: -0.3px; }
 .block-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
 .stage { display: block; width: 100%; margin-top: 12px; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-100); }
+.stage:fullscreen { margin: 0; border: 0; border-radius: 0; }
 .code { margin: 0; padding: 16px 18px; overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius-md); background: var(--bg-100); font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13.5px; line-height: 1.6; }
 .t-keyword { color: #c792ea; }
 .t-type { color: #82aaff; }

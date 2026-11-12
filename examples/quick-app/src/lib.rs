@@ -37,8 +37,13 @@ struct Account {
     notes: Option<String>,
 }
 
-/// The window, with some records to start from.
+/// The window, with some records to start from, kept in memory.
 pub fn app() -> ravenrs::prelude::AnyView {
+    accounts().into_view()
+}
+
+/// The application, before it is put in a window: the browser build keeps its records.
+pub fn accounts() -> App {
     App::new("Raven Contas")
         .language(Language::BrazilianPortuguese)
         .entity::<Account>()
@@ -57,7 +62,6 @@ pub fn app() -> ravenrs::prelude::AnyView {
             };
             space.add(&first).map_err(|e| e.to_string())
         })
-        .into_view()
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -68,7 +72,12 @@ mod web_entry {
     pub fn start() {
         console_error_panic_hook::set_once();
         wasm_bindgen_futures::spawn_local(async {
-            match ravenrs::web::start(super::app(), ravenrs::web::WebOptions::new("raven-canvas")).await {
+            // The records stay in the browser between visits; without IndexedDB, in memory only.
+            let view = match ravenrs::web::IndexedDbStorage::open("raven-contas").await {
+                Ok(storage) => super::accounts().keep_in(storage).into_view(),
+                Err(_) => super::app(),
+            };
+            match ravenrs::web::start(view, ravenrs::web::WebOptions::new("raven-canvas")).await {
                 Ok(app) => std::mem::forget(app),
                 Err(e) => web_sys::console::error_1(&e.to_string().into()),
             }

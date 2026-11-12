@@ -2,6 +2,9 @@
 
 use crate::{LocalModel, ModelFamily, ModelFile};
 
+/// Measured at its peak on an Apple M2 Pro, saying a long sentence.
+const MEMORY_KOKORO: u64 = 1_736_507_392;
+
 /// The models that can be offered, smallest first. Only their files are listed: a
 /// model comes to the machine only when someone asks for it.
 ///
@@ -300,12 +303,58 @@ pub const CATALOG: &[LocalModel] = &[
 
 /// A model of [`CATALOG`] by its id.
 pub fn model_by_id(id: &str) -> Option<LocalModel> {
-    CATALOG.iter().chain(VOICE_CATALOG).find(|model| model.id == id).copied()
+    CATALOG.iter().chain(VOICE_CATALOG).chain(HEARING_CATALOG).find(|model| model.id == id).copied()
 }
 
-/// The models that speak. They are offered apart from [`CATALOG`], since an app uses one
-/// of each.
-pub const VOICE_CATALOG: &[LocalModel] = &[LocalModel {
+/// The models that speak, best first. They are offered apart from [`CATALOG`], since an app
+/// uses one of each.
+///
+/// Kokoro speaks Brazilian Portuguese with three voices, from phonemes this crate writes;
+/// LFM3 Audio speaks more languages, more slowly.
+pub const VOICE_CATALOG: &[LocalModel] = &[KOKORO, LFM3_AUDIO];
+
+const KOKORO: LocalModel = LocalModel {
+    id: "kokoro-82m",
+    name: "Kokoro 82M",
+    license: "Apache 2.0",
+    family: ModelFamily::Kokoro,
+    memory: MEMORY_KOKORO,
+    understood: None,
+    files: &[
+        ModelFile {
+            name: "model.pth",
+            url: "https://huggingface.co/hexgrad/Kokoro-82M/resolve/f3ff3571791e39611d31c381e3a41a3af07b4987/kokoro-v1_0.pth",
+            bytes: 327_212_226,
+            sha256: "496dba118d1a58f5f3db2efc88dbdc216e0483fc89fe6e47ee1f2c53f18ad1e4",
+        },
+        ModelFile {
+            name: "config.json",
+            url: "https://huggingface.co/hexgrad/Kokoro-82M/resolve/f3ff3571791e39611d31c381e3a41a3af07b4987/config.json",
+            bytes: 2_351,
+            sha256: "5abb01e2403b072bf03d04fde160443e209d7a0dad49a423be15196b9b43c17f",
+        },
+        ModelFile {
+            name: "pf_dora.pt",
+            url: "https://huggingface.co/hexgrad/Kokoro-82M/resolve/f3ff3571791e39611d31c381e3a41a3af07b4987/voices/pf_dora.pt",
+            bytes: 523_425,
+            sha256: "07e4ff987c5d5a8c3995efd15cc4f0db7c4c15e881b198d8ab7f67ecf51f5eb7",
+        },
+        ModelFile {
+            name: "pm_alex.pt",
+            url: "https://huggingface.co/hexgrad/Kokoro-82M/resolve/f3ff3571791e39611d31c381e3a41a3af07b4987/voices/pm_alex.pt",
+            bytes: 523_425,
+            sha256: "cf0ba8c573c2480fc54123683a35cf1e2ae130428e441eb91f9149bdb188a526",
+        },
+        ModelFile {
+            name: "pm_santa.pt",
+            url: "https://huggingface.co/hexgrad/Kokoro-82M/resolve/f3ff3571791e39611d31c381e3a41a3af07b4987/voices/pm_santa.pt",
+            bytes: 523_430,
+            sha256: "d42103169c5c872abbafb9129133af7e942bb9d272c3cc3b95c203e7d7198c29",
+        },
+    ],
+};
+
+const LFM3_AUDIO: LocalModel = LocalModel {
     id: "lfm3-audio-2b-q4",
     name: "LFM3 Audio 2B",
     license: "LFM Open 1.0",
@@ -332,4 +381,69 @@ pub const VOICE_CATALOG: &[LocalModel] = &[LocalModel {
             sha256: "41927bd314d17d7d7fadb44e10cd0919f7b71528d7741596d8cbd15c6945ec44",
         },
     ],
-}];
+};
+
+/// The models that hear: speech becomes text with a
+/// [`Transcriber`](crate::Transcriber). Offered apart, like [`VOICE_CATALOG`].
+///
+/// Memory was measured at its peak on a laptop's CPU, hearing a four-second voice note:
+/// Base in 4 seconds, Small in 10. With a synthetic voice only Small got the sentence
+/// right, so Base suits clear speech and Small is the one to offer first.
+pub const HEARING_CATALOG: &[LocalModel] = &[
+    LocalModel {
+        id: "whisper-base",
+        name: "Whisper Base",
+        license: "Apache 2.0",
+        family: ModelFamily::Whisper,
+        memory: 588_984_320,
+        understood: None,
+        files: &[
+            ModelFile {
+                name: "model.safetensors",
+                url: "https://huggingface.co/openai/whisper-base/resolve/e37978b90ca9030d5170a5c07aadb050351a65bb/model.safetensors",
+                bytes: 290_403_936,
+                sha256: "07cadb9f25677c8d50df603e66a98fbd842cce45047139baeb16e6219a1e807b",
+            },
+            ModelFile {
+                name: "config.json",
+                url: "https://huggingface.co/openai/whisper-base/resolve/e37978b90ca9030d5170a5c07aadb050351a65bb/config.json",
+                bytes: 1_983,
+                sha256: "a153c53883a6799b6f056b4a8d1a515c9926d03994682ba88a7616618d7da0c1",
+            },
+            ModelFile {
+                name: "tokenizer.json",
+                url: "https://huggingface.co/openai/whisper-base/resolve/e37978b90ca9030d5170a5c07aadb050351a65bb/tokenizer.json",
+                bytes: 2_480_466,
+                sha256: "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566",
+            },
+        ],
+    },
+    LocalModel {
+        id: "whisper-small",
+        name: "Whisper Small",
+        license: "Apache 2.0",
+        family: ModelFamily::Whisper,
+        memory: 1_942_667_264,
+        understood: None,
+        files: &[
+            ModelFile {
+                name: "model.safetensors",
+                url: "https://huggingface.co/openai/whisper-small/resolve/973afd24965f72e36ca33b3055d56a652f456b4d/model.safetensors",
+                bytes: 966_995_080,
+                sha256: "1d7734884874f1a1513ed9aa760a4f8e97aaa02fd6d93a3a85d27b2ae9ca596b",
+            },
+            ModelFile {
+                name: "config.json",
+                url: "https://huggingface.co/openai/whisper-small/resolve/973afd24965f72e36ca33b3055d56a652f456b4d/config.json",
+                bytes: 1_967,
+                sha256: "e6a2b489da1b5aed65a8eb8d1e7466fa867ad5643a8bc138ba708bd56b2875c4",
+            },
+            ModelFile {
+                name: "tokenizer.json",
+                url: "https://huggingface.co/openai/whisper-small/resolve/973afd24965f72e36ca33b3055d56a652f456b4d/tokenizer.json",
+                bytes: 2_480_466,
+                sha256: "27fc476bfe7f17299480be2273fc0608e4d5a99aba2ab5dec5374b4482d1a566",
+            },
+        ],
+    },
+];

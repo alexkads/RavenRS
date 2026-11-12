@@ -1,0 +1,19 @@
+{
+ "spreadsheet.add_sheet": "Nova planilha",
+ "spreadsheet.align_center": "Centralizar",
+ "spreadsheet.align_left": "Alinhar à esquerda",
+ "spreadsheet.align_right": "Alinhar à direita",
+ "spreadsheet.auto_sum": "AutoSoma",
+ "spreadsheet.bold": "Negrito",
+ "spreadsheet.currency": "Moeda",
+ "spreadsheet.formula": "Valor ou fórmula",
+ "spreadsheet.grid": "Planilha",
+ "spreadsheet.italic": "Itálico",
+ "spreadsheet.open": "Abrir",
+ "spreadsheet.percent": "Porcentagem",
+ "spreadsheet.redo": "Refazer",
+ "spreadsheet.save": "Salvar",
+ "spreadsheet.strikethrough": "Tachado",
+ "spreadsheet.underline": "Sublinhado",
+ "spreadsheet.undo": "Desfazer"
+}

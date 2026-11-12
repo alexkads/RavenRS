@@ -12,8 +12,8 @@ use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
 use ravenrs_widgets::{
     Alert, AnyView, Breadcrumb, BuildCx, Button, ButtonSize, ButtonStyle, Date, Dialog, Divider, IconButton,
-    IconName, Keyed, NodeId, Paint, ScrollView, Sidebar, SidebarCollapse, SidebarItem, SidebarSection, Text,
-    ThemePicker, Tone, VStack, View, ViewExt,
+    IconName, Keyed, NodeId, Paint, ScrollView, Sidebar, SidebarCollapse, SidebarItem, SidebarSection,
+    SidebarState, SidebarTrigger, Text, ThemePicker, Tone, VStack, View, ViewExt,
 };
 
 use crate::container::{ActionContainer, icon_named};
@@ -33,6 +33,7 @@ const READING_WIDTH: f32 = 760.0;
 
 /// The pieces of a window, for a template to arrange.
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TemplateParts {
     /// The navigation.
     pub navigation: AnyView,
@@ -56,6 +57,7 @@ pub trait FrameTemplate {
 
 /// Navigation on the side, commands above the view.
 #[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MainTemplate;
 
 impl FrameTemplate for MainTemplate {
@@ -75,10 +77,12 @@ fn hash_of(text: &str) -> u64 {
 }
 
 /// A whole application window, generated from its model.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct AppShell {
     session: Session,
     template: Rc<dyn FrameTemplate>,
     theme_menu: bool,
+    sidebar: SidebarState,
 }
 
 impl std::fmt::Debug for AppShell {
@@ -87,6 +91,7 @@ impl std::fmt::Debug for AppShell {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl AppShell {
     /// A window over this application. `space` makes the unit of work of each view.
     pub fn new<S: ObjectSpace + 'static>(application: Application, space: impl Fn() -> S + 'static) -> Self {
@@ -116,7 +121,7 @@ impl AppShell {
         if let Some(first) = session.first_view() {
             session.show_view_now(&first);
         }
-        Self { session, template: Rc::new(MainTemplate), theme_menu: true }
+        Self { session, template: Rc::new(MainTemplate), theme_menu: true, sidebar: SidebarState::new(true) }
     }
 
     /// Arranges the window with this.
@@ -142,6 +147,18 @@ impl AppShell {
     pub fn on_url(self, handler: impl Fn(String) + 'static) -> Self {
         self.session.set_on_url(Rc::new(handler));
         self
+    }
+
+    /// Whether the navigation is open, shared with the button that opens it in a narrow window.
+    /// An application that saves or drives it passes a [`SidebarState::controlled`] one.
+    pub fn sidebar(mut self, state: SidebarState) -> Self {
+        self.sidebar = state;
+        self
+    }
+
+    /// Whether the navigation is open.
+    pub fn sidebar_state(&self) -> SidebarState {
+        self.sidebar.clone()
     }
 
     /// What its screens share.
@@ -181,6 +198,7 @@ impl AppShell {
         let sidebar = Sidebar::new(content)
             .collapsible(SidebarCollapse::Icons)
             .narrow_below(NARROW_WINDOW)
+            .state(self.sidebar.clone())
             .header(Text::new(self.session.title()).style(TextStyle::Headline).font_weight(Weight::SEMIBOLD));
         let (due, _) = self.session.reminders().get();
         let reminders = (due > 0).then(|| {
@@ -191,14 +209,15 @@ impl AppShell {
                 .on_click(move || showing.update(|(_, open)| *open = true))
         });
         let account = self.session.account();
-        if reminders.is_none() && account.is_none() && !self.theme_menu {
+        let running = crate::jobs::running(&self.session);
+        if running.is_none() && reminders.is_none() && account.is_none() && !self.theme_menu {
             return Box::new(sidebar);
         }
         let last: AnyView = match account {
             Some(account) => self.account_of(account),
             None => Box::new(self.theme_menu.then_some(ThemePicker::new())),
         };
-        Box::new(sidebar.footer(VStack::new((reminders, last)).spacing(4.0).align(Align::Stretch)))
+        Box::new(sidebar.footer(VStack::new((running, reminders, last)).spacing(4.0).align(Align::Stretch)))
     }
 
     fn account_of(&self, account: crate::session::Account) -> AnyView {
@@ -264,10 +283,24 @@ impl AppShell {
         trail
     }
 
-    fn header(&self, view: Option<&ViewInfo>) -> AnyView {
+    fn header(&self, view: Option<&ViewInfo>, narrow: bool) -> AnyView {
+        // In a narrow window the navigation is a sheet, and this is the way to it.
+        let trigger = narrow.then(|| SidebarTrigger::new(self.sidebar.clone()));
         // What is showing in place of the view has its own commands.
         if self.session.full().is_some() {
-            return Box::new(VStack::new(Vec::<AnyView>::new()));
+            return match trigger {
+                Some(trigger) => Box::new(
+                    VStack::new((
+                        VStack::new((trigger,))
+                            .align(Align::Start)
+                            .padding(Insets::symmetric(8.0, PAGE_GUTTER)),
+                        Divider::horizontal(),
+                    ))
+                    .spacing(0.0)
+                    .align(Align::Stretch),
+                ),
+                None => Box::new(VStack::new(Vec::<AnyView>::new())),
+            };
         }
         // One place is a title; only going deeper makes it a way back.
         let trail = self.trail(view);
@@ -279,10 +312,13 @@ impl AppShell {
         };
         Box::new(
             VStack::new((
-                VStack::new((place, ActionContainer::new(self.session.clone(), [])))
-                    .spacing(8.0)
-                    .align(Align::Stretch)
-                    .padding(Insets::symmetric(12.0, PAGE_GUTTER)),
+                VStack::new((
+                    ravenrs_widgets::HStack::new((trigger, place)).spacing(8.0).align(Align::Center),
+                    ActionContainer::new(self.session.clone(), []),
+                ))
+                .spacing(8.0)
+                .align(Align::Stretch)
+                .padding(Insets::symmetric(12.0, PAGE_GUTTER)),
                 Divider::horizontal(),
             ))
             .spacing(0.0)
@@ -476,6 +512,7 @@ pub(crate) struct PopupHost {
     session: Session,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl PopupHost {
     pub(crate) fn new(session: Session) -> Self {
         Self { session }
@@ -500,6 +537,7 @@ impl PopupHost {
 impl View for PopupHost {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let session = &self.session;
+        crate::jobs::keep(cx, session);
         let mut parts = Vec::new();
         // Made once for each time it opens.
         let held: State<Option<(String, PopupParts)>> = cx.use_state(|| None);
@@ -560,15 +598,18 @@ impl View for AppShell {
         let session = &self.session;
         let view = session.frame().view();
         let view = view.as_ref();
+        let narrow = cx.viewport().width < NARROW_WINDOW;
         let window = self.template.arrange(TemplateParts {
             navigation: self.navigation(view),
-            header: self.header(view),
+            header: self.header(view, narrow),
             content: self.content(view),
         });
         let mut parts = vec![cx.child(&window)];
         parts.push(cx.child(session.confirm()));
         parts.push(cx.child(&PopupHost::new(session.clone())));
         parts.push(cx.child(&session.toaster()));
+        // What changed, for screen readers; it takes no room.
+        parts.push(cx.child(&session.announcer().region()));
         cx.container(
             LayoutStyle {
                 grow: 1.0,

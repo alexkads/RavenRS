@@ -31,9 +31,14 @@ use ravenrs_app::{
     AttachmentStore, Change, ChangeSet, Diff, EntityInfo, FieldInfo, FieldKind, ModelError, ModelStore,
     Object, ObjectSpace, Query, SpaceError, SpaceEvent, SpaceWatcher, Value, key_of, key_text, run_query,
 };
+use ravenrs_app_i18n::{Language, Texts};
 use ravenrs_criteria::{DateTime, Dialect, Environment, SqlParam, to_sql};
 use rusqlite::types::{Value as SqlValue, ValueRef};
 use rusqlite::{Connection, ErrorCode, OptionalExtension, params_from_iter};
+
+mod backup;
+
+pub use backup::{BackupError, BackupInfo, BackupStamp, Backups, COPIES_KEPT, KeptCopy};
 
 type Hook = Rc<dyn Fn(&mut Object)>;
 
@@ -111,24 +116,24 @@ pub struct SqlWords {
 
 impl Default for SqlWords {
     fn default() -> Self {
-        Self {
-            unique: "There is already a record with this {0}".into(),
-            in_use: "This record is in use. Remove what depends on it first.".into(),
-            rule: "The data did not pass the rules of the database.".into(),
-            failed: "The database could not be reached: {0}".into(),
-        }
+        Self::from_texts(&Texts::new(Language::English))
     }
 }
 
 impl SqlWords {
+    /// The texts of a catalog, in its language. What it does not have comes from English.
+    pub fn from_texts(texts: &Texts) -> Self {
+        Self {
+            unique: texts.get("sqlite.unique"),
+            in_use: texts.get("sqlite.in_use"),
+            rule: texts.get("sqlite.rule"),
+            failed: texts.get("sqlite.failed"),
+        }
+    }
+
     /// In Brazilian Portuguese.
     pub fn pt_br() -> Self {
-        Self {
-            unique: "Já existe um registro com este valor em {0}.".into(),
-            in_use: "Este registro está em uso. Remova antes o que depende dele.".into(),
-            rule: "Os dados não passaram nas regras do banco.".into(),
-            failed: "Não foi possível acessar o banco de dados: {0}".into(),
-        }
+        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 }
 
@@ -542,6 +547,20 @@ impl SqliteDatabase {
     }
 }
 
+/// Whether the database is held by another connection right now, which passes.
+fn is_busy(error: &rusqlite::Error) -> bool {
+    matches!(error.sqlite_error_code(), Some(ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked))
+}
+
+/// A failure of the database itself: temporary when it is only busy.
+fn storage_error(error: &rusqlite::Error) -> SpaceError {
+    if is_busy(error) {
+        SpaceError::Temporary(error.to_string())
+    } else {
+        SpaceError::Storage(error.to_string())
+    }
+}
+
 /// A unit of work over a [`SqliteDatabase`]. A commit is one transaction.
 pub struct SqliteObjectSpace {
     shared: Rc<Shared>,
@@ -569,6 +588,9 @@ impl SqliteObjectSpace {
     fn refused(&self, entity: &Entity, error: &rusqlite::Error) -> SpaceError {
         let words = &self.shared.words;
         let text = error.to_string();
+        if is_busy(error) {
+            return SpaceError::Temporary(words.failed.replace("{0}", &text));
+        }
         if error.sqlite_error_code() != Some(ErrorCode::ConstraintViolation) {
             return SpaceError::Storage(words.failed.replace("{0}", &text));
         }
@@ -855,8 +877,7 @@ impl ObjectSpace for SqliteObjectSpace {
         let changes = self.changes.list().to_vec();
         self.tell(SpaceEvent::Committing(&changes))?;
         let shared = self.shared.clone();
-        let transaction =
-            shared.connection.unchecked_transaction().map_err(|e| SpaceError::Storage(e.to_string()))?;
+        let transaction = shared.connection.unchecked_transaction().map_err(|e| storage_error(&e))?;
         for change in &changes {
             let name = match change {
                 Change::New(object) | Change::Updated(object) => object.entity(),
@@ -874,7 +895,7 @@ impl ObjectSpace for SqliteObjectSpace {
             }
             self.write(entity, change)?;
         }
-        transaction.commit().map_err(|e| SpaceError::Storage(e.to_string()))?;
+        transaction.commit().map_err(|e| storage_error(&e))?;
         self.changes.clear();
         let _ = self.tell(SpaceEvent::Committed(&changes));
         Ok(())

@@ -104,12 +104,17 @@ fn announces_every_tool_as_read_only() {
     assert_eq!(
         listed,
         [
+            "app_contracts",
+            "check_report_layout",
             "component_api",
             "component_examples",
+            "create_report_layout",
             "design_tokens",
             "expression_functions",
             "list_components",
             "parity_status",
+            "report_layout_format",
+            "report_layout_templates",
             "validate_expression",
         ]
     );
@@ -130,7 +135,8 @@ fn the_plugin_matches_the_server() {
     }
 
     let config: Value = serde_json::from_str(include_str!("../../../plugins/ravenrs/.mcp.json")).unwrap();
-    assert_eq!(config["mcpServers"]["ravenrs"]["command"], env!("CARGO_PKG_NAME"));
+    assert_eq!(config["mcpServers"]["ravenrs"]["command"], "cargo");
+    assert_eq!(config["mcpServers"]["ravenrs"]["args"], json!(["ravenrs", "mcp"]));
 }
 
 #[test]
@@ -273,7 +279,7 @@ fn parity_status_searches_both_documents() {
     let barcode = client.call("parity_status", json!({ "document": "reporting", "query": "barcode" }));
     assert_eq!(barcode["rows"][0]["document"], "reporting");
     assert_eq!(barcode["rows"][0]["status"], "partial");
-    assert!(barcode["rows"][0]["reference"]["DevExpress"].is_string());
+    assert!(barcode["rows"][0]["reference"]["Reference"].is_string());
 
     let planned = client.call("parity_status", json!({ "status": "planned", "limit": 2 }));
     assert_eq!(planned["shown"], 2);
@@ -281,7 +287,40 @@ fn parity_status_searches_both_documents() {
     assert_eq!(planned["done"], 0);
 
     assert!(client.call_err("parity_status", json!({ "status": "maybe" }))["error"].is_string());
-    assert!(client.call_err("parity_status", json!({ "document": "other" }))["error"].is_string());
+    assert!(
+        client.call_err("parity_status", json!({ "document": "other" }))["error"]
+            .as_str()
+            .unwrap()
+            .contains("application")
+    );
+}
+
+#[test]
+fn parity_status_reads_the_application_tracker_with_its_issue() {
+    let mut client = Client::start();
+    let manifest = client.call("parity_status", json!({ "document": "application", "query": "manifest" }));
+    assert_eq!(manifest["rows"][0]["document"], "application");
+    assert_eq!(manifest["rows"][0]["status"], "partial");
+    assert!(manifest["rows"][0]["ravenrs"].as_str().unwrap().contains("ModuleManifest"));
+    assert_eq!(manifest["rows"][0]["reference"]["Step"], "#271");
+
+    let both = client.call("parity_status", json!({ "query": "manifest" }));
+    assert!(both["rows"].as_array().unwrap().iter().all(|row| row["document"] != "application"));
+}
+
+#[test]
+fn app_contracts_lists_scenarios_and_groups_with_their_owners() {
+    let mut client = Client::start();
+    let all = client.call("app_contracts", json!({}));
+    assert_eq!(all["scenarios"].as_array().unwrap().len(), 19);
+    assert_eq!(all["groups"].as_array().unwrap().len(), 19);
+    assert!(
+        all["groups"].as_array().unwrap().iter().all(|group| !group["owner"].as_str().unwrap().is_empty())
+    );
+
+    let events = client.call("app_contracts", json!({ "query": "C07" }));
+    assert_eq!(events["scenarios"].as_array().unwrap().len(), 1);
+    assert!(events["scenarios"][0]["owner"].as_str().unwrap().contains("#254"));
 }
 
 #[test]
@@ -338,4 +377,112 @@ fn expression_functions_search_the_catalog() {
     let aggregates = client.call("expression_functions", json!({ "category": "aggregate" }));
     assert!(names(&aggregates["functions"]).contains(&"Sum"));
     assert!(aggregates["functions"].as_array().unwrap().iter().all(|f| f["category"] == "Aggregate"));
+}
+
+#[test]
+fn report_layout_format_shows_every_control_and_a_full_example() {
+    let mut client = Client::start();
+    let format = client.call("report_layout_format", json!({}));
+    for control in ["label", "field", "table", "barcode", "chart", "checkBox"] {
+        assert!(format["controls"][control].is_object(), "{control}: {format}");
+    }
+    assert_eq!(format["controls"]["chart"]["type"], "chart");
+    let example = &format["example"];
+    assert_eq!(example["name"], "Orders");
+    let check = client.call("check_report_layout", json!({ "layout": example }));
+    assert_eq!(check["valid"], true, "the example is a working layout: {check}");
+}
+
+#[test]
+fn create_report_layout_builds_a_grouped_table_that_renders() {
+    let mut client = Client::start();
+    let rows: Vec<Value> = (0..40)
+        .map(|i| json!({ "Region": if i % 2 == 0 { "North" } else { "South" }, "Customer": format!("C{i}"), "Amount": i * 10, "Paid": i % 3 == 0 }))
+        .collect();
+    let made = client.call(
+        "create_report_layout",
+        json!({
+            "title": "Vendas por região",
+            "culture": "pt-BR",
+            "data": rows,
+            "columns": [{ "field": "Customer", "caption": "Cliente" }, { "field": "Amount", "format": "C2" }],
+            "group_by": "Region",
+            "totals": ["Amount"],
+        }),
+    );
+    assert_eq!(made["file_name"], "vendas-por-região.rvreport.json");
+    assert_eq!(made["layout"]["name"], "Vendas por região");
+    assert_eq!(made["layout"]["culture"], "pt-BR");
+    assert_eq!(made["check"]["valid"], true, "{}", made["check"]);
+    assert!(made["check"]["render"]["pages"].as_u64().unwrap() >= 1);
+    assert!(made["check"]["expressions_checked"].as_u64().unwrap() > 3);
+    let text = made["layout"].to_string().to_lowercase();
+    assert!(text.contains("cliente"), "the caption given: {text}");
+    assert!(text.contains("sum([amount])"), "the totals: {text}");
+
+    let wrong = client
+        .call_err("create_report_layout", json!({ "title": "X", "data": [{ "A": 1 }], "group_by": "B" }));
+    assert!(wrong["error"].as_str().unwrap().contains("the fields are: A"), "{wrong}");
+    let not_number = client
+        .call_err("create_report_layout", json!({ "title": "X", "data": [{ "A": "a" }], "totals": ["A"] }));
+    assert!(not_number["error"].as_str().unwrap().contains("not a number"), "{not_number}");
+}
+
+#[test]
+fn create_report_layout_takes_fields_and_a_url_for_the_server() {
+    let mut client = Client::start();
+    let made = client.call(
+        "create_report_layout",
+        json!({
+            "title": "Pedidos",
+            "fields": [{ "name": "Numero", "kind": "number" }, { "name": "Cliente" }, { "name": "Data", "kind": "date" }],
+            "data_url": "https://erp.example.com/pedidos?ano={?Ano}",
+            "landscape": true,
+        }),
+    );
+    let source = &made["layout"]["dataSources"][0];
+    assert_eq!(source["type"], "url");
+    assert_eq!(source["url"], "https://erp.example.com/pedidos?ano={?Ano}");
+    assert!(
+        made["layout"]["page"]["width"].as_f64() > made["layout"]["page"]["height"].as_f64(),
+        "landscape"
+    );
+    assert!(made["check"]["render"]["skipped"].is_string(), "{}", made["check"]);
+}
+
+#[test]
+fn check_report_layout_finds_json_and_expression_errors() {
+    let mut client = Client::start();
+    let broken = client.call("check_report_layout", json!({ "layout": "{\n  \"name\": \"X\",\n  oops\n}" }));
+    assert_eq!(broken["valid"], false);
+    assert_eq!(broken["json_error"]["line"], 3, "{broken}");
+
+    let mut layout =
+        client.call("report_layout_templates", json!({ "name": "sales_by_region" }))["layout"].clone();
+    assert_eq!(client.call("check_report_layout", json!({ "layout": layout.clone() }))["valid"], true);
+    layout["filter"] = json!("[Totl] >= ?MinTotal");
+    let checked = client.call("check_report_layout", json!({ "layout": layout.clone() }));
+    let warning = &checked["warnings"][0];
+    assert_eq!(warning["at"], "filter", "{checked}");
+    assert!(warning["unknown"][0].as_str().unwrap().contains("Totl"), "{checked}");
+    layout["filter"] = json!("[Total] >= (");
+    let syntax = client.call("check_report_layout", json!({ "layout": layout }));
+    assert_eq!(syntax["valid"], false);
+    assert_eq!(syntax["problems"][0]["at"], "filter", "{syntax}");
+    assert!(syntax["problems"][0]["error"].is_string(), "{syntax}");
+}
+
+#[test]
+fn report_layout_templates_list_and_every_one_checks() {
+    let mut client = Client::start();
+    let list = client.call("report_layout_templates", json!({}));
+    let all = names(&list["templates"]).iter().map(|n| (*n).to_owned()).collect::<Vec<_>>();
+    assert_eq!(all, ["invoice", "sales_by_region", "sales_dashboard", "customer_list"]);
+    for name in all {
+        let one = client.call("report_layout_templates", json!({ "name": name }));
+        let check = client.call("check_report_layout", json!({ "layout": one["layout"] }));
+        assert_eq!(check["valid"], true, "{name}: {check}");
+    }
+    let missing = client.call_err("report_layout_templates", json!({ "name": "nope" }));
+    assert!(missing["error"].as_str().unwrap().contains("invoice"));
 }

@@ -1,6 +1,6 @@
 [package]
 name = "ravenrs-mcp"
-description = "A read-only MCP server that answers questions about RavenRS: components, their API and examples, design tokens, parity status and expressions."
+description = "An MCP server without side effects that answers questions about RavenRS (components, their API and examples, design tokens, parity status and expressions) and creates and checks report layouts."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
@@ -15,6 +15,7 @@ publish = false
 
 [dependencies]
 ravenrs-criteria = { workspace = true, features = ["json"] }
+ravenrs-report.workspace = true
 rmcp.workspace = true
 tokio.workspace = true
 serde.workspace = true

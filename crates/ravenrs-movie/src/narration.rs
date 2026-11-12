@@ -30,6 +30,7 @@ struct Adpcm {
     step: i32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Adpcm {
     fn take(&mut self, code: u8) -> i32 {
         let step = STEPS[self.step as usize];
@@ -141,11 +142,13 @@ fn key_of(text: &str) -> u64 {
 /// Recordings of what films say, each found by its text. It shares the bytes, so
 /// cloning it is cheap. Give it to [`MoviePlayer::narration`](crate::MoviePlayer::narration).
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Narration {
     bytes: &'static [u8],
     entries: std::rc::Rc<HashMap<u64, (usize, usize)>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Narration {
     /// Reads what [`Narration::pack`] wrote. Bytes it does not understand hold no
     /// recordings, and the films use the system's voice.
@@ -160,6 +163,12 @@ impl Narration {
         Some(SoundClip::new(decode(body, samples), RATE))
     }
 
+    /// How long the recording of `text` lasts, in seconds, without decoding it.
+    pub fn seconds(&self, text: &str) -> Option<f64> {
+        let (samples, _) = *self.entries.get(&key_of(text))?;
+        Some(samples as f64 / f64::from(RATE))
+    }
+
     /// How many recordings it has.
     pub fn len(&self) -> usize {
         self.entries.len()
@@ -172,6 +181,14 @@ impl Narration {
 
     /// Packs recordings: each text with its samples, at `rate` a second.
     pub fn pack(recordings: &[(String, Vec<f32>)], rate: u32) -> Vec<u8> {
+        Self::pack_onto(b"", recordings, rate)
+    }
+
+    /// What [`Narration::pack`] wrote in `bytes`, with `recordings` added. What is in
+    /// `bytes` stays exactly as it was, so that adding a few texts after a film changed
+    /// keeps the takes chosen before; a text in both is the new recording. Bytes it does
+    /// not understand count as no recordings.
+    pub fn pack_onto(bytes: &[u8], recordings: &[(String, Vec<f32>)], rate: u32) -> Vec<u8> {
         let mut entries: Vec<(u64, usize, Vec<u8>)> = recordings
             .iter()
             .map(|(text, samples)| {
@@ -179,6 +196,12 @@ impl Narration {
                 (key_of(text), samples.len(), encode(&samples))
             })
             .collect();
+        for (key, (samples, start)) in entries_of(bytes).unwrap_or_default() {
+            let new = entries.iter().any(|entry| entry.0 == key);
+            if let Some(body) = bytes.get(start..start + samples.div_ceil(2)).filter(|_| !new) {
+                entries.push((key, samples, body.to_vec()));
+            }
+        }
         // In a fixed order, so that a text that did not change stays the same in the file.
         entries.sort_by_key(|entry| entry.0);
         entries.dedup_by_key(|entry| entry.0);
@@ -237,12 +260,39 @@ mod tests {
         let bytes = Narration::pack(&[("Oi".to_owned(), tone(24_000, 1.0))], 24_000);
         let narration = Narration::new(Box::leak(bytes.into_boxed_slice()));
         let clip = narration.clip("Oi").expect("the recording");
+        assert_eq!(narration.seconds("Oi"), Some(1.0));
+        assert_eq!(narration.seconds("Tchau"), None);
         assert_eq!(clip.rate(), RATE);
         assert_eq!(clip.samples().len(), RATE as usize);
         let wanted = leveled(&tone(RATE, 1.0));
         let noise: f32 = clip.samples().iter().zip(&wanted).skip(800).map(|(a, b)| (a - b).powi(2)).sum();
         let signal: f32 = wanted.iter().skip(800).map(|a| a * a).sum();
         assert!(noise / signal < 0.02, "{}", noise / signal);
+    }
+
+    #[test]
+    fn adding_keeps_what_was_there_byte_for_byte() {
+        let before = Narration::pack(
+            &[("Oi".to_owned(), tone(RATE, 0.5)), ("Tchau".to_owned(), tone(RATE, 0.2))],
+            RATE,
+        );
+        let after = Narration::pack_onto(&before, &[("Novo".to_owned(), tone(RATE, 0.3))], RATE);
+        let (old, new) = (
+            Narration::new(Box::leak(before.clone().into_boxed_slice())),
+            Narration::new(Box::leak(after.into_boxed_slice())),
+        );
+        assert_eq!(new.len(), 3);
+        for text in ["Oi", "Tchau"] {
+            assert_eq!(
+                new.clip(text).map(|clip| clip.samples().to_vec()),
+                old.clip(text).map(|clip| clip.samples().to_vec())
+            );
+        }
+        assert_eq!(new.seconds("Novo"), Some(0.3));
+        let again = Narration::pack_onto(&before, &[("Oi".to_owned(), tone(RATE, 1.0))], RATE);
+        let again = Narration::new(Box::leak(again.into_boxed_slice()));
+        assert_eq!((again.len(), again.seconds("Oi")), (2, Some(1.0)), "a new take replaces the old one");
+        assert_eq!(Narration::pack_onto(b"junk", &[], RATE), Narration::pack(&[], RATE));
     }
 
     #[test]

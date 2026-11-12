@@ -13,6 +13,9 @@ struct SkillDoctests;
 pub use ravenrs_animation as animation;
 pub use ravenrs_core as core;
 pub use ravenrs_layout as layout;
+/// The interpreter behind `LiveRunner`, for registering more of an app's own types.
+#[cfg(feature = "live")]
+pub use ravenrs_live as live;
 pub use ravenrs_movie as movie;
 pub use ravenrs_reactive as reactive;
 pub use ravenrs_render as render;
@@ -32,7 +35,7 @@ pub mod native {
 /// The browser: a `<canvas>` driven by WebGPU.
 #[cfg(target_arch = "wasm32")]
 pub mod web {
-    pub use ravenrs_platform_web::{WebApp, WebError, WebOptions, start};
+    pub use ravenrs_platform_web::{IndexedDbStorage, WebApp, WebBackend, WebError, WebOptions, start};
 }
 
 /// Everything an app usually needs, in one import.

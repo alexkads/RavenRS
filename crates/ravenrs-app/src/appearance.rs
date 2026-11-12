@@ -11,6 +11,7 @@ use crate::{EntityInfo, ModelError, Object};
 /// A color with a meaning, which every theme has its own version of.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Tint {
     /// Something wrong.
     Danger,
@@ -26,6 +27,7 @@ pub enum Tint {
 
 /// What a rule changes the look of.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum AppearanceTarget {
     /// A field: a cell of a list, an editor on a form.
     #[default]
@@ -39,6 +41,7 @@ pub enum AppearanceTarget {
 /// Which views a rule applies in.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum AppearanceContext {
     /// Every view.
     #[default]
@@ -51,6 +54,7 @@ pub enum AppearanceContext {
     View(String),
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl AppearanceContext {
     fn covers(&self, view: &ViewInfo) -> bool {
         match self {
@@ -68,6 +72,7 @@ type Condition = Rc<dyn Fn(&Object) -> bool>;
 /// it does not protect data, which is what permissions are for.
 #[derive(Clone)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct AppearanceRule {
     /// What it is known by.
     pub id: String,
@@ -107,6 +112,7 @@ impl PartialEq for AppearanceRule {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl AppearanceRule {
     /// A rule about fields with these names, as `*` or `open*`.
     pub fn new(id: impl Into<String>, names: impl IntoIterator<Item = impl Into<String>>) -> Self {
@@ -236,6 +242,7 @@ fn matches_pattern(pattern: &str, name: &str) -> bool {
 /// What the rules that apply come to.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Appearance {
     /// The color of the text.
     pub font: Option<Tint>,
@@ -249,6 +256,7 @@ pub struct Appearance {
     pub visible: Option<bool>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl EntityInfo {
     /// What this entity's rules say about a thing in a view, for a record.
     pub fn appearance_of(
