@@ -1067,6 +1067,13 @@ impl Object {
         self.values.insert(field.to_owned(), value.into());
     }
 
+    /// Leaves out what was put on it under a path, such as `class_id.teacher_id.login`: values
+    /// only what holds the record works out, for judging it, and never kept.
+    pub fn without_paths(mut self) -> Self {
+        self.values.retain(|name, _| !name.contains('.'));
+        self
+    }
+
     /// Every value, by field.
     pub fn values(&self) -> &BTreeMap<String, Value> {
         &self.values
@@ -1082,7 +1089,8 @@ impl Record for Object {
     fn field(&self, path: &[String]) -> Option<Value> {
         match path {
             [name] => self.values.get(name).cloned(),
-            _ => None,
+            // A path through references, when what holds the record has followed it.
+            path => self.values.get(&path.join(".")).cloned(),
         }
     }
 

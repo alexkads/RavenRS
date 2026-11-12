@@ -14,8 +14,8 @@ use ravenrs_layout::{Align, Justify};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{TextStyle, Weight};
 use ravenrs_widgets::{
-    Alert, AnyView, BuildCx, Button, Card, FormField, HStack, Keyed, Localized, NodeId, Text, TextField,
-    Tone, VStack, View, ViewExt,
+    Alert, AnyView, BuildCx, Button, ButtonStyle, Card, FormField, HStack, IconName, Keyed, Localized,
+    NodeId, Text, TextField, Tone, VStack, View, ViewExt,
 };
 
 use crate::model_editor::ModelEditor;
@@ -205,6 +205,54 @@ pub(crate) fn show_change_password(session: &Session) {
 type MakeApp = Rc<dyn Fn(&Identity) -> App>;
 type Seed = Box<dyn FnOnce(&mut dyn ObjectSpace) -> Result<(), String>>;
 
+/// A button on the screen of signing in besides Sign in, such as going back to choosing the
+/// organization. Pressing it forgets what was typed and any message, signs nobody in and carries
+/// nothing over, then runs its handler.
+#[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct SignInAction {
+    label: String,
+    icon: Option<IconName>,
+    on_click: Rc<dyn Fn()>,
+}
+
+impl std::fmt::Debug for SignInAction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SignInAction").field("label", &self.label).finish_non_exhaustive()
+    }
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl SignInAction {
+    /// A button saying `label` that runs `on_click`.
+    pub fn new(label: impl Into<String>, on_click: impl Fn() + 'static) -> Self {
+        Self { label: label.into(), icon: None, on_click: Rc::new(on_click) }
+    }
+
+    /// With this icon before its words.
+    pub fn icon(mut self, icon: IconName) -> Self {
+        self.icon = Some(icon);
+        self
+    }
+}
+
+/// A name and password filled in on the screen of signing in, for a demonstration. Nobody gets in
+/// until Sign in is pressed and they are checked as any other.
+#[derive(Clone)]
+struct DemoCredentials {
+    name: String,
+    password: String,
+}
+
+/// How the screen of signing in presents itself.
+#[derive(Clone, Default)]
+struct Door {
+    description: Option<String>,
+    notice: Option<String>,
+    actions: Vec<SignInAction>,
+    demo: Option<DemoCredentials>,
+}
+
 /// An application people sign in to, each seeing what their roles allow.
 ///
 /// Storage has to know [`security_entities`], and [`audit_entity`] with an audit trail. The
@@ -241,6 +289,7 @@ pub struct SecuredApp {
     authenticator: Option<Rc<dyn Authenticator>>,
     seed: Option<Seed>,
     title: String,
+    door: Door,
 }
 
 impl std::fmt::Debug for SecuredApp {
@@ -269,7 +318,40 @@ impl SecuredApp {
             authenticator: None,
             seed: None,
             title: title.into(),
+            door: Door::default(),
         }
+    }
+
+    /// A line under the title of the screen of signing in, such as which organization this is.
+    pub fn description(mut self, text: impl Into<String>) -> Self {
+        self.door.description = Some(text.into());
+        self
+    }
+
+    /// A notice on the screen of signing in, such as saying it is a demonstration.
+    pub fn notice(mut self, text: impl Into<String>) -> Self {
+        self.door.notice = Some(text.into());
+        self
+    }
+
+    /// A button besides Sign in, such as going back to choosing the organization. It shows while
+    /// signing in, creating the first administrator and choosing a new password. On the last, the
+    /// person signed in is left behind: nothing of them goes on.
+    pub fn sign_in_action(mut self, action: SignInAction) -> Self {
+        self.door.actions.push(action);
+        self
+    }
+
+    /// Fills in this name and password on the screen of signing in, for a demonstration. Off unless
+    /// asked for. They can be changed to try someone else, the password stays hidden, and Sign in
+    /// still checks them as any other, with the same permissions, audit trail and rules.
+    ///
+    /// They are filled in when the screen opens, after signing out and after a [`SignInAction`]. A
+    /// wrong try forgets the password, as always; it does not come back until one of those. Use
+    /// only made-up people of a demonstration: they are in the program for anyone to read.
+    pub fn demo_credentials(mut self, name: impl Into<String>, password: impl Into<String>) -> Self {
+        self.door.demo = Some(DemoCredentials { name: name.into(), password: password.into() });
+        self
     }
 
     /// The language of its screens.
@@ -356,7 +438,9 @@ impl SecuredApp {
             repeated: State::new(String::new()),
             error: State::new(None),
             entered: RefCell::new(0),
+            door: self.door,
         }));
+        gate.fill_demo();
         Ok(Box::new(Localized::new(gate.0.labels.clone(), gate)))
     }
 
@@ -396,6 +480,7 @@ struct GateInner {
     repeated: State<String>,
     error: State<Option<String>>,
     entered: RefCell<u64>,
+    door: Door,
 }
 
 /// What stands between people and the application.
@@ -407,6 +492,55 @@ impl Gate {
     fn forget_typed(&self) {
         self.0.password.set(String::new());
         self.0.repeated.set(String::new());
+    }
+
+    /// The name and password of a demonstration, where someone signs in.
+    fn fill_demo(&self) {
+        let inner = &self.0;
+        if let Some(demo) = &inner.door.demo
+            && matches!(*inner.stage.peek(), Stage::SignIn)
+        {
+            inner.name.set(demo.name.clone());
+            inner.password.set(demo.password.clone());
+        }
+    }
+
+    /// Leaves the door: what was typed and said goes, and whoever was halfway in is left behind.
+    fn leave_by(&self, action: &SignInAction) {
+        let inner = &self.0;
+        self.forget_typed();
+        inner.name.set(String::new());
+        inner.error.set(None);
+        let first = inner.directory.is_empty().unwrap_or(false);
+        inner.stage.set(if first { Stage::FirstUser } else { Stage::SignIn });
+        self.fill_demo();
+        (action.on_click)();
+    }
+
+    /// The door's text and its buttons besides the main one.
+    fn door_parts(&self) -> (Option<AnyView>, Option<AnyView>) {
+        let door = &self.0.door;
+        let notice: Option<AnyView> =
+            door.notice.clone().map(|text| Box::new(Alert::message(text).tone(Tone::Accent)) as AnyView);
+        let actions: Option<AnyView> = (!door.actions.is_empty()).then(|| {
+            let buttons: Vec<AnyView> = door
+                .actions
+                .iter()
+                .map(|action| {
+                    let (gate, pressed) = (self.clone(), action.clone());
+                    let button = Button::new(action.label.clone())
+                        .style(ButtonStyle::Ghost)
+                        .full_width()
+                        .on_click(move || gate.leave_by(&pressed));
+                    Box::new(match action.icon {
+                        Some(icon) => button.icon(icon),
+                        None => button,
+                    }) as AnyView
+                })
+                .collect();
+            Box::new(VStack::new(buttons).spacing(4.0).align(Align::Stretch)) as AnyView
+        });
+        (notice, actions)
     }
 
     fn sign_in(&self) {
@@ -514,12 +648,14 @@ impl Gate {
         self.0.name.set(String::new());
         self.0.error.set(None);
         self.0.stage.set(Stage::SignIn);
+        self.fill_demo();
     }
 
     fn title(&self, detail: Option<&str>) -> AnyView {
         Box::new(
             VStack::new((
                 Text::new(self.0.title.clone()).style(TextStyle::Title).font_weight(Weight::SEMIBOLD),
+                self.0.door.description.clone().map(|text| Text::new(text).style(TextStyle::Callout)),
                 detail.map(|text| Text::new(text.to_owned()).style(TextStyle::Caption)),
             ))
             .spacing(4.0)
@@ -530,9 +666,11 @@ impl Gate {
     fn sign_in_form(&self) -> AnyView {
         let (words, inner) = (&self.0.words, &self.0);
         let (by_key, by_button) = (self.clone(), self.clone());
+        let (notice, actions) = self.door_parts();
         Box::new(
             VStack::new((
                 self.title(None),
+                notice,
                 inner.error.get().map(|error| Alert::message(error).tone(Tone::Danger)),
                 FormField::new(
                     words.user_name.clone(),
@@ -545,6 +683,7 @@ impl Gate {
                         .on_submit(move |_| by_key.sign_in()),
                 ),
                 Button::new(words.sign_in.clone()).on_click(move || by_button.sign_in()).full_width(),
+                actions,
             ))
             .spacing(12.0)
             .align(Align::Stretch),
@@ -554,9 +693,11 @@ impl Gate {
     fn first_user_form(&self) -> AnyView {
         let (words, inner) = (&self.0.words, &self.0);
         let (by_key, by_button) = (self.clone(), self.clone());
+        let (notice, actions) = self.door_parts();
         Box::new(
             VStack::new((
                 self.title(Some(&words.first_user)),
+                notice,
                 inner
                     .error
                     .get()
@@ -576,6 +717,7 @@ impl Gate {
                         .on_submit(move |_| by_key.create_first()),
                 ),
                 Button::new(words.create_user.clone()).on_click(move || by_button.create_first()),
+                actions,
             ))
             .spacing(12.0)
             .align(Align::Stretch),
@@ -584,9 +726,13 @@ impl Gate {
 
     fn new_password_form(&self, form: &PasswordForm) -> AnyView {
         Box::new(
-            VStack::new((self.title(Some(&self.0.words.must_change_password)), form.clone()))
-                .spacing(12.0)
-                .align(Align::Stretch),
+            VStack::new((
+                self.title(Some(&self.0.words.must_change_password)),
+                form.clone(),
+                self.door_parts().1,
+            ))
+            .spacing(12.0)
+            .align(Align::Stretch),
         )
     }
 }

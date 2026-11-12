@@ -36,6 +36,10 @@ use ravenrs_criteria::{DateTime, Dialect, Environment, SqlParam, to_sql};
 use rusqlite::types::{Value as SqlValue, ValueRef};
 use rusqlite::{Connection, ErrorCode, OptionalExtension, params_from_iter};
 
+mod backup;
+
+pub use backup::{BackupError, BackupInfo, BackupStamp, Backups, COPIES_KEPT, KeptCopy};
+
 type Hook = Rc<dyn Fn(&mut Object)>;
 
 /// How an entity lands on a table.
@@ -543,6 +547,20 @@ impl SqliteDatabase {
     }
 }
 
+/// Whether the database is held by another connection right now, which passes.
+fn is_busy(error: &rusqlite::Error) -> bool {
+    matches!(error.sqlite_error_code(), Some(ErrorCode::DatabaseBusy | ErrorCode::DatabaseLocked))
+}
+
+/// A failure of the database itself: temporary when it is only busy.
+fn storage_error(error: &rusqlite::Error) -> SpaceError {
+    if is_busy(error) {
+        SpaceError::Temporary(error.to_string())
+    } else {
+        SpaceError::Storage(error.to_string())
+    }
+}
+
 /// A unit of work over a [`SqliteDatabase`]. A commit is one transaction.
 pub struct SqliteObjectSpace {
     shared: Rc<Shared>,
@@ -570,6 +588,9 @@ impl SqliteObjectSpace {
     fn refused(&self, entity: &Entity, error: &rusqlite::Error) -> SpaceError {
         let words = &self.shared.words;
         let text = error.to_string();
+        if is_busy(error) {
+            return SpaceError::Temporary(words.failed.replace("{0}", &text));
+        }
         if error.sqlite_error_code() != Some(ErrorCode::ConstraintViolation) {
             return SpaceError::Storage(words.failed.replace("{0}", &text));
         }
@@ -856,8 +877,7 @@ impl ObjectSpace for SqliteObjectSpace {
         let changes = self.changes.list().to_vec();
         self.tell(SpaceEvent::Committing(&changes))?;
         let shared = self.shared.clone();
-        let transaction =
-            shared.connection.unchecked_transaction().map_err(|e| SpaceError::Storage(e.to_string()))?;
+        let transaction = shared.connection.unchecked_transaction().map_err(|e| storage_error(&e))?;
         for change in &changes {
             let name = match change {
                 Change::New(object) | Change::Updated(object) => object.entity(),
@@ -875,7 +895,7 @@ impl ObjectSpace for SqliteObjectSpace {
             }
             self.write(entity, change)?;
         }
-        transaction.commit().map_err(|e| SpaceError::Storage(e.to_string()))?;
+        transaction.commit().map_err(|e| storage_error(&e))?;
         self.changes.clear();
         let _ = self.tell(SpaceEvent::Committed(&changes));
         Ok(())

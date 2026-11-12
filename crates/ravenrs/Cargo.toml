@@ -14,11 +14,13 @@ categories = ["gui", "graphics", "wasm"]
 readme = "README.md"
 
 [features]
-default = ["decode", "charts", "lottie"]
+default = ["decode", "charts", "flow", "lottie"]
 # PNG and JPEG decoding for `Image::from_bytes`.
 decode = ["ravenrs-widgets/decode"]
 # `Chart`, `BarChart`, `AreaChart` and `Barcode`.
 charts = ["ravenrs-widgets/charts"]
+# `FlowCanvas`: diagrams of nodes joined by connections.
+flow = ["ravenrs-widgets/flow"]
 # `Lottie`, a player of Lottie animations of our own.
 lottie = ["ravenrs-widgets/lottie"]
 # `CodeEditor` and `Playground`, with a monospaced font embedded.

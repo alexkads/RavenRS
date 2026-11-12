@@ -1037,11 +1037,18 @@ impl Ui {
         for &node in self.paint_order.iter().rev() {
             let i = node.0 as usize;
             let e = &self.elements[i];
-            if !(e.scroll || e.scrolls_with_widget) || !self.frames[i].intersect(&self.clips[i]).contains(p) {
+            let wheel = e.on_wheel.clone();
+            if !(e.scroll || e.scrolls_with_widget || wheel.is_some())
+                || !self.frames[i].intersect(&self.clips[i]).contains(p)
+            {
                 continue;
             }
             if !layers.as_ref().is_none_or(|l| l.iter().any(|root| self.is_inside(node, *root))) {
                 continue;
+            }
+            if let Some(handler) = wheel {
+                handler(delta);
+                return true;
             }
             // Part of a view that scrolls moves what scrolls, such as frozen row names.
             let i = if e.scroll {

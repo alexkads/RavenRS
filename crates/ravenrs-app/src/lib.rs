@@ -36,9 +36,12 @@ mod functions;
 mod job;
 #[cfg(feature = "live")]
 mod live_list;
+mod manifest;
 mod model;
 mod module;
 mod object;
+mod outbox;
+mod provider;
 mod record_action;
 mod security;
 #[cfg(feature = "source")]
@@ -61,6 +64,7 @@ pub use files::{AttachmentStore, MemoryAttachmentStore};
 pub use frame::{Frame, FrameContext, FrameEvent, ViewInfo, ViewKind};
 pub use functions::{environment, register_function};
 pub use job::{Job, JobChange, JobContext, JobWaker, JobWork};
+pub use manifest::{GuardedObjectSpace, ModuleManifest, Target, Version, VersionRange};
 #[cfg(not(target_arch = "wasm32"))]
 pub use model::FileStore;
 pub use model::{
@@ -69,6 +73,8 @@ pub use model::{
 };
 pub use module::{Application, ApplicationBuilder, DashboardContent, DashboardInfo, DashboardItem, Module};
 pub use object::{BusinessObject, FieldValue, ObjectSpaceExt};
+pub use outbox::{Dispatcher, Emitted, Event, OUTBOX_EVENT, OutboxModule, Report, outbox_entity};
+pub use provider::{CAN_TELL_STATUS, EventSink, Provider};
 pub use ravenrs_app_derive::{BusinessEnum, BusinessObject};
 #[cfg(not(target_arch = "wasm32"))]
 pub use ravenrs_core::FileStorage;
@@ -77,11 +83,12 @@ pub use ravenrs_criteria::{Criteria, Value};
 pub use record_action::RecordAction;
 pub use security::{
     ADMINISTRATORS_ROLE, Access, AuditMode, AuditSettings, AuditTrail, AuditedObjectSpace, AuthError,
-    Authenticator, Credentials, Identity, MIN_PASSWORD_CHARS, Operation, PasswordError, PermissionPolicy,
-    Permissions, Role, RoleMerge, SECURITY_ACTION_PERMISSION, SECURITY_AUDIT_ENTRY,
-    SECURITY_MEMBER_PERMISSION, SECURITY_NAVIGATION_PERMISSION, SECURITY_OBJECT_PERMISSION, SECURITY_ROLE,
-    SECURITY_TYPE_PERMISSION, SECURITY_USER, SECURITY_USER_ROLE, SecuredObjectSpace, SecurityContext,
-    SpaceMaker, UserDirectory, audit_entity, hash_password, security_entities, verify_password,
+    Authenticator, Claims, Credentials, ExternalSignIn, Identity, IdentityProvider, MIN_PASSWORD_CHARS,
+    Operation, PasswordError, PermissionPolicy, Permissions, Role, RoleMerge, SECURITY_ACTION_PERMISSION,
+    SECURITY_AUDIT_ENTRY, SECURITY_EXTERNAL_LOGIN, SECURITY_MEMBER_PERMISSION,
+    SECURITY_NAVIGATION_PERMISSION, SECURITY_OBJECT_PERMISSION, SECURITY_ROLE, SECURITY_TYPE_PERMISSION,
+    SECURITY_USER, SECURITY_USER_ROLE, SecuredObjectSpace, SecurityContext, SpaceMaker, UserDirectory,
+    audit_entity, hash_password, security_entities, verify_password,
 };
 #[cfg(feature = "source")]
 pub use source::{SourceError, entities_from_source, entities_from_spec};
