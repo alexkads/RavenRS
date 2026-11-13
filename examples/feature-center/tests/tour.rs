@@ -912,5 +912,9 @@ fn a_receipt_is_one_long_page_with_its_printer_and_commands_in_place() {
 
     ravenrs_app_report::design_stored_report(&c.session(), &record, &words)
         .unwrap_or_else(|why| panic!("{why}"));
+    // Printing and export live on the ribbon's own page, "Saída".
+    c.settle();
+    let page = c.ui.access_tree().nodes.iter().find(|n| n.name.as_deref() == Some("Saída")).map(|n| n.id);
+    c.ui.perform_action(page.expect("the ribbon's page of output"), AccessAction::Click);
     assert!(c.says("Impressora direta"), "the designer offers printing straight: {:?}", c.texts());
 }

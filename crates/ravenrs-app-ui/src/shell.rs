@@ -61,6 +61,12 @@ impl std::fmt::Debug for TemplateParts {
 pub trait FrameTemplate {
     /// Puts the pieces where they go.
     fn arrange(&self, parts: TemplateParts) -> AnyView;
+
+    /// Whether it shows [`TemplateParts::keys`]. Then the commands above leave their keys to that
+    /// bar, so no key answers twice.
+    fn shows_keys(&self) -> bool {
+        false
+    }
 }
 
 /// Navigation on the side, commands above the view.
@@ -87,6 +93,10 @@ impl FrameTemplate for MainTemplate {
 pub struct CounterTemplate;
 
 impl FrameTemplate for CounterTemplate {
+    fn shows_keys(&self) -> bool {
+        true
+    }
+
     fn arrange(&self, parts: TemplateParts) -> AnyView {
         // A dashboard is a screen of its own; a list or a form still needs its commands.
         let mut rows: Vec<AnyView> = Vec::with_capacity(3);
@@ -466,7 +476,7 @@ impl AppShell {
             VStack::new((
                 VStack::new((
                     ravenrs_widgets::HStack::new((trigger, place)).spacing(8.0).align(Align::Center),
-                    ActionContainer::new(self.session.clone(), []),
+                    ActionContainer::new(self.session.clone(), []).keys_elsewhere(self.template.shows_keys()),
                 ))
                 .spacing(8.0)
                 .align(Align::Stretch)

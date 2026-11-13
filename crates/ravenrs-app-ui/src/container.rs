@@ -109,13 +109,21 @@ fn add_choice(
 pub struct ActionContainer {
     session: Session,
     categories: Vec<ActionCategory>,
+    keys_elsewhere: bool,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ActionContainer {
     /// A place for these categories, in the order the actions came; for all of them, with none.
     pub fn new(session: Session, categories: impl IntoIterator<Item = ActionCategory>) -> Self {
-        Self { session, categories: categories.into_iter().collect() }
+        Self { session, categories: categories.into_iter().collect(), keys_elsewhere: false }
+    }
+
+    /// The keys of these actions work from a bar of their own, as a counter's window has: the
+    /// buttons here leave them to it, so no key answers twice.
+    pub fn keys_elsewhere(mut self, elsewhere: bool) -> Self {
+        self.keys_elsewhere = elsewhere;
+        self
     }
 
     fn entry(
@@ -191,7 +199,9 @@ impl ActionContainer {
                         entry = entry.icon_only();
                     }
                 }
-                if let Some(hotkey) = action.hotkey_text().and_then(hotkey_of) {
+                if let Some(hotkey) =
+                    action.hotkey_text().and_then(hotkey_of).filter(|_| !self.keys_elsewhere)
+                {
                     entry = entry.hotkey(hotkey);
                 }
                 let run = action.clone();
