@@ -135,6 +135,11 @@ debug = "line-tables-only"
 [profile.dev.package.ravenrs-sheet]
 opt-level = 1
 
+# The PDF engine's tests recurse as deep as hostile files do and decrypt with every key length; at
+# opt-level 0 they overflow the stack or take minutes, so it builds as PdfCraft builds it.
+[profile.dev.package.ravenrs-pdf]
+opt-level = 1
+
 
 [profile.release]
 # Smaller WASM binaries; native release builds benefit as well.
