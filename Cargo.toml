@@ -130,6 +130,12 @@ expect_used = "warn"
 # Each worktree has its own target/; keep backtraces with file and line, drop the rest.
 debug = "line-tables-only"
 
+# Third-party crates built with some optimisation: the tests drive the UI, SQLite (its C is compiled
+# with this level too), text shaping and images, which are many times slower at opt-level 0. The
+# workspace's own crates stay unoptimised, so they still build fast and debug as written.
+[profile.dev.package."*"]
+opt-level = 1
+
 # The spreadsheet evaluator budgets its stack for recursive LAMBDA calls; unoptimised frames are
 # several times larger, so the same formula would stop much earlier in debug builds.
 [profile.dev.package.ravenrs-sheet]
