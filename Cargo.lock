@@ -6257,6 +6257,7 @@ dependencies = [
  "ravenrs-widgets-grid",
  "ravenrs-widgets-kit",
  "ravenrs-widgets-lists",
+ "ravenrs-widgets-scheduler",
  "serde",
  "serde_json",
  "tracing",
@@ -6320,6 +6321,20 @@ dependencies = [
 
 [[package]]
 name = "ravenrs-widgets-lists"
+version = "27.1.28"
+dependencies = [
+ "ravenrs-core",
+ "ravenrs-layout",
+ "ravenrs-live",
+ "ravenrs-reactive",
+ "ravenrs-style",
+ "ravenrs-widgets",
+ "ravenrs-widgets-base",
+ "ravenrs-widgets-kit",
+]
+
+[[package]]
+name = "ravenrs-widgets-scheduler"
 version = "27.1.28"
 dependencies = [
  "ravenrs-core",

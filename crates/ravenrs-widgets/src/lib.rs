@@ -46,6 +46,14 @@ use ravenrs_widgets_lists::lists;
 #[allow(unused_imports)]
 use ravenrs_widgets_lists::tree;
 
+// The scheduler family lives in its own crate, and keeps its module names here.
+#[allow(unused_imports)]
+use ravenrs_widgets_scheduler::event_calendar;
+#[allow(unused_imports)]
+use ravenrs_widgets_scheduler::scheduler;
+#[allow(unused_imports)]
+use ravenrs_widgets_scheduler::timeline;
+
 // The components of general use live in their own crate, and keep their module names here.
 #[allow(unused_imports)]
 use ravenrs_widgets_base::{
@@ -69,7 +77,6 @@ mod chat;
 mod code_editor;
 mod conversation;
 mod dock;
-mod event_calendar;
 #[cfg(feature = "flow")]
 mod flow;
 mod imaging;
@@ -85,8 +92,6 @@ mod ribbon;
 mod rich_text;
 #[cfg(feature = "charts")]
 mod sankey;
-mod scheduler;
-mod timeline;
 
 pub use button::{Button, ButtonGroup, ButtonSize, ButtonStyle, IconButton};
 pub use calendar::{Calendar, DatePicker, DateRange, DateRangePicker};
