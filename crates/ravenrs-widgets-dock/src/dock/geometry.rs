@@ -17,7 +17,8 @@ const GAP_LINE: f32 = 2.0;
 
 /// The measures an arrangement is laid out with.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct Metrics {
+#[doc(hidden)]
+pub struct Metrics {
     /// How thick a bar between parts is.
     pub bar: f32,
     /// How thick the strip that collapses a dock is, or zero without one.
@@ -48,7 +49,8 @@ impl Metrics {
 
 /// A group of tabs and where it goes.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct GroupPlace {
+#[doc(hidden)]
+pub struct GroupPlace {
     pub panels: Vec<String>,
     pub active: usize,
     pub rect: Rect,
@@ -56,7 +58,8 @@ pub(crate) struct GroupPlace {
 
 /// What a bar changes.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) enum BarKind {
+#[doc(hidden)]
+pub enum BarKind {
     /// The size of a dock.
     Dock(DockSide),
     /// A pair in a split, of `both` logical pixels in all.
@@ -65,7 +68,8 @@ pub(crate) enum BarKind {
 
 /// A bar between two parts and where it goes. It lies across `axis`.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct BarPlace {
+#[doc(hidden)]
+pub struct BarPlace {
     pub kind: BarKind,
     pub axis: Axis,
     pub rect: Rect,
@@ -77,7 +81,8 @@ pub(crate) struct BarPlace {
 
 /// Everything laid out.
 #[derive(Clone, Debug, Default, PartialEq)]
-pub(crate) struct Arranged {
+#[doc(hidden)]
+pub struct Arranged {
     pub size: Size,
     pub groups: Vec<GroupPlace>,
     pub bars: Vec<BarPlace>,
@@ -91,7 +96,8 @@ pub(crate) struct Arranged {
 
 /// The sizes the parts of a split get in `room`: their shares, with each part at least at its
 /// smallest and the difference taken from those that have some to spare.
-pub(crate) fn distribute(room: f32, shares: &[f32], mins: &[f32]) -> Vec<f32> {
+#[doc(hidden)]
+pub fn distribute(room: f32, shares: &[f32], mins: &[f32]) -> Vec<f32> {
     let mut sizes: Vec<f32> = shares.iter().zip(mins).map(|(share, min)| (share * room).max(*min)).collect();
     let mut over = sizes.iter().sum::<f32>() - room;
     if over > 0.0 {
@@ -228,7 +234,8 @@ fn dock_size(
 }
 
 /// Lays an arrangement out in an area of `size`.
-pub(crate) fn arrange(layout: &DockLayout, size: Size, metrics: &Metrics) -> Arranged {
+#[doc(hidden)]
+pub fn arrange(layout: &DockLayout, size: Size, metrics: &Metrics) -> Arranged {
     let mut out = Arranged { size, ..Arranged::default() };
     let has = |side| layout.node(side).is_some();
     let open = |side| has(side) && layout.is_open(side);
@@ -333,7 +340,8 @@ pub(crate) fn arrange(layout: &DockLayout, size: Size, metrics: &Metrics) -> Arr
 
 /// What a tab being dragged would do if dropped here.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct DropAim {
+#[doc(hidden)]
+pub struct DropAim {
     pub target: DockDrop,
     /// What to mark, relative to the area.
     pub mark: Rect,
@@ -369,7 +377,8 @@ fn half(rect: Rect, edge: DockEdge) -> Rect {
 /// What lies under the pointer at `at` for the panel `dragged`. `strip` says how tall the tabs of
 /// a group are, and `tab` where a tab is on screen now, relative to the area. It finds a place
 /// whether or not dropping there changes anything; the caller tries that.
-pub(crate) fn aim(
+#[doc(hidden)]
+pub fn aim(
     arranged: &Arranged,
     at: Point,
     strip: &dyn Fn(&GroupPlace) -> f32,

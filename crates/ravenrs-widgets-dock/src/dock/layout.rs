@@ -704,14 +704,8 @@ impl DockLayout {
 
     /// The first part of a pair in a split gets `first` out of `both` logical pixels; the pair
     /// keeps the share it has together. Other parts do not move.
-    pub(crate) fn resize_split(
-        &mut self,
-        side: DockSide,
-        path: &[usize],
-        index: usize,
-        first: f32,
-        both: f32,
-    ) {
+    #[doc(hidden)]
+    pub fn resize_split(&mut self, side: DockSide, path: &[usize], index: usize, first: f32, both: f32) {
         if both <= 0.0 || !first.is_finite() {
             return;
         }
