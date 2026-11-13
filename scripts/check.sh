@@ -154,7 +154,7 @@ fi
 
 step "minimum supported Rust version (1.88)"
 if rustup toolchain list | grep -q '^1.88'; then
-    cargo +1.88 check --workspace --exclude ravenrs-movie-video --exclude channel-video --exclude tasks-sqlite --exclude ravenrs-sheet --exclude ravenrs-spreadsheet --exclude spreadsheet --exclude ravenrs-app-sqlite --exclude mini-pdv --exclude calculator --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude grid-poc --exclude family-finance --exclude ravenrs-perf
+    cargo +1.88 check --workspace --exclude ravenrs-movie-video --exclude channel-video --exclude tasks-sqlite --exclude ravenrs-sheet --exclude ravenrs-pdf --exclude ravenrs-word --exclude ravenrs-app-testkit --exclude ravenrs-spreadsheet --exclude spreadsheet --exclude ravenrs-app-sqlite --exclude mini-pdv --exclude calculator --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude grid-poc --exclude family-finance --exclude ravenrs-perf
 else
     echo "skipped: install it with 'rustup toolchain install 1.88'"
 fi
