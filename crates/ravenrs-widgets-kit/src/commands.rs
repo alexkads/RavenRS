@@ -292,7 +292,8 @@ impl Toolbar {
     }
 
     /// Takes the room left in its row, with the commands at the far end.
-    pub(crate) fn aligned_end(mut self) -> Self {
+    #[doc(hidden)]
+    pub fn aligned_end(mut self) -> Self {
         self.aligned_end = true;
         self
     }
@@ -300,7 +301,8 @@ impl Toolbar {
 
 /// How many entries of these widths fit in `available`, leaving room for the
 /// overflow menu if some have to go.
-pub(crate) fn entries_that_fit(widths: &[f32], available: f32, more: f32, gap: f32) -> usize {
+#[doc(hidden)]
+pub fn entries_that_fit(widths: &[f32], available: f32, more: f32, gap: f32) -> usize {
     let total: f32 = widths.iter().map(|w| w + gap).sum();
     if total - gap <= available {
         return widths.len();
@@ -646,7 +648,8 @@ impl View for MoreMenu {
 }
 
 /// A square button that opens `entries` under it, and takes focus back after.
-pub(crate) fn menu_trigger(
+#[doc(hidden)]
+pub fn menu_trigger(
     cx: &mut BuildCx<'_>,
     entries: &[Entry],
     icon: IconName,

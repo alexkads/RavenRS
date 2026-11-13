@@ -3258,6 +3258,8 @@ fn filter_reads(text: &str, fields: &[crate::FilterField]) -> bool {
             crate::FilterFieldKind::Number => FieldType::Number,
             crate::FilterFieldKind::Boolean => FieldType::Boolean,
             crate::FilterFieldKind::Date => FieldType::Date,
+            // The kit may add more; they are checked as text.
+            _ => FieldType::Text,
         };
         schema.field(&f.name, kind)
     });

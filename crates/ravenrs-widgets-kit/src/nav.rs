@@ -401,7 +401,9 @@ impl SidebarState {
 }
 
 /// What the parts of a sidebar need to know about the sidebar around them.
-pub(crate) struct SidebarScope {
+#[allow(missing_debug_implementations)] // internal: shared with the families' crates, hidden
+#[doc(hidden)]
+pub struct SidebarScope {
     icons: bool,
     in_sheet: bool,
     side: Side,
