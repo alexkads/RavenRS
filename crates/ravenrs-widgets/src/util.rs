@@ -2,7 +2,7 @@
 
 use std::rc::Rc;
 
-use ravenrs_core::{Color, Quad, Rect};
+use ravenrs_core::{Color, PathElement, Point, Quad, Rect};
 use ravenrs_layout::LayoutStyle;
 use ravenrs_style::{TextStyle, Theme, Weight};
 use ravenrs_text::{ICON_FAMILY, TextAttrs};
@@ -323,6 +323,29 @@ pub(crate) fn to_hex(color: Color) -> String {
     let byte = |channel: f32| (channel.clamp(0.0, 1.0) * 255.0).round() as u8;
     let rgb = format!("#{:02X}{:02X}{:02X}", byte(color.r), byte(color.g), byte(color.b));
     if byte(color.a) == 255 { rgb } else { format!("{rgb}{:02X}", byte(color.a)) }
+}
+
+/// The outline of a line through `points`: a stroke is a fill of its expanded outline.
+pub(crate) fn stroke_outline(points: &[Point], width: f32) -> Vec<PathElement> {
+    let half = width / 2.0;
+    let normal = |i: usize| {
+        let (a, b) = (points[i.saturating_sub(1)], points[(i + 1).min(points.len() - 1)]);
+        let (dx, dy) = (b.x - a.x, b.y - a.y);
+        let length = dx.hypot(dy).max(f32::EPSILON);
+        (-dy / length * half, dx / length * half)
+    };
+    let mut outline = Vec::with_capacity(points.len() * 2 + 2);
+    for (i, p) in points.iter().enumerate() {
+        let (nx, ny) = normal(i);
+        let at = Point::new(p.x + nx, p.y + ny);
+        outline.push(if i == 0 { PathElement::MoveTo(at) } else { PathElement::LineTo(at) });
+    }
+    for (i, p) in points.iter().enumerate().rev() {
+        let (nx, ny) = normal(i);
+        outline.push(PathElement::LineTo(Point::new(p.x - nx, p.y - ny)));
+    }
+    outline.push(PathElement::Close);
+    outline
 }
 
 #[cfg(test)]

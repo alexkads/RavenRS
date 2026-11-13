@@ -8,7 +8,7 @@ use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 use ravenrs_animation::Transition;
-use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Key, Point, Role};
+use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Key, Point, Role, Size};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
@@ -1409,6 +1409,60 @@ pub(crate) fn move_by_handle(
             true
         }),
     );
+}
+
+/// A corner of the window, where a [`FloatingPanel`](crate::FloatingPanel) rests.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
+pub enum FloatingCorner {
+    /// Top left.
+    TopLeft,
+    /// Top right.
+    TopRight,
+    /// Bottom left.
+    BottomLeft,
+    /// Bottom right.
+    #[default]
+    BottomRight,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl FloatingCorner {
+    pub(crate) fn is_right(self) -> bool {
+        matches!(self, Self::TopRight | Self::BottomRight)
+    }
+
+    pub(crate) fn is_bottom(self) -> bool {
+        matches!(self, Self::BottomLeft | Self::BottomRight)
+    }
+
+    fn at(right: bool, bottom: bool) -> Self {
+        match (right, bottom) {
+            (false, false) => Self::TopLeft,
+            (true, false) => Self::TopRight,
+            (false, true) => Self::BottomLeft,
+            (true, true) => Self::BottomRight,
+        }
+    }
+
+    /// The corner nearest to a point of a window of this size.
+    pub(crate) fn nearest(point: Point, window: Size) -> Self {
+        Self::at(point.x > window.width / 2.0, point.y > window.height / 2.0)
+    }
+
+    /// The corner an arrow key leads to, if it leads anywhere.
+    pub(crate) fn moved(self, key: &Key) -> Option<Self> {
+        let (right, bottom) = (self.is_right(), self.is_bottom());
+        let next = match key {
+            Key::ArrowLeft => Self::at(false, bottom),
+            Key::ArrowRight => Self::at(true, bottom),
+            Key::ArrowUp => Self::at(right, false),
+            Key::ArrowDown => Self::at(right, true),
+            _ => return None,
+        };
+        Some(next)
+    }
 }
 
 #[cfg(test)]

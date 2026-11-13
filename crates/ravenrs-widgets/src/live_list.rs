@@ -239,8 +239,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::ChatMessage::__live_expose(registry);
     crate::Chat::__live_expose_fields(registry);
     crate::Chat::__live_expose(registry);
-    crate::FloatingCorner::__live_expose_variants(registry);
-    crate::FloatingCorner::__live_expose(registry);
     crate::FloatingPanel::__live_expose_fields(registry);
     crate::FloatingPanel::__live_expose(registry);
     crate::ToggleButton::__live_expose_fields(registry);
@@ -279,8 +277,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::CodeEditor::__live_expose(registry);
     crate::ColorPicker::__live_expose_fields(registry);
     crate::ColorPicker::__live_expose(registry);
-    crate::Hotkey::__live_expose_fields(registry);
-    crate::Hotkey::__live_expose(registry);
     crate::ToolbarAction::__live_expose_fields(registry);
     crate::ToolbarAction::__live_expose(registry);
     crate::Toolbar::__live_expose_fields(registry);
@@ -446,6 +442,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::CommandPalette::__live_expose(registry);
     crate::Combobox::__live_expose_fields(registry);
     crate::Combobox::__live_expose(registry);
+    crate::FloatingCorner::__live_expose_variants(registry);
+    crate::FloatingCorner::__live_expose(registry);
     #[cfg(feature = "flow")]
     crate::FlowViewport::__live_expose_fields(registry);
     #[cfg(feature = "flow")]
@@ -500,7 +498,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::GridResponder::__live_expose(registry);
     crate::RemoteRows::__live_expose_fields(registry);
     crate::RemoteRows::__live_expose(registry);
-    crate::SelectionMode::__live_expose_variants(registry);
     crate::DataGrid::__live_expose_fields(registry);
     crate::GridCellStyle::__live_expose_fields(registry);
     crate::GridCellStyle::__live_expose(registry);
@@ -511,6 +508,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::GridCurrent::__live_expose(registry);
     crate::DataGrid::__live_expose(registry);
     crate::DataGrid::__live_expose_part1(registry);
+    crate::Hotkey::__live_expose_fields(registry);
+    crate::Hotkey::__live_expose(registry);
     crate::Icon::__live_expose_fields(registry);
     crate::Icon::__live_expose(registry);
     crate::IconName::__live_expose_variants(registry);
@@ -578,10 +577,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::ColorWheel::__live_expose(registry);
     crate::CurveEditor::__live_expose_fields(registry);
     crate::CurveEditor::__live_expose(registry);
-    crate::ZoomView::__live_expose_fields(registry);
-    crate::ZoomView::__live_expose(registry);
-    crate::ZoomControl::__live_expose_fields(registry);
-    crate::ZoomControl::__live_expose(registry);
     crate::ZoomPanPaint::__live_expose_fields(registry);
     crate::ZoomPanView::__live_expose_fields(registry);
     crate::ZoomPanView::__live_expose(registry);
@@ -771,6 +766,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Sticky::<crate::AnyView>::__live_expose(registry);
     crate::ScrollScene::<crate::AnyView>::__live_expose(registry);
     crate::ScrollLinked::<crate::AnyView>::__live_expose(registry);
+    crate::SelectionMode::__live_expose_variants(registry);
     crate::ShortcutSheet::__live_expose_fields(registry);
     crate::ShortcutSheet::__live_expose(registry);
     crate::ShortcutHintBar::__live_expose_fields(registry);
@@ -865,6 +861,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::IndicatorStep::__live_expose(registry);
     crate::StepIndicator::__live_expose_fields(registry);
     crate::StepIndicator::__live_expose(registry);
+    crate::ZoomView::__live_expose_fields(registry);
+    crate::ZoomView::__live_expose(registry);
+    crate::ZoomControl::__live_expose_fields(registry);
+    crate::ZoomControl::__live_expose(registry);
     #[cfg(feature = "charts")]
     registry.alias("ChartCurve", "Curve");
     #[cfg(feature = "charts")]

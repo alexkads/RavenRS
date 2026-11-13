@@ -6,7 +6,6 @@ mod document_tabs;
 mod file_browser;
 mod filmstrip;
 mod paged;
-pub(crate) mod reorder;
 mod selection;
 mod sortable;
 mod virtual_list;

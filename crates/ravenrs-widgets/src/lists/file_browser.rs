@@ -14,7 +14,7 @@ use super::selection;
 use super::virtual_list::{ScrollCommand, VirtualList};
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
 use crate::files::size_text;
-use crate::grid::SelectionMode;
+use crate::selection_mode::SelectionMode;
 use crate::view::View;
 use crate::{Breadcrumb, Divider, IconName, util};
 

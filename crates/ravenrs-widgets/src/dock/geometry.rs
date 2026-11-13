@@ -6,7 +6,7 @@ use ravenrs_core::{Point, Rect, Size};
 use ravenrs_layout::Axis;
 
 use super::layout::{DockChild, DockDrop, DockEdge, DockLayout, DockNode, DockSide};
-use crate::lists::reorder;
+use crate::reorder;
 
 /// How far inside a group, as a part of it, a drop still means its edge.
 const EDGE_PART: f32 = 0.25;

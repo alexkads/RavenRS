@@ -9,9 +9,9 @@ use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle};
 
-use super::reorder::{self, Extents, Reorder};
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
 use crate::quick_edit::is_f2;
+use crate::reorder::{self, Extents, Reorder};
 use crate::stack::ScrollEdgeArrow;
 use crate::util::{self, FocusTarget, Roving};
 use crate::view::{Keyed, View};
