@@ -1,4 +1,5 @@
 //! Round-trip tests: build documents programmatically → write → read → compare.
+// RavenRS: zip 9 (WordCraft is on 3) returns entry names as Results; the tests unwrap them.
 
 use ravenrs_word::doc::fill::Fill;
 use std::sync::Arc;
@@ -2894,7 +2895,7 @@ fn replace_part(zip_bytes: &[u8], name: &str, data: &[u8]) -> Vec<u8> {
     let mut out = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
     for i in 0..src.len() {
         let mut f = src.by_index(i).unwrap();
-        let n = f.name().to_string();
+        let n = f.name().unwrap().to_string();
         out.start_file(n.as_str(), zip::write::SimpleFileOptions::default()).unwrap();
         if n == name {
             std::io::Write::write_all(&mut out, data).unwrap();

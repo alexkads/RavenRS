@@ -1,6 +1,7 @@
 //! A picture's hyperlink (#5267): Word keeps it on the drawing (`wp:docPr/a:hlinkClick`,
 //! ECMA-376 Part 1 §20.4.2.5) rather than in a `w:hyperlink` around the run. Original
 //! synthetic packages; the 2×2 picture is generated in code.
+// RavenRS: zip 9 (WordCraft is on 3) returns entry names as Results; the tests unwrap them.
 use ravenrs_word::doc::{CharProps, Document, InlineObject, Pos};
 use std::io::{Read, Write};
 use std::sync::Arc;
@@ -113,7 +114,7 @@ fn a_linked_picture_is_saved_with_its_link_on_the_drawing_too() {
     let mut out = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
     for i in 0..z.len() {
         let mut f = z.by_index(i).unwrap();
-        let name = f.name().to_string();
+        let name = f.name().unwrap().to_string();
         let mut data = Vec::new();
         f.read_to_end(&mut data).unwrap();
         if name == "word/document.xml" {

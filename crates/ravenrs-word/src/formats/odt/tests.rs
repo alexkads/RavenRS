@@ -123,8 +123,10 @@ fn pictures_over_the_budget_are_not_inflated() {
     let mut z = archive(&liar);
     let mut pics = Pictures::new(1000);
     assert_eq!(pics.get(&mut z, "liar.png"), None);
-    assert_eq!(pics.room, 0);
-    assert_eq!(pics.get(&mut z, "ok.png"), None);
+    // RavenRS: zip 9 (WordCraft is on 3) stops an entry at the size it declares, or refuses it, so a
+    // liar can't spend more than it declared and what follows still fits.
+    assert!(pics.room >= 1000 - 10, "{}", pics.room);
+    assert_eq!(pics.get(&mut z, "ok.png").map(|d| d.len()), Some(10));
 }
 
 #[test]

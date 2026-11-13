@@ -2,6 +2,7 @@
 //! LibreOffice's interface configuration, `manifest.rdf` and other applications' files are kept
 //! as they are and written back with their manifest entries; the thumbnail and digital
 //! signatures, which describe the package as it was, are not.
+// RavenRS: zip 9 (WordCraft is on 3) returns entry names as Results; the tests unwrap them.
 
 use std::io::{Cursor, Read, Write};
 
@@ -49,7 +50,7 @@ fn files(bytes: &[u8]) -> Vec<(String, Vec<u8>)> {
         let mut f = z.by_index(i).unwrap();
         let mut b = Vec::new();
         f.read_to_end(&mut b).unwrap();
-        out.push((f.name().to_string(), b));
+        out.push((f.name().unwrap().to_string(), b));
     }
     out
 }

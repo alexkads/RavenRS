@@ -1,6 +1,7 @@
 //! Password-protected ODT (ODF 1.3 Part 2 §3.4): saved encrypted as LibreOffice encrypts
 //! (AES-256-CBC, SHA-256 start key, PBKDF2), opened with the right password, refused with a
 //! wrong one, and hostile encryption data never panics or hangs.
+// RavenRS: zip 9 (WordCraft is on 3) returns entry names as Results; the tests unwrap them.
 
 use crate::doc::Document;
 use crate::formats::odt::tests::{NS_T, package, zip_of};
@@ -25,7 +26,7 @@ fn an_encrypted_package_opens_with_its_password_only() {
     assert!(is_encrypted(&enc));
     // Nothing readable is left: the content is encrypted, the manifest says how.
     let z = zip::ZipArchive::new(std::io::Cursor::new(&enc)).unwrap();
-    assert_eq!(z.file_names().next(), Some("mimetype"));
+    assert_eq!(z.file_names().next().map(Result::unwrap).as_deref(), Some("mimetype"));
     assert!(!enc.windows(10).any(|w| w == b"Top secret"));
     let manifest = crate::formats::odt::tests::entry(&enc, "META-INF/manifest.xml");
     for want in [

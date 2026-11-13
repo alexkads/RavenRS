@@ -36,8 +36,8 @@ thiserror = "2"
 unicode-bidi = "0.3"
 unicode-segmentation = "1"
 zeroize = "1"
-# WordCraft reads and writes with zip 3; ravenrs-sheet is on 9, whose entry names can fail.
-zip = { version = "3", default-features = false, features = ["deflate"] }
+# zip 9, as ravenrs-sheet: WordCraft is on 3, which has advisories (RUSTSEC-2026-0367..0369, 0429).
+zip = { version = "9", default-features = false, features = ["deflate"] }
 
 [target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
 getrandom = { version = "0.3", features = ["wasm_js"] }

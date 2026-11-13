@@ -4,6 +4,7 @@
 //! The writer used to look for each paragraph's markers in the whole set of markers, once per
 //! paragraph, and to compare every control with every other one, so the save was quadratic in the
 //! number of controls.
+// RavenRS: zip 9 (WordCraft is on 3) returns entry names as Results; the tests unwrap them.
 
 use std::time::Instant;
 
@@ -137,7 +138,7 @@ fn the_controls_are_written_where_they_were() {
 /// The names of the parts of a package, in the order they are in it.
 fn part_names(bytes: &[u8]) -> Vec<String> {
     let z = zip::ZipArchive::new(std::io::Cursor::new(bytes)).expect("zip");
-    z.file_names().map(str::to_string).collect()
+    z.file_names().map(|n| n.unwrap().into_owned()).collect()
 }
 
 /// The body of the document part of a package.

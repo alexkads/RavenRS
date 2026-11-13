@@ -1,6 +1,7 @@
 //! Privacy settings (#1062): `w:removePersonalInformation` and `w:removeDateAndTime`
 //! (ECMA-376 Part 1 §17.15.1.69–70) are kept on save and honoured by the writer. Synthetic
 //! fixtures written for these tests from the spec; the names are made up.
+// RavenRS: zip 9 (WordCraft is on 3) returns entry names as Results; the tests unwrap them.
 use std::collections::BTreeMap;
 use std::io::{Cursor, Read, Write};
 
@@ -23,7 +24,7 @@ fn unzip(bytes: &[u8]) -> BTreeMap<String, String> {
         let mut f = z.by_index(i).unwrap();
         let mut s = String::new();
         if f.read_to_string(&mut s).is_ok() {
-            parts.insert(f.name().to_string(), s);
+            parts.insert(f.name().unwrap().to_string(), s);
         }
     }
     parts

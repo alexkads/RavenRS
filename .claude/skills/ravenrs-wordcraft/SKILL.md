@@ -50,13 +50,20 @@ Rodar o conversor no commit do `NOTICE` reproduz `src/` e `tests/`, exceto:
 - `src/doc/mod.rs`: `test_log` é `pub(crate)`, e `src/docx/test_log.rs` e
   `src/formats/test_log.rs` só reexportam o do `doc`. Cada crate deles tinha o seu logger de
   teste; num binário só, o `log` aceita um logger e os outros nunca recebiam as linhas.
+- **zip 9**, como no `ravenrs-sheet`: o WordCraft está no zip 3, que tem avisos de segurança
+  (RUSTSEC-2026-0367, 0368, 0369 e 0429), e o `cargo deny` do `check.sh --full` recusa. No 9, o
+  nome de uma entrada é um `Result`: no código, a entrada de nome ilegível é pulada
+  (`docx/package.rs`, `formats/odt/crypt.rs`, `formats/odt/import.rs`); nos testes, `unwrap`
+  (os arquivos com a nota `RavenRS: zip 9` no topo). O teste
+  `pictures_over_the_budget_are_not_inflated` mudou: o zip 9 para uma entrada no tamanho que ela
+  declara, então a "mentirosa" não gasta o orçamento. Numa mescla, conflito nessas linhas é isso:
+  aplique o mesmo ajuste à linha nova deles.
 - `Cargo.toml`, `NOTICE`, `README.md`, `clippy.toml` (o deles sem as regras do egui), `rustfmt.toml`.
 
 Toda mudança nossa dentro de `src/` leva um comentário `RavenRS:`. Ao acrescentar uma, liste-a aqui.
 
-O `Cargo.toml` segue as versões deles, mesmo quando o workspace tem outra: `zip` 3 (o
-`ravenrs-sheet` está no 9, cujos nomes de entrada podem falhar e quebram o código deles). Trocar a
-versão vira mudança local em vários arquivos e conflito a cada sincronização.
+O `Cargo.toml` segue as versões deles, salvo o `zip` (acima). Trocar uma versão vira mudança local
+em vários arquivos e conflito a cada sincronização: só com motivo como esse.
 
 ## Trazer uma revisão nova
 

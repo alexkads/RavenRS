@@ -1,5 +1,6 @@
 //! Equations written as ODF formula objects (ODF 1.3 §10.4.3 `draw:object`, Part 2 packages: a
 //! formula sub-document holding MathML), read back by the reader that opens LibreOffice's.
+// RavenRS: zip 9 (WordCraft is on 3) returns entry names as Results; the tests unwrap them.
 
 use crate::doc::para::{InlineObject, OBJ};
 use crate::doc::{Document, Paragraph, para_block};
@@ -29,7 +30,7 @@ fn equations_round_trip_as_formula_objects() {
     let bytes = export(&d).unwrap();
     // A formula sub-document per equation, declared in the manifest.
     let mut z = zip::ZipArchive::new(std::io::Cursor::new(bytes.as_slice())).unwrap();
-    let names: Vec<String> = z.file_names().map(String::from).collect();
+    let names: Vec<String> = z.file_names().map(|n| n.unwrap().into_owned()).collect();
     assert!(names.iter().any(|n| n == "Object 1/content.xml") && names.iter().any(|n| n == "Object 2/content.xml"), "{names:?}");
     let mut manifest = String::new();
     std::io::Read::read_to_string(&mut z.by_name("META-INF/manifest.xml").unwrap(), &mut manifest).unwrap();

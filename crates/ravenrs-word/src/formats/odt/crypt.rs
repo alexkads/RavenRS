@@ -271,7 +271,8 @@ pub fn decrypt(bytes: &[u8], password: &str) -> Result<Vec<u8>, CryptError> {
     let mut work = 0u64;
     for i in 0..z.len().min(MAX_FILES) {
         let Ok(mut f) = z.by_index(i) else { continue };
-        let name = f.name().to_string();
+        // RavenRS: zip 9 says when an entry name can't be read; such an entry is skipped.
+        let Ok(name) = f.name().map(|n| n.to_string()) else { continue };
         if f.is_dir() {
             continue;
         }
@@ -323,7 +324,8 @@ pub fn encrypt(bytes: &[u8], password: &str) -> Result<Vec<u8>, String> {
         if f.is_dir() {
             continue;
         }
-        let name = f.name().to_string();
+        // RavenRS: zip 9 says when an entry name can't be read; such an entry is skipped.
+        let Ok(name) = f.name().map(|n| n.to_string()) else { continue };
         let mut data = Vec::new();
         f.read_to_end(&mut data).map_err(io)?;
         if name == "META-INF/manifest.xml" {

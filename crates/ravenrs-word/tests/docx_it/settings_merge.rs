@@ -2,6 +2,7 @@
 //! settings the model doesn't hold (compatibility options, rsids, document variables, proofing
 //! state, "remove personal information"…) survive, and owned ones follow the model. Hand-written
 //! fixtures (from the spec), no files produced by Word.
+// RavenRS: zip 9 (WordCraft is on 3) returns entry names as Results; the tests unwrap them.
 
 use std::collections::BTreeMap;
 use std::io::{Read, Write};
@@ -26,7 +27,7 @@ fn unzip(bytes: &[u8]) -> BTreeMap<String, Vec<u8>> {
         let mut f = z.by_index(i).unwrap();
         let mut b = Vec::new();
         f.read_to_end(&mut b).unwrap();
-        assert!(out.insert(f.name().to_string(), b).is_none(), "duplicate part {}", f.name());
+        assert!(out.insert(f.name().unwrap().to_string(), b).is_none(), "duplicate part {}", f.name().unwrap());
     }
     out
 }
