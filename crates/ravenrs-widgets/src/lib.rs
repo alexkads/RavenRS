@@ -54,6 +54,12 @@ use ravenrs_widgets_scheduler::scheduler;
 #[allow(unused_imports)]
 use ravenrs_widgets_scheduler::timeline;
 
+// The dock family lives in its own crate, and keeps its module names here.
+#[allow(unused_imports)]
+use ravenrs_widgets_dock::dock;
+#[allow(unused_imports)]
+use ravenrs_widgets_dock::ribbon;
+
 // The components of general use live in their own crate, and keep their module names here.
 #[allow(unused_imports)]
 use ravenrs_widgets_base::{
@@ -76,7 +82,6 @@ mod chat;
 #[cfg(feature = "code")]
 mod code_editor;
 mod conversation;
-mod dock;
 #[cfg(feature = "flow")]
 mod flow;
 mod imaging;
@@ -88,7 +93,6 @@ mod live_list;
 mod lottie;
 #[cfg(feature = "code")]
 mod playground;
-mod ribbon;
 mod rich_text;
 #[cfg(feature = "charts")]
 mod sankey;

@@ -584,6 +584,29 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::IndicatorStep::__live_expose(registry);
     crate::StepIndicator::__live_expose_fields(registry);
     crate::StepIndicator::__live_expose(registry);
+    crate::DockPanel::__live_expose_fields(registry);
+    crate::DockPanel::__live_expose(registry);
+    crate::DockTabBar::__live_expose_variants(registry);
+    crate::DockArea::__live_expose_fields(registry);
+    crate::DockArea::__live_expose(registry);
+    crate::DockArea::__live_expose_part1(registry);
+    crate::DockEdge::__live_expose_variants(registry);
+    crate::DockDrop::__live_expose_variants(registry);
+    crate::DockNode::__live_expose_variants(registry);
+    crate::DockChild::__live_expose_fields(registry);
+    crate::DockNode::__live_expose(registry);
+    crate::DockLayout::__live_expose_fields(registry);
+    crate::DockLayoutError::__live_expose_variants(registry);
+    crate::DockLayout::__live_expose(registry);
+    crate::RibbonSize::__live_expose_variants(registry);
+    crate::RibbonItem::__live_expose_fields(registry);
+    crate::RibbonItem::__live_expose(registry);
+    crate::RibbonGroup::__live_expose_fields(registry);
+    crate::RibbonGroup::__live_expose(registry);
+    crate::RibbonPage::__live_expose_fields(registry);
+    crate::RibbonPage::__live_expose(registry);
+    crate::Ribbon::__live_expose_fields(registry);
+    crate::Ribbon::__live_expose(registry);
     crate::CalendarEvent::__live_expose_fields(registry);
     crate::CalendarEvent::__live_expose(registry);
     crate::CalendarView::__live_expose_variants(registry);
@@ -744,20 +767,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::SelectionBar::__live_expose(registry);
     crate::AudioPlayerButton::__live_expose_fields(registry);
     crate::AudioPlayerButton::__live_expose(registry);
-    crate::DockPanel::__live_expose_fields(registry);
-    crate::DockPanel::__live_expose(registry);
-    crate::DockTabBar::__live_expose_variants(registry);
-    crate::DockArea::__live_expose_fields(registry);
-    crate::DockArea::__live_expose(registry);
-    crate::DockArea::__live_expose_part1(registry);
-    crate::DockEdge::__live_expose_variants(registry);
-    crate::DockDrop::__live_expose_variants(registry);
-    crate::DockNode::__live_expose_variants(registry);
-    crate::DockChild::__live_expose_fields(registry);
-    crate::DockNode::__live_expose(registry);
-    crate::DockLayout::__live_expose_fields(registry);
-    crate::DockLayoutError::__live_expose_variants(registry);
-    crate::DockLayout::__live_expose(registry);
     #[cfg(feature = "flow")]
     crate::FlowViewport::__live_expose_fields(registry);
     #[cfg(feature = "flow")]
@@ -847,15 +856,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Playground::__live_expose_fields(registry);
     #[cfg(feature = "code")]
     crate::Playground::__live_expose(registry);
-    crate::RibbonSize::__live_expose_variants(registry);
-    crate::RibbonItem::__live_expose_fields(registry);
-    crate::RibbonItem::__live_expose(registry);
-    crate::RibbonGroup::__live_expose_fields(registry);
-    crate::RibbonGroup::__live_expose(registry);
-    crate::RibbonPage::__live_expose_fields(registry);
-    crate::RibbonPage::__live_expose(registry);
-    crate::Ribbon::__live_expose_fields(registry);
-    crate::Ribbon::__live_expose(registry);
     crate::RichText::__live_expose_fields(registry);
     crate::RichText::__live_expose(registry);
     crate::RichText::__live_expose_part1(registry);
