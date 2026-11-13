@@ -37,6 +37,7 @@
 
 // The base lives in its own crate; its modules keep their names here, so the components
 // write `crate::context::BuildCx` as before.
+// The components of general use live in their own crate, and keep their module names here.
 #[allow(unused_imports)]
 use ravenrs_widgets_base::{
     button, calendar, canvas, card, choice, clipboard, color_picker, context, date, display, dock_side,
@@ -45,26 +46,23 @@ use ravenrs_widgets_base::{
     remote, reorder, scroll_link, scroll_scene, selection_mode, sound, stack, summary, text, text_field,
     time_link, ui, util, view, zoom,
 };
+#[allow(unused_imports)]
+use ravenrs_widgets_kit::{
+    commands, counter, data, diagnostics, editors, expression_editor, files, filter_builder, form_layout,
+    lookup, model_picker, nav, quad_field, quick_edit, release_notes, shortcuts, status, tag_box, theme,
+    tiles, wizard,
+};
 
 #[cfg(feature = "charts")]
 mod chart;
 mod chat;
 #[cfg(feature = "code")]
 mod code_editor;
-mod commands;
 mod conversation;
-mod counter;
-mod data;
-mod diagnostics;
 mod dock;
-mod editors;
 mod event_calendar;
-mod expression_editor;
-mod files;
-mod filter_builder;
 #[cfg(feature = "flow")]
 mod flow;
-mod form_layout;
 pub mod grid;
 mod imaging;
 mod lists;
@@ -72,29 +70,17 @@ mod lists;
 mod live;
 #[cfg(feature = "live")]
 mod live_list;
-mod lookup;
 #[cfg(feature = "lottie")]
 mod lottie;
-mod model_picker;
-mod nav;
 #[cfg(feature = "code")]
 mod playground;
-mod quad_field;
-mod quick_edit;
-mod release_notes;
 mod ribbon;
 mod rich_text;
 #[cfg(feature = "charts")]
 mod sankey;
 mod scheduler;
-mod shortcuts;
-mod status;
-mod tag_box;
-mod theme;
-mod tiles;
 mod timeline;
 mod tree;
-mod wizard;
 
 pub use button::{Button, ButtonGroup, ButtonSize, ButtonStyle, IconButton};
 pub use calendar::{Calendar, DatePicker, DateRange, DateRangePicker};

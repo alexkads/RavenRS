@@ -20,7 +20,8 @@ const DEFAULT_MOST_BYTES: u64 = 100 * 1024 * 1024;
 const DEFAULT_MOST_IMAGE_BYTES: u64 = 20 * 1024 * 1024;
 
 /// A size as people read it.
-pub(crate) fn size_text(bytes: u64) -> String {
+#[doc(hidden)]
+pub fn size_text(bytes: u64) -> String {
     const UNITS: [&str; 4] = ["KB", "MB", "GB", "TB"];
     if bytes < 1024 {
         return format!("{bytes} B");

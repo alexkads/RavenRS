@@ -24,7 +24,7 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 
 | Tarefa | Onde mexer | Também atualizar |
 |---|---|---|
-| Novo componente | Módulo da família em `crates/ravenrs-widgets/src/` (tabela em §3.1), reexportado em `lib.rs`; se for runtime, serviço, tipo de valor usado por mais de uma família ou controle básico, em `crates/ravenrs-widgets-base/src/`, reexportado no `lib.rs` dos dois crates | Testes em `crates/ravenrs-widgets/tests/`, `examples/component-gallery`, `README.md`, `docs/PARITY.md`, auditoria em `docs/QUALITY.md` |
+| Novo componente | Módulo da família em `crates/ravenrs-widgets/src/` (tabela em §3.1), reexportado em `lib.rs`; se for runtime, serviço, tipo de valor usado por mais de uma família ou controle básico, em `crates/ravenrs-widgets-base/src/`, e se for de uso geral das famílias (navegação, comandos, editores de formulário, status), em `crates/ravenrs-widgets-kit/src/`; reexportado no `lib.rs` do crate e no do `ravenrs-widgets` | Testes em `crates/ravenrs-widgets/tests/`, `examples/component-gallery`, `README.md`, `docs/PARITY.md`, auditoria em `docs/QUALITY.md` |
 | Serviço para componentes (entrada, overlay, rolagem) | `context.rs` (`BuildCx`) e `ui.rs` | §6.1 do `ARCHITECTURE.md` |
 | Animação | Matemática em `ravenrs-animation`; runtime em `ravenrs-widgets-base/src/motion.rs`; componentes usam `cx.motion` e `theme.motion` | §6.5 do `ARCHITECTURE.md`, `crates/ravenrs-widgets/tests/suite/motion.rs` |
 | Acessibilidade | `ui/access.rs` e `ravenrs-core/src/access.rs`; pontes em `access.rs` de cada plataforma | Testes de acessibilidade |

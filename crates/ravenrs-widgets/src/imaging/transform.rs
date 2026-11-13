@@ -421,7 +421,7 @@ fn cursor_of(part: Part, angle: f32) -> CursorIcon {
     }
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Rules {
     fn resize(&self, handle: BoxHandle, start: BoxTransform, scale: f32, modifiers: Modifiers) -> Resize {
         let least = self.min_size / scale.max(f32::EPSILON);

@@ -15,6 +15,7 @@ categories = ["gui"]
 
 [dependencies]
 ravenrs-widgets-base.workspace = true
+ravenrs-widgets-kit.workspace = true
 ravenrs-app-i18n.workspace = true
 ravenrs-core.workspace = true
 ravenrs-animation.workspace = true
@@ -34,7 +35,7 @@ ravenrs-lottie = { workspace = true, optional = true }
 [features]
 default = ["decode", "charts", "flow", "lottie"]
 # PNG and JPEG decoding for `Image::from_bytes`.
-decode = ["dep:image", "ravenrs-widgets-base/decode"]
+decode = ["dep:image", "ravenrs-widgets-base/decode", "ravenrs-widgets-kit/decode"]
 # `Chart`, `BarChart`, `AreaChart` and `Barcode`, drawn with `ravenrs-graphics`.
 charts = ["dep:ravenrs-graphics"]
 # `FlowCanvas`, diagrams of nodes and connections laid out with `ravenrs-graphics`.
@@ -48,6 +49,7 @@ live = [
     "code",
     "dep:ravenrs-live",
     "ravenrs-widgets-base/live",
+    "ravenrs-widgets-kit/live",
     "ravenrs-core/live",
     "ravenrs-style/live",
     "ravenrs-layout/live",

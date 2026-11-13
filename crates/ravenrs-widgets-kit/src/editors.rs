@@ -28,11 +28,8 @@ const BORDER_ROOM: f32 = 1.5;
 /// Breaks `text` into lines that fit `width`, as ranges of char indices. Line
 /// breaks in the text always break, the break itself belongs to no line, and
 /// long lines break after a space, or anywhere in a word wider than `width`.
-pub(crate) fn wrap_lines(
-    text: &str,
-    width: f32,
-    mut measure: impl FnMut(&str) -> f32,
-) -> Vec<(usize, usize)> {
+#[doc(hidden)]
+pub fn wrap_lines(text: &str, width: f32, mut measure: impl FnMut(&str) -> f32) -> Vec<(usize, usize)> {
     let chars: Vec<char> = text.chars().collect();
     let mut lines = Vec::new();
     let mut paragraph = 0;
@@ -104,23 +101,33 @@ fn line_of(lines: &[(usize, usize)], caret: usize) -> usize {
 }
 
 /// Colored stretches of a text, as `(from, to, color)` in char indices, sorted and apart.
-pub(crate) type Highlighter = Rc<dyn Fn(&str) -> Vec<(usize, usize, Semantic)>>;
+#[doc(hidden)]
+pub type Highlighter = Rc<dyn Fn(&str) -> Vec<(usize, usize, Semantic)>>;
 
 /// A line a code area marks: its index from 0, the color, and the char columns to underline.
-pub(crate) type LineMark = (usize, Semantic, Option<(usize, usize)>);
+#[doc(hidden)]
+pub type LineMark = (usize, Semantic, Option<(usize, usize)>);
 
 /// How a text area shows code, set by [`crate::CodeEditor`]: a monospaced font, no
 /// wrapping, line numbers, colors and marks, and keys for indenting.
+#[allow(missing_debug_implementations)] // internal: shared with the families' crates, hidden
 #[derive(Clone)]
-pub(crate) struct CodeLook {
-    pub(crate) highlight: Option<Highlighter>,
-    pub(crate) line_numbers: bool,
-    pub(crate) marks: Rc<Vec<LineMark>>,
+#[doc(hidden)]
+pub struct CodeLook {
+    #[doc(hidden)]
+    pub highlight: Option<Highlighter>,
+    #[doc(hidden)]
+    pub line_numbers: bool,
+    #[doc(hidden)]
+    pub marks: Rc<Vec<LineMark>>,
     /// Spaces Tab inserts and Enter carries on; Ctrl or Cmd with Enter is left to shortcuts.
-    pub(crate) indent: usize,
+    #[doc(hidden)]
+    pub indent: usize,
     /// Takes the height its parent gives instead of a number of rows.
-    pub(crate) fill: bool,
-    pub(crate) background: Semantic,
+    #[doc(hidden)]
+    pub fill: bool,
+    #[doc(hidden)]
+    pub background: Semantic,
 }
 
 /// A marked line as drawn: its top, color, and the span to underline in pixels.
@@ -177,15 +184,16 @@ impl TextArea {
     }
 
     /// Shows the text as code. Only `CodeEditor`, of the `code` feature, asks for it.
-    #[cfg(feature = "code")]
-    pub(crate) fn code(mut self, look: CodeLook) -> Self {
+    #[doc(hidden)]
+    pub fn code(mut self, look: CodeLook) -> Self {
         self.code = Some(look);
         self
     }
 
     /// Keeps the caret and selection in `cursor`, for a component that inserts text where
     /// the caret is.
-    pub(crate) fn cursor(mut self, cursor: State<Cursor>) -> Self {
+    #[doc(hidden)]
+    pub fn cursor(mut self, cursor: State<Cursor>) -> Self {
         self.cursor = Some(cursor);
         self
     }
@@ -741,7 +749,8 @@ impl View for TextArea {
 /// takes the other common way to write a decimal, so "12.5" works where the
 /// decimal separator is a comma: a lone group separator counts as decimal unless
 /// exactly three digits follow it.
-pub(crate) fn parse_number(text: &str, decimal: char, group: char) -> Option<f64> {
+#[doc(hidden)]
+pub fn parse_number(text: &str, decimal: char, group: char) -> Option<f64> {
     let trimmed = text.trim();
     let normal: String = if trimmed.contains(decimal) {
         trimmed.chars().filter(|c| *c != group).map(|c| if c == decimal { '.' } else { c }).collect()
