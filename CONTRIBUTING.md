@@ -38,7 +38,9 @@ Before opening a pull request, run the checks locally (the project has no hosted
 ./scripts/check.sh
 ```
 
-It runs rustfmt, then clippy with warnings as errors and the tests of the packages your change reaches: those whose files changed against `origin/master`, and every package that depends on them. A change to `Cargo.toml`, `Cargo.lock` or `.cargo/` reaches the whole workspace.
+It runs rustfmt, then clippy with warnings as errors on every package your change reaches (those whose files changed against `origin/master`, and every package that depends on them), and the tests of the packages that changed and of those that depend on them directly. `Cargo.toml` and `Cargo.lock` are read entry by entry: a new crate, a version bump or an updated dependency reaches only the packages that use it, while profiles, lints, the edition, `.cargo/`, the toolchain and `clippy.toml` reach the whole workspace.
+
+The tests run on [cargo-nextest](https://nexte.st), which runs every test binary at once; install it once with `cargo install cargo-nextest --locked`, or the script stops and says so. Each worktree needs its own build directory: worktrees that share a `CARGO_TARGET_DIR` reuse each other's builds of the local crates, and the script warns when it sees that.
 
 Before a release, run everything:
 
@@ -46,7 +48,7 @@ Before a release, run everything:
 ./scripts/check.sh --full
 ```
 
-That adds wasm32, optional features, the minimum Rust version, dependency checks, benchmarks, API docs and the web builds. Renderer tests draw on your GPU and skip themselves when no adapter is available.
+That runs clippy and every test on the whole workspace, and adds wasm32, optional features, the minimum Rust version, dependency checks, API docs and the web builds. Renderer tests draw on your GPU and skip themselves when no adapter is available.
 
 ## Adding a component
 

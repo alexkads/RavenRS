@@ -9,7 +9,7 @@ Tudo aqui se repete com um comando. A regra é medir antes de otimizar, e nunca 
 
 **Só quando o Alex pedir.** Nenhum passo desta skill é regra fixa. Não rode o gate (nem tempos, frames frios, capacidade ou regressões plantadas) por iniciativa própria: nem depois de mexer no core ou num componente, nem antes de abrir PR ou publicar. Quando uma mudança puder afetar desempenho, diga isso em uma linha e ofereça a medição; ela só roda se ele pedir. O `scripts/check.sh --full` também não roda o gate nem compila os benchmarks, a menos que seja chamado com `RAVENRS_GATE=1`.
 
-Compile com `CARGO_TARGET_DIR` no scratchpad quando estiver num worktree.
+Compile com `CARGO_TARGET_DIR` no scratchpad quando estiver num worktree, **um por worktree**. O Cargo não põe o caminho de um crate local no hash dos artefatos. Duas worktrees que dividem o mesmo diretório reaproveitam o build uma da outra: já deu "can't find crate for `ravenrs`" num doctest e um derive compilado com um `ravenrs-app-spec` antigo. Uma medição feita assim não vale. O `scripts/check.sh` avisa quando o diretório foi usado por outra checkout.
 
 ## Quando rodar o quê (quando ele pedir)
 
