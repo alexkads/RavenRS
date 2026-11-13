@@ -1,6 +1,5 @@
 //! Moving around an application.
 
-use ravenrs::core::Key;
 use ravenrs::prelude::*;
 
 samples! {
@@ -339,6 +338,8 @@ fn page_header() -> impl View {
 
 // sample: KeyBar, 80
 fn key_bar() -> impl View {
+    use ravenrs::core::Key;
+
     let paid = State::new(0);
     let on_key = paid.clone();
     VStack::new((
