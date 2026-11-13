@@ -5857,6 +5857,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-app-postgrest"
+version = "27.1.28"
+dependencies = [
+ "postgres",
+ "ravenrs-app",
+ "ravenrs-app-sql",
+ "ravenrs-criteria",
+ "serde_json",
+ "ureq",
+]
+
+[[package]]
 name = "ravenrs-app-remote"
 version = "27.1.28"
 dependencies = [
