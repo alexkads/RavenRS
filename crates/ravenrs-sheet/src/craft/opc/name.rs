@@ -57,7 +57,7 @@ pub fn percent_decode(s: &str) -> String {
 
 /// Resolves a relationship target against the source part's folder into a part name. A
 /// fragment is dropped, `\` reads as `/`, and `..` cannot climb out of the package. `%hh`
-/// escapes are kept as written: [`Rels`](ravenrs_sheet::craft::opc::Rels) decodes them when no part has the
+/// escapes are kept as written: [`Rels`](crate::craft::opc::Rels) decodes them when no part has the
 /// escaped name.
 pub fn resolve(dir: &str, target: &str) -> String {
     let target = target.split('#').next().unwrap_or("").replace('\\', "/");

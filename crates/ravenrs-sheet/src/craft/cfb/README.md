@@ -147,7 +147,7 @@ FilmCraft (`filmcraft_cfb`):
 
 | Before | After |
 |---|---|
-| `filmcraft_cfb::{CompoundFile, Entry, EntryKind, Writer, NodeId, Version, Error, sniff, compare_names, validate_name}` | the same names in `ravenrs_sheet::craft::cfb` |
+| `filmcraft_cfb::{CompoundFile, Entry, EntryKind, Writer, NodeId, Version, Error, sniff, compare_names, validate_name}` | the same names in `craft_cfb` |
 | `CompoundFile::open(bytes)` with no stream cap | `CompoundFile::open_with(bytes, Limits { max_stream_size: u64::MAX, ..Limits::default() })` if streams over 1 GiB must read |
 | matching on `Error` | `Error` is `#[non_exhaustive]` and has `LimitExceeded` |
 
@@ -155,14 +155,14 @@ GridCraft (`crates/xlsx/src/cfb.rs`) and DeckCraft (`crates/pptx/src/cfb.rs`):
 
 | Before | After |
 |---|---|
-| `cfb::SIGNATURE`, `bytes.starts_with(&SIGNATURE)` | `ravenrs_sheet::craft::cfb::SIGNATURE`, `ravenrs_sheet::craft::cfb::sniff(bytes)` |
-| `cfb::is_encrypted(bytes)` | `["EncryptedPackage", "EncryptionInfo"].iter().any(\|n\| ravenrs_sheet::craft::cfb::has_entry_named(bytes, n, &limits))` |
-| `directory_names(bytes)` | `ravenrs_sheet::craft::cfb::directory_names(bytes, &limits)` |
+| `cfb::SIGNATURE`, `bytes.starts_with(&SIGNATURE)` | `craft_cfb::SIGNATURE`, `craft_cfb::sniff(bytes)` |
+| `cfb::is_encrypted(bytes)` | `["EncryptedPackage", "EncryptionInfo"].iter().any(\|n\| craft_cfb::has_entry_named(bytes, n, &limits))` |
+| `directory_names(bytes)` | `craft_cfb::directory_names(bytes, &limits)` |
 | `Compound::open(bytes)` | `CompoundFile::open(bytes)` |
 | `cf.has_root_stream(name)` | `cf.has_stream(name)` |
 | `cf.root_stream(name)` → `Ok(None)` when absent | `if cf.has_stream(name) { Some(cf.read_path(name)?) } else { None }` |
 | `MAX_STREAM` (1 GiB) | the default `Limits::max_stream_size` |
-| `testing::compound_file(streams)` | `ravenrs_sheet::craft::cfb::write_streams(Version::V3, streams)` (a different sector layout: tests that cut or patch the file at fixed offsets need new offsets) |
+| `testing::compound_file(streams)` | `craft_cfb::write_streams(Version::V3, streams)` (a different sector layout: tests that cut or patch the file at fixed offsets need new offsets) |
 
 WordCraft (`wordcraft_doc::cfb_guard` and the `cfb` crate):
 
@@ -172,7 +172,7 @@ WordCraft (`wordcraft_doc::cfb_guard` and the `cfb` crate):
 | `comp.is_stream(path)` | `cf.has_stream(path)` |
 | `comp.open_stream(path)` then `take(cap + 1).read_to_end(..)` | `cf.read_path_capped(path, cap)` (`Error::LimitExceeded` when larger) |
 | `CompoundFile::create_with_version(v, Cursor::new(Vec::new()))`, `create_storage_all`, `create_stream(..).write_all(..)`, `flush`, `into_inner().into_inner()` | `Writer::new(v)`, `stream_at(path, bytes)`, `finish()`, or `write_streams(v, &[(path, bytes)])` |
-| `cfb::Version::{V3, V4}` | `ravenrs_sheet::craft::cfb::Version::{V3, V4}` |
+| `cfb::Version::{V3, V4}` | `craft_cfb::Version::{V3, V4}` |
 | `cfb_guard::repeating_difat_sample()` (test input) | not exported; the regression is `a_repeating_difat_is_refused` here |
 
 ## Tests

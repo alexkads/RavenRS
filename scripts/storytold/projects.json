@@ -8,59 +8,141 @@
       {
         "path": "crates/core",
         "module": "base",
-        "ident": "gridcraft_core"
+        "ident": "gridcraft_core",
+        "test_data": "in_place"
       },
       {
         "path": "crates/numfmt",
         "module": "numfmt",
-        "ident": "gridcraft_numfmt"
+        "ident": "gridcraft_numfmt",
+        "test_data": "in_place"
       },
       {
         "path": "crates/formula",
         "module": "formula",
-        "ident": "gridcraft_formula"
+        "ident": "gridcraft_formula",
+        "test_data": "in_place"
       },
       {
         "path": "crates/functions",
         "module": "functions",
-        "ident": "gridcraft_functions"
+        "ident": "gridcraft_functions",
+        "test_data": "in_place"
       },
       {
         "path": "crates/math",
         "module": "math",
-        "ident": "gridcraft_math"
+        "ident": "gridcraft_math",
+        "test_data": "in_place"
       },
       {
         "path": "crates/model",
         "module": "model",
-        "ident": "gridcraft_model"
+        "ident": "gridcraft_model",
+        "test_data": "in_place"
       },
       {
         "path": "crates/calc",
         "module": "calc",
-        "ident": "gridcraft_calc"
+        "ident": "gridcraft_calc",
+        "test_data": "in_place"
       },
       {
         "path": "crates/xlsx",
         "module": "xlsx",
-        "ident": "gridcraft_xlsx"
+        "ident": "gridcraft_xlsx",
+        "test_data": "in_place"
       },
       {
         "path": "crates/chart",
         "module": "chart",
-        "ident": "gridcraft_chart"
+        "ident": "gridcraft_chart",
+        "test_data": "in_place"
       },
       {
         "path": "crates/pdf",
         "module": "pdf",
-        "ident": "gridcraft_pdf"
+        "ident": "gridcraft_pdf",
+        "test_data": "in_place"
       },
       {
         "path": "crates/engine",
         "module": "engine",
-        "ident": "gridcraft_engine"
+        "ident": "gridcraft_engine",
+        "test_data": "in_place"
+      },
+      {
+        "path": "crates/cfb",
+        "module": "craft::cfb",
+        "ident": "craft_cfb",
+        "repo": "craft-libs",
+        "readme": true
+      },
+      {
+        "path": "crates/csv",
+        "module": "craft::csv",
+        "ident": "craft_csv",
+        "repo": "craft-libs",
+        "readme": true
+      },
+      {
+        "path": "crates/offcrypto",
+        "module": "craft::offcrypto",
+        "ident": "craft_offcrypto",
+        "repo": "craft-libs",
+        "readme": true
+      },
+      {
+        "path": "crates/opc",
+        "module": "craft::opc",
+        "ident": "craft_opc",
+        "repo": "craft-libs",
+        "readme": true
+      },
+      {
+        "path": "crates/sheet",
+        "module": "craft::sheet",
+        "ident": "craft_sheet",
+        "repo": "craft-libs",
+        "readme": true
+      },
+      {
+        "path": "crates/xls",
+        "module": "craft::xls",
+        "ident": "craft_xls",
+        "repo": "craft-libs",
+        "readme": true
+      },
+      {
+        "path": "crates/xml",
+        "module": "craft::xml",
+        "ident": "craft_xml",
+        "repo": "craft-libs",
+        "readme": true
+      },
+      {
+        "path": "crates/zip",
+        "module": "craft::zip",
+        "ident": "craft_zip",
+        "repo": "craft-libs",
+        "readme": true
+      },
+      {
+        "path": "crates/media-testkit",
+        "module": "craft::media_testkit",
+        "ident": "craft_media_testkit",
+        "repo": "craft-libs",
+        "only": [
+          "src/hostile.rs"
+        ]
       }
-    ]
+    ],
+    "repos": {
+      "craft-libs": {
+        "repo": "https://github.com/storytold/craft-libs",
+        "pinned_by": "the craft-cfb line of the root Cargo.toml of GridCraft, at the GridCraft revision"
+      }
+    }
   },
   "wordcraft": {
     "repo": "https://github.com/storytold/wordcraft",

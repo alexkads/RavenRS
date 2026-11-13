@@ -42,7 +42,7 @@ mod write;
 pub use crate::craft::zip::zip64_entry_count_sample;
 
 /// Refuse `bytes` when the end record the `zip` crate would use declares more than
-/// `max_entries` entries, before anything is indexed ([`ravenrs_sheet::craft::zip::check_entry_count`]).
+/// `max_entries` entries, before anything is indexed ([`crate::craft::zip::check_entry_count`]).
 pub fn check_entry_count(bytes: &[u8], max_entries: u64) -> Result<(), Error> {
     crate::craft::zip::check_entry_count(bytes, max_entries).map_err(zip_error)
 }

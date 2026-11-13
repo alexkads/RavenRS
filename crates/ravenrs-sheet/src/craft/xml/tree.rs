@@ -6,10 +6,10 @@ use crate::craft::xml::value;
 
 /// An element: its name, its attributes in document order and its children in document order.
 ///
-/// What `name` and the attribute names hold depends on [`ravenrs_sheet::craft::xml::Names`]: the qualified name as
+/// What `name` and the attribute names hold depends on [`crate::craft::xml::Names`]: the qualified name as
 /// written (`p:sp`), the local name (`sp`), or a canonical prefix and the local name (`w:p`).
 ///
-/// A tree the reader built is never deeper than [`ravenrs_sheet::craft::xml::Limits::max_depth`]. A tree built by
+/// A tree the reader built is never deeper than [`crate::craft::xml::Limits::max_depth`]. A tree built by
 /// hand is as deep as its builder made it; the methods here do not recurse, but dropping a tree
 /// does, once per level.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -26,15 +26,15 @@ pub enum Node {
     El(El),
     /// Character data, references resolved. Adjacent stretches are one node.
     Text(String),
-    /// A CDATA section. The reader makes these only with [`ravenrs_sheet::craft::xml::Options::cdata`]; otherwise a
+    /// A CDATA section. The reader makes these only with [`crate::craft::xml::Options::cdata`]; otherwise a
     /// section's content is part of the surrounding [`Node::Text`].
     CData(String),
-    /// A processing instruction (`<?target data?>`), kept only with [`ravenrs_sheet::craft::xml::Options::pis`].
+    /// A processing instruction (`<?target data?>`), kept only with [`crate::craft::xml::Options::pis`].
     Pi {
         target: String,
         data: String,
     },
-    /// A comment, kept only with [`ravenrs_sheet::craft::xml::Options::comments`].
+    /// A comment, kept only with [`crate::craft::xml::Options::comments`].
     Comment(String),
 }
 
@@ -171,7 +171,7 @@ impl El {
     }
     /// The namespace declarations on this element as (prefix, URI); the default namespace has
     /// the prefix `""`. They are attributes, so the reader must have kept them
-    /// ([`ravenrs_sheet::craft::xml::Options::ns_decls`]).
+    /// ([`crate::craft::xml::Options::ns_decls`]).
     pub fn ns_decls(&self) -> impl Iterator<Item = (&str, &str)> {
         self.attrs.iter().filter(|(k, _)| is_ns_decl(k)).map(|(k, v)| (k.strip_prefix("xmlns:").unwrap_or(""), v.as_str()))
     }
@@ -260,7 +260,7 @@ impl El {
     pub fn child_text(&self, pat: impl Pat) -> Option<Cow<'_, str>> {
         self.child(pat).map(El::text)
     }
-    /// How many nodes this element is, itself included: what [`ravenrs_sheet::craft::xml::Limits::max_nodes`]
+    /// How many nodes this element is, itself included: what [`crate::craft::xml::Limits::max_nodes`]
     /// counted when it was read. A reader of many parts charges this against a budget for the
     /// whole package and reads the next part with what is left as its `max_nodes`.
     pub fn node_count(&self) -> usize {

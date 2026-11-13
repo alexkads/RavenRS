@@ -49,16 +49,16 @@ A nova revisão do `craft-libs` é a que o `Cargo.toml` da raiz do GridCraft fix
    ```
 3. **Converter a revisão atual e conferir o conversor.** O resultado precisa reproduzir o `ravenrs-sheet`, fora as mudanças nossas (lista abaixo). Se aparecer outra diferença, o conversor está errado: corrija-o antes de seguir.
    ```bash
-   scripts/gridcraft/convert.py $SCRATCH/gridcraft <rev GridCraft do NOTICE> $SCRATCH/old --craft-libs $SCRATCH/craft-libs <rev craft-libs do NOTICE>
-   diff -rq $SCRATCH/old crates/ravenrs-sheet | grep -v "Cargo.toml\|NOTICE\|README\|clippy.toml\|rustfmt.toml\|lib.rs\|craft/mod.rs"
+   scripts/storytold/convert.py gridcraft $SCRATCH/gridcraft <rev GridCraft do NOTICE> $SCRATCH/old --with craft-libs=$SCRATCH/craft-libs@<rev craft-libs do NOTICE>
+   diff -rq $SCRATCH/old crates/ravenrs-sheet | grep -v "Cargo.toml\|NOTICE\|clippy.toml\|rustfmt.toml"
    ```
 4. **Converter a revisão nova e mesclar.**
    ```bash
-   scripts/gridcraft/convert.py $SCRATCH/gridcraft <rev nova> $SCRATCH/new --craft-libs $SCRATCH/craft-libs <rev craft-libs da nova>
-   scripts/gridcraft/merge.py $SCRATCH/old $SCRATCH/new
+   scripts/storytold/convert.py gridcraft $SCRATCH/gridcraft <rev nova> $SCRATCH/new --with craft-libs=$SCRATCH/craft-libs@<rev craft-libs da nova>
+   scripts/storytold/merge.py gridcraft $SCRATCH/old $SCRATCH/new
    ```
    O `merge.py` faz uma mescla em três vias por arquivo: se o arquivo não mudou aqui, entra o deles; se não mudou lá, fica o nosso; se mudou dos dois lados, usa `git merge-file`. Ele também acrescenta os arquivos novos, remove os que sumiram lá e não foram mudados aqui, e lista conflitos. Resolva cada conflito lendo os dois lados: se a origem reescreveu o trecho e a nossa mudança deixou de fazer sentido, fique com o deles e registre isso no PR.
-5. **Dependências.** Compare o `[dependencies]` dos crates entre as duas revisões, nos dois repositórios, e ajuste o `Cargo.toml`, que é nosso. Nada de `git =`: um crate `craft-*` novo entra em `CRAFT`, no `convert.py`, e vira módulo.
+5. **Dependências.** Compare o `[dependencies]` dos crates entre as duas revisões, nos dois repositórios, e ajuste o `Cargo.toml`, que é nosso. Nada de `git =`: um crate `craft-*` novo entra como fonte do perfil `gridcraft` em `scripts/storytold/projects.json` (`"repo": "craft-libs"`, `"readme": true`) e vira módulo, e o `src/craft/mod.rs`, que é nosso, ganha o `pub mod`.
 6. **`NOTICE`** com as revisões novas, e o `README` se houver recurso novo.
 7. **Testar** (abaixo) e abrir o PR com a lista do que veio, por grupo.
 
@@ -71,7 +71,7 @@ São poucas, e cada uma tem um motivo. Ao mesclar, confira que continuam:
 - `.name().unwrap()` nos testes que leem o ZIP (`src/xlsx/tests/*`, `src/engine/tests/controls.rs` e `python_files.rs`, `tests/engine_it/chart_workbook_names.rs`): no zip 9 usado aqui, `name()` devolve `Result`. Quando a origem acrescentar um teste novo com `.name().to_string()`, ponha o `.unwrap()`.
 - `#[cfg_attr(debug_assertions, ignore = "a timing bound: run it with --release")]` nos testes de tempo de `src/xlsx/tests/controls_tests.rs` e `tests/math_gate.rs`: em debug eles estouram o limite sem que haja problema.
 
-Em 13/11/2026, isso dá 19 arquivos diferentes da origem convertida, além de `lib.rs`, `Cargo.toml`, `NOTICE` e `README.md`. Se a conferência do passo 3 mostrar mais que isso, algo novo divergiu: entenda o quê antes de mesclar.
+Em 13/11/2026, isso dá 19 arquivos diferentes da origem convertida, além dos que só existem aqui: `src/lib.rs`, `src/craft/mod.rs`, `src/craft/media_testkit/mod.rs`, `README.md`, `Cargo.toml` e `NOTICE`. Se a conferência do passo 3 mostrar mais que isso, algo novo divergiu: entenda o quê antes de mesclar.
 - `Cargo.toml`: `md-5` 0.11 (a origem usa 0.10), para casar com o `sha1` 0.11 do resto; o `xls` mistura os dois pelo trait `Digest`.
 - `Cargo.toml`: `[[test]] craft_zip_archive` com `required-features = ["test-support"]`. O teste usa uma amostra que só existe com essa feature, e o `check.sh` roda sem features. Se outro teste do `craft` passar a usar `zip64_entry_count_sample` ou o `opc` de teste, faça o mesmo com ele.
 - Docs dos módulos `craft`: exemplos com `ravenrs_sheet::craft::…`, porque rodam como doctests. O conversor já faz isso.
@@ -79,6 +79,16 @@ Em 13/11/2026, isso dá 19 arquivos diferentes da origem convertida, além de `l
 Quando corrigir algo no motor que não seja só adaptação, avalie mandar a correção para a origem também. Cada mudança nossa é uma diferença a carregar em toda sincronização.
 
 ## O que o conversor resolve (e por quê)
+
+O conversor e a mescla são os de todos os motores da storytold (`scripts/storytold/`, com as regras no topo do `convert.py`). O perfil `gridcraft` do `projects.json` liga, para este motor:
+
+- `"repo": "craft-libs"` nas fontes do craft-libs, lidas na revisão dada por `--with`;
+- `"test_data": "in_place"`: `tests/golden/` e outros dados que os testes leem por caminho relativo ficam onde estavam;
+- `"readme": true`: o README de cada `craft` vai para o lado do módulo, com os exemplos convertidos, porque roda como doctest;
+- `"only": ["src/hostile.rs"]` no `media-testkit`;
+- `tests/common/` vira `tests/craft_<nome>_common/`, com `#[path]` no `mod common;`.
+
+E, como para todos:
 
 - `gridcraft_X::` vira `crate::X::`; dentro de um crate, `crate::` vira `crate::<módulo>::`. Nos testes de integração, vira `ravenrs_sheet::…`. Nunca substitua `$crate::` à parte: a regra de `crate::` já o cobre, e fazer as duas trocas gera `engine::engine::`.
 - `rustfmt` com o `rustfmt.toml` do crate (`max_width = 150`): os caminhos mudam de tamanho, as linhas quebram em outro lugar, e sem isso tudo vira diferença.

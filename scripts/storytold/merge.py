@@ -80,6 +80,12 @@ def main():
             else:
                 conflicts.append(path)
 
+    # What the removals emptied goes too.
+    for top in TOPS:
+        for directory, subdirs, names in sorted(os.walk(os.path.join(crate, top)), reverse=True):
+            if not subdirs and not names:
+                os.rmdir(directory)
+
     for what, n in counts.items():
         print(f"{n:5} {what}")
     for path in removed_but_changed:
