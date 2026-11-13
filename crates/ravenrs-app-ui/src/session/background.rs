@@ -107,7 +107,7 @@ impl Jobs {
     }
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Session {
     /// Runs `work` out of the way of the screens, then `done` with what it brought, on the thread of
     /// the screens. Gives what it is known by, to cancel it.

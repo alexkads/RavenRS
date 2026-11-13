@@ -1,9 +1,6 @@
 //! A control for each kind of field.
 
-use std::collections::BTreeMap;
-use std::rc::Rc;
-
-use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, Object, Query, Value};
+use ravenrs_app::{EntityInfo, FieldKind, Object, Query, Value};
 use ravenrs_core::Color;
 use ravenrs_criteria::Criteria;
 use ravenrs_layout::{Align, Axis, LayoutStyle};
@@ -16,68 +13,11 @@ use ravenrs_widgets::{
     TextArea, TextField, VStack, View,
 };
 
-use crate::session::Session;
+use crate::session::{EditorRegistry, EditorRequest, Session};
 use crate::values::{
     date_of, date_time_of, display, file_name, file_of, key_from_text, key_text, value_of_date,
     value_of_date_time, value_of_file,
 };
-
-/// What a control is being asked for.
-#[derive(Clone, Debug)]
-#[non_exhaustive]
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
-pub struct EditorRequest {
-    /// The field it edits.
-    pub field: FieldInfo,
-    /// The value, one state per field, so typing does not touch the whole record.
-    pub value: State<Value>,
-    /// What people read as its name.
-    pub caption: String,
-    /// It shows but does not change.
-    pub read_only: bool,
-    /// The application it lives in.
-    pub session: Session,
-}
-
-type EditorFactory = Rc<dyn Fn(&EditorRequest) -> AnyView>;
-
-/// Which control edits which kind of field, by name. The model's `Editor` setting
-/// picks one, so a field can change its control without touching code.
-#[derive(Clone, Default)]
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
-pub struct EditorRegistry(BTreeMap<String, EditorFactory>);
-
-impl std::fmt::Debug for EditorRegistry {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_list().entries(self.0.keys()).finish()
-    }
-}
-
-#[cfg_attr(feature = "live", ravenrs_live::expose)]
-impl EditorRegistry {
-    /// Registers a control by name, replacing one of the same name. The name of a
-    /// kind of field, such as `Text`, replaces the built-in for it.
-    pub fn register(
-        &mut self,
-        name: impl Into<String>,
-        factory: impl Fn(&EditorRequest) -> AnyView + 'static,
-    ) {
-        self.0.insert(name.into(), Rc::new(factory));
-    }
-
-    /// The control for a request, by the name given or else by the kind of its field.
-    pub(crate) fn editor(&self, name: &str, request: &EditorRequest) -> AnyView {
-        match (self.0.get(name), name, &request.field.kind) {
-            (Some(factory), ..) => factory(request),
-            (None, "Gtin", FieldKind::Text) => gtin_editor(request),
-            (None, "Segmented", FieldKind::Enum(options)) => segmented_editor(request, options),
-            (None, "Select", FieldKind::Reference(target)) => reference_select(request, target),
-            (None, "Progress", FieldKind::Integer | FieldKind::Decimal(_)) => progress_editor(request),
-            (None, "Text", FieldKind::Criteria) => text_editor(request),
-            _ => built_in(request),
-        }
-    }
-}
 
 fn number_binding(value: &State<Value>) -> Binding<Option<f64>> {
     let (read, write) = (value.clone(), value.clone());
@@ -601,6 +541,23 @@ fn parse_color(hex: &str) -> Option<Color> {
 fn color_text(color: Color) -> String {
     let byte = |channel: f32| (channel.clamp(0.0, 1.0) * 255.0).round() as u8;
     format!("#{:02X}{:02X}{:02X}", byte(color.r), byte(color.g), byte(color.b))
+}
+
+/// The built-in controls, for what the registry has no control of its own for.
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl EditorRegistry {
+    /// The control for a request, by the name given or else by the kind of its field.
+    pub(crate) fn editor(&self, name: &str, request: &EditorRequest) -> AnyView {
+        match (self.0.get(name), name, &request.field.kind) {
+            (Some(factory), ..) => factory(request),
+            (None, "Gtin", FieldKind::Text) => gtin_editor(request),
+            (None, "Segmented", FieldKind::Enum(options)) => segmented_editor(request, options),
+            (None, "Select", FieldKind::Reference(target)) => reference_select(request, target),
+            (None, "Progress", FieldKind::Integer | FieldKind::Decimal(_)) => progress_editor(request),
+            (None, "Text", FieldKind::Criteria) => text_editor(request),
+            _ => built_in(request),
+        }
+    }
 }
 
 #[cfg(test)]

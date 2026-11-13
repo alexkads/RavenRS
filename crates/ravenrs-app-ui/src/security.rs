@@ -11,114 +11,21 @@ use ravenrs_app::{
     UserDirectory, Value, ViewController, audit_entity, security_entities,
 };
 use ravenrs_layout::{Align, Justify};
-use ravenrs_reactive::{Binding, State};
+use ravenrs_reactive::State;
 use ravenrs_style::{TextStyle, Weight};
 use ravenrs_widgets::{
     Alert, AnyView, BuildCx, Button, ButtonStyle, Card, FormField, HStack, IconName, Keyed, Localized,
     NodeId, Text, TextField, Tone, VStack, View, ViewExt,
 };
 
-use crate::model_editor::ModelEditor;
+use crate::model_editor::MODEL_EDITOR;
+use crate::password::{PasswordForm, Submit, message_of, text_binding};
 use crate::session::Words;
 use crate::{App, Language, Session};
 
 /// The id of the action that gives someone a new password.
 pub(crate) const SET_PASSWORD: &str = "SetPassword";
-/// The control of the model editor, on its own view.
-pub(crate) const MODEL_EDITOR: &str = "ModelEditor";
-pub(crate) const MODEL_EDITOR_VIEW: &str = "ModelEditor_DashboardView";
 const CARD_WIDTH: f32 = 380.0;
-
-fn message_of(words: &Words, error: &PasswordError) -> String {
-    match error {
-        PasswordError::TooShort => words.password_too_short.clone(),
-        PasswordError::WrongCurrent => words.password_wrong_current.clone(),
-        PasswordError::SameAsCurrent => words.password_same.clone(),
-        other => other.to_string(),
-    }
-}
-
-fn text_binding(state: &State<String>) -> Binding<String> {
-    let (read, write) = (state.clone(), state.clone());
-    Binding::new(move || read.get(), move |value| write.set(value))
-}
-
-type Submit = Rc<dyn Fn(Option<&str>, &str) -> Result<(), PasswordError>>;
-
-/// Asks for a new password, twice, and for the current one when that is what it takes.
-#[derive(Clone)]
-struct PasswordForm {
-    words: Words,
-    current: Option<State<String>>,
-    new: State<String>,
-    repeated: State<String>,
-    error: State<Option<String>>,
-    submit: Submit,
-    done: Rc<dyn Fn()>,
-}
-
-#[cfg_attr(feature = "live", ravenrs_live::expose)]
-impl PasswordForm {
-    fn new(words: Words, asks_current: bool, submit: Submit, done: Rc<dyn Fn()>) -> Self {
-        Self {
-            words,
-            current: asks_current.then(|| State::new(String::new())),
-            new: State::new(String::new()),
-            repeated: State::new(String::new()),
-            error: State::new(None),
-            submit,
-            done,
-        }
-    }
-
-    fn send(&self) {
-        let (new, repeated) = (self.new.peek().clone(), self.repeated.peek().clone());
-        if new != repeated {
-            self.error.set(Some(self.words.passwords_differ.clone()));
-            return;
-        }
-        let current = self.current.as_ref().map(|state| state.peek().clone());
-        match (self.submit)(current.as_deref(), &new) {
-            Ok(()) => {
-                for state in
-                    [Some(&self.new), Some(&self.repeated), self.current.as_ref()].into_iter().flatten()
-                {
-                    state.set(String::new());
-                }
-                self.error.set(None);
-                (self.done)();
-            }
-            Err(error) => self.error.set(Some(message_of(&self.words, &error))),
-        }
-    }
-}
-
-impl View for PasswordForm {
-    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let words = &self.words;
-        let sending = self.clone();
-        let current: Option<AnyView> = self.current.as_ref().map(|state| {
-            Box::new(FormField::new(
-                words.current_password.clone(),
-                TextField::new(text_binding(state)).secure().autofocus(),
-            )) as AnyView
-        });
-        let form = self.clone();
-        let content = VStack::new((
-            self.error.get().map(|error| Alert::new(words.change_password.clone(), error).tone(Tone::Danger)),
-            current,
-            FormField::new(words.new_password.clone(), TextField::new(text_binding(&self.new)).secure()),
-            FormField::new(
-                words.repeat_password.clone(),
-                TextField::new(text_binding(&self.repeated)).secure().on_submit(move |_| form.send()),
-            ),
-            Button::new(words.save_password.clone()).on_click(move || sending.send()),
-        ))
-        .spacing(12.0)
-        .align(Align::Stretch);
-        cx.child(&content)
-    }
-}
 
 /// Users, roles, the audit trail and giving someone a password.
 #[derive(Debug)]
@@ -184,23 +91,6 @@ fn show_set_password(session: &Session, user: Value, words: Words) {
     });
     let form = PasswordForm::new(words.clone(), false, submit, done);
     session.present(words.set_password, move || Box::new(form.clone()) as AnyView);
-}
-
-/// Shows the person's own way of changing their password.
-pub(crate) fn show_change_password(session: &Session) {
-    let words = session.words().clone();
-    let (context, shown) = (session.frame().security(), session.clone());
-    let submit: Submit = Rc::new(move |current, password| match &context {
-        Some(context) => context.change_own_password(current.unwrap_or(""), password),
-        None => Err(PasswordError::NotAllowed),
-    });
-    let told = words.password_saved.clone();
-    let done: Rc<dyn Fn()> = Rc::new(move || {
-        shown.close_presented();
-        shown.show_message(Message::new(told.clone(), MessageKind::Success));
-    });
-    let form = PasswordForm::new(words.clone(), true, submit, done);
-    session.present(words.change_password, move || Box::new(form.clone()) as AnyView);
 }
 
 type MakeApp = Rc<dyn Fn(&Identity) -> App>;
@@ -770,19 +660,5 @@ struct SharedView(Rc<AnyView>);
 impl View for SharedView {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         cx.child(&**self.0)
-    }
-}
-
-/// What the model editor's control is made from. It keeps what is being edited between builds.
-pub(crate) fn model_editor(session: &Session) -> impl Fn() -> AnyView + 'static {
-    let editor = Rc::new(ModelEditor::new(session.clone()));
-    move || Box::new(SharedEditor(editor.clone()))
-}
-
-struct SharedEditor(Rc<ModelEditor>);
-
-impl View for SharedEditor {
-    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        self.0.build(cx)
     }
 }

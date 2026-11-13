@@ -20,12 +20,6 @@ images = ["ravenrs-widgets/decode"]
 # Registers its types with the playground's interpreter.
 live = ["dep:ravenrs-live", "ravenrs-widgets/live", "ravenrs-app/live"]
 
-# The modules of this crate use each other in a loop of 17; `module_cycle` holds it there so it
-# cannot grow, and asks for a lower number as #294 untangles it. `cargo ravenrs-lint -p ravenrs-app-ui --modules`
-# shows who uses whom.
-[package.metadata.ravenrs-lint]
-max-module-cycle = 17
-
 [dependencies]
 ravenrs-live = { workspace = true, optional = true }
 ravenrs-app-i18n.workspace = true

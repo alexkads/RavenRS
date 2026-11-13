@@ -4,50 +4,18 @@ use ravenrs_app::{
     Action, ActionCategory, ActionInput, ActionKind, ChoiceItem, FieldKind, FrameContext, Value,
 };
 use ravenrs_app_a11y::AccessibleText;
-use ravenrs_core::Key;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::{
-    BuildCx, Button, ButtonSize, ButtonStyle, DropdownMenu, Hotkey, IconName, MenuItem, NodeId, TextField,
-    Toolbar, ToolbarAction, View,
+    BuildCx, Button, ButtonSize, ButtonStyle, DropdownMenu, IconName, MenuItem, NodeId, TextField, Toolbar,
+    ToolbarAction, View,
 };
 
+use crate::hotkeys::hotkey_of;
 use crate::session::Session;
 
 /// An icon by the name an action gives it.
 pub(crate) fn icon_named(name: &str) -> Option<IconName> {
     IconName::ALL.iter().copied().find(|icon| icon.name() == name)
-}
-
-/// Reads keys such as `command+shift+s`, `alt+c` or `f9`.
-pub(crate) fn hotkey_of(text: &str) -> Option<Hotkey> {
-    let mut command = false;
-    let mut shift = false;
-    let mut alt = false;
-    let mut key = None;
-    for part in text.split('+') {
-        match part.trim().to_lowercase().as_str() {
-            "command" | "cmd" | "ctrl" => command = true,
-            "shift" => shift = true,
-            "alt" | "option" => alt = true,
-            "delete" => key = Some(Key::Delete),
-            "enter" => key = Some(Key::Enter),
-            "esc" | "escape" => key = Some(Key::Escape),
-            other => {
-                let function = other.strip_prefix('f').and_then(|n| n.parse::<u8>().ok());
-                key = Some(match function {
-                    Some(number) if (1..=24).contains(&number) => Key::Function(number),
-                    _ => Key::Character(other.to_owned()),
-                });
-            }
-        }
-    }
-    let key = key?;
-    let hotkey = match (&key, command, alt) {
-        (Key::Character(letter), true, _) => Hotkey::command(letter),
-        (Key::Character(letter), false, true) => Hotkey::alt(letter),
-        _ => Hotkey::key(key),
-    };
-    Some(if shift { hotkey.shift() } else { hotkey })
 }
 
 /// What was typed, as what the action asks for, or the words of a person who cannot read it.
@@ -324,14 +292,6 @@ mod tests {
         assert!(parameter_of(&FieldKind::Date, "ontem").is_err());
         let kinds = FieldKind::Enum(vec![ravenrs_app::EnumOption::new("o", "Open")]);
         assert_eq!(parameter_of(&kinds, "open"), Ok(Value::Text("o".into())));
-    }
-
-    #[test]
-    fn keys_are_read_from_their_words() {
-        let saved = hotkey_of("command+shift+s");
-        assert_eq!(saved, Some(Hotkey::command("s").shift()));
-        assert_eq!(hotkey_of("Delete"), Some(Hotkey::key(Key::Delete)));
-        assert_eq!(hotkey_of("command+s"), Some(Hotkey::command("s")));
     }
 
     #[test]

@@ -2,6 +2,7 @@
 //! layer. It is kept simple on purpose: a tree with its settings beside it, one at a time.
 
 use std::collections::BTreeSet;
+use std::rc::Rc;
 
 use ravenrs_app::ModelNode;
 use ravenrs_layout::Align;
@@ -163,5 +164,22 @@ impl View for ModelEditor {
         .spacing(12.0)
         .align(Align::Stretch);
         cx.child(&content)
+    }
+}
+
+/// The control of the model editor, on its own view.
+pub(crate) const MODEL_EDITOR: &str = "ModelEditor";
+
+/// What the model editor's control is made from. It keeps what is being edited between builds.
+pub(crate) fn model_editor(session: &Session) -> impl Fn() -> AnyView + 'static {
+    let editor = Rc::new(ModelEditor::new(session.clone()));
+    move || Box::new(SharedEditor(editor.clone()))
+}
+
+struct SharedEditor(Rc<ModelEditor>);
+
+impl View for SharedEditor {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        self.0.build(cx)
     }
 }
