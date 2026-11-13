@@ -4,17 +4,23 @@
 //! The types of a table that came first are met where they are: a value goes in as what its column
 //! asks for, and comes out as what a field can hold.
 
-use std::cell::RefCell;
+mod connect;
+
+use std::cell::{Cell as Flag, RefCell};
 use std::collections::HashMap;
 use std::error::Error;
 
 use bytes::{BufMut, BytesMut};
 use postgres::Client;
 use postgres::error::SqlState;
-use postgres::types::{FromSql, IsNull, ToSql, Type, to_sql_checked};
+use postgres::fallible_iterator::FallibleIterator;
+use postgres::types::{Format, FromSql, IsNull, Kind, ToSql, Type, to_sql_checked};
 use ravenrs_app::{FieldKind, Value};
 use ravenrs_app_sql::{SqlBackend, SqlBuilder, SqlCell, SqlDatabase, SqlError, SqlObjectSpace, SqlRows};
 pub use ravenrs_app_sql::{SqlWords, TableMap};
+
+use crate::connect::Reopen;
+pub use crate::connect::{ConnectError, PostgresOptions, Statements};
 use ravenrs_criteria::{DateTime, Dialect};
 
 type Boxed = Box<dyn Error + Sync + Send>;
@@ -147,6 +153,11 @@ impl ToSql for Bound<'_> {
         true
     }
 
+    /// With no type said, the value goes as text, as it would be written in the statement.
+    fn encode_format(&self, ty: &Type) -> Format {
+        if ty.oid() == 0 { Format::Text } else { Format::Binary }
+    }
+
     to_sql_checked!();
 }
 
@@ -232,31 +243,179 @@ fn sql_error(error: &postgres::Error) -> SqlError {
 }
 
 /// A connection to PostgreSQL.
+///
+/// Made from a [`Client`] you opened, or with [`PostgresBackend::connect`] from the address a
+/// database's panel gives. One made from an address is opened again by itself when it dropped
+/// while no transaction was open, as a database that went to sleep leaves it. A statement already
+/// sent is never sent again, unless it only reads.
 pub struct PostgresBackend {
     client: RefCell<Client>,
     statements: RefCell<HashMap<String, postgres::Statement>>,
+    mode: Statements,
+    reopen: Option<Reopen>,
+    in_transaction: Flag<bool>,
 }
 
 impl std::fmt::Debug for PostgresBackend {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("PostgresBackend").finish_non_exhaustive()
+        // The address stays out: it has the password.
+        f.debug_struct("PostgresBackend").field("statements", &self.mode).finish_non_exhaustive()
     }
 }
 
 impl From<Client> for PostgresBackend {
     fn from(client: Client) -> Self {
-        Self { client: RefCell::new(client), statements: RefCell::default() }
+        Self {
+            client: RefCell::new(client),
+            statements: RefCell::default(),
+            mode: Statements::Prepared,
+            reopen: None,
+            in_transaction: Flag::new(false),
+        }
     }
 }
 
+/// Columns, rows and how many rows a statement changed.
+type Ran = (Vec<String>, Vec<Vec<SqlCell>>, u64);
+
+/// What the server says when a parameter has no type it can work out, nor any other.
+fn unspecified() -> Type {
+    Type::new("unknown".to_owned(), 0, Kind::Pseudo, "pg_catalog".to_owned())
+}
+
+fn cells_of(row: &postgres::Row) -> Result<Vec<SqlCell>, postgres::Error> {
+    (0..row.len()).map(|at| row.try_get::<_, Cell>(at).map(|cell| cell.0)).collect()
+}
+
+/// Whether the connection is gone, rather than the statement refused.
+fn dropped(error: &postgres::Error, client: &Client) -> bool {
+    error.is_closed()
+        || client.is_closed()
+        || error.code().is_some_and(|code| {
+            [SqlState::ADMIN_SHUTDOWN, SqlState::CRASH_SHUTDOWN, SqlState::CANNOT_CONNECT_NOW].contains(code)
+        })
+}
+
 impl PostgresBackend {
-    fn statement(&self, sql: &str) -> Result<postgres::Statement, SqlError> {
+    /// Opens a connection from an address such as `postgresql://user:password@host/db?sslmode=require`.
+    /// See [`PostgresOptions`] for what TLS and poolers do.
+    ///
+    /// # Errors
+    ///
+    /// When the address cannot be read, or the server cannot be reached or refuses.
+    pub fn connect(address: &str) -> Result<Self, ConnectError> {
+        Self::connect_with(address, PostgresOptions::new())
+    }
+
+    /// [`PostgresBackend::connect`], told more than the address says.
+    ///
+    /// # Errors
+    ///
+    /// As [`PostgresBackend::connect`], and when a certificate authority cannot be read.
+    pub fn connect_with(address: &str, options: PostgresOptions) -> Result<Self, ConnectError> {
+        let (reopen, mode) = connect::prepare(address, &options)?;
+        let client = reopen.open().map_err(ConnectError::Connect)?;
+        Ok(Self { mode, reopen: Some(reopen), ..Self::from(client) })
+    }
+
+    /// The same connection, with statements going this way. For a [`Client`] behind a pooler.
+    #[must_use]
+    pub fn with_statements(mut self, mode: Statements) -> Self {
+        self.mode = mode;
+        self
+    }
+
+    /// How statements go.
+    pub fn statement_mode(&self) -> Statements {
+        self.mode
+    }
+
+    fn statement(&self, sql: &str) -> Result<postgres::Statement, postgres::Error> {
         if let Some(found) = self.statements.borrow().get(sql) {
             return Ok(found.clone());
         }
-        let made = self.client.borrow_mut().prepare(sql).map_err(|e| sql_error(&e))?;
+        let made = self.client.borrow_mut().prepare(sql)?;
         self.statements.borrow_mut().insert(sql.to_owned(), made.clone());
         Ok(made)
+    }
+
+    fn prepared(&self, sql: &str, values: &[Value], reads: bool) -> Result<Ran, postgres::Error> {
+        let statement = self.statement(sql)?;
+        let bound: Vec<Bound<'_>> = values.iter().map(Bound).collect();
+        let parameters: Vec<&(dyn ToSql + Sync)> =
+            bound.iter().map(|value| value as &(dyn ToSql + Sync)).collect();
+        if !reads {
+            let changed = self.client.borrow_mut().execute(&statement, &parameters)?;
+            return Ok((Vec::new(), Vec::new(), changed));
+        }
+        let names: Vec<String> = statement.columns().iter().map(|column| column.name().to_owned()).collect();
+        let rows = self.client.borrow_mut().query(&statement, &parameters)?;
+        let read = rows.iter().map(cells_of).collect::<Result<Vec<_>, _>>()?;
+        Ok((names, read, 0))
+    }
+
+    /// One round trip, and nothing left on the server: the parameters go as text, and the server
+    /// works out their types as it does when it prepares.
+    fn unprepared(&self, sql: &str, values: &[Value]) -> Result<Ran, postgres::Error> {
+        let bound: Vec<Bound<'_>> = values.iter().map(Bound).collect();
+        let mut client = self.client.borrow_mut();
+        let mut rows = client
+            .query_typed_raw(sql, bound.iter().map(|value| (value as &(dyn ToSql + Sync), unspecified())))?;
+        let mut names = Vec::new();
+        let mut read = Vec::new();
+        while let Some(row) = rows.next()? {
+            if names.is_empty() {
+                names = row.columns().iter().map(|column| column.name().to_owned()).collect();
+            }
+            read.push(cells_of(&row)?);
+        }
+        let changed = rows.rows_affected().unwrap_or(0);
+        Ok((names, read, changed))
+    }
+
+    fn run(&self, sql: &str, values: &[Value], reads: bool) -> Result<Ran, postgres::Error> {
+        match self.mode {
+            Statements::Prepared => self.prepared(sql, values, reads),
+            Statements::Unprepared => self.unprepared(sql, values),
+        }
+    }
+
+    /// Opens the connection again when it dropped and no transaction was open on it.
+    fn revive(&self) -> Result<(), SqlError> {
+        let Some(reopen) = &self.reopen else { return Ok(()) };
+        if self.in_transaction.get() || !self.client.borrow().is_closed() {
+            return Ok(());
+        }
+        self.renew(reopen)
+    }
+
+    fn renew(&self, reopen: &Reopen) -> Result<(), SqlError> {
+        let client = reopen.open().map_err(|error| sql_error(&error))?;
+        *self.client.borrow_mut() = client;
+        self.statements.borrow_mut().clear();
+        Ok(())
+    }
+
+    /// Does the work, and once more on a new connection when the old one was gone and doing it
+    /// again changes nothing twice.
+    fn on_connection<T>(
+        &self,
+        again: bool,
+        work: impl Fn(&Self) -> Result<T, postgres::Error>,
+    ) -> Result<T, SqlError> {
+        self.revive()?;
+        match work(self) {
+            Ok(done) => Ok(done),
+            Err(error) => match &self.reopen {
+                Some(reopen)
+                    if again && !self.in_transaction.get() && dropped(&error, &self.client.borrow()) =>
+                {
+                    self.renew(reopen)?;
+                    work(self).map_err(|error| sql_error(&error))
+                }
+                _ => Err(sql_error(&error)),
+            },
+        }
     }
 }
 
@@ -285,43 +444,46 @@ impl SqlBackend for PostgresBackend {
     fn columns_of(&self, table: &str) -> Result<Vec<String>, SqlError> {
         let sql = "SELECT column_name::text FROM information_schema.columns \
                    WHERE table_schema = current_schema() AND table_name = $1";
-        let rows = self.client.borrow_mut().query(sql, &[&table]).map_err(|e| sql_error(&e))?;
-        rows.iter().map(|row| row.try_get(0).map_err(|e| sql_error(&e))).collect()
+        let (_, rows, _) =
+            self.on_connection(true, |me| me.run(sql, &[Value::Text(table.to_owned())], true))?;
+        Ok(rows
+            .into_iter()
+            .filter_map(|row| match row.into_iter().next() {
+                Some(SqlCell::Text(name)) => Some(name),
+                _ => None,
+            })
+            .collect())
     }
 
     fn execute(&self, sql: &str, values: &[Value]) -> Result<u64, SqlError> {
-        let statement = self.statement(sql)?;
-        let bound: Vec<Bound<'_>> = values.iter().map(Bound).collect();
-        let parameters: Vec<&(dyn ToSql + Sync)> =
-            bound.iter().map(|value| value as &(dyn ToSql + Sync)).collect();
-        self.client.borrow_mut().execute(&statement, &parameters).map_err(|e| sql_error(&e))
+        // A write is not sent twice: the first may have landed before the connection dropped.
+        self.on_connection(false, |me| me.run(sql, values, false)).map(|(_, _, changed)| changed)
     }
 
     fn batch(&self, sql: &str) -> Result<(), SqlError> {
+        let ends = matches!(sql, "COMMIT" | "ROLLBACK");
         // What changes the schema can leave statements that no longer fit.
-        if !matches!(sql, "BEGIN" | "COMMIT" | "ROLLBACK") {
+        if !ends && sql != "BEGIN" {
             self.statements.borrow_mut().clear();
         }
-        self.client.borrow_mut().batch_execute(sql).map_err(|e| sql_error(&e))
+        if ends {
+            // Only on the connection the transaction is on: COMMIT on a new one would find nothing
+            // to commit, and say it went well.
+            let done = self.client.borrow_mut().batch_execute(sql).map_err(|error| sql_error(&error));
+            self.in_transaction.set(false);
+            return done;
+        }
+        // Nothing has happened yet when BEGIN goes, so it can go again on a new connection.
+        let done = self.on_connection(sql == "BEGIN", |me| me.client.borrow_mut().batch_execute(sql));
+        if sql == "BEGIN" && done.is_ok() {
+            self.in_transaction.set(true);
+        }
+        done
     }
 
     fn query(&self, sql: &str, values: &[Value]) -> Result<SqlRows, SqlError> {
-        let statement = self.statement(sql)?;
-        let names: Vec<String> = statement.columns().iter().map(|column| column.name().to_owned()).collect();
-        let bound: Vec<Bound<'_>> = values.iter().map(Bound).collect();
-        let parameters: Vec<&(dyn ToSql + Sync)> =
-            bound.iter().map(|value| value as &(dyn ToSql + Sync)).collect();
-        let rows = self.client.borrow_mut().query(&statement, &parameters).map_err(|e| sql_error(&e))?;
-        let mut read = Vec::with_capacity(rows.len());
-        for row in &rows {
-            let mut cells = Vec::with_capacity(names.len());
-            for at in 0..names.len() {
-                let cell: Cell = row.try_get(at).map_err(|e| sql_error(&e))?;
-                cells.push(cell.0);
-            }
-            read.push(cells);
-        }
-        Ok(SqlRows::new(names, read))
+        let (names, rows, _) = self.on_connection(true, |me| me.run(sql, values, true))?;
+        Ok(SqlRows::new(names, rows))
     }
 }
 

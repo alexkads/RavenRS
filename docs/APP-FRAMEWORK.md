@@ -417,11 +417,26 @@ Audit::new().theme(Theme::raven_light()).open("Novo").app(&mut ui).assert_clean(
 `ravenrs-app-postgres` keeps records in PostgreSQL, with the same builder as SQLite: `managed` creates and grows tables, `mapped` leaves a table that came first as it is, and `migration` runs something once. What the two share is in `ravenrs-app-sql`, and another database is a `SqlBackend`.
 
 ```rust,ignore
-let client = postgres::Client::connect("host=localhost user=app", postgres::NoTls)?;
-let database = PostgresDatabase::builder(client).managed(order, TableMap::new("orders"))?.build();
+let backend = PostgresBackend::connect(&std::env::var("DATABASE_URL")?)?;
+let database = PostgresDatabase::builder(backend).managed(order, TableMap::new("orders"))?.build();
 ```
 
-You make the connection, so TLS and credentials are yours to choose. A value goes in as what its column asks for, so a table with `NUMERIC`, `TIMESTAMP`, `DATE`, `SMALLINT` or `UUID` works as it is; a managed table keeps dates as text, as SQLite does.
+`PostgresBackend::connect` takes the address as a database's panel gives it, `postgresql://user:password@host/db?sslmode=require` or `host=… user=…`, and does three things a hosted database needs:
+
+- **TLS.** With any `sslmode` but `disable` it speaks TLS through rustls, and always checks the server's certificate against the Mozilla roots. Neon's certificates pass as they are. Supabase signs its direct connection with an authority of its own: download it from the project settings and add `sslrootcert=/path/prod-ca.crt` to the address, or give it with `PostgresOptions::root_certificate_pem`. `sslmode=prefer`, the default, still falls back to plain text when the server has no TLS, as on a local database; a certificate that fails the check is never taken.
+- **Poolers.** A pooler in transaction mode hands each transaction to whichever server connection is free, so a statement prepared on one is missing on the next. Supavisor on port 6543, Neon's `-pooler` hosts and an address with `pgbouncer=true` are recognised, and statements then go unprepared: one round trip each, nothing left on the server, values as text that the server reads as it would in the statement. `PostgresOptions::statements` says it outright, and `PostgresBackend::with_statements` does it for a `Client` you opened. Behind a pooler, `SET`, `LISTEN` and session locks do not last past the transaction.
+- **A connection that drops.** Neon puts a database to sleep after a while with nothing to do, and the connection goes with it. Outside a transaction the backend opens the connection again before the next statement, and a read that met the drop goes once more. Inside one it never does: the commit fails, nothing of it stays, and the next unit of work starts on a new connection. With no `connect_timeout` in the address it waits 15 seconds, time for a database to wake up.
+
+| Service | Address to use | What to know |
+|---|---|---|
+| Supabase, direct | `db.<project>.supabase.co:5432`, `sslmode=require&sslrootcert=…` | IPv6 only unless the IPv4 add-on is on |
+| Supabase, Supavisor | `aws-0-<region>.pooler.supabase.com`: 5432 is a session, 6543 transactions | 6543 goes unprepared by itself; if the certificate check fails, add the project's authority with `sslrootcert` as for the direct connection |
+| Neon | the host with `-pooler` for many short connections, without it for one long one | the first statement after a sleep waits for it to wake |
+| Nhost | the Postgres address of the project, when its plan lets one in | Hasura's GraphQL is another way in, not this one |
+
+`PostgresBackend::from(client)` still takes a connection you opened yourself, with the TLS and credentials you chose; it is not opened again when it drops.
+
+A value goes in as what its column asks for, so a table with `NUMERIC`, `TIMESTAMP`, `DATE`, `SMALLINT` or `UUID` works as it is; a managed table keeps dates as text, as SQLite does.
 
 Limits to know:
 - Numbered keys come from the highest in the table, so one process at a time should create records on it. A second one gets a conflict, and not a wrong record.
@@ -429,7 +444,7 @@ Limits to know:
 - `TIMESTAMPTZ` comes in UTC, with no time zone of its own, since `DateTime` has none.
 - Reading entities from a schema, and keeping the model and attachments in the database, are only in SQLite for now.
 
-Its tests run when `RAVENRS_POSTGRES_URL` says where a database is, and otherwise have nothing to run against: `scripts/check.sh` does not start one.
+Its tests run when `RAVENRS_POSTGRES_URL` says where a database is, and otherwise have nothing to run against: `scripts/check.sh` does not start one. `RAVENRS_POSTGRES_STATEMENTS=unprepared` runs them all with statements as they go to a pooler. `tests/managed.rs` takes `RAVENRS_POSTGRES_TLS_URL` with `RAVENRS_POSTGRES_CA` (a server whose certificate an authority of its own signed) and `RAVENRS_POSTGRES_POOLER_URL` (PgBouncer in transaction mode with `max_prepared_statements = 0`).
 
 ## PostgREST, Supabase and Neon's Data API
 

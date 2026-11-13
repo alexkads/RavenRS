@@ -82,7 +82,9 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Report designer and definitions in a database, dashboards people create | ⬜ | F10 |
 | Web API: protected CRUD, filters, pages, deep updates, batches, own endpoints, OpenAPI | ✅ `ravenrs-app-server`, on a contract of its own rather than OData | F12 |
 | PostgreSQL | ✅ `ravenrs-app-postgres`, over what SQL databases share in `ravenrs-app-sql`; schema reading, model and attachment storage only in SQLite for now | F12 |
+| Hosted PostgreSQL (Supabase, Neon, Nhost) by address | 🟡 `PostgresBackend::connect`: TLS that checks the certificate, poolers in transaction mode, a connection that dropped opened again. Tested against PostgreSQL 17 and PgBouncer 1.26 in containers; not yet against the services themselves | #324 |
 | PostgreSQL through PostgREST (your own, Supabase, Neon's Data API) | 🟡 `ravenrs-app-postgrest`: filters on the server, a commit in one transaction as the person signed in, so row level security holds. Desktop only; tested against PostgREST in containers, not yet against Supabase or Neon | #330 |
+| PostgreSQL over GraphQL (Hasura, Nhost) | ⬜ | #335 |
 | Remote object space, so the web has real storage | ✅ `ravenrs-app-remote`: a copy in memory of what the person can see, written back in batches | F12 |
 | API keys for other systems; settings kept by scope | ✅ `/api/auth/keys`, `SettingsStore` and `/api/settings/{name}`; the theme someone chose comes back | F12 |
 | Background jobs, scheduled tasks that run once, an event bus | ⬜ | F12.5 |
