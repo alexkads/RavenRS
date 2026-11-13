@@ -17,8 +17,13 @@ categories = ["database"]
 ravenrs-app.workspace = true
 ravenrs-app-sql.workspace = true
 ravenrs-criteria.workspace = true
-postgres = "0.19"
+postgres = "0.19.9"
 bytes = "1"
+# TLS for databases that require it (Supabase, Neon): rustls with ring, as the rest of the
+# workspace already uses, so nothing links OpenSSL and it builds the same on every system.
+tokio-postgres-rustls = { version = "0.14", default-features = false, features = ["ring"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+webpki-roots = "1"
 
 [dev-dependencies]
 ravenrs-app-server.workspace = true
