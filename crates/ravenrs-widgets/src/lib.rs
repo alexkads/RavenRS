@@ -40,6 +40,12 @@
 // The grid family lives in its own crate, and keeps its module names here.
 pub use ravenrs_widgets_grid::grid;
 
+// The lists family lives in its own crate, and keeps its module names here.
+#[allow(unused_imports)]
+use ravenrs_widgets_lists::lists;
+#[allow(unused_imports)]
+use ravenrs_widgets_lists::tree;
+
 // The components of general use live in their own crate, and keep their module names here.
 #[allow(unused_imports)]
 use ravenrs_widgets_base::{
@@ -67,7 +73,6 @@ mod event_calendar;
 #[cfg(feature = "flow")]
 mod flow;
 mod imaging;
-mod lists;
 #[cfg(feature = "live")]
 mod live;
 #[cfg(feature = "live")]
@@ -82,7 +87,6 @@ mod rich_text;
 mod sankey;
 mod scheduler;
 mod timeline;
-mod tree;
 
 pub use button::{Button, ButtonGroup, ButtonSize, ButtonStyle, IconButton};
 pub use calendar::{Calendar, DatePicker, DateRange, DateRangePicker};

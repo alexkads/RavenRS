@@ -584,6 +584,33 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::IndicatorStep::__live_expose(registry);
     crate::StepIndicator::__live_expose_fields(registry);
     crate::StepIndicator::__live_expose(registry);
+    crate::DocumentTab::__live_expose_fields(registry);
+    crate::DocumentTab::__live_expose(registry);
+    crate::DocumentTabs::__live_expose_fields(registry);
+    crate::DocumentTabs::__live_expose(registry);
+    crate::FileEntry::__live_expose_fields(registry);
+    crate::FileEntry::__live_expose(registry);
+    crate::FileSortColumn::__live_expose_variants(registry);
+    crate::FileSort::__live_expose_fields(registry);
+    crate::FileBrowser::__live_expose_fields(registry);
+    crate::FileBrowser::__live_expose(registry);
+    crate::FilmstripCell::__live_expose_fields(registry);
+    crate::Filmstrip::__live_expose_fields(registry);
+    crate::Filmstrip::__live_expose(registry);
+    crate::PagedDocumentView::__live_expose_fields(registry);
+    crate::PagedDocumentView::__live_expose(registry);
+    crate::SortableList::__live_expose_fields(registry);
+    crate::SortableList::__live_expose(registry);
+    crate::VirtualList::__live_expose_fields(registry);
+    crate::VirtualList::__live_expose(registry);
+    crate::DayMark::__live_expose_fields(registry);
+    crate::DayMark::__live_expose(registry);
+    crate::YearView::__live_expose_fields(registry);
+    crate::YearView::__live_expose(registry);
+    crate::TreeNode::__live_expose_fields(registry);
+    crate::TreeNode::__live_expose(registry);
+    crate::TreeView::__live_expose_fields(registry);
+    crate::TreeView::__live_expose(registry);
     crate::ColumnLayout::__live_expose_fields(registry);
     crate::SortLayout::__live_expose_fields(registry);
     crate::FilterLayout::__live_expose_fields(registry);
@@ -786,29 +813,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::ZoomPanView::__live_expose(registry);
     crate::Minimap::__live_expose_fields(registry);
     crate::Minimap::__live_expose(registry);
-    crate::DocumentTab::__live_expose_fields(registry);
-    crate::DocumentTab::__live_expose(registry);
-    crate::DocumentTabs::__live_expose_fields(registry);
-    crate::DocumentTabs::__live_expose(registry);
-    crate::FileEntry::__live_expose_fields(registry);
-    crate::FileEntry::__live_expose(registry);
-    crate::FileSortColumn::__live_expose_variants(registry);
-    crate::FileSort::__live_expose_fields(registry);
-    crate::FileBrowser::__live_expose_fields(registry);
-    crate::FileBrowser::__live_expose(registry);
-    crate::FilmstripCell::__live_expose_fields(registry);
-    crate::Filmstrip::__live_expose_fields(registry);
-    crate::Filmstrip::__live_expose(registry);
-    crate::PagedDocumentView::__live_expose_fields(registry);
-    crate::PagedDocumentView::__live_expose(registry);
-    crate::SortableList::__live_expose_fields(registry);
-    crate::SortableList::__live_expose(registry);
-    crate::VirtualList::__live_expose_fields(registry);
-    crate::VirtualList::__live_expose(registry);
-    crate::DayMark::__live_expose_fields(registry);
-    crate::DayMark::__live_expose(registry);
-    crate::YearView::__live_expose_fields(registry);
-    crate::YearView::__live_expose(registry);
     #[cfg(feature = "lottie")]
     crate::Lottie::__live_expose_fields(registry);
     #[cfg(feature = "lottie")]
@@ -861,10 +865,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::TimelineEdit::__live_expose_variants(registry);
     crate::Timeline::__live_expose_fields(registry);
     crate::Timeline::__live_expose(registry);
-    crate::TreeNode::__live_expose_fields(registry);
-    crate::TreeNode::__live_expose(registry);
-    crate::TreeView::__live_expose_fields(registry);
-    crate::TreeView::__live_expose(registry);
     #[cfg(feature = "charts")]
     registry.alias("ChartCurve", "Curve");
     #[cfg(feature = "charts")]

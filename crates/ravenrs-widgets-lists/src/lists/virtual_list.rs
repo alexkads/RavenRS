@@ -22,8 +22,10 @@ const LINE_STEP: f32 = 40.0;
 const SAME_OFFSET: f32 = 0.25;
 
 /// How a list knows the size of its rows.
+#[allow(missing_debug_implementations)] // internal: shared with the widgets' crates, hidden
 #[derive(Clone)]
-pub(crate) enum Sizing {
+#[doc(hidden)]
+pub enum Sizing {
     /// Laid out and then read back; until then, this estimate.
     Measured(f32),
     /// All the same, so nothing has to be measured.
@@ -34,7 +36,8 @@ pub(crate) enum Sizing {
 
 /// An order given to a list from outside its own build.
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) enum ScrollCommand {
+#[doc(hidden)]
+pub enum ScrollCommand {
     /// Puts this row at the start of the view.
     ToIndex(usize),
     /// The least scroll that shows this row whole.
@@ -45,7 +48,8 @@ pub(crate) enum ScrollCommand {
 
 /// What a list found out in its last build, for the view around it.
 #[derive(Clone, Copy, Debug, Default)]
-pub(crate) struct ListProbe {
+#[doc(hidden)]
+pub struct ListProbe {
     /// How far it is scrolled.
     pub offset: f32,
     /// How long the view is, along the list.
@@ -224,11 +228,16 @@ impl Track {
 /// ```
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct VirtualList {
-    pub(crate) count: usize,
-    pub(crate) item: Rc<dyn Fn(usize) -> AnyView>,
-    pub(crate) key: Option<Rc<dyn Fn(usize) -> u64>>,
-    pub(crate) sizing: Sizing,
-    pub(crate) spacing: f32,
+    #[doc(hidden)]
+    pub count: usize,
+    #[doc(hidden)]
+    pub item: Rc<dyn Fn(usize) -> AnyView>,
+    #[doc(hidden)]
+    pub key: Option<Rc<dyn Fn(usize) -> u64>>,
+    #[doc(hidden)]
+    pub sizing: Sizing,
+    #[doc(hidden)]
+    pub spacing: f32,
     follow_end: bool,
     scroll_to: Option<Binding<Option<usize>>>,
     selection: Option<Binding<Option<usize>>>,
@@ -370,33 +379,39 @@ impl VirtualList {
         self
     }
 
-    pub(crate) fn bare(mut self) -> Self {
+    #[doc(hidden)]
+    pub fn bare(mut self) -> Self {
         self.bare = true;
         self
     }
 
-    pub(crate) fn commands(mut self, command: State<Option<ScrollCommand>>) -> Self {
+    #[doc(hidden)]
+    pub fn commands(mut self, command: State<Option<ScrollCommand>>) -> Self {
         self.command = Some(command);
         self
     }
 
-    pub(crate) fn probe(mut self, probe: Rc<Cell<ListProbe>>) -> Self {
+    #[doc(hidden)]
+    pub fn probe(mut self, probe: Rc<Cell<ListProbe>>) -> Self {
         self.probe = Some(probe);
         self
     }
 
-    pub(crate) fn scroll_across(mut self, content: f32) -> Self {
+    #[doc(hidden)]
+    pub fn scroll_across(mut self, content: f32) -> Self {
         self.cross_content = Some(content);
         self
     }
 
-    pub(crate) fn row_align(mut self, align: Align) -> Self {
+    #[doc(hidden)]
+    pub fn row_align(mut self, align: Align) -> Self {
         self.row_align = align;
         self
     }
 
     /// Room before the first row and after the last, in logical pixels.
-    pub(crate) fn padding(mut self, padding: f32) -> Self {
+    #[doc(hidden)]
+    pub fn padding(mut self, padding: f32) -> Self {
         self.padding = padding.max(0.0);
         self
     }
