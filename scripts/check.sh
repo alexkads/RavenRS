@@ -27,6 +27,9 @@ done
 step "modules do not use each other in loops longer than each crate allows (ravenrs-lint module_cycle)"
 cargo run -q -p ravenrs-lint -- --workspace --only module_cycle
 
+step "the public API of ravenrs-widgets is unchanged (rustdoc JSON, on nightly)"
+./scripts/public-api.py --check
+
 step "every test file runs: tests/suite/ modules are declared"
 ./scripts/check-test-suites.py
 
