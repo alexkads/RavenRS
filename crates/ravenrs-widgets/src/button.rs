@@ -364,7 +364,7 @@ impl View for Button {
                     ..LayoutStyle::stack(Axis::Horizontal)
                 },
                 &children,
-                crate::extras::spinner_paint(icon_size, spinner_color),
+                crate::util::spinner_paint(icon_size, spinner_color),
             );
             children = vec![content];
         }

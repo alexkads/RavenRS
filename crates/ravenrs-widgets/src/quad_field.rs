@@ -11,7 +11,7 @@ use ravenrs_style::Semantic;
 
 use crate::View;
 use crate::context::{BuildCx, NodeId, Paint};
-use crate::scroll_scene::ScrollRange;
+use crate::scroll_link::ScrollRange;
 
 type Picture = Rc<dyn Fn(f32, f32, f64) -> Color>;
 

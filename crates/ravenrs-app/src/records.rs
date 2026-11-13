@@ -51,6 +51,7 @@ pub fn next_number(space: &mut dyn ObjectSpace, sequence: &str) -> Result<i64, S
 
 /// Work kept to pick up later.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Draft {
     /// What it is known by.
     pub id: Value,
@@ -105,6 +106,7 @@ pub fn take_draft(space: &mut dyn ObjectSpace, id: &Value) -> Result<Option<Draf
 
 /// Brings sequences and drafts to an application.
 #[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct AppRecordsModule;
 
 impl Module for AppRecordsModule {

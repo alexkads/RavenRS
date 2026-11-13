@@ -1,12 +1,14 @@
 //! Small helpers shared by the built-in components.
 
-use ravenrs_core::Color;
+use std::rc::Rc;
+
+use ravenrs_core::{Color, Quad, Rect};
 use ravenrs_layout::LayoutStyle;
 use ravenrs_style::{TextStyle, Theme, Weight};
 use ravenrs_text::{ICON_FAMILY, TextAttrs};
 
 use crate::IconName;
-use crate::context::{BuildCx, NodeId, Semantics};
+use crate::context::{BuildCx, NodeId, Paint, Semantics};
 
 /// A stable number for a text key, for [`BuildCx::keyed_child`].
 pub(crate) fn hash_text(text: &str) -> u64 {
@@ -295,6 +297,32 @@ pub(crate) fn dashed_outline(
         path.push(PathElement::Close);
     }
     path
+}
+
+/// Paints a spinner of `size` at the center of the element's frame. Being only a paint, it
+/// can sit behind content that must keep its size, as in a loading button.
+pub(crate) fn spinner_paint(size: f32, color: Color) -> Paint {
+    Paint::Live(Rc::new(move |f: Rect, time, scene| {
+        let c = f.center();
+        let dot = (size * 0.18).max(2.0);
+        let r = size / 2.0 - dot / 2.0;
+        // One turn every 0.8 s; the brightness moves continuously around the ring.
+        let head = (time / 0.8).fract() as f32 * 8.0;
+        for i in 0..8 {
+            let a = i as f32 / 8.0 * std::f32::consts::TAU;
+            let age = (i as f32 - head).rem_euclid(8.0);
+            let alpha = 1.0 - age / 9.0;
+            let rect = Rect::new(c.x + r * a.cos() - dot / 2.0, c.y + r * a.sin() - dot / 2.0, dot, dot);
+            scene.push_quad(Quad::new(rect, color.with_alpha(color.a * alpha)).radius(dot / 2.0));
+        }
+    }))
+}
+
+/// `#RRGGBB`, or `#RRGGBBAA` when it is not opaque.
+pub(crate) fn to_hex(color: Color) -> String {
+    let byte = |channel: f32| (channel.clamp(0.0, 1.0) * 255.0).round() as u8;
+    let rgb = format!("#{:02X}{:02X}{:02X}", byte(color.r), byte(color.g), byte(color.b));
+    if byte(color.a) == 255 { rgb } else { format!("{rgb}{:02X}", byte(color.a)) }
 }
 
 #[cfg(test)]

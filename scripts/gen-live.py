@@ -27,6 +27,9 @@ TARGETS = [
             {"dir": "ravenrs-core", "path": "ravenrs_core"},
             {"dir": "ravenrs-style", "path": "ravenrs_style"},
             {"dir": "ravenrs-layout", "path": "ravenrs_layout"},
+            # `ravenrs-graphics` re-exports all of `ravenrs-barcode` as its `barcode` module: the types
+            # are read where they are written, and registered by the path the widgets re-export.
+            {"dir": "ravenrs-barcode", "path": "ravenrs_graphics", "only_reexported": True, "feature": "charts"},
             {
                 "dir": "ravenrs-graphics",
                 "path": "ravenrs_graphics",

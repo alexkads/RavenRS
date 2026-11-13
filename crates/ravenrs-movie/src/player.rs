@@ -446,6 +446,7 @@ pub(crate) fn shown_at(movie: &Movie, at: u64) -> Option<usize> {
 /// edited film, the mark of what it explains and the box with the words. Nothing on
 /// it answers clicks, so it is what a video made from the film shows.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MovieFrame {
     movie: Movie,
     at_ms: u64,
@@ -454,6 +455,7 @@ pub struct MovieFrame {
     boxes: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl MovieFrame {
     /// The moment `at_ms` of the timeline of `movie`.
     pub fn new(movie: Movie, at_ms: u64) -> Self {

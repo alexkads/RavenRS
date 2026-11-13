@@ -50,6 +50,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::MovieLabels::__live_expose(registry);
     crate::MovieCue::__live_expose_fields(registry);
     crate::MovieCue::__live_expose(registry);
+    crate::MovieFrame::__live_expose_fields(registry);
+    crate::MovieFrame::__live_expose(registry);
     crate::MoviePlayer::__live_expose_fields(registry);
     crate::MoviePlayer::__live_expose(registry);
     crate::Region::__live_expose_fields(registry);
@@ -75,6 +77,11 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Answer::__live_expose_fields(registry);
     crate::MovieLibrary::__live_expose_fields(registry);
     crate::MovieLibrary::__live_expose(registry);
+    crate::SocialFrame::__live_expose_fields(registry);
+    crate::SocialFrame::__live_expose(registry);
+    crate::Movie::__live_expose_part1(registry);
+    crate::Soundtrack::__live_expose_fields(registry);
+    crate::Soundtrack::__live_expose(registry);
     registry.conversion::<crate::MovieError, crate::RecordError>("MovieError", crate::RecordError::from);
     ravenrs_widgets::__live_view::<crate::BugReporter>(registry);
     ravenrs_widgets::__live_view::<crate::Composition>(registry);
@@ -82,5 +89,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     ravenrs_widgets::__live_view::<crate::MovieAssistant>(registry);
     ravenrs_widgets::__live_view::<crate::MovieChat>(registry);
     ravenrs_widgets::__live_view::<crate::MovieEditor>(registry);
+    ravenrs_widgets::__live_view::<crate::MovieFrame>(registry);
     ravenrs_widgets::__live_view::<crate::MoviePlayer>(registry);
+    ravenrs_widgets::__live_view::<crate::SocialFrame>(registry);
 }

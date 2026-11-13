@@ -15,6 +15,7 @@ use crate::Session;
 
 /// How a piece of work in the background is going.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct JobInfo {
     /// What it is known by, to cancel it.
     pub id: u64,
@@ -33,6 +34,7 @@ enum JobEvent {
 
 /// What a piece of work has, on its thread, to say how it is going and to hear it was canceled.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct JobProgress {
     sender: Option<Sender<JobEvent>>,
     waker: Option<UiWaker>,
@@ -45,6 +47,7 @@ impl std::fmt::Debug for JobEvent {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl JobProgress {
     /// Says how much is done, from 0 to 1, and what it is doing.
     pub fn report(&self, fraction: f32, note: impl Into<String>) {
@@ -97,12 +100,14 @@ impl std::fmt::Debug for Jobs {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Jobs {
     pub(crate) fn connect(&self, waker: UiWaker) {
         *self.waker.borrow_mut() = Some(waker);
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Session {
     /// Runs `work` out of the way of the screens, then `done` with what it brought, on the thread of
     /// the screens. Gives what it is known by, to cancel it.

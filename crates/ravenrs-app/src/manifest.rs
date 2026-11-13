@@ -8,6 +8,7 @@ use crate::{Change, EntityInfo, Object, ObjectSpace, Query, SpaceError, Value};
 
 /// A version as `major.minor.patch`; what is missing counts as zero.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Version {
     /// Changes that break what came before.
     pub major: u32,
@@ -17,6 +18,7 @@ pub struct Version {
     pub patch: u32,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Version {
     /// Reads `1`, `1.2` or `1.2.3`.
     pub fn parse(text: &str) -> Result<Self, String> {
@@ -42,6 +44,7 @@ impl fmt::Display for Version {
 
 /// The versions of another module that one accepts: from one, included, up to another, left out.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct VersionRange {
     /// The first accepted.
     pub from: Version,
@@ -49,6 +52,7 @@ pub struct VersionRange {
     pub below: Version,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl VersionRange {
     /// From this version up to the next major one, as `^1.2` says.
     pub fn compatible(from: &str) -> Result<Self, String> {
@@ -71,6 +75,7 @@ impl fmt::Display for VersionRange {
 /// Where an application runs.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Target {
     /// A native window.
     Desktop,
@@ -86,6 +91,7 @@ pub enum Target {
 /// everywhere, as before.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ModuleManifest {
     /// Its own version.
     pub version: Option<Version>,
@@ -105,6 +111,7 @@ pub struct ModuleManifest {
     pub jobs: Vec<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ModuleManifest {
     /// Says nothing yet.
     pub fn new() -> Self {
@@ -162,6 +169,7 @@ impl ModuleManifest {
 
 /// A unit of work that keeps the records of switched-off modules for reading and refuses to write
 /// them, with [`SpaceError::Unavailable`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GuardedObjectSpace {
     inner: Box<dyn ObjectSpace>,
     closed: Vec<String>,
@@ -173,6 +181,7 @@ impl fmt::Debug for GuardedObjectSpace {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl GuardedObjectSpace {
     /// Over this space, closing these entities to writing.
     pub fn new(inner: Box<dyn ObjectSpace>, closed: Vec<String>) -> Self {
@@ -190,6 +199,7 @@ impl GuardedObjectSpace {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "objectspace"))]
 impl ObjectSpace for GuardedObjectSpace {
     fn entities(&self) -> Vec<EntityInfo> {
         self.inner.entities()

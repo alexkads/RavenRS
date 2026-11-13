@@ -290,9 +290,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::SplitButton::__live_expose(registry);
     crate::ConfirmDialog::__live_expose_fields(registry);
     crate::ConfirmDialog::__live_expose(registry);
-    crate::WidgetId::__live_expose_fields(registry);
-    crate::WidgetId::__live_expose(registry);
-    crate::NodeId::__live_expose_fields(registry);
     crate::QuadPaint::__live_expose_fields(registry);
     crate::QuadPaint::__live_expose(registry);
     crate::Paint::__live_expose_variants(registry);
@@ -310,6 +307,13 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::SelectionBar::__live_expose(registry);
     crate::AudioPlayerButton::__live_expose_fields(registry);
     crate::AudioPlayerButton::__live_expose(registry);
+    crate::KeyBarItem::__live_expose_fields(registry);
+    crate::KeyBarItem::__live_expose(registry);
+    crate::KeyBar::__live_expose_fields(registry);
+    crate::KeyBar::__live_expose(registry);
+    crate::Scan::__live_expose_fields(registry);
+    crate::ScanField::__live_expose_fields(registry);
+    crate::ScanField::__live_expose(registry);
     crate::List::<Vec<crate::AnyView>>::__live_expose(registry);
     crate::ListItem::__live_expose_fields(registry);
     crate::ListItem::__live_expose(registry);
@@ -328,8 +332,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Badge::__live_expose(registry);
     crate::Avatar::__live_expose_fields(registry);
     crate::Avatar::__live_expose(registry);
-    crate::Kbd::__live_expose_fields(registry);
-    crate::Kbd::__live_expose(registry);
     crate::Divider::__live_expose_fields(registry);
     crate::Divider::__live_expose(registry);
     crate::ProgressBar::__live_expose_fields(registry);
@@ -358,6 +360,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::DockLayout::__live_expose_fields(registry);
     crate::DockLayoutError::__live_expose_variants(registry);
     crate::DockLayout::__live_expose(registry);
+    crate::Labels::__live_expose(registry);
     crate::TextArea::__live_expose_fields(registry);
     crate::TextArea::__live_expose(registry);
     crate::NumberField::__live_expose_fields(registry);
@@ -485,6 +488,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::GridColumn::__live_expose(registry);
     crate::GridData::__live_expose_fields(registry);
     crate::GridData::__live_expose(registry);
+    crate::Labels::__live_expose_part1(registry);
     crate::GridExportFormat::__live_expose_variants(registry);
     crate::GridTableKind::__live_expose_variants(registry);
     crate::GridTableColumn::__live_expose_fields(registry);
@@ -503,12 +507,17 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::CellEdit::__live_expose_fields(registry);
     crate::GridRowAction::__live_expose_fields(registry);
     crate::GridRowAction::__live_expose(registry);
+    crate::GridCurrent::__live_expose_fields(registry);
+    crate::GridCurrent::__live_expose(registry);
     crate::DataGrid::__live_expose(registry);
     crate::DataGrid::__live_expose_part1(registry);
     crate::Icon::__live_expose_fields(registry);
     crate::Icon::__live_expose(registry);
     crate::IconName::__live_expose_variants(registry);
     crate::IconName::__live_expose(registry);
+    crate::WidgetId::__live_expose_fields(registry);
+    crate::WidgetId::__live_expose(registry);
+    crate::NodeId::__live_expose_fields(registry);
     crate::ContentMode::__live_expose_variants(registry);
     crate::DecodeError::__live_expose_fields(registry);
     crate::Image::__live_expose_fields(registry);
@@ -592,12 +601,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::SegmentedControl::__live_expose(registry);
     crate::ThemeSwitcher::__live_expose_fields(registry);
     crate::ThemeSwitcher::__live_expose(registry);
+    crate::Kbd::__live_expose_fields(registry);
+    crate::Kbd::__live_expose(registry);
     crate::Labels::__live_expose_fields(registry);
-    crate::Labels::__live_expose(registry);
-    crate::Labels::__live_expose_part1(registry);
     crate::Labels::__live_expose_part2(registry);
-    crate::Labels::__live_expose_part3(registry);
-    crate::Localized::<crate::AnyView>::__live_expose(registry);
     crate::Links::__live_expose_fields(registry);
     crate::Links::__live_expose(registry);
     crate::Link::__live_expose_fields(registry);
@@ -625,6 +632,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::DayMark::__live_expose(registry);
     crate::YearView::__live_expose_fields(registry);
     crate::YearView::__live_expose(registry);
+    crate::Localized::<crate::AnyView>::__live_expose(registry);
     crate::LookupItem::__live_expose_fields(registry);
     crate::LookupItem::__live_expose(registry);
     crate::LookupRequest::__live_expose_fields(registry);
@@ -644,10 +652,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::ModelPicker::__live_expose(registry);
     crate::ModelPicker::__live_expose_part1(registry);
     crate::Styled::<crate::AnyView>::__live_expose(registry);
-    crate::Motion::__live_expose_fields(registry);
-    crate::Motion::__live_expose(registry);
     crate::Collapse::__live_expose_fields(registry);
     crate::Collapse::__live_expose(registry);
+    crate::Motion::__live_expose_fields(registry);
+    crate::Motion::__live_expose(registry);
     crate::TabsVariant::__live_expose_variants(registry);
     crate::Tabs::__live_expose_fields(registry);
     crate::Tabs::__live_expose(registry);
@@ -690,8 +698,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Select::__live_expose(registry);
     crate::Dialog::__live_expose_fields(registry);
     crate::Dialog::__live_expose(registry);
-    crate::TimeLink::__live_expose_fields(registry);
-    crate::TimeLink::__live_expose(registry);
     crate::Ticker::<crate::AnyView>::__live_expose(registry);
     crate::CountUp::__live_expose_fields(registry);
     crate::CountUp::__live_expose(registry);
@@ -717,6 +723,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::RecurrenceRule::__live_expose(registry);
     crate::RecurrenceSet::__live_expose_fields(registry);
     crate::RecurrenceSet::__live_expose(registry);
+    crate::Labels::__live_expose_part3(registry);
     crate::CodeBlock::__live_expose_fields(registry);
     crate::CodeBlock::__live_expose(registry);
     crate::ReleaseNote::__live_expose_fields(registry);
@@ -828,6 +835,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::TileLayout::__live_expose(registry);
     crate::CardView::__live_expose_fields(registry);
     crate::CardView::__live_expose(registry);
+    crate::TimeLink::__live_expose_fields(registry);
+    crate::TimeLink::__live_expose(registry);
     crate::TimelineItem::__live_expose_fields(registry);
     crate::TimelineItem::__live_expose(registry);
     crate::TimelineTrack::__live_expose_fields(registry);
@@ -971,6 +980,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::InlineRename>(registry);
     crate::live::view::<crate::InputOtp>(registry);
     crate::live::view::<crate::Kbd>(registry);
+    crate::live::view::<crate::KeyBar>(registry);
     crate::live::view::<crate::Keyed<crate::AnyView>>(registry);
     crate::live::view::<crate::Label>(registry);
     crate::live::view::<crate::Link>(registry);
@@ -1010,6 +1020,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::Ruler>(registry);
     #[cfg(feature = "charts")]
     crate::live::view::<crate::SankeyChart>(registry);
+    crate::live::view::<crate::ScanField>(registry);
     crate::live::view::<crate::Scheduler>(registry);
     crate::live::view::<crate::ScrollEdgeArrow<Vec<crate::AnyView>>>(registry);
     crate::live::view::<crate::ScrollLinked<crate::AnyView>>(registry);

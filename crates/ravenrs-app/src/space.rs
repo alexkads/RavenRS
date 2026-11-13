@@ -68,6 +68,7 @@ impl fmt::Display for SpaceError {
 
 impl std::error::Error for SpaceError {}
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SpaceError {
     /// Whether trying the same thing again later may work.
     pub fn is_temporary(&self) -> bool {

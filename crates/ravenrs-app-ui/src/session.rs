@@ -429,7 +429,7 @@ impl std::fmt::Debug for Session {
 /// How a frame finds its session.
 struct SessionLink(std::rc::Weak<SessionInner>);
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part2"))]
 impl Session {
     pub(crate) fn new(
         application: Application,

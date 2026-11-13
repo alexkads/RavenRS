@@ -83,6 +83,7 @@ impl FrameTemplate for MainTemplate {
 /// A window for use at a counter: the view takes it all, with the keys of what can be done always in
 /// sight below it. Going elsewhere is up to the actions.
 #[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CounterTemplate;
 
 impl FrameTemplate for CounterTemplate {
