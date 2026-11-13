@@ -67,6 +67,17 @@ use ravenrs_widgets_imaging::imaging;
 #[allow(unused_imports)]
 use ravenrs_widgets_imaging::lottie;
 
+// The charts family lives in its own crate, and keeps its module names here.
+#[cfg(feature = "charts")]
+#[allow(unused_imports)]
+use ravenrs_widgets_charts::chart;
+#[cfg(feature = "flow")]
+#[allow(unused_imports)]
+use ravenrs_widgets_charts::flow;
+#[cfg(feature = "charts")]
+#[allow(unused_imports)]
+use ravenrs_widgets_charts::sankey;
+
 // The components of general use live in their own crate, and keep their module names here.
 #[allow(unused_imports)]
 use ravenrs_widgets_base::{
@@ -83,14 +94,10 @@ use ravenrs_widgets_kit::{
     tiles, wizard,
 };
 
-#[cfg(feature = "charts")]
-mod chart;
 mod chat;
 #[cfg(feature = "code")]
 mod code_editor;
 mod conversation;
-#[cfg(feature = "flow")]
-mod flow;
 #[cfg(feature = "live")]
 mod live;
 #[cfg(feature = "live")]
@@ -98,8 +105,6 @@ mod live_list;
 #[cfg(feature = "code")]
 mod playground;
 mod rich_text;
-#[cfg(feature = "charts")]
-mod sankey;
 
 pub use button::{Button, ButtonGroup, ButtonSize, ButtonStyle, IconButton};
 pub use calendar::{Calendar, DatePicker, DateRange, DateRangePicker};

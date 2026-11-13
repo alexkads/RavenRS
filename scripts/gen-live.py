@@ -40,6 +40,7 @@ TARGETS = [
             # The base is its own crate; the widgets re-export every name of it at their root.
             {"dir": "ravenrs-widgets-base", "path": "crate"},
             {"dir": "ravenrs-widgets-kit", "path": "crate"},
+            {"dir": "ravenrs-widgets-charts", "path": "crate"},
             {"dir": "ravenrs-widgets-imaging", "path": "crate"},
             {"dir": "ravenrs-widgets-dock", "path": "crate"},
             {"dir": "ravenrs-widgets-scheduler", "path": "crate"},
@@ -162,6 +163,12 @@ def generate(target):
     lib = (src / "lib.rs").read_text()
     exported = exports(lib)
     outside = reexported(src)
+    # What the crates re-exported as its own take from others counts too, such as the chart
+    # types the widgets' families take from ravenrs-graphics.
+    for source in target["sources"]:
+        if source["path"] == "crate" and source["dir"] != target["crate"]:
+            for crate, found in reexported(root / "crates" / source["dir"] / "src").items():
+                outside.setdefault(crate, {}).update(found)
     gates = gated_modules(lib)
     exported_gates = gated_exports(lib)
 

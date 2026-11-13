@@ -584,6 +584,64 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::IndicatorStep::__live_expose(registry);
     crate::StepIndicator::__live_expose_fields(registry);
     crate::StepIndicator::__live_expose(registry);
+    #[cfg(feature = "charts")]
+    crate::ChartIndicator::__live_expose_variants(registry);
+    #[cfg(feature = "charts")]
+    crate::ChartTooltip::__live_expose_fields(registry);
+    #[cfg(feature = "charts")]
+    crate::ChartTooltip::__live_expose(registry);
+    #[cfg(feature = "charts")]
+    crate::ChartTooltip::__live_expose_part1(registry);
+    #[cfg(feature = "charts")]
+    crate::ChartReference::__live_expose_fields(registry);
+    #[cfg(feature = "charts")]
+    crate::ChartReference::__live_expose(registry);
+    #[cfg(feature = "charts")]
+    crate::ChartBarFrom::__live_expose_variants(registry);
+    #[cfg(feature = "charts")]
+    crate::ChartLegend::__live_expose_variants(registry);
+    #[cfg(feature = "charts")]
+    crate::Chart::__live_expose_fields(registry);
+    #[cfg(feature = "charts")]
+    crate::Chart::__live_expose(registry);
+    #[cfg(feature = "charts")]
+    crate::Chart::__live_expose_part1(registry);
+    #[cfg(feature = "charts")]
+    crate::BarChart::__live_expose_fields(registry);
+    #[cfg(feature = "charts")]
+    crate::BarChart::__live_expose(registry);
+    #[cfg(feature = "charts")]
+    crate::AreaChart::__live_expose_fields(registry);
+    #[cfg(feature = "charts")]
+    crate::AreaChart::__live_expose(registry);
+    #[cfg(feature = "charts")]
+    crate::ChartCard::<crate::AnyView>::__live_expose(registry);
+    #[cfg(feature = "charts")]
+    crate::Barcode::__live_expose_fields(registry);
+    #[cfg(feature = "charts")]
+    crate::Barcode::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowViewport::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowViewport::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowSelection::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowSelection::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowKind::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowKind::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowCanvas::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowCanvas::__live_expose(registry);
+    #[cfg(feature = "charts")]
+    crate::SankeyChart::__live_expose_fields(registry);
+    #[cfg(feature = "charts")]
+    crate::SankeyChart::__live_expose(registry);
+    #[cfg(feature = "charts")]
+    crate::SankeyChart::__live_expose_part1(registry);
     crate::ContentSpace::__live_expose_variants(registry);
     crate::ContentSpace::__live_expose(registry);
     crate::CompositionGuide::__live_expose_variants(registry);
@@ -769,42 +827,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::GridCurrent::__live_expose(registry);
     crate::DataGrid::__live_expose(registry);
     crate::DataGrid::__live_expose_part1(registry);
-    #[cfg(feature = "charts")]
-    crate::ChartIndicator::__live_expose_variants(registry);
-    #[cfg(feature = "charts")]
-    crate::ChartTooltip::__live_expose_fields(registry);
-    #[cfg(feature = "charts")]
-    crate::ChartTooltip::__live_expose(registry);
-    #[cfg(feature = "charts")]
-    crate::ChartTooltip::__live_expose_part1(registry);
-    #[cfg(feature = "charts")]
-    crate::ChartReference::__live_expose_fields(registry);
-    #[cfg(feature = "charts")]
-    crate::ChartReference::__live_expose(registry);
-    #[cfg(feature = "charts")]
-    crate::ChartBarFrom::__live_expose_variants(registry);
-    #[cfg(feature = "charts")]
-    crate::ChartLegend::__live_expose_variants(registry);
-    #[cfg(feature = "charts")]
-    crate::Chart::__live_expose_fields(registry);
-    #[cfg(feature = "charts")]
-    crate::Chart::__live_expose(registry);
-    #[cfg(feature = "charts")]
-    crate::Chart::__live_expose_part1(registry);
-    #[cfg(feature = "charts")]
-    crate::BarChart::__live_expose_fields(registry);
-    #[cfg(feature = "charts")]
-    crate::BarChart::__live_expose(registry);
-    #[cfg(feature = "charts")]
-    crate::AreaChart::__live_expose_fields(registry);
-    #[cfg(feature = "charts")]
-    crate::AreaChart::__live_expose(registry);
-    #[cfg(feature = "charts")]
-    crate::ChartCard::<crate::AnyView>::__live_expose(registry);
-    #[cfg(feature = "charts")]
-    crate::Barcode::__live_expose_fields(registry);
-    #[cfg(feature = "charts")]
-    crate::Barcode::__live_expose(registry);
     crate::ChatMedia::__live_expose_fields(registry);
     crate::ChatMedia::__live_expose(registry);
     crate::ChatAuthor::__live_expose_variants(registry);
@@ -832,22 +854,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::SelectionBar::__live_expose(registry);
     crate::AudioPlayerButton::__live_expose_fields(registry);
     crate::AudioPlayerButton::__live_expose(registry);
-    #[cfg(feature = "flow")]
-    crate::FlowViewport::__live_expose_fields(registry);
-    #[cfg(feature = "flow")]
-    crate::FlowViewport::__live_expose(registry);
-    #[cfg(feature = "flow")]
-    crate::FlowSelection::__live_expose_fields(registry);
-    #[cfg(feature = "flow")]
-    crate::FlowSelection::__live_expose(registry);
-    #[cfg(feature = "flow")]
-    crate::FlowKind::__live_expose_fields(registry);
-    #[cfg(feature = "flow")]
-    crate::FlowKind::__live_expose(registry);
-    #[cfg(feature = "flow")]
-    crate::FlowCanvas::__live_expose_fields(registry);
-    #[cfg(feature = "flow")]
-    crate::FlowCanvas::__live_expose(registry);
     #[cfg(feature = "code")]
     crate::RunOutput::__live_expose_fields(registry);
     #[cfg(feature = "code")]
@@ -859,12 +865,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::RichText::__live_expose_fields(registry);
     crate::RichText::__live_expose(registry);
     crate::RichText::__live_expose_part1(registry);
-    #[cfg(feature = "charts")]
-    crate::SankeyChart::__live_expose_fields(registry);
-    #[cfg(feature = "charts")]
-    crate::SankeyChart::__live_expose(registry);
-    #[cfg(feature = "charts")]
-    crate::SankeyChart::__live_expose_part1(registry);
     #[cfg(feature = "charts")]
     registry.alias("ChartCurve", "Curve");
     #[cfg(feature = "charts")]

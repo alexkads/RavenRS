@@ -6254,6 +6254,7 @@ dependencies = [
  "ravenrs-style",
  "ravenrs-text",
  "ravenrs-widgets-base",
+ "ravenrs-widgets-charts",
  "ravenrs-widgets-dock",
  "ravenrs-widgets-grid",
  "ravenrs-widgets-imaging",
@@ -6282,6 +6283,23 @@ dependencies = [
  "ravenrs-widgets",
  "serde",
  "tracing",
+]
+
+[[package]]
+name = "ravenrs-widgets-charts"
+version = "27.1.28"
+dependencies = [
+ "ravenrs-animation",
+ "ravenrs-core",
+ "ravenrs-graphics",
+ "ravenrs-layout",
+ "ravenrs-live",
+ "ravenrs-reactive",
+ "ravenrs-style",
+ "ravenrs-text",
+ "ravenrs-widgets",
+ "ravenrs-widgets-base",
+ "ravenrs-widgets-kit",
 ]
 
 [[package]]
