@@ -781,6 +781,8 @@ fn click_row(shared_result: &QueryResult, h: &Handles, mode: SelectionMode, row:
                 h.selection.set(BTreeSet::from([row]));
             }
         }
+        // The base may add more; they act as nothing here.
+        _ => {}
     }
     h.anchor.set(Some(index));
 }

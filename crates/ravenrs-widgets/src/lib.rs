@@ -35,101 +35,66 @@
 //! plays it. While only animations run, frames repeat the paint phase alone, so
 //! views are not rebuilt. When nothing moves, no frames are requested.
 
-mod button;
-mod calendar;
-mod canvas;
-mod card;
+// The base lives in its own crate; its modules keep their names here, so the components
+// write `crate::context::BuildCx` as before.
+#[allow(unused_imports)]
+use ravenrs_widgets_base::{
+    button, calendar, canvas, card, choice, clipboard, color_picker, context, date, display, dock_side,
+    extras, file_picker, fill, floating, full_screen, hotkey, icon, icon_set, ids, image, inputs, kbd,
+    labels, link_service, links, localized, modifiers, motion, motion_spec, overlay, page_motion, recurrence,
+    remote, reorder, scroll_link, scroll_scene, selection_mode, sound, stack, summary, text, text_field,
+    time_link, ui, util, view, zoom,
+};
+
 #[cfg(feature = "charts")]
 mod chart;
 mod chat;
-mod choice;
-mod clipboard;
 #[cfg(feature = "code")]
 mod code_editor;
-mod color_picker;
 mod commands;
-mod context;
 mod conversation;
 mod counter;
 mod data;
-mod date;
 mod diagnostics;
-mod display;
 mod dock;
 mod editors;
 mod event_calendar;
 mod expression_editor;
-mod extras;
-mod file_picker;
 mod files;
-mod fill;
 mod filter_builder;
-mod floating;
 #[cfg(feature = "flow")]
 mod flow;
 mod form_layout;
-mod full_screen;
 pub mod grid;
-mod hotkey;
-mod icon;
-mod icon_set;
-mod ids;
-mod image;
 mod imaging;
-mod inputs;
-mod kbd;
-mod labels;
-mod link_service;
-mod links;
 mod lists;
 #[cfg(feature = "live")]
 mod live;
 #[cfg(feature = "live")]
 mod live_list;
-mod localized;
 mod lookup;
 #[cfg(feature = "lottie")]
 mod lottie;
 mod model_picker;
-mod modifiers;
-mod motion;
-mod motion_spec;
 mod nav;
-mod overlay;
-mod page_motion;
 #[cfg(feature = "code")]
 mod playground;
 mod quad_field;
 mod quick_edit;
-mod recurrence;
 mod release_notes;
-mod remote;
-mod reorder;
 mod ribbon;
 mod rich_text;
 #[cfg(feature = "charts")]
 mod sankey;
 mod scheduler;
-mod scroll_link;
-mod scroll_scene;
-mod selection_mode;
 mod shortcuts;
-mod sound;
-mod stack;
 mod status;
 mod tag_box;
-mod text;
-mod text_field;
 mod theme;
 mod tiles;
-mod time_link;
 mod timeline;
 mod tree;
-pub(crate) mod ui;
-mod util;
-mod view;
 mod wizard;
-mod zoom;
 
 pub use button::{Button, ButtonGroup, ButtonSize, ButtonStyle, IconButton};
 pub use calendar::{Calendar, DatePicker, DateRange, DateRangePicker};
@@ -162,9 +127,9 @@ pub use date::{Date, days_in_month, is_leap_year};
 pub use diagnostics::{Diagnostics, DiagnosticsHost};
 pub use display::{Alert, AlertAction, Avatar, Badge, Divider, ProgressBar, Section, Skeleton, Stat, Tone};
 pub use dock::{
-    DockArea, DockChild, DockDrop, DockEdge, DockLayout, DockLayoutError, DockNode, DockPanel, DockSide,
-    DockTabBar,
+    DockArea, DockChild, DockDrop, DockEdge, DockLayout, DockLayoutError, DockNode, DockPanel, DockTabBar,
 };
+pub use dock_side::DockSide;
 pub use editors::{DateTime, DateTimePicker, MaskedField, NumberField, TextArea, Time, TimePicker};
 pub use event_calendar::{CalendarEvent, CalendarView, EventCalendar, RecurrenceEditor};
 pub use expression_editor::ExpressionEditor;
@@ -193,7 +158,7 @@ pub use grid::{
     CellAlign, CellEdit, ColumnLayout, DataGrid, FilterLayout, GridCellStyle, GridColumn, GridCurrent,
     GridData, GridExportFormat, GridLayout, GridPage, GridRequest, GridResponder, GridRowAction,
     GridScenario, GridTable, GridTableColumn, GridTableKind, NumberFormat, RemoteRows, SortDirection,
-    SortLayout, Summary, Value,
+    SortLayout, Value,
 };
 pub use hotkey::Hotkey;
 pub use icon::Icon;
@@ -266,6 +231,7 @@ pub use stack::{
 pub use status::{
     DaySeparator, Dot, EmptyState, HeroBanner, IconTile, MultiProgress, OverlayBadge, Rating, ShimmerText,
 };
+pub use summary::Summary;
 pub use tag_box::TagBox;
 pub use text::Text;
 pub use text_field::TextField;

@@ -1027,12 +1027,12 @@ impl View for Orb {
                         dragging.set(Some(drag.position));
                     }
                 }
-                DragPhase::End => {
-                    if dragged.get() {
-                        corner.set(FloatingCorner::nearest(drag.position, window));
-                        dragging.set(None);
-                    }
+                DragPhase::End if dragged.get() => {
+                    corner.set(FloatingCorner::nearest(drag.position, window));
+                    dragging.set(None);
                 }
+                // A drag that never left the sphere, and what the base may add, do nothing.
+                _ => {}
             }),
         );
         let corner = self.corner.clone();

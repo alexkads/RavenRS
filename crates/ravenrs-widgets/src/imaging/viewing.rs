@@ -344,6 +344,8 @@ impl View for CompareView {
                     DragPhase::Start => live.set_if_changed(true),
                     DragPhase::End => live.set_if_changed(false),
                     DragPhase::Move => {}
+                    // The base may add more; they act as nothing here.
+                    _ => {}
                 }
                 let share = d.fraction_x();
                 if share != dragged.get() {

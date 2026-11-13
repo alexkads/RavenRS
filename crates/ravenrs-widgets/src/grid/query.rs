@@ -362,6 +362,8 @@ fn summarize(summary: Summary, column: usize, rows: &[Row], indices: &[usize]) -
         }
         Summary::Min => values.filter_map(Value::as_f64).reduce(f64::min),
         Summary::Max => values.filter_map(Value::as_f64).reduce(f64::max),
+        // The base may add more.
+        _ => None,
     }
 }
 

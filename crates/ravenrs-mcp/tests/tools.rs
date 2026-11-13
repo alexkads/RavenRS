@@ -177,7 +177,7 @@ fn component_api_shows_signatures_docs_and_quality() {
     let button = &answer["matches"][0];
     assert_eq!(button["crate"], "ravenrs-widgets");
     assert_eq!(button["kind"], "struct");
-    assert!(button["source"].as_str().unwrap().starts_with("crates/ravenrs-widgets/src/button.rs:"));
+    assert!(button["source"].as_str().unwrap().starts_with("crates/ravenrs-widgets-base/src/button.rs:"));
     assert!(button["traits"].as_array().unwrap().contains(&json!("View")));
     assert!(button["quality"]["Keyboard"].as_str().unwrap().contains("Enter"));
     let methods = &button["methods"]["items"];

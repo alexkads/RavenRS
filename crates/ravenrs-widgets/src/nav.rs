@@ -159,6 +159,8 @@ impl TabButton {
         let (top, gap) = match self.size {
             ButtonSize::Medium | ButtonSize::Large => (8.0, 10.0),
             ButtonSize::Small | ButtonSize::Mini => (4.0, 6.0),
+            // The base may add more.
+            _ => (8.0, 10.0),
         };
         let style = LayoutStyle {
             padding: Insets { top, ..Insets::ZERO },

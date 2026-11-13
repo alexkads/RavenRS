@@ -724,6 +724,8 @@ impl View for RubberBand {
                             selection.set(None);
                         }
                     }
+                    // The base may add more; they act as nothing here.
+                    _ => {}
                 }
             }),
         );

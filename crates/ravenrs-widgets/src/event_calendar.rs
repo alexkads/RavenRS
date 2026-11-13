@@ -705,6 +705,8 @@ impl View for TimedChip<'_> {
                                 on_move(id, start.plus_minutes(minutes), end.plus_minutes(minutes));
                             }
                         }
+                        // The base may add more; they act as nothing here.
+                        _ => {}
                     }
                 }),
             );
