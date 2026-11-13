@@ -27,6 +27,7 @@
 //! ```
 
 mod action;
+mod action_types;
 mod appearance;
 mod controller;
 mod entity;
@@ -39,7 +40,9 @@ mod json;
 mod live_list;
 mod manifest;
 mod model;
+mod model_node;
 mod module;
+mod module_api;
 mod object;
 mod outbox;
 mod provider;
@@ -54,14 +57,18 @@ mod validation;
 mod workflow;
 
 pub use action::{
-    Action, ActionCategory, ActionContext, ActionError, ActionInput, ActionKind, ActionResult, ChoiceItem,
-    CriteriaMode, Message, MessageKind, Nesting, REASON_APPEARANCE, REASON_CONTROLLER, REASON_CRITERIA,
-    REASON_RUNNING, REASON_SCOPE, REASON_SECURITY, REASON_SELECTION, Reasons, Selection, TargetScope,
+    Action, ActionCategory, ActionContext, ActionError, ActionKind, ActionResult, ChoiceItem, CriteriaMode,
+    Message, Nesting, REASON_APPEARANCE, REASON_CONTROLLER, REASON_CRITERIA, REASON_RUNNING, REASON_SCOPE,
+    REASON_SECURITY, REASON_SELECTION, Reasons, TargetScope,
 };
-pub use appearance::{Appearance, AppearanceContext, AppearanceRule, AppearanceTarget, Tint};
+pub use action_types::{ActionInput, MessageKind};
+pub use appearance::Appearance;
 pub use controller::{ViewController, WindowController};
 pub use entity::{
-    DataAccess, EntityInfo, EnumOption, FieldInfo, FieldKind, ListFilter, ModelError, Object, ViewVariant,
+    AppearanceContext, AppearanceRule, AppearanceTarget, Comparison, DataAccess, EntityInfo, EnumOption,
+    FieldInfo, FieldKind, ListFilter, ModelError, ModelNode, Object, Operand, RecordAction, Reminder, Rule,
+    RuleKind, Selection, Severity, StateMachine, TextComparison, Tint, Transition, ViewVariant,
+    check_transitions, local_now,
 };
 pub use files::{AttachmentStore, MemoryAttachmentStore};
 pub use frame::{Frame, FrameContext, FrameEvent, ViewInfo, ViewKind};
@@ -72,13 +79,11 @@ pub use manifest::{GuardedObjectSpace, ModuleManifest, Target, Version, VersionR
 #[cfg(not(target_arch = "wasm32"))]
 pub use model::FileStore;
 pub use model::{
-    Diff, EmbeddedStore, MemoryModelStore, MergedModel, ModelLayer, ModelLayers, ModelNode, ModelStore,
-    StoredModel, UnusableNode, check_model, generate_model,
+    Diff, EmbeddedStore, MemoryModelStore, MergedModel, ModelLayer, ModelLayers, ModelStore, StoredModel,
+    UnusableNode, check_model, generate_model,
 };
-pub use module::{
-    Application, ApplicationBuilder, DashboardContent, DashboardInfo, DashboardItem, Module, Notice,
-    NoticeKind,
-};
+pub use module::{Application, ApplicationBuilder};
+pub use module_api::{DashboardContent, DashboardInfo, DashboardItem, Module, Notice, NoticeKind};
 pub use object::{BusinessObject, FieldValue, ObjectSpaceExt};
 pub use outbox::{
     Dispatcher, Emitted, Event, OUTBOX_EVENT, OUTBOX_REPROCESS, OutboxModule, Report, outbox_entity,
@@ -89,7 +94,7 @@ pub use ravenrs_app_derive::{BusinessEnum, BusinessObject};
 pub use ravenrs_core::FileStorage;
 pub use ravenrs_core::{MemoryStorage, Storage};
 pub use ravenrs_criteria::{Criteria, Value};
-pub use record_action::RecordAction;
+
 pub use records::{
     AppRecordsModule, DRAFT_ENTITY, Draft, SEQUENCE_ENTITY, draft_entity, drafts, next_number, save_draft,
     sequence_entity, take_draft,
@@ -112,11 +117,8 @@ pub use space::{
     Change, ChangeSet, MemoryDatabase, MemoryObjectSpace, Merged, ObjectSpace, Query, SpaceError, SpaceEvent,
     SpaceWatcher, check_query, key_of, key_text, merge_changes, run_query,
 };
-pub use validation::{
-    CONTEXT_DELETE, CONTEXT_SAVE, Comparison, Operand, Rule, RuleKind, RuleWords, Severity, TextComparison,
-    Violation, validate, validate_in_place,
-};
-pub use workflow::{Reminder, StateMachine, Transition, check_transitions, local_now, reminders_of};
+pub use validation::{CONTEXT_DELETE, CONTEXT_SAVE, RuleWords, Violation, validate, validate_in_place};
+pub use workflow::reminders_of;
 
 /// Registers this crate's types with a playground's interpreter (feature `live`).
 #[cfg(feature = "live")]

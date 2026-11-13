@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use super::node::ModelNode;
+use crate::model_node::ModelNode;
 use crate::{DashboardContent, DashboardInfo, EntityInfo, FieldInfo, ModelError};
 
 /// More simple fields than this and a form's group uses two columns.

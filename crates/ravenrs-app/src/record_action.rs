@@ -1,46 +1,14 @@
 //! Actions declared as data: on the records selected, they set fields to expressions, check the
 //! rules and keep what passes. No code runs but the expressions.
 
-use ravenrs_criteria::{Criteria, Scope};
+use ravenrs_criteria::Criteria;
 
+use crate::action::assignments;
+pub use crate::entity::record_actions::RecordAction;
 use crate::{
-    Action, ActionCategory, CONTEXT_SAVE, CriteriaMode, EntityInfo, ModelError, Module, Operation, RuleWords,
-    Selection, SpaceError, ViewController, Violation,
+    Action, ActionCategory, CriteriaMode, EntityInfo, ModelError, Module, Operation, Selection,
+    ViewController,
 };
-
-/// An action of an entity that sets fields of the records selected.
-///
-/// ```
-/// use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, RecordAction};
-///
-/// let task = EntityInfo::new("Task")
-///     .field(FieldInfo::new("id", FieldKind::Integer).key())
-///     .field(FieldInfo::new("state", FieldKind::Text))
-///     .action(
-///         RecordAction::new("Finish")
-///             .enabled("[state] <> 'done'")
-///             .set("state = 'done'")
-///             .confirm("Finish the tasks?"),
-///     );
-/// assert!(task.check().is_ok());
-/// ```
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[non_exhaustive]
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
-pub struct RecordAction {
-    /// What its button says.
-    pub caption: String,
-    /// Its id; `Entity.Caption` unless given.
-    pub id: Option<String>,
-    /// How many records it takes: one or more unless given.
-    pub selection: Selection,
-    /// An expression every record selected has to meet for it to be on.
-    pub enabled: Option<String>,
-    /// What it sets: `field = expression; ...`, each read from the record as it was.
-    pub set: String,
-    /// The question asked before it runs.
-    pub confirm: Option<String>,
-}
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RecordAction {
@@ -117,73 +85,6 @@ impl RecordAction {
         }
         assignments(entity, &self.set).map(drop).map_err(wrong)
     }
-}
-
-/// The assignments of an action, with the fields checked against the entity.
-pub(crate) fn assignments(entity: &EntityInfo, text: &str) -> Result<Vec<(String, Criteria)>, String> {
-    let found = Criteria::assignments(text).map_err(|e| e.to_string())?;
-    if found.is_empty() {
-        return Err("it sets nothing".to_owned());
-    }
-    for (field, _) in &found {
-        if !entity.fields.iter().any(|known| &known.name == field) {
-            return Err(format!("{} has no field {field}", entity.name));
-        }
-    }
-    Ok(found)
-}
-
-/// Sets the fields of every record selected, checks each against its rules and keeps them all,
-/// or none.
-pub(crate) fn assign(
-    entity: &EntityInfo,
-    set: &[(String, Criteria)],
-    cx: &crate::ActionContext,
-) -> Result<(), String> {
-    let key = entity.key_field().map(|key| key.name.clone()).unwrap_or_default();
-    let words = cx.service::<RuleWords>().map(|words| (*words).clone()).unwrap_or_default();
-    let environment = crate::environment().at(crate::local_now());
-    let mut space = cx.space.borrow_mut();
-    let result = (|| {
-        for record in &cx.selected {
-            let mut stored =
-                space.find(&entity.name, &record.get(&key)).map_err(|e| e.to_string())?.ok_or_else(|| {
-                    SpaceError::Conflict(format!("a record of {} is gone", entity.name)).to_string()
-                })?;
-            let values = {
-                let scope = Scope::new(&environment).row(&stored);
-                set.iter()
-                    .map(|(field, expression)| {
-                        scope
-                            .evaluate(expression)
-                            .map(|value| (field, value))
-                            .map_err(|e| format!("{field}: {e}"))
-                    })
-                    .collect::<Result<Vec<_>, String>>()?
-            };
-            for (field, value) in values {
-                stored.set(field, value);
-            }
-            let wrong: Vec<String> = crate::validate(entity, &stored, CONTEXT_SAVE, &*space, &words)
-                .into_iter()
-                .filter(Violation::is_error)
-                .map(|violation| violation.message)
-                .collect();
-            if !wrong.is_empty() {
-                return Err(wrong.join("; "));
-            }
-            space.save(stored).map_err(|e| e.to_string())?;
-        }
-        space.commit().map_err(|e| e.to_string())
-    })();
-    if result.is_err() {
-        space.rollback();
-    }
-    drop(space);
-    if result.is_ok() {
-        cx.records_changed();
-    }
-    result
 }
 
 struct Declared {

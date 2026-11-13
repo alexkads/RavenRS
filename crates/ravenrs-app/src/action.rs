@@ -8,8 +8,12 @@ use std::rc::Rc;
 use ravenrs_criteria::{Criteria, Environment, Scope, Value};
 use ravenrs_reactive::State;
 
+pub use crate::entity::record_actions::Selection;
 use crate::frame::{FrameContext, ViewInfo, ViewKind};
-use crate::{EntityInfo, FieldKind, ModelError, Object, ObjectSpace};
+use crate::{
+    ActionInput, CONTEXT_SAVE, EntityInfo, FieldKind, MessageKind, ModelError, Object, ObjectSpace,
+    RuleWords, SpaceError, Violation,
+};
 
 /// The reason an action or a controller is off because its view is not the one it targets.
 pub const REASON_SCOPE: &str = "scope";
@@ -54,19 +58,6 @@ impl Reasons {
     pub fn against(&self) -> impl Iterator<Item = &str> {
         self.0.iter().filter(|(_, on)| !**on).map(|(reason, _)| reason.as_str())
     }
-}
-
-/// What an action needs selected to be enabled.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
-pub enum Selection {
-    /// Nothing in particular.
-    #[default]
-    Independent,
-    /// Exactly one record.
-    RequireSingle,
-    /// One record or more.
-    RequireMultiple,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -265,38 +256,6 @@ pub enum ActionResult {
     RecordsChanged,
     /// Its work started away from the screen, as the job with this id.
     Started(u64),
-}
-
-/// What people gave an action that asks for something.
-#[derive(Clone, Debug, Default, PartialEq)]
-#[non_exhaustive]
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
-pub enum ActionInput {
-    /// Nothing.
-    #[default]
-    None,
-    /// The option picked.
-    Choice(String),
-    /// The value typed.
-    Parameter(Value),
-    /// The record filled in on a form.
-    Record(Object),
-}
-
-/// How much a [`Message`] matters.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[non_exhaustive]
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
-pub enum MessageKind {
-    /// Something to know.
-    #[default]
-    Information,
-    /// It went well.
-    Success,
-    /// Something to look at.
-    Warning,
-    /// It went badly.
-    Error,
 }
 
 /// Something to tell people, which goes away by itself.
@@ -732,10 +691,10 @@ impl Action {
     /// assert_eq!(finish.caption(), "Concluir");
     /// ```
     pub fn assign(self, entity: &EntityInfo, set: &str) -> Self {
-        match crate::record_action::assignments(entity, set) {
+        match assignments(entity, set) {
             Ok(found) => {
                 let entity = entity.clone();
-                self.on_execute(move |cx| crate::record_action::assign(&entity, &found, cx))
+                self.on_execute(move |cx| assign(&entity, &found, cx))
             }
             Err(problem) => self.change(|a| a.problem = Some(problem)),
         }
@@ -981,6 +940,74 @@ pub(crate) fn fill_url(template: &str, object: Option<&Object>) -> String {
     }
     out.push_str(rest);
     out
+}
+
+// What a declared record action does when it runs: read what it sets, and set it.
+/// The assignments of an action, with the fields checked against the entity.
+pub(crate) fn assignments(entity: &EntityInfo, text: &str) -> Result<Vec<(String, Criteria)>, String> {
+    let found = Criteria::assignments(text).map_err(|e| e.to_string())?;
+    if found.is_empty() {
+        return Err("it sets nothing".to_owned());
+    }
+    for (field, _) in &found {
+        if !entity.fields.iter().any(|known| &known.name == field) {
+            return Err(format!("{} has no field {field}", entity.name));
+        }
+    }
+    Ok(found)
+}
+
+/// Sets the fields of every record selected, checks each against its rules and keeps them all,
+/// or none.
+pub(crate) fn assign(
+    entity: &EntityInfo,
+    set: &[(String, Criteria)],
+    cx: &crate::ActionContext,
+) -> Result<(), String> {
+    let key = entity.key_field().map(|key| key.name.clone()).unwrap_or_default();
+    let words = cx.service::<RuleWords>().map(|words| (*words).clone()).unwrap_or_default();
+    let environment = crate::environment().at(crate::local_now());
+    let mut space = cx.space.borrow_mut();
+    let result = (|| {
+        for record in &cx.selected {
+            let mut stored =
+                space.find(&entity.name, &record.get(&key)).map_err(|e| e.to_string())?.ok_or_else(|| {
+                    SpaceError::Conflict(format!("a record of {} is gone", entity.name)).to_string()
+                })?;
+            let values = {
+                let scope = Scope::new(&environment).row(&stored);
+                set.iter()
+                    .map(|(field, expression)| {
+                        scope
+                            .evaluate(expression)
+                            .map(|value| (field, value))
+                            .map_err(|e| format!("{field}: {e}"))
+                    })
+                    .collect::<Result<Vec<_>, String>>()?
+            };
+            for (field, value) in values {
+                stored.set(field, value);
+            }
+            let wrong: Vec<String> = crate::validate(entity, &stored, CONTEXT_SAVE, &*space, &words)
+                .into_iter()
+                .filter(Violation::is_error)
+                .map(|violation| violation.message)
+                .collect();
+            if !wrong.is_empty() {
+                return Err(wrong.join("; "));
+            }
+            space.save(stored).map_err(|e| e.to_string())?;
+        }
+        space.commit().map_err(|e| e.to_string())
+    })();
+    if result.is_err() {
+        space.rollback();
+    }
+    drop(space);
+    if result.is_ok() {
+        cx.records_changed();
+    }
+    result
 }
 
 #[cfg(test)]

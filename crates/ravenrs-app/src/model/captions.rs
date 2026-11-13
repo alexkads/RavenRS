@@ -3,7 +3,7 @@
 use serde_json::{Map, Value as Json};
 
 use super::layers::Diff;
-use super::node::ModelNode;
+use crate::model_node::ModelNode;
 use crate::{EntityInfo, ModelError};
 
 /// A cell of a CSV line, quoted when it has to be.

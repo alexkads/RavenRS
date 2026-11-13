@@ -158,7 +158,7 @@ pub(crate) fn emit<S: ObjectSpace + ?Sized>(space: &mut S, event: &Event) -> Res
     record.set("payload", event.payload.clone());
     record.set("state", "pending");
     record.set("attempts", 0.0);
-    let at = event.at.unwrap_or_else(crate::workflow::local_now);
+    let at = event.at.unwrap_or_else(crate::local_now);
     record.set("created_at", Value::Date(at));
     record.set("next_at", Value::Date(at));
     space.insert(record)?;
@@ -223,7 +223,7 @@ impl Dispatcher {
 
     /// Sends what is due and checks what was sent with no answer, by the clock of this machine.
     pub fn run(&self, space: &mut dyn ObjectSpace, sink: &dyn EventSink) -> Result<Report, SpaceError> {
-        self.run_at(space, sink, crate::workflow::local_now())
+        self.run_at(space, sink, crate::local_now())
     }
 
     /// As [`run`](Self::run), as someone granted the work: who they are is read again first, so a
