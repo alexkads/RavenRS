@@ -8,6 +8,7 @@ use ravenrs_style::Theme;
 /// the [`Ui`](crate::Ui) whenever the system changes; while it is followed, the theme becomes
 /// Raven Dark or Raven Light to match. Choosing a theme by hand stops following.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SystemAppearance {
     dark: State<Option<bool>>,
     follow: State<bool>,
@@ -28,6 +29,7 @@ impl std::fmt::Debug for SystemAppearance {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SystemAppearance {
     /// Whether the system is dark, when the platform knows.
     pub fn dark(&self) -> Option<bool> {

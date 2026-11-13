@@ -409,6 +409,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Summary::__live_expose_variants(registry);
     crate::Summary::__live_expose(registry);
     crate::Labels::__live_expose_part3(registry);
+    crate::SystemAppearance::__live_expose_fields(registry);
+    crate::SystemAppearance::__live_expose(registry);
     crate::Text::__live_expose_fields(registry);
     crate::Text::__live_expose(registry);
     crate::TextField::__live_expose_fields(registry);
