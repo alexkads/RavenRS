@@ -134,6 +134,8 @@ struct SessionInner {
     locked: State<Option<Lock>>,
     /// Something that takes the place of the view, as an editor of its own does.
     full: State<Option<ControlFactory>>,
+    /// Whether people may switch the theme, which the shell says and editors of their own follow.
+    theme_menu: Rc<std::cell::Cell<bool>>,
     /// How many reminders are due, and whether they are showing.
     reminders: State<(usize, bool)>,
     form_caption: RefCell<Option<FormCaption>>,
@@ -216,6 +218,7 @@ impl Session {
             jobs: Rc::new(crate::session::background::Jobs::default()),
             locked: State::new(None),
             full: State::new(None),
+            theme_menu: Rc::new(std::cell::Cell::new(true)),
             reminders: State::new((0, false)),
             form_caption: RefCell::default(),
             lists_field_errors: Cell::new(true),
@@ -294,6 +297,7 @@ impl Session {
             jobs: parent.jobs.clone(),
             locked: parent.locked.clone(),
             full: parent.full.clone(),
+            theme_menu: parent.theme_menu.clone(),
             reminders: parent.reminders.clone(),
             form_caption: RefCell::new(parent.form_caption.borrow().clone()),
             lists_field_errors: Cell::new(parent.lists_field_errors.get()),
@@ -982,6 +986,17 @@ impl Session {
     }
 
     /// Hands exported files over to this, as a name and its bytes.
+    /// Whether people may switch the theme. An application that keeps a look of its own says no
+    /// through [`AppShell::without_theme_menu`](crate::AppShell::without_theme_menu), and the
+    /// screens that take the whole window, as the report designer, leave the choice out too.
+    pub fn theme_menu(&self) -> bool {
+        self.0.theme_menu.get()
+    }
+
+    pub(crate) fn set_theme_menu(&self, offered: bool) {
+        self.0.theme_menu.set(offered);
+    }
+
     pub(crate) fn set_on_file(&self, handler: FileHandler) {
         *self.0.on_file.borrow_mut() = Some(handler);
     }

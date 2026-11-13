@@ -89,6 +89,8 @@ pub struct WindowOptions {
     /// Theme the UI starts with. The view can change it later, as with a light and dark
     /// switch; this is only the first frame's.
     pub theme: Theme,
+    /// Whether the theme follows the system between Raven Dark and Raven Light.
+    pub follow_system_theme: bool,
 }
 
 impl Default for WindowOptions {
@@ -98,6 +100,7 @@ impl Default for WindowOptions {
             size: Size::new(960.0, 640.0),
             min_size: Some(Size::new(320.0, 240.0)),
             theme: Theme::default(),
+            follow_system_theme: false,
         }
     }
 }
@@ -125,6 +128,13 @@ impl WindowOptions {
     /// Sets the theme the UI starts with.
     pub fn theme(mut self, theme: Theme) -> Self {
         self.theme = theme;
+        self
+    }
+
+    /// Makes the theme follow the system between Raven Dark and Raven Light, and switch
+    /// whenever the system does, until someone chooses a theme by hand.
+    pub fn follow_system_theme(mut self) -> Self {
+        self.follow_system_theme = true;
         self
     }
 }
@@ -338,6 +348,9 @@ fn run_window(
         Some(labels) => Ui::new(Localized::new(labels, root), options.theme),
         None => Ui::new(root, options.theme),
     };
+    if options.follow_system_theme {
+        ui.follow_system_theme(true);
+    }
     let wake = event_loop.create_proxy();
     ui.set_remote_waker(move || {
         // It only fails once the loop is gone, when there is nothing left to wake.
@@ -513,6 +526,9 @@ impl App {
             accesskit_winit::Adapter::with_event_loop_proxy(event_loop, &window, self.proxy.clone());
         self.access = Some(Access { adapter, active: false, last: None });
         *self.screen_window.borrow_mut() = Arc::downgrade(&window);
+        if let Some(theme) = window.theme() {
+            self.ui.set_system_dark(theme == winit::window::Theme::Dark);
+        }
         self.init_gpu(window)
     }
 
@@ -934,6 +950,12 @@ impl ApplicationHandler<UserEvent> for App {
             access.adapter.process_event(&state.window, &event);
         }
         match event {
+            WindowEvent::ThemeChanged(theme) => {
+                self.ui.set_system_dark(theme == winit::window::Theme::Dark);
+                if let Some(state) = &self.window {
+                    state.window.request_redraw();
+                }
+            }
             WindowEvent::CloseRequested => {
                 if !self.close_to_tray(event_loop) {
                     event_loop.exit();

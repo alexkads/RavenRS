@@ -98,8 +98,8 @@ use ravenrs_widgets_base::{
     button, calendar, canvas, card, choice, clipboard, color_picker, context, date, display, dock_side,
     extras, file_picker, fill, floating, full_screen, hotkey, icon, icon_set, ids, image, inputs, kbd,
     labels, link_service, links, localized, modifiers, motion, motion_spec, overlay, page_motion, recurrence,
-    remote, reorder, scroll_link, scroll_scene, selection_mode, sound, stack, summary, text, text_field,
-    time_link, ui, util, view, zoom,
+    remote, reorder, scroll_link, scroll_scene, selection_mode, sound, stack, summary, system_appearance,
+    text, text_field, time_link, ui, util, view, zoom,
 };
 #[allow(unused_imports)]
 use ravenrs_widgets_kit::{
@@ -249,6 +249,7 @@ pub use status::{
     DaySeparator, Dot, EmptyState, HeroBanner, IconTile, MultiProgress, OverlayBadge, Rating, ShimmerText,
 };
 pub use summary::Summary;
+pub use system_appearance::SystemAppearance;
 pub use tag_box::TagBox;
 pub use text::Text;
 pub use text_field::TextField;

@@ -50,6 +50,7 @@ mod simple_pieces;
 mod splash;
 mod status_bar;
 mod structural_extensions;
+mod system_theme;
 mod timeline;
 mod ui;
 mod widget_extensions;

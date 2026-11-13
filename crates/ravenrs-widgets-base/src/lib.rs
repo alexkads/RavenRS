@@ -91,6 +91,8 @@ pub mod stack;
 #[doc(hidden)]
 pub mod summary;
 #[doc(hidden)]
+pub mod system_appearance;
+#[doc(hidden)]
 pub mod text;
 #[doc(hidden)]
 pub mod text_field;
@@ -163,6 +165,7 @@ pub use stack::{
     ToolRail, ToolRailItem, VStack, ZStack,
 };
 pub use summary::Summary;
+pub use system_appearance::SystemAppearance;
 pub use text::Text;
 pub use text_field::TextField;
 pub use time_link::TimeLink;

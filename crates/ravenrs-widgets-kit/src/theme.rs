@@ -51,6 +51,8 @@ impl View for ThemePicker {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let labels = cx.labels();
         let state = cx.theme_state();
+        let system = cx.system_appearance();
+        let following = system.follows();
         let on = state.with(|theme| theme.name);
         // Those that come with RavenRS have words in each language and an icon of their own.
         let look = |theme: &Theme| match theme.name {
@@ -59,14 +61,30 @@ impl View for ThemePicker {
             "Raven Glass" => (labels.theme_glass.clone(), IconName::Layers),
             other => (other.to_owned(), IconName::Palette),
         };
-        let current =
-            self.themes.iter().find(|theme| theme.name == on).map_or(IconName::Palette, |t| look(t).1);
+        let current = if following {
+            IconName::Monitor
+        } else {
+            self.themes.iter().find(|theme| theme.name == on).map_or(IconName::Palette, |t| look(t).1)
+        };
         let mut menu = DropdownMenu::new(labels.theme.clone()).icon(current).size(ButtonSize::Small);
+        // Following the system is offered only where the platform says what the system is.
+        if system.dark().is_some() {
+            let (system, state) = (system.clone(), state.clone());
+            let shown = if following { IconName::Check } else { IconName::Monitor };
+            menu = menu.item(
+                MenuItem::new(labels.theme_system.clone())
+                    .icon(shown)
+                    .on_select(move || system.set_follow(true, &state)),
+            );
+        }
         for theme in &self.themes {
             let (caption, icon) = look(theme);
-            let (state, theme) = (state.clone(), *theme);
-            let shown = if theme.name == on { IconName::Check } else { icon };
-            menu = menu.item(MenuItem::new(caption).icon(shown).on_select(move || state.set(theme)));
+            let (state, theme, system) = (state.clone(), *theme, system.clone());
+            let shown = if theme.name == on && !following { IconName::Check } else { icon };
+            menu = menu.item(MenuItem::new(caption).icon(shown).on_select(move || {
+                system.set_follow(false, &state);
+                state.set(theme);
+            }));
         }
         cx.child(&menu)
     }

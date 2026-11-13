@@ -290,6 +290,8 @@ pub struct Labels {
     pub theme_light: String,
     /// The glass theme.
     pub theme_glass: String,
+    /// Following the system between light and dark.
+    pub theme_system: String,
     /// A theme editor's group: backgrounds and borders.
     pub theme_surfaces: String,
     /// A theme editor's group: the colors of text.
@@ -998,6 +1000,7 @@ impl Labels {
             theme_dark: texts.get("widgets.theme_dark"),
             theme_light: texts.get("widgets.theme_light"),
             theme_glass: texts.get("widgets.theme_glass"),
+            theme_system: texts.get("widgets.theme_system"),
             theme_surfaces: texts.get("widgets.theme_surfaces"),
             theme_text: texts.get("widgets.theme_text"),
             theme_accent: texts.get("widgets.theme_accent"),

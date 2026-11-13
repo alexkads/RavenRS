@@ -257,6 +257,7 @@ impl AppShell {
     /// Keeps people on the theme the application started with, for one that has a look of its own.
     pub fn without_theme_menu(mut self) -> Self {
         self.theme_menu = false;
+        self.session.set_theme_menu(false);
         self
     }
 

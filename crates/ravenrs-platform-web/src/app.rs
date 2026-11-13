@@ -27,6 +27,8 @@ pub struct WebOptions {
     pub canvas_id: String,
     /// The theme the app starts with.
     pub theme: Theme,
+    /// Whether the theme follows the system between Raven Dark and Raven Light.
+    pub follow_system_theme: bool,
     /// Mirrors the UI as invisible ARIA elements for screen readers (on by default).
     pub accessibility: bool,
     /// Which browser graphics API draws the canvas.
@@ -65,6 +67,7 @@ impl WebOptions {
         Self {
             canvas_id: canvas_id.into(),
             theme: Theme::default(),
+            follow_system_theme: false,
             accessibility: true,
             backend: WebBackend::Auto,
         }
@@ -73,6 +76,13 @@ impl WebOptions {
     /// Draws with this graphics API instead of choosing one.
     pub fn backend(mut self, backend: WebBackend) -> Self {
         self.backend = backend;
+        self
+    }
+
+    /// Makes the theme follow the system between Raven Dark and Raven Light, and switch
+    /// whenever the system does, until someone chooses a theme by hand.
+    pub fn follow_system_theme(mut self) -> Self {
+        self.follow_system_theme = true;
         self
     }
 
@@ -673,6 +683,9 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
         },
     });
     let mut ui = Ui::new(DiagnosticsHost::new(root, diagnostics.clone()), options.theme);
+    if options.follow_system_theme {
+        ui.follow_system_theme(true);
+    }
     ui.set_clipboard(BrowserClipboard);
     ui.set_links(BrowserLinks);
     ui.set_full_screen(BrowserFullScreen);
@@ -834,6 +847,23 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
             closure: Closure::new(move |_e: web_sys::Event| {
                 let Ok(mut s) = ui_state.try_borrow_mut() else { return };
                 s.ui.set_reduced_motion(watched.matches());
+                drop(s);
+                sched.schedule();
+            }),
+        });
+    }
+    // Says whether the system is dark, now and whenever it changes.
+    if let Some(query) =
+        web_sys::window().and_then(|w| w.match_media("(prefers-color-scheme: dark)").ok().flatten())
+    {
+        state.borrow_mut().ui.set_system_dark(query.matches());
+        let (ui_state, sched, watched) = (state.clone(), scheduler.clone(), query.clone());
+        app.listeners.push(Listener {
+            target: query.into(),
+            kind: "change",
+            closure: Closure::new(move |_e: web_sys::Event| {
+                let Ok(mut s) = ui_state.try_borrow_mut() else { return };
+                s.ui.set_system_dark(watched.matches());
                 drop(s);
                 sched.schedule();
             }),
