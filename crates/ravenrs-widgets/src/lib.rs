@@ -56,6 +56,7 @@ mod date;
 mod diagnostics;
 mod display;
 mod dock;
+mod dock_side;
 mod editors;
 mod event_calendar;
 mod expression_editor;
@@ -117,6 +118,7 @@ mod shortcuts;
 mod sound;
 mod stack;
 mod status;
+mod summary;
 mod tag_box;
 mod text;
 mod text_field;
@@ -162,9 +164,9 @@ pub use date::{Date, days_in_month, is_leap_year};
 pub use diagnostics::{Diagnostics, DiagnosticsHost};
 pub use display::{Alert, AlertAction, Avatar, Badge, Divider, ProgressBar, Section, Skeleton, Stat, Tone};
 pub use dock::{
-    DockArea, DockChild, DockDrop, DockEdge, DockLayout, DockLayoutError, DockNode, DockPanel, DockSide,
-    DockTabBar,
+    DockArea, DockChild, DockDrop, DockEdge, DockLayout, DockLayoutError, DockNode, DockPanel, DockTabBar,
 };
+pub use dock_side::DockSide;
 pub use editors::{DateTime, DateTimePicker, MaskedField, NumberField, TextArea, Time, TimePicker};
 pub use event_calendar::{CalendarEvent, CalendarView, EventCalendar, RecurrenceEditor};
 pub use expression_editor::ExpressionEditor;
@@ -193,7 +195,7 @@ pub use grid::{
     CellAlign, CellEdit, ColumnLayout, DataGrid, FilterLayout, GridCellStyle, GridColumn, GridCurrent,
     GridData, GridExportFormat, GridLayout, GridPage, GridRequest, GridResponder, GridRowAction,
     GridScenario, GridTable, GridTableColumn, GridTableKind, NumberFormat, RemoteRows, SortDirection,
-    SortLayout, Summary, Value,
+    SortLayout, Value,
 };
 pub use hotkey::Hotkey;
 pub use icon::Icon;
@@ -266,6 +268,7 @@ pub use stack::{
 pub use status::{
     DaySeparator, Dot, EmptyState, HeroBanner, IconTile, MultiProgress, OverlayBadge, Rating, ShimmerText,
 };
+pub use summary::Summary;
 pub use tag_box::TagBox;
 pub use text::Text;
 pub use text_field::TextField;

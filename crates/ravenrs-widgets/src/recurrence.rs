@@ -392,7 +392,7 @@ impl Iterator for Occurrences {
 }
 
 // The words for a rule live with the rule, so `labels` does not depend on `recurrence`.
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part3"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part2"))]
 impl Labels {
     /// The word for one period of this frequency; `count` picks singular or plural.
     pub fn recurrence_unit(&self, frequency: Frequency, count: u32) -> &str {

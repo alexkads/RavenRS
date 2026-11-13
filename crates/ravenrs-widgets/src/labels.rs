@@ -856,7 +856,7 @@ impl Default for Labels {
     }
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part2"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Labels {
     /// The texts of a catalog, in its language. What it does not have comes from English.
     pub fn from_texts(texts: &Texts) -> Self {

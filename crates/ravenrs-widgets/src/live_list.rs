@@ -346,8 +346,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::DockArea::__live_expose_fields(registry);
     crate::DockArea::__live_expose(registry);
     crate::DockArea::__live_expose_part1(registry);
-    crate::DockSide::__live_expose_variants(registry);
-    crate::DockSide::__live_expose(registry);
     crate::DockEdge::__live_expose_variants(registry);
     crate::DockDrop::__live_expose_variants(registry);
     crate::DockNode::__live_expose_variants(registry);
@@ -356,6 +354,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::DockLayout::__live_expose_fields(registry);
     crate::DockLayoutError::__live_expose_variants(registry);
     crate::DockLayout::__live_expose(registry);
+    crate::DockSide::__live_expose_variants(registry);
+    crate::DockSide::__live_expose(registry);
     crate::Labels::__live_expose(registry);
     crate::TextArea::__live_expose_fields(registry);
     crate::TextArea::__live_expose(registry);
@@ -477,8 +477,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Value::__live_expose(registry);
     crate::SortDirection::__live_expose_variants(registry);
     crate::SortDirection::__live_expose(registry);
-    crate::Summary::__live_expose_variants(registry);
-    crate::Summary::__live_expose(registry);
     crate::CellAlign::__live_expose_variants(registry);
     crate::NumberFormat::__live_expose_fields(registry);
     crate::NumberFormat::__live_expose(registry);
@@ -486,7 +484,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::GridColumn::__live_expose(registry);
     crate::GridData::__live_expose_fields(registry);
     crate::GridData::__live_expose(registry);
-    crate::Labels::__live_expose_part1(registry);
     crate::GridExportFormat::__live_expose_variants(registry);
     crate::GridTableKind::__live_expose_variants(registry);
     crate::GridTableColumn::__live_expose_fields(registry);
@@ -599,7 +596,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Kbd::__live_expose_fields(registry);
     crate::Kbd::__live_expose(registry);
     crate::Labels::__live_expose_fields(registry);
-    crate::Labels::__live_expose_part2(registry);
+    crate::Labels::__live_expose_part1(registry);
     crate::Links::__live_expose_fields(registry);
     crate::Links::__live_expose(registry);
     crate::Link::__live_expose_fields(registry);
@@ -718,7 +715,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::RecurrenceRule::__live_expose(registry);
     crate::RecurrenceSet::__live_expose_fields(registry);
     crate::RecurrenceSet::__live_expose(registry);
-    crate::Labels::__live_expose_part3(registry);
+    crate::Labels::__live_expose_part2(registry);
     crate::CodeBlock::__live_expose_fields(registry);
     crate::CodeBlock::__live_expose(registry);
     crate::ReleaseNote::__live_expose_fields(registry);
@@ -813,6 +810,9 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::ShimmerText::__live_expose(registry);
     crate::DaySeparator::__live_expose_fields(registry);
     crate::DaySeparator::__live_expose(registry);
+    crate::Summary::__live_expose_variants(registry);
+    crate::Summary::__live_expose(registry);
+    crate::Labels::__live_expose_part3(registry);
     crate::TagBox::__live_expose_fields(registry);
     crate::TagBox::__live_expose(registry);
     crate::Text::__live_expose_fields(registry);

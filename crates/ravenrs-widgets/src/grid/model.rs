@@ -9,7 +9,7 @@ use ravenrs_reactive::State;
 
 use crate::AnyView;
 use crate::date::Date;
-use crate::labels::Labels;
+pub use crate::summary::Summary;
 
 /// A cell value.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -133,37 +133,6 @@ impl SortDirection {
         match self {
             SortDirection::Ascending => o,
             SortDirection::Descending => o.reverse(),
-        }
-    }
-}
-
-/// An aggregate shown in group rows and in the footer.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[non_exhaustive]
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
-pub enum Summary {
-    /// Number of non-empty cells.
-    Count,
-    /// Sum of the numeric values.
-    Sum,
-    /// Mean of the numeric values.
-    Average,
-    /// Smallest numeric value.
-    Min,
-    /// Largest numeric value.
-    Max,
-}
-
-#[cfg_attr(feature = "live", ravenrs_live::expose)]
-impl Summary {
-    /// Short caption shown before the aggregate ("Sum", "Avg"…).
-    pub fn label(self) -> &'static str {
-        match self {
-            Summary::Count => "Count",
-            Summary::Sum => "Sum",
-            Summary::Average => "Avg",
-            Summary::Min => "Min",
-            Summary::Max => "Max",
         }
     }
 }
@@ -563,20 +532,6 @@ impl GridData {
 }
 
 // A footer's word for each summary lives with `Summary`, so `labels` does not depend on the grid.
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
-impl Labels {
-    /// What a grid's footer calls this summary.
-    pub fn summary(&self, summary: Summary) -> &str {
-        let index = match summary {
-            Summary::Count => 0,
-            Summary::Sum => 1,
-            Summary::Average => 2,
-            Summary::Min => 3,
-            _ => 4,
-        };
-        &self.grid_summaries[index]
-    }
-}
 
 #[cfg(test)]
 mod tests {
