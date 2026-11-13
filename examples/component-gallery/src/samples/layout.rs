@@ -74,9 +74,21 @@ fn scroll_scene() -> impl View {
         step("2. Layout", "Only what read it moves.", 0.33, 0.66),
         step("3. Paint", "The GPU draws the frame.", 0.66, 2.0),
     ));
+    // Marks name points of the scene: a link to one scrolls until the scene stands there.
+    let jumps = HStack::new((
+        Link::new("Go to 1", "#scene-state"),
+        Link::new("Go to 2", "#scene-layout"),
+        Link::new("Go to 3", "#scene-paint"),
+    ))
+    .spacing(12.0);
     ScrollView::new((
         Text::new("Scroll down: the scene holds while its steps change.").foreground(Semantic::InkMuted),
-        ScrollScene::new(steps).length(600.0),
+        jumps,
+        ScrollScene::new(steps)
+            .length(600.0)
+            .mark("scene-state", 0.15)
+            .mark("scene-layout", 0.5)
+            .mark("scene-paint", 0.85),
         Text::new("Here the scene lets go.").foreground(Semantic::InkMuted),
         Canvas::new(|_, _| {}).size(10.0, 200.0),
     ))
@@ -125,7 +137,8 @@ fn ticker() -> impl View {
         Badge::new("CommandPalette"),
     ))
     .spacing(12.0);
-    VStack::new((Ticker::new(chips).speed(40.0).gap(12.0),)).padding(8.0)
+    // It stops under the pointer, and its ends fade into the card behind it.
+    Card::new(Ticker::new(chips).speed(40.0).gap(12.0).fade_edges(48.0, Semantic::SurfaceElevated)).padding(16.0)
 }
 // end
 
@@ -134,7 +147,8 @@ fn count_up() -> impl View {
     HStack::new((
         VStack::new((
             Text::new("ROWS").style(TextStyle::Caption).foreground(Semantic::InkMuted),
-            CountUp::new(100_000.0),
+            // It counts once the whole number shows, not when its top edge does.
+            CountUp::new(100_000.0).when_fully_visible(),
         ))
         .spacing(4.0),
         VStack::new((

@@ -216,6 +216,9 @@ pub struct Ui {
     next_live: Option<f64>,
     /// The latest paint had animated drawing.
     has_live: bool,
+    /// How many nodes being painted around this one move or scale what they hold. Under
+    /// one, a node is drawn wherever its layout put it: the movement may bring it into view.
+    moved_by_ancestor: u32,
     /// A value from `BuildCx::animated` was moving in the latest build.
     value_moving: bool,
     painting_overlays: bool,
@@ -313,6 +316,7 @@ impl Ui {
             system_reduced_motion: false,
             next_live: None,
             has_live: false,
+            moved_by_ancestor: 0,
             value_moving: false,
             painting_overlays: false,
             stats: UiStats::default(),
@@ -553,7 +557,9 @@ impl Ui {
 
     /// True when the next [`Ui::update`] would produce a different scene.
     pub fn needs_redraw(&self) -> bool {
-        self.needs_rebuild() || self.motion.active || self.live_is_due()
+        // A link to `#name` scrolls on the next update: it needs that frame even when
+        // nothing else changed, or the page would wait for the pointer to move.
+        self.needs_rebuild() || self.motion.active || self.live_is_due() || self.links.has_anchor()
     }
 
     fn needs_rebuild(&self) -> bool {
@@ -702,11 +708,7 @@ impl Ui {
                 continue;
             }
             let (frame, view) = (self.frames[i], self.views[i]);
-            if frame.max_y() > view.y()
-                && frame.y() < view.max_y()
-                && frame.max_x() > view.x()
-                && frame.x() < view.max_x()
-            {
+            if appears(frame, view, e.appear_whole) {
                 due.push((e.widget, handler.clone()));
             }
         }
@@ -1673,6 +1675,7 @@ impl Ui {
         // effect may land elsewhere, one leaving is captured for its way out, and one
         // without a size may draw around itself.
         let shown = effect != Effect::IDENTITY
+            || self.moved_by_ancestor > 0
             || motion.is_some_and(|m| m.motion.exit.is_some())
             || frame.is_empty()
             || touches(visual, clip);
@@ -1717,8 +1720,17 @@ impl Ui {
                 }
             }
         }
+        // A strip that slides (a ticker) holds children its layout put past the edge; the
+        // movement brings them into view, so they are not left out by where they were laid.
+        let moves = effect.offset != Point::ZERO || effect.scale != 1.0;
+        if moves {
+            self.moved_by_ancestor += 1;
+        }
         for child in children {
             self.paint_node(child, child_clip, theme);
+        }
+        if moves {
+            self.moved_by_ancestor -= 1;
         }
         let outside = self.elements[i].scrollbar_outside;
         if shown && self.elements[i].scroll && outside == 0.0 {
@@ -1823,6 +1835,42 @@ fn reveal_offset(offset: f32, target: (f32, f32), view: (f32, f32), max: f32) ->
         offset
     };
     next.clamp(0.0, max)
+}
+
+/// Whether an element at `frame` shows inside the visible area `view`: any part of it,
+/// or, when `whole`, all of it. One taller or wider than the view counts as whole once
+/// it covers the view along that side.
+fn appears(frame: Rect, view: Rect, whole: bool) -> bool {
+    let overlaps = frame.max_y() > view.y()
+        && frame.y() < view.max_y()
+        && frame.max_x() > view.x()
+        && frame.x() < view.max_x();
+    if !whole || !overlaps {
+        return overlaps;
+    }
+    let fits = |start: f32, end: f32, from: f32, to: f32| {
+        (start >= from - 0.5 && end <= to + 0.5) || (start <= from && end >= to)
+    };
+    fits(frame.y(), frame.max_y(), view.y(), view.max_y())
+        && fits(frame.x(), frame.max_x(), view.x(), view.max_x())
+}
+
+#[cfg(test)]
+mod appear_tests {
+    use super::*;
+
+    #[test]
+    fn a_part_is_enough_unless_the_whole_is_asked() {
+        let view = Rect::new(0.0, 0.0, 800.0, 600.0);
+        let half_in = Rect::new(0.0, 500.0, 300.0, 200.0);
+        assert!(appears(half_in, view, false));
+        assert!(!appears(half_in, view, true));
+        assert!(appears(Rect::new(0.0, 380.0, 300.0, 200.0), view, true));
+        assert!(!appears(Rect::new(0.0, 700.0, 300.0, 200.0), view, false));
+        // Taller than the view: whole once it covers it.
+        assert!(appears(Rect::new(0.0, -100.0, 300.0, 900.0), view, true));
+        assert!(!appears(Rect::new(0.0, 100.0, 300.0, 900.0), view, true));
+    }
 }
 
 /// How far a layer in a corner of the window keeps from its edges.

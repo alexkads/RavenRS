@@ -38,6 +38,7 @@ pub struct PageFan {
     pages: Vec<FanPage>,
     width: f32,
     spread: f32,
+    max_width: Option<f32>,
     hint: String,
 }
 
@@ -50,7 +51,13 @@ impl Default for PageFan {
 impl PageFan {
     /// An empty fan of pages 260 pixels wide.
     pub fn new() -> Self {
-        Self { pages: Vec::new(), width: 260.0, spread: 62.0, hint: "Open in the designer".to_owned() }
+        Self {
+            pages: Vec::new(),
+            width: 260.0,
+            spread: 62.0,
+            max_width: None,
+            hint: "Open in the designer".to_owned(),
+        }
     }
 
     /// Adds page `index` of `document`, called `label`, opening `url`. A page that does
@@ -80,14 +87,29 @@ impl PageFan {
         self
     }
 
+    /// The most room the open fan may take across. When pages and spread need more, both
+    /// shrink in the same proportion, so the fan keeps its shape and never runs past the
+    /// edge of a narrow column.
+    pub fn max_width(mut self, max_width: f32) -> Self {
+        self.max_width = Some(max_width.max(40.0));
+        self
+    }
+
+    /// The page width and spread the fan opens with, after [`Self::max_width`].
+    fn fitted(&self) -> (f32, f32) {
+        let span = self.spread * self.pages.len().saturating_sub(1) as f32;
+        let scale = self.max_width.map_or(1.0, |max| (max / (self.width + span)).min(1.0));
+        (self.width * scale, self.spread * scale)
+    }
+
     /// The words shown under a page in front, after its name.
     pub fn hint(mut self, hint: impl Into<String>) -> Self {
         self.hint = hint.into();
         self
     }
 
-    fn height(&self) -> f32 {
-        self.pages.iter().map(|p| p.page.height / p.page.width.max(1.0) * self.width).fold(0.0, f32::max)
+    fn height(&self, width: f32) -> f32 {
+        self.pages.iter().map(|p| p.page.height / p.page.width.max(1.0) * width).fold(0.0, f32::max)
     }
 }
 
@@ -103,8 +125,9 @@ impl View for PageFan {
             _ => None,
         };
         let cache = cx.use_state(|| Rc::new(RefCell::new(Pictures::default()))).get();
-        let (width, height) = (self.width, self.height());
-        let span = self.spread * count.saturating_sub(1) as f32;
+        let (width, spread) = self.fitted();
+        let height = self.height(width);
+        let span = spread * count.saturating_sub(1) as f32;
         let total = Rect::new(0.0, 0.0, width + span, height + 64.0);
         let mut order: Vec<usize> = (0..count).filter(|i| Some(*i) != lifted).collect();
         order.extend(lifted);
@@ -124,11 +147,11 @@ impl View for PageFan {
                 cache: cache.clone(),
             };
             // Closed, the pages sit in a pile in the middle; they open as the fan comes in.
-            let closed = Effect::moved(-off * self.spread, -3.0 * i as f32);
+            let closed = Effect::moved(-off * spread, -3.0 * i as f32);
             let link =
                 ScrollLink::keyframes([(0.0, closed), (1.0, Effect::IDENTITY)]).range(ScrollRange::Enter);
             let placed = Placed {
-                x: span / 2.0 + off * self.spread,
+                x: span / 2.0 + off * spread,
                 y: 24.0 + (off.abs() * 6.0),
                 content: ScrollLinked::new(card, link),
             };
@@ -271,5 +294,33 @@ impl View for Card {
         cx.focusable(node, 10.0);
         cx.cursor(node, CursorIcon::Pointer);
         node
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ravenrs_report::{ReportEngine, samples};
+
+    use super::*;
+
+    fn fan(pages: usize) -> PageFan {
+        let invoice = ReportEngine::new().render(&samples::invoice(), &samples::invoice_data());
+        (0..pages).fold(PageFan::new().width(260.0).spread(56.0), |fan, _| {
+            fan.page(&invoice, 0, "Invoice", "designer/")
+        })
+    }
+
+    #[test]
+    fn a_fan_that_fits_keeps_its_size() {
+        assert_eq!(fan(6).max_width(1000.0).fitted(), (260.0, 56.0));
+        assert_eq!(fan(6).fitted(), (260.0, 56.0));
+    }
+
+    #[test]
+    fn a_fan_too_wide_shrinks_in_proportion() {
+        // 260 + 5 × 56 = 540 across, into 270: half of each.
+        let (width, spread) = fan(6).max_width(270.0).fitted();
+        assert!((width - 130.0).abs() < 1e-4 && (spread - 28.0).abs() < 1e-4);
+        assert!(width + 5.0 * spread <= 270.0 + 1e-3);
     }
 }

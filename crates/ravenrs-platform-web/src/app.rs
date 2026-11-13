@@ -675,6 +675,12 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
     let mut ui = Ui::new(DiagnosticsHost::new(root, diagnostics.clone()), options.theme);
     ui.set_clipboard(BrowserClipboard);
     ui.set_links(BrowserLinks);
+    // A page opened at `#name` goes to that anchor once its first frame is laid out.
+    if let Some(hash) = web_sys::window().and_then(|w| w.location().hash().ok())
+        && hash.len() > 1
+    {
+        ui.links().open(&hash);
+    }
     ui.set_full_screen(BrowserFullScreen);
     ui.set_file_picker(BrowserFilePicker);
     ui.set_sound(BrowserSound::default());

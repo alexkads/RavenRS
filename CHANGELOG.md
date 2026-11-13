@@ -6,6 +6,10 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `ScrollScene::mark(name, progress)`: names a point of the scene as an anchor, so a link to `#name` scrolls until the scene stands there, and a reader can go to a step instead of scrolling through every one before it. ([#284](https://github.com/alexkads/RavenRS/issues/284))
+- `Ticker` stops while the pointer is over it and goes on from the same place when it leaves (`pause_on_hover(false)` keeps it moving), and `Ticker::fade_edges(width, color)` melts its ends into what is behind it. ([#284](https://github.com/alexkads/RavenRS/issues/284))
+- `CountUp::when_fully_visible`: waits to count until the whole number shows, through the new `BuildCx::on_appear_whole`. ([#284](https://github.com/alexkads/RavenRS/issues/284))
+- `PageFan::max_width`: pages and spread shrink in the same proportion when the fan would run past its column. ([#284](https://github.com/alexkads/RavenRS/issues/284))
 - `ravenrs-movie-video`, a new crate: turns films into a QuickTime video (H.264 pictures, 16-bit sound at 48 kHz), the films one after the other, with their boxes, the pointer, the zooms, clicks, keys and the recorded narration. Each picture is drawn by the renderer with no window, and OpenH264 is built from its source, so nothing has to be installed. `VideoFormat` has `WIDE` (1920 × 1080), `VERTICAL` (1080 × 1920, for short vertical videos), `PORTRAIT` (1080 × 1350) and `SQUARE`, with the longest each place takes; `Video::thumbnail` gives a cover as PNG, `subtitles` the boxes as `.srt` and `chapters` the lines a video description turns into chapters.
 - `MovieFrame`: one moment of a film as someone who does not stop at the steps sees it, with the mark and the box of what it explains and nothing that answers clicks. The player draws its boxes with the same code.
 - `SocialFrame`: one moment of a film laid out for a tall or square screen, with the chapter on top, the film, and the title and words of what it explains under it.
@@ -29,6 +33,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- A web app opened at an address with `#name` goes to that anchor once its first frame is laid out, instead of staying at the top. ([#284](https://github.com/alexkads/RavenRS/issues/284))
+- A link to `#name` scrolls as soon as it is clicked. It used to wait for the next event, so in the browser the page stood still until the pointer moved. ([#284](https://github.com/alexkads/RavenRS/issues/284))
 - A remote grid with no rows said it had a chunk's worth: an empty chunk past the end stretched
   its total. It now ends where the earliest end says, and shows what it says when empty.
   ([#233](https://github.com/alexkads/RavenRS/issues/233))

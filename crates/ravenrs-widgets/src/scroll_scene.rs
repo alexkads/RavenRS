@@ -244,18 +244,40 @@ impl<C: View> View for Sticky<C> {
 /// stage for steps that change as the reader scrolls. Inside it, [`ScrollLinked`]
 /// views measure [`ScrollRange::Scene`], from 0 when the content pins to 1 when the
 /// scene lets go.
+///
+/// [`Self::mark`] names points of the scene that links can go to, so a reader can jump
+/// to a step instead of scrolling through every one before it:
+///
+/// ```
+/// use ravenrs_widgets::*;
+///
+/// let scene = ScrollScene::new(Text::new("Six steps"))
+///     .length(1800.0)
+///     .mark("step-1", 0.0)
+///     .mark("step-4", 0.5)
+///     .mark("after-steps", 1.0);
+/// // Elsewhere: Link::new("Step 4", "#step-4"), or `cx.links().open("#step-4")`.
+/// ```
 #[derive(Debug)]
 pub struct ScrollScene<C> {
     content: C,
     length: f32,
     top: f32,
+    marks: Vec<(String, f32)>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: View> ScrollScene<C> {
     /// Holds `content` for one screen's worth of scrolling (800 pixels) by default.
     pub fn new(content: C) -> Self {
-        Self { content, length: 800.0, top: 0.0 }
+        Self { content, length: 800.0, top: 0.0, marks: Vec::new() }
+    }
+
+    /// Names the point `progress` of the scene (0 when it pins, 1 when it lets go) as
+    /// an anchor: a link to `#name` scrolls until the scene stands there.
+    pub fn mark(mut self, name: impl Into<String>, progress: f32) -> Self {
+        self.marks.push((name.into(), progress.clamp(0.0, 1.0)));
+        self
     }
 
     /// How many pixels of scrolling the content stays pinned.
@@ -287,8 +309,26 @@ impl<C: View> View for ScrollScene<C> {
         };
         let track = cx.container(style, &[pinned], Paint::None);
         cx.scroll_track(track, self.top, self.length);
-        track
+        // An element holds one anchor: each mark wraps the track in a box of the same
+        // frame. Landing the track `top - progress × length` below the top of the view
+        // is where the scene stands at `progress`.
+        let mut outer = track;
+        for (name, progress) in &self.marks {
+            outer = cx.container(
+                LayoutStyle { align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) },
+                &[outer],
+                Paint::None,
+            );
+            cx.anchor(outer, name, mark_offset(self.top, self.length, *progress));
+        }
+        outer
     }
+}
+
+/// The anchor offset that stands a scene pinned `top` below the view, `length` long, at
+/// `progress`.
+fn mark_offset(top: f32, length: f32, progress: f32) -> f32 {
+    top - progress * length
 }
 
 /// Paints its content with the effect a [`ScrollLink`] gives for the current scroll
@@ -348,6 +388,18 @@ mod tests {
         assert_eq!(at(64.0), 0.0);
         assert!((at(-436.0) - 0.5).abs() < 1e-6);
         assert_eq!(at(-936.0), 1.0);
+    }
+
+    #[test]
+    fn a_mark_lands_the_scene_at_its_progress() {
+        let (top, length) = (64.0, 1800.0);
+        let track = ScrollTrack { top, length };
+        for progress in [0.0, 0.25, 0.5, 1.0] {
+            // The glide puts the anchor `offset` below the top of the view.
+            let landed = Rect::new(0.0, view().y() + mark_offset(top, length, progress), 800.0, 2400.0);
+            let at = ScrollRange::Scene.progress(Rect::ZERO, view(), Some((landed, track)));
+            assert!((at - progress).abs() < 1e-5, "{progress} landed at {at}");
+        }
     }
 
     #[test]

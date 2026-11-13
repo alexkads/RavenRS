@@ -49,19 +49,73 @@ impl fmt::Debug for TimeLink {
 /// Repeats its content in a strip that keeps moving sideways, for logos, quotes or
 /// samples of components. It moves on the GPU's clock without rebuilding, and stands
 /// still under reduced motion.
+///
+/// The strip stops while the pointer is over it, so what it carries can be read and
+/// used, and goes on from the same place when the pointer leaves. With
+/// [`Self::fade_edges`] its ends melt into the color behind it instead of cutting the
+/// content off.
 #[derive(Debug)]
 pub struct Ticker<C> {
     content: C,
     speed: f32,
     gap: f32,
     reverse: bool,
+    pause_on_hover: bool,
+    fade: f32,
+    fade_color: Semantic,
+}
+
+/// Where a [`Ticker`]'s clock stands: how much time its pauses took, and since when it
+/// is paused. The strip is at `(t - shift) * speed`, with `t` frozen while paused.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+struct TickerClock {
+    shift: f64,
+    paused_at: Option<f64>,
+}
+
+impl TickerClock {
+    /// The clock after the pointer is over the strip (`hovered`) or not, at `now`.
+    fn follow(self, hovered: bool, now: f64) -> Self {
+        match (hovered, self.paused_at) {
+            (true, None) => Self { paused_at: Some(now), ..self },
+            (false, Some(at)) => Self { shift: self.shift + (now - at).max(0.0), paused_at: None },
+            _ => self,
+        }
+    }
+
+    /// The moving time at clock `t`.
+    fn at(self, t: f64) -> f64 {
+        self.paused_at.unwrap_or(t).min(t) - self.shift
+    }
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: View> Ticker<C> {
     /// A strip of `content` moving left at 40 pixels a second.
     pub fn new(content: C) -> Self {
-        Self { content, speed: 40.0, gap: 16.0, reverse: false }
+        Self {
+            content,
+            speed: 40.0,
+            gap: 16.0,
+            reverse: false,
+            pause_on_hover: true,
+            fade: 0.0,
+            fade_color: Semantic::Canvas,
+        }
+    }
+
+    /// Whether the strip stops while the pointer is over it (it does by default).
+    pub fn pause_on_hover(mut self, pause: bool) -> Self {
+        self.pause_on_hover = pause;
+        self
+    }
+
+    /// Fades the content out over `width` pixels at each end, into `color`, which
+    /// should be what is behind the strip (the canvas, a card).
+    pub fn fade_edges(mut self, width: f32, color: Semantic) -> Self {
+        self.fade = width.max(0.0);
+        self.fade_color = color;
+        self
     }
 
     /// Pixels per second.
@@ -92,6 +146,13 @@ impl<C: View> View for Ticker<C> {
             Paint::None,
         );
         let (speed, gap, reverse) = (self.speed, self.gap, self.reverse);
+        let clock = cx.use_state(TickerClock::default);
+        let hovered = self.pause_on_hover && cx.is_hover_within();
+        let now = cx.now();
+        let next = clock.get().follow(hovered, now);
+        if next != clock.get() {
+            clock.set(next);
+        }
         cx.time_linked(
             strip,
             TimeLink::new(move |t, frame| {
@@ -100,14 +161,53 @@ impl<C: View> View for Ticker<C> {
                 if span <= 0.0 {
                     return Effect::IDENTITY;
                 }
-                let x = (t as f32 * speed) % span;
+                let x = (next.at(t) as f32 * speed).rem_euclid(span);
                 Effect::moved(if reverse { x - span } else { -x }, 0.0)
             }),
         );
-        let node = cx.container(LayoutStyle::stack(Axis::Horizontal), &[strip], Paint::None);
+        let mut children = vec![strip];
+        let mut paint = Paint::None;
+        if self.fade > 0.0 {
+            let band = Rc::new(std::cell::Cell::new(Rect::ZERO));
+            children.push(edge_fades(cx, self.fade, self.fade_color, band.clone()));
+            // The strip's own paint runs before its children's in the same pass: it tells
+            // the fades where its ends are.
+            paint = Paint::Custom(Rc::new(move |frame: Rect, _: &mut ravenrs_core::Scene| band.set(frame)));
+        }
+        let node = cx.container(LayoutStyle::stack(Axis::Horizontal), &children, paint);
         cx.clip(node);
+        if self.pause_on_hover {
+            // Asking about the pointer needs an element the pointer can be over.
+            cx.on_pointer_move(node, Rc::new(|_, _| {}));
+        }
         node
     }
+}
+
+/// A sizeless element, out of the flow at the top-left of its parent, that paints a
+/// fade at each end of `band`, the parent's frame, over what comes before it.
+fn edge_fades(cx: &mut BuildCx<'_>, width: f32, color: Semantic, band: Rc<std::cell::Cell<Rect>>) -> NodeId {
+    let from = cx.theme().color(color);
+    let seen = band;
+    let paint = Paint::Custom(Rc::new(move |_frame: Rect, scene: &mut ravenrs_core::Scene| {
+        let band = seen.get();
+        let w = width.min(band.width() / 2.0);
+        if w <= 0.0 {
+            return;
+        }
+        for (x, start) in [(band.x(), 0.0), (band.max_x() - w, 1.0)] {
+            let gradient = ravenrs_core::LinearGradient {
+                start: ravenrs_core::Point::new(start, 0.5),
+                end: ravenrs_core::Point::new(1.0 - start, 0.5),
+                from,
+                to: from.with_alpha(0.0),
+            };
+            scene.push_quad(ravenrs_core::Quad::new(Rect::new(x, band.y(), w, band.height()), gradient));
+        }
+    }));
+    let fades = cx.container(LayoutStyle { absolute: Some((0.0, 0.0)), ..LayoutStyle::leaf() }, &[], paint);
+    cx.semantics(fades, Semantics::hidden());
+    fades
 }
 
 /// A number that counts up from zero to its value when it first shows on screen, and
@@ -122,6 +222,7 @@ pub struct CountUp {
     seconds: f64,
     easing: Easing,
     from_zero: bool,
+    whole: bool,
 }
 
 impl fmt::Debug for CountUp {
@@ -141,7 +242,15 @@ impl CountUp {
             seconds: 1.5,
             easing: Easing::EaseOut,
             from_zero: true,
+            whole: false,
         }
+    }
+
+    /// Waits to count until the whole number shows, not just its top edge, so the count
+    /// is watched from the start rather than found halfway.
+    pub fn when_fully_visible(mut self) -> Self {
+        self.whole = true;
+        self
     }
 
     /// How each step of the count is written, such as `|v| format!("{v:.0}+")`.
@@ -222,7 +331,12 @@ impl View for CountUp {
         }
         let node = cx.container(LayoutStyle::stack(Axis::Horizontal), &glyphs, Paint::None);
         cx.semantics(node, Semantics::new(Role::Label).name(text));
-        cx.on_appear(node, Rc::new(move || seen.set(true)));
+        let appear = Rc::new(move || seen.set(true));
+        if self.whole {
+            cx.on_appear_whole(node, appear);
+        } else {
+            cx.on_appear(node, appear);
+        }
         node
     }
 }

@@ -448,6 +448,8 @@ pub(crate) struct Element {
     pub anchor: Option<(Rc<str>, f32)>,
     /// Called once, the first time the element shows in its scroll container.
     pub on_appear: Option<Rc<dyn Fn()>>,
+    /// `on_appear` waits until the whole element shows, not just a part of it.
+    pub appear_whole: bool,
     /// Painted through this effect of the clock and the element's frame.
     pub time_link: Option<crate::TimeLink>,
     /// Told the scroll progress along this range before each paint.
@@ -493,6 +495,7 @@ impl Element {
             scroll_link: None,
             anchor: None,
             on_appear: None,
+            appear_whole: false,
             time_link: None,
             progress_out: None,
         }
@@ -766,6 +769,17 @@ impl<'a> BuildCx<'a> {
     pub fn on_appear(&mut self, node: NodeId, handler: Rc<dyn Fn()>) {
         if let Some(e) = self.element_mut(node) {
             e.on_appear = Some(handler);
+            e.appear_whole = false;
+        }
+    }
+
+    /// Like [`Self::on_appear`], but waits until the whole node shows inside its scroll
+    /// container (or fills it, if it is taller): a figure that should be watched from
+    /// its first frame, not counted half off the edge.
+    pub fn on_appear_whole(&mut self, node: NodeId, handler: Rc<dyn Fn()>) {
+        if let Some(e) = self.element_mut(node) {
+            e.on_appear = Some(handler);
+            e.appear_whole = true;
         }
     }
 

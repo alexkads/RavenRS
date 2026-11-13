@@ -257,3 +257,130 @@ fn with_reduced_motion_the_floor_stands_still() {
     assert_eq!(before.len(), after.len());
     assert!(before.iter().zip(&after).all(|(a, b)| a.rect == b.rect));
 }
+
+#[test]
+fn a_hash_link_asks_for_the_frame_that_scrolls() {
+    let page = ScrollView::new((
+        Link::new("Go to reports", "#reports"),
+        block(2000.0),
+        Anchor::new("reports", Text::new("Reports title")),
+        block(2000.0),
+    ))
+    .spacing(0.0);
+    let mut ui = ui(page);
+    let at = bounds(&mut ui, "Go to reports").center();
+    ui.handle_event(&Event::PointerMove { position: at });
+    ui.handle_event(&Event::PointerDown { position: at, button: PointerButton::Primary });
+    ui.update();
+    // Nothing else changes on release: only the anchor asks for the next frame. Without it
+    // the browser waits for the pointer to move before the page scrolls.
+    let wants = ui.handle_event(&Event::PointerUp { position: at, button: PointerButton::Primary });
+    assert!(wants, "the release asks for a frame");
+}
+
+#[test]
+fn a_mark_of_a_scene_is_an_anchor_that_stands_the_scene_there() {
+    let progress = std::rc::Rc::new(std::cell::Cell::new(-1.0_f32));
+    let seen = progress.clone();
+    let probe = Canvas::new(|_, _| {}).size(800.0, 200.0);
+    let page = ScrollView::new((
+        Link::new("Step four", "#step-4"),
+        block(1500.0),
+        ScrollScene::new(Probe { progress: seen, content: Canvas::new(|_, _| {}).size(800.0, 200.0) })
+            .length(1200.0)
+            .top(64.0)
+            .mark("step-4", 0.5),
+        probe,
+        block(2000.0),
+    ))
+    .spacing(0.0);
+    let mut ui = ui(page);
+    let at = bounds(&mut ui, "Step four").center();
+    click(&mut ui, at);
+    run(&mut ui, 0.0, 1.2);
+    assert!((progress.get() - 0.5).abs() < 0.01, "the scene stands at {}", progress.get());
+}
+
+/// Writes the scene progress of its content into a cell before each paint.
+struct Probe<C> {
+    progress: std::rc::Rc<std::cell::Cell<f32>>,
+    content: C,
+}
+
+impl<C: View> View for Probe<C> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let node = cx.child(&self.content);
+        cx.scroll_progress(node, ScrollRange::Scene, self.progress.clone());
+        node
+    }
+}
+
+#[test]
+fn appearing_whole_waits_for_the_last_pixel_to_show() {
+    let seen = std::rc::Rc::new(std::cell::Cell::new(false));
+    let flag = seen.clone();
+    // A 100 pixel box whose top shows at 550 of a 600 pixel view.
+    let page = ScrollView::new((block(550.0), Whole { seen: flag }, block(1200.0))).spacing(0.0);
+    let mut ui = ui(page);
+    run(&mut ui, 0.0, 0.2);
+    assert!(!seen.get(), "half of it shows: not yet");
+    ui.handle_event(&Event::Scroll { position: Point::new(400.0, 300.0), delta: Point::new(0.0, -80.0) });
+    run(&mut ui, 0.2, 0.4);
+    assert!(seen.get(), "all of it shows");
+}
+
+/// A box that notes when the whole of it has shown.
+struct Whole {
+    seen: std::rc::Rc<std::cell::Cell<bool>>,
+}
+
+impl View for Whole {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let node = cx.child(&block(100.0));
+        let seen = self.seen.clone();
+        cx.on_appear_whole(node, std::rc::Rc::new(move || seen.set(true)));
+        node
+    }
+}
+
+#[test]
+fn a_ticker_stops_under_the_pointer_and_goes_on_from_there() {
+    let mut ui = ui(VStack::new((strip(),)));
+    let start = marker_x(&ui);
+    ui.handle_event(&Event::PointerMove { position: Point::new(400.0, 20.0) });
+    // The pointer is taken in at the next frame, still at 0 seconds.
+    ui.update();
+    ui.set_time(0.5);
+    ui.update();
+    let held = marker_x(&ui);
+    ui.set_time(2.0);
+    ui.update();
+    assert!((marker_x(&ui) - held).abs() < 0.5, "it stands still under the pointer");
+    assert!((held - start).abs() < 0.5, "it stopped where the pointer found it");
+    ui.handle_event(&Event::PointerMove { position: Point::new(400.0, 500.0) });
+    ui.set_time(2.0);
+    ui.update();
+    ui.set_time(3.0);
+    ui.update();
+    assert!((marker_x(&ui) - (held - 100.0)).abs() < 0.5, "and goes on from the same place");
+}
+
+#[test]
+fn a_ticker_draws_what_it_brings_in_from_past_the_edge() {
+    // 1200 pixels of content in an 800 pixel window: the marker at its right end is laid
+    // out past the edge, and only the movement brings it into view.
+    let wide = Ticker::new(
+        Canvas::new(|frame, scene| {
+            scene.push_quad(Quad::new(Rect::new(frame.max_x() - 10.0, frame.y(), 10.0, 10.0), MARK))
+        })
+        .size(1200.0, 40.0),
+    )
+    .speed(100.0)
+    .gap(0.0)
+    .pause_on_hover(false);
+    let mut ui = ui(VStack::new((wide,)));
+    ui.set_time(5.0);
+    ui.update();
+    // After 500 pixels the marker of the first copy, laid at 1190, shows at 690.
+    assert!((marker_x(&ui) - 690.0).abs() < 1.0, "drawn at {}", marker_x(&ui));
+}

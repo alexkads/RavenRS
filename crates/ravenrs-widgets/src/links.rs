@@ -74,6 +74,11 @@ impl Links {
     pub(crate) fn take_anchor(&self) -> Option<String> {
         self.anchor.borrow_mut().take()
     }
+
+    /// A link asked for an anchor that the next update has not gone to yet.
+    pub(crate) fn has_anchor(&self) -> bool {
+        self.anchor.borrow().is_some()
+    }
 }
 
 impl fmt::Debug for Links {
