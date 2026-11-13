@@ -1,24 +1,23 @@
 //! BIFF8 record framing ([MS-XLS] 2.1.4) and the string structures ([MS-XLS] 2.5.240,
 //! 2.5.293, 2.5.294) that may continue across `Continue` records.
 
-use super::invalid;
-use crate::xlsx::IoError;
+use crate::craft::xls::Error;
 
 /// `Continue` record type.
-pub(super) const CONTINUE: u16 = 0x003C;
+pub(crate) const CONTINUE: u16 = 0x003C;
 /// Characters in one string at most (Excel's cell limit is 32,767; the SST may hold longer).
 const MAX_CHARS: usize = 1 << 20;
 /// `Continue` records gathered for one record at most.
 const MAX_PARTS: usize = 1 << 16;
 
 /// One record and the payloads of the `Continue` records that follow it.
-pub(super) struct Record<'a> {
+pub(crate) struct Record<'a> {
     pub id: u16,
     pub parts: Vec<&'a [u8]>,
 }
 
 /// Iterates over the records of a stream starting at `pos`.
-pub(super) struct Records<'a> {
+pub(crate) struct Records<'a> {
     stream: &'a [u8],
     pos: usize,
 }
@@ -28,15 +27,15 @@ impl<'a> Records<'a> {
         Records { stream, pos }
     }
 
-    fn raw(&mut self) -> Result<Option<(u16, &'a [u8])>, IoError> {
+    fn raw(&mut self) -> Result<Option<(u16, &'a [u8])>, Error> {
         if self.pos >= self.stream.len() {
             return Ok(None);
         }
-        let head = self.stream.get(self.pos..self.pos.saturating_add(4)).ok_or_else(|| invalid("truncated record header"))?;
+        let head = self.stream.get(self.pos..self.pos.saturating_add(4)).ok_or_else(|| Error::Invalid("truncated record header".into()))?;
         let id = u16::from_le_bytes([head.first().copied().unwrap_or(0), head.get(1).copied().unwrap_or(0)]);
         let len = usize::from(u16::from_le_bytes([head.get(2).copied().unwrap_or(0), head.get(3).copied().unwrap_or(0)]));
         let start = self.pos + 4;
-        let data = self.stream.get(start..start.saturating_add(len)).ok_or_else(|| invalid("truncated record"))?;
+        let data = self.stream.get(start..start.saturating_add(len)).ok_or_else(|| Error::Invalid("truncated record".into()))?;
         self.pos = start + len;
         Ok(Some((id, data)))
     }
@@ -47,7 +46,7 @@ impl<'a> Records<'a> {
     }
 
     /// The next record with its `Continue` records, or `None` at the end of the stream.
-    pub fn next_record(&mut self) -> Result<Option<Record<'a>>, IoError> {
+    pub fn next_record(&mut self) -> Result<Option<Record<'a>>, Error> {
         let Some((id, data)) = self.raw()? else { return Ok(None) };
         let mut parts = vec![data];
         while self.peek_id() == Some(CONTINUE) && parts.len() < MAX_PARTS {
@@ -60,7 +59,7 @@ impl<'a> Records<'a> {
 }
 
 /// Reads a record's payload, crossing into its `Continue` records when needed.
-pub(super) struct Cursor<'a, 'b> {
+pub(crate) struct Cursor<'a, 'b> {
     parts: &'b [&'a [u8]],
     part: usize,
     pos: usize,
@@ -87,22 +86,27 @@ impl<'a, 'b> Cursor<'a, 'b> {
         moved
     }
 
-    pub fn u8(&mut self) -> Result<u8, IoError> {
+    pub fn u8(&mut self) -> Result<u8, Error> {
         self.settle();
-        let b = self.parts.get(self.part).and_then(|p| p.get(self.pos)).copied().ok_or_else(|| invalid("record is shorter than its contents"))?;
+        let b = self
+            .parts
+            .get(self.part)
+            .and_then(|p| p.get(self.pos))
+            .copied()
+            .ok_or_else(|| Error::Invalid("record is shorter than its contents".into()))?;
         self.pos += 1;
         Ok(b)
     }
 
-    pub fn u16(&mut self) -> Result<u16, IoError> {
+    pub fn u16(&mut self) -> Result<u16, Error> {
         Ok(u16::from_le_bytes([self.u8()?, self.u8()?]))
     }
 
-    pub fn u32(&mut self) -> Result<u32, IoError> {
+    pub fn u32(&mut self) -> Result<u32, Error> {
         Ok(u32::from_le_bytes([self.u8()?, self.u8()?, self.u8()?, self.u8()?]))
     }
 
-    pub fn f64(&mut self) -> Result<f64, IoError> {
+    pub fn f64(&mut self) -> Result<f64, Error> {
         let mut b = [0u8; 8];
         for x in b.iter_mut() {
             *x = self.u8()?;
@@ -110,7 +114,7 @@ impl<'a, 'b> Cursor<'a, 'b> {
         Ok(f64::from_le_bytes(b))
     }
 
-    pub fn skip(&mut self, n: usize) -> Result<(), IoError> {
+    pub fn skip(&mut self, n: usize) -> Result<(), Error> {
         for _ in 0..n {
             self.u8()?;
         }
@@ -140,9 +144,9 @@ impl<'a, 'b> Cursor<'a, 'b> {
 
     /// `cch` characters, compressed (one byte each) or UTF-16. When the characters run into
     /// a `Continue` record, that record starts with a fresh compression flag ([MS-XLS] 2.5.293).
-    pub fn chars(&mut self, cch: usize, mut high: bool) -> Result<String, IoError> {
+    pub fn chars(&mut self, cch: usize, mut high: bool) -> Result<String, Error> {
         if cch > MAX_CHARS {
-            return Err(invalid("string too long"));
+            return Err(Error::Invalid("string too long".into()));
         }
         let mut units: Vec<u16> = Vec::with_capacity(cch.min(self.remaining()));
         while units.len() < cch {
@@ -156,21 +160,21 @@ impl<'a, 'b> Cursor<'a, 'b> {
     }
 
     /// ShortXLUnicodeString: 1-byte count, flags, characters.
-    pub fn short_string(&mut self) -> Result<String, IoError> {
+    pub fn short_string(&mut self) -> Result<String, Error> {
         let cch = usize::from(self.u8()?);
         let high = self.u8()? & 1 != 0;
         self.chars(cch, high)
     }
 
     /// XLUnicodeString: 2-byte count, flags, characters.
-    pub fn string(&mut self) -> Result<String, IoError> {
+    pub fn string(&mut self) -> Result<String, Error> {
         let cch = usize::from(self.u16()?);
         let high = self.u8()? & 1 != 0;
         self.chars(cch, high)
     }
 
     /// XLUnicodeRichExtendedString: the text; formatting runs and phonetic data are skipped.
-    pub fn rich_string(&mut self) -> Result<String, IoError> {
+    pub fn rich_string(&mut self) -> Result<String, Error> {
         let cch = usize::from(self.u16()?);
         let flags = self.u8()?;
         let runs = if flags & 0x08 != 0 { usize::from(self.u16()?) } else { 0 };
@@ -178,7 +182,7 @@ impl<'a, 'b> Cursor<'a, 'b> {
         let text = self.chars(cch, flags & 1 != 0)?;
         let extra = runs.saturating_mul(4).saturating_add(ext);
         if extra > self.remaining() {
-            return Err(invalid("string formatting runs past the end of the record"));
+            return Err(Error::Invalid("string formatting runs past the end of the record".into()));
         }
         self.skip(extra)?;
         Ok(text)

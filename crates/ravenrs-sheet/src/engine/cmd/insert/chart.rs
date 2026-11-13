@@ -51,13 +51,7 @@ pub fn chart_kind(t: &str, sub: &str) -> ChartKind {
 pub fn series_from_range(sh: &Sheet, r: RangeRef, by_rows: bool) -> Vec<Series> {
     let q = crate::formula::quote_sheet(&sh.name);
     let abs = |r: RangeRef| {
-        format!(
-            "{q}!${}${}:${}${}",
-            crate::base::col_to_letters(r.start.col),
-            r.start.row + 1,
-            crate::base::col_to_letters(r.end.col),
-            r.end.row + 1
-        )
+        format!("{q}!${}${}:${}${}", crate::base::col_to_letters(r.start.col), r.start.row + 1, crate::base::col_to_letters(r.end.col), r.end.row + 1)
     };
     let abs1 = |c: CellRef| format!("{q}!${}${}", crate::base::col_to_letters(c.col), c.row + 1);
     let is_text = |c: CellRef| sh.value(c).is_text() || sh.value(c).is_empty();

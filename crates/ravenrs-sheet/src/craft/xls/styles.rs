@@ -5,14 +5,11 @@
 
 use std::collections::HashMap;
 
-use crate::model::style::Protection;
-use crate::model::{
-    Alignment, BorderLine, BorderStyle, Borders, Color, Fill, Font, HAlign, NumFmt, PatternType, Style, StyleId, StyleTable, Underline, VAlign,
-    VertAlign, Workbook,
+use crate::craft::sheet::{DEFAULT_PALETTE, builtin_format};
+use crate::craft::xls::model::{
+    Alignment, BorderLine, BorderStyle, Borders, CellFormat, Color, Fill, Font, HAlign, Pattern, Script, Underline, VAlign, Workbook,
 };
-
-use super::records::Cursor;
-use crate::xlsx::tables::{INDEXED, builtin_format};
+use crate::craft::xls::records::Cursor;
 
 /// Font records kept at most ([MS-XLS] FontIndex allows indexes up to 1022).
 const MAX_FONTS: usize = 1024;
@@ -28,7 +25,7 @@ const ICV_DEFAULT_BG: u16 = 0x41;
 
 /// One XF record, decoded as far as its bytes allow.
 #[derive(Clone, Debug, Default)]
-pub(super) struct Xf {
+pub(crate) struct Xf {
     ifnt: u16,
     ifmt: u16,
     flags: u16,
@@ -40,7 +37,7 @@ pub(super) struct Xf {
 
 /// A Style record: the XF it names and its name.
 #[derive(Clone, Debug)]
-pub(super) struct NamedStyle {
+pub(crate) struct NamedStyle {
     ixf: u16,
     /// `Some(id)` for a built-in style (BuiltInStyle.istyBuiltIn), `None` for a user style.
     builtin: Option<u8>,
@@ -50,7 +47,7 @@ pub(super) struct NamedStyle {
 
 /// Formatting records collected from the globals substream.
 #[derive(Debug, Default)]
-pub(super) struct StyleRecords {
+pub(crate) struct StyleRecords {
     fonts: Vec<Font>,
     font_colors: Vec<u16>,
     xfs: Vec<Xf>,
@@ -58,12 +55,12 @@ pub(super) struct StyleRecords {
     palette: Option<Vec<u32>>,
     styles: Vec<NamedStyle>,
     /// Records that were shorter than their structure; the parts present were used.
-    pub(super) short: bool,
+    pub(crate) short: bool,
 }
 
 impl StyleRecords {
     /// A Font record. The colour is resolved later, once the palette is known.
-    pub(super) fn font(&mut self, c: &mut Cursor<'_, '_>) {
+    pub(crate) fn font(&mut self, c: &mut Cursor<'_, '_>) {
         if self.fonts.len() >= MAX_FONTS {
             return;
         }
@@ -82,7 +79,7 @@ impl StyleRecords {
     }
 
     /// An XF record. A short record keeps the fields it has.
-    pub(super) fn xf(&mut self, c: &mut Cursor<'_, '_>, max: usize) {
+    pub(crate) fn xf(&mut self, c: &mut Cursor<'_, '_>, max: usize) {
         if self.xfs.len() >= max {
             return;
         }
@@ -116,7 +113,7 @@ impl StyleRecords {
     }
 
     /// A Palette record: colours for indexes 8 onwards.
-    pub(super) fn palette(&mut self, c: &mut Cursor<'_, '_>) {
+    pub(crate) fn palette(&mut self, c: &mut Cursor<'_, '_>) {
         let Ok(ccv) = c.u16() else {
             self.short = true;
             return;
@@ -134,7 +131,7 @@ impl StyleRecords {
     }
 
     /// A Style record.
-    pub(super) fn style(&mut self, c: &mut Cursor<'_, '_>) {
+    pub(crate) fn style(&mut self, c: &mut Cursor<'_, '_>) {
         if self.styles.len() >= MAX_STYLES {
             return;
         }
@@ -164,8 +161,8 @@ impl StyleRecords {
     }
 
     /// The 64-entry colour table: the built-in eight, then the palette (or the default one).
-    fn color_table(&self) -> [u32; 64] {
-        let mut table = INDEXED;
+    pub(crate) fn color_table(&self) -> [u32; 64] {
+        let mut table = DEFAULT_PALETTE;
         if let Some(p) = &self.palette {
             for (slot, c) in table.iter_mut().skip(8).zip(p.iter()) {
                 *slot = *c;
@@ -190,19 +187,19 @@ fn read_font(c: &mut Cursor<'_, '_>) -> Option<(Font, u16)> {
     let mut f = Font::default();
     let name: String = name.chars().filter(|ch| *ch != '\0').take(255).collect();
     if !name.trim().is_empty() {
-        f.name = name;
+        f.name = Some(name);
     }
     if height > 0 {
-        f.size = (f32::from(height) / 20.0).clamp(1.0, 409.0);
+        f.size = Some((f32::from(height) / 20.0).clamp(1.0, 409.0));
     }
     f.italic = flags & 0x0002 != 0;
     f.strike = flags & 0x0008 != 0;
     // Weights run 100-1000; Excel writes 400 for normal and 700 for bold.
     f.bold = weight >= 600;
-    f.vert = match script {
-        1 => VertAlign::Superscript,
-        2 => VertAlign::Subscript,
-        _ => VertAlign::Baseline,
+    f.script = match script {
+        1 => Script::Superscript,
+        2 => Script::Subscript,
+        _ => Script::Baseline,
     };
     f.underline = match underline {
         0x01 => Underline::Single,
@@ -218,7 +215,7 @@ fn read_font(c: &mut Cursor<'_, '_>) -> Option<(Font, u16)> {
 
 /// A colour index in an XF (IcvXF) or Font (IcvFont): 0-63 from the colour table, the system
 /// and automatic colours as automatic.
-fn color(icv: u16, table: &[u32; 64]) -> Color {
+pub(crate) fn color(icv: u16, table: &[u32; 64]) -> Color {
     match icv {
         ICV_DEFAULT_FG | ICV_DEFAULT_BG | ICV_FONT_AUTO => Color::Auto,
         _ => table.get(usize::from(icv)).map_or(Color::Auto, |c| Color::Rgb(*c)),
@@ -226,7 +223,7 @@ fn color(icv: u16, table: &[u32; 64]) -> Color {
 }
 
 /// A border line style from its BIFF8 code (dgLeft and the like); unknown codes are no border.
-fn border_style(dg: u32) -> BorderStyle {
+pub(crate) fn border_style(dg: u32) -> BorderStyle {
     match dg {
         1 => BorderStyle::Thin,
         2 => BorderStyle::Medium,
@@ -246,27 +243,27 @@ fn border_style(dg: u32) -> BorderStyle {
 }
 
 /// A fill pattern from its BIFF8 code (fls); unknown codes are no pattern.
-fn pattern(fls: u16) -> PatternType {
+pub(crate) fn pattern(fls: u16) -> Pattern {
     match fls {
-        0x01 => PatternType::Solid,
-        0x02 => PatternType::Gray50,
-        0x03 => PatternType::Gray75,
-        0x04 => PatternType::Gray25,
-        0x05 => PatternType::DarkHorizontal,
-        0x06 => PatternType::DarkVertical,
-        0x07 => PatternType::DarkDown,
-        0x08 => PatternType::DarkUp,
-        0x09 => PatternType::DarkGrid,
-        0x0A => PatternType::DarkTrellis,
-        0x0B => PatternType::LightHorizontal,
-        0x0C => PatternType::LightVertical,
-        0x0D => PatternType::LightDown,
-        0x0E => PatternType::LightUp,
-        0x0F => PatternType::LightGrid,
-        0x10 => PatternType::LightTrellis,
-        0x11 => PatternType::Gray125,
-        0x12 => PatternType::Gray0625,
-        _ => PatternType::None,
+        0x01 => Pattern::Solid,
+        0x02 => Pattern::Gray50,
+        0x03 => Pattern::Gray75,
+        0x04 => Pattern::Gray25,
+        0x05 => Pattern::DarkHorizontal,
+        0x06 => Pattern::DarkVertical,
+        0x07 => Pattern::DarkDown,
+        0x08 => Pattern::DarkUp,
+        0x09 => Pattern::DarkGrid,
+        0x0A => Pattern::DarkTrellis,
+        0x0B => Pattern::LightHorizontal,
+        0x0C => Pattern::LightVertical,
+        0x0D => Pattern::LightDown,
+        0x0E => Pattern::LightUp,
+        0x0F => Pattern::LightGrid,
+        0x10 => Pattern::LightTrellis,
+        0x11 => Pattern::Gray125,
+        0x12 => Pattern::Gray0625,
+        _ => Pattern::None,
     }
 }
 
@@ -292,18 +289,19 @@ fn xf_font(ifnt: u16, fonts: &[Font]) -> Font {
 }
 
 /// The number format an XF names: a custom format, else a built-in one, else General.
-fn num_fmt(ifmt: u16, formats: &HashMap<u16, String>) -> NumFmt {
+fn num_fmt(ifmt: u16, formats: &HashMap<u16, String>) -> String {
     let code = formats.get(&ifmt).map(String::as_str).or_else(|| builtin_format(u32::from(ifmt))).unwrap_or("General");
-    if code.eq_ignore_ascii_case("General") { NumFmt::default() } else { NumFmt::new(code) }
+    if code.eq_ignore_ascii_case("General") { "General".into() } else { code.to_string() }
 }
 
-/// The model style of one XF.
-fn xf_style(xf: &Xf, fonts: &[Font], formats: &HashMap<u16, String>, table: &[u32; 64]) -> Style {
-    let mut s = Style {
+/// The formatting of one XF.
+fn xf_format(xf: &Xf, fonts: &[Font], formats: &HashMap<u16, String>, table: &[u32; 64]) -> CellFormat {
+    let mut s = CellFormat {
         font: xf_font(xf.ifnt, fonts),
-        num_fmt: num_fmt(xf.ifmt, formats),
-        protection: Protection { locked: xf.flags & 0x0001 != 0, hidden: xf.flags & 0x0002 != 0 },
-        ..Style::default()
+        number_format: num_fmt(xf.ifmt, formats),
+        locked: xf.flags & 0x0001 != 0,
+        hidden: xf.flags & 0x0002 != 0,
+        ..CellFormat::default()
     };
     if !xf.complete {
         return s;
@@ -363,28 +361,26 @@ fn xf_style(xf: &Xf, fonts: &[Font], formats: &HashMap<u16, String>, table: &[u3
     let fg = color(fill & 0x7F, table);
     let bg = color((fill >> 7) & 0x7F, table);
     s.fill = match pattern(fls) {
-        PatternType::None => Fill::default(),
-        PatternType::Solid => Fill::solid(fg),
+        Pattern::None => Fill::default(),
+        Pattern::Solid => Fill { pattern: Pattern::Solid, fg, bg: Color::Auto },
         p => Fill { pattern: p, fg, bg },
     };
     s
 }
 
-/// Imports the formatting: sets the workbook's default (Normal) font and named cell styles, and
-/// returns the model style of every XF in file order.
-pub(super) fn build(r: &StyleRecords, formats: &HashMap<u16, String>, wb: &mut Workbook) -> Vec<StyleId> {
+/// Fills in the workbook's Normal font, its formats (one per XF, in file order) and its
+/// user-defined cell styles. Returns, per XF, whether its format is plain.
+pub(crate) fn build(r: &StyleRecords, formats: &HashMap<u16, String>, wb: &mut Workbook) -> Vec<bool> {
     let table = r.color_table();
     let fonts: Vec<Font> = r.fonts.iter().zip(r.font_colors.iter()).map(|(f, icv)| Font { color: color(*icv, &table), ..f.clone() }).collect();
     // The Normal style's font is what every unformatted cell shows.
     let normal_xf = r.styles.iter().find(|s| s.builtin == Some(0)).map_or(0, |s| usize::from(s.ixf));
-    let normal_font = r.xfs.get(normal_xf).map(|xf| xf_font(xf.ifnt, &fonts)).or_else(|| fonts.first().cloned());
-    if let Some(font) = normal_font {
-        wb.styles = StyleTable::with_default(Style { font, ..Style::default() });
-    }
-    let out = r.xfs.iter().map(|xf| wb.styles.intern(xf_style(xf, &fonts, formats, &table))).collect();
+    wb.normal_font = r.xfs.get(normal_xf).map(|xf| xf_font(xf.ifnt, &fonts)).or_else(|| fonts.first().cloned());
+    let plain = CellFormat { font: wb.normal_font.clone().unwrap_or_default(), ..CellFormat::default() };
+    wb.formats = r.xfs.iter().map(|xf| xf_format(xf, &fonts, formats, &table)).collect();
     // User-defined named styles. Excel 2007 and later write every built-in style into each .xls
-    // (about fifty, their colours approximated to the palette); GridCraft defines those itself.
-    let mut named: Vec<(String, Style)> = Vec::new();
+    // (about fifty, their colours approximated to the palette); those are left out.
+    let mut named: Vec<(String, CellFormat)> = Vec::new();
     // Names are compared ASCII-case-insensitively; a set keeps a hostile file's many names linear.
     let mut seen: std::collections::HashSet<String> = std::collections::HashSet::from(["normal".to_string()]);
     for ns in &r.styles {
@@ -397,9 +393,9 @@ pub(super) fn build(r: &StyleRecords, formats: &HashMap<u16, String>, wb: &mut W
         }
         if let Some(xf) = r.xfs.get(usize::from(ns.ixf)) {
             seen.insert(key);
-            named.push((ns.name.clone(), xf_style(xf, &fonts, formats, &table)));
+            named.push((ns.name.clone(), xf_format(xf, &fonts, formats, &table)));
         }
     }
     wb.cell_styles = named;
-    out
+    wb.formats.iter().map(|f| *f == plain).collect()
 }
