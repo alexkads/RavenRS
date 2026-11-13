@@ -17,7 +17,8 @@ use crate::{
 };
 
 /// The name of a file with its size: what a row of a file says first.
-pub(crate) fn file_name_and_size(name: &str, size: Option<u64>) -> String {
+#[doc(hidden)]
+pub fn file_name_and_size(name: &str, size: Option<u64>) -> String {
     size.map_or_else(|| name.to_owned(), |size| format!("{name}, {}", size_text(size)))
 }
 

@@ -584,6 +584,44 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::IndicatorStep::__live_expose(registry);
     crate::StepIndicator::__live_expose_fields(registry);
     crate::StepIndicator::__live_expose(registry);
+    crate::ChatMedia::__live_expose_fields(registry);
+    crate::ChatMedia::__live_expose(registry);
+    crate::ChatAuthor::__live_expose_variants(registry);
+    crate::ChatMessage::__live_expose_fields(registry);
+    crate::ChatMessage::__live_expose(registry);
+    crate::Chat::__live_expose_fields(registry);
+    crate::Chat::__live_expose(registry);
+    crate::FloatingPanel::__live_expose_fields(registry);
+    crate::FloatingPanel::__live_expose(registry);
+    #[cfg(feature = "code")]
+    crate::CodeLanguage::__live_expose_variants(registry);
+    #[cfg(feature = "code")]
+    crate::CodeDiagnostic::__live_expose_fields(registry);
+    #[cfg(feature = "code")]
+    crate::CodeDiagnostic::__live_expose(registry);
+    #[cfg(feature = "code")]
+    crate::CodeEditor::__live_expose_fields(registry);
+    #[cfg(feature = "code")]
+    crate::CodeEditor::__live_expose(registry);
+    crate::Attachment::__live_expose_fields(registry);
+    crate::Attachment::__live_expose(registry);
+    crate::AttachmentStrip::__live_expose_fields(registry);
+    crate::AttachmentStrip::__live_expose(registry);
+    crate::SelectionBar::__live_expose_fields(registry);
+    crate::SelectionBar::__live_expose(registry);
+    crate::AudioPlayerButton::__live_expose_fields(registry);
+    crate::AudioPlayerButton::__live_expose(registry);
+    #[cfg(feature = "code")]
+    crate::RunOutput::__live_expose_fields(registry);
+    #[cfg(feature = "code")]
+    crate::RunOutput::__live_expose(registry);
+    #[cfg(feature = "code")]
+    crate::Playground::__live_expose_fields(registry);
+    #[cfg(feature = "code")]
+    crate::Playground::__live_expose(registry);
+    crate::RichText::__live_expose_fields(registry);
+    crate::RichText::__live_expose(registry);
+    crate::RichText::__live_expose_part1(registry);
     #[cfg(feature = "charts")]
     crate::ChartIndicator::__live_expose_variants(registry);
     #[cfg(feature = "charts")]
@@ -827,44 +865,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::GridCurrent::__live_expose(registry);
     crate::DataGrid::__live_expose(registry);
     crate::DataGrid::__live_expose_part1(registry);
-    crate::ChatMedia::__live_expose_fields(registry);
-    crate::ChatMedia::__live_expose(registry);
-    crate::ChatAuthor::__live_expose_variants(registry);
-    crate::ChatMessage::__live_expose_fields(registry);
-    crate::ChatMessage::__live_expose(registry);
-    crate::Chat::__live_expose_fields(registry);
-    crate::Chat::__live_expose(registry);
-    crate::FloatingPanel::__live_expose_fields(registry);
-    crate::FloatingPanel::__live_expose(registry);
-    #[cfg(feature = "code")]
-    crate::CodeLanguage::__live_expose_variants(registry);
-    #[cfg(feature = "code")]
-    crate::CodeDiagnostic::__live_expose_fields(registry);
-    #[cfg(feature = "code")]
-    crate::CodeDiagnostic::__live_expose(registry);
-    #[cfg(feature = "code")]
-    crate::CodeEditor::__live_expose_fields(registry);
-    #[cfg(feature = "code")]
-    crate::CodeEditor::__live_expose(registry);
-    crate::Attachment::__live_expose_fields(registry);
-    crate::Attachment::__live_expose(registry);
-    crate::AttachmentStrip::__live_expose_fields(registry);
-    crate::AttachmentStrip::__live_expose(registry);
-    crate::SelectionBar::__live_expose_fields(registry);
-    crate::SelectionBar::__live_expose(registry);
-    crate::AudioPlayerButton::__live_expose_fields(registry);
-    crate::AudioPlayerButton::__live_expose(registry);
-    #[cfg(feature = "code")]
-    crate::RunOutput::__live_expose_fields(registry);
-    #[cfg(feature = "code")]
-    crate::RunOutput::__live_expose(registry);
-    #[cfg(feature = "code")]
-    crate::Playground::__live_expose_fields(registry);
-    #[cfg(feature = "code")]
-    crate::Playground::__live_expose(registry);
-    crate::RichText::__live_expose_fields(registry);
-    crate::RichText::__live_expose(registry);
-    crate::RichText::__live_expose_part1(registry);
     #[cfg(feature = "charts")]
     registry.alias("ChartCurve", "Curve");
     #[cfg(feature = "charts")]
