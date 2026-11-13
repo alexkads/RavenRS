@@ -40,6 +40,7 @@ TARGETS = [
             # The base is its own crate; the widgets re-export every name of it at their root.
             {"dir": "ravenrs-widgets-base", "path": "crate"},
             {"dir": "ravenrs-widgets-kit", "path": "crate"},
+            {"dir": "ravenrs-widgets-grid", "path": "crate"},
             {"dir": "ravenrs-widgets", "path": "crate"},
         ],
     },
@@ -237,6 +238,9 @@ def generate(target):
         crate_src = root / "crates" / source["dir"] / "src"
         crate_path = source["path"]
         names = exports((crate_src / "lib.rs").read_text())
+        if source["path"] == "crate":
+            # A crate the target re-exports as its own is named by the target's root.
+            names = names | exported
         name_gates = gated_exports((crate_src / "lib.rs").read_text())
         wanted = outside.get(crate_path, {}) if source.get("only_reexported") else None
         own = crate_path == "crate"

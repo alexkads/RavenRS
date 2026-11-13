@@ -16,6 +16,7 @@ categories = ["gui"]
 [dependencies]
 ravenrs-widgets-base.workspace = true
 ravenrs-widgets-kit.workspace = true
+ravenrs-widgets-grid.workspace = true
 ravenrs-app-i18n.workspace = true
 ravenrs-core.workspace = true
 ravenrs-animation.workspace = true
@@ -45,17 +46,7 @@ lottie = ["dep:ravenrs-lottie"]
 # `CodeEditor` and `Playground`, with Fira Mono embedded in `ravenrs-text`.
 code = ["ravenrs-text/mono"]
 # `LiveRunner`: the Playground runs edited examples with the interpreter of ravenrs-live.
-live = [
-    "code",
-    "dep:ravenrs-live",
-    "ravenrs-widgets-base/live",
-    "ravenrs-widgets-kit/live",
-    "ravenrs-core/live",
-    "ravenrs-style/live",
-    "ravenrs-layout/live",
-    "ravenrs-graphics?/live",
-    "ravenrs-lottie?/live",
-]
+live = ["code", "dep:ravenrs-live", "ravenrs-widgets-base/live", "ravenrs-widgets-kit/live", "ravenrs-core/live", "ravenrs-style/live", "ravenrs-layout/live", "ravenrs-graphics?/live", "ravenrs-lottie?/live", "ravenrs-widgets-grid/live"]
 
 [dev-dependencies]
 proptest.workspace = true

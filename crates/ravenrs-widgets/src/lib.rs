@@ -37,6 +37,9 @@
 
 // The base lives in its own crate; its modules keep their names here, so the components
 // write `crate::context::BuildCx` as before.
+// The grid family lives in its own crate, and keeps its module names here.
+pub use ravenrs_widgets_grid::grid;
+
 // The components of general use live in their own crate, and keep their module names here.
 #[allow(unused_imports)]
 use ravenrs_widgets_base::{
@@ -63,7 +66,6 @@ mod dock;
 mod event_calendar;
 #[cfg(feature = "flow")]
 mod flow;
-pub mod grid;
 mod imaging;
 mod lists;
 #[cfg(feature = "live")]

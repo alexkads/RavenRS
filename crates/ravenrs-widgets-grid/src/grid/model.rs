@@ -129,7 +129,8 @@ pub enum SortDirection {
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SortDirection {
-    pub(crate) fn apply(self, o: Ordering) -> Ordering {
+    #[doc(hidden)]
+    pub fn apply(self, o: Ordering) -> Ordering {
         match self {
             SortDirection::Ascending => o,
             SortDirection::Descending => o.reverse(),
@@ -200,24 +201,42 @@ pub type CellTemplate = Rc<dyn Fn(&Value) -> AnyView>;
 #[derive(Clone)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct GridColumn {
-    pub(crate) title: String,
-    pub(crate) field: Option<String>,
-    pub(crate) width: f32,
-    pub(crate) min_width: f32,
-    pub(crate) align: CellAlign,
-    pub(crate) number: Option<NumberFormat>,
-    pub(crate) summary: Option<Summary>,
-    pub(crate) sortable: bool,
-    pub(crate) filterable: bool,
-    pub(crate) groupable: bool,
-    pub(crate) editable: bool,
-    pub(crate) visible: bool,
-    pub(crate) fill: bool,
-    pub(crate) pinned: bool,
-    pub(crate) resizable: bool,
-    pub(crate) formula: Option<String>,
-    pub(crate) format: Option<CellFormat>,
-    pub(crate) template: Option<CellTemplate>,
+    #[doc(hidden)]
+    pub title: String,
+    #[doc(hidden)]
+    pub field: Option<String>,
+    #[doc(hidden)]
+    pub width: f32,
+    #[doc(hidden)]
+    pub min_width: f32,
+    #[doc(hidden)]
+    pub align: CellAlign,
+    #[doc(hidden)]
+    pub number: Option<NumberFormat>,
+    #[doc(hidden)]
+    pub summary: Option<Summary>,
+    #[doc(hidden)]
+    pub sortable: bool,
+    #[doc(hidden)]
+    pub filterable: bool,
+    #[doc(hidden)]
+    pub groupable: bool,
+    #[doc(hidden)]
+    pub editable: bool,
+    #[doc(hidden)]
+    pub visible: bool,
+    #[doc(hidden)]
+    pub fill: bool,
+    #[doc(hidden)]
+    pub pinned: bool,
+    #[doc(hidden)]
+    pub resizable: bool,
+    #[doc(hidden)]
+    pub formula: Option<String>,
+    #[doc(hidden)]
+    pub format: Option<CellFormat>,
+    #[doc(hidden)]
+    pub template: Option<CellTemplate>,
 }
 
 impl fmt::Debug for GridColumn {
@@ -398,7 +417,8 @@ impl GridColumn {
     }
 
     /// [`GridColumn::display`] without copying text that is shown as stored.
-    pub(crate) fn display_cow<'a>(&self, value: &'a Value) -> Cow<'a, str> {
+    #[doc(hidden)]
+    pub fn display_cow<'a>(&self, value: &'a Value) -> Cow<'a, str> {
         if let Some(f) = &self.format {
             return Cow::Owned(f(value));
         }

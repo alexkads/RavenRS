@@ -280,13 +280,16 @@ impl RemoteRows {
     }
 
     /// Subscribes the build to what arrives.
-    pub(crate) fn watch(&self) {
+    #[doc(hidden)]
+    pub fn watch(&self) {
         self.tick.get();
     }
 
     /// How many rows the grid shows: all of them when the total is known, or what has
     /// come so far and a little more, so that the scrollbar has somewhere to go.
-    pub(crate) fn len(&self) -> usize {
+    #[doc(hidden)]
+    #[allow(clippy::len_without_is_empty)] // internal: what the grid shows, not a collection
+    pub fn len(&self) -> usize {
         let held = self.held.borrow();
         match held.total {
             Some(total) => total,
@@ -296,21 +299,25 @@ impl RemoteRows {
     }
 
     #[cfg(test)]
-    pub(crate) fn total(&self) -> Option<usize> {
+    #[doc(hidden)]
+    pub fn total(&self) -> Option<usize> {
         self.held.borrow().total
     }
 
-    pub(crate) fn error(&self) -> Option<String> {
+    #[doc(hidden)]
+    pub fn error(&self) -> Option<String> {
         self.held.borrow().error.clone()
     }
 
-    pub(crate) fn totals(&self) -> Vec<Option<f64>> {
+    #[doc(hidden)]
+    pub fn totals(&self) -> Vec<Option<f64>> {
         self.held.borrow().totals.clone()
     }
 
     /// The row at `index`, if it is here.
     /// Every row at hand, with its index.
-    pub(crate) fn held_rows(&self) -> Vec<(usize, Row)> {
+    #[doc(hidden)]
+    pub fn held_rows(&self) -> Vec<(usize, Row)> {
         let held = self.held.borrow();
         let mut rows = Vec::new();
         for (chunk, content) in &held.chunks {
@@ -320,7 +327,8 @@ impl RemoteRows {
         rows
     }
 
-    pub(crate) fn row(&self, index: usize) -> Option<Row> {
+    #[doc(hidden)]
+    pub fn row(&self, index: usize) -> Option<Row> {
         let mut held = self.held.borrow_mut();
         held.clock += 1;
         let used = held.clock;
@@ -331,7 +339,8 @@ impl RemoteRows {
 
     /// Takes note of what is on the screen and asks for what is missing, if things have
     /// settled. Returns when to look again, if something is still waiting to settle.
-    pub(crate) fn want(&self, first: usize, last: usize, query: &GridQuery, now: f64) -> Option<f64> {
+    #[doc(hidden)]
+    pub fn want(&self, first: usize, last: usize, query: &GridQuery, now: f64) -> Option<f64> {
         let mut requests = Vec::new();
         let wake = {
             let mut held = self.held.borrow_mut();
@@ -415,7 +424,8 @@ impl RemoteRows {
     }
 
     /// Clears a failure, so that the next look asks again.
-    pub(crate) fn retry(&self) {
+    #[doc(hidden)]
+    pub fn retry(&self) {
         self.held.borrow_mut().error = None;
         self.tick.update(|t| *t += 1);
     }
