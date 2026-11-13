@@ -668,7 +668,7 @@ impl View for SidebarEnd<'_> {
             Paint::None,
         );
         // Only on the rail: open, this edge would cut focus rings.
-        if cx.sidebar().is_some_and(|s| s.icons) {
+        if cx.scoped::<SidebarScope>().is_some_and(|s| s.icons) {
             cx.clip(window);
         }
         cx.container(
@@ -693,7 +693,7 @@ struct SidebarColumn<'a, C> {
 impl<C: ViewSeq> View for SidebarColumn<'_, C> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let (header, footer) = self.parts.map_or((None, None), |p| (p.header.as_ref(), p.footer.as_ref()));
-        let outer = cx.replace_sidebar(Some(self.scope.clone()));
+        let outer = cx.replace_scoped::<SidebarScope>(Some(self.scope.clone()));
         let mut children = Vec::new();
         if let Some(header) = header {
             children.push(cx.child(&SidebarEnd { content: header.as_ref(), width: self.full_width }));
@@ -706,7 +706,7 @@ impl<C: ViewSeq> View for SidebarColumn<'_, C> {
             children.push(cx.child(&Divider::horizontal()));
             children.push(cx.child(&SidebarEnd { content: footer.as_ref(), width: self.full_width }));
         }
-        cx.replace_sidebar(outer);
+        cx.replace_scoped::<SidebarScope>(outer);
         self.scope.count.set(self.scope.next.get());
         cx.container(
             LayoutStyle {
@@ -947,7 +947,7 @@ impl View for SidebarBrand {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let mark = cx.child(self.mark.as_ref());
         let mut parts = vec![mark];
-        if !cx.sidebar().is_some_and(|s| s.icons) {
+        if !cx.scoped::<SidebarScope>().is_some_and(|s| s.icons) {
             let title = cx.child(
                 &crate::Text::new(self.title.clone()).style(TextStyle::Body).font_weight(Weight::SEMIBOLD),
             );
@@ -1094,7 +1094,7 @@ fn rail_separator(cx: &mut BuildCx<'_>) -> NodeId {
 
 impl View for SidebarSection {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        if let Some(scope) = cx.sidebar().filter(|s| s.icons) {
+        if let Some(scope) = cx.scoped::<SidebarScope>().filter(|s| s.icons) {
             return if scope.next.get() > 0 { rail_separator(cx) } else { cx.empty() };
         }
         let color = cx.theme().color(Semantic::InkMuted);
@@ -1217,7 +1217,7 @@ impl View for SidebarGroupTitle<'_> {
             cx.on_click(node, Rc::new(move || toggle.update(|o| *o = !*o)));
             cx.focusable(node, theme.radii.md);
             cx.cursor(node, CursorIcon::Pointer);
-            let scope = cx.sidebar();
+            let scope = cx.scoped::<SidebarScope>();
             wire_row_keys(cx, node, scope.as_deref(), Some(open.clone()));
         } else {
             // The group around it already carries this name.
@@ -1245,7 +1245,7 @@ impl<C: ViewSeq> View for SidebarGroup<C> {
         let default = self.open_by_default;
         let own = cx.use_state(move || default);
         let open = self.open.clone().unwrap_or_else(|| own.binding());
-        let scope = cx.sidebar();
+        let scope = cx.scoped::<SidebarScope>();
         let icons = scope.as_ref().is_some_and(|s| s.icons);
         let mut children = Vec::new();
         if icons {
@@ -1440,7 +1440,7 @@ impl View for SidebarButton<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let item = self.item;
-        let scope = cx.sidebar();
+        let scope = cx.scoped::<SidebarScope>();
         let icons = scope.as_ref().is_some_and(|s| s.icons);
         let hovered = cx.is_hovered() && !item.disabled;
         let (ink, muted) = (theme.color(Semantic::Ink), theme.color(Semantic::InkMuted));
@@ -1604,7 +1604,7 @@ impl View for SidebarItem {
         let default = self.expanded_by_default.unwrap_or_else(|| self.holds_selection());
         let own = cx.use_state(move || default);
         let expanded = self.expanded.clone().unwrap_or_else(|| own.binding());
-        let icons = cx.sidebar().is_some_and(|s| s.icons);
+        let icons = cx.scoped::<SidebarScope>().is_some_and(|s| s.icons);
         let has_submenu = !self.submenu.is_empty();
         let filled = icons || self.actions.is_empty();
         let button =
@@ -1666,7 +1666,7 @@ impl View for SidebarSkeleton {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         // Uneven lengths read as text; the same ones on each build stay still.
         const LENGTHS: [f32; 4] = [128.0, 88.0, 152.0, 104.0];
-        let icons = cx.sidebar().is_some_and(|s| s.icons);
+        let icons = cx.scoped::<SidebarScope>().is_some_and(|s| s.icons);
         let mut rows = Vec::with_capacity(self.rows);
         for i in 0..self.rows {
             let mut parts = Vec::new();

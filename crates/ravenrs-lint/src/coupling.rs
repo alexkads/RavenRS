@@ -171,13 +171,14 @@ impl ModuleGraph {
         );
         for members in &loops {
             let (_, path) = closing_edge(members, &graph, &self.edges);
-            let _ = writeln!(
-                out,
-                "  {} modules, e.g. {}: {}",
-                members.len(),
-                path.join(" → "),
-                listed(members, usize::MAX)
-            );
+            let _ = writeln!(out, "  {} modules, e.g. {}:", members.len(), path.join(" → "));
+            // Who each member uses inside the loop: the edges to cut are among these.
+            let inside: BTreeSet<&str> = members.iter().copied().collect();
+            for member in members {
+                let uses: Vec<&str> =
+                    graph.get(member).into_iter().flatten().copied().filter(|m| inside.contains(m)).collect();
+                let _ = writeln!(out, "    {member} → {}", uses.join(", "));
+            }
         }
         out
     }

@@ -15,6 +15,7 @@ use ravenrs_style::{Semantic, TextStyle, Weight};
 use crate::context::{BuildCx, Drag, DragPhase, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::conversation::file_name_and_size;
 use crate::files::size_text;
+use crate::floating::{PANEL_MARGIN, move_by_handle, panel_inside};
 use crate::modifiers::ViewExt;
 use crate::motion::Motion;
 use crate::view::{AnyView, View};
@@ -932,65 +933,6 @@ impl FloatingPanel {
 const PANEL_REDUCE_KEY: u64 = 2;
 /// Keeps the state of what a reduced panel shows.
 const PANEL_SUMMARY_KEY: u64 = 3;
-/// How far from the window's edges a layer stays, as every overlay does.
-pub(crate) const PANEL_MARGIN: f32 = 4.0;
-
-/// `p` kept inside the window, given the largest place a panel can have in it.
-pub(crate) fn panel_inside(p: Point, largest: Point) -> Point {
-    Point::new(p.x.clamp(PANEL_MARGIN, largest.x), p.y.clamp(PANEL_MARGIN, largest.y))
-}
-
-/// How far an arrow key moves a panel, in logical pixels.
-const PANEL_STEP: f32 = 16.0;
-
-/// Makes `handle` move something placed anywhere, by dragging and with the arrow keys. While
-/// it is dragged the place stays in `dragging`, and goes to `place` only at the end, since the
-/// app may write it to a file.
-pub(crate) fn move_by_handle(
-    cx: &mut BuildCx<'_>,
-    handle: NodeId,
-    at: Point,
-    largest: Point,
-    place: &Binding<Option<Point>>,
-    dragging: &State<Option<Point>>,
-) {
-    let keep_in = move |p: Point| panel_inside(p, largest);
-    let grab = cx.use_state(|| Rc::new(Cell::new(Point::ZERO))).get();
-    let (dropped, dragging) = (place.clone(), dragging.clone());
-    cx.on_drag(
-        handle,
-        Rc::new(move |drag: Drag| match drag.phase {
-            DragPhase::Start => grab.set(Point::new(drag.position.x - at.x, drag.position.y - at.y)),
-            DragPhase::Move => {
-                let from = grab.get();
-                dragging.set(Some(keep_in(Point::new(drag.position.x - from.x, drag.position.y - from.y))));
-            }
-            DragPhase::End => {
-                if let Some(last) = *dragging.peek() {
-                    dropped.set(Some(last));
-                }
-                dragging.set(None);
-            }
-        }),
-    );
-    let place = place.clone();
-    cx.on_key(
-        handle,
-        Rc::new(move |key, modifiers| {
-            let far = if modifiers.shift { PANEL_STEP * 4.0 } else { PANEL_STEP };
-            let (dx, dy) = match key {
-                Key::ArrowLeft => (-far, 0.0),
-                Key::ArrowRight => (far, 0.0),
-                Key::ArrowUp => (0.0, -far),
-                Key::ArrowDown => (0.0, far),
-                _ => return false,
-            };
-            place.set(Some(keep_in(Point::new(at.x + dx, at.y + dy))));
-            true
-        }),
-    );
-}
-
 /// A panel placed anywhere, dragged by its header.
 struct FreeLayer<'a> {
     panel: &'a FloatingPanel,

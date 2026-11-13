@@ -594,6 +594,9 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::ThemeSwitcher::__live_expose(registry);
     crate::Labels::__live_expose_fields(registry);
     crate::Labels::__live_expose(registry);
+    crate::Labels::__live_expose_part1(registry);
+    crate::Labels::__live_expose_part2(registry);
+    crate::Labels::__live_expose_part3(registry);
     crate::Localized::<crate::AnyView>::__live_expose(registry);
     crate::Links::__live_expose_fields(registry);
     crate::Links::__live_expose(registry);

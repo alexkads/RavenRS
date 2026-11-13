@@ -14,8 +14,8 @@ use ravenrs_text::TextSystem;
 
 use crate::View;
 use crate::context::{
-    BuildCx, Drag, DragPhase, Element, Interaction, LocalStore, NodeId, Overlay, Paint, PaintCx, Placement,
-    QuadPaint, ScrollState, Shortcut, TextLeaf, WidgetId,
+    BuildCx, BuildTiming, Drag, DragPhase, Element, Interaction, LocalStore, NodeId, Overlay, Paint, PaintCx,
+    Placement, QuadPaint, ScrollState, Shortcut, TextLeaf, WidgetId,
 };
 use crate::motion::{GhostLayer, MotionEntry, MotionSystem, NodePaint, Sampled, flipped};
 
@@ -91,8 +91,8 @@ struct OpenView {
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
-impl ViewProfile {
-    pub(crate) fn enter(&mut self, name: &'static str, elements: usize, shapes: u64) {
+impl BuildTiming for ViewProfile {
+    fn enter(&mut self, name: &'static str, elements: usize, shapes: u64) {
         let started = (self.clock)();
         self.open.push(OpenView {
             name,
@@ -105,7 +105,7 @@ impl ViewProfile {
         });
     }
 
-    pub(crate) fn leave(&mut self, elements: usize, shapes: u64) {
+    fn leave(&mut self, elements: usize, shapes: u64) {
         let Some(view) = self.open.pop() else { return };
         let total = ((self.clock)() - view.started).max(0.0);
         let made = elements.saturating_sub(view.elements);
@@ -1275,7 +1275,7 @@ impl Ui {
                 cx.motion_clock = motion_clock;
                 cx.motion_enabled = motion_enabled;
                 cx.reduced_motion = reduced_motion;
-                cx.view_profile = view_profile;
+                cx.view_profile = view_profile.map(|p| p as Rc<RefCell<dyn BuildTiming>>);
                 cx.hover_readers = hover_readers;
                 let content = cx.child(&**root);
                 let style = LayoutStyle {

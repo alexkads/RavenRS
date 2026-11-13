@@ -29,7 +29,7 @@ use ravenrs_core::{Effect, Insets, Rect};
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 
 use crate::View;
-use crate::context::{BuildCx, NodeId, Paint};
+use crate::context::{BuildCx, NodeId, Paint, ScrollTrack};
 
 /// Which stretch of scrolling a [`ScrollLink`] counts as going from 0 to 1.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -48,13 +48,6 @@ pub enum ScrollRange {
     Enter,
     /// The element going out: 0 when its top reaches the top edge, 1 when its bottom does.
     Exit,
-}
-
-/// A scene's track, as [`BuildCx::scroll_track`] marks it.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct ScrollTrack {
-    pub top: f32,
-    pub length: f32,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
