@@ -25,6 +25,7 @@ ravenrs-render = { version = "27.1.28", path = "crates/ravenrs-render" }
 ravenrs-widgets = { version = "27.1.28", path = "crates/ravenrs-widgets", default-features = false }
 ravenrs-widgets-base = { version = "27.1.28", path = "crates/ravenrs-widgets-base", default-features = false }
 ravenrs-widgets-kit = { version = "27.1.28", path = "crates/ravenrs-widgets-kit", default-features = false }
+ravenrs-widgets-charts = { version = "27.1.28", path = "crates/ravenrs-widgets-charts", default-features = false }
 ravenrs-widgets-imaging = { version = "27.1.28", path = "crates/ravenrs-widgets-imaging", default-features = false }
 ravenrs-widgets-dock = { version = "27.1.28", path = "crates/ravenrs-widgets-dock", default-features = false }
 ravenrs-widgets-scheduler = { version = "27.1.28", path = "crates/ravenrs-widgets-scheduler", default-features = false }
