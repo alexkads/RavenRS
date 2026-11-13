@@ -96,11 +96,10 @@ fn normalized(extensions: impl IntoIterator<Item = impl Into<String>>) -> Vec<St
 /// What opens the system's chooser for these rules, and hands over what comes back.
 fn chooser(cx: &BuildCx<'_>, rules: &Rules, on_files: Rc<dyn Fn(Vec<PickedFile>)>) -> Rc<dyn Fn()> {
     let (picker, waker) = (cx.file_picker(), cx.ui_waker());
-    let request = FileRequest {
-        extensions: rules.extensions.clone(),
-        multiple: rules.most_files != Some(1),
-        most_bytes: Some(rules.most_bytes),
-    };
+    let mut request = FileRequest::default();
+    request.extensions = rules.extensions.clone();
+    request.multiple = rules.most_files != Some(1);
+    request.most_bytes = Some(rules.most_bytes);
     Rc::new(move || {
         let (on_files, waker) = (on_files.clone(), waker.clone());
         picker.pick(&request, move |files| {
@@ -800,11 +799,9 @@ impl View for ImageField {
         }
         if !state.read_only {
             let (picker, on_files, waker) = (cx.file_picker(), bring, cx.ui_waker());
-            let request = FileRequest {
-                extensions: rules.extensions,
-                multiple: false,
-                most_bytes: Some(self.most_bytes),
-            };
+            let mut request = FileRequest::default();
+            request.extensions = rules.extensions;
+            request.most_bytes = Some(self.most_bytes);
             let text = if current.is_some() { &labels.image_replace } else { &labels.image_choose };
             let mut button = Button::new(text.clone())
                 .style(ButtonStyle::Secondary)

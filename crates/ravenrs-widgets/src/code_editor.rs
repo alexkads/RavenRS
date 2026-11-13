@@ -68,6 +68,8 @@ pub(crate) fn tone_color(tone: Tone) -> Semantic {
         Tone::Success => Semantic::Success,
         Tone::Accent => Semantic::Accent,
         Tone::Neutral => Semantic::InkMuted,
+        // The base may add more.
+        _ => Semantic::InkMuted,
     }
 }
 

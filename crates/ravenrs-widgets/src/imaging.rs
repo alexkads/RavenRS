@@ -1177,6 +1177,8 @@ impl View for CurveEditor {
                         }
                     }
                     DragPhase::End => {}
+                    // The base may add more; they act as nothing here.
+                    _ => {}
                 }
             }),
         );
@@ -1421,6 +1423,8 @@ impl ZoomPanWiring {
                 memory.grab.set(None);
                 self.release(d.frame.size);
             }
+            // The base may add more; they act as nothing here.
+            _ => {}
         }
     }
 

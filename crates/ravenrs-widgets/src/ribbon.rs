@@ -280,6 +280,8 @@ fn tone_color(theme: &Theme, tone: Tone) -> Color {
         Tone::Success => theme.color(Semantic::Success),
         Tone::Warning => theme.color(Semantic::Warning),
         Tone::Danger => theme.color(Semantic::Danger),
+        // The base may add more.
+        _ => theme.color(Semantic::InkMuted),
     }
 }
 

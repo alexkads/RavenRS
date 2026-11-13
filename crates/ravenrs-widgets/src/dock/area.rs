@@ -475,6 +475,8 @@ impl DragContext {
                 }
                 self.state.set(None);
             }
+            // The base may add more; they act as nothing here.
+            _ => {}
         })
     }
 }

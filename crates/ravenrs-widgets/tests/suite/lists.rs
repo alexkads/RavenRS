@@ -412,3 +412,26 @@ fn a_page_without_its_picture_keeps_its_place() {
     assert!(pictures >= 1);
     assert!((sheet(&mut ui, "Page 2 of 200").bounds.height() - 500.0).abs() < 1.0);
 }
+
+/// A measured list keeps the frames of the rows near the view, not of every row it ever showed.
+#[test]
+fn a_measured_list_does_not_remember_every_row_it_ever_showed() {
+    let list = VirtualList::new(5_000, |_| Text::new("row")).height(300.0).key(|i| i as u64);
+    let mut ui = Ui::new(list, ravenrs_style::Theme::raven_dark());
+    ui.set_viewport(Size::new(400.0, 400.0), 1.0);
+    ui.update();
+    ui.update();
+    let at_rest = ui.scroll_state().viewports.len();
+    assert!(at_rest > 1, "a measured row reports its frame, or this test proves nothing");
+    for _ in 0..100 {
+        ui.handle_event(&ravenrs_core::Event::Scroll {
+            position: Point::new(100.0, 100.0),
+            delta: Point::new(0.0, -600.0),
+        });
+        ui.update();
+        ui.update();
+    }
+    assert!(ui.scroll_state().offsets.values().any(|o| o.y > 10_000.0), "the list did scroll");
+    let scrolled = ui.scroll_state().viewports.len();
+    assert!(scrolled <= at_rest + 4, "{scrolled} frames kept, {at_rest} at rest");
+}

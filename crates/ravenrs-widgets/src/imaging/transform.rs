@@ -887,6 +887,8 @@ impl View for TransformHandles {
                             commit(value.get());
                         }
                     }
+                    // The base may add more; they act as nothing here.
+                    _ => {}
                 }
             }),
         );
@@ -1188,6 +1190,8 @@ impl View for Protractor {
                             dragged(angle + (d.position.x - from) / arc.pixels_per_degree(), true);
                         }
                     }
+                    // The base may add more; they act as nothing here.
+                    _ => {}
                 }
             }),
         );

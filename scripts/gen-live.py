@@ -37,6 +37,8 @@ TARGETS = [
                 "feature": {"flow": "flow", "*": "charts"},
             },
             {"dir": "ravenrs-lottie", "path": "ravenrs_lottie", "only_reexported": True, "feature": "lottie"},
+            # The base is its own crate; the widgets re-export every name of it at their root.
+            {"dir": "ravenrs-widgets-base", "path": "crate"},
             {"dir": "ravenrs-widgets", "path": "crate"},
         ],
     },
@@ -157,39 +159,46 @@ def generate(target):
     gates = gated_modules(lib)
     exported_gates = gated_exports(lib)
 
-    # The forms the target's views take, for `impl` blocks of types with free parameters.
+    # The forms the target's views take, for `impl` blocks of types with free parameters. Its views
+    # are written in its own sources and in those it re-exports as its own (`path` "crate").
+    own_sources = [src] + [
+        root / "crates" / source["dir"] / "src"
+        for source in target["sources"]
+        if source["path"] == "crate" and source["dir"] != target["crate"]
+    ]
     struct_defaults, view_forms, gate_of_view = {}, {}, {}
-    for path in rust_files(src):
+    for path in (path for own in own_sources for path in rust_files(own)):
         for line in path.read_text().split("\n"):
             if match := DEFAULTS.match(line):
                 struct_defaults[match["ty"]] = [
                     (p.partition("=")[0].strip().split(":")[0].strip(), p.partition("=")[2].strip() or None)
                     for p in split_top(match["params"])
                 ]
-    for path in rust_files(src):
-        module = path.relative_to(src).parts[0].removesuffix(".rs")
-        for line in path.read_text().split("\n"):
-            match = VIEW.match(line)
-            if not match:
-                continue
-            params = generic_params(match["generics"])
-            if params is None:
-                continue
-            known = {name: view_type(bounds) for name, bounds in params}
-            args = split_top(match["args"] or "")
-            if any(a.startswith("'") for a in args):
-                continue
-            defaults = struct_defaults.get(match["ty"], [])
-            args += [d for _, d in defaults[len(args):]]
-            made = [known.get(a, a) for a in args]
-            if any(m is None for m in made):
-                continue
-            made = [m if m == "()" or "::" in m or m.startswith("Vec<") or m not in exported else f"crate::{m}" for m in made]
-            forms = view_forms.setdefault(match["ty"], [])
-            if made not in forms:
-                forms.append(made)
-            if module in gates:
-                gate_of_view[match["ty"]] = gates[module]
+    for own in own_sources:
+        for path in rust_files(own):
+            module = path.relative_to(own).parts[0].removesuffix(".rs")
+            for line in path.read_text().split("\n"):
+                match = VIEW.match(line)
+                if not match:
+                    continue
+                params = generic_params(match["generics"])
+                if params is None:
+                    continue
+                known = {name: view_type(bounds) for name, bounds in params}
+                args = split_top(match["args"] or "")
+                if any(a.startswith("'") for a in args):
+                    continue
+                defaults = struct_defaults.get(match["ty"], [])
+                args += [d for _, d in defaults[len(args):]]
+                made = [known.get(a, a) for a in args]
+                if any(m is None for m in made):
+                    continue
+                made = [m if m == "()" or "::" in m or m.startswith("Vec<") or m not in exported else f"crate::{m}" for m in made]
+                forms = view_forms.setdefault(match["ty"], [])
+                if made not in forms:
+                    forms.append(made)
+                if module in gates:
+                    gate_of_view[match["ty"]] = gates[module]
 
     def block_types(ty, generics, args, crate_path):
         """How the call names an `impl` block's type, and its `with` option, or None to leave it."""
@@ -253,6 +262,10 @@ def generate(target):
                     trait_impl = None
                 is_module = own and target.get("modules") and MODULE.match(line)
                 found = IMPL.match(line) or trait_impl or ENUM.match(line) or STRUCT.match(line) or is_module
+                # What a crate shares only with its siblings is hidden, and no one's to call.
+                above = [kept.strip() for kept in out[-4:]]
+                if found and "#[doc(hidden)]" in above and not IMPL.match(line):
+                    found = None
                 if not found:
                     out.append(line)
                     continue

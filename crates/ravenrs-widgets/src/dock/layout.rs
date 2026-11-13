@@ -458,6 +458,8 @@ impl DockLayout {
             DockSide::Right => Some(&self.right),
             DockSide::Bottom => Some(&self.bottom),
             DockSide::Center => None,
+            // The base may add more.
+            _ => None,
         }
     }
 
@@ -467,6 +469,8 @@ impl DockLayout {
             DockSide::Right => Some(&mut self.right),
             DockSide::Bottom => Some(&mut self.bottom),
             DockSide::Center => None,
+            // The base may add more.
+            _ => None,
         }
     }
 

@@ -84,6 +84,9 @@ impl Index {
             };
             match file.strip_prefix("crates/").and_then(|rest| rest.split('/').next()) {
                 Some(krate) => {
+                    // The widgets are split into crates, and used through one: their items answer as
+                    // `ravenrs-widgets`, which is what an application imports them from.
+                    let krate = if krate.starts_with("ravenrs-widgets-") { "ravenrs-widgets" } else { krate };
                     let cx = FileCx { krate, file, text };
                     cx.collect(&parsed.items, &mut index.items, &mut impls);
                     if *file == "crates/ravenrs-widgets/src/lib.rs" {
@@ -169,8 +172,8 @@ impl Index {
                     && self.widget_exports.contains(&item.name)
                     && (item.traits.contains("View") || item.traits.contains("Component"))
                     // View plumbing, not something to put on a screen.
-                    && item.file != "crates/ravenrs-widgets/src/view.rs"
-                    && item.file != "crates/ravenrs-widgets/src/modifiers.rs"
+                    && item.file != "crates/ravenrs-widgets-base/src/view.rs"
+                    && item.file != "crates/ravenrs-widgets-base/src/modifiers.rs"
             })
             .collect();
         components.sort_by(|a, b| a.name.cmp(&b.name));

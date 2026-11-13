@@ -567,6 +567,8 @@ impl Flow {
                     self.select(next);
                 }
             }
+            // The base may add more; they act as nothing here.
+            _ => {}
         }
     }
 
@@ -638,6 +640,8 @@ impl Flow {
             DragPhase::End => {
                 *self.memory.gesture.borrow_mut() = Gesture::Idle;
             }
+            // The base may add more; they act as nothing here.
+            _ => {}
         }
     }
 
@@ -694,6 +698,8 @@ impl Flow {
                 self.graph.set(graph);
                 self.select(FlowSelection::edge(id));
             }
+            // The base may add more; they act as nothing here.
+            _ => {}
         }
     }
 }

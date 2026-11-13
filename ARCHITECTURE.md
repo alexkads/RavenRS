@@ -75,6 +75,7 @@ ravenrs-report  ──► ravenrs-core, ravenrs-text  (no GPU, no window)
         │
 ravenrs-report-pdf, ravenrs-report-xlsx  (exporters: Document ──► file)
 ravenrs-report-export  ──► the exporters  (one entry point: format, name, media type)
+ravenrs-widgets        ──► ravenrs-widgets-base  (the components ──► the runtime and the basic controls, re-exported)
 ravenrs-grid-export    ──► ravenrs-widgets, ravenrs-report-export  (what a DataGrid shows ──► file)
 ravenrs-app            ──► ravenrs-criteria, ravenrs-reactive  (entities, application model, object spaces, actions, frames; no GUI)
                            and ravenrs-app-spec with `source` (entities read from Rust source while running)
@@ -171,7 +172,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-mcp` | `api` (index of the public API, parsed from embedded sources), `docs`, `expression`, `server` |
 | `ravenrs-lint` | `rules` (the syntax-tree walk and `allow` comments), `config` (`[metadata.ravenrs-lint]`), `workspace` (`cargo metadata`), `report` (compiler-style and JSON), `init` (strict lints, agents' instructions) |
 
-`ravenrs-widgets` has two parts. The runtime is `view`, `context` (`BuildCx`), `ui` and `ui/access`, `modifiers`, `clipboard`, `sound` and `util`. The components are grouped by family:
+The widgets are two crates, and applications see one. `ravenrs-widgets-base` holds the runtime (`view`, `context` with `BuildCx`, `ui` and `ui/access`, `motion`, `modifiers`, `util`), the services the platform provides (`clipboard`, `sound`, `link_service`, `file_picker`, `full_screen`, `remote`), the value types more than one family uses (`ids`, `date`, `recurrence`, `hotkey`, `selection_mode`, `summary`, `dock_side`, `zoom`, `scroll_link`, `time_link`), and the basic controls (`button`, `display`, `stack`, `overlay`, `floating`, `extras`, `choice`, `inputs`, `text_field`, `color_picker`, `calendar`). `ravenrs-widgets` holds the other components and re-exports every name of the base at its root, so `ravenrs_widgets::Button` and `ravenrs_widgets::DataGrid` are written the same way. Its components reach the base's modules by their old names (`crate::context::BuildCx`); the base makes them `#[doc(hidden)] pub`, which is not a stable API. `scripts/public-api.py` keeps the list of public paths in `crates/ravenrs-widgets/public-api.txt`, and the next step of #293 splits the rest into one crate per family. The components are grouped by family:
 
 | Module | Components |
 |---|---|
@@ -180,7 +181,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `files` | `FileUpload`, `DropZone`, `ImageField` and the service that brings files in |
 | `quick_edit` | `ValueSlider`, `InlineRename`: controls that stay small until they are used |
 | `dock` | `DockArea`: the arrangement in `dock::layout` (`DockLayout`: a tree of ids, its moves and its saved text) and `dock::geometry` (rectangles and what lies under a drag), both without `Ui`, and the drawing in `dock::area` |
-| `lists` | Long lists and what is built on them: `VirtualList`, `Filmstrip`, `PagedDocumentView`, `FileBrowser`, `YearView`, `SortableList`, `DocumentTabs`, with the arithmetic of a reorder drag in one module (`lists::reorder`) |
+| `lists` | Long lists and what is built on them: `VirtualList`, `Filmstrip`, `PagedDocumentView`, `FileBrowser`, `YearView`, `SortableList`, `DocumentTabs`, with the arithmetic of a reorder drag in `reorder`, in the base, which `dock` uses too |
 | `imaging` | Instruments for pictures, fed by the caller's data: `Histogram`, `Ruler`, `ColorWheel`, `CurveEditor`, `ZoomControl`, `ZoomPanView`, `Minimap`, `RuleOfThirdsGrid`, `RubberBand`, `Marquee`, `TransformHandles`, `Protractor`, `CropOverlay`, `Eyedropper`, `CompareView`, `ImageLightbox` |
 | `scheduler`, `recurrence` | `Scheduler` and its time axis, and `RecurrenceRule`, which needs no UI |
 | `nav`, `ribbon` | `Tabs`, `Sidebar` and its parts, `Breadcrumb`, `Disclosure`, `Ribbon` |
