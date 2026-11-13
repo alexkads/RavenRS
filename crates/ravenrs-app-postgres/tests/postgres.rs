@@ -83,93 +83,6 @@ fn add(space: &mut impl ObjectSpace, entity: &str, values: &[(&str, Value)]) -> 
 }
 
 #[test]
-fn what_is_kept_comes_back_as_it_was() {
-    if url().is_none() {
-        return;
-    }
-    let database = PostgresDatabase::builder(backend(client("kept")))
-        .managed(order(), TableMap::new("orders"))
-        .unwrap()
-        .build();
-    let day = DateTime::parse("2026-11-03").unwrap();
-    let mut space = database.space();
-    let key = add(
-        &mut space,
-        "Order",
-        &[
-            ("name", "Um".into()),
-            ("seats", Value::Number(3.0)),
-            ("rate", Value::Number(1.5)),
-            ("cost", Value::Number(12_345.0)),
-            ("active", Value::Bool(true)),
-            ("day", Value::Date(day)),
-            ("state", "o".into()),
-        ],
-    );
-    space.commit().unwrap();
-    let found = database.space().find("Order", &key).unwrap().unwrap();
-    assert_eq!(found.get("name"), Value::Text("Um".into()));
-    assert_eq!(found.get("seats"), Value::Number(3.0));
-    assert_eq!(found.get("rate"), Value::Number(1.5));
-    assert_eq!(found.get("cost"), Value::Number(12_345.0));
-    assert_eq!(found.get("active"), Value::Bool(true));
-    assert_eq!(found.get("day"), Value::Date(day));
-    assert_eq!(found.get("twice"), Value::Number(6.0), "calculated");
-}
-
-#[test]
-fn filters_order_and_pages_run_in_the_database() {
-    if url().is_none() {
-        return;
-    }
-    let database = PostgresDatabase::builder(backend(client("queries")))
-        .managed(simple(), TableMap::new("plain"))
-        .unwrap()
-        .build();
-    let mut space = database.space();
-    for (name, seats, rate, active) in
-        [("Alfa", 1.0, 0.5, true), ("Beta", 2.0, 2.5, false), ("Gama", 3.0, 3.0, true)]
-    {
-        add(
-            &mut space,
-            "Plain",
-            &[
-                ("name", name.into()),
-                ("seats", Value::Number(seats)),
-                ("rate", Value::Number(rate)),
-                ("active", Value::Bool(active)),
-            ],
-        );
-    }
-    space.commit().unwrap();
-    let names = |query: &Query| -> Vec<String> {
-        database
-            .space()
-            .query("Plain", query)
-            .unwrap()
-            .iter()
-            .map(|object| match object.get("name") {
-                Value::Text(text) => text,
-                other => panic!("{other:?}"),
-            })
-            .collect()
-    };
-    let parsed = |text: &str| Query::all().filter(Criteria::parse(text).unwrap());
-    assert_eq!(names(&parsed("[seats] > 1")), ["Beta", "Gama"]);
-    assert_eq!(names(&parsed("[rate] > 2")), ["Beta", "Gama"], "a whole number against a decimal column");
-    assert_eq!(names(&parsed("[rate] = 2.5")), ["Beta"]);
-    assert_eq!(names(&parsed("[active] = True")), ["Alfa", "Gama"]);
-    assert_eq!(names(&parsed("[name] Like 'B%'")), ["Beta"]);
-    assert_eq!(names(&parsed("[name] In ('Alfa', 'Gama')")), ["Alfa", "Gama"]);
-    assert_eq!(names(&parsed("[seats] Between(2, 3)")), ["Beta", "Gama"]);
-    assert_eq!(names(&Query::all().sort("seats", false)), ["Gama", "Beta", "Alfa"]);
-    let page = Query { limit: Some(1), offset: 1, ..Query::all() };
-    assert_eq!(names(&page), ["Beta"]);
-    let rest = Query { offset: 2, ..Query::all() };
-    assert_eq!(names(&rest), ["Gama"]);
-}
-
-#[test]
 fn a_commit_keeps_all_or_nothing_and_says_what_the_table_refused() {
     if url().is_none() {
         return;
@@ -367,77 +280,11 @@ fn the_web_api_works_over_it_with_permissions_rules_and_states() {
     assert_eq!(list.body["items"][0]["state"], "c");
 }
 
-/// The values #337 asks for, with the places of their fields.
-const EXACT: [(f64, u8); 5] = [(0.1, 2), (5.49, 2), (16.47, 2), (123_456_789.123_456, 6), (0.000_001, 6)];
-
 fn rates() -> EntityInfo {
     EntityInfo::new("Rate")
         .field(FieldInfo::new("id", FieldKind::Integer).key())
         .field(FieldInfo::new("two", FieldKind::Decimal(2)))
         .field(FieldInfo::new("six", FieldKind::Decimal(6)))
-}
-
-#[test]
-fn a_decimal_comes_back_exactly_and_filters_find_it() {
-    if url().is_none() {
-        return;
-    }
-    let mut check = client("exact");
-    let database = PostgresDatabase::builder(backend(client_in(&mut check, "exact")))
-        .managed(rates(), TableMap::new("rates"))
-        .unwrap()
-        .build();
-    let mut space = database.space();
-    for (number, places) in EXACT {
-        let field = if places == 2 { "two" } else { "six" };
-        add(&mut space, "Rate", &[(field, Value::Number(number))]);
-    }
-    add(&mut space, "Rate", &[("two", Value::Number(0.1 + 0.2))]);
-    space.commit().unwrap();
-    let kind: String = check
-        .query_one("SELECT data_type::text FROM information_schema.columns WHERE table_schema = 'exact' AND table_name = 'rates' AND column_name = 'two'", &[])
-        .unwrap()
-        .get(0);
-    assert_eq!(kind, "numeric");
-    let found = database.space().query("Rate", &Query::all()).unwrap();
-    for (at, (number, places)) in EXACT.iter().enumerate() {
-        let field = if *places == 2 { "two" } else { "six" };
-        assert_eq!(found[at].get(field), Value::Number(*number), "{number}");
-    }
-    assert_eq!(found[5].get("two"), Value::Number(0.3), "rounded to its places");
-    let text: String = check.query_one("SELECT two::text FROM rates WHERE id = 3", &[]).unwrap().get(0);
-    assert_eq!(text, "16.47");
-    let equal = database
-        .space()
-        .query("Rate", &Query::all().filter(Criteria::parse("[two] = 16.47").unwrap()))
-        .unwrap();
-    assert_eq!(equal.len(), 1);
-    assert_eq!(equal[0].get("two"), Value::Number(16.47));
-    let above = database
-        .space()
-        .query("Rate", &Query::all().filter(Criteria::parse("[two] > 5.49").unwrap()))
-        .unwrap();
-    assert_eq!(above.len(), 1);
-    let tiny = database
-        .space()
-        .query("Rate", &Query::all().filter(Criteria::parse("[six] = 0.000001").unwrap()))
-        .unwrap();
-    assert_eq!(tiny.len(), 1);
-}
-
-#[test]
-fn a_decimal_with_more_digits_than_a_number_keeps_is_refused() {
-    if url().is_none() {
-        return;
-    }
-    let database = PostgresDatabase::builder(backend(client("refused")))
-        .managed(rates(), TableMap::new("rates"))
-        .unwrap()
-        .build();
-    let mut space = database.space();
-    add(&mut space, "Rate", &[("six", Value::Number(1_234_567_890.123_456))]);
-    assert!(matches!(space.commit(), Err(SpaceError::Refused(_))));
-    assert!(database.space().query("Rate", &Query::all()).unwrap().is_empty());
 }
 
 #[test]

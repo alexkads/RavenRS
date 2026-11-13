@@ -76,47 +76,6 @@ impl FieldValue for rust_decimal::Decimal {
     }
 }
 
-/// The most significant digits a record's number holds without changing: what has more is refused
-/// rather than rounded where nobody sees it.
-pub const EXACT_DIGITS: u32 = 15;
-
-/// A number on its way to a `Decimal` field kept by a database: rounded to its places, as
-/// [`rust_decimal::Decimal`] rounds (half to even), starting from the shortest text that reads
-/// back as this number, which is what the person typed. Refused, with the reason, when it is not
-/// finite or has more than [`EXACT_DIGITS`] significant digits after rounding.
-pub fn exact_decimal(number: f64, places: u8) -> Result<f64, String> {
-    if !number.is_finite() {
-        return Err(format!("{number} is not a number a database can keep"));
-    }
-    let text = number.to_string();
-    let exact: rust_decimal::Decimal =
-        text.parse().map_err(|_| format!("{text} has more digits than a decimal can keep"))?;
-    let rounded = exact.round_dp(u32::from(places)).normalize();
-    // Normalized, the digits of the mantissa are the significant ones, and the whole part of a
-    // round number such as 1200 counts in full: it has to fit the column too.
-    let digits = rounded.mantissa().unsigned_abs().to_string().len();
-    if digits > EXACT_DIGITS as usize {
-        return Err(format!(
-            "{text} has more than {EXACT_DIGITS} significant digits, which a number keeps exactly"
-        ));
-    }
-    rounded.to_string().parse().map_err(|_| format!("{text} could not be kept"))
-}
-
-/// Rounds the `Decimal` fields of a record to their places before it is written, and refuses one
-/// a number cannot keep exactly, rather than letting the database round it unseen.
-pub fn exact_decimals(entity: &EntityInfo, object: &mut Object) -> Result<(), SpaceError> {
-    for field in &entity.fields {
-        let FieldKind::Decimal(places) = field.kind else { continue };
-        if let Value::Number(number) = object.get(&field.name) {
-            let kept = exact_decimal(number, places)
-                .map_err(|why| SpaceError::Refused(format!("{}: {why}", field.name)))?;
-            object.set(&field.name, Value::Number(kept));
-        }
-    }
-    Ok(())
-}
-
 impl FieldValue for f64 {
     fn kind() -> FieldKind {
         FieldKind::Decimal(2)
@@ -235,6 +194,8 @@ impl<S: ObjectSpace + ?Sized> ObjectSpaceExt for S {
 #[cfg(test)]
 mod decimal_tests {
     use rust_decimal::Decimal;
+
+    use crate::exact_decimal;
 
     use super::*;
 

@@ -20,5 +20,9 @@ ravenrs-app-sql.workspace = true
 ravenrs-criteria.workspace = true
 rusqlite.workspace = true
 
+[dev-dependencies]
+# Path only: dev-dependencies without a version are left out when the crate is published.
+ravenrs-app-testkit = { path = "../ravenrs-app-testkit" }
+
 [lints]
 workspace = true

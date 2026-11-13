@@ -1,6 +1,6 @@
 [package]
 name = "ravenrs-app-testkit"
-description = "Synthetic data for testing reusable ravenrs-app modules: two organizations with the same keys, units, people, example roles and a controlled clock."
+description = "Synthetic data for testing reusable ravenrs-app modules (two organizations with the same keys, units, people, example roles and a controlled clock) and the contract every ObjectSpace adapter runs."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true

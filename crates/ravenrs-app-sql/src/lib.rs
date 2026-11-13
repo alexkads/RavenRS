@@ -551,7 +551,7 @@ impl<B: SqlBackend> SqlObjectSpace<B> {
             if let Some(hook) = &entity.map.before_save {
                 hook(&mut object);
             }
-            exact_decimals(&entity.info, &mut object)?;
+            exact_decimals(&entity.info, &mut object).map_err(SpaceError::Refused)?;
             Ok::<_, SpaceError>(object)
         };
         match change {

@@ -65,10 +65,10 @@ pub use action_types::{ActionInput, MessageKind};
 pub use appearance::Appearance;
 pub use controller::{ViewController, WindowController};
 pub use entity::{
-    AppearanceContext, AppearanceRule, AppearanceTarget, Comparison, DataAccess, EntityInfo, EnumOption,
-    FieldInfo, FieldKind, ListFilter, ModelError, ModelNode, Object, Operand, RecordAction, Reminder, Rule,
-    RuleKind, Selection, Severity, StateMachine, TextComparison, Tint, Transition, ViewVariant,
-    check_transitions, local_now,
+    AppearanceContext, AppearanceRule, AppearanceTarget, Comparison, DataAccess, EXACT_DIGITS, EntityInfo,
+    EnumOption, FieldInfo, FieldKind, ListFilter, ModelError, ModelNode, Object, Operand, RecordAction,
+    Reminder, Rule, RuleKind, Selection, Severity, StateMachine, TextComparison, Tint, Transition,
+    ViewVariant, check_transitions, exact_decimal, exact_decimals, local_now,
 };
 pub use files::{AttachmentStore, MemoryAttachmentStore};
 pub use frame::{Frame, FrameContext, FrameEvent, ViewInfo, ViewKind};
@@ -84,7 +84,7 @@ pub use model::{
 };
 pub use module::{Application, ApplicationBuilder};
 pub use module_api::{DashboardContent, DashboardInfo, DashboardItem, Module, Notice, NoticeKind};
-pub use object::{BusinessObject, EXACT_DIGITS, FieldValue, ObjectSpaceExt, exact_decimal, exact_decimals};
+pub use object::{BusinessObject, FieldValue, ObjectSpaceExt};
 pub use outbox::{
     Dispatcher, Emitted, Event, OUTBOX_EVENT, OUTBOX_REPROCESS, OutboxModule, Report, outbox_entity,
 };

@@ -890,9 +890,17 @@ impl ObjectSpace for MemoryObjectSpace {
         self.check_changes()?;
         let changes = self.changes.list().to_vec();
         self.tell(SpaceEvent::Committing(&changes))?;
+        // Decimals are kept rounded to their places, as every database keeps them.
+        let mut kept = changes.clone();
+        for change in &mut kept {
+            if let Change::New(object) | Change::Updated(object) = change {
+                let entity = self.entity(object.entity())?;
+                crate::exact_decimals(entity, object).map_err(SpaceError::Refused)?;
+            }
+        }
         {
             let mut tables = self.database.tables.borrow_mut();
-            for change in &changes {
+            for change in &kept {
                 match change {
                     Change::New(object) | Change::Updated(object) => {
                         let info = self.database.entities.iter().find(|e| e.name == object.entity());

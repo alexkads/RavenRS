@@ -115,7 +115,7 @@ impl Entity {
     /// Decimals go rounded to their places, as they do to any other database.
     fn values(&self, object: &Object, with_key: bool) -> Result<Map<String, Json>, SpaceError> {
         let mut object = object.clone();
-        exact_decimals(&self.info, &mut object)?;
+        exact_decimals(&self.info, &mut object).map_err(SpaceError::Refused)?;
         Ok(self
             .stored()
             .filter(|f| with_key || !f.is_key)
