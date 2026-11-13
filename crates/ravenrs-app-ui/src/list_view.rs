@@ -11,50 +11,16 @@ use ravenrs_grid_export::export;
 use ravenrs_reactive::{Binding, State};
 use ravenrs_widgets::grid::{GridQuery, Row, Value as Cell, to_table};
 use ravenrs_widgets::{
-    AnyView, BuildCx, CellEdit, DataGrid, GridCellStyle, GridColumn, GridCurrent, GridData, GridPage,
-    GridRequest, GridResponder, GridRowAction, GridTable, Keyed, NodeId, RemoteRows, SelectionMode,
-    SortDirection, Text, View,
+    BuildCx, CellEdit, DataGrid, GridCellStyle, GridColumn, GridCurrent, GridData, GridPage, GridRequest,
+    GridResponder, GridRowAction, GridTable, Keyed, NodeId, RemoteRows, SelectionMode, SortDirection, Text,
+    View,
 };
 
 use crate::session::Session;
+use crate::session::list_types::{ListEditorRequest, ListSource, OpenHandler, ShownList};
 use crate::values::{
     cell_of, column_of, display, editable_in_list, key_from_text, key_text, semantic_of, value_of_cell,
 };
-
-/// What opening a row of a list does, with its key.
-pub type OpenHandler = Rc<dyn Fn(&Value)>;
-
-/// What a list editor is asked to show: the records as the list reads them, and how to act on them.
-#[non_exhaustive]
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
-pub struct ListEditorRequest {
-    /// The application it lives in.
-    pub session: Session,
-    /// The view it shows.
-    pub view: ViewInfo,
-    /// The entity of the records.
-    pub entity: EntityInfo,
-    /// The fields the list shows, with what their columns say.
-    pub columns: Vec<(FieldInfo, String)>,
-    /// The records, in the list's order.
-    pub objects: Rc<Vec<Object>>,
-    /// Opens a record, by its key.
-    pub on_open: OpenHandler,
-    /// Says which records are selected, which turns actions on and off.
-    pub on_select: Rc<dyn Fn(Vec<Object>)>,
-}
-
-impl std::fmt::Debug for ListEditorRequest {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ListEditorRequest").field("view", &self.view).finish_non_exhaustive()
-    }
-}
-
-/// Shows a list some other way than in a grid.
-pub(crate) type ListEditorFactory = Rc<dyn Fn(&ListEditorRequest) -> AnyView>;
-
-/// What gives a list its records when no storage keeps them.
-pub type ListSource = Rc<dyn Fn() -> Vec<Object>>;
 
 /// What a column ends up as, from its field and the one the field gives.
 pub type ColumnShape = Rc<dyn Fn(&FieldInfo, GridColumn) -> GridColumn>;
@@ -255,9 +221,6 @@ fn filter_of(filters: &[String], search: &str, fields: &[FieldInfo]) -> Option<C
     };
     both(by_column, searched)
 }
-
-/// What a list on screen shows now, as a table, for a report to take the same rows.
-pub(crate) type ShownList = Rc<dyn Fn() -> Option<GridTable>>;
 
 /// Every record of a remote list that its filters and search let through, in its order: the grid
 /// holds only the pages it has brought.
@@ -890,7 +853,7 @@ fn hash_of(text: &str) -> u64 {
     text.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3))
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Session {
     /// The records of a list, the way it chose to see them, as this person can read them.
     pub fn list_records(&self, view: &ViewInfo) -> Vec<Object> {

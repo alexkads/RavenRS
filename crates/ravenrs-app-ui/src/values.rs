@@ -7,7 +7,7 @@ use ravenrs_style::Semantic;
 use ravenrs_widgets::grid::Value as Cell;
 use ravenrs_widgets::{Date, DateTime, GridColumn, NumberFormat, PickedFile, Time};
 
-use crate::session::Words;
+use crate::words::Words;
 
 const SECONDS_IN_A_DAY: i64 = 86_400;
 
