@@ -438,6 +438,18 @@ let database = PostgresDatabase::builder(backend).managed(order, TableMap::new("
 
 A value goes in as what its column asks for, so a table with `NUMERIC`, `TIMESTAMP`, `DATE`, `SMALLINT` or `UUID` works as it is; a managed table keeps dates as text, as SQLite does.
 
+### How a `Decimal` is kept
+
+A record holds every number as an `f64`, which keeps about 15 significant digits. A field `Decimal(n)` is rounded to its `n` places before any database writes it, half to even as `rust_decimal` does, starting from the shortest text that reads back as the number, which is what the person typed: `0.1 + 0.2` is written as `0.3` in a field with 2 places. A value with more than 15 significant digits after rounding (`EXACT_DIGITS`) is refused with `SpaceError::Refused`, naming the field, and never rounded where nobody sees it. `ravenrs_app::exact_decimal` and `exact_decimals` do this, for any other place that writes records.
+
+| Database | Column of a managed table | Why |
+|---|---|---|
+| PostgreSQL | `NUMERIC(18, n)` | Exact: `16.47` is `16.47` in the table, for reports, sums and other programs that read it. The value goes and comes as decimal digits, never through a binary sum |
+| SQLite | `REAL` | The same binary number `Value::Number` is, so nothing changes on the way. Scaled whole numbers would need every filter value scaled too, and text would sort `9.5` after `10` |
+| PostgREST | what the server's table has | The JSON number comes back as the same `f64`; use `NUMERIC(18, n)` on the server |
+
+A managed table made before this, with `DOUBLE PRECISION` or `REAL`, is brought up to date once, as a migration named `decimal <table>.<column> <n>`: PostgreSQL turns the column into `NUMERIC(18, n)` with what it holds rounded, and SQLite rounds what it holds. Each column changes in its own transaction, so one that fails, say with a value too large for `NUMERIC(18, n)`, stays as it was, and opening the database says why. Changing the places of a field later runs it again with the new ones.
+
 Limits to know:
 - Numbered keys come from the highest in the table, so one process at a time should create records on it. A second one gets a conflict, and not a wrong record.
 - `Like` is case-sensitive here and not in SQLite, as each database does.
@@ -581,7 +593,7 @@ Try it: `RAVEN_API_ORIGIN=http://localhost:8099 cargo run -p feature-center --bi
 - A declared action sets fields and nothing else: it does not open views, ask for input or reach other records. One that needs to does it in `on_execute`.
 - State machines are declared in code. People cannot define states or ways while the application runs.
 - A reminder someone else set or changed shows the next time records are read here, as nothing polls. Reminders do not go anywhere outside the application.
-- `Decimal` is exact in Rust, but a record holds it as a number, so criteria, filters and SQL work with the number. Up to 6 places come back the same.
+- `Decimal` is exact in Rust, but a record holds it as a number, so criteria, filters and SQL work with the number. A database keeps it rounded to its places, and a value with more than 15 significant digits is refused (see [How a `Decimal` is kept](#how-a-decimal-is-kept)).
 - `next_number` is exact within one program. Two programs on one SQLite file have not been tried.
 - Closing a window and locking in the same frame leaves the field of the locked window without the focus. A frame between them is enough.
 - `DocumentViewer` shows what the report engine lays out. It does not open PDF files, so an attached PDF is saved or opened with the system.

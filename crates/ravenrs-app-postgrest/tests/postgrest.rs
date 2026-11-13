@@ -291,3 +291,47 @@ fn a_tenant_written_by_hand_is_refused_by_the_server() {
     assert!(matches!(refused, SpaceError::Denied(_) | SpaceError::Refused(_)), "{refused:?}");
     assert!(notes("b").space().find("Note", &Value::Number(300.0)).unwrap().is_none());
 }
+
+#[test]
+fn a_decimal_comes_back_exactly_and_filters_find_it() {
+    let Some(_) = url() else { return };
+    set_up();
+    let rates = EntityInfo::new("Rate")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("two", FieldKind::Decimal(2)))
+        .field(FieldInfo::new("six", FieldKind::Decimal(6)));
+    let database = PostgrestDatabase::builder(url().unwrap())
+        .bearer(token("a"))
+        .resource(rates, ResourceMap::new("rates"))
+        .unwrap()
+        .build();
+    let exact =
+        [(0.1, "two"), (5.49, "two"), (16.47, "two"), (123_456_789.123_456, "six"), (0.000_001, "six")];
+    let mut space = database.space();
+    for (number, field) in exact {
+        let mut object = space.new_object("Rate").unwrap();
+        object.set(field, Value::Number(number));
+        space.save(object).unwrap();
+    }
+    let mut rounded = space.new_object("Rate").unwrap();
+    rounded.set("two", Value::Number(0.1 + 0.2));
+    space.save(rounded).unwrap();
+    space.commit().unwrap();
+    let found = database.space().query("Rate", &Query::all().sort("id", true)).unwrap();
+    for (at, (number, field)) in exact.iter().enumerate() {
+        assert_eq!(found[at].get(field), Value::Number(*number), "{number}");
+    }
+    assert_eq!(found[5].get("two"), Value::Number(0.3), "rounded to its places");
+    let count = |text: &str| {
+        database.space().query("Rate", &Query::all().filter(Criteria::parse(text).unwrap())).unwrap().len()
+    };
+    assert_eq!(count("[two] = 16.47"), 1);
+    assert_eq!(count("[two] > 5.49"), 1);
+    assert_eq!(count("[six] = 0.000001"), 1);
+
+    let mut space = database.space();
+    let mut object = space.new_object("Rate").unwrap();
+    object.set("six", Value::Number(1_234_567_890.123_456));
+    space.save(object).unwrap();
+    assert!(matches!(space.commit(), Err(SpaceError::Refused(_))));
+}

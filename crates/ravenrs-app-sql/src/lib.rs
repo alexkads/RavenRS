@@ -3,6 +3,7 @@
 //! `ravenrs-app-postgres` are the ones that come with RavenRS.
 
 use ravenrs_app_i18n::{Language, Texts};
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::fmt;
@@ -10,7 +11,7 @@ use std::rc::Rc;
 
 use ravenrs_app::{
     Change, ChangeSet, EntityInfo, FieldInfo, FieldKind, ModelError, Object, ObjectSpace, Query, SpaceError,
-    SpaceEvent, SpaceWatcher, Value, key_of, key_text, run_query,
+    SpaceEvent, SpaceWatcher, Value, exact_decimals, key_of, key_text, run_query,
 };
 use ravenrs_criteria::{DateTime, Dialect, Environment, SqlParam, to_sql};
 
@@ -185,7 +186,14 @@ pub trait SqlBackend {
     /// How expressions are translated for it.
     fn dialect(&self) -> Dialect;
     /// A column for this kind of field.
-    fn column_type(&self, kind: &FieldKind) -> &'static str;
+    fn column_type(&self, kind: &FieldKind) -> Cow<'static, str>;
+    /// What turns a `Decimal` column of a table made before into the one [`Self::column_type`]
+    /// makes now, with what it holds rounded to `places`. It runs once, in a transaction, as a
+    /// migration; `None` when there is nothing to do.
+    fn decimal_upgrade(&self, table: &str, column: &str, places: u8) -> Option<String> {
+        let _ = (table, column, places);
+        None
+    }
     /// The place of a value in a statement, from 1.
     fn slot(&self, at: usize) -> String;
     /// How to skip rows with no limit on how many come after.
@@ -321,6 +329,20 @@ impl<B: SqlBackend> SqlBuilder<B> {
             })
             .collect();
         let wrong = |e: SqlError| ModelError(e.to_string());
+        // What a table made before already has, so its decimals can be brought up to date.
+        let had = mine.backend.columns_of(&added.map.table).map_err(wrong)?;
+        let upgrades: Vec<(String, String)> = added
+            .stored()
+            .filter_map(|field| {
+                let FieldKind::Decimal(places) = field.kind else { return None };
+                let column = added.map.column_of(&field.name);
+                if !had.iter().any(|found| found == column) {
+                    return None;
+                }
+                let sql = mine.backend.decimal_upgrade(&added.map.table, column, places)?;
+                Some((format!("decimal {}.{column} {places}", added.map.table), sql))
+            })
+            .collect();
         let sql = format!("CREATE TABLE IF NOT EXISTS {} ({})", quoted(&added.map.table), columns.join(", "));
         mine.backend.batch(&sql).map_err(wrong)?;
         // A table that was already there gets the fields added since.
@@ -336,6 +358,10 @@ impl<B: SqlBackend> SqlBuilder<B> {
                 );
                 mine.backend.batch(&add).map_err(wrong)?;
             }
+        }
+        let mut mine = mine;
+        for (id, sql) in upgrades {
+            mine = mine.migration(&id, &sql)?;
         }
         Ok(mine)
     }
@@ -525,11 +551,12 @@ impl<B: SqlBackend> SqlObjectSpace<B> {
             if let Some(hook) = &entity.map.before_save {
                 hook(&mut object);
             }
-            object
+            exact_decimals(&entity.info, &mut object)?;
+            Ok::<_, SpaceError>(object)
         };
         match change {
             Change::New(object) => {
-                let object = prepared(object);
+                let object = prepared(object)?;
                 let stored: Vec<&FieldInfo> = entity.stored().collect();
                 let columns: Vec<String> =
                     stored.iter().map(|f| quoted(entity.map.column_of(&f.name))).collect();
@@ -540,7 +567,7 @@ impl<B: SqlBackend> SqlObjectSpace<B> {
                 backend.execute(&sql, &values).map_err(failed)?;
             }
             Change::Updated(object) => {
-                let object = prepared(object);
+                let object = prepared(object)?;
                 let stored: Vec<&FieldInfo> = entity.stored().filter(|f| !f.is_key).collect();
                 let sets: Vec<String> = stored
                     .iter()

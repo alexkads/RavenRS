@@ -22,6 +22,7 @@
 //! # Ok::<(), Box<dyn std::error::Error>>(())
 //! ```
 
+use std::borrow::Cow;
 use std::rc::Rc;
 
 use ravenrs_app::{AttachmentStore, Diff, EntityInfo, FieldInfo, FieldKind, ModelError, ModelStore, Value};
@@ -292,12 +293,23 @@ impl SqlBackend for SqliteBackend {
         Dialect::Sqlite
     }
 
-    fn column_type(&self, kind: &FieldKind) -> &'static str {
+    fn column_type(&self, kind: &FieldKind) -> Cow<'static, str> {
         match kind {
-            FieldKind::Integer | FieldKind::Money | FieldKind::Boolean => "INTEGER",
-            FieldKind::Decimal(_) => "REAL",
-            _ => "TEXT",
+            FieldKind::Integer | FieldKind::Money | FieldKind::Boolean => "INTEGER".into(),
+            // The same binary number `Value::Number` is, so nothing changes on the way; the value
+            // is rounded to its places before it is written.
+            FieldKind::Decimal(_) => "REAL".into(),
+            _ => "TEXT".into(),
         }
+    }
+
+    fn decimal_upgrade(&self, table: &str, column: &str, places: u8) -> Option<String> {
+        let quoted = |name: &str| format!("\"{}\"", name.replace('"', "\"\""));
+        let (table, column) = (quoted(table), quoted(column));
+        Some(format!(
+            "UPDATE {table} SET {column} = round({column}, {places}) \
+             WHERE typeof({column}) = 'real' AND {column} <> round({column}, {places})"
+        ))
     }
 
     fn slot(&self, at: usize) -> String {
