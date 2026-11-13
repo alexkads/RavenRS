@@ -175,7 +175,8 @@ impl GridScenario {
 
 /// What the grid keeps about its columns beyond [`GridQuery`].
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Arrangement {
+#[doc(hidden)]
+pub struct Arrangement {
     /// Column indices in the order they are shown.
     pub order: Vec<usize>,
     /// Per column, whether it stays in place at the left.
@@ -219,7 +220,8 @@ impl Arrangement {
 }
 
 /// The layout of a grid as it stands.
-pub(crate) fn capture(
+#[doc(hidden)]
+pub fn capture(
     columns: &[GridColumn],
     query: &GridQuery,
     widths: &[f32],
@@ -262,7 +264,8 @@ pub(crate) fn capture(
 
 /// Arranges a grid as `layout` says. A column it does not name stays where it is, at
 /// the end, and a name it has that the grid does not is ignored.
-pub(crate) fn apply(
+#[doc(hidden)]
+pub fn apply(
     layout: &GridLayout,
     columns: &[GridColumn],
     query: &mut GridQuery,

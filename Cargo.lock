@@ -6254,6 +6254,7 @@ dependencies = [
  "ravenrs-style",
  "ravenrs-text",
  "ravenrs-widgets-base",
+ "ravenrs-widgets-grid",
  "ravenrs-widgets-kit",
  "serde",
  "serde_json",
@@ -6276,6 +6277,25 @@ dependencies = [
  "ravenrs-text",
  "ravenrs-widgets",
  "serde",
+ "tracing",
+]
+
+[[package]]
+name = "ravenrs-widgets-grid"
+version = "27.1.28"
+dependencies = [
+ "ravenrs-core",
+ "ravenrs-criteria",
+ "ravenrs-layout",
+ "ravenrs-live",
+ "ravenrs-reactive",
+ "ravenrs-style",
+ "ravenrs-text",
+ "ravenrs-widgets",
+ "ravenrs-widgets-base",
+ "ravenrs-widgets-kit",
+ "serde",
+ "serde_json",
  "tracing",
 ]
 

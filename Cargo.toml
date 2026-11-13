@@ -25,6 +25,7 @@ ravenrs-render = { version = "27.1.28", path = "crates/ravenrs-render" }
 ravenrs-widgets = { version = "27.1.28", path = "crates/ravenrs-widgets", default-features = false }
 ravenrs-widgets-base = { version = "27.1.28", path = "crates/ravenrs-widgets-base", default-features = false }
 ravenrs-widgets-kit = { version = "27.1.28", path = "crates/ravenrs-widgets-kit", default-features = false }
+ravenrs-widgets-grid = { version = "27.1.28", path = "crates/ravenrs-widgets-grid", default-features = false }
 ravenrs-wayland-gestures = { version = "27.1.28", path = "crates/ravenrs-wayland-gestures" }
 ravenrs-platform-native = { version = "27.1.28", path = "crates/ravenrs-platform-native" }
 ravenrs-platform-web = { version = "27.1.28", path = "crates/ravenrs-platform-web" }

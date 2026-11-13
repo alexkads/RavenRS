@@ -406,7 +406,8 @@ pub fn formula_value(
 }
 
 /// Where each group of `result` starts in its `matched` rows, and how many it has.
-pub(crate) fn group_ranges(result: &QueryResult) -> Vec<(usize, usize)> {
+#[doc(hidden)]
+pub fn group_ranges(result: &QueryResult) -> Vec<(usize, usize)> {
     let mut next = 0;
     result
         .rows
