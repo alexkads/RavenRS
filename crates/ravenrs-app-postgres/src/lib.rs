@@ -6,6 +6,7 @@
 
 mod connect;
 
+use std::borrow::Cow;
 use std::cell::{Cell as Flag, RefCell};
 use std::collections::HashMap;
 use std::error::Error;
@@ -65,32 +66,36 @@ fn text_of(value: &Value) -> String {
     }
 }
 
+fn quoted(name: &str) -> String {
+    format!("\"{}\"", name.replace('"', "\"\""))
+}
+
 /// A number in the form PostgreSQL has for `numeric`: groups of four digits around the point.
+/// The digits are those of the shortest text that reads back as the number, so 16.47 goes as
+/// 16.47, with as many places as it has.
 fn write_numeric(number: f64, out: &mut BytesMut) -> Result<(), Boxed> {
     if !number.is_finite() {
         return Err("a number has to be finite".into());
     }
-    let text = format!("{:.6}", number.abs());
+    let text = number.abs().to_string();
     let (whole, part) = text.split_once('.').unwrap_or((&text, ""));
-    let mut digits: Vec<i16> = Vec::new();
+    let whole = whole.trim_start_matches('0');
+    let mut groups: Vec<&str> = Vec::new();
     let lead = whole.len() % 4;
-    let mut groups: Vec<String> = Vec::new();
     if lead > 0 {
-        groups.push(whole[..lead].to_owned());
+        groups.push(&whole[..lead]);
     }
-    groups
-        .extend(whole.as_bytes()[lead..].chunks(4).map(|chunk| String::from_utf8_lossy(chunk).into_owned()));
+    groups.extend(whole.as_bytes()[lead..].chunks(4).map(|chunk| std::str::from_utf8(chunk).unwrap_or("0")));
     let weight = groups.len() as i16 - 1;
-    for group in &groups {
-        digits.push(group.parse()?);
+    let mut digits: Vec<i16> = groups.iter().map(|group| group.parse()).collect::<Result<_, _>>()?;
+    let padded = format!("{part:0<width$}", width = part.len().div_ceil(4) * 4);
+    for chunk in padded.as_bytes().chunks(4) {
+        digits.push(std::str::from_utf8(chunk)?.parse()?);
     }
-    let padded = format!("{part:0<8}");
-    digits.push(padded[..4].parse()?);
-    digits.push(padded[4..8].parse()?);
     out.put_i16(digits.len() as i16);
     out.put_i16(weight);
     out.put_u16(if number < 0.0 { 0x4000 } else { 0 });
-    out.put_i16(6);
+    out.put_i16(part.len() as i16);
     for digit in digits {
         out.put_i16(digit);
     }
@@ -103,11 +108,29 @@ fn read_numeric(raw: &[u8]) -> Result<f64, Boxed> {
         Ok(i16::from_be_bytes([bytes[0], bytes[1]]))
     };
     let (count, weight, sign) = (word(0)? as usize, i32::from(word(2)?), word(4)? as u16);
-    let mut total = 0.0;
-    for at in 0..count {
-        total += f64::from(word(8 + at * 2)?) * 10_000_f64.powi(weight - at as i32);
+    if sign == 0xC000 {
+        return Ok(f64::NAN);
     }
-    Ok(if sign == 0x4000 { -total } else { total })
+    // Written out as text and read once: adding the groups up as numbers would land beside the
+    // value, 16.47 as 16.470000000000002.
+    let mut whole = String::new();
+    let mut part = String::new();
+    for at in 0..count {
+        let group = format!("{:04}", word(8 + at * 2)?);
+        if (at as i32) <= weight { whole.push_str(&group) } else { part.push_str(&group) }
+    }
+    for _ in count as i32..=weight {
+        whole.push_str("0000");
+    }
+    // Groups that start after the point leave zeros between it and them.
+    let gap = (-weight - 1).max(0) as usize;
+    let text = format!(
+        "{}{}.{}{part}",
+        if sign == 0x4000 { "-" } else { "" },
+        if whole.is_empty() { "0" } else { &whole },
+        "0000".repeat(gap)
+    );
+    Ok(text.parse()?)
 }
 
 impl ToSql for Bound<'_> {
@@ -424,13 +447,23 @@ impl SqlBackend for PostgresBackend {
         Dialect::Postgres
     }
 
-    fn column_type(&self, kind: &FieldKind) -> &'static str {
+    fn column_type(&self, kind: &FieldKind) -> Cow<'static, str> {
         match kind {
-            FieldKind::Integer | FieldKind::Money => "BIGINT",
-            FieldKind::Decimal(_) => "DOUBLE PRECISION",
-            FieldKind::Boolean => "BOOLEAN",
-            _ => "TEXT",
+            FieldKind::Integer | FieldKind::Money => "BIGINT".into(),
+            // Exact: 16.47 is 16.47 here, and not the binary number nearest to it.
+            FieldKind::Decimal(places) => format!("NUMERIC(18, {})", places.min(&18)).into(),
+            FieldKind::Boolean => "BOOLEAN".into(),
+            _ => "TEXT".into(),
         }
+    }
+
+    fn decimal_upgrade(&self, table: &str, column: &str, places: u8) -> Option<String> {
+        let (table, column) = (quoted(table), quoted(column));
+        let places = places.min(18);
+        Some(format!(
+            "ALTER TABLE {table} ALTER COLUMN {column} TYPE NUMERIC(18, {places}) \
+             USING round({column}::numeric, {places})"
+        ))
     }
 
     fn slot(&self, at: usize) -> String {
@@ -493,3 +526,43 @@ pub type PostgresDatabase = SqlDatabase<PostgresBackend>;
 pub type PostgresBuilder = SqlBuilder<PostgresBackend>;
 /// A unit of work over a [`PostgresDatabase`]. A commit is one transaction.
 pub type PostgresObjectSpace = SqlObjectSpace<PostgresBackend>;
+
+#[cfg(test)]
+mod numeric_tests {
+    #![allow(clippy::unwrap_used)]
+
+    use super::*;
+
+    fn there_and_back(number: f64) -> f64 {
+        let mut out = BytesMut::new();
+        write_numeric(number, &mut out).unwrap();
+        read_numeric(&out).unwrap()
+    }
+
+    #[test]
+    fn a_numeric_goes_and_comes_back_as_the_same_number() {
+        for number in [
+            0.0,
+            0.1,
+            5.49,
+            16.47,
+            -16.47,
+            123_456_789.123_456,
+            0.000_001,
+            0.000_000_01,
+            10_000.0,
+            100_000_000.5,
+            1_234_567_890_123.46,
+        ] {
+            assert_eq!(there_and_back(number), number, "{number}");
+        }
+    }
+
+    #[test]
+    fn a_numeric_keeps_the_places_it_has() {
+        let mut out = BytesMut::new();
+        write_numeric(16.47, &mut out).unwrap();
+        // ndigits, weight, sign, dscale, then 16 and 4700.
+        assert_eq!(&out[..], &[0, 2, 0, 0, 0, 0, 0, 2, 0, 16, 0x12, 0x5c]);
+    }
+}

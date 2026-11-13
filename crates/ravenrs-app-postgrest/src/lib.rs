@@ -23,7 +23,8 @@ use std::rc::Rc;
 
 use ravenrs_app::{
     Change, ChangeSet, EntityInfo, FieldInfo, FieldKind, Object, ObjectSpace, Query, SpaceError, SpaceEvent,
-    SpaceWatcher, Value, check_query, check_transitions, key_of, key_text, run_query, value_to_json,
+    SpaceWatcher, Value, check_query, check_transitions, exact_decimals, key_of, key_text, run_query,
+    value_to_json,
 };
 pub use ravenrs_app_sql::SqlWords;
 use ravenrs_criteria::{DateTime, Environment};
@@ -111,11 +112,15 @@ impl Entity {
     }
 
     /// The columns of a change, by column name, as the function reads them.
-    fn values(&self, object: &Object, with_key: bool) -> Map<String, Json> {
-        self.stored()
+    /// Decimals go rounded to their places, as they do to any other database.
+    fn values(&self, object: &Object, with_key: bool) -> Result<Map<String, Json>, SpaceError> {
+        let mut object = object.clone();
+        exact_decimals(&self.info, &mut object)?;
+        Ok(self
+            .stored()
             .filter(|f| with_key || !f.is_key)
             .map(|f| (self.map.column_of(&f.name).to_owned(), value_to_json(&object.get(&f.name))))
-            .collect()
+            .collect())
     }
 }
 
@@ -538,9 +543,9 @@ impl PostgrestObjectSpace {
         let key_field = entity.info.key_field().ok_or_else(|| SpaceError::MissingKey(name.to_owned()))?;
         let key_column = entity.map.column_of(&key_field.name);
         let (key, values) = match change {
-            Change::New(object) => (object.get(&key_field.name), Json::Object(entity.values(object, true))),
+            Change::New(object) => (object.get(&key_field.name), Json::Object(entity.values(object, true)?)),
             Change::Updated(object) => {
-                (object.get(&key_field.name), Json::Object(entity.values(object, false)))
+                (object.get(&key_field.name), Json::Object(entity.values(object, false)?))
             }
             Change::Deleted { key, .. } => (key.clone(), Json::Object(Map::new())),
             _ => return Ok(None),

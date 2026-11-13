@@ -4,5 +4,6 @@
 //! dependency graph; one binary links once. Add a new test file here as a module.
 
 mod backup;
+mod decimal;
 mod schema;
 mod space;

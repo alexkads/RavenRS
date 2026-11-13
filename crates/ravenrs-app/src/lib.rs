@@ -84,7 +84,7 @@ pub use model::{
 };
 pub use module::{Application, ApplicationBuilder};
 pub use module_api::{DashboardContent, DashboardInfo, DashboardItem, Module, Notice, NoticeKind};
-pub use object::{BusinessObject, FieldValue, ObjectSpaceExt};
+pub use object::{BusinessObject, EXACT_DIGITS, FieldValue, ObjectSpaceExt, exact_decimal, exact_decimals};
 pub use outbox::{
     Dispatcher, Emitted, Event, OUTBOX_EVENT, OUTBOX_REPROCESS, OutboxModule, Report, outbox_entity,
 };

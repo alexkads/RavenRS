@@ -366,3 +366,152 @@ fn the_web_api_works_over_it_with_permissions_rules_and_states() {
         api.handle(ApiRequest::new("GET", "/api/data/Order").bearer(&token).query("filter", "[name] = 'Um'"));
     assert_eq!(list.body["items"][0]["state"], "c");
 }
+
+/// The values #337 asks for, with the places of their fields.
+const EXACT: [(f64, u8); 5] = [(0.1, 2), (5.49, 2), (16.47, 2), (123_456_789.123_456, 6), (0.000_001, 6)];
+
+fn rates() -> EntityInfo {
+    EntityInfo::new("Rate")
+        .field(FieldInfo::new("id", FieldKind::Integer).key())
+        .field(FieldInfo::new("two", FieldKind::Decimal(2)))
+        .field(FieldInfo::new("six", FieldKind::Decimal(6)))
+}
+
+#[test]
+fn a_decimal_comes_back_exactly_and_filters_find_it() {
+    if url().is_none() {
+        return;
+    }
+    let mut check = client("exact");
+    let database = PostgresDatabase::builder(backend(client_in(&mut check, "exact")))
+        .managed(rates(), TableMap::new("rates"))
+        .unwrap()
+        .build();
+    let mut space = database.space();
+    for (number, places) in EXACT {
+        let field = if places == 2 { "two" } else { "six" };
+        add(&mut space, "Rate", &[(field, Value::Number(number))]);
+    }
+    add(&mut space, "Rate", &[("two", Value::Number(0.1 + 0.2))]);
+    space.commit().unwrap();
+    let kind: String = check
+        .query_one("SELECT data_type::text FROM information_schema.columns WHERE table_schema = 'exact' AND table_name = 'rates' AND column_name = 'two'", &[])
+        .unwrap()
+        .get(0);
+    assert_eq!(kind, "numeric");
+    let found = database.space().query("Rate", &Query::all()).unwrap();
+    for (at, (number, places)) in EXACT.iter().enumerate() {
+        let field = if *places == 2 { "two" } else { "six" };
+        assert_eq!(found[at].get(field), Value::Number(*number), "{number}");
+    }
+    assert_eq!(found[5].get("two"), Value::Number(0.3), "rounded to its places");
+    let text: String = check.query_one("SELECT two::text FROM rates WHERE id = 3", &[]).unwrap().get(0);
+    assert_eq!(text, "16.47");
+    let equal = database
+        .space()
+        .query("Rate", &Query::all().filter(Criteria::parse("[two] = 16.47").unwrap()))
+        .unwrap();
+    assert_eq!(equal.len(), 1);
+    assert_eq!(equal[0].get("two"), Value::Number(16.47));
+    let above = database
+        .space()
+        .query("Rate", &Query::all().filter(Criteria::parse("[two] > 5.49").unwrap()))
+        .unwrap();
+    assert_eq!(above.len(), 1);
+    let tiny = database
+        .space()
+        .query("Rate", &Query::all().filter(Criteria::parse("[six] = 0.000001").unwrap()))
+        .unwrap();
+    assert_eq!(tiny.len(), 1);
+}
+
+#[test]
+fn a_decimal_with_more_digits_than_a_number_keeps_is_refused() {
+    if url().is_none() {
+        return;
+    }
+    let database = PostgresDatabase::builder(backend(client("refused")))
+        .managed(rates(), TableMap::new("rates"))
+        .unwrap()
+        .build();
+    let mut space = database.space();
+    add(&mut space, "Rate", &[("six", Value::Number(1_234_567_890.123_456))]);
+    assert!(matches!(space.commit(), Err(SpaceError::Refused(_))));
+    assert!(database.space().query("Rate", &Query::all()).unwrap().is_empty());
+}
+
+#[test]
+fn an_old_table_of_doubles_becomes_numeric_once() {
+    if url().is_none() {
+        return;
+    }
+    let mut check = client("doubles");
+    check
+        .batch_execute(
+            "CREATE TABLE rates (id BIGINT PRIMARY KEY, two DOUBLE PRECISION, six DOUBLE PRECISION); \
+             INSERT INTO rates VALUES (1, 0.30000000000000004, 0.0000014999), (2, 16.47, NULL)",
+        )
+        .unwrap();
+    let open = || {
+        PostgresDatabase::builder(backend(client_in(
+            &mut Client::connect(&url().unwrap(), NoTls).unwrap(),
+            "doubles",
+        )))
+        .managed(rates(), TableMap::new("rates"))
+        .unwrap()
+        .build()
+    };
+    let database = open();
+    let kind: String = check
+        .query_one("SELECT data_type::text FROM information_schema.columns WHERE table_schema = 'doubles' AND table_name = 'rates' AND column_name = 'six'", &[])
+        .unwrap()
+        .get(0);
+    assert_eq!(kind, "numeric");
+    let found = database.space().query("Rate", &Query::all()).unwrap();
+    assert_eq!(found[0].get("two"), Value::Number(0.3));
+    assert_eq!(found[0].get("six"), Value::Number(0.000_001));
+    assert_eq!(found[1].get("two"), Value::Number(16.47));
+    // Once: the migration is written down, and opening again does not run it.
+    let ran: i64 = check.query_one("SELECT count(*) FROM ravenrs_app_migrations", &[]).unwrap().get(0);
+    assert_eq!(ran, 2);
+    drop(open());
+    let again: i64 = check.query_one("SELECT count(*) FROM ravenrs_app_migrations", &[]).unwrap().get(0);
+    assert_eq!(again, 2);
+}
+
+#[test]
+fn a_decimal_migration_that_fails_leaves_the_column_as_it_was() {
+    if url().is_none() {
+        return;
+    }
+    let mut check = client("halfway");
+    // 10^17 does not fit NUMERIC(18, 6): that column stays as it was, whole, and the other changes.
+    check
+        .batch_execute(
+            "CREATE TABLE rates (id BIGINT PRIMARY KEY, two DOUBLE PRECISION, six DOUBLE PRECISION); \
+             INSERT INTO rates VALUES (1, 1.5, 1e17)",
+        )
+        .unwrap();
+    let failed = PostgresDatabase::builder(backend(client_in(
+        &mut Client::connect(&url().unwrap(), NoTls).unwrap(),
+        "halfway",
+    )))
+    .managed(rates(), TableMap::new("rates"));
+    assert!(failed.is_err());
+    let kinds: Vec<String> = check
+        .query("SELECT data_type::text FROM information_schema.columns WHERE table_schema = 'halfway' AND table_name = 'rates' AND column_name IN ('two', 'six')", &[])
+        .unwrap()
+        .iter()
+        .map(|row| row.get(0))
+        .collect();
+    assert_eq!(kinds.iter().filter(|kind| kind.as_str() == "double precision").count(), 1, "{kinds:?}");
+    let six: f64 = check.query_one("SELECT six FROM rates", &[]).unwrap().get(0);
+    assert_eq!(six, 1e17);
+}
+
+/// A second connection in a schema that is already there.
+fn client_in(_: &mut Client, schema: &str) -> Client {
+    let mut client = Client::connect(&url().unwrap(), NoTls).unwrap();
+    client.batch_execute(&format!("SET search_path TO {schema}")).unwrap();
+    client
+}
