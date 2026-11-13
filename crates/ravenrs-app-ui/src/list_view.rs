@@ -890,7 +890,7 @@ fn hash_of(text: &str) -> u64 {
     text.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3))
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Session {
     /// The records of a list, the way it chose to see them, as this person can read them.
     pub fn list_records(&self, view: &ViewInfo) -> Vec<Object> {

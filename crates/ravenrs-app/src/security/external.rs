@@ -28,6 +28,7 @@ pub(crate) fn external_login_entity() -> EntityInfo {
 /// Who a provider says someone is.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Claims {
     /// Who vouches for it, such as `https://login.example.org`.
     pub issuer: String,
@@ -39,6 +40,7 @@ pub struct Claims {
     pub name: Option<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Claims {
     /// Someone known to this issuer by this subject.
     pub fn new(issuer: impl Into<String>, subject: impl Into<String>) -> Self {
@@ -64,6 +66,7 @@ pub trait IdentityProvider: Provider {
 /// Signing in through an [`IdentityProvider`]: only issuers it accepts, only identities linked to
 /// an active local user, with that user's roles.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ExternalSignIn {
     directory: UserDirectory,
     provider: Rc<dyn IdentityProvider>,
@@ -79,6 +82,7 @@ impl fmt::Debug for ExternalSignIn {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ExternalSignIn {
     /// Through this provider, over the users of this directory. It accepts no issuer until told.
     pub fn new(directory: UserDirectory, provider: Rc<dyn IdentityProvider>) -> Self {
@@ -111,6 +115,7 @@ impl Authenticator for ExternalSignIn {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl UserDirectory {
     /// The local user an outside identity is linked to, if any.
     pub fn linked_user(&self, issuer: &str, subject: &str) -> Result<Option<Value>, SpaceError> {

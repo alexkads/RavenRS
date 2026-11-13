@@ -128,7 +128,8 @@ pub fn parity(
     limit: usize,
 ) -> Result<Value, String> {
     let documents: &[(&str, &str)] = match document {
-        None => &[("components", PARITY), ("reporting", REPORTING_PARITY), ("application", APP_PARITY)],
+        // The application tracker is asked for by name, as the tool says.
+        None => &[("components", PARITY), ("reporting", REPORTING_PARITY)],
         Some("components") => &[("components", PARITY)],
         Some("reporting") => &[("reporting", REPORTING_PARITY)],
         Some("application") => &[("application", APP_PARITY)],

@@ -22,6 +22,7 @@ pub fn settings_entity() -> EntityInfo {
 /// Whose a setting is.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum SettingScope {
     /// Everyone's.
     Global,
@@ -29,6 +30,7 @@ pub enum SettingScope {
     User(String),
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SettingScope {
     fn slot(&self, name: &str) -> String {
         match self {
@@ -50,6 +52,7 @@ pub trait SettingsStore {
 
 /// Settings for as long as the program runs.
 #[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct MemorySettings(Rc<RefCell<BTreeMap<String, String>>>);
 
 impl SettingsStore for MemorySettings {
@@ -70,6 +73,7 @@ impl SettingsStore for MemorySettings {
 
 /// Settings as records of [`settings_entity`], in whatever storage the application has.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct RecordSettings(SpaceMaker);
 
 impl std::fmt::Debug for RecordSettings {
@@ -78,6 +82,7 @@ impl std::fmt::Debug for RecordSettings {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl RecordSettings {
     /// Over what this makes, with no permissions around it: who may reach which setting is for
     /// whoever calls this to decide.

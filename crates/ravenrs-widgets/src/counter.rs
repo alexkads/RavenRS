@@ -14,6 +14,7 @@ use crate::{
 const SCANNER_GAP: f64 = 0.05;
 
 /// One key of a [`KeyBar`].
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct KeyBarItem {
     hotkey: Hotkey,
     label: String,
@@ -28,6 +29,7 @@ impl fmt::Debug for KeyBarItem {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl KeyBarItem {
     /// A key that does this.
     pub fn new(hotkey: Hotkey, label: impl Into<String>, on_press: impl Fn() + 'static) -> Self {
@@ -50,10 +52,12 @@ impl KeyBarItem {
 /// A row of keys and what they do, always in sight, as on a point of sale. They work wherever the
 /// focus is, for as long as the bar is built.
 #[derive(Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct KeyBar {
     items: Vec<KeyBarItem>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl KeyBar {
     /// A bar with no keys yet.
     pub fn new() -> Self {
@@ -92,6 +96,7 @@ impl View for KeyBar {
 
 /// What a [`ScanField`] took in.
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Scan {
     /// The text.
     pub text: String,
@@ -101,6 +106,7 @@ pub struct Scan {
 
 /// A field for what a scanner reads. A scanner is a keyboard that types fast and presses Enter, so
 /// this keeps the focus whenever nothing else has it, tells the two apart and is empty again after each code.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ScanField {
     placeholder: String,
     disabled: bool,
@@ -113,6 +119,7 @@ impl fmt::Debug for ScanField {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ScanField {
     /// A field that calls this with each code.
     pub fn new(on_scan: impl Fn(Scan) + 'static) -> Self {
@@ -140,6 +147,7 @@ struct Pace {
     last: f64,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Pace {
     fn is_a_scanner(&self) -> bool {
         self.length >= 4 && (self.last - self.first) / (self.length - 1) as f64 <= SCANNER_GAP

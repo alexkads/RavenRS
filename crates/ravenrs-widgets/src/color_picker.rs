@@ -11,6 +11,7 @@ use ravenrs_style::{Semantic, TextStyle};
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::overlay::panel;
+use crate::util::to_hex;
 use crate::{Button, ButtonSize, ButtonStyle, ColorSwatch, IconName, TextField, View, util};
 
 const PANEL_WIDTH: f32 = 248.0;
@@ -78,13 +79,6 @@ impl Hsv {
         let lift = self.value - chroma;
         Color::rgba(r + lift, g + lift, b + lift, self.alpha)
     }
-}
-
-/// `#RRGGBB`, or `#RRGGBBAA` when it is not opaque.
-pub(crate) fn to_hex(color: Color) -> String {
-    let byte = |channel: f32| (channel.clamp(0.0, 1.0) * 255.0).round() as u8;
-    let rgb = format!("#{:02X}{:02X}{:02X}", byte(color.r), byte(color.g), byte(color.b));
-    if byte(color.a) == 255 { rgb } else { format!("{rgb}{:02X}", byte(color.a)) }
 }
 
 /// Reads `RGB`, `RRGGBB` or `RRGGBBAA`, with or without the `#`.

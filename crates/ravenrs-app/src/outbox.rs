@@ -59,6 +59,7 @@ pub fn outbox_entity() -> EntityInfo {
 /// Declares the entity of events, for applications whose modules emit them. Modules that emit
 /// depend on it by its name, `Outbox`.
 #[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct OutboxModule;
 
 impl Module for OutboxModule {
@@ -73,6 +74,7 @@ impl Module for OutboxModule {
 
 /// An event to emit.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Event {
     /// The organization it belongs to; its key is unique only inside it.
     pub organization: String,
@@ -88,6 +90,7 @@ pub struct Event {
     pub at: Option<DateTime>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Event {
     /// An event of this kind, in this organization, under this key.
     pub fn new(
@@ -127,6 +130,7 @@ impl Event {
 
 /// What became of an emitted event.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Emitted {
     /// It waits for the commit.
     Added,
@@ -171,6 +175,7 @@ pub(crate) fn emit<S: ObjectSpace + ?Sized>(space: &mut S, event: &Event) -> Res
 /// # let _ = dispatcher;
 /// ```
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Dispatcher {
     organization: String,
     max_attempts: u32,
@@ -180,6 +185,7 @@ pub struct Dispatcher {
 
 /// What one run of a [`Dispatcher`] did.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Report {
     /// Events confirmed in this run.
     pub confirmed: usize,
@@ -193,6 +199,7 @@ pub struct Report {
     pub waiting: usize,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Dispatcher {
     /// For this organization, giving up on an event after this many temporary failures. With no
     /// [`backoff`](Self::backoff), a failed event is tried again on the next run.

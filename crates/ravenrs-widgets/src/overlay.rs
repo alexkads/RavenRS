@@ -4,13 +4,13 @@ use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Point, Role};
+use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Key, Point, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 
 use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint, Semantics};
-use crate::{AnyView, Button, ButtonStyle, IconButton, IconName, Motion, View, motion, util};
+use crate::{AnyView, Button, ButtonStyle, IconButton, IconName, Motion, TextField, View, motion, util};
 
 /// The floating panel surface shared by menus, selects and popovers.
 fn panel_paint(theme: &Theme) -> Paint {
@@ -1234,7 +1234,7 @@ impl View for Select {
                         close();
                     })
                 };
-                let list = crate::floating::SearchPanel {
+                let list = SearchPanel {
                     options: &self.options,
                     current: Some(self.selected.get()),
                     pick,
@@ -1488,4 +1488,110 @@ impl View for Dialog {
         }
         anchor
     }
+}
+
+/// A search box over a list of options, as a [`Combobox`] and a searchable
+/// [`Select`](crate::Select) open. `pick` also has to close it.
+pub(crate) struct SearchPanel<'a> {
+    pub options: &'a [String],
+    pub current: Option<usize>,
+    pub pick: Rc<dyn Fn(usize)>,
+    pub query: State<String>,
+    pub highlight: State<usize>,
+    pub open: State<bool>,
+    pub width: f32,
+}
+
+impl View for SearchPanel<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let q = self.query.get();
+        let matches: Vec<usize> =
+            (0..self.options.len()).filter(|&i| fuzzy_match(&self.options[i], &q)).collect();
+        let hl = self.highlight.get().min(matches.len().saturating_sub(1));
+        let (current, pick) = (self.current, self.pick.clone());
+        let (h, m, p, open) =
+            (self.highlight.clone(), Rc::new(matches.clone()), pick.clone(), self.open.clone());
+        let field = cx.child(
+            &TextField::new(self.query.binding())
+                .placeholder(cx.labels().search.clone())
+                .icon(IconName::Search)
+                .compact()
+                .autofocus()
+                .intercept_keys(Rc::new(move |key, _| {
+                    match key {
+                        Key::ArrowDown if !m.is_empty() => h.update(|x| *x = (*x + 1).min(m.len() - 1)),
+                        Key::ArrowUp => h.update(|x| *x = x.saturating_sub(1)),
+                        Key::Enter => {
+                            if let Some(&i) = m.get(h.get().min(m.len().saturating_sub(1))) {
+                                p(i);
+                            }
+                        }
+                        Key::Escape => open.set(false),
+                        _ => return false,
+                    }
+                    true
+                })),
+        );
+        let mut rows = vec![field];
+        for (n, &i) in matches.iter().enumerate().take(50) {
+            let p = pick.clone();
+            rows.push(search_row(cx, &self.options[i], current == Some(i), n == hl, Rc::new(move || p(i))));
+        }
+        if matches.is_empty() {
+            rows.push(util::label(
+                cx,
+                &cx.labels().no_results.clone(),
+                TextStyle::Callout,
+                None,
+                theme.color(Semantic::InkMuted),
+            ));
+        }
+        let node = panel(cx, &rows, 6.0, self.width);
+        cx.semantics(node, Semantics::new(Role::ListBox));
+        node
+    }
+}
+
+/// One option under a search box: what a [`Combobox`] and a lookup list show.
+pub(crate) fn search_row(
+    cx: &mut BuildCx<'_>,
+    text: &str,
+    selected: bool,
+    highlighted: bool,
+    on_pick: Rc<dyn Fn()>,
+) -> NodeId {
+    let theme = *cx.theme();
+    let ink = theme.color(Semantic::Ink);
+    let label = util::label(cx, text, TextStyle::Body, selected.then_some(Weight::SEMIBOLD), ink);
+    let mut items = vec![cx.container(
+        LayoutStyle { grow: 1.0, ..LayoutStyle::stack(Axis::Horizontal) },
+        &[label],
+        Paint::None,
+    )];
+    if selected {
+        items.push(util::icon(cx, IconName::Check, 16.0, theme.color(Semantic::Accent).lerp(ink, 0.3)));
+    }
+    let fill = if highlighted { ink.with_alpha(0.07) } else { Color::TRANSPARENT };
+    let row = cx.container(
+        LayoutStyle {
+            height: Some(34.0),
+            padding: Insets::symmetric(0.0, 10.0),
+            align: Align::Center,
+            ..LayoutStyle::stack(Axis::Horizontal)
+        },
+        &items,
+        Paint::Quad(QuadPaint { corner_radius: 7.0, ..QuadPaint::new(fill) }),
+    );
+    cx.semantics(row, Semantics::new(Role::ListBoxOption).selected(selected).active(highlighted));
+    cx.on_click(row, on_pick);
+    cx.cursor(row, CursorIcon::Pointer);
+    row
+}
+
+/// Is every character of `query` found in order in `text`? (case-insensitive)
+pub(crate) fn fuzzy_match(text: &str, query: &str) -> bool {
+    let text = text.to_lowercase();
+    let mut chars = text.chars();
+    query.to_lowercase().chars().filter(|c| !c.is_whitespace()).all(|q| chars.any(|c| c == q))
 }

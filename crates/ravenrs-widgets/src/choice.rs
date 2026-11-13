@@ -982,7 +982,7 @@ impl View for PairSquare {
             }),
         );
         let role = if self.on_click.is_some() { Role::Button } else { Role::Image };
-        let spoken = crate::color_picker::to_hex(self.color);
+        let spoken = crate::util::to_hex(self.color);
         cx.semantics(node, Semantics::new(role).name(self.name.clone()).value(spoken));
         if let Some(handler) = &self.on_click {
             cx.on_click(node, handler.clone());

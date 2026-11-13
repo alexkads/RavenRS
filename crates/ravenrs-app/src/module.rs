@@ -180,6 +180,7 @@ struct Host {
 /// How serious a [`Notice`] is.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum NoticeKind {
     /// Good to know.
     Info,
@@ -192,6 +193,7 @@ pub enum NoticeKind {
 
 /// Something a module keeps in sight in every window.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Notice {
     /// How serious it is.
     pub kind: NoticeKind,
@@ -201,6 +203,7 @@ pub struct Notice {
     pub message: String,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Notice {
     /// A warning.
     pub fn warning(title: impl Into<String>, message: impl Into<String>) -> Self {
@@ -401,9 +404,7 @@ impl Application {
     pub fn notices(&self) -> Vec<Notice> {
         self.modules.iter().flat_map(|module| module.notices()).collect()
     }
-}
 
-impl Application {
     /// Starts an application with this title.
     pub fn builder(title: impl Into<String>) -> ApplicationBuilder {
         ApplicationBuilder {
@@ -417,7 +418,10 @@ impl Application {
             off: Vec::new(),
         }
     }
+}
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+impl Application {
     /// What each module says about itself, by name, for whoever lists what an application has.
     pub fn manifests(&self) -> Vec<(String, ModuleManifest)> {
         self.modules.iter().map(|m| (m.name().to_owned(), m.manifest())).collect()

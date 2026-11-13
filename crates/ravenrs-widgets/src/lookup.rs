@@ -10,8 +10,8 @@ use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle};
 
 use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint, Semantics};
-use crate::floating::{fuzzy_match, search_row};
 use crate::overlay::panel;
+use crate::overlay::{fuzzy_match, search_row};
 use crate::{ButtonSize, IconButton, IconName, TextField, View, util};
 
 /// How many options a lookup asks for at a time, unless told otherwise.

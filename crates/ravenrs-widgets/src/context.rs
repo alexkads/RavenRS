@@ -15,38 +15,10 @@ use ravenrs_style::Theme;
 use ravenrs_text::{TextAttrs, TextLayout, TextSystem};
 
 use crate::View;
-use crate::motion::{Motion, MotionEntry, MotionKey};
+pub use crate::ids::{NodeId, WidgetId};
+use crate::motion_spec::{Motion, MotionEntry, MotionKey};
+pub(crate) use crate::scroll_link::ScrollTrack;
 use crate::view::ViewSeq;
-
-/// Stable identity of a widget across rebuilds, derived from its position in the
-/// view tree (or from an explicit key, see [`BuildCx::keyed_child`]). Hover,
-/// press and focus are remembered per `WidgetId`.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
-pub struct WidgetId(u64);
-
-#[cfg_attr(feature = "live", ravenrs_live::expose)]
-impl WidgetId {
-    pub(crate) const ROOT: Self = Self(0x5241_5645_4e52_5321);
-
-    fn child(self, key: u64) -> Self {
-        let mut h = self.0 ^ key.wrapping_mul(0x9e37_79b9_7f4a_7c15);
-        h = (h ^ (h >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
-        h = (h ^ (h >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
-        Self(h ^ (h >> 31))
-    }
-
-    /// The raw identity, for derived ids such as accessibility node ids.
-    pub(crate) fn raw(self) -> u64 {
-        self.0
-    }
-}
-
-/// A node of the element tree produced by one build. Only valid during the
-/// build that created it.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
-pub struct NodeId(pub(crate) u32);
 
 /// A rounded rectangle painted behind an element's children.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -1554,14 +1526,6 @@ impl Numbers {
         let eased = f64::from(self.easing.sample(t.max(0.0) as f32));
         self.from.iter().zip(&self.to).map(|(a, b)| a + (b - a) * eased).collect()
     }
-}
-
-/// A scene's track, as [`BuildCx::scroll_track`] marks it. It lives here, with the builder that
-/// keeps it, so the context does not depend on `scroll_scene`.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub(crate) struct ScrollTrack {
-    pub top: f32,
-    pub length: f32,
 }
 
 /// What times each view while it builds, when the app asks for a profile. The `Ui` gives one to
