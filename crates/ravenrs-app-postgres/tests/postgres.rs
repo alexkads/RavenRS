@@ -1,5 +1,6 @@
 //! Against a real PostgreSQL, when `RAVENRS_POSTGRES_URL` says where one is. Each test works in a
 //! schema of its own, and leaves nothing. With no database, there is nothing to run them against.
+//! `RAVENRS_POSTGRES_STATEMENTS=unprepared` runs them all with statements as they go to a pooler.
 #![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
 
 use std::rc::Rc;
@@ -10,7 +11,7 @@ use ravenrs_app::{
     Query, Role, Rule, SECURITY_ROLE, SECURITY_USER, SECURITY_USER_ROLE, SpaceError, SpaceMaker,
     StateMachine, UserDirectory, Value, hash_password, security_entities,
 };
-use ravenrs_app_postgres::{PostgresDatabase, SqlWords, TableMap};
+use ravenrs_app_postgres::{PostgresBackend, PostgresDatabase, SqlWords, Statements, TableMap};
 use ravenrs_app_server::{ApiRequest, ApiService};
 use ravenrs_criteria::DateTime;
 use serde_json::json;
@@ -26,6 +27,16 @@ fn client(schema: &str) -> Client {
     let mut client = Client::connect(&url().unwrap(), NoTls).unwrap();
     client.batch_execute(&format!("SET search_path TO {schema}")).unwrap();
     client
+}
+
+/// The connection, with statements going as `RAVENRS_POSTGRES_STATEMENTS` says.
+fn backend(client: Client) -> PostgresBackend {
+    let unprepared = std::env::var("RAVENRS_POSTGRES_STATEMENTS").is_ok_and(|mode| mode == "unprepared");
+    PostgresBackend::from(client).with_statements(if unprepared {
+        Statements::Unprepared
+    } else {
+        Statements::Prepared
+    })
 }
 
 fn order() -> EntityInfo {
@@ -76,8 +87,10 @@ fn what_is_kept_comes_back_as_it_was() {
     if url().is_none() {
         return;
     }
-    let database =
-        PostgresDatabase::builder(client("kept")).managed(order(), TableMap::new("orders")).unwrap().build();
+    let database = PostgresDatabase::builder(backend(client("kept")))
+        .managed(order(), TableMap::new("orders"))
+        .unwrap()
+        .build();
     let day = DateTime::parse("2026-11-03").unwrap();
     let mut space = database.space();
     let key = add(
@@ -109,7 +122,7 @@ fn filters_order_and_pages_run_in_the_database() {
     if url().is_none() {
         return;
     }
-    let database = PostgresDatabase::builder(client("queries"))
+    let database = PostgresDatabase::builder(backend(client("queries")))
         .managed(simple(), TableMap::new("plain"))
         .unwrap()
         .build();
@@ -165,7 +178,7 @@ fn a_commit_keeps_all_or_nothing_and_says_what_the_table_refused() {
     client
         .batch_execute("CREATE TABLE plain (id BIGINT PRIMARY KEY, name TEXT UNIQUE, seats BIGINT, rate FLOAT8, active BOOLEAN)")
         .unwrap();
-    let database = PostgresDatabase::builder(client)
+    let database = PostgresDatabase::builder(backend(client))
         .words(SqlWords::default())
         .mapped(simple(), TableMap::new("plain"))
         .unwrap()
@@ -223,7 +236,7 @@ fn a_table_that_came_first_is_met_with_the_types_it_has() {
         .column("opened", "aberta")
         .column("seen", "visto")
         .column("small", "pequeno");
-    let database = PostgresDatabase::builder(client).mapped(entity, map).unwrap().build();
+    let database = PostgresDatabase::builder(backend(client)).mapped(entity, map).unwrap().build();
     let found = database.space().find("Conta", &Value::Number(1.0)).unwrap().unwrap();
     assert_eq!(found.get("code"), Value::Text("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11".into()));
     assert_eq!(found.get("name"), Value::Text("Banco".into()));
@@ -254,7 +267,7 @@ fn a_migration_runs_once_and_one_that_fails_leaves_nothing() {
     if url().is_none() {
         return;
     }
-    let builder = PostgresDatabase::builder(client("migrations"))
+    let builder = PostgresDatabase::builder(backend(client("migrations")))
         .migration("first", "CREATE TABLE a (id BIGINT PRIMARY KEY); INSERT INTO a VALUES (1)")
         .unwrap()
         .migration("first", "INSERT INTO a VALUES (2)")
@@ -279,7 +292,7 @@ fn a_field_added_to_the_model_gets_its_column() {
     let mut first = client("added");
     first.batch_execute("CREATE TABLE plain (id BIGINT PRIMARY KEY, name TEXT)").unwrap();
     let database =
-        PostgresDatabase::builder(first).managed(simple(), TableMap::new("plain")).unwrap().build();
+        PostgresDatabase::builder(backend(first)).managed(simple(), TableMap::new("plain")).unwrap().build();
     let mut space = database.space();
     add(&mut space, "Plain", &[("name", "Um".into()), ("seats", Value::Number(2.0))]);
     space.commit().unwrap();
@@ -292,8 +305,9 @@ fn the_web_api_works_over_it_with_permissions_rules_and_states() {
     if url().is_none() {
         return;
     }
-    let mut builder =
-        PostgresDatabase::builder(client("service")).managed(order(), TableMap::new("orders")).unwrap();
+    let mut builder = PostgresDatabase::builder(backend(client("service")))
+        .managed(order(), TableMap::new("orders"))
+        .unwrap();
     for entity in security_entities() {
         let table = format!("t_{}", entity.name.to_lowercase());
         builder = builder.managed(entity, TableMap::new(table)).unwrap();
