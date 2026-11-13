@@ -27,6 +27,9 @@ done
 step "modules do not use each other in loops longer than each crate allows (ravenrs-lint module_cycle)"
 cargo run -q -p ravenrs-lint -- --workspace --only module_cycle
 
+step "the widgets' crates keep their layers: no family depends on another"
+./scripts/check-widget-layers.py
+
 step "the public API of ravenrs-widgets is unchanged (rustdoc JSON, on nightly)"
 ./scripts/public-api.py --check
 
@@ -63,7 +66,7 @@ step "CLI templates: every model and target compiles"
 cargo test -p cargo-ravenrs --test cli -- --ignored
 
 step "clippy (wasm32)"
-cargo clippy -p ravenrs -p ravenrs-platform-web -p ravenrs-report -p ravenrs-report-pdf -p ravenrs-report-xlsx -p ravenrs-report-viewer -p ravenrs-grid-export -p ravenrs-app -p ravenrs-app-i18n -p ravenrs-app-a11y -p ravenrs-app-ui -p ravenrs-app-remote -p ravenrs-app-library -p ravenrs-app-report -p ravenrs-report-designer -p quick-app -p quick-plan -p feature-center -p calculator -p hello-world -p component-gallery -p report-designer -p ravenrs-sheet -p ravenrs-spreadsheet -p spreadsheet -p tutorial-tasks -p tasks-sqlite -p ravenrs-barcode -p ravenrs-pos -p ravenrs-report-label --target wasm32-unknown-unknown -- -D warnings
+cargo clippy -p ravenrs -p ravenrs-widgets -p ravenrs-widgets-base -p ravenrs-widgets-kit -p ravenrs-widgets-grid -p ravenrs-widgets-lists -p ravenrs-widgets-scheduler -p ravenrs-widgets-dock -p ravenrs-widgets-imaging -p ravenrs-widgets-charts -p ravenrs-widgets-chat -p ravenrs-platform-web -p ravenrs-report -p ravenrs-report-pdf -p ravenrs-report-xlsx -p ravenrs-report-viewer -p ravenrs-grid-export -p ravenrs-app -p ravenrs-app-i18n -p ravenrs-app-a11y -p ravenrs-app-ui -p ravenrs-app-remote -p ravenrs-app-library -p ravenrs-app-report -p ravenrs-report-designer -p quick-app -p quick-plan -p feature-center -p calculator -p hello-world -p component-gallery -p report-designer -p ravenrs-sheet -p ravenrs-spreadsheet -p spreadsheet -p tutorial-tasks -p tasks-sqlite -p ravenrs-barcode -p ravenrs-pos -p ravenrs-report-label --target wasm32-unknown-unknown -- -D warnings
 
 # On their own: together with the rest, Cargo unifies features and rand_core asks for getrandom.
 cargo clippy -p ravenrs-dfe -p ravenrs-nfe -p ravenrs-nfse -p ravenrs-pagamento --target wasm32-unknown-unknown -- -D warnings

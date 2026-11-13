@@ -6240,10 +6240,8 @@ name = "ravenrs-widgets"
 version = "27.1.28"
 dependencies = [
  "criterion",
- "image",
  "proptest",
  "ravenrs-animation",
- "ravenrs-app-i18n",
  "ravenrs-core",
  "ravenrs-criteria",
  "ravenrs-graphics",
@@ -6252,7 +6250,6 @@ dependencies = [
  "ravenrs-lottie",
  "ravenrs-reactive",
  "ravenrs-style",
- "ravenrs-text",
  "ravenrs-widgets-base",
  "ravenrs-widgets-charts",
  "ravenrs-widgets-chat",
@@ -6262,9 +6259,7 @@ dependencies = [
  "ravenrs-widgets-kit",
  "ravenrs-widgets-lists",
  "ravenrs-widgets-scheduler",
- "serde",
  "serde_json",
- "tracing",
 ]
 
 [[package]]
