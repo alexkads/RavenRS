@@ -7,14 +7,16 @@ use ravenrs_core::Modifiers;
 use crate::selection_mode::SelectionMode;
 
 /// The modifier that adds to a selection, by the habit of each system.
-pub(crate) fn adds(modifiers: Modifiers) -> bool {
+#[doc(hidden)]
+pub fn adds(modifiers: Modifiers) -> bool {
     modifiers.ctrl || modifiers.meta
 }
 
 /// Applies a pick of `index` to a selection: alone by default, toggled with Ctrl or Cmd, and
 /// from `anchor` to it with Shift. Returns the new anchor. `key` says what the selection keeps
 /// for each position, which may be the position itself.
-pub(crate) fn pick<K: Ord>(
+#[doc(hidden)]
+pub fn pick<K: Ord>(
     set: &mut BTreeSet<K>,
     mode: SelectionMode,
     anchor: usize,

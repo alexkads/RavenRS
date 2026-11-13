@@ -20,7 +20,7 @@ NOT_LISTED = {"DiagnosticsHost", "Command", "EyedropperArea", "ChatMedia", "List
 
 # The widgets and the base they re-export; what the base shares only with them is hidden.
 source = "\n".join(
-    p.read_text() for crate in ("ravenrs-widgets", "ravenrs-widgets-base", "ravenrs-widgets-kit", "ravenrs-widgets-grid") for p in (root / "crates" / crate / "src").rglob("*.rs")
+    p.read_text() for crate in ("ravenrs-widgets", "ravenrs-widgets-base", "ravenrs-widgets-kit", "ravenrs-widgets-grid", "ravenrs-widgets-lists") for p in (root / "crates" / crate / "src").rglob("*.rs")
 )
 public = set(re.findall(r"^pub struct (\w+)", source, re.M)) - set(
     re.findall(r"^#\[doc\(hidden\)\]\n(?:#\[.*\]\n|//.*\n)*pub struct (\w+)", source, re.M)
