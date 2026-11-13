@@ -97,6 +97,7 @@ ravenrs-app-sqlite, ravenrs-app-postgres ──► ravenrs-app-sql ──► rav
 ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)
 ravenrs-sheet          (spreadsheet engine from GridCraft: formulas, recalculation, XLSX; depends on nothing in RavenRS)
 ravenrs-spreadsheet    ──► ravenrs-sheet, ravenrs-widgets  (`Spreadsheet`: the engine ──► screen)
+ravenrs-word           (word-processing engine from WordCraft: document model, DOCX/DOC/RTF/ODT/HTML/Markdown; depends on nothing in RavenRS)
 ravenrs-movie          ──► ravenrs-widgets (recorded draw lists ──► screen)
 ravenrs-ai             ──► ravenrs-widgets (models on the machine; desktop only)
         ▲
@@ -168,6 +169,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-report-xlsx` | `lib` (grid, cells, CSV), `format` (Excel number formats) |
 | `ravenrs-report-viewer` | `lib` (`DocumentViewer`), `search`, `parameters` (`ParameterPanel`) |
 | `ravenrs-sheet` | `base` (addresses, values, dates), `numfmt`, `formula`, `functions`, `math`, `model`, `calc`, `xlsx`, `chart`, `pdf`, `engine` (`Session`: every action a command with undo). Kept as it came from GridCraft, with its own `rustfmt.toml` and `clippy.toml` |
+| `ravenrs-word` | `geom`, `doc` (the model: stories, styles, lists, sections, notes, tracked changes), `metafile` (WMF/EMF), `docx`, `docbin` (`.doc`, read-only), `formats` (TXT, Markdown, HTML, RTF, ODT, LaTeX). Kept as it came from WordCraft, with its own `rustfmt.toml` and `clippy.toml`; `scripts/storytold/` converts and merges new revisions |
 | `ravenrs-spreadsheet` | `lib` (`Spreadsheet`, labels), `state` (`SpreadsheetState`), `surface` (the painted grid, pointer and keys), `geometry` |
 | `ravenrs-ai` | `machine` (memory and disk), `models` (`LocalModel`, `ModelFolder`: download checked by hash, remove), `catalog`, `manager` (`ModelManager`). Desktop only |
 | `ravenrs-movie` | `movie` (the film: draw lists, each thing stored once), `project` (non-destructive edits), `composition` (one moment drawn), `record` (`Recorder`), `player` (with sound and the boxes that explain each step), `search` (`MovieLibrary`), `assistant` (`MovieAssistant`), `chat` (`MovieChat`), `editor`, `flight` (`FlightRecorder`, `BugReporter`) |
@@ -455,3 +457,4 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | 7 | Builders before macros | `VStack!{}` proc macros first | Real, type-checked API first; macros later as sugar over it. |
 | 8 | Non-sRGB surface formats preferred | Linear blending | Matches how designers and browsers blend, so tokens look as designed. |
 | 9 | The spreadsheet engine is GridCraft's, brought in as `ravenrs-sheet` | Writing an engine; a git dependency on GridCraft | GridCraft is pure Rust under MIT OR Apache-2.0, runs in wasm32 and has 1,800 tests for formulas, recalculation and XLSX. It is not on crates.io, so a git dependency would stop RavenRS publishing; the code lives here with `NOTICE` naming the commit it came from. Only the view is ours (`ravenrs-spreadsheet`), built on `ravenrs-widgets`. |
+| 10 | The word-processing engine is WordCraft's, brought in as `ravenrs-word`, and every engine taken from the same publisher goes through one converter (`scripts/storytold/`) | Writing DOCX, RTF and ODT readers; a git dependency; one script per project | WordCraft is pure Rust under MIT OR Apache-2.0, runs in wasm32 and has about 1,900 tests for its model and formats. Only the crates with crates.io dependencies come (no page layout yet), so the crate stays publishable. One converter driven by `projects.json` keeps each copy reproducible from the commit in its `NOTICE`, so a newer revision arrives as a three-way merge. |

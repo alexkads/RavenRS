@@ -1,0 +1,64 @@
+[package]
+name = "ravenrs-word"
+description = "Headless word-processing engine for RavenRS: a document model with styles, lists, tables, notes and tracked changes, and DOCX, DOC, RTF, ODT, HTML, Markdown, LaTeX and plain text reading and writing."
+version.workspace = true
+edition.workspace = true
+# The engine came from WordCraft, which needs a newer compiler than the rest of the workspace.
+rust-version = "1.95"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-word"
+keywords = ["docx", "word", "rtf", "odt", "document"]
+categories = ["parser-implementations", "encoding", "text-processing"]
+
+[dependencies]
+image = { workspace = true, features = ["webp", "gif", "bmp", "tiff"] }
+aes = "0.9"
+base64 = "0.23"
+cfb = "0.15"
+chardetng = "1"
+chrono = { version = "0.4.45", default-features = false, features = ["std"] }
+encoding_rs = "0.8"
+getrandom = "0.3"
+hmac = "0.13"
+kurbo = { version = "0.13", features = ["serde"] }
+log = "0.4"
+miniz_oxide = "0.9"
+quick-xml = "0.41"
+serde = { workspace = true, features = ["rc"] }
+serde_json = { workspace = true, features = ["float_roundtrip"] }
+sha1 = "0.11"
+sha2 = "0.11"
+thiserror = "2"
+unicode-bidi = "0.3"
+unicode-segmentation = "1"
+zeroize = "1"
+# zip 9, as ravenrs-sheet: WordCraft is on 3, which has advisories (RUSTSEC-2026-0367..0369, 0429).
+zip = { version = "9", default-features = false, features = ["deflate"] }
+
+[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
+getrandom = { version = "0.3", features = ["wasm_js"] }
+js-sys.workspace = true
+
+[features]
+# Step counters and hostile sample files for the linear-time tests; never enabled in a shipped build.
+test-support = []
+
+[dev-dependencies]
+# The integration tests count steps through `test-support`.
+ravenrs-word = { path = ".", features = ["test-support"] }
+proptest.workspace = true
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+cognitive_complexity = "deny"
+wildcard_imports = "deny"
+dbg_macro = "warn"
+todo = "warn"
+too_many_arguments = "deny"
+type_complexity = "allow"

@@ -1,0 +1,34 @@
+{
+  "_": "Where each storytold project comes from and how its crates become modules of one RavenRS crate. Read by convert.py and merge.py; see the ravenrs-<project> skills.",
+  "gridcraft": {
+    "repo": "https://github.com/storytold/gridcraft",
+    "crate": "crates/ravenrs-sheet",
+    "lib": "ravenrs_sheet",
+    "sources": [
+      {"path": "crates/core", "module": "base", "ident": "gridcraft_core"},
+      {"path": "crates/numfmt", "module": "numfmt", "ident": "gridcraft_numfmt"},
+      {"path": "crates/formula", "module": "formula", "ident": "gridcraft_formula"},
+      {"path": "crates/functions", "module": "functions", "ident": "gridcraft_functions"},
+      {"path": "crates/math", "module": "math", "ident": "gridcraft_math"},
+      {"path": "crates/model", "module": "model", "ident": "gridcraft_model"},
+      {"path": "crates/calc", "module": "calc", "ident": "gridcraft_calc"},
+      {"path": "crates/xlsx", "module": "xlsx", "ident": "gridcraft_xlsx"},
+      {"path": "crates/chart", "module": "chart", "ident": "gridcraft_chart"},
+      {"path": "crates/pdf", "module": "pdf", "ident": "gridcraft_pdf"},
+      {"path": "crates/engine", "module": "engine", "ident": "gridcraft_engine"}
+    ]
+  },
+  "wordcraft": {
+    "repo": "https://github.com/storytold/wordcraft",
+    "crate": "crates/ravenrs-word",
+    "lib": "ravenrs_word",
+    "sources": [
+      {"path": "crates/geom", "module": "geom", "ident": "wordcraft_geom", "features": {"image": true}},
+      {"path": "crates/doc", "module": "doc", "ident": "wordcraft_doc"},
+      {"path": "crates/metafile", "module": "metafile", "ident": "wordcraft_metafile"},
+      {"path": "crates/docx", "module": "docx", "ident": "wordcraft_docx"},
+      {"path": "crates/docbin", "module": "docbin", "ident": "wordcraft_docbin"},
+      {"path": "crates/formats", "module": "formats", "ident": "wordcraft_formats"}
+    ]
+  }
+}

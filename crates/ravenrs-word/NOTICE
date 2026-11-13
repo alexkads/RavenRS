@@ -1,0 +1,15 @@
+ravenrs-word
+============
+
+The code under src/ and tests/ comes from WordCraft (https://github.com/storytold/wordcraft), commit
+fab8793ce791763761353b78caad6a63a46e5b01, crates geom, doc, metafile, docx, docbin and formats,
+brought together as modules of this one crate by scripts/storytold/convert.py.
+
+WordCraft
+Copyright (c) 2026 ArtCraft Team and the WordCraft contributors.
+Licensed under the MIT License or the Apache License, Version 2.0, at your option.
+
+The ArtCraft and WordCraft names and logos are trademarks of the ArtCraft Team and are not
+covered by the licence above; this crate uses neither.
+
+Changes from WordCraft are recorded in the RavenRS git history.
