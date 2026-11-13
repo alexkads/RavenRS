@@ -431,6 +431,59 @@ Limits to know:
 
 Its tests run when `RAVENRS_POSTGRES_URL` says where a database is, and otherwise have nothing to run against: `scripts/check.sh` does not start one.
 
+## PostgREST, Supabase and Neon's Data API
+
+`ravenrs-app-postgrest` keeps records in PostgreSQL through PostgREST, the HTTP API that Supabase puts in front of every project and that Neon's Data API speaks too. The station holds the token of the person signed in, never the database's password: what that person may read and change is decided by the database, with its grants and row level security.
+
+```rust,ignore
+let database = PostgrestDatabase::builder("https://<project>.supabase.co/rest/v1")
+    .api_key(public_key)                       // Supabase's anon key; Neon needs none
+    .token_source(Rc::new(move || session.access_token()))
+    .resource(order, ResourceMap::new("orders").column("active", "is_active"))?
+    .build();
+let mut space = database.space();
+```
+
+How it works:
+- **Reading.** A query becomes `GET /orders?select=…&and=(…)&order=…&limit=…&offset=…`. The filter is said in PostgREST's own words: comparisons, `Like`, `In`, `Between`, `Is Null`, `Not`, `And` and `Or` at any depth, `StartsWith`, `EndsWith` and `Contains`. Text always goes in quotes, so a comma or a parenthesis in it stays text. What those words cannot say (arithmetic, date functions, a calculated field, a path through a relation) is read and filtered in memory, as the SQL spaces do. Records come page after page until an empty one, so a server whose `max-rows` is smaller than the page loses none.
+- **Committing.** Every change of the unit of work goes in one call, `POST /rpc/ravenrs_commit`, to a function that applies them in one transaction. It runs as whoever called it, so the policies that hold over REST hold here too, and a failure anywhere leaves nothing. A record to update that is gone, or not the caller's, is a `Conflict`. No answer to a commit is `SpaceError::Unknown`: it may have happened, and it is not sent again.
+- **The token** is asked for at each request, so one that was renewed is used at once. Neither it nor the key appears in `Debug` or in errors.
+
+On the server, once, as the owner of the schema PostgREST serves:
+
+```sql
+SET search_path TO api;
+-- the text of ravenrs_app_postgrest::SERVER_SQL
+REVOKE EXECUTE ON FUNCTION ravenrs_commit(jsonb) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ravenrs_commit(jsonb) TO authenticated;
+NOTIFY pgrst, 'reload schema';
+```
+
+A tenant comes from the token, never from what the station sends: give the table a column that defaults to the claim, and a policy on it.
+
+```sql
+ALTER TABLE orders ADD COLUMN tenant text NOT NULL
+  DEFAULT (current_setting('request.jwt.claims', true)::json ->> 'tenant');
+ALTER TABLE orders ENABLE ROW LEVEL SECURITY;
+CREATE POLICY own_tenant ON orders
+  USING (tenant = current_setting('request.jwt.claims', true)::json ->> 'tenant')
+  WITH CHECK (tenant = current_setting('request.jwt.claims', true)::json ->> 'tenant');
+```
+
+| Service | Address | Token |
+|---|---|---|
+| Your own PostgREST | where it listens; `.schema()` when it serves more than one | signed with its `jwt-secret` |
+| Supabase | `https://<project>.supabase.co/rest/v1`, with `.api_key(anon key)` | the session's access token from Supabase Auth; the anon key alone is the `anon` role |
+| Neon Data API | the endpoint the console shows for the branch | from Neon Auth, or your own provider through its JWKS |
+
+Limits to know:
+- Desktop only: a space answers at once, and a browser cannot wait for HTTP.
+- Numbered keys come from the highest in the resource, as in the SQL spaces: one writer at a time, or keys the database makes.
+- State machines are checked against what was read before the commit, not inside its transaction.
+- A table without row level security is open to every role that has grants on it: the function adds no rule of its own.
+
+Its tests run against a real PostgREST when `RAVENRS_POSTGREST_URL`, `RAVENRS_POSTGREST_ADMIN_URL` and `RAVENRS_POSTGREST_TOKEN_A`/`_B` say where; `tests/postgrest.rs` says what each must be.
+
 ## A web API
 
 `ravenrs-app-server` serves the same model to clients that do not use RavenRS. Reads and writes go through `SecuredObjectSpace`, so what a role cannot do on the screens it cannot do here, and rules, state machines and the audit trail hold.

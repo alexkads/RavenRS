@@ -94,6 +94,7 @@ ravenrs-app-report     ──► ravenrs-app-ui, ravenrs-grid-export, ravenrs-re
 ravenrs-app-server     ──► ravenrs-app, ravenrs-criteria  (HTTP on one worker thread; no GUI)
 ravenrs-app-remote     ──► ravenrs-app-ui  (the same screens over the API of ravenrs-app-server, which it does not depend on)
 ravenrs-app-sqlite, ravenrs-app-postgres ──► ravenrs-app-sql ──► ravenrs-app, ravenrs-criteria  (only these two know a database driver)
+ravenrs-app-postgrest  ──► ravenrs-app, ravenrs-app-sql (its words only), ureq  (the same records through PostgREST over HTTP; no driver)
 ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)
 ravenrs-sheet          (spreadsheet engine from GridCraft: formulas, recalculation, XLSX; depends on nothing in RavenRS)
 ravenrs-spreadsheet    ──► ravenrs-sheet, ravenrs-widgets  (`Spreadsheet`: the engine ──► screen)
@@ -163,6 +164,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-app-remote` | `lib` (`RemoteClient`, `RemoteDatabase`, `RemoteObjectSpace`), `transport`, `gate` (`RemoteApp`) |
 | `ravenrs-app-sql` | `lib` (`SqlBackend`, `SqlDatabase`, `SqlObjectSpace`, `TableMap`) |
 | `ravenrs-app-postgres` | `lib` (`PostgresBackend`, types in and out) |
+| `ravenrs-app-postgrest` | `lib` (`PostgrestDatabase`, `PostgrestObjectSpace`, `ResourceMap`), `filter` (criteria in PostgREST's words), `http` (`Http`, `UreqHttp`), `server` (`SERVER_SQL`) |
 | `ravenrs-report-designer` | `lib`, `editor`, `bands`, `surface`, `props`, `preview`, `thermal` (printing straight to a printer) |
 | `ravenrs-app-ui` | `app`, `pane`, `form`, `session`, `background`, `shell`, `list_view`, `detail_view`, `nested`, `dashboard`, `editors`, `container`, `system`, `values`, `security`, `model_editor`, `list_editors`, `reminders` |
 | `ravenrs-app` | `entity`, `object`, `model` (`node`, `layers`, `store`, `generate`, `captions`), `space`, `action`, `controller`, `frame`, `module`, `functions`, `files`, `workflow`, `records` (numbers and drafts), `security` (`space`, `directory`, `password`, `records`, `audit`) |

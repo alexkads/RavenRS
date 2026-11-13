@@ -1,0 +1,27 @@
+[package]
+name = "ravenrs-app-postgrest"
+description = "PostgREST for RavenRS applications: records through the database's HTTP API, as an ObjectSpace."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-app-postgrest"
+keywords = ["postgrest", "supabase", "postgres", "business", "orm"]
+categories = ["database"]
+
+[dependencies]
+ravenrs-app.workspace = true
+ravenrs-app-sql.workspace = true
+ravenrs-criteria.workspace = true
+serde_json.workspace = true
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
+
+[dev-dependencies]
+postgres = "0.19"
+
+[lints]
+workspace = true
