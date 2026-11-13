@@ -3,7 +3,10 @@
 
 use crate::base::{CellError, Value};
 
-use crate::functions::special::{erf, gamma, invert, ln_beta, ln_gamma, norm_cdf, norm_inv, norm_pdf, reg_gamma_p, reg_gamma_q, reg_inc_beta};
+use crate::functions::special::{
+    erf, gamma, invert, ln_beta, ln_gamma, norm_cdf, norm_inv, norm_pdf, reg_gamma_p, reg_gamma_q, reg_gamma_q_front, reg_inc_beta,
+    reg_inc_beta_front,
+};
 use crate::functions::util::{A, R, S, arg, array_numbers, array_val, as_array, boolean, has, num, num_val, numbers, numbers_a, opt_num};
 use crate::functions::{Arg, Ctx, FnSpec, VAR};
 

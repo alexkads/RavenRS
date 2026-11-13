@@ -4,10 +4,9 @@
 
 use std::sync::Arc;
 
-use crate::base::{CellError, CellRef};
-use crate::formula::{Anchor, BinOp, Expr, RefKind, Reference, SheetSel, UnOp};
-
-use super::ftab::FTAB;
+use crate::craft::xls::expr::{Anchor, BinOp, Expr, RefKind, Reference, SheetSel, UnOp};
+use crate::craft::xls::ftab::FTAB;
+use crate::craft::xls::{CellError, CellRef};
 
 /// Formula token bytes decoded at most (Excel's limit is 1,800 per formula).
 const MAX_RGCE: usize = 16 * 1024;
@@ -16,12 +15,12 @@ const MAX_ARRAY: usize = 65_536;
 
 /// Why a formula could not be turned back into text.
 #[derive(Debug, PartialEq)]
-pub(super) struct Unsupported(pub &'static str);
+pub(crate) struct Unsupported(pub &'static str);
 
 /// Where the formula lives: refs in cell formulas store coordinates; shared formulas store
 /// row/column offsets for relative parts; names store offsets for 3-D refs too.
 #[derive(Clone, Copy, PartialEq)]
-pub(super) enum Mode {
+pub(crate) enum Mode {
     Cell,
     Shared,
     Name,
@@ -30,7 +29,7 @@ pub(super) enum Mode {
 /// A supporting link ([MS-XLS] 2.4.271): only links to this workbook (and add-in function
 /// names) are resolved; external workbooks are never followed.
 #[derive(Default)]
-pub(super) struct SupBook {
+pub(crate) struct SupBook {
     pub internal: bool,
     pub addin: bool,
     pub names: Vec<String>,
@@ -38,7 +37,7 @@ pub(super) struct SupBook {
 
 /// XTI ([MS-XLS] 2.5.344): a supporting link and a range of its sheets.
 #[derive(Clone, Copy)]
-pub(super) struct Xti {
+pub(crate) struct Xti {
     pub book: u16,
     pub first: i16,
     pub last: i16,
@@ -46,7 +45,7 @@ pub(super) struct Xti {
 
 /// Workbook-level tables formulas refer to.
 #[derive(Default)]
-pub(super) struct Links {
+pub(crate) struct Links {
     /// Every sheet's name in BoundSheet8 order (including skipped chart/macro sheets).
     pub sheets: Vec<String>,
     /// Defined names (Lbl records), in order; `None` for names that can't be referenced.
@@ -57,7 +56,7 @@ pub(super) struct Links {
     pub xti: Vec<Xti>,
 }
 
-pub(super) fn function(iftab: u16) -> Option<(&'static str, i8)> {
+pub(crate) fn function(iftab: u16) -> Option<(&'static str, i8)> {
     FTAB.binary_search_by_key(&iftab, |(i, _, _)| *i).ok().and_then(|i| FTAB.get(i)).map(|(_, n, a)| (*n, *a))
 }
 
@@ -75,7 +74,7 @@ fn error_code(code: u8) -> Option<CellError> {
     })
 }
 
-pub(super) fn cell_error(code: u8) -> CellError {
+pub(crate) fn cell_error(code: u8) -> CellError {
     error_code(code).unwrap_or(CellError::NA)
 }
 
@@ -215,7 +214,7 @@ fn push(stack: &mut Stack, kids: usize, e: Expr) -> Result<(), Unsupported> {
 
 /// Decodes `rgce` (tokens) with `rgcb` (the extra data for array constants) evaluated at
 /// `base`. Returns the expression or why it can't be represented.
-pub(super) fn decode(rgce: &[u8], rgcb: &[u8], base: CellRef, mode: Mode, links: &Links) -> Result<Expr, Unsupported> {
+pub(crate) fn decode(rgce: &[u8], rgcb: &[u8], base: CellRef, mode: Mode, links: &Links) -> Result<Expr, Unsupported> {
     if rgce.len() > MAX_RGCE {
         return Err(Unsupported("formula too long"));
     }
@@ -337,7 +336,7 @@ pub(super) fn decode(rgce: &[u8], rgcb: &[u8], base: CellRef, mode: Mode, links:
                 // A cell using a name the import drops would calculate to #NAME?: keep its
                 // saved result instead, as for references to other workbooks.
                 if mode != Mode::Name && i.and_then(|i| links.skipped.get(i)) == Some(&true) {
-                    return Err(Unsupported("defined names GridCraft skipped"));
+                    return Err(Unsupported("defined names that were skipped"));
                 }
                 push(&mut stack, kids, Expr::Name(name.clone()))?;
             }
@@ -497,7 +496,7 @@ mod tests {
     }
 
     fn text(rgce: &[u8], rgcb: &[u8]) -> Result<String, Unsupported> {
-        decode(rgce, rgcb, CellRef::new(0, 0), Mode::Cell, &links()).map(|e| crate::formula::print(&e))
+        decode(rgce, rgcb, CellRef::new(0, 0), Mode::Cell, &links()).map(|e| crate::craft::xls::expr::print(&e))
     }
 
     #[test]

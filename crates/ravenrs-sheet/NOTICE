@@ -1,15 +1,26 @@
 ravenrs-sheet
 =============
 
-The code under src/ comes from GridCraft (https://github.com/storytold/gridcraft), commit
-dea064b8573a7662a4589d1a20e9504f906f7635, crates core, numfmt, formula, functions, math, model, calc, xlsx,
-chart, pdf and engine, brought together as modules of this one crate (core is named base here).
+The code under src/ comes from two projects, brought together as modules of this one crate. The
+ravenrs-gridcraft skill and scripts/gridcraft/ say how it is converted and kept up to date.
+
+GridCraft (https://github.com/storytold/gridcraft), commit c0ee120ac2d9b59630f5abf1151dd9b471fe2926:
+the crates core, numfmt, formula, functions, math, model, calc, xlsx, chart, pdf and engine, under
+src/ (core is named base here), and their tests under tests/.
+First brought at commit dea064b8573a7662a4589d1a20e9504f906f7635.
+
+craft-libs (https://github.com/storytold/craft-libs), commit bb57d422d0bc842cbde430955825553ab7b976f4,
+the revision that GridCraft commit uses: the crates cfb, csv, offcrypto, opc, sheet, xls, xml and
+zip, under src/craft/, their tests under tests/craft_*, and the fuzzing loop of media-testkit
+(src/craft/media_testkit/hostile.rs), for tests only.
 
 GridCraft
 Copyright (c) 2026 ArtCraft Team and the GridCraft contributors.
-Licensed under the MIT License or the Apache License, Version 2.0, at your option.
+craft-libs
+Copyright (c) 2026 ArtCraft Team and the craft-libs contributors.
+Both licensed under the MIT License or the Apache License, Version 2.0, at your option.
 
-The ArtCraft and GridCraft names and logos are trademarks of the ArtCraft Team and are not
-covered by the licence above; this crate uses neither.
+The ArtCraft, GridCraft and craft-libs names and logos are trademarks of the ArtCraft Team and are
+not covered by the licences above; this crate uses none of them.
 
-Changes from GridCraft are recorded in the RavenRS git history.
+Changes from GridCraft and craft-libs are recorded in the RavenRS git history.
