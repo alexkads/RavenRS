@@ -24,6 +24,18 @@ for example in family-finance component-gallery; do
     cargo run -q -p ravenrs-lint -- -p "$example"
 done
 
+step "modules do not use each other in loops longer than each crate allows (ravenrs-lint module_cycle)"
+cargo run -q -p ravenrs-lint -- --workspace --only module_cycle
+
+step "the widgets' crates keep their layers: no family depends on another"
+./scripts/check-widget-layers.py
+
+step "the public API of ravenrs-widgets is unchanged (rustdoc JSON, on nightly)"
+./scripts/public-api.py --check
+
+step "every test file runs: tests/suite/ modules are declared"
+./scripts/check-test-suites.py
+
 if [ "${1:-}" != "--full" ]; then
     packages=$(./scripts/changed-packages.py)
     if [ -z "$packages" ]; then
@@ -54,7 +66,7 @@ step "CLI templates: every model and target compiles"
 cargo test -p cargo-ravenrs --test cli -- --ignored
 
 step "clippy (wasm32)"
-cargo clippy -p ravenrs -p ravenrs-platform-web -p ravenrs-report -p ravenrs-report-pdf -p ravenrs-report-xlsx -p ravenrs-report-viewer -p ravenrs-grid-export -p ravenrs-app -p ravenrs-app-i18n -p ravenrs-app-a11y -p ravenrs-app-ui -p ravenrs-app-remote -p ravenrs-app-library -p ravenrs-app-report -p ravenrs-report-designer -p quick-app -p quick-plan -p feature-center -p calculator -p hello-world -p component-gallery -p report-designer -p ravenrs-sheet -p ravenrs-spreadsheet -p spreadsheet -p tutorial-tasks -p tasks-sqlite -p ravenrs-barcode -p ravenrs-pos -p ravenrs-report-label --target wasm32-unknown-unknown -- -D warnings
+cargo clippy -p ravenrs -p ravenrs-widgets -p ravenrs-widgets-base -p ravenrs-widgets-kit -p ravenrs-widgets-grid -p ravenrs-widgets-lists -p ravenrs-widgets-scheduler -p ravenrs-widgets-dock -p ravenrs-widgets-imaging -p ravenrs-widgets-charts -p ravenrs-widgets-chat -p ravenrs-platform-web -p ravenrs-report -p ravenrs-report-pdf -p ravenrs-report-xlsx -p ravenrs-report-viewer -p ravenrs-grid-export -p ravenrs-app -p ravenrs-app-i18n -p ravenrs-app-a11y -p ravenrs-app-ui -p ravenrs-app-remote -p ravenrs-app-library -p ravenrs-app-report -p ravenrs-report-designer -p quick-app -p quick-plan -p feature-center -p calculator -p hello-world -p component-gallery -p report-designer -p ravenrs-sheet -p ravenrs-spreadsheet -p spreadsheet -p tutorial-tasks -p tasks-sqlite -p ravenrs-barcode -p ravenrs-pos -p ravenrs-report-label --target wasm32-unknown-unknown -- -D warnings
 
 # On their own: together with the rest, Cargo unifies features and rand_core asks for getrandom.
 cargo clippy -p ravenrs-dfe -p ravenrs-nfe -p ravenrs-nfse -p ravenrs-pagamento --target wasm32-unknown-unknown -- -D warnings
@@ -67,7 +79,7 @@ cargo test -p ravenrs-dfe -p ravenrs-nfe --all-features
 
 step "optional features are optional"
 cargo check -p ravenrs --no-default-features
-cargo check -p ravenrs-widgets --no-default-features
+cargo check -p ravenrs-widgets-base -p ravenrs-widgets-kit -p ravenrs-widgets-grid -p ravenrs-widgets-lists -p ravenrs-widgets-scheduler -p ravenrs-widgets-dock -p ravenrs-widgets-imaging -p ravenrs-widgets-charts -p ravenrs-widgets-chat -p ravenrs-widgets --no-default-features
 if cargo tree -p ravenrs --no-default-features -e normal | grep -E 'ravenrs-graphics|tiny-skia'; then
     echo "an app without the charts feature must not build the rasterizer" >&2
     exit 1
@@ -88,7 +100,7 @@ else
 fi
 
 step "every example downloads from the playground as a project that builds"
-cargo test -p component-gallery --test projects -- --ignored
+cargo test -p component-gallery --test suite projects:: -- --ignored
 
 # Only when asked: RAVENRS_GATE=1 ./scripts/check.sh --full
 if [ "${RAVENRS_GATE:-0}" = "1" ]; then

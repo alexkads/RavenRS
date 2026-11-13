@@ -75,6 +75,10 @@ ravenrs-report  ──► ravenrs-core, ravenrs-text  (no GPU, no window)
         │
 ravenrs-report-pdf, ravenrs-report-xlsx  (exporters: Document ──► file)
 ravenrs-report-export  ──► the exporters  (one entry point: format, name, media type)
+ravenrs-widgets        ──► every ravenrs-widgets-* below  (the facade: re-exports them all by the same names)
+ravenrs-widgets-grid, -lists, -scheduler, -dock, -imaging, -charts, -chat
+                       ──► ravenrs-widgets-kit, ravenrs-widgets-base  (one family each; never another family)
+ravenrs-widgets-kit    ──► ravenrs-widgets-base
 ravenrs-grid-export    ──► ravenrs-widgets, ravenrs-report-export  (what a DataGrid shows ──► file)
 ravenrs-app            ──► ravenrs-criteria, ravenrs-reactive  (entities, application model, object spaces, actions, frames; no GUI)
                            and ravenrs-app-spec with `source` (entities read from Rust source while running)
@@ -93,6 +97,8 @@ ravenrs-app-sqlite, ravenrs-app-postgres ──► ravenrs-app-sql ──► rav
 ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)
 ravenrs-sheet          (spreadsheet engine from GridCraft: formulas, recalculation, XLSX; depends on nothing in RavenRS)
 ravenrs-spreadsheet    ──► ravenrs-sheet, ravenrs-widgets  (`Spreadsheet`: the engine ──► screen)
+ravenrs-word           (word-processing engine from WordCraft: document model, DOCX/DOC/RTF/ODT/HTML/Markdown; depends on nothing in RavenRS)
+ravenrs-pdf            (PDF engine from PdfCraft: reading, saving, merging and splitting, rendering to pixels; depends on nothing in RavenRS)
 ravenrs-movie          ──► ravenrs-widgets (recorded draw lists ──► screen)
 ravenrs-ai             ──► ravenrs-widgets (models on the machine; desktop only)
         ▲
@@ -164,6 +170,8 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-report-xlsx` | `lib` (grid, cells, CSV), `format` (Excel number formats) |
 | `ravenrs-report-viewer` | `lib` (`DocumentViewer`), `search`, `parameters` (`ParameterPanel`) |
 | `ravenrs-sheet` | `base` (addresses, values, dates), `numfmt`, `formula`, `functions`, `math`, `model`, `calc`, `xlsx`, `chart`, `pdf`, `engine` (`Session`: every action a command with undo). Kept as it came from GridCraft, with its own `rustfmt.toml` and `clippy.toml` |
+| `ravenrs-word` | `geom`, `doc` (the model: stories, styles, lists, sections, notes, tracked changes), `metafile` (WMF/EMF), `docx`, `docbin` (`.doc`, read-only), `formats` (TXT, Markdown, HTML, RTF, ODT, LaTeX). Kept as it came from WordCraft, with its own `rustfmt.toml` and `clippy.toml`; `scripts/storytold/` converts and merges new revisions |
+| `ravenrs-pdf` | `geom`, `crypt`, `filters`, `cos` (objects, repair, saves, encryption), `model`, `content`, `fonts`, `render` (pages to pixels, text, inspection), `organize` (merge, split, pages, attachments); `third_party` holds the hayro, vello_cpu and lopdf revisions PdfCraft patches. Kept as it came, with its own `rustfmt.toml` and `clippy.toml`; built at `opt-level = 1` in dev, as PdfCraft is |
 | `ravenrs-spreadsheet` | `lib` (`Spreadsheet`, labels), `state` (`SpreadsheetState`), `surface` (the painted grid, pointer and keys), `geometry` |
 | `ravenrs-ai` | `machine` (memory and disk), `models` (`LocalModel`, `ModelFolder`: download checked by hash, remove), `catalog`, `manager` (`ModelManager`). Desktop only |
 | `ravenrs-movie` | `movie` (the film: draw lists, each thing stored once), `project` (non-destructive edits), `composition` (one moment drawn), `record` (`Recorder`), `player` (with sound and the boxes that explain each step), `search` (`MovieLibrary`), `assistant` (`MovieAssistant`), `chat` (`MovieChat`), `editor`, `flight` (`FlightRecorder`, `BugReporter`) |
@@ -171,7 +179,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-mcp` | `api` (index of the public API, parsed from embedded sources), `docs`, `expression`, `server` |
 | `ravenrs-lint` | `rules` (the syntax-tree walk and `allow` comments), `config` (`[metadata.ravenrs-lint]`), `workspace` (`cargo metadata`), `report` (compiler-style and JSON), `init` (strict lints, agents' instructions) |
 
-`ravenrs-widgets` has two parts. The runtime is `view`, `context` (`BuildCx`), `ui` and `ui/access`, `modifiers`, `clipboard`, `sound` and `util`. The components are grouped by family:
+The widgets are ten crates, and applications see one: `ravenrs-widgets`. `ravenrs-widgets-base` holds the runtime (`view`, `context` with `BuildCx`, `ui` and `ui/access`, `motion`, `modifiers`, `util`), the services the platform provides (`clipboard`, `sound`, `link_service`, `file_picker`, `full_screen`, `remote`), the value types more than one family uses (`ids`, `date`, `recurrence`, `hotkey`, `selection_mode`, `summary`, `dock_side`, `zoom`, `scroll_link`, `time_link`), and the basic controls (`button`, `display`, `stack`, `overlay`, `floating`, `extras`, `choice`, `inputs`, `text_field`, `color_picker`, `calendar`). `ravenrs-widgets-kit` holds the components of general use the families are built on (`nav`, `commands`, `status`, `shortcuts`, `tiles`, `theme`, `diagnostics`, `release_notes`, `model_picker`, `counter`, `data`, `editors`, `filter_builder`, `expression_editor`, `lookup`, `tag_box`, `quick_edit`, `form_layout`, `wizard`, `quad_field`, `files`). Each family is a crate of its own that uses only the base and the kit: `ravenrs-widgets-grid` (`grid/`), `-lists` (`lists/`, `tree`), `-scheduler` (`scheduler/`, `event_calendar`, `timeline`), `-dock` (`dock/`, `ribbon`), `-imaging` (`imaging/`, `lottie`), `-charts` (`chart`, `flow`, `sankey`) and `-chat` (`chat`, `conversation`, `rich_text`, `code_editor`, `playground`). `scripts/check-widget-layers.py` fails if a family names another in its `Cargo.toml`. `ravenrs-widgets` is the facade: the playground's registry (`live`, `live_list`) and the re-export of every name at its root, so `ravenrs_widgets::Button` and `ravenrs_widgets::DataGrid` are written the same way. Its components reach the base's modules by their old names (`crate::context::BuildCx`); the base makes them `#[doc(hidden)] pub`, which is not a stable API. `scripts/public-api.py` keeps the list of public paths in `crates/ravenrs-widgets/public-api.txt`, reading every `ravenrs-widgets-*` crate as part of the facade. The components are grouped by family:
 
 | Module | Components |
 |---|---|
@@ -180,7 +188,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `files` | `FileUpload`, `DropZone`, `ImageField` and the service that brings files in |
 | `quick_edit` | `ValueSlider`, `InlineRename`: controls that stay small until they are used |
 | `dock` | `DockArea`: the arrangement in `dock::layout` (`DockLayout`: a tree of ids, its moves and its saved text) and `dock::geometry` (rectangles and what lies under a drag), both without `Ui`, and the drawing in `dock::area` |
-| `lists` | Long lists and what is built on them: `VirtualList`, `Filmstrip`, `PagedDocumentView`, `FileBrowser`, `YearView`, `SortableList`, `DocumentTabs`, with the arithmetic of a reorder drag in one module (`lists::reorder`) |
+| `lists` | Long lists and what is built on them: `VirtualList`, `Filmstrip`, `PagedDocumentView`, `FileBrowser`, `YearView`, `SortableList`, `DocumentTabs`, with the arithmetic of a reorder drag in `reorder`, in the base, which `dock` uses too |
 | `imaging` | Instruments for pictures, fed by the caller's data: `Histogram`, `Ruler`, `ColorWheel`, `CurveEditor`, `ZoomControl`, `ZoomPanView`, `Minimap`, `RuleOfThirdsGrid`, `RubberBand`, `Marquee`, `TransformHandles`, `Protractor`, `CropOverlay`, `Eyedropper`, `CompareView`, `ImageLightbox` |
 | `scheduler`, `recurrence` | `Scheduler` and its time axis, and `RecurrenceRule`, which needs no UI |
 | `nav`, `ribbon` | `Tabs`, `Sidebar` and its parts, `Breadcrumb`, `Disclosure`, `Ribbon` |
@@ -358,7 +366,7 @@ Phase R1 is done. `ravenrs-report-pdf`, `ravenrs-report-xlsx` export the `Docume
 * **Soft shadows** are separate instances drawn under their shape: the coverage is an `erf` approximation over the same SDF, which gives a Gaussian-looking falloff in one pass with no blur texture.
 * **Text** is shaped by Parley, rasterized per glyph by `swash` (outline, alpha mask, 4 horizontal sub-pixel positions, no hinting) into an R8 atlas packed with shelves, and drawn as textured quads snapped to the device pixel grid. The atlas grows (×2 up to the device limit) when it fills; at the limit it is cleared.
 * **Color.** Tokens are sRGB. The renderer prefers non-sRGB surface formats so blending happens in sRGB space, as in browsers and design tools; on `*Srgb` targets the shaders linearize colors first. Output is premultiplied alpha.
-* **Resources** (pipelines, atlas, instance buffers) are created once and reused; instance buffers only grow. GPU→CPU readback exists only in tests: `crates/ravenrs-render/tests/offscreen.rs` checks pixels of real scenes and `crates/ravenrs/tests/visual.rs` compares golden images. GPU timing is off unless asked for, and its answers arrive frames later through buffers mapped in the background, so it never makes a frame wait (`timing.rs`).
+* **Resources** (pipelines, atlas, instance buffers) are created once and reused; instance buffers only grow. GPU→CPU readback exists only in tests: `crates/ravenrs-render/tests/offscreen.rs` checks pixels of real scenes and `crates/ravenrs/tests/suite/visual.rs` compares golden images. GPU timing is off unless asked for, and its answers arrive frames later through buffers mapped in the background, so it never makes a frame wait (`timing.rs`).
 
 **Why not Vello (yet).** Vello's main renderer requires compute shaders and is still labelled experimental; its hybrid variant is promising but young. RavenRS needs a handful of primitives that an SDF quad pipeline draws in one pass, with a small WASM footprint. Arbitrary vector paths have their own pipeline, `Primitive::Path`: edges add up the exact area they cover in each pixel of a coverage texture, in one pass, and the main pass paints from it in scene order. It needs no compute, tessellation or multisampling.
 
@@ -451,3 +459,5 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | 7 | Builders before macros | `VStack!{}` proc macros first | Real, type-checked API first; macros later as sugar over it. |
 | 8 | Non-sRGB surface formats preferred | Linear blending | Matches how designers and browsers blend, so tokens look as designed. |
 | 9 | The spreadsheet engine is GridCraft's, brought in as `ravenrs-sheet` | Writing an engine; a git dependency on GridCraft | GridCraft is pure Rust under MIT OR Apache-2.0, runs in wasm32 and has 1,800 tests for formulas, recalculation and XLSX. It is not on crates.io, so a git dependency would stop RavenRS publishing; the code lives here with `NOTICE` naming the commit it came from. Only the view is ours (`ravenrs-spreadsheet`), built on `ravenrs-widgets`. |
+| 10 | The word-processing engine is WordCraft's, brought in as `ravenrs-word`, and every engine taken from the same publisher goes through one converter (`scripts/storytold/`) | Writing DOCX, RTF and ODT readers; a git dependency; one script per project | WordCraft is pure Rust under MIT OR Apache-2.0, runs in wasm32 and has about 1,900 tests for its model and formats. Only the crates with crates.io dependencies come (no page layout yet), so the crate stays publishable. One converter driven by `projects.json` keeps each copy reproducible from the commit in its `NOTICE`, so a newer revision arrives as a three-way merge. |
+| 11 | The PDF engine is PdfCraft's, brought in as `ravenrs-pdf`, with the renderer crates PdfCraft patches copied in as modules | `hayro` and `vello_cpu` from crates.io; a git dependency; `[patch]` | PdfCraft renders with hayro, vello_cpu and lopdf at old versions carrying about a thousand patches of its own (stack overflows on hostile files, tiles, appearance states), each covered by a PdfCraft test. The released crates lack them and have moved on; a `[patch]` does not reach the users of a published crate. So those nine crates are modules too (`third_party`), converted from the same commit, with their licences in `LICENSES/`. |

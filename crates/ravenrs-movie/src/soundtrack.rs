@@ -15,12 +15,14 @@ const BEAT_MS: u64 = 1000 / 30;
 /// does not stop at the steps. A box that starts while another is still being said
 /// cuts it, like in the player.
 #[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Soundtrack {
     samples: Vec<f32>,
     rate: u32,
     unrecorded: Vec<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Soundtrack {
     /// The sound of `movie` at `rate` samples a second, with the voice of `narration`.
     pub fn of(movie: &Movie, narration: Option<&Narration>, rate: u32) -> Self {

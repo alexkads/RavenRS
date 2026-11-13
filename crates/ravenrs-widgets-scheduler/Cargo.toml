@@ -1,0 +1,34 @@
+[package]
+name = "ravenrs-widgets-scheduler"
+description = "RavenRS time on screen: Scheduler, EventCalendar with RecurrenceEditor, and Timeline. Applications use them through ravenrs-widgets."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-widgets"
+keywords = ["gui", "ui", "widgets", "components"]
+categories = ["gui"]
+
+[dependencies]
+ravenrs-widgets-base.workspace = true
+ravenrs-widgets-kit.workspace = true
+ravenrs-core.workspace = true
+ravenrs-reactive.workspace = true
+ravenrs-layout.workspace = true
+ravenrs-style.workspace = true
+ravenrs-live = { workspace = true, optional = true }
+
+[features]
+live = ["dep:ravenrs-live", "ravenrs-widgets-base/live", "ravenrs-widgets-kit/live", "ravenrs-core/live", "ravenrs-style/live", "ravenrs-layout/live"]
+
+[dev-dependencies]
+# The examples in the documentation are written as applications write them, through the facade.
+# A path with no version: `cargo publish` leaves it out.
+ravenrs-widgets = { path = "../ravenrs-widgets" }
+
+[lints]
+workspace = true

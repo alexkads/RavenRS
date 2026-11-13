@@ -12,7 +12,7 @@ use ravenrs_widgets::{
     View,
 };
 
-use crate::editors::EditorRequest;
+use crate::session::EditorRequest;
 use crate::session::{FormState, Session};
 use crate::values::semantic_of;
 

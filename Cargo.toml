@@ -23,6 +23,15 @@ ravenrs-text = { version = "27.1.28", path = "crates/ravenrs-text" }
 ravenrs-style = { version = "27.1.28", path = "crates/ravenrs-style" }
 ravenrs-render = { version = "27.1.28", path = "crates/ravenrs-render" }
 ravenrs-widgets = { version = "27.1.28", path = "crates/ravenrs-widgets", default-features = false }
+ravenrs-widgets-base = { version = "27.1.28", path = "crates/ravenrs-widgets-base", default-features = false }
+ravenrs-widgets-kit = { version = "27.1.28", path = "crates/ravenrs-widgets-kit", default-features = false }
+ravenrs-widgets-chat = { version = "27.1.28", path = "crates/ravenrs-widgets-chat", default-features = false }
+ravenrs-widgets-charts = { version = "27.1.28", path = "crates/ravenrs-widgets-charts", default-features = false }
+ravenrs-widgets-imaging = { version = "27.1.28", path = "crates/ravenrs-widgets-imaging", default-features = false }
+ravenrs-widgets-dock = { version = "27.1.28", path = "crates/ravenrs-widgets-dock", default-features = false }
+ravenrs-widgets-scheduler = { version = "27.1.28", path = "crates/ravenrs-widgets-scheduler", default-features = false }
+ravenrs-widgets-lists = { version = "27.1.28", path = "crates/ravenrs-widgets-lists", default-features = false }
+ravenrs-widgets-grid = { version = "27.1.28", path = "crates/ravenrs-widgets-grid", default-features = false }
 ravenrs-wayland-gestures = { version = "27.1.28", path = "crates/ravenrs-wayland-gestures" }
 ravenrs-platform-native = { version = "27.1.28", path = "crates/ravenrs-platform-native" }
 ravenrs-platform-web = { version = "27.1.28", path = "crates/ravenrs-platform-web" }
@@ -124,6 +133,11 @@ debug = "line-tables-only"
 # The spreadsheet evaluator budgets its stack for recursive LAMBDA calls; unoptimised frames are
 # several times larger, so the same formula would stop much earlier in debug builds.
 [profile.dev.package.ravenrs-sheet]
+opt-level = 1
+
+# The PDF engine's tests recurse as deep as hostile files do and decrypt with every key length; at
+# opt-level 0 they overflow the stack or take minutes, so it builds as PdfCraft builds it.
+[profile.dev.package.ravenrs-pdf]
 opt-level = 1
 
 

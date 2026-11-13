@@ -2,39 +2,17 @@
 //! type, how views become an [`AnyView`], adapters for the few generic functions an example
 //! uses, and a [`Runner`] for the [`Playground`](crate::Playground).
 
-use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use ravenrs_live::{Fallback, FromLive, Host, Record, Registry, Value, bridge};
+use ravenrs_live::{FromLive, Host, Registry, Value, bridge};
 use ravenrs_reactive::State;
+use ravenrs_widgets_base::live_view::LiveCx;
 
-use crate::context::{BuildCx, NodeId};
-use crate::{AnyView, CodeDiagnostic, Runner, Spacer, Text, View};
+use crate::{AnyView, CodeDiagnostic, Runner, Text, View};
 
 /// How a view of type `T` goes where an [`AnyView`] goes.
 pub fn view<T: View + 'static>(registry: &mut Registry) {
     registry.conversion::<T, AnyView>(bridge::host_name::<T>(), |view| Box::new(view));
-}
-
-impl FromLive for AnyView {
-    fn from_live(value: Value) -> Result<Self, String> {
-        match value.read() {
-            Value::Host(host) => host.take_as::<AnyView>(),
-            // A bare text where a view goes reads as the text, as `impl Into<String>` would.
-            Value::Str(text) => Ok(Box::new(Text::new(text))),
-            Value::Unit | Value::Option(None) => Ok(Box::new(Spacer::new())),
-            Value::Option(Some(inner)) => AnyView::from_live(*inner),
-            // A struct of the program with `impl View for ..`.
-            Value::Record(record) if record.has_method("build") => Ok(Box::new(LiveView { record })),
-            other => Err(format!("expected a view, found {}", other.kind())),
-        }
-    }
-}
-
-impl Fallback for AnyView {
-    fn fallback() -> Self {
-        Box::new(Spacer::new())
-    }
 }
 
 /// `Text::bound(&state, |value| ..)`: generic over the state's type, so written out here.
@@ -126,51 +104,6 @@ fn canvas(registry: &mut Registry) {
         });
         Ok(Value::Host(ravenrs_live::Host::new("Canvas", canvas)))
     });
-}
-
-/// A view the program declares itself, with `impl View for Name { fn build(&self, cx) .. }`.
-/// Its `build` runs in the interpreter at every build, with a `cx` that keeps its states.
-struct LiveView {
-    record: Rc<Record>,
-}
-
-/// What the program's `build` gets as `cx`: its states, kept between builds in order, the time,
-/// and the view it hands to `cx.child`.
-#[derive(Clone)]
-struct LiveCx {
-    states: Rc<RefCell<Vec<State<Value>>>>,
-    next: Rc<Cell<usize>>,
-    now: f64,
-    wake: Rc<Cell<Option<f64>>>,
-    child: Rc<RefCell<Option<AnyView>>>,
-}
-
-impl View for LiveView {
-    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let states = cx.use_state(|| Rc::new(RefCell::new(Vec::<State<Value>>::new()))).get();
-        let live = LiveCx {
-            states,
-            next: Rc::new(Cell::new(0)),
-            now: cx.now(),
-            wake: Rc::new(Cell::new(None)),
-            child: Rc::new(RefCell::new(None)),
-        };
-        let given = Value::Host(Host::cloneable("BuildCx", live.clone()));
-        let built = Record::call_method(&self.record, "build", vec![given]);
-        if let Some(time) = live.wake.get() {
-            cx.wake_at(time);
-        }
-        let child = live.child.borrow_mut().take();
-        match (built, child) {
-            (Ok(_), Some(view)) => cx.child(&*view),
-            (Err(problem), _) => {
-                let text = Text::new(problem.to_string());
-                ravenrs_live::report(problem);
-                cx.child(&text)
-            }
-            (Ok(_), None) => cx.child(&Text::new("`build` gives its view with `cx.child(&view)`")),
-        }
-    }
 }
 
 /// What `cx` offers the program's own views.

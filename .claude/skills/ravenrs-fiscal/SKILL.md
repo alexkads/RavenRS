@@ -24,13 +24,13 @@ Tudo aqui é **beta, prova de conceito**. Nenhuma nota foi a um servidor real da
 | Tarefa | Onde | Também |
 |---|---|---|
 | Regra do documento, totais, chave, XML | `crates/ravenrs-nfe/src/`: `modelo`, `totais`, `chave`, `documento`, `xml` | `REGRAS.md`, testes em `tests/fluxo.rs`, XSD |
-| Assinatura e C14N | `crates/ravenrs-dfe/src/`: `assinatura`, `c14n` | `crates/ravenrs-nfe/tests/externos.rs`, que confere com `xmllint` e `openssl`. **Nunca copie para outro motor**: o que serve a mais de um vai para o `ravenrs-dfe` |
+| Assinatura e C14N | `crates/ravenrs-dfe/src/`: `assinatura`, `c14n` | `crates/ravenrs-nfe/tests/suite/externos.rs`, que confere com `xmllint` e `openssl`. **Nunca copie para outro motor**: o que serve a mais de um vai para o `ravenrs-dfe` |
 | Transporte, handlers e rotas de sandbox, GZip, certificados de teste | `crates/ravenrs-dfe/src/`: `transporte`, `interceptacao`, `compactacao`, `certificados` | Os sandboxes usam a mesma `Cadeia` |
 | NFS-e: DPS, emissão, recuperação, cancelamento | `crates/ravenrs-nfse/src/`: `modelo`, `dps`, `emissor`, `evento`, `retorno` | `tests/fluxo.rs`; regra nova do sandbox em `sandbox::REGRAS`, com fonte e confiança |
 | Serviço novo da SEFAZ | `soap`, `retorno`, `urls`, depois um handler em `sandbox/` | O sandbox tem de responder igual ao formato real |
 | Conferência ou rejeição nova do sandbox | Regra em `sandbox/catalogo.rs`, verificação em `sandbox/analise.rs`; o que depende do que o servidor guarda fica em `sandbox/conferencia.rs` | Regra com data vai em `sandbox/vigencia.rs` |
 | Cenário pronto | `sandbox/cenarios.rs` | Aparece no painel de `crates/ravenrs-app-pos/src/telas.rs` |
-| Rede real, A1 | `crates/ravenrs-dfe/src/http.rs`, atrás da feature `http`, só nativo | `crates/ravenrs-nfe/tests/http_mtls.rs` |
+| Rede real, A1 | `crates/ravenrs-dfe/src/http.rs`, atrás da feature `http`, só nativo | `crates/ravenrs-nfe/tests/suite/http_mtls.rs` |
 | Tela e registro das notas | `crates/ravenrs-app-nfe/src/`: `module`, `service`, `cupom`, `danfse` | O motor não conhece `ravenrs-app` |
 | NFS-e no app: DPS guardada, reenvio, cancelamento, DANFSe | `crates/ravenrs-app-nfe/src/servico.rs`; tela em `crates/ravenrs-app-pos/src/servico.rs` | A DPS é gravada antes do envio e nunca ganha outro número: o que não teve resposta vai de novo igual |
 | Regra do carrinho, sem tela | `crates/ravenrs-pos/src/` | Testes no próprio crate |

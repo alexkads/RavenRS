@@ -7,274 +7,26 @@ use std::rc::Rc;
 use ravenrs_app::{
     Action, ActionContext, ActionInput, ActionResult, Application, AttachmentStore, CONTEXT_DELETE,
     CONTEXT_SAVE, Criteria, EntityInfo, FieldKind, Frame, FrameContext, Message, MessageKind, ModelLayer,
-    ModelNode, ModelStore, Object, ObjectSpace, Query, RuleWords, Severity, Value, ViewInfo, ViewKind,
-    Violation, merge_changes, validate,
+    ModelNode, ModelStore, Object, ObjectSpace, Query, Severity, Value, ViewInfo, ViewKind, Violation,
+    merge_changes, validate,
 };
 use ravenrs_app_a11y::{AccessWords, Announcer};
-use ravenrs_app_i18n::{Language, Texts};
+use ravenrs_app_i18n::Texts;
 use ravenrs_reactive::State;
 use ravenrs_widgets::{ConfirmDialog, Date, FilePicker, ToastExtras, Toaster, Toasts, Tone};
 
-use crate::editors::EditorRegistry;
 use crate::values::key_text;
 
-/// The words the generated screens use.
-#[derive(Clone, Debug)]
-#[non_exhaustive]
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
-pub struct Words {
-    /// Lists the keys of what can be done.
-    pub shortcuts: String,
-    /// Gets back to a locked window.
-    pub unlock: String,
-    /// What was typed on a locked window is not it.
-    pub unlock_wrong: String,
-    /// Creates a record.
-    pub new: String,
-    /// Removes what is selected.
-    pub delete: String,
-    /// Keeps the changes.
-    pub save: String,
-    /// Keeps the changes and leaves.
-    pub save_and_close: String,
-    /// Keeps the changes and starts another.
-    pub save_and_new: String,
-    /// Throws away the changes and leaves.
-    pub cancel: String,
-    /// The record before.
-    pub previous: String,
-    /// The record after.
-    pub next: String,
-    /// Reads again.
-    pub refresh: String,
-    /// Goes to the screen before.
-    pub back: String,
-    /// The question before removing.
-    pub delete_question: String,
-    /// What the removal does.
-    pub delete_detail: String,
-    /// The question before losing changes.
-    pub discard_question: String,
-    /// What losing changes does.
-    pub discard_detail: String,
-    /// Agrees to lose them.
-    pub discard: String,
-    /// A record being created.
-    pub new_record: String,
-    /// The menu of the ways to see a list.
-    pub variant: String,
-    /// Puts an existing record on a list inside a form.
-    pub link: String,
-    /// Takes a record off a list inside a form, without removing it.
-    pub unlink: String,
-    /// Where a list inside a form would be, while its record is not kept yet.
-    pub save_first: String,
-    /// The menu of the filters ready on a list.
-    pub filter: String,
-    /// Makes a new record from the one selected.
-    pub clone: String,
-    /// Why a record cannot be cloned while it has changes.
-    pub clone_unsaved: String,
-    /// Takes a file out, to wherever people say.
-    pub save_file: String,
-    /// The question when rules only warn.
-    pub warning_question: String,
-    /// Goes on in spite of what rules warn about.
-    pub warning_answer: String,
-    /// The question when someone else changed the same fields, where `{0}` is which ones.
-    pub conflict_question: String,
-    /// What keeping one's own changes does, where `{0}` is which fields.
-    pub conflict_detail: String,
-    /// Keeps one's own changes over the other person's.
-    pub conflict_answer: String,
-    /// What a way of showing a list says when something it needs is missing.
-    pub list_editor_needs: String,
-    /// A row of a timeline for records that point to no resource.
-    pub no_resource: String,
-    /// The series of a chart that counts records.
-    pub chart_count: String,
-    /// Things to be reminded of.
-    pub reminders: String,
-    /// Background work that cannot say what it is doing.
-    pub working: String,
-    /// Background work asked to stop, until it does.
-    pub stopping: String,
-    /// Reminds again later.
-    pub snooze: String,
-    /// Stops reminding.
-    pub dismiss: String,
-    /// Opens what a reminder is about.
-    pub open: String,
-    /// A field that is on.
-    pub yes: String,
-    /// A field that is off.
-    pub no: String,
-    /// What people are told when something is refused.
-    pub access_denied: String,
-    /// What shows in place of a field the person cannot read.
-    pub protected_value: String,
-    /// Enters the application.
-    pub sign_in: String,
-    /// Leaves the application.
-    pub sign_out: String,
-    /// Says signing in did not work, without saying why.
-    pub sign_in_failed: String,
-    /// The name someone signs in with.
-    pub user_name: String,
-    /// Their password.
-    pub password: String,
-    /// The password they have now.
-    pub current_password: String,
-    /// The password they want.
-    pub new_password: String,
-    /// The same again.
-    pub repeat_password: String,
-    /// Signing in could not be tried.
-    pub sign_in_unavailable: String,
-    /// The two are not the same.
-    pub passwords_differ: String,
-    /// It is too short.
-    pub password_too_short: String,
-    /// The current one is not right.
-    pub password_wrong_current: String,
-    /// When the new password is the one they already have.
-    pub password_same: String,
-    /// It was changed.
-    pub password_saved: String,
-    /// Keeps the new password.
-    pub save_password: String,
-    /// Changes one's own password.
-    pub change_password: String,
-    /// Gives someone a password.
-    pub set_password: String,
-    /// Why they have to choose one now.
-    pub must_change_password: String,
-    /// What the first screen of a new installation says.
-    pub first_user: String,
-    /// Creates the first person.
-    pub create_user: String,
-    /// The editor of the application's model.
-    pub model_editor: String,
-    /// Looks for a node of the model.
-    pub search_model: String,
-    /// What shows before a node is picked.
-    pub pick_model_node: String,
-    /// Applies what was typed.
-    pub apply: String,
-    /// Throws away the person's own changes to the model.
-    pub restore_model: String,
-    /// Why what is on a form cannot be kept any more.
-    pub record_gone: String,
-    /// What fails a rule.
-    pub rules: RuleWords,
-    /// In front of money.
-    pub money_prefix: String,
-    /// Between thousands.
-    pub thousands: char,
-    /// Before decimals.
-    pub decimal: char,
-    /// How a date shows in lists, such as `dd/MM/yyyy`.
-    pub date_format: String,
-    /// How a date with a time shows in lists, such as `dd/MM/yyyy HH:mm`.
-    pub date_time_format: String,
-}
+// What the session keeps that carries the session itself: the jobs running for it, the field and
+// list editors' registries and requests. They live here so no screen sits under the session.
+pub(crate) mod background;
+mod editor_types;
+pub(crate) mod list_types;
 
-impl Default for Words {
-    fn default() -> Self {
-        Self::from_texts(&Texts::new(Language::English))
-    }
-}
-
-#[cfg_attr(feature = "live", ravenrs_live::expose)]
-impl Words {
-    /// The texts of a catalog, in its language. What it does not have comes from English.
-    pub fn from_texts(texts: &Texts) -> Self {
-        Self {
-            shortcuts: texts.get("ui.shortcuts"),
-            unlock: texts.get("ui.unlock"),
-            unlock_wrong: texts.get("ui.unlock_wrong"),
-            new: texts.get("ui.new"),
-            delete: texts.get("ui.delete"),
-            save: texts.get("ui.save"),
-            save_and_close: texts.get("ui.save_and_close"),
-            save_and_new: texts.get("ui.save_and_new"),
-            cancel: texts.get("ui.cancel"),
-            previous: texts.get("ui.previous"),
-            next: texts.get("ui.next"),
-            refresh: texts.get("ui.refresh"),
-            back: texts.get("ui.back"),
-            delete_question: texts.get("ui.delete_question"),
-            delete_detail: texts.get("ui.delete_detail"),
-            discard_question: texts.get("ui.discard_question"),
-            discard_detail: texts.get("ui.discard_detail"),
-            discard: texts.get("ui.discard"),
-            new_record: texts.get("ui.new_record"),
-            variant: texts.get("ui.variant"),
-            link: texts.get("ui.link"),
-            unlink: texts.get("ui.unlink"),
-            save_first: texts.get("ui.save_first"),
-            filter: texts.get("ui.filter"),
-            clone: texts.get("ui.clone"),
-            clone_unsaved: texts.get("ui.clone_unsaved"),
-            save_file: texts.get("ui.save_file"),
-            warning_question: texts.get("ui.warning_question"),
-            warning_answer: texts.get("ui.warning_answer"),
-            conflict_question: texts.get("ui.conflict_question"),
-            conflict_detail: texts.get("ui.conflict_detail"),
-            conflict_answer: texts.get("ui.conflict_answer"),
-            list_editor_needs: texts.get("ui.list_editor_needs"),
-            no_resource: texts.get("ui.no_resource"),
-            chart_count: texts.get("ui.chart_count"),
-            reminders: texts.get("ui.reminders"),
-            working: texts.get("ui.working"),
-            stopping: texts.get("ui.stopping"),
-            snooze: texts.get("ui.snooze"),
-            dismiss: texts.get("ui.dismiss"),
-            open: texts.get("ui.open"),
-            yes: texts.get("ui.yes"),
-            no: texts.get("ui.no"),
-            access_denied: texts.get("ui.access_denied"),
-            protected_value: texts.get("ui.protected_value"),
-            sign_in: texts.get("ui.sign_in"),
-            sign_out: texts.get("ui.sign_out"),
-            sign_in_failed: texts.get("ui.sign_in_failed"),
-            user_name: texts.get("ui.user_name"),
-            password: texts.get("ui.password"),
-            current_password: texts.get("ui.current_password"),
-            new_password: texts.get("ui.new_password"),
-            repeat_password: texts.get("ui.repeat_password"),
-            sign_in_unavailable: texts.get("ui.sign_in_unavailable"),
-            passwords_differ: texts.get("ui.passwords_differ"),
-            password_too_short: texts.get("ui.password_too_short"),
-            password_same: texts.get("ui.password_same"),
-            password_wrong_current: texts.get("ui.password_wrong_current"),
-            password_saved: texts.get("ui.password_saved"),
-            save_password: texts.get("ui.save_password"),
-            change_password: texts.get("ui.change_password"),
-            set_password: texts.get("ui.set_password"),
-            must_change_password: texts.get("ui.must_change_password"),
-            first_user: texts.get("ui.first_user"),
-            create_user: texts.get("ui.create_user"),
-            model_editor: texts.get("ui.model_editor"),
-            search_model: texts.get("ui.search_model"),
-            pick_model_node: texts.get("ui.pick_model_node"),
-            apply: texts.get("ui.apply"),
-            restore_model: texts.get("ui.restore_model"),
-            record_gone: texts.get("ui.record_gone"),
-            rules: RuleWords::from_texts(texts),
-            money_prefix: texts.get("format.money_prefix"),
-            thousands: texts.char("format.thousands", ','),
-            decimal: texts.char("format.decimal", '.'),
-            date_format: texts.get("format.date"),
-            date_time_format: texts.get("format.date_time"),
-        }
-    }
-
-    /// In Brazilian Portuguese.
-    pub fn pt_br() -> Self {
-        Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
-    }
-}
+pub use crate::words::Words;
+pub use background::{JobInfo, JobProgress};
+pub use editor_types::{EditorRegistry, EditorRequest};
+pub use list_types::{ListEditorRequest, ListSource, OpenHandler};
 
 /// The record a form is editing: what it was, and one state per field.
 #[derive(Debug)]
@@ -364,9 +116,9 @@ struct SessionInner {
     noting: State<bool>,
     toasts: Toasts,
     /// Where entities no storage keeps get their records.
-    record_sources: Rc<RefCell<BTreeMap<String, crate::list_view::ListSource>>>,
+    record_sources: Rc<RefCell<BTreeMap<String, crate::session::list_types::ListSource>>>,
     /// What each list on screen shows now, by view, for a report to take the same rows.
-    shown_lists: RefCell<BTreeMap<String, crate::list_view::ShownList>>,
+    shown_lists: RefCell<BTreeMap<String, crate::session::list_types::ShownList>>,
     /// Where lists no storage keeps get theirs, by entity and field.
     collection_sources: Rc<RefCell<BTreeMap<(String, String), CollectionSource>>>,
     /// Where it came from, for going back.
@@ -378,7 +130,7 @@ struct SessionInner {
     controls: Rc<RefCell<BTreeMap<String, ControlFactory>>>,
     settings: RefCell<Option<Rc<dyn ravenrs_app::SettingsStore>>>,
     presented: State<Option<Presented>>,
-    jobs: crate::background::SharedJobs,
+    jobs: crate::session::background::SharedJobs,
     locked: State<Option<Lock>>,
     /// Something that takes the place of the view, as an editor of its own does.
     full: State<Option<ControlFactory>>,
@@ -389,7 +141,7 @@ struct SessionInner {
     form_caption: RefCell<Option<FormCaption>>,
     /// Whether the form repeats, above it, what it says on each field.
     lists_field_errors: Cell<bool>,
-    list_editors: Rc<RefCell<BTreeMap<String, crate::list_view::ListEditorFactory>>>,
+    list_editors: Rc<RefCell<BTreeMap<String, crate::session::list_types::ListEditorFactory>>>,
     attachment_store: Rc<RefCell<Option<Rc<dyn AttachmentStore>>>>,
     texts: Rc<RefCell<Texts>>,
     model_store: Rc<RefCell<Option<Rc<dyn ModelStore>>>>,
@@ -431,7 +183,7 @@ impl std::fmt::Debug for Session {
 /// How a frame finds its session.
 struct SessionLink(std::rc::Weak<SessionInner>);
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part2"))]
 impl Session {
     pub(crate) fn new(
         application: Application,
@@ -463,7 +215,7 @@ impl Session {
             controls: Rc::default(),
             settings: RefCell::new(None),
             presented: State::new(None),
-            jobs: Rc::new(crate::background::Jobs::default()),
+            jobs: Rc::new(crate::session::background::Jobs::default()),
             locked: State::new(None),
             full: State::new(None),
             theme_menu: Rc::new(std::cell::Cell::new(true)),
@@ -486,7 +238,6 @@ impl Session {
     }
 
     fn linked(inner: SessionInner) -> Self {
-        let is_first = inner.list_editors.borrow().is_empty();
         let inner = Rc::new(inner);
         let frame = inner.frame.clone();
         frame.set_extension(Rc::new(SessionLink(Rc::downgrade(&inner))));
@@ -514,11 +265,7 @@ impl Session {
             }
             if messages.is_empty() { Ok(()) } else { Err(messages.join("; ")) }
         });
-        let session = Self(inner);
-        if is_first {
-            crate::list_editors::register(&session);
-        }
-        session
+        Self(inner)
     }
 
     /// A session of its own for a frame inside this one or over it: its own form and unit of
@@ -629,15 +376,15 @@ impl Session {
         self.0.collection_sources.borrow_mut().insert((entity.into(), field.into()), Rc::new(source));
     }
 
-    pub(crate) fn keep_shown_list(&self, view: &str, shown: crate::list_view::ShownList) {
+    pub(crate) fn keep_shown_list(&self, view: &str, shown: crate::session::list_types::ShownList) {
         self.0.shown_lists.borrow_mut().insert(view.to_owned(), shown);
     }
 
-    pub(crate) fn shown_list(&self, view: &str) -> Option<crate::list_view::ShownList> {
+    pub(crate) fn shown_list(&self, view: &str) -> Option<crate::session::list_types::ShownList> {
         self.0.shown_lists.borrow().get(view).cloned()
     }
 
-    pub(crate) fn record_source(&self, entity: &str) -> Option<crate::list_view::ListSource> {
+    pub(crate) fn record_source(&self, entity: &str) -> Option<crate::session::list_types::ListSource> {
         self.0.record_sources.borrow().get(entity).cloned()
     }
 
@@ -694,7 +441,7 @@ impl Session {
         security.with(|permissions| {
             permissions.can_navigate(group, item)
                 && entity.is_none_or(|entity| permissions.can(ravenrs_app::Operation::Read, entity, None))
-                && (view != crate::security::MODEL_EDITOR_VIEW || permissions.can_edit_model())
+                && (view != MODEL_EDITOR_VIEW || permissions.can_edit_model())
         })
     }
 
@@ -748,7 +495,7 @@ impl Session {
         self.0.full.get()
     }
 
-    pub(crate) fn jobs(&self) -> crate::background::SharedJobs {
+    pub(crate) fn jobs(&self) -> crate::session::background::SharedJobs {
         self.0.jobs.clone()
     }
 
@@ -777,7 +524,7 @@ impl Session {
                 .filter_map(|action| {
                     let keys = action.hotkey_text()?;
                     let label =
-                        crate::container::hotkey_of(keys).map_or_else(|| keys.to_owned(), |key| key.label());
+                        crate::hotkeys::hotkey_of(keys).map_or_else(|| keys.to_owned(), |key| key.label());
                     Some((label, action.caption().to_owned()))
                 })
                 .collect(),
@@ -960,7 +707,7 @@ impl Session {
         Ok(())
     }
 
-    pub(crate) fn list_editor(&self, name: &str) -> Option<crate::list_view::ListEditorFactory> {
+    pub(crate) fn list_editor(&self, name: &str) -> Option<crate::session::list_types::ListEditorFactory> {
         self.0.list_editors.borrow().get(name).cloned()
     }
 
@@ -1031,7 +778,7 @@ impl Session {
             let FieldKind::Collection(target) = &field.kind else { continue };
             let Some(child) = self.entity(target) else { continue };
             let named = field.back_reference.as_deref();
-            let Some(back) = crate::nested::back_reference(self, entity, target, named) else { continue };
+            let Some(back) = back_reference(self, entity, target, named) else { continue };
             let filter = Criteria::property(&back).equals(Criteria::value(source.get(&key_name)));
             let found = space.borrow().query(target, &Query::all().filter(filter));
             for record in found.map_err(|e| e.to_string())? {
@@ -1822,4 +1569,22 @@ impl Session {
             Err(error) => self.0.error.set(Some(error.to_string())),
         }
     }
+}
+
+pub(crate) const MODEL_EDITOR_VIEW: &str = "ModelEditor_DashboardView";
+
+/// The field of `target` that points to `owner`: the one named, or the first that does.
+pub(crate) fn back_reference(
+    session: &Session,
+    owner: &EntityInfo,
+    target: &str,
+    named: Option<&str>,
+) -> Option<String> {
+    let target = session.entity(target)?;
+    let points_back = |kind: &FieldKind| matches!(kind, FieldKind::Reference(to) if *to == owner.name);
+    target
+        .fields
+        .iter()
+        .find(|field| named.map_or(points_back(&field.kind), |name| field.name == name))
+        .map(|field| field.name.clone())
 }

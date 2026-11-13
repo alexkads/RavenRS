@@ -13,6 +13,12 @@ documentation = "https://docs.rs/ravenrs-live"
 keywords = ["interpreter", "playground", "gui", "rust"]
 categories = ["gui", "development-tools"]
 
+# The modules of this crate use each other in a loop of 3; `module_cycle` holds it there so it
+# cannot grow, and asks for a lower number as #292 untangles it. `cargo ravenrs-lint -p ravenrs-live --modules`
+# shows who uses whom.
+[package.metadata.ravenrs-lint]
+max-module-cycle = 3
+
 [dependencies]
 proc-macro2.workspace = true
 ravenrs-live-derive.workspace = true

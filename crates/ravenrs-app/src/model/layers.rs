@@ -2,8 +2,8 @@
 
 use serde_json::{Map, Value as Json};
 
-use super::node::ModelNode;
 use crate::ModelError;
+use crate::model_node::ModelNode;
 
 /// The key that marks a node in a difference as created by it. Any other node a
 /// difference names has to exist already.

@@ -206,3 +206,127 @@ fn diagnostics_read_like_the_compiler() {
     let json = ravenrs_lint::render_json(&found);
     assert!(json.contains("\"lint\":\"ravenrs::raw_color\""), "{json}");
 }
+
+/// A crate written to a temporary folder: `files` are paths under `src/` and their text.
+fn crate_with(name: &str, files: &[(&str, &str)]) -> std::path::PathBuf {
+    let dir = std::env::temp_dir().join(format!("ravenrs-lint-{name}-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dir);
+    for (path, text) in files {
+        let path = dir.join("src").join(path);
+        let folder = path.parent().unwrap_or(&dir);
+        if let Err(error) = std::fs::create_dir_all(folder).and_then(|()| std::fs::write(&path, text)) {
+            panic!("could not write {}: {error}", path.display());
+        }
+    }
+    dir
+}
+
+fn module_findings(dir: &Path, config: &Config) -> Vec<(String, usize, String)> {
+    let found = match ravenrs_lint::check_modules(&dir.join("src/lib.rs"), dir, config) {
+        Ok(found) => found,
+        Err(error) => panic!("{error}"),
+    };
+    let _ = std::fs::remove_dir_all(dir);
+    found.into_iter().map(|d| (d.file.display().to_string(), d.line, d.message)).collect()
+}
+
+const THREE: &[(&str, &str)] = &[
+    ("lib.rs", "mod a;\nmod b;\nmod c;\n"),
+    ("a.rs", "use crate::b::B;\npub struct A;\n"),
+    ("b.rs", "pub struct B;\nfn f() { let _ = crate::c::C; }\n"),
+    ("c.rs", "\n\nuse crate::a::A;\npub struct C;\n"),
+];
+
+#[test]
+fn a_pair_of_modules_that_use_each_other_is_allowed() {
+    let dir = crate_with(
+        "pair",
+        &[
+            ("lib.rs", "mod a;\nmod b;\n"),
+            ("a.rs", "use crate::b::B;\npub struct A;\n"),
+            ("b.rs", "use super::a::A;\n"),
+        ],
+    );
+    assert!(module_findings(&dir, &Config::default()).is_empty());
+}
+
+#[test]
+fn a_loop_of_three_modules_is_caught_at_the_use_that_closes_it() {
+    let found = module_findings(&crate_with("three", THREE), &Config::default());
+    assert_eq!(found.len(), 1, "{found:?}");
+    let (file, line, message) = &found[0];
+    assert!(message.starts_with("3 modules use each other in a loop"), "{message}");
+    assert!(message.contains("a → b → c → a"), "{message}");
+    assert_eq!((file.as_str(), *line), ("src/a.rs", 1));
+}
+
+#[test]
+fn an_allow_comment_on_the_use_takes_that_edge_out() {
+    let mut files = THREE.to_vec();
+    files[3] =
+        ("c.rs", "// ravenrs-lint: allow(module_cycle) c reads A only to print it\nuse crate::a::A;\n");
+    assert!(module_findings(&crate_with("allowed", &files), &Config::default()).is_empty());
+}
+
+#[test]
+fn the_limit_holds_a_crate_being_untangled_and_asks_to_come_down() {
+    let mut config = Config::default();
+    config.max_module_cycle = 3;
+    assert!(module_findings(&crate_with("held", THREE), &config).is_empty());
+    config.max_module_cycle = 5;
+    let found = module_findings(&crate_with("lower", THREE), &config);
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert_eq!((found[0].0.as_str(), found[0].1), ("src/lib.rs", 1));
+    assert!(found[0].2.contains("now has 3, fewer than the 5"), "{}", found[0].2);
+}
+
+#[test]
+fn reexports_count_and_test_code_does_not() {
+    // `crate::B` is `b::B` through the root's re-export; the test module's use of `c` is left out.
+    let dir = crate_with(
+        "reexports",
+        &[
+            ("lib.rs", "mod a;\nmod b;\nmod c;\npub use b::B;\n"),
+            ("a.rs", "fn f() -> crate::B { todo!() }\n#[cfg(test)]\nmod tests { use crate::c::C; }\n"),
+            ("b.rs", "pub struct B;\nuse crate::c::C;\n"),
+            ("c.rs", "pub struct C;\nuse crate::a;\n"),
+        ],
+    );
+    let found = module_findings(&dir, &Config::default());
+    assert_eq!(found.len(), 1, "{found:?}");
+    assert!(found[0].2.contains("a → b → c → a"), "{}", found[0].2);
+    let dir = crate_with(
+        "test-only",
+        &[
+            ("lib.rs", "mod a;\nmod b;\nmod c;\n"),
+            ("a.rs", "use crate::b::B;\n"),
+            ("b.rs", "pub struct B;\nuse crate::c::C;\n"),
+            ("c.rs", "pub struct C;\n#[cfg(test)]\nmod tests { use crate::a; }\n"),
+        ],
+    );
+    assert!(module_findings(&dir, &Config::default()).is_empty());
+}
+
+#[test]
+fn super_inside_an_inline_module_is_its_parent_not_the_root() {
+    // In `a.rs`, `mod inner { use super::c; }` names `a::c`, a function, not the module `c`.
+    let dir = crate_with(
+        "inline-super",
+        &[
+            ("lib.rs", "mod a;\nmod b;\nmod c;\n"),
+            ("a.rs", "use crate::b::B;\nfn c() {}\nmod inner { use super::c; }\n"),
+            ("b.rs", "pub struct B;\nuse crate::c::C;\n"),
+            ("c.rs", "pub struct C;\n"),
+        ],
+    );
+    assert!(module_findings(&dir, &Config::default()).is_empty());
+}
+
+#[test]
+fn the_module_cycle_rule_is_listed_and_configured() {
+    assert_eq!(Lint::from_name("module_cycle"), Some(Lint::ModuleCycle));
+    let config =
+        Config::from_metadata(None, Some(&serde_json::json!({ "max-module-cycle": 41 }))).expect("valid");
+    assert_eq!(config.max_module_cycle, 41);
+    assert!(Config::from_metadata(None, Some(&serde_json::json!({ "max-module-cycle": "many" }))).is_err());
+}

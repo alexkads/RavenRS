@@ -12,6 +12,8 @@
 //! - [`xlsx`]: XLSX and CSV import and export.
 //! - [`chart`]: chart data and layout into toolkit-free primitives, and sparklines.
 //! - [`pdf`]: a small PDF writer for printing sheets.
+//! - [`craft`]: the file-format crates of craft-libs the readers use: compound files, OPC
+//!   packages, `.xls`, encryption, CSV and SYLK, ZIP and XML with limits.
 //! - [`engine`]: sessions: every action is a command with an id and JSON parameters, with undo,
 //!   clipboard, fill, sort and filter.
 //!
@@ -25,6 +27,7 @@
 pub mod base;
 pub mod calc;
 pub mod chart;
+pub mod craft;
 pub mod engine;
 pub mod formula;
 pub mod functions;

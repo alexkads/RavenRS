@@ -19,6 +19,7 @@ const GAP: f32 = 24.0;
 /// The film takes the height left and is cut to a window that follows the spot it
 /// explains, or the pointer, so it stays big enough to read on a phone.
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SocialFrame {
     movie: Movie,
     at_ms: u64,
@@ -26,6 +27,7 @@ pub struct SocialFrame {
     brand: String,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SocialFrame {
     /// The moment `at_ms` of `movie` on a screen of `size` logical pixels.
     pub fn new(movie: Movie, at_ms: u64, size: Size) -> Self {
@@ -175,6 +177,7 @@ impl View for SocialFrame {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Movie {
     /// The same film with the camera brought `zoom` times closer to each spot it
     /// explains, for as long as it explains it. Spots about the whole screen, and

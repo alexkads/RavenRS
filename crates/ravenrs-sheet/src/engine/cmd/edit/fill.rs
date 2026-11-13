@@ -31,8 +31,9 @@ pub(super) fn fill_dir(s: &mut Session, p: &Json, dr: i64, dc: i64) -> Result<Js
     } else {
         RangeRef::new(CellRef::new(r.start.row, r.end.col), r.end)
     };
+    let skip = s.doc()?.wb.sheet(sheet).map(|sh| super::filtered_rows(sh, r)).unwrap_or_default();
     edit(s, |cx| {
-        crate::engine::fill::fill(cx, sheet, src, r, crate::engine::fill::FillMode::Copy)?;
+        crate::engine::fill::fill_except(cx, sheet, src, r, crate::engine::fill::FillMode::Copy, &skip)?;
         Ok(Json::Null)
     })
 }

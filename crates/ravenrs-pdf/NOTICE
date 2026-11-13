@@ -1,0 +1,46 @@
+ravenrs-pdf
+===========
+
+The code under src/ and tests/ comes from PdfCraft (https://github.com/storytold/pdfcraft), commit
+175992b5a2045d00cdf8a20f812ea4aac522b099: its crates geom, crypt, filters, cos, model, content,
+fonts, render and organize, and the test helpers oracle and testkit (src/testing), brought
+together as modules of this one crate by scripts/storytold/convert.py.
+
+PdfCraft
+Copyright (c) 2026 ArtCraft Team and the PdfCraft contributors.
+Licensed under the MIT License or the Apache License, Version 2.0, at your option
+(LICENSES/PdfCraft-LICENSE-MIT, LICENSES/PdfCraft-LICENSE-APACHE).
+
+The ArtCraft and PdfCraft names and logos are trademarks of the ArtCraft Team and are not
+covered by the licence above; this crate uses neither.
+
+Third-party code, from PdfCraft's vendor/ at the same commit (PdfCraft carries patches of its own
+on them, marked "PdfCraft patch:" in the source), under src/third_party:
+
+- hayro, hayro-interpret, hayro-syntax, hayro-cmap, hayro-postscript and hayro-jbig2
+  (https://github.com/LaurenzV/hayro), Copyright (c) The Hayro Authors — Apache-2.0 OR MIT
+  (LICENSES/hayro-LICENSE-*).
+- vello_cpu and vello_common 0.0.8 (https://github.com/linebender/vello), Copyright 2020 the Vello
+  Authors — Apache-2.0 OR MIT (LICENSES/vello-LICENSE-*).
+- lopdf 0.45 (https://github.com/J-F-Liu/lopdf), Copyright (c) 2016 Junfeng Liu — MIT
+  (LICENSES/lopdf-LICENSE-MIT).
+
+Data and fonts under assets/:
+
+- Inter (assets/assets/fonts/Inter-*.ttf) — SIL Open Font License 1.1 (LICENSES/OFL-Inter.txt).
+- JetBrains Mono (assets/assets/fonts/JetBrainsMono-Regular.ttf) — SIL Open Font License 1.1
+  (LICENSES/OFL-JetBrainsMono.txt).
+- Dancing Script (assets/assets/fonts/DancingScript.ttf), Copyright 2016 The Dancing Script Project
+  Authors — SIL Open Font License 1.1, Reserved Font Name "Dancing Script"
+  (LICENSES/OFL-DancingScript.txt).
+- Foxit standard-14 substitute fonts (assets/vendor/hayro-interpret/assets/*.pfb):
+  Copyright 2014 PDFium Authors. All rights reserved. Original code copyright 2014 Foxit Software
+  Inc. Redistributed under the BSD-3-Clause licence (LICENSES/Foxit-BSD-3-Clause.txt).
+- CMap resources (assets/vendor/hayro-cmap/assets/cmaps.brotli): Copyright 1990-2023 Adobe. All
+  rights reserved. Redistributed under the BSD-3-Clause licence
+  (LICENSES/Adobe-CMaps-BSD-3-Clause.txt). Neither the name of Adobe nor the names of its
+  contributors are used to endorse or promote this product.
+- Colour profile CGATS001Compat-v2-micro.icc (assets/vendor/hayro-interpret/assets/), Clinton
+  Ingram — CC0-1.0 (LICENSES/CGATS001Compat-CC0.txt).
+
+Changes from PdfCraft are recorded in the RavenRS git history.

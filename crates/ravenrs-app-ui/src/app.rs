@@ -10,7 +10,7 @@ use ravenrs_app::{
 use ravenrs_app_i18n::{Catalog, Language, Texts};
 use ravenrs_widgets::{Alert, AnyView, Labels, Localized, Tone};
 
-use crate::editors::EditorRegistry;
+use crate::session::EditorRegistry;
 use crate::session::{SpaceFactory, Words};
 use crate::{AppShell, SystemModule};
 
@@ -66,7 +66,7 @@ pub struct App {
     seed: Option<Seed>,
     storage: Option<Storage>,
     kept: Option<Rc<dyn ravenrs_app::Storage>>,
-    list_editors: Vec<(String, crate::list_view::ListEditorFactory)>,
+    list_editors: Vec<(String, crate::session::list_types::ListEditorFactory)>,
     attachment_store: Option<Rc<dyn AttachmentStore>>,
     model_store: Option<Rc<dyn ModelStore>>,
     steps: Vec<SessionStep>,
@@ -336,7 +336,10 @@ impl App {
         let sign_out: Rc<dyn Fn()> = Rc::new(sign_out);
         self.steps.push(Box::new(move |session| {
             session.use_account(crate::session::Account { name, sign_out });
-            session.register_control(crate::security::MODEL_EDITOR, crate::security::model_editor(session));
+            session.register_control(
+                crate::model_editor::MODEL_EDITOR,
+                crate::model_editor::model_editor(session),
+            );
         }));
         self
     }

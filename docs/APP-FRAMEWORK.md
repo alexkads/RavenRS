@@ -193,7 +193,7 @@ EntityInfo::new("Order")
 - `ravenrs-widgets` knows nothing of `ravenrs-app`, and `ravenrs-criteria` nothing of either.
 - `ravenrs-app-i18n` depends on nothing of RavenRS, so the components read their words from it too. A new word is a key in each language's JSON, never a text written in code.
 - Money is a whole number of cents, kept in a number, and never a fraction.
-- Tests drive whole applications through `Ui::access_tree`, with no window: see `crates/ravenrs-app-ui/tests/e2e.rs`.
+- Tests drive whole applications through `Ui::access_tree`, with no window: see `crates/ravenrs-app-ui/tests/suite/e2e.rs`.
 
 ## Trying everything
 

@@ -5,6 +5,19 @@ use std::fmt;
 
 use ravenrs_criteria::{Criteria, Environment, FieldType, Record, Schema, Scope, Value};
 
+// What the entity keeps of its rules, actions and workflow: data only. The code that runs them
+// lives in its own module and imports them from here, so it can stand on the entity.
+pub(crate) mod appearance_types;
+pub(crate) mod record_actions;
+pub(crate) mod rules;
+pub(crate) mod workflow_types;
+
+pub use crate::model_node::ModelNode;
+pub use appearance_types::{AppearanceContext, AppearanceRule, AppearanceTarget, Tint};
+pub use record_actions::{RecordAction, Selection};
+pub use rules::{Comparison, Operand, Rule, RuleKind, Severity, TextComparison};
+pub use workflow_types::{Reminder, StateMachine, Transition, check_transitions, local_now};
+
 /// What a field holds, which decides how it is edited and stored.
 #[derive(Clone, Debug, PartialEq)]
 #[non_exhaustive]

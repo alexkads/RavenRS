@@ -8,9 +8,8 @@ use std::rc::Rc;
 
 use ravenrs_reactive::State;
 
-use crate::action::{
-    ActionContext, ActionError, ActionInput, ActionKind, ActionResult, REASON_CONTROLLER, fill_url,
-};
+use crate::ActionInput;
+use crate::action::{ActionContext, ActionError, ActionKind, ActionResult, REASON_CONTROLLER, fill_url};
 use crate::controller::{ViewController, WindowController};
 use crate::{Action, ModelError, ModelNode, Object, ObjectSpace};
 

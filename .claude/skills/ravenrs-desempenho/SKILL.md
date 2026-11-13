@@ -97,7 +97,7 @@ Não meça tempo com a VM ligada ou com compilação rodando: os números dobram
 
 ## 7. Painel de diagnóstico
 
-Ctrl/Cmd+Shift+D em qualquer app, ou `RAVENRS_DIAG=1` no desktop. Mostra a linha do tempo dos frames, a causa de cada rebuild, as views mais caras, as quebras de draw call e os recursos da GPU, e copia uma captura para abrir no Perfetto. O guia de leitura é `docs/PERFORMANCE.md`. Os testes em `crates/ravenrs-widgets/tests/performance_tools.rs` exigem que cada ferramenta aponte um defeito plantado.
+Ctrl/Cmd+Shift+D em qualquer app, ou `RAVENRS_DIAG=1` no desktop. Mostra a linha do tempo dos frames, a causa de cada rebuild, as views mais caras, as quebras de draw call e os recursos da GPU, e copia uma captura para abrir no Perfetto. O guia de leitura é `docs/PERFORMANCE.md`. Os testes em `crates/ravenrs-widgets/tests/suite/performance_tools.rs` exigem que cada ferramenta aponte um defeito plantado.
 
 ## 8. Teste funcional no Linux
 

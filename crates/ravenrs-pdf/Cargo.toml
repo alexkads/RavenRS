@@ -1,0 +1,95 @@
+[package]
+name = "ravenrs-pdf"
+description = "Headless PDF engine for RavenRS: reading (encryption included), writing, merging and splitting, attachments, fonts and page rendering to pixels, in pure Rust."
+version.workspace = true
+edition.workspace = true
+# The engine came from PdfCraft, which needs a newer compiler than the rest of the workspace.
+rust-version = "1.95"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-pdf"
+keywords = ["pdf", "render", "viewer", "wasm"]
+categories = ["parser-implementations", "rendering", "encoding"]
+# The fonts the renderer embeds, the hayro CMaps and the PDF standard-14 substitutes.
+include = ["src/**", "assets/**", "build.rs", "README.md", "NOTICE", "LICENSES/**"]
+
+[dependencies]
+aes = { version = "0.9", default-features = false }
+bitflags = { version = "2.10", default-features = false, features = ["std"] }
+brotli = { version = "8", default-features = false, features = ["alloc-stdlib", "std"] }
+brotli-decompressor = { version = "5.0", features = ["alloc-stdlib", "std"] }
+bytemuck = { version = "1.25.0", default-features = false, features = ["bytemuck_derive", "derive", "extern_crate_alloc", "min_const_generics"] }
+cbc = { version = "0.2", features = ["block-padding"] }
+chrono = { version = "0.4.45", default-features = false, features = ["clock", "std"] }
+ecb = { version = "0.2", features = ["block-padding"] }
+encoding_rs = { version = "0.8", features = ["alloc"] }
+fax = { version = "0.2.7", default-features = false }
+fearless_simd = { version = "0.4.0", features = ["std"] }
+flate2 = { version = "1", features = ["any_impl", "any_zlib", "miniz_oxide", "runtime_detection", "rust_backend", "zlib-rs"] }
+getrandom = { version = "0.4", default-features = false, features = ["std", "sys_rng"] }
+guillotiere = { version = "0.7.0", default-features = false }
+harfrust = { version = "0.12", features = ["std"] }
+hashbrown = { version = "0.17.1", default-features = false, features = ["default-hasher", "raw-entry"] }
+hayro-ccitt = { version = "0.3.0", default-features = false }
+hayro-jpeg2000 = { version = "0.3.5", default-features = false, features = ["fearless_simd", "simd", "std"] }
+image.workspace = true
+indexmap = { version = "2.14", features = ["std"] }
+itoa = { version = "1.0", default-features = false }
+kurbo = { version = "0.13.0", features = ["std"] }
+log = { version = "0.4", default-features = false }
+md-5 = { version = "0.11", features = ["alloc", "oid"] }
+memchr = { version = "2.8.0", default-features = false, features = ["alloc", "std"] }
+moxcms = { version = "0.8.1", features = ["avx", "avx_luts", "avx_shaper_fixed_point_paths", "avx_shaper_paths", "lut", "neon", "neon_luts", "neon_shaper_fixed_point_paths", "neon_shaper_paths", "sse", "sse_luts", "sse_shaper_fixed_point_paths", "sse_shaper_paths"] }
+nom = { version = "8.0", features = ["alloc", "std"] }
+peniko = { version = "0.6.1", default-features = false, features = ["bytemuck", "std"] }
+phf = { version = "0.13.1", default-features = false, features = ["macros", "phf_macros"] }
+pic-scale = { version = "0.7.9", default-features = false, features = ["avx", "neon", "rdm", "sse"] }
+png = { version = "0.18.1", default-features = false }
+rand = { version = "0.10", features = ["alloc", "std", "std_rng", "sys_rng", "thread_rng"] }
+rangemap = { version = "1.7", default-features = false }
+rayon = { version = "1.12", default-features = false }
+rustc-hash = { version = "2", features = ["std"] }
+serde = { workspace = true, features = ["rc"] }
+sha2 = { version = "0.11", features = ["alloc", "oid"] }
+siphasher = { version = "1", features = ["std"] }
+skrifa = { version = "0.44", features = ["autohint_shaping", "std"] }
+# hayro-interpret is on a newer skrifa than PdfCraft's own crates; both stay as they were.
+skrifa_047 = { package = "skrifa", version = "0.47.0", features = ["autohint_shaping", "std"] }
+smallvec = { version = "1", default-features = false, features = ["const_generics", "const_new"] }
+stringprep = { version = "0.1", default-features = false }
+thiserror = { version = "2", features = ["std"] }
+unicode-bidi = { version = "0.3", features = ["hardcoded-data", "std"] }
+url = { version = "2.5", features = ["std"] }
+weezl = { version = "0.2", features = ["alloc", "std"] }
+yoke = { version = "0.8", features = ["alloc", "derive", "zerofrom"] }
+zeroize = { version = "1", features = ["alloc"] }
+zune-jpeg = { version = "0.5", default-features = false, features = ["neon", "std", "x86"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom = { version = "0.4", default-features = false, features = ["std", "sys_rng", "wasm_js"] }
+js-sys.workspace = true
+wasm-bindgen.workspace = true
+
+[features]
+# PdfCraft's test helpers (testing::oracle, testing::testkit); never enabled in a shipped build.
+test-support = []
+
+[dev-dependencies]
+# The integration tests use the helpers in `testing`.
+ravenrs-pdf = { path = ".", features = ["test-support"] }
+proptest.workspace = true
+serde_json.workspace = true
+
+[lints.rust]
+# One module has an unsafe block: the transmute in third_party::hayro_syntax, allowed there.
+unsafe_code = "deny"
+
+[lints.clippy]
+cognitive_complexity = "deny"
+too_many_arguments = "deny"
+wildcard_imports = "deny"
+dbg_macro = "warn"
+todo = "warn"

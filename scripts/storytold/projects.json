@@ -1,0 +1,404 @@
+{
+  "_": "Where each storytold project comes from and how its crates become modules of one RavenRS crate. Read by convert.py and merge.py; see the ravenrs-<project> skills.",
+  "gridcraft": {
+    "repo": "https://github.com/storytold/gridcraft",
+    "crate": "crates/ravenrs-sheet",
+    "lib": "ravenrs_sheet",
+    "sources": [
+      {
+        "path": "crates/core",
+        "module": "base",
+        "ident": "gridcraft_core",
+        "test_data": "in_place"
+      },
+      {
+        "path": "crates/numfmt",
+        "module": "numfmt",
+        "ident": "gridcraft_numfmt",
+        "test_data": "in_place"
+      },
+      {
+        "path": "crates/formula",
+        "module": "formula",
+        "ident": "gridcraft_formula",
+        "test_data": "in_place"
+      },
+      {
+        "path": "crates/functions",
+        "module": "functions",
+        "ident": "gridcraft_functions",
+        "test_data": "in_place"
+      },
+      {
+        "path": "crates/math",
+        "module": "math",
+        "ident": "gridcraft_math",
+        "test_data": "in_place"
+      },
+      {
+        "path": "crates/model",
+        "module": "model",
+        "ident": "gridcraft_model",
+        "test_data": "in_place"
+      },
+      {
+        "path": "crates/calc",
+        "module": "calc",
+        "ident": "gridcraft_calc",
+        "test_data": "in_place"
+      },
+      {
+        "path": "crates/xlsx",
+        "module": "xlsx",
+        "ident": "gridcraft_xlsx",
+        "test_data": "in_place"
+      },
+      {
+        "path": "crates/chart",
+        "module": "chart",
+        "ident": "gridcraft_chart",
+        "test_data": "in_place"
+      },
+      {
+        "path": "crates/pdf",
+        "module": "pdf",
+        "ident": "gridcraft_pdf",
+        "test_data": "in_place"
+      },
+      {
+        "path": "crates/engine",
+        "module": "engine",
+        "ident": "gridcraft_engine",
+        "test_data": "in_place"
+      },
+      {
+        "path": "crates/cfb",
+        "module": "craft::cfb",
+        "ident": "craft_cfb",
+        "repo": "craft-libs",
+        "readme": true
+      },
+      {
+        "path": "crates/csv",
+        "module": "craft::csv",
+        "ident": "craft_csv",
+        "repo": "craft-libs",
+        "readme": true
+      },
+      {
+        "path": "crates/offcrypto",
+        "module": "craft::offcrypto",
+        "ident": "craft_offcrypto",
+        "repo": "craft-libs",
+        "readme": true
+      },
+      {
+        "path": "crates/opc",
+        "module": "craft::opc",
+        "ident": "craft_opc",
+        "repo": "craft-libs",
+        "readme": true
+      },
+      {
+        "path": "crates/sheet",
+        "module": "craft::sheet",
+        "ident": "craft_sheet",
+        "repo": "craft-libs",
+        "readme": true
+      },
+      {
+        "path": "crates/xls",
+        "module": "craft::xls",
+        "ident": "craft_xls",
+        "repo": "craft-libs",
+        "readme": true
+      },
+      {
+        "path": "crates/xml",
+        "module": "craft::xml",
+        "ident": "craft_xml",
+        "repo": "craft-libs",
+        "readme": true
+      },
+      {
+        "path": "crates/zip",
+        "module": "craft::zip",
+        "ident": "craft_zip",
+        "repo": "craft-libs",
+        "readme": true
+      },
+      {
+        "path": "crates/media-testkit",
+        "module": "craft::media_testkit",
+        "ident": "craft_media_testkit",
+        "repo": "craft-libs",
+        "only": [
+          "src/hostile.rs"
+        ]
+      }
+    ],
+    "repos": {
+      "craft-libs": {
+        "repo": "https://github.com/storytold/craft-libs",
+        "pinned_by": "the craft-cfb line of the root Cargo.toml of GridCraft, at the GridCraft revision"
+      }
+    }
+  },
+  "wordcraft": {
+    "repo": "https://github.com/storytold/wordcraft",
+    "crate": "crates/ravenrs-word",
+    "lib": "ravenrs_word",
+    "sources": [
+      {
+        "path": "crates/geom",
+        "module": "geom",
+        "ident": "wordcraft_geom",
+        "features": {
+          "image": true
+        }
+      },
+      {
+        "path": "crates/doc",
+        "module": "doc",
+        "ident": "wordcraft_doc"
+      },
+      {
+        "path": "crates/metafile",
+        "module": "metafile",
+        "ident": "wordcraft_metafile"
+      },
+      {
+        "path": "crates/docx",
+        "module": "docx",
+        "ident": "wordcraft_docx"
+      },
+      {
+        "path": "crates/docbin",
+        "module": "docbin",
+        "ident": "wordcraft_docbin"
+      },
+      {
+        "path": "crates/formats",
+        "module": "formats",
+        "ident": "wordcraft_formats"
+      }
+    ]
+  },
+  "pdfcraft": {
+    "repo": "https://github.com/storytold/pdfcraft",
+    "crate": "crates/ravenrs-pdf",
+    "lib": "ravenrs_pdf",
+    "sources": [
+      {
+        "path": "crates/geom",
+        "module": "geom",
+        "ident": "pdfcraft_geom",
+        "precise": true
+      },
+      {
+        "path": "crates/crypt",
+        "module": "crypt",
+        "ident": "pdfcraft_crypt",
+        "precise": true
+      },
+      {
+        "path": "crates/filters",
+        "module": "filters",
+        "ident": "pdfcraft_filters",
+        "precise": true
+      },
+      {
+        "path": "crates/cos",
+        "module": "cos",
+        "ident": "pdfcraft_cos",
+        "precise": true
+      },
+      {
+        "path": "crates/model",
+        "module": "model",
+        "ident": "pdfcraft_model",
+        "precise": true
+      },
+      {
+        "path": "crates/content",
+        "module": "content",
+        "ident": "pdfcraft_content",
+        "precise": true
+      },
+      {
+        "path": "crates/fonts",
+        "module": "fonts",
+        "ident": "pdfcraft_fonts",
+        "precise": true
+      },
+      {
+        "path": "crates/render",
+        "module": "render",
+        "ident": "pdfcraft_render",
+        "precise": true
+      },
+      {
+        "path": "crates/organize",
+        "module": "organize",
+        "ident": "pdfcraft_organize",
+        "precise": true
+      },
+      {
+        "path": "crates/oracle",
+        "module": "testing::oracle",
+        "ident": "pdfcraft_oracle",
+        "precise": true
+      },
+      {
+        "path": "crates/testkit",
+        "module": "testing::testkit",
+        "ident": "pdfcraft_testkit",
+        "precise": true
+      },
+      {
+        "path": "vendor/hayro",
+        "module": "third_party::hayro",
+        "ident": "hayro",
+        "precise": true,
+        "tests": false,
+        "features": {
+          "embed-fonts": true,
+          "embed-cmaps": true,
+          "logging": false
+        },
+        "unit_tests": false
+      },
+      {
+        "path": "vendor/hayro-interpret",
+        "module": "third_party::hayro_interpret",
+        "ident": "hayro_interpret",
+        "precise": true,
+        "tests": false,
+        "features": {
+          "embed-fonts": true,
+          "embed-cmaps": true,
+          "logging": false
+        },
+        "replace": [
+          {
+            "from": "\\bskrifa::",
+            "to": "skrifa_047::"
+          },
+          {
+            "from": "\\buse skrifa\\b",
+            "to": "use skrifa_047"
+          }
+        ],
+        "unit_tests": false
+      },
+      {
+        "path": "vendor/hayro-syntax",
+        "module": "third_party::hayro_syntax",
+        "ident": "hayro_syntax",
+        "precise": true,
+        "tests": false,
+        "features": {
+          "std": true,
+          "images": true,
+          "unsafe": true,
+          "logging": false
+        },
+        "replace": [
+          {
+            "from": "(?m)^#!\\[deny\\(missing_docs\\)\\]$",
+            "to": "#![deny(missing_docs)]\n// RavenRS: the crate denies unsafe code; this module has the one transmute of hayro-syntax.\n#![allow(unsafe_code)]"
+          }
+        ],
+        "unit_tests": false
+      },
+      {
+        "path": "vendor/hayro-cmap",
+        "module": "third_party::hayro_cmap",
+        "ident": "hayro_cmap",
+        "precise": true,
+        "tests": false,
+        "features": {
+          "std": true,
+          "embed-cmaps": true
+        },
+        "unit_tests": false
+      },
+      {
+        "path": "vendor/hayro-postscript",
+        "module": "third_party::hayro_postscript",
+        "ident": "hayro_postscript",
+        "precise": true,
+        "tests": false,
+        "features": {},
+        "unit_tests": false
+      },
+      {
+        "path": "vendor/hayro-jbig2",
+        "module": "third_party::hayro_jbig2",
+        "ident": "hayro_jbig2",
+        "precise": true,
+        "tests": false,
+        "features": {
+          "std": true,
+          "image": true,
+          "simd": true,
+          "fearless_simd": true
+        },
+        "unit_tests": false
+      },
+      {
+        "path": "vendor/lopdf",
+        "module": "third_party::lopdf",
+        "ident": "lopdf",
+        "precise": true,
+        "tests": false,
+        "features": {
+          "chrono": true,
+          "chrono-clock": true,
+          "rayon": true,
+          "async": false,
+          "embed_image": false,
+          "font_embedding": false,
+          "jiff": false,
+          "serde": false,
+          "time": false,
+          "wasm_js": false
+        },
+        "unit_tests": false
+      },
+      {
+        "path": "vendor/vello_cpu",
+        "module": "third_party::vello_cpu",
+        "ident": "vello_cpu",
+        "precise": true,
+        "tests": false,
+        "features": {
+          "std": true,
+          "png": true,
+          "u8_pipeline": true,
+          "text": false,
+          "multithreading": false,
+          "f32_pipeline": false,
+          "libm": false
+        },
+        "unit_tests": false
+      },
+      {
+        "path": "vendor/vello_common",
+        "module": "third_party::vello_common",
+        "ident": "vello_common",
+        "precise": true,
+        "tests": false,
+        "features": {
+          "std": true,
+          "png": true,
+          "libm": false,
+          "multithreading": false,
+          "pico_svg": false,
+          "probe": false
+        },
+        "unit_tests": false
+      }
+    ]
+  }
+}

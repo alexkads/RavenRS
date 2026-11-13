@@ -3,32 +3,28 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use ravenrs_app::{
-    ActionInput, Application, Frame, FrameContext, ModelNode, ObjectSpace, SettingScope, Value, ViewInfo,
-    ViewKind,
-};
+use ravenrs_app::{ActionInput, Application, ModelNode, ObjectSpace, SettingScope, ViewInfo, ViewKind};
 use ravenrs_core::Insets;
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 use ravenrs_widgets::{
-    Alert, AnyView, Breadcrumb, BuildCx, Button, ButtonSize, ButtonStyle, Date, Dialog, Divider, IconButton,
+    Alert, AnyView, Breadcrumb, BuildCx, Button, ButtonSize, ButtonStyle, Date, Divider, IconButton,
     IconName, KeyBar, KeyBarItem, Keyed, NodeId, Paint, ScrollView, Sidebar, SidebarCollapse, SidebarItem,
     SidebarSection, SidebarState, SidebarTrigger, Text, TextField, ThemePicker, Tone, VStack, View, ViewExt,
 };
 
 use crate::container::{ActionContainer, icon_named};
 use crate::detail_view::DetailView;
-use crate::editors::EditorRegistry;
 use crate::list_view::ListView;
+use crate::nested::PopupHost;
+use crate::session::EditorRegistry;
 use crate::session::{Session, Words};
 use crate::values::display;
 
 const NARROW_WINDOW: f32 = 720.0;
 /// The name the theme someone chose goes under.
 const THEME_SETTING: &str = "theme";
-/// How wide a window of something shown over the screens is.
-const PRESENTED_WIDTH: f32 = 960.0;
 /// How far everything on a page stands from its edges, so it all starts on one line.
 const PAGE_GUTTER: f32 = 16.0;
 /// The longest line of a description that is still comfortable to read.
@@ -61,6 +57,12 @@ impl std::fmt::Debug for TemplateParts {
 pub trait FrameTemplate {
     /// Puts the pieces where they go.
     fn arrange(&self, parts: TemplateParts) -> AnyView;
+
+    /// Whether it shows [`TemplateParts::keys`]. Then the commands above leave their keys to that
+    /// bar, so no key answers twice.
+    fn shows_keys(&self) -> bool {
+        false
+    }
 }
 
 /// Navigation on the side, commands above the view.
@@ -83,9 +85,14 @@ impl FrameTemplate for MainTemplate {
 /// A window for use at a counter: the view takes it all, with the keys of what can be done always in
 /// sight below it. Going elsewhere is up to the actions.
 #[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CounterTemplate;
 
 impl FrameTemplate for CounterTemplate {
+    fn shows_keys(&self) -> bool {
+        true
+    }
+
     fn arrange(&self, parts: TemplateParts) -> AnyView {
         // A dashboard is a screen of its own; a list or a form still needs its commands.
         let mut rows: Vec<AnyView> = Vec::with_capacity(3);
@@ -109,7 +116,7 @@ impl View for ActionKeys {
         let actions = session.frame().actions();
         let mut bar = KeyBar::new();
         for action in actions.iter().filter(|action| action.is_active()) {
-            let Some(hotkey) = action.hotkey_text().and_then(crate::container::hotkey_of) else { continue };
+            let Some(hotkey) = action.hotkey_text().and_then(crate::hotkeys::hotkey_of) else { continue };
             let (run, session) = (action.clone(), session.clone());
             let mut item = KeyBarItem::new(hotkey, action.caption().to_owned(), move || {
                 session.run_action(&run, ActionInput::None);
@@ -219,6 +226,8 @@ impl AppShell {
     ) -> Self {
         let today = Date::from_days(ravenrs_app::local_now().days);
         let session = Session::new(application, factory, words, editors, today);
+        // The list editors that come with the framework; the sessions it opens share them.
+        crate::list_editors::register(&session);
         if let Some(first) = session.first_view() {
             session.show_view_now(&first);
         }
@@ -382,7 +391,7 @@ impl AppShell {
                     IconButton::new(IconName::Key)
                         .label(words.change_password.clone())
                         .size(ButtonSize::Small)
-                        .on_click(move || crate::security::show_change_password(&changing))
+                        .on_click(move || crate::password::show_change_password(&changing))
                 }),
                 IconButton::new(IconName::LogOut)
                     .label(words.sign_out.clone())
@@ -466,7 +475,7 @@ impl AppShell {
             VStack::new((
                 VStack::new((
                     ravenrs_widgets::HStack::new((trigger, place)).spacing(8.0).align(Align::Center),
-                    ActionContainer::new(self.session.clone(), []),
+                    ActionContainer::new(self.session.clone(), []).keys_elsewhere(self.template.shows_keys()),
                 ))
                 .spacing(8.0)
                 .align(Align::Stretch)
@@ -541,207 +550,6 @@ impl AppShell {
             .align(Align::Stretch)
             .grow(1.0),
         )
-    }
-}
-
-/// What closes the popup of a frame, when the window closes.
-fn popup_open(main: &Frame) -> Binding<bool> {
-    let (closing, canceling) = (main.clone(), main.clone());
-    Binding::new(
-        move || closing.open_popup().is_some(),
-        move |open: bool| {
-            if !open {
-                canceling.cancel_popup();
-            }
-        },
-    )
-}
-
-/// A list in a window of its own, for an action that asks for a record.
-struct PopupList {
-    session: Session,
-    action: String,
-    view: ViewInfo,
-    frame: Frame,
-}
-
-impl View for PopupList {
-    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let main = self.session.frame();
-        let open = popup_open(&main);
-        let key_of = {
-            let session = self.session.clone();
-            move |frame: &Frame| {
-                frame.selected().first().and_then(|object| {
-                    let entity = session.entity(object.entity())?;
-                    entity.key_field().map(|field| object.get(&field.name))
-                })
-            }
-        };
-        let accept: Rc<dyn Fn(Option<Value>)> = {
-            let (session, main) = (self.session.clone(), main.clone());
-            Rc::new(move |key| {
-                let input = key.map_or(ActionInput::None, ActionInput::Parameter);
-                if let Err(error) = main.accept_popup(input) {
-                    session.set_error(Some(error.to_string()));
-                }
-            })
-        };
-        let (ok, frame) = (accept.clone(), self.frame.clone());
-        let on_open = accept;
-        let list = ListView::new(self.session.clone(), self.frame.clone(), self.view.clone())
-            .filter(self.session.popup_filter())
-            .on_open(Rc::new(move |key: &Value| on_open(Some(key.clone()))));
-        let words = self.session.words();
-        let cancel_frame = main;
-        cx.child(
-            &Dialog::new(open, self.action.clone())
-                .content(list.height(420.0))
-                .action(
-                    Button::new(words.cancel.clone())
-                        .style(ButtonStyle::Secondary)
-                        .on_click(move || cancel_frame.cancel_popup()),
-                )
-                .action(Button::new("OK").on_click(move || ok(key_of(&frame))))
-                .width(720.0),
-        )
-    }
-}
-
-/// A form in a window of its own, for an action that asks for a record to be filled in. It runs
-/// with the record, once that meets its rules.
-struct PopupForm {
-    /// Where the action is.
-    owner: Session,
-    /// Where the form is.
-    form: Session,
-    action: String,
-    view: ViewInfo,
-}
-
-impl View for PopupForm {
-    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let main = self.owner.frame();
-        let open = popup_open(&main);
-        let (form, owner_frame) = (self.form.clone(), main.clone());
-        let words = self.owner.words();
-        let cancel_frame = main;
-        let key = self.form.form().map_or(0, |form| Rc::as_ptr(&form) as usize as u64);
-        let content = VStack::new((
-            self.form.error().map(|error| Alert::new(self.action.clone(), error).tone(Tone::Danger)),
-            Keyed::new(key, DetailView::new(self.form.clone(), self.view.clone())),
-        ))
-        .spacing(12.0)
-        .align(Align::Stretch);
-        cx.child(
-            &Dialog::new(open, self.action.clone())
-                .width(480.0)
-                .content(content)
-                .action(
-                    Button::new(words.cancel.clone())
-                        .style(ButtonStyle::Secondary)
-                        .on_click(move || cancel_frame.cancel_popup()),
-                )
-                .action(Button::new("OK").on_click(move || {
-                    let Some((record, _)) = form.check_form() else { return };
-                    if let Err(error) = owner_frame.accept_popup(ActionInput::Record(record)) {
-                        form.set_error(Some(error.to_string()));
-                    }
-                })),
-        )
-    }
-}
-
-/// What a popup holds while it is open.
-#[derive(Clone)]
-enum PopupParts {
-    List(Frame),
-    Form(Session),
-}
-
-/// The windows of a frame's actions: what they ask for, and what they show.
-pub(crate) struct PopupHost {
-    session: Session,
-}
-
-#[cfg_attr(feature = "live", ravenrs_live::expose)]
-impl PopupHost {
-    pub(crate) fn new(session: Session) -> Self {
-        Self { session }
-    }
-
-    fn parts_for(&self, info: &ViewInfo) -> PopupParts {
-        if info.kind != ViewKind::Detail {
-            let frame = self.session.new_frame(FrameContext::Popup);
-            frame.set_view(Some(info.clone()));
-            return PopupParts::List(frame);
-        }
-        let form = self.session.child(FrameContext::Popup);
-        if let Some(entity) = info.entity.as_deref().and_then(|name| self.session.entity(name)) {
-            let mut record = entity.new_object();
-            self.session.frame().prepare_popup(&mut record);
-            form.open_object(&entity, record, true);
-        }
-        PopupParts::Form(form)
-    }
-}
-
-impl View for PopupHost {
-    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let session = &self.session;
-        crate::jobs::keep(cx, session);
-        let mut parts = Vec::new();
-        // Made once for each time it opens.
-        let held: State<Option<(String, PopupParts)>> = cx.use_state(|| None);
-        match session.frame().open_popup() {
-            Some((action, target)) => {
-                if let Ok(info) = ViewInfo::from_model(&session.model(), &target) {
-                    let kept = held.peek().clone().filter(|(id, _)| *id == action);
-                    let made = kept.map_or_else(
-                        || {
-                            let made = self.parts_for(&info);
-                            held.set(Some((action.clone(), made.clone())));
-                            made
-                        },
-                        |(_, made)| made,
-                    );
-                    let caption = session
-                        .frame()
-                        .action(&action)
-                        .map_or_else(|| action.clone(), |a| a.caption().to_owned());
-                    parts.push(match made {
-                        PopupParts::List(frame) => cx.child(&PopupList {
-                            session: session.clone(),
-                            action: caption,
-                            view: info,
-                            frame,
-                        }),
-                        PopupParts::Form(form) => {
-                            cx.child(&PopupForm { owner: session.clone(), form, action: caption, view: info })
-                        }
-                    });
-                }
-            }
-            None => {
-                if held.peek().is_some() {
-                    held.set(None);
-                }
-            }
-        }
-        parts.push(cx.child(&crate::reminders::Reminders::new(session.clone())));
-        if let Some((title, content)) = session.presented().get() {
-            let (read, write) = (session.presented().clone(), session.presented().clone());
-            let open = Binding::new(
-                move || read.get().is_some(),
-                move |open: bool| {
-                    if !open {
-                        write.set(None);
-                    }
-                },
-            );
-            parts.push(cx.child(&Dialog::new(open, title).width(PRESENTED_WIDTH).content(content())));
-        }
-        cx.container(LayoutStyle::stack(Axis::Vertical), &parts, Paint::None)
     }
 }
 

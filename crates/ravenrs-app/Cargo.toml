@@ -19,6 +19,12 @@ live = ["dep:ravenrs-live"]
 # `entities_from_source`: entities read from Rust source while the program runs.
 source = ["dep:ravenrs-app-spec", "dep:syn"]
 
+# An action lives in a frame and the frame has controllers that act on it: action, frame and
+# controller use each other (#294 took the loop from 18 to these 3). `module_cycle` holds it there.
+# `cargo ravenrs-lint -p ravenrs-app --modules` shows who uses whom.
+[package.metadata.ravenrs-lint]
+max-module-cycle = 3
+
 [dependencies]
 ravenrs-live = { workspace = true, optional = true }
 ravenrs-app-i18n.workspace = true

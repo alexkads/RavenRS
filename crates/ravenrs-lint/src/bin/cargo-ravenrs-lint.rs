@@ -13,6 +13,9 @@ Usage: cargo ravenrs-lint [options]
 Options:
   --manifest-path <path>  The Cargo.toml to start from (default: ./Cargo.toml)
   -p, --package <name>    Check only this package
+  --workspace             Check every package, not only those that depend on RavenRS
+  --only <rule>           Check one rule, such as module_cycle, and turn the others off
+  --modules               Print how the top-level modules use each other, to untangle a loop
   --message-format json   One JSON object per diagnostic
   --gate                  Run cargo fmt --check, cargo clippy -D warnings, these rules and cargo test,
                           stopping at the first that fails. Warnings fail too.
@@ -27,6 +30,9 @@ Options:
 struct Options {
     manifest: PathBuf,
     package: Option<String>,
+    workspace: bool,
+    only: Option<Lint>,
+    modules: bool,
     json: bool,
     gate: bool,
     init: bool,
@@ -52,6 +58,9 @@ fn run(args: &[String]) -> Result<ExitCode, String> {
     let mut options = Options {
         manifest: PathBuf::from("Cargo.toml"),
         package: None,
+        workspace: false,
+        only: None,
+        modules: false,
         json: false,
         gate: false,
         init: false,
@@ -81,6 +90,16 @@ fn run(args: &[String]) -> Result<ExitCode, String> {
             }
             "--manifest-path" => options.manifest = PathBuf::from(value("--manifest-path")?),
             "-p" | "--package" => options.package = Some(value("--package")?),
+            "--workspace" => options.workspace = true,
+            "--modules" => options.modules = true,
+            "--only" => {
+                let name = value("--only")?;
+                let name = name.strip_prefix("ravenrs::").unwrap_or(&name);
+                options.only = Some(Lint::from_name(name).ok_or_else(|| {
+                    let known: Vec<&str> = Lint::ALL.iter().map(|l| l.name()).collect();
+                    format!("unknown rule `{name}`; the rules are {}", known.join(", "))
+                })?);
+            }
             "--message-format" => options.json = value("--message-format")? == "json",
             "--gate" => options.gate = true,
             "--init" => options.init = true,
@@ -123,7 +142,7 @@ fn run(args: &[String]) -> Result<ExitCode, String> {
         .into_iter()
         .filter(|p| match &options.package {
             Some(name) => &p.name == name,
-            None => p.uses_ravenrs,
+            None => options.workspace || p.uses_ravenrs,
         })
         .collect();
     if chosen.is_empty() {
@@ -132,11 +151,26 @@ fn run(args: &[String]) -> Result<ExitCode, String> {
             None => "no package in this workspace depends on RavenRS".into(),
         });
     }
+    if options.modules {
+        for package in &chosen {
+            for root in ravenrs_lint::crate_roots(package) {
+                println!("{}", ravenrs_lint::module_report(&root).map_err(|e| e.to_string())?);
+            }
+        }
+        return Ok(ExitCode::SUCCESS);
+    }
     let mut diagnostics = Vec::new();
     let many = chosen.len() > 1;
     for package in &mut chosen {
         if let Some(language) = options.language {
             package.config.language = language;
+        }
+        if let Some(only) = options.only {
+            for &lint in Lint::ALL {
+                if lint != only {
+                    package.config.set_level(lint, Level::Allow);
+                }
+            }
         }
         let found = ravenrs_lint::check_package(package).map_err(|e| e.to_string())?;
         diagnostics.extend(found.into_iter().map(|mut d| {
