@@ -45,13 +45,23 @@ Uma exceção pontual leva motivo, na linha do `use`, e tira só aquela aresta: 
 2. **Dado que a base guarda desce para a base.** `BuildCx` guardava `scroll_scene::ScrollTrack` (dois `f32`): o tipo foi para o `context`. Funções de geometria de painel que `commands` pegava do `chat` foram para `floating`, a casa delas.
 3. **A base não nomeia o tipo de cima: usa trait ou chave de tipo.** O `BuildCx` guardava o `nav::SidebarScope` e o `ui::ViewProfile`. Agora guarda valores com escopo por tipo (`cx.scoped::<T>()` e `cx.replace_scoped::<T>(..)`) e um `dyn BuildTiming`, que o `ViewProfile` implementa. Um componente novo que precise passar dados aos filhos usa `scoped`, sem acrescentar campo ao `BuildCx`.
 
-O que sobrou no ciclo de 20 é a camada base. O `context` ainda guarda dados que moram em arquivos que também têm views (`Labels`, `Links`, `Motion`, `PickedFile`, `ScrollLink`, `TimeLink`). O próximo passo é separar o dado da view em cada um.
+## De 20 para 2 (#298), e as famílias sem atalho entre si (#299)
+
+4. **Dado e view em módulos separados.** O `context` guardava tipos que moravam junto de views. Cada um ganhou módulo próprio, sem view: `ids` (`NodeId`, `WidgetId`), `motion_spec`, `link_service`, `file_picker`, `scroll_link` e `time_link`. O `Localized` saiu de `labels`, que passou a depender só de `date`.
+5. **Helper puro desce para `util`; peça pequena ganha módulo.** O anel dos controles (`button → display → button`, `choice ↔ color_picker`, `overlay ↔ floating`) caiu com `Kbd` em módulo próprio, `spinner_paint`, `to_hex` e `stroke_outline` em `util`, e o `SearchPanel` no `overlay`, onde o `Select` o usa.
+6. **O que duas famílias usam desce para a base.** `SelectionMode` (de `grid`), `reorder` (de `lists`), `ZoomView`/`ZoomControl` (de `imaging`), `FloatingCorner` (de `chat`) e `Hotkey` (de `commands`). Um tipo de valor vive onde a primeira view o usou, não onde pertence.
+
+Para manter um caminho público ao mover, troque a reexportação da raiz para o módulo novo. Se o módulo antigo for `pub mod`, como o `grid`, deixe nele um `pub use` do novo, como `grid::SelectionMode`.
+
+## A API pública não muda (`scripts/public-api.py`)
+
+`crates/ravenrs-widgets/public-api.txt` lista cada caminho que um usuário escreve: tipo, campo, variante, método, reexportação e trait implementado. É gerado do JSON do rustdoc, que só sai no nightly. O `check.sh` roda `scripts/public-api.py --check`, que falha mostrando a diferença. Mover um item entre módulos ou crates mantém o arquivo igual desde que ele continue reexportado no mesmo caminho. Regenere o arquivo (`scripts/public-api.py`) só quando a mudança for de propósito, e diga isso no PR.
 
 ## O teto por pacote (catraca)
 
 `[package.metadata.ravenrs-lint] max-module-cycle = N` segura o tamanho atual de um crate que ainda está sendo desacoplado. O teto **só desce**: se o maior ciclo ficar menor que `N`, o lint falha pedindo o número novo. Nunca suba o teto para fazer uma mudança passar. Desfaça o acoplamento que ela criou.
 
-Tetos em 12/11/2026: `ravenrs-widgets` 20 (era 41; #293), `ravenrs-app` 18 e `ravenrs-app-ui` 17 (#294), `ravenrs-app-pos` 3 e `ravenrs-live` 3 (#292).
+Tetos em 13/11/2026: `ravenrs-widgets` sem teto (era 41; #293, maior ciclo 2), `ravenrs-app` 18 e `ravenrs-app-ui` 17 (#294), `ravenrs-app-pos` 3 e `ravenrs-live` 3 (#292).
 
 ## Por que importa também para a IA
 
