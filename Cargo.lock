@@ -5849,6 +5849,7 @@ dependencies = [
  "ravenrs-app",
  "ravenrs-app-server",
  "ravenrs-app-sql",
+ "ravenrs-app-testkit",
  "ravenrs-criteria",
  "rustls",
  "serde_json",
@@ -5862,7 +5863,9 @@ version = "27.1.28"
 dependencies = [
  "postgres",
  "ravenrs-app",
+ "ravenrs-app-postgres",
  "ravenrs-app-sql",
+ "ravenrs-app-testkit",
  "ravenrs-criteria",
  "serde_json",
  "ureq",
@@ -5962,6 +5965,7 @@ dependencies = [
  "ravenrs-app",
  "ravenrs-app-i18n",
  "ravenrs-app-sql",
+ "ravenrs-app-testkit",
  "ravenrs-criteria",
  "rusqlite",
 ]

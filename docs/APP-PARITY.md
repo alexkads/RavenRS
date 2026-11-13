@@ -111,3 +111,16 @@ What exists of the behavior documented for model-driven application frameworks, 
 | A test kit for reusable modules: two organizations with the same keys, units, people, example roles, a controlled clock | ✅ `ravenrs-app-testkit` | #268 |
 | Requests decided step by step, with steps, roles and rules from the application, idempotent decisions and an event in the same commit | 🟡 `ravenrs-app-requests`, in two applications of `examples/contracts`. Tasks, inboxes, deadlines and delegations since #258 | #268 |
 | Finding the contracts of reusable modules: scenarios and groups with their owners, the state of each capability | ✅ `app_contracts` and `parity_status` with `document: application` in `ravenrs-mcp`; the skill that `cargo ravenrs` installs points to them | #274 |
+
+## What each storage adapter guarantees
+
+Every adapter of `ObjectSpace` runs the same battery, `ravenrs_app_testkit::contract::run`: values of every kind, filters, order, pages, calculated fields, all or nothing, conflicts, states, rules, the audit trail in the same commit and permissions. Where adapters differ, each declares what it does in `Capabilities`, and the battery checks it does that, never that it passed. A test of `ravenrs-app-testkit` checks this table against them.
+
+| Adapter | Two programs creating records at once | An update over another program's |
+|---|---|---|
+| `MemoryDatabase` | different keys | the last commit wins |
+| `ravenrs-app-sqlite` | the second commit fails | the last commit wins |
+| `ravenrs-app-postgres` | the second commit fails | the last commit wins |
+| `ravenrs-app-postgrest` | the second commit fails | the last commit wins |
+
+"The second commit fails" means both took the same next key, and the second commit is refused whole: one program at a time should create records there. "The last commit wins" holds for deleting a record another program changed, too. Both wait for a version on each record (#241).

@@ -8,6 +8,8 @@ Synthetic data for testing a reusable `ravenrs-app` module, as [docs/APP-CONTRAC
 - `Clock`: time that moves only when a test says so; `date_time` gives it to `Dispatcher::run_at`.
 - `FakeSink`: a destination for events that accepts, refuses, is out of reach, loses its answer or cannot tell what it received, as the test asks, keeping one effect per key and counting every send.
 
+- `contract`: the battery every storage adapter of `ObjectSpace` runs with one call, `contract::run(&adapter)`. An `Adapter` makes fresh storage for each case and a second way into it, as another program would have (`Store::again`). The cases cover values of every kind, filters, order, pages, `only`, calculated fields, all or nothing, a record deleted under an update, states, rules and watchers, the audit trail in the same commit, permissions, and two programs at once. What an adapter does not guarantee is declared in `Capabilities`, and the case checks it fails the declared way; the table in [docs/APP-PARITY.md](../../docs/APP-PARITY.md) is checked against them. `MemoryDatabase`, `ravenrs-app-sqlite` (memory and file), `ravenrs-app-postgres` and `ravenrs-app-postgrest` run it.
+
 Opening `Fixture::sqlite` on the same folder again finds what was kept, which is how a test restarts an application.
 
-Not published yet (`publish = false`): it is used by `ravenrs-app-requests` and the examples in `examples/contracts`.
+Not published yet (`publish = false`): it is used by `ravenrs-app-requests`, the examples in `examples/contracts` and the tests of the storage adapters, which take it by path so it stays out of what they publish.

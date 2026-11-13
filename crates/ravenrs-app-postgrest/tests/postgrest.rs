@@ -8,11 +8,16 @@
 //!   `authenticated`, with a `tenant` claim of `a` and `b`, signed with PostgREST's secret.
 #![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
 
+use std::rc::Rc;
 use std::sync::Once;
 use std::time::Duration;
 
-use ravenrs_app::{Criteria, EntityInfo, FieldInfo, FieldKind, ObjectSpace, Query, SpaceError, Value};
+use ravenrs_app::{
+    Criteria, EntityInfo, FieldInfo, FieldKind, ObjectSpace, Query, SpaceError, SpaceMaker, Value,
+};
+use ravenrs_app_postgres::{PostgresBackend, PostgresDatabase, TableMap};
 use ravenrs_app_postgrest::{PostgrestDatabase, ResourceMap, SERVER_SQL};
+use ravenrs_app_testkit::contract::{self, Adapter, Capabilities, Store};
 use ravenrs_criteria::DateTime;
 
 fn var(name: &str) -> Option<String> {
@@ -292,46 +297,71 @@ fn a_tenant_written_by_hand_is_refused_by_the_server() {
     assert!(notes("b").space().find("Note", &Value::Number(300.0)).unwrap().is_none());
 }
 
+/// Tables for a case of the contract, made on the server as an administrator would, in the schema
+/// PostgREST serves, each named after the case and the entity.
+struct Postgrest;
+
+impl Postgrest {
+    fn maker(entities: &[EntityInfo], case: &str) -> Result<SpaceMaker, String> {
+        let mut builder = PostgrestDatabase::builder(url().unwrap()).bearer(token("a")).page_size(2);
+        for entity in entities {
+            let table = format!("{case}_{}", entity.name.to_lowercase());
+            builder = builder.resource(entity.clone(), ResourceMap::new(table)).map_err(|e| e.to_string())?;
+        }
+        let database = builder.build();
+        Ok(Rc::new(move || Box::new(database.space()) as Box<dyn ObjectSpace>))
+    }
+}
+
+impl Adapter for Postgrest {
+    fn name(&self) -> &str {
+        "ravenrs-app-postgrest"
+    }
+
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::POSTGREST
+    }
+
+    fn open(&self, case: &str, entities: &[EntityInfo]) -> Result<Store, String> {
+        let admin = || -> Result<postgres::Client, String> {
+            let mut client =
+                postgres::Client::connect(&var("RAVENRS_POSTGREST_ADMIN_URL").unwrap(), postgres::NoTls)
+                    .map_err(|e| e.to_string())?;
+            client.batch_execute("SET search_path TO api").map_err(|e| e.to_string())?;
+            Ok(client)
+        };
+        let mut client = admin()?;
+        for entity in entities {
+            let table = format!("{case}_{}", entity.name.to_lowercase());
+            client.batch_execute(&format!("DROP TABLE IF EXISTS api.{table}")).map_err(|e| e.to_string())?;
+        }
+        let mut builder = PostgresDatabase::builder(PostgresBackend::from(client));
+        for entity in entities {
+            let table = format!("{case}_{}", entity.name.to_lowercase());
+            builder = builder.managed(entity.clone(), TableMap::new(table)).map_err(|e| e.to_string())?;
+        }
+        drop(builder.build());
+        admin()?
+            .batch_execute(
+                "GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA api TO authenticated; \
+                 NOTIFY pgrst, 'reload schema'",
+            )
+            .map_err(|e| e.to_string())?;
+        let space = Self::maker(entities, case)?;
+        let first = entities.first().map(|entity| entity.name.clone()).unwrap_or_default();
+        for _ in 0..50 {
+            if space().query(&first, &Query::all()).is_ok() {
+                return Ok(Store { space, again: Self::maker(entities, case)? });
+            }
+            std::thread::sleep(Duration::from_millis(200));
+        }
+        Err(format!("PostgREST did not read the tables of {case}"))
+    }
+}
+
 #[test]
-fn a_decimal_comes_back_exactly_and_filters_find_it() {
+fn postgrest_keeps_the_contract() {
     let Some(_) = url() else { return };
     set_up();
-    let rates = EntityInfo::new("Rate")
-        .field(FieldInfo::new("id", FieldKind::Integer).key())
-        .field(FieldInfo::new("two", FieldKind::Decimal(2)))
-        .field(FieldInfo::new("six", FieldKind::Decimal(6)));
-    let database = PostgrestDatabase::builder(url().unwrap())
-        .bearer(token("a"))
-        .resource(rates, ResourceMap::new("rates"))
-        .unwrap()
-        .build();
-    let exact =
-        [(0.1, "two"), (5.49, "two"), (16.47, "two"), (123_456_789.123_456, "six"), (0.000_001, "six")];
-    let mut space = database.space();
-    for (number, field) in exact {
-        let mut object = space.new_object("Rate").unwrap();
-        object.set(field, Value::Number(number));
-        space.save(object).unwrap();
-    }
-    let mut rounded = space.new_object("Rate").unwrap();
-    rounded.set("two", Value::Number(0.1 + 0.2));
-    space.save(rounded).unwrap();
-    space.commit().unwrap();
-    let found = database.space().query("Rate", &Query::all().sort("id", true)).unwrap();
-    for (at, (number, field)) in exact.iter().enumerate() {
-        assert_eq!(found[at].get(field), Value::Number(*number), "{number}");
-    }
-    assert_eq!(found[5].get("two"), Value::Number(0.3), "rounded to its places");
-    let count = |text: &str| {
-        database.space().query("Rate", &Query::all().filter(Criteria::parse(text).unwrap())).unwrap().len()
-    };
-    assert_eq!(count("[two] = 16.47"), 1);
-    assert_eq!(count("[two] > 5.49"), 1);
-    assert_eq!(count("[six] = 0.000001"), 1);
-
-    let mut space = database.space();
-    let mut object = space.new_object("Rate").unwrap();
-    object.set("six", Value::Number(1_234_567_890.123_456));
-    space.save(object).unwrap();
-    assert!(matches!(space.commit(), Err(SpaceError::Refused(_))));
+    contract::run(&Postgrest);
 }

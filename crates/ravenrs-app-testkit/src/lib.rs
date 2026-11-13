@@ -18,6 +18,8 @@
 //! assert_eq!(people.len(), 1); // only the person of U1
 //! ```
 
+pub mod contract;
+
 use std::cell::Cell;
 use std::fmt;
 use std::path::Path;
