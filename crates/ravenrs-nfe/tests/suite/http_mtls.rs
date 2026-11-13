@@ -286,7 +286,7 @@ fn real_transport_fits_homologation_and_is_refused_by_the_sandbox() {
     assert_eq!(emissor.ambiente(), Ambiente::Homologacao);
     let a1 = certificado("client.p12");
     let transporte = HttpTransport::builder(&a1)
-        .raizes_pem(include_bytes!("../fixtures/http-test/ca.pem"))
+        .raizes_pem(include_bytes!("../../fixtures/http-test/ca.pem"))
         .build()
         .expect("transport");
     assert!(matches!(montar(Ambiente::Sandbox, a1, transporte), Err(NfeError::Configuracao(_))));

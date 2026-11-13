@@ -98,7 +98,8 @@ fn the_splash_comes_first_and_gives_way_to_the_app() {
 
 #[test]
 fn the_animated_logo_plays_whole_in_our_engine() {
-    let logo = LottieAnimation::from_json(include_bytes!("../assets/logo-animada.json")).expect("the logo");
+    let logo =
+        LottieAnimation::from_json(include_bytes!("../../assets/logo-animada.json")).expect("the logo");
     assert_eq!(logo.unsupported(), Vec::<String>::new(), "nothing in it is left out");
     assert!((logo.duration() - 1.9).abs() < 0.01, "as long as the splash expects: {}", logo.duration());
     let solid = |paths: &[ravenrs::core::PathFill]| paths.iter().filter(|p| p.opacity > 0.99).count();

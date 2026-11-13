@@ -4,6 +4,14 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- `ravenrs-lint` has a new rule, `module_cycle`: the top-level modules of a crate that use each other in a loop of more than two are an error, reported at the `use` that closes it, with the way around. Modules in a loop can only be read, tested and moved to a crate of their own together. An app with such a loop fails the rule until it is untangled, or until `max-module-cycle` in `[package.metadata.ravenrs-lint]` holds the size it has today; once the loop shrinks, the rule asks for the lower number. `cargo ravenrs-lint --modules` shows each module's size, who uses whom and every loop; `--only <rule>` checks one rule and `--workspace` every package. The crates of RavenRS hold their loops this way while #293 and #294 untangle them. ([#292](https://github.com/alexkads/RavenRS/issues/292))
+
+### Changed
+
+- The integration tests of each package are one binary, `tests/suite/main.rs`, with each file a module, so they link once: building the tests of `ravenrs-widgets` went from 30 s to 18 s, and from 12.7 s to 5.5 s after a change. Commands that named a file, such as `cargo test -p ravenrs --test visual`, are now `cargo test -p ravenrs --test suite visual::`. `scripts/check.sh` fails when a file in `tests/suite/` is not declared. ([#291](https://github.com/alexkads/RavenRS/issues/291))
+
 ## [27.1.28] - 2026-11-12
 
 ### Breaking

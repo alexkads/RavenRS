@@ -1,7 +1,7 @@
 //! The sandbox as a diagnosis tool: findings, autopsy, incidents, recording, faults and the story.
 #![allow(clippy::expect_used, clippy::unwrap_used, reason = "tests fail loudly")]
 
-mod comum;
+use super::comum;
 
 use std::time::Duration;
 

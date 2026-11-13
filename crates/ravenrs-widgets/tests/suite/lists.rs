@@ -1,7 +1,7 @@
 //! Long lists: each test fails if its feature is removed.
 #![allow(clippy::expect_used, clippy::unwrap_used, reason = "test helpers fail loudly")]
 
-mod lists_support;
+use super::lists_support;
 
 use std::cell::{Cell, RefCell};
 use std::collections::BTreeSet;

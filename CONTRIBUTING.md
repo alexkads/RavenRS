@@ -19,6 +19,19 @@ You need Rust stable 1.88+. For the web build, also `rustup target add wasm32-un
 cargo run -p component-gallery --release
 ```
 
+Each worktree builds the ~780 external dependencies once. A compiler cache shares them between checkouts, so a new branch starts from the workspace crates only:
+
+```bash
+brew install sccache   # or: cargo install sccache --locked
+```
+
+then, in `~/.cargo/config.toml` (your machine, not the repository):
+
+```toml
+[build]
+rustc-wrapper = "sccache"
+```
+
 Before opening a pull request, run the checks locally (the project has no hosted CI):
 
 ```bash
@@ -42,7 +55,7 @@ A component is done when it:
 1. Uses the public API only (`View`/`Component` and `BuildCx`), like every built-in component.
 2. Takes colors, radii and spacing from the theme (`Semantic` roles and theme scales), never hard-coded values, and looks right in Raven Dark, Light and Glass.
 3. Works with the keyboard: focusable when interactive, Enter/Space to activate, arrows where it makes sense, Escape to close overlays.
-4. Has behavior tests in `crates/ravenrs-widgets/tests/` that drive it through `Ui` (click, type, check state).
+4. Has behavior tests in `crates/ravenrs-widgets/tests/suite/`, declared with `mod` in its `main.rs`, that drive it through `Ui` (click, type, check state). Each package's integration tests are one binary, so they link once; `scripts/check-test-suites.py` fails if a file there is left undeclared.
 5. Appears in the gallery (`examples/component-gallery`), is listed in the README and in `site/components/index.html`, has an example in one of the files of `examples/component-gallery/src/samples/`, and its row in `docs/PARITY.md` is updated.
 6. Has rustdoc on the public type and builder methods.
 7. Runs in the playground: `scripts/gen-live.py` exposes it to the interpreter (the gate fails until it is run), and its example runs from its code, which `coverage_of_the_interpreter` in `examples/component-gallery` checks. The check runs the example interpreted and compiled, and the two have to build as many elements, with no problem later in a paint or a handler. An example the interpreter cannot read yet goes in `examples/component-gallery/live-pending.txt`, with why; today the list is empty.

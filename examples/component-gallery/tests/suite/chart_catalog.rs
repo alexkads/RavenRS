@@ -1,6 +1,6 @@
 //! Draws the chart catalog to files, to compare it with the patterns it follows:
 //!
-//! GALLERY_CHARTS=target/charts cargo test -p component-gallery --test chart_catalog
+//! GALLERY_CHARTS=target/charts cargo test -p component-gallery --test suite chart_catalog::
 #![allow(clippy::expect_used, reason = "test helpers fail loudly")]
 
 use std::path::Path;

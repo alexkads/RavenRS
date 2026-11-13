@@ -59,6 +59,7 @@
 //! The rules are listed in [`Lint`].
 
 mod config;
+mod coupling;
 mod init;
 mod report;
 mod rules;
@@ -132,10 +133,22 @@ pub fn check_source(file: &Path, source: &str, config: &Config) -> Result<Vec<Di
     let mut found = rules::check(&syntax, config, source.lines().count());
     found.extend(rules::check_allow_comments(source));
     let allowed = rules::Allowances::read(source);
+    let found = found.into_iter().filter(|finding| !allowed.covers(finding.lint, finding.line));
+    let mut diagnostics = diagnostics_of(file, source, found, config);
+    diagnostics.sort_by_key(|d| (d.line, d.column));
+    Ok(diagnostics)
+}
+
+/// The findings that the configuration does not turn off, with the line they point at.
+fn diagnostics_of(
+    file: &Path,
+    source: &str,
+    found: impl IntoIterator<Item = rules::Finding>,
+    config: &Config,
+) -> Vec<Diagnostic> {
     let lines: Vec<&str> = source.lines().collect();
-    let mut diagnostics: Vec<Diagnostic> = found
+    found
         .into_iter()
-        .filter(|finding| !allowed.covers(finding.lint, finding.line))
         .filter_map(|finding| {
             let level = config.level(finding.lint);
             (level != Level::Allow).then(|| Diagnostic {
@@ -150,8 +163,22 @@ pub fn check_source(file: &Path, source: &str, config: &Config) -> Result<Vec<Di
                 snippet: lines.get(finding.line.saturating_sub(1)).copied().unwrap_or_default().to_owned(),
             })
         })
-        .collect();
-    diagnostics.sort_by_key(|d| (d.line, d.column));
+        .collect()
+}
+
+/// Checks how the top-level modules of the crate whose root is `root` (its `lib.rs` or
+/// `main.rs`) use each other: the `module_cycle` rule, which reads the whole crate. Paths in the
+/// diagnostics are relative to `base` when they are inside it.
+pub fn check_modules(root: &Path, base: &Path, config: &Config) -> Result<Vec<Diagnostic>, Error> {
+    if config.level(Lint::ModuleCycle) == Level::Allow {
+        return Ok(Vec::new());
+    }
+    let mut diagnostics = Vec::new();
+    for (path, finding) in coupling::ModuleGraph::read(root)?.findings(config) {
+        let source = std::fs::read_to_string(&path).map_err(|error| Error::Io(path.clone(), error))?;
+        let shown = path.strip_prefix(base).unwrap_or(&path);
+        diagnostics.extend(diagnostics_of(shown, &source, [finding], config));
+    }
     Ok(diagnostics)
 }
 
@@ -183,11 +210,37 @@ fn collect_rust_files(dir: &Path, files: &mut Vec<PathBuf>) -> Result<(), Error>
     Ok(())
 }
 
+/// How the top-level modules of the crate whose root is `root` use each other, as a table: each
+/// module's lines, how many modules it uses and how many use it, then the loops. For whoever is
+/// untangling a crate that `module_cycle` reports.
+pub fn module_report(root: &Path) -> Result<String, Error> {
+    Ok(coupling::ModuleGraph::read(root)?.report())
+}
+
+/// The roots of the crates in a package: `lib.rs` and `main.rs` in its source directories.
+pub fn crate_roots(package: &Package) -> Vec<PathBuf> {
+    package
+        .source_dirs
+        .iter()
+        .flat_map(|dir| ["lib.rs", "main.rs"].map(|name| dir.join(name)))
+        .filter(|path| path.is_file())
+        .collect()
+}
+
 /// Checks the sources of one package: the directories of its library and binaries.
 pub fn check_package(package: &Package) -> Result<Vec<Diagnostic>, Error> {
+    let config = &package.config;
+    // The file rules are skipped when all of them are off, as `--only module_cycle` leaves them.
+    let file_rules =
+        Lint::ALL.iter().any(|&lint| lint != Lint::ModuleCycle && config.level(lint) != Level::Allow);
     let mut diagnostics = Vec::new();
-    for dir in &package.source_dirs {
-        diagnostics.extend(check_dir(dir, &package.root, &package.config)?);
+    if file_rules {
+        for dir in &package.source_dirs {
+            diagnostics.extend(check_dir(dir, &package.root, config)?);
+        }
+    }
+    for root in crate_roots(package) {
+        diagnostics.extend(check_modules(&root, &package.root, config)?);
     }
     Ok(diagnostics)
 }

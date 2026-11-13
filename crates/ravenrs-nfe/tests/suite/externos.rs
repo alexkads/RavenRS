@@ -4,7 +4,7 @@
 //! through `scripts/validar-xsd.sh`.
 #![allow(clippy::expect_used, clippy::unwrap_used, reason = "tests fail loudly")]
 
-mod comum;
+use super::comum;
 
 use std::path::{Path, PathBuf};
 use std::process::Command;

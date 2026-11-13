@@ -50,6 +50,9 @@ pub enum Language {
     PortugueseBrazil,
 }
 
+/// The longest loop of modules `module_cycle` allows when the configuration says nothing: a pair.
+pub const DEFAULT_MAX_MODULE_CYCLE: usize = 2;
+
 /// The configuration of one package.
 #[derive(Clone, Debug)]
 pub struct Config {
@@ -60,6 +63,9 @@ pub struct Config {
     pub extra_verbs: Vec<String>,
     /// The longest a source file may be before `oversized_file`.
     pub max_file_lines: usize,
+    /// The most modules one loop may join before `module_cycle`: 2, a pair, unless a crate being
+    /// untangled holds the size it has today.
+    pub max_module_cycle: usize,
 }
 
 impl Default for Config {
@@ -69,6 +75,7 @@ impl Default for Config {
             language: Language::default(),
             extra_verbs: Vec::new(),
             max_file_lines: 600,
+            max_module_cycle: DEFAULT_MAX_MODULE_CYCLE,
         }
     }
 }
@@ -124,10 +131,16 @@ impl Config {
                         .and_then(|n| usize::try_from(n).ok())
                         .ok_or_else(|| Error::Config("max-file-lines must be a whole number".into()))?;
                 }
+                "max-module-cycle" => {
+                    self.max_module_cycle = value
+                        .as_u64()
+                        .and_then(|n| usize::try_from(n).ok())
+                        .ok_or_else(|| Error::Config("max-module-cycle must be a whole number".into()))?;
+                }
                 "lints" => self.merge_levels(value)?,
                 other => {
                     return Err(Error::Config(format!(
-                        "unknown key `{other}`; the keys are language, extra-verbs, max-file-lines and lints"
+                        "unknown key `{other}`; the keys are language, extra-verbs, max-file-lines, max-module-cycle and lints"
                     )));
                 }
             }

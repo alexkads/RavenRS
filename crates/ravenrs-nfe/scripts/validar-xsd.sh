@@ -10,4 +10,4 @@ fi
 
 NFE_XSD_DIR="$(cd "$1" && pwd)"
 export NFE_XSD_DIR
-exec cargo test -p ravenrs-nfe --test externos -- --ignored --nocapture
+exec cargo test -p ravenrs-nfe --test suite externos:: -- --ignored --nocapture

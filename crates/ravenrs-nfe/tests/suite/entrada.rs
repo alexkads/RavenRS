@@ -1,7 +1,7 @@
 //! Entry of goods: reading received documents, the national distribution and the manifestation.
 #![allow(clippy::expect_used, clippy::unwrap_used, reason = "tests fail loudly")]
 
-mod comum;
+use super::comum;
 
 use std::time::Duration;
 

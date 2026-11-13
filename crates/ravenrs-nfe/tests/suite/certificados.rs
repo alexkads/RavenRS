@@ -1,7 +1,7 @@
 //! The certificates of the laboratory, and the walls that keep them there.
 #![allow(clippy::expect_used, clippy::unwrap_used, reason = "tests fail loudly")]
 
-mod comum;
+use super::comum;
 
 use comum::*;
 use ravenrs_nfe::sandbox::certificados::{
@@ -134,8 +134,8 @@ fn homologation_refuses_a_certificate_of_the_laboratory() {
 
 fn certificado_externo() -> RsaSigner {
     RsaSigner::from_pem(
-        include_str!("../../ravenrs-dfe/fixtures/laboratorio/externo-cert.pem"),
-        include_str!("../../ravenrs-dfe/fixtures/laboratorio/externo-key.pem"),
+        include_str!("../../../ravenrs-dfe/fixtures/laboratorio/externo-cert.pem"),
+        include_str!("../../../ravenrs-dfe/fixtures/laboratorio/externo-key.pem"),
     )
     .expect("signer")
 }
