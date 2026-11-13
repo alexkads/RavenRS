@@ -584,6 +584,37 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::IndicatorStep::__live_expose(registry);
     crate::StepIndicator::__live_expose_fields(registry);
     crate::StepIndicator::__live_expose(registry);
+    crate::CalendarEvent::__live_expose_fields(registry);
+    crate::CalendarEvent::__live_expose(registry);
+    crate::CalendarView::__live_expose_variants(registry);
+    crate::CalendarView::__live_expose(registry);
+    crate::EventCalendar::__live_expose_fields(registry);
+    crate::EventCalendar::__live_expose(registry);
+    crate::EventCalendar::__live_expose_part1(registry);
+    crate::RecurrenceEditor::__live_expose_fields(registry);
+    crate::RecurrenceEditor::__live_expose(registry);
+    crate::TimePoint::__live_expose_fields(registry);
+    crate::TimePoint::__live_expose(registry);
+    crate::TimeScale::__live_expose_variants(registry);
+    crate::TimeAxis::__live_expose_fields(registry);
+    crate::TimeAxis::__live_expose(registry);
+    crate::Resource::__live_expose_fields(registry);
+    crate::Resource::__live_expose(registry);
+    crate::SchedulerEvent::__live_expose_fields(registry);
+    crate::SchedulerEvent::__live_expose(registry);
+    crate::SchedulerRange::__live_expose_fields(registry);
+    crate::SchedulerChange::__live_expose_fields(registry);
+    crate::Scheduler::__live_expose_fields(registry);
+    crate::Scheduler::__live_expose(registry);
+    crate::Scheduler::__live_expose_part1(registry);
+    crate::TimelineItem::__live_expose_fields(registry);
+    crate::TimelineItem::__live_expose(registry);
+    crate::TimelineTrack::__live_expose_fields(registry);
+    crate::TimelineTrack::__live_expose(registry);
+    crate::TimelineMarker::__live_expose_fields(registry);
+    crate::TimelineEdit::__live_expose_variants(registry);
+    crate::Timeline::__live_expose_fields(registry);
+    crate::Timeline::__live_expose(registry);
     crate::DocumentTab::__live_expose_fields(registry);
     crate::DocumentTab::__live_expose(registry);
     crate::DocumentTabs::__live_expose_fields(registry);
@@ -727,15 +758,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::DockLayout::__live_expose_fields(registry);
     crate::DockLayoutError::__live_expose_variants(registry);
     crate::DockLayout::__live_expose(registry);
-    crate::CalendarEvent::__live_expose_fields(registry);
-    crate::CalendarEvent::__live_expose(registry);
-    crate::CalendarView::__live_expose_variants(registry);
-    crate::CalendarView::__live_expose(registry);
-    crate::EventCalendar::__live_expose_fields(registry);
-    crate::EventCalendar::__live_expose(registry);
-    crate::EventCalendar::__live_expose_part1(registry);
-    crate::RecurrenceEditor::__live_expose_fields(registry);
-    crate::RecurrenceEditor::__live_expose(registry);
     #[cfg(feature = "flow")]
     crate::FlowViewport::__live_expose_fields(registry);
     #[cfg(feature = "flow")]
@@ -843,28 +865,6 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::SankeyChart::__live_expose(registry);
     #[cfg(feature = "charts")]
     crate::SankeyChart::__live_expose_part1(registry);
-    crate::TimePoint::__live_expose_fields(registry);
-    crate::TimePoint::__live_expose(registry);
-    crate::TimeScale::__live_expose_variants(registry);
-    crate::TimeAxis::__live_expose_fields(registry);
-    crate::TimeAxis::__live_expose(registry);
-    crate::Resource::__live_expose_fields(registry);
-    crate::Resource::__live_expose(registry);
-    crate::SchedulerEvent::__live_expose_fields(registry);
-    crate::SchedulerEvent::__live_expose(registry);
-    crate::SchedulerRange::__live_expose_fields(registry);
-    crate::SchedulerChange::__live_expose_fields(registry);
-    crate::Scheduler::__live_expose_fields(registry);
-    crate::Scheduler::__live_expose(registry);
-    crate::Scheduler::__live_expose_part1(registry);
-    crate::TimelineItem::__live_expose_fields(registry);
-    crate::TimelineItem::__live_expose(registry);
-    crate::TimelineTrack::__live_expose_fields(registry);
-    crate::TimelineTrack::__live_expose(registry);
-    crate::TimelineMarker::__live_expose_fields(registry);
-    crate::TimelineEdit::__live_expose_variants(registry);
-    crate::Timeline::__live_expose_fields(registry);
-    crate::Timeline::__live_expose(registry);
     #[cfg(feature = "charts")]
     registry.alias("ChartCurve", "Curve");
     #[cfg(feature = "charts")]

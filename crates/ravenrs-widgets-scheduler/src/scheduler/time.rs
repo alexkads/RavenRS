@@ -97,7 +97,8 @@ pub struct TimeAxis {
 
 /// A marked stretch of the axis, in pixels from its start.
 #[derive(Clone, Debug, PartialEq)]
-pub(crate) struct Tick {
+#[doc(hidden)]
+pub struct Tick {
     pub x: f32,
     pub width: f32,
     pub start: TimePoint,
@@ -233,7 +234,8 @@ impl TimeAxis {
     }
 
     /// The ticks overlapping `from..to` pixels.
-    pub(crate) fn ticks(&self, from: f32, to: f32) -> Vec<Tick> {
+    #[doc(hidden)]
+    pub fn ticks(&self, from: f32, to: f32) -> Vec<Tick> {
         let mut ticks = Vec::new();
         let mut tick = self.start;
         // Every step moves forward, so this stops at the end of the axis.
@@ -252,7 +254,8 @@ impl TimeAxis {
     }
 
     /// Whether this tick falls on the top row's change: a new day, month or year.
-    pub(crate) fn starts_group(&self, tick: TimePoint, previous: Option<TimePoint>) -> bool {
+    #[doc(hidden)]
+    pub fn starts_group(&self, tick: TimePoint, previous: Option<TimePoint>) -> bool {
         let Some(previous) = previous else { return true };
         let (now, then) = (tick.date(), previous.date());
         match self.scale {
@@ -266,7 +269,8 @@ impl TimeAxis {
 /// Places overlapping stretches of time on lanes, the earliest first, so none
 /// overlaps another on its lane. Returns each one's lane, in the order given, and
 /// how many lanes there are; at least one.
-pub(crate) fn assign_lanes(spans: &[(TimePoint, TimePoint)]) -> (Vec<usize>, usize) {
+#[doc(hidden)]
+pub fn assign_lanes(spans: &[(TimePoint, TimePoint)]) -> (Vec<usize>, usize) {
     let mut order: Vec<usize> = (0..spans.len()).collect();
     order.sort_by_key(|i| (spans[*i].0, spans[*i].1));
     let mut lanes = vec![0; spans.len()];
