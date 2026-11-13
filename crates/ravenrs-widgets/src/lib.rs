@@ -60,6 +60,13 @@ use ravenrs_widgets_dock::dock;
 #[allow(unused_imports)]
 use ravenrs_widgets_dock::ribbon;
 
+// The imaging family lives in its own crate, and keeps its module names here.
+#[allow(unused_imports)]
+use ravenrs_widgets_imaging::imaging;
+#[cfg(feature = "lottie")]
+#[allow(unused_imports)]
+use ravenrs_widgets_imaging::lottie;
+
 // The components of general use live in their own crate, and keep their module names here.
 #[allow(unused_imports)]
 use ravenrs_widgets_base::{
@@ -84,13 +91,10 @@ mod code_editor;
 mod conversation;
 #[cfg(feature = "flow")]
 mod flow;
-mod imaging;
 #[cfg(feature = "live")]
 mod live;
 #[cfg(feature = "live")]
 mod live_list;
-#[cfg(feature = "lottie")]
-mod lottie;
 #[cfg(feature = "code")]
 mod playground;
 mod rich_text;

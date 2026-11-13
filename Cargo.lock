@@ -6256,6 +6256,7 @@ dependencies = [
  "ravenrs-widgets-base",
  "ravenrs-widgets-dock",
  "ravenrs-widgets-grid",
+ "ravenrs-widgets-imaging",
  "ravenrs-widgets-kit",
  "ravenrs-widgets-lists",
  "ravenrs-widgets-scheduler",
@@ -6317,6 +6318,22 @@ dependencies = [
  "serde",
  "serde_json",
  "tracing",
+]
+
+[[package]]
+name = "ravenrs-widgets-imaging"
+version = "27.1.28"
+dependencies = [
+ "ravenrs-animation",
+ "ravenrs-core",
+ "ravenrs-layout",
+ "ravenrs-live",
+ "ravenrs-lottie",
+ "ravenrs-reactive",
+ "ravenrs-style",
+ "ravenrs-widgets",
+ "ravenrs-widgets-base",
+ "ravenrs-widgets-kit",
 ]
 
 [[package]]

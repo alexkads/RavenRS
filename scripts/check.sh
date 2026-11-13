@@ -76,7 +76,7 @@ cargo test -p ravenrs-dfe -p ravenrs-nfe --all-features
 
 step "optional features are optional"
 cargo check -p ravenrs --no-default-features
-cargo check -p ravenrs-widgets-base -p ravenrs-widgets-kit -p ravenrs-widgets-grid -p ravenrs-widgets-lists -p ravenrs-widgets-scheduler -p ravenrs-widgets-dock -p ravenrs-widgets --no-default-features
+cargo check -p ravenrs-widgets-base -p ravenrs-widgets-kit -p ravenrs-widgets-grid -p ravenrs-widgets-lists -p ravenrs-widgets-scheduler -p ravenrs-widgets-dock -p ravenrs-widgets-imaging -p ravenrs-widgets --no-default-features
 if cargo tree -p ravenrs --no-default-features -e normal | grep -E 'ravenrs-graphics|tiny-skia'; then
     echo "an app without the charts feature must not build the rasterizer" >&2
     exit 1
