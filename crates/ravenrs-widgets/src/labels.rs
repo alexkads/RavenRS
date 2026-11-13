@@ -6,8 +6,6 @@ use ravenrs_app_i18n::{Language, Texts, format_with};
 
 use crate::context::{BuildCx, NodeId};
 use crate::date::Date;
-use crate::grid::Summary;
-use crate::recurrence::{Frequency, RecurrenceEnd, RecurrenceRule};
 use crate::view::View;
 
 /// The words the built-in components use. Start from [`Labels::default`]
@@ -860,7 +858,7 @@ impl Default for Labels {
     }
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part2"))]
 impl Labels {
     /// The texts of a catalog, in its language. What it does not have comes from English.
     pub fn from_texts(texts: &Texts) -> Self {
@@ -1284,21 +1282,6 @@ impl Labels {
         Self::from_texts(&Texts::new(Language::BrazilianPortuguese))
     }
 
-    /// A place of a [`DockArea`](crate::DockArea).
-    pub fn dock_place(&self, side: crate::DockSide) -> &str {
-        match side {
-            crate::DockSide::Left => &self.dock_left,
-            crate::DockSide::Right => &self.dock_right,
-            crate::DockSide::Bottom => &self.dock_bottom,
-            _ => &self.dock_center,
-        }
-    }
-
-    /// A place in the middle of a sentence.
-    fn dock_place_lower(&self, side: crate::DockSide) -> String {
-        self.dock_place(side).to_lowercase()
-    }
-
     /// The item that joins the group where `title` shows.
     pub fn dock_with_name(&self, title: &str) -> String {
         self.dock_with.replace("{title}", title)
@@ -1314,29 +1297,9 @@ impl Labels {
         self.dock_options.replace("{title}", title)
     }
 
-    /// The name of the strip that collapses a dock.
-    pub fn dock_hide_name(&self, side: crate::DockSide) -> String {
-        self.dock_hide.replace("{place}", &self.dock_place_lower(side))
-    }
-
-    /// The name of the strip that brings a dock back.
-    pub fn dock_show_name(&self, side: crate::DockSide) -> String {
-        self.dock_show.replace("{place}", &self.dock_place_lower(side))
-    }
-
-    /// The name of the bar that resizes a dock.
-    pub fn dock_resize_name(&self, side: crate::DockSide) -> String {
-        self.dock_resize.replace("{place}", &self.dock_place_lower(side))
-    }
-
     /// The name of the bar between two parts of a split.
     pub fn dock_resize_between(&self, first: &str, second: &str) -> String {
         self.dock_resize_pair.replace("{first}", first).replace("{second}", second)
-    }
-
-    /// What is announced after a panel went to a place.
-    pub fn dock_moved_to(&self, side: crate::DockSide) -> String {
-        self.dock_moved.replace("{place}", &self.dock_place_lower(side))
     }
 
     /// What is announced after the panel `title` closed.
@@ -1435,50 +1398,6 @@ impl Labels {
     /// A full date, for screen readers: `15 November 2026`, `15 novembro de 2026`.
     pub fn long_date(&self, date: Date) -> String {
         format!("{} {}", date.day(), self.month_title(date))
-    }
-
-    /// The word for one period of this frequency; `count` picks singular or plural.
-    pub fn recurrence_unit(&self, frequency: Frequency, count: u32) -> &str {
-        let unit = match frequency {
-            Frequency::Daily => &self.recurrence_units[0],
-            Frequency::Weekly => &self.recurrence_units[1],
-            Frequency::Yearly => &self.recurrence_units[3],
-            _ => &self.recurrence_units[2],
-        };
-        if count > 1 { &unit.1 } else { &unit.0 }
-    }
-
-    /// A rule in words, with its next days: `Every month, 3 times. Next: 05/11/2026, 05/12/2026`.
-    pub fn recurrence_summary(&self, rule: &RecurrenceRule, start: Date) -> String {
-        let how = match (rule.frequency, rule.interval.max(1)) {
-            (Frequency::Daily, 1) => self.recurrence_each[0].clone(),
-            (Frequency::Weekly, 1) => self.recurrence_each[1].clone(),
-            (Frequency::Monthly, 1) => self.recurrence_each[2].clone(),
-            (Frequency::Yearly, 1) => self.recurrence_each[3].clone(),
-            (Frequency::Daily | Frequency::Weekly | Frequency::Monthly | Frequency::Yearly, n) => {
-                format!("{} {n} {}", self.recurrence_every, self.recurrence_unit(rule.frequency, n))
-            }
-            _ => self.recurrence_frequencies[0].clone(),
-        };
-        let until = match rule.end {
-            RecurrenceEnd::Until(day) => format!(" {} {}", self.recurrence_until, self.short_date(day)),
-            RecurrenceEnd::After(count) => format!(", {count} {}", self.recurrence_times),
-            _ => String::new(),
-        };
-        let next: Vec<String> = rule.days_from(start).take(3).map(|day| self.short_date(day)).collect();
-        format!("{how}{until}. {}: {}", self.recurrence_next, next.join(", "))
-    }
-
-    /// What a grid's footer calls this summary.
-    pub fn summary(&self, summary: Summary) -> &str {
-        let index = match summary {
-            Summary::Count => 0,
-            Summary::Sum => 1,
-            Summary::Average => 2,
-            Summary::Min => 3,
-            _ => 4,
-        };
-        &self.grid_summaries[index]
     }
 }
 

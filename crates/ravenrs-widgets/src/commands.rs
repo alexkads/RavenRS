@@ -10,8 +10,8 @@ use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle};
 
-use crate::chat::{PANEL_MARGIN, move_by_handle, panel_inside};
 use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint, Semantics};
+use crate::floating::{PANEL_MARGIN, move_by_handle, panel_inside};
 use crate::overlay::{Entry, MenuList};
 use crate::{
     AnyView, Button, ButtonSize, ButtonStyle, Dialog, IconButton, IconName, MenuItem, Text, TextField,

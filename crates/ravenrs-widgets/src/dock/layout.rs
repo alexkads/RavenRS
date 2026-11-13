@@ -7,6 +7,7 @@ use std::fmt;
 use ravenrs_layout::Axis;
 use serde::{Deserialize, Serialize};
 
+use crate::labels::Labels;
 use crate::lists::reorder;
 
 /// The version of the saved text this build writes, and the newest it reads.
@@ -789,6 +790,45 @@ impl DockLayout {
         }
         // The tree wins over a closed entry: a panel cannot be in both.
         self.closed.retain(|closed| seen.insert(closed.panel.clone()));
+    }
+}
+
+// The words for the places of a dock live with `DockSide`, so `labels` does not depend on the dock.
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl Labels {
+    /// A place of a [`DockArea`](crate::DockArea).
+    pub fn dock_place(&self, side: DockSide) -> &str {
+        match side {
+            DockSide::Left => &self.dock_left,
+            DockSide::Right => &self.dock_right,
+            DockSide::Bottom => &self.dock_bottom,
+            _ => &self.dock_center,
+        }
+    }
+
+    /// A place in the middle of a sentence.
+    fn dock_place_lower(&self, side: DockSide) -> String {
+        self.dock_place(side).to_lowercase()
+    }
+
+    /// The name of the strip that collapses a dock.
+    pub fn dock_hide_name(&self, side: DockSide) -> String {
+        self.dock_hide.replace("{place}", &self.dock_place_lower(side))
+    }
+
+    /// The name of the strip that brings a dock back.
+    pub fn dock_show_name(&self, side: DockSide) -> String {
+        self.dock_show.replace("{place}", &self.dock_place_lower(side))
+    }
+
+    /// The name of the bar that resizes a dock.
+    pub fn dock_resize_name(&self, side: DockSide) -> String {
+        self.dock_resize.replace("{place}", &self.dock_place_lower(side))
+    }
+
+    /// What is announced after a panel went to a place.
+    pub fn dock_moved_to(&self, side: DockSide) -> String {
+        self.dock_moved.replace("{place}", &self.dock_place_lower(side))
     }
 }
 

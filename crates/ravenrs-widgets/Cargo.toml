@@ -13,11 +13,11 @@ documentation = "https://docs.rs/ravenrs-widgets"
 keywords = ["gui", "ui", "widgets", "components", "datagrid"]
 categories = ["gui"]
 
-# The modules of this crate use each other in a loop of 41; `module_cycle` holds it there so it
+# The modules of this crate use each other in a loop of 20; `module_cycle` holds it there so it
 # cannot grow, and asks for a lower number as #293 untangles it. `cargo ravenrs-lint -p ravenrs-widgets --modules`
 # shows who uses whom.
 [package.metadata.ravenrs-lint]
-max-module-cycle = 41
+max-module-cycle = 20
 
 [dependencies]
 ravenrs-app-i18n.workspace = true

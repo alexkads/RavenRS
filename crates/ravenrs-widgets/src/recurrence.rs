@@ -3,6 +3,7 @@
 use std::fmt;
 
 use crate::date::{Date, days_in_month};
+use crate::labels::Labels;
 
 /// How often a [`RecurrenceRule`] comes back.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
@@ -387,6 +388,42 @@ impl Iterator for Occurrences {
                 }
             }
         }
+    }
+}
+
+// The words for a rule live with the rule, so `labels` does not depend on `recurrence`.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part3"))]
+impl Labels {
+    /// The word for one period of this frequency; `count` picks singular or plural.
+    pub fn recurrence_unit(&self, frequency: Frequency, count: u32) -> &str {
+        let unit = match frequency {
+            Frequency::Daily => &self.recurrence_units[0],
+            Frequency::Weekly => &self.recurrence_units[1],
+            Frequency::Yearly => &self.recurrence_units[3],
+            _ => &self.recurrence_units[2],
+        };
+        if count > 1 { &unit.1 } else { &unit.0 }
+    }
+
+    /// A rule in words, with its next days: `Every month, 3 times. Next: 05/11/2026, 05/12/2026`.
+    pub fn recurrence_summary(&self, rule: &RecurrenceRule, start: Date) -> String {
+        let how = match (rule.frequency, rule.interval.max(1)) {
+            (Frequency::Daily, 1) => self.recurrence_each[0].clone(),
+            (Frequency::Weekly, 1) => self.recurrence_each[1].clone(),
+            (Frequency::Monthly, 1) => self.recurrence_each[2].clone(),
+            (Frequency::Yearly, 1) => self.recurrence_each[3].clone(),
+            (Frequency::Daily | Frequency::Weekly | Frequency::Monthly | Frequency::Yearly, n) => {
+                format!("{} {n} {}", self.recurrence_every, self.recurrence_unit(rule.frequency, n))
+            }
+            _ => self.recurrence_frequencies[0].clone(),
+        };
+        let until = match rule.end {
+            RecurrenceEnd::Until(day) => format!(" {} {}", self.recurrence_until, self.short_date(day)),
+            RecurrenceEnd::After(count) => format!(", {count} {}", self.recurrence_times),
+            _ => String::new(),
+        };
+        let next: Vec<String> = rule.days_from(start).take(3).map(|day| self.short_date(day)).collect();
+        format!("{how}{until}. {}: {}", self.recurrence_next, next.join(", "))
     }
 }
 

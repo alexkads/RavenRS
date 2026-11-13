@@ -443,7 +443,7 @@ pub(crate) struct Element {
     /// Stays this far below the top of its scroll container while its parent passes.
     pub pin: Option<f32>,
     /// The track of a scroll scene: what [`crate::ScrollRange::Scene`] measures.
-    pub scroll_track: Option<crate::scroll_scene::ScrollTrack>,
+    pub scroll_track: Option<ScrollTrack>,
     /// Painted through this effect of the scroll position.
     pub scroll_link: Option<crate::ScrollLink>,
     /// A place links can scroll to (`#name`), and how far below the top it lands.
@@ -578,7 +578,7 @@ thread_local! {
 pub struct BuildCx<'a> {
     /// The views that asked about the pointer, so that it moving elsewhere rebuilds nothing.
     pub(crate) hover_readers: Rc<RefCell<HashSet<WidgetId>>>,
-    pub(crate) view_profile: Option<Rc<RefCell<crate::ui::ViewProfile>>>,
+    pub(crate) view_profile: Option<Rc<RefCell<dyn BuildTiming>>>,
     pub(crate) theme: Theme,
     pub(crate) theme_state: State<Theme>,
     pub(crate) viewport: Size,
@@ -595,7 +595,9 @@ pub struct BuildCx<'a> {
     pub(crate) now: f64,
     labels: Rc<crate::Labels>,
     ui_waker: crate::UiWaker,
-    sidebar: Option<Rc<crate::nav::SidebarScope>>,
+    /// Values a view gives the views built inside it, one per type, such as the sidebar a row is
+    /// in. Keyed by type so this builder does not need to know the components that use it.
+    scoped: HashMap<std::any::TypeId, Rc<dyn Any>>,
     pub(crate) shortcuts: Vec<Shortcut>,
     pub(crate) activity: Option<ActivityObserver>,
     pub(crate) access_tree_asked: bool,
@@ -665,7 +667,7 @@ impl<'a> BuildCx<'a> {
             now: 0.0,
             labels: DEFAULT_LABELS.with(Rc::clone),
             ui_waker,
-            sidebar: None,
+            scoped: HashMap::new(),
             shortcuts: Vec::new(),
             activity: None,
             access_tree_asked: false,
@@ -725,16 +727,20 @@ impl<'a> BuildCx<'a> {
         std::mem::replace(&mut self.labels, labels)
     }
 
-    /// The sidebar this view is being built inside, if any.
-    pub(crate) fn sidebar(&self) -> Option<Rc<crate::nav::SidebarScope>> {
-        self.sidebar.clone()
+    /// The value of type `T` an enclosing view gave the views inside it, if any.
+    pub(crate) fn scoped<T: 'static>(&self) -> Option<Rc<T>> {
+        self.scoped.get(&std::any::TypeId::of::<T>()).cloned().and_then(|value| value.downcast::<T>().ok())
     }
 
-    pub(crate) fn replace_sidebar(
-        &mut self,
-        sidebar: Option<Rc<crate::nav::SidebarScope>>,
-    ) -> Option<Rc<crate::nav::SidebarScope>> {
-        std::mem::replace(&mut self.sidebar, sidebar)
+    /// Gives the views built from now on `value` (or takes it away with `None`), and returns the
+    /// one that was there, to put back once the views inside are built.
+    pub(crate) fn replace_scoped<T: 'static>(&mut self, value: Option<Rc<T>>) -> Option<Rc<T>> {
+        let key = std::any::TypeId::of::<T>();
+        let old = match value {
+            Some(value) => self.scoped.insert(key, value),
+            None => self.scoped.remove(&key),
+        };
+        old.and_then(|value| value.downcast::<T>().ok())
     }
 
     /// The app-wide theme as state: set it to switch themes at runtime.
@@ -1391,7 +1397,7 @@ impl<'a> BuildCx<'a> {
     /// length. See [`crate::ScrollScene`].
     pub fn scroll_track(&mut self, node: NodeId, top: f32, length: f32) {
         if let Some(e) = self.element_mut(node) {
-            e.scroll_track = Some(crate::scroll_scene::ScrollTrack { top, length });
+            e.scroll_track = Some(ScrollTrack { top, length });
         }
     }
 
@@ -1548,4 +1554,21 @@ impl Numbers {
         let eased = f64::from(self.easing.sample(t.max(0.0) as f32));
         self.from.iter().zip(&self.to).map(|(a, b)| a + (b - a) * eased).collect()
     }
+}
+
+/// A scene's track, as [`BuildCx::scroll_track`] marks it. It lives here, with the builder that
+/// keeps it, so the context does not depend on `scroll_scene`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(crate) struct ScrollTrack {
+    pub top: f32,
+    pub length: f32,
+}
+
+/// What times each view while it builds, when the app asks for a profile. The `Ui` gives one to
+/// the builder; the builder only says when a view starts and ends.
+pub(crate) trait BuildTiming {
+    /// A view named `name` starts, with this many elements and text shapes made so far.
+    fn enter(&mut self, name: &'static str, elements: usize, shapes: u64);
+    /// The view started last ends, with this many elements and shapes made by then.
+    fn leave(&mut self, elements: usize, shapes: u64);
 }

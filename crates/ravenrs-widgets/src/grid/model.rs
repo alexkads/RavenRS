@@ -9,6 +9,7 @@ use ravenrs_reactive::State;
 
 use crate::AnyView;
 use crate::date::Date;
+use crate::labels::Labels;
 
 /// A cell value.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -558,6 +559,22 @@ impl GridData {
     /// Replaces all rows.
     pub fn replace(&self, rows: Vec<Row>) {
         self.rows.set(Rc::new(rows));
+    }
+}
+
+// A footer's word for each summary lives with `Summary`, so `labels` does not depend on the grid.
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+impl Labels {
+    /// What a grid's footer calls this summary.
+    pub fn summary(&self, summary: Summary) -> &str {
+        let index = match summary {
+            Summary::Count => 0,
+            Summary::Sum => 1,
+            Summary::Average => 2,
+            Summary::Min => 3,
+            _ => 4,
+        };
+        &self.grid_summaries[index]
     }
 }
 

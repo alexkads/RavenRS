@@ -39,11 +39,19 @@ O diagnóstico aponta o `use` do módulo que mais nomeia outros dentro do laço 
 
 Uma exceção pontual leva motivo, na linha do `use`, e tira só aquela aresta: `// ravenrs-lint: allow(module_cycle) <por quê>`. É para casos raros e justificados, não para calar a regra.
 
+## Três cortes que já funcionaram (#293, de 41 para 20 no `ravenrs-widgets`)
+
+1. **Método que recebe tipo de componente sai do agregador.** `Labels::dock_place(DockSide)` fazia `labels` depender do `dock`. Um bloco `impl Labels { .. }` pode ficar em qualquer módulo do mesmo crate: o método foi para `dock/layout.rs`, ao lado de `DockSide`, e continua sendo `Labels::dock_place`, com a API idêntica. O mesmo valeu para `summary(Summary)` (em `grid/model.rs`) e `recurrence_summary` (em `recurrence.rs`). Depois de mover, rode `scripts/gen-live.py`, que dá a cada bloco o seu `part`, para o playground continuar vendo o método, e escreva `impl Labels {` com o tipo importado, não `impl crate::labels::Labels {`, que o script não reconhece.
+2. **Dado que a base guarda desce para a base.** `BuildCx` guardava `scroll_scene::ScrollTrack` (dois `f32`): o tipo foi para o `context`. Funções de geometria de painel que `commands` pegava do `chat` foram para `floating`, a casa delas.
+3. **A base não nomeia o tipo de cima: usa trait ou chave de tipo.** O `BuildCx` guardava o `nav::SidebarScope` e o `ui::ViewProfile`. Agora guarda valores com escopo por tipo (`cx.scoped::<T>()` e `cx.replace_scoped::<T>(..)`) e um `dyn BuildTiming`, que o `ViewProfile` implementa. Um componente novo que precise passar dados aos filhos usa `scoped`, sem acrescentar campo ao `BuildCx`.
+
+O que sobrou no ciclo de 20 é a camada base. O `context` ainda guarda dados que moram em arquivos que também têm views (`Labels`, `Links`, `Motion`, `PickedFile`, `ScrollLink`, `TimeLink`). O próximo passo é separar o dado da view em cada um.
+
 ## O teto por pacote (catraca)
 
 `[package.metadata.ravenrs-lint] max-module-cycle = N` segura o tamanho atual de um crate que ainda está sendo desacoplado. O teto **só desce**: se o maior ciclo ficar menor que `N`, o lint falha pedindo o número novo. Nunca suba o teto para fazer uma mudança passar. Desfaça o acoplamento que ela criou.
 
-Tetos em 12/11/2026: `ravenrs-widgets` 41 (#293), `ravenrs-app` 18 e `ravenrs-app-ui` 17 (#294), `ravenrs-app-pos` 3 e `ravenrs-live` 3 (#292).
+Tetos em 12/11/2026: `ravenrs-widgets` 20 (era 41; #293), `ravenrs-app` 18 e `ravenrs-app-ui` 17 (#294), `ravenrs-app-pos` 3 e `ravenrs-live` 3 (#292).
 
 ## Por que importa também para a IA
 
