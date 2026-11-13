@@ -745,20 +745,45 @@ fn questions_in_plain_words_find_the_right_moment_of_the_film() {
     assert_eq!(best("investir em ações"), None);
 }
 
-#[test]
-fn the_scripts_still_fit_the_app() {
-    let broken: Vec<String> = FILMS
-        .iter()
-        .filter_map(|(title, _, script)| {
-            let today = Date::new(2026, 11, 15).expect("valid date");
-            let db = Database::in_memory().expect("database");
-            seed::load_demo(&db, today).expect("seed");
-            let app = App::new(db, today, None, Updater::idle());
-            let mut take = Recorder::new(app, themes::light(), SIZE);
-            script(&mut take).err().map(|e| format!("{title}: {e}"))
-        })
-        .collect();
-    assert!(broken.is_empty(), "{}", broken.join("\n"));
+/// Plays one film's script on a fresh app; each film is its own test, so they run side by side.
+fn the_script_still_fits_the_app(file: &str) {
+    let (title, _, script) = FILMS.iter().find(|(_, f, _)| *f == file).expect("a film with that file");
+    let today = Date::new(2026, 11, 15).expect("valid date");
+    let db = Database::in_memory().expect("database");
+    seed::load_demo(&db, today).expect("seed");
+    let app = App::new(db, today, None, Updater::idle());
+    let mut take = Recorder::new(app, themes::light(), SIZE);
+    if let Err(error) = script(&mut take) {
+        panic!("{title}: {error}");
+    }
+}
+
+macro_rules! scripts_fit_the_app {
+    ($($test:ident => $file:literal),* $(,)?) => {
+        $(
+            #[test]
+            fn $test() {
+                the_script_still_fits_the_app($file);
+            }
+        )*
+
+        #[test]
+        fn every_film_has_its_script_test() {
+            let tested = [$($file),*];
+            for (_, file, _) in FILMS {
+                assert!(tested.contains(&file), "{file} has no script test");
+            }
+        }
+    };
+}
+
+scripts_fit_the_app! {
+    the_overview_script_fits_the_app => "visao-geral",
+    the_ledger_script_fits_the_app => "lancamentos",
+    the_bills_script_fits_the_app => "contas",
+    the_agenda_script_fits_the_app => "agenda",
+    the_planning_script_fits_the_app => "planejamento",
+    the_records_script_fits_the_app => "cadastros",
 }
 
 fn named<'a>(tree: &'a AccessTree, name: &str) -> Option<&'a AccessNode> {
