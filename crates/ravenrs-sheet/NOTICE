@@ -2,7 +2,7 @@ ravenrs-sheet
 =============
 
 The code under src/ comes from two projects, brought together as modules of this one crate. The
-ravenrs-gridcraft skill and scripts/gridcraft/ say how it is converted and kept up to date.
+ravenrs-gridcraft skill and scripts/storytold/ (profile gridcraft) say how it is converted and kept up to date.
 
 GridCraft (https://github.com/storytold/gridcraft), commit c0ee120ac2d9b59630f5abf1151dd9b471fe2926:
 the crates core, numfmt, formula, functions, math, model, calc, xlsx, chart, pdf and engine, under

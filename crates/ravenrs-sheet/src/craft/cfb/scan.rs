@@ -9,7 +9,7 @@ use crate::craft::cfb::{ENDOFCHAIN, MAXREGSECT, compare_names, sniff};
 /// first; unallocated entries, which have no name, are left out), or `None` when `bytes` is not a
 /// compound file or its directory cannot be followed.
 ///
-/// More forgiving than [`ravenrs_sheet::craft::cfb::CompoundFile::open`]: the byte order mark, the FAT sector count,
+/// More forgiving than [`crate::craft::cfb::CompoundFile::open`]: the byte order mark, the FAT sector count,
 /// the mini FAT, the mini stream and the sibling trees are not looked at, so entries no storage
 /// links to are listed too. A directory chain that loops, or that holds more than
 /// [`Limits::max_dir_entries`] entries, gives the names read up to that point.

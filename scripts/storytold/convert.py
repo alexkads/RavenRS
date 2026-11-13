@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Turns one storytold project's crates, at one revision, into the module layout of its RavenRS crate.
 
-    scripts/storytold/convert.py <project> <checkout> <revision> <out dir>
+    scripts/storytold/convert.py <project> <checkout> <revision> <out dir> [--with <repo>=<checkout>@<revision> ...]
 
 <project> is a key of projects.json (gridcraft, wordcraft, pdfcraft); <checkout> a clone of its
 repository (a partial clone, `--filter=blob:none`, is enough). Run against the revision in the
@@ -33,7 +33,15 @@ For every source in projects.json (a crate of theirs, or a crate they vendor):
   tests the project never ran;
 - code blocks in doc comments are built from outside the crate: crate names in them become
   `<lib>::<module>`, and `crate::` is left as it is;
-- "replace" lists regular expressions applied last, for the few lines no rule above covers.
+- "replace" lists regular expressions applied last, for the few lines no rule above covers;
+- "repo" names another repository of the same project ("craft-libs"), whose clone and revision
+  come with --with: a source read from there at its own revision, as GridCraft pins craft-libs;
+- "only" keeps just the listed files of a source (paths inside it);
+- "test_data": "in_place" keeps data the tests read by a relative path (tests/golden/…) where it
+  was, instead of under the module's prefix;
+- tests/common/ becomes tests/<module>_common/, and `mod common;` in a test points there;
+- "readme": true puts the source's README.md beside its module, with the crate names of its
+  examples converted, since the docs include it and it runs as doctests.
 
 Files outside src/ and tests/ (manifests, benches, examples) are not converted: the manifest is
 ours. Then every .rs file is formatted with the crate's rustfmt.toml, since the paths changed
@@ -92,8 +100,15 @@ def destination(source, rest):
         return None
     if rest.startswith("tests/it/"):
         return f"tests/{prefix}_it/" + rest[len("tests/it/"):], True
+    if rest.startswith("tests/common/"):
+        return f"tests/{prefix}_common/" + rest[len("tests/common/"):], True
+    if rest.startswith("tests/") and source.get("test_data") == "in_place" and not (rest.endswith(".rs") and rest.count("/") == 1):
+        # Read by a path relative to tests/, such as tests/golden/: it stays where it was.
+        return rest, True
     if rest.startswith("tests/"):
         return f"tests/{prefix}_" + rest[len("tests/"):], True
+    if rest == "README.md" and source.get("readme"):
+        return f"src/{folder}/README.md", False
     return None
 
 
@@ -238,6 +253,21 @@ def doc_examples(text, source, sources, lib):
     return "\n".join(lines), kept
 
 
+def doc_examples_in_markdown(text, sources, lib):
+    """A README that the docs include: in its code blocks, crate names become `<lib>::<module>`."""
+    lines, fence = text.split("\n"), None
+    for i, line in enumerate(lines):
+        opener = re.match(r"^\s*(`{3,})", line)
+        if opener and fence is None:
+            fence = opener.group(1)
+        elif opener and line.strip() == fence:
+            fence = None
+        elif fence is not None:
+            for other in sources:
+                lines[i] = re.sub(rf"(?<![\w\"'/:-]){other['ident']}(?=\s*::|\s*;|\s*,|\s*}}|\s+as\b)", f"{lib}::{other['module']}", lines[i])
+    return "\n".join(lines), None
+
+
 def rewrite(text, source, sources, lib, in_tests, repo_path, dest, assets, present):
     module = source["module"]
     text, examples = doc_examples(text, source, sources, lib)
@@ -296,20 +326,38 @@ def rewrite(text, source, sources, lib, in_tests, repo_path, dest, assets, prese
         text = re.sub(r"\b(cfg|cfg_attr|not|any|all)\(\s*test\s*(?=[,)])", r"\1(any()", text)
         text = re.sub(r"(?m)^(\s*)#\[(?:tokio::)?test\]", r"\1#[cfg(any())]", text)
     text = simplify_cfgs(text)
+    if in_tests and dest.count("/") == 1:
+        # A test's helpers in tests/common/ now sit in a folder of the module's own.
+        prefix = source["module"].replace("::", "_")
+        text = re.sub(r"(?m)^mod common;", f'#[path = "{prefix}_common/mod.rs"]\nmod common;', text)
     for rule in source.get("replace", []):
         text = re.sub(rule["from"], rule["to"], text)
     return re.sub("\x00(\\d+)\x00", lambda m: examples[int(m.group(1))], text)
 
 
 def main():
-    if len(sys.argv) != 5:
+    args = sys.argv[1:]
+    others = {}
+    while "--with" in args:
+        i = args.index("--with")
+        name, _, place_rev = args[i + 1].partition("=")
+        checkout, _, other_rev = place_rev.rpartition("@")
+        others[name] = (checkout, other_rev)
+        del args[i:i + 2]
+    if len(args) != 4:
         raise SystemExit(__doc__)
-    project, repo, rev, out = sys.argv[1:]
+    project, main_repo, main_rev, out = args
     config = load(project)
     sources, lib = config["sources"], config["lib"]
+    missing = sorted({s["repo"] for s in sources if "repo" in s} - set(others))
+    if missing:
+        raise SystemExit(f"{project} reads {', '.join(missing)} too: give --with <repo>=<checkout>@<revision>")
     written, assets = 0, set()
     for source in sources:
+        repo, rev = others[source["repo"]] if "repo" in source else (main_repo, main_rev)
         listed = files(repo, rev, source["path"])
+        if "only" in source:
+            listed = [p for p in listed if p[len(source["path"]) + 1:] in source["only"]]
         exported = sorted({name for path in listed if path.endswith(".rs") and "/src/" in path for name in MACRO.findall(show(repo, rev, path).decode())})
         for path in listed:
             found = destination(source, path[len(source["path"]) + 1:])
@@ -317,7 +365,11 @@ def main():
                 continue
             dest, in_tests = found
             data = show(repo, rev, path)
-            if path.endswith(".rs"):
+            if dest.endswith("/README.md"):
+                # Its examples run as doctests of our crate: the crate names in them are converted.
+                data, _ = doc_examples_in_markdown(data.decode(), sources, lib)
+                data = data.encode()
+            elif path.endswith(".rs"):
                 data = rewrite(data.decode(), source, sources, lib, in_tests, path, dest, assets, lambda p: exists(repo, rev, p)).encode()
             if exported and dest == f"src/{source['module'].replace('::', '/')}/mod.rs":
                 # #[macro_export] puts a macro at the root of our crate; the crate had it at its own.
@@ -338,7 +390,8 @@ def main():
     style = os.path.join(ROOT, config["crate"], "rustfmt.toml")
     for chunk in range(0, len(rs), 200):
         subprocess.run(["rustfmt", "--edition", "2024", "--config-path", style, *rs[chunk:chunk + 200]], capture_output=True)
-    print(f"{written} files and {len(assets)} assets from {project} {rev}")
+    extra = "".join(f" and {name} {rev}" for name, (_, rev) in sorted(others.items()))
+    print(f"{written} files and {len(assets)} assets from {project} {main_rev}{extra}")
 
 
 main()

@@ -63,7 +63,7 @@ with `read_with_password` ([MS-OFFCRYPTO] 2.3.5, 2.3.6). Without a password, Exc
 is `Error::WrongPassword`; XOR obfuscation and CryptoAPI with AES, another cipher or hash, or an
 external provider are `Error::UnsupportedEncryption`. Every size in the FilePass record is
 checked before it is used. There is no writer
-(`ravenrs_sheet::craft::xls::testing` builds small fixtures for tests).
+(`craft_xls::testing` builds small fixtures for tests).
 
 A formula that cannot be put back into text (a link to another workbook, a macro command, an
 unknown token) leaves its cell with the saved result, and `Warning::FormulaKept` says why.
@@ -102,4 +102,4 @@ and past it cells keep their saved results. Nothing indexes by a number from the
 Moved from GridCraft's `gridcraft-xlsx` crate (`crates/xlsx/src/xls.rs` and `xls/`, at
 `5cf52c5f`), where it read straight into GridCraft's workbook model. RString cells come from
 WordCraft's mail-merge reader (`crates/formats/src/sheet/xls.rs`), as does the fixture writer
-in `ravenrs_sheet::craft::xls::testing`.
+in `craft_xls::testing`.

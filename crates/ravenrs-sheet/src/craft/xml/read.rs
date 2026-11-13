@@ -52,7 +52,7 @@ impl Default for Limits {
 #[derive(Clone, Copy, Default)]
 pub enum Names<'a> {
     /// The qualified name as written: `p:sp`, `r:id`. Match with a `&str` when the prefixes
-    /// are known, or with [`ravenrs_sheet::craft::xml::Local`] and [`El::attr_local`] when they are not.
+    /// are known, or with [`crate::craft::xml::Local`] and [`El::attr_local`] when they are not.
     #[default]
     AsWritten,
     /// The local name only: `sp`, `id`.

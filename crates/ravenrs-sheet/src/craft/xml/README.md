@@ -169,7 +169,7 @@ instructions and comments. It does not keep:
 | --- | --- |
 | `MAX_DEPTH`, `MAX_XML_NODES` | `Limits` |
 | `parse` | `Options { unknown_entity: Literal, ..Options::local() }.parse` |
-| `parse_streaming(xml, split, cb)` | `.parse_streaming(xml, split, cb)`; `cb` returns any error that is `From<ravenrs_sheet::craft::xml::Error>` |
+| `parse_streaming(xml, split, cb)` | `.parse_streaming(xml, split, cb)`; `cb` returns any error that is `From<craft_xml::Error>` |
 | `first_start(xml, name)` | `Options::local().first_start(xml, name)` |
 | `El.children` (elements), `El.text` | `elements()`, `text()` |
 | `attr`, `attr_u32`, `attr_i64`, `attr_f64`, `attr_bool`, `flag`, `child`, `path` | The same names |
@@ -182,7 +182,7 @@ instructions and comments. It does not keep:
 | DeckCraft | craft-xml |
 | --- | --- |
 | `MAX_DEPTH`, `MAX_NODES` | `Limits` |
-| `parse(bytes)?.root`, `Doc::ns_decls` | `ravenrs_sheet::craft::xml::parse(bytes)?`, `root.ns_decls()` (prefix and URI) |
+| `parse(bytes)?.root`, `Doc::ns_decls` | `craft_xml::parse(bytes)?`, `root.ns_decls()` (prefix and URI) |
 | `attr(n)`, `has_attr(n)` | `attr_local(n)`, `attr_local(n).is_some()` |
 | `i64(n)`, `i32(n)`, `u32(n)` | `attr_local(n).and_then(value::to_i64_lossy)` and `to_i32_lossy`, `to_u32_lossy` |
 | `f64(n)`, `bool(n)` | `attr_local(n).and_then(value::to_f64)` and `to_bool` |
