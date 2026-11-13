@@ -1,4 +1,4 @@
-//! The ids of the actions of [`SystemModule`].
+//! The ids of the actions of [`SystemModule`](crate::SystemModule).
 
 /// Creates a record.
 pub const NEW: &str = "New";

@@ -6,7 +6,7 @@
 //! (`pdfcraft_ocr::text_layer` / `visible_text_layer`) read the per-character codes and
 //! advances from it, and whoever registers the fonts (`pdfcraft_edit::add_type3_fonts`) fills
 //! in each face's resource name and object. The build must work without craft-fonts too: there
-//! [`CRAFT_FONTS`] is empty, nothing can be planned, and every non-WinAnsi character is
+//! [`CRAFT_FONTS`](super::CRAFT_FONTS) is empty, nothing can be planned, and every non-WinAnsi character is
 //! reported as a substitution instead.
 
 use std::collections::HashMap;

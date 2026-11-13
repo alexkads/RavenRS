@@ -67,6 +67,11 @@ Rodar o conversor no commit do `NOTICE` reproduz `src/`, `tests/` e `assets/`, e
   regras do PdfCraft.
 - `build.rs` (o de `crates/fonts`, com o caminho do módulo), `Cargo.toml`, `NOTICE`, `LICENSES/`,
   `README.md`, `clippy.toml` (o deles sem as regras do egui), `rustfmt.toml`.
+- Links de documentação que a conversão deixa sem alcance, corrigidos à mão porque o `cargo doc
+  -D warnings` do `--full` os recusa: `fonts/plan.rs` (`CRAFT_FONTS`), `render/inspect/model.rs`
+  (`DocInfo::layers` e `DocInfo::layer_order`), `render/inspect/navigation.rs` (`inspect`), com o
+  caminho `super::`; e `third_party/vello_cpu/mod.rs`, onde o `glyph_run` virou texto, porque a
+  feature `text` sai como `cfg(any())`.
 - No `Cargo.toml` da raiz: `[profile.dev.package.ravenrs-pdf] opt-level = 1`. Em `opt-level = 0`
   os testes de arquivos hostis estouram a pilha, e o de criptografia leva minutos.
 
