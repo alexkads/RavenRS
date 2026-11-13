@@ -123,7 +123,9 @@ def api(docs: dict[str, Doc], root: str) -> list[str]:
             source = doc.canonical(id_)
             # From a crate of the same family: listed as if it were here, by its path here.
             inner_doc = docs.get(source[0]) if source else None
-            if inner_doc and source in inner_doc.by_path:
+            # Defined in that crate itself, not re-exported by it from a third one (which would
+            # send the walk back here forever).
+            if inner_doc and inner_doc is not doc and source in inner_doc.by_path:
                 visit(inner_doc, inner_doc.by_path[source], path)
             else:
                 lines.add(f"reexport {path} = {'::'.join(source) if source else '?'}")
