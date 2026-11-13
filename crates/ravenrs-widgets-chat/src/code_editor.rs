@@ -61,7 +61,8 @@ impl CodeDiagnostic {
     }
 }
 
-pub(crate) fn tone_color(tone: Tone) -> Semantic {
+#[doc(hidden)]
+pub fn tone_color(tone: Tone) -> Semantic {
     match tone {
         Tone::Danger => Semantic::Danger,
         Tone::Warning => Semantic::Warning,

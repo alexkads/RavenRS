@@ -129,7 +129,7 @@ impl ChatMedia {
     }
 
     /// Makes a photo or a document open with a click, Enter or Space: for instance in an
-    /// [`ImageLightbox`](crate::ImageLightbox), or through the system.
+    /// `ImageLightbox`, or through the system.
     #[must_use]
     pub fn on_open(mut self, handler: impl Fn() + 'static) -> Self {
         self.on_open = Some(Rc::new(handler));

@@ -40,6 +40,7 @@ TARGETS = [
             # The base is its own crate; the widgets re-export every name of it at their root.
             {"dir": "ravenrs-widgets-base", "path": "crate"},
             {"dir": "ravenrs-widgets-kit", "path": "crate"},
+            {"dir": "ravenrs-widgets-chat", "path": "crate"},
             {"dir": "ravenrs-widgets-charts", "path": "crate"},
             {"dir": "ravenrs-widgets-imaging", "path": "crate"},
             {"dir": "ravenrs-widgets-dock", "path": "crate"},

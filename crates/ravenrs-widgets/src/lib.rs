@@ -78,6 +78,20 @@ use ravenrs_widgets_charts::flow;
 #[allow(unused_imports)]
 use ravenrs_widgets_charts::sankey;
 
+// The chat family lives in its own crate, and keeps its module names here.
+#[allow(unused_imports)]
+use ravenrs_widgets_chat::chat;
+#[cfg(feature = "code")]
+#[allow(unused_imports)]
+use ravenrs_widgets_chat::code_editor;
+#[allow(unused_imports)]
+use ravenrs_widgets_chat::conversation;
+#[cfg(feature = "code")]
+#[allow(unused_imports)]
+use ravenrs_widgets_chat::playground;
+#[allow(unused_imports)]
+use ravenrs_widgets_chat::rich_text;
+
 // The components of general use live in their own crate, and keep their module names here.
 #[allow(unused_imports)]
 use ravenrs_widgets_base::{
@@ -94,17 +108,10 @@ use ravenrs_widgets_kit::{
     tiles, wizard,
 };
 
-mod chat;
-#[cfg(feature = "code")]
-mod code_editor;
-mod conversation;
 #[cfg(feature = "live")]
 mod live;
 #[cfg(feature = "live")]
 mod live_list;
-#[cfg(feature = "code")]
-mod playground;
-mod rich_text;
 
 pub use button::{Button, ButtonGroup, ButtonSize, ButtonStyle, IconButton};
 pub use calendar::{Calendar, DatePicker, DateRange, DateRangePicker};

@@ -16,6 +16,7 @@ categories = ["gui"]
 [dependencies]
 ravenrs-widgets-base.workspace = true
 ravenrs-widgets-kit.workspace = true
+ravenrs-widgets-chat.workspace = true
 ravenrs-widgets-charts.workspace = true
 ravenrs-widgets-imaging.workspace = true
 ravenrs-widgets-dock.workspace = true
@@ -49,9 +50,9 @@ flow = ["dep:ravenrs-graphics", "ravenrs-widgets-charts/flow"]
 # `Lottie`, a player of Lottie animations of our own.
 lottie = ["dep:ravenrs-lottie", "ravenrs-widgets-imaging/lottie"]
 # `CodeEditor` and `Playground`, with Fira Mono embedded in `ravenrs-text`.
-code = ["ravenrs-text/mono"]
+code = ["ravenrs-text/mono", "ravenrs-widgets-chat/code"]
 # `LiveRunner`: the Playground runs edited examples with the interpreter of ravenrs-live.
-live = ["code", "dep:ravenrs-live", "ravenrs-widgets-base/live", "ravenrs-widgets-kit/live", "ravenrs-core/live", "ravenrs-style/live", "ravenrs-layout/live", "ravenrs-graphics?/live", "ravenrs-lottie?/live", "ravenrs-widgets-grid/live", "ravenrs-widgets-lists/live", "ravenrs-widgets-scheduler/live", "ravenrs-widgets-dock/live", "ravenrs-widgets-imaging/live", "ravenrs-widgets-charts/live"]
+live = ["code", "dep:ravenrs-live", "ravenrs-widgets-base/live", "ravenrs-widgets-kit/live", "ravenrs-core/live", "ravenrs-style/live", "ravenrs-layout/live", "ravenrs-graphics?/live", "ravenrs-lottie?/live", "ravenrs-widgets-grid/live", "ravenrs-widgets-lists/live", "ravenrs-widgets-scheduler/live", "ravenrs-widgets-dock/live", "ravenrs-widgets-imaging/live", "ravenrs-widgets-charts/live", "ravenrs-widgets-chat/live"]
 
 [dev-dependencies]
 proptest.workspace = true
