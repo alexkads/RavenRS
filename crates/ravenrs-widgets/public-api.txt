@@ -1707,7 +1707,6 @@ impl Eq for grid::query::GridExportFormat
 impl Error for DecodeError
 impl Error for DockLayoutError
 impl FilePickerProvider for NoFilePicker
-impl From for Date
 impl From for Fill
 impl From for SidebarParts
 impl From for Value
