@@ -6,7 +6,7 @@ use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 
 use ravenrs_core::{
-    Border, Color, CursorIcon, Effect, ImageData, Insets, Key, Point, Quad, Rect, Role, Scene, Size,
+    Border, Color, CursorIcon, Effect, ImageData, Insets, Key, Point, Quad, Rect, Role, Scene,
 };
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
@@ -15,7 +15,7 @@ use ravenrs_style::{Semantic, TextStyle, Weight};
 use crate::context::{BuildCx, Drag, DragPhase, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::conversation::file_name_and_size;
 use crate::files::size_text;
-use crate::floating::{PANEL_MARGIN, move_by_handle, panel_inside};
+use crate::floating::{FloatingCorner, PANEL_MARGIN, move_by_handle, panel_inside};
 use crate::modifiers::ViewExt;
 use crate::motion::Motion;
 use crate::view::{AnyView, View};
@@ -659,60 +659,6 @@ impl View for Chat {
             &[conversation, writing],
             Paint::None,
         )
-    }
-}
-
-/// A corner of the window, where a [`FloatingPanel`] rests.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[non_exhaustive]
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
-pub enum FloatingCorner {
-    /// Top left.
-    TopLeft,
-    /// Top right.
-    TopRight,
-    /// Bottom left.
-    BottomLeft,
-    /// Bottom right.
-    #[default]
-    BottomRight,
-}
-
-#[cfg_attr(feature = "live", ravenrs_live::expose)]
-impl FloatingCorner {
-    fn is_right(self) -> bool {
-        matches!(self, Self::TopRight | Self::BottomRight)
-    }
-
-    fn is_bottom(self) -> bool {
-        matches!(self, Self::BottomLeft | Self::BottomRight)
-    }
-
-    fn at(right: bool, bottom: bool) -> Self {
-        match (right, bottom) {
-            (false, false) => Self::TopLeft,
-            (true, false) => Self::TopRight,
-            (false, true) => Self::BottomLeft,
-            (true, true) => Self::BottomRight,
-        }
-    }
-
-    /// The corner nearest to a point of a window of this size.
-    fn nearest(point: Point, window: Size) -> Self {
-        Self::at(point.x > window.width / 2.0, point.y > window.height / 2.0)
-    }
-
-    /// The corner an arrow key leads to, if it leads anywhere.
-    fn moved(self, key: &Key) -> Option<Self> {
-        let (right, bottom) = (self.is_right(), self.is_bottom());
-        let next = match key {
-            Key::ArrowLeft => Self::at(false, bottom),
-            Key::ArrowRight => Self::at(true, bottom),
-            Key::ArrowUp => Self::at(right, false),
-            Key::ArrowDown => Self::at(right, true),
-            _ => return None,
-        };
-        Some(next)
     }
 }
 

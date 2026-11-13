@@ -70,6 +70,7 @@ mod flow;
 mod form_layout;
 mod full_screen;
 pub mod grid;
+mod hotkey;
 mod icon;
 mod icon_set;
 mod ids;
@@ -103,6 +104,7 @@ mod quick_edit;
 mod recurrence;
 mod release_notes;
 mod remote;
+mod reorder;
 mod ribbon;
 mod rich_text;
 #[cfg(feature = "charts")]
@@ -110,6 +112,7 @@ mod sankey;
 mod scheduler;
 mod scroll_link;
 mod scroll_scene;
+mod selection_mode;
 mod shortcuts;
 mod sound;
 mod stack;
@@ -126,6 +129,7 @@ pub(crate) mod ui;
 mod util;
 mod view;
 mod wizard;
+mod zoom;
 
 pub use button::{Button, ButtonGroup, ButtonSize, ButtonStyle, IconButton};
 pub use calendar::{Calendar, DatePicker, DateRange, DateRangePicker};
@@ -137,7 +141,7 @@ pub use chart::{
     ChartKind, ChartLabelAt, ChartLegend, ChartPolarGrid, ChartReference, ChartStack, ChartTooltip,
     Symbology,
 };
-pub use chat::{Chat, ChatAuthor, ChatMedia, ChatMessage, FloatingCorner, FloatingPanel};
+pub use chat::{Chat, ChatAuthor, ChatMedia, ChatMessage, FloatingPanel};
 pub use choice::{
     AnchorPoint, AspectRatio, ColorPair, ColorSwatch, FavoriteToggle, Label, NinePointAnchor, Pagination,
     SwatchGrid, ToggleButton, ToggleGroup,
@@ -146,7 +150,7 @@ pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
 #[cfg(feature = "code")]
 pub use code_editor::{CodeDiagnostic, CodeEditor, CodeLanguage, highlight_rust};
 pub use color_picker::ColorPicker;
-pub use commands::{ConfirmDialog, FloatingToolbar, Hotkey, SplitButton, Toolbar, ToolbarAction};
+pub use commands::{ConfirmDialog, FloatingToolbar, SplitButton, Toolbar, ToolbarAction};
 pub use context::{
     ActivityObserver, BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, LiveFn, NodeId, Paint,
     PaintCx, Placement, QuadPaint, RichFn, Semantics, UiActivity, WidgetId,
@@ -175,8 +179,8 @@ pub use files::{DropZone, FileUpload};
 pub use fill::Fill;
 pub use filter_builder::{FilterBuilder, FilterField, FilterFieldKind};
 pub use floating::{
-    Combobox, Command, CommandPalette, ContextMenu, HoverCard, Sheet, Side, SplashScreen, Toast, ToastExtras,
-    ToastPosition, Toaster, Toasts,
+    Combobox, Command, CommandPalette, ContextMenu, FloatingCorner, HoverCard, Sheet, Side, SplashScreen,
+    Toast, ToastExtras, ToastPosition, Toaster, Toasts,
 };
 #[cfg(feature = "flow")]
 pub use flow::{
@@ -188,9 +192,10 @@ pub use full_screen::{FullScreen, FullScreenProvider};
 pub use grid::{
     CellAlign, CellEdit, ColumnLayout, DataGrid, FilterLayout, GridCellStyle, GridColumn, GridCurrent,
     GridData, GridExportFormat, GridLayout, GridPage, GridRequest, GridResponder, GridRowAction,
-    GridScenario, GridTable, GridTableColumn, GridTableKind, NumberFormat, RemoteRows, SelectionMode,
-    SortDirection, SortLayout, Summary, Value,
+    GridScenario, GridTable, GridTableColumn, GridTableKind, NumberFormat, RemoteRows, SortDirection,
+    SortLayout, Summary, Value,
 };
+pub use hotkey::Hotkey;
 pub use icon::Icon;
 pub use icon_set::IconName;
 #[cfg(feature = "decode")]
@@ -200,8 +205,7 @@ pub use imaging::{
     BoxHandle, BoxTransform, ColorWheel, CompareMode, CompareSide, CompareView, CompositionGuide,
     ContentSpace, CropArea, CropOverlay, CurveEditor, Eyedropper, EyedropperArea, EyedropperState, Histogram,
     HistogramChannel, HistogramScale, HueSaturation, ImageLightbox, LightboxItem, Marquee, Minimap,
-    Protractor, RubberBand, RuleOfThirdsGrid, Ruler, TransformHandles, ZoomControl, ZoomPanPaint,
-    ZoomPanView, ZoomView,
+    Protractor, RubberBand, RuleOfThirdsGrid, Ruler, TransformHandles, ZoomPanPaint, ZoomPanView,
 };
 pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeSwitcher, Toggle};
 pub use kbd::Kbd;
@@ -252,6 +256,7 @@ pub use scheduler::{
 };
 pub use scroll_link::{ScrollLink, ScrollRange};
 pub use scroll_scene::{ScrollLinked, ScrollScene, Sticky};
+pub use selection_mode::SelectionMode;
 pub use shortcuts::{ShortcutHintBar, ShortcutSheet};
 pub use sound::{Silence, Sound, SoundClip, SoundProvider};
 pub use stack::{
@@ -272,3 +277,4 @@ pub use tree::{TreeNode, TreeView};
 pub use ui::{Ui, UiStats};
 pub use view::{AnyView, Component, FnView, Keyed, Responsive, View, ViewSeq, responsive, view_fn};
 pub use wizard::{IndicatorStep, StepBadge, StepIndicator, StepState, Wizard, WizardStep};
+pub use zoom::{ZoomControl, ZoomView};

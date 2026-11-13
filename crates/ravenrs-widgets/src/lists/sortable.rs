@@ -9,9 +9,9 @@ use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::State;
 use ravenrs_style::Semantic;
 
-use super::reorder::{self, Extents, Reorder};
 use crate::IconName;
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
+use crate::reorder::{self, Extents, Reorder};
 use crate::util::{self, FocusTarget, Roving};
 use crate::view::{AnyView, View};
 

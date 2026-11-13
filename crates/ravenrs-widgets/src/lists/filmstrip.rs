@@ -13,7 +13,7 @@ use ravenrs_style::Semantic;
 use super::selection;
 use super::virtual_list::{ListProbe, ScrollCommand, VirtualList};
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
-use crate::grid::SelectionMode;
+use crate::selection_mode::SelectionMode;
 use crate::stack::EdgeArrow;
 use crate::view::{AnyView, View};
 

@@ -15,8 +15,8 @@ use super::geometry::{self, Arranged, BarKind, BarPlace, DropAim, GroupPlace, Me
 use super::layout::{DockDrop, DockEdge, DockLayout, DockSide};
 use crate::commands::menu_trigger;
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, QuadPaint, Semantics};
-use crate::lists::reorder;
 use crate::overlay::Entry;
+use crate::reorder;
 use crate::stack::ScrollEdgeArrow;
 use crate::util::{self, FocusTarget, Roving};
 use crate::view::{AnyView, Keyed, View};

@@ -8,7 +8,7 @@ use ravenrs_layout::Axis;
 use serde::{Deserialize, Serialize};
 
 use crate::labels::Labels;
-use crate::lists::reorder;
+use crate::reorder;
 
 /// The version of the saved text this build writes, and the newest it reads.
 const FORMAT_VERSION: u64 = 1;

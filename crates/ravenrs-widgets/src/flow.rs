@@ -728,7 +728,7 @@ fn nearest_port(
 /// A line of the width of `width` through `points`.
 fn stroke(scene: &mut Scene, points: &[Point], width: f32, color: Color) {
     if points.len() >= 2 {
-        scene.push_path(PathFill::solid(crate::imaging::stroke_outline(points, width), color));
+        scene.push_path(PathFill::solid(crate::util::stroke_outline(points, width), color));
     }
 }
 

@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use ravenrs_core::Modifiers;
 
-use crate::grid::SelectionMode;
+use crate::selection_mode::SelectionMode;
 
 /// The modifier that adds to a selection, by the habit of each system.
 pub(crate) fn adds(modifiers: Modifiers) -> bool {

@@ -12,8 +12,9 @@ use ravenrs_reactive::{Binding, Observer};
 use ravenrs_style::{Semantic, TextStyle, Weight};
 
 use super::overlays::{fitted, gesture_paint, picture_inks};
-use super::{ZoomContent, ZoomControl, ZoomPanView, ZoomView, triangle};
+use super::{ZoomContent, ZoomPanView, triangle};
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, Placement, QuadPaint, Semantics};
+use crate::zoom::{ZoomControl, ZoomView};
 use crate::{ButtonSize, ButtonStyle, IconButton, IconName, Motion, View, util};
 
 // ---------------------------------------------------------------------------------------------

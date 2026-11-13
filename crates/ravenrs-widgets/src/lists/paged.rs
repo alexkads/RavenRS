@@ -12,8 +12,8 @@ use ravenrs_style::{Semantic, TextStyle};
 use super::virtual_list::{ListProbe, ScrollCommand, VirtualList};
 use crate::ViewExt;
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
-use crate::imaging::{ZoomControl, ZoomView, zoom_stop};
 use crate::view::View;
+use crate::zoom::{ZoomControl, ZoomView, zoom_stop};
 use crate::{ButtonSize, ContentMode, HStack, IconButton, IconName, Image, Skeleton, Spacer, Text};
 
 /// Room around the pages.
