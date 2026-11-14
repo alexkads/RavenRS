@@ -6,7 +6,7 @@ The accessibility of a [RavenRS](https://github.com/alexkads/RavenRS) business a
 - **Focus order.** `EntityInfo::focus_order` puts fields first on the form, in the same order on the screen and for Tab.
 - **Announcements.** An `Announcer` says what changed, such as a record kept or deleted, as a status or an alert, through a `LiveRegion` that takes no room.
 - **Words.** The words of the announcements have keys under `a11y.`, in English and Brazilian Portuguese. `AccessWords::from_lookup` takes them from wherever the application keeps its words.
-- **Audit.** `Audit::new().app(&mut ui)` walks an application with no window: every item of the navigation and the buttons it is told to press. It reports a control with no name, a repeated id, focus that is held, text and focus ring under the WCAG AA contrast on its themes, and two commands on the same keys.
+- **Audit.** `Audit::new().app(&mut ui)` walks an application with no window: every item of the navigation and the buttons it is told to press. It reports a control with no name, a repeated id, focus that is held, text and focus ring under the WCAG AA contrast on its themes, and two commands on the same keys. `Audit::items` lists the items of the navigation, and `Audit::item` audits one of them by its name, so a large application can audit each screen in a test of its own, and the tests run in parallel.
 
 ```rust
 use ravenrs_app_a11y::Audit;

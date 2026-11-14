@@ -95,3 +95,61 @@ fn a_command_with_keys_says_them() {
     let said = format!("Guarda o registro. {}", Hotkey::command("s").label());
     assert_eq!(save.description.as_deref(), Some(said.as_str()));
 }
+
+/// A navigation landmark with two items, and beside it what a screen would show.
+struct Menu {
+    screen: Box<dyn View>,
+}
+
+impl View for Menu {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let items = cx.child(&VStack::new((
+            Button::new("Contas").on_click(|| {}),
+            Button::new("Metas").on_click(|| {}),
+        )));
+        cx.semantics(items, Semantics::new(Role::Navigation).name("Menu"));
+        let screen = cx.child(&*self.screen);
+        cx.container(LayoutStyle::default(), &[items, screen], Paint::None)
+    }
+}
+
+fn menu(screen: impl View + 'static) -> Ui {
+    ui(Menu { screen: Box::new(screen) })
+}
+
+#[test]
+fn the_items_are_those_of_the_navigation_without_the_skipped() {
+    let mut ui = menu(VStack::new((Button::new("Salvar"),)));
+    assert_eq!(Audit::new().items(&mut ui), ["Contas", "Metas"]);
+    assert_eq!(Audit::new().skip("Metas").items(&mut ui), ["Contas"]);
+}
+
+#[test]
+fn one_item_is_audited_by_its_name() {
+    let mut ui = menu(VStack::new((Button::new("Salvar"),)));
+    let report = Audit::new().item(&mut ui, "Contas");
+    assert_eq!(report.places, ["Contas"]);
+    report.assert_clean();
+}
+
+#[test]
+fn a_problem_on_an_item_says_its_name() {
+    let mut ui = menu(VStack::new((Button::new("Salvar"), TextField::new(Binding::constant(String::new())))));
+    let report = Audit::new().without_focus().item(&mut ui, "Metas");
+    assert!(
+        report.findings.iter().any(
+            |f| f.place == "Metas" && matches!(f.problem, Problem::Unnamed { role: Role::TextInput, .. })
+        ),
+        "{report}"
+    );
+}
+
+#[test]
+fn an_item_the_navigation_does_not_have_is_a_finding() {
+    let mut ui = menu(VStack::new((Button::new("Salvar"),)));
+    let report = Audit::new().item(&mut ui, "Relatórios");
+    assert!(
+        report.findings.iter().any(|f| f.problem == Problem::NoSuchItem { name: "Relatórios".into() }),
+        "{report}"
+    );
+}
