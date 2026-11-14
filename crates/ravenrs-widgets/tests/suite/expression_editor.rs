@@ -57,7 +57,7 @@ fn a_second_click_on_a_function_puts_it_at_the_caret() {
     let (mut ui, value) = editor("[Customer] = ");
     click(&mut ui, Role::Button, "Texto");
     click(&mut ui, Role::Button, "Upper");
-    assert!(says(&mut ui, "Upper(text)"), "the chosen function's signature");
+    assert!(says(&mut ui, "Upper(texto)"), "the chosen function's signature, its parameters translated");
     assert_eq!(value.get(), "[Customer] = ", "one click only shows it");
     click(&mut ui, Role::Button, "Upper");
     assert_eq!(value.get(), "[Customer] = Upper()");
@@ -114,6 +114,10 @@ fn every_catalog_function_and_syntax_error_has_brazilian_portuguese() {
             f.name.to_owned()
         };
         let pt = labels.expression_function(&key).unwrap_or_else(|| panic!("no pt-BR text for {key}"));
+        let call =
+            labels.expression_signature(&key).unwrap_or_else(|| panic!("no pt-BR signature for {key}"));
+        assert!(call.starts_with(&format!("{}(", f.name)), "{key}: the name stays, only parameters change");
+        assert_eq!(english.expression_signature(&key), Some(f.signature), "English follows the catalog");
         assert_ne!(Some(pt), english.expression_function(&key), "{key} is still in English");
     }
     for (code, message) in ravenrs_criteria::ParseError::CODES {

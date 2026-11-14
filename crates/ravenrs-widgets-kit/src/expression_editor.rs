@@ -166,7 +166,10 @@ impl ExpressionEditor {
                         title: f.name.to_owned(),
                         insert: format!("{}()", f.name),
                         back: 1,
-                        signature: f.signature.to_owned(),
+                        signature: labels
+                            .expression_signature(&function_key(&f))
+                            .unwrap_or(f.signature)
+                            .to_owned(),
                         help: labels
                             .expression_function(&function_key(&f))
                             .unwrap_or(f.description)

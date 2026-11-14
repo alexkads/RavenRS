@@ -688,6 +688,9 @@ pub struct Labels {
     /// What each function of the expression catalog does, by its name, such as
     /// `("Round", "…")`. A function missing here shows the catalog's own English text.
     pub expression_functions: Vec<(String, String)>,
+    /// How each function of the expression catalog is called, by the same key as
+    /// `expression_functions`, with its parameters named in this language.
+    pub expression_signatures: Vec<(String, String)>,
     /// What each syntax error says, by its code, with `{0}`, `{1}`… where its arguments go.
     /// A code missing here shows the parser's English message.
     pub expression_errors: Vec<(String, String)>,
@@ -1218,6 +1221,7 @@ impl Labels {
             expression_operators: texts.pair_list("widgets.expression_operators"),
             expression_constants: texts.pair_list("widgets.expression_constants"),
             expression_functions: keyed(texts, "widgets.expression_function."),
+            expression_signatures: keyed(texts, "widgets.expression_signature."),
             expression_errors: keyed(texts, "widgets.expression_error."),
             grid_filter_label: texts.get("widgets.grid_filter_label"),
             grid_edit_filter: texts.get("widgets.grid_edit_filter"),
@@ -1309,6 +1313,11 @@ impl Labels {
     /// What the expression function `name` does, if these labels say it.
     pub fn expression_function(&self, name: &str) -> Option<&str> {
         self.expression_functions.iter().find(|(n, _)| n.eq_ignore_ascii_case(name)).map(|(_, d)| d.as_str())
+    }
+
+    /// How the expression function `name` is called, if these labels say it.
+    pub fn expression_signature(&self, name: &str) -> Option<&str> {
+        self.expression_signatures.iter().find(|(n, _)| n.eq_ignore_ascii_case(name)).map(|(_, s)| s.as_str())
     }
 
     /// The template of the syntax error `code`, if these labels say it.
