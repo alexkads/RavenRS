@@ -349,3 +349,16 @@ fn checkbox_and_switch_toggle_with_space() {
     key(&mut ui, Key::Space);
     assert!(!b.get());
 }
+
+#[test]
+fn a_shortcut_is_written_as_the_system_it_runs_on_writes_it() {
+    // #159: a page built anywhere and opened on a Mac says ⌘, and anywhere else Ctrl+. The web
+    // platform says which when it starts; each test here runs in a process of its own.
+    let save = Hotkey::command("s");
+    ravenrs_widgets::set_apple_keys(true);
+    assert!(ravenrs_widgets::apple_keys());
+    assert_eq!(save.label(), "⌘S");
+    ravenrs_widgets::set_apple_keys(false);
+    assert!(!ravenrs_widgets::apple_keys());
+    assert_eq!(save.label(), "Ctrl+S");
+}

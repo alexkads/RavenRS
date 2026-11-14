@@ -399,6 +399,7 @@
  "widgets.playground_console": "Console",
  "widgets.playground_problems": "Problemas",
  "widgets.playground_no_problems": "Sem problemas",
+ "widgets.playground_position": "Lin {line}, Col {column}",
  "widgets.playground_nothing_printed": "Nada impresso ainda",
  "widgets.playground_clear_output": "Limpar a saída",
  "widgets.playground_hide_output": "Recolher a saída",

@@ -274,3 +274,193 @@ fn the_address_opens_the_report_it_names() {
     let mut unknown = opened(Some("nonsense"));
     assert!(shows(&mut unknown, "Vendas · 10.000 linhas"), "an unknown report keeps the gallery");
 }
+
+/// The groups the panel lists, as their cards title them: "1. [Region]", ...
+fn group_titles(ui: &mut Ui) -> Vec<String> {
+    ui.access_tree()
+        .nodes
+        .iter()
+        .filter_map(|n| n.name.clone())
+        .filter(|name| name.len() > 3 && name.as_bytes()[0].is_ascii_digit() && name[1..].starts_with(". "))
+        .collect()
+}
+
+#[test]
+fn the_group_and_sort_panel_lists_moves_adds_and_removes_levels() {
+    // #45: every level of grouping and the sorting in one panel, on the same model, with undo.
+    let mut ui = designer();
+    press(&mut ui, Role::Button, "Vendas por região");
+    press(&mut ui, Role::Tab, "Design");
+    press(&mut ui, Role::Tab, "Agrupar e ordenar");
+    assert_eq!(group_titles(&mut ui), ["1. [Region]", "2. [City]"]);
+    assert!(
+        names(&mut ui, Role::Button).iter().any(|n| n == "Remover a ordenação 1"),
+        "the sort by date is there"
+    );
+
+    press(&mut ui, Role::Button, "Descer o grupo 1");
+    assert_eq!(group_titles(&mut ui), ["1. [City]", "2. [Region]"], "the city first now");
+    press(&mut ui, Role::Button, "Desfazer");
+    assert_eq!(group_titles(&mut ui), ["1. [Region]", "2. [City]"], "undone");
+
+    press(&mut ui, Role::Button, "Adicionar grupo");
+    assert_eq!(group_titles(&mut ui).len(), 3, "a third level");
+    press(&mut ui, Role::Button, "Remover o grupo 3");
+    assert_eq!(group_titles(&mut ui), ["1. [Region]", "2. [City]"]);
+    audit(&mut ui, "group and sort panel");
+}
+
+#[test]
+fn a_control_dragged_from_the_toolbox_lands_where_it_is_let_go() {
+    // #44: dragging, not only clicking, puts a control of the toolbox on a band.
+    let mut ui = designer();
+    press(&mut ui, Role::Button, "Em branco");
+    let labels =
+        |ui: &mut Ui| ui.access_tree().nodes.iter().filter(|n| n.name.as_deref() == Some("Texto")).count();
+    let before = labels(&mut ui);
+    let tree = ui.access_tree();
+    let source = tree
+        .nodes
+        .iter()
+        .find(|n| n.role == Role::Button && n.name.as_deref() == Some("Rótulo"))
+        .expect("the label tool")
+        .bounds
+        .center();
+    let band = tree.find(Role::Label, "Detalhe").expect("detail band caption").bounds;
+    let target = Point::new(band.x() + 240.0, band.max_y() + 14.0);
+    ui.handle_event(&Event::PointerMove { position: source });
+    ui.handle_event(&Event::PointerDown { position: source, button: PointerButton::Primary });
+    ui.update();
+    ui.handle_event(&Event::PointerMove { position: target });
+    ui.update();
+    ui.handle_event(&Event::PointerUp { position: target, button: PointerButton::Primary });
+    ui.update();
+    ui.update();
+    assert!(labels(&mut ui) > before, "the label landed on the band");
+    let tree = ui.access_tree();
+    let placed = tree
+        .nodes
+        .iter()
+        .filter(|n| n.name.as_deref() == Some("Texto"))
+        .map(|n| n.bounds)
+        .find(|b| (b.x() - (band.x() + 240.0)).abs() < 40.0)
+        .expect("near where it was let go");
+    assert!(
+        (placed.center().y - target.y).abs() < 20.0,
+        "at the height it was let go: {placed:?} {target:?}"
+    );
+}
+
+/// The labels on the page, left to right: the surface shows each control's text at its left.
+fn labels_on_page(ui: &mut Ui) -> Vec<Point> {
+    let tree = ui.access_tree();
+    let page = tree.find(Role::Label, "Detalhe").expect("detail band caption").bounds;
+    let dock = tree.find(Role::Tab, "Lista de campos").expect("the dock").bounds.x();
+    let mut found: Vec<Point> = tree
+        .nodes
+        .iter()
+        .filter(|n| n.name.as_deref() == Some("Texto") && n.role == Role::Label)
+        .map(|n| n.bounds)
+        // The band's caption sits a little inside the page, so the left of the page is before it.
+        .filter(|b| b.x() >= page.x() - 40.0 && b.x() < dock && b.y() > page.y())
+        .map(|b| b.center())
+        .collect();
+    found.sort_by(|a, b| a.x.total_cmp(&b.x));
+    found
+}
+
+fn click_with(ui: &mut Ui, at: Point, shift: bool) {
+    // A key let go says which modifiers are down, and types nothing.
+    ui.handle_event(&Event::KeyUp {
+        key: Key::Character("a".into()),
+        modifiers: Modifiers { shift, ..Modifiers::default() },
+    });
+    ui.handle_event(&Event::PointerMove { position: at });
+    ui.handle_event(&Event::PointerDown { position: at, button: PointerButton::Primary });
+    ui.handle_event(&Event::PointerUp { position: at, button: PointerButton::Primary });
+    ui.update();
+    ui.update();
+}
+
+#[test]
+fn shift_click_picks_more_controls_and_the_ribbon_lines_them_up() {
+    // #46: several controls selected, lined up to the first one picked.
+    let mut ui = designer();
+    press(&mut ui, Role::Button, "Em branco");
+    press(&mut ui, Role::Button, "Rótulo");
+    press(&mut ui, Role::Button, "Rótulo");
+    let placed = labels_on_page(&mut ui);
+    assert_eq!(placed.len(), 2, "two labels side by side: {placed:?}");
+    let off = |ui: &mut Ui| {
+        ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.name.as_deref() == Some("Alinhar à esquerda"))
+            .map(|n| n.disabled)
+    };
+    click_with(&mut ui, placed[0], false);
+    assert_eq!(off(&mut ui), Some(true), "one control: nothing to line up");
+    click_with(&mut ui, placed[1], true);
+    assert_eq!(off(&mut ui), Some(false), "two controls picked");
+
+    press(&mut ui, Role::Button, "Alinhar à esquerda");
+    let lined = labels_on_page(&mut ui);
+    assert!(lined.iter().all(|p| (p.x - placed[0].x).abs() < 1.0), "both where the first one is: {lined:?}");
+    press(&mut ui, Role::Button, "Desfazer");
+    assert_eq!(labels_on_page(&mut ui), placed, "undone");
+}
+
+/// Presses at `from`, moves the pointer there in steps, and lets go: a drag as a hand does it.
+fn drag_by(ui: &mut Ui, from: Point, to: Point) {
+    ui.handle_event(&Event::PointerMove { position: from });
+    ui.handle_event(&Event::PointerDown { position: from, button: PointerButton::Primary });
+    ui.update();
+    for step in 1..=4 {
+        let t = step as f32 / 4.0;
+        let at = Point::new(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
+        ui.handle_event(&Event::PointerMove { position: at });
+        ui.update();
+    }
+    ui.handle_event(&Event::PointerUp { position: to, button: PointerButton::Primary });
+    ui.update();
+    ui.update();
+}
+
+#[test]
+fn a_control_dragged_inside_its_band_moves_with_the_pointer() {
+    // The press that starts the drag selects the control and builds the surface again; the drag
+    // goes on in the handler of that build, so where it started has to survive it.
+    let mut ui = designer();
+    press(&mut ui, Role::Button, "Em branco");
+    press(&mut ui, Role::Button, "Rótulo");
+    let placed = labels_on_page(&mut ui);
+    drag_by(&mut ui, placed[0], Point::new(placed[0].x + 60.0, placed[0].y));
+    let moved = labels_on_page(&mut ui);
+    assert!(
+        (moved[0].x - placed[0].x - 60.0).abs() < 8.0,
+        "it went right, on the grid: {placed:?} {moved:?}"
+    );
+    assert_eq!(moved[0].y, placed[0].y);
+}
+
+#[test]
+fn dragging_one_of_several_controls_picked_moves_them_all() {
+    // #46: the whole selection moves together, inside its band.
+    let mut ui = designer();
+    press(&mut ui, Role::Button, "Em branco");
+    press(&mut ui, Role::Button, "Rótulo");
+    press(&mut ui, Role::Button, "Rótulo");
+    let placed = labels_on_page(&mut ui);
+    assert_eq!(placed.len(), 2, "{placed:?}");
+    click_with(&mut ui, placed[0], false);
+    click_with(&mut ui, placed[1], true);
+    click_with(&mut ui, placed[1], false);
+    ui.handle_event(&Event::KeyUp { key: Key::Character("a".into()), modifiers: Modifiers::default() });
+    let picked = labels_on_page(&mut ui);
+    drag_by(&mut ui, picked[0], Point::new(picked[0].x + 40.0, picked[0].y));
+    let moved = labels_on_page(&mut ui);
+    assert_eq!(moved.len(), 2, "{moved:?}");
+    for (before, after) in picked.iter().zip(&moved) {
+        assert!((after.x - before.x - 40.0).abs() < 8.0, "both went right: {picked:?} {moved:?}");
+    }
+}

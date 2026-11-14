@@ -135,7 +135,7 @@ pub use floating::{
     Toast, ToastExtras, ToastPosition, Toaster, Toasts,
 };
 pub use full_screen::{FullScreen, FullScreenProvider};
-pub use hotkey::Hotkey;
+pub use hotkey::{Hotkey, apple_keys, set_apple_keys};
 pub use icon::Icon;
 pub use icon_set::IconName;
 #[cfg(feature = "decode")]

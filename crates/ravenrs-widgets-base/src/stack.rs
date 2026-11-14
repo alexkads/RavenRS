@@ -1404,6 +1404,20 @@ pub struct ToolRail {
     width: Option<f32>,
     columns: usize,
     icons_only: bool,
+    drag: Option<RailDrag>,
+}
+
+/// What a [`ToolRail`] calls while one of its tools is dragged out of it.
+#[derive(Clone)]
+struct RailDrag(Rc<RailDragHandler>);
+
+/// The tool dragged, counted as `selected` counts them, and the part of the drag.
+type RailDragHandler = dyn Fn(usize, &crate::Drag);
+
+impl std::fmt::Debug for RailDrag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("RailDrag")
+    }
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -1415,7 +1429,7 @@ impl ToolRail {
     ) -> Self {
         let entries =
             tools.into_iter().map(|(icon, name)| RailEntry::Tool(ToolRailItem::new(icon, name))).collect();
-        Self { selected, entries, width: None, columns: 1, icons_only: false }
+        Self { selected, entries, width: None, columns: 1, icons_only: false, drag: None }
     }
 
     /// Adds a place with a tool and its variants.
@@ -1448,6 +1462,14 @@ impl ToolRail {
         self.columns = columns.max(1);
         self
     }
+
+    /// Lets a tool be dragged out of the rail, as a control onto a page: `handler` gets the
+    /// tool, counted as `selected` counts them, and each part of the drag. A click still opens
+    /// the tool.
+    pub fn on_drag_tool(mut self, handler: impl Fn(usize, &crate::Drag) + 'static) -> Self {
+        self.drag = Some(RailDrag(Rc::new(handler)));
+        self
+    }
 }
 
 struct RailTool<'a> {
@@ -1456,6 +1478,7 @@ struct RailTool<'a> {
     first: usize,
     selected: ravenrs_reactive::Binding<usize>,
     icons_only: bool,
+    drag: Option<RailDrag>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -1584,6 +1607,11 @@ impl View for RailTool<'_> {
         );
         cx.focusable(node, theme.radii.md);
         cx.cursor(node, ravenrs_core::CursorIcon::Pointer);
+        // The button is what the pointer presses, so a drag out of the rail starts here.
+        if let Some(RailDrag(handler)) = &self.drag {
+            let (handler, tool) = (handler.clone(), self.first + shown);
+            cx.on_drag(node, Rc::new(move |drag| handler(tool, &drag)));
+        }
         if !has_variants {
             return node;
         }
@@ -1646,14 +1674,20 @@ impl View for ToolRail {
         for entry in &self.entries {
             match entry {
                 RailEntry::Tool(item) => {
-                    let place =
-                        RailTool { tools: &item.tools, first, selected: self.selected.clone(), icons_only };
+                    let place = RailTool {
+                        tools: &item.tools,
+                        first,
+                        selected: self.selected.clone(),
+                        icons_only,
+                        drag: self.drag.clone(),
+                    };
                     let name = item.tools.first().map_or("", |tool| tool.name.as_str());
                     let node = if icons_only {
                         cx.keyed_child(first as u64, &crate::Tooltip::new(place, name.to_owned()))
                     } else {
                         cx.keyed_child(first as u64, &place)
                     };
+
                     first += item.tools.len();
                     if self.columns > 1 {
                         row.push(node);

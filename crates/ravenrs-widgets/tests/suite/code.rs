@@ -529,3 +529,14 @@ fn the_caret_brings_its_column_into_view() {
     ui.update();
     assert!((long_line_x(&ui) - start).abs() < 0.5, "Home shows the start again");
 }
+
+#[test]
+fn the_caret_says_its_line_and_column() {
+    // #163, #166: what the status line of the playground shows, "Ln 2, Col 5".
+    let text = "fn f() {\n    ação\n}";
+    assert_eq!(line_and_column(text, 0), (1, 1));
+    assert_eq!(line_and_column(text, 9), (2, 1), "the start of the second line");
+    assert_eq!(line_and_column(text, 13), (2, 5));
+    assert_eq!(line_and_column(text, 17), (2, 9), "accents count as one character each");
+    assert_eq!(line_and_column(text, 1000), (3, 2), "past the end, at the end");
+}

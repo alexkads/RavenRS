@@ -4,11 +4,12 @@
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_reactive::Binding;
+use ravenrs_reactive::{Binding, State};
 use ravenrs_style::Semantic;
 
 use crate::context::{BuildCx, NodeId};
 use crate::editors::{CodeLook, Highlighter, LineMark};
+use crate::text_field::Cursor;
 use crate::{TextArea, Tone, View};
 
 /// The language a [`CodeEditor`] colors.
@@ -100,6 +101,7 @@ pub struct CodeEditor {
     rows: usize,
     fill: bool,
     read_only: bool,
+    caret: Option<State<Cursor>>,
 }
 
 impl fmt::Debug for CodeEditor {
@@ -124,7 +126,15 @@ impl CodeEditor {
             rows: 12,
             fill: false,
             read_only: false,
+            caret: None,
         }
+    }
+
+    /// Keeps where the caret and the selection are in `cursor`, for a status line that says
+    /// "Ln 7, Col 31" with [`line_and_column`], or a help panel about the name under it.
+    pub fn caret(mut self, cursor: State<Cursor>) -> Self {
+        self.caret = Some(cursor);
+        self
     }
 
     /// The language it colors.
@@ -193,7 +203,10 @@ impl View for CodeEditor {
             fill: self.fill,
             background: Semantic::Surface,
         };
-        let area = TextArea::new(self.value.clone()).rows(self.rows).read_only(self.read_only).code(look);
+        let mut area = TextArea::new(self.value.clone()).rows(self.rows).read_only(self.read_only).code(look);
+        if let Some(cursor) = &self.caret {
+            area = area.cursor(cursor.clone());
+        }
         area.build(cx)
     }
 }
@@ -203,6 +216,21 @@ const RUST_KEYWORDS: &[&str] = &[
     "fn", "for", "if", "impl", "in", "let", "loop", "match", "mod", "move", "mut", "pub", "ref", "return",
     "self", "Self", "static", "struct", "super", "trait", "true", "type", "unsafe", "use", "where", "while",
 ];
+
+/// The line and the column of the character `at` of `text`, both from 1: what an editor's
+/// status line shows. `at` counts characters, as the caret of a text field does.
+pub fn line_and_column(text: &str, at: usize) -> (usize, usize) {
+    let (mut line, mut column) = (1, 1);
+    for c in text.chars().take(at) {
+        if c == '\n' {
+            line += 1;
+            column = 1;
+        } else {
+            column += 1;
+        }
+    }
+    (line, column)
+}
 
 /// The colored stretches of Rust code, as char indices. It reads tokens, not syntax, so
 /// it never fails: unfinished strings and comments color to the end.
