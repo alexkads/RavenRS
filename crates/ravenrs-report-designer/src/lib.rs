@@ -414,7 +414,7 @@ impl Designer {
             )
             .group(RibbonGroup::new("Dados").item({
                 let e = e.clone();
-                RibbonItem::button("Expressão", IconName::Code)
+                RibbonItem::button("Expressão", IconName::SquareFunction)
                     .large()
                     .enabled(e.control_has_expression())
                     .on_click(move || e.open_expression(editor::ExpressionTarget::Control))

@@ -46,7 +46,7 @@ fn with_editor(
     let e = e.clone();
     HStack::new((
         field.grow(1.0),
-        IconButton::new(IconName::Code).label("Editar expressão").on_click(move || e.open_expression(target)),
+        IconButton::new(IconName::SquareFunction).label("Editar expressão").on_click(move || e.open_expression(target)),
     ))
     .spacing(SPACING.s1)
     .align(Align::Center)

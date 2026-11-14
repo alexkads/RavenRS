@@ -4786,6 +4786,7 @@ variant IconName::Sparkles
 variant IconName::SpellCheck
 variant IconName::Split
 variant IconName::Square
+variant IconName::SquareFunction
 variant IconName::Star
 variant IconName::StarOff
 variant IconName::Strikethrough
