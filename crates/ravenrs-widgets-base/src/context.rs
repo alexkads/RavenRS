@@ -436,6 +436,8 @@ pub struct Element {
     pub report_frame: bool,
     /// Stays this far below the top of its scroll container while its parent passes.
     pub pin: Option<f32>,
+    /// Stays this far from the left of its scroll container while its parent passes sideways.
+    pub pin_left: Option<f32>,
     /// The track of a scroll scene: what [`crate::ScrollRange::Scene`] measures.
     pub scroll_track: Option<ScrollTrack>,
     /// Painted through this effect of the scroll position.
@@ -486,6 +488,7 @@ impl Element {
             measure: false,
             report_frame: false,
             pin: None,
+            pin_left: None,
             scroll_track: None,
             scroll_link: None,
             anchor: None,
@@ -1449,6 +1452,15 @@ impl<'a> BuildCx<'a> {
     pub fn pin(&mut self, node: NodeId, top: f32) {
         if let Some(e) = self.element_mut(node) {
             e.pin = Some(top);
+        }
+    }
+
+    /// Like [`Self::pin`], across: keeps the node `left` pixels from the left of the scroll
+    /// container around it while its parent scrolls past sideways, and lets it leave with the
+    /// right of the parent. See [`crate::Sticky::left`].
+    pub fn pin_left(&mut self, node: NodeId, left: f32) {
+        if let Some(e) = self.element_mut(node) {
+            e.pin_left = Some(left);
         }
     }
 

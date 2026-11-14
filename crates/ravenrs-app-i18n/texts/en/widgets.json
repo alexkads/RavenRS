@@ -61,6 +61,7 @@
  "widgets.compare_first": "Before",
  "widgets.compare_second": "After",
  "widgets.confirm_by_typing": "To confirm, type",
+ "widgets.printed_every_build": "Printed on every build: it runs in a closure the screen calls each time it is built.",
  "widgets.copied": "Copied",
  "widgets.copy": "Copy",
  "widgets.crop": "Crop area",

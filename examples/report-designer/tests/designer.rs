@@ -241,3 +241,36 @@ fn the_expression_editor_opens_from_the_filter_and_applies_what_is_inserted() {
         "the filter field shows the new expression"
     );
 }
+
+fn opened(report: Option<&str>) -> Ui {
+    let mut ui = Ui::new(report_designer::app_with(report), Theme::raven_light());
+    ui.set_viewport(Size::new(1440.0, 900.0), 1.0);
+    for _ in 0..3 {
+        ui.update();
+    }
+    ui
+}
+
+fn shows(ui: &mut Ui, text: &str) -> bool {
+    ui.access_tree().nodes.iter().any(|n| n.name.as_deref().is_some_and(|name| name.contains(text)))
+}
+
+#[test]
+fn the_address_opens_the_report_it_names() {
+    // #130: each page of the home fan links to `designer/?report=...`.
+    assert_eq!(report_designer::report_in_query("?report=invoice").as_deref(), Some("invoice"));
+    assert_eq!(report_designer::report_in_query("?a=1&report=sales-10k").as_deref(), Some("sales-10k"));
+    assert_eq!(report_designer::report_in_query("?report="), None);
+    assert_eq!(report_designer::report_in_query(""), None);
+
+    let mut gallery = opened(None);
+    assert!(shows(&mut gallery, "Vendas · 10.000 linhas"), "with no report, the gallery");
+    for key in ravenrs_report_designer::SAMPLE_KEYS {
+        let mut ui = opened(Some(key));
+        assert!(!shows(&mut ui, "Vendas · 10.000 linhas"), "{key}: the report, not the gallery");
+    }
+    let mut invoice = opened(Some("invoice"));
+    assert!(shows(&mut invoice, "Fatura"), "the invoice");
+    let mut unknown = opened(Some("nonsense"));
+    assert!(shows(&mut unknown, "Vendas · 10.000 linhas"), "an unknown report keeps the gallery");
+}

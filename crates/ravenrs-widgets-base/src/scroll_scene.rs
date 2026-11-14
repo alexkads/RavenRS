@@ -34,19 +34,29 @@ use crate::scroll_link::ScrollLink;
 #[derive(Debug)]
 pub struct Sticky<C> {
     content: C,
-    top: f32,
+    top: Option<f32>,
+    left: Option<f32>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<C: View> Sticky<C> {
     /// Sticks to the very top of the scroll container.
     pub fn new(content: C) -> Self {
-        Self { content, top: 0.0 }
+        Self { content, top: Some(0.0), left: None }
     }
 
     /// Distance from the top of the scroll container, for a bar that stays above it.
     pub fn top(mut self, top: f32) -> Self {
-        self.top = top;
+        self.top = Some(top);
+        self
+    }
+
+    /// Sticks to the left of the scroll container instead, `left` pixels from it, for a scroll
+    /// that goes sideways: the first column of a timeline, the title of a row of cards. It
+    /// leaves with the right of its parent. Call [`top`](Self::top) after it to stick to both.
+    pub fn left(mut self, left: f32) -> Self {
+        self.left = Some(left);
+        self.top = None;
         self
     }
 }
@@ -59,7 +69,12 @@ impl<C: View> View for Sticky<C> {
             &[child],
             Paint::None,
         );
-        cx.pin(node, self.top);
+        if let Some(top) = self.top {
+            cx.pin(node, top);
+        }
+        if let Some(left) = self.left {
+            cx.pin_left(node, left);
+        }
         node
     }
 }

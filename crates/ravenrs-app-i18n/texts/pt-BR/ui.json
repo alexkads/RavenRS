@@ -14,6 +14,7 @@
  "ui.current_password": "Senha atual",
  "ui.delete": "Excluir",
  "ui.delete_detail": "Não será possível desfazer.",
+ "ui.confirm_detail": "Confira antes de continuar.",
  "ui.delete_question": "Excluir?",
  "ui.discard": "Descartar",
  "ui.discard_detail": "O que você mudou aqui não foi salvo.",

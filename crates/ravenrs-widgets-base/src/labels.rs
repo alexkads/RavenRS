@@ -492,6 +492,8 @@ pub struct Labels {
     pub cancel: String,
     /// Before the word a `ConfirmDialog` asks to be typed.
     pub confirm_by_typing: String,
+    /// The `Playground` console, when the code prints the same lines on every build.
+    pub printed_every_build: String,
     /// The menu of commands that did not fit.
     pub more_commands: String,
     /// A number's decimal separator.
@@ -1099,6 +1101,7 @@ impl Labels {
             verification_code: texts.get("widgets.verification_code"),
             cancel: texts.get("widgets.cancel"),
             confirm_by_typing: texts.get("widgets.confirm_by_typing"),
+            printed_every_build: texts.get("widgets.printed_every_build"),
             more_commands: texts.get("widgets.more_commands"),
             decimal_separator: texts.char("format.decimal", '.'),
             group_separator: texts.char("format.thousands", ','),

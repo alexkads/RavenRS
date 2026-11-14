@@ -69,6 +69,7 @@ pub struct ScrollLink {
     to: f32,
     easing: Easing,
     map: Rc<dyn Fn(f32) -> Effect>,
+    sideways: bool,
 }
 
 impl fmt::Debug for ScrollLink {
@@ -86,7 +87,14 @@ impl fmt::Debug for ScrollLink {
 impl ScrollLink {
     /// The effect is `map(t)`, where `t` runs from 0 to 1 over the window, after easing.
     pub fn custom(map: impl Fn(f32) -> Effect + 'static) -> Self {
-        Self { range: ScrollRange::default(), from: 0.0, to: 1.0, easing: Easing::Linear, map: Rc::new(map) }
+        Self {
+            range: ScrollRange::default(),
+            from: 0.0,
+            to: 1.0,
+            easing: Easing::Linear,
+            map: Rc::new(map),
+            sideways: false,
+        }
     }
 
     /// Interpolates between effects at given points of the window, like CSS keyframes.
@@ -142,6 +150,19 @@ impl ScrollLink {
     /// The range this link measures.
     pub fn scroll_range(&self) -> ScrollRange {
         self.range
+    }
+
+    /// Measures the range across, for a scroll that goes sideways: the left edge of the view
+    /// stands for its top, and the right for its bottom. [`ScrollRange::Scene`] measures the
+    /// pass through the view then, as [`ScrollRange::Through`] does.
+    pub fn sideways(mut self) -> Self {
+        self.sideways = true;
+        self
+    }
+
+    /// Whether it measures across, as [`Self::sideways`] asked.
+    pub fn is_sideways(&self) -> bool {
+        self.sideways
     }
 
     /// The effect at `progress` along the range, from 0 to 1.

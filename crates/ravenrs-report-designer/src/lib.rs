@@ -81,6 +81,9 @@ impl Default for Designer {
     }
 }
 
+/// The keys [`Designer::sample`] knows, one per report of the template gallery.
+pub const SAMPLE_KEYS: [&str; 5] = ["invoice", "sales", "sales-10k", "dashboard", "customers"];
+
 impl Designer {
     /// A designer showing the sales report, with the template gallery open.
     pub fn new() -> Self {
@@ -136,6 +139,24 @@ impl Designer {
     /// a look of its own says no here.
     pub fn theme_menu(mut self, offered: bool) -> Self {
         self.theme_menu = offered;
+        self
+    }
+
+    /// Opens one of the sample reports by its key, in the preview, with the gallery closed: what
+    /// the web page reads from `?report=` so each page of the home fan opens its own report.
+    /// The keys are those of [`SAMPLE_KEYS`]; an unknown one keeps the gallery open.
+    pub fn sample(self, key: &str) -> Self {
+        let report = match key {
+            "invoice" => samples::invoice(),
+            "sales" => samples::sales_by_region(300),
+            "sales-10k" => samples::sales_by_region(10_000),
+            "dashboard" => samples::sales_dashboard(),
+            "customers" => samples::customer_list(),
+            _ => return self,
+        };
+        self.editor.load(report);
+        self.editor.tab.set(1);
+        self.editor.gallery_open.set(false);
         self
     }
 

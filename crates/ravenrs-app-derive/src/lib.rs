@@ -50,7 +50,7 @@ use syn::{DeriveInput, Error, Result, parse_macro_input};
 ///   the names are groups of a form; with `action`, actions. A context is `list`, `detail` or a
 ///   view's id. Tints are `danger`, `warning`, `success`, `accent` and `muted`.
 /// * `#[action(caption = "...", set = "state = 'done'; finished = Today()", enabled = "...",
-///   selection = "many", confirm = "...", id = "...")]`: an action that sets fields of the records
+///   selection = "many", confirm = "...", confirm_detail = "...", id = "...")]`: an action that sets fields of the records
 ///   selected, each read from the record as it was, and keeps them once they meet the rules.
 ///   `selection` is `one`, `many` (the default) or `any`; `enabled` is what every record selected
 ///   has to meet for it to be on. Both expressions are checked here.
@@ -297,6 +297,9 @@ fn action_tokens(action: &ActionSpec) -> Tokens {
     }
     if let Some(question) = &action.confirm {
         tokens = quote!(#tokens.confirm(#question));
+    }
+    if let Some(detail) = &action.confirm_detail {
+        tokens = quote!(#tokens.confirm_detail(#detail));
     }
     tokens
 }

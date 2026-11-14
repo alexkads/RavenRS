@@ -556,12 +556,13 @@ fn reporting(reports: Rc<Reports>, narrow: bool, links: Links) -> impl View {
     let fan = PageFan::new()
         .width(if narrow { 200.0 } else { 260.0 })
         .spread(if narrow { 20.0 } else { 56.0 })
-        .page(&reports.customers, 0, "Customer list", DESIGNER)
-        .page(&reports.invoice, 0, "Invoice", DESIGNER)
-        .page(&reports.dashboard, 0, "Sales dashboard", DESIGNER)
-        .page(&reports.sales, last, "Sales by region, last page", DESIGNER)
-        .page(&reports.sales, 1, "Sales by region, page 2", DESIGNER)
-        .page(&reports.sales, 0, "Sales by region, page 1", DESIGNER);
+        // Each page opens its own report in the designer (#130).
+        .page(&reports.customers, 0, "Customer list", "designer/?report=customers")
+        .page(&reports.invoice, 0, "Invoice", "designer/?report=invoice")
+        .page(&reports.dashboard, 0, "Sales dashboard", "designer/?report=dashboard")
+        .page(&reports.sales, last, "Sales by region, last page", "designer/?report=sales")
+        .page(&reports.sales, 1, "Sales by region, page 2", "designer/?report=sales")
+        .page(&reports.sales, 0, "Sales by region, page 1", "designer/?report=sales");
     let words = stack((
         kicker("RavenRS Reporting"),
         heading("From data to a finished report in under a minute."),

@@ -533,6 +533,11 @@ impl ViewController for OrderCommands {
                     Session::of(cx).expect("a session").records_changed();
                     Ok(())
                 }),
+            // Asks with nothing more to say: the neutral words, not those of deleting.
+            Action::simple("Flag", "Flag order")
+                .selection(Selection::RequireSingle)
+                .confirmation("Flag it?")
+                .on_execute(|_| Ok(())),
             Action::simple("Reopen", "Reopen")
                 .selection(Selection::RequireSingle)
                 .target_criteria("[status] = 'done'", CriteriaMode::TrueForAll)
@@ -567,6 +572,7 @@ impl View for Screen {
             HStack::new((
                 ActionButton::new(session.clone(), "Close").style(ButtonStyle::Secondary),
                 ActionButton::new(session.clone(), "Reopen").hide_when_off(),
+                ActionButton::new(session.clone(), "Flag"),
             )),
             ravenrs_widgets::ViewExt::height(list, 400.0),
             session.confirmations(),
@@ -587,6 +593,18 @@ fn a_screen_of_its_own_uses_lists_and_buttons_of_the_framework() {
     w.press("Yes, close");
     assert_eq!(w.count("Order", "[status] = 'done'"), 2);
     assert!(w.names(Role::Button).iter().any(|name| name == "Reopen"), "judged as it is now");
+}
+
+#[test]
+fn an_action_that_does_not_delete_asks_plainly() {
+    // #160: only deleting says it cannot be undone.
+    let (session, database) = screen_session();
+    let mut w = World::over(Screen(session.clone(), None, false), database, session);
+    w.select_row("Mesa");
+    w.press("Flag order");
+    assert!(w.says("Flag it?"));
+    assert!(w.says("Check it before going on."), "the neutral words");
+    assert!(!w.says("This cannot be undone."), "not those of deleting");
 }
 
 #[test]

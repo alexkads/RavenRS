@@ -390,6 +390,8 @@ pub struct ActionSpec {
     pub set: LitStr,
     /// `confirm = "..."`.
     pub confirm: Option<LitStr>,
+    /// `confirm_detail = "..."`: what the question says besides.
+    pub confirm_detail: Option<LitStr>,
 }
 
 /// An option of a business enum.
@@ -839,6 +841,7 @@ fn struct_actions(input: &DeriveInput, names: &[String]) -> Result<Vec<ActionSpe
     for attr in input.attrs.iter().filter(|a| a.path().is_ident("action")) {
         let (mut caption, mut id, mut selection, mut enabled, mut set, mut confirm) =
             (None::<LitStr>, None, None, None, None::<LitStr>, None);
+        let mut confirm_detail = None;
         attr.parse_nested_meta(|meta| {
             let named = |name: &str| meta.path.is_ident(name);
             if named("caption") {
@@ -863,17 +866,19 @@ fn struct_actions(input: &DeriveInput, names: &[String]) -> Result<Vec<ActionSpe
                 set = Some(text);
             } else if named("confirm") {
                 confirm = Some(meta.value()?.parse()?);
+            } else if named("confirm_detail") {
+                confirm_detail = Some(meta.value()?.parse()?);
             } else {
-                return Err(
-                    meta.error("unknown setting: use caption, id, selection, enabled, set or confirm")
-                );
+                return Err(meta.error(
+                    "unknown setting: use caption, id, selection, enabled, set, confirm or confirm_detail",
+                ));
             }
             Ok(())
         })?;
         let (Some(caption), Some(set)) = (caption, set) else {
             return Err(Error::new(attr.span(), "an action needs caption = \"...\" and set = \"...\""));
         };
-        found.push(ActionSpec { caption, id, selection, enabled, set, confirm });
+        found.push(ActionSpec { caption, id, selection, enabled, set, confirm, confirm_detail });
     }
     Ok(found)
 }

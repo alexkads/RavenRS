@@ -21,6 +21,7 @@ impl RecordAction {
             enabled: None,
             set: String::new(),
             confirm: None,
+            confirm_detail: None,
         }
     }
 
@@ -54,6 +55,12 @@ impl RecordAction {
         self
     }
 
+    /// What the question says besides, as "The tasks go to the archive.".
+    pub fn confirm_detail(mut self, detail: impl Into<String>) -> Self {
+        self.confirm_detail = Some(detail.into());
+        self
+    }
+
     /// Its id on this entity.
     pub fn id_on(&self, entity: &EntityInfo) -> String {
         self.id.clone().unwrap_or_else(|| format!("{}.{}", entity.name, self.caption))
@@ -71,6 +78,9 @@ impl RecordAction {
         }
         if let Some(question) = &self.confirm {
             action = action.confirmation(question.clone());
+        }
+        if let Some(detail) = &self.confirm_detail {
+            action = action.confirmation_words(detail.clone(), self.caption.clone());
         }
         action.assign(entity, &self.set)
     }

@@ -491,6 +491,7 @@ field Labels::playground_show_output
 field Labels::previous_month
 field Labels::previous_page
 field Labels::previous_year
+field Labels::printed_every_build
 field Labels::protractor
 field Labels::rating
 field Labels::rating_value
@@ -2226,6 +2227,7 @@ method BuildCx::on_pointer_move
 method BuildCx::on_wheel
 method BuildCx::overlay
 method BuildCx::pin
+method BuildCx::pin_left
 method BuildCx::reduced_motion
 method BuildCx::report_frame
 method BuildCx::request_focus
@@ -2489,6 +2491,7 @@ method CompareView::new
 method CompareView::no_captions
 method CompareView::size
 method ConfirmDialog::ask
+method ConfirmDialog::ask_plainly
 method ConfirmDialog::ask_typing
 method ConfirmDialog::new
 method ContentSpace::content_size
@@ -3391,10 +3394,12 @@ method ScrollLink::effect_at
 method ScrollLink::fade_in
 method ScrollLink::fade_out
 method ScrollLink::grow_from
+method ScrollLink::is_sideways
 method ScrollLink::keyframes
 method ScrollLink::parallax
 method ScrollLink::range
 method ScrollLink::scroll_range
+method ScrollLink::sideways
 method ScrollLinked::new
 method ScrollScene::length
 method ScrollScene::new
@@ -3589,6 +3594,7 @@ method Stepper::label
 method Stepper::new
 method Stepper::range
 method Stepper::read_only
+method Sticky::left
 method Sticky::new
 method Sticky::top
 method Styled::background

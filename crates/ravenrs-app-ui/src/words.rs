@@ -38,6 +38,9 @@ pub struct Words {
     pub delete_question: String,
     /// What the removal does.
     pub delete_detail: String,
+    /// What the question before any other action says besides: neutral, since it can be changed
+    /// again.
+    pub confirm_detail: String,
     /// The question before losing changes.
     pub discard_question: String,
     /// What losing changes does.
@@ -190,6 +193,7 @@ impl Words {
             back: texts.get("ui.back"),
             delete_question: texts.get("ui.delete_question"),
             delete_detail: texts.get("ui.delete_detail"),
+            confirm_detail: texts.get("ui.confirm_detail"),
             discard_question: texts.get("ui.discard_question"),
             discard_detail: texts.get("ui.discard_detail"),
             discard: texts.get("ui.discard"),

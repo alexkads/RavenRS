@@ -85,3 +85,38 @@ fn a_struct_with_hundreds_of_fields_is_written_from_another() {
         .expect("refused");
     assert!(problems[0].message.contains("no field `shut`"), "{}", problems[0].message);
 }
+
+#[test]
+fn a_println_in_a_build_does_not_ask_for_a_build_every_frame() {
+    // #167: the console used to build the playground again for each line, and the code printed
+    // one more line on each build.
+    let code = r#"fn ticking() -> impl View {
+    Text::dynamic(move || {
+        println!("built");
+        "Ticking".to_string()
+    })
+}"#;
+    let playground =
+        Playground::new(LiveRunner::new()).example("Ticking", code).output_open(true).height(600.0);
+    let mut ui = Ui::new(playground, Theme::raven_dark());
+    ui.set_viewport(Size::new(1200.0, 800.0), 1.0);
+    for _ in 0..4 {
+        ui.update();
+    }
+    let settled = ui.stats().builds;
+    for _ in 0..10 {
+        ui.update();
+    }
+    assert_eq!(ui.stats().builds, settled, "nothing new to show, so nothing is built");
+    // What it printed reached the console, said once that it comes on every build, and the
+    // console stopped growing.
+    let lines =
+        ui.access_tree().nodes.iter().find_map(|n| n.name.clone().filter(|n| n.starts_with("Console ")));
+    for _ in 0..10 {
+        ui.update();
+    }
+    let later =
+        ui.access_tree().nodes.iter().find_map(|n| n.name.clone().filter(|n| n.starts_with("Console ")));
+    assert!(lines.as_deref().is_some_and(|n| n != "Console 0"), "{lines:?}");
+    assert_eq!(lines, later, "the console does not grow by itself");
+}
