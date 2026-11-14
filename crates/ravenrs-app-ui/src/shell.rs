@@ -25,6 +25,9 @@ use crate::values::display;
 const NARROW_WINDOW: f32 = 720.0;
 /// The name the theme someone chose goes under.
 const THEME_SETTING: &str = "theme";
+/// Whether the theme follows the system's light and dark, kept next to the theme ("true" or
+/// "false").
+const FOLLOW_SETTING: &str = "theme.follow_system";
 /// How far everything on a page stands from its edges, so it all starts on one line.
 const PAGE_GUTTER: f32 = 16.0;
 /// The longest line of a description that is still comfortable to read.
@@ -190,6 +193,7 @@ pub struct AppShell {
     theme: Option<ravenrs_style::Theme>,
     theme_applied: std::cell::Cell<bool>,
     kept_theme: RefCell<Option<String>>,
+    kept_follow: std::cell::Cell<Option<bool>>,
     sidebar: SidebarState,
 }
 
@@ -238,6 +242,7 @@ impl AppShell {
             theme: None,
             theme_applied: std::cell::Cell::new(false),
             kept_theme: RefCell::new(None),
+            kept_follow: std::cell::Cell::new(None),
             sidebar: SidebarState::new(true),
         }
     }
@@ -293,15 +298,31 @@ impl AppShell {
 
     /// Brings back the theme this person left, the first time, and keeps it whenever it changes.
     fn keep_theme(&self, cx: &mut BuildCx<'_>) {
+        // Without the menu the theme is the application's, and nothing is kept.
+        if !self.theme_menu {
+            return;
+        }
         let Some(store) = self.session.settings() else { return };
         let scope = match self.session.account() {
             Some(account) => SettingScope::User(account.name),
             None => SettingScope::Global,
         };
         let state = cx.theme_state();
+        self.keep_tokens(&*store, &scope, &state);
+        // After the theme kept, so that following the system wins over it.
+        self.keep_follow(cx, &*store, &scope, &state);
+    }
+
+    /// The theme itself, as its tokens: put back on the first build, written when it changes.
+    fn keep_tokens(
+        &self,
+        store: &dyn ravenrs_app::SettingsStore,
+        scope: &SettingScope,
+        state: &State<ravenrs_style::Theme>,
+    ) {
         let mut kept = self.kept_theme.borrow_mut();
         if kept.is_none() {
-            let stored = store.get(&scope, THEME_SETTING).ok().flatten();
+            let stored = store.get(scope, THEME_SETTING).ok().flatten();
             // What is kept comes from outside the program, and what makes no sense is left out.
             if let Some(theme) = stored
                 .as_deref()
@@ -317,10 +338,43 @@ impl AppShell {
         }
         let now = state.with(Theme::to_tokens_json);
         if kept.as_deref() != Some(now.as_str()) {
-            if let Err(why) = store.set(&scope, THEME_SETTING, &now) {
+            if let Err(why) = store.set(scope, THEME_SETTING, &now) {
                 self.session.show_message(ravenrs_app::Message::new(why, ravenrs_app::MessageKind::Error));
             }
             *kept = Some(now);
+        }
+    }
+
+    /// Whether the theme follows the system, kept like the theme: read on the first build, and
+    /// written again whenever it changes. When it is on, the system's theme wins over the one
+    /// kept, as soon as the platform says which it is.
+    fn keep_follow(
+        &self,
+        cx: &mut BuildCx<'_>,
+        store: &dyn ravenrs_app::SettingsStore,
+        scope: &SettingScope,
+        state: &State<ravenrs_style::Theme>,
+    ) {
+        let appearance = cx.system_appearance();
+        let follows = appearance.follows();
+        match self.kept_follow.get() {
+            None => {
+                let stored = store.get(scope, FOLLOW_SETTING).ok().flatten();
+                let follow = stored.as_deref() == Some("true");
+                if follow && !follows {
+                    appearance.set_follow(true, state);
+                }
+                self.kept_follow.set(Some(follow || follows));
+            }
+            Some(kept) if kept != follows => {
+                let value = if follows { "true" } else { "false" };
+                if let Err(why) = store.set(scope, FOLLOW_SETTING, value) {
+                    self.session
+                        .show_message(ravenrs_app::Message::new(why, ravenrs_app::MessageKind::Error));
+                }
+                self.kept_follow.set(Some(follows));
+            }
+            Some(_) => {}
         }
     }
 
