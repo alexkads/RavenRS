@@ -303,6 +303,12 @@ impl Job<'_> {
                 fs::write(&to, self.roots.denorm(&text)).map_err(|e| e.to_string())?;
             } else {
                 fs::copy(&blob, &to).map_err(|e| format!("{}: {e}", output.name))?;
+                // A copy keeps the time of the kept file. Cargo takes a crate whose output is older
+                // than a dependency's for stale, and would compile again what was just restored
+                // next to something compiled now: a restored file is as new as a compiled one.
+                if let Ok(file) = fs::File::options().write(true).open(&to) {
+                    let _ = file.set_modified(SystemTime::now());
+                }
                 self.store.remember(&to, &output.sha);
             }
             bytes += size;

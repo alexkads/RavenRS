@@ -113,6 +113,11 @@ fn the_same_crate_in_another_worktree_comes_from_the_cache_byte_for_byte() {
     for name in ["libdemo-0123.rlib", "libdemo-0123.rmeta"] {
         assert_eq!(artifact(&one, name), artifact(&two, name), "{name}");
     }
+    // A restored file is as new as a compiled one, or Cargo would take it for stale.
+    let age = |tree: &Path| {
+        fs::metadata(tree.join("target/debug/deps/libdemo-0123.rlib")).unwrap().modified().unwrap()
+    };
+    assert!(age(&two) >= age(&one));
     // Cargo is told about the files where they are now, and its dep-info names this worktree.
     let said = String::from_utf8_lossy(&restored.stderr).into_owned();
     assert!(said.contains(&format!("{}/target/debug/deps/libdemo-0123.rmeta", two.display())), "{said}");
