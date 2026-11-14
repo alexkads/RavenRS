@@ -171,6 +171,27 @@ fn row_buttons_name_their_record_and_can_be_off() {
 }
 
 #[test]
+fn check_boxes_and_buttons_with_words_say_which_row_and_can_leave_a_row() {
+    let hit: Rc<RefCell<Vec<Value>>> = Rc::default();
+    let store = hit.clone();
+    let mut ui = ui(DataGrid::new(data(), columns())
+        .name_column(1)
+        .selection_mode(SelectionMode::Multiple)
+        .row_action(
+            GridRowAction::new("Edit", IconName::Pencil, move |row| store.borrow_mut().push(row[0].clone()))
+                .show_text()
+                .visible(|row| row[0] != Value::Number(30.0)),
+        )
+        .height(400.0));
+    assert!(named(&mut ui, Role::CheckBox, "Select Globex").is_some(), "the check box says the row");
+    assert!(named(&mut ui, Role::CheckBox, "Select row").is_some(), "the header's, for every row, stays");
+    let spot = named(&mut ui, Role::Button, "Edit Globex").expect("a button with words, named after the row");
+    click(&mut ui, spot);
+    assert_eq!(*hit.borrow(), [Value::Number(20.0)]);
+    assert!(named(&mut ui, Role::Button, "Edit Initech").is_none(), "left out of the row it is not for");
+}
+
+#[test]
 fn rows_can_be_added_and_deleted_from_the_grid() {
     let (added, removed) = (Rc::new(Cell::new(0)), Rc::new(RefCell::new(Vec::new())));
     let (a, r) = (added.clone(), removed.clone());

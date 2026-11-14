@@ -366,6 +366,37 @@ pub struct Theme {
     pub interaction: Interaction,
     /// Motion tokens.
     pub motion: MotionTokens,
+    /// The colors of the second to fifth series of a chart, when the theme chooses them.
+    pub charts: ChartSeries,
+}
+
+/// The colors a theme chooses for the series of a chart after the first, which is its accent.
+/// Each one left as `None` follows [`Palette`], which picks one for light or dark grounds; a theme
+/// whose accent is close to one of those can choose others here, or in its tokens as `chart-2` to
+/// `chart-5`.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct ChartSeries {
+    /// `chart-2` to `chart-5`, in order.
+    pub series: [Option<Color>; 4],
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl ChartSeries {
+    /// The roles a theme can choose here.
+    pub const ROLES: [Semantic; 4] = [Semantic::Chart2, Semantic::Chart3, Semantic::Chart4, Semantic::Chart5];
+
+    /// The color chosen for `role`, if it is a series here and one was chosen.
+    pub fn get(&self, role: Semantic) -> Option<Color> {
+        Self::ROLES.iter().position(|r| *r == role).and_then(|index| self.series[index])
+    }
+
+    /// Chooses the color of `role`; nothing happens for a role that is not a series here.
+    pub fn set(&mut self, role: Semantic, color: Color) {
+        if let Some(index) = Self::ROLES.iter().position(|r| *r == role) {
+            self.series[index] = Some(color);
+        }
+    }
 }
 
 const INTERACTION: Interaction =
@@ -418,6 +449,7 @@ impl Theme {
             material: Material::Solid,
             interaction: INTERACTION,
             motion: MOTION,
+            charts: ChartSeries { series: [None; 4] },
         }
     }
 
@@ -453,6 +485,7 @@ impl Theme {
             material: Material::Solid,
             interaction: INTERACTION,
             motion: MOTION,
+            charts: ChartSeries { series: [None; 4] },
         }
     }
 
@@ -489,6 +522,7 @@ impl Theme {
             material: Material::Glass,
             interaction: INTERACTION,
             motion: MOTION,
+            charts: ChartSeries { series: [None; 4] },
         }
     }
 
@@ -501,7 +535,17 @@ impl Theme {
     /// assert_eq!(theme.color(Semantic::Accent), theme.palette.accent);
     /// ```
     pub fn color(&self, role: Semantic) -> Color {
-        self.palette.get(role)
+        self.charts.get(role).unwrap_or_else(|| self.palette.get(role))
+    }
+
+    /// Changes the color of a role: a series of a chart in [`Theme::charts`], any other in the
+    /// palette. Roles that follow from others stay as they are.
+    pub fn set_color(&mut self, role: Semantic, color: Color) {
+        if ChartSeries::ROLES.contains(&role) {
+            self.charts.set(role, color);
+        } else {
+            self.palette.set(role, color);
+        }
     }
 
     /// Returns the type style for a named step of the scale.

@@ -14,9 +14,11 @@ keywords = ["datagrid", "export", "pdf", "xlsx", "csv"]
 categories = ["gui", "encoding"]
 
 [dependencies]
+ravenrs-core.workspace = true
 ravenrs-widgets.workspace = true
 ravenrs-report.workspace = true
 ravenrs-report-export.workspace = true
+ravenrs-style.workspace = true
 serde_json.workspace = true
 
 [lints]

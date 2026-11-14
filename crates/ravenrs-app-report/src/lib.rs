@@ -35,7 +35,7 @@ pub use stored::{PT_BR, REPORT_DEFINITION, ReportWords, StoredReportsModule, rep
 
 use ravenrs_app::{Action, ActionCategory, Module, TargetScope, ViewController, ViewKind};
 use ravenrs_app_ui::Session;
-use ravenrs_grid_export::document_of;
+use ravenrs_grid_export::{document_of, document_of_with};
 use ravenrs_report_viewer::{DocumentViewer, ViewerState};
 use ravenrs_widgets::AnyView;
 
@@ -69,7 +69,11 @@ impl ViewController for ReportController {
                     let view = cx.view.as_ref().ok_or_else(|| "this action needs a list".to_owned())?;
                     let table = session.list_table(view).ok_or_else(|| view.id.clone())?;
                     let title = table.title.clone();
-                    let document = Rc::new(document_of(&table));
+                    // In the colors on screen, so the report carries the application's look.
+                    let document = Rc::new(match session.theme() {
+                        Some(theme) => document_of_with(&table, &theme),
+                        None => document_of(&table),
+                    });
                     let state = ViewerState::new();
                     session.present(title, move || {
                         let viewer = DocumentViewer::new(document.clone(), &state);

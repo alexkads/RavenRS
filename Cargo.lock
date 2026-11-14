@@ -6229,8 +6229,10 @@ dependencies = [
 name = "ravenrs-grid-export"
 version = "27.1.28"
 dependencies = [
+ "ravenrs-core",
  "ravenrs-report",
  "ravenrs-report-export",
+ "ravenrs-style",
  "ravenrs-widgets",
  "serde_json",
 ]

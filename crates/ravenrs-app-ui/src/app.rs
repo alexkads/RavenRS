@@ -74,6 +74,9 @@ pub struct App {
     security: Option<(Rc<ravenrs_app::SecurityContext>, ravenrs_app::SpaceMaker)>,
     theme: Option<ravenrs_style::Theme>,
     themes: Vec<ravenrs_style::Theme>,
+    brand: Option<Rc<ravenrs_widgets::AnyView>>,
+    brand_subtitle: Option<String>,
+    counts: std::collections::HashMap<String, crate::navigation::CountOf>,
     counter: bool,
     actions: Vec<ActionMaker>,
 }
@@ -132,6 +135,9 @@ impl App {
             security: None,
             theme: None,
             themes: Vec::new(),
+            brand: None,
+            brand_subtitle: None,
+            counts: std::collections::HashMap::new(),
             counter: false,
             actions: Vec::new(),
         }
@@ -382,6 +388,31 @@ impl App {
         self
     }
 
+    /// Shows `mark`, such as an `IconTile` or an `Image`, beside the title at the top of the
+    /// navigation; see [`AppShell::brand`](crate::AppShell::brand).
+    pub fn brand(mut self, mark: impl ravenrs_widgets::View + 'static) -> Self {
+        self.brand = Some(Rc::new(Box::new(mark)));
+        self
+    }
+
+    /// A line under the title of the brand, such as the organization this is.
+    pub fn brand_subtitle(mut self, text: impl Into<String>) -> Self {
+        self.brand_subtitle = Some(text.into());
+        self
+    }
+
+    /// A count beside the navigation item `item`, such as the lessons waiting for attendance,
+    /// worked out again whenever records change; see
+    /// [`AppShell::navigation_count`](crate::AppShell::navigation_count).
+    pub fn navigation_count(
+        mut self,
+        item: impl Into<String>,
+        count: impl Fn(&crate::Session) -> Option<crate::NavigationCount> + 'static,
+    ) -> Self {
+        self.counts.insert(item.into(), Rc::new(count));
+        self
+    }
+
     /// Offers only these themes in the menu, such as the application's own light and dark, instead
     /// of the three of RavenRS; see [`AppShell::themes`](crate::AppShell::themes).
     pub fn themes(mut self, themes: impl IntoIterator<Item = ravenrs_style::Theme>) -> Self {
@@ -459,6 +490,13 @@ impl App {
         if !self.themes.is_empty() {
             shell = shell.themes(self.themes);
         }
+        if let Some(mark) = self.brand {
+            shell = shell.brand(SharedMark(mark));
+            if let Some(subtitle) = self.brand_subtitle {
+                shell = shell.brand_subtitle(subtitle);
+            }
+        }
+        shell = shell.counts(Rc::new(self.counts));
         if self.counter {
             shell = shell.template(crate::CounterTemplate);
         }
@@ -483,5 +521,14 @@ impl App {
     /// Puts it together, showing on the screen what is wrong with how it was declared.
     pub fn into_view(self) -> AnyView {
         self.build().unwrap_or_else(|error| Box::new(Alert::new("RavenRS", error.0).tone(Tone::Danger)))
+    }
+}
+
+/// A mark given to [`App::brand`], kept for the shell to draw at each build.
+struct SharedMark(Rc<ravenrs_widgets::AnyView>);
+
+impl ravenrs_widgets::View for SharedMark {
+    fn build(&self, cx: &mut ravenrs_widgets::BuildCx<'_>) -> ravenrs_widgets::NodeId {
+        cx.child(&**self.0)
     }
 }

@@ -396,6 +396,18 @@ fn the_series_colors_are_the_themes_and_not_status_colors() {
 }
 
 #[test]
+fn a_theme_that_chooses_a_series_draws_it_in_that_color() {
+    let mut theme = Theme::raven_dark();
+    let own = ravenrs_core::Color::hex(0xc2410c);
+    theme.set_color(Semantic::Chart2, own);
+    let mut ui = Ui::new(VStack::new((bars(),)).align(Align::Stretch), theme);
+    ui.set_viewport(Size::new(800.0, 600.0), 1.0);
+    ui.update();
+    assert_eq!(bars_on_top(&ui, own).len(), 4, "the second series is the theme's own");
+    assert!(bars_on_top(&ui, Theme::raven_dark().color(Semantic::Chart2)).is_empty());
+}
+
+#[test]
 fn a_chart_card_says_what_it_is_and_switches_its_tabs() {
     let tab = State::new(0_usize);
     let card = ChartCard::new(line())

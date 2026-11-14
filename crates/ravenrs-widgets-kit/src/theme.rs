@@ -141,10 +141,10 @@ fn color_field(
 ) -> FormField<ColorPicker> {
     let (read, write) = (state.clone(), state.clone());
     let binding = Binding::new(
-        move || Some(read.with(|theme| theme.palette.get(role))),
+        move || Some(read.with(|theme| theme.color(role))),
         move |color: Option<Color>| {
             if let Some(color) = color {
-                write.update(|theme| theme.palette.set(role, color));
+                write.update(|theme| theme.set_color(role, color));
             }
         },
     );
@@ -153,8 +153,7 @@ fn color_field(
     let Some(ground) = over else { return field };
     let theme = state.get();
     let canvas = theme.palette.bg_000;
-    let ratio = flattened(theme.palette.get(role), canvas)
-        .contrast_ratio(flattened(theme.palette.get(ground), canvas));
+    let ratio = flattened(theme.color(role), canvas).contrast_ratio(flattened(theme.color(ground), canvas));
     let tone = if ratio < LEGIBLE { Tone::Warning } else { Tone::Neutral };
     field.note_text(Some(cx.labels().theme_contrast(ratio, ground.token())), tone)
 }
@@ -220,6 +219,17 @@ impl View for ThemeEditor {
                 (S::Success, Some(S::SurfaceElevated)),
                 (S::Warning, Some(S::SurfaceElevated)),
                 (S::Danger, Some(S::SurfaceElevated)),
+            ],
+            cx,
+        );
+        // Each series of a chart against the ground it is drawn on.
+        let charts = group(
+            &labels.theme_charts,
+            &[
+                (S::Chart2, Some(S::SurfaceElevated)),
+                (S::Chart3, Some(S::SurfaceElevated)),
+                (S::Chart4, Some(S::SurfaceElevated)),
+                (S::Chart5, Some(S::SurfaceElevated)),
             ],
             cx,
         );
@@ -296,6 +306,7 @@ impl View for ThemeEditor {
             .group(text)
             .group(accent)
             .group(status)
+            .group(charts)
             .group(shape)
             .group(sizes);
         cx.child(

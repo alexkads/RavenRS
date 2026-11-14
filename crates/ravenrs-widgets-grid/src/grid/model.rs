@@ -228,6 +228,8 @@ pub struct GridColumn {
     #[doc(hidden)]
     pub fill: bool,
     #[doc(hidden)]
+    pub fill_weight: f32,
+    #[doc(hidden)]
     pub pinned: bool,
     #[doc(hidden)]
     pub resizable: bool,
@@ -266,6 +268,7 @@ impl GridColumn {
             editable: false,
             visible: true,
             fill: false,
+            fill_weight: 1.0,
             pinned: false,
             resizable: true,
             formula: None,
@@ -385,6 +388,14 @@ impl GridColumn {
     /// at the end of the rows. Its [`Self::width`] is what it never goes below.
     pub fn fill(mut self) -> Self {
         self.fill = true;
+        self
+    }
+
+    /// Fills as [`Self::fill`] does, taking `weight` shares of what is left against the other
+    /// columns that fill, like `fr` in a CSS grid: `2.0` beside a `1.0` takes two thirds.
+    pub fn fill_weight(mut self, weight: f32) -> Self {
+        self.fill = true;
+        self.fill_weight = weight.max(0.0);
         self
     }
 

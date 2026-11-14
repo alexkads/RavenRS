@@ -14,6 +14,7 @@ mod jobs;
 mod kept;
 mod list_editors;
 mod narrow;
+mod navigation;
 mod relations;
 mod security;
 mod texts;

@@ -416,6 +416,7 @@ field Labels::grid_scenario_original
 field Labels::grid_scenario_save
 field Labels::grid_scenario_update
 field Labels::grid_search
+field Labels::grid_select
 field Labels::grid_select_row
 field Labels::grid_selected
 field Labels::grid_show_panel
@@ -547,6 +548,7 @@ field Labels::tag_remove
 field Labels::theme
 field Labels::theme_accent
 field Labels::theme_changed
+field Labels::theme_charts
 field Labels::theme_contrast
 field Labels::theme_copy
 field Labels::theme_dark
@@ -2910,6 +2912,7 @@ method GridColumn::editable
 method GridColumn::field
 method GridColumn::field_name
 method GridColumn::fill
+method GridColumn::fill_weight
 method GridColumn::filterable
 method GridColumn::format
 method GridColumn::groupable
@@ -2948,6 +2951,8 @@ method GridResponder::fail
 method GridResponder::send
 method GridRowAction::enabled
 method GridRowAction::new
+method GridRowAction::show_text
+method GridRowAction::visible
 method GridScenario::list_from_json
 method GridScenario::list_to_json
 method GridScenario::new
@@ -3493,6 +3498,7 @@ method SidebarItem::action
 method SidebarItem::badge
 method SidebarItem::compact
 method SidebarItem::count
+method SidebarItem::count_spoken
 method SidebarItem::disabled
 method SidebarItem::expanded
 method SidebarItem::expanded_binding
@@ -4015,6 +4021,7 @@ method grid::GridColumn::editable
 method grid::GridColumn::field
 method grid::GridColumn::field_name
 method grid::GridColumn::fill
+method grid::GridColumn::fill_weight
 method grid::GridColumn::filterable
 method grid::GridColumn::format
 method grid::GridColumn::groupable
@@ -4059,6 +4066,8 @@ method grid::GridResponder::fail
 method grid::GridResponder::send
 method grid::GridRowAction::enabled
 method grid::GridRowAction::new
+method grid::GridRowAction::show_text
+method grid::GridRowAction::visible
 method grid::GridScenario::list_from_json
 method grid::GridScenario::list_to_json
 method grid::GridScenario::new

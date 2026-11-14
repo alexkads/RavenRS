@@ -126,6 +126,14 @@ pub struct WizardOptions {
     pub page: PageSettings,
     /// The accent color of headers.
     pub accent: String,
+    /// The text on the accent, in the column headers.
+    pub on_accent: String,
+    /// The text of rows, totals and the title.
+    pub ink: String,
+    /// The text of the count of records and the page numbers.
+    pub muted: String,
+    /// The ground of every other row.
+    pub zebra: String,
 }
 
 impl Default for WizardOptions {
@@ -138,6 +146,10 @@ impl Default for WizardOptions {
             totals: Vec::new(),
             page: PageSettings::a4(),
             accent: "#3f57db".into(),
+            on_accent: "#ffffff".into(),
+            ink: "#12151c".into(),
+            muted: "#5a6375".into(),
+            zebra: "#f4f5f8".into(),
         }
     }
 }
@@ -234,21 +246,30 @@ pub fn table_report_with(source: DataSource, options: &WizardOptions, words: &[C
         .data_source(source)
         .style(
             "th",
-            Style::new().font_size(8.0).bold().color("#ffffff").background(&options.accent).padding(4.0),
+            Style::new()
+                .font_size(8.0)
+                .bold()
+                .color(&options.on_accent)
+                .background(&options.accent)
+                .padding(4.0),
         )
-        .style("td", Style::new().font_size(9.0).color("#12151c").padding(4.0))
+        .style("td", Style::new().font_size(9.0).color(&options.ink).padding(4.0))
         .style(
             "total",
-            Style::new().font_size(9.0).bold().color("#12151c").padding(4.0).border("top", 1.0, "#12151c"),
+            Style::new().font_size(9.0).bold().color(&options.ink).padding(4.0).border(
+                "top",
+                1.0,
+                &options.ink,
+            ),
         )
         .style("odd", Style::new().background("#ffffff"))
-        .style("even", Style::new().background("#f4f5f8"))
+        .style("even", Style::new().background(&options.zebra))
         .report_header(
             Band::new(48.0)
                 .control(
                     Control::label(&options.title)
                         .at(0.0, 0.0, width, 30.0)
-                        .style(Style::new().font_size(20.0).bold().color("#12151c")),
+                        .style(Style::new().font_size(20.0).bold().color(&options.ink)),
                 )
                 .control(
                     Control::field(if pt {
@@ -257,7 +278,7 @@ pub fn table_report_with(source: DataSource, options: &WizardOptions, words: &[C
                         "FormatString('{0:N0} records', Count())"
                     })
                     .at(0.0, 30.0, width, 16.0)
-                    .style(Style::new().font_size(9.0).color("#5a6375")),
+                    .style(Style::new().font_size(9.0).color(&options.muted)),
                 ),
         )
         .page_header(
@@ -276,7 +297,7 @@ pub fn table_report_with(source: DataSource, options: &WizardOptions, words: &[C
                     "FormatString('Page {0} of {1}', PageNumber(), PageCount())"
                 })
                 .at(0.0, 4.0, width, 14.0)
-                .style(Style::new().font_size(7.5).color("#5a6375").align(TextAlign::Right)),
+                .style(Style::new().font_size(7.5).color(&options.muted).align(TextAlign::Right)),
             ),
         );
     if let Some(field) = &options.group_by {
