@@ -7,6 +7,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ### Added
 
 - **`ravenrs-deck`**, a new crate: the presentation model (slides, layouts and masters, shapes, text, tables, charts, animations and transitions), reading and writing PPTX and a native format, slides drawn to pixels, PDF export with notes pages and handouts, embedded audio and video probed and given poster frames, and the commands with undo an editor drives; it builds for the web too. ([#373](https://github.com/alexkads/RavenRS/issues/373))
+- `SecuredApp::door`, which lets the application arrange the screen of signing in from `DoorParts`: the fields of the name and password, Sign in, the last error, the buttons of each `sign_in_action` and `fill(name, password)` for chips of a demonstration, which only fills in. Checking the password, permissions, the audit trail and choosing a new password stay in the framework, and the first administrator and a new password keep its screens. `SecuredApp::aside` puts a view beside the card in a window at least 720 pixels wide. ([#366](https://github.com/alexkads/RavenRS/issues/366))
+
+### Fixed
+
+- In a window narrower than 412 pixels, the card of signing in fits the window, keeping 16 pixels on each side, instead of running past it. ([#366](https://github.com/alexkads/RavenRS/issues/366))
 
 ## [27.1.28] - 2026-11-14
 
