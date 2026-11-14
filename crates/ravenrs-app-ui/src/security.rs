@@ -26,6 +26,10 @@ use crate::{App, Language, Session};
 /// The id of the action that gives someone a new password.
 pub(crate) const SET_PASSWORD: &str = "SetPassword";
 const CARD_WIDTH: f32 = 380.0;
+/// Below this window width the door leaves out its aside and the card fits the window.
+const NARROW_DOOR: f32 = 720.0;
+/// Space kept on each side of the card in a narrow window.
+const DOOR_GUTTER: f32 = 16.0;
 
 /// Users, roles, the audit trail and giving someone a password.
 #[derive(Debug)]
@@ -135,6 +139,8 @@ struct DemoCredentials {
     password: String,
 }
 
+type ComposeDoor = Rc<dyn Fn(&DoorParts) -> AnyView>;
+
 /// How the screen of signing in presents itself.
 #[derive(Clone, Default)]
 struct Door {
@@ -142,6 +148,120 @@ struct Door {
     notice: Option<String>,
     actions: Vec<SignInAction>,
     demo: Option<DemoCredentials>,
+    compose: Option<ComposeDoor>,
+    aside: Option<Rc<AnyView>>,
+}
+
+/// The pieces of the screen of signing in, already tied to what is typed there, for an
+/// application that arranges that screen itself with [`SecuredApp::door`].
+///
+/// Each piece does what it does on the usual screen: the fields edit the same name and password,
+/// Enter in the password and the button of [`DoorParts::sign_in_button`] check them the same way,
+/// and the buttons of [`DoorParts::actions`] leave the same way. Checking the password, the
+/// permissions, the audit trail and choosing a new password stay in the framework: nothing here
+/// reaches storage, the person signed in or the application, and nothing of those is made before
+/// someone gets in.
+///
+/// ```
+/// use ravenrs_app::{MemoryDatabase, security_entities};
+/// use ravenrs_app_ui::{App, DoorParts, SecuredApp};
+/// use ravenrs_widgets::{AnyView, Button, ButtonStyle, HStack, Text, VStack};
+///
+/// let database = MemoryDatabase::new(security_entities())?;
+/// let door = |parts: &DoorParts| -> AnyView {
+///     let filler = parts.clone();
+///     // Sign in, and beside it the buttons of each `sign_in_action`.
+///     let mut row: Vec<AnyView> = vec![Box::new(parts.sign_in_button())];
+///     row.extend(parts.actions().into_iter().map(|button| Box::new(button) as AnyView));
+///     Box::new(VStack::new((
+///         Text::new("CENTRAL CHURCH"),
+///         Text::new(parts.title()),
+///         parts.name_field(),
+///         parts.password_field(),
+///         parts.error(),
+///         HStack::new(row).spacing(8.0),
+///         Button::new("Fill in the demonstration")
+///             .style(ButtonStyle::Secondary)
+///             .on_click(move || filler.fill("ana", "made-up password")),
+///     )))
+/// };
+/// let window = SecuredApp::new("Sign in", move || database.space(), |_| App::new("Church"))
+///     .door(door)
+///     .build()?;
+/// # let _ = window;
+/// # Ok::<(), ravenrs_app::ModelError>(())
+/// ```
+#[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct DoorParts {
+    gate: Gate,
+}
+
+impl std::fmt::Debug for DoorParts {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("DoorParts").field("title", &self.gate.0.title).finish_non_exhaustive()
+    }
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl DoorParts {
+    /// The title given to [`SecuredApp::new`].
+    pub fn title(&self) -> String {
+        self.gate.0.title.clone()
+    }
+
+    /// The field of the name, with its label, taking the keyboard when the screen opens.
+    pub fn name_field(&self) -> AnyView {
+        let inner = &self.gate.0;
+        Box::new(FormField::new(
+            inner.words.user_name.clone(),
+            TextField::new(text_binding(&inner.name)).autofocus(),
+        ))
+    }
+
+    /// The field of the password, with its label, hidden as it is typed. Enter in it signs in.
+    pub fn password_field(&self) -> AnyView {
+        let (inner, by_key) = (&self.gate.0, self.gate.clone());
+        Box::new(FormField::new(
+            inner.words.password.clone(),
+            TextField::new(text_binding(&inner.password)).secure().on_submit(move |_| by_key.sign_in()),
+        ))
+    }
+
+    /// The main button, which checks the name and password and lets the person in. Give it the
+    /// width and icon the screen needs; another handler of its own makes it a different button.
+    pub fn sign_in_button(&self) -> Button {
+        let gate = self.gate.clone();
+        Button::new(self.gate.0.words.sign_in.clone()).on_click(move || gate.sign_in())
+    }
+
+    /// What went wrong at the last try, as the usual screen shows it, or nothing.
+    pub fn error(&self) -> Option<AnyView> {
+        self.error_text().map(|error| Box::new(Alert::message(error).tone(Tone::Danger)) as AnyView)
+    }
+
+    /// The words of [`DoorParts::error`], for a screen that says them its own way.
+    pub fn error_text(&self) -> Option<String> {
+        self.gate.0.error.get()
+    }
+
+    /// One button for each [`SignInAction`], in the order they were added, each forgetting what was
+    /// typed before running its handler. They start as [`ButtonStyle::Ghost`]; restyle them freely.
+    pub fn actions(&self) -> Vec<Button> {
+        self.gate.0.door.actions.iter().map(|action| self.gate.action_button(action)).collect()
+    }
+
+    /// Fills in a name and password, as a chip of a demonstration does, and clears the last
+    /// message. Nobody gets in until Sign in is pressed, and the password stays hidden. It does
+    /// nothing while the first administrator or a new password is being chosen.
+    pub fn fill(&self, name: impl Into<String>, password: impl Into<String>) {
+        let inner = &self.gate.0;
+        if matches!(*inner.stage.peek(), Stage::SignIn) {
+            inner.name.set(name.into());
+            inner.password.set(password.into());
+            inner.error.set(None);
+        }
+    }
 }
 
 /// An application people sign in to, each seeing what their roles allow.
@@ -230,6 +350,28 @@ impl SecuredApp {
     /// person signed in is left behind: nothing of them goes on.
     pub fn sign_in_action(mut self, action: SignInAction) -> Self {
         self.door.actions.push(action);
+        self
+    }
+
+    /// Lets the application arrange the screen of signing in itself, from the [`DoorParts`] it is
+    /// given: its own words above the fields, Sign in beside another button, chips that fill in
+    /// people of a demonstration. `door` runs each time that screen is drawn, and what it returns
+    /// goes in the same card, centered, as the usual screen. [`SecuredApp::description`] and
+    /// [`SecuredApp::notice`] are for the usual screen; a composed one says what it wants.
+    ///
+    /// Only signing in is composed. Creating the first administrator and choosing a new password
+    /// keep the framework's screens, with the [`SignInAction`] buttons and the aside, because the
+    /// rules there are the framework's to state.
+    pub fn door(mut self, door: impl Fn(&DoorParts) -> AnyView + 'static) -> Self {
+        self.door.compose = Some(Rc::new(door));
+        self
+    }
+
+    /// A view beside the card at the door, such as the brand of the organization, taking the
+    /// space the card leaves. It shows on every screen before someone gets in, and only in a window
+    /// at least 720 pixels wide: in a narrower one the card is alone and fits the window.
+    pub fn aside(mut self, view: impl View + 'static) -> Self {
+        self.door.aside = Some(Rc::new(Box::new(view)));
         self
     }
 
@@ -410,6 +552,18 @@ impl Gate {
         (action.on_click)();
     }
 
+    /// The button of one [`SignInAction`].
+    fn action_button(&self, action: &SignInAction) -> Button {
+        let (gate, pressed) = (self.clone(), action.clone());
+        let button = Button::new(action.label.clone())
+            .style(ButtonStyle::Ghost)
+            .on_click(move || gate.leave_by(&pressed));
+        match action.icon {
+            Some(icon) => button.icon(icon),
+            None => button,
+        }
+    }
+
     /// The door's text and its buttons besides the main one.
     fn door_parts(&self) -> (Option<AnyView>, Option<AnyView>) {
         let door = &self.0.door;
@@ -419,17 +573,7 @@ impl Gate {
             let buttons: Vec<AnyView> = door
                 .actions
                 .iter()
-                .map(|action| {
-                    let (gate, pressed) = (self.clone(), action.clone());
-                    let button = Button::new(action.label.clone())
-                        .style(ButtonStyle::Ghost)
-                        .full_width()
-                        .on_click(move || gate.leave_by(&pressed));
-                    Box::new(match action.icon {
-                        Some(icon) => button.icon(icon),
-                        None => button,
-                    }) as AnyView
-                })
+                .map(|action| Box::new(self.action_button(action).full_width()) as AnyView)
                 .collect();
             Box::new(VStack::new(buttons).spacing(4.0).align(Align::Stretch)) as AnyView
         });
@@ -643,14 +787,28 @@ impl View for Gate {
         let form = match self.0.stage.get() {
             Stage::Inside(view, entered) => return cx.child(&Keyed::new(entered, SharedView(view))),
             Stage::FirstUser => self.first_user_form(),
-            Stage::SignIn => self.sign_in_form(),
+            Stage::SignIn => match &self.0.door.compose {
+                Some(compose) => compose(&DoorParts { gate: self.clone() }),
+                None => self.sign_in_form(),
+            },
             Stage::NewPassword(form) => self.new_password_form(&form),
         };
-        let centered = HStack::new((Card::new(form).padding(24.0).width(CARD_WIDTH),))
+        let window = cx.viewport().width;
+        // A window narrower than the card leaves it the window, less a gutter on each side.
+        let width = CARD_WIDTH.min(window - 2.0 * DOOR_GUTTER).max(0.0);
+        let centered = HStack::new((Card::new(form).padding(24.0).width(width),))
             .justify(Justify::Center)
             .align(Align::Center)
             .grow(1.0);
-        cx.child(&centered)
+        match &self.0.door.aside {
+            Some(aside) if window >= NARROW_DOOR => {
+                let beside = HStack::new((SharedView(aside.clone()).grow(1.0).stretch(), centered))
+                    .align(Align::Stretch)
+                    .grow(1.0);
+                cx.child(&beside)
+            }
+            _ => cx.child(&centered),
+        }
     }
 }
 

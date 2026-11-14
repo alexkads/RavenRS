@@ -376,6 +376,53 @@ let window = SecuredApp::new("Accounts", move || database.space(), move |_person
 
 A new installation asks for the first person, who becomes the administrator. Administrators manage users and roles on generated screens, under Administration.
 
+### The screen of signing in
+
+The usual screen is a card with the title, the `description` under it, the `notice`, the fields, Sign in across the card and each `sign_in_action` under it. `demo_credentials` fills in a made-up person when the screen opens.
+
+An application with a design of its own arranges that card itself with `SecuredApp::door`. It is given `DoorParts`, pieces already tied to what is typed at the door, and puts them where it wants, between words of its own:
+
+```rust
+let window = SecuredApp::new("Sign in to the church", move || database.space(), application)
+    .sign_in_action(SignInAction::new("Change church", go_back))
+    .door(|parts: &DoorParts| -> AnyView {
+        let chip = |label: &str, name: &'static str, password: &'static str| {
+            let filler = parts.clone();
+            Button::new(label).style(ButtonStyle::Secondary).on_click(move || filler.fill(name, password))
+        };
+        let mut row: Vec<AnyView> = vec![Box::new(parts.sign_in_button())];
+        row.extend(parts.actions().into_iter().map(|b| Box::new(b.style(ButtonStyle::Secondary)) as AnyView));
+        Box::new(VStack::new((
+            Text::new("CENTRAL CHURCH").style(TextStyle::Caption),
+            Text::new(parts.title()).style(TextStyle::Title),
+            Text::new("Use the name and password the church gave you.").style(TextStyle::Callout),
+            parts.name_field(),
+            parts.password_field(),
+            parts.error(),
+            HStack::new(row).spacing(8.0),
+            Divider::horizontal(),
+            HStack::new((chip("Administrators", "ana", "made-up"), chip("Treasury", "caio", "made-up")))
+                .spacing(8.0)
+                .wrap(),
+        )).spacing(12.0))
+    })
+    .aside(brand_panel())
+    .build()?;
+```
+
+What each piece does is what it does on the usual screen:
+
+- `name_field` takes the keyboard when the screen opens; Tab goes on to `password_field`, which is hidden as it is typed, and Enter there signs in.
+- `sign_in_button` checks the name and password with the same `Authenticator`, so permissions, the audit trail, the lockout after five wrong tries and the forced change of a given password are the same as on the usual screen. A wrong try forgets the password and `error` says why.
+- `actions` has one button per `sign_in_action`, which forgets what was typed before running its handler.
+- `fill(name, password)` only fills in, for chips of a demonstration: nobody gets in until Sign in, and it clears the last message. Like `demo_credentials`, use it only for made-up people, since they are in the program for anyone to read.
+
+Nothing in `DoorParts` reaches storage, the person signed in or the application, and the application is not made until someone gets in. `description` and `notice` belong to the usual screen; a composed one says what it wants in its own words.
+
+Only signing in is composed. Creating the first administrator and choosing a new password keep the framework's screens, with the `sign_in_action` buttons, because the rules there are the framework's to state.
+
+`aside(view)` puts a view beside the card, such as the brand of the organization, on every screen before someone gets in, with or without `door`. It shows only in a window at least 720 pixels wide; in a narrower one the card is alone and fits the window, keeping 16 pixels on each side.
+
 How a question is answered, for each role: a field by criteria, then a field, then a record by criteria, then the entity, then the owner of an aggregated collection, then the role's policy. A denial beats an allowance at the same level. Creating takes `Create` and `Write`. A write is checked against the record before and after the change, so nobody can take a record over or give one away past what they can write.
 
 `SecuredObjectSpace` is what protects records. It works on any `ObjectSpace` with no screen around it, which is what a service will use. A record that cannot be read is not there. A field that cannot be read reads as empty, also for filters, sorting and calculated fields that use it, and saving it back empty leaves what is stored. A list with a permission that depends on the record reads the whole table to answer, as the database does not know the permission. Records of users and roles are for administrators only, the audit trail can only be read, and a `secret` field is kept from everyone. What the screens hide on top of this, navigation among it, is courtesy.

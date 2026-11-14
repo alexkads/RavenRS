@@ -7,6 +7,7 @@ mod accessibility;
 mod center;
 mod counter;
 mod dates;
+mod door;
 mod e2e;
 mod empty;
 mod jobs;
