@@ -832,3 +832,36 @@ fn a_continuous_report_is_as_long_as_what_it_prints() {
     assert_eq!(long.pages.len(), 1);
     assert!((long.pages[0].height - 2000.0).abs() < 0.5, "{}", long.pages[0].height);
 }
+
+/// The lines of text, on every page, that are wider than the box that cuts them, with the page.
+fn cut_text(doc: &Document) -> Vec<(usize, String)> {
+    let mut cut = Vec::new();
+    for (page, p) in doc.pages.iter().enumerate() {
+        for item in &p.items {
+            let Item::Text(t) = item else { continue };
+            for line in &t.lines {
+                if line.x < t.clip.x() - 0.5 || line.x + line.width > t.clip.max_x() + 0.5 {
+                    cut.push((page + 1, line.text.clone()));
+                }
+            }
+        }
+    }
+    cut
+}
+
+#[test]
+fn the_sample_reports_print_every_value_whole() {
+    // #129: the TOTAL column of the sales report cut the bold totals, as "R$ 30.690,0".
+    for (name, report) in [
+        ("sales_by_region", samples::sales_by_region(300)),
+        ("invoice", samples::invoice()),
+        ("customer_list", samples::customer_list()),
+        ("sales_dashboard", samples::sales_dashboard()),
+    ] {
+        let data = report.embedded_data().cloned().unwrap_or_default();
+        let doc = render(&report, &data);
+        assert!(doc.errors.is_empty(), "{name}: {:?}", doc.errors);
+        let cut = cut_text(&doc);
+        assert!(cut.is_empty(), "{name}: text cut at the edge of its box: {cut:?}");
+    }
+}
