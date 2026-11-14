@@ -513,10 +513,25 @@ impl View for Playground {
 
         // How the code stands, under the editor and in the narrow footer.
         let status = status_line(&labels, all_problems.len());
+        // Where the caret is, as the status line of an editor says it (#163, #166).
+        let caret: State<crate::text_field::Cursor> = cx.use_state(Default::default);
+        let (line, column) = crate::line_and_column(&source.get(), caret.get().caret);
+        let position = Text::new(
+            labels
+                .playground_position
+                .replace("{line}", &line.to_string())
+                .replace("{column}", &column.to_string()),
+        )
+        .style(TextStyle::Caption)
+        .foreground(Semantic::InkMuted);
 
         let code = VStack::new((
-            CodeEditor::new(source.clone()).language(self.language).diagnostics(found.clone()).fill(),
-            HStack::new((status,)).padding((6.0, 12.0)),
+            CodeEditor::new(source.clone())
+                .language(self.language)
+                .diagnostics(found.clone())
+                .caret(caret)
+                .fill(),
+            HStack::new((status, Spacer::new(), position)).align(Align::Center).padding((6.0, 12.0)),
         ))
         .align(Align::Stretch)
         .grow(1.0)

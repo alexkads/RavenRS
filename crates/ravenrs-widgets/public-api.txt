@@ -483,6 +483,7 @@ field Labels::playground_more
 field Labels::playground_no_problems
 field Labels::playground_nothing_printed
 field Labels::playground_output
+field Labels::playground_position
 field Labels::playground_problems
 field Labels::playground_restore
 field Labels::playground_result
@@ -770,6 +771,7 @@ fn grid::to_table
 fn grid::to_tsv
 fn highlight_rust
 fn is_leap_year
+fn line_and_column
 fn live_registry
 fn parse_exceptions
 fn responsive
@@ -2435,6 +2437,7 @@ method CodeBlock::new
 method CodeDiagnostic::error
 method CodeDiagnostic::hint
 method CodeDiagnostic::warning
+method CodeEditor::caret
 method CodeEditor::diagnostics
 method CodeEditor::fill
 method CodeEditor::indent

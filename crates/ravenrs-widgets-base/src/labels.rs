@@ -838,6 +838,8 @@ pub struct Labels {
     pub playground_problems: String,
     /// When the code of a `Playground` has none.
     pub playground_no_problems: String,
+    /// The `Playground` status line, where the caret is: `{line}` and `{column}` are replaced.
+    pub playground_position: String,
     /// When the code of a `Playground` printed nothing.
     pub playground_nothing_printed: String,
     /// Empties the output of a `Playground`.
@@ -1271,6 +1273,7 @@ impl Labels {
             playground_console: texts.get("widgets.playground_console"),
             playground_problems: texts.get("widgets.playground_problems"),
             playground_no_problems: texts.get("widgets.playground_no_problems"),
+            playground_position: texts.get("widgets.playground_position"),
             playground_nothing_printed: texts.get("widgets.playground_nothing_printed"),
             playground_clear_output: texts.get("widgets.playground_clear_output"),
             playground_hide_output: texts.get("widgets.playground_hide_output"),
