@@ -17,6 +17,19 @@ pub enum Selection {
     Control(BandRef, usize),
 }
 
+/// How [`Editor::arrange_selected`] lines up or sizes the controls selected.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Arrange {
+    Left,
+    Center,
+    Right,
+    Top,
+    Middle,
+    Bottom,
+    SameWidth,
+    SameHeight,
+}
+
 /// A field being dragged from the field list.
 #[derive(Clone, Debug, PartialEq)]
 pub struct FieldDrag {
@@ -44,6 +57,9 @@ pub enum ExpressionTarget {
 pub struct Editor {
     pub report: State<Report>,
     pub selection: State<Selection>,
+    /// Other controls selected with the one of `selection`, in the same band, by place: Shift- or
+    /// Cmd-click adds and removes them. Aligning and sizing take `selection` as the reference.
+    pub also: State<Vec<usize>>,
     pub tab: State<usize>,
     pub zoom: State<f32>,
     pub version: State<u64>,
@@ -70,6 +86,7 @@ impl Editor {
         Self {
             report: State::new(report),
             selection: State::new(Selection::None),
+            also: State::new(Vec::new()),
             tab: State::new(0),
             zoom: State::new(1.25),
             version: State::new(0),
@@ -127,6 +144,7 @@ impl Editor {
         self.last_edit.set(None);
         self.report.set(report);
         self.selection.set(Selection::None);
+        self.also.set(Vec::new());
         self.page.set(0);
         self.version.update(|v| *v += 1);
     }
@@ -153,6 +171,8 @@ impl Editor {
 
     fn after_history(&self) {
         self.last_edit.set(None);
+        // Places in a band may mean other controls now.
+        self.also.set(Vec::new());
         self.version.update(|v| *v += 1);
         // The selection may point past the end of a band now.
         let valid = self.report.with(|r| match self.selection.get() {
@@ -205,16 +225,93 @@ impl Editor {
 
     /// Deletes the selected control.
     pub fn delete_selected(&self) {
-        if let Selection::Control(b, i) = self.selection.get() {
+        if let Some((b, mut indices)) = self.selected_indices() {
+            // From the last, so the places of the others stay.
+            indices.sort_unstable_by(|a, b| b.cmp(a));
             self.edit(|r| {
-                if let Some(band) = b.get_mut(r)
-                    && i < band.controls.len()
-                {
-                    band.controls.remove(i);
+                if let Some(band) = b.get_mut(r) {
+                    for i in indices {
+                        if i < band.controls.len() {
+                            band.controls.remove(i);
+                        }
+                    }
                 }
             });
+            self.also.set(Vec::new());
             self.selection.set(Selection::Band(b));
         }
+    }
+
+    /// Selects this control alone, unless it is already among those selected (a drag of one of
+    /// them keeps the others).
+    pub fn select_control(&self, band: BandRef, index: usize) {
+        let kept = self.selected_indices().is_some_and(|(b, all)| b == band && all.contains(&index));
+        if !kept {
+            self.also.set(Vec::new());
+        }
+        self.selection.set(Selection::Control(band, index));
+    }
+
+    /// Shift- or Cmd-click: adds the control to those selected, or takes it out. A control of
+    /// another band starts a selection of its own.
+    pub fn toggle_selected(&self, band: BandRef, index: usize) {
+        match self.selection.get() {
+            Selection::Control(b, first) if b == band => {
+                if index == first {
+                    return;
+                }
+                self.also.update(|also| {
+                    if let Some(at) = also.iter().position(|&i| i == index) {
+                        also.remove(at);
+                    } else {
+                        also.push(index);
+                    }
+                });
+            }
+            _ => {
+                self.also.set(Vec::new());
+                self.selection.set(Selection::Control(band, index));
+            }
+        }
+    }
+
+    /// The band and the places of every control selected, the reference first.
+    pub fn selected_indices(&self) -> Option<(BandRef, Vec<usize>)> {
+        let Selection::Control(band, first) = self.selection.get() else { return None };
+        let mut all = vec![first];
+        all.extend(self.also.get().into_iter().filter(|&i| i != first));
+        Some((band, all))
+    }
+
+    /// Whether more than one control is selected.
+    pub fn several_selected(&self) -> bool {
+        self.selected_indices().is_some_and(|(_, all)| all.len() > 1)
+    }
+
+    /// Lines up or sizes the controls selected to the reference, the first one selected, as one
+    /// undoable step.
+    pub fn arrange_selected(&self, how: Arrange) {
+        let Some((band, all)) = self.selected_indices() else { return };
+        if all.len() < 2 {
+            return;
+        }
+        self.edit(|r| {
+            let Some(b) = band.get_mut(r) else { return };
+            let Some(anchor) = b.controls.get(all[0]).cloned() else { return };
+            for &i in &all[1..] {
+                let Some(c) = b.controls.get_mut(i) else { continue };
+                match how {
+                    Arrange::Left => c.x = anchor.x,
+                    Arrange::Center => c.x = anchor.x + (anchor.width - c.width) / 2.0,
+                    Arrange::Right => c.x = anchor.x + anchor.width - c.width,
+                    Arrange::Top => c.y = anchor.y,
+                    Arrange::Middle => c.y = anchor.y + (anchor.height - c.height) / 2.0,
+                    Arrange::Bottom => c.y = anchor.y + anchor.height - c.height,
+                    Arrange::SameWidth => c.width = anchor.width,
+                    Arrange::SameHeight => c.height = anchor.height,
+                }
+            }
+        });
     }
 
     /// The text of an expression, empty if there is none.

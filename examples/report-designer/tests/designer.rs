@@ -350,3 +350,62 @@ fn a_control_dragged_from_the_toolbox_lands_where_it_is_let_go() {
         "at the height it was let go: {placed:?} {target:?}"
     );
 }
+
+/// The labels on the page, left to right: the surface shows each control's text at its left.
+fn labels_on_page(ui: &mut Ui) -> Vec<Point> {
+    let tree = ui.access_tree();
+    let page = tree.find(Role::Label, "Detalhe").expect("detail band caption").bounds;
+    let dock = tree.find(Role::Tab, "Lista de campos").expect("the dock").bounds.x();
+    let mut found: Vec<Point> = tree
+        .nodes
+        .iter()
+        .filter(|n| n.name.as_deref() == Some("Texto") && n.role == Role::Label)
+        .map(|n| n.bounds)
+        // The band's caption sits a little inside the page, so the left of the page is before it.
+        .filter(|b| b.x() >= page.x() - 40.0 && b.x() < dock && b.y() > page.y())
+        .map(|b| b.center())
+        .collect();
+    found.sort_by(|a, b| a.x.total_cmp(&b.x));
+    found
+}
+
+fn click_with(ui: &mut Ui, at: Point, shift: bool) {
+    // A key let go says which modifiers are down, and types nothing.
+    ui.handle_event(&Event::KeyUp {
+        key: Key::Character("a".into()),
+        modifiers: Modifiers { shift, ..Modifiers::default() },
+    });
+    ui.handle_event(&Event::PointerMove { position: at });
+    ui.handle_event(&Event::PointerDown { position: at, button: PointerButton::Primary });
+    ui.handle_event(&Event::PointerUp { position: at, button: PointerButton::Primary });
+    ui.update();
+    ui.update();
+}
+
+#[test]
+fn shift_click_picks_more_controls_and_the_ribbon_lines_them_up() {
+    // #46: several controls selected, lined up to the first one picked.
+    let mut ui = designer();
+    press(&mut ui, Role::Button, "Em branco");
+    press(&mut ui, Role::Button, "Rótulo");
+    press(&mut ui, Role::Button, "Rótulo");
+    let placed = labels_on_page(&mut ui);
+    assert_eq!(placed.len(), 2, "two labels side by side: {placed:?}");
+    let off = |ui: &mut Ui| {
+        ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.name.as_deref() == Some("Alinhar à esquerda"))
+            .map(|n| n.disabled)
+    };
+    click_with(&mut ui, placed[0], false);
+    assert_eq!(off(&mut ui), Some(true), "one control: nothing to line up");
+    click_with(&mut ui, placed[1], true);
+    assert_eq!(off(&mut ui), Some(false), "two controls picked");
+
+    press(&mut ui, Role::Button, "Alinhar à esquerda");
+    let lined = labels_on_page(&mut ui);
+    assert!(lined.iter().all(|p| (p.x - placed[0].x).abs() < 1.0), "both where the first one is: {lined:?}");
+    press(&mut ui, Role::Button, "Desfazer");
+    assert_eq!(labels_on_page(&mut ui), placed, "undone");
+}

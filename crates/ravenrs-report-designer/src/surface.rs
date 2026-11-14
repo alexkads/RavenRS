@@ -223,9 +223,11 @@ impl View for BandView {
                 }
             })),
         );
+        let also = e.also.get();
         let mut children = vec![grid];
         for (i, c) in band.controls.iter().enumerate() {
-            let selected = selection == Selection::Control(self.band, i);
+            let selected = selection == Selection::Control(self.band, i)
+                || (matches!(selection, Selection::Control(b, _) if b == self.band) && also.contains(&i));
             children.push(cx.keyed_child(
                 i as u64,
                 &ControlView {
@@ -556,9 +558,21 @@ impl View for ControlView {
         let (e2, band, index, zoom) = (e.clone(), self.band, self.index, z);
         let band_width = self.width / z;
         let start: Rc<Cell<Option<(Point, f32, f32)>>> = Rc::new(Cell::new(None));
+        // Shift- or Cmd-click adds the control to the selection, or takes it out, and moves nothing.
+        let (modifiers, toggled) = (cx.modifiers(), Rc::new(Cell::new(false)));
         cx.on_drag(
             node,
             Rc::new(move |d| match d.phase {
+                DragPhase::Start
+                    if {
+                        let m = modifiers.get();
+                        m.shift || m.meta || m.ctrl
+                    } =>
+                {
+                    toggled.set(true);
+                    e2.toggle_selected(band, index);
+                }
+                DragPhase::End if toggled.replace(false) => {}
                 DragPhase::Start => {
                     let pos = e2
                         .report
@@ -566,9 +580,10 @@ impl View for ControlView {
                     if let Some((x, y)) = pos {
                         start.set(Some((d.position, x, y)));
                         e2.checkpoint();
-                        e2.selection.set(Selection::Control(band, index));
+                        e2.select_control(band, index);
                     }
                 }
+                DragPhase::Move if toggled.get() => {}
                 DragPhase::Move => {
                     if let Some((p0, x0, y0)) = start.get() {
                         let (dx, dy) = ((d.position.x - p0.x) / zoom, (d.position.y - p0.y) / zoom);

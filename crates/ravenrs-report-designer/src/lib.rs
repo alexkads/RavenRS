@@ -453,6 +453,26 @@ impl Designer {
                             .on_click(move || e.reorder_selected(false))
                     }),
             )
+            .group({
+                // Shift- or Cmd-click picks more controls; they follow the first one picked (#46).
+                let several = e.several_selected();
+                let arrange = |name: &'static str, icon: IconName, how: editor::Arrange| {
+                    let e = e.clone();
+                    RibbonItem::button(name, icon)
+                        .small()
+                        .enabled(several)
+                        .on_click(move || e.arrange_selected(how))
+                };
+                RibbonGroup::new("Organizar")
+                    .item(arrange("Alinhar à esquerda", IconName::AlignLeft, editor::Arrange::Left))
+                    .item(arrange("Alinhar ao centro", IconName::AlignCenter, editor::Arrange::Center))
+                    .item(arrange("Alinhar à direita", IconName::AlignRight, editor::Arrange::Right))
+                    .item(arrange("Alinhar em cima", IconName::ChevronUp, editor::Arrange::Top))
+                    .item(arrange("Alinhar no meio", IconName::EllipsisVertical, editor::Arrange::Middle))
+                    .item(arrange("Alinhar embaixo", IconName::ChevronDown, editor::Arrange::Bottom))
+                    .item(arrange("Mesma largura", IconName::SlidersHorizontal, editor::Arrange::SameWidth))
+                    .item(arrange("Mesma altura", IconName::ArrowUpDown, editor::Arrange::SameHeight))
+            })
             .group(
                 RibbonGroup::new("Zoom")
                     .item(
@@ -1425,5 +1445,53 @@ mod tests {
         assert!(Designer::embedded(report(), "Salvar", "Fechar", |_| {}, || {}).theme_menu);
         let kept = Designer::embedded(report(), "Salvar", "Fechar", |_| {}, || {}).theme_menu(false);
         assert!(!kept.theme_menu);
+    }
+
+    #[test]
+    fn several_controls_line_up_and_size_to_the_first_one_picked_and_go_together() {
+        // #46: Shift- or Cmd-click picks more controls of the band; the Ribbon lines them up.
+        let label = |x: f32, y: f32, w: f32, h: f32| Control::label("Texto").at(x, y, w, h);
+        let report = Report::new("Teste").detail(
+            ravenrs_report::Band::new(80.0)
+                .control(label(10.0, 4.0, 100.0, 18.0))
+                .control(label(150.0, 30.0, 60.0, 24.0))
+                .control(label(260.0, 12.0, 80.0, 18.0)),
+        );
+        let e = Editor::new(report);
+        let boxes = |e: &Editor| {
+            e.report
+                .with(|r| r.detail.controls.iter().map(|c| (c.x, c.y, c.width, c.height)).collect::<Vec<_>>())
+        };
+        e.select_control(BandRef::Detail, 0);
+        assert!(!e.several_selected());
+        e.toggle_selected(BandRef::Detail, 1);
+        e.toggle_selected(BandRef::Detail, 2);
+        assert!(e.several_selected());
+        assert_eq!(e.selected_indices(), Some((BandRef::Detail, vec![0, 1, 2])));
+        e.toggle_selected(BandRef::Detail, 2);
+        assert_eq!(e.selected_indices(), Some((BandRef::Detail, vec![0, 1])), "a second click takes it out");
+
+        e.arrange_selected(editor::Arrange::Left);
+        e.arrange_selected(editor::Arrange::Top);
+        e.arrange_selected(editor::Arrange::SameWidth);
+        assert_eq!(boxes(&e)[1], (10.0, 4.0, 100.0, 24.0), "to the first one picked");
+        assert_eq!(boxes(&e)[2], (260.0, 12.0, 80.0, 18.0), "the one taken out stays");
+        e.arrange_selected(editor::Arrange::Bottom);
+        assert_eq!(boxes(&e)[1].1, 4.0 + 18.0 - 24.0, "bottoms lined up");
+        e.undo();
+        e.undo();
+        assert_eq!(boxes(&e)[1], (10.0, 4.0, 60.0, 24.0), "each one undoes on its own");
+
+        // A plain click on one already picked keeps the others, as a drag of the group would; on
+        // another, it picks that one alone.
+        e.toggle_selected(BandRef::Detail, 1);
+        e.select_control(BandRef::Detail, 0);
+        assert_eq!(e.selected_indices(), Some((BandRef::Detail, vec![0, 1])));
+        e.select_control(BandRef::Detail, 2);
+        assert_eq!(e.selected_indices(), Some((BandRef::Detail, vec![2])));
+        e.toggle_selected(BandRef::Detail, 0);
+        e.delete_selected();
+        assert_eq!(e.report.with(|r| r.detail.controls.len()), 1, "both go together, the third stays");
+        assert!(!e.several_selected());
     }
 }
