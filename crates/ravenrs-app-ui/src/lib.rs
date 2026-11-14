@@ -61,7 +61,7 @@ pub use list_view::{CellText, ColumnShape, GridShape, ListView};
 pub use model_editor::ModelEditor;
 pub use pane::{EntityPane, PaneWords};
 pub use ravenrs_app_i18n::{Catalog, Language, Texts};
-pub use security::{SecuredApp, SignInAction};
+pub use security::{DoorParts, SecuredApp, SignInAction};
 pub use session::{CollectionSource, FormCaption, Session};
 pub use session::{EditorRegistry, EditorRequest};
 pub use session::{JobInfo, JobProgress};

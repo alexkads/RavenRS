@@ -32,6 +32,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::EntityPane::__live_expose(registry);
     crate::SignInAction::__live_expose_fields(registry);
     crate::SignInAction::__live_expose(registry);
+    crate::DoorParts::__live_expose_fields(registry);
+    crate::DoorParts::__live_expose(registry);
     crate::SecuredApp::__live_expose_fields(registry);
     crate::SecuredApp::__live_expose(registry);
     crate::JobInfo::__live_expose_fields(registry);
