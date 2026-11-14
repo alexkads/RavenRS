@@ -1088,3 +1088,20 @@ fn stacked_split_panes_fill_a_column_in_a_row_that_grows() {
     let dot = named(&tree, Role::Image, "Bottom").bounds;
     assert!(dot.max_y() > 480.0, "the last pane ends at the bottom of the window: {dot:?}");
 }
+
+#[test]
+fn a_tool_dragged_out_of_a_rail_says_which_and_where() {
+    // #44: the report designer drags controls of its toolbox onto a page this way.
+    let tool = State::new(0);
+    let heard: Rc<RefCell<Vec<(usize, DragPhase)>>> = Rc::default();
+    let kept = heard.clone();
+    let rail = ToolRail::new(tool.binding(), [(IconName::MousePointer, "Pointer"), (IconName::Type, "Text")])
+        .on_drag_tool(move |i, drag| kept.borrow_mut().push((i, drag.phase)));
+    let mut ui = ui(rail);
+    let at = button_at(&mut ui, "Text");
+    drag(&mut ui, at, Point::new(at.x + 300.0, at.y + 100.0));
+    let heard = heard.borrow();
+    assert_eq!(heard.first(), Some(&(1, DragPhase::Start)), "{heard:?}");
+    assert!(heard.iter().any(|(i, phase)| *i == 1 && *phase == DragPhase::End), "{heard:?}");
+    assert_eq!(tool.get(), 0, "a drag does not open the tool");
+}

@@ -3779,6 +3779,7 @@ method ToggleGroup::single
 method ToolRail::columns
 method ToolRail::icons_only
 method ToolRail::new
+method ToolRail::on_drag_tool
 method ToolRail::separator
 method ToolRail::tool
 method ToolRail::width

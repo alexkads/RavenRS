@@ -517,8 +517,12 @@ impl Designer {
                 }
             },
         );
-        let mut rail =
-            ToolRail::new(pick, [(IconName::MousePointer, "Ponteiro")]).icons_only(true).separator();
+        let dragging = self.editor.clone();
+        let mut rail = ToolRail::new(pick, [(IconName::MousePointer, "Ponteiro")])
+            .icons_only(true)
+            .separator()
+            // A control dragged onto a band falls where the pointer lets go (#44).
+            .on_drag_tool(move |i, d| drag_tool(&dragging, i, d));
         for (name, icon, _) in TOOLS {
             rail = rail.tool(ToolRailItem::new(icon, name));
         }
@@ -605,6 +609,41 @@ const TOOLS: [Tool; 16] =
     ];
 
 /// Drops a new control into the band in use, at a free spot, and selects it.
+/// A control of the toolbox dragged onto a band: the ghost follows the pointer, and letting go
+/// over a band puts the control there, on the grid. `i` counts the pointer first.
+fn drag_tool(e: &Editor, i: usize, d: &ravenrs_widgets::Drag) {
+    let Some(&(name, _, make)) = i.checked_sub(1).and_then(|i| TOOLS.get(i)) else { return };
+    match d.phase {
+        DragPhase::Start => {
+            e.drag.set(Some(FieldDrag {
+                path: name.to_owned(),
+                tool: Some(i - 1),
+                start: d.position,
+                at: d.position,
+            }));
+        }
+        DragPhase::Move => e.drag.update(|g| {
+            if let Some(g) = g {
+                g.at = d.position;
+            }
+        }),
+        _ => {
+            let Some(g) = e.drag.get() else { return };
+            e.drag.set(None);
+            if (g.at.x - g.start.x).hypot(g.at.y - g.start.y) <= 4.0 {
+                return;
+            }
+            if let Some((band, at)) = e.band_at(d.position) {
+                let mut c = make();
+                c.x = editor::snap(at.x.max(0.0));
+                c.y = editor::snap((at.y - c.height / 2.0).max(0.0));
+                e.add_control(band, c);
+                e.tab.set(0);
+            }
+        }
+    }
+}
+
 fn insert_tool(e: &Editor, make: fn() -> Control) {
     let band = e.target_band();
     let mut c = make();
@@ -734,9 +773,12 @@ impl View for FieldItem {
         cx.on_drag(
             row,
             Rc::new(move |d| match d.phase {
-                DragPhase::Start => {
-                    e.drag.set(Some(FieldDrag { path: path.clone(), start: d.position, at: d.position }))
-                }
+                DragPhase::Start => e.drag.set(Some(FieldDrag {
+                    path: path.clone(),
+                    tool: None,
+                    start: d.position,
+                    at: d.position,
+                })),
                 DragPhase::Move => e.drag.update(|g| {
                     if let Some(g) = g {
                         g.at = d.position;
@@ -818,7 +860,8 @@ impl View for FieldGhost {
         let anchor = cx.empty();
         if let Some(g) = self.0.drag.get().filter(|g| (g.at.x - g.start.x).hypot(g.at.y - g.start.y) > 4.0) {
             let over = self.0.band_at(g.at).is_some();
-            let chip = Badge::new(format!("[{}]", g.path))
+            let label = if g.tool.is_some() { g.path.clone() } else { format!("[{}]", g.path) };
+            let chip = Badge::new(label)
                 .icon(if over { IconName::Plus } else { IconName::Database })
                 .tone(if over { Tone::Accent } else { Tone::Neutral });
             cx.overlay(anchor, Placement::At(Point::new(g.at.x + 12.0, g.at.y + 8.0)), &chip, None);

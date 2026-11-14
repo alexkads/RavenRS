@@ -309,3 +309,44 @@ fn the_group_and_sort_panel_lists_moves_adds_and_removes_levels() {
     assert_eq!(group_titles(&mut ui), ["1. [Region]", "2. [City]"]);
     audit(&mut ui, "group and sort panel");
 }
+
+#[test]
+fn a_control_dragged_from_the_toolbox_lands_where_it_is_let_go() {
+    // #44: dragging, not only clicking, puts a control of the toolbox on a band.
+    let mut ui = designer();
+    press(&mut ui, Role::Button, "Em branco");
+    let labels =
+        |ui: &mut Ui| ui.access_tree().nodes.iter().filter(|n| n.name.as_deref() == Some("Texto")).count();
+    let before = labels(&mut ui);
+    let tree = ui.access_tree();
+    let source = tree
+        .nodes
+        .iter()
+        .find(|n| n.role == Role::Button && n.name.as_deref() == Some("Rótulo"))
+        .expect("the label tool")
+        .bounds
+        .center();
+    let band = tree.find(Role::Label, "Detalhe").expect("detail band caption").bounds;
+    let target = Point::new(band.x() + 240.0, band.max_y() + 14.0);
+    ui.handle_event(&Event::PointerMove { position: source });
+    ui.handle_event(&Event::PointerDown { position: source, button: PointerButton::Primary });
+    ui.update();
+    ui.handle_event(&Event::PointerMove { position: target });
+    ui.update();
+    ui.handle_event(&Event::PointerUp { position: target, button: PointerButton::Primary });
+    ui.update();
+    ui.update();
+    assert!(labels(&mut ui) > before, "the label landed on the band");
+    let tree = ui.access_tree();
+    let placed = tree
+        .nodes
+        .iter()
+        .filter(|n| n.name.as_deref() == Some("Texto"))
+        .map(|n| n.bounds)
+        .find(|b| (b.x() - (band.x() + 240.0)).abs() < 40.0)
+        .expect("near where it was let go");
+    assert!(
+        (placed.center().y - target.y).abs() < 20.0,
+        "at the height it was let go: {placed:?} {target:?}"
+    );
+}

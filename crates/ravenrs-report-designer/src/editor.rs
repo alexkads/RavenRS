@@ -20,7 +20,10 @@ pub enum Selection {
 /// A field being dragged from the field list.
 #[derive(Clone, Debug, PartialEq)]
 pub struct FieldDrag {
+    /// The field, or for a control of the toolbox, its name.
     pub path: String,
+    /// The control of the toolbox being dragged, by its place in `TOOLS`; `None` for a field.
+    pub tool: Option<usize>,
     pub start: Point,
     pub at: Point,
 }
