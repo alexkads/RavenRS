@@ -19,7 +19,7 @@ Dispare subagentes de leitura com modelo mais barato (Sonnet), um por grupo de f
 | Worktrees | `git worktree list`; em cada uma, `git -C <wt> status --short` e `git -C <wt> log origin/master..HEAD --oneline`: trabalho não commitado, commits sem push, PR já juntado |
 | Memória | o `MEMORY.md` do projeto: itens com "aguarda", "pausada", "implementar quando ele mandar", "falta", "pendente" |
 | Follow-ups | PRs juntados nos últimos 30 dias (`gh pr list --state merged --limit 50 --json number,body`): seções "Limitations"/"não feito" e "próximo passo" que não viraram issue |
-| Disco | `df -h /System/Volumes/Data`; `du -sh /private/tmp/claude-501/*/*`; o `target` de cada worktree |
+| Disco | `df -h /System/Volumes/Data`; `du -sh /private/tmp/claude-501/*/*`; o `target` de cada worktree; os caches de compilação: `~/.cache/ravenrs/xcache` (`ravenrs-xcache gc --max-size 20G` o reduz, `clear` o esvazia) e o do Kache (`kache stats`) |
 
 Antes de usar o que um subagente devolveu, confira os itens que pesam: número, estado atual e se outra sessão já resolveu.
 

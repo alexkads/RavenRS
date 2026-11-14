@@ -16,6 +16,7 @@ Esta skill é um mapa. O detalhe fica nos documentos do repositório, para exist
 | `docs/REPORTING.md`, `docs/REPORTING-PARITY.md` | Desenho, fases e paridade dos relatórios |
 | `docs/design-system/README.md` | Regras visuais e tokens |
 | `docs/AUTOMACAO-COMERCIAL.md`, skill `ravenrs-fiscal` | NF-e, sandbox, caixa, etiquetas, pagamentos e o que falta para vender |
+| Skill `ravenrs-check`, `crates/ravenrs-xcache/README.md` | Gate local, tempos por etapa e o cache de compilação entre worktrees (Kache ou `ravenrs-xcache`) |
 | Skill `ravenrs-acoplamento` | Antes de criar ou mover módulo ou crate, ou de acrescentar `use crate::…` entre módulos de topo: camadas, ciclos e a regra `module_cycle` |
 
 Se o código contradisser um documento, confie no código e corrija o documento na mesma mudança.
@@ -66,6 +67,7 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Telas de caixa, produtos e etiquetas | `crates/ravenrs-app-pos/src/`; `examples/mini-pdv` só compõe | `examples/mini-pdv/tests/`, `README.md` do exemplo |
 | O que o servidor MCP indexa | `crates/ravenrs-mcp/build.rs` acha sozinho fontes e Markdown; `src/docs.rs`, `src/api.rs`, `src/server.rs` respondem | `crates/ravenrs-mcp/tests/tools.rs`; ferramenta nova entra em `plugins/ravenrs/skills/ravenrs/SKILL.md`, que o teste confere |
 | Relatórios guardados e painéis no framework | `crates/ravenrs-app-report/src/`: `stored`, `analytics` | `crates/ravenrs-app-report/tests/stored.rs` |
+| Cache de compilação entre worktrees | `crates/ravenrs-xcache/src/`: `args` (o que pode ser guardado), `paths` (raízes e remapeamento), `store` (blobs, manifestos, registro), `wrapper` (consulta, restauração, compilação); ligado por `RAVENRS_XCACHE=1` em `scripts/check.sh` | README do crate (limites e plano), skill `ravenrs-check`, testes em `crates/ravenrs-xcache/tests/wrapper.rs` com o `rustc` de verdade |
 | Desempenho: cenas, gate, tempos | `crates/ravenrs-perf/src/scenes/`, `perf/baseline.json`; `Ui::stats`, `RenderStats` | Skill `ravenrs-desempenho`, `docs/QUALITY.md`, `docs/PERFORMANCE.md` |
 | Ferramentas do painel de diagnóstico | `crates/ravenrs-widgets-kit/src/diagnostics.rs`, dados em `crates/ravenrs-core/src/diagnostics.rs` | `crates/ravenrs-widgets/tests/suite/performance_tools.rs`, `docs/PERFORMANCE.md` |
 | Playground e interpretador | `crates/ravenrs-live/src/` (`eval`, `bridge`, `registry`); `#[expose]` em `crates/ravenrs-live-derive`; `LiveRunner` e adaptadores em `crates/ravenrs-widgets/src/live.rs` | `scripts/gen-live.py` depois de componente novo (gera `live_list.rs` em widgets, lendo também os crates `ravenrs-widgets-*`, e em movie, app e app-ui); o que não der para gerar fica à mão em `live.rs` de cada crate; `examples/component-gallery/live-pending.txt`; `crates/ravenrs-live/tests/eval.rs`, `crates/ravenrs-widgets/tests/suite/live.rs` |

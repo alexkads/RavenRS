@@ -354,6 +354,7 @@ Start with `ravenrs`. The others come in as you need them.
 | [`ravenrs-wayland-gestures`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-wayland-gestures) | Touchpad pinches on Wayland. |
 | [`ravenrs-mcp`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-mcp) | A read-only MCP server for coding assistants. A tool, not a dependency of your app. |
 | [`ravenrs-lint`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-lint) | Lints for applications: theme tokens, the 4px grid, named controls, no state or blocking work in `body`. A dev-dependency and `cargo ravenrs-lint`. |
+| [`ravenrs-xcache`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-xcache) | A compiler cache that worktrees share: it stands in front of rustc, takes the checkout and build paths out of what is compiled, and says why each compilation came from the cache or not. A tool of this repository, not published; libraries only for now. |
 
 ## Roadmap
 
