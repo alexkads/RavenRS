@@ -237,12 +237,42 @@ It checks prerequisites and invokes the Rust CLI's doctor for project and MCP va
 | --- | --- |
 | Permission is required in a noninteractive terminal | Pass `--yes` only when you want to authorize prerequisite installations |
 | Linux libraries are missing | Run the distribution-specific command printed by the bootstrap, then rerun |
+| The linker is killed with signal 9 on Linux | The machine ran out of memory: see [Machines with little memory](#machines-with-little-memory) |
 | Windows linker / Build Tools are missing | Install [MSVC Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) with the C++ workload and Windows SDK |
 | CLI and project versions differ | Install the CLI tag that matches your project's RavenRS dependencies |
 | Assistant files are stale | Run `cargo ravenrs ai`, then `cargo ravenrs doctor` |
 | A project directory already exists | Generated projects from the same framework version are preserved; unrelated directories are rejected |
 
-Native Linux libraries are skipped for web-only applications. Windows needs MSVC even for
+Native Linux libraries are skipped for web-only applications.
+
+### Machines with little memory
+
+Linking the larger templates (`app-sqlite`, `relatorios`) with the GNU linker and full debug
+info can take more than 4 GB, and the system then kills the linker (`signal: 9`, or `ld
+terminated with signal 9 [Killed]`). This happens on small Linux machines, CI runners and
+Docker Desktop with its default memory. Put this in the project's `.cargo/config.toml`; it
+changes only how this machine builds, not the application:
+
+```toml
+[build]
+jobs = 2
+
+# Use x86_64 or aarch64, as `uname -m` says. Needs the lld package.
+[target.x86_64-unknown-linux-gnu]
+rustflags = ["-C", "link-arg=-fuse-ld=lld"]
+
+[profile.dev]
+debug = 0
+
+[profile.test]
+debug = 0
+```
+
+LLD uses a fraction of the GNU linker's memory, two jobs keep two crates in memory at a time,
+and without debug info the test binaries are much smaller. You lose line numbers in a
+debugger's backtraces; keep `debug = "line-tables-only"` instead of `0` if you need them.
+`npm run test:e2e:linux` in `npm/create-ravenrs` builds `hello`, `app-sqlite` and
+`relatorios` this way, each in a Linux container limited to 4 GB. Windows needs MSVC even for
 web projects because the CLI itself is native. The CLI requires a rustup-managed toolchain.
 
 ## Release compatibility
