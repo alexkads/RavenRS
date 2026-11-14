@@ -245,9 +245,12 @@ impl Editor {
     /// Selects this control alone, unless it is already among those selected (a drag of one of
     /// them keeps the others).
     pub fn select_control(&self, band: BandRef, index: usize) {
-        let kept = self.selected_indices().is_some_and(|(b, all)| b == band && all.contains(&index));
-        if !kept {
-            self.also.set(Vec::new());
+        match self.selected_indices() {
+            // One of those picked: the others stay, the one before it among them.
+            Some((b, all)) if b == band && all.contains(&index) => {
+                self.also.set(all.into_iter().filter(|&i| i != index).collect());
+            }
+            _ => self.also.set(Vec::new()),
         }
         self.selection.set(Selection::Control(band, index));
     }

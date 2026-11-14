@@ -409,3 +409,58 @@ fn shift_click_picks_more_controls_and_the_ribbon_lines_them_up() {
     press(&mut ui, Role::Button, "Desfazer");
     assert_eq!(labels_on_page(&mut ui), placed, "undone");
 }
+
+/// Presses at `from`, moves the pointer there in steps, and lets go: a drag as a hand does it.
+fn drag_by(ui: &mut Ui, from: Point, to: Point) {
+    ui.handle_event(&Event::PointerMove { position: from });
+    ui.handle_event(&Event::PointerDown { position: from, button: PointerButton::Primary });
+    ui.update();
+    for step in 1..=4 {
+        let t = step as f32 / 4.0;
+        let at = Point::new(from.x + (to.x - from.x) * t, from.y + (to.y - from.y) * t);
+        ui.handle_event(&Event::PointerMove { position: at });
+        ui.update();
+    }
+    ui.handle_event(&Event::PointerUp { position: to, button: PointerButton::Primary });
+    ui.update();
+    ui.update();
+}
+
+#[test]
+fn a_control_dragged_inside_its_band_moves_with_the_pointer() {
+    // The press that starts the drag selects the control and builds the surface again; the drag
+    // goes on in the handler of that build, so where it started has to survive it.
+    let mut ui = designer();
+    press(&mut ui, Role::Button, "Em branco");
+    press(&mut ui, Role::Button, "Rótulo");
+    let placed = labels_on_page(&mut ui);
+    drag_by(&mut ui, placed[0], Point::new(placed[0].x + 60.0, placed[0].y));
+    let moved = labels_on_page(&mut ui);
+    assert!(
+        (moved[0].x - placed[0].x - 60.0).abs() < 8.0,
+        "it went right, on the grid: {placed:?} {moved:?}"
+    );
+    assert_eq!(moved[0].y, placed[0].y);
+}
+
+#[test]
+fn dragging_one_of_several_controls_picked_moves_them_all() {
+    // #46: the whole selection moves together, inside its band.
+    let mut ui = designer();
+    press(&mut ui, Role::Button, "Em branco");
+    press(&mut ui, Role::Button, "Rótulo");
+    press(&mut ui, Role::Button, "Rótulo");
+    let placed = labels_on_page(&mut ui);
+    assert_eq!(placed.len(), 2, "{placed:?}");
+    click_with(&mut ui, placed[0], false);
+    click_with(&mut ui, placed[1], true);
+    click_with(&mut ui, placed[1], false);
+    ui.handle_event(&Event::KeyUp { key: Key::Character("a".into()), modifiers: Modifiers::default() });
+    let picked = labels_on_page(&mut ui);
+    drag_by(&mut ui, picked[0], Point::new(picked[0].x + 40.0, picked[0].y));
+    let moved = labels_on_page(&mut ui);
+    assert_eq!(moved.len(), 2, "{moved:?}");
+    for (before, after) in picked.iter().zip(&moved) {
+        assert!((after.x - before.x - 40.0).abs() < 8.0, "both went right: {picked:?} {moved:?}");
+    }
+}
