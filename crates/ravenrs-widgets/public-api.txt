@@ -2226,6 +2226,7 @@ method BuildCx::on_pointer_move
 method BuildCx::on_wheel
 method BuildCx::overlay
 method BuildCx::pin
+method BuildCx::pin_left
 method BuildCx::reduced_motion
 method BuildCx::report_frame
 method BuildCx::request_focus
@@ -3392,10 +3393,12 @@ method ScrollLink::effect_at
 method ScrollLink::fade_in
 method ScrollLink::fade_out
 method ScrollLink::grow_from
+method ScrollLink::is_sideways
 method ScrollLink::keyframes
 method ScrollLink::parallax
 method ScrollLink::range
 method ScrollLink::scroll_range
+method ScrollLink::sideways
 method ScrollLinked::new
 method ScrollScene::length
 method ScrollScene::new
@@ -3590,6 +3593,7 @@ method Stepper::label
 method Stepper::new
 method Stepper::range
 method Stepper::read_only
+method Sticky::left
 method Sticky::new
 method Sticky::top
 method Styled::background

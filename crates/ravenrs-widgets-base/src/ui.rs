@@ -1538,6 +1538,14 @@ impl Ui {
                 frame = frame.translate(moved);
                 shift = shift + moved;
             }
+            // The same across, for a scroll that goes sideways.
+            if let Some(left) = self.elements[i].pin_left.filter(|_| !is_root) {
+                let rightmost = (parent_frame.max_x() - frame.width()).max(frame.x());
+                let x = frame.x().max(view.x() + left).min(rightmost);
+                let moved = Point::new(x - frame.x(), 0.0);
+                frame = frame.translate(moved);
+                shift = shift + moved;
+            }
             self.frames[i] = frame;
             self.shifts[i] = shift;
             self.views[i] = view;
@@ -1614,8 +1622,15 @@ impl Ui {
         }
     }
 
-    /// How far the scroll is along `range` for element `i`, from 0 to 1.
-    fn progress_of(&self, i: usize, range: crate::ScrollRange) -> f32 {
+    /// How far the scroll is along `range` for element `i`, from 0 to 1; `sideways` measures
+    /// across instead of down, with the left edge for the top and the right for the bottom.
+    fn progress_of(&self, i: usize, range: crate::ScrollRange, sideways: bool) -> f32 {
+        if sideways {
+            let across = |r: Rect| Rect::new(r.y(), r.x(), r.height(), r.width());
+            // A scene holds content down the page; across, the range is the pass itself.
+            let range = if range == crate::ScrollRange::Scene { crate::ScrollRange::Through } else { range };
+            return range.progress(across(self.frames[i]), across(self.views[i]), None);
+        }
         let mut scene = None;
         if range == crate::ScrollRange::Scene {
             let mut node = Some(NodeId(i as u32));
@@ -1637,7 +1652,7 @@ impl Ui {
     /// The effect element `i`'s scroll link gives at the current scroll position.
     fn scroll_effect(&self, i: usize) -> Effect {
         let Some(link) = &self.elements[i].scroll_link else { return Effect::IDENTITY };
-        let effect = link.effect_at(self.progress_of(i, link.scroll_range()));
+        let effect = link.effect_at(self.progress_of(i, link.scroll_range(), link.is_sideways()));
         // Asked for less motion, the scroll still fades things, but nothing moves or grows.
         if self.reduced_motion() { Effect::IDENTITY.with_opacity(effect.opacity) } else { effect }
     }
@@ -1703,7 +1718,7 @@ impl Ui {
             None => (None, None, frame, Effect::IDENTITY),
         };
         if let Some((range, cell)) = self.elements[i].progress_out.clone() {
-            cell.set(self.progress_of(i, range));
+            cell.set(self.progress_of(i, range, false));
         }
         let mut linked = self.scroll_effect(i);
         if let Some(link) = self.elements[i].time_link.clone() {

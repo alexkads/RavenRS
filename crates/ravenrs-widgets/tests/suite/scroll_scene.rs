@@ -153,3 +153,50 @@ fn scrolling_a_linked_scene_rebuilds_nothing() {
 fn scene_like() -> impl View {
     ScrollScene::new(ScrollLinked::new(marker(), ScrollLink::fade_out())).length(1000.0)
 }
+
+/// A scroll sideways, as a trackpad gives it.
+fn swipe(ui: &mut Ui, dx: f32) {
+    ui.handle_event(&Event::Scroll { position: Point::new(400.0, 300.0), delta: Point::new(dx, 0.0) });
+    ui.update();
+}
+
+fn column(width: f32) -> Canvas {
+    Canvas::new(|_, _| {}).size(width, 100.0)
+}
+
+#[test]
+fn sticky_content_stays_at_the_left_of_a_sideways_scroll_and_leaves_with_its_row() {
+    // #124: a row of cards that scrolls sideways keeps its title on screen.
+    let row = HStack::new((Sticky::new(Button::new("Title")).left(10.0), column(1500.0))).spacing(0.0);
+    let content = HStack::new((column(300.0), row, column(1500.0))).spacing(0.0);
+    let mut ui = ui(ScrollView::new((content,)).horizontal().spacing(0.0));
+    let at_first = bounds(&mut ui, "Title");
+    assert_eq!(at_first.x(), 300.0, "in place before its row reaches the left");
+
+    swipe(&mut ui, -500.0);
+    let held = bounds(&mut ui, "Title");
+    assert_eq!(held.x(), 10.0, "held 10 pixels from the left");
+    assert_eq!(held.y(), at_first.y(), "and it does not move down");
+
+    swipe(&mut ui, -1500.0);
+    let gone = bounds(&mut ui, "Title");
+    assert!(gone.x() < 10.0, "taken away by the right of its row, at {gone:?}");
+}
+
+#[test]
+fn a_sideways_link_follows_the_pass_across_the_view() {
+    let fade = ScrollLink::keyframes([(0.0, Effect::hidden()), (1.0, Effect::IDENTITY)])
+        .range(ScrollRange::Through)
+        .sideways();
+    let content =
+        HStack::new((column(700.0), ScrollLinked::new(marker(), fade), column(2000.0))).spacing(0.0);
+    let mut ui = ui(ScrollView::new((content,)).horizontal().spacing(0.0));
+    let coming = opacity(&marker_quad(&ui));
+    assert!(coming > 0.0 && coming < 0.2, "just in from the right: {coming}");
+    swipe(&mut ui, -300.0);
+    let further = opacity(&marker_quad(&ui));
+    assert!(
+        (further - (coming + 300.0 / 900.0)).abs() < 0.02,
+        "a third of the way further: {coming} {further}"
+    );
+}
