@@ -239,26 +239,10 @@ impl<C: ViewSeq> View for FillRow<C> {
     }
 }
 
-/// A column of the window as tall as the row it is in, so what grows inside it takes
-/// the height left: the toolbox and the docked panels.
-struct Column<V>(V, f32);
-
-impl<V: View> View for Column<V> {
-    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let theme = *cx.theme();
-        let content = cx.child(&self.0);
-        cx.container(
-            LayoutStyle {
-                width: Some(self.1),
-                min_height: Some(0.0),
-                overflow_hidden: true,
-                align: Align::Stretch,
-                ..LayoutStyle::stack(Axis::Vertical)
-            },
-            &[content],
-            Paint::Quad(QuadPaint::new(theme.color(Semantic::Surface))),
-        )
-    }
+/// A column of the window as tall as the row it is in, so what grows inside it takes the height
+/// left: the toolbox and the docked panels.
+fn window_column(content: impl View + 'static, width: f32) -> impl View {
+    content.background(Semantic::Surface).width(width)
 }
 
 /// Renders the report as it stands and sends it to the printer.
@@ -516,7 +500,7 @@ impl Designer {
         for (name, icon, _) in TOOLS {
             rail = rail.tool(ToolRailItem::new(icon, name));
         }
-        Column(ScrollView::new((rail.width(TOOLBOX_WIDTH),)).grow(1.0), TOOLBOX_WIDTH)
+        window_column(ScrollView::new((rail.width(TOOLBOX_WIDTH),)).grow(1.0), TOOLBOX_WIDTH)
     }
 
     /// The panels docked on the right: the field list and the report
@@ -542,7 +526,7 @@ impl Designer {
         ))
         .align(Align::Stretch)
         .grow(1.0);
-        Column(
+        window_column(
             SplitPanes::vertical()
                 .pane(SplitPane::new(top).size(320.0).range(160.0, 640.0))
                 .pane(SplitPane::new(bottom).range(220.0, f32::MAX)),

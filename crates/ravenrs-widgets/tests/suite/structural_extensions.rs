@@ -1061,3 +1061,30 @@ fn stacked_split_panes_fill_a_column_stretched_by_its_row() {
     let tree = ui.access_tree();
     assert_eq!(named(&tree, Role::Image, "Bottom").bounds.y(), 210.0, "below the first pane and the bar");
 }
+
+#[test]
+fn stacked_split_panes_fill_a_column_in_a_row_that_grows() {
+    // #40: a window column, a row that takes the height left, and in it a column of split panes.
+    // The last pane reaches the bottom of the window, not only the height of what it shows.
+    let top = SplitPane::new(VStack::new((Dot::new().label("Top"),)));
+    let bottom = SplitPane::new(
+        VStack::new((Dot::new().label("Bottom"),)).justify(ravenrs_layout::Justify::End).grow(1.0),
+    );
+    let column = VStack::new((SplitPanes::vertical()
+        .pane(top.size(200.0).range(100.0, 400.0))
+        .pane(bottom.range(150.0, f32::MAX)),))
+    .width(300.0)
+    .align(ravenrs_layout::Align::Stretch);
+    let window = VStack::new((
+        Text::new("Toolbar"),
+        HStack::new((column,)).grow(1.0).align(ravenrs_layout::Align::Stretch),
+    ))
+    .height(500.0)
+    .align(ravenrs_layout::Align::Stretch);
+    let mut ui = ui(window);
+    ui.update();
+    ui.update();
+    let tree = ui.access_tree();
+    let dot = named(&tree, Role::Image, "Bottom").bounds;
+    assert!(dot.max_y() > 480.0, "the last pane ends at the bottom of the window: {dot:?}");
+}
