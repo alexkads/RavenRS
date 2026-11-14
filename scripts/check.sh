@@ -73,10 +73,13 @@ report_timings() {
     python3 scripts/check-timings.py --steps "$timings" --save "$timings_dir/last.txt" \
         --total $((SECONDS - started)) --since "$started_at" --status "$status" --mode "$mode" \
         --build "$build_state" --junit target/nextest/default/junit.xml ${extra[@]+"${extra[@]}"} || true
-    if [ -n "$compiler_cache" ]; then
+    if [ "$compiler_cache" = kache ]; then
         echo
         echo "Compiler cache (kache stats --last-build):"
         kache stats --last-build 2>/dev/null | grep -E "Hit rate|By time|Time saved|Miss work|Not cached|Stored" || true
+    elif [ "$compiler_cache" = xcache ]; then
+        echo
+        "$xcache" stats || true
     fi
 }
 done_in() {
@@ -113,12 +116,23 @@ if ! command -v cargo-nextest >/dev/null; then
     exit 1
 fi
 
-# A compiler cache that worktrees share, when it is installed: Kache stands in front of rustc,
-# takes the checkout and build paths out of what it compiles, and restores what another worktree
-# already compiled. Each worktree keeps its own build directory. RAVENRS_KACHE=0 leaves it out, and a
-# RUSTC_WRAPPER already set is kept as it is.
+# A compiler cache that worktrees share. Each worktree keeps its own build directory; the cache
+# stands in front of rustc, takes the checkout and build paths out of what it compiles, and restores
+# what another worktree already compiled.
+#   RAVENRS_XCACHE=1  ravenrs-xcache, this repository's own (crates/ravenrs-xcache): libraries only
+#                     for now. It is built first, and incremental compilation is turned off for the
+#                     run, since an incremental compile cannot be kept.
+#   otherwise         Kache, when it is installed. RAVENRS_KACHE=0 leaves it out.
+# A RUSTC_WRAPPER already set is kept as it is.
 compiler_cache=""
-if [ -z "${RUSTC_WRAPPER:-}" ] && [ "${RAVENRS_KACHE:-1}" != 0 ] && command -v kache >/dev/null; then
+if [ -z "${RUSTC_WRAPPER:-}" ] && [ "${RAVENRS_XCACHE:-0}" = 1 ]; then
+    cargo build -q -p ravenrs-xcache --release
+    xcache="$target/release/ravenrs-xcache"
+    export RUSTC_WRAPPER="$xcache" CARGO_INCREMENTAL=0
+    compiler_cache=xcache
+    "$xcache" stats --reset >/dev/null 2>&1 || true
+    echo "compiler cache: $("$xcache" --version) (crates/ravenrs-xcache)"
+elif [ -z "${RUSTC_WRAPPER:-}" ] && [ "${RAVENRS_KACHE:-1}" != 0 ] && command -v kache >/dev/null; then
     export RUSTC_WRAPPER=kache
     compiler_cache=kache
     echo "compiler cache: $(kache --version) (RAVENRS_KACHE=0 turns it off)"
