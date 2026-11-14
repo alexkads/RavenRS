@@ -4,6 +4,10 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Added
+
+- **`ravenrs-deck`**, a new crate: the presentation model (slides, layouts and masters, shapes, text, tables, charts, animations and transitions), reading and writing PPTX and a native format, slides drawn to pixels, PDF export with notes pages and handouts, embedded audio and video probed and given poster frames, and the commands with undo an editor drives; it builds for the web too. ([#373](https://github.com/alexkads/RavenRS/issues/373))
+
 ## [27.1.28] - 2026-11-14
 
 ### Breaking

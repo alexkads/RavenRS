@@ -400,5 +400,262 @@
         "unit_tests": false
       }
     ]
+  },
+  "deckcraft": {
+    "repo": "https://github.com/storytold/deckcraft",
+    "crate": "crates/ravenrs-deck",
+    "lib": "ravenrs_deck",
+    "sources": [
+      {
+        "path": "crates/geom",
+        "module": "geom",
+        "ident": "deckcraft_geom"
+      },
+      {
+        "path": "crates/color",
+        "module": "color",
+        "ident": "deckcraft_color"
+      },
+      {
+        "path": "crates/model",
+        "module": "model",
+        "ident": "deckcraft_model"
+      },
+      {
+        "path": "crates/fonts",
+        "module": "fonts",
+        "ident": "deckcraft_fonts",
+        "replace": [
+          {
+            "from": "join\\(\"tests/fixtures",
+            "to": "join(\"tests/fonts_fixtures"
+          },
+          {
+            "from": "include_str!\\(\"tests/fixtures/",
+            "to": "include_str!(\"tests/fonts_fixtures/"
+          }
+        ],
+        "build_rs": true
+      },
+      {
+        "path": "crates/text",
+        "module": "text",
+        "ident": "deckcraft_text"
+      },
+      {
+        "path": "crates/anim",
+        "module": "anim",
+        "ident": "deckcraft_anim"
+      },
+      {
+        "path": "crates/render",
+        "module": "render",
+        "ident": "deckcraft_render"
+      },
+      {
+        "path": "crates/pdf",
+        "module": "pdf",
+        "ident": "deckcraft_pdf",
+        "replace": [
+          {
+            "from": "crate::third_party::krilla::",
+            "to": "krilla::"
+          },
+          {
+            "from": "backend as crate::third_party::krilla\\b",
+            "to": "backend as krilla"
+          }
+        ]
+      },
+      {
+        "path": "crates/pptx",
+        "module": "pptx",
+        "ident": "deckcraft_pptx"
+      },
+      {
+        "path": "crates/format",
+        "module": "format",
+        "ident": "deckcraft_format"
+      },
+      {
+        "path": "crates/media",
+        "module": "media",
+        "ident": "deckcraft_media",
+        "replace": [
+          {
+            "from": "join\\(\"tests/fixtures\"\\)",
+            "to": "join(\"tests/media_fixtures\")"
+          }
+        ]
+      },
+      {
+        "path": "crates/engine",
+        "module": "engine",
+        "ident": "deckcraft_engine",
+        "replace": [
+          {
+            "from": "Path::new\\(env!\\(\"CARGO_MANIFEST_DIR\"\\)\\)\\.join\\(\"src\"\\)",
+            "to": "Path::new(env!(\"CARGO_MANIFEST_DIR\")).join(\"src/engine\")"
+          },
+          {
+            "from": "f\\.ends_with\\(\"lib\\.rs\"\\)",
+            "to": "f.ends_with(\"mod.rs\")"
+          }
+        ]
+      },
+      {
+        "path": "crates/mcp",
+        "module": "mcp",
+        "ident": "deckcraft_mcp"
+      },
+      {
+        "path": "crates/metafile",
+        "module": "craft::metafile",
+        "ident": "craft_metafile",
+        "repo": "craft-libs",
+        "tests": false,
+        "unit_tests": false,
+        "features": {
+          "write": true
+        }
+      },
+      {
+        "path": "crates/pdf",
+        "module": "craft::pdf",
+        "ident": "craft_pdf",
+        "repo": "craft-libs",
+        "tests": false,
+        "unit_tests": false,
+        "features": {
+          "write": true,
+          "write-simple-text": true,
+          "write-pdf": false,
+          "read": false,
+          "interpret": false,
+          "raster": false,
+          "filters": false,
+          "cos": false,
+          "crypt": false
+        }
+      },
+      {
+        "path": "crates/media",
+        "module": "craft::media",
+        "ident": "craft_media",
+        "repo": "craft-libs",
+        "tests": false,
+        "unit_tests": false,
+        "features": {
+          "bitstream": true,
+          "isobmff": true,
+          "matroska": true,
+          "ogg": true,
+          "avi": false,
+          "mpegts": false,
+          "mxf": false,
+          "serde": false
+        }
+      },
+      {
+        "path": "crates/audio",
+        "module": "craft::audio",
+        "ident": "craft_audio",
+        "repo": "craft-libs",
+        "tests": false,
+        "unit_tests": false,
+        "features": {
+          "aac-decode": false,
+          "aac-encode": false,
+          "ac3-decode": false,
+          "ac3-encode": false,
+          "alac-decode": false,
+          "alac-encode": false,
+          "decode": false,
+          "decode-native": false,
+          "eac3-encode": false,
+          "encode": false,
+          "flac-encode": false,
+          "mp3-decode": false,
+          "mp3-encode": false,
+          "mpa-decode": false,
+          "pcm-encode": false,
+          "peaks": false,
+          "rayon": false,
+          "serde": false,
+          "symphonia": false,
+          "lossless-encode": false,
+          "opus-decode": true
+        }
+      },
+      {
+        "path": "crates/video",
+        "module": "craft::video",
+        "ident": "craft_video",
+        "repo": "craft-libs",
+        "tests": false,
+        "unit_tests": false,
+        "features": {
+          "apv": false,
+          "apv-decode": false,
+          "apv-encode": false,
+          "av1-encode": false,
+          "dnx": false,
+          "h264-encode": false,
+          "hevc-encode": false,
+          "mpeg2": false,
+          "mpeg4": false,
+          "mpeg4-encode": false,
+          "prores": false,
+          "vp8": false,
+          "vp8-decode": false,
+          "vp8-encode": false,
+          "vp9-encode": false,
+          "h264": false,
+          "hevc": false,
+          "vp9": false,
+          "av1": false,
+          "h264-decode": true,
+          "hevc-decode": true,
+          "vp9-decode": true,
+          "av1-decode": true,
+          "threads": true
+        }
+      },
+      {
+        "path": "vendor/krilla",
+        "module": "third_party::krilla",
+        "ident": "krilla",
+        "repo": "craft-libs",
+        "tests": false,
+        "unit_tests": false,
+        "precise": true,
+        "features": {
+          "raster-images": true,
+          "simple-text": true,
+          "pdf": false,
+          "comemo": false
+        },
+        "replace": [
+          {
+            "from": "feature\\s*=\\s*\"rayon\"",
+            "to": "not(target_arch = \"wasm32\")"
+          },
+          {
+            "from": "\\bskrifa::",
+            "to": "skrifa_042::"
+          },
+          {
+            "from": "(?m)^#!\\[deny\\(missing_docs\\)\\]$",
+            "to": "#![deny(missing_docs)]\n// RavenRS: krilla 0.8.2 uses the std::f32 constants newer compilers deprecate.\n#![allow(deprecated)]"
+          }
+        ]
+      }
+    ],
+    "repos": {
+      "craft-libs": {
+        "repo": "https://github.com/storytold/craft-libs",
+        "pinned_by": "the craft-media line of the root Cargo.toml of DeckCraft, at the DeckCraft revision"
+      }
+    }
   }
 }
