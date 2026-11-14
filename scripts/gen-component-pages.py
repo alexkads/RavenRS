@@ -111,10 +111,10 @@ TEMPLATE = """<!doctype html>
 """
 
 # What the playground of one example takes, in logical pixels: the page's padding and the bar,
-# then the taller of the code (its lines and the status under it) and the example (its own
-# height, the caption and padding around it, and the folded output). The gallery's tests check
-# these against its layout.
-PAGE, BAR, LINE, EDITOR, STATUS, AROUND_EXAMPLE = 32, 89, 22, 12, 46, 127
+# then the taller of the code (its lines, the file's tab over it and the status under it) and the
+# example (its own height, the caption and padding around it, and the folded output). The
+# gallery's tests check these against its layout.
+PAGE, BAR, LINE, EDITOR, STATUS, AROUND_EXAMPLE = 32, 89, 22, 12, 90, 127
 
 
 def with_uses(code):
