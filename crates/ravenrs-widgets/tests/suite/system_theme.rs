@@ -41,3 +41,19 @@ fn choosing_a_theme_by_hand_stops_following_the_system() {
     assert!(!ui.system_appearance().follows());
     assert_eq!(ui.theme().name, Theme::raven_glass().name);
 }
+
+#[test]
+fn an_application_s_own_pair_replaces_raven_s_when_following() {
+    let light = Theme { name: "Morning Star", ..Theme::raven_light() };
+    let dark = Theme { name: "Vigil", ..Theme::raven_dark() };
+    let mut ui = ui(light);
+    ui.system_themes(light, dark);
+    ui.follow_system_theme(true);
+    ui.set_system_dark(true);
+    assert_eq!(ui.theme().name, "Vigil");
+    ui.set_system_dark(false);
+    assert_eq!(ui.theme().name, "Morning Star");
+    // Given while following, the pair goes on at once.
+    ui.system_themes(Theme::raven_glass(), dark);
+    assert_eq!(ui.theme().name, Theme::raven_glass().name);
+}

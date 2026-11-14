@@ -40,6 +40,11 @@ impl ThemePicker {
         Self { themes: Theme::builtin().to_vec() }
     }
 
+    /// A menu of only these themes, such as an application's own, under their names.
+    pub fn of(themes: impl IntoIterator<Item = Theme>) -> Self {
+        Self { themes: themes.into_iter().collect() }
+    }
+
     /// Adds a theme of the application's own to the menu, under its name.
     pub fn theme(mut self, theme: Theme) -> Self {
         self.themes.push(theme);
@@ -59,7 +64,11 @@ impl View for ThemePicker {
             "Raven Dark" => (labels.theme_dark.clone(), IconName::Moon),
             "Raven Light" => (labels.theme_light.clone(), IconName::Sun),
             "Raven Glass" => (labels.theme_glass.clone(), IconName::Layers),
-            other => (other.to_owned(), IconName::Palette),
+            // One of the application's: a sun or a moon, by whether its text is light.
+            other if theme.palette.ink.contrast_ratio(Color::WHITE) < 2.0 => {
+                (other.to_owned(), IconName::Moon)
+            }
+            other => (other.to_owned(), IconName::Sun),
         };
         let current = if following {
             IconName::Monitor

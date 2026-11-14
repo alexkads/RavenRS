@@ -3623,7 +3623,9 @@ method SwatchGrid::selected
 method SystemAppearance::dark
 method SystemAppearance::follows
 method SystemAppearance::set_follow
+method SystemAppearance::set_themes
 method SystemAppearance::theme_for
+method SystemAppearance::theme_of
 method Table::new
 method Table::row
 method Tabs::disabled
@@ -3681,6 +3683,7 @@ method TextField::width
 method ThemeEditor::new
 method ThemeEditor::theme
 method ThemePicker::new
+method ThemePicker::of
 method ThemePicker::theme
 method ThemeSwitcher::new
 method ThemeSwitcher::on_change
@@ -3875,6 +3878,7 @@ method Ui::shortcuts
 method Ui::sound
 method Ui::stats
 method Ui::system_appearance
+method Ui::system_themes
 method Ui::take_frame_work
 method Ui::text_system
 method Ui::theme

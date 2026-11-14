@@ -559,9 +559,16 @@ impl Ui {
         self.appearance.report(dark, &self.theme);
     }
 
-    /// Makes the theme follow the system between Raven Dark and Raven Light, or stop.
+    /// Makes the theme follow the system between Raven Dark and Raven Light, or the pair given to
+    /// [`Ui::system_themes`], or stop.
     pub fn follow_system_theme(&mut self, follow: bool) {
         self.appearance.set_follow(follow, &self.theme);
+    }
+
+    /// Follows the system with these themes, such as an application's own, instead of Raven
+    /// Light and Raven Dark.
+    pub fn system_themes(&mut self, light: Theme, dark: Theme) {
+        self.appearance.set_themes(light, dark, &self.theme);
     }
 
     /// Whether the system is light or dark, and whether the theme follows it.

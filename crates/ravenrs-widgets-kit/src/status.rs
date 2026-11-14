@@ -585,6 +585,8 @@ impl View for EmptyState {
 }
 
 /// A wide band in a strong color, readable from across the room: "You can remove the card".
+/// In the accent tone its text is the theme's `on-accent`; on any other tone or color it is black
+/// or white, whichever has more contrast.
 ///
 /// ```
 /// use ravenrs_widgets::{HeroBanner, IconName, Tone};
@@ -652,17 +654,25 @@ impl HeroBanner {
     }
 }
 
-/// Black or white, whichever reads better on `fill`.
+/// Black or white, whichever has more contrast on `fill`: one of them always reaches 4.5:1.
 fn ink_on(fill: Color) -> Color {
-    let luminance = 0.2126 * fill.r + 0.7152 * fill.g + 0.0722 * fill.b;
-    if luminance > 0.55 { Color::BLACK } else { Color::WHITE }
+    let fill = fill.with_alpha(1.0);
+    if fill.contrast_ratio(Color::BLACK) >= fill.contrast_ratio(Color::WHITE) {
+        Color::BLACK
+    } else {
+        Color::WHITE
+    }
 }
 
 impl View for HeroBanner {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let fill = self.color.unwrap_or_else(|| self.tone.color(&theme));
-        let ink = ink_on(fill);
+        // On the theme's own accent, the theme says what reads on it.
+        let ink = match (self.color, self.tone) {
+            (None, Tone::Accent) => theme.palette.on_accent,
+            _ => ink_on(fill),
+        };
         let mut text = vec![util::label(cx, &self.title, TextStyle::Title, Some(Weight::BOLD), ink)];
         if let Some(description) = &self.description {
             text.push(util::label(cx, description, TextStyle::Body, None, ink));

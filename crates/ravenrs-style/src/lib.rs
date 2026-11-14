@@ -344,8 +344,12 @@ pub struct MotionTokens {
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Theme {
-    /// Display name, e.g. `"Raven Dark"`.
+    /// Display name, e.g. `"Raven Dark"`. A theme of an application's own has its own name; one
+    /// read from tokens gets the `"name"` there.
     pub name: &'static str,
+    /// The name of the built-in theme this one starts from: its tokens are kept and read as what
+    /// differs from that one. A theme made with `..Theme::raven_light()` inherits it.
+    pub based_on: &'static str,
     /// Color tokens.
     pub palette: Palette,
     /// Type scale.
@@ -386,6 +390,7 @@ impl Theme {
     pub const fn raven_dark() -> Self {
         Self {
             name: "Raven Dark",
+            based_on: "Raven Dark",
             palette: Palette {
                 bg_000: Color::hex(0x0b0d12),
                 bg_100: Color::hex(0x12151c),
@@ -420,6 +425,7 @@ impl Theme {
     pub const fn raven_light() -> Self {
         Self {
             name: "Raven Light",
+            based_on: "Raven Light",
             palette: Palette {
                 bg_000: Color::hex(0xf4f5f8),
                 bg_100: Color::hex(0xffffff),
@@ -455,6 +461,7 @@ impl Theme {
     pub const fn raven_glass() -> Self {
         Self {
             name: "Raven Glass",
+            based_on: "Raven Glass",
             palette: Palette {
                 bg_000: Color::hex(0x0a0e1a),
                 bg_100: Color::hex_alpha(0xffffff0f),
