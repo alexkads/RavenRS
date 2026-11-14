@@ -24,6 +24,20 @@ There is no service to start and nothing is installed. The cache is `~/.cache/ra
 
 `RAVENRS_XCACHE_DISABLE=1` runs rustc as if the wrapper were not there. `RAVENRS_XCACHE_VERIFY=0` restores without checking each file against its hash.
 
+## Measured
+
+`scripts/check.sh --full` of this repository, on a Mac with 10 cores and 16 GB, on 14/11/2026, one run of each, every step passing:
+
+| Scenario | Time |
+|---|---|
+| New worktree, no cache, incremental on (as it was) | 31m04s |
+| New worktree, `ravenrs-xcache` with an empty cache | 23m01s |
+| Same worktree again, nothing changed | 6m00s |
+| New worktree in a new path, cache full | **14m15s** |
+| The same paths as an earlier run, build directory emptied, cache full | 11m27s |
+
+The 23m01s with an empty cache is not the cache: it is `CARGO_INCREMENTAL=0`, which makes a build from nothing faster. In the new path, 3,825 of 4,557 libraries came from the cache. The 732 that did not are the release libraries of the web builds, which carry bitcode and are kept for their own paths (392), and what depends on them (336). With the same paths they are shared too, which is the 11m27s. For comparison, Kache on the same day took 11m30s in a new worktree: it also keeps what links.
+
 ## How it works
 
 **Taking the paths out.** rustc writes the paths it sees into what it produces and into the crate's identity, so the same crate built under two directories is two artifacts that do not even mix (rustc refuses with E0460). The wrapper adds `--remap-path-prefix` for the build directory and for the checkout, so rustc writes `/xcache/target` and `/xcache/cwd` instead. Measured on rustc 1.99: with that, the `.rlib` and `.rmeta` of a crate built under two roots are byte for byte the same. Registry crates keep their real path, which is the same for every worktree.
