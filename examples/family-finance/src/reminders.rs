@@ -2,6 +2,7 @@
 //! behind the tray, when the UI does not run. So it works on its own thread, with its
 //! own connection to the database and what it needs in a file beside it.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
@@ -164,8 +165,41 @@ impl TelegramNotice {
     }
 }
 
+/// Which notices one chat wants, once it chose for itself.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ChatNotices {
+    /// Whether it hears about bills.
+    pub bills: bool,
+    /// Whether it hears about budgets.
+    pub budget: bool,
+    /// Whether it gets the weekly summary.
+    pub weekly: bool,
+}
+
+impl ChatNotices {
+    fn is_on(self, kind: TelegramNotice) -> bool {
+        match kind {
+            TelegramNotice::Bills => self.bills,
+            TelegramNotice::Budget => self.budget,
+            TelegramNotice::Weekly => self.weekly,
+        }
+    }
+
+    fn set(&mut self, kind: TelegramNotice, on: bool) {
+        match kind {
+            TelegramNotice::Bills => self.bills = on,
+            TelegramNotice::Budget => self.budget = on,
+            TelegramNotice::Weekly => self.weekly = on,
+        }
+    }
+}
+
 /// What the Telegram bot tells and has told, in its own file beside the database: the
 /// system notifications keep theirs, so turning one off leaves the other.
+///
+/// Each chat turns its own notices on and off: with one chat per person, Ana turning the
+/// bills off must not silence Bruno. `bills`, `budget` and `weekly` are what a chat hears
+/// before it chooses, and what files written before the choice per chat said.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct TelegramNotices {
@@ -181,6 +215,8 @@ pub struct TelegramNotices {
     pub budget_told: Vec<String>,
     /// The Monday it last sent the summary.
     pub weekly_day: String,
+    /// The chats that chose for themselves, by chat id.
+    pub chats: BTreeMap<i64, ChatNotices>,
 }
 
 impl Default for TelegramNotices {
@@ -192,6 +228,7 @@ impl Default for TelegramNotices {
             bills_day: String::new(),
             budget_told: Vec::new(),
             weekly_day: String::new(),
+            chats: BTreeMap::new(),
         }
     }
 }
@@ -224,13 +261,52 @@ impl TelegramNotices {
         }
     }
 
-    /// Turns `kind` on or off.
+    /// Turns `kind` on or off for every chat that did not choose for itself.
     pub fn set(&mut self, kind: TelegramNotice, on: bool) {
         match kind {
             TelegramNotice::Bills => self.bills = on,
             TelegramNotice::Budget => self.budget = on,
             TelegramNotice::Weekly => self.weekly = on,
         }
+    }
+
+    fn defaults(&self) -> ChatNotices {
+        ChatNotices { bills: self.bills, budget: self.budget, weekly: self.weekly }
+    }
+
+    /// Whether `chat` hears `kind`.
+    pub fn is_on_for(&self, chat: i64, kind: TelegramNotice) -> bool {
+        self.chats.get(&chat).copied().unwrap_or_else(|| self.defaults()).is_on(kind)
+    }
+
+    /// Turns `kind` on or off for `chat` only.
+    pub fn set_for(&mut self, chat: i64, kind: TelegramNotice, on: bool) {
+        let defaults = self.defaults();
+        self.chats.entry(chat).or_insert(defaults).set(kind, on);
+    }
+
+    /// Whether some chat may hear `kind`, so it is worth looking for.
+    fn wanted(&self, kind: TelegramNotice) -> bool {
+        self.is_on(kind) || self.chats.values().any(|chat| chat.is_on(kind))
+    }
+
+    /// What is due today, as a chat that just connected should hear it: the bills and the
+    /// budgets past their limit, even if other chats were told already. Marks nothing, and
+    /// leaves the weekly summary for its Monday.
+    pub fn due_today(
+        &self,
+        db: &Database,
+        today: Date,
+        hour: u8,
+        chosen: &ReminderSettings,
+    ) -> crate::db::DbResult<Vec<(TelegramNotice, String)>> {
+        let mut fresh = Self {
+            bills_day: String::new(),
+            budget_told: Vec::new(),
+            weekly_day: today.to_string(),
+            ..self.clone()
+        };
+        fresh.due(db, today, hour, chosen)
     }
 
     /// What to tell now, from the hour chosen in Ajustes, each at most once: bills once a
@@ -247,14 +323,14 @@ impl TelegramNotices {
             return Ok(said);
         }
         let day = today.to_string();
-        if self.bills && self.bills_day != day {
+        if self.wanted(TelegramNotice::Bills) && self.bills_day != day {
             let settings = ReminderSettings { every_day: true, ..chosen.clone() };
             if let Some(notice) = notice_about(&db.open_bills()?, today, &settings) {
                 said.push((TelegramNotice::Bills, format!("{}: {}", notice.title, notice.body)));
             }
             self.bills_day = day.clone();
         }
-        if self.budget {
+        if self.wanted(TelegramNotice::Budget) {
             let month = &day[..7];
             self.budget_told.retain(|told| told.starts_with(month));
             for line in db.budget_lines(today)? {
@@ -277,7 +353,7 @@ impl TelegramNotices {
                 }
             }
         }
-        if self.weekly && today.weekday() == 1 && self.weekly_day != day {
+        if self.wanted(TelegramNotice::Weekly) && today.weekday() == 1 && self.weekly_day != day {
             let (from, to) = (today.add_days(-7), today);
             let totals = db.totals_between(from, to)?;
             let short = |date: Date| format!("{:02}/{:02}", date.day(), date.month());
@@ -444,6 +520,26 @@ mod tests {
             off.set(kind, false);
         }
         assert!(off.due(&db, monday, 9, &chosen).expect("read").is_empty(), "turned off");
+
+        // One chat turning a kind off leaves it on for the others, and it is still looked for.
+        let mut ana_off = TelegramNotices::default();
+        ana_off.set_for(1, TelegramNotice::Bills, false);
+        assert!(!ana_off.is_on_for(1, TelegramNotice::Bills));
+        assert!(ana_off.is_on_for(2, TelegramNotice::Bills), "Bruno still hears it");
+        assert!(ana_off.is_on_for(1, TelegramNotice::Budget), "only bills were turned off");
+        let mut only_ana = off.clone();
+        only_ana.set_for(1, TelegramNotice::Budget, true);
+        let said = only_ana.due(&db, monday, 9, &chosen).expect("read");
+        assert!(said.iter().all(|(kind, _)| *kind == TelegramNotice::Budget), "{said:?}");
+        assert!(!only_ana.is_on_for(2, TelegramNotice::Budget), "the others keep the default");
+
+        // A chat connected later still hears what is due today, without marking it again.
+        let told = notices.clone();
+        let today = told.due_today(&db, day(17), 9, &chosen).expect("read");
+        assert!(today.iter().any(|(kind, _)| *kind == TelegramNotice::Bills), "{today:?}");
+        assert!(today.iter().any(|(kind, _)| *kind == TelegramNotice::Budget), "{today:?}");
+        assert!(today.iter().all(|(kind, _)| *kind != TelegramNotice::Weekly), "{today:?}");
+        assert_eq!(told, notices, "nothing marked");
     }
 
     #[test]
