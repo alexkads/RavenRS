@@ -91,15 +91,15 @@ CARGO_TARGET_DIR=/private/tmp/claude-501/<projeto>/<sessão>/scratchpad/target .
 
 O script grava a pasta da checkout em `<target>/.ravenrs-checkout` e avisa em amarelo quando o diretório foi usado por outra. Diante desse aviso, ou de um dos sintomas acima, troque o diretório antes de culpar o código. Um diretório de build passa fácil de 20 GB: confira o disco antes (`df -h /System/Volumes/Data`).
 
-## Cache do compilador entre worktrees (Kache)
+## Cache do compilador entre worktrees (xcache por padrão, Kache como alternativa)
 
-Cada worktree tem o seu diretório de build, então uma worktree nova compilava tudo de novo. Com o [Kache](https://github.com/kunobi-ninja/kache) instalado, o `check.sh` o usa como `RUSTC_WRAPPER`, e o que outra worktree já compilou volta do cache. A instalação é uma vez por máquina:
+Cada worktree tem o seu diretório de build, então uma worktree nova compilava tudo de novo. Desde a #358, o `check.sh` põe o `ravenrs-xcache` na frente do `rustc` (seção abaixo). Com `RAVENRS_XCACHE=0` e o [Kache](https://github.com/kunobi-ninja/kache) instalado, o script usa o Kache como `RUSTC_WRAPPER`, e o que outra worktree já compilou volta do cache. A instalação é uma vez por máquina:
 
 ```bash
 cargo install kache --locked --version 2.1.1
 ```
 
-- O script só o liga quando acha o `kache` no `PATH` e nenhum `RUSTC_WRAPPER` está definido. Sem ele, o check roda igual, só mais devagar. `RAVENRS_KACHE=0` o deixa de fora.
+- O script só liga o Kache com `RAVENRS_XCACHE=0`, o `kache` no `PATH` e nenhum `RUSTC_WRAPPER` definido. Sem ele, o check roda igual, só mais devagar. `RAVENRS_KACHE=0` o deixa de fora.
 - **Não rode `kache init`** sem o Alex pedir: ele altera o ambiente do usuário. O script não precisa disso.
 - O diretório de build continua um por worktree. O Kache guarda os artefatos num cache próprio (cerca de 31 GB depois de um `--full`) e os restaura por clone copy-on-write.
 - Ao final, o check imprime a taxa de acertos (`kache stats --last-build`). Para saber por que um crate não veio do cache: `kache explain <crate>`.
@@ -116,7 +116,7 @@ cargo install kache --locked --version 2.1.1
 
 Os 5m58s são o piso: rodar os testes, os doctests, o `wasm-bindgen` e o `wasm-opt`, que não são compilação. Na worktree nova, 1.264 de 2.024 compilações vieram do cache, 91,5% do tempo de compilação; o que ainda compila são sobretudo os projetos que a CLI gera em pastas temporárias (2m26s) e os builds web (1m59s).
 
-**O cache próprio (`ravenrs-xcache`).** `RAVENRS_XCACHE=1 ./scripts/check.sh` usa o cache de compilação deste repositório (`crates/ravenrs-xcache`, issue #352) no lugar do Kache. É a primeira versão e guarda só bibliotecas. O que passa direto, e quanto custou, aparece nas estatísticas ao fim do check. Medido na mesma data: 14m15s numa worktree em caminho novo, com o cache cheio. O modo também desliga a compilação incremental, o que sozinho levou a rodada de cache vazio de 31m04s para 23m01s. Para saber por que um crate não veio do cache: `ravenrs-xcache explain <crate>`; para comparar do que duas chaves foram feitas: `RAVENRS_XCACHE_TRACE=<pasta>`. O README do crate tem o desenho, os limites e o plano.
+**O cache próprio (`ravenrs-xcache`), ligado por padrão (#358).** `./scripts/check.sh` usa o cache de compilação deste repositório (`crates/ravenrs-xcache`, issue #352) sem precisar de variável. `RAVENRS_XCACHE=0` desliga, e aí o Kache entra se estiver instalado. Ao fim de cada rodada, o script reduz o cache a 20 GB (`RAVENRS_XCACHE_MAX` muda o limite), apagando primeiro o que foi usado há mais tempo, porque todas as worktrees enchem a mesma pasta, `~/.cache/ravenrs/xcache`. É a primeira versão e guarda só bibliotecas. O que passa direto, e quanto custou, aparece nas estatísticas ao fim do check. Medido na mesma data: 14m15s numa worktree em caminho novo, com o cache cheio. O modo também desliga a compilação incremental, o que sozinho levou a rodada de cache vazio de 31m04s para 23m01s. Para saber por que um crate não veio do cache: `ravenrs-xcache explain <crate>`; para comparar do que duas chaves foram feitas: `RAVENRS_XCACHE_TRACE=<pasta>`. O README do crate tem o desenho, os limites e o plano.
 
 **Por que não o sccache.** Medido na mesma data: ele põe toda variável `CARGO_*` na chave, e cada worktree usa um `CARGO_TARGET_DIR` diferente. O mesmo código num segundo diretório teve 0 acertos em 34, e no uso real a taxa em Rust era de 0,26%. Passando o diretório por `--target-dir`, o `cargo check --workspace` teve 382 acertos, 150 perdas e 218 não cacheáveis, e caiu só de 81 s para 67 s. Sem `--remap-path-prefix`, o `rustc` grava o caminho no artefato e recusa misturar artefatos de diretórios diferentes (`E0460`). Ele foi desligado em `~/.cargo/config.toml`.
 

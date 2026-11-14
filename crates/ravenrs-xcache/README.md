@@ -11,7 +11,7 @@ cargo build -p ravenrs-xcache --release
 RUSTC_WRAPPER=$PWD/target/release/ravenrs-xcache CARGO_INCREMENTAL=0 cargo build
 ```
 
-`CARGO_INCREMENTAL=0` matters: an incremental compile depends on what the last one left in the build directory, so it cannot be kept, and Cargo compiles a workspace's own crates incrementally unless told otherwise. In this repository, `RAVENRS_XCACHE=1 scripts/check.sh` does both.
+`CARGO_INCREMENTAL=0` matters: an incremental compile depends on what the last one left in the build directory, so it cannot be kept, and Cargo compiles a workspace's own crates incrementally unless told otherwise. In this repository, `scripts/check.sh` does both by default, and cuts the cache down to 20 GB after each run (`RAVENRS_XCACHE_MAX` changes the size). `RAVENRS_XCACHE=0 scripts/check.sh` runs without it.
 
 There is no service to start and nothing is installed. The cache is `~/.cache/ravenrs/xcache`, or `RAVENRS_XCACHE_DIR`.
 
