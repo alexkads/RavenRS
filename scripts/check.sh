@@ -22,8 +22,9 @@
 # crate", a derive compiled from the other branch. Give each worktree its own CARGO_TARGET_DIR (in
 # its session's scratchpad) and delete it when the work is done.
 #
-# With Kache installed (cargo install kache --locked), a new worktree does not compile again what
-# another one compiled: see the skill ravenrs-check. Without it the checks run the same, slower.
+# A new worktree does not compile again what another one compiled: the script puts ravenrs-xcache,
+# this repository's own compiler cache, in front of rustc (RAVENRS_XCACHE=0 for Kache or none). See
+# the skill ravenrs-check.
 #
 # At the end, passing or failing, it prints the time of each step, slowest first, and whether the
 # build directory started empty (scripts/check-timings.py): the test step split into compiling and
@@ -80,6 +81,8 @@ report_timings() {
     elif [ "$compiler_cache" = xcache ]; then
         echo
         "$xcache" stats || true
+        # Every worktree fills the same cache: keep it from taking the disk.
+        "$xcache" gc --max-size "${RAVENRS_XCACHE_MAX:-20G}" || true
     fi
 }
 done_in() {
@@ -119,13 +122,14 @@ fi
 # A compiler cache that worktrees share. Each worktree keeps its own build directory; the cache
 # stands in front of rustc, takes the checkout and build paths out of what it compiles, and restores
 # what another worktree already compiled.
-#   RAVENRS_XCACHE=1  ravenrs-xcache, this repository's own (crates/ravenrs-xcache): libraries only
+#   by default        ravenrs-xcache, this repository's own (crates/ravenrs-xcache): libraries only
 #                     for now. It is built first, and incremental compilation is turned off for the
-#                     run, since an incremental compile cannot be kept.
-#   otherwise         Kache, when it is installed. RAVENRS_KACHE=0 leaves it out.
+#                     run, since an incremental compile cannot be kept. After the run the cache is cut
+#                     down to RAVENRS_XCACHE_MAX (20G), the results used longest ago going first.
+#   RAVENRS_XCACHE=0  Kache instead, when it is installed (RAVENRS_KACHE=0 leaves it out too).
 # A RUSTC_WRAPPER already set is kept as it is.
 compiler_cache=""
-if [ -z "${RUSTC_WRAPPER:-}" ] && [ "${RAVENRS_XCACHE:-0}" = 1 ]; then
+if [ -z "${RUSTC_WRAPPER:-}" ] && [ "${RAVENRS_XCACHE:-1}" != 0 ]; then
     cargo build -q -p ravenrs-xcache --release
     xcache="$target/release/ravenrs-xcache"
     export RUSTC_WRAPPER="$xcache" CARGO_INCREMENTAL=0
