@@ -22,10 +22,12 @@
 use std::rc::Rc;
 
 mod analytics;
+mod declared;
 mod print;
 mod stored;
 
 pub use analytics::{ANALYTICS_DASHBOARD, ANALYTICS_TILE, AnalyticsModule, analytics_entities};
+pub use declared::{AnalyticsApp, AnalyticsPanel, PanelChart};
 #[cfg(not(target_arch = "wasm32"))]
 pub use print::send_to_printer;
 pub use print::{

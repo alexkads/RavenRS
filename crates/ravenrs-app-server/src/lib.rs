@@ -8,6 +8,7 @@
 //! Tokens live in memory: restarting the service asks everyone to sign in again. It speaks plain
 //! HTTP, so anything beyond the machine it runs on belongs behind something that does TLS.
 
+mod hooks;
 mod http;
 mod json;
 mod keys;
@@ -17,6 +18,10 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
+pub use hooks::{
+    ORGANIZATION_HEADER, SIGNATURE_HEADER, WEBHOOK_EVENT, Webhook, WebhookContext, WebhookHandler, sign,
+    webhook_event_entity,
+};
 pub use http::{ApiOptions, router, router_with, serve, serve_with};
 use ravenrs_app::{
     APP_SETTING, AuditSettings, AuditTrail, AuditedObjectSpace, AuthError, Authenticator, CONTEXT_DELETE,
@@ -66,6 +71,8 @@ pub struct ApiRequest {
     pub bearer: Option<String>,
     /// The address it came from, as far as anyone can tell.
     pub client: Option<String>,
+    /// The `X-RavenRS-*` headers, with lowercase names, such as a webhook's signature.
+    pub headers: BTreeMap<String, String>,
     /// The body.
     pub body: Vec<u8>,
 }
@@ -89,6 +96,18 @@ impl ApiRequest {
     /// From this address.
     pub fn client(mut self, client: impl Into<String>) -> Self {
         self.client = Some(client.into());
+        self
+    }
+
+    /// With this header; its name is kept in lowercase.
+    pub fn header(mut self, name: &str, value: impl Into<String>) -> Self {
+        self.headers.insert(name.to_ascii_lowercase(), value.into());
+        self
+    }
+
+    /// With this body, as it is.
+    pub fn bytes(mut self, body: impl Into<Vec<u8>>) -> Self {
+        self.body = body.into();
         self
     }
 
@@ -235,6 +254,7 @@ pub struct ApiService {
     swept: Instant,
     settings: Option<Rc<dyn SettingsStore>>,
     declared: BTreeMap<String, SettingAccess>,
+    hooks: BTreeMap<String, Webhook>,
 }
 
 impl std::fmt::Debug for ApiService {
@@ -310,6 +330,7 @@ impl ApiService {
             swept: Instant::now(),
             settings,
             declared: BTreeMap::new(),
+            hooks: BTreeMap::new(),
         })
     }
 
@@ -369,6 +390,15 @@ impl ApiService {
         self
     }
 
+    /// Receives the notifications of `source` at `POST /api/hooks/{source}`, signed with the secret
+    /// of each organization: see [`Webhook`]. Storage has to know [`webhook_event_entity`]. The
+    /// entity is kept away from the rest of the API.
+    pub fn webhook(mut self, source: impl Into<String>, hook: Webhook) -> Self {
+        self.hooks.insert(source.into(), hook);
+        self.hidden.insert(WEBHOOK_EVENT.to_owned());
+        self
+    }
+
     /// Adds something of the application's own, run with the permissions of whoever calls it.
     pub fn endpoint(
         mut self,
@@ -392,6 +422,10 @@ impl ApiService {
         let method = request.method.as_str();
         match (method, path.as_slice()) {
             ("POST", ["api", "auth", "token"]) => return self.sign_in(request),
+            ("POST", ["api", "hooks", source]) => {
+                let hook = self.hooks.get(*source).ok_or_else(Failure::not_found)?;
+                return hooks::receive(hook, source, request, (self.space)());
+            }
             ("POST", ["api", "auth", "revoke"]) => {
                 if let Some(token) = &request.bearer {
                     self.sessions.remove(token);

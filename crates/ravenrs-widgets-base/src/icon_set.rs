@@ -404,6 +404,8 @@ pub enum IconName {
     Crosshair,
     /// The Lucide `flag-triangle-right` icon.
     FlagTriangleRight,
+    /// The Lucide `square-function` icon.
+    SquareFunction,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -610,6 +612,7 @@ impl IconName {
         IconName::Target,
         IconName::Crosshair,
         IconName::FlagTriangleRight,
+        IconName::SquareFunction,
     ];
 
     /// The Lucide name, e.g. `"chevron-down"`.
@@ -815,6 +818,7 @@ impl IconName {
             IconName::Target => "target",
             IconName::Crosshair => "crosshair",
             IconName::FlagTriangleRight => "flag-triangle-right",
+            IconName::SquareFunction => "square-function",
         }
     }
 
@@ -1021,6 +1025,7 @@ impl IconName {
             IconName::Target => '\u{e180}',
             IconName::Crosshair => '\u{e0ac}',
             IconName::FlagTriangleRight => '\u{e238}',
+            IconName::SquareFunction => '\u{e22d}',
         }
     }
 }

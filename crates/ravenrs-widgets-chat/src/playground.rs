@@ -76,6 +76,50 @@ impl<F: Fn(&str) -> Result<AnyView, Vec<CodeDiagnostic>>> Runner for F {
     }
 }
 
+/// Spaces a Tab puts in the playground's editor, which its status line says.
+const INDENT: usize = 4;
+
+/// The name of a file of `source`: Rust after its first function, as `slider.rs`.
+fn file_name_of(source: &str, language: CodeLanguage) -> String {
+    if language == CodeLanguage::Rust {
+        let mut words = source.split(|c: char| !(c.is_alphanumeric() || c == '_'));
+        while let Some(word) = words.next() {
+            if word == "fn"
+                && let Some(name) = words.find(|w| !w.is_empty())
+            {
+                return format!("{name}.rs");
+            }
+        }
+    }
+    "main.rs".to_owned()
+}
+
+/// A problem in the list that takes the caret to its place when clicked.
+struct GoesTo {
+    name: String,
+    content: AnyView,
+    go: Rc<dyn Fn()>,
+}
+
+impl View for GoesTo {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let child = cx.child(&self.content);
+        let node = cx.container(
+            ravenrs_layout::LayoutStyle::stack(ravenrs_layout::Axis::Vertical),
+            &[child],
+            crate::context::Paint::None,
+        );
+        cx.semantics(
+            node,
+            crate::context::Semantics::new(ravenrs_core::Role::Button).name(self.name.clone()),
+        );
+        cx.on_click(node, self.go.clone());
+        cx.focusable(node, cx.theme().radii.md);
+        cx.cursor(node, ravenrs_core::CursorIcon::Pointer);
+        node
+    }
+}
+
 /// A view kept between builds, shown again until the next run.
 #[derive(Clone)]
 struct Shown(Rc<dyn View>);
@@ -120,6 +164,7 @@ pub struct Playground {
     source: Option<Binding<String>>,
     example: Option<Binding<usize>>,
     language: CodeLanguage,
+    file_name: Option<String>,
     title: Option<String>,
     note: Option<String>,
     extras: Vec<Extra>,
@@ -144,6 +189,7 @@ impl Playground {
             source: None,
             example: None,
             language: CodeLanguage::Rust,
+            file_name: None,
             title: None,
             note: None,
             extras: Vec::new(),
@@ -175,6 +221,13 @@ impl Playground {
     /// The language the editor colors; Rust by default.
     pub fn language(mut self, language: CodeLanguage) -> Self {
         self.language = language;
+        self
+    }
+
+    /// The name on the tab over the editor, such as `slider.rs`. Without it, Rust code is
+    /// named after its first function, and other code `main.rs`.
+    pub fn file_name(mut self, name: impl Into<String>) -> Self {
+        self.file_name = Some(name.into());
         self
     }
 
@@ -525,13 +578,36 @@ impl View for Playground {
         .style(TextStyle::Caption)
         .foreground(Semantic::InkMuted);
 
+        let spaces = Text::new(labels.playground_spaces.replace("{count}", &INDENT.to_string()))
+            .style(TextStyle::Caption)
+            .foreground(Semantic::InkMuted);
+        let focus: State<bool> = cx.use_state(|| false);
+        // The tab over the editor: the file's name and its language, as in an editor.
+        let name = self.file_name.clone().unwrap_or_else(|| file_name_of(&source.get(), self.language));
+        let language = match self.language {
+            CodeLanguage::Rust => "Rust".to_owned(),
+            _ => labels.playground_plain_text.clone(),
+        };
+        let file_tab = HStack::new((
+            Text::new(name).style(TextStyle::Caption).font_weight(ravenrs_style::Weight::MEDIUM),
+            Spacer::new(),
+            Text::new(language).style(TextStyle::Caption).foreground(Semantic::InkMuted),
+        ))
+        .align(Align::Center)
+        .padding((6.0, 12.0));
         let code = VStack::new((
+            file_tab,
             CodeEditor::new(source.clone())
                 .language(self.language)
+                .indent(INDENT)
                 .diagnostics(found.clone())
-                .caret(caret)
+                .caret(caret.clone())
+                .focus_request(focus.clone())
                 .fill(),
-            HStack::new((status, Spacer::new(), position)).align(Align::Center).padding((6.0, 12.0)),
+            HStack::new((status, Spacer::new(), position, spaces))
+                .spacing(16.0)
+                .align(Align::Center)
+                .padding((6.0, 12.0)),
         ))
         .align(Align::Stretch)
         .grow(1.0)
@@ -609,7 +685,20 @@ impl View for Playground {
                         None => problem.message.clone(),
                     };
                     let tone = if problem.tone == Tone::Warning { Tone::Warning } else { Tone::Danger };
-                    Box::new(Alert::new(place, text).tone(tone)) as AnyView
+                    let (to, focus, code) = (caret.clone(), focus.clone(), source.clone());
+                    let (line, column) = (problem.line, problem.column);
+                    Box::new(GoesTo {
+                        name: labels.playground_go_to.replace("{place}", &place),
+                        content: Box::new(Alert::new(place, text).tone(tone)),
+                        go: Rc::new(move || {
+                            to.set(crate::text_field::Cursor::at(crate::offset_of(
+                                &code.get(),
+                                line,
+                                column,
+                            )));
+                            focus.set(true);
+                        }),
+                    }) as AnyView
                 })
                 .collect();
             Box::new(ScrollView::new((VStack::new(rows).spacing(8.0).align(Align::Stretch),)).grow(1.0))

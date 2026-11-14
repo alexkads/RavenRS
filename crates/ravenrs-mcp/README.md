@@ -57,6 +57,30 @@ Any other MCP client needs the same command:
 | `check_report_layout` | JSON errors with line and column, every expression checked against fields, calculated fields and parameters, and a render that reports pages and expression errors | `layout`, `data`, `parameters` |
 | `report_layout_templates` | The ready layouts (invoice, sales by region, sales dashboard, customer list), or the JSON of one | `name` |
 
+## Making a report with an assistant
+
+The report tools were exercised end to end by an assistant driving the server over stdio, as a
+client does (#48), from a project with only sample rows:
+
+1. `report_layout_format`, read once (about 10 KB), to learn the bands and controls.
+2. `create_report_layout` with `title`, the rows in `data`, `group_by`, `columns` with their
+   formats (`N0`, `C2`, `dd/MM/yyyy`), `totals` and `culture: "pt-BR"`. It answers the layout,
+   the fields it found, a `file_name` and its own check: here, 13 expressions and one page, with
+   a header and a subtotal per group, a grand total and page numbers.
+3. `check_report_layout` with the layout and the same rows before saving: `valid`, no problems.
+   A broken file answers `json_error` with its line and column instead.
+4. The layout saved as `.rvreport.json`. `check_report_layout` reads it with the same
+   `ravenrs-report` parser the report designer uses to open a file.
+
+Nothing in that run made the assistant guess wrong, so the descriptions and the instructions
+stayed as they are. Run it again when a tool changes:
+
+```text
+Using only the ravenrs MCP tools, create a "Sales by region" report from the rows in
+data.json, grouped by region, with totals, in pt-BR; check it with check_report_layout
+using the same rows and save it as sales.rvreport.json.
+```
+
 ## How it works
 
 `build.rs` embeds the Rust sources of every crate and example, and the Markdown at the root, under `docs` and beside each crate. A new crate or document comes in by itself, and it is only read as text: nothing here links against the crates it describes, so a crate with heavy or platform-only dependencies adds none here. On the first tool call, the server parses those sources with [`syn`](https://docs.rs/syn) into an index of public items and of call chains in the examples. The first call takes about 0.1 s in a release build, and later calls are immediate. Because the answers come from the sources, the rustdoc and the docs, there is nothing separate to keep up to date.

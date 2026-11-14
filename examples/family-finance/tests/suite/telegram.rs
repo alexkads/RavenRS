@@ -583,7 +583,9 @@ fn the_bot_tells_what_is_due_and_each_notice_turns_off() {
 
     assert!(fake.say(tap(STRANGER, "rf:aviso:orcamento:off")).contains("Escaneie o QR"));
     assert!(fake.say(tap(CHAT, "rf:aviso:orcamento:off")).contains("Aviso desligado: Orçamento estourado"));
-    assert!(!TelegramNotices::load(&TelegramNotices::file(&path)).budget, "kept beside the database");
+    let kept = TelegramNotices::load(&TelegramNotices::file(&path));
+    assert!(!kept.is_on_for(CHAT, TelegramNotice::Budget), "kept beside the database");
+    assert!(kept.budget, "only this chat turned it off");
     let list = fake.say(text(CHAT, "/avisos"));
     assert!(
         list.contains("Contas a vencer: ligado") && list.contains("Orçamento estourado: desligado"),

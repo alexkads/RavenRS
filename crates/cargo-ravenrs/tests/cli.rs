@@ -363,3 +363,87 @@ fn repeat_without_flags_keeps_the_original_nondefault_project_settings() {
     assert_eq!(fs::read_to_string(&source).unwrap(), "// user's application\n");
     assert_eq!(fs::read(project.join("Cargo.toml")).unwrap(), manifest);
 }
+
+#[test]
+fn doctor_reads_inherited_renamed_and_target_versions_without_touching_manifests() {
+    use cargo_ravenrs::ravenrs_versions;
+    let dir = TempDir::new().unwrap();
+    let root = dir.path();
+    let write = |path: &str, text: &str| {
+        let path = root.join(path);
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(path, text).unwrap();
+    };
+    // Virtual workspace with a glob, an excluded member and a member pointing elsewhere.
+    write(
+        "Cargo.toml",
+        &format!(
+            "[workspace]\nmembers = [\"apps/*\", \"tools/cli\"]\nexclude = [\"apps/old\"]\n\n\
+             [workspace.dependencies]\nravenrs = \"={VERSION}\"\n\
+             ui = {{ package = \"ravenrs-widgets\", version = \"={VERSION}\" }}\nserde = \"1\"\n"
+        ),
+    );
+    write(
+        "apps/desk/Cargo.toml",
+        "[package]\nname = \"desk\"\nversion = \"0.1.0\"\n\n[dependencies]\nravenrs.workspace = true\n\
+         ui = { workspace = true, features = [\"x\"] }\n\n\
+         [target.'cfg(target_arch = \"wasm32\")'.dependencies]\nravenrs-platform-web = \"=0.0.9\"\n",
+    );
+    write("apps/old/Cargo.toml", "[package]\nname = \"old\"\n\n[dependencies]\nravenrs = \"=0.0.1\"\n");
+    write(
+        "tools/cli/Cargo.toml",
+        &format!(
+            "[package]\nname = \"cli\"\n\n[dev-dependencies]\nraven = {{ package = \"ravenrs-app\", version = \"^{VERSION}\" }}\n"
+        ),
+    );
+    let before: Vec<String> = ["Cargo.toml", "apps/desk/Cargo.toml", "tools/cli/Cargo.toml"]
+        .iter()
+        .map(|p| fs::read_to_string(root.join(p)).unwrap())
+        .collect();
+
+    // From the virtual root: workspace table plus every member, the excluded one skipped.
+    let all = ravenrs_versions(root).unwrap();
+    let packages: Vec<_> = all.iter().map(|d| (d.package.as_str(), d.version.as_str())).collect();
+    assert!(packages.contains(&("ravenrs", &*format!("={VERSION}"))));
+    assert!(packages.contains(&("ravenrs-widgets", &*format!("={VERSION}"))));
+    assert!(packages.contains(&("ravenrs-app", &*format!("^{VERSION}"))));
+    assert!(packages.contains(&("ravenrs-platform-web", "=0.0.9")));
+    assert!(!packages.iter().any(|(_, v)| *v == "=0.0.1"), "excluded member was read");
+    assert!(!packages.iter().any(|(p, _)| *p == "serde"));
+
+    // From a member: inherited entries resolve through the nearest ancestor workspace.
+    let member = ravenrs_versions(&root.join("apps/desk")).unwrap();
+    let inherited = member.iter().find(|d| d.package == "ravenrs-widgets").unwrap();
+    assert!(inherited.origin.contains("dependencies.ui"), "{}", inherited.origin);
+    assert_eq!(inherited.version, format!("={VERSION}"));
+
+    // Doctor reports the stale target-specific dependency, from the member and from the root.
+    for at in [root.join("apps/desk"), root.to_path_buf()] {
+        let output = cli(&at, &["doctor"]);
+        assert!(!output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("ravenrs-platform-web") && stderr.contains("0.0.9"), "{stderr}");
+    }
+
+    // `package.workspace` names a workspace that is not an ancestor.
+    write(
+        "outside/ws/Cargo.toml",
+        "[workspace]\nmembers = []\n\n[workspace.dependencies]\nravenrs = \"=0.0.2\"\n",
+    );
+    write(
+        "outside/pkg/Cargo.toml",
+        "[package]\nname = \"pkg\"\nworkspace = \"../ws\"\n\n[dependencies]\nravenrs.workspace = true\n",
+    );
+    let explicit = ravenrs_versions(&root.join("outside/pkg")).unwrap();
+    assert_eq!(explicit[0].version, "=0.0.2");
+
+    // A missing workspace entry is an error, not a silent pass.
+    write(
+        "apps/desk/Cargo.toml",
+        "[package]\nname = \"desk\"\n\n[dependencies]\nravenrs-app.workspace = true\n",
+    );
+    assert!(ravenrs_versions(&root.join("apps/desk")).unwrap_err().contains("não declara ravenrs-app"));
+
+    assert_eq!(fs::read_to_string(root.join("Cargo.toml")).unwrap(), before[0]);
+    assert_eq!(fs::read_to_string(root.join("tools/cli/Cargo.toml")).unwrap(), before[2]);
+}

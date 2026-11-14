@@ -102,6 +102,7 @@ pub struct CodeEditor {
     fill: bool,
     read_only: bool,
     caret: Option<State<Cursor>>,
+    focus_request: Option<State<bool>>,
 }
 
 impl fmt::Debug for CodeEditor {
@@ -127,7 +128,15 @@ impl CodeEditor {
             fill: false,
             read_only: false,
             caret: None,
+            focus_request: None,
         }
+    }
+
+    /// Takes the keyboard focus whenever `request` turns on, and turns it back off: set the
+    /// [`caret`](Self::caret) and turn it on to take people to a place in the code.
+    pub fn focus_request(mut self, request: State<bool>) -> Self {
+        self.focus_request = Some(request);
+        self
     }
 
     /// Keeps where the caret and the selection are in `cursor`, for a status line that says
@@ -207,6 +216,9 @@ impl View for CodeEditor {
         if let Some(cursor) = &self.caret {
             area = area.cursor(cursor.clone());
         }
+        if let Some(request) = &self.focus_request {
+            area = area.focus_request(request.clone());
+        }
         area.build(cx)
     }
 }
@@ -230,6 +242,21 @@ pub fn line_and_column(text: &str, at: usize) -> (usize, usize) {
         }
     }
     (line, column)
+}
+
+/// Where `line` and `column`, both from 1, fall in `text`, counted in characters as
+/// [`line_and_column`] counts them: the other way around. Column 0 is the start of the line,
+/// and a place past the end of a line or of the text stops there.
+pub fn offset_of(text: &str, line: usize, column: usize) -> usize {
+    let mut at = 0;
+    for (n, content) in text.split('\n').enumerate() {
+        let length = content.chars().count();
+        if n + 1 == line.max(1) {
+            return at + column.saturating_sub(1).min(length);
+        }
+        at += length + 1;
+    }
+    text.chars().count()
 }
 
 /// The colored stretches of Rust code, as char indices. It reads tokens, not syntax, so

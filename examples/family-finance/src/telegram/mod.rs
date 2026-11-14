@@ -26,7 +26,7 @@ use api::{
     CallbackQuery, Message, TelegramBot, TelegramResponse, Update, send_message, telegram_agent,
     telegram_call,
 };
-use chat::{handle_message, tell};
+use chat::{handle_message, tell, tell_new_chat};
 use reading::Reply;
 mod receipts;
 
@@ -180,7 +180,7 @@ pub fn serve_with_waker(
     let mut late: HashMap<i64, (usize, i64)> = HashMap::new();
     loop {
         if looked.is_none_or(|at| at.elapsed() >= NOTICE_LOOK) {
-            tell(&service);
+            let _ = tell(&service);
             looked = Some(Instant::now());
         }
         if bot_token().is_ok_and(|token| token != service.config.bot_token) {
@@ -211,19 +211,22 @@ pub fn serve_with_waker(
                 let chat = message.chat.id;
                 let is_pairing = message.text.as_deref().and_then(start_token).is_some();
                 let user = message.from.as_ref().map(|user| user.id).unwrap_or_default();
-                if let Err(error) = handle_message(&service, message) {
+                let handled = handle_message(&service, message);
+                if let Err(error) = &handled {
                     let _ = send_message(&service, chat, &format!("Não consegui processar: {error}"));
-                } else if is_pairing
+                }
+                // Only a chat the code really linked opens the database for notices: any
+                // `/start rf1_..` from a stranger would otherwise make the bot read on demand.
+                let linked = is_pairing
+                    && handled.is_ok()
                     && Database::open(&service.config.db_path)
                         .and_then(|db| db.telegram_chat_is_linked(chat, user))
-                        .unwrap_or(false)
-                    && let Some(paired) = &paired
-                {
-                    paired.store(true, std::sync::atomic::Ordering::Release);
-                }
-                if is_pairing {
-                    // A chat just connected hears what is due today right away.
-                    tell(&service);
+                        .unwrap_or(false);
+                if linked {
+                    if let Some(paired) = &paired {
+                        paired.store(true, std::sync::atomic::Ordering::Release);
+                    }
+                    tell_new_chat(&service, chat);
                 }
                 if let Some(waker) = &waker {
                     waker.wake();

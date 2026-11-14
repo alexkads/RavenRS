@@ -6053,6 +6053,7 @@ version = "27.1.28"
 dependencies = [
  "axum",
  "ravenrs-app",
+ "ravenrs-app-testkit",
  "ravenrs-criteria",
  "serde_json",
  "sha2 0.10.9",

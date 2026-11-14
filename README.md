@@ -24,7 +24,7 @@ Building a business application usually means assembling a UI kit, a commercial 
 |---|---|---|
 | **[`ravenrs-app`](#ravenrs-app-declare-a-record-get-the-application)** | Declare a Rust struct and get the application: navigation, lists, forms, rules, security and an audit trail | [Generated app](https://alexkads.github.io/RavenRS/quick/) |
 | **[Raven Finanças](#install-a-real-app)** | A complete family finance app, built with all of this, to install on your computer | [Install](#install-a-real-app) |
-| **[Components](#components)** | 100+ designed, tested components: ribbon, scheduler, command palette, charts, forms, wizards, 200 icons | [Gallery](https://alexkads.github.io/RavenRS/demo/) |
+| **[Components](#components)** | 100+ designed, tested components: ribbon, scheduler, command palette, charts, forms, wizards, 201 icons | [Gallery](https://alexkads.github.io/RavenRS/demo/) |
 | **[DataGrid](#a-data-grid-for-real-data)** | 100,000+ rows at 2 ms a frame, grouping, summaries, editing, master-detail, Excel and PDF | [Gallery](https://alexkads.github.io/RavenRS/demo/) |
 | **[Reporting](#reporting-from-designer-to-inbox)** | Engine, end-user designer, viewer, PDF and XLSX, and a server that emails reports on a schedule | [Designer](https://alexkads.github.io/RavenRS/designer/) |
 | **[Training films](#training-that-ships-inside-your-app)** | Vector films of your real app that weigh kilobytes, re-recorded by a script when screens change | [`ravenrs-movie`](https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-movie) |

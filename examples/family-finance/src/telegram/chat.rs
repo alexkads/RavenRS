@@ -242,9 +242,10 @@ pub(super) fn undo(service: &Service, chat: i64) -> Result<(), String> {
     send_message(service, chat, &format!("↩️ Desfeito: {}, apagado.", saved.summary))
 }
 
-/// Sends every paired chat what is due, each notice with a button that turns its kind off.
-/// A failure is logged, never fatal: notices are not worth stopping the bot for.
-pub(super) fn tell(service: &Service) {
+/// Sends every paired chat what is due and that chat wants, each notice with a button that
+/// turns its kind off there. Returns what was due. A failure is logged, never fatal: notices
+/// are not worth stopping the bot for.
+pub(super) fn tell(service: &Service) -> Vec<(TelegramNotice, String)> {
     let path = &service.config.db_path;
     let file = TelegramNotices::file(path);
     let mut notices = TelegramNotices::load(&file);
@@ -254,24 +255,54 @@ pub(super) fn tell(service: &Service) {
         .and_then(|db| Ok((db.telegram_chats()?, notices.due(&db, today(), hour, &chosen)?)));
     let (chats, due) = match due {
         Ok((chats, due)) if !chats.is_empty() => (chats, due),
-        Ok(_) => return,
-        Err(error) => return tracing::warn!(%error, "could not look for Telegram notices"),
+        Ok(_) => return Vec::new(),
+        Err(error) => {
+            tracing::warn!(%error, "could not look for Telegram notices");
+            return Vec::new();
+        }
     };
+    // Marked before sending: when the file cannot be written, nothing goes out, instead of
+    // every chat getting the same bills and budgets again every ten minutes.
+    if let Err(error) = notices.save(&file) {
+        tracing::warn!(%error, "could not save what the Telegram notices told; sending nothing");
+        return Vec::new();
+    }
     for (kind, text) in &due {
-        let off = [vec![(format!("Desligar: {}", kind.label()), format!("rf:aviso:{}:off", kind.word()))]];
-        for chat in &chats {
-            if let Err(error) = send_with_buttons(service, *chat, text, &off) {
-                tracing::warn!(%error, "could not send a Telegram notice");
-            }
+        for chat in chats.iter().filter(|chat| notices.is_on_for(**chat, *kind)) {
+            send_notice(service, *chat, *kind, text);
         }
     }
-    if let Err(error) = notices.save(&file) {
-        tracing::warn!(%error, "could not save what the Telegram notices told");
+    due
+}
+
+/// A chat that just connected hears what is due today, even when the other chats were
+/// told before it came: what [`tell`] sends now, and the rest of the day's notices.
+pub(super) fn tell_new_chat(service: &Service, chat: i64) {
+    let sent = tell(service);
+    let path = &service.config.db_path;
+    let notices = TelegramNotices::load(&TelegramNotices::file(path));
+    let chosen = ReminderSettings::load(&crate::reminders::settings_file(path));
+    let hour = u8::try_from(jiff::Zoned::now().hour()).unwrap_or_default();
+    let due = match Database::open(path).and_then(|db| notices.due_today(&db, today(), hour, &chosen)) {
+        Ok(due) => due,
+        Err(error) => return tracing::warn!(%error, "could not look for Telegram notices"),
+    };
+    for (kind, text) in due.iter().filter(|said| !sent.contains(said)) {
+        if notices.is_on_for(chat, *kind) {
+            send_notice(service, chat, *kind, text);
+        }
     }
 }
 
-/// `/avisos` lists the notices with a button to turn each on or off; `/avisos contas
-/// desligar` does it.
+fn send_notice(service: &Service, chat: i64, kind: TelegramNotice, text: &str) {
+    let off = [vec![(format!("Desligar: {}", kind.label()), format!("rf:aviso:{}:off", kind.word()))]];
+    if let Err(error) = send_with_buttons(service, chat, text, &off) {
+        tracing::warn!(%error, "could not send a Telegram notice");
+    }
+}
+
+/// `/avisos` lists this chat's notices with a button to turn each on or off; `/avisos contas
+/// desligar` does it, for this chat only.
 pub(super) fn notices_command(service: &Service, chat: i64, text: &str) -> Result<(), String> {
     let file = TelegramNotices::file(&service.config.db_path);
     let mut notices = TelegramNotices::load(&file);
@@ -292,29 +323,35 @@ pub(super) fn notices_command(service: &Service, chat: i64, text: &str) -> Resul
         let Some(kind) = kind else {
             return send_message(service, chat, "Os avisos são: contas, orcamento e resumo.");
         };
-        notices.set(kind, on);
+        notices.set_for(chat, kind, on);
         notices.save(&file)?;
         let done = if on { "ligado" } else { "desligado" };
         return send_message(
             service,
             chat,
-            &format!("Aviso {done}: {}. Veja todos em /avisos.", kind.label()),
+            &format!("Aviso {done}: {}, só neste chat. Veja todos em /avisos.", kind.label()),
         );
     }
     let rows: Vec<Vec<(String, String)>> = TelegramNotice::ALL
         .iter()
         .map(|kind| {
-            let (label, state) = if notices.is_on(*kind) { ("Desligar", "off") } else { ("Ligar", "on") };
+            let (label, state) =
+                if notices.is_on_for(chat, *kind) { ("Desligar", "off") } else { ("Ligar", "on") };
             vec![(format!("{label}: {}", kind.label()), format!("rf:aviso:{}:{state}", kind.word()))]
         })
         .collect();
     let lines: Vec<String> = TelegramNotice::ALL
         .iter()
         .map(|kind| {
-            format!("{}: {}", kind.label(), if notices.is_on(*kind) { "ligado" } else { "desligado" })
+            format!(
+                "{}: {}",
+                kind.label(),
+                if notices.is_on_for(chat, *kind) { "ligado" } else { "desligado" }
+            )
         })
         .collect();
-    let text = format!("Avisos do Raven, a partir da hora escolhida em Ajustes:\n{}", lines.join("\n"));
+    let text =
+        format!("Avisos do Raven neste chat, a partir da hora escolhida em Ajustes:\n{}", lines.join("\n"));
     send_with_buttons(service, chat, &text, &rows)
 }
 

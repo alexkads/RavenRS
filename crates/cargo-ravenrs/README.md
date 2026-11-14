@@ -35,11 +35,14 @@ is written. Keep personal instructions outside the managed blocks. The local ski
 copied byte-for-byte from the versioned plugin, and its marked body can be updated while
 preserving notes outside the block. An unmarked existing skill is preserved and reported.
 
-`doctor` compares explicit RavenRS dependency versions with the CLI, checks managed
+`doctor` compares RavenRS dependency versions with the CLI, checks managed
 files, and runs initialize + tools/list through all four registered commands. It reports
 stale files and versions with a nonzero exit code. Projects made with `--no-ai` are checked
-without requiring assistant files. Workspace-inherited dependency versions must be made
-explicit before using doctor on an existing project.
+without requiring assistant files. Versions are read as Cargo resolves them, without
+touching any manifest: renamed dependencies (`ui = { package = "ravenrs", .. }`), tables
+under `[target.'cfg(..)']`, and `ravenrs.workspace = true`, taken from the
+`[workspace.dependencies]` of the workspace that owns the package (`package.workspace`, or
+the nearest ancestor with `[workspace]`). At a virtual workspace root, every member is read.
 
 Web projects include `web/index.html` and commands in `AGENTS.md` and `README.md` for
 building with the matching wasm-bindgen CLI and serving the result over HTTP.

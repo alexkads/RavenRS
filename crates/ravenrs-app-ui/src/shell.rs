@@ -66,6 +66,13 @@ pub trait FrameTemplate {
     fn shows_keys(&self) -> bool {
         false
     }
+
+    /// Whether it shows [`TemplateParts::navigation`]. Without it, there is no ⌘K palette of
+    /// places either: going elsewhere is up to the view, and an application shown inside another
+    /// leaves that key to the outer one.
+    fn shows_navigation(&self) -> bool {
+        true
+    }
 }
 
 /// Navigation on the side, commands above the view.
@@ -94,6 +101,10 @@ pub struct CounterTemplate;
 impl FrameTemplate for CounterTemplate {
     fn shows_keys(&self) -> bool {
         true
+    }
+
+    fn shows_navigation(&self) -> bool {
+        false
     }
 
     fn arrange(&self, parts: TemplateParts) -> AnyView {
@@ -746,12 +757,14 @@ impl View for AppShell {
             kind: view.map(|view| view.kind),
         });
         parts.push(cx.child(&window));
-        let palette = crate::navigation::commands(session)
-            .into_iter()
-            .fold(ravenrs_widgets::CommandPalette::new(self.palette.binding()), |palette, command| {
-                palette.command(command)
-            });
-        parts.push(cx.child(&palette));
+        if self.template.shows_navigation() {
+            let palette = crate::navigation::commands(session)
+                .into_iter()
+                .fold(ravenrs_widgets::CommandPalette::new(self.palette.binding()), |palette, command| {
+                    palette.command(command)
+                });
+            parts.push(cx.child(&palette));
+        }
         parts.push(cx.child(session.confirm()));
         parts.push(cx.child(&PopupHost::new(session.clone())));
         parts.push(cx.child(&session.toaster()));

@@ -151,9 +151,11 @@ async fn answered(worker: &Worker, request: Request<Body>) -> Response {
         .and_then(|value| value.to_str().ok())
         .and_then(|value| value.strip_prefix("Bearer "))
         .map(str::to_owned);
-    // Nobody who has not signed in gets to make it read a large body.
+    // Nobody who has not signed in gets to make it read a large body. A webhook signs its body
+    // instead, and the service checks the signature before reading it.
     let signing_in = parts.uri.path() == "/api/auth/token";
-    if bearer.is_none() && !signing_in {
+    let hook = parts.uri.path().starts_with("/api/hooks/");
+    if bearer.is_none() && !signing_in && !hook {
         return answer(401, &json!({ "error": "unauthorized", "message": "A valid token is required." }));
     }
     let limit = if signing_in { SIGN_IN_LIMIT } else { BODY_LIMIT };
@@ -169,6 +171,12 @@ async fn answered(worker: &Worker, request: Request<Body>) -> Response {
         query: query_of(parts.uri.query().unwrap_or("")),
         bearer,
         client,
+        headers: parts
+            .headers
+            .iter()
+            .filter(|(name, _)| name.as_str().starts_with("x-ravenrs-"))
+            .filter_map(|(name, value)| Some((name.as_str().to_owned(), value.to_str().ok()?.to_owned())))
+            .collect(),
         body: body.to_vec(),
     };
     let (reply, answered) = oneshot::channel();

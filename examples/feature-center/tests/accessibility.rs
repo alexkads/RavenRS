@@ -99,6 +99,7 @@ demonstrations! {
     todos_os_tipos => "Todos os tipos",
     campos_personalizados => "Campos personalizados",
     uma_lista_cinco_visoes => "Uma lista, cinco visões",
+    painel_em_codigo => "Painel em código",
     variantes_e_filtros => "Variantes e filtros",
     edicao_na_lista => "Edição na lista",
     muitas_linhas => "Muitas linhas",

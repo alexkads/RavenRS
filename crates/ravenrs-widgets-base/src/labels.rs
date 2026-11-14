@@ -853,6 +853,12 @@ pub struct Labels {
     pub playground_no_problems: String,
     /// The `Playground` status line, where the caret is: `{line}` and `{column}` are replaced.
     pub playground_position: String,
+    /// The `Playground` status line, how many spaces a Tab puts: `{count}` is replaced.
+    pub playground_spaces: String,
+    /// The language of the code of a `Playground` that is not colored, beside its file name.
+    pub playground_plain_text: String,
+    /// What a problem of a `Playground` does when clicked: `{place}` is replaced.
+    pub playground_go_to: String,
     /// When the code of a `Playground` printed nothing.
     pub playground_nothing_printed: String,
     /// Empties the output of a `Playground`.
@@ -1306,6 +1312,9 @@ impl Labels {
             playground_problems: texts.get("widgets.playground_problems"),
             playground_no_problems: texts.get("widgets.playground_no_problems"),
             playground_position: texts.get("widgets.playground_position"),
+            playground_spaces: texts.get("widgets.playground_spaces"),
+            playground_plain_text: texts.get("widgets.playground_plain_text"),
+            playground_go_to: texts.get("widgets.playground_go_to"),
             playground_nothing_printed: texts.get("widgets.playground_nothing_printed"),
             playground_clear_output: texts.get("widgets.playground_clear_output"),
             playground_hide_output: texts.get("widgets.playground_hide_output"),

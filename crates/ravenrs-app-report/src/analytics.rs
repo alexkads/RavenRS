@@ -81,34 +81,60 @@ fn text(record: &Object, name: &str) -> String {
     }
 }
 
-/// What a tile shows, read now, as the person can read it.
-fn tile_content(session: &Session, tile: &Object) -> AnyView {
-    let title = text(tile, "title");
-    let target = text(tile, "target_entity");
-    let Some(entity) = session.entity(&target) else {
-        return problem(&title, format!("{} {target}", session.words().list_editor_needs));
-    };
-    let mut query = Query::all();
-    let filter = text(tile, "filter");
-    if !filter.trim().is_empty() {
-        match Criteria::parse(&filter) {
-            Ok(criteria) => query = query.filter(criteria),
-            Err(error) => return problem(&title, error.to_string()),
+/// What a tile is asked to show: the same fields a kept tile has, from a record or from code.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct TileSpec {
+    pub(crate) title: String,
+    pub(crate) target: String,
+    /// `number`, `bar`, `line`, `area`, `pie` or `doughnut`.
+    pub(crate) kind: String,
+    pub(crate) argument: String,
+    /// `field:Sum` and the like; empty counts the records.
+    pub(crate) series: String,
+    pub(crate) interval: String,
+    pub(crate) filter: String,
+}
+
+impl TileSpec {
+    fn of(tile: &Object) -> Self {
+        Self {
+            title: text(tile, "title"),
+            target: text(tile, "target_entity"),
+            kind: text(tile, "kind"),
+            argument: text(tile, "argument"),
+            series: text(tile, "series"),
+            interval: text(tile, "interval"),
+            filter: text(tile, "filter"),
         }
     }
-    let objects = match session.frame().space().borrow().query(&target, &query) {
-        Ok(objects) => objects,
-        Err(error) => return problem(&title, error.to_string()),
+}
+
+/// What a tile shows, read now, as the person can read it.
+pub(crate) fn tile_content(session: &Session, tile: &TileSpec) -> AnyView {
+    let title = &tile.title;
+    let target = &tile.target;
+    let Some(entity) = session.entity(target) else {
+        return problem(title, format!("{} {target}", session.words().list_editor_needs));
     };
-    let (kind, series) = (text(tile, "kind"), text(tile, "series"));
-    if kind == "number" {
-        return match summary_text(session, &entity, &objects, &series) {
+    let mut query = Query::all();
+    if !tile.filter.trim().is_empty() {
+        match Criteria::parse(&tile.filter) {
+            Ok(criteria) => query = query.filter(criteria),
+            Err(error) => return problem(title, error.to_string()),
+        }
+    }
+    let objects = match session.frame().space().borrow().query(target, &query) {
+        Ok(objects) => objects,
+        Err(error) => return problem(title, error.to_string()),
+    };
+    if tile.kind == "number" {
+        return match summary_text(session, &entity, &objects, &tile.series) {
             Ok(value) => Box::new(Text::new(value).style(TextStyle::Metric)),
-            Err(why) => problem(&title, why),
+            Err(why) => problem(title, why),
         };
     }
     let mut settings = BTreeMap::new();
-    let chart_kind = match kind.as_str() {
+    let chart_kind = match tile.kind.as_str() {
         "line" => "Line",
         "area" => "Area",
         "pie" => "Pie",
@@ -116,14 +142,14 @@ fn tile_content(session: &Session, tile: &Object) -> AnyView {
         _ => "Bar",
     };
     settings.insert("Kind".to_owned(), chart_kind.to_owned());
-    for (from, to) in [("argument", "Argument"), ("series", "Series"), ("interval", "Interval")] {
-        let value = text(tile, from);
+    for (value, to) in [(&tile.argument, "Argument"), (&tile.series, "Series"), (&tile.interval, "Interval")]
+    {
         if !value.trim().is_empty() {
-            settings.insert(to.to_owned(), value);
+            settings.insert(to.to_owned(), value.clone());
         }
     }
     chart_view(session, &entity, Rc::new(objects), settings, CHART_HEIGHT)
-        .unwrap_or_else(|why| problem(&title, why))
+        .unwrap_or_else(|why| problem(title, why))
 }
 
 /// A panel on the screen.
@@ -174,7 +200,11 @@ impl View for PanelView {
         let mut tiles = TileLayout::new(self.spots.binding());
         for tile in self.tiles.iter() {
             let key = ravenrs_app::key_text(&tile.get("id")).unwrap_or_default();
-            tiles = tiles.tile(Tile::new(key, text(tile, "title"), tile_content(&self.session, tile)));
+            tiles = tiles.tile(Tile::new(
+                key,
+                text(tile, "title"),
+                tile_content(&self.session, &TileSpec::of(tile)),
+            ));
         }
         let closing = self.session.clone();
         let close = Button::new(self.close.clone())

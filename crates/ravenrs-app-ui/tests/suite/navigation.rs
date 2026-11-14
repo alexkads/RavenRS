@@ -213,3 +213,21 @@ fn the_palette_offers_only_what_the_person_can_open() {
         "a place they cannot read is not offered"
     );
 }
+
+#[test]
+fn a_counter_has_no_palette_of_places_so_an_outer_application_keeps_command_k() {
+    let database = MemoryDatabase::new(vec![lessons(), offerings()]).expect("valid");
+    let view = App::new("Caixa")
+        .counter()
+        .entity_info(lessons())
+        .entity_info(offerings())
+        .storage(move || database.space())
+        .build()
+        .expect("it puts together");
+    let mut world = World::over(view);
+    world.key(Key::Character("k".into()), true);
+    assert!(
+        world.nodes().iter().all(|n| n.name.as_deref() != Some("Search commands")),
+        "no palette: a counter goes elsewhere through its actions"
+    );
+}

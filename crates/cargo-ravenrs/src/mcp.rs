@@ -74,17 +74,15 @@ pub(crate) fn probe(command: &str, args: &[String], root: &Path) -> Result<(), S
 
 /// Verify the current project version, managed files and every registered MCP command.
 pub fn doctor(root: &Path) -> Result<(), String> {
-    let manifest: DocumentMut =
-        read(&root.join("Cargo.toml"))?.parse().map_err(|e| format!("Cargo.toml: {e}"))?;
-    let mut versions = Vec::new();
-    collect_versions(manifest.as_item(), &mut versions);
+    let versions = crate::versions::ravenrs_versions(root)?;
     if versions.is_empty() {
-        return Err("Nenhuma dependência RavenRS com versão explícita; doctor requer um Cargo.toml de projeto independente.".into());
+        return Err("Nenhuma dependência RavenRS com versão no projeto nem no workspace.".into());
     }
-    for (name, version) in versions {
-        if version.trim_start_matches(['=', '^', '~']) != VERSION {
+    for declared in versions {
+        if declared.version.trim_start_matches(['=', '^', '~']) != VERSION {
             return Err(format!(
-                "{name} usa {version}, mas cargo-ravenrs usa {VERSION}. Instale a tag correspondente."
+                "{} ({}) usa {}, mas cargo-ravenrs usa {VERSION}. Instale a tag correspondente.",
+                declared.package, declared.origin, declared.version
             ));
         }
     }
@@ -142,20 +140,4 @@ pub fn doctor(root: &Path) -> Result<(), String> {
     probe(server["command"].as_str().ok_or("Codex command ausente")?, &args, root)?;
     println!("✓ MCP .codex/config.toml\nDoctor: tudo certo.");
     Ok(())
-}
-
-fn collect_versions(item: &toml_edit::Item, versions: &mut Vec<(String, String)>) {
-    if let Some(table) = item.as_table_like() {
-        for (key, item) in table.iter() {
-            if key.starts_with("ravenrs") {
-                if let Some(version) =
-                    item.as_str().or_else(|| item.get("version").and_then(toml_edit::Item::as_str))
-                {
-                    versions.push((key.into(), version.into()));
-                }
-            } else {
-                collect_versions(item, versions);
-            }
-        }
-    }
 }
