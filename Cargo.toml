@@ -147,6 +147,11 @@ opt-level = 1
 [profile.dev.package.ravenrs-pdf]
 opt-level = 1
 
+# The presentation engine is built as DeckCraft builds it: its tests nest groups as deep as a
+# saved file may, which overflows the stack in unoptimised frames, and decode video frames.
+[profile.dev.package.ravenrs-deck]
+opt-level = 1
+
 
 [profile.release]
 # Smaller WASM binaries; native release builds benefit as well.

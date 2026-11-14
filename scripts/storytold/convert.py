@@ -40,6 +40,7 @@ For every source in projects.json (a crate of theirs, or a crate they vendor):
 - "test_data": "in_place" keeps data the tests read by a relative path (tests/golden/…) where it
   was, instead of under the module's prefix;
 - tests/common/ becomes tests/<module>_common/, and `mod common;` in a test points there;
+- "build_rs": true makes the source's build.rs the crate's (one source per project);
 - "readme": true puts the source's README.md beside its module, with the crate names of its
   examples converted, since the docs include it and it runs as doctests.
 
@@ -107,6 +108,9 @@ def destination(source, rest):
         return rest, True
     if rest.startswith("tests/"):
         return f"tests/{prefix}_" + rest[len("tests/"):], True
+    if rest == "build.rs" and source.get("build_rs"):
+        # The source's build script becomes the crate's: one source per project may have it.
+        return "build.rs", False
     if rest == "README.md" and source.get("readme"):
         return f"src/{folder}/README.md", False
     return None
@@ -352,7 +356,8 @@ def main():
     missing = sorted({s["repo"] for s in sources if "repo" in s} - set(others))
     if missing:
         raise SystemExit(f"{project} reads {', '.join(missing)} too: give --with <repo>=<checkout>@<revision>")
-    written, assets = 0, set()
+    # Each asset is read from the repository whose source included it (craft-libs or the project's).
+    written, assets = 0, {}
     for source in sources:
         repo, rev = others[source["repo"]] if "repo" in source else (main_repo, main_rev)
         listed = files(repo, rev, source["path"])
@@ -370,7 +375,9 @@ def main():
                 data, _ = doc_examples_in_markdown(data.decode(), sources, lib)
                 data = data.encode()
             elif path.endswith(".rs"):
-                data = rewrite(data.decode(), source, sources, lib, in_tests, path, dest, assets, lambda p: exists(repo, rev, p)).encode()
+                found_assets = set()
+                data = rewrite(data.decode(), source, sources, lib, in_tests, path, dest, found_assets, lambda p: exists(repo, rev, p)).encode()
+                assets.update({asset: (repo, rev) for asset in found_assets})
             if exported and dest == f"src/{source['module'].replace('::', '/')}/mod.rs":
                 # #[macro_export] puts a macro at the root of our crate; the crate had it at its own.
                 again = "// RavenRS (convert.py): the macros the crate exported, where it had them.\n#[doc(hidden)]\npub use crate::{" + ", ".join(exported) + "};\n"
@@ -382,7 +389,7 @@ def main():
             os.makedirs(os.path.dirname(full), exist_ok=True)
             open(full, "wb").write(data)
             written += 1
-    for path in sorted(assets):
+    for path, (repo, rev) in sorted(assets.items()):
         full = os.path.join(out, "assets", path)
         os.makedirs(os.path.dirname(full), exist_ok=True)
         open(full, "wb").write(show(repo, rev, path))
