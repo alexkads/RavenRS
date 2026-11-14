@@ -21,12 +21,60 @@
 # so two worktrees sharing a CARGO_TARGET_DIR take each other's builds: a doctest that "can't find
 # crate", a derive compiled from the other branch. Give each worktree its own CARGO_TARGET_DIR (in
 # its session's scratchpad) and delete it when the work is done.
+#
+# At the end, passing or failing, it prints the time of each step, slowest first, and whether the
+# build directory started empty (scripts/check-timings.py): the test step split into compiling and
+# running, and the ten slowest tests from nextest's JUnit report (.config/nextest.toml). The table is
+# saved to <target>/check-timings/last.txt. RAVENRS_CHECK_TIMINGS=1 also has Cargo write its
+# per-crate compile report (cargo --timings) for the clippy and test builds.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-step() { printf '\n\033[1m==> %s\033[0m\n' "$1"; }
 started=$SECONDS
-done_in() { printf '\n\033[1;32m%s in %dm%02ds.\033[0m\n' "$1" $(((SECONDS - started) / 60)) $(((SECONDS - started) % 60)); }
+started_at=$(date +%s)
+mode=quick
+[ "${1:-}" = "--full" ] && mode=full
+
+# Each step's time goes to $timings, one line per step: seconds, kind (step, sub or failed), title.
+# At the end, passing or failing, scripts/check-timings.py prints them sorted by duration.
+current_step=""
+step_started=$SECONDS
+close_step() {
+    if [ -n "$current_step" ]; then
+        printf '%d\t%s\t%s\n' $((SECONDS - step_started)) "$1" "$current_step" >>"$timings"
+        current_step=""
+    fi
+}
+step() {
+    close_step step
+    current_step=$1
+    step_started=$SECONDS
+    printf '\n\033[1m==> %s\033[0m\n' "$1"
+}
+# A part of the current step, timed on its own: substep <title> <command...>.
+substep() {
+    local title=$1 begun=$SECONDS
+    shift
+    "$@"
+    printf '%d\tsub\t%s\n' $((SECONDS - begun)) "$title" >>"$timings"
+}
+
+reported=0
+report_timings() {
+    local status=$1
+    [ "$reported" = 1 ] && return
+    reported=1
+    if [ "$status" = 0 ]; then close_step step; else close_step failed; fi
+    local -a extra=()
+    if [ "${RAVENRS_CHECK_TIMINGS:-0}" = 1 ]; then extra=(--cargo-timings "$target/cargo-timings"); fi
+    python3 scripts/check-timings.py --steps "$timings" --save "$timings_dir/last.txt" \
+        --total $((SECONDS - started)) --since "$started_at" --status "$status" --mode "$mode" \
+        --build "$build_state" --junit target/nextest/default/junit.xml ${extra[@]+"${extra[@]}"} || true
+}
+done_in() {
+    report_timings 0
+    printf '\n\033[1;32m%s in %dm%02ds.\033[0m\n' "$1" $(((SECONDS - started) / 60)) $(((SECONDS - started) % 60))
+}
 
 # Warn when the build directory last served another checkout of this repository.
 target=$(cargo metadata --format-version 1 --no-deps --offline | python3 -c 'import json, sys; print(json.load(sys.stdin)["target_directory"])')
@@ -37,6 +85,20 @@ if [ -f "$target/.ravenrs-checkout" ] && [ "$(cat "$target/.ravenrs-checkout")" 
 fi
 echo "$PWD" >"$target/.ravenrs-checkout"
 
+# An empty build directory and a reused one take very different times: the table says which this was.
+build_state=reused
+if [ -z "$(ls -A "$target/debug/deps" 2>/dev/null)" ]; then build_state=empty; fi
+timings_dir="$target/check-timings"
+timings="$timings_dir/current.tsv"
+mkdir -p "$timings_dir"
+: >"$timings"
+# On failure too: the table up to the step that failed, with the check's own exit status.
+trap 'report_timings $?' EXIT
+
+# RAVENRS_CHECK_TIMINGS=1: Cargo also writes its per-crate compile report (cargo-timing.html).
+cargo_timings=()
+if [ "${RAVENRS_CHECK_TIMINGS:-0}" = 1 ]; then cargo_timings=(--timings); fi
+
 if ! command -v cargo-nextest >/dev/null; then
     echo "error: the checks run the tests on cargo-nextest. Install it once with:" >&2
     echo "    cargo install cargo-nextest --locked" >&2
@@ -46,14 +108,16 @@ fi
 # Tests of the selected packages on nextest; doctests, which it does not run, through cargo test.
 run_tests() {
     local -a selection=("$@")
-    cargo nextest run "${selection[@]}" --no-tests=pass
+    # Compiling and running apart, so the table says which of the two the time went to.
+    substep "compile the tests" cargo nextest run "${selection[@]}" --no-run ${cargo_timings[@]+"${cargo_timings[@]}"}
+    substep "run the tests" cargo nextest run "${selection[@]}" --no-tests=pass
     if [ "${selection[0]}" = "--workspace" ] || [ -n "${DOCUMENTED:-}" ]; then
         local -a documented=("${selection[@]}")
         if [ "${selection[0]}" != "--workspace" ]; then
             documented=()
             for package in $DOCUMENTED; do documented+=(-p "$package"); done
         fi
-        cargo test --doc "${documented[@]}"
+        substep "doctests (compile and run)" cargo test --doc "${documented[@]}"
     fi
 }
 
@@ -89,10 +153,11 @@ if [ "${1:-}" != "--full" ]; then
     eval "$(./scripts/changed-packages.py --shell)"
     if [ "$ALL" = 1 ]; then
         echo "something every package builds with changed: the whole workspace"
+        mode="quick, ALL"
         lint_examples
         public_api
         step "clippy (native), the whole workspace"
-        cargo clippy --workspace --all-targets -- -D warnings
+        cargo clippy --workspace --all-targets ${cargo_timings[@]+"${cargo_timings[@]}"} -- -D warnings
         step "tests, the whole workspace"
         run_tests --workspace
         done_in "Quick checks passed (before a release: scripts/check.sh --full)"
@@ -116,7 +181,7 @@ if [ "${1:-}" != "--full" ]; then
     tested=()
     for package in $TESTED; do tested+=(-p "$package"); done
     step "clippy (native), on every package the change reaches"
-    cargo clippy "${reached[@]}" --all-targets -- -D warnings
+    cargo clippy "${reached[@]}" --all-targets ${cargo_timings[@]+"${cargo_timings[@]}"} -- -D warnings
     step "tests, on the packages changed and their direct dependents"
     run_tests "${tested[@]}"
     done_in "Quick checks passed (before a release: scripts/check.sh --full)"
@@ -127,7 +192,7 @@ lint_examples
 public_api
 
 step "clippy (native)"
-cargo clippy --workspace --all-targets -- -D warnings
+cargo clippy --workspace --all-targets ${cargo_timings[@]+"${cargo_timings[@]}"} -- -D warnings
 
 step "CLI templates: every model and target compiles"
 cargo test -p cargo-ravenrs --test cli -- --ignored

@@ -33,6 +33,8 @@ Behavior that a user can observe is documented publicly. A private comment can k
 
 `scripts/check.sh --full` runs every check below, and nothing ships unless it passes. The project uses no hosted CI, so this script is the gate. Without `--full` it is the quick check for each pull request: rustfmt, clippy on every package the change reaches, and the tests of the packages changed and of their direct dependents (`scripts/changed-packages.py`).
 
+Each run ends with the time per step, slowest first, saved to `<target>/check-timings/last.txt` (`scripts/check-timings.py`). That table is where a slow check is diagnosed: it separates compiling the tests from running them and lists the slowest tests, and `RAVENRS_CHECK_TIMINGS=1` adds Cargo's per-crate compile report.
+
 | Check | What it catches |
 |---|---|
 | `cargo fmt --check` | Formatting drift |
