@@ -141,7 +141,7 @@ Status: ✅ done · 🟡 partial · ⬜ planned (phase in brackets).
 | Feature | Reference | RavenRS |
 |---|---|---|
 | Field list (drag to create controls) | | ✅ in the web designer |
-| Toolbox, property grid, report explorer, group & sort | | 🟡 toolbox down the left and on the Ribbon, property grid docked under the field list and report explorer. Group & sort panel ⬜ [R4] |
+| Toolbox, property grid, report explorer, group & sort | | 🟡 toolbox down the left and on the Ribbon, property grid docked under the field list and report explorer, and a Group & sort panel beside them: every level and the sorting, added, moved, removed, descending, with or without header and footer, on the same model as the properties, so undo covers it (#45) |
 | Snap grid, resize, move across bands, undo/redo, zoom | | ✅ |
 | Snap lines, align/size tools, rulers, multi-select | | 🟡 rulers in centimeters marking the selected control; cut, copy, paste, bring to front and send to back on the Ribbon. Snap lines, align/size tools and multi-select ⬜ [R4] |
 | Expression editor, format editor, validation (design analyzer) | | 🟡 format picker; render errors listed; expression editor with fields, parameters, functions by group, operators, constants, search and a check while typing. Syntax highlighting and completion in the text ⬜ [R4] |

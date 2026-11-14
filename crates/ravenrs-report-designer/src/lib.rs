@@ -30,6 +30,7 @@ pub(crate) mod prelude {
 
 mod bands;
 mod editor;
+mod groups;
 mod preview;
 mod props;
 mod surface;
@@ -533,6 +534,7 @@ impl Designer {
             Tabs::new(self.left_tab.binding())
                 .item("Lista de campos")
                 .item("Explorador")
+                .item("Agrupar e ordenar")
                 .size(ButtonSize::Small),
             VStack::new((LeftContent { editor: e.clone(), tab: self.left_tab.clone() },))
                 .padding(SPACING.s3)
@@ -621,8 +623,11 @@ struct LeftContent {
 impl View for LeftContent {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let e = &self.editor;
-        let content: AnyView =
-            if self.tab.get() == 0 { Box::new(FieldList(e.clone())) } else { Box::new(BandList(e.clone())) };
+        let content: AnyView = match self.tab.get() {
+            0 => Box::new(FieldList(e.clone())),
+            1 => Box::new(BandList(e.clone())),
+            _ => Box::new(groups::GroupPanel(e.clone())),
+        };
         cx.child(&ScrollView::new((content,)).grow(1.0))
     }
 }

@@ -274,3 +274,38 @@ fn the_address_opens_the_report_it_names() {
     let mut unknown = opened(Some("nonsense"));
     assert!(shows(&mut unknown, "Vendas · 10.000 linhas"), "an unknown report keeps the gallery");
 }
+
+/// The groups the panel lists, as their cards title them: "1. [Region]", ...
+fn group_titles(ui: &mut Ui) -> Vec<String> {
+    ui.access_tree()
+        .nodes
+        .iter()
+        .filter_map(|n| n.name.clone())
+        .filter(|name| name.len() > 3 && name.as_bytes()[0].is_ascii_digit() && name[1..].starts_with(". "))
+        .collect()
+}
+
+#[test]
+fn the_group_and_sort_panel_lists_moves_adds_and_removes_levels() {
+    // #45: every level of grouping and the sorting in one panel, on the same model, with undo.
+    let mut ui = designer();
+    press(&mut ui, Role::Button, "Vendas por região");
+    press(&mut ui, Role::Tab, "Design");
+    press(&mut ui, Role::Tab, "Agrupar e ordenar");
+    assert_eq!(group_titles(&mut ui), ["1. [Region]", "2. [City]"]);
+    assert!(
+        names(&mut ui, Role::Button).iter().any(|n| n == "Remover a ordenação 1"),
+        "the sort by date is there"
+    );
+
+    press(&mut ui, Role::Button, "Descer o grupo 1");
+    assert_eq!(group_titles(&mut ui), ["1. [City]", "2. [Region]"], "the city first now");
+    press(&mut ui, Role::Button, "Desfazer");
+    assert_eq!(group_titles(&mut ui), ["1. [Region]", "2. [City]"], "undone");
+
+    press(&mut ui, Role::Button, "Adicionar grupo");
+    assert_eq!(group_titles(&mut ui).len(), 3, "a third level");
+    press(&mut ui, Role::Button, "Remover o grupo 3");
+    assert_eq!(group_titles(&mut ui), ["1. [Region]", "2. [City]"]);
+    audit(&mut ui, "group and sort panel");
+}
