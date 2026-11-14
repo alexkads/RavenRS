@@ -12,6 +12,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- **`ravenrs-deck`**, a new crate: the presentation model (slides, layouts and masters, shapes, text, tables, charts, animations and transitions), reading and writing PPTX and a native format, slides drawn to pixels, PDF export with notes pages and handouts, embedded audio and video probed and given poster frames, and the commands with undo an editor drives; it builds for the web too. ([#373](https://github.com/alexkads/RavenRS/issues/373))
 - `App::themes` and `AppShell::themes` offer only the application's own themes in the Theme menu, start on the first, and keep the one each person chooses, as before. `ThemePicker::of` is that menu on its own.
 - The tokens of a theme take a `"name"`, shown in menus and to screen readers. `to_tokens_json` writes it for a theme with a name of its own, and `from_tokens_json` takes it, up to 64 characters; without it nothing changes.
 - Following the system can switch between an application's own light and dark: `SystemAppearance::set_themes`, `SystemAppearance::theme_of` and `Ui::system_themes`. `App::themes` sets that pair itself, from the first light and the first dark among them.
