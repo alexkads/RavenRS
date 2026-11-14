@@ -349,6 +349,7 @@ pub struct ShapedGlyph {
 /// Where the lines of a text sit across the width they are broken at.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum TextAlign {
     /// At the start of the line: the left, in a left-to-right language.
     #[default]

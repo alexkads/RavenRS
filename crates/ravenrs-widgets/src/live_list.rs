@@ -122,6 +122,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     ravenrs_layout::Available::__live_expose(registry);
     ravenrs_layout::MeasureInput::__live_expose_fields(registry);
     ravenrs_layout::LayoutError::__live_expose_fields(registry);
+    ravenrs_text::TextAlign::__live_expose_variants(registry);
     #[cfg(feature = "charts")]
     ravenrs_graphics::barcode::Symbology::__live_expose_variants(registry);
     #[cfg(feature = "charts")]

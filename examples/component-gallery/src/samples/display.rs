@@ -53,7 +53,7 @@ fn release_notes() -> impl View {
 }
 // end
 
-// sample: Text, 240
+// sample: Text, 300
 fn text() -> impl View {
     VStack::new((
         Text::new("Display").style(TextStyle::Display),

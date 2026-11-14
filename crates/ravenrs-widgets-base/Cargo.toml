@@ -31,7 +31,7 @@ default = ["decode"]
 # PNG and JPEG decoding for `Image::from_bytes`.
 decode = ["dep:image"]
 # The types of the base exposed to the playground's interpreter.
-live = ["dep:ravenrs-live", "ravenrs-core/live", "ravenrs-style/live", "ravenrs-layout/live"]
+live = ["dep:ravenrs-live", "ravenrs-core/live", "ravenrs-style/live", "ravenrs-layout/live", "ravenrs-text/live"]
 
 [dev-dependencies]
 # The examples in the documentation are written as applications write them, through the facade.
