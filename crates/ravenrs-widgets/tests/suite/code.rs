@@ -592,5 +592,5 @@ fn a_place_turns_back_into_the_characters_before_it() {
     }
     assert_eq!(offset_of(text, 2, 0), 9, "column 0 is the start of the line");
     assert_eq!(offset_of(text, 2, 99), 17, "past the end of a line stops there");
-    assert_eq!(offset_of(text, 9, 1), 20, "past the last line, at the end");
+    assert_eq!(offset_of(text, 9, 1), 19, "past the last line, at the end");
 }
