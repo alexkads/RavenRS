@@ -154,7 +154,9 @@ fn page_footer(culture_pt: bool) -> Band {
 /// rows and a highlighting rule. `rows` sample rows are embedded.
 pub fn sales_by_region(rows: usize) -> Report {
     let w = PageSettings::a4().content_width();
-    let cols = [70.0, 150.0, 140.0, 40.0, 50.0, w - 450.0];
+    // TOTAL takes what is left, about 100 pt: a total of six digits in bold is about 66 pt, plus
+    // the cell's padding. Customer and product names reach about 75 and 90 pt.
+    let cols = [70.0, 130.0, 120.0, 40.0, 50.0, w - 410.0];
     let header = TableRow::new(20.0)
         .text(cols[0], "DATA")
         .text(cols[1], "CLIENTE")
