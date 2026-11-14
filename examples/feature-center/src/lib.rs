@@ -12,7 +12,8 @@ use ravenrs_app::{
 };
 use ravenrs_app_library::LibraryModule;
 use ravenrs_app_report::{
-    AnalyticsModule, ReportModule, ReportWords, StoredReportsModule, analytics_entities, report_entity,
+    AnalyticsApp, AnalyticsModule, AnalyticsPanel, PanelChart, ReportModule, ReportWords,
+    StoredReportsModule, analytics_entities, report_entity,
 };
 use ravenrs_app_ui::{App, CloneModule, Language, SecuredApp, Session, Words};
 
@@ -95,6 +96,20 @@ fn audit() -> AuditSettings {
     settings
 }
 
+/// A panel written in code over the plan of the Listas page: no record to seed, and each tile
+/// reads the tasks as whoever signed in can read them.
+fn code_panel() -> AnalyticsPanel {
+    let tasks = "ListEditorsDemo";
+    AnalyticsPanel::new("CodePanel", "Painel em código")
+        .navigation("Listas")
+        .number_in(tasks, "Custo total", "cost:Sum")
+        .number_in(tasks, "Tarefas", "")
+        .number_in(tasks, "Atrasadas", "")
+        .filtered("[state] = 'late'")
+        .chart_in(tasks, PanelChart::Bar, "Custo por responsável", "owner", "cost:Sum")
+        .chart_in(tasks, PanelChart::Doughnut, "Por situação", "state", "")
+}
+
 /// The application each person gets once they signed in.
 fn application() -> App {
     let words = ReportWords::pt_br;
@@ -113,18 +128,19 @@ fn application() -> App {
     for entity in model::entities() {
         app = app.entity_info(entity);
     }
-    app.dashboard(
-        DashboardInfo::new(THEME_EDITOR, "Editor de tokens")
-            .navigation("Temas")
-            .icon("palette")
-            .control("Editor de tokens", THEME_EDITOR),
-    )
-    .dashboard(
-        DashboardInfo::new(model::COUNTER_WINDOW, "Caixa de exemplo")
-            .navigation("Balcão")
-            .icon("shopping-cart")
-            .control("Caixa de exemplo", model::COUNTER_WINDOW),
-    )
+    app.analytics_panel(code_panel())
+        .dashboard(
+            DashboardInfo::new(THEME_EDITOR, "Editor de tokens")
+                .navigation("Temas")
+                .icon("palette")
+                .control("Editor de tokens", THEME_EDITOR),
+        )
+        .dashboard(
+            DashboardInfo::new(model::COUNTER_WINDOW, "Caixa de exemplo")
+                .navigation("Balcão")
+                .icon("shopping-cart")
+                .control("Caixa de exemplo", model::COUNTER_WINDOW),
+        )
 }
 
 /// The whole center over what `space` makes.

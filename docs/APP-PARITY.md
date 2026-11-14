@@ -50,6 +50,7 @@ What exists of the behavior documented for model-driven application frameworks, 
 | Scheduled delivery of stored reports | ⬜ the report server cannot read entities until there is an API, and has to run as someone | F12 |
 | Mail merge templates | ⬜ takes the rich text editor of Wave C | |
 | Analytical panels people create, kept as records | 🟡 `AnalyticsModule`: tiles of numbers and charts, edited on generated forms. No canvas designer, and tile sizes are not kept | |
+| Analytical panels declared in code | ✅ `AnalyticsPanel` with `AnalyticsApp::analytics_panel`: numbers, bars, lines, pies and doughnuts over a struct, with filter and date interval per tile, read under the person's permissions | |
 | Roles, policies and permissions on entities, records, fields, navigation and actions; several roles in any or in all | ✅ `Role`, `Permissions`, enforced in `SecuredObjectSpace`, also with no screen | |
 | Policy changed while running, by administrators on generated screens | ✅ `security_entities`; losing a role takes effect at once | |
 | Permissions that follow associations | 🟡 aggregated collections go with their owner; everything else asks for permission on both sides, as the documented manual mode does | |

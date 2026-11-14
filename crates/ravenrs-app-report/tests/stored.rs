@@ -9,8 +9,8 @@ use ravenrs_app::{
     SecurityContext, SpaceMaker, UserDirectory, Value, security_entities,
 };
 use ravenrs_app_report::{
-    ANALYTICS_DASHBOARD, ANALYTICS_TILE, AnalyticsModule, REPORT_DEFINITION, ReportWords,
-    StoredReportsModule, analytics_entities, report_entity,
+    ANALYTICS_DASHBOARD, ANALYTICS_TILE, AnalyticsModule, AnalyticsPanel, PanelChart, REPORT_DEFINITION,
+    ReportWords, StoredReportsModule, analytics_entities, report_entity,
 };
 use ravenrs_app_ui::{AppShell, Session, SystemModule};
 use ravenrs_core::{AccessAction, Role as AccessRole, Size};
@@ -220,6 +220,14 @@ fn a_list_shows_in_its_report_and_says_when_there_is_none() {
 
 /// Someone with this role, over the same records.
 fn secured(database: &MemoryDatabase, role: Role) -> World {
+    secured_with(database, role, |builder| builder)
+}
+
+fn secured_with(
+    database: &MemoryDatabase,
+    role: Role,
+    setup: impl FnOnce(ApplicationBuilder) -> ApplicationBuilder,
+) -> World {
     let mut entities = vec![order(), report_entity()];
     entities.extend(analytics_entities());
     entities.extend(security_entities());
@@ -235,7 +243,7 @@ fn secured(database: &MemoryDatabase, role: Role) -> World {
     let (source, spaces) = (database.clone(), context.clone());
     World::over(
         move || SecuredObjectSpace::new(Box::new(source.space()), spaces.clone()),
-        |builder| builder,
+        setup,
         Some(context),
     )
 }
@@ -382,4 +390,70 @@ fn a_report_that_comes_with_the_application_is_added_once() {
     let found = database.space().query(REPORT_DEFINITION, &Query::all()).expect("reads");
     assert_eq!(found.len(), 1);
     assert_eq!(found[0].get("target_entity"), Value::Text("Order".into()));
+}
+
+fn sales_panel() -> AnalyticsPanel {
+    AnalyticsPanel::new("Sales", "Painel de vendas")
+        .navigation("Sales")
+        .number_in("Order", "Total vendido", "cost:Sum")
+        .number_in("Order", "Só a mesa", "cost:Sum")
+        .filtered("[name] = 'Mesa'")
+        .chart_in("Order", PanelChart::Bar, "Por pedido", "name", "cost:Sum")
+}
+
+#[test]
+fn a_panel_declared_in_code_is_in_the_navigation_with_the_sums_of_the_records() {
+    let database = database();
+    let panel = sales_panel();
+    let info = panel.info();
+    let source = database.clone();
+    let mut world = World::over(move || source.space(), move |builder| builder.dashboard(info), None);
+    panel.register(&world.session);
+    world.settle();
+    assert!(world.says("Painel de vendas"), "in the navigation: {:?}", world.texts());
+    world.session.open_view("Sales_DashboardView");
+    let said = world.texts().join(" | ");
+    assert!(said.contains("Total vendido") && said.contains("150"), "the sum of both orders: {said}");
+    assert!(said.contains("Só a mesa") && said.contains("100"), "the filtered tile: {said}");
+    assert!(said.contains("Por pedido") && said.contains("Cadeira"), "the chart's points: {said}");
+}
+
+#[test]
+fn a_panel_declared_in_code_counts_only_what_the_person_can_read() {
+    let database = database();
+    let role = Role::new("r").policy(PermissionPolicy::ReadOnlyAll).object_permission(
+        "Order",
+        "[name] = 'Mesa'",
+        [Operation::Read],
+        Access::Deny,
+    );
+    let panel = sales_panel();
+    let mut world = secured_with(&database, role, {
+        let info = panel.info();
+        move |builder| builder.dashboard(info)
+    });
+    panel.register(&world.session);
+    world.session.open_view("Sales_DashboardView");
+    let said = world.texts().join(" | ");
+    assert!(said.contains("50"), "{said}");
+    assert!(!said.contains("150") && !said.contains("Mesa"), "{said}");
+}
+
+#[test]
+fn a_panel_names_one_control_per_tile_from_the_struct_of_the_record() {
+    #[derive(ravenrs_app::BusinessObject)]
+    struct Sale {
+        #[field(key)]
+        id: i64,
+        item: String,
+        amount: f64,
+    }
+    let _ = |sale: Sale| (sale.id, sale.item, sale.amount);
+    let info = AnalyticsPanel::new("Shop", "Loja")
+        .number::<Sale>("Total", "amount:Sum")
+        .pie::<Sale>("Divisão", "item", "amount:Sum")
+        .info();
+    let captions: Vec<_> = info.items.iter().map(|item| (item.caption.as_str(), item.id.as_str())).collect();
+    assert_eq!(captions, [("Total", "Shop.tile0"), ("Divisão", "Shop.tile1")]);
+    assert_eq!(info.icon.as_deref(), Some("layout-dashboard"));
 }
