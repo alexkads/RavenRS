@@ -61,6 +61,7 @@
  "widgets.compare_first": "Antes",
  "widgets.compare_second": "Depois",
  "widgets.confirm_by_typing": "Para confirmar, digite",
+ "widgets.printed_every_build": "Impresso a cada build: roda numa closure que a tela chama sempre que é montada.",
  "widgets.copied": "Copiado",
  "widgets.copy": "Copiar",
  "widgets.crop": "Área de recorte",

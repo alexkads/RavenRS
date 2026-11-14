@@ -229,6 +229,18 @@ struct Log {
     problems: Vec<CodeDiagnostic>,
 }
 
+/// Whether the playground is building, and what the code printed while it was.
+#[derive(Default)]
+struct Building {
+    now: std::cell::Cell<bool>,
+    printed: std::cell::Cell<bool>,
+    /// The lines the last build printed, to tell a build that prints the same from one that
+    /// has something new.
+    last: RefCell<Vec<String>>,
+    /// Whether the console already said that the same lines come on every build.
+    warned: std::cell::Cell<bool>,
+}
+
 /// The most lines the console keeps, the oldest going first.
 const MOST_LINES: usize = 500;
 
@@ -262,6 +274,11 @@ impl View for Playground {
         let output_open = cx.use_state(move || open_at_first);
         let log: State<Rc<RefCell<Log>>> = cx.use_state(Rc::default);
         let heard: State<u64> = cx.use_state(|| 0);
+        // While the playground builds, what the code prints is only kept: a `println!` in a
+        // closure that runs on every build must not ask for one more build each time (#167).
+        let building: State<Rc<Building>> = cx.use_state(Rc::default);
+        let building = building.get();
+        building.now.set(true);
         let started = cx.use_state(|| false);
         // Bumped on each request, so the bar redraws even where the screen does not resize.
         let asked_screen = cx.use_state(|| 0u32);
@@ -302,8 +319,14 @@ impl View for Playground {
         if !started.get() {
             started.set(true);
             // What the code prints, or gets wrong later, shows as it comes.
-            let wake = heard.clone();
-            self.runner.watch(Rc::new(move || wake.update(|n| *n += 1)));
+            let (wake, during) = (heard.clone(), building.clone());
+            self.runner.watch(Rc::new(move || {
+                if during.now.get() {
+                    during.printed.set(true);
+                } else {
+                    wake.update(|n| *n += 1);
+                }
+            }));
             // An empty kept code starts from the first example too.
             if source.get().is_empty()
                 && let Some((_, code)) = self.examples.first()
@@ -690,10 +713,32 @@ impl View for Playground {
         parts.push(body);
         // The stack fills its box, so the body and the narrow footer reach its bottom.
         let whole = VStack::new(parts).align(Align::Stretch).grow(1.0);
-        match self.height {
+        let node = match self.height {
             Some(height) => cx.child(&whole.background(Semantic::Canvas).height(height)),
             None => cx.child(&whole.background(Semantic::Canvas).grow(1.0)),
+        };
+        building.now.set(false);
+        // What the build printed shows in the next one. Asked for only when it differs from
+        // what the last build printed: the same lines on every build are printed each frame,
+        // and asking again for them would never stop.
+        if building.printed.replace(false) {
+            let fresh = self.runner.take_output();
+            let lines = fresh.lines.clone();
+            let repeated = *building.last.borrow() == lines;
+            if !fresh.is_empty() {
+                log.borrow_mut().add(fresh);
+            }
+            // Said once, so whoever wrote it knows what keeps coming; one more build shows it.
+            let warn = repeated && !lines.is_empty() && !building.warned.replace(true);
+            if warn {
+                log.borrow_mut().add(RunOutput::new(vec![labels.printed_every_build.clone()], Vec::new()));
+            }
+            if !repeated || warn {
+                *building.last.borrow_mut() = lines;
+                heard.update(|n| *n += 1);
+            }
         }
+        node
     }
 }
 

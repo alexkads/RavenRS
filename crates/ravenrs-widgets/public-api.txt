@@ -491,6 +491,7 @@ field Labels::playground_show_output
 field Labels::previous_month
 field Labels::previous_page
 field Labels::previous_year
+field Labels::printed_every_build
 field Labels::protractor
 field Labels::rating
 field Labels::rating_value
