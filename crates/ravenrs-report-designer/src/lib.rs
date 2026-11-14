@@ -30,6 +30,7 @@ pub(crate) mod prelude {
 
 mod bands;
 mod editor;
+mod groups;
 mod preview;
 mod props;
 mod surface;
@@ -393,7 +394,7 @@ impl Designer {
         } else {
             home
         };
-        let has_copy = e.copied.with(Option::is_some);
+        let has_copy = e.copied.with(|copied| !copied.is_empty());
         // The Home page: clipboard, font, alignment, layout, zoom.
         let home = home
             .group(
@@ -452,6 +453,32 @@ impl Designer {
                             .on_click(move || e.reorder_selected(false))
                     }),
             )
+            .group({
+                // Shift- or Cmd-click picks more controls; they follow the first one picked (#46).
+                let several = e.several_selected();
+                let arrange = |name: &'static str, icon: IconName, how: editor::Arrange| {
+                    let e = e.clone();
+                    RibbonItem::button(name, icon)
+                        .small()
+                        .enabled(several)
+                        .on_click(move || e.arrange_selected(how))
+                };
+                RibbonGroup::new("Organizar")
+                    .item(arrange("Alinhar à esquerda", IconName::AlignLeft, editor::Arrange::Left))
+                    .item(arrange("Alinhar ao centro", IconName::AlignCenter, editor::Arrange::Center))
+                    .item(arrange("Alinhar à direita", IconName::AlignRight, editor::Arrange::Right))
+                    .item(arrange("Alinhar em cima", IconName::ChevronUp, editor::Arrange::Top))
+                    .item(arrange("Alinhar no meio", IconName::EllipsisVertical, editor::Arrange::Middle))
+                    .item(arrange("Alinhar embaixo", IconName::ChevronDown, editor::Arrange::Bottom))
+                    .item(arrange("Mesma largura", IconName::SlidersHorizontal, editor::Arrange::SameWidth))
+                    .item(arrange("Mesma altura", IconName::ArrowUpDown, editor::Arrange::SameHeight))
+                    .item(arrange(
+                        "Distribuir na horizontal",
+                        IconName::Columns3,
+                        editor::Arrange::SpaceAcross,
+                    ))
+                    .item(arrange("Distribuir na vertical", IconName::Rows3, editor::Arrange::SpaceDown))
+            })
             .group(
                 RibbonGroup::new("Zoom")
                     .item(
@@ -516,8 +543,12 @@ impl Designer {
                 }
             },
         );
-        let mut rail =
-            ToolRail::new(pick, [(IconName::MousePointer, "Ponteiro")]).icons_only(true).separator();
+        let dragging = self.editor.clone();
+        let mut rail = ToolRail::new(pick, [(IconName::MousePointer, "Ponteiro")])
+            .icons_only(true)
+            .separator()
+            // A control dragged onto a band falls where the pointer lets go (#44).
+            .on_drag_tool(move |i, d| drag_tool(&dragging, i, d));
         for (name, icon, _) in TOOLS {
             rail = rail.tool(ToolRailItem::new(icon, name));
         }
@@ -533,6 +564,7 @@ impl Designer {
             Tabs::new(self.left_tab.binding())
                 .item("Lista de campos")
                 .item("Explorador")
+                .item("Agrupar e ordenar")
                 .size(ButtonSize::Small),
             VStack::new((LeftContent { editor: e.clone(), tab: self.left_tab.clone() },))
                 .padding(SPACING.s3)
@@ -603,6 +635,41 @@ const TOOLS: [Tool; 16] =
     ];
 
 /// Drops a new control into the band in use, at a free spot, and selects it.
+/// A control of the toolbox dragged onto a band: the ghost follows the pointer, and letting go
+/// over a band puts the control there, on the grid. `i` counts the pointer first.
+fn drag_tool(e: &Editor, i: usize, d: &ravenrs_widgets::Drag) {
+    let Some(&(name, _, make)) = i.checked_sub(1).and_then(|i| TOOLS.get(i)) else { return };
+    match d.phase {
+        DragPhase::Start => {
+            e.drag.set(Some(FieldDrag {
+                path: name.to_owned(),
+                tool: Some(i - 1),
+                start: d.position,
+                at: d.position,
+            }));
+        }
+        DragPhase::Move => e.drag.update(|g| {
+            if let Some(g) = g {
+                g.at = d.position;
+            }
+        }),
+        _ => {
+            let Some(g) = e.drag.get() else { return };
+            e.drag.set(None);
+            if (g.at.x - g.start.x).hypot(g.at.y - g.start.y) <= 4.0 {
+                return;
+            }
+            if let Some((band, at)) = e.band_at(d.position) {
+                let mut c = make();
+                c.x = editor::snap(at.x.max(0.0));
+                c.y = editor::snap((at.y - c.height / 2.0).max(0.0));
+                e.add_control(band, c);
+                e.tab.set(0);
+            }
+        }
+    }
+}
+
 fn insert_tool(e: &Editor, make: fn() -> Control) {
     let band = e.target_band();
     let mut c = make();
@@ -621,8 +688,11 @@ struct LeftContent {
 impl View for LeftContent {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let e = &self.editor;
-        let content: AnyView =
-            if self.tab.get() == 0 { Box::new(FieldList(e.clone())) } else { Box::new(BandList(e.clone())) };
+        let content: AnyView = match self.tab.get() {
+            0 => Box::new(FieldList(e.clone())),
+            1 => Box::new(BandList(e.clone())),
+            _ => Box::new(groups::GroupPanel(e.clone())),
+        };
         cx.child(&ScrollView::new((content,)).grow(1.0))
     }
 }
@@ -729,9 +799,12 @@ impl View for FieldItem {
         cx.on_drag(
             row,
             Rc::new(move |d| match d.phase {
-                DragPhase::Start => {
-                    e.drag.set(Some(FieldDrag { path: path.clone(), start: d.position, at: d.position }))
-                }
+                DragPhase::Start => e.drag.set(Some(FieldDrag {
+                    path: path.clone(),
+                    tool: None,
+                    start: d.position,
+                    at: d.position,
+                })),
                 DragPhase::Move => e.drag.update(|g| {
                     if let Some(g) = g {
                         g.at = d.position;
@@ -813,7 +886,8 @@ impl View for FieldGhost {
         let anchor = cx.empty();
         if let Some(g) = self.0.drag.get().filter(|g| (g.at.x - g.start.x).hypot(g.at.y - g.start.y) > 4.0) {
             let over = self.0.band_at(g.at).is_some();
-            let chip = Badge::new(format!("[{}]", g.path))
+            let label = if g.tool.is_some() { g.path.clone() } else { format!("[{}]", g.path) };
+            let chip = Badge::new(label)
                 .icon(if over { IconName::Plus } else { IconName::Database })
                 .tone(if over { Tone::Accent } else { Tone::Neutral });
             cx.overlay(anchor, Placement::At(Point::new(g.at.x + 12.0, g.at.y + 8.0)), &chip, None);
@@ -1377,5 +1451,105 @@ mod tests {
         assert!(Designer::embedded(report(), "Salvar", "Fechar", |_| {}, || {}).theme_menu);
         let kept = Designer::embedded(report(), "Salvar", "Fechar", |_| {}, || {}).theme_menu(false);
         assert!(!kept.theme_menu);
+    }
+
+    #[test]
+    fn several_controls_line_up_and_size_to_the_first_one_picked_and_go_together() {
+        // #46: Shift- or Cmd-click picks more controls of the band; the Ribbon lines them up.
+        let label = |x: f32, y: f32, w: f32, h: f32| Control::label("Texto").at(x, y, w, h);
+        let report = Report::new("Teste").detail(
+            ravenrs_report::Band::new(80.0)
+                .control(label(10.0, 4.0, 100.0, 18.0))
+                .control(label(150.0, 30.0, 60.0, 24.0))
+                .control(label(260.0, 12.0, 80.0, 18.0)),
+        );
+        let e = Editor::new(report);
+        let boxes = |e: &Editor| {
+            e.report
+                .with(|r| r.detail.controls.iter().map(|c| (c.x, c.y, c.width, c.height)).collect::<Vec<_>>())
+        };
+        e.select_control(BandRef::Detail, 0);
+        assert!(!e.several_selected());
+        e.toggle_selected(BandRef::Detail, 1);
+        e.toggle_selected(BandRef::Detail, 2);
+        assert!(e.several_selected());
+        assert_eq!(e.selected_indices(), Some((BandRef::Detail, vec![0, 1, 2])));
+        e.toggle_selected(BandRef::Detail, 2);
+        assert_eq!(e.selected_indices(), Some((BandRef::Detail, vec![0, 1])), "a second click takes it out");
+
+        e.arrange_selected(editor::Arrange::Left);
+        e.arrange_selected(editor::Arrange::Top);
+        e.arrange_selected(editor::Arrange::SameWidth);
+        assert_eq!(boxes(&e)[1], (10.0, 4.0, 100.0, 24.0), "to the first one picked");
+        assert_eq!(boxes(&e)[2], (260.0, 12.0, 80.0, 18.0), "the one taken out stays");
+        e.arrange_selected(editor::Arrange::Bottom);
+        assert_eq!(boxes(&e)[1].1, 4.0 + 18.0 - 24.0, "bottoms lined up");
+        e.undo();
+        e.undo();
+        assert_eq!(boxes(&e)[1], (10.0, 4.0, 60.0, 24.0), "each one undoes on its own");
+
+        // A plain click on one already picked keeps the others, as a drag of the group would; on
+        // another, it picks that one alone.
+        e.toggle_selected(BandRef::Detail, 1);
+        e.select_control(BandRef::Detail, 0);
+        assert_eq!(e.selected_indices(), Some((BandRef::Detail, vec![0, 1])));
+        e.select_control(BandRef::Detail, 2);
+        assert_eq!(e.selected_indices(), Some((BandRef::Detail, vec![2])));
+        e.toggle_selected(BandRef::Detail, 0);
+        e.delete_selected();
+        assert_eq!(e.report.with(|r| r.detail.controls.len()), 1, "both go together, the third stays");
+        assert!(!e.several_selected());
+    }
+
+    #[test]
+    fn copying_several_controls_pastes_them_all_selected() {
+        // #46: copy, cut and paste take the whole selection.
+        let report = Report::new("Teste").detail(
+            ravenrs_report::Band::new(80.0)
+                .control(Control::label("Um").at(10.0, 4.0, 100.0, 18.0))
+                .control(Control::label("Dois").at(150.0, 4.0, 60.0, 18.0)),
+        );
+        let e = Editor::new(report);
+        e.select_control(BandRef::Detail, 0);
+        e.toggle_selected(BandRef::Detail, 1);
+        e.copy_selected();
+        e.paste();
+        assert_eq!(e.report.with(|r| r.detail.controls.len()), 4, "both copies");
+        assert_eq!(e.selected_indices(), Some((BandRef::Detail, vec![2, 3])), "the copies selected");
+        let (x, y) = e.report.with(|r| (r.detail.controls[3].x, r.detail.controls[3].y));
+        assert!(x > 150.0 && y > 4.0, "a little below and to the right: {x} {y}");
+        e.undo();
+        assert_eq!(e.report.with(|r| r.detail.controls.len()), 2, "one step of undo");
+        e.select_control(BandRef::Detail, 0);
+        e.toggle_selected(BandRef::Detail, 1);
+        e.cut_selected();
+        assert_eq!(e.report.with(|r| r.detail.controls.len()), 0, "cut takes both");
+        e.paste();
+        assert_eq!(e.report.with(|r| r.detail.controls.len()), 2, "and pastes both back");
+    }
+
+    #[test]
+    fn distributing_leaves_the_same_space_between_each_two() {
+        // #46: the first and the last stay; the ones between them spread out.
+        let at = |x: f32, y: f32, w: f32| Control::label("x").at(x, y, w, 18.0);
+        let report = Report::new("Teste").detail(
+            ravenrs_report::Band::new(200.0)
+                .control(at(0.0, 0.0, 10.0))
+                .control(at(30.0, 90.0, 10.0))
+                .control(at(100.0, 20.0, 20.0)),
+        );
+        let e = Editor::new(report);
+        e.select_control(BandRef::Detail, 0);
+        e.toggle_selected(BandRef::Detail, 1);
+        assert!(e.several_selected());
+        e.arrange_selected(editor::Arrange::SpaceAcross);
+        assert_eq!(e.report.with(|r| r.detail.controls[1].x), 30.0, "two: nothing to spread");
+        e.toggle_selected(BandRef::Detail, 2);
+        e.arrange_selected(editor::Arrange::SpaceAcross);
+        let xs = e.report.with(|r| r.detail.controls.iter().map(|c| c.x).collect::<Vec<_>>());
+        assert_eq!(xs, [0.0, 50.0, 100.0], "40 between each two");
+        e.arrange_selected(editor::Arrange::SpaceDown);
+        let ys = e.report.with(|r| r.detail.controls.iter().map(|c| c.y).collect::<Vec<_>>());
+        assert_eq!(ys, [0.0, 90.0, 45.0], "by height, the top and the bottom stay");
     }
 }

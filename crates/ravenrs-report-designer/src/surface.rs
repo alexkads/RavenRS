@@ -223,9 +223,11 @@ impl View for BandView {
                 }
             })),
         );
+        let also = e.also.get();
         let mut children = vec![grid];
         for (i, c) in band.controls.iter().enumerate() {
-            let selected = selection == Selection::Control(self.band, i);
+            let selected = selection == Selection::Control(self.band, i)
+                || (matches!(selection, Selection::Control(b, _) if b == self.band) && also.contains(&i));
             children.push(cx.keyed_child(
                 i as u64,
                 &ControlView {
@@ -292,7 +294,8 @@ impl View for BandGrip {
             Paint::None,
         );
         let (e, b, zoom) = (self.editor.clone(), self.band, self.zoom);
-        let start: Rc<Cell<(f32, f32)>> = Rc::new(Cell::new((0.0, 0.0)));
+        // Kept across builds, as a drag goes on in the handler of the build after it starts.
+        let start: Rc<Cell<(f32, f32)>> = cx.use_state(|| Rc::new(Cell::new((0.0, 0.0)))).get();
         cx.on_drag(
             node,
             Rc::new(move |d| match d.phase {
@@ -555,10 +558,27 @@ impl View for ControlView {
         // Click selects; dragging moves, also into another band.
         let (e2, band, index, zoom) = (e.clone(), self.band, self.index, z);
         let band_width = self.width / z;
-        let start: Rc<Cell<Option<(Point, f32, f32)>>> = Rc::new(Cell::new(None));
+        // Kept across builds: the press that starts a drag selects the control, which builds the
+        // surface again, and the drag goes on in the handler of that build.
+        let start: Rc<Cell<Option<(Point, f32, f32)>>> = cx.use_state(|| Rc::new(Cell::new(None))).get();
+        // The other controls selected, where they started: a drag of one of them moves them all,
+        // inside their band (#46).
+        let others: Rc<std::cell::RefCell<Vec<(usize, f32, f32)>>> = cx.use_state(Rc::default).get();
+        // Shift- or Cmd-click adds the control to the selection, or takes it out, and moves nothing.
+        let (modifiers, toggled) = (cx.modifiers(), cx.use_state(|| Rc::new(Cell::new(false))).get());
         cx.on_drag(
             node,
             Rc::new(move |d| match d.phase {
+                DragPhase::Start
+                    if {
+                        let m = modifiers.get();
+                        m.shift || m.meta || m.ctrl
+                    } =>
+                {
+                    toggled.set(true);
+                    e2.toggle_selected(band, index);
+                }
+                DragPhase::End if toggled.replace(false) => {}
                 DragPhase::Start => {
                     let pos = e2
                         .report
@@ -566,24 +586,46 @@ impl View for ControlView {
                     if let Some((x, y)) = pos {
                         start.set(Some((d.position, x, y)));
                         e2.checkpoint();
-                        e2.selection.set(Selection::Control(band, index));
+                        e2.select_control(band, index);
+                        let picked = e2.selected_indices().map(|(_, all)| all).unwrap_or_default();
+                        *others.borrow_mut() = e2.report.with(|r| {
+                            band.get(r).map_or_else(Vec::new, |b| {
+                                picked
+                                    .iter()
+                                    .filter(|&&i| i != index)
+                                    .filter_map(|&i| b.controls.get(i).map(|c| (i, c.x, c.y)))
+                                    .collect()
+                            })
+                        });
                     }
                 }
+                DragPhase::Move if toggled.get() => {}
                 DragPhase::Move => {
                     if let Some((p0, x0, y0)) = start.get() {
                         let (dx, dy) = ((d.position.x - p0.x) / zoom, (d.position.y - p0.y) / zoom);
+                        let group = others.borrow().clone();
                         e2.apply(|r| {
-                            if let Some(c) = band.get_mut(r).and_then(|b| b.controls.get_mut(index)) {
+                            let Some(b) = band.get_mut(r) else { return };
+                            if let Some(c) = b.controls.get_mut(index) {
                                 c.x = snap(x0 + dx).clamp(0.0, (band_width - c.width).max(0.0));
                                 // Within the band while moving; a drop elsewhere moves it across.
                                 c.y = snap(y0 + dy).clamp(-1000.0, 10_000.0);
+                            }
+                            for (i, x, y) in group {
+                                if let Some(c) = b.controls.get_mut(i) {
+                                    c.x = snap(x + dx).clamp(0.0, (band_width - c.width).max(0.0));
+                                    c.y = snap(y + dy).max(0.0);
+                                }
                             }
                         });
                     }
                 }
                 DragPhase::End => {
                     start.set(None);
-                    let target = e2.band_at(d.position).filter(|(to, _)| *to != band);
+                    // Several controls stay in their band: only one moves to another.
+                    let several = !std::mem::take(&mut *others.borrow_mut()).is_empty();
+                    let picked = e2.selected_indices().map(|(_, all)| all).unwrap_or_default();
+                    let target = e2.band_at(d.position).filter(|(to, _)| *to != band && !several);
                     let mut moved_to = None;
                     e2.apply(|r| {
                         match target {
@@ -611,6 +653,14 @@ impl View for ControlView {
                                     c.y = c.y.max(0.0);
                                     let bottom = c.y + c.height;
                                     b.height = b.height.max(bottom);
+                                }
+                                // The others moved with it: the band grows for them too.
+                                if let Some(b) = band.get_mut(r) {
+                                    let bottom = picked
+                                        .iter()
+                                        .filter_map(|&i| b.controls.get(i))
+                                        .map(|c| c.y + c.height);
+                                    b.height = bottom.fold(b.height, f32::max);
                                 }
                             }
                         }
@@ -656,7 +706,8 @@ impl View for ResizeHandle {
             }),
         );
         let (e, band, index) = (self.editor.clone(), self.band, self.index);
-        let start: Rc<Cell<Option<(Point, f32, f32)>>> = Rc::new(Cell::new(None));
+        // Kept across builds, as a drag goes on in the handler of the build after it starts.
+        let start: Rc<Cell<Option<(Point, f32, f32)>>> = cx.use_state(|| Rc::new(Cell::new(None))).get();
         cx.on_drag(
             node,
             Rc::new(move |d| match d.phase {
