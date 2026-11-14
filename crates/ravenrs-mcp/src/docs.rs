@@ -435,8 +435,11 @@ fn rust_name(category: &str, token: &str) -> Option<String> {
         "typography" => ("TextStyle", &|variant| variant.name.eq_ignore_ascii_case(token)),
         _ => return None,
     };
+    // The theme's own enum: an engine may have a type of the same name (`ravenrs-deck` has a
+    // `TextStyle` struct for its PDF text), which says nothing about design tokens.
     let items = Index::get().find(enum_name);
-    let variant = items.first()?.variants.iter().find(|variant| matches(variant))?;
+    let theme = items.iter().find(|item| item.krate == "ravenrs-style")?;
+    let variant = theme.variants.iter().find(|variant| matches(variant))?;
     Some(format!("{enum_name}::{}", variant.name))
 }
 

@@ -1,0 +1,54 @@
+ravenrs-deck
+============
+
+The code under src/ and tests/, and build.rs, comes from DeckCraft
+(https://github.com/storytold/deckcraft), commit b0c77ebd6a6fe6c9037cfbe1c8a7f397304b2205
+(version 0.18.1): its crates geom, color, model, fonts, text, anim, render, pdf, pptx, format,
+media, engine and mcp, brought together as modules of this one crate by
+scripts/storytold/convert.py. build.rs is the build script of its fonts crate.
+
+DeckCraft
+Copyright (c) 2026 ArtCraft Team and the DeckCraft contributors.
+Licensed under the MIT License or the Apache License, Version 2.0, at your option
+(LICENSES/DeckCraft-LICENSE-MIT, LICENSES/DeckCraft-LICENSE-APACHE).
+
+The ArtCraft and DeckCraft names and logos are trademarks of the ArtCraft Team and are not
+covered by the licence above; this crate uses neither.
+
+From craft-libs (https://github.com/storytold/craft-libs), commit
+63196e66f3033a6623eb629af95a104d26986725, the one DeckCraft pins, under src/craft and
+src/third_party:
+
+- craft-metafile, craft-pdf, craft-media, craft-audio and craft-video, as craft::metafile,
+  craft::pdf, craft::media, craft::audio and craft::video. Copyright (c) 2026 ArtCraft Team and
+  the craft-libs contributors — MIT OR Apache-2.0 (LICENSES/craft-libs-LICENSE-*). Only the
+  features DeckCraft turns on are compiled (the PDF writer; the H.264, HEVC, VP9 and AV1 video
+  decoders; the Opus decoder); the code of the others stays, compiled out. src/craft/audio/alac
+  is ported from Apple's ALAC reference implementation (https://github.com/macosforge/alac),
+  Copyright (c) 2011 Apple Inc., under the Apache License, Version 2.0 only.
+- krilla 0.8.2 (https://github.com/LaurenzV/krilla), Copyright (c) 2024 Laurenz Stampfl — MIT OR
+  Apache-2.0 (LICENSES/krilla-LICENSE-*), with the patches craft-libs lists in
+  vendor/krilla/README.craft.md, as third_party::krilla.
+
+Data under assets/:
+
+- assets/vendor/krilla/icc/*.icc: Compact ICC Profiles by Clinton Ingram
+  (https://github.com/saucecontrol/Compact-ICC-Profiles), CC0-1.0
+  (LICENSES/Compact-ICC-Profiles-CC0.txt).
+- assets/crates/engine/data/thesaurus.txt: DeckCraft's own thesaurus, under DeckCraft's licence.
+
+Embedded in the source:
+
+- src/engine/icon_data.rs: Lucide icon paths, release 1.56.0
+  (https://github.com/lucide-icons/lucide), ISC License, Copyright (c) 2026 Lucide Icons and
+  Contributors; the icons Lucide derives from Feather are MIT, Copyright (c) 2013-present Cole
+  Bemis (LICENSES/Lucide-ISC-and-Feather-MIT.txt).
+
+Test fixtures under tests/ (fonts, audio and video clips) were made by the DeckCraft
+contributors and are CC0-1.0, as DeckCraft's ATTRIBUTION.md lists.
+
+Dependencies with licences of their own: epaint_default_fonts carries the last-resort face,
+Ubuntu Light, under the Ubuntu Font Licence 1.0; symphonia decodes audio under MPL-2.0, used
+unmodified.
+
+Changes from DeckCraft and craft-libs are recorded in the RavenRS git history.

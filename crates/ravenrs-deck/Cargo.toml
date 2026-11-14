@@ -1,0 +1,98 @@
+[package]
+name = "ravenrs-deck"
+description = "Headless presentation engine for RavenRS: a slide model with masters, layouts, shapes, text, tables, charts and animations; PPTX and native-format reading and writing; slide rendering to pixels; PDF export; and the commands and undo history an editor drives."
+version.workspace = true
+edition.workspace = true
+# The engine came from DeckCraft, which needs a newer compiler than the rest of the workspace.
+rust-version = "1.95"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-deck"
+keywords = ["pptx", "presentation", "slides", "powerpoint", "render"]
+categories = ["parser-implementations", "encoding", "rendering"]
+
+[dependencies]
+# DeckCraft's own crates.
+chrono = { version = "0.4", default-features = false, features = ["std"] }
+# Last-resort text face only (Ubuntu Light); no UI code.
+epaint_default_fonts = "0.37"
+harfrust = "0.13"
+i_overlay = "9"
+image = { workspace = true, features = ["png", "jpeg", "webp", "gif", "tiff", "bmp"] }
+kurbo = { version = "0.13", features = ["serde"] }
+log = "0.4"
+quick-xml = "0.41"
+serde = { workspace = true, features = ["derive", "rc"] }
+serde_json = { workspace = true, features = ["float_roundtrip"] }
+skrifa = "0.47"
+# Audio decoding for the formats with no decoder of DeckCraft's own (MPL-2.0, used unmodified).
+symphonia = { version = "0.5.5", default-features = false, features = ["aac", "adpcm", "alac", "flac", "mp1", "mp2", "mp3", "pcm", "vorbis", "wav", "aiff", "caf", "ogg", "mkv", "isomp4"] }
+thiserror = "2"
+unicode-bidi = "0.3"
+unicode-linebreak = "0.1"
+unicode-segmentation = "1"
+vello_common = { version = "0.2", default-features = false }
+vello_cpu = "0.2"
+# zip 9, as ravenrs-sheet and ravenrs-word: DeckCraft is on 3, which has advisories (RUSTSEC-2026-0367..0369, 0429).
+zip = { version = "9", default-features = false, features = ["deflate"] }
+
+# craft-metafile.
+encoding_rs = "0.8"
+
+# krilla 0.8.2 (src/third_party/krilla), behind craft-pdf.
+base64 = "0.22.1"
+bumpalo = "3.16.0"
+flate2 = "1.1.0"
+float-cmp = "0.9.0"
+gif = "0.14.2"
+image-webp = "0.2.1"
+imagesize = "0.14.0"
+indexmap = "2.10.0"
+pdf-writer = "0.15.0"
+png = "0.18.1"
+rustc-hash = "2.1.1"
+rustybuzz = "0.20.1"
+siphasher = "1.0.1"
+# krilla reads fonts with an older skrifa than the rest of the engine.
+skrifa_042 = { package = "skrifa", version = "0.42.0" }
+smallvec = { version = "1.15.1", features = ["union", "const_new", "write"] }
+subsetter = { version = "0.2.6", features = ["variable-fonts"] }
+tiny-skia-path = "0.12.0"
+xmp-writer = "0.3.3"
+yoke = { version = "0.8.0", features = ["derive"] }
+zune-jpeg = "0.5.5"
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# The local clock for date fields (no clock on wasm: fields keep their saved text).
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+# Off the web, krilla compresses on worker threads, the video decoders decode across threads and
+# the slide renderer rasterises in parallel.
+rayon = "1.10.0"
+vello_cpu = { version = "0.2", features = ["multithreading"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys.workspace = true
+# The video decoders' worker threads are on in the conversion; on the web rayon runs them inline.
+rayon = "1.10.0"
+
+[dev-dependencies]
+# The PDF export tests read their output back.
+hayro-syntax = { version = "=0.7.2", default-features = false, features = ["std"] }
+proptest.workspace = true
+
+[lints.rust]
+unsafe_code = "forbid"
+
+[lints.clippy]
+cognitive_complexity = "deny"
+too_many_arguments = "deny"
+wildcard_imports = "deny"
+dbg_macro = "warn"
+todo = "warn"
+type_complexity = "allow"
+self_named_constructors = "allow"
+large_enum_variant = "allow"
+result_large_err = "allow"
