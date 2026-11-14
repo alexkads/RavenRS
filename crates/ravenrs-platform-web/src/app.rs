@@ -605,10 +605,19 @@ async fn create_gpu(
     Ok(Gpu { surface, config, context, renderer, lost, backends })
 }
 
+/// Whether the browser runs on a Mac, an iPhone or an iPad, by what it says of its platform.
+fn browser_uses_apple_keys() -> bool {
+    let Some(navigator) = web_sys::window().map(|w| w.navigator()) else { return false };
+    let said = navigator.platform().unwrap_or_default() + " " + &navigator.user_agent().unwrap_or_default();
+    ["Mac", "iPhone", "iPad", "iPod"].iter().any(|apple| said.contains(apple))
+}
+
 /// Mounts `root` on the canvas and starts rendering.
 ///
 /// On failure a readable message is also shown on the page, next to the canvas.
 pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<WebApp, WebError> {
+    // Shortcuts are written as the system the page runs on writes them, not the one it was built on.
+    ravenrs_widgets::set_apple_keys(browser_uses_apple_keys());
     let doc = document()?;
     let canvas = doc
         .get_element_by_id(&options.canvas_id)

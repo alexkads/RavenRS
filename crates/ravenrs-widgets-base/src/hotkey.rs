@@ -63,7 +63,7 @@ impl Hotkey {
             Key::Function(number) => format!("F{number}"),
             other => format!("{other:?}"),
         };
-        if cfg!(target_os = "macos") {
+        if apple_keys() {
             let alt = if self.alt { "⌥" } else { "" };
             let shift = if self.shift { "⇧" } else { "" };
             let command = if self.command { "⌘" } else { "" };
@@ -86,4 +86,24 @@ impl Hotkey {
             cx.shortcut(self.key.clone(), self.command, handler);
         }
     }
+}
+
+/// 0 until a platform says, then 1 for Apple's keys and 2 for the others.
+static APPLE_KEYS: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// Whether shortcuts are written with Apple's keys, `⌘S`, or as `Ctrl+S`: the system the program
+/// runs on, which in a browser is not the one it was built on. Desktop builds know it when they
+/// are built; the web platform asks the browser when it starts, through [`set_apple_keys`].
+pub fn apple_keys() -> bool {
+    match APPLE_KEYS.load(std::sync::atomic::Ordering::Relaxed) {
+        1 => true,
+        2 => false,
+        _ => cfg!(any(target_os = "macos", target_os = "ios")),
+    }
+}
+
+/// Says whether the system writes shortcuts with Apple's keys, for [`apple_keys`]. The web
+/// platform calls it with what the browser says.
+pub fn set_apple_keys(apple: bool) {
+    APPLE_KEYS.store(if apple { 1 } else { 2 }, std::sync::atomic::Ordering::Relaxed);
 }

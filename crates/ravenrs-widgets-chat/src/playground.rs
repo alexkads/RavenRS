@@ -420,7 +420,7 @@ impl View for Playground {
             let go = run.clone();
             Button::new(labels.playground_run.clone())
                 .icon(IconName::Play)
-                .shortcut(if cfg!(target_os = "macos") { "⌘↵" } else { "Ctrl+↵" })
+                .shortcut(if ravenrs_widgets_base::apple_keys() { "⌘↵" } else { "Ctrl+↵" })
                 .on_click(move || go())
         };
 

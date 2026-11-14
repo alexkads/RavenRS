@@ -1409,7 +1409,10 @@ pub struct ToolRail {
 
 /// What a [`ToolRail`] calls while one of its tools is dragged out of it.
 #[derive(Clone)]
-struct RailDrag(Rc<dyn Fn(usize, &crate::Drag)>);
+struct RailDrag(Rc<RailDragHandler>);
+
+/// The tool dragged, counted as `selected` counts them, and the part of the drag.
+type RailDragHandler = dyn Fn(usize, &crate::Drag);
 
 impl std::fmt::Debug for RailDrag {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
