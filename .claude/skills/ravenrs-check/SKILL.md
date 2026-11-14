@@ -57,7 +57,7 @@ Quem escolhe é o `scripts/changed-packages.py`. Os passos, em ordem:
 4. **ravenrs-lint** nos exemplos, só quando muda o crate do lint, o `family-finance`, o `component-gallery` ou a configuração no `Cargo.toml`.
 5. **API pública do `ravenrs-widgets`** (`public-api.py --check`, rustdoc no nightly), só quando a mudança alcança a fachada `ravenrs-widgets`.
 6. **clippy `--all-targets`** em tudo o que a mudança alcança, em qualquer profundidade. Isso também prova que esses pacotes compilam.
-7. **testes** (nextest e doctests) só dos pacotes alterados e dos dependentes diretos. Os dependentes mais distantes ficam para o `--full`.
+7. **testes** (nextest e doctests) só dos pacotes alterados e dos dependentes diretos. Os dependentes mais distantes ficam para o `--full`. Também fica para o `--full` o dependente direto que não foi alterado e puxa um crate pesado (`HEAVY` no `changed-packages.py`: o `ravenrs-ai`, com o `candle` e o `tokenizers`, e o `ravenrs-movie-video`, com o `openh264`) que a mudança não alcança. Na prática, uma mudança só no `ravenrs-app` não testa o `family-finance`, mas o clippy do passo 6 continua provando que ele compila. A saída mostra esses pacotes na linha `tested in --full:` (#348).
 
 | Mudança | Alcança |
 |---|---|

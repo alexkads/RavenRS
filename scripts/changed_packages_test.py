@@ -146,5 +146,39 @@ class Lock(unittest.TestCase):
         self.assertEqual(cp.lock_changes(LOCK, new, MEMBERS), {"app"})
 
 
+# app depends on ai (heavy) and on ravenrs; gallery depends only on ravenrs; ai depends on ravenrs.
+DEPENDENCIES = {"ravenrs": set(), "ai": {"ravenrs"}, "app": {"ai", "ravenrs"}, "gallery": {"ravenrs"}}
+DEPENDENTS = {"ravenrs": {"ai", "app", "gallery"}, "ai": {"app"}, "app": set(), "gallery": set()}
+
+
+class Tested(unittest.TestCase):
+    def select(self, *touched):
+        return cp.select_tested(set(touched), DEPENDENTS, DEPENDENCIES, heavy=("ai",))
+
+    def test_a_dependent_that_pulls_in_an_untouched_heavy_crate_waits_for_full(self):
+        # A change in app's other dependency does not reach ai, so ai is built for nothing.
+        deps = {**DEPENDENCIES, "lib": set(), "app": {"ai", "lib"}}
+        dependents = {**DEPENDENTS, "lib": {"app"}}
+        tested, deferred = cp.select_tested({"lib"}, dependents, deps, heavy=("ai",))
+        self.assertEqual(tested, {"lib"})
+        self.assertEqual(deferred, {"app"})
+
+    def test_a_change_that_reaches_the_heavy_crate_tests_everything(self):
+        # ravenrs is under ai: the change reaches it, so app runs its tests in the quick check.
+        tested, deferred = self.select("ravenrs")
+        self.assertEqual(tested, {"ravenrs", "ai", "app", "gallery"})
+        self.assertEqual(deferred, set())
+
+    def test_the_package_itself_is_always_tested(self):
+        tested, deferred = self.select("app")
+        self.assertEqual(tested, {"app"})
+        self.assertEqual(deferred, set())
+
+    def test_the_heavy_crate_changing_tests_its_dependents(self):
+        tested, deferred = self.select("ai")
+        self.assertEqual(tested, {"ai", "app"})
+        self.assertEqual(deferred, set())
+
+
 if __name__ == "__main__":
     unittest.main()
