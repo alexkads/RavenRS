@@ -259,6 +259,31 @@ fn hero_banner_fills_the_width_in_a_strong_color() {
 }
 
 #[test]
+fn hero_banner_text_reads_on_every_tone_of_every_theme() {
+    // A theme by tokens whose accent is a light teal, with dark text on it.
+    let vigil = Theme::from_tokens_json(
+        r##"{"base": "Raven Dark", "name": "Vigil", "color": {"accent": "#5fc4c9", "on-accent": "#08262a"}}"##,
+    )
+    .expect("reads");
+    let themes = Theme::builtin().into_iter().chain([vigil]);
+    for theme in themes {
+        for tone in [Tone::Accent, Tone::Neutral, Tone::Success, Tone::Warning, Tone::Danger] {
+            let mut ui = Ui::new(HeroBanner::new("Ready").tone(tone), theme);
+            ui.set_viewport(Size::new(800.0, 600.0), 1.0);
+            ui.update();
+            let fill = tone.color(&theme).with_alpha(1.0);
+            let ink = glyph_runs(&ui)[0];
+            if tone == Tone::Accent {
+                assert_eq!(ink, theme.palette.on_accent, "{}: the accent's own text", theme.name);
+            } else {
+                let ratio = ink.contrast_ratio(fill);
+                assert!(ratio >= 4.5, "{} {tone:?}: {ratio:.2}:1", theme.name);
+            }
+        }
+    }
+}
+
+#[test]
 fn multi_progress_stacks_meters_and_survives_odd_counts() {
     let mut ui = ui(MultiProgress::new()
         .label("Import")

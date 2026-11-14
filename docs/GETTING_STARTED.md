@@ -262,7 +262,7 @@ Pick a theme when you start the app, or switch at runtime:
 ravenrs::native::run(app(), ravenrs::native::WindowOptions::new("App").theme(Theme::raven_light()))
 ```
 
-`ThemeSwitcher::new()` toggles Raven Dark, Light and Glass, or the app's own three with `.themes(dark, light, glass)`, `ThemePicker` does it from a small menu, and `ThemeEditor` changes the tokens of the theme on screen and hands them over as JSON (`Theme::to_tokens_json`, `Theme::from_tokens_json`); any component can do the same with `cx.theme_state().set(...)`. Components use semantic roles (`Semantic::Ink`, `Semantic::Accent`, `Semantic::SurfaceElevated`…) so they follow the theme automatically. The tokens are documented in [docs/design-system](design-system/README.md).
+`ThemeSwitcher::new()` toggles Raven Dark, Light and Glass, or the app's own three with `.themes(dark, light, glass)`, `ThemePicker` does it from a small menu (`ThemePicker::of(themes)` with only the app's own), and `ThemeEditor` changes the tokens of the theme on screen and hands them over as JSON (`Theme::to_tokens_json`, `Theme::from_tokens_json`, with an optional `"name"`); `Ui::system_themes(light, dark)` makes following the system switch between the app's own pair; any component can do the same with `cx.theme_state().set(...)`. Components use semantic roles (`Semantic::Ink`, `Semantic::Accent`, `Semantic::SurfaceElevated`…) so they follow the theme automatically. The tokens are documented in [docs/design-system](design-system/README.md).
 
 ## 6. The data grid
 

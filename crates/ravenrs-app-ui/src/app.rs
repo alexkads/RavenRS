@@ -73,6 +73,7 @@ pub struct App {
     administrator: Option<String>,
     security: Option<(Rc<ravenrs_app::SecurityContext>, ravenrs_app::SpaceMaker)>,
     theme: Option<ravenrs_style::Theme>,
+    themes: Vec<ravenrs_style::Theme>,
     counter: bool,
     actions: Vec<ActionMaker>,
 }
@@ -130,6 +131,7 @@ impl App {
             administrator: None,
             security: None,
             theme: None,
+            themes: Vec::new(),
             counter: false,
             actions: Vec::new(),
         }
@@ -380,6 +382,13 @@ impl App {
         self
     }
 
+    /// Offers only these themes in the menu, such as the application's own light and dark, instead
+    /// of the three of RavenRS; see [`AppShell::themes`](crate::AppShell::themes).
+    pub fn themes(mut self, themes: impl IntoIterator<Item = ravenrs_style::Theme>) -> Self {
+        self.themes = themes.into_iter().collect();
+        self
+    }
+
     /// Arranges the window for use at a counter: see [`CounterTemplate`](crate::CounterTemplate).
     pub fn counter(mut self) -> Self {
         self.counter = true;
@@ -446,6 +455,9 @@ impl App {
         let mut shell = AppShell::from_factory(application, factory, words, self.editors);
         if let Some(theme) = self.theme {
             shell = shell.theme(theme);
+        }
+        if !self.themes.is_empty() {
+            shell = shell.themes(self.themes);
         }
         if self.counter {
             shell = shell.template(crate::CounterTemplate);

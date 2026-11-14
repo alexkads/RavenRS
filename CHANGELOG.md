@@ -4,6 +4,21 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ## [Unreleased]
 
+### Breaking
+
+- `Theme` has a new public field, `based_on`, the built-in theme it starts from, which its tokens are kept against. A literal with `..Theme::raven_light()` (or another theme) inherits it; one without `..` stops compiling.
+
+### Added
+
+- `App::themes` and `AppShell::themes` offer only the application's own themes in the Theme menu, start on the first, and keep the one each person chooses, as before. `ThemePicker::of` is that menu on its own.
+- The tokens of a theme take a `"name"`, shown in menus and to screen readers. `to_tokens_json` writes it for a theme with a name of its own, and `from_tokens_json` takes it, up to 64 characters; without it nothing changes.
+- Following the system can switch between an application's own light and dark: `SystemAppearance::set_themes`, `SystemAppearance::theme_of` and `Ui::system_themes`. `App::themes` sets that pair itself, from the first light and the first dark among them.
+
+### Fixed
+
+- A theme of an application's own, such as one made with `Theme { name: "Mine", ..Theme::raven_light() }`, wrote its tokens against itself, so the menu could not bring it back the next time. It now writes them against its base.
+- `HeroBanner` in the accent tone writes in the theme's `on-accent`, and on any other tone or color in black or white, whichever has more contrast, so it reaches 4.5:1. It used to pick by luminance, which left white text at 2.6:1 on a light accent.
+
 ## [27.1.28] - 2026-11-14
 
 ### Breaking

@@ -13,6 +13,26 @@ const TEXT_SIZES: std::ops::RangeInclusive<f32> = 9.0..=64.0;
 const RADIUS_RANGE: std::ops::RangeInclusive<f64> = 0.0..=64.0;
 /// The sizes text can take when it comes from text.
 const SIZE_RANGE: std::ops::RangeInclusive<f64> = 8.0..=96.0;
+/// The longest name a theme read from text can have, in characters.
+const NAME_MOST: usize = 64;
+
+/// The names of themes read from text, each kept once for the life of the program, so that a
+/// [`Theme`] stays `Copy`. Only distinct names are kept, and each is short.
+static NAMES: std::sync::Mutex<Vec<&'static str>> = std::sync::Mutex::new(Vec::new());
+
+/// `name` as a name a theme can hold.
+fn interned(name: &str) -> &'static str {
+    if let Some(builtin) = Theme::builtin().into_iter().find(|theme| theme.name == name) {
+        return builtin.name;
+    }
+    let mut names = NAMES.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    if let Some(known) = names.iter().find(|known| **known == name) {
+        return known;
+    }
+    let kept: &'static str = Box::leak(name.to_owned().into_boxed_str());
+    names.push(kept);
+    kept
+}
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Semantic {
@@ -182,7 +202,8 @@ impl Theme {
 
     /// The built-in theme this one started from, by its name; itself when it did not.
     pub fn base(&self) -> Self {
-        Self::builtin().into_iter().find(|theme| theme.name == self.name).unwrap_or(*self)
+        let named = |name: &str| Self::builtin().into_iter().find(|theme| theme.name == name);
+        named(self.based_on).or_else(|| named(self.name)).unwrap_or(*self)
     }
 
     /// What differs from [`base`](Self::base), in the shape of [`to_tokens_json`](Self::to_tokens_json).
@@ -226,15 +247,24 @@ impl Theme {
     }
 
     /// What differs from [`base`](Self::base) as JSON, with the same names as
-    /// `docs/design-system/tokens.json`, for keeping or handing over.
+    /// `docs/design-system/tokens.json`, for keeping or handing over. A theme with a name of its
+    /// own writes it as `"name"`.
     pub fn to_tokens_json(&self) -> String {
         let (colors, radii, sizes) = self.changes();
-        let tokens = json!({ "base": self.name, "color": colors, "radius": radii, "type": sizes });
+        let base = self.base().name;
+        let mut tokens = json!({ "base": base, "color": colors, "radius": radii, "type": sizes });
+        if self.name != base
+            && let Some(object) = tokens.as_object_mut()
+        {
+            object.insert("name".to_owned(), json!(self.name));
+        }
         serde_json::to_string_pretty(&tokens).unwrap_or_default()
     }
 
-    /// A theme from what [`to_tokens_json`](Self::to_tokens_json) wrote. Anything it does not
-    /// recognize, or a size too far out to read, refuses the whole text, which may come from anywhere.
+    /// A theme from what [`to_tokens_json`](Self::to_tokens_json) wrote. `"name"` is optional and
+    /// shows in menus and to screen readers; without it the theme has the name of its base.
+    /// Anything it does not recognize, a name that is empty or longer than 64 characters, or a size
+    /// too far out to read, refuses the whole text, which may come from anywhere.
     pub fn from_tokens_json(text: &str) -> Result<Self, String> {
         let tokens: Value = serde_json::from_str(text).map_err(|error| error.to_string())?;
         let name = tokens.get("base").and_then(Value::as_str).ok_or("no base theme")?;
@@ -242,6 +272,13 @@ impl Theme {
             .into_iter()
             .find(|theme| theme.name == name)
             .ok_or_else(|| format!("unknown base theme: {name}"))?;
+        if let Some(own) = tokens.get("name") {
+            let own = own.as_str().map(str::trim).ok_or("bad name")?;
+            if own.is_empty() || own.chars().count() > NAME_MOST {
+                return Err("bad name".to_owned());
+            }
+            theme.name = interned(own);
+        }
         let part = |key: &str| tokens.get(key).and_then(Value::as_object).cloned().unwrap_or_default();
         for (token, value) in part("color") {
             let role = Semantic::TOKENS
@@ -311,6 +348,35 @@ mod tests {
         assert_eq!(again.radii.md, 4.0);
         assert_eq!(again.typography.body.size, 16.0);
         assert_eq!(again.changed_tokens(), 4);
+    }
+
+    #[test]
+    fn a_theme_of_its_own_keeps_its_name_and_what_differs_from_its_base() {
+        let mut theme = Theme { name: "Morning Star", ..Theme::raven_light() };
+        theme.palette.set(Semantic::Accent, Color::hex(0x0f5e66));
+        let text = theme.to_tokens_json();
+        let tokens: Value = serde_json::from_str(&text).expect("json");
+        assert_eq!(tokens["base"], "Raven Light");
+        assert_eq!(tokens["name"], "Morning Star");
+        let again = Theme::from_tokens_json(&text).expect("reads");
+        assert_eq!(again.name, "Morning Star");
+        assert_eq!(again.based_on, "Raven Light");
+        assert_eq!(to_hex(again.palette.accent), "#0f5e66");
+        assert_eq!(again, theme);
+        let twice = Theme::from_tokens_json(&text).expect("reads");
+        assert!(std::ptr::eq(again.name, twice.name), "the same name is kept once");
+    }
+
+    #[test]
+    fn a_name_is_optional_and_has_to_make_sense() {
+        let plain = Theme::from_tokens_json(r#"{"base": "Raven Dark"}"#).expect("reads");
+        assert_eq!(plain.name, "Raven Dark");
+        assert!(!Theme::raven_dark().to_tokens_json().contains("\"name\""));
+        let long = format!(r#"{{"base": "Raven Dark", "name": "{}"}}"#, "x".repeat(65));
+        for text in [r#"{"base": "Raven Dark", "name": "  "}"#, r#"{"base": "Raven Dark", "name": 3}"#, &long]
+        {
+            assert!(Theme::from_tokens_json(text).is_err(), "{text}");
+        }
     }
 
     #[test]

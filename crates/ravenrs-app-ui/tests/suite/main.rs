@@ -16,4 +16,5 @@ mod narrow;
 mod relations;
 mod security;
 mod texts;
+mod themes;
 mod workflow;

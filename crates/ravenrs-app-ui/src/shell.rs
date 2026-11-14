@@ -180,6 +180,15 @@ impl View for LockedWindow {
     }
 }
 
+/// The first light and the first dark theme among `themes`, by whether their text is light.
+fn system_pair(themes: &[ravenrs_style::Theme]) -> Option<(ravenrs_style::Theme, ravenrs_style::Theme)> {
+    let dark =
+        |theme: &&ravenrs_style::Theme| theme.palette.ink.contrast_ratio(ravenrs_core::Color::WHITE) < 2.0;
+    let night = themes.iter().find(dark)?;
+    let day = themes.iter().find(|theme| !dark(theme))?;
+    Some((*day, *night))
+}
+
 fn hash_of(text: &str) -> u64 {
     text.bytes().fold(0xcbf2_9ce4_8422_2325_u64, |h, b| (h ^ u64::from(b)).wrapping_mul(0x100_0000_01b3))
 }
@@ -191,6 +200,7 @@ pub struct AppShell {
     template: Rc<dyn FrameTemplate>,
     theme_menu: bool,
     theme: Option<ravenrs_style::Theme>,
+    themes: Option<Vec<ravenrs_style::Theme>>,
     theme_applied: std::cell::Cell<bool>,
     kept_theme: RefCell<Option<String>>,
     kept_follow: std::cell::Cell<Option<bool>>,
@@ -240,6 +250,7 @@ impl AppShell {
             template: Rc::new(MainTemplate),
             theme_menu: true,
             theme: None,
+            themes: None,
             theme_applied: std::cell::Cell::new(false),
             kept_theme: RefCell::new(None),
             kept_follow: std::cell::Cell::new(None),
@@ -251,6 +262,24 @@ impl AppShell {
     pub fn theme(mut self, theme: ravenrs_style::Theme) -> Self {
         self.theme = Some(theme);
         self
+    }
+
+    /// Offers only these themes in the menu, such as the application's own, instead of the three of
+    /// RavenRS. It starts on the first unless [`AppShell::theme`] says otherwise; the one someone
+    /// chooses is kept as any other. With a light and a dark one among them, the first of each is
+    /// what following the system switches between.
+    pub fn themes(mut self, themes: impl IntoIterator<Item = ravenrs_style::Theme>) -> Self {
+        let themes: Vec<_> = themes.into_iter().collect();
+        self.themes = (!themes.is_empty()).then_some(themes);
+        self
+    }
+
+    /// The menu of themes, with those of the application when it has its own.
+    fn theme_picker(&self) -> Option<ThemePicker> {
+        self.theme_menu.then(|| match &self.themes {
+            Some(themes) => ThemePicker::of(themes.iter().copied()),
+            None => ThemePicker::new(),
+        })
     }
 
     /// Arranges the window with this.
@@ -427,7 +456,7 @@ impl AppShell {
         }
         let last: AnyView = match account {
             Some(account) => self.account_of(account),
-            None => Box::new(self.theme_menu.then_some(ThemePicker::new())),
+            None => Box::new(self.theme_picker()),
         };
         Box::new(sidebar.footer(VStack::new((running, reminders, last)).spacing(4.0).align(Align::Stretch)))
     }
@@ -439,7 +468,7 @@ impl AppShell {
         Box::new(
             ravenrs_widgets::HStack::new((
                 Text::new(account.name).style(TextStyle::Callout).grow(1.0),
-                self.theme_menu.then_some(ThemePicker::new()),
+                self.theme_picker(),
                 // Only where passwords are kept here: on a server, its own way in does this.
                 self.session.frame().security().map(|_| {
                     IconButton::new(IconName::Key)
@@ -610,10 +639,14 @@ impl AppShell {
 impl View for AppShell {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         // The application's own look first, so a theme the person kept still wins over it.
-        if let Some(theme) = self.theme
-            && !self.theme_applied.replace(true)
-        {
-            cx.theme_state().set(theme);
+        if !self.theme_applied.replace(true) {
+            let first = self.themes.as_ref().and_then(|themes| themes.first().copied());
+            if let Some(theme) = self.theme.or(first) {
+                cx.theme_state().set(theme);
+            }
+            if let Some((light, dark)) = self.themes.as_deref().and_then(system_pair) {
+                cx.system_appearance().set_themes(light, dark, &cx.theme_state());
+            }
         }
         self.keep_theme(cx);
         let session = &self.session;
