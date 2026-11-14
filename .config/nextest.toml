@@ -1,0 +1,13 @@
+# cargo-nextest settings for scripts/check.sh (skill ravenrs-check).
+
+[profile.default]
+# A test that runs past 30s is marked SLOW, and the slow ones are listed again in the final summary,
+# so they do not get lost in the middle of the log.
+slow-timeout = { period = "30s" }
+final-status-level = "slow"
+
+[profile.default.junit]
+# Each test's time, read by scripts/check-timings.py for the slowest tests at the end of the check.
+# Written to target/nextest/default/junit.xml at the repository root: nextest keeps its store there
+# whatever CARGO_TARGET_DIR says.
+path = "junit.xml"

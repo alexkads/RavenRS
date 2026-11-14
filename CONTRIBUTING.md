@@ -42,6 +42,8 @@ It runs rustfmt, then clippy with warnings as errors on every package your chang
 
 The tests run on [cargo-nextest](https://nexte.st), which runs every test binary at once; install it once with `cargo install cargo-nextest --locked`, or the script stops and says so. Each worktree needs its own build directory: worktrees that share a `CARGO_TARGET_DIR` reuse each other's builds of the local crates, and the script warns when it sees that.
 
+At the end, passing or failing, the script prints how long each step took, slowest first, and whether the build directory started empty; the test step is split into compiling and running, followed by the ten slowest tests. The table is saved to `<target>/check-timings/last.txt`, so two runs compare with `diff`. To see which crates take the compile time, run it with `RAVENRS_CHECK_TIMINGS=1`: Cargo then writes its per-crate report, and the script prints where.
+
 Before a release, run everything:
 
 ```bash

@@ -4,7 +4,7 @@ Closes #
 
 **How it was tested**
 
-- [ ] `./scripts/check.sh` passes, with the time it printed (`--full` before a release; it needs `cargo install cargo-nextest --locked`)
+- [ ] `./scripts/check.sh` passes, with the total time and the three slowest steps it printed, and whether the build directory started empty (`--full` before a release; it needs `cargo install cargo-nextest --locked`)
 - [ ] New or changed components have behavior tests and appear in the gallery
 - [ ] README / docs/PARITY.md / CHANGELOG.md updated where relevant
 

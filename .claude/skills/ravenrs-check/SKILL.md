@@ -5,7 +5,7 @@ description: Como rodar, ler e manter o scripts/check.sh, o gate oficial do Rave
 
 # O check.sh do RavenRS
 
-O projeto não tem CI hospedado: `scripts/check.sh` é o gate. Todo PR registra em "How it was tested" que ele passou e o tempo que imprimiu.
+O projeto não tem CI hospedado: `scripts/check.sh` é o gate. Todo PR registra em "How it was tested" que ele passou, o tempo total, as três etapas mais lentas da tabela final e se o diretório de build começou vazio.
 
 ## Antes da primeira vez
 
@@ -30,6 +30,22 @@ Esse é o modo rápido, para todo PR. Ele compara com `origin/master`; para muda
 ```
 
 O `--full` roda tudo: o workspace inteiro, wasm32, as features opcionais, o MSRV, o `cargo deny`, a documentação e os builds web. Ele vai antes de publicar uma versão ou quando o Alex pedir. Os benchmarks e o gate de desempenho só entram quando ele pedir, com `RAVENRS_GATE=1` (skill `ravenrs-desempenho`).
+
+## Onde o tempo vai
+
+Ao terminar, passando ou falhando, o script imprime uma tabela com o tempo de cada etapa, da mais demorada para a mais rápida, com a porcentagem do total. Quem monta a tabela é o `scripts/check-timings.py`, e ela fica salva em `<target>/check-timings/last.txt`. Para comparar duas rodadas, copie o arquivo antes da segunda e use `diff`.
+
+- **Cabeçalho:** modo (`quick`, `quick, ALL` ou `full`), se o diretório de build começou `empty` (vazio) ou `reused` (com algo de antes), se passou ou falhou, o branch e a hora. `reused` só diz que havia alguma coisa: um diretório que só compilou o `ravenrs-lint` também é `reused`, e a mudança seguinte ainda compila quase tudo. Para comparar duas rodadas, rode a mesma mudança duas vezes seguidas e use a segunda. Com o sccache ligado, um `empty` ainda reaproveita o cache dele, então dois `empty` só se comparam na mesma máquina.
+- **Etapa de testes:** vem dividida em `compile the tests` (o `cargo nextest run --no-run`), `run the tests` e `doctests`. Se a compilação pesa mais que a execução, o ganho está no build, não nos testes.
+- **Etapa que falhou:** aparece marcada `FAILED`, com o tempo até a falha. O código de saída continua o do erro.
+- **Testes mais lentos:** os 10 mais demorados, lidos do JUnit que o nextest grava em `target/nextest/default/junit.xml`, na raiz do repositório mesmo com outro `CARGO_TARGET_DIR` (configurado em `.config/nextest.toml`). Os que passam de 30 s também saem como `SLOW` no resumo do nextest.
+- **Compilação por crate:** com `RAVENRS_CHECK_TIMINGS=1`, o clippy e a compilação dos testes recebem `--timings`, e o script lista os `cargo-timing-*.html` desta rodada. Eles mostram quais crates demoram e quanto o build ficou em série, esperando um crate só.
+
+```bash
+RAVENRS_CHECK_TIMINGS=1 ./scripts/check.sh
+```
+
+Para investigar um check lento, leia a tabela antes de mexer em qualquer coisa: a etapa no topo é onde está o ganho.
 
 ## O que o modo rápido escolhe
 
@@ -91,6 +107,6 @@ O script grava a pasta da checkout em `<target>/.ravenrs-checkout` e avisa em am
 
 - O `--full` não perde cobertura. O que sai do modo rápido tem que continuar no `--full`.
 - Mudou o `changed-packages.py`? Acrescente o caso em `scripts/changed_packages_test.py` e rode `python3 scripts/changed_packages_test.py`. O Python do macOS é o 3.9, sem `tomllib`, então o leitor de TOML é próprio e mínimo.
-- Meça antes e depois no mesmo PR de exemplo, com o mesmo diretório de build aquecido, e registre os dois tempos no PR.
+- Meça antes e depois no mesmo PR de exemplo, com o mesmo diretório de build aquecido, e registre as duas tabelas de tempo (`last.txt`) no PR.
 - Atualize junto o cabeçalho do script, o `CONTRIBUTING.md`, o `docs/QUALITY.md`, o `.github/PULL_REQUEST_TEMPLATE.md`, a seção 3 da skill `ravenrs-github` e esta skill.
 - As dependências de terceiros compilam com `opt-level = 1` no perfil dev (`[profile.dev.package."*"]`). Os crates do workspace ficam sem otimização. Não tire isso sem medir os testes de UI e de banco.
