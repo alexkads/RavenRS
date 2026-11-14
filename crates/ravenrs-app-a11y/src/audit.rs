@@ -2,7 +2,9 @@
 //! what keeps someone out.
 //!
 //! [`Audit::app`] opens every item of the navigation, and on each screen the buttons it was told
-//! to press, such as the one that starts a new record. On each one it looks for:
+//! to press, such as the one that starts a new record. [`Audit::items`] and [`Audit::item`] do the
+//! same one item at a time, so a test can audit each screen in a test of its own and the screens
+//! run in parallel. On each one it looks for:
 //!
 //! * a control screen readers cannot name, and an id that appears twice;
 //! * keyboard focus on a node that is not there;
@@ -82,6 +84,11 @@ pub enum Problem {
         /// How many commands.
         times: usize,
     },
+    /// The navigation has no item with this name to open, or it cannot be clicked.
+    NoSuchItem {
+        /// The name asked for.
+        name: String,
+    },
 }
 
 impl fmt::Display for Problem {
@@ -109,6 +116,7 @@ impl fmt::Display for Problem {
                 write!(f, "Escape does not close the window {}", name.as_deref().unwrap_or("with no name"))
             }
             Self::SharedShortcut { keys, times } => write!(f, "{times} commands answer to {keys}"),
+            Self::NoSuchItem { name } => write!(f, "the navigation has no item {name} to open"),
         }
     }
 }
@@ -468,27 +476,61 @@ impl Audit {
         let mut report = Report::default();
         report.add(self.contrast(ui));
         settle(ui);
-        let start = ui.access_tree();
-        let items = navigation_items(&start);
+        let items = navigation_items(&ui.access_tree());
         self.look(ui, "start", &mut report);
         report.add(close_windows(ui, "start"));
         for (role, name) in items.iter().filter(|(_, name)| !self.skip.contains(name)) {
-            if !click(ui, *role, name) {
-                continue;
-            }
-            self.look(ui, name, &mut report);
-            // Whatever it opened over the screen goes away before the next item.
-            report.add(close_windows(ui, name));
-            for button in &self.open {
-                if click(ui, Role::Button, button) {
-                    let place = format!("{name} > {button}");
-                    self.look(ui, &place, &mut report);
-                    report.add(close_windows(ui, &place));
-                }
+            if click(ui, *role, name) {
+                self.visit(ui, name, &mut report);
             }
         }
         report
     }
+
+    /// The items of the navigation on screen now, in reading order, without the ones given to
+    /// [`skip`](Self::skip): what [`app`](Self::app) would open.
+    pub fn items(&self, ui: &mut Ui) -> Vec<String> {
+        settle(ui);
+        navigation_items(&ui.access_tree())
+            .into_iter()
+            .map(|(_, name)| name)
+            .filter(|name| !self.skip.contains(name))
+            .collect()
+    }
+
+    /// Opens one item of the navigation, as [`app`](Self::app) does, and looks at it and at what
+    /// the buttons given to [`open`](Self::open) open from it. An item the navigation does not have
+    /// is a finding, so a test of a screen that went away fails with its name.
+    pub fn item(&self, ui: &mut Ui, name: &str) -> Report {
+        let mut report = Report::default();
+        settle(ui);
+        if click_item(ui, name) {
+            self.visit(ui, name, &mut report);
+        } else {
+            report.add(vec![Finding::new(name, Problem::NoSuchItem { name: name.to_owned() })]);
+        }
+        report
+    }
+
+    /// The screen an item just opened, and what its buttons open.
+    fn visit(&self, ui: &mut Ui, name: &str, report: &mut Report) {
+        self.look(ui, name, report);
+        // Whatever it opened over the screen goes away before the next item.
+        report.add(close_windows(ui, name));
+        for button in &self.open {
+            if click(ui, Role::Button, button) {
+                let place = format!("{name} > {button}");
+                self.look(ui, &place, report);
+                report.add(close_windows(ui, &place));
+            }
+        }
+    }
+}
+
+/// Clicks the item of the navigation with this name, if the screen has it.
+fn click_item(ui: &mut Ui, name: &str) -> bool {
+    let items = navigation_items(&ui.access_tree());
+    items.iter().find(|(_, n)| n == name).is_some_and(|(role, _)| click(ui, *role, name))
 }
 
 /// Clicks the enabled node with this role and name, if the screen has one.
