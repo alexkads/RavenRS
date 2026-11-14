@@ -269,7 +269,10 @@ fn bookmark_props(e: &Editor, rows: &mut Vec<AnyView>) {
             }
         },
     );
-    rows.push(Box::new(FormField::new("Expressão", text).hint("O texto no sumário do PDF. Ex.: [Region]")));
+    rows.push(Box::new(
+        FormField::new("Expressão", with_editor(e, text, ExpressionTarget::Control))
+            .hint("O texto no sumário do PDF. Ex.: [Region]"),
+    ));
 }
 
 const SYMBOLOGIES: [(&str, Symbology); 8] = [
@@ -376,7 +379,10 @@ fn barcode_props(e: &Editor, barcode: &ravenrs_report::Barcode, rows: &mut Vec<A
             }
         },
     );
-    rows.push(Box::new(FormField::new("Expressão", content).hint("O conteúdo do código. Ex.: [Sku]")));
+    rows.push(Box::new(
+        FormField::new("Expressão", with_editor(e, content, ExpressionTarget::Control))
+            .hint("O conteúdo do código. Ex.: [Sku]"),
+    ));
     let (read, write) = (e.clone(), e.clone());
     rows.push(Box::new(Checkbox::new(
         "Mostrar o texto",

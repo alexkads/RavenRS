@@ -626,3 +626,18 @@ fn assignments_say_where_they_are_wrong() {
     assert!(bad.offset >= 20, "{bad}");
     assert!(Criteria::assignments("1 = 2").is_err());
 }
+
+#[test]
+fn syntax_errors_have_a_code_and_the_arguments_of_their_message() {
+    let e = Criteria::parse("Total * 2").expect_err("a bare name");
+    assert_eq!(e.code(), "unknown_name");
+    assert_eq!(e.args(), ["Total"]);
+    assert_eq!(e.message_in("nome '{0}'"), "nome 'Total'");
+    let e = Criteria::parse("Upper()").expect_err("no argument");
+    assert_eq!(e.code(), "wrong_arity");
+    assert_eq!(e.args(), ["0", "Upper(text)"]);
+    assert_eq!(Criteria::parse("[A] +").expect_err("cut short").code(), "unexpected_end");
+    for (code, _) in ravenrs_criteria::ParseError::CODES {
+        assert!(code.chars().all(|c| c.is_ascii_lowercase() || c == '_'), "{code}");
+    }
+}

@@ -299,6 +299,8 @@ field Labels::document_name
 field Labels::document_tabs_name
 field Labels::expression_constants
 field Labels::expression_error_at
+field Labels::expression_errors
+field Labels::expression_functions
 field Labels::expression_groups
 field Labels::expression_insert
 field Labels::expression_no_match
@@ -3058,6 +3060,8 @@ method Labels::dock_resize_between
 method Labels::dock_resize_name
 method Labels::dock_show_name
 method Labels::dock_with_name
+method Labels::expression_error
+method Labels::expression_function
 method Labels::flow_count
 method Labels::from_texts
 method Labels::lightbox_counter
