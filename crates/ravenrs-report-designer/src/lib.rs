@@ -472,6 +472,12 @@ impl Designer {
                     .item(arrange("Alinhar embaixo", IconName::ChevronDown, editor::Arrange::Bottom))
                     .item(arrange("Mesma largura", IconName::SlidersHorizontal, editor::Arrange::SameWidth))
                     .item(arrange("Mesma altura", IconName::ArrowUpDown, editor::Arrange::SameHeight))
+                    .item(arrange(
+                        "Distribuir na horizontal",
+                        IconName::Columns3,
+                        editor::Arrange::SpaceAcross,
+                    ))
+                    .item(arrange("Distribuir na vertical", IconName::Rows3, editor::Arrange::SpaceDown))
             })
             .group(
                 RibbonGroup::new("Zoom")
@@ -1520,5 +1526,30 @@ mod tests {
         assert_eq!(e.report.with(|r| r.detail.controls.len()), 0, "cut takes both");
         e.paste();
         assert_eq!(e.report.with(|r| r.detail.controls.len()), 2, "and pastes both back");
+    }
+
+    #[test]
+    fn distributing_leaves_the_same_space_between_each_two() {
+        // #46: the first and the last stay; the ones between them spread out.
+        let at = |x: f32, y: f32, w: f32| Control::label("x").at(x, y, w, 18.0);
+        let report = Report::new("Teste").detail(
+            ravenrs_report::Band::new(200.0)
+                .control(at(0.0, 0.0, 10.0))
+                .control(at(30.0, 90.0, 10.0))
+                .control(at(100.0, 20.0, 20.0)),
+        );
+        let e = Editor::new(report);
+        e.select_control(BandRef::Detail, 0);
+        e.toggle_selected(BandRef::Detail, 1);
+        assert!(e.several_selected());
+        e.arrange_selected(editor::Arrange::SpaceAcross);
+        assert_eq!(e.report.with(|r| r.detail.controls[1].x), 30.0, "two: nothing to spread");
+        e.toggle_selected(BandRef::Detail, 2);
+        e.arrange_selected(editor::Arrange::SpaceAcross);
+        let xs = e.report.with(|r| r.detail.controls.iter().map(|c| c.x).collect::<Vec<_>>());
+        assert_eq!(xs, [0.0, 50.0, 100.0], "40 between each two");
+        e.arrange_selected(editor::Arrange::SpaceDown);
+        let ys = e.report.with(|r| r.detail.controls.iter().map(|c| c.y).collect::<Vec<_>>());
+        assert_eq!(ys, [0.0, 90.0, 45.0], "by height, the top and the bottom stay");
     }
 }

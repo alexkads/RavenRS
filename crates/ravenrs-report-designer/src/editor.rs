@@ -28,6 +28,36 @@ pub enum Arrange {
     Bottom,
     SameWidth,
     SameHeight,
+    /// The same space between each two, side by side; the first and the last stay.
+    SpaceAcross,
+    /// The same space between each two, one under the other; the top and the bottom stay.
+    SpaceDown,
+}
+
+/// Spreads the controls at `picked` so the space between each two is the same, across or down,
+/// with the first and the last where they are. With fewer than three, nothing moves.
+fn distribute(controls: &mut [Control], picked: &[usize], across: bool) {
+    let start = |c: &Control| if across { c.x } else { c.y };
+    let size = |c: &Control| if across { c.width } else { c.height };
+    let mut order: Vec<usize> = picked.iter().copied().filter(|&i| i < controls.len()).collect();
+    if order.len() < 3 {
+        return;
+    }
+    order.sort_by(|&a, &b| start(&controls[a]).total_cmp(&start(&controls[b])));
+    let (first, last) = (&controls[order[0]], &controls[order[order.len() - 1]]);
+    let span = start(last) + size(last) - start(first);
+    let filled: f32 = order.iter().map(|&i| size(&controls[i])).sum();
+    let gap = (span - filled) / (order.len() - 1) as f32;
+    let mut at = start(first);
+    for &i in &order {
+        let c = &mut controls[i];
+        if across {
+            c.x = at
+        } else {
+            c.y = at
+        }
+        at += size(c) + gap;
+    }
 }
 
 /// A field being dragged from the field list.
@@ -299,6 +329,14 @@ impl Editor {
         if all.len() < 2 {
             return;
         }
+        if matches!(how, Arrange::SpaceAcross | Arrange::SpaceDown) {
+            self.edit(|r| {
+                if let Some(b) = band.get_mut(r) {
+                    distribute(&mut b.controls, &all, how == Arrange::SpaceAcross);
+                }
+            });
+            return;
+        }
         self.edit(|r| {
             let Some(b) = band.get_mut(r) else { return };
             let Some(anchor) = b.controls.get(all[0]).cloned() else { return };
@@ -313,6 +351,7 @@ impl Editor {
                     Arrange::Bottom => c.y = anchor.y + anchor.height - c.height,
                     Arrange::SameWidth => c.width = anchor.width,
                     Arrange::SameHeight => c.height = anchor.height,
+                    Arrange::SpaceAcross | Arrange::SpaceDown => {}
                 }
             }
         });
