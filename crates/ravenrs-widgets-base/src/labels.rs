@@ -685,6 +685,12 @@ pub struct Labels {
     /// The constants an `ExpressionEditor` lists: what it inserts
     /// and what it is.
     pub expression_constants: Vec<(String, String)>,
+    /// What each function of the expression catalog does, by its name, such as
+    /// `("Round", "…")`. A function missing here shows the catalog's own English text.
+    pub expression_functions: Vec<(String, String)>,
+    /// What each syntax error says, by its code, with `{0}`, `{1}`… where its arguments go.
+    /// A code missing here shows the parser's English message.
+    pub expression_errors: Vec<(String, String)>,
     /// Before what a grid is filtering by.
     pub grid_filter_label: String,
     /// Opens the editor of a grid's whole filter.
@@ -854,6 +860,20 @@ pub struct Labels {
     pub playground_full_screen: String,
     /// Takes a `Playground` out of full screen.
     pub playground_exit_full_screen: String,
+}
+
+/// The texts whose keys start with `prefix`, by the rest of the key, in this language
+/// and, where it has none, in English.
+fn keyed(texts: &Texts, prefix: &str) -> Vec<(String, String)> {
+    let catalog = texts.catalog();
+    let mut keys: Vec<&str> = catalog
+        .keys(texts.language())
+        .chain(catalog.keys(Language::English.code()))
+        .filter(|k| k.starts_with(prefix))
+        .collect();
+    keys.sort_unstable();
+    keys.dedup();
+    keys.into_iter().map(|k| (k[prefix.len()..].to_owned(), texts.get(k))).collect()
 }
 
 impl Default for Labels {
@@ -1197,6 +1217,8 @@ impl Labels {
             expression_groups: texts.array("widgets.expression_groups"),
             expression_operators: texts.pair_list("widgets.expression_operators"),
             expression_constants: texts.pair_list("widgets.expression_constants"),
+            expression_functions: keyed(texts, "widgets.expression_function."),
+            expression_errors: keyed(texts, "widgets.expression_error."),
             grid_filter_label: texts.get("widgets.grid_filter_label"),
             grid_edit_filter: texts.get("widgets.grid_edit_filter"),
             grid_filter_search: texts.get("widgets.grid_filter_search"),
@@ -1282,6 +1304,16 @@ impl Labels {
             playground_full_screen: texts.get("widgets.playground_full_screen"),
             playground_exit_full_screen: texts.get("widgets.playground_exit_full_screen"),
         }
+    }
+
+    /// What the expression function `name` does, if these labels say it.
+    pub fn expression_function(&self, name: &str) -> Option<&str> {
+        self.expression_functions.iter().find(|(n, _)| n.eq_ignore_ascii_case(name)).map(|(_, d)| d.as_str())
+    }
+
+    /// The template of the syntax error `code`, if these labels say it.
+    pub fn expression_error(&self, code: &str) -> Option<&str> {
+        self.expression_errors.iter().find(|(c, _)| c == code).map(|(_, t)| t.as_str())
     }
 
     /// Brazilian Portuguese.

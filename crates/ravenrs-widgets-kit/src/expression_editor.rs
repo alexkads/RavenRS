@@ -167,12 +167,21 @@ impl ExpressionEditor {
                         insert: format!("{}()", f.name),
                         back: 1,
                         signature: f.signature.to_owned(),
-                        help: f.description.to_owned(),
+                        help: labels
+                            .expression_function(&function_key(&f))
+                            .unwrap_or(f.description)
+                            .to_owned(),
                     })
                     .collect()
             }
         }
     }
+}
+
+/// The key a function's description has in [`Labels::expression_functions`](crate::Labels):
+/// its name, after `Aggregate.` for an aggregate, since `Min` and `Max` are both.
+pub(crate) fn function_key(f: &FunctionInfo) -> String {
+    if f.category == Category::Aggregate { format!("Aggregate.{}", f.name) } else { f.name.to_owned() }
 }
 
 /// Something an expression editor lists.
@@ -232,7 +241,10 @@ impl ExpressionEditor {
                     .expression_error_at
                     .replace("{line}", &line.to_string())
                     .replace("{column}", &column.to_string());
-                Some(Alert::new(at, error.message).tone(Tone::Danger).compact())
+                let message = labels
+                    .expression_error(error.code())
+                    .map_or(error.message.clone(), |t| error.message_in(t));
+                Some(Alert::new(at, message).tone(Tone::Danger).compact())
             }
             Ok(criteria) => {
                 let problems = validate(&criteria, &self.schema());

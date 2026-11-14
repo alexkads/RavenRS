@@ -5,12 +5,87 @@ use crate::functions::{Aggregate, Function};
 use crate::value::{DateTime, Value};
 
 /// A syntax error, with the byte offset where it was found.
+///
+/// `message` is in English. An interface in another language translates `code`,
+/// filling `{0}`, `{1}`… with `args`, the way [`ParseError::CODES`] lists them.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ParseError {
-    /// What is wrong.
+    /// What is wrong, in English.
     pub message: String,
     /// Byte offset in the source.
     pub offset: usize,
+    /// The code and the arguments, boxed: the parser recurses with this in every `Result`,
+    /// so it stays as small as a message and an offset.
+    detail: Box<(&'static str, Vec<String>)>,
+}
+
+impl ParseError {
+    /// Every error code, with its English message. `{0}`, `{1}`… stand for `args`.
+    pub const CODES: &'static [(&'static str, &'static str)] = &[
+        ("unterminated_comment", "unterminated comment"),
+        ("invalid_number", "invalid number"),
+        ("unterminated_text", "unterminated text"),
+        ("unterminated_date", "unterminated date"),
+        ("invalid_date", "invalid date"),
+        ("unterminated_brace", "unterminated '{'"),
+        ("missing_bracket", "missing ']'"),
+        ("unexpected_char", "unexpected '{0}'"),
+        ("expected_assignment", "expected `field = expression`"),
+        ("expected_field_name", "expected the name of a field before `=`"),
+        ("unexpected", "unexpected {0}"),
+        ("unexpected_end", "unexpected end of expression"),
+        ("expected_found", "expected {0}, found {1}"),
+        ("expected_end", "expected {0}, found end of expression"),
+        ("too_deep", "expression is nested too deeply"),
+        ("expected_null", "expected 'Null' after 'Is'"),
+        ("expected_comma", "expected ',' or ')', found {0}"),
+        ("expected_comma_end", "expected ',' or ')', found end of expression"),
+        ("empty_field", "empty field '[]'"),
+        ("invalid_field", "invalid field '[{0}]'"),
+        ("expected_aggregate", "expected an aggregate after '].'"),
+        ("unknown_aggregate", "unknown aggregate '{0}'"),
+        ("unknown_name", "unknown name '{0}' (fields go in brackets: [{0}])"),
+        ("wrong_arity", "wrong number of arguments ({0}) for {1}"),
+    ];
+
+    /// An error `code` at `offset`, its English message filled with `args`.
+    fn new(code: &'static str, args: Vec<String>, offset: usize) -> Self {
+        let template = Self::CODES.iter().find(|(c, _)| *c == code).map_or(code, |(_, t)| t);
+        Self { message: fill(template, &args), offset, detail: Box::new((code, args)) }
+    }
+
+    /// Which error it is, one of [`ParseError::CODES`].
+    pub fn code(&self) -> &'static str {
+        self.detail.0
+    }
+
+    /// What goes in the `{0}`, `{1}`… of the message: a name, a token, a count.
+    pub fn args(&self) -> &[String] {
+        &self.detail.1
+    }
+
+    /// The message in another language: `template` is what `code` says there, with
+    /// `{0}`, `{1}`… where the arguments go.
+    pub fn message_in(&self, template: &str) -> String {
+        fill(template, self.args())
+    }
+}
+
+/// `template` with `{0}`, `{1}`… replaced by `args`.
+fn fill(template: &str, args: &[String]) -> String {
+    let mut out = template.to_owned();
+    for (i, arg) in args.iter().enumerate() {
+        out = out.replace(&format!("{{{i}}}"), arg);
+    }
+    out
+}
+
+/// "unexpected X" for the token `t`, with the end of the text as its own code.
+fn unexpected(t: &Tok, offset: usize) -> ParseError {
+    match t {
+        Tok::End => ParseError::new("unexpected_end", Vec::new(), offset),
+        t => ParseError::new("unexpected", vec![describe(t)], offset),
+    }
 }
 
 impl std::fmt::Display for ParseError {
@@ -44,13 +119,15 @@ enum Tok {
 fn lex(src: &str, base: usize) -> Result<Vec<(Tok, usize)>, ParseError> {
     let mut out = Vec::new();
     let mut pos = 0;
-    let err = |message: String, at: usize| ParseError { message, offset: base + at };
+    let err = |code: &'static str, args: Vec<String>, at: usize| ParseError::new(code, args, base + at);
     loop {
         let rest = &src[pos..];
         let trimmed = rest.trim_start();
         pos += rest.len() - trimmed.len();
         if trimmed.starts_with("/*") {
-            let Some(end) = trimmed.find("*/") else { return Err(err("unterminated comment".into(), pos)) };
+            let Some(end) = trimmed.find("*/") else {
+                return Err(err("unterminated_comment", Vec::new(), pos));
+            };
             pos += end + 2;
             continue;
         }
@@ -68,7 +145,7 @@ fn lex(src: &str, base: usize) -> Result<Vec<(Tok, usize)>, ParseError> {
                             || (*ch == '.' && trimmed[i + 1..].starts_with(|n: char| n.is_ascii_digit())))
                     })
                     .map_or(trimmed.len(), |(i, _)| i);
-                let n = trimmed[..digits].parse().map_err(|_| err("invalid number".into(), pos))?;
+                let n = trimmed[..digits].parse().map_err(|_| err("invalid_number", Vec::new(), pos))?;
                 pos += digits;
                 // Type suffixes (12m, 1.5f...) do not change the value here.
                 if let Some(s) = src[pos..].chars().next()
@@ -95,21 +172,23 @@ fn lex(src: &str, base: usize) -> Result<Vec<(Tok, usize)>, ParseError> {
                     }
                     s.push(ch);
                 }
-                let Some(end) = end else { return Err(err("unterminated text".into(), pos)) };
+                let Some(end) = end else { return Err(err("unterminated_text", Vec::new(), pos)) };
                 pos += end;
                 Tok::Str(s)
             }
             '#' => {
                 let Some(close) = trimmed[1..].find('#') else {
-                    return Err(err("unterminated date".into(), pos));
+                    return Err(err("unterminated_date", Vec::new(), pos));
                 };
-                let d =
-                    DateTime::parse(&trimmed[1..1 + close]).ok_or_else(|| err("invalid date".into(), pos))?;
+                let d = DateTime::parse(&trimmed[1..1 + close])
+                    .ok_or_else(|| err("invalid_date", Vec::new(), pos))?;
                 pos += close + 2;
                 Tok::Date(d)
             }
             '{' => {
-                let Some(close) = trimmed.find('}') else { return Err(err("unterminated '{'".into(), pos)) };
+                let Some(close) = trimmed.find('}') else {
+                    return Err(err("unterminated_brace", Vec::new(), pos));
+                };
                 let guid = trimmed[1..close].to_owned();
                 pos += close + 1;
                 Tok::Str(guid)
@@ -131,7 +210,7 @@ fn lex(src: &str, base: usize) -> Result<Vec<(Tok, usize)>, ParseError> {
                         _ => {}
                     }
                 }
-                let Some(close) = close else { return Err(err("missing ']'".into(), pos)) };
+                let Some(close) = close else { return Err(err("missing_bracket", Vec::new(), pos)) };
                 let inner = trimmed[1..close].to_owned();
                 pos += close + 1;
                 Tok::Field(inner, base + start + 1)
@@ -171,7 +250,7 @@ fn lex(src: &str, base: usize) -> Result<Vec<(Tok, usize)>, ParseError> {
                     pos += 1;
                     Tok::Op("~")
                 } else {
-                    return Err(err(format!("unexpected '{c}'"), pos));
+                    return Err(err("unexpected_char", vec![c.to_string()], pos));
                 }
             }
         };
@@ -190,10 +269,7 @@ pub(crate) fn parse_assignments(source: &str) -> Result<Vec<(String, Criteria)>,
             let at = |offset: usize| start + offset;
             let Some(&equals) = top_level(piece, b'=').first() else {
                 let first = piece.len() - piece.trim_start().len();
-                return Err(ParseError {
-                    message: "expected `field = expression`".into(),
-                    offset: at(first),
-                });
+                return Err(ParseError::new("expected_assignment", Vec::new(), at(first)));
             };
             let name = piece[..equals].trim();
             let name = name.strip_prefix('[').and_then(|n| n.strip_suffix(']')).unwrap_or(name).trim();
@@ -201,10 +277,7 @@ pub(crate) fn parse_assignments(source: &str) -> Result<Vec<(String, Criteria)>,
                 && name.chars().all(|c| c.is_alphanumeric() || c == '_' || c == '.');
             if !simple {
                 let first = piece.len() - piece.trim_start().len();
-                return Err(ParseError {
-                    message: "expected the name of a field before `=`".into(),
-                    offset: at(first),
-                });
+                return Err(ParseError::new("expected_field_name", Vec::new(), at(first)));
             }
             let text = &piece[equals + 1..];
             let expression =
@@ -261,7 +334,7 @@ fn parse_at(source: &str, base: usize, depth: u32) -> Result<Criteria, ParseErro
     let node = p.or()?;
     match p.peek() {
         Tok::End => Ok(node),
-        other => Err(p.err(format!("unexpected {}", describe(other)))),
+        other => Err(unexpected(other, p.offset())),
     }
 }
 
@@ -295,8 +368,8 @@ impl Parser {
         self.toks[self.i].1
     }
 
-    fn err(&self, message: impl Into<String>) -> ParseError {
-        ParseError { message: message.into(), offset: self.offset() }
+    fn err(&self, code: &'static str) -> ParseError {
+        ParseError::new(code, Vec::new(), self.offset())
     }
 
     fn bump(&mut self) -> Tok {
@@ -323,7 +396,10 @@ impl Parser {
             self.bump();
             Ok(())
         } else {
-            Err(self.err(format!("expected {}, found {}", describe(t), describe(self.peek()))))
+            Err(match self.peek() {
+                Tok::End => ParseError::new("expected_end", vec![describe(t)], self.offset()),
+                found => ParseError::new("expected_found", vec![describe(t), describe(found)], self.offset()),
+            })
         }
     }
 
@@ -337,7 +413,7 @@ impl Parser {
     fn enter(&mut self) -> Result<(), ParseError> {
         self.depth += 1;
         if self.depth > MAX_DEPTH {
-            return Err(self.err("expression is nested too deeply"));
+            return Err(self.err("too_deep"));
         }
         Ok(())
     }
@@ -450,7 +526,7 @@ impl Parser {
                     self.bump();
                 }
                 if !self.is_word("null") {
-                    return Err(self.err("expected 'Null' after 'Is'"));
+                    return Err(self.err("expected_null"));
                 }
                 self.bump();
                 let c = Criteria::IsNull(Box::new(left));
@@ -518,9 +594,9 @@ impl Parser {
                     return Ok(args);
                 }
                 other => {
-                    return Err(ParseError {
-                        message: format!("expected ',' or ')', found {}", describe(&other)),
-                        offset: at,
+                    return Err(match other {
+                        Tok::End => ParseError::new("expected_comma_end", Vec::new(), at),
+                        other => ParseError::new("expected_comma", vec![describe(&other)], at),
                     });
                 }
             }
@@ -543,18 +619,18 @@ impl Parser {
                 Ok(inner)
             }
             Tok::Field(name, _) if name.trim().is_empty() => {
-                Err(ParseError { message: "empty field '[]'".into(), offset: at })
+                Err(ParseError::new("empty_field", Vec::new(), at))
             }
             Tok::Field(name, _) => self.field(&name, at),
             Tok::Ident(word) => self.word(&word, at),
-            other => Err(ParseError { message: format!("unexpected {}", describe(&other)), offset: at }),
+            other => Err(unexpected(&other, at)),
         }
     }
 
     fn field(&mut self, name: &str, at: usize) -> Result<Criteria, ParseError> {
         let path: Vec<String> = name.split('.').map(|s| s.trim().to_owned()).collect();
         if path.iter().any(String::is_empty) {
-            return Err(ParseError { message: format!("invalid field '[{name}]'"), offset: at });
+            return Err(ParseError::new("invalid_field", vec![name.to_owned()], at));
         }
         // `[Parameters.Name]` is the older spelling of `?Name`.
         if path.len() == 2 && path[0].eq_ignore_ascii_case("parameters") {
@@ -567,10 +643,10 @@ impl Parser {
             self.expect(&Tok::Dot)?;
             let fat = self.offset();
             let Tok::Ident(f) = self.bump() else {
-                return Err(ParseError { message: "expected an aggregate after '].'".into(), offset: fat });
+                return Err(ParseError::new("expected_aggregate", Vec::new(), fat));
             };
             let function = Aggregate::from_name(&f)
-                .ok_or_else(|| ParseError { message: format!("unknown aggregate '{f}'"), offset: fat })?;
+                .ok_or_else(|| ParseError::new("unknown_aggregate", vec![f.clone()], fat))?;
             self.expect(&Tok::LParen)?;
             let args = self.args()?;
             check_aggregate(function, args.len(), fat)?;
@@ -593,10 +669,7 @@ impl Parser {
             _ => {}
         }
         if *self.peek() != Tok::LParen {
-            return Err(ParseError {
-                message: format!("unknown name '{word}' (fields go in brackets: [{word}])"),
-                offset: at,
-            });
+            return Err(ParseError::new("unknown_name", vec![word.to_owned()], at));
         }
         self.bump();
         let args = self.args()?;
@@ -606,10 +679,11 @@ impl Parser {
         if let Some(f) = scalar {
             let (min, max) = f.arity();
             if args.len() < min || args.len() > max || (f == Function::Iif && args.len() % 2 == 0) {
-                return Err(ParseError {
-                    message: format!("wrong number of arguments ({}) for {}", args.len(), f.info().signature),
-                    offset: at,
-                });
+                return Err(ParseError::new(
+                    "wrong_arity",
+                    vec![args.len().to_string(), f.info().signature.to_owned()],
+                    at,
+                ));
             }
             return Ok(Criteria::Function(f, args));
         }
@@ -630,10 +704,11 @@ impl Parser {
 fn check_aggregate(function: Aggregate, args: usize, at: usize) -> Result<(), ParseError> {
     let (min, max) = function.arity();
     if args < min || args > max {
-        return Err(ParseError {
-            message: format!("wrong number of arguments ({args}) for {}", function.info().signature),
-            offset: at,
-        });
+        return Err(ParseError::new(
+            "wrong_arity",
+            vec![args.to_string(), function.info().signature.to_owned()],
+            at,
+        ));
     }
     Ok(())
 }

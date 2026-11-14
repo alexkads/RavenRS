@@ -88,3 +88,42 @@ fn groups_show_one_at_a_time_and_the_search_looks_in_all() {
     assert!(says(&mut ui, "Quantidade"), "a field found from the date group");
     assert!(!says(&mut ui, "AddDays"));
 }
+
+#[test]
+fn syntax_errors_and_function_help_are_in_the_labels_language() {
+    let (mut ui, value) = editor("[Quantity] *\n  (2 +");
+    assert!(says(&mut ui, "a expressão terminou antes da hora"), "the parser's error, translated");
+    value.set("Total * 2".into());
+    ui.update();
+    assert!(says(&mut ui, "nome desconhecido 'Total' (campos vão entre colchetes: [Total])"));
+    value.set("[Customer] = ".into());
+    ui.update();
+    click(&mut ui, Role::Button, "Texto");
+    click(&mut ui, Role::Button, "Upper");
+    assert!(says(&mut ui, "Em maiúsculas."), "the chosen function's description, translated");
+}
+
+#[test]
+fn every_catalog_function_and_syntax_error_has_brazilian_portuguese() {
+    let labels = Labels::pt_br();
+    let english = Labels::default();
+    for f in ravenrs_criteria::functions::catalog() {
+        let key = if f.category == ravenrs_criteria::Category::Aggregate {
+            format!("Aggregate.{}", f.name)
+        } else {
+            f.name.to_owned()
+        };
+        let pt = labels.expression_function(&key).unwrap_or_else(|| panic!("no pt-BR text for {key}"));
+        assert_ne!(Some(pt), english.expression_function(&key), "{key} is still in English");
+    }
+    for (code, message) in ravenrs_criteria::ParseError::CODES {
+        let pt =
+            labels.expression_error(code).unwrap_or_else(|| panic!("no pt-BR text for the error {code}"));
+        assert_ne!(pt, *message, "the error {code} is still in English");
+        assert_eq!(english.expression_error(code), Some(*message), "English follows the parser");
+        for i in 0..4 {
+            let slot = format!("{{{i}}}");
+            assert_eq!(pt.contains(&slot), message.contains(&slot), "{code} keeps {slot}");
+        }
+    }
+}
