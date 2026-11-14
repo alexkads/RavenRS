@@ -91,6 +91,35 @@ CARGO_TARGET_DIR=/private/tmp/claude-501/<projeto>/<sessão>/scratchpad/target .
 
 O script grava a pasta da checkout em `<target>/.ravenrs-checkout` e avisa em amarelo quando o diretório foi usado por outra. Diante desse aviso, ou de um dos sintomas acima, troque o diretório antes de culpar o código. Um diretório de build passa fácil de 20 GB: confira o disco antes (`df -h /System/Volumes/Data`).
 
+## Cache do compilador entre worktrees (Kache)
+
+Cada worktree tem o seu diretório de build, então uma worktree nova compilava tudo de novo. Com o [Kache](https://github.com/kunobi-ninja/kache) instalado, o `check.sh` o usa como `RUSTC_WRAPPER`, e o que outra worktree já compilou volta do cache. A instalação é uma vez por máquina:
+
+```bash
+cargo install kache --locked --version 2.1.1
+```
+
+- O script só o liga quando acha o `kache` no `PATH` e nenhum `RUSTC_WRAPPER` está definido. Sem ele, o check roda igual, só mais devagar. `RAVENRS_KACHE=0` o deixa de fora.
+- **Não rode `kache init`** sem o Alex pedir: ele altera o ambiente do usuário. O script não precisa disso.
+- O diretório de build continua um por worktree. O Kache guarda os artefatos num cache próprio (cerca de 31 GB depois de um `--full`) e os restaura por clone copy-on-write.
+- Ao final, o check imprime a taxa de acertos (`kache stats --last-build`). Para saber por que um crate não veio do cache: `kache explain <crate>`.
+- O Kache passa `--remap-path-prefix` ao `rustc`, então os caminhos gravados nos artefatos são marcadores (`/kache/workspace`, `/kache/target`). No depurador, mapeie de volta: `settings set target.source-map /kache/workspace <checkout>` no lldb.
+
+**Medido em 14/11/2026** (Mac de 10 núcleos e 16 GB, `check.sh --full`, uma rodada de cada):
+
+| Cenário | Tempo |
+|---|---|
+| Worktree nova, sem cache (como era) | 31m04s |
+| Worktree nova, Kache com cache vazio | 29m33s |
+| Mesma worktree de novo, sem alterações | 5m58s |
+| Worktree nova do mesmo commit, Kache com cache cheio | **11m30s** |
+
+Os 5m58s são o piso: rodar os testes, os doctests, o `wasm-bindgen` e o `wasm-opt`, que não são compilação. Na worktree nova, 1.264 de 2.024 compilações vieram do cache, 91,5% do tempo de compilação; o que ainda compila são sobretudo os projetos que a CLI gera em pastas temporárias (2m26s) e os builds web (1m59s).
+
+**Por que não o sccache.** Medido na mesma data: ele põe toda variável `CARGO_*` na chave, e cada worktree usa um `CARGO_TARGET_DIR` diferente. O mesmo código num segundo diretório teve 0 acertos em 34, e no uso real a taxa em Rust era de 0,26%. Passando o diretório por `--target-dir`, o `cargo check --workspace` teve 382 acertos, 150 perdas e 218 não cacheáveis, e caiu só de 81 s para 67 s. Sem `--remap-path-prefix`, o `rustc` grava o caminho no artefato e recusa misturar artefatos de diretórios diferentes (`E0460`). Ele foi desligado em `~/.cargo/config.toml`.
+
+**Nunca aponte duas worktrees para o mesmo diretório de build.** Reproduzido na mesma data: o Cargo respondeu `Finished` em 0,6 s com o artefato da outra worktree, sem a função que só existia na segunda.
+
 ## Quando falha
 
 - **Teste que passa no `cargo test` e falha no nextest:** quase sempre é estado dividido entre binários, como arquivo fixo em disco, porta ou variável de ambiente, que agora rodam ao mesmo tempo. Corrija o teste (pasta temporária própria, porta 0) em vez de serializar. Para isolar um teste:
