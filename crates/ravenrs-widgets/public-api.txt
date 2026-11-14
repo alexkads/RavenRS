@@ -306,6 +306,7 @@ field Labels::expression_insert
 field Labels::expression_no_match
 field Labels::expression_operators
 field Labels::expression_search
+field Labels::expression_signatures
 field Labels::expression_text
 field Labels::expression_unknown
 field Labels::expression_valid
@@ -3067,6 +3068,7 @@ method Labels::dock_show_name
 method Labels::dock_with_name
 method Labels::expression_error
 method Labels::expression_function
+method Labels::expression_signature
 method Labels::flow_count
 method Labels::from_texts
 method Labels::lightbox_counter
