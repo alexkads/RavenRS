@@ -295,3 +295,33 @@ fn canvas_icon_fill_and_grid() {
         Theme::raven_dark().color(Semantic::Accent)
     );
 }
+
+/// The x of the first glyph painted, and of the last glyph's end.
+fn glyph_span(ui: &Ui) -> (f32, f32) {
+    let mut span = (f32::MAX, f32::MIN);
+    for p in ui.scene().primitives() {
+        if let Primitive::Glyphs(run) = p {
+            for g in &run.glyphs {
+                span.0 = span.0.min(g.x);
+                span.1 = span.1.max(g.x);
+            }
+        }
+    }
+    span
+}
+
+#[test]
+fn text_sits_in_the_middle_or_at_the_end_of_the_width_it_is_stretched_to() {
+    let at = |align: TextAlign| {
+        let view = VStack::new((Text::new("Título").align(align),)).align(Align::Stretch).width(400.0);
+        glyph_span(&ui_at(view, 400.0, 100.0))
+    };
+    let start = at(TextAlign::Start);
+    let center = at(TextAlign::Center);
+    let end = at(TextAlign::End);
+    assert!(start.0 < 5.0, "{start:?}");
+    // The words are the same width, moved: to the middle, then to the end.
+    let shift = center.0 - start.0;
+    assert!((150.0..250.0).contains(&(center.0 + (center.1 - center.0) / 2.0)), "{center:?}");
+    assert!((end.0 - start.0 - 2.0 * shift).abs() < 2.0, "{start:?} {center:?} {end:?}");
+}

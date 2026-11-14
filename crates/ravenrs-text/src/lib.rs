@@ -277,7 +277,7 @@ impl TextSystem {
             builder.push_default(StyleProperty::LetterSpacing(attrs.letter_spacing));
         }
         let layout = builder.build(text);
-        TextLayout { layout, broken_at: None }
+        TextLayout { layout, broken_at: None, align: TextAlign::Start }
     }
 
     /// Shapes `text` on one line, cut at a character boundary and ended with
@@ -346,12 +346,27 @@ pub struct ShapedGlyph {
     pub text: std::ops::Range<usize>,
 }
 
+/// Where the lines of a text sit across the width they are broken at.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[non_exhaustive]
+pub enum TextAlign {
+    /// At the start of the line: the left, in a left-to-right language.
+    #[default]
+    Start,
+    /// In the middle.
+    Center,
+    /// At the end of the line: the right, in a left-to-right language.
+    End,
+}
+
 /// Shaped text, ready to be broken into lines at any width and drawn.
 #[derive(Clone)]
 pub struct TextLayout {
     layout: Layout<()>,
     /// The width limit of the last line breaking, to skip redundant work.
     broken_at: Option<Option<f32>>,
+    /// Where the lines sit across that width.
+    align: TextAlign,
 }
 
 impl fmt::Debug for TextLayout {
@@ -364,11 +379,31 @@ impl fmt::Debug for TextLayout {
 }
 
 impl TextLayout {
+    /// Where the lines sit across the width the next [`Self::measure`] breaks them at. Lines
+    /// shorter than that width move to the middle or the end; the size of the text does not
+    /// change.
+    pub fn set_align(&mut self, align: TextAlign) {
+        if self.align != align {
+            self.align = align;
+            self.broken_at = None;
+        }
+    }
+
+    /// Where the lines sit, as [`Self::set_align`] left it.
+    pub fn align(&self) -> TextAlign {
+        self.align
+    }
+
     /// Breaks lines at `max_width` (or never, for `None`) and returns the text's size.
     pub fn measure(&mut self, max_width: Option<f32>) -> Size {
         if self.broken_at != Some(max_width) {
             self.layout.break_all_lines(max_width);
-            self.layout.align(Alignment::Start, AlignmentOptions::default());
+            let alignment = match self.align {
+                TextAlign::Start => Alignment::Start,
+                TextAlign::Center => Alignment::Center,
+                TextAlign::End => Alignment::End,
+            };
+            self.layout.align(alignment, AlignmentOptions::default());
             self.broken_at = Some(max_width);
         }
         Size::new(self.layout.width(), self.layout.height())
@@ -573,5 +608,35 @@ mod tests {
         assert!(run.glyphs[0].x >= 10.0);
         assert!(run.glyphs[0].y > 20.0, "glyph y is the baseline below the origin");
         assert!(!run.font.bytes().is_empty());
+    }
+
+    #[test]
+    fn the_lines_sit_at_the_start_in_the_middle_or_at_the_end() {
+        let mut ts = TextSystem::new();
+        let first_x = |ts: &mut TextSystem, align: TextAlign| {
+            let mut layout = ts.layout("Raven", &TextAttrs::default());
+            layout.set_align(align);
+            let width = layout.measure(Some(200.0)).width;
+            let x = layout.glyphs().first().expect("a glyph").x;
+            (x, width)
+        };
+        let (start, width) = first_x(&mut ts, TextAlign::Start);
+        let (center, centered_width) = first_x(&mut ts, TextAlign::Center);
+        let (end, _) = first_x(&mut ts, TextAlign::End);
+        assert!(start.abs() < 0.5, "{start}");
+        assert!((center - (200.0 - width) / 2.0).abs() < 1.0, "{center} of {width}");
+        assert!((end - (200.0 - width)).abs() < 1.0, "{end} of {width}");
+        // Where the lines sit does not change how big the text is.
+        assert_eq!(width, centered_width);
+    }
+
+    #[test]
+    fn changing_the_alignment_breaks_the_lines_again() {
+        let mut ts = TextSystem::new();
+        let mut layout = ts.layout("Raven", &TextAttrs::default());
+        layout.measure(Some(200.0));
+        layout.set_align(TextAlign::End);
+        layout.measure(Some(200.0));
+        assert!(layout.glyphs().first().expect("a glyph").x > 100.0);
     }
 }

@@ -53,14 +53,18 @@ fn release_notes() -> impl View {
 }
 // end
 
-// sample: Text, 170
+// sample: Text, 240
 fn text() -> impl View {
     VStack::new((
         Text::new("Display").style(TextStyle::Display),
         Text::new("Headline").style(TextStyle::Headline),
         Text::new("Muted body text").foreground(Semantic::InkMuted),
+        Text::new("In the middle").align(TextAlign::Center),
+        Text::new("At the end").align(TextAlign::End),
     ))
     .spacing(8.0)
+    .align(Align::Stretch)
+    .width(360.0)
 }
 // end
 

@@ -4,7 +4,7 @@ use std::rc::Rc;
 use ravenrs_layout::LayoutStyle;
 use ravenrs_reactive::State;
 use ravenrs_style::{Semantic, TextStyle, Weight};
-use ravenrs_text::TextAttrs;
+use ravenrs_text::{TextAlign, TextAttrs};
 
 use crate::context::{BuildCx, NodeId, Semantics};
 use crate::{Fill, View};
@@ -23,6 +23,7 @@ pub struct Text {
     weight: Option<Weight>,
     foreground: Fill,
     truncate: bool,
+    align: TextAlign,
 }
 
 impl fmt::Debug for Text {
@@ -61,6 +62,7 @@ impl Text {
             weight: None,
             foreground: Semantic::Ink.into(),
             truncate: false,
+            align: TextAlign::Start,
         }
     }
 
@@ -86,6 +88,15 @@ impl Text {
     /// readers still get the whole text.
     pub fn truncate(mut self) -> Self {
         self.truncate = true;
+        self
+    }
+
+    /// Where the lines sit across the width the text gets: at the start (the default), in the
+    /// middle or at the end. With more than one line, each line moves on its own. A text that
+    /// takes only the width of its words has no room to move: stretch it, as a `VStack` does
+    /// with [`Align::Stretch`](ravenrs_layout::Align::Stretch), or give it a width.
+    pub fn align(mut self, align: TextAlign) -> Self {
+        self.align = align;
         self
     }
 
@@ -118,6 +129,9 @@ impl View for Text {
         } else {
             cx.text(&content, &attrs, color, LayoutStyle::leaf())
         };
+        if self.align != TextAlign::Start {
+            cx.text_align(node, self.align);
+        }
         if let Some(level) = heading_level(self.style) {
             cx.semantics(node, Semantics::new(ravenrs_core::Role::Heading).level(level));
         }
