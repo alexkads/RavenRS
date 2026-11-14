@@ -2,12 +2,12 @@
 //!
 //! ```text
 //! cargo run --release -p channel-video -- record OUT
-//! FF_AI_MODELS=~/.raven-financas/modelos cargo run --release -p channel-video -- narrate OUT
+//! FF_AI_MODELS=~/.raven-financas/modelos cargo run --release -p channel-video -- narrate OUT --voz pm_santa
 //! cargo run --release -p channel-video -- export OUT
 //! ```
 //!
 //! `record` writes the films, `narrate` records what their boxes say with the local
-//! voice model, and `export` writes the wide and the vertical video, the subtitles,
+//! Kokoro voice (`--voz` chooses `pf_dora`, `pm_alex` or `pm_santa`, the default), and `export` writes the wide and the vertical video, the subtitles,
 //! the chapters for the description and a cover. `frames OUT 0:6000` draws
 //! single moments (film:ms) as pictures, to look at before exporting.
 #![allow(clippy::expect_used, clippy::print_stdout, clippy::print_stderr, reason = "a tool run by hand")]
@@ -169,8 +169,24 @@ fn films(out: &Path) -> Vec<Movie> {
         .collect()
 }
 
-fn narrate(out: &Path) {
-    use ravenrs_ai::{ModelFolder, SPEECH_RATE, SpeechEngine, SpeechSettings, model_by_id, sentences};
+/// The voice when `--voz` is not given: the one of the trainings.
+const DEFAULT_SPEAKER: &str = "pm_santa";
+
+/// The Kokoro voice chosen with `--voz NAME`, among [`ravenrs_ai::KOKORO_SPEAKERS`].
+fn chosen_speaker(args: &[String]) -> Result<String, String> {
+    let speaker = match args.iter().position(|arg| arg == "--voz") {
+        Some(at) => args.get(at + 1).ok_or("--voz pede o nome da voz")?.clone(),
+        None => DEFAULT_SPEAKER.to_owned(),
+    };
+    if ravenrs_ai::KOKORO_SPEAKERS.contains(&speaker.as_str()) {
+        Ok(speaker)
+    } else {
+        Err(format!("voz {speaker} desconhecida; use uma de {}", ravenrs_ai::KOKORO_SPEAKERS.join(", ")))
+    }
+}
+
+fn narrate(out: &Path, speaker: String) {
+    use ravenrs_ai::{ModelFolder, SPEECH_RATE, SpeechEngine, SpeechSettings, model_by_id};
     let mut said: Vec<String> = films(out)
         .iter()
         .flat_map(|film| {
@@ -179,17 +195,19 @@ fn narrate(out: &Path) {
         .collect();
     said.dedup();
     let root = std::env::var("FF_AI_MODELS").expect("FF_AI_MODELS: the folder of the models");
-    let model = model_by_id("lfm3-audio-2b-q4").expect("known");
-    let mut engine = SpeechEngine::load(&ModelFolder::new(root), &model).expect("the voice model");
-    let settings = SpeechSettings::default();
+    let model = model_by_id("kokoro-82m").expect("known");
+    let mut engine = SpeechEngine::load(&ModelFolder::new(root), &model).expect("the Kokoro voice");
+    println!("voz: {speaker}");
+    let settings = SpeechSettings { speaker: Some(speaker), ..SpeechSettings::default() };
     let silence = vec![0.0_f32; (SPEECH_RATE / 4) as usize];
     let wavs = out.join("falas");
     std::fs::create_dir_all(&wavs).expect("folder");
     let mut recordings = Vec::new();
     for (index, text) in said.iter().enumerate() {
         let mut sound = Vec::new();
-        for sentence in sentences(&family_finance::ui::spoken(text)) {
-            sound.extend(engine.speak(&sentence, &settings, &mut |_| true).expect("sound"));
+        // Short sentences go together: Kokoro says a few words alone with a flat tune.
+        for piece in engine.pieces(&family_finance::ui::spoken(text)) {
+            sound.extend(engine.speak(&piece, &settings, &mut |_| true).expect("sound"));
             sound.extend_from_slice(&silence);
         }
         let allowed = 0.8 + text.chars().count() as f32 * 0.075;
@@ -302,13 +320,40 @@ fn frames(out: &Path, moments: &[String]) {
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    let out = PathBuf::from(args.get(2).expect("usage: channel-video record|narrate|export OUT"));
+    let out = PathBuf::from(
+        args.get(2).expect("usage: channel-video record|narrate|export OUT [--voz pf_dora|pm_alex|pm_santa]"),
+    );
     std::fs::create_dir_all(&out).expect("folder");
     match args[1].as_str() {
         "record" => record(&out),
-        "narrate" => narrate(&out),
+        "narrate" => match chosen_speaker(&args[3..]) {
+            Ok(speaker) => narrate(&out, speaker),
+            Err(error) => {
+                eprintln!("{error}");
+                std::process::exit(2);
+            }
+        },
         "export" => export(&out, args.get(3).map(String::as_str)),
         "frames" => frames(&out, &args[3..]),
         other => panic!("unknown step {other}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|arg| (*arg).to_owned()).collect()
+    }
+
+    #[test]
+    fn the_voice_is_one_of_the_three_and_pm_santa_without_choosing() {
+        assert_eq!(chosen_speaker(&args(&[])).as_deref(), Ok("pm_santa"));
+        for voice in ["pf_dora", "pm_alex", "pm_santa"] {
+            assert_eq!(chosen_speaker(&args(&["--voz", voice])).as_deref(), Ok(voice));
+        }
+        assert!(chosen_speaker(&args(&["--voz", "af_heart"])).is_err_and(|e| e.contains("pf_dora")));
+        assert!(chosen_speaker(&args(&["--voz"])).is_err());
     }
 }
