@@ -21,7 +21,7 @@ pub enum ActionInput {
     Record(Object),
 }
 
-/// How much a [`Message`] matters.
+/// How much a [`Message`](crate::Message) matters.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]

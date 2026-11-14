@@ -22,6 +22,9 @@
 # crate", a derive compiled from the other branch. Give each worktree its own CARGO_TARGET_DIR (in
 # its session's scratchpad) and delete it when the work is done.
 #
+# With Kache installed (cargo install kache --locked), a new worktree does not compile again what
+# another one compiled: see the skill ravenrs-check. Without it the checks run the same, slower.
+#
 # At the end, passing or failing, it prints the time of each step, slowest first, and whether the
 # build directory started empty (scripts/check-timings.py): the test step split into compiling and
 # running, and the ten slowest tests from nextest's JUnit report (.config/nextest.toml). The table is
@@ -70,6 +73,11 @@ report_timings() {
     python3 scripts/check-timings.py --steps "$timings" --save "$timings_dir/last.txt" \
         --total $((SECONDS - started)) --since "$started_at" --status "$status" --mode "$mode" \
         --build "$build_state" --junit target/nextest/default/junit.xml ${extra[@]+"${extra[@]}"} || true
+    if [ -n "$compiler_cache" ]; then
+        echo
+        echo "Compiler cache (kache stats --last-build):"
+        kache stats --last-build 2>/dev/null | grep -E "Hit rate|By time|Time saved|Miss work|Not cached|Stored" || true
+    fi
 }
 done_in() {
     report_timings 0
@@ -103,6 +111,17 @@ if ! command -v cargo-nextest >/dev/null; then
     echo "error: the checks run the tests on cargo-nextest. Install it once with:" >&2
     echo "    cargo install cargo-nextest --locked" >&2
     exit 1
+fi
+
+# A compiler cache that worktrees share, when it is installed: Kache stands in front of rustc,
+# takes the checkout and build paths out of what it compiles, and restores what another worktree
+# already compiled. Each worktree keeps its own build directory. RAVENRS_KACHE=0 leaves it out, and a
+# RUSTC_WRAPPER already set is kept as it is.
+compiler_cache=""
+if [ -z "${RUSTC_WRAPPER:-}" ] && [ "${RAVENRS_KACHE:-1}" != 0 ] && command -v kache >/dev/null; then
+    export RUSTC_WRAPPER=kache
+    compiler_cache=kache
+    echo "compiler cache: $(kache --version) (RAVENRS_KACHE=0 turns it off)"
 fi
 
 # Tests of the selected packages on nextest; doctests, which it does not run, through cargo test.
