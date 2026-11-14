@@ -299,6 +299,55 @@ fn the_window_offers_the_themes_and_changes_to_the_one_chosen() {
 }
 
 #[test]
+fn following_the_system_is_there_the_next_time_it_opens() {
+    // #289: choosing "follow the system" outlives the window, and so does choosing by hand.
+    let store = ravenrs_app::MemorySettings::default();
+    let database = database(None);
+    let open = |system_dark: bool| {
+        let source = database.clone();
+        let view = ravenrs_app_ui::App::new("Temas")
+            .entity_info(task())
+            .storage(move || source.space())
+            .settings(store.clone())
+            .build()
+            .expect("it puts together");
+        let mut ui = Ui::new(view, Theme::raven_dark());
+        ui.set_viewport(ravenrs_core::Size::new(1200.0, 800.0), 1.0);
+        ui.update();
+        // The platform says what the system is once the window is up.
+        ui.set_system_dark(system_dark);
+        for _ in 0..4 {
+            ui.update();
+        }
+        ui
+    };
+    let mut first = open(false);
+    assert!(!first.system_appearance().follows(), "nobody chose to follow yet");
+    first.follow_system_theme(true);
+    for _ in 0..4 {
+        first.update();
+    }
+    assert_eq!(first.theme().name, Theme::raven_light().name);
+
+    let mut again = open(true);
+    assert!(again.system_appearance().follows(), "it still follows");
+    assert_eq!(again.theme().name, Theme::raven_dark().name, "and the system is dark now");
+    again.set_system_dark(false);
+    again.update();
+    assert_eq!(again.theme().name, Theme::raven_light().name, "it goes on following");
+
+    // Light by hand: no longer following, even with the system dark.
+    again.follow_system_theme(false);
+    again.theme_state().set(Theme::raven_light());
+    for _ in 0..4 {
+        again.update();
+    }
+    let by_hand = open(true);
+    assert!(!by_hand.system_appearance().follows());
+    assert_eq!(by_hand.theme().name, Theme::raven_light().name);
+}
+
+#[test]
 fn the_theme_someone_chose_is_there_the_next_time_it_opens() {
     let store = ravenrs_app::MemorySettings::default();
     let database = database(None);
