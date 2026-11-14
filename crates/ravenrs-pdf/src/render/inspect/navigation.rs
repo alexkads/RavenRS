@@ -477,7 +477,7 @@ fn label_work(left: &mut usize, count: usize) -> Result<(), &'static str> {
 /// the name leads to no page of it. A key matches `name` written in UTF-8 or in PDFDocEncoding,
 /// or as a text string (UTF-16 or PDFDocEncoding) that reads as `name`, the way a link's string
 /// destination is read.
-/// Read like [`inspect`]: the lazy reader first, lopdf's tolerant one when the lazy reader fails.
+/// Read like [`inspect`](super::inspect): the lazy reader first, lopdf's tolerant one when the lazy reader fails.
 pub fn named_destination(bytes: Arc<Vec<u8>>, password: Option<&str>, name: &str) -> Option<(usize, DestView)> {
     // PDFDocEncoding bytes that are also UTF-8 read as UTF-8, so only this finds "Ã©" written C3 A9.
     let pdfdoc: Option<Vec<u8>> = name.chars().map(crate::cos::pdfdoc_byte).collect();

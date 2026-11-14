@@ -38,7 +38,7 @@ Não há GitHub Actions: a conta não pode usá-lo. A validação é local, e o 
 ./scripts/check.sh
 ```
 
-Esse é o rápido, para todo PR: rustfmt, mais clippy e testes só dos pacotes que a mudança atinge e dos que dependem deles (`scripts/changed-packages.py`, contra `origin/master`). O completo, com wasm32, features opcionais, MSRV, `cargo deny`, documentação e builds web, é `./scripts/check.sh --full`. Ele roda antes de publicar uma versão, ou quando o Alex pedir. Os benchmarks e o gate de desempenho só rodam quando ele pedir, com `RAVENRS_GATE=1` (skill `ravenrs-desempenho`). Linux e Windows ficam nas limitações, a menos que tenham sido rodados.
+Esse é o rápido, para todo PR: rustfmt; clippy em todo pacote que a mudança atinge, em qualquer profundidade; e testes dos pacotes alterados e dos dependentes diretos (`scripts/changed-packages.py`, contra `origin/master`). `Cargo.toml` e `Cargo.lock` são lidos entrada por entrada, então crate novo ou bump de versão não viram o workspace inteiro. Os testes rodam no `cargo-nextest`, obrigatório (`cargo install cargo-nextest --locked`), e cada worktree usa o seu próprio `CARGO_TARGET_DIR`. Como rodar, ler e manter o gate está na skill `ravenrs-check`. O completo, com wasm32, features opcionais, MSRV, `cargo deny`, documentação e builds web, é `./scripts/check.sh --full`. Ele roda antes de publicar uma versão, ou quando o Alex pedir. Os benchmarks e o gate de desempenho só rodam quando ele pedir, com `RAVENRS_GATE=1` (skill `ravenrs-desempenho`). Linux e Windows ficam nas limitações, a menos que tenham sido rodados.
 
 ## 4. Revisão e merge
 

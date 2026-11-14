@@ -59,6 +59,14 @@ Rodar o conversor no commit do `NOTICE` reproduz `src/` e `tests/`, exceto:
   declara, então a "mentirosa" não gasta o orçamento. Numa mescla, conflito nessas linhas é isso:
   aplique o mesmo ajuste à linha nova deles.
 - `Cargo.toml`, `NOTICE`, `README.md`, `clippy.toml` (o deles sem as regras do egui), `rustfmt.toml`.
+- Links de documentação que a conversão deixa sem alcance, com o caminho escrito à mão porque o
+  `cargo doc -D warnings` do `--full` os recusa: `doc/fill.rs` (`MAX_STOPS`), `doc/parts.rs`
+  (`InlineObject::note_separator`, `Document::text_box_chains`, `Document::perm_ranges`),
+  `doc/settings.rs` (`Document::media`), `doc/para/float.rs` (`InlineObject::alt_text`),
+  `doc/para/inline_kinds.rs` (`InlineObject::PositionalTab`), `doc/para/inline_object.rs`
+  (`MAX_ALT_TEXT`), `formats/model/types.rs` (`from_doc_tracked`, e `FCell::header` virou
+  `Cell::header`) e `docx/mod.rs` (`write`, que é função e macro: `fn@write`). Ficam sem o
+  comentário `RavenRS:`, que quebraria a frase da documentação.
 
 Toda mudança nossa dentro de `src/` leva um comentário `RavenRS:`. Ao acrescentar uma, liste-a aqui.
 

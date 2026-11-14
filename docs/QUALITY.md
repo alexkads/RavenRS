@@ -31,13 +31,13 @@ Behavior that a user can observe is documented publicly. A private comment can k
 
 ## Enforced checks
 
-`scripts/check.sh --full` runs every check below, and nothing ships unless it passes. The project uses no hosted CI, so this script is the gate. Without `--full` it is the quick check for each pull request: rustfmt, and clippy and the tests of the packages the change reaches (`scripts/changed-packages.py`).
+`scripts/check.sh --full` runs every check below, and nothing ships unless it passes. The project uses no hosted CI, so this script is the gate. Without `--full` it is the quick check for each pull request: rustfmt, clippy on every package the change reaches, and the tests of the packages changed and of their direct dependents (`scripts/changed-packages.py`).
 
 | Check | What it catches |
 |---|---|
 | `cargo fmt --check` | Formatting drift |
 | `cargo clippy -D warnings` on native and `wasm32` | Lints, including `missing_docs` on every public item |
-| `cargo test --workspace` | Unit, behavior, accessibility, property ([proptest](https://docs.rs/proptest)) and doc tests |
+| `cargo nextest run --workspace` and `cargo test --doc --workspace` | Unit, behavior, accessibility, property ([proptest](https://docs.rs/proptest)) and doc tests; nextest runs every test binary at once |
 | GPU golden-image tests (`crates/ravenrs/tests/suite/visual.rs`) | Visual regressions in 6 scenes × dark and light; tolerance 24/255 per channel on at most 0.4% of pixels |
 | GPU pixel tests (`crates/ravenrs-render/tests/offscreen.rs`) | Renderer correctness: shapes, clipping, images |
 | `cargo doc -D warnings` | Broken intra-doc links |

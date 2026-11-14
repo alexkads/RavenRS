@@ -17,7 +17,7 @@
 //! - For each object in your scene:
 //!   - Set how the object will be painted, using [`set_paint`][RenderContext::set_paint].
 //!   - Set the shape to be drawn for that object, using methods like [`fill_path`][RenderContext::fill_path],
-//!     [`stroke_path`][RenderContext::stroke_path], or [`glyph_run`][RenderContext::glyph_run].
+//!     [`stroke_path`][RenderContext::stroke_path], or `glyph_run` (left out here).
 //! - Render it to an image using [`RenderContext::render_to_pixmap`][].
 //!
 //! ```ignore
@@ -69,7 +69,7 @@
 //! - `png`(enabled by default): Allow loading [`Pixmap`]s from PNG images.
 //!   Also required for rendering glyphs with an embedded PNG. Implies `std`.
 //! - `multithreading`: Enable multi-threaded rendering. Implies `std`.
-//! - `text` (enabled by default): Enables glyph rendering ([`glyph_run`][RenderContext::glyph_run]).
+//! - `text` (enabled by default): Enables glyph rendering (`glyph_run`, left out here).
 //! - `u8_pipeline` (enabled by default): Enable the u8 pipeline, for speed focused rendering using u8 math.
 //!   The `u8` pipeline will be used for [`OptimizeSpeed`][RenderMode::OptimizeSpeed], if both pipelines are enabled.
 //!   If you're using Vello CPU for application rendering, you should prefer this pipeline.

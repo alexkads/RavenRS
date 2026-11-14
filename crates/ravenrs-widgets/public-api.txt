@@ -555,6 +555,7 @@ field Labels::theme_shape
 field Labels::theme_sizes
 field Labels::theme_status
 field Labels::theme_surfaces
+field Labels::theme_system
 field Labels::theme_text
 field Labels::tile_move
 field Labels::tile_resize
@@ -938,6 +939,7 @@ impl Clone for Stat
 impl Clone for StepBadge
 impl Clone for StepState
 impl Clone for Summary
+impl Clone for SystemAppearance
 impl Clone for Table
 impl Clone for TabsVariant
 impl Clone for ThemeEditor
@@ -1391,6 +1393,7 @@ impl Debug for Sticky
 impl Debug for Styled
 impl Debug for Summary
 impl Debug for SwatchGrid
+impl Debug for SystemAppearance
 impl Debug for Table
 impl Debug for Tabs
 impl Debug for TabsVariant
@@ -1567,6 +1570,7 @@ impl Default for Spacer
 impl Default for Spinner
 impl Default for StatusBar
 impl Default for StepState
+impl Default for SystemAppearance
 impl Default for TabsVariant
 impl Default for ThemeEditor
 impl Default for ThemePicker
@@ -2241,6 +2245,7 @@ method BuildCx::shortcut
 method BuildCx::shortcut_with_alt
 method BuildCx::shortcut_with_shift
 method BuildCx::sound
+method BuildCx::system_appearance
 method BuildCx::text
 method BuildCx::text_truncated
 method BuildCx::theme
@@ -3603,6 +3608,10 @@ method SwatchGrid::label
 method SwatchGrid::new
 method SwatchGrid::on_pick
 method SwatchGrid::selected
+method SystemAppearance::dark
+method SystemAppearance::follows
+method SystemAppearance::set_follow
+method SystemAppearance::theme_for
 method Table::new
 method Table::row
 method Tabs::disabled
@@ -3820,6 +3829,7 @@ method Ui::clipboard
 method Ui::cursor
 method Ui::drop_files
 method Ui::element_count
+method Ui::follow_system_theme
 method Ui::full_screen
 method Ui::handle_event
 method Ui::is_animating
@@ -3841,6 +3851,7 @@ method Ui::set_phase_clock
 method Ui::set_reduced_motion
 method Ui::set_remote_waker
 method Ui::set_sound
+method Ui::set_system_dark
 method Ui::set_theme
 method Ui::set_time
 method Ui::set_view_profiling
@@ -3849,6 +3860,7 @@ method Ui::set_waker
 method Ui::shortcuts
 method Ui::sound
 method Ui::stats
+method Ui::system_appearance
 method Ui::take_frame_work
 method Ui::text_system
 method Ui::theme
@@ -4330,6 +4342,7 @@ struct Stepper
 struct Sticky
 struct Styled
 struct SwatchGrid
+struct SystemAppearance
 struct Table
 struct Tabs
 struct TagBox

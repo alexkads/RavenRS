@@ -179,8 +179,11 @@ fn clicking_a_field_adds_it_once_and_every_theme_is_available() {
     };
     press(&mut ui, Role::Button, "Customer");
     assert_eq!(fields(&mut ui), 1);
-    for theme in ["Escuro", "Vidro", "Claro"] {
-        press(&mut ui, Role::RadioButton, theme);
+    // The status bar's ThemePicker is a menu, with the library's labels (English here, with no
+    // texts loaded): open it, then choose.
+    for theme in ["Dark", "Glass", "Light"] {
+        press(&mut ui, Role::Button, "Theme");
+        press(&mut ui, Role::MenuItem, theme);
         audit(&mut ui, theme);
     }
 }
