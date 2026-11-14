@@ -1,0 +1,21 @@
+[package]
+name = "ravenrs-xcache"
+description = "A compiler cache for Rust that worktrees share: it stands in front of rustc, takes the checkout and build paths out of what is compiled, and says why each compilation came from the cache or did not."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+keywords = ["cache", "rustc", "build", "worktree"]
+categories = ["development-tools"]
+# A first version: libraries only. It is not published until it replaces what it was written for.
+publish = false
+
+[dependencies]
+sha2 = "0.10"
+
+[lints]
+workspace = true
