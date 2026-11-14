@@ -480,6 +480,7 @@ field Labels::playground_download
 field Labels::playground_example
 field Labels::playground_exit_full_screen
 field Labels::playground_full_screen
+field Labels::playground_go_to
 field Labels::playground_hide_output
 field Labels::playground_last_good
 field Labels::playground_line
@@ -487,12 +488,14 @@ field Labels::playground_more
 field Labels::playground_no_problems
 field Labels::playground_nothing_printed
 field Labels::playground_output
+field Labels::playground_plain_text
 field Labels::playground_position
 field Labels::playground_problems
 field Labels::playground_restore
 field Labels::playground_result
 field Labels::playground_run
 field Labels::playground_show_output
+field Labels::playground_spaces
 field Labels::previous_month
 field Labels::previous_page
 field Labels::previous_year
@@ -778,6 +781,7 @@ fn highlight_rust
 fn is_leap_year
 fn line_and_column
 fn live_registry
+fn offset_of
 fn parse_exceptions
 fn responsive
 fn set_apple_keys
@@ -2445,6 +2449,7 @@ method CodeDiagnostic::warning
 method CodeEditor::caret
 method CodeEditor::diagnostics
 method CodeEditor::fill
+method CodeEditor::focus_request
 method CodeEditor::indent
 method CodeEditor::language
 method CodeEditor::line_numbers
@@ -3224,6 +3229,7 @@ method Playground::action
 method Playground::chosen_example
 method Playground::download
 method Playground::example
+method Playground::file_name
 method Playground::height
 method Playground::language
 method Playground::new

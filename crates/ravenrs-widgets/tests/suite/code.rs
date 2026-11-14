@@ -540,3 +540,57 @@ fn the_caret_says_its_line_and_column() {
     assert_eq!(line_and_column(text, 17), (2, 9), "accents count as one character each");
     assert_eq!(line_and_column(text, 1000), (3, 2), "past the end, at the end");
 }
+
+fn line_two(source: &str) -> Result<AnyView, Vec<CodeDiagnostic>> {
+    if source.contains("yell") {
+        Err(vec![CodeDiagnostic::error(2, 5, 4, "Write say")])
+    } else {
+        Ok(Box::new(Text::new("ok")))
+    }
+}
+
+#[test]
+fn the_playground_names_its_file_and_says_the_spaces() {
+    // #166: the tab over the editor and the status line of the approved layout.
+    let mut ui = ui(Playground::new(line_two).example("Slider", "fn slider() {\n    say\n}"));
+    assert!(shows(&mut ui, "slider.rs"), "named after its first function");
+    assert!(shows(&mut ui, "Rust"));
+    assert!(shows(&mut ui, "Spaces: 4"));
+    let mut ui = ui_at(Playground::new(line_two).example("A", "say").file_name("hello.rs"), 1200.0);
+    assert!(shows(&mut ui, "hello.rs"), "the name given wins");
+}
+
+#[test]
+fn a_problem_takes_the_caret_to_its_place_and_focuses_the_editor() {
+    let source = State::new(String::new());
+    let mut ui = ui(Playground::new(line_two)
+        .example("Slider", "fn slider() {\n    yell\n}")
+        .source(source.binding()));
+    assert!(shows(&mut ui, "Ln 1, Col 1"));
+    let go = {
+        let tree = ui.access_tree();
+        let found = tree
+            .nodes
+            .iter()
+            .find(|n| n.role == Role::Button && n.name.as_deref() == Some("Go to Line 2, column 5"));
+        found.expect("the problem is a button that says where it goes").id
+    };
+    ui.perform_action(go, ravenrs_core::AccessAction::Click);
+    ui.update();
+    ui.update();
+    assert!(shows(&mut ui, "Ln 2, Col 5"), "the caret is on the problem");
+    let tree = ui.access_tree();
+    assert_eq!(tree.focused().map(|n| n.role), Some(Role::TextInput), "and the editor has the focus");
+}
+
+#[test]
+fn a_place_turns_back_into_the_characters_before_it() {
+    let text = "fn f() {\n    ação\n}";
+    for at in [0, 9, 13, 17, 19] {
+        let (line, column) = line_and_column(text, at);
+        assert_eq!(offset_of(text, line, column), at, "{line}:{column}");
+    }
+    assert_eq!(offset_of(text, 2, 0), 9, "column 0 is the start of the line");
+    assert_eq!(offset_of(text, 2, 99), 17, "past the end of a line stops there");
+    assert_eq!(offset_of(text, 9, 1), 20, "past the last line, at the end");
+}

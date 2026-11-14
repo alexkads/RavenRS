@@ -158,6 +158,8 @@ pub struct TextArea {
     state: util::EditorState,
     /// Caret and selection kept by whoever built the area, so it can insert at the caret.
     cursor: Option<State<Cursor>>,
+    /// Turned on by whoever built the area to give it the keyboard focus; it turns back off.
+    focus_request: Option<State<bool>>,
     code: Option<CodeLook>,
 }
 
@@ -179,8 +181,17 @@ impl TextArea {
             width: None,
             state: util::EditorState::default(),
             cursor: None,
+            focus_request: None,
             code: None,
         }
+    }
+
+    /// Takes the keyboard focus whenever `request` turns on, and turns it back off, for a
+    /// component that moves the caret from outside, as a list of problems does.
+    #[doc(hidden)]
+    pub fn focus_request(mut self, request: State<bool>) -> Self {
+        self.focus_request = Some(request);
+        self
     }
 
     /// Shows the text as code. Only `CodeEditor`, of the `code` feature, asks for it.
@@ -314,6 +325,12 @@ impl View for TextArea {
         let state = self.state;
         let own: State<Cursor> = cx.use_state(|| Cursor::at(usize::MAX));
         let cursor = self.cursor.clone().unwrap_or(own);
+        let own_request: State<bool> = cx.use_state(|| false);
+        let focus_request = self.focus_request.clone().unwrap_or(own_request);
+        if focus_request.get() && !state.disabled {
+            focus_request.set(false);
+            cx.request_focus();
+        }
         let followed: State<usize> = cx.use_state(|| usize::MAX);
         let focused = cx.is_focused() && !state.disabled;
         let hovered = cx.is_hovered() && !state.disabled;
@@ -577,11 +594,28 @@ impl View for TextArea {
                 let x = width - cx.measure_text(&label, &attrs).width;
                 let place = LayoutStyle { absolute: Some((x, 0.0)), ..LayoutStyle::leaf() };
                 let number = cx.text(&label, &attrs, state.ink(theme.color(semantic)), place);
-                numbers.push(cx.container(
+                let row = cx.container(
                     LayoutStyle { height: Some(line_height), width: Some(width), ..LayoutStyle::leaf() },
                     &[number],
                     Paint::None,
-                ));
+                );
+                // A marked line number takes the caret to the mark, with the focus.
+                let mark = code.as_ref().and_then(|c| c.marks.iter().find(|(m, _, _)| *m == n).cloned());
+                if let (Some((_, _, columns)), Some(&(start, end))) = (mark, lines.get(n))
+                    && !state.disabled
+                {
+                    let (to, focus) = (cursor.clone(), focus_request.clone());
+                    let at = (start + columns.map_or(0, |(a, _)| a)).min(end);
+                    cx.on_click(
+                        row,
+                        Rc::new(move || {
+                            to.set(Cursor::at(at));
+                            focus.set(true);
+                        }),
+                    );
+                    cx.cursor(row, CursorIcon::Pointer);
+                }
+                numbers.push(row);
             }
             if last < lines.len() {
                 numbers.push(cx.container(
