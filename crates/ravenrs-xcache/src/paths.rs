@@ -26,10 +26,23 @@ pub(crate) struct Roots(pub Vec<Root>);
 impl Roots {
     /// The build directory `out_dir` is in, and the working directory unless it is inside Cargo's
     /// home, where registry crates live at the same path for every worktree.
-    pub(crate) fn find(out_dir: &Path, cwd: &Path, cargo_home: Option<&Path>) -> Roots {
+    ///
+    /// Cargo's layout gives the build directory: `<build dir>/[<triple>/]<profile>/deps`. The
+    /// `CACHEDIR.TAG` Cargo writes is not a sign to go by: Cargo only writes it in a directory it
+    /// creates, and a script that made the directory first leaves it without one.
+    pub(crate) fn find(out_dir: &Path, triple: Option<&str>, cwd: &Path, cargo_home: Option<&Path>) -> Roots {
         let mut roots = Vec::new();
-        let target =
-            out_dir.ancestors().find(|folder| folder.join("CACHEDIR.TAG").is_file()).unwrap_or(out_dir);
+        let in_profile =
+            matches!(out_dir.file_name().and_then(|name| name.to_str()), Some("deps" | "examples"));
+        let profile = out_dir.parent().filter(|_| in_profile);
+        let above = profile.and_then(Path::parent);
+        let target = match (above, triple) {
+            (Some(above), Some(triple)) if above.file_name().is_some_and(|name| name == triple) => {
+                above.parent().unwrap_or(above)
+            }
+            (Some(above), _) => above,
+            (None, _) => out_dir,
+        };
         if let Some(real) = target.to_str() {
             roots.push(Root { real: real.to_owned(), marker: "<xcache:target>", remapped: "/xcache/target" });
         }
@@ -182,13 +195,36 @@ mod tests {
         let folder = std::env::temp_dir().join(format!("xcache-roots-{}", std::process::id()));
         let out = folder.join("target/debug/deps");
         std::fs::create_dir_all(&out).unwrap_or_default();
-        std::fs::write(folder.join("target/CACHEDIR.TAG"), "").unwrap_or_default();
         let home = folder.join("cargo-home");
-        let member = Roots::find(&out, &folder.join("ws"), Some(&home));
+        let member = Roots::find(&out, None, &folder.join("ws"), Some(&home));
         assert_eq!(member.0.len(), 2);
-        let registry = Roots::find(&out, &home.join("registry/src/x/serde-1.0.0"), Some(&home));
+        let registry = Roots::find(&out, None, &home.join("registry/src/x/serde-1.0.0"), Some(&home));
         assert_eq!(registry.0.len(), 1);
         assert_eq!(registry.0[0].real, folder.join("target").to_string_lossy());
         std::fs::remove_dir_all(&folder).unwrap_or_default();
+    }
+
+    #[test]
+    fn the_build_directory_is_found_by_its_layout_with_or_without_a_triple() {
+        let cwd = Path::new("/work/app");
+        let root_of = |out: &str, triple: Option<&str>| {
+            let roots = Roots::find(Path::new(out), triple, cwd, None);
+            roots
+                .0
+                .iter()
+                .find(|root| root.marker == "<xcache:target>")
+                .map(|root| root.real.clone())
+                .unwrap_or_default()
+        };
+        assert_eq!(root_of("/b/t/debug/deps", None), "/b/t");
+        assert_eq!(
+            root_of("/b/t/wasm32-unknown-unknown/wasm-release/deps", Some("wasm32-unknown-unknown")),
+            "/b/t"
+        );
+        // A profile directory is not mistaken for a triple.
+        assert_eq!(root_of("/b/t/debug/deps", Some("aarch64-apple-darwin")), "/b/t");
+        assert_eq!(root_of("/b/t/debug/examples", None), "/b/t");
+        // Not Cargo's layout: only the output directory itself is taken out.
+        assert_eq!(root_of("/b/out", None), "/b/out");
     }
 }

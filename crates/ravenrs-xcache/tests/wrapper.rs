@@ -30,7 +30,7 @@ impl Bench {
         fs::create_dir_all(tree.join("ws/src")).unwrap();
         fs::create_dir_all(tree.join("target/debug/deps")).unwrap();
         fs::create_dir_all(tree.join("target/debug/build/demo/out")).unwrap();
-        fs::write(tree.join("target/CACHEDIR.TAG"), "Signature: 8a477f597d28d172789f06886806bc55\n").unwrap();
+        // No CACHEDIR.TAG: a script that makes the build directory before Cargo leaves it without one.
         tree
     }
 

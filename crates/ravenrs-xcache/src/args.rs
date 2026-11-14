@@ -18,6 +18,8 @@ pub(crate) struct Invocation {
     pub kind: Kind,
     pub crate_name: String,
     pub out_dir: PathBuf,
+    /// The `--target` triple, when the build is for another platform.
+    pub target: Option<String>,
     /// `--extern` entries: the name with its options, and the file when there is one.
     pub externs: Vec<(String, Option<String>)>,
     /// Every argument that can change what is compiled, in order, without the ones that only say
@@ -68,6 +70,7 @@ pub(crate) fn parse(args: &[String]) -> Result<Invocation, String> {
     let mut crate_types: Vec<String> = Vec::new();
     let mut emit: Option<String> = None;
     let mut out_dir = None;
+    let mut target = None;
     let mut inputs: Vec<&str> = Vec::new();
     let mut externs = Vec::new();
     let mut key_args = Vec::new();
@@ -144,6 +147,7 @@ pub(crate) fn parse(args: &[String]) -> Result<Invocation, String> {
             "target" if value_text.ends_with(".json") => {
                 return Err("the target is a spec file".to_owned());
             }
+            "target" => target = value.clone(),
             "L" if value_text.starts_with("dependency=") => continue,
             "C" | "codegen" => {
                 let option = value_text.split('=').next().unwrap_or_default();
@@ -191,6 +195,7 @@ pub(crate) fn parse(args: &[String]) -> Result<Invocation, String> {
         kind,
         crate_name: crate_name.ok_or_else(|| "it has no --crate-name".to_owned())?,
         out_dir: out_dir.ok_or_else(|| "it has no --out-dir".to_owned())?,
+        target,
         externs,
         key_args,
         plain_objects: !embeds_bitcode,

@@ -112,7 +112,7 @@ pub(crate) fn run(compiler: &OsStr, rest: &[OsString]) -> i32 {
     let cargo_home = std::env::var_os("CARGO_HOME")
         .map(PathBuf::from)
         .or_else(|| std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".cargo")));
-    let roots = Roots::find(&invocation.out_dir, &cwd, cargo_home.as_deref());
+    let roots = Roots::find(&invocation.out_dir, invocation.target.as_deref(), &cwd, cargo_home.as_deref());
     let remaps = match roots.remap_args() {
         Ok(remaps) => remaps,
         Err(reason) => return pass(&invocation.crate_name, &reason),
@@ -211,7 +211,14 @@ fn request_key(
     for (name, value) in environment {
         text.push_str(&format!("env {name}={}\n", roots.norm(&value)));
     }
-    Ok(sha(text.as_bytes()))
+    let key = sha(text.as_bytes());
+    // RAVENRS_XCACHE_TRACE=<folder>: what each key was made of, to compare two builds that should
+    // have shared a crate and did not.
+    if let Some(folder) = std::env::var_os("RAVENRS_XCACHE_TRACE") {
+        let file = Path::new(&folder).join(format!("{}-{}.key", invocation.crate_name, &key[..12]));
+        let _ = Store::write_atomic(&file, text.as_bytes());
+    }
+    Ok(key)
 }
 
 /// One library or proc macro to produce.
