@@ -543,6 +543,8 @@ Other systems sign in with a **key**, in the same `Authorization: Bearer` header
 
 An application with a look of its own gives its themes with `App::themes([light, dark])`. The Theme menu then offers only those, under their names, and starts on the first; the one someone chooses is kept as above. With a light and a dark one among them, "Follow the system" switches between the first of each instead of Raven Light and Raven Dark. Each theme is kept as what differs from the built-in theme it is `based_on`, so a theme made with `Theme { name: "Mine", ..Theme::raven_light() }`, or read from tokens with a `"name"`, comes back under its own name and colors. A kept theme that fails `is_readable`, as white text on a light accent, is not brought back.
 
+The top of the navigation can carry the application's brand: `App::brand(IconTile::new(IconName::Church))` with `brand_subtitle("Central Church")`. Reduced to icons, only the mark stays, and screen readers hear the title and the line. `App::navigation_count("Lesson", |session| ...)` puts a count beside that item of the navigation, read again whenever records change, with `NavigationCount::spoken` for what screen readers hear ("1 with attendance to take"). Cmd/Ctrl+K opens a command palette with the places the person can open. The list report of `ReportModule` comes out in the colors on screen: the accent and its text for the headers, and the theme's text where it is dark enough for white paper.
+
 It is not OData: the query options are its own, which is the difference to keep in mind for clients made for OData. Money travels in cents, as it is stored, and dates as text. Users, roles and the audit trail are not exposed, whatever the permissions say.
 
 Limits to know:

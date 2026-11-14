@@ -7,12 +7,21 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ### Breaking
 
 - `Theme` has a new public field, `based_on`, the built-in theme it starts from, which its tokens are kept against. A literal with `..Theme::raven_light()` (or another theme) inherits it; one without `..` stops compiling.
+- `Theme` has a new public field, `charts` (`ChartSeries`), and `WizardOptions` in `ravenrs-report` has `on_accent`, `ink`, `muted` and `zebra`; `Labels` has `theme_charts` and `grid_select`. Literals with `..Default::default()` or `..Theme::raven_dark()` do not change.
+- With two or more `GridColumn::fill` columns, what is left is shared among them by weight; before, only the first took it.
 
 ### Added
 
 - `App::themes` and `AppShell::themes` offer only the application's own themes in the Theme menu, start on the first, and keep the one each person chooses, as before. `ThemePicker::of` is that menu on its own.
 - The tokens of a theme take a `"name"`, shown in menus and to screen readers. `to_tokens_json` writes it for a theme with a name of its own, and `from_tokens_json` takes it, up to 64 characters; without it nothing changes.
 - Following the system can switch between an application's own light and dark: `SystemAppearance::set_themes`, `SystemAppearance::theme_of` and `Ui::system_themes`. `App::themes` sets that pair itself, from the first light and the first dark among them.
+
+- `App::brand` and `App::brand_subtitle` (and the same on `AppShell`) put a mark, the title and a line under it at the top of the navigation. Reduced to icons, only the mark stays, and screen readers hear the title and the line, as with any `SidebarBrand`.
+- `App::navigation_count` puts a `NavigationCount` beside an item of the navigation, worked out again whenever records change, with words of its own for screen readers (`NavigationCount::spoken`, `SidebarItem::count_spoken`).
+- Cmd/Ctrl+K in an `AppShell` opens a `CommandPalette` with the places of the navigation the person can open.
+- Reports take the colors of the theme on screen: `ravenrs_grid_export::paper_colors`, `document_of_with` and `export_with`, `Session::theme`, and the list report of `ReportModule` uses them. Paper stays white, so a dark theme keeps dark text.
+- A theme chooses the series of a chart after the first in `Theme::charts`, `Theme::set_color` or its tokens, as `chart-2` to `chart-5`, and the `ThemeEditor` has a group for them. `Palette` does not change.
+- `DataGrid`: the check box of a row says its name ("Select Ana", from `name_column`, the key or the first column); `GridRowAction::show_text` shows the label beside the icon and `GridRowAction::visible` leaves the button out of some rows, keeping its room; `GridColumn::fill_weight` fills by weight, like `fr`.
 
 ### Fixed
 

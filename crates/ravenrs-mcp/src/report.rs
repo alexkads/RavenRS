@@ -163,7 +163,8 @@ pub fn create(input: &CreateInput) -> Result<Value, String> {
         group_by: input.group_by.clone(),
         totals,
         page,
-        accent: input.accent.clone().unwrap_or(defaults.accent),
+        accent: input.accent.clone().unwrap_or(defaults.accent.clone()),
+        ..defaults
     };
     let source = DataSource { name: input.source_name.clone().unwrap_or_else(|| "Data".into()), kind };
     let mut report = wizard::table_report_with(source, &options, &words);

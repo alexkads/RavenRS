@@ -313,6 +313,7 @@
  "widgets.grid_scenario_save": "Gravar cenário…",
  "widgets.grid_scenario_update": "Atualizar",
  "widgets.grid_search": "Buscar em todas as colunas",
+ "widgets.grid_select": "Selecionar",
  "widgets.grid_select_row": "Selecionar linha",
  "widgets.grid_selected": "selecionadas",
  "widgets.grid_show_panel": "Mostrar painel de agrupamento",

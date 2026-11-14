@@ -108,6 +108,8 @@ const HOVERED_ROW: f32 = 0.85;
 /// How much accent a selected row shows, always more than either.
 const SELECTED_ROW: f32 = 0.13;
 const ROW_ACTION_WIDTH: f32 = 34.0;
+/// About how wide a letter of a row action's label is, in its small text.
+const TEXT_ACTION_CHAR: f32 = 7.5;
 /// Room for the arrow that opens a row's details, and for a row's check box.
 const DETAIL_ARROW_WIDTH: f32 = 32.0;
 const CHECK_WIDTH: f32 = 44.0;
@@ -187,6 +189,13 @@ pub struct GridRowAction {
     icon: IconName,
     on_click: Rc<dyn Fn(&Row)>,
     enabled: Option<RowTest>,
+    visible: Option<RowTest>,
+    text: bool,
+}
+
+/// The room of the buttons at the end of each row.
+fn actions_width(actions: &[GridRowAction]) -> f32 {
+    actions.iter().map(GridRowAction::width).sum()
 }
 
 impl fmt::Debug for GridRowAction {
@@ -201,7 +210,36 @@ impl GridRowAction {
     /// `label` and the row, such as "Delete Acme", from
     /// [`key_column`](DataGrid::key_column) or else the first column.
     pub fn new(label: impl Into<String>, icon: IconName, on_click: impl Fn(&Row) + 'static) -> Self {
-        Self { label: label.into(), icon, on_click: Rc::new(on_click), enabled: None }
+        Self {
+            label: label.into(),
+            icon,
+            on_click: Rc::new(on_click),
+            enabled: None,
+            visible: None,
+            text: false,
+        }
+    }
+
+    /// Shows its label beside the icon, as a button with words, instead of the icon alone.
+    pub fn show_text(mut self) -> Self {
+        self.text = true;
+        self
+    }
+
+    /// Leaves the button out of the rows where this says false, keeping its room empty so the
+    /// buttons of the other rows stay in line. [`GridRowAction::enabled`] turns it off instead.
+    pub fn visible(mut self, visible: impl Fn(&Row) -> bool + 'static) -> Self {
+        self.visible = Some(Rc::new(visible));
+        self
+    }
+
+    /// Its room on each row: an icon, or the icon and about its label in small text.
+    fn width(&self) -> f32 {
+        if !self.text {
+            return ROW_ACTION_WIDTH;
+        }
+        let words = self.label.chars().count() as f32 * TEXT_ACTION_CHAR;
+        ((ROW_ACTION_WIDTH + words + 12.0) / 4.0).ceil() * 4.0
     }
 
     /// Turns the button off on the rows where this says false.
@@ -2045,6 +2083,18 @@ struct DataRow<'a> {
     shared: &'a Shared<'a>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl DataRow<'_> {
+    /// What the row is called to screen readers: its name column, its key, or its first column.
+    fn row_name(&self, s: &Shared<'_>) -> String {
+        let column = s.grid.name_column.or(s.grid.key_column).or(s.visible.first().copied()).unwrap_or(0);
+        match (s.grid.columns.get(column), self.values.get(column)) {
+            (Some(column), Some(value)) => column.display(value),
+            _ => String::new(),
+        }
+    }
+}
+
 impl View for DataRow<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
@@ -2123,6 +2173,7 @@ impl View for DataRow<'_> {
             }
             if mode == SelectionMode::Multiple {
                 let b = crate::inputs::check_box(cx, &theme, selected, false);
+                let row_name = self.row_name(s);
                 let check = cx.container(
                     LayoutStyle {
                         width: Some(CHECK_WIDTH),
@@ -2134,7 +2185,12 @@ impl View for DataRow<'_> {
                     &[b],
                     Paint::None,
                 );
-                let name = cx.labels().grid_select_row.clone();
+                // "Select Ana", by the row's name, so a list of check boxes says which is which.
+                let name = if row_name.is_empty() {
+                    cx.labels().grid_select_row.clone()
+                } else {
+                    format!("{} {row_name}", cx.labels().grid_select)
+                };
                 cx.semantics(check, Semantics::new(Role::CheckBox).name(name).toggled(selected));
                 let (sel, h) = (s.h.selection.clone(), s.h.clone());
                 cx.on_click(
@@ -2282,29 +2338,45 @@ impl View for DataRow<'_> {
             }
         }
         if !s.grid.row_actions.is_empty() {
-            let name_column = s.grid.name_column.or(s.grid.key_column).or(first_column).unwrap_or(0);
-            let row_name = match (s.grid.columns.get(name_column), self.values.get(name_column)) {
-                (Some(column), Some(value)) => column.display(value),
-                _ => String::new(),
-            };
+            let row_name = self.row_name(s);
             let mut buttons = Vec::with_capacity(s.grid.row_actions.len());
             for (i, action) in s.grid.row_actions.iter().enumerate() {
                 let (run, values) = (action.on_click.clone(), self.values.clone());
+                let key = (1 << 40) + i as u64;
+                // A row it is not for keeps its room empty, so the buttons stay in columns.
+                if action.visible.as_ref().is_some_and(|f| !f(&self.values)) {
+                    let room =
+                        LayoutStyle { width: Some(action.width()), height: Some(rh), ..LayoutStyle::leaf() };
+                    buttons.push(cx.container(room, &[], Paint::None));
+                    continue;
+                }
                 let enabled = action.enabled.as_ref().is_none_or(|f| f(&self.values));
-                buttons.push(
+                let spoken = format!("{} {row_name}", action.label);
+                buttons.push(if action.text {
                     cx.keyed_child(
-                        (1 << 40) + i as u64,
+                        key,
+                        &crate::Button::new(action.label.clone())
+                            .icon(action.icon)
+                            .style(ButtonStyle::Ghost)
+                            .size(ButtonSize::Small)
+                            .accessible_name(spoken)
+                            .disabled(!enabled)
+                            .on_click(move || run(&values)),
+                    )
+                } else {
+                    cx.keyed_child(
+                        key,
                         &crate::IconButton::new(action.icon)
-                            .label(format!("{} {row_name}", action.label))
+                            .label(spoken)
                             .size(ButtonSize::Small)
                             .disabled(!enabled)
                             .on_click(move || run(&values)),
-                    ),
-                );
+                    )
+                });
             }
             cells.push(cx.container(
                 LayoutStyle {
-                    width: Some(s.grid.row_actions.len() as f32 * ROW_ACTION_WIDTH),
+                    width: Some(actions_width(&s.grid.row_actions)),
                     height: Some(rh),
                     align: Align::Center,
                     ..LayoutStyle::stack(Axis::Horizontal)
@@ -3428,13 +3500,22 @@ impl View for DataGrid {
         let select_width = if self.selection_mode == SelectionMode::Multiple { CHECK_WIDTH } else { 0.0 }
             + if self.row_detail.is_some() { DETAIL_ARROW_WIDTH } else { 0.0 };
         let fill_seen: Rc<Cell<(f32, f32)>> = cx.use_state(|| Rc::new(Cell::new((0.0, 0.0)))).get();
-        if let Some(&fill) = visible.iter().find(|&&c| self.columns[c].fill) {
+        if visible.iter().any(|&c| self.columns[c].fill) {
             match cx.scroll_viewport() {
                 Some(view) => {
                     let used = select_width
                         + visible.iter().map(|&c| widths[c]).sum::<f32>()
-                        + self.row_actions.len() as f32 * ROW_ACTION_WIDTH;
-                    widths[fill] += (view.width - used).max(0.0);
+                        + actions_width(&self.row_actions);
+                    // What is left goes to the columns that fill, each its share by weight.
+                    let left = (view.width - used).max(0.0);
+                    let fills: Vec<usize> =
+                        visible.iter().copied().filter(|&c| self.columns[c].fill).collect();
+                    let weights: f32 = fills.iter().map(|&c| self.columns[c].fill_weight.max(0.0)).sum();
+                    for c in fills {
+                        let share =
+                            if weights > 0.0 { self.columns[c].fill_weight.max(0.0) / weights } else { 0.0 };
+                        widths[c] += left * share;
+                    }
                     // This build saw the last layout's width. Nothing else asks for a build
                     // after a layout that changed it, as when a sidebar closes or the
                     // window grows.
@@ -3451,9 +3532,8 @@ impl View for DataGrid {
                 }
             }
         }
-        let total_width = select_width
-            + visible.iter().map(|&c| widths[c]).sum::<f32>()
-            + self.row_actions.len() as f32 * ROW_ACTION_WIDTH;
+        let total_width =
+            select_width + visible.iter().map(|&c| widths[c]).sum::<f32>() + actions_width(&self.row_actions);
         let selected = h.selection.get();
         let focus_row = h.focus_row.get();
         let editing = h.editing.get();

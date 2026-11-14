@@ -232,6 +232,27 @@ fn a_filling_column_takes_what_the_others_leave() {
 }
 
 #[test]
+fn filling_columns_share_what_is_left_by_their_weights() {
+    let filling = vec![
+        GridColumn::text("Name").width(100.0).fill_weight(2.0),
+        GridColumn::text("Country").width(100.0).fill_weight(1.0),
+        GridColumn::number("Seats").width(100.0),
+    ];
+    let mut ui = Ui::new(DataGrid::new(data(3), filling), Theme::raven_light());
+    ui.set_viewport(Size::new(1000.0, 500.0), 1.0);
+    for _ in 0..3 {
+        ui.update();
+    }
+    let tree = ui.access_tree();
+    let width = |name: &str| {
+        tree.nodes.iter().find(|n| n.name.as_deref() == Some(name)).map_or(0.0, |n| n.bounds.width())
+    };
+    let (name, country) = (width("Name") - 100.0, width("Country") - 100.0);
+    assert!(country > 100.0, "both fill: {name} {country}");
+    assert!((name / country - 2.0).abs() < 0.05, "two shares against one: {name} {country}");
+}
+
+#[test]
 fn no_data_says_its_own_words_and_not_that_filters_left_nothing() {
     let mut ui = ui_with(DataGrid::new(GridData::new(Vec::new()), columns()).empty_text("Nothing yet"));
     let tree = ui.access_tree();

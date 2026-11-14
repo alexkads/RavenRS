@@ -499,7 +499,12 @@ fn a_brand_keeps_only_its_mark_when_reduced_to_icons() {
         ui.set_time(f64::from(frame) / 60.0);
         ui.update();
     }
-    assert!(!exists(&mut ui, "Raven"));
+    // The words leave the screen; screen readers still hear the name, from the mark.
+    let tree = ui.access_tree();
+    let named: Vec<_> = tree.nodes.iter().filter(|n| n.name.as_deref() == Some("Raven")).collect();
+    assert_eq!(named.len(), 1);
+    assert_eq!(named[0].role, Role::Image);
+    assert_eq!(named[0].description.as_deref(), Some("Finanças"));
 }
 
 #[test]

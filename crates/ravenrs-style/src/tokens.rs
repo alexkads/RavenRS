@@ -213,9 +213,11 @@ impl Theme {
     /// What differs from [`base`](Self::base), in the shape of [`to_tokens_json`](Self::to_tokens_json).
     fn changes(&self) -> (Map<String, Value>, Map<String, Value>, Map<String, Value>) {
         let base = self.base();
+        // A series of a chart counts only when the theme chose it: the others follow its text.
+        let chosen = Semantic::CHART_TOKENS.into_iter().filter(|role| self.charts.get(*role).is_some());
         let colors = Semantic::TOKENS
             .into_iter()
-            .chain(Semantic::CHART_TOKENS)
+            .chain(chosen)
             .filter(|role| to_hex(self.color(*role)) != to_hex(base.color(*role)))
             .map(|role| (role.token().to_owned(), json!(to_hex(self.color(role)))))
             .collect();
