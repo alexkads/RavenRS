@@ -2,10 +2,12 @@
 mod ai;
 mod mcp;
 mod project;
+mod versions;
 
 pub use ai::configure_ai;
 pub use mcp::doctor;
 pub use project::{new_project, project_files};
+pub use versions::{Declared, ravenrs_versions};
 
 /// Version of the generator executable.
 pub const CLI_VERSION: &str = env!("CARGO_PKG_VERSION");
