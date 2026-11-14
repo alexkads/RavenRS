@@ -185,6 +185,22 @@ fn chosen_speaker(args: &[String]) -> Result<String, String> {
     }
 }
 
+/// What a box says, as the voice says it: short sentences together, a quarter second after each.
+fn spoken_sound(
+    engine: &mut ravenrs_ai::SpeechEngine,
+    settings: &ravenrs_ai::SpeechSettings,
+    text: &str,
+) -> Vec<f32> {
+    let silence = vec![0.0_f32; (ravenrs_ai::SPEECH_RATE / 4) as usize];
+    let mut sound = Vec::new();
+    // Short sentences go together: Kokoro says a few words alone with a flat tune.
+    for piece in engine.pieces(&family_finance::ui::spoken(text)) {
+        sound.extend(engine.speak(&piece, settings, &mut |_| true).expect("sound"));
+        sound.extend_from_slice(&silence);
+    }
+    sound
+}
+
 fn narrate(out: &Path, speaker: String) {
     use ravenrs_ai::{ModelFolder, SPEECH_RATE, SpeechEngine, SpeechSettings, model_by_id};
     let mut said: Vec<String> = films(out)
@@ -199,17 +215,11 @@ fn narrate(out: &Path, speaker: String) {
     let mut engine = SpeechEngine::load(&ModelFolder::new(root), &model).expect("the Kokoro voice");
     println!("voz: {speaker}");
     let settings = SpeechSettings { speaker: Some(speaker), ..SpeechSettings::default() };
-    let silence = vec![0.0_f32; (SPEECH_RATE / 4) as usize];
     let wavs = out.join("falas");
     std::fs::create_dir_all(&wavs).expect("folder");
     let mut recordings = Vec::new();
     for (index, text) in said.iter().enumerate() {
-        let mut sound = Vec::new();
-        // Short sentences go together: Kokoro says a few words alone with a flat tune.
-        for piece in engine.pieces(&family_finance::ui::spoken(text)) {
-            sound.extend(engine.speak(&piece, &settings, &mut |_| true).expect("sound"));
-            sound.extend_from_slice(&silence);
-        }
+        let sound = spoken_sound(&mut engine, &settings, text);
         let allowed = 0.8 + text.chars().count() as f32 * 0.075;
         println!("{:.1}s of {allowed:.1}s | {text}", sound.len() as f32 / SPEECH_RATE as f32);
         std::fs::write(wavs.join(format!("{index:02}.wav")), wav_of(&sound, SPEECH_RATE)).expect("wav");
@@ -345,6 +355,61 @@ mod tests {
 
     fn args(list: &[&str]) -> Vec<String> {
         list.iter().map(|arg| (*arg).to_owned()).collect()
+    }
+
+    /// Lowercase words without accents or punctuation, to compare what was said with what was heard.
+    fn words(text: &str) -> Vec<String> {
+        let plain: String = text
+            .to_lowercase()
+            .chars()
+            .map(|c| match c {
+                'á' | 'à' | 'â' | 'ã' => 'a',
+                'é' | 'ê' => 'e',
+                'í' => 'i',
+                'ó' | 'ô' | 'õ' => 'o',
+                'ú' => 'u',
+                'ç' => 'c',
+                c if c.is_alphanumeric() => c,
+                _ => ' ',
+            })
+            .collect();
+        plain.split_whitespace().map(str::to_owned).collect()
+    }
+
+    /// #97: each of the three voices says a box of the films, and Whisper hears it back. Needs
+    /// `FF_AI_MODELS` with `kokoro-82m` and `whisper-base`; run it in release.
+    #[test]
+    #[ignore = "needs FF_AI_MODELS with kokoro-82m and whisper-base"]
+    fn whisper_hears_what_each_voice_says() {
+        use ravenrs_ai::{
+            HEARING_RATE, ModelFolder, SPEECH_RATE, SpeechEngine, SpeechSettings, Transcriber, model_by_id,
+        };
+        let root = std::env::var("FF_AI_MODELS").expect("FF_AI_MODELS");
+        let folder = ModelFolder::new(root);
+        let mut engine =
+            SpeechEngine::load(&folder, &model_by_id("kokoro-82m").expect("known")).expect("Kokoro");
+        let mut ears =
+            Transcriber::load(&folder, &model_by_id("whisper-base").expect("known")).expect("Whisper");
+        let text = "Lançamentos. Cada gasto entra com o valor, a categoria e quem pagou, e o saldo da conta acompanha.";
+        let expected = words(text);
+        for voice in ["pf_dora", "pm_alex", "pm_santa"] {
+            let settings = SpeechSettings { speaker: Some(voice.to_owned()), ..SpeechSettings::default() };
+            let sound = spoken_sound(&mut engine, &settings, text);
+            // Whisper hears at its own rate; the voice speaks at 24 kHz.
+            let step = SPEECH_RATE as f32 / HEARING_RATE as f32;
+            let heard_rate: Vec<f32> = (0..(sound.len() as f32 / step) as usize)
+                .map(|i| {
+                    let at = i as f32 * step;
+                    let (a, f) = (at as usize, at.fract());
+                    sound[a] * (1.0 - f) + sound.get(a + 1).copied().unwrap_or(0.0) * f
+                })
+                .collect();
+            let heard = ears.transcribe(&heard_rate, "pt").expect("heard").text;
+            let got = words(&heard);
+            let found = expected.iter().filter(|w| got.contains(w)).count();
+            println!("{voice}: {found}/{} | {heard}", expected.len());
+            assert!(found * 10 >= expected.len() * 8, "{voice} said it so that Whisper heard: {heard}");
+        }
     }
 
     #[test]
