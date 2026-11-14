@@ -972,7 +972,8 @@ impl View for SidebarBrand {
                 Paint::None,
             ));
         }
-        cx.container(
+        let icons = cx.scoped::<SidebarScope>().is_some_and(|s| s.icons);
+        let node = cx.container(
             LayoutStyle {
                 padding: Insets::symmetric(2.0, SIDEBAR_BRAND_INSET),
                 spacing: 10.0,
@@ -981,7 +982,16 @@ impl View for SidebarBrand {
             },
             &parts,
             Paint::None,
-        )
+        );
+        // Reduced to the mark, the name is still there for screen readers.
+        if icons {
+            let mut semantics = Semantics::new(Role::Image).name(self.title.clone());
+            if let Some(subtitle) = &self.subtitle {
+                semantics = semantics.description(subtitle.clone());
+            }
+            cx.semantics(node, semantics);
+        }
+        node
     }
 }
 
@@ -1296,6 +1306,7 @@ pub struct SidebarItem {
     selected: bool,
     disabled: bool,
     count: Option<String>,
+    count_spoken: Option<String>,
     badge: Option<Badge>,
     shortcut: Option<String>,
     compact: bool,
@@ -1330,6 +1341,7 @@ impl SidebarItem {
             selected: false,
             disabled: false,
             count: None,
+            count_spoken: None,
             badge: None,
             shortcut: None,
             compact: false,
@@ -1357,6 +1369,14 @@ impl SidebarItem {
     /// icons, a dot on the icon stands for it, and screen readers read it.
     pub fn count(mut self, count: impl Into<String>) -> Self {
         self.count = Some(count.into());
+        self
+    }
+
+    /// A count, as [`Self::count`], that screen readers hear in these words instead of the bare
+    /// number, such as "1 with attendance to take".
+    pub fn count_spoken(mut self, count: impl Into<String>, spoken: impl Into<String>) -> Self {
+        self.count = Some(count.into());
+        self.count_spoken = Some(spoken.into());
         self
     }
 
@@ -1527,7 +1547,7 @@ impl View for SidebarButton<'_> {
             .name(item.label.clone())
             .selected(item.selected)
             .disabled(item.disabled);
-        if let Some(note) = note {
+        if let Some(note) = item.count_spoken.as_deref().or(note) {
             semantics = semantics.description(note);
         }
         if let Some(keys) = &item.shortcut {

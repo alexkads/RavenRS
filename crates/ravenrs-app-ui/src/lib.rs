@@ -34,6 +34,7 @@ mod live;
 #[cfg(feature = "live")]
 mod live_list;
 mod model_editor;
+mod navigation;
 mod nested;
 mod pane;
 mod password;
@@ -59,6 +60,7 @@ pub use list_editors::{
 };
 pub use list_view::{CellText, ColumnShape, GridShape, ListView};
 pub use model_editor::ModelEditor;
+pub use navigation::NavigationCount;
 pub use pane::{EntityPane, PaneWords};
 pub use ravenrs_app_i18n::{Catalog, Language, Texts};
 pub use security::{SecuredApp, SignInAction};

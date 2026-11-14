@@ -17,6 +17,7 @@
 use ravenrs_report::wizard::{ColumnWords, FieldInfo, FieldKind, WizardOptions, table_report_with};
 use ravenrs_report::{DataSource, DataSourceKind, Document, ReportEngine};
 use ravenrs_report_export::{ExportFormat, ExportedFile};
+use ravenrs_style::Theme;
 use ravenrs_widgets::{GridExportFormat, GridTable, GridTableKind, Value};
 use serde_json::{Map, Value as Json};
 
@@ -43,8 +44,44 @@ fn number_pattern(decimals: usize, prefix: &str, suffix: &str) -> String {
     format!("{prefix}{digits}{suffix}")
 }
 
-/// `table` laid out as a document, the same one the files are made from.
+/// What reads well on paper of `theme`: its accent, with its own text, for the headers, and its
+/// text where that is dark enough for white paper. A dark theme's light text stays out, as paper is
+/// white; then the colors of RavenRS take its place.
+pub fn paper_colors(theme: &Theme, options: WizardOptions) -> WizardOptions {
+    let hex = |color: ravenrs_core::Color| {
+        let byte = |channel: f32| (channel.clamp(0.0, 1.0) * 255.0).round() as u8;
+        format!("#{:02x}{:02x}{:02x}", byte(color.r), byte(color.g), byte(color.b))
+    };
+    let palette = &theme.palette;
+    let on_paper =
+        |color: ravenrs_core::Color| color.with_alpha(1.0).contrast_ratio(ravenrs_core::Color::WHITE) >= 4.5;
+    let light = on_paper(palette.ink);
+    WizardOptions {
+        accent: hex(palette.accent),
+        on_accent: hex(palette.on_accent),
+        ink: if light { hex(palette.ink) } else { options.ink.clone() },
+        muted: if light && on_paper(palette.ink_muted) {
+            hex(palette.ink_muted)
+        } else {
+            options.muted.clone()
+        },
+        zebra: if light { hex(palette.bg_300) } else { options.zebra.clone() },
+        ..options
+    }
+}
+
+/// `table` laid out as a document, the same one the files are made from, in the colors of
+/// RavenRS. [`document_of_with`] uses those of a theme.
 pub fn document_of(table: &GridTable) -> Document {
+    document_with(table, WizardOptions::default())
+}
+
+/// `table` laid out as a document in the colors of `theme`, as [`paper_colors`] puts them.
+pub fn document_of_with(table: &GridTable, theme: &Theme) -> Document {
+    document_with(table, paper_colors(theme, WizardOptions::default()))
+}
+
+fn document_with(table: &GridTable, colors: WizardOptions) -> Document {
     let rows: Vec<Json> = table
         .rows
         .iter()
@@ -77,12 +114,35 @@ pub fn document_of(table: &GridTable) -> Document {
         columns,
         group_by: table.group_by.map(field),
         totals,
-        ..WizardOptions::default()
+        ..colors
     };
     let data = Json::Array(rows);
     let source = DataSource { name: "rows".into(), kind: DataSourceKind::Json { data: data.clone() } };
     let report = table_report_with(source, &options, &words);
     ReportEngine::new().render(&report, &data)
+}
+
+/// Writes `table` in `format`, in the colors of `theme`, as [`export`] does.
+pub fn export_with(
+    table: &GridTable,
+    format: GridExportFormat,
+    suffix: Option<&str>,
+    theme: &Theme,
+) -> Result<ExportedFile, String> {
+    file_of(&document_of_with(table, theme), format, suffix)
+}
+
+fn file_of(
+    document: &Document,
+    format: GridExportFormat,
+    suffix: Option<&str>,
+) -> Result<ExportedFile, String> {
+    let format = match format {
+        GridExportFormat::Xlsx => ExportFormat::Xlsx,
+        GridExportFormat::Pdf => ExportFormat::Pdf,
+        _ => ExportFormat::Csv,
+    };
+    ravenrs_report_export::export(document, format, suffix)
 }
 
 /// Writes `table` in `format`. `suffix`, such as a date, goes after the title in the name.
@@ -91,13 +151,7 @@ pub fn export(
     format: GridExportFormat,
     suffix: Option<&str>,
 ) -> Result<ExportedFile, String> {
-    let document = document_of(table);
-    let format = match format {
-        GridExportFormat::Xlsx => ExportFormat::Xlsx,
-        GridExportFormat::Pdf => ExportFormat::Pdf,
-        _ => ExportFormat::Csv,
-    };
-    ravenrs_report_export::export(&document, format, suffix)
+    file_of(&document_of(table), format, suffix)
 }
 
 #[cfg(test)]
@@ -140,6 +194,39 @@ mod tests {
     fn numbers_keep_their_text_around_them() {
         assert_eq!(number_pattern(2, "R$ ", ""), "R$ #,##0.00");
         assert_eq!(number_pattern(0, "", " un"), "#,##0 un");
+    }
+
+    fn fills(document: &Document) -> Vec<ravenrs_core::Color> {
+        let items = document.pages.iter().flat_map(|page| page.items.iter());
+        items
+            .filter_map(|item| if let ravenrs_report::Item::Rect { fill, .. } = item { *fill } else { None })
+            .collect()
+    }
+
+    #[test]
+    fn the_headers_take_the_theme_s_accent() {
+        let accent = ravenrs_core::Color::hex(0x0f5e66);
+        let mut theme = Theme { name: "Morning Star", ..Theme::raven_light() };
+        theme.palette.accent = accent;
+        let close = |a: ravenrs_core::Color, b: ravenrs_core::Color| {
+            (a.r - b.r).abs() < 0.01 && (a.g - b.g).abs() < 0.01 && (a.b - b.b).abs() < 0.01
+        };
+        assert!(fills(&document_of_with(&sample(), &theme)).iter().any(|fill| close(*fill, accent)));
+        let raven = ravenrs_core::Color::hex(0x3f57db);
+        assert!(
+            fills(&document_of(&sample())).iter().any(|fill| close(*fill, raven)),
+            "without a theme, as before"
+        );
+    }
+
+    #[test]
+    fn a_dark_theme_keeps_dark_text_on_white_paper() {
+        let colors = paper_colors(&Theme::raven_dark(), WizardOptions::default());
+        assert_eq!(colors.ink, WizardOptions::default().ink);
+        assert_eq!(colors.zebra, WizardOptions::default().zebra);
+        let light = paper_colors(&Theme::raven_light(), WizardOptions::default());
+        assert_ne!(light.zebra, WizardOptions::default().zebra, "a light theme's own ground");
+        assert_eq!(light.on_accent, "#ffffff");
     }
 
     #[test]

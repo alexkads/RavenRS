@@ -3,7 +3,7 @@
 use ravenrs_core::Color;
 use serde_json::{Map, Value, json};
 
-use crate::{Palette, Radii, Semantic, TextStyle, Theme, Typography};
+use crate::{ChartSeries, Palette, Radii, Semantic, TextStyle, Theme, Typography};
 
 /// The least contrast for a window to count as readable, well under what the design system asks for.
 const LEAST_CONTRAST: f32 = 3.0;
@@ -36,7 +36,8 @@ fn interned(name: &str) -> &'static str {
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Semantic {
-    /// The colors a theme chooses. The others follow from these.
+    /// The colors a theme chooses. The others follow from these. The series of a chart after the
+    /// first are in [`Semantic::CHART_TOKENS`].
     pub const TOKENS: [Self; 15] = [
         Self::Canvas,
         Self::Surface,
@@ -54,6 +55,9 @@ impl Semantic {
         Self::Warning,
         Self::Danger,
     ];
+
+    /// `chart-2` to `chart-5`: series of a chart a theme may choose, kept in [`Theme::charts`].
+    pub const CHART_TOKENS: [Self; 4] = ChartSeries::ROLES;
 
     /// Its name in `docs/design-system/tokens.json`.
     pub const fn token(self) -> &'static str {
@@ -211,8 +215,9 @@ impl Theme {
         let base = self.base();
         let colors = Semantic::TOKENS
             .into_iter()
-            .filter(|role| to_hex(self.palette.get(*role)) != to_hex(base.palette.get(*role)))
-            .map(|role| (role.token().to_owned(), json!(to_hex(self.palette.get(role)))))
+            .chain(Semantic::CHART_TOKENS)
+            .filter(|role| to_hex(self.color(*role)) != to_hex(base.color(*role)))
+            .map(|role| (role.token().to_owned(), json!(to_hex(self.color(role)))))
             .collect();
         let radii = Radii::TOKENS
             .into_iter()
@@ -283,10 +288,11 @@ impl Theme {
         for (token, value) in part("color") {
             let role = Semantic::TOKENS
                 .into_iter()
+                .chain(Semantic::CHART_TOKENS)
                 .find(|role| role.token() == token)
                 .ok_or_else(|| format!("unknown color: {token}"))?;
             let color = value.as_str().and_then(from_hex).ok_or_else(|| format!("bad color: {token}"))?;
-            theme.palette.set(role, color);
+            theme.set_color(role, color);
         }
         for (token, value) in part("radius") {
             if !Radii::TOKENS.contains(&token.as_str()) {
@@ -365,6 +371,24 @@ mod tests {
         assert_eq!(again, theme);
         let twice = Theme::from_tokens_json(&text).expect("reads");
         assert!(std::ptr::eq(again.name, twice.name), "the same name is kept once");
+    }
+
+    #[test]
+    fn the_series_of_a_chart_are_tokens_too() {
+        let mut theme = Theme { name: "Morning Star", ..Theme::raven_light() };
+        let before = theme.color(Semantic::Chart2);
+        theme.set_color(Semantic::Chart2, Color::hex(0xc2410c));
+        assert_eq!(to_hex(theme.color(Semantic::Chart2)), "#c2410c");
+        assert_eq!(theme.palette.get(Semantic::Chart2), before, "the palette keeps its own");
+        assert_eq!(theme.color(Semantic::Chart3), Theme::raven_light().color(Semantic::Chart3));
+        let text = theme.to_tokens_json();
+        assert!(text.contains("chart-2"), "{text}");
+        assert!(!text.contains("chart-3"), "only what changed: {text}");
+        let again = Theme::from_tokens_json(&text).expect("reads");
+        assert_eq!(to_hex(again.color(Semantic::Chart2)), "#c2410c");
+        assert_eq!(again, theme);
+        let raw = r##"{"base": "Raven Dark", "color": {"chart-5": "#123456"}}"##;
+        assert_eq!(to_hex(Theme::from_tokens_json(raw).expect("reads").color(Semantic::Chart5)), "#123456");
     }
 
     #[test]

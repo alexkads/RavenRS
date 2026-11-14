@@ -106,6 +106,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     ravenrs_style::Interaction::__live_expose_fields(registry);
     ravenrs_style::MotionTokens::__live_expose_fields(registry);
     ravenrs_style::Theme::__live_expose_fields(registry);
+    ravenrs_style::ChartSeries::__live_expose_fields(registry);
+    ravenrs_style::ChartSeries::__live_expose(registry);
     ravenrs_style::Theme::__live_expose(registry);
     ravenrs_style::Semantic::__live_expose(registry);
     ravenrs_style::Palette::__live_expose_part1(registry);

@@ -483,6 +483,7 @@
  "widgets.tag_remove": "Remover",
  "widgets.theme": "Tema",
  "widgets.theme_accent": "Destaque",
+ "widgets.theme_charts": "Gráficos",
  "widgets.theme_changed.0": "Sem alterações",
  "widgets.theme_changed.1": "1 token alterado",
  "widgets.theme_changed.2": "{0} tokens alterados",

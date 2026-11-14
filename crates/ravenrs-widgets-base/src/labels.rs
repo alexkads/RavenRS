@@ -300,6 +300,8 @@ pub struct Labels {
     pub theme_accent: String,
     /// A theme editor's group: colors that say how something went.
     pub theme_status: String,
+    /// A theme editor's group: the series of a chart after the first.
+    pub theme_charts: String,
     /// A theme editor's group: corners.
     pub theme_shape: String,
     /// A theme editor's group: the sizes of text.
@@ -1009,6 +1011,7 @@ impl Labels {
             theme_text: texts.get("widgets.theme_text"),
             theme_accent: texts.get("widgets.theme_accent"),
             theme_status: texts.get("widgets.theme_status"),
+            theme_charts: texts.get("widgets.theme_charts"),
             theme_shape: texts.get("widgets.theme_shape"),
             theme_sizes: texts.get("widgets.theme_sizes"),
             theme_restore: texts.get("widgets.theme_restore"),

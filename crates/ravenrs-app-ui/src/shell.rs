@@ -201,6 +201,9 @@ pub struct AppShell {
     theme_menu: bool,
     theme: Option<ravenrs_style::Theme>,
     themes: Option<Vec<ravenrs_style::Theme>>,
+    brand: Option<crate::navigation::Brand>,
+    counts: crate::navigation::Counts,
+    palette: State<bool>,
     theme_applied: std::cell::Cell<bool>,
     kept_theme: RefCell<Option<String>>,
     kept_follow: std::cell::Cell<Option<bool>>,
@@ -251,6 +254,9 @@ impl AppShell {
             theme_menu: true,
             theme: None,
             themes: None,
+            brand: None,
+            counts: Rc::default(),
+            palette: State::new(false),
             theme_applied: std::cell::Cell::new(false),
             kept_theme: RefCell::new(None),
             kept_follow: std::cell::Cell::new(None),
@@ -271,6 +277,40 @@ impl AppShell {
     pub fn themes(mut self, themes: impl IntoIterator<Item = ravenrs_style::Theme>) -> Self {
         let themes: Vec<_> = themes.into_iter().collect();
         self.themes = (!themes.is_empty()).then_some(themes);
+        self
+    }
+
+    /// Shows `mark`, such as an `IconTile` or an `Image`, beside the title at the top of the
+    /// navigation. Reduced to icons, only the mark stays, and screen readers hear the title.
+    pub fn brand(mut self, mark: impl View + 'static) -> Self {
+        let subtitle = self.brand.take().and_then(|brand| brand.subtitle);
+        self.brand = Some(crate::navigation::Brand { mark: Rc::new(Box::new(mark)), subtitle });
+        self
+    }
+
+    /// A line under the title of the [`AppShell::brand`], such as the organization this is.
+    pub fn brand_subtitle(mut self, text: impl Into<String>) -> Self {
+        if let Some(brand) = &mut self.brand {
+            brand.subtitle = Some(text.into());
+        }
+        self
+    }
+
+    /// A count beside the navigation item `item`, worked out again whenever records change. `count`
+    /// reads through the session, with the person's permissions; `None` shows nothing.
+    pub fn navigation_count(
+        mut self,
+        item: impl Into<String>,
+        count: impl Fn(&Session) -> Option<crate::NavigationCount> + 'static,
+    ) -> Self {
+        let mut counts = (*self.counts).clone();
+        counts.insert(item.into(), Rc::new(count));
+        self.counts = Rc::new(counts);
+        self
+    }
+
+    pub(crate) fn counts(mut self, counts: crate::navigation::Counts) -> Self {
+        self.counts = counts;
         self
     }
 
@@ -440,7 +480,12 @@ impl AppShell {
             .collapsible(SidebarCollapse::Icons)
             .narrow_below(NARROW_WINDOW)
             .state(self.sidebar.clone())
-            .header(Text::new(self.session.title()).style(TextStyle::Headline).font_weight(Weight::SEMIBOLD));
+            .header(match &self.brand {
+                Some(brand) => Box::new(brand.view(self.session.title())) as AnyView,
+                None => Box::new(
+                    Text::new(self.session.title()).style(TextStyle::Headline).font_weight(Weight::SEMIBOLD),
+                ),
+            });
         let (due, _) = self.session.reminders().get();
         let reminders = (due > 0).then(|| {
             let showing = self.session.reminders().clone();
@@ -497,11 +542,19 @@ impl AppShell {
         let icon = item.text("Icon").and_then(icon_named).unwrap_or(ravenrs_widgets::IconName::File);
         let (session, target) = (self.session.clone(), view.to_owned());
         let key = item.text("ObjectKey").map(str::to_owned);
-        Box::new(
-            SidebarItem::new(icon, item.text("Caption").unwrap_or(&item.id).to_owned())
-                .selected(selected)
-                .on_click(move || session.open_navigation(&target, key.as_deref())),
-        )
+        let row = SidebarItem::new(icon, item.text("Caption").unwrap_or(&item.id).to_owned())
+            .selected(selected)
+            .on_click(move || session.open_navigation(&target, key.as_deref()));
+        // Read under the revision, so a change to the records draws it again.
+        let count = self.counts.get(&item.id).and_then(|count| {
+            self.session.revision();
+            count(&self.session)
+        });
+        Box::new(match count {
+            Some(crate::NavigationCount { shown, spoken: Some(spoken) }) => row.count_spoken(shown, spoken),
+            Some(crate::NavigationCount { shown, spoken: None }) => row.count(shown),
+            None => row,
+        })
     }
 
     fn trail(&self, view: Option<&ViewInfo>) -> Vec<String> {
@@ -649,6 +702,7 @@ impl View for AppShell {
             }
         }
         self.keep_theme(cx);
+        self.session.set_theme(*cx.theme());
         let session = &self.session;
         session.jobs().connect(cx.ui_waker());
         session.poll_background();
@@ -692,6 +746,12 @@ impl View for AppShell {
             kind: view.map(|view| view.kind),
         });
         parts.push(cx.child(&window));
+        let palette = crate::navigation::commands(session)
+            .into_iter()
+            .fold(ravenrs_widgets::CommandPalette::new(self.palette.binding()), |palette, command| {
+                palette.command(command)
+            });
+        parts.push(cx.child(&palette));
         parts.push(cx.child(session.confirm()));
         parts.push(cx.child(&PopupHost::new(session.clone())));
         parts.push(cx.child(&session.toaster()));

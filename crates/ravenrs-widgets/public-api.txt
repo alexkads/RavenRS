@@ -545,6 +545,7 @@ field Labels::tag_remove
 field Labels::theme
 field Labels::theme_accent
 field Labels::theme_changed
+field Labels::theme_charts
 field Labels::theme_contrast
 field Labels::theme_copy
 field Labels::theme_dark
@@ -3489,6 +3490,7 @@ method SidebarItem::action
 method SidebarItem::badge
 method SidebarItem::compact
 method SidebarItem::count
+method SidebarItem::count_spoken
 method SidebarItem::disabled
 method SidebarItem::expanded
 method SidebarItem::expanded_binding

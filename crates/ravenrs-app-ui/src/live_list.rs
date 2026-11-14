@@ -26,6 +26,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Session::__live_expose(registry);
     crate::ModelEditor::__live_expose_fields(registry);
     crate::ModelEditor::__live_expose(registry);
+    crate::NavigationCount::__live_expose_fields(registry);
+    crate::NavigationCount::__live_expose(registry);
     crate::PaneWords::__live_expose_fields(registry);
     crate::PaneWords::__live_expose(registry);
     crate::EntityPane::__live_expose_fields(registry);
