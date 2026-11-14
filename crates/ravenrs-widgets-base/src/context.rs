@@ -1010,6 +1010,15 @@ impl<'a> BuildCx<'a> {
         self.push(element)
     }
 
+    /// Where the lines of a node made by [`Self::text`] sit across its width. A truncated text
+    /// is one line that fills what it gets, so it stays at the start.
+    pub fn text_align(&mut self, node: NodeId, align: ravenrs_text::TextAlign) {
+        let layout = self.elements[node.0 as usize].layout;
+        if let Some(leaf) = self.layout.context_mut(layout) {
+            leaf.layout.set_align(align);
+        }
+    }
+
     /// Like [`Self::text`], on one line that ends with `…` when it does not fit.
     /// Screen readers still get the whole text.
     pub fn text_truncated(

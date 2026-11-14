@@ -152,6 +152,7 @@ pub use motion::Collapse;
 pub use motion_spec::Motion;
 pub use overlay::{Dialog, DropdownMenu, HelpTip, MenuItem, Popover, Select, Tooltip};
 pub use page_motion::{Anchor, CountUp, Ticker};
+pub use ravenrs_text::TextAlign;
 pub use recurrence::{
     Frequency, RecurrenceEnd, RecurrenceRule, RecurrenceSet, exceptions_text, parse_exceptions,
 };

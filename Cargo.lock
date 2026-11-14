@@ -6527,6 +6527,7 @@ dependencies = [
  "criterion",
  "parley",
  "ravenrs-core",
+ "ravenrs-live",
 ]
 
 [[package]]
@@ -6553,6 +6554,7 @@ dependencies = [
  "ravenrs-lottie",
  "ravenrs-reactive",
  "ravenrs-style",
+ "ravenrs-text",
  "ravenrs-widgets-base",
  "ravenrs-widgets-charts",
  "ravenrs-widgets-chat",

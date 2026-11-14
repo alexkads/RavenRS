@@ -2247,6 +2247,7 @@ method BuildCx::shortcut_with_shift
 method BuildCx::sound
 method BuildCx::system_appearance
 method BuildCx::text
+method BuildCx::text_align
 method BuildCx::text_truncated
 method BuildCx::theme
 method BuildCx::theme_state
@@ -3629,6 +3630,7 @@ method TagBox::new
 method TagBox::placeholder
 method TagBox::read_only
 method TagBox::width
+method Text::align
 method Text::bound
 method Text::dynamic
 method Text::font_size
@@ -4080,6 +4082,7 @@ reexport PortDirection = ravenrs_graphics::flow::PortDirection
 reexport PortSide = ravenrs_graphics::flow::PortSide
 reexport SankeyAlign = ravenrs_graphics::sankey::SankeyAlign
 reexport Symbology = ravenrs_barcode::Symbology
+reexport TextAlign = ravenrs_text::TextAlign
 struct AccessibleControl
 struct Accordion
 struct Alert

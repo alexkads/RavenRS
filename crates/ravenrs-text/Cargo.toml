@@ -15,10 +15,13 @@ categories = ["gui", "text-processing"]
 include = ["src/**/*", "fonts/**/*", "Cargo.toml"]
 
 [dependencies]
+ravenrs-live = { workspace = true, optional = true }
 ravenrs-core.workspace = true
 parley.workspace = true
 
 [features]
+# Registers its types with the playground's interpreter.
+live = ["dep:ravenrs-live"]
 # Fira Mono embedded, as `MONO_FAMILY` and the generic `monospace`, for code.
 mono = []
 
