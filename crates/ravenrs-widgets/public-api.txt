@@ -2489,6 +2489,7 @@ method CompareView::new
 method CompareView::no_captions
 method CompareView::size
 method ConfirmDialog::ask
+method ConfirmDialog::ask_plainly
 method ConfirmDialog::ask_typing
 method ConfirmDialog::new
 method ContentSpace::content_size

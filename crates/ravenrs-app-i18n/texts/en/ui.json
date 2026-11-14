@@ -14,6 +14,7 @@
  "ui.current_password": "Current password",
  "ui.delete": "Delete",
  "ui.delete_detail": "This cannot be undone.",
+ "ui.confirm_detail": "Check it before going on.",
  "ui.delete_question": "Delete?",
  "ui.discard": "Discard",
  "ui.discard_detail": "What you changed here was not saved.",

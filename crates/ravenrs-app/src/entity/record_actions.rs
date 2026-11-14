@@ -46,4 +46,6 @@ pub struct RecordAction {
     pub set: String,
     /// The question asked before it runs.
     pub confirm: Option<String>,
+    /// What the question says besides; a neutral line of the application's words unless given.
+    pub confirm_detail: Option<String>,
 }

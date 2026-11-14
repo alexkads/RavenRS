@@ -202,6 +202,9 @@ fn entity(
         if let Some(question) = &spec.confirm {
             action = action.confirm(question.value());
         }
+        if let Some(detail) = &spec.confirm_detail {
+            action = action.confirm_detail(detail.value());
+        }
         info = info.action(action);
     }
     if errors.is_empty() { Ok(info) } else { Err(errors) }

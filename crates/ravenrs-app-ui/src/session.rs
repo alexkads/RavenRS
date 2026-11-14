@@ -1491,11 +1491,18 @@ impl Session {
             return;
         };
         let (session, kept) = (self.clone(), action.clone());
-        let detail = action.confirmation_detail().unwrap_or(&self.words().delete_detail).to_owned();
+        // Deleting cannot be undone, and says so with the red button; anything else asks plainly.
+        let deletes = action.required_operation() == Some(ravenrs_app::Operation::Delete);
+        let words = self.words();
+        let neutral = if deletes { &words.delete_detail } else { &words.confirm_detail };
+        let detail = action.confirmation_detail().unwrap_or(neutral).to_owned();
         let answer = action.confirmation_answer().unwrap_or(action.caption()).to_owned();
-        self.0.confirm.ask(question, detail, answer, move || {
-            session.execute_after_warnings(&kept, input.clone());
-        });
+        let run = move || session.execute_after_warnings(&kept, input.clone());
+        if deletes {
+            self.0.confirm.ask(question, detail, answer, run);
+        } else {
+            self.0.confirm.ask_plainly(question, detail, answer, run);
+        }
     }
 
     /// Runs an action, asking first about what its contexts only warn of.

@@ -354,6 +354,9 @@ fn a_declared_action_asks_sets_and_keeps_with_no_code() {
     c.select("ActionDemo", 2.0);
     c.run("DemoDeclared", ActionInput::None);
     assert!(c.says("Fechar e dobrar o valor dos selecionados?"), "it asks first");
+    // #160: it can be changed again, so the question is plain, not the one of deleting.
+    assert!(c.says("Confira antes de continuar."), "{:?}", c.texts());
+    assert!(!c.says("Não será possível desfazer"), "{:?}", c.texts());
     c.press("Fechar e dobrar");
     assert!(c.session().error().is_none(), "{:?}", c.session().error());
     assert_eq!(c.stored("ActionDemo", 2.0).get("state"), Value::Text("closed".into()));

@@ -30,7 +30,7 @@ struct Bank {
 #[appearance(names = "name", criteria = "[kind] = 'Savings'", font = "success", bold, context = "list")]
 #[variant(id = "savings", caption = "Poupanças", filter = "[kind] = 'Savings'", columns = "name, opening")]
 #[list_filter(id = "big", caption = "Grandes", filter = "[opening] > 1000")]
-#[action(caption = "Zerar", set = "opening = 0; notes = 'zerada'", enabled = "[opening] > 0", selection = "one", confirm = "Zerar a conta?")]
+#[action(caption = "Zerar", set = "opening = 0; notes = 'zerada'", enabled = "[opening] > 0", selection = "one", confirm = "Zerar a conta?", confirm_detail = "O saldo volta a zero.")]
 struct Account {
     #[field(key)]
     id: i64,
@@ -82,7 +82,8 @@ struct Bank {
     set = "opening = 0; notes = 'zerada'",
     enabled = "[opening] > 0",
     selection = "one",
-    confirm = "Zerar a conta?"
+    confirm = "Zerar a conta?",
+    confirm_detail = "O saldo volta a zero."
 )]
 #[allow(dead_code)]
 struct Account {
@@ -109,6 +110,7 @@ fn source_gives_what_the_derive_gives() {
     assert!(matches!(read[1].field_named("kind").map(|f| &f.kind), Some(FieldKind::Enum(o)) if o.len() == 2));
     assert_eq!(read[1].actions.len(), 1, "the action comes from both");
     assert_eq!(read[1].actions[0].set, "opening = 0; notes = 'zerada'");
+    assert_eq!(read[1].actions[0].confirm_detail.as_deref(), Some("O saldo volta a zero."));
 }
 
 #[test]

@@ -806,9 +806,9 @@ impl View for SplitButton {
     }
 }
 
-/// A question before something that cannot be undone. Holds what is being asked
-/// until it is answered; show [`ConfirmDialog`] once, and call
-/// [`ask`](Self::ask) from anywhere.
+/// A question before something that cannot be undone, or that only deserves a second look.
+/// Holds what is being asked until it is answered; show [`ConfirmDialog`] once, and call
+/// [`ask`](Self::ask) or [`ask_plainly`](Self::ask_plainly) from anywhere.
 #[derive(Clone)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ConfirmDialog(State<Option<Rc<Question>>>);
@@ -819,6 +819,8 @@ struct Question {
     action: String,
     /// The word that has to be typed, exactly, before the action can run.
     word: Option<String>,
+    /// The button that runs it is the red one of danger; otherwise the main one.
+    danger: bool,
     typed: State<String>,
     run: Rc<dyn Fn()>,
 }
@@ -850,7 +852,19 @@ impl ConfirmDialog {
         action: impl Into<String>,
         run: impl Fn() + 'static,
     ) {
-        self.put(title.into(), message.into(), action.into(), None, Rc::new(run));
+        self.put(title.into(), message.into(), action.into(), None, true, Rc::new(run));
+    }
+
+    /// Like [`ask`](Self::ask), for what can be changed again, as finishing a task: the button
+    /// called `action` is the main one, not the red one of danger.
+    pub fn ask_plainly(
+        &self,
+        title: impl Into<String>,
+        message: impl Into<String>,
+        action: impl Into<String>,
+        run: impl Fn() + 'static,
+    ) {
+        self.put(title.into(), message.into(), action.into(), None, false, Rc::new(run));
     }
 
     /// Like [`ask`](Self::ask), for what is too costly to answer with one click: the
@@ -864,12 +878,20 @@ impl ConfirmDialog {
         word: impl Into<String>,
         run: impl Fn() + 'static,
     ) {
-        self.put(title.into(), message.into(), action.into(), Some(word.into()), Rc::new(run));
+        self.put(title.into(), message.into(), action.into(), Some(word.into()), true, Rc::new(run));
     }
 
-    fn put(&self, title: String, message: String, action: String, word: Option<String>, run: Rc<dyn Fn()>) {
+    fn put(
+        &self,
+        title: String,
+        message: String,
+        action: String,
+        word: Option<String>,
+        danger: bool,
+        run: Rc<dyn Fn()>,
+    ) {
         let typed = State::new(String::new());
-        self.0.set(Some(Rc::new(Question { title, message, action, word, typed, run })));
+        self.0.set(Some(Rc::new(Question { title, message, action, word, danger, typed, run })));
     }
 }
 
@@ -918,7 +940,7 @@ impl View for ConfirmDialog {
                 )
                 .action(
                     Button::new(question.action.clone())
-                        .style(ButtonStyle::Danger)
+                        .style(if question.danger { ButtonStyle::Danger } else { ButtonStyle::Primary })
                         .disabled(!typed_right)
                         .on_click(move || {
                             done.set(None);
