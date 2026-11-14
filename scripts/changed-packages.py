@@ -14,7 +14,10 @@ The sets:
 - reached: touched and every package that depends on them, at any depth; the quick check lints
   them, which also proves they still compile;
 - lint: whether ravenrs-lint has something new to read (its own crate, the examples it checks, its
-  configuration in a Cargo.toml).
+  configuration in a Cargo.toml);
+- deferred: direct dependents left out of tested because building their tests means compiling a
+  heavy crate (HEAVY) the change does not reach; the quick check still lints them, and --full tests
+  them.
 
 The root Cargo.toml and Cargo.lock are compared section by section and package by package, so a new
 crate or a version bump does not mean the whole workspace. A change it cannot place (profiles,
@@ -34,6 +37,9 @@ SHARED = (".cargo/", "rust-toolchain", "rust-toolchain.toml", "clippy.toml")
 IGNORED = ("rustfmt.toml", "deny.toml")
 # What ravenrs-lint reads in the quick check: its crate and the examples it runs on.
 LINTED = ("ravenrs-lint", "family-finance", "component-gallery")
+# Crates whose dependencies take minutes to compile into a fresh build directory (#348): candle and
+# tokenizers come with ravenrs-ai, openh264 with ravenrs-movie-video.
+HEAVY = ("ravenrs-ai", "ravenrs-movie-video")
 
 
 def git(*args, check=True):
@@ -164,6 +170,39 @@ def lock_changes(old, new, members):
     return touched & members
 
 
+# --- what the quick check tests -----------------------------------------------------------------
+
+
+def closure(name, graph):
+    """name and everything graph leads to from it, at any depth."""
+    seen, waiting = set(), [name]
+    while waiting:
+        current = waiting.pop()
+        if current not in seen:
+            seen.add(current)
+            waiting.extend(graph.get(current, ()))
+    return seen
+
+
+def select_tested(touched, dependents, dependencies, heavy=HEAVY):
+    """(tested, deferred): touched and their direct dependents, minus the dependents that are not
+    touched themselves and pull in a heavy crate the change does not reach."""
+    reached = set()
+    for name in touched:
+        reached |= closure(name, dependents)
+    tested, deferred = set(touched), set()
+    for name in touched:
+        for dependent in dependents.get(name, ()):
+            if dependent in touched:
+                continue
+            pulled = closure(dependent, dependencies) & set(heavy)
+            if pulled - reached:
+                deferred.add(dependent)
+            else:
+                tested.add(dependent)
+    return tested, deferred - tested
+
+
 # --- the change ----------------------------------------------------------------------------------
 
 
@@ -224,13 +263,13 @@ def analyse():
     if "Cargo.lock" in files:
         touched |= lock_changes(at(fork, "Cargo.lock"), (root / "Cargo.lock").read_text(), members)
     dependents = {name: set() for name in packages}
+    dependencies = {name: set() for name in packages}
     for package in meta["packages"]:
         for dependency in package["dependencies"]:
             if dependency.get("path") and dependency["name"] in dependents:
                 dependents[dependency["name"]].add(package["name"])
-    tested = set(touched)
-    for name in touched:
-        tested |= dependents[name]
+                dependencies[package["name"]].add(dependency["name"])
+    tested, deferred = select_tested(touched, dependents, dependencies)
     reached, waiting = set(), list(touched)
     while waiting:
         name = waiting.pop()
@@ -243,17 +282,18 @@ def analyse():
     libraries = {
         p["name"] for p in meta["packages"] if any("lib" in t["kind"] or "proc-macro" in t["kind"] for t in p["targets"])
     }
-    return touched, tested & libraries, tested, reached, lint
+    return touched, tested & libraries, tested, reached, lint, deferred
 
 
 def main():
     shell = "--shell" in sys.argv[1:]
     try:
-        touched, documented, tested, reached, lint = analyse()
+        touched, documented, tested, reached, lint, deferred = analyse()
         everything = False
     except Everything as reason:
         print(f"{reason}: checking everything", file=sys.stderr)
         everything, touched, documented, tested, reached, lint = True, set(), set(), set(), set(), True
+        deferred = set()
     if shell:
         print(f"ALL={int(everything)}")
         print(f'TOUCHED="{" ".join(sorted(touched))}"')
@@ -261,6 +301,7 @@ def main():
         print(f'DOCUMENTED="{" ".join(sorted(documented))}"')
         print(f'REACHED="{" ".join(sorted(reached))}"')
         print(f"LINT={int(lint)}")
+        print(f'DEFERRED="{" ".join(sorted(deferred))}"')
     elif everything:
         print("ALL")
     else:

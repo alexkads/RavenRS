@@ -209,6 +209,10 @@ if [ "${1:-}" != "--full" ]; then
     echo "changed:         $TOUCHED"
     echo "tested:          $TESTED"
     echo "linted, at most: $REACHED"
+    if [ -n "$DEFERRED" ]; then
+        # Their tests would compile the local AI or the video encoder the change does not touch (#348).
+        echo "tested in --full: $DEFERRED"
+    fi
     reached=()
     for package in $REACHED; do reached+=(-p "$package"); done
     tested=()
