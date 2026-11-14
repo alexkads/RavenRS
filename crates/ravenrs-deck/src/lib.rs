@@ -57,7 +57,11 @@ pub mod craft {
     pub mod video;
 }
 
-/// Third-party code the engine carries patched.
+/// Third-party code the engine carries patched: krilla 0.8.2 (MIT OR Apache-2.0), the PDF writer
+/// behind [`craft::pdf`], with the patches craft-libs lists in its `README.craft.md`. It is here for
+/// [`pdf`] and is not an API of this crate.
 pub mod third_party {
+    // Its own lints, not DeckCraft's: the vendored crate never went through its clippy settings.
+    #![allow(missing_docs, clippy::all, clippy::pedantic, clippy::cognitive_complexity, clippy::todo, unused_qualifications, unused_imports)]
     pub mod krilla;
 }

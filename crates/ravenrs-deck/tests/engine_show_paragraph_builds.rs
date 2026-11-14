@@ -1,3 +1,4 @@
+// RavenRS: zip 9 gives entry names as a Result; the tests unwrap them.
 //! #844: a paragraph-by-paragraph build read from a PPTX file takes the clicks PowerPoint gives
 //! it. The file lists one effect per paragraph, each with its own start (On Click or With
 //! Previous); the show must not ask for more clicks, or fewer, than those effects.
@@ -91,7 +92,7 @@ fn with_timing(bytes: &[u8], clicks: impl Fn(&mut u32, &str, &str) -> Vec<String
     let mut out = zip::ZipWriter::new(Cursor::new(Vec::new()));
     for i in 0..src.len() {
         let mut f = src.by_index(i).expect("entry");
-        let name = f.name().to_string();
+        let name = f.name().unwrap().to_string();
         let mut data = Vec::new();
         f.read_to_end(&mut data).expect("read");
         if name == "ppt/slides/slide1.xml" {

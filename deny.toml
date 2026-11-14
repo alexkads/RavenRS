@@ -17,6 +17,7 @@ ignore = [
     { id = "RUSTSEC-2026-0372", reason = "zvariant_derive merged into zbus 6; reached only through AccessKit's Linux adapter" },
     { id = "RUSTSEC-2024-0436", reason = "paste is finished, not vulnerable; reached only through candle in ravenrs-ai, and no replacement exists" },
     { id = "RUSTSEC-2026-0192", reason = "ttf-parser is unmaintained, not vulnerable; reached only through lopdf in pdf-extract, which reads receipts in family-finance's Telegram bot" },
+    { id = "RUSTSEC-2026-0206", reason = "rustybuzz is unmaintained, not vulnerable; reached only through krilla's simple-text in ravenrs-deck, which shapes the notes and handout text of a PDF export" },
     { id = "RUSTSEC-2023-0071", reason = "rsa has no fixed release; ravenrs-nfe (beta POC) only signs locally and decrypts nothing, so no attacker times the key over a network. Revisit before any server-side signing." },
 ]
 
@@ -43,6 +44,12 @@ allow = [
     "CDLA-Permissive-2.0",
 ]
 confidence-threshold = 0.9
+
+# The presentation engine's last-resort text face (Ubuntu Light, in epaint_default_fonts): the
+# Ubuntu Font Licence lets the font be embedded and redistributed with software.
+[[licenses.exceptions]]
+crate = "epaint_default_fonts"
+allow = ["Ubuntu-font-1.0"]
 
 [bans]
 # Several versions of the same crate are common in the wgpu/winit stack; report, do not fail.

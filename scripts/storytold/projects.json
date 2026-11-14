@@ -570,7 +570,6 @@
           "ac3-encode": false,
           "alac-decode": false,
           "alac-encode": false,
-          "atomics": false,
           "decode": false,
           "decode-native": false,
           "eac3-encode": false,

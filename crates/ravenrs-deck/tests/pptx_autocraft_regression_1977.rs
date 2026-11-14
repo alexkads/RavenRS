@@ -1,3 +1,4 @@
+// RavenRS: zip 9 gives entry names as a Result; the tests unwrap them.
 //! A series-level `c:dLbls/c:delete val="1"` hides that series' labels although the
 //! chart-wide `showVal` is on (#1977).
 
@@ -32,7 +33,7 @@ fn reimport(bytes: &[u8], f: impl Fn(&str) -> String) -> Presentation {
     let opts = zip::write::SimpleFileOptions::default();
     for i in 0..zip.len() {
         let mut entry = zip.by_index(i).expect("entry");
-        let name = entry.name().to_string();
+        let name = entry.name().unwrap().to_string();
         let mut data = vec![];
         entry.read_to_end(&mut data).expect("read");
         if name.starts_with("ppt/charts/chart") && name.ends_with(".xml") && !name.contains("_rels") {

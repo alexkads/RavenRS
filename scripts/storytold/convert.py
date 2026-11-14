@@ -287,7 +287,8 @@ def rewrite(text, source, sources, lib, in_tests, repo_path, dest, assets, prese
         else:
             text = re.sub(rf"\b{other['ident']}\b", target, text)
     for name, value in source.get("features", {}).items():
-        spelled = rf'feature\s*=\s*"{re.escape(name)}"'
+        # Only `feature = …`, never `target_feature = …` of the same name ("atomics").
+        spelled = rf'(?<!\w)feature\s*=\s*"{re.escape(name)}"'
         if value is True:
             # An attribute that only asked for the feature goes; inside a longer condition it holds.
             text = re.sub(rf"#\[cfg\(\s*{spelled}\s*\)\]\s*", "", text)

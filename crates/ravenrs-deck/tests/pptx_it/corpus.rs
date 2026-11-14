@@ -1,3 +1,4 @@
+// RavenRS: zip 9 gives entry names as a Result; the tests unwrap them.
 //! Owned corpus: decks this repository authors, then open → save → reopen.
 //!
 //! Each package is built here (nothing from another product). The check compares the text in the
@@ -127,7 +128,7 @@ impl Pkg {
             if f.is_dir() {
                 continue;
             }
-            let name = f.name().trim_start_matches('/').to_string();
+            let name = f.name().unwrap().trim_start_matches('/').to_string();
             let mut data = vec![];
             f.read_to_end(&mut data).expect("read");
             parts.insert(name, data);

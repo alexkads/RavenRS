@@ -1,3 +1,4 @@
+// RavenRS: zip 9 gives entry names as a Result; the tests unwrap them.
 //! Text anchoring of shapes without an `anchor` of their own: the model centres a shape's text,
 //! a file without one puts it at the top, whatever the theme's shape defaults say.
 
@@ -19,7 +20,7 @@ fn rewrite(bytes: &[u8], edit: impl Fn(&str, String) -> String) -> Vec<u8> {
     let mut out = zip::ZipWriter::new(Cursor::new(Vec::new()));
     for i in 0..src.len() {
         let mut f = src.by_index(i).expect("entry");
-        let name = f.name().to_string();
+        let name = f.name().unwrap().to_string();
         let mut data = Vec::new();
         f.read_to_end(&mut data).expect("read");
         if name.ends_with(".xml") {

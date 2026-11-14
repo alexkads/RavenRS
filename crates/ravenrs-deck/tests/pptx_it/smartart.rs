@@ -1,3 +1,4 @@
+// RavenRS: zip 9 gives entry names as a Result; the tests unwrap them.
 //! SmartArt drawings: the text of each pre-drawn shape is laid out on its `dsp:txXfrm`.
 //!
 //! The deck is built here: an export of a new presentation with a SmartArt frame, data part and
@@ -41,7 +42,7 @@ fn entries(bytes: &[u8]) -> Vec<(String, Vec<u8>)> {
             let mut f = z.by_index(i).expect("entry");
             let mut d = vec![];
             f.read_to_end(&mut d).expect("read");
-            (f.name().to_string(), d)
+            (f.name().unwrap().to_string(), d)
         })
         .collect()
 }

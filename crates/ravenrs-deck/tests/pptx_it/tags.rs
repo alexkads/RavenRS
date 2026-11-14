@@ -1,3 +1,4 @@
+// RavenRS: zip 9 gives entry names as a Result; the tests unwrap them.
 //! Add-in tags (`p:custDataLst` → `ppt/tags/tagN.xml`) on the presentation, slides and shapes
 //! survive a save and reopen.
 
@@ -26,7 +27,7 @@ fn tags_survive_round_trip() {
     let mut ct = String::new();
     zip.by_name("[Content_Types].xml").expect("ct").read_to_string(&mut ct).expect("read");
     assert!(ct.contains("presentationml.tags+xml"));
-    assert_eq!((0..zip.len()).filter(|i| zip.by_index(*i).is_ok_and(|f| f.name().starts_with("ppt/tags/"))).count(), 3);
+    assert_eq!((0..zip.len()).filter(|i| zip.by_index(*i).is_ok_and(|f| f.name().unwrap().starts_with("ppt/tags/"))).count(), 3);
 
     let back = ravenrs_deck::pptx::import(&bytes).expect("import");
     assert_eq!(back.tags, p.tags);
@@ -67,7 +68,7 @@ fn a_tags_part_listed_many_times_is_copied_once_and_capped() {
     let mut out = zip::ZipWriter::new(Cursor::new(Vec::new()));
     for i in 0..zip.len() {
         let mut f = zip.by_index(i).expect("entry");
-        let name = f.name().to_string();
+        let name = f.name().unwrap().to_string();
         let mut data = vec![];
         f.read_to_end(&mut data).expect("read");
         out.start_file(&name, zip::write::SimpleFileOptions::default()).expect("start");
@@ -131,7 +132,7 @@ fn new_tag_parts_are_not_parsed_or_cached_after_the_budget_is_exhausted() {
     let mut out = zip::ZipWriter::new(Cursor::new(Vec::new()));
     for i in 0..zip.len() {
         let mut f = zip.by_index(i).expect("entry");
-        let name = f.name().to_string();
+        let name = f.name().unwrap().to_string();
         let mut data = vec![];
         f.read_to_end(&mut data).expect("read");
         out.start_file(&name, zip::write::SimpleFileOptions::default()).expect("start");

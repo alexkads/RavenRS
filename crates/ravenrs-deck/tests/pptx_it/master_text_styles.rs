@@ -1,3 +1,4 @@
+// RavenRS: zip 9 gives entry names as a Result; the tests unwrap them.
 //! Imported empty master styles must not become the defaults used to author new decks.
 use std::io::{Cursor, Read, Write};
 use std::sync::Arc;
@@ -35,7 +36,7 @@ fn imported(body_style: &str) -> Presentation {
     let mut out = zip::ZipWriter::new(Cursor::new(Vec::new()));
     for i in 0..z.len() {
         let mut part = z.by_index(i).expect("part");
-        let name = part.name().to_string();
+        let name = part.name().unwrap().to_string();
         let mut data = Vec::new();
         part.read_to_end(&mut data).expect("read");
         if name.starts_with("ppt/slideMasters/slideMaster") && name.ends_with(".xml") {

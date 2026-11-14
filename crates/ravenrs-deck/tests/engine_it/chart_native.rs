@@ -1,3 +1,4 @@
+// RavenRS: zip 9 gives entry names as a Result; the tests unwrap them.
 //! Native saves must not discard an imported chart's opaque package parts.
 
 use std::io::{Cursor, Read};
@@ -102,7 +103,7 @@ fn pptx_native_edit_save_reopen_keeps_chart_parts() {
         let mut f = z.by_index(i).expect("entry");
         let mut data = vec![];
         f.read_to_end(&mut data).expect("read");
-        payloads.push((f.name().to_string(), data));
+        payloads.push((f.name().unwrap().to_string(), data));
     }
     assert!(payloads.iter().any(|(n, d)| n.starts_with("ppt/embeddings/") && d == WORKBOOK));
     assert!(payloads.iter().any(|(n, d)| n.starts_with("ppt/drawings/") && d == DRAWING));

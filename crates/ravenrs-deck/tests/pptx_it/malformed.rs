@@ -1,3 +1,4 @@
+// RavenRS: zip 9 gives entry names as a Result; the tests unwrap them.
 //! Hostile input: the importer must return `Err` or a usable presentation, never panic.
 
 use std::io::{Cursor, Write};
@@ -26,7 +27,7 @@ fn entries(bytes: &[u8]) -> Vec<(String, Vec<u8>)> {
             let mut f = z.by_index(i).expect("entry");
             let mut d = vec![];
             std::io::Read::read_to_end(&mut f, &mut d).expect("read");
-            (f.name().to_string(), d)
+            (f.name().unwrap().to_string(), d)
         })
         .collect()
 }

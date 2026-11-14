@@ -1,3 +1,4 @@
+// RavenRS: zip 9 gives entry names as a Result; the tests unwrap them.
 //! Series-level data labels: `c:dLbls/c:showVal` on a series overrides the chart-wide setting,
 //! and a bare `<c:showVal/>` (no `val` attribute) means true, as the schema's default (#868).
 
@@ -34,7 +35,7 @@ fn reimport(bytes: &[u8], f: impl Fn(&str) -> String) -> Presentation {
     let opts = zip::write::SimpleFileOptions::default();
     for i in 0..zip.len() {
         let mut entry = zip.by_index(i).expect("entry");
-        let name = entry.name().to_string();
+        let name = entry.name().unwrap().to_string();
         let mut data = vec![];
         entry.read_to_end(&mut data).expect("read");
         if name.starts_with("ppt/charts/chart") && name.ends_with(".xml") && !name.contains("_rels") {

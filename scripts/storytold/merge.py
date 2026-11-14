@@ -6,7 +6,7 @@ a three-way merge per file.
 
 <old converted> and <new converted> are convert.py run on the revision in the crate's NOTICE and
 on the one to bring; the crate is the one projects.json names, unless given. For every file under
-src/, tests/ and assets/:
+src/, tests/ and assets/, and build.rs:
 
 - unchanged here: takes the new one;
 - unchanged there: keeps ours;
@@ -25,6 +25,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TOPS = ("src", "tests", "assets")
+# Files at the crate's root that a conversion may write ("build_rs" in projects.json).
+ROOT_FILES = ("build.rs",)
 
 
 def tree(root):
@@ -33,6 +35,7 @@ def tree(root):
         for directory, _, names in os.walk(os.path.join(root, top)):
             for name in names:
                 found.add(os.path.relpath(os.path.join(directory, name), root))
+    found.update(name for name in ROOT_FILES if os.path.isfile(os.path.join(root, name)))
     return found
 
 

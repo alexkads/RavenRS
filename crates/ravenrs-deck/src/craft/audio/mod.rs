@@ -78,11 +78,11 @@ pub mod flac {
     pub use crate::craft::audio::write::flac::encoder::{Encoder, EncoderConfig, Error, STREAMINFO_OFFSET};
 }
 
-pub use buffer::AudioBuffer;
 /// The craft-media this crate is built with, for its containers: using it rather than a separate
 /// dependency keeps the types the two crates share identical.
 pub use crate::craft::media;
 pub use crate::craft::media::{ByteSource, CodecId, CodecParams, Container, PcmFormat, ReadSeekSource};
+pub use buffer::AudioBuffer;
 pub use layout::{ChannelLayout, Speaker};
 #[cfg(any())]
 pub use read::SharedSource;

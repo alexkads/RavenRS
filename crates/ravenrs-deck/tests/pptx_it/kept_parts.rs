@@ -1,3 +1,4 @@
+// RavenRS: zip 9 gives entry names as a Result; the tests unwrap them.
 //! Custom XML data (SharePoint metadata), the sensitivity label and custom document properties
 //! survive opening and saving a deck.
 
@@ -21,7 +22,7 @@ fn deck() -> Vec<u8> {
     let mut out = zip::ZipWriter::new(Cursor::new(Vec::new()));
     for i in 0..src.len() {
         let mut f = src.by_index(i).expect("entry");
-        let name = f.name().to_string();
+        let name = f.name().unwrap().to_string();
         let mut data = Vec::new();
         f.read_to_end(&mut data).expect("read");
         let edit = |d: Vec<u8>, at: &str, add: &str| String::from_utf8(d).expect("utf8").replacen(at, &format!("{add}{at}"), 1).into_bytes();

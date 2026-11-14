@@ -1,3 +1,4 @@
+// RavenRS: zip 9 gives entry names as a Result; the tests unwrap them.
 //! Lock and hidden state (Selection pane): what PowerPoint writes for Lock, and what it reads as locked.
 
 use std::io::{Cursor, Read, Write};
@@ -85,7 +86,7 @@ fn entries(bytes: &[u8]) -> Vec<(String, Vec<u8>)> {
             let mut f = z.by_index(i).expect("entry");
             let mut d = vec![];
             f.read_to_end(&mut d).expect("read");
-            (f.name().to_string(), d)
+            (f.name().unwrap().to_string(), d)
         })
         .collect()
 }

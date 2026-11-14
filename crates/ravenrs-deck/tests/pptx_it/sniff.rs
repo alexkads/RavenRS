@@ -1,3 +1,4 @@
+// RavenRS: zip 9 gives entry names as a Result; the tests unwrap them.
 //! `sniff` must recognise a package wherever the writer put `[Content_Types].xml`: recent
 //! PowerPoint builds store it as the last zip entry, well past the first few kilobytes.
 
@@ -21,7 +22,7 @@ fn content_types_last(bytes: &[u8]) -> Vec<u8> {
     let stored = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Stored);
     out.start_file("ppt/media/padding.bin", stored).expect("start");
     out.write_all(&vec![0u8; 64 * 1024]).expect("padding");
-    let names: Vec<String> = (0..src.len()).map(|i| src.by_index(i).expect("entry").name().to_string()).collect();
+    let names: Vec<String> = (0..src.len()).map(|i| src.by_index(i).expect("entry").name().unwrap().to_string()).collect();
     for name in names.iter().filter(|n| *n != "[Content_Types].xml").chain(std::iter::once(&"[Content_Types].xml".to_string())) {
         let mut data = Vec::new();
         src.by_name(name).expect("by_name").read_to_end(&mut data).expect("read");

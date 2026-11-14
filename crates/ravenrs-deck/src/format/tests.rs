@@ -1,3 +1,4 @@
+// RavenRS: zip 9 gives entry names as a Result; the tests unwrap them.
 use super::*;
 
 #[test]
@@ -111,7 +112,7 @@ fn without(bytes: &[u8], drop: &str) -> Vec<u8> {
     let mut out = zip::ZipWriter::new(Cursor::new(Vec::new()));
     for i in 0..z.len() {
         let f = z.by_index(i).unwrap();
-        if f.name() != drop {
+        if f.name().unwrap() != drop {
             out.raw_copy_file(f).unwrap();
         }
     }
@@ -217,7 +218,7 @@ fn repeated_media_ids_are_read_once() {
     let mut out = zip::ZipWriter::new(Cursor::new(Vec::new()));
     for i in 0..z.len() {
         let mut f = z.by_index(i).unwrap();
-        if f.name() == "presentation.json" {
+        if f.name().unwrap() == "presentation.json" {
             let mut json = vec![];
             f.read_to_end(&mut json).unwrap();
             let mut v: serde_json::Value = serde_json::from_slice(&json).unwrap();
