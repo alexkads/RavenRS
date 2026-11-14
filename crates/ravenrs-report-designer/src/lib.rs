@@ -394,7 +394,7 @@ impl Designer {
         } else {
             home
         };
-        let has_copy = e.copied.with(Option::is_some);
+        let has_copy = e.copied.with(|copied| !copied.is_empty());
         // The Home page: clipboard, font, alignment, layout, zoom.
         let home = home
             .group(
@@ -1493,5 +1493,32 @@ mod tests {
         e.delete_selected();
         assert_eq!(e.report.with(|r| r.detail.controls.len()), 1, "both go together, the third stays");
         assert!(!e.several_selected());
+    }
+
+    #[test]
+    fn copying_several_controls_pastes_them_all_selected() {
+        // #46: copy, cut and paste take the whole selection.
+        let report = Report::new("Teste").detail(
+            ravenrs_report::Band::new(80.0)
+                .control(Control::label("Um").at(10.0, 4.0, 100.0, 18.0))
+                .control(Control::label("Dois").at(150.0, 4.0, 60.0, 18.0)),
+        );
+        let e = Editor::new(report);
+        e.select_control(BandRef::Detail, 0);
+        e.toggle_selected(BandRef::Detail, 1);
+        e.copy_selected();
+        e.paste();
+        assert_eq!(e.report.with(|r| r.detail.controls.len()), 4, "both copies");
+        assert_eq!(e.selected_indices(), Some((BandRef::Detail, vec![2, 3])), "the copies selected");
+        let (x, y) = e.report.with(|r| (r.detail.controls[3].x, r.detail.controls[3].y));
+        assert!(x > 150.0 && y > 4.0, "a little below and to the right: {x} {y}");
+        e.undo();
+        assert_eq!(e.report.with(|r| r.detail.controls.len()), 2, "one step of undo");
+        e.select_control(BandRef::Detail, 0);
+        e.toggle_selected(BandRef::Detail, 1);
+        e.cut_selected();
+        assert_eq!(e.report.with(|r| r.detail.controls.len()), 0, "cut takes both");
+        e.paste();
+        assert_eq!(e.report.with(|r| r.detail.controls.len()), 2, "and pastes both back");
     }
 }

@@ -68,8 +68,8 @@ pub struct Editor {
     pub wizard_open: State<bool>,
     pub thermal_open: State<bool>,
     pub drag: State<Option<FieldDrag>>,
-    /// The control last copied or cut, for Paste.
-    pub copied: State<Option<Control>>,
+    /// The controls last copied or cut, for Paste, the reference first.
+    pub copied: State<Vec<Control>>,
     /// The expression open in the expression editor, and the text being edited.
     pub expression: State<Option<ExpressionTarget>>,
     pub expression_draft: State<String>,
@@ -95,7 +95,7 @@ impl Editor {
             wizard_open: State::new(false),
             thermal_open: State::new(false),
             drag: State::new(None),
-            copied: State::new(None),
+            copied: State::new(Vec::new()),
             expression: State::new(None),
             expression_draft: State::new(String::new()),
             engine: Rc::new(RefCell::new(ReportEngine::new())),
@@ -219,6 +219,7 @@ impl Editor {
             }
         });
         if let Some(i) = index {
+            self.also.set(Vec::new());
             self.selection.set(Selection::Control(band, i));
         }
     }
@@ -377,8 +378,13 @@ impl Editor {
 
     /// Keeps a copy of the selected control for Paste.
     pub fn copy_selected(&self) {
-        if let Some((_, _, c)) = self.selected_control() {
-            self.copied.set(Some(c));
+        let Some((band, all)) = self.selected_indices() else { return };
+        let controls: Vec<Control> = self
+            .report
+            .with(|r| band.get(r).map(|b| all.iter().filter_map(|&i| b.controls.get(i).cloned()).collect()))
+            .unwrap_or_default();
+        if !controls.is_empty() {
+            self.copied.set(controls);
         }
     }
 
@@ -390,17 +396,35 @@ impl Editor {
         }
     }
 
-    /// Adds the copied control to the band in use, a little below and to the right
-    /// of where it was, or at a free spot if it came from another band.
+    /// Adds the copied controls to the band in use, a little below and to the right of where they
+    /// were, as one undoable step, and selects them.
     pub fn paste(&self) {
-        let Some(mut c) = self.copied.get() else { return };
+        let mut copies = self.copied.get();
+        if copies.is_empty() {
+            return;
+        }
         let band = self.target_band();
         let width = self.report.with(|r| r.page.content_width());
-        c.x = snap((c.x + 8.0).min((width - c.width).max(0.0)));
-        c.y = snap(c.y + 8.0);
-        self.add_control(band, c.clone());
-        // The next paste lands below this one, as in a stack of copies.
-        self.copied.set(Some(c));
+        for c in &mut copies {
+            c.x = snap((c.x + 8.0).min((width - c.width).max(0.0)));
+            c.y = snap(c.y + 8.0);
+        }
+        let mut first = None;
+        self.edit(|r| {
+            if let Some(b) = band.get_mut(r) {
+                first = Some(b.controls.len());
+                for c in &copies {
+                    b.height = b.height.max(c.y + c.height);
+                    b.controls.push(c.clone());
+                }
+            }
+        });
+        if let Some(first) = first {
+            self.also.set((first + 1..first + copies.len()).collect());
+            self.selection.set(Selection::Control(band, first));
+        }
+        // The next paste lands below these, as in a stack of copies.
+        self.copied.set(copies);
     }
 
     /// Moves the selected control over the others in its band (`front`), or under them.
