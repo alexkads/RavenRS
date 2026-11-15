@@ -133,6 +133,40 @@ fn context_menu_opens_at_the_pointer_and_runs_an_action() {
 }
 
 #[test]
+fn a_disabled_menu_item_shows_why_and_nothing_chooses_it() {
+    let (pasted, copied) = (Rc::new(Cell::new(false)), Rc::new(Cell::new(false)));
+    let (p, c) = (pasted.clone(), copied.clone());
+    let mut ui = ui(VStack::new((ContextMenu::new(Text::new("Right-click me").padding(40.0))
+        .item(MenuItem::new("Copy").shortcut("⌘C").on_select(move || c.set(true)))
+        .item(
+            MenuItem::new("Paste").shortcut("⌘V").disabled("Nothing copied").on_select(move || p.set(true)),
+        ),)));
+    ui.handle_event(&Event::PointerDown {
+        position: Point::new(60.0, 50.0),
+        button: PointerButton::Secondary,
+    });
+    ui.update();
+    let menu = quads(&ui).into_iter().find(|q| q.shadow.is_some()).expect("menu").rect;
+    let tree = ui.access_tree();
+    let paste = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Paste")).expect("still there");
+    assert!(paste.disabled);
+    assert_eq!(paste.description.as_deref(), Some("Nothing copied"), "the reason, in place of the shortcut");
+    let copy = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Copy")).expect("copy");
+    assert!(!copy.disabled);
+    assert_eq!(copy.description.as_deref(), Some("⌘C"));
+    let on_paste = Point::new(menu.x() + 30.0, menu.y() + 6.0 + 34.0 + 17.0);
+    click(&mut ui, on_paste);
+    ui.update();
+    assert!(!pasted.get(), "a click does not choose it");
+    assert!(quads(&ui).iter().any(|q| q.shadow.is_some()), "nor close the menu");
+    ui.handle_event(&Event::KeyDown { key: Key::ArrowDown, modifiers: Modifiers::default() });
+    ui.update();
+    ui.handle_event(&Event::KeyDown { key: Key::Enter, modifiers: Modifiers::default() });
+    ui.update();
+    assert!(!pasted.get(), "nor Enter");
+}
+
+#[test]
 fn hover_card_stays_open_over_the_card() {
     let mut ui =
         ui(VStack::new((HoverCard::new(Text::new("@raven"), Text::new("Profile details").padding(20.0)),))

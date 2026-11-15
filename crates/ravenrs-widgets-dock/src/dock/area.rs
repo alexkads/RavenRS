@@ -45,6 +45,64 @@ const HOVER_CLOSE: f64 = 0.6;
 /// The least a hidden panel opens to, and what it leaves of the area at the most.
 const OPEN_MIN: f32 = 160.0;
 const OPEN_MARGIN: f32 = 48.0;
+/// How large the dot of unsaved changes is.
+const UNSAVED_DOT: f32 = 7.0;
+
+/// The dot of a panel with unsaved changes; screen readers hear it from the tab, not from the dot.
+fn unsaved_dot(cx: &mut BuildCx<'_>) -> NodeId {
+    let dot = cx.child(&crate::Dot::new().tone(crate::Tone::Accent).size(UNSAVED_DOT));
+    cx.semantics(dot, Semantics::hidden());
+    dot
+}
+
+/// How long Ctrl+Tab is held before the list shows; a shorter press switches at once.
+const QUICK_SWITCH: f64 = 0.15;
+/// How wide the list of Ctrl+Tab is.
+const SWITCHER_WIDTH: f32 = 560.0;
+
+/// Ctrl+Tab while Ctrl is held: the panels by how lately they were used, and the one chosen.
+#[derive(Clone, Debug, PartialEq)]
+struct Switch {
+    order: Vec<String>,
+    index: usize,
+    /// When it started, which its first build learns.
+    since: Option<f64>,
+    shown: bool,
+}
+
+/// The panels that show somewhere, the most lately used first.
+fn switch_order(known: &[String], layout: &DockLayout, recent: &[String]) -> Vec<String> {
+    let mut present: Vec<String> = layout.panels().into_iter().map(str::to_owned).collect();
+    for side in DockSide::DOCKS {
+        present.extend(layout.auto_hidden_panels(side).into_iter().map(str::to_owned));
+    }
+    present.extend(layout.floating_panels().into_iter().map(str::to_owned));
+    present.retain(|id| known.contains(id));
+    let mut order: Vec<String> = recent.iter().filter(|id| present.contains(id)).cloned().collect();
+    for id in present {
+        if !order.contains(&id) {
+            order.push(id);
+        }
+    }
+    order
+}
+
+/// The panel a change is about.
+fn change_panel(change: &DockChange) -> Option<&String> {
+    match change {
+        DockChange::Activate { panel }
+        | DockChange::Move { panel, .. }
+        | DockChange::Close { panel }
+        | DockChange::Reopen { panel }
+        | DockChange::AutoHide { panel }
+        | DockChange::Pin { panel }
+        | DockChange::Float { panel }
+        | DockChange::Dock { panel, .. }
+        | DockChange::Place { panel } => Some(panel),
+        _ => None,
+    }
+}
+
 /// The least a floating panel gets.
 const FLOAT_MIN: Size = Size::new(200.0, 120.0);
 /// How close an edge draws a floating panel to it.
@@ -108,6 +166,8 @@ pub struct DockPanel {
     pub kind: DockPanelKind,
     /// What closing it does ([`DockCloseAction::Hide`] by default).
     pub close_action: DockCloseAction,
+    /// It has changes that are not saved (off by default).
+    pub unsaved: bool,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -121,6 +181,7 @@ impl DockPanel {
             closable: true,
             kind: DockPanelKind::Tool,
             close_action: DockCloseAction::Hide,
+            unsaved: false,
         }
     }
 
@@ -141,6 +202,13 @@ impl DockPanel {
     /// does not offer it, and the keys say why. [`DockArea::free_placement`] lifts that.
     pub fn kind(mut self, kind: DockPanelKind) -> Self {
         self.kind = kind;
+        self
+    }
+
+    /// Whether it has changes that are not saved: a dot on its tab, on its rail and on its header
+    /// when it floats, and "unsaved" for screen readers. The app says it on every build.
+    pub fn unsaved(mut self, unsaved: bool) -> Self {
+        self.unsaved = unsaved;
         self
     }
 
@@ -477,6 +545,8 @@ struct FloatDrag {
     from: Rect,
     rect: Rect,
     aim: Option<DropAim>,
+    /// Where it touches an edge it was drawn to.
+    lines: Vec<Rect>,
 }
 
 /// Why the app refused the last change, and where it shows.
@@ -555,6 +625,8 @@ struct Actions {
     /// The tab of a rail the pointer is on.
     hover_tab: Rc<RefCell<Option<String>>>,
     places: Places,
+    /// The panels, the most lately used first, for Ctrl+Tab. Not saved.
+    recent: Rc<RefCell<Vec<String>>>,
     labels: Rc<Labels>,
 }
 
@@ -572,7 +644,41 @@ impl Actions {
         if let Some(on_end) = &self.on_end {
             on_end(&next);
         }
+        if !matches!(change, DockChange::Close { .. })
+            && let Some(panel) = change_panel(&change)
+        {
+            self.remember(panel);
+        }
         true
+    }
+
+    /// Puts a panel first in the order of use, for Ctrl+Tab.
+    fn remember(&self, id: &str) {
+        let mut recent = self.recent.borrow_mut();
+        recent.retain(|other| other != id);
+        recent.insert(0, id.to_owned());
+    }
+
+    /// Brings a panel up wherever it is, for Ctrl+Tab: the front of its group, open over the
+    /// rest if it is hidden, in front if it floats.
+    fn go_to(&self, id: &str) {
+        let layout = self.layout.get();
+        if layout.is_auto_hidden(id) {
+            self.focus_open.set(true);
+            self.opened.set(Some(Opened { panel: id.to_owned(), by_hover: false }));
+            self.remember(id);
+        } else if layout.is_floating(id) {
+            self.raise(id);
+            *self.focus.borrow_mut() = Some(id.to_owned());
+            self.remember(id);
+        } else {
+            *self.focus.borrow_mut() = Some(id.to_owned());
+            let shown =
+                self.apply(DockChange::Activate { panel: id.to_owned() }, |layout| layout.activate(id));
+            if shown {
+                self.remember(id);
+            }
+        }
     }
 
     /// Whether the app lets this change happen. A refusal shows its reason.
@@ -593,15 +699,7 @@ impl Actions {
     fn notice_at(&self, change: &DockChange) -> Point {
         let root = self.frames.root.get();
         let margin = 8.0;
-        let panel = match change {
-            DockChange::Activate { panel }
-            | DockChange::Move { panel, .. }
-            | DockChange::Close { panel }
-            | DockChange::Reopen { panel }
-            | DockChange::AutoHide { panel }
-            | DockChange::Pin { panel } => Some(panel),
-            _ => None,
-        };
+        let panel = change_panel(change);
         let tab = panel.and_then(|panel| self.frames.tabs.borrow().get(panel).copied());
         let (x, y) = match tab {
             Some(tab) => (tab.x() - root.x(), tab.y() - root.y() + tab.height() + 4.0),
@@ -830,10 +928,15 @@ fn panel_items(
         // rather than tried on a copy of it.
         let own_group = arranged.groups.iter().find(|group| group.panels.iter().any(|panel| panel == id));
         let mut places = Vec::new();
+        // A place it may not go shows greyed, with why.
+        let mut barred = Vec::new();
         for side in DockSide::ALL_IN_MENU {
-            let target = DockDrop::Side(side);
-            if layout.side_of(id) != Some(side) && actions.may_go(layout, id, &target) {
-                places.push((labels.dock_place(side).to_owned(), target));
+            if layout.side_of(id) == Some(side) {
+                continue;
+            }
+            match actions.places.refusal(labels, id, side) {
+                None => places.push((labels.dock_place(side).to_owned(), DockDrop::Side(side))),
+                Some(reason) => barred.push((labels.dock_place(side).to_owned(), reason)),
             }
         }
         for group in &arranged.groups {
@@ -854,13 +957,16 @@ fn panel_items(
             places.push((labels.dock_split_right.clone(), split(DockEdge::Right)));
             places.push((labels.dock_split_below.clone(), split(DockEdge::Bottom)));
         }
-        if !places.is_empty() {
+        if !places.is_empty() || !barred.is_empty() {
             let mut item = MenuItem::new(labels.dock_move_to.clone());
             for (name, target) in places {
                 let (actions, id) = (actions.clone(), id.to_owned());
                 item = item.item(MenuItem::new(name).on_select(move || {
                     actions.send(&id, target.clone());
                 }));
+            }
+            for (name, reason) in barred {
+                item = item.item(MenuItem::new(name).disabled(reason));
             }
             items.push(item);
         }
@@ -1060,6 +1166,10 @@ impl View for TabView<'_> {
         );
         cx.semantics(title, Semantics::hidden());
         parts.push(title);
+        if panel.unsaved {
+            parts.push(unsaved_dot(cx));
+            width += UNSAVED_DOT + gap;
+        }
         let (id, group_panels) = (panel.id.clone(), &self.group.panels);
         // Whoever is beside it takes focus when it closes from the keyboard.
         let next = group_panels
@@ -1116,7 +1226,11 @@ impl View for TabView<'_> {
         );
         cx.cursor(node, CursorIcon::Pointer);
         cx.focusable(node, radius);
-        cx.semantics(node, Semantics::new(Role::Tab).name(panel.title.clone()).selected(on));
+        let semantics = Semantics::new(Role::Tab).name(panel.title.clone()).selected(on);
+        cx.semantics(
+            node,
+            if panel.unsaved { semantics.description(labels.unsaved.clone()) } else { semantics },
+        );
         if self.actions.focus.borrow().as_deref() == Some(id.as_str()) {
             self.actions.focus.borrow_mut().take();
             cx.request_focus_node(node);
@@ -1449,6 +1563,9 @@ impl View for DockArea {
         let labels = cx.labels();
         let drag: State<Option<TabDrag>> = cx.use_state(|| None);
         let float_drag: State<Option<FloatDrag>> = cx.use_state(|| None);
+        let switch: State<Option<Switch>> = cx.use_state(|| None);
+        let recent: Rc<RefCell<Vec<String>>> =
+            cx.use_state(|| Rc::new(RefCell::new(Vec::new()))).peek().clone();
         let spoken: State<String> = cx.use_state(String::new);
         let frames: Rc<Frames> = cx.use_state(|| Rc::new(Frames::default())).peek().clone();
         let focus: Rc<RefCell<Option<String>>> = cx.use_state(|| Rc::new(RefCell::new(None))).peek().clone();
@@ -1478,6 +1595,7 @@ impl View for DockArea {
             focus_open,
             hover_tab,
             places: Places::of(self),
+            recent: recent.clone(),
             labels: labels.clone(),
         };
         // Known from the second build on; until then the window is the best guess there is.
@@ -1549,12 +1667,22 @@ impl View for DockArea {
         if let Some(aim) = drag.get().and_then(|d| d.aim) {
             nodes.push(mark(cx, aim.mark));
         }
-        if let Some(aim) = float_drag.get().and_then(|d| d.aim) {
-            nodes.push(mark(cx, aim.mark));
+        if let Some(drag) = float_drag.get() {
+            if let Some(aim) = &drag.aim {
+                nodes.push(mark(cx, aim.mark));
+            }
+            // The edges it was drawn to, in the color of a warning, while it moves.
+            let warning = theme.color(Semantic::Warning);
+            for line in &drag.lines {
+                let node = cx.container(placed(*line), &[], Paint::Quad(QuadPaint::new(warning)));
+                cx.semantics(node, Semantics::hidden());
+                nodes.push(node);
+            }
         }
         if let Some(rect) = drag.get().and_then(|d| d.floating) {
             nodes.push(float_outline(cx, rect));
         }
+        self.switch_panels(cx, &layout, &actions, &switch, &mut nodes);
         // Why the app refused the last change, until the next gesture or a few seconds on.
         if let Some(shown) = notice.get() {
             let now = cx.now();
@@ -1608,6 +1736,82 @@ impl View for DockArea {
 
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl DockArea {
+    /// Ctrl+Tab and Ctrl+Shift+Tab: a quick press goes back to the panel used before, a longer one
+    /// shows the list, Tab walks it while Ctrl is held, and letting Ctrl go opens what is chosen.
+    fn switch_panels(
+        &self,
+        cx: &mut BuildCx<'_>,
+        layout: &DockLayout,
+        actions: &Actions,
+        switch: &State<Option<Switch>>,
+        nodes: &mut Vec<NodeId>,
+    ) {
+        let known: Vec<String> = self.panels.iter().map(|panel| panel.id.clone()).collect();
+        let step = {
+            let (switch, binding, recent) = (switch.clone(), self.layout.clone(), actions.recent.clone());
+            move |by: isize| {
+                let now = switch.get();
+                match now {
+                    None => {
+                        let order = switch_order(&known, &binding.get(), &recent.borrow());
+                        if order.len() < 2 {
+                            return;
+                        }
+                        let index = if by > 0 { 1 } else { order.len() - 1 };
+                        switch.set(Some(Switch { order, index, since: None, shown: false }));
+                    }
+                    Some(mut going) => {
+                        let count = going.order.len() as isize;
+                        going.index = (going.index as isize + by).rem_euclid(count) as usize;
+                        going.shown = true;
+                        switch.set(Some(going));
+                    }
+                }
+            }
+        };
+        let step = Rc::new(step);
+        let back = step.clone();
+        // With Shift first: the plain one would take Shift too.
+        cx.shortcut_with_shift(Key::Tab, true, Rc::new(move || back(-1)));
+        cx.shortcut(Key::Tab, true, Rc::new(move || step(1)));
+        let Some(mut going) = switch.get() else { return };
+        for command in [true, false] {
+            let stop = switch.clone();
+            cx.shortcut(Key::Escape, command, Rc::new(move || stop.set(None)));
+        }
+        let held = cx.held();
+        let now = cx.now();
+        let since = *going.since.get_or_insert(now);
+        if !(held.ctrl || held.meta) {
+            switch.set(None);
+            if let Some(id) = going.order.get(going.index) {
+                actions.go_to(id);
+            }
+            return;
+        }
+        if !going.shown && now >= since + QUICK_SWITCH {
+            going.shown = true;
+        }
+        if !going.shown {
+            cx.wake_at(since + QUICK_SWITCH);
+        }
+        if switch.peek().as_ref() != Some(&going) {
+            switch.set(Some(going.clone()));
+        }
+        if going.shown {
+            let window = cx.viewport();
+            let rows = going.order.len() as f32 + 1.0;
+            let height = rows * 38.0 + 32.0;
+            let at =
+                Point::new((window.width - SWITCHER_WIDTH) / 2.0, ((window.height - height) / 2.0).max(16.0));
+            let anchor = cx.empty();
+            nodes.push(anchor);
+            let list = Switcher { area: self, layout, switch: going, state: switch.clone(), actions };
+            let stop = switch.clone();
+            cx.overlay(anchor, Placement::At(at), &list, Some(Rc::new(move || stop.set(None))));
+        }
+    }
+
     /// The hidden panel that is open, over the rest beside its rail, if it is still hidden.
     fn open_hidden(
         &self,
@@ -1830,6 +2034,11 @@ impl View for RailTab<'_> {
         let words =
             if across { cx.child(&words) } else { cx.child(&QuarterTurn::new(words, Turn::Clockwise)) };
         cx.semantics(words, Semantics::hidden());
+        let unsaved = rail.area.panel(&id).is_some_and(|panel| panel.unsaved);
+        let mut inside = vec![words];
+        if unsaved {
+            inside.push(unsaved_dot(cx));
+        }
         let accent = theme.color(Semantic::Accent);
         let fill = if on || hovered { theme.color(Semantic::Surface) } else { Color::TRANSPARENT };
         let side = rail.side;
@@ -1844,9 +2053,10 @@ impl View for RailTab<'_> {
                 },
                 align: Align::Center,
                 justify: Justify::Center,
-                ..LayoutStyle::stack(Axis::Vertical)
+                spacing: theme.spacing.s1,
+                ..LayoutStyle::stack(if across { Axis::Horizontal } else { Axis::Vertical })
             },
-            &[words],
+            &inside,
             Paint::Custom(Rc::new(move |frame, scene| {
                 frames.tabs.borrow_mut().insert(recorded.clone(), frame);
                 if fill.a > 0.0 {
@@ -1868,10 +2078,8 @@ impl View for RailTab<'_> {
         cx.on_click(node, Rc::new(move || toggler.toggle_open(&opened)));
         cx.cursor(node, CursorIcon::Pointer);
         cx.focusable(node, radius);
-        cx.semantics(
-            node,
-            Semantics::new(Role::Button).name(labels.dock_hidden_name(&title, side)).expanded(on),
-        );
+        let semantics = Semantics::new(Role::Button).name(labels.dock_hidden_name(&title, side)).expanded(on);
+        cx.semantics(node, if unsaved { semantics.description(labels.unsaved.clone()) } else { semantics });
         if actions.focus.borrow().as_deref() == Some(id.as_str()) {
             actions.focus.borrow_mut().take();
             cx.request_focus_node(node);
@@ -1944,6 +2152,14 @@ impl View for OpenPanel<'_> {
                 }
             }
         }
+        // Focus went in and then out, by Tab or Shift+Tab: it goes back to its rail.
+        let had_focus: Rc<Cell<bool>> = cx.use_state(|| Rc::new(Cell::new(false))).peek().clone();
+        if cx.is_focus_within() {
+            had_focus.set(true);
+        } else if had_focus.get() {
+            had_focus.set(false);
+            actions.opened.set(None);
+        }
         let attrs = util::attrs(&theme, TextStyle::Callout, Some(ravenrs_style::Weight::SEMIBOLD));
         let name = cx.text(&title, &attrs, theme.color(Semantic::Ink), LayoutStyle::leaf());
         let room = cx.container(LayoutStyle { grow: 1.0, ..LayoutStyle::leaf() }, &[], Paint::None);
@@ -1959,6 +2175,12 @@ impl View for OpenPanel<'_> {
         if actions.focus_open.replace(false) && !self.by_hover {
             cx.request_focus_node(pin);
         }
+        let unsaved = self.area.panel(&id).is_some_and(|panel| panel.unsaved);
+        let mut header_parts = vec![name];
+        if unsaved {
+            header_parts.push(unsaved_dot(cx));
+        }
+        header_parts.extend([room, pin]);
         let header = cx.container(
             LayoutStyle {
                 height: Some(TAB_HEIGHT),
@@ -1968,7 +2190,7 @@ impl View for OpenPanel<'_> {
                 align_self: Some(Align::Stretch),
                 ..LayoutStyle::stack(Axis::Horizontal)
             },
-            &[name, room, pin],
+            &header_parts,
             Paint::Quad(QuadPaint::new(theme.color(Semantic::Surface))),
         );
         let content = (self.area.content)(&id);
@@ -2100,6 +2322,7 @@ impl FloatingView<'_> {
                     from,
                     rect: from,
                     aim: None,
+                    lines: Vec::new(),
                 }));
             }
             DragPhase::Move => {
@@ -2108,8 +2331,9 @@ impl FloatingView<'_> {
                 let (dx, dy) = (drag.position.x - now.pressed_at.x, drag.position.y - now.pressed_at.y);
                 if grab.moves() {
                     let moved = Rect::new(from.x() + dx, from.y() + dy, from.width(), from.height());
-                    let snapped = geometry::snap_floating(moved, size, &others, MAGNET);
+                    let (snapped, lines) = geometry::snap_floating(moved, size, &others, MAGNET);
                     now.rect = geometry::clamp_floating(snapped, size, FLOAT_MIN);
+                    now.lines = lines;
                     let root = frames.root.get();
                     let at = Point::new(drag.position.x - root.x(), drag.position.y - root.y());
                     let tabs = frames.tabs.borrow();
@@ -2236,6 +2460,10 @@ impl View for FloatingView<'_> {
         );
         cx.semantics(name, Semantics::hidden());
         let mut parts = vec![grip, name];
+        let unsaved = self.area.panel(&id).is_some_and(|panel| panel.unsaved);
+        if unsaved {
+            parts.insert(2, unsaved_dot(cx));
+        }
         let (back, home) = (actions.clone(), id.clone());
         let button = IconButton::new(IconName::Minimize2)
             .label(labels.dock_dock_back_name(&title))
@@ -2279,6 +2507,7 @@ impl View for FloatingView<'_> {
             }),
         );
         cx.focusable(header, radius);
+        cx.cursor(header, CursorIcon::Move);
         cx.semantics(header, Semantics::new(Role::Button).name(labels.dock_move_floating_name(&title)));
         let modifiers = cx.modifiers();
         cx.on_drag(header, self.grab_handler(Grab::MOVE, modifiers.clone()));
@@ -2399,7 +2628,136 @@ impl View for FloatingView<'_> {
                 ..QuadPaint::new(theme.color(Semantic::Surface))
             }),
         );
-        cx.semantics(node, Semantics::new(Role::Dialog).name(labels.dock_floating_name(&title)));
+        let semantics = Semantics::new(Role::Dialog).name(labels.dock_floating_name(&title));
+        cx.semantics(node, if unsaved { semantics.description(labels.unsaved.clone()) } else { semantics });
+        node
+    }
+}
+
+/// The list Ctrl+Tab shows while Ctrl is held: the panels by how lately they were used, the
+/// documents apart from the tools, each with where it is.
+struct Switcher<'a> {
+    area: &'a DockArea,
+    layout: &'a DockLayout,
+    switch: Switch,
+    state: State<Option<Switch>>,
+    actions: &'a Actions,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl Switcher<'_> {
+    /// Where a panel is, in a few words.
+    fn whereabouts(&self, labels: &Labels, id: &str) -> String {
+        if self.layout.is_floating(id) {
+            return labels.dock_where_floating.clone();
+        }
+        if let Some(side) = self.layout.auto_hidden_side(id) {
+            return labels.dock_where_hidden.replace("{place}", &labels.dock_place(side).to_lowercase());
+        }
+        self.layout.side_of(id).map(|side| labels.dock_place(side).to_lowercase()).unwrap_or_default()
+    }
+}
+
+impl View for Switcher<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let labels = cx.labels();
+        let is_document =
+            |id: &str| self.area.panel(id).is_some_and(|panel| panel.kind == DockPanelKind::Document);
+        let documents: Vec<(usize, &String)> =
+            self.switch.order.iter().enumerate().filter(|(_, id)| is_document(id)).collect();
+        let tools: Vec<(usize, &String)> =
+            self.switch.order.iter().enumerate().filter(|(_, id)| !is_document(id)).collect();
+        let mut columns = Vec::new();
+        let named: Vec<(String, Vec<(usize, &String)>)> = if documents.is_empty() {
+            vec![(labels.dock_tabs_name.clone(), tools)]
+        } else {
+            vec![(labels.dock_documents.clone(), documents), (labels.dock_tools.clone(), tools)]
+        };
+        for (heading, rows) in named {
+            let caption = util::attrs(&theme, TextStyle::Caption, None);
+            let mut parts =
+                vec![cx.text(&heading, &caption, theme.color(Semantic::InkMuted), LayoutStyle::leaf())];
+            for (index, id) in rows {
+                let on = index == self.switch.index;
+                let (ink, muted) = if on {
+                    (theme.color(Semantic::OnAccent), theme.color(Semantic::OnAccent))
+                } else {
+                    (theme.color(Semantic::Ink), theme.color(Semantic::InkMuted))
+                };
+                let title = self.area.title_of(id).to_owned();
+                let whereabouts = self.whereabouts(&labels, id);
+                let body = util::attrs(&theme, TextStyle::Callout, None);
+                let name = cx.text_truncated(
+                    &title,
+                    &body,
+                    ink,
+                    LayoutStyle { grow: 1.0, min_width: Some(0.0), ..LayoutStyle::leaf() },
+                );
+                let place = cx.text(
+                    &whereabouts,
+                    &util::attrs(&theme, TextStyle::Caption, None),
+                    muted,
+                    LayoutStyle::leaf(),
+                );
+                let fill = if on { theme.color(Semantic::Accent) } else { Color::TRANSPARENT };
+                let row = cx.container(
+                    LayoutStyle {
+                        height: Some(36.0),
+                        padding: Insets::symmetric(0.0, theme.spacing.s3),
+                        spacing: theme.spacing.s2,
+                        align: Align::Center,
+                        align_self: Some(Align::Stretch),
+                        ..LayoutStyle::stack(Axis::Horizontal)
+                    },
+                    &[name, place],
+                    Paint::Quad(QuadPaint { corner_radius: theme.radii.md, ..QuadPaint::new(fill) }),
+                );
+                let (actions, state, chosen) = (self.actions.clone(), self.state.clone(), id.clone());
+                cx.on_click(
+                    row,
+                    Rc::new(move || {
+                        state.set(None);
+                        actions.go_to(&chosen);
+                    }),
+                );
+                cx.cursor(row, CursorIcon::Pointer);
+                cx.semantics(
+                    row,
+                    Semantics::new(Role::ListBoxOption).name(format!("{title}, {whereabouts}")).selected(on),
+                );
+                parts.push(row);
+            }
+            let column = cx.container(
+                LayoutStyle {
+                    grow: 1.0,
+                    min_width: Some(0.0),
+                    spacing: 2.0,
+                    align: Align::Stretch,
+                    ..LayoutStyle::stack(Axis::Vertical)
+                },
+                &parts,
+                Paint::None,
+            );
+            cx.semantics(column, Semantics::new(Role::ListBox).name(heading.clone()));
+            columns.push(column);
+        }
+        let node = cx.container(
+            LayoutStyle {
+                width: Some(SWITCHER_WIDTH),
+                padding: Insets::uniform(theme.spacing.s4),
+                spacing: theme.spacing.s3,
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &columns,
+            Paint::Quad(QuadPaint {
+                corner_radius: theme.radii.lg,
+                border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
+                shadow: Some(theme.elevation.raised),
+                ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+            }),
+        );
+        cx.semantics(node, Semantics::new(Role::Dialog).name(labels.dock_switcher.clone()));
         node
     }
 }

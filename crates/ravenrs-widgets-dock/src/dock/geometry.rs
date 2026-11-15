@@ -523,26 +523,51 @@ pub fn clamp_floating(rect: Rect, size: Size, least: Size) -> Rect {
 }
 
 /// A floating panel's box drawn to the edges near it: of the area, and of the other floating
-/// panels, when one is within `reach`.
+/// panels, when one is within `reach`, with the lines where it touches them, to mark.
 #[doc(hidden)]
-pub fn snap_floating(rect: Rect, size: Size, others: &[Rect], reach: f32) -> Rect {
-    let nearest = |at: f32, lines: &[f32]| {
+pub fn snap_floating(rect: Rect, size: Size, others: &[Rect], reach: f32) -> (Rect, Vec<Rect>) {
+    // Each line it could go to: where its edge would be, and the span to mark there.
+    let (width, height) = (rect.width(), rect.height());
+    let mut xs: Vec<(f32, f32, f32, f32)> =
+        vec![(0.0, 0.0, 0.0, size.height), (size.width - width, size.width, 0.0, size.height)];
+    let mut ys: Vec<(f32, f32, f32, f32)> =
+        vec![(0.0, 0.0, 0.0, size.width), (size.height - height, size.height, 0.0, size.width)];
+    for other in others {
+        let (top, bottom) = (other.y(), other.max_y());
+        let (left, right) = (other.x(), other.max_x());
+        xs.extend([
+            (other.max_x(), other.max_x(), top, bottom),
+            (other.x() - width, other.x(), top, bottom),
+            (other.x(), other.x(), top, bottom),
+            (other.max_x() - width, other.max_x(), top, bottom),
+        ]);
+        ys.extend([
+            (other.max_y(), other.max_y(), left, right),
+            (other.y() - height, other.y(), left, right),
+            (other.y(), other.y(), left, right),
+            (other.max_y() - height, other.max_y(), left, right),
+        ]);
+    }
+    let nearest = |at: f32, lines: &[(f32, f32, f32, f32)]| {
         lines
             .iter()
             .copied()
-            .filter(|line| (line - at).abs() <= reach)
-            .min_by(|a, b| (a - at).abs().total_cmp(&(b - at).abs()))
+            .filter(|line| (line.0 - at).abs() <= reach)
+            .min_by(|a, b| (a.0 - at).abs().total_cmp(&(b.0 - at).abs()))
     };
-    let (width, height) = (rect.width(), rect.height());
-    let mut xs = vec![0.0, size.width - width];
-    let mut ys = vec![0.0, size.height - height];
-    for other in others {
-        xs.extend([other.max_x(), other.x() - width, other.x(), other.max_x() - width]);
-        ys.extend([other.max_y(), other.y() - height, other.y(), other.max_y() - height]);
+    let x = nearest(rect.x(), &xs);
+    let y = nearest(rect.y(), &ys);
+    let snapped = Rect::new(x.map_or(rect.x(), |l| l.0), y.map_or(rect.y(), |l| l.0), width, height);
+    let mut lines = Vec::new();
+    if let Some((_, at, from, to)) = x {
+        let (from, to) = (from.min(snapped.y()), to.max(snapped.max_y()));
+        lines.push(Rect::new(at - 1.0, from, 2.0, to - from));
     }
-    let x = nearest(rect.x(), &xs).unwrap_or(rect.x());
-    let y = nearest(rect.y(), &ys).unwrap_or(rect.y());
-    Rect::new(x, y, width, height)
+    if let Some((_, at, from, to)) = y {
+        let (from, to) = (from.min(snapped.x()), to.max(snapped.max_x()));
+        lines.push(Rect::new(from, at - 1.0, to - from, 2.0));
+    }
+    (snapped, lines)
 }
 
 fn aim_tab(
@@ -694,10 +719,16 @@ mod tests {
             Rect::new(0.0, 0.0, 150.0, 100.0)
         );
         let other = Rect::new(400.0, 100.0, 200.0, 200.0);
-        let near = snap_floating(Rect::new(5.0, 106.0, 100.0, 80.0), area, &[other], 8.0);
+        let (near, lines) = snap_floating(Rect::new(5.0, 106.0, 100.0, 80.0), area, &[other], 8.0);
         assert_eq!(near, Rect::new(0.0, 100.0, 100.0, 80.0), "to the border and to the top of the other");
-        let far = snap_floating(Rect::new(30.0, 40.0, 100.0, 80.0), area, &[other], 8.0);
+        assert_eq!(lines.len(), 2, "a line on each edge it touches: {lines:?}");
+        assert_eq!(lines[0].x(), -1.0, "the border of the area");
+        assert_eq!(lines[1].y(), 99.0, "the top of the other");
+        assert_eq!(lines[1].x(), 0.0, "from its own left");
+        assert_eq!(lines[1].max_x(), 600.0, "to the right of the other");
+        let (far, none) = snap_floating(Rect::new(30.0, 40.0, 100.0, 80.0), area, &[other], 8.0);
         assert_eq!(far, Rect::new(30.0, 40.0, 100.0, 80.0));
+        assert!(none.is_empty());
     }
 
     #[test]

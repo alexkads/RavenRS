@@ -175,6 +175,16 @@ pub struct Labels {
     pub dock_tools_docks: String,
     /// The menu item that closes the other documents of a group of a `DockArea`.
     pub dock_close_others: String,
+    /// The list Ctrl+Tab shows over a `DockArea`, to switch panels.
+    pub dock_switcher: String,
+    /// The column of documents in that list.
+    pub dock_documents: String,
+    /// The column of tools in that list.
+    pub dock_tools: String,
+    /// Where a floating panel is, in that list.
+    pub dock_where_floating: String,
+    /// Where a hidden panel is, in that list, with `{place}`.
+    pub dock_where_hidden: String,
     /// The center of a `DockArea`, in a menu.
     pub dock_center: String,
     /// The item of a `DockArea`'s menu that opens where a panel can go.
@@ -1027,6 +1037,11 @@ impl Labels {
             dock_documents_center: texts.get("widgets.dock_documents_center"),
             dock_tools_docks: texts.get("widgets.dock_tools_docks"),
             dock_close_others: texts.get("widgets.dock_close_others"),
+            dock_switcher: texts.get("widgets.dock_switcher"),
+            dock_documents: texts.get("widgets.dock_documents"),
+            dock_tools: texts.get("widgets.dock_tools"),
+            dock_where_floating: texts.get("widgets.dock_where_floating"),
+            dock_where_hidden: texts.get("widgets.dock_where_hidden"),
             dock_center: texts.get("widgets.dock_center"),
             dock_move_to: texts.get("widgets.dock_move_to"),
             dock_with: texts.get("widgets.dock_with"),

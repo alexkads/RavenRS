@@ -525,3 +525,36 @@ fn the_keys_pick_up_carry_and_drop() {
     ui.update();
     assert_eq!(*log.borrow(), vec!["Apple x3 at 30,50".to_owned()]);
 }
+
+/// Two buttons that say whether the focus is among them.
+struct FocusGroup;
+
+impl View for FocusGroup {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        use ravenrs_layout::{Axis, LayoutStyle};
+        let words = if cx.is_focus_within() { "inside" } else { "outside" };
+        let first = cx.child(&Button::new("First"));
+        let second = cx.child(&Button::new("Second"));
+        let said = cx.child(&Text::new(words));
+        cx.container(LayoutStyle::stack(Axis::Vertical), &[first, second, said], Paint::None)
+    }
+}
+
+#[test]
+fn a_view_knows_when_the_focus_is_inside_it() {
+    let mut ui = Ui::new(VStack::new((FocusGroup, Button::new("Elsewhere"))), Theme::raven_dark());
+    ui.set_viewport(Size::new(400.0, 300.0), 1.0);
+    ui.update();
+    let says =
+        |ui: &mut Ui, word: &str| ui.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some(word));
+    assert!(says(&mut ui, "outside"));
+    key(&mut ui, Key::Tab);
+    ui.update();
+    assert!(says(&mut ui, "inside"), "on the first button");
+    key(&mut ui, Key::Tab);
+    ui.update();
+    assert!(says(&mut ui, "inside"), "on the second");
+    key(&mut ui, Key::Tab);
+    ui.update();
+    assert!(says(&mut ui, "outside"), "on the button after it");
+}

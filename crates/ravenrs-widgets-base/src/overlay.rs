@@ -376,6 +376,8 @@ pub struct MenuItem {
     checked: Option<bool>,
     element: Option<AnyView>,
     submenu: Vec<Entry>,
+    /// Why it cannot be chosen now, when it cannot.
+    disabled: Option<String>,
 }
 
 impl fmt::Debug for MenuItem {
@@ -397,6 +399,7 @@ impl MenuItem {
             checked: None,
             element: None,
             submenu: Vec::new(),
+            disabled: None,
         }
     }
 
@@ -409,6 +412,14 @@ impl MenuItem {
     /// Shows a shortcut hint at the trailing edge, e.g. `"⌘C"` (display only).
     pub fn shortcut(mut self, shortcut: impl Into<String>) -> Self {
         self.shortcut = Some(shortcut.into());
+        self
+    }
+
+    /// Shows it greyed, with `reason` where its shortcut would be, and lets nothing choose it:
+    /// neither a click nor Enter. The arrows still reach it and screen readers hear why, so it
+    /// says what is there and why it cannot be had. An empty reason greys it without words.
+    pub fn disabled(mut self, reason: impl Into<String>) -> Self {
+        self.disabled = Some(reason.into());
         self
     }
 
@@ -539,6 +550,8 @@ struct ListRow<'a> {
     trailing: Option<&'a str>,
     checked: bool,
     destructive: bool,
+    /// Greyed, and chosen by nothing.
+    disabled: bool,
     close: Rc<dyn Fn()>,
     on_click: Option<Rc<dyn Fn()>>,
     roving: util::Roving,
@@ -692,9 +705,15 @@ impl ListRow<'_> {
 impl View for ListRow<'_> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
-        let hovered = cx.is_hovered() || cx.is_focus_visible();
-        let ink = if self.destructive { theme.color(Semantic::Danger) } else { theme.color(Semantic::Ink) };
-        let muted = if self.destructive { ink } else { theme.color(Semantic::InkMuted) };
+        let hovered = (cx.is_hovered() && !self.disabled) || cx.is_focus_visible();
+        let ink = if self.disabled {
+            theme.color(Semantic::InkMuted)
+        } else if self.destructive {
+            theme.color(Semantic::Danger)
+        } else {
+            theme.color(Semantic::Ink)
+        };
+        let muted = if self.destructive && !self.disabled { ink } else { theme.color(Semantic::InkMuted) };
         let mut children = Vec::new();
         if let Some(icon) = self.icon {
             children.push(util::icon(cx, icon, 16.0, muted));
@@ -757,8 +776,14 @@ impl View for ListRow<'_> {
         if opener.is_some() {
             semantics = semantics.expanded(is_open);
         }
+        if self.disabled {
+            semantics = semantics.disabled(true);
+        }
         cx.semantics(node, semantics);
-        if let Some(open) = &opener {
+        if self.disabled {
+            // Nothing chooses it; the click does not even close the menu.
+            cx.on_click(node, Rc::new(|| {}));
+        } else if let Some(open) = &opener {
             let open = open.clone();
             cx.on_click(node, Rc::new(move || open()));
         } else {
@@ -795,7 +820,7 @@ impl View for ListRow<'_> {
         self.roving.wire_with(cx, node, None, before);
         self.follow_pointer(cx, node);
         self.submenu_overlay(cx, node);
-        cx.cursor(node, CursorIcon::Pointer);
+        cx.cursor(node, if self.disabled { CursorIcon::Default } else { CursorIcon::Pointer });
         node
     }
 }
@@ -876,9 +901,13 @@ impl View for MenuLevel<'_> {
                         roving,
                         label: &item.label,
                         icon: item.icon,
-                        trailing: item.shortcut.as_deref(),
+                        trailing: match &item.disabled {
+                            Some(reason) if !reason.is_empty() => Some(reason.as_str()),
+                            _ => item.shortcut.as_deref(),
+                        },
                         checked: item.checked == Some(true),
                         destructive: item.destructive,
+                        disabled: item.disabled.is_some(),
                         close: self.close.clone(),
                         on_click: item.on_select.clone(),
                         role: Role::MenuItem,
@@ -1107,6 +1136,7 @@ impl View for Options<'_> {
                     trailing: None,
                     checked: i == current,
                     destructive: false,
+                    disabled: false,
                     close: self.close.clone(),
                     on_click: Some(Rc::new(move || selected.set(i))),
                     role: Role::ListBoxOption,

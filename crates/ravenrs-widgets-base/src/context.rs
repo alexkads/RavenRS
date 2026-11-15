@@ -696,6 +696,10 @@ pub struct BuildCx<'a> {
     /// The views that asked about the pointer, so that it moving elsewhere rebuilds nothing.
     #[doc(hidden)]
     pub hover_readers: Rc<RefCell<HashSet<WidgetId>>>,
+    /// The focused widget and every widget around it, from the last frame.
+    pub focus_chain: Rc<[WidgetId]>,
+    /// Whether a view read the keys held with [`BuildCx::held`], to be built again when they change.
+    pub modifiers_read: Rc<std::cell::Cell<bool>>,
     #[doc(hidden)]
     pub view_profile: Option<Rc<RefCell<dyn BuildTiming>>>,
     #[doc(hidden)]
@@ -805,6 +809,8 @@ impl<'a> BuildCx<'a> {
     ) -> Self {
         Self {
             hover_readers: Rc::default(),
+            focus_chain: Rc::from([]),
+            modifiers_read: Rc::default(),
             view_profile: None,
             // Read through the state so a theme change rebuilds the UI.
             theme: theme_state.get(),
@@ -1048,6 +1054,12 @@ impl<'a> BuildCx<'a> {
     /// Nothing on the screen has keyboard focus.
     pub fn nothing_focused(&self) -> bool {
         self.interaction.focused.is_none()
+    }
+
+    /// Keyboard focus is on this view or on any element inside it. A change of focus builds the
+    /// views again, so it is current on every build.
+    pub fn is_focus_within(&self) -> bool {
+        self.focus_chain.contains(&self.widget_id())
     }
 
     /// Keyboard focus is on this view.
@@ -1519,6 +1531,14 @@ impl<'a> BuildCx<'a> {
         if let Some(e) = self.elements.get(node.0 as usize) {
             self.focus_request = Some(e.widget);
         }
+    }
+
+    /// The keys held now (Ctrl, Shift, Alt, Cmd), for a view that looks different while one is held,
+    /// such as a list shown while Ctrl is down. The views are built again when one is pressed or let
+    /// go.
+    pub fn held(&self) -> Modifiers {
+        self.modifiers_read.set(true);
+        self.modifiers.get()
     }
 
     /// Keyboard modifiers as of the latest input event, readable from click
