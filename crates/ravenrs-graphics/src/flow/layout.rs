@@ -59,7 +59,40 @@ impl FlowLayout {
 
     /// Where each node goes, its left and top edges, in the order of `graph.nodes`. The
     /// arranged diagram starts where the diagram started: its box keeps its top left corner.
+    ///
+    /// Only the nodes outside any group are arranged, with a group standing for everything in
+    /// it and its connections; what a group holds moves with it and keeps its own arrangement.
     pub fn positions(&self, graph: &FlowGraph) -> Vec<(f32, f32)> {
+        let outer = FlowGraph {
+            nodes: graph.nodes.iter().filter(|n| n.parent.is_none()).cloned().collect(),
+            edges: graph
+                .edges
+                .iter()
+                .map(|e| {
+                    let mut e = e.clone();
+                    e.from.node = graph.top(&e.from.node);
+                    e.to.node = graph.top(&e.to.node);
+                    e
+                })
+                .collect(),
+        };
+        let placed = self.arrange(&outer);
+        graph
+            .nodes
+            .iter()
+            .map(|n| {
+                let top = graph.top(&n.id);
+                let moved = outer.nodes.iter().zip(&placed).find(|(o, _)| o.id == top);
+                match moved {
+                    Some((o, (x, y))) => (n.x + x - o.x, n.y + y - o.y),
+                    None => (n.x, n.y),
+                }
+            })
+            .collect()
+    }
+
+    /// Where each node of a diagram with no groups goes.
+    fn arrange(&self, graph: &FlowGraph) -> Vec<(f32, f32)> {
         let n = graph.nodes.len();
         if n == 0 {
             return Vec::new();
@@ -297,6 +330,7 @@ fn order(n: usize, links: &[(usize, usize)], layer: &[usize]) -> Vec<Vec<usize>>
 mod tests {
     use super::*;
     use crate::flow::{FlowEdge, FlowEndpoint, FlowPort};
+    use ravenrs_core::Rect;
 
     fn node(id: &str) -> FlowNode {
         FlowNode::new(id, "step", id, 500.0, 500.0).port(FlowPort::input("in")).port(FlowPort::output("out"))
@@ -378,6 +412,26 @@ mod tests {
         FlowLayout::default().apply(&mut crossed);
         let above = |a: &str, b: &str| at(&crossed, a).1 < at(&crossed, b).1;
         assert_eq!(above("p", "q"), above("y", "x"), "the lines run side by side");
+    }
+
+    #[test]
+    fn a_group_is_arranged_as_one_box_and_what_it_holds_moves_with_it() {
+        let mut g = FlowGraph::new()
+            .node(FlowNode::new_group("g", "Checks", Rect::new(1000.0, 0.0, 248.0, 264.0)))
+            .node(FlowNode { x: 1024.0, y: 48.0, ..node("b") }.parent("g"))
+            .node(FlowNode { x: 1024.0, y: 156.0, ..node("c") }.parent("g"))
+            .node(FlowNode { x: 0.0, y: 0.0, ..node("a") })
+            .edge(link("e1", "a", "b"))
+            .edge(link("e2", "b", "c"));
+        FlowLayout::default().apply(&mut g);
+        // The group comes after `a`, as the line into what it holds says, and keeps its inside.
+        let (a, group, b, c) = (at(&g, "a"), at(&g, "g"), at(&g, "b"), at(&g, "c"));
+        // The box of everything keeps its corner, and `a` lines up with the middle of the group.
+        assert_eq!((a.0, group.1), (0.0, 0.0));
+        assert_eq!(a.1 + 42.0, group.1 + 132.0);
+        assert_eq!(group.0, 200.0 + 96.0);
+        assert_eq!((b.0 - group.0, b.1 - group.1), (24.0, 48.0));
+        assert_eq!((c.0 - b.0, c.1 - b.1), (0.0, 108.0));
     }
 
     #[test]

@@ -196,6 +196,9 @@ pub type FlowValidator = Rc<dyn Fn(&FlowGraph, &FlowEndpoint, &FlowEndpoint) -> 
 ///   move that end.
 /// * Drag the corner of a selected node, or press Alt with the arrows, to resize it. The
 ///   arrange button in the controls lays the diagram out in layers ([`FlowLayout`]).
+/// * Cmd/Ctrl+G puts the selected nodes in a group, which moves, copies and goes with what it
+///   holds; Shift+Cmd/Ctrl+G takes the selected groups apart. Dropping a node inside a group
+///   puts it there, and dropping it outside takes it out.
 /// * Cmd/Ctrl+Z undoes, Shift+Cmd/Ctrl+Z (or Cmd/Ctrl+Y) redoes. Cmd/Ctrl+C copies the selected
 ///   nodes with the connections between them, as JSON, Cmd/Ctrl+X cuts them and Cmd/Ctrl+V
 ///   pastes them back with new ids, a little further along each time.
@@ -451,6 +454,8 @@ struct Flow {
     snap: bool,
     range: (f32, f32),
     refused: String,
+    /// What a new group is called.
+    group_title: String,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -514,11 +519,83 @@ impl Flow {
             return false;
         }
         let mut graph = self.graph.get();
-        for node in graph.nodes.iter_mut().filter(|n| selection.has_node(&n.id)) {
+        let moving = graph.with_descendants(&selection.nodes);
+        for node in graph.nodes.iter_mut().filter(|n| moving.contains(&n.id)) {
             node.x += dx;
             node.y += dy;
         }
+        Self::regroup(&mut graph, &moving);
         self.commit(graph);
+        true
+    }
+
+    /// After a move, puts each moved node (that did not move with its group) in the smallest
+    /// group its middle is over, or in none.
+    fn regroup(graph: &mut FlowGraph, moved: &[String]) {
+        for id in moved {
+            let Some(node) = graph.find_node(id) else { continue };
+            if node.parent.as_ref().is_some_and(|p| moved.contains(p)) {
+                continue;
+            }
+            let middle = node.rect().center();
+            let inside = graph.descendants(id);
+            let target = graph
+                .nodes
+                .iter()
+                .filter(|g| g.group && &g.id != id && !inside.contains(&g.id) && g.rect().contains(middle))
+                .min_by(|a, b| (a.width * a.height).total_cmp(&(b.width * b.height)))
+                .map(|g| g.id.clone());
+            if target != node.parent {
+                graph.set_parent(id, target.as_deref());
+            }
+        }
+    }
+
+    /// Puts the selected nodes in a new group, which is then selected.
+    fn group_selection(&self) -> bool {
+        let selection = self.selection.get();
+        if selection.nodes.is_empty() || self.locked.get() {
+            return false;
+        }
+        let mut graph = self.graph.get();
+        // Only the outermost of what is selected: a node whose group is selected goes with it.
+        let members: Vec<String> = selection
+            .nodes
+            .iter()
+            .filter(|id| {
+                graph.find_node(id).and_then(|n| n.parent.clone()).is_none_or(|p| !selection.has_node(&p))
+            })
+            .cloned()
+            .collect();
+        let id = graph.fresh_node_id("group");
+        let group = FlowNode::new_group(id.clone(), self.group_title.clone(), Rect::default());
+        if !graph.group(&members, group) {
+            return false;
+        }
+        self.commit(graph);
+        self.select(FlowSelection::node(id));
+        true
+    }
+
+    /// Takes the selected groups apart, selecting what they held.
+    fn ungroup_selection(&self) -> bool {
+        let selection = self.selection.get();
+        if self.locked.get() {
+            return false;
+        }
+        let mut graph = self.graph.get();
+        let mut freed: Vec<String> = Vec::new();
+        for id in &selection.nodes {
+            let held: Vec<String> = graph.children(id).map(|n| n.id.clone()).collect();
+            if graph.ungroup(id) {
+                freed.extend(held);
+            }
+        }
+        if freed.is_empty() {
+            return false;
+        }
+        self.commit(graph);
+        self.select(FlowSelection { nodes: freed, edges: Vec::new() });
         true
     }
 
@@ -691,6 +768,8 @@ impl Flow {
                 "c" => return self.copy(),
                 "x" => return self.cut(),
                 "v" => return self.paste(),
+                "g" if shift => return self.ungroup_selection(),
+                "g" => return self.group_selection(),
                 _ => {}
             }
         }
@@ -826,6 +905,13 @@ impl Flow {
         self.memory.pointer.set(Some(at));
         match phase {
             DragPhase::Start => {
+                // A group lies under the lines inside it: a press on one of them picks the line.
+                let on_group = self.graph.get().find_node(id).is_some_and(|n| n.group);
+                if on_group && let Some(edge) = self.edge_at(at) {
+                    self.select(FlowSelection::edge(edge));
+                    *self.memory.gesture.borrow_mut() = Gesture::Idle;
+                    return;
+                }
                 let mut selection = self.selection.get();
                 if shift {
                     if selection.has_node(id) {
@@ -842,10 +928,11 @@ impl Flow {
                     return;
                 }
                 let graph = self.graph.get();
+                let moving = graph.with_descendants(&selection.nodes);
                 let origins = graph
                     .nodes
                     .iter()
-                    .filter(|n| selection.has_node(&n.id))
+                    .filter(|n| moving.contains(&n.id))
                     .map(|n| (n.id.clone(), n.x, n.y))
                     .collect();
                 *self.memory.gesture.borrow_mut() = Gesture::Move { pressed: at, origins, before: graph };
@@ -874,9 +961,16 @@ impl Flow {
             }
             DragPhase::End => {
                 let gesture = std::mem::take(&mut *self.memory.gesture.borrow_mut());
-                if let Gesture::Move { before, .. } = gesture
-                    && before != self.graph.get()
-                {
+                if let Gesture::Move { before, origins, .. } = gesture {
+                    let mut graph = self.graph.get();
+                    if before == graph {
+                        return;
+                    }
+                    let moved: Vec<String> = origins.into_iter().map(|(id, _, _)| id).collect();
+                    Self::regroup(&mut graph, &moved);
+                    if graph != self.graph.get() {
+                        self.graph.set(graph);
+                    }
                     // The whole move is one change to undo, not one per step of the pointer.
                     self.history.update(|h| h.record(before));
                 }
@@ -1140,6 +1234,8 @@ struct Surface {
     connecting: Option<Connecting>,
     marquee: Option<Rect>,
     grid: f32,
+    /// The corner radius of a group's panel at 100%.
+    radius: f32,
     palette: Palette,
 }
 
@@ -1168,6 +1264,15 @@ impl Surface {
                 }
                 y += step;
             }
+        }
+        // The panels of the groups, under the lines, outermost first as the diagram has them.
+        let radius = self.radius;
+        for group in self.graph.nodes.iter().filter(|n| n.group) {
+            let r = group.rect();
+            let (a, b) =
+                (self.view.to_screen(r.origin), self.view.to_screen(Point::new(r.max_x(), r.max_y())));
+            let panel = Rect::new(frame.x() + a.x, frame.y() + a.y, b.x - a.x, b.y - a.y);
+            scene.push_quad(Quad::new(panel, p.surface.with_alpha(0.7)).radius(radius * self.view.zoom));
         }
         let touching = |edge: &FlowEdge| {
             self.selection.has_edge(&edge.id)
@@ -1260,6 +1365,7 @@ impl View for FlowCanvas {
             snap: self.snap,
             range: self.range,
             refused: labels.flow_refused.clone(),
+            group_title: labels.flow_group.clone(),
         };
         let graph = self.graph.get();
         let size = cx.scroll_viewport();
@@ -1286,6 +1392,7 @@ impl View for FlowCanvas {
                 view,
                 selected: selection.has_node(&node.id),
                 resizable: self.resizable && !is_locked && selection.has_node(&node.id),
+                members: graph.children(&node.id).count(),
                 handles: graph
                     .edges
                     .iter()
@@ -1348,6 +1455,7 @@ impl View for FlowCanvas {
             connecting: connecting_now,
             marquee: marquee.get(),
             grid: self.grid,
+            radius: theme.radii.lg,
             palette,
         };
         let animated = graph.edges.iter().any(|e| e.animated) && !cx.reduced_motion();
@@ -1563,6 +1671,8 @@ struct NodeBox {
     handles: Vec<String>,
     /// Shows the corner that resizes it.
     resizable: bool,
+    /// For a group, how many nodes it holds directly.
+    members: usize,
     connecting: Option<Connecting>,
     connected: Vec<String>,
     flow: Flow,
@@ -1571,9 +1681,14 @@ struct NodeBox {
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl NodeBox {
-    /// The node's description for screen readers: its kind, its line and how it is doing.
+    /// The node's description for screen readers: its kind, its line and how it is doing, and
+    /// for a group, how many nodes it holds.
     fn description(&self, labels: &crate::Labels) -> String {
         let mut parts = Vec::new();
+        if self.node.group {
+            parts.push(labels.flow_group.clone());
+            parts.push(labels.flow_members.replace("{0}", &self.members.to_string()));
+        }
         if let Some(look) = &self.look {
             parts.push(look.caption.clone());
         }
@@ -1637,7 +1752,12 @@ impl View for NodeBox {
         let (title, subtitle, status) = (node.title.clone(), node.subtitle.clone(), node.status.clone());
         let selected = self.selected;
         let zoom = view.zoom;
+        let is_group = node.group;
         let paint = Paint::Rich(Rc::new(move |frame: Rect, paint: &mut PaintCx<'_>| {
+            if is_group {
+                draw_group(paint, frame, zoom, &theme, p, &title, selected, hovered);
+                return;
+            }
             draw_node(
                 paint,
                 frame,
@@ -1791,6 +1911,46 @@ fn draw_node(
         layout.paint(Point::new(x, y), color, paint.scene);
         y += attrs.line_height;
     }
+}
+
+/// Draws a group's edge and title at the zoom; [`Surface::paint`] lays its panel under the lines.
+#[allow(clippy::too_many_arguments, reason = "what one panel shows")]
+fn draw_group(
+    paint: &mut PaintCx<'_>,
+    frame: Rect,
+    zoom: f32,
+    theme: &Theme,
+    p: Palette,
+    title: &str,
+    selected: bool,
+    hovered: bool,
+) {
+    // The panel itself is painted by the surface, under the lines; here only its edge and title,
+    // so the lines inside a group show.
+    let radius = theme.radii.lg * zoom;
+    let (edge, width) = match () {
+        _ if selected => (p.accent, 2.0),
+        _ if hovered => (p.muted, 1.0),
+        _ => (p.border, 1.0),
+    };
+    paint.scene.push_quad(Quad::new(frame, Color::TRANSPARENT).radius(radius).border(width, edge));
+    if zoom < TEXT_ZOOM {
+        return;
+    }
+    let a = util::attrs(theme, TextStyle::Callout, Some(Weight::SEMIBOLD));
+    let attrs = TextAttrs { size: a.size * zoom, line_height: a.line_height * zoom, ..a };
+    let pad = theme.spacing.s3 * zoom;
+    let room = (frame.width() - pad * 2.0).max(0.0);
+    let header = group_header(zoom);
+    let y = frame.y() + (header - attrs.line_height) / 2.0;
+    let layout = paint.text.layout_ellipsized(title, &attrs, room);
+    layout.paint(Point::new(frame.x() + pad, y), if selected { p.accent } else { p.muted }, paint.scene);
+}
+
+/// The height of a group's title band on screen: the room [`FlowNode::GROUP_PADDING`] leaves
+/// above what it holds.
+fn group_header(zoom: f32) -> f32 {
+    FlowNode::GROUP_PADDING.1 * zoom
 }
 
 /// How a port shows.

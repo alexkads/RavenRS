@@ -151,12 +151,25 @@ pub struct FlowNode {
     /// How it is doing.
     #[serde(default)]
     pub status: FlowNodeStatus,
+    /// The group it sits in, by id. Its place stays its own (in units of the diagram, like any
+    /// node's), and it moves when the group moves.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
+    /// A group: a box that holds the nodes whose `parent` it is, drawn behind them with its
+    /// title on top.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub group: bool,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FlowNode {
     /// The default size of a node, in content units.
     pub const SIZE: (f32, f32) = (200.0, 84.0);
+    /// The kind [`FlowNode::new_group`] gives a group.
+    pub const GROUP: &'static str = "group";
+    /// The room a group leaves around what it holds: at the sides and bottom, and at the top,
+    /// where its title goes.
+    pub const GROUP_PADDING: (f32, f32) = (24.0, 48.0);
 
     /// A node of this kind at `(x, y)`, of the default size and with no ports.
     pub fn new(
@@ -201,6 +214,27 @@ impl FlowNode {
     pub fn status(mut self, status: FlowNodeStatus) -> Self {
         self.status = status;
         self
+    }
+
+    /// Inside this group.
+    pub fn parent(mut self, group: impl Into<String>) -> Self {
+        self.parent = Some(group.into());
+        self
+    }
+
+    /// A group called `title`, with this box and no ports, of the kind [`FlowNode::GROUP`].
+    pub fn new_group(id: impl Into<String>, title: impl Into<String>, rect: Rect) -> Self {
+        Self {
+            id: id.into(),
+            kind: Self::GROUP.to_owned(),
+            title: title.into(),
+            x: rect.x(),
+            y: rect.y(),
+            width: rect.width(),
+            height: rect.height(),
+            group: true,
+            ..Self::default()
+        }
     }
 
     /// Its box.
@@ -373,10 +407,12 @@ impl FlowGraph {
         Some(route(from, from_side, to, to_side, edge.shape))
     }
 
-    /// Takes out these nodes and every connection that touches them, and these connections.
-    /// Says whether anything went.
+    /// Takes out these nodes with everything in them (when they are groups) and every
+    /// connection that touches them, and these connections. Says whether anything went.
     pub fn remove(&mut self, nodes: &[String], edges: &[String]) -> bool {
         let before = (self.nodes.len(), self.edges.len());
+        let nodes = self.with_descendants(nodes);
+        let nodes = &nodes;
         self.nodes.retain(|n| !nodes.contains(&n.id));
         self.edges.retain(|e| {
             !edges.contains(&e.id) && !nodes.contains(&e.from.node) && !nodes.contains(&e.to.node)
@@ -422,14 +458,139 @@ impl FlowGraph {
             .unwrap_or_else(|| stem.to_owned())
     }
 
-    /// These nodes and the connections that run between two of them: the part of the diagram
-    /// that is copied, in the order the diagram has them.
+    /// These nodes, with everything in the groups among them, and the connections that run
+    /// between two of them: the part of the diagram that is copied, in the order the diagram
+    /// has them. A node whose group stays out is no longer in a group.
     pub fn extract(&self, nodes: &[String]) -> FlowGraph {
+        let nodes = self.with_descendants(nodes);
         let has = |id: &str| nodes.iter().any(|n| n == id);
         FlowGraph {
-            nodes: self.nodes.iter().filter(|n| has(&n.id)).cloned().collect(),
+            nodes: self
+                .nodes
+                .iter()
+                .filter(|n| has(&n.id))
+                .map(|n| FlowNode { parent: n.parent.clone().filter(|p| has(p)), ..n.clone() })
+                .collect(),
             edges: self.edges.iter().filter(|e| has(&e.from.node) && has(&e.to.node)).cloned().collect(),
         }
+    }
+
+    /// The nodes whose group is `id`, in the diagram's order.
+    pub fn children<'a>(&'a self, id: &'a str) -> impl Iterator<Item = &'a FlowNode> + 'a {
+        self.nodes.iter().filter(move |n| n.parent.as_deref() == Some(id))
+    }
+
+    /// Everything inside `id`: its children, theirs and so on (not `id` itself).
+    pub fn descendants(&self, id: &str) -> Vec<String> {
+        let mut found: Vec<String> = Vec::new();
+        let mut next = vec![id.to_owned()];
+        while let Some(at) = next.pop() {
+            for child in self.children(&at) {
+                if child.id != id && !found.contains(&child.id) {
+                    found.push(child.id.clone());
+                    next.push(child.id.clone());
+                }
+            }
+        }
+        found
+    }
+
+    /// These nodes and everything inside the groups among them, each once.
+    pub fn with_descendants(&self, ids: &[String]) -> Vec<String> {
+        let mut all: Vec<String> = Vec::with_capacity(ids.len());
+        for id in ids {
+            for one in std::iter::once(id.clone()).chain(self.descendants(id)) {
+                if !all.contains(&one) {
+                    all.push(one);
+                }
+            }
+        }
+        all
+    }
+
+    /// The outermost group `id` is in, or `id` itself when it is in none.
+    pub fn top(&self, id: &str) -> String {
+        let mut at = id.to_owned();
+        let mut steps = 0;
+        while let Some(parent) = self.find_node(&at).and_then(|n| n.parent.clone()) {
+            // A cycle cannot be built through this model, but a diagram read by hand might hold one.
+            steps += 1;
+            if steps > self.nodes.len() {
+                break;
+            }
+            at = parent;
+        }
+        at
+    }
+
+    /// Puts `id` in the group `parent` (or in none). Refused, saying false, when `parent` is
+    /// not a group or is `id` or inside it. The node and what it holds move after the group in
+    /// the diagram's order, so the group is drawn behind them.
+    pub fn set_parent(&mut self, id: &str, parent: Option<&str>) -> bool {
+        if let Some(group) = parent {
+            let ok = self.find_node(group).is_some_and(|g| g.group)
+                && group != id
+                && !self.descendants(id).iter().any(|d| d == group);
+            if !ok {
+                return false;
+            }
+        }
+        let Some(node) = self.find_node_mut(id) else { return false };
+        if node.parent.as_deref() == parent {
+            return true;
+        }
+        node.parent = parent.map(str::to_owned);
+        if parent.is_some() {
+            let moving = self.with_descendants(&[id.to_owned()]);
+            let (mut kept, taken): (Vec<FlowNode>, Vec<FlowNode>) =
+                std::mem::take(&mut self.nodes).into_iter().partition(|n| !moving.contains(&n.id));
+            kept.extend(taken);
+            self.nodes = kept;
+        }
+        true
+    }
+
+    /// Puts these nodes in a new group `group`, sized to hold them with
+    /// [`FlowNode::GROUP_PADDING`] around, and in the group they shared, if they all shared
+    /// one. The group goes behind the first of them. Returns false, changing nothing, when
+    /// there are no such nodes or the id is taken.
+    pub fn group(&mut self, members: &[String], group: FlowNode) -> bool {
+        if self.find_node(&group.id).is_some() {
+            return false;
+        }
+        let inside: Vec<&FlowNode> = self.nodes.iter().filter(|n| members.contains(&n.id)).collect();
+        let Some(first) = inside.first() else { return false };
+        let bounds = inside.iter().skip(1).fold(first.rect(), |all, n| union(all, n.rect()));
+        let shared = first.parent.clone().filter(|p| inside.iter().all(|n| n.parent.as_ref() == Some(p)));
+        let (side, top) = FlowNode::GROUP_PADDING;
+        let group = FlowNode {
+            x: bounds.x() - side,
+            y: bounds.y() - top,
+            width: bounds.width() + side * 2.0,
+            height: bounds.height() + top + side,
+            parent: shared,
+            group: true,
+            ..group
+        };
+        let id = group.id.clone();
+        let at = self.nodes.iter().position(|n| members.contains(&n.id)).unwrap_or(0);
+        self.nodes.insert(at, group);
+        for node in self.nodes.iter_mut().filter(|n| members.contains(&n.id)) {
+            node.parent = Some(id.clone());
+        }
+        true
+    }
+
+    /// Takes out the group `id`, leaving what it held in the group it was in. Says whether it
+    /// was a group.
+    pub fn ungroup(&mut self, id: &str) -> bool {
+        let Some(group) = self.find_node(id).filter(|g| g.group).cloned() else { return false };
+        for node in self.nodes.iter_mut().filter(|n| n.parent.as_deref() == Some(id)) {
+            node.parent = group.parent.clone();
+        }
+        self.nodes.retain(|n| n.id != id);
+        self.edges.retain(|e| e.from.node != id && e.to.node != id);
+        true
     }
 
     /// Adds a copy of `piece` moved by `(dx, dy)`, on top of the other nodes. Nodes and
@@ -438,12 +599,17 @@ impl FlowGraph {
     /// got, nodes first.
     pub fn insert(&mut self, piece: &FlowGraph, dx: f32, dy: f32) -> (Vec<String>, Vec<String>) {
         let mut renamed: Vec<(&str, String)> = Vec::with_capacity(piece.nodes.len());
+        let first = self.nodes.len();
         for node in &piece.nodes {
             let id = self.fresh_node_id(&node.id);
             self.nodes.push(FlowNode { id: id.clone(), x: node.x + dx, y: node.y + dy, ..node.clone() });
             renamed.push((&node.id, id));
         }
         let new_id = |old: &str| renamed.iter().find(|(o, _)| *o == old).map(|(_, id)| id.clone());
+        // The copies sit in the copies of their groups, or in none.
+        for node in &mut self.nodes[first..] {
+            node.parent = node.parent.as_deref().and_then(new_id);
+        }
         let mut edges = Vec::new();
         for edge in &piece.edges {
             let (Some(from), Some(to)) = (new_id(&edge.from.node), new_id(&edge.to.node)) else { continue };
@@ -475,11 +641,20 @@ impl FlowGraph {
     }
 
     /// The first thing that keeps the diagram from holding together, if any: a repeated node,
-    /// port or connection id, or a connection to a node or port that is not there.
+    /// port or connection id, a connection to a node or port that is not there, or a node in a
+    /// group that is not there, is not a group or holds it.
     pub fn check(&self) -> Result<(), FlowJsonError> {
         for (i, node) in self.nodes.iter().enumerate() {
             if self.nodes[..i].iter().any(|n| n.id == node.id) {
                 return Err(FlowJsonError::RepeatedNode(node.id.clone()));
+            }
+            if let Some(parent) = &node.parent {
+                if !self.find_node(parent).is_some_and(|g| g.group) {
+                    return Err(FlowJsonError::MissingGroup { node: node.id.clone(), group: parent.clone() });
+                }
+                if parent == &node.id || self.descendants(&node.id).contains(parent) {
+                    return Err(FlowJsonError::GroupCycle(node.id.clone()));
+                }
             }
             for (j, port) in node.ports.iter().enumerate() {
                 if node.ports[..j].iter().any(|p| p.id == port.id) {
@@ -526,6 +701,15 @@ pub enum FlowJsonError {
         /// The end that is missing.
         end: FlowEndpoint,
     },
+    /// A node is in a group that is not there or is not a group.
+    MissingGroup {
+        /// The node.
+        node: String,
+        /// The group it names.
+        group: String,
+    },
+    /// A node is in a group that it holds, or in itself.
+    GroupCycle(String),
 }
 
 impl std::fmt::Display for FlowJsonError {
@@ -542,6 +726,10 @@ impl std::fmt::Display for FlowJsonError {
                     end.port, end.node
                 )
             }
+            Self::MissingGroup { node, group } => {
+                write!(f, "node \"{node}\" is in group \"{group}\", which is not a group of this diagram")
+            }
+            Self::GroupCycle(id) => write!(f, "node \"{id}\" is in a group it holds"),
         }
     }
 }
@@ -1032,6 +1220,91 @@ mod tests {
         // A copy of a copy counts on, and a free id stays as it is.
         assert_eq!(g.fresh_node_id("a-2"), "a-3");
         assert_eq!(g.fresh_node_id("new"), "new");
+    }
+
+    fn grouped() -> FlowGraph {
+        let mut g = graph().node(FlowNode::new("c", "action", "C", 300.0, 300.0));
+        assert!(g.group(&["a".into(), "b".into()], FlowNode::new_group("g", "Sale", Rect::default())));
+        g
+    }
+
+    #[test]
+    fn a_group_holds_its_nodes_with_room_and_is_drawn_behind_them() {
+        let g = grouped();
+        let group = g.find_node("g").cloned().unwrap_or_default();
+        // a and b span (0, 0) to (500, 184); 24 around and 48 on top.
+        assert_eq!(group.rect(), Rect::new(-24.0, -48.0, 548.0, 256.0));
+        assert!(group.group && group.parent.is_none());
+        assert_eq!(g.nodes[0].id, "g", "before the first of them");
+        assert_eq!(g.children("g").map(|n| n.id.as_str()).collect::<Vec<_>>(), ["a", "b"]);
+        assert_eq!(g.top("a"), "g");
+        assert_eq!(g.check(), Ok(()));
+        assert!(
+            !grouped().group(&["c".into()], FlowNode::new_group("g", "Again", Rect::default())),
+            "id taken"
+        );
+    }
+
+    #[test]
+    fn groups_nest_and_cannot_hold_themselves() {
+        let mut g = grouped();
+        assert!(g.group(&["g".into(), "c".into()], FlowNode::new_group("outer", "All", Rect::default())));
+        assert_eq!(g.top("a"), "outer");
+        let mut inside = g.descendants("outer");
+        inside.sort();
+        assert_eq!(inside, ["a", "b", "c", "g"]);
+        assert!(!g.set_parent("outer", Some("g")), "a group inside what it holds");
+        assert!(!g.set_parent("c", Some("a")), "a is not a group");
+        assert!(g.set_parent("c", Some("g")));
+        let order: Vec<&str> = g.nodes.iter().map(|n| n.id.as_str()).collect();
+        assert!(order.iter().position(|id| *id == "g") < order.iter().position(|id| *id == "c"));
+        assert_eq!(g.check(), Ok(()));
+    }
+
+    #[test]
+    fn removing_a_group_takes_what_it_holds_and_ungrouping_keeps_it() {
+        let mut gone = grouped();
+        assert!(gone.remove(&["g".into()], &[]));
+        assert_eq!(gone.nodes.iter().map(|n| n.id.as_str()).collect::<Vec<_>>(), ["c"]);
+        assert!(gone.edges.is_empty());
+
+        let mut loose = grouped();
+        assert!(loose.ungroup("g"));
+        assert!(!loose.ungroup("a"), "not a group");
+        assert!(loose.nodes.iter().all(|n| n.parent.is_none()));
+        assert_eq!(loose.edges.len(), 1);
+    }
+
+    #[test]
+    fn a_copied_group_comes_with_what_it_holds_in_a_copy_of_itself() {
+        let mut g = grouped();
+        let piece = g.extract(&["g".into()]);
+        assert_eq!(piece.nodes.len(), 3);
+        assert_eq!(piece.edges.len(), 1);
+        let (nodes, _) = g.insert(&piece, 0.0, 400.0);
+        assert_eq!(nodes, ["g-2", "a-2", "b-2"]);
+        assert_eq!(g.find_node("a-2").and_then(|n| n.parent.clone()).as_deref(), Some("g-2"));
+        // Copying a node out of its group leaves the group behind.
+        let alone = g.extract(&["a".into()]);
+        assert_eq!(alone.nodes[0].parent, None);
+        assert_eq!(g.check(), Ok(()));
+    }
+
+    #[test]
+    fn json_keeps_groups_and_refuses_a_missing_or_circular_one() {
+        let g = grouped();
+        assert_eq!(FlowGraph::from_json(&g.to_json()), Ok(g.clone()));
+        assert!(!FlowGraph::new().node(FlowNode::new("x", "k", "X", 0.0, 0.0)).to_json().contains("group"));
+        let lost = graph().node(FlowNode::new("x", "k", "X", 0.0, 0.0).parent("nowhere"));
+        assert_eq!(
+            FlowGraph::from_json(&lost.to_json()),
+            Err(FlowJsonError::MissingGroup { node: "x".into(), group: "nowhere".into() })
+        );
+        let mut circle = grouped();
+        if let Some(group) = circle.find_node_mut("g") {
+            group.parent = Some("g".into());
+        }
+        assert_eq!(FlowGraph::from_json(&circle.to_json()), Err(FlowJsonError::GroupCycle("g".into())));
     }
 
     #[test]

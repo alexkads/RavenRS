@@ -354,8 +354,10 @@ field Labels::flow_canvas
 field Labels::flow_controls
 field Labels::flow_count
 field Labels::flow_disabled
+field Labels::flow_group
 field Labels::flow_input
 field Labels::flow_lock
+field Labels::flow_members
 field Labels::flow_output
 field Labels::flow_pick_port
 field Labels::flow_refused
