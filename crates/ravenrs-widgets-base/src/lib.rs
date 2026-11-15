@@ -32,6 +32,8 @@ pub mod dock_side;
 #[doc(hidden)]
 pub mod extras;
 #[doc(hidden)]
+pub mod field_drag;
+#[doc(hidden)]
 pub mod file_picker;
 #[doc(hidden)]
 pub mod fill;
@@ -136,6 +138,7 @@ pub use extras::{
     AccessibleControl, Carousel, FormField, InputOtp, Menubar, Rule, Spinner, SplitHandle, SplitPane,
     SplitPanes, Splitter, validate,
 };
+pub use field_drag::{FIELD_DRAG, FieldDrag, field_expression};
 pub use file_picker::{FilePicker, FilePickerProvider, FileRequest, NoFilePicker, PickedFile};
 pub use fill::Fill;
 pub use floating::{

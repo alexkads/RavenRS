@@ -1231,13 +1231,103 @@ fn the_flow_diagram_shows_every_feature_and_its_connections_hang_as_cables() {
         assert!(c.says("Diagrama de exemplo"), "{option} keeps the canvas");
         c.activate(option);
     }
+    // Enter twice on a port opens the search of what a connection from it can lead to; a start
+    // takes nothing in, so it is not offered.
+    let before = c.texts().iter().filter(|t| t.starts_with("Nós no diagrama")).cloned().collect::<Vec<_>>();
+    let port =
+        c.ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.name.as_deref() == Some("out"))
+            .map(|n| n.id)
+            .expect("a port");
+    c.ui.perform_action(port, AccessAction::Focus);
+    c.key(ravenrs_core::Key::Enter);
+    c.key(ravenrs_core::Key::Enter);
+    assert!(c.says("Procurar o próximo nó"), "the search opens: {:?}", c.texts());
+    assert!(c.says("Etapa de conferência") && !c.says("Outro início"), "only what the port takes");
+    c.press("Etapa de conferência");
+    assert!(!c.says("Procurar o próximo nó"), "and closes, the node created connected");
+    assert!(!c.says(&before[0]), "one node more");
+    // A run told from outside: the canvas says how each node did and counts the items.
+    c.activate("Execução de fora");
+    assert!(c.says("3 itens"), "the count on the line: {:?}", c.texts());
+    assert!(c.says("Nós no diagrama: 6"), "the diagram itself is the same");
+    c.activate("Execução de fora");
+    assert!(!c.says("3 itens"));
+    // Read only: the lock is not offered.
+    c.activate("Só leitura");
+    assert!(!c.says("Destravar edição"), "no way out of the lock");
+    c.activate("Só leitura");
     c.activate("Grade 48");
     c.activate("Mapa mental");
     // Without cables, the lines are plain again.
     c.activate("Ligações como cabos");
     assert!(c.ui.cables().ids().is_empty(), "plain lines");
     c.activate("Ligações como cabos");
-    assert_eq!(c.ui.cables().ids().len(), 2);
+    assert_eq!(c.ui.cables().ids().len(), 3, "the two of the sample and the one the search created");
+}
+
+#[test]
+fn the_data_inspector_shows_the_orders_four_ways_and_keeps_the_field_chosen() {
+    let mut c = Center::memory("ana");
+    c.press("Inspetor de dados");
+    assert!(c.says("1234567890123456789"), "the 19-digit number exact: {:?}", c.texts());
+    assert!(c.says("null"), "a null discount");
+    assert!(c.says("—"), "and an absent one, told apart");
+    c.activate("Árvore");
+    assert!(c.says("Item 1 de 3"));
+    c.press("Próximo item");
+    assert!(c.says("Modo 1 · item 2"), "the item moved");
+    c.activate("pedido: 102");
+    assert!(c.says("Escolheu pedido"), "the pick is heard as a path");
+    assert!(c.says("Arraste pedido para um parâmetro"), "the field chosen can be carried to an expression");
+    c.press("Copiar como expressão");
+    assert_eq!(c.ui.clipboard().read().as_deref(), Some("[pedido]"), "or copied as one from the keyboard");
+    c.activate("Esquema");
+    assert!(c.says("▸ pedido"), "the field chosen stays chosen");
+    assert!(c.says("cliente.cidade"), "a field one order lacks");
+    c.activate("JSON");
+    assert!(c.says("Campo escolhido: pedido"));
+    c.activate("Tabela");
+    c.activate("Cinco mil linhas");
+    assert!(c.says("Mostrando 100 de 5000 itens"), "a long list is cut with a notice");
+}
+
+#[test]
+fn the_expression_editor_previews_the_result_and_tells_a_failure_apart() {
+    let mut c = Center::memory("ana");
+    c.press("Editor de expressões");
+    assert!(c.says("Resultado: 300"), "the preview over the sample order: {:?}", c.texts());
+    c.press("Usar um exemplo que dá certo");
+    assert!(c.says("Resultado: 140"), "with the parameter Desconto");
+    c.press("Usar um exemplo que falha");
+    assert!(c.says("Não deu para calcular"), "a failure says so");
+    assert!(!c.says("Resultado:"), "and is not a result");
+    c.press("Limpar");
+    assert!(!c.says("Não deu para calcular"), "nothing written, nothing to preview");
+}
+
+#[test]
+fn the_parameter_form_builds_from_a_schema_and_gives_back_only_on_apply() {
+    let mut c = Center::memory("ana");
+    c.press("Formulário de parâmetros");
+    assert!(c.says("Endereço"), "the fields of the schema: {:?}", c.texts());
+    assert!(!c.says("Corpo"), "the body only shows for POST");
+    assert!(c.says("Pediu as opções de account"), "the account's options are asked for");
+    c.press("Adicionar");
+    assert!(c.says("Remover a linha 1"), "a row of headers");
+    c.press("Aplicar");
+    assert!(c.says("Endereço é obrigatório"), "nothing goes back without the address");
+    c.activate("Expressão");
+    c.press("Descartar");
+    assert!(c.says("Descartado."));
+    c.activate("Carregando");
+    assert!(c.says("Carregando as opções"));
+    c.activate("Falharam");
+    assert!(c.says("Não deu para carregar as opções"));
+    c.press("Tentar de novo");
+    assert!(c.says("Pediu as opções de account"));
 }
 
 #[test]

@@ -217,6 +217,8 @@ pub struct Executor<'a> {
     on_step: Option<Listener<'a>>,
     events: Arc<BTreeMap<String, Vec<Item>>>,
     woken: BTreeMap<String, Wake>,
+    /// The first item each node that already ran gave, for expressions that read `nodes.<id>`.
+    seen: std::cell::RefCell<Arc<BTreeMap<String, serde_json::Value>>>,
 }
 
 impl fmt::Debug for Executor<'_> {
@@ -251,6 +253,7 @@ impl<'a> Executor<'a> {
             on_step: None,
             events: Arc::default(),
             woken: BTreeMap::new(),
+            seen: std::cell::RefCell::default(),
         }
     }
 
@@ -489,6 +492,7 @@ impl<'a> Executor<'a> {
         let Some(def) = self.plan.definition().find(node) else { return Next::Go };
         self.tell(Step::Started { node });
         let inputs = self.inputs_of(node, run);
+        self.seen.replace(Arc::new(first_items(run)));
         let part = self.node(def, inputs, run, iteration);
         self.settle(def, part, run)
     }
@@ -722,6 +726,7 @@ impl<'a> Executor<'a> {
             .with_deadline(deadline)
             .with_events(self.events.clone())
             .woken_from(self.woken.get(&node.id).cloned())
+            .with_nodes(self.seen.borrow().clone())
     }
 
     /// One try of `kind` on `node`. With a time limit or a token to watch, the try runs on a
@@ -771,7 +776,8 @@ impl<'a> Executor<'a> {
         let (tx, rx) = channel();
         let (kind, node_def, given, clock, mode, own) =
             (kind.clone(), node.clone(), inputs.clone(), self.clock.clone(), self.mode, token.clone());
-        let (events, woken) = (self.events.clone(), self.woken.get(&node.id).cloned());
+        let (events, woken, seen) =
+            (self.events.clone(), self.woken.get(&node.id).cloned(), self.seen.borrow().clone());
         std::thread::spawn(move || {
             let cx = NodeContext::new(&node_def, &given, now_ms, mode)
                 .at_iteration(iteration)
@@ -780,6 +786,7 @@ impl<'a> Executor<'a> {
                 .with_token(own)
                 .with_deadline(deadline)
                 .with_events(events)
+                .with_nodes(seen)
                 .woken_from(woken);
             let _ = tx.send(kind.execute(&cx));
         });
@@ -872,6 +879,22 @@ fn place(node: &str, given: Ports) -> Ports {
         .map(|(port, items)| {
             let placed = items.into_iter().enumerate().map(|(i, item)| item.placed(node, &port, i)).collect();
             (port, placed)
+        })
+        .collect()
+}
+
+/// The first item each node of `run` gave, by id: on `main` when it gave there, otherwise on
+/// the first port that has one.
+fn first_items(run: &Run) -> BTreeMap<String, serde_json::Value> {
+    run.nodes
+        .iter()
+        .filter_map(|(id, part)| {
+            let first = part
+                .outputs
+                .get(crate::nodes::MAIN)
+                .and_then(|items| items.first())
+                .or_else(|| part.outputs.values().find_map(|items| items.first()))?;
+            Some((id.clone(), first.json.clone()))
         })
         .collect()
 }

@@ -131,3 +131,36 @@ fn every_catalog_function_and_syntax_error_has_brazilian_portuguese() {
         }
     }
 }
+
+#[test]
+fn a_preview_shows_under_the_text_and_a_failure_reads_apart_from_a_result() {
+    let mut worked = Ui::new(
+        ExpressionEditor::new(State::new("[qty] * 2".to_owned()).binding()).preview("8"),
+        ravenrs_style::Theme::raven_dark(),
+    );
+    worked.set_viewport(ravenrs_core::Size::new(900.0, 700.0), 1.0);
+    worked.update();
+    let said = |ui: &mut Ui, text: &str| {
+        ui.access_tree()
+            .nodes
+            .iter()
+            .any(|n| [&n.name, &n.description].into_iter().flatten().any(|t| t.contains(text)))
+    };
+    assert!(said(&mut worked, "Result: 8"));
+    let mut failed = Ui::new(
+        ExpressionEditor::new(State::new("Nope(1)".to_owned()).binding())
+            .preview_error("Nope is not a function"),
+        ravenrs_style::Theme::raven_dark(),
+    );
+    failed.set_viewport(ravenrs_core::Size::new(900.0, 700.0), 1.0);
+    failed.update();
+    assert!(said(&mut failed, "Could not work it out: Nope is not a function"));
+    assert!(!said(&mut failed, "Result:"), "a failure is not a result");
+    let mut empty = Ui::new(
+        ExpressionEditor::new(State::new(String::new()).binding()).preview("8"),
+        ravenrs_style::Theme::raven_dark(),
+    );
+    empty.set_viewport(ravenrs_core::Size::new(900.0, 700.0), 1.0);
+    empty.update();
+    assert!(!said(&mut empty, "Result:"), "nothing to preview with nothing written");
+}

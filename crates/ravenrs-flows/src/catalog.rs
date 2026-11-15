@@ -126,6 +126,7 @@ pub struct NodeContext<'a> {
     deadline_ms: Option<i64>,
     events: Arc<BTreeMap<String, Vec<Item>>>,
     woken: Option<Wake>,
+    nodes: Arc<BTreeMap<String, Value>>,
 }
 
 impl<'a> NodeContext<'a> {
@@ -144,6 +145,7 @@ impl<'a> NodeContext<'a> {
             deadline_ms: None,
             events: Arc::default(),
             woken: None,
+            nodes: Arc::default(),
         }
     }
 
@@ -157,6 +159,37 @@ impl<'a> NodeContext<'a> {
     pub fn woken_from(mut self, wake: Option<Wake>) -> Self {
         self.woken = wake;
         self
+    }
+
+    /// The first item each node that already ran gave, by id.
+    pub fn nodes(&self) -> Arc<BTreeMap<String, Value>> {
+        self.nodes.clone()
+    }
+
+    /// With the first item each node that already ran gave, by id, for the expressions that
+    /// read `nodes.<id>`.
+    pub fn with_nodes(mut self, nodes: Arc<BTreeMap<String, Value>>) -> Self {
+        self.nodes = nodes;
+        self
+    }
+
+    /// The parameter `name` written as text with expressions inside it (`Olá {{ nome }}`),
+    /// worked out for `item`; `None` when the node has no such parameter. Expressions read the
+    /// item, the nodes that already ran and the run (see [`crate::expression`]).
+    pub fn text(&self, name: &str, item: &Item) -> Result<Option<String>, NodeError> {
+        let Some(value) = self.parameter(name) else { return Ok(None) };
+        let Some(text) = value.as_str() else {
+            return Err(NodeError::new(format!("the parameter {name} must be text")));
+        };
+        let record = crate::expression::record(
+            &item.json,
+            &self.nodes,
+            &serde_json::Map::new(),
+            &crate::expression::run_value(self.now_ms),
+        );
+        crate::expression::render(text, &record)
+            .map(Some)
+            .map_err(|why| NodeError::new(format!("the parameter {name}: {why}")))
     }
 
     /// The items the event `event` brought, when it came.

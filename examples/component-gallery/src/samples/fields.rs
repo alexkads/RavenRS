@@ -7,7 +7,7 @@ samples! {
     "FormField" => form_field, "Label" => label, "TextArea" => text_area, "NumberField" => number_field,
     "MaskedField" => masked_field, "LookupField" => lookup_field, "FormLayout" => form_layout,
     "FilterBuilder" => filter_builder, "ExpressionEditor" => expression_editor, "CodeEditor" => code_editor,
-    "Playground" => playground, "TagBox" => tag_box, "InlineRename" => inline_rename,
+    "Playground" => playground, "TagBox" => tag_box, "InlineRename" => inline_rename, "ParameterForm" => parameter_form,
 }
 
 // sample: TextArea, 170
@@ -213,5 +213,27 @@ fn inline_rename() -> impl View {
             .foreground(Semantic::InkMuted),
     ))
     .spacing(4.0)
+}
+// end
+
+// sample: ParameterForm, 420
+fn parameter_form() -> impl View {
+    let values = State::new(ParamValues::new());
+    ParameterForm::new(
+        vec![
+            ParamField::new("url", "Address", ParamKind::Text).required(),
+            ParamField::new("retries", "Retries", ParamKind::Number).default(3),
+            ParamField::new("when", "Only when", ParamKind::Text).expressions(),
+            ParamField::new(
+                "headers",
+                "Headers",
+                ParamKind::List(vec![
+                    ParamField::new("name", "Name", ParamKind::Text),
+                    ParamField::new("value", "Value", ParamKind::Text),
+                ]),
+            ),
+        ],
+        values.binding(),
+    )
 }
 // end

@@ -13,11 +13,41 @@ use ravenrs_graphics::flow::{
 
 use serde_json::{Value, json};
 
-use crate::catalog::Catalog;
+use crate::catalog::{Catalog, NodeSpec};
 use crate::definition::{Connection, FORMAT, FlowDefinition, NodeDef, PortRef};
 
 /// The field of a card's `data`, and of the graph's, that holds what a flow keeps there.
 pub const GRAPH_KEY: &str = "flow";
+
+/// What the drawing puts before the name of an input that has an output of the same name. On
+/// the canvas a port's id is unique within its node, and in a flow an input and an output may
+/// share a name (`main`, in most kinds), so the drawn input is `in:main`.
+const INPUT_MARK: &str = "in:";
+
+/// The flow's name of a port drawn as `id`: the drawn id without the mark an input takes when
+/// an output shares its name.
+pub fn port_name(id: &str) -> &str {
+    id.strip_prefix(INPUT_MARK).unwrap_or(id)
+}
+
+/// The id the drawing gives the input `name` of a kind with these `outputs`.
+fn drawn_input(outputs: &[String], name: &str) -> String {
+    if outputs.iter().any(|o| o == name) { format!("{INPUT_MARK}{name}") } else { name.to_owned() }
+}
+
+/// The card of a node of the kind `spec` says, with its ports: what
+/// [`FlowDefinition::to_graph`] draws for each node, and what an app's toolbox offers to drag
+/// in, so both name the ports alike.
+pub fn card(spec: &NodeSpec, id: &str, title: impl Into<String>) -> FlowNode {
+    let mut card = FlowNode::new(id, &spec.kind, title, 0.0, 0.0);
+    for port in &spec.inputs {
+        card = card.port(FlowPort::input(drawn_input(&spec.outputs, port)));
+    }
+    for port in &spec.outputs {
+        card = card.port(FlowPort::output(port));
+    }
+    card
+}
 
 /// How far apart [`FlowDefinition::to_graph`] puts the nodes it lays out.
 const STEP: (f32, f32) = (260.0, 120.0);
@@ -47,23 +77,13 @@ impl FlowDefinition {
         for node in &self.nodes {
             let col = depth.get(node.id.as_str()).copied().unwrap_or(0);
             let row = rows.entry(col).or_default();
-            let mut card = FlowNode::new(
-                &node.id,
-                &node.kind,
-                title_of(node, catalog),
-                col as f32 * STEP.0,
-                *row as f32 * STEP.1,
-            );
+            let mut card = match catalog.get(&node.kind, node.version) {
+                Some(kind) => self::card(&kind.spec(), &node.id, title_of(node, catalog)),
+                None => FlowNode::new(&node.id, &node.kind, title_of(node, catalog), 0.0, 0.0),
+            };
+            card.x = col as f32 * STEP.0;
+            card.y = *row as f32 * STEP.1;
             *row += 1;
-            if let Some(kind) = catalog.get(&node.kind, node.version) {
-                let spec = kind.spec();
-                for port in &spec.inputs {
-                    card = card.port(FlowPort::input(port));
-                }
-                for port in &spec.outputs {
-                    card = card.port(FlowPort::output(port));
-                }
-            }
             if node.disabled {
                 card.status = FlowNodeStatus::Disabled;
             }
@@ -71,10 +91,17 @@ impl FlowDefinition {
             graph.nodes.push(card);
         }
         for c in &self.connections {
+            let outputs = self
+                .nodes
+                .iter()
+                .find(|n| n.id == c.to.node)
+                .and_then(|n| catalog.get(&n.kind, n.version))
+                .map(|kind| kind.spec().outputs)
+                .unwrap_or_default();
             graph.edges.push(FlowEdge::new(
                 edge_id(c),
                 FlowEndpoint::new(&c.from.node, &c.from.port),
-                FlowEndpoint::new(&c.to.node, &c.to.port),
+                FlowEndpoint::new(&c.to.node, drawn_input(&outputs, &c.to.port)),
             ));
         }
         graph
@@ -113,7 +140,7 @@ impl FlowDefinition {
             if kept.contains(edge.from.node.as_str()) && kept.contains(edge.to.node.as_str()) {
                 flow.connections.push(Connection {
                     from: PortRef::new(&edge.from.node, &edge.from.port),
-                    to: PortRef::new(&edge.to.node, &edge.to.port),
+                    to: PortRef::new(&edge.to.node, port_name(&edge.to.port)),
                 });
             }
         }
@@ -150,7 +177,10 @@ impl Catalog {
             follows: Rc::new(move |edge: &FlowEdge| {
                 edges.contains(&format!(
                     "{}.{}>{}.{}",
-                    edge.from.node, edge.from.port, edge.to.node, edge.to.port
+                    edge.from.node,
+                    edge.from.port,
+                    edge.to.node,
+                    port_name(&edge.to.port)
                 ))
             }),
         }

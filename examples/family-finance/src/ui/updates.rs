@@ -20,7 +20,8 @@ pub(crate) struct UpdatePump(pub Updater);
 
 impl View for UpdatePump {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        self.0.connect(cx.ui_waker());
+        let waker = cx.ui_waker();
+        self.0.connect(move || waker.wake());
         self.0.poll();
         cx.empty()
     }
@@ -97,8 +98,8 @@ impl NewsDialog {
             _ => String::new(),
         };
         let stage = updater.stage();
-        let tail = update::installer_log_tail(LOG_LINES);
-        let log = update::installer_log();
+        let tail = update::APP.installer_log_tail(LOG_LINES);
+        let log = update::APP.installer_log();
         let (retry, close, manual, news) =
             (updater.clone(), self.details.clone(), self.details.clone(), self.clone());
         let opened = self.details.clone();
@@ -240,7 +241,7 @@ fn release_note(news: &News) -> ReleaseNote {
         "Issues resolvidas",
         news.issues.iter().map(|&number| {
             (format!("#{number}"), move || {
-                if let Err(error) = ravenrs::native::open_url(&update::issue_url(number)) {
+                if let Err(error) = ravenrs::native::open_url(&update::APP.issue_url(number)) {
                     tracing::warn!(%error, number, "could not open the issue");
                 }
             })
@@ -259,7 +260,7 @@ fn release_note(news: &News) -> ReleaseNote {
                  3. No fim, clique em Reabrir agora. Seus dados continuam lá.",
             )
             .section("Se a atualização pelo app falhar", "Feche o app e rode no terminal:")
-            .code(update::INSTALL_COMMAND);
+            .code(update::APP.install_command());
     } else if news.versao == update::CURRENT {
         note = note.badge("Instalada", Tone::Neutral);
     }

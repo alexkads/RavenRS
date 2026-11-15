@@ -33,6 +33,7 @@ rusqlite.workspace = true
 ravenrs-app.workspace = true
 ravenrs-app-ui.workspace = true
 ravenrs-app-sqlite.workspace = true
+ravenrs-app-update.workspace = true
 
 [dev-dependencies]
 image.workspace = true

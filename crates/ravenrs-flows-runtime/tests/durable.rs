@@ -275,6 +275,36 @@ fn a_run_waiting_for_an_event_goes_on_when_it_is_told_and_gets_its_items() {
 }
 
 #[test]
+fn a_gate_that_keeps_its_items_lets_what_waited_go_on_with_the_approval() {
+    let runtime = Runtime::in_memory(Catalog::builtin()).expect("opens").clock(ManualClock::at(0));
+    let flow = FlowDefinition::new("gate", "Gate")
+        .node(NodeDef::new("start", "manual").parameter("items", json!([{ "order": 1 }, { "order": 2 }])))
+        .node(
+            NodeDef::new("ask", "wait_event")
+                .parameter("event", json!("approved"))
+                .parameter("keep", json!(true))
+                .parameter("as", json!("approval")),
+        )
+        .connect("start", "main", "ask", "main");
+    let id = runtime.enqueue(Request::new(flow)).expect("asked");
+    runtime.work("a").expect("runs");
+    assert_eq!(runtime.get(&id).expect("kept").status, RunStatus::Waiting);
+    runtime.signal(&id, "approved", vec![Item::new(json!({ "by": "Bruno" }))]).expect("told");
+    runtime.work_until_idle("a").expect("runs");
+    let out = &runtime.parts(&id).expect("kept")["ask"].outputs["main"];
+    let orders: Vec<_> = out.iter().map(|i| i.json.clone()).collect();
+    assert_eq!(
+        orders,
+        [
+            json!({ "order": 1, "approval": { "by": "Bruno" } }),
+            json!({ "order": 2, "approval": { "by": "Bruno" } })
+        ],
+        "the orders that waited go on, each with the approval"
+    );
+    assert_eq!(out[0].from[0].node, "start", "and say where they came from");
+}
+
+#[test]
 fn a_rerun_runs_the_original_or_the_current_revision_and_says_where_it_came_from() {
     let runtime = Runtime::in_memory(Catalog::builtin()).expect("opens").clock(ManualClock::at(0));
     let first = FlowDefinition { revision: 1, ..simple() };

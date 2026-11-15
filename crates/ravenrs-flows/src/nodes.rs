@@ -324,11 +324,20 @@ impl NodeKind for Set {
         let Some(Value::Object(fields)) = cx.parameter("fields") else {
             return Err(NodeError::new("the parameter fields must map names to expressions"));
         };
+        // A field is an expression, or text with expressions inside it (`Olá {{ nome }}`).
         let mut parsed = Vec::with_capacity(fields.len());
+        let mut texts = Vec::new();
         for (name, text) in fields {
             let text = text
                 .as_str()
                 .ok_or_else(|| NodeError::new(format!("the field {name} must be an expression, as text")))?;
+            if text.contains("{{") {
+                let checked = ravenrs_criteria::Template::parse(text)
+                    .map_err(|errors| NodeError::new(format!("the field {name}: {}", errors[0].message)));
+                checked?;
+                texts.push((name.clone(), text.to_owned()));
+                continue;
+            }
             let criteria =
                 Criteria::parse(text).map_err(|e| NodeError::new(format!("the field {name}: {e}")))?;
             parsed.push((name.clone(), criteria));
@@ -346,9 +355,20 @@ impl NodeKind for Set {
                 for (name, criteria) in &parsed {
                     map.insert(name.clone(), to_json(work_out(&env, criteria, item)));
                 }
-                item.derive(Value::Object(map))
+                for (name, text) in &texts {
+                    let record = crate::expression::record(
+                        &item.json,
+                        &cx.nodes(),
+                        &Map::new(),
+                        &crate::expression::run_value(cx.now_ms()),
+                    );
+                    let written = crate::expression::render(text, &record)
+                        .map_err(|why| NodeError::new(format!("the field {name}: {why}")))?;
+                    map.insert(name.clone(), Value::String(written));
+                }
+                Ok(item.derive(Value::Object(map)))
             })
-            .collect();
+            .collect::<Result<Vec<_>, NodeError>>()?;
         Ok(main_port(made))
     }
 }
@@ -665,6 +685,10 @@ impl NodeKind for Delay {
 
 /// Waits for the event named by its parameter `event` (an approval, a reply, a webhook), then
 /// gives the items the event brought. The run stops here until a durable run is told of it.
+///
+/// With `keep` true it is a gate instead: it gives the items that reached it, each with the
+/// first item the event brought under the field `as` (`"event"` when not said), so what waited
+/// for an approval goes on with the approval.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct WaitEvent;
 
@@ -674,10 +698,27 @@ impl NodeKind for WaitEvent {
     }
     fn execute(&self, cx: &NodeContext<'_>) -> Result<Ports, NodeError> {
         let event = text_parameter(cx, "event", "");
-        match cx.event(event) {
-            Some(items) => Ok(main_port(items.to_vec())),
-            None => Err(NodeError::wait_for(event)),
+        let Some(brought) = cx.event(event) else { return Err(NodeError::wait_for(event)) };
+        if !cx.parameter("keep").and_then(Value::as_bool).unwrap_or(false) {
+            return Ok(main_port(brought.to_vec()));
         }
+        let field = text_parameter(cx, "as", "event");
+        let news = brought.first().map(|item| item.json.clone()).unwrap_or(Value::Null);
+        let kept = cx
+            .input(MAIN)
+            .iter()
+            .map(|item| {
+                let mut json = item.json.clone();
+                match json.as_object_mut() {
+                    Some(fields) => {
+                        fields.insert(field.to_owned(), news.clone());
+                    }
+                    None => json = serde_json::json!({ "value": json, field: news.clone() }),
+                }
+                item.derive(json)
+            })
+            .collect();
+        Ok(main_port(kept))
     }
 }
 

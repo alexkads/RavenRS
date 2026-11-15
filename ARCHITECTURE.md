@@ -95,6 +95,7 @@ ravenrs-live-derive    (#[expose]: registers an impl block, struct, enum or modu
 ravenrs-app-sqlite     ──► ravenrs-app, rusqlite  (records in SQLite)
 ravenrs-app-ui         ──► ravenrs-app, ravenrs-widgets, ravenrs-grid-export, ravenrs-report  (the screens, from the model)
 ravenrs-app-library    ──► ravenrs-app  (ready-made records)
+ravenrs-app-update     ──► serde_json, ureq  (installing and updating an app by compiling it; no GUI, knows no app)
 ravenrs-app-report     ──► ravenrs-app-ui, ravenrs-grid-export, ravenrs-report-designer  (reports and panels)
 ravenrs-app-server     ──► ravenrs-app, ravenrs-criteria  (HTTP on one worker thread; no GUI)
 ravenrs-app-remote     ──► ravenrs-app-ui  (the same screens over the API of ravenrs-app-server, which it does not depend on)
@@ -169,6 +170,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-live-derive` | `lib` |
 | `ravenrs-app-sqlite` | `lib` |
 | `ravenrs-app-library` | `lib` |
+| `ravenrs-app-update` | `lib` (`Updater`, `decide`), `app` (`InstalledApp`: folders and addresses), `news`, `installer` (lock, steps, running it), `template` (the `install.cmd` of each app), `release` (the three release files) |
 | `ravenrs-app-report` | `lib`, `stored`, `analytics` |
 | `ravenrs-app-server` | `lib` (`ApiService`, routes, sessions), `json`, `openapi`, `http` (worker thread and axum) |
 | `ravenrs-app-remote` | `lib` (`RemoteClient`, `RemoteDatabase`, `RemoteObjectSpace`), `transport`, `gate` (`RemoteApp`) |

@@ -2,8 +2,7 @@
 resolver = "3"
 members = ["crates/*", "examples/*"]
 # Applications of their own, opened and built apart: they prove a package works outside this workspace.
-# examples/raven-flows holds only its survey until its code starts; then it becomes a member.
-exclude = ["examples/contracts", "examples/raven-flows"]
+exclude = ["examples/contracts"]
 
 [workspace.package]
 version = "27.1.28"
@@ -50,6 +49,8 @@ ravenrs-grid-export = { version = "27.1.28", path = "crates/ravenrs-grid-export"
 ravenrs-flow-export = { version = "27.1.28", path = "crates/ravenrs-flow-export" }
 ravenrs-flows = { version = "27.1.28", path = "crates/ravenrs-flows" }
 ravenrs-flows-runtime = { version = "27.1.28", path = "crates/ravenrs-flows-runtime" }
+ravenrs-process = { version = "27.1.28", path = "crates/ravenrs-process" }
+ravenrs-agent-cli = { version = "27.1.28", path = "crates/ravenrs-agent-cli" }
 ravenrs-flow-bpmn = { version = "27.1.28", path = "crates/ravenrs-flow-bpmn" }
 ravenrs-app = { version = "27.1.28", path = "crates/ravenrs-app" }
 ravenrs-app-a11y = { version = "27.1.28", path = "crates/ravenrs-app-a11y" }
@@ -71,6 +72,7 @@ ravenrs-app-nfe = { version = "27.1.28", path = "crates/ravenrs-app-nfe" }
 ravenrs-pos = { version = "27.1.28", path = "crates/ravenrs-pos" }
 ravenrs-app-pos = { version = "27.1.28", path = "crates/ravenrs-app-pos" }
 ravenrs-app-report = { version = "27.1.28", path = "crates/ravenrs-app-report" }
+ravenrs-app-update = { version = "27.1.28", path = "crates/ravenrs-app-update" }
 ravenrs-report-pdf = { version = "27.1.28", path = "crates/ravenrs-report-pdf" }
 ravenrs-report-xlsx = { version = "27.1.28", path = "crates/ravenrs-report-xlsx" }
 ravenrs-sheet = { version = "27.1.28", path = "crates/ravenrs-sheet" }

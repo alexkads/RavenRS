@@ -1,8 +1,11 @@
 # The public API of ravenrs-widgets, by the paths its users write.
 # Written by scripts/public-api.py; `--check` fails when it changes. Regenerate it only
 # when the change is meant, and say so in the pull request.
+const EXPRESSION_KEY
+const FIELD_DRAG
 const FLOW_NODE_DRAG
 const HOLD_TO_CARRY
+const SAMPLE
 enum AnchorPoint
 enum BoxHandle
 enum ButtonSize
@@ -44,6 +47,9 @@ enum IconName
 enum JackFlow
 enum ModelStatus
 enum Paint
+enum ParamKind
+enum ParamOptions
+enum PathStep
 enum Placement
 enum RecurrenceEnd
 enum RibbonSize
@@ -135,6 +141,8 @@ field Drag::container
 field Drag::frame
 field Drag::phase
 field Drag::position
+field FieldDrag::expression
+field FieldDrag::path
 field FileEntry::icon
 field FileEntry::id
 field FileEntry::is_folder
@@ -361,11 +369,13 @@ field Labels::document_tabs_name
 field Labels::expression_constants
 field Labels::expression_error_at
 field Labels::expression_errors
+field Labels::expression_failed
 field Labels::expression_functions
 field Labels::expression_groups
 field Labels::expression_insert
 field Labels::expression_no_match
 field Labels::expression_operators
+field Labels::expression_result
 field Labels::expression_search
 field Labels::expression_signatures
 field Labels::expression_text
@@ -412,6 +422,7 @@ field Labels::filter_value
 field Labels::filter_yes
 field Labels::flow_arrange
 field Labels::flow_bend
+field Labels::flow_cancelled
 field Labels::flow_canvas
 field Labels::flow_cap_names
 field Labels::flow_check
@@ -455,6 +466,8 @@ field Labels::flow_inspector_mixed
 field Labels::flow_inspector_node
 field Labels::flow_inspector_nodes
 field Labels::flow_inspector_read_only
+field Labels::flow_item_one
+field Labels::flow_items
 field Labels::flow_layer_down
 field Labels::flow_layer_hide
 field Labels::flow_layer_show
@@ -477,8 +490,12 @@ field Labels::flow_line_names
 field Labels::flow_lock
 field Labels::flow_members
 field Labels::flow_no_turn
+field Labels::flow_open_close
+field Labels::flow_open_none
+field Labels::flow_open_search
 field Labels::flow_output
 field Labels::flow_pick_port
+field Labels::flow_pinned
 field Labels::flow_refused
 field Labels::flow_run_breakpoint
 field Labels::flow_run_choose
@@ -499,6 +516,7 @@ field Labels::flow_run_stop
 field Labels::flow_run_stuck
 field Labels::flow_running
 field Labels::flow_shape_names
+field Labels::flow_skipped
 field Labels::flow_status_names
 field Labels::flow_title
 field Labels::flow_toolbox
@@ -593,6 +611,30 @@ field Labels::image_invalid
 field Labels::image_none
 field Labels::image_replace
 field Labels::increase
+field Labels::inspector_absent
+field Labels::inspector_boolean
+field Labels::inspector_chosen
+field Labels::inspector_copy
+field Labels::inspector_drag
+field Labels::inspector_empty
+field Labels::inspector_in
+field Labels::inspector_item
+field Labels::inspector_json
+field Labels::inspector_kind
+field Labels::inspector_list
+field Labels::inspector_mode
+field Labels::inspector_more
+field Labels::inspector_next
+field Labels::inspector_number
+field Labels::inspector_object
+field Labels::inspector_path
+field Labels::inspector_present
+field Labels::inspector_previous
+field Labels::inspector_sampled
+field Labels::inspector_schema
+field Labels::inspector_table
+field Labels::inspector_text
+field Labels::inspector_tree
 field Labels::lightbox
 field Labels::lightbox_counter
 field Labels::lightbox_next
@@ -619,6 +661,19 @@ field Labels::page_word
 field Labels::panel_minimize
 field Labels::panel_move
 field Labels::panel_restore
+field Labels::param_add
+field Labels::param_apply
+field Labels::param_discard
+field Labels::param_expression
+field Labels::param_fixed
+field Labels::param_load_failed
+field Labels::param_loading
+field Labels::param_mode
+field Labels::param_no_field
+field Labels::param_none
+field Labels::param_remove
+field Labels::param_required
+field Labels::param_retry
 field Labels::pick_color
 field Labels::pick_date
 field Labels::pick_date_range
@@ -774,6 +829,16 @@ field NumberFormat::thousands
 field PaintCx::scale
 field PaintCx::scene
 field PaintCx::text
+field ParamField::default
+field ParamField::depends_on
+field ParamField::expressions
+field ParamField::hint
+field ParamField::kind
+field ParamField::label
+field ParamField::name
+field ParamField::required
+field ParamField::shown_when
+field ParamValues::0
 field PatchLink::from
 field PatchLink::to
 field PickedFile::bytes
@@ -920,6 +985,8 @@ fn days_in_month
 fn decode_image
 fn distance_to_cable
 fn exceptions_text
+fn field_expression
+fn field_path
 fn find_all
 fn grid::query::check_formula
 fn grid::query::formula_value
@@ -1016,6 +1083,7 @@ impl Clone for Drag
 impl Clone for DragPayload
 impl Clone for DragPhase
 impl Clone for EyedropperState
+impl Clone for FieldDrag
 impl Clone for FileEntry
 impl Clone for FilePicker
 impl Clone for FileRequest
@@ -1081,8 +1149,13 @@ impl Clone for NoFilePicker
 impl Clone for NodeId
 impl Clone for NumberFormat
 impl Clone for Paint
+impl Clone for ParamField
+impl Clone for ParamKind
+impl Clone for ParamOptions
+impl Clone for ParamValues
 impl Clone for PatchLink
 impl Clone for PatchPanel
+impl Clone for PathStep
 impl Clone for PickedFile
 impl Clone for Placement
 impl Clone for ProgressBar
@@ -1360,6 +1433,7 @@ impl Debug for CropArea
 impl Debug for CropOverlay
 impl Debug for CurveEditor
 impl Debug for DataGrid
+impl Debug for DataInspector
 impl Debug for Date
 impl Debug for DatePicker
 impl Debug for DateRange
@@ -1403,6 +1477,7 @@ impl Debug for EyedropperArea
 impl Debug for EyedropperState
 impl Debug for Faded
 impl Debug for FavoriteToggle
+impl Debug for FieldDrag
 impl Debug for FileBrowser
 impl Debug for FileEntry
 impl Debug for FilePicker
@@ -1517,8 +1592,14 @@ impl Debug for PagedDocumentView
 impl Debug for Pagination
 impl Debug for Paint
 impl Debug for PaintCx
+impl Debug for ParamField
+impl Debug for ParamKind
+impl Debug for ParamOptions
+impl Debug for ParamValues
+impl Debug for ParameterForm
 impl Debug for PatchLink
 impl Debug for PatchPanel
+impl Debug for PathStep
 impl Debug for PickedFile
 impl Debug for Placement
 impl Debug for Playground
@@ -1776,6 +1857,7 @@ impl Default for MultiProgress
 impl Default for NoFilePicker
 impl Default for NumberFormat
 impl Default for Paint
+impl Default for ParamValues
 impl Default for RecurrenceEnd
 impl Default for RecurrenceRule
 impl Default for RecurrenceSet
@@ -1886,6 +1968,7 @@ impl Eq for DockPanelKind
 impl Eq for DockSide
 impl Eq for DockTabBar
 impl Eq for DragPhase
+impl Eq for FieldDrag
 impl Eq for FileRequest
 impl Eq for FileSort
 impl Eq for FileSortColumn
@@ -1908,6 +1991,7 @@ impl Eq for LookupItem
 impl Eq for LookupRequest
 impl Eq for NodeId
 impl Eq for PatchLink
+impl Eq for PathStep
 impl Eq for PickedFile
 impl Eq for RecurrenceEnd
 impl Eq for RecurrenceRule
@@ -1953,6 +2037,7 @@ impl Error for DecodeError
 impl Error for DockLayoutError
 impl FilePickerProvider for NoFilePicker
 impl From for Fill
+impl From for ParamValues
 impl From for SidebarParts
 impl From for Value
 impl From for grid::Value
@@ -2031,6 +2116,7 @@ impl PartialEq for DockTabBar
 impl PartialEq for DocumentTab
 impl PartialEq for Drag
 impl PartialEq for DragPhase
+impl PartialEq for FieldDrag
 impl PartialEq for FileEntry
 impl PartialEq for FileRequest
 impl PartialEq for FileSort
@@ -2069,7 +2155,12 @@ impl PartialEq for ModelChoice
 impl PartialEq for ModelStatus
 impl PartialEq for NodeId
 impl PartialEq for NumberFormat
+impl PartialEq for ParamField
+impl PartialEq for ParamKind
+impl PartialEq for ParamOptions
+impl PartialEq for ParamValues
 impl PartialEq for PatchLink
+impl PartialEq for PathStep
 impl PartialEq for PickedFile
 impl PartialEq for Placement
 impl PartialEq for QuadPaint
@@ -2208,6 +2299,7 @@ impl View for CountUp
 impl View for CropOverlay
 impl View for CurveEditor
 impl View for DataGrid
+impl View for DataInspector
 impl View for DatePicker
 impl View for DateRangePicker
 impl View for DateTimePicker
@@ -2280,6 +2372,7 @@ impl View for OverlayBadge
 impl View for PageHeader
 impl View for PagedDocumentView
 impl View for Pagination
+impl View for ParameterForm
 impl View for PatchPanel
 impl View for Playground
 impl View for Popover
@@ -2890,6 +2983,14 @@ method DataGrid::sort_by
 method DataGrid::striped
 method DataGrid::toolbar
 method DataGrid::vertical_lines
+method DataInspector::item
+method DataInspector::label
+method DataInspector::limit
+method DataInspector::mode
+method DataInspector::new
+method DataInspector::of
+method DataInspector::on_pick
+method DataInspector::selected
 method Date::add_days
 method Date::add_months
 method Date::day
@@ -3087,6 +3188,8 @@ method ExpressionEditor::fields
 method ExpressionEditor::new
 method ExpressionEditor::parameter
 method ExpressionEditor::parameters
+method ExpressionEditor::preview
+method ExpressionEditor::preview_error
 method ExpressionEditor::rows
 method Eyedropper::disabled
 method Eyedropper::hint
@@ -3112,6 +3215,9 @@ method FavoriteToggle::label
 method FavoriteToggle::new
 method FavoriteToggle::size
 method FavoriteToggle::star
+method FieldDrag::carried
+method FieldDrag::new
+method FieldDrag::payload
 method FileBrowser::height
 method FileBrowser::label
 method FileBrowser::mode
@@ -3173,6 +3279,7 @@ method FlowCanvas::connection
 method FlowCanvas::content
 method FlowCanvas::controls
 method FlowCanvas::editable_titles
+method FlowCanvas::execution
 method FlowCanvas::grid
 method FlowCanvas::grow
 method FlowCanvas::history
@@ -3186,9 +3293,11 @@ method FlowCanvas::next_node
 method FlowCanvas::notation
 method FlowCanvas::on_change
 method FlowCanvas::on_export
+method FlowCanvas::open_end
 method FlowCanvas::ports_on_hover
 method FlowCanvas::quick_create
 method FlowCanvas::range
+method FlowCanvas::read_only
 method FlowCanvas::resizable
 method FlowCanvas::rotatable
 method FlowCanvas::runs
@@ -3624,6 +3733,21 @@ method PagedDocumentView::zoom
 method Pagination::compact
 method Pagination::labels
 method Pagination::new
+method ParamField::default
+method ParamField::depends_on
+method ParamField::expressions
+method ParamField::hint
+method ParamField::new
+method ParamField::required
+method ParamField::shown_when
+method ParamValues::get
+method ParamValues::into_map
+method ParamValues::new
+method ParameterForm::new
+method ParameterForm::on_apply
+method ParameterForm::on_discard
+method ParameterForm::on_load
+method ParameterForm::options
 method PatchLink::new
 method PatchPanel::accept
 method PatchPanel::background
@@ -4555,12 +4679,14 @@ reexport FlowJsonError = ravenrs_graphics::flow::FlowJsonError
 reexport FlowLayout = ravenrs_graphics::flow::layout::FlowLayout
 reexport FlowLayoutKind = ravenrs_graphics::flow::layout::FlowLayoutKind
 reexport FlowNode = ravenrs_graphics::flow::FlowNode
+reexport FlowNodeRun = ravenrs_graphics::flow::FlowNodeRun
 reexport FlowNodeStatus = ravenrs_graphics::flow::FlowNodeStatus
 reexport FlowPicture = ravenrs_graphics::flow::picture::FlowPicture
 reexport FlowPort = ravenrs_graphics::flow::FlowPort
 reexport FlowRun = ravenrs_graphics::flow::run::FlowRun
 reexport FlowRunEvent = ravenrs_graphics::flow::run::FlowRunEvent
 reexport FlowRunRules = ravenrs_graphics::flow::run::FlowRunRules
+reexport FlowRunView = ravenrs_graphics::flow::FlowRunView
 reexport FlowShape = ravenrs_graphics::flow::FlowShape
 reexport FlowShelf = ravenrs_graphics::flow::document::FlowShelf
 reexport FlowStyle = ravenrs_graphics::flow::style::FlowStyle
@@ -4634,6 +4760,7 @@ struct CropArea
 struct CropOverlay
 struct CurveEditor
 struct DataGrid
+struct DataInspector
 struct Date
 struct DatePicker
 struct DateRange
@@ -4667,6 +4794,7 @@ struct EyedropperArea
 struct EyedropperState
 struct Faded
 struct FavoriteToggle
+struct FieldDrag
 struct FileBrowser
 struct FileEntry
 struct FilePicker
@@ -4768,6 +4896,9 @@ struct PageHeader
 struct PagedDocumentView
 struct Pagination
 struct PaintCx
+struct ParamField
+struct ParamValues
+struct ParameterForm
 struct PatchLink
 struct PatchPanel
 struct PickedFile
@@ -5356,6 +5487,19 @@ variant Paint::Live
 variant Paint::None
 variant Paint::Quad
 variant Paint::Rich
+variant ParamKind::Boolean
+variant ParamKind::Choice
+variant ParamKind::Group
+variant ParamKind::List
+variant ParamKind::Loaded
+variant ParamKind::LongText
+variant ParamKind::Number
+variant ParamKind::Text
+variant ParamOptions::Failed
+variant ParamOptions::Loading
+variant ParamOptions::Ready
+variant PathStep::Key
+variant PathStep::Row
 variant Placement::Above
 variant Placement::AboveCenter
 variant Placement::At

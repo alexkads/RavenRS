@@ -5,6 +5,8 @@
 //! outline, measure how near a point is to it, find its middle for a label and cut it into
 //! dashes. The UI draws and hit-tests with them, and an exporter can draw the same lines.
 
+use std::collections::BTreeMap;
+
 use ravenrs_core::{Point, Rect};
 use serde::{Deserialize, Serialize};
 
@@ -262,6 +264,72 @@ pub enum FlowNodeStatus {
     Running,
     /// Ran and went well.
     Success,
+    /// Stopped here until something comes (an approval, an event, a time), said in words.
+    Waiting(String),
+    /// Did not run in this run: nothing reached it.
+    Skipped,
+    /// Stopped before it ended.
+    Cancelled,
+    /// Gave the items fixed on it instead of running.
+    Pinned,
+}
+
+/// A run that happened outside the canvas, as the app tells it: how each node did and how many
+/// items left by each of its ports. A `FlowCanvas` given one with `execution` draws each node's
+/// status and puts the count on each connection, on a copy for drawing only.
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct FlowRunView {
+    /// Each node's part, by id; a node not here keeps its own status.
+    pub nodes: BTreeMap<String, FlowNodeRun>,
+}
+
+/// How one node did in a run told from outside.
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct FlowNodeRun {
+    /// How it did, drawn as its status.
+    pub status: FlowNodeStatus,
+    /// How many items left by each output port, by its id.
+    pub items: BTreeMap<String, usize>,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl FlowRunView {
+    /// A run where no node has done anything yet.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Adds how the node `id` did.
+    pub fn node(mut self, id: impl Into<String>, run: FlowNodeRun) -> Self {
+        self.nodes.insert(id.into(), run);
+        self
+    }
+
+    /// How many items went along a connection that starts at `from`; none when its node has not
+    /// given any yet, did not run, or still waits.
+    pub fn items(&self, from: &FlowEndpoint) -> Option<usize> {
+        let run = self.nodes.get(&from.node)?;
+        match run.status {
+            FlowNodeStatus::Skipped | FlowNodeStatus::Waiting(_) | FlowNodeStatus::Running => None,
+            _ => Some(run.items.get(&from.port).copied().unwrap_or(0)),
+        }
+    }
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl FlowNodeRun {
+    /// A node's part with this status and no items yet.
+    pub fn new(status: FlowNodeStatus) -> Self {
+        Self { status, items: BTreeMap::new() }
+    }
+
+    /// Says `count` items left by the output `port`.
+    pub fn items(mut self, port: impl Into<String>, count: usize) -> Self {
+        self.items.insert(port.into(), count);
+        self
+    }
 }
 
 /// A box of the diagram, in content units.

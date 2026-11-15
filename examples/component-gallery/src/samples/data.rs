@@ -3,7 +3,7 @@
 use ravenrs::prelude::*;
 
 samples! {
-    "TreeView" => tree_view, "TileLayout" => tile_layout, "CardView" => card_view, "DataGrid" => data_grid,
+    "TreeView" => tree_view, "DataInspector" => data_inspector, "TileLayout" => tile_layout, "CardView" => card_view, "DataGrid" => data_grid,
     "Table" => table, "List" => list, "Stat" => stat, "Chart" => chart, "ChartReference" => chart_reference,
     "SankeyChart" => sankey_chart, "FlowCanvas" => flow_canvas, "PatchPanel" => patch_panel, "ChartCard" => chart_card, "BarChart" => bar_chart,
     "AreaChart" => area_chart, "Barcode" => barcode, "Timeline" => timeline, "PropertyRow" => property_row,
@@ -423,5 +423,15 @@ fn property_row() -> impl View {
     ))
     .spacing(8.0)
     .align(Align::Stretch)
+}
+// end
+
+// sample: DataInspector, 360
+fn data_inspector() -> impl View {
+    DataInspector::new(
+        r#"[{ "order": 101, "customer": { "name": "Ana" }, "discount": null },
+            { "order": 102, "customer": { "name": "Bia" } }]"#,
+    )
+    .label("Orders")
 }
 // end

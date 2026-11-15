@@ -22,8 +22,8 @@ use ravenrs_text::TextAttrs;
 pub use ravenrs_graphics::flow::{
     EdgeCap, EdgeShape, FLOW_FORMAT, FlowColors, FlowDirection, FlowDocument, FlowEdge, FlowEndpoint,
     FlowExportFormat, FlowGate, FlowGraph, FlowHistory, FlowJsonError, FlowLayout, FlowLayoutKind, FlowNode,
-    FlowNodeStatus, FlowPicture, FlowPort, FlowRun, FlowRunEvent, FlowRunRules, FlowShape, FlowShelf,
-    FlowStyle, FlowText, NODE_REFS, PortDirection, PortSide,
+    FlowNodeRun, FlowNodeStatus, FlowPicture, FlowPort, FlowRun, FlowRunEvent, FlowRunRules, FlowRunView,
+    FlowShape, FlowShelf, FlowStyle, FlowText, NODE_REFS, PortDirection, PortSide,
 };
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
@@ -622,6 +622,9 @@ pub struct FlowCanvas {
     controls: bool,
     minimap: bool,
     locked: bool,
+    read_only: bool,
+    execution: Option<FlowRunView>,
+    open_end: Option<Rc<Vec<(String, FlowNode)>>>,
     cables: bool,
     range: (f32, f32),
     label: Option<String>,
@@ -667,6 +670,9 @@ impl FlowCanvas {
             controls: true,
             minimap: true,
             locked: false,
+            read_only: false,
+            execution: None,
+            open_end: None,
             cables: false,
             range: ZOOM_RANGE,
             label: None,
@@ -904,6 +910,33 @@ impl FlowCanvas {
         self
     }
 
+    /// Locks editing for good, as for a run that already happened: the view still pans and
+    /// zooms and nodes can be selected and read, but the lock is not offered in the controls,
+    /// so nothing unlocks it.
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.read_only = read_only;
+        self
+    }
+
+    /// Letting go of a connection where no port is, or pressing Enter again on the port it
+    /// started from, opens a search of these models there, each with the words it is found by.
+    /// Only the models the port accepts are listed, by the same rules as any connection, and
+    /// choosing one creates it there, connected, as one change: one Undo takes both away.
+    /// Escape closes the search and creates nothing.
+    pub fn open_end(mut self, models: impl IntoIterator<Item = (impl Into<String>, FlowNode)>) -> Self {
+        self.open_end = Some(Rc::new(models.into_iter().map(|(words, node)| (words.into(), node)).collect()));
+        self
+    }
+
+    /// Shows a run that happened outside the canvas, as the app tells it: each node's
+    /// status, drawn and said to screen readers, and on each connection how many items went
+    /// along it, after its own words. Only the drawing changes, never the graph; give the run
+    /// again as it moves on, and a node it does not name keeps its own status.
+    pub fn execution(mut self, run: FlowRunView) -> Self {
+        self.execution = Some(run);
+        self
+    }
+
     /// Draws the connections as cables that hang, swing and settle: a new one drops into
     /// its sag, moving a node or an end makes its cables swing, and one taken away falls.
     /// Off by default. Under reduced motion they show at rest; exports draw them at rest.
@@ -937,6 +970,14 @@ impl FlowCanvas {
         self.grow = grow;
         self
     }
+}
+
+/// A connection let go where no port was, waiting for the node it will lead to: the port it
+/// starts from and where it was let go, in the view.
+#[derive(Clone, Debug, PartialEq)]
+struct OpenEnd {
+    from: FlowEndpoint,
+    at: Point,
 }
 
 /// A connection being dragged out of a port, or chosen with the keys.
@@ -1058,6 +1099,10 @@ struct Flow {
     refused: String,
     /// What a new group is called.
     group_title: String,
+    /// The models a connection let go in the open can lead to, and the search open now.
+    open_models: Option<Rc<Vec<(String, FlowNode)>>>,
+    opened: State<Option<OpenEnd>>,
+    open_query: State<String>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -1862,6 +1907,10 @@ impl Flow {
         self.forget_notice();
         let step = self.grid * if shift { 4.0 } else { 1.0 };
         let has_nodes = !self.selection.get().nodes.is_empty();
+        if *key == Key::Escape && self.opened.get().is_some() {
+            self.opened.set(None);
+            return true;
+        }
         if *key == Key::Escape && self.connecting.get().is_some() {
             self.connecting.set(None);
             return true;
@@ -2195,6 +2244,63 @@ impl Flow {
     }
 
     /// Whether a connection may go from `from` to `to`, and why not.
+    /// `graph` with `model` placed at `at`, in the view, and connected to `from` by the same rules
+    /// as any connection; the node's id and the connection's, or `None` when the port does not
+    /// accept it.
+    fn linked(
+        &self,
+        graph: &FlowGraph,
+        from: &FlowEndpoint,
+        model: &FlowNode,
+        at: Point,
+    ) -> Option<(FlowGraph, String, String)> {
+        let outgoing = graph.port(from)?.direction == PortDirection::Output;
+        let wanted = if outgoing { PortDirection::Input } else { PortDirection::Output };
+        let port = model.ports.iter().find(|p| p.direction == wanted)?.id.clone();
+        let mut next = graph.clone();
+        let place = self.landing(model, self.view.get().to_content(at));
+        let id = next.fresh_node_id(&model.id);
+        next.nodes.push(FlowNode {
+            id: id.clone(),
+            x: place.x(),
+            y: place.y(),
+            parent: None,
+            ..model.clone()
+        });
+        let end = FlowEndpoint::new(id.clone(), port);
+        let (a, b) = if outgoing { (from.clone(), end) } else { (end, from.clone()) };
+        self.check(&next, &a, &b).ok()?;
+        let edge = next.fresh_edge_id("e");
+        let shaped = self.shaped(&next, FlowEdge::new(edge.clone(), a, b));
+        next.edges.push(shaped);
+        Some((next, id, edge))
+    }
+
+    /// The models the search open now lists: those its port accepts, with its words found.
+    fn open_choices(&self) -> Vec<(String, FlowNode)> {
+        let (Some(open), Some(models)) = (self.opened.get(), &self.open_models) else { return Vec::new() };
+        let (graph, query) = (self.graph.get(), self.open_query.get().to_lowercase());
+        models
+            .iter()
+            .filter(|(words, _)| query.trim().is_empty() || words.to_lowercase().contains(query.trim()))
+            .filter(|(_, model)| self.linked(&graph, &open.from, model, open.at).is_some())
+            .cloned()
+            .collect()
+    }
+
+    /// Creates `model` where the search is open, connected to its port, as one change.
+    fn create_linked(&self, model: &FlowNode) {
+        let Some(open) = self.opened.get() else { return };
+        self.opened.set(None);
+        let Some((graph, node, edge)) = self.linked(&self.graph.get(), &open.from, model, open.at) else {
+            return;
+        };
+        if self.commit(graph, FlowChange::Create { node: node.clone(), edge: Some(edge) }) {
+            self.select(FlowSelection::node(node));
+            self.memory.refocus.set(true);
+        }
+    }
+
     fn check(&self, graph: &FlowGraph, from: &FlowEndpoint, to: &FlowEndpoint) -> Result<(), String> {
         let (Some(a), Some(b)) = (graph.port(from), graph.port(to)) else { return Err(self.refused.clone()) };
         if from.node == to.node || a.direction == b.direction || graph.connects(from, to) {
@@ -2321,8 +2427,16 @@ impl Flow {
             DragPhase::End => {
                 let Some(connecting) = self.connecting.get() else { return };
                 self.connecting.set(None);
-                if let Some((end, Ok(()))) = &connecting.target {
-                    self.finish(&connecting, end);
+                match &connecting.target {
+                    Some((end, Ok(()))) => {
+                        self.finish(&connecting, end);
+                    }
+                    // Let go where no port is: the search of what it can lead to opens there.
+                    None if connecting.moving.is_none() && self.open_models.is_some() => {
+                        self.open_query.set(String::new());
+                        self.opened.set(Some(OpenEnd { from: connecting.from.clone(), at }));
+                    }
+                    _ => {}
                 }
             }
             // The base may add more; they act as nothing here.
@@ -2341,7 +2455,14 @@ impl Flow {
             graph.anchor(port).map_or(Point::new(0.0, 0.0), |(p, _)| view.to_screen(p))
         };
         match self.connecting.get() {
-            Some(connecting) if &connecting.from == port => self.connecting.set(None),
+            // Enter again on the port it started from: the search opens there, when there is one.
+            Some(connecting) if &connecting.from == port => {
+                self.connecting.set(None);
+                if self.open_models.is_some() {
+                    self.open_query.set(String::new());
+                    self.opened.set(Some(OpenEnd { from: port.clone(), at: pointer }));
+                }
+            }
             Some(mut connecting) => {
                 if !self.finish(&connecting, port) {
                     connecting.target = Some((port.clone(), self.verdict(&connecting, port)));
@@ -2772,6 +2893,9 @@ impl View for FlowCanvas {
             range: self.range,
             refused: labels.flow_refused.clone(),
             group_title: labels.flow_group.clone(),
+            open_models: self.open_end.clone(),
+            opened: cx.use_state(|| None::<OpenEnd>),
+            open_query: cx.use_state(String::new),
         };
         let graph = self.graph.get();
         let size = cx.scroll_viewport();
@@ -2794,7 +2918,10 @@ impl View for FlowCanvas {
         let selection = flow.selection.get();
         let connecting_now = connecting.get();
         let editing_now = editing.get();
-        let is_locked = locked.get();
+        if self.read_only {
+            locked.set_if_changed(true);
+        }
+        let is_locked = locked.get() || self.read_only;
 
         // The check, kept up to date while its box is open.
         let issues: Option<Vec<FlowIssue>> =
@@ -2805,6 +2932,27 @@ impl View for FlowCanvas {
         let points = breakpoints.get();
         let real = graph.clone();
         let mut graph = graph;
+        // A run told from outside: its statuses on the nodes and its counts on the lines.
+        if let Some(run) = &self.execution {
+            for node in &mut graph.nodes {
+                if let Some(part) = run.nodes.get(&node.id) {
+                    node.status = part.status.clone();
+                }
+            }
+            for edge in &mut graph.edges {
+                if let Some(n) = run.items(&edge.from) {
+                    let count = if n == 1 {
+                        labels.flow_item_one.clone()
+                    } else {
+                        labels.flow_items.replace("{count}", &n.to_string())
+                    };
+                    edge.label = Some(match edge.label.take() {
+                        Some(words) => format!("{words} · {count}"),
+                        None => count,
+                    });
+                }
+            }
+        }
         // Hidden nodes, what they hold and their lines are left out of the drawing.
         let hidden: Vec<String> = graph
             .nodes
@@ -2938,6 +3086,52 @@ impl View for FlowCanvas {
             }
             _ => {}
         }
+        // The search a connection let go in the open leads to, at where it was let go.
+        if let Some(open) = flow.opened.get() {
+            let choices = flow.open_choices();
+            let mut rows: Vec<AnyView> = vec![Box::new(
+                crate::TextField::new(flow.open_query.binding()).placeholder(labels.flow_open_search.clone()),
+            )];
+            if choices.is_empty() {
+                rows.push(Box::new(
+                    crate::Text::new(labels.flow_open_none.clone())
+                        .style(ravenrs_style::TextStyle::Callout)
+                        .foreground(Semantic::InkMuted),
+                ));
+            }
+            for (words, model) in choices {
+                let f = flow.clone();
+                rows.push(Box::new(
+                    crate::Button::new(words)
+                        .style(ButtonStyle::Ghost)
+                        .size(ButtonSize::Small)
+                        .on_click(move || f.create_linked(&model)),
+                ));
+            }
+            let close = flow.opened.clone();
+            rows.push(Box::new(
+                crate::Button::new(labels.flow_open_close.clone())
+                    .style(ButtonStyle::Ghost)
+                    .size(ButtonSize::Small)
+                    .on_click(move || close.set(None)),
+            ));
+            let list = cx.child(&crate::VStack::new(rows).spacing(2.0).align(Align::Stretch));
+            children.push(cx.container(
+                LayoutStyle {
+                    absolute: Some((open.at.x, open.at.y)),
+                    width: Some(OPEN_WIDTH),
+                    padding: ravenrs_core::Insets::uniform(theme.spacing.s2),
+                    ..LayoutStyle::stack(Axis::Vertical)
+                },
+                &[list],
+                Paint::Quad(crate::context::QuadPaint {
+                    corner_radius: theme.radii.md,
+                    border: Some(ravenrs_core::Border { width: 1.0, color: palette.border }),
+                    shadow: Some(theme.elevation.raised),
+                    ..crate::context::QuadPaint::new(palette.surface)
+                }),
+            ));
+        }
         // Why the app refused the last change, by the pointer, until the next gesture.
         if let Some(reason) = notice.get() {
             let at = memory.pointer.get().unwrap_or(Point::new(FIT_MARGIN, FIT_MARGIN));
@@ -2972,7 +3166,7 @@ impl View for FlowCanvas {
         }
         if let Some(size) = size {
             if self.controls {
-                children.push(controls(cx, &flow, view, is_locked, size, &theme, palette));
+                children.push(controls(cx, &flow, view, is_locked, self.read_only, size, &theme, palette));
             }
             if self.minimap && !graph.nodes.is_empty() {
                 let map = MiniMap {
@@ -3144,6 +3338,7 @@ fn controls(
     flow: &Flow,
     view: FlowViewport,
     locked: bool,
+    read_only: bool,
     size: Size,
     theme: &Theme,
     p: Palette,
@@ -3169,14 +3364,17 @@ fn controls(
             }),
     );
     let lock_name = if locked { &labels.flow_unlock } else { &labels.flow_lock };
-    let lock = cx.child(
-        &IconButton::new(if locked { IconName::Lock } else { IconName::LockOpen })
-            .label(lock_name.clone())
-            .size(ButtonSize::Small)
-            .style(ButtonStyle::Ghost)
-            .selected(locked)
-            .on_click(move || d.set(!d.get())),
-    );
+    // Read only offers no way out of the lock.
+    let lock = (!read_only).then(|| {
+        cx.child(
+            &IconButton::new(if locked { IconName::Lock } else { IconName::LockOpen })
+                .label(lock_name.clone())
+                .size(ButtonSize::Small)
+                .style(ButtonStyle::Ghost)
+                .selected(locked)
+                .on_click(move || d.set(!d.get())),
+        )
+    });
     let debug = flow.runs.is_some().then(|| {
         let open = flow.debugging.clone();
         let on = open.get();
@@ -3252,8 +3450,9 @@ fn controls(
             align: Align::Center,
             ..LayoutStyle::stack(Axis::Horizontal)
         },
-        &[zoom_in, zoom_out, fit, arrange, lock]
+        &[zoom_in, zoom_out, fit, arrange]
             .into_iter()
+            .chain(lock)
             .chain(check)
             .chain(debug)
             .chain(export)
@@ -3354,10 +3553,15 @@ impl NodeBox {
             parts.push(subtitle.clone());
         }
         match &self.node.status {
-            FlowNodeStatus::Warning(m) | FlowNodeStatus::Error(m) => parts.push(m.clone()),
+            FlowNodeStatus::Warning(m) | FlowNodeStatus::Error(m) | FlowNodeStatus::Waiting(m) => {
+                parts.push(m.clone());
+            }
             FlowNodeStatus::Disabled => parts.push(labels.flow_disabled.clone()),
             FlowNodeStatus::Running => parts.push(labels.flow_running.clone()),
             FlowNodeStatus::Success => parts.push(labels.flow_done.clone()),
+            FlowNodeStatus::Skipped => parts.push(labels.flow_skipped.clone()),
+            FlowNodeStatus::Cancelled => parts.push(labels.flow_cancelled.clone()),
+            FlowNodeStatus::Pinned => parts.push(labels.flow_pinned.clone()),
             _ => {}
         }
         if self.node.rotation != 0.0 {
@@ -3670,10 +3874,11 @@ fn draw_shape(
     let words = shape == FlowShape::Text;
     let (edge, width) = match status {
         _ if selected => (p.accent, 2.0),
-        FlowNodeStatus::Warning(_) => (p.warning, 2.0),
+        FlowNodeStatus::Warning(_) | FlowNodeStatus::Waiting(_) => (p.warning, 2.0),
         FlowNodeStatus::Error(_) => (p.danger, 2.0),
         FlowNodeStatus::Running => (p.accent, 2.5),
         FlowNodeStatus::Success => (p.success, 2.0),
+        FlowNodeStatus::Pinned => (p.accent, 2.0),
         _ if note => (style.stroke_color().unwrap_or(p.warning), 1.0),
         _ => (style.stroke_color().unwrap_or(p.border), 1.0),
     };
@@ -3726,7 +3931,7 @@ fn draw_shape(
         }
     };
     let pad = theme.spacing.s3 * zoom;
-    let ink = if *status == FlowNodeStatus::Disabled { p.muted } else { style.text_color().unwrap_or(p.ink) };
+    let ink = if faded(status) { p.muted } else { style.text_color().unwrap_or(p.ink) };
     // A sign in the middle, as large as the outline allows.
     if let Some(marker) = style.marker.as_deref().filter(|m| !m.is_empty()) {
         let size = frame.width().min(frame.height()) * 0.5;
@@ -3806,13 +4011,15 @@ fn draw_node(
     card_only: bool,
 ) {
     let radius = theme.radii.md * zoom;
-    let disabled = *status == FlowNodeStatus::Disabled;
+    // Switched off, or left out of the run: dashed and grey.
+    let disabled = faded(status);
     let (edge, edge_width) = match status {
         _ if selected => (p.accent, 2.0),
-        FlowNodeStatus::Warning(_) => (p.warning, 2.0),
+        FlowNodeStatus::Warning(_) | FlowNodeStatus::Waiting(_) => (p.warning, 2.0),
         FlowNodeStatus::Error(_) => (p.danger, 2.0),
         FlowNodeStatus::Running => (p.accent, 2.5),
         FlowNodeStatus::Success => (p.success, 2.0),
+        FlowNodeStatus::Pinned => (p.accent, 2.0),
         _ => (
             style.stroke_color().unwrap_or(p.border),
             style.stroke_width.map_or(1.0, |w| (w * zoom).max(1.0)),
@@ -3869,7 +4076,7 @@ fn draw_node(
     let room = (frame.max_x() - pad - x).max(0.0);
     let ink = if disabled { p.muted } else { style.text_color().unwrap_or(p.ink) };
     let note = match status {
-        FlowNodeStatus::Warning(m) => Some((m.as_str(), p.warning)),
+        FlowNodeStatus::Warning(m) | FlowNodeStatus::Waiting(m) => Some((m.as_str(), p.warning)),
         FlowNodeStatus::Error(m) => Some((m.as_str(), p.danger)),
         _ => subtitle.map(|s| (s, p.muted)),
     };
@@ -4199,6 +4406,15 @@ impl View for NextArrow {
     }
 }
 
+/// Whether a node is drawn grey: switched off, or left out of a run (it did not run, or it was
+/// stopped).
+fn faded(status: &FlowNodeStatus) -> bool {
+    matches!(status, FlowNodeStatus::Disabled | FlowNodeStatus::Skipped | FlowNodeStatus::Cancelled)
+}
+
+/// How wide the search a connection let go in the open leads to is.
+const OPEN_WIDTH: f32 = 240.0;
+
 /// A small filled arrowhead at `tip` pointing along `direction`.
 fn fill_arrow(scene: &mut Scene, tip: Point, direction: Point, color: Color) {
     fill(scene, geometry::arrow_head(tip, direction, 6.0), color);
@@ -4305,9 +4521,9 @@ impl View for MiniMap {
             .map(|n| {
                 let color = match &n.status {
                     _ if self.selection.has_node(&n.id) => p.accent,
-                    FlowNodeStatus::Warning(_) => p.warning,
+                    FlowNodeStatus::Warning(_) | FlowNodeStatus::Waiting(_) => p.warning,
                     FlowNodeStatus::Error(_) => p.danger,
-                    FlowNodeStatus::Running => p.accent,
+                    FlowNodeStatus::Running | FlowNodeStatus::Pinned => p.accent,
                     FlowNodeStatus::Success => p.success,
                     _ => p.control,
                 };

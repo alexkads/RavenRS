@@ -4,6 +4,8 @@
 //! mode `componentes` (#587) shows the same pages with no application framework around them.
 
 pub mod graficos;
+pub mod kit;
+pub mod listas;
 
 use ravenrs::prelude::{AnyView, IconName};
 
@@ -24,6 +26,27 @@ pub struct Page {
 
 /// Every page of a component, in the order of the navigation.
 pub const PAGES: &[Page] = &[
+    Page {
+        id: kit::expressoes::ID,
+        caption: kit::expressoes::PAGE,
+        group: "Kit",
+        icon: IconName::Sigma,
+        make: || Box::new(kit::expressoes::ExpressionsPage),
+    },
+    Page {
+        id: kit::parametros::ID,
+        caption: kit::parametros::PAGE,
+        group: "Kit",
+        icon: IconName::FileText,
+        make: || Box::new(kit::parametros::ParametersPage),
+    },
+    Page {
+        id: listas::inspetor::ID,
+        caption: listas::inspetor::PAGE,
+        group: "Listas e árvores",
+        icon: IconName::Search,
+        make: || Box::new(listas::inspetor::InspectorPage),
+    },
     Page {
         id: graficos::fluxo::ID,
         caption: graficos::fluxo::PAGE,
