@@ -22,6 +22,7 @@ A generated application has a theme menu in the footer of its navigation, unless
 ## Color
 
 - `bg-000` is the canvas. `bg-100` holds panels and sidebars, `bg-200` cards, `bg-300` controls.
+- `border` is the hairline of dividers and cards, and may be faint. The outline of a field or control at rest (text field, select, checkbox, radio, toggle, stepper) takes `control-border` instead, at 3:1 or more against `bg-000` to `bg-200`, so a field can be found before it is hovered or focused. A theme whose `control-border` falls under that is refused like one whose text is unreadable.
 - `ink` for content, `ink-muted` for labels and metadata. Never put `ink-muted` on `bg-300` for body text.
 - `accent` fills the primary button and marks selection. Text on it is always `on-accent`. Hover and press shift lightness (`accent-hover`, `accent-pressed`), not hue.
 - `success`, `warning` and `danger` signal state only and always come with a label or icon.

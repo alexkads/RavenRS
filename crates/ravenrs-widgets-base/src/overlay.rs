@@ -1153,7 +1153,7 @@ impl View for Select {
         let border = if is_open {
             Border { width: 1.5, color: theme.color(Semantic::Accent) }
         } else {
-            let base = theme.color(Semantic::Border);
+            let base = theme.color(Semantic::ControlBorder);
             Border {
                 width: 1.0,
                 color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),
