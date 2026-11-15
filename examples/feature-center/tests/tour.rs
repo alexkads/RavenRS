@@ -1231,6 +1231,16 @@ fn the_flow_diagram_shows_every_feature_and_its_connections_hang_as_cables() {
         assert!(c.says("Diagrama de exemplo"), "{option} keeps the canvas");
         c.activate(option);
     }
+    // A run told from outside: the canvas says how each node did and counts the items.
+    c.activate("Execução de fora");
+    assert!(c.says("3 itens"), "the count on the line: {:?}", c.texts());
+    assert!(c.says("Nós no diagrama: 5"), "the diagram itself is the same");
+    c.activate("Execução de fora");
+    assert!(!c.says("3 itens"));
+    // Read only: the lock is not offered.
+    c.activate("Só leitura");
+    assert!(!c.says("Destravar edição"), "no way out of the lock");
+    c.activate("Só leitura");
     c.activate("Grade 48");
     c.activate("Mapa mental");
     // Without cables, the lines are plain again.

@@ -22,8 +22,8 @@ use ravenrs_text::TextAttrs;
 pub use ravenrs_graphics::flow::{
     EdgeCap, EdgeShape, FLOW_FORMAT, FlowColors, FlowDirection, FlowDocument, FlowEdge, FlowEndpoint,
     FlowExportFormat, FlowGate, FlowGraph, FlowHistory, FlowJsonError, FlowLayout, FlowLayoutKind, FlowNode,
-    FlowNodeStatus, FlowPicture, FlowPort, FlowRun, FlowRunEvent, FlowRunRules, FlowShape, FlowShelf,
-    FlowStyle, FlowText, NODE_REFS, PortDirection, PortSide,
+    FlowNodeRun, FlowNodeStatus, FlowPicture, FlowPort, FlowRun, FlowRunEvent, FlowRunRules, FlowRunView,
+    FlowShape, FlowShelf, FlowStyle, FlowText, NODE_REFS, PortDirection, PortSide,
 };
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
@@ -622,6 +622,8 @@ pub struct FlowCanvas {
     controls: bool,
     minimap: bool,
     locked: bool,
+    read_only: bool,
+    execution: Option<FlowRunView>,
     cables: bool,
     range: (f32, f32),
     label: Option<String>,
@@ -667,6 +669,8 @@ impl FlowCanvas {
             controls: true,
             minimap: true,
             locked: false,
+            read_only: false,
+            execution: None,
             cables: false,
             range: ZOOM_RANGE,
             label: None,
@@ -901,6 +905,23 @@ impl FlowCanvas {
     /// or goes. The lock in the controls toggles it.
     pub fn locked(mut self, locked: bool) -> Self {
         self.locked = locked;
+        self
+    }
+
+    /// Locks editing for good, as for a run that already happened: the view still pans and
+    /// zooms and nodes can be selected and read, but the lock is not offered in the controls,
+    /// so nothing unlocks it.
+    pub fn read_only(mut self, read_only: bool) -> Self {
+        self.read_only = read_only;
+        self
+    }
+
+    /// Shows a run that happened outside the canvas, as the app tells it: each node's
+    /// status, drawn and said to screen readers, and on each connection how many items went
+    /// along it, after its own words. Only the drawing changes, never the graph; give the run
+    /// again as it moves on, and a node it does not name keeps its own status.
+    pub fn execution(mut self, run: FlowRunView) -> Self {
+        self.execution = Some(run);
         self
     }
 
@@ -2484,6 +2505,7 @@ struct Surface {
     cables: Option<(crate::Cables, u64)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Surface {
     /// The connections as cables: each one held at its ports and bend points, in units of
     /// the diagram so that panning does not shake them, drawn through the view. The one
@@ -2558,7 +2580,7 @@ impl Surface {
     }
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Surface {
     fn paint(&self, frame: Rect, time: f64, scene: &mut Scene) {
         let p = &self.palette;
@@ -2790,7 +2812,10 @@ impl View for FlowCanvas {
         let selection = flow.selection.get();
         let connecting_now = connecting.get();
         let editing_now = editing.get();
-        let is_locked = locked.get();
+        if self.read_only {
+            locked.set_if_changed(true);
+        }
+        let is_locked = locked.get() || self.read_only;
 
         // The check, kept up to date while its box is open.
         let issues: Option<Vec<FlowIssue>> =
@@ -2801,6 +2826,27 @@ impl View for FlowCanvas {
         let points = breakpoints.get();
         let real = graph.clone();
         let mut graph = graph;
+        // A run told from outside: its statuses on the nodes and its counts on the lines.
+        if let Some(run) = &self.execution {
+            for node in &mut graph.nodes {
+                if let Some(part) = run.nodes.get(&node.id) {
+                    node.status = part.status.clone();
+                }
+            }
+            for edge in &mut graph.edges {
+                if let Some(n) = run.items(&edge.from) {
+                    let count = if n == 1 {
+                        labels.flow_item_one.clone()
+                    } else {
+                        labels.flow_items.replace("{count}", &n.to_string())
+                    };
+                    edge.label = Some(match edge.label.take() {
+                        Some(words) => format!("{words} · {count}"),
+                        None => count,
+                    });
+                }
+            }
+        }
         // Hidden nodes, what they hold and their lines are left out of the drawing.
         let hidden: Vec<String> = graph
             .nodes
@@ -2968,7 +3014,7 @@ impl View for FlowCanvas {
         }
         if let Some(size) = size {
             if self.controls {
-                children.push(controls(cx, &flow, view, is_locked, size, &theme, palette));
+                children.push(controls(cx, &flow, view, is_locked, self.read_only, size, &theme, palette));
             }
             if self.minimap && !graph.nodes.is_empty() {
                 let map = MiniMap {
@@ -3140,6 +3186,7 @@ fn controls(
     flow: &Flow,
     view: FlowViewport,
     locked: bool,
+    read_only: bool,
     size: Size,
     theme: &Theme,
     p: Palette,
@@ -3165,14 +3212,17 @@ fn controls(
             }),
     );
     let lock_name = if locked { &labels.flow_unlock } else { &labels.flow_lock };
-    let lock = cx.child(
-        &IconButton::new(if locked { IconName::Lock } else { IconName::LockOpen })
-            .label(lock_name.clone())
-            .size(ButtonSize::Small)
-            .style(ButtonStyle::Ghost)
-            .selected(locked)
-            .on_click(move || d.set(!d.get())),
-    );
+    // Read only offers no way out of the lock.
+    let lock = (!read_only).then(|| {
+        cx.child(
+            &IconButton::new(if locked { IconName::Lock } else { IconName::LockOpen })
+                .label(lock_name.clone())
+                .size(ButtonSize::Small)
+                .style(ButtonStyle::Ghost)
+                .selected(locked)
+                .on_click(move || d.set(!d.get())),
+        )
+    });
     let debug = flow.runs.is_some().then(|| {
         let open = flow.debugging.clone();
         let on = open.get();
@@ -3248,8 +3298,9 @@ fn controls(
             align: Align::Center,
             ..LayoutStyle::stack(Axis::Horizontal)
         },
-        &[zoom_in, zoom_out, fit, arrange, lock]
+        &[zoom_in, zoom_out, fit, arrange]
             .into_iter()
+            .chain(lock)
             .chain(check)
             .chain(debug)
             .chain(export)
@@ -3350,10 +3401,15 @@ impl NodeBox {
             parts.push(subtitle.clone());
         }
         match &self.node.status {
-            FlowNodeStatus::Warning(m) | FlowNodeStatus::Error(m) => parts.push(m.clone()),
+            FlowNodeStatus::Warning(m) | FlowNodeStatus::Error(m) | FlowNodeStatus::Waiting(m) => {
+                parts.push(m.clone());
+            }
             FlowNodeStatus::Disabled => parts.push(labels.flow_disabled.clone()),
             FlowNodeStatus::Running => parts.push(labels.flow_running.clone()),
             FlowNodeStatus::Success => parts.push(labels.flow_done.clone()),
+            FlowNodeStatus::Skipped => parts.push(labels.flow_skipped.clone()),
+            FlowNodeStatus::Cancelled => parts.push(labels.flow_cancelled.clone()),
+            FlowNodeStatus::Pinned => parts.push(labels.flow_pinned.clone()),
             _ => {}
         }
         if self.node.rotation != 0.0 {
@@ -3666,10 +3722,11 @@ fn draw_shape(
     let words = shape == FlowShape::Text;
     let (edge, width) = match status {
         _ if selected => (p.accent, 2.0),
-        FlowNodeStatus::Warning(_) => (p.warning, 2.0),
+        FlowNodeStatus::Warning(_) | FlowNodeStatus::Waiting(_) => (p.warning, 2.0),
         FlowNodeStatus::Error(_) => (p.danger, 2.0),
         FlowNodeStatus::Running => (p.accent, 2.5),
         FlowNodeStatus::Success => (p.success, 2.0),
+        FlowNodeStatus::Pinned => (p.accent, 2.0),
         _ if note => (style.stroke_color().unwrap_or(p.warning), 1.0),
         _ => (style.stroke_color().unwrap_or(p.border), 1.0),
     };
@@ -3722,7 +3779,7 @@ fn draw_shape(
         }
     };
     let pad = theme.spacing.s3 * zoom;
-    let ink = if *status == FlowNodeStatus::Disabled { p.muted } else { style.text_color().unwrap_or(p.ink) };
+    let ink = if faded(status) { p.muted } else { style.text_color().unwrap_or(p.ink) };
     // A sign in the middle, as large as the outline allows.
     if let Some(marker) = style.marker.as_deref().filter(|m| !m.is_empty()) {
         let size = frame.width().min(frame.height()) * 0.5;
@@ -3802,13 +3859,15 @@ fn draw_node(
     card_only: bool,
 ) {
     let radius = theme.radii.md * zoom;
-    let disabled = *status == FlowNodeStatus::Disabled;
+    // Switched off, or left out of the run: dashed and grey.
+    let disabled = faded(status);
     let (edge, edge_width) = match status {
         _ if selected => (p.accent, 2.0),
-        FlowNodeStatus::Warning(_) => (p.warning, 2.0),
+        FlowNodeStatus::Warning(_) | FlowNodeStatus::Waiting(_) => (p.warning, 2.0),
         FlowNodeStatus::Error(_) => (p.danger, 2.0),
         FlowNodeStatus::Running => (p.accent, 2.5),
         FlowNodeStatus::Success => (p.success, 2.0),
+        FlowNodeStatus::Pinned => (p.accent, 2.0),
         _ => (
             style.stroke_color().unwrap_or(p.border),
             style.stroke_width.map_or(1.0, |w| (w * zoom).max(1.0)),
@@ -3865,7 +3924,7 @@ fn draw_node(
     let room = (frame.max_x() - pad - x).max(0.0);
     let ink = if disabled { p.muted } else { style.text_color().unwrap_or(p.ink) };
     let note = match status {
-        FlowNodeStatus::Warning(m) => Some((m.as_str(), p.warning)),
+        FlowNodeStatus::Warning(m) | FlowNodeStatus::Waiting(m) => Some((m.as_str(), p.warning)),
         FlowNodeStatus::Error(m) => Some((m.as_str(), p.danger)),
         _ => subtitle.map(|s| (s, p.muted)),
     };
@@ -4195,6 +4254,12 @@ impl View for NextArrow {
     }
 }
 
+/// Whether a node is drawn grey: switched off, or left out of a run (it did not run, or it was
+/// stopped).
+fn faded(status: &FlowNodeStatus) -> bool {
+    matches!(status, FlowNodeStatus::Disabled | FlowNodeStatus::Skipped | FlowNodeStatus::Cancelled)
+}
+
 /// A small filled arrowhead at `tip` pointing along `direction`.
 fn fill_arrow(scene: &mut Scene, tip: Point, direction: Point, color: Color) {
     fill(scene, geometry::arrow_head(tip, direction, 6.0), color);
@@ -4301,9 +4366,9 @@ impl View for MiniMap {
             .map(|n| {
                 let color = match &n.status {
                     _ if self.selection.has_node(&n.id) => p.accent,
-                    FlowNodeStatus::Warning(_) => p.warning,
+                    FlowNodeStatus::Warning(_) | FlowNodeStatus::Waiting(_) => p.warning,
                     FlowNodeStatus::Error(_) => p.danger,
-                    FlowNodeStatus::Running => p.accent,
+                    FlowNodeStatus::Running | FlowNodeStatus::Pinned => p.accent,
                     FlowNodeStatus::Success => p.success,
                     _ => p.control,
                 };

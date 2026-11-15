@@ -5,10 +5,9 @@ use std::collections::BTreeSet;
 
 use ravenrs::prelude::*;
 
-use super::editor::mark_key;
 use super::{Cell, RavenFlows};
 use crate::casa;
-use crate::marcas::marked;
+use crate::marcas::run_view;
 
 impl RavenFlows {
     /// The runs, and the one chosen with its diagram.
@@ -54,12 +53,12 @@ impl RavenFlows {
                 Text::new("Escolha uma execução para ver o que cada nó fez.").foreground(Semantic::InkMuted),
             ),
             Some(run) => {
-                let key = mark_key(&casa, &run.id);
-                if s.run_marks.get().as_deref() != Some(key.as_str()) {
+                // The flow of the run chosen, drawn again only when another run is chosen.
+                if s.run_shown.get().as_deref() != Some(run.id.as_str()) {
                     let graph =
                         casa.flow(&run.flow_id).map(|f| crate::nos::drawn(&f, &catalog)).unwrap_or_default();
-                    s.run_graph.set(marked(&graph, &casa.parts(&run.id)));
-                    s.run_marks.set(Some(key));
+                    s.run_graph.set(graph);
+                    s.run_shown.set(Some(run.id.clone()));
                 }
                 let repeat = {
                     let (casa, s, id) = (casa.clone(), s.clone(), run.id.clone());
@@ -105,8 +104,9 @@ impl RavenFlows {
                         HStack::new((actions.grow(1.0), approve_button)).spacing(8.0).align(Align::Center),
                         crate::nos::kinds(
                             FlowCanvas::new(s.run_graph.binding())
+                                .execution(run_view(&casa.parts(&run.id)))
                                 .label("Caminho executado")
-                                .locked(true)
+                                .read_only(true)
                                 .grow(1.0),
                             &catalog,
                         ),

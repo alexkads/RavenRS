@@ -34,8 +34,6 @@ struct Screens {
     selection: State<FlowSelection>,
     view: State<FlowViewport>,
     arrivals: State<Option<FlowNode>>,
-    /// The run whose marks the editor shows, and how far it was.
-    marks: State<Option<String>>,
     /// The parameters of the selected node, as typed.
     parameters: State<String>,
     /// The node whose parameters are in `parameters`.
@@ -44,9 +42,9 @@ struct Screens {
     name: State<String>,
     flow_keys: State<BTreeSet<String>>,
     run_keys: State<BTreeSet<String>>,
-    /// The diagram of the run open in Execuções, and which run and how far it was.
+    /// The diagram of the run open in Execuções, and which run it is.
     run_graph: State<FlowGraph>,
-    run_marks: State<Option<String>>,
+    run_shown: State<Option<String>>,
     days: State<Option<f64>>,
     news: State<usize>,
     message: State<String>,
@@ -79,14 +77,13 @@ impl RavenFlows {
             selection: State::new(FlowSelection::default()),
             view: State::new(FlowViewport::fit()),
             arrivals: State::new(None),
-            marks: State::new(None),
             parameters: State::new(String::new()),
             parameters_of: State::new(None),
             name: State::new(String::new()),
             flow_keys: State::new(BTreeSet::new()),
             run_keys: State::new(BTreeSet::new()),
             run_graph: State::new(FlowGraph::new()),
-            run_marks: State::new(None),
+            run_shown: State::new(None),
             days: State::new(Some(30.0)),
             news: State::new(0),
             message: State::new(String::new()),

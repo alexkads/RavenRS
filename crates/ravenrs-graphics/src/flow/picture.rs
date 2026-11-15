@@ -270,7 +270,8 @@ impl FlowGraph {
             let r = Rect::new(node.x, node.y, node.width, node.height);
             let edge = match node.status {
                 FlowNodeStatus::Error(_) => colors.danger,
-                FlowNodeStatus::Warning(_) => colors.warning,
+                FlowNodeStatus::Warning(_) | FlowNodeStatus::Waiting(_) => colors.warning,
+                FlowNodeStatus::Pinned => colors.line,
                 FlowNodeStatus::Running => colors.line,
                 FlowNodeStatus::Success => colors.success,
                 _ => colors.border,

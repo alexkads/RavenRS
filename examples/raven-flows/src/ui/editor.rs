@@ -8,7 +8,7 @@ use serde_json::Value as Json;
 
 use super::{FLOWS, RavenFlows, Screens};
 use crate::casa::{self, Casa};
-use crate::marcas::{self, marked};
+use crate::marcas;
 use crate::nos;
 
 /// Opens the flow `id` in the editor.
@@ -17,26 +17,13 @@ pub(super) fn open_flow(casa: &Casa, catalog: &Catalog, s: &Screens, id: &str) {
         s.message.set("Este fluxo não existe mais.".to_owned());
         return;
     };
-    let mut graph = nos::drawn(&flow, catalog);
-    if let Some(run) = casa.last_run(id) {
-        graph = marked(&graph, &casa.parts(&run.id));
-        s.marks.set(Some(mark_key(casa, &run.id)));
-    } else {
-        s.marks.set(None);
-    }
-    s.graph.set(graph);
+    s.graph.set(nos::drawn(&flow, catalog));
     s.history.set(FlowHistory::new());
     s.selection.set(FlowSelection::default());
     s.view.set(FlowViewport::fit());
     s.parameters_of.set(None);
     s.open.set(Some(id.to_owned()));
     s.page.set(FLOWS);
-}
-
-/// What changes when a run moves on: its id, its status and how many nodes took part.
-pub(super) fn mark_key(casa: &Casa, run: &str) -> String {
-    let status = casa.run_record(run).map(|r| casa::run_words(r.status)).unwrap_or_default();
-    format!("{run}:{status}:{}", casa.parts(run).len())
 }
 
 /// The flow as drawn, with the id, name and revision the drawing keeps.
@@ -96,15 +83,6 @@ impl RavenFlows {
         let s = self.s.clone();
         let (casa, catalog) = (self.casa.clone(), self.catalog.clone());
         let _ = cx;
-        // A run that moved on since the marks were drawn draws them again.
-        if let Some(run) = casa.last_run(id) {
-            let key = mark_key(&casa, &run.id);
-            if s.marks.get().as_deref() != Some(key.as_str()) {
-                let parts = casa.parts(&run.id);
-                s.graph.set(marked(&s.graph.get(), &parts));
-                s.marks.set(Some(key));
-            }
-        }
         // The parameters of the node selected now.
         let selected = s.selection.get().nodes.first().cloned();
         if s.parameters_of.get() != selected {
@@ -165,18 +143,20 @@ impl RavenFlows {
             }
         };
 
-        let canvas = nos::kinds(
-            FlowCanvas::new(s.graph.binding())
-                .label("Área do fluxo")
-                .view(s.view.binding())
-                .selection(s.selection.binding())
-                .history(s.history.binding())
-                .arrivals(s.arrivals.binding())
-                .editable_titles(true)
-                .minimap(true)
-                .grow(1.0),
-            &catalog,
-        );
+        let mut canvas = FlowCanvas::new(s.graph.binding())
+            .label("Área do fluxo")
+            .view(s.view.binding())
+            .selection(s.selection.binding())
+            .history(s.history.binding())
+            .arrivals(s.arrivals.binding())
+            .editable_titles(true)
+            .minimap(true)
+            .grow(1.0);
+        // The last run, drawn on the canvas as it moves on; the flow itself is not touched.
+        if let Some(run) = casa.last_run(id) {
+            canvas = canvas.execution(marcas::run_view(&casa.parts(&run.id)));
+        }
+        let canvas = nos::kinds(canvas, &catalog);
         let side: AnyView = match &selected {
             Some(node) => Box::new(
                 VStack::new((

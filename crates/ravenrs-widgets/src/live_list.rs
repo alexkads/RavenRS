@@ -190,6 +190,14 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     #[cfg(feature = "flow")]
     ravenrs_graphics::flow::FlowNodeStatus::__live_expose_variants(registry);
     #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowRunView::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowNodeRun::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowRunView::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowNodeRun::__live_expose(registry);
+    #[cfg(feature = "flow")]
     ravenrs_graphics::flow::FlowNode::__live_expose_fields(registry);
     #[cfg(feature = "flow")]
     ravenrs_graphics::flow::FlowNode::__live_expose(registry);
@@ -244,6 +252,13 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::ButtonGroup::__live_expose(registry);
     crate::IconButton::__live_expose_fields(registry);
     crate::IconButton::__live_expose(registry);
+    crate::CableSide::__live_expose_variants(registry);
+    crate::CableSide::__live_expose(registry);
+    crate::CableAnchor::__live_expose_variants(registry);
+    crate::CablePlug::__live_expose_fields(registry);
+    crate::CablePlug::__live_expose(registry);
+    crate::Cables::__live_expose_fields(registry);
+    crate::Cables::__live_expose(registry);
     crate::DateRange::__live_expose_fields(registry);
     crate::DateRange::__live_expose(registry);
     crate::Calendar::__live_expose_fields(registry);

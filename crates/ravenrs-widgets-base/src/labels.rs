@@ -717,6 +717,16 @@ pub struct Labels {
     pub flow_running: String,
     /// A `FlowCanvas` node that ran and went well, for screen readers.
     pub flow_done: String,
+    /// A `FlowCanvas` node that did not run in a run told from outside, for screen readers.
+    pub flow_skipped: String,
+    /// A `FlowCanvas` node stopped before it ended, for screen readers.
+    pub flow_cancelled: String,
+    /// A `FlowCanvas` node that gave the items fixed on it instead of running.
+    pub flow_pinned: String,
+    /// One item went along a `FlowCanvas` connection.
+    pub flow_item_one: String,
+    /// How many items went along a `FlowCanvas` connection, with `{count}`.
+    pub flow_items: String,
     /// The Export menu of a `FlowCanvas`.
     pub flow_export: String,
     /// Export a `FlowCanvas` as a PNG picture.
@@ -1492,6 +1502,11 @@ impl Labels {
             flow_library_count: texts.get("widgets.flow_library_count"),
             flow_running: texts.get("widgets.flow_running"),
             flow_done: texts.get("widgets.flow_done"),
+            flow_skipped: texts.get("widgets.flow_skipped"),
+            flow_cancelled: texts.get("widgets.flow_cancelled"),
+            flow_pinned: texts.get("widgets.flow_pinned"),
+            flow_item_one: texts.get("widgets.flow_item_one"),
+            flow_items: texts.get("widgets.flow_items"),
             flow_export: texts.get("widgets.flow_export"),
             flow_export_png: texts.get("widgets.flow_export_png"),
             flow_export_svg: texts.get("widgets.flow_export_svg"),

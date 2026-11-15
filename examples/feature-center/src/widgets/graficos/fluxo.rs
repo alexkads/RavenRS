@@ -1,6 +1,7 @@
 //! `FlowCanvas`, every feature: the diagram and what it is bound to, how nodes look and what goes
 //! inside them, the rules on what joins what, the keys, the grid and the view, the cables, the
-//! check and the run, the export, and the events, each written on a line the tour reads.
+//! check and the run, a run told from outside and the read-only look, the export, and the events,
+//! each written on a line the tour reads.
 
 use std::rc::Rc;
 
@@ -60,6 +61,8 @@ impl View for FlowPage {
         let resizable = cx.use_state(|| true);
         let rotatable = cx.use_state(|| true);
         let titles = cx.use_state(|| true);
+        let told = cx.use_state(|| false);
+        let read_only = cx.use_state(|| false);
         let grid = cx.use_state(|| 1_usize);
         let layout = cx.use_state(|| 0_usize);
 
@@ -122,9 +125,22 @@ impl View for FlowPage {
             .rotatable(rotatable.get())
             .editable_titles(titles.get())
             .range(0.5, 2.0)
+            .read_only(read_only.get())
             .label("Diagrama de exemplo")
             .size(900.0, 460.0)
             .grow(0.0);
+        // A run that happened in the app, as it tells the canvas: the order arrived and went on,
+        // the stock check waits, and the note did not run.
+        let canvas = if told.get() {
+            canvas.execution(
+                FlowRunView::new()
+                    .node("start", FlowNodeRun::new(FlowNodeStatus::Success).items("out", 3))
+                    .node("check", FlowNodeRun::new(FlowNodeStatus::Waiting("Aguardando o estoque".into())))
+                    .node("note", FlowNodeRun::new(FlowNodeStatus::Skipped)),
+            )
+        } else {
+            canvas
+        };
 
         let a = arrivals.clone();
         let options = Grid::new(
@@ -140,6 +156,8 @@ impl View for FlowPage {
                 Toggle::new(resizable.binding()).label("Redimensionar"),
                 Toggle::new(rotatable.binding()).label("Girar"),
                 Toggle::new(titles.binding()).label("Títulos editáveis"),
+                Toggle::new(told.binding()).label("Execução de fora"),
+                Toggle::new(read_only.binding()).label("Só leitura"),
             ),
         );
         cx.child(

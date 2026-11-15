@@ -55,25 +55,23 @@ fn running_the_sample_marks_each_node_and_counts_the_items_on_each_connection() 
     let run = casa.run(&flow).expect("asked for");
     assert_eq!(casa.run_record(&run).map(|r| r.status), Some(RunStatus::Waiting), "it stops at the approval");
 
-    let graph = marcas::marked(&flow.to_graph(&Catalog::builtin()), &casa.parts(&run));
-    let status = |id: &str| graph.find_node(id).map(|n| n.status.clone());
+    let view = marcas::run_view(&casa.parts(&run));
+    let status = |id: &str| view.nodes.get(id).map(|n| n.status.clone());
     assert_eq!(status("inicio"), Some(FlowNodeStatus::Success));
     assert_eq!(status("grandes"), Some(FlowNodeStatus::Success));
-    assert_eq!(status("aprovar"), Some(FlowNodeStatus::Warning("Aguardando".into())));
-    assert_eq!(status("aprovado"), Some(FlowNodeStatus::Normal), "not reached yet");
-    let label = |from: &str, port: &str| {
-        graph.edges.iter().find(|e| e.from.node == from && e.from.port == port).and_then(|e| e.label.clone())
-    };
-    assert_eq!(label("inicio", "main").as_deref(), Some("4 itens"));
-    assert_eq!(label("pago", "true").as_deref(), Some("3 itens"));
-    assert_eq!(label("pago", "false").as_deref(), Some("1 item"));
-    assert_eq!(label("grandes", "main").as_deref(), Some("2 itens"), "Bia and Davi; Ana is small");
-    assert_eq!(label("aprovar", "main"), None, "nothing went on yet");
+    assert_eq!(status("aprovar"), Some(FlowNodeStatus::Waiting("Aguardando".into())));
+    assert_eq!(status("aprovado"), None, "not reached yet");
+    let items = |node: &str, port: &str| view.items(&FlowEndpoint::new(node, port));
+    assert_eq!(items("inicio", "main"), Some(4));
+    assert_eq!(items("pago", "true"), Some(3));
+    assert_eq!(items("pago", "false"), Some(1));
+    assert_eq!(items("grandes", "main"), Some(2), "Bia and Davi; Ana is small");
+    assert_eq!(items("aprovar", "main"), None, "nothing went on yet");
     let _ = std::fs::remove_dir_all(&dir);
 }
 
 #[test]
-fn a_branch_no_item_takes_keeps_its_plain_look() {
+fn a_branch_no_item_takes_is_drawn_as_not_run() {
     let dir = folder("branch");
     let casa = Casa::open(&dir, Worker::Inline).expect("opens");
     let mut flow = FlowDefinition::new("todos-pagos", "Todos pagos")
@@ -84,9 +82,10 @@ fn a_branch_no_item_takes_keeps_its_plain_look() {
         .connect("pago", "false", "cobrar", "main");
     casa.save(&mut flow).expect("saved");
     let run = casa.run(&flow).expect("ran");
-    let graph = marcas::marked(&flow.to_graph(&Catalog::builtin()), &casa.parts(&run));
-    assert_eq!(graph.find_node("cobrar").map(|n| n.status.clone()), Some(FlowNodeStatus::Normal));
-    assert_eq!(graph.edges[1].label.as_deref(), Some("0 itens"), "the empty side says so");
+    let view = marcas::run_view(&casa.parts(&run));
+    assert_eq!(view.nodes.get("cobrar").map(|n| n.status.clone()), Some(FlowNodeStatus::Skipped));
+    assert_eq!(view.items(&FlowEndpoint::new("pago", "false")), Some(0), "the empty side says so");
+    assert_eq!(view.items(&FlowEndpoint::new("cobrar", "main")), None, "and what did not run says nothing");
     let _ = std::fs::remove_dir_all(&dir);
 }
 

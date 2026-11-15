@@ -406,6 +406,7 @@ field Labels::filter_value
 field Labels::filter_yes
 field Labels::flow_arrange
 field Labels::flow_bend
+field Labels::flow_cancelled
 field Labels::flow_canvas
 field Labels::flow_cap_names
 field Labels::flow_check
@@ -449,6 +450,8 @@ field Labels::flow_inspector_mixed
 field Labels::flow_inspector_node
 field Labels::flow_inspector_nodes
 field Labels::flow_inspector_read_only
+field Labels::flow_item_one
+field Labels::flow_items
 field Labels::flow_layer_down
 field Labels::flow_layer_hide
 field Labels::flow_layer_show
@@ -473,6 +476,7 @@ field Labels::flow_members
 field Labels::flow_no_turn
 field Labels::flow_output
 field Labels::flow_pick_port
+field Labels::flow_pinned
 field Labels::flow_refused
 field Labels::flow_run_breakpoint
 field Labels::flow_run_choose
@@ -493,6 +497,7 @@ field Labels::flow_run_stop
 field Labels::flow_run_stuck
 field Labels::flow_running
 field Labels::flow_shape_names
+field Labels::flow_skipped
 field Labels::flow_status_names
 field Labels::flow_title
 field Labels::flow_toolbox
@@ -3149,6 +3154,7 @@ method FlowCanvas::connection
 method FlowCanvas::content
 method FlowCanvas::controls
 method FlowCanvas::editable_titles
+method FlowCanvas::execution
 method FlowCanvas::grid
 method FlowCanvas::grow
 method FlowCanvas::history
@@ -3165,6 +3171,7 @@ method FlowCanvas::on_export
 method FlowCanvas::ports_on_hover
 method FlowCanvas::quick_create
 method FlowCanvas::range
+method FlowCanvas::read_only
 method FlowCanvas::resizable
 method FlowCanvas::rotatable
 method FlowCanvas::runs
@@ -4510,12 +4517,14 @@ reexport FlowJsonError = ravenrs_graphics::flow::FlowJsonError
 reexport FlowLayout = ravenrs_graphics::flow::layout::FlowLayout
 reexport FlowLayoutKind = ravenrs_graphics::flow::layout::FlowLayoutKind
 reexport FlowNode = ravenrs_graphics::flow::FlowNode
+reexport FlowNodeRun = ravenrs_graphics::flow::FlowNodeRun
 reexport FlowNodeStatus = ravenrs_graphics::flow::FlowNodeStatus
 reexport FlowPicture = ravenrs_graphics::flow::picture::FlowPicture
 reexport FlowPort = ravenrs_graphics::flow::FlowPort
 reexport FlowRun = ravenrs_graphics::flow::run::FlowRun
 reexport FlowRunEvent = ravenrs_graphics::flow::run::FlowRunEvent
 reexport FlowRunRules = ravenrs_graphics::flow::run::FlowRunRules
+reexport FlowRunView = ravenrs_graphics::flow::FlowRunView
 reexport FlowShape = ravenrs_graphics::flow::FlowShape
 reexport FlowShelf = ravenrs_graphics::flow::document::FlowShelf
 reexport FlowStyle = ravenrs_graphics::flow::style::FlowStyle
