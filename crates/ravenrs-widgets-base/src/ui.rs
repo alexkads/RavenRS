@@ -63,6 +63,18 @@ fn turn_around(center: Point, radians: f32) -> Turn {
     ]
 }
 
+/// Whether `p` is inside the closed polygon `outline` (crossings counted, even-odd).
+fn inside(outline: &[Point], p: Point) -> bool {
+    let mut odd = false;
+    for (i, &a) in outline.iter().enumerate() {
+        let b = outline[(i + 1) % outline.len()];
+        if (a.y > p.y) != (b.y > p.y) && p.x < a.x + (p.y - a.y) / (b.y - a.y) * (b.x - a.x) {
+            odd = !odd;
+        }
+    }
+    odd
+}
+
 /// Scaling by `k` away from `origin`.
 fn scale_from(origin: Point, k: f32) -> Turn {
     [k, 0.0, 0.0, k, origin.x - k * origin.x, origin.y - k * origin.y]
@@ -1238,7 +1250,14 @@ impl Ui {
     /// element's own coordinates when it is under a turn.
     fn reaches(&self, i: usize, p: Point) -> bool {
         let q = self.turns.get(i).copied().flatten().map_or(p, |(_, back)| apply(back, p));
-        self.frames.get(i).zip(self.clips.get(i)).is_some_and(|(f, c)| f.intersect(c).contains(q))
+        let in_box =
+            self.frames.get(i).zip(self.clips.get(i)).is_some_and(|(f, c)| f.intersect(c).contains(q));
+        match (&self.elements[i].hit_outline, self.frames.get(i)) {
+            (Some(outline), Some(frame)) if in_box => {
+                inside(outline, Point::new(q.x - frame.x(), q.y - frame.y()))
+            }
+            _ => in_box,
+        }
     }
 
     /// Where element `i` shows on screen: its frame, or the box around it when it is turned.
