@@ -14,10 +14,10 @@ As contagens correspondem às linhas das tabelas abaixo, sem ponderação por es
 
 | Área | ✅ | 🟡 | ⬜ |
 |---|---:|---:|---:|
-| 1. Editor de fluxo | 7 | 2 | 3 |
-| 2. Painel do nó | 2 | 4 | 1 |
+| 1. Editor de fluxo | 9 | 3 | 1 |
+| 2. Painel do nó | 3 | 4 | 1 |
 | 3. Expressões | 0 | 4 | 1 |
-| 4. Motor de execução | 0 | 3 | 6 |
+| 4. Motor de execução | 0 | 5 | 4 |
 | 5. Gatilhos | 0 | 5 | 2 |
 | 6. Nós de integração | 0 | 7 | 0 |
 | 7. Execuções | 1 | 3 | 1 |
@@ -28,7 +28,7 @@ As contagens correspondem às linhas das tabelas abaixo, sem ponderação por es
 | 12. Experiência geral | 6 | 1 | 0 |
 | 13. Vídeo e treinamento | 9 | 9 | 2 |
 | 14. Nós de agente por CLI | 0 | 9 | 6 |
-| **Total** | **28** | **59** | **27** |
+| **Total** | **31** | **62** | **23** |
 
 **Regra de construção:** toda peça visual ou de infraestrutura ausente deve entrar primeiro na biblioteca, no componente responsável. O exemplo apenas compõe APIs públicas e fornece os dados e as políticas do produto.
 
@@ -42,18 +42,19 @@ Os caminhos partem da raiz do repositório. As referências apontam para tipos o
 
 | Recurso | Estado | Onde está hoje (arquivo:linha) | O que falta | Onde deve entrar |
 |---|---|---|---|---|
-| Canvas, nós, portas, conexões e várias saídas nomeadas | ✅ | `FlowCanvas::new`, `crates/ravenrs-widgets-charts/src/flow.rs:358`; `FlowPort`, `crates/ravenrs-graphics/src/flow.rs:66` | App declarar portas de verdadeiro, falso, erro e demais tipos; aplicar validação semântica | APP: catálogo e regras de conexão |
-| Nó desativado | 🟡 | `FlowNodeStatus::Disabled`, `crates/ravenrs-graphics/src/flow.rs:241` | Representação existe; falta política executável de ignorar, encaminhar ou interromper itens | BIBLIOTECA: motor, `L10`; APP: política escolhida |
+| Canvas, nós, portas, conexões e várias saídas nomeadas | ✅ | `FlowCanvas::new`, `crates/ravenrs-widgets-charts/src/flow.rs:592`; `FlowPort`, `crates/ravenrs-graphics/src/flow.rs:74` | App declarar portas de verdadeiro, falso, erro e demais tipos; aplicar validação semântica | APP: catálogo e regras de conexão |
+| Nó desativado | 🟡 | `FlowNodeStatus::Disabled`, `crates/ravenrs-graphics/src/flow.rs:251` | Representação existe; falta política executável de ignorar, encaminhar ou interromper itens | BIBLIOTECA: motor, `L10`; APP: política escolhida |
 | Fixar dados de um nó | ⬜ | Não encontrado; busca `B1`: `pinned_data`, `pin_data`, `pindata` | Snapshot de dados, indicação visual, edição e uso restrito ao modo de teste | BIBLIOTECA: `L02`, `L06`, `L10`; APP: snapshots fixados |
-| Notas adesivas | ✅ | `FlowShape::Note`, `crates/ravenrs-graphics/src/flow.rs:116`; `FlowCanvas::content`, `crates/ravenrs-widgets-charts/src/flow.rs:481` | App oferecer criação, texto e cor; definir se usa título simples ou conteúdo composto | APP, usando o canvas |
-| Zoom, pan, encaixe e minimapa | ✅ | `FlowViewport`, `crates/ravenrs-widgets-charts/src/flow.rs:71`; `FlowCanvas::controls` e `minimap`, mesmo arquivo:506 e :512 | Configurar limites e persistir viewport do usuário | APP |
-| Organização automática | ✅ | `FlowLayout::positions` e `apply`, `crates/ravenrs-graphics/src/flow/layout.rs:86` e :137 | Escolher direção e espaçamentos; organização geométrica não define ordem de execução | APP |
-| Desfazer e refazer do diagrama | ✅ | `FlowHistory::record`, `undo` e `redo`, `crates/ravenrs-graphics/src/flow.rs:1140`, :1153 e :1160 | Para alterações de parâmetros fora do grafo, histórico de documento completo | BIBLIOTECA: `L03`; APP: comandos do documento |
-| Copiar, colar e importar JSON | 🟡 | `FlowGraph::insert`, `to_json` e `from_json`, `crates/ravenrs-graphics/src/flow.rs:980`, :1010 e :1017 | JSON atual cobre geometria e modelo visual; faltam parâmetros, versões de tipos e remapeamento de referências entre nós | BIBLIOTECA: `L03`, `L10`; APP: formato do fluxo |
-| Busca rápida ao soltar conexão no vazio | ⬜ | Não encontrado; busca `B1`: `on_connect_end`, `connection_drop`, `connect_to_empty` | Evento público com origem e posição, seleção compatível e criação/conexão em uma transação | BIBLIOTECA: canvas, `L01` |
-| Catálogo lateral por categoria | ✅ | `TreeView::new`, `filter` e `on_open`, `crates/ravenrs-widgets-lists/src/tree.rs:190`, :226 e :232; `DockArea::new`, `crates/ravenrs-widgets-dock/src/dock/area.rs:304` | App fornecer categorias, busca, descrições e inserção do nó escolhido | APP, usando árvore e dock |
-| Grupos, conteúdo próprio, validação e religação | ✅ | `FlowGraph::group`, `crates/ravenrs-graphics/src/flow.rs:897`; `FlowCanvas::content`, `validate` e `on_change`, `crates/ravenrs-widgets-charts/src/flow.rs:481`, :415 e :437; `FlowChange::Reconnect`, mesmo arquivo:202 | Conectar os guards às regras e permissões do documento | APP |
-| Pontos de dobra manuais e exportação visual | ⬜ | Não encontrada API correspondente; busca `B2`: `bend`, `waypoint`, `export` nos dois arquivos de fluxo | Edição dos pontos e exportação que use a mesma geometria de nós e conexões | BIBLIOTECA: gráficos e canvas, `L04`; complemento posterior |
+| Notas adesivas | ✅ | `FlowShape::Note`, `crates/ravenrs-graphics/src/flow.rs:124`; `FlowCanvas::content`, `crates/ravenrs-widgets-charts/src/flow.rs:809` | App oferecer criação, texto e cor; definir se usa título simples ou conteúdo composto | APP, usando o canvas |
+| Zoom, pan, encaixe e minimapa | ✅ | `FlowViewport`, `crates/ravenrs-widgets-charts/src/flow.rs:239`; `FlowCanvas::controls` e `minimap`, mesmo arquivo:834 e :840 | Configurar limites e persistir viewport do usuário | APP |
+| Organização automática | ✅ | `FlowLayout::positions` e `apply`, `crates/ravenrs-graphics/src/flow/layout.rs:94` e :148 | Escolher direção e espaçamentos; organização geométrica não define ordem de execução | APP |
+| Desfazer e refazer do diagrama | ✅ | `FlowHistory::record`, `undo` e `redo`, `crates/ravenrs-graphics/src/flow.rs:1230`, :1243 e :1250 | Para alterações de parâmetros fora do grafo, histórico de documento completo | BIBLIOTECA: `L03`; APP: comandos do documento |
+| Copiar, colar e importar JSON | 🟡 | `FlowGraph::insert`, `to_json` e `from_json`, `crates/ravenrs-graphics/src/flow.rs:1069`, :1100 e :1107 | JSON atual cobre geometria e modelo visual; faltam parâmetros, versões de tipos e remapeamento de referências entre nós | BIBLIOTECA: `L03`, `L10`; APP: formato do fluxo |
+| Busca rápida ao soltar conexão no vazio | 🟡 | `FlowCanvas::quick_create`, `crates/ravenrs-widgets-charts/src/flow.rs:788`: as setas e Cmd/Ctrl+Enter criam o próximo nó já ligado. Soltar uma conexão no vazio não abre busca; busca `B1`: `on_connect_end`, `connection_drop`, `connect_to_empty` | Evento público com origem e posição ao soltar no vazio, busca no catálogo compatível com a porta e criação e conexão numa só transação | BIBLIOTECA: canvas, `L01` |
+| Catálogo lateral por categoria | ✅ | `FlowToolbox`, `crates/ravenrs-widgets-charts/src/flow_toolbox.rs:60`: grupos, busca, arrastar para o canvas e Enter pelo teclado, ligado por `FlowCanvas::arrivals`, `crates/ravenrs-widgets-charts/src/flow.rs:647` | App fornecer categorias, descrições e os modelos de nó do catálogo | APP, usando a caixa de ferramentas |
+| Grupos, conteúdo próprio, validação e religação | ✅ | `FlowGraph::group`, `crates/ravenrs-graphics/src/flow.rs:986`; `FlowCanvas::content`, `validate` e `on_change`, `crates/ravenrs-widgets-charts/src/flow.rs:809`, :722 e :744; `FlowChange::Reconnect`, mesmo arquivo:389 | Conectar os guards às regras e permissões do documento | APP |
+| Verificar o fluxo e apontar o erro no nó | ✅ | `FlowCanvas::checks` e `FlowIssue`, `crates/ravenrs-widgets-charts/src/flow.rs:682` e :303 | App escrever as regras (nó sem credencial, parâmetro obrigatório vazio, gatilho ausente) | APP |
+| Pontos de dobra manuais e exportação visual | ✅ | `FlowEdge::waypoint`, `crates/ravenrs-graphics/src/flow.rs:693`; `FlowExportFormat` (PNG, SVG e PDF), `crates/ravenrs-graphics/src/flow/picture.rs:61`; `FlowCanvas::on_export`, `crates/ravenrs-widgets-charts/src/flow.rs:639` | App decidir onde gravar o arquivo exportado | APP |
 
 O histórico atual guarda até 100 estados completos do `FlowGraph`. Ele não constitui histórico de versões publicadas nem cobre automaticamente os parâmetros mantidos pelo app.
 
@@ -65,8 +66,9 @@ O histórico atual guarda até 100 estados completos do `FlowGraph`. Ele não co
 | Coleções, coleções fixas e grupos repetíveis | 🟡 | `FieldKind::Collection`, `crates/ravenrs-app/src/entity.rs:25`; `EntityForm::new`, `crates/ravenrs-app-ui/src/form.rs:71` | Coleção de entidades não oferece diretamente uma coleção embutida de parâmetros, com grupos fixos, adicionar/remover e cancelamento atômico | BIBLIOTECA: esquema e editor, `L05` |
 | Opções dependentes de outro campo | 🟡 | `FieldInfo::lookup_filter`, `crates/ravenrs-app/src/entity.rs:358` | Filtragem de referência existe; faltam opções carregadas por conector, dependências declaradas, cache, carregamento, erro e invalidação de seleção | BIBLIOTECA: `L05`, `L16` |
 | Entrada, parâmetros e saída em painéis redimensionáveis | ✅ | `DockArea::new`, `crates/ravenrs-widgets-dock/src/dock/area.rs:304` | Compor os três painéis, seleção e abas de apresentação | APP |
-| Dados em tabela, JSON e esquema | 🟡 | `DataGrid::new`, `crates/ravenrs-widgets-grid/src/grid/view.rs:331`; `TreeView::new`, `crates/ravenrs-widgets-lists/src/tree.rs:190` | Inspector reutilizável de JSON aninhado, tipos, ausente versus nulo, arrays, busca e alternância coerente entre modos | BIBLIOTECA: `L06`, `L08` |
-| Arrastar campo da entrada para parâmetro e gerar expressão | 🟡 | `DragPayload::new`, `crates/ravenrs-widgets-base/src/context.rs:165`; `BuildCx::drag_source` e `drop_target`, mesmo arquivo:1678 e :1687 | Payload com caminho tipado, origem do item, escape correto e editor que aceite a inserção; manter alternativa por teclado | BIBLIOTECA: inspector e editor, `L07` |
+| Propriedades visuais do nó (título, tipo, forma, estado) | ✅ | `FlowInspector`, `crates/ravenrs-widgets-charts/src/flow_inspector.rs:61` | Não cobre os parâmetros do tipo de nó, que dependem de `L05` | APP, ao lado do formulário de parâmetros |
+| Dados em tabela, JSON e esquema | 🟡 | `DataGrid::new`, `crates/ravenrs-widgets-grid/src/grid/view.rs:331`; `TreeView::new`, `crates/ravenrs-widgets-lists/src/tree.rs:199` | Inspector reutilizável de JSON aninhado, tipos, ausente versus nulo, arrays, busca e alternância coerente entre modos | BIBLIOTECA: `L06`, `L08` |
+| Arrastar campo da entrada para parâmetro e gerar expressão | 🟡 | `DragPayload::new`, `crates/ravenrs-widgets-base/src/context.rs:165`; `BuildCx::drag_source` e `drop_target`, mesmo arquivo:1701 e :1710 | Payload com caminho tipado, origem do item, escape correto e editor que aceite a inserção; manter alternativa por teclado | BIBLIOTECA: inspector e editor, `L07` |
 | Executar somente o nó | ⬜ | Não encontrado executor de nó; busca `B3`: `NodeExecutor`, `node_executor`, `workflow_engine` | Resolver entrada, dependências e dados fixados; identificar o resultado como execução parcial | BIBLIOTECA: `L10`; APP: comando |
 
 `ravenrs-app-spec` descreve estruturas e atributos para entidades; `KindSpec`, em `crates/ravenrs-app-spec/src/lib.rs:102`, não é um esquema completo de parâmetros dinâmicos de conectores. A extensão deve preservar a geração existente.
@@ -77,11 +79,11 @@ O histórico atual guarda até 100 estados completos do `FlowGraph`. Ele não co
 |---|---|---|---|---|
 | Expressões delimitadas por `{{ }}` | 🟡 | `ExpressionEditor::new`, `crates/ravenrs-widgets-kit/src/expression_editor.rs:78` | A linguagem atual usa campos `[campo]` e parâmetros `?nome`; falta interpolação em texto, escape e diagnóstico por trecho | BIBLIOTECA: `ravenrs-criteria`, `L09` |
 | `$json`, nós anteriores, variáveis e datas | 🟡 | `Record`, `crates/ravenrs-criteria/src/eval.rs:18`; `Environment::at` e `parameter`, mesmo arquivo:124 e :130; `Scope::row`, mesmo arquivo:237 | Contexto de fluxo com namespaces, referência estável a nós e seleção explícita de item; datas já têm base, mas o contexto precisa fixar relógio e fuso | BIBLIOTECA: `L09`, `L10`; APP: nomes e valores |
-| Destaque, diagnóstico e autocompletar contextual | 🟡 | `ExpressionEditor::field` e `parameter`, `crates/ravenrs-widgets-kit/src/expression_editor.rs:83` e :95; `CodeLanguage`, `crates/ravenrs-widgets-chat/src/code_editor.rs:19` | O editor oferece catálogo e inserção; falta completion no cursor e destaque do dialeto do fluxo. `CodeLanguage` oferece texto simples e Rust | BIBLIOTECA: `L09`, `L26` |
+| Destaque, diagnóstico e autocompletar contextual | 🟡 | `ExpressionEditor::field` e `parameter`, `crates/ravenrs-widgets-kit/src/expression_editor.rs:83` e :95; `CodeLanguage`, `crates/ravenrs-widgets-chat/src/code_editor.rs:21` | O editor oferece catálogo e inserção; falta completion no cursor e destaque do dialeto do fluxo. `CodeLanguage` oferece texto simples e Rust | BIBLIOTECA: `L09`, `L26` |
 | Prévia do resultado | 🟡 | `Scope::evaluate`, `crates/ravenrs-criteria/src/eval.rs:283` | Avaliação de amostra integrada ao editor, erro distinguível de nulo, item selecionado e orçamento de avaliação | BIBLIOTECA: `L09` |
 | Nó de código em linguagem de script | ⬜ | Não encontrado runtime geral; busca `B4`: `rhai`, `quickjs`, `boa_engine`, `deno_core`, `mlua` | Runtime isolado, limites de CPU/memória/tempo, cancelamento, diagnóstico e conversão de itens | BIBLIOTECA: crate proposta `ravenrs-script`, `L15`; editor em `L26` |
 
-As macros de planilha são listas declarativas de comandos: `parse_macro`, em `crates/ravenrs-sheet/src/engine/macros/mod.rs:28`, trabalha sobre esse modelo específico. Isso não comprova uma linguagem geral para o nó de código.
+As macros de planilha são listas declarativas de comandos: `parse_macro`, em `crates/ravenrs-sheet/src/engine/macros/mod.rs:29`, trabalha sobre esse modelo específico. Isso não comprova uma linguagem geral para o nó de código.
 
 O `Environment` de expressões usa `Rc` e estado interno sem segurança entre threads. Cada trabalhador deve criar seu próprio ambiente, sem compartilhar essa instância.
 
@@ -89,9 +91,9 @@ O `Environment` de expressões usa `Rc` e estado interno sem segurança entre th
 
 | Recurso | Estado | Onde está hoje (arquivo:linha) | O que falta | Onde deve entrar |
 |---|---|---|---|---|
-| Planejamento topológico e validação de ciclos | ⬜ | Não encontrado motor de automação; busca `B3`: `WorkflowEngine`, `execution_engine`, `NodeExecutor`, `topological` | Compilação do grafo executável, dependências por porta, nós inacessíveis e ciclos permitidos somente pelos contratos de laço | BIBLIOTECA: `L10` |
+| Planejamento topológico e validação de ciclos | 🟡 | `FlowRun::start` e `step`, `crates/ravenrs-graphics/src/flow/run.rs:112` e :155: fichas saem dos inícios, seguem as conexões e param nos fins, com limite de passos (`RUN_LIMIT`) e erro apontado no nó | `FlowRun` simula o diagrama passo a passo, sem dados: falta compilar o grafo executável, dependências por porta e ciclos permitidos só pelos laços | BIBLIOTECA: `L10`, sobre `FlowRun` |
 | Lista de objetos passando entre nós | ⬜ | Não encontrado contrato de itens de fluxo; busca `B3` | Lotes por porta, identidade e proveniência dos itens, objetos aninhados e referências a dados binários | BIBLIOTECA: `L10`; APP: conteúdo do item |
-| Ramos, merge e laço em lotes | ⬜ | Não encontrados operadores de fluxo; busca `B3`: `batch_loop`, `batchloop`, `node_executor` | Roteamento, sincronização dos ramos, modos de junção, ordenação e conclusão dos lotes | BIBLIOTECA: `L11` |
+| Ramos, merge e laço em lotes | 🟡 | `FlowGate::Choose` e `Parallel`, `crates/ravenrs-graphics/src/flow/run.rs:13`: escolher uma saída e esperar todas as entradas numa junção | Os portões movem fichas, não itens: faltam roteamento por dados, modos de junção (por posição, por chave, primeiro que chegar), laço em lotes e conclusão dos lotes | BIBLIOTECA: `L11` |
 | Espera e retomada após reinício | ⬜ | Não encontrado checkpoint de execução de grafo; busca `B3`: `workflow_engine`, `sub_workflow`, `execution_queue` | Suspensão persistida, wake-up por tempo/evento e retomada sem repetir efeitos já confirmados | BIBLIOTECA: `L12` |
 | Continuar, parar, saída de erro e fluxo de erro | ⬜ | Não encontrado contrato de erro por nó; busca `B3`: `errorworkflow`, `error_workflow`, `NodeExecutor` | Erro estruturado com item/nó/tentativa, políticas por nó e prevenção de recursão do fluxo de erro | BIBLIOTECA: `L10`, `L11` |
 | Novas tentativas e tempo limite | 🟡 | `Dispatcher::backoff` e `lease`, `crates/ravenrs-app/src/outbox.rs:212` e :219 | Base é entrega de eventos; lease não interrompe uma chamada. Faltam timeout efetivo, classificação de falhas e política por executor | BIBLIOTECA: `L13` |
@@ -111,13 +113,13 @@ Essas APIs fornecem referências úteis, mas não executam um grafo arbitrário 
 
 | Recurso | Estado | Onde está hoje (arquivo:linha) | O que falta | Onde deve entrar |
 |---|---|---|---|---|
-| Manual | 🟡 | `ApiService::endpoint`, `crates/ravenrs-app-server/src/lib.rs:403`; `JobWork`, `crates/ravenrs-app/src/job.rs:13` | Comando de início ligado ao motor, entrada de teste e registro de autoria/modo | BIBLIOTECA: `L10`; APP: ação |
+| Manual | 🟡 | `ApiService::endpoint`, `crates/ravenrs-app-server/src/lib.rs:404`; `JobWork`, `crates/ravenrs-app/src/job.rs:13` | Comando de início ligado ao motor, entrada de teste e registro de autoria/modo | BIBLIOTECA: `L10`; APP: ação |
 | Agenda por cron e intervalo | 🟡 | `Schedule::parse` e `next_after`, `crates/ravenrs-report-server/src/cron.rs:31` e :66; `Runner::run_forever`, `crates/ravenrs-report-server/src/scheduler.rs:105` | Extrair agendamento genérico, intervalo por fluxo, fuso, atraso, sobreposição e recuperação após parada | BIBLIOTECA: `L14` |
-| Webhook HTTP com resposta | 🟡 | `Webhook::new`, `crates/ravenrs-app-server/src/hooks.rs:97`; `ApiService::webhook`, `crates/ravenrs-app-server/src/lib.rs:396` | Atual hook exige envelope e assinatura próprios e retorna confirmação; faltam rotas configuráveis e resposta do fluxo com status, cabeçalhos e corpo | BIBLIOTECA: `L21` |
+| Webhook HTTP com resposta | 🟡 | `Webhook::new`, `crates/ravenrs-app-server/src/hooks.rs:97`; `ApiService::webhook`, `crates/ravenrs-app-server/src/lib.rs:397` | Atual hook exige envelope e assinatura próprios e retorna confirmação; faltam rotas configuráveis e resposta do fluxo com status, cabeçalhos e corpo | BIBLIOTECA: `L21` |
 | Consulta periódica | ⬜ | Não encontrado gatilho; busca `B5`: `pollingtrigger`, `polling_trigger`, `polling` | Cursor persistido, deduplicação, intervalo, backoff e checkpoint da consulta | BIBLIOTECA: `L14`, `L16` |
 | Eventos de arquivo | ⬜ | Não encontrado gatilho; busca `B5`: `filewatcher`, `file_watcher`, `notify::` | Observação de diretórios, debounce, política de links, overflow e recuperação de eventos | BIBLIOTECA: `L19` |
 | Formulário | 🟡 | `EntityForm::new`, `crates/ravenrs-app-ui/src/form.rs:71` | Formulário desktop pode fornecer entrada; publicação HTTP exige contrato de submissão, validação, audiência e versão | BIBLIOTECA: `L05`, `L22`; APP: campos |
-| Chat | 🟡 | `Chat::new`, `crates/ravenrs-widgets-chat/src/chat.rs:376` | Vincular envio a execução, sessão, correlação, resposta em partes e cancelamento | BIBLIOTECA: `L22`, `L25`; APP: conversa e fluxo |
+| Chat | 🟡 | `Chat::new`, `crates/ravenrs-widgets-chat/src/chat.rs:416` | Vincular envio a execução, sessão, correlação, resposta em partes e cancelamento | BIBLIOTECA: `L22`, `L25`; APP: conversa e fluxo |
 
 O `Scheduler` visual organiza eventos e recursos. Sua existência não substitui o serviço que dispara execuções por relógio.
 
@@ -125,13 +127,13 @@ O `Scheduler` visual organiza eventos e recursos. Sua existência não substitui
 
 | Recurso | Estado | Onde está hoje (arquivo:linha) | O que falta | Onde deve entrar |
 |---|---|---|---|---|
-| Requisição HTTP genérica | 🟡 | `RemoteRequest`, `Transport` e `HttpTransport`, `crates/ravenrs-app-remote/src/transport.rs:6`, :38 e :45 | Transporte atual é orientado a JSON e bearer; faltam cabeçalhos arbitrários, binário, multipart, paginação, resposta completa, cancelamento e limites configuráveis | BIBLIOTECA: `L16`, `L17` |
+| Requisição HTTP genérica | 🟡 | `RemoteRequest`, `Transport` e `HttpTransport`, `crates/ravenrs-app-remote/src/transport.rs:6`, :36 e :43 | Transporte atual é orientado a JSON e bearer; faltam cabeçalhos arbitrários, binário, multipart, paginação, resposta completa, cancelamento e limites configuráveis | BIBLIOTECA: `L16`, `L17` |
 | Bancos Postgres e SQLite | 🟡 | `SqlBackend`, `crates/ravenrs-app-sql/src/lib.rs:185`; `SqliteBackend`, `crates/ravenrs-app-sqlite/src/lib.rs:276`; `PostgresBackend`, `crates/ravenrs-app-postgres/src/lib.rs:274` | Adaptar consultas e comandos a itens, tipos, transações e credenciais; conexão pertence ao trabalhador. Evitar usar o armazenamento do app como conexão implícita do nó | BIBLIOTECA: `L16`, `L18` |
 | E-mail | 🟡 | `Mailer`, `SmtpMailer::new`, `crates/ravenrs-report-server/src/deliver.rs:33` e :52 | Extrair envio genérico hoje dependente dos tipos de relatório; recebimento e polling de caixa de entrada não foram encontrados como conectores | BIBLIOTECA: `L19` |
 | Arquivos | 🟡 | `write_to_folder`, `crates/ravenrs-report-server/src/deliver.rs:96` | Provider geral de leitura/escrita/listagem, streams, binários, limites e diretórios autorizados | BIBLIOTECA: `L19` |
 | Planilha | 🟡 | `Session::execute_headless`, `crates/ravenrs-sheet/src/engine/mod.rs:1124` | Adaptador entre lotes de objetos e linhas/células, política de cabeçalhos, tipos, fórmulas e arquivo de saída | BIBLIOTECA: `L20` |
 | Set, filtrar, ordenar, agrupar, dividir e juntar | 🟡 | `Scope::rows`, `evaluate` e `matches`, `crates/ravenrs-criteria/src/eval.rs:255`, :283 e :293 | Expressões e agregações ajudam; faltam operadores que recebam e produzam lotes preservando proveniência | BIBLIOTECA: `L11` |
-| Modelo de linguagem, agente, ferramentas e memória | 🟡 | `LocalAssistant::answer`, `crates/ravenrs-ai/src/assistant.rs:157`; `Tool`, `tool_rules` e `read_tool_call`, `crates/ravenrs-ai/src/tools.rs:9`, :35 e :42 | Interface de inferência independente da UI, saída estruturada, ciclo de ferramentas, limites e memória persistida por sessão | BIBLIOTECA: `L25`; APP: ferramentas permitidas e políticas |
+| Modelo de linguagem, agente, ferramentas e memória | 🟡 | `LocalAssistant::answer`, `crates/ravenrs-ai/src/assistant.rs:171`; `Tool`, `tool_rules` e `read_tool_call`, `crates/ravenrs-ai/src/tools.rs:9`, :35 e :42 | Interface de inferência independente da UI, saída estruturada, ciclo de ferramentas, limites e memória persistida por sessão | BIBLIOTECA: `L25`; APP: ferramentas permitidas e políticas |
 
 `ravenrs-mcp` serve informações sobre o framework: `RavenServer`, em `crates/ravenrs-mcp/src/server.rs:136`. Não foi encontrada nessa API uma implementação de cliente de ferramentas remotas para o agente; esse suporte precisa de contrato próprio.
 
@@ -141,7 +143,7 @@ O `Scheduler` visual organiza eventos e recursos. Sua existência não substitui
 |---|---|---|---|---|
 | Lista com status, duração e modo | 🟡 | `DataGrid::new`, `crates/ravenrs-widgets-grid/src/grid/view.rs:331`; `RunRecord`, `crates/ravenrs-report-server/src/store.rs:68` | Grade disponível; registro existente é específico de relatório. Criar persistência genérica e projeção da execução do fluxo | BIBLIOTECA: `L12`; APP: colunas e modos |
 | Filtros e busca | ✅ | `DataGrid::filter_builder`, `filter_row` e `search_panel`, `crates/ravenrs-widgets-grid/src/grid/view.rs:391`, :563 e :569 | App declarar campos consultáveis e ligar filtros ao repositório | APP |
-| Detalhe no fluxo com dados de cada nó | 🟡 | `FlowCanvas::selection`, `content` e `locked`, `crates/ravenrs-widgets-charts/src/flow.rs:393`, :481 e :519 | Snapshot imutável da definição executada, tentativas e dados por porta; overlay visual de execução. `locked` é alternável e não constitui modo somente leitura irrevogável | BIBLIOTECA: `L02`, `L06`, `L12` |
+| Detalhe no fluxo com dados de cada nó | 🟡 | `FlowCanvas::selection`, `content` e `locked`, `crates/ravenrs-widgets-charts/src/flow.rs:660`, :809 e :847 | Snapshot imutável da definição executada, tentativas e dados por porta; overlay visual de execução. `locked` é alternável e não constitui modo somente leitura irrevogável | BIBLIOTECA: `L02`, `L06`, `L12` |
 | Reexecutar | ⬜ | Não encontrado replay de execução de fluxo; busca `B6`: `execution_history`, `workflow_version`, `NodeExecutor` | Selecionar versão original ou atual, dados originais ou novos e avisar sobre repetição de efeitos | BIBLIOTECA: `L10`, `L12`; APP: política |
 | Apagar e aplicar retenção | 🟡 | `Store::save_run`, `crates/ravenrs-report-server/src/store.rs:319` | Limite por quantidade existe para relatórios; faltam exclusão autorizada de execuções de fluxo, retenção por idade/status e coleta dos blobs associados | BIBLIOTECA: `L12`; APP: prazos |
 
@@ -163,12 +165,12 @@ O `Scheduler` visual organiza eventos e recursos. Sua existência não substitui
 
 | Recurso | Estado | Onde está hoje (arquivo:linha) | O que falta | Onde deve entrar |
 |---|---|---|---|---|
-| Lista de fluxos, tags e pastas | ✅ | `DataGrid::new`, `crates/ravenrs-widgets-grid/src/grid/view.rs:331`; `FieldKind::Tags`, `crates/ravenrs-app/src/entity.rs:25`; `TreeView::new`, `crates/ravenrs-widgets-lists/src/tree.rs:190` | Modelar registros, tags e hierarquia de pastas e compor a tela | APP |
+| Lista de fluxos, tags e pastas | ✅ | `FlowLibrary`, `crates/ravenrs-widgets-charts/src/flow_library.rs:46`, com `FlowShelf`, `crates/ravenrs-graphics/src/flow/document.rs:22`; `DataGrid::new`, `crates/ravenrs-widgets-grid/src/grid/view.rs:331`; `FieldKind::Tags`, `crates/ravenrs-app/src/entity.rs:25`; `TreeView::new`, `crates/ravenrs-widgets-lists/src/tree.rs:199` | `FlowDocument` guarda id, nome e diagrama; tags, pastas e projeto ficam no modelo do app | APP |
 | Projetos | 🟡 | `Role::object_permission`, `crates/ravenrs-app/src/security/mod.rs:220` | Modelo de projeto e membros é do app; falta propagação uniforme da autorização aos comandos, trabalhadores e segredos | BIBLIOTECA: `L27`; APP: entidades e associações |
 | Ativar e desativar fluxo | 🟡 | `StateMachine::new` e `transition`, `crates/ravenrs-app/src/workflow.rs:15` e :32 | Validar versão publicável, instalar/remover gatilhos e definir tratamento das execuções em andamento | BIBLIOTECA: `L10`, `L14`, `L21`; APP: ciclo de publicação |
 | Versões e histórico | ⬜ | Não encontrado versionamento de fluxo executável; busca `B6`: `workflowversion`, `workflow_version` | Revisões imutáveis, rascunho, versão ativa, referência da execução e migração do formato | BIBLIOTECA: `L03`, `L10`, `L12`; APP: política editorial |
-| Importar e exportar | 🟡 | `FlowGraph::from_json` e `to_json`, `crates/ravenrs-graphics/src/flow.rs:1017` e :1010 | Documento completo, compatibilidade, resolução de tipos ausentes e remoção de segredos; importar não ativa o fluxo | BIBLIOTECA: `L03`, `L10`; APP: formato |
-| Modelos reutilizáveis de fluxo | 🟡 | `FlowGraph::insert`, `crates/ravenrs-graphics/src/flow.rs:980` | Instanciar definição completa com novos IDs e credenciais a preencher; o conteúdo dos modelos é do exemplo | BIBLIOTECA: `L03`, `L10`; APP: modelos |
+| Importar e exportar | 🟡 | `FlowGraph::from_json` e `to_json`, `crates/ravenrs-graphics/src/flow.rs:1107` e :1100 | Documento completo, compatibilidade, resolução de tipos ausentes e remoção de segredos; importar não ativa o fluxo | BIBLIOTECA: `L03`, `L10`; APP: formato |
+| Modelos reutilizáveis de fluxo | 🟡 | `FlowGraph::insert`, `crates/ravenrs-graphics/src/flow.rs:1069` | Instanciar definição completa com novos IDs e credenciais a preencher; o conteúdo dos modelos é do exemplo | BIBLIOTECA: `L03`, `L10`; APP: modelos |
 | Variáveis e ambiente | 🟡 | `SettingsStore`, `crates/ravenrs-app/src/settings.rs:44`; `Environment::parameter`, `crates/ravenrs-criteria/src/eval.rs:130` | Resolver escopos e precedência, tipar valores e congelar contexto por execução. Configuração em texto não substitui cofre | BIBLIOTECA: `L09`, `L10`, `L23`; APP: nomes e escopos |
 
 ### 10. Usuários e permissões
@@ -186,8 +188,8 @@ A autorização de ações deve ser explícita: `can_use_action` permite ações
 
 | Recurso | Estado | Onde está hoje (arquivo:linha) | O que falta | Onde deve entrar |
 |---|---|---|---|---|
-| API REST protegida e endpoints próprios | ✅ | `ApiService::new` e `endpoint`, `crates/ravenrs-app-server/src/lib.rs:301` e :403 | App registrar comandos de fluxos, execuções e administração; operações longas devem devolver identificador da execução | APP, sobre o servidor |
-| Servidor de webhooks | 🟡 | `ApiService::webhook`, `crates/ravenrs-app-server/src/lib.rs:396` | Ampliar contrato de rotas e resposta; enqueue rápido, idempotência e tratamento de prazo | BIBLIOTECA: `L21` |
+| API REST protegida e endpoints próprios | ✅ | `ApiService::new` e `endpoint`, `crates/ravenrs-app-server/src/lib.rs:302` e :404 | App registrar comandos de fluxos, execuções e administração; operações longas devem devolver identificador da execução | APP, sobre o servidor |
+| Servidor de webhooks | 🟡 | `ApiService::webhook`, `crates/ravenrs-app-server/src/lib.rs:397` | Ampliar contrato de rotas e resposta; enqueue rápido, idempotência e tratamento de prazo | BIBLIOTECA: `L21` |
 | Persistência de execuções | 🟡 | `SqliteDatabase`, `crates/ravenrs-app-sqlite/src/lib.rs:366`; `RunRecord`, `crates/ravenrs-report-server/src/store.rs:68` | Repositório de execução de grafo, checkpoints atômicos, blobs, índices e migrações | BIBLIOTECA: `L12` |
 | Métricas | ⬜ | Não encontrado contrato de métricas de execução; busca `B8`: `metrics`, `prometheus`, `opentelemetry` na camada de aplicação e servidor | Contadores, histogramas e filas com dimensões limitadas; health/readiness do executor e gatilhos | BIBLIOTECA: `L27` |
 
@@ -197,13 +199,13 @@ O servidor atual processa o estado da aplicação em uma thread própria, uma re
 
 | Recurso | Estado | Onde está hoje (arquivo:linha) | O que falta | Onde deve entrar |
 |---|---|---|---|---|
-| Tema claro e escuro | ✅ | `Theme::raven_dark` e `raven_light`, `crates/ravenrs-style/src/lib.rs:421` e :457 | App escolher e persistir preferência | APP |
-| Atalhos e ajuda de teclado | ✅ | `ShortcutSheet::new`, `crates/ravenrs-widgets-kit/src/shortcuts.rs:49`; `FlowCanvas::history`, `crates/ravenrs-widgets-charts/src/flow.rs:402` | Mapear comandos do app e resolver conflitos de contexto com editores | APP |
+| Tema claro e escuro | ✅ | `Theme::raven_dark` e `raven_light`, `crates/ravenrs-style/src/lib.rs:426` e :462 | App escolher e persistir preferência | APP |
+| Atalhos e ajuda de teclado | ✅ | `ShortcutSheet::new`, `crates/ravenrs-widgets-kit/src/shortcuts.rs:49`; `FlowCanvas::history`, `crates/ravenrs-widgets-charts/src/flow.rs:669` | Mapear comandos do app e resolver conflitos de contexto com editores | APP |
 | Barra de comando com Ctrl+K | ✅ | `CommandPalette::new`, `crates/ravenrs-widgets-base/src/floating.rs:1013` | Registrar comandos e suas condições de disponibilidade | APP |
 | Notificações | ✅ | `Toasts::show_with`, `crates/ravenrs-widgets-base/src/floating.rs:683` | App traduzir eventos e erros em mensagens com ação apropriada | APP |
 | Estados vazios | ✅ | `EmptyState::new` e `action`, `crates/ravenrs-widgets-kit/src/status.rs:521` e :538 | Conteúdo para fluxo vazio, nó sem entrada, catálogo sem resultados e histórico vazio | APP |
-| Acessibilidade | 🟡 | `FlowCanvas::label`, `crates/ravenrs-widgets-charts/src/flow.rs:531`; `BuildCx::drag_source`, `crates/ravenrs-widgets-base/src/context.rs:1678`; `Announcer::polite`, `crates/ravenrs-app-a11y/src/announce.rs:72` | Provar navegação completa, alternativa ao arraste, foco entre painéis e anúncios de execução nas novas composições | BIBLIOTECA: aceites de `L01`, `L05`–`L09`, `L26`; APP: composição |
-| Internacionalização | ✅ | `Labels::from_texts`, `crates/ravenrs-widgets-base/src/labels.rs:958`; `Texts::get`, `crates/ravenrs-app-i18n/src/lib.rs:248` | Cadastrar textos do domínio, pluralização necessária e formatos de data/duração | APP; textos dos novos componentes em suas crates |
+| Acessibilidade | 🟡 | `FlowCanvas::label`, `crates/ravenrs-widgets-charts/src/flow.rs:859`; `BuildCx::drag_source`, `crates/ravenrs-widgets-base/src/context.rs:1701`; `Announcer::polite`, `crates/ravenrs-app-a11y/src/announce.rs:72` | Provar navegação completa, alternativa ao arraste, foco entre painéis e anúncios de execução nas novas composições | BIBLIOTECA: aceites de `L01`, `L05`–`L09`, `L26`; APP: composição |
+| Internacionalização | ✅ | `Labels::from_texts`, `crates/ravenrs-widgets-base/src/labels.rs:1139`; `Texts::get`, `crates/ravenrs-app-i18n/src/lib.rs:248` | Cadastrar textos do domínio, pluralização necessária e formatos de data/duração | APP; textos dos novos componentes em suas crates |
 
 ### 13. Vídeo e treinamento
 
@@ -254,26 +256,26 @@ O precedente está implementado em `examples/family-finance/src/ui/training.rs:2
 Tamanhos relativos: **P** pequena, **M** média, **G** grande.
 
 - **`ravenrs-movie`**
-  - **G · issue nova:** preservar `Primitive::Path`, pincéis e demais dados vetoriais; emitir erro ou diagnóstico quando houver primitivas incompatíveis. Destrava filmes fiéis do canvas sem converter a tela em imagem.
-  - **M · issue nova:** modo de gravação exclusivamente vetorial, com rejeição explícita de imagens raster. Destrava o requisito “nunca pixels” verificável.
-  - **M · issue nova:** roteiro serializável, validação e registro de fábricas de telas graváveis. Destrava o nó “roteiro → filme” configurável por dados.
-  - **M · issue nova:** `.voz` com bytes possuídos e erros de leitura explícitos. Destrava trabalhos repetidos sem vazamento permanente nem aceitação silenciosa de pacote inválido.
-  - **M · issue nova:** sequência única de falas, incluindo cartões e tempos, consumida por player, trilha e legendas. Destrava equivalência entre treinamento embutido e vídeo publicado.
+  - **G · #550:** preservar `Primitive::Path`, pincéis e demais dados vetoriais; emitir erro ou diagnóstico quando houver primitivas incompatíveis. Destrava filmes fiéis do canvas sem converter a tela em imagem.
+  - **M · #550:** modo de gravação exclusivamente vetorial, com rejeição explícita de imagens raster. Destrava o requisito “nunca pixels” verificável.
+  - **M · #551:** roteiro serializável, validação e registro de fábricas de telas graváveis. Destrava o nó “roteiro → filme” configurável por dados.
+  - **M · #552:** `.voz` com bytes possuídos e erros de leitura explícitos. Destrava trabalhos repetidos sem vazamento permanente nem aceitação silenciosa de pacote inválido.
+  - **M · #553:** sequência única de falas, incluindo cartões e tempos, consumida por player, trilha e legendas. Destrava equivalência entre treinamento embutido e vídeo publicado.
 
 - **`ravenrs-ai`**
-  - **M · issue nova:** normalização reutilizável de números, datas, valores e siglas antes da fonemização. Hoje parte disso está em `examples/family-finance/src/ui/spoken.rs:129`; `phonemes_pt_br` deixa números de fora (`crates/ravenrs-ai/src/phonemes.rs:795`). Destrava narração correta sem depender do exemplo financeiro.
+  - **M · #96 (já existia):** normalização reutilizável de números, datas, valores e siglas antes da fonemização. Hoje parte disso está em `examples/family-finance/src/ui/spoken.rs:129`; `phonemes_pt_br` deixa números de fora (`crates/ravenrs-ai/src/phonemes.rs:795`). Destrava narração correta sem depender do exemplo financeiro.
   - **M · referência local à #97; escopo remoto não conferido:** consolidar avaliação da fala por reconhecedor independente e aplicá-la ao pacote final. O teste em `examples/channel-video/src/main.rs:379` já compara três vozes com Whisper, mas está ignorado e verifica presença de 80% das palavras de uma frase, sem avaliar ordem e repetições. Destrava evidência de inteligibilidade por treinamento.
 
 - **`ravenrs-movie-video`**
-  - **M · issue nova:** integrar contêiner MP4 e política de áudio, aproveitando a infraestrutura ISO BMFF existente. Destrava entrega MP4 real.
-  - **M · issue nova:** cancelamento, limites de recursos e descarte seguro de arquivo incompleto. Destrava interrupção de execuções pelo motor.
-  - **M · issue nova:** legendas completas e tempos comuns para concatenação, áudio e quadros. Destrava exportações editadas sem omissão de falas ou deriva acumulada.
-  - **P · issue nova:** teste de exportação que exija GPU no ambiente de validação. Hoje o teste retorna sem falhar quando recebe `NoGpu` (`crates/ravenrs-movie-video/tests/video.rs:56`); isso pode deixar a codificação sem exercício.
+  - **M · #554:** integrar contêiner MP4 e política de áudio, aproveitando a infraestrutura ISO BMFF existente. Destrava entrega MP4 real.
+  - **M · #554:** cancelamento, limites de recursos e descarte seguro de arquivo incompleto. Destrava interrupção de execuções pelo motor.
+  - **M · #553:** legendas completas e tempos comuns para concatenação, áudio e quadros. Destrava exportações editadas sem omissão de falas ou deriva acumulada.
+  - **P · #554:** teste de exportação que exija GPU no ambiente de validação. Hoje o teste retorna sem falhar quando recebe `NoGpu` (`crates/ravenrs-movie-video/tests/video.rs:56`); isso pode deixar a codificação sem exercício.
 
 - **Motor, catálogo, conectores e credenciais da biblioteca de fluxos**
-  - **M · issue nova:** adaptadores de vídeo com entradas/saídas serializáveis, referências a artefatos, progresso e cancelamento. `Movie` e `Narration` usam `Rc`; construir esses objetos dentro do trabalhador e transportar bytes ou referências a arquivos entre trabalhadores.
-  - **M · issue nova:** manifesto e cache por dependências de treinamento. Destrava a regeneração seletiva por versão.
-  - **G · issue nova:** conector de publicação com credenciais pessoais e envio retomável. Destrava publicação como etapa rastreável do fluxo.
+  - **M · #556:** adaptadores de vídeo com entradas/saídas serializáveis, referências a artefatos, progresso e cancelamento. `Movie` e `Narration` usam `Rc`; construir esses objetos dentro do trabalhador e transportar bytes ou referências a arquivos entre trabalhadores.
+  - **M · #556:** manifesto e cache por dependências de treinamento. Destrava a regeneração seletiva por versão.
+  - **G · #557:** conector de publicação com credenciais pessoais e envio retomável. Destrava publicação como etapa rastreável do fluxo.
 
 #### Nós de vídeo propostos para o catálogo
 
@@ -322,48 +324,48 @@ IA local continua sendo o padrão. Escolher Codex CLI ou Claude CLI exige consen
 
 | Recurso | Estado | Onde está hoje (arquivo:linha) | Sem janela? | O que falta | Onde deve entrar |
 |---|---|---|---|---|---|
-| 1. Processo com argumentos, pasta, stdout/stderr simultâneos e atualização sem bloquear a UI | 🟡 | `examples/raven-code/src/cargo.rs:167`, função pública `start`: inicia `cargo` numa thread, define argumentos e pasta, drena os dois canais em threads e espera o término. | Sim, o executor aceita um callback sem UI; não garante ausência de console no Windows. | Extrair executor genérico da biblioteca; parâmetros tipados, eventos por canal, código de saída completo e erros de leitura. Hoje o exemplo conserva essencialmente sucesso/falha e acumula texto sem limite. | Nova `ravenrs-process`; migrar `raven-code` para ela. |
-| 1. Stdin e prompt grande | 🟡 | `crates/ravenrs-pagamento/src/auxiliar.rs:368`, `CanalProcesso::iniciar`, abre stdin/stdout; `CanalProcesso` implementa envio e leitura de linhas de forma bloqueante. | Sim, nativo; precisa executar fora da thread da UI. | Transporte genérico: escrever prompt, fechar stdin, drenar stdout/stderr em paralelo e tratar pipe fechado. Codex recebe o prompt por `-`; Claude precisa de transporte compatível com o formato de entrada escolhido. | `ravenrs-process`; montagem do protocolo em nova `ravenrs-agent-cli`. |
-| 1. Cancelamento, timeout e árvore de processos | 🟡 | `crates/ravenrs-app/src/job.rs:224`, `Job::cancel`, sinaliza cancelamento cooperativo; `crates/ravenrs-pagamento/src/auxiliar.rs:386`, `CanalProcesso::matar`, mata e espera somente o filho direto. | A sinalização e o encerramento dispensam janela; `Job` pertence ao ciclo de ações do app. | Timeout, interrupção seguida de morte forçada, grupo de processos no Unix e mecanismo equivalente no Windows; coletar filhos e não deixar leitores presos em pipes herdados. Cancelar `Job` não mata uma CLI. | `ravenrs-process`, integrado a `ravenrs-app`; relacionado à #496. |
-| 1. Ambiente filtrado e execução sem console nativo | ⬜ | Busca em `crates` e `examples`: `env_clear`, `process_group`, `CREATE_NO_WINDOW`, `taskkill`, `killpg`; não foi localizada uma abstração genérica. | Requisito do executor proposto. | Ambiente por lista permitida, passagem controlada das variáveis necessárias à CLI e lançamento sem console no Windows. Usar argumentos separados, sem interpolação em shell. | `ravenrs-process`. |
-| 2. Descoberta e diagnóstico das CLIs | ⬜ | Buscas: `find_executable`, `find_binary`, `which::`, `auth_status`, `login_status`, `minimum_version`, `codex exec`, `claude -p`; nenhum adaptador encontrado. | Deve funcionar no trabalhador nativo. | Resolver PATH ou caminho explícito; consultar versão e capacidades; distinguir ausente, incompatível, sem login e falha operacional. Ações: instalar externamente, atualizar ou fazer login num terminal fora do app. Não inferir “sem login” de qualquer saída não zero. | Resolução em `ravenrs-process`; diagnóstico específico em `ravenrs-agent-cli`. |
-| 3. Eventos JSONL e `stream-json` | 🟡 | `examples/raven-code/src/cargo.rs:74`, `read_line`, interpreta JSON do compilador por linha. `crates/ravenrs-nfe/src/sandbox/gravacao.rs:196`, `Reprodutor::de_jsonl`, lê gravação JSONL inteira, específica do domínio. | Sim; são leitores sem UI. | Decodificadores próprios para Codex e Claude: fragmentação de bytes, última linha sem newline, limites de tamanho, eventos desconhecidos, ferramentas, erro, conclusão e mensagem final. O leitor de cargo não reconhece esses protocolos. | Enquadramento de linhas em `ravenrs-process`; protocolos em `ravenrs-agent-cli`. |
-| 3. Esquema de saída e validação independente | ⬜ | Buscas: `jsonschema`, `json-schema`, `json_schema`, `StreamDeserializer`, `Deserializer::from_reader`; não foi encontrado validador genérico de JSON Schema. Geração de schemas para ferramentas não comprova validação de resultados. | Deve ser inteiramente sem janela. | Entregar arquivo a `--output-schema` e schema a `--json-schema`; validar novamente o resultado no app, com dialeto definido e erros por caminho. Separar conclusão do processo de resultado válido. | Nova `ravenrs-data-validation`; adaptação das opções em `ravenrs-agent-cli`. |
-| 4. Política por nó, limites e proteção do log | ⬜ | Buscas: `codex exec`, `claude -p`, `stream-json`, `env_clear`; nenhum contrato de política para agentes CLI localizado. | Deve ser aplicada no trabalhador, inclusive sem painel aberto. | Só leitura por padrão; pastas autorizadas, ferramentas permitidas/negadas, tempo, voltas e orçamento. Mapear apenas capacidades comprovadas da versão instalada; recusar restrições que não possam ser garantidas. Registrar metadados e eventos sanitizados, com retenção e limites; não registrar ambiente, tokens ou conteúdo bruto indiscriminadamente. | `ravenrs-agent-cli`, com imposição de prazo/cancelamento em `ravenrs-process`. |
-| 4. Aprovação humana durável antes de escrita | 🟡 | `crates/ravenrs-app-requests/src/lib.rs:191`, `RequestsModule::submit`, abre pedido/tarefa; `:224`, `decide`, verifica papel e versão, registra decisão idempotente e emite evento no mesmo commit. `crates/ravenrs-app/src/outbox.rs:255`, `Dispatcher::run_at`, reconcilia envios incertos. | Sim, com `ObjectSpace` persistente; a decisão pode chegar posteriormente pela UI. | Vincular aprovação à execução, política, diretórios, revisão-base e hash do artefato. Impedir execução antes da decisão e invalidar aprovação se o conteúdo mudar. A base da #258 não é um motor durável de processos externos. | Integração em `ravenrs-app-requests`/`ravenrs-app`; execução em `ravenrs-agent-cli` e futuro motor de fluxos. |
-| 5. Worktree descartável, diff e aplicação aprovada | ⬜ | Buscas: `git2`, `gix::`, `libgit`, `git worktree`, `git diff`, `git status`, `git apply`, `Command::new("git")`; nenhum serviço correspondente encontrado. Referências a worktrees em cache de compilação não gerenciam git. | Deve funcionar sem janela. | Criar e limpar worktree isolada; fixar revisão-base; coletar arquivos novos e alterações; limitar caminhos/tamanho; preservar artefato durante aprovação. Aplicar somente o diff aprovado, após conferir base e conflitos. Worktree não substitui sandbox. | Nova `ravenrs-git`, usando `ravenrs-process`, com aprovação em `ravenrs-app-requests`. |
-| 6. Console ao vivo e visualização do resultado | 🟡 | `crates/ravenrs-widgets-chat/src/chat.rs:297`, `ChatMessage::assistant_writing`, recebe texto compartilhado entre threads; `:376`, `Chat::new`. `crates/ravenrs-widgets-chat/src/code_editor.rs:186`, `CodeEditor::read_only`. O painel de `raven-code` usa esse editor em `examples/raven-code/src/app.rs:420`. | A apresentação é visual; a execução deve continuar sem ela. | Console reutilizável com eventos, ferramentas, tempo, custo quando informado, filtros e histórico limitado. O “Terminal” atual é texto somente leitura, sem sessão de terminal ou entrada de processo. | Console em `ravenrs-widgets-chat`; ligação no painel do nó; #496 relacionada à parada/entrada. |
-| 6. Tabelas e inspector de dados | 🟡 | `crates/ravenrs-widgets-grid/src/grid/view.rs:56`, tipo público `DataGrid`, oferece a base tabular. | Componente visual; dados devem existir independentemente dele. | Inspector de JSON aninhado, arquivos, schema e diff. Buscas `DataInspector`, `JsonView`, `JsonTree`, `PropertyGrid`, `inspector` nos widgets não localizaram um inspector genérico para esses resultados. | Inspector reutilizável em `ravenrs-widgets-kit`, composto com `ravenrs-widgets-grid` e `ravenrs-widgets-chat`. |
-| 6. Parar e retomar sessão do agente | ⬜ | Buscas: `codex exec`, `claude -p`, `stream-json`; nenhum controlador dessas sessões encontrado. | O controle deve funcionar sem janela. | Persistir identificador da sessão, diretório, versão e política; implementar `resume` por provedor sem confundir retomada com repetição. Mostrar estados cancelado, interrompido, retomável e concluído; conciliar retenção com `--ephemeral`. | `ravenrs-agent-cli` e persistência do futuro motor; botões no console. |
-| 7. Expressões para montar prompt a partir dos itens | 🟡 | `crates/ravenrs-criteria/src/eval.rs:18`, `Record`, possui implementação para `serde_json::Value` com feature `json`; `:283`, `Scope::evaluate`, avalia expressões. `crates/ravenrs-widgets-kit/src/expression_editor.rs:78`, `ExpressionEditor::new`, oferece editor com campos e parâmetros. | Avaliação: sim. Editor: visual. `Environment` deve ser criado por execução/thread. | Contexto de itens do fluxo, interpolação explícita, prévia do prompt e limites de tamanho; tratar texto de issue como entrada sem autoridade para ampliar permissões. | Extensão em `ravenrs-criteria`; contexto e montagem no futuro `ravenrs-flows`. |
-| 7. Resultado tipado para o próximo nó | 🟡 | `crates/ravenrs-app/src/json.rs:8`, `value_to_json`, e `:20`, `object_from_json`, convertem valores/registros. A conversão de entrada não preserva objetos e arrays aninhados como um item arbitrário. | Sim. | Contrato de item com texto final, JSON validado, referências a arquivos, diff, sessão, término e métricas opcionais; persistência, proveniência e roteamento de falhas. Não converter JSON inválido em sucesso textual silenciosamente. | Futuro `ravenrs-flows`; produção do resultado em `ravenrs-agent-cli`. |
+| 1. Processo com argumentos, pasta, stdout/stderr simultâneos e atualização sem bloquear a UI | 9 | 3 | 1 |
+| 1. Stdin e prompt grande | 9 | 3 | 1 |
+| 1. Cancelamento, timeout e árvore de processos | 9 | 3 | 1 |
+| 1. Ambiente filtrado e execução sem console nativo | 9 | 3 | 1 |
+| 2. Descoberta e diagnóstico das CLIs | 3 | 4 | 1 |
+| 3. Eventos JSONL e `stream-json` | 0 | 4 | 1 |
+| 3. Esquema de saída e validação independente | 0 | 4 | 1 |
+| 4. Política por nó, limites e proteção do log | 0 | 5 | 4 |
+| 4. Aprovação humana durável antes de escrita | 0 | 5 | 4 |
+| 5. Worktree descartável, diff e aplicação aprovada | 0 | 5 | 2 |
+| 6. Console ao vivo e visualização do resultado | 0 | 7 | 0 |
+| 6. Tabelas e inspector de dados | 0 | 7 | 0 |
+| 6. Parar e retomar sessão do agente | 0 | 7 | 0 |
+| 7. Expressões para montar prompt a partir dos itens | 1 | 3 | 1 |
+| 7. Resultado tipado para o próximo nó | 1 | 3 | 1 |
 
 #### Lacunas da biblioteca para os nós de agente
 
 Tamanhos relativos: **P** pequeno, **M** médio, **G** grande. Crates indicadas como novas são propostas, não dependências existentes.
 
 - **`ravenrs-process` — nova**
-  - **G · issue nova, relacionada à #496:** executor nativo genérico, stdin, ambiente filtrado, drenagem concorrente, eventos limitados, saída completa, timeout e encerramento da árvore. Destrava agentes CLI e a reutilização pelo `raven-code`.
-  - **P · issue nova:** resolução de executável e consulta de versão com prazo. Destrava diagnóstico reproduzível no trabalhador.
+  - **G · #558, relacionada à #496:** executor nativo genérico, stdin, ambiente filtrado, drenagem concorrente, eventos limitados, saída completa, timeout e encerramento da árvore. Destrava agentes CLI e a reutilização pelo `raven-code`.
+  - **P · #558:** resolução de executável e consulta de versão com prazo. Destrava diagnóstico reproduzível no trabalhador.
 
 - **`ravenrs-agent-cli` — nova**
-  - **G · issue nova:** adaptadores Codex/Claude, negociação de capacidades, eventos normalizados, resultado final e sessões retomáveis. Destrava os dois nós sem chamar APIs externas.
-  - **G · issue nova:** política por execução, escolha explícita de uso pago, limites e sanitização antes de persistir eventos. Destrava execução com permissões verificáveis. Custo ausente deve aparecer como desconhecido; não inventar orçamento monetário para Codex a partir das opções fornecidas.
+  - **G · #559:** adaptadores Codex/Claude, negociação de capacidades, eventos normalizados, resultado final e sessões retomáveis. Destrava os dois nós sem chamar APIs externas.
+  - **G · #559:** política por execução, escolha explícita de uso pago, limites e sanitização antes de persistir eventos. Destrava execução com permissões verificáveis. Custo ausente deve aparecer como desconhecido; não inventar orçamento monetário para Codex a partir das opções fornecidas.
 
 - **`ravenrs-data-validation` — nova**
-  - **M · issue nova:** validação de JSON Schema com dialeto, limites e erros estruturados. Destrava passagem confiável de JSON entre nós, independentemente da promessa de formato feita pela CLI.
+  - **M · #560:** validação de JSON Schema com dialeto, limites e erros estruturados. Destrava passagem confiável de JSON entre nós, independentemente da promessa de formato feita pela CLI.
 
 - **`ravenrs-git` — nova**
-  - **G · issue nova:** worktree descartável, artefato de diff, verificação da revisão-base, aplicação e limpeza recuperável. Destrava alterações revisáveis sem escrever diretamente no checkout de trabalho.
+  - **G · #561:** worktree descartável, artefato de diff, verificação da revisão-base, aplicação e limpeza recuperável. Destrava alterações revisáveis sem escrever diretamente no checkout de trabalho.
 
 - **`ravenrs-app-requests` e `ravenrs-app`**
-  - **M · issue nova sobre a base da #258:** aprovação vinculada ao conteúdo e à política, espera persistente e reconciliação do efeito externo. Destrava escrita e publicação após decisão humana, sem repetir automaticamente efeitos incertos.
+  - **M · #562 sobre a base da #258:** aprovação vinculada ao conteúdo e à política, espera persistente e reconciliação do efeito externo. Destrava escrita e publicação após decisão humana, sem repetir automaticamente efeitos incertos.
 
 - **`ravenrs-widgets-chat`, `ravenrs-widgets-kit` e `ravenrs-widgets-grid`**
-  - **M · issue nova, relacionada à #496:** console do agente e inspector reutilizáveis, com parada, retomada, ferramentas, métricas e artefatos. Destrava acompanhamento no painel do nó. A #497 trata LSP e não substitui executor, console ou protocolo das CLIs.
+  - **M · #563, relacionada à #496:** console do agente e inspector reutilizáveis, com parada, retomada, ferramentas, métricas e artefatos. Destrava acompanhamento no painel do nó. A #497 trata LSP e não substitui executor, console ou protocolo das CLIs.
 
 - **`ravenrs-criteria` e futuro `ravenrs-flows`**
-  - **M · issue nova:** contexto de expressões sobre itens e contrato persistente de resultados/artefatos. Destrava prompts dinâmicos e encadeamento. O exemplo apenas compõe essas APIs.
+  - **M · #533 e #525:** contexto de expressões sobre itens e contrato persistente de resultados/artefatos. Destrava prompts dinâmicos e encadeamento. O exemplo apenas compõe essas APIs.
 
 #### Nós propostos
 
@@ -409,6 +411,93 @@ Fixtures devem ser sintéticas ou sanitizadas e versionadas por protocolo. Valid
 - Os estados remotos das issues não foram consultados: #496 e #497 foram consideradas abertas conforme o contexto; #258 identifica a base de aprovação durável, sem presumir que cubra agentes CLI.
 - As outras áreas e seus conectores não foram auditados aqui. Motor, credenciais, escrita de arquivo e publicação de PR são dependências.
 
+## Issues abertas
+
+As lacunas viraram issues filhas da #523, uma por entrega, com história, contexto, o que fazer, dependências e critérios de aceite. Estas já existiam e não foram repetidas: #453 (L08), #96 (números na fala), #41 (realce e autocompletar do `ExpressionEditor`), #430 (histograma de durações), #66 (motor de agenda), #28 (cofre do sistema) e #227 (agenda do app). A L04 foi entregue na #397. A L26 está na #564.
+
+**Canvas e documento**
+
+| ID | Issue | Tamanho | Entrega |
+|---|---|---|---|
+| L01 | #527 | M | FlowCanvas: soltar a conexão no vazio abre a busca e cria o nó já ligado |
+| L02 | #528 | M | FlowCanvas: mostrar uma execução vinda de fora, com contagem de itens e modo só leitura firme |
+| L03 | #529 | G | Documento de fluxo: histórico, área de transferência e JSON com os dados do domínio |
+
+**Painel do nó e expressões**
+
+| ID | Issue | Tamanho | Entrega |
+|---|---|---|---|
+| L05 | #530 | G | Formulário de parâmetros compostos e dinâmicos gerado por esquema |
+| L06 | #531 | G | Inspetor de dados aninhados com modos tabela, JSON e esquema |
+| L07 | #532 | M | Arrastar um campo do inspetor para um parâmetro gera a expressão |
+| L09 | #533 | G | Expressões de fluxo: interpolação no texto, contexto de itens e prévia do resultado |
+
+**Motor**
+
+| ID | Issue | Tamanho | Entrega |
+|---|---|---|---|
+| L10 | #525 | G | ravenrs-flows: grafo executável com itens, portas e proveniência |
+| L11 | #534 | G | ravenrs-flows: operadores de controle e transformação de itens |
+| L12 | #535 | G | ravenrs-flows-runtime: execução durável com fila, checkpoints, retomada e retenção |
+| L13 | #536 | G | Contexto de execução com cancelamento propagado, tempo limite e novas tentativas |
+| L14 | #537 | G | Gatilhos por agenda e por consulta periódica, com fuso, atraso e sem sobreposição |
+| L15 | #538 | G | ravenrs-script: runtime de script isolado para o nó de código |
+
+**Conectores e servidor**
+
+| ID | Issue | Tamanho | Entrega |
+|---|---|---|---|
+| L16 | #539 | G | ravenrs-connectors: contrato de conector com parâmetros, credencial, opções e teste |
+| L17 | #540 | M | Conector HTTP genérico: cabeçalhos, corpo binário, paginação e resposta completa |
+| L18 | #541 | M | Conectores SQL para itens: consulta e comando no Postgres e no SQLite |
+| L19 | #542 | G | Conectores de e-mail, arquivos e observação de pastas |
+| L20 | #543 | M | Conector de planilha sem janela: itens para células e de volta |
+| L21 | #544 | G | Webhooks de automação: rotas configuráveis e resposta controlada pelo fluxo |
+| L22 | #545 | G | Formulário e chat como gatilhos de fluxo |
+
+**Segurança e IA**
+
+| ID | Issue | Tamanho | Entrega |
+|---|---|---|---|
+| L23 | #546 | G | ravenrs-secrets: cofre cifrado, referência de credencial e permissão de uso |
+| L24 | #547 | G | Cliente OAuth2 para integrações: autorizar, renovar e revogar |
+| L27 | #548 | G | Autorização no trabalhador e observabilidade correlacionada das execuções |
+| L25 | #549 | G | ravenrs-ai: inferência sem UI, agente com ferramentas e memória por sessão |
+
+**Vídeo e treinamento (área 13)**
+
+| ID | Issue | Tamanho | Entrega |
+|---|---|---|---|
+| V1 | #550 | G | ravenrs-movie: guardar todas as primitivas vetoriais e oferecer gravação só vetorial |
+| V2 | #551 | M | ravenrs-movie: roteiro serializável e registro de telas graváveis |
+| V3 | #552 | M | ravenrs-movie: pacote de voz .voz com bytes próprios e erros de leitura |
+| V4 | #553 | M | ravenrs-movie: uma sequência única de falas para o player, a trilha e as legendas |
+| V5 | #554 | M | ravenrs-movie-video: MP4, cancelamento e descarte de arquivo incompleto |
+| V6 | #555 | M | ravenrs-ai: conferir a narração com um reconhecedor independente |
+| V7 | #556 | M | Nós de vídeo do catálogo e regravação só dos treinamentos afetados |
+| V8 | #557 | G | Conector de publicação de vídeo com a credencial da pessoa e envio retomável |
+
+**Nós de agente (área 14)**
+
+| ID | Issue | Tamanho | Entrega |
+|---|---|---|---|
+| A1 | #558 | G | ravenrs-process: executor de processo com entrada, saída em fluxo, tempo limite e parada da árvore |
+| A2 | #559 | G | ravenrs-agent-cli: nós do Codex CLI e do Claude CLI com política por nó |
+| A3 | #560 | M | ravenrs-data-validation: validação de JSON Schema com erros por caminho |
+| A4 | #561 | G | ravenrs-git: worktree descartável, diff como artefato e aplicação conferida |
+| A5 | #562 | M | ravenrs-app-requests: aprovação vinculada ao conteúdo antes de escrever ou publicar |
+| A6 | #563 | M | Console do agente no painel do nó: eventos, ferramentas, tempo, parar e retomar |
+
+**Componentes expostos pela cobertura**
+
+| ID | Issue | Tamanho | Entrega |
+|---|---|---|---|
+| C1 | #564 | M | CodeEditor: realce de JSON, shell e da linguagem de script dos nós |
+| C2 | #565 | M | Chat: interromper a resposta enquanto ele está ocupado |
+| C3 | #566 | M | CurveEditor: domínio dos eixos, unidades e restrição de Y crescente |
+| C4 | #567 | P | InputOtp: estado desabilitado durante a verificação |
+| C5 | #568 | G | Recorrência em minutos e horas, com fuso, exceções e prévia das próximas ocorrências |
+
 ## Lacunas da biblioteca
 
 Esta lista cobre as áreas 1 a 12. As lacunas das áreas 13 e 14 estão em [Lacunas de vídeo da biblioteca](#lacunas-de-vídeo-da-biblioteca) e [Lacunas da biblioteca para os nós de agente](#lacunas-da-biblioteca-para-os-nós-de-agente); as que os usos de cada componente expõem estão em [Lacunas expostas pelos usos](#lacunas-expostas-pelos-usos).
@@ -421,29 +510,29 @@ Uma issue relacionada não comprova cobertura integral. As associações abaixo 
 
 | ID | Peça única | Tamanho | Issue | O que a destrava |
 |---|---|---|---|---|
-| L01 | Finalização de conexão no vazio, com evento público e criação/conexão transacional | M | issue nova; relacionar #238 | Origem, coordenadas de conteúdo, cancelamento e aceitação por teclado; callback não deve contornar guard nem histórico |
-| L02 | Apresentação reutilizável de execução e modo somente leitura firme | M | issue nova | Contrato de estado externo para executando, sucesso, cancelado, fixado e contagens por porta; `FlowCanvas::content` permanece ponto de composição |
-| L04 | Pontos de dobra editáveis e exportação visual | G | #396 e #397, conforme `docs/SOFTWARE-COVERAGE.md:68` | Geometria compartilhada entre desenho, hit-test, edição e exportação; pode ficar após o núcleo funcional |
+| L01 | Finalização de conexão no vazio, com evento público e criação/conexão transacional | M | #527; relacionar #238 | Origem, coordenadas de conteúdo, cancelamento e aceitação por teclado; callback não deve contornar guard nem histórico |
+| L02 | Apresentação reutilizável de execução e modo somente leitura firme | M | #528 | Contrato de estado externo para executando, sucesso, cancelado, fixado e contagens por porta; `FlowCanvas::content` permanece ponto de composição |
+| L04 | ~~Pontos de dobra editáveis e exportação visual~~ | — | entregue (#397) | `FlowEdge::waypoint` e `FlowExportFormat` já estão no `master`; nada a abrir |
 
 ### `ravenrs-graphics`: documento e histórico
 
 | ID | Peça única | Tamanho | Issue | O que a destrava |
 |---|---|---|---|---|
-| L03 | Transações de edição, histórico e clipboard extensíveis ao documento completo | G | issue nova; relacionar #238 | API para payload de domínio, remapeamento de IDs/referências e edição atômica de geometria e parâmetros, sem colocar regras de automação no modelo geométrico |
+| L03 | Transações de edição, histórico e clipboard extensíveis ao documento completo | G | #529; relacionar #238 | API para payload de domínio, remapeamento de IDs/referências e edição atômica de geometria e parâmetros, sem colocar regras de automação no modelo geométrico |
 
 ### `ravenrs-app-spec`, `ravenrs-app` e `ravenrs-app-ui`
 
 | ID | Peça única | Tamanho | Issue | O que a destrava |
 |---|---|---|---|---|
-| L05 | Esquema e formulário de parâmetros compostos e dinâmicos | G | issue nova; #402 é referência relacionada ao inspector | Valores embutidos, coleção fixa/repetível, visibilidade, dependências, opções assíncronas, validação e commit/cancel do agregado; aproveitar `EntityInfo` e editores existentes |
+| L05 | Esquema e formulário de parâmetros compostos e dinâmicos | G | #530; #402 é referência relacionada ao inspector | Valores embutidos, coleção fixa/repetível, visibilidade, dependências, opções assíncronas, validação e commit/cancel do agregado; aproveitar `EntityInfo` e editores existentes |
 
 ### `ravenrs-widgets-kit` e `ravenrs-widgets-lists`
 
 | ID | Peça única | Tamanho | Issue | O que a destrava |
 |---|---|---|---|---|
-| L06 | Inspector de dados aninhados com modos tabela, JSON e esquema | G | issue nova | Fonte comum de dados e caminhos, arrays, busca, amostragem/limites, distinção entre ausente e nulo e suporte a grandes documentos |
-| L07 | Transferência de referência de campo para editor de parâmetro | M | issue nova | Payload público sobre `DragPayload`, caminho tipado, escape e ação equivalente por teclado; depende de L06 e L09 |
-| L09 | Editor contextual de expressões com completion, destaque e prévia | G | issue nova | Dialeto e resolvedor de contexto, diagnósticos por posição, amostra selecionada e orçamento de avaliação; reaproveitar o catálogo existente |
+| L06 | Inspector de dados aninhados com modos tabela, JSON e esquema | G | #531 | Fonte comum de dados e caminhos, arrays, busca, amostragem/limites, distinção entre ausente e nulo e suporte a grandes documentos |
+| L07 | Transferência de referência de campo para editor de parâmetro | M | #532 | Payload público sobre `DragPayload`, caminho tipado, escape e ação equivalente por teclado; depende de L06 e L09 |
+| L09 | Editor contextual de expressões com completion, destaque e prévia | G | #533 | Dialeto e resolvedor de contexto, diagnósticos por posição, amostra selecionada e orçamento de avaliação; reaproveitar o catálogo existente |
 
 ### `ravenrs-widgets-grid`
 
@@ -459,16 +548,16 @@ A parte semântica de **L09** pertence aqui: interpolação `{{ }}`, contexto de
 
 | ID | Peça única | Tamanho | Issue | O que a destrava |
 |---|---|---|---|---|
-| L10 | Contratos e planejamento de grafo executável | G | issue nova; relacionar #79 e #82 | Definição versionada, catálogo/executor, portas, lotes, proveniência, dados fixados, execução parcial e subfluxos, sem dependência da UI |
-| L11 | Operadores reutilizáveis de controle e transformação | G | issue nova | L10; semântica explícita de ramos, merge, lotes, set, filtro, ordenação, agrupamento, divisão, junção e propagação de erro |
+| L10 | Contratos e planejamento de grafo executável | G | #525; relacionar #79 e #82 | Definição versionada, catálogo/executor, portas, lotes, proveniência, dados fixados, execução parcial e subfluxos, sem dependência da UI |
+| L11 | Operadores reutilizáveis de controle e transformação | G | #534 | L10; semântica explícita de ramos, merge, lotes, set, filtro, ordenação, agrupamento, divisão, junção e propagação de erro |
 
 ### Crate proposta `ravenrs-flows-runtime`, sobre a camada de aplicação
 
 | ID | Peça única | Tamanho | Issue | O que a destrava |
 |---|---|---|---|---|
-| L12 | Execução durável, fila, checkpoints, replay e retenção | G | issue nova; relacionar #79, #241 e #255 | L10, persistência de estados e dados, reivindicação atômica por worker, leases, recuperação e coleta de blobs |
-| L13 | Contexto de execução com cancelamento, timeout e tentativas | G | issue nova; relacionar #255 | Token propagado aos providers, relógio controlável, classificação de falha e resultado desconhecido; timeout não pode ser somente uma marca no banco |
-| L14 | Serviço genérico de agenda e polling | G | #66 cobre parte; complemento em issue nova | Extrair cron/fuso do servidor de relatórios, definir intervalos, cursores, atraso, sobreposição e início idempotente via L12 |
+| L12 | Execução durável, fila, checkpoints, replay e retenção | G | #535; relacionar #79, #241 e #255 | L10, persistência de estados e dados, reivindicação atômica por worker, leases, recuperação e coleta de blobs |
+| L13 | Contexto de execução com cancelamento, timeout e tentativas | G | #536; relacionar #255 | Token propagado aos providers, relógio controlável, classificação de falha e resultado desconhecido; timeout não pode ser somente uma marca no banco |
+| L14 | Serviço genérico de agenda e polling | G | #66 cobre parte; complemento em #537 | Extrair cron/fuso do servidor de relatórios, definir intervalos, cursores, atraso, sobreposição e início idempotente via L12 |
 
 A #258 fornece tarefas e decisões humanas; pode integrar uma espera por aprovação, mas não substitui L10–L14.
 
@@ -476,37 +565,37 @@ A #258 fornece tarefas e decisões humanas; pode integrar uma espera por aprova�
 
 | ID | Peça única | Tamanho | Issue | O que a destrava |
 |---|---|---|---|---|
-| L15 | Runtime de script isolado e sem UI | G | issue nova | Escolha de linguagem, limites, cancelamento verificável e conversão de valores; acesso externo somente pelas capacidades concedidas |
+| L15 | Runtime de script isolado e sem UI | G | #538 | Escolha de linguagem, limites, cancelamento verificável e conversão de valores; acesso externo somente pelas capacidades concedidas |
 
 ### Crate proposta `ravenrs-connectors`
 
 | ID | Peça única | Tamanho | Issue | O que a destrava |
 |---|---|---|---|---|
-| L16 | Contrato de conector: parâmetros, credenciais, opções e teste | G | issue nova; relacionar #82 | L05, L10, L13 e L23; descoberta de capacidades, erros estruturados e execução fora da thread de UI |
-| L17 | Cliente HTTP genérico | M | issue nova | Extrair capacidades úteis de `ravenrs-app-remote` sem acoplar o conector ao protocolo desse cliente; corpo binário, cabeçalhos, autenticação e limites |
-| L18 | Adaptadores SQL para itens | M | issue nova | Reusar `SqlBackend` e os dois backends; parâmetros vinculados, tipos preservados, transação e conexão por worker |
-| L19 | Providers de e-mail, arquivos e observação de diretórios | G | issue nova; #261/#447 relacionadas ao ciclo de arquivos | Extrair envio do relatório e oferecer leitura/escrita/recebimento/observação por capacidades; usar L13 e L23 |
-| L20 | Adaptador de planilha sem janela | M | issue nova | Reusar `Session::execute_headless`; mapeamento de objetos, cabeçalhos, tipos e políticas de fórmulas |
+| L16 | Contrato de conector: parâmetros, credenciais, opções e teste | G | #539; relacionar #82 | L05, L10, L13 e L23; descoberta de capacidades, erros estruturados e execução fora da thread de UI |
+| L17 | Cliente HTTP genérico | M | #540 | Extrair capacidades úteis de `ravenrs-app-remote` sem acoplar o conector ao protocolo desse cliente; corpo binário, cabeçalhos, autenticação e limites |
+| L18 | Adaptadores SQL para itens | M | #541 | Reusar `SqlBackend` e os dois backends; parâmetros vinculados, tipos preservados, transação e conexão por worker |
+| L19 | Providers de e-mail, arquivos e observação de diretórios | G | #542; #261/#447 relacionadas ao ciclo de arquivos | Extrair envio do relatório e oferecer leitura/escrita/recebimento/observação por capacidades; usar L13 e L23 |
+| L20 | Adaptador de planilha sem janela | M | #543 | Reusar `Session::execute_headless`; mapeamento de objetos, cabeçalhos, tipos e políticas de fórmulas |
 
 ### `ravenrs-app-server`
 
 | ID | Peça única | Tamanho | Issue | O que a destrava |
 |---|---|---|---|---|
-| L21 | Ingresso HTTP de automação e resposta controlada pelo fluxo | G | issue nova; relacionar #256 | Rotas/métodos, corpo e cabeçalhos, resposta imediata ou correlacionada, prazo e enqueue durável; preservar o hook assinado existente |
-| L22 | Contratos de submissão de formulário e sessão de chat | G | issue nova; relacionar #260 e #259 | L05, L10 e L12; validação, versão, identidade/audiência e correlação da resposta. O widget de chat continua em sua crate |
+| L21 | Ingresso HTTP de automação e resposta controlada pelo fluxo | G | #544; relacionar #256 | Rotas/métodos, corpo e cabeçalhos, resposta imediata ou correlacionada, prazo e enqueue durável; preservar o hook assinado existente |
+| L22 | Contratos de submissão de formulário e sessão de chat | G | #545; relacionar #260 e #259 | L05, L10 e L12; validação, versão, identidade/audiência e correlação da resposta. O widget de chat continua em sua crate |
 
 ### Crate proposta `ravenrs-secrets`
 
 | ID | Peça única | Tamanho | Issue | O que a destrava |
 |---|---|---|---|---|
-| L23 | Cofre, referências de credencial e autorização de uso | G | issue nova | Cifragem autenticada, gestão de chave, redação, escrita sem revelação, rotação e uso sob identidade do executor; integrar L16 e L27 |
-| L24 | Cliente OAuth2 | G | issue nova | L23, callback local, state, PKCE quando aplicável, renovação serializada de tokens e revogação |
+| L23 | Cofre, referências de credencial e autorização de uso | G | #546 | Cifragem autenticada, gestão de chave, redação, escrita sem revelação, rotação e uso sob identidade do executor; integrar L16 e L27 |
+| L24 | Cliente OAuth2 | G | #547 | L23, callback local, state, PKCE quando aplicável, renovação serializada de tokens e revogação |
 
 ### `ravenrs-ai` e integração opcional com ferramentas remotas
 
 | ID | Peça única | Tamanho | Issue | O que a destrava |
 |---|---|---|---|---|
-| L25 | Inferência sem UI, agente com ferramentas e memória | G | issue nova; #266 é relacionada, com escopo distinto | Interface de inferência desacoplada de `UiWaker`, limites de passos/tokens, ferramenta com esquema, persistência por sessão e cliente remoto opcional |
+| L25 | Inferência sem UI, agente com ferramentas e memória | G | #549; #266 é relacionada, com escopo distinto | Interface de inferência desacoplada de `UiWaker`, limites de passos/tokens, ferramenta com esquema, persistência por sessão e cliente remoto opcional |
 
 O servidor documental de `ravenrs-mcp` não deve ser convertido implicitamente em executor de ferramentas do app.
 
@@ -514,13 +603,13 @@ O servidor documental de `ravenrs-mcp` não deve ser convertido implicitamente e
 
 | ID | Peça única | Tamanho | Issue | O que a destrava |
 |---|---|---|---|---|
-| L26 | Linguagem de script, completion e diagnóstico no editor | G | issue nova | Linguagem escolhida em L15, provider de completion e API pública de destaque; não usar os tipos internos de pintura como contorno no exemplo |
+| L26 | Linguagem de script, completion e diagnóstico no editor | G | #564 | Linguagem escolhida em L15, provider de completion e API pública de destaque; não usar os tipos internos de pintura como contorno no exemplo |
 
 ### `ravenrs-app`, `ravenrs-app-server` e infraestrutura de execução
 
 | ID | Peça única | Tamanho | Issue | O que a destrava |
 |---|---|---|---|---|
-| L27 | Autorização em comandos/workers e observabilidade correlacionada | G | issue nova; relacionar #79, #253 e #241 | Identidade revalidada, decisão de editar/executar/usar segredo, auditoria sem vazamento, logs correlacionados e métricas de cardinalidade limitada |
+| L27 | Autorização em comandos/workers e observabilidade correlacionada | G | #548; relacionar #79, #253 e #241 | Identidade revalidada, decisão de editar/executar/usar segredo, auditoria sem vazamento, logs correlacionados e métricas de cardinalidade limitada |
 
 **Referências de backlog:** #238 é evolução do editor de grafos, não aceite de motor executável; #396/#397 aparecem como dobra/exportação; #79 é encaminhamento amplo; #258 é processo de decisões humanas. Não foram encontradas referências a #496 ou #497 nos documentos, crates e exemplos pesquisados. Seu conteúdo e estado permanecem não verificados.
 
@@ -619,10 +708,10 @@ As lacunas devem ser resolvidas no componente responsável e, quando necessário
 | Chart | `crates/ravenrs-widgets-charts/src/chart.rs:1240` | Natural | Execuções: séries de sucesso, erro e duração ao longo do tempo. | Sim. |
 | ChartCard | `crates/ravenrs-widgets-charts/src/chart.rs:2586` | Natural | Execuções: gráfico com título, período, ação e observação. | Sim. |
 | ChartReference | `crates/ravenrs-widgets-charts/src/chart.rs:1115` | Natural | Execuções: linha do limite de duração esperado. | Sim; é configuração do gráfico. |
-| Chat | `crates/ravenrs-widgets-chat/src/chat.rs:356` | Natural | Nós de agente: testar instruções e acompanhar resposta incremental. | Parcial: falta ação nativa de interromper a resposta em andamento. |
+| Chat | `crates/ravenrs-widgets-chat/src/chat.rs:396` | Natural | Nós de agente: testar instruções e acompanhar resposta incremental. | Parcial: falta ação nativa de interromper a resposta em andamento. |
 | Checkbox | `crates/ravenrs-widgets-base/src/inputs.rs:166` | Natural | Painel do nó: incluir cabeçalhos ou campos opcionais. | Sim. |
 | CodeBlock | `crates/ravenrs-widgets-kit/src/release_notes.rs:23` | Natural | Nós de agente: copiar um comando de instalação ou diagnóstico. | Sim; é texto copiável, não editor multilinha. |
-| CodeEditor | `crates/ravenrs-widgets-chat/src/code_editor.rs:95` | Natural | Painel do nó e Variáveis: editar JSON e comandos. | Parcial: `CodeLanguage` oferece apenas Plain e Rust; faltam JSON e shell. |
+| CodeEditor | `crates/ravenrs-widgets-chat/src/code_editor.rs:100` | Natural | Painel do nó e Variáveis: editar JSON e comandos. | Parcial: `CodeLanguage` oferece apenas Plain e Rust; faltam JSON e shell. |
 | Collapse | `crates/ravenrs-widgets-base/src/motion.rs:499` | Natural | Painel do nó: abrir parâmetros condicionais quando uma opção é ativada. | Sim. |
 | ColorPair | `crates/ravenrs-widgets-base/src/choice.rs:911` | Natural | Relatórios: editar cores de texto e fundo de um estilo. | Sim. |
 | ColorPicker | `crates/ravenrs-widgets-base/src/color_picker.rs:122` | Natural | Configurações: escolher a cor de uma categoria de fluxos. | Sim. |
@@ -639,7 +728,7 @@ As lacunas devem ser resolvidas no componente responsável e, quando necessário
 | DataGrid | `crates/ravenrs-widgets-grid/src/grid/view.rs:56` | Natural | Lista de fluxos e Execuções: consulta, seleção, filtros e exportação. | Sim; possui suporte remoto, edição e identidade por chave. |
 | DatePicker | `crates/ravenrs-widgets-base/src/calendar.rs:343` | Natural | Credenciais: validade; Agenda: primeiro dia do gatilho. | Sim. |
 | DateRangePicker | `crates/ravenrs-widgets-base/src/calendar.rs:533` | Natural | Execuções: filtrar o histórico por período e predefinições. | Sim. |
-| DateTimePicker | `crates/ravenrs-widgets-kit/src/editors.rs:1476` | Natural | Painel do nó: executar ou esperar até uma data e hora locais. | Sim para horário local; o fuso é configuração explícita do gatilho. |
+| DateTimePicker | `crates/ravenrs-widgets-kit/src/editors.rs:1912` | Natural | Painel do nó: executar ou esperar até uma data e hora locais. | Sim para horário local; o fuso é configuração explícita do gatilho. |
 | DaySeparator | `crates/ravenrs-widgets-kit/src/status.rs:912` | Natural | Detalhe da execução: separar registros por dia. | Sim. |
 | Dialog | `crates/ravenrs-widgets-base/src/overlay.rs:1317` | Natural | Diagnóstico: mostrar detalhes de um erro ou teste de conexão. | Sim. |
 | Disclosure | `crates/ravenrs-widgets-kit/src/nav.rs:1860` | Natural | Painel do nó: seção de tentativas com ativação e estado alterado. | Sim. |
@@ -658,9 +747,9 @@ As lacunas devem ser resolvidas no componente responsável e, quando necessário
 | FileUpload | `crates/ravenrs-widgets-kit/src/files.rs:422` | Natural | Painel do nó: selecionar arquivos de entrada. | Sim. |
 | Filmstrip | `crates/ravenrs-widgets-lists/src/lists/filmstrip.rs:58` | Natural | Nós de vídeo: escolher quadros renderizados para inspeção. | Sim; miniaturas vêm do motor. |
 | FilterBuilder | `crates/ravenrs-widgets-kit/src/filter_builder.rs:325` | Natural | Execuções: combinar condições de estado, duração e fluxo. | Sim na linguagem de critérios. |
-| FloatingPanel | `crates/ravenrs-widgets-chat/src/chat.rs:685` | Natural | Nós de agente: acompanhar conversa em painel móvel e minimizável. | Sim. |
+| FloatingPanel | `crates/ravenrs-widgets-chat/src/chat.rs:731` | Natural | Nós de agente: acompanhar conversa em painel móvel e minimizável. | Sim. |
 | FloatingToolbar | `crates/ravenrs-widgets-kit/src/commands.rs:407` | Natural | Nós de vídeo: comandos de copiar quadro, ajustar vista e abrir edição sobre a prévia. | Sim. |
-| FlowCanvas | `crates/ravenrs-widgets-charts/src/flow.rs:323` | Natural | Editor: editar o grafo; execução: mostrar grafo bloqueado e estados dos nós. | Sim; histórico, validação, guardas, seleção, estados e minimapa já existem. |
+| FlowCanvas | `crates/ravenrs-widgets-charts/src/flow.rs:549` | Natural | Editor: editar o grafo; execução: mostrar grafo bloqueado e estados dos nós. | Sim; histórico, validação, guardas, seleção, estados e minimapa já existem. |
 | Footer | `crates/ravenrs-widgets-base/src/stack.rs:842` | Natural | Configurações: versão, licença e links de diagnóstico. | Sim. |
 | FormField | `crates/ravenrs-widgets-base/src/extras.rs:1143` | Natural | Painel do nó: rótulo, obrigatoriedade, ajuda e erros dos parâmetros. | Sim. |
 | FormLayout | `crates/ravenrs-widgets-kit/src/form_layout.rs:115` | Natural | Painel do nó: grupos, colunas e resumo dos erros de configuração. | Sim. |
@@ -687,13 +776,13 @@ As lacunas devem ser resolvidas no componente responsável e, quando necessário
 | LookupField | `crates/ravenrs-widgets-kit/src/lookup.rs:120` | Natural | Painel do nó: localizar credencial ou fluxo em catálogo remoto. | Sim; respostas antigas são descartadas e falhas podem ser informadas. |
 | Lottie | `crates/ravenrs-widgets-imaging/src/lottie.rs:27` | Forçado | Uma animação decorativa não substitui o treinamento em filme vetorial. | — |
 | Marquee | `crates/ravenrs-widgets-imaging/src/imaging/overlays.rs:835` | Forçado | Contorno animado de seleção duplicaria as seleções dos editores existentes. | — |
-| MaskedField | `crates/ravenrs-widgets-kit/src/editors.rs:1180` | Natural | Nós de vídeo: entrada de timecode no formato hora:minuto:segundo. | Sim para a máscara; a aplicação valida o intervalo temporal. |
+| MaskedField | `crates/ravenrs-widgets-kit/src/editors.rs:1616` | Natural | Nós de vídeo: entrada de timecode no formato hora:minuto:segundo. | Sim para a máscara; a aplicação valida o intervalo temporal. |
 | Menubar | `crates/ravenrs-widgets-base/src/extras.rs:830` | Natural | Editor: menus de arquivo, edição e visualização. | Sim. |
 | Minimap | `crates/ravenrs-widgets-imaging/src/imaging.rs:1840` | Natural | Inspetor de artefatos: navegar por uma imagem grande compartilhando `ZoomView`. | Sim; não é o minimapa interno de `FlowCanvas`. |
 | ModelPicker | `crates/ravenrs-widgets-kit/src/model_picker.rs:129` | Natural | IA local: baixar, cancelar, testar, usar e remover modelos. | Sim; execução e download são callbacks da aplicação. |
 | MultiProgress | `crates/ravenrs-widgets-kit/src/status.rs:728` | Natural | IA local: acompanhar downloads e preparação de vários arquivos. | Sim. |
 | NinePointAnchor | `crates/ravenrs-widgets-base/src/choice.rs:778` | Natural | Nós de vídeo: escolher o canto ou centro de uma legenda ou marca. | Sim; a aplicação converte a posição em parâmetros do motor. |
-| NumberField | `crates/ravenrs-widgets-kit/src/editors.rs:825` | Natural | Painel do nó: timeout, limite de itens e tamanho do lote. | Sim, com limites, precisão e sufixos. |
+| NumberField | `crates/ravenrs-widgets-kit/src/editors.rs:1261` | Natural | Painel do nó: timeout, limite de itens e tamanho do lote. | Sim, com limites, precisão e sufixos. |
 | OverlayBadge | `crates/ravenrs-widgets-kit/src/status.rs:112` | Natural | Credenciais: sobrepor estado da conexão ao avatar da conta. | Sim. |
 | PageHeader | `crates/ravenrs-widgets-base/src/stack.rs:305` | Natural | Lista de fluxos: título, contagem e ação de criar. | Sim. |
 | PagedDocumentView | `crates/ravenrs-widgets-lists/src/lists/paged.rs:43` | Natural | Relatórios: consultar páginas de PDF e slides rasterizados pelos motores. | Sim para páginas como imagens; não oferece seleção de texto. |
@@ -751,14 +840,14 @@ As lacunas devem ser resolvidas no componente responsável e, quando necessário
 | Tabs | `crates/ravenrs-widgets-kit/src/nav.rs:52` | Natural | Painel do nó: parâmetros, entrada e saída. | Sim. |
 | TagBox | `crates/ravenrs-widgets-kit/src/tag_box.rs:37` | Natural | Lista de fluxos: atribuir etiquetas existentes ou novas. | Sim. |
 | Text | `crates/ravenrs-widgets-base/src/text.rs:19` | Natural | Estrutura: títulos, descrições e valores com tipografia do tema. | Sim. |
-| TextArea | `crates/ravenrs-widgets-kit/src/editors.rs:152` | Natural | Painel do nó: descrições, instruções e texto de entrada multilinha. | Sim. |
+| TextArea | `crates/ravenrs-widgets-kit/src/editors.rs:336` | Natural | Painel do nó: descrições, instruções e texto de entrada multilinha. | Sim. |
 | TextField | `crates/ravenrs-widgets-base/src/text_field.rs:28` | Natural | Lista de fluxos: busca; Credenciais: segredo com apresentação segura. | Sim; apresentação segura não substitui armazenamento protegido. |
 | ThemeEditor | `crates/ravenrs-widgets-kit/src/theme.rs:112` | Natural | Configurações e tema: editar tokens e conferir legibilidade. | Sim; importação e exportação de diferenças já existem. |
 | ThemePicker | `crates/ravenrs-widgets-kit/src/theme.rs:26` | Natural | Estrutura: trocar tema por controle compacto. | Sim. |
 | ThemeSwitcher | `crates/ravenrs-widgets-base/src/inputs.rs:983` | Natural | Configurações e tema: comparar e escolher entre três temas. | Sim. |
 | Ticker | `crates/ravenrs-widgets-base/src/page_motion.rs:21` | Forçado | Uma faixa em movimento prejudicaria a leitura de estados e registros. | — |
 | TileLayout | `crates/ravenrs-widgets-kit/src/tiles.rs:137` | Natural | Início: mover e redimensionar resumos operacionais. | Sim, inclusive como base de `DashboardView`. |
-| TimePicker | `crates/ravenrs-widgets-kit/src/editors.rs:1346` | Natural | Agenda: escolher o horário diário do gatilho. | Sim para horário; recorrência e fuso são tratados no gatilho. |
+| TimePicker | `crates/ravenrs-widgets-kit/src/editors.rs:1782` | Natural | Agenda: escolher o horário diário do gatilho. | Sim para horário; recorrência e fuso são tratados no gatilho. |
 | Timeline | `crates/ravenrs-widgets-scheduler/src/timeline.rs:177` | Natural | Detalhe da execução: duração das etapas; vídeo: trilhas de `MovieEditor`. | Sim. |
 | TitleBar | `crates/ravenrs-widgets-base/src/stack.rs:1032` | Natural | Estrutura desktop: título do fluxo e controles da janela. | Sim; ações são conectadas ao host. |
 | Toaster | `crates/ravenrs-widgets-base/src/floating.rs:747` | Natural | Estrutura: confirmar salvamento, importação e cópia. | Sim. |
@@ -769,7 +858,7 @@ As lacunas devem ser resolvidas no componente responsável e, quando necessário
 | Toolbar | `crates/ravenrs-widgets-kit/src/commands.rs:250` | Natural | Editor: comandos principais com atalhos e menu de excedentes. | Sim. |
 | Tooltip | `crates/ravenrs-widgets-base/src/overlay.rs:53` | Natural | Editor: explicar botões de ícone e seus atalhos. | Sim. |
 | TransformHandles | `crates/ravenrs-widgets-imaging/src/imaging/transform.rs:592` | Não cabe | Transformação livre de camadas gráficas está fora do escopo; os editores usados já controlam sua geometria. | Coberto em `examples/component-gallery`. |
-| TreeView | `crates/ravenrs-widgets-lists/src/tree.rs:168` | Natural | Expressões: explorar campos e caminhos da entrada estruturada. | Sim; a aplicação converte o esquema em nós. |
+| TreeView | `crates/ravenrs-widgets-lists/src/tree.rs:169` | Natural | Expressões: explorar campos e caminhos da entrada estruturada. | Sim; a aplicação converte o esquema em nós. |
 | ValueSlider | `crates/ravenrs-widgets-kit/src/quick_edit.rs:39` | Natural | Nós de vídeo: ajustar velocidade por arraste e informar valor exato. | Sim. |
 | VirtualList | `crates/ravenrs-widgets-lists/src/lists/virtual_list.rs:230` | Natural | Detalhe da execução: muitos registros com acompanhamento do final. | Sim; oferece `follow_end` e comandos de rolagem. |
 | Wizard | `crates/ravenrs-widgets-kit/src/wizard.rs:73` | Natural | Modelos: configurar credenciais, entradas e revisão antes de criar o fluxo. | Sim. |
@@ -921,6 +1010,7 @@ Para infraestrutura sem UI, a galeria demonstra apenas sua projeção visual; a 
 |---|---|
 | Data | **15/11/2026** |
 | Commit base | **`2908a1c76`**, obtido com `git rev-parse --short HEAD` |
+| Atualização | Revisto contra o `master` em `d2c0ee0ce`, depois dos PRs #511 (FlowCanvas: `FlowRun`, `FlowToolbox`, `FlowInspector`, `FlowLibrary`, exportação) e #512 (Raven Code: terminal, `CodeEditor` com sugestões). 61 números de linha traduzidos pelo diff de cada arquivo, três reescritos à mão; as áreas 1, 2, 4 e 9 mudaram de estado e a L04 saiu da lista, já entregue |
 | Ferramenta | **Codex CLI** (`codex exec -s read-only`), em quatro rodadas: áreas 1 a 12, área 13, área 14 e cobertura de componentes |
 | Conferência | Claude Code abriu cada `arquivo:linha` citado e conferiu o símbolo na linha (202 definições de componente e 202 referências das áreas). Corrigiu 32 números de linha deslocados de 1 a 18 linhas e refez por amostragem as buscas de ausência; nenhum símbolo citado era inventado |
 | Operações | `rg`, listagem de arquivos, leitura de fontes e consultas de estado do Git |
