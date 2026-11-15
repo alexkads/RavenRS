@@ -258,6 +258,7 @@
  "widgets.flow_output": "Saída de {0}",
  "widgets.flow_pick_port": "Vá até a outra porta e aperte Enter; Esc cancela",
  "widgets.flow_refused": "Estas portas não se ligam",
+ "widgets.flow_title": "Título do nó",
  "widgets.flow_unlock": "Destravar edição",
  "widgets.folder_empty": "Esta pasta está vazia.",
  "widgets.folder_word": "Pasta",

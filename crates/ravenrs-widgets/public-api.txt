@@ -364,6 +364,7 @@ field Labels::flow_members
 field Labels::flow_output
 field Labels::flow_pick_port
 field Labels::flow_refused
+field Labels::flow_title
 field Labels::flow_unlock
 field Labels::folder_empty
 field Labels::folder_word
@@ -2857,6 +2858,7 @@ method FloatingToolbar::place
 method FloatingToolbar::separator
 method FloatingToolbar::view
 method FlowCanvas::controls
+method FlowCanvas::editable_titles
 method FlowCanvas::grid
 method FlowCanvas::grow
 method FlowCanvas::history
@@ -4128,6 +4130,7 @@ reexport ChartKind = ravenrs_graphics::chart::ChartKind
 reexport ChartLabelAt = ravenrs_graphics::plot::LabelAt
 reexport ChartPolarGrid = ravenrs_graphics::plot::PolarGrid
 reexport ChartStack = ravenrs_graphics::plot::Stack
+reexport EdgeCap = ravenrs_graphics::flow::EdgeCap
 reexport EdgeShape = ravenrs_graphics::flow::EdgeShape
 reexport FlowDirection = ravenrs_graphics::flow::layout::FlowDirection
 reexport FlowEdge = ravenrs_graphics::flow::FlowEdge
@@ -4651,6 +4654,7 @@ variant FlowChange::Move
 variant FlowChange::Paste
 variant FlowChange::Reconnect
 variant FlowChange::Redo
+variant FlowChange::Rename
 variant FlowChange::Reorder
 variant FlowChange::Resize
 variant FlowChange::Undo
