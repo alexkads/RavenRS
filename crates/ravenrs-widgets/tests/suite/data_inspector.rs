@@ -177,8 +177,7 @@ fn a_field_carried_to_an_expression_goes_in_at_the_caret() {
         .access_tree()
         .nodes
         .iter()
-        .filter(|n| n.role == ravenrs_core::Role::TextInput)
-        .last()
+        .rfind(|n| n.role == ravenrs_core::Role::TextInput)
         .expect("the expression's text")
         .bounds
         .center();
