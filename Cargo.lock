@@ -844,11 +844,15 @@ dependencies = [
 name = "bpmn-editor"
 version = "27.1.28"
 dependencies = [
+ "console_error_panic_hook",
  "ravenrs",
  "ravenrs-ai",
  "ravenrs-flow-bpmn",
  "ravenrs-flow-export",
  "tracing-subscriber",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
@@ -2442,27 +2446,39 @@ dependencies = [
 name = "flow-chat-bot"
 version = "27.1.28"
 dependencies = [
+ "console_error_panic_hook",
  "ravenrs",
  "ravenrs-flow-export",
  "tracing-subscriber",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
 name = "flow-design-board"
 version = "27.1.28"
 dependencies = [
+ "console_error_panic_hook",
  "ravenrs",
  "ravenrs-flow-export",
  "tracing-subscriber",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
 name = "flow-whiteboard"
 version = "27.1.28"
 dependencies = [
+ "console_error_panic_hook",
  "ravenrs",
  "ravenrs-flow-export",
  "tracing-subscriber",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]

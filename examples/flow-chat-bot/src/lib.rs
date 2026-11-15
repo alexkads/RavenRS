@@ -275,3 +275,34 @@ pub fn app() -> Localized<Builder> {
 pub fn app_kept_in(storage: Rc<dyn Storage>) -> Localized<Builder> {
     Localized::new(Labels::pt_br(), Builder { storage })
 }
+
+#[cfg(target_arch = "wasm32")]
+mod web_entry {
+    use std::cell::RefCell;
+
+    use wasm_bindgen::prelude::*;
+
+    thread_local! {
+        static APP: RefCell<Option<ravenrs::web::WebApp>> = const { RefCell::new(None) };
+    }
+
+    /// Runs when the module is instantiated: the diagrams are kept in the browser's storage.
+    #[wasm_bindgen(start)]
+    pub fn start() {
+        console_error_panic_hook::set_once();
+        wasm_bindgen_futures::spawn_local(async {
+            let storage = match ravenrs::web::IndexedDbStorage::open("ravenrs-flow-chat-bot").await {
+                Ok(storage) => storage,
+                Err(e) => {
+                    web_sys::console::error_1(&e.to_string().into());
+                    return;
+                }
+            };
+            let app = super::app_kept_in(std::rc::Rc::new(storage));
+            match ravenrs::web::start(app, ravenrs::web::WebOptions::new("raven-canvas")).await {
+                Ok(app) => APP.with(|a| *a.borrow_mut() = Some(app)),
+                Err(e) => web_sys::console::error_1(&e.to_string().into()),
+            }
+        });
+    }
+}
