@@ -36,19 +36,18 @@ O app só compõe componentes do RavenRS e serve para testá-los: não cria comp
 |---|---|
 | Casca | `Sidebar`, `SidebarGroup`, `SidebarItem` (com a contagem das execuções paradas), `SidebarBrand` e `StatusBar` com a versão, o aviso de versão nova com os seus botões e a última mensagem |
 | Fluxos | `PageHeader`, `TextField`, `Button`, `DataGrid` (busca, seleção por chave, Enter abre) e `ConfirmDialog` para excluir |
-| Editor | `FlowCanvas` (`to_graph`/`from_graph`, `FlowHistory`, títulos editáveis, minimapa), `FlowToolbox` montado do `Catalog::builtin`, `CodeEditor` para os parâmetros em JSON e `Table` com o que cada nó fez |
-| Execuções | `DataGrid` das execuções e `FlowCanvas` travado com o caminho executado; Repetir (`Runtime::rerun`) e Aprovar e continuar (`Runtime::signal`) |
+| Editor | `FlowCanvas` (`to_graph`/`from_graph`, `FlowHistory`, títulos editáveis, minimapa, `execution` com a última execução), `FlowToolbox` montado do `Catalog::builtin`, `ParameterForm` com o esquema de cada tipo (`src/nos.rs`), `CodeEditor` para os tipos que guardam listas ou objetos, e `Table` com o que cada nó fez |
+| Execuções | `DataGrid` das execuções e `FlowCanvas` só leitura (`read_only`) com a execução (`execution`); Repetir (`Runtime::rerun`) e Aprovar e continuar (`Runtime::signal`) |
 | Configurações | `ThemeSwitcher`, `NumberField` e Limpar agora (`Runtime::prune`), Procurar atualização, o `Alert` de uma atualização que falhou com o fim do registro num `CodeEditor` só leitura, e `ReleaseNotes` com a linha do tempo do atualizador |
 
-Uma execução roda num trabalhador próprio (`casa::Worker::Thread`), com a sua conexão ao SQLite, e acorda a tela pelo `UiWaker` quando anda. O estado de cada nó aparece com o que o `FlowCanvas` já tem: `FlowNodeStatus` no nó (Aguardando é um aviso com essa palavra) e o número de itens no `label` da conexão (`src/marcas.rs`).
+Uma execução roda num trabalhador próprio (`casa::Worker::Thread`), com a sua conexão ao SQLite, e acorda a tela pelo `UiWaker` quando anda. O canvas a desenha com `FlowCanvas::execution` (`src/marcas.rs` traduz as partes do runtime num `FlowRunView`), sem tocar no fluxo.
 
 **O que ainda não está, e por quê:**
 
 | Falta | Issue |
 |---|---|
-| Estados próprios de execução no canvas (Aguardando e Ignorado), selo de itens e só leitura firme | [#528](https://github.com/alexkads/RavenRS/issues/528) |
 | Soltar a conexão no vazio para criar o nó | [#527](https://github.com/alexkads/RavenRS/issues/527) |
-| Formulário de parâmetros por esquema, no lugar do JSON | [#530](https://github.com/alexkads/RavenRS/issues/530) |
+| Esquema para os tipos que guardam listas ou objetos (itens do início, campos de Definir campos) | tipos de parâmetro de lista livre no `ParameterForm` |
 | Inspetor de entrada e saída, arrastar campo, expressões com prévia | [#531](https://github.com/alexkads/RavenRS/issues/531), [#532](https://github.com/alexkads/RavenRS/issues/532), [#533](https://github.com/alexkads/RavenRS/issues/533) |
 | Credenciais e variáveis | [#546](https://github.com/alexkads/RavenRS/issues/546), [#533](https://github.com/alexkads/RavenRS/issues/533) |
 | Gatilhos por agenda e `delay` acordando sozinho com o app aberto | [#537](https://github.com/alexkads/RavenRS/issues/537) |

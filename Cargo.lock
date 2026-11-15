@@ -7038,6 +7038,7 @@ dependencies = [
  "ravenrs-widgets",
  "ravenrs-widgets-base",
  "serde",
+ "serde_json",
  "tracing",
 ]
 

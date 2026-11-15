@@ -44,16 +44,20 @@ fn save(casa: &Casa, catalog: &Catalog, s: &Screens) -> Result<FlowDefinition, S
     Ok(flow)
 }
 
+/// The parameters of the card `id` of `graph`.
+fn parameters_of(graph: &FlowGraph, id: &str) -> Map<String, Json> {
+    graph
+        .find_node(id)
+        .and_then(|card| card.data.get(GRAPH_KEY))
+        .and_then(|setup| setup.get("parameters"))
+        .and_then(Json::as_object)
+        .cloned()
+        .unwrap_or_default()
+}
+
 /// The parameters of the card `id` of `graph`, as JSON text.
 fn parameters_text(graph: &FlowGraph, id: &str) -> String {
-    let Some(card) = graph.find_node(id) else { return String::new() };
-    let parameters = card
-        .data
-        .get(GRAPH_KEY)
-        .and_then(|setup| setup.get("parameters"))
-        .cloned()
-        .unwrap_or_else(|| Json::Object(Map::new()));
-    serde_json::to_string_pretty(&parameters).unwrap_or_default()
+    serde_json::to_string_pretty(&Json::Object(parameters_of(graph, id))).unwrap_or_default()
 }
 
 /// Puts `text` as the parameters of the card `id`: refused, with why, when it is not a JSON
@@ -158,23 +162,65 @@ impl RavenFlows {
         }
         let canvas = nos::kinds(canvas, &catalog);
         let side: AnyView = match &selected {
-            Some(node) => Box::new(
-                VStack::new((
-                    Text::new(format!("Parâmetros de {node}")).style(TextStyle::Headline),
-                    Text::new("Em JSON, até o formulário de parâmetros existir (#530).")
-                        .style(TextStyle::Callout)
-                        .foreground(Semantic::InkMuted),
-                    CodeEditor::new(s.parameters.binding()).language(CodeLanguage::Plain).fill(),
-                    Button::new("Aplicar parâmetros")
-                        .icon(IconName::Check)
-                        .style(ButtonStyle::Secondary)
-                        .on_click(apply),
-                ))
-                .spacing(8.0)
-                .padding(12.0)
-                .align(Align::Stretch)
-                .width(320.0),
-            ),
+            Some(node) => {
+                let (kind, title) = s
+                    .graph
+                    .get()
+                    .find_node(node)
+                    .map(|n| (n.kind.clone(), n.title.clone()))
+                    .unwrap_or_default();
+                let editor: AnyView = match nos::schema(&kind) {
+                    // The form of the kind's schema edits the card's parameters, and Aplicar is one
+                    // change of the history.
+                    Some(fields) => {
+                        let (read, write, id, id2) = (s.graph.clone(), s.clone(), node.clone(), node.clone());
+                        let values = Binding::new(
+                            move || ParamValues::from(parameters_of(&read.get(), &id)),
+                            move |values: ParamValues| {
+                                let mut graph = write.graph.get();
+                                let text = Json::Object(values.into_map()).to_string();
+                                match apply_parameters(&mut graph, &id2, &text) {
+                                    Ok(()) => {
+                                        let before = write.graph.get();
+                                        write.history.update(|h| h.record(before));
+                                        write.graph.set(graph);
+                                        write
+                                            .message
+                                            .set("Parâmetros aplicados. Salve para guardar.".to_owned());
+                                    }
+                                    Err(why) => write.message.set(why),
+                                }
+                            },
+                        );
+                        Box::new(ParameterForm::new(fields, values))
+                    }
+                    None => Box::new(
+                        VStack::new((
+                            Text::new("Em JSON: este tipo de nó guarda listas ou objetos.")
+                                .style(TextStyle::Callout)
+                                .foreground(Semantic::InkMuted),
+                            CodeEditor::new(s.parameters.binding()).language(CodeLanguage::Plain).fill(),
+                            Button::new("Aplicar parâmetros")
+                                .icon(IconName::Check)
+                                .style(ButtonStyle::Secondary)
+                                .on_click(apply),
+                        ))
+                        .spacing(8.0)
+                        .align(Align::Stretch)
+                        .grow(1.0),
+                    ),
+                };
+                Box::new(
+                    VStack::new((
+                        Text::new(format!("Parâmetros de {title}")).style(TextStyle::Headline),
+                        editor,
+                    ))
+                    .spacing(8.0)
+                    .padding(12.0)
+                    .align(Align::Stretch)
+                    .width(340.0),
+                )
+            }
             None => {
                 Box::new(VStack::new((nos::toolbox(&catalog).arrivals(s.arrivals.binding()),)).width(240.0))
             }

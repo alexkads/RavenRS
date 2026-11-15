@@ -614,6 +614,14 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Disclosure::__live_expose(registry);
     crate::Accordion::__live_expose_fields(registry);
     crate::Accordion::__live_expose(registry);
+    crate::ParamKind::__live_expose_variants(registry);
+    crate::ParamField::__live_expose_fields(registry);
+    crate::ParamField::__live_expose(registry);
+    crate::ParamOptions::__live_expose_variants(registry);
+    crate::ParamValues::__live_expose_fields(registry);
+    crate::ParamValues::__live_expose(registry);
+    crate::ParameterForm::__live_expose_fields(registry);
+    crate::ParameterForm::__live_expose(registry);
     crate::QuadField::__live_expose_fields(registry);
     crate::QuadField::__live_expose(registry);
     crate::ValueSlider::__live_expose_fields(registry);
@@ -1138,6 +1146,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::PageHeader>(registry);
     crate::live::view::<crate::PagedDocumentView>(registry);
     crate::live::view::<crate::Pagination>(registry);
+    crate::live::view::<crate::ParameterForm>(registry);
     #[cfg(feature = "code")]
     crate::live::view::<crate::Playground>(registry);
     crate::live::view::<crate::Popover<crate::AnyView, crate::AnyView>>(registry);

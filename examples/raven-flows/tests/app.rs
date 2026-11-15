@@ -172,3 +172,62 @@ fn the_news_of_every_version_say_who_made_it_and_which_issues_it_closes() {
     assert!(!notes.is_empty(), "this version's news at least");
     assert_eq!(raven_flows::versao::APP.version, raven_flows::VERSION);
 }
+
+/// Types `text` at the end of the text field `name`, as a person would after clicking it.
+fn type_into(ui: &mut Ui, name: &str, text: &str) {
+    let at = ui
+        .access_tree()
+        .nodes
+        .iter()
+        .find(|n| n.name.as_deref() == Some(name) && n.role == ravenrs::core::Role::TextInput)
+        .expect(name)
+        .bounds
+        .center();
+    ui.handle_event(&ravenrs::core::Event::PointerMove { position: at });
+    let button = ravenrs::core::PointerButton::Primary;
+    ui.handle_event(&ravenrs::core::Event::PointerDown { position: at, button });
+    ui.handle_event(&ravenrs::core::Event::PointerUp { position: at, button });
+    ui.update();
+    let modifiers = ravenrs::core::Modifiers::default();
+    ui.handle_event(&ravenrs::core::Event::KeyDown { key: ravenrs::core::Key::End, modifiers });
+    ui.update();
+    for c in text.chars() {
+        let key =
+            if c == ' ' { ravenrs::core::Key::Space } else { ravenrs::core::Key::Character(c.to_string()) };
+        ui.handle_event(&ravenrs::core::Event::KeyDown { key, modifiers });
+        ui.update();
+    }
+    ui.update();
+}
+
+#[test]
+fn a_node_with_a_schema_is_set_up_in_its_form_and_the_change_is_saved() {
+    let dir = folder("form");
+    let mut ui = opened(&dir);
+    press(&mut ui, "Conferir pedidos");
+    press(&mut ui, "Abrir");
+    // A click on the card picks it, as a person would.
+    let at = ui
+        .access_tree()
+        .nodes
+        .iter()
+        .find(|n| n.name.as_deref() == Some("Pago?"))
+        .expect("the if")
+        .bounds
+        .center();
+    ui.handle_event(&ravenrs::core::Event::PointerMove { position: at });
+    let button = ravenrs::core::PointerButton::Primary;
+    ui.handle_event(&ravenrs::core::Event::PointerDown { position: at, button });
+    ui.handle_event(&ravenrs::core::Event::PointerUp { position: at, button });
+    ui.update();
+    ui.update();
+    assert!(has(&mut ui, "Condição"), "the form of the if");
+    type_into(&mut ui, "Condição", " and [valor] > 0");
+    press(&mut ui, "Aplicar");
+    press(&mut ui, "Salvar");
+    let casa = Casa::open(&dir, Worker::Inline).expect("opens");
+    let flow = casa.flow("conferir-pedidos").expect("saved");
+    let pago = flow.nodes.iter().find(|n| n.id == "pago").expect("the if");
+    assert_eq!(pago.parameters["condition"], json!("[pago] = true and [valor] > 0"));
+    let _ = std::fs::remove_dir_all(&dir);
+}

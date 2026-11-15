@@ -1251,6 +1251,28 @@ fn the_flow_diagram_shows_every_feature_and_its_connections_hang_as_cables() {
 }
 
 #[test]
+fn the_parameter_form_builds_from_a_schema_and_gives_back_only_on_apply() {
+    let mut c = Center::memory("ana");
+    c.press("Formulário de parâmetros");
+    assert!(c.says("Endereço"), "the fields of the schema: {:?}", c.texts());
+    assert!(!c.says("Corpo"), "the body only shows for POST");
+    assert!(c.says("Pediu as opções de account"), "the account's options are asked for");
+    c.press("Adicionar");
+    assert!(c.says("Remover a linha 1"), "a row of headers");
+    c.press("Aplicar");
+    assert!(c.says("Endereço é obrigatório"), "nothing goes back without the address");
+    c.activate("Expressão");
+    c.press("Descartar");
+    assert!(c.says("Descartado."));
+    c.activate("Carregando");
+    assert!(c.says("Carregando as opções"));
+    c.activate("Falharam");
+    assert!(c.says("Não deu para carregar as opções"));
+    c.press("Tentar de novo");
+    assert!(c.says("Pediu as opções de account"));
+}
+
+#[test]
 fn the_cables_show_eight_uses_and_plug_in_each() {
     let mut c = Center::memory("ana");
     c.press("Cabos");

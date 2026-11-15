@@ -26,6 +26,31 @@ pub fn look(kind: &str) -> (&'static str, IconName, &'static str) {
     }
 }
 
+/// The parameters of a kind as a schema for the `ParameterForm`, for the kinds whose parameters
+/// are plain values; the others are edited as JSON.
+pub fn schema(kind: &str) -> Option<Vec<ParamField>> {
+    let condition = || {
+        ParamField::new("condition", "Condição", ParamKind::Text)
+            .required()
+            .hint("Na linguagem de critérios, como [valor] > 100")
+    };
+    let ms = || ParamField::new("ms", "Espera (ms)", ParamKind::Number).required().default(1000);
+    Some(match kind {
+        "if" | "filter" => vec![condition()],
+        "wait" | "delay" => vec![ms()],
+        "wait_event" => vec![
+            ParamField::new("event", "Evento", ParamKind::Text)
+                .required()
+                .hint("O nome que o app usa para aprovar"),
+            ParamField::new("keep", "Deixar passar os itens que esperavam", ParamKind::Boolean).default(true),
+            ParamField::new("as", "Campo do evento em cada item", ParamKind::Text)
+                .default("evento")
+                .shown_when("keep", true),
+        ],
+        _ => return None,
+    })
+}
+
 /// The groups of the toolbox, in order.
 const GROUPS: [&str; 5] = ["Gatilhos", "Lógica", "Dados", "Tempo", "Outros"];
 

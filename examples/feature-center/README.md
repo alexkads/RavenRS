@@ -33,6 +33,7 @@ These accounts exist only here. The password of all three is `raven-demo`.
 | Listas | Chart, month, timeline and tree; variants and filters; editing on the list; many rows; a panel written in code (Painel em código) |
 | Relações | Lists that belong to a record, link and unlink, a filtered reference, cloning |
 | Temas | The token editor, changing the whole application at once |
+| Kit | `ParameterForm` with every feature: a schema of text, number, yes or no, choice, a field shown in one mode, an expression, a group, a list of headers, and options of the account that arrive, load or fail |
 | Gráficos e fluxos | `FlowCanvas` with every feature (options, rules, events, check, run, export, connections as cables), and `CablePlug` in eight uses (flow, processes, a rack, a switchboard, a synthesizer, a network rack, matching columns, a tip tied to a button) and a lab with every knob. `CABLE_SNAPSHOTS=<folder> cargo test -p feature-center --test cabos -- --ignored` draws each with the GPU into PNGs |
 | Sem armazenamento | A form with no storage behind it |
 | Estados e lembretes | A state machine, and a reminder that comes up 30 seconds after opening |

@@ -36,6 +36,7 @@ widgets = []
 playground = ["dep:component-gallery"]
 
 [dependencies]
+serde_json.workspace = true
 ravenrs.workspace = true
 ravenrs-widgets.workspace = true
 ravenrs-app = { workspace = true, optional = true }

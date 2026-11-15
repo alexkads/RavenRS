@@ -1,6 +1,7 @@
 # The public API of ravenrs-widgets, by the paths its users write.
 # Written by scripts/public-api.py; `--check` fails when it changes. Regenerate it only
 # when the change is meant, and say so in the pull request.
+const EXPRESSION_KEY
 const FLOW_NODE_DRAG
 const HOLD_TO_CARRY
 enum AnchorPoint
@@ -43,6 +44,8 @@ enum HistogramScale
 enum IconName
 enum ModelStatus
 enum Paint
+enum ParamKind
+enum ParamOptions
 enum Placement
 enum RecurrenceEnd
 enum RibbonSize
@@ -618,6 +621,18 @@ field Labels::page_word
 field Labels::panel_minimize
 field Labels::panel_move
 field Labels::panel_restore
+field Labels::param_add
+field Labels::param_apply
+field Labels::param_discard
+field Labels::param_expression
+field Labels::param_fixed
+field Labels::param_load_failed
+field Labels::param_loading
+field Labels::param_mode
+field Labels::param_none
+field Labels::param_remove
+field Labels::param_required
+field Labels::param_retry
 field Labels::pick_color
 field Labels::pick_date
 field Labels::pick_date_range
@@ -773,6 +788,16 @@ field NumberFormat::thousands
 field PaintCx::scale
 field PaintCx::scene
 field PaintCx::text
+field ParamField::default
+field ParamField::depends_on
+field ParamField::expressions
+field ParamField::hint
+field ParamField::kind
+field ParamField::label
+field ParamField::name
+field ParamField::required
+field ParamField::shown_when
+field ParamValues::0
 field PickedFile::bytes
 field PickedFile::name
 field PickedFile::size
@@ -1076,6 +1101,10 @@ impl Clone for NoFilePicker
 impl Clone for NodeId
 impl Clone for NumberFormat
 impl Clone for Paint
+impl Clone for ParamField
+impl Clone for ParamKind
+impl Clone for ParamOptions
+impl Clone for ParamValues
 impl Clone for PickedFile
 impl Clone for Placement
 impl Clone for ProgressBar
@@ -1507,6 +1536,11 @@ impl Debug for PagedDocumentView
 impl Debug for Pagination
 impl Debug for Paint
 impl Debug for PaintCx
+impl Debug for ParamField
+impl Debug for ParamKind
+impl Debug for ParamOptions
+impl Debug for ParamValues
+impl Debug for ParameterForm
 impl Debug for PickedFile
 impl Debug for Placement
 impl Debug for Playground
@@ -1764,6 +1798,7 @@ impl Default for MultiProgress
 impl Default for NoFilePicker
 impl Default for NumberFormat
 impl Default for Paint
+impl Default for ParamValues
 impl Default for RecurrenceEnd
 impl Default for RecurrenceRule
 impl Default for RecurrenceSet
@@ -1939,6 +1974,7 @@ impl Error for DecodeError
 impl Error for DockLayoutError
 impl FilePickerProvider for NoFilePicker
 impl From for Fill
+impl From for ParamValues
 impl From for SidebarParts
 impl From for Value
 impl From for grid::Value
@@ -2052,6 +2088,10 @@ impl PartialEq for ModelChoice
 impl PartialEq for ModelStatus
 impl PartialEq for NodeId
 impl PartialEq for NumberFormat
+impl PartialEq for ParamField
+impl PartialEq for ParamKind
+impl PartialEq for ParamOptions
+impl PartialEq for ParamValues
 impl PartialEq for PickedFile
 impl PartialEq for Placement
 impl PartialEq for QuadPaint
@@ -2262,6 +2302,7 @@ impl View for OverlayBadge
 impl View for PageHeader
 impl View for PagedDocumentView
 impl View for Pagination
+impl View for ParameterForm
 impl View for Playground
 impl View for Popover
 impl View for ProgressBar
@@ -3603,6 +3644,21 @@ method PagedDocumentView::zoom
 method Pagination::compact
 method Pagination::labels
 method Pagination::new
+method ParamField::default
+method ParamField::depends_on
+method ParamField::expressions
+method ParamField::hint
+method ParamField::new
+method ParamField::required
+method ParamField::shown_when
+method ParamValues::get
+method ParamValues::into_map
+method ParamValues::new
+method ParameterForm::new
+method ParameterForm::on_apply
+method ParameterForm::on_discard
+method ParameterForm::on_load
+method ParameterForm::options
 method PickedFile::extension
 method PickedFile::new
 method Playground::action
@@ -4731,6 +4787,9 @@ struct PageHeader
 struct PagedDocumentView
 struct Pagination
 struct PaintCx
+struct ParamField
+struct ParamValues
+struct ParameterForm
 struct PickedFile
 struct Playground
 struct Popover
@@ -5315,6 +5374,17 @@ variant Paint::Live
 variant Paint::None
 variant Paint::Quad
 variant Paint::Rich
+variant ParamKind::Boolean
+variant ParamKind::Choice
+variant ParamKind::Group
+variant ParamKind::List
+variant ParamKind::Loaded
+variant ParamKind::LongText
+variant ParamKind::Number
+variant ParamKind::Text
+variant ParamOptions::Failed
+variant ParamOptions::Loading
+variant ParamOptions::Ready
 variant Placement::Above
 variant Placement::AboveCenter
 variant Placement::At

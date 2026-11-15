@@ -40,6 +40,19 @@ fn pictures_of_the_screens() {
     press(&mut ui, "Conferir pedidos");
     press(&mut ui, "Abrir");
     snap(&mut ui, "2-editor");
+    let at = ui
+        .access_tree()
+        .nodes
+        .iter()
+        .find(|n| n.name.as_deref() == Some("Aprovar pedidos"))
+        .expect("a node")
+        .bounds
+        .center();
+    ui.handle_event(&ravenrs::core::Event::PointerMove { position: at });
+    let button = ravenrs::core::PointerButton::Primary;
+    ui.handle_event(&ravenrs::core::Event::PointerDown { position: at, button });
+    ui.handle_event(&ravenrs::core::Event::PointerUp { position: at, button });
+    snap(&mut ui, "2b-parametros");
     press(&mut ui, "Executar fluxo");
     snap(&mut ui, "3-executado");
     press(&mut ui, "Execuções");

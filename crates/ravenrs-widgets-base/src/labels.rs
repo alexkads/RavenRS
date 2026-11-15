@@ -727,6 +727,30 @@ pub struct Labels {
     pub flow_item_one: String,
     /// How many items went along a `FlowCanvas` connection, with `{count}`.
     pub flow_items: String,
+    /// A `ParameterForm` field holding a value as it is.
+    pub param_fixed: String,
+    /// A `ParameterForm` field holding an expression.
+    pub param_expression: String,
+    /// What screen readers call the switch between value and expression, after the field's name.
+    pub param_mode: String,
+    /// The `ParameterForm` button that gives the values back.
+    pub param_apply: String,
+    /// The `ParameterForm` button that forgets what was edited.
+    pub param_discard: String,
+    /// Adds a row to a list of a `ParameterForm`.
+    pub param_add: String,
+    /// Removes a row of a list of a `ParameterForm`, with `{0}` its number.
+    pub param_remove: String,
+    /// While a `ParameterForm` field's options load.
+    pub param_loading: String,
+    /// The title of a `ParameterForm` field whose options failed to load.
+    pub param_load_failed: String,
+    /// Asks a `ParameterForm` field's options again.
+    pub param_retry: String,
+    /// A required `ParameterForm` field with no value, with `{0}` its name.
+    pub param_required: String,
+    /// A choice of a `ParameterForm` with nothing chosen.
+    pub param_none: String,
     /// The Export menu of a `FlowCanvas`.
     pub flow_export: String,
     /// Export a `FlowCanvas` as a PNG picture.
@@ -1507,6 +1531,18 @@ impl Labels {
             flow_pinned: texts.get("widgets.flow_pinned"),
             flow_item_one: texts.get("widgets.flow_item_one"),
             flow_items: texts.get("widgets.flow_items"),
+            param_fixed: texts.get("widgets.param_fixed"),
+            param_expression: texts.get("widgets.param_expression"),
+            param_mode: texts.get("widgets.param_mode"),
+            param_apply: texts.get("widgets.param_apply"),
+            param_discard: texts.get("widgets.param_discard"),
+            param_add: texts.get("widgets.param_add"),
+            param_remove: texts.get("widgets.param_remove"),
+            param_loading: texts.get("widgets.param_loading"),
+            param_load_failed: texts.get("widgets.param_load_failed"),
+            param_retry: texts.get("widgets.param_retry"),
+            param_required: texts.get("widgets.param_required"),
+            param_none: texts.get("widgets.param_none"),
             flow_export: texts.get("widgets.flow_export"),
             flow_export_png: texts.get("widgets.flow_export_png"),
             flow_export_svg: texts.get("widgets.flow_export_svg"),

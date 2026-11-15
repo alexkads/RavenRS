@@ -76,6 +76,7 @@ catalog! {
     "ThemePicker" => buttons,
     "ThemeEditor" => buttons,
     "TextField" => fields,
+    "ParameterForm" => fields,
     "Select" => fields,
     "Combobox" => fields,
     "DatePicker" => pickers,
