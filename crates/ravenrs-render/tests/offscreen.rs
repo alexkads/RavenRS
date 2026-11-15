@@ -31,6 +31,16 @@ fn gpu() -> Option<GpuContext> {
 
 /// Renders at `scale` and returns RGBA8 pixels of a `W*scale x H*scale` image.
 fn render(gpu: &GpuContext, renderer: &mut Renderer, scene: &Scene, scale: f32) -> (u32, u32, Vec<u8>) {
+    render_counted(gpu, renderer, scene, scale).0
+}
+
+/// The pixels, and what the renderer counted drawing them.
+fn render_counted(
+    gpu: &GpuContext,
+    renderer: &mut Renderer,
+    scene: &Scene,
+    scale: f32,
+) -> ((u32, u32, Vec<u8>), ravenrs_render::RenderStats) {
     let (w, h) = ((W as f32 * scale) as u32, (H as f32 * scale) as u32);
     let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
         label: Some("offscreen"),
@@ -43,7 +53,7 @@ fn render(gpu: &GpuContext, renderer: &mut Renderer, scene: &Scene, scale: f32) 
         view_formats: &[],
     });
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-    renderer.render(scene, &view, (w, h), scale);
+    let stats = renderer.render(scene, &view, (w, h), scale);
 
     let padded = (w * 4).div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT) * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
     let buffer = gpu.device.create_buffer(&wgpu::BufferDescriptor {
@@ -75,7 +85,7 @@ fn render(gpu: &GpuContext, renderer: &mut Renderer, scene: &Scene, scale: f32) 
         let start = (row * padded) as usize;
         pixels.extend_from_slice(&data[start..start + (w * 4) as usize]);
     }
-    (w, h, pixels)
+    ((w, h, pixels), stats)
 }
 
 fn pixel(img: &(u32, u32, Vec<u8>), x: u32, y: u32) -> [u8; 4] {
@@ -565,7 +575,7 @@ mod cables {
     use ravenrs_core::{Color, Point, Rect, Scene};
     use ravenrs_render::{GpuCables, Renderer};
 
-    use super::{FORMAT, close, gpu, pixel, render};
+    use super::{FORMAT, close, gpu, pixel, render, render_counted};
 
     fn cable() -> Cable {
         let mut c = Cable::new(
@@ -629,5 +639,49 @@ mod cables {
         let at = pixel(&img, middle.x.round() as u32, middle.y.round() as u32);
         assert!(close(at, [255, 0, 0, 255], 40), "red at the middle of the cable: {at:?}");
         assert!(close(pixel(&img, 100, 5), [255, 255, 255, 255], 2), "white above it");
+    }
+
+    #[test]
+    fn a_picture_on_a_cable_is_drawn_by_the_gpu_as_the_shapes_draw_it() {
+        use ravenrs_core::ImageData;
+        use ravenrs_core::cable::{CableTexture, cable_primitives};
+        let Some(gpu) = gpu() else { return };
+        let Some(mut world) = GpuCables::new(&gpu.device, &gpu.queue) else { return };
+        // Blue on the side the cable's left hand points to, green on the other.
+        let image = ImageData::from_fn(4, 8, |_, y| {
+            if y < 4 { Color::rgb(0.0, 0.0, 1.0) } else { Color::rgb(0.0, 1.0, 0.0) }
+        })
+        .expect("picture");
+        let mut c = cable();
+        c.grow = false;
+        c.look.thickness = 12.0;
+        c.look.texture = CableTexture::Image { image, repeat: 24.0 };
+        world.sync(std::slice::from_ref(&c), view(), false);
+        world.step(1.0 / 60.0);
+        world.finish();
+        let shape = world.shape(7).expect("placed");
+        let placed = c.placed(shape.clone());
+        let middle = shape[shape.len() / 2];
+        let (x, y) = (middle.x.round() as u32, middle.y.round() as u32);
+
+        let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
+        renderer.set_cables(Some(world.drawer()));
+        let mut scene = Scene::new();
+        scene.set_clear_color(Color::WHITE);
+        scene.push_cable(placed.clone());
+        let (on_gpu, stats) = render_counted(&gpu, &mut renderer, &scene, 1.0);
+        assert_eq!(stats.paths, 0, "no shapes: the picture went to the GPU");
+
+        let mut shapes = Scene::new();
+        shapes.set_clear_color(Color::WHITE);
+        shapes.extend_from_slice(&cable_primitives(&placed, &shape));
+        let mut plain = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
+        let by_shapes = render(&gpu, &mut plain, &shapes, 1.0);
+        for (dy, color) in [(-3_i32, [0, 0, 255, 255]), (3, [0, 255, 0, 255])] {
+            let row = (y as i32 + dy) as u32;
+            let (a, b) = (pixel(&on_gpu, x, row), pixel(&by_shapes, x, row));
+            assert!(close(a, color, 40), "gpu at {dy}: {a:?}");
+            assert!(close(a, b, 40), "gpu {a:?} and shapes {b:?} at {dy}");
+        }
     }
 }

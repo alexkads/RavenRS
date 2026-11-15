@@ -1,6 +1,6 @@
 // RavenRS cables drawn straight from the simulation's buffer: one instance per
 // segment, its quad stretched along the segment and mitered with its neighbours,
-// the surface (highlight, braid, coil, stripe, dashes) worked out per pixel.
+// the surface (highlight, braid, coil, stripe, picture, dashes) worked out per pixel.
 
 struct Globals {
     viewport: vec2<f32>,
@@ -17,7 +17,7 @@ const SEGMENTS: u32 = 31u * SUB;
 
 struct Look {
     // Slot of the cable in the simulation, its points, its texture
-    // (0 smooth, 1 braided, 2 coiled, 3 striped) and whether it is dashed.
+    // (0 smooth, 1 braided, 2 coiled, 3 striped, 4 a picture) and whether it is dashed.
     slot: u32,
     n: u32,
     texture: u32,
@@ -28,10 +28,15 @@ struct Look {
     params: vec4<f32>,
     // opacity, then the view: scale and offset from the cable's units to the scene
     extra: vec4<f32>,
+    // The picture: where its pixels start in `pictures`, its width and height, and the
+    // bits of the pixels along the cable one copy covers.
+    art: vec4<u32>,
 };
 
 @group(1) @binding(0) var<storage, read> shape: array<vec4<f32>>;
 @group(1) @binding(1) var<storage, read> looks: array<Look>;
+// RGBA8 pixels, straight alpha, one u32 each, every picture after the other.
+@group(1) @binding(2) var<storage, read> pictures: array<u32>;
 
 struct VsOut {
     @builtin(position) position: vec4<f32>,
@@ -111,6 +116,28 @@ fn premultiply(c: vec4<f32>) -> vec4<f32> {
     return vec4<f32>(rgb * c.a, c.a);
 }
 
+// One pixel of the picture, its alpha multiplied in so neighbours mix right.
+fn texel(look: Look, x: u32, y: u32) -> vec4<f32> {
+    let c = unpack4x8unorm(pictures[look.art.x + y * look.art.y + x]);
+    return vec4<f32>(c.rgb * c.a, c.a);
+}
+
+// The picture at `u` copies along the cable and `v` from one edge to the other, between
+// its four nearest pixels: it repeats along and stops at the edges across.
+fn picture(look: Look, u: f32, v: f32) -> vec4<f32> {
+    let size = vec2<f32>(f32(look.art.y), f32(look.art.z));
+    let p = vec2<f32>(fract(u) * size.x - 0.5, clamp(v, 0.0, 1.0) * size.y - 0.5);
+    let f = fract(p);
+    let x0 = u32(i32(floor(p.x)) + i32(look.art.y)) % look.art.y;
+    let x1 = (x0 + 1u) % look.art.y;
+    let y0 = u32(clamp(floor(p.y), 0.0, size.y - 1.0));
+    let y1 = min(y0 + 1u, look.art.z - 1u);
+    let top = mix(texel(look, x0, y0), texel(look, x1, y0), f.x);
+    let bottom = mix(texel(look, x0, y1), texel(look, x1, y1), f.x);
+    let c = mix(top, bottom, select(f.y, 0.0, p.y < 0.0));
+    return vec4<f32>(c.rgb / max(c.a, 1e-4), c.a);
+}
+
 @fragment
 fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
     let look = looks[in.item];
@@ -137,6 +164,11 @@ fn fs_main(in: VsOut) -> @location(0) vec4<f32> {
         color = mix(color, dark, step(t, 0.18));
     } else if look.texture == 3u {
         color = mix(color, look.stripe, step(abs(v), 0.3));
+    } else if look.texture == 4u {
+        // As the shapes draw it: no highlight, the picture as it is.
+        let repeat = bitcast<f32>(look.art.w);
+        let c = picture(look, in.along / repeat, (v + 1.0) * 0.5);
+        return premultiply(vec4<f32>(c.rgb, c.a * coverage * look.extra.x));
     }
     // The highlight: a band above the middle.
     let shine = clamp(look.params.y, 0.0, 1.0) * 0.7;

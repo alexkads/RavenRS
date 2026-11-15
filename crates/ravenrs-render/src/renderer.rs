@@ -2,7 +2,7 @@ use bytemuck::{Pod, Zeroable};
 use ravenrs_core::cable::{Cable, cable_plugs, cable_primitives, cable_rest};
 use ravenrs_core::{Brush, Color, ImageQuad, Point, Primitive, Quad, Scene};
 
-use crate::cables::{CableDrawer, CableLookGpu, cables_drawable};
+use crate::cables::{CableDrawer, CableLookGpu, CablePictures, cables_drawable};
 
 use crate::atlas::{GlyphAtlas, GlyphKey, Lookup, SUBPIXEL_BINS};
 use crate::images::ImageCache;
@@ -208,6 +208,8 @@ pub struct Renderer {
     /// The bind group of the cables, and the shape generation and look buffer size it
     /// was made for.
     cable_bind: Option<(wgpu::BindGroup, u64, u64)>,
+    /// The pictures on cables the GPU draws.
+    cable_pictures: CablePictures,
 }
 
 /// Why the last frame needed more than one draw call.
@@ -407,7 +409,7 @@ impl Renderer {
             };
             let cable_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("raven cables"),
-                entries: &[cable_storage(0), cable_storage(1)],
+                entries: &[cable_storage(0), cable_storage(1), cable_storage(2)],
             });
             let cable_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("raven cables"),
@@ -499,6 +501,7 @@ impl Renderer {
             cable_looks: Vec::new(),
             cable_look_buffer,
             cable_bind: None,
+            cable_pictures: CablePictures::new(device),
         }
     }
 
@@ -525,6 +528,9 @@ impl Renderer {
             });
         }
         self.queue.write_buffer(&self.cable_look_buffer, 0, bytes);
+        if self.cable_pictures.upload(&self.device, &self.queue) {
+            self.cable_bind = None;
+        }
         let (shape, generation) = drawer.shape();
         let size = self.cable_look_buffer.size();
         if self.cable_bind.as_ref().is_none_or(|(_, g, s)| *g != generation || *s != size) {
@@ -534,6 +540,10 @@ impl Renderer {
                 entries: &[
                     wgpu::BindGroupEntry { binding: 0, resource: shape.as_entire_binding() },
                     wgpu::BindGroupEntry { binding: 1, resource: self.cable_look_buffer.as_entire_binding() },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: self.cable_pictures.buffer_ref().as_entire_binding(),
+                    },
                 ],
             });
             self.cable_bind = Some((group, generation, size));
@@ -769,6 +779,7 @@ impl Renderer {
         self.glyphs.clear();
         self.image_instances.clear();
         self.cable_looks.clear();
+        self.cable_pictures.begin_frame();
         self.batches.clear();
         self.clips.clear();
         self.breaks = BatchBreaks::default();
@@ -865,14 +876,15 @@ impl Renderer {
         Ok(())
     }
 
-    /// A cable the GPU world simulates is drawn from its buffer; any other, or one
-    /// with a picture on it, as shapes.
+    /// A cable the GPU world simulates is drawn from its buffer, a picture on it too;
+    /// any other as shapes.
     fn push_cable(&mut self, cable: &Cable, scale: f32, skip_missing: bool) -> Result<(), AtlasFull> {
+        let pictures = &mut self.cable_pictures;
         let gpu = self
             .cables
             .as_ref()
             .and_then(|d| d.slot(cable))
-            .and_then(|(slot, n)| CableLookGpu::of(cable, slot, n));
+            .and_then(|(slot, n)| CableLookGpu::of(cable, slot, n, |image| pictures.place(image)));
         let points: Vec<Point> = match &cable.points {
             Some(points) => points.to_vec(),
             None => cable_rest(cable),
