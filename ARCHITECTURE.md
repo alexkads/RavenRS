@@ -159,7 +159,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-grid-export` | `lib` |
 | `ravenrs-flow-export` | `lib` |
 | `ravenrs-flow-bpmn` | `elements`, `xml`, `rules`, `plan` |
-| `ravenrs-flows` | `item`, `definition`, `catalog` (kinds and `NodeContext`), `plan`, `run` (`Executor`, loops), `nodes` (the built-in kinds, `Catalog::builtin`), `graph` (the bridge to `FlowGraph` and `FlowRunRules`) |
+| `ravenrs-flows` | `item`, `time` (clocks and `CancelToken`), `definition`, `catalog` (kinds and `NodeContext`), `plan`, `run` (`Executor`, loops), `nodes` (the built-in kinds, `Catalog::builtin`), `graph` (the bridge to `FlowGraph` and `FlowRunRules`) |
 | `ravenrs-app-spec` | `lib` |
 | `ravenrs-project` | `lib` |
 | `ravenrs-app-derive` | `lib` |

@@ -63,8 +63,14 @@
 //! while it sends items into it ([`NodeContext::iteration`], [`Plan::loop_body`]), and items
 //! that fail one by one go to every node's error output, [`ERROR_PORT`].
 //!
-//! Not here yet, each in its own issue: a durable run with a queue and checkpoints (#535),
-//! cancellation and time limits (#536), and the schema of a kind's parameters (#530).
+//! A run can be cancelled from any thread ([`CancelToken`], [`Executor::cancel_with`]), has
+//! time limits for each node and for the whole run, and tries a node again as its [`Retry`]
+//! says, by the kind of [`Failure`]: a call whose answer was lost is not repeated until
+//! [`NodeKind::reconcile`] says it did not happen. Waits run on the run's [`Clock`];
+//! [`ManualClock`] makes them take no time in tests.
+//!
+//! Not here yet, each in its own issue: a durable run with a queue and checkpoints (#535), and
+//! the schema of a kind's parameters (#530).
 
 mod catalog;
 mod definition;
@@ -73,9 +79,15 @@ mod item;
 pub mod nodes;
 mod plan;
 mod run;
+mod time;
 
-pub use catalog::{Catalog, ERROR_PORT, Mode, NodeContext, NodeError, NodeKind, NodeSpec};
-pub use definition::{Connection, DefinitionError, ErrorPolicy, FORMAT, FlowDefinition, NodeDef, PortRef};
+pub use catalog::{
+    Catalog, ERROR_PORT, Failure, Mode, NodeContext, NodeError, NodeKind, NodeSpec, Reconciled,
+};
+pub use definition::{
+    Connection, DefinitionError, ErrorPolicy, FORMAT, FlowDefinition, NodeDef, PortRef, Retry,
+};
 pub use item::{BinaryRef, Item, ItemRef, Ports};
 pub use plan::{Plan, PlanError};
-pub use run::{Clock, Executor, FixedClock, LOOP_LIMIT, NodeRun, NodeStatus, Run, RunError, SystemClock};
+pub use run::{Executor, LOOP_LIMIT, NodeRun, NodeStatus, Run, RunError, RunOutcome};
+pub use time::{CancelToken, Clock, FixedClock, ManualClock, SystemClock};

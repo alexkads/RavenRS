@@ -10,6 +10,7 @@ use serde_json::{Map, Value};
 
 use crate::definition::NodeDef;
 use crate::item::{Item, Ports};
+use crate::time::{CancelToken, Clock, SystemClock};
 
 /// The output every node has besides its kind's: where the items that failed go, each saying
 /// why. A connection may leave it from any node.
@@ -118,12 +119,51 @@ pub struct NodeContext<'a> {
     now_ms: i64,
     mode: Mode,
     iteration: usize,
+    attempt: u32,
+    clock: Arc<dyn Clock>,
+    token: CancelToken,
+    deadline_ms: Option<i64>,
 }
 
 impl<'a> NodeContext<'a> {
-    /// The context of `node`, with `inputs`, at `now_ms` milliseconds since 1970, in `mode`.
+    /// The context of `node`, with `inputs`, at `now_ms` milliseconds since 1970, in `mode`, on
+    /// the machine's clock, with nothing to cancel it and no time limit.
     pub fn new(node: &'a NodeDef, inputs: &'a Ports, now_ms: i64, mode: Mode) -> Self {
-        Self { node, inputs, now_ms, mode, iteration: 0 }
+        Self {
+            node,
+            inputs,
+            now_ms,
+            mode,
+            iteration: 0,
+            attempt: 1,
+            clock: Arc::new(SystemClock),
+            token: CancelToken::new(),
+            deadline_ms: None,
+        }
+    }
+
+    /// The same context, waiting on `clock`.
+    pub fn with_clock(mut self, clock: Arc<dyn Clock>) -> Self {
+        self.clock = clock;
+        self
+    }
+
+    /// The same context, stopped by `token`.
+    pub fn with_token(mut self, token: CancelToken) -> Self {
+        self.token = token;
+        self
+    }
+
+    /// The same context, with `deadline_ms` (on its clock) as the time it must end by.
+    pub fn with_deadline(mut self, deadline_ms: Option<i64>) -> Self {
+        self.deadline_ms = deadline_ms;
+        self
+    }
+
+    /// The same context, at the try `attempt`, from 1.
+    pub fn at_attempt(mut self, attempt: u32) -> Self {
+        self.attempt = attempt;
+        self
     }
 
     /// The same context, at the turn `iteration` of a loop.
@@ -173,6 +213,76 @@ impl<'a> NodeContext<'a> {
     pub fn iteration(&self) -> usize {
         self.iteration
     }
+
+    /// Which try this is, from 1: more than 1 when the node failed in a way worth trying again.
+    pub fn attempt(&self) -> u32 {
+        self.attempt
+    }
+
+    /// The clock the run waits on.
+    pub fn clock(&self) -> &Arc<dyn Clock> {
+        &self.clock
+    }
+
+    /// What says the run, or this node, should stop. A node that calls something slow gives it
+    /// on, or a child of it, so the call can stop too.
+    pub fn token(&self) -> &CancelToken {
+        &self.token
+    }
+
+    /// Whether the node should stop now.
+    pub fn cancelled(&self) -> bool {
+        self.token.is_cancelled()
+    }
+
+    /// How long the node has left, in milliseconds on its clock, when it has a time limit.
+    pub fn time_left_ms(&self) -> Option<i64> {
+        self.deadline_ms.map(|d| d - self.clock.now_ms())
+    }
+
+    /// `Ok` while the node may go on; the error to return when it was cancelled or its time is
+    /// up. A long node calls it between steps.
+    pub fn check(&self) -> Result<(), NodeError> {
+        if self.token.is_cancelled() {
+            return Err(NodeError::cancelled(self.token.reason().unwrap_or_else(|| "cancelled".to_owned())));
+        }
+        if self.time_left_ms().is_some_and(|left| left <= 0) {
+            return Err(NodeError::timed_out("the time limit was reached"));
+        }
+        Ok(())
+    }
+
+    /// Waits `ms` milliseconds on the run's clock, a little at a time, and stops early when the
+    /// node is cancelled or its time is up.
+    pub fn sleep(&self, ms: u64) -> Result<(), NodeError> {
+        const STEP: u64 = 10;
+        let mut left = ms;
+        while left > 0 {
+            self.check()?;
+            let now = STEP.min(left);
+            self.clock.sleep_ms(now);
+            left -= now;
+        }
+        self.check()
+    }
+}
+
+/// What kind of failure it was, which decides whether the node is tried again.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Failure {
+    /// Trying again will not help: a wrong setup, a refusal (the default).
+    #[default]
+    Permanent,
+    /// It may work if tried again: a service busy or out of reach.
+    Retryable,
+    /// No one knows whether it happened: the call went and no answer came. It is not tried
+    /// again until [`NodeKind::reconcile`] says it did not happen.
+    Unknown,
+    /// The node was cancelled.
+    Cancelled,
+    /// The node's time was up.
+    TimedOut,
 }
 
 /// Why a node failed.
@@ -180,13 +290,47 @@ impl<'a> NodeContext<'a> {
 pub struct NodeError {
     /// What went wrong, said to the person.
     pub message: String,
+    /// What kind of failure it was.
+    pub failure: Failure,
 }
 
 impl NodeError {
-    /// A failure saying `message`.
+    /// A failure saying `message` that trying again will not mend.
     pub fn new(message: impl Into<String>) -> Self {
-        Self { message: message.into() }
+        Self { message: message.into(), failure: Failure::Permanent }
     }
+
+    /// A failure that may pass if the node is tried again.
+    pub fn retryable(message: impl Into<String>) -> Self {
+        Self { failure: Failure::Retryable, ..Self::new(message) }
+    }
+
+    /// A call whose result is not known.
+    pub fn unknown(message: impl Into<String>) -> Self {
+        Self { failure: Failure::Unknown, ..Self::new(message) }
+    }
+
+    /// The node was cancelled, for `reason`.
+    pub fn cancelled(reason: impl Into<String>) -> Self {
+        Self { failure: Failure::Cancelled, ..Self::new(reason) }
+    }
+
+    /// The node's time was up.
+    pub fn timed_out(message: impl Into<String>) -> Self {
+        Self { failure: Failure::TimedOut, ..Self::new(message) }
+    }
+}
+
+/// What a kind found when asked whether a call of unknown result happened.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+pub enum Reconciled {
+    /// It happened, and gave these items.
+    Done(Ports),
+    /// It did not happen: the node may be tried again.
+    NotDone,
+    /// Still not known: the node is left as uncertain, not tried again.
+    Unknown,
 }
 
 impl fmt::Display for NodeError {
@@ -215,6 +359,14 @@ pub trait NodeKind: Send + Sync {
     /// A port it leaves out gives no items. Items that failed one by one go to
     /// [`ERROR_PORT`] (see [`Item::failed`]); a failure of the whole node is the `Err`.
     fn execute(&self, cx: &NodeContext<'_>) -> Result<Ports, NodeError>;
+
+    /// After [`execute`](Self::execute) failed with [`Failure::Unknown`], finds out whether
+    /// the call happened (looking it up in the service, by a key the node sent). A kind that
+    /// cannot tell leaves the default, and the node stays uncertain rather than be repeated.
+    fn reconcile(&self, cx: &NodeContext<'_>) -> Reconciled {
+        let _ = cx;
+        Reconciled::Unknown
+    }
 }
 
 /// The kinds a flow may use, by name and version.
@@ -245,6 +397,11 @@ impl Catalog {
     pub fn add(&mut self, kind: impl NodeKind + 'static) {
         let spec = kind.spec();
         self.kinds.insert((spec.kind, spec.version), Arc::new(kind));
+    }
+
+    /// The kind `kind` at `version`, shared, so a run can hand it to another thread.
+    pub fn shared(&self, kind: &str, version: u32) -> Option<Arc<dyn NodeKind>> {
+        self.kinds.get(&(kind.to_owned(), version)).cloned()
     }
 
     /// The kind `kind` at `version`.

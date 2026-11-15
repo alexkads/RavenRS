@@ -38,6 +38,55 @@ pub enum ErrorPolicy {
     Route,
 }
 
+/// How a node is tried again when it fails in a way worth it ([`Failure::Retryable`], or a time
+/// limit with `on_timeout`).
+///
+/// [`Failure::Retryable`]: crate::Failure::Retryable
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Retry {
+    /// How many tries in all, the first one included.
+    pub tries: u32,
+    /// How long to wait before the second try, in milliseconds.
+    #[serde(default)]
+    pub wait_ms: u64,
+    /// What each wait is multiplied by before the next one (1 keeps them the same).
+    #[serde(default = "one_f64")]
+    pub backoff: f64,
+    /// Whether a try that ran out of time is tried again; off by default, since the call may
+    /// have happened.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub on_timeout: bool,
+}
+
+fn one_f64() -> f64 {
+    1.0
+}
+
+impl Retry {
+    /// `tries` tries in all, `wait_ms` apart.
+    pub fn new(tries: u32, wait_ms: u64) -> Self {
+        Self { tries: tries.max(1), wait_ms, backoff: 1.0, on_timeout: false }
+    }
+
+    /// With each wait `factor` times the one before.
+    pub fn backoff(mut self, factor: f64) -> Self {
+        self.backoff = factor.max(1.0);
+        self
+    }
+
+    /// Trying again also after running out of time.
+    pub fn on_timeout(mut self) -> Self {
+        self.on_timeout = true;
+        self
+    }
+
+    /// The wait before the try `next` (from 2).
+    pub fn wait_before(&self, next: u32) -> u64 {
+        let times = next.saturating_sub(2) as i32;
+        (self.wait_ms as f64 * self.backoff.powi(times)).round() as u64
+    }
+}
+
 /// A port of a node: where a connection starts or ends.
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 pub struct PortRef {
@@ -88,6 +137,12 @@ pub struct NodeDef {
     /// Items fixed on its output ports, used instead of running it while testing.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub pinned: BTreeMap<String, Vec<Item>>,
+    /// How it is tried again; once, without it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retry: Option<Retry>,
+    /// The most each try may take, in milliseconds.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<u64>,
 }
 
 fn is_default(policy: &ErrorPolicy) -> bool {
@@ -106,7 +161,21 @@ impl NodeDef {
             disabled: false,
             on_error: ErrorPolicy::default(),
             pinned: BTreeMap::new(),
+            retry: None,
+            timeout_ms: None,
         }
+    }
+
+    /// Tried again as `retry` says.
+    pub fn retry(mut self, retry: Retry) -> Self {
+        self.retry = Some(retry);
+        self
+    }
+
+    /// With each try taking at most `ms` milliseconds.
+    pub fn timeout_ms(mut self, ms: u64) -> Self {
+        self.timeout_ms = Some(ms);
+        self
     }
 
     /// Set up for the version `version` of its kind.

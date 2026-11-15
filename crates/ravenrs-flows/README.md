@@ -36,6 +36,8 @@ The `FlowCanvas` draws a diagram, and its debugger (`FlowRun`) moves tokens thro
 | `merge` | Joins inputs `a` and `b`: `append` (the default), `position`, `key` (`key`, or `key_a` and `key_b`, and `keep_unmatched`) or `first`. | `mode` |
 | `batches` | A loop. Each turn it sends the next batch to `batch`; what the body sends back reaches `back`; with no batch left, everything that came back goes out on `done`. | `size` |
 | `set` | Sets fields from expressions, or keeps only them. | `fields`, `keep_only` |
+| `wait` | Waits on the run's clock and passes its items on; stops early when cancelled. In memory: a wait that outlives the app needs [#535](https://github.com/alexkads/RavenRS/issues/535). | `ms` |
+| `subflow` | Runs another flow with the items that came. Made apart, with the flows it may call: `Subflow::new(flows, catalog)`. | `flow`, `input`, `output` |
 | `filter` | Keeps the items whose condition is true and sends the rest to `discarded`. | `condition` |
 | `sort` | Orders by fields, each rising or falling. Ties keep the order they came in. | `by` |
 | `group` | One item per group, with `sum`, `count`, `min`, `max`, `avg` and `list`. | `by`, `aggregates` |
@@ -49,6 +51,15 @@ Every node has an error output, `ERROR_PORT` (`"error"`), besides its kind's. A 
 - `Stop` (the default): a failure of the node, or of any of its items, stops the run.
 - `Continue`: the failed items go to the error output and the others where they were going. A node that fails as a whole gives nothing.
 - `Route`: like `Continue`, but a node that fails as a whole sends every item that reached it to the error output, with the reason.
+
+## Stopping, time limits and trying again
+
+- **Cancelling**: give the executor a `CancelToken` (`Executor::cancel_with`), keep a clone and call `cancel` from any thread. Each node then runs on a thread of its own, so even a node that never looks at its token is left behind and the run ends `RunOutcome::Cancelled`. A node that calls something slow passes its token on (`NodeContext::token`); a subflow gets a child token, so it stops with the flow that called it.
+- **Time limits**: `NodeDef::timeout_ms` for each try of a node, and `Executor::time_limit_ms` for the whole run. A node over its limit is `NodeStatus::TimedOut`; a run over its limit ends `RunOutcome::TimedOut`. Long nodes call `NodeContext::check` between steps and wait with `NodeContext::sleep`, which stops early.
+- **Trying again**: `NodeDef::retry` with `Retry::new(tries, wait_ms)`, `backoff` and `on_timeout`. A kind says what kind of failure it was: `NodeError::retryable` is tried again, `NodeError::new` is not, and `NodeError::unknown` (a call whose answer was lost) is never repeated until `NodeKind::reconcile` says it did not happen; otherwise the node is `NodeStatus::Uncertain`.
+- **The clock**: waits and retries wait on the run's `Clock`. `ManualClock` moves instead of waiting, so tests of them take no time. A node that blocks a thread is stopped in real time.
+
+Rust cannot kill a thread: a node left behind keeps running until it looks at its token. Stopping a child process for real is the job of the process runner ([#558](https://github.com/alexkads/RavenRS/issues/558)), which takes the same token.
 
 ## Example
 
@@ -80,7 +91,6 @@ assert_eq!(run.output("start", "main").len(), 1);
 Each of these has its own issue, under [#523](https://github.com/alexkads/RavenRS/issues/523):
 
 - A durable run, with a queue, checkpoints, resuming and retention: [#535](https://github.com/alexkads/RavenRS/issues/535).
-- Cancellation, time limits and retries: [#536](https://github.com/alexkads/RavenRS/issues/536).
 - The schema of a kind's parameters, beyond the names it requires: [#530](https://github.com/alexkads/RavenRS/issues/530).
 - The domain data of a node inside the `FlowGraph` itself: [#529](https://github.com/alexkads/RavenRS/issues/529). Until then, `from_graph` takes the flow the drawing came from, to keep each node's setup.
 
