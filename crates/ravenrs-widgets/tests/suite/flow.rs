@@ -998,3 +998,51 @@ fn arrange_as_a_tree_puts_the_root_over_what_it_leads_to() {
     assert!(b.y == d.y && b.y > a.y, "the two below the root");
     assert!((a.x - (b.x + d.x) / 2.0).abs() <= 12.0, "the root over them, to the grid: {a:?} {b:?} {d:?}");
 }
+
+#[test]
+fn a_diamond_is_found_inside_its_outline_with_its_ports_on_the_tips() {
+    // A decision 200 by 100 at (600, 48): its tips at (600, 98), (800, 98) and (700, 148).
+    let decision = FlowNode::new("d", "action", "Enough?", 600.0, 48.0)
+        .size(200.0, 100.0)
+        .shape(FlowShape::Diamond)
+        .port(FlowPort::input("in").kind("sale"))
+        .port(FlowPort::output("no").side(PortSide::Bottom).kind("sale"));
+    let mut rig = rig_with(graph().node(decision), |c| c);
+    click(&mut rig.ui, Point::new(700.0, 98.0));
+    assert_eq!(rig.selection.get(), FlowSelection::node("d"), "the middle is the node");
+    click(&mut rig.ui, Point::new(612.0, 56.0));
+    assert!(rig.selection.get().is_empty(), "the corner of its box is not");
+    assert_eq!(
+        rig.graph.get().anchor(&FlowEndpoint::new("d", "no")).map(|a| a.0),
+        Some(Point::new(700.0, 148.0))
+    );
+    assert_eq!(
+        rig.graph.get().anchor(&FlowEndpoint::new("d", "in")).map(|a| a.0),
+        Some(Point::new(600.0, 98.0))
+    );
+}
+
+#[test]
+fn a_note_wraps_its_words_and_shapes_draw_their_outline() {
+    let note = FlowNode::new(
+        "n",
+        "note",
+        "Check the tax code of the items without one before publishing.",
+        48.0,
+        300.0,
+    )
+    .size(200.0, 120.0)
+    .shape(FlowShape::Note);
+    let rig = rig_with(graph().node(note), |c| c);
+    let lines: std::collections::BTreeSet<i32> = rig
+        .ui
+        .scene()
+        .primitives()
+        .iter()
+        .filter_map(|p| if let ravenrs_core::Primitive::Glyphs(run) = p { Some(run) } else { None })
+        .flat_map(|run| run.glyphs.iter())
+        .filter(|g| g.x > 48.0 && g.x < 248.0 && g.y > 300.0 && g.y < 420.0)
+        .map(|g| g.y.round() as i32)
+        .collect();
+    assert!(lines.len() >= 3, "the note's words wrap over lines: {lines:?}");
+}

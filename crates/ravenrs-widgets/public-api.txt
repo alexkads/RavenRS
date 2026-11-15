@@ -283,17 +283,22 @@ field Labels::diagnostics_why
 field Labels::diagnostics_why_none
 field Labels::dismiss
 field Labels::dock_area_name
+field Labels::dock_auto_hide
+field Labels::dock_auto_hide_item
 field Labels::dock_bottom
 field Labels::dock_center
 field Labels::dock_close
 field Labels::dock_close_panel
 field Labels::dock_closed
 field Labels::dock_empty
+field Labels::dock_hidden
 field Labels::dock_hide
 field Labels::dock_left
 field Labels::dock_move_to
 field Labels::dock_moved
 field Labels::dock_options
+field Labels::dock_pin
+field Labels::dock_pinned
 field Labels::dock_reopen
 field Labels::dock_resize
 field Labels::dock_resize_pair
@@ -2246,9 +2251,11 @@ method BuildCx::empty
 method BuildCx::file_picker
 method BuildCx::files_over
 method BuildCx::floating_overlay
+method BuildCx::flush_overlay
 method BuildCx::focusable
 method BuildCx::foreground
 method BuildCx::full_screen
+method BuildCx::hit_outline
 method BuildCx::is_focus_visible
 method BuildCx::is_focused
 method BuildCx::is_hover_within
@@ -2703,6 +2710,7 @@ method Disclosure::switch
 method Disclosure::title_view
 method Divider::horizontal
 method Divider::vertical
+method DockArea::auto_hide
 method DockArea::center_min
 method DockArea::dock_limits
 method DockArea::edge_toggles
@@ -2715,6 +2723,10 @@ method DockArea::on_end
 method DockArea::pane_min
 method DockArea::tab_bar
 method DockLayout::activate
+method DockLayout::auto_hidden_panels
+method DockLayout::auto_hidden_side
+method DockLayout::auto_hidden_size
+method DockLayout::auto_hide
 method DockLayout::bottom
 method DockLayout::center
 method DockLayout::close
@@ -2722,6 +2734,7 @@ method DockLayout::closed
 method DockLayout::closed_panels
 method DockLayout::contains
 method DockLayout::is_active
+method DockLayout::is_auto_hidden
 method DockLayout::is_open
 method DockLayout::left
 method DockLayout::move_panel
@@ -2729,9 +2742,11 @@ method DockLayout::new
 method DockLayout::node
 method DockLayout::panels
 method DockLayout::parse
+method DockLayout::pin
 method DockLayout::reconcile
 method DockLayout::reopen
 method DockLayout::right
+method DockLayout::set_auto_hidden_size
 method DockLayout::set_open
 method DockLayout::set_size
 method DockLayout::side_of
@@ -3116,11 +3131,15 @@ method Label::ink
 method Label::new
 method Label::required
 method Label::text
+method Labels::dock_auto_hide_name
 method Labels::dock_close_name
 method Labels::dock_closed_name
+method Labels::dock_hidden_name
 method Labels::dock_hide_name
 method Labels::dock_moved_to
 method Labels::dock_options_name
+method Labels::dock_pin_name
+method Labels::dock_pinned_name
 method Labels::dock_place
 method Labels::dock_resize_between
 method Labels::dock_resize_name
@@ -4175,6 +4194,7 @@ reexport FlowLayoutKind = ravenrs_graphics::flow::layout::FlowLayoutKind
 reexport FlowNode = ravenrs_graphics::flow::FlowNode
 reexport FlowNodeStatus = ravenrs_graphics::flow::FlowNodeStatus
 reexport FlowPort = ravenrs_graphics::flow::FlowPort
+reexport FlowShape = ravenrs_graphics::flow::FlowShape
 reexport LottieAnimation = ravenrs_lottie::document::Animation
 reexport LottieError = ravenrs_lottie::document::LottieError
 reexport PortDirection = ravenrs_graphics::flow::PortDirection
@@ -4643,9 +4663,11 @@ variant ContentSpace::Fit
 variant ContentSpace::Frame
 variant ContentSpace::View
 variant DockChange::Activate
+variant DockChange::AutoHide
 variant DockChange::Close
 variant DockChange::Collapse
 variant DockChange::Move
+variant DockChange::Pin
 variant DockChange::Reopen
 variant DockChange::Resize
 variant DockDrop::Side

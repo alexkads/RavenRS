@@ -464,6 +464,9 @@ impl Semantics {
     }
 }
 
+/// How close to the edge of the window a layer goes, unless it is flush.
+const OVERLAY_MARGIN: f32 = 4.0;
+
 #[allow(missing_debug_implementations)] // internal: shared with the components' crates, hidden
 #[doc(hidden)]
 pub struct Overlay {
@@ -474,6 +477,8 @@ pub struct Overlay {
     pub on_dismiss: Option<Rc<dyn Fn()>>,
     /// Stays below every other layer, whenever it was built.
     pub floating: bool,
+    /// How close to the edge of the window it may go.
+    pub margin: f32,
 }
 
 #[allow(missing_debug_implementations)] // internal: shared with the components' crates, hidden
@@ -514,6 +519,8 @@ pub struct Element {
     pub drag_source: Option<DragPayload>,
     /// Takes what is carried here.
     pub drop_target: Option<(DropCheck, DropHandler)>,
+    /// The pointer finds the node only inside this outline, from its top left corner.
+    pub hit_outline: Option<Rc<[Point]>>,
     pub on_pinch: Option<Rc<dyn Fn(f32)>>,
     /// Takes the wheel over it, before any scroll container around it.
     pub on_wheel: Option<Rc<dyn Fn(Point)>>,
@@ -578,6 +585,7 @@ impl Element {
             on_double_click: None,
             drag_source: None,
             drop_target: None,
+            hit_outline: None,
             on_pinch: None,
             on_wheel: None,
             scrolls_with_widget: false,
@@ -1681,6 +1689,15 @@ impl<'a> BuildCx<'a> {
         })
     }
 
+    /// Has the pointer find the node only inside `outline`, a closed polygon in the node's own
+    /// coordinates (from its top left corner), instead of its whole box: a diamond or a round
+    /// button. Its children are found as ever.
+    pub fn hit_outline(&mut self, node: NodeId, outline: impl Into<Rc<[Point]>>) {
+        if let Some(e) = self.element_mut(node) {
+            e.hit_outline = Some(outline.into());
+        }
+    }
+
     /// Calls `handler` on a double click on the node.
     pub fn on_double_click(&mut self, node: NodeId, handler: Rc<dyn Fn()>) {
         if let Some(e) = self.element_mut(node) {
@@ -1733,9 +1750,44 @@ impl<'a> BuildCx<'a> {
         view: &dyn View,
         on_dismiss: Option<Rc<dyn Fn()>>,
     ) {
-        let slot = self.overlays.len();
         let gap = self.theme.spacing.s2;
-        self.overlays.push(Overlay { root: anchor, anchor, placement, gap, on_dismiss, floating: false });
+        self.push_overlay(key, anchor, placement, view, on_dismiss, gap, OVERLAY_MARGIN);
+    }
+
+    /// Like [`Self::overlay`], for a layer that touches its anchor, with no gap, and may reach
+    /// the edge of the window: a panel that opens out of a rail at the side of a window.
+    pub fn flush_overlay(
+        &mut self,
+        anchor: NodeId,
+        placement: Placement,
+        view: &dyn View,
+        on_dismiss: Option<Rc<dyn Fn()>>,
+    ) {
+        let key = 0x6f76_6572_6c61_7900 + self.overlays.len() as u64;
+        self.push_overlay(key, anchor, placement, view, on_dismiss, 0.0, 0.0);
+    }
+
+    #[allow(clippy::too_many_arguments, reason = "the parts of one layer")]
+    fn push_overlay(
+        &mut self,
+        key: u64,
+        anchor: NodeId,
+        placement: Placement,
+        view: &dyn View,
+        on_dismiss: Option<Rc<dyn Fn()>>,
+        gap: f32,
+        margin: f32,
+    ) {
+        let slot = self.overlays.len();
+        self.overlays.push(Overlay {
+            root: anchor,
+            anchor,
+            placement,
+            gap,
+            on_dismiss,
+            floating: false,
+            margin,
+        });
         let outer = self.foreground.take();
         let root = self.keyed_child(key, view);
         self.foreground = outer;
@@ -1758,6 +1810,7 @@ impl<'a> BuildCx<'a> {
             gap,
             on_dismiss: None,
             floating: true,
+            margin: OVERLAY_MARGIN,
         });
         let outer = self.foreground.take();
         let root = self.keyed_child(key, view);

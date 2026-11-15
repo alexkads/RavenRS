@@ -109,6 +109,131 @@ impl FlowPort {
     }
 }
 
+/// The outline a node is drawn in. Ports sit on it and the pointer finds the node inside it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
+pub enum FlowShape {
+    /// A card with an icon, a caption, a title and a line: how nodes have always looked.
+    #[default]
+    Card,
+    /// A plain box.
+    Rectangle,
+    /// A box with round ends: a start or an end.
+    RoundedRectangle,
+    /// An ellipse.
+    Ellipse,
+    /// A diamond: a decision.
+    Diamond,
+    /// A slanted box: input or output.
+    Parallelogram,
+    /// A sheet with a wavy foot: a document.
+    Document,
+    /// A cylinder: a database.
+    Cylinder,
+    /// A sticky note: words on a tinted square with a folded corner, wrapped over lines.
+    Note,
+}
+
+fn is_card(shape: &FlowShape) -> bool {
+    *shape == FlowShape::Card
+}
+
+/// The outline of `shape` filling `r`.
+pub fn shape_outline(shape: FlowShape, r: Rect) -> Vec<PathSegment> {
+    let (x, y, w, h) = (r.x(), r.y(), r.width(), r.height());
+    let p = Point::new;
+    let polygon = |points: &[Point]| {
+        let mut path: Vec<PathSegment> = points
+            .iter()
+            .enumerate()
+            .map(|(i, &q)| if i == 0 { PathSegment::Move(q) } else { PathSegment::Line(q) })
+            .collect();
+        path.push(PathSegment::Close);
+        path
+    };
+    // A quarter of an ellipse as a cubic: control points 0.552 of the way.
+    let k = 0.552_284_8;
+    match shape {
+        FlowShape::Card | FlowShape::Rectangle => {
+            polygon(&[p(x, y), p(x + w, y), p(x + w, y + h), p(x, y + h)])
+        }
+        FlowShape::RoundedRectangle => {
+            let mut path = rounded(
+                &[p(x + w / 2.0, y), p(x + w, y), p(x + w, y + h), p(x, y + h), p(x, y), p(x + w / 2.0, y)],
+                w.min(h) / 2.0,
+            );
+            path.push(PathSegment::Close);
+            path
+        }
+        FlowShape::Ellipse => {
+            let (cx, cy, rx, ry) = (x + w / 2.0, y + h / 2.0, w / 2.0, h / 2.0);
+            vec![
+                PathSegment::Move(p(cx + rx, cy)),
+                PathSegment::Cubic(p(cx + rx, cy + ry * k), p(cx + rx * k, cy + ry), p(cx, cy + ry)),
+                PathSegment::Cubic(p(cx - rx * k, cy + ry), p(cx - rx, cy + ry * k), p(cx - rx, cy)),
+                PathSegment::Cubic(p(cx - rx, cy - ry * k), p(cx - rx * k, cy - ry), p(cx, cy - ry)),
+                PathSegment::Cubic(p(cx + rx * k, cy - ry), p(cx + rx, cy - ry * k), p(cx + rx, cy)),
+                PathSegment::Close,
+            ]
+        }
+        FlowShape::Diamond => {
+            polygon(&[p(x + w / 2.0, y), p(x + w, y + h / 2.0), p(x + w / 2.0, y + h), p(x, y + h / 2.0)])
+        }
+        FlowShape::Parallelogram => {
+            let skew = (w * 0.15).min(h * 0.5);
+            polygon(&[p(x + skew, y), p(x + w, y), p(x + w - skew, y + h), p(x, y + h)])
+        }
+        FlowShape::Document => {
+            let foot = y + h * 0.85;
+            let dip = h * 0.12;
+            vec![
+                PathSegment::Move(p(x, y)),
+                PathSegment::Line(p(x + w, y)),
+                PathSegment::Line(p(x + w, foot)),
+                PathSegment::Cubic(
+                    p(x + w * 0.75, foot - dip),
+                    p(x + w * 0.5, foot - dip),
+                    p(x + w * 0.5, foot),
+                ),
+                PathSegment::Cubic(p(x + w * 0.5, foot + dip), p(x + w * 0.25, foot + dip), p(x, foot)),
+                PathSegment::Close,
+            ]
+        }
+        FlowShape::Cylinder => {
+            let ry = (h * 0.12).min(w * 0.25);
+            let (cx, rx) = (x + w / 2.0, w / 2.0);
+            let (top, foot) = (y + ry, y + h - ry);
+            vec![
+                PathSegment::Move(p(x, top)),
+                PathSegment::Cubic(p(x, top - ry * k), p(cx - rx * k, y), p(cx, y)),
+                PathSegment::Cubic(p(cx + rx * k, y), p(x + w, top - ry * k), p(x + w, top)),
+                PathSegment::Line(p(x + w, foot)),
+                PathSegment::Cubic(p(x + w, foot + ry * k), p(cx + rx * k, y + h), p(cx, y + h)),
+                PathSegment::Cubic(p(cx - rx * k, y + h), p(x, foot + ry * k), p(x, foot)),
+                PathSegment::Close,
+            ]
+        }
+        FlowShape::Note => {
+            let fold = w.min(h) * 0.15;
+            polygon(&[p(x, y), p(x + w, y), p(x + w, y + h - fold), p(x + w - fold, y + h), p(x, y + h)])
+        }
+    }
+}
+
+/// Whether `p` is inside the closed polyline `outline`.
+pub fn contains(outline: &[Point], p: Point) -> bool {
+    let mut inside = false;
+    let n = outline.len();
+    for i in 0..n {
+        let (a, b) = (outline[i], outline[(i + 1) % n]);
+        if (a.y > p.y) != (b.y > p.y) && p.x < a.x + (p.y - a.y) / (b.y - a.y) * (b.x - a.x) {
+            inside = !inside;
+        }
+    }
+    inside
+}
+
 /// How a node is doing, which it shows.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[non_exhaustive]
@@ -165,6 +290,9 @@ pub struct FlowNode {
     /// it; `x`, `y`, `width` and `height` stay those of the unturned box.
     #[serde(default, skip_serializing_if = "is_level")]
     pub rotation: f32,
+    /// The outline it is drawn in.
+    #[serde(default, skip_serializing_if = "is_card")]
+    pub shape: FlowShape,
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref, reason = "the signature serde asks for")]
@@ -225,6 +353,21 @@ impl FlowNode {
     pub fn status(mut self, status: FlowNodeStatus) -> Self {
         self.status = status;
         self
+    }
+
+    /// Drawn in this outline.
+    pub fn shape(mut self, shape: FlowShape) -> Self {
+        self.shape = shape;
+        self
+    }
+
+    /// Its outline, unturned, as points.
+    pub fn outline(&self) -> Vec<Point> {
+        let mut points = flatten(&shape_outline(self.shape, self.rect()));
+        if points.len() > 1 && points.first() == points.last() {
+            points.pop();
+        }
+        points
     }
 
     /// Turned by this many degrees, clockwise on screen.
@@ -324,12 +467,45 @@ impl FlowNode {
         let on_side: Vec<&FlowPort> = self.ports.iter().filter(|p| p.side == port.side).collect();
         let index = on_side.iter().position(|p| p.id == id)? as f32;
         let share = (index + 1.0) / (on_side.len() as f32 + 1.0);
-        Some(match port.side {
+        let on_box = match port.side {
             PortSide::Left => Point::new(self.x, self.y + self.height * share),
             PortSide::Right => Point::new(self.x + self.width, self.y + self.height * share),
             PortSide::Top => Point::new(self.x + self.width * share, self.y),
             PortSide::Bottom => Point::new(self.x + self.width * share, self.y + self.height),
-        })
+        };
+        Some(self.onto_outline(on_box, port.side))
+    }
+
+    /// A point on the box's edge brought in, square to `side`, to where it meets the outline.
+    fn onto_outline(&self, p: Point, side: PortSide) -> Point {
+        if matches!(self.shape, FlowShape::Card | FlowShape::Rectangle | FlowShape::Note) {
+            return p;
+        }
+        let outline = self.outline();
+        let n = outline.len();
+        let mut found: Option<f32> = None;
+        for i in 0..n {
+            let (a, b) = (outline[i], outline[(i + 1) % n]);
+            let at = if side.is_horizontal() {
+                ((a.y - p.y) * (b.y - p.y) <= 0.0 && a.y != b.y)
+                    .then(|| a.x + (p.y - a.y) / (b.y - a.y) * (b.x - a.x))
+            } else {
+                ((a.x - p.x) * (b.x - p.x) <= 0.0 && a.x != b.x)
+                    .then(|| a.y + (p.x - a.x) / (b.x - a.x) * (b.y - a.y))
+            };
+            let Some(at) = at else { continue };
+            let outer = matches!(side, PortSide::Right | PortSide::Bottom);
+            found = Some(match found {
+                Some(best) if outer => best.max(at),
+                Some(best) => best.min(at),
+                None => at,
+            });
+        }
+        match (found, side.is_horizontal()) {
+            (Some(x), true) => Point::new(x, p.y),
+            (Some(y), false) => Point::new(p.x, y),
+            (None, _) => p,
+        }
     }
 }
 
@@ -1665,6 +1841,41 @@ mod tests {
         }
         g.edge_path_cached(&g.edges[0], &mut cache);
         assert_eq!(cache.computed(), 2, "the node in the way moved");
+    }
+
+    #[test]
+    fn ports_sit_on_the_outline_of_a_shape_and_it_holds_what_is_inside() {
+        let diamond = FlowNode::new("d", "k", "Decide", 0.0, 0.0)
+            .size(200.0, 100.0)
+            .shape(FlowShape::Diamond)
+            .port(FlowPort::input("in"))
+            .port(FlowPort::output("yes"))
+            .port(FlowPort::output("no").side(PortSide::Bottom));
+        // One port a side: on the tips.
+        assert_eq!(diamond.port_point("in"), Some(Point::new(0.0, 50.0)));
+        assert_eq!(diamond.port_point("no"), Some(Point::new(100.0, 100.0)));
+        // Two on a side: brought in to the slanted edges.
+        let two = diamond.clone().port(FlowPort::input("again"));
+        let first = two.port_point("in").unwrap_or(Point::new(0.0, 0.0));
+        assert!((first.y - 100.0 / 3.0).abs() < 0.01 && (first.x - 100.0 / 3.0).abs() < 0.5, "{first:?}");
+        let outline = diamond.outline();
+        assert!(contains(&outline, Point::new(100.0, 50.0)));
+        assert!(!contains(&outline, Point::new(10.0, 10.0)), "the corner of the box is outside");
+        // A card is not written to JSON; another shape is, and comes back.
+        assert!(!graph().to_json().contains("\"Card\""));
+        let g = FlowGraph::new().node(diamond.clone());
+        assert_eq!(FlowGraph::from_json(&g.to_json()), Ok(g));
+        for shape in [
+            FlowShape::Ellipse,
+            FlowShape::Parallelogram,
+            FlowShape::Document,
+            FlowShape::Cylinder,
+            FlowShape::Note,
+            FlowShape::RoundedRectangle,
+        ] {
+            let node = FlowNode::new("s", "k", "S", 0.0, 0.0).size(200.0, 100.0).shape(shape);
+            assert!(contains(&node.outline(), Point::new(100.0, 50.0)), "{shape:?} holds its middle");
+        }
     }
 
     #[test]

@@ -11,7 +11,7 @@ pub use crate::dock_side::DockSide;
 use crate::reorder;
 
 /// The version of the saved text this build writes, and the newest it reads.
-const FORMAT_VERSION: u64 = 2;
+const FORMAT_VERSION: u64 = 3;
 /// How far the shares of a split may stray from a sum of one before they are put right. Saved
 /// shares land within it, so reading a text and writing it again gives the same text.
 const SHARES_SUM_TOLERANCE: f32 = 1e-3;
@@ -90,6 +90,16 @@ pub enum DockChange {
     Resize {
         /// The place the bar is in.
         side: DockSide,
+    },
+    /// A panel of a dock hides at the edge of that dock, a tab on its rail.
+    AutoHide {
+        /// The panel.
+        panel: String,
+    },
+    /// A hidden panel goes back in its dock.
+    Pin {
+        /// The panel.
+        panel: String,
     },
     /// A dock collapses to its strip, or comes back from it.
     Collapse {
@@ -367,8 +377,20 @@ struct Closed {
     with: Option<String>,
 }
 
+/// A panel hidden at the edge of a dock: a tab on the rail there, opening over the rest.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+struct Hidden {
+    panel: String,
+    side: DockSide,
+    /// How wide (or tall, at the top and the bottom) it opens.
+    size: f32,
+    /// Who stayed in its group as it went, to go back beside when pinned.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    with: Option<String>,
+}
+
 /// The arrangement of a [`DockArea`](crate::DockArea): which panel is where, the sizes, and what
-/// is collapsed or closed. It holds ids only, so it can be kept in a `State`, compared and saved;
+/// is collapsed, hidden at an edge or closed. It holds ids only, so it can be kept in a `State`, compared and saved;
 /// what a panel shows comes from the app, by id, each time it is drawn.
 ///
 /// ```
@@ -397,6 +419,8 @@ pub struct DockLayout {
     bottom: Region,
     #[serde(default = "top")]
     top: Region,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    auto_hidden: Vec<Hidden>,
     #[serde(default)]
     closed: Vec<Closed>,
 }
@@ -459,7 +483,15 @@ struct Saved<'a> {
 impl DockLayout {
     /// Nothing anywhere yet, with the docks at their usual sizes.
     pub fn new() -> Self {
-        Self { center: None, left: left(), right: right(), bottom: bottom(), top: top(), closed: Vec::new() }
+        Self {
+            center: None,
+            left: left(),
+            right: right(),
+            bottom: bottom(),
+            top: top(),
+            auto_hidden: Vec::new(),
+            closed: Vec::new(),
+        }
     }
 
     /// Puts this in the center.
@@ -624,7 +656,9 @@ impl DockLayout {
     /// away, and a split left with one part gives way to it. The last panel can close too: an
     /// arrangement with nothing open is still valid.
     pub fn close(&mut self, id: &str) -> bool {
-        let Some((place, with)) = self.take_out(id) else { return false };
+        let taken =
+            self.take_out(id).or_else(|| self.take_hidden(id).map(|hidden| (hidden.side, hidden.with)));
+        let Some((place, with)) = taken else { return false };
         self.closed.retain(|closed| closed.panel != id);
         self.closed.push(Closed { panel: id.to_owned(), place, with });
         self.tidy();
@@ -652,7 +686,7 @@ impl DockLayout {
     /// panel is already what it would become.
     pub fn move_panel(&mut self, id: &str, target: DockDrop) -> bool {
         let closed = self.closed.iter().any(|closed| closed.panel == id);
-        if !closed && !self.contains(id) {
+        if !closed && !self.contains(id) && !self.is_auto_hidden(id) {
             return false;
         }
         let done = match target {
@@ -662,9 +696,73 @@ impl DockLayout {
         };
         if done {
             self.closed.retain(|closed| closed.panel != id);
+            self.auto_hidden.retain(|hidden| hidden.panel != id);
             self.tidy();
         }
         done
+    }
+
+    /// Hides a panel of a dock at the edge of that dock, where a tab on the rail opens it over the
+    /// rest, as wide as the dock was. A panel of the center stays: the center has no edge. It
+    /// says whether it hid.
+    pub fn auto_hide(&mut self, id: &str) -> bool {
+        let Some(side) = self.side_of(id).filter(|side| DockSide::DOCKS.contains(side)) else { return false };
+        let size = self.size(side);
+        let Some((side, with)) = self.take_out(id) else { return false };
+        self.auto_hidden.push(Hidden { panel: id.to_owned(), side, size, with });
+        self.tidy();
+        true
+    }
+
+    /// Puts a hidden panel back in its dock, beside the panel it was with if that is still there,
+    /// and shows the dock. It says whether there was such a panel.
+    pub fn pin(&mut self, id: &str) -> bool {
+        let Some(hidden) = self.take_hidden(id) else { return false };
+        let group = hidden.with.filter(|with| self.side_of(with) == Some(hidden.side));
+        match group {
+            Some(beside) => {
+                self.insert_tab(id, &beside, usize::MAX);
+            }
+            None => self.insert_in(id, hidden.side),
+        }
+        self.tidy();
+        true
+    }
+
+    /// Whether a panel is hidden at the edge of a dock.
+    pub fn is_auto_hidden(&self, id: &str) -> bool {
+        self.auto_hidden.iter().any(|hidden| hidden.panel == id)
+    }
+
+    /// The panels hidden at the edge of a dock, in the order they went.
+    pub fn auto_hidden_panels(&self, side: DockSide) -> Vec<&str> {
+        self.auto_hidden
+            .iter()
+            .filter(|hidden| hidden.side == side)
+            .map(|hidden| hidden.panel.as_str())
+            .collect()
+    }
+
+    /// The dock a hidden panel is at the edge of.
+    pub fn auto_hidden_side(&self, id: &str) -> Option<DockSide> {
+        self.auto_hidden.iter().find(|hidden| hidden.panel == id).map(|hidden| hidden.side)
+    }
+
+    /// How wide (or tall) a hidden panel opens.
+    pub fn auto_hidden_size(&self, id: &str) -> Option<f32> {
+        self.auto_hidden.iter().find(|hidden| hidden.panel == id).map(|hidden| hidden.size)
+    }
+
+    /// Sets how wide (or tall) a hidden panel opens, in logical pixels.
+    pub fn set_auto_hidden_size(&mut self, id: &str, size: f32) {
+        if let Some(hidden) = self.auto_hidden.iter_mut().find(|hidden| hidden.panel == id) {
+            hidden.size = if size.is_finite() { size.max(0.0) } else { 0.0 };
+        }
+    }
+
+    fn take_hidden(&mut self, id: &str) -> Option<Hidden> {
+        let at = self.auto_hidden.iter().position(|hidden| hidden.panel == id)?;
+        Some(self.auto_hidden.remove(at))
     }
 
     fn move_to_tab(&mut self, id: &str, beside: &str, at: usize) -> bool {
@@ -751,8 +849,12 @@ impl DockLayout {
             self.take_out(&id);
         }
         self.closed.retain(|closed| known.contains(&closed.panel.as_str()));
+        self.auto_hidden.retain(|hidden| known.contains(&hidden.panel.as_str()));
         for id in known {
-            if !self.contains(id) && !self.closed.iter().any(|closed| closed.panel == *id) {
+            if !self.contains(id)
+                && !self.is_auto_hidden(id)
+                && !self.closed.iter().any(|closed| closed.panel == *id)
+            {
                 self.closed.push(Closed { panel: (*id).to_owned(), place: DockSide::Center, with: None });
             }
         }
@@ -818,7 +920,14 @@ impl DockLayout {
                 region.node = region.node.take().and_then(|node| tidied(node, &mut seen));
             }
         }
-        // The tree wins over a closed entry: a panel cannot be in both.
+        // The tree wins over a hidden or closed entry, and hidden over closed: a panel is in one.
+        self.auto_hidden
+            .retain(|hidden| DockSide::DOCKS.contains(&hidden.side) && seen.insert(hidden.panel.clone()));
+        for hidden in &mut self.auto_hidden {
+            if !hidden.size.is_finite() || hidden.size < 0.0 {
+                hidden.size = 0.0;
+            }
+        }
         self.closed.retain(|closed| seen.insert(closed.panel.clone()));
     }
 }
@@ -968,7 +1077,10 @@ mod tests {
         assert_eq!(read.node(DockSide::Top), None);
         assert_eq!(read.size(DockSide::Top), 120.0, "at its usual size");
         assert_eq!(read.side_of("b"), Some(DockSide::Bottom));
-        assert!(read.to_text().contains("\"version\": 2"), "and is saved in the new one");
+        assert!(
+            read.to_text().contains(&format!("\"version\": {FORMAT_VERSION}")),
+            "and is saved in the new one"
+        );
     }
 
     #[test]
@@ -989,6 +1101,41 @@ mod tests {
         assert!(layout.close("t"));
         assert!(layout.reopen("t"));
         assert_eq!(layout.side_of("t"), Some(DockSide::Top), "it comes back where it was");
+    }
+
+    #[test]
+    fn a_panel_hides_at_the_edge_of_its_dock_and_pins_back_beside_its_neighbor() {
+        let mut layout =
+            DockLayout::new().center(DockNode::tabs(["a"])).left(DockNode::tabs(["files", "search"]), 240.0);
+        assert!(!layout.auto_hide("a"), "the center has no edge");
+        assert!(layout.auto_hide("files"));
+        assert!(!layout.contains("files"), "out of the tree");
+        assert!(layout.is_auto_hidden("files"));
+        assert_eq!(layout.auto_hidden_panels(DockSide::Left), ["files"]);
+        assert_eq!(layout.auto_hidden_size("files"), Some(240.0), "it opens as wide as the dock was");
+        layout.set_auto_hidden_size("files", 300.0);
+        assert!(layout.pin("files"));
+        assert_eq!(
+            layout.node(DockSide::Left),
+            Some(&DockNode::Tabs { panels: vec!["search".into(), "files".into()], active: 1 })
+        );
+        assert!(!layout.pin("files"), "nothing left to pin");
+    }
+
+    #[test]
+    fn a_hidden_panel_moves_closes_and_is_saved() {
+        let mut layout =
+            DockLayout::new().center(DockNode::tabs(["a"])).right(DockNode::tabs(["layers"]), 200.0);
+        assert!(layout.auto_hide("layers"));
+        assert_eq!(layout.node(DockSide::Right), None, "the dock it left is empty");
+        let read = DockLayout::parse(&layout.to_text()).expect("it reads");
+        assert_eq!(read, layout);
+        assert!(layout.clone().move_panel("layers", DockDrop::Side(DockSide::Bottom)));
+        assert!(layout.close("layers"));
+        assert!(!layout.is_auto_hidden("layers"));
+        assert!(layout.reopen("layers"));
+        assert_eq!(layout.side_of("layers"), Some(DockSide::Right), "it comes back to its dock");
+        assert!(!DockLayout::new().to_text().contains("auto_hidden"), "nothing written when none hides");
     }
 
     #[test]
@@ -1050,6 +1197,8 @@ mod tests {
         Side(usize, u8),
         Toggle(u8),
         Resize(f32),
+        Hide(usize),
+        Pin(usize),
     }
 
     fn op() -> impl Strategy<Value = Op> {
@@ -1063,6 +1212,8 @@ mod tests {
             (id, 0..4_u8).prop_map(|(a, side)| Op::Side(a, side)),
             (0..3_u8).prop_map(Op::Toggle),
             (0.0..800.0_f32).prop_map(Op::Resize),
+            (0..IDS.len()).prop_map(Op::Hide),
+            (0..IDS.len()).prop_map(Op::Pin),
         ]
     }
 
@@ -1095,6 +1246,12 @@ mod tests {
             }
             Op::Toggle(s) => layout.set_open(side(s), !layout.is_open(side(s))),
             Op::Resize(px) => layout.resize_split(DockSide::Center, &[], 0, px, 800.0),
+            Op::Hide(a) => {
+                layout.auto_hide(IDS[a]);
+            }
+            Op::Pin(a) => {
+                layout.pin(IDS[a]);
+            }
         }
     }
 
@@ -1129,6 +1286,9 @@ mod tests {
                 apply(&mut layout, op);
                 let mut all: Vec<&str> = layout.panels();
                 all.extend(layout.closed_panels());
+                for side in DockSide::DOCKS {
+                    all.extend(layout.auto_hidden_panels(side));
+                }
                 all.sort_unstable();
                 prop_assert_eq!(all, IDS.to_vec(), "each panel exactly once, after {:?}", op);
                 for side in DockSide::ALL {
