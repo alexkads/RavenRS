@@ -558,3 +558,31 @@ fn a_view_knows_when_the_focus_is_inside_it() {
     ui.update();
     assert!(says(&mut ui, "outside"), "on the button after it");
 }
+
+#[test]
+fn turned_text_in_a_narrow_strip_stays_on_one_line() {
+    use ravenrs_layout::{Axis, LayoutStyle};
+    struct Strip;
+    impl View for Strip {
+        fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+            let turned = cx.child(&ravenrs_widgets::QuarterTurn::new(
+                Text::new("Server Explorer"),
+                ravenrs_widgets::Turn::Clockwise,
+            ));
+            cx.container(
+                LayoutStyle { width: Some(28.0), ..LayoutStyle::stack(Axis::Vertical) },
+                &[turned],
+                Paint::None,
+            )
+        }
+    }
+    let mut ui = Ui::new(Strip, Theme::raven_dark());
+    ui.set_viewport(Size::new(400.0, 300.0), 1.0);
+    for _ in 0..3 {
+        ui.update();
+    }
+    let tree = ui.access_tree();
+    let text = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Server Explorer")).expect("read");
+    assert!(text.bounds.width() < 28.0, "one line, turned, fits the strip: {:?}", text.bounds);
+    assert!(text.bounds.height() > 90.0, "the whole name down the strip: {:?}", text.bounds);
+}

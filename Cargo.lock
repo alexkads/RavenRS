@@ -1985,6 +1985,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "dock-workbench"
+version = "27.1.28"
+dependencies = [
+ "image",
+ "pollster",
+ "ravenrs",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "document-features"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"

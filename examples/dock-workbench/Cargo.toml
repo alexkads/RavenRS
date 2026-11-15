@@ -1,0 +1,21 @@
+[package]
+name = "dock-workbench"
+description = "Three workbenches built on the DockArea: a code editor, an IDE and a chat app, to check that the dock holds a real desktop app together."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+ravenrs = { workspace = true, features = ["code"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+image.workspace = true
+pollster.workspace = true
+
+[lints]
+workspace = true

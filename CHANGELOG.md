@@ -24,6 +24,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `examples/dock-workbench`: three desktop apps built on the `DockArea` (a code editor, an IDE and a chat app), to check that the dock holds one together. `cargo run -p dock-workbench -- editor` (or `ide`, or `chat`); `RAVENRS_CAPTURE_DIR=<folder> cargo test -p dock-workbench --test capture` draws them to PNG. Pictures in `docs/media/dock-workbench/`.
 - Ctrl+Tab in a `DockArea` (Ctrl, not Cmd, on a Mac too): a quick press goes back to the panel used before; held for 0.15 s it shows a list of the panels by how lately they were used, documents apart from tools, each with where it is (a dock, floating, hidden at an edge). Tab and Shift+Tab walk it while Ctrl is held, letting Ctrl go opens the choice (over the rest if it is hidden, in front if it floats), a click picks a row, and Escape gives it up. The order of use is kept in memory only, never in what is saved. ([#490](https://github.com/alexkads/RavenRS/issues/490))
 - `BuildCx::held`: the keys held now, for a view that looks different while Ctrl or Shift is down; the views are built again when one is pressed or let go. ([#490](https://github.com/alexkads/RavenRS/issues/490))
 - `BuildCx::is_focus_within`: whether keyboard focus is on a view or inside it. The hidden panel of a `DockArea` open over the rest uses it to go back when Tab takes focus out of it. ([#484](https://github.com/alexkads/RavenRS/issues/484))
@@ -71,6 +72,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- `QuarterTurn` keeps a name on one line in a strip narrower than it: it is measured lying down in a room wide enough for it, so "Server Explorer" on a 28-pixel rail no longer breaks in two.
 - A window arranged for a counter (`App::counter`, `CounterTemplate`) has no Cmd/Ctrl+K palette of places, as it has no navigation; an application shown inside another no longer answers that key twice. `FrameTemplate::shows_navigation`.
 - A theme of an application's own, such as one made with `Theme { name: "Mine", ..Theme::raven_light() }`, wrote its tokens against itself, so the menu could not bring it back the next time. It now writes them against its base.
 - `HeroBanner` in the accent tone writes in the theme's `on-accent`, and on any other tone or color in black or white, whichever has more contrast, so it reaches 4.5:1. It used to pick by luminance, which left white text at 2.6:1 on a light accent.
