@@ -42,6 +42,8 @@ pub use ravenrs_widgets_grid::grid;
 
 // The lists family lives in its own crate, and keeps its module names here.
 #[allow(unused_imports)]
+use ravenrs_widgets_lists::inspector;
+#[allow(unused_imports)]
 use ravenrs_widgets_lists::lists;
 #[allow(unused_imports)]
 use ravenrs_widgets_lists::tree;
@@ -210,6 +212,7 @@ pub use imaging::{
     Protractor, RubberBand, RuleOfThirdsGrid, Ruler, TransformHandles, ZoomPanPaint, ZoomPanView,
 };
 pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeSwitcher, Toggle};
+pub use inspector::{DataInspector, PathStep, SAMPLE, field_path};
 pub use kbd::Kbd;
 pub use labels::Labels;
 pub use link_service::{LinkOpener, Links};

@@ -55,6 +55,19 @@ fn pictures_of_the_screens() {
     snap(&mut ui, "2b-parametros");
     press(&mut ui, "Executar fluxo");
     snap(&mut ui, "3-executado");
+    let at = ui
+        .access_tree()
+        .nodes
+        .iter()
+        .find(|n| n.name.as_deref() == Some("Acima de R$ 100"))
+        .expect("a node")
+        .bounds
+        .center();
+    ui.handle_event(&ravenrs::core::Event::PointerMove { position: at });
+    let button = ravenrs::core::PointerButton::Primary;
+    ui.handle_event(&ravenrs::core::Event::PointerDown { position: at, button });
+    ui.handle_event(&ravenrs::core::Event::PointerUp { position: at, button });
+    snap(&mut ui, "3b-entrada");
     press(&mut ui, "Execuções");
     press(&mut ui, "Aguardando");
     snap(&mut ui, "4-execucoes");

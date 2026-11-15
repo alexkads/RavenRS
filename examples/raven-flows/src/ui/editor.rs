@@ -44,6 +44,15 @@ fn save(casa: &Casa, catalog: &Catalog, s: &Screens) -> Result<FlowDefinition, S
     Ok(flow)
 }
 
+/// The items that reached `node` in the last run of the flow `flow`; none before any run.
+fn input_of(casa: &Casa, flow: &str, node: &str) -> Vec<Json> {
+    let Some(run) = casa.last_run(flow) else { return Vec::new() };
+    casa.parts(&run.id)
+        .get(node)
+        .map(|part| part.inputs.values().flatten().map(|item| item.json.clone()).collect())
+        .unwrap_or_default()
+}
+
 /// The parameters of the card `id` of `graph`.
 fn parameters_of(graph: &FlowGraph, id: &str) -> Map<String, Json> {
     graph
@@ -214,6 +223,9 @@ impl RavenFlows {
                     VStack::new((
                         Text::new(format!("Parâmetros de {title}")).style(TextStyle::Headline),
                         editor,
+                        Text::new("Entrada na última execução").style(TextStyle::Headline),
+                        // What reached the node, in the inspector's four ways.
+                        DataInspector::of(input_of(&casa, id, node)).limit(100).label("Entrada"),
                     ))
                     .spacing(8.0)
                     .padding(12.0)

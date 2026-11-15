@@ -93,6 +93,7 @@ demonstrations! {
     diagrama_de_fluxo => "Diagrama de fluxo",
     cabos => "Cabos",
     formulario_de_parametros => "Formulário de parâmetros",
+    inspetor_de_dados => "Inspetor de dados",
     regras => "Regras",
     avisos_e_informacoes => "Avisos e informações",
     ao_sair_do_campo => "Ao sair do campo",

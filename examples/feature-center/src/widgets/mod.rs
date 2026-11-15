@@ -5,6 +5,7 @@
 
 pub mod graficos;
 pub mod kit;
+pub mod listas;
 
 use ravenrs::prelude::{AnyView, IconName};
 
@@ -31,6 +32,13 @@ pub const PAGES: &[Page] = &[
         group: "Kit",
         icon: IconName::FileText,
         make: || Box::new(kit::parametros::ParametersPage),
+    },
+    Page {
+        id: listas::inspetor::ID,
+        caption: listas::inspetor::PAGE,
+        group: "Listas e árvores",
+        icon: IconName::Search,
+        make: || Box::new(listas::inspetor::InspectorPage),
     },
     Page {
         id: graficos::fluxo::ID,

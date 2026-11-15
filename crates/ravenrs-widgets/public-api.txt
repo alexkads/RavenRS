@@ -4,6 +4,7 @@
 const EXPRESSION_KEY
 const FLOW_NODE_DRAG
 const HOLD_TO_CARRY
+const SAMPLE
 enum AnchorPoint
 enum BoxHandle
 enum ButtonSize
@@ -46,6 +47,7 @@ enum ModelStatus
 enum Paint
 enum ParamKind
 enum ParamOptions
+enum PathStep
 enum Placement
 enum RecurrenceEnd
 enum RibbonSize
@@ -595,6 +597,28 @@ field Labels::image_invalid
 field Labels::image_none
 field Labels::image_replace
 field Labels::increase
+field Labels::inspector_absent
+field Labels::inspector_boolean
+field Labels::inspector_chosen
+field Labels::inspector_empty
+field Labels::inspector_in
+field Labels::inspector_item
+field Labels::inspector_json
+field Labels::inspector_kind
+field Labels::inspector_list
+field Labels::inspector_mode
+field Labels::inspector_more
+field Labels::inspector_next
+field Labels::inspector_number
+field Labels::inspector_object
+field Labels::inspector_path
+field Labels::inspector_present
+field Labels::inspector_previous
+field Labels::inspector_sampled
+field Labels::inspector_schema
+field Labels::inspector_table
+field Labels::inspector_text
+field Labels::inspector_tree
 field Labels::lightbox
 field Labels::lightbox_counter
 field Labels::lightbox_next
@@ -942,6 +966,7 @@ fn days_in_month
 fn decode_image
 fn distance_to_cable
 fn exceptions_text
+fn field_path
 fn find_all
 fn grid::query::check_formula
 fn grid::query::formula_value
@@ -1105,6 +1130,7 @@ impl Clone for ParamField
 impl Clone for ParamKind
 impl Clone for ParamOptions
 impl Clone for ParamValues
+impl Clone for PathStep
 impl Clone for PickedFile
 impl Clone for Placement
 impl Clone for ProgressBar
@@ -1381,6 +1407,7 @@ impl Debug for CropArea
 impl Debug for CropOverlay
 impl Debug for CurveEditor
 impl Debug for DataGrid
+impl Debug for DataInspector
 impl Debug for Date
 impl Debug for DatePicker
 impl Debug for DateRange
@@ -1541,6 +1568,7 @@ impl Debug for ParamKind
 impl Debug for ParamOptions
 impl Debug for ParamValues
 impl Debug for ParameterForm
+impl Debug for PathStep
 impl Debug for PickedFile
 impl Debug for Placement
 impl Debug for Playground
@@ -1929,6 +1957,7 @@ impl Eq for IconName
 impl Eq for LookupItem
 impl Eq for LookupRequest
 impl Eq for NodeId
+impl Eq for PathStep
 impl Eq for PickedFile
 impl Eq for RecurrenceEnd
 impl Eq for RecurrenceRule
@@ -2092,6 +2121,7 @@ impl PartialEq for ParamField
 impl PartialEq for ParamKind
 impl PartialEq for ParamOptions
 impl PartialEq for ParamValues
+impl PartialEq for PathStep
 impl PartialEq for PickedFile
 impl PartialEq for Placement
 impl PartialEq for QuadPaint
@@ -2230,6 +2260,7 @@ impl View for CountUp
 impl View for CropOverlay
 impl View for CurveEditor
 impl View for DataGrid
+impl View for DataInspector
 impl View for DatePicker
 impl View for DateRangePicker
 impl View for DateTimePicker
@@ -2912,6 +2943,14 @@ method DataGrid::sort_by
 method DataGrid::striped
 method DataGrid::toolbar
 method DataGrid::vertical_lines
+method DataInspector::item
+method DataInspector::label
+method DataInspector::limit
+method DataInspector::mode
+method DataInspector::new
+method DataInspector::of
+method DataInspector::on_pick
+method DataInspector::selected
 method Date::add_days
 method Date::add_months
 method Date::day
@@ -4654,6 +4693,7 @@ struct CropArea
 struct CropOverlay
 struct CurveEditor
 struct DataGrid
+struct DataInspector
 struct Date
 struct DatePicker
 struct DateRange
@@ -5385,6 +5425,8 @@ variant ParamKind::Text
 variant ParamOptions::Failed
 variant ParamOptions::Loading
 variant ParamOptions::Ready
+variant PathStep::Key
+variant PathStep::Row
 variant Placement::Above
 variant Placement::AboveCenter
 variant Placement::At

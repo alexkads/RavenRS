@@ -1251,6 +1251,29 @@ fn the_flow_diagram_shows_every_feature_and_its_connections_hang_as_cables() {
 }
 
 #[test]
+fn the_data_inspector_shows_the_orders_four_ways_and_keeps_the_field_chosen() {
+    let mut c = Center::memory("ana");
+    c.press("Inspetor de dados");
+    assert!(c.says("1234567890123456789"), "the 19-digit number exact: {:?}", c.texts());
+    assert!(c.says("null"), "a null discount");
+    assert!(c.says("—"), "and an absent one, told apart");
+    c.activate("Árvore");
+    assert!(c.says("Item 1 de 3"));
+    c.press("Próximo item");
+    assert!(c.says("Modo 1 · item 2"), "the item moved");
+    c.activate("pedido: 102");
+    assert!(c.says("Escolheu pedido"), "the pick is heard as a path");
+    c.activate("Esquema");
+    assert!(c.says("▸ pedido"), "the field chosen stays chosen");
+    assert!(c.says("cliente.cidade"), "a field one order lacks");
+    c.activate("JSON");
+    assert!(c.says("Campo escolhido: pedido"));
+    c.activate("Tabela");
+    c.activate("Cinco mil linhas");
+    assert!(c.says("Mostrando 100 de 5000 itens"), "a long list is cut with a notice");
+}
+
+#[test]
 fn the_parameter_form_builds_from_a_schema_and_gives_back_only_on_apply() {
     let mut c = Center::memory("ana");
     c.press("Formulário de parâmetros");

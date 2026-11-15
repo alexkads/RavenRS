@@ -935,6 +935,9 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::TimelineEdit::__live_expose_variants(registry);
     crate::Timeline::__live_expose_fields(registry);
     crate::Timeline::__live_expose(registry);
+    crate::PathStep::__live_expose_variants(registry);
+    crate::DataInspector::__live_expose_fields(registry);
+    crate::DataInspector::__live_expose(registry);
     crate::DocumentTab::__live_expose_fields(registry);
     crate::DocumentTab::__live_expose(registry);
     crate::DocumentTabs::__live_expose_fields(registry);
@@ -1069,6 +1072,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::CropOverlay>(registry);
     crate::live::view::<crate::CurveEditor>(registry);
     crate::live::view::<crate::DataGrid>(registry);
+    crate::live::view::<crate::DataInspector>(registry);
     crate::live::view::<crate::DatePicker>(registry);
     crate::live::view::<crate::DateRangePicker>(registry);
     crate::live::view::<crate::DateTimePicker>(registry);

@@ -751,6 +751,50 @@ pub struct Labels {
     pub param_required: String,
     /// A choice of a `ParameterForm` with nothing chosen.
     pub param_none: String,
+    /// What screen readers call the switch between the ways a `DataInspector` shows its items.
+    pub inspector_mode: String,
+    /// The table of a `DataInspector`.
+    pub inspector_table: String,
+    /// The tree of a `DataInspector`.
+    pub inspector_tree: String,
+    /// The JSON of a `DataInspector`.
+    pub inspector_json: String,
+    /// The schema of a `DataInspector`.
+    pub inspector_schema: String,
+    /// A field a `DataInspector` item does not have, unlike one that is null.
+    pub inspector_absent: String,
+    /// A yes-or-no value in a `DataInspector` schema.
+    pub inspector_boolean: String,
+    /// A number in a `DataInspector` schema.
+    pub inspector_number: String,
+    /// A text in a `DataInspector` schema.
+    pub inspector_text: String,
+    /// A list in a `DataInspector` schema.
+    pub inspector_list: String,
+    /// An object in a `DataInspector` schema.
+    pub inspector_object: String,
+    /// Entries of a list a `DataInspector` left out, with `{0}`.
+    pub inspector_more: String,
+    /// Items a `DataInspector` shows of all, with `{0}` and `{1}`.
+    pub inspector_sampled: String,
+    /// A `DataInspector` with no items.
+    pub inspector_empty: String,
+    /// Goes to the item before in a `DataInspector`.
+    pub inspector_previous: String,
+    /// Goes to the next item in a `DataInspector`.
+    pub inspector_next: String,
+    /// The item a `DataInspector` shows, with `{0}` and `{1}`.
+    pub inspector_item: String,
+    /// The column of paths of a `DataInspector` schema.
+    pub inspector_path: String,
+    /// The column of kinds of a `DataInspector` schema.
+    pub inspector_kind: String,
+    /// The column of how many items have a field, in a `DataInspector` schema.
+    pub inspector_in: String,
+    /// How many items have a field, with `{0}` and `{1}`.
+    pub inspector_present: String,
+    /// The path of the field chosen in a `DataInspector`, with `{0}`.
+    pub inspector_chosen: String,
     /// The Export menu of a `FlowCanvas`.
     pub flow_export: String,
     /// Export a `FlowCanvas` as a PNG picture.
@@ -1543,6 +1587,28 @@ impl Labels {
             param_retry: texts.get("widgets.param_retry"),
             param_required: texts.get("widgets.param_required"),
             param_none: texts.get("widgets.param_none"),
+            inspector_mode: texts.get("widgets.inspector_mode"),
+            inspector_table: texts.get("widgets.inspector_table"),
+            inspector_tree: texts.get("widgets.inspector_tree"),
+            inspector_json: texts.get("widgets.inspector_json"),
+            inspector_schema: texts.get("widgets.inspector_schema"),
+            inspector_absent: texts.get("widgets.inspector_absent"),
+            inspector_boolean: texts.get("widgets.inspector_boolean"),
+            inspector_number: texts.get("widgets.inspector_number"),
+            inspector_text: texts.get("widgets.inspector_text"),
+            inspector_list: texts.get("widgets.inspector_list"),
+            inspector_object: texts.get("widgets.inspector_object"),
+            inspector_more: texts.get("widgets.inspector_more"),
+            inspector_sampled: texts.get("widgets.inspector_sampled"),
+            inspector_empty: texts.get("widgets.inspector_empty"),
+            inspector_previous: texts.get("widgets.inspector_previous"),
+            inspector_next: texts.get("widgets.inspector_next"),
+            inspector_item: texts.get("widgets.inspector_item"),
+            inspector_path: texts.get("widgets.inspector_path"),
+            inspector_kind: texts.get("widgets.inspector_kind"),
+            inspector_in: texts.get("widgets.inspector_in"),
+            inspector_present: texts.get("widgets.inspector_present"),
+            inspector_chosen: texts.get("widgets.inspector_chosen"),
             flow_export: texts.get("widgets.flow_export"),
             flow_export_png: texts.get("widgets.flow_export_png"),
             flow_export_svg: texts.get("widgets.flow_export_svg"),

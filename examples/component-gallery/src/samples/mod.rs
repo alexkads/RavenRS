@@ -102,6 +102,7 @@ catalog! {
     "SplitButton" => buttons,
     "ConfirmDialog" => overlays,
     "TreeView" => data,
+    "DataInspector" => data,
     "TagBox" => fields,
     "ColorPicker" => color,
     "DateRangePicker" => pickers,

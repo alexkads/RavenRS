@@ -15,6 +15,7 @@ mod code;
 mod components;
 mod conversation;
 mod counter;
+mod data_inspector;
 mod datagrid;
 mod diagnostics;
 mod dock;
