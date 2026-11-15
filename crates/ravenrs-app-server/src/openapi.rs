@@ -70,9 +70,11 @@ fn always(rule: &Rule) -> bool {
 }
 
 /// Whether the server takes this field in a body: what [`crate::json::apply`] does not refuse.
-fn writable(field: &FieldInfo, creating: bool) -> bool {
+/// A state is read-only on a form, and how it changes here.
+fn writable(entity: &EntityInfo, field: &FieldInfo, creating: bool) -> bool {
+    let is_state = entity.state_machines.iter().any(|machine| machine.field == field.name);
     exposed(field)
-        && !field.read_only
+        && (!field.read_only || is_state)
         && field.calculated.is_none()
         && !(field.is_key && (!creating || matches!(field.kind, FieldKind::Integer)))
 }
@@ -146,38 +148,151 @@ fn constrain(property: &mut Map<String, Json>, field: &FieldInfo, rules: &[&Rule
     }
 }
 
+/// The entities a description is of: those this person can reach, and all of them, where an
+/// owner finds the field its records point back through.
+struct Model<'a> {
+    reachable: &'a [EntityInfo],
+    all: &'a [EntityInfo],
+}
+
+fn reference(name: &str) -> Json {
+    json!({ "$ref": format!("#/components/schemas/{name}") })
+}
+
+/// The schema of an entity's key, as it is read.
+fn key_schema(entity: &EntityInfo) -> Option<Json> {
+    let key = entity.key_field()?;
+    schema_of(entity).get("properties")?.get(&key.name).cloned()
+}
+
+/// The names of what a record within its owner is written as: new, or one it already has.
+fn nested_names(owner: &EntityInfo, field: &FieldInfo) -> (String, String) {
+    (format!("{}.{}.Create", owner.name, field.name), format!("{}.{}.Change", owner.name, field.name))
+}
+
+/// What an aggregated collection takes, as `nested` in the service reads it: a list of records to
+/// create, records it has to change, by their key, and `{"$delete": key}`. None when nothing is
+/// taken, not even an empty list.
+fn collection_of(model: &Model, owner: &EntityInfo, field: &FieldInfo) -> Option<Json> {
+    let (child, _) = crate::back_reference(model.all, owner, field)?;
+    let key = key_schema(&child)?;
+    if !model.reachable.iter().any(|entity| entity.name == child.name) {
+        // Nothing of it can be written by this person, and an empty list writes nothing.
+        return Some(json!({ "type": "array", "maxItems": 0 }));
+    }
+    let (new, existing) = nested_names(owner, field);
+    let delete = json!({ "type": "object", "required": ["$delete"], "properties": { "$delete": key } });
+    Some(json!({
+        "type": "array",
+        "items": { "anyOf": [reference(&new), reference(&existing), delete] },
+    }))
+}
+
 /// What a body that creates or changes a record has to be, by the rules the server holds it to.
+/// Within its owner, `back` is filled by the owner and taken from nobody.
 ///
 /// It never turns down what the server takes: it says less, never more. The record as read stays
 /// apart, since records kept before a rule came in need not meet it.
-fn input_of(entity: &EntityInfo, creating: bool) -> Json {
+fn input_of(model: &Model, entity: &EntityInfo, creating: bool, back: Option<&str>) -> Json {
     let mut schema = schema_of(entity);
     // Every space starts a record from this, and only numbers a whole-number key on top.
     let fresh = entity.new_object();
     let mut required = Vec::new();
-    if let Some(properties) = schema.get_mut("properties").and_then(Json::as_object_mut) {
-        for field in entity.fields.iter().filter(|field| writable(field, creating)) {
-            let Some(property) = properties.get_mut(&field.name).and_then(Json::as_object_mut) else {
-                continue;
-            };
-            let rules: Vec<&Rule> = entity
-                .rules
-                .iter()
-                .filter(|rule| rule.field.as_deref() == Some(field.name.as_str()) && always(rule))
-                .collect();
-            constrain(property, field, &rules);
-            let needed = rules.iter().any(|rule| matches!(rule.kind, RuleKind::Required));
-            if creating && needed && empty(&fresh.get(&field.name)) {
-                required.push(field.name.clone());
+    let mut taken = Map::new();
+    let read = schema.get("properties").and_then(Json::as_object).cloned().unwrap_or_default();
+    for field in &entity.fields {
+        if back == Some(field.name.as_str()) {
+            continue;
+        }
+        if matches!(field.kind, FieldKind::Collection(_)) {
+            if field.aggregated
+                && let Some(collection) = collection_of(model, entity, field)
+            {
+                taken.insert(field.name.clone(), collection);
             }
+            continue;
+        }
+        // Within an owner, a record sent with its key is one to change, never a new one.
+        let keyed_within = back.is_some() && field.is_key;
+        if !writable(entity, field, creating) || keyed_within {
+            continue;
+        }
+        let Some(Json::Object(mut property)) = read.get(&field.name).cloned() else { continue };
+        let rules: Vec<&Rule> = entity
+            .rules
+            .iter()
+            .filter(|rule| rule.field.as_deref() == Some(field.name.as_str()) && always(rule))
+            .collect();
+        constrain(&mut property, field, &rules);
+        let needed = rules.iter().any(|rule| matches!(rule.kind, RuleKind::Required));
+        if creating && needed && empty(&fresh.get(&field.name)) {
+            required.push(field.name.clone());
+        }
+        taken.insert(field.name.clone(), Json::Object(property));
+    }
+    if let Some(object) = schema.as_object_mut() {
+        object.insert("properties".to_owned(), Json::Object(taken));
+        // Anything else refuses the whole request.
+        object.insert("additionalProperties".to_owned(), json!(false));
+        if !required.is_empty() {
+            object.insert("required".to_owned(), json!(required));
         }
     }
-    if !required.is_empty()
+    schema
+}
+
+/// A record within its owner that it already has: what changes, and the key that finds it.
+fn existing_within(model: &Model, child: &EntityInfo, back: &str) -> Json {
+    let mut schema = input_of(model, child, false, Some(back));
+    if let (Some(key), Some(key_schema)) = (child.key_field(), key_schema(child))
         && let Some(object) = schema.as_object_mut()
     {
-        object.insert("required".to_owned(), json!(required));
+        if let Some(properties) = object.get_mut("properties").and_then(Json::as_object_mut) {
+            properties.insert(key.name.clone(), key_schema);
+        }
+        object.insert("required".to_owned(), json!([key.name]));
     }
     schema
+}
+
+/// The body of `/api/batch`: each operation as `one_of_batch` in the service reads it.
+fn batch_of(model: &Model) -> Json {
+    // What the body of an operation can also be: nothing, which is the same as `{}`.
+    let nothing = json!({ "type": "object", "nullable": true, "maxProperties": 0 });
+    let mut operations = Vec::new();
+    for entity in model.reachable {
+        let name = entity.name.as_str();
+        let operation = |method: &str, body: Json, key: Option<&Json>| {
+            let mut properties = Map::new();
+            properties.insert("method".to_owned(), json!({ "type": "string", "enum": [method] }));
+            properties.insert("entity".to_owned(), json!({ "type": "string", "enum": [name] }));
+            properties.insert("body".to_owned(), body);
+            let mut required = vec!["method", "entity"];
+            if let Some(key) = key {
+                properties.insert("key".to_owned(), key.clone());
+                required.push("key");
+            }
+            json!({ "type": "object", "required": required, "properties": properties })
+        };
+        let create = format!("{name}.Create");
+        operations.push(operation("POST", json!({ "anyOf": [reference(&create), nothing] }), None));
+        if let Some(key) = key_schema(entity) {
+            let change = format!("{name}.Change");
+            operations.push(operation(
+                "PATCH",
+                json!({ "anyOf": [reference(&change), nothing] }),
+                Some(&key),
+            ));
+            operations.push(operation("DELETE", json!({ "type": "object", "nullable": true }), Some(&key)));
+        }
+    }
+    let items = if operations.is_empty() { json!({}) } else { json!({ "anyOf": operations }) };
+    let most = if operations.is_empty() { 0 } else { crate::MOST_OPERATIONS };
+    json!({
+        "type": "object",
+        "required": ["operations"],
+        "properties": { "operations": { "type": "array", "maxItems": most, "items": items } },
+    })
 }
 
 fn answers(ok: Json) -> Json {
@@ -193,8 +308,9 @@ fn answers(ok: Json) -> Json {
     })
 }
 
-/// The description, with only the entities in `entities`.
-pub(crate) fn document(title: &str, entities: &[EntityInfo]) -> Json {
+/// The description, with only the entities in `entities`, out of `all` the model has.
+pub(crate) fn document(title: &str, entities: &[EntityInfo], all: &[EntityInfo]) -> Json {
+    let model = Model { reachable: entities, all };
     let mut paths = Map::new();
     let mut schemas = Map::new();
     let record = |name: &str| json!({ "$ref": format!("#/components/schemas/{name}") });
@@ -204,8 +320,17 @@ pub(crate) fn document(title: &str, entities: &[EntityInfo]) -> Json {
     for entity in entities {
         let name = entity.name.as_str();
         schemas.insert(entity.name.clone(), schema_of(entity));
-        schemas.insert(creating(name), input_of(entity, true));
-        schemas.insert(changing(name), input_of(entity, false));
+        schemas.insert(creating(name), input_of(&model, entity, true, None));
+        schemas.insert(changing(name), input_of(&model, entity, false, None));
+        for field in entity.fields.iter().filter(|field| field.aggregated) {
+            if let Some((child, back)) = crate::back_reference(all, entity, field)
+                && entities.iter().any(|reached| reached.name == child.name)
+            {
+                let (new, existing) = nested_names(entity, field);
+                schemas.insert(new, input_of(&model, &child, true, Some(&back)));
+                schemas.insert(existing, existing_within(&model, &child, &back));
+            }
+        }
         let list = json!({
             "description": "The records.",
             "content": { "application/json": { "schema": {
@@ -261,19 +386,7 @@ pub(crate) fn document(title: &str, entities: &[EntityInfo]) -> Json {
         "/api/batch".to_owned(),
         json!({ "post": {
             "summary": "Several writes that stay or go together",
-            "requestBody": { "required": true, "content": { "application/json": { "schema": {
-                "type": "object",
-                "properties": { "operations": { "type": "array", "items": {
-                    "type": "object",
-                    "required": ["method", "entity"],
-                    "properties": {
-                        "method": { "type": "string", "enum": ["POST", "PATCH", "DELETE"] },
-                        "entity": { "type": "string" },
-                        "key": {},
-                        "body": { "type": "object" },
-                    },
-                } } },
-            } } } },
+            "requestBody": { "required": true, "content": { "application/json": { "schema": batch_of(&model) } } },
             "responses": answers(json!({ "description": "What each operation left." })),
         } }),
     );
@@ -293,7 +406,7 @@ pub(crate) fn document(title: &str, entities: &[EntityInfo]) -> Json {
 mod tests {
     #![allow(clippy::unwrap_used)]
 
-    use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, Rule};
+    use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, Rule, StateMachine};
     use serde_json::{Value as Json, json};
 
     use super::document;
@@ -326,8 +439,41 @@ mod tests {
             .rule(Rule::range("maybe", Some(5.0), None).target_criteria("[seats] > 2"))
     }
 
+    fn order() -> EntityInfo {
+        EntityInfo::new("Order")
+            .field(FieldInfo::new("id", FieldKind::Integer).key())
+            .field(FieldInfo::new("name", FieldKind::Text))
+            .field(FieldInfo::new("state", FieldKind::Text).read_only())
+            .field(
+                FieldInfo::new("lines", FieldKind::Collection("Line".into()))
+                    .back_reference("order")
+                    .aggregated(),
+            )
+            .field(FieldInfo::new("notes", FieldKind::Collection("Note".into())).back_reference("order"))
+            .state_machine(StateMachine::new("state").state("o", "Open").start("o"))
+    }
+
+    fn line() -> EntityInfo {
+        EntityInfo::new("Line")
+            .field(FieldInfo::new("id", FieldKind::Integer).key())
+            .field(FieldInfo::new("order", FieldKind::Reference("Order".into())))
+            .field(FieldInfo::new("amount", FieldKind::Integer))
+            .rule(Rule::required("order"))
+            .rule(Rule::required("amount"))
+    }
+
+    fn note() -> EntityInfo {
+        EntityInfo::new("Note")
+            .field(FieldInfo::new("id", FieldKind::Integer).key())
+            .field(FieldInfo::new("order", FieldKind::Reference("Order".into())))
+    }
+
+    fn orders(reachable: &[EntityInfo]) -> Json {
+        document("Teste", reachable, &[order(), line(), note()])
+    }
+
     fn schemas() -> Json {
-        document("Teste", &[plate()])["components"]["schemas"].clone()
+        document("Teste", &[plate()], &[plate()])["components"]["schemas"].clone()
     }
 
     #[test]
@@ -360,7 +506,8 @@ mod tests {
         assert_eq!(create["price"]["maximum"], 99_999, "in cents, as the JSON is");
         assert_eq!(create["code"]["pattern"], r"^[\s\u0085]*$|(?:^[A-Z]{3}-[0-9]{4}$)");
         assert_eq!(create["strict"]["pattern"], "^[a-z]+$");
-        assert!(create["loose"].get("pattern").is_none(), "`.` is not read the same everywhere");
+        let any = r"(?:[\uD800-\uDBFF][\uDC00-\uDFFF]|[^\uD800-\uDFFF\n])";
+        assert_eq!(create["loose"]["pattern"], format!(r"^[\s\u0085]*$|(?:^{any}+@{any}+$)"));
         assert!(create["soft"].get("minimum").is_none(), "a warning lets the write through");
         assert!(create["maybe"].get("minimum").is_none(), "a target depends on the record");
     }
@@ -372,11 +519,66 @@ mod tests {
         assert!(read.get("required").is_none());
         assert!(read["properties"]["seats"].get("minimum").is_none());
         assert_eq!(read["properties"]["name"]["nullable"], true);
-        let paths = document("Teste", &[plate()])["paths"].clone();
+        let paths = document("Teste", &[plate()], &[plate()])["paths"].clone();
         let schema = |path: &str, method: &str| {
             paths[path][method]["requestBody"]["content"]["application/json"]["schema"]["$ref"].clone()
         };
         assert_eq!(schema("/api/data/Plate", "post"), "#/components/schemas/Plate.Create");
         assert_eq!(schema("/api/data/Plate/{key}", "patch"), "#/components/schemas/Plate.Change");
+    }
+
+    #[test]
+    fn a_body_holds_what_the_server_takes_and_nothing_else() {
+        let create = &schemas()["Plate.Create"];
+        assert_eq!(create["additionalProperties"], false);
+        assert!(create["properties"].get("stamp").is_none(), "read-only, refused when sent");
+        assert!(create["properties"].get("id").is_none(), "a numbered key is given by the server");
+        let order = &orders(&[order(), line(), note()])["components"]["schemas"];
+        assert!(order["Order.Create"]["properties"].get("state").is_some(), "a state is how it changes");
+        assert!(order["Order.Create"]["properties"].get("notes").is_none(), "not written through its owner");
+    }
+
+    #[test]
+    fn records_within_their_owner_go_as_the_service_reads_them() {
+        let all = orders(&[order(), line(), note()]);
+        let schemas = &all["components"]["schemas"];
+        let items = &schemas["Order.Create"]["properties"]["lines"]["items"]["anyOf"];
+        assert_eq!(items[0]["$ref"], "#/components/schemas/Order.lines.Create");
+        assert_eq!(items[1]["$ref"], "#/components/schemas/Order.lines.Change");
+        assert_eq!(items[2]["required"], json!(["$delete"]));
+        assert_eq!(items[2]["properties"]["$delete"]["type"], "integer");
+        let new = &schemas["Order.lines.Create"];
+        assert!(new["properties"].get("order").is_none(), "the owner fills it");
+        assert_eq!(new["required"], json!(["amount"]), "and does not ask for it");
+        let existing = &schemas["Order.lines.Change"];
+        assert_eq!(existing["required"], json!(["id"]));
+        assert!(existing["properties"].get("order").is_none());
+        assert_eq!(existing["additionalProperties"], false);
+    }
+
+    #[test]
+    fn a_collection_nobody_here_can_write_takes_only_an_empty_list() {
+        let all = orders(&[order()]);
+        let lines = &all["components"]["schemas"]["Order.Create"]["properties"]["lines"];
+        assert_eq!(lines["maxItems"], 0);
+        assert!(all["components"]["schemas"].get("Order.lines.Create").is_none());
+    }
+
+    #[test]
+    fn each_operation_of_a_batch_is_of_one_entity_and_one_method() {
+        let all = orders(&[order(), line()]);
+        let body =
+            &all["paths"]["/api/batch"]["post"]["requestBody"]["content"]["application/json"]["schema"];
+        assert_eq!(body["required"], json!(["operations"]));
+        let operations = &body["properties"]["operations"];
+        assert_eq!(operations["maxItems"], crate::MOST_OPERATIONS);
+        let each = operations["items"]["anyOf"].as_array().unwrap();
+        assert_eq!(each.len(), 6, "POST, PATCH and DELETE of two entities");
+        let post = &each[0];
+        assert_eq!(post["properties"]["method"]["enum"], json!(["POST"]));
+        assert_eq!(post["properties"]["entity"]["enum"], json!(["Order"]));
+        assert_eq!(post["properties"]["body"]["anyOf"][0]["$ref"], "#/components/schemas/Order.Create");
+        assert_eq!(post["properties"]["body"]["anyOf"][1]["nullable"], true);
+        assert_eq!(each[1]["required"], json!(["method", "entity", "key"]));
     }
 }

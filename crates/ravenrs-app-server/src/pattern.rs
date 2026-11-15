@@ -5,10 +5,26 @@
 //! takes exactly what the rule takes. Otherwise a client would turn down what the server accepts,
 //! which is worse than not knowing the rule: the server still checks every write.
 //!
-//! So anything whose meaning drifts between them stays out: `.` and negated classes, which step
-//! over a character outside the Basic Multilingual Plane differently without `u`; flags such as
-//! `(?i)`; word boundaries, Unicode classes, nested classes and set operations; and escapes that
-//! `u` refuses. The Perl classes are ASCII in `regex_lite`, so they go out spelled out.
+//! `regex_lite` steps character by character, and so does ECMA-262 with `u`; without it, a
+//! character outside the Basic Multilingual Plane is two halves. So whatever can match "any
+//! character" (`.`, a negated class, `\D`, `\S`, `\W`) goes out as either a pair of halves or one
+//! character that is no half, which is one character in both readings. JSON carries no lone half,
+//! as the server refuses one.
+//!
+//! What still drifts between them stays out: flags such as `(?i)`; word boundaries, Unicode
+//! classes, nested classes and set operations; and escapes that `u` refuses. The Perl classes are
+//! ASCII in `regex_lite`, so they go out spelled out.
+
+/// One character outside the Basic Multilingual Plane, as the two halves a reading without `u` sees.
+const PAIR: &str = r"[\uD800-\uDBFF][\uDC00-\uDFFF]";
+
+/// The halves, which no character of the Basic Multilingual Plane is.
+const HALVES: &str = r"\uD800-\uDFFF";
+
+/// Any character but those in a negated class, one character whatever the reading.
+fn any_but(class: &str) -> String {
+    format!("(?:{PAIR}|[^{HALVES}{class}])")
+}
 
 /// What `\d`, `\s` and `\w` hold in `regex_lite`, inside a class.
 fn perl_class(escape: char) -> Option<&'static str> {
@@ -29,6 +45,9 @@ fn escapes_itself(c: char) -> bool {
 fn escape_outside(escape: char) -> Option<String> {
     if let Some(class) = perl_class(escape) {
         return Some(format!("[{class}]"));
+    }
+    if let Some(class) = perl_class(escape.to_ascii_lowercase()).filter(|_| escape.is_ascii_uppercase()) {
+        return Some(any_but(class));
     }
     match escape {
         'n' | 't' | 'r' | 'f' | 'v' => Some(format!("\\{escape}")),
@@ -55,8 +74,9 @@ fn repetition(chars: &[char], at: usize) -> Option<(String, usize)> {
 pub(crate) fn ecma(pattern: &str) -> Option<String> {
     let chars: Vec<char> = pattern.chars().collect();
     let mut out = String::with_capacity(pattern.len() + 8);
-    // Where the class being read began, past its `[`.
+    // Where the class being read began, past its `[` or `[^`, and whether it is negated.
     let mut class: Option<usize> = None;
+    let mut negated = false;
     let mut at = 0;
     while at < chars.len() {
         let c = chars[at];
@@ -66,11 +86,13 @@ pub(crate) fn ecma(pattern: &str) -> Option<String> {
         match (class, c) {
             (Some(start), ']') if at > start => {
                 out.push(']');
+                if negated {
+                    out.push(')');
+                }
                 class = None;
             }
             // `[]a]` holds `]` for `regex_lite`, and nothing at all for ECMA-262.
             (Some(_), ']' | '[') => return None,
-            (Some(start), '^') if at == start => return None,
             (Some(_), '&' | '~' | '-') if chars.get(at + 1) == Some(&c) => return None,
             (Some(start), '\\') => {
                 at += 1;
@@ -98,9 +120,17 @@ pub(crate) fn ecma(pattern: &str) -> Option<String> {
                 at += 1;
                 out.push_str(&escape_outside(*chars.get(at)?)?);
             }
-            (None, '.' | ']' | '}') => return None,
+            (None, '.') => out.push_str(&any_but(r"\n")),
+            (None, ']' | '}') => return None,
             (None, '[') => {
-                out.push('[');
+                negated = chars.get(at + 1) == Some(&'^');
+                if negated {
+                    // The halves go first, so nothing in the class can make a range of them.
+                    out.push_str(&format!("(?:{PAIR}|[^{HALVES}"));
+                    at += 1;
+                } else {
+                    out.push('[');
+                }
                 class = Some(at + 1);
             }
             (None, '(') if chars.get(at + 1) == Some(&'?') => {
@@ -129,7 +159,13 @@ mod tests {
 
     use regex_lite::Regex;
 
-    use super::ecma;
+    use super::{HALVES, PAIR, ecma};
+
+    /// The translation as `regex_lite` can read it, which knows no halves: what is left once the
+    /// pair and the halves come out is what the rest of the translation made of the pattern.
+    fn without_halves(translated: &str) -> String {
+        translated.replace(&format!("{PAIR}|"), "").replace(HALVES, "")
+    }
 
     #[test]
     fn what_reads_the_same_everywhere_goes_out() {
@@ -146,14 +182,23 @@ mod tests {
     }
 
     #[test]
+    fn any_character_is_one_character_in_every_reading() {
+        let pair = r"[\uD800-\uDBFF][\uDC00-\uDFFF]";
+        assert_eq!(ecma("^.+$").unwrap(), format!(r"^(?:{pair}|[^\uD800-\uDFFF\n])+$"));
+        assert_eq!(ecma("[^@]+").unwrap(), format!(r"(?:{pair}|[^\uD800-\uDFFF@])+"));
+        assert_eq!(ecma(r"[^\d@]").unwrap(), format!(r"(?:{pair}|[^\uD800-\uDFFF0-9@])"));
+        assert_eq!(ecma(r"\D").unwrap(), format!(r"(?:{pair}|[^\uD800-\uDFFF0-9])"));
+        assert_eq!(ecma(r"^\S{1,3}$").unwrap(), format!(r"^(?:{pair}|[^\uD800-\uDFFF\t\n\v\f\r ]){{1,3}}$"));
+    }
+
+    #[test]
     fn what_some_client_could_read_otherwise_stays_out() {
         for pattern in [
             "",
-            "^.+$",
-            "[^@]+",
-            r"\D",
-            r"\S+",
             r"\bword\b",
+            r"[\D]",
+            r"[^\S]",
+            "[^]a]",
             r"\p{L}",
             "(?i)abc",
             "(?P<n>a)",
@@ -198,6 +243,9 @@ mod tests {
             "a/b",
             "ção",
             "abcdab",
+            "😀😀😀",
+            "a\nb",
+            "@😀@",
         ];
         for pattern in [
             "^[A-Z]{2}[0-9]+$",
@@ -210,14 +258,23 @@ mod tests {
             r"a\@b\-c",
             "a/b",
             "^[À-ÿ]+$",
+            "^.+$",
+            "^.{1,2}$",
+            "a.b",
+            "^[^@]+@[^@]+$",
+            r"^[^\d@]+$",
+            r"^\D+$",
+            r"^\S{1,3}$",
+            r"^\W$",
         ] {
             let translated = ecma(pattern).unwrap();
-            let (rule, sent) = (Regex::new(pattern).unwrap(), Regex::new(&translated).unwrap());
+            let readable = without_halves(&translated);
+            let (rule, sent) = (Regex::new(pattern).unwrap(), Regex::new(&readable).unwrap());
             for input in inputs {
                 assert_eq!(
                     rule.is_match(input),
                     sent.is_match(input),
-                    "{pattern:?} as {translated:?} on {input:?}"
+                    "{pattern:?} as {readable:?} on {input:?}"
                 );
             }
         }

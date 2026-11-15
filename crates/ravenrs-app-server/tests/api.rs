@@ -471,6 +471,25 @@ fn a_batch_stays_or_goes_whole() {
     assert_eq!(partly.status, 403);
     assert_eq!(api.stored("Order", 2.0, "name"), Value::Text("Mudado".into()));
 
+    // A body that is no record is a mistake, not an empty record; none at all, or null, is empty.
+    let count = api.database.space().query("Order", &Query::all()).unwrap().len();
+    for body in [json!(["name", "Lista"]), json!("Texto"), json!(7)] {
+        let wrong =
+            api.send(ApiRequest::new("POST", "/api/batch").bearer(&ana).json(&json!({ "operations": [
+            { "method": "POST", "entity": "Order", "body": body },
+        ] })));
+        assert_eq!(wrong.status, 400, "{body}: {wrong:?}");
+    }
+    assert_eq!(
+        api.database.space().query("Order", &Query::all()).unwrap().len(),
+        count,
+        "nothing was written"
+    );
+    let none = api.send(ApiRequest::new("POST", "/api/batch").bearer(&ana).json(&json!({ "operations": [
+        { "method": "PATCH", "entity": "Order", "key": 2, "body": null },
+    ] })));
+    assert_eq!(none.status, 200, "{none:?}");
+
     let many: Vec<Json> =
         (0..201).map(|_| json!({ "method": "DELETE", "entity": "Order", "key": 1 })).collect();
     let answer =
