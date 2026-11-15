@@ -54,6 +54,7 @@ const CAPS: [EdgeCap; 5] =
 ///     FlowInspector::new(graph.binding(), selection.binding()).history(history.binding()),
 /// ));
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FlowInspector {
     graph: Binding<FlowGraph>,
     selection: Binding<FlowSelection>,
@@ -70,6 +71,7 @@ impl fmt::Debug for FlowInspector {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FlowInspector {
     /// The properties of what `selection` holds in `graph`, 288 pixels wide.
     pub fn new(graph: Binding<FlowGraph>, selection: Binding<FlowSelection>) -> Self {
@@ -129,6 +131,7 @@ struct Writer {
     notice: State<Option<String>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Writer {
     /// Writes `change` made by `edit`, when the app lets it, remembering the diagram before.
     fn write(&self, nodes: &[String], edges: &[String], edit: impl FnOnce(&mut FlowGraph)) {
@@ -393,6 +396,7 @@ impl View for FlowInspector {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl FlowInspector {
     /// The kind and the shape of the nodes `ids`, shown as mixed where they differ.
     fn kind_and_shape(

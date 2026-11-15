@@ -56,6 +56,7 @@ struct Group {
 ///     FlowCanvas::new(graph.binding()).arrivals(arrivals.binding()),
 /// ));
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FlowToolbox {
     groups: Vec<Group>,
     arrivals: Option<Binding<Option<FlowNode>>>,
@@ -76,6 +77,7 @@ impl Default for FlowToolbox {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FlowToolbox {
     /// No models yet, with the search field, 240 pixels wide.
     pub fn new() -> Self {
@@ -149,7 +151,7 @@ impl View for FlowToolbox {
         }
         // The groups scroll under the heading and the field when they do not fit.
         let inner = self.width - theme.spacing.s4 * 2.0;
-        let groups = Groups {
+        let groups = ModelGroups {
             groups: self.groups.clone(),
             arrivals: self.arrivals.clone(),
             typed: query.get(),
@@ -172,7 +174,7 @@ impl View for FlowToolbox {
 }
 
 /// The groups whose models match what was typed, each opening and closing.
-struct Groups {
+struct ModelGroups {
     groups: Vec<Group>,
     arrivals: Option<Binding<Option<FlowNode>>>,
     typed: String,
@@ -180,7 +182,7 @@ struct Groups {
     inner: f32,
 }
 
-impl View for Groups {
+impl View for ModelGroups {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let theme = *cx.theme();
         let labels = cx.labels();
@@ -201,7 +203,7 @@ impl View for Groups {
             // A group's tiles sit inside the disclosure's indent; a group without a title has none.
             let room = if group.title.is_empty() { self.inner } else { self.inner - DISCLOSURE_INDENT };
             let width = ((room - theme.spacing.s2) / 2.0).floor();
-            let tiles = Tiles {
+            let tiles = ModelTiles {
                 models,
                 arrivals: self.arrivals.clone(),
                 hint: labels.flow_toolbox_hint.clone(),
@@ -235,7 +237,7 @@ impl View for Groups {
 const DISCLOSURE_INDENT: f32 = 40.0;
 
 /// The tiles of one group, two to a row.
-struct Tiles {
+struct ModelTiles {
     models: Vec<Model>,
     arrivals: Option<Binding<Option<FlowNode>>>,
     hint: String,
@@ -243,7 +245,7 @@ struct Tiles {
     width: f32,
 }
 
-impl View for Tiles {
+impl View for ModelTiles {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let spacing = cx.theme().spacing.s2;
         let tiles: Vec<NodeId> = self
@@ -253,7 +255,7 @@ impl View for Tiles {
             .map(|(i, model)| {
                 cx.keyed_child(
                     util::hash_text(&format!("{i}-{}", model.caption)),
-                    &Tile {
+                    &ModelTile {
                         model: model.clone(),
                         arrivals: self.arrivals.clone(),
                         hint: self.hint.clone(),
@@ -271,14 +273,14 @@ impl View for Tiles {
 }
 
 /// One model: its shape drawn small over its words, a source of the drag.
-struct Tile {
+struct ModelTile {
     model: Model,
     arrivals: Option<Binding<Option<FlowNode>>>,
     hint: String,
     width: f32,
 }
 
-impl View for Tile {
+impl View for ModelTile {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         const PREVIEW: (f32, f32) = (56.0, 32.0);
         let theme = *cx.theme();

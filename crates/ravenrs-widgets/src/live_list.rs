@@ -138,6 +138,22 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     #[cfg(feature = "flow")]
     ravenrs_graphics::flow::FlowLayout::__live_expose(registry);
     #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowColors::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowColors::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowExportFormat::__live_expose_variants(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowExportFormat::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowText::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowPicture::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowGraph::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowPicture::__live_expose(registry);
+    #[cfg(feature = "flow")]
     ravenrs_graphics::flow::PortSide::__live_expose_variants(registry);
     #[cfg(feature = "flow")]
     ravenrs_graphics::flow::PortSide::__live_expose(registry);
@@ -172,7 +188,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     #[cfg(feature = "flow")]
     ravenrs_graphics::flow::FlowGraph::__live_expose_fields(registry);
     #[cfg(feature = "flow")]
-    ravenrs_graphics::flow::FlowGraph::__live_expose(registry);
+    ravenrs_graphics::flow::FlowGraph::__live_expose_part1(registry);
     #[cfg(feature = "flow")]
     ravenrs_graphics::flow::FlowJsonError::__live_expose_variants(registry);
     #[cfg(feature = "flow")]
@@ -706,6 +722,16 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::FlowCanvas::__live_expose_fields(registry);
     #[cfg(feature = "flow")]
     crate::FlowCanvas::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowInspector::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowInspector::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowInspector::__live_expose_part1(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowToolbox::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowToolbox::__live_expose(registry);
     #[cfg(feature = "charts")]
     crate::SankeyChart::__live_expose_fields(registry);
     #[cfg(feature = "charts")]
@@ -994,6 +1020,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::FloatingToolbar<crate::AnyView>>(registry);
     #[cfg(feature = "flow")]
     crate::live::view::<crate::FlowCanvas>(registry);
+    #[cfg(feature = "flow")]
+    crate::live::view::<crate::FlowInspector>(registry);
+    #[cfg(feature = "flow")]
+    crate::live::view::<crate::FlowToolbox>(registry);
     crate::live::view::<crate::Footer>(registry);
     crate::live::view::<crate::FormField<crate::AnyView>>(registry);
     crate::live::view::<crate::FormLayout>(registry);

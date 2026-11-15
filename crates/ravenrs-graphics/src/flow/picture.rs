@@ -14,6 +14,7 @@ use crate::vector::{Layer, PathSegment, Shape};
 
 /// The colors a diagram is drawn in, as the screen draws it or on paper.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FlowColors {
     /// Behind everything.
     pub background: Color,
@@ -33,6 +34,7 @@ pub struct FlowColors {
     pub warning: Color,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FlowColors {
     /// Dark ink on white, for paper.
     pub const fn paper() -> Self {
@@ -52,6 +54,7 @@ impl FlowColors {
 /// A file a diagram is saved as.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum FlowExportFormat {
     /// A picture, at twice the size of the diagram, for screens and documents.
     #[default]
@@ -62,6 +65,7 @@ pub enum FlowExportFormat {
     Pdf,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FlowExportFormat {
     /// The file name's extension, without the dot.
     pub fn extension(self) -> &'static str {
@@ -84,6 +88,7 @@ impl FlowExportFormat {
 
 /// One run of words of a [`FlowPicture`], on one line.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FlowText {
     /// The words.
     pub text: String,
@@ -103,6 +108,7 @@ pub struct FlowText {
 
 /// A diagram, or part of it, as shapes and words, ready to save.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FlowPicture {
     /// What it covers, margin included, in units of the diagram.
     pub bounds: Rect,
@@ -147,6 +153,7 @@ fn turned(path: Vec<PathSegment>, center: Point, degrees: f32) -> Vec<PathSegmen
         .collect()
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FlowGraph {
     /// The diagram as a picture in `colors`: every node and connection, or, with `only`, those
     /// nodes and the connections between them. `None` when there is nothing to draw.
@@ -341,6 +348,7 @@ fn escaped(text: &str) -> String {
     text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FlowPicture {
     /// The picture as an SVG document, at one pixel per unit of the diagram, its words in the
     /// family named.

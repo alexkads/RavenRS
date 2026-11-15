@@ -695,7 +695,7 @@ pub struct FlowGraph {
     pub edges: Vec<FlowEdge>,
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl FlowGraph {
     /// An empty graph.
     pub fn new() -> Self {
