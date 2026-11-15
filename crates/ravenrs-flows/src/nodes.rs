@@ -1,17 +1,21 @@
 //! The built-in kinds: a manual start, branches, merges, a loop in batches, and the nodes that
 //! set, filter, sort, group, split and join items. Conditions and values are written in the
 //! criteria language (`[paid] = true`, `[qty] * [price]`) and read each item's JSON. Above
-//! `catalog` and `item`; nothing in the crate uses it, so an app may leave it out.
+//! `run`, `plan`, `catalog` and `item`; nothing in the crate uses it, so an app may leave it
+//! out.
 
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
+use std::sync::Arc;
 
 use ravenrs_criteria::{Criteria, Environment, Scope, Value as Criterion};
 use serde_json::{Map, Value, json};
 
 use crate::catalog::{Catalog, ERROR_PORT, NodeContext, NodeError, NodeKind, NodeSpec};
-use crate::definition::NodeDef;
+use crate::definition::{FlowDefinition, NodeDef};
 use crate::item::{Item, Ports};
+use crate::plan::Plan;
+use crate::run::{Executor, RunOutcome};
 
 /// The output most nodes give.
 pub const MAIN: &str = "main";
@@ -544,9 +548,98 @@ impl NodeKind for Join {
     }
 }
 
+/// Waits `ms` milliseconds on the run's clock, then passes its items on. It stops early when
+/// the run is cancelled or its time is up. The wait is in memory: a wait that outlives the app
+/// needs a durable run.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Wait;
+
+impl NodeKind for Wait {
+    fn spec(&self) -> NodeSpec {
+        NodeSpec::new("wait", 1).title("Wait").input(MAIN).output(MAIN).requires("ms")
+    }
+    fn execute(&self, cx: &NodeContext<'_>) -> Result<Ports, NodeError> {
+        let ms = cx
+            .parameter("ms")
+            .and_then(Value::as_u64)
+            .ok_or_else(|| NodeError::new("the wait must be a whole number of ms"))?;
+        cx.sleep(ms)?;
+        Ok(main_port(cx.input(MAIN).to_vec()))
+    }
+}
+
+/// Runs another flow with the items that came, and gives what it ends with. Its parameter
+/// `flow` names one of the flows it was made with; `input` names the node of that flow that
+/// starts with the items (its first trigger by default) and `output` the node whose first
+/// output it gives (the last to run by default). The flow it calls stops when this one is
+/// cancelled, and has only the time this node has left.
+#[derive(Clone, Debug)]
+pub struct Subflow {
+    flows: Arc<BTreeMap<String, FlowDefinition>>,
+    catalog: Arc<Catalog>,
+}
+
+impl Subflow {
+    /// A subflow node that may call any of `flows`, run with the kinds of `catalog`.
+    pub fn new(flows: impl IntoIterator<Item = FlowDefinition>, catalog: Catalog) -> Self {
+        Self {
+            flows: Arc::new(flows.into_iter().map(|f| (f.id.clone(), f)).collect()),
+            catalog: Arc::new(catalog),
+        }
+    }
+}
+
+impl NodeKind for Subflow {
+    fn spec(&self) -> NodeSpec {
+        NodeSpec::new("subflow", 1).title("Run a flow").input(MAIN).output(MAIN).requires("flow")
+    }
+    fn execute(&self, cx: &NodeContext<'_>) -> Result<Ports, NodeError> {
+        let id = text_parameter(cx, "flow", "");
+        let flow = self.flows.get(id).ok_or_else(|| NodeError::new(format!("there is no flow {id}")))?;
+        let plan = Plan::compile(flow, &self.catalog).map_err(|errors| {
+            let first = errors.first().map(ToString::to_string).unwrap_or_default();
+            NodeError::new(format!("the flow {id} does not compile: {first}"))
+        })?;
+        let input = match cx.parameter("input").and_then(Value::as_str) {
+            Some(node) => node.to_owned(),
+            None => plan
+                .order()
+                .iter()
+                .find(|n| plan.spec(n).is_some_and(|s| s.trigger))
+                .cloned()
+                .ok_or_else(|| NodeError::new(format!("the flow {id} has no trigger to start from")))?,
+        };
+        let output = match cx.parameter("output").and_then(Value::as_str) {
+            Some(node) => node.to_owned(),
+            None => plan.order().last().cloned().unwrap_or_default(),
+        };
+        let mut executor = Executor::new(&plan, &self.catalog)
+            .mode(cx.mode())
+            .shared_clock(cx.clock().clone())
+            .cancel_with(cx.token().child())
+            .start_with(input, cx.input(MAIN).to_vec());
+        if let Some(left) = cx.time_left_ms() {
+            executor = executor.time_limit_ms(left.max(0) as u64);
+        }
+        let run = executor.run();
+        match run.outcome {
+            RunOutcome::Finished => {
+                let port = plan.outputs(&output).first().cloned().unwrap_or_default();
+                Ok(main_port(run.output(&output, &port).to_vec()))
+            }
+            RunOutcome::Cancelled { reason } => Err(NodeError::cancelled(reason)),
+            RunOutcome::TimedOut { reason } => Err(NodeError::timed_out(reason)),
+            RunOutcome::Stopped { node, reason } => {
+                Err(NodeError::new(format!("the flow {id} stopped at {node}: {reason}")))
+            }
+        }
+    }
+}
+
 impl Catalog {
     /// A catalog with every built-in kind: `manual`, `if`, `switch`, `merge`, `batches`, `set`,
-    /// `filter`, `sort`, `group`, `split` and `join`, each at version 1.
+    /// `filter`, `sort`, `group`, `split`, `join` and `wait`, each at version 1. A [`Subflow`]
+    /// is added apart, with the flows it may call.
     pub fn builtin() -> Self {
         Self::new()
             .with(Manual)
@@ -560,5 +653,6 @@ impl Catalog {
             .with(Group)
             .with(Split)
             .with(Join)
+            .with(Wait)
     }
 }

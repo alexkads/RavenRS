@@ -17,7 +17,7 @@ As contagens correspondem às linhas das tabelas abaixo, sem ponderação por es
 | 1. Editor de fluxo | 10 | 3 | 0 |
 | 2. Painel do nó | 4 | 4 | 0 |
 | 3. Expressões | 0 | 4 | 1 |
-| 4. Motor de execução | 3 | 5 | 1 |
+| 4. Motor de execução | 6 | 2 | 1 |
 | 5. Gatilhos | 0 | 5 | 2 |
 | 6. Nós de integração | 1 | 6 | 0 |
 | 7. Execuções | 1 | 3 | 1 |
@@ -28,7 +28,7 @@ As contagens correspondem às linhas das tabelas abaixo, sem ponderação por es
 | 12. Experiência geral | 6 | 1 | 0 |
 | 13. Vídeo e treinamento | 9 | 9 | 2 |
 | 14. Nós de agente por CLI | 0 | 9 | 6 |
-| **Total** | **37** | **61** | **18** |
+| **Total** | **40** | **58** | **18** |
 
 **Regra de construção:** toda peça visual ou de infraestrutura ausente deve entrar primeiro na biblioteca, no componente responsável. O exemplo apenas compõe APIs públicas e fornece os dados e as políticas do produto.
 
@@ -43,8 +43,8 @@ Os caminhos partem da raiz do repositório. As referências apontam para tipos o
 | Recurso | Estado | Onde está hoje (arquivo:linha) | O que falta | Onde deve entrar |
 |---|---|---|---|---|
 | Canvas, nós, portas, conexões e várias saídas nomeadas | ✅ | `FlowCanvas::new`, `crates/ravenrs-widgets-charts/src/flow.rs:592`; `FlowPort`, `crates/ravenrs-graphics/src/flow.rs:74` | App declarar portas de verdadeiro, falso, erro e demais tipos; aplicar validação semântica | APP: catálogo e regras de conexão |
-| Nó desativado | ✅ | `FlowNodeStatus::Disabled`, `crates/ravenrs-graphics/src/flow.rs:251`; `NodeDef::disabled`, `crates/ravenrs-flows/src/definition.rs:131`: o nó desativado passa a primeira entrada para a primeira saída | App escolher se mostra o atalho de desativar | APP |
-| Fixar dados de um nó | 🟡 | `NodeDef::pin`, `crates/ravenrs-flows/src/definition.rs:143`, e `Mode::Test`, `crates/ravenrs-flows/src/catalog.rs:104`: no teste, o nó fixado entrega os itens guardados sem rodar | Falta a marca visual no canvas (#528) e editar os itens fixados no inspetor (#531) | BIBLIOTECA: #528, #531 |
+| Nó desativado | ✅ | `FlowNodeStatus::Disabled`, `crates/ravenrs-graphics/src/flow.rs:251`; `NodeDef::disabled`, `crates/ravenrs-flows/src/definition.rs:200`: o nó desativado passa a primeira entrada para a primeira saída | App escolher se mostra o atalho de desativar | APP |
+| Fixar dados de um nó | 🟡 | `NodeDef::pin`, `crates/ravenrs-flows/src/definition.rs:212`, e `Mode::Test`, `crates/ravenrs-flows/src/catalog.rs:105`: no teste, o nó fixado entrega os itens guardados sem rodar | Falta a marca visual no canvas (#528) e editar os itens fixados no inspetor (#531) | BIBLIOTECA: #528, #531 |
 | Notas adesivas | ✅ | `FlowShape::Note`, `crates/ravenrs-graphics/src/flow.rs:124`; `FlowCanvas::content`, `crates/ravenrs-widgets-charts/src/flow.rs:809` | App oferecer criação, texto e cor; definir se usa título simples ou conteúdo composto | APP, usando o canvas |
 | Zoom, pan, encaixe e minimapa | ✅ | `FlowViewport`, `crates/ravenrs-widgets-charts/src/flow.rs:239`; `FlowCanvas::controls` e `minimap`, mesmo arquivo:834 e :840 | Configurar limites e persistir viewport do usuário | APP |
 | Organização automática | ✅ | `FlowLayout::positions` e `apply`, `crates/ravenrs-graphics/src/flow/layout.rs:94` e :148 | Escolher direção e espaçamentos; organização geométrica não define ordem de execução | APP |
@@ -69,7 +69,7 @@ O histórico atual guarda até 100 estados completos do `FlowGraph`. Ele não co
 | Propriedades visuais do nó (título, tipo, forma, estado) | ✅ | `FlowInspector`, `crates/ravenrs-widgets-charts/src/flow_inspector.rs:61` | Não cobre os parâmetros do tipo de nó, que dependem de `L05` | APP, ao lado do formulário de parâmetros |
 | Dados em tabela, JSON e esquema | 🟡 | `DataGrid::new`, `crates/ravenrs-widgets-grid/src/grid/view.rs:331`; `TreeView::new`, `crates/ravenrs-widgets-lists/src/tree.rs:199` | Inspector reutilizável de JSON aninhado, tipos, ausente versus nulo, arrays, busca e alternância coerente entre modos | BIBLIOTECA: `L06`, `L08` |
 | Arrastar campo da entrada para parâmetro e gerar expressão | 🟡 | `DragPayload::new`, `crates/ravenrs-widgets-base/src/context.rs:165`; `BuildCx::drag_source` e `drop_target`, mesmo arquivo:1701 e :1710 | Payload com caminho tipado, origem do item, escape correto e editor que aceite a inserção; manter alternativa por teclado | BIBLIOTECA: inspector e editor, `L07` |
-| Executar somente o nó | ✅ | `Executor::run_node`, `crates/ravenrs-flows/src/run.rs:220`: roda o nó com o que chegou a ele numa execução anterior | App ligar o botão no painel do nó | APP |
+| Executar somente o nó | ✅ | `Executor::run_node`, `crates/ravenrs-flows/src/run.rs:270`: roda o nó com o que chegou a ele numa execução anterior | App ligar o botão no painel do nó | APP |
 
 `ravenrs-app-spec` descreve estruturas e atributos para entidades; `KindSpec`, em `crates/ravenrs-app-spec/src/lib.rs:102`, não é um esquema completo de parâmetros dinâmicos de conectores. A extensão deve preservar a geração existente.
 
@@ -92,14 +92,14 @@ O `Environment` de expressões usa `Rc` e estado interno sem segurança entre th
 | Recurso | Estado | Onde está hoje (arquivo:linha) | O que falta | Onde deve entrar |
 |---|---|---|---|---|
 | Planejamento topológico e validação de ciclos | ✅ | `Plan::compile`, `crates/ravenrs-flows/src/plan.rs:97`: confere tipos, portas e parâmetros obrigatórios, ordena por dependência e recusa ciclo sem nó de laço; `Plan::back_connections`, `plan.rs:187` | Seguir as voltas do laço fica com os operadores (#534) | BIBLIOTECA: #534 |
-| Lista de objetos passando entre nós | ✅ | `Item` e `Item::derive`, `crates/ravenrs-flows/src/item.rs:44` e :66: JSON, arquivos e de onde veio cada item; `Executor::run`, `crates/ravenrs-flows/src/run.rs:204` | App definir o conteúdo dos itens dos seus nós | APP |
-| Ramos, merge e laço em lotes | ✅ | `If`, `Switch`, `Merge` e `Batches`, `crates/ravenrs-flows/src/nodes.rs:149`, :173, :216 e :278; o executor dá a volta do laço (`Plan::loop_body`, `crates/ravenrs-flows/src/plan.rs:201`) | App escolher quais nós oferece no catálogo | APP |
+| Lista de objetos passando entre nós | ✅ | `Item` e `Item::derive`, `crates/ravenrs-flows/src/item.rs:44` e :66: JSON, arquivos e de onde veio cada item; `Executor::run`, `crates/ravenrs-flows/src/run.rs:254` | App definir o conteúdo dos itens dos seus nós | APP |
+| Ramos, merge e laço em lotes | ✅ | `If`, `Switch`, `Merge` e `Batches`, `crates/ravenrs-flows/src/nodes.rs:153`, :177, :220 e :282; o executor dá a volta do laço (`Plan::loop_body`, `crates/ravenrs-flows/src/plan.rs:201`) | App escolher quais nós oferece no catálogo | APP |
 | Espera e retomada após reinício | ⬜ | Não encontrado checkpoint de execução de grafo; busca `B3`: `workflow_engine`, `sub_workflow`, `execution_queue` | Suspensão persistida, wake-up por tempo/evento e retomada sem repetir efeitos já confirmados | BIBLIOTECA: `L12` |
-| Continuar, parar, saída de erro e fluxo de erro | 🟡 | `ERROR_PORT`, `crates/ravenrs-flows/src/catalog.rs:16`; `ErrorPolicy::Route`, `crates/ravenrs-flows/src/definition.rs:38`; `Item::failed`, `crates/ravenrs-flows/src/item.rs:77` | Falta o fluxo de erro (um fluxo inteiro chamado quando outro falha), que depende da execução durável | BIBLIOTECA: #535 |
-| Novas tentativas e tempo limite | 🟡 | `Dispatcher::backoff` e `lease`, `crates/ravenrs-app/src/outbox.rs:212` e :219 | Base é entrega de eventos; lease não interrompe uma chamada. Faltam timeout efetivo, classificação de falhas e política por executor | BIBLIOTECA: `L13` |
-| Subfluxo e execução parcial | 🟡 | `Executor::run_from`, `crates/ravenrs-flows/src/run.rs:211`: roda a partir de um nó, reaproveitando o que veio antes | Falta o subfluxo (chamar outro fluxo com versão fixada e limite de recursão) | BIBLIOTECA: #534 |
+| Continuar, parar, saída de erro e fluxo de erro | 🟡 | `ERROR_PORT`, `crates/ravenrs-flows/src/catalog.rs:17`; `ErrorPolicy::Route`, `crates/ravenrs-flows/src/definition.rs:38`; `Item::failed`, `crates/ravenrs-flows/src/item.rs:77` | Falta o fluxo de erro (um fluxo inteiro chamado quando outro falha), que depende da execução durável | BIBLIOTECA: #535 |
+| Novas tentativas e tempo limite | ✅ | `Retry`, `crates/ravenrs-flows/src/definition.rs:46`, por tipo de falha (`Failure`, `crates/ravenrs-flows/src/catalog.rs:273`); `NodeKind::reconcile`, `catalog.rs:366`; tempo limite por nó e por execução, `Executor::time_limit_ms`, `crates/ravenrs-flows/src/run.rs:240` | App dizer a política de cada conector | APP |
+| Subfluxo e execução parcial | ✅ | `Executor::run_from`, `crates/ravenrs-flows/src/run.rs:261`; `Subflow`, `crates/ravenrs-flows/src/nodes.rs:577`: roda outro fluxo com os itens que chegaram, com token filho e o tempo que sobra; o catálogo dado ao subfluxo impede que ele chame a si mesmo | Fixar a revisão do fluxo chamado depende das versões (#535) | APP; #535 |
 | Fila e trabalhadores | 🟡 | `JobWork`, `crates/ravenrs-app/src/job.rs:13`; `Dispatcher::run`, `crates/ravenrs-app/src/outbox.rs:225` | Threads e despacho em processo existem; faltam fila durável de execuções, reivindicação atômica, recuperação e coordenação entre processos | BIBLIOTECA: `L12`, `L14` |
-| Cancelar execução | 🟡 | `Job::cancel`, `crates/ravenrs-app/src/job.rs:224`; `JobContext::cancelled`, mesmo arquivo:114 | Cancelamento atual é cooperativo; propagá-lo a filhos, esperas, scripts e conectores, com estado terminal persistido | BIBLIOTECA: `L13` |
+| Cancelar execução | ✅ | `CancelToken`, `crates/ravenrs-flows/src/time.rs:95`, e `Executor::cancel_with`, `crates/ravenrs-flows/src/run.rs:233`: cada nó roda numa thread própria e é deixado para trás ao cancelar; `RunOutcome`, `run.rs:69` | Matar o processo filho de verdade fica com o executor de processos (#558); gravar o estado terminal, com #535 | BIBLIOTECA: #558, #535 |
 
 **Fronteiras já identificadas:**
 
@@ -132,7 +132,7 @@ O `Scheduler` visual organiza eventos e recursos. Sua existência não substitui
 | E-mail | 🟡 | `Mailer`, `SmtpMailer::new`, `crates/ravenrs-report-server/src/deliver.rs:33` e :52 | Extrair envio genérico hoje dependente dos tipos de relatório; recebimento e polling de caixa de entrada não foram encontrados como conectores | BIBLIOTECA: `L19` |
 | Arquivos | 🟡 | `write_to_folder`, `crates/ravenrs-report-server/src/deliver.rs:96` | Provider geral de leitura/escrita/listagem, streams, binários, limites e diretórios autorizados | BIBLIOTECA: `L19` |
 | Planilha | 🟡 | `Session::execute_headless`, `crates/ravenrs-sheet/src/engine/mod.rs:1124` | Adaptador entre lotes de objetos e linhas/células, política de cabeçalhos, tipos, fórmulas e arquivo de saída | BIBLIOTECA: `L20` |
-| Set, filtrar, ordenar, agrupar, dividir e juntar | ✅ | `Set`, `Group`, `Split` e `Join`, `crates/ravenrs-flows/src/nodes.rs:313`, :419, :504 e :530; `Catalog::builtin`, `nodes.rs:550` | App escolher quais nós oferece | APP |
+| Set, filtrar, ordenar, agrupar, dividir e juntar | ✅ | `Set`, `Group`, `Split` e `Join`, `crates/ravenrs-flows/src/nodes.rs:317`, :423, :508 e :534; `Catalog::builtin`, `nodes.rs:550` | App escolher quais nós oferece | APP |
 | Modelo de linguagem, agente, ferramentas e memória | 🟡 | `LocalAssistant::answer`, `crates/ravenrs-ai/src/assistant.rs:171`; `Tool`, `tool_rules` e `read_tool_call`, `crates/ravenrs-ai/src/tools.rs:9`, :35 e :42 | Interface de inferência independente da UI, saída estruturada, ciclo de ferramentas, limites e memória persistida por sessão | BIBLIOTECA: `L25`; APP: ferramentas permitidas e políticas |
 
 `ravenrs-mcp` serve informações sobre o framework: `RavenServer`, em `crates/ravenrs-mcp/src/server.rs:136`. Não foi encontrada nessa API uma implementação de cliente de ferramentas remotas para o agente; esse suporte precisa de contrato próprio.

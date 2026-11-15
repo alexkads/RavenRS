@@ -1,54 +1,23 @@
-//! Running a plan in memory, one node after another in the plan's order, on the thread that
-//! asks: the whole flow, from a node with what an earlier run left upstream, or one node alone.
-//! A loop goes round its body while it sends items into it. Same flow, items and clock, same
-//! run. The top layer of the crate.
+//! Running a plan in memory, one node after another in the plan's order: the whole flow, from a
+//! node with what an earlier run left upstream, or one node alone. A loop goes round its body
+//! while it sends items into it. A node is tried again when it fails in a way worth it, a run
+//! can be cancelled from any thread, and time limits stop a node that takes too long. Same
+//! flow, items and clock, same run. Above `plan`, `catalog` and `time`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
+use std::sync::Arc;
 
-use crate::catalog::{Catalog, ERROR_PORT, Mode, NodeContext};
-use crate::definition::{ErrorPolicy, NodeDef};
+use crate::catalog::{Catalog, ERROR_PORT, Failure, Mode, NodeContext, NodeError, NodeKind, Reconciled};
+use crate::definition::{ErrorPolicy, NodeDef, Retry};
 use crate::item::{Item, Ports};
 use crate::plan::Plan;
+use crate::time::{CancelToken, Clock, SystemClock};
 
 /// The most turns a loop takes, unless [`Executor::loop_limit`] says otherwise, before the run
 /// says it goes round for ever. Each turn the loop node gets everything that came back so far,
 /// so a loop of many turns costs more than its turns.
 pub const LOOP_LIMIT: usize = 10_000;
-
-/// Where a run takes the time from.
-pub trait Clock: Send + Sync {
-    /// Milliseconds since 1970.
-    fn now_ms(&self) -> i64;
-}
-
-/// A clock that always says the same time: for tests and repeatable runs.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct FixedClock(pub i64);
-
-impl Clock for FixedClock {
-    fn now_ms(&self) -> i64 {
-        self.0
-    }
-}
-
-/// The machine's clock.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct SystemClock;
-
-impl Clock for SystemClock {
-    #[cfg(not(target_arch = "wasm32"))]
-    fn now_ms(&self) -> i64 {
-        use std::time::{SystemTime, UNIX_EPOCH};
-        SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_millis() as i64).unwrap_or(0)
-    }
-
-    /// In a browser, `std` has no clock: the page's is used.
-    #[cfg(target_arch = "wasm32")]
-    fn now_ms(&self) -> i64 {
-        js_sys::Date::now() as i64
-    }
-}
 
 /// How a node's part of a run went.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -56,7 +25,7 @@ impl Clock for SystemClock {
 pub enum NodeStatus {
     /// It ran.
     Done,
-    /// It gave its pinned items, in a test.
+    /// It gave its pinned items, in a test, or the items the run was started with.
     Pinned,
     /// It is disabled and passed its first input on.
     Disabled,
@@ -66,6 +35,12 @@ pub enum NodeStatus {
     Failed,
     /// It did not run again: what it gave is an earlier run's.
     Reused,
+    /// It was cancelled while it ran.
+    Cancelled,
+    /// It took longer than its time limit, or than what was left of the run's.
+    TimedOut,
+    /// It called something and no one knows whether that happened. It was not tried again.
+    Uncertain,
 }
 
 /// A node's part of a run: what reached it, what it gave, and how it went. For a node inside
@@ -82,9 +57,39 @@ pub struct NodeRun {
     pub error: Option<String>,
     /// How many times it ran in this run: more than once inside a loop.
     pub runs: usize,
+    /// How many tries its last run took: more than 1 when it was tried again.
+    pub attempts: u32,
+    /// Whether its result came from asking the kind if a call of unknown result happened.
+    pub reconciled: bool,
 }
 
-/// A run of a flow: each node's part, in the order they ran.
+/// How a run ended.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum RunOutcome {
+    /// Every node that could run, ran (the default of a run not started).
+    #[default]
+    Finished,
+    /// It stopped at a node that failed with [`ErrorPolicy::Stop`].
+    Stopped {
+        /// The node.
+        node: String,
+        /// Why it failed.
+        reason: String,
+    },
+    /// It was cancelled.
+    Cancelled {
+        /// Why, as the token was told.
+        reason: String,
+    },
+    /// The run took longer than its time limit.
+    TimedOut {
+        /// What took too long.
+        reason: String,
+    },
+}
+
+/// A run of a flow: each node's part, in the order they ran, and how it ended.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Run {
     /// Each node's part, by id.
@@ -95,6 +100,9 @@ pub struct Run {
     pub stopped_at: Option<String>,
     /// The clock's time when the run started.
     pub started_ms: i64,
+    /// How it ended.
+    pub outcome: RunOutcome,
+    deadline_ms: Option<i64>,
 }
 
 impl Run {
@@ -108,9 +116,9 @@ impl Run {
         self.nodes.get(node).map(|n| n.status)
     }
 
-    /// Whether it ended without stopping at a failure.
+    /// Whether it ended with every node that could run having run.
     pub fn succeeded(&self) -> bool {
-        self.stopped_at.is_none()
+        self.outcome == RunOutcome::Finished
     }
 
     /// Records `part` of `node`, counting one more time it ran.
@@ -155,8 +163,12 @@ pub struct Executor<'a> {
     plan: &'a Plan,
     catalog: &'a Catalog,
     mode: Mode,
-    clock: Box<dyn Clock + 'a>,
+    clock: Arc<dyn Clock>,
     loop_limit: usize,
+    token: CancelToken,
+    watched: bool,
+    time_limit_ms: Option<u64>,
+    starts: BTreeMap<String, Vec<Item>>,
 }
 
 impl fmt::Debug for Executor<'_> {
@@ -178,7 +190,17 @@ enum Next {
 impl<'a> Executor<'a> {
     /// Runs `plan` with the kinds of `catalog`, as the flow working, on the machine's clock.
     pub fn new(plan: &'a Plan, catalog: &'a Catalog) -> Self {
-        Self { plan, catalog, mode: Mode::Active, clock: Box::new(SystemClock), loop_limit: LOOP_LIMIT }
+        Self {
+            plan,
+            catalog,
+            mode: Mode::Active,
+            clock: Arc::new(SystemClock),
+            loop_limit: LOOP_LIMIT,
+            token: CancelToken::new(),
+            watched: false,
+            time_limit_ms: None,
+            starts: BTreeMap::new(),
+        }
     }
 
     /// In `mode`.
@@ -188,14 +210,42 @@ impl<'a> Executor<'a> {
     }
 
     /// On `clock`.
-    pub fn clock(mut self, clock: impl Clock + 'a) -> Self {
-        self.clock = Box::new(clock);
+    pub fn clock(mut self, clock: impl Clock + 'static) -> Self {
+        self.clock = Arc::new(clock);
+        self
+    }
+
+    /// On a clock shared with something else, such as the flow that calls this one.
+    pub fn shared_clock(mut self, clock: Arc<dyn Clock>) -> Self {
+        self.clock = clock;
         self
     }
 
     /// With loops stopped after `turns` turns ([`LOOP_LIMIT`] by default).
     pub fn loop_limit(mut self, turns: usize) -> Self {
         self.loop_limit = turns.max(1);
+        self
+    }
+
+    /// Cancelled by `token`: keep a clone and call [`CancelToken::cancel`] from any thread. Each
+    /// node then runs on a thread of its own, so a node that does not look at its token is
+    /// still left behind when the run is cancelled.
+    pub fn cancel_with(mut self, token: CancelToken) -> Self {
+        self.token = token;
+        self.watched = true;
+        self
+    }
+
+    /// With the whole run taking at most `ms` milliseconds.
+    pub fn time_limit_ms(mut self, ms: u64) -> Self {
+        self.time_limit_ms = Some(ms);
+        self
+    }
+
+    /// With `node` giving `items` on its first output instead of running: how a run starts
+    /// from what came in (a webhook, the items a calling flow gives a subflow).
+    pub fn start_with(mut self, node: impl Into<String>, items: Vec<Item>) -> Self {
+        self.starts.insert(node.into(), items);
         self
     }
 
@@ -243,10 +293,30 @@ impl<'a> Executor<'a> {
         Ok(())
     }
 
+    /// Why the run must stop now, if it must: it was cancelled, or its time is up.
+    fn halted(&self, run: &Run) -> Option<RunOutcome> {
+        if self.token.is_cancelled() {
+            return Some(RunOutcome::Cancelled {
+                reason: self.token.reason().unwrap_or_else(|| "cancelled".to_owned()),
+            });
+        }
+        match (run.deadline_ms, self.time_limit_ms) {
+            (Some(deadline), Some(limit)) if self.clock.now_ms() >= deadline => {
+                Some(RunOutcome::TimedOut { reason: format!("the run took more than {limit} ms") })
+            }
+            _ => None,
+        }
+    }
+
     /// Runs the nodes in `running`, in the plan's order, reusing from `previous` the parts of
     /// the nodes upstream that feed them.
     fn go(&self, running: &BTreeSet<String>, previous: &Run) -> Run {
-        let mut run = Run { started_ms: self.clock.now_ms(), ..Run::default() };
+        let started = self.clock.now_ms();
+        let mut run = Run {
+            started_ms: started,
+            deadline_ms: self.time_limit_ms.map(|l| started.saturating_add(l as i64)),
+            ..Run::default()
+        };
         let upstream: BTreeSet<&str> = running
             .iter()
             .flat_map(|id| self.plan.feeds(id))
@@ -267,6 +337,10 @@ impl<'a> Executor<'a> {
             if !running.contains(id) {
                 continue;
             }
+            if let Some(outcome) = self.halted(&run) {
+                run.outcome = outcome;
+                break;
+            }
             let body: Vec<&String> =
                 self.plan.loop_body(id).iter().filter(|b| running.contains(*b)).collect();
             let next =
@@ -283,19 +357,31 @@ impl<'a> Executor<'a> {
     fn once(&self, node: &str, iteration: usize, run: &mut Run) -> Next {
         let Some(def) = self.plan.definition().find(node) else { return Next::Go };
         let inputs = self.inputs_of(node, run);
-        let part = self.node(def, inputs, run.started_ms, iteration);
+        let part = self.node(def, inputs, run, iteration);
         self.settle(def, part, run)
     }
 
-    /// Records `part` and says whether the run stops there.
+    /// Records `part` and says whether the run stops there, and how it ended if it does.
     fn settle(&self, def: &NodeDef, part: NodeRun, run: &mut Run) -> Next {
-        let stop = part.status == NodeStatus::Failed && def.on_error == ErrorPolicy::Stop;
+        let reason = part.error.clone().unwrap_or_default();
+        let outcome = match part.status {
+            NodeStatus::Cancelled => Some(RunOutcome::Cancelled { reason }),
+            NodeStatus::TimedOut if self.halted(run).is_some() => self.halted(run),
+            NodeStatus::Failed | NodeStatus::TimedOut | NodeStatus::Uncertain
+                if def.on_error == ErrorPolicy::Stop =>
+            {
+                run.stopped_at = Some(def.id.clone());
+                Some(RunOutcome::Stopped { node: def.id.clone(), reason })
+            }
+            _ => None,
+        };
         run.record(&def.id, part);
-        if stop {
-            run.stopped_at = Some(def.id.clone());
-            Next::Stop
-        } else {
-            Next::Go
+        match outcome {
+            Some(outcome) => {
+                run.outcome = outcome;
+                Next::Stop
+            }
+            None => Next::Go,
         }
     }
 
@@ -318,11 +404,15 @@ impl<'a> Executor<'a> {
                 let part = failed(Ports::new(), format!("the loop went round {limit} times without ending"));
                 return self.settle(def, part, run);
             }
+            if let Some(outcome) = self.halted(run) {
+                run.outcome = outcome;
+                return Next::Stop;
+            }
             let mut inputs = self.inputs_of(head, run);
             for (port, items) in &came_back {
                 inputs.entry(port.clone()).or_default().extend(items.iter().cloned());
             }
-            let part = self.node(def, inputs, run.started_ms, iteration);
+            let part = self.node(def, inputs, run, iteration);
             let sends = part
                 .outputs
                 .iter()
@@ -334,6 +424,10 @@ impl<'a> Executor<'a> {
                 return Next::Go;
             }
             for b in body {
+                if let Some(outcome) = self.halted(run) {
+                    run.outcome = outcome;
+                    return Next::Stop;
+                }
                 if self.once(b, iteration, run) == Next::Stop {
                     return Next::Stop;
                 }
@@ -358,11 +452,17 @@ impl<'a> Executor<'a> {
         inputs
     }
 
-    /// One node's part.
-    fn node(&self, node: &NodeDef, inputs: Ports, now_ms: i64, iteration: usize) -> NodeRun {
+    /// One node's part: the items it starts with, its pinned items, skipped, disabled, or run,
+    /// tried again as its setup says.
+    fn node(&self, node: &NodeDef, inputs: Ports, run: &Run, iteration: usize) -> NodeRun {
         let Some(spec) = self.plan.spec(&node.id) else {
             return failed(inputs, format!("the kind {} is not in the plan", node.kind));
         };
+        let first_out = self.plan.outputs(&node.id).first().cloned();
+        if let Some(items) = self.starts.get(&node.id) {
+            let given = first_out.map(|p| Ports::from([(p, items.clone())])).unwrap_or_default();
+            return done(NodeStatus::Pinned, inputs, place(&node.id, given));
+        }
         let fed = !self.plan.feeds(&node.id).is_empty();
         let nothing_came = inputs.values().all(Vec::is_empty);
         if self.mode == Mode::Test && !node.pinned.is_empty() {
@@ -373,50 +473,241 @@ impl<'a> Executor<'a> {
         }
         if node.disabled {
             let first_in = spec.inputs.first().and_then(|p| inputs.get(p)).cloned().unwrap_or_default();
-            let mut given = Ports::new();
-            if let Some(first_out) = self.plan.outputs(&node.id).first() {
-                given.insert(first_out.clone(), first_in);
-            }
+            let given = first_out.map(|p| Ports::from([(p, first_in)])).unwrap_or_default();
             return done(NodeStatus::Disabled, inputs, place(&node.id, given));
         }
-        let Some(kind) = self.catalog.get(&node.kind, node.version) else {
+        let Some(kind) = self.catalog.shared(&node.kind, node.version) else {
             return failed(
                 inputs,
                 format!("the kind {} (version {}) is not in the catalog", node.kind, node.version),
             );
         };
-        let cx = NodeContext::new(node, &inputs, now_ms, self.mode).at_iteration(iteration);
-        let result = kind.execute(&cx);
-        let outputs = self.plan.outputs(&node.id);
-        match result {
-            Ok(given) => {
-                if let Some(port) = given.keys().find(|p| *p != ERROR_PORT && !outputs.contains(p)) {
-                    return failed(inputs, format!("the kind {} has no output {port}", node.kind));
+        let retry = node.retry.unwrap_or(Retry::new(1, 0));
+        let mut attempt = 1;
+        loop {
+            let deadline = self.deadline_of(node, run);
+            let result = self.call(&kind, node, &inputs, run.started_ms, iteration, attempt, deadline);
+            let error = match result {
+                Ok(given) => return self.given(node, inputs, given, attempt, false),
+                Err(e) => e,
+            };
+            let again = match error.failure {
+                Failure::Retryable => true,
+                Failure::TimedOut => retry.on_timeout && self.halted(run).is_none(),
+                Failure::Unknown => {
+                    let cx = self.context(
+                        node,
+                        &inputs,
+                        run.started_ms,
+                        iteration,
+                        attempt,
+                        deadline,
+                        self.token.child(),
+                    );
+                    match kind.reconcile(&cx) {
+                        Reconciled::Done(given) => return self.given(node, inputs, given, attempt, true),
+                        Reconciled::NotDone => true,
+                        _ => return self.failure(node, inputs, error, attempt, NodeStatus::Uncertain),
+                    }
                 }
-                let failures = given.get(ERROR_PORT).map_or(0, Vec::len);
-                if failures > 0 && node.on_error == ErrorPolicy::Stop {
-                    let why =
-                        given[ERROR_PORT][0].get("error").and_then(|e| e.as_str()).unwrap_or("it failed");
-                    let message = format!("{failures} item(s) failed; the first: {why}");
-                    return NodeRun {
-                        error: Some(message),
-                        ..done(NodeStatus::Failed, inputs, place(&node.id, given))
-                    };
-                }
-                done(NodeStatus::Done, inputs, place(&node.id, given))
+                _ => false,
+            };
+            if !again || attempt >= retry.tries {
+                let status = match error.failure {
+                    Failure::Cancelled => NodeStatus::Cancelled,
+                    Failure::TimedOut => NodeStatus::TimedOut,
+                    _ => NodeStatus::Failed,
+                };
+                return self.failure(node, inputs, error, attempt, status);
             }
-            Err(e) if node.on_error == ErrorPolicy::Route => {
-                let sent: Vec<Item> = inputs.values().flatten().map(|i| i.failed(&e.message)).collect();
-                let given = Ports::from([(ERROR_PORT.to_owned(), sent)]);
-                NodeRun { error: Some(e.message), ..done(NodeStatus::Failed, inputs, place(&node.id, given)) }
+            attempt += 1;
+            if !self.wait(retry.wait_before(attempt)) {
+                let why = self.token.reason().unwrap_or_else(|| "cancelled".to_owned());
+                return self.failure(
+                    node,
+                    inputs,
+                    NodeError::cancelled(why),
+                    attempt - 1,
+                    NodeStatus::Cancelled,
+                );
             }
-            Err(e) => failed(inputs, e.message),
         }
+    }
+
+    /// When `node` must end by, on the run's clock: its own limit, or what is left of the run's.
+    fn deadline_of(&self, node: &NodeDef, run: &Run) -> Option<i64> {
+        let own = node.timeout_ms.map(|t| self.clock.now_ms().saturating_add(t as i64));
+        match (own, run.deadline_ms) {
+            (Some(a), Some(b)) => Some(a.min(b)),
+            (a, b) => a.or(b),
+        }
+    }
+
+    /// Waits `ms` on the run's clock, a little at a time; `false` when the run was cancelled.
+    fn wait(&self, ms: u64) -> bool {
+        let mut left = ms;
+        while left > 0 {
+            if self.token.is_cancelled() {
+                return false;
+            }
+            let now = left.min(10);
+            self.clock.sleep_ms(now);
+            left -= now;
+        }
+        !self.token.is_cancelled()
+    }
+
+    #[allow(clippy::too_many_arguments, reason = "the parts of one node's context")]
+    fn context<'n>(
+        &self,
+        node: &'n NodeDef,
+        inputs: &'n Ports,
+        now_ms: i64,
+        iteration: usize,
+        attempt: u32,
+        deadline: Option<i64>,
+        token: CancelToken,
+    ) -> NodeContext<'n> {
+        NodeContext::new(node, inputs, now_ms, self.mode)
+            .at_iteration(iteration)
+            .at_attempt(attempt)
+            .with_clock(self.clock.clone())
+            .with_token(token)
+            .with_deadline(deadline)
+    }
+
+    /// One try of `kind` on `node`. With a time limit or a token to watch, the try runs on a
+    /// thread of its own: when the run is cancelled or the time is up, the node's token is
+    /// cancelled and the run stops waiting for it.
+    #[allow(clippy::too_many_arguments, reason = "the parts of one node's context")]
+    fn call(
+        &self,
+        kind: &Arc<dyn NodeKind>,
+        node: &NodeDef,
+        inputs: &Ports,
+        now_ms: i64,
+        iteration: usize,
+        attempt: u32,
+        deadline: Option<i64>,
+    ) -> Result<Ports, NodeError> {
+        let token = self.token.child();
+        if !self.watched && deadline.is_none() || cfg!(target_arch = "wasm32") {
+            return kind.execute(&self.context(node, inputs, now_ms, iteration, attempt, deadline, token));
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            self.on_thread(kind, node, inputs, now_ms, iteration, attempt, deadline, token)
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            unreachable!("a browser runs every node on its own thread")
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[allow(clippy::too_many_arguments, reason = "the parts of one node's context")]
+    fn on_thread(
+        &self,
+        kind: &Arc<dyn NodeKind>,
+        node: &NodeDef,
+        inputs: &Ports,
+        now_ms: i64,
+        iteration: usize,
+        attempt: u32,
+        deadline: Option<i64>,
+        token: CancelToken,
+    ) -> Result<Ports, NodeError> {
+        use std::sync::mpsc::{RecvTimeoutError, channel};
+        use std::time::{Duration, Instant};
+
+        let (tx, rx) = channel();
+        let (kind, node_def, given, clock, mode, own) =
+            (kind.clone(), node.clone(), inputs.clone(), self.clock.clone(), self.mode, token.clone());
+        std::thread::spawn(move || {
+            let cx = NodeContext::new(&node_def, &given, now_ms, mode)
+                .at_iteration(iteration)
+                .at_attempt(attempt)
+                .with_clock(clock)
+                .with_token(own)
+                .with_deadline(deadline);
+            let _ = tx.send(kind.execute(&cx));
+        });
+        let began = Instant::now();
+        let real_limit = deadline.map(|d| Duration::from_millis((d - self.clock.now_ms()).max(0) as u64));
+        loop {
+            match rx.recv_timeout(Duration::from_millis(5)) {
+                Ok(result) => return result,
+                Err(RecvTimeoutError::Disconnected) => {
+                    return Err(NodeError::new("the node stopped without answering"));
+                }
+                Err(RecvTimeoutError::Timeout) => {
+                    if self.token.is_cancelled() {
+                        let why = self.token.reason().unwrap_or_else(|| "cancelled".to_owned());
+                        token.cancel(why.clone());
+                        return Err(NodeError::cancelled(why));
+                    }
+                    let real = real_limit.is_some_and(|l| began.elapsed() >= l);
+                    let on_clock = deadline.is_some_and(|d| self.clock.now_ms() >= d);
+                    if real || on_clock {
+                        token.cancel("the time limit was reached");
+                        return Err(NodeError::timed_out(format!(
+                            "it took more than {} ms",
+                            real_limit.map_or(0, |l| l.as_millis())
+                        )));
+                    }
+                }
+            }
+        }
+    }
+
+    /// The part of a node that answered, checked against its outputs and its error policy.
+    fn given(&self, node: &NodeDef, inputs: Ports, given: Ports, attempt: u32, reconciled: bool) -> NodeRun {
+        let outputs = self.plan.outputs(&node.id);
+        if let Some(port) = given.keys().find(|p| *p != ERROR_PORT && !outputs.contains(p)) {
+            return NodeRun {
+                attempts: attempt,
+                ..failed(inputs, format!("the kind {} has no output {port}", node.kind))
+            };
+        }
+        let failures = given.get(ERROR_PORT).map_or(0, Vec::len);
+        let mut part = done(NodeStatus::Done, inputs, place(&node.id, given));
+        part.attempts = attempt;
+        part.reconciled = reconciled;
+        if failures > 0 && node.on_error == ErrorPolicy::Stop {
+            let why = part.outputs[ERROR_PORT][0]
+                .get("error")
+                .and_then(|e| e.as_str())
+                .unwrap_or("it failed")
+                .to_owned();
+            part.status = NodeStatus::Failed;
+            part.error = Some(format!("{failures} item(s) failed; the first: {why}"));
+        }
+        part
+    }
+
+    /// The part of a node that failed as a whole: with [`ErrorPolicy::Route`], every item that
+    /// reached it goes to its error output.
+    fn failure(
+        &self,
+        node: &NodeDef,
+        inputs: Ports,
+        error: NodeError,
+        attempt: u32,
+        status: NodeStatus,
+    ) -> NodeRun {
+        let routed = node.on_error == ErrorPolicy::Route && status != NodeStatus::Cancelled;
+        let outputs = if routed {
+            let sent: Vec<Item> = inputs.values().flatten().map(|i| i.failed(&error.message)).collect();
+            place(&node.id, Ports::from([(ERROR_PORT.to_owned(), sent)]))
+        } else {
+            Ports::new()
+        };
+        NodeRun { status, error: Some(error.message), attempts: attempt, ..done(status, inputs, outputs) }
     }
 }
 
 fn done(status: NodeStatus, inputs: Ports, outputs: Ports) -> NodeRun {
-    NodeRun { status, inputs, outputs, error: None, runs: 1 }
+    NodeRun { status, inputs, outputs, error: None, runs: 1, attempts: 1, reconciled: false }
 }
 
 fn failed(inputs: Ports, error: String) -> NodeRun {
