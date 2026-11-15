@@ -749,7 +749,9 @@ impl View for TextArea {
         let caret_spot = (focused && cur.selection().is_none() && state.accepts_input())
             .then(|| (x_at(caret, caret_line), caret_line as f32 * line_height));
         let accent = theme.color(Semantic::Accent);
-        let highlight = accent.with_alpha(if focused { 0.32 } else { 0.16 });
+        // A search's current match is the selection: stronger than the other matches under it.
+        let searching = code.as_ref().is_some_and(|c| c.follow_caret);
+        let highlight = accent.with_alpha(if searching { 0.45 } else if focused { 0.32 } else { 0.16 });
         // Marked lines: a band across the line, and a wavy-free underline under the columns.
         let marks: Vec<DrawnMark> = code
             .as_ref()

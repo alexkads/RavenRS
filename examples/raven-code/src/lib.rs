@@ -5,15 +5,23 @@
 //! `cargo run -p raven-code -- <folder>` opens a project; with no folder it opens a copy of a small
 //! sample project in a temporary folder, so the repository is never edited.
 //!
-//! * [`project`]: the project on disk.
-//! * [`cargo`]: building and running it, and reading what the compiler says.
-//! * [`app`]: the window, wiring both to the components.
+//! * [`project`]: the project on disk: its files, making, renaming and deleting them, and
+//!   searching them.
+//! * [`cargo`]: building, running, testing and checking it, stopping it and typing into it, and
+//!   reading what the compiler says.
+//! * [`lsp`]: what rust-analyzer says while typing: problems, suggestions, tips, definitions.
+//! * [`config`]: what is remembered between runs: the recent projects and how each was left.
+//! * [`app`]: the window, wiring them to the components.
 //!
-//! Keys: Ctrl+S (Cmd+S on a Mac) saves the file at the front, Ctrl+B builds, F5 runs, and Ctrl+Tab
-//! goes back to the panel used before.
+//! Keys, with Cmd for Ctrl on a Mac: Ctrl+S saves the file at the front, Ctrl+O opens a folder,
+//! Ctrl+B builds, F5 runs and Shift+F5 stops, Ctrl+Shift+T tests, Ctrl+Z undoes, Ctrl+F finds
+//! in the file and Ctrl+H replaces, Ctrl+Shift+F searches the project, Ctrl+Space suggests,
+//! F12 goes to a definition, and Ctrl+Tab goes back to the panel used before.
 
 pub mod app;
 pub mod cargo;
+pub mod config;
+pub mod lsp;
 pub mod project;
 
 pub use app::RavenCode;

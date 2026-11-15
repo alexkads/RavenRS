@@ -92,7 +92,7 @@ fn the_sample_builds_and_runs_with_cargo() {
         let report = Arc::new(Mutex::new(Report::default()));
         let (done, wait) = mpsc::channel();
         let watch = report.clone();
-        raven_code::cargo::start(root.clone(), task, report.clone(), move || {
+        raven_code::cargo::start(root.clone(), task, None, report.clone(), Default::default(), move || {
             if !watch.lock().unwrap().running {
                 let _ = done.send(());
             }
@@ -104,4 +104,155 @@ fn the_sample_builds_and_runs_with_cargo() {
             assert!(report.output.contains("Hello from Raven Code!"), "{}", report.output);
         }
     }
+}
+
+#[test]
+fn files_and_folders_are_made_renamed_and_deleted_inside_the_project_only() {
+    let root = folder("ops");
+    write_sample(&root).unwrap();
+    let project = Project::open(&root).unwrap();
+    project.create_file("src/util.rs").unwrap();
+    assert_eq!(fs::read_to_string(root.join("src/util.rs")).unwrap(), "");
+    assert!(project.create_file("src/util.rs").is_err(), "a file that is there is not made again");
+    project.create_folder("src/parts").unwrap();
+    assert!(project.create_folder("src/parts").is_err());
+    project.rename("src/greeting.rs", "src/hello.rs").unwrap();
+    assert!(root.join("src/hello.rs").exists() && !root.join("src/greeting.rs").exists());
+    assert!(project.rename("src/hello.rs", "src/main.rs").is_err(), "nothing is overwritten");
+    assert!(project.rename("src/hello.rs", "../out.rs").is_err(), "nothing leaves the project");
+    project.remove("src/parts").unwrap();
+    project.remove("src/util.rs").unwrap();
+    assert!(!root.join("src/parts").exists() && !root.join("src/util.rs").exists());
+    assert!(project.remove("..").is_err());
+    use raven_code::project::bad_name;
+    assert!(bad_name("ok.rs").is_none());
+    for bad in ["", " ", ".", "..", "a/b", "a\\b"] {
+        assert!(bad_name(bad).is_some(), "{bad:?}");
+    }
+}
+
+#[test]
+fn a_search_finds_lines_in_every_text_file() {
+    let root = folder("search");
+    write_sample(&root).unwrap();
+    let project = Project::open(&root).unwrap();
+    let hits = project.search("hello", false);
+    let places: Vec<(String, usize)> = hits.iter().map(|h| (h.file.clone(), h.line)).collect();
+    // The function, the greeting it makes, the call, and the package's name.
+    assert_eq!(
+        places,
+        [
+            ("src/greeting.rs".to_owned(), 2),
+            ("src/greeting.rs".to_owned(), 3),
+            ("src/main.rs".to_owned(), 4),
+            ("Cargo.toml".to_owned(), 2)
+        ],
+        "folders first, as the tree lists them"
+    );
+    let call = hits.iter().find(|h| h.file == "src/main.rs").unwrap();
+    assert_eq!(call.column, 30, "counted in characters, from 1");
+    let capitals: Vec<usize> = project.search("Hello", true).iter().map(|h| h.line).collect();
+    assert_eq!(capitals, [3], "with capitals, only the greeting");
+    assert!(project.search("", false).is_empty());
+}
+
+#[test]
+fn the_stamp_changes_when_the_disk_does() {
+    let root = folder("stamp");
+    write_sample(&root).unwrap();
+    let project = Project::open(&root).unwrap();
+    let before = project.stamp();
+    assert_eq!(project.stamp(), before, "the same when nothing changed");
+    fs::write(root.join("src/new.rs"), "// new\n").unwrap();
+    assert_ne!(project.stamp(), before);
+}
+
+#[test]
+fn recent_projects_keep_ten_the_latest_first_and_sessions_come_back() {
+    use raven_code::config::{Config, Session};
+    let config = Config::at(folder("config"));
+    assert!(config.recent().is_empty());
+    for n in 0..12 {
+        config.remember(&PathBuf::from(format!("/work/p{n}"))).unwrap();
+    }
+    config.remember(&PathBuf::from("/work/p5")).unwrap();
+    let recent = config.recent();
+    assert_eq!(recent.len(), 10);
+    assert_eq!(recent[0], PathBuf::from("/work/p5"), "the latest first, once");
+    assert_eq!(recent.iter().filter(|p| **p == PathBuf::from("/work/p5")).count(), 1);
+    config.forget(&PathBuf::from("/work/p5")).unwrap();
+    assert!(!config.recent().contains(&PathBuf::from("/work/p5")));
+    let session = Session {
+        layout: "dock 4\ncenter src/main.rs".to_owned(),
+        open: vec![("src/main.rs".to_owned(), 12), ("src/greeting.rs".to_owned(), 0)],
+        active: Some("src/main.rs".to_owned()),
+    };
+    let project = PathBuf::from("/work/p1");
+    config.save_session(&project, &session).unwrap();
+    assert_eq!(config.session(&project), Some(session));
+    assert_eq!(config.session(&PathBuf::from("/work/other/p1")), None, "projects of one name apart");
+    assert_eq!(Session::from_text("something else"), None);
+}
+
+#[test]
+fn test_results_and_binaries_are_read_from_what_cargo_says() {
+    use raven_code::cargo::{binaries_in, test_result};
+    assert_eq!(test_result("test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"), Some((3, 0)));
+    assert_eq!(test_result("test result: FAILED. 1 passed; 2 failed; 0 ignored"), Some((1, 2)));
+    assert_eq!(test_result("running 3 tests"), None);
+    let mut report = Report::default();
+    report.take("test result: ok. 2 passed; 0 failed; 0 ignored");
+    report.take("test result: FAILED. 1 passed; 1 failed; 0 ignored");
+    assert_eq!(report.tests, Some((3, 1)), "every test binary adds up");
+    let metadata = r#"{"packages":[{"name":"two","targets":[
+        {"name":"two","kind":["lib"]},{"name":"server","kind":["bin"]},{"name":"tool","kind":["bin"]},
+        {"name":"bench","kind":["bench"]}]}]}"#;
+    assert_eq!(binaries_in(metadata), ["server", "tool"]);
+    assert!(binaries_in("not json").is_empty());
+}
+
+/// With cargo on the machine: a program that waits is stopped, and one that reads gets what
+/// is sent. `cargo test -p raven-code -- --ignored`.
+#[test]
+#[ignore = "runs cargo, which takes a while"]
+fn a_running_program_is_stopped_and_reads_what_is_sent() {
+    use std::sync::{Arc, Mutex, mpsc};
+    use raven_code::cargo::{Control, Task, start};
+    let root = folder("stdin");
+    write_sample(&root).unwrap();
+    // A name of its own: the other test builds `hello`, maybe at the same time and in the same
+    // build folder.
+    fs::write(root.join("Cargo.toml"), "[package]\nname = \"reader\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[workspace]\n").unwrap();
+    fs::write(
+        root.join("src/main.rs"),
+        "fn main() {\n    let mut line = String::new();\n    std::io::stdin().read_line(&mut line).unwrap();\n    println!(\"got {}\", line.trim());\n    loop { std::thread::sleep(std::time::Duration::from_millis(50)); }\n}\n",
+    )
+    .unwrap();
+    let report = Arc::new(Mutex::new(Report::default()));
+    let control = Control::default();
+    let (done, wait) = mpsc::channel();
+    let watch = report.clone();
+    start(root.clone(), Task::Run, None, report.clone(), control.clone(), move || {
+        let now = watch.lock().unwrap();
+        if now.output.contains("Running") || !now.running {
+            let _ = done.send(());
+        }
+    });
+    wait.recv_timeout(std::time::Duration::from_secs(300)).expect("it runs");
+    // Sends until the program has read it: cargo may still be starting it.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(30);
+    while !report.lock().unwrap().output.contains("got Raven") {
+        control.send("Raven");
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        assert!(std::time::Instant::now() < deadline, "{}", report.lock().unwrap().output);
+    }
+    let asked = std::time::Instant::now();
+    assert!(control.stop());
+    while report.lock().unwrap().running {
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    assert!(asked.elapsed() < std::time::Duration::from_secs(1), "stopped in under a second");
+    let report = report.lock().unwrap().clone();
+    assert!(report.stopped && report.success == Some(false), "{}", report.output);
+    assert!(!control.stop(), "nothing runs now");
 }
