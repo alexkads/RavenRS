@@ -99,6 +99,7 @@ impl View for Board {
         let view = cx.use_state(FlowViewport::fit);
         let canvas = FlowCanvas::new(graph.binding())
             .view(view.binding())
+            .ports_on_hover(true)
             .label("Quadro")
             .selection(selection.binding())
             .history(history.binding())

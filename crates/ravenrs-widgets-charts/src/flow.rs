@@ -564,6 +564,7 @@ pub struct FlowCanvas {
     connector: Option<FlowConnector>,
     checks: Option<crate::flow_notation::FlowChecks>,
     runs: Option<FlowRunRules>,
+    quiet_ports: bool,
     quick_create: bool,
     grid: f32,
     snap: bool,
@@ -607,6 +608,7 @@ impl FlowCanvas {
             connector: None,
             checks: None,
             runs: None,
+            quiet_ports: false,
             quick_create: true,
             grid: 24.0,
             snap: true,
@@ -774,7 +776,14 @@ impl FlowCanvas {
         self
     }
 
-    /// Whether the arrows and keys of quick creation are there (on by default).
+    /// Shows the ports that nothing joins only by the node under the pointer (and while a
+    /// connection is made), as a whiteboard does; the ports in use always show.
+    pub fn ports_on_hover(mut self, quiet: bool) -> Self {
+        self.quiet_ports = quiet;
+        self
+    }
+
+    /// Whether the arrows and Cmd/Ctrl+Enter make the next node (on by default).
     pub fn quick_create(mut self, on: bool) -> Self {
         self.quick_create = on;
         self
@@ -1991,7 +2000,11 @@ impl Flow {
                     let others: Vec<Rect> = graph
                         .nodes
                         .iter()
-                        .filter(|n| !n.group && !moving.contains(&&n.id))
+                        // Other nodes, and the frame the node held is in, so it lines up with its edges.
+                        .filter(|n| {
+                            !moving.contains(&&n.id)
+                                && (!n.group || held.parent.as_deref() == Some(n.id.as_str()))
+                        })
                         .map(FlowNode::extent)
                         .collect();
                     let reach = GUIDE_REACH / zoom;
@@ -2634,6 +2647,7 @@ impl View for FlowCanvas {
                 resizable: self.resizable && !is_locked && selection.has_node(&node.id),
                 rotatable: self.rotatable,
                 quick: self.quick_create && !is_locked,
+                quiet_ports: self.quiet_ports,
                 selected_many: selection.nodes.len() > 1,
                 breakpoint: points.contains(&node.id),
                 members: graph.children(&node.id).count(),
@@ -3059,6 +3073,8 @@ struct NodeBox {
     rotatable: bool,
     /// Shows the arrows of quick creation while the pointer is over it.
     quick: bool,
+    /// Ports that nothing joins show only by the node under the pointer.
+    quiet_ports: bool,
     /// More than one node is selected: the arrows stay away.
     selected_many: bool,
     /// A run stops when a token reaches it.
@@ -3162,6 +3178,14 @@ impl View for NodeBox {
                 _ if self.connected.contains(&port.id) => PortState::Connected,
                 _ => PortState::Free,
             };
+            // Quiet ports that nothing joins show only by the node under the pointer.
+            if self.quiet_ports
+                && state == PortState::Free
+                && !cx.is_hover_within()
+                && self.connecting.is_none()
+            {
+                continue;
+            }
             let template =
                 if port.direction == PortDirection::Input { &labels.flow_input } else { &labels.flow_output };
             let dot = PortDot {

@@ -152,6 +152,7 @@ impl View for Whiteboard {
         };
         let canvas = FlowCanvas::new(graph.binding())
             .view(view.binding())
+            .ports_on_hover(true)
             .label(if which == 0 { "Fluxograma" } else { "Mapa mental" })
             .selection(selection.binding())
             .history(history.binding())
