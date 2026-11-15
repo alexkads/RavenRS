@@ -1,6 +1,8 @@
 //! The components of `ravenrs-widgets-kit`, one page each.
 
+pub mod campos;
 pub mod expressoes;
+pub mod navegacao;
 pub mod parametros;
 
 use ravenrs::prelude::IconName;

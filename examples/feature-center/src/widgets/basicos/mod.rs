@@ -1,9 +1,9 @@
-//! The family `ravenrs-widgets-base`, group "Básicos": one page per component, every public feature shown.
+//! The family `ravenrs-widgets-base`, group "Básicos", in three parts: controls, structure, and
+//! what shows over or about the rest.
 
-use super::Page;
+pub mod avisos;
+pub mod controles;
+pub mod estrutura;
 
 /// The group of the navigation for this family.
 pub const GROUP: &str = "Básicos";
-
-/// The pages of this family, in the order of the navigation.
-pub const PAGES: &[Page] = &[];

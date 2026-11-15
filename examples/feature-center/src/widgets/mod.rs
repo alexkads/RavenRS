@@ -34,8 +34,12 @@ pub struct Page {
 
 /// The pages of each family, in the order of the navigation (skill ravenrs-feature-center).
 const FAMILIES: &[&[Page]] = &[
-    basicos::PAGES,
+    basicos::controles::PAGES,
+    basicos::estrutura::PAGES,
+    basicos::avisos::PAGES,
     kit::PAGES,
+    kit::campos::PAGES,
+    kit::navegacao::PAGES,
     listas::PAGES,
     grade::PAGES,
     graficos::PAGES,

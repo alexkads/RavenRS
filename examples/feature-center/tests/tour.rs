@@ -17,8 +17,12 @@ use feature_center::{memory_database, watched};
 // The steps of each family of widgets, one file each.
 #[path = "tour/agenda.rs"]
 mod agenda;
-#[path = "tour/basicos.rs"]
-mod basicos;
+#[path = "tour/basicos_avisos.rs"]
+mod basicos_avisos;
+#[path = "tour/basicos_controles.rs"]
+mod basicos_controles;
+#[path = "tour/basicos_estrutura.rs"]
+mod basicos_estrutura;
 #[path = "tour/conversa.rs"]
 mod conversa;
 #[path = "tour/doca.rs"]
@@ -31,6 +35,10 @@ mod graficos;
 mod imagem;
 #[path = "tour/kit.rs"]
 mod kit;
+#[path = "tour/kit_campos.rs"]
+mod kit_campos;
+#[path = "tour/kit_navegacao.rs"]
+mod kit_navegacao;
 #[path = "tour/listas.rs"]
 mod listas;
 

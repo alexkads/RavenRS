@@ -165,5 +165,8 @@ fn every_demonstration_has_a_step_in_the_tour() {
     }
     let visited = |name: &str| tour.contains(&format!("\"{name}\""));
     let missing: Vec<&&str> = DEMONSTRATIONS.iter().filter(|name| !visited(name)).collect();
-    assert!(missing.is_empty(), "no step in tests/tour.rs or tests/tour/ for {missing:?}: visit each one there");
+    assert!(
+        missing.is_empty(),
+        "no step in tests/tour.rs or tests/tour/ for {missing:?}: visit each one there"
+    );
 }
