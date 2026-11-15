@@ -5,7 +5,7 @@
 
 use std::rc::Rc;
 
-use postgres::{Client, NoTls};
+mod support;
 use ravenrs_app::{EntityInfo, ObjectSpace, SpaceMaker};
 use ravenrs_app_postgres::{PostgresBackend, PostgresDatabase, Statements, TableMap};
 use ravenrs_app_testkit::contract::{self, Adapter, Capabilities, Store};
@@ -14,7 +14,7 @@ struct Postgres(String);
 
 impl Postgres {
     fn connection(&self, schema: &str) -> Result<PostgresBackend, String> {
-        let mut client = Client::connect(&self.0, NoTls).map_err(|e| e.to_string())?;
+        let mut client = support::raw(&self.0);
         client.batch_execute(&format!("SET search_path TO {schema}")).map_err(|e| e.to_string())?;
         let unprepared = std::env::var("RAVENRS_POSTGRES_STATEMENTS").is_ok_and(|mode| mode == "unprepared");
         Ok(PostgresBackend::from(client).with_statements(if unprepared {
@@ -47,7 +47,7 @@ impl Adapter for Postgres {
 
     fn open(&self, case: &str, entities: &[EntityInfo]) -> Result<Store, String> {
         let schema = format!("contract_{case}");
-        let mut admin = Client::connect(&self.0, NoTls).map_err(|e| e.to_string())?;
+        let mut admin = support::raw(&self.0);
         admin
             .batch_execute(&format!("DROP SCHEMA IF EXISTS {schema} CASCADE; CREATE SCHEMA {schema}"))
             .map_err(|e| e.to_string())?;
