@@ -1240,7 +1240,6 @@ struct Shop {
     ui: Ui,
     graph: State<FlowGraph>,
     selection: State<FlowSelection>,
-    history: State<FlowHistory>,
 }
 
 fn shop() -> Shop {
@@ -1265,7 +1264,7 @@ fn shop() -> Shop {
     let mut ui = Ui::new(HStack::new((toolbox, canvas)), Theme::raven_dark());
     ui.set_viewport(Size::new(940.0, 600.0), 1.0);
     settle(&mut ui);
-    Shop { ui, graph, selection, history }
+    Shop { ui, graph, selection }
 }
 
 fn snapped(v: f32) -> f32 {
@@ -1456,10 +1455,13 @@ fn without_on_export_there_is_no_export_button() {
     assert!(named(&mut rig.ui, "Export").is_none());
 }
 
+/// What a test file chooser was asked to save: names and bytes.
+type Saved = std::rc::Rc<std::cell::RefCell<Vec<(String, Vec<u8>)>>>;
+
 /// A file chooser that hands over one file, and remembers what it was asked to save.
 struct Files {
     open: Option<PickedFile>,
-    saved: std::rc::Rc<std::cell::RefCell<Vec<(String, Vec<u8>)>>>,
+    saved: Saved,
 }
 
 impl FilePickerProvider for Files {
@@ -1476,7 +1478,7 @@ struct Desk {
     ui: Ui,
     graph: State<FlowGraph>,
     history: State<FlowHistory>,
-    saved: std::rc::Rc<std::cell::RefCell<Vec<(String, Vec<u8>)>>>,
+    saved: Saved,
 }
 
 fn desk(storage: std::rc::Rc<ravenrs_core::MemoryStorage>, open: Option<PickedFile>) -> Desk {
