@@ -16,6 +16,8 @@ const STAYS_LOADED: Duration = Duration::from_secs(120);
 const MAX_TOKENS: usize = 160;
 /// How much a choice can take: a tool and its arguments are short.
 const CHOICE_TOKENS: usize = 80;
+/// How much an answer for a chat can take, such as a plan in JSON or a review.
+const LONG_TOKENS: usize = 1024;
 /// How long someone waits, counting the loading: for a whole choice, or for the first
 /// word of an answer. A slow machine should not leave them looking at it forever.
 const WAIT_LIMIT: Duration = Duration::from_secs(60);
@@ -31,6 +33,8 @@ struct Job {
     given_up: Arc<AtomicBool>,
     /// Letting go of it ends the wait.
     waiting: Option<Sender<()>>,
+    /// A long answer: more tokens, and the wait ends with its first word.
+    long: bool,
 }
 
 impl Job {
@@ -43,7 +47,12 @@ impl Job {
         text.push_str(piece);
         let go_on = match self.done {
             // A choice ends with its JSON, whatever a model goes on to say.
-            Some(_) => !json_closed(&text),
+            Some(_) => {
+                if self.long {
+                    self.waiting = None;
+                }
+                !json_closed(&text)
+            }
             None => {
                 self.waiting = None;
                 true
@@ -87,6 +96,7 @@ impl Job {
             done: None,
             given_up: Arc::default(),
             waiting: None,
+            long: false,
         }
     }
 }
@@ -125,7 +135,11 @@ impl LocalAssistant {
                 if engine.is_none() {
                     engine = LocalEngine::load(&folder, &model).ok();
                 }
-                let limit = if job.done.is_some() { CHOICE_TOKENS } else { MAX_TOKENS };
+                let limit = match (job.long, job.done.is_some()) {
+                    (true, _) => LONG_TOKENS,
+                    (false, true) => CHOICE_TOKENS,
+                    (false, false) => MAX_TOKENS,
+                };
                 let (system, user) = (job.system.clone(), job.user.clone());
                 let answered = engine.as_mut().is_some_and(|engine| {
                     let wrote = engine.generate(&system, &user, limit, &mut |piece| job.take(piece));
@@ -177,8 +191,22 @@ impl LocalAssistant {
         then: impl Fn(String) + 'static,
     ) -> ravenrs_widgets::ChatMessage {
         let (text, done) = (Arc::new(Mutex::new(String::new())), Arc::new(AtomicBool::new(false)));
-        self.answer(system, user, text.clone(), done.clone(), waker);
+        self.answer_long(system, user, text.clone(), done.clone(), waker);
         ravenrs_widgets::ChatMessage::assistant_writing(text).when_done(done, then)
+    }
+
+    /// Like [`Self::answer`], for an answer of up to a thousand tokens, such as a plan in JSON:
+    /// the wait for a slow machine ends with its first word, not with all of it.
+    pub fn answer_long(
+        &self,
+        system: String,
+        user: String,
+        text: Arc<Mutex<String>>,
+        done: Arc<AtomicBool>,
+        waker: UiWaker,
+    ) {
+        let if_it_fails = String::new();
+        self.send(Job { system, user, text, waker, if_it_fails, done: Some(done), long: true, ..Job::blank() });
     }
 
     /// Whether a question waited too long on this machine. From then on it answers
@@ -203,6 +231,7 @@ impl LocalAssistant {
             done: job.done.clone(),
             given_up: job.given_up.clone(),
             waiting: None,
+            long: job.long,
         };
         let (too_slow, limit) = (self.too_slow.clone(), self.wait_limit);
         std::thread::spawn(move || {

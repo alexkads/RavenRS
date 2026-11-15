@@ -84,7 +84,8 @@ fn a_file_from_another_tool_opens_with_its_drawing() {
     assert_eq!(down.from.port, "down", "it leaves by the side facing where it goes");
     assert_eq!(down.label.as_deref(), Some("Não"));
     assert!(
-        rules::problems(&graph).is_empty() || !rules::problems(&graph).iter().any(|p| p.text.contains("início"))
+        rules::problems(&graph).is_empty()
+            || !rules::problems(&graph).iter().any(|p| p.text.contains("início"))
     );
 }
 
@@ -138,7 +139,9 @@ fn a_plan_from_the_model_becomes_a_process_and_anything_else_does_not() {
 "ligacoes":[{"de":"e1","para":"e2"},{"de":"e2","para":"e3"},{"de":"e3","para":"e4","rotulo":"Sim"},{"de":"e3","para":"e5","rotulo":"Não"},
 {"de":"e5","para":"e4"},{"de":"e4","para":"e6"},{"de":"e6","para":"e1"},{"de":"e2","para":"zz"}]}
 Espero ter ajudado."#;
-    let graph = assistant::plan(answer).expect("a plan");
+    let drafted = assistant::plan(answer).expect("a plan");
+    assert!(drafted.mended.iter().any(|m| m.contains("zz")), "{:?}", drafted.mended);
+    let graph = drafted.graph;
     assert_eq!(graph.nodes.len(), 7);
     assert_eq!(graph.find_node("e3").map(|n| n.kind.as_str()), Some("exclusiveGateway"));
     assert_eq!(graph.find_node("e7").map(|n| n.kind.as_str()), Some("task"), "an unknown type is a task");
@@ -155,6 +158,17 @@ Espero ter ajudado."#;
     );
     assert!(assistant::plan("Não sei fazer isso.").is_err());
     assert!(assistant::plan("{\"etapas\":[]}").is_err());
+    // What a small model really wrote: a step without its type, a list closed twice.
+    let broken = r#"{"etapas":[{"id":"e1","tipo":"inicio","nome":"Pedido"},{"id":"e2","tipo":"tarefa","nome":"Pagar"},{"id":"fim":"Processo termina"}],"ligacoes":[{"de":"e1","para":"e2"},{"de":"e2","para":"fim"}]}]"#;
+    let mended = assistant::plan(broken).expect("mended");
+    assert_eq!(mended.graph.find_node("fim").map(|n| n.kind.as_str()), Some("endEvent"));
+    assert_eq!(mended.graph.find_node("fim").map(|n| n.title.as_str()), Some("Processo termina"));
+    assert_eq!(mended.graph.edges.len(), 2);
+    assert!(mended.mended.iter().any(|m| m.contains("sem tipo")), "{:?}", mended.mended);
+    // Without a start or an end, they are added and said.
+    let open = r#"{"etapas":[{"id":"a","tipo":"tarefa","nome":"Fazer"}],"ligacoes":[]}"#;
+    let added = assistant::plan(open).expect("added");
+    assert!(added.mended.len() == 2 && rules::problems(&added.graph).is_empty(), "{:?}", added.mended);
     assert!(
         assistant::summary(&graph)
             .contains("Tem estoque? (Decisão) -> Emitir nota (Tarefa de serviço) [Sim]")

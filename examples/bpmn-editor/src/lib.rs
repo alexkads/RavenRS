@@ -74,10 +74,16 @@ impl View for Editor {
                         Ok(drafted) => {
                             let before = g.get();
                             h.update(|history| history.record(before));
-                            let steps = drafted.nodes.len();
-                            g.set(drafted);
+                            let steps = drafted.graph.nodes.len();
+                            g.set(drafted.graph);
                             v.set(FlowViewport::fit());
-                            format!("Processo montado com {steps} elementos. Cmd/Ctrl+Z volta ao anterior.")
+                            let mut words = format!(
+                                "Processo montado com {steps} elementos. Cmd/Ctrl+Z volta ao anterior."
+                            );
+                            for note in drafted.mended {
+                                words.push_str(&format!("\n• {note}"));
+                            }
+                            words
                         }
                         Err(why) => format!("Não consegui montar um processo com essa resposta: {why}"),
                     };

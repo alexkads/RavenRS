@@ -844,8 +844,6 @@ dependencies = [
 name = "bpmn-editor"
 version = "27.1.28"
 dependencies = [
- "image",
- "pollster",
  "ravenrs",
  "ravenrs-ai",
  "ravenrs-flow-bpmn",
