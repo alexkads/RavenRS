@@ -715,3 +715,71 @@ fn the_export_menu_hands_over_what_the_grid_shows() {
         GridTableKind::Number { decimals: 2, prefix: "R$ ".into(), suffix: String::new() }
     );
 }
+
+#[test]
+fn a_tree_item_opens_its_menu_with_a_right_click_or_shift_f10() {
+    let selected = State::new(None::<String>);
+    let chosen = Rc::new(RefCell::new(Vec::<String>::new()));
+    let log = chosen.clone();
+    let mut ui = ui(TreeView::new(sample_tree()).selected(selected.binding()).context_menu(move |key| {
+        if key == "stock" {
+            return Vec::new();
+        }
+        let (log, key) = (log.clone(), key.to_owned());
+        vec![MenuItem::new("Rename…").on_select(move || log.borrow_mut().push(format!("rename {key}")))]
+    }));
+    let sales = named(&mut ui, Role::TreeItem, "Sales").expect("sales").bounds.center();
+    ui.handle_event(&Event::PointerMove { position: sales });
+    ui.handle_event(&Event::PointerDown { position: sales, button: PointerButton::Secondary });
+    ui.update();
+    assert_eq!(selected.get().as_deref(), Some("sales"), "a right click selects the item");
+    press(&mut ui, Role::MenuItem, "Rename…");
+    assert_eq!(chosen.borrow().as_slice(), ["rename sales"]);
+    assert!(named(&mut ui, Role::MenuItem, "Rename…").is_none(), "the menu closed");
+    // The keyboard opens it too, under the active item.
+    focus(&mut ui, Role::Tree);
+    key(&mut ui, Key::Home);
+    key_with(&mut ui, Key::Function(10), Modifiers { shift: true, ..Modifiers::default() });
+    assert!(named(&mut ui, Role::MenuItem, "Rename…").is_some());
+    key(&mut ui, Key::Escape);
+    assert!(named(&mut ui, Role::MenuItem, "Rename…").is_none());
+    // An item with no actions opens nothing.
+    key(&mut ui, Key::End);
+    key_with(&mut ui, Key::Function(10), Modifiers { shift: true, ..Modifiers::default() });
+    assert!(nodes(&mut ui, Role::MenuItem).is_empty());
+}
+
+/// Holds the window while `dirty`, and closes it from a button once asked.
+struct Guarded {
+    dirty: State<bool>,
+    asked: State<bool>,
+}
+
+impl View for Guarded {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        if self.dirty.get() {
+            let asked = self.asked.clone();
+            cx.on_close_request(move || {
+                asked.set(true);
+                false
+            });
+        }
+        let closer = cx.window_closer();
+        cx.child(&Button::new("Close anyway").on_click(move || closer.close()))
+    }
+}
+
+#[test]
+fn a_view_holds_the_window_until_its_question_is_answered() {
+    let (dirty, asked) = (State::new(false), State::new(false));
+    let mut ui = ui(Guarded { dirty: dirty.clone(), asked: asked.clone() });
+    assert!(ui.may_close(), "nothing holds it");
+    dirty.set(true);
+    ui.update();
+    assert!(!ui.may_close(), "the view holds it");
+    assert!(asked.get(), "and was asked, to raise its question");
+    assert!(!ui.take_close());
+    press(&mut ui, Role::Button, "Close anyway");
+    assert!(ui.take_close(), "the answer closes it");
+    assert!(!ui.take_close(), "once");
+}

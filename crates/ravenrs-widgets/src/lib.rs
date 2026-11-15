@@ -140,7 +140,10 @@ pub use choice::{
 };
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
 #[cfg(feature = "code")]
-pub use code_editor::{CodeDiagnostic, CodeEditor, CodeLanguage, highlight_rust, line_and_column, offset_of};
+pub use code_editor::{
+    CodeCompletion, CodeDiagnostic, CodeEditor, CodeLanguage, find_all, highlight_rust, line_and_column,
+    offset_of,
+};
 pub use color_picker::ColorPicker;
 pub use commands::{ConfirmDialog, FloatingToolbar, SplitButton, Toolbar, ToolbarAction};
 pub use context::{
@@ -244,7 +247,7 @@ pub use recurrence::{
     Frequency, RecurrenceEnd, RecurrenceRule, RecurrenceSet, exceptions_text, parse_exceptions,
 };
 pub use release_notes::{CodeBlock, ReleaseNote, ReleaseNotes};
-pub use remote::UiWaker;
+pub use remote::{UiWaker, WindowCloser};
 pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};
 pub use rich_text::RichText;
 #[cfg(feature = "charts")]
@@ -268,7 +271,7 @@ pub use summary::Summary;
 pub use system_appearance::SystemAppearance;
 pub use tag_box::TagBox;
 pub use text::Text;
-pub use text_field::{Cursor, TextField};
+pub use text_field::{Cursor, TextField, TextHistory};
 pub use theme::{ThemeEditor, ThemePicker};
 pub use tiles::{CardView, Tile, TileLayout, TileSpot};
 pub use time_link::TimeLink;

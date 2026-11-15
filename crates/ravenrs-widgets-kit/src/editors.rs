@@ -12,7 +12,9 @@ use ravenrs_style::{Semantic, TextStyle};
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::date::Date;
 use crate::overlay::Options;
-use crate::text_field::{ClipboardAccess, Cursor, TextField, byte_index, edit, index_at, insert, word_at};
+use crate::text_field::{
+    ClipboardAccess, Cursor, TextField, TextHistory, byte_index, edit, index_at, insert, word_at,
+};
 use crate::{ButtonSize, DatePicker, IconButton, IconName, VStack, View, util};
 
 // ---------------------------------------------------------------- TextArea
@@ -100,6 +102,22 @@ fn line_of(lines: &[(usize, usize)], caret: usize) -> usize {
     lines.iter().rposition(|(start, _)| *start <= caret).unwrap_or(0)
 }
 
+/// Something a code area can put at the caret: what the list shows, a muted detail beside
+/// it (a type, say), and the text that goes in.
+#[doc(hidden)]
+pub type Suggestion = (String, Option<String>, String);
+
+/// Something asked at a char index of the text: suggestions there, a tip about what is there,
+/// or where it is defined.
+#[doc(hidden)]
+pub type AtIndex = Rc<dyn Fn(usize)>;
+
+/// How many suggestions the list shows at once.
+const SHOWN_SUGGESTIONS: usize = 12;
+
+/// How long the pointer rests on code before a tip is asked for, in seconds.
+const HOVER_DELAY: f64 = 0.5;
+
 /// Colored stretches of a text, as `(from, to, color)` in char indices, sorted and apart.
 #[doc(hidden)]
 pub type Highlighter = Rc<dyn Fn(&str) -> Vec<(usize, usize, Semantic)>>;
@@ -128,6 +146,172 @@ pub struct CodeLook {
     pub fill: bool,
     #[doc(hidden)]
     pub background: Semantic,
+    /// Stretches found by a search, as char indices, shown under the text.
+    #[doc(hidden)]
+    pub found: Rc<Vec<(usize, usize)>>,
+    /// Scrolls to the caret when it moves even without the focus, as while a find bar has it.
+    #[doc(hidden)]
+    pub follow_caret: bool,
+    /// Keeps the end in sight as the text grows, while it was in sight: a log, a terminal.
+    #[doc(hidden)]
+    pub follow_end: bool,
+    /// Asked for suggestions at the caret: Ctrl+Space, or `.` and `::` typed.
+    #[doc(hidden)]
+    pub on_complete: Option<AtIndex>,
+    /// What the list under the caret offers, narrowed by the word being typed.
+    #[doc(hidden)]
+    pub suggestions: Rc<Vec<Suggestion>>,
+    /// Asked for a tip about what is under the pointer once it rests there.
+    #[doc(hidden)]
+    pub on_hover: Option<AtIndex>,
+    /// The tip shown by the pointer, once asked.
+    #[doc(hidden)]
+    pub hover: Option<String>,
+    /// Asked to go where what is at the caret (F12) or under a Cmd/Ctrl click is defined.
+    #[doc(hidden)]
+    pub on_go_to: Option<AtIndex>,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl CodeLook {
+    /// A look with nothing but `background`: no colors, numbers, marks or help.
+    #[doc(hidden)]
+    pub fn plain(background: Semantic) -> Self {
+        Self {
+            highlight: None,
+            line_numbers: false,
+            marks: Rc::new(Vec::new()),
+            indent: 0,
+            fill: false,
+            background,
+            found: Rc::new(Vec::new()),
+            follow_caret: false,
+            follow_end: false,
+            on_complete: None,
+            suggestions: Rc::new(Vec::new()),
+            on_hover: None,
+            hover: None,
+            on_go_to: None,
+        }
+    }
+}
+
+/// The list of suggestions under the caret of a code area.
+struct SuggestionList {
+    items: Vec<Suggestion>,
+    chosen: usize,
+    pick: Rc<dyn Fn(usize)>,
+}
+
+impl View for SuggestionList {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let mut attrs = util::attrs(&theme, TextStyle::Body, None);
+        attrs.family = Some("monospace".to_owned());
+        attrs.size -= 1.0;
+        let caption = util::attrs(&theme, TextStyle::Caption, None);
+        // Twelve at most, with the chosen one among them.
+        let first = self.chosen.saturating_sub(SHOWN_SUGGESTIONS - 1);
+        let rows: Vec<NodeId> = self
+            .items
+            .iter()
+            .enumerate()
+            .skip(first)
+            .take(SHOWN_SUGGESTIONS)
+            .map(|(i, (label, detail, _))| {
+                let name = cx.text(label, &attrs, theme.color(Semantic::Ink), LayoutStyle::leaf());
+                let mut parts = vec![name];
+                if let Some(detail) = detail {
+                    let muted = theme.color(Semantic::InkMuted);
+                    let style = LayoutStyle { grow: 1.0, min_width: Some(0.0), ..LayoutStyle::leaf() };
+                    parts.push(cx.text_truncated(detail, &caption, muted, style));
+                }
+                let fill = if i == self.chosen {
+                    theme.color(Semantic::Accent).with_alpha(0.22)
+                } else {
+                    ravenrs_core::Color::TRANSPARENT
+                };
+                let row = cx.container(
+                    LayoutStyle {
+                        padding: Insets::symmetric(3.0, 8.0),
+                        spacing: 12.0,
+                        align: Align::Center,
+                        align_self: Some(Align::Stretch),
+                        ..LayoutStyle::stack(Axis::Horizontal)
+                    },
+                    &parts,
+                    Paint::Quad(QuadPaint { corner_radius: theme.radii.sm, ..QuadPaint::new(fill) }),
+                );
+                let pick = self.pick.clone();
+                cx.on_click(row, Rc::new(move || pick(i)));
+                cx.cursor(row, CursorIcon::Pointer);
+                cx.semantics(
+                    row,
+                    Semantics::new(Role::ListBoxOption).name(label.clone()).selected(i == self.chosen),
+                );
+                row
+            })
+            .collect();
+        let list = cx.container(
+            LayoutStyle {
+                padding: Insets::uniform(4.0),
+                width: Some(360.0),
+                overflow_hidden: true,
+                align: Align::Stretch,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &rows,
+            Paint::Quad(QuadPaint {
+                corner_radius: theme.radii.md,
+                border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
+                ..QuadPaint::new(theme.color(Semantic::Surface))
+            }),
+        );
+        cx.semantics(list, Semantics::new(Role::ListBox).name(cx.labels().code_suggestions.clone()));
+        list
+    }
+}
+
+/// The tip a code area shows by the pointer.
+struct HoverTip(String);
+
+impl View for HoverTip {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let mut attrs = util::attrs(&theme, TextStyle::Caption, None);
+        attrs.family = Some("monospace".to_owned());
+        let lines: Vec<NodeId> = self
+            .0
+            .lines()
+            .take(24)
+            .map(|line| cx.text(line, &attrs, theme.color(Semantic::Ink), LayoutStyle::leaf()))
+            .collect();
+        let tip = cx.container(
+            LayoutStyle {
+                padding: Insets::symmetric(6.0, 10.0),
+                max_width: Some(560.0),
+                overflow_hidden: true,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &lines,
+            Paint::Quad(QuadPaint {
+                corner_radius: theme.radii.md,
+                border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
+                ..QuadPaint::new(theme.color(Semantic::Surface))
+            }),
+        );
+        cx.semantics(tip, Semantics::new(Role::Tooltip).name(self.0.clone()));
+        tip
+    }
+}
+
+/// Where the word that ends at `caret` starts: what a suggestion replaces.
+fn word_before(chars: &[char], caret: usize) -> usize {
+    let mut at = caret.min(chars.len());
+    while at > 0 && (chars[at - 1].is_alphanumeric() || chars[at - 1] == '_') {
+        at -= 1;
+    }
+    at
 }
 
 /// A marked line as drawn: its top, color, and the span to underline in pixels.
@@ -160,6 +344,8 @@ pub struct TextArea {
     cursor: Option<State<Cursor>>,
     /// Turned on by whoever built the area to give it the keyboard focus; it turns back off.
     focus_request: Option<State<bool>>,
+    /// What can be undone, kept by whoever built the area; the area keeps its own otherwise.
+    history: Option<State<TextHistory>>,
     code: Option<CodeLook>,
 }
 
@@ -182,8 +368,17 @@ impl TextArea {
             state: util::EditorState::default(),
             cursor: None,
             focus_request: None,
+            history: None,
             code: None,
         }
+    }
+
+    /// Keeps what can be undone in `history`, for an editor whose app undoes from a button
+    /// or keeps the steps while the area comes and goes.
+    #[doc(hidden)]
+    pub fn history(mut self, history: State<TextHistory>) -> Self {
+        self.history = Some(history);
+        self
     }
 
     /// Takes the keyboard focus whenever `request` turns on, and turns it back off, for a
@@ -327,6 +522,15 @@ impl View for TextArea {
         let cursor = self.cursor.clone().unwrap_or(own);
         let own_request: State<bool> = cx.use_state(|| false);
         let focus_request = self.focus_request.clone().unwrap_or(own_request);
+        let own_history: State<TextHistory> = cx.use_state(TextHistory::new);
+        let history = self.history.clone().unwrap_or(own_history);
+        let suggesting: State<bool> = cx.use_state(|| false);
+        let chosen: State<usize> = cx.use_state(|| 0);
+        // Where the pointer is over the code, and where it came to rest and since when.
+        let pointer: State<Option<(usize, Point)>> = cx.use_state(|| None);
+        let resting: State<Option<(usize, f64)>> = cx.use_state(|| None);
+        // The length and height of the text last time, to keep its end in sight.
+        let end_seen: State<(usize, f32)> = cx.use_state(|| (0, 0.0));
         if focus_request.get() && !state.disabled {
             focus_request.set(false);
             cx.request_focus();
@@ -380,6 +584,19 @@ impl View for TextArea {
         // Keep the caret in view after it moves, and leave the wheel alone otherwise.
         let scrolled = cx.scroll_offset();
         let mut offset = scrolled.y;
+        if code.as_ref().is_some_and(|c| c.follow_end) {
+            let total = lines.len() as f32 * line_height;
+            let (seen_len, seen_total) = *end_seen.peek();
+            if seen_len != chars.len() {
+                let visible = viewport.map_or(height, |v| v.height) - AREA_PADDING;
+                // Only when the end was in sight: someone who scrolled up to read stays there.
+                if offset + visible >= seen_total - line_height * 1.5 {
+                    offset = (total - visible).max(0.0);
+                    cx.set_scroll_offset(Point::new(scrolled.x, offset));
+                }
+                end_seen.set_if_changed((chars.len(), total));
+            }
+        }
         // Code scrolls sideways too, since it does not wrap.
         let mut sideways = if code.is_some() { scrolled.x } else { 0.0 };
         // Everything fits again once text is deleted, and nothing is left to scroll.
@@ -387,7 +604,8 @@ impl View for TextArea {
             offset = 0.0;
             cx.set_scroll_offset(Point::new(sideways, 0.0));
         }
-        if focused && followed.get() != caret {
+        let follow = focused || code.as_ref().is_some_and(|c| c.follow_caret);
+        if follow && followed.get() != caret {
             followed.set_if_changed(caret);
             let top = caret_line as f32 * line_height;
             // While it grows, the last layout's height is already out of date.
@@ -513,10 +731,37 @@ impl View for TextArea {
                     .collect()
             })
             .unwrap_or_default();
+        // What a search found, on the visible lines, under the selection.
+        let in_view: &[(usize, usize)] = &lines;
+        let found_bands: Vec<(f32, f32, f32)> = code
+            .as_ref()
+            .map(|c| {
+                c.found
+                    .iter()
+                    .flat_map(|&(a, b)| {
+                        (first..last)
+                            .filter(move |&n| in_view[n].0 <= b && a <= in_view[n].1 && a < b)
+                            .map(move |n| (n, a.max(in_view[n].0), b.min(in_view[n].1)))
+                    })
+                    .map(|(n, from, to)| {
+                        (n as f32 * line_height, x_at(from, n), x_at(to, n).max(x_at(from, n) + 4.0))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let found_color = theme.color(Semantic::Warning).with_alpha(0.28);
         let caret_spot = (focused && cur.selection().is_none() && state.accepts_input())
             .then(|| (x_at(caret, caret_line), caret_line as f32 * line_height));
         let accent = theme.color(Semantic::Accent);
-        let highlight = accent.with_alpha(if focused { 0.32 } else { 0.16 });
+        // A search's current match is the selection: stronger than the other matches under it.
+        let searching = code.as_ref().is_some_and(|c| c.follow_caret);
+        let highlight = accent.with_alpha(if searching {
+            0.45
+        } else if focused {
+            0.32
+        } else {
+            0.16
+        });
         // Marked lines: a band across the line, and a wavy-free underline under the columns.
         let marks: Vec<DrawnMark> = code
             .as_ref()
@@ -541,6 +786,35 @@ impl View for TextArea {
             let columns = lines.iter().map(|&(a, b)| b - a).max().unwrap_or(0);
             columns as f32 * advance + 2.0
         });
+        // The suggestions that fit the word being typed, and a point under its start for them.
+        let prefix_start = word_before(&chars, caret);
+        let typed_word: String = chars[prefix_start..caret].iter().collect::<String>().to_lowercase();
+        let offered: Vec<Suggestion> = match &code {
+            Some(look) if focused && suggesting.get() => look
+                .suggestions
+                .iter()
+                .filter(|(label, _, _)| {
+                    typed_word.is_empty() || label.to_lowercase().starts_with(&typed_word)
+                })
+                .take(50)
+                .cloned()
+                .collect(),
+            _ => Vec::new(),
+        };
+        let list_anchor = (!offered.is_empty()).then(|| {
+            let spot = (x_at(prefix_start, caret_line), (caret_line + 1) as f32 * line_height);
+            cx.container(
+                LayoutStyle {
+                    absolute: Some(spot),
+                    width: Some(1.0),
+                    height: Some(1.0),
+                    ..LayoutStyle::leaf()
+                },
+                &[],
+                Paint::None,
+            )
+        });
+        rows.extend(list_anchor);
         let content = cx.container(
             LayoutStyle {
                 align: Align::Start,
@@ -563,6 +837,10 @@ impl View for TextArea {
                         scene.push_quad(Quad::new(line, *color).radius(1.0));
                     }
                 }
+                for (y, a, b) in &found_bands {
+                    let band = Rect::new(f.x() + a, f.y() + y + 2.0, b - a, line_height - 4.0);
+                    scene.push_quad(Quad::new(band, found_color).radius(2.0));
+                }
                 for (y, a, b) in &selected {
                     let band = Rect::new(f.x() + a, f.y() + y + 2.0, b - a, line_height - 4.0);
                     scene.push_quad(Quad::new(band, highlight).radius(2.0));
@@ -574,6 +852,39 @@ impl View for TextArea {
             })),
         );
         cx.semantics(content, Semantics::hidden());
+
+        // A tip about what the pointer rests on, asked once it has rested a moment.
+        let on_hover = code.as_ref().and_then(|c| c.on_hover.clone());
+        if !cx.is_hover_within() && pointer.peek().is_some() {
+            pointer.set(None);
+            resting.set(None);
+        }
+        let mut tip = None;
+        if let (Some(ask), Some((at, spot))) = (&on_hover, pointer.get()) {
+            let now = cx.now();
+            match resting.get() {
+                Some((rested, since)) if rested == at => {
+                    if now - since >= HOVER_DELAY {
+                        tip = code.as_ref().and_then(|c| c.hover.clone()).map(|text| (text, spot));
+                    } else {
+                        cx.wake_at(since + HOVER_DELAY);
+                    }
+                }
+                _ => {
+                    resting.set(Some((at, now)));
+                    cx.wake_at(now + HOVER_DELAY);
+                }
+            }
+            // Asked once per place: the build after the delay asks, the app answers later.
+            if resting.peek().is_some_and(|(rested, since)| rested == at && now - since >= HOVER_DELAY)
+                && tip.is_none()
+            {
+                ask(at);
+            }
+        }
+        if let Some((text, spot)) = tip {
+            cx.overlay(content, Placement::At(Point::new(spot.x, spot.y + 18.0)), &HoverTip(text), None);
+        }
 
         // Line numbers, built for the same lines in view, with spacers for the rest.
         let gutter_fill = state.fill(theme.color(code.as_ref().map_or(Semantic::Control, |c| c.background)));
@@ -710,6 +1021,37 @@ impl View for TextArea {
         }
 
         // Press places the caret, dragging selects, Shift-click extends.
+        let accept: Rc<dyn Fn(usize)> = {
+            let (value, cursor, history, suggesting) =
+                (self.value.clone(), cursor.clone(), history.clone(), suggesting.clone());
+            let offered = offered.clone();
+            Rc::new(move |i| {
+                let Some((_, _, put)) = offered.get(i) else { return };
+                let before = value.get();
+                let c = cursor.get();
+                let chars: Vec<char> = before.chars().collect();
+                let caret = c.caret.min(chars.len());
+                let start = word_before(&chars, caret);
+                let mut after = before.clone();
+                after.replace_range(byte_index(&before, start)..byte_index(&before, caret), put);
+                history.update(|h| h.record_change(&before, &after, c));
+                value.set(after);
+                cursor.set(Cursor::at(start + put.chars().count()));
+                suggesting.set(false);
+            })
+        };
+        if let Some(anchor) = list_anchor {
+            let close: Rc<dyn Fn()> = {
+                let suggesting = suggesting.clone();
+                Rc::new(move || suggesting.set(false))
+            };
+            let list = SuggestionList {
+                items: offered.clone(),
+                chosen: chosen.get().min(offered.len() - 1),
+                pick: accept.clone(),
+            };
+            cx.overlay(anchor, Placement::Below, &list, Some(close));
+        }
         let hit = {
             let (lines, boundaries) = (lines.clone(), boundaries.clone());
             move |p: Point, frame: Rect| -> usize {
@@ -720,11 +1062,30 @@ impl View for TextArea {
                 start + index_at(xs, p.x - frame.x())
             }
         };
-        let (drag_cursor, mods) = (cursor.clone(), cx.modifiers());
+        let go_to = code.as_ref().and_then(|c| c.on_go_to.clone());
+        if on_hover.is_some() {
+            let (pointer, hit, value) = (pointer.clone(), hit.clone(), self.value.clone());
+            cx.on_pointer_move(
+                content,
+                Rc::new(move |p, frame| {
+                    // Kept by the word under the pointer, so moving inside it asks nothing new.
+                    let word = word_at(&value.get(), hit(p, frame)).0;
+                    if pointer.peek().map(|(at, _)| at) != Some(word) {
+                        pointer.set(Some((word, p)));
+                    }
+                }),
+            );
+        }
+        let (drag_cursor, mods, click_go) = (cursor.clone(), cx.modifiers(), go_to.clone());
         cx.on_drag(
             content,
             Rc::new(move |d| {
                 let at = hit(d.position, d.frame);
+                let held = mods.get();
+                if let (DragPhase::Start, Some(go), true) = (d.phase, &click_go, held.meta || held.ctrl) {
+                    go(at);
+                    return;
+                }
                 match d.phase {
                     DragPhase::Start => drag_cursor.update(|c| {
                         if mods.get().shift {
@@ -751,19 +1112,94 @@ impl View for TextArea {
 
         let (value, clipboard) = (self.value.clone(), cx.clipboard());
         let indent = code.as_ref().map_or(0, |c| c.indent);
+        let complete = code.as_ref().and_then(|c| c.on_complete.clone());
+        let offered_count = offered.len();
         cx.on_key(
             node,
             Rc::new(move |key, modifiers| {
+                let caret_now = cursor.get().caret.min(value.get().chars().count());
+                if *key == Key::Function(12)
+                    && let Some(go) = &go_to
+                {
+                    go(caret_now);
+                    return true;
+                }
+                if *key == Key::Space
+                    && modifiers.ctrl
+                    && let Some(ask) = &complete
+                {
+                    ask(caret_now);
+                    suggesting.set(true);
+                    chosen.set(0);
+                    return true;
+                }
+                if offered_count > 0 {
+                    let at = chosen.get().min(offered_count - 1);
+                    let took = match key {
+                        Key::ArrowDown => {
+                            chosen.set((at + 1) % offered_count);
+                            true
+                        }
+                        Key::ArrowUp => {
+                            chosen.set((at + offered_count - 1) % offered_count);
+                            true
+                        }
+                        Key::Enter | Key::Tab => {
+                            accept(at);
+                            true
+                        }
+                        Key::Escape => {
+                            suggesting.set(false);
+                            true
+                        }
+                        _ => false,
+                    };
+                    if took {
+                        return true;
+                    }
+                }
                 let mut text = value.get();
                 let mut c = cursor.get();
                 let access = ClipboardAccess { clipboard: &clipboard, secure: false, multiline: true };
-                let handled = edit_area(&mut text, &mut c, &lines, key, modifiers, access, indent);
+                let handled = if state.accepts_input() {
+                    let mut handled = false;
+                    history.update(|steps| {
+                        handled = steps.apply(&mut text, &mut c, key, modifiers, |t, c| {
+                            edit_area(t, c, &lines, key, modifiers, access, indent)
+                        });
+                    });
+                    handled
+                } else {
+                    edit_area(&mut text, &mut c, &lines, key, modifiers, access, indent)
+                };
                 if handled {
                     let changed = text != value.get();
                     if changed && !state.accepts_input() {
                         return true;
                     }
                     cursor.set(c);
+                    // `.` and `::` ask for suggestions; a word keeps them open, anything else closes.
+                    if let Some(ask) = complete.as_ref().filter(|_| changed) {
+                        let before = c.caret.checked_sub(2).and_then(|i| text.chars().nth(i));
+                        match key {
+                            Key::Character(typed)
+                                if typed == "." || (typed == ":" && before == Some(':')) =>
+                            {
+                                ask(c.caret);
+                                suggesting.set(true);
+                                chosen.set(0);
+                            }
+                            Key::Character(typed)
+                                if typed.chars().all(|ch| ch.is_alphanumeric() || ch == '_') =>
+                            {
+                                chosen.set(0);
+                            }
+                            Key::Backspace => {}
+                            _ => suggesting.set(false),
+                        }
+                    } else if !changed && suggesting.get() {
+                        suggesting.set(false);
+                    }
                     if changed {
                         value.set(text);
                     }

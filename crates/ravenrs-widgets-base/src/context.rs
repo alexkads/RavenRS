@@ -736,6 +736,12 @@ pub struct BuildCx<'a> {
     scoped: HashMap<std::any::TypeId, Rc<dyn Any>>,
     #[doc(hidden)]
     pub shortcuts: Vec<Shortcut>,
+    /// What the views asked before the window closes; see [`Self::on_close_request`].
+    #[doc(hidden)]
+    pub close_guards: Vec<Rc<dyn Fn() -> bool>>,
+    /// Set by a [`WindowCloser`](crate::WindowCloser), read by the platform.
+    #[doc(hidden)]
+    pub closer: crate::WindowCloser,
     #[doc(hidden)]
     pub activity: Option<ActivityObserver>,
     #[doc(hidden)]
@@ -831,6 +837,8 @@ impl<'a> BuildCx<'a> {
             ui_waker,
             scoped: HashMap::new(),
             shortcuts: Vec::new(),
+            close_guards: Vec::new(),
+            closer: crate::WindowCloser::default(),
             activity: None,
             access_tree_asked: false,
             wake: None,
@@ -875,6 +883,21 @@ impl<'a> BuildCx<'a> {
     /// The theme in effect for this build.
     pub fn theme(&self) -> &Theme {
         &self.theme
+    }
+
+    /// Asks `may_close` before the window closes, as when its close button is pressed. When it
+    /// returns false the window stays, and the view asks its own question (unsaved changes,
+    /// say) and closes it afterwards with a [`window_closer`](Self::window_closer). Ask it on
+    /// every build that should hold the window; one that stops asking lets it close.
+    pub fn on_close_request(&mut self, may_close: impl Fn() -> bool + 'static) {
+        self.close_guards.push(Rc::new(may_close));
+    }
+
+    /// A handle that closes the window when called, without asking
+    /// [`on_close_request`](Self::on_close_request) again: what a view calls once its question
+    /// is answered.
+    pub fn window_closer(&self) -> crate::WindowCloser {
+        self.closer.clone()
     }
 
     /// A handle that asks for a rebuild from another thread; see [`UiWaker`](crate::UiWaker).

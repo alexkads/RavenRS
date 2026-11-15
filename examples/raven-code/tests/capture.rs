@@ -7,6 +7,7 @@ use std::path::PathBuf;
 
 use raven_code::RavenCode;
 use raven_code::project::{Project, write_sample};
+use ravenrs::core::{Event, Key, Modifiers};
 use ravenrs::prelude::*;
 use ravenrs::render::{GpuContext, Renderer, wgpu};
 
@@ -17,6 +18,7 @@ fn raven_code_as_a_picture() {
     let Some(dir) = std::env::var_os("RAVENRS_CAPTURE_DIR").map(PathBuf::from) else { return };
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
     let Ok(gpu) = pollster::block_on(GpuContext::new(&instance, None)) else { return };
+    std::fs::create_dir_all(&dir).unwrap();
     let root = std::env::temp_dir().join("raven-code-capture");
     let _ = std::fs::remove_dir_all(&root);
     write_sample(&root).unwrap();
@@ -34,12 +36,45 @@ fn raven_code_as_a_picture() {
         ],
         false,
     );
+    let finder = app.clone();
     let mut ui = Ui::new(app, Theme::raven_dark());
     let (w, h) = (1440_u32, 900_u32);
     ui.set_viewport(Size::new(w as f32, h as f32), 1.0);
     for _ in 0..6 {
         ui.update();
     }
+    draw(&gpu, &ui, (w, h), &dir.join("raven-code.png"));
+
+    // The same project searched: the Search panel lists the hits, and the find bar of the
+    // editor marks the matches in the file.
+    let ctrl = |key: Key, shift: bool| Event::KeyDown {
+        key,
+        modifiers: Modifiers { ctrl: true, shift, ..Modifiers::default() },
+    };
+    finder.search("hello");
+    ui.handle_event(&ctrl(Key::Character("f".into()), true));
+    finder.go_to_place("src/main.rs", 4, 20);
+    for _ in 0..4 {
+        ui.update();
+    }
+    ui.handle_event(&ctrl(Key::Character("f".into()), false));
+    ui.update();
+    for c in "greeting".chars() {
+        ui.handle_event(&Event::KeyDown {
+            key: Key::Character(c.to_string()),
+            modifiers: Modifiers::default(),
+        });
+        ui.update();
+    }
+    ui.handle_event(&Event::KeyDown { key: Key::Enter, modifiers: Modifiers::default() });
+    for _ in 0..6 {
+        ui.update();
+    }
+    draw(&gpu, &ui, (w, h), &dir.join("raven-code-search.png"));
+}
+
+/// Draws what `ui` shows to a PNG at `file`.
+fn draw(gpu: &GpuContext, ui: &Ui, (w, h): (u32, u32), file: &std::path::Path) {
     let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
         label: Some("capture"),
         size: wgpu::Extent3d { width: w, height: h, depth_or_array_layers: 1 },
@@ -83,6 +118,5 @@ fn raven_code_as_a_picture() {
         let start = (row * padded) as usize;
         pixels.extend_from_slice(&data[start..start + (w * 4) as usize]);
     }
-    std::fs::create_dir_all(&dir).unwrap();
-    image::RgbaImage::from_raw(w, h, pixels).unwrap().save(dir.join("raven-code.png")).unwrap();
+    image::RgbaImage::from_raw(w, h, pixels).unwrap().save(file).unwrap();
 }
