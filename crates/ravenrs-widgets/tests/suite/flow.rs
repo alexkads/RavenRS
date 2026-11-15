@@ -763,3 +763,115 @@ fn cmd_brackets_bring_a_node_to_the_front_or_send_it_back() {
     shortcut(&mut rig.ui, "z", false);
     assert_eq!(rig.graph.get().nodes.last().map(|n| n.id.as_str()), Some("d"), "both undo");
 }
+
+fn double_click(ui: &mut Ui, at: Point) {
+    click(ui, at);
+    ui.handle_event(&Event::DoubleClick { position: at });
+    settle(ui);
+}
+
+fn type_text(ui: &mut Ui, text: &str) {
+    for letter in text.chars() {
+        key(ui, Key::Character(letter.to_string()), Modifiers::default());
+    }
+}
+
+fn title_of(rig: &Rig, id: &str) -> String {
+    rig.graph.get().find_node(id).map(|n| n.title.clone()).unwrap_or_default()
+}
+
+fn field(ui: &mut Ui) -> Option<AccessNode> {
+    ui.access_tree().nodes.iter().find(|n| n.role == Role::TextInput).cloned()
+}
+
+#[test]
+fn a_double_click_types_the_title_in_place_and_enter_keeps_it() {
+    let mut rig = rig();
+    double_click(&mut rig.ui, Point::new(120.0, 70.0));
+    let open = field(&mut rig.ui).expect("the title field");
+    assert_eq!(open.value.as_deref(), Some("New sale"));
+    // All of it was selected: typing replaces it.
+    type_text(&mut rig.ui, "Charge");
+    key(&mut rig.ui, Key::Enter, Modifiers::default());
+    assert_eq!(title_of(&rig, "a"), "Charge");
+    assert!(field(&mut rig.ui).is_none(), "closed");
+    assert!(named(&mut rig.ui, "Charge").is_some(), "read with its new name");
+    let tree = rig.ui.access_tree();
+    let focused = tree.focus.and_then(|id| tree.get(id)).and_then(|n| n.name.clone());
+    assert_eq!(focused.as_deref(), Some("Charge"), "the focus is back on the node");
+    shortcut(&mut rig.ui, "z", false);
+    assert_eq!(title_of(&rig, "a"), "New sale", "one change");
+}
+
+#[test]
+fn f2_opens_the_title_and_escape_or_an_empty_title_changes_nothing() {
+    let (mut rig, history, _) = guarded(|_| false);
+    click(&mut rig.ui, Point::new(120.0, 70.0));
+    key(&mut rig.ui, Key::Function(2), Modifiers::default());
+    type_text(&mut rig.ui, "Gone");
+    key(&mut rig.ui, Key::Escape, Modifiers::default());
+    assert_eq!(title_of(&rig, "a"), "New sale");
+    // Enter on a node already selected opens it too.
+    key(&mut rig.ui, Key::Enter, Modifiers::default());
+    assert!(field(&mut rig.ui).is_some());
+    key(&mut rig.ui, Key::Backspace, Modifiers::default());
+    key(&mut rig.ui, Key::Enter, Modifiers::default());
+    assert_eq!(title_of(&rig, "a"), "New sale", "an empty title is not kept");
+    assert!(!history.get().can_undo());
+}
+
+#[test]
+fn the_app_can_refuse_a_title() {
+    let (mut rig, _, asked) = guarded(|c| matches!(c, FlowChange::Rename { .. }));
+    double_click(&mut rig.ui, Point::new(120.0, 70.0));
+    type_text(&mut rig.ui, "Cancel");
+    key(&mut rig.ui, Key::Enter, Modifiers::default());
+    assert_eq!(title_of(&rig, "a"), "New sale");
+    assert_eq!(asked.get().last(), Some(&FlowChange::Rename { node: "a".into() }));
+    assert!(named(&mut rig.ui, "Published steps stay").is_some());
+    assert!(field(&mut rig.ui).is_none(), "the field closes anyway");
+}
+
+#[test]
+fn titles_stay_shut_when_turned_off_or_locked() {
+    let mut off = rig_with(graph(), |c| c.editable_titles(false));
+    double_click(&mut off.ui, Point::new(120.0, 70.0));
+    key(&mut off.ui, Key::Function(2), Modifiers::default());
+    assert!(field(&mut off.ui).is_none());
+    let mut locked = rig_with(graph(), |c| c.locked(true));
+    double_click(&mut locked.ui, Point::new(120.0, 70.0));
+    assert!(field(&mut locked.ui).is_none());
+}
+
+#[test]
+fn a_title_opened_too_small_to_read_comes_to_full_size_and_back() {
+    let mut rig = rig();
+    rig.view.set(FlowViewport::at(Point::new(0.0, 0.0), 0.3));
+    settle(&mut rig.ui);
+    // At 30% the node `a` covers (14, 14) to (74, 40).
+    click(&mut rig.ui, Point::new(40.0, 25.0));
+    key(&mut rig.ui, Key::Function(2), Modifiers::default());
+    assert_eq!(rig.view.get().zoom, 1.0);
+    let middle = rig.view.get().to_screen(Point::new(148.0, 90.0));
+    assert_eq!(middle, Point::new(450.0, 300.0), "the node in the middle of the view");
+    type_text(&mut rig.ui, "Charge");
+    key(&mut rig.ui, Key::Enter, Modifiers::default());
+    assert_eq!(rig.view.get(), FlowViewport::at(Point::new(0.0, 0.0), 0.3));
+    assert_eq!(title_of(&rig, "a"), "Charge");
+}
+
+#[test]
+fn the_ends_of_a_line_draw_the_caps_asked_for() {
+    let line = |start: EdgeCap, end: EdgeCap| {
+        let edge = FlowEdge::new("e1", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in"))
+            .shape(EdgeShape::Straight)
+            .start(start)
+            .end(end);
+        let rig = rig_with(graph().edge(edge), |c| c);
+        outlines(&rig.ui).len()
+    };
+    let bare = line(EdgeCap::None, EdgeCap::None);
+    assert_eq!(line(EdgeCap::None, EdgeCap::Arrow), bare + 1, "the arrow, as before");
+    assert_eq!(line(EdgeCap::Circle, EdgeCap::Diamond), bare + 2, "one cap at each end");
+    assert_eq!(line(EdgeCap::None, EdgeCap::OpenArrow), bare + 1);
+}

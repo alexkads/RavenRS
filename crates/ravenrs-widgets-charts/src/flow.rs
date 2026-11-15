@@ -20,12 +20,12 @@ use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 use ravenrs_text::TextAttrs;
 
 pub use ravenrs_graphics::flow::{
-    EdgeShape, FlowDirection, FlowEdge, FlowEndpoint, FlowGraph, FlowHistory, FlowJsonError, FlowLayout,
-    FlowNode, FlowNodeStatus, FlowPort, PortDirection, PortSide,
+    EdgeCap, EdgeShape, FlowDirection, FlowEdge, FlowEndpoint, FlowGraph, FlowHistory, FlowJsonError,
+    FlowLayout, FlowNode, FlowNodeStatus, FlowPort, PortDirection, PortSide,
 };
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
-use crate::{ButtonSize, ButtonStyle, Clipboard, IconButton, IconName, View, util};
+use crate::{ButtonSize, ButtonStyle, Clipboard, IconButton, IconName, TextField, View, util};
 
 /// The least and the most zoom by default.
 const ZOOM_RANGE: (f32, f32) = (0.25, 2.0);
@@ -46,6 +46,8 @@ const TEXT_ZOOM: f32 = 0.4;
 const DASH_SPEED: f32 = 24.0;
 /// The map in the corner, in screen pixels.
 const MAP_SIZE: Size = Size::new(200.0, 132.0);
+/// How long the cap at an end of a line is, in screen pixels.
+const CAP: f32 = 8.0;
 /// The square in a selected node's corner that resizes it, in screen pixels.
 const HANDLE: f32 = 14.0;
 /// The least a node can be resized to, in units of the diagram.
@@ -246,6 +248,11 @@ pub enum FlowChange {
         /// The nodes that moved in the order.
         nodes: Vec<String>,
     },
+    /// A node got another title, typed on it.
+    Rename {
+        /// The node.
+        node: String,
+    },
 }
 
 /// Decides whether a change may happen, given the diagram before and after it. When it may
@@ -269,6 +276,8 @@ pub type FlowGuard = Rc<dyn Fn(&FlowGraph, &FlowGraph, &FlowChange) -> Result<()
 /// * Cmd/Ctrl+G puts the selected nodes in a group, which moves, copies and goes with what it
 ///   holds; Shift+Cmd/Ctrl+G takes the selected groups apart. Dropping a node inside a group
 ///   puts it there, and dropping it outside takes it out.
+/// * Double-click a node, or press F2 (or Enter on a selected node), to type its title in
+///   place: Enter keeps it, Escape gives it up.
 /// * Cmd/Ctrl+Z undoes, Shift+Cmd/Ctrl+Z (or Cmd/Ctrl+Y) redoes. Cmd/Ctrl+C copies the selected
 ///   nodes with the connections between them, as JSON, Cmd/Ctrl+X cuts them and Cmd/Ctrl+V
 ///   pastes them back with new ids, a little further along each time.
@@ -303,6 +312,7 @@ pub struct FlowCanvas {
     guard: Option<FlowGuard>,
     layout: FlowLayout,
     resizable: bool,
+    editable_titles: bool,
     grid: f32,
     snap: bool,
     controls: bool,
@@ -336,6 +346,7 @@ impl FlowCanvas {
             guard: None,
             layout: FlowLayout::default(),
             resizable: true,
+            editable_titles: true,
             grid: 24.0,
             snap: true,
             controls: true,
@@ -419,6 +430,13 @@ impl FlowCanvas {
     /// by default).
     pub fn resizable(mut self, resizable: bool) -> Self {
         self.resizable = resizable;
+        self
+    }
+
+    /// Whether a node's title can be typed in place, by a double click, F2 or Enter (on by
+    /// default).
+    pub fn editable_titles(mut self, editable: bool) -> Self {
+        self.editable_titles = editable;
         self
     }
 
@@ -527,6 +545,10 @@ struct Memory {
     /// Nodes went, perhaps the one with the focus, or the diagram was arranged from its button:
     /// the canvas takes the focus on the next build, so the keys (undo, say) still reach it.
     refocus: Cell<bool>,
+    /// The view before a title was opened from a zoom too small to read it, put back after.
+    view_before: Cell<Option<FlowViewport>>,
+    /// The node that takes the focus on the next build, once its title closes.
+    focus_node: RefCell<Option<String>>,
 }
 
 /// How the parts of a canvas reach the same diagram.
@@ -547,6 +569,10 @@ struct Flow {
     notice: State<Option<String>>,
     layout: FlowLayout,
     resizable: bool,
+    editable_titles: bool,
+    /// The node whose title is being typed, and what has been typed.
+    editing: State<Option<String>>,
+    draft: State<String>,
     grid: f32,
     snap: bool,
     range: (f32, f32),
@@ -644,6 +670,48 @@ impl Flow {
     /// Lets go of the reason of the last refusal, as a new gesture starts.
     fn forget_notice(&self) {
         self.notice.set_if_changed(None);
+    }
+
+    /// Opens the title of `id` for typing, with all of it selected. Below the zoom at which
+    /// nodes show words, the view first goes to 100% around the node, and comes back after.
+    fn begin_rename(&self, id: &str) -> bool {
+        if self.locked.get() || !self.editable_titles {
+            return false;
+        }
+        let Some(node) = self.graph.get().find_node(id).cloned() else { return false };
+        let view = self.view.get();
+        if view.zoom < TEXT_ZOOM {
+            self.memory.view_before.set(Some(view));
+            let size = self.memory.frame.get().size;
+            let middle = node.rect().center();
+            self.set_view(FlowViewport::at(
+                Point::new(size.width / 2.0 - middle.x, size.height / 2.0 - middle.y),
+                1.0,
+            ));
+        }
+        self.select(FlowSelection::node(id));
+        self.draft.set(node.title);
+        self.editing.set(Some(id.to_owned()));
+        true
+    }
+
+    /// Closes the title being typed, keeping what was typed when `keep` and the app lets it.
+    /// An empty or unchanged title changes nothing. The node gets the focus back.
+    fn end_rename(&self, keep: bool) {
+        let Some(id) = self.editing.get() else { return };
+        self.editing.set(None);
+        if let Some(view) = self.memory.view_before.take() {
+            self.set_view(view);
+        }
+        *self.memory.focus_node.borrow_mut() = Some(id.clone());
+        let title = self.draft.get().trim().to_owned();
+        let mut graph = self.graph.get();
+        let Some(node) = graph.find_node_mut(&id) else { return };
+        if !keep || title.is_empty() || node.title == title {
+            return;
+        }
+        node.title = title;
+        self.commit(graph, FlowChange::Rename { node: id });
     }
 
     /// Brings the selected nodes in front of the others, or sends them behind.
@@ -948,6 +1016,11 @@ impl Flow {
                 Key::ArrowDown => return self.resize_by(0.0, step),
                 _ => {}
             }
+        }
+        if *key == Key::Function(2)
+            && let [only] = self.selection.get().nodes.as_slice()
+        {
+            return self.begin_rename(only);
         }
         match key {
             Key::Character(c) => match c.as_str() {
@@ -1459,9 +1532,22 @@ impl Surface {
         let moving = self.connecting.as_ref().and_then(|c| c.moving.as_deref());
         for edge in self.graph.edges.iter().filter(|e| Some(e.id.as_str()) != moving) {
             let Some(points) = screen_points(&self.graph, edge, &self.view) else { continue };
-            // The line stops at the edge of the port's dot, so its arrow shows.
+            // The line reaches the edge of each port's dot (the start only when it has a cap), so
+            // its caps show; then it stops inside each cap.
             let dot = PORT_DOT * self.view.zoom.clamp(0.75, 1.25) / 2.0 + 1.0;
-            let points: Vec<Point> = geometry::trim_end(&points, dot).into_iter().map(at).collect();
+            let mut reach: Vec<Point> = geometry::trim_end(&points, dot).into_iter().map(at).collect();
+            if edge.start != EdgeCap::None {
+                reach = geometry::trim_start(&reach, dot);
+            }
+            let caps = [
+                (edge.end, reach.last().copied(), geometry::end_direction(&reach)),
+                (edge.start, reach.first().copied(), {
+                    let back: Vec<Point> = reach.iter().rev().copied().collect();
+                    geometry::end_direction(&back)
+                }),
+            ];
+            let points =
+                geometry::trim_start(&geometry::trim_end(&reach, edge.end.inset(CAP)), edge.start.inset(CAP));
             let on = touching(edge);
             let (color, width) = if on { (p.accent, 2.0) } else { (p.muted, 1.5) };
             if edge.animated {
@@ -1472,8 +1558,14 @@ impl Surface {
             } else {
                 stroke(scene, &points, width, color);
             }
-            if let (Some(&tip), Some(direction)) = (points.last(), geometry::end_direction(&points)) {
-                fill(scene, geometry::arrow_head(tip, direction, 8.0), color);
+            for (cap, tip, direction) in caps {
+                let (Some(tip), Some(direction)) = (tip, direction) else { continue };
+                let outline = geometry::cap_outline(cap, tip, direction, CAP);
+                if cap.filled() {
+                    fill(scene, outline, color);
+                } else if !outline.is_empty() {
+                    stroke(scene, &geometry::flatten(&outline), width, color);
+                }
             }
         }
         if let Some(connecting) = &self.connecting
@@ -1522,6 +1614,8 @@ impl View for FlowCanvas {
         let connecting = cx.use_state(|| None::<Connecting>);
         let marquee = cx.use_state(|| None::<Rect>);
         let notice = cx.use_state(|| None::<String>);
+        let editing = cx.use_state(|| None::<String>);
+        let draft = cx.use_state(String::new);
         let memory = cx.use_state(|| Rc::new(Memory::default())).get();
         if memory.refocus.take() {
             cx.request_focus();
@@ -1541,6 +1635,9 @@ impl View for FlowCanvas {
             notice: notice.clone(),
             layout: self.layout,
             resizable: self.resizable,
+            editable_titles: self.editable_titles,
+            editing: editing.clone(),
+            draft: draft.clone(),
             grid: self.grid,
             snap: self.snap,
             range: self.range,
@@ -1561,6 +1658,7 @@ impl View for FlowCanvas {
         }
         let selection = flow.selection.get();
         let connecting_now = connecting.get();
+        let editing_now = editing.get();
         let is_locked = locked.get();
 
         let mut children = Vec::new();
@@ -1573,6 +1671,7 @@ impl View for FlowCanvas {
                 selected: selection.has_node(&node.id),
                 resizable: self.resizable && !is_locked && selection.has_node(&node.id),
                 members: graph.children(&node.id).count(),
+                editing: editing_now.as_deref() == Some(node.id.as_str()),
                 handles: graph
                     .edges
                     .iter()
@@ -1858,6 +1957,8 @@ struct NodeBox {
     resizable: bool,
     /// For a group, how many nodes it holds directly.
     members: usize,
+    /// Its title is being typed.
+    editing: bool,
     connecting: Option<Connecting>,
     connected: Vec<String>,
     flow: Flow,
@@ -1866,6 +1967,41 @@ struct NodeBox {
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl NodeBox {
+    /// The field over the title while it is typed: where the title is, never wider than the
+    /// node on screen, except that a node narrower than 120 pixels gets a 240-pixel field.
+    fn title_field(&self, cx: &mut BuildCx<'_>, theme: &Theme, w: f32, h: f32) -> NodeId {
+        let zoom = self.view.zoom;
+        let pad = theme.spacing.s3 * zoom;
+        let field_h = 30.0;
+        let (x, y, width) = if self.node.group {
+            (pad, (group_header(zoom) - field_h) / 2.0, w - pad * 2.0)
+        } else {
+            let x = pad + 36.0 * zoom + pad;
+            (x, (h - field_h) / 2.0, w - x - pad)
+        };
+        let width = if w < 120.0 { 240.0 } else { width.max(80.0) };
+        let flow = (self.flow.clone(), self.flow.clone(), self.flow.clone());
+        let field = TextField::new(self.flow.draft.binding())
+            .placeholder(cx.labels().flow_title.clone())
+            .compact()
+            .autofocus()
+            .select_on_open()
+            .on_submit(move |_| flow.0.end_rename(true))
+            .on_cancel(move || flow.1.end_rename(false))
+            .on_leave(move || flow.2.end_rename(true));
+        let field = cx.child(&field);
+        cx.container(
+            LayoutStyle {
+                absolute: Some((x, y)),
+                width: Some(width),
+                height: Some(field_h),
+                ..LayoutStyle::leaf()
+            },
+            &[field],
+            Paint::None,
+        )
+    }
+
     /// The node's description for screen readers: its kind, its line and how it is doing, and
     /// for a group, how many nodes it holds.
     fn description(&self, labels: &crate::Labels) -> String {
@@ -1928,6 +2064,9 @@ impl View for NodeBox {
             ports.push(cx.keyed_child(util::hash_text(&port.id), &dot));
         }
 
+        if self.editing {
+            ports.push(self.title_field(cx, &theme, w, h));
+        }
         if self.resizable {
             let corner =
                 Corner { size: Size::new(w, h), id: node.id.clone(), flow: self.flow.clone(), palette: p };
@@ -1983,6 +2122,18 @@ impl View for NodeBox {
             root,
             Rc::new(move |d| dragged.on_node_drag(&id, d.phase, d.position, modifiers.get().shift)),
         );
+        let (renamed, id) = (self.flow.clone(), node.id.clone());
+        cx.on_double_click(
+            root,
+            Rc::new(move || {
+                renamed.begin_rename(&id);
+            }),
+        );
+        let wanted = self.flow.memory.focus_node.borrow().as_deref() == Some(node.id.as_str());
+        if wanted {
+            self.flow.memory.focus_node.borrow_mut().take();
+            cx.request_focus();
+        }
         let moved = self.flow.memory.clone();
         cx.on_pointer_move(
             root,
@@ -2000,7 +2151,11 @@ impl View for NodeBox {
                 if arrow && !keyed.selection.get().has_node(&id) {
                     keyed.select(FlowSelection::node(id.clone()));
                 }
-                if *key == Key::Enter {
+                if *key == Key::Enter || *key == Key::Function(2) {
+                    let selected = keyed.selection.get() == FlowSelection::node(id.clone());
+                    if (selected || *key == Key::Function(2)) && keyed.begin_rename(&id) {
+                        return true;
+                    }
                     keyed.select(FlowSelection::node(id.clone()));
                     return true;
                 }

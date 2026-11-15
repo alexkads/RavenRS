@@ -580,6 +580,8 @@ pub struct Labels {
     pub flow_group: String,
     /// How many nodes a group of a `FlowCanvas` holds, with `{0}` the number.
     pub flow_members: String,
+    /// The field where a node's title of a `FlowCanvas` is typed.
+    pub flow_title: String,
     /// A port of a `FlowCanvas` where connections end, with `{0}` its node's title.
     pub flow_input: String,
     /// A port of a `FlowCanvas` where connections start, with `{0}` its node's title.
@@ -1192,6 +1194,7 @@ impl Labels {
             flow_arrange: texts.get("widgets.flow_arrange"),
             flow_group: texts.get("widgets.flow_group"),
             flow_members: texts.get("widgets.flow_members"),
+            flow_title: texts.get("widgets.flow_title"),
             flow_input: texts.get("widgets.flow_input"),
             flow_output: texts.get("widgets.flow_output"),
             flow_pick_port: texts.get("widgets.flow_pick_port"),

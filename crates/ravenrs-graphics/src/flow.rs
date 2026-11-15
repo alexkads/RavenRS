@@ -295,8 +295,57 @@ pub enum EdgeShape {
     Straight,
 }
 
+/// What an end of a connection's line looks like.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
+pub enum EdgeCap {
+    /// Nothing: the line just ends. How a line starts, unless told otherwise.
+    #[default]
+    None,
+    /// A filled triangle. How a line ends, unless told otherwise.
+    Arrow,
+    /// The outline of a triangle's two sides.
+    OpenArrow,
+    /// A filled diamond.
+    Diamond,
+    /// A filled dot.
+    Circle,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl EdgeCap {
+    /// How far back from its tip the line stops, so the line ends inside the cap, for a cap
+    /// `size` long.
+    pub fn inset(self, size: f32) -> f32 {
+        match self {
+            Self::None | Self::OpenArrow => 0.0,
+            Self::Arrow => size * 0.9,
+            Self::Diamond => size * 1.5,
+            Self::Circle => size,
+        }
+    }
+
+    /// Whether the outline of [`cap_outline`] is filled, or drawn as a line.
+    pub fn filled(self) -> bool {
+        !matches!(self, Self::None | Self::OpenArrow)
+    }
+}
+
+fn is_arrow(cap: &EdgeCap) -> bool {
+    *cap == EdgeCap::Arrow
+}
+
+fn is_none(cap: &EdgeCap) -> bool {
+    *cap == EdgeCap::None
+}
+
+fn arrow() -> EdgeCap {
+    EdgeCap::Arrow
+}
+
 /// A connection from an output to an input.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FlowEdge {
     /// Unique within its graph.
@@ -314,6 +363,12 @@ pub struct FlowEdge {
     /// Shows something travelling along it.
     #[serde(default)]
     pub animated: bool,
+    /// What its line looks like where it starts (nothing, by default).
+    #[serde(default, skip_serializing_if = "is_none")]
+    pub start: EdgeCap,
+    /// What its line looks like where it ends (an arrow, by default).
+    #[serde(default = "arrow", skip_serializing_if = "is_arrow")]
+    pub end: EdgeCap,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -339,6 +394,33 @@ impl FlowEdge {
     pub fn animated(mut self, animated: bool) -> Self {
         self.animated = animated;
         self
+    }
+
+    /// With this at the start of its line.
+    pub fn start(mut self, cap: EdgeCap) -> Self {
+        self.start = cap;
+        self
+    }
+
+    /// With this at the end of its line.
+    pub fn end(mut self, cap: EdgeCap) -> Self {
+        self.end = cap;
+        self
+    }
+}
+
+impl Default for FlowEdge {
+    fn default() -> Self {
+        Self {
+            id: String::new(),
+            from: FlowEndpoint::default(),
+            to: FlowEndpoint::default(),
+            shape: EdgeShape::default(),
+            label: None,
+            animated: false,
+            start: EdgeCap::None,
+            end: EdgeCap::Arrow,
+        }
     }
 }
 
@@ -1040,6 +1122,14 @@ pub fn trim_end(points: &[Point], by: f32) -> Vec<Point> {
     kept
 }
 
+/// The polyline without its first `by` units of length.
+pub fn trim_start(points: &[Point], by: f32) -> Vec<Point> {
+    let reversed: Vec<Point> = points.iter().rev().copied().collect();
+    let mut kept = trim_end(&reversed, by);
+    kept.reverse();
+    kept
+}
+
 /// The direction the polyline is going at its end, as a unit vector.
 pub fn end_direction(points: &[Point]) -> Option<Point> {
     let (&last, rest) = points.split_last()?;
@@ -1105,6 +1195,50 @@ pub fn arrow_head(tip: Point, direction: Point, size: f32) -> Vec<PathSegment> {
         PathSegment::Line(Point::new(back.x - side.x, back.y - side.y)),
         PathSegment::Close,
     ]
+}
+
+/// The outline of a cap `size` long with its tip at `tip`, pointing along `direction` (a unit
+/// vector): filled or drawn as a line as [`EdgeCap::filled`] says. Nothing for [`EdgeCap::None`].
+pub fn cap_outline(cap: EdgeCap, tip: Point, direction: Point, size: f32) -> Vec<PathSegment> {
+    let along = |by: f32| Point::new(tip.x - direction.x * by, tip.y - direction.y * by);
+    let across = |p: Point, by: f32| Point::new(p.x - direction.y * by, p.y + direction.x * by);
+    match cap {
+        EdgeCap::Arrow => arrow_head(tip, direction, size),
+        EdgeCap::OpenArrow => {
+            let back = along(size);
+            vec![
+                PathSegment::Move(across(back, size * 0.55)),
+                PathSegment::Line(tip),
+                PathSegment::Line(across(back, -size * 0.55)),
+            ]
+        }
+        EdgeCap::Diamond => {
+            let middle = along(size * 0.75);
+            vec![
+                PathSegment::Move(tip),
+                PathSegment::Line(across(middle, size * 0.5)),
+                PathSegment::Line(along(size * 1.5)),
+                PathSegment::Line(across(middle, -size * 0.5)),
+                PathSegment::Close,
+            ]
+        }
+        EdgeCap::Circle => {
+            // Four quarter circles as cubics, around a centre half the size back from the tip.
+            let r = size / 2.0;
+            let c = along(r);
+            let k = 0.552_284_8 * r;
+            let at = |dx: f32, dy: f32| Point::new(c.x + dx, c.y + dy);
+            vec![
+                PathSegment::Move(at(r, 0.0)),
+                PathSegment::Cubic(at(r, k), at(k, r), at(0.0, r)),
+                PathSegment::Cubic(at(-k, r), at(-r, k), at(-r, 0.0)),
+                PathSegment::Cubic(at(-r, -k), at(-k, -r), at(0.0, -r)),
+                PathSegment::Cubic(at(k, -r), at(r, -k), at(r, 0.0)),
+                PathSegment::Close,
+            ]
+        }
+        EdgeCap::None => Vec::new(),
+    }
 }
 
 /// `value` on the nearest line of a grid `step` apart (none when `step` is not positive).
@@ -1397,6 +1531,36 @@ mod tests {
             undone += 1;
         }
         assert_eq!(undone, FlowHistory::LIMIT);
+    }
+
+    #[test]
+    fn ends_of_a_line_default_to_none_and_an_arrow_and_stay_out_of_old_json() {
+        let edge = FlowEdge::new("e", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in"));
+        assert_eq!((edge.start, edge.end), (EdgeCap::None, EdgeCap::Arrow));
+        let json = graph().to_json();
+        assert!(!json.contains("\"start\"") && !json.contains("\"end\""), "nothing new in a saved diagram");
+        let old = r#"{"nodes":[],"edges":[]}"#;
+        assert_eq!(FlowGraph::from_json(old), Ok(FlowGraph::new()));
+        let capped = graph();
+        let mut capped = capped;
+        capped.edges[0] = capped.edges[0].clone().start(EdgeCap::Circle).end(EdgeCap::Diamond);
+        assert_eq!(FlowGraph::from_json(&capped.to_json()), Ok(capped));
+    }
+
+    #[test]
+    fn caps_sit_on_the_tip_and_the_line_stops_inside_them() {
+        let (tip, right) = (Point::new(100.0, 0.0), Point::new(1.0, 0.0));
+        let points = |cap| flatten(&cap_outline(cap, tip, right, 8.0));
+        for cap in [EdgeCap::Arrow, EdgeCap::OpenArrow, EdgeCap::Diamond, EdgeCap::Circle] {
+            let pts = points(cap);
+            let farthest = pts.iter().map(|p| p.x).fold(f32::NEG_INFINITY, f32::max);
+            assert!((farthest - 100.0).abs() < 0.01, "{cap:?} reaches the tip: {farthest}");
+            let back = pts.iter().map(|p| p.x).fold(f32::INFINITY, f32::min);
+            assert!(back <= 100.0 - cap.inset(8.0) + 0.01, "{cap:?} covers where the line stops");
+        }
+        assert_eq!(points(EdgeCap::Diamond).iter().map(|p| p.x).fold(f32::INFINITY, f32::min), 88.0);
+        assert!(cap_outline(EdgeCap::None, tip, right, 8.0).is_empty());
+        assert!(!EdgeCap::OpenArrow.filled() && EdgeCap::Circle.filled());
     }
 
     #[test]
