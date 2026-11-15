@@ -623,6 +623,12 @@ pub struct Labels {
     pub flow_title: String,
     /// A turned node of a `FlowCanvas`, with `{0}` its turn in degrees.
     pub flow_turned: String,
+    /// A run waits for one or more ways out of `{0}`.
+    pub flow_run_choose_many: String,
+    /// Follows the ways out ticked in a `FlowCanvas` run.
+    pub flow_run_follow: String,
+    /// A `FlowCanvas` run asked to follow no way out.
+    pub flow_run_none_chosen: String,
     /// The heading of a `FlowLayers`.
     pub flow_layers: String,
     /// Hides a node of a `FlowLayers`, with `{0}` its name.
@@ -1439,6 +1445,9 @@ impl Labels {
             flow_members: texts.get("widgets.flow_members"),
             flow_title: texts.get("widgets.flow_title"),
             flow_turned: texts.get("widgets.flow_turned"),
+            flow_run_choose_many: texts.get("widgets.flow_run_choose_many"),
+            flow_run_follow: texts.get("widgets.flow_run_follow"),
+            flow_run_none_chosen: texts.get("widgets.flow_run_none_chosen"),
             flow_layers: texts.get("widgets.flow_layers"),
             flow_layer_hide: texts.get("widgets.flow_layer_hide"),
             flow_layer_show: texts.get("widgets.flow_layer_show"),

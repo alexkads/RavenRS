@@ -131,7 +131,57 @@ fn debug_box(
         ),
     );
     if let Some(r) = run {
-        if let Some(node) = &r.choosing {
+        let many = r
+            .choosing
+            .as_ref()
+            .and_then(|n| graph.find_node(n))
+            .is_some_and(|n| (rules.gate)(n) == FlowGate::ChooseMany);
+        if let (Some(node), true) = (&r.choosing, many) {
+            // One or more ways: a box each, then Follow.
+            let name = graph.find_node(node).map_or(node.clone(), |n| n.title.clone());
+            rows.push(util::label(
+                cx,
+                &labels.flow_run_choose_many.replace("{0}", &name),
+                TextStyle::Callout,
+                None,
+                theme.color(Semantic::Ink),
+            ));
+            for e in FlowRun::ways_out(graph, rules, node) {
+                let to = graph.find_node(&e.to.node).map_or(e.to.node.clone(), |n| n.title.clone());
+                let words = e.label.clone().map_or(to.clone(), |l| format!("{l} → {to}"));
+                let (picked, id) = (flow.picked.clone(), e.id.clone());
+                let (reader, writer) = (picked.clone(), id.clone());
+                let ticked = ravenrs_reactive::Binding::new(
+                    move || reader.get().contains(&id),
+                    move |on: bool| {
+                        let mut all = picked.get();
+                        all.retain(|w| *w != writer);
+                        if on {
+                            all.push(writer.clone());
+                        }
+                        picked.set(all);
+                    },
+                );
+                rows.push(cx.child(&crate::Checkbox::new(words, ticked)));
+            }
+            let follow = flow.clone();
+            rows.push(
+                cx.child(
+                    &crate::Button::new(labels.flow_run_follow.clone())
+                        .size(ButtonSize::Small)
+                        .on_click(move || follow.run_ways()),
+                ),
+            );
+            if flow.refused_choice.get() {
+                rows.push(util::label(
+                    cx,
+                    &labels.flow_run_none_chosen,
+                    TextStyle::Caption,
+                    None,
+                    theme.color(Semantic::Danger),
+                ));
+            }
+        } else if let Some(node) = &r.choosing {
             let ways: Vec<crate::Button> = FlowRun::ways_out(graph, rules, node)
                 .into_iter()
                 .map(|e| {
@@ -969,6 +1019,9 @@ struct Flow {
     debugging: State<bool>,
     run: State<Option<FlowRun>>,
     breakpoints: State<Vec<String>>,
+    /// The ways out ticked where one or more are chosen, and why the last choice was refused.
+    picked: State<Vec<String>>,
+    refused_choice: State<bool>,
     export: Option<FlowExporter>,
     /// Whether Export takes only what is selected, and the format chosen last.
     export_only: State<bool>,
@@ -1499,6 +1552,23 @@ impl Flow {
         let mut run = self.run.get().unwrap_or_else(|| FlowRun::start(&graph, rules));
         run.step(&graph, rules, choice);
         self.run.set(Some(run));
+    }
+
+    /// Follows the ways out ticked, where one or more are chosen.
+    fn run_ways(&self) {
+        let Some(rules) = &self.runs else { return };
+        let graph = self.graph.get();
+        let Some(mut run) = self.run.get() else { return };
+        let ticked = self.picked.get();
+        let ways: Vec<&str> = ticked.iter().map(String::as_str).collect();
+        match run.step_ways(&graph, rules, &ways) {
+            Ok(()) => {
+                self.picked.set(Vec::new());
+                self.refused_choice.set(false);
+                self.run.set(Some(run));
+            }
+            Err(_) => self.refused_choice.set(true),
+        }
     }
 
     /// Moves the run on until it ends, a way out is to be chosen or a token reaches a
@@ -2567,6 +2637,8 @@ impl View for FlowCanvas {
             debugging: debugging.clone(),
             run: run.clone(),
             breakpoints: breakpoints.clone(),
+            picked: cx.use_state(Vec::<String>::new),
+            refused_choice: cx.use_state(|| false),
             export_only,
             export_format,
             export_menu,

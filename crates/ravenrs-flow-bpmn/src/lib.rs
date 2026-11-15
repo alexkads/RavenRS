@@ -70,14 +70,16 @@ pub fn notation() -> FlowNotation {
 }
 
 /// How a process runs: a token leaves each start event, passes tasks, chooses one way at an
-/// exclusive or inclusive gateway, waits for every way and splits at a parallel one, and stops at
-/// an end; it follows sequence flows only.
+/// exclusive gateway and one or more at an inclusive one (whose join waits only for the ways
+/// taken), waits for every way and splits at a parallel one, and stops at an end; it follows
+/// sequence flows only.
 pub fn run_rules() -> FlowRunRules {
     FlowRunRules {
         gate: std::rc::Rc::new(|node: &FlowNode| match node.kind.as_str() {
             "startEvent" => FlowGate::Start,
             "endEvent" => FlowGate::End,
-            "exclusiveGateway" | "inclusiveGateway" => FlowGate::Choose,
+            "exclusiveGateway" => FlowGate::Choose,
+            "inclusiveGateway" => FlowGate::ChooseMany,
             "parallelGateway" => FlowGate::Parallel,
             kind => match elements::family(kind) {
                 Some(Family::Artifact | Family::Lane) | None

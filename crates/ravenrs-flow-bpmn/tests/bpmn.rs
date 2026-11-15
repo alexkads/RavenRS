@@ -254,3 +254,54 @@ fn the_debugger_points_where_a_process_goes_wrong_and_stops_at_breakpoints() {
         "the error is said"
     );
 }
+
+fn tick(ui: &mut Ui, name: &str) {
+    let id = ui
+        .access_tree()
+        .nodes
+        .iter()
+        .find(|n| n.role == ravenrs_core::Role::CheckBox && n.name.as_deref() == Some(name))
+        .unwrap_or_else(|| panic!("no box {name}"))
+        .id;
+    ui.perform_action(id, ravenrs_core::AccessAction::Click);
+    ui.update();
+    ui.update();
+}
+
+#[test]
+fn the_debugger_takes_one_or_more_ways_at_an_inclusive_gateway() {
+    use ravenrs_flow_bpmn::elements::{SEQUENCE, connection, element};
+    let flow = |id: &str, a: (&str, &str), b: &str| {
+        connection(id, FlowEndpoint::new(a.0, a.1), FlowEndpoint::new(b, "in"), SEQUENCE)
+    };
+    let at = |n: FlowNode, x: f32, y: f32| FlowNode { x, y, ..n };
+    let graph = FlowGraph::new()
+        .node(at(element("startEvent", "s", "Início"), 0.0, 100.0))
+        .node(at(element("inclusiveGateway", "or", "Quais avisos?"), 120.0, 92.0))
+        .node(at(element("task", "mail", "E-mail"), 260.0, 0.0))
+        .node(at(element("task", "sms", "SMS"), 260.0, 100.0))
+        .node(at(element("task", "call", "Ligação"), 260.0, 200.0))
+        .node(at(element("inclusiveGateway", "join", "Avisado"), 500.0, 92.0))
+        .node(at(element("endEvent", "e", "Fim"), 640.0, 100.0))
+        .edge(flow("f1", ("s", "out"), "or"))
+        .edge(flow("f2", ("or", "up"), "mail"))
+        .edge(flow("f3", ("or", "out"), "sms"))
+        .edge(flow("f4", ("or", "down"), "call"))
+        .edge(flow("f5", ("mail", "out"), "join"))
+        .edge(flow("f6", ("sms", "out"), "join"))
+        .edge(flow("f7", ("call", "out"), "join"))
+        .edge(flow("f8", ("join", "out"), "e"));
+    let (mut ui, _) = debugger(graph);
+    press(&mut ui, "Debug");
+    press(&mut ui, "Start");
+    press(&mut ui, "Continue");
+    assert!(says(&mut ui, "Choose one or more ways out of Quais avisos?"));
+    press(&mut ui, "Follow");
+    assert!(says(&mut ui, "Choose at least one way out"), "none ticked is refused");
+    tick(&mut ui, "E-mail");
+    tick(&mut ui, "SMS");
+    press(&mut ui, "Follow");
+    press(&mut ui, "Continue");
+    assert!(says(&mut ui, "Run finished"), "the join did not wait for the call");
+    assert!(!says(&mut ui, "Quais avisos? → Ligação"));
+}
