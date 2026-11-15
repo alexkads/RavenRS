@@ -283,7 +283,9 @@ Parity with the feature set of commercial data grids:
 
 | Feature | RavenRS |
 |---|---|
-| Virtual scrolling (100k+ rows), vertical and horizontal | ✓ |
+| Virtual scrolling (100k+ rows), vertical | ✓ |
+| Horizontal scrolling | ✓ (all shown columns are built for each visible row) |
+| Column virtualization | planned ([#451](https://github.com/alexkads/RavenRS/issues/451)) |
 | Sorting, multi-column (Shift/Ctrl-click), with priority badges | ✓ |
 | Filter row with operators (`>`, `>=`, `<`, `<=`, `=`, `<>`, `a..b`), text and yes/no | ✓ |
 | Filter row expressions over column titles (`[Seats] > 10 And [Country] = 'Brazil'`), from `ravenrs-criteria` | ✓ |
