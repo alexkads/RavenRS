@@ -514,14 +514,14 @@ mod tests {
     use super::*;
     use crate::db::Database;
     use crate::seed;
-    use crate::update::Updater;
+    use crate::update;
 
     fn replies() -> Replies {
         let today = Date::new(2026, 11, 15).expect("valid date");
         let db = Database::in_memory().expect("database");
         seed::load_demo(&db, today).expect("seed");
         Replies {
-            store: Store::new(db, today, None, Updater::idle()),
+            store: Store::new(db, today, None, update::idle()),
             forms: Forms::new(),
             page: State::new(0),
             open: State::new(true),

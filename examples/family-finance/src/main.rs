@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 use family_finance::themes;
 use family_finance::ui::Opening;
-use family_finance::update::{self, Updater};
+use family_finance::update;
 use family_finance::{icon, paths, today};
 use ravenrs::movie::RecentErrors;
 use ravenrs::native::{AppIdentity, PlatformError, SystemTray, WindowOptions, diagnose, run_as};
@@ -55,5 +55,5 @@ fn main() -> Result<(), PlatformError> {
     } else {
         identity
     };
-    run_as(Opening::new(path, today(), Updater::idle(), diagnostics, errors), options, identity)
+    run_as(Opening::new(path, today(), update::idle(), diagnostics, errors), options, identity)
 }

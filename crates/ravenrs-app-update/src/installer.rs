@@ -5,19 +5,16 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 
-use super::*;
-use crate::paths;
+use crate::InstalledApp;
 
-/// The installer the app downloads and runs, the same one the README shows.
-pub const INSTALLER_URL: &str =
-    "https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/family-finance/install.cmd";
-
-/// Running the installer by hand, for when updating from inside the app fails.
-pub const INSTALL_COMMAND: &str = if cfg!(target_os = "windows") {
-    "irm https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/family-finance/install.cmd -OutFile \"$env:TEMP\\install.cmd\"; & \"$env:TEMP\\install.cmd\""
-} else {
-    "curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/examples/family-finance/install.cmd -o /tmp/install.cmd && sh /tmp/install.cmd"
-};
+/// What the installer writes, in the app's home.
+pub(crate) const LOG: &str = "atualizacao.log";
+/// The time an installer began, while it runs.
+pub(crate) const LOCK: &str = "atualizacao.trava";
+/// The [`Memory`] of the last update.
+pub(crate) const MEMORY: &str = "atualizacao.json";
+/// The installer as downloaded, which is what runs.
+const DOWNLOADED: &str = "install.cmd";
 
 /// A lock older than this belongs to an installer that died without removing it.
 pub const LOCK_EXPIRES: Duration = Duration::from_secs(3 * 3600);
@@ -26,21 +23,8 @@ pub const LOCK_EXPIRES: Duration = Duration::from_secs(3 * 3600);
 /// been quiet for longer belongs to a window that closed in the middle.
 pub const LOG_QUIET_FOR: Duration = Duration::from_secs(20 * 60);
 
-/// How this copy of the app was installed.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum InstallKind {
-    /// By the installer, which is the only thing that can update it.
-    Installed,
-    /// `cargo run`: whoever develops updates with `git pull`.
-    Development,
-}
-
-impl InstallKind {
-    /// The installer sets `FAMILY_FINANCE_INSTALLED` when it compiles.
-    pub fn current() -> Self {
-        if option_env!("FAMILY_FINANCE_INSTALLED").is_some() { Self::Installed } else { Self::Development }
-    }
-}
+/// How often the installer's log is read for the step it is on.
+const STAGE_EVERY: Duration = Duration::from_secs(1);
 
 /// Remembers an update that failed.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -61,12 +45,14 @@ pub fn installer_stage(line: &str) -> Option<String> {
 }
 
 /// The last step announced in the log so far.
-pub(super) fn last_stage(log: &str) -> Option<String> {
+pub(crate) fn last_stage(log: &str) -> Option<String> {
     log.lines().rev().find_map(installer_stage)
 }
 
 /// The downloaded file really is the whole installer. An error page, an empty
 /// file or one cut at any point does not pass, because the end of the file has to be there.
+///
+/// Copies already installed check with these same marks, so the template keeps them.
 pub fn installer_is_whole(text: &str) -> bool {
     let end = text.trim_end();
     let last_line = end.strip_suffix('}').map(str::trim_end).and_then(|before| before.lines().last());
@@ -95,7 +81,7 @@ pub fn is_locked(lock: &Path, now: u64) -> bool {
     else {
         return false;
     };
-    let written = std::fs::metadata(lock.with_file_name("atualizacao.log"))
+    let written = std::fs::metadata(lock.with_file_name(LOG))
         .and_then(|meta| meta.modified())
         .ok()
         .and_then(|when| when.duration_since(std::time::UNIX_EPOCH).ok())
@@ -111,29 +97,17 @@ pub fn lock_is_live(began: u64, log_written: Option<u64>, now: u64) -> bool {
         && now.saturating_sub(last_sign) < LOG_QUIET_FOR.as_secs()
 }
 
-/// The end of the installer's log, for the details of a failure.
-pub fn installer_log_tail(lines: usize) -> Option<String> {
-    let text =
-        std::fs::read(installer_log()).ok().map(|bytes| String::from_utf8_lossy(&bytes).into_owned())?;
-    let kept: Vec<&str> = text.lines().rev().take(lines).collect();
-    let tail = kept.into_iter().rev().collect::<Vec<_>>().join("\n");
-    (!tail.trim().is_empty()).then_some(tail)
-}
-
-/// Where the installer writes what it does.
-pub fn installer_log() -> PathBuf {
-    paths::home().join("atualizacao.log")
-}
-
-pub(super) fn seconds_now() -> u64 {
+/// Seconds since 1970, by the machine's clock.
+pub(crate) fn seconds_now() -> u64 {
     std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs())
 }
 
-pub(super) fn read_memory(file: &Path) -> Memory {
+/// What is remembered about the last update; nothing, when it is missing or unreadable.
+pub fn read_memory(file: &Path) -> Memory {
     std::fs::read(file).ok().and_then(|bytes| serde_json::from_slice(&bytes).ok()).unwrap_or_default()
 }
 
-pub(super) fn write_memory(file: &Path, memory: &Memory) {
+fn write_memory(file: &Path, memory: &Memory) {
     if let Ok(text) = serde_json::to_vec_pretty(memory)
         && let Err(e) = std::fs::write(file, text)
     {
@@ -141,23 +115,55 @@ pub(super) fn write_memory(file: &Path, memory: &Memory) {
     }
 }
 
-pub(super) fn download(url: &str) -> Result<String, String> {
+pub(crate) fn download(url: &str) -> Result<String, String> {
     let config = ureq::Agent::config_builder().timeout_global(Some(Duration::from_secs(20))).build();
     let agent: ureq::Agent = config.into();
     let mut response = agent.get(url).call().map_err(|e| e.to_string())?;
     response.body_mut().read_to_string().map_err(|e| e.to_string())
 }
 
-pub(super) fn run_installer(version: &str, on_stage: &dyn Fn(String)) -> Result<(), String> {
-    let home = paths::home();
-    std::fs::create_dir_all(&home).map_err(|e| e.to_string())?;
-    let (lock, memory) = (home.join("atualizacao.trava"), home.join("atualizacao.json"));
+/// Where one run of the installer happens. The app's comes from its [`InstalledApp`];
+/// tests give a folder of their own and an installer that does not compile.
+pub(crate) struct Setup<'a> {
+    /// Where the lock, the memory, the log and the downloaded installer go.
+    pub home: PathBuf,
+    /// The installed app, which has to answer `--versao` with the new version.
+    pub binary: Option<PathBuf>,
+    /// The variable that keeps the installer from waiting for a key.
+    pub no_pause_env: String,
+    /// Gets the installer's text.
+    pub fetch: Box<dyn Fn() -> Result<String, String> + 'a>,
+}
+
+impl Setup<'static> {
+    /// The app's own: its home, its installed binary, and the installer from its address.
+    pub(crate) fn of(app: &InstalledApp) -> Self {
+        let url = app.installer_url;
+        Setup {
+            home: app.home(),
+            binary: app.installed_binary(),
+            no_pause_env: app.no_pause_env(),
+            fetch: Box::new(move || download(url)),
+        }
+    }
+}
+
+/// Runs the installer once, unless another window already is: then follows that one.
+/// A failure is remembered, so that version is not tried again by itself for a day.
+pub(crate) fn run_installer(
+    setup: &Setup<'_>,
+    version: &str,
+    on_stage: &dyn Fn(String),
+) -> Result<(), String> {
+    let home = &setup.home;
+    std::fs::create_dir_all(home).map_err(|e| e.to_string())?;
+    let (lock, memory) = (home.join(LOCK), home.join(MEMORY));
     let now = seconds_now();
     if is_locked(&lock, now) {
-        return follow_other_installer(&lock, version, on_stage);
+        return follow_other_installer(&lock, setup.binary.as_deref(), version, on_stage);
     }
     std::fs::write(&lock, now.to_string()).map_err(|e| e.to_string())?;
-    let result = compile_and_check(&home, version, on_stage);
+    let result = compile_and_check(setup, version, on_stage);
     // Without this the next start would take it for a running installer until the lock expires.
     let _ = std::fs::remove_file(&lock);
     let remembered = match &result {
@@ -170,12 +176,13 @@ pub(super) fn run_installer(version: &str, on_stage: &dyn Fn(String)) -> Result<
 
 /// Another window is installing: follows its steps until it lets go of the lock,
 /// then asks the installed app which version it is.
-pub(super) fn follow_other_installer(
+fn follow_other_installer(
     lock: &Path,
+    binary: Option<&Path>,
     version: &str,
     on_stage: &dyn Fn(String),
 ) -> Result<(), String> {
-    let log = lock.with_file_name("atualizacao.log");
+    let log = lock.with_file_name(LOG);
     let mut told = None;
     while is_locked(lock, seconds_now()) {
         let stage = std::fs::read(&log).ok().and_then(|text| last_stage(&String::from_utf8_lossy(&text)));
@@ -186,12 +193,12 @@ pub(super) fn follow_other_installer(
         }
         std::thread::sleep(STAGE_EVERY);
     }
-    installed_answers(version)
+    installed_answers(binary, version)
 }
 
 /// The installed app opens and says it is `version`.
-pub(super) fn installed_answers(version: &str) -> Result<(), String> {
-    let binary = paths::installed_binary().ok_or("não sei onde o app fica neste sistema.")?;
+pub(crate) fn installed_answers(binary: Option<&Path>, version: &str) -> Result<(), String> {
+    let binary = binary.ok_or("não sei onde o app fica neste sistema.")?;
     let output = std::process::Command::new(binary)
         .arg("--versao")
         .output()
@@ -205,7 +212,7 @@ pub(super) fn installed_answers(version: &str) -> Result<(), String> {
 }
 
 /// Runs the installer, telling each step it announces in its log as it gets there.
-pub(super) fn follow_installer(
+fn follow_installer(
     mut command: std::process::Command,
     log: &Path,
     on_stage: &dyn Fn(String),
@@ -226,22 +233,22 @@ pub(super) fn follow_installer(
     }
 }
 
-pub(super) fn compile_and_check(home: &Path, version: &str, on_stage: &dyn Fn(String)) -> Result<(), String> {
-    let text = download(INSTALLER_URL).map_err(|e| format!("não consegui baixar o instalador: {e}"))?;
+fn compile_and_check(setup: &Setup<'_>, version: &str, on_stage: &dyn Fn(String)) -> Result<(), String> {
+    let text = (setup.fetch)().map_err(|e| format!("não consegui baixar o instalador: {e}"))?;
     if !installer_is_whole(&text) {
         return Err("o instalador baixado veio incompleto; tente de novo mais tarde.".to_owned());
     }
-    let file: PathBuf = home.join("install.cmd");
+    let file: PathBuf = setup.home.join(DOWNLOADED);
     std::fs::write(&file, text).map_err(|e| e.to_string())?;
     let (program, arguments) = installer_command(&file);
-    let log_path = home.join("atualizacao.log");
+    let log_path = setup.home.join(LOG);
     let log = std::fs::File::create(&log_path).map_err(|e| e.to_string())?;
     let errors = log.try_clone().map_err(|e| e.to_string())?;
     let mut command = std::process::Command::new(program);
-    command.args(arguments).env("FF_SEM_PAUSA", "1").stdout(log).stderr(errors);
+    command.args(arguments).env(&setup.no_pause_env, "1").stdout(log).stderr(errors);
     let status = follow_installer(command, &log_path, on_stage)?;
     if !status.success() {
-        return Err(format!("a compilação falhou; veja {}.", home.join("atualizacao.log").display()));
+        return Err(format!("a compilação falhou; veja {}.", log_path.display()));
     }
-    installed_answers(version)
+    installed_answers(setup.binary.as_deref(), version)
 }

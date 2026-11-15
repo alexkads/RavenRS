@@ -71,6 +71,7 @@ ravenrs-app-nfe = { version = "27.1.28", path = "crates/ravenrs-app-nfe" }
 ravenrs-pos = { version = "27.1.28", path = "crates/ravenrs-pos" }
 ravenrs-app-pos = { version = "27.1.28", path = "crates/ravenrs-app-pos" }
 ravenrs-app-report = { version = "27.1.28", path = "crates/ravenrs-app-report" }
+ravenrs-app-update = { version = "27.1.28", path = "crates/ravenrs-app-update" }
 ravenrs-report-pdf = { version = "27.1.28", path = "crates/ravenrs-report-pdf" }
 ravenrs-report-xlsx = { version = "27.1.28", path = "crates/ravenrs-report-xlsx" }
 ravenrs-sheet = { version = "27.1.28", path = "crates/ravenrs-sheet" }
