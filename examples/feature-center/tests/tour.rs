@@ -921,3 +921,62 @@ fn a_receipt_is_one_long_page_with_its_printer_and_commands_in_place() {
     c.ui.perform_action(page.expect("the ribbon's page of output"), AccessAction::Click);
     assert!(c.says("Impressora direta"), "the designer offers printing straight: {:?}", c.texts());
 }
+
+impl Center {
+    /// Clicks whatever has this name: a switch, a tab, a button.
+    fn activate(&mut self, name: &str) {
+        self.settle();
+        let tree = self.ui.access_tree();
+        let found = tree.nodes.iter().find(|n| n.name.as_deref() == Some(name) && n.role != Role::Group);
+        let id = found.unwrap_or_else(|| panic!("nothing called {name}: {:?}", self.texts())).id;
+        self.ui.perform_action(id, AccessAction::Click);
+        self.settle();
+    }
+}
+
+#[test]
+fn the_flow_diagram_shows_every_feature_and_its_connections_hang_as_cables() {
+    let mut c = Center::memory("ana");
+    c.press("Diagrama de fluxo");
+    assert!(c.says("Diagrama de exemplo"), "the label: {:?}", c.texts());
+    assert!(c.says("Nós no diagrama: 4"));
+    assert_eq!(c.ui.cables().ids().len(), 2, "both connections hang as cables");
+    // A node arrives from outside, as from a toolbox.
+    c.press("Chegar um nó");
+    assert!(c.says("Nós no diagrama: 5"), "{:?}", c.texts());
+    // Every option is a switch that the canvas follows.
+    for option in [
+        "Travado",
+        "Mapa",
+        "Controles",
+        "Encaixar na grade",
+        "Portas ao passar",
+        "Criação rápida",
+        "Redimensionar",
+        "Girar",
+        "Títulos editáveis",
+    ] {
+        c.activate(option);
+        assert!(c.says("Diagrama de exemplo"), "{option} keeps the canvas");
+        c.activate(option);
+    }
+    c.activate("Grade 48");
+    c.activate("Mapa mental");
+    // Without cables, the lines are plain again.
+    c.activate("Ligações como cabos");
+    assert!(c.ui.cables().ids().is_empty(), "plain lines");
+    c.activate("Ligações como cabos");
+    assert_eq!(c.ui.cables().ids().len(), 2);
+}
+
+#[test]
+fn the_cables_show_eight_uses_and_plug_in_each() {
+    let mut c = Center::memory("ana");
+    c.press("Cabos");
+    for (name, cables) in
+        feature_center::widgets::graficos::cabos::USES.iter().zip([2, 3, 2, 1, 4, 3, 0, 1, 1])
+    {
+        c.activate(name);
+        assert_eq!(c.ui.cables().ids().len(), cables, "{name}: {:?}", c.texts());
+    }
+}

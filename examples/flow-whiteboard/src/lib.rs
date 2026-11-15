@@ -143,6 +143,8 @@ impl View for Whiteboard {
         let histories = [cx.use_state(FlowHistory::new), cx.use_state(FlowHistory::new)];
         let arrivals = cx.use_state(|| None::<FlowNode>);
         let views = [cx.use_state(FlowViewport::fit), cx.use_state(FlowViewport::fit)];
+        // The connections hang as cables; the switch puts the plain lines back.
+        let cables = cx.use_state(|| true);
         let which = board.get().min(1);
         let (graph, history, view) = (&charts[which], &histories[which], &views[which]);
         let layout = if which == 0 {
@@ -159,6 +161,7 @@ impl View for Whiteboard {
             .arrivals(arrivals.binding())
             .layout(layout)
             .next_node(next)
+            .cables(cables.get())
             .kind("step", FlowKind::new(IconName::GitBranch, "Etapa"))
             .kind("idea", FlowKind::new(IconName::Zap, "Ideia"))
             .on_export(ravenrs_flow_export::saver(cx.file_picker(), "Quadro"));
@@ -167,7 +170,12 @@ impl View for Whiteboard {
             .kind("step", "Etapa")
             .kind("idea", "Ideia")
             .kind("note", "Nota");
-        let switcher = SegmentedControl::new(board.binding(), ["Fluxograma", "Mapa mental"]);
+        let switcher = HStack::new((
+            SegmentedControl::new(board.binding(), ["Fluxograma", "Mapa mental"]),
+            Spacer::new(),
+            Toggle::new(cables.binding()).label("Cabos"),
+        ))
+        .align(Align::Center);
         cx.child(
             &VStack::new((
                 switcher,

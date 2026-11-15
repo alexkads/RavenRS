@@ -463,6 +463,9 @@ pub enum Primitive {
     PushClip(Rect),
     /// Restores the clip active before the matching [`Primitive::PushClip`].
     PopClip,
+    /// A cable that hangs and swings; a [`CableWorld`](crate::cable::CableWorld) places
+    /// its points.
+    Cable(Box<crate::cable::Cable>),
 }
 
 /// A visual change applied to painted content without touching layout: what a
@@ -635,6 +638,16 @@ impl Effect {
             }
             Primitive::PushClip(rect) => *rect = self.bounds(*rect, pivot),
             Primitive::PopClip => {}
+            Primitive::Cable(cable) => {
+                // The cable keeps its own units; the effect goes into its view (a turn is
+                // not carried: cables hang down whatever turns around them).
+                let v = cable.view;
+                cable.view = crate::cable::CableView {
+                    scale: v.scale * self.scale,
+                    offset: self.point(v.offset, pivot),
+                };
+                cable.look.opacity *= self.opacity;
+            }
         }
     }
 }
@@ -703,6 +716,18 @@ impl Scene {
         if !run.glyphs.is_empty() {
             self.primitives.push(Primitive::Glyphs(run));
         }
+    }
+
+    /// Appends a cable.
+    pub fn push_cable(&mut self, cable: crate::cable::Cable) {
+        self.primitives.push(Primitive::Cable(Box::new(cable)));
+    }
+
+    /// Mutable access to the primitives, for the runtime that places cables after the
+    /// paint.
+    #[doc(hidden)]
+    pub fn primitives_mut(&mut self) -> &mut Vec<Primitive> {
+        &mut self.primitives
     }
 
     /// Appends an image.

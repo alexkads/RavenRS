@@ -295,6 +295,12 @@ pub struct Ui {
     frame_start: (PhaseTimes, u64),
     view_profile: Option<Rc<RefCell<ViewProfile>>>,
     hover_readers: Rc<RefCell<std::collections::HashSet<WidgetId>>>,
+    /// Cables built with `CablePlug`, placed after each layout.
+    cable_requests: Vec<crate::cable_plug::CableRequest>,
+    /// Simulates the window's cables: on the CPU unless the platform gives a GPU one.
+    cable_world: crate::Cables,
+    /// When the cables last stepped.
+    cable_time: Option<f64>,
 }
 
 impl fmt::Debug for Ui {
@@ -396,7 +402,24 @@ impl Ui {
             frame_start: (PhaseTimes::default(), 0),
             view_profile: None,
             hover_readers: Rc::default(),
+            cable_requests: Vec::new(),
+            cable_world: crate::Cables(Rc::new(RefCell::new(
+                Box::new(ravenrs_core::cable::CpuCables::new()),
+            ))),
+            cable_time: None,
         }
+    }
+
+    /// Hands the window's cables to `world`: the platform gives one that runs on the
+    /// GPU when it can. The cables start over in it.
+    pub fn set_cable_world(&mut self, world: Box<dyn ravenrs_core::cable::CableWorld>) {
+        *self.cable_world.0.borrow_mut() = world;
+        self.ask_build(BuildCause::System);
+    }
+
+    /// The window's cables, as components and tests read them.
+    pub fn cables(&self) -> crate::Cables {
+        self.cable_world.clone()
     }
 
     fn ask_build(&mut self, cause: BuildCause) {
@@ -830,6 +853,27 @@ impl Ui {
         }
     }
 
+    /// Calls the click handler of the cable under `p`, if one has one. True if it did.
+    fn click_cable(&mut self, p: Point) -> bool {
+        use crate::cable_plug::{cable_id, distance_to_cable};
+        let world = self.cable_world.clone();
+        for request in self.cable_requests.iter().rev() {
+            let Some(handler) = request.plug.on_click.clone() else { continue };
+            let node_widget = |a: crate::CableAnchor| match a {
+                crate::CableAnchor::Node(n, _) => self.elements.get(n.0 as usize).map(|e| e.widget.raw()),
+                _ => None,
+            };
+            let id = cable_id(request, node_widget(request.plug.from), node_widget(request.plug.to));
+            let Some(shape) = world.shape(id) else { continue };
+            let reach = request.plug.look.thickness / 2.0 + 4.0;
+            if distance_to_cable(&shape, p) <= reach {
+                handler();
+                return true;
+            }
+        }
+        false
+    }
+
     /// The last painted scene.
     pub fn scene(&self) -> &Scene {
         &self.scene
@@ -858,6 +902,9 @@ impl Ui {
         match event {
             Event::PointerMove { position } => {
                 self.pointer = Some(*position);
+                if self.cable_requests.iter().any(|r| r.plug.to == crate::CableAnchor::Pointer) {
+                    self.next_live = Some(self.time);
+                }
                 self.tell_activity(crate::context::UiActivity::PointerMoved(*position));
                 if let Some(widget) = self.dragging {
                     self.drag(widget, DragPhase::Move, *position);
@@ -925,11 +972,26 @@ impl Ui {
                 if let Some(w) = self.dragging.take() {
                     self.drag(w, DragPhase::End, *position);
                 }
+                let drops: Vec<_> = self
+                    .cable_requests
+                    .iter()
+                    .filter(|r| r.plug.to == crate::CableAnchor::Pointer)
+                    .filter_map(|r| r.plug.on_drop.clone())
+                    .collect();
+                for drop in drops {
+                    drop(*position);
+                }
                 if let Some(carry) = self.carry.take_if(|c| !c.keyboard)
                     && carry.started
                 {
                     // A drag, not a click: the press does not click what it started on.
                     self.drop_carried(carry);
+                    self.interaction.pressed = None;
+                    self.ask_build(BuildCause::Press);
+                    return self.needs_redraw();
+                }
+                // A click on a cable that has a handler is the cable's, not what is under it.
+                if self.click_cable(*position) {
                     self.interaction.pressed = None;
                     self.ask_build(BuildCause::Press);
                     return self.needs_redraw();
@@ -1603,6 +1665,7 @@ impl Ui {
         let view_profile = self.view_profile.clone();
         self.hover_readers.borrow_mut().clear();
         let hover_readers = self.hover_readers.clone();
+        let cable_world = self.cable_world.clone();
         let Self { root, text, layout, elements, interaction, observer, hover_chain, local, scroll, .. } =
             self;
         let now = self.time;
@@ -1624,6 +1687,7 @@ impl Ui {
             motions,
             moving,
             guards,
+            cables,
         ) = observer.track(|| {
             let mut cx = BuildCx::new(
                 theme,
@@ -1656,6 +1720,7 @@ impl Ui {
             cx.focus_chain = focus_chain;
             cx.modifiers_read = modifiers_read;
             cx.closer = closer;
+            cx.cable_world = Some(cable_world);
             let content = cx.child(&**root);
             let style = LayoutStyle {
                 width: Some(viewport.width),
@@ -1678,9 +1743,11 @@ impl Ui {
                 std::mem::take(&mut cx.motions),
                 cx.value_moving,
                 std::mem::take(&mut cx.close_guards),
+                std::mem::take(&mut cx.cables),
             )
         });
         self.close_guards = guards;
+        self.cable_requests = cables;
         self.wake = wake;
         self.value_moving = moving;
         self.shortcuts = shortcuts;
@@ -1935,6 +2002,90 @@ impl Ui {
         self.phases.paint += self.phase_elapsed(started);
     }
 
+    /// Puts the cables built with `CablePlug` in the scene, their ends on the frames of
+    /// what they tie.
+    fn paint_cable_plugs(&mut self) {
+        use crate::cable_plug::{CableAnchor, cable_id, place};
+        use ravenrs_core::cable::CableEnd;
+        let pointer = self.pointer;
+        for request in &self.cable_requests {
+            let end = |anchor: CableAnchor| -> Option<(CableEnd, Option<u64>)> {
+                match anchor {
+                    CableAnchor::Node(node, side) => {
+                        let frame = *self.frames.get(node.0 as usize)?;
+                        Some((side.end(frame), self.elements.get(node.0 as usize).map(|e| e.widget.raw())))
+                    }
+                    CableAnchor::Point(end) => Some((end, None)),
+                    CableAnchor::Pointer => pointer.map(|p| (CableEnd::at(p), None)),
+                }
+            };
+            let (Some((from, a)), Some((to, b))) = (end(request.plug.from), end(request.plug.to)) else {
+                continue;
+            };
+            let id = cable_id(request, a, b);
+            self.scene.push_cable(place(request, id, from, to));
+        }
+    }
+
+    /// Hands the cables of the scene to the world, runs the steps due and puts their
+    /// points in the scene (or leaves them to the GPU). True while one still moves.
+    fn place_cables(&mut self) -> bool {
+        use ravenrs_core::Primitive;
+        use ravenrs_core::cable::cable_primitives;
+        let cables: Vec<_> = self
+            .scene
+            .primitives()
+            .iter()
+            .filter_map(|p| if let Primitive::Cable(c) = p { Some((**c).clone()) } else { None })
+            .collect();
+        let had_world = self.cable_time.is_some();
+        if cables.is_empty() && !had_world {
+            return false;
+        }
+        let reduced = self.reduced_motion();
+        let dt = self.cable_time.map_or(0.0, |t| (self.time - t).max(0.0) as f32);
+        self.cable_time = Some(self.time);
+        let viewport = Rect::from_origin_size(Point::ZERO, self.viewport);
+        let world = self.cable_world.clone();
+        let mut world = world.0.borrow_mut();
+        world.sync(&cables, viewport, reduced);
+        world.step(dt);
+        let on_gpu = world.on_gpu();
+        let leaving = world.leaving();
+        let primitives = self.scene.primitives_mut();
+        if on_gpu {
+            for p in primitives.iter_mut() {
+                if let Primitive::Cable(c) = p {
+                    c.points = world.shape(c.id);
+                }
+            }
+            primitives.extend(leaving.into_iter().map(|c| Primitive::Cable(Box::new(c))));
+        } else if !cables.is_empty() || !leaving.is_empty() {
+            let old = std::mem::take(primitives);
+            for p in old {
+                match p {
+                    Primitive::Cable(c) => {
+                        if let Some(points) = world.shape(c.id) {
+                            let placed = c.placed(points.clone());
+                            primitives.extend(cable_primitives(&placed, &points));
+                        }
+                    }
+                    other => primitives.push(other),
+                }
+            }
+            for c in leaving {
+                if let Some(points) = c.points.clone() {
+                    primitives.extend(cable_primitives(&c, &points));
+                }
+            }
+        }
+        let moving = world.moving();
+        if cables.is_empty() && !moving {
+            self.cable_time = None;
+        }
+        moving
+    }
+
     fn paint_scene(&mut self) {
         let theme = self.theme();
         self.scrollbar_showing = false;
@@ -1961,6 +2112,7 @@ impl Ui {
             self.paint_node(root, viewport, &theme, None);
         }
         self.motion.paint_ghosts(GhostLayer::Main, &mut self.scene);
+        self.paint_cable_plugs();
         self.painting_overlays = true;
         for i in 0..self.overlays.len() {
             let root = self.overlays[i].root;
@@ -1969,7 +2121,8 @@ impl Ui {
         self.motion.paint_ghosts(GhostLayer::Overlay, &mut self.scene);
         self.motion.paint_ghosts(GhostLayer::Top, &mut self.scene);
         self.paint_carry(&theme);
-        let live = self.has_live && !self.reduced_motion();
+        let cables_moving = self.place_cables();
+        let live = (self.has_live || cables_moving) && !self.reduced_motion();
         self.next_live = (live || self.scrollbar_showing).then_some(self.time + LIVE_FRAME);
         self.tell_activity(crate::context::UiActivity::Painted(&self.scene));
         if std::mem::take(&mut self.access_tree_asked) {

@@ -105,11 +105,11 @@ use ravenrs_widgets_chat::rich_text;
 // The components of general use live in their own crate, and keep their module names here.
 #[allow(unused_imports)]
 use ravenrs_widgets_base::{
-    button, calendar, canvas, card, choice, clipboard, color_picker, context, date, display, dock_side,
-    extras, file_picker, fill, floating, full_screen, hotkey, icon, icon_set, ids, image, inputs, kbd,
-    labels, link_service, links, localized, modifiers, motion, motion_spec, overlay, page_motion, recurrence,
-    remote, reorder, scroll_link, scroll_scene, selection_mode, sound, stack, summary, system_appearance,
-    text, text_field, time_link, turn, ui, util, view, zoom,
+    button, cable_plug, calendar, canvas, card, choice, clipboard, color_picker, context, date, display,
+    dock_side, extras, file_picker, fill, floating, full_screen, hotkey, icon, icon_set, ids, image, inputs,
+    kbd, labels, link_service, links, localized, modifiers, motion, motion_spec, overlay, page_motion,
+    recurrence, remote, reorder, scroll_link, scroll_scene, selection_mode, sound, stack, summary,
+    system_appearance, text, text_field, time_link, turn, ui, util, view, zoom,
 };
 #[allow(unused_imports)]
 use ravenrs_widgets_kit::{
@@ -124,6 +124,7 @@ mod live;
 mod live_list;
 
 pub use button::{Button, ButtonGroup, ButtonSize, ButtonStyle, IconButton};
+pub use cable_plug::{CableAnchor, CablePlug, CableSide, Cables, distance_to_cable};
 pub use calendar::{Calendar, DatePicker, DateRange, DateRangePicker};
 pub use canvas::Canvas;
 pub use card::{Card, GlassCard};
@@ -240,6 +241,8 @@ pub use page_motion::{Anchor, CountUp, Ticker};
 pub use playground::{Playground, RunOutput, Runner};
 pub use quad_field::QuadField;
 pub use quick_edit::{InlineRename, ValueSlider};
+/// The cable model behind [`CablePlug`]: ends, physics, look, textures and worlds.
+pub use ravenrs_core::cable;
 #[cfg(feature = "lottie")]
 pub use ravenrs_lottie::{Animation as LottieAnimation, LottieError};
 pub use ravenrs_text::TextAlign;

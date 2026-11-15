@@ -23,6 +23,7 @@ const THEME_EDITOR: &str = "ThemeEditor";
 pub mod actions;
 pub mod model;
 pub mod seed;
+pub mod widgets;
 
 fn library() -> LibraryModule {
     LibraryModule::new().navigation("Registros prontos").person().event().country().address()
@@ -136,6 +137,18 @@ fn application() -> App {
                 .control("Editor de tokens", THEME_EDITOR),
         )
         .dashboard(
+            DashboardInfo::new(widgets::graficos::fluxo::ID, widgets::graficos::fluxo::PAGE)
+                .navigation("Gráficos e fluxos")
+                .icon("git-branch")
+                .control(widgets::graficos::fluxo::PAGE, widgets::graficos::fluxo::ID),
+        )
+        .dashboard(
+            DashboardInfo::new(widgets::graficos::cabos::ID, widgets::graficos::cabos::PAGE)
+                .navigation("Gráficos e fluxos")
+                .icon("plug")
+                .control(widgets::graficos::cabos::PAGE, widgets::graficos::cabos::ID),
+        )
+        .dashboard(
             DashboardInfo::new(model::COUNTER_WINDOW, "Caixa de exemplo")
                 .navigation("Balcão")
                 .icon("shopping-cart")
@@ -159,6 +172,7 @@ pub fn watched<S: ObjectSpace + 'static>(
         let seen = seen.clone();
         application().with_session(move |session| {
             session.register_control(THEME_EDITOR, || Box::new(ThemeEditor::new()) as AnyView);
+            widgets::register(session);
             session.register_control(model::COUNTER_WINDOW, actions::counter_control());
             seen(session);
         })
@@ -254,6 +268,7 @@ pub fn remote(address: &str) -> Result<AnyView, String> {
             let records = database.clone();
             application().storage(move || records.space()).with_session(|session| {
                 session.register_control(THEME_EDITOR, || Box::new(ThemeEditor::new()) as AnyView);
+                widgets::register(session);
             })
         },
     )

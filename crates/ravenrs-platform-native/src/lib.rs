@@ -653,7 +653,12 @@ impl App {
             lost.store(true, Ordering::SeqCst);
             lost_window.request_redraw();
         });
-        let renderer = Renderer::new(&gpu.device, &gpu.queue, format);
+        let mut renderer = Renderer::new(&gpu.device, &gpu.queue, format);
+        // Cables swing on the GPU: one compute dispatch a frame for all of them.
+        if let Some(cables) = ravenrs_render::GpuCables::new(&gpu.device, &gpu.queue) {
+            renderer.set_cables(Some(cables.drawer()));
+            self.ui.set_cable_world(Box::new(cables));
+        }
 
         let redraw = window.clone();
         self.ui.set_waker(move || redraw.request_redraw());
