@@ -141,6 +141,17 @@ fn embedded_is_only_the_page() {
     let mut window = Window::of(feature_center::view(&embedded));
     assert!(window.says(feature_center::widgets::graficos::cabos::USES[0]), "{:?}", window.texts());
     assert!(!window.has_button("Diagrama de fluxo"), "no navigation around it");
+
+    let dock = Opening { page: Some("DockAreaDemo".into()), embedded: true, ..opening(Mode::Components) };
+    let mut window = Window::of(feature_center::view(&dock));
+    assert!(window.says("Editor de código"), "the dock opens by its id: {:?}", window.texts());
+    let narrow = Opening { page: Some("RibbonDemo".into()), embedded: true, ..opening(Mode::Components) };
+    let mut phone = Window::sized(feature_center::view(&narrow), 375.0);
+    assert!(phone.says("Página aberta: Início"), "the ribbon on a phone: {:?}", phone.texts());
+    assert!(phone.says("Diga o que você deseja fazer"), "the widgets speak Portuguese: {:?}", phone.texts());
+    let english = Opening { speech: Some(Speech::English), ..narrow };
+    let mut window = Window::of(feature_center::view(&english));
+    assert!(window.says("Tell me what you want to do"), "and English when asked: {:?}", window.texts());
 }
 
 #[test]

@@ -1357,3 +1357,63 @@ fn the_patch_panel_turns_around_retracts_pairs_and_checks() {
     c.activate("Ver a traseira");
     assert!(c.says("Saída L"));
 }
+
+#[test]
+fn the_dock_refuses_to_close_unsaved_work_keeps_its_arrangement_and_takes_three_uses() {
+    use feature_center::widgets::doca::area::{UNSAVED, USES};
+    let mut c = Center::memory("ana");
+    c.press("Doca");
+    assert!(c.says("Editor de código"), "the label: {:?}", c.texts());
+    // A document with changes not saved does not close, and the area says why.
+    c.press(&format!("Fechar {UNSAVED}"));
+    assert!(c.says("tem mudanças não salvas"), "refused: {:?}", c.texts());
+    assert!(c.ui.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some(UNSAVED)), "still open");
+    // The arrangement kept as text comes back after a tool closes.
+    c.press("Guardar o arranjo");
+    assert!(c.says("Arranjo guardado"));
+    c.press("Fechar Busca");
+    assert!(c.says("Arranjo salvo: 6 abertos, 1 fechados"), "on_end: {:?}", c.texts());
+    c.press("Restaurar o guardado");
+    assert!(c.says("Arranjo restaurado"));
+    assert!(c.has_name("Busca"), "the tool is back: {:?}", c.texts());
+    // Once saved, it closes.
+    c.press(&format!("Salvar {UNSAVED}"));
+    c.press(&format!("Fechar {UNSAVED}"));
+    assert!(!c.has_name(UNSAVED), "it closed: {:?}", c.texts());
+    // The other uses: a floating navigator, and columns the app opens and closes.
+    c.activate(USES[1]);
+    assert!(c.says("Mesa de fotos"));
+    assert!(c.says("Navegador, flutuando"), "floating: {:?}", c.texts());
+    c.activate(USES[2]);
+    assert!(c.says("Página fixa"));
+    c.press("Índice");
+    assert!(c.says("Índice: fechado"));
+    c.press("Índice");
+    assert!(c.says("Índice: aberto"));
+}
+
+#[test]
+fn the_ribbon_opens_pages_searches_and_shows_the_table_tools_with_a_table() {
+    let mut c = Center::memory("ana");
+    c.press("Faixa de opções");
+    assert!(c.says("Página aberta: Início"), "{:?}", c.texts());
+    c.press("Recortar");
+    assert!(c.says("Recortado"));
+    c.activate("Exibir");
+    assert!(c.says("Página aberta: Exibir"));
+    assert!(!c.has_name("Layout"), "no table, no contextual page");
+    c.activate("Tabela selecionada");
+    assert!(c.has_name("Layout"), "the table tools: {:?}", c.texts());
+    c.press("Aproximar");
+    assert!(c.says("Zoom: 110%"));
+    c.type_into("Diga o que você deseja fazer", "tabela");
+    assert!(c.says("Procurando: tabela"), "{:?}", c.texts());
+}
+
+impl Center {
+    /// Whether anything on screen is called exactly this.
+    fn has_name(&mut self, name: &str) -> bool {
+        self.settle();
+        self.ui.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some(name))
+    }
+}

@@ -37,6 +37,17 @@ pub use components::ComponentsShell;
 
 use ravenrs::prelude::*;
 
+/// The words the widgets say, in the language asked for; Portuguese, as the center, unless told.
+#[cfg(feature = "widgets")]
+fn widget_texts(speech: Option<Speech>) -> Labels {
+    use ravenrs_app_i18n::{Catalog, Language};
+    let language = match speech {
+        Some(Speech::English) => Language::English,
+        _ => Language::BrazilianPortuguese,
+    };
+    Labels::from_texts(&Catalog::builtin().texts(language))
+}
+
 /// What `opening` asks for, or a message saying why it cannot be shown in this build.
 pub fn view(opening: &Opening) -> AnyView {
     let made: Option<AnyView> = match opening.mode {
@@ -45,7 +56,10 @@ pub fn view(opening: &Opening) -> AnyView {
         #[cfg(feature = "app")]
         Mode::Whole | Mode::Showcase => Some(opened(opening)),
         #[cfg(feature = "widgets")]
-        Mode::Components => Some(Box::new(ComponentsShell::new(opening.page.as_deref(), opening.embedded))),
+        Mode::Components => Some(Box::new(Localized::new(
+            widget_texts(opening.speech),
+            ComponentsShell::new(opening.page.as_deref(), opening.embedded),
+        ))),
         #[cfg(feature = "playground")]
         Mode::Playground => Some(playground(opening)),
         #[allow(unreachable_patterns)]

@@ -2366,6 +2366,7 @@ dependencies = [
  "ravenrs",
  "ravenrs-app",
  "ravenrs-app-a11y",
+ "ravenrs-app-i18n",
  "ravenrs-app-library",
  "ravenrs-app-remote",
  "ravenrs-app-report",
