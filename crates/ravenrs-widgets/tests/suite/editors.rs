@@ -276,3 +276,26 @@ fn a_text_field_undoes_and_redoes_with_the_keyboard() {
     assert_eq!(value.get(), "olá");
     assert_eq!(field_value(&mut ui), "olá");
 }
+
+#[test]
+fn a_field_recalls_what_was_sent_with_the_arrows() {
+    let (value, sent) = (State::new(String::new()), State::new(Vec::<String>::new()));
+    let mut ui = ui(TextField::new(value.binding()).recall(sent.clone()));
+    focus_field(&mut ui);
+    for line in ["one", "two", "two"] {
+        typed(&mut ui, line);
+        key(&mut ui, Key::Enter);
+        value.set(String::new());
+        ui.update();
+    }
+    assert_eq!(sent.get(), ["one", "two"], "twice in a row is kept once");
+    key(&mut ui, Key::ArrowUp);
+    assert_eq!(value.get(), "two");
+    key(&mut ui, Key::ArrowUp);
+    key(&mut ui, Key::ArrowUp);
+    assert_eq!(value.get(), "one", "it stops at the first");
+    key(&mut ui, Key::ArrowDown);
+    assert_eq!(value.get(), "two");
+    key(&mut ui, Key::ArrowDown);
+    assert_eq!(value.get(), "", "past the last, empty again");
+}

@@ -28,7 +28,7 @@ pub mod rich_text;
 pub use chat::{Chat, ChatAuthor, ChatMedia, ChatMessage, FloatingPanel};
 #[cfg(feature = "code")]
 pub use code_editor::{
-    CodeDiagnostic, CodeEditor, CodeLanguage, find_all, highlight_rust, line_and_column, offset_of,
+    CodeCompletion, CodeDiagnostic, CodeEditor, CodeLanguage, find_all, highlight_rust, line_and_column, offset_of,
 };
 pub use conversation::{Attachment, AttachmentStrip, AudioPlayerButton, SelectionBar};
 #[cfg(feature = "code")]

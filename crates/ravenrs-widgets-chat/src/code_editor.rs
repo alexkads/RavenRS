@@ -109,6 +109,46 @@ pub struct CodeEditor {
     caret: Option<State<Cursor>>,
     focus_request: Option<State<bool>>,
     history: Option<State<TextHistory>>,
+    follow_end: bool,
+    on_complete: Option<Rc<dyn Fn(usize)>>,
+    completions: Vec<CodeCompletion>,
+    on_hover: Option<Rc<dyn Fn(usize)>>,
+    hover: Option<String>,
+    on_go_to: Option<Rc<dyn Fn(usize)>>,
+}
+
+/// Something a [`CodeEditor`] offers to put at the caret, from
+/// [`completions`](CodeEditor::completions).
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct CodeCompletion {
+    /// What the list shows, and what the word being typed narrows by.
+    pub label: String,
+    /// A muted note beside it, such as a type.
+    pub detail: Option<String>,
+    /// What goes in, in place of the word being typed.
+    pub insert: String,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl CodeCompletion {
+    /// A suggestion that puts in its own label.
+    pub fn new(label: impl Into<String>) -> Self {
+        let label = label.into();
+        Self { insert: label.clone(), label, detail: None }
+    }
+
+    /// A muted note beside it.
+    pub fn detail(mut self, detail: impl Into<String>) -> Self {
+        self.detail = Some(detail.into());
+        self
+    }
+
+    /// What goes in, when it is not the label.
+    pub fn insert(mut self, text: impl Into<String>) -> Self {
+        self.insert = text.into();
+        self
+    }
 }
 
 impl fmt::Debug for CodeEditor {
@@ -136,7 +176,55 @@ impl CodeEditor {
             caret: None,
             focus_request: None,
             history: None,
+            follow_end: false,
+            on_complete: None,
+            completions: Vec::new(),
+            on_hover: None,
+            hover: None,
+            on_go_to: None,
         }
+    }
+
+    /// Keeps the last line in sight as the text grows, unless it was scrolled away from: for
+    /// what a program prints, read-only.
+    pub fn follow_end(mut self, follow: bool) -> Self {
+        self.follow_end = follow;
+        self
+    }
+
+    /// Asked for suggestions at a character index of the text: on Ctrl+Space, and when `.` or
+    /// `::` is typed. The app answers, now or later, with [`completions`](Self::completions);
+    /// the list shows under the caret, narrowed by the word being typed. The arrows choose,
+    /// Enter or Tab put the choice in place of the word, and Escape closes it.
+    pub fn on_complete(mut self, ask: impl Fn(usize) + 'static) -> Self {
+        self.on_complete = Some(Rc::new(ask));
+        self
+    }
+
+    /// What the list of suggestions offers, once [`on_complete`](Self::on_complete) asked.
+    pub fn completions(mut self, completions: Vec<CodeCompletion>) -> Self {
+        self.completions = completions;
+        self
+    }
+
+    /// Asked for a tip about what is at a character index, once the pointer rests on it for
+    /// half a second. The app answers with [`hover`](Self::hover).
+    pub fn on_hover(mut self, ask: impl Fn(usize) + 'static) -> Self {
+        self.on_hover = Some(Rc::new(ask));
+        self
+    }
+
+    /// The tip shown by the pointer, about what it rests on; `None` shows nothing.
+    pub fn hover(mut self, tip: Option<String>) -> Self {
+        self.hover = tip;
+        self
+    }
+
+    /// Asked to go to where what is at a character index is defined: F12 at the caret, or a
+    /// Cmd/Ctrl click.
+    pub fn on_go_to(mut self, go: impl Fn(usize) + 'static) -> Self {
+        self.on_go_to = Some(Rc::new(go));
+        self
     }
 
     /// Keeps what Cmd/Ctrl+Z can undo in `history`, so it lasts while the editor comes and
@@ -294,6 +382,14 @@ impl View for CodeEditor {
             background: Semantic::Surface,
             found: Rc::new(found.clone()),
             follow_caret: open,
+            follow_end: self.follow_end,
+            on_complete: self.on_complete.clone(),
+            suggestions: Rc::new(
+                self.completions.iter().map(|c| (c.label.clone(), c.detail.clone(), c.insert.clone())).collect(),
+            ),
+            on_hover: self.on_hover.clone(),
+            hover: self.hover.clone(),
+            on_go_to: self.on_go_to.clone(),
         };
         let area = TextArea::new(self.value.clone())
             .rows(self.rows)

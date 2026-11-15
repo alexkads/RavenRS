@@ -44,6 +44,7 @@ pub struct TextField {
     on_leave: Option<Rc<dyn Fn()>>,
     on_cancel: Option<Rc<dyn Fn()>>,
     intercept: Option<crate::KeyHandler>,
+    recall: Option<State<Vec<String>>>,
     state: util::EditorState,
     /// Shown instead of the value while the field does not have focus.
     #[doc(hidden)]
@@ -82,6 +83,7 @@ impl TextField {
             on_leave: None,
             on_cancel: None,
             intercept: None,
+            recall: None,
             state: util::EditorState::default(),
             idle_text: None,
             caret_follows_end: false,
@@ -187,6 +189,15 @@ impl TextField {
     /// navigated from a search field use it for arrows and Enter).
     pub fn intercept_keys(mut self, handler: crate::KeyHandler) -> Self {
         self.intercept = Some(handler);
+        self
+    }
+
+    /// Keeps what Enter sent in `sent`, last at the end, and brings it back with the arrows:
+    /// Up for what was sent before, Down for what came after, and past the last an empty
+    /// field again. For a field commands are typed in, as at a terminal. A line sent twice in
+    /// a row is kept once.
+    pub fn recall(mut self, sent: State<Vec<String>>) -> Self {
+        self.recall = Some(sent);
         self
     }
 
@@ -713,6 +724,8 @@ impl View for TextField {
         });
         let focus_requested: State<bool> = cx.use_state(|| false);
         let history: State<TextHistory> = cx.use_state(TextHistory::new);
+        // Which line sent before is shown, counted in the recall list; none while typing.
+        let recalled: State<Option<usize>> = cx.use_state(|| None);
         let state = self.state;
         if self.autofocus && !state.disabled && !*focus_requested.peek() {
             focus_requested.set_if_changed(true);
@@ -918,6 +931,7 @@ impl View for TextField {
         let (value, submit, cancel) = (self.value.clone(), self.on_submit.clone(), self.on_cancel.clone());
         let (intercept, clipboard, secure) = (self.intercept.clone(), cx.clipboard(), self.secure);
         let follows_end = self.caret_follows_end;
+        let recall = self.recall.clone();
         cx.on_key(
             node,
             Rc::new(move |key, modifiers| {
@@ -933,9 +947,35 @@ impl View for TextField {
                     return true;
                 }
                 if *key == Key::Enter {
+                    if let Some(sent) = recall.as_ref().filter(|_| state.accepts_input()) {
+                        let line = value.get();
+                        if !line.is_empty() && sent.peek().last() != Some(&line) {
+                            sent.update(|sent| sent.push(line));
+                        }
+                        recalled.set(None);
+                    }
                     if let (Some(submit), true) = (&submit, state.accepts_input()) {
                         submit(value.get());
                     }
+                    return true;
+                }
+                if let Some(sent) = recall.as_ref().filter(|_| state.accepts_input())
+                    && matches!(key, Key::ArrowUp | Key::ArrowDown)
+                    && !modifiers.shift
+                {
+                    let count = sent.peek().len();
+                    let now = recalled.get();
+                    let next = match (key, now) {
+                        (_, _) if count == 0 => return true,
+                        (Key::ArrowUp, None) => Some(count - 1),
+                        (Key::ArrowUp, Some(at)) => Some(at.saturating_sub(1)),
+                        (_, Some(at)) if at + 1 < count => Some(at + 1),
+                        _ => None,
+                    };
+                    let line = next.and_then(|at| sent.peek().get(at).cloned()).unwrap_or_default();
+                    recalled.set(next);
+                    cursor.set(Cursor::at(line.chars().count()));
+                    value.set(line);
                     return true;
                 }
                 let mut text = value.get();

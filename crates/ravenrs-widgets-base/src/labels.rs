@@ -904,6 +904,8 @@ pub struct Labels {
     pub playground_output: String,
     /// The field a `CodeEditor` finds text with, and its Cmd/Ctrl+F.
     pub code_find: String,
+    /// The list of suggestions a `CodeEditor` shows under the caret.
+    pub code_suggestions: String,
     /// The field and the button that replace what a `CodeEditor` found.
     pub code_replace: String,
     /// The button that replaces everything a `CodeEditor` found.
@@ -1416,6 +1418,7 @@ impl Labels {
             playground_download: texts.get("widgets.playground_download"),
             playground_output: texts.get("widgets.playground_output"),
             code_find: texts.get("widgets.code_find"),
+            code_suggestions: texts.get("widgets.code_suggestions"),
             code_replace: texts.get("widgets.code_replace"),
             code_replace_all: texts.get("widgets.code_replace_all"),
             code_find_previous: texts.get("widgets.code_find_previous"),
