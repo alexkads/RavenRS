@@ -290,3 +290,102 @@ fn a_turned_node_paints_turned_and_the_pointer_finds_it_where_it_shows() {
     assert!(near(bounds("outer"), 130.0, 70.0, 20.0, 80.0), "{:?}", bounds("outer"));
     assert!(near(bounds("inner"), 130.0, 130.0, 20.0, 20.0), "{:?}", bounds("inner"));
 }
+
+/// A box of a fixed size that counts its clicks.
+struct Block {
+    color: Color,
+    hits: Rc<Cell<u32>>,
+}
+
+impl View for Block {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        use ravenrs_layout::LayoutStyle;
+        let style = LayoutStyle { width: Some(80.0), height: Some(20.0), ..LayoutStyle::leaf() };
+        let node = cx.container(style, &[], Paint::Quad(QuadPaint::new(self.color)));
+        let hits = self.hits.clone();
+        cx.on_click(node, Rc::new(move || hits.set(hits.get() + 1)));
+        cx.semantics(node, ravenrs_widgets::Semantics::new(ravenrs_core::Role::Button).name("block"));
+        node
+    }
+}
+
+/// A quarter turn with a marker after it in a row, to show how much room the turn takes.
+struct TurnedRow {
+    turn: ravenrs_widgets::Turn,
+    hits: Rc<Cell<u32>>,
+}
+
+impl View for TurnedRow {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        use ravenrs_layout::{Axis, LayoutStyle};
+        let block = Block { color: Color::hex(0x0000ff), hits: self.hits.clone() };
+        let turned = cx.child(&ravenrs_widgets::QuarterTurn::new(block, self.turn));
+        let marker = cx.container(
+            LayoutStyle { width: Some(10.0), height: Some(10.0), ..LayoutStyle::leaf() },
+            &[],
+            Paint::Quad(QuadPaint::new(Color::hex(0x00ff00))),
+        );
+        cx.container(LayoutStyle::stack(Axis::Horizontal), &[turned, marker], Paint::None)
+    }
+}
+
+fn turned_ui(turn: ravenrs_widgets::Turn, hits: &Rc<Cell<u32>>) -> Ui {
+    let mut ui = Ui::new(TurnedRow { turn, hits: hits.clone() }, Theme::raven_dark());
+    ui.set_viewport(Size::new(400.0, 300.0), 1.0);
+    // The first layout measures what it holds, the next gives the box that size.
+    ui.update();
+    ui.update();
+    ui
+}
+
+#[test]
+fn a_quarter_turn_stands_its_content_up_in_a_box_turned_too() {
+    let hits = Rc::new(Cell::new(0));
+    let mut ui = turned_ui(ravenrs_widgets::Turn::Clockwise, &hits);
+    let marker = quad_with_fill(&ui, Color::hex(0x00ff00)).expect("the marker");
+    assert_eq!(marker.rect.x(), 20.0, "the turned box is as wide as the block is tall");
+    let block = quad_with_fill(&ui, Color::hex(0x0000ff)).expect("the block");
+    assert!((block.rotation - std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+    let tree = ui.access_tree();
+    let bounds = tree.nodes.iter().find(|n| n.name.as_deref() == Some("block")).expect("the block").bounds;
+    let near = |a: f32, b: f32| (a - b).abs() < 0.01;
+    assert!(
+        near(bounds.x(), 0.0)
+            && near(bounds.y(), 0.0)
+            && near(bounds.width(), 20.0)
+            && near(bounds.height(), 80.0),
+        "standing in its box: {bounds:?}"
+    );
+    click(&mut ui, Point::new(10.0, 70.0));
+    assert_eq!(hits.get(), 1, "the pointer finds it where it stands");
+    click(&mut ui, Point::new(60.0, 10.0));
+    assert_eq!(hits.get(), 1, "and not where it would lie");
+}
+
+#[test]
+fn a_quarter_turn_goes_the_other_way_when_asked() {
+    let hits = Rc::new(Cell::new(0));
+    let ui = turned_ui(ravenrs_widgets::Turn::CounterClockwise, &hits);
+    let block = quad_with_fill(&ui, Color::hex(0x0000ff)).expect("the block");
+    assert!((block.rotation + std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+    assert_eq!(quad_with_fill(&ui, Color::hex(0x00ff00)).expect("the marker").rect.x(), 20.0);
+}
+
+#[test]
+fn turned_text_reads_the_same_and_its_glyphs_turn() {
+    let view = ravenrs_widgets::QuarterTurn::new(Text::new("Files"), ravenrs_widgets::Turn::Clockwise);
+    let mut ui = Ui::new(view, Theme::raven_dark());
+    ui.set_viewport(Size::new(400.0, 300.0), 1.0);
+    ui.update();
+    ui.update();
+    let run = ui
+        .scene()
+        .primitives()
+        .iter()
+        .find_map(|p| if let Primitive::Glyphs(run) = p { Some(run.clone()) } else { None })
+        .expect("the text");
+    assert!((run.rotation - std::f32::consts::FRAC_PI_2).abs() < 1e-5, "{}", run.rotation);
+    let tree = ui.access_tree();
+    let files = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Files")).expect("still read");
+    assert!(files.bounds.height() > files.bounds.width(), "taller than wide: {:?}", files.bounds);
+}

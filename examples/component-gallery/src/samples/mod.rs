@@ -210,6 +210,7 @@ catalog! {
     "ValueSlider" => buttons,
     "InlineRename" => fields,
     "ZStack" => layout,
+    "QuarterTurn" => layout,
     "PropertyRow" => data,
     "PageHeader" => navigation,
     "ButtonGroup" => buttons,
