@@ -1130,3 +1130,107 @@ fn a_dragged_node_lines_up_with_another_before_the_grid_and_alt_does_without() {
     drag(&mut free.ui, Point::new(500.0, 330.0), Point::new(500.0, 106.0));
     assert_eq!(node_at(&free, "c"), (408.0, 72.0), "with Alt, the grid alone");
 }
+
+struct Editor {
+    ui: Ui,
+    graph: State<FlowGraph>,
+    selection: State<FlowSelection>,
+    history: State<FlowHistory>,
+}
+
+/// The canvas and its inspector side by side, on the same diagram, selection and history.
+fn editor(tweak: impl FnOnce(FlowInspector) -> FlowInspector) -> Editor {
+    let graph = State::new(graph().edge(FlowEdge::new(
+        "e1",
+        FlowEndpoint::new("a", "out"),
+        FlowEndpoint::new("b", "in"),
+    )));
+    let selection = State::new(FlowSelection::default());
+    let history = State::new(FlowHistory::new());
+    let canvas = FlowCanvas::new(graph.binding())
+        .selection(selection.binding())
+        .history(history.binding())
+        .view(State::new(FlowViewport::at(Point::new(0.0, 0.0), 1.0)).binding())
+        .size(700.0, 600.0);
+    let inspector = tweak(
+        FlowInspector::new(graph.binding(), selection.binding())
+            .history(history.binding())
+            .kind("trigger", "Trigger")
+            .kind("action", "Action"),
+    );
+    let mut ui = Ui::new(HStack::new((canvas, inspector)), Theme::raven_dark());
+    ui.set_viewport(Size::new(1000.0, 600.0), 1.0);
+    settle(&mut ui);
+    Editor { ui, graph, selection, history }
+}
+
+fn input_named(ui: &mut Ui, name: &str) -> Option<AccessNode> {
+    ui.access_tree()
+        .nodes
+        .iter()
+        .find(|n| n.role == Role::TextInput && n.name.as_deref() == Some(name))
+        .cloned()
+}
+
+#[test]
+fn the_inspector_edits_the_selected_node_through_the_canvas_history() {
+    let mut ed = editor(|i| i);
+    assert!(named(&mut ed.ui, "Select a node or a connection to see its properties").is_some());
+    ed.selection.set(FlowSelection::node("a"));
+    settle(&mut ed.ui);
+    let title = input_named(&mut ed.ui, "Title").expect("the title field");
+    assert_eq!(title.value.as_deref(), Some("New sale"));
+    click(&mut ed.ui, title.bounds.center());
+    key(&mut ed.ui, Key::Character("a".into()), Modifiers { meta: true, ..Modifiers::default() });
+    type_text(&mut ed.ui, "Charge");
+    key(&mut ed.ui, Key::Enter, Modifiers::default());
+    let a = ed.graph.get().find_node("a").cloned().expect("a");
+    assert_eq!(a.title, "Charge");
+    assert!(ed.history.get().can_undo(), "in the canvas's history");
+}
+
+#[test]
+fn the_inspector_shows_mixed_values_and_gives_a_choice_to_all() {
+    let mut ed = editor(|i| i);
+    ed.graph.update(|g| {
+        if let Some(b) = g.find_node_mut("b") {
+            b.shape = FlowShape::Diamond;
+        }
+    });
+    ed.selection.set(FlowSelection { nodes: vec!["a".into(), "b".into()], edges: Vec::new() });
+    settle(&mut ed.ui);
+    assert!(named(&mut ed.ui, "2 nodes").is_some());
+    assert!(input_named(&mut ed.ui, "Title").is_none(), "only what they share");
+    let shape = ed
+        .ui
+        .access_tree()
+        .nodes
+        .iter()
+        .find(|n| n.name.as_deref() == Some("Shape"))
+        .cloned()
+        .expect("the shape choice");
+    assert_eq!(shape.value.as_deref(), Some("Mixed"));
+}
+
+#[test]
+fn the_inspector_edits_a_connection_and_can_be_refused_or_read_only() {
+    let mut ed = editor(|i| i.on_change(|_, _, _| Err("Published steps stay".into())));
+    ed.selection.set(FlowSelection::edge("e1"));
+    settle(&mut ed.ui);
+    let animated = named(&mut ed.ui, "Animated").expect("the checkbox");
+    click(&mut ed.ui, animated.bounds.center());
+    assert!(!ed.graph.get().edges[0].animated, "refused");
+    assert!(named(&mut ed.ui, "Published steps stay").is_some(), "and says why");
+
+    let mut free = editor(|i| i);
+    free.selection.set(FlowSelection::edge("e1"));
+    settle(&mut free.ui);
+    let animated = named(&mut free.ui, "Animated").expect("the checkbox");
+    click(&mut free.ui, animated.bounds.center());
+    assert!(free.graph.get().edges[0].animated);
+
+    let mut locked = editor(|i| i.read_only(true));
+    locked.selection.set(FlowSelection::node("a"));
+    settle(&mut locked.ui);
+    assert!(named(&mut locked.ui, "Editing is locked: read only").is_some());
+}

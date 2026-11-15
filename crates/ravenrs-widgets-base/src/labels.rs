@@ -609,6 +609,54 @@ pub struct Labels {
     pub flow_turned: String,
     /// Why a group of a `FlowCanvas` does not turn.
     pub flow_no_turn: String,
+    /// The name of a `FlowInspector`.
+    pub flow_inspector: String,
+    /// What a `FlowInspector` says with nothing selected.
+    pub flow_inspector_empty: String,
+    /// The heading of a `FlowInspector` for one node.
+    pub flow_inspector_node: String,
+    /// The heading of a `FlowInspector` for one connection.
+    pub flow_inspector_edge: String,
+    /// The heading of a `FlowInspector` for several nodes, with `{0}` how many.
+    pub flow_inspector_nodes: String,
+    /// A value of a `FlowInspector` that differs among the nodes selected.
+    pub flow_inspector_mixed: String,
+    /// What a read-only `FlowInspector` says.
+    pub flow_inspector_read_only: String,
+    /// A field of a `FlowInspector`: a node's title.
+    pub flow_field_title: String,
+    /// A field of a `FlowInspector`: the line under a node's title.
+    pub flow_field_line: String,
+    /// A field of a `FlowInspector`: a node's kind.
+    pub flow_field_kind: String,
+    /// A field of a `FlowInspector`: a node's or a connection's shape.
+    pub flow_field_shape: String,
+    /// A field of a `FlowInspector`.
+    pub flow_field_width: String,
+    /// A field of a `FlowInspector`.
+    pub flow_field_height: String,
+    /// A field of a `FlowInspector`: the left edge.
+    pub flow_field_x: String,
+    /// A field of a `FlowInspector`: the top edge.
+    pub flow_field_y: String,
+    /// A field of a `FlowInspector`: how a node is doing.
+    pub flow_field_status: String,
+    /// A field of a `FlowInspector`: a connection's label.
+    pub flow_field_label: String,
+    /// A field of a `FlowInspector`: the cap at a connection's start.
+    pub flow_field_start: String,
+    /// A field of a `FlowInspector`: the cap at a connection's end.
+    pub flow_field_end: String,
+    /// A field of a `FlowInspector`: a connection that shows something travelling.
+    pub flow_field_animated: String,
+    /// The statuses of a node in a `FlowInspector`.
+    pub flow_status_names: [String; 4],
+    /// The shapes of a node in a `FlowInspector`, in the order of `FlowShape`.
+    pub flow_shape_names: [String; 9],
+    /// The shapes of a connection in a `FlowInspector`.
+    pub flow_line_names: [String; 3],
+    /// The ends of a connection in a `FlowInspector`.
+    pub flow_cap_names: [String; 5],
     /// A port of a `FlowCanvas` where connections end, with `{0}` its node's title.
     pub flow_input: String,
     /// A port of a `FlowCanvas` where connections start, with `{0}` its node's title.
@@ -1235,6 +1283,30 @@ impl Labels {
             flow_title: texts.get("widgets.flow_title"),
             flow_turned: texts.get("widgets.flow_turned"),
             flow_no_turn: texts.get("widgets.flow_no_turn"),
+            flow_inspector: texts.get("widgets.flow_inspector"),
+            flow_inspector_empty: texts.get("widgets.flow_inspector_empty"),
+            flow_inspector_node: texts.get("widgets.flow_inspector_node"),
+            flow_inspector_edge: texts.get("widgets.flow_inspector_edge"),
+            flow_inspector_nodes: texts.get("widgets.flow_inspector_nodes"),
+            flow_inspector_mixed: texts.get("widgets.flow_inspector_mixed"),
+            flow_inspector_read_only: texts.get("widgets.flow_inspector_read_only"),
+            flow_field_title: texts.get("widgets.flow_field_title"),
+            flow_field_line: texts.get("widgets.flow_field_line"),
+            flow_field_kind: texts.get("widgets.flow_field_kind"),
+            flow_field_shape: texts.get("widgets.flow_field_shape"),
+            flow_field_width: texts.get("widgets.flow_field_width"),
+            flow_field_height: texts.get("widgets.flow_field_height"),
+            flow_field_x: texts.get("widgets.flow_field_x"),
+            flow_field_y: texts.get("widgets.flow_field_y"),
+            flow_field_status: texts.get("widgets.flow_field_status"),
+            flow_field_label: texts.get("widgets.flow_field_label"),
+            flow_field_start: texts.get("widgets.flow_field_start"),
+            flow_field_end: texts.get("widgets.flow_field_end"),
+            flow_field_animated: texts.get("widgets.flow_field_animated"),
+            flow_status_names: texts.array("widgets.flow_status_names"),
+            flow_shape_names: texts.array("widgets.flow_shape_names"),
+            flow_line_names: texts.array("widgets.flow_line_names"),
+            flow_cap_names: texts.array("widgets.flow_cap_names"),
             flow_input: texts.get("widgets.flow_input"),
             flow_output: texts.get("widgets.flow_output"),
             flow_pick_port: texts.get("widgets.flow_pick_port"),

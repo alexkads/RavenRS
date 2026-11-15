@@ -74,6 +74,8 @@ use ravenrs_widgets_charts::chart;
 #[cfg(feature = "flow")]
 #[allow(unused_imports)]
 use ravenrs_widgets_charts::flow;
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::flow_inspector::FlowInspector;
 #[cfg(feature = "charts")]
 #[allow(unused_imports)]
 use ravenrs_widgets_charts::sankey;

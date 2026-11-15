@@ -270,6 +270,13 @@ pub enum FlowChange {
         /// The nodes turned.
         nodes: Vec<String>,
     },
+    /// Properties changed in a [`FlowInspector`](crate::FlowInspector).
+    Edit {
+        /// The nodes changed.
+        nodes: Vec<String>,
+        /// The connections changed.
+        edges: Vec<String>,
+    },
     /// A node was made next to another, by its arrows or Cmd/Ctrl+Enter.
     Create {
         /// The new node.

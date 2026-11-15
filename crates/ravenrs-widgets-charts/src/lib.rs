@@ -17,6 +17,9 @@ pub mod chart;
 #[cfg(feature = "flow")]
 #[doc(hidden)]
 pub mod flow;
+#[cfg(feature = "flow")]
+#[doc(hidden)]
+pub mod flow_inspector;
 #[cfg(feature = "charts")]
 #[doc(hidden)]
 pub mod sankey;
@@ -34,5 +37,7 @@ pub use flow::{
     FlowNode, FlowNodeStatus, FlowPort, FlowSelection, FlowShape, FlowValidator, FlowViewport, PortDirection,
     PortSide,
 };
+#[cfg(feature = "flow")]
+pub use flow_inspector::FlowInspector;
 #[cfg(feature = "charts")]
 pub use sankey::{SankeyAlign, SankeyChart};
