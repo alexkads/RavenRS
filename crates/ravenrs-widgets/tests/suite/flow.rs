@@ -1627,8 +1627,7 @@ fn starters_show_only_while_nothing_is_kept() {
         .access_tree()
         .nodes
         .iter()
-        .filter(|n| n.name.as_deref() == Some("Delete"))
-        .last()
+        .rfind(|n| n.name.as_deref() == Some("Delete"))
         .map(|n| n.id)
         .expect("the confirm button");
     ui.perform_action(confirm, ravenrs_core::AccessAction::Click);
