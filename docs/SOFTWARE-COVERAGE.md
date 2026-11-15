@@ -4,6 +4,9 @@ Data: 15/11/2026. Checkout: `6b50ff874`. Avaliação exploratória de código, d
 
 Este é um retrato da base auditada. A integração desta documentação com um master
 mais recente não recalcula as notas nem classifica entregas posteriores como ausentes.
+Exceção: **Diagramas e quadros visuais** foi reavaliado em `35932d841`, depois do layout
+de árvore, das ligações que desviam dos nós, da rotação e das views dentro dos nós do
+FlowCanvas (#456, #479, #481). As demais categorias seguem a base `6b50ff874`.
 
 A [cobertura do ravenrs-app](APP-COVERAGE.md) complementa esta matriz com recursos
 corporativos recorrentes, fluxos declarativos, integração restante e consumo pelo
@@ -25,7 +28,7 @@ Uma issue não soma pontos de implementação. Motores, serviços da aplicação
 
 | Categoria | Referência de cenário | Índice na base auditada | Componentes e experiências a completar |
 |---|---|---:|---|
-| Diagramas e quadros visuais | Whimsical / FigJam | 60% | Formas/toolbox, inspector de diagrama, wireframes, edição de mapa mental e comentários ancorados. |
+| Diagramas e quadros visuais | Whimsical / FigJam | 70% | Formas/toolbox, inspector de diagrama, wireframes, edição de mapa mental, pontos de dobra, exportação e comentários ancorados. |
 | Design visual de interfaces | Figma Design | 30% | Editor vetorial, camadas de documento, texto no canvas, inspector, máscaras e editor de layout. |
 | Construtor visual de sites | Wix | 35% | Paleta de seções, árvore de página, inspector, edição inline e simulador/editor de breakpoints. |
 | Automação visual e chatbots | ManyChat | 35% | Blocos ricos, inspector de condições/mensagens, simulador e monitor de execuções. |
@@ -41,7 +44,7 @@ Uma issue não soma pontos de implementação. Motores, serviços da aplicação
 | Modelagem e animação 3D | Blender | 15% | Viewport3D, gizmos, editor de malhas/UV, materiais e animação. |
 | Produção musical / DAW | Ableton / Reaper | 20% | Waveform, piano roll, mixer, medidores e timeline musical. |
 
-## Diagramas e quadros visuais: 60%
+## Diagramas e quadros visuais: 70%
 
 Referência de cenário: Whimsical / FigJam. A referência delimita um uso, sem prometer reproduzir todo o produto.
 
@@ -52,17 +55,17 @@ Referência de cenário: Whimsical / FigJam. A referência delimita um uso, sem 
 | Seleção múltipla e grupos | 1 |
 | Histórico e clipboard de diagrama | 1 |
 | Documento de grafo JSON | 1 |
-| Layouts especializados e roteamento | 0,5 |
+| Layouts especializados e roteamento | 1 |
 | Formas e propriedades de diagrama | 0,5 |
 | Biblioteca de wireframes | 0 |
-| Edição própria de mapas mentais | 0 |
+| Edição própria de mapas mentais | 0,5 |
 | Colaboração simultânea no documento | 0 |
 
-**Componentes/experiências:** Formas/toolbox, inspector de diagrama, wireframes, edição de mapa mental e comentários ancorados.
+**Componentes/experiências:** Formas/toolbox, inspector de diagrama, wireframes, edição de mapa mental, pontos de dobra, exportação e comentários ancorados.
 
-**Infraestrutura e domínio:** Layouts adicionais, roteamento com obstáculos e colaboração de documento.
+**Infraestrutura e domínio:** Pontos de dobra editáveis, exportação do diagrama e colaboração de documento. O layout de árvore (organograma de cima para baixo ou mapa mental na horizontal) e o roteamento em degrau que desvia dos nós já existem; falta a edição própria do mapa mental, como criar o filho pelo teclado.
 
-**Backlog relacionado:** #395, #396, #397, #402; #195 descreve a base existente.
+**Backlog relacionado:** #396, #397 (pontos de dobra e exportação) e #402; #195, #238 e #395 descrevem a base existente.
 
 **Evidência local/documental:** crates/ravenrs-widgets-charts/src/flow.rs; crates/ravenrs-graphics/src/flow.rs.
 
