@@ -233,6 +233,8 @@ pub struct Ui {
     /// Seconds since start, set by the platform.
     time: f64,
     shortcuts: Vec<Shortcut>,
+    close_guards: Vec<Rc<dyn Fn() -> bool>>,
+    closer: crate::WindowCloser,
     /// Where the focus was before this build moved it.
     moved_focus_from: Option<Option<WidgetId>>,
     activity: Option<crate::context::ActivityObserver>,
@@ -348,6 +350,8 @@ impl Ui {
             scrollbar_showing: false,
             time: 0.0,
             shortcuts: Vec::new(),
+            close_guards: Vec::new(),
+            closer: crate::WindowCloser::default(),
             moved_focus_from: None,
             activity: None,
             access_tree_asked: false,
@@ -680,6 +684,24 @@ impl Ui {
             self.system_reduced_motion = reduced;
             self.ask_build(BuildCause::System);
         }
+    }
+
+    /// Whether the window may close now: false when a view holds it with
+    /// [`BuildCx::on_close_request`](crate::context::BuildCx::on_close_request), to ask
+    /// first. The platform asks before closing the window.
+    pub fn may_close(&self) -> bool {
+        // Every view is asked, even after one says no, so each can raise its own question.
+        let mut all = true;
+        for may in &self.close_guards {
+            all &= may();
+        }
+        all
+    }
+
+    /// Whether a view asked to close the window with a
+    /// [`WindowCloser`](crate::WindowCloser) since the last call; the platform closes it then.
+    pub fn take_close(&self) -> bool {
+        self.closer.take()
     }
 
     /// When the UI wants its next frame even without input (seconds, same clock
@@ -1557,7 +1579,8 @@ impl Ui {
         let motion_enabled = self.motion.enabled;
         let reduced_motion = self.system_reduced_motion || theme.peek().interaction.reduced_motion;
         self.motion.reduced = reduced_motion;
-        let (node, overlays, requests, focus, wake, shortcuts, activity, asked, error, motions, moving) =
+        let closer = self.closer.clone();
+        let (node, overlays, requests, focus, wake, shortcuts, activity, asked, error, motions, moving, guards) =
             observer.track(|| {
                 let mut cx = BuildCx::new(
                     theme,
@@ -1589,6 +1612,7 @@ impl Ui {
                 cx.hover_readers = hover_readers;
                 cx.focus_chain = focus_chain;
                 cx.modifiers_read = modifiers_read;
+                cx.closer = closer;
                 let content = cx.child(&**root);
                 let style = LayoutStyle {
                     width: Some(viewport.width),
@@ -1610,8 +1634,10 @@ impl Ui {
                     cx.error.take(),
                     std::mem::take(&mut cx.motions),
                     cx.value_moving,
+                    std::mem::take(&mut cx.close_guards),
                 )
             });
+        self.close_guards = guards;
         self.wake = wake;
         self.value_moving = moving;
         self.shortcuts = shortcuts;

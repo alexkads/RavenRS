@@ -234,7 +234,7 @@ pub use recurrence::{
     Frequency, RecurrenceEnd, RecurrenceRule, RecurrenceSet, exceptions_text, parse_exceptions,
 };
 pub use release_notes::{CodeBlock, ReleaseNote, ReleaseNotes};
-pub use remote::UiWaker;
+pub use remote::{UiWaker, WindowCloser};
 pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};
 pub use rich_text::RichText;
 #[cfg(feature = "charts")]

@@ -159,7 +159,7 @@ pub use ravenrs_text::TextAlign;
 pub use recurrence::{
     Frequency, RecurrenceEnd, RecurrenceRule, RecurrenceSet, exceptions_text, parse_exceptions,
 };
-pub use remote::UiWaker;
+pub use remote::{UiWaker, WindowCloser};
 pub use scroll_link::{ScrollLink, ScrollRange};
 pub use scroll_scene::{ScrollLinked, ScrollScene, Sticky};
 pub use selection_mode::SelectionMode;
