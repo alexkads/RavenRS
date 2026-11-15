@@ -5819,6 +5819,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "raven-code"
+version = "27.1.28"
+dependencies = [
+ "image",
+ "pollster",
+ "ravenrs",
+ "serde_json",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "ravenrs"
 version = "27.1.28"
 dependencies = [

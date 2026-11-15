@@ -441,6 +441,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Text::__live_expose(registry);
     crate::TextField::__live_expose_fields(registry);
     crate::TextField::__live_expose(registry);
+    crate::Cursor::__live_expose(registry);
     crate::TimeLink::__live_expose_fields(registry);
     crate::TimeLink::__live_expose(registry);
     crate::Turn::__live_expose_variants(registry);
