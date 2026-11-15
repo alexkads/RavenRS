@@ -1,0 +1,27 @@
+[package]
+name = "ravenrs-flows-runtime"
+description = "Durable runs of ravenrs-flows on SQLite: a queue workers claim with a lease, checkpoints after every node, resuming without repeating what was done, waits that outlive the app, reruns and retention."
+version.workspace = true
+edition.workspace = true
+# rusqlite 0.41 needs 1.89, one above the workspace.
+rust-version = "1.89"
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-flows-runtime"
+keywords = ["workflow", "automation", "durable", "queue", "sqlite"]
+categories = ["database", "data-structures"]
+
+[dependencies]
+ravenrs-flows.workspace = true
+rusqlite.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true

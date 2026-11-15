@@ -17,18 +17,18 @@ As contagens correspondem às linhas das tabelas abaixo, sem ponderação por es
 | 1. Editor de fluxo | 10 | 3 | 0 |
 | 2. Painel do nó | 4 | 4 | 0 |
 | 3. Expressões | 0 | 4 | 1 |
-| 4. Motor de execução | 6 | 2 | 1 |
+| 4. Motor de execução | 8 | 1 | 0 |
 | 5. Gatilhos | 0 | 5 | 2 |
 | 6. Nós de integração | 1 | 6 | 0 |
-| 7. Execuções | 1 | 3 | 1 |
+| 7. Execuções | 3 | 2 | 0 |
 | 8. Credenciais | 0 | 2 | 3 |
 | 9. Gestão | 1 | 5 | 1 |
 | 10. Usuários e permissões | 1 | 3 | 0 |
-| 11. Servidor | 1 | 2 | 1 |
+| 11. Servidor | 2 | 1 | 1 |
 | 12. Experiência geral | 6 | 1 | 0 |
 | 13. Vídeo e treinamento | 9 | 9 | 2 |
 | 14. Nós de agente por CLI | 0 | 9 | 6 |
-| **Total** | **40** | **58** | **18** |
+| **Total** | **45** | **55** | **16** |
 
 **Regra de construção:** toda peça visual ou de infraestrutura ausente deve entrar primeiro na biblioteca, no componente responsável. O exemplo apenas compõe APIs públicas e fornece os dados e as políticas do produto.
 
@@ -42,19 +42,19 @@ Os caminhos partem da raiz do repositório. As referências apontam para tipos o
 
 | Recurso | Estado | Onde está hoje (arquivo:linha) | O que falta | Onde deve entrar |
 |---|---|---|---|---|
-| Canvas, nós, portas, conexões e várias saídas nomeadas | ✅ | `FlowCanvas::new`, `crates/ravenrs-widgets-charts/src/flow.rs:592`; `FlowPort`, `crates/ravenrs-graphics/src/flow.rs:74` | App declarar portas de verdadeiro, falso, erro e demais tipos; aplicar validação semântica | APP: catálogo e regras de conexão |
+| Canvas, nós, portas, conexões e várias saídas nomeadas | ✅ | `FlowCanvas::new`, `crates/ravenrs-widgets-charts/src/flow.rs:642`; `FlowPort`, `crates/ravenrs-graphics/src/flow.rs:74` | App declarar portas de verdadeiro, falso, erro e demais tipos; aplicar validação semântica | APP: catálogo e regras de conexão |
 | Nó desativado | ✅ | `FlowNodeStatus::Disabled`, `crates/ravenrs-graphics/src/flow.rs:251`; `NodeDef::disabled`, `crates/ravenrs-flows/src/definition.rs:200`: o nó desativado passa a primeira entrada para a primeira saída | App escolher se mostra o atalho de desativar | APP |
-| Fixar dados de um nó | 🟡 | `NodeDef::pin`, `crates/ravenrs-flows/src/definition.rs:212`, e `Mode::Test`, `crates/ravenrs-flows/src/catalog.rs:105`: no teste, o nó fixado entrega os itens guardados sem rodar | Falta a marca visual no canvas (#528) e editar os itens fixados no inspetor (#531) | BIBLIOTECA: #528, #531 |
-| Notas adesivas | ✅ | `FlowShape::Note`, `crates/ravenrs-graphics/src/flow.rs:124`; `FlowCanvas::content`, `crates/ravenrs-widgets-charts/src/flow.rs:809` | App oferecer criação, texto e cor; definir se usa título simples ou conteúdo composto | APP, usando o canvas |
-| Zoom, pan, encaixe e minimapa | ✅ | `FlowViewport`, `crates/ravenrs-widgets-charts/src/flow.rs:239`; `FlowCanvas::controls` e `minimap`, mesmo arquivo:834 e :840 | Configurar limites e persistir viewport do usuário | APP |
+| Fixar dados de um nó | 🟡 | `NodeDef::pin`, `crates/ravenrs-flows/src/definition.rs:212`, e `Mode::Test`, `crates/ravenrs-flows/src/catalog.rs:106`: no teste, o nó fixado entrega os itens guardados sem rodar | Falta a marca visual no canvas (#528) e editar os itens fixados no inspetor (#531) | BIBLIOTECA: #528, #531 |
+| Notas adesivas | ✅ | `FlowShape::Note`, `crates/ravenrs-graphics/src/flow.rs:124`; `FlowCanvas::content`, `crates/ravenrs-widgets-charts/src/flow.rs:859` | App oferecer criação, texto e cor; definir se usa título simples ou conteúdo composto | APP, usando o canvas |
+| Zoom, pan, encaixe e minimapa | ✅ | `FlowViewport`, `crates/ravenrs-widgets-charts/src/flow.rs:289`; `FlowCanvas::controls` e `minimap`, mesmo arquivo:884 e :890 | Configurar limites e persistir viewport do usuário | APP |
 | Organização automática | ✅ | `FlowLayout::positions` e `apply`, `crates/ravenrs-graphics/src/flow/layout.rs:94` e :148 | Escolher direção e espaçamentos; organização geométrica não define ordem de execução | APP |
 | Desfazer e refazer do diagrama | ✅ | `FlowHistory::record`, `undo` e `redo`, `crates/ravenrs-graphics/src/flow.rs:1230`, :1243 e :1250 | Para alterações de parâmetros fora do grafo, histórico de documento completo | BIBLIOTECA: `L03`; APP: comandos do documento |
 | Copiar, colar e importar JSON | 🟡 | `FlowGraph::insert`, `to_json` e `from_json`, `crates/ravenrs-graphics/src/flow.rs:1069`, :1100 e :1107; `FlowDefinition::to_json` e `from_json`, com versão de formato, e `FlowDefinition::to_graph` e `from_graph`, `crates/ravenrs-flows/src/graph.rs:35` e :79 | Desfazer e colar ainda não levam os parâmetros junto com o desenho | BIBLIOTECA: #529 |
-| Busca rápida ao soltar conexão no vazio | 🟡 | `FlowCanvas::quick_create`, `crates/ravenrs-widgets-charts/src/flow.rs:788`: as setas e Cmd/Ctrl+Enter criam o próximo nó já ligado. Soltar uma conexão no vazio não abre busca; busca `B1`: `on_connect_end`, `connection_drop`, `connect_to_empty` | Evento público com origem e posição ao soltar no vazio, busca no catálogo compatível com a porta e criação e conexão numa só transação | BIBLIOTECA: canvas, `L01` |
-| Catálogo lateral por categoria | ✅ | `FlowToolbox`, `crates/ravenrs-widgets-charts/src/flow_toolbox.rs:60`: grupos, busca, arrastar para o canvas e Enter pelo teclado, ligado por `FlowCanvas::arrivals`, `crates/ravenrs-widgets-charts/src/flow.rs:647` | App fornecer categorias, descrições e os modelos de nó do catálogo | APP, usando a caixa de ferramentas |
-| Grupos, conteúdo próprio, validação e religação | ✅ | `FlowGraph::group`, `crates/ravenrs-graphics/src/flow.rs:986`; `FlowCanvas::content`, `validate` e `on_change`, `crates/ravenrs-widgets-charts/src/flow.rs:809`, :722 e :744; `FlowChange::Reconnect`, mesmo arquivo:389 | Conectar os guards às regras e permissões do documento | APP |
-| Verificar o fluxo e apontar o erro no nó | ✅ | `FlowCanvas::checks` e `FlowIssue`, `crates/ravenrs-widgets-charts/src/flow.rs:682` e :303 | App escrever as regras (nó sem credencial, parâmetro obrigatório vazio, gatilho ausente) | APP |
-| Pontos de dobra manuais e exportação visual | ✅ | `FlowEdge::waypoint`, `crates/ravenrs-graphics/src/flow.rs:693`; `FlowExportFormat` (PNG, SVG e PDF), `crates/ravenrs-graphics/src/flow/picture.rs:61`; `FlowCanvas::on_export`, `crates/ravenrs-widgets-charts/src/flow.rs:639` | App decidir onde gravar o arquivo exportado | APP |
+| Busca rápida ao soltar conexão no vazio | 🟡 | `FlowCanvas::quick_create`, `crates/ravenrs-widgets-charts/src/flow.rs:838`: as setas e Cmd/Ctrl+Enter criam o próximo nó já ligado. Soltar uma conexão no vazio não abre busca; busca `B1`: `on_connect_end`, `connection_drop`, `connect_to_empty` | Evento público com origem e posição ao soltar no vazio, busca no catálogo compatível com a porta e criação e conexão numa só transação | BIBLIOTECA: canvas, `L01` |
+| Catálogo lateral por categoria | ✅ | `FlowToolbox`, `crates/ravenrs-widgets-charts/src/flow_toolbox.rs:60`: grupos, busca, arrastar para o canvas e Enter pelo teclado, ligado por `FlowCanvas::arrivals`, `crates/ravenrs-widgets-charts/src/flow.rs:697` | App fornecer categorias, descrições e os modelos de nó do catálogo | APP, usando a caixa de ferramentas |
+| Grupos, conteúdo próprio, validação e religação | ✅ | `FlowGraph::group`, `crates/ravenrs-graphics/src/flow.rs:986`; `FlowCanvas::content`, `validate` e `on_change`, `crates/ravenrs-widgets-charts/src/flow.rs:859`, :772 e :794; `FlowChange::Reconnect`, mesmo arquivo:439 | Conectar os guards às regras e permissões do documento | APP |
+| Verificar o fluxo e apontar o erro no nó | ✅ | `FlowCanvas::checks` e `FlowIssue`, `crates/ravenrs-widgets-charts/src/flow.rs:732` e :353 | App escrever as regras (nó sem credencial, parâmetro obrigatório vazio, gatilho ausente) | APP |
+| Pontos de dobra manuais e exportação visual | ✅ | `FlowEdge::waypoint`, `crates/ravenrs-graphics/src/flow.rs:693`; `FlowExportFormat` (PNG, SVG e PDF), `crates/ravenrs-graphics/src/flow/picture.rs:61`; `FlowCanvas::on_export`, `crates/ravenrs-widgets-charts/src/flow.rs:689` | App decidir onde gravar o arquivo exportado | APP |
 
 O histórico atual guarda até 100 estados completos do `FlowGraph`. Ele não constitui histórico de versões publicadas nem cobre automaticamente os parâmetros mantidos pelo app.
 
@@ -69,7 +69,7 @@ O histórico atual guarda até 100 estados completos do `FlowGraph`. Ele não co
 | Propriedades visuais do nó (título, tipo, forma, estado) | ✅ | `FlowInspector`, `crates/ravenrs-widgets-charts/src/flow_inspector.rs:61` | Não cobre os parâmetros do tipo de nó, que dependem de `L05` | APP, ao lado do formulário de parâmetros |
 | Dados em tabela, JSON e esquema | 🟡 | `DataGrid::new`, `crates/ravenrs-widgets-grid/src/grid/view.rs:331`; `TreeView::new`, `crates/ravenrs-widgets-lists/src/tree.rs:199` | Inspector reutilizável de JSON aninhado, tipos, ausente versus nulo, arrays, busca e alternância coerente entre modos | BIBLIOTECA: `L06`, `L08` |
 | Arrastar campo da entrada para parâmetro e gerar expressão | 🟡 | `DragPayload::new`, `crates/ravenrs-widgets-base/src/context.rs:165`; `BuildCx::drag_source` e `drop_target`, mesmo arquivo:1701 e :1710 | Payload com caminho tipado, origem do item, escape correto e editor que aceite a inserção; manter alternativa por teclado | BIBLIOTECA: inspector e editor, `L07` |
-| Executar somente o nó | ✅ | `Executor::run_node`, `crates/ravenrs-flows/src/run.rs:270`: roda o nó com o que chegou a ele numa execução anterior | App ligar o botão no painel do nó | APP |
+| Executar somente o nó | ✅ | `Executor::run_node`, `crates/ravenrs-flows/src/run.rs:355`: roda o nó com o que chegou a ele numa execução anterior | App ligar o botão no painel do nó | APP |
 
 `ravenrs-app-spec` descreve estruturas e atributos para entidades; `KindSpec`, em `crates/ravenrs-app-spec/src/lib.rs:102`, não é um esquema completo de parâmetros dinâmicos de conectores. A extensão deve preservar a geração existente.
 
@@ -92,14 +92,14 @@ O `Environment` de expressões usa `Rc` e estado interno sem segurança entre th
 | Recurso | Estado | Onde está hoje (arquivo:linha) | O que falta | Onde deve entrar |
 |---|---|---|---|---|
 | Planejamento topológico e validação de ciclos | ✅ | `Plan::compile`, `crates/ravenrs-flows/src/plan.rs:97`: confere tipos, portas e parâmetros obrigatórios, ordena por dependência e recusa ciclo sem nó de laço; `Plan::back_connections`, `plan.rs:187` | Seguir as voltas do laço fica com os operadores (#534) | BIBLIOTECA: #534 |
-| Lista de objetos passando entre nós | ✅ | `Item` e `Item::derive`, `crates/ravenrs-flows/src/item.rs:44` e :66: JSON, arquivos e de onde veio cada item; `Executor::run`, `crates/ravenrs-flows/src/run.rs:254` | App definir o conteúdo dos itens dos seus nós | APP |
+| Lista de objetos passando entre nós | ✅ | `Item` e `Item::derive`, `crates/ravenrs-flows/src/item.rs:44` e :66: JSON, arquivos e de onde veio cada item; `Executor::run`, `crates/ravenrs-flows/src/run.rs:330` | App definir o conteúdo dos itens dos seus nós | APP |
 | Ramos, merge e laço em lotes | ✅ | `If`, `Switch`, `Merge` e `Batches`, `crates/ravenrs-flows/src/nodes.rs:153`, :177, :220 e :282; o executor dá a volta do laço (`Plan::loop_body`, `crates/ravenrs-flows/src/plan.rs:201`) | App escolher quais nós oferece no catálogo | APP |
-| Espera e retomada após reinício | ⬜ | Não encontrado checkpoint de execução de grafo; busca `B3`: `workflow_engine`, `sub_workflow`, `execution_queue` | Suspensão persistida, wake-up por tempo/evento e retomada sem repetir efeitos já confirmados | BIBLIOTECA: `L12` |
-| Continuar, parar, saída de erro e fluxo de erro | 🟡 | `ERROR_PORT`, `crates/ravenrs-flows/src/catalog.rs:17`; `ErrorPolicy::Route`, `crates/ravenrs-flows/src/definition.rs:38`; `Item::failed`, `crates/ravenrs-flows/src/item.rs:77` | Falta o fluxo de erro (um fluxo inteiro chamado quando outro falha), que depende da execução durável | BIBLIOTECA: #535 |
-| Novas tentativas e tempo limite | ✅ | `Retry`, `crates/ravenrs-flows/src/definition.rs:46`, por tipo de falha (`Failure`, `crates/ravenrs-flows/src/catalog.rs:273`); `NodeKind::reconcile`, `catalog.rs:366`; tempo limite por nó e por execução, `Executor::time_limit_ms`, `crates/ravenrs-flows/src/run.rs:240` | App dizer a política de cada conector | APP |
-| Subfluxo e execução parcial | ✅ | `Executor::run_from`, `crates/ravenrs-flows/src/run.rs:261`; `Subflow`, `crates/ravenrs-flows/src/nodes.rs:577`: roda outro fluxo com os itens que chegaram, com token filho e o tempo que sobra; o catálogo dado ao subfluxo impede que ele chame a si mesmo | Fixar a revisão do fluxo chamado depende das versões (#535) | APP; #535 |
-| Fila e trabalhadores | 🟡 | `JobWork`, `crates/ravenrs-app/src/job.rs:13`; `Dispatcher::run`, `crates/ravenrs-app/src/outbox.rs:225` | Threads e despacho em processo existem; faltam fila durável de execuções, reivindicação atômica, recuperação e coordenação entre processos | BIBLIOTECA: `L12`, `L14` |
-| Cancelar execução | ✅ | `CancelToken`, `crates/ravenrs-flows/src/time.rs:95`, e `Executor::cancel_with`, `crates/ravenrs-flows/src/run.rs:233`: cada nó roda numa thread própria e é deixado para trás ao cancelar; `RunOutcome`, `run.rs:69` | Matar o processo filho de verdade fica com o executor de processos (#558); gravar o estado terminal, com #535 | BIBLIOTECA: #558, #535 |
+| Espera e retomada após reinício | ✅ | `Executor::resume`, `crates/ravenrs-flows/src/run.rs:339`, com `Delay` e `WaitEvent`, `crates/ravenrs-flows/src/nodes.rs:646` e :669; `Runtime::execute` e `signal`, `crates/ravenrs-flows-runtime/src/runtime.rs:293` e :417: retoma do último passo gravado e pergunta ao nó que estava rodando se a chamada aconteceu | Um laço é um passo só: parado no meio, dá a volta de novo desde o começo | BIBLIOTECA: `ravenrs-flows-runtime` |
+| Continuar, parar, saída de erro e fluxo de erro | 🟡 | `ERROR_PORT`, `crates/ravenrs-flows/src/catalog.rs:18`; `ErrorPolicy::Route`, `crates/ravenrs-flows/src/definition.rs:38`; `Item::failed`, `crates/ravenrs-flows/src/item.rs:77` | Falta o fluxo de erro (um fluxo inteiro chamado quando outro falha), que depende da execução durável | BIBLIOTECA: #535 |
+| Novas tentativas e tempo limite | ✅ | `Retry`, `crates/ravenrs-flows/src/definition.rs:46`, por tipo de falha (`Failure`, `crates/ravenrs-flows/src/catalog.rs:311`); `NodeKind::reconcile`, `catalog.rs:366`; tempo limite por nó e por execução, `Executor::time_limit_ms`, `crates/ravenrs-flows/src/run.rs:316` | App dizer a política de cada conector | APP |
+| Subfluxo e execução parcial | ✅ | `Executor::run_from`, `crates/ravenrs-flows/src/run.rs:346`; `Subflow`, `crates/ravenrs-flows/src/nodes.rs:577`: roda outro fluxo com os itens que chegaram, com token filho e o tempo que sobra; o catálogo dado ao subfluxo impede que ele chame a si mesmo | Fixar a revisão do fluxo chamado depende das versões (#535) | APP; #535 |
+| Fila e trabalhadores | ✅ | `Runtime::claim`, `crates/ravenrs-flows-runtime/src/runtime.rs:266`: reivindicação atômica num `UPDATE … RETURNING` dentro de uma transação de escrita, com lease renovado a cada passo; vários processos no mesmo arquivo | Fila em PostgreSQL para várias máquinas | BIBLIOTECA: `ravenrs-flows-runtime` |
+| Cancelar execução | ✅ | `CancelToken`, `crates/ravenrs-flows/src/time.rs:95`, e `Executor::cancel_with`, `crates/ravenrs-flows/src/run.rs:309`: cada nó roda numa thread própria e é deixado para trás ao cancelar; `RunOutcome`, `run.rs:69` | Matar o processo filho de verdade fica com o executor de processos (#558); gravar o estado terminal, com #535 | BIBLIOTECA: #558, #535 |
 
 **Fronteiras já identificadas:**
 
@@ -143,9 +143,9 @@ O `Scheduler` visual organiza eventos e recursos. Sua existência não substitui
 |---|---|---|---|---|
 | Lista com status, duração e modo | 🟡 | `DataGrid::new`, `crates/ravenrs-widgets-grid/src/grid/view.rs:331`; `RunRecord`, `crates/ravenrs-report-server/src/store.rs:68` | Grade disponível; registro existente é específico de relatório. Criar persistência genérica e projeção da execução do fluxo | BIBLIOTECA: `L12`; APP: colunas e modos |
 | Filtros e busca | ✅ | `DataGrid::filter_builder`, `filter_row` e `search_panel`, `crates/ravenrs-widgets-grid/src/grid/view.rs:391`, :563 e :569 | App declarar campos consultáveis e ligar filtros ao repositório | APP |
-| Detalhe no fluxo com dados de cada nó | 🟡 | `FlowCanvas::selection`, `content` e `locked`, `crates/ravenrs-widgets-charts/src/flow.rs:660`, :809 e :847 | Snapshot imutável da definição executada, tentativas e dados por porta; overlay visual de execução. `locked` é alternável e não constitui modo somente leitura irrevogável | BIBLIOTECA: `L02`, `L06`, `L12` |
-| Reexecutar | ⬜ | Não encontrado replay de execução de fluxo; busca `B6`: `execution_history`, `workflow_version`, `NodeExecutor` | Selecionar versão original ou atual, dados originais ou novos e avisar sobre repetição de efeitos | BIBLIOTECA: `L10`, `L12`; APP: política |
-| Apagar e aplicar retenção | 🟡 | `Store::save_run`, `crates/ravenrs-report-server/src/store.rs:319` | Limite por quantidade existe para relatórios; faltam exclusão autorizada de execuções de fluxo, retenção por idade/status e coleta dos blobs associados | BIBLIOTECA: `L12`; APP: prazos |
+| Detalhe no fluxo com dados de cada nó | 🟡 | `FlowCanvas::selection`, `content` e `locked`, `crates/ravenrs-widgets-charts/src/flow.rs:710`, :859 e :897 | Snapshot imutável da definição executada, tentativas e dados por porta; overlay visual de execução. `locked` é alternável e não constitui modo somente leitura irrevogável | BIBLIOTECA: `L02`, `L06`, `L12` |
+| Reexecutar | ✅ | `Runtime::rerun` com `Revision::Original` ou `Current`, `crates/ravenrs-flows-runtime/src/runtime.rs:433`; a execução nova guarda a origem | App mostrar o aviso de efeitos repetidos | APP |
+| Apagar e aplicar retenção | ✅ | `Runtime::prune` com `Retention`, `crates/ravenrs-flows-runtime/src/runtime.rs:527`: por idade, estado e quantidade por fluxo, apagando passos, eventos e arquivos | App escolher os prazos | APP |
 
 ### 8. Credenciais
 
@@ -190,7 +190,7 @@ A autorização de ações deve ser explícita: `can_use_action` permite ações
 |---|---|---|---|---|
 | API REST protegida e endpoints próprios | ✅ | `ApiService::new` e `endpoint`, `crates/ravenrs-app-server/src/lib.rs:302` e :404 | App registrar comandos de fluxos, execuções e administração; operações longas devem devolver identificador da execução | APP, sobre o servidor |
 | Servidor de webhooks | 🟡 | `ApiService::webhook`, `crates/ravenrs-app-server/src/lib.rs:397` | Ampliar contrato de rotas e resposta; enqueue rápido, idempotência e tratamento de prazo | BIBLIOTECA: `L21` |
-| Persistência de execuções | 🟡 | `SqliteDatabase`, `crates/ravenrs-app-sqlite/src/lib.rs:366`; `RunRecord`, `crates/ravenrs-report-server/src/store.rs:68` | Repositório de execução de grafo, checkpoints atômicos, blobs, índices e migrações | BIBLIOTECA: `L12` |
+| Persistência de execuções | ✅ | `Runtime`, `crates/ravenrs-flows-runtime/src/runtime.rs:186`, sobre SQLite: execuções, passos com o JSON de cada nó, eventos e arquivos à parte (`Runtime::put_blob`, `crates/ravenrs-flows-runtime/src/runtime.rs:508`) | Outro banco além do SQLite | BIBLIOTECA: `ravenrs-flows-runtime` |
 | Métricas | ⬜ | Não encontrado contrato de métricas de execução; busca `B8`: `metrics`, `prometheus`, `opentelemetry` na camada de aplicação e servidor | Contadores, histogramas e filas com dimensões limitadas; health/readiness do executor e gatilhos | BIBLIOTECA: `L27` |
 
 O servidor atual processa o estado da aplicação em uma thread própria, uma requisição por vez, conforme `crates/ravenrs-app-server/src/http.rs`. Um endpoint não deve bloquear essa thread executando o fluxo inteiro.
@@ -200,12 +200,12 @@ O servidor atual processa o estado da aplicação em uma thread própria, uma re
 | Recurso | Estado | Onde está hoje (arquivo:linha) | O que falta | Onde deve entrar |
 |---|---|---|---|---|
 | Tema claro e escuro | ✅ | `Theme::raven_dark` e `raven_light`, `crates/ravenrs-style/src/lib.rs:426` e :462 | App escolher e persistir preferência | APP |
-| Atalhos e ajuda de teclado | ✅ | `ShortcutSheet::new`, `crates/ravenrs-widgets-kit/src/shortcuts.rs:49`; `FlowCanvas::history`, `crates/ravenrs-widgets-charts/src/flow.rs:669` | Mapear comandos do app e resolver conflitos de contexto com editores | APP |
+| Atalhos e ajuda de teclado | ✅ | `ShortcutSheet::new`, `crates/ravenrs-widgets-kit/src/shortcuts.rs:49`; `FlowCanvas::history`, `crates/ravenrs-widgets-charts/src/flow.rs:719` | Mapear comandos do app e resolver conflitos de contexto com editores | APP |
 | Barra de comando com Ctrl+K | ✅ | `CommandPalette::new`, `crates/ravenrs-widgets-base/src/floating.rs:1013` | Registrar comandos e suas condições de disponibilidade | APP |
 | Notificações | ✅ | `Toasts::show_with`, `crates/ravenrs-widgets-base/src/floating.rs:683` | App traduzir eventos e erros em mensagens com ação apropriada | APP |
 | Estados vazios | ✅ | `EmptyState::new` e `action`, `crates/ravenrs-widgets-kit/src/status.rs:521` e :538 | Conteúdo para fluxo vazio, nó sem entrada, catálogo sem resultados e histórico vazio | APP |
-| Acessibilidade | 🟡 | `FlowCanvas::label`, `crates/ravenrs-widgets-charts/src/flow.rs:859`; `BuildCx::drag_source`, `crates/ravenrs-widgets-base/src/context.rs:1701`; `Announcer::polite`, `crates/ravenrs-app-a11y/src/announce.rs:72` | Provar navegação completa, alternativa ao arraste, foco entre painéis e anúncios de execução nas novas composições | BIBLIOTECA: aceites de `L01`, `L05`–`L09`, `L26`; APP: composição |
-| Internacionalização | ✅ | `Labels::from_texts`, `crates/ravenrs-widgets-base/src/labels.rs:1139`; `Texts::get`, `crates/ravenrs-app-i18n/src/lib.rs:248` | Cadastrar textos do domínio, pluralização necessária e formatos de data/duração | APP; textos dos novos componentes em suas crates |
+| Acessibilidade | 🟡 | `FlowCanvas::label`, `crates/ravenrs-widgets-charts/src/flow.rs:909`; `BuildCx::drag_source`, `crates/ravenrs-widgets-base/src/context.rs:1701`; `Announcer::polite`, `crates/ravenrs-app-a11y/src/announce.rs:72` | Provar navegação completa, alternativa ao arraste, foco entre painéis e anúncios de execução nas novas composições | BIBLIOTECA: aceites de `L01`, `L05`–`L09`, `L26`; APP: composição |
+| Internacionalização | ✅ | `Labels::from_texts`, `crates/ravenrs-widgets-base/src/labels.rs:1145`; `Texts::get`, `crates/ravenrs-app-i18n/src/lib.rs:248` | Cadastrar textos do domínio, pluralização necessária e formatos de data/duração | APP; textos dos novos componentes em suas crates |
 
 ### 13. Vídeo e treinamento
 
@@ -730,7 +730,7 @@ As lacunas devem ser resolvidas no componente responsável e, quando necessário
 | DateRangePicker | `crates/ravenrs-widgets-base/src/calendar.rs:533` | Natural | Execuções: filtrar o histórico por período e predefinições. | Sim. |
 | DateTimePicker | `crates/ravenrs-widgets-kit/src/editors.rs:1912` | Natural | Painel do nó: executar ou esperar até uma data e hora locais. | Sim para horário local; o fuso é configuração explícita do gatilho. |
 | DaySeparator | `crates/ravenrs-widgets-kit/src/status.rs:912` | Natural | Detalhe da execução: separar registros por dia. | Sim. |
-| Dialog | `crates/ravenrs-widgets-base/src/overlay.rs:1317` | Natural | Diagnóstico: mostrar detalhes de um erro ou teste de conexão. | Sim. |
+| Dialog | `crates/ravenrs-widgets-base/src/overlay.rs:1325` | Natural | Diagnóstico: mostrar detalhes de um erro ou teste de conexão. | Sim. |
 | Disclosure | `crates/ravenrs-widgets-kit/src/nav.rs:1860` | Natural | Painel do nó: seção de tentativas com ativação e estado alterado. | Sim. |
 | Divider | `crates/ravenrs-widgets-base/src/display.rs:274` | Natural | Editor: separar comandos e regiões do painel. | Sim. |
 | DockArea | `crates/ravenrs-widgets-dock/src/dock/area.rs:278` | Natural | Editor: organizar canvas, parâmetros e console em painéis. | Sim; layout vinculável, guardas e eventos de alteração. |
@@ -749,7 +749,7 @@ As lacunas devem ser resolvidas no componente responsável e, quando necessário
 | FilterBuilder | `crates/ravenrs-widgets-kit/src/filter_builder.rs:325` | Natural | Execuções: combinar condições de estado, duração e fluxo. | Sim na linguagem de critérios. |
 | FloatingPanel | `crates/ravenrs-widgets-chat/src/chat.rs:731` | Natural | Nós de agente: acompanhar conversa em painel móvel e minimizável. | Sim. |
 | FloatingToolbar | `crates/ravenrs-widgets-kit/src/commands.rs:407` | Natural | Nós de vídeo: comandos de copiar quadro, ajustar vista e abrir edição sobre a prévia. | Sim. |
-| FlowCanvas | `crates/ravenrs-widgets-charts/src/flow.rs:549` | Natural | Editor: editar o grafo; execução: mostrar grafo bloqueado e estados dos nós. | Sim; histórico, validação, guardas, seleção, estados e minimapa já existem. |
+| FlowCanvas | `crates/ravenrs-widgets-charts/src/flow.rs:599` | Natural | Editor: editar o grafo; execução: mostrar grafo bloqueado e estados dos nós. | Sim; histórico, validação, guardas, seleção, estados e minimapa já existem. |
 | Footer | `crates/ravenrs-widgets-base/src/stack.rs:842` | Natural | Configurações: versão, licença e links de diagnóstico. | Sim. |
 | FormField | `crates/ravenrs-widgets-base/src/extras.rs:1143` | Natural | Painel do nó: rótulo, obrigatoriedade, ajuda e erros dos parâmetros. | Sim. |
 | FormLayout | `crates/ravenrs-widgets-kit/src/form_layout.rs:115` | Natural | Painel do nó: grupos, colunas e resumo dos erros de configuração. | Sim. |
@@ -811,7 +811,7 @@ As lacunas devem ser resolvidas no componente responsável e, quando necessário
 | ScrollView | `crates/ravenrs-widgets-base/src/stack.rs:463` | Natural | Painel do nó: percorrer parâmetros que excedem a altura disponível. | Sim. |
 | Section | `crates/ravenrs-widgets-base/src/display.rs:787` | Natural | Configurações: agrupar execução, armazenamento e integrações. | Sim. |
 | SegmentedControl | `crates/ravenrs-widgets-base/src/inputs.rs:861` | Natural | Lista de fluxos: alternar cartões e tabela. | Sim. |
-| Select | `crates/ravenrs-widgets-base/src/overlay.rs:997` | Natural | Painel do nó: escolher método de requisição ou formato de saída. | Sim. |
+| Select | `crates/ravenrs-widgets-base/src/overlay.rs:1005` | Natural | Painel do nó: escolher método de requisição ou formato de saída. | Sim. |
 | SelectionBar | `crates/ravenrs-widgets-chat/src/conversation.rs:260` | Natural | Lista de fluxos: indicar seleção e oferecer exportação ou exclusão em lote. | Sim. |
 | Sheet | `crates/ravenrs-widgets-base/src/floating.rs:133` | Natural | Painel do nó: apresentar parâmetros sobre o editor em janela estreita. | Sim. |
 | ShimmerText | `crates/ravenrs-widgets-kit/src/status.rs:793` | Forçado | Brilho animado em mensagens de espera duplica os indicadores de atividade. | — |

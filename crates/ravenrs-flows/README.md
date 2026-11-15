@@ -37,6 +37,8 @@ The `FlowCanvas` draws a diagram, and its debugger (`FlowRun`) moves tokens thro
 | `batches` | A loop. Each turn it sends the next batch to `batch`; what the body sends back reaches `back`; with no batch left, everything that came back goes out on `done`. | `size` |
 | `set` | Sets fields from expressions, or keeps only them. | `fields`, `keep_only` |
 | `wait` | Waits on the run's clock and passes its items on; stops early when cancelled. In memory: a wait that outlives the app needs [#535](https://github.com/alexkads/RavenRS/issues/535). | `ms` |
+| `delay` | Waits in a way that outlives the app: the run stops here, and a durable run (`ravenrs-flows-runtime`) starts it again when the time comes. | `ms` |
+| `wait_event` | Waits for an event (an approval, a reply) and gives the items it brought. | `event` |
 | `subflow` | Runs another flow with the items that came. Made apart, with the flows it may call: `Subflow::new(flows, catalog)`. | `flow`, `input`, `output` |
 | `filter` | Keeps the items whose condition is true and sends the rest to `discarded`. | `condition` |
 | `sort` | Orders by fields, each rising or falling. Ties keep the order they came in. | `by` |
@@ -60,6 +62,15 @@ Every node has an error output, `ERROR_PORT` (`"error"`), besides its kind's. A 
 - **The clock**: waits and retries wait on the run's `Clock`. `ManualClock` moves instead of waiting, so tests of them take no time. A node that blocks a thread is stopped in real time.
 
 Rust cannot kill a thread: a node left behind keeps running until it looks at its token. Stopping a child process for real is the job of the process runner ([#558](https://github.com/alexkads/RavenRS/issues/558)), which takes the same token.
+
+## Keeping a run
+
+`Executor::on_step` hears each step as it happens: a node started (`Step::Started`), its part is over (`Step::Settled`), or a loop ended (`Step::LoopDone`). `Executor::resume(checkpoint, in_progress)` goes on from what was written:
+- the nodes in the checkpoint keep their part;
+- the nodes that were running are asked to reconcile;
+- a waiting node runs again to see whether its wait is over (`Executor::woken`, `Executor::events`).
+
+[`ravenrs-flows-runtime`](../ravenrs-flows-runtime) does this on SQLite.
 
 ## Example
 
@@ -90,7 +101,6 @@ assert_eq!(run.output("start", "main").len(), 1);
 
 Each of these has its own issue, under [#523](https://github.com/alexkads/RavenRS/issues/523):
 
-- A durable run, with a queue, checkpoints, resuming and retention: [#535](https://github.com/alexkads/RavenRS/issues/535).
 - The schema of a kind's parameters, beyond the names it requires: [#530](https://github.com/alexkads/RavenRS/issues/530).
 - The domain data of a node inside the `FlowGraph` itself: [#529](https://github.com/alexkads/RavenRS/issues/529). Until then, `from_graph` takes the flow the drawing came from, to keep each node's setup.
 
