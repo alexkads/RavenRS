@@ -1426,3 +1426,32 @@ fn a_line_whose_two_ends_move_takes_its_points_along() {
     drag(&mut rig.ui, Point::new(168.0, 118.0), Point::new(168.0, 166.0));
     assert_eq!(rig.graph.get().edges[0].waypoints, vec![(384.0, 288.0)]);
 }
+
+#[test]
+fn the_shortcut_exports_the_whole_diagram_and_changes_nothing() {
+    let got: std::rc::Rc<std::cell::RefCell<Vec<(FlowExportFormat, FlowPicture)>>> = Default::default();
+    let seen = got.clone();
+    let mut rig = rig_with(graph(), move |c| {
+        c.on_export(move |format, picture| seen.borrow_mut().push((format, picture)))
+    });
+    assert!(named(&mut rig.ui, "Export").is_some(), "a button in the controls");
+
+    // Cmd/Ctrl+Shift+E exports at once, as a PNG at first, the whole diagram.
+    click(&mut rig.ui, Point::new(600.0, 500.0));
+    key(&mut rig.ui, Key::Character("e".into()), command(true));
+    {
+        let got = got.borrow();
+        let (format, picture) = got.last().expect("an export");
+        assert_eq!(*format, FlowExportFormat::Png);
+        let words: Vec<&str> = picture.texts.iter().map(|t| t.text.as_str()).collect();
+        assert!(words.contains(&"New sale") && words.contains(&"Send refusal"));
+    }
+    // Nothing changed in the diagram.
+    assert_eq!(rig.graph.get(), graph());
+}
+
+#[test]
+fn without_on_export_there_is_no_export_button() {
+    let mut rig = rig();
+    assert!(named(&mut rig.ui, "Export").is_none());
+}

@@ -11,9 +11,11 @@ use serde::{Deserialize, Serialize};
 use crate::vector::PathSegment;
 
 mod layout;
+mod picture;
 mod routing;
 
 pub use layout::{FlowDirection, FlowLayout, FlowLayoutKind};
+pub use picture::{FlowColors, FlowExportFormat, FlowPicture, FlowText, PICTURE_MARGIN};
 pub use routing::{ROUTE_MARGIN, RouteCache, route_around};
 
 /// Which side of a node a port sits on, and the way a line leaves it.

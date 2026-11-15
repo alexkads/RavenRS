@@ -20,12 +20,16 @@ use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 use ravenrs_text::TextAttrs;
 
 pub use ravenrs_graphics::flow::{
-    EdgeCap, EdgeShape, FlowDirection, FlowEdge, FlowEndpoint, FlowGraph, FlowHistory, FlowJsonError,
-    FlowLayout, FlowLayoutKind, FlowNode, FlowNodeStatus, FlowPort, FlowShape, PortDirection, PortSide,
+    EdgeCap, EdgeShape, FlowColors, FlowDirection, FlowEdge, FlowEndpoint, FlowExportFormat, FlowGraph,
+    FlowHistory, FlowJsonError, FlowLayout, FlowLayoutKind, FlowNode, FlowNodeStatus, FlowPicture, FlowPort,
+    FlowShape, FlowText, PortDirection, PortSide,
 };
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
-use crate::{AnyView, ButtonSize, ButtonStyle, Clipboard, IconButton, IconName, TextField, View, util};
+use crate::{
+    AnyView, ButtonSize, ButtonStyle, Clipboard, DropdownMenu, IconButton, IconName, MenuItem, TextField,
+    View, util,
+};
 
 /// What a node shows inside its card instead of its icon and words, for
 /// [`FlowCanvas::content`].
@@ -301,6 +305,10 @@ pub enum FlowChange {
 /// of the node is made there, with an id of its own.
 pub const FLOW_NODE_DRAG: &str = "ravenrs/flow-node";
 
+/// Gets the diagram, or the part of it selected, as a picture in the format chosen from the
+/// canvas's Export menu, to save it (`ravenrs-flow-export` writes it as a file).
+pub type FlowExporter = Rc<dyn Fn(FlowExportFormat, FlowPicture)>;
+
 /// Gives the node made next to `from`, on `side` of it, by the arrows of quick creation: its
 /// id and place are set by the canvas. `None` makes nothing on that side.
 pub type FlowNext = Rc<dyn Fn(&FlowNode, PortSide) -> Option<FlowNode>>;
@@ -373,6 +381,7 @@ pub struct FlowCanvas {
     content: Option<FlowContent>,
     next: Option<FlowNext>,
     arrivals: Option<Binding<Option<FlowNode>>>,
+    export: Option<FlowExporter>,
     quick_create: bool,
     grid: f32,
     snap: bool,
@@ -412,6 +421,7 @@ impl FlowCanvas {
             content: None,
             next: None,
             arrivals: None,
+            export: None,
             quick_create: true,
             grid: 24.0,
             snap: true,
@@ -424,6 +434,15 @@ impl FlowCanvas {
             height: None,
             grow: 1.0,
         }
+    }
+
+    /// Offers Export in the controls, and Cmd/Ctrl+Shift+E: the diagram, or with "Only the
+    /// selection" what is selected, goes to `export` as a picture in the format chosen, PNG,
+    /// SVG or PDF (on paper colors), which `ravenrs_flow_export::saver` turns into a file
+    /// handed to the person. Exporting changes nothing, and works when locked too.
+    pub fn on_export(mut self, export: impl Fn(FlowExportFormat, FlowPicture) + 'static) -> Self {
+        self.export = Some(Rc::new(export));
+        self
     }
 
     /// Takes the nodes left here, as a [`FlowToolbox`](crate::FlowToolbox) given the same
@@ -698,6 +717,11 @@ struct Flow {
     /// Why a group does not turn.
     no_turn: String,
     next: Option<FlowNext>,
+    export: Option<FlowExporter>,
+    /// Whether Export takes only what is selected, and the format chosen last.
+    export_only: State<bool>,
+    export_format: State<FlowExportFormat>,
+    palette: Palette,
     quick_create: bool,
     editable_titles: bool,
     /// The node whose title is being typed, and what has been typed.
@@ -1163,6 +1187,35 @@ impl Flow {
         true
     }
 
+    /// Hands the diagram, or what is selected when "Only the selection" is on, to the app's
+    /// exporter as a picture in `format`.
+    fn export(&self, format: FlowExportFormat) -> bool {
+        let Some(export) = &self.export else { return false };
+        self.export_format.set_if_changed(format);
+        let graph = self.graph.get();
+        let selection = self.selection.get();
+        let only =
+            (self.export_only.get() && !selection.nodes.is_empty()).then_some(selection.nodes.as_slice());
+        let p = self.palette;
+        let colors = match format {
+            FlowExportFormat::Pdf => FlowColors::paper(),
+            _ => FlowColors {
+                background: p.canvas,
+                node: p.elevated,
+                border: p.border,
+                ink: p.ink,
+                muted: p.muted,
+                line: p.accent,
+                danger: p.danger,
+                warning: p.warning,
+            },
+        };
+        if let Some(picture) = graph.picture(only, colors) {
+            export(format, picture);
+        }
+        true
+    }
+
     /// Where `at` (in the view) lands in the diagram, on the grid.
     fn bend_point(&self, at: Point) -> (f32, f32) {
         let c = self.view.get().to_content(at);
@@ -1417,6 +1470,7 @@ impl Flow {
                 "c" => return self.copy(),
                 "x" => return self.cut(),
                 "v" => return self.paste(),
+                "e" if shift && self.export.is_some() => return self.export(self.export_format.get()),
                 "g" if shift => return self.ungroup_selection(),
                 "g" => return self.group_selection(),
                 "]" | "}" => return self.reorder(true),
@@ -2138,6 +2192,8 @@ impl View for FlowCanvas {
         let connecting = cx.use_state(|| None::<Connecting>);
         let marquee = cx.use_state(|| None::<Rect>);
         let guides = cx.use_state(|| (None::<f32>, None::<f32>));
+        let export_only = cx.use_state(|| false);
+        let export_format = cx.use_state(FlowExportFormat::default);
         let notice = cx.use_state(|| None::<String>);
         let editing = cx.use_state(|| None::<String>);
         let draft = cx.use_state(String::new);
@@ -2164,6 +2220,10 @@ impl View for FlowCanvas {
             rotatable: self.rotatable,
             no_turn: labels.flow_no_turn.clone(),
             next: self.next.clone(),
+            export: self.export.clone(),
+            export_only,
+            export_format,
+            palette,
             quick_create: self.quick_create,
             editable_titles: self.editable_titles,
             editing: editing.clone(),
@@ -2499,6 +2559,36 @@ fn controls(
             .selected(locked)
             .on_click(move || d.set(!d.get())),
     );
+    let export = flow.export.is_some().then(|| {
+        let item = |name: &str, aside: Option<&str>, format: FlowExportFormat| {
+            let f = flow.clone();
+            let item = MenuItem::new(name.to_owned()).on_select(move || {
+                f.export(format);
+            });
+            match aside {
+                Some(aside) => item.shortcut(aside.to_owned()),
+                None => item,
+            }
+        };
+        let only = flow.export_only.clone();
+        let mut menu = DropdownMenu::new(labels.flow_export.clone())
+            .icon(IconName::Download)
+            .icon_only()
+            .size(ButtonSize::Small)
+            .style(ButtonStyle::Ghost)
+            .item(item(&labels.flow_export_png, Some("2×"), FlowExportFormat::Png))
+            .item(item(&labels.flow_export_svg, None, FlowExportFormat::Svg))
+            .item(item(&labels.flow_export_pdf, None, FlowExportFormat::Pdf));
+        if !flow.selection.get().nodes.is_empty() {
+            let on = only.get();
+            menu = menu.separator().item(
+                MenuItem::new(labels.flow_export_selection.clone())
+                    .checked(on)
+                    .on_select(move || only.set(!on)),
+            );
+        }
+        cx.child(&menu)
+    });
     let percent = format!("{}%", (view.zoom * 100.0).round());
     let percent = util::label(cx, &percent, TextStyle::Callout, None, p.muted);
     let percent = cx.container(
@@ -2519,7 +2609,11 @@ fn controls(
             align: Align::Center,
             ..LayoutStyle::stack(Axis::Horizontal)
         },
-        &[zoom_in, zoom_out, fit, arrange, lock, percent],
+        &[zoom_in, zoom_out, fit, arrange, lock]
+            .into_iter()
+            .chain(export)
+            .chain([percent])
+            .collect::<Vec<_>>(),
         Paint::Quad(crate::context::QuadPaint {
             corner_radius: theme.radii.md,
             border: Some(ravenrs_core::Border { width: 1.0, color: p.border }),

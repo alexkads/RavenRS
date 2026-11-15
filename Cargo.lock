@@ -6216,6 +6216,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-flow-export"
+version = "27.1.28"
+dependencies = [
+ "image",
+ "ravenrs-core",
+ "ravenrs-graphics",
+ "ravenrs-report",
+ "ravenrs-report-export",
+ "ravenrs-text",
+ "ravenrs-widgets",
+ "swash",
+]
+
+[[package]]
 name = "ravenrs-graphics"
 version = "27.1.28"
 dependencies = [

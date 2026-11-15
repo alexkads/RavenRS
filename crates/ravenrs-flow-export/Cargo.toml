@@ -1,0 +1,30 @@
+[package]
+name = "ravenrs-flow-export"
+description = "Saves a RavenRS FlowCanvas diagram as a PNG picture, an SVG drawing or a PDF page."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-flow-export"
+keywords = ["diagram", "export", "png", "svg", "pdf"]
+categories = ["gui", "encoding"]
+
+[dependencies]
+ravenrs-core.workspace = true
+ravenrs-graphics.workspace = true
+ravenrs-text.workspace = true
+ravenrs-report.workspace = true
+ravenrs-report-export.workspace = true
+ravenrs-widgets = { workspace = true, features = ["flow"] }
+swash.workspace = true
+image.workspace = true
+
+[lints]
+workspace = true
+
+[dev-dependencies]
+image.workspace = true

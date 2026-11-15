@@ -607,6 +607,16 @@ pub struct Labels {
     pub flow_title: String,
     /// A turned node of a `FlowCanvas`, with `{0}` its turn in degrees.
     pub flow_turned: String,
+    /// The Export menu of a `FlowCanvas`.
+    pub flow_export: String,
+    /// Export a `FlowCanvas` as a PNG picture.
+    pub flow_export_png: String,
+    /// Export a `FlowCanvas` as an SVG drawing.
+    pub flow_export_svg: String,
+    /// Export a `FlowCanvas` as a PDF page.
+    pub flow_export_pdf: String,
+    /// Export only what is selected in a `FlowCanvas`.
+    pub flow_export_selection: String,
     /// A bend point of a `FlowCanvas` line, with `{0}` its place, `{1}` how many and `{2}` the
     /// line's label (or id).
     pub flow_bend: String,
@@ -1293,6 +1303,11 @@ impl Labels {
             flow_members: texts.get("widgets.flow_members"),
             flow_title: texts.get("widgets.flow_title"),
             flow_turned: texts.get("widgets.flow_turned"),
+            flow_export: texts.get("widgets.flow_export"),
+            flow_export_png: texts.get("widgets.flow_export_png"),
+            flow_export_svg: texts.get("widgets.flow_export_svg"),
+            flow_export_pdf: texts.get("widgets.flow_export_pdf"),
+            flow_export_selection: texts.get("widgets.flow_export_selection"),
             flow_bend: texts.get("widgets.flow_bend"),
             flow_no_turn: texts.get("widgets.flow_no_turn"),
             flow_inspector: texts.get("widgets.flow_inspector"),
