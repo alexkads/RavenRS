@@ -33,6 +33,9 @@ pub enum FlowLayoutKind {
     /// side. A node reached from two others hangs under the first; a forest is trees side by
     /// side.
     Tree,
+    /// A mind map: the first node nothing leads to in the middle, half its branches growing to
+    /// the right and half to the left, each as a tree.
+    MindMap,
 }
 
 /// How [`FlowLayout::apply`] arranges a diagram: the kind of arrangement, the direction and
@@ -69,6 +72,11 @@ impl FlowLayout {
     /// A tree growing in this direction, as an org chart (down) or a mind map (right).
     pub fn tree(direction: FlowDirection) -> Self {
         Self { kind: FlowLayoutKind::Tree, ..Self::new(direction) }
+    }
+
+    /// A mind map growing to both sides of its middle idea.
+    pub fn mind_map() -> Self {
+        Self { kind: FlowLayoutKind::MindMap, ..Self::new(FlowDirection::Right) }
     }
 
     /// With this room between layers and between the nodes of a layer.
@@ -121,6 +129,7 @@ impl FlowLayout {
         let links = links(graph);
         let places = match self.kind {
             FlowLayoutKind::Tree => self.tree_places(&graph.nodes, &links),
+            FlowLayoutKind::MindMap => self.mind_places(&graph.nodes, &links),
             _ => {
                 let layer = layers(n, &links);
                 let mut order = order(n, &links, &layer);
@@ -134,6 +143,8 @@ impl FlowLayout {
     }
 
     /// Moves every node of `graph` where [`Self::positions`] puts it. Says whether any moved.
+    /// A mind map also turns the ports of the nodes left of the middle to face it: their way in
+    /// on the right, their way out on the left.
     pub fn apply(&self, graph: &mut FlowGraph) -> bool {
         let places = self.positions(graph);
         let mut moved = false;
@@ -144,7 +155,99 @@ impl FlowLayout {
                 moved = true;
             }
         }
+        if self.kind == FlowLayoutKind::MindMap
+            && let Some(middle) = middle_of(graph)
+        {
+            let centre = graph.nodes[middle].rect().center().x;
+            for (i, node) in graph.nodes.iter_mut().enumerate() {
+                let left = i != middle && node.rect().center().x < centre;
+                for port in &mut node.ports {
+                    if !port.side.is_horizontal() {
+                        continue;
+                    }
+                    let wanted = match (port.direction == super::PortDirection::Input, left) {
+                        (true, false) | (false, true) => super::PortSide::Left,
+                        _ => super::PortSide::Right,
+                    };
+                    if port.side != wanted {
+                        port.side = wanted;
+                        moved = true;
+                    }
+                }
+            }
+        }
         moved
+    }
+
+    /// Where each node of a mind map goes: the branches of the middle split between the right
+    /// and the left, each half a tree, the left one mirrored.
+    fn mind_places(&self, nodes: &[FlowNode], links: &[(usize, usize)]) -> Vec<(f32, f32)> {
+        let n = nodes.len();
+        let reached: Vec<bool> = (0..n).map(|i| links.iter().any(|(_, b)| *b == i)).collect();
+        let middle = (0..n).find(|i| !reached[*i]).unwrap_or(0);
+        let branches: Vec<usize> = links.iter().filter(|(a, _)| *a == middle).map(|(_, b)| *b).collect();
+        let half = branches.len().div_ceil(2);
+        let under = |from: usize| -> Vec<usize> {
+            let mut found = vec![from];
+            let mut i = 0;
+            while i < found.len() {
+                for (a, b) in links {
+                    if *a == found[i] && !found.contains(b) && *b != middle {
+                        found.push(*b);
+                    }
+                }
+                i += 1;
+            }
+            found
+        };
+        let side = |chosen: &[usize]| -> Vec<usize> {
+            let mut all = vec![middle];
+            for b in chosen {
+                for i in under(*b) {
+                    if !all.contains(&i) {
+                        all.push(i);
+                    }
+                }
+            }
+            all
+        };
+        let (right, left) = (side(&branches[..half]), side(&branches[half..]));
+        let tree = |members: &[usize]| -> Vec<(f32, f32)> {
+            let sub: Vec<FlowNode> = members.iter().map(|i| nodes[*i].clone()).collect();
+            let sub_links: Vec<(usize, usize)> = links
+                .iter()
+                .filter_map(|(a, b)| {
+                    Some((members.iter().position(|m| m == a)?, members.iter().position(|m| m == b)?))
+                })
+                .collect();
+            Self { kind: FlowLayoutKind::Tree, direction: FlowDirection::Right, ..*self }
+                .tree_places(&sub, &sub_links)
+        };
+        let mut places: Vec<(f32, f32)> = nodes.iter().map(|n| (n.x, n.y)).collect();
+        let r = tree(&right);
+        let (rx, ry) = r[0];
+        for (k, i) in right.iter().enumerate() {
+            places[*i] = (r[k].0 - rx, r[k].1 - ry);
+        }
+        if left.len() > 1 {
+            let l = tree(&left);
+            let (lx, ly) = l[0];
+            let w = nodes[middle].width;
+            for (k, i) in left.iter().enumerate().skip(1) {
+                // Mirrored: as far left of the middle's left edge as the tree put it right.
+                let dx = l[k].0 - lx;
+                places[*i] = (w - dx - nodes[*i].width, l[k].1 - ly);
+            }
+        }
+        // What no branch reaches stays below, in a row.
+        let placed: Vec<usize> = right.iter().chain(&left).copied().collect();
+        let bottom = placed.iter().map(|i| places[*i].1 + nodes[*i].height).fold(0.0_f32, f32::max);
+        let mut x = 0.0;
+        for i in (0..n).filter(|i| !placed.contains(i)) {
+            places[i] = (x, bottom + self.layer_gap);
+            x += nodes[i].width + self.node_gap;
+        }
+        places
     }
 
     /// Where each node goes in a tree: the left and top edges.
@@ -317,6 +420,11 @@ impl FlowLayout {
 }
 
 /// The connections between two different nodes, by index, once each, ignoring the ports.
+/// The middle of a mind map: the first node nothing leads to.
+fn middle_of(graph: &FlowGraph) -> Option<usize> {
+    (0..graph.nodes.len()).find(|i| !graph.edges.iter().any(|e| e.to.node == graph.nodes[*i].id))
+}
+
 fn links(graph: &FlowGraph) -> Vec<(usize, usize)> {
     let index = |id: &str| graph.nodes.iter().position(|n| n.id == id);
     let mut links: Vec<(usize, usize)> = Vec::new();
@@ -429,6 +537,47 @@ fn order(n: usize, links: &[(usize, usize)], layer: &[usize]) -> Vec<Vec<usize>>
         }
     }
     order
+}
+
+#[cfg(test)]
+mod mind_tests {
+    use super::*;
+    use crate::flow::{FlowEdge, FlowEndpoint, FlowPort};
+
+    #[test]
+    fn a_mind_map_grows_to_both_sides_and_turns_the_ports_of_the_left() {
+        let idea = |id: &str| {
+            FlowNode::new(id, "idea", id, 0.0, 0.0)
+                .size(120.0, 40.0)
+                .port(FlowPort::input("in").side(crate::flow::PortSide::Left))
+                .port(FlowPort::output("out").side(crate::flow::PortSide::Right))
+        };
+        let mut g = FlowGraph::new();
+        for id in ["m", "a", "b", "c", "d", "a1"] {
+            g = g.node(idea(id));
+        }
+        for (i, (from, to)) in
+            [("m", "a"), ("m", "b"), ("m", "c"), ("m", "d"), ("a", "a1")].iter().enumerate()
+        {
+            g = g.edge(FlowEdge::new(
+                format!("e{i}"),
+                FlowEndpoint::new(*from, "out"),
+                FlowEndpoint::new(*to, "in"),
+            ));
+        }
+        FlowLayout::mind_map().apply(&mut g);
+        let x = |id: &str| g.find_node(id).map_or(0.0, |n| n.rect().center().x);
+        let m = x("m");
+        assert!(x("a") > m && x("b") > m && x("a1") > x("a"), "half to the right");
+        assert!(x("c") < m && x("d") < m, "half to the left");
+        let side = |id: &str, port: &str| g.find_node(id).and_then(|n| n.find_port(port)).map(|p| p.side);
+        assert_eq!(side("c", "in"), Some(crate::flow::PortSide::Right), "facing the middle");
+        assert_eq!(side("c", "out"), Some(crate::flow::PortSide::Left));
+        assert_eq!(side("a", "in"), Some(crate::flow::PortSide::Left));
+        let before = g.clone();
+        FlowLayout::mind_map().apply(&mut g);
+        assert_eq!(g, before, "arranging again changes nothing");
+    }
 }
 
 #[cfg(test)]

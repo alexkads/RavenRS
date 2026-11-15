@@ -30,12 +30,13 @@ fn the_loop_back_goes_round_through_its_points() {
 }
 
 #[test]
-fn the_mind_map_is_a_tree_whose_ideas_never_overlap() {
+fn the_mind_map_grows_to_both_sides_and_its_ideas_never_overlap() {
     let graph = flow_whiteboard::mind_map();
     let root = graph.find_node("root").expect("the middle idea");
-    for node in graph.nodes.iter().filter(|n| n.id != "root") {
-        assert!(node.x > root.x, "{} grows to the right", node.id);
-    }
+    let centre = root.rect().center().x;
+    let right = graph.nodes.iter().filter(|n| n.rect().center().x > centre).count();
+    let left = graph.nodes.iter().filter(|n| n.rect().center().x < centre).count();
+    assert!(right > 0 && left > 0, "it grows to both sides ({right} right, {left} left)");
     for (i, a) in graph.nodes.iter().enumerate() {
         for b in graph.nodes.iter().skip(i + 1) {
             let (ra, rb) = (a.extent(), b.extent());

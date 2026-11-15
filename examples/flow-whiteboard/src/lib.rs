@@ -91,7 +91,7 @@ pub fn mind_map() -> FlowGraph {
             graph = graph.edge(FlowEdge { end: EdgeCap::None, ..edge });
         }
     }
-    FlowLayout::tree(FlowDirection::Right).gaps(72.0, 24.0).apply(&mut graph);
+    FlowLayout::mind_map().gaps(72.0, 24.0).apply(&mut graph);
     graph
 }
 
@@ -148,7 +148,7 @@ impl View for Whiteboard {
         let layout = if which == 0 {
             FlowLayout::new(FlowDirection::Down)
         } else {
-            FlowLayout::tree(FlowDirection::Right).gaps(72.0, 24.0)
+            FlowLayout::mind_map().gaps(72.0, 24.0)
         };
         let canvas = FlowCanvas::new(graph.binding())
             .view(view.binding())
