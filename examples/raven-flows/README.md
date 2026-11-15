@@ -47,7 +47,7 @@ Uma execução roda num trabalhador próprio (`casa::Worker::Thread`), com a sua
 | Falta | Issue |
 |---|---|
 | Soltar a conexão no vazio para criar o nó | [#527](https://github.com/alexkads/RavenRS/issues/527) |
-| Esquema para os tipos que guardam listas ou objetos (itens do início, campos de Definir campos) | tipos de parâmetro de lista livre no `ParameterForm` |
+| Esquema para os tipos que guardam listas ou objetos (itens do início, campos de Definir campos) | [#591](https://github.com/alexkads/RavenRS/issues/591) |
 | Inspetor de entrada e saída, arrastar campo, expressões com prévia | [#531](https://github.com/alexkads/RavenRS/issues/531), [#532](https://github.com/alexkads/RavenRS/issues/532), [#533](https://github.com/alexkads/RavenRS/issues/533) |
 | Credenciais e variáveis | [#546](https://github.com/alexkads/RavenRS/issues/546), [#533](https://github.com/alexkads/RavenRS/issues/533) |
 | Gatilhos por agenda e `delay` acordando sozinho com o app aberto | [#537](https://github.com/alexkads/RavenRS/issues/537) |
