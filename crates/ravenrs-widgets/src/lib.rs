@@ -74,6 +74,16 @@ use ravenrs_widgets_charts::chart;
 #[cfg(feature = "flow")]
 #[allow(unused_imports)]
 use ravenrs_widgets_charts::flow;
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::flow_inspector::FlowInspector;
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::flow_layers::FlowLayers;
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::flow_library::FlowLibrary;
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::flow_notation::{FlowChecks, FlowFileFormat, FlowNotation};
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::flow_toolbox::FlowToolbox;
 #[cfg(feature = "charts")]
 #[allow(unused_imports)]
 use ravenrs_widgets_charts::sankey;
@@ -171,9 +181,11 @@ pub use floating::{
 };
 #[cfg(feature = "flow")]
 pub use flow::{
-    EdgeCap, EdgeShape, FlowCanvas, FlowChange, FlowContent, FlowDirection, FlowEdge, FlowEndpoint,
-    FlowGraph, FlowGuard, FlowHistory, FlowJsonError, FlowKind, FlowLayout, FlowLayoutKind, FlowNode,
-    FlowNodeStatus, FlowPort, FlowSelection, FlowShape, FlowValidator, FlowViewport, PortDirection, PortSide,
+    EdgeCap, EdgeShape, FLOW_NODE_DRAG, FlowCanvas, FlowChange, FlowColors, FlowConnector, FlowContent,
+    FlowDirection, FlowDocument, FlowEdge, FlowEndpoint, FlowExportFormat, FlowExporter, FlowGate, FlowGraph,
+    FlowGuard, FlowHistory, FlowIssue, FlowJsonError, FlowKind, FlowLayout, FlowLayoutKind, FlowNext,
+    FlowNode, FlowNodeStatus, FlowPicture, FlowPort, FlowRun, FlowRunEvent, FlowRunRules, FlowSelection,
+    FlowShape, FlowShelf, FlowStyle, FlowText, FlowValidator, FlowViewport, PortDirection, PortSide,
 };
 pub use form_layout::{FormGroup, FormLayout};
 pub use full_screen::{FullScreen, FullScreenProvider};

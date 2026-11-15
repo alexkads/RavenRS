@@ -1,6 +1,7 @@
 # The public API of ravenrs-widgets, by the paths its users write.
 # Written by scripts/public-api.py; `--check` fails when it changes. Regenerate it only
 # when the change is meant, and say so in the pull request.
+const FLOW_NODE_DRAG
 enum AnchorPoint
 enum BoxHandle
 enum ButtonSize
@@ -151,6 +152,8 @@ field FilterField::name
 field FilterField::values
 field FilterLayout::text
 field FilterLayout::title
+field FlowIssue::nodes
+field FlowIssue::text
 field FlowSelection::edges
 field FlowSelection::nodes
 field FlowViewport::fit
@@ -399,19 +402,97 @@ field Labels::filter_starts_with
 field Labels::filter_value
 field Labels::filter_yes
 field Labels::flow_arrange
+field Labels::flow_bend
 field Labels::flow_canvas
+field Labels::flow_cap_names
+field Labels::flow_check
+field Labels::flow_check_close
+field Labels::flow_check_found
+field Labels::flow_check_ok
 field Labels::flow_controls
 field Labels::flow_count
+field Labels::flow_debug
 field Labels::flow_disabled
+field Labels::flow_done
+field Labels::flow_export
+field Labels::flow_export_pdf
+field Labels::flow_export_png
+field Labels::flow_export_selection
+field Labels::flow_export_svg
+field Labels::flow_field_animated
+field Labels::flow_field_dashed
+field Labels::flow_field_end
+field Labels::flow_field_fill
+field Labels::flow_field_height
+field Labels::flow_field_kind
+field Labels::flow_field_label
+field Labels::flow_field_line
+field Labels::flow_field_shape
+field Labels::flow_field_start
+field Labels::flow_field_status
+field Labels::flow_field_stroke
+field Labels::flow_field_stroke_width
+field Labels::flow_field_text
+field Labels::flow_field_title
+field Labels::flow_field_width
+field Labels::flow_field_x
+field Labels::flow_field_y
 field Labels::flow_group
 field Labels::flow_input
+field Labels::flow_inspector
+field Labels::flow_inspector_edge
+field Labels::flow_inspector_empty
+field Labels::flow_inspector_mixed
+field Labels::flow_inspector_node
+field Labels::flow_inspector_nodes
+field Labels::flow_inspector_read_only
+field Labels::flow_layer_down
+field Labels::flow_layer_hide
+field Labels::flow_layer_show
+field Labels::flow_layer_up
+field Labels::flow_layers
+field Labels::flow_library
+field Labels::flow_library_count
+field Labels::flow_library_delete
+field Labels::flow_library_delete_message
+field Labels::flow_library_delete_title
+field Labels::flow_library_name
+field Labels::flow_library_new
+field Labels::flow_library_open_file
+field Labels::flow_library_save
+field Labels::flow_library_save_file
+field Labels::flow_library_saved
+field Labels::flow_library_unsaved
+field Labels::flow_library_untitled
+field Labels::flow_line_names
 field Labels::flow_lock
 field Labels::flow_members
 field Labels::flow_no_turn
 field Labels::flow_output
 field Labels::flow_pick_port
 field Labels::flow_refused
+field Labels::flow_run_breakpoint
+field Labels::flow_run_choose
+field Labels::flow_run_continue
+field Labels::flow_run_dead_end
+field Labels::flow_run_done
+field Labels::flow_run_ended
+field Labels::flow_run_hint
+field Labels::flow_run_looping
+field Labels::flow_run_moved
+field Labels::flow_run_no_start
+field Labels::flow_run_start
+field Labels::flow_run_step
+field Labels::flow_run_stop
+field Labels::flow_run_stuck
+field Labels::flow_running
+field Labels::flow_shape_names
+field Labels::flow_status_names
 field Labels::flow_title
+field Labels::flow_toolbox
+field Labels::flow_toolbox_hint
+field Labels::flow_toolbox_none
+field Labels::flow_toolbox_search
 field Labels::flow_turned
 field Labels::flow_unlock
 field Labels::folder_empty
@@ -928,7 +1009,10 @@ impl Clone for FilterFieldKind
 impl Clone for FilterLayout
 impl Clone for FloatingCorner
 impl Clone for FlowChange
+impl Clone for FlowFileFormat
+impl Clone for FlowIssue
 impl Clone for FlowKind
+impl Clone for FlowNotation
 impl Clone for FlowSelection
 impl Clone for FlowViewport
 impl Clone for Frequency
@@ -1308,8 +1392,15 @@ impl Debug for FloatingPanel
 impl Debug for FloatingToolbar
 impl Debug for FlowCanvas
 impl Debug for FlowChange
+impl Debug for FlowFileFormat
+impl Debug for FlowInspector
+impl Debug for FlowIssue
 impl Debug for FlowKind
+impl Debug for FlowLayers
+impl Debug for FlowLibrary
+impl Debug for FlowNotation
 impl Debug for FlowSelection
+impl Debug for FlowToolbox
 impl Debug for FlowViewport
 impl Debug for FnView
 impl Debug for Footer
@@ -1622,7 +1713,10 @@ impl Default for FileSortColumn
 impl Default for FilterFieldKind
 impl Default for FilterLayout
 impl Default for FloatingCorner
+impl Default for FlowIssue
+impl Default for FlowNotation
 impl Default for FlowSelection
+impl Default for FlowToolbox
 impl Default for FlowViewport
 impl Default for Footer
 impl Default for FormGroup
@@ -1765,6 +1859,7 @@ impl Eq for FilterFieldKind
 impl Eq for FilterLayout
 impl Eq for FloatingCorner
 impl Eq for FlowChange
+impl Eq for FlowIssue
 impl Eq for FlowSelection
 impl Eq for Frequency
 impl Eq for GridCellStyle
@@ -1906,6 +2001,7 @@ impl PartialEq for FilterFieldKind
 impl PartialEq for FilterLayout
 impl PartialEq for FloatingCorner
 impl PartialEq for FlowChange
+impl PartialEq for FlowIssue
 impl PartialEq for FlowKind
 impl PartialEq for FlowSelection
 impl PartialEq for FlowViewport
@@ -2095,6 +2191,10 @@ impl View for FilterBuilder
 impl View for FloatingPanel
 impl View for FloatingToolbar
 impl View for FlowCanvas
+impl View for FlowInspector
+impl View for FlowLayers
+impl View for FlowLibrary
+impl View for FlowToolbox
 impl View for FnView
 impl View for Footer
 impl View for FormField
@@ -2545,9 +2645,11 @@ method ChatMessage::assistant_writing
 method ChatMessage::author
 method ChatMessage::card
 method ChatMessage::formatted
+method ChatMessage::is_writing
 method ChatMessage::media
 method ChatMessage::person
 method ChatMessage::text
+method ChatMessage::when_done
 method Checkbox::disabled
 method Checkbox::leading
 method Checkbox::new
@@ -2988,6 +3090,9 @@ method FloatingToolbar::new
 method FloatingToolbar::place
 method FloatingToolbar::separator
 method FloatingToolbar::view
+method FlowCanvas::arrivals
+method FlowCanvas::checks
+method FlowCanvas::connection
 method FlowCanvas::content
 method FlowCanvas::controls
 method FlowCanvas::editable_titles
@@ -3000,22 +3105,69 @@ method FlowCanvas::layout
 method FlowCanvas::locked
 method FlowCanvas::minimap
 method FlowCanvas::new
+method FlowCanvas::next_node
+method FlowCanvas::notation
 method FlowCanvas::on_change
+method FlowCanvas::on_export
+method FlowCanvas::ports_on_hover
+method FlowCanvas::quick_create
 method FlowCanvas::range
 method FlowCanvas::resizable
 method FlowCanvas::rotatable
+method FlowCanvas::runs
 method FlowCanvas::selection
 method FlowCanvas::size
 method FlowCanvas::snap
 method FlowCanvas::validate
 method FlowCanvas::view
+method FlowFileFormat::new
+method FlowInspector::history
+method FlowInspector::kind
+method FlowInspector::new
+method FlowInspector::notation
+method FlowInspector::on_change
+method FlowInspector::read_only
+method FlowInspector::width
+method FlowIssue::new
 method FlowKind::new
 method FlowKind::tone
+method FlowLayers::history
+method FlowLayers::new
+method FlowLayers::width
+method FlowLibrary::format
+method FlowLibrary::history
+method FlowLibrary::key
+method FlowLibrary::new
+method FlowLibrary::notation
+method FlowLibrary::selection
+method FlowLibrary::storage
+method FlowLibrary::title
+method FlowLibrary::view
+method FlowLibrary::width
+method FlowNotation::caption
+method FlowNotation::checks
+method FlowNotation::connection
+method FlowNotation::format
+method FlowNotation::kind
+method FlowNotation::look
+method FlowNotation::model
+method FlowNotation::new
+method FlowNotation::next_node
+method FlowNotation::runs
+method FlowNotation::validate
 method FlowSelection::edge
 method FlowSelection::has_edge
 method FlowSelection::has_node
 method FlowSelection::is_empty
 method FlowSelection::node
+method FlowToolbox::arrivals
+method FlowToolbox::group
+method FlowToolbox::model
+method FlowToolbox::new
+method FlowToolbox::notation
+method FlowToolbox::searchable
+method FlowToolbox::title
+method FlowToolbox::width
 method FlowViewport::at
 method FlowViewport::fit
 method FlowViewport::fitting
@@ -4287,9 +4439,13 @@ reexport ChartPolarGrid = ravenrs_graphics::plot::PolarGrid
 reexport ChartStack = ravenrs_graphics::plot::Stack
 reexport EdgeCap = ravenrs_graphics::flow::EdgeCap
 reexport EdgeShape = ravenrs_graphics::flow::EdgeShape
+reexport FlowColors = ravenrs_graphics::flow::picture::FlowColors
 reexport FlowDirection = ravenrs_graphics::flow::layout::FlowDirection
+reexport FlowDocument = ravenrs_graphics::flow::document::FlowDocument
 reexport FlowEdge = ravenrs_graphics::flow::FlowEdge
 reexport FlowEndpoint = ravenrs_graphics::flow::FlowEndpoint
+reexport FlowExportFormat = ravenrs_graphics::flow::picture::FlowExportFormat
+reexport FlowGate = ravenrs_graphics::flow::run::FlowGate
 reexport FlowGraph = ravenrs_graphics::flow::FlowGraph
 reexport FlowHistory = ravenrs_graphics::flow::FlowHistory
 reexport FlowJsonError = ravenrs_graphics::flow::FlowJsonError
@@ -4297,8 +4453,15 @@ reexport FlowLayout = ravenrs_graphics::flow::layout::FlowLayout
 reexport FlowLayoutKind = ravenrs_graphics::flow::layout::FlowLayoutKind
 reexport FlowNode = ravenrs_graphics::flow::FlowNode
 reexport FlowNodeStatus = ravenrs_graphics::flow::FlowNodeStatus
+reexport FlowPicture = ravenrs_graphics::flow::picture::FlowPicture
 reexport FlowPort = ravenrs_graphics::flow::FlowPort
+reexport FlowRun = ravenrs_graphics::flow::run::FlowRun
+reexport FlowRunEvent = ravenrs_graphics::flow::run::FlowRunEvent
+reexport FlowRunRules = ravenrs_graphics::flow::run::FlowRunRules
 reexport FlowShape = ravenrs_graphics::flow::FlowShape
+reexport FlowShelf = ravenrs_graphics::flow::document::FlowShelf
+reexport FlowStyle = ravenrs_graphics::flow::style::FlowStyle
+reexport FlowText = ravenrs_graphics::flow::picture::FlowText
 reexport LottieAnimation = ravenrs_lottie::document::Animation
 reexport LottieError = ravenrs_lottie::document::LottieError
 reexport PortDirection = ravenrs_graphics::flow::PortDirection
@@ -4411,8 +4574,15 @@ struct FilterLayout
 struct FloatingPanel
 struct FloatingToolbar
 struct FlowCanvas
+struct FlowFileFormat
+struct FlowInspector
+struct FlowIssue
 struct FlowKind
+struct FlowLayers
+struct FlowLibrary
+struct FlowNotation
 struct FlowSelection
+struct FlowToolbox
 struct FlowViewport
 struct FnView
 struct Footer
@@ -4700,8 +4870,12 @@ type DragHandler
 type DrawFn
 type DropCheck
 type DropHandler
+type FlowChecks
+type FlowConnector
 type FlowContent
+type FlowExporter
 type FlowGuard
+type FlowNext
 type FlowValidator
 type KeyHandler
 type LiveFn
@@ -4822,8 +4996,11 @@ variant FloatingCorner::BottomRight
 variant FloatingCorner::TopLeft
 variant FloatingCorner::TopRight
 variant FlowChange::Arrange
+variant FlowChange::Bend
 variant FlowChange::Connect
+variant FlowChange::Create
 variant FlowChange::Delete
+variant FlowChange::Edit
 variant FlowChange::Group
 variant FlowChange::Move
 variant FlowChange::Paste

@@ -59,6 +59,9 @@ pub enum Semantic {
     Chart5,
     /// `chart-grid`: the gridlines of a chart.
     ChartGrid,
+    /// `guide`: the lines a dragged shape snaps to, kept apart from the accent of the
+    /// selection.
+    Guide,
 }
 
 /// The color tokens of one theme.
@@ -124,6 +127,8 @@ impl Palette {
             Semantic::Chart4 => self.chart_color(0xe08a00, 0xfbbf24),
             Semantic::Chart5 => self.chart_color(0xdb2777, 0xf472b6),
             Semantic::ChartGrid => self.border,
+            // Magenta on any ground, unlike the blues of the accent and the focus ring.
+            Semantic::Guide => self.chart_color(0xdb2777, 0xf472b6),
         }
     }
 

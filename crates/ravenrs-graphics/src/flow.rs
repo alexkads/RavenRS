@@ -10,11 +10,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::vector::PathSegment;
 
+mod document;
 mod layout;
+mod picture;
 mod routing;
+mod run;
+mod style;
 
+pub use document::{FlowDocument, FlowShelf};
 pub use layout::{FlowDirection, FlowLayout, FlowLayoutKind};
+pub use picture::{FlowColors, FlowExportFormat, FlowPicture, FlowText, PICTURE_MARGIN};
 pub use routing::{ROUTE_MARGIN, RouteCache, route_around};
+pub use run::{FlowGate, FlowRun, FlowRunEvent, FlowRunRules, RUN_LIMIT};
+pub use style::{FlowStyle, color_hex, parse_color};
 
 /// Which side of a node a port sits on, and the way a line leaves it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -133,6 +141,8 @@ pub enum FlowShape {
     Cylinder,
     /// A sticky note: words on a tinted square with a folded corner, wrapped over lines.
     Note,
+    /// Words alone, wrapped over lines, with no outline: a heading or a caption on a board.
+    Text,
 }
 
 fn is_card(shape: &FlowShape) -> bool {
@@ -155,7 +165,7 @@ pub fn shape_outline(shape: FlowShape, r: Rect) -> Vec<PathSegment> {
     // A quarter of an ellipse as a cubic: control points 0.552 of the way.
     let k = 0.552_284_8;
     match shape {
-        FlowShape::Card | FlowShape::Rectangle => {
+        FlowShape::Card | FlowShape::Rectangle | FlowShape::Text => {
             polygon(&[p(x, y), p(x + w, y), p(x + w, y + h), p(x, y + h)])
         }
         FlowShape::RoundedRectangle => {
@@ -248,6 +258,10 @@ pub enum FlowNodeStatus {
     Error(String),
     /// Switched off: it stays in the diagram but does not run.
     Disabled,
+    /// Running now, as an app shows a run going through the diagram.
+    Running,
+    /// Ran and went well.
+    Success,
 }
 
 /// A box of the diagram, in content units.
@@ -293,6 +307,13 @@ pub struct FlowNode {
     /// The outline it is drawn in.
     #[serde(default, skip_serializing_if = "is_card")]
     pub shape: FlowShape,
+    /// Its colors and the place of its title, apart from the theme.
+    #[serde(default, skip_serializing_if = "FlowStyle::is_plain")]
+    pub style: FlowStyle,
+    /// Left out of the drawing for now, with its connections, as a layer turned off; it stays
+    /// in the diagram and in its files.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hidden: bool,
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref, reason = "the signature serde asks for")]
@@ -355,7 +376,13 @@ impl FlowNode {
         self
     }
 
-    /// Drawn in this outline.
+    /// With these colors and this place for its title.
+    pub fn styled(mut self, style: FlowStyle) -> Self {
+        self.style = style;
+        self
+    }
+
+    /// In this outline.
     pub fn shape(mut self, shape: FlowShape) -> Self {
         self.shape = shape;
         self
@@ -478,7 +505,7 @@ impl FlowNode {
 
     /// A point on the box's edge brought in, square to `side`, to where it meets the outline.
     fn onto_outline(&self, p: Point, side: PortSide) -> Point {
-        if matches!(self.shape, FlowShape::Card | FlowShape::Rectangle | FlowShape::Note) {
+        if matches!(self.shape, FlowShape::Card | FlowShape::Rectangle | FlowShape::Note | FlowShape::Text) {
             return p;
         }
         let outline = self.outline();
@@ -615,6 +642,20 @@ pub struct FlowEdge {
     /// What its line looks like where it ends (an arrow, by default).
     #[serde(default = "arrow", skip_serializing_if = "is_arrow")]
     pub end: EdgeCap,
+    /// The points the line passes through on its way, in units of the diagram, in order from
+    /// its start. A step line runs between them at right angles.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub waypoints: Vec<(f32, f32)>,
+    /// Its color, as `#rrggbb`, apart from the theme's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    /// Drawn in dashes, as a line that says something other than "then".
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub dashed: bool,
+    /// What sort of connection it is, a name of the app's (a message, an association); empty
+    /// for the plain one.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub kind: String,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -627,6 +668,30 @@ impl FlowEdge {
     /// With another shape.
     pub fn shape(mut self, shape: EdgeShape) -> Self {
         self.shape = shape;
+        self
+    }
+
+    /// In `color` (`#rrggbb`).
+    pub fn color(mut self, color: impl Into<String>) -> Self {
+        self.color = Some(color.into());
+        self
+    }
+
+    /// Of this kind, a name of the app's.
+    pub fn kind(mut self, kind: impl Into<String>) -> Self {
+        self.kind = kind.into();
+        self
+    }
+
+    /// Drawn in dashes.
+    pub fn dashed(mut self) -> Self {
+        self.dashed = true;
+        self
+    }
+
+    /// Passing through `(x, y)` after the points it already passes through.
+    pub fn waypoint(mut self, x: f32, y: f32) -> Self {
+        self.waypoints.push((x, y));
         self
     }
 
@@ -666,6 +731,10 @@ impl Default for FlowEdge {
             animated: false,
             start: EdgeCap::None,
             end: EdgeCap::Arrow,
+            waypoints: Vec::new(),
+            color: None,
+            dashed: false,
+            kind: String::new(),
         }
     }
 }
@@ -682,7 +751,7 @@ pub struct FlowGraph {
     pub edges: Vec<FlowEdge>,
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl FlowGraph {
     /// An empty graph.
     pub fn new() -> Self {
@@ -716,6 +785,11 @@ impl FlowGraph {
         self.edges.iter().find(|e| e.id == id)
     }
 
+    /// The connection with this id, to change.
+    pub fn find_edge_mut(&mut self, id: &str) -> Option<&mut FlowEdge> {
+        self.edges.iter_mut().find(|e| e.id == id)
+    }
+
     /// Where an endpoint sits and the side its port faces, the node's turn counted.
     pub fn anchor(&self, end: &FlowEndpoint) -> Option<(Point, PortSide)> {
         let node = self.find_node(&end.node)?;
@@ -739,12 +813,27 @@ impl FlowGraph {
     pub fn edge_path_cached(&self, edge: &FlowEdge, cache: &mut RouteCache) -> Option<Vec<PathSegment>> {
         let (from, from_side) = self.anchor(&edge.from)?;
         let (to, to_side) = self.anchor(&edge.to)?;
+        if !edge.waypoints.is_empty() {
+            let through: Vec<Point> = edge.waypoints.iter().map(|&(x, y)| Point::new(x, y)).collect();
+            return Some(route_through(from, from_side, &through, to, to_side, edge.shape));
+        }
         if edge.shape != EdgeShape::Step {
             return Some(route(from, from_side, to, to_side, edge.shape));
         }
         let boxes = routing::near(from, to, self.nodes.iter().filter(|n| !n.group).map(FlowNode::extent));
         let corners = cache.get(&edge.id, (from, from_side, to, to_side), &boxes);
         Some(rounded(&corners, STEP_RADIUS))
+    }
+
+    /// Where a connection's line starts, the points it passes through and where it ends, in
+    /// units of the diagram: the corners of the polygon its bend points are edited on.
+    pub fn edge_controls(&self, edge: &FlowEdge) -> Option<Vec<Point>> {
+        let (from, _) = self.anchor(&edge.from)?;
+        let (to, _) = self.anchor(&edge.to)?;
+        let mut points = vec![from];
+        points.extend(edge.waypoints.iter().map(|&(x, y)| Point::new(x, y)));
+        points.push(to);
+        Some(points)
     }
 
     /// Takes out these nodes with everything in them (when they are groups) and every
@@ -999,6 +1088,7 @@ impl FlowGraph {
                 id: id.clone(),
                 from: FlowEndpoint::new(from, edge.from.port.clone()),
                 to: FlowEndpoint::new(to, edge.to.port.clone()),
+                waypoints: edge.waypoints.iter().map(|(x, y)| (x + dx, y + dy)).collect(),
                 ..edge.clone()
             });
             edges.push(id);
@@ -1222,6 +1312,106 @@ pub fn route(
     }
 }
 
+/// The outline of a line from `from` to `to` passing through `through`, in order. A straight
+/// line goes from point to point; a curve passes smoothly through them, leaving and reaching
+/// its ports square to their sides; a step line runs at right angles, turning at each point.
+pub fn route_through(
+    from: Point,
+    from_side: PortSide,
+    through: &[Point],
+    to: Point,
+    to_side: PortSide,
+    shape: EdgeShape,
+) -> Vec<PathSegment> {
+    let mut points = Vec::with_capacity(through.len() + 2);
+    points.push(from);
+    points.extend_from_slice(through);
+    points.push(to);
+    match shape {
+        EdgeShape::Straight => {
+            let mut path = vec![PathSegment::Move(from)];
+            path.extend(points[1..].iter().map(|&p| PathSegment::Line(p)));
+            path
+        }
+        EdgeShape::Curve => {
+            // A Catmull-Rom curve: the way through each point is along the line between its
+            // neighbours; at the ends, straight out of the port.
+            let n = points.len();
+            let tangent = |i: usize| -> Point {
+                if i == 0 {
+                    let (d, out) = (distance(points[0], points[1]), from_side.outward());
+                    Point::new(out.x * d, out.y * d)
+                } else if i == n - 1 {
+                    let (d, out) = (distance(points[n - 2], points[n - 1]), to_side.outward());
+                    Point::new(-out.x * d, -out.y * d)
+                } else {
+                    Point::new(
+                        (points[i + 1].x - points[i - 1].x) / 2.0,
+                        (points[i + 1].y - points[i - 1].y) / 2.0,
+                    )
+                }
+            };
+            let mut path = vec![PathSegment::Move(from)];
+            for i in 0..n - 1 {
+                let (a, b) = (points[i], points[i + 1]);
+                let (ta, tb) = (tangent(i), tangent(i + 1));
+                path.push(PathSegment::Cubic(
+                    Point::new(a.x + ta.x / 3.0, a.y + ta.y / 3.0),
+                    Point::new(b.x - tb.x / 3.0, b.y - tb.y / 3.0),
+                    b,
+                ));
+            }
+            path
+        }
+        EdgeShape::Step => {
+            let (a, b) = (from_side.outward(), to_side.outward());
+            let out = Point::new(from.x + a.x * PORT_RUN, from.y + a.y * PORT_RUN);
+            let into = Point::new(to.x + b.x * PORT_RUN, to.y + b.y * PORT_RUN);
+            let mut corners = vec![from, out];
+            // Leaving a side port goes on along it first; then each turn alternates.
+            let mut level = from_side.is_horizontal();
+            for &q in through.iter().chain(std::iter::once(&into)) {
+                let Some(&c) = corners.last() else { break };
+                if (c.x - q.x).abs() > 0.01 && (c.y - q.y).abs() > 0.01 {
+                    corners.push(if level { Point::new(q.x, c.y) } else { Point::new(c.x, q.y) });
+                    level = !level;
+                }
+                corners.push(q);
+            }
+            corners.push(to);
+            rounded(&simplified(corners), STEP_RADIUS)
+        }
+    }
+}
+
+/// Where a bend point made at `at` goes among `controls` (a line's start, its points and its
+/// end): just before the corner that ends the stretch passing nearest `at`.
+pub fn bend_index(controls: &[Point], at: Point) -> usize {
+    (1..controls.len())
+        .min_by(|&i, &j| {
+            let d = |k: usize| distance_to(&[controls[k - 1], controls[k]], at);
+            d(i).total_cmp(&d(j))
+        })
+        .unwrap_or(1)
+}
+
+/// The corners without repeats and without those that do not turn.
+fn simplified(mut points: Vec<Point>) -> Vec<Point> {
+    points.dedup_by(|p, q| (p.x - q.x).abs() < 0.01 && (p.y - q.y).abs() < 0.01);
+    let mut kept: Vec<Point> = Vec::with_capacity(points.len());
+    for p in points {
+        if kept.len() >= 2 {
+            let (u, v) = (kept[kept.len() - 2], kept[kept.len() - 1]);
+            let cross = (v.x - u.x) * (p.y - v.y) - (v.y - u.y) * (p.x - v.x);
+            if cross.abs() < 0.01 {
+                kept.pop();
+            }
+        }
+        kept.push(p);
+    }
+    kept
+}
+
 /// The corners of a line at right angles between two ports.
 pub(crate) fn step_points(from: Point, from_side: PortSide, to: Point, to_side: PortSide) -> Vec<Point> {
     let (a, b) = (from_side.outward(), to_side.outward());
@@ -1238,20 +1428,7 @@ pub(crate) fn step_points(from: Point, from_side: PortSide, to: Point, to_side: 
         points.push(Point::new(into.x, middle));
     }
     points.extend([into, to]);
-    points.dedup_by(|p, q| (p.x - q.x).abs() < 0.01 && (p.y - q.y).abs() < 0.01);
-    // Corners that do not turn are not corners.
-    let mut kept: Vec<Point> = Vec::with_capacity(points.len());
-    for p in points {
-        if kept.len() >= 2 {
-            let (u, v) = (kept[kept.len() - 2], kept[kept.len() - 1]);
-            let cross = (v.x - u.x) * (p.y - v.y) - (v.y - u.y) * (p.x - v.x);
-            if cross.abs() < 0.01 {
-                kept.pop();
-            }
-        }
-        kept.push(p);
-    }
-    kept
+    simplified(points)
 }
 
 /// A polyline with each corner rounded by up to `radius`.
@@ -1506,6 +1683,61 @@ pub fn snap(value: f32, step: f32) -> f32 {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn a_line_passes_through_its_bend_points() {
+        let g = FlowGraph::new()
+            .node(FlowNode::new("a", "", "A", 0.0, 0.0).port(FlowPort::output("out")))
+            .node(FlowNode::new("b", "", "B", 400.0, 300.0).port(FlowPort::input("in")))
+            .edge(
+                FlowEdge::new("e", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in"))
+                    .waypoint(300.0, 40.0)
+                    .waypoint(300.0, 200.0),
+            );
+        for shape in [EdgeShape::Straight, EdgeShape::Curve, EdgeShape::Step] {
+            let edge = FlowEdge { shape, ..g.edges[0].clone() };
+            let points = flatten(&g.edge_path(&edge).unwrap_or_default());
+            for (x, y) in &edge.waypoints {
+                let d = distance_to(&points, Point::new(*x, *y));
+                // A step line turns at its points, with the corner rounded.
+                let near = if shape == EdgeShape::Step { STEP_RADIUS } else { 1.0 };
+                assert!(d < near, "{shape:?} misses ({x}, {y}) by {d}");
+            }
+        }
+        // A step line keeps to right angles, rounded corners aside.
+        let step = FlowEdge { shape: EdgeShape::Step, ..g.edges[0].clone() };
+        let corners = match g.edge_path(&step).unwrap_or_default().as_slice() {
+            [PathSegment::Move(_), rest @ ..] => {
+                rest.iter().filter_map(|s| if let PathSegment::Line(p) = s { Some(*p) } else { None }).count()
+            }
+            _ => 0,
+        };
+        assert!(corners >= 3);
+        let controls = g.edge_controls(&g.edges[0]).unwrap_or_default();
+        assert_eq!(controls.len(), 4);
+        assert_eq!(bend_index(&controls, Point::new(300.0, 120.0)), 2, "between the two points");
+        assert_eq!(bend_index(&controls, Point::new(150.0, 30.0)), 1, "before the first");
+    }
+
+    #[test]
+    fn a_pasted_line_takes_its_bend_points_along() {
+        let piece = FlowGraph::new()
+            .node(FlowNode::new("a", "", "A", 0.0, 0.0).port(FlowPort::output("o")))
+            .node(FlowNode::new("b", "", "B", 400.0, 0.0).port(FlowPort::input("i")))
+            .edge(
+                FlowEdge::new("e", FlowEndpoint::new("a", "o"), FlowEndpoint::new("b", "i"))
+                    .waypoint(200.0, 100.0),
+            );
+        let mut g = FlowGraph::new();
+        g.insert(&piece, 24.0, 48.0);
+        assert_eq!(g.edges[0].waypoints, vec![(224.0, 148.0)]);
+        let json = g.to_json();
+        assert!(json.contains("waypoints"));
+        assert_eq!(
+            FlowGraph::from_json(&json).map_err(|e| e.to_string()).map(|r| r.edges[0].waypoints.clone()),
+            Ok(vec![(224.0, 148.0)])
+        );
+    }
+
     use super::*;
 
     fn graph() -> FlowGraph {

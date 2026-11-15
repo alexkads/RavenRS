@@ -20,12 +20,17 @@ use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 use ravenrs_text::TextAttrs;
 
 pub use ravenrs_graphics::flow::{
-    EdgeCap, EdgeShape, FlowDirection, FlowEdge, FlowEndpoint, FlowGraph, FlowHistory, FlowJsonError,
-    FlowLayout, FlowLayoutKind, FlowNode, FlowNodeStatus, FlowPort, FlowShape, PortDirection, PortSide,
+    EdgeCap, EdgeShape, FlowColors, FlowDirection, FlowDocument, FlowEdge, FlowEndpoint, FlowExportFormat,
+    FlowGate, FlowGraph, FlowHistory, FlowJsonError, FlowLayout, FlowLayoutKind, FlowNode, FlowNodeStatus,
+    FlowPicture, FlowPort, FlowRun, FlowRunEvent, FlowRunRules, FlowShape, FlowShelf, FlowStyle, FlowText,
+    PortDirection, PortSide,
 };
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
-use crate::{AnyView, ButtonSize, ButtonStyle, Clipboard, IconButton, IconName, TextField, View, util};
+use crate::{
+    Alert, AnyView, ButtonSize, ButtonStyle, Clipboard, DropdownMenu, IconButton, IconName, MenuItem,
+    TextField, View, util,
+};
 
 /// What a node shows inside its card instead of its icon and words, for
 /// [`FlowCanvas::content`].
@@ -50,6 +55,8 @@ const TEXT_ZOOM: f32 = 0.4;
 const DASH_SPEED: f32 = 24.0;
 /// The map in the corner, in screen pixels.
 const MAP_SIZE: Size = Size::new(200.0, 132.0);
+/// How near, in screen pixels, an edge or middle must come to another node's to line up.
+const GUIDE_REACH: f32 = 6.0;
 /// How far a node turns at a time, in degrees, by its handle or the keys.
 const TURN_STEP: f32 = 15.0;
 /// The round handle that turns a selected node, and how far above the node it sits, in screen
@@ -58,6 +65,167 @@ const TURNER: f32 = 20.0;
 const TURNER_GAP: f32 = 24.0;
 /// How long the cap at an end of a line is, in screen pixels.
 const CAP: f32 = 8.0;
+/// How near the straight between its neighbours a bend point let go is taken out, in screen
+/// pixels.
+const BEND_STRAIGHT: f32 = 4.0;
+fn flow_run_limit() -> usize {
+    ravenrs_graphics::flow::RUN_LIMIT + 1
+}
+
+/// The debug box, at the canvas's top right: the buttons of the run, the ways out to choose
+/// from, what went wrong and the last things that happened.
+#[allow(clippy::too_many_arguments, reason = "what the box shows")]
+fn debug_box(
+    cx: &mut BuildCx<'_>,
+    flow: &Flow,
+    graph: &FlowGraph,
+    rules: &FlowRunRules,
+    run: Option<&FlowRun>,
+    size: Size,
+    theme: &Theme,
+    labels: &crate::Labels,
+) -> NodeId {
+    let (f1, f2, f3, f4) = (flow.clone(), flow.clone(), flow.clone(), flow.clone());
+    let over = run.is_some_and(FlowRun::is_over);
+    let waiting = run.is_some_and(|r| r.choosing.is_some());
+    let mut rows: Vec<NodeId> = Vec::new();
+    rows.push(util::label(
+        cx,
+        &labels.flow_debug,
+        TextStyle::Caption,
+        Some(Weight::SEMIBOLD),
+        theme.color(Semantic::InkMuted),
+    ));
+    let buttons = crate::HStack::new((
+        crate::Button::new(labels.flow_run_start.clone())
+            .icon(IconName::Play)
+            .size(ButtonSize::Small)
+            .on_click(move || f1.run_start()),
+        crate::Button::new(labels.flow_run_step.clone())
+            .size(ButtonSize::Small)
+            .style(ButtonStyle::Secondary)
+            .disabled(over || waiting)
+            .on_click(move || f2.run_step(None)),
+        crate::Button::new(labels.flow_run_continue.clone())
+            .size(ButtonSize::Small)
+            .style(ButtonStyle::Secondary)
+            .disabled(over || waiting)
+            .on_click(move || f3.run_on()),
+        crate::Button::new(labels.flow_run_stop.clone())
+            .icon(IconName::Square)
+            .size(ButtonSize::Small)
+            .style(ButtonStyle::Ghost)
+            .disabled(run.is_none())
+            .on_click(move || f4.run.set(None)),
+    ))
+    .spacing(4.0);
+    rows.push(cx.child(&buttons));
+    let f5 = flow.clone();
+    rows.push(
+        cx.child(
+            &crate::Button::new(labels.flow_run_breakpoint.clone())
+                .size(ButtonSize::Small)
+                .style(ButtonStyle::Ghost)
+                .disabled(flow.selection.get().nodes.is_empty())
+                .on_click(move || f5.toggle_breakpoints()),
+        ),
+    );
+    if let Some(r) = run {
+        if let Some(node) = &r.choosing {
+            let ways: Vec<crate::Button> = FlowRun::ways_out(graph, rules, node)
+                .into_iter()
+                .map(|e| {
+                    let to = graph.find_node(&e.to.node).map_or(e.to.node.clone(), |n| n.title.clone());
+                    let words = e.label.clone().map_or(to.clone(), |l| format!("{l} → {to}"));
+                    let (chosen, id) = (flow.clone(), e.id.clone());
+                    crate::Button::new(words)
+                        .size(ButtonSize::Small)
+                        .style(ButtonStyle::Secondary)
+                        .on_click(move || chosen.run_step(Some(&id)))
+                })
+                .collect();
+            let name = graph.find_node(node).map_or(node.clone(), |n| n.title.clone());
+            rows.push(util::label(
+                cx,
+                &labels.flow_run_choose.replace("{0}", &name),
+                TextStyle::Callout,
+                None,
+                theme.color(Semantic::Ink),
+            ));
+            rows.push(cx.child(&crate::VStack::new(ways).spacing(4.0).align(Align::Stretch)));
+        }
+        if let Some(failure) = r.failure() {
+            rows.push(cx.child(&Alert::message(run_words(failure, graph, labels)).tone(crate::Tone::Danger)));
+        } else if r.is_over() {
+            rows.push(cx.child(&Alert::message(labels.flow_run_done.clone()).tone(crate::Tone::Success)));
+        }
+        for event in r.events.iter().rev().take(6).rev() {
+            let color = if event.is_error() {
+                theme.color(Semantic::Danger)
+            } else {
+                theme.color(Semantic::InkMuted)
+            };
+            rows.push(util::label(cx, &run_words(event, graph, labels), TextStyle::Caption, None, color));
+        }
+    } else {
+        rows.push(util::label(
+            cx,
+            &labels.flow_run_hint,
+            TextStyle::Caption,
+            None,
+            theme.color(Semantic::InkMuted),
+        ));
+    }
+    let width = CHECK_WIDTH;
+    let root = cx.container(
+        LayoutStyle {
+            absolute: Some(((size.width - width - theme.spacing.s4).max(0.0), theme.spacing.s4)),
+            width: Some(width),
+            padding: ravenrs_core::Insets::uniform(theme.spacing.s3),
+            spacing: theme.spacing.s2,
+            align: Align::Stretch,
+            ..LayoutStyle::stack(Axis::Vertical)
+        },
+        &rows,
+        Paint::Quad(crate::context::QuadPaint {
+            corner_radius: theme.radii.md,
+            border: Some(ravenrs_core::Border { width: 1.0, color: theme.color(Semantic::Border) }),
+            shadow: Some(theme.elevation.soft),
+            ..crate::context::QuadPaint::new(theme.color(Semantic::Surface))
+        }),
+    );
+    cx.semantics(root, Semantics::new(Role::Group).name(labels.flow_debug.clone()));
+    root
+}
+
+/// What a run's event says, in the app's words.
+fn run_words(event: &FlowRunEvent, graph: &FlowGraph, labels: &crate::Labels) -> String {
+    let name = |id: &str| {
+        graph
+            .find_node(id)
+            .map(|n| if n.title.trim().is_empty() { n.id.clone() } else { n.title.clone() })
+            .unwrap_or_else(|| id.to_owned())
+    };
+    match event {
+        FlowRunEvent::Moved { from, to, .. } => {
+            labels.flow_run_moved.replace("{0}", &name(from)).replace("{1}", &name(to))
+        }
+        FlowRunEvent::Ended { node } => labels.flow_run_ended.replace("{0}", &name(node)),
+        FlowRunEvent::Choosing { node } => labels.flow_run_choose.replace("{0}", &name(node)),
+        FlowRunEvent::Finished => labels.flow_run_done.clone(),
+        FlowRunEvent::DeadEnd { node } => labels.flow_run_dead_end.replace("{0}", &name(node)),
+        FlowRunEvent::Stuck { node } => labels.flow_run_stuck.replace("{0}", &name(node)),
+        FlowRunEvent::Looping => labels.flow_run_looping.clone(),
+        _ => labels.flow_run_no_start.clone(),
+    }
+}
+
+/// How wide the box of a check is, in logical pixels.
+const CHECK_WIDTH: f32 = 340.0;
+/// The least zoom at which ports show their names.
+const PORT_LABEL_ZOOM: f32 = 0.5;
+/// The side of a bend point's square, in screen pixels.
+const BEND: f32 = 10.0;
 /// The square in a selected node's corner that resizes it, in screen pixels.
 const HANDLE: f32 = 14.0;
 /// The least a node can be resized to, in units of the diagram.
@@ -125,6 +293,25 @@ impl FlowViewport {
             zoom,
             fit: false,
         }
+    }
+}
+
+/// Something wrong with a diagram, said in words, with the nodes it is about, which the
+/// canvas outlines while the check is shown.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct FlowIssue {
+    /// What is wrong.
+    pub text: String,
+    /// The nodes it is about, by id.
+    pub nodes: Vec<String>,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl FlowIssue {
+    /// `text`, about these nodes.
+    pub fn new(text: impl Into<String>, nodes: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self { text: text.into(), nodes: nodes.into_iter().map(Into::into).collect() }
     }
 }
 
@@ -253,6 +440,11 @@ pub enum FlowChange {
     Undo,
     /// The last undo was redone.
     Redo,
+    /// The points a connection's line passes through were added, moved or taken out.
+    Bend {
+        /// Its id.
+        edge: String,
+    },
     /// Nodes went in front of or behind the others.
     Reorder {
         /// The nodes that moved in the order.
@@ -268,7 +460,38 @@ pub enum FlowChange {
         /// The nodes turned.
         nodes: Vec<String>,
     },
+    /// Properties changed in a [`FlowInspector`](crate::FlowInspector).
+    Edit {
+        /// The nodes changed.
+        nodes: Vec<String>,
+        /// The connections changed.
+        edges: Vec<String>,
+    },
+    /// A node was made next to another, by its arrows or Cmd/Ctrl+Enter.
+    Create {
+        /// The new node.
+        node: String,
+        /// The connection made to it, when the two have ports to join.
+        edge: Option<String>,
+    },
 }
+
+/// The kind of a [`DragPayload`](crate::DragPayload) that carries a [`FlowNode`] to a
+/// [`FlowCanvas`], as a [`FlowToolbox`](crate::FlowToolbox) does: dropped on the canvas, a copy
+/// of the node is made there, with an id of its own.
+pub const FLOW_NODE_DRAG: &str = "ravenrs/flow-node";
+
+/// Gets the diagram, or the part of it selected, as a picture in the format chosen from the
+/// canvas's Export menu, to save it (`ravenrs-flow-export` writes it as a file).
+pub type FlowExporter = Rc<dyn Fn(FlowExportFormat, FlowPicture)>;
+
+/// Gives the node made next to `from`, on `side` of it, by the arrows of quick creation: its
+/// id and place are set by the canvas. `None` makes nothing on that side.
+pub type FlowNext = Rc<dyn Fn(&FlowNode, PortSide) -> Option<FlowNode>>;
+
+/// Gives a connection made on the canvas, or moved to other ports, the look and kind it should
+/// have for its ends (in the diagram as it is), from the plain one the canvas made.
+pub type FlowConnector = Rc<dyn Fn(&FlowGraph, FlowEdge) -> FlowEdge>;
 
 /// Decides whether a change may happen, given the diagram before and after it. When it may
 /// not, the diagram stays as it was, nothing goes into the history, and the reason shows.
@@ -296,6 +519,9 @@ pub type FlowGuard = Rc<dyn Fn(&FlowGraph, &FlowGraph, &FlowChange) -> Result<()
 /// * Drag the round handle above a selected node to turn it, 15 degrees at a time (with Shift,
 ///   freely), or press Alt+Shift with the arrows; Alt+Shift+0 puts it straight. Groups do
 ///   not turn.
+/// * With the pointer over a node, arrows show on its sides: a click on one makes the next
+///   node there, joined to it, with its title open to type. Cmd/Ctrl+Enter does it to the right
+///   of the selected node, Cmd/Ctrl+Shift+Enter below ([`FlowCanvas::next_node`]).
 /// * Cmd/Ctrl+Z undoes, Shift+Cmd/Ctrl+Z (or Cmd/Ctrl+Y) redoes. Cmd/Ctrl+C copies the selected
 ///   nodes with the connections between them, as JSON, Cmd/Ctrl+X cuts them and Cmd/Ctrl+V
 ///   pastes them back with new ids, a little further along each time.
@@ -333,6 +559,14 @@ pub struct FlowCanvas {
     rotatable: bool,
     editable_titles: bool,
     content: Option<FlowContent>,
+    next: Option<FlowNext>,
+    arrivals: Option<Binding<Option<FlowNode>>>,
+    export: Option<FlowExporter>,
+    connector: Option<FlowConnector>,
+    checks: Option<crate::flow_notation::FlowChecks>,
+    runs: Option<FlowRunRules>,
+    quiet_ports: bool,
+    quick_create: bool,
     grid: f32,
     snap: bool,
     controls: bool,
@@ -369,6 +603,14 @@ impl FlowCanvas {
             rotatable: true,
             editable_titles: true,
             content: None,
+            next: None,
+            arrivals: None,
+            export: None,
+            connector: None,
+            checks: None,
+            runs: None,
+            quiet_ports: false,
+            quick_create: true,
             grid: 24.0,
             snap: true,
             controls: true,
@@ -380,6 +622,31 @@ impl FlowCanvas {
             height: None,
             grow: 1.0,
         }
+    }
+
+    /// Shapes every connection made or moved on the canvas: `shape` gets the diagram and the
+    /// plain connection (its id and ends set) and gives it back with its kind, look and
+    /// caps, as a notation draws that kind of line between those ends.
+    pub fn connection(mut self, shape: impl Fn(&FlowGraph, FlowEdge) -> FlowEdge + 'static) -> Self {
+        self.connector = Some(Rc::new(shape));
+        self
+    }
+
+    /// Offers Export in the controls, and Cmd/Ctrl+Shift+E: the diagram, or with "Only the
+    /// selection" what is selected, goes to `export` as a picture in the format chosen, PNG,
+    /// SVG or PDF (on paper colors), which `ravenrs_flow_export::saver` turns into a file
+    /// handed to the person. Exporting changes nothing, and works when locked too.
+    pub fn on_export(mut self, export: impl Fn(FlowExportFormat, FlowPicture) + 'static) -> Self {
+        self.export = Some(Rc::new(export));
+        self
+    }
+
+    /// Takes the nodes left here, as a [`FlowToolbox`](crate::FlowToolbox) given the same
+    /// binding leaves the one picked with Enter: each is copied to the middle of the view, with
+    /// an id of its own, selected, and the binding emptied.
+    pub fn arrivals(mut self, arrivals: Binding<Option<FlowNode>>) -> Self {
+        self.arrivals = Some(arrivals);
+        self
     }
 
     /// Shares the view, to read or move it from elsewhere. Without it, the canvas keeps its own
@@ -407,6 +674,46 @@ impl FlowCanvas {
     /// How nodes of `kind` look. A kind with no entry shows a plain box.
     pub fn kind(mut self, kind: impl Into<String>, look: FlowKind) -> Self {
         Rc::make_mut(&mut self.kinds).push((kind.into(), look));
+        self
+    }
+
+    /// Offers Check in the controls: what `checks` finds wrong shows in a box over the canvas,
+    /// kept up to date while it is open, and the nodes it is about are outlined.
+    pub fn checks(mut self, checks: impl Fn(&FlowGraph) -> Vec<FlowIssue> + 'static) -> Self {
+        self.checks = Some(Rc::new(checks));
+        self
+    }
+
+    /// Offers Debug in the controls: the diagram runs a step at a time as `rules` say, tokens
+    /// going from the starts along the connections. The nodes they are at, have left and
+    /// stopped at wrongly show it, the ways taken move, a way out is chosen where there is a
+    /// choice, F9 puts a breakpoint on the nodes selected, and what happened is listed.
+    pub fn runs(mut self, rules: FlowRunRules) -> Self {
+        self.runs = Some(rules);
+        self
+    }
+
+    /// Takes from `notation` how its kinds look, which connections may be made and how they
+    /// are drawn, what comes next from the keys, and what makes a diagram right.
+    pub fn notation(mut self, notation: &crate::FlowNotation) -> Self {
+        for (kind, look) in &notation.looks {
+            Rc::make_mut(&mut self.kinds).push((kind.clone(), look.clone()));
+        }
+        if notation.validate.is_some() {
+            self.validate = notation.validate.clone();
+        }
+        if notation.connector.is_some() {
+            self.connector = notation.connector.clone();
+        }
+        if notation.next.is_some() {
+            self.next = notation.next.clone();
+        }
+        if notation.checks.is_some() {
+            self.checks = notation.checks.clone();
+        }
+        if notation.runs.is_some() {
+            self.runs = notation.runs.clone();
+        }
         self
     }
 
@@ -459,6 +766,27 @@ impl FlowCanvas {
     /// (on by default). Groups never turn.
     pub fn rotatable(mut self, rotatable: bool) -> Self {
         self.rotatable = rotatable;
+        self
+    }
+
+    /// What the arrows of quick creation make next to a node: given the node and the side,
+    /// the node to make (its id and place are the canvas's), or none. Without it, a copy of the
+    /// node is made, with its kind, shape, size and ports.
+    pub fn next_node(mut self, next: impl Fn(&FlowNode, PortSide) -> Option<FlowNode> + 'static) -> Self {
+        self.next = Some(Rc::new(next));
+        self
+    }
+
+    /// Shows the ports that nothing joins only by the node under the pointer (and while a
+    /// connection is made), as a whiteboard does; the ports in use always show.
+    pub fn ports_on_hover(mut self, quiet: bool) -> Self {
+        self.quiet_ports = quiet;
+        self
+    }
+
+    /// Whether the arrows and Cmd/Ctrl+Enter make the next node (on by default).
+    pub fn quick_create(mut self, on: bool) -> Self {
+        self.quick_create = on;
         self
     }
 
@@ -574,12 +902,14 @@ enum Gesture {
     Select { pressed: Point, base: FlowSelection },
     /// Moving nodes: where the pointer went down, where each of them was and the diagram
     /// before, which undo brings back.
-    Move { pressed: Point, origins: Vec<(String, f32, f32)>, before: FlowGraph },
+    Move { pressed: Point, origins: Vec<(String, f32, f32)>, before: FlowGraph, lead: String },
     /// Resizing a node by its corner: where the pointer went down, its size then and the
     /// diagram before.
     Resize { id: String, pressed: Point, size: (f32, f32), before: FlowGraph },
     /// Turning a node by its handle, with the diagram before.
     Turn { id: String, before: FlowGraph },
+    /// Moving the bend point `index` of a connection, with the diagram before.
+    Bend { edge: String, index: usize, before: FlowGraph },
 }
 
 /// What the canvas remembers between events, none of which should rebuild it.
@@ -616,6 +946,9 @@ struct Flow {
     locked: State<bool>,
     connecting: State<Option<Connecting>>,
     marquee: State<Option<Rect>>,
+    /// The guides shown while a node is dragged: an upright line at this x and a level one at
+    /// this y, in units of the diagram.
+    guides: State<(Option<f32>, Option<f32>)>,
     memory: Rc<Memory>,
     validate: Option<FlowValidator>,
     guard: Option<FlowGuard>,
@@ -626,6 +959,22 @@ struct Flow {
     rotatable: bool,
     /// Why a group does not turn.
     no_turn: String,
+    next: Option<FlowNext>,
+    connector: Option<FlowConnector>,
+    checks: Option<crate::flow_notation::FlowChecks>,
+    runs: Option<FlowRunRules>,
+    /// Whether the check's box is open.
+    checking: State<bool>,
+    /// Whether the debug box is open, the run going on and the nodes it stops at.
+    debugging: State<bool>,
+    run: State<Option<FlowRun>>,
+    breakpoints: State<Vec<String>>,
+    export: Option<FlowExporter>,
+    /// Whether Export takes only what is selected, and the format chosen last.
+    export_only: State<bool>,
+    export_format: State<FlowExportFormat>,
+    palette: Palette,
+    quick_create: bool,
     editable_titles: bool,
     /// The node whose title is being typed, and what has been typed.
     editing: State<Option<String>>,
@@ -731,6 +1080,122 @@ impl Flow {
 
     /// Opens the title of `id` for typing, with all of it selected. Below the zoom at which
     /// nodes show words, the view first goes to 100% around the node, and comes back after.
+    /// The node to make next to `from` on `side`, and the connection that joins them (output
+    /// to input, in the way the side points), placed a layer away on the grid, lower down
+    /// while that place is taken.
+    fn next_to(
+        &self,
+        graph: &FlowGraph,
+        from: &FlowNode,
+        side: PortSide,
+    ) -> Option<(FlowNode, Option<FlowEdge>)> {
+        let made = match &self.next {
+            Some(next) => next(from, side)?,
+            None => FlowNode {
+                status: FlowNodeStatus::Normal,
+                parent: None,
+                group: false,
+                rotation: 0.0,
+                ..from.clone()
+            },
+        };
+        let gap = 96.0;
+        let (w, h) = (made.width, made.height);
+        let (mut x, mut y) = match side {
+            PortSide::Right => (from.x + from.width + gap, from.y),
+            PortSide::Left => (from.x - gap - w, from.y),
+            PortSide::Bottom => (from.x, from.y + from.height + gap),
+            PortSide::Top => (from.x, from.y - gap - h),
+        };
+        (x, y) = (self.snapped(x), self.snapped(y));
+        let taken = |x: f32, y: f32| {
+            let r = Rect::new(x, y, w, h);
+            graph.nodes.iter().any(|n| {
+                let e = n.extent();
+                !n.group && e.x() < r.max_x() && r.x() < e.max_x() && e.y() < r.max_y() && r.y() < e.max_y()
+            })
+        };
+        for _ in 0..20 {
+            if !taken(x, y) {
+                break;
+            }
+            y = self.snapped(y + h + 48.0);
+        }
+        let id = graph.fresh_node_id(&made.id);
+        let made = FlowNode { id: id.clone(), x, y, ..made };
+        // Forward (right, down): the old node's output to the new one's input; backward the
+        // other way round. A port on the side faced is preferred.
+        let forward = matches!(side, PortSide::Right | PortSide::Bottom);
+        let opposite = match side {
+            PortSide::Left => PortSide::Right,
+            PortSide::Right => PortSide::Left,
+            PortSide::Top => PortSide::Bottom,
+            PortSide::Bottom => PortSide::Top,
+        };
+        let pick = |node: &FlowNode, direction: PortDirection, facing: PortSide| {
+            let of: Vec<&FlowPort> = node.ports.iter().filter(|p| p.direction == direction).collect();
+            of.iter()
+                .find(|p| p.side == facing)
+                .or(of.first())
+                .map(|p| FlowEndpoint::new(node.id.clone(), p.id.clone()))
+        };
+        let ends = if forward {
+            pick(from, PortDirection::Output, side).zip(pick(&made, PortDirection::Input, opposite))
+        } else {
+            pick(&made, PortDirection::Output, opposite).zip(pick(from, PortDirection::Input, side))
+        };
+        let edge = ends.map(|(a, b)| self.shaped(graph, FlowEdge::new(graph.fresh_edge_id("e"), a, b)));
+        Some((made, edge))
+    }
+
+    /// Makes the next node beside `id` on `side`, joined to it, selects it and opens its title.
+    fn quick_create(&self, id: &str, side: PortSide) -> bool {
+        if self.locked.get() || !self.quick_create {
+            return false;
+        }
+        let mut graph = self.graph.get();
+        let Some(from) = graph.find_node(id).filter(|n| !n.group).cloned() else { return false };
+        let Some((made, edge)) = self.next_to(&graph, &from, side) else { return false };
+        let new_id = made.id.clone();
+        let edge_id = edge.as_ref().map(|e| e.id.clone());
+        graph.nodes.push(made);
+        graph.edges.extend(edge);
+        if !self.commit(graph, FlowChange::Create { node: new_id.clone(), edge: edge_id }) {
+            return true;
+        }
+        self.select(FlowSelection::node(new_id.clone()));
+        self.begin_rename(&new_id);
+        true
+    }
+
+    /// The box a node carried in lands in, centred on `at` (in units of the diagram), on the grid.
+    fn landing(&self, node: &FlowNode, at: Point) -> Rect {
+        let (x, y) = (self.snapped(at.x - node.width / 2.0), self.snapped(at.y - node.height / 2.0));
+        Rect::new(x, y, node.width, node.height)
+    }
+
+    /// Makes a copy of a node carried in and dropped at `at` (from the canvas's corner), with an
+    /// id of its own, and selects it.
+    fn drop_node(&self, template: &FlowNode, at: Point) {
+        if self.locked.get() {
+            return;
+        }
+        let place = self.landing(template, self.view.get().to_content(at));
+        let mut graph = self.graph.get();
+        let id = graph.fresh_node_id(&template.id);
+        graph.nodes.push(FlowNode {
+            id: id.clone(),
+            x: place.x(),
+            y: place.y(),
+            parent: None,
+            ..template.clone()
+        });
+        if self.commit(graph, FlowChange::Create { node: id.clone(), edge: None }) {
+            self.select(FlowSelection::node(id));
+            self.memory.refocus.set(true);
+        }
+    }
+
     fn begin_rename(&self, id: &str) -> bool {
         if self.locked.get() || !self.editable_titles {
             return false;
@@ -974,6 +1439,199 @@ impl Flow {
         true
     }
 
+    /// Hands the diagram, or what is selected when "Only the selection" is on, to the app's
+    /// exporter as a picture in `format`.
+    fn export(&self, format: FlowExportFormat) -> bool {
+        let Some(export) = &self.export else { return false };
+        self.export_format.set_if_changed(format);
+        let graph = self.graph.get();
+        let selection = self.selection.get();
+        let only =
+            (self.export_only.get() && !selection.nodes.is_empty()).then_some(selection.nodes.as_slice());
+        let p = self.palette;
+        let colors = match format {
+            FlowExportFormat::Pdf => FlowColors::paper(),
+            _ => FlowColors {
+                background: p.canvas,
+                node: p.elevated,
+                border: p.border,
+                ink: p.ink,
+                muted: p.muted,
+                line: p.accent,
+                danger: p.danger,
+                warning: p.warning,
+                success: p.success,
+            },
+        };
+        if let Some(picture) = graph.picture(only, colors) {
+            export(format, picture);
+        }
+        true
+    }
+
+    /// Puts a breakpoint on each node selected, or takes it off.
+    fn toggle_breakpoints(&self) {
+        let mut points = self.breakpoints.get();
+        for id in self.selection.get().nodes {
+            match points.iter().position(|p| *p == id) {
+                Some(i) => {
+                    points.remove(i);
+                }
+                None => points.push(id),
+            }
+        }
+        self.breakpoints.set(points);
+    }
+
+    /// Starts a run over, from the starts.
+    fn run_start(&self) {
+        if let Some(rules) = &self.runs {
+            self.run.set(Some(FlowRun::start(&self.graph.get(), rules)));
+        }
+    }
+
+    /// Moves the run one step, along `choice` where a way out is to be chosen.
+    fn run_step(&self, choice: Option<&str>) {
+        let Some(rules) = &self.runs else { return };
+        let graph = self.graph.get();
+        let mut run = self.run.get().unwrap_or_else(|| FlowRun::start(&graph, rules));
+        run.step(&graph, rules, choice);
+        self.run.set(Some(run));
+    }
+
+    /// Moves the run on until it ends, a way out is to be chosen or a token reaches a
+    /// breakpoint.
+    fn run_on(&self) {
+        let Some(rules) = &self.runs else { return };
+        let graph = self.graph.get();
+        let points = self.breakpoints.get();
+        let mut run = self.run.get().unwrap_or_else(|| FlowRun::start(&graph, rules));
+        for _ in 0..flow_run_limit() {
+            if run.is_over() || run.choosing.is_some() {
+                break;
+            }
+            run.step(&graph, rules, None);
+            if run.tokens.first().is_some_and(|t| points.contains(t)) {
+                break;
+            }
+        }
+        self.run.set(Some(run));
+    }
+
+    /// A connection as the app's connector shapes it, keeping its id and ends.
+    fn shaped(&self, graph: &FlowGraph, edge: FlowEdge) -> FlowEdge {
+        match &self.connector {
+            Some(shape) => {
+                let (id, from, to) = (edge.id.clone(), edge.from.clone(), edge.to.clone());
+                FlowEdge { id, from, to, ..shape(graph, edge) }
+            }
+            None => edge,
+        }
+    }
+
+    /// Where `at` (in the view) lands in the diagram, on the grid.
+    fn bend_point(&self, at: Point) -> (f32, f32) {
+        let c = self.view.get().to_content(at);
+        (self.snapped(c.x), self.snapped(c.y))
+    }
+
+    /// A drag on a bend point of a connection, or on the `+` in the middle of a stretch
+    /// (`add`), which makes a point there, `index` among its points, and moves it.
+    fn on_bend_drag(&self, edge: &str, index: usize, add: bool, phase: DragPhase, position: Point) {
+        if self.locked.get() {
+            return;
+        }
+        let at = self.local(position);
+        let point = self.bend_point(at);
+        match phase {
+            DragPhase::Start => {
+                self.forget_notice();
+                let before = self.graph.get();
+                if add {
+                    let mut graph = before.clone();
+                    if let Some(e) = graph.find_edge_mut(edge) {
+                        e.waypoints.insert(index.min(e.waypoints.len()), point);
+                    }
+                    self.graph.set(graph);
+                }
+                *self.memory.gesture.borrow_mut() = Gesture::Bend { edge: edge.to_owned(), index, before };
+            }
+            DragPhase::Move => {
+                let Gesture::Bend { edge, index, .. } = self.memory.gesture.borrow().clone() else { return };
+                let mut graph = self.graph.get();
+                if let Some(w) = graph.find_edge_mut(&edge).and_then(|e| e.waypoints.get_mut(index))
+                    && *w != point
+                {
+                    *w = point;
+                    self.graph.set(graph);
+                }
+            }
+            DragPhase::End => {
+                let gesture = std::mem::take(&mut *self.memory.gesture.borrow_mut());
+                let Gesture::Bend { edge, index, before } = gesture else { return };
+                // A point let go on the straight between its neighbours is not needed: it goes.
+                let mut graph = self.graph.get();
+                let zoom = self.view.get().zoom;
+                let straight = graph.find_edge(&edge).and_then(|e| graph.edge_controls(e)).is_some_and(|c| {
+                    c.len() > index + 2
+                        && geometry::distance_to(&[c[index], c[index + 2]], c[index + 1]) * zoom
+                            <= BEND_STRAIGHT
+                });
+                if straight && let Some(e) = graph.find_edge_mut(&edge) {
+                    e.waypoints.remove(index);
+                    self.graph.set(graph);
+                }
+                self.settle(before, FlowChange::Bend { edge });
+            }
+            // The base may add more; they act as nothing here.
+            _ => {}
+        }
+    }
+
+    /// The keys on a bend point: the arrows move it a step of the grid (four with Shift),
+    /// Delete takes it out.
+    fn bend_key(&self, edge: &str, index: usize, key: &Key, m: Modifiers) -> bool {
+        if self.locked.get() {
+            return false;
+        }
+        let step = self.grid.max(1.0) * if m.shift { 4.0 } else { 1.0 };
+        let mut graph = self.graph.get();
+        let Some(e) = graph.find_edge_mut(edge) else { return false };
+        let Some(&(x, y)) = e.waypoints.get(index) else { return false };
+        match key {
+            Key::ArrowLeft => e.waypoints[index] = (x - step, y),
+            Key::ArrowRight => e.waypoints[index] = (x + step, y),
+            Key::ArrowUp => e.waypoints[index] = (x, y - step),
+            Key::ArrowDown => e.waypoints[index] = (x, y + step),
+            Key::Delete | Key::Backspace => {
+                e.waypoints.remove(index);
+                self.memory.refocus.set(true);
+            }
+            _ => return false,
+        }
+        self.commit(graph, FlowChange::Bend { edge: edge.to_owned() });
+        true
+    }
+
+    /// A double click on a line: a bend point there, on the grid.
+    fn add_bend_at(&self, at: Point) -> bool {
+        if self.locked.get() {
+            return false;
+        }
+        let Some(id) = self.edge_at(at) else { return false };
+        let point = self.bend_point(at);
+        let mut graph = self.graph.get();
+        let Some(controls) = graph.find_edge(&id).and_then(|e| graph.edge_controls(e)) else { return false };
+        let index = geometry::bend_index(&controls, Point::new(point.0, point.1)) - 1;
+        if let Some(e) = graph.find_edge_mut(&id) {
+            e.waypoints.insert(index, point);
+        }
+        if self.commit(graph, FlowChange::Bend { edge: id.clone() }) {
+            self.select(FlowSelection::edge(id));
+        }
+        true
+    }
+
     /// A drag on the corner of a node, which resizes it.
     fn on_resize_drag(&self, id: &str, phase: DragPhase, position: Point) {
         if self.locked.get() || !self.resizable {
@@ -1118,6 +1776,10 @@ impl Flow {
             self.connecting.set(None);
             return true;
         }
+        if *key == Key::Function(9) && self.runs.is_some() && has_nodes {
+            self.toggle_breakpoints();
+            return true;
+        }
         if command && let Key::Character(c) = key {
             match c.to_lowercase().as_str() {
                 "z" => return self.travel(shift),
@@ -1125,6 +1787,7 @@ impl Flow {
                 "c" => return self.copy(),
                 "x" => return self.cut(),
                 "v" => return self.paste(),
+                "e" if shift && self.export.is_some() => return self.export(self.export_format.get()),
                 "g" if shift => return self.ungroup_selection(),
                 "g" => return self.group_selection(),
                 "]" | "}" => return self.reorder(true),
@@ -1148,6 +1811,12 @@ impl Flow {
                 Key::ArrowDown => return self.resize_by(0.0, step),
                 _ => {}
             }
+        }
+        if *key == Key::Enter
+            && command
+            && let [only] = self.selection.get().nodes.as_slice()
+        {
+            return self.quick_create(only, if shift { PortSide::Bottom } else { PortSide::Right });
         }
         if *key == Key::Function(2)
             && let [only] = self.selection.get().nodes.as_slice()
@@ -1273,7 +1942,8 @@ impl Flow {
     }
 
     /// A press and drag on a node.
-    fn on_node_drag(&self, id: &str, phase: DragPhase, position: Point, shift: bool) {
+    fn on_node_drag(&self, id: &str, phase: DragPhase, position: Point, m: Modifiers) {
+        let shift = m.shift;
         let at = self.local(position);
         self.memory.pointer.set(Some(at));
         match phase {
@@ -1309,18 +1979,82 @@ impl Flow {
                     .filter(|n| moving.contains(&n.id))
                     .map(|n| (n.id.clone(), n.x, n.y))
                     .collect();
-                *self.memory.gesture.borrow_mut() = Gesture::Move { pressed: at, origins, before: graph };
+                *self.memory.gesture.borrow_mut() =
+                    Gesture::Move { pressed: at, origins, before: graph, lead: id.to_owned() };
             }
             DragPhase::Move => {
-                let Gesture::Move { pressed, origins, .. } = self.memory.gesture.borrow().clone() else {
+                let Gesture::Move { pressed, origins, lead, .. } = self.memory.gesture.borrow().clone()
+                else {
                     return;
                 };
                 let zoom = self.view.get().zoom.max(f32::EPSILON);
-                let (dx, dy) = ((at.x - pressed.x) / zoom, (at.y - pressed.y) / zoom);
+                let (mut dx, mut dy) = ((at.x - pressed.x) / zoom, (at.y - pressed.y) / zoom);
                 let mut graph = self.graph.get();
+                // Guides: the node held lines up its edges or middle with another node's, within
+                // a few pixels on screen, before the grid; Alt does without.
+                let (mut across, mut down) = (None, None);
+                if !m.alt
+                    && let Some((_, x0, y0)) = origins.iter().find(|(id, _, _)| *id == lead)
+                    && let Some(held) = graph.find_node(&lead)
+                {
+                    let moving: Vec<&String> = origins.iter().map(|(id, _, _)| id).collect();
+                    let others: Vec<Rect> = graph
+                        .nodes
+                        .iter()
+                        // Other nodes, and the frame the node held is in, so it lines up with its edges.
+                        .filter(|n| {
+                            !moving.contains(&&n.id)
+                                && (!n.group || held.parent.as_deref() == Some(n.id.as_str()))
+                        })
+                        .map(FlowNode::extent)
+                        .collect();
+                    let reach = GUIDE_REACH / zoom;
+                    let (w, h) = (held.width, held.height);
+                    let lines = |at: f32, size: f32| [at, at + size / 2.0, at + size];
+                    let best = |mine: [f32; 3], theirs: &dyn Fn(&Rect) -> [f32; 3]| {
+                        others
+                            .iter()
+                            .flat_map(theirs)
+                            .flat_map(|t| mine.iter().map(move |m| (t - m, t)))
+                            .filter(|(d, _)| d.abs() <= reach)
+                            .min_by(|a, b| a.0.abs().total_cmp(&b.0.abs()))
+                    };
+                    if let Some((d, t)) = best(lines(x0 + dx, w), &|r: &Rect| lines(r.x(), r.width())) {
+                        dx += d;
+                        across = Some(t);
+                    }
+                    if let Some((d, t)) = best(lines(y0 + dy, h), &|r: &Rect| lines(r.y(), r.height())) {
+                        dy += d;
+                        down = Some(t);
+                    }
+                }
+                self.guides.set_if_changed((across, down));
                 let mut changed = false;
+                // A line whose two ends move takes its bend points along; with one end, they stay.
+                if let Gesture::Move { before, .. } = &*self.memory.gesture.borrow()
+                    && let Some((_, x0, y0)) = origins.iter().find(|(id, _, _)| *id == lead)
+                {
+                    let (nx, ny) = (
+                        if across.is_some() { x0 + dx } else { self.snapped(x0 + dx) },
+                        if down.is_some() { y0 + dy } else { self.snapped(y0 + dy) },
+                    );
+                    let moving = |id: &str| origins.iter().any(|(o, _, _)| o == id);
+                    for edge in &mut graph.edges {
+                        if edge.waypoints.is_empty() || !moving(&edge.from.node) || !moving(&edge.to.node) {
+                            continue;
+                        }
+                        let Some(was) = before.find_edge(&edge.id) else { continue };
+                        let shifted: Vec<(f32, f32)> =
+                            was.waypoints.iter().map(|(x, y)| (x + nx - x0, y + ny - y0)).collect();
+                        if shifted != edge.waypoints {
+                            edge.waypoints = shifted;
+                            changed = true;
+                        }
+                    }
+                }
                 for (id, x, y) in &origins {
-                    let (nx, ny) = (self.snapped(x + dx), self.snapped(y + dy));
+                    let nx = if across.is_some() { x + dx } else { self.snapped(x + dx) };
+                    let ny = if down.is_some() { y + dy } else { self.snapped(y + dy) };
                     if let Some(node) = graph.find_node_mut(id)
                         && (node.x != nx || node.y != ny)
                     {
@@ -1334,6 +2068,7 @@ impl Flow {
                 }
             }
             DragPhase::End => {
+                self.guides.set_if_changed((None, None));
                 let gesture = std::mem::take(&mut *self.memory.gesture.borrow_mut());
                 if let Gesture::Move { before, origins, .. } = gesture {
                     let mut graph = self.graph.get();
@@ -1423,14 +2158,15 @@ impl Flow {
         let (a, b) = Self::oriented(&graph, &connecting.from, end);
         let id = match &connecting.moving {
             Some(id) => {
-                let Some(edge) = graph.edges.iter_mut().find(|e| &e.id == id) else { return false };
-                edge.from = a;
-                edge.to = b;
+                let Some(i) = graph.edges.iter().position(|e| &e.id == id) else { return false };
+                let moved = FlowEdge { from: a, to: b, ..graph.edges[i].clone() };
+                graph.edges[i] = self.shaped(&graph, moved);
                 id.clone()
             }
             None => {
                 let id = graph.fresh_edge_id("e");
-                graph.edges.push(FlowEdge::new(id.clone(), a, b));
+                let edge = self.shaped(&graph, FlowEdge::new(id.clone(), a, b));
+                graph.edges.push(edge);
                 id
             }
         };
@@ -1561,7 +2297,7 @@ fn stroke(scene: &mut Scene, points: &[Point], width: f32, color: Color) {
     }
 }
 
-fn fill(scene: &mut Scene, path: Vec<ravenrs_graphics::vector::PathSegment>, color: Color) {
+pub(crate) fn fill(scene: &mut Scene, path: Vec<ravenrs_graphics::vector::PathSegment>, color: Color) {
     let elements: Vec<ravenrs_core::PathElement> = path.into_iter().filter_map(element).collect();
     scene.push_path(PathFill::solid(elements, color));
 }
@@ -1592,6 +2328,9 @@ struct Palette {
     focus: Color,
     warning: Color,
     danger: Color,
+    success: Color,
+    /// The alignment guides: a tone of their own, apart from the selection's accent.
+    guide: Color,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -1609,6 +2348,8 @@ impl Palette {
             focus: theme.color(Semantic::FocusRing),
             warning: theme.color(Semantic::Warning),
             danger: theme.color(Semantic::Danger),
+            success: theme.color(Semantic::Success),
+            guide: theme.color(Semantic::Guide),
         }
     }
 }
@@ -1621,6 +2362,9 @@ struct Surface {
     selection: FlowSelection,
     connecting: Option<Connecting>,
     marquee: Option<Rect>,
+    guides: (Option<f32>, Option<f32>),
+    /// Where a node carried over the canvas would land, in units of the diagram.
+    landing: Option<Rect>,
     grid: f32,
     /// The corner radius of a group's panel at 100%.
     radius: f32,
@@ -1691,10 +2435,15 @@ impl Surface {
             let points =
                 geometry::trim_start(&geometry::trim_end(&reach, edge.end.inset(CAP)), edge.start.inset(CAP));
             let on = touching(edge);
-            let (color, width) = if on { (p.accent, 2.0) } else { (p.muted, 1.5) };
+            let own = edge.color.as_deref().and_then(geometry::parse_color);
+            let (color, width) = if on { (p.accent, 2.0) } else { (own.unwrap_or(p.muted), 1.5) };
             if edge.animated {
                 let phase = (time as f32 * DASH_SPEED).rem_euclid(12.0);
                 for piece in geometry::dashes(&points, 6.0, 6.0, phase) {
+                    stroke(scene, &piece, width, color);
+                }
+            } else if edge.dashed {
+                for piece in geometry::dashes(&points, 7.0, 5.0, 0.0) {
                     stroke(scene, &piece, width, color);
                 }
             } else {
@@ -1737,6 +2486,22 @@ impl Surface {
                 stroke(scene, &piece, 2.0, color);
             }
         }
+        if let Some(r) = self.landing {
+            let (a, b) =
+                (self.view.to_screen(r.origin), self.view.to_screen(Point::new(r.max_x(), r.max_y())));
+            let shown = Rect::new(frame.x() + a.x, frame.y() + a.y, b.x - a.x, b.y - a.y);
+            scene.push_quad(Quad::new(shown, p.elevated.with_alpha(0.8)).radius(8.0 * self.view.zoom));
+            let outline = util::dashed_outline(shown, 8.0 * self.view.zoom, 1.5, 6.0, 4.0);
+            scene.push_path(PathFill::solid(outline, p.focus));
+        }
+        if let Some(x) = self.guides.0 {
+            let sx = frame.x() + self.view.to_screen(Point::new(x, 0.0)).x;
+            stroke(scene, &[Point::new(sx, frame.y()), Point::new(sx, frame.max_y())], 1.0, p.guide);
+        }
+        if let Some(y) = self.guides.1 {
+            let sy = frame.y() + self.view.to_screen(Point::new(0.0, y)).y;
+            stroke(scene, &[Point::new(frame.x(), sy), Point::new(frame.max_x(), sy)], 1.0, p.guide);
+        }
         if let Some(area) = self.marquee {
             let area = area.translate(frame.origin);
             scene.push_quad(Quad::new(area, p.accent.with_alpha(0.1)).radius(4.0).border(1.5, p.focus));
@@ -1755,6 +2520,13 @@ impl View for FlowCanvas {
         let locked = cx.use_state(|| self.locked);
         let connecting = cx.use_state(|| None::<Connecting>);
         let marquee = cx.use_state(|| None::<Rect>);
+        let guides = cx.use_state(|| (None::<f32>, None::<f32>));
+        let export_only = cx.use_state(|| false);
+        let checking = cx.use_state(|| false);
+        let debugging = cx.use_state(|| false);
+        let run = cx.use_state(|| None::<FlowRun>);
+        let breakpoints = cx.use_state(Vec::<String>::new);
+        let export_format = cx.use_state(FlowExportFormat::default);
         let notice = cx.use_state(|| None::<String>);
         let editing = cx.use_state(|| None::<String>);
         let draft = cx.use_state(String::new);
@@ -1771,6 +2543,7 @@ impl View for FlowCanvas {
             locked: locked.clone(),
             connecting: connecting.clone(),
             marquee: marquee.clone(),
+            guides: guides.clone(),
             memory: memory.clone(),
             validate: self.validate.clone(),
             guard: self.guard.clone(),
@@ -1779,6 +2552,19 @@ impl View for FlowCanvas {
             resizable: self.resizable,
             rotatable: self.rotatable,
             no_turn: labels.flow_no_turn.clone(),
+            next: self.next.clone(),
+            export: self.export.clone(),
+            connector: self.connector.clone(),
+            checks: self.checks.clone(),
+            checking: checking.clone(),
+            runs: self.runs.clone(),
+            debugging: debugging.clone(),
+            run: run.clone(),
+            breakpoints: breakpoints.clone(),
+            export_only,
+            export_format,
+            palette,
+            quick_create: self.quick_create,
             editable_titles: self.editable_titles,
             editing: editing.clone(),
             draft: draft.clone(),
@@ -1800,11 +2586,66 @@ impl View for FlowCanvas {
             };
             flow.view.set(view);
         }
+        if let (Some(arrivals), Some(size)) = (&self.arrivals, size)
+            && let Some(node) = arrivals.get()
+        {
+            arrivals.set(None);
+            flow.drop_node(&node, Point::new(size.width / 2.0, size.height / 2.0));
+        }
         let selection = flow.selection.get();
         let connecting_now = connecting.get();
         let editing_now = editing.get();
         let is_locked = locked.get();
 
+        // The check, kept up to date while its box is open.
+        let issues: Option<Vec<FlowIssue>> =
+            self.checks.as_ref().filter(|_| checking.get()).map(|checks| checks(&graph));
+        // What the check and the run show on the nodes and lines, on a copy for drawing only:
+        // the problem written on its node; where the tokens are, have been and went wrong.
+        let run_now = run.get().filter(|_| debugging.get() && self.runs.is_some());
+        let points = breakpoints.get();
+        let real = graph.clone();
+        let mut graph = graph;
+        // Hidden nodes, what they hold and their lines are left out of the drawing.
+        let hidden: Vec<String> = graph
+            .nodes
+            .iter()
+            .filter(|n| n.hidden)
+            .flat_map(|n| std::iter::once(n.id.clone()).chain(graph.descendants(&n.id)))
+            .collect();
+        if !hidden.is_empty() {
+            graph.nodes.retain(|n| !hidden.contains(&n.id));
+            graph.edges.retain(|e| !hidden.contains(&e.from.node) && !hidden.contains(&e.to.node));
+        }
+        for issue in issues.iter().flatten() {
+            for id in &issue.nodes {
+                if let Some(n) = graph.find_node_mut(id)
+                    && n.status == FlowNodeStatus::Normal
+                {
+                    n.status = FlowNodeStatus::Warning(issue.text.clone());
+                }
+            }
+        }
+        if let Some(r) = &run_now {
+            for node in &mut graph.nodes {
+                if r.visited.contains(&node.id) {
+                    node.status = FlowNodeStatus::Success;
+                }
+                if r.tokens.contains(&node.id) || r.waiting.iter().any(|(j, _)| *j == node.id) {
+                    node.status = FlowNodeStatus::Running;
+                }
+            }
+            if let Some(failure) = r.failure()
+                && let Some(n) = failure.node().and_then(|id| graph.find_node_mut(id))
+            {
+                n.status = FlowNodeStatus::Error(run_words(failure, &real, &labels));
+            }
+            for edge in &mut graph.edges {
+                if r.taken.contains(&edge.id) {
+                    edge.animated = true;
+                }
+            }
+        }
         let mut children = Vec::new();
         for node in &graph.nodes {
             let look = self.kinds.iter().find(|(k, _)| *k == node.kind).map(|(_, look)| look.clone());
@@ -1817,6 +2658,10 @@ impl View for FlowCanvas {
                 selected: selection.has_node(&node.id),
                 resizable: self.resizable && !is_locked && selection.has_node(&node.id),
                 rotatable: self.rotatable,
+                quick: self.quick_create && !is_locked,
+                quiet_ports: self.quiet_ports,
+                selected_many: selection.nodes.len() > 1,
+                breakpoint: points.contains(&node.id),
                 members: graph.children(&node.id).count(),
                 editing: editing_now.as_deref() == Some(node.id.as_str()),
                 handles: graph
@@ -1847,6 +2692,44 @@ impl View for FlowCanvas {
             let Some(middle) = geometry::midpoint(&points) else { continue };
             children.push(edge_label(cx, label, middle, &theme, palette));
         }
+        // The bend points of the one line selected, and a `+` in the middle of each stretch.
+        if let ([], [only]) = (selection.nodes.as_slice(), selection.edges.as_slice())
+            && !is_locked
+            && let Some(edge) = graph.find_edge(only)
+            && let Some(controls) = graph.edge_controls(edge)
+        {
+            let name = edge.label.clone().unwrap_or_else(|| edge.id.clone());
+            let count = edge.waypoints.len();
+            for (i, pair) in controls.windows(2).enumerate() {
+                let middle = Point::new((pair[0].x + pair[1].x) / 2.0, (pair[0].y + pair[1].y) / 2.0);
+                let part = BendHandle {
+                    at: view.to_screen(middle),
+                    edge: edge.id.clone(),
+                    index: i,
+                    add: true,
+                    name: String::new(),
+                    flow: flow.clone(),
+                    palette,
+                };
+                children.push(cx.keyed_child(util::hash_text(&format!("bend+{}-{i}", edge.id)), &part));
+            }
+            for (i, &(x, y)) in edge.waypoints.iter().enumerate() {
+                let part = BendHandle {
+                    at: view.to_screen(Point::new(x, y)),
+                    edge: edge.id.clone(),
+                    index: i,
+                    add: false,
+                    name: labels
+                        .flow_bend
+                        .replace("{0}", &(i + 1).to_string())
+                        .replace("{1}", &count.to_string())
+                        .replace("{2}", &name),
+                    flow: flow.clone(),
+                    palette,
+                };
+                children.push(cx.keyed_child(util::hash_text(&format!("bend-{}-{i}", edge.id)), &part));
+            }
+        }
         match &connecting_now {
             Some(Connecting { pointer, target: Some((_, Err(reason))), .. }) => {
                 children.push(refusal(cx, reason, *pointer, palette));
@@ -1860,6 +2743,33 @@ impl View for FlowCanvas {
         if let Some(reason) = notice.get() {
             let at = memory.pointer.get().unwrap_or(Point::new(FIT_MARGIN, FIT_MARGIN));
             children.push(refusal(cx, &reason, at, palette));
+        }
+        if let Some(issues) = &issues {
+            let title = if issues.is_empty() {
+                labels.flow_check_ok.clone()
+            } else {
+                labels.flow_check_found.replace("{0}", &issues.len().to_string())
+            };
+            let message: Vec<String> = issues.iter().map(|i| format!("• {}", i.text)).collect();
+            let close = checking.clone();
+            let alert = Alert::new(title, message.join("\n"))
+                .tone(if issues.is_empty() { crate::Tone::Success } else { crate::Tone::Warning })
+                .action(labels.flow_check_close.clone(), move || close.set(false));
+            let shown = cx.child(&alert);
+            children.push(cx.container(
+                LayoutStyle {
+                    absolute: Some((theme.spacing.s4, theme.spacing.s4)),
+                    width: Some(CHECK_WIDTH),
+                    ..LayoutStyle::stack(Axis::Vertical)
+                },
+                &[shown],
+                Paint::None,
+            ));
+        }
+        if debugging.get()
+            && let (Some(rules), Some(size)) = (&self.runs, size)
+        {
+            children.push(debug_box(cx, &flow, &real, rules, run_now.as_ref(), size, &theme, &labels));
         }
         if let Some(size) = size {
             if self.controls {
@@ -1879,12 +2789,20 @@ impl View for FlowCanvas {
             }
         }
 
+        // A node carried here from a toolbox: where it would land, on the grid.
+        let landing = cx.carrying().filter(|c| c.over && c.verdict == Some(Ok(()))).and_then(|c| {
+            let node = c.payload.data::<FlowNode>()?;
+            let at = flow.local(c.position);
+            Some(flow.landing(node, view.to_content(at)))
+        });
         let surface = Surface {
             graph: graph.clone(),
             view,
             selection,
             connecting: connecting_now,
             marquee: marquee.get(),
+            guides: guides.get(),
+            landing,
             grid: self.grid,
             radius: theme.radii.lg,
             palette,
@@ -1918,6 +2836,32 @@ impl View for FlowCanvas {
         );
         cx.clip(root);
         cx.report_frame(root);
+        let bent = flow.clone();
+        cx.on_double_click(
+            root,
+            Rc::new(move || {
+                if let Some(at) = bent.memory.pointer.get() {
+                    bent.add_bend_at(at);
+                }
+            }),
+        );
+        let (checked, dropped, refused) =
+            (flow.locked.clone(), flow.clone(), labels.flow_inspector_read_only.clone());
+        cx.drop_target(
+            root,
+            move |payload| match () {
+                _ if payload.kind() != FLOW_NODE_DRAG || payload.data::<FlowNode>().is_none() => {
+                    Err(String::new())
+                }
+                _ if checked.get() => Err(refused.clone()),
+                _ => Ok(()),
+            },
+            move |payload, at| {
+                if let Some(node) = payload.data::<FlowNode>() {
+                    dropped.drop_node(node, at);
+                }
+            },
+        );
         cx.focusable(root, theme.radii.md);
         cx.cursor(root, CursorIcon::Default);
         let name = self.label.clone().unwrap_or_else(|| labels.flow_canvas.clone());
@@ -2033,6 +2977,60 @@ fn controls(
             .selected(locked)
             .on_click(move || d.set(!d.get())),
     );
+    let debug = flow.runs.is_some().then(|| {
+        let open = flow.debugging.clone();
+        let on = open.get();
+        cx.child(
+            &IconButton::new(IconName::Play)
+                .label(labels.flow_debug.clone())
+                .size(ButtonSize::Small)
+                .style(ButtonStyle::Ghost)
+                .selected(on)
+                .on_click(move || open.set(!on)),
+        )
+    });
+    let check = flow.checks.is_some().then(|| {
+        let open = flow.checking.clone();
+        let on = open.get();
+        cx.child(
+            &IconButton::new(IconName::CircleCheck)
+                .label(labels.flow_check.clone())
+                .size(ButtonSize::Small)
+                .style(ButtonStyle::Ghost)
+                .selected(on)
+                .on_click(move || open.set(!on)),
+        )
+    });
+    let export = flow.export.is_some().then(|| {
+        let item = |name: &str, aside: Option<&str>, format: FlowExportFormat| {
+            let f = flow.clone();
+            let item = MenuItem::new(name.to_owned()).on_select(move || {
+                f.export(format);
+            });
+            match aside {
+                Some(aside) => item.shortcut(aside.to_owned()),
+                None => item,
+            }
+        };
+        let only = flow.export_only.clone();
+        let mut menu = DropdownMenu::new(labels.flow_export.clone())
+            .icon(IconName::Download)
+            .icon_only()
+            .size(ButtonSize::Small)
+            .style(ButtonStyle::Ghost)
+            .item(item(&labels.flow_export_png, Some("2×"), FlowExportFormat::Png))
+            .item(item(&labels.flow_export_svg, None, FlowExportFormat::Svg))
+            .item(item(&labels.flow_export_pdf, None, FlowExportFormat::Pdf));
+        if !flow.selection.get().nodes.is_empty() {
+            let on = only.get();
+            menu = menu.separator().item(
+                MenuItem::new(labels.flow_export_selection.clone())
+                    .checked(on)
+                    .on_select(move || only.set(!on)),
+            );
+        }
+        cx.child(&menu)
+    });
     let percent = format!("{}%", (view.zoom * 100.0).round());
     let percent = util::label(cx, &percent, TextStyle::Callout, None, p.muted);
     let percent = cx.container(
@@ -2053,7 +3051,13 @@ fn controls(
             align: Align::Center,
             ..LayoutStyle::stack(Axis::Horizontal)
         },
-        &[zoom_in, zoom_out, fit, arrange, lock, percent],
+        &[zoom_in, zoom_out, fit, arrange, lock]
+            .into_iter()
+            .chain(check)
+            .chain(debug)
+            .chain(export)
+            .chain([percent])
+            .collect::<Vec<_>>(),
         Paint::Quad(crate::context::QuadPaint {
             corner_radius: theme.radii.md,
             border: Some(ravenrs_core::Border { width: 1.0, color: p.border }),
@@ -2079,6 +3083,14 @@ struct NodeBox {
     resizable: bool,
     /// Shows the handle that turns it (with the corner, on a selected node).
     rotatable: bool,
+    /// Shows the arrows of quick creation while the pointer is over it.
+    quick: bool,
+    /// Ports that nothing joins show only by the node under the pointer.
+    quiet_ports: bool,
+    /// More than one node is selected: the arrows stay away.
+    selected_many: bool,
+    /// A run stops when a token reaches it.
+    breakpoint: bool,
     /// For a group, how many nodes it holds directly.
     members: usize,
     /// Its title is being typed.
@@ -2143,6 +3155,8 @@ impl NodeBox {
         match &self.node.status {
             FlowNodeStatus::Warning(m) | FlowNodeStatus::Error(m) => parts.push(m.clone()),
             FlowNodeStatus::Disabled => parts.push(labels.flow_disabled.clone()),
+            FlowNodeStatus::Running => parts.push(labels.flow_running.clone()),
+            FlowNodeStatus::Success => parts.push(labels.flow_done.clone()),
             _ => {}
         }
         if self.node.rotation != 0.0 {
@@ -2176,6 +3190,14 @@ impl View for NodeBox {
                 _ if self.connected.contains(&port.id) => PortState::Connected,
                 _ => PortState::Free,
             };
+            // Quiet ports that nothing joins show only by the node under the pointer.
+            if self.quiet_ports
+                && state == PortState::Free
+                && !cx.is_hover_within()
+                && self.connecting.is_none()
+            {
+                continue;
+            }
             let template =
                 if port.direction == PortDirection::Input { &labels.flow_input } else { &labels.flow_output };
             let dot = PortDot {
@@ -2189,10 +3211,61 @@ impl View for NodeBox {
                 palette: p,
             };
             ports.push(cx.keyed_child(util::hash_text(&port.id), &dot));
+            // A port with a name shows it inside the node, beside it: the answers of a
+            // question, the ways out of a choice. Too small to read, it is left out.
+            if let Some(name) = &port.label
+                && view.zoom >= PORT_LABEL_ZOOM
+                && node.rotation == 0.0
+                && !node.group
+            {
+                // As large as the node's own words at this zoom.
+                let mut attrs = util::attrs(&theme, TextStyle::Caption, None);
+                attrs.size *= view.zoom;
+                attrs.line_height *= view.zoom;
+                let size = cx.measure_text(name, &attrs);
+                let local = Point::new((at.x - node.x) * view.zoom, (at.y - node.y) * view.zoom);
+                let gap = 8.0 * view.zoom;
+                // In a box, inside it by the port; at the tips of a diamond or an ellipse, whose
+                // middle holds the title, outside, along the way out, as flowcharts label them.
+                let boxed = !matches!(node.shape, FlowShape::Diamond | FlowShape::Ellipse);
+                let (x, y) = match (boxed, local.x <= 0.5, local.x >= w - 0.5, local.y <= 0.5) {
+                    (true, true, _, _) => (local.x + gap, local.y - size.height / 2.0),
+                    (true, _, true, _) => (local.x - gap - size.width, local.y - size.height / 2.0),
+                    (true, _, _, true) => (local.x - size.width / 2.0, local.y + gap),
+                    (true, ..) => (local.x - size.width / 2.0, local.y - gap - size.height),
+                    (false, true, _, _) => (local.x - gap - size.width, local.y - size.height - 2.0),
+                    (false, _, true, _) => (local.x + gap, local.y - size.height - 2.0),
+                    (false, _, _, true) => (local.x + gap, local.y - size.height - gap),
+                    (false, ..) => (local.x + gap, local.y + 2.0),
+                };
+                let style = LayoutStyle {
+                    absolute: Some((x, y)),
+                    width: Some(size.width),
+                    height: Some(size.height),
+                    ..LayoutStyle::leaf()
+                };
+                let words = cx.text(name, &attrs, p.muted, style);
+                cx.semantics(words, Semantics::hidden());
+                ports.push(words);
+            }
         }
 
         if self.editing {
             ports.push(self.title_field(cx, &theme, w, h));
+        }
+        // Over the node, or on a node selected alone, so the pointer can cross to an arrow.
+        let near = cx.is_hover_within() || self.selected;
+        if near && self.quick && !node.group && !self.selected_many {
+            for side in [PortSide::Right, PortSide::Bottom, PortSide::Left, PortSide::Top] {
+                let arrow = NextArrow {
+                    size: Size::new(w, h),
+                    side,
+                    id: node.id.clone(),
+                    flow: self.flow.clone(),
+                    palette: p,
+                };
+                ports.push(cx.keyed_child(util::hash_text(&format!("\u{0}next{side:?}")), &arrow));
+            }
         }
         if self.resizable && self.rotatable && !node.group {
             let turner = Turner { width: w, id: node.id.clone(), flow: self.flow.clone(), palette: p };
@@ -2224,6 +3297,25 @@ impl View for NodeBox {
         }
         let look = self.look.clone();
         let (title, subtitle, status) = (node.title.clone(), node.subtitle.clone(), node.status.clone());
+        if self.breakpoint {
+            // A red dot on its corner, as code editors mark a line.
+            let dot = cx.container(
+                LayoutStyle {
+                    absolute: Some((-6.0, -6.0)),
+                    width: Some(12.0),
+                    height: Some(12.0),
+                    ..LayoutStyle::leaf()
+                },
+                &[],
+                Paint::Quad(crate::context::QuadPaint {
+                    corner_radius: 6.0,
+                    border: Some(ravenrs_core::Border { width: 2.0, color: p.canvas }),
+                    ..crate::context::QuadPaint::new(p.danger)
+                }),
+            );
+            ports.push(dot);
+        }
+        let style = node.style.clone();
         let selected = self.selected;
         let zoom = view.zoom;
         let is_group = node.group;
@@ -2254,6 +3346,7 @@ impl View for NodeBox {
                     &title,
                     subtitle.as_deref(),
                     &status,
+                    &style,
                     selected,
                     hovered,
                 );
@@ -2269,6 +3362,7 @@ impl View for NodeBox {
                 &title,
                 subtitle.as_deref(),
                 &status,
+                &style,
                 selected,
                 hovered,
                 card_only,
@@ -2285,7 +3379,9 @@ impl View for NodeBox {
             paint,
         );
         cx.focusable(root, theme.radii.md * view.zoom);
-        if !matches!(node.shape, FlowShape::Card | FlowShape::Rectangle | FlowShape::Note) && !node.group {
+        if !matches!(node.shape, FlowShape::Card | FlowShape::Rectangle | FlowShape::Note | FlowShape::Text)
+            && !node.group
+        {
             cx.hit_outline(root, outline);
         }
         if node.rotation != 0.0 {
@@ -2302,10 +3398,7 @@ impl View for NodeBox {
         );
         let modifiers = cx.modifiers();
         let (dragged, id) = (self.flow.clone(), node.id.clone());
-        cx.on_drag(
-            root,
-            Rc::new(move |d| dragged.on_node_drag(&id, d.phase, d.position, modifiers.get().shift)),
-        );
+        cx.on_drag(root, Rc::new(move |d| dragged.on_node_drag(&id, d.phase, d.position, modifiers.get())));
         let (renamed, id) = (self.flow.clone(), node.id.clone());
         cx.on_double_click(
             root,
@@ -2334,6 +3427,10 @@ impl View for NodeBox {
                 let arrow = matches!(key, Key::ArrowLeft | Key::ArrowRight | Key::ArrowUp | Key::ArrowDown);
                 if arrow && !keyed.selection.get().has_node(&id) {
                     keyed.select(FlowSelection::node(id.clone()));
+                }
+                if *key == Key::Enter && (m.meta || m.ctrl) {
+                    let side = if m.shift { PortSide::Bottom } else { PortSide::Right };
+                    return keyed.quick_create(&id, side);
                 }
                 if *key == Key::Enter || *key == Key::Function(2) {
                     let selected = keyed.selection.get() == FlowSelection::node(id.clone());
@@ -2364,20 +3461,33 @@ fn draw_shape(
     title: &str,
     subtitle: Option<&str>,
     status: &FlowNodeStatus,
+    style: &FlowStyle,
     selected: bool,
     hovered: bool,
 ) {
     let note = shape == FlowShape::Note;
+    let words = shape == FlowShape::Text;
     let (edge, width) = match status {
         _ if selected => (p.accent, 2.0),
         FlowNodeStatus::Warning(_) => (p.warning, 2.0),
         FlowNodeStatus::Error(_) => (p.danger, 2.0),
-        _ if note => (p.warning, 1.0),
-        _ => (p.border, 1.0),
+        FlowNodeStatus::Running => (p.accent, 2.5),
+        FlowNodeStatus::Success => (p.success, 2.0),
+        _ if note => (style.stroke_color().unwrap_or(p.warning), 1.0),
+        _ => (style.stroke_color().unwrap_or(p.border), 1.0),
     };
-    let fill = match () {
-        _ if note => p.warning.with_alpha(0.18),
-        _ if hovered => p.control,
+    // A width of the app's grows with the zoom, as the outline does.
+    let width = match status {
+        FlowNodeStatus::Normal | FlowNodeStatus::Disabled if !selected => {
+            style.stroke_width.map_or(width, |w| (w * zoom).max(1.0))
+        }
+        _ => width,
+    };
+    let fill = match (style.fill_color(), note, hovered) {
+        (Some(own), _, true) => own.lerp(p.control, 0.3),
+        (Some(own), ..) => own,
+        (None, true, _) => p.warning.with_alpha(0.18),
+        (None, _, true) => p.control,
         _ => p.elevated,
     };
     let path: Vec<ravenrs_core::PathElement> =
@@ -2393,10 +3503,15 @@ fn draw_shape(
             })
             .chain(std::iter::once(ravenrs_core::PathElement::Close))
             .collect();
-    paint.scene.push_path(PathFill::solid(path, fill));
+    // Words alone show their box only under the pointer or selected, for moving them.
     let mut ring: Vec<Point> = outline.to_vec();
     ring.extend(outline.first().copied());
-    stroke(paint.scene, &ring, width, edge);
+    if !words {
+        paint.scene.push_path(PathFill::solid(path, fill));
+        stroke(paint.scene, &ring, width, edge);
+    } else if selected || hovered {
+        stroke(paint.scene, &ring, 1.0, if selected { p.accent } else { p.border });
+    }
     if zoom < TEXT_ZOOM {
         return;
     }
@@ -2410,7 +3525,41 @@ fn draw_shape(
         }
     };
     let pad = theme.spacing.s3 * zoom;
-    let ink = if *status == FlowNodeStatus::Disabled { p.muted } else { p.ink };
+    let ink = if *status == FlowNodeStatus::Disabled { p.muted } else { style.text_color().unwrap_or(p.ink) };
+    // A sign in the middle, as large as the outline allows.
+    if let Some(marker) = style.marker.as_deref().filter(|m| !m.is_empty()) {
+        let size = frame.width().min(frame.height()) * 0.5;
+        let attrs = TextAttrs {
+            size,
+            line_height: size,
+            ..util::attrs(theme, TextStyle::Body, Some(Weight::SEMIBOLD))
+        };
+        let mut layout = paint.text.layout(marker, &attrs);
+        let wide = layout.measure(None).width;
+        layout.paint(
+            Point::new(frame.center().x - wide / 2.0, frame.center().y - size / 2.0),
+            ink,
+            paint.scene,
+        );
+    }
+    // The title under the outline, in as much room as twice its width.
+    if style.title_below {
+        let attrs = scaled(TextStyle::Callout, Some(Weight::SEMIBOLD));
+        let mut y = frame.max_y() + 4.0 * zoom;
+        for (text, color) in std::iter::once((title, ink)).chain(subtitle.map(|s| (s, p.muted))) {
+            let mut layout = paint.text.layout_ellipsized(text, &attrs, frame.width() * 2.5);
+            let wide = layout.measure(None).width;
+            layout.paint(Point::new(frame.center().x - wide / 2.0, y), color, paint.scene);
+            y += attrs.line_height;
+        }
+        return;
+    }
+    if words {
+        let mut layout = paint.text.layout(title, &scaled(TextStyle::Title, Some(Weight::SEMIBOLD)));
+        layout.measure(Some(frame.width().max(0.0)));
+        layout.paint(Point::new(frame.x(), frame.y()), ink, paint.scene);
+        return;
+    }
     if note {
         let mut layout = paint.text.layout(title, &scaled(TextStyle::Callout, None));
         layout.measure(Some((frame.width() - pad * 2.0).max(0.0)));
@@ -2450,6 +3599,7 @@ fn draw_node(
     title: &str,
     subtitle: Option<&str>,
     status: &FlowNodeStatus,
+    style: &FlowStyle,
     selected: bool,
     hovered: bool,
     card_only: bool,
@@ -2460,13 +3610,23 @@ fn draw_node(
         _ if selected => (p.accent, 2.0),
         FlowNodeStatus::Warning(_) => (p.warning, 2.0),
         FlowNodeStatus::Error(_) => (p.danger, 2.0),
-        _ => (p.border, 1.0),
+        FlowNodeStatus::Running => (p.accent, 2.5),
+        FlowNodeStatus::Success => (p.success, 2.0),
+        _ => (
+            style.stroke_color().unwrap_or(p.border),
+            style.stroke_width.map_or(1.0, |w| (w * zoom).max(1.0)),
+        ),
     };
     if disabled {
         let outline = util::dashed_outline(frame, radius, 1.0, 6.0, 4.0);
         paint.scene.push_path(PathFill::solid(outline, if selected { p.accent } else { p.border }));
     } else {
-        let fill = if hovered { p.control } else { p.elevated };
+        let fill = match style.fill_color() {
+            Some(own) if hovered => own.lerp(p.control, 0.3),
+            Some(own) => own,
+            None if hovered => p.control,
+            None => p.elevated,
+        };
         let shadow = if selected { theme.elevation.raised } else { theme.elevation.soft };
         paint.scene.push_quad(Quad::new(frame, fill).radius(radius).border(edge_width, edge).shadow(shadow));
     }
@@ -2506,7 +3666,7 @@ fn draw_node(
     };
     let x = tile_rect.max_x() + pad;
     let room = (frame.max_x() - pad - x).max(0.0);
-    let ink = if disabled { p.muted } else { p.ink };
+    let ink = if disabled { p.muted } else { style.text_color().unwrap_or(p.ink) };
     let note = match status {
         FlowNodeStatus::Warning(m) => Some((m.as_str(), p.warning)),
         FlowNodeStatus::Error(m) => Some((m.as_str(), p.danger)),
@@ -2707,6 +3867,142 @@ impl View for Corner {
     }
 }
 
+/// A bend point of the selected line, which moves when dragged and with the arrows, or the
+/// `+` in the middle of a stretch (`add`), which becomes one when dragged.
+struct BendHandle {
+    /// Where it is, in the view.
+    at: Point,
+    edge: String,
+    index: usize,
+    add: bool,
+    /// What screen readers call it.
+    name: String,
+    flow: Flow,
+    palette: Palette,
+}
+
+impl View for BendHandle {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let (p, add, hovered, focused) = (self.palette, self.add, cx.is_hovered(), cx.is_focused());
+        let side = if add { BEND + 2.0 } else { BEND };
+        let paint = Paint::Custom(Rc::new(move |frame: Rect, scene: &mut Scene| {
+            if add {
+                let fill = if hovered { p.accent } else { p.elevated };
+                let ink = if hovered { Color::WHITE } else { p.focus };
+                scene.push_quad(Quad::new(frame, fill).radius(side / 2.0).border(1.5, p.focus));
+                let c = frame.center();
+                stroke(scene, &[Point::new(c.x - 3.0, c.y), Point::new(c.x + 3.0, c.y)], 1.5, ink);
+                stroke(scene, &[Point::new(c.x, c.y - 3.0), Point::new(c.x, c.y + 3.0)], 1.5, ink);
+            } else {
+                if focused {
+                    let ring = Rect::new(
+                        frame.x() - 4.0,
+                        frame.y() - 4.0,
+                        frame.width() + 8.0,
+                        frame.height() + 8.0,
+                    );
+                    scene.push_quad(Quad::new(ring, Color::TRANSPARENT).radius(5.0).border(2.0, p.focus));
+                }
+                scene.push_quad(Quad::new(frame, p.accent).radius(2.0).border(1.5, Color::WHITE));
+            }
+        }));
+        let node = cx.container(
+            LayoutStyle {
+                absolute: Some((self.at.x - side / 2.0, self.at.y - side / 2.0)),
+                width: Some(side),
+                height: Some(side),
+                ..LayoutStyle::leaf()
+            },
+            &[],
+            paint,
+        );
+        cx.cursor(node, CursorIcon::Pointer);
+        let (dragged, edge, index) = (self.flow.clone(), self.edge.clone(), self.index);
+        cx.on_drag(node, Rc::new(move |d| dragged.on_bend_drag(&edge, index, add, d.phase, d.position)));
+        if add {
+            // A double click on the line and the keys do the same, so screen readers skip it.
+            cx.semantics(node, Semantics::hidden());
+            // It sits on the line, so a double click there still makes a point.
+            let (doubled, at) = (self.flow.clone(), self.at);
+            cx.on_double_click(
+                node,
+                Rc::new(move || {
+                    doubled.add_bend_at(at);
+                }),
+            );
+        } else {
+            cx.focusable(node, 2.0);
+            cx.semantics(node, Semantics::new(Role::Button).name(self.name.clone()));
+            let (keyed, edge) = (self.flow.clone(), self.edge.clone());
+            cx.on_key(node, Rc::new(move |key, m| keyed.bend_key(&edge, index, key, m)));
+        }
+        node
+    }
+}
+
+/// An arrow on a side of the node under the pointer: a click makes the next node there.
+struct NextArrow {
+    /// The node's size on screen.
+    size: Size,
+    side: PortSide,
+    id: String,
+    flow: Flow,
+    palette: Palette,
+}
+
+impl View for NextArrow {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        const ARROW: f32 = 24.0;
+        const OUT: f32 = 12.0;
+        let (w, h) = (self.size.width, self.size.height);
+        let (x, y) = match self.side {
+            PortSide::Right => (w + OUT, h / 2.0 - ARROW / 2.0),
+            PortSide::Left => (-OUT - ARROW, h / 2.0 - ARROW / 2.0),
+            PortSide::Bottom => (w / 2.0 - ARROW / 2.0, h + OUT),
+            PortSide::Top => (w / 2.0 - ARROW / 2.0, -OUT - ARROW),
+        };
+        let (p, side, hovered) = (self.palette, self.side, cx.is_hovered());
+        let paint = Paint::Custom(Rc::new(move |frame: Rect, scene: &mut Scene| {
+            let r = ARROW / 2.0;
+            let fill = if hovered { p.accent } else { p.elevated };
+            let ink = if hovered { Color::WHITE } else { p.accent };
+            scene.push_quad(Quad::new(frame, fill).radius(r).border(1.0, p.accent));
+            let c = frame.center();
+            let d = side.outward();
+            let tip = Point::new(c.x + d.x * 6.0, c.y + d.y * 6.0);
+            let tail = Point::new(c.x - d.x * 6.0, c.y - d.y * 6.0);
+            stroke(scene, &[tail, tip], 2.0, ink);
+            fill_arrow(scene, tip, d, ink);
+        }));
+        let node = cx.container(
+            LayoutStyle {
+                absolute: Some((x, y)),
+                width: Some(ARROW),
+                height: Some(ARROW),
+                ..LayoutStyle::leaf()
+            },
+            &[],
+            paint,
+        );
+        cx.cursor(node, CursorIcon::Pointer);
+        // The keys do the same with Cmd/Ctrl+Enter, so screen readers do not need the arrows.
+        cx.semantics(node, Semantics::hidden());
+        let (made, id, side) = (self.flow.clone(), self.id.clone(), self.side);
+        cx.on_click(
+            node,
+            Rc::new(move || {
+                made.quick_create(&id, side);
+            }),
+        );
+        node
+    }
+}
+
+/// A small filled arrowhead at `tip` pointing along `direction`.
+fn fill_arrow(scene: &mut Scene, tip: Point, direction: Point, color: Color) {
+    fill(scene, geometry::arrow_head(tip, direction, 6.0), color);
+}
+
 /// The round handle above a selected node that turns it when dragged. The keys do the same with
 /// Alt+Shift and the arrows, so screen readers do not need it.
 struct Turner {
@@ -2810,6 +4106,8 @@ impl View for MiniMap {
                     _ if self.selection.has_node(&n.id) => p.accent,
                     FlowNodeStatus::Warning(_) => p.warning,
                     FlowNodeStatus::Error(_) => p.danger,
+                    FlowNodeStatus::Running => p.accent,
+                    FlowNodeStatus::Success => p.success,
                     _ => p.control,
                 };
                 (n.extent(), color)
