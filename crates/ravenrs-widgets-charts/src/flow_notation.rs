@@ -8,7 +8,46 @@ use crate::flow::{
     FlowConnector, FlowEdge, FlowGraph, FlowKind, FlowNext, FlowNode, FlowValidator, PortSide,
 };
 use crate::flow::{FlowEndpoint, FlowIssue};
-use crate::flow_library::FlowFileFormat;
+
+/// Makes a diagram of a file's text.
+type Reader = Rc<dyn Fn(&str) -> Result<FlowGraph, String>>;
+/// Makes the text of a diagram, given its name.
+type Writer = Rc<dyn Fn(&FlowGraph, &str) -> String>;
+
+/// A file format a [`FlowLibrary`] opens and saves diagrams in besides its own JSON, such as
+/// a notation's XML: what it is called, its extension, and how a diagram is read from it and
+/// written to it.
+#[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct FlowFileFormat {
+    pub(crate) name: String,
+    pub(crate) extension: String,
+    pub(crate) read: Reader,
+    pub(crate) write: Writer,
+}
+
+impl fmt::Debug for FlowFileFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FlowFileFormat")
+            .field("name", &self.name)
+            .field("extension", &self.extension)
+            .finish()
+    }
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl FlowFileFormat {
+    /// A format called `name`, in files ending in `.extension`: `read` makes a diagram of a
+    /// file's text, or says why it cannot; `write` makes the text of a diagram, given its name.
+    pub fn new(
+        name: impl Into<String>,
+        extension: impl Into<String>,
+        read: impl Fn(&str) -> Result<FlowGraph, String> + 'static,
+        write: impl Fn(&FlowGraph, &str) -> String + 'static,
+    ) -> Self {
+        Self { name: name.into(), extension: extension.into(), read: Rc::new(read), write: Rc::new(write) }
+    }
+}
 
 /// Says what is wrong with a diagram, for [`FlowCanvas::checks`](crate::FlowCanvas::checks).
 pub type FlowChecks = Rc<dyn Fn(&FlowGraph) -> Vec<FlowIssue>>;

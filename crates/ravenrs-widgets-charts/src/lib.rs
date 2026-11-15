@@ -55,9 +55,9 @@ pub use flow_inspector::FlowInspector;
 #[cfg(feature = "flow")]
 pub use flow_layers::FlowLayers;
 #[cfg(feature = "flow")]
-pub use flow_library::{FlowFileFormat, FlowLibrary};
+pub use flow_library::FlowLibrary;
 #[cfg(feature = "flow")]
-pub use flow_notation::{FlowChecks, FlowNotation};
+pub use flow_notation::{FlowChecks, FlowFileFormat, FlowNotation};
 #[cfg(feature = "flow")]
 pub use flow_toolbox::FlowToolbox;
 #[cfg(feature = "charts")]

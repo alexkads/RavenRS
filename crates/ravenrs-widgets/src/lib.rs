@@ -79,9 +79,9 @@ pub use ravenrs_widgets_charts::flow_inspector::FlowInspector;
 #[cfg(feature = "flow")]
 pub use ravenrs_widgets_charts::flow_layers::FlowLayers;
 #[cfg(feature = "flow")]
-pub use ravenrs_widgets_charts::flow_library::{FlowFileFormat, FlowLibrary};
+pub use ravenrs_widgets_charts::flow_library::FlowLibrary;
 #[cfg(feature = "flow")]
-pub use ravenrs_widgets_charts::flow_notation::{FlowChecks, FlowNotation};
+pub use ravenrs_widgets_charts::flow_notation::{FlowChecks, FlowFileFormat, FlowNotation};
 #[cfg(feature = "flow")]
 pub use ravenrs_widgets_charts::flow_toolbox::FlowToolbox;
 #[cfg(feature = "charts")]
