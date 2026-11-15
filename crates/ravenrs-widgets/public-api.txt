@@ -7,6 +7,8 @@ enum AnchorPoint
 enum BoxHandle
 enum ButtonSize
 enum ButtonStyle
+enum CableAnchor
+enum CableSide
 enum CalendarView
 enum CellAlign
 enum ChartBarFrom
@@ -908,6 +910,7 @@ field grid::query::QueryResult::totals
 fn apple_keys
 fn days_in_month
 fn decode_image
+fn distance_to_cable
 fn exceptions_text
 fn find_all
 fn grid::query::check_formula
@@ -948,6 +951,10 @@ impl Clone for BoxTransform
 impl Clone for Breadcrumb
 impl Clone for ButtonSize
 impl Clone for ButtonStyle
+impl Clone for CableAnchor
+impl Clone for CablePlug
+impl Clone for CableSide
+impl Clone for Cables
 impl Clone for CalendarEvent
 impl Clone for CalendarView
 impl Clone for Carrying
@@ -1179,6 +1186,8 @@ impl Copy for BoxHandle
 impl Copy for BoxTransform
 impl Copy for ButtonSize
 impl Copy for ButtonStyle
+impl Copy for CableAnchor
+impl Copy for CableSide
 impl Copy for CalendarView
 impl Copy for CellAlign
 impl Copy for ChartBarFrom
@@ -1283,6 +1292,10 @@ impl Debug for Button
 impl Debug for ButtonGroup
 impl Debug for ButtonSize
 impl Debug for ButtonStyle
+impl Debug for CableAnchor
+impl Debug for CablePlug
+impl Debug for CableSide
+impl Debug for Cables
 impl Debug for Calendar
 impl Debug for CalendarEvent
 impl Debug for CalendarView
@@ -1687,6 +1700,7 @@ impl Default for AnchorPoint
 impl Default for AudioPlayerButton
 impl Default for ButtonSize
 impl Default for ButtonStyle
+impl Default for CableSide
 impl Default for CalendarView
 impl Default for CellAlign
 impl Default for ChartBarFrom
@@ -1829,6 +1843,7 @@ impl Eq for AnchorPoint
 impl Eq for BoxHandle
 impl Eq for ButtonSize
 impl Eq for ButtonStyle
+impl Eq for CableSide
 impl Eq for CalendarEvent
 impl Eq for CalendarView
 impl Eq for CellAlign
@@ -1957,6 +1972,8 @@ impl PartialEq for BoxHandle
 impl PartialEq for BoxTransform
 impl PartialEq for ButtonSize
 impl PartialEq for ButtonStyle
+impl PartialEq for CableAnchor
+impl PartialEq for CableSide
 impl PartialEq for CalendarEvent
 impl PartialEq for CalendarView
 impl PartialEq for CellAlign
@@ -2402,6 +2419,7 @@ method BuildCx::animated
 method BuildCx::animated_numbers
 method BuildCx::appear
 method BuildCx::ask_for_access_tree
+method BuildCx::cables
 method BuildCx::carrying
 method BuildCx::child
 method BuildCx::children
@@ -2507,6 +2525,35 @@ method Button::style
 method Button::trailing_icon
 method ButtonGroup::label
 method ButtonGroup::new
+method CablePlug::anchored
+method CablePlug::between
+method CablePlug::build
+method CablePlug::color
+method CablePlug::dash
+method CablePlug::from
+method CablePlug::gravity
+method CablePlug::grow
+method CablePlug::key
+method CablePlug::loose
+method CablePlug::on_click
+method CablePlug::on_drop
+method CablePlug::physics
+method CablePlug::plug_color
+method CablePlug::plugs
+method CablePlug::release
+method CablePlug::retract
+method CablePlug::shine
+method CablePlug::sides
+method CablePlug::slack
+method CablePlug::texture
+method CablePlug::thickness
+method CablePlug::to
+method CablePlug::to_point
+method CablePlug::via
+method Cables::ids
+method Cables::moving
+method Cables::on_gpu
+method Cables::shape
 method Calendar::new
 method Calendar::range
 method Calendar::today
@@ -3096,6 +3143,7 @@ method FloatingToolbar::place
 method FloatingToolbar::separator
 method FloatingToolbar::view
 method FlowCanvas::arrivals
+method FlowCanvas::cables
 method FlowCanvas::checks
 method FlowCanvas::connection
 method FlowCanvas::content
@@ -3150,6 +3198,7 @@ method FlowLibrary::storage
 method FlowLibrary::title
 method FlowLibrary::view
 method FlowLibrary::width
+method FlowNotation::cables
 method FlowNotation::caption
 method FlowNotation::checks
 method FlowNotation::connection
@@ -4194,6 +4243,7 @@ method TreeView::on_open
 method TreeView::row_height
 method TreeView::selected
 method Ui::access_tree
+method Ui::cables
 method Ui::clipboard
 method Ui::cursor
 method Ui::drop_files
@@ -4212,6 +4262,7 @@ method Ui::perform_action
 method Ui::phase_times
 method Ui::scale
 method Ui::scene
+method Ui::set_cable_world
 method Ui::set_clipboard
 method Ui::set_file_picker
 method Ui::set_files_over
@@ -4477,6 +4528,7 @@ reexport PortSide = ravenrs_graphics::flow::PortSide
 reexport SankeyAlign = ravenrs_graphics::sankey::SankeyAlign
 reexport Symbology = ravenrs_barcode::Symbology
 reexport TextAlign = ravenrs_text::TextAlign
+reexport cable = ravenrs_core::cable
 struct AccessibleControl
 struct Accordion
 struct Alert
@@ -4496,6 +4548,8 @@ struct Breadcrumb
 struct BuildCx
 struct Button
 struct ButtonGroup
+struct CablePlug
+struct Cables
 struct Calendar
 struct CalendarEvent
 struct Canvas
@@ -4917,6 +4971,14 @@ variant ButtonStyle::Danger
 variant ButtonStyle::Ghost
 variant ButtonStyle::Primary
 variant ButtonStyle::Secondary
+variant CableAnchor::Node
+variant CableAnchor::Point
+variant CableAnchor::Pointer
+variant CableSide::Bottom
+variant CableSide::Center
+variant CableSide::Left
+variant CableSide::Right
+variant CableSide::Top
 variant CalendarView::Day
 variant CalendarView::Month
 variant CalendarView::Week

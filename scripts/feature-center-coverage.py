@@ -22,7 +22,7 @@ import json
 import re
 import sys
 
-from component_inventory import app_builders, public_methods_at, root, widget_components
+from component_inventory import app_builders, built_components, public_methods_at, root, widget_components
 
 CENTER = root / "examples/feature-center"
 MANIFEST = CENTER / "recursos.json"
@@ -35,7 +35,7 @@ def place(path, line):
 
 def main():
     entries = json.loads(MANIFEST.read_text())["componentes"]
-    code = {**widget_components(), **app_builders()}
+    code = {**widget_components(), **built_components(), **app_builders()}
     by_key = {}
     problems = []
     for entry in entries:

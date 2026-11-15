@@ -161,13 +161,31 @@ impl FlowGraph {
     /// The diagram as a picture in `colors`: every node and connection, or, with `only`, those
     /// nodes and the connections between them. `None` when there is nothing to draw.
     pub fn picture(&self, only: Option<&[String]>, colors: FlowColors) -> Option<FlowPicture> {
+        self.picture_with(only, colors, false)
+    }
+
+    /// Like [`Self::picture`], with the connections as cables at rest when `cables` is on:
+    /// where they settle on a canvas that has them, whatever they were doing.
+    pub fn picture_with(
+        &self,
+        only: Option<&[String]>,
+        colors: FlowColors,
+        cables: bool,
+    ) -> Option<FlowPicture> {
         let keep = |id: &str| only.is_none_or(|ids| ids.iter().any(|i| i == id));
         let nodes: Vec<&FlowNode> = self.nodes.iter().filter(|n| keep(&n.id)).collect();
         let first = nodes.first()?.extent();
         let mut bounds = nodes.iter().fold(first, |all, n| union(all, n.extent()));
         let edges: Vec<_> = self.edges.iter().filter(|e| keep(&e.from.node) && keep(&e.to.node)).collect();
+        let line = |e: &super::FlowEdge| -> Option<Vec<Point>> {
+            if cables {
+                Some(ravenrs_core::cable::cable_rest(&self.edge_cable(e, 0)?))
+            } else {
+                Some(flatten(&self.edge_path(e)?))
+            }
+        };
         let lines: Vec<(Vec<Point>, &super::FlowEdge)> =
-            edges.iter().filter_map(|e| Some((flatten(&self.edge_path(e)?), *e))).collect();
+            edges.iter().filter_map(|e| Some((line(e)?, *e))).collect();
         for (points, _) in &lines {
             for p in points {
                 bounds = union(bounds, Rect::new(p.x, p.y, 0.0, 0.0));

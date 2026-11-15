@@ -842,6 +842,20 @@ impl FlowGraph {
         Some((node.port_point(&end.port)?, side))
     }
 
+    /// A connection as a hanging cable, in units of the diagram: from port to port,
+    /// leaving each the way it faces and held at its bend points. `None` when an end
+    /// is missing. `id` names the cable from frame to frame.
+    pub fn edge_cable(&self, edge: &FlowEdge, id: u64) -> Option<ravenrs_core::cable::Cable> {
+        use ravenrs_core::cable::{Cable, CableEnd};
+        let (from, from_side) = self.anchor(&edge.from)?;
+        let (to, to_side) = self.anchor(&edge.to)?;
+        let (a, b) = (from_side.outward(), to_side.outward());
+        let mut cable =
+            Cable::new(id, CableEnd::at(from).toward(a.x, a.y), CableEnd::at(to).toward(b.x, b.y));
+        cable.via = edge.waypoints.iter().map(|&(x, y)| Point::new(x, y)).collect();
+        Some(cable)
+    }
+
     /// The port an endpoint names.
     pub fn port(&self, end: &FlowEndpoint) -> Option<&FlowPort> {
         self.find_node(&end.node)?.find_port(&end.port)

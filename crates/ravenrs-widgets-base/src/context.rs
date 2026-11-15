@@ -711,6 +711,11 @@ pub struct BuildCx<'a> {
     #[doc(hidden)]
     pub overlays: Vec<Overlay>,
     floating_overlays: u64,
+    /// The cables built this build, placed after the layout.
+    pub(crate) cables: Vec<crate::cable_plug::CableRequest>,
+    /// The window's cables, to read their shapes back.
+    #[doc(hidden)]
+    pub cable_world: Option<crate::cable_plug::Cables>,
     #[doc(hidden)]
     pub text: &'a mut TextSystem,
     #[doc(hidden)]
@@ -824,6 +829,8 @@ impl<'a> BuildCx<'a> {
             viewport,
             overlays: Vec::new(),
             floating_overlays: 0,
+            cables: Vec::new(),
+            cable_world: None,
             text,
             layout,
             elements,
@@ -1861,6 +1868,24 @@ impl<'a> BuildCx<'a> {
         self.overlays[slot].root = root;
     }
 
+    /// Adds a cable to the window for this build; see [`CablePlug`](crate::CablePlug).
+    #[doc(hidden)]
+    pub fn cable(&mut self, plug: crate::CablePlug) {
+        let owner = self.widget_id().raw();
+        let index = self.cables.iter().filter(|r| r.owner == owner).count() as u64;
+        self.cables.push(crate::cable_plug::CableRequest { plug, owner, index });
+    }
+
+    /// The window's cables, to read where they are: for components that draw cables
+    /// on their own canvas and need their shapes for the pointer.
+    pub fn cables(&self) -> crate::Cables {
+        self.cable_world.clone().unwrap_or_else(|| {
+            crate::Cables(std::rc::Rc::new(std::cell::RefCell::new(Box::new(
+                ravenrs_core::cable::CpuCables::new(),
+            ))))
+        })
+    }
+
     fn element_mut(&mut self, node: NodeId) -> Option<&mut Element> {
         self.elements.get_mut(node.0 as usize)
     }
@@ -1914,4 +1939,11 @@ pub trait BuildTiming {
     fn enter(&mut self, name: &'static str, elements: usize, shapes: u64);
     /// The view started last ends, with this many elements and shapes made by then.
     fn leave(&mut self, elements: usize, shapes: u64);
+}
+
+impl crate::cable_plug::CablePlug {
+    /// Adds the cable to the window for this build.
+    pub fn build(self, cx: &mut BuildCx<'_>) {
+        cx.cable(self);
+    }
 }

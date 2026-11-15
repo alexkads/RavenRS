@@ -10,13 +10,18 @@
 //! * **Text** is rasterized once per glyph/size/subpixel offset with `swash` into
 //!   an R8 atlas and drawn as textured quads (`shaders/glyph.wgsl`).
 //!
+//! * **Cables** are simulated by a compute shader (`shaders/cable_sim.wgsl`) in a
+//!   [`GpuCables`] world and drawn straight from its buffer (`shaders/cable.wgsl`);
+//!   only four bytes of movement and the points come back, a frame late.
+//!
 //! Consecutive primitives of the same kind are batched; painter's order is kept.
-//! Instance buffers are reused and only grow. Nothing is read back from the GPU.
+//! Instance buffers are reused and only grow.
 //!
 //! The crate does not own windows or surfaces: platform crates create the
 //! device and call [`Renderer::render`] with the frame's texture view.
 
 mod atlas;
+mod cables;
 mod gpu;
 mod images;
 mod offscreen;
@@ -24,7 +29,8 @@ mod paths;
 mod renderer;
 mod timing;
 
+pub use cables::{CableDrawer, GpuCables};
 pub use gpu::{GpuContext, GpuError, gpu_report, preferred_surface_format, surface_report};
-pub use offscreen::render_to_rgba;
+pub use offscreen::{render_to_rgba, render_with};
 pub use renderer::{RenderStats, Renderer};
 pub use wgpu;
