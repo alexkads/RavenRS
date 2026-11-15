@@ -245,6 +245,7 @@
  "widgets.filter_starts_with": "starts with",
  "widgets.filter_value": "Value",
  "widgets.filter_yes": "Yes",
+ "widgets.flow_arrange": "Arrange",
  "widgets.flow_canvas": "Flow diagram",
  "widgets.flow_controls": "Diagram view",
  "widgets.flow_count": "{0} nodes, {1} connections",

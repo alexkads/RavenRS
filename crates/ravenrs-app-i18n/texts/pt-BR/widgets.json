@@ -245,6 +245,7 @@
  "widgets.filter_starts_with": "começa com",
  "widgets.filter_value": "Valor",
  "widgets.filter_yes": "Sim",
+ "widgets.flow_arrange": "Organizar",
  "widgets.flow_canvas": "Diagrama de fluxo",
  "widgets.flow_controls": "Vista do diagrama",
  "widgets.flow_count": "{0} nós, {1} conexões",

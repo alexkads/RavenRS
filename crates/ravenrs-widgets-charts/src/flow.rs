@@ -12,7 +12,7 @@ use std::cell::{Cell, RefCell};
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Color, CursorIcon, Key, PathFill, Point, Quad, Rect, Role, Scene, Size};
+use ravenrs_core::{Color, CursorIcon, Key, Modifiers, PathFill, Point, Quad, Rect, Role, Scene, Size};
 use ravenrs_graphics::flow as geometry;
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
@@ -20,8 +20,8 @@ use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 use ravenrs_text::TextAttrs;
 
 pub use ravenrs_graphics::flow::{
-    EdgeShape, FlowEdge, FlowEndpoint, FlowGraph, FlowHistory, FlowJsonError, FlowNode, FlowNodeStatus,
-    FlowPort, PortDirection, PortSide,
+    EdgeShape, FlowDirection, FlowEdge, FlowEndpoint, FlowGraph, FlowHistory, FlowJsonError, FlowLayout,
+    FlowNode, FlowNodeStatus, FlowPort, PortDirection, PortSide,
 };
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
@@ -46,6 +46,10 @@ const TEXT_ZOOM: f32 = 0.4;
 const DASH_SPEED: f32 = 24.0;
 /// The map in the corner, in screen pixels.
 const MAP_SIZE: Size = Size::new(200.0, 132.0);
+/// The square in a selected node's corner that resizes it, in screen pixels.
+const HANDLE: f32 = 14.0;
+/// The least a node can be resized to, in units of the diagram.
+const MIN_NODE: (f32, f32) = (96.0, 48.0);
 
 /// Which part of the diagram is in view: where its origin lands in the view and how large it
 /// is drawn. [`FlowCanvas`] writes it as people pan and zoom, and anything sharing the binding
@@ -190,6 +194,8 @@ pub type FlowValidator = Rc<dyn Fn(&FlowGraph, &FlowEndpoint, &FlowEndpoint) -> 
 ///   With the keys, Tab to a port, press Enter, Tab to the other port and press Enter again.
 /// * Select a connection and drag one of its ends, which show as handles, to another port to
 ///   move that end.
+/// * Drag the corner of a selected node, or press Alt with the arrows, to resize it. The
+///   arrange button in the controls lays the diagram out in layers ([`FlowLayout`]).
 /// * Cmd/Ctrl+Z undoes, Shift+Cmd/Ctrl+Z (or Cmd/Ctrl+Y) redoes. Cmd/Ctrl+C copies the selected
 ///   nodes with the connections between them, as JSON, Cmd/Ctrl+X cuts them and Cmd/Ctrl+V
 ///   pastes them back with new ids, a little further along each time.
@@ -221,6 +227,8 @@ pub struct FlowCanvas {
     history: Option<Binding<FlowHistory>>,
     kinds: Rc<Vec<(String, FlowKind)>>,
     validate: Option<FlowValidator>,
+    layout: FlowLayout,
+    resizable: bool,
     grid: f32,
     snap: bool,
     controls: bool,
@@ -251,6 +259,8 @@ impl FlowCanvas {
             history: None,
             kinds: Rc::new(Vec::new()),
             validate: None,
+            layout: FlowLayout::default(),
+            resizable: true,
             grid: 24.0,
             snap: true,
             controls: true,
@@ -299,6 +309,19 @@ impl FlowCanvas {
         validate: impl Fn(&FlowGraph, &FlowEndpoint, &FlowEndpoint) -> Result<(), String> + 'static,
     ) -> Self {
         self.validate = Some(Rc::new(validate));
+        self
+    }
+
+    /// How the arrange button lays the diagram out: from left to right by default.
+    pub fn layout(mut self, layout: FlowLayout) -> Self {
+        self.layout = layout;
+        self
+    }
+
+    /// Whether selected nodes can be resized, by their corner or with Alt and the arrows (on
+    /// by default).
+    pub fn resizable(mut self, resizable: bool) -> Self {
+        self.resizable = resizable;
         self
     }
 
@@ -387,6 +410,9 @@ enum Gesture {
     /// Moving nodes: where the pointer went down, where each of them was and the diagram
     /// before, which undo brings back.
     Move { pressed: Point, origins: Vec<(String, f32, f32)>, before: FlowGraph },
+    /// Resizing a node by its corner: where the pointer went down, its size then and the
+    /// diagram before.
+    Resize { id: String, pressed: Point, size: (f32, f32), before: FlowGraph },
 }
 
 /// What the canvas remembers between events, none of which should rebuild it.
@@ -401,8 +427,8 @@ struct Memory {
     paste_step: Cell<u32>,
     /// What was copied last, for a clipboard that cannot be read now (in the browser).
     copied: RefCell<Option<String>>,
-    /// Nodes went, perhaps the one with the focus: the canvas takes it on the next build, so
-    /// the keys (undo, say) still reach it.
+    /// Nodes went, perhaps the one with the focus, or the diagram was arranged from its button:
+    /// the canvas takes the focus on the next build, so the keys (undo, say) still reach it.
     refocus: Cell<bool>,
 }
 
@@ -419,6 +445,8 @@ struct Flow {
     marquee: State<Option<Rect>>,
     memory: Rc<Memory>,
     validate: Option<FlowValidator>,
+    layout: FlowLayout,
+    resizable: bool,
     grid: f32,
     snap: bool,
     range: (f32, f32),
@@ -492,6 +520,82 @@ impl Flow {
         }
         self.commit(graph);
         true
+    }
+
+    /// Makes the selected nodes larger or smaller by this much, no smaller than [`MIN_NODE`].
+    fn resize_by(&self, dw: f32, dh: f32) -> bool {
+        let selection = self.selection.get();
+        if selection.nodes.is_empty() || self.locked.get() || !self.resizable {
+            return false;
+        }
+        let mut graph = self.graph.get();
+        for node in graph.nodes.iter_mut().filter(|n| selection.has_node(&n.id)) {
+            node.width = (node.width + dw).max(MIN_NODE.0);
+            node.height = (node.height + dh).max(MIN_NODE.1);
+        }
+        self.commit(graph);
+        true
+    }
+
+    /// Lays the diagram out in layers, on the grid when nodes snap to it, and fits it in view.
+    fn arrange(&self) -> bool {
+        if self.locked.get() {
+            return false;
+        }
+        let mut graph = self.graph.get();
+        self.layout.apply(&mut graph);
+        for node in &mut graph.nodes {
+            node.x = self.snapped(node.x);
+            node.y = self.snapped(node.y);
+        }
+        self.commit(graph);
+        self.fit();
+        // From the button, the keys come back to the canvas: Cmd+Z undoes the arrangement.
+        self.memory.refocus.set(true);
+        true
+    }
+
+    /// A drag on the corner of a node, which resizes it.
+    fn on_resize_drag(&self, id: &str, phase: DragPhase, position: Point) {
+        if self.locked.get() || !self.resizable {
+            return;
+        }
+        let at = self.local(position);
+        match phase {
+            DragPhase::Start => {
+                let graph = self.graph.get();
+                let Some(node) = graph.find_node(id) else { return };
+                let size = (node.width, node.height);
+                *self.memory.gesture.borrow_mut() =
+                    Gesture::Resize { id: id.to_owned(), pressed: at, size, before: graph };
+            }
+            DragPhase::Move => {
+                let Gesture::Resize { id, pressed, size, .. } = self.memory.gesture.borrow().clone() else {
+                    return;
+                };
+                let zoom = self.view.get().zoom.max(f32::EPSILON);
+                let (w, h) = (size.0 + (at.x - pressed.x) / zoom, size.1 + (at.y - pressed.y) / zoom);
+                let (w, h) = (self.snapped(w).max(MIN_NODE.0), self.snapped(h).max(MIN_NODE.1));
+                let mut graph = self.graph.get();
+                if let Some(node) = graph.find_node_mut(&id)
+                    && (node.width != w || node.height != h)
+                {
+                    node.width = w;
+                    node.height = h;
+                    self.graph.set(graph);
+                }
+            }
+            DragPhase::End => {
+                let gesture = std::mem::take(&mut *self.memory.gesture.borrow_mut());
+                if let Gesture::Resize { before, .. } = gesture
+                    && before != self.graph.get()
+                {
+                    self.history.update(|h| h.record(before));
+                }
+            }
+            // The base may add more; they act as nothing here.
+            _ => {}
+        }
     }
 
     fn delete_selection(&self) -> bool {
@@ -572,7 +676,8 @@ impl Flow {
     }
 
     /// The keys every part of the canvas answers.
-    fn on_key(&self, key: &Key, shift: bool, command: bool) -> bool {
+    fn on_key(&self, key: &Key, m: Modifiers) -> bool {
+        let (shift, command) = (m.shift, m.meta || m.ctrl);
         let step = self.grid * if shift { 4.0 } else { 1.0 };
         let has_nodes = !self.selection.get().nodes.is_empty();
         if *key == Key::Escape && self.connecting.get().is_some() {
@@ -586,6 +691,15 @@ impl Flow {
                 "c" => return self.copy(),
                 "x" => return self.cut(),
                 "v" => return self.paste(),
+                _ => {}
+            }
+        }
+        if m.alt {
+            match key {
+                Key::ArrowLeft => return self.resize_by(-step, 0.0),
+                Key::ArrowRight => return self.resize_by(step, 0.0),
+                Key::ArrowUp => return self.resize_by(0.0, -step),
+                Key::ArrowDown => return self.resize_by(0.0, step),
                 _ => {}
             }
         }
@@ -1140,6 +1254,8 @@ impl View for FlowCanvas {
             marquee: marquee.clone(),
             memory: memory.clone(),
             validate: self.validate.clone(),
+            layout: self.layout,
+            resizable: self.resizable,
             grid: self.grid,
             snap: self.snap,
             range: self.range,
@@ -1169,6 +1285,7 @@ impl View for FlowCanvas {
                 look,
                 view,
                 selected: selection.has_node(&node.id),
+                resizable: self.resizable && !is_locked && selection.has_node(&node.id),
                 handles: graph
                     .edges
                     .iter()
@@ -1291,7 +1408,7 @@ impl View for FlowCanvas {
             }),
         );
         let keyed = (flow, modifiers);
-        cx.on_key(root, Rc::new(move |key, m| keyed.0.on_key(key, m.shift, m.meta || m.ctrl)));
+        cx.on_key(root, Rc::new(move |key, m| keyed.0.on_key(key, m)));
         root
     }
 }
@@ -1381,10 +1498,20 @@ fn controls(
             IconButton::new(icon).label(name.to_owned()).size(ButtonSize::Small).style(ButtonStyle::Ghost);
         cx.child(&b.on_click(move || run()))
     };
-    let (a, b, c, d) = (flow.clone(), flow.clone(), flow.clone(), flow.locked.clone());
+    let (a, b, c, d, e) = (flow.clone(), flow.clone(), flow.clone(), flow.locked.clone(), flow.clone());
     let zoom_in = button(cx, IconName::Plus, &labels.zoom_in, Rc::new(move || a.zoom_by(ZOOM_STEP)));
     let zoom_out = button(cx, IconName::Minus, &labels.zoom_out, Rc::new(move || b.zoom_by(1.0 / ZOOM_STEP)));
     let fit = button(cx, IconName::Maximize2, &labels.zoom_fit, Rc::new(move || c.fit()));
+    let arrange = cx.child(
+        &IconButton::new(IconName::LayoutDashboard)
+            .label(labels.flow_arrange.clone())
+            .size(ButtonSize::Small)
+            .style(ButtonStyle::Ghost)
+            .disabled(locked)
+            .on_click(move || {
+                e.arrange();
+            }),
+    );
     let lock_name = if locked { &labels.flow_unlock } else { &labels.flow_lock };
     let lock = cx.child(
         &IconButton::new(if locked { IconName::Lock } else { IconName::LockOpen })
@@ -1414,7 +1541,7 @@ fn controls(
             align: Align::Center,
             ..LayoutStyle::stack(Axis::Horizontal)
         },
-        &[zoom_in, zoom_out, fit, lock, percent],
+        &[zoom_in, zoom_out, fit, arrange, lock, percent],
         Paint::Quad(crate::context::QuadPaint {
             corner_radius: theme.radii.md,
             border: Some(ravenrs_core::Border { width: 1.0, color: p.border }),
@@ -1434,6 +1561,8 @@ struct NodeBox {
     selected: bool,
     /// Its ports where a selected connection ends, which show as handles to drag.
     handles: Vec<String>,
+    /// Shows the corner that resizes it.
+    resizable: bool,
     connecting: Option<Connecting>,
     connected: Vec<String>,
     flow: Flow,
@@ -1499,6 +1628,11 @@ impl View for NodeBox {
             ports.push(cx.keyed_child(util::hash_text(&port.id), &dot));
         }
 
+        if self.resizable {
+            let corner =
+                Corner { size: Size::new(w, h), id: node.id.clone(), flow: self.flow.clone(), palette: p };
+            ports.push(cx.keyed_child(util::hash_text("\u{0}corner"), &corner));
+        }
         let look = self.look.clone();
         let (title, subtitle, status) = (node.title.clone(), node.subtitle.clone(), node.status.clone());
         let selected = self.selected;
@@ -1565,7 +1699,7 @@ impl View for NodeBox {
                     keyed.select(FlowSelection::node(id.clone()));
                     return true;
                 }
-                keyed.on_key(key, m.shift, m.meta || m.ctrl)
+                keyed.on_key(key, m)
             }),
         );
         root
@@ -1747,9 +1881,52 @@ impl View for PortDot {
             node,
             Rc::new(move |key, m| match key {
                 Key::Enter | Key::Space => keyed.on_port_enter(&end),
-                _ => keyed.on_key(key, m.shift, m.meta || m.ctrl),
+                _ => keyed.on_key(key, m),
             }),
         );
+        node
+    }
+}
+
+/// The corner of a selected node that resizes it when dragged. The keys do the same with Alt
+/// and the arrows, so screen readers do not need it.
+struct Corner {
+    /// The node's size on screen.
+    size: Size,
+    id: String,
+    flow: Flow,
+    palette: Palette,
+}
+
+impl View for Corner {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let p = self.palette;
+        let paint = Paint::Custom(Rc::new(move |frame: Rect, scene: &mut Scene| {
+            // Two short strokes across the corner, as on a window's edge.
+            let end = Point::new(frame.max_x() - 3.0, frame.max_y() - 3.0);
+            for reach in [5.0, 9.0] {
+                stroke(
+                    scene,
+                    &[Point::new(end.x - reach, end.y), Point::new(end.x, end.y - reach)],
+                    1.5,
+                    p.accent,
+                );
+            }
+        }));
+        let node = cx.container(
+            LayoutStyle {
+                absolute: Some((self.size.width - HANDLE, self.size.height - HANDLE)),
+                width: Some(HANDLE),
+                height: Some(HANDLE),
+                ..LayoutStyle::leaf()
+            },
+            &[],
+            paint,
+        );
+        cx.cursor(node, CursorIcon::NwseResize);
+        cx.semantics(node, Semantics::hidden());
+        let (dragged, id) = (self.flow.clone(), self.id.clone());
+        cx.on_drag(node, Rc::new(move |d| dragged.on_resize_drag(&id, d.phase, d.position)));
         node
     }
 }
