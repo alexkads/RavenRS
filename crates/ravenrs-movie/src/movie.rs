@@ -160,6 +160,9 @@ enum Stored {
         b: Option<(f32, [f32; 4])>,
         #[serde(default, skip_serializing_if = "Option::is_none")]
         s: Option<([f32; 2], f32, [f32; 4])>,
+        /// The turn, in radians; left out when there is none.
+        #[serde(default, skip_serializing_if = "is_zero")]
+        a: f32,
     },
     T {
         f: u16,
@@ -167,6 +170,12 @@ enum Stored {
         c: [f32; 4],
         y: f32,
         g: Vec<(u32, f32)>,
+        /// The turn of each glyph, in radians; left out when there is none.
+        #[serde(default, skip_serializing_if = "is_zero")]
+        a: f32,
+        /// Each glyph's own baseline, when they are not all on `y` (text at an angle).
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        h: Vec<f32>,
     },
     I {
         i: u16,
@@ -174,9 +183,17 @@ enum Stored {
         u: [f32; 4],
         c: [f32; 4],
         o: f32,
+        /// The turn, in radians; left out when there is none.
+        #[serde(default, skip_serializing_if = "is_zero")]
+        a: f32,
     },
     C([f32; 4]),
     P,
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref, reason = "the signature serde asks for")]
+fn is_zero(value: &f32) -> bool {
+    *value == 0.0
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -552,7 +569,7 @@ impl Stored {
     fn primitive(&self, fonts: &[FontRef], images: &[ImageData]) -> Result<Primitive, MovieError> {
         let damaged = |why: &str| MovieError::Damaged(why.to_owned());
         Ok(match self {
-            Self::Q { r, c, f, b, s } => Primitive::Quad(Quad {
+            Self::Q { r, c, f, b, s, a } => Primitive::Quad(Quad {
                 rect: rect_of(*r),
                 corner_radii: *c,
                 fill: match f {
@@ -570,14 +587,24 @@ impl Stored {
                     blur,
                     color: color_of(color),
                 }),
+                rotation: *a,
             }),
-            Self::T { f, s, c, y, g } => Primitive::Glyphs(GlyphRun {
+            Self::T { f, s, c, y, g, a, h } => Primitive::Glyphs(GlyphRun {
                 font: fonts.get(usize::from(*f)).ok_or_else(|| damaged("a font is missing"))?.clone(),
                 size: *s,
                 color: color_of(*c),
-                glyphs: g.iter().map(|(id, x)| PositionedGlyph { id: *id, x: *x, y: *y }).collect(),
+                glyphs: g
+                    .iter()
+                    .enumerate()
+                    .map(|(n, (id, x))| PositionedGlyph {
+                        id: *id,
+                        x: *x,
+                        y: h.get(n).copied().unwrap_or(*y),
+                    })
+                    .collect(),
+                rotation: *a,
             }),
-            Self::I { i, r, u, c, o } => {
+            Self::I { i, r, u, c, o, a } => {
                 let image =
                     images.get(usize::from(*i)).ok_or_else(|| damaged("a picture is missing"))?.clone();
                 Primitive::Image(ImageQuad {
@@ -586,6 +613,7 @@ impl Stored {
                     uv: *u,
                     corner_radii: *c,
                     opacity: *o,
+                    rotation: *a,
                 })
             }
             Self::C(r) => Primitive::PushClip(rect_of(*r)),
@@ -734,15 +762,23 @@ impl FilmBuilder {
                         tidy_color(shadow.color),
                     )
                 }),
+                a: quad.rotation,
             },
             Primitive::Glyphs(run) => {
                 let y = run.glyphs.first().map_or(0.0, |glyph| tidy(glyph.y));
+                let level = run.glyphs.iter().all(|glyph| tidy(glyph.y) == y);
                 Stored::T {
                     f: self.font(&run.font),
                     s: tidy(run.size),
                     c: tidy_color(run.color),
                     y,
                     g: run.glyphs.iter().map(|glyph| (glyph.id, tidy(glyph.x))).collect(),
+                    a: run.rotation,
+                    h: if level {
+                        Vec::new()
+                    } else {
+                        run.glyphs.iter().map(|glyph| tidy(glyph.y)).collect()
+                    },
                 }
             }
             Primitive::Image(quad) => Stored::I {
@@ -751,6 +787,7 @@ impl FilmBuilder {
                 u: quad.uv,
                 c: quad.corner_radii.map(tidy),
                 o: quad.opacity,
+                a: quad.rotation,
             },
             Primitive::PushClip(rect) => Stored::C(tidy_rect(*rect)),
             Primitive::PopClip => Stored::P,
@@ -890,6 +927,7 @@ mod tests {
                     PositionedGlyph { id: 42, x, y: 20.0 },
                     PositionedGlyph { id: 43, x: x + 8.0, y: 20.0 },
                 ],
+                rotation: 0.0,
             })
         };
         let mut film = builder();
@@ -897,6 +935,35 @@ mod tests {
         let bytes = film.finish(0).expect("film").to_bytes();
         assert!(bytes.len() < 1024, "{} bytes", bytes.len());
         assert_eq!(drawn(&Movie::from_bytes(&bytes).expect("back"), 0), [run(3.0)]);
+    }
+
+    #[test]
+    fn turns_come_back_and_a_film_without_them_stores_none() {
+        let font = ravenrs_text::builtin_font(0).expect("a font");
+        let turned = [
+            Primitive::Quad(Quad::new(Rect::new(10.0, 10.0, 20.0, 8.0), Color::BLACK).rotated(0.5)),
+            Primitive::Glyphs(GlyphRun {
+                font,
+                size: 14.0,
+                color: Color::BLACK,
+                // Text at an angle: each glyph on its own baseline.
+                glyphs: vec![
+                    PositionedGlyph { id: 42, x: 3.0, y: 20.0 },
+                    PositionedGlyph { id: 43, x: 9.0, y: 26.0 },
+                ],
+                rotation: 0.75,
+            }),
+        ];
+        let mut film = builder();
+        film.frame(0, &turned);
+        let bytes = film.finish(0).expect("film").to_bytes();
+        assert_eq!(drawn(&Movie::from_bytes(&bytes).expect("back"), 0), turned);
+        // Nothing turned, nothing written: films stay as they were.
+        let mut plain = builder();
+        plain.frame(0, &[square(0.0)]);
+        let header =
+            serde_json::to_string(&plain.finish(0).expect("film").film.header.shapes).unwrap_or_default();
+        assert!(!header.contains("\"a\"") && !header.contains("\"h\""), "{header}");
     }
 
     #[test]

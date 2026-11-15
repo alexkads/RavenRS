@@ -167,7 +167,7 @@ impl Builder<'_> {
                 }
                 None => {
                     let id = self.id_for(e.widget);
-                    let mut label = AccessNode::new(id, Role::Label, ui.frames[i]);
+                    let mut label = AccessNode::new(id, Role::Label, ui.screen_frame(i));
                     label.name = Some(text);
                     self.map.insert(id, node);
                     self.nodes.push(label);
@@ -186,7 +186,7 @@ impl Builder<'_> {
         let role = semantics.map_or(Role::Button, |s| s.role);
         let id = self.id_for(e.widget);
         let index = self.nodes.len();
-        let mut a = AccessNode::new(id, role, ui.frames[i]);
+        let mut a = AccessNode::new(id, role, ui.screen_frame(i));
         a.focusable = focusable;
         if let Some(s) = semantics {
             a.name = s.name.clone();

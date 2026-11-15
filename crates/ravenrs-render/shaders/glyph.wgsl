@@ -15,6 +15,7 @@ struct Instance {
     @location(0) rect: vec4<f32>,  // x, y, w, h in device px
     @location(1) uv: vec4<f32>,    // u0, v0, u1, v1
     @location(2) color: vec4<f32>,
+    @location(3) turn: vec4<f32>,  // cos, sin, and the glyph's origin in device px it turns around
 };
 
 struct VsOut {
@@ -26,7 +27,11 @@ struct VsOut {
 @vertex
 fn vs_main(@builtin(vertex_index) vi: u32, inst: Instance) -> VsOut {
     let corner = vec2<f32>(f32(vi & 1u), f32((vi >> 1u) & 1u));
-    let p = inst.rect.xy + corner * inst.rect.zw;
+    let flat = inst.rect.xy + corner * inst.rect.zw - inst.turn.zw;
+    let p = inst.turn.zw + vec2<f32>(
+        flat.x * inst.turn.x - flat.y * inst.turn.y,
+        flat.x * inst.turn.y + flat.y * inst.turn.x,
+    );
     let ndc = p / (globals.viewport * globals.scale) * 2.0 - 1.0;
     var out: VsOut;
     out.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);

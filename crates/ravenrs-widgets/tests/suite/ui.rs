@@ -224,3 +224,69 @@ fn theme_switch_repaints_with_new_tokens() {
     ui.update();
     assert_eq!(ui.scene().clear_color(), Theme::raven_light().color(Semantic::Canvas));
 }
+
+/// An 80 by 20 box at (100, 100), turned a quarter, with a 20 by 20 box at its right end.
+struct Turned {
+    hits: Rc<Cell<(u32, u32)>>,
+}
+
+impl View for Turned {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        use ravenrs_layout::LayoutStyle;
+        let at = |x: f32, y: f32, w: f32, h: f32| LayoutStyle {
+            absolute: Some((x, y)),
+            width: Some(w),
+            height: Some(h),
+            ..LayoutStyle::leaf()
+        };
+        let inner =
+            cx.container(at(60.0, 0.0, 20.0, 20.0), &[], Paint::Quad(QuadPaint::new(Color::hex(0x00ff00))));
+        let hits = self.hits.clone();
+        cx.on_click(inner, Rc::new(move || hits.set((hits.get().0, hits.get().1 + 1))));
+        cx.semantics(inner, ravenrs_widgets::Semantics::new(ravenrs_core::Role::Button).name("inner"));
+        let outer = cx.container(
+            at(100.0, 100.0, 80.0, 20.0),
+            &[inner],
+            Paint::Quad(QuadPaint::new(Color::hex(0xff0000))),
+        );
+        let hits = self.hits.clone();
+        cx.on_click(outer, Rc::new(move || hits.set((hits.get().0 + 1, hits.get().1))));
+        cx.semantics(outer, ravenrs_widgets::Semantics::new(ravenrs_core::Role::Group).name("outer"));
+        cx.rotate(outer, std::f32::consts::FRAC_PI_2);
+        cx.container(
+            LayoutStyle { width: Some(400.0), height: Some(300.0), ..LayoutStyle::leaf() },
+            &[outer],
+            Paint::None,
+        )
+    }
+}
+
+#[test]
+fn a_turned_node_paints_turned_and_the_pointer_finds_it_where_it_shows() {
+    let hits = Rc::new(Cell::new((0, 0)));
+    let mut ui = Ui::new(Turned { hits: hits.clone() }, Theme::raven_dark());
+    ui.set_viewport(Size::new(400.0, 300.0), 1.0);
+    ui.update();
+    let red = quad_with_fill(&ui, Color::hex(0xff0000)).expect("the turned box");
+    assert!((red.rotation - std::f32::consts::FRAC_PI_2).abs() < 1e-5);
+    // Standing up around its center (140, 110): 130..150 across, 70..150 down; the small box
+    // went to its bottom end.
+    click(&mut ui, Point::new(140.0, 80.0));
+    assert_eq!(hits.get(), (1, 0), "the top of the standing box");
+    click(&mut ui, Point::new(140.0, 140.0));
+    assert_eq!(hits.get(), (1, 1), "the small box, where it turned to");
+    click(&mut ui, Point::new(170.0, 110.0));
+    assert_eq!(hits.get(), (1, 1), "where the lying box was, nothing now");
+    let tree = ui.access_tree();
+    let bounds = |name: &str| {
+        tree.nodes.iter().find(|n| n.name.as_deref() == Some(name)).map(|n| n.bounds).expect("a node")
+    };
+    let near = |r: Rect, x: f32, y: f32, w: f32, h: f32| {
+        (r.x() - x).abs() < 0.01
+            && (r.y() - y).abs() < 0.01
+            && (r.width() - w).abs() < 0.01
+            && (r.height() - h).abs() < 0.01
+    };
+    assert!(near(bounds("outer"), 130.0, 70.0, 20.0, 80.0), "{:?}", bounds("outer"));
+    assert!(near(bounds("inner"), 130.0, 130.0, 20.0, 20.0), "{:?}", bounds("inner"));
+}
