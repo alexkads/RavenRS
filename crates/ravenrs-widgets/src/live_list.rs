@@ -438,6 +438,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::TextField::__live_expose(registry);
     crate::TimeLink::__live_expose_fields(registry);
     crate::TimeLink::__live_expose(registry);
+    crate::Turn::__live_expose_variants(registry);
+    crate::QuarterTurn::<crate::AnyView>::__live_expose(registry);
     crate::Ui::__live_expose(registry);
     crate::UiStats::__live_expose_fields(registry);
     crate::Ui::__live_expose_fields(registry);
@@ -1035,6 +1037,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::PropertyRow>(registry);
     crate::live::view::<crate::Protractor>(registry);
     crate::live::view::<crate::QuadField>(registry);
+    crate::live::view::<crate::QuarterTurn<crate::AnyView>>(registry);
     crate::live::view::<crate::RadioGroup>(registry);
     crate::live::view::<crate::Rating>(registry);
     crate::live::view::<crate::RecurrenceEditor>(registry);
