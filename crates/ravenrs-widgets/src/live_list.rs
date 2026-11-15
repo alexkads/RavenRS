@@ -132,6 +132,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     #[cfg(feature = "flow")]
     ravenrs_graphics::flow::FlowDirection::__live_expose_variants(registry);
     #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowLayoutKind::__live_expose_variants(registry);
+    #[cfg(feature = "flow")]
     ravenrs_graphics::flow::FlowLayout::__live_expose_fields(registry);
     #[cfg(feature = "flow")]
     ravenrs_graphics::flow::FlowLayout::__live_expose(registry);

@@ -63,6 +63,11 @@ fn turn_around(center: Point, radians: f32) -> Turn {
     ]
 }
 
+/// Scaling by `k` away from `origin`.
+fn scale_from(origin: Point, k: f32) -> Turn {
+    [k, 0.0, 0.0, k, origin.x - k * origin.x, origin.y - k * origin.y]
+}
+
 /// `inner` first, then `outer`.
 fn compose(outer: Turn, inner: Turn) -> Turn {
     let [a, b, c, d, e, f] = outer;
@@ -1774,12 +1779,17 @@ impl Ui {
         self.paint_order.push(node);
         self.clips[i] = clip;
         let frame = self.frames[i];
-        // Its own turn after the ones around it: to the screen, the outer last; back, the outer first.
-        let rotation = self.elements[i].rotation;
-        let turn = if rotation == 0.0 {
+        // Its own scale, then its turn, after the ones around it: to the screen, the outer last;
+        // back, the outer first.
+        let (rotation, scale) = (self.elements[i].rotation, self.elements[i].scale);
+        let turn = if rotation == 0.0 && scale == 1.0 {
             turn
         } else {
-            let (to, back) = (turn_around(frame.center(), rotation), turn_around(frame.center(), -rotation));
+            let k = scale.max(f32::EPSILON);
+            let middle =
+                Point::new(frame.x() + frame.width() * k / 2.0, frame.y() + frame.height() * k / 2.0);
+            let to = compose(turn_around(middle, rotation), scale_from(frame.origin, k));
+            let back = compose(scale_from(frame.origin, 1.0 / k), turn_around(middle, -rotation));
             Some(match turn {
                 Some((outer_to, outer_back)) => (compose(outer_to, to), compose(back, outer_back)),
                 None => (to, back),
@@ -1811,6 +1821,7 @@ impl Ui {
         // without a size may draw around itself.
         let shown = effect != Effect::IDENTITY
             || rotation != 0.0
+            || scale != 1.0
             || motion.is_some_and(|m| m.motion.exit.is_some())
             || frame.is_empty()
             || touches(visual, clip);
@@ -1881,8 +1892,13 @@ impl Ui {
                 .border(ix.focus_ring_width, theme.color(Semantic::FocusRing));
             self.scene.push_quad(ring);
         }
+        if scale != 1.0 {
+            self.scene.apply_effect(start..self.scene.len(), Effect::scaled(scale), frame.origin);
+        }
         if rotation != 0.0 {
-            self.scene.apply_effect(start..self.scene.len(), Effect::rotated(rotation), frame.center());
+            let middle =
+                Point::new(frame.x() + frame.width() * scale / 2.0, frame.y() + frame.height() * scale / 2.0);
+            self.scene.apply_effect(start..self.scene.len(), Effect::rotated(rotation), middle);
         }
         let Some(entry) = motion else {
             self.scene.apply_effect(start..self.scene.len(), linked, frame.center());

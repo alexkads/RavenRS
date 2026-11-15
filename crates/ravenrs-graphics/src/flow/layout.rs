@@ -21,11 +21,27 @@ pub enum FlowDirection {
     Down,
 }
 
-/// How [`FlowLayout::apply`] arranges a diagram: the direction and the room between layers and
-/// between the nodes of a layer, in units of the diagram.
+/// The arrangement [`FlowLayout`] makes.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
+pub enum FlowLayoutKind {
+    /// Layers in which every connection runs one way and few lines cross: for flows.
+    #[default]
+    Layered,
+    /// A tree, as an org chart: each node centred over the nodes it leads to, which sit side by
+    /// side. A node reached from two others hangs under the first; a forest is trees side by
+    /// side.
+    Tree,
+}
+
+/// How [`FlowLayout::apply`] arranges a diagram: the kind of arrangement, the direction and
+/// the room between layers and between the nodes of a layer, in units of the diagram.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FlowLayout {
+    /// Layers or a tree.
+    pub kind: FlowLayoutKind,
     /// The way the layers follow one another.
     pub direction: FlowDirection,
     /// The room between one layer and the next.
@@ -47,7 +63,12 @@ const SWEEPS: usize = 4;
 impl FlowLayout {
     /// Layers in this direction, 96 units apart, with 48 between the nodes of a layer.
     pub fn new(direction: FlowDirection) -> Self {
-        Self { direction, layer_gap: 96.0, node_gap: 48.0 }
+        Self { kind: FlowLayoutKind::Layered, direction, layer_gap: 96.0, node_gap: 48.0 }
+    }
+
+    /// A tree growing in this direction, as an org chart (down) or a mind map (right).
+    pub fn tree(direction: FlowDirection) -> Self {
+        Self { kind: FlowLayoutKind::Tree, ..Self::new(direction) }
     }
 
     /// With this room between layers and between the nodes of a layer.
@@ -98,9 +119,14 @@ impl FlowLayout {
             return Vec::new();
         }
         let links = links(graph);
-        let layer = layers(n, &links);
-        let mut order = order(n, &links, &layer);
-        let places = self.place(&graph.nodes, &links, &layer, &mut order);
+        let places = match self.kind {
+            FlowLayoutKind::Tree => self.tree_places(&graph.nodes, &links),
+            _ => {
+                let layer = layers(n, &links);
+                let mut order = order(n, &links, &layer);
+                self.place(&graph.nodes, &links, &layer, &mut order)
+            }
+        };
         let origin = graph.bounds().map_or((0.0, 0.0), |b| (b.x(), b.y()));
         let (least_x, least_y) =
             places.iter().fold((f32::INFINITY, f32::INFINITY), |(x, y), p| (x.min(p.0), y.min(p.1)));
@@ -119,6 +145,85 @@ impl FlowLayout {
             }
         }
         moved
+    }
+
+    /// Where each node goes in a tree: the left and top edges.
+    fn tree_places(&self, nodes: &[FlowNode], links: &[(usize, usize)]) -> Vec<(f32, f32)> {
+        let n = nodes.len();
+        // Who hangs under whom: walked breadth first from the nodes nothing leads to, then from
+        // the first node not reached yet, so that a cycle still becomes a tree.
+        let mut children: Vec<Vec<usize>> = vec![Vec::new(); n];
+        let mut depth = vec![0usize; n];
+        let mut seen = vec![false; n];
+        let mut walked: Vec<usize> = Vec::with_capacity(n);
+        let mut roots: Vec<usize> = Vec::new();
+        let starts: Vec<usize> =
+            (0..n).filter(|&i| !links.iter().any(|&(_, b)| b == i)).chain(0..n).collect();
+        for start in starts {
+            if seen[start] {
+                continue;
+            }
+            seen[start] = true;
+            roots.push(start);
+            let mut next = std::collections::VecDeque::from([start]);
+            while let Some(u) = next.pop_front() {
+                walked.push(u);
+                for &(a, b) in links {
+                    if a == u && !seen[b] {
+                        seen[b] = true;
+                        depth[b] = depth[u] + 1;
+                        children[u].push(b);
+                        next.push_back(b);
+                    }
+                }
+            }
+        }
+        // How wide each subtree is across the layers, the deepest first.
+        let mut span = vec![0.0_f32; n];
+        for &u in walked.iter().rev() {
+            let own = self.extents(&nodes[u]).1;
+            let below: f32 = children[u].iter().map(|&c| span[c]).sum::<f32>()
+                + self.node_gap * children[u].len().saturating_sub(1) as f32;
+            span[u] = own.max(below);
+        }
+        // Along the layers: each depth as deep as its deepest node.
+        let levels = depth.iter().copied().max().map_or(0, |d| d + 1);
+        let mut along = vec![0.0_f32; levels];
+        let mut at = 0.0;
+        for (d, slot) in along.iter_mut().enumerate() {
+            *slot = at;
+            let deepest =
+                (0..n).filter(|&i| depth[i] == d).map(|i| self.extents(&nodes[i]).0).fold(0.0, f32::max);
+            at += deepest + self.layer_gap;
+        }
+        // Across: each subtree in its own band, its root centred over it.
+        let mut centre = vec![0.0_f32; n];
+        let mut bands: Vec<(usize, f32)> = Vec::new();
+        let mut edge = 0.0;
+        for &r in &roots {
+            bands.push((r, edge));
+            edge += span[r] + self.node_gap;
+        }
+        while let Some((u, start)) = bands.pop() {
+            centre[u] = start + span[u] / 2.0;
+            let below: f32 = children[u].iter().map(|&c| span[c]).sum::<f32>()
+                + self.node_gap * children[u].len().saturating_sub(1) as f32;
+            let mut child = start + (span[u] - below) / 2.0;
+            for &c in &children[u] {
+                bands.push((c, child));
+                child += span[c] + self.node_gap;
+            }
+        }
+        (0..n)
+            .map(|i| {
+                let (_, across) = self.extents(&nodes[i]);
+                let (a, c) = (along[depth[i]], centre[i] - across / 2.0);
+                match self.direction {
+                    FlowDirection::Right => (a, c),
+                    FlowDirection::Down => (c, a),
+                }
+            })
+            .collect()
     }
 
     /// The size of a node along the layers (its extent in the direction they follow) and across.
@@ -330,7 +435,7 @@ fn order(n: usize, links: &[(usize, usize)], layer: &[usize]) -> Vec<Vec<usize>>
 mod tests {
     use super::*;
     use crate::flow::{FlowEdge, FlowEndpoint, FlowPort};
-    use ravenrs_core::Rect;
+    use ravenrs_core::{Point, Rect};
 
     fn node(id: &str) -> FlowNode {
         FlowNode::new(id, "step", id, 500.0, 500.0).port(FlowPort::input("in")).port(FlowPort::output("out"))
@@ -432,6 +537,59 @@ mod tests {
         assert_eq!(group.0, 200.0 + 96.0);
         assert_eq!((b.0 - group.0, b.1 - group.1), (24.0, 48.0));
         assert_eq!((c.0 - b.0, c.1 - b.1), (0.0, 108.0));
+    }
+
+    #[test]
+    fn a_tree_centres_each_node_over_what_it_leads_to() {
+        // root → three children, each with two grandchildren, drawn down as an org chart.
+        let mut g = FlowGraph::new().node(node("root"));
+        let mut k = 0;
+        for c in ["a", "b", "c"] {
+            g = g.node(node(c)).edge(link(&format!("r{c}"), "root", c));
+            for _ in 0..2 {
+                k += 1;
+                let id = format!("{c}{k}");
+                g = g.node(node(&id)).edge(link(&format!("e{id}"), c, &id));
+            }
+        }
+        FlowLayout::tree(FlowDirection::Down).apply(&mut g);
+        let middle =
+            |id: &str| g.find_node(id).map(|n| n.rect().center()).unwrap_or(Point::new(f32::NAN, 0.0));
+        let (root, a, b, c) = (middle("root"), middle("a"), middle("b"), middle("c"));
+        assert!((root.x - b.x).abs() < 0.01, "the root over the middle child: {root:?} {b:?}");
+        assert!(a.y == b.y && b.y == c.y && a.y > root.y, "children on one row below");
+        assert!((middle("a").x - (middle("a1").x + middle("a2").x) / 2.0).abs() < 0.01, "a over its two");
+        assert!(middle("a1").y > a.y);
+        let boxes: Vec<_> = g.nodes.iter().map(FlowNode::rect).collect();
+        for (i, r) in boxes.iter().enumerate() {
+            for s in &boxes[i + 1..] {
+                assert!(
+                    r.max_x() <= s.x() || s.max_x() <= r.x() || r.max_y() <= s.y() || s.max_y() <= r.y(),
+                    "{r:?} {s:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn a_tree_of_a_cycle_and_a_forest_still_places_every_node() {
+        let mut g = FlowGraph::new()
+            .node(node("a"))
+            .node(node("b"))
+            .node(node("c"))
+            .node(node("lone"))
+            .edge(link("e1", "a", "b"))
+            .edge(link("e2", "b", "c"))
+            .edge(link("e3", "c", "a"));
+        FlowLayout::tree(FlowDirection::Right).apply(&mut g);
+        let xs: Vec<f32> = ["a", "b", "c"].iter().map(|id| at(&g, id).0).collect();
+        assert!(xs[0] < xs[1] && xs[1] < xs[2], "{xs:?}");
+        assert!(g.nodes.iter().all(|n| n.x.is_finite() && n.y.is_finite()));
+        let boxes: Vec<_> = g.nodes.iter().map(FlowNode::rect).collect();
+        let apart = |r: &Rect, s: &Rect| {
+            r.max_x() <= s.x() || s.max_x() <= r.x() || r.max_y() <= s.y() || s.max_y() <= r.y()
+        };
+        assert!(boxes[..3].iter().all(|b| apart(b, &boxes[3])), "the lone node beside the tree");
     }
 
     #[test]

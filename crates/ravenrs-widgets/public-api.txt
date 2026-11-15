@@ -367,10 +367,12 @@ field Labels::flow_group
 field Labels::flow_input
 field Labels::flow_lock
 field Labels::flow_members
+field Labels::flow_no_turn
 field Labels::flow_output
 field Labels::flow_pick_port
 field Labels::flow_refused
 field Labels::flow_title
+field Labels::flow_turned
 field Labels::flow_unlock
 field Labels::folder_empty
 field Labels::folder_word
@@ -2277,6 +2279,7 @@ method BuildCx::reduced_motion
 method BuildCx::report_frame
 method BuildCx::request_focus
 method BuildCx::rotate
+method BuildCx::scale
 method BuildCx::scroll_horizontally
 method BuildCx::scroll_linked
 method BuildCx::scroll_offset
@@ -2881,6 +2884,7 @@ method FloatingToolbar::new
 method FloatingToolbar::place
 method FloatingToolbar::separator
 method FloatingToolbar::view
+method FlowCanvas::content
 method FlowCanvas::controls
 method FlowCanvas::editable_titles
 method FlowCanvas::grid
@@ -2895,6 +2899,7 @@ method FlowCanvas::new
 method FlowCanvas::on_change
 method FlowCanvas::range
 method FlowCanvas::resizable
+method FlowCanvas::rotatable
 method FlowCanvas::selection
 method FlowCanvas::size
 method FlowCanvas::snap
@@ -4168,6 +4173,7 @@ reexport FlowGraph = ravenrs_graphics::flow::FlowGraph
 reexport FlowHistory = ravenrs_graphics::flow::FlowHistory
 reexport FlowJsonError = ravenrs_graphics::flow::FlowJsonError
 reexport FlowLayout = ravenrs_graphics::flow::layout::FlowLayout
+reexport FlowLayoutKind = ravenrs_graphics::flow::layout::FlowLayoutKind
 reexport FlowNode = ravenrs_graphics::flow::FlowNode
 reexport FlowNodeStatus = ravenrs_graphics::flow::FlowNodeStatus
 reexport FlowPort = ravenrs_graphics::flow::FlowPort
@@ -4565,6 +4571,7 @@ type AnyView
 type DockGuard
 type DragHandler
 type DrawFn
+type FlowContent
 type FlowGuard
 type FlowValidator
 type KeyHandler
@@ -4689,6 +4696,7 @@ variant FlowChange::Redo
 variant FlowChange::Rename
 variant FlowChange::Reorder
 variant FlowChange::Resize
+variant FlowChange::Rotate
 variant FlowChange::Undo
 variant FlowChange::Ungroup
 variant Frequency::Daily

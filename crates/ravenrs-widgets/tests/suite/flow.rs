@@ -875,3 +875,126 @@ fn the_ends_of_a_line_draw_the_caps_asked_for() {
     assert_eq!(line(EdgeCap::Circle, EdgeCap::Diamond), bare + 2, "one cap at each end");
     assert_eq!(line(EdgeCap::None, EdgeCap::OpenArrow), bare + 1);
 }
+
+fn turn_of(rig: &Rig, id: &str) -> f32 {
+    rig.graph.get().find_node(id).map_or(f32::NAN, |n| n.rotation)
+}
+
+fn alt_shift() -> Modifiers {
+    Modifiers { alt: true, shift: true, ..Modifiers::default() }
+}
+
+#[test]
+fn alt_shift_and_the_arrows_turn_a_node_fifteen_degrees_at_a_time() {
+    let mut rig = rig();
+    click(&mut rig.ui, Point::new(120.0, 70.0));
+    key(&mut rig.ui, Key::ArrowRight, alt_shift());
+    key(&mut rig.ui, Key::ArrowRight, alt_shift());
+    assert_eq!(turn_of(&rig, "a"), 30.0);
+    let spoken = named(&mut rig.ui, "New sale").and_then(|n| n.description).unwrap_or_default();
+    assert!(spoken.ends_with("Turned 30°"), "{spoken}");
+    key(&mut rig.ui, Key::ArrowLeft, alt_shift());
+    assert_eq!(turn_of(&rig, "a"), 15.0);
+    key(&mut rig.ui, Key::Character("0".into()), alt_shift());
+    assert_eq!(turn_of(&rig, "a"), 0.0, "straight again");
+    shortcut(&mut rig.ui, "z", false);
+    assert_eq!(turn_of(&rig, "a"), 15.0, "each key is a change");
+}
+
+#[test]
+fn the_handle_turns_a_node_and_the_pointer_finds_it_turned() {
+    let mut rig = rig();
+    click(&mut rig.ui, Point::new(120.0, 70.0));
+    // Node `a` is 200 by 84 at (48, 48), its middle at (148, 90); the handle sits 24 above it.
+    drag(&mut rig.ui, Point::new(148.0, 14.0), Point::new(260.0, 92.0));
+    assert_eq!(turn_of(&rig, "a"), 90.0, "the pointer due right of the middle, on a 15° step");
+    assert_eq!(
+        rig.graph.get().anchor(&FlowEndpoint::new("a", "out")).map(|a| a.1),
+        Some(PortSide::Bottom),
+        "the output now faces down"
+    );
+    // Standing up, it covers 106..190 across and -10..190 down.
+    click(&mut rig.ui, Point::new(300.0, 500.0));
+    click(&mut rig.ui, Point::new(148.0, 170.0));
+    assert_eq!(rig.selection.get(), FlowSelection::node("a"), "found where it shows");
+    click(&mut rig.ui, Point::new(60.0, 70.0));
+    assert!(rig.selection.get().is_empty(), "not where it used to lie");
+    shortcut(&mut rig.ui, "z", false);
+    assert_eq!(turn_of(&rig, "a"), 0.0, "the whole drag is one change");
+}
+
+#[test]
+fn groups_do_not_turn_and_turning_can_be_switched_off() {
+    let mut rig = grouped_rig();
+    click(&mut rig.ui, Point::new(60.0, 20.0));
+    key(&mut rig.ui, Key::ArrowRight, alt_shift());
+    assert_eq!(turn_of(&rig, "g"), 0.0);
+    assert!(named(&mut rig.ui, "Groups do not turn").is_some());
+
+    let mut fixed = rig_with(graph(), |c| c.rotatable(false));
+    click(&mut fixed.ui, Point::new(120.0, 70.0));
+    key(&mut fixed.ui, Key::ArrowRight, alt_shift());
+    drag(&mut fixed.ui, Point::new(148.0, 14.0), Point::new(260.0, 92.0));
+    assert_eq!(turn_of(&fixed, "a"), 0.0, "no handle, no keys");
+}
+
+/// A canvas where `a` shows an Approve button that counts its presses.
+fn with_content() -> (Rig, std::rc::Rc<std::cell::Cell<u32>>) {
+    let pressed = std::rc::Rc::new(std::cell::Cell::new(0));
+    let count = pressed.clone();
+    let rig = rig_with(graph(), move |c| {
+        c.content(move |node| {
+            let count = count.clone();
+            (node.id == "a").then(|| {
+                Box::new(Button::new("Approve").on_click(move || count.set(count.get() + 1))) as AnyView
+            })
+        })
+    });
+    (rig, pressed)
+}
+
+#[test]
+fn a_view_inside_a_node_takes_its_clicks_at_any_zoom() {
+    let (mut rig, pressed) = with_content();
+    let button = named(&mut rig.ui, "Approve").expect("the view inside the node");
+    let full = button.bounds;
+    assert!(full.x() >= 48.0 && full.max_x() <= 248.0 && full.y() >= 48.0, "{full:?}");
+    click(&mut rig.ui, full.center());
+    assert_eq!(pressed.get(), 1);
+    assert!(rig.selection.get().is_empty(), "the button took the click, not the node");
+
+    rig.view.set(FlowViewport::at(Point::new(0.0, 0.0), 0.5));
+    settle(&mut rig.ui);
+    let half = named(&mut rig.ui, "Approve").expect("still there").bounds;
+    assert!((half.width() - full.width() / 2.0).abs() < 0.5, "drawn at the zoom: {half:?} {full:?}");
+    assert!((half.x() - full.x() / 2.0).abs() < 0.5 && (half.y() - full.y() / 2.0).abs() < 0.5);
+    click(&mut rig.ui, half.center());
+    assert_eq!(pressed.get(), 2, "found where it shows at 50%");
+}
+
+#[test]
+fn the_rest_of_a_card_with_a_view_still_moves_the_node() {
+    let (mut rig, pressed) = with_content();
+    // Below the button, inside the card.
+    drag(&mut rig.ui, Point::new(200.0, 124.0), Point::new(250.0, 172.0));
+    assert_eq!(node_at(&rig, "a"), (96.0, 96.0));
+    assert_eq!(pressed.get(), 0);
+    assert!(named(&mut rig.ui, "New sale").is_some(), "the node keeps its name");
+    assert!(named(&mut rig.ui, "Check stock").is_some(), "a node without a view is as before");
+}
+
+#[test]
+fn arrange_as_a_tree_puts_the_root_over_what_it_leads_to() {
+    let tree = graph()
+        .edge(FlowEdge::new("e1", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in")))
+        .node(FlowNode::new("d", "action", "Bill", 900.0, 900.0).port(FlowPort::input("in").kind("sale")))
+        .edge(FlowEdge::new("e2", FlowEndpoint::new("a", "out"), FlowEndpoint::new("d", "in")));
+    let mut rig = rig_with(tree, |c| c.layout(FlowLayout::tree(FlowDirection::Down)));
+    let arrange = named(&mut rig.ui, "Arrange").expect("the button").bounds.center();
+    click(&mut rig.ui, arrange);
+    let g = rig.graph.get();
+    let middle = |id: &str| g.find_node(id).map(|n| n.rect().center()).unwrap_or(Point::new(f32::NAN, 0.0));
+    let (a, b, d) = (middle("a"), middle("b"), middle("d"));
+    assert!(b.y == d.y && b.y > a.y, "the two below the root");
+    assert!((a.x - (b.x + d.x) / 2.0).abs() <= 12.0, "the root over them, to the grid: {a:?} {b:?} {d:?}");
+}

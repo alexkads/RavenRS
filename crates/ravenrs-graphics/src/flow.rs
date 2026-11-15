@@ -11,8 +11,10 @@ use serde::{Deserialize, Serialize};
 use crate::vector::PathSegment;
 
 mod layout;
+mod routing;
 
-pub use layout::{FlowDirection, FlowLayout};
+pub use layout::{FlowDirection, FlowLayout, FlowLayoutKind};
+pub use routing::{ROUTE_MARGIN, RouteCache, route_around};
 
 /// Which side of a node a port sits on, and the way a line leaves it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -159,6 +161,15 @@ pub struct FlowNode {
     /// title on top.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub group: bool,
+    /// Turned around its middle by this many degrees, clockwise on screen. Its ports turn with
+    /// it; `x`, `y`, `width` and `height` stay those of the unturned box.
+    #[serde(default, skip_serializing_if = "is_level")]
+    pub rotation: f32,
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref, reason = "the signature serde asks for")]
+fn is_level(degrees: &f32) -> bool {
+    *degrees == 0.0
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -216,6 +227,60 @@ impl FlowNode {
         self
     }
 
+    /// Turned by this many degrees, clockwise on screen.
+    pub fn rotation(mut self, degrees: f32) -> Self {
+        self.rotation = degrees;
+        self
+    }
+
+    /// Where a point of the unturned node goes once the node is turned around its middle.
+    pub fn turned(&self, p: Point) -> Point {
+        if self.rotation == 0.0 {
+            return p;
+        }
+        let c = self.rect().center();
+        let (sin, cos) = self.rotation.to_radians().sin_cos();
+        let (x, y) = (p.x - c.x, p.y - c.y);
+        Point::new(c.x + x * cos - y * sin, c.y + x * sin + y * cos)
+    }
+
+    /// The box around the node as it shows, turned.
+    pub fn extent(&self) -> Rect {
+        let r = self.rect();
+        if self.rotation == 0.0 {
+            return r;
+        }
+        let corners = [
+            r.origin,
+            Point::new(r.max_x(), r.y()),
+            Point::new(r.max_x(), r.max_y()),
+            Point::new(r.x(), r.max_y()),
+        ]
+        .map(|p| self.turned(p));
+        let (x0, y0) =
+            corners.iter().fold((f32::INFINITY, f32::INFINITY), |(x, y), p| (x.min(p.x), y.min(p.y)));
+        let (x1, y1) =
+            corners.iter().fold((f32::NEG_INFINITY, f32::NEG_INFINITY), |(x, y), p| (x.max(p.x), y.max(p.y)));
+        Rect::new(x0, y0, x1 - x0, y1 - y0)
+    }
+
+    /// The side a port on `side` faces once the node is turned: the nearest of the four.
+    pub fn facing(&self, side: PortSide) -> PortSide {
+        if self.rotation == 0.0 {
+            return side;
+        }
+        let out = side.outward();
+        let (sin, cos) = self.rotation.to_radians().sin_cos();
+        let (x, y) = (out.x * cos - out.y * sin, out.x * sin + out.y * cos);
+        if x.abs() >= y.abs() {
+            if x >= 0.0 { PortSide::Right } else { PortSide::Left }
+        } else if y >= 0.0 {
+            PortSide::Bottom
+        } else {
+            PortSide::Top
+        }
+    }
+
     /// Inside this group.
     pub fn parent(mut self, group: impl Into<String>) -> Self {
         self.parent = Some(group.into());
@@ -248,8 +313,13 @@ impl FlowNode {
     }
 
     /// Where a port of this node sits, in content units: its side's ports are spread evenly
-    /// along it, in the order they were added.
+    /// along it, in the order they were added, and turn with the node.
     pub fn port_point(&self, id: &str) -> Option<Point> {
+        self.flat_port_point(id).map(|p| self.turned(p))
+    }
+
+    /// Where a port sits on the unturned node.
+    fn flat_port_point(&self, id: &str) -> Option<Point> {
         let port = self.find_port(id)?;
         let on_side: Vec<&FlowPort> = self.ports.iter().filter(|p| p.side == port.side).collect();
         let index = on_side.iter().position(|p| p.id == id)? as f32;
@@ -470,10 +540,10 @@ impl FlowGraph {
         self.edges.iter().find(|e| e.id == id)
     }
 
-    /// Where an endpoint sits and the side its port is on.
+    /// Where an endpoint sits and the side its port faces, the node's turn counted.
     pub fn anchor(&self, end: &FlowEndpoint) -> Option<(Point, PortSide)> {
         let node = self.find_node(&end.node)?;
-        let side = node.find_port(&end.port)?.side;
+        let side = node.facing(node.find_port(&end.port)?.side);
         Some((node.port_point(&end.port)?, side))
     }
 
@@ -482,11 +552,23 @@ impl FlowGraph {
         self.find_node(&end.node)?.find_port(&end.port)
     }
 
-    /// The outline of a connection's line, if both its ends exist.
+    /// The outline of a connection's line, if both its ends exist. A [`EdgeShape::Step`] line
+    /// goes around the nodes in its way (groups aside, as lines run inside them).
     pub fn edge_path(&self, edge: &FlowEdge) -> Option<Vec<PathSegment>> {
+        self.edge_path_cached(edge, &mut RouteCache::new())
+    }
+
+    /// [`Self::edge_path`], working a step line out only when its ends or the nodes near it
+    /// changed since `cache` last saw it.
+    pub fn edge_path_cached(&self, edge: &FlowEdge, cache: &mut RouteCache) -> Option<Vec<PathSegment>> {
         let (from, from_side) = self.anchor(&edge.from)?;
         let (to, to_side) = self.anchor(&edge.to)?;
-        Some(route(from, from_side, to, to_side, edge.shape))
+        if edge.shape != EdgeShape::Step {
+            return Some(route(from, from_side, to, to_side, edge.shape));
+        }
+        let boxes = routing::near(from, to, self.nodes.iter().filter(|n| !n.group).map(FlowNode::extent));
+        let corners = cache.get(&edge.id, (from, from_side, to, to_side), &boxes);
+        Some(rounded(&corners, STEP_RADIUS))
     }
 
     /// Takes out these nodes with everything in them (when they are groups) and every
@@ -515,11 +597,11 @@ impl FlowGraph {
         self.edges.iter().any(|e| &e.from == from && &e.to == to)
     }
 
-    /// The box around every node, if there is any.
+    /// The box around every node as it shows, turned ones included, if there is any.
     pub fn bounds(&self) -> Option<Rect> {
         let mut nodes = self.nodes.iter();
-        let first = nodes.next()?.rect();
-        Some(nodes.fold(first, |all, n| union(all, n.rect())))
+        let first = nodes.next()?.extent();
+        Some(nodes.fold(first, |all, n| union(all, n.extent())))
     }
 
     /// An id no node has yet, made from `id`: `id` itself when it is free, otherwise `id-2`,
@@ -965,7 +1047,7 @@ pub fn route(
 }
 
 /// The corners of a line at right angles between two ports.
-fn step_points(from: Point, from_side: PortSide, to: Point, to_side: PortSide) -> Vec<Point> {
+pub(crate) fn step_points(from: Point, from_side: PortSide, to: Point, to_side: PortSide) -> Vec<Point> {
     let (a, b) = (from_side.outward(), to_side.outward());
     let out = Point::new(from.x + a.x * PORT_RUN, from.y + a.y * PORT_RUN);
     let into = Point::new(to.x + b.x * PORT_RUN, to.y + b.y * PORT_RUN);
@@ -1502,6 +1584,87 @@ mod tests {
         assert!(g.send_to_back(&["g".into()]));
         assert_eq!(order(&g), ["g", "a", "b", "c"]);
         assert_eq!(g.check(), Ok(()));
+    }
+
+    #[test]
+    fn a_turned_node_turns_its_ports_and_the_side_they_face() {
+        // `b` is 200 by 84 at (300, 100), its middle at (400, 142); its input on the left.
+        let mut g = graph();
+        let b = g.find_node_mut("b").map(|n| n.rotation = 90.0);
+        assert!(b.is_some());
+        let node = g.find_node("b").cloned().unwrap_or_default();
+        let input = node.port_point("in").unwrap_or(Point::new(f32::NAN, f32::NAN));
+        // At (300, 128) unturned: 100 left and 14 up of the middle; a quarter turn takes it up.
+        assert!((input.x - 414.0).abs() < 0.01 && (input.y - 42.0).abs() < 0.01, "{input:?}");
+        assert_eq!(g.anchor(&FlowEndpoint::new("b", "in")).map(|a| a.1), Some(PortSide::Top));
+        assert_eq!(node.extent(), Rect::new(358.0, 42.0, 84.0, 200.0));
+        assert_eq!(FlowNode { rotation: 30.0, ..node.clone() }.facing(PortSide::Right), PortSide::Right);
+        // Saved and read back; a node that is not turned writes nothing new.
+        assert_eq!(FlowGraph::from_json(&g.to_json()), Ok(g.clone()));
+        assert!(!graph().to_json().contains("rotation"));
+    }
+
+    /// `a` at (0, 0) and `c` at (600, 0), both 200 by 84, with `wall` between them.
+    fn walled() -> FlowGraph {
+        FlowGraph::new()
+            .node(FlowNode::new("a", "k", "A", 0.0, 0.0).port(FlowPort::output("out")))
+            .node(FlowNode::new("wall", "k", "Wall", 280.0, -40.0).size(200.0, 164.0))
+            .node(FlowNode::new("c", "k", "C", 600.0, 0.0).port(FlowPort::input("in")))
+            .edge(
+                FlowEdge::new("e", FlowEndpoint::new("a", "out"), FlowEndpoint::new("c", "in"))
+                    .shape(EdgeShape::Step),
+            )
+    }
+
+    #[test]
+    fn a_step_line_goes_around_a_node_in_its_way() {
+        let g = walled();
+        let points = flatten(&g.edge_path(&g.edges[0]).unwrap_or_default());
+        let wall = Rect::new(280.0, -40.0, 200.0, 164.0);
+        assert!(
+            points
+                .iter()
+                .all(|p| !(p.x > wall.x() && p.x < wall.max_x() && p.y > wall.y() && p.y < wall.max_y())),
+            "{points:?}"
+        );
+        assert_eq!(points.first(), Some(&Point::new(200.0, 42.0)));
+        let last = points.last().copied().unwrap_or(Point::new(0.0, 0.0));
+        assert!(distance(last, Point::new(600.0, 42.0)) < 0.01);
+        for w in points.windows(2) {
+            // Runs across or down, with rounded corners in between.
+            let (dx, dy) = ((w[1].x - w[0].x).abs(), (w[1].y - w[0].y).abs());
+            assert!(dx < 9.0 || dy < 9.0, "{w:?}");
+        }
+        // Nothing in the way: the usual three runs.
+        let clear = FlowGraph { nodes: vec![g.nodes[0].clone(), g.nodes[2].clone()], ..g.clone() };
+        assert_eq!(
+            clear.edge_path(&clear.edges[0]),
+            Some(route(
+                Point::new(200.0, 42.0),
+                PortSide::Right,
+                Point::new(600.0, 42.0),
+                PortSide::Left,
+                EdgeShape::Step
+            ))
+        );
+    }
+
+    #[test]
+    fn a_line_is_worked_out_again_only_when_something_near_it_changes() {
+        let mut g = walled().node(FlowNode::new("far", "k", "Far", 3000.0, 3000.0));
+        let mut cache = RouteCache::new();
+        let first = g.edge_path_cached(&g.edges[0], &mut cache);
+        assert_eq!(cache.computed(), 1);
+        if let Some(far) = g.find_node_mut("far") {
+            far.x += 500.0;
+        }
+        assert_eq!(g.edge_path_cached(&g.edges[0], &mut cache), first);
+        assert_eq!(cache.computed(), 1, "a node far away changes nothing");
+        if let Some(wall) = g.find_node_mut("wall") {
+            wall.y += 24.0;
+        }
+        g.edge_path_cached(&g.edges[0], &mut cache);
+        assert_eq!(cache.computed(), 2, "the node in the way moved");
     }
 
     #[test]

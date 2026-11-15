@@ -21,11 +21,15 @@ use ravenrs_text::TextAttrs;
 
 pub use ravenrs_graphics::flow::{
     EdgeCap, EdgeShape, FlowDirection, FlowEdge, FlowEndpoint, FlowGraph, FlowHistory, FlowJsonError,
-    FlowLayout, FlowNode, FlowNodeStatus, FlowPort, PortDirection, PortSide,
+    FlowLayout, FlowLayoutKind, FlowNode, FlowNodeStatus, FlowPort, PortDirection, PortSide,
 };
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
-use crate::{ButtonSize, ButtonStyle, Clipboard, IconButton, IconName, TextField, View, util};
+use crate::{AnyView, ButtonSize, ButtonStyle, Clipboard, IconButton, IconName, TextField, View, util};
+
+/// What a node shows inside its card instead of its icon and words, for
+/// [`FlowCanvas::content`].
+pub type FlowContent = Rc<dyn Fn(&FlowNode) -> Option<AnyView>>;
 
 /// The least and the most zoom by default.
 const ZOOM_RANGE: (f32, f32) = (0.25, 2.0);
@@ -46,6 +50,12 @@ const TEXT_ZOOM: f32 = 0.4;
 const DASH_SPEED: f32 = 24.0;
 /// The map in the corner, in screen pixels.
 const MAP_SIZE: Size = Size::new(200.0, 132.0);
+/// How far a node turns at a time, in degrees, by its handle or the keys.
+const TURN_STEP: f32 = 15.0;
+/// The round handle that turns a selected node, and how far above the node it sits, in screen
+/// pixels.
+const TURNER: f32 = 20.0;
+const TURNER_GAP: f32 = 24.0;
 /// How long the cap at an end of a line is, in screen pixels.
 const CAP: f32 = 8.0;
 /// The square in a selected node's corner that resizes it, in screen pixels.
@@ -253,6 +263,11 @@ pub enum FlowChange {
         /// The node.
         node: String,
     },
+    /// Nodes were turned.
+    Rotate {
+        /// The nodes turned.
+        nodes: Vec<String>,
+    },
 }
 
 /// Decides whether a change may happen, given the diagram before and after it. When it may
@@ -278,6 +293,9 @@ pub type FlowGuard = Rc<dyn Fn(&FlowGraph, &FlowGraph, &FlowChange) -> Result<()
 ///   puts it there, and dropping it outside takes it out.
 /// * Double-click a node, or press F2 (or Enter on a selected node), to type its title in
 ///   place: Enter keeps it, Escape gives it up.
+/// * Drag the round handle above a selected node to turn it, 15 degrees at a time (with Shift,
+///   freely), or press Alt+Shift with the arrows; Alt+Shift+0 puts it straight. Groups do
+///   not turn.
 /// * Cmd/Ctrl+Z undoes, Shift+Cmd/Ctrl+Z (or Cmd/Ctrl+Y) redoes. Cmd/Ctrl+C copies the selected
 ///   nodes with the connections between them, as JSON, Cmd/Ctrl+X cuts them and Cmd/Ctrl+V
 ///   pastes them back with new ids, a little further along each time.
@@ -312,7 +330,9 @@ pub struct FlowCanvas {
     guard: Option<FlowGuard>,
     layout: FlowLayout,
     resizable: bool,
+    rotatable: bool,
     editable_titles: bool,
+    content: Option<FlowContent>,
     grid: f32,
     snap: bool,
     controls: bool,
@@ -346,7 +366,9 @@ impl FlowCanvas {
             guard: None,
             layout: FlowLayout::default(),
             resizable: true,
+            rotatable: true,
             editable_titles: true,
+            content: None,
             grid: 24.0,
             snap: true,
             controls: true,
@@ -430,6 +452,34 @@ impl FlowCanvas {
     /// by default).
     pub fn resizable(mut self, resizable: bool) -> Self {
         self.resizable = resizable;
+        self
+    }
+
+    /// Whether selected nodes can be turned, by their handle or with Alt+Shift and the arrows
+    /// (on by default). Groups never turn.
+    pub fn rotatable(mut self, rotatable: bool) -> Self {
+        self.rotatable = rotatable;
+        self
+    }
+
+    /// Puts any view inside the nodes it is given for: `content` is asked for each node (not
+    /// groups) on every build, and a node it answers shows that view inside its card, laid out
+    /// at the node's size in units of the diagram and drawn at the zoom, its text sharp at any
+    /// zoom. The view's own controls take the pointer and the keys; where it has none, the
+    /// node is pressed, dragged and connected as ever. A node without a view shows its icon
+    /// and words.
+    ///
+    /// ```
+    /// use ravenrs_reactive::State;
+    /// use ravenrs_widgets::{AnyView, FlowCanvas, FlowGraph, Text};
+    ///
+    /// let graph = State::new(FlowGraph::new());
+    /// let canvas = FlowCanvas::new(graph.binding()).content(|node| {
+    ///     (node.kind == "note").then(|| Box::new(Text::new(node.title.clone())) as AnyView)
+    /// });
+    /// ```
+    pub fn content(mut self, content: impl Fn(&FlowNode) -> Option<AnyView> + 'static) -> Self {
+        self.content = Some(Rc::new(content));
         self
     }
 
@@ -528,6 +578,8 @@ enum Gesture {
     /// Resizing a node by its corner: where the pointer went down, its size then and the
     /// diagram before.
     Resize { id: String, pressed: Point, size: (f32, f32), before: FlowGraph },
+    /// Turning a node by its handle, with the diagram before.
+    Turn { id: String, before: FlowGraph },
 }
 
 /// What the canvas remembers between events, none of which should rebuild it.
@@ -549,6 +601,8 @@ struct Memory {
     view_before: Cell<Option<FlowViewport>>,
     /// The node that takes the focus on the next build, once its title closes.
     focus_node: RefCell<Option<String>>,
+    /// Step lines already worked out around the nodes in their way.
+    routes: RefCell<geometry::RouteCache>,
 }
 
 /// How the parts of a canvas reach the same diagram.
@@ -569,6 +623,9 @@ struct Flow {
     notice: State<Option<String>>,
     layout: FlowLayout,
     resizable: bool,
+    rotatable: bool,
+    /// Why a group does not turn.
+    no_turn: String,
     editable_titles: bool,
     /// The node whose title is being typed, and what has been typed.
     editing: State<Option<String>>,
@@ -820,6 +877,68 @@ impl Flow {
         true
     }
 
+    /// Turns the selected nodes by `degrees` (or puts them straight, with `None`). A group among
+    /// them refuses, saying why.
+    fn turn_by(&self, degrees: Option<f32>) -> bool {
+        let selection = self.selection.get();
+        if selection.nodes.is_empty() || self.locked.get() || !self.rotatable {
+            return false;
+        }
+        let mut graph = self.graph.get();
+        if selection.nodes.iter().any(|id| graph.find_node(id).is_some_and(|n| n.group)) {
+            self.notice.set(Some(self.no_turn.clone()));
+            return true;
+        }
+        for node in graph.nodes.iter_mut().filter(|n| selection.has_node(&n.id)) {
+            node.rotation = match degrees {
+                Some(by) => (node.rotation + by).rem_euclid(360.0),
+                None => 0.0,
+            };
+        }
+        self.commit(graph, FlowChange::Rotate { nodes: selection.nodes.clone() });
+        true
+    }
+
+    /// A drag on the round handle above a node, which turns it around its middle: the angle of
+    /// the pointer around it, 15 degrees at a time unless `free`.
+    fn on_turn_drag(&self, id: &str, phase: DragPhase, position: Point, free: bool) {
+        if self.locked.get() || !self.rotatable {
+            return;
+        }
+        match phase {
+            DragPhase::Start => {
+                self.forget_notice();
+                *self.memory.gesture.borrow_mut() =
+                    Gesture::Turn { id: id.to_owned(), before: self.graph.get() };
+            }
+            DragPhase::Move => {
+                let Gesture::Turn { id, .. } = self.memory.gesture.borrow().clone() else { return };
+                let mut graph = self.graph.get();
+                let Some(node) = graph.find_node_mut(&id) else { return };
+                let middle = self.view.get().to_screen(node.rect().center());
+                let at = self.local(position);
+                // Straight up is no turn: the handle starts above the node.
+                let mut degrees = (at.y - middle.y).atan2(at.x - middle.x).to_degrees() + 90.0;
+                if !free {
+                    degrees = (degrees / TURN_STEP).round() * TURN_STEP;
+                }
+                let degrees = degrees.rem_euclid(360.0);
+                if node.rotation != degrees {
+                    node.rotation = degrees;
+                    self.graph.set(graph);
+                }
+            }
+            DragPhase::End => {
+                let gesture = std::mem::take(&mut *self.memory.gesture.borrow_mut());
+                if let Gesture::Turn { id, before } = gesture {
+                    self.settle(before, FlowChange::Rotate { nodes: vec![id] });
+                }
+            }
+            // The base may add more; they act as nothing here.
+            _ => {}
+        }
+    }
+
     /// Makes the selected nodes larger or smaller by this much, no smaller than [`MIN_NODE`].
     fn resize_by(&self, dw: f32, dh: f32) -> bool {
         let selection = self.selection.get();
@@ -875,7 +994,12 @@ impl Flow {
                     return;
                 };
                 let zoom = self.view.get().zoom.max(f32::EPSILON);
-                let (w, h) = (size.0 + (at.x - pressed.x) / zoom, size.1 + (at.y - pressed.y) / zoom);
+                // The pointer's way in the node's own axes, for a turned node.
+                let turn = self.graph.get().find_node(&id).map_or(0.0, |n| n.rotation.to_radians());
+                let (dx, dy) = ((at.x - pressed.x) / zoom, (at.y - pressed.y) / zoom);
+                let (sin, cos) = (-turn).sin_cos();
+                let (dx, dy) = (dx * cos - dy * sin, dx * sin + dy * cos);
+                let (w, h) = (size.0 + dx, size.1 + dy);
                 let (w, h) = (self.snapped(w).max(MIN_NODE.0), self.snapped(h).max(MIN_NODE.1));
                 let mut graph = self.graph.get();
                 if let Some(node) = graph.find_node_mut(&id)
@@ -1008,6 +1132,14 @@ impl Flow {
                 _ => {}
             }
         }
+        if m.alt && shift {
+            match key {
+                Key::ArrowLeft => return self.turn_by(Some(-TURN_STEP)),
+                Key::ArrowRight => return self.turn_by(Some(TURN_STEP)),
+                Key::Character(c) if c == "0" || m.base_key == Some('0') => return self.turn_by(None),
+                _ => {}
+            }
+        }
         if m.alt {
             match key {
                 Key::ArrowLeft => return self.resize_by(-step, 0.0),
@@ -1063,7 +1195,7 @@ impl Flow {
             .edges
             .iter()
             .filter_map(|edge| {
-                let points = screen_points(&graph, edge, &view)?;
+                let points = screen_points(&graph, edge, &view, &self.memory.routes)?;
                 Some((geometry::distance_to(&points, at), edge.id.clone()))
             })
             .filter(|(d, _)| *d <= EDGE_REACH)
@@ -1130,7 +1262,7 @@ impl Flow {
         let (graph, view) = (self.graph.get(), self.view.get());
         let mut next = base;
         for node in &graph.nodes {
-            let r = node.rect();
+            let r = node.extent();
             let (a, b) = (view.to_screen(r.origin), view.to_screen(Point::new(r.max_x(), r.max_y())));
             let touches = a.x < area.max_x() && b.x > area.x() && a.y < area.max_y() && b.y > area.y();
             if touches && !next.has_node(&node.id) {
@@ -1389,9 +1521,15 @@ impl Flow {
     }
 }
 
-/// A connection's line in the view, as points.
-fn screen_points(graph: &FlowGraph, edge: &FlowEdge, view: &FlowViewport) -> Option<Vec<Point>> {
-    let path = graph.edge_path(edge)?;
+/// A connection's line in the view, as points; step lines are worked out again only when
+/// something near them changed (`routes`).
+fn screen_points(
+    graph: &FlowGraph,
+    edge: &FlowEdge,
+    view: &FlowViewport,
+    routes: &RefCell<geometry::RouteCache>,
+) -> Option<Vec<Point>> {
+    let path = graph.edge_path_cached(edge, &mut routes.borrow_mut())?;
     Some(geometry::flatten(&path).into_iter().map(|p| view.to_screen(p)).collect())
 }
 
@@ -1487,6 +1625,8 @@ struct Surface {
     /// The corner radius of a group's panel at 100%.
     radius: f32,
     palette: Palette,
+    /// Where the lines worked out before are kept.
+    memory: Rc<Memory>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -1531,7 +1671,9 @@ impl Surface {
         };
         let moving = self.connecting.as_ref().and_then(|c| c.moving.as_deref());
         for edge in self.graph.edges.iter().filter(|e| Some(e.id.as_str()) != moving) {
-            let Some(points) = screen_points(&self.graph, edge, &self.view) else { continue };
+            let Some(points) = screen_points(&self.graph, edge, &self.view, &self.memory.routes) else {
+                continue;
+            };
             // The line reaches the edge of each port's dot (the start only when it has a cap), so
             // its caps show; then it stops inside each cap.
             let dot = PORT_DOT * self.view.zoom.clamp(0.75, 1.25) / 2.0 + 1.0;
@@ -1635,6 +1777,8 @@ impl View for FlowCanvas {
             notice: notice.clone(),
             layout: self.layout,
             resizable: self.resizable,
+            rotatable: self.rotatable,
+            no_turn: labels.flow_no_turn.clone(),
             editable_titles: self.editable_titles,
             editing: editing.clone(),
             draft: draft.clone(),
@@ -1664,12 +1808,15 @@ impl View for FlowCanvas {
         let mut children = Vec::new();
         for node in &graph.nodes {
             let look = self.kinds.iter().find(|(k, _)| *k == node.kind).map(|(_, look)| look.clone());
+            let inside = if node.group { None } else { self.content.as_ref().and_then(|f| f(node)) };
             let part = NodeBox {
+                inside,
                 node: node.clone(),
                 look,
                 view,
                 selected: selection.has_node(&node.id),
                 resizable: self.resizable && !is_locked && selection.has_node(&node.id),
+                rotatable: self.rotatable,
                 members: graph.children(&node.id).count(),
                 editing: editing_now.as_deref() == Some(node.id.as_str()),
                 handles: graph
@@ -1696,7 +1843,7 @@ impl View for FlowCanvas {
         // The words on the lines, as text the screen shows and reads like any other.
         for edge in &graph.edges {
             let Some(label) = &edge.label else { continue };
-            let Some(points) = screen_points(&graph, edge, &view) else { continue };
+            let Some(points) = screen_points(&graph, edge, &view, &memory.routes) else { continue };
             let Some(middle) = geometry::midpoint(&points) else { continue };
             children.push(edge_label(cx, label, middle, &theme, palette));
         }
@@ -1741,6 +1888,7 @@ impl View for FlowCanvas {
             grid: self.grid,
             radius: theme.radii.lg,
             palette,
+            memory: memory.clone(),
         };
         let animated = graph.edges.iter().any(|e| e.animated) && !cx.reduced_motion();
         let seen = memory.clone();
@@ -1919,6 +2067,8 @@ fn controls(
 
 /// A node of the diagram: a box placed and sized by the zoom, with its ports.
 struct NodeBox {
+    /// The app's view inside the card, from [`FlowCanvas::content`].
+    inside: Option<AnyView>,
     node: FlowNode,
     look: Option<FlowKind>,
     view: FlowViewport,
@@ -1927,6 +2077,8 @@ struct NodeBox {
     handles: Vec<String>,
     /// Shows the corner that resizes it.
     resizable: bool,
+    /// Shows the handle that turns it (with the corner, on a selected node).
+    rotatable: bool,
     /// For a group, how many nodes it holds directly.
     members: usize,
     /// Its title is being typed.
@@ -1993,6 +2145,9 @@ impl NodeBox {
             FlowNodeStatus::Disabled => parts.push(labels.flow_disabled.clone()),
             _ => {}
         }
+        if self.node.rotation != 0.0 {
+            parts.push(labels.flow_turned.replace("{0}", &format!("{}", self.node.rotation.round())));
+        }
         parts.join(". ")
     }
 }
@@ -2039,10 +2194,33 @@ impl View for NodeBox {
         if self.editing {
             ports.push(self.title_field(cx, &theme, w, h));
         }
+        if self.resizable && self.rotatable && !node.group {
+            let turner = Turner { width: w, id: node.id.clone(), flow: self.flow.clone(), palette: p };
+            ports.push(cx.keyed_child(util::hash_text("\u{0}turner"), &turner));
+        }
         if self.resizable {
             let corner =
                 Corner { size: Size::new(w, h), id: node.id.clone(), flow: self.flow.clone(), palette: p };
             ports.push(cx.keyed_child(util::hash_text("\u{0}corner"), &corner));
+        }
+        // The app's view goes first, under the ports and handles: laid out at the node's size
+        // in units of the diagram and drawn at the zoom.
+        let card_only = self.inside.is_some();
+        if let Some(inside) = &self.inside {
+            let shown = cx.keyed_child(util::hash_text("\u{0}inside"), inside);
+            let holder = cx.container(
+                LayoutStyle {
+                    absolute: Some((0.0, 0.0)),
+                    width: Some(node.width),
+                    height: Some(node.height),
+                    align: Align::Stretch,
+                    ..LayoutStyle::stack(Axis::Vertical)
+                },
+                &[shown],
+                Paint::None,
+            );
+            cx.scale(holder, view.zoom);
+            ports.insert(0, holder);
         }
         let look = self.look.clone();
         let (title, subtitle, status) = (node.title.clone(), node.subtitle.clone(), node.status.clone());
@@ -2066,6 +2244,7 @@ impl View for NodeBox {
                 &status,
                 selected,
                 hovered,
+                card_only,
             );
         }));
         let root = cx.container(
@@ -2079,6 +2258,9 @@ impl View for NodeBox {
             paint,
         );
         cx.focusable(root, theme.radii.md * view.zoom);
+        if node.rotation != 0.0 {
+            cx.rotate(root, node.rotation.to_radians());
+        }
         cx.cursor(root, CursorIcon::Pointer);
         cx.semantics(
             root,
@@ -2152,6 +2334,7 @@ fn draw_node(
     status: &FlowNodeStatus,
     selected: bool,
     hovered: bool,
+    card_only: bool,
 ) {
     let radius = theme.radii.md * zoom;
     let disabled = *status == FlowNodeStatus::Disabled;
@@ -2168,6 +2351,9 @@ fn draw_node(
         let fill = if hovered { p.control } else { p.elevated };
         let shadow = if selected { theme.elevation.raised } else { theme.elevation.soft };
         paint.scene.push_quad(Quad::new(frame, fill).radius(radius).border(edge_width, edge).shadow(shadow));
+    }
+    if card_only {
+        return;
     }
     let pad = theme.spacing.s3 * zoom;
     let tile = 36.0 * zoom;
@@ -2403,6 +2589,57 @@ impl View for Corner {
     }
 }
 
+/// The round handle above a selected node that turns it when dragged. The keys do the same with
+/// Alt+Shift and the arrows, so screen readers do not need it.
+struct Turner {
+    /// The node's width on screen.
+    width: f32,
+    id: String,
+    flow: Flow,
+    palette: Palette,
+}
+
+impl View for Turner {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let p = self.palette;
+        let paint = Paint::Custom(Rc::new(move |frame: Rect, scene: &mut Scene| {
+            let c = Point::new(frame.center().x, frame.y() + TURNER / 2.0);
+            // The stem down to the node, then the round handle on it.
+            stroke(
+                scene,
+                &[Point::new(c.x, c.y + TURNER / 2.0), Point::new(c.x, frame.max_y())],
+                2.0,
+                p.accent,
+            );
+            let r = TURNER / 2.0;
+            scene.push_quad(
+                Quad::new(Rect::new(c.x - r, c.y - r, TURNER, TURNER), p.elevated)
+                    .radius(r)
+                    .border(2.0, p.accent),
+            );
+        }));
+        let node = cx.container(
+            LayoutStyle {
+                absolute: Some((self.width / 2.0 - TURNER / 2.0, -(TURNER + TURNER_GAP))),
+                width: Some(TURNER),
+                height: Some(TURNER + TURNER_GAP),
+                ..LayoutStyle::leaf()
+            },
+            &[],
+            paint,
+        );
+        cx.cursor(node, CursorIcon::Pointer);
+        cx.semantics(node, Semantics::hidden());
+        let modifiers = cx.modifiers();
+        let (dragged, id) = (self.flow.clone(), self.id.clone());
+        cx.on_drag(
+            node,
+            Rc::new(move |d| dragged.on_turn_drag(&id, d.phase, d.position, modifiers.get().shift)),
+        );
+        node
+    }
+}
+
 /// The whole diagram in small, with the part in view outlined; a press or drag moves the view.
 struct MiniMap {
     graph: FlowGraph,
@@ -2457,7 +2694,7 @@ impl View for MiniMap {
                     FlowNodeStatus::Error(_) => p.danger,
                     _ => p.control,
                 };
-                (n.rect(), color)
+                (n.extent(), color)
             })
             .collect();
         let view = self.view;
