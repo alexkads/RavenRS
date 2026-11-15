@@ -85,6 +85,19 @@ pub fn drawn(flow: &ravenrs_flows::FlowDefinition, catalog: &Catalog) -> FlowGra
     graph
 }
 
+/// Every kind of `catalog` as a card, with its name in Portuguese: what the toolbox offers and
+/// what a connection let go in the open can lead to.
+pub fn models(catalog: &Catalog) -> Vec<(String, FlowNode)> {
+    catalog
+        .specs()
+        .iter()
+        .map(|spec| {
+            let (name, _, _) = look(&spec.kind);
+            (name.to_owned(), ravenrs_flows::card(spec, &spec.kind, name))
+        })
+        .collect()
+}
+
 /// The canvas with every kind of `catalog` drawn with its icon and name.
 pub fn kinds(mut canvas: FlowCanvas, catalog: &Catalog) -> FlowCanvas {
     for spec in catalog.specs() {

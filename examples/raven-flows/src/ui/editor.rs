@@ -164,6 +164,8 @@ impl RavenFlows {
             .arrivals(s.arrivals.binding())
             .editable_titles(true)
             .minimap(true)
+            // A connection let go in the open searches the kinds of node, created connected.
+            .open_end(nos::models(&catalog))
             .grow(1.0);
         // The last run, drawn on the canvas as it moves on; the flow itself is not touched.
         if let Some(run) = casa.last_run(id) {

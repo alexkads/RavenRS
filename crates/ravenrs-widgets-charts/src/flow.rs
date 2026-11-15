@@ -624,6 +624,7 @@ pub struct FlowCanvas {
     locked: bool,
     read_only: bool,
     execution: Option<FlowRunView>,
+    open_end: Option<Rc<Vec<(String, FlowNode)>>>,
     cables: bool,
     range: (f32, f32),
     label: Option<String>,
@@ -671,6 +672,7 @@ impl FlowCanvas {
             locked: false,
             read_only: false,
             execution: None,
+            open_end: None,
             cables: false,
             range: ZOOM_RANGE,
             label: None,
@@ -916,6 +918,16 @@ impl FlowCanvas {
         self
     }
 
+    /// Letting go of a connection where no port is, or pressing Enter again on the port it
+    /// started from, opens a search of these models there, each with the words it is found by.
+    /// Only the models the port accepts are listed, by the same rules as any connection, and
+    /// choosing one creates it there, connected, as one change: one Undo takes both away.
+    /// Escape closes the search and creates nothing.
+    pub fn open_end(mut self, models: impl IntoIterator<Item = (impl Into<String>, FlowNode)>) -> Self {
+        self.open_end = Some(Rc::new(models.into_iter().map(|(words, node)| (words.into(), node)).collect()));
+        self
+    }
+
     /// Shows a run that happened outside the canvas, as the app tells it: each node's
     /// status, drawn and said to screen readers, and on each connection how many items went
     /// along it, after its own words. Only the drawing changes, never the graph; give the run
@@ -958,6 +970,14 @@ impl FlowCanvas {
         self.grow = grow;
         self
     }
+}
+
+/// A connection let go where no port was, waiting for the node it will lead to: the port it
+/// starts from and where it was let go, in the view.
+#[derive(Clone, Debug, PartialEq)]
+struct OpenEnd {
+    from: FlowEndpoint,
+    at: Point,
 }
 
 /// A connection being dragged out of a port, or chosen with the keys.
@@ -1079,6 +1099,10 @@ struct Flow {
     refused: String,
     /// What a new group is called.
     group_title: String,
+    /// The models a connection let go in the open can lead to, and the search open now.
+    open_models: Option<Rc<Vec<(String, FlowNode)>>>,
+    opened: State<Option<OpenEnd>>,
+    open_query: State<String>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -1883,6 +1907,10 @@ impl Flow {
         self.forget_notice();
         let step = self.grid * if shift { 4.0 } else { 1.0 };
         let has_nodes = !self.selection.get().nodes.is_empty();
+        if *key == Key::Escape && self.opened.get().is_some() {
+            self.opened.set(None);
+            return true;
+        }
         if *key == Key::Escape && self.connecting.get().is_some() {
             self.connecting.set(None);
             return true;
@@ -2216,6 +2244,63 @@ impl Flow {
     }
 
     /// Whether a connection may go from `from` to `to`, and why not.
+    /// `graph` with `model` placed at `at`, in the view, and connected to `from` by the same rules
+    /// as any connection; the node's id and the connection's, or `None` when the port does not
+    /// accept it.
+    fn linked(
+        &self,
+        graph: &FlowGraph,
+        from: &FlowEndpoint,
+        model: &FlowNode,
+        at: Point,
+    ) -> Option<(FlowGraph, String, String)> {
+        let outgoing = graph.port(from)?.direction == PortDirection::Output;
+        let wanted = if outgoing { PortDirection::Input } else { PortDirection::Output };
+        let port = model.ports.iter().find(|p| p.direction == wanted)?.id.clone();
+        let mut next = graph.clone();
+        let place = self.landing(model, self.view.get().to_content(at));
+        let id = next.fresh_node_id(&model.id);
+        next.nodes.push(FlowNode {
+            id: id.clone(),
+            x: place.x(),
+            y: place.y(),
+            parent: None,
+            ..model.clone()
+        });
+        let end = FlowEndpoint::new(id.clone(), port);
+        let (a, b) = if outgoing { (from.clone(), end) } else { (end, from.clone()) };
+        self.check(&next, &a, &b).ok()?;
+        let edge = next.fresh_edge_id("e");
+        let shaped = self.shaped(&next, FlowEdge::new(edge.clone(), a, b));
+        next.edges.push(shaped);
+        Some((next, id, edge))
+    }
+
+    /// The models the search open now lists: those its port accepts, with its words found.
+    fn open_choices(&self) -> Vec<(String, FlowNode)> {
+        let (Some(open), Some(models)) = (self.opened.get(), &self.open_models) else { return Vec::new() };
+        let (graph, query) = (self.graph.get(), self.open_query.get().to_lowercase());
+        models
+            .iter()
+            .filter(|(words, _)| query.trim().is_empty() || words.to_lowercase().contains(query.trim()))
+            .filter(|(_, model)| self.linked(&graph, &open.from, model, open.at).is_some())
+            .cloned()
+            .collect()
+    }
+
+    /// Creates `model` where the search is open, connected to its port, as one change.
+    fn create_linked(&self, model: &FlowNode) {
+        let Some(open) = self.opened.get() else { return };
+        self.opened.set(None);
+        let Some((graph, node, edge)) = self.linked(&self.graph.get(), &open.from, model, open.at) else {
+            return;
+        };
+        if self.commit(graph, FlowChange::Create { node: node.clone(), edge: Some(edge) }) {
+            self.select(FlowSelection::node(node));
+            self.memory.refocus.set(true);
+        }
+    }
+
     fn check(&self, graph: &FlowGraph, from: &FlowEndpoint, to: &FlowEndpoint) -> Result<(), String> {
         let (Some(a), Some(b)) = (graph.port(from), graph.port(to)) else { return Err(self.refused.clone()) };
         if from.node == to.node || a.direction == b.direction || graph.connects(from, to) {
@@ -2342,8 +2427,16 @@ impl Flow {
             DragPhase::End => {
                 let Some(connecting) = self.connecting.get() else { return };
                 self.connecting.set(None);
-                if let Some((end, Ok(()))) = &connecting.target {
-                    self.finish(&connecting, end);
+                match &connecting.target {
+                    Some((end, Ok(()))) => {
+                        self.finish(&connecting, end);
+                    }
+                    // Let go where no port is: the search of what it can lead to opens there.
+                    None if connecting.moving.is_none() && self.open_models.is_some() => {
+                        self.open_query.set(String::new());
+                        self.opened.set(Some(OpenEnd { from: connecting.from.clone(), at }));
+                    }
+                    _ => {}
                 }
             }
             // The base may add more; they act as nothing here.
@@ -2362,7 +2455,14 @@ impl Flow {
             graph.anchor(port).map_or(Point::new(0.0, 0.0), |(p, _)| view.to_screen(p))
         };
         match self.connecting.get() {
-            Some(connecting) if &connecting.from == port => self.connecting.set(None),
+            // Enter again on the port it started from: the search opens there, when there is one.
+            Some(connecting) if &connecting.from == port => {
+                self.connecting.set(None);
+                if self.open_models.is_some() {
+                    self.open_query.set(String::new());
+                    self.opened.set(Some(OpenEnd { from: port.clone(), at: pointer }));
+                }
+            }
             Some(mut connecting) => {
                 if !self.finish(&connecting, port) {
                     connecting.target = Some((port.clone(), self.verdict(&connecting, port)));
@@ -2790,6 +2890,9 @@ impl View for FlowCanvas {
             range: self.range,
             refused: labels.flow_refused.clone(),
             group_title: labels.flow_group.clone(),
+            open_models: self.open_end.clone(),
+            opened: cx.use_state(|| None::<OpenEnd>),
+            open_query: cx.use_state(String::new),
         };
         let graph = self.graph.get();
         let size = cx.scroll_viewport();
@@ -2979,6 +3082,52 @@ impl View for FlowCanvas {
                 children.push(hint(cx, &labels.flow_pick_port, *pointer, palette));
             }
             _ => {}
+        }
+        // The search a connection let go in the open leads to, at where it was let go.
+        if let Some(open) = flow.opened.get() {
+            let choices = flow.open_choices();
+            let mut rows: Vec<AnyView> = vec![Box::new(
+                crate::TextField::new(flow.open_query.binding()).placeholder(labels.flow_open_search.clone()),
+            )];
+            if choices.is_empty() {
+                rows.push(Box::new(
+                    crate::Text::new(labels.flow_open_none.clone())
+                        .style(ravenrs_style::TextStyle::Callout)
+                        .foreground(Semantic::InkMuted),
+                ));
+            }
+            for (words, model) in choices {
+                let f = flow.clone();
+                rows.push(Box::new(
+                    crate::Button::new(words)
+                        .style(ButtonStyle::Ghost)
+                        .size(ButtonSize::Small)
+                        .on_click(move || f.create_linked(&model)),
+                ));
+            }
+            let close = flow.opened.clone();
+            rows.push(Box::new(
+                crate::Button::new(labels.flow_open_close.clone())
+                    .style(ButtonStyle::Ghost)
+                    .size(ButtonSize::Small)
+                    .on_click(move || close.set(None)),
+            ));
+            let list = cx.child(&crate::VStack::new(rows).spacing(2.0).align(Align::Stretch));
+            children.push(cx.container(
+                LayoutStyle {
+                    absolute: Some((open.at.x, open.at.y)),
+                    width: Some(OPEN_WIDTH),
+                    padding: ravenrs_core::Insets::uniform(theme.spacing.s2),
+                    ..LayoutStyle::stack(Axis::Vertical)
+                },
+                &[list],
+                Paint::Quad(crate::context::QuadPaint {
+                    corner_radius: theme.radii.md,
+                    border: Some(ravenrs_core::Border { width: 1.0, color: palette.border }),
+                    shadow: Some(theme.elevation.raised),
+                    ..crate::context::QuadPaint::new(palette.surface)
+                }),
+            ));
         }
         // Why the app refused the last change, by the pointer, until the next gesture.
         if let Some(reason) = notice.get() {
@@ -4259,6 +4408,9 @@ impl View for NextArrow {
 fn faded(status: &FlowNodeStatus) -> bool {
     matches!(status, FlowNodeStatus::Disabled | FlowNodeStatus::Skipped | FlowNodeStatus::Cancelled)
 }
+
+/// How wide the search a connection let go in the open leads to is.
+const OPEN_WIDTH: f32 = 240.0;
 
 /// A small filled arrowhead at `tip` pointing along `direction`.
 fn fill_arrow(scene: &mut Scene, tip: Point, direction: Point, color: Color) {

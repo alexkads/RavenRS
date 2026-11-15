@@ -727,6 +727,12 @@ pub struct Labels {
     pub flow_item_one: String,
     /// How many items went along a `FlowCanvas` connection, with `{count}`.
     pub flow_items: String,
+    /// The search a `FlowCanvas` connection let go in the open leads to.
+    pub flow_open_search: String,
+    /// That search with no model the port accepts.
+    pub flow_open_none: String,
+    /// Closes that search without creating anything.
+    pub flow_open_close: String,
     /// A `ParameterForm` field holding a value as it is.
     pub param_fixed: String,
     /// A `ParameterForm` field holding an expression.
@@ -1585,6 +1591,9 @@ impl Labels {
             flow_pinned: texts.get("widgets.flow_pinned"),
             flow_item_one: texts.get("widgets.flow_item_one"),
             flow_items: texts.get("widgets.flow_items"),
+            flow_open_search: texts.get("widgets.flow_open_search"),
+            flow_open_none: texts.get("widgets.flow_open_none"),
+            flow_open_close: texts.get("widgets.flow_open_close"),
             param_fixed: texts.get("widgets.param_fixed"),
             param_expression: texts.get("widgets.param_expression"),
             param_mode: texts.get("widgets.param_mode"),

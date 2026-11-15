@@ -1810,3 +1810,53 @@ fn a_read_only_canvas_offers_no_unlock_and_changes_nothing() {
     click(&mut rig.ui, Point::new(120.0, 70.0));
     assert_eq!(rig.selection.get().nodes, ["a"], "and a node can still be picked to read");
 }
+
+#[test]
+fn a_connection_let_go_in_the_open_offers_what_the_port_takes_and_creates_it_connected() {
+    let models = [
+        (
+            "Check again",
+            FlowNode::new("again", "action", "Check again", 0.0, 0.0)
+                .port(FlowPort::input("in").kind("sale"))
+                .port(FlowPort::output("out").kind("sale")),
+        ),
+        (
+            "Refuse",
+            FlowNode::new("refuse", "action", "Refuse", 0.0, 0.0).port(FlowPort::input("in").kind("refused")),
+        ),
+        (
+            "New trigger",
+            FlowNode::new("start", "trigger", "New trigger", 0.0, 0.0).port(FlowPort::output("out")),
+        ),
+    ];
+    let mut rig = rig_with(graph(), move |c| c.open_end(models.clone()));
+    drag(&mut rig.ui, Point::new(248.0, 90.0), Point::new(620.0, 480.0));
+    assert!(named(&mut rig.ui, "Find the next node").is_some(), "the search opens where it was let go");
+    assert!(named(&mut rig.ui, "Check again").is_some(), "a model the port takes");
+    assert!(named(&mut rig.ui, "Refuse").is_none(), "one the rules refuse is left out");
+    assert!(named(&mut rig.ui, "New trigger").is_none(), "and one with no way in");
+
+    let id = named(&mut rig.ui, "Check again").expect("listed").id;
+    rig.ui.perform_action(id, ravenrs_core::AccessAction::Click);
+    settle(&mut rig.ui);
+    let g = rig.graph.get();
+    assert_eq!(g.nodes.len(), 4, "the node is there");
+    assert_eq!(g.edges.len(), 1, "and connected");
+    assert_eq!((g.edges[0].from.node.as_str(), g.edges[0].to.port.as_str()), ("a", "in"));
+    assert!(named(&mut rig.ui, "Find the next node").is_none(), "the search closed");
+    key(&mut rig.ui, Key::Character("z".into()), Modifiers { meta: true, ..Modifiers::default() });
+    assert_eq!((rig.graph.get().nodes.len(), rig.graph.get().edges.len()), (3, 0), "one Undo takes both");
+
+    drag(&mut rig.ui, Point::new(248.0, 90.0), Point::new(620.0, 480.0));
+    key(&mut rig.ui, Key::Escape, Modifiers::default());
+    assert!(named(&mut rig.ui, "Find the next node").is_none(), "Escape closes it");
+    assert_eq!(rig.graph.get().nodes.len(), 3, "and creates nothing");
+}
+
+#[test]
+fn without_models_a_connection_let_go_in_the_open_is_given_up_as_before() {
+    let mut rig = rig();
+    drag(&mut rig.ui, Point::new(248.0, 90.0), Point::new(620.0, 480.0));
+    assert!(named(&mut rig.ui, "Find the next node").is_none());
+    assert!(rig.graph.get().edges.is_empty());
+}

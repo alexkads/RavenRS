@@ -1231,10 +1231,28 @@ fn the_flow_diagram_shows_every_feature_and_its_connections_hang_as_cables() {
         assert!(c.says("Diagrama de exemplo"), "{option} keeps the canvas");
         c.activate(option);
     }
+    // Enter twice on a port opens the search of what a connection from it can lead to; a start
+    // takes nothing in, so it is not offered.
+    let before = c.texts().iter().filter(|t| t.starts_with("Nós no diagrama")).cloned().collect::<Vec<_>>();
+    let port =
+        c.ui.access_tree()
+            .nodes
+            .iter()
+            .find(|n| n.name.as_deref() == Some("out"))
+            .map(|n| n.id)
+            .expect("a port");
+    c.ui.perform_action(port, AccessAction::Focus);
+    c.key(ravenrs_core::Key::Enter);
+    c.key(ravenrs_core::Key::Enter);
+    assert!(c.says("Procurar o próximo nó"), "the search opens: {:?}", c.texts());
+    assert!(c.says("Etapa de conferência") && !c.says("Outro início"), "only what the port takes");
+    c.press("Etapa de conferência");
+    assert!(!c.says("Procurar o próximo nó"), "and closes, the node created connected");
+    assert!(!c.says(&before[0]), "one node more");
     // A run told from outside: the canvas says how each node did and counts the items.
     c.activate("Execução de fora");
     assert!(c.says("3 itens"), "the count on the line: {:?}", c.texts());
-    assert!(c.says("Nós no diagrama: 5"), "the diagram itself is the same");
+    assert!(c.says("Nós no diagrama: 6"), "the diagram itself is the same");
     c.activate("Execução de fora");
     assert!(!c.says("3 itens"));
     // Read only: the lock is not offered.
@@ -1247,7 +1265,7 @@ fn the_flow_diagram_shows_every_feature_and_its_connections_hang_as_cables() {
     c.activate("Ligações como cabos");
     assert!(c.ui.cables().ids().is_empty(), "plain lines");
     c.activate("Ligações como cabos");
-    assert_eq!(c.ui.cables().ids().len(), 2);
+    assert_eq!(c.ui.cables().ids().len(), 3, "the two of the sample and the one the search created");
 }
 
 #[test]

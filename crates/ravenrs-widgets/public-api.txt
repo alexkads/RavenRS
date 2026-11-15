@@ -484,6 +484,9 @@ field Labels::flow_line_names
 field Labels::flow_lock
 field Labels::flow_members
 field Labels::flow_no_turn
+field Labels::flow_open_close
+field Labels::flow_open_none
+field Labels::flow_open_search
 field Labels::flow_output
 field Labels::flow_pick_port
 field Labels::flow_pinned
@@ -3266,6 +3269,7 @@ method FlowCanvas::next_node
 method FlowCanvas::notation
 method FlowCanvas::on_change
 method FlowCanvas::on_export
+method FlowCanvas::open_end
 method FlowCanvas::ports_on_hover
 method FlowCanvas::quick_create
 method FlowCanvas::range

@@ -86,6 +86,23 @@ impl View for FlowPage {
                 _ => Ok(()),
             })
             .connection(|_, edge| edge.color("#2F9E6A"))
+            // A connection let go in the open, or Enter twice on a port, searches these.
+            .open_end([
+                (
+                    "Etapa de conferência",
+                    FlowNode::new("conferir", "step", "Conferir de novo", 0.0, 0.0)
+                        .port(FlowPort::input("in"))
+                        .port(FlowPort::output("out")),
+                ),
+                (
+                    "Fim do pedido",
+                    FlowNode::new("fim", "end", "Fim do pedido", 0.0, 0.0).port(FlowPort::input("in")),
+                ),
+                (
+                    "Outro início",
+                    FlowNode::new("inicio", "start", "Outro início", 0.0, 0.0).port(FlowPort::output("out")),
+                ),
+            ])
             .on_change(move |_, after, change| {
                 on_change.set(format!("Mudança: {change:?}. Nós no diagrama: {}", after.nodes.len()));
                 Ok(())
