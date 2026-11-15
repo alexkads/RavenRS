@@ -13,6 +13,7 @@ mod http;
 mod json;
 mod keys;
 mod openapi;
+mod pattern;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;

@@ -536,6 +536,9 @@ fn the_description_is_of_what_this_person_can_reach() {
     assert_eq!(order["twice"]["readOnly"], true);
     assert!(order.get("token").is_none());
     assert_eq!(order["state"]["enum"], json!(["o", "c"]));
+    let create = &description.body["components"]["schemas"]["Order.Create"];
+    assert_eq!(create["required"], json!(["name"]), "the rule of the entity, and nothing it fills itself");
+    assert!(description.body["components"]["schemas"]["Order.Change"].get("required").is_none());
 }
 
 #[test]

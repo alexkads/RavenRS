@@ -24,6 +24,8 @@ tokio = { version = "1.54", default-features = false, features = ["net", "rt-mul
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio"] }
 
 [dev-dependencies]
+# Checks that a pattern sent to clients still means what the rule means.
+regex-lite.workspace = true
 ravenrs-app-testkit.workspace = true
 ureq = { version = "3.5", default-features = false }
 tokio = { version = "1.54", default-features = false, features = ["macros", "net", "rt-multi-thread", "sync", "time"] }

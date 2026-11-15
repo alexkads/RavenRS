@@ -6076,6 +6076,7 @@ dependencies = [
  "ravenrs-app",
  "ravenrs-app-testkit",
  "ravenrs-criteria",
+ "regex-lite",
  "serde_json",
  "sha2 0.10.9",
  "tokio",

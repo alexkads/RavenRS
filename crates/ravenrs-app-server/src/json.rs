@@ -69,6 +69,22 @@ pub(crate) fn from_json(field: &FieldInfo, sent: &Json) -> Result<Value, Failure
     }
 }
 
+/// Whether a field's value is the text sent, as it was sent: what [`from_json`] reads with `as_str`.
+pub(crate) fn takes_text(kind: &FieldKind) -> bool {
+    !matches!(
+        kind,
+        FieldKind::Integer
+            | FieldKind::Money
+            | FieldKind::Decimal(_)
+            | FieldKind::Boolean
+            | FieldKind::Date
+            | FieldKind::DateTime
+            | FieldKind::Enum(_)
+            | FieldKind::Reference(_)
+            | FieldKind::Collection(_)
+    )
+}
+
 /// A key as it came in a path.
 pub(crate) fn key_from_path(entity: &EntityInfo, text: &str) -> Result<Value, Failure> {
     let field =
@@ -114,4 +130,41 @@ pub(crate) fn apply(
         object.set(name, from_json(field, value)?);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::unwrap_used)]
+
+    use ravenrs_app::{EnumOption, FieldInfo, FieldKind, Value};
+    use serde_json::json;
+
+    use super::{from_json, takes_text};
+
+    #[test]
+    fn what_takes_text_keeps_it_as_sent() {
+        let kinds = [
+            FieldKind::Text,
+            FieldKind::LongText,
+            FieldKind::Integer,
+            FieldKind::Decimal(2),
+            FieldKind::Money,
+            FieldKind::Date,
+            FieldKind::DateTime,
+            FieldKind::Boolean,
+            FieldKind::Enum(vec![EnumOption::new(" a ", "A")]),
+            FieldKind::Reference("Other".into()),
+            FieldKind::Color,
+            FieldKind::Image,
+            FieldKind::File,
+            FieldKind::Criteria,
+            FieldKind::Guid,
+            FieldKind::Tags(vec![EnumOption::new(" a ", "A")]),
+        ];
+        for kind in kinds.into_iter().filter(takes_text) {
+            let field = FieldInfo::new("f", kind.clone());
+            let kept = from_json(&field, &json!(" a ")).ok();
+            assert_eq!(kept, Some(Value::Text(" a ".into())), "{kind:?}");
+        }
+    }
 }
