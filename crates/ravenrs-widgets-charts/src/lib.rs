@@ -29,7 +29,7 @@ pub use chart::{
 };
 #[cfg(feature = "flow")]
 pub use flow::{
-    EdgeShape, FlowCanvas, FlowChange, FlowDirection, FlowEdge, FlowEndpoint, FlowGraph, FlowGuard,
+    EdgeCap, EdgeShape, FlowCanvas, FlowChange, FlowDirection, FlowEdge, FlowEndpoint, FlowGraph, FlowGuard,
     FlowHistory, FlowJsonError, FlowKind, FlowLayout, FlowNode, FlowNodeStatus, FlowPort, FlowSelection,
     FlowValidator, FlowViewport, PortDirection, PortSide,
 };
