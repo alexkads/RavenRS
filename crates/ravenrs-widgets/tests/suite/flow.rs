@@ -689,3 +689,77 @@ fn a_line_inside_a_group_is_still_picked_and_deleting_the_group_takes_its_nodes(
     assert_eq!(g.nodes.len(), 4, "the group pastes back with what it held");
     assert_eq!(g.find_node("a").and_then(|n| n.parent.clone()).as_deref(), Some("g"));
 }
+
+/// A canvas whose app refuses the changes `refuse` names, saying "Published steps stay".
+fn guarded(refuse: fn(&FlowChange) -> bool) -> (Rig, State<FlowHistory>, State<Vec<FlowChange>>) {
+    let history = State::new(FlowHistory::new());
+    let asked = State::new(Vec::<FlowChange>::new());
+    let seen = asked.clone();
+    let rig = rig_with(graph(), |c| {
+        c.history(history.binding()).on_change(move |_, _, change| {
+            seen.update(|v| v.push(change.clone()));
+            if refuse(change) { Err("Published steps stay".into()) } else { Ok(()) }
+        })
+    });
+    (rig, history, asked)
+}
+
+#[test]
+fn the_app_can_refuse_a_change_which_says_why_and_leaves_no_history() {
+    let (mut rig, history, asked) = guarded(|c| matches!(c, FlowChange::Delete { .. }));
+    click(&mut rig.ui, Point::new(120.0, 70.0));
+    key(&mut rig.ui, Key::Delete, Modifiers::default());
+    assert!(rig.graph.get().find_node("a").is_some(), "still there");
+    assert_eq!(asked.get().last(), Some(&FlowChange::Delete { nodes: vec!["a".into()], edges: Vec::new() }));
+    let reason = named(&mut rig.ui, "Published steps stay").expect("the reason shows");
+    assert_eq!(reason.role, Role::Status);
+    assert!(!history.get().can_undo());
+    // The next gesture lets go of the reason; a change it allows goes through.
+    key(&mut rig.ui, Key::ArrowRight, Modifiers::default());
+    assert!(named(&mut rig.ui, "Published steps stay").is_none());
+    assert_eq!(node_at(&rig, "a"), (72.0, 48.0));
+    assert_eq!(asked.get().last(), Some(&FlowChange::Move { nodes: vec!["a".into()] }));
+    assert!(history.get().can_undo());
+}
+
+#[test]
+fn a_refused_drag_puts_the_nodes_back_and_is_asked_once() {
+    let (mut rig, history, asked) = guarded(|c| matches!(c, FlowChange::Move { .. }));
+    drag(&mut rig.ui, Point::new(120.0, 70.0), Point::new(220.0, 170.0));
+    assert_eq!(node_at(&rig, "a"), (48.0, 48.0), "back where it was");
+    assert_eq!(asked.get(), vec![FlowChange::Move { nodes: vec!["a".into()] }], "once, when let go");
+    assert!(!history.get().can_undo());
+    assert!(named(&mut rig.ui, "Published steps stay").is_some());
+}
+
+#[test]
+fn the_app_can_refuse_an_undo() {
+    let (mut rig, history, _) = guarded(|c| *c == FlowChange::Undo);
+    click(&mut rig.ui, Point::new(120.0, 70.0));
+    key(&mut rig.ui, Key::ArrowRight, Modifiers::default());
+    shortcut(&mut rig.ui, "z", false);
+    assert_eq!(node_at(&rig, "a"), (72.0, 48.0));
+    assert!(history.get().can_undo(), "the history stays as it was");
+}
+
+#[test]
+fn cmd_brackets_bring_a_node_to_the_front_or_send_it_back() {
+    // `d` overlaps `a` from below and to the right, and is in front of it.
+    let mut rig = rig_with(graph().node(FlowNode::new("d", "action", "Overlap", 168.0, 96.0)), |c| c);
+    let overlap = Point::new(200.0, 110.0);
+    click(&mut rig.ui, overlap);
+    assert_eq!(rig.selection.get(), FlowSelection::node("d"));
+    click(&mut rig.ui, Point::new(70.0, 60.0));
+    shortcut(&mut rig.ui, "]", false);
+    let order: Vec<String> = rig.graph.get().nodes.iter().map(|n| n.id.clone()).collect();
+    assert_eq!(order.last().map(String::as_str), Some("a"));
+    click(&mut rig.ui, overlap);
+    assert_eq!(rig.selection.get(), FlowSelection::node("a"), "a is in front now");
+    shortcut(&mut rig.ui, "[", false);
+    assert_eq!(rig.graph.get().nodes[0].id, "a");
+    click(&mut rig.ui, overlap);
+    assert_eq!(rig.selection.get(), FlowSelection::node("d"));
+    shortcut(&mut rig.ui, "z", false);
+    shortcut(&mut rig.ui, "z", false);
+    assert_eq!(rig.graph.get().nodes.last().map(|n| n.id.as_str()), Some("d"), "both undo");
+}

@@ -28,6 +28,7 @@ enum FileSortColumn
 enum Fill
 enum FilterFieldKind
 enum FloatingCorner
+enum FlowChange
 enum Frequency
 enum GridExportFormat
 enum GridTableKind
@@ -868,6 +869,7 @@ impl Clone for FilterField
 impl Clone for FilterFieldKind
 impl Clone for FilterLayout
 impl Clone for FloatingCorner
+impl Clone for FlowChange
 impl Clone for FlowKind
 impl Clone for FlowSelection
 impl Clone for FlowViewport
@@ -1235,6 +1237,7 @@ impl Debug for FloatingCorner
 impl Debug for FloatingPanel
 impl Debug for FloatingToolbar
 impl Debug for FlowCanvas
+impl Debug for FlowChange
 impl Debug for FlowKind
 impl Debug for FlowSelection
 impl Debug for FlowViewport
@@ -1679,6 +1682,7 @@ impl Eq for FilterField
 impl Eq for FilterFieldKind
 impl Eq for FilterLayout
 impl Eq for FloatingCorner
+impl Eq for FlowChange
 impl Eq for FlowSelection
 impl Eq for Frequency
 impl Eq for GridCellStyle
@@ -1813,6 +1817,7 @@ impl PartialEq for FilterField
 impl PartialEq for FilterFieldKind
 impl PartialEq for FilterLayout
 impl PartialEq for FloatingCorner
+impl PartialEq for FlowChange
 impl PartialEq for FlowKind
 impl PartialEq for FlowSelection
 impl PartialEq for FlowViewport
@@ -2854,6 +2859,7 @@ method FlowCanvas::layout
 method FlowCanvas::locked
 method FlowCanvas::minimap
 method FlowCanvas::new
+method FlowCanvas::on_change
 method FlowCanvas::range
 method FlowCanvas::resizable
 method FlowCanvas::selection
@@ -4518,6 +4524,7 @@ type ActivityObserver
 type AnyView
 type DragHandler
 type DrawFn
+type FlowGuard
 type FlowValidator
 type KeyHandler
 type LiveFn
@@ -4621,6 +4628,18 @@ variant FloatingCorner::BottomLeft
 variant FloatingCorner::BottomRight
 variant FloatingCorner::TopLeft
 variant FloatingCorner::TopRight
+variant FlowChange::Arrange
+variant FlowChange::Connect
+variant FlowChange::Delete
+variant FlowChange::Group
+variant FlowChange::Move
+variant FlowChange::Paste
+variant FlowChange::Reconnect
+variant FlowChange::Redo
+variant FlowChange::Reorder
+variant FlowChange::Resize
+variant FlowChange::Undo
+variant FlowChange::Ungroup
 variant Frequency::Daily
 variant Frequency::Monthly
 variant Frequency::Once

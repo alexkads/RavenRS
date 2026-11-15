@@ -166,9 +166,9 @@ pub use floating::{
 };
 #[cfg(feature = "flow")]
 pub use flow::{
-    EdgeShape, FlowCanvas, FlowDirection, FlowEdge, FlowEndpoint, FlowGraph, FlowHistory, FlowJsonError,
-    FlowKind, FlowLayout, FlowNode, FlowNodeStatus, FlowPort, FlowSelection, FlowValidator, FlowViewport,
-    PortDirection, PortSide,
+    EdgeShape, FlowCanvas, FlowChange, FlowDirection, FlowEdge, FlowEndpoint, FlowGraph, FlowGuard,
+    FlowHistory, FlowJsonError, FlowKind, FlowLayout, FlowNode, FlowNodeStatus, FlowPort, FlowSelection,
+    FlowValidator, FlowViewport, PortDirection, PortSide,
 };
 pub use form_layout::{FormGroup, FormLayout};
 pub use full_screen::{FullScreen, FullScreenProvider};
