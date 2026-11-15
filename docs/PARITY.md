@@ -58,7 +58,7 @@ virtualization, editing, keyboard interaction and export.
 | Context menu | ✓ | ✓ | ✓ | ✅ `ContextMenu`: submenus, check marks and any view in a row, like `DropdownMenu` |
 | Stepper / Wizard | | ✓ | ✓ | ✅ `Wizard`: a step can refuse to be left or be marked with a problem; steps done can be reopened. `StepIndicator`, `StepBadge` for an app's own layout |
 | Bottom navigation | | | ✓ | ⬜ |
-| TreeView | | ✓ | ✓ | ✅ `TreeView`: keyboard, selection, three-state checks, filter, items on demand, virtualized |
+| TreeView | | ✓ | ✓ | ✅ `TreeView`: keyboard, selection, three-state checks, filter, items on demand, virtualized, a menu of actions per item (right click, Shift+F10, Menu key) |
 | Command palette | ✓ | | | ✅ `CommandPalette` |
 
 ## Buttons and actions
@@ -82,7 +82,7 @@ virtualization, editing, keyboard interaction and export.
 |---|---|---|---|---|
 | Text box | ✓ | ✓ | ✓ | ✅ `TextField` (selection, clipboard, views before and after the text, clear button, sizes) |
 | Text area (multi-line) | ✓ | ✓ | ✓ | ✅ `TextArea`: wraps, scrolls, builds only the lines in view, grows with the text between two limits |
-| Code editor | | ✓ | | ✅ `CodeEditor` (feature `code`): Fira Mono, line numbers, Rust colors by token, Tab and Shift+Tab indent, Enter keeps the indentation, diagnostics mark the line and underline the columns. No horizontal scrolling or folding yet |
+| Code editor | | ✓ | | ✅ `CodeEditor` (feature `code`): Fira Mono, line numbers, Rust colors by token, Tab and Shift+Tab indent, Enter keeps the indentation, diagnostics mark the line and underline the columns, horizontal scrolling, undo and redo by words, find and replace with capitals and whole words, suggestions under the caret, tips by the pointer and going to a definition, all answered by the app (a language server, say), and a read-only log that follows its end. No folding or several carets yet |
 | Code playground | | | | ✅ `Playground` (feature `code`): one bar, code beside its result, an Output panel with Console (`println!`) and Problems (also from closures that fail later), examples that run when picked, Restore, Ctrl/Cmd+Enter runs through a `Runner`, problems marked on their lines, last result kept and faded, Code/Result/Output tabs with a ⋯ menu below 768 px, and `download` to save what the code makes. The gallery downloads each example as a Cargo project (`ravenrs-project`) that `cargo run`s on the desktop and builds for the browser; `scripts/check.sh --full` builds all of them. `LiveRunner` (feature `live`) runs edited Rust without a compiler through `ravenrs-live`: all 181 gallery examples, each building as many elements as compiled; what it cannot read yet would be listed in `examples/component-gallery/live-pending.txt` |
 | Label | ✓ | ✓ | ✓ | ✅ `Label` |
 | Form, field validation | ✓ | ✓ | ✓ | ✅ `FormField` + validators |
@@ -114,7 +114,7 @@ virtualization, editing, keyboard interaction and export.
 | Drop zone | | ✓ | ✓ | ✅ `DropZone`: around any content, with the rules of `FileUpload`; every zone lights up during the drag, since platforms say only that files are over the window |
 | Signature | | | ✓ | ⬜ |
 | Rich text editor | | ✓ | ✓ | ⬜ |
-| Code editor | | ✓ | | ⬜ |
+| Code editor | | ✓ | | ✅ `CodeEditor`, as above |
 | Spreadsheet | | ✓ | ✓ | 🟡 `Spreadsheet` (`ravenrs-spreadsheet`): opens XLSX, XLS, ODS and CSV and saves XLSX, 500+ functions with recalculation, editing in the cell and the formula bar, pointer and keyboard selection, clipboard, undo, bold, italic, underline, alignment, number formats, column widths, sheet tabs. Planned: every command on a ribbon, frozen panes, charts and pictures on the sheet, conditional formats drawn, fill handle, find |
 
 ## Data

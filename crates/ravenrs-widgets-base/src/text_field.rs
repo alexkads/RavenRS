@@ -465,6 +465,7 @@ struct Step {
     after: Cursor,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Step {
     /// What changed from `old` to `new`: what lies between their common start and end.
     fn between(old: &str, new: &str, before: Cursor, after: Cursor) -> Self {
@@ -541,6 +542,7 @@ enum Run {
 /// assert_eq!(text, "final");
 /// ```
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TextHistory {
     undo: Vec<Step>,
     redo: Vec<Step>,

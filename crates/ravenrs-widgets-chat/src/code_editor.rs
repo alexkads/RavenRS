@@ -438,6 +438,7 @@ struct FindBar {
     writable: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FindBar {
     /// Selects the next match, or the one before.
     fn step(&self) -> impl Fn(bool) + 'static {

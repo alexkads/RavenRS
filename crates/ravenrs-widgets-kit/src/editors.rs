@@ -172,6 +172,7 @@ pub struct CodeLook {
     pub on_go_to: Option<AtIndex>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CodeLook {
     /// A look with nothing but `background`: no colors, numbers, marks or help.
     #[doc(hidden)]

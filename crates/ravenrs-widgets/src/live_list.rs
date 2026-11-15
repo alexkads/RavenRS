@@ -399,6 +399,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Labels::__live_expose_part2(registry);
     crate::UiWaker::__live_expose_fields(registry);
     crate::UiWaker::__live_expose(registry);
+    crate::WindowCloser::__live_expose_fields(registry);
+    crate::WindowCloser::__live_expose(registry);
     crate::ScrollRange::__live_expose_variants(registry);
     crate::ScrollRange::__live_expose(registry);
     crate::ScrollLink::__live_expose_fields(registry);
@@ -442,6 +444,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::TextField::__live_expose_fields(registry);
     crate::TextField::__live_expose(registry);
     crate::Cursor::__live_expose(registry);
+    crate::TextHistory::__live_expose_fields(registry);
+    crate::TextHistory::__live_expose(registry);
     crate::TimeLink::__live_expose_fields(registry);
     crate::TimeLink::__live_expose(registry);
     crate::Turn::__live_expose_variants(registry);
@@ -632,6 +636,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::CodeDiagnostic::__live_expose(registry);
     #[cfg(feature = "code")]
     crate::CodeEditor::__live_expose_fields(registry);
+    #[cfg(feature = "code")]
+    crate::CodeCompletion::__live_expose_fields(registry);
+    #[cfg(feature = "code")]
+    crate::CodeCompletion::__live_expose(registry);
     #[cfg(feature = "code")]
     crate::CodeEditor::__live_expose(registry);
     crate::Attachment::__live_expose_fields(registry);
