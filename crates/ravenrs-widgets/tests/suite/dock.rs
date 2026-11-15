@@ -6,7 +6,7 @@ use super::lists_support;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Brush, Event, Key, Modifiers, Point, PointerButton, Primitive, Role};
+use ravenrs_core::{Border, Brush, Event, Key, Modifiers, Point, PointerButton, Primitive, Rect, Role};
 use ravenrs_layout::{Axis, LayoutStyle};
 use ravenrs_reactive::State;
 use ravenrs_style::{Semantic, Theme};
@@ -64,6 +64,10 @@ fn area(layout: &State<DockLayout>) -> DockArea {
 
 fn dock_ui(layout: &State<DockLayout>) -> Ui {
     ui(area(layout))
+}
+
+fn dock_ui_of(view: DockArea) -> Ui {
+    ui(view)
 }
 
 fn drag_to(ui: &mut Ui, from: Point, to: Point) {
@@ -470,7 +474,7 @@ fn the_arrangement_survives_saving_and_restoring() {
     drag_to(&mut ui, from, to);
     release(&mut ui, to);
     let text = saved.borrow().clone();
-    assert!(text.contains("\"version\": 2"), "{text}");
+    assert!(text.contains("\"version\": 3"), "{text}");
     let restored = DockLayout::parse(&text).expect("it reads");
     assert_eq!(restored, layout.get());
 
@@ -504,7 +508,7 @@ fn an_unknown_id_in_what_was_saved_is_left_out_and_the_rest_goes_on() {
 
 #[test]
 fn a_text_that_cannot_be_read_gives_an_error_not_a_panic() {
-    for text in ["", "ravenrs", "{", "{}", "null", r#"{"version":"x"}"#, r#"{"version":3}"#] {
+    for text in ["", "ravenrs", "{", "{}", "null", r#"{"version":"x"}"#, r#"{"version":4}"#] {
         let error = DockLayout::parse(text).expect_err(text);
         assert!(!error.to_string().is_empty());
     }
@@ -800,4 +804,134 @@ fn the_top_dock_has_its_limits() {
     assert_eq!(layout.get().size(DockSide::Top), 80.0);
     press(&mut ui, Key::End, Modifiers::default());
     assert_eq!(layout.get().size(DockSide::Top), 200.0);
+}
+
+#[test]
+fn the_pin_hides_a_panel_at_the_edge_of_its_dock_with_a_tab_on_a_rail() {
+    let layout = State::new(start());
+    let mut ui = dock_ui(&layout);
+    let photo_before = tab(&mut ui, "Photo").bounds;
+    let pin = center(&named(&mut ui, "Auto-hide Folders"));
+    click_at(&mut ui, pin, Modifiers::default());
+    settle(&mut ui);
+    let now = layout.get();
+    assert!(now.is_auto_hidden("folders"));
+    assert_eq!(now.side_of("search"), Some(DockSide::Left), "the rest of the group stays");
+    let rail = named(&mut ui, "Folders, hidden in the left dock");
+    assert_eq!(rail.role, Role::Button);
+    assert_eq!(rail.expanded, Some(false));
+    assert!(
+        rail.bounds.x() < 1.0 && rail.bounds.width() <= 28.5,
+        "on a rail at the very edge: {:?}",
+        rail.bounds
+    );
+    assert!(rail.bounds.height() > rail.bounds.width(), "the name runs down the rail");
+    assert_eq!(
+        focused_name(&mut ui).as_deref(),
+        Some("Folders, hidden in the left dock"),
+        "focus goes with it"
+    );
+    assert!(has(&mut ui, "Folders, hidden in the left dock"), "and it is said");
+    assert!(tab(&mut ui, "Photo").bounds.x() >= photo_before.x(), "the rail takes its room from the side");
+    assert!(
+        DockLayout::parse(&now.to_text()).expect("it reads").is_auto_hidden("folders"),
+        "and it is saved"
+    );
+}
+
+#[test]
+fn a_click_on_the_rail_opens_the_panel_over_the_rest_and_its_pin_puts_it_back() {
+    let layout = State::new(start());
+    let mut ui = dock_ui(&layout);
+    tab_to(&mut ui, "Folders");
+    let command = if apple_keys() {
+        Modifiers { meta: true, alt: true, ..Modifiers::default() }
+    } else {
+        Modifiers { ctrl: true, alt: true, ..Modifiers::default() }
+    };
+    press(&mut ui, Key::Character("p".into()), command);
+    assert!(layout.get().is_auto_hidden("folders"), "Ctrl+Alt+P hides it");
+    let center_before = tab(&mut ui, "Photo").bounds;
+    let on_rail = center(&named(&mut ui, "Folders, hidden in the left dock"));
+    click_at(&mut ui, on_rail, Modifiers::default());
+    settle(&mut ui);
+    assert_eq!(named(&mut ui, "Folders, hidden in the left dock").expanded, Some(true));
+    assert!(shown(&mut ui).contains(&"folders".to_owned()), "what it shows is built");
+    let open = named(&mut ui, "Folders");
+    assert_eq!(open.role, Role::Group);
+    // As wide as the dock was, with the bar that resizes it, touching the rail.
+    assert_eq!(open.bounds, Rect::new(28.0, 0.0, 280.0 + 10.0, 600.0));
+    assert_eq!(tab(&mut ui, "Photo").bounds, center_before, "over the rest, without moving it");
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Pin Folders"), "focus goes into it");
+    press(&mut ui, Key::Escape, Modifiers::default());
+    settle(&mut ui);
+    assert!(!has(&mut ui, "Pin Folders"), "Escape lets it go back");
+    click_at(&mut ui, on_rail, Modifiers::default());
+    settle(&mut ui);
+    let pin = center(&named(&mut ui, "Pin Folders"));
+    click_at(&mut ui, pin, Modifiers::default());
+    settle(&mut ui);
+    let now = layout.get();
+    assert!(!now.is_auto_hidden("folders"));
+    assert_eq!(now.side_of("folders"), Some(DockSide::Left), "back in its dock");
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Folders"));
+    assert!(has(&mut ui, "Folders pinned"));
+}
+
+#[test]
+fn resting_the_pointer_on_the_rail_opens_the_panel_and_leaving_lets_it_go() {
+    let layout = State::new(start());
+    let mut ui = dock_ui(&layout);
+    ui.set_time(10.0);
+    let pin = center(&named(&mut ui, "Auto-hide Layers"));
+    click_at(&mut ui, pin, Modifiers::default());
+    settle(&mut ui);
+    let on_rail = center(&named(&mut ui, "Layers, hidden in the right dock"));
+    ui.handle_event(&Event::PointerMove { position: on_rail });
+    ui.update();
+    assert!(!has(&mut ui, "Pin Layers"), "not at once");
+    assert_eq!(ui.next_wake(), Some(10.4));
+    ui.set_time(10.4);
+    ui.update();
+    ui.update();
+    assert!(has(&mut ui, "Pin Layers"), "after a moment of rest");
+    ui.handle_event(&Event::PointerMove { position: Point::new(300.0, 300.0) });
+    ui.update();
+    ui.update();
+    assert!(has(&mut ui, "Pin Layers"), "not at once either");
+    ui.set_time(11.1);
+    ui.update();
+    ui.update();
+    assert!(!has(&mut ui, "Pin Layers"), "a moment after the pointer left");
+}
+
+#[test]
+fn the_app_can_refuse_hiding_and_the_center_has_no_pin() {
+    let layout = State::new(start());
+    let (view, asked, _) = guarded(&layout, |c| matches!(c, DockChange::AutoHide { .. }));
+    let mut ui = ui(view);
+    assert!(!has(&mut ui, "Auto-hide Photo"), "the center has no edge to hide at");
+    let pin = center(&named(&mut ui, "Auto-hide Log"));
+    click_at(&mut ui, pin, Modifiers::default());
+    settle(&mut ui);
+    assert_eq!(*asked.borrow(), [DockChange::AutoHide { panel: "log".into() }]);
+    assert!(!layout.get().is_auto_hidden("log"));
+    assert_eq!(refusals(&mut ui), ["Not now"]);
+    let off = State::new(start());
+    let mut without = dock_ui_of(area(&off).auto_hide(false));
+    assert!(!has(&mut without, "Auto-hide Folders"), "an app can leave it out");
+}
+
+#[test]
+fn the_arrows_walk_the_tabs_of_a_rail() {
+    let mut start = start();
+    assert!(start.auto_hide("folders"));
+    assert!(start.auto_hide("search"));
+    let layout = State::new(start);
+    let mut ui = dock_ui(&layout);
+    tab_to(&mut ui, "Folders, hidden in the left dock");
+    press(&mut ui, Key::ArrowDown, Modifiers::default());
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Search, hidden in the left dock"));
+    press(&mut ui, Key::ArrowUp, Modifiers::default());
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Folders, hidden in the left dock"));
 }

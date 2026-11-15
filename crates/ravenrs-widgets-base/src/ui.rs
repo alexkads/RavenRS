@@ -1532,7 +1532,8 @@ impl Ui {
             let size = self.layout.frame(self.elements[overlay.root.0 as usize].layout).map(|f| f.size);
             let size = size.unwrap_or(Size::ZERO);
             let anchor = self.frames.get(overlay.anchor.0 as usize).copied().unwrap_or(Rect::ZERO);
-            let origin = overlay_origin(overlay.placement, anchor, size, overlay.gap, self.viewport);
+            let origin =
+                overlay_origin(overlay.placement, anchor, size, overlay.gap, overlay.margin, self.viewport);
             self.place(overlay.root, origin);
         }
         self.overlays = overlays;
@@ -1984,7 +1985,14 @@ fn reveal_offset(offset: f32, target: (f32, f32), view: (f32, f32), max: f32) ->
 /// How far a layer in a corner of the window keeps from its edges.
 const VIEWPORT_MARGIN: f32 = 16.0;
 
-fn overlay_origin(placement: Placement, anchor: Rect, size: Size, gap: f32, viewport: Size) -> Point {
+fn overlay_origin(
+    placement: Placement,
+    anchor: Rect,
+    size: Size,
+    gap: f32,
+    margin: f32,
+    viewport: Size,
+) -> Point {
     let mut p = match placement {
         Placement::Below => Point::new(anchor.x(), anchor.max_y() + gap),
         Placement::Above => Point::new(anchor.x(), anchor.y() - gap - size.height),
@@ -2026,8 +2034,8 @@ fn overlay_origin(placement: Placement, anchor: Rect, size: Size, gap: f32, view
     if matches!(placement, Placement::Above | Placement::AboveCenter) && p.y < 0.0 {
         p.y = anchor.max_y() + gap;
     }
-    p.x = p.x.clamp(4.0, (viewport.width - size.width - 4.0).max(4.0));
-    p.y = p.y.clamp(4.0, (viewport.height - size.height - 4.0).max(4.0));
+    p.x = p.x.clamp(margin, (viewport.width - size.width - margin).max(margin));
+    p.y = p.y.clamp(margin, (viewport.height - size.height - margin).max(margin));
     p
 }
 

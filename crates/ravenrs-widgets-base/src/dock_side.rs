@@ -68,6 +68,26 @@ impl Labels {
         self.dock_resize.replace("{place}", &self.dock_place_lower(side))
     }
 
+    /// The name of the button that hides a panel at the edge of its dock.
+    pub fn dock_auto_hide_name(&self, title: &str) -> String {
+        self.dock_auto_hide.replace("{title}", title)
+    }
+
+    /// The name of the button that puts a hidden panel back in its dock.
+    pub fn dock_pin_name(&self, title: &str) -> String {
+        self.dock_pin.replace("{title}", title)
+    }
+
+    /// A hidden panel on its rail, and what is said as it hides.
+    pub fn dock_hidden_name(&self, title: &str, side: DockSide) -> String {
+        self.dock_hidden.replace("{title}", title).replace("{place}", &self.dock_place_lower(side))
+    }
+
+    /// What is said as a hidden panel goes back in its dock.
+    pub fn dock_pinned_name(&self, title: &str) -> String {
+        self.dock_pinned.replace("{title}", title)
+    }
+
     /// What is announced after a panel went to a place.
     pub fn dock_moved_to(&self, side: DockSide) -> String {
         self.dock_moved.replace("{place}", &self.dock_place_lower(side))

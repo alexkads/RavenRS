@@ -14,6 +14,7 @@ use ravenrs_style::{Semantic, TextStyle};
 use super::geometry::{self, Arranged, BarKind, BarPlace, DropAim, GroupPlace, Metrics};
 use super::layout::{DockChange, DockDrop, DockEdge, DockLayout, DockSide};
 use crate::commands::menu_trigger;
+use crate::context::Placement;
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, QuadPaint, Semantics};
 use crate::overlay::Entry;
 use crate::reorder;
@@ -21,7 +22,8 @@ use crate::stack::ScrollEdgeArrow;
 use crate::util::{self, FocusTarget, Roving};
 use crate::view::{AnyView, Keyed, View};
 use crate::{
-    Button, ButtonSize, ButtonStyle, ContextMenu, IconButton, IconName, Labels, MenuItem, SplitHandle,
+    Button, ButtonSize, ButtonStyle, ContextMenu, IconButton, IconName, Labels, MenuItem, QuarterTurn,
+    SplitHandle, Text, Turn,
 };
 
 const TAB_HEIGHT: f32 = 32.0;
@@ -33,6 +35,15 @@ const KEY_PANEL: u8 = 1;
 const KEY_STRIP: u8 = 2;
 const KEY_BAR: u8 = 3;
 const KEY_TOGGLE: u8 = 4;
+const KEY_RAIL: u8 = 5;
+const KEY_RAIL_TAB: u8 = 6;
+/// How long the pointer rests on a tab of a rail before its panel opens, in seconds.
+const HOVER_OPEN: f64 = 0.4;
+/// How long after the pointer leaves a panel it opened that the panel goes back, in seconds.
+const HOVER_CLOSE: f64 = 0.6;
+/// The least a hidden panel opens to, and what it leaves of the area at the most.
+const OPEN_MIN: f32 = 160.0;
+const OPEN_MARGIN: f32 = 48.0;
 
 /// How long the reason of a refusal shows, in seconds, unless another gesture comes first.
 const NOTICE_SECONDS: f64 = 4.0;
@@ -143,6 +154,7 @@ pub struct DockArea {
     height: Option<f32>,
     metrics: Metrics,
     movable: bool,
+    auto_hide: bool,
     tab_bar: DockTabBar,
     on_end: Option<OnEnd>,
     guard: Option<DockGuard>,
@@ -179,6 +191,7 @@ impl DockArea {
                 pane_min: 100.0,
             },
             movable: true,
+            auto_hide: true,
             tab_bar: DockTabBar::Always,
             on_end: None,
             guard: None,
@@ -221,6 +234,15 @@ impl DockArea {
     /// put them, and only the sizes, the docks and closing are left.
     pub fn movable(mut self, movable: bool) -> Self {
         self.movable = movable;
+        self
+    }
+
+    /// Whether the panels of the docks can hide at the edge of their dock (they can by default):
+    /// a pin at the end of each strip of a dock, "Auto-hide" in the menu of its panels, and
+    /// Ctrl+Alt+P (Cmd+Alt+P on a Mac). A hidden panel is a tab on a rail at that edge, which opens
+    /// it over the rest, and its pin puts it back.
+    pub fn auto_hide(mut self, on: bool) -> Self {
+        self.auto_hide = on;
         self
     }
 
@@ -347,6 +369,13 @@ struct Notice {
     since: Rc<Cell<Option<f64>>>,
 }
 
+/// The hidden panel open over the rest, and whether the pointer opened it by resting on its tab.
+#[derive(Clone, Debug, PartialEq)]
+struct Opened {
+    panel: String,
+    by_hover: bool,
+}
+
 /// What the parts of the area change the arrangement through.
 #[derive(Clone)]
 struct Actions {
@@ -360,6 +389,12 @@ struct Actions {
     spoken: State<String>,
     /// The panel whose tab takes focus when it is next built.
     focus: Rc<RefCell<Option<String>>>,
+    /// The hidden panel open over the rest.
+    opened: State<Option<Opened>>,
+    /// Whether focus goes into the panel that opens next.
+    focus_open: Rc<Cell<bool>>,
+    /// The tab of a rail the pointer is on.
+    hover_tab: Rc<RefCell<Option<String>>>,
     labels: Rc<Labels>,
 }
 
@@ -402,7 +437,9 @@ impl Actions {
             DockChange::Activate { panel }
             | DockChange::Move { panel, .. }
             | DockChange::Close { panel }
-            | DockChange::Reopen { panel } => Some(panel),
+            | DockChange::Reopen { panel }
+            | DockChange::AutoHide { panel }
+            | DockChange::Pin { panel } => Some(panel),
             _ => None,
         };
         let tab = panel.and_then(|panel| self.frames.tabs.borrow().get(panel).copied());
@@ -475,6 +512,55 @@ impl Actions {
             *self.focus.borrow_mut() = Some(id.to_owned());
         }
     }
+
+    /// Hides a panel at the edge of its dock, with focus going to its tab on the rail.
+    fn hide(&self, id: &str, title: &str) -> bool {
+        let side = self.layout.get().side_of(id);
+        let hidden = self.apply(DockChange::AutoHide { panel: id.to_owned() }, |layout| layout.auto_hide(id));
+        if hidden {
+            *self.focus.borrow_mut() = Some(id.to_owned());
+            if let Some(side) = side {
+                self.spoken.set(self.labels.dock_hidden_name(title, side));
+            }
+        }
+        hidden
+    }
+
+    /// Puts a hidden panel back in its dock, with focus on its tab there.
+    fn pin(&self, id: &str, title: &str) -> bool {
+        let pinned = self.apply(DockChange::Pin { panel: id.to_owned() }, |layout| layout.pin(id));
+        if pinned {
+            self.opened.set(None);
+            *self.focus.borrow_mut() = Some(id.to_owned());
+            self.spoken.set(self.labels.dock_pinned_name(title));
+        }
+        pinned
+    }
+
+    /// Opens a hidden panel over the rest, or lets it go back when it already shows.
+    fn toggle_open(&self, id: &str) {
+        if self.opened.peek().as_ref().is_some_and(|open| open.panel == id) {
+            self.opened.set(None);
+        } else {
+            self.forget_notice();
+            self.focus_open.set(true);
+            self.opened.set(Some(Opened { panel: id.to_owned(), by_hover: false }));
+        }
+    }
+}
+
+/// Whether the key is the one that hides a panel or pins it back: Ctrl+Alt+P, or Cmd+Alt+P on a
+/// Mac. With Alt, the P may come as another character, so the key without it counts too.
+fn pin_key(key: &Key, modifiers: Modifiers) -> bool {
+    let command = if crate::apple_keys() { modifiers.meta } else { modifiers.ctrl };
+    let is_p = matches!(key, Key::Character(c) if c.eq_ignore_ascii_case("p"))
+        || modifiers.base_key.is_some_and(|c| c.eq_ignore_ascii_case(&'p'));
+    command && modifiers.alt && !modifiers.shift && is_p
+}
+
+/// Whether a panel can hide at the edge of where it is: only in a dock.
+fn can_hide(area: &DockArea, layout: &DockLayout, id: &str) -> bool {
+    area.auto_hide && layout.side_of(id).is_some_and(|side| DockSide::DOCKS.contains(&side))
 }
 
 /// The items of a panel's menu.
@@ -521,6 +607,12 @@ fn panel_items(
             }
             items.push(item);
         }
+    }
+    if can_hide(area, layout, id) {
+        let (actions, id, title) = (actions.clone(), id.to_owned(), area.title_of(id).to_owned());
+        items.push(MenuItem::new(labels.dock_auto_hide_item.clone()).on_select(move || {
+            actions.hide(&id, &title);
+        }));
     }
     if area.panel(id).is_some_and(|panel| panel.closable) {
         let (actions, id, title) = (actions.clone(), id.to_owned(), area.title_of(id).to_owned());
@@ -721,9 +813,14 @@ impl View for TabView<'_> {
         let (actions, called_off, closable) = (self.actions.clone(), self.drag.clone(), panel.closable);
         let title = panel.title.clone();
         let key_id = id.clone();
+        let hides = can_hide(self.area, &self.actions.layout.get(), &id);
         let before: crate::KeyHandler = Rc::new(move |key, modifiers| {
             if *key == Key::Escape && called_off.peek().is_some() {
                 called_off.set(None);
+                return true;
+            }
+            if hides && pin_key(key, modifiers) {
+                actions.hide(&key_id, &title);
                 return true;
             }
             if *key == Key::Delete && closable {
@@ -852,6 +949,18 @@ impl View for Strip<'_> {
         cx.semantics(tabs, Semantics::new(Role::TabList).name(labels.dock_tabs_name.clone()));
         let mut nodes = vec![tabs];
         let shown = self.group.panels.get(self.group.active).map(String::as_str).unwrap_or_default();
+        if can_hide(self.area, self.layout, shown) {
+            let title = self.area.title_of(shown).to_owned();
+            let (actions, id, named) = (self.actions.clone(), shown.to_owned(), title.clone());
+            let pin = IconButton::new(IconName::Pin)
+                .label(labels.dock_auto_hide_name(&title))
+                .style(ButtonStyle::Ghost)
+                .size(ButtonSize::Mini)
+                .on_click(move || {
+                    actions.hide(&id, &named);
+                });
+            nodes.push(cx.child(&pin));
+        }
         let items = panel_items(self.area, self.layout, self.arranged, self.actions, shown);
         if !items.is_empty() {
             let entries: Vec<Entry> = items.into_iter().map(Entry::Item).collect();
@@ -1006,6 +1115,10 @@ impl View for DockArea {
             self.layout.set(layout.clone());
         }
         let notice: State<Option<Notice>> = cx.use_state(|| None);
+        let opened: State<Option<Opened>> = cx.use_state(|| None);
+        let focus_open: Rc<Cell<bool>> = cx.use_state(|| Rc::new(Cell::new(false))).peek().clone();
+        let hover_tab: Rc<RefCell<Option<String>>> =
+            cx.use_state(|| Rc::new(RefCell::new(None))).peek().clone();
         let resizing: Rc<RefCell<Option<DockLayout>>> =
             cx.use_state(|| Rc::new(RefCell::new(None))).peek().clone();
         let actions = Actions {
@@ -1017,6 +1130,9 @@ impl View for DockArea {
             resizing,
             spoken: spoken.clone(),
             focus,
+            opened: opened.clone(),
+            focus_open,
+            hover_tab,
             labels: labels.clone(),
         };
         // Known from the second build on; until then the window is the best guess there is.
@@ -1041,6 +1157,23 @@ impl View for DockArea {
             };
             nodes.push(cx.keyed_child(key_of(KEY_TOGGLE, labels.dock_place(*side)), &toggle));
         }
+        let mut rails = Vec::with_capacity(arranged.rails.len());
+        for (side, rect) in &arranged.rails {
+            let rail = Rail {
+                area: self,
+                side: *side,
+                rect: *rect,
+                layout: &layout,
+                actions: &actions,
+                frames: &frames,
+                drag: &drag,
+                arranged: &arranged,
+            };
+            let node = cx.keyed_child(key_of(KEY_RAIL, labels.dock_place(*side)), &rail);
+            nodes.push(node);
+            rails.push((*side, node, *rect));
+        }
+        self.open_hidden(cx, &layout, &actions, &rails, size);
         if layout.node(DockSide::Center).is_none() {
             let empty = EmptyCenter { area: self, layout: &layout, actions: &actions, rect: arranged.center };
             nodes.push(cx.child(&empty));
@@ -1101,6 +1234,49 @@ impl View for DockArea {
 
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl DockArea {
+    /// The hidden panel that is open, over the rest beside its rail, if it is still hidden.
+    fn open_hidden(
+        &self,
+        cx: &mut BuildCx<'_>,
+        layout: &DockLayout,
+        actions: &Actions,
+        rails: &[(DockSide, NodeId, Rect)],
+        size: Size,
+    ) {
+        let Some(open) = actions.opened.get() else { return };
+        let side = layout.auto_hidden_side(&open.panel);
+        let rail = side.and_then(|side| rails.iter().find(|(s, ..)| *s == side));
+        let (Some(side), Some((_, anchor, rect)), Some(width)) =
+            (side, rail, layout.auto_hidden_size(&open.panel))
+        else {
+            actions.opened.set(None);
+            return;
+        };
+        let (length, room) = match side {
+            DockSide::Top | DockSide::Bottom => (rect.width(), size.height),
+            _ => (rect.height(), size.width),
+        };
+        let most = (room - OPEN_MARGIN).max(OPEN_MIN);
+        let placement = match side {
+            DockSide::Right => Placement::LeftStart,
+            DockSide::Top => Placement::Below,
+            DockSide::Bottom => Placement::Above,
+            _ => Placement::Right,
+        };
+        let open_panel = OpenPanel {
+            area: self,
+            id: open.panel.clone(),
+            side,
+            size: width.clamp(OPEN_MIN, most),
+            length,
+            most,
+            by_hover: open.by_hover,
+            actions: actions.clone(),
+        };
+        let opened = actions.opened.clone();
+        cx.flush_overlay(*anchor, placement, &open_panel, Some(Rc::new(move || opened.set(None))));
+    }
+
     #[allow(clippy::too_many_arguments, reason = "the parts of one build, private to it")]
     fn build_group(
         &self,
@@ -1184,6 +1360,315 @@ impl DockArea {
         // The bar stretches across its stack, so the stack goes the way the bar's own axis does.
         let style = LayoutStyle { axis: Some(bar.axis), ..placed(bar.rect) };
         cx.container(style, &[handle], Paint::None)
+    }
+}
+
+/// The rail at the edge of a dock, with a tab for each panel hidden there.
+struct Rail<'a> {
+    area: &'a DockArea,
+    side: DockSide,
+    rect: Rect,
+    layout: &'a DockLayout,
+    actions: &'a Actions,
+    frames: &'a Rc<Frames>,
+    drag: &'a State<Option<TabDrag>>,
+    arranged: &'a Rc<Arranged>,
+}
+
+impl View for Rail<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let labels = cx.labels();
+        let panels = self.layout.auto_hidden_panels(self.side);
+        let focus_to = util::roving_cell(cx, None);
+        let count = panels.len();
+        let tabs: Vec<Keyed<RailTab<'_>>> = panels
+            .iter()
+            .enumerate()
+            .map(|(index, id)| {
+                let roving = Roving { index, count, focus_to: focus_to.clone() };
+                Keyed::new(key_of(KEY_RAIL_TAB, id), RailTab { rail: self, id: (*id).to_owned(), roving })
+            })
+            .collect();
+        let tabs: Vec<NodeId> = tabs.iter().map(|tab| cx.child(tab)).collect();
+        let across = matches!(self.side, DockSide::Top | DockSide::Bottom);
+        let style = LayoutStyle {
+            spacing: theme.spacing.s1,
+            padding: if across {
+                Insets { top: 0.0, bottom: 0.0, left: theme.spacing.s2, right: theme.spacing.s2 }
+            } else {
+                Insets { top: theme.spacing.s2, bottom: theme.spacing.s2, left: 0.0, right: 0.0 }
+            },
+            align: Align::Stretch,
+            ..LayoutStyle {
+                axis: Some(if across { Axis::Horizontal } else { Axis::Vertical }),
+                ..placed(self.rect)
+            }
+        };
+        let node = cx.container(style, &tabs, Paint::Quad(QuadPaint::new(theme.color(Semantic::Canvas))));
+        cx.semantics(node, Semantics::new(Role::Toolbar).name(labels.dock_place(self.side).to_owned()));
+        node
+    }
+}
+
+/// The tab of a hidden panel on its rail: a click opens the panel over the rest, and so does the
+/// pointer resting on it.
+struct RailTab<'a> {
+    rail: &'a Rail<'a>,
+    id: String,
+    roving: Roving,
+}
+
+impl View for RailTab<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let labels = cx.labels();
+        let (rail, id) = (self.rail, self.id.clone());
+        let actions = rail.actions;
+        let title = rail.area.title_of(&id).to_owned();
+        let on = actions.opened.get().is_some_and(|open| open.panel == id);
+        let hovered = cx.is_hovered();
+        // Resting on it opens it; leaving forgets when it started.
+        let since: Rc<Cell<Option<f64>>> = cx.use_state(|| Rc::new(Cell::new(None))).peek().clone();
+        if hovered {
+            *actions.hover_tab.borrow_mut() = Some(id.clone());
+            let now = cx.now();
+            let start = since.get().unwrap_or_else(|| {
+                since.set(Some(now));
+                now
+            });
+            if !on && actions.opened.peek().is_none() {
+                if now >= start + HOVER_OPEN {
+                    actions.opened.set(Some(Opened { panel: id.clone(), by_hover: true }));
+                } else {
+                    cx.wake_at(start + HOVER_OPEN);
+                }
+            }
+        } else {
+            since.set(None);
+            let mut tab = actions.hover_tab.borrow_mut();
+            if tab.as_deref() == Some(id.as_str()) {
+                *tab = None;
+            }
+        }
+        let across = matches!(rail.side, DockSide::Top | DockSide::Bottom);
+        let words = Text::new(title.clone()).style(TextStyle::Callout);
+        let words =
+            if across { cx.child(&words) } else { cx.child(&QuarterTurn::new(words, Turn::Clockwise)) };
+        cx.semantics(words, Semantics::hidden());
+        let accent = theme.color(Semantic::Accent);
+        let fill = if on || hovered { theme.color(Semantic::Surface) } else { Color::TRANSPARENT };
+        let side = rail.side;
+        let (frames, recorded) = (rail.frames.clone(), id.clone());
+        let radius = theme.radii.sm;
+        let node = cx.container(
+            LayoutStyle {
+                padding: if across {
+                    Insets::symmetric(0.0, theme.spacing.s3)
+                } else {
+                    Insets::symmetric(theme.spacing.s3, 0.0)
+                },
+                align: Align::Center,
+                justify: Justify::Center,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[words],
+            Paint::Custom(Rc::new(move |frame, scene| {
+                frames.tabs.borrow_mut().insert(recorded.clone(), frame);
+                if fill.a > 0.0 {
+                    scene.push_quad(Quad::new(frame, fill).radius(radius));
+                }
+                if on {
+                    // A line on the side that faces the panel it opens.
+                    let line = match side {
+                        DockSide::Right => Rect::new(frame.x(), frame.y(), 2.0, frame.height()),
+                        DockSide::Top => Rect::new(frame.x(), frame.max_y() - 2.0, frame.width(), 2.0),
+                        DockSide::Bottom => Rect::new(frame.x(), frame.y(), frame.width(), 2.0),
+                        _ => Rect::new(frame.max_x() - 2.0, frame.y(), 2.0, frame.height()),
+                    };
+                    scene.push_quad(Quad::new(line, accent));
+                }
+            })),
+        );
+        let (toggler, opened) = (actions.clone(), id.clone());
+        cx.on_click(node, Rc::new(move || toggler.toggle_open(&opened)));
+        cx.cursor(node, CursorIcon::Pointer);
+        cx.focusable(node, radius);
+        cx.semantics(
+            node,
+            Semantics::new(Role::Button).name(labels.dock_hidden_name(&title, side)).expanded(on),
+        );
+        if actions.focus.borrow().as_deref() == Some(id.as_str()) {
+            actions.focus.borrow_mut().take();
+            cx.request_focus_node(node);
+        }
+        if rail.area.movable {
+            let context = DragContext {
+                actions: actions.clone(),
+                state: rail.drag.clone(),
+                frames: rail.frames.clone(),
+                arranged: rail.arranged.clone(),
+                tab_bar: rail.area.tab_bar,
+            };
+            cx.on_drag(node, context.handler(id.clone()));
+        }
+        let (pinner, pinned) = (actions.clone(), id);
+        let before: crate::KeyHandler = Rc::new(move |key, modifiers| {
+            if pin_key(key, modifiers) {
+                pinner.pin(&pinned, &title);
+                return true;
+            }
+            false
+        });
+        self.roving.wire_with(cx, node, None, Some(before));
+        node
+    }
+}
+
+/// A hidden panel open over the rest, beside its rail: its name, the pin that puts it back, what
+/// it shows, and the edge that resizes it.
+struct OpenPanel<'a> {
+    area: &'a DockArea,
+    id: String,
+    side: DockSide,
+    /// How deep it opens, away from its rail.
+    size: f32,
+    /// How long it is, along its rail.
+    length: f32,
+    most: f32,
+    by_hover: bool,
+    actions: Actions,
+}
+
+impl View for OpenPanel<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let labels = cx.labels();
+        let (id, side, actions) = (self.id.clone(), self.side, &self.actions);
+        let title = self.area.title_of(&id).to_owned();
+        // Opened by the pointer resting on its tab, it goes back a moment after the pointer leaves
+        // both.
+        if self.by_hover {
+            let left_at: Rc<Cell<Option<f64>>> = cx.use_state(|| Rc::new(Cell::new(None))).peek().clone();
+            let inside = cx.is_hover_within() || actions.hover_tab.borrow().as_deref() == Some(id.as_str());
+            if inside {
+                left_at.set(None);
+            } else {
+                let now = cx.now();
+                let start = left_at.get().unwrap_or_else(|| {
+                    left_at.set(Some(now));
+                    now
+                });
+                if now >= start + HOVER_CLOSE {
+                    actions.opened.set(None);
+                } else {
+                    cx.wake_at(start + HOVER_CLOSE);
+                }
+            }
+        }
+        let attrs = util::attrs(&theme, TextStyle::Callout, Some(ravenrs_style::Weight::SEMIBOLD));
+        let name = cx.text(&title, &attrs, theme.color(Semantic::Ink), LayoutStyle::leaf());
+        let room = cx.container(LayoutStyle { grow: 1.0, ..LayoutStyle::leaf() }, &[], Paint::None);
+        let (pinner, pinned, named) = (actions.clone(), id.clone(), title.clone());
+        let pin = IconButton::new(IconName::PinOff)
+            .label(labels.dock_pin_name(&title))
+            .style(ButtonStyle::Ghost)
+            .size(ButtonSize::Mini)
+            .on_click(move || {
+                pinner.pin(&pinned, &named);
+            });
+        let pin = cx.child(&pin);
+        if actions.focus_open.replace(false) && !self.by_hover {
+            cx.request_focus_node(pin);
+        }
+        let header = cx.container(
+            LayoutStyle {
+                height: Some(TAB_HEIGHT),
+                align: Align::Center,
+                spacing: theme.spacing.s1,
+                padding: Insets { top: 0.0, bottom: 0.0, left: theme.spacing.s3, right: theme.spacing.s1 },
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &[name, room, pin],
+            Paint::Quad(QuadPaint::new(theme.color(Semantic::Surface))),
+        );
+        let content = (self.area.content)(&id);
+        let content = cx.keyed_child(key_of(KEY_PANEL, &id), content.as_ref());
+        let body = cx.container(
+            LayoutStyle {
+                grow: 1.0,
+                height: Some(0.0),
+                min_height: Some(0.0),
+                min_width: Some(0.0),
+                align: Align::Stretch,
+                overflow_hidden: true,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[content],
+            Paint::None,
+        );
+        cx.clip(body);
+        let column = cx.container(
+            LayoutStyle {
+                grow: 1.0,
+                min_width: Some(0.0),
+                min_height: Some(0.0),
+                align: Align::Stretch,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[header, body],
+            Paint::None,
+        );
+        let across = matches!(side, DockSide::Top | DockSide::Bottom);
+        let (writer, sized) = (actions.clone(), id.clone());
+        let value = self.size;
+        let binding = Binding::new(
+            move || value,
+            move |next: f32| writer.resize(|layout| layout.set_auto_hidden_size(&sized, next)),
+        );
+        let mut handle = SplitHandle::new(if across { Axis::Vertical } else { Axis::Horizontal }, binding)
+            .range(OPEN_MIN, self.most)
+            .label(labels.dock_resize_name(side));
+        if matches!(side, DockSide::Right | DockSide::Bottom) {
+            handle = handle.inverted();
+        }
+        let settler = actions.clone();
+        let handle = cx.child(&handle.on_end(move || settler.settle_resize(side)));
+        let parts = match side {
+            DockSide::Right | DockSide::Bottom => [handle, column],
+            _ => [column, handle],
+        };
+        let deep = self.size + crate::extras::SPLIT_BAR;
+        let (width, height) = if across { (self.length, deep) } else { (deep, self.length) };
+        let node = cx.container(
+            LayoutStyle {
+                width: Some(width),
+                height: Some(height),
+                align: Align::Stretch,
+                ..LayoutStyle::stack(if across { Axis::Vertical } else { Axis::Horizontal })
+            },
+            &parts,
+            Paint::Quad(QuadPaint {
+                border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
+                shadow: Some(theme.elevation.raised),
+                ..QuadPaint::new(theme.color(Semantic::Surface))
+            }),
+        );
+        cx.clip(node);
+        cx.semantics(node, Semantics::new(Role::Group).name(title.clone()));
+        let (pinner, pinned) = (actions.clone(), id);
+        cx.on_key(
+            node,
+            Rc::new(move |key, modifiers| {
+                if pin_key(key, modifiers) {
+                    pinner.pin(&pinned, &title);
+                    return true;
+                }
+                false
+            }),
+        );
+        node
     }
 }
 

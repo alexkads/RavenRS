@@ -15,6 +15,9 @@ const BORDER_ZONE: f32 = 28.0;
 /// How close to the top a drop opens the top dock. Much thinner than the other borders: the tabs of
 /// the groups at the top lie under it, and dropping among them has to keep working.
 const TOP_ZONE: f32 = 4.0;
+/// How thick the rail is where the panels hidden at the edge of a dock have their tabs.
+#[doc(hidden)]
+pub const RAIL: f32 = 28.0;
 /// How thick the line that marks a gap between tabs is.
 const GAP_LINE: f32 = 2.0;
 
@@ -94,6 +97,8 @@ pub struct Arranged {
     pub bars: Vec<BarPlace>,
     /// The strips that collapse the docks.
     pub toggles: Vec<(DockSide, Rect)>,
+    /// The rails at the edge of the docks that have panels hidden there.
+    pub rails: Vec<(DockSide, Rect)>,
     /// What the center gets, whatever is in it.
     pub center: Rect,
     /// Where each dock that holds nothing or is collapsed would go, for a drop that opens it.
@@ -250,8 +255,18 @@ pub fn arrange(layout: &DockLayout, size: Size, metrics: &Metrics) -> Arranged {
     let mut y1 = size.height;
     let toggle = metrics.toggle;
     let toggles = |side| has(side) && toggle > 0.0;
+    let rails = |side| !layout.auto_hidden_panels(side).is_empty();
+    // The rails go outermost, then the strips, then the docks.
+    if rails(DockSide::Left) {
+        out.rails.push((DockSide::Left, Rect::new(0.0, 0.0, RAIL, size.height)));
+        x0 += RAIL;
+    }
+    if rails(DockSide::Right) {
+        x1 -= RAIL;
+        out.rails.push((DockSide::Right, Rect::new(x1, 0.0, RAIL, size.height)));
+    }
     if toggles(DockSide::Left) {
-        out.toggles.push((DockSide::Left, Rect::new(0.0, 0.0, toggle, size.height)));
+        out.toggles.push((DockSide::Left, Rect::new(x0, 0.0, toggle, size.height)));
         x0 += toggle;
     }
     if toggles(DockSide::Right) {
@@ -315,8 +330,16 @@ pub fn arrange(layout: &DockLayout, size: Size, metrics: &Metrics) -> Arranged {
     }
     let middle = (x1 - x0).max(0.0);
     let mut y0 = 0.0;
+    if rails(DockSide::Top) {
+        out.rails.push((DockSide::Top, Rect::new(x0, 0.0, middle, RAIL)));
+        y0 += RAIL;
+    }
+    if rails(DockSide::Bottom) {
+        y1 -= RAIL;
+        out.rails.push((DockSide::Bottom, Rect::new(x0, y1, middle, RAIL)));
+    }
     if toggles(DockSide::Top) {
-        out.toggles.push((DockSide::Top, Rect::new(x0, 0.0, middle, toggle)));
+        out.toggles.push((DockSide::Top, Rect::new(x0, y0, middle, toggle)));
         y0 += toggle;
     }
     if toggles(DockSide::Bottom) {
@@ -566,6 +589,23 @@ mod tests {
         let size = |side| arranged.bars.iter().find(|b| b.kind == BarKind::Dock(side)).expect("a bar").value;
         assert_eq!(size(DockSide::Bottom), 150.0, "the bottom keeps what it asked for");
         assert!(size(DockSide::Top) < 300.0, "the top gives way");
+    }
+
+    #[test]
+    fn a_rail_takes_the_outer_edge_of_a_dock_with_hidden_panels() {
+        let mut layout = full().left(DockNode::tabs(["d", "h"]), 200.0);
+        assert!(layout.auto_hide("h"));
+        let arranged = arrange(&layout, Size::new(1000.0, 700.0), &METRICS);
+        assert_eq!(arranged.rails, [(DockSide::Left, Rect::new(0.0, 0.0, RAIL, 700.0))]);
+        let strip = arranged.toggles.iter().find(|(side, _)| *side == DockSide::Left).expect("its strip");
+        assert_eq!(strip.1.x(), RAIL, "the strip comes after the rail");
+        let left = arranged.groups.iter().find(|g| g.panels == ["d"]).expect("the left dock");
+        assert_eq!(left.rect.x(), RAIL + 12.0);
+        assert!(layout.auto_hide("f"));
+        let arranged = arrange(&layout, Size::new(1000.0, 700.0), &METRICS);
+        let bottom = arranged.rails.iter().find(|(side, _)| *side == DockSide::Bottom).expect("a rail below");
+        assert_eq!(bottom.1.max_y(), 700.0);
+        assert_eq!(bottom.1.height(), RAIL);
     }
 
     #[test]
