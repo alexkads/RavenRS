@@ -140,6 +140,7 @@ catalog! {
     "ChartReference" => data,
     "SankeyChart" => data,
     "FlowCanvas" => data,
+    "PatchPanel" => data,
     "ChartCard" => data,
     "BarChart" => data,
     "AreaChart" => data,
