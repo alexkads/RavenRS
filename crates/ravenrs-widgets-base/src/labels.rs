@@ -159,6 +159,16 @@ pub struct Labels {
     pub dock_hidden: String,
     /// What is said as a hidden panel of a `DockArea` goes back in its dock, with `{title}`.
     pub dock_pinned: String,
+    /// The menu item that lifts a panel of a `DockArea` out to float over the area.
+    pub dock_float_item: String,
+    /// What is said as a panel of a `DockArea` floats, and what its box is called, with `{title}`.
+    pub dock_floating: String,
+    /// The button that puts a floating panel of a `DockArea` back, with `{title}`.
+    pub dock_dock_back: String,
+    /// The header of a floating panel of a `DockArea`, which moves it, with `{title}`.
+    pub dock_move_floating: String,
+    /// An edge or a corner that resizes a floating panel of a `DockArea`, with `{title}`.
+    pub dock_resize_floating: String,
     /// The center of a `DockArea`, in a menu.
     pub dock_center: String,
     /// The item of a `DockArea`'s menu that opens where a panel can go.
@@ -1003,6 +1013,11 @@ impl Labels {
             dock_pin: texts.get("widgets.dock_pin"),
             dock_hidden: texts.get("widgets.dock_hidden"),
             dock_pinned: texts.get("widgets.dock_pinned"),
+            dock_float_item: texts.get("widgets.dock_float_item"),
+            dock_floating: texts.get("widgets.dock_floating"),
+            dock_dock_back: texts.get("widgets.dock_dock_back"),
+            dock_move_floating: texts.get("widgets.dock_move_floating"),
+            dock_resize_floating: texts.get("widgets.dock_resize_floating"),
             dock_center: texts.get("widgets.dock_center"),
             dock_move_to: texts.get("widgets.dock_move_to"),
             dock_with: texts.get("widgets.dock_with"),
