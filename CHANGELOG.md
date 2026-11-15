@@ -106,6 +106,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- Raven Code finds the errors rust-analyzer reports: it looks for rust-analyzer with the toolchain of the project's folder, as rustup picks it, names files by their real path (a Mac's temporary folder is reached through a link), and answers the server's question for settings. ([#524](https://github.com/alexkads/RavenRS/issues/524))
 - `QuarterTurn` keeps a name on one line in a strip narrower than it: it is measured lying down in a room wide enough for it, so "Server Explorer" on a 28-pixel rail no longer breaks in two.
 - A window arranged for a counter (`App::counter`, `CounterTemplate`) has no Cmd/Ctrl+K palette of places, as it has no navigation; an application shown inside another no longer answers that key twice. `FrameTemplate::shows_navigation`.
 - A theme of an application's own, such as one made with `Theme { name: "Mine", ..Theme::raven_light() }`, wrote its tokens against itself, so the menu could not bring it back the next time. It now writes them against its base.

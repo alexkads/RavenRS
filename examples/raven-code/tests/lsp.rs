@@ -76,13 +76,19 @@ fn the_client_hears_problems_suggestions_tips_and_definitions() {
     assert!(lsp.take_definition().is_none(), "taken once");
 }
 
-/// With rust-analyzer installed (`rustup component add rust-analyzer`): the real server finds
+/// With rust-analyzer installed for stable (`rustup component add rust-analyzer --toolchain
+/// stable`): the real server finds
 /// the error in the sample. `cargo test -p raven-code --test lsp -- --ignored`.
 #[test]
 #[ignore = "needs rust-analyzer, which takes a while to read a project"]
 fn rust_analyzer_finds_the_error_in_the_sample() {
     let root = sample_root("real");
+    // The toolchain rustup picks for a folder outside any project is the default one; this one
+    // asks for stable, where `rustup component add rust-analyzer` usually put it.
+    std::fs::write(root.join("rust-toolchain.toml"), "[toolchain]\nchannel = \"stable\"\n").unwrap();
     let text = std::fs::read_to_string(root.join("src/main.rs")).unwrap().replace("println!", "printn!");
+    // rust-analyzer finds this one through `cargo check`, which reads what is saved.
+    std::fs::write(root.join("src/main.rs"), &text).unwrap();
     let lsp = Lsp::start(&root, || {}).expect("rust-analyzer is installed");
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(120);
     while !lsp.is_ready() {

@@ -174,11 +174,15 @@ impl Drop for Lsp {
 }
 
 impl Lsp {
-    /// Starts rust-analyzer in `root`. An error when it is not installed, which includes the
-    /// rustup stand-in that is there without the `rust-analyzer` component.
+    /// Starts rust-analyzer in `root`. An error when it is not installed for the toolchain of that
+    /// folder, which includes rustup's stand-in that is there without the `rust-analyzer`
+    /// component (`rustup component add rust-analyzer`, in that folder).
     pub fn start(root: &Path, wake: impl Fn() + Send + Sync + 'static) -> io::Result<Self> {
+        // Asked in the project's folder: rustup picks the toolchain by folder, and the project's
+        // may lack the component even when another toolchain has it.
         let works = Command::new("rust-analyzer")
             .arg("--version")
+            .current_dir(root)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
@@ -207,16 +211,21 @@ impl Lsp {
         root: &Path,
         wake: impl Fn() + Send + Sync + 'static,
     ) -> Self {
+        // The server names files by their real path: a folder reached through a link (the
+        // temporary folder of a Mac, under /var, is /private/var) has to be named the same way.
+        let given = root.to_path_buf();
+        let root = root.canonicalize().unwrap_or_else(|_| given.clone());
         let lsp = Self {
-            root: root.to_path_buf(),
+            root,
             writer: Arc::new(Mutex::new(Box::new(writer))),
             heard: Arc::new(Mutex::new(Heard::default())),
             next: AtomicU64::new(1),
             versions: Mutex::new(HashMap::new()),
             child: None,
         };
-        let (heard, writer, root) = (lsp.heard.clone(), lsp.writer.clone(), lsp.root.clone());
-        std::thread::spawn(move || listen(BufReader::new(reader), &heard, &writer, &root, &wake));
+        // Paths may come back either way: as the server resolved them, or as they were given.
+        let (heard, writer, roots) = (lsp.heard.clone(), lsp.writer.clone(), [lsp.root.clone(), given]);
+        std::thread::spawn(move || listen(BufReader::new(reader), &heard, &writer, &roots, &wake));
         lsp.request(
             Asked::Initialize,
             "initialize",
@@ -391,15 +400,22 @@ fn listen(
     mut reader: impl BufRead,
     heard: &Mutex<Heard>,
     writer: &Mutex<Box<dyn Write + Send>>,
-    root: &Path,
+    roots: &[PathBuf],
     wake: &(dyn Fn() + Send + Sync),
 ) {
     while let Some(message) = read_message(&mut reader) {
         let method = message["method"].as_str();
         match (method, message.get("id")) {
-            // A request of the server's own, such as for a progress bar: answered, and ignored.
-            (Some(_), Some(id)) => {
-                let body = json!({"jsonrpc": "2.0", "id": id, "result": null}).to_string();
+            // A request of the server's own: settings are left at their defaults (one empty
+            // answer per item asked), and the rest, such as progress bars, answered and ignored.
+            (Some(method), Some(id)) => {
+                let result = if method == "workspace/configuration" {
+                    let asked = message["params"]["items"].as_array().map_or(0, Vec::len);
+                    Value::Array(vec![Value::Null; asked])
+                } else {
+                    Value::Null
+                };
+                let body = json!({"jsonrpc": "2.0", "id": id, "result": result}).to_string();
                 if let Ok(mut writer) = writer.lock() {
                     let _ = write!(writer, "Content-Length: {}\r\n\r\n{body}", body.len());
                     let _ = writer.flush();
@@ -408,8 +424,7 @@ fn listen(
             (Some("textDocument/publishDiagnostics"), None) => {
                 let params = &message["params"];
                 let Some(path) = params["uri"].as_str().and_then(path_of) else { continue };
-                let Ok(file) = path.strip_prefix(root) else { continue };
-                let file = file.to_string_lossy().replace('\\', "/");
+                let Some(file) = relative(&path, roots) else { continue };
                 if let Ok(mut heard) = heard.lock() {
                     let text = heard.texts.get(&file).cloned().unwrap_or_default();
                     let found = params["diagnostics"]
@@ -432,7 +447,7 @@ fn listen(
                         Asked::Completion => heard.completions = completions_of(result),
                         Asked::Hover => heard.hover = hover_of(result),
                         Asked::Definition => {
-                            heard.definition = definition_of(result, root, &heard.texts);
+                            heard.definition = definition_of(result, roots, &heard.texts);
                         }
                     }
                     if matches!(asked, Asked::Initialize) {
@@ -517,12 +532,18 @@ fn hover_of(result: &Value) -> Option<String> {
     (!text.is_empty()).then_some(text)
 }
 
-fn definition_of(result: &Value, root: &Path, texts: &HashMap<String, String>) -> Option<Definition> {
+/// A path of the project, from its folder, given any of the ways its folder is named.
+fn relative(path: &Path, roots: &[PathBuf]) -> Option<String> {
+    let inside = roots.iter().find_map(|root| path.strip_prefix(root).ok())?;
+    Some(inside.to_string_lossy().replace('\\', "/"))
+}
+
+fn definition_of(result: &Value, roots: &[PathBuf], texts: &HashMap<String, String>) -> Option<Definition> {
     let first = if result.is_array() { result.get(0)? } else { result };
     let uri = first["uri"].as_str().or_else(|| first["targetUri"].as_str())?;
     let range = if first["range"].is_object() { &first["range"] } else { &first["targetSelectionRange"] };
     let path = path_of(uri)?;
-    let file = path.strip_prefix(root).ok()?.to_string_lossy().replace('\\', "/");
+    let file = relative(&path, roots)?;
     let line = range["start"]["line"].as_u64()? as usize;
     let character = range["start"]["character"].as_u64()? as usize;
     let text = texts.get(&file).cloned().or_else(|| std::fs::read_to_string(&path).ok()).unwrap_or_default();
