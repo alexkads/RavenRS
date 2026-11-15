@@ -402,7 +402,11 @@ impl View for ExpressionEditor {
             }
         });
         let editor = VStack::new((
-            TextArea::new(self.value.clone()).rows(self.rows).cursor(cursor.clone()),
+            // Named for screen readers until a label around it gives it a name of its own.
+            TextArea::new(self.value.clone())
+                .placeholder(labels.expression_text.clone())
+                .rows(self.rows)
+                .cursor(cursor.clone()),
             status,
             preview,
             HStack::new((
