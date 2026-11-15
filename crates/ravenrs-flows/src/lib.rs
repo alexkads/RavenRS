@@ -69,8 +69,11 @@
 //! [`NodeKind::reconcile`] says it did not happen. Waits run on the run's [`Clock`];
 //! [`ManualClock`] makes them take no time in tests.
 //!
-//! Not here yet, each in its own issue: a durable run with a queue and checkpoints (#535), and
-//! the schema of a kind's parameters (#530).
+//! A durable run hears each step ([`Executor::on_step`]) and goes on from it
+//! ([`Executor::resume`]); `ravenrs-flows-runtime` does this on SQLite, and runs the nodes that
+//! wait for a time or an event (`delay`, `wait_event`) again when they are due.
+//!
+//! Not here yet: the schema of a kind's parameters (#530).
 
 mod catalog;
 mod definition;
@@ -82,12 +85,12 @@ mod run;
 mod time;
 
 pub use catalog::{
-    Catalog, ERROR_PORT, Failure, Mode, NodeContext, NodeError, NodeKind, NodeSpec, Reconciled,
+    Catalog, ERROR_PORT, Failure, Mode, NodeContext, NodeError, NodeKind, NodeSpec, Reconciled, Wake,
 };
 pub use definition::{
     Connection, DefinitionError, ErrorPolicy, FORMAT, FlowDefinition, NodeDef, PortRef, Retry,
 };
 pub use item::{BinaryRef, Item, ItemRef, Ports};
 pub use plan::{Plan, PlanError};
-pub use run::{Executor, LOOP_LIMIT, NodeRun, NodeStatus, Run, RunError, RunOutcome};
+pub use run::{Executor, LOOP_LIMIT, NodeRun, NodeStatus, Run, RunError, RunOutcome, Step};
 pub use time::{CancelToken, Clock, FixedClock, ManualClock, SystemClock};

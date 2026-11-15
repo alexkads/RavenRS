@@ -8,7 +8,11 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 use std::sync::Arc;
 
-use crate::catalog::{Catalog, ERROR_PORT, Failure, Mode, NodeContext, NodeError, NodeKind, Reconciled};
+use serde::{Deserialize, Serialize};
+
+use crate::catalog::{
+    Catalog, ERROR_PORT, Failure, Mode, NodeContext, NodeError, NodeKind, Reconciled, Wake,
+};
 use crate::definition::{ErrorPolicy, NodeDef, Retry};
 use crate::item::{Item, Ports};
 use crate::plan::Plan;
@@ -20,7 +24,8 @@ use crate::time::{CancelToken, Clock, SystemClock};
 pub const LOOP_LIMIT: usize = 10_000;
 
 /// How a node's part of a run went.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 #[non_exhaustive]
 pub enum NodeStatus {
     /// It ran.
@@ -41,11 +46,13 @@ pub enum NodeStatus {
     TimedOut,
     /// It called something and no one knows whether that happened. It was not tried again.
     Uncertain,
+    /// It waits for a time or an event ([`NodeRun::wake`]); the run stopped there.
+    Waiting,
 }
 
 /// A node's part of a run: what reached it, what it gave, and how it went. For a node inside
 /// a loop, these are the last turn's.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct NodeRun {
     /// How it went.
     pub status: NodeStatus,
@@ -61,10 +68,14 @@ pub struct NodeRun {
     pub attempts: u32,
     /// Whether its result came from asking the kind if a call of unknown result happened.
     pub reconciled: bool,
+    /// When a waiting node is to be woken.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub wake: Option<Wake>,
 }
 
 /// How a run ended.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "end")]
 #[non_exhaustive]
 pub enum RunOutcome {
     /// Every node that could run, ran (the default of a run not started).
@@ -86,6 +97,37 @@ pub enum RunOutcome {
     TimedOut {
         /// What took too long.
         reason: String,
+    },
+    /// A node waits; the run goes on when a durable run wakes it.
+    Waiting {
+        /// The node.
+        node: String,
+        /// What wakes it.
+        wake: Wake,
+    },
+}
+
+/// A step of a run, as [`Executor::on_step`] hears it: what a durable run writes down so that it
+/// can start again where it was.
+#[derive(Clone, Copy, Debug)]
+#[non_exhaustive]
+pub enum Step<'r> {
+    /// A node is about to run.
+    Started {
+        /// The node.
+        node: &'r str,
+    },
+    /// A node's part is over: it ran, was skipped, failed or waits.
+    Settled {
+        /// The node.
+        node: &'r str,
+        /// Its part.
+        part: &'r NodeRun,
+    },
+    /// A loop went round for the last time: it and its body are over.
+    LoopDone {
+        /// The loop node.
+        head: &'r str,
     },
 }
 
@@ -158,6 +200,9 @@ impl fmt::Display for RunError {
 
 impl std::error::Error for RunError {}
 
+/// What hears each step of a run.
+type Listener<'a> = Box<dyn Fn(Step<'_>) + 'a>;
+
 /// Runs a plan with the kinds of a catalog.
 pub struct Executor<'a> {
     plan: &'a Plan,
@@ -169,6 +214,9 @@ pub struct Executor<'a> {
     watched: bool,
     time_limit_ms: Option<u64>,
     starts: BTreeMap<String, Vec<Item>>,
+    on_step: Option<Listener<'a>>,
+    events: Arc<BTreeMap<String, Vec<Item>>>,
+    woken: BTreeMap<String, Wake>,
 }
 
 impl fmt::Debug for Executor<'_> {
@@ -200,6 +248,34 @@ impl<'a> Executor<'a> {
             watched: false,
             time_limit_ms: None,
             starts: BTreeMap::new(),
+            on_step: None,
+            events: Arc::default(),
+            woken: BTreeMap::new(),
+        }
+    }
+
+    /// Telling `listener` each step as it happens, on the thread that runs: before a node runs,
+    /// when its part is over, and when a loop ends.
+    pub fn on_step(mut self, listener: impl Fn(Step<'_>) + 'a) -> Self {
+        self.on_step = Some(Box::new(listener));
+        self
+    }
+
+    /// With the events that came for the run, by name, for the nodes that wait on them.
+    pub fn events(mut self, events: BTreeMap<String, Vec<Item>>) -> Self {
+        self.events = Arc::new(events);
+        self
+    }
+
+    /// With the nodes woken after a wait, and how each was waiting.
+    pub fn woken(mut self, woken: BTreeMap<String, Wake>) -> Self {
+        self.woken = woken;
+        self
+    }
+
+    fn tell(&self, step: Step<'_>) {
+        if let Some(listener) = &self.on_step {
+            listener(step);
         }
     }
 
@@ -253,7 +329,16 @@ impl<'a> Executor<'a> {
     /// going round its body.
     pub fn run(&self) -> Run {
         let all: BTreeSet<String> = self.plan.order().iter().cloned().collect();
-        self.go(&all, &Run::default())
+        self.go(&all, &Run::default(), None)
+    }
+
+    /// Goes on with a run that stopped: the nodes whose part is in `checkpoint` keep it and do
+    /// not run again (a waiting node runs again, to see whether its wait is over), the nodes in
+    /// `in_progress` were running when it stopped and are asked to reconcile first
+    /// ([`NodeKind::reconcile`]), and the rest run. The run keeps the time it first started.
+    pub fn resume(&self, checkpoint: &Run, in_progress: &BTreeSet<String>) -> Run {
+        let all: BTreeSet<String> = self.plan.order().iter().cloned().collect();
+        self.go(&all, &Run::default(), Some((checkpoint, in_progress)))
     }
 
     /// Runs `node` and every node it leads to; the nodes upstream do not run again, and what
@@ -262,7 +347,7 @@ impl<'a> Executor<'a> {
         self.known(node)?;
         let ahead: BTreeSet<String> = self.plan.downstream(node).into_iter().collect();
         self.needs(&ahead, previous)?;
-        Ok(self.go(&ahead, previous))
+        Ok(self.go(&ahead, previous, None))
     }
 
     /// Runs `node` alone, with what reached it in `previous`; nothing after it runs, and a loop
@@ -271,7 +356,7 @@ impl<'a> Executor<'a> {
         self.known(node)?;
         let only = BTreeSet::from([node.to_owned()]);
         self.needs(&only, previous)?;
-        Ok(self.go(&only, previous))
+        Ok(self.go(&only, previous, None))
     }
 
     fn known(&self, node: &str) -> Result<(), RunError> {
@@ -310,8 +395,13 @@ impl<'a> Executor<'a> {
 
     /// Runs the nodes in `running`, in the plan's order, reusing from `previous` the parts of
     /// the nodes upstream that feed them.
-    fn go(&self, running: &BTreeSet<String>, previous: &Run) -> Run {
-        let started = self.clock.now_ms();
+    fn go(
+        &self,
+        running: &BTreeSet<String>,
+        previous: &Run,
+        resumed: Option<(&Run, &BTreeSet<String>)>,
+    ) -> Run {
+        let started = resumed.map_or_else(|| self.clock.now_ms(), |(checkpoint, _)| checkpoint.started_ms);
         let mut run = Run {
             started_ms: started,
             deadline_ms: self.time_limit_ms.map(|l| started.saturating_add(l as i64)),
@@ -343,6 +433,27 @@ impl<'a> Executor<'a> {
             }
             let body: Vec<&String> =
                 self.plan.loop_body(id).iter().filter(|b| running.contains(*b)).collect();
+            if let Some((checkpoint, busy)) = resumed {
+                if let Some(kept) = checkpoint.nodes.get(id).filter(|k| k.status != NodeStatus::Waiting) {
+                    run.record(id, kept.clone());
+                    for b in &body {
+                        if let Some(part) = checkpoint.nodes.get(*b) {
+                            run.record(b, part.clone());
+                        }
+                    }
+                    gone_round.extend(body.iter().map(|b| b.as_str()));
+                    continue;
+                }
+                if busy.contains(id)
+                    && body.is_empty()
+                    && let Some(next) = self.reconciled(id, &mut run)
+                {
+                    if next == Next::Stop {
+                        break;
+                    }
+                    continue;
+                }
+            }
             let next =
                 if body.is_empty() { self.once(id, 0, &mut run) } else { self.round(id, &body, &mut run) };
             gone_round.extend(body.iter().map(|b| b.as_str()));
@@ -353,9 +464,30 @@ impl<'a> Executor<'a> {
         run
     }
 
+    /// A node that was running when its run stopped, asked whether its call happened: its part
+    /// when the kind knows, `None` when it did not happen and the node is to run.
+    fn reconciled(&self, node: &str, run: &mut Run) -> Option<Next> {
+        let def = self.plan.definition().find(node)?;
+        let kind = self.catalog.shared(&def.kind, def.version)?;
+        let inputs = self.inputs_of(node, run);
+        let cx = self.context(def, &inputs, run.started_ms, 0, 1, None, self.token.child());
+        let part = match kind.reconcile(&cx) {
+            Reconciled::NotDone => return None,
+            Reconciled::Done(given) => self.given(def, inputs.clone(), given, 1, true),
+            _ => {
+                let unknown = NodeError::unknown(
+                    "it was running when the run stopped, and whether it happened is not known",
+                );
+                self.failure(def, inputs.clone(), unknown, 1, NodeStatus::Uncertain)
+            }
+        };
+        Some(self.settle(def, part, run))
+    }
+
     /// One part of `node`, at the turn `iteration`, recorded in `run`.
     fn once(&self, node: &str, iteration: usize, run: &mut Run) -> Next {
         let Some(def) = self.plan.definition().find(node) else { return Next::Go };
+        self.tell(Step::Started { node });
         let inputs = self.inputs_of(node, run);
         let part = self.node(def, inputs, run, iteration);
         self.settle(def, part, run)
@@ -365,6 +497,10 @@ impl<'a> Executor<'a> {
     fn settle(&self, def: &NodeDef, part: NodeRun, run: &mut Run) -> Next {
         let reason = part.error.clone().unwrap_or_default();
         let outcome = match part.status {
+            NodeStatus::Waiting => Some(RunOutcome::Waiting {
+                node: def.id.clone(),
+                wake: part.wake.clone().unwrap_or_default(),
+            }),
             NodeStatus::Cancelled => Some(RunOutcome::Cancelled { reason }),
             NodeStatus::TimedOut if self.halted(run).is_some() => self.halted(run),
             NodeStatus::Failed | NodeStatus::TimedOut | NodeStatus::Uncertain
@@ -375,6 +511,7 @@ impl<'a> Executor<'a> {
             }
             _ => None,
         };
+        self.tell(Step::Settled { node: &def.id, part: &part });
         run.record(&def.id, part);
         match outcome {
             Some(outcome) => {
@@ -412,6 +549,7 @@ impl<'a> Executor<'a> {
             for (port, items) in &came_back {
                 inputs.entry(port.clone()).or_default().extend(items.iter().cloned());
             }
+            self.tell(Step::Started { node: head });
             let part = self.node(def, inputs, run, iteration);
             let sends = part
                 .outputs
@@ -421,6 +559,7 @@ impl<'a> Executor<'a> {
                 return Next::Stop;
             }
             if !sends {
+                self.tell(Step::LoopDone { head });
                 return Next::Go;
             }
             for b in body {
@@ -489,6 +628,13 @@ impl<'a> Executor<'a> {
             let result = self.call(&kind, node, &inputs, run.started_ms, iteration, attempt, deadline);
             let error = match result {
                 Ok(given) => return self.given(node, inputs, given, attempt, false),
+                Err(e) if e.failure == Failure::Suspended => {
+                    return NodeRun {
+                        attempts: attempt,
+                        wake: e.wake,
+                        ..done(NodeStatus::Waiting, inputs, Ports::new())
+                    };
+                }
                 Err(e) => e,
             };
             let again = match error.failure {
@@ -574,6 +720,8 @@ impl<'a> Executor<'a> {
             .with_clock(self.clock.clone())
             .with_token(token)
             .with_deadline(deadline)
+            .with_events(self.events.clone())
+            .woken_from(self.woken.get(&node.id).cloned())
     }
 
     /// One try of `kind` on `node`. With a time limit or a token to watch, the try runs on a
@@ -623,13 +771,16 @@ impl<'a> Executor<'a> {
         let (tx, rx) = channel();
         let (kind, node_def, given, clock, mode, own) =
             (kind.clone(), node.clone(), inputs.clone(), self.clock.clone(), self.mode, token.clone());
+        let (events, woken) = (self.events.clone(), self.woken.get(&node.id).cloned());
         std::thread::spawn(move || {
             let cx = NodeContext::new(&node_def, &given, now_ms, mode)
                 .at_iteration(iteration)
                 .at_attempt(attempt)
                 .with_clock(clock)
                 .with_token(own)
-                .with_deadline(deadline);
+                .with_deadline(deadline)
+                .with_events(events)
+                .woken_from(woken);
             let _ = tx.send(kind.execute(&cx));
         });
         let began = Instant::now();
@@ -707,7 +858,7 @@ impl<'a> Executor<'a> {
 }
 
 fn done(status: NodeStatus, inputs: Ports, outputs: Ports) -> NodeRun {
-    NodeRun { status, inputs, outputs, error: None, runs: 1, attempts: 1, reconciled: false }
+    NodeRun { status, inputs, outputs, error: None, runs: 1, attempts: 1, reconciled: false, wake: None }
 }
 
 fn failed(inputs: Ports, error: String) -> NodeRun {

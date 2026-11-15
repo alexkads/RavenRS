@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use std::fmt;
 use std::sync::Arc;
 
+use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
 use crate::definition::NodeDef;
@@ -123,6 +124,8 @@ pub struct NodeContext<'a> {
     clock: Arc<dyn Clock>,
     token: CancelToken,
     deadline_ms: Option<i64>,
+    events: Arc<BTreeMap<String, Vec<Item>>>,
+    woken: Option<Wake>,
 }
 
 impl<'a> NodeContext<'a> {
@@ -139,7 +142,31 @@ impl<'a> NodeContext<'a> {
             clock: Arc::new(SystemClock),
             token: CancelToken::new(),
             deadline_ms: None,
+            events: Arc::default(),
+            woken: None,
         }
+    }
+
+    /// The same context, with the events that came for the run, by name.
+    pub fn with_events(mut self, events: Arc<BTreeMap<String, Vec<Item>>>) -> Self {
+        self.events = events;
+        self
+    }
+
+    /// The same context, for a node woken after it waited as `wake` said.
+    pub fn woken_from(mut self, wake: Option<Wake>) -> Self {
+        self.woken = wake;
+        self
+    }
+
+    /// The items the event `event` brought, when it came.
+    pub fn event(&self, event: &str) -> Option<&[Item]> {
+        self.events.get(event).map(Vec::as_slice)
+    }
+
+    /// How the node was waiting, when this run woke it after a wait.
+    pub fn woken(&self) -> Option<&Wake> {
+        self.woken.as_ref()
     }
 
     /// The same context, waiting on `clock`.
@@ -267,6 +294,17 @@ impl<'a> NodeContext<'a> {
     }
 }
 
+/// When a waiting node is to be woken: at a time, when an event comes, or both.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Wake {
+    /// The time on the run's clock to wake at, in milliseconds since 1970.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until_ms: Option<i64>,
+    /// The event that wakes it, by name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event: Option<String>,
+}
+
 /// What kind of failure it was, which decides whether the node is tried again.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[non_exhaustive]
@@ -283,6 +321,9 @@ pub enum Failure {
     Cancelled,
     /// The node's time was up.
     TimedOut,
+    /// Not a failure: the node waits, for a time or an event, and the run stops there until a
+    /// durable run wakes it ([`NodeError::wait_until`], [`NodeError::wait_for`]).
+    Suspended,
 }
 
 /// Why a node failed.
@@ -292,12 +333,14 @@ pub struct NodeError {
     pub message: String,
     /// What kind of failure it was.
     pub failure: Failure,
+    /// When a node that waits is to be woken.
+    pub wake: Option<Wake>,
 }
 
 impl NodeError {
     /// A failure saying `message` that trying again will not mend.
     pub fn new(message: impl Into<String>) -> Self {
-        Self { message: message.into(), failure: Failure::Permanent }
+        Self { message: message.into(), failure: Failure::Permanent, wake: None }
     }
 
     /// A failure that may pass if the node is tried again.
@@ -318,6 +361,26 @@ impl NodeError {
     /// The node's time was up.
     pub fn timed_out(message: impl Into<String>) -> Self {
         Self { failure: Failure::TimedOut, ..Self::new(message) }
+    }
+
+    /// The node waits until `until_ms` on the run's clock; the run stops there, and a durable
+    /// run starts it again then.
+    pub fn wait_until(until_ms: i64) -> Self {
+        Self {
+            failure: Failure::Suspended,
+            wake: Some(Wake { until_ms: Some(until_ms), event: None }),
+            ..Self::new(format!("waiting until {until_ms}"))
+        }
+    }
+
+    /// The node waits for the event `event`; the run stops there until it comes.
+    pub fn wait_for(event: impl Into<String>) -> Self {
+        let event = event.into();
+        Self {
+            failure: Failure::Suspended,
+            message: format!("waiting for {event}"),
+            wake: Some(Wake { until_ms: None, event: Some(event) }),
+        }
     }
 }
 

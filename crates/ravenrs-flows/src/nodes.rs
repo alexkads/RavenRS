@@ -632,13 +632,59 @@ impl NodeKind for Subflow {
             RunOutcome::Stopped { node, reason } => {
                 Err(NodeError::new(format!("the flow {id} stopped at {node}: {reason}")))
             }
+            RunOutcome::Waiting { node, .. } => Err(NodeError::new(format!(
+                "the flow {id} waits at {node}; a subflow cannot wait yet, since the flow inside is not kept"
+            ))),
+        }
+    }
+}
+
+/// Waits `ms` milliseconds in a way that outlives the app: the run stops at this node and a
+/// durable run starts it again when the time comes, then the items pass on. Run without one,
+/// the run just ends waiting ([`RunOutcome::Waiting`]).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct Delay;
+
+impl NodeKind for Delay {
+    fn spec(&self) -> NodeSpec {
+        NodeSpec::new("delay", 1).title("Wait, even across restarts").input(MAIN).output(MAIN).requires("ms")
+    }
+    fn execute(&self, cx: &NodeContext<'_>) -> Result<Ports, NodeError> {
+        let ms = cx
+            .parameter("ms")
+            .and_then(Value::as_i64)
+            .ok_or_else(|| NodeError::new("the wait must be a whole number of ms"))?;
+        let until = cx.woken().and_then(|w| w.until_ms).unwrap_or_else(|| cx.clock().now_ms() + ms);
+        if cx.clock().now_ms() >= until {
+            Ok(main_port(cx.input(MAIN).to_vec()))
+        } else {
+            Err(NodeError::wait_until(until))
+        }
+    }
+}
+
+/// Waits for the event named by its parameter `event` (an approval, a reply, a webhook), then
+/// gives the items the event brought. The run stops here until a durable run is told of it.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct WaitEvent;
+
+impl NodeKind for WaitEvent {
+    fn spec(&self) -> NodeSpec {
+        NodeSpec::new("wait_event", 1).title("Wait for an event").input(MAIN).output(MAIN).requires("event")
+    }
+    fn execute(&self, cx: &NodeContext<'_>) -> Result<Ports, NodeError> {
+        let event = text_parameter(cx, "event", "");
+        match cx.event(event) {
+            Some(items) => Ok(main_port(items.to_vec())),
+            None => Err(NodeError::wait_for(event)),
         }
     }
 }
 
 impl Catalog {
     /// A catalog with every built-in kind: `manual`, `if`, `switch`, `merge`, `batches`, `set`,
-    /// `filter`, `sort`, `group`, `split`, `join` and `wait`, each at version 1. A [`Subflow`]
+    /// `filter`, `sort`, `group`, `split`, `join`, `wait`, `delay` and `wait_event`, each at
+    /// version 1. A [`Subflow`]
     /// is added apart, with the flows it may call.
     pub fn builtin() -> Self {
         Self::new()
@@ -654,5 +700,7 @@ impl Catalog {
             .with(Split)
             .with(Join)
             .with(Wait)
+            .with(Delay)
+            .with(WaitEvent)
     }
 }
