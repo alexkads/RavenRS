@@ -772,6 +772,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::DockArea::__live_expose_part1(registry);
     crate::DockEdge::__live_expose_variants(registry);
     crate::DockDrop::__live_expose_variants(registry);
+    crate::DockChange::__live_expose_variants(registry);
     crate::DockNode::__live_expose_variants(registry);
     crate::DockChild::__live_expose_fields(registry);
     crate::DockNode::__live_expose(registry);

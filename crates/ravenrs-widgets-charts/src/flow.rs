@@ -1603,17 +1603,17 @@ impl View for FlowCanvas {
         }
         match &connecting_now {
             Some(Connecting { pointer, target: Some((_, Err(reason))), .. }) => {
-                children.push(refusal(cx, reason, *pointer, &theme, palette));
+                children.push(refusal(cx, reason, *pointer, palette));
             }
             Some(Connecting { pointer, keyboard: true, .. }) => {
-                children.push(hint(cx, &labels.flow_pick_port, *pointer, &theme, palette));
+                children.push(hint(cx, &labels.flow_pick_port, *pointer, palette));
             }
             _ => {}
         }
         // Why the app refused the last change, by the pointer, until the next gesture.
         if let Some(reason) = notice.get() {
             let at = memory.pointer.get().unwrap_or(Point::new(FIT_MARGIN, FIT_MARGIN));
-            children.push(refusal(cx, &reason, at, &theme, palette));
+            children.push(refusal(cx, &reason, at, palette));
         }
         if let Some(size) = size {
             if self.controls {
@@ -1732,46 +1732,18 @@ fn edge_label(cx: &mut BuildCx<'_>, text: &str, at: Point, theme: &Theme, p: Pal
 }
 
 /// Why a connection cannot be made, beside the pointer.
-fn refusal(cx: &mut BuildCx<'_>, reason: &str, at: Point, theme: &Theme, p: Palette) -> NodeId {
-    bubble(cx, IconName::CircleX, p.danger, reason, at, theme, p)
+fn refusal(cx: &mut BuildCx<'_>, reason: &str, at: Point, p: Palette) -> NodeId {
+    bubble(cx, IconName::CircleX, p.danger, reason, at, p)
 }
 
 /// What to do next while a connection is made with the keys, beside the port it starts from.
-fn hint(cx: &mut BuildCx<'_>, text: &str, at: Point, theme: &Theme, p: Palette) -> NodeId {
-    bubble(cx, IconName::Link, p.accent, text, at, theme, p)
+fn hint(cx: &mut BuildCx<'_>, text: &str, at: Point, p: Palette) -> NodeId {
+    bubble(cx, IconName::Link, p.accent, text, at, p)
 }
 
 /// A few words beside a point of the view, outlined in `tone`, which screen readers announce.
-fn bubble(
-    cx: &mut BuildCx<'_>,
-    icon: IconName,
-    tone: Color,
-    text: &str,
-    at: Point,
-    theme: &Theme,
-    p: Palette,
-) -> NodeId {
-    let attrs = util::attrs(theme, TextStyle::Callout, None);
-    let icon = util::icon(cx, icon, 16.0, tone);
-    let words = cx.text(text, &attrs, p.ink, LayoutStyle { max_width: Some(280.0), ..LayoutStyle::leaf() });
-    let node = cx.container(
-        LayoutStyle {
-            absolute: Some((at.x + 16.0, at.y + 16.0)),
-            padding: ravenrs_core::Insets::symmetric(theme.spacing.s2, theme.spacing.s3),
-            spacing: theme.spacing.s2,
-            align: Align::Start,
-            ..LayoutStyle::stack(Axis::Horizontal)
-        },
-        &[icon, words],
-        Paint::Quad(crate::context::QuadPaint {
-            corner_radius: theme.radii.md,
-            border: Some(ravenrs_core::Border { width: 1.0, color: tone }),
-            shadow: Some(theme.elevation.raised),
-            ..crate::context::QuadPaint::new(p.elevated)
-        }),
-    );
-    cx.semantics(node, Semantics::new(Role::Status).name(text.to_owned()));
-    node
+fn bubble(cx: &mut BuildCx<'_>, icon: IconName, tone: Color, text: &str, at: Point, p: Palette) -> NodeId {
+    util::bubble(cx, icon, tone, text, Point::new(at.x + 16.0, at.y + 16.0), p.ink, p.elevated)
 }
 
 /// The zoom buttons, the percentage and the lock, in the bottom left corner.
