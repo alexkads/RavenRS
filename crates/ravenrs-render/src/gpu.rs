@@ -45,6 +45,14 @@ impl GpuContext {
     /// GPU right there on GL. An interface needs little, so it asks for the GPU
     /// that spends the least; `WGPU_POWER_PREF` overrides that. When the adapter
     /// cannot give the limits needed, as an old GPU may not, the others get a turn.
+    ///
+    /// `WGPU_ADAPTER_NAME` is not read: adapters are ranked by power preference only. The
+    /// backends come from `instance`, so `WGPU_BACKEND` counts only when it was built with a
+    /// `*_from_env` descriptor. A software adapter is accepted, with a warning in the log.
+    ///
+    /// Fails with [`GpuError::NoAdapter`] when no adapter matches, and with
+    /// [`GpuError::Device`] when every adapter refuses the device; the message is the first
+    /// refusal.
     pub async fn new(
         instance: &wgpu::Instance,
         surface: Option<&wgpu::Surface<'_>>,
