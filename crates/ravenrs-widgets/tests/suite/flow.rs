@@ -347,3 +347,187 @@ fn an_animated_connection_travels_until_motion_is_reduced() {
     settle(&mut still.ui);
     assert_eq!(outlines(&still.ui), before);
 }
+
+fn command(shift: bool) -> Modifiers {
+    Modifiers { meta: true, shift, ..Modifiers::default() }
+}
+
+/// Presses a shortcut with Cmd (and Shift).
+fn shortcut(ui: &mut Ui, letter: &str, shift: bool) {
+    key(ui, Key::Character(letter.into()), command(shift));
+}
+
+/// Presses Tab until the focus is on what screen readers describe as `description`.
+fn tab_to(ui: &mut Ui, description: &str) {
+    for _ in 0..40 {
+        let tree = ui.access_tree();
+        let focused = tree.focus.and_then(|id| tree.get(id)).and_then(|n| n.description.clone());
+        if focused.as_deref() == Some(description) {
+            return;
+        }
+        key(ui, Key::Tab, Modifiers::default());
+    }
+    panic!("no focus reaches {description}");
+}
+
+#[test]
+fn a_move_is_one_change_to_undo_and_redo() {
+    let mut rig = rig();
+    drag(&mut rig.ui, Point::new(120.0, 70.0), Point::new(170.0, 122.0));
+    assert_eq!(node_at(&rig, "a"), (96.0, 96.0));
+    shortcut(&mut rig.ui, "z", false);
+    assert_eq!(node_at(&rig, "a"), (48.0, 48.0), "the four steps of the pointer undo at once");
+    shortcut(&mut rig.ui, "z", true);
+    assert_eq!(node_at(&rig, "a"), (96.0, 96.0));
+    shortcut(&mut rig.ui, "z", false);
+    shortcut(&mut rig.ui, "y", false);
+    assert_eq!(node_at(&rig, "a"), (96.0, 96.0), "Cmd+Y redoes too");
+}
+
+#[test]
+fn undo_brings_back_a_connection_and_a_deleted_node() {
+    let history = State::new(FlowHistory::new());
+    let mut rig = rig_with(graph(), |c| c.history(history.binding()));
+    drag(&mut rig.ui, Point::new(248.0, 90.0), Point::new(410.0, 92.0));
+    assert_eq!(rig.graph.get().edges.len(), 1);
+    click(&mut rig.ui, Point::new(480.0, 70.0));
+    key(&mut rig.ui, Key::Delete, Modifiers::default());
+    assert!(rig.graph.get().find_node("b").is_none());
+    assert!(history.get().can_undo() && !history.get().can_redo(), "the app sees the history");
+    shortcut(&mut rig.ui, "z", false);
+    let g = rig.graph.get();
+    assert!(g.find_node("b").is_some());
+    assert_eq!(g.edges.len(), 1, "the connection came back with its node");
+    shortcut(&mut rig.ui, "z", false);
+    assert!(rig.graph.get().edges.is_empty());
+    assert!(!history.get().can_undo() && history.get().can_redo());
+}
+
+#[test]
+fn a_locked_canvas_neither_undoes_nor_pastes() {
+    let mut rig = rig();
+    drag(&mut rig.ui, Point::new(120.0, 70.0), Point::new(170.0, 122.0));
+    shortcut(&mut rig.ui, "c", false);
+    let lock = named(&mut rig.ui, "Lock editing").expect("the lock").bounds.center();
+    click(&mut rig.ui, lock);
+    click(&mut rig.ui, Point::new(170.0, 120.0));
+    shortcut(&mut rig.ui, "z", false);
+    shortcut(&mut rig.ui, "v", false);
+    assert_eq!(node_at(&rig, "a"), (96.0, 96.0));
+    assert_eq!(rig.graph.get().nodes.len(), 3);
+}
+
+#[test]
+fn copied_nodes_paste_with_new_ids_a_little_further_each_time() {
+    let mut rig = rig_with(
+        graph().edge(FlowEdge::new("e1", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in"))),
+        |c| c,
+    );
+    click(&mut rig.ui, Point::new(120.0, 70.0));
+    hold_shift(&mut rig.ui, true);
+    click(&mut rig.ui, Point::new(480.0, 70.0));
+    hold_shift(&mut rig.ui, false);
+    shortcut(&mut rig.ui, "c", false);
+    let copied = rig.ui.clipboard().read().expect("the clipboard has the nodes");
+    let piece = FlowGraph::from_json(&copied).expect("JSON of a diagram");
+    assert_eq!((piece.nodes.len(), piece.edges.len()), (2, 1));
+
+    shortcut(&mut rig.ui, "v", false);
+    let g = rig.graph.get();
+    assert_eq!(g.nodes.len(), 5);
+    assert_eq!(g.find_node("a-2").map(|n| (n.x, n.y)), Some((96.0, 96.0)), "two grid steps along");
+    let copy = g.find_edge("e2").expect("the connection came along");
+    assert_eq!((copy.from.node.as_str(), copy.to.node.as_str()), ("a-2", "b-2"));
+    assert_eq!(rig.selection.get().nodes, vec!["a-2".to_owned(), "b-2".to_owned()]);
+    assert_eq!(rig.selection.get().edges, vec!["e2".to_owned()]);
+
+    shortcut(&mut rig.ui, "v", false);
+    assert_eq!(rig.graph.get().find_node("a-3").map(|n| (n.x, n.y)), Some((144.0, 144.0)));
+    shortcut(&mut rig.ui, "z", false);
+    shortcut(&mut rig.ui, "z", false);
+    assert_eq!(rig.graph.get().nodes.len(), 3, "each paste is one change");
+}
+
+#[test]
+fn a_cut_node_pastes_back_where_it_was() {
+    let mut rig = rig();
+    click(&mut rig.ui, Point::new(120.0, 70.0));
+    shortcut(&mut rig.ui, "x", false);
+    assert!(rig.graph.get().find_node("a").is_none());
+    // The focus went with the node, and came back to the canvas: no click needed.
+    shortcut(&mut rig.ui, "v", false);
+    assert_eq!(node_at(&rig, "a"), (48.0, 48.0), "the id is free again, and so is the place");
+    // Text that is not a diagram pastes nothing.
+    rig.ui.clipboard().write("hello");
+    shortcut(&mut rig.ui, "v", false);
+    assert_eq!(rig.graph.get().nodes.len(), 3);
+}
+
+#[test]
+fn dragging_the_end_of_a_selected_connection_moves_it_to_another_port() {
+    let mut rig = rig_with(
+        graph()
+            .node(
+                FlowNode::new("d", "action", "Count items", 48.0, 288.0)
+                    .port(FlowPort::input("in").kind("sale")),
+            )
+            .edge(
+                FlowEdge::new("e1", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in"))
+                    .shape(EdgeShape::Straight),
+            ),
+        |c| c,
+    );
+    click(&mut rig.ui, Point::new(300.0, 92.0));
+    assert_eq!(rig.selection.get(), FlowSelection::edge("e1"));
+    // A refused port leaves the connection as it was.
+    drag(&mut rig.ui, Point::new(408.0, 90.0), Point::new(410.0, 332.0));
+    assert_eq!(rig.graph.get().edges[0].to, FlowEndpoint::new("b", "in"));
+    drag(&mut rig.ui, Point::new(408.0, 90.0), Point::new(50.0, 330.0));
+    let g = rig.graph.get();
+    assert_eq!(g.edges.len(), 1, "moved, not added");
+    assert_eq!(
+        (g.edges[0].from.clone(), g.edges[0].to.clone()),
+        (FlowEndpoint::new("a", "out"), FlowEndpoint::new("d", "in"))
+    );
+    assert_eq!(rig.selection.get(), FlowSelection::edge("e1"));
+    shortcut(&mut rig.ui, "z", false);
+    assert_eq!(rig.graph.get().edges[0].to, FlowEndpoint::new("b", "in"));
+}
+
+#[test]
+fn ports_connect_with_the_keys_and_say_what_they_are() {
+    let mut rig = rig();
+    let port = rig
+        .ui
+        .access_tree()
+        .nodes
+        .iter()
+        .find(|n| n.description.as_deref() == Some("Output of New sale"))
+        .cloned()
+        .expect("the port speaks");
+    assert_eq!((port.role, port.name.as_deref(), port.focusable), (Role::Button, Some("out"), true));
+    click(&mut rig.ui, Point::new(120.0, 70.0));
+    tab_to(&mut rig.ui, "Output of New sale");
+    key(&mut rig.ui, Key::Enter, Modifiers::default());
+    assert!(named(&mut rig.ui, "Go to the other port and press Enter; Escape cancels").is_some());
+    // A port that refuses says why, and the connection waits for another.
+    tab_to(&mut rig.ui, "Input of Send refusal");
+    key(&mut rig.ui, Key::Enter, Modifiers::default());
+    assert!(named(&mut rig.ui, "Send refusal expects a refused order").is_some());
+    assert!(rig.graph.get().edges.is_empty());
+    tab_to(&mut rig.ui, "Input of Check stock");
+    key(&mut rig.ui, Key::Enter, Modifiers::default());
+    let g = rig.graph.get();
+    assert_eq!(g.edges.len(), 1);
+    assert_eq!(
+        (g.edges[0].from.clone(), g.edges[0].to.clone()),
+        (FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in"))
+    );
+    assert!(named(&mut rig.ui, "Go to the other port and press Enter; Escape cancels").is_none());
+    // Escape gives up a connection started with the keys.
+    tab_to(&mut rig.ui, "Output of Check stock");
+    key(&mut rig.ui, Key::Enter, Modifiers::default());
+    key(&mut rig.ui, Key::Escape, Modifiers::default());
+    assert!(named(&mut rig.ui, "Go to the other port and press Enter; Escape cancels").is_none());
+    assert_eq!(rig.graph.get().edges.len(), 1);
+}

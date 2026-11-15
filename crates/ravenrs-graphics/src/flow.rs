@@ -309,8 +309,10 @@ impl FlowEdge {
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FlowGraph {
     /// Back to front.
+    #[serde(default)]
     pub nodes: Vec<FlowNode>,
     /// Drawn below the nodes, in this order.
+    #[serde(default)]
     pub edges: Vec<FlowEdge>,
 }
 
@@ -396,6 +398,213 @@ impl FlowGraph {
         let mut nodes = self.nodes.iter();
         let first = nodes.next()?.rect();
         Some(nodes.fold(first, |all, n| union(all, n.rect())))
+    }
+
+    /// An id no node has yet, made from `id`: `id` itself when it is free, otherwise `id-2`,
+    /// `id-3` and so on (a copy of `sale-2` becomes `sale-3`, not `sale-2-2`).
+    pub fn fresh_node_id(&self, id: &str) -> String {
+        if self.find_node(id).is_none() {
+            return id.to_owned();
+        }
+        let stem = match id.rsplit_once('-') {
+            Some((stem, n)) if !stem.is_empty() && !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()) => {
+                stem
+            }
+            _ => id,
+        };
+        (2..)
+            .map(|n| format!("{stem}-{n}"))
+            .find(|id| self.find_node(id).is_none())
+            .unwrap_or_else(|| stem.to_owned())
+    }
+
+    /// These nodes and the connections that run between two of them: the part of the diagram
+    /// that is copied, in the order the diagram has them.
+    pub fn extract(&self, nodes: &[String]) -> FlowGraph {
+        let has = |id: &str| nodes.iter().any(|n| n == id);
+        FlowGraph {
+            nodes: self.nodes.iter().filter(|n| has(&n.id)).cloned().collect(),
+            edges: self.edges.iter().filter(|e| has(&e.from.node) && has(&e.to.node)).cloned().collect(),
+        }
+    }
+
+    /// Adds a copy of `piece` moved by `(dx, dy)`, on top of the other nodes. Nodes and
+    /// connections whose ids are taken get new ones, and the connections follow their nodes;
+    /// a connection whose ends are not both in `piece` stays out. Returns the ids the copies
+    /// got, nodes first.
+    pub fn insert(&mut self, piece: &FlowGraph, dx: f32, dy: f32) -> (Vec<String>, Vec<String>) {
+        let mut renamed: Vec<(&str, String)> = Vec::with_capacity(piece.nodes.len());
+        for node in &piece.nodes {
+            let id = self.fresh_node_id(&node.id);
+            self.nodes.push(FlowNode { id: id.clone(), x: node.x + dx, y: node.y + dy, ..node.clone() });
+            renamed.push((&node.id, id));
+        }
+        let new_id = |old: &str| renamed.iter().find(|(o, _)| *o == old).map(|(_, id)| id.clone());
+        let mut edges = Vec::new();
+        for edge in &piece.edges {
+            let (Some(from), Some(to)) = (new_id(&edge.from.node), new_id(&edge.to.node)) else { continue };
+            let id =
+                if self.find_edge(&edge.id).is_none() { edge.id.clone() } else { self.fresh_edge_id("e") };
+            self.edges.push(FlowEdge {
+                id: id.clone(),
+                from: FlowEndpoint::new(from, edge.from.port.clone()),
+                to: FlowEndpoint::new(to, edge.to.port.clone()),
+                ..edge.clone()
+            });
+            edges.push(id);
+        }
+        (renamed.into_iter().map(|(_, id)| id).collect(), edges)
+    }
+
+    /// The diagram as JSON, indented, which [`Self::from_json`] reads back.
+    pub fn to_json(&self) -> String {
+        // Nothing in the model can fail to serialize: every field is text, a number or a list.
+        serde_json::to_string_pretty(self).unwrap_or_default()
+    }
+
+    /// Reads a diagram written by [`Self::to_json`] (or by hand), and checks that it holds
+    /// together: ids are not repeated and every connection joins ports that exist.
+    pub fn from_json(text: &str) -> Result<Self, FlowJsonError> {
+        let graph: Self = serde_json::from_str(text).map_err(|e| FlowJsonError::Syntax(e.to_string()))?;
+        graph.check()?;
+        Ok(graph)
+    }
+
+    /// The first thing that keeps the diagram from holding together, if any: a repeated node,
+    /// port or connection id, or a connection to a node or port that is not there.
+    pub fn check(&self) -> Result<(), FlowJsonError> {
+        for (i, node) in self.nodes.iter().enumerate() {
+            if self.nodes[..i].iter().any(|n| n.id == node.id) {
+                return Err(FlowJsonError::RepeatedNode(node.id.clone()));
+            }
+            for (j, port) in node.ports.iter().enumerate() {
+                if node.ports[..j].iter().any(|p| p.id == port.id) {
+                    return Err(FlowJsonError::RepeatedPort { node: node.id.clone(), port: port.id.clone() });
+                }
+            }
+        }
+        for (i, edge) in self.edges.iter().enumerate() {
+            if self.edges[..i].iter().any(|e| e.id == edge.id) {
+                return Err(FlowJsonError::RepeatedEdge(edge.id.clone()));
+            }
+            for end in [&edge.from, &edge.to] {
+                if self.port(end).is_none() {
+                    return Err(FlowJsonError::MissingEnd { edge: edge.id.clone(), end: end.clone() });
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
+/// Why a diagram could not be read.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
+pub enum FlowJsonError {
+    /// It is not JSON, or not shaped like a diagram; the reader's own words.
+    Syntax(String),
+    /// Two nodes have this id.
+    RepeatedNode(String),
+    /// Two ports of this node have the same id.
+    RepeatedPort {
+        /// The node.
+        node: String,
+        /// The repeated id.
+        port: String,
+    },
+    /// Two connections have this id.
+    RepeatedEdge(String),
+    /// A connection names a node or a port that is not there.
+    MissingEnd {
+        /// The connection.
+        edge: String,
+        /// The end that is missing.
+        end: FlowEndpoint,
+    },
+}
+
+impl std::fmt::Display for FlowJsonError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Syntax(why) => write!(f, "not a diagram: {why}"),
+            Self::RepeatedNode(id) => write!(f, "two nodes are called \"{id}\""),
+            Self::RepeatedPort { node, port } => write!(f, "node \"{node}\" has two ports called \"{port}\""),
+            Self::RepeatedEdge(id) => write!(f, "two connections are called \"{id}\""),
+            Self::MissingEnd { edge, end } => {
+                write!(
+                    f,
+                    "connection \"{edge}\" goes to port \"{}\" of \"{}\", which is not there",
+                    end.port, end.node
+                )
+            }
+        }
+    }
+}
+
+impl std::error::Error for FlowJsonError {}
+
+/// The diagrams before and after each change, for undo and redo. It keeps whole diagrams,
+/// which is simple and right for diagrams of a few thousand nodes; the oldest go beyond
+/// [`FlowHistory::LIMIT`].
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct FlowHistory {
+    past: Vec<FlowGraph>,
+    future: Vec<FlowGraph>,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl FlowHistory {
+    /// How many changes it remembers.
+    pub const LIMIT: usize = 100;
+
+    /// Nothing to undo or redo.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Remembers the diagram as it was before a change, and forgets what could be redone.
+    pub fn record(&mut self, before: FlowGraph) {
+        self.future.clear();
+        if self.past.last() == Some(&before) {
+            return;
+        }
+        self.past.push(before);
+        if self.past.len() > Self::LIMIT {
+            self.past.remove(0);
+        }
+    }
+
+    /// The diagram before the last change, given the diagram as it is `now`, which redo
+    /// brings back.
+    pub fn undo(&mut self, now: FlowGraph) -> Option<FlowGraph> {
+        let before = self.past.pop()?;
+        self.future.push(now);
+        Some(before)
+    }
+
+    /// The diagram the last undo went back from, given the diagram as it is `now`.
+    pub fn redo(&mut self, now: FlowGraph) -> Option<FlowGraph> {
+        let after = self.future.pop()?;
+        self.past.push(now);
+        Some(after)
+    }
+
+    /// Whether there is a change to undo.
+    pub fn can_undo(&self) -> bool {
+        !self.past.is_empty()
+    }
+
+    /// Whether there is an undo to redo.
+    pub fn can_redo(&self) -> bool {
+        !self.future.is_empty()
+    }
+
+    /// Forgets everything, as when another diagram is opened.
+    pub fn clear(&mut self) {
+        self.past.clear();
+        self.future.clear();
     }
 }
 
@@ -764,6 +973,90 @@ mod tests {
         assert!(g.edges.is_empty());
         assert!(!g.remove(&["b".to_owned()], &[]));
         assert_eq!(g.fresh_edge_id("e"), "e1");
+    }
+
+    #[test]
+    fn json_goes_out_and_comes_back_the_same() {
+        let g = graph()
+            .node(
+                FlowNode::new("c", "end", "C", 0.0, 200.0)
+                    .subtitle("last")
+                    .status(FlowNodeStatus::Warning("no account".into()))
+                    .port(FlowPort::input("in").side(PortSide::Top).label("In").kind("sale")),
+            )
+            .edge(
+                FlowEdge::new("e2", FlowEndpoint::new("a", "out"), FlowEndpoint::new("c", "in"))
+                    .shape(EdgeShape::Step)
+                    .label("No")
+                    .animated(true),
+            );
+        assert_eq!(FlowGraph::from_json(&g.to_json()), Ok(g));
+        assert_eq!(FlowGraph::from_json("{}"), Ok(FlowGraph::new()));
+    }
+
+    #[test]
+    fn json_that_does_not_hold_together_says_why() {
+        assert!(matches!(FlowGraph::from_json("[1, 2]"), Err(FlowJsonError::Syntax(_))));
+        let twice = graph().node(FlowNode::new("a", "action", "A again", 0.0, 0.0));
+        assert_eq!(FlowGraph::from_json(&twice.to_json()), Err(FlowJsonError::RepeatedNode("a".into())));
+        let nowhere =
+            graph().edge(FlowEdge::new("e2", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "gone")));
+        let error = FlowGraph::from_json(&nowhere.to_json());
+        assert_eq!(
+            error,
+            Err(FlowJsonError::MissingEnd { edge: "e2".into(), end: FlowEndpoint::new("b", "gone") })
+        );
+        assert_eq!(
+            error.map_err(|e| e.to_string()),
+            Err("connection \"e2\" goes to port \"gone\" of \"b\", which is not there".into())
+        );
+    }
+
+    #[test]
+    fn a_copied_piece_comes_back_with_new_ids_and_its_own_connections() {
+        let mut g = graph();
+        let piece = g.extract(&["a".into(), "b".into()]);
+        assert_eq!((piece.nodes.len(), piece.edges.len()), (2, 1));
+        assert_eq!(g.extract(&["a".into()]).edges.len(), 0, "a connection needs both ends");
+        let (nodes, edges) = g.insert(&piece, 24.0, 48.0);
+        assert_eq!(nodes, vec!["a-2".to_owned(), "b-2".to_owned()]);
+        assert_eq!(edges, vec!["e2".to_owned()]);
+        let copy = g.find_edge("e2").cloned().unwrap_or_default();
+        assert_eq!((copy.from, copy.to), (FlowEndpoint::new("a-2", "out"), FlowEndpoint::new("b-2", "in")));
+        assert_eq!(g.find_node("b-2").map(|n| (n.x, n.y)), Some((324.0, 148.0)));
+        assert_eq!(g.check(), Ok(()));
+        // A copy of a copy counts on, and a free id stays as it is.
+        assert_eq!(g.fresh_node_id("a-2"), "a-3");
+        assert_eq!(g.fresh_node_id("new"), "new");
+    }
+
+    #[test]
+    fn history_undoes_and_redoes_in_order() {
+        let (one, two, three) =
+            (FlowGraph::new(), graph(), graph().node(FlowNode::new("c", "action", "C", 0.0, 0.0)));
+        let mut h = FlowHistory::new();
+        assert!(!h.can_undo());
+        h.record(one.clone());
+        h.record(two.clone());
+        assert_eq!(h.undo(three.clone()), Some(two.clone()));
+        assert_eq!(h.undo(two.clone()), Some(one.clone()));
+        assert_eq!(h.undo(one.clone()), None);
+        assert_eq!(h.redo(one.clone()), Some(two.clone()));
+        assert_eq!(h.redo(two.clone()), Some(three.clone()));
+        assert!(!h.can_redo());
+        // A new change forgets what could be redone.
+        h.undo(three);
+        h.record(two);
+        assert!(!h.can_redo());
+        for _ in 0..FlowHistory::LIMIT + 10 {
+            h.record(FlowGraph::new());
+            h.record(graph());
+        }
+        let mut undone = 0;
+        while h.undo(FlowGraph::new()).is_some() {
+            undone += 1;
+        }
+        assert_eq!(undone, FlowHistory::LIMIT);
     }
 
     #[test]

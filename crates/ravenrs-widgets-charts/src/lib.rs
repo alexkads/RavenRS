@@ -29,8 +29,8 @@ pub use chart::{
 };
 #[cfg(feature = "flow")]
 pub use flow::{
-    EdgeShape, FlowCanvas, FlowEdge, FlowEndpoint, FlowGraph, FlowKind, FlowNode, FlowNodeStatus, FlowPort,
-    FlowSelection, FlowValidator, FlowViewport, PortDirection, PortSide,
+    EdgeShape, FlowCanvas, FlowEdge, FlowEndpoint, FlowGraph, FlowHistory, FlowJsonError, FlowKind, FlowNode,
+    FlowNodeStatus, FlowPort, FlowSelection, FlowValidator, FlowViewport, PortDirection, PortSide,
 };
 #[cfg(feature = "charts")]
 pub use sankey::{SankeyAlign, SankeyChart};

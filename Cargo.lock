@@ -6223,6 +6223,7 @@ dependencies = [
  "ravenrs-core",
  "ravenrs-live",
  "serde",
+ "serde_json",
  "tiny-skia",
 ]
 
