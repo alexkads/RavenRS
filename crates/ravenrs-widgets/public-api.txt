@@ -296,6 +296,7 @@ field Labels::dock_show
 field Labels::dock_split_below
 field Labels::dock_split_right
 field Labels::dock_tabs_name
+field Labels::dock_top
 field Labels::dock_with
 field Labels::document_name
 field Labels::document_tabs_name
@@ -2710,6 +2711,7 @@ method DockLayout::set_size
 method DockLayout::side_of
 method DockLayout::size
 method DockLayout::to_text
+method DockLayout::top
 method DockNode::horizontal
 method DockNode::tabs
 method DockNode::vertical
@@ -4621,6 +4623,7 @@ variant DockSide::Bottom
 variant DockSide::Center
 variant DockSide::Left
 variant DockSide::Right
+variant DockSide::Top
 variant DockTabBar::Always
 variant DockTabBar::Never
 variant DockTabBar::WhenSeveral

@@ -303,7 +303,8 @@ fn dock_area() -> impl View {
             .center(DockNode::tabs(["photo", "grid"]))
             .left(DockNode::tabs(["folders", "search"]), 220.0)
             .right(DockNode::vertical([DockNode::tabs(["layers"]), DockNode::tabs(["history"])]), 200.0)
-            .bottom(DockNode::tabs(["log"]), 110.0),
+            .bottom(DockNode::tabs(["log"]), 110.0)
+            .top(DockNode::tabs(["filters"]), 64.0),
     );
     let panels = vec![
         DockPanel::new("photo", "Photo").icon(IconName::Camera).closable(false),
@@ -313,6 +314,7 @@ fn dock_area() -> impl View {
         DockPanel::new("layers", "Layers"),
         DockPanel::new("history", "History"),
         DockPanel::new("log", "Log"),
+        DockPanel::new("filters", "Filters").icon(IconName::Filter),
     ];
     DockArea::new(layout.binding(), panels, |id| -> AnyView {
         Box::new(VStack::new((Text::new(format!("What {id} shows")),)).padding(12.0))

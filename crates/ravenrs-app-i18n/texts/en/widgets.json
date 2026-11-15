@@ -140,6 +140,7 @@
  "widgets.dock_split_below": "Split below",
  "widgets.dock_split_right": "Split to the right",
  "widgets.dock_tabs_name": "Panels",
+ "widgets.dock_top": "Top dock",
  "widgets.dock_with": "With {title}",
  "widgets.document_name": "Document",
  "widgets.document_tabs_name": "Open documents",
