@@ -4155,6 +4155,7 @@ reexport FlowGraph = ravenrs_graphics::flow::FlowGraph
 reexport FlowHistory = ravenrs_graphics::flow::FlowHistory
 reexport FlowJsonError = ravenrs_graphics::flow::FlowJsonError
 reexport FlowLayout = ravenrs_graphics::flow::layout::FlowLayout
+reexport FlowLayoutKind = ravenrs_graphics::flow::layout::FlowLayoutKind
 reexport FlowNode = ravenrs_graphics::flow::FlowNode
 reexport FlowNodeStatus = ravenrs_graphics::flow::FlowNodeStatus
 reexport FlowPort = ravenrs_graphics::flow::FlowPort

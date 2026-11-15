@@ -21,7 +21,7 @@ use ravenrs_text::TextAttrs;
 
 pub use ravenrs_graphics::flow::{
     EdgeCap, EdgeShape, FlowDirection, FlowEdge, FlowEndpoint, FlowGraph, FlowHistory, FlowJsonError,
-    FlowLayout, FlowNode, FlowNodeStatus, FlowPort, PortDirection, PortSide,
+    FlowLayout, FlowLayoutKind, FlowNode, FlowNodeStatus, FlowPort, PortDirection, PortSide,
 };
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
@@ -601,6 +601,8 @@ struct Memory {
     view_before: Cell<Option<FlowViewport>>,
     /// The node that takes the focus on the next build, once its title closes.
     focus_node: RefCell<Option<String>>,
+    /// Step lines already worked out around the nodes in their way.
+    routes: RefCell<geometry::RouteCache>,
 }
 
 /// How the parts of a canvas reach the same diagram.
@@ -1193,7 +1195,7 @@ impl Flow {
             .edges
             .iter()
             .filter_map(|edge| {
-                let points = screen_points(&graph, edge, &view)?;
+                let points = screen_points(&graph, edge, &view, &self.memory.routes)?;
                 Some((geometry::distance_to(&points, at), edge.id.clone()))
             })
             .filter(|(d, _)| *d <= EDGE_REACH)
@@ -1519,9 +1521,15 @@ impl Flow {
     }
 }
 
-/// A connection's line in the view, as points.
-fn screen_points(graph: &FlowGraph, edge: &FlowEdge, view: &FlowViewport) -> Option<Vec<Point>> {
-    let path = graph.edge_path(edge)?;
+/// A connection's line in the view, as points; step lines are worked out again only when
+/// something near them changed (`routes`).
+fn screen_points(
+    graph: &FlowGraph,
+    edge: &FlowEdge,
+    view: &FlowViewport,
+    routes: &RefCell<geometry::RouteCache>,
+) -> Option<Vec<Point>> {
+    let path = graph.edge_path_cached(edge, &mut routes.borrow_mut())?;
     Some(geometry::flatten(&path).into_iter().map(|p| view.to_screen(p)).collect())
 }
 
@@ -1617,6 +1625,8 @@ struct Surface {
     /// The corner radius of a group's panel at 100%.
     radius: f32,
     palette: Palette,
+    /// Where the lines worked out before are kept.
+    memory: Rc<Memory>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -1661,7 +1671,9 @@ impl Surface {
         };
         let moving = self.connecting.as_ref().and_then(|c| c.moving.as_deref());
         for edge in self.graph.edges.iter().filter(|e| Some(e.id.as_str()) != moving) {
-            let Some(points) = screen_points(&self.graph, edge, &self.view) else { continue };
+            let Some(points) = screen_points(&self.graph, edge, &self.view, &self.memory.routes) else {
+                continue;
+            };
             // The line reaches the edge of each port's dot (the start only when it has a cap), so
             // its caps show; then it stops inside each cap.
             let dot = PORT_DOT * self.view.zoom.clamp(0.75, 1.25) / 2.0 + 1.0;
@@ -1831,7 +1843,7 @@ impl View for FlowCanvas {
         // The words on the lines, as text the screen shows and reads like any other.
         for edge in &graph.edges {
             let Some(label) = &edge.label else { continue };
-            let Some(points) = screen_points(&graph, edge, &view) else { continue };
+            let Some(points) = screen_points(&graph, edge, &view, &memory.routes) else { continue };
             let Some(middle) = geometry::midpoint(&points) else { continue };
             children.push(edge_label(cx, label, middle, &theme, palette));
         }
@@ -1876,6 +1888,7 @@ impl View for FlowCanvas {
             grid: self.grid,
             radius: theme.radii.lg,
             palette,
+            memory: memory.clone(),
         };
         let animated = graph.edges.iter().any(|e| e.animated) && !cx.reduced_motion();
         let seen = memory.clone();
