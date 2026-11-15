@@ -1263,6 +1263,9 @@ fn the_data_inspector_shows_the_orders_four_ways_and_keeps_the_field_chosen() {
     assert!(c.says("Modo 1 · item 2"), "the item moved");
     c.activate("pedido: 102");
     assert!(c.says("Escolheu pedido"), "the pick is heard as a path");
+    assert!(c.says("Arraste pedido para um parâmetro"), "the field chosen can be carried to an expression");
+    c.press("Copiar como expressão");
+    assert_eq!(c.ui.clipboard().read().as_deref(), Some("[pedido]"), "or copied as one from the keyboard");
     c.activate("Esquema");
     assert!(c.says("▸ pedido"), "the field chosen stays chosen");
     assert!(c.says("cliente.cidade"), "a field one order lacks");

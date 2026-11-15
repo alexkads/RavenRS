@@ -21,7 +21,7 @@ use serde_json::{Map, Value};
 use crate::context::{BuildCx, NodeId};
 use crate::editors::{NumberField, TextArea};
 use crate::{
-    Alert, AnyView, Button, ButtonSize, ButtonStyle, FormField, HStack, IconButton, IconName,
+    Alert, AnyView, Button, ButtonSize, ButtonStyle, FieldDrag, FormField, HStack, IconButton, IconName,
     SegmentedControl, Select, Spacer, Spinner, Text, TextField, Toggle, Tone, VStack, View,
 };
 
@@ -168,6 +168,37 @@ impl ParamValues {
 impl From<Map<String, Value>> for ParamValues {
     fn from(map: Map<String, Value>) -> Self {
         Self(map)
+    }
+}
+
+/// Takes the expression of a field of data carried to a field of the form.
+type Take = Rc<dyn Fn(&str)>;
+
+/// A field of the form as a place a field of data can be carried to: text takes it as an
+/// expression, written where the value ends; anything else refuses it, saying why.
+struct Takes {
+    inner: AnyView,
+    take: Option<Take>,
+    refused: String,
+}
+
+impl View for Takes {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let node = cx.child(&*self.inner);
+        let refused = self.refused.clone();
+        match self.take.clone() {
+            Some(take) => cx.drop_target(
+                node,
+                move |p| if FieldDrag::carried(p).is_some() { Ok(()) } else { Err(refused.clone()) },
+                move |p, _| {
+                    if let Some(field) = FieldDrag::carried(p) {
+                        take(&field.expression);
+                    }
+                },
+            ),
+            None => cx.drop_target(node, move |_| Err(refused.clone()), |_, _| {}),
+        }
+        node
     }
 }
 
@@ -386,6 +417,40 @@ impl Parts {
             Box::new(TextField::new(text).placeholder(self.labels.param_expression.clone()))
         } else {
             self.editor(field, value.clone(), &path)
+        };
+        // A field of data carried here: an expression takes its expression at the end, text
+        // takes it as `{{ … }}`; other kinds refuse it.
+        let take: Option<Take> = match (&field.kind, is_expression) {
+            (ParamKind::Group(_) | ParamKind::List(_), _) => None,
+            (_, true) => {
+                let value = value.clone();
+                Some(Rc::new(move |expression: &str| {
+                    value.update(|v| {
+                        let before =
+                            v.get(EXPRESSION_KEY).and_then(Value::as_str).unwrap_or_default().to_owned();
+                        let joined = if before.trim().is_empty() {
+                            expression.to_owned()
+                        } else {
+                            format!("{before} {expression}")
+                        };
+                        *v = serde_json::json!({ EXPRESSION_KEY: joined });
+                    });
+                }))
+            }
+            (ParamKind::Text | ParamKind::LongText, false) => {
+                let value = value.clone();
+                Some(Rc::new(move |expression: &str| {
+                    value.update(|v| {
+                        let before = v.as_str().unwrap_or_default().to_owned();
+                        *v = Value::String(format!("{before}{{{{ {expression} }}}}"));
+                    });
+                }))
+            }
+            _ => None,
+        };
+        let editor: AnyView = match &field.kind {
+            ParamKind::Group(_) | ParamKind::List(_) => editor,
+            _ => Box::new(Takes { inner: editor, take, refused: self.labels.param_no_field.clone() }),
         };
         let wrapped: AnyView = match &field.kind {
             ParamKind::Group(_) | ParamKind::List(_) => return editor,

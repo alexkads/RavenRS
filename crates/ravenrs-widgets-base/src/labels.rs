@@ -799,6 +799,12 @@ pub struct Labels {
     pub expression_result: String,
     /// Why an `ExpressionEditor` expression could not be worked out, with `{0}`.
     pub expression_failed: String,
+    /// The tag of the field chosen in a `DataInspector`, to carry to an expression, with `{0}`.
+    pub inspector_drag: String,
+    /// Copies the field chosen in a `DataInspector` as an expression.
+    pub inspector_copy: String,
+    /// A field of a `ParameterForm` that takes no field carried to it.
+    pub param_no_field: String,
     /// The Export menu of a `FlowCanvas`.
     pub flow_export: String,
     /// Export a `FlowCanvas` as a PNG picture.
@@ -1615,6 +1621,9 @@ impl Labels {
             inspector_chosen: texts.get("widgets.inspector_chosen"),
             expression_result: texts.get("widgets.expression_result"),
             expression_failed: texts.get("widgets.expression_failed"),
+            inspector_drag: texts.get("widgets.inspector_drag"),
+            inspector_copy: texts.get("widgets.inspector_copy"),
+            param_no_field: texts.get("widgets.param_no_field"),
             flow_export: texts.get("widgets.flow_export"),
             flow_export_png: texts.get("widgets.flow_export_png"),
             flow_export_svg: texts.get("widgets.flow_export_svg"),

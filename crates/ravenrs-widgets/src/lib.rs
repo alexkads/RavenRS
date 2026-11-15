@@ -108,10 +108,10 @@ use ravenrs_widgets_chat::rich_text;
 #[allow(unused_imports)]
 use ravenrs_widgets_base::{
     button, cable_plug, calendar, canvas, card, choice, clipboard, color_picker, context, date, display,
-    dock_side, extras, file_picker, fill, floating, full_screen, hotkey, icon, icon_set, ids, image, inputs,
-    kbd, labels, link_service, links, localized, modifiers, motion, motion_spec, overlay, page_motion,
-    recurrence, remote, reorder, scroll_link, scroll_scene, selection_mode, sound, stack, summary,
-    system_appearance, text, text_field, time_link, turn, ui, util, view, zoom,
+    dock_side, extras, field_drag, file_picker, fill, floating, full_screen, hotkey, icon, icon_set, ids,
+    image, inputs, kbd, labels, link_service, links, localized, modifiers, motion, motion_spec, overlay,
+    page_motion, recurrence, remote, reorder, scroll_link, scroll_scene, selection_mode, sound, stack,
+    summary, system_appearance, text, text_field, time_link, turn, ui, util, view, zoom,
 };
 #[allow(unused_imports)]
 use ravenrs_widgets_kit::{
@@ -172,6 +172,7 @@ pub use extras::{
     AccessibleControl, Carousel, FormField, InputOtp, Menubar, Rule, Spinner, SplitHandle, SplitPane,
     SplitPanes, Splitter, validate,
 };
+pub use field_drag::{FIELD_DRAG, FieldDrag, field_expression};
 pub use file_picker::{FilePicker, FilePickerProvider, FileRequest, NoFilePicker, PickedFile};
 #[cfg(feature = "decode")]
 pub use files::ImageField;

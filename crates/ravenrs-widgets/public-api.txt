@@ -2,6 +2,7 @@
 # Written by scripts/public-api.py; `--check` fails when it changes. Regenerate it only
 # when the change is meant, and say so in the pull request.
 const EXPRESSION_KEY
+const FIELD_DRAG
 const FLOW_NODE_DRAG
 const HOLD_TO_CARRY
 const SAMPLE
@@ -139,6 +140,8 @@ field Drag::container
 field Drag::frame
 field Drag::phase
 field Drag::position
+field FieldDrag::expression
+field FieldDrag::path
 field FileEntry::icon
 field FileEntry::id
 field FileEntry::is_folder
@@ -602,6 +605,8 @@ field Labels::increase
 field Labels::inspector_absent
 field Labels::inspector_boolean
 field Labels::inspector_chosen
+field Labels::inspector_copy
+field Labels::inspector_drag
 field Labels::inspector_empty
 field Labels::inspector_in
 field Labels::inspector_item
@@ -655,6 +660,7 @@ field Labels::param_fixed
 field Labels::param_load_failed
 field Labels::param_loading
 field Labels::param_mode
+field Labels::param_no_field
 field Labels::param_none
 field Labels::param_remove
 field Labels::param_required
@@ -968,6 +974,7 @@ fn days_in_month
 fn decode_image
 fn distance_to_cable
 fn exceptions_text
+fn field_expression
 fn field_path
 fn find_all
 fn grid::query::check_formula
@@ -1065,6 +1072,7 @@ impl Clone for Drag
 impl Clone for DragPayload
 impl Clone for DragPhase
 impl Clone for EyedropperState
+impl Clone for FieldDrag
 impl Clone for FileEntry
 impl Clone for FilePicker
 impl Clone for FileRequest
@@ -1453,6 +1461,7 @@ impl Debug for EyedropperArea
 impl Debug for EyedropperState
 impl Debug for Faded
 impl Debug for FavoriteToggle
+impl Debug for FieldDrag
 impl Debug for FileBrowser
 impl Debug for FileEntry
 impl Debug for FilePicker
@@ -1939,6 +1948,7 @@ impl Eq for DockPanelKind
 impl Eq for DockSide
 impl Eq for DockTabBar
 impl Eq for DragPhase
+impl Eq for FieldDrag
 impl Eq for FileRequest
 impl Eq for FileSort
 impl Eq for FileSortColumn
@@ -2083,6 +2093,7 @@ impl PartialEq for DockTabBar
 impl PartialEq for DocumentTab
 impl PartialEq for Drag
 impl PartialEq for DragPhase
+impl PartialEq for FieldDrag
 impl PartialEq for FileEntry
 impl PartialEq for FileRequest
 impl PartialEq for FileSort
@@ -3177,6 +3188,9 @@ method FavoriteToggle::label
 method FavoriteToggle::new
 method FavoriteToggle::size
 method FavoriteToggle::star
+method FieldDrag::carried
+method FieldDrag::new
+method FieldDrag::payload
 method FileBrowser::height
 method FileBrowser::label
 method FileBrowser::mode
@@ -4731,6 +4745,7 @@ struct EyedropperArea
 struct EyedropperState
 struct Faded
 struct FavoriteToggle
+struct FieldDrag
 struct FileBrowser
 struct FileEntry
 struct FilePicker

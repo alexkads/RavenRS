@@ -94,3 +94,94 @@ fn a_pick_in_the_tree_is_heard_as_a_path_with_quotes_where_needed() {
         "itens[0].preço"
     );
 }
+
+fn center_of(ui: &mut Ui, name: &str, role: Option<ravenrs_core::Role>) -> ravenrs_core::Point {
+    ui.access_tree()
+        .nodes
+        .iter()
+        .find(|n| {
+            n.name.as_deref() == Some(name)
+                && role.is_none_or(|r| n.role == r)
+                && !matches!(n.role, ravenrs_core::Role::Label | ravenrs_core::Role::Group)
+        })
+        .expect(name)
+        .bounds
+        .center()
+}
+
+fn carry(ui: &mut Ui, from: ravenrs_core::Point, to: ravenrs_core::Point) -> Option<String> {
+    use ravenrs_core::{Event, Point, PointerButton};
+    ui.handle_event(&Event::PointerMove { position: from });
+    ui.handle_event(&Event::PointerDown { position: from, button: PointerButton::Primary });
+    ui.handle_event(&Event::PointerMove { position: Point::new(from.x + 30.0, from.y + 10.0) });
+    ui.update();
+    ui.handle_event(&Event::PointerMove { position: to });
+    ui.update();
+    let said = ui
+        .access_tree()
+        .nodes
+        .iter()
+        .find(|n| n.role == ravenrs_core::Role::Status)
+        .and_then(|n| n.name.clone());
+    ui.handle_event(&Event::PointerUp { position: to, button: PointerButton::Primary });
+    for _ in 0..3 {
+        ui.update();
+    }
+    said
+}
+
+#[test]
+fn a_field_carried_to_a_parameter_becomes_its_expression_and_a_number_refuses_it() {
+    let chosen = State::new(Some("cliente.nome".to_owned()));
+    let values = State::new(ParamValues::new());
+    let form = ParameterForm::new(
+        vec![
+            ParamField::new("mensagem", "Message", ParamKind::Text),
+            ParamField::new("qtd", "Quantity", ParamKind::Number),
+        ],
+        values.binding(),
+    );
+    let mut ui = ui(VStack::new((
+        DataInspector::new(ORDERS).mode(State::new(1_usize).binding()).selected(chosen.binding()),
+        form,
+    )));
+    let tag = center_of(&mut ui, "Drag cliente.nome to a parameter", None);
+    let number = center_of(&mut ui, "Quantity", None);
+    let refused = carry(&mut ui, tag, number);
+    assert_eq!(
+        refused.as_deref(),
+        Some("This field takes no field carried to it"),
+        "a number refuses it, saying why"
+    );
+    let text = center_of(&mut ui, "Message", Some(ravenrs_core::Role::TextInput));
+    let tag = center_of(&mut ui, "Drag cliente.nome to a parameter", None);
+    carry(&mut ui, tag, text);
+    press(&mut ui, "Apply");
+    assert_eq!(values.get().get("mensagem"), Some(&json!("{{ [cliente.nome] }}")));
+    assert_eq!(values.get().get("qtd"), None, "the number took nothing");
+
+    press(&mut ui, "Copy as an expression");
+    assert_eq!(ui.clipboard().read().as_deref(), Some("[cliente.nome]"), "the same, without a pointer");
+}
+
+#[test]
+fn a_field_carried_to_an_expression_goes_in_at_the_caret() {
+    let chosen = State::new(Some("total".to_owned()));
+    let text = State::new("Iif(, 1, 0)".to_owned());
+    let mut ui = ui(VStack::new((
+        DataInspector::new(ORDERS).mode(State::new(1_usize).binding()).selected(chosen.binding()),
+        ExpressionEditor::new(text.binding()).rows(2),
+    )));
+    let tag = center_of(&mut ui, "Drag total to a parameter", None);
+    let to = ui
+        .access_tree()
+        .nodes
+        .iter()
+        .filter(|n| n.role == ravenrs_core::Role::TextInput)
+        .last()
+        .expect("the expression's text")
+        .bounds
+        .center();
+    carry(&mut ui, tag, to);
+    assert!(text.get().contains("[total]"), "the field went in: {}", text.get());
+}

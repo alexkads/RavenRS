@@ -14,11 +14,11 @@ use ravenrs_reactive::Binding;
 use ravenrs_style::{Semantic, TextStyle};
 use serde_json::Value;
 
-use crate::context::{BuildCx, NodeId};
+use crate::context::{BuildCx, NodeId, Semantics};
 use crate::tree::{TreeNode, TreeView};
 use crate::{
-    AnyView, ButtonSize, ButtonStyle, Column, HStack, IconButton, IconName, ScrollView, SegmentedControl,
-    Spacer, Table, Text, VStack, View,
+    AnyView, Badge, Button, ButtonSize, ButtonStyle, Column, FieldDrag, HStack, IconButton, IconName,
+    ScrollView, SegmentedControl, Spacer, Table, Text, VStack, View,
 };
 
 /// How many items, and how many entries of a list inside one, are shown before the rest is
@@ -194,6 +194,60 @@ fn tree(
             node
         }
         leaf => TreeNode::new(key, format!("{name}: {}", cell(Some(leaf), labels))),
+    }
+}
+
+/// The keys that reach each path of `value`, by the path as people read it.
+fn keys_of(value: &Value, steps: &mut Vec<PathStep>, out: &mut BTreeMap<String, Vec<String>>) {
+    if !steps.is_empty() {
+        let keys = steps
+            .iter()
+            .map(|s| match s {
+                PathStep::Key(k) => k.clone(),
+                PathStep::Row(i) => i.to_string(),
+            })
+            .collect();
+        out.insert(field_path(steps), keys);
+    }
+    match value {
+        Value::Object(map) => {
+            for (k, v) in map {
+                steps.push(PathStep::Key(k.clone()));
+                keys_of(v, steps, out);
+                steps.pop();
+            }
+        }
+        Value::Array(list) => {
+            for (i, v) in list.iter().enumerate().take(SAMPLE) {
+                steps.push(PathStep::Row(i));
+                keys_of(v, steps, out);
+                steps.pop();
+            }
+        }
+        _ => {}
+    }
+}
+
+/// The field chosen, as a tag to carry with the pointer to where an expression is written.
+struct Carry {
+    field: FieldDrag,
+    words: String,
+}
+
+impl View for Carry {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let node = cx.child(
+            &HStack::new((
+                crate::Icon::new(IconName::MousePointer),
+                Badge::new(self.field.path.clone()).tone(crate::Tone::Accent),
+            ))
+            .spacing(6.0)
+            .align(Align::Center),
+        );
+        cx.focusable(node, 6.0);
+        cx.semantics(node, Semantics::new(ravenrs_core::Role::Button).name(self.words.clone()));
+        cx.drag_source(node, self.field.payload());
+        node
     }
 }
 
@@ -416,6 +470,25 @@ impl View for DataInspector {
                     .style(TextStyle::Callout)
                     .foreground(Semantic::InkMuted),
             ));
+            // The field chosen can be carried to an expression, or copied as one from the keyboard.
+            let mut keys = BTreeMap::new();
+            keys_of(&items[at], &mut Vec::new(), &mut keys);
+            if let Some(found) = keys.get(&path) {
+                let field = FieldDrag::new(path.clone(), crate::field_expression(found));
+                let (clipboard, expression) = (cx.clipboard(), field.expression.clone());
+                parts.push(Box::new(
+                    HStack::new((
+                        Carry { words: labels.inspector_drag.replace("{0}", &path), field },
+                        Button::new(labels.inspector_copy.clone())
+                            .icon(IconName::Copy)
+                            .style(ButtonStyle::Secondary)
+                            .size(ButtonSize::Small)
+                            .on_click(move || clipboard.write(&expression)),
+                    ))
+                    .spacing(8.0)
+                    .align(Align::Center),
+                ));
+            }
         }
         cx.child(&VStack::new(parts).spacing(8.0).align(Align::Stretch))
     }

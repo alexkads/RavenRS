@@ -351,6 +351,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::validate::__live_expose(registry);
     crate::FormField::<crate::AnyView>::__live_expose(registry);
     crate::AccessibleControl::<crate::AnyView>::__live_expose(registry);
+    crate::FieldDrag::__live_expose_fields(registry);
+    crate::FieldDrag::__live_expose(registry);
     crate::PickedFile::__live_expose_fields(registry);
     crate::PickedFile::__live_expose(registry);
     crate::FileRequest::__live_expose_fields(registry);

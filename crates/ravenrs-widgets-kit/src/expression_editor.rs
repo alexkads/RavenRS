@@ -12,8 +12,8 @@ use ravenrs_style::{SPACING, Semantic, TextStyle, Weight};
 use crate::context::{BuildCx, NodeId};
 use crate::text_field::{Cursor, byte_index};
 use crate::{
-    Alert, AnyView, Button, ButtonSize, FilterField, FilterFieldKind, HStack, IconName, ScrollView,
-    SidebarItem, Text, TextArea, TextField, Tone, VStack, View, ViewExt,
+    Alert, AnyView, Button, ButtonSize, FieldDrag, FilterField, FilterFieldKind, HStack, IconName,
+    ScrollView, SidebarItem, Text, TextArea, TextField, Tone, VStack, View, ViewExt,
 };
 
 /// The function groups, in the order of [`Labels::expression_groups`](crate::Labels::expression_groups)
@@ -218,14 +218,20 @@ struct Item {
 
 /// Puts `item` where the caret is, over the selection if there is one.
 fn insert(value: &Binding<String>, cursor: &State<Cursor>, item: &Item) {
+    insert_text(value, cursor, &item.insert, item.back);
+}
+
+/// Writes `insert` over the selection, or at the caret, and leaves the caret `back` characters
+/// before its end.
+fn insert_text(value: &Binding<String>, cursor: &State<Cursor>, insert: &str, back: usize) {
     let text = value.get();
     let chars = text.chars().count();
     let c = cursor.get();
     let caret = c.caret.min(chars);
     let (start, end) = c.selection().map_or((caret, caret), |(a, b)| (a.min(chars), b.min(chars)));
     let (a, b) = (byte_index(&text, start), byte_index(&text, end));
-    value.set(format!("{}{}{}", &text[..a], item.insert, &text[b..]));
-    cursor.set(Cursor::at(start + item.insert.chars().count() - item.back));
+    value.set(format!("{}{}{}", &text[..a], insert, &text[b..]));
+    cursor.set(Cursor::at(start + insert.chars().count() - back));
 }
 
 /// The line and column, from 1, of byte `offset` in `text`.
@@ -420,6 +426,18 @@ impl View for ExpressionEditor {
         ))
         .spacing(SPACING.s3)
         .align(Align::Stretch);
-        cx.child(&editor)
+        let node = cx.child(&editor);
+        // A field carried from where data is looked at goes in at the caret, as its expression.
+        let (value, caret, refused) = (self.value.clone(), cursor.clone(), labels.param_no_field.clone());
+        cx.drop_target(
+            node,
+            move |p| if FieldDrag::carried(p).is_some() { Ok(()) } else { Err(refused.clone()) },
+            move |p, _| {
+                if let Some(field) = FieldDrag::carried(p) {
+                    insert_text(&value, &caret, &field.expression, 0);
+                }
+            },
+        );
+        node
     }
 }
