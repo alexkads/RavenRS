@@ -134,8 +134,9 @@ pub use code_editor::{CodeDiagnostic, CodeEditor, CodeLanguage, highlight_rust, 
 pub use color_picker::ColorPicker;
 pub use commands::{ConfirmDialog, FloatingToolbar, SplitButton, Toolbar, ToolbarAction};
 pub use context::{
-    ActivityObserver, BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, LiveFn, NodeId, Paint,
-    PaintCx, Placement, QuadPaint, RichFn, Semantics, UiActivity, WidgetId,
+    ActivityObserver, BuildCx, Carrying, Drag, DragHandler, DragPayload, DragPhase, DrawFn, DropCheck,
+    DropHandler, KeyHandler, LiveFn, NodeId, Paint, PaintCx, Placement, QuadPaint, RichFn, Semantics,
+    UiActivity, WidgetId,
 };
 pub use conversation::{Attachment, AttachmentStrip, AudioPlayerButton, SelectionBar};
 pub use counter::{KeyBar, KeyBarItem, Scan, ScanField};

@@ -54,6 +54,15 @@ impl Ui {
             builder.visit(root, &mut children, None);
         }
         let Builder { mut nodes, map, focus, active, .. } = builder;
+        // What is being carried between components, said as it changes.
+        if let Some(words) = self.carry_status() {
+            // Out of the way of the ids widgets get.
+            let id = u64::MAX - 1;
+            let mut status = AccessNode::new(id, Role::Status, Rect::ZERO);
+            status.name = Some(words);
+            nodes.push(status);
+            children.push(id);
+        }
         nodes[0].children = children;
         if let (Some(focus), Some(active)) = (focus, active)
             && let Some(node) = nodes.iter_mut().find(|n| n.id == focus)

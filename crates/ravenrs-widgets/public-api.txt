@@ -77,6 +77,11 @@ field CalendarEvent::locked
 field CalendarEvent::time
 field CalendarEvent::title
 field CalendarEvent::tone
+field Carrying::keyboard
+field Carrying::over
+field Carrying::payload
+field Carrying::position
+field Carrying::verdict
 field CellEdit::column
 field CellEdit::previous
 field CellEdit::row
@@ -819,6 +824,7 @@ impl Clone for ButtonSize
 impl Clone for ButtonStyle
 impl Clone for CalendarEvent
 impl Clone for CalendarView
+impl Clone for Carrying
 impl Clone for CellAlign
 impl Clone for CellEdit
 impl Clone for Chart
@@ -863,6 +869,7 @@ impl Clone for DockTabBar
 impl Clone for DocumentTab
 impl Clone for Dot
 impl Clone for Drag
+impl Clone for DragPayload
 impl Clone for DragPhase
 impl Clone for EyedropperState
 impl Clone for FileEntry
@@ -1147,6 +1154,7 @@ impl Debug for Canvas
 impl Debug for Card
 impl Debug for CardView
 impl Debug for Carousel
+impl Debug for Carrying
 impl Debug for CellAlign
 impl Debug for CellEdit
 impl Debug for Chart
@@ -1218,6 +1226,7 @@ impl Debug for DocumentTab
 impl Debug for DocumentTabs
 impl Debug for Dot
 impl Debug for Drag
+impl Debug for DragPayload
 impl Debug for DragPhase
 impl Debug for DropZone
 impl Debug for DropdownMenu
@@ -2224,12 +2233,15 @@ method BuildCx::animated
 method BuildCx::animated_numbers
 method BuildCx::appear
 method BuildCx::ask_for_access_tree
+method BuildCx::carrying
 method BuildCx::child
 method BuildCx::children
 method BuildCx::clip
 method BuildCx::clipboard
 method BuildCx::container
 method BuildCx::cursor
+method BuildCx::drag_source
+method BuildCx::drop_target
 method BuildCx::empty
 method BuildCx::file_picker
 method BuildCx::files_over
@@ -2751,6 +2763,10 @@ method Dot::new
 method Dot::size
 method Dot::tone
 method Drag::fraction_x
+method DragPayload::data
+method DragPayload::kind
+method DragPayload::label
+method DragPayload::new
 method DropZone::accept
 method DropZone::choosable
 method DropZone::disabled
@@ -4191,6 +4207,7 @@ struct Canvas
 struct Card
 struct CardView
 struct Carousel
+struct Carrying
 struct CellEdit
 struct Chart
 struct ChartCard
@@ -4244,6 +4261,7 @@ struct DocumentTab
 struct DocumentTabs
 struct Dot
 struct Drag
+struct DragPayload
 struct DropZone
 struct DropdownMenu
 struct EmptyState
@@ -4553,6 +4571,8 @@ type AnyView
 type DockGuard
 type DragHandler
 type DrawFn
+type DropCheck
+type DropHandler
 type FlowContent
 type FlowGuard
 type FlowValidator

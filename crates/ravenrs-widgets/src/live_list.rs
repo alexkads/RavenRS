@@ -249,6 +249,9 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::DragPhase::__live_expose_variants(registry);
     crate::Drag::__live_expose_fields(registry);
     crate::Drag::__live_expose(registry);
+    crate::DragPayload::__live_expose_fields(registry);
+    crate::DragPayload::__live_expose(registry);
+    crate::Carrying::__live_expose_fields(registry);
     crate::Placement::__live_expose_variants(registry);
     crate::Semantics::__live_expose_fields(registry);
     crate::Semantics::__live_expose(registry);

@@ -140,6 +140,96 @@ impl Drag {
 /// Called for each phase of a pointer drag on an element.
 pub type DragHandler = Rc<dyn Fn(Drag)>;
 
+/// What a drag between components carries: a kind the target checks, the words people see by
+/// the pointer and screen readers hear, and the app's own value.
+///
+/// ```
+/// use ravenrs_widgets::DragPayload;
+///
+/// let payload = DragPayload::new("flow-node", "Decision", 7_u32);
+/// assert_eq!((payload.kind(), payload.label()), ("flow-node", "Decision"));
+/// assert_eq!(payload.data::<u32>(), Some(&7));
+/// assert_eq!(payload.data::<String>(), None);
+/// ```
+#[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct DragPayload {
+    kind: Rc<str>,
+    label: Rc<str>,
+    data: Rc<dyn std::any::Any>,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl DragPayload {
+    /// Carrying `data`, of this `kind`, called `label`.
+    pub fn new(kind: &str, label: &str, data: impl std::any::Any) -> Self {
+        Self { kind: kind.into(), label: label.into(), data: Rc::new(data) }
+    }
+
+    /// What sort of thing it is, for targets to check.
+    pub fn kind(&self) -> &str {
+        &self.kind
+    }
+
+    /// What it is called.
+    pub fn label(&self) -> &str {
+        &self.label
+    }
+
+    /// The value it carries, if it is a `T`.
+    pub fn data<T: std::any::Any>(&self) -> Option<&T> {
+        self.data.downcast_ref()
+    }
+}
+
+impl fmt::Debug for DragPayload {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DragPayload")
+            .field("kind", &self.kind)
+            .field("label", &self.label)
+            .finish_non_exhaustive()
+    }
+}
+
+/// Whether a drop target takes what is carried, and why not.
+pub type DropCheck = Rc<dyn Fn(&DragPayload) -> Result<(), String>>;
+/// Takes what was dropped, with where it was dropped in the target's own coordinates (from
+/// its top left corner).
+pub type DropHandler = Rc<dyn Fn(&DragPayload, Point)>;
+
+/// Something being carried, as a component sees it while it builds ([`BuildCx::carrying`]).
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct Carrying {
+    /// What is carried.
+    pub payload: DragPayload,
+    /// Where it is, on screen.
+    pub position: Point,
+    /// It is over this component's own drop target.
+    pub over: bool,
+    /// Whether the target it is over takes it, and why not.
+    pub verdict: Option<Result<(), String>>,
+    /// It is carried with the keys.
+    pub keyboard: bool,
+}
+
+/// A drag between components in progress, kept by the runtime.
+#[derive(Clone, Debug)]
+#[doc(hidden)]
+pub struct Carry {
+    pub payload: DragPayload,
+    pub source: WidgetId,
+    /// Where it is, on screen.
+    pub at: Point,
+    pub pressed: Point,
+    /// It moved far enough to be a drag rather than a press.
+    pub started: bool,
+    pub keyboard: bool,
+    /// The drop target under it and whether it takes it.
+    pub over: Option<WidgetId>,
+    pub verdict: Option<Result<(), String>>,
+}
+
 /// What just happened in the UI, for something watching it as a whole.
 #[derive(Clone, Copy, Debug)]
 #[non_exhaustive]
@@ -420,6 +510,10 @@ pub struct Element {
     /// and the pointer follow it, layout does not.
     pub scale: f32,
     pub on_double_click: Option<Rc<dyn Fn()>>,
+    /// Picked up and carried to drop targets.
+    pub drag_source: Option<DragPayload>,
+    /// Takes what is carried here.
+    pub drop_target: Option<(DropCheck, DropHandler)>,
     pub on_pinch: Option<Rc<dyn Fn(f32)>>,
     /// Takes the wheel over it, before any scroll container around it.
     pub on_wheel: Option<Rc<dyn Fn(Point)>>,
@@ -482,6 +576,8 @@ impl Element {
             rotation: 0.0,
             scale: 1.0,
             on_double_click: None,
+            drag_source: None,
+            drop_target: None,
             on_pinch: None,
             on_wheel: None,
             scrolls_with_widget: false,
@@ -515,6 +611,7 @@ impl Element {
             || self.cursor.is_some()
             || self.focus_radius.is_some()
             || self.on_drag.is_some()
+            || self.drag_source.is_some()
     }
 }
 
@@ -654,6 +751,8 @@ pub struct BuildCx<'a> {
     #[doc(hidden)]
     pub files_over: State<bool>,
     #[doc(hidden)]
+    pub carry: Option<Carry>,
+    #[doc(hidden)]
     pub appearance: crate::SystemAppearance,
     #[doc(hidden)]
     pub motions: Vec<MotionEntry>,
@@ -731,6 +830,7 @@ impl<'a> BuildCx<'a> {
             full_screen: crate::FullScreen::default(),
             file_picker: crate::FilePicker::default(),
             files_over: State::new(false),
+            carry: None,
             appearance: crate::SystemAppearance::default(),
             motions: Vec::new(),
             motion_clock: 0.0,
@@ -1540,6 +1640,45 @@ impl<'a> BuildCx<'a> {
         if let Some(e) = self.element_mut(node) {
             e.scale = factor.max(0.0);
         }
+    }
+
+    /// Lets the node be picked up and carried to a [`Self::drop_target`]: pressed and dragged
+    /// with the pointer, or, focused, picked up with Space, moved with the arrows (Shift for
+    /// four times as far), dropped with Enter and given up with Escape. While it is carried, a
+    /// tag with its label follows it and screen readers hear the label, or why the target under
+    /// it refuses.
+    pub fn drag_source(&mut self, node: NodeId, payload: DragPayload) {
+        if let Some(e) = self.element_mut(node) {
+            e.drag_source = Some(payload);
+        }
+    }
+
+    /// Takes what is carried and dropped on the node: `check` says whether it takes it (and,
+    /// when not, why), `on_drop` gets it with where it landed, from the node's top left corner.
+    /// While something is carried, [`Self::carrying`] tells the node, for a preview of its own.
+    pub fn drop_target(
+        &mut self,
+        node: NodeId,
+        check: impl Fn(&DragPayload) -> Result<(), String> + 'static,
+        on_drop: impl Fn(&DragPayload, Point) + 'static,
+    ) {
+        if let Some(e) = self.element_mut(node) {
+            e.drop_target = Some((Rc::new(check), Rc::new(on_drop)));
+        }
+    }
+
+    /// What is being carried between components, if anything is, and whether it is over this
+    /// view's own drop target.
+    pub fn carrying(&self) -> Option<Carrying> {
+        let carry = self.carry.as_ref().filter(|c| c.started)?;
+        let over = carry.over == Some(self.widget_id());
+        Some(Carrying {
+            payload: carry.payload.clone(),
+            position: carry.at,
+            over,
+            verdict: over.then(|| carry.verdict.clone()).flatten(),
+            keyboard: carry.keyboard,
+        })
     }
 
     /// Calls `handler` on a double click on the node.
