@@ -148,6 +148,17 @@ pub struct Labels {
     pub dock_bottom: String,
     /// The top dock of a `DockArea`, in a menu.
     pub dock_top: String,
+    /// The button that hides a panel of a `DockArea` at the edge of its dock, with `{title}`.
+    pub dock_auto_hide: String,
+    /// The menu item that hides a panel of a `DockArea` at the edge of its dock.
+    pub dock_auto_hide_item: String,
+    /// The button that puts a hidden panel of a `DockArea` back in its dock, with `{title}`.
+    pub dock_pin: String,
+    /// A hidden panel of a `DockArea` on its rail, and what is said as it hides, with `{title}`
+    /// and `{place}`.
+    pub dock_hidden: String,
+    /// What is said as a hidden panel of a `DockArea` goes back in its dock, with `{title}`.
+    pub dock_pinned: String,
     /// The center of a `DockArea`, in a menu.
     pub dock_center: String,
     /// The item of a `DockArea`'s menu that opens where a panel can go.
@@ -983,6 +994,11 @@ impl Labels {
             dock_right: texts.get("widgets.dock_right"),
             dock_bottom: texts.get("widgets.dock_bottom"),
             dock_top: texts.get("widgets.dock_top"),
+            dock_auto_hide: texts.get("widgets.dock_auto_hide"),
+            dock_auto_hide_item: texts.get("widgets.dock_auto_hide_item"),
+            dock_pin: texts.get("widgets.dock_pin"),
+            dock_hidden: texts.get("widgets.dock_hidden"),
+            dock_pinned: texts.get("widgets.dock_pinned"),
             dock_center: texts.get("widgets.dock_center"),
             dock_move_to: texts.get("widgets.dock_move_to"),
             dock_with: texts.get("widgets.dock_with"),

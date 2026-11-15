@@ -374,6 +374,9 @@ impl Semantics {
     }
 }
 
+/// How close to the edge of the window a layer goes, unless it is flush.
+const OVERLAY_MARGIN: f32 = 4.0;
+
 #[allow(missing_debug_implementations)] // internal: shared with the components' crates, hidden
 #[doc(hidden)]
 pub struct Overlay {
@@ -384,6 +387,8 @@ pub struct Overlay {
     pub on_dismiss: Option<Rc<dyn Fn()>>,
     /// Stays below every other layer, whenever it was built.
     pub floating: bool,
+    /// How close to the edge of the window it may go.
+    pub margin: f32,
 }
 
 #[allow(missing_debug_implementations)] // internal: shared with the components' crates, hidden
@@ -1579,9 +1584,44 @@ impl<'a> BuildCx<'a> {
         view: &dyn View,
         on_dismiss: Option<Rc<dyn Fn()>>,
     ) {
-        let slot = self.overlays.len();
         let gap = self.theme.spacing.s2;
-        self.overlays.push(Overlay { root: anchor, anchor, placement, gap, on_dismiss, floating: false });
+        self.push_overlay(key, anchor, placement, view, on_dismiss, gap, OVERLAY_MARGIN);
+    }
+
+    /// Like [`Self::overlay`], for a layer that touches its anchor, with no gap, and may reach
+    /// the edge of the window: a panel that opens out of a rail at the side of a window.
+    pub fn flush_overlay(
+        &mut self,
+        anchor: NodeId,
+        placement: Placement,
+        view: &dyn View,
+        on_dismiss: Option<Rc<dyn Fn()>>,
+    ) {
+        let key = 0x6f76_6572_6c61_7900 + self.overlays.len() as u64;
+        self.push_overlay(key, anchor, placement, view, on_dismiss, 0.0, 0.0);
+    }
+
+    #[allow(clippy::too_many_arguments, reason = "the parts of one layer")]
+    fn push_overlay(
+        &mut self,
+        key: u64,
+        anchor: NodeId,
+        placement: Placement,
+        view: &dyn View,
+        on_dismiss: Option<Rc<dyn Fn()>>,
+        gap: f32,
+        margin: f32,
+    ) {
+        let slot = self.overlays.len();
+        self.overlays.push(Overlay {
+            root: anchor,
+            anchor,
+            placement,
+            gap,
+            on_dismiss,
+            floating: false,
+            margin,
+        });
         let outer = self.foreground.take();
         let root = self.keyed_child(key, view);
         self.foreground = outer;
@@ -1604,6 +1644,7 @@ impl<'a> BuildCx<'a> {
             gap,
             on_dismiss: None,
             floating: true,
+            margin: OVERLAY_MARGIN,
         });
         let outer = self.foreground.take();
         let root = self.keyed_child(key, view);
