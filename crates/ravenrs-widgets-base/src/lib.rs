@@ -8,6 +8,8 @@
 #[doc(hidden)]
 pub mod button;
 #[doc(hidden)]
+pub mod cable_plug;
+#[doc(hidden)]
 pub mod calendar;
 #[doc(hidden)]
 pub mod canvas;
@@ -110,6 +112,7 @@ pub mod view;
 pub mod zoom;
 
 pub use button::{Button, ButtonGroup, ButtonSize, ButtonStyle, IconButton};
+pub use cable_plug::{CableAnchor, CablePlug, CableSide, Cables, distance_to_cable};
 pub use calendar::{Calendar, DatePicker, DateRange, DateRangePicker};
 pub use canvas::Canvas;
 pub use card::{Card, GlassCard};

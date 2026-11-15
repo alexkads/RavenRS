@@ -8,6 +8,7 @@ mod lists_support;
 mod accessibility;
 mod app_components;
 mod batch_parity;
+mod cable;
 mod charts;
 mod chat;
 mod code;

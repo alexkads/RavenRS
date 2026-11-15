@@ -107,6 +107,8 @@ struct Gpu {
     lost: Arc<AtomicBool>,
     /// The graphics API this device runs on, to start the same one again after a loss.
     backends: wgpu::Backends,
+    /// Cables simulated on the GPU, until the `Ui` takes them: none on WebGL2.
+    cables: Option<ravenrs_render::GpuCables>,
 }
 
 struct State {
@@ -600,9 +602,14 @@ async fn create_gpu(
         tracing::error!(?reason, message, "GPU device lost");
         flag.store(true, Ordering::SeqCst);
     });
-    let renderer = Renderer::new(&context.device, &context.queue, format);
+    let mut renderer = Renderer::new(&context.device, &context.queue, format);
+    // Cables swing on the GPU where it runs compute shaders; on WebGL2 the CPU does it.
+    let cables = ravenrs_render::GpuCables::new(&context.device, &context.queue);
+    if let Some(cables) = &cables {
+        renderer.set_cables(Some(cables.drawer()));
+    }
     scheduler.schedule();
-    Ok(Gpu { surface, config, context, renderer, lost, backends })
+    Ok(Gpu { surface, config, context, renderer, lost, backends, cables })
 }
 
 /// Whether the browser runs on a Mac, an iPhone or an iPad, by what it says of its platform.
@@ -692,6 +699,10 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
         },
     });
     let mut ui = Ui::new(DiagnosticsHost::new(root, diagnostics.clone()), options.theme);
+    let mut gpu = gpu;
+    if let Some(cables) = gpu.cables.take() {
+        ui.set_cable_world(Box::new(cables));
+    }
     if options.follow_system_theme {
         ui.follow_system_theme(true);
     }
@@ -1236,8 +1247,11 @@ fn frame(state: &Rc<RefCell<State>>, scheduler: &Rc<Scheduler>) {
                 let Ok(mut s) = state.try_borrow_mut() else { return };
                 s.recovering = false;
                 match result {
-                    Ok(gpu) => {
+                    Ok(mut gpu) => {
                         tracing::info!("GPU device recreated");
+                        if let Some(cables) = gpu.cables.take() {
+                            s.ui.set_cable_world(Box::new(cables));
+                        }
                         s.gpu = Some(gpu);
                     }
                     Err(e) => show_error(&canvas, &e.to_string()),
