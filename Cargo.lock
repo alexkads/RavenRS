@@ -5881,6 +5881,7 @@ dependencies = [
  "image",
  "pollster",
  "ravenrs",
+ "ravenrs-process",
  "serde_json",
  "tracing-subscriber",
 ]
@@ -6514,6 +6515,7 @@ dependencies = [
 name = "ravenrs-pagamento"
 version = "27.1.28"
 dependencies = [
+ "ravenrs-process",
  "serde",
  "serde_json",
  "serialport",
@@ -6661,6 +6663,10 @@ dependencies = [
  "serde",
  "serde_json",
 ]
+
+[[package]]
+name = "ravenrs-process"
+version = "27.1.28"
 
 [[package]]
 name = "ravenrs-project"
