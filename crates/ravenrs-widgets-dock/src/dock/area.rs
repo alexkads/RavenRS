@@ -37,6 +37,7 @@ const KEY_BAR: u8 = 3;
 const KEY_TOGGLE: u8 = 4;
 const KEY_RAIL: u8 = 5;
 const KEY_RAIL_TAB: u8 = 6;
+const KEY_FLOATING: u8 = 7;
 /// How long the pointer rests on a tab of a rail before its panel opens, in seconds.
 const HOVER_OPEN: f64 = 0.4;
 /// How long after the pointer leaves a panel it opened that the panel goes back, in seconds.
@@ -44,6 +45,14 @@ const HOVER_CLOSE: f64 = 0.6;
 /// The least a hidden panel opens to, and what it leaves of the area at the most.
 const OPEN_MIN: f32 = 160.0;
 const OPEN_MARGIN: f32 = 48.0;
+/// The least a floating panel gets.
+const FLOAT_MIN: Size = Size::new(200.0, 120.0);
+/// How close an edge draws a floating panel to it.
+const MAGNET: f32 = 8.0;
+/// How far each new floating panel opens from the one before.
+const CASCADE: f32 = 24.0;
+/// How thick the edges are that resize a floating panel.
+const GRAB: f32 = 6.0;
 
 /// How long the reason of a refusal shows, in seconds, unless another gesture comes first.
 const NOTICE_SECONDS: f64 = 4.0;
@@ -155,6 +164,7 @@ pub struct DockArea {
     metrics: Metrics,
     movable: bool,
     auto_hide: bool,
+    floatable: bool,
     tab_bar: DockTabBar,
     on_end: Option<OnEnd>,
     guard: Option<DockGuard>,
@@ -192,6 +202,7 @@ impl DockArea {
             },
             movable: true,
             auto_hide: true,
+            floatable: true,
             tab_bar: DockTabBar::Always,
             on_end: None,
             guard: None,
@@ -243,6 +254,16 @@ impl DockArea {
     /// it over the rest, and its pin puts it back.
     pub fn auto_hide(mut self, on: bool) -> Self {
         self.auto_hide = on;
+        self
+    }
+
+    /// Whether panels can float over the area in boxes of their own (they can by default): "Float"
+    /// in the menu of a panel, Ctrl+Alt+F (Cmd+Alt+F on a Mac), or a tab dragged with Ctrl held or
+    /// let go outside the area. A floating panel moves by its header, resizes by its edges, and
+    /// goes back by its button, a double click on its header, Ctrl+Alt+F, or its header dragged
+    /// onto the tabs of a group or the border of a dock.
+    pub fn floatable(mut self, on: bool) -> Self {
+        self.floatable = on;
         self
     }
 
@@ -356,6 +377,37 @@ struct TabDrag {
     panel: String,
     pressed_at: Point,
     moving: bool,
+    aim: Option<DropAim>,
+    /// Where it would float if let go now, relative to the area.
+    floating: Option<Rect>,
+}
+
+/// What the pointer does to a floating panel: moves it by its header, or resizes it by an edge.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Grab {
+    left: bool,
+    right: bool,
+    top: bool,
+    bottom: bool,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl Grab {
+    const MOVE: Self = Self { left: true, right: true, top: true, bottom: true };
+
+    fn moves(self) -> bool {
+        self == Self::MOVE
+    }
+}
+
+/// A floating panel being moved or resized.
+#[derive(Clone, Debug, PartialEq)]
+struct FloatDrag {
+    panel: String,
+    grab: Grab,
+    pressed_at: Point,
+    from: Rect,
+    rect: Rect,
     aim: Option<DropAim>,
 }
 
@@ -537,6 +589,54 @@ impl Actions {
         pinned
     }
 
+    /// Lifts a panel out to float at `rect`, with focus on its header.
+    fn float(&self, id: &str, title: &str, rect: Rect) -> bool {
+        let floated = self.apply(DockChange::Float { panel: id.to_owned() }, |layout| layout.float(id, rect));
+        if floated {
+            self.opened.set(None);
+            *self.focus.borrow_mut() = Some(id.to_owned());
+            self.spoken.set(self.labels.dock_floating_name(title));
+        }
+        floated
+    }
+
+    /// Puts a floating panel back into the tree at `to`, with focus on its tab.
+    fn dock(&self, id: &str, to: DockDrop) -> bool {
+        let change = DockChange::Dock { panel: id.to_owned(), to: to.clone() };
+        let docked = self.apply(change, |layout| layout.move_panel(id, to));
+        if docked {
+            *self.focus.borrow_mut() = Some(id.to_owned());
+            if let Some(side) = self.layout.get().side_of(id) {
+                self.spoken.set(self.labels.dock_moved_to(side));
+            }
+        }
+        docked
+    }
+
+    /// Puts a floating panel back where it came from.
+    fn dock_home(&self, id: &str) -> bool {
+        let home = self.layout.get().floating_home(id);
+        home.is_some_and(|home| self.dock(id, home))
+    }
+
+    /// Moves or resizes a floating panel.
+    fn place(&self, id: &str, rect: Rect) -> bool {
+        self.apply(DockChange::Place { panel: id.to_owned() }, |layout| {
+            let before = layout.floating_rect(id);
+            layout.set_floating_rect(id, rect);
+            before != layout.floating_rect(id)
+        })
+    }
+
+    /// Brings a floating panel in front of the others. Not a change to ask about or to save at
+    /// once: the order goes with the next change that is saved.
+    fn raise(&self, id: &str) {
+        let mut layout = self.layout.get();
+        if layout.bring_to_front(id) {
+            self.layout.set(layout);
+        }
+    }
+
     /// Opens a hidden panel over the rest, or lets it go back when it already shows.
     fn toggle_open(&self, id: &str) {
         if self.opened.peek().as_ref().is_some_and(|open| open.panel == id) {
@@ -556,6 +656,26 @@ fn pin_key(key: &Key, modifiers: Modifiers) -> bool {
     let is_p = matches!(key, Key::Character(c) if c.eq_ignore_ascii_case("p"))
         || modifiers.base_key.is_some_and(|c| c.eq_ignore_ascii_case(&'p'));
     command && modifiers.alt && !modifiers.shift && is_p
+}
+
+/// Whether the key is the one that floats a panel or docks it back: Ctrl+Alt+F, or Cmd+Alt+F on a
+/// Mac.
+fn float_key(key: &Key, modifiers: Modifiers) -> bool {
+    let command = if crate::apple_keys() { modifiers.meta } else { modifiers.ctrl };
+    let is_f = matches!(key, Key::Character(c) if c.eq_ignore_ascii_case("f"))
+        || modifiers.base_key.is_some_and(|c| c.eq_ignore_ascii_case(&'f'));
+    command && modifiers.alt && !modifiers.shift && is_f
+}
+
+/// Where a panel floats when it is lifted out without a pointer: in the middle of the area, as
+/// large as it was, at most half the area, and a step down and right of each that floats already.
+fn float_box(size: Size, was: Size, floating: usize) -> Rect {
+    let width = was.width.max(FLOAT_MIN.width).min((size.width / 2.0).max(FLOAT_MIN.width));
+    let height = was.height.max(FLOAT_MIN.height).min((size.height / 2.0).max(FLOAT_MIN.height));
+    let step = CASCADE * floating as f32;
+    let rect =
+        Rect::new((size.width - width) / 2.0 + step, (size.height - height) / 2.0 + step, width, height);
+    geometry::clamp_floating(rect, size, FLOAT_MIN)
 }
 
 /// Whether a panel can hide at the edge of where it is: only in a dock.
@@ -608,6 +728,15 @@ fn panel_items(
             items.push(item);
         }
     }
+    if area.floatable && !layout.is_floating(id) {
+        let (actions, owned, title) = (actions.clone(), id.to_owned(), area.title_of(id).to_owned());
+        let was = arranged.groups.iter().find(|group| group.panels.iter().any(|panel| panel == id));
+        let was = was.map_or(FLOAT_MIN, |group| group.rect.size);
+        let rect = float_box(arranged.size, was, layout.floating_panels().len());
+        items.push(MenuItem::new(labels.dock_float_item.clone()).on_select(move || {
+            actions.float(&owned, &title, rect);
+        }));
+    }
     if can_hide(area, layout, id) {
         let (actions, id, title) = (actions.clone(), id.to_owned(), area.title_of(id).to_owned());
         items.push(MenuItem::new(labels.dock_auto_hide_item.clone()).on_select(move || {
@@ -648,6 +777,10 @@ struct DragContext {
     frames: Rc<Frames>,
     arranged: Rc<Arranged>,
     tab_bar: DockTabBar,
+    /// The keys held as it goes: with Ctrl it floats instead of landing.
+    modifiers: Rc<Cell<Modifiers>>,
+    /// Its title and its size, when it floats; none when the area does not float panels.
+    floats: Option<(String, Size)>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -673,6 +806,7 @@ impl DragContext {
                 pressed_at: drag.position,
                 moving: false,
                 aim: None,
+                floating: None,
             })),
             DragPhase::Move => {
                 // Nothing here when it was called off with Escape.
@@ -680,15 +814,33 @@ impl DragContext {
                 let (dx, dy) = (drag.position.x - now.pressed_at.x, drag.position.y - now.pressed_at.y);
                 now.moving |= dx.hypot(dy) > reorder::DRAG_THRESHOLD;
                 if now.moving {
-                    now.aim = self.aim_at(&id, drag.position);
+                    let root = self.frames.root.get();
+                    let held = self.modifiers.get();
+                    let outside = !root.contains(drag.position);
+                    match &self.floats {
+                        Some((_, was)) if held.ctrl || held.meta || outside => {
+                            let size = self.arranged.size;
+                            let (width, height) = (was.width, was.height);
+                            let at = Point::new(drag.position.x - root.x(), drag.position.y - root.y());
+                            let rect = Rect::new(at.x - width / 2.0, at.y - 12.0, width, height);
+                            now.aim = None;
+                            now.floating = Some(geometry::clamp_floating(rect, size, FLOAT_MIN));
+                        }
+                        _ => {
+                            now.aim = self.aim_at(&id, drag.position);
+                            now.floating = None;
+                        }
+                    }
                 }
                 self.state.set_if_changed(Some(now));
             }
             DragPhase::End => {
-                if let Some(done) = self.state.get()
-                    && let Some(aim) = done.aim
-                {
-                    self.actions.send(&id, aim.target);
+                if let Some(done) = self.state.get() {
+                    if let Some(aim) = done.aim {
+                        self.actions.send(&id, aim.target);
+                    } else if let (Some(rect), Some((title, _))) = (done.floating, &self.floats) {
+                        self.actions.float(&id, title, rect);
+                    }
                 }
                 self.state.set(None);
             }
@@ -799,12 +951,15 @@ impl View for TabView<'_> {
         }
         let movable = self.area.movable;
         if movable {
+            let was = float_box(self.arranged.size, self.group.rect.size, 0).size;
             let context = DragContext {
                 actions: self.actions.clone(),
                 state: self.drag.clone(),
                 frames: self.frames.clone(),
                 arranged: self.arranged.clone(),
                 tab_bar: self.area.tab_bar,
+                modifiers: cx.modifiers(),
+                floats: self.area.floatable.then(|| (panel.title.clone(), was)),
             };
             cx.on_drag(node, context.handler(id.clone()));
         }
@@ -814,6 +969,10 @@ impl View for TabView<'_> {
         let title = panel.title.clone();
         let key_id = id.clone();
         let hides = can_hide(self.area, &self.actions.layout.get(), &id);
+        let floats = self.area.floatable.then(|| {
+            let floating = self.actions.layout.get().floating_panels().len();
+            float_box(self.arranged.size, self.group.rect.size, floating)
+        });
         let before: crate::KeyHandler = Rc::new(move |key, modifiers| {
             if *key == Key::Escape && called_off.peek().is_some() {
                 called_off.set(None);
@@ -821,6 +980,12 @@ impl View for TabView<'_> {
             }
             if hides && pin_key(key, modifiers) {
                 actions.hide(&key_id, &title);
+                return true;
+            }
+            if let Some(rect) = floats
+                && float_key(key, modifiers)
+            {
+                actions.float(&key_id, &title, rect);
                 return true;
             }
             if *key == Key::Delete && closable {
@@ -1105,6 +1270,7 @@ impl View for DockArea {
         let theme = *cx.theme();
         let labels = cx.labels();
         let drag: State<Option<TabDrag>> = cx.use_state(|| None);
+        let float_drag: State<Option<FloatDrag>> = cx.use_state(|| None);
         let spoken: State<String> = cx.use_state(String::new);
         let frames: Rc<Frames> = cx.use_state(|| Rc::new(Frames::default())).peek().clone();
         let focus: Rc<RefCell<Option<String>>> = cx.use_state(|| Rc::new(RefCell::new(None))).peek().clone();
@@ -1178,8 +1344,37 @@ impl View for DockArea {
             let empty = EmptyCenter { area: self, layout: &layout, actions: &actions, rect: arranged.center };
             nodes.push(cx.child(&empty));
         }
+        let floating = layout.floating_panels();
+        let shown: Vec<(String, Rect)> = floating
+            .iter()
+            .filter_map(|id| {
+                let rect = layout.floating_rect(id)?;
+                Some(((*id).to_owned(), geometry::clamp_floating(rect, size, FLOAT_MIN)))
+            })
+            .collect();
+        for (id, rect) in &shown {
+            let others: Vec<Rect> = shown.iter().filter(|(other, _)| other != id).map(|(_, r)| *r).collect();
+            let view = FloatingView {
+                area: self,
+                id: id.clone(),
+                rect: *rect,
+                others,
+                actions: &actions,
+                arranged: &arranged,
+                layout: &layout,
+                frames: &frames,
+                float_drag: &float_drag,
+            };
+            nodes.push(cx.keyed_child(key_of(KEY_FLOATING, id), &view));
+        }
         if let Some(aim) = drag.get().and_then(|d| d.aim) {
             nodes.push(mark(cx, aim.mark));
+        }
+        if let Some(aim) = float_drag.get().and_then(|d| d.aim) {
+            nodes.push(mark(cx, aim.mark));
+        }
+        if let Some(rect) = drag.get().and_then(|d| d.floating) {
+            nodes.push(float_outline(cx, rect));
         }
         // Why the app refused the last change, until the next gesture or a few seconds on.
         if let Some(shown) = notice.get() {
@@ -1503,12 +1698,16 @@ impl View for RailTab<'_> {
             cx.request_focus_node(node);
         }
         if rail.area.movable {
+            let deep = rail.layout.auto_hidden_size(&id).unwrap_or(FLOAT_MIN.width);
+            let was = float_box(rail.arranged.size, Size::new(deep, FLOAT_MIN.height * 2.0), 0).size;
             let context = DragContext {
                 actions: actions.clone(),
                 state: rail.drag.clone(),
                 frames: rail.frames.clone(),
                 arranged: rail.arranged.clone(),
                 tab_bar: rail.area.tab_bar,
+                modifiers: cx.modifiers(),
+                floats: rail.area.floatable.then(|| (title.clone(), was)),
             };
             cx.on_drag(node, context.handler(id.clone()));
         }
@@ -1668,6 +1867,356 @@ impl View for OpenPanel<'_> {
                 false
             }),
         );
+        node
+    }
+}
+
+/// Where a tab would float if let go now: an outline of the box it would take.
+fn float_outline(cx: &mut BuildCx<'_>, rect: Rect) -> NodeId {
+    let theme = *cx.theme();
+    let ring = theme.color(Semantic::FocusRing);
+    let paint = QuadPaint {
+        corner_radius: theme.radii.md,
+        border: Some(Border { width: 2.0, color: ring }),
+        ..QuadPaint::new(ring.with_alpha(0.08))
+    };
+    let node = cx.container(placed(rect), &[], Paint::Quad(paint));
+    cx.semantics(node, Semantics::hidden());
+    node
+}
+
+/// A panel floating over the area, in a box of its own: a header that moves it, with its name and
+/// its buttons, what it shows, and edges that resize it.
+struct FloatingView<'a> {
+    area: &'a DockArea,
+    id: String,
+    /// Where it shows, relative to the area, already kept inside it.
+    rect: Rect,
+    /// Where the other floating panels show, for its edges to draw to.
+    others: Vec<Rect>,
+    actions: &'a Actions,
+    arranged: &'a Rc<Arranged>,
+    layout: &'a DockLayout,
+    frames: &'a Rc<Frames>,
+    float_drag: &'a State<Option<FloatDrag>>,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl FloatingView<'_> {
+    /// What a drag of the header (`Grab::MOVE`) or of an edge does: it follows the pointer, and
+    /// is asked about once, when let go.
+    fn grab_handler(&self, grab: Grab, modifiers: Rc<Cell<Modifiers>>) -> crate::context::DragHandler {
+        let (state, actions, id) = (self.float_drag.clone(), self.actions.clone(), self.id.clone());
+        let (from, others, size) = (self.rect, self.others.clone(), self.arranged.size);
+        let (frames, arranged, tab_bar) = (self.frames.clone(), self.arranged.clone(), self.area.tab_bar);
+        Rc::new(move |drag| match drag.phase {
+            DragPhase::Start => {
+                actions.raise(&id);
+                actions.forget_notice();
+                let pressed_at = drag.position;
+                state.set(Some(FloatDrag {
+                    panel: id.clone(),
+                    grab,
+                    pressed_at,
+                    from,
+                    rect: from,
+                    aim: None,
+                }));
+            }
+            DragPhase::Move => {
+                // Nothing here when it was called off with Escape.
+                let Some(mut now) = state.get() else { return };
+                let (dx, dy) = (drag.position.x - now.pressed_at.x, drag.position.y - now.pressed_at.y);
+                if grab.moves() {
+                    let moved = Rect::new(from.x() + dx, from.y() + dy, from.width(), from.height());
+                    let snapped = geometry::snap_floating(moved, size, &others, MAGNET);
+                    now.rect = geometry::clamp_floating(snapped, size, FLOAT_MIN);
+                    let root = frames.root.get();
+                    let at = Point::new(drag.position.x - root.x(), drag.position.y - root.y());
+                    let tabs = frames.tabs.borrow();
+                    let strip = move |group: &GroupPlace| strip_height(tab_bar, group.panels.len());
+                    let tab = |panel: &str| {
+                        tabs.get(panel)
+                            .map(|f| Rect::new(f.x() - root.x(), f.y() - root.y(), f.width(), f.height()))
+                    };
+                    now.aim = geometry::float_aim(&arranged, at, &strip, &tab, modifiers.get().shift);
+                } else {
+                    let (mut x0, mut y0, mut x1, mut y1) = (from.x(), from.y(), from.max_x(), from.max_y());
+                    if grab.left {
+                        x0 = (x0 + dx).min(x1 - FLOAT_MIN.width).max(0.0);
+                    }
+                    if grab.right {
+                        x1 = (x1 + dx).max(x0 + FLOAT_MIN.width).min(size.width);
+                    }
+                    if grab.top {
+                        y0 = (y0 + dy).min(y1 - FLOAT_MIN.height).max(0.0);
+                    }
+                    if grab.bottom {
+                        y1 = (y1 + dy).max(y0 + FLOAT_MIN.height).min(size.height);
+                    }
+                    now.rect = Rect::new(x0, y0, (x1 - x0).max(0.0), (y1 - y0).max(0.0));
+                }
+                state.set_if_changed(Some(now));
+            }
+            DragPhase::End => {
+                if let Some(done) = state.get() {
+                    state.set(None);
+                    match done.aim {
+                        Some(aim) => {
+                            actions.dock(&id, aim.target);
+                        }
+                        None if done.rect != done.from => {
+                            actions.place(&id, done.rect);
+                        }
+                        None => {}
+                    }
+                }
+            }
+            // The base may add more; they act as nothing here.
+            _ => {}
+        })
+    }
+}
+
+/// An edge or a corner of a floating panel, which resizes it.
+struct Grabber<'a> {
+    view: &'a FloatingView<'a>,
+    which: Grab,
+    /// Where it is, relative to the panel.
+    at: Rect,
+    cursor: CursorIcon,
+    lit: bool,
+    modifiers: Rc<Cell<Modifiers>>,
+}
+
+impl View for Grabber<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let (which, at, lit) = (self.which, self.at, self.lit);
+        let corner = (which.left || which.right) && (which.top || which.bottom);
+        let (dot, ring) = (theme.color(Semantic::Ink), theme.color(Semantic::Accent));
+        let node = cx.container(
+            LayoutStyle {
+                absolute: Some((at.x(), at.y())),
+                width: Some(at.width().max(0.0)),
+                height: Some(at.height().max(0.0)),
+                ..LayoutStyle::leaf()
+            },
+            &[],
+            Paint::Custom(Rc::new(move |frame, scene| {
+                // The corners show a small square while the panel is under the pointer.
+                if lit && corner {
+                    let square = Rect::new(frame.center().x - 4.0, frame.center().y - 4.0, 8.0, 8.0);
+                    scene.push_quad(Quad::new(square, dot).radius(2.0).border(1.0, ring));
+                }
+            })),
+        );
+        cx.cursor(node, self.cursor);
+        cx.on_drag(node, self.view.grab_handler(which, self.modifiers.clone()));
+        cx.semantics(node, Semantics::hidden());
+        node
+    }
+}
+
+impl View for FloatingView<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let labels = cx.labels();
+        let (id, actions) = (self.id.clone(), self.actions);
+        let title = self.area.title_of(&id).to_owned();
+        let dragging = self.float_drag.get().filter(|drag| drag.panel == id);
+        let rect = dragging.as_ref().map_or(self.rect, |drag| drag.rect);
+        let lit = cx.is_hover_within() || dragging.is_some();
+        let muted = theme.color(Semantic::InkMuted);
+
+        // The header: a grip, the name, and the buttons.
+        let grip = cx.container(
+            LayoutStyle { width: Some(10.0), height: Some(14.0), ..LayoutStyle::leaf() },
+            &[],
+            Paint::Custom(Rc::new(move |frame, scene| {
+                for row in 0..3 {
+                    for column in 0..2 {
+                        let at = Point::new(
+                            frame.x() + 2.0 + column as f32 * 4.0,
+                            frame.y() + 2.0 + row as f32 * 4.5,
+                        );
+                        scene.push_quad(Quad::new(Rect::new(at.x, at.y, 2.0, 2.0), muted).radius(1.0));
+                    }
+                }
+            })),
+        );
+        cx.semantics(grip, Semantics::hidden());
+        let attrs = util::attrs(&theme, TextStyle::Callout, Some(ravenrs_style::Weight::SEMIBOLD));
+        let name = cx.text_truncated(
+            &title,
+            &attrs,
+            theme.color(Semantic::Ink),
+            LayoutStyle { grow: 1.0, min_width: Some(0.0), ..LayoutStyle::leaf() },
+        );
+        cx.semantics(name, Semantics::hidden());
+        let mut parts = vec![grip, name];
+        let (back, home) = (actions.clone(), id.clone());
+        let button = IconButton::new(IconName::Minimize2)
+            .label(labels.dock_dock_back_name(&title))
+            .style(ButtonStyle::Ghost)
+            .size(ButtonSize::Mini)
+            .on_click(move || {
+                back.dock_home(&home);
+            });
+        parts.push(cx.child(&button));
+        let items = panel_items(self.area, self.layout, self.arranged, actions, &id);
+        if !items.is_empty() {
+            let entries: Vec<Entry> = items.into_iter().map(Entry::Item).collect();
+            parts.push(cx.child(&Options { entries, name: labels.dock_options_name(&title) }));
+        }
+        let closable = self.area.panel(&id).is_some_and(|panel| panel.closable);
+        if closable {
+            let (closer, gone, named) = (actions.clone(), id.clone(), title.clone());
+            let button = IconButton::new(IconName::X)
+                .label(labels.dock_close_name(&title))
+                .style(ButtonStyle::Ghost)
+                .size(ButtonSize::Mini)
+                .on_click(move || closer.close(&gone, None, &named));
+            parts.push(cx.child(&button));
+        }
+        let radius = theme.radii.md;
+        let header = cx.container(
+            LayoutStyle {
+                height: Some(TAB_HEIGHT),
+                align: Align::Center,
+                spacing: theme.spacing.s1,
+                padding: Insets { top: 0.0, bottom: 0.0, left: theme.spacing.s2, right: theme.spacing.s1 },
+                align_self: Some(Align::Stretch),
+                ..LayoutStyle::stack(Axis::Horizontal)
+            },
+            &parts,
+            Paint::Quad(QuadPaint {
+                corner_radius: radius,
+                ..QuadPaint::new(theme.color(Semantic::SurfaceElevated))
+            }),
+        );
+        cx.focusable(header, radius);
+        cx.semantics(header, Semantics::new(Role::Button).name(labels.dock_move_floating_name(&title)));
+        let modifiers = cx.modifiers();
+        cx.on_drag(header, self.grab_handler(Grab::MOVE, modifiers.clone()));
+        let (back, home) = (actions.clone(), id.clone());
+        cx.on_double_click(
+            header,
+            Rc::new(move || {
+                back.dock_home(&home);
+            }),
+        );
+        if actions.focus.borrow().as_deref() == Some(id.as_str()) {
+            actions.focus.borrow_mut().take();
+            cx.request_focus_node(header);
+        }
+        // From the keyboard: the arrows move it, Alt with them resizes it, Ctrl+Alt+F puts it back.
+        let (keys, keyed, called_off) = (actions.clone(), id.clone(), self.float_drag.clone());
+        let (named, size) = (title.clone(), self.arranged.size);
+        cx.on_key(
+            header,
+            Rc::new(move |key, modifiers| {
+                if *key == Key::Escape && called_off.peek().is_some() {
+                    called_off.set(None);
+                    return true;
+                }
+                if float_key(key, modifiers) {
+                    keys.dock_home(&keyed);
+                    return true;
+                }
+                if *key == Key::Delete && closable {
+                    keys.close(&keyed, None, &named);
+                    return true;
+                }
+                let step = if modifiers.shift { 32.0 } else { 8.0 };
+                let (dx, dy) = match key {
+                    Key::ArrowLeft => (-step, 0.0),
+                    Key::ArrowRight => (step, 0.0),
+                    Key::ArrowUp => (0.0, -step),
+                    Key::ArrowDown => (0.0, step),
+                    _ => return false,
+                };
+                let next = if modifiers.alt {
+                    Rect::new(rect.x(), rect.y(), rect.width() + dx, rect.height() + dy)
+                } else {
+                    Rect::new(rect.x() + dx, rect.y() + dy, rect.width(), rect.height())
+                };
+                keys.place(&keyed, geometry::clamp_floating(next, size, FLOAT_MIN));
+                true
+            }),
+        );
+
+        // What it shows.
+        let content = (self.area.content)(&id);
+        let content = cx.keyed_child(key_of(KEY_PANEL, &id), content.as_ref());
+        let body = cx.container(
+            LayoutStyle {
+                grow: 1.0,
+                height: Some(0.0),
+                min_height: Some(0.0),
+                min_width: Some(0.0),
+                align: Align::Stretch,
+                overflow_hidden: true,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[content],
+            Paint::None,
+        );
+        cx.clip(body);
+        cx.semantics(body, Semantics::new(Role::TabPanel).name(title.clone()));
+        let column = cx.container(
+            LayoutStyle {
+                width: Some(rect.width()),
+                height: Some(rect.height()),
+                align: Align::Stretch,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[header, body],
+            Paint::None,
+        );
+
+        // The edges and the corners that resize it, a little outside the box.
+        let (w, h, g) = (rect.width(), rect.height(), GRAB);
+        let grab = |left, right, top, bottom| Grab { left, right, top, bottom };
+        let handles = [
+            (grab(true, false, false, false), Rect::new(-g / 2.0, g, g, h - 2.0 * g), CursorIcon::ColResize),
+            (
+                grab(false, true, false, false),
+                Rect::new(w - g / 2.0, g, g, h - 2.0 * g),
+                CursorIcon::ColResize,
+            ),
+            (grab(false, false, true, false), Rect::new(g, -g / 2.0, w - 2.0 * g, g), CursorIcon::RowResize),
+            (
+                grab(false, false, false, true),
+                Rect::new(g, h - g / 2.0, w - 2.0 * g, g),
+                CursorIcon::RowResize,
+            ),
+            (grab(true, false, true, false), Rect::new(-g, -g, 2.0 * g, 2.0 * g), CursorIcon::NwseResize),
+            (
+                grab(false, true, false, true),
+                Rect::new(w - g, h - g, 2.0 * g, 2.0 * g),
+                CursorIcon::NwseResize,
+            ),
+            (grab(false, true, true, false), Rect::new(w - g, -g, 2.0 * g, 2.0 * g), CursorIcon::NeswResize),
+            (grab(true, false, false, true), Rect::new(-g, h - g, 2.0 * g, 2.0 * g), CursorIcon::NeswResize),
+        ];
+        let mut children = vec![column];
+        for (which, at, cursor) in handles {
+            // Each its own view: a view drags by one element only.
+            let handle = Grabber { view: self, which, at, cursor, lit, modifiers: modifiers.clone() };
+            children.push(cx.child(&handle));
+        }
+        let node = cx.container(
+            placed(rect),
+            &children,
+            Paint::Quad(QuadPaint {
+                corner_radius: radius,
+                border: Some(Border { width: 1.0, color: theme.color(Semantic::Border) }),
+                shadow: Some(theme.elevation.raised),
+                ..QuadPaint::new(theme.color(Semantic::Surface))
+            }),
+        );
+        cx.semantics(node, Semantics::new(Role::Dialog).name(labels.dock_floating_name(&title)));
         node
     }
 }

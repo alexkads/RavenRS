@@ -682,6 +682,7 @@ impl App {
                     CursorIcon::ColResize => winit::window::CursorIcon::ColResize,
                     CursorIcon::RowResize => winit::window::CursorIcon::RowResize,
                     CursorIcon::NwseResize => winit::window::CursorIcon::NwseResize,
+                    CursorIcon::NeswResize => winit::window::CursorIcon::NeswResize,
                     _ => winit::window::CursorIcon::Default,
                 });
                 state.cursor = cursor;
