@@ -9,7 +9,7 @@ use std::rc::Rc;
 use ravenrs::core::{Border, Brush, Role};
 use ravenrs::layout::{Axis, LayoutStyle};
 use ravenrs::prelude::*;
-use ravenrs::widgets::cable::{CableEnd, CablePhysics, CableRelease, CableTexture};
+use ravenrs::widgets::cable::{CablePhysics, CableRelease, CableTexture};
 
 /// The control's name, as the session knows it.
 pub const ID: &str = "CablePlugDemo";
@@ -110,6 +110,12 @@ impl View for Socket {
 
 /// A panel of jacks: pull a cable out of an output and let it go on an input of the same
 /// signal; a click on a cable unplugs it.
+/// Below this width the page is laid out for a phone.
+const NARROW: f32 = 720.0;
+
+/// How wide the name under a jack is.
+const LABEL: f32 = 96.0;
+
 struct Patch {
     title: &'static str,
     jacks: Rc<Vec<Jack>>,
@@ -118,6 +124,8 @@ struct Patch {
     said: Option<State<String>>,
     size: Size,
     style: Style,
+    /// How wide the page is where the panel goes: a narrower one shows it smaller.
+    room: f32,
 }
 
 impl View for Patch {
@@ -129,10 +137,13 @@ impl View for Patch {
             let socket =
                 Socket { index: i, jacks: self.jacks.clone(), links: self.links.clone(), style: s.clone() };
             let node = cx.keyed_child(i as u64, &socket);
-            let label = cx.child(&Text::new(j.name).style(TextStyle::Caption).foreground(s.ink));
+            // Centred under the jack and wide enough for the longest name on one line.
+            let label = cx.child(
+                &Text::new(j.name).style(TextStyle::Caption).foreground(s.ink).align(TextAlign::Center),
+            );
             let at = LayoutStyle {
-                absolute: Some((j.x - 18.0, j.y + 26.0)),
-                width: Some(58.0),
+                absolute: Some((j.x + 11.0 - LABEL / 2.0, j.y + 26.0)),
+                width: Some(LABEL),
                 ..LayoutStyle::leaf()
             };
             children.push(cx.container(at, &[label], Paint::None));
@@ -195,7 +206,7 @@ impl View for Patch {
         if let Some(said) = &self.said {
             column.push(cx.child(&Text::new(said.get()).foreground(s.ink)));
         }
-        cx.container(
+        let card = cx.container(
             LayoutStyle {
                 spacing: 12.0,
                 padding: Insets::uniform(16.0),
@@ -203,9 +214,39 @@ impl View for Patch {
             },
             &column,
             Paint::Quad(QuadPaint::new(s.background)),
-        )
+        );
+        let natural = Size::new(
+            self.size.width + 32.0,
+            self.size.height + 32.0 + 12.0 + TITLE + if self.said.is_some() { 12.0 + LINE } else { 0.0 },
+        );
+        fitted(cx, card, natural, self.room)
     }
 }
+
+/// `node`, `natural` in size, shown smaller when the page has less `room` than that: laid out at
+/// its own size and painted to scale, and the cables and the pointer follow the scale.
+fn fitted(cx: &mut BuildCx<'_>, node: NodeId, natural: Size, room: f32) -> NodeId {
+    let fit = (room / natural.width).min(1.0);
+    if fit >= 1.0 {
+        return node;
+    }
+    cx.scale(node, fit);
+    let placed = LayoutStyle { absolute: Some((0.0, 0.0)), ..LayoutStyle::stack(Axis::Vertical) };
+    let node = cx.container(placed, &[node], Paint::None);
+    cx.container(
+        LayoutStyle {
+            width: Some(natural.width * fit),
+            height: Some(natural.height * fit),
+            ..LayoutStyle::stack(Axis::Vertical)
+        },
+        &[node],
+        Paint::None,
+    )
+}
+
+/// The height of a panel's title and of the line under it.
+const TITLE: f32 = 28.0;
+const LINE: f32 = 20.0;
 
 fn signal_color(signal: u8) -> Color {
     match signal {
@@ -255,9 +296,9 @@ fn network_texture(_: u8) -> CableTexture {
 fn rack() -> Vec<Jack> {
     vec![
         jack("Guitarra", true, 1, 40.0, 50.0),
-        jack("Microfone", true, 1, 120.0, 50.0),
-        jack("Sintetizador", true, 2, 200.0, 50.0),
-        jack("Clock", true, 3, 280.0, 50.0),
+        jack("Microfone", true, 1, 140.0, 50.0),
+        jack("Sintetizador", true, 2, 240.0, 50.0),
+        jack("Clock", true, 3, 340.0, 50.0),
         jack("Entrada 1", false, 1, 60.0, 230.0),
         jack("Entrada 2", false, 1, 160.0, 230.0),
         jack("Linha", false, 2, 260.0, 230.0),
@@ -359,6 +400,7 @@ fn process_graph() -> FlowGraph {
 struct Tip {
     shown: State<bool>,
     slack: State<f32>,
+    room: f32,
 }
 
 impl View for Tip {
@@ -374,7 +416,12 @@ impl View for Tip {
             cx.child(&Button::new("Mais esticado").style(ButtonStyle::Secondary).on_click(move || {
                 less.update(|s| *s = (*s - 0.1).max(1.0));
             }));
-        let mut children = vec![toggle, looser, tighter];
+        let row = cx.container(
+            LayoutStyle { spacing: 12.0, align: Align::Center, ..LayoutStyle::stack(Axis::Horizontal) },
+            &[toggle, looser, tighter],
+            Paint::None,
+        );
+        let mut children = vec![row];
         let at = LayoutStyle { absolute: Some((80.0, 120.0)), ..LayoutStyle::leaf() };
         children.push(cx.container(at, &[button], Paint::None));
         if shown.get() {
@@ -396,7 +443,7 @@ impl View for Tip {
                 .key(1)
                 .build(cx);
         }
-        cx.container(
+        let tip = cx.container(
             LayoutStyle {
                 width: Some(760.0),
                 height: Some(420.0),
@@ -405,7 +452,8 @@ impl View for Tip {
             },
             &children,
             Paint::None,
-        )
+        );
+        fitted(cx, tip, Size::new(760.0, 420.0), self.room)
     }
 }
 
@@ -421,6 +469,7 @@ struct Lab {
     hand: State<bool>,
     dropped: State<Option<Point>>,
     boxed: State<bool>,
+    room: f32,
 }
 
 impl View for Lab {
@@ -464,10 +513,13 @@ impl View for Lab {
         let start = at(cx, 40.0, 140.0, 24.0, 24.0, Color::hex(0x4C66EE));
         let target = at(cx, 520.0, 160.0, 90.0, 60.0, Color::hex(0x2A2F3A));
         let source = at(cx, 40.0, 300.0, 24.0, 24.0, Color::hex(0xE08A2E));
+        // A hook on the wall where the far end hangs; a `CableAnchor::Point` is a point of the
+        // window, so a place inside the page is held by a widget, not by a number.
+        let hook = at(cx, 460.0, 182.0, 12.0, 12.0, Color::hex(0x5A6272));
         if self.shown.get() {
             let mut plug = CablePlug::anchored(
                 CableAnchor::Node(start, CableSide::Right),
-                CableAnchor::Point(CableEnd::at(Point::new(470.0, 190.0)).toward(-1.0, 0.0)),
+                CableAnchor::Node(hook, CableSide::Left),
             )
             .key(1)
             .plugs(true)
@@ -517,11 +569,11 @@ impl View for Lab {
             ),
             cx.container(
                 LayoutStyle { width: Some(760.0), height: Some(360.0), ..LayoutStyle::stack(Axis::Vertical) },
-                &[start, target, source],
+                &[start, target, source, hook],
                 Paint::None,
             ),
         );
-        cx.container(
+        let lab = cx.container(
             LayoutStyle {
                 spacing: 12.0,
                 padding: Insets::uniform(16.0),
@@ -529,7 +581,9 @@ impl View for Lab {
             },
             &[switches, row, place],
             Paint::None,
-        )
+        );
+        // Two rows of switches, the button and the place, with the gaps and the padding.
+        fitted(cx, lab, Size::new(792.0, 32.0 + 64.0 + 12.0 + 36.0 + 12.0 + 360.0), self.room)
     }
 }
 
@@ -550,6 +604,11 @@ impl View for CablesPage {
         let column_links = cx.use_state(Vec::<(usize, usize)>::new);
         let shown = cx.use_state(|| true);
         let slack = cx.use_state(|| 1.15_f32);
+        // On a phone the tabs become a list to pick from, the diagrams take the width there is and
+        // the panels are shown smaller, to fit.
+        let narrow = cx.viewport().width < NARROW;
+        let room = if narrow { (cx.viewport().width - 96.0).max(240.0) } else { f32::INFINITY };
+        let wide = room.min(900.0);
         let lab = Lab {
             dashed: cx.use_state(|| false),
             heavy: cx.use_state(|| false),
@@ -561,6 +620,7 @@ impl View for CablesPage {
             hand: cx.use_state(|| false),
             dropped: cx.use_state(|| None),
             boxed: cx.use_state(|| false),
+            room,
         };
         let dark = |kind| Style {
             background: Color::hex(0x12151C),
@@ -574,13 +634,18 @@ impl View for CablesPage {
         };
         let body: AnyView = match tab.get() {
             0 => Box::new(
-                FlowCanvas::new(flow.binding()).cables(true).label("Fluxo com cabos").size(900.0, 420.0),
+                FlowCanvas::new(flow.binding())
+                    .cables(true)
+                    .minimap(false)
+                    .label("Fluxo com cabos")
+                    .size(wide, 420.0),
             ),
             1 => Box::new(
                 FlowCanvas::new(process.binding())
                     .cables(true)
+                    .minimap(false)
                     .label("Processo com cabos")
-                    .size(900.0, 420.0),
+                    .size(wide, 420.0),
             ),
             2 => Box::new(Patch {
                 title: "Traseira do amplificador",
@@ -589,6 +654,7 @@ impl View for CablesPage {
                 said: None,
                 size: Size::new(460.0, 300.0),
                 style: dark("rack"),
+                room,
             }),
             3 => Box::new(Patch {
                 title: "Central telefônica: o cordão volta ao seu furo",
@@ -606,6 +672,7 @@ impl View for CablesPage {
                     retract: true,
                     kind: "central",
                 },
+                room,
             }),
             4 => Box::new(Patch {
                 title: "Sintetizador modular",
@@ -614,6 +681,7 @@ impl View for CablesPage {
                 said: None,
                 size: Size::new(480.0, 300.0),
                 style: Style { texture: synth_texture, ..dark("synth") },
+                room,
             }),
             5 => Box::new(Patch {
                 title: "Rack de rede",
@@ -622,6 +690,7 @@ impl View for CablesPage {
                 said: Some(net_said),
                 size: Size::new(460.0, 300.0),
                 style: Style { texture: network_texture, thickness: 4.0, ..dark("network") },
+                room,
             }),
             6 => {
                 let links = column_links.clone();
@@ -633,19 +702,25 @@ impl View for CablesPage {
                         said: None,
                         size: Size::new(420.0, 290.0),
                         style: Style { color: |_| Color::hex(0x4C66EE), ..dark("columns") },
+                        room,
                     },
                     // The wrong ones come loose and fall.
                     Button::new("Conferir")
                         .on_click(move || links.update(|l| l.retain(|p| ANSWERS.contains(p)))),
                 )))
             }
-            7 => Box::new(Tip { shown, slack }),
+            7 => Box::new(Tip { shown, slack, room }),
             _ => Box::new(lab),
         };
+        let picker: AnyView = if narrow {
+            Box::new(Select::new(tab.binding(), USES).label("Uso"))
+        } else {
+            Box::new(SegmentedControl::new(tab.binding(), USES))
+        };
         cx.child(
-            &VStack::new((SegmentedControl::new(tab.binding(), USES), Keyed::new(tab.get() as u64, body)))
+            &VStack::new((picker, Keyed::new(tab.get() as u64, body)))
                 .spacing(12.0)
-                .padding(16.0)
+                .padding(if narrow { 0.0 } else { 16.0 })
                 .align(Align::Start),
         )
     }

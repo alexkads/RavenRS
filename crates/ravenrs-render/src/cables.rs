@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicU8, Ordering};
 
 use bytemuck::{Pod, Zeroable};
 use ravenrs_core::cable::{CABLE_MAX_POINTS, Cable, CableBook, CableTexture, CableWorld};
-use ravenrs_core::{Point, Rect};
+use ravenrs_core::{ImageData, Point, Rect};
 
 /// Whether this device can draw cables from a storage buffer: not WebGL2.
 pub(crate) fn cables_drawable(device: &wgpu::Device) -> bool {
@@ -53,19 +53,31 @@ pub(crate) struct CableLookGpu {
     stripe: [f32; 4],
     params: [f32; 4],
     extra: [f32; 4],
+    /// A picture on it: where its pixels start in the pictures buffer, its width and
+    /// height, and the bits of how many pixels along the cable one copy covers.
+    art: [u32; 4],
 }
 
 impl CableLookGpu {
-    /// The look of `cable` in `slot`, or `None` when the GPU cannot draw its surface
-    /// (a picture), and the shapes must.
-    pub(crate) fn of(cable: &Cable, slot: u32, n: u32) -> Option<Self> {
+    /// The look of `cable` in `slot`, or `None` when the GPU cannot draw its surface and
+    /// the shapes must. A picture is drawn where `place` finds room for its pixels.
+    pub(crate) fn of(
+        cable: &Cable,
+        slot: u32,
+        n: u32,
+        place: impl FnOnce(&ImageData) -> Option<u32>,
+    ) -> Option<Self> {
         let look = &cable.look;
+        let mut art = [0; 4];
         let (texture, stripe) = match &look.texture {
             CableTexture::Smooth => (0, look.color),
             CableTexture::Braided => (1, look.color),
             CableTexture::Coiled => (2, look.color),
             CableTexture::Striped(c) => (3, *c),
-            CableTexture::Image { .. } => return None,
+            CableTexture::Image { image, repeat } => {
+                art = [place(image)?, image.width(), image.height(), repeat.max(1.0).to_bits()];
+                (4, look.color)
+            }
             #[allow(unreachable_patterns)]
             _ => return None,
         };
@@ -79,6 +91,7 @@ impl CableLookGpu {
             stripe: stripe.to_array(),
             params: [look.thickness * cable.view.scale, look.shine, dash, gap],
             extra: [look.opacity.clamp(0.0, 1.0), cable.view.scale, cable.view.offset.x, cable.view.offset.y],
+            art,
         })
     }
 }
@@ -89,6 +102,9 @@ struct Readback {
     state: Arc<AtomicU8>,
     /// Which cable was in which slot, with how many points, when it was copied.
     slots: Vec<(u64, u32, usize)>,
+    /// Whether the dispatch it was copied after ran any step: one that ran none moved
+    /// nothing, and its zero says nothing about whether the cables are still.
+    stepped: bool,
 }
 
 struct Inner {
@@ -174,7 +190,9 @@ impl Inner {
                 2 => {
                     if let Ok(bytes) = rb.buffer.slice(..).get_mapped_range() {
                         let moved = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
-                        self.book.set_moved(moved as f32 / 1000.0);
+                        if rb.stepped {
+                            self.book.set_moved(moved as f32 / 1000.0);
+                        }
                         for &(id, slot, n) in &rb.slots {
                             let at = (POINTS_AT + u64::from(slot) * CABLE_MAX_POINTS as u64 * POINT_BYTES)
                                 as usize;
@@ -235,6 +253,7 @@ impl Inner {
             }),
             state: Arc::new(AtomicU8::new(0)),
             slots: Vec::new(),
+            stepped: false,
         };
         if let Some(i) = self.readbacks.iter().position(free) {
             self.readbacks[i] = fresh;
@@ -315,6 +334,7 @@ impl Inner {
             let counts: HashMap<u64, usize> =
                 self.book.plans().into_iter().map(|p| (p.id, p.points)).collect();
             let rb = &mut self.readbacks[i];
+            rb.stepped = steps > 0;
             rb.slots = self
                 .slots
                 .iter()
@@ -493,5 +513,79 @@ impl CableDrawer {
     pub(crate) fn shape(&self) -> (wgpu::Buffer, u64) {
         let inner = self.0.borrow();
         (inner.shape.clone(), inner.generation)
+    }
+}
+
+/// The pictures on cables the GPU draws, their pixels one after another in one buffer
+/// the fragment stage reads. A picture is sent once and kept while it is in use.
+pub(crate) struct CablePictures {
+    placed: HashMap<u64, u32>,
+    pixels: Vec<u32>,
+    /// How many of `pixels` the buffer already has.
+    sent: usize,
+    buffer: wgpu::Buffer,
+}
+
+/// Pixels the buffer keeps before it starts over at the next frame (16 MB).
+const PICTURE_TEXELS: usize = 1 << 22;
+
+impl CablePictures {
+    pub(crate) fn new(device: &wgpu::Device) -> Self {
+        Self { placed: HashMap::new(), pixels: Vec::new(), sent: 0, buffer: Self::buffer(device, 16) }
+    }
+
+    fn buffer(device: &wgpu::Device, size: u64) -> wgpu::Buffer {
+        device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("raven cable pictures"),
+            size,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        })
+    }
+
+    /// At the start of a frame: once too many pictures piled up, they start over.
+    pub(crate) fn begin_frame(&mut self) {
+        if self.pixels.len() > PICTURE_TEXELS {
+            self.placed.clear();
+            self.pixels.clear();
+            self.sent = 0;
+        }
+    }
+
+    /// Where `image` starts in the buffer, adding it if it is new. `None` when it does
+    /// not fit this frame, and the cable is drawn as shapes.
+    pub(crate) fn place(&mut self, image: &ImageData) -> Option<u32> {
+        if let Some(&at) = self.placed.get(&image.id()) {
+            return Some(at);
+        }
+        let texels = image.width() as usize * image.height() as usize;
+        if self.pixels.len() + texels > 2 * PICTURE_TEXELS {
+            return None;
+        }
+        let at = u32::try_from(self.pixels.len()).ok()?;
+        self.pixels.extend(image.pixels().as_chunks::<4>().0.iter().map(|p| u32::from_le_bytes(*p)));
+        self.placed.insert(image.id(), at);
+        Some(at)
+    }
+
+    /// Sends the new pixels; true when the buffer was made again and must be bound anew.
+    pub(crate) fn upload(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) -> bool {
+        let needed = (self.pixels.len() * 4) as u64;
+        let mut remade = false;
+        if needed > self.buffer.size() {
+            self.buffer = Self::buffer(device, needed.next_power_of_two());
+            self.sent = 0;
+            remade = true;
+        }
+        if self.sent < self.pixels.len() {
+            let bytes: &[u8] = bytemuck::cast_slice(&self.pixels[self.sent..]);
+            queue.write_buffer(&self.buffer, (self.sent * 4) as u64, bytes);
+            self.sent = self.pixels.len();
+        }
+        remade
+    }
+
+    pub(crate) fn buffer_ref(&self) -> &wgpu::Buffer {
+        &self.buffer
     }
 }

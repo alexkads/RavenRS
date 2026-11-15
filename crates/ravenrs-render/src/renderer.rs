@@ -2,7 +2,7 @@ use bytemuck::{Pod, Zeroable};
 use ravenrs_core::cable::{Cable, cable_plugs, cable_primitives, cable_rest};
 use ravenrs_core::{Brush, Color, ImageQuad, Point, Primitive, Quad, Scene};
 
-use crate::cables::{CableDrawer, CableLookGpu, cables_drawable};
+use crate::cables::{CableDrawer, CableLookGpu, CablePictures, cables_drawable};
 
 use crate::atlas::{GlyphAtlas, GlyphKey, Lookup, SUBPIXEL_BINS};
 use crate::images::ImageCache;
@@ -208,6 +208,11 @@ pub struct Renderer {
     /// The bind group of the cables, and the shape generation and look buffer size it
     /// was made for.
     cable_bind: Option<(wgpu::BindGroup, u64, u64)>,
+    /// The pictures on cables the GPU draws.
+    cable_pictures: CablePictures,
+    /// The plugs of the cables drawn so far in a run of cables, drawn once the run ends:
+    /// the bodies go in one draw call and the plugs in another, instead of two per cable.
+    cable_plugs_pending: Vec<Primitive>,
 }
 
 /// Why the last frame needed more than one draw call.
@@ -407,7 +412,7 @@ impl Renderer {
             };
             let cable_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
                 label: Some("raven cables"),
-                entries: &[cable_storage(0), cable_storage(1)],
+                entries: &[cable_storage(0), cable_storage(1), cable_storage(2)],
             });
             let cable_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("raven cables"),
@@ -499,6 +504,8 @@ impl Renderer {
             cable_looks: Vec::new(),
             cable_look_buffer,
             cable_bind: None,
+            cable_pictures: CablePictures::new(device),
+            cable_plugs_pending: Vec::new(),
         }
     }
 
@@ -525,6 +532,9 @@ impl Renderer {
             });
         }
         self.queue.write_buffer(&self.cable_look_buffer, 0, bytes);
+        if self.cable_pictures.upload(&self.device, &self.queue) {
+            self.cable_bind = None;
+        }
         let (shape, generation) = drawer.shape();
         let size = self.cable_look_buffer.size();
         if self.cable_bind.as_ref().is_none_or(|(_, g, s)| *g != generation || *s != size) {
@@ -534,6 +544,10 @@ impl Renderer {
                 entries: &[
                     wgpu::BindGroupEntry { binding: 0, resource: shape.as_entire_binding() },
                     wgpu::BindGroupEntry { binding: 1, resource: self.cable_look_buffer.as_entire_binding() },
+                    wgpu::BindGroupEntry {
+                        binding: 2,
+                        resource: self.cable_pictures.buffer_ref().as_entire_binding(),
+                    },
                 ],
             });
             self.cable_bind = Some((group, generation, size));
@@ -769,13 +783,33 @@ impl Renderer {
         self.glyphs.clear();
         self.image_instances.clear();
         self.cable_looks.clear();
+        self.cable_pictures.begin_frame();
         self.batches.clear();
         self.clips.clear();
         self.breaks = BatchBreaks::default();
         self.paths.begin_frame();
+        self.cable_plugs_pending.clear();
         for primitive in scene.primitives() {
+            if !matches!(primitive, Primitive::Cable(_)) {
+                self.flush_cable_plugs(scale, skip_missing)?;
+            }
             self.push_primitive(primitive, scale, skip_missing)?;
         }
+        self.flush_cable_plugs(scale, skip_missing)
+    }
+
+    /// Draws the plugs held back for the run of cables that just ended.
+    fn flush_cable_plugs(&mut self, scale: f32, skip_missing: bool) -> Result<(), AtlasFull> {
+        if self.cable_plugs_pending.is_empty() {
+            return Ok(());
+        }
+        let plugs = std::mem::take(&mut self.cable_plugs_pending);
+        for primitive in &plugs {
+            self.push_primitive(primitive, scale, skip_missing)?;
+        }
+        // Keep the allocation for the next run.
+        self.cable_plugs_pending = plugs;
+        self.cable_plugs_pending.clear();
         Ok(())
     }
 
@@ -865,14 +899,15 @@ impl Renderer {
         Ok(())
     }
 
-    /// A cable the GPU world simulates is drawn from its buffer; any other, or one
-    /// with a picture on it, as shapes.
+    /// A cable the GPU world simulates is drawn from its buffer, a picture on it too;
+    /// any other as shapes.
     fn push_cable(&mut self, cable: &Cable, scale: f32, skip_missing: bool) -> Result<(), AtlasFull> {
+        let pictures = &mut self.cable_pictures;
         let gpu = self
             .cables
             .as_ref()
             .and_then(|d| d.slot(cable))
-            .and_then(|(slot, n)| CableLookGpu::of(cable, slot, n));
+            .and_then(|(slot, n)| CableLookGpu::of(cable, slot, n, |image| pictures.place(image)));
         let points: Vec<Point> = match &cable.points {
             Some(points) => points.to_vec(),
             None => cable_rest(cable),
@@ -882,9 +917,14 @@ impl Renderer {
                 let item = self.cable_looks.len() as u32;
                 self.cable_looks.push(look);
                 self.extend_batch(BatchKind::Cables, item * CABLE_SEGMENTS, (item + 1) * CABLE_SEGMENTS);
-                cable_plugs(cable, &points)
+                self.cable_plugs_pending.extend(cable_plugs(cable, &points));
+                return Ok(());
             }
-            None => cable_primitives(cable, &points),
+            None => {
+                // Drawn as shapes: the plugs of the cables before it go first, in order.
+                self.flush_cable_plugs(scale, skip_missing)?;
+                cable_primitives(cable, &points)
+            }
         };
         for primitive in &extra {
             self.push_primitive(primitive, scale, skip_missing)?;

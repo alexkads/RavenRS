@@ -188,7 +188,12 @@ pub fn opened_as<S: ObjectSpace + 'static>(
         app.with_session(move |session| {
             register_controls(session);
             if let Some(page) = &page {
-                session.open_view(page);
+                // A component's page is a dashboard of the center: its view has the dashboard's
+                // name, not the page's.
+                match widgets::page(page) {
+                    Some(component) => session.open_view(&format!("{}_DashboardView", component.id)),
+                    None => session.open_view(page),
+                }
             }
             seen(session);
         })

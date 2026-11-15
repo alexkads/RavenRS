@@ -92,6 +92,7 @@ macro_rules! demonstrations {
 demonstrations! {
     diagrama_de_fluxo => "Diagrama de fluxo",
     cabos => "Cabos",
+    painel_de_tomadas => "Painel de tomadas",
     formulario_de_parametros => "Formulário de parâmetros",
     editor_de_expressoes => "Editor de expressões",
     inspetor_de_dados => "Inspetor de dados",

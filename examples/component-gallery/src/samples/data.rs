@@ -5,7 +5,7 @@ use ravenrs::prelude::*;
 samples! {
     "TreeView" => tree_view, "DataInspector" => data_inspector, "TileLayout" => tile_layout, "CardView" => card_view, "DataGrid" => data_grid,
     "Table" => table, "List" => list, "Stat" => stat, "Chart" => chart, "ChartReference" => chart_reference,
-    "SankeyChart" => sankey_chart, "FlowCanvas" => flow_canvas, "ChartCard" => chart_card, "BarChart" => bar_chart,
+    "SankeyChart" => sankey_chart, "FlowCanvas" => flow_canvas, "PatchPanel" => patch_panel, "ChartCard" => chart_card, "BarChart" => bar_chart,
     "AreaChart" => area_chart, "Barcode" => barcode, "Timeline" => timeline, "PropertyRow" => property_row,
     "VirtualList" => virtual_list, "PagedDocumentView" => paged_document_view,
     "FileBrowser" => file_browser, "SortableList" => sortable_list,
@@ -155,6 +155,24 @@ fn sankey_chart() -> impl View {
         .flow("Savings", "Stocks", 500.0)
         .format(|value| format!("$ {value:.0}"))
         .height(300.0)
+}
+// end
+
+// sample: PatchPanel, 320
+fn patch_panel() -> impl View {
+    let links = State::new(vec![PatchLink::new("left", "in-1")]);
+    PatchPanel::new(
+        vec![
+            Jack::output("left", "Left out").signal("audio").at(60.0, 50.0),
+            Jack::output("right", "Right out").signal("audio").at(180.0, 50.0),
+            Jack::output("tap", "Tap").signal("control").at(320.0, 50.0),
+            Jack::input("in-1", "Input 1").signal("audio").at(60.0, 210.0),
+            Jack::input("in-2", "Input 2").signal("audio").at(180.0, 210.0),
+            Jack::input("pedal", "Pedal").signal("control").at(320.0, 210.0),
+        ],
+        links.binding(),
+    )
+    .size(400.0, 280.0)
 }
 // end
 

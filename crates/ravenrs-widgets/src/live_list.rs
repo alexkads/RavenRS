@@ -444,6 +444,14 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::CountUp::__live_expose_fields(registry);
     crate::CountUp::__live_expose(registry);
     crate::Anchor::<crate::AnyView>::__live_expose(registry);
+    crate::JackFlow::__live_expose_variants(registry);
+    crate::Jack::__live_expose_fields(registry);
+    crate::Jack::__live_expose(registry);
+    crate::PatchLink::__live_expose_fields(registry);
+    crate::PatchLink::__live_expose(registry);
+    crate::PatchPanel::__live_expose_fields(registry);
+    crate::PatchPanel::__live_expose(registry);
+    crate::PatchPanel::__live_expose_part1(registry);
     crate::Frequency::__live_expose_variants(registry);
     crate::Frequency::__live_expose(registry);
     crate::RecurrenceEnd::__live_expose_variants(registry);
@@ -1153,6 +1161,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::PagedDocumentView>(registry);
     crate::live::view::<crate::Pagination>(registry);
     crate::live::view::<crate::ParameterForm>(registry);
+    crate::live::view::<crate::PatchPanel>(registry);
     #[cfg(feature = "code")]
     crate::live::view::<crate::Playground>(registry);
     crate::live::view::<crate::Popover<crate::AnyView, crate::AnyView>>(registry);

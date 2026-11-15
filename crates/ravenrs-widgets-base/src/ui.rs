@@ -95,6 +95,20 @@ fn apply(m: Turn, p: Point) -> Point {
     Point::new(m[0] * p.x + m[2] * p.y + m[4], m[1] * p.x + m[3] * p.y + m[5])
 }
 
+/// The smallest rectangle holding `rect` once taken through `m`.
+fn bounds_of(m: Turn, rect: Rect) -> Rect {
+    let corners = [
+        rect.origin,
+        Point::new(rect.max_x(), rect.y()),
+        Point::new(rect.x(), rect.max_y()),
+        Point::new(rect.max_x(), rect.max_y()),
+    ]
+    .map(|p| apply(m, p));
+    let (x0, y0) = corners.iter().fold((f32::MAX, f32::MAX), |(x, y), p| (x.min(p.x), y.min(p.y)));
+    let (x1, y1) = corners.iter().fold((f32::MIN, f32::MIN), |(x, y), p| (x.max(p.x), y.max(p.y)));
+    Rect::new(x0, y0, x1 - x0, y1 - y0)
+}
+
 fn touches(frame: Rect, clip: Rect) -> bool {
     frame.max_x() + PAINT_MARGIN > clip.x()
         && frame.x() - PAINT_MARGIN < clip.max_x()
@@ -2009,21 +2023,36 @@ impl Ui {
         use ravenrs_core::cable::CableEnd;
         let pointer = self.pointer;
         for request in &self.cable_requests {
-            let end = |anchor: CableAnchor| -> Option<(CableEnd, Option<u64>)> {
+            // A widget's end is where it shows: under a scale or a turn around it, its frame
+            // goes through the same map as its paint and the pointer. The cable still hangs
+            // down, and is as much thinner as the widget is smaller.
+            let end = |anchor: CableAnchor| -> Option<(CableEnd, Option<u64>, f32)> {
                 match anchor {
                     CableAnchor::Node(node, side) => {
-                        let frame = *self.frames.get(node.0 as usize)?;
-                        Some((side.end(frame), self.elements.get(node.0 as usize).map(|e| e.widget.raw())))
+                        let i = node.0 as usize;
+                        let mut frame = *self.frames.get(i)?;
+                        let mut k = 1.0;
+                        if let Some(Some((to, _))) = self.turns.get(i) {
+                            frame = bounds_of(*to, frame);
+                            k = (to[0] * to[3] - to[1] * to[2]).abs().sqrt();
+                        }
+                        Some((side.end(frame), self.elements.get(i).map(|e| e.widget.raw()), k))
                     }
-                    CableAnchor::Point(end) => Some((end, None)),
-                    CableAnchor::Pointer => pointer.map(|p| (CableEnd::at(p), None)),
+                    CableAnchor::Point(end) => Some((end, None, 1.0)),
+                    CableAnchor::Pointer => pointer.map(|p| (CableEnd::at(p), None, 1.0)),
                 }
             };
-            let (Some((from, a)), Some((to, b))) = (end(request.plug.from), end(request.plug.to)) else {
+            let (Some((from, a, ka)), Some((to, b, kb))) = (end(request.plug.from), end(request.plug.to))
+            else {
                 continue;
             };
             let id = cable_id(request, a, b);
-            self.scene.push_cable(place(request, id, from, to));
+            let mut cable = place(request, id, from, to);
+            let k = if a.is_some() { ka } else { kb };
+            if k != 1.0 {
+                cable.look.thickness *= k;
+            }
+            self.scene.push_cable(cable);
         }
     }
 
@@ -2031,7 +2060,7 @@ impl Ui {
     /// points in the scene (or leaves them to the GPU). True while one still moves.
     fn place_cables(&mut self) -> bool {
         use ravenrs_core::Primitive;
-        use ravenrs_core::cable::cable_primitives;
+        use ravenrs_core::cable::{cable_body, cable_plugs};
         let cables: Vec<_> = self
             .scene
             .primitives()
@@ -2062,22 +2091,31 @@ impl Ui {
             primitives.extend(leaving.into_iter().map(|c| Primitive::Cable(Box::new(c))));
         } else if !cables.is_empty() || !leaving.is_empty() {
             let old = std::mem::take(primitives);
+            // In a run of cables the bodies go first and the plugs after, so each kind is
+            // drawn together: two draws for the run, not two a cable.
+            let mut plugs = Vec::new();
             for p in old {
                 match p {
                     Primitive::Cable(c) => {
                         if let Some(points) = world.shape(c.id) {
                             let placed = c.placed(points.clone());
-                            primitives.extend(cable_primitives(&placed, &points));
+                            primitives.extend(cable_body(&placed, &points));
+                            plugs.extend(cable_plugs(&placed, &points));
                         }
                     }
-                    other => primitives.push(other),
+                    other => {
+                        primitives.append(&mut plugs);
+                        primitives.push(other);
+                    }
                 }
             }
             for c in leaving {
                 if let Some(points) = c.points.clone() {
-                    primitives.extend(cable_primitives(&c, &points));
+                    primitives.extend(cable_body(&c, &points));
+                    plugs.extend(cable_plugs(&c, &points));
                 }
             }
+            primitives.append(&mut plugs);
         }
         let moving = world.moving();
         if cables.is_empty() && !moving {
@@ -2290,7 +2328,17 @@ impl Ui {
             }
         }
         let clips_children = self.elements[i].clip;
-        let child_clip = if clips_children { clip.intersect(&frame) } else { clip };
+        let mut child_clip = if clips_children { clip.intersect(&frame) } else { clip };
+        // Under its own scale or turn, its children are laid out where they do not show: what
+        // the clip lets through is taken back to where they are laid out, or children painted
+        // inside the clip would be skipped as if they were outside it.
+        if rotation != 0.0 || scale != 1.0 {
+            let k = scale.max(f32::EPSILON);
+            let middle =
+                Point::new(frame.x() + frame.width() * k / 2.0, frame.y() + frame.height() * k / 2.0);
+            let back = compose(scale_from(frame.origin, 1.0 / k), turn_around(middle, -rotation));
+            child_clip = bounds_of(back, child_clip);
+        }
         let pushes_clip = clips_children && shown;
         if pushes_clip {
             self.scene.push_clip(frame);

@@ -142,6 +142,8 @@ pub struct Bench {
     gpu: GpuContext,
     target: wgpu::TextureView,
     allocations: fn() -> u64,
+    /// Cables simulated on the CPU, as WebGL2 does, instead of on the GPU as a window does.
+    cables_on_cpu: bool,
 }
 
 impl std::fmt::Debug for Bench {
@@ -167,7 +169,25 @@ impl Bench {
             view_formats: &[],
         });
         let target = texture.create_view(&wgpu::TextureViewDescriptor::default());
-        Ok(Self { gpu, target, allocations })
+        Ok(Self { gpu, target, allocations, cables_on_cpu: false })
+    }
+
+    /// Simulates the cables on the CPU, as WebGL2 does, to compare with the GPU.
+    #[must_use]
+    pub fn cables_on_cpu(mut self, on: bool) -> Self {
+        self.cables_on_cpu = on;
+        self
+    }
+
+    /// Gives `ui` and `renderer` the cables a window has: the GPU world, unless asked not to.
+    fn cables(&self, ui: &mut Ui, renderer: &mut Renderer) {
+        if self.cables_on_cpu {
+            return;
+        }
+        if let Some(world) = ravenrs_render::GpuCables::new(&self.gpu.device, &self.gpu.queue) {
+            renderer.set_cables(Some(world.drawer()));
+            ui.set_cable_world(Box::new(world));
+        }
     }
 
     /// The GPU being measured.
@@ -192,6 +212,7 @@ impl Bench {
         let mut renderer = Renderer::new(&self.gpu.device, &self.gpu.queue, FORMAT);
         let mut ui = Ui::new(root, Theme::raven_light());
         ui.set_viewport(VIEWPORT, SCALE);
+        self.cables(&mut ui, &mut renderer);
         let timed = rounds.is_some();
         if timed {
             let started = Instant::now();
@@ -285,6 +306,7 @@ impl Bench {
         let mut renderer = Renderer::new(&self.gpu.device, &self.gpu.queue, FORMAT);
         let mut ui = Ui::new(root, Theme::raven_light());
         ui.set_viewport(VIEWPORT, SCALE);
+        self.cables(&mut ui, &mut renderer);
         let mut now = 0.0;
         let mut out = vec![self.settle("first frame", &mut ui, &mut renderer, &mut now)];
         prepare(&mut ui);

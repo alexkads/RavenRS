@@ -57,6 +57,7 @@
 {"crate": "ravenrs-app-ui", "tipo": "SecuredApp", "pendente": true, "issue": 579, "conhecidos": ["aside", "audit", "authenticator", "build", "demo_credentials", "description", "door", "into_view", "language", "merge", "new", "notice", "role", "seed", "sign_in_action", "texts"]},
 {"crate": "ravenrs-app-ui", "tipo": "SignInAction", "pendente": true, "issue": 579, "conhecidos": ["icon", "new"]},
 {"crate": "ravenrs-widgets-base", "tipo": "CablePlug", "pagina": "Cabos", "recursos": ["anchored", "between", "build", "color", "dash", "from", "gravity", "grow", "key", "loose", "on_click", "on_drop", "physics", "plug_color", "plugs", "release", "retract", "shine", "sides", "slack", "texture", "thickness", "to", "to_point", "via"]},
+{"crate": "ravenrs-widgets-base", "tipo": "PatchPanel", "pagina": "Painel de tomadas", "recursos": ["accept", "background", "color_of", "fit", "flipped", "front", "label", "new", "on_connect", "on_disconnect", "on_join", "pair", "retract", "size", "texture_of", "thickness"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Alert", "pendente": true, "issue": 579, "conhecidos": ["action", "compact", "message", "new", "tone"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Anchor", "pendente": true, "issue": 579, "conhecidos": ["new", "offset"]},
 {"crate": "ravenrs-widgets-base", "tipo": "AspectRatio", "pendente": true, "issue": 579, "conhecidos": ["new"]},

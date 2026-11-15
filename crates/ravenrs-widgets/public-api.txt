@@ -44,6 +44,7 @@ enum GridExportFormat
 enum GridTableKind
 enum HistogramScale
 enum IconName
+enum JackFlow
 enum ModelStatus
 enum Paint
 enum ParamKind
@@ -204,6 +205,11 @@ field GridTableColumn::title
 field GridTableColumn::total
 field HueSaturation::hue
 field HueSaturation::saturation
+field Jack::at
+field Jack::flow
+field Jack::id
+field Jack::label
+field Jack::signal
 field Labels::anchor_names
 field Labels::anchor_point
 field Labels::attachment_remove
@@ -833,6 +839,8 @@ field ParamField::name
 field ParamField::required
 field ParamField::shown_when
 field ParamValues::0
+field PatchLink::from
+field PatchLink::to
 field PickedFile::bytes
 field PickedFile::name
 field PickedFile::size
@@ -1121,6 +1129,8 @@ impl Clone for IconName
 impl Clone for IconTile
 impl Clone for Image
 impl Clone for IndicatorStep
+impl Clone for Jack
+impl Clone for JackFlow
 impl Clone for Kbd
 impl Clone for Label
 impl Clone for Labels
@@ -1143,6 +1153,8 @@ impl Clone for ParamField
 impl Clone for ParamKind
 impl Clone for ParamOptions
 impl Clone for ParamValues
+impl Clone for PatchLink
+impl Clone for PatchPanel
 impl Clone for PathStep
 impl Clone for PickedFile
 impl Clone for Placement
@@ -1298,6 +1310,7 @@ impl Copy for HistogramScale
 impl Copy for HueSaturation
 impl Copy for Icon
 impl Copy for IconName
+impl Copy for JackFlow
 impl Copy for ModelStatus
 impl Copy for Motion
 impl Copy for NoFilePicker
@@ -1536,6 +1549,8 @@ impl Debug for ImageLightbox
 impl Debug for IndicatorStep
 impl Debug for InlineRename
 impl Debug for InputOtp
+impl Debug for Jack
+impl Debug for JackFlow
 impl Debug for Kbd
 impl Debug for KeyBar
 impl Debug for KeyBarItem
@@ -1582,6 +1597,8 @@ impl Debug for ParamKind
 impl Debug for ParamOptions
 impl Debug for ParamValues
 impl Debug for ParameterForm
+impl Debug for PatchLink
+impl Debug for PatchPanel
 impl Debug for PathStep
 impl Debug for PickedFile
 impl Debug for Placement
@@ -1969,9 +1986,11 @@ impl Eq for GridExportFormat
 impl Eq for HistogramScale
 impl Eq for Hotkey
 impl Eq for IconName
+impl Eq for JackFlow
 impl Eq for LookupItem
 impl Eq for LookupRequest
 impl Eq for NodeId
+impl Eq for PatchLink
 impl Eq for PathStep
 impl Eq for PickedFile
 impl Eq for RecurrenceEnd
@@ -2034,6 +2053,7 @@ impl Hash for GridExportFormat
 impl Hash for Hotkey
 impl Hash for IconName
 impl Hash for NodeId
+impl Hash for PatchLink
 impl Hash for RecurrenceEnd
 impl Hash for RecurrenceRule
 impl Hash for RecurrenceSet
@@ -2127,6 +2147,8 @@ impl PartialEq for HistogramScale
 impl PartialEq for Hotkey
 impl PartialEq for HueSaturation
 impl PartialEq for IconName
+impl PartialEq for Jack
+impl PartialEq for JackFlow
 impl PartialEq for LookupItem
 impl PartialEq for LookupRequest
 impl PartialEq for ModelChoice
@@ -2137,6 +2159,7 @@ impl PartialEq for ParamField
 impl PartialEq for ParamKind
 impl PartialEq for ParamOptions
 impl PartialEq for ParamValues
+impl PartialEq for PatchLink
 impl PartialEq for PathStep
 impl PartialEq for PickedFile
 impl PartialEq for Placement
@@ -2350,6 +2373,7 @@ impl View for PageHeader
 impl View for PagedDocumentView
 impl View for Pagination
 impl View for ParameterForm
+impl View for PatchPanel
 impl View for Playground
 impl View for Popover
 impl View for ProgressBar
@@ -3521,6 +3545,10 @@ method InlineRename::size
 method InlineRename::width
 method InputOtp::new
 method InputOtp::on_complete
+method Jack::at
+method Jack::input
+method Jack::output
+method Jack::signal
 method Kbd::inherit_color
 method Kbd::new
 method KeyBar::item
@@ -3720,6 +3748,23 @@ method ParameterForm::on_apply
 method ParameterForm::on_discard
 method ParameterForm::on_load
 method ParameterForm::options
+method PatchLink::new
+method PatchPanel::accept
+method PatchPanel::background
+method PatchPanel::color_of
+method PatchPanel::fit
+method PatchPanel::flipped
+method PatchPanel::front
+method PatchPanel::label
+method PatchPanel::new
+method PatchPanel::on_connect
+method PatchPanel::on_disconnect
+method PatchPanel::on_join
+method PatchPanel::pair
+method PatchPanel::retract
+method PatchPanel::size
+method PatchPanel::texture_of
+method PatchPanel::thickness
 method PickedFile::extension
 method PickedFile::new
 method Playground::action
@@ -4811,6 +4856,7 @@ struct ImageLightbox
 struct IndicatorStep
 struct InlineRename
 struct InputOtp
+struct Jack
 struct Kbd
 struct KeyBar
 struct KeyBarItem
@@ -4853,6 +4899,8 @@ struct PaintCx
 struct ParamField
 struct ParamValues
 struct ParameterForm
+struct PatchLink
+struct PatchPanel
 struct PickedFile
 struct Playground
 struct Popover
@@ -5428,6 +5476,8 @@ variant IconName::X
 variant IconName::Zap
 variant IconName::ZoomIn
 variant IconName::ZoomOut
+variant JackFlow::Input
+variant JackFlow::Output
 variant ModelStatus::Available
 variant ModelStatus::Downloading
 variant ModelStatus::Installed

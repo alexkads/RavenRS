@@ -106,6 +106,12 @@ fn a_page_asked_for_opens_once_inside_and_an_unknown_one_says_so() {
     window.press("Entrar");
     assert!(window.says("Mostrando Completa"), "{:?}", window.texts());
 
+    let component = Opening { page: Some("CablePlugDemo".into()), ..opening(Mode::Showcase) };
+    let mut window = Window::of(feature_center::view(&component));
+    window.press("Entrar");
+    let first = feature_center::widgets::graficos::cabos::USES[0];
+    assert!(window.says(first), "a component's page opens by its id: {:?}", window.texts());
+
     let wrong = Opening { page: Some("NaoExiste_ListView".into()), ..opening(Mode::Showcase) };
     let mut window = Window::of(feature_center::view(&wrong));
     window.press("Entrar");

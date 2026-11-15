@@ -61,6 +61,13 @@ pub const PAGES: &[Page] = &[
         icon: IconName::Plug,
         make: || Box::new(graficos::cabos::CablesPage),
     },
+    Page {
+        id: graficos::painel::ID,
+        caption: graficos::painel::PAGE,
+        group: "Gráficos e fluxos",
+        icon: IconName::Server,
+        make: || Box::new(graficos::painel::PatchPanelPage),
+    },
 ];
 
 /// The page with this id.

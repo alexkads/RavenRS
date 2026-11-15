@@ -110,8 +110,8 @@ use ravenrs_widgets_base::{
     button, cable_plug, calendar, canvas, card, choice, clipboard, color_picker, context, date, display,
     dock_side, extras, field_drag, file_picker, fill, floating, full_screen, hotkey, icon, icon_set, ids,
     image, inputs, kbd, labels, link_service, links, localized, modifiers, motion, motion_spec, overlay,
-    page_motion, recurrence, remote, reorder, scroll_link, scroll_scene, selection_mode, sound, stack,
-    summary, system_appearance, text, text_field, time_link, turn, ui, util, view, zoom,
+    page_motion, patch_panel, recurrence, remote, reorder, scroll_link, scroll_scene, selection_mode, sound,
+    stack, summary, system_appearance, text, text_field, time_link, turn, ui, util, view, zoom,
 };
 #[allow(unused_imports)]
 use ravenrs_widgets_kit::{
@@ -243,6 +243,7 @@ pub use nav::{
 pub use overlay::{Dialog, DropdownMenu, HelpTip, MenuItem, Popover, Select, Tooltip};
 pub use page_motion::{Anchor, CountUp, Ticker};
 pub use parameter_form::{EXPRESSION_KEY, ParamField, ParamKind, ParamOptions, ParamValues, ParameterForm};
+pub use patch_panel::{Jack, JackFlow, PatchLink, PatchPanel};
 #[cfg(feature = "code")]
 pub use playground::{Playground, RunOutput, Runner};
 pub use quad_field::QuadField;
