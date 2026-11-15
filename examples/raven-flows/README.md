@@ -38,6 +38,7 @@ O app só compõe componentes do RavenRS e serve para testá-los: não cria comp
 | Fluxos | `PageHeader`, `TextField`, `Button`, `DataGrid` (busca, seleção por chave, Enter abre) e `ConfirmDialog` para excluir |
 | Editor | `FlowCanvas` (`to_graph`/`from_graph`, `FlowHistory`, títulos editáveis, minimapa, `execution` com a última execução, `open_end` para criar o nó ao soltar a conexão no vazio), `FlowToolbox` montado do `Catalog::builtin`, `ParameterForm` com o esquema de cada tipo (`src/nos.rs`), `CodeEditor` para os tipos que guardam listas ou objetos, `DataInspector` com a entrada do nó na última execução, e `Table` com o que cada nó fez |
 | Execuções | `DataGrid` das execuções e `FlowCanvas` só leitura (`read_only`) com a execução (`execution`); Repetir (`Runtime::rerun`) e Aprovar e continuar (`Runtime::signal`) |
+| Nós de agente | Os nós `codex`, `claude` e `code_review` do `ravenrs-agent-cli`, no grupo Agentes da caixa, com `ParameterForm` (instruções com expressões, pasta, só leitura, tempo limite). Rodam a CLI instalada, que guarda o login |
 | Configurações | `ThemeSwitcher`, `NumberField` e Limpar agora (`Runtime::prune`), Procurar atualização, o `Alert` de uma atualização que falhou com o fim do registro num `CodeEditor` só leitura, e `ReleaseNotes` com a linha do tempo do atualizador |
 
 Uma execução roda num trabalhador próprio (`casa::Worker::Thread`), com a sua conexão ao SQLite, e acorda a tela pelo `UiWaker` quando anda. O canvas a desenha com `FlowCanvas::execution` (`src/marcas.rs` traduz as partes do runtime num `FlowRunView`), sem tocar no fluxo.
@@ -49,7 +50,6 @@ Uma execução roda num trabalhador próprio (`casa::Worker::Thread`), com a sua
 | Esquema para os tipos que guardam listas ou objetos (itens do início, campos de Definir campos) | [#591](https://github.com/alexkads/RavenRS/issues/591) |
 | Credenciais e variáveis | [#546](https://github.com/alexkads/RavenRS/issues/546), [#533](https://github.com/alexkads/RavenRS/issues/533) |
 | Gatilhos por agenda e `delay` acordando sozinho com o app aberto | [#537](https://github.com/alexkads/RavenRS/issues/537) |
-| Nós do Codex CLI e do Claude CLI | [#558](https://github.com/alexkads/RavenRS/issues/558), [#559](https://github.com/alexkads/RavenRS/issues/559) |
 
 **Versão:** o app tem versão própria (`version` do `Cargo.toml`), e cada versão é um commit com o `Cargo.toml`, o `novidades.json` e a mesma entrada no topo do `historico-de-novidades.json`, com `contribuidores` e `issues`, como no Raven Finanças. Os testes `the_three_release_files_agree` e `the_installer_is_the_one_the_template_makes` (em `src/versao.rs`) seguram os três arquivos juntos e o `install.cmd` igual ao modelo.
 

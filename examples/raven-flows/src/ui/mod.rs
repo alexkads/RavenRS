@@ -89,7 +89,7 @@ impl RavenFlows {
             message: State::new(String::new()),
             confirm: ConfirmDialog::new(),
         };
-        Self { casa, updater, catalog: Rc::new(Catalog::builtin()), s: Rc::new(s) }
+        Self { casa, updater, catalog: Rc::new(crate::nos::catalog()), s: Rc::new(s) }
     }
 }
 

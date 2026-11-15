@@ -14,6 +14,8 @@ ravenrs = { workspace = true, features = ["code"] }
 ravenrs-flows.workspace = true
 ravenrs-flows-runtime.workspace = true
 ravenrs-app-update.workspace = true
+# The nodes of the Codex CLI and the Claude CLI.
+ravenrs-agent-cli.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true

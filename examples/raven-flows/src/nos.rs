@@ -22,6 +22,9 @@ pub fn look(kind: &str) -> (&'static str, IconName, &'static str) {
         "group" => ("Agrupar", IconName::Sigma, "Dados"),
         "split" => ("Separar lista", IconName::Split, "Dados"),
         "join" => ("Juntar em lista", IconName::Layers, "Dados"),
+        "codex" => ("Codex CLI", IconName::Terminal, "Agentes"),
+        "claude" => ("Claude CLI", IconName::Sparkles, "Agentes"),
+        "code_review" => ("Revisão de código", IconName::Eye, "Agentes"),
         _ => ("Nó", IconName::Square, "Outros"),
     }
 }
@@ -47,12 +50,40 @@ pub fn schema(kind: &str) -> Option<Vec<ParamField>> {
                 .default("evento")
                 .shown_when("keep", true),
         ],
+        "codex" | "claude" => vec![
+            ParamField::new("prompt", "Instruções", ParamKind::LongText)
+                .required()
+                .hint("Texto com expressões, como Liste os arquivos de {{ pasta }}"),
+            ParamField::new("dir", "Pasta de trabalho", ParamKind::Text),
+            ParamField::new("read_only", "Só ler os arquivos", ParamKind::Boolean)
+                .default(true)
+                .hint("Desligado, o agente pode mudar arquivos da pasta"),
+            ParamField::new("timeout_ms", "Tempo limite (ms)", ParamKind::Number).default(600_000),
+        ],
+        "code_review" => vec![
+            ParamField::new("prompt", "O que revisar", ParamKind::LongText)
+                .required()
+                .hint("O diff ou os arquivos; a revisão só lê"),
+            ParamField::new("dir", "Pasta de trabalho", ParamKind::Text),
+        ],
         _ => return None,
     })
 }
 
+/// The kinds of node of the app: the built-in ones and the coding agents installed on the
+/// computer, whose login stays with each CLI.
+pub fn catalog() -> Catalog {
+    use ravenrs_agent_cli::{Agent, Cli};
+    ravenrs_agent_cli::with_agents(
+        Catalog::builtin(),
+        Cli::new(Agent::Codex),
+        Cli::new(Agent::Claude),
+        Cli::new(Agent::Codex),
+    )
+}
+
 /// The groups of the toolbox, in order.
-const GROUPS: [&str; 5] = ["Gatilhos", "Lógica", "Dados", "Tempo", "Outros"];
+const GROUPS: [&str; 6] = ["Gatilhos", "Lógica", "Dados", "Tempo", "Agentes", "Outros"];
 
 /// The toolbox, a group per kind of work, with every kind of `catalog`.
 pub fn toolbox(catalog: &Catalog) -> FlowToolbox {

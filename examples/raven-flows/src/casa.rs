@@ -10,7 +10,7 @@ use std::sync::mpsc::{Sender, channel};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use ravenrs::prelude::UiWaker;
-use ravenrs_flows::{Catalog, FlowDefinition, Item, NodeDef, NodeRun, NodeStatus};
+use ravenrs_flows::{FlowDefinition, Item, NodeDef, NodeRun, NodeStatus};
 use ravenrs_flows_runtime::{Request, Retention, Revision, RunRecord, RunStatus, Runtime};
 use serde_json::json;
 
@@ -61,7 +61,7 @@ impl Casa {
         let flows = dir.join(FLOWS);
         let first = !flows.exists();
         fs::create_dir_all(&flows).map_err(|e| format!("Não consegui criar {}: {e}", flows.display()))?;
-        let runtime = Runtime::open(dir.join(RUNS), Catalog::builtin())
+        let runtime = Runtime::open(dir.join(RUNS), crate::nos::catalog())
             .map_err(|e| format!("Não consegui abrir as execuções: {e}"))?;
         let casa = Self { dir, runtime, worker, kick: RefCell::new(None) };
         if first {
@@ -85,7 +85,7 @@ impl Casa {
         let (send, receive) = channel::<()>();
         let path = self.dir.join(RUNS);
         let spawned = std::thread::Builder::new().name("raven-flows-worker".into()).spawn(move || {
-            let runtime = match Runtime::open(&path, Catalog::builtin()) {
+            let runtime = match Runtime::open(&path, crate::nos::catalog()) {
                 Ok(runtime) => runtime,
                 Err(e) => {
                     tracing::error!(error = %e, "the worker could not open the runs");
