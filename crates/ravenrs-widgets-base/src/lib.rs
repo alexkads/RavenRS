@@ -174,6 +174,6 @@ pub use text::Text;
 pub use text_field::{Cursor, TextField, TextHistory};
 pub use time_link::TimeLink;
 pub use turn::{QuarterTurn, Turn};
-pub use ui::{Ui, UiStats};
+pub use ui::{HOLD_TO_CARRY, Ui, UiStats};
 pub use view::{AnyView, Component, FnView, Keyed, Responsive, View, ViewSeq, responsive, view_fn};
 pub use zoom::{ZoomControl, ZoomView};

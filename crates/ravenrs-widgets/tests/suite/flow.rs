@@ -1570,3 +1570,37 @@ fn delete_asks_first_and_a_file_goes_out_and_comes_in() {
     press(&mut d.ui, "Delete Untitled");
     assert!(named(&mut d.ui, "Delete “Untitled”?").is_some(), "it asks first");
 }
+
+#[test]
+fn a_model_held_still_starts_carrying_and_a_quick_move_does_not() {
+    let mut shop = shop();
+    let before = shop.graph.get().nodes.len();
+    let tile = named(&mut shop.ui, "Step").expect("the model").bounds.center();
+    let left = named(&mut shop.ui, "New sale").expect("a node").bounds.origin.x - 48.0;
+
+    // Held still: once the time passes, it is carried, and the platform stops scrolling.
+    shop.ui.set_time(10.0);
+    shop.ui.handle_event(&Event::PointerMove { position: tile });
+    shop.ui.handle_event(&Event::PointerDown { position: tile, button: PointerButton::Primary });
+    settle(&mut shop.ui);
+    assert!(!shop.ui.is_dragging(), "not yet");
+    assert!(shop.ui.next_wake().is_some_and(|w| w <= 10.0 + HOLD_TO_CARRY + 0.001), "it asks to be woken");
+    shop.ui.set_time(10.0 + HOLD_TO_CARRY + 0.01);
+    settle(&mut shop.ui);
+    assert!(shop.ui.is_dragging(), "held long enough, it is carried");
+    let to = Point::new(left + 300.0, 300.0);
+    shop.ui.handle_event(&Event::PointerMove { position: to });
+    settle(&mut shop.ui);
+    shop.ui.handle_event(&Event::PointerUp { position: to, button: PointerButton::Primary });
+    settle(&mut shop.ui);
+    assert_eq!(shop.graph.get().nodes.len(), before + 1, "and it lands");
+
+    // A touch that becomes a scroll (the platform sends PointerLeave) carries nothing later.
+    shop.ui.set_time(20.0);
+    shop.ui.handle_event(&Event::PointerMove { position: tile });
+    shop.ui.handle_event(&Event::PointerDown { position: tile, button: PointerButton::Primary });
+    shop.ui.handle_event(&Event::PointerLeave);
+    shop.ui.set_time(21.0);
+    settle(&mut shop.ui);
+    assert!(!shop.ui.is_dragging(), "the press was given up");
+}
