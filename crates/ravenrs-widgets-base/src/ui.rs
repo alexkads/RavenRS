@@ -1580,63 +1580,75 @@ impl Ui {
         let reduced_motion = self.system_reduced_motion || theme.peek().interaction.reduced_motion;
         self.motion.reduced = reduced_motion;
         let closer = self.closer.clone();
-        let (node, overlays, requests, focus, wake, shortcuts, activity, asked, error, motions, moving, guards) =
-            observer.track(|| {
-                let mut cx = BuildCx::new(
-                    theme,
-                    viewport,
-                    text,
-                    layout,
-                    elements,
-                    *interaction,
-                    hover_chain,
-                    scroll,
-                    modifiers,
-                    local,
-                    placeholder,
-                    clipboard,
-                    ui_waker,
-                );
-                cx.now = now;
-                cx.sound = sound;
-                cx.links = links;
-                cx.full_screen = full_screen;
-                cx.file_picker = file_picker;
-                cx.files_over = files_over;
-                cx.carry = carry;
-                cx.appearance = appearance;
-                cx.motion_clock = motion_clock;
-                cx.motion_enabled = motion_enabled;
-                cx.reduced_motion = reduced_motion;
-                cx.view_profile = view_profile.map(|p| p as Rc<RefCell<dyn BuildTiming>>);
-                cx.hover_readers = hover_readers;
-                cx.focus_chain = focus_chain;
-                cx.modifiers_read = modifiers_read;
-                cx.closer = closer;
-                let content = cx.child(&**root);
-                let style = LayoutStyle {
-                    width: Some(viewport.width),
-                    height: Some(viewport.height),
-                    align: Align::Stretch,
-                    overflow_hidden: true,
-                    ..LayoutStyle::stack(Axis::Vertical)
-                };
-                let node = cx.container(style, &[content], Paint::None);
-                (
-                    node,
-                    std::mem::take(&mut cx.overlays),
-                    std::mem::take(&mut cx.scroll_requests),
-                    cx.focus_request.take(),
-                    cx.wake.take(),
-                    std::mem::take(&mut cx.shortcuts),
-                    cx.activity.take(),
-                    cx.access_tree_asked,
-                    cx.error.take(),
-                    std::mem::take(&mut cx.motions),
-                    cx.value_moving,
-                    std::mem::take(&mut cx.close_guards),
-                )
-            });
+        let (
+            node,
+            overlays,
+            requests,
+            focus,
+            wake,
+            shortcuts,
+            activity,
+            asked,
+            error,
+            motions,
+            moving,
+            guards,
+        ) = observer.track(|| {
+            let mut cx = BuildCx::new(
+                theme,
+                viewport,
+                text,
+                layout,
+                elements,
+                *interaction,
+                hover_chain,
+                scroll,
+                modifiers,
+                local,
+                placeholder,
+                clipboard,
+                ui_waker,
+            );
+            cx.now = now;
+            cx.sound = sound;
+            cx.links = links;
+            cx.full_screen = full_screen;
+            cx.file_picker = file_picker;
+            cx.files_over = files_over;
+            cx.carry = carry;
+            cx.appearance = appearance;
+            cx.motion_clock = motion_clock;
+            cx.motion_enabled = motion_enabled;
+            cx.reduced_motion = reduced_motion;
+            cx.view_profile = view_profile.map(|p| p as Rc<RefCell<dyn BuildTiming>>);
+            cx.hover_readers = hover_readers;
+            cx.focus_chain = focus_chain;
+            cx.modifiers_read = modifiers_read;
+            cx.closer = closer;
+            let content = cx.child(&**root);
+            let style = LayoutStyle {
+                width: Some(viewport.width),
+                height: Some(viewport.height),
+                align: Align::Stretch,
+                overflow_hidden: true,
+                ..LayoutStyle::stack(Axis::Vertical)
+            };
+            let node = cx.container(style, &[content], Paint::None);
+            (
+                node,
+                std::mem::take(&mut cx.overlays),
+                std::mem::take(&mut cx.scroll_requests),
+                cx.focus_request.take(),
+                cx.wake.take(),
+                std::mem::take(&mut cx.shortcuts),
+                cx.activity.take(),
+                cx.access_tree_asked,
+                cx.error.take(),
+                std::mem::take(&mut cx.motions),
+                cx.value_moving,
+                std::mem::take(&mut cx.close_guards),
+            )
+        });
         self.close_guards = guards;
         self.wake = wake;
         self.value_moving = moving;

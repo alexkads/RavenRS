@@ -131,7 +131,8 @@ pub use choice::{
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
 #[cfg(feature = "code")]
 pub use code_editor::{
-    CodeCompletion, CodeDiagnostic, CodeEditor, CodeLanguage, find_all, highlight_rust, line_and_column, offset_of,
+    CodeCompletion, CodeDiagnostic, CodeEditor, CodeLanguage, find_all, highlight_rust, line_and_column,
+    offset_of,
 };
 pub use color_picker::ColorPicker;
 pub use commands::{ConfirmDialog, FloatingToolbar, SplitButton, Toolbar, ToolbarAction};

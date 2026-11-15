@@ -47,7 +47,10 @@ pub fn fake_server(root: &Path) -> (impl Read + Send + 'static, impl Write + Sen
             let reply = |result: Value| json!({"jsonrpc": "2.0", "id": id, "result": result});
             match message["method"].as_str() {
                 Some("initialize") => {
-                    write_message(&mut to_client, &json!({"jsonrpc": "2.0", "id": "progress-1", "method": "window/workDoneProgress/create", "params": {}}));
+                    write_message(
+                        &mut to_client,
+                        &json!({"jsonrpc": "2.0", "id": "progress-1", "method": "window/workDoneProgress/create", "params": {}}),
+                    );
                     write_message(&mut to_client, &reply(json!({"capabilities": {}})));
                 }
                 Some("textDocument/didOpen") | Some("textDocument/didChange") => {
@@ -82,11 +85,15 @@ pub fn fake_server(root: &Path) -> (impl Read + Send + 'static, impl Write + Sen
                 ),
                 Some("textDocument/hover") => write_message(
                     &mut to_client,
-                    &reply(json!({"contents": {"kind": "markdown", "value": "```rust\npub fn hello(name: &str) -> String\n```\n---\nA greeting for `name`."}})),
+                    &reply(
+                        json!({"contents": {"kind": "markdown", "value": "```rust\npub fn hello(name: &str) -> String\n```\n---\nA greeting for `name`."}}),
+                    ),
                 ),
                 Some("textDocument/definition") => write_message(
                     &mut to_client,
-                    &reply(json!([{"uri": uri_of(&root.join("src/greeting.rs")), "range": {"start": {"line": 1, "character": 7}, "end": {"line": 1, "character": 12}}}])),
+                    &reply(
+                        json!([{"uri": uri_of(&root.join("src/greeting.rs")), "range": {"start": {"line": 1, "character": 7}, "end": {"line": 1, "character": 12}}}]),
+                    ),
                 ),
                 Some("shutdown") => write_message(&mut to_client, &reply(Value::Null)),
                 Some("exit") => return,
@@ -96,4 +103,3 @@ pub fn fake_server(root: &Path) -> (impl Read + Send + 'static, impl Write + Sen
     });
     (from_server, to_server)
 }
-

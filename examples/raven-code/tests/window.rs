@@ -185,7 +185,10 @@ fn the_explorer_makes_renames_and_deletes_files() {
     assert!(node(&mut ui, "util.rs").is_some(), "and shows in the tree");
     // A name that is there, or a bad one, says why and changes nothing.
     assert!(app.name_it(&NamingFor::File("src".into()), "main.rs").is_err());
-    assert_eq!(app.name_it(&NamingFor::Folder("".into()), "a/b"), Err("A name cannot have / or \\ in it".into()));
+    assert_eq!(
+        app.name_it(&NamingFor::Folder("".into()), "a/b"),
+        Err("A name cannot have / or \\ in it".into())
+    );
     // Renaming an open file moves its tab and its changes.
     app.open_file("src/greeting.rs");
     app.edit("src/greeting.rs", "pub fn hello(_: &str) -> String { String::new() }\n");

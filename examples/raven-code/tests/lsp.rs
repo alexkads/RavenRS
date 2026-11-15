@@ -6,8 +6,8 @@ mod common;
 use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-use raven_code::cargo::Level;
 use common::fake_server;
+use raven_code::cargo::Level;
 use raven_code::lsp::{Definition, Lsp, Position, column_of, path_of, position_of, uri_of};
 
 #[test]
@@ -70,7 +70,8 @@ fn the_client_hears_problems_suggestions_tips_and_definitions() {
 
     lsp.ask_definition("src/main.rs", 40);
     until("a definition", || {
-        lsp.take_definition().is_some_and(|d| d == Definition { file: "src/greeting.rs".into(), line: 2, column: 8 })
+        lsp.take_definition()
+            .is_some_and(|d| d == Definition { file: "src/greeting.rs".into(), line: 2, column: 8 })
     });
     assert!(lsp.take_definition().is_none(), "taken once");
 }

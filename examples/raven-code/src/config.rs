@@ -85,7 +85,8 @@ impl Config {
         let mut hasher = std::hash::DefaultHasher::new();
         project.hash(&mut hasher);
         let name = project.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-        let name: String = name.chars().map(|c| if c.is_alphanumeric() || c == '-' { c } else { '_' }).collect();
+        let name: String =
+            name.chars().map(|c| if c.is_alphanumeric() || c == '-' { c } else { '_' }).collect();
         self.dir.join("sessions").join(format!("{name}-{:016x}.txt", hasher.finish()))
     }
 

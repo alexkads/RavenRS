@@ -625,7 +625,12 @@ impl View for TreeView {
                     Some(p) => (body, Placement::At(p)),
                     None => (menu_row.unwrap_or(body), Placement::Below),
                 };
-                cx.overlay(anchor, placement, &MenuList { entries: &entries, close: close.clone(), on_side: None }, Some(close));
+                cx.overlay(
+                    anchor,
+                    placement,
+                    &MenuList { entries: &entries, close: close.clone(), on_side: None },
+                    Some(close),
+                );
             }
         }
         body

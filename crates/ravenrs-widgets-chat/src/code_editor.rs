@@ -342,9 +342,10 @@ impl View for CodeEditor {
                     true,
                     Rc::new(move || {
                         // A selection on one line is what is looked for.
-                        let picked = cursor.get().selection().map(|(a, b)| {
-                            value.get().chars().skip(a).take(b - a).collect::<String>()
-                        });
+                        let picked = cursor
+                            .get()
+                            .selection()
+                            .map(|(a, b)| value.get().chars().skip(a).take(b - a).collect::<String>());
                         if let Some(picked) = picked.filter(|p| !p.contains('\n')) {
                             finder.query.set(picked);
                         }
@@ -358,7 +359,8 @@ impl View for CodeEditor {
         let text = self.value.get();
         let open = finder.open.get();
         let query = finder.query.get();
-        let found = if open { find_all(&text, &query, finder.case.get(), finder.word.get()) } else { Vec::new() };
+        let found =
+            if open { find_all(&text, &query, finder.case.get(), finder.word.get()) } else { Vec::new() };
 
         let highlight: Option<Highlighter> = match self.language {
             CodeLanguage::Plain => None,
@@ -385,7 +387,10 @@ impl View for CodeEditor {
             follow_end: self.follow_end,
             on_complete: self.on_complete.clone(),
             suggestions: Rc::new(
-                self.completions.iter().map(|c| (c.label.clone(), c.detail.clone(), c.insert.clone())).collect(),
+                self.completions
+                    .iter()
+                    .map(|c| (c.label.clone(), c.detail.clone(), c.insert.clone()))
+                    .collect(),
             ),
             on_hover: self.on_hover.clone(),
             hover: self.hover.clone(),
@@ -477,7 +482,8 @@ impl FindBar {
             }
             let mut after = before.clone();
             for &(a, b) in chosen.iter().rev() {
-                let (from, to) = (crate::text_field::byte_index(&after, a), crate::text_field::byte_index(&after, b));
+                let (from, to) =
+                    (crate::text_field::byte_index(&after, a), crate::text_field::byte_index(&after, b));
                 after.replace_range(from..to, &with);
             }
             history.update(|h| h.record_change(&before, &after, cursor.get()));
@@ -488,9 +494,10 @@ impl FindBar {
                 cursor.set(Cursor::at(a + with.chars().count()));
             } else {
                 // The next match, counted in the new text.
-                let next = found.iter().find(|m| m.0 >= b).map(|m| {
-                    ((m.0 as isize + shift) as usize, (m.1 as isize + shift) as usize)
-                });
+                let next = found
+                    .iter()
+                    .find(|m| m.0 >= b)
+                    .map(|m| ((m.0 as isize + shift) as usize, (m.1 as isize + shift) as usize));
                 match next {
                     Some(m) => select(&cursor, m),
                     None => cursor.set(Cursor::at(a + with.chars().count())),
@@ -571,7 +578,8 @@ impl View for FindBar {
         first_row.push(toggle(cx, 13, "ab", &labels.code_whole_word, &finder.word));
         let attrs = util::attrs(&theme, TextStyle::Caption, None);
         let muted = theme.color(Semantic::InkMuted);
-        let counter = cx.text(&count, &attrs, muted, LayoutStyle { min_width: Some(72.0), ..LayoutStyle::leaf() });
+        let counter =
+            cx.text(&count, &attrs, muted, LayoutStyle { min_width: Some(72.0), ..LayoutStyle::leaf() });
         first_row.push(counter);
         for (key, icon, name, back) in [
             (14, IconName::ArrowUp, labels.code_find_previous.clone(), true),
@@ -616,8 +624,10 @@ impl View for FindBar {
                 .disabled(self.found.is_empty())
                 .on_click(self.replace(true));
             // Lined up under the find field, past the chevron.
-            let gap = cx.container(LayoutStyle { width: Some(24.0), ..LayoutStyle::leaf() }, &[], Paint::None);
-            let items = [gap, cx.keyed_child(20, &swap), cx.keyed_child(21, &one), cx.keyed_child(22, &every)];
+            let gap =
+                cx.container(LayoutStyle { width: Some(24.0), ..LayoutStyle::leaf() }, &[], Paint::None);
+            let items =
+                [gap, cx.keyed_child(20, &swap), cx.keyed_child(21, &one), cx.keyed_child(22, &every)];
             rows.push(row(cx, &items));
         }
         cx.container(
@@ -654,7 +664,8 @@ pub fn find_all(text: &str, query: &str, case: bool, word: bool) -> Vec<(usize, 
         if hay[i..i + needle.len()] == needle[..] {
             let end = i + needle.len();
             let whole = !word
-                || (i.checked_sub(1).is_none_or(|b| !is_word(hay[b])) && hay.get(end).is_none_or(|c| !is_word(*c)));
+                || (i.checked_sub(1).is_none_or(|b| !is_word(hay[b]))
+                    && hay.get(end).is_none_or(|c| !is_word(*c)));
             if whole {
                 found.push((i, end));
                 i = end;

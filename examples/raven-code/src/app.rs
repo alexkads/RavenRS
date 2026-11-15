@@ -645,7 +645,9 @@ impl RavenCode {
                     if document.unsaved() {
                         document.on_disk.set(Some(disk));
                     } else {
-                        document.history.update(|h| h.record_change(&document.text.get(), &disk, document.caret.get()));
+                        document
+                            .history
+                            .update(|h| h.record_change(&document.text.get(), &disk, document.caret.get()));
                         document.text.set(disk.clone());
                         document.saved.set(disk);
                     }
@@ -686,7 +688,8 @@ impl RavenCode {
         if let Some(why) = project::bad_name(name) {
             return Err(why.to_owned());
         }
-        let join = |folder: &str| if folder.is_empty() { name.to_owned() } else { format!("{folder}/{name}") };
+        let join =
+            |folder: &str| if folder.is_empty() { name.to_owned() } else { format!("{folder}/{name}") };
         let result = {
             let work = self.0.work.borrow();
             match naming {
@@ -876,15 +879,21 @@ impl RavenCode {
         let menu = move |key: &str| -> Vec<MenuItem> {
             let is_file = files.iter().any(|f| f == key);
             // A new file or folder goes in the folder clicked, or beside the file clicked.
-            let folder =
-                if is_file { key.rsplit_once('/').map_or(String::new(), |(f, _)| f.to_owned()) } else { key.to_owned() };
+            let folder = if is_file {
+                key.rsplit_once('/').map_or(String::new(), |(f, _)| f.to_owned())
+            } else {
+                key.to_owned()
+            };
             let (new_file, new_folder, rename, delete) = (app.clone(), app.clone(), app.clone(), app.clone());
             let (in_file, in_folder, path, gone) = (folder.clone(), folder, key.to_owned(), key.to_owned());
             vec![
-                MenuItem::new("New File…").on_select(move || new_file.ask_name(Naming::File(in_file.clone()))),
-                MenuItem::new("New Folder…").on_select(move || new_folder.ask_name(Naming::Folder(in_folder.clone()))),
+                MenuItem::new("New File…")
+                    .on_select(move || new_file.ask_name(Naming::File(in_file.clone()))),
+                MenuItem::new("New Folder…")
+                    .on_select(move || new_folder.ask_name(Naming::Folder(in_folder.clone()))),
                 MenuItem::new("Rename…").on_select(move || rename.ask_name(Naming::Rename(path.clone()))),
-                MenuItem::new("Delete").on_select(move || delete.0.asking.set(Some(Asking::Delete(gone.clone())))),
+                MenuItem::new("Delete")
+                    .on_select(move || delete.0.asking.set(Some(Asking::Delete(gone.clone())))),
             ]
         };
         Box::new(TreeView::new(nodes).selected(selected).context_menu(menu).label("Files").padding(8.0))
@@ -898,7 +907,8 @@ impl RavenCode {
             .on_submit(move |query| app.search(&query));
         let case = ToggleButton::new(self.0.search_case.binding(), "Aa");
         let hits = self.0.hits.get();
-        let mut rows: Vec<AnyView> = vec![Box::new(HStack::new((field, case)).spacing(4.0).align(Align::Center))];
+        let mut rows: Vec<AnyView> =
+            vec![Box::new(HStack::new((field, case)).spacing(4.0).align(Align::Center))];
         if !self.0.search.get().is_empty() {
             let count = match hits.len() {
                 0 => "No results".to_owned(),
@@ -971,7 +981,10 @@ impl RavenCode {
         let typed = self.0.typed.clone();
         let keys: KeyHandler = Rc::new(move |key, modifiers| {
             // Ctrl+C stops the program, as in a terminal; Cmd+C still copies on a Mac.
-            if modifiers.ctrl && !modifiers.meta && matches!(key, Key::Character(c) if c.eq_ignore_ascii_case("c")) {
+            if modifiers.ctrl
+                && !modifiers.meta
+                && matches!(key, Key::Character(c) if c.eq_ignore_ascii_case("c"))
+            {
                 stop.stop();
                 return true;
             }
@@ -1089,20 +1102,25 @@ impl RavenCode {
         };
         let file = self.active().unwrap_or_default();
         let note = self.0.lsp_note.get().unwrap_or_default();
-        StatusBar::new()
-            .left((StatusBar::action(self.name()), StatusBar::text(state)))
-            .right((StatusBar::text(note), StatusBar::text(file), StatusBar::text("Rust")))
+        StatusBar::new().left((StatusBar::action(self.name()), StatusBar::text(state))).right((
+            StatusBar::text(note),
+            StatusBar::text(file),
+            StatusBar::text("Rust"),
+        ))
     }
 
     fn dialog(&self) -> Option<AnyView> {
         let asking = self.0.asking.get()?;
         let open = {
             let asking = self.0.asking.clone();
-            Binding::new(|| true, move |open: bool| {
-                if !open {
-                    asking.set(None);
-                }
-            })
+            Binding::new(
+                || true,
+                move |open: bool| {
+                    if !open {
+                        asking.set(None);
+                    }
+                },
+            )
         };
         Some(match asking {
             Asking::Unsaved(then) => {
@@ -1118,15 +1136,25 @@ impl RavenCode {
                 };
                 Box::new(
                     Dialog::new(open, "Save your changes?")
-                        .description(format!("These files have changes that are not saved: {}.", files.join(", ")))
+                        .description(format!(
+                            "These files have changes that are not saved: {}.",
+                            files.join(", ")
+                        ))
                         .close_on_backdrop(false)
-                        .action(Button::new("Cancel").style(ButtonStyle::Ghost).on_click(move || cancel.answer_unsaved(None)))
+                        .action(
+                            Button::new("Cancel")
+                                .style(ButtonStyle::Ghost)
+                                .on_click(move || cancel.answer_unsaved(None)),
+                        )
                         .action(
                             Button::new(format!("Don't save and {leave}"))
                                 .style(ButtonStyle::Secondary)
                                 .on_click(move || discard.answer_unsaved(Some(false))),
                         )
-                        .action(Button::new(format!("Save and {leave}")).on_click(move || save.answer_unsaved(Some(true)))),
+                        .action(
+                            Button::new(format!("Save and {leave}"))
+                                .on_click(move || save.answer_unsaved(Some(true))),
+                        ),
                 )
             }
             Asking::Name { naming, typed, refused } => {
@@ -1136,20 +1164,28 @@ impl RavenCode {
                     Naming::Rename(_) => "Rename",
                 };
                 let go = {
-                    let (app, naming, typed, refused) = (self.clone(), naming.clone(), typed.clone(), refused.clone());
+                    let (app, naming, typed, refused) =
+                        (self.clone(), naming.clone(), typed.clone(), refused.clone());
                     move || match app.apply_name(&naming, &typed.get()) {
                         Ok(()) => app.0.asking.set(None),
                         Err(why) => refused.set(Some(why)),
                     }
                 };
                 let submit = go.clone();
-                let field = TextField::new(typed.binding()).autofocus().select_on_open().on_submit(move |_| submit());
+                let field =
+                    TextField::new(typed.binding()).autofocus().select_on_open().on_submit(move |_| submit());
                 let cancel = self.0.asking.clone();
                 Box::new(
                     Dialog::new(open, title)
                         .content(FormField::new("Name", field).error_text(refused.get()))
-                        .action(Button::new("Cancel").style(ButtonStyle::Ghost).on_click(move || cancel.set(None)))
-                        .action(Button::new(if title == "Rename" { "Rename" } else { "Create" }).on_click(go)),
+                        .action(
+                            Button::new("Cancel")
+                                .style(ButtonStyle::Ghost)
+                                .on_click(move || cancel.set(None)),
+                        )
+                        .action(
+                            Button::new(if title == "Rename" { "Rename" } else { "Create" }).on_click(go),
+                        ),
                 )
             }
             Asking::Delete(path) => {
@@ -1158,7 +1194,11 @@ impl RavenCode {
                 Box::new(
                     Dialog::new(open, format!("Delete {path}?"))
                         .description("It is deleted for good, with everything in it. This cannot be undone.")
-                        .action(Button::new("Cancel").style(ButtonStyle::Ghost).on_click(move || cancel.set(None)))
+                        .action(
+                            Button::new("Cancel")
+                                .style(ButtonStyle::Ghost)
+                                .on_click(move || cancel.set(None)),
+                        )
                         .action(Button::new("Delete").style(ButtonStyle::Danger).on_click(move || {
                             app.0.asking.set(None);
                             if let Err(why) = app.delete(&gone) {
@@ -1276,9 +1316,13 @@ impl View for RavenCode {
         cx.shortcut(Key::Character("o".into()), true, Rc::new(move || open.open_folder_dialog()));
         cx.shortcut(Key::Character("b".into()), true, Rc::new(move || build.run(Task::Build)));
         cx.shortcut_with_shift(Key::Character("t".into()), true, Rc::new(move || test.run(Task::Test)));
-        cx.shortcut_with_shift(Key::Function(5), false, Rc::new(move || {
-            stop.stop();
-        }));
+        cx.shortcut_with_shift(
+            Key::Function(5),
+            false,
+            Rc::new(move || {
+                stop.stop();
+            }),
+        );
         cx.shortcut(Key::Function(5), false, Rc::new(move || run.run(Task::Run)));
         let search = inner.layout.clone();
         cx.shortcut_with_shift(
@@ -1308,7 +1352,11 @@ impl View for RavenCode {
             },
         );
         let mut tools = Toolbar::new()
-            .action(ToolbarAction::new("Open Folder…").icon(IconName::Folder).on_click(move || open_folder.open_folder_dialog()))
+            .action(
+                ToolbarAction::new("Open Folder…")
+                    .icon(IconName::Folder)
+                    .on_click(move || open_folder.open_folder_dialog()),
+            )
             .action(ToolbarAction::new("Save all").icon(IconName::Save).on_click(move || {
                 save_all.save_all();
             }))
@@ -1325,14 +1373,11 @@ impl View for RavenCode {
                     .disabled(running)
                     .on_click(move || run.run(Task::Run)),
             )
-            .action(
-                ToolbarAction::new("Stop")
-                    .icon(IconName::Square)
-                    .disabled(!running)
-                    .on_click(move || {
-                        stop.stop();
-                    }),
-            )
+            .action(ToolbarAction::new("Stop").icon(IconName::Square).disabled(!running).on_click(
+                move || {
+                    stop.stop();
+                },
+            ))
             .view(96.0, tasks);
         let binaries = inner.binaries.get().unwrap_or_default();
         if binaries.len() > 1 {
@@ -1374,7 +1419,8 @@ impl View for RavenCode {
             })
             .label("Workbench");
         let title = TitleBar::new(format!("{} — Raven Code", self.name()));
-        let mut parts: Vec<AnyView> = vec![Box::new(title), Box::new(tools), Box::new(area), Box::new(self.status())];
+        let mut parts: Vec<AnyView> =
+            vec![Box::new(title), Box::new(tools), Box::new(area), Box::new(self.status())];
         if let Some(dialog) = self.dialog() {
             parts.push(dialog);
         }

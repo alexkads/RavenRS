@@ -197,7 +197,10 @@ fn recent_projects_keep_ten_the_latest_first_and_sessions_come_back() {
 #[test]
 fn test_results_and_binaries_are_read_from_what_cargo_says() {
     use raven_code::cargo::{binaries_in, test_result};
-    assert_eq!(test_result("test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"), Some((3, 0)));
+    assert_eq!(
+        test_result("test result: ok. 3 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out"),
+        Some((3, 0))
+    );
     assert_eq!(test_result("test result: FAILED. 1 passed; 2 failed; 0 ignored"), Some((1, 2)));
     assert_eq!(test_result("running 3 tests"), None);
     let mut report = Report::default();
@@ -216,13 +219,17 @@ fn test_results_and_binaries_are_read_from_what_cargo_says() {
 #[test]
 #[ignore = "runs cargo, which takes a while"]
 fn a_running_program_is_stopped_and_reads_what_is_sent() {
-    use std::sync::{Arc, Mutex, mpsc};
     use raven_code::cargo::{Control, Task, start};
+    use std::sync::{Arc, Mutex, mpsc};
     let root = folder("stdin");
     write_sample(&root).unwrap();
     // A name of its own: the other test builds `hello`, maybe at the same time and in the same
     // build folder.
-    fs::write(root.join("Cargo.toml"), "[package]\nname = \"reader\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[workspace]\n").unwrap();
+    fs::write(
+        root.join("Cargo.toml"),
+        "[package]\nname = \"reader\"\nversion = \"0.1.0\"\nedition = \"2024\"\n\n[workspace]\n",
+    )
+    .unwrap();
     fs::write(
         root.join("src/main.rs"),
         "fn main() {\n    let mut line = String::new();\n    std::io::stdin().read_line(&mut line).unwrap();\n    println!(\"got {}\", line.trim());\n    loop { std::thread::sleep(std::time::Duration::from_millis(50)); }\n}\n",

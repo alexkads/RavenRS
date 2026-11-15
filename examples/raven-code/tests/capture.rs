@@ -60,7 +60,10 @@ fn raven_code_as_a_picture() {
     ui.handle_event(&ctrl(Key::Character("f".into()), false));
     ui.update();
     for c in "greeting".chars() {
-        ui.handle_event(&Event::KeyDown { key: Key::Character(c.to_string()), modifiers: Modifiers::default() });
+        ui.handle_event(&Event::KeyDown {
+            key: Key::Character(c.to_string()),
+            modifiers: Modifiers::default(),
+        });
         ui.update();
     }
     ui.handle_event(&Event::KeyDown { key: Key::Enter, modifiers: Modifiers::default() });

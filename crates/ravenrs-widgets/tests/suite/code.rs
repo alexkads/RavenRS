@@ -744,12 +744,22 @@ impl View for Helped {
 fn helped(text: &str) -> (Ui, State<String>, State<Vec<String>>) {
     let source = State::new(text.to_owned());
     let asked = State::new(Vec::new());
-    let view = Helped { source: source.clone(), asked: asked.clone(), offered: State::new(Vec::new()), tip: State::new(None) };
+    let view = Helped {
+        source: source.clone(),
+        asked: asked.clone(),
+        offered: State::new(Vec::new()),
+        tip: State::new(None),
+    };
     (ui(view), source, asked)
 }
 
 fn options(ui: &mut Ui) -> Vec<String> {
-    ui.access_tree().nodes.iter().filter(|n| n.role == Role::ListBoxOption).filter_map(|n| n.name.clone()).collect()
+    ui.access_tree()
+        .nodes
+        .iter()
+        .filter(|n| n.role == Role::ListBoxOption)
+        .filter_map(|n| n.name.clone())
+        .collect()
 }
 
 #[test]
@@ -803,8 +813,13 @@ fn resting_the_pointer_on_a_word_shows_a_tip() {
     ui.update();
     assert_eq!(asked.get(), ["hover 0"], "asked once, for the word");
     ui.update();
-    let tips: Vec<String> =
-        ui.access_tree().nodes.iter().filter(|n| n.role == Role::Tooltip).filter_map(|n| n.name.clone()).collect();
+    let tips: Vec<String> = ui
+        .access_tree()
+        .nodes
+        .iter()
+        .filter(|n| n.role == Role::Tooltip)
+        .filter_map(|n| n.name.clone())
+        .collect();
     assert_eq!(tips, ["pub fn hello(name: &str) -> String"]);
     assert_eq!(asked.get().len(), 1, "and not again while it rests there");
 }
@@ -812,7 +827,8 @@ fn resting_the_pointer_on_a_word_shows_a_tip() {
 #[test]
 fn a_followed_log_keeps_its_end_in_sight_as_it_grows() {
     let log = State::new((1..=5).map(|n| format!("line {n}\n")).collect::<String>());
-    let mut ui = ui(CodeEditor::new(log.binding()).read_only(true).follow_end(true).line_numbers(false).rows(4));
+    let mut ui =
+        ui(CodeEditor::new(log.binding()).read_only(true).follow_end(true).line_numbers(false).rows(4));
     log.update(|log| {
         for n in 6..=60 {
             log.push_str(&format!("line {n}\n"));

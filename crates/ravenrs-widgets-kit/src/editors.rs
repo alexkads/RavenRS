@@ -245,7 +245,10 @@ impl View for SuggestionList {
                 let pick = self.pick.clone();
                 cx.on_click(row, Rc::new(move || pick(i)));
                 cx.cursor(row, CursorIcon::Pointer);
-                cx.semantics(row, Semantics::new(Role::ListBoxOption).name(label.clone()).selected(i == self.chosen));
+                cx.semantics(
+                    row,
+                    Semantics::new(Role::ListBoxOption).name(label.clone()).selected(i == self.chosen),
+                );
                 row
             })
             .collect();
@@ -752,7 +755,13 @@ impl View for TextArea {
         let accent = theme.color(Semantic::Accent);
         // A search's current match is the selection: stronger than the other matches under it.
         let searching = code.as_ref().is_some_and(|c| c.follow_caret);
-        let highlight = accent.with_alpha(if searching { 0.45 } else if focused { 0.32 } else { 0.16 });
+        let highlight = accent.with_alpha(if searching {
+            0.45
+        } else if focused {
+            0.32
+        } else {
+            0.16
+        });
         // Marked lines: a band across the line, and a wavy-free underline under the columns.
         let marks: Vec<DrawnMark> = code
             .as_ref()
@@ -784,7 +793,9 @@ impl View for TextArea {
             Some(look) if focused && suggesting.get() => look
                 .suggestions
                 .iter()
-                .filter(|(label, _, _)| typed_word.is_empty() || label.to_lowercase().starts_with(&typed_word))
+                .filter(|(label, _, _)| {
+                    typed_word.is_empty() || label.to_lowercase().starts_with(&typed_word)
+                })
                 .take(50)
                 .cloned()
                 .collect(),
@@ -793,7 +804,12 @@ impl View for TextArea {
         let list_anchor = (!offered.is_empty()).then(|| {
             let spot = (x_at(prefix_start, caret_line), (caret_line + 1) as f32 * line_height);
             cx.container(
-                LayoutStyle { absolute: Some(spot), width: Some(1.0), height: Some(1.0), ..LayoutStyle::leaf() },
+                LayoutStyle {
+                    absolute: Some(spot),
+                    width: Some(1.0),
+                    height: Some(1.0),
+                    ..LayoutStyle::leaf()
+                },
                 &[],
                 Paint::None,
             )
@@ -1029,7 +1045,11 @@ impl View for TextArea {
                 let suggesting = suggesting.clone();
                 Rc::new(move || suggesting.set(false))
             };
-            let list = SuggestionList { items: offered.clone(), chosen: chosen.get().min(offered.len() - 1), pick: accept.clone() };
+            let list = SuggestionList {
+                items: offered.clone(),
+                chosen: chosen.get().min(offered.len() - 1),
+                pick: accept.clone(),
+            };
             cx.overlay(anchor, Placement::Below, &list, Some(close));
         }
         let hit = {
@@ -1162,12 +1182,16 @@ impl View for TextArea {
                     if let Some(ask) = complete.as_ref().filter(|_| changed) {
                         let before = c.caret.checked_sub(2).and_then(|i| text.chars().nth(i));
                         match key {
-                            Key::Character(typed) if typed == "." || (typed == ":" && before == Some(':')) => {
+                            Key::Character(typed)
+                                if typed == "." || (typed == ":" && before == Some(':')) =>
+                            {
                                 ask(c.caret);
                                 suggesting.set(true);
                                 chosen.set(0);
                             }
-                            Key::Character(typed) if typed.chars().all(|ch| ch.is_alphanumeric() || ch == '_') => {
+                            Key::Character(typed)
+                                if typed.chars().all(|ch| ch.is_alphanumeric() || ch == '_') =>
+                            {
                                 chosen.set(0);
                             }
                             Key::Backspace => {}

@@ -492,7 +492,10 @@ impl Step {
     fn join(&mut self, next: Step) -> bool {
         if self.removed.is_empty() && next.removed.is_empty() && next.at == self.at + self.inserted.len() {
             self.inserted.push_str(&next.inserted);
-        } else if self.inserted.is_empty() && next.inserted.is_empty() && next.at + next.removed.len() == self.at {
+        } else if self.inserted.is_empty()
+            && next.inserted.is_empty()
+            && next.at + next.removed.len() == self.at
+        {
             // Backspace: each character comes off before the last.
             self.at = next.at;
             self.removed.insert_str(0, &next.removed);
@@ -685,7 +688,10 @@ impl TextHistory {
         let step = Step::between(&old, text, before, *cursor);
         let joined = run.is_some()
             && self.open == run
-            && self.undo.last_mut().is_some_and(|last| last.after.caret == before.caret && last.join(step.clone()));
+            && self
+                .undo
+                .last_mut()
+                .is_some_and(|last| last.after.caret == before.caret && last.join(step.clone()));
         if !joined {
             self.push(step);
         }
@@ -1131,7 +1137,13 @@ mod tests {
     }
 
     /// Types `keys` through a history, as a field does.
-    fn type_through(history: &mut TextHistory, text: &mut String, c: &mut Cursor, key: Key, modifiers: Modifiers) {
+    fn type_through(
+        history: &mut TextHistory,
+        text: &mut String,
+        c: &mut Cursor,
+        key: Key,
+        modifiers: Modifiers,
+    ) {
         history.apply(text, c, &key, modifiers, |t, c| edit(t, c, &key, modifiers, None));
     }
 
@@ -1206,7 +1218,13 @@ mod tests {
         let (mut h, mut text, mut c) = (TextHistory::new(), String::from("ab"), Cursor::at(1));
         let key = Key::Character("v".into());
         h.apply(&mut text, &mut c, &key, CMD, |t, c| {
-            edit(t, c, &key, CMD, Some(ClipboardAccess { clipboard: &clipboard, secure: false, multiline: false }))
+            edit(
+                t,
+                c,
+                &key,
+                CMD,
+                Some(ClipboardAccess { clipboard: &clipboard, secure: false, multiline: false }),
+            )
         });
         assert_eq!(text, "apastedb");
         let (undo, none) = z(false);

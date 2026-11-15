@@ -270,7 +270,8 @@ impl Lsp {
     }
 
     fn document(&self, path: &str, at: usize) -> Value {
-        let text = self.heard.lock().ok().and_then(|heard| heard.texts.get(path).cloned()).unwrap_or_default();
+        let text =
+            self.heard.lock().ok().and_then(|heard| heard.texts.get(path).cloned()).unwrap_or_default();
         let place = position_of(&text, at);
         json!({
             "textDocument": {"uri": self.uri(path)},
@@ -436,7 +437,8 @@ fn listen(
                     }
                     if matches!(asked, Asked::Initialize) {
                         // The protocol wants this once the start was answered.
-                        let body = json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}).to_string();
+                        let body =
+                            json!({"jsonrpc": "2.0", "method": "initialized", "params": {}}).to_string();
                         if let Ok(mut writer) = writer.lock() {
                             let _ = write!(writer, "Content-Length: {}\r\n\r\n{body}", body.len());
                             let _ = writer.flush();
@@ -509,10 +511,8 @@ fn hover_of(result: &Value) -> Option<String> {
         _ => contents["value"].as_str()?.to_owned(),
     };
     // Markdown fences and rules are left out; the code and the words stay.
-    let lines: Vec<&str> = text
-        .lines()
-        .filter(|line| !line.trim_start().starts_with("```") && line.trim() != "---")
-        .collect();
+    let lines: Vec<&str> =
+        text.lines().filter(|line| !line.trim_start().starts_with("```") && line.trim() != "---").collect();
     let text = lines.join("\n").trim().to_owned();
     (!text.is_empty()).then_some(text)
 }
