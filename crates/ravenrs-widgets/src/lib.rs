@@ -145,8 +145,8 @@ pub use date::{Date, days_in_month, is_leap_year};
 pub use diagnostics::{Diagnostics, DiagnosticsHost};
 pub use display::{Alert, AlertAction, Avatar, Badge, Divider, ProgressBar, Section, Skeleton, Stat, Tone};
 pub use dock::{
-    DockArea, DockChange, DockChild, DockDrop, DockEdge, DockGuard, DockLayout, DockLayoutError, DockNode,
-    DockPanel, DockTabBar,
+    DockArea, DockChange, DockChild, DockCloseAction, DockDrop, DockEdge, DockGuard, DockLayout,
+    DockLayoutError, DockNode, DockPanel, DockPanelKind, DockTabBar,
 };
 pub use dock_side::DockSide;
 pub use editors::{DateTime, DateTimePicker, MaskedField, NumberField, TextArea, Time, TimePicker};

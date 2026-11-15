@@ -64,6 +64,32 @@ type OnEnd = Rc<dyn Fn(&DockLayout)>;
 /// they may not, the arrangement stays as it was, nothing is saved, and the reason shows.
 pub type DockGuard = Rc<dyn Fn(&DockLayout, &DockLayout, &DockChange) -> Result<(), String>>;
 
+/// What a panel of a [`DockArea`] is: a document goes in the center, a tool in the docks around it,
+/// once the area has documents (see [`DockPanel::kind`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
+pub enum DockPanelKind {
+    /// Explorers, properties, output: around the work. What a panel is unless told.
+    #[default]
+    Tool,
+    /// The work itself: what is edited or read, in the center.
+    Document,
+}
+
+/// What closing a panel of a [`DockArea`] does.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
+pub enum DockCloseAction {
+    /// It closes and the menus offer it back. What closing does unless told.
+    #[default]
+    Hide,
+    /// It closes for good: the menus do not offer it back, as a document closed is gone. The app
+    /// can still bring it back through the arrangement.
+    Remove,
+}
+
 /// A panel of a [`DockArea`]: what it is called and whether it can close. What it shows comes from
 /// the function given to the area, by its id.
 #[derive(Clone, Debug, PartialEq)]
@@ -78,13 +104,24 @@ pub struct DockPanel {
     pub icon: Option<IconName>,
     /// It has a way to close (on by default).
     pub closable: bool,
+    /// A document or a tool ([`DockPanelKind::Tool`] by default).
+    pub kind: DockPanelKind,
+    /// What closing it does ([`DockCloseAction::Hide`] by default).
+    pub close_action: DockCloseAction,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DockPanel {
     /// A panel with this id, whose tab says `title`.
     pub fn new(id: impl Into<String>, title: impl Into<String>) -> Self {
-        Self { id: id.into(), title: title.into(), icon: None, closable: true }
+        Self {
+            id: id.into(),
+            title: title.into(),
+            icon: None,
+            closable: true,
+            kind: DockPanelKind::Tool,
+            close_action: DockCloseAction::Hide,
+        }
     }
 
     /// An icon before its title.
@@ -96,6 +133,20 @@ impl DockPanel {
     /// Whether it has a way to close. The app can still close it through the arrangement.
     pub fn closable(mut self, closable: bool) -> Self {
         self.closable = closable;
+        self
+    }
+
+    /// Whether it is a document or a tool. As soon as one panel of an area is a document, documents
+    /// go only in the center and tools only in the docks: a drag marks nothing elsewhere, the menu
+    /// does not offer it, and the keys say why. [`DockArea::free_placement`] lifts that.
+    pub fn kind(mut self, kind: DockPanelKind) -> Self {
+        self.kind = kind;
+        self
+    }
+
+    /// What closing it does: hidden, to be offered back, or gone from the menus.
+    pub fn close_action(mut self, action: DockCloseAction) -> Self {
+        self.close_action = action;
         self
     }
 }
@@ -165,6 +216,8 @@ pub struct DockArea {
     movable: bool,
     auto_hide: bool,
     floatable: bool,
+    free_placement: bool,
+    on_documents_empty: Option<Rc<dyn Fn() -> AnyView>>,
     tab_bar: DockTabBar,
     on_end: Option<OnEnd>,
     guard: Option<DockGuard>,
@@ -203,6 +256,8 @@ impl DockArea {
             movable: true,
             auto_hide: true,
             floatable: true,
+            free_placement: false,
+            on_documents_empty: None,
             tab_bar: DockTabBar::Always,
             on_end: None,
             guard: None,
@@ -264,6 +319,19 @@ impl DockArea {
     /// onto the tabs of a group or the border of a dock.
     pub fn floatable(mut self, on: bool) -> Self {
         self.floatable = on;
+        self
+    }
+
+    /// Lets documents and tools go anywhere, as when the area has no documents.
+    pub fn free_placement(mut self, free: bool) -> Self {
+        self.free_placement = free;
+        self
+    }
+
+    /// What the center shows when nothing is in it, instead of a few words: a way to open or start
+    /// a document. The panels that can come back are listed under it, as before.
+    pub fn on_documents_empty(mut self, view: impl Fn() -> AnyView + 'static) -> Self {
+        self.on_documents_empty = Some(Rc::new(view));
         self
     }
 
@@ -421,6 +489,45 @@ struct Notice {
     since: Rc<Cell<Option<f64>>>,
 }
 
+/// Where each panel may go: documents to the center and tools to the docks, once the area has
+/// documents and the app has not freed them.
+#[derive(Clone, Default)]
+struct Places {
+    kinds: Rc<HashMap<String, DockPanelKind>>,
+    enforced: bool,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl Places {
+    fn of(area: &DockArea) -> Self {
+        let kinds: HashMap<String, DockPanelKind> =
+            area.panels.iter().map(|panel| (panel.id.clone(), panel.kind)).collect();
+        let documents = kinds.values().any(|kind| *kind == DockPanelKind::Document);
+        Self { kinds: Rc::new(kinds), enforced: documents && !area.free_placement }
+    }
+
+    /// Why this panel cannot go to that place, if it cannot.
+    fn refusal(&self, labels: &Labels, id: &str, side: DockSide) -> Option<String> {
+        if !self.enforced {
+            return None;
+        }
+        let document = self.kinds.get(id) == Some(&DockPanelKind::Document);
+        match (document, side == DockSide::Center) {
+            (true, false) => Some(labels.dock_documents_center.clone()),
+            (false, true) => Some(labels.dock_tools_docks.clone()),
+            _ => None,
+        }
+    }
+}
+
+/// The place a drop lands in.
+fn target_side(layout: &DockLayout, target: &DockDrop) -> Option<DockSide> {
+    match target {
+        DockDrop::Side(side) => Some(*side),
+        DockDrop::Tab { beside, .. } | DockDrop::Split { beside, .. } => layout.side_of(beside),
+    }
+}
+
 /// The hidden panel open over the rest, and whether the pointer opened it by resting on its tab.
 #[derive(Clone, Debug, PartialEq)]
 struct Opened {
@@ -447,6 +554,7 @@ struct Actions {
     focus_open: Rc<Cell<bool>>,
     /// The tab of a rail the pointer is on.
     hover_tab: Rc<RefCell<Option<String>>>,
+    places: Places,
     labels: Rc<Labels>,
 }
 
@@ -539,8 +647,27 @@ impl Actions {
         }
     }
 
+    /// Whether this panel may not go there; if not, the reason shows by its tab.
+    fn refuses(&self, id: &str, target: &DockDrop) -> bool {
+        let layout = self.layout.get();
+        let reason =
+            target_side(&layout, target).and_then(|side| self.places.refusal(&self.labels, id, side));
+        let Some(reason) = reason else { return false };
+        let at = self.notice_at(&DockChange::Move { panel: id.to_owned(), to: target.clone() });
+        self.notice.set(Some(Notice { reason, at, since: Rc::default() }));
+        true
+    }
+
+    /// Whether this panel may go there, without a word.
+    fn may_go(&self, layout: &DockLayout, id: &str, target: &DockDrop) -> bool {
+        target_side(layout, target).is_none_or(|side| self.places.refusal(&self.labels, id, side).is_none())
+    }
+
     /// Sends a panel somewhere, keeping focus on its tab and saying where it went.
     fn send(&self, id: &str, target: DockDrop) -> bool {
+        if self.refuses(id, &target) {
+            return false;
+        }
         let change = DockChange::Move { panel: id.to_owned(), to: target.clone() };
         let moved = self.apply(change, |layout| layout.move_panel(id, target));
         if moved {
@@ -552,11 +679,13 @@ impl Actions {
         moved
     }
 
-    fn close(&self, id: &str, next: Option<String>, title: &str) {
-        if self.apply(DockChange::Close { panel: id.to_owned() }, |layout| layout.close(id)) {
+    fn close(&self, id: &str, next: Option<String>, title: &str) -> bool {
+        let closed = self.apply(DockChange::Close { panel: id.to_owned() }, |layout| layout.close(id));
+        if closed {
             *self.focus.borrow_mut() = next;
             self.spoken.set(self.labels.dock_closed_name(title));
         }
+        closed
     }
 
     fn reopen(&self, id: &str) {
@@ -602,6 +731,9 @@ impl Actions {
 
     /// Puts a floating panel back into the tree at `to`, with focus on its tab.
     fn dock(&self, id: &str, to: DockDrop) -> bool {
+        if self.refuses(id, &to) {
+            return false;
+        }
         let change = DockChange::Dock { panel: id.to_owned(), to: to.clone() };
         let docked = self.apply(change, |layout| layout.move_panel(id, to));
         if docked {
@@ -699,8 +831,9 @@ fn panel_items(
         let own_group = arranged.groups.iter().find(|group| group.panels.iter().any(|panel| panel == id));
         let mut places = Vec::new();
         for side in DockSide::ALL_IN_MENU {
-            if layout.side_of(id) != Some(side) {
-                places.push((labels.dock_place(side).to_owned(), DockDrop::Side(side)));
+            let target = DockDrop::Side(side);
+            if layout.side_of(id) != Some(side) && actions.may_go(layout, id, &target) {
+                places.push((labels.dock_place(side).to_owned(), target));
             }
         }
         for group in &arranged.groups {
@@ -708,6 +841,10 @@ fn panel_items(
                 continue;
             }
             let Some(first) = group.panels.first() else { continue };
+            if !actions.may_go(layout, id, &DockDrop::Side(layout.side_of(first).unwrap_or(DockSide::Center)))
+            {
+                continue;
+            }
             let shown = group.panels.get(group.active).unwrap_or(first);
             let target = DockDrop::Tab { beside: first.clone(), at: group.panels.len() };
             places.push((labels.dock_with_name(area.title_of(shown)), target));
@@ -744,10 +881,33 @@ fn panel_items(
         }));
     }
     if area.panel(id).is_some_and(|panel| panel.closable) {
-        let (actions, id, title) = (actions.clone(), id.to_owned(), area.title_of(id).to_owned());
-        items.push(
-            MenuItem::new(labels.dock_close.clone()).on_select(move || actions.close(&id, None, &title)),
-        );
+        let (closer, owned, title) = (actions.clone(), id.to_owned(), area.title_of(id).to_owned());
+        items.push(MenuItem::new(labels.dock_close.clone()).on_select(move || {
+            closer.close(&owned, None, &title);
+        }));
+    }
+    let document = area.panel(id).is_some_and(|panel| panel.kind == DockPanelKind::Document);
+    let own_group = arranged.groups.iter().find(|group| group.panels.iter().any(|panel| panel == id));
+    let others: Vec<(String, String)> = own_group
+        .map(|group| {
+            group
+                .panels
+                .iter()
+                .filter(|other| *other != id && area.panel(other).is_some_and(|panel| panel.closable))
+                .map(|other| (other.clone(), area.title_of(other).to_owned()))
+                .collect()
+        })
+        .unwrap_or_default();
+    if document && !others.is_empty() {
+        let closer = actions.clone();
+        items.push(MenuItem::new(labels.dock_close_others.clone()).on_select(move || {
+            // One by one, each asked; the first the app keeps stops the rest.
+            for (other, title) in &others {
+                if !closer.close(other, None, title) {
+                    break;
+                }
+            }
+        }));
     }
     if let Some(reopen) = reopen_item(area, layout, actions) {
         items.push(reopen);
@@ -757,7 +917,7 @@ fn panel_items(
 
 /// The submenu of what can come back, if anything can.
 fn reopen_item(area: &DockArea, layout: &DockLayout, actions: &Actions) -> Option<MenuItem> {
-    let closed = layout.closed_panels();
+    let closed = offered_back(area, layout);
     if closed.is_empty() {
         return None;
     }
@@ -768,6 +928,12 @@ fn reopen_item(area: &DockArea, layout: &DockLayout, actions: &Actions) -> Optio
             item.item(MenuItem::new(area.title_of(id).to_owned()).on_select(move || actions.reopen(&owned)));
     }
     Some(item)
+}
+
+/// The closed panels the menus offer back: not those that close for good.
+fn offered_back<'a>(area: &DockArea, layout: &'a DockLayout) -> Vec<&'a str> {
+    let gone = |id: &str| area.panel(id).is_some_and(|panel| panel.close_action == DockCloseAction::Remove);
+    layout.closed_panels().into_iter().filter(|id| !gone(id)).collect()
 }
 
 /// What a tab's drag does: it aims as it goes, and moves on release.
@@ -795,8 +961,12 @@ impl DragContext {
             tabs.get(panel).map(|f| Rect::new(f.x() - root.x(), f.y() - root.y(), f.width(), f.height()))
         };
         let found = geometry::aim(&self.arranged, at, &strip, &tab)?;
-        // A drop that would leave things as they are marks nothing.
-        self.actions.layout.get().move_panel(id, found.target.clone()).then_some(found)
+        let mut layout = self.actions.layout.get();
+        // Where it may not go, and a drop that would leave things as they are, mark nothing.
+        if !self.actions.may_go(&layout, id, &found.target) {
+            return None;
+        }
+        layout.move_panel(id, found.target.clone()).then_some(found)
     }
 
     fn handler(self, id: String) -> crate::context::DragHandler {
@@ -902,7 +1072,9 @@ impl View for TabView<'_> {
             let button = IconButton::new(IconName::X)
                 .label(labels.dock_close_name(&panel.title))
                 .size(ButtonSize::Mini)
-                .on_click(move || actions.close(&id, None, &title));
+                .on_click(move || {
+                    actions.close(&id, None, &title);
+                });
             parts.push(cx.child(&button));
         }
         let fill = if dragged {
@@ -1230,9 +1402,15 @@ impl View for EmptyCenter<'_> {
         let theme = *cx.theme();
         let labels = cx.labels();
         let attrs = util::attrs(&theme, TextStyle::Callout, None);
-        let words = cx.text(&labels.dock_empty, &attrs, theme.color(Semantic::InkMuted), LayoutStyle::leaf());
+        let words = match &self.area.on_documents_empty {
+            Some(view) => {
+                let view = view();
+                cx.child(view.as_ref())
+            }
+            None => cx.text(&labels.dock_empty, &attrs, theme.color(Semantic::InkMuted), LayoutStyle::leaf()),
+        };
         let mut buttons = Vec::new();
-        for id in self.layout.closed_panels() {
+        for id in offered_back(self.area, self.layout) {
             let (actions, owned) = (self.actions.clone(), id.to_owned());
             let button = Button::new(self.area.title_of(id).to_owned())
                 .style(ButtonStyle::Secondary)
@@ -1299,6 +1477,7 @@ impl View for DockArea {
             opened: opened.clone(),
             focus_open,
             hover_tab,
+            places: Places::of(self),
             labels: labels.clone(),
         };
         // Known from the second build on; until then the window is the best guess there is.
@@ -1939,7 +2118,9 @@ impl FloatingView<'_> {
                         tabs.get(panel)
                             .map(|f| Rect::new(f.x() - root.x(), f.y() - root.y(), f.width(), f.height()))
                     };
-                    now.aim = geometry::float_aim(&arranged, at, &strip, &tab, modifiers.get().shift);
+                    let layout = actions.layout.get();
+                    now.aim = geometry::float_aim(&arranged, at, &strip, &tab, modifiers.get().shift)
+                        .filter(|aim| actions.may_go(&layout, &id, &aim.target));
                 } else {
                     let (mut x0, mut y0, mut x1, mut y1) = (from.x(), from.y(), from.max_x(), from.max_y());
                     if grab.left {
@@ -2076,7 +2257,9 @@ impl View for FloatingView<'_> {
                 .label(labels.dock_close_name(&title))
                 .style(ButtonStyle::Ghost)
                 .size(ButtonSize::Mini)
-                .on_click(move || closer.close(&gone, None, &named));
+                .on_click(move || {
+                    closer.close(&gone, None, &named);
+                });
             parts.push(cx.child(&button));
         }
         let radius = theme.radii.md;
