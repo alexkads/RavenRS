@@ -53,6 +53,7 @@ enum TimeScale
 enum TimelineEdit
 enum ToastPosition
 enum Tone
+enum Turn
 enum UiActivity
 enum Value
 enum grid::CellAlign
@@ -986,6 +987,7 @@ impl Clone for Toasts
 impl Clone for Tone
 impl Clone for ToolRailItem
 impl Clone for TreeNode
+impl Clone for Turn
 impl Clone for UiActivity
 impl Clone for UiStats
 impl Clone for UiWaker
@@ -1100,6 +1102,7 @@ impl Copy for TimeScale
 impl Copy for TimelineEdit
 impl Copy for ToastPosition
 impl Copy for Tone
+impl Copy for Turn
 impl Copy for UiActivity
 impl Copy for UiStats
 impl Copy for WidgetId
@@ -1338,6 +1341,7 @@ impl Debug for PropertyRow
 impl Debug for Protractor
 impl Debug for QuadField
 impl Debug for QuadPaint
+impl Debug for QuarterTurn
 impl Debug for RadioGroup
 impl Debug for Rating
 impl Debug for RecurrenceEditor
@@ -1465,6 +1469,7 @@ impl Debug for Tooltip
 impl Debug for TransformHandles
 impl Debug for TreeNode
 impl Debug for TreeView
+impl Debug for Turn
 impl Debug for Ui
 impl Debug for UiActivity
 impl Debug for UiStats
@@ -1611,6 +1616,7 @@ impl Default for ToastPosition
 impl Default for Toasts
 impl Default for Tone
 impl Default for Toolbar
+impl Default for Turn
 impl Default for UiStats
 impl Default for UiWaker
 impl Default for Value
@@ -1725,6 +1731,7 @@ impl Eq for TimeScale
 impl Eq for TimelineEdit
 impl Eq for ToastPosition
 impl Eq for Tone
+impl Eq for Turn
 impl Eq for UiStats
 impl Eq for WidgetId
 impl Eq for grid::CellAlign
@@ -1885,6 +1892,7 @@ impl PartialEq for ToastExtras
 impl PartialEq for ToastPosition
 impl PartialEq for Tone
 impl PartialEq for TreeNode
+impl PartialEq for Turn
 impl PartialEq for UiStats
 impl PartialEq for Value
 impl PartialEq for WidgetId
@@ -2058,6 +2066,7 @@ impl View for ProgressBar
 impl View for PropertyRow
 impl View for Protractor
 impl View for QuadField
+impl View for QuarterTurn
 impl View for RadioGroup
 impl View for Rating
 impl View for RecurrenceEditor
@@ -3287,6 +3296,7 @@ method QuadField::height
 method QuadField::new
 method QuadField::range
 method QuadPaint::new
+method QuarterTurn::new
 method RadioGroup::label
 method RadioGroup::new
 method Rating::clearable
@@ -4339,6 +4349,7 @@ struct PropertyRow
 struct Protractor
 struct QuadField
 struct QuadPaint
+struct QuarterTurn
 struct RadioGroup
 struct Rating
 struct RecurrenceEditor
@@ -4954,6 +4965,8 @@ variant Tone::Danger
 variant Tone::Neutral
 variant Tone::Success
 variant Tone::Warning
+variant Turn::Clockwise
+variant Turn::CounterClockwise
 variant UiActivity::Clicked
 variant UiActivity::Described
 variant UiActivity::Painted
