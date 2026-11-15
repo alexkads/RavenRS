@@ -975,6 +975,11 @@ fn a_view_inside_a_node_takes_its_clicks_at_any_zoom() {
 #[test]
 fn the_rest_of_a_card_with_a_view_still_moves_the_node() {
     let (mut rig, pressed) = with_content();
+    // Alt keeps the alignment guides out of it: this is about the card, not lining up.
+    rig.ui.handle_event(&Event::KeyUp {
+        key: Key::Character("x".into()),
+        modifiers: Modifiers { alt: true, ..Modifiers::default() },
+    });
     // Below the button, inside the card.
     drag(&mut rig.ui, Point::new(200.0, 124.0), Point::new(250.0, 172.0));
     assert_eq!(node_at(&rig, "a"), (96.0, 96.0));
@@ -1045,4 +1050,519 @@ fn a_note_wraps_its_words_and_shapes_draw_their_outline() {
         .map(|g| g.y.round() as i32)
         .collect();
     assert!(lines.len() >= 3, "the note's words wrap over lines: {lines:?}");
+}
+
+#[test]
+fn the_arrow_beside_a_node_makes_the_next_one_joined_with_its_title_open() {
+    let mut rig = rig();
+    click(&mut rig.ui, Point::new(480.0, 70.0));
+    // `b` is 200 by 84 at (408, 48): its right arrow sits 12 past its edge, in the middle.
+    click(&mut rig.ui, Point::new(632.0, 90.0));
+    let g = rig.graph.get();
+    let made = g.find_node("b-2").cloned().expect("the next node");
+    assert_eq!((made.x, made.y), (696.0, 48.0), "a layer to the right, on the grid");
+    assert_eq!(made.kind, "action");
+    let joined = g.edges.iter().find(|e| e.to.node == "b-2").expect("joined");
+    assert_eq!(joined.from, FlowEndpoint::new("b", "out"));
+    assert_eq!(rig.selection.get(), FlowSelection::node("b-2"));
+    assert!(field(&mut rig.ui).is_some(), "its title is open");
+    type_text(&mut rig.ui, "Bill");
+    key(&mut rig.ui, Key::Enter, Modifiers::default());
+    assert_eq!(title_of(&rig, "b-2"), "Bill");
+    shortcut(&mut rig.ui, "z", false);
+    shortcut(&mut rig.ui, "z", false);
+    let g = rig.graph.get();
+    assert!(g.find_node("b-2").is_none() && g.edges.is_empty(), "made and joined in one change");
+}
+
+#[test]
+fn cmd_shift_enter_makes_it_below_and_finds_a_free_place() {
+    let mut rig = rig();
+    click(&mut rig.ui, Point::new(480.0, 70.0));
+    key(&mut rig.ui, Key::Escape, Modifiers::default());
+    click(&mut rig.ui, Point::new(480.0, 70.0));
+    key(&mut rig.ui, Key::Enter, Modifiers { meta: true, shift: true, ..Modifiers::default() });
+    // Below `b` is (408, 240), where `c` at (408, 288) is in the way: one place further down.
+    assert_eq!(node_at(&rig, "b-2"), (408.0, 384.0));
+}
+
+#[test]
+fn the_app_chooses_the_next_node_and_quick_creation_can_be_switched_off() {
+    let mut rig = rig_with(graph(), |c| {
+        c.next_node(|_, side| {
+            (side == PortSide::Right).then(|| {
+                FlowNode::new("step", "action", "New step", 0.0, 0.0)
+                    .port(FlowPort::input("in").kind("sale"))
+                    .port(FlowPort::output("out").kind("sale"))
+            })
+        })
+    });
+    click(&mut rig.ui, Point::new(120.0, 70.0));
+    key(&mut rig.ui, Key::Enter, Modifiers { meta: true, ..Modifiers::default() });
+    let g = rig.graph.get();
+    assert_eq!(g.find_node("step").map(|n| n.title.clone()).as_deref(), Some("New step"));
+    assert!(
+        g.edges
+            .iter()
+            .any(|e| e.from == FlowEndpoint::new("a", "out") && e.to == FlowEndpoint::new("step", "in"))
+    );
+
+    let mut off = rig_with(graph(), |c| c.quick_create(false));
+    click(&mut off.ui, Point::new(480.0, 70.0));
+    key(&mut off.ui, Key::Enter, Modifiers { meta: true, ..Modifiers::default() });
+    click(&mut off.ui, Point::new(632.0, 90.0));
+    assert_eq!(off.graph.get().nodes.len(), 3);
+}
+
+#[test]
+fn a_dragged_node_lines_up_with_another_before_the_grid_and_alt_does_without() {
+    // `d` sits off the grid, its top at 61; `c` is dragged until its top is at 64.
+    let with_d = || graph().node(FlowNode::new("d", "action", "Off the grid", 700.0, 61.0));
+    let mut rig = rig_with(with_d(), |c| c);
+    drag(&mut rig.ui, Point::new(500.0, 330.0), Point::new(500.0, 106.0));
+    assert_eq!(node_at(&rig, "c"), (408.0, 61.0), "lined up with the top of `d`, not the grid");
+
+    let mut free = rig_with(with_d(), |c| c);
+    free.ui.handle_event(&Event::KeyUp {
+        key: Key::Character("x".into()),
+        modifiers: Modifiers { alt: true, ..Modifiers::default() },
+    });
+    drag(&mut free.ui, Point::new(500.0, 330.0), Point::new(500.0, 106.0));
+    assert_eq!(node_at(&free, "c"), (408.0, 72.0), "with Alt, the grid alone");
+}
+
+struct Editor {
+    ui: Ui,
+    graph: State<FlowGraph>,
+    selection: State<FlowSelection>,
+    history: State<FlowHistory>,
+}
+
+/// The canvas and its inspector side by side, on the same diagram, selection and history.
+fn editor(tweak: impl FnOnce(FlowInspector) -> FlowInspector) -> Editor {
+    let graph = State::new(graph().edge(FlowEdge::new(
+        "e1",
+        FlowEndpoint::new("a", "out"),
+        FlowEndpoint::new("b", "in"),
+    )));
+    let selection = State::new(FlowSelection::default());
+    let history = State::new(FlowHistory::new());
+    let canvas = FlowCanvas::new(graph.binding())
+        .selection(selection.binding())
+        .history(history.binding())
+        .view(State::new(FlowViewport::at(Point::new(0.0, 0.0), 1.0)).binding())
+        .size(700.0, 600.0);
+    let inspector = tweak(
+        FlowInspector::new(graph.binding(), selection.binding())
+            .history(history.binding())
+            .kind("trigger", "Trigger")
+            .kind("action", "Action"),
+    );
+    let mut ui = Ui::new(HStack::new((canvas, inspector)), Theme::raven_dark());
+    ui.set_viewport(Size::new(1000.0, 600.0), 1.0);
+    settle(&mut ui);
+    Editor { ui, graph, selection, history }
+}
+
+fn input_named(ui: &mut Ui, name: &str) -> Option<AccessNode> {
+    ui.access_tree()
+        .nodes
+        .iter()
+        .find(|n| n.role == Role::TextInput && n.name.as_deref() == Some(name))
+        .cloned()
+}
+
+#[test]
+fn the_inspector_edits_the_selected_node_through_the_canvas_history() {
+    let mut ed = editor(|i| i);
+    assert!(named(&mut ed.ui, "Select a node or a connection to see its properties").is_some());
+    ed.selection.set(FlowSelection::node("a"));
+    settle(&mut ed.ui);
+    let title = input_named(&mut ed.ui, "Title").expect("the title field");
+    assert_eq!(title.value.as_deref(), Some("New sale"));
+    click(&mut ed.ui, title.bounds.center());
+    key(&mut ed.ui, Key::Character("a".into()), Modifiers { meta: true, ..Modifiers::default() });
+    type_text(&mut ed.ui, "Charge");
+    key(&mut ed.ui, Key::Enter, Modifiers::default());
+    let a = ed.graph.get().find_node("a").cloned().expect("a");
+    assert_eq!(a.title, "Charge");
+    assert!(ed.history.get().can_undo(), "in the canvas's history");
+}
+
+#[test]
+fn the_inspector_shows_mixed_values_and_gives_a_choice_to_all() {
+    let mut ed = editor(|i| i);
+    ed.graph.update(|g| {
+        if let Some(b) = g.find_node_mut("b") {
+            b.shape = FlowShape::Diamond;
+        }
+    });
+    ed.selection.set(FlowSelection { nodes: vec!["a".into(), "b".into()], edges: Vec::new() });
+    settle(&mut ed.ui);
+    assert!(named(&mut ed.ui, "2 nodes").is_some());
+    assert!(input_named(&mut ed.ui, "Title").is_none(), "only what they share");
+    let shape = ed
+        .ui
+        .access_tree()
+        .nodes
+        .iter()
+        .find(|n| n.name.as_deref() == Some("Shape"))
+        .cloned()
+        .expect("the shape choice");
+    assert_eq!(shape.value.as_deref(), Some("Mixed"));
+}
+
+#[test]
+fn the_inspector_edits_a_connection_and_can_be_refused_or_read_only() {
+    let mut ed = editor(|i| i.on_change(|_, _, _| Err("Published steps stay".into())));
+    ed.selection.set(FlowSelection::edge("e1"));
+    settle(&mut ed.ui);
+    let animated = named(&mut ed.ui, "Animated").expect("the checkbox");
+    click(&mut ed.ui, animated.bounds.center());
+    assert!(!ed.graph.get().edges[0].animated, "refused");
+    assert!(named(&mut ed.ui, "Published steps stay").is_some(), "and says why");
+
+    let mut free = editor(|i| i);
+    free.selection.set(FlowSelection::edge("e1"));
+    settle(&mut free.ui);
+    let animated = named(&mut free.ui, "Animated").expect("the checkbox");
+    click(&mut free.ui, animated.bounds.center());
+    assert!(free.graph.get().edges[0].animated);
+
+    let mut locked = editor(|i| i.read_only(true));
+    locked.selection.set(FlowSelection::node("a"));
+    settle(&mut locked.ui);
+    assert!(named(&mut locked.ui, "Editing is locked: read only").is_some());
+}
+
+/// A toolbox beside the canvas, sharing the binding the models picked with Enter go through.
+struct Shop {
+    ui: Ui,
+    graph: State<FlowGraph>,
+    selection: State<FlowSelection>,
+}
+
+fn shop() -> Shop {
+    let graph = State::new(graph());
+    let selection = State::new(FlowSelection::default());
+    let history = State::new(FlowHistory::new());
+    let arrivals = State::new(None::<FlowNode>);
+    let toolbox = FlowToolbox::new()
+        .group("Flow")
+        .model("Step", FlowNode::new("step", "action", "Step", 0.0, 0.0))
+        .model(
+            "Choice",
+            FlowNode::new("choice", "action", "Choice", 0.0, 0.0).shape(FlowShape::Diamond).size(120.0, 80.0),
+        )
+        .arrivals(arrivals.binding());
+    let canvas = FlowCanvas::new(graph.binding())
+        .selection(selection.binding())
+        .history(history.binding())
+        .arrivals(arrivals.binding())
+        .view(State::new(FlowViewport::at(Point::new(0.0, 0.0), 1.0)).binding())
+        .size(700.0, 600.0);
+    let mut ui = Ui::new(HStack::new((toolbox, canvas)), Theme::raven_dark());
+    ui.set_viewport(Size::new(940.0, 600.0), 1.0);
+    settle(&mut ui);
+    Shop { ui, graph, selection }
+}
+
+fn snapped(v: f32) -> f32 {
+    (v / 24.0).round() * 24.0
+}
+
+#[test]
+fn a_model_dragged_onto_the_canvas_lands_there_as_a_new_node() {
+    let mut shop = shop();
+    let before = shop.graph.get().nodes.len();
+    let tile = named(&mut shop.ui, "Choice").expect("the model").bounds.center();
+    // The canvas's corner, from the node at (48, 48) of the diagram.
+    let left = named(&mut shop.ui, "New sale").expect("a node").bounds.origin.x - 48.0;
+    drag(&mut shop.ui, tile, Point::new(left + 300.0, 300.0));
+
+    let graph = shop.graph.get();
+    assert_eq!(graph.nodes.len(), before + 1, "one node more");
+    let made = graph.nodes.last().expect("the new node");
+    assert_eq!((made.title.as_str(), made.shape), ("Choice", FlowShape::Diamond));
+    assert_eq!(
+        (made.x, made.y),
+        (snapped(300.0 - 60.0), snapped(300.0 - 40.0)),
+        "centred where dropped, on the grid"
+    );
+    assert_eq!(shop.selection.get(), FlowSelection::node(made.id.clone()), "and selected");
+
+    let first = made.id.clone();
+
+    // A second copy gets an id of its own.
+    drag(&mut shop.ui, tile, Point::new(left + 500.0, 450.0));
+    let graph = shop.graph.get();
+    assert_eq!(graph.nodes.len(), before + 2);
+    assert_ne!(graph.nodes.last().expect("the second").id, first, "ids of their own");
+
+    // Each is one change: undo takes them away one by one.
+    let cmd = command(false);
+    key(&mut shop.ui, Key::Character("z".into()), cmd);
+    key(&mut shop.ui, Key::Character("z".into()), cmd);
+    assert_eq!(shop.graph.get().nodes.len(), before);
+}
+
+#[test]
+fn enter_on_a_model_puts_a_copy_in_the_middle_of_the_view() {
+    let mut shop = shop();
+    let before = shop.graph.get().nodes.len();
+    tab_to(&mut shop.ui, "Drag onto the diagram, or press Enter to place it in the middle");
+    key(&mut shop.ui, Key::Enter, Modifiers::default());
+    settle(&mut shop.ui);
+
+    let graph = shop.graph.get();
+    assert_eq!(graph.nodes.len(), before + 1);
+    let made = graph.nodes.last().expect("the new node");
+    assert_eq!(made.title, "Step");
+    let (w, h) = (made.width, made.height);
+    assert_eq!((made.x, made.y), (snapped(350.0 - w / 2.0), snapped(300.0 - h / 2.0)));
+    assert_eq!(shop.selection.get(), FlowSelection::node(made.id.clone()));
+}
+
+#[test]
+fn a_locked_canvas_takes_no_model() {
+    let mut shop = shop();
+    let before = shop.graph.get().nodes.len();
+    let lock = named(&mut shop.ui, "Lock editing").expect("the lock").bounds.center();
+    click(&mut shop.ui, lock);
+    let tile = named(&mut shop.ui, "Step").expect("the model").bounds.center();
+    // The canvas's corner, from the node at (48, 48) of the diagram.
+    let left = named(&mut shop.ui, "New sale").expect("a node").bounds.origin.x - 48.0;
+    drag(&mut shop.ui, tile, Point::new(left + 300.0, 400.0));
+    assert_eq!(shop.graph.get().nodes.len(), before, "nothing lands");
+}
+
+fn bent() -> Rig {
+    rig_with(
+        graph().edge(
+            FlowEdge::new("e1", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in")).label("Yes"),
+        ),
+        |c| c,
+    )
+}
+
+/// The middle of the line's only stretch, where its `+` is, in the view (at 100%, from 0, 0).
+fn stretch_middle(rig: &Rig) -> Point {
+    let g = rig.graph.get();
+    let c = g.edge_controls(&g.edges[0]).expect("the line");
+    Point::new((c[0].x + c[1].x) / 2.0, (c[0].y + c[1].y) / 2.0)
+}
+
+#[test]
+fn dragging_the_plus_of_a_selected_line_makes_a_bend_point_on_the_grid() {
+    let mut rig = bent();
+    let middle = stretch_middle(&rig);
+    click(&mut rig.ui, middle);
+    assert_eq!(rig.selection.get(), FlowSelection::edge("e1"), "the line is selected");
+
+    drag(&mut rig.ui, middle, Point::new(middle.x + 10.0, 250.0));
+    let point = (snapped(middle.x + 10.0), snapped(250.0));
+    assert_eq!(rig.graph.get().edges[0].waypoints, vec![point]);
+    // The line goes through it.
+    let g = rig.graph.get();
+    let path = ravenrs_graphics::flow::flatten(&g.edge_path(&g.edges[0]).expect("a path"));
+    assert!(ravenrs_graphics::flow::distance_to(&path, Point::new(point.0, point.1)) < 1.0);
+
+    // One change to undo.
+    key(&mut rig.ui, Key::Character("z".into()), command(false));
+    assert!(rig.graph.get().edges[0].waypoints.is_empty());
+}
+
+#[test]
+fn a_bend_point_moves_with_the_arrows_and_goes_with_delete() {
+    let mut rig = bent();
+    rig.graph.update(|g| g.edges[0].waypoints = vec![(336.0, 240.0)]);
+    rig.selection.set(FlowSelection::edge("e1"));
+    settle(&mut rig.ui);
+    let point = named(&mut rig.ui, "Point 1 of 1 of the connection Yes")
+        .expect("the point, named for screen readers");
+    click(&mut rig.ui, point.bounds.center());
+    key(&mut rig.ui, Key::ArrowRight, Modifiers::default());
+    assert_eq!(rig.graph.get().edges[0].waypoints, vec![(360.0, 240.0)]);
+    key(&mut rig.ui, Key::ArrowUp, Modifiers { shift: true, ..Modifiers::default() });
+    assert_eq!(rig.graph.get().edges[0].waypoints, vec![(360.0, 144.0)]);
+    key(&mut rig.ui, Key::Delete, Modifiers::default());
+    assert!(rig.graph.get().edges[0].waypoints.is_empty());
+    assert_eq!(rig.selection.get(), FlowSelection::edge("e1"), "the line stays selected");
+}
+
+#[test]
+fn a_double_click_on_a_line_makes_a_point_and_one_dropped_on_the_straight_goes() {
+    let mut rig = bent();
+    let middle = stretch_middle(&rig);
+    double_click(&mut rig.ui, middle);
+    assert_eq!(rig.graph.get().edges[0].waypoints.len(), 1, "a point where it was clicked");
+    assert_eq!(rig.selection.get(), FlowSelection::edge("e1"));
+
+    // Dragged back onto the straight between the ports, it is no longer needed.
+    rig.graph.update(|g| g.edges[0].waypoints = vec![(336.0, 240.0)]);
+    settle(&mut rig.ui);
+    let g = rig.graph.get();
+    let c = g.edge_controls(&g.edges[0]).expect("the line");
+    let on_straight = Point::new((c[0].x + c[2].x) / 2.0, (c[0].y + c[2].y) / 2.0);
+    drag(&mut rig.ui, Point::new(336.0, 240.0), on_straight);
+    // Snapped to the grid it may sit a little off the straight; near enough, it goes.
+    let left = rig.graph.get().edges[0].waypoints.clone();
+    assert!(left.is_empty() || left.iter().all(|&(_, y)| (y - on_straight.y).abs() > 4.0), "{left:?}");
+}
+
+#[test]
+fn a_line_whose_two_ends_move_takes_its_points_along() {
+    let mut rig = bent();
+    rig.graph.update(|g| g.edges[0].waypoints = vec![(336.0, 240.0)]);
+    rig.selection.set(FlowSelection { nodes: vec!["a".into(), "b".into()], edges: vec![] });
+    settle(&mut rig.ui);
+    drag(&mut rig.ui, Point::new(120.0, 70.0), Point::new(168.0, 118.0));
+    assert_eq!(rig.graph.get().edges[0].waypoints, vec![(384.0, 288.0)], "moved with both nodes");
+
+    // With one end moving, the point stays.
+    rig.selection.set(FlowSelection::node("a"));
+    settle(&mut rig.ui);
+    drag(&mut rig.ui, Point::new(168.0, 118.0), Point::new(168.0, 166.0));
+    assert_eq!(rig.graph.get().edges[0].waypoints, vec![(384.0, 288.0)]);
+}
+
+#[test]
+fn the_shortcut_exports_the_whole_diagram_and_changes_nothing() {
+    let got: std::rc::Rc<std::cell::RefCell<Vec<(FlowExportFormat, FlowPicture)>>> = Default::default();
+    let seen = got.clone();
+    let mut rig = rig_with(graph(), move |c| {
+        c.on_export(move |format, picture| seen.borrow_mut().push((format, picture)))
+    });
+    assert!(named(&mut rig.ui, "Export").is_some(), "a button in the controls");
+
+    // Cmd/Ctrl+Shift+E exports at once, as a PNG at first, the whole diagram.
+    click(&mut rig.ui, Point::new(600.0, 500.0));
+    key(&mut rig.ui, Key::Character("e".into()), command(true));
+    {
+        let got = got.borrow();
+        let (format, picture) = got.last().expect("an export");
+        assert_eq!(*format, FlowExportFormat::Png);
+        let words: Vec<&str> = picture.texts.iter().map(|t| t.text.as_str()).collect();
+        assert!(words.contains(&"New sale") && words.contains(&"Send refusal"));
+    }
+    // Nothing changed in the diagram.
+    assert_eq!(rig.graph.get(), graph());
+}
+
+#[test]
+fn without_on_export_there_is_no_export_button() {
+    let mut rig = rig();
+    assert!(named(&mut rig.ui, "Export").is_none());
+}
+
+/// What a test file chooser was asked to save: names and bytes.
+type Saved = std::rc::Rc<std::cell::RefCell<Vec<(String, Vec<u8>)>>>;
+
+/// A file chooser that hands over one file, and remembers what it was asked to save.
+struct Files {
+    open: Option<PickedFile>,
+    saved: Saved,
+}
+
+impl FilePickerProvider for Files {
+    fn pick(&self, _request: &FileRequest, done: Box<dyn FnOnce(Vec<PickedFile>)>) {
+        done(self.open.clone().into_iter().collect());
+    }
+
+    fn save(&self, name: &str, bytes: &[u8]) {
+        self.saved.borrow_mut().push((name.to_owned(), bytes.to_vec()));
+    }
+}
+
+struct Desk {
+    ui: Ui,
+    graph: State<FlowGraph>,
+    history: State<FlowHistory>,
+    saved: Saved,
+}
+
+fn desk(storage: std::rc::Rc<ravenrs_core::MemoryStorage>, open: Option<PickedFile>) -> Desk {
+    let graph = State::new(graph());
+    let history = State::new(FlowHistory::new());
+    let library = FlowLibrary::new(graph.binding()).history(history.binding()).storage(storage);
+    let canvas = FlowCanvas::new(graph.binding()).history(history.binding()).size(700.0, 600.0);
+    let mut ui = Ui::new(HStack::new((library, canvas)), Theme::raven_dark());
+    let saved = std::rc::Rc::default();
+    ui.set_file_picker(Files { open, saved: std::rc::Rc::clone(&saved) });
+    ui.set_viewport(Size::new(940.0, 600.0), 1.0);
+    settle(&mut ui);
+    Desk { ui, graph, history, saved }
+}
+
+fn press(ui: &mut Ui, name: &str) {
+    let id = named(ui, name).unwrap_or_else(|| panic!("no {name}")).id;
+    ui.perform_action(id, ravenrs_core::AccessAction::Click);
+    settle(ui);
+}
+
+#[test]
+fn a_diagram_is_saved_and_says_when_it_has_changes_not_saved() {
+    let storage = std::rc::Rc::new(ravenrs_core::MemoryStorage::default());
+    let mut d = desk(storage.clone(), None);
+    assert!(named(&mut d.ui, "Changes not saved").is_some(), "a diagram never kept");
+    press(&mut d.ui, "Save");
+    assert!(named(&mut d.ui, "Saved").is_some());
+    let kept = ravenrs_core::Storage::read(&*storage, "flows").expect("readable").expect("kept");
+    let shelf = FlowShelf::from_json(&String::from_utf8_lossy(&kept)).expect("a shelf");
+    assert_eq!(shelf.documents.len(), 1);
+    assert_eq!(shelf.documents[0].graph, graph());
+
+    d.graph.update(|g| g.nodes[0].title = "Changed".into());
+    settle(&mut d.ui);
+    assert!(named(&mut d.ui, "Changes not saved").is_some(), "an edit is noticed");
+
+    // The app opens again on the same storage: the diagram is there to open and edit.
+    let mut again = desk(storage, None);
+    assert!(named(&mut again.ui, "Untitled").is_some() || named(&mut again.ui, "New sale").is_some());
+}
+
+#[test]
+fn new_and_switching_keep_what_was_open_and_start_the_history_over() {
+    let storage = std::rc::Rc::new(ravenrs_core::MemoryStorage::default());
+    let mut d = desk(storage.clone(), None);
+    d.history.update(|h| h.record(FlowGraph::new()));
+    press(&mut d.ui, "New");
+    assert!(d.graph.get().nodes.is_empty(), "an empty diagram");
+    assert!(!d.history.get().can_undo(), "with a history of its own");
+    let shelf = FlowShelf::from_json(&String::from_utf8_lossy(
+        &ravenrs_core::Storage::read(&*storage, "flows").unwrap().unwrap(),
+    ))
+    .unwrap();
+    assert_eq!(shelf.documents.len(), 1, "the one open before was kept first");
+
+    // Back to the first one.
+    assert!(starting(&mut d.ui, "Untitled 2 ").is_some(), "the new one is told apart");
+    let first = starting(&mut d.ui, "Untitled 3 nodes").expect("the first, listed").id;
+    d.ui.perform_action(first, ravenrs_core::AccessAction::Click);
+    settle(&mut d.ui);
+    assert_eq!(d.graph.get(), graph());
+}
+
+fn starting(ui: &mut Ui, prefix: &str) -> Option<AccessNode> {
+    ui.access_tree().nodes.iter().find(|n| n.name.as_deref().is_some_and(|x| x.starts_with(prefix))).cloned()
+}
+
+#[test]
+fn delete_asks_first_and_a_file_goes_out_and_comes_in() {
+    let storage = std::rc::Rc::new(ravenrs_core::MemoryStorage::default());
+    let incoming = PickedFile::new("Pedidos.json", graph().to_json().into_bytes());
+    let mut d = desk(storage.clone(), Some(incoming));
+    press(&mut d.ui, "Save");
+
+    press(&mut d.ui, "Save as file");
+    let saved = d.saved.borrow().clone();
+    assert_eq!(saved.len(), 1);
+    assert_eq!(saved[0].0, "Untitled.json");
+    assert_eq!(FlowGraph::from_json(&String::from_utf8_lossy(&saved[0].1)).ok(), Some(graph()));
+
+    press(&mut d.ui, "Open file");
+    assert!(starting(&mut d.ui, "Pedidos").is_some(), "the file opens as a diagram named after it");
+
+    press(&mut d.ui, "Delete Untitled");
+    assert!(named(&mut d.ui, "Delete “Untitled”?").is_some(), "it asks first");
 }

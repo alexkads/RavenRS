@@ -623,8 +623,165 @@ pub struct Labels {
     pub flow_title: String,
     /// A turned node of a `FlowCanvas`, with `{0}` its turn in degrees.
     pub flow_turned: String,
+    /// The heading of a `FlowLayers`.
+    pub flow_layers: String,
+    /// Hides a node of a `FlowLayers`, with `{0}` its name.
+    pub flow_layer_hide: String,
+    /// Shows a hidden node of a `FlowLayers`, with `{0}` its name.
+    pub flow_layer_show: String,
+    /// Brings a node of a `FlowLayers` forward, with `{0}` its name.
+    pub flow_layer_up: String,
+    /// Sends a node of a `FlowLayers` back, with `{0}` its name.
+    pub flow_layer_down: String,
+    /// Puts a breakpoint on the nodes selected in a `FlowCanvas`, or takes it off (F9).
+    pub flow_run_breakpoint: String,
+    /// The Debug button and box of a `FlowCanvas`.
+    pub flow_debug: String,
+    /// Starts a `FlowCanvas` run over.
+    pub flow_run_start: String,
+    /// Moves a `FlowCanvas` run one step.
+    pub flow_run_step: String,
+    /// Moves a `FlowCanvas` run on to the next stop.
+    pub flow_run_continue: String,
+    /// Ends a `FlowCanvas` run.
+    pub flow_run_stop: String,
+    /// What the debug box of a `FlowCanvas` says before a run.
+    pub flow_run_hint: String,
+    /// A token went from `{0}` to `{1}`.
+    pub flow_run_moved: String,
+    /// A token reached the end `{0}`.
+    pub flow_run_ended: String,
+    /// A run waits for a way out of `{0}`.
+    pub flow_run_choose: String,
+    /// A run in which every token reached an end.
+    pub flow_run_done: String,
+    /// A run stopped at `{0}`, which leads nowhere.
+    pub flow_run_dead_end: String,
+    /// A run stuck at the join `{0}`.
+    pub flow_run_stuck: String,
+    /// A run that goes round without ending.
+    pub flow_run_looping: String,
+    /// A run with nowhere to start from.
+    pub flow_run_no_start: String,
+    /// The Check button of a `FlowCanvas`.
+    pub flow_check: String,
+    /// A `FlowCanvas` check that found nothing wrong.
+    pub flow_check_ok: String,
+    /// A `FlowCanvas` check that found problems, with `{0}` how many.
+    pub flow_check_found: String,
+    /// Closes the box of a `FlowCanvas` check.
+    pub flow_check_close: String,
+    /// A field of a `FlowInspector`: the color inside a node.
+    pub flow_field_fill: String,
+    /// A field of a `FlowInspector`: the color of an outline or a line.
+    pub flow_field_stroke: String,
+    /// A field of a `FlowInspector`: the color of a node's words.
+    pub flow_field_text: String,
+    /// A field of a `FlowInspector`: an outline's width.
+    pub flow_field_stroke_width: String,
+    /// A field of a `FlowInspector`: a line drawn in dashes.
+    pub flow_field_dashed: String,
+    /// The heading of a `FlowLibrary`.
+    pub flow_library: String,
+    /// Starts a new diagram in a `FlowLibrary`.
+    pub flow_library_new: String,
+    /// Keeps the open diagram of a `FlowLibrary`.
+    pub flow_library_save: String,
+    /// Opens a diagram from a JSON file in a `FlowLibrary`.
+    pub flow_library_open_file: String,
+    /// Writes the open diagram of a `FlowLibrary` to a JSON file.
+    pub flow_library_save_file: String,
+    /// Deletes a diagram of a `FlowLibrary`.
+    pub flow_library_delete: String,
+    /// Asks before a `FlowLibrary` deletes a diagram, with `{0}` its name.
+    pub flow_library_delete_title: String,
+    /// Says what deleting a diagram of a `FlowLibrary` means.
+    pub flow_library_delete_message: String,
+    /// The name field of a `FlowLibrary` while empty.
+    pub flow_library_name: String,
+    /// A diagram of a `FlowLibrary` not named yet.
+    pub flow_library_untitled: String,
+    /// A `FlowLibrary` diagram with changes not kept.
+    pub flow_library_unsaved: String,
+    /// A `FlowLibrary` diagram with every change kept.
+    pub flow_library_saved: String,
+    /// How many nodes a `FlowLibrary` diagram has, with `{0}` the number.
+    pub flow_library_count: String,
+    /// A `FlowCanvas` node running now, for screen readers.
+    pub flow_running: String,
+    /// A `FlowCanvas` node that ran and went well, for screen readers.
+    pub flow_done: String,
+    /// The Export menu of a `FlowCanvas`.
+    pub flow_export: String,
+    /// Export a `FlowCanvas` as a PNG picture.
+    pub flow_export_png: String,
+    /// Export a `FlowCanvas` as an SVG drawing.
+    pub flow_export_svg: String,
+    /// Export a `FlowCanvas` as a PDF page.
+    pub flow_export_pdf: String,
+    /// Export only what is selected in a `FlowCanvas`.
+    pub flow_export_selection: String,
+    /// A bend point of a `FlowCanvas` line, with `{0}` its place, `{1}` how many and `{2}` the
+    /// line's label (or id).
+    pub flow_bend: String,
     /// Why a group of a `FlowCanvas` does not turn.
     pub flow_no_turn: String,
+    /// The name of a `FlowInspector`.
+    pub flow_inspector: String,
+    /// What a `FlowInspector` says with nothing selected.
+    pub flow_inspector_empty: String,
+    /// The heading of a `FlowInspector` for one node.
+    pub flow_inspector_node: String,
+    /// The heading of a `FlowInspector` for one connection.
+    pub flow_inspector_edge: String,
+    /// The heading of a `FlowInspector` for several nodes, with `{0}` how many.
+    pub flow_inspector_nodes: String,
+    /// A value of a `FlowInspector` that differs among the nodes selected.
+    pub flow_inspector_mixed: String,
+    /// What a read-only `FlowInspector` says.
+    pub flow_inspector_read_only: String,
+    /// The heading of a `FlowToolbox`.
+    pub flow_toolbox: String,
+    /// What the search field of a `FlowToolbox` says while empty.
+    pub flow_toolbox_search: String,
+    /// What a `FlowToolbox` says when no model matches the search.
+    pub flow_toolbox_none: String,
+    /// What a model of a `FlowToolbox` says how to use it, to screen readers.
+    pub flow_toolbox_hint: String,
+    /// A field of a `FlowInspector`: a node's title.
+    pub flow_field_title: String,
+    /// A field of a `FlowInspector`: the line under a node's title.
+    pub flow_field_line: String,
+    /// A field of a `FlowInspector`: a node's kind.
+    pub flow_field_kind: String,
+    /// A field of a `FlowInspector`: a node's or a connection's shape.
+    pub flow_field_shape: String,
+    /// A field of a `FlowInspector`.
+    pub flow_field_width: String,
+    /// A field of a `FlowInspector`.
+    pub flow_field_height: String,
+    /// A field of a `FlowInspector`: the left edge.
+    pub flow_field_x: String,
+    /// A field of a `FlowInspector`: the top edge.
+    pub flow_field_y: String,
+    /// A field of a `FlowInspector`: how a node is doing.
+    pub flow_field_status: String,
+    /// A field of a `FlowInspector`: a connection's label.
+    pub flow_field_label: String,
+    /// A field of a `FlowInspector`: the cap at a connection's start.
+    pub flow_field_start: String,
+    /// A field of a `FlowInspector`: the cap at a connection's end.
+    pub flow_field_end: String,
+    /// A field of a `FlowInspector`: a connection that shows something travelling.
+    pub flow_field_animated: String,
+    /// The statuses of a node in a `FlowInspector`.
+    pub flow_status_names: [String; 4],
+    /// The shapes of a node in a `FlowInspector`, in the order of `FlowShape`.
+    pub flow_shape_names: [String; 10],
+    /// The shapes of a connection in a `FlowInspector`.
+    pub flow_line_names: [String; 3],
+    /// The ends of a connection in a `FlowInspector`.
+    pub flow_cap_names: [String; 5],
     /// A port of a `FlowCanvas` where connections end, with `{0}` its node's title.
     pub flow_input: String,
     /// A port of a `FlowCanvas` where connections start, with `{0}` its node's title.
@@ -1258,7 +1415,85 @@ impl Labels {
             flow_members: texts.get("widgets.flow_members"),
             flow_title: texts.get("widgets.flow_title"),
             flow_turned: texts.get("widgets.flow_turned"),
+            flow_layers: texts.get("widgets.flow_layers"),
+            flow_layer_hide: texts.get("widgets.flow_layer_hide"),
+            flow_layer_show: texts.get("widgets.flow_layer_show"),
+            flow_layer_up: texts.get("widgets.flow_layer_up"),
+            flow_layer_down: texts.get("widgets.flow_layer_down"),
+            flow_run_breakpoint: texts.get("widgets.flow_run_breakpoint"),
+            flow_debug: texts.get("widgets.flow_debug"),
+            flow_run_start: texts.get("widgets.flow_run_start"),
+            flow_run_step: texts.get("widgets.flow_run_step"),
+            flow_run_continue: texts.get("widgets.flow_run_continue"),
+            flow_run_stop: texts.get("widgets.flow_run_stop"),
+            flow_run_hint: texts.get("widgets.flow_run_hint"),
+            flow_run_moved: texts.get("widgets.flow_run_moved"),
+            flow_run_ended: texts.get("widgets.flow_run_ended"),
+            flow_run_choose: texts.get("widgets.flow_run_choose"),
+            flow_run_done: texts.get("widgets.flow_run_done"),
+            flow_run_dead_end: texts.get("widgets.flow_run_dead_end"),
+            flow_run_stuck: texts.get("widgets.flow_run_stuck"),
+            flow_run_looping: texts.get("widgets.flow_run_looping"),
+            flow_run_no_start: texts.get("widgets.flow_run_no_start"),
+            flow_check: texts.get("widgets.flow_check"),
+            flow_check_ok: texts.get("widgets.flow_check_ok"),
+            flow_check_found: texts.get("widgets.flow_check_found"),
+            flow_check_close: texts.get("widgets.flow_check_close"),
+            flow_field_fill: texts.get("widgets.flow_field_fill"),
+            flow_field_stroke: texts.get("widgets.flow_field_stroke"),
+            flow_field_text: texts.get("widgets.flow_field_text"),
+            flow_field_stroke_width: texts.get("widgets.flow_field_stroke_width"),
+            flow_field_dashed: texts.get("widgets.flow_field_dashed"),
+            flow_library: texts.get("widgets.flow_library"),
+            flow_library_new: texts.get("widgets.flow_library_new"),
+            flow_library_save: texts.get("widgets.flow_library_save"),
+            flow_library_open_file: texts.get("widgets.flow_library_open_file"),
+            flow_library_save_file: texts.get("widgets.flow_library_save_file"),
+            flow_library_delete: texts.get("widgets.flow_library_delete"),
+            flow_library_delete_title: texts.get("widgets.flow_library_delete_title"),
+            flow_library_delete_message: texts.get("widgets.flow_library_delete_message"),
+            flow_library_name: texts.get("widgets.flow_library_name"),
+            flow_library_untitled: texts.get("widgets.flow_library_untitled"),
+            flow_library_unsaved: texts.get("widgets.flow_library_unsaved"),
+            flow_library_saved: texts.get("widgets.flow_library_saved"),
+            flow_library_count: texts.get("widgets.flow_library_count"),
+            flow_running: texts.get("widgets.flow_running"),
+            flow_done: texts.get("widgets.flow_done"),
+            flow_export: texts.get("widgets.flow_export"),
+            flow_export_png: texts.get("widgets.flow_export_png"),
+            flow_export_svg: texts.get("widgets.flow_export_svg"),
+            flow_export_pdf: texts.get("widgets.flow_export_pdf"),
+            flow_export_selection: texts.get("widgets.flow_export_selection"),
+            flow_bend: texts.get("widgets.flow_bend"),
             flow_no_turn: texts.get("widgets.flow_no_turn"),
+            flow_inspector: texts.get("widgets.flow_inspector"),
+            flow_inspector_empty: texts.get("widgets.flow_inspector_empty"),
+            flow_inspector_node: texts.get("widgets.flow_inspector_node"),
+            flow_inspector_edge: texts.get("widgets.flow_inspector_edge"),
+            flow_inspector_nodes: texts.get("widgets.flow_inspector_nodes"),
+            flow_inspector_mixed: texts.get("widgets.flow_inspector_mixed"),
+            flow_inspector_read_only: texts.get("widgets.flow_inspector_read_only"),
+            flow_toolbox: texts.get("widgets.flow_toolbox"),
+            flow_toolbox_search: texts.get("widgets.flow_toolbox_search"),
+            flow_toolbox_none: texts.get("widgets.flow_toolbox_none"),
+            flow_toolbox_hint: texts.get("widgets.flow_toolbox_hint"),
+            flow_field_title: texts.get("widgets.flow_field_title"),
+            flow_field_line: texts.get("widgets.flow_field_line"),
+            flow_field_kind: texts.get("widgets.flow_field_kind"),
+            flow_field_shape: texts.get("widgets.flow_field_shape"),
+            flow_field_width: texts.get("widgets.flow_field_width"),
+            flow_field_height: texts.get("widgets.flow_field_height"),
+            flow_field_x: texts.get("widgets.flow_field_x"),
+            flow_field_y: texts.get("widgets.flow_field_y"),
+            flow_field_status: texts.get("widgets.flow_field_status"),
+            flow_field_label: texts.get("widgets.flow_field_label"),
+            flow_field_start: texts.get("widgets.flow_field_start"),
+            flow_field_end: texts.get("widgets.flow_field_end"),
+            flow_field_animated: texts.get("widgets.flow_field_animated"),
+            flow_status_names: texts.array("widgets.flow_status_names"),
+            flow_shape_names: texts.array("widgets.flow_shape_names"),
+            flow_line_names: texts.array("widgets.flow_line_names"),
+            flow_cap_names: texts.array("widgets.flow_cap_names"),
             flow_input: texts.get("widgets.flow_input"),
             flow_output: texts.get("widgets.flow_output"),
             flow_pick_port: texts.get("widgets.flow_pick_port"),
