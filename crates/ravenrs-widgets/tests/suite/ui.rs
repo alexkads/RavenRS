@@ -525,3 +525,64 @@ fn the_keys_pick_up_carry_and_drop() {
     ui.update();
     assert_eq!(*log.borrow(), vec!["Apple x3 at 30,50".to_owned()]);
 }
+
+/// Two buttons that say whether the focus is among them.
+struct FocusGroup;
+
+impl View for FocusGroup {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        use ravenrs_layout::{Axis, LayoutStyle};
+        let words = if cx.is_focus_within() { "inside" } else { "outside" };
+        let first = cx.child(&Button::new("First"));
+        let second = cx.child(&Button::new("Second"));
+        let said = cx.child(&Text::new(words));
+        cx.container(LayoutStyle::stack(Axis::Vertical), &[first, second, said], Paint::None)
+    }
+}
+
+#[test]
+fn a_view_knows_when_the_focus_is_inside_it() {
+    let mut ui = Ui::new(VStack::new((FocusGroup, Button::new("Elsewhere"))), Theme::raven_dark());
+    ui.set_viewport(Size::new(400.0, 300.0), 1.0);
+    ui.update();
+    let says =
+        |ui: &mut Ui, word: &str| ui.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some(word));
+    assert!(says(&mut ui, "outside"));
+    key(&mut ui, Key::Tab);
+    ui.update();
+    assert!(says(&mut ui, "inside"), "on the first button");
+    key(&mut ui, Key::Tab);
+    ui.update();
+    assert!(says(&mut ui, "inside"), "on the second");
+    key(&mut ui, Key::Tab);
+    ui.update();
+    assert!(says(&mut ui, "outside"), "on the button after it");
+}
+
+#[test]
+fn turned_text_in_a_narrow_strip_stays_on_one_line() {
+    use ravenrs_layout::{Axis, LayoutStyle};
+    struct Strip;
+    impl View for Strip {
+        fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+            let turned = cx.child(&ravenrs_widgets::QuarterTurn::new(
+                Text::new("Server Explorer"),
+                ravenrs_widgets::Turn::Clockwise,
+            ));
+            cx.container(
+                LayoutStyle { width: Some(28.0), ..LayoutStyle::stack(Axis::Vertical) },
+                &[turned],
+                Paint::None,
+            )
+        }
+    }
+    let mut ui = Ui::new(Strip, Theme::raven_dark());
+    ui.set_viewport(Size::new(400.0, 300.0), 1.0);
+    for _ in 0..3 {
+        ui.update();
+    }
+    let tree = ui.access_tree();
+    let text = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Server Explorer")).expect("read");
+    assert!(text.bounds.width() < 28.0, "one line, turned, fits the strip: {:?}", text.bounds);
+    assert!(text.bounds.height() > 90.0, "the whole name down the strip: {:?}", text.bounds);
+}

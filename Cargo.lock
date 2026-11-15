@@ -1996,6 +1996,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "dock-workbench"
+version = "27.1.28"
+dependencies = [
+ "image",
+ "pollster",
+ "ravenrs",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "document-features"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5847,6 +5857,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "raven-code"
+version = "27.1.28"
+dependencies = [
+ "image",
+ "pollster",
+ "ravenrs",
+ "serde_json",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "ravenrs"
 version = "27.1.28"
 dependencies = [
@@ -6093,6 +6114,7 @@ dependencies = [
  "ravenrs-app",
  "ravenrs-app-testkit",
  "ravenrs-criteria",
+ "regex-lite",
  "serde_json",
  "sha2 0.10.9",
  "tokio",

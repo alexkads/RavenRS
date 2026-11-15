@@ -203,6 +203,8 @@ pub struct Ui {
     turns: Vec<Option<(Turn, Turn)>>,
     scroll: ScrollState,
     modifiers: Rc<Cell<Modifiers>>,
+    /// Whether the last build read the keys held, so a change of them builds again.
+    modifiers_read: Rc<Cell<bool>>,
     /// Parent of each element, for hover-within.
     parents: Vec<Option<NodeId>>,
     /// The hovered element and its ancestors.
@@ -326,6 +328,7 @@ impl Ui {
             turns: Vec::new(),
             scroll: ScrollState::default(),
             modifiers: Rc::new(Cell::new(Modifiers::default())),
+            modifiers_read: Rc::default(),
             parents: Vec::new(),
             hover_chain: Vec::new(),
             local: LocalStore::default(),
@@ -958,9 +961,9 @@ impl Ui {
                     }
                 }
             }
-            Event::KeyUp { modifiers, .. } => self.modifiers.set(*modifiers),
+            Event::KeyUp { modifiers, .. } => self.set_modifiers(*modifiers),
             Event::KeyDown { key, modifiers } => {
-                self.modifiers.set(*modifiers);
+                self.set_modifiers(*modifiers);
                 if modifiers.alt {
                     let base = modifiers.base_key.map(|c| Key::Character(c.to_string()));
                     let shortcut = self.shortcuts.iter().find(|s| {
@@ -1024,6 +1027,16 @@ impl Ui {
             _ => {}
         }
         self.needs_redraw()
+    }
+
+    /// Keeps the keys held, and builds again when they change and a view looked at them.
+    fn set_modifiers(&mut self, modifiers: Modifiers) {
+        let before = self.modifiers.get();
+        self.modifiers.set(modifiers);
+        let held = |m: Modifiers| (m.ctrl, m.shift, m.alt, m.meta);
+        if held(before) != held(modifiers) && self.modifiers_read.get() {
+            self.ask_build(BuildCause::Press);
+        }
     }
 
     fn focused_element(&self) -> Option<&Element> {
@@ -1379,6 +1392,19 @@ impl Ui {
         self.ask_build(BuildCause::Focus);
     }
 
+    /// The focused widget and every widget around it, as the last frame laid them out. A change of
+    /// focus builds everything again, so a view reading this always sees the focus it shows.
+    fn focus_chain(&self) -> Rc<[WidgetId]> {
+        let Some(focused) = self.interaction.focused else { return Rc::from([]) };
+        let mut node = self.elements.iter().position(|e| e.widget == focused).map(|i| NodeId(i as u32));
+        let mut chain = Vec::new();
+        while let Some(n) = node {
+            chain.push(self.elements[n.0 as usize].widget);
+            node = self.parents.get(n.0 as usize).copied().flatten();
+        }
+        chain.into()
+    }
+
     /// Recomputes the hovered widget and cursor; returns true if hover changed.
     fn refresh_hover(&mut self) -> bool {
         let target = self.pointer.and_then(|p| self.hit_test(p));
@@ -1499,6 +1525,10 @@ impl Ui {
     }
 
     fn build_views(&mut self) -> Result<(), ravenrs_layout::LayoutError> {
+        // From the frame before, which the build is about to clear.
+        let focus_chain = self.focus_chain();
+        self.modifiers_read.set(false);
+        let modifiers_read = self.modifiers_read.clone();
         self.layout.clear();
         self.elements.clear();
         self.root_node = None;
@@ -1557,6 +1587,8 @@ impl Ui {
                 cx.reduced_motion = reduced_motion;
                 cx.view_profile = view_profile.map(|p| p as Rc<RefCell<dyn BuildTiming>>);
                 cx.hover_readers = hover_readers;
+                cx.focus_chain = focus_chain;
+                cx.modifiers_read = modifiers_read;
                 let content = cx.child(&**root);
                 let style = LayoutStyle {
                     width: Some(viewport.width),

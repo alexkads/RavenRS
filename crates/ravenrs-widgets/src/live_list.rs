@@ -479,6 +479,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Text::__live_expose(registry);
     crate::TextField::__live_expose_fields(registry);
     crate::TextField::__live_expose(registry);
+    crate::Cursor::__live_expose(registry);
     crate::TimeLink::__live_expose_fields(registry);
     crate::TimeLink::__live_expose(registry);
     crate::Turn::__live_expose_variants(registry);
@@ -846,6 +847,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Lottie::__live_expose_fields(registry);
     #[cfg(feature = "lottie")]
     crate::Lottie::__live_expose(registry);
+    crate::DockPanelKind::__live_expose_variants(registry);
+    crate::DockCloseAction::__live_expose_variants(registry);
     crate::DockPanel::__live_expose_fields(registry);
     crate::DockPanel::__live_expose(registry);
     crate::DockTabBar::__live_expose_variants(registry);

@@ -159,4 +159,6 @@ pub enum CursorIcon {
     NwseResize,
     /// Diagonal resize from the bottom left or the top right corner.
     NeswResize,
+    /// Four arrows, for what moves with the pointer, such as the header of a floating panel.
+    Move,
 }
