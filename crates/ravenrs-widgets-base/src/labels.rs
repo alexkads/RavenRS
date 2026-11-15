@@ -576,6 +576,10 @@ pub struct Labels {
     pub flow_disabled: String,
     /// Lays a `FlowCanvas` out by itself, in layers.
     pub flow_arrange: String,
+    /// A group of a `FlowCanvas`, and what a new one is called.
+    pub flow_group: String,
+    /// How many nodes a group of a `FlowCanvas` holds, with `{0}` the number.
+    pub flow_members: String,
     /// A port of a `FlowCanvas` where connections end, with `{0}` its node's title.
     pub flow_input: String,
     /// A port of a `FlowCanvas` where connections start, with `{0}` its node's title.
@@ -1186,6 +1190,8 @@ impl Labels {
             flow_refused: texts.get("widgets.flow_refused"),
             flow_disabled: texts.get("widgets.flow_disabled"),
             flow_arrange: texts.get("widgets.flow_arrange"),
+            flow_group: texts.get("widgets.flow_group"),
+            flow_members: texts.get("widgets.flow_members"),
             flow_input: texts.get("widgets.flow_input"),
             flow_output: texts.get("widgets.flow_output"),
             flow_pick_port: texts.get("widgets.flow_pick_port"),

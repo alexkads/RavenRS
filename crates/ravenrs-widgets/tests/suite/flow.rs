@@ -602,3 +602,90 @@ fn alt_and_the_arrows_resize_the_selected_nodes() {
     drag(&mut fixed.ui, Point::new(242.0, 126.0), Point::new(290.0, 126.0));
     assert_eq!((size_of(&fixed, "a"), node_at(&fixed, "a")), ((200.0, 84.0), (96.0, 48.0)));
 }
+
+fn parent_of(rig: &Rig, id: &str) -> Option<String> {
+    rig.graph.get().find_node(id).and_then(|n| n.parent.clone())
+}
+
+/// `a` and `b` in a group, with a line between them; `c` outside.
+fn grouped_rig() -> Rig {
+    let mut g = graph().edge(
+        FlowEdge::new("e1", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in"))
+            .shape(EdgeShape::Straight),
+    );
+    assert!(
+        g.group(&["a".into(), "b".into()], FlowNode::new_group("g", "Sale", ravenrs_core::Rect::default()))
+    );
+    rig_with(g, |c| c)
+}
+
+#[test]
+fn cmd_g_puts_the_selection_in_a_group_and_shift_takes_it_apart() {
+    let mut rig = rig();
+    click(&mut rig.ui, Point::new(120.0, 70.0));
+    hold_shift(&mut rig.ui, true);
+    click(&mut rig.ui, Point::new(480.0, 70.0));
+    hold_shift(&mut rig.ui, false);
+    shortcut(&mut rig.ui, "g", false);
+    let g = rig.graph.get();
+    let group = g.find_node("group").expect("a new group").clone();
+    assert!(group.group);
+    assert_eq!(group.rect(), ravenrs_core::Rect::new(24.0, 0.0, 608.0, 156.0), "around a and b with room");
+    assert_eq!((parent_of(&rig, "a"), parent_of(&rig, "b")), (Some("group".into()), Some("group".into())));
+    assert_eq!(rig.selection.get(), FlowSelection::node("group"));
+    let spoken = named(&mut rig.ui, "Group").expect("the group speaks");
+    assert_eq!(spoken.description.as_deref(), Some("Group. 2 nodes inside"));
+
+    shortcut(&mut rig.ui, "g", true);
+    assert!(rig.graph.get().find_node("group").is_none());
+    assert_eq!(parent_of(&rig, "a"), None);
+    assert_eq!(rig.selection.get().nodes, vec!["a".to_owned(), "b".to_owned()]);
+    shortcut(&mut rig.ui, "z", false);
+    assert_eq!(parent_of(&rig, "a"), Some("group".into()), "ungrouping undoes");
+}
+
+#[test]
+fn dragging_a_group_moves_what_it_holds() {
+    let mut rig = grouped_rig();
+    // The group's title band, above a: the group is at (24, 0).
+    drag(&mut rig.ui, Point::new(60.0, 20.0), Point::new(60.0, 68.0));
+    assert_eq!(node_at(&rig, "g"), (24.0, 48.0));
+    assert_eq!((node_at(&rig, "a"), node_at(&rig, "b")), ((48.0, 96.0), (408.0, 96.0)));
+    assert_eq!(node_at(&rig, "c"), (408.0, 288.0));
+    shortcut(&mut rig.ui, "z", false);
+    assert_eq!(node_at(&rig, "a"), (48.0, 48.0), "one change");
+}
+
+#[test]
+fn dropping_a_node_inside_a_group_puts_it_there_and_outside_takes_it_out() {
+    let mut rig = grouped_rig();
+    // c into the group: its middle lands at (300, 120), inside (24, 0)-(632, 156).
+    drag(&mut rig.ui, Point::new(500.0, 330.0), Point::new(392.0, 120.0));
+    assert_eq!(parent_of(&rig, "c"), Some("g".into()));
+    let order: Vec<String> = rig.graph.get().nodes.iter().map(|n| n.id.clone()).collect();
+    assert!(
+        order.iter().position(|id| id == "g") < order.iter().position(|id| id == "c"),
+        "drawn above its group"
+    );
+    // a out of it.
+    drag(&mut rig.ui, Point::new(120.0, 70.0), Point::new(120.0, 470.0));
+    assert_eq!(parent_of(&rig, "a"), None);
+    assert_eq!(parent_of(&rig, "b"), Some("g".into()));
+}
+
+#[test]
+fn a_line_inside_a_group_is_still_picked_and_deleting_the_group_takes_its_nodes() {
+    let mut rig = grouped_rig();
+    click(&mut rig.ui, Point::new(330.0, 90.0));
+    assert_eq!(rig.selection.get(), FlowSelection::edge("e1"));
+    click(&mut rig.ui, Point::new(60.0, 20.0));
+    assert_eq!(rig.selection.get(), FlowSelection::node("g"));
+    shortcut(&mut rig.ui, "c", false);
+    key(&mut rig.ui, Key::Delete, Modifiers::default());
+    let g = rig.graph.get();
+    assert_eq!(g.nodes.iter().map(|n| n.id.as_str()).collect::<Vec<_>>(), ["c"]);
+    shortcut(&mut rig.ui, "v", false);
+    let g = rig.graph.get();
+    assert_eq!(g.nodes.len(), 4, "the group pastes back with what it held");
+    assert_eq!(g.find_node("a").and_then(|n| n.parent.clone()).as_deref(), Some("g"));
+}
