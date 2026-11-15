@@ -182,6 +182,76 @@ impl FlowKind {
 /// may not, says why in words people read beside the pointer.
 pub type FlowValidator = Rc<dyn Fn(&FlowGraph, &FlowEndpoint, &FlowEndpoint) -> Result<(), String>>;
 
+/// What a change to the diagram in a [`FlowCanvas`] is, with the ids it touches, for
+/// [`FlowCanvas::on_change`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
+pub enum FlowChange {
+    /// Nodes moved, by a drag (asked once, when it is let go) or by the arrows.
+    Move {
+        /// The nodes that moved, with what the groups among them hold.
+        nodes: Vec<String>,
+    },
+    /// Nodes changed size.
+    Resize {
+        /// The nodes resized.
+        nodes: Vec<String>,
+    },
+    /// A connection was made.
+    Connect {
+        /// Its id.
+        edge: String,
+    },
+    /// An end of a connection went to another port.
+    Reconnect {
+        /// Its id.
+        edge: String,
+    },
+    /// Nodes and connections went, the nodes with what they held and every connection that
+    /// touched them.
+    Delete {
+        /// The nodes selected.
+        nodes: Vec<String>,
+        /// The connections selected.
+        edges: Vec<String>,
+    },
+    /// Nodes and connections came from the clipboard.
+    Paste {
+        /// The new nodes.
+        nodes: Vec<String>,
+        /// The new connections.
+        edges: Vec<String>,
+    },
+    /// Nodes went into a new group.
+    Group {
+        /// The new group.
+        group: String,
+        /// What it holds.
+        nodes: Vec<String>,
+    },
+    /// Groups were taken apart.
+    Ungroup {
+        /// The groups.
+        groups: Vec<String>,
+    },
+    /// The whole diagram was arranged.
+    Arrange,
+    /// The last change was undone.
+    Undo,
+    /// The last undo was redone.
+    Redo,
+    /// Nodes went in front of or behind the others.
+    Reorder {
+        /// The nodes that moved in the order.
+        nodes: Vec<String>,
+    },
+}
+
+/// Decides whether a change may happen, given the diagram before and after it. When it may
+/// not, the diagram stays as it was, nothing goes into the history, and the reason shows.
+pub type FlowGuard = Rc<dyn Fn(&FlowGraph, &FlowGraph, &FlowChange) -> Result<(), String>>;
+
 /// A diagram of nodes joined by connections, on an endless surface with a dotted grid.
 ///
 /// * Drag the surface or turn the wheel to pan; pinch, or turn the wheel with Cmd/Ctrl, to zoom
@@ -230,6 +300,7 @@ pub struct FlowCanvas {
     history: Option<Binding<FlowHistory>>,
     kinds: Rc<Vec<(String, FlowKind)>>,
     validate: Option<FlowValidator>,
+    guard: Option<FlowGuard>,
     layout: FlowLayout,
     resizable: bool,
     grid: f32,
@@ -262,6 +333,7 @@ impl FlowCanvas {
             history: None,
             kinds: Rc::new(Vec::new()),
             validate: None,
+            guard: None,
             layout: FlowLayout::default(),
             resizable: true,
             grid: 24.0,
@@ -312,6 +384,28 @@ impl FlowCanvas {
         validate: impl Fn(&FlowGraph, &FlowEndpoint, &FlowEndpoint) -> Result<(), String> + 'static,
     ) -> Self {
         self.validate = Some(Rc::new(validate));
+        self
+    }
+
+    /// Asked before every change the canvas makes to the diagram, with the diagram before and
+    /// after and what the change is; an `Err` refuses it and says why. A drag is asked once,
+    /// when it is let go, and a refused one puts the nodes back.
+    ///
+    /// ```
+    /// use ravenrs_reactive::State;
+    /// use ravenrs_widgets::{FlowCanvas, FlowChange, FlowGraph};
+    ///
+    /// let graph = State::new(FlowGraph::new());
+    /// let canvas = FlowCanvas::new(graph.binding()).on_change(|_, _, change| match change {
+    ///     FlowChange::Delete { .. } => Err("Published steps stay".into()),
+    ///     _ => Ok(()),
+    /// });
+    /// ```
+    pub fn on_change(
+        mut self,
+        guard: impl Fn(&FlowGraph, &FlowGraph, &FlowChange) -> Result<(), String> + 'static,
+    ) -> Self {
+        self.guard = Some(Rc::new(guard));
         self
     }
 
@@ -448,6 +542,9 @@ struct Flow {
     marquee: State<Option<Rect>>,
     memory: Rc<Memory>,
     validate: Option<FlowValidator>,
+    guard: Option<FlowGuard>,
+    /// Why the last change was refused, until the next gesture.
+    notice: State<Option<String>>,
     layout: FlowLayout,
     resizable: bool,
     grid: f32,
@@ -503,13 +600,65 @@ impl Flow {
         if self.snap { geometry::snap(value, self.grid) } else { value }
     }
 
-    /// Writes a changed diagram, remembering the one before for undo.
-    fn commit(&self, next: FlowGraph) {
-        let before = self.graph.get();
-        if before != next {
-            self.history.update(|h| h.record(before));
-            self.graph.set(next);
+    /// Whether the app lets this change happen. A refusal shows its reason.
+    fn allowed(&self, before: &FlowGraph, after: &FlowGraph, change: &FlowChange) -> bool {
+        let Some(guard) = &self.guard else { return true };
+        match guard(before, after, change) {
+            Ok(()) => true,
+            Err(reason) => {
+                self.notice.set(Some(reason));
+                false
+            }
         }
+    }
+
+    /// Writes a changed diagram, when the app lets it, remembering the one before for undo.
+    /// Says whether it was written (or there was nothing to write).
+    fn commit(&self, next: FlowGraph, change: FlowChange) -> bool {
+        let before = self.graph.get();
+        if before == next {
+            return true;
+        }
+        if !self.allowed(&before, &next, &change) {
+            return false;
+        }
+        self.history.update(|h| h.record(before));
+        self.graph.set(next);
+        true
+    }
+
+    /// Ends a drag that changed the diagram live: asks the app once, and either keeps the
+    /// change as one step of the history or puts the diagram back.
+    fn settle(&self, before: FlowGraph, change: FlowChange) {
+        let after = self.graph.get();
+        if before == after {
+            return;
+        }
+        if self.allowed(&before, &after, &change) {
+            self.history.update(|h| h.record(before));
+        } else {
+            self.graph.set(before);
+        }
+    }
+
+    /// Lets go of the reason of the last refusal, as a new gesture starts.
+    fn forget_notice(&self) {
+        self.notice.set_if_changed(None);
+    }
+
+    /// Brings the selected nodes in front of the others, or sends them behind.
+    fn reorder(&self, front: bool) -> bool {
+        let selection = self.selection.get();
+        if selection.nodes.is_empty() || self.locked.get() {
+            return false;
+        }
+        let mut graph = self.graph.get();
+        let changed =
+            if front { graph.bring_to_front(&selection.nodes) } else { graph.send_to_back(&selection.nodes) };
+        if changed {
+            self.commit(graph, FlowChange::Reorder { nodes: selection.nodes.clone() });
+        }
+        true
     }
 
     /// Moves the selected nodes by this much, in units of the diagram.
@@ -525,7 +674,7 @@ impl Flow {
             node.y += dy;
         }
         Self::regroup(&mut graph, &moving);
-        self.commit(graph);
+        self.commit(graph, FlowChange::Move { nodes: moving });
         true
     }
 
@@ -572,8 +721,9 @@ impl Flow {
         if !graph.group(&members, group) {
             return false;
         }
-        self.commit(graph);
-        self.select(FlowSelection::node(id));
+        if self.commit(graph, FlowChange::Group { group: id.clone(), nodes: members }) {
+            self.select(FlowSelection::node(id));
+        }
         true
     }
 
@@ -585,17 +735,20 @@ impl Flow {
         }
         let mut graph = self.graph.get();
         let mut freed: Vec<String> = Vec::new();
+        let mut groups: Vec<String> = Vec::new();
         for id in &selection.nodes {
             let held: Vec<String> = graph.children(id).map(|n| n.id.clone()).collect();
             if graph.ungroup(id) {
                 freed.extend(held);
+                groups.push(id.clone());
             }
         }
-        if freed.is_empty() {
+        if groups.is_empty() {
             return false;
         }
-        self.commit(graph);
-        self.select(FlowSelection { nodes: freed, edges: Vec::new() });
+        if self.commit(graph, FlowChange::Ungroup { groups }) {
+            self.select(FlowSelection { nodes: freed, edges: Vec::new() });
+        }
         true
     }
 
@@ -610,7 +763,7 @@ impl Flow {
             node.width = (node.width + dw).max(MIN_NODE.0);
             node.height = (node.height + dh).max(MIN_NODE.1);
         }
-        self.commit(graph);
+        self.commit(graph, FlowChange::Resize { nodes: selection.nodes.clone() });
         true
     }
 
@@ -625,7 +778,9 @@ impl Flow {
             node.x = self.snapped(node.x);
             node.y = self.snapped(node.y);
         }
-        self.commit(graph);
+        if !self.commit(graph, FlowChange::Arrange) {
+            return true;
+        }
         self.fit();
         // From the button, the keys come back to the canvas: Cmd+Z undoes the arrangement.
         self.memory.refocus.set(true);
@@ -640,6 +795,7 @@ impl Flow {
         let at = self.local(position);
         match phase {
             DragPhase::Start => {
+                self.forget_notice();
                 let graph = self.graph.get();
                 let Some(node) = graph.find_node(id) else { return };
                 let size = (node.width, node.height);
@@ -664,10 +820,8 @@ impl Flow {
             }
             DragPhase::End => {
                 let gesture = std::mem::take(&mut *self.memory.gesture.borrow_mut());
-                if let Gesture::Resize { before, .. } = gesture
-                    && before != self.graph.get()
-                {
-                    self.history.update(|h| h.record(before));
+                if let Gesture::Resize { id, before, .. } = gesture {
+                    self.settle(before, FlowChange::Resize { nodes: vec![id] });
                 }
             }
             // The base may add more; they act as nothing here.
@@ -682,7 +836,11 @@ impl Flow {
         }
         let mut graph = self.graph.get();
         if graph.remove(&selection.nodes, &selection.edges) {
-            self.commit(graph);
+            let change =
+                FlowChange::Delete { nodes: selection.nodes.clone(), edges: selection.edges.clone() };
+            if !self.commit(graph, change) {
+                return true;
+            }
             self.memory.refocus.set(!selection.nodes.is_empty());
         }
         self.select(FlowSelection::default());
@@ -697,7 +855,12 @@ impl Flow {
         }
         let now = self.graph.get();
         let mut history = self.history.get();
-        let Some(graph) = (if redo { history.redo(now) } else { history.undo(now) }) else { return false };
+        let Some(graph) = (if redo { history.redo(now.clone()) } else { history.undo(now.clone()) }) else {
+            return false;
+        };
+        if !self.allowed(&now, &graph, if redo { &FlowChange::Redo } else { &FlowChange::Undo }) {
+            return true;
+        }
         self.history.set(history);
         let mut selection = self.selection.get();
         selection.nodes.retain(|id| graph.find_node(id).is_some());
@@ -747,14 +910,16 @@ impl Flow {
         let along = self.grid * step as f32;
         let mut graph = self.graph.get();
         let (nodes, edges) = graph.insert(&piece, along, along);
-        self.commit(graph);
-        self.select(FlowSelection { nodes, edges });
+        if self.commit(graph, FlowChange::Paste { nodes: nodes.clone(), edges: edges.clone() }) {
+            self.select(FlowSelection { nodes, edges });
+        }
         true
     }
 
     /// The keys every part of the canvas answers.
     fn on_key(&self, key: &Key, m: Modifiers) -> bool {
         let (shift, command) = (m.shift, m.meta || m.ctrl);
+        self.forget_notice();
         let step = self.grid * if shift { 4.0 } else { 1.0 };
         let has_nodes = !self.selection.get().nodes.is_empty();
         if *key == Key::Escape && self.connecting.get().is_some() {
@@ -770,6 +935,8 @@ impl Flow {
                 "v" => return self.paste(),
                 "g" if shift => return self.ungroup_selection(),
                 "g" => return self.group_selection(),
+                "]" | "}" => return self.reorder(true),
+                "[" | "{" => return self.reorder(false),
                 _ => {}
             }
         }
@@ -837,6 +1004,7 @@ impl Flow {
         self.memory.pointer.set(Some(at));
         match phase {
             DragPhase::Start => {
+                self.forget_notice();
                 let gesture = if shift && !self.locked.get() {
                     Gesture::Select { pressed: at, base: self.selection.get() }
                 } else {
@@ -905,6 +1073,7 @@ impl Flow {
         self.memory.pointer.set(Some(at));
         match phase {
             DragPhase::Start => {
+                self.forget_notice();
                 // A group lies under the lines inside it: a press on one of them picks the line.
                 let on_group = self.graph.get().find_node(id).is_some_and(|n| n.group);
                 if on_group && let Some(edge) = self.edge_at(at) {
@@ -971,8 +1140,9 @@ impl Flow {
                     if graph != self.graph.get() {
                         self.graph.set(graph);
                     }
-                    // The whole move is one change to undo, not one per step of the pointer.
-                    self.history.update(|h| h.record(before));
+                    // The whole move is one change to undo, not one per step of the pointer, and
+                    // the app is asked once, now.
+                    self.settle(before, FlowChange::Move { nodes: moved });
                 }
             }
             // The base may add more; they act as nothing here.
@@ -1038,7 +1208,8 @@ impl Flow {
     }
 
     /// Ends the connection being made on `end`: adds it, or moves the end of the one being
-    /// moved, and selects it. Says whether it was made.
+    /// moved, and selects it. Says whether it ended: false when the ports refuse, true when it
+    /// was made or the app refused it (which shows why).
     fn finish(&self, connecting: &Connecting, end: &FlowEndpoint) -> bool {
         if self.verdict(connecting, end).is_err() {
             return false;
@@ -1059,8 +1230,13 @@ impl Flow {
             }
         };
         self.connecting.set(None);
-        self.commit(graph);
-        self.select(FlowSelection::edge(id));
+        let change = match &connecting.moving {
+            Some(_) => FlowChange::Reconnect { edge: id.clone() },
+            None => FlowChange::Connect { edge: id.clone() },
+        };
+        if self.commit(graph, change) {
+            self.select(FlowSelection::edge(id));
+        }
         true
     }
 
@@ -1074,6 +1250,7 @@ impl Flow {
         self.memory.pointer.set(Some(at));
         match phase {
             DragPhase::Start => {
+                self.forget_notice();
                 let (moving, from) = match self.selected_end(port) {
                     Some((edge, other)) => (Some(edge), other),
                     None => (None, port.clone()),
@@ -1344,6 +1521,7 @@ impl View for FlowCanvas {
         let locked = cx.use_state(|| self.locked);
         let connecting = cx.use_state(|| None::<Connecting>);
         let marquee = cx.use_state(|| None::<Rect>);
+        let notice = cx.use_state(|| None::<String>);
         let memory = cx.use_state(|| Rc::new(Memory::default())).get();
         if memory.refocus.take() {
             cx.request_focus();
@@ -1359,6 +1537,8 @@ impl View for FlowCanvas {
             marquee: marquee.clone(),
             memory: memory.clone(),
             validate: self.validate.clone(),
+            guard: self.guard.clone(),
+            notice: notice.clone(),
             layout: self.layout,
             resizable: self.resizable,
             grid: self.grid,
@@ -1429,6 +1609,11 @@ impl View for FlowCanvas {
                 children.push(hint(cx, &labels.flow_pick_port, *pointer, &theme, palette));
             }
             _ => {}
+        }
+        // Why the app refused the last change, by the pointer, until the next gesture.
+        if let Some(reason) = notice.get() {
+            let at = memory.pointer.get().unwrap_or(Point::new(FIT_MARGIN, FIT_MARGIN));
+            children.push(refusal(cx, &reason, at, &theme, palette));
         }
         if let Some(size) = size {
             if self.controls {

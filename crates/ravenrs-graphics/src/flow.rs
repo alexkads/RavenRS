@@ -581,6 +581,46 @@ impl FlowGraph {
         true
     }
 
+    /// Brings these nodes, with what the groups among them hold, in front of every other node,
+    /// keeping their order among themselves. A node in a group stays after its group, so the
+    /// group is still drawn behind it. Says whether the order changed.
+    pub fn bring_to_front(&mut self, ids: &[String]) -> bool {
+        let moving = self.with_descendants(ids);
+        let before: Vec<String> = self.nodes.iter().map(|n| n.id.clone()).collect();
+        let (mut kept, taken): (Vec<FlowNode>, Vec<FlowNode>) =
+            std::mem::take(&mut self.nodes).into_iter().partition(|n| !moving.contains(&n.id));
+        kept.extend(taken);
+        self.nodes = kept;
+        self.nodes.iter().map(|n| &n.id).ne(before.iter())
+    }
+
+    /// Sends these nodes, with what the groups among them hold, behind every other node: to the
+    /// very back, or, for a node in a group, to just after its group. Says whether the order
+    /// changed.
+    pub fn send_to_back(&mut self, ids: &[String]) -> bool {
+        let before: Vec<String> = self.nodes.iter().map(|n| n.id.clone()).collect();
+        let moving = self.with_descendants(ids);
+        // Each node that does not go along with its group, last first, so that the ones sent
+        // back keep their order among themselves.
+        let heads: Vec<String> = self
+            .nodes
+            .iter()
+            .filter(|n| moving.contains(&n.id) && n.parent.as_ref().is_none_or(|p| !moving.contains(p)))
+            .map(|n| n.id.clone())
+            .rev()
+            .collect();
+        for head in heads {
+            let unit = self.with_descendants(std::slice::from_ref(&head));
+            let (taken, kept): (Vec<FlowNode>, Vec<FlowNode>) =
+                std::mem::take(&mut self.nodes).into_iter().partition(|n| unit.contains(&n.id));
+            self.nodes = kept;
+            let parent = taken.iter().find(|n| n.id == head).and_then(|n| n.parent.clone());
+            let at = parent.and_then(|p| self.nodes.iter().position(|n| n.id == p)).map_or(0, |i| i + 1);
+            self.nodes.splice(at..at, taken);
+        }
+        self.nodes.iter().map(|n| &n.id).ne(before.iter())
+    }
+
     /// Takes out the group `id`, leaving what it held in the group it was in. Says whether it
     /// was a group.
     pub fn ungroup(&mut self, id: &str) -> bool {
@@ -1305,6 +1345,29 @@ mod tests {
             group.parent = Some("g".into());
         }
         assert_eq!(FlowGraph::from_json(&circle.to_json()), Err(FlowJsonError::GroupCycle("g".into())));
+    }
+
+    fn order(g: &FlowGraph) -> Vec<&str> {
+        g.nodes.iter().map(|n| n.id.as_str()).collect()
+    }
+
+    #[test]
+    fn bringing_to_front_and_sending_back_keep_groups_behind_what_they_hold() {
+        // g holds a and b; c is outside, after them.
+        let mut g = grouped();
+        assert_eq!(order(&g), ["g", "a", "b", "c"]);
+        assert!(g.bring_to_front(&["a".into()]));
+        assert_eq!(order(&g), ["g", "b", "c", "a"], "in front of everything, still after its group");
+        assert!(!g.bring_to_front(&["a".into()]), "already in front");
+        assert!(g.send_to_back(&["a".into()]));
+        assert_eq!(order(&g), ["g", "a", "b", "c"], "just after its group, behind its sibling");
+        assert!(g.send_to_back(&["c".into()]));
+        assert_eq!(order(&g), ["c", "g", "a", "b"]);
+        // A group goes with what it holds: already in front here, then all three to the back.
+        assert!(!g.bring_to_front(&["g".into()]));
+        assert!(g.send_to_back(&["g".into()]));
+        assert_eq!(order(&g), ["g", "a", "b", "c"]);
+        assert_eq!(g.check(), Ok(()));
     }
 
     #[test]

@@ -688,6 +688,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     #[cfg(feature = "flow")]
     crate::FlowKind::__live_expose(registry);
     #[cfg(feature = "flow")]
+    crate::FlowChange::__live_expose_variants(registry);
+    #[cfg(feature = "flow")]
     crate::FlowCanvas::__live_expose_fields(registry);
     #[cfg(feature = "flow")]
     crate::FlowCanvas::__live_expose(registry);
