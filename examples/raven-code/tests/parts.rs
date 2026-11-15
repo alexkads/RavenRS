@@ -179,7 +179,7 @@ fn recent_projects_keep_ten_the_latest_first_and_sessions_come_back() {
     let recent = config.recent();
     assert_eq!(recent.len(), 10);
     assert_eq!(recent[0], PathBuf::from("/work/p5"), "the latest first, once");
-    assert_eq!(recent.iter().filter(|p| **p == PathBuf::from("/work/p5")).count(), 1);
+    assert_eq!(recent.iter().filter(|p| p.as_path() == std::path::Path::new("/work/p5")).count(), 1);
     config.forget(&PathBuf::from("/work/p5")).unwrap();
     assert!(!config.recent().contains(&PathBuf::from("/work/p5")));
     let session = Session {

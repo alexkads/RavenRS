@@ -276,7 +276,7 @@ fn a_session_comes_back_and_recent_projects_show_when_nothing_is_open() {
     assert_eq!(again.active().as_deref(), Some("src/greeting.rs"));
     let text = again.text_of("src/greeting.rs").unwrap();
     assert_eq!(again.caret_of("src/greeting.rs"), Some(offset_of(&text, 3, 5)));
-    assert_eq!(config.recent(), [root.clone()]);
+    assert_eq!(config.recent(), std::slice::from_ref(&root));
     let _ = fs::remove_dir_all(config.dir());
 }
 
