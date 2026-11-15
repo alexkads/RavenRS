@@ -21,8 +21,9 @@ use ravenrs_text::TextAttrs;
 
 pub use ravenrs_graphics::flow::{
     EdgeCap, EdgeShape, FlowColors, FlowDirection, FlowDocument, FlowEdge, FlowEndpoint, FlowExportFormat,
-    FlowGraph, FlowHistory, FlowJsonError, FlowLayout, FlowLayoutKind, FlowNode, FlowNodeStatus, FlowPicture,
-    FlowPort, FlowShape, FlowShelf, FlowStyle, FlowText, PortDirection, PortSide,
+    FlowGate, FlowGraph, FlowHistory, FlowJsonError, FlowLayout, FlowLayoutKind, FlowNode, FlowNodeStatus,
+    FlowPicture, FlowPort, FlowRun, FlowRunEvent, FlowRunRules, FlowShape, FlowShelf, FlowStyle, FlowText,
+    PortDirection, PortSide,
 };
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
@@ -67,6 +68,158 @@ const CAP: f32 = 8.0;
 /// How near the straight between its neighbours a bend point let go is taken out, in screen
 /// pixels.
 const BEND_STRAIGHT: f32 = 4.0;
+fn flow_run_limit() -> usize {
+    ravenrs_graphics::flow::RUN_LIMIT + 1
+}
+
+/// The debug box, at the canvas's top right: the buttons of the run, the ways out to choose
+/// from, what went wrong and the last things that happened.
+#[allow(clippy::too_many_arguments, reason = "what the box shows")]
+fn debug_box(
+    cx: &mut BuildCx<'_>,
+    flow: &Flow,
+    graph: &FlowGraph,
+    rules: &FlowRunRules,
+    run: Option<&FlowRun>,
+    size: Size,
+    theme: &Theme,
+    labels: &crate::Labels,
+) -> NodeId {
+    let (f1, f2, f3, f4) = (flow.clone(), flow.clone(), flow.clone(), flow.clone());
+    let over = run.is_some_and(FlowRun::is_over);
+    let waiting = run.is_some_and(|r| r.choosing.is_some());
+    let mut rows: Vec<NodeId> = Vec::new();
+    rows.push(util::label(
+        cx,
+        &labels.flow_debug,
+        TextStyle::Caption,
+        Some(Weight::SEMIBOLD),
+        theme.color(Semantic::InkMuted),
+    ));
+    let buttons = crate::HStack::new((
+        crate::Button::new(labels.flow_run_start.clone())
+            .icon(IconName::Play)
+            .size(ButtonSize::Small)
+            .on_click(move || f1.run_start()),
+        crate::Button::new(labels.flow_run_step.clone())
+            .size(ButtonSize::Small)
+            .style(ButtonStyle::Secondary)
+            .disabled(over || waiting)
+            .on_click(move || f2.run_step(None)),
+        crate::Button::new(labels.flow_run_continue.clone())
+            .size(ButtonSize::Small)
+            .style(ButtonStyle::Secondary)
+            .disabled(over || waiting)
+            .on_click(move || f3.run_on()),
+        crate::Button::new(labels.flow_run_stop.clone())
+            .icon(IconName::Square)
+            .size(ButtonSize::Small)
+            .style(ButtonStyle::Ghost)
+            .disabled(run.is_none())
+            .on_click(move || f4.run.set(None)),
+    ))
+    .spacing(4.0);
+    rows.push(cx.child(&buttons));
+    let f5 = flow.clone();
+    rows.push(
+        cx.child(
+            &crate::Button::new(labels.flow_run_breakpoint.clone())
+                .size(ButtonSize::Small)
+                .style(ButtonStyle::Ghost)
+                .disabled(flow.selection.get().nodes.is_empty())
+                .on_click(move || f5.toggle_breakpoints()),
+        ),
+    );
+    if let Some(r) = run {
+        if let Some(node) = &r.choosing {
+            let ways: Vec<crate::Button> = FlowRun::ways_out(graph, rules, node)
+                .into_iter()
+                .map(|e| {
+                    let to = graph.find_node(&e.to.node).map_or(e.to.node.clone(), |n| n.title.clone());
+                    let words = e.label.clone().map_or(to.clone(), |l| format!("{l} → {to}"));
+                    let (chosen, id) = (flow.clone(), e.id.clone());
+                    crate::Button::new(words)
+                        .size(ButtonSize::Small)
+                        .style(ButtonStyle::Secondary)
+                        .on_click(move || chosen.run_step(Some(&id)))
+                })
+                .collect();
+            let name = graph.find_node(node).map_or(node.clone(), |n| n.title.clone());
+            rows.push(util::label(
+                cx,
+                &labels.flow_run_choose.replace("{0}", &name),
+                TextStyle::Callout,
+                None,
+                theme.color(Semantic::Ink),
+            ));
+            rows.push(cx.child(&crate::VStack::new(ways).spacing(4.0).align(Align::Stretch)));
+        }
+        if let Some(failure) = r.failure() {
+            rows.push(cx.child(&Alert::message(run_words(failure, graph, labels)).tone(crate::Tone::Danger)));
+        } else if r.is_over() {
+            rows.push(cx.child(&Alert::message(labels.flow_run_done.clone()).tone(crate::Tone::Success)));
+        }
+        for event in r.events.iter().rev().take(6).rev() {
+            let color = if event.is_error() {
+                theme.color(Semantic::Danger)
+            } else {
+                theme.color(Semantic::InkMuted)
+            };
+            rows.push(util::label(cx, &run_words(event, graph, labels), TextStyle::Caption, None, color));
+        }
+    } else {
+        rows.push(util::label(
+            cx,
+            &labels.flow_run_hint,
+            TextStyle::Caption,
+            None,
+            theme.color(Semantic::InkMuted),
+        ));
+    }
+    let width = CHECK_WIDTH;
+    let root = cx.container(
+        LayoutStyle {
+            absolute: Some(((size.width - width - theme.spacing.s4).max(0.0), theme.spacing.s4)),
+            width: Some(width),
+            padding: ravenrs_core::Insets::uniform(theme.spacing.s3),
+            spacing: theme.spacing.s2,
+            align: Align::Stretch,
+            ..LayoutStyle::stack(Axis::Vertical)
+        },
+        &rows,
+        Paint::Quad(crate::context::QuadPaint {
+            corner_radius: theme.radii.md,
+            border: Some(ravenrs_core::Border { width: 1.0, color: theme.color(Semantic::Border) }),
+            shadow: Some(theme.elevation.soft),
+            ..crate::context::QuadPaint::new(theme.color(Semantic::Surface))
+        }),
+    );
+    cx.semantics(root, Semantics::new(Role::Group).name(labels.flow_debug.clone()));
+    root
+}
+
+/// What a run's event says, in the app's words.
+fn run_words(event: &FlowRunEvent, graph: &FlowGraph, labels: &crate::Labels) -> String {
+    let name = |id: &str| {
+        graph
+            .find_node(id)
+            .map(|n| if n.title.trim().is_empty() { n.id.clone() } else { n.title.clone() })
+            .unwrap_or_else(|| id.to_owned())
+    };
+    match event {
+        FlowRunEvent::Moved { from, to, .. } => {
+            labels.flow_run_moved.replace("{0}", &name(from)).replace("{1}", &name(to))
+        }
+        FlowRunEvent::Ended { node } => labels.flow_run_ended.replace("{0}", &name(node)),
+        FlowRunEvent::Choosing { node } => labels.flow_run_choose.replace("{0}", &name(node)),
+        FlowRunEvent::Finished => labels.flow_run_done.clone(),
+        FlowRunEvent::DeadEnd { node } => labels.flow_run_dead_end.replace("{0}", &name(node)),
+        FlowRunEvent::Stuck { node } => labels.flow_run_stuck.replace("{0}", &name(node)),
+        FlowRunEvent::Looping => labels.flow_run_looping.clone(),
+        _ => labels.flow_run_no_start.clone(),
+    }
+}
+
 /// How wide the box of a check is, in logical pixels.
 const CHECK_WIDTH: f32 = 340.0;
 /// The least zoom at which ports show their names.
@@ -410,6 +563,7 @@ pub struct FlowCanvas {
     export: Option<FlowExporter>,
     connector: Option<FlowConnector>,
     checks: Option<crate::flow_notation::FlowChecks>,
+    runs: Option<FlowRunRules>,
     quick_create: bool,
     grid: f32,
     snap: bool,
@@ -452,6 +606,7 @@ impl FlowCanvas {
             export: None,
             connector: None,
             checks: None,
+            runs: None,
             quick_create: true,
             grid: 24.0,
             snap: true,
@@ -526,6 +681,15 @@ impl FlowCanvas {
         self
     }
 
+    /// Offers Debug in the controls: the diagram runs a step at a time as `rules` say, tokens
+    /// going from the starts along the connections. The nodes they are at, have left and
+    /// stopped at wrongly show it, the ways taken move, a way out is chosen where there is a
+    /// choice, F9 puts a breakpoint on the nodes selected, and what happened is listed.
+    pub fn runs(mut self, rules: FlowRunRules) -> Self {
+        self.runs = Some(rules);
+        self
+    }
+
     /// Takes from `notation` how its kinds look, which connections may be made and how they
     /// are drawn, what comes next from the keys, and what makes a diagram right.
     pub fn notation(mut self, notation: &crate::FlowNotation) -> Self {
@@ -543,6 +707,9 @@ impl FlowCanvas {
         }
         if notation.checks.is_some() {
             self.checks = notation.checks.clone();
+        }
+        if notation.runs.is_some() {
+            self.runs = notation.runs.clone();
         }
         self
     }
@@ -785,8 +952,13 @@ struct Flow {
     next: Option<FlowNext>,
     connector: Option<FlowConnector>,
     checks: Option<crate::flow_notation::FlowChecks>,
+    runs: Option<FlowRunRules>,
     /// Whether the check's box is open.
     checking: State<bool>,
+    /// Whether the debug box is open, the run going on and the nodes it stops at.
+    debugging: State<bool>,
+    run: State<Option<FlowRun>>,
+    breakpoints: State<Vec<String>>,
     export: Option<FlowExporter>,
     /// Whether Export takes only what is selected, and the format chosen last.
     export_only: State<bool>,
@@ -1287,6 +1459,55 @@ impl Flow {
         true
     }
 
+    /// Puts a breakpoint on each node selected, or takes it off.
+    fn toggle_breakpoints(&self) {
+        let mut points = self.breakpoints.get();
+        for id in self.selection.get().nodes {
+            match points.iter().position(|p| *p == id) {
+                Some(i) => {
+                    points.remove(i);
+                }
+                None => points.push(id),
+            }
+        }
+        self.breakpoints.set(points);
+    }
+
+    /// Starts a run over, from the starts.
+    fn run_start(&self) {
+        if let Some(rules) = &self.runs {
+            self.run.set(Some(FlowRun::start(&self.graph.get(), rules)));
+        }
+    }
+
+    /// Moves the run one step, along `choice` where a way out is to be chosen.
+    fn run_step(&self, choice: Option<&str>) {
+        let Some(rules) = &self.runs else { return };
+        let graph = self.graph.get();
+        let mut run = self.run.get().unwrap_or_else(|| FlowRun::start(&graph, rules));
+        run.step(&graph, rules, choice);
+        self.run.set(Some(run));
+    }
+
+    /// Moves the run on until it ends, a way out is to be chosen or a token reaches a
+    /// breakpoint.
+    fn run_on(&self) {
+        let Some(rules) = &self.runs else { return };
+        let graph = self.graph.get();
+        let points = self.breakpoints.get();
+        let mut run = self.run.get().unwrap_or_else(|| FlowRun::start(&graph, rules));
+        for _ in 0..flow_run_limit() {
+            if run.is_over() || run.choosing.is_some() {
+                break;
+            }
+            run.step(&graph, rules, None);
+            if run.tokens.first().is_some_and(|t| points.contains(t)) {
+                break;
+            }
+        }
+        self.run.set(Some(run));
+    }
+
     /// A connection as the app's connector shapes it, keeping its id and ends.
     fn shaped(&self, graph: &FlowGraph, edge: FlowEdge) -> FlowEdge {
         match &self.connector {
@@ -1543,6 +1764,10 @@ impl Flow {
         let has_nodes = !self.selection.get().nodes.is_empty();
         if *key == Key::Escape && self.connecting.get().is_some() {
             self.connecting.set(None);
+            return true;
+        }
+        if *key == Key::Function(9) && self.runs.is_some() && has_nodes {
+            self.toggle_breakpoints();
             return true;
         }
         if command && let Key::Character(c) = key {
@@ -2284,6 +2509,9 @@ impl View for FlowCanvas {
         let guides = cx.use_state(|| (None::<f32>, None::<f32>));
         let export_only = cx.use_state(|| false);
         let checking = cx.use_state(|| false);
+        let debugging = cx.use_state(|| false);
+        let run = cx.use_state(|| None::<FlowRun>);
+        let breakpoints = cx.use_state(Vec::<String>::new);
         let export_format = cx.use_state(FlowExportFormat::default);
         let notice = cx.use_state(|| None::<String>);
         let editing = cx.use_state(|| None::<String>);
@@ -2315,6 +2543,10 @@ impl View for FlowCanvas {
             connector: self.connector.clone(),
             checks: self.checks.clone(),
             checking: checking.clone(),
+            runs: self.runs.clone(),
+            debugging: debugging.clone(),
+            run: run.clone(),
+            breakpoints: breakpoints.clone(),
             export_only,
             export_format,
             palette,
@@ -2354,7 +2586,41 @@ impl View for FlowCanvas {
         // The check, kept up to date while its box is open.
         let issues: Option<Vec<FlowIssue>> =
             self.checks.as_ref().filter(|_| checking.get()).map(|checks| checks(&graph));
-        let flagged: Vec<String> = issues.iter().flatten().flat_map(|i| i.nodes.iter().cloned()).collect();
+        // What the check and the run show on the nodes and lines, on a copy for drawing only:
+        // the problem written on its node; where the tokens are, have been and went wrong.
+        let run_now = run.get().filter(|_| debugging.get() && self.runs.is_some());
+        let points = breakpoints.get();
+        let real = graph.clone();
+        let mut graph = graph;
+        for issue in issues.iter().flatten() {
+            for id in &issue.nodes {
+                if let Some(n) = graph.find_node_mut(id)
+                    && n.status == FlowNodeStatus::Normal
+                {
+                    n.status = FlowNodeStatus::Warning(issue.text.clone());
+                }
+            }
+        }
+        if let Some(r) = &run_now {
+            for node in &mut graph.nodes {
+                if r.visited.contains(&node.id) {
+                    node.status = FlowNodeStatus::Success;
+                }
+                if r.tokens.contains(&node.id) || r.waiting.iter().any(|(j, _)| *j == node.id) {
+                    node.status = FlowNodeStatus::Running;
+                }
+            }
+            if let Some(failure) = r.failure()
+                && let Some(n) = failure.node().and_then(|id| graph.find_node_mut(id))
+            {
+                n.status = FlowNodeStatus::Error(run_words(failure, &real, &labels));
+            }
+            for edge in &mut graph.edges {
+                if r.taken.contains(&edge.id) {
+                    edge.animated = true;
+                }
+            }
+        }
         let mut children = Vec::new();
         for node in &graph.nodes {
             let look = self.kinds.iter().find(|(k, _)| *k == node.kind).map(|(_, look)| look.clone());
@@ -2369,7 +2635,7 @@ impl View for FlowCanvas {
                 rotatable: self.rotatable,
                 quick: self.quick_create && !is_locked,
                 selected_many: selection.nodes.len() > 1,
-                flagged: flagged.contains(&node.id),
+                breakpoint: points.contains(&node.id),
                 members: graph.children(&node.id).count(),
                 editing: editing_now.as_deref() == Some(node.id.as_str()),
                 handles: graph
@@ -2473,6 +2739,11 @@ impl View for FlowCanvas {
                 &[shown],
                 Paint::None,
             ));
+        }
+        if debugging.get()
+            && let (Some(rules), Some(size)) = (&self.runs, size)
+        {
+            children.push(debug_box(cx, &flow, &real, rules, run_now.as_ref(), size, &theme, &labels));
         }
         if let Some(size) = size {
             if self.controls {
@@ -2680,6 +2951,18 @@ fn controls(
             .selected(locked)
             .on_click(move || d.set(!d.get())),
     );
+    let debug = flow.runs.is_some().then(|| {
+        let open = flow.debugging.clone();
+        let on = open.get();
+        cx.child(
+            &IconButton::new(IconName::Play)
+                .label(labels.flow_debug.clone())
+                .size(ButtonSize::Small)
+                .style(ButtonStyle::Ghost)
+                .selected(on)
+                .on_click(move || open.set(!on)),
+        )
+    });
     let check = flow.checks.is_some().then(|| {
         let open = flow.checking.clone();
         let on = open.get();
@@ -2745,6 +3028,7 @@ fn controls(
         &[zoom_in, zoom_out, fit, arrange, lock]
             .into_iter()
             .chain(check)
+            .chain(debug)
             .chain(export)
             .chain([percent])
             .collect::<Vec<_>>(),
@@ -2777,8 +3061,8 @@ struct NodeBox {
     quick: bool,
     /// More than one node is selected: the arrows stay away.
     selected_many: bool,
-    /// Outlined as a warning: a check found something wrong with it.
-    flagged: bool,
+    /// A run stops when a token reaches it.
+    breakpoint: bool,
     /// For a group, how many nodes it holds directly.
     members: usize,
     /// Its title is being typed.
@@ -2976,9 +3260,24 @@ impl View for NodeBox {
             ports.insert(0, holder);
         }
         let look = self.look.clone();
-        let (title, subtitle, mut status) = (node.title.clone(), node.subtitle.clone(), node.status.clone());
-        if self.flagged && status == FlowNodeStatus::Normal {
-            status = FlowNodeStatus::Warning(String::new());
+        let (title, subtitle, status) = (node.title.clone(), node.subtitle.clone(), node.status.clone());
+        if self.breakpoint {
+            // A red dot on its corner, as code editors mark a line.
+            let dot = cx.container(
+                LayoutStyle {
+                    absolute: Some((-6.0, -6.0)),
+                    width: Some(12.0),
+                    height: Some(12.0),
+                    ..LayoutStyle::leaf()
+                },
+                &[],
+                Paint::Quad(crate::context::QuadPaint {
+                    corner_radius: 6.0,
+                    border: Some(ravenrs_core::Border { width: 2.0, color: p.canvas }),
+                    ..crate::context::QuadPaint::new(p.danger)
+                }),
+            );
+            ports.push(dot);
         }
         let style = node.style.clone();
         let selected = self.selected;

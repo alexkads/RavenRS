@@ -45,6 +45,7 @@ pub struct FlowNotation {
     pub(crate) validate: Option<FlowValidator>,
     pub(crate) next: Option<FlowNext>,
     pub(crate) checks: Option<FlowChecks>,
+    pub(crate) runs: Option<crate::flow::FlowRunRules>,
     pub(crate) formats: Vec<FlowFileFormat>,
 }
 
@@ -103,6 +104,12 @@ impl FlowNotation {
     /// What makes a diagram right, as [`FlowCanvas::checks`](crate::FlowCanvas::checks).
     pub fn checks(mut self, checks: impl Fn(&FlowGraph) -> Vec<FlowIssue> + 'static) -> Self {
         self.checks = Some(Rc::new(checks));
+        self
+    }
+
+    /// How a diagram of it runs, as [`FlowCanvas::runs`](crate::FlowCanvas::runs).
+    pub fn runs(mut self, rules: crate::flow::FlowRunRules) -> Self {
+        self.runs = Some(rules);
         self
     }
 

@@ -6259,6 +6259,7 @@ version = "27.1.28"
 dependencies = [
  "quick-xml",
  "ravenrs-core",
+ "ravenrs-reactive",
  "ravenrs-style",
  "ravenrs-widgets",
  "serde_json",

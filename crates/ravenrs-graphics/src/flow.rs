@@ -14,12 +14,14 @@ mod document;
 mod layout;
 mod picture;
 mod routing;
+mod run;
 mod style;
 
 pub use document::{FlowDocument, FlowShelf};
 pub use layout::{FlowDirection, FlowLayout, FlowLayoutKind};
 pub use picture::{FlowColors, FlowExportFormat, FlowPicture, FlowText, PICTURE_MARGIN};
 pub use routing::{ROUTE_MARGIN, RouteCache, route_around};
+pub use run::{FlowGate, FlowRun, FlowRunEvent, FlowRunRules, RUN_LIMIT};
 pub use style::{FlowStyle, color_hex, parse_color};
 
 /// Which side of a node a port sits on, and the way a line leaves it.

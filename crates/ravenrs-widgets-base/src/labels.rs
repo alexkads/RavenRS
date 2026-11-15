@@ -607,6 +607,36 @@ pub struct Labels {
     pub flow_title: String,
     /// A turned node of a `FlowCanvas`, with `{0}` its turn in degrees.
     pub flow_turned: String,
+    /// Puts a breakpoint on the nodes selected in a `FlowCanvas`, or takes it off (F9).
+    pub flow_run_breakpoint: String,
+    /// The Debug button and box of a `FlowCanvas`.
+    pub flow_debug: String,
+    /// Starts a `FlowCanvas` run over.
+    pub flow_run_start: String,
+    /// Moves a `FlowCanvas` run one step.
+    pub flow_run_step: String,
+    /// Moves a `FlowCanvas` run on to the next stop.
+    pub flow_run_continue: String,
+    /// Ends a `FlowCanvas` run.
+    pub flow_run_stop: String,
+    /// What the debug box of a `FlowCanvas` says before a run.
+    pub flow_run_hint: String,
+    /// A token went from `{0}` to `{1}`.
+    pub flow_run_moved: String,
+    /// A token reached the end `{0}`.
+    pub flow_run_ended: String,
+    /// A run waits for a way out of `{0}`.
+    pub flow_run_choose: String,
+    /// A run in which every token reached an end.
+    pub flow_run_done: String,
+    /// A run stopped at `{0}`, which leads nowhere.
+    pub flow_run_dead_end: String,
+    /// A run stuck at the join `{0}`.
+    pub flow_run_stuck: String,
+    /// A run that goes round without ending.
+    pub flow_run_looping: String,
+    /// A run with nowhere to start from.
+    pub flow_run_no_start: String,
     /// The Check button of a `FlowCanvas`.
     pub flow_check: String,
     /// A `FlowCanvas` check that found nothing wrong.
@@ -1351,6 +1381,21 @@ impl Labels {
             flow_members: texts.get("widgets.flow_members"),
             flow_title: texts.get("widgets.flow_title"),
             flow_turned: texts.get("widgets.flow_turned"),
+            flow_run_breakpoint: texts.get("widgets.flow_run_breakpoint"),
+            flow_debug: texts.get("widgets.flow_debug"),
+            flow_run_start: texts.get("widgets.flow_run_start"),
+            flow_run_step: texts.get("widgets.flow_run_step"),
+            flow_run_continue: texts.get("widgets.flow_run_continue"),
+            flow_run_stop: texts.get("widgets.flow_run_stop"),
+            flow_run_hint: texts.get("widgets.flow_run_hint"),
+            flow_run_moved: texts.get("widgets.flow_run_moved"),
+            flow_run_ended: texts.get("widgets.flow_run_ended"),
+            flow_run_choose: texts.get("widgets.flow_run_choose"),
+            flow_run_done: texts.get("widgets.flow_run_done"),
+            flow_run_dead_end: texts.get("widgets.flow_run_dead_end"),
+            flow_run_stuck: texts.get("widgets.flow_run_stuck"),
+            flow_run_looping: texts.get("widgets.flow_run_looping"),
+            flow_run_no_start: texts.get("widgets.flow_run_no_start"),
             flow_check: texts.get("widgets.flow_check"),
             flow_check_ok: texts.get("widgets.flow_check_ok"),
             flow_check_found: texts.get("widgets.flow_check_found"),

@@ -65,7 +65,31 @@ pub fn notation() -> FlowNotation {
         .validate(rules::validate)
         .next_node(next)
         .checks(rules::problems)
+        .runs(run_rules())
         .format(bpmn_format())
+}
+
+/// How a process runs: a token leaves each start event, passes tasks, chooses one way at an
+/// exclusive or inclusive gateway, waits for every way and splits at a parallel one, and stops at
+/// an end; it follows sequence flows only.
+pub fn run_rules() -> FlowRunRules {
+    FlowRunRules {
+        gate: std::rc::Rc::new(|node: &FlowNode| match node.kind.as_str() {
+            "startEvent" => FlowGate::Start,
+            "endEvent" => FlowGate::End,
+            "exclusiveGateway" | "inclusiveGateway" => FlowGate::Choose,
+            "parallelGateway" => FlowGate::Parallel,
+            kind => match elements::family(kind) {
+                Some(Family::Artifact | Family::Lane) | None
+                    if node.group || elements::family(kind).is_some() =>
+                {
+                    FlowGate::Outside
+                }
+                _ => FlowGate::Pass,
+            },
+        }),
+        follows: std::rc::Rc::new(|edge: &FlowEdge| edge.kind == SEQUENCE),
+    }
 }
 
 /// BPMN 2.0 XML as a file format of a `FlowLibrary`.

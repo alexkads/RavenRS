@@ -185,3 +185,72 @@ fn the_notation_shapes_lines_and_feeds_the_palette() {
     let names: Vec<String> = ui.access_tree().nodes.iter().filter_map(|n| n.name.clone()).collect();
     assert!(names.iter().any(|n| n == "Eventos") && names.iter().any(|n| n == "Início"), "{names:?}");
 }
+
+fn press(ui: &mut Ui, name: &str) {
+    let id = ui
+        .access_tree()
+        .nodes
+        .iter()
+        .find(|n| n.name.as_deref() == Some(name))
+        .unwrap_or_else(|| panic!("no {name}"))
+        .id;
+    ui.perform_action(id, ravenrs_core::AccessAction::Click);
+    ui.update();
+    ui.update();
+}
+
+fn says(ui: &mut Ui, words: &str) -> bool {
+    ui.access_tree().nodes.iter().any(|n| {
+        [&n.name, &n.description, &n.value].iter().any(|t| t.as_deref().is_some_and(|t| t.contains(words)))
+    })
+}
+
+fn debugger(graph: FlowGraph) -> (Ui, ravenrs_reactive::State<FlowSelection>) {
+    let bpmn = ravenrs_flow_bpmn::notation();
+    let (graph, selection) =
+        (ravenrs_reactive::State::new(graph), ravenrs_reactive::State::new(FlowSelection::default()));
+    let canvas =
+        FlowCanvas::new(graph.binding()).notation(&bpmn).selection(selection.binding()).size(1200.0, 800.0);
+    let mut ui = Ui::new(canvas, ravenrs_style::Theme::raven_light());
+    ui.set_viewport(ravenrs_core::Size::new(1200.0, 800.0), 1.0);
+    ui.update();
+    ui.update();
+    (ui, selection)
+}
+
+#[test]
+fn the_debugger_runs_the_process_and_asks_at_the_decision() {
+    let (mut ui, _) = debugger(ravenrs_flow_bpmn::example_process());
+    press(&mut ui, "Debug");
+    press(&mut ui, "Start");
+    press(&mut ui, "Continue");
+    assert!(says(&mut ui, "Choose the way out of Valor alto?"), "it stops where a way is chosen");
+    press(&mut ui, "Sim → Aprovar pedido");
+    press(&mut ui, "Continue");
+    assert!(says(&mut ui, "Run finished"));
+    assert!(says(&mut ui, "Compra feita reached"));
+}
+
+#[test]
+fn the_debugger_points_where_a_process_goes_wrong_and_stops_at_breakpoints() {
+    let mut broken = ravenrs_flow_bpmn::example_process();
+    broken.edges.retain(|e| e.id != "f6");
+    let (mut ui, selection) = debugger(broken);
+    press(&mut ui, "Debug");
+    // A breakpoint on the request: the run stops there.
+    selection.set(FlowSelection::node("request"));
+    ui.update();
+    ui.update();
+    press(&mut ui, "Breakpoint on selection (F9)");
+    press(&mut ui, "Start");
+    press(&mut ui, "Continue");
+    assert!(says(&mut ui, "Precisa comprar → Pedir compra"));
+    assert!(!says(&mut ui, "Pedir compra → Valor alto?"), "it waits at the breakpoint");
+    press(&mut ui, "Continue");
+    press(&mut ui, "Não → Emitir pedido ao fornecedor");
+    press(&mut ui, "Continue");
+    assert!(
+        says(&mut ui, "Stopped at Emitir pedido ao fornecedor: nothing leads on from here"),
+        "the error is said"
+    );
+}

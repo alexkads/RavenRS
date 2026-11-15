@@ -42,10 +42,10 @@ pub use chart::{
 #[cfg(feature = "flow")]
 pub use flow::{
     EdgeCap, EdgeShape, FLOW_NODE_DRAG, FlowCanvas, FlowChange, FlowColors, FlowConnector, FlowContent,
-    FlowDirection, FlowDocument, FlowEdge, FlowEndpoint, FlowExportFormat, FlowExporter, FlowGraph,
+    FlowDirection, FlowDocument, FlowEdge, FlowEndpoint, FlowExportFormat, FlowExporter, FlowGate, FlowGraph,
     FlowGuard, FlowHistory, FlowIssue, FlowJsonError, FlowKind, FlowLayout, FlowLayoutKind, FlowNext,
-    FlowNode, FlowNodeStatus, FlowPicture, FlowPort, FlowSelection, FlowShape, FlowShelf, FlowStyle,
-    FlowText, FlowValidator, FlowViewport, PortDirection, PortSide,
+    FlowNode, FlowNodeStatus, FlowPicture, FlowPort, FlowRun, FlowRunEvent, FlowRunRules, FlowSelection,
+    FlowShape, FlowShelf, FlowStyle, FlowText, FlowValidator, FlowViewport, PortDirection, PortSide,
 };
 #[cfg(feature = "flow")]
 pub use flow_inspector::FlowInspector;
