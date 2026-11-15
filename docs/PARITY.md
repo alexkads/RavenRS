@@ -152,7 +152,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 
 The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built with `Chart` and `ChartCard`: all 70 patterns are in the gallery's Charts page, under their names (`examples/component-gallery/src/charts.rs`).
 | Maps | | ✓ | ✓ | ⬜ |
-| Diagram / Org chart | | ✓ | ✓ | ⬜ |
+| Diagram / Org chart | | ✓ | ✓ | ✅ `FlowCanvas` with `FlowLayout::tree`: each node centred over the ones it leads to, down as an org chart or across as a mind map; step lines go around the nodes in their way |
 | QR code / Barcode | | ✓ | ✓ | ✅ `Barcode`: QR Code, Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF |
 
 ## Overlays and feedback

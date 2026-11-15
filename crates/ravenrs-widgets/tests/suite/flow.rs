@@ -982,3 +982,19 @@ fn the_rest_of_a_card_with_a_view_still_moves_the_node() {
     assert!(named(&mut rig.ui, "New sale").is_some(), "the node keeps its name");
     assert!(named(&mut rig.ui, "Check stock").is_some(), "a node without a view is as before");
 }
+
+#[test]
+fn arrange_as_a_tree_puts_the_root_over_what_it_leads_to() {
+    let tree = graph()
+        .edge(FlowEdge::new("e1", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in")))
+        .node(FlowNode::new("d", "action", "Bill", 900.0, 900.0).port(FlowPort::input("in").kind("sale")))
+        .edge(FlowEdge::new("e2", FlowEndpoint::new("a", "out"), FlowEndpoint::new("d", "in")));
+    let mut rig = rig_with(tree, |c| c.layout(FlowLayout::tree(FlowDirection::Down)));
+    let arrange = named(&mut rig.ui, "Arrange").expect("the button").bounds.center();
+    click(&mut rig.ui, arrange);
+    let g = rig.graph.get();
+    let middle = |id: &str| g.find_node(id).map(|n| n.rect().center()).unwrap_or(Point::new(f32::NAN, 0.0));
+    let (a, b, d) = (middle("a"), middle("b"), middle("d"));
+    assert!(b.y == d.y && b.y > a.y, "the two below the root");
+    assert!((a.x - (b.x + d.x) / 2.0).abs() <= 12.0, "the root over them, to the grid: {a:?} {b:?} {d:?}");
+}
