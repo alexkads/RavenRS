@@ -26,6 +26,45 @@ fn any_but(class: &str) -> String {
     format!("(?:{PAIR}|[^{HALVES}{class}])")
 }
 
+/// Any character at all, one character whatever the reading, and as `regex_lite` would read it
+/// once the halves are taken out.
+fn any() -> String {
+    format!(r"(?:{PAIR}|[^{HALVES}\n]|\n)")
+}
+
+/// Whether every alternative at the top of a translated pattern starts at the start of the text.
+fn anchored(translated: &str) -> bool {
+    let (mut depth, mut class, mut escaped) = (0usize, false, false);
+    let mut alternatives = vec![String::new()];
+    for c in translated.chars() {
+        let top = depth == 0 && !class && !escaped;
+        match c {
+            _ if escaped => escaped = false,
+            '\\' => escaped = true,
+            '[' if !class => class = true,
+            ']' if class => class = false,
+            '(' if !class => depth += 1,
+            ')' if !class => depth = depth.saturating_sub(1),
+            '|' if top => {
+                alternatives.push(String::new());
+                continue;
+            }
+            _ => {}
+        }
+        if let Some(last) = alternatives.last_mut() {
+            last.push(c);
+        }
+    }
+    alternatives.iter().all(|alternative| alternative.starts_with('^'))
+}
+
+/// The pattern so that it is found anywhere in the text, as JSON Schema means it, also by a client
+/// that only tries it at the start, as Python's `re.match` does. What already starts there stays
+/// as it is; the rest is let in after as little as needed of anything.
+pub(crate) fn anywhere(translated: &str) -> String {
+    if anchored(translated) { translated.to_owned() } else { format!("{}*?(?:{translated})", any()) }
+}
+
 /// What `\d`, `\s` and `\w` hold in `regex_lite`, inside a class.
 fn perl_class(escape: char) -> Option<&'static str> {
     match escape {
@@ -159,7 +198,7 @@ mod tests {
 
     use regex_lite::Regex;
 
-    use super::{HALVES, PAIR, ecma};
+    use super::{HALVES, PAIR, anywhere, ecma};
 
     /// The translation as `regex_lite` can read it, which knows no halves: what is left once the
     /// pair and the halves come out is what the rest of the translation made of the pattern.
@@ -179,6 +218,17 @@ mod tests {
         assert_eq!(ecma(r"a\@b\-c").as_deref(), Some("a@b-c"), "u refuses \\@ and \\- outside a class");
         assert_eq!(ecma("a/b").as_deref(), Some(r"a\/b"));
         assert_eq!(ecma("^[À-ÿ]+$").as_deref(), Some("^[À-ÿ]+$"));
+    }
+
+    #[test]
+    fn what_can_be_anywhere_is_let_in_after_anything() {
+        assert_eq!(anywhere("^[A-Z]+$"), "^[A-Z]+$", "it already starts at the start");
+        assert_eq!(anywhere("^a|^b"), "^a|^b");
+        let any = format!(r"(?:{PAIR}|[^{HALVES}\n]|\n)");
+        assert_eq!(anywhere("[0-9]"), format!("{any}*?(?:[0-9])"));
+        assert_eq!(anywhere("^a|b"), format!("{any}*?(?:^a|b)"), "one alternative is enough");
+        assert_eq!(anywhere(r"\^a"), format!(r"{any}*?(?:\^a)"), "an escaped ^ is a character");
+        assert_eq!(anywhere("[|]"), format!("{any}*?(?:[|])"), "a | in a class is a character");
     }
 
     #[test]
@@ -266,15 +316,27 @@ mod tests {
             r"^\D+$",
             r"^\S{1,3}$",
             r"^\W$",
+            r"\d",
+            "@",
+            "^a|b$",
+            "(?:^x)|y",
+            r"[^\s]$",
         ] {
-            let translated = ecma(pattern).unwrap();
+            let translated = anywhere(&ecma(pattern).unwrap());
             let readable = without_halves(&translated);
             let (rule, sent) = (Regex::new(pattern).unwrap(), Regex::new(&readable).unwrap());
+            // Read only at the start, as Python's `re.match` reads it, it still means the same.
+            let at_start = Regex::new(&format!("^(?:{readable})")).unwrap();
             for input in inputs {
                 assert_eq!(
                     rule.is_match(input),
                     sent.is_match(input),
                     "{pattern:?} as {readable:?} on {input:?}"
+                );
+                assert_eq!(
+                    rule.is_match(input),
+                    at_start.is_match(input),
+                    "{pattern:?} at the start on {input:?}"
                 );
             }
         }

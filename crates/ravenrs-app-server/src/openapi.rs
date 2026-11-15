@@ -4,7 +4,7 @@ use ravenrs_app::{CONTEXT_SAVE, EntityInfo, FieldInfo, FieldKind, Rule, RuleKind
 use serde_json::{Map, Value as Json, json};
 
 use crate::json::{exposed, takes_text};
-use crate::pattern::ecma;
+use crate::pattern::{anywhere, ecma};
 
 fn schema_of(entity: &EntityInfo) -> Json {
     let mut properties = Map::new();
@@ -130,7 +130,7 @@ fn constrain(property: &mut Map<String, Json>, field: &FieldInfo, rules: &[&Rule
                 }
             }
             RuleKind::Matches(pattern) if takes_text(&field.kind) => {
-                if let Some(translated) = ecma(pattern) {
+                if let Some(translated) = ecma(pattern).map(|translated| anywhere(&translated)) {
                     // A rule that skips the empty lets blank text by, as Rust's `trim` sees blank.
                     patterns.push(if rule.skip_empty {
                         format!(r"^[\s\u0085]*$|(?:{translated})")
