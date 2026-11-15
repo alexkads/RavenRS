@@ -50,6 +50,8 @@ const TEXT_ZOOM: f32 = 0.4;
 const DASH_SPEED: f32 = 24.0;
 /// The map in the corner, in screen pixels.
 const MAP_SIZE: Size = Size::new(200.0, 132.0);
+/// How near, in screen pixels, an edge or middle must come to another node's to line up.
+const GUIDE_REACH: f32 = 6.0;
 /// How far a node turns at a time, in degrees, by its handle or the keys.
 const TURN_STEP: f32 = 15.0;
 /// The round handle that turns a selected node, and how far above the node it sits, in screen
@@ -606,7 +608,7 @@ enum Gesture {
     Select { pressed: Point, base: FlowSelection },
     /// Moving nodes: where the pointer went down, where each of them was and the diagram
     /// before, which undo brings back.
-    Move { pressed: Point, origins: Vec<(String, f32, f32)>, before: FlowGraph },
+    Move { pressed: Point, origins: Vec<(String, f32, f32)>, before: FlowGraph, lead: String },
     /// Resizing a node by its corner: where the pointer went down, its size then and the
     /// diagram before.
     Resize { id: String, pressed: Point, size: (f32, f32), before: FlowGraph },
@@ -648,6 +650,9 @@ struct Flow {
     locked: State<bool>,
     connecting: State<Option<Connecting>>,
     marquee: State<Option<Rect>>,
+    /// The guides shown while a node is dragged: an upright line at this x and a level one at
+    /// this y, in units of the diagram.
+    guides: State<(Option<f32>, Option<f32>)>,
     memory: Rc<Memory>,
     validate: Option<FlowValidator>,
     guard: Option<FlowGuard>,
@@ -1401,7 +1406,8 @@ impl Flow {
     }
 
     /// A press and drag on a node.
-    fn on_node_drag(&self, id: &str, phase: DragPhase, position: Point, shift: bool) {
+    fn on_node_drag(&self, id: &str, phase: DragPhase, position: Point, m: Modifiers) {
+        let shift = m.shift;
         let at = self.local(position);
         self.memory.pointer.set(Some(at));
         match phase {
@@ -1437,18 +1443,56 @@ impl Flow {
                     .filter(|n| moving.contains(&n.id))
                     .map(|n| (n.id.clone(), n.x, n.y))
                     .collect();
-                *self.memory.gesture.borrow_mut() = Gesture::Move { pressed: at, origins, before: graph };
+                *self.memory.gesture.borrow_mut() =
+                    Gesture::Move { pressed: at, origins, before: graph, lead: id.to_owned() };
             }
             DragPhase::Move => {
-                let Gesture::Move { pressed, origins, .. } = self.memory.gesture.borrow().clone() else {
+                let Gesture::Move { pressed, origins, lead, .. } = self.memory.gesture.borrow().clone()
+                else {
                     return;
                 };
                 let zoom = self.view.get().zoom.max(f32::EPSILON);
-                let (dx, dy) = ((at.x - pressed.x) / zoom, (at.y - pressed.y) / zoom);
+                let (mut dx, mut dy) = ((at.x - pressed.x) / zoom, (at.y - pressed.y) / zoom);
                 let mut graph = self.graph.get();
+                // Guides: the node held lines up its edges or middle with another node's, within
+                // a few pixels on screen, before the grid; Alt does without.
+                let (mut across, mut down) = (None, None);
+                if !m.alt
+                    && let Some((_, x0, y0)) = origins.iter().find(|(id, _, _)| *id == lead)
+                    && let Some(held) = graph.find_node(&lead)
+                {
+                    let moving: Vec<&String> = origins.iter().map(|(id, _, _)| id).collect();
+                    let others: Vec<Rect> = graph
+                        .nodes
+                        .iter()
+                        .filter(|n| !n.group && !moving.contains(&&n.id))
+                        .map(FlowNode::extent)
+                        .collect();
+                    let reach = GUIDE_REACH / zoom;
+                    let (w, h) = (held.width, held.height);
+                    let lines = |at: f32, size: f32| [at, at + size / 2.0, at + size];
+                    let best = |mine: [f32; 3], theirs: &dyn Fn(&Rect) -> [f32; 3]| {
+                        others
+                            .iter()
+                            .flat_map(|r| theirs(r))
+                            .flat_map(|t| mine.iter().map(move |m| (t - m, t)))
+                            .filter(|(d, _)| d.abs() <= reach)
+                            .min_by(|a, b| a.0.abs().total_cmp(&b.0.abs()))
+                    };
+                    if let Some((d, t)) = best(lines(x0 + dx, w), &|r: &Rect| lines(r.x(), r.width())) {
+                        dx += d;
+                        across = Some(t);
+                    }
+                    if let Some((d, t)) = best(lines(y0 + dy, h), &|r: &Rect| lines(r.y(), r.height())) {
+                        dy += d;
+                        down = Some(t);
+                    }
+                }
+                self.guides.set_if_changed((across, down));
                 let mut changed = false;
                 for (id, x, y) in &origins {
-                    let (nx, ny) = (self.snapped(x + dx), self.snapped(y + dy));
+                    let nx = if across.is_some() { x + dx } else { self.snapped(x + dx) };
+                    let ny = if down.is_some() { y + dy } else { self.snapped(y + dy) };
                     if let Some(node) = graph.find_node_mut(id)
                         && (node.x != nx || node.y != ny)
                     {
@@ -1462,6 +1506,7 @@ impl Flow {
                 }
             }
             DragPhase::End => {
+                self.guides.set_if_changed((None, None));
                 let gesture = std::mem::take(&mut *self.memory.gesture.borrow_mut());
                 if let Gesture::Move { before, origins, .. } = gesture {
                     let mut graph = self.graph.get();
@@ -1720,6 +1765,8 @@ struct Palette {
     focus: Color,
     warning: Color,
     danger: Color,
+    /// The alignment guides: a tone of their own, apart from the selection's accent.
+    guide: Color,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -1737,6 +1784,7 @@ impl Palette {
             focus: theme.color(Semantic::FocusRing),
             warning: theme.color(Semantic::Warning),
             danger: theme.color(Semantic::Danger),
+            guide: theme.color(Semantic::Guide),
         }
     }
 }
@@ -1749,6 +1797,7 @@ struct Surface {
     selection: FlowSelection,
     connecting: Option<Connecting>,
     marquee: Option<Rect>,
+    guides: (Option<f32>, Option<f32>),
     grid: f32,
     /// The corner radius of a group's panel at 100%.
     radius: f32,
@@ -1865,6 +1914,14 @@ impl Surface {
                 stroke(scene, &piece, 2.0, color);
             }
         }
+        if let Some(x) = self.guides.0 {
+            let sx = frame.x() + self.view.to_screen(Point::new(x, 0.0)).x;
+            stroke(scene, &[Point::new(sx, frame.y()), Point::new(sx, frame.max_y())], 1.0, p.guide);
+        }
+        if let Some(y) = self.guides.1 {
+            let sy = frame.y() + self.view.to_screen(Point::new(0.0, y)).y;
+            stroke(scene, &[Point::new(frame.x(), sy), Point::new(frame.max_x(), sy)], 1.0, p.guide);
+        }
         if let Some(area) = self.marquee {
             let area = area.translate(frame.origin);
             scene.push_quad(Quad::new(area, p.accent.with_alpha(0.1)).radius(4.0).border(1.5, p.focus));
@@ -1883,6 +1940,7 @@ impl View for FlowCanvas {
         let locked = cx.use_state(|| self.locked);
         let connecting = cx.use_state(|| None::<Connecting>);
         let marquee = cx.use_state(|| None::<Rect>);
+        let guides = cx.use_state(|| (None::<f32>, None::<f32>));
         let notice = cx.use_state(|| None::<String>);
         let editing = cx.use_state(|| None::<String>);
         let draft = cx.use_state(String::new);
@@ -1899,6 +1957,7 @@ impl View for FlowCanvas {
             locked: locked.clone(),
             connecting: connecting.clone(),
             marquee: marquee.clone(),
+            guides: guides.clone(),
             memory: memory.clone(),
             validate: self.validate.clone(),
             guard: self.guard.clone(),
@@ -2017,6 +2076,7 @@ impl View for FlowCanvas {
             selection,
             connecting: connecting_now,
             marquee: marquee.get(),
+            guides: guides.get(),
             grid: self.grid,
             radius: theme.radii.lg,
             palette,
@@ -2452,10 +2512,7 @@ impl View for NodeBox {
         );
         let modifiers = cx.modifiers();
         let (dragged, id) = (self.flow.clone(), node.id.clone());
-        cx.on_drag(
-            root,
-            Rc::new(move |d| dragged.on_node_drag(&id, d.phase, d.position, modifiers.get().shift)),
-        );
+        cx.on_drag(root, Rc::new(move |d| dragged.on_node_drag(&id, d.phase, d.position, modifiers.get())));
         let (renamed, id) = (self.flow.clone(), node.id.clone());
         cx.on_double_click(
             root,

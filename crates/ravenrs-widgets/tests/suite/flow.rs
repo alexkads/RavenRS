@@ -975,6 +975,11 @@ fn a_view_inside_a_node_takes_its_clicks_at_any_zoom() {
 #[test]
 fn the_rest_of_a_card_with_a_view_still_moves_the_node() {
     let (mut rig, pressed) = with_content();
+    // Alt keeps the alignment guides out of it: this is about the card, not lining up.
+    rig.ui.handle_event(&Event::KeyUp {
+        key: Key::Character("x".into()),
+        modifiers: Modifiers { alt: true, ..Modifiers::default() },
+    });
     // Below the button, inside the card.
     drag(&mut rig.ui, Point::new(200.0, 124.0), Point::new(250.0, 172.0));
     assert_eq!(node_at(&rig, "a"), (96.0, 96.0));
@@ -1107,4 +1112,21 @@ fn the_app_chooses_the_next_node_and_quick_creation_can_be_switched_off() {
     key(&mut off.ui, Key::Enter, Modifiers { meta: true, ..Modifiers::default() });
     click(&mut off.ui, Point::new(632.0, 90.0));
     assert_eq!(off.graph.get().nodes.len(), 3);
+}
+
+#[test]
+fn a_dragged_node_lines_up_with_another_before_the_grid_and_alt_does_without() {
+    // `d` sits off the grid, its top at 61; `c` is dragged until its top is at 64.
+    let with_d = || graph().node(FlowNode::new("d", "action", "Off the grid", 700.0, 61.0));
+    let mut rig = rig_with(with_d(), |c| c);
+    drag(&mut rig.ui, Point::new(500.0, 330.0), Point::new(500.0, 106.0));
+    assert_eq!(node_at(&rig, "c"), (408.0, 61.0), "lined up with the top of `d`, not the grid");
+
+    let mut free = rig_with(with_d(), |c| c);
+    free.ui.handle_event(&Event::KeyUp {
+        key: Key::Character("x".into()),
+        modifiers: Modifiers { alt: true, ..Modifiers::default() },
+    });
+    drag(&mut free.ui, Point::new(500.0, 330.0), Point::new(500.0, 106.0));
+    assert_eq!(node_at(&free, "c"), (408.0, 72.0), "with Alt, the grid alone");
 }
