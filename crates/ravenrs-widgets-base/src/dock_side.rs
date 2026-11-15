@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::labels::Labels;
 
-/// One of the four places a `DockArea` has.
+/// One of the five places a `DockArea` has.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
@@ -16,21 +16,23 @@ pub enum DockSide {
     Right,
     /// The strip under the center, between the columns.
     Bottom,
+    /// The strip above the center, between the columns.
+    Top,
     /// What takes the room left.
     Center,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DockSide {
-    /// The three docks that collapse and have a size of their own.
+    /// The four docks that collapse and have a size of their own.
     #[doc(hidden)]
-    pub const DOCKS: [Self; 3] = [Self::Left, Self::Right, Self::Bottom];
-    /// All four, in the order they are searched.
+    pub const DOCKS: [Self; 4] = [Self::Left, Self::Right, Self::Top, Self::Bottom];
+    /// All five, in the order they are searched.
     #[doc(hidden)]
-    pub const ALL: [Self; 4] = [Self::Center, Self::Left, Self::Right, Self::Bottom];
-    /// All four, in the order a menu lists them.
+    pub const ALL: [Self; 5] = [Self::Center, Self::Left, Self::Right, Self::Top, Self::Bottom];
+    /// All five, in the order a menu lists them.
     #[doc(hidden)]
-    pub const ALL_IN_MENU: [Self; 4] = [Self::Left, Self::Right, Self::Bottom, Self::Center];
+    pub const ALL_IN_MENU: [Self; 5] = [Self::Top, Self::Left, Self::Right, Self::Bottom, Self::Center];
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -41,6 +43,7 @@ impl Labels {
             DockSide::Left => &self.dock_left,
             DockSide::Right => &self.dock_right,
             DockSide::Bottom => &self.dock_bottom,
+            DockSide::Top => &self.dock_top,
             _ => &self.dock_center,
         }
     }

@@ -94,14 +94,15 @@ pub enum DockTabBar {
     Never,
 }
 
-/// Panels in a tree of splits and groups of tabs, at the left, the right, the bottom and the center
-/// of a space. Bars between them resize with the pointer or the keyboard, docks collapse from the
+/// Panels in a tree of splits and groups of tabs, at the left, the right, the top, the bottom and
+/// the center of a space. Bars between them resize with the pointer or the keyboard, docks collapse from the
 /// strips on their edges, and panels close and come back.
 ///
 /// A tab goes anywhere with a drag, with the target marked: to another group, to one side of a
 /// group, or to a border that has no dock showing. Without a pointer, the arrows walk between tabs,
-/// Alt with an arrow moves one within its group, Alt and Shift with an arrow send it to a dock, the
-/// menu of a tab or of the button at the end of the strip has "Move to…", and Delete closes.
+/// Alt with an arrow moves one within its group, Alt and Shift with an arrow send it to the dock on
+/// that side (and with Enter, to the center), the menu of a tab or of the button at the end of the
+/// strip has "Move to…", and Delete closes.
 ///
 /// Before each change a person makes, [`on_change`](Self::on_change) asks the app, which can refuse
 /// it and say why; a panel with unsaved work stays open that way.
@@ -173,6 +174,7 @@ impl DockArea {
                 left: (140.0, 640.0),
                 right: (140.0, 640.0),
                 bottom: (90.0, 560.0),
+                top: (60.0, 400.0),
                 center_min: (200.0, 120.0),
                 pane_min: 100.0,
             },
@@ -197,6 +199,7 @@ impl DockArea {
             DockSide::Left => self.metrics.left = limits,
             DockSide::Right => self.metrics.right = limits,
             DockSide::Bottom => self.metrics.bottom = limits,
+            DockSide::Top => self.metrics.top = limits,
             _ => {}
         }
         self
@@ -754,7 +757,7 @@ impl View for TabView<'_> {
     }
 }
 
-/// Which dock Alt and Shift with an arrow send a panel to.
+/// Which place Alt and Shift with an arrow send a panel to, or with Enter, the center.
 fn dock_key(key: &Key, modifiers: Modifiers) -> Option<DockSide> {
     if !(modifiers.alt && modifiers.shift) {
         return None;
@@ -763,7 +766,8 @@ fn dock_key(key: &Key, modifiers: Modifiers) -> Option<DockSide> {
         Key::ArrowLeft => Some(DockSide::Left),
         Key::ArrowRight => Some(DockSide::Right),
         Key::ArrowDown => Some(DockSide::Bottom),
-        Key::ArrowUp => Some(DockSide::Center),
+        Key::ArrowUp => Some(DockSide::Top),
+        Key::Enter => Some(DockSide::Center),
         _ => None,
     }
 }
@@ -907,6 +911,8 @@ impl View for EdgeToggle {
         let icon = match (self.side, self.open) {
             (DockSide::Left, true) | (DockSide::Right, false) => IconName::ChevronLeft,
             (DockSide::Left, false) | (DockSide::Right, true) => IconName::ChevronRight,
+            (DockSide::Top, true) => IconName::ChevronUp,
+            (DockSide::Top, false) => IconName::ChevronDown,
             (_, true) => IconName::ChevronDown,
             (_, false) => IconName::ChevronUp,
         };
