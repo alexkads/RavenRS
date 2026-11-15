@@ -1455,3 +1455,112 @@ fn without_on_export_there_is_no_export_button() {
     let mut rig = rig();
     assert!(named(&mut rig.ui, "Export").is_none());
 }
+
+/// A file chooser that hands over one file, and remembers what it was asked to save.
+struct Files {
+    open: Option<PickedFile>,
+    saved: std::rc::Rc<std::cell::RefCell<Vec<(String, Vec<u8>)>>>,
+}
+
+impl FilePickerProvider for Files {
+    fn pick(&self, _request: &FileRequest, done: Box<dyn FnOnce(Vec<PickedFile>)>) {
+        done(self.open.clone().into_iter().collect());
+    }
+
+    fn save(&self, name: &str, bytes: &[u8]) {
+        self.saved.borrow_mut().push((name.to_owned(), bytes.to_vec()));
+    }
+}
+
+struct Desk {
+    ui: Ui,
+    graph: State<FlowGraph>,
+    history: State<FlowHistory>,
+    saved: std::rc::Rc<std::cell::RefCell<Vec<(String, Vec<u8>)>>>,
+}
+
+fn desk(storage: std::rc::Rc<ravenrs_core::MemoryStorage>, open: Option<PickedFile>) -> Desk {
+    let graph = State::new(graph());
+    let history = State::new(FlowHistory::new());
+    let library = FlowLibrary::new(graph.binding()).history(history.binding()).storage(storage);
+    let canvas = FlowCanvas::new(graph.binding()).history(history.binding()).size(700.0, 600.0);
+    let mut ui = Ui::new(HStack::new((library, canvas)), Theme::raven_dark());
+    let saved = std::rc::Rc::default();
+    ui.set_file_picker(Files { open, saved: std::rc::Rc::clone(&saved) });
+    ui.set_viewport(Size::new(940.0, 600.0), 1.0);
+    settle(&mut ui);
+    Desk { ui, graph, history, saved }
+}
+
+fn press(ui: &mut Ui, name: &str) {
+    let id = named(ui, name).unwrap_or_else(|| panic!("no {name}")).id;
+    ui.perform_action(id, ravenrs_core::AccessAction::Click);
+    settle(ui);
+}
+
+#[test]
+fn a_diagram_is_saved_and_says_when_it_has_changes_not_saved() {
+    let storage = std::rc::Rc::new(ravenrs_core::MemoryStorage::default());
+    let mut d = desk(storage.clone(), None);
+    assert!(named(&mut d.ui, "Changes not saved").is_some(), "a diagram never kept");
+    press(&mut d.ui, "Save");
+    assert!(named(&mut d.ui, "Saved").is_some());
+    let kept = ravenrs_core::Storage::read(&*storage, "flows").expect("readable").expect("kept");
+    let shelf = FlowShelf::from_json(&String::from_utf8_lossy(&kept)).expect("a shelf");
+    assert_eq!(shelf.documents.len(), 1);
+    assert_eq!(shelf.documents[0].graph, graph());
+
+    d.graph.update(|g| g.nodes[0].title = "Changed".into());
+    settle(&mut d.ui);
+    assert!(named(&mut d.ui, "Changes not saved").is_some(), "an edit is noticed");
+
+    // The app opens again on the same storage: the diagram is there to open and edit.
+    let mut again = desk(storage, None);
+    assert!(named(&mut again.ui, "Untitled").is_some() || named(&mut again.ui, "New sale").is_some());
+}
+
+#[test]
+fn new_and_switching_keep_what_was_open_and_start_the_history_over() {
+    let storage = std::rc::Rc::new(ravenrs_core::MemoryStorage::default());
+    let mut d = desk(storage.clone(), None);
+    d.history.update(|h| h.record(FlowGraph::new()));
+    press(&mut d.ui, "New");
+    assert!(d.graph.get().nodes.is_empty(), "an empty diagram");
+    assert!(!d.history.get().can_undo(), "with a history of its own");
+    let shelf = FlowShelf::from_json(&String::from_utf8_lossy(
+        &ravenrs_core::Storage::read(&*storage, "flows").unwrap().unwrap(),
+    ))
+    .unwrap();
+    assert_eq!(shelf.documents.len(), 1, "the one open before was kept first");
+
+    // Back to the first one.
+    assert!(starting(&mut d.ui, "Untitled 2 ").is_some(), "the new one is told apart");
+    let first = starting(&mut d.ui, "Untitled 3 nodes").expect("the first, listed").id;
+    d.ui.perform_action(first, ravenrs_core::AccessAction::Click);
+    settle(&mut d.ui);
+    assert_eq!(d.graph.get(), graph());
+}
+
+fn starting(ui: &mut Ui, prefix: &str) -> Option<AccessNode> {
+    ui.access_tree().nodes.iter().find(|n| n.name.as_deref().is_some_and(|x| x.starts_with(prefix))).cloned()
+}
+
+#[test]
+fn delete_asks_first_and_a_file_goes_out_and_comes_in() {
+    let storage = std::rc::Rc::new(ravenrs_core::MemoryStorage::default());
+    let incoming = PickedFile::new("Pedidos.json", graph().to_json().into_bytes());
+    let mut d = desk(storage.clone(), Some(incoming));
+    press(&mut d.ui, "Save");
+
+    press(&mut d.ui, "Save as file");
+    let saved = d.saved.borrow().clone();
+    assert_eq!(saved.len(), 1);
+    assert_eq!(saved[0].0, "Untitled.json");
+    assert_eq!(FlowGraph::from_json(&String::from_utf8_lossy(&saved[0].1)).ok(), Some(graph()));
+
+    press(&mut d.ui, "Open file");
+    assert!(starting(&mut d.ui, "Pedidos").is_some(), "the file opens as a diagram named after it");
+
+    press(&mut d.ui, "Delete Untitled");
+    assert!(named(&mut d.ui, "Delete “Untitled”?").is_some(), "it asks first");
+}

@@ -5,6 +5,9 @@
 //! It validates the component as a board of this kind: everything here is the library's,
 //! and what it could not do is written in the README.
 
+use std::rc::Rc;
+
+use ravenrs::core::{MemoryStorage, Storage};
 use ravenrs::prelude::*;
 
 /// The kinds of piece, with the word the inspector shows for each.
@@ -76,8 +79,16 @@ pub fn toolbox() -> FlowToolbox {
 
 /// The board: pieces on the left, the board in the middle, the selected piece's size, place
 /// and words on the right.
-#[derive(Debug, Default)]
-pub struct Board;
+pub struct Board {
+    /// Where the diagrams are kept between runs.
+    storage: Rc<dyn Storage>,
+}
+
+impl std::fmt::Debug for Board {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Board").finish_non_exhaustive()
+    }
+}
 
 impl View for Board {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
@@ -85,7 +96,9 @@ impl View for Board {
         let selection = cx.use_state(FlowSelection::default);
         let history = cx.use_state(FlowHistory::new);
         let arrivals = cx.use_state(|| None::<FlowNode>);
+        let view = cx.use_state(FlowViewport::fit);
         let canvas = FlowCanvas::new(graph.binding())
+            .view(view.binding())
             .label("Quadro")
             .selection(selection.binding())
             .history(history.binding())
@@ -102,14 +115,34 @@ impl View for Board {
             inspector = inspector.kind(kind, caption);
         }
         cx.child(
-            &HStack::new((toolbox().title("Peças").arrivals(arrivals.binding()), canvas, inspector))
-                .align(Align::Stretch)
-                .grow(1.0),
+            &HStack::new((
+                VStack::new((
+                    FlowLibrary::new(graph.binding())
+                        .title("Quadros")
+                        .key("boards")
+                        .history(history.binding())
+                        .selection(selection.binding())
+                        .view(view.binding())
+                        .storage(self.storage.clone()),
+                    toolbox().title("Peças").arrivals(arrivals.binding()),
+                ))
+                .spacing(0.0)
+                .align(Align::Stretch),
+                canvas,
+                inspector,
+            ))
+            .align(Align::Stretch)
+            .grow(1.0),
         )
     }
 }
 
 /// The whole app.
 pub fn app() -> Board {
-    Board
+    app_kept_in(Rc::new(MemoryStorage::default()))
+}
+
+/// The whole app, keeping its diagrams in `storage`.
+pub fn app_kept_in(storage: Rc<dyn Storage>) -> Board {
+    Board { storage }
 }

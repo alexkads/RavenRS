@@ -10,10 +10,12 @@ use serde::{Deserialize, Serialize};
 
 use crate::vector::PathSegment;
 
+mod document;
 mod layout;
 mod picture;
 mod routing;
 
+pub use document::{FlowDocument, FlowShelf};
 pub use layout::{FlowDirection, FlowLayout, FlowLayoutKind};
 pub use picture::{FlowColors, FlowExportFormat, FlowPicture, FlowText, PICTURE_MARGIN};
 pub use routing::{ROUTE_MARGIN, RouteCache, route_around};
@@ -250,6 +252,10 @@ pub enum FlowNodeStatus {
     Error(String),
     /// Switched off: it stays in the diagram but does not run.
     Disabled,
+    /// Running now, as an app shows a run going through the diagram.
+    Running,
+    /// Ran and went well.
+    Success,
 }
 
 /// A box of the diagram, in content units.

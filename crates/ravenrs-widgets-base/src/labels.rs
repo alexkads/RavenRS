@@ -607,6 +607,36 @@ pub struct Labels {
     pub flow_title: String,
     /// A turned node of a `FlowCanvas`, with `{0}` its turn in degrees.
     pub flow_turned: String,
+    /// The heading of a `FlowLibrary`.
+    pub flow_library: String,
+    /// Starts a new diagram in a `FlowLibrary`.
+    pub flow_library_new: String,
+    /// Keeps the open diagram of a `FlowLibrary`.
+    pub flow_library_save: String,
+    /// Opens a diagram from a JSON file in a `FlowLibrary`.
+    pub flow_library_open_file: String,
+    /// Writes the open diagram of a `FlowLibrary` to a JSON file.
+    pub flow_library_save_file: String,
+    /// Deletes a diagram of a `FlowLibrary`.
+    pub flow_library_delete: String,
+    /// Asks before a `FlowLibrary` deletes a diagram, with `{0}` its name.
+    pub flow_library_delete_title: String,
+    /// Says what deleting a diagram of a `FlowLibrary` means.
+    pub flow_library_delete_message: String,
+    /// The name field of a `FlowLibrary` while empty.
+    pub flow_library_name: String,
+    /// A diagram of a `FlowLibrary` not named yet.
+    pub flow_library_untitled: String,
+    /// A `FlowLibrary` diagram with changes not kept.
+    pub flow_library_unsaved: String,
+    /// A `FlowLibrary` diagram with every change kept.
+    pub flow_library_saved: String,
+    /// How many nodes a `FlowLibrary` diagram has, with `{0}` the number.
+    pub flow_library_count: String,
+    /// A `FlowCanvas` node running now, for screen readers.
+    pub flow_running: String,
+    /// A `FlowCanvas` node that ran and went well, for screen readers.
+    pub flow_done: String,
     /// The Export menu of a `FlowCanvas`.
     pub flow_export: String,
     /// Export a `FlowCanvas` as a PNG picture.
@@ -1303,6 +1333,21 @@ impl Labels {
             flow_members: texts.get("widgets.flow_members"),
             flow_title: texts.get("widgets.flow_title"),
             flow_turned: texts.get("widgets.flow_turned"),
+            flow_library: texts.get("widgets.flow_library"),
+            flow_library_new: texts.get("widgets.flow_library_new"),
+            flow_library_save: texts.get("widgets.flow_library_save"),
+            flow_library_open_file: texts.get("widgets.flow_library_open_file"),
+            flow_library_save_file: texts.get("widgets.flow_library_save_file"),
+            flow_library_delete: texts.get("widgets.flow_library_delete"),
+            flow_library_delete_title: texts.get("widgets.flow_library_delete_title"),
+            flow_library_delete_message: texts.get("widgets.flow_library_delete_message"),
+            flow_library_name: texts.get("widgets.flow_library_name"),
+            flow_library_untitled: texts.get("widgets.flow_library_untitled"),
+            flow_library_unsaved: texts.get("widgets.flow_library_unsaved"),
+            flow_library_saved: texts.get("widgets.flow_library_saved"),
+            flow_library_count: texts.get("widgets.flow_library_count"),
+            flow_running: texts.get("widgets.flow_running"),
+            flow_done: texts.get("widgets.flow_done"),
             flow_export: texts.get("widgets.flow_export"),
             flow_export_png: texts.get("widgets.flow_export_png"),
             flow_export_svg: texts.get("widgets.flow_export_svg"),

@@ -5,6 +5,9 @@
 //! It validates the component as a builder of this kind: everything here is the library's,
 //! and what it could not do is written in the README.
 
+use std::rc::Rc;
+
+use ravenrs::core::{MemoryStorage, Storage};
 use ravenrs::prelude::*;
 
 /// The kinds of block, with the icon and the word the canvas shows on each.
@@ -117,6 +120,50 @@ pub fn validate(graph: &FlowGraph, from: &FlowEndpoint, to: &FlowEndpoint) -> Re
     Ok(())
 }
 
+/// The way a test run takes from the first trigger: each block and the connection it left
+/// by, its first way out (the first answer of a question, "yes" of a condition).
+pub fn run_path(graph: &FlowGraph) -> Vec<(String, Option<String>)> {
+    let mut path = Vec::new();
+    let Some(mut at) = graph.nodes.iter().find(|n| n.kind == "trigger").map(|n| n.id.clone()) else {
+        return path;
+    };
+    while !path.iter().any(|(id, _): &(String, Option<String>)| *id == at) {
+        let out = graph.edges.iter().find(|e| e.from.node == at);
+        path.push((at.clone(), out.map(|e| e.id.clone())));
+        match out {
+            Some(edge) => at = edge.to.node.clone(),
+            None => break,
+        }
+    }
+    path
+}
+
+/// The diagram as a test run shows it at `step` of `path`: the blocks before it done, the
+/// one at it running, the connections taken moving; `None` puts every block back.
+pub fn marked(graph: &FlowGraph, path: &[(String, Option<String>)], step: Option<usize>) -> FlowGraph {
+    let mut next = graph.clone();
+    for node in &mut next.nodes {
+        if matches!(node.status, FlowNodeStatus::Running | FlowNodeStatus::Success) {
+            node.status = FlowNodeStatus::Normal;
+        }
+    }
+    for edge in &mut next.edges {
+        edge.animated = false;
+    }
+    let Some(step) = step else { return next };
+    for (i, (id, left_by)) in path.iter().enumerate().take(step + 1) {
+        if let Some(node) = next.nodes.iter_mut().find(|n| n.id == *id) {
+            node.status = if i == step { FlowNodeStatus::Running } else { FlowNodeStatus::Success };
+        }
+        if i < step
+            && let Some(edge) = left_by.as_ref().and_then(|e| next.edges.iter_mut().find(|x| x.id == *e))
+        {
+            edge.animated = true;
+        }
+    }
+    next
+}
+
 fn icon(kind: &str) -> IconName {
     match kind {
         "trigger" => IconName::Zap,
@@ -128,8 +175,16 @@ fn icon(kind: &str) -> IconName {
 
 /// The builder: blocks on the left, the conversation in the middle, the selected block's
 /// properties on the right.
-#[derive(Debug, Default)]
-pub struct Builder;
+pub struct Builder {
+    /// Where the diagrams are kept between runs.
+    storage: Rc<dyn Storage>,
+}
+
+impl std::fmt::Debug for Builder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Builder").finish_non_exhaustive()
+    }
+}
 
 impl View for Builder {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
@@ -137,7 +192,9 @@ impl View for Builder {
         let selection = cx.use_state(FlowSelection::default);
         let history = cx.use_state(FlowHistory::new);
         let arrivals = cx.use_state(|| None::<FlowNode>);
+        let view = cx.use_state(FlowViewport::fit);
         let mut canvas = FlowCanvas::new(graph.binding())
+            .view(view.binding())
             .label("Conversa")
             .selection(selection.binding())
             .history(history.binding())
@@ -152,15 +209,69 @@ impl View for Builder {
             canvas = canvas.kind(kind, FlowKind::new(icon(kind), caption).tone(tone));
             inspector = inspector.kind(kind, caption);
         }
+        // A test run: the trigger first, then a step at a time along the first way out.
+        let step = cx.use_state(|| None::<usize>);
+        let path = run_path(&graph.get());
+        let (g1, s1, g2, s2, g3, s3) =
+            (graph.clone(), step.clone(), graph.clone(), step.clone(), graph.clone(), step.clone());
+        let last = path.len().saturating_sub(1);
+        let (p1, p2, p3) = (path.clone(), path.clone(), path);
+        let running = step.get().is_some();
+        let bar = HStack::new((
+            Button::new("Testar conversa").icon(IconName::Play).disabled(running).on_click(move || {
+                s1.set(Some(0));
+                g1.set(marked(&g1.get(), &p1, Some(0)));
+            }),
+            Button::new("Próximo passo")
+                .style(ButtonStyle::Secondary)
+                .disabled(!running || step.get() == Some(last))
+                .on_click(move || {
+                    let next = s2.get().map_or(0, |s| (s + 1).min(last));
+                    s2.set(Some(next));
+                    g2.set(marked(&g2.get(), &p2, Some(next)));
+                }),
+            Button::new("Parar").style(ButtonStyle::Ghost).disabled(!running).on_click(move || {
+                s3.set(None);
+                g3.set(marked(&g3.get(), &p3, None));
+            }),
+        ))
+        .spacing(8.0)
+        .padding(8.0);
         cx.child(
-            &HStack::new((toolbox().title("Blocos").arrivals(arrivals.binding()), canvas, inspector))
+            &VStack::new((
+                bar,
+                HStack::new((
+                    VStack::new((
+                        FlowLibrary::new(graph.binding())
+                            .title("Conversas")
+                            .key("chats")
+                            .history(history.binding())
+                            .selection(selection.binding())
+                            .view(view.binding())
+                            .storage(self.storage.clone()),
+                        toolbox().title("Blocos").arrivals(arrivals.binding()),
+                    ))
+                    .spacing(0.0)
+                    .align(Align::Stretch),
+                    canvas,
+                    inspector,
+                ))
                 .align(Align::Stretch)
                 .grow(1.0),
+            ))
+            .spacing(0.0)
+            .align(Align::Stretch)
+            .grow(1.0),
         )
     }
 }
 
 /// The whole app.
 pub fn app() -> Builder {
-    Builder
+    app_kept_in(Rc::new(MemoryStorage::default()))
+}
+
+/// The whole app, keeping its diagrams in `storage`.
+pub fn app_kept_in(storage: Rc<dyn Storage>) -> Builder {
+    Builder { storage }
 }

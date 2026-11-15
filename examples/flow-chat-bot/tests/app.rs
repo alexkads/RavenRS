@@ -77,3 +77,39 @@ fn every_answer_of_a_question_leads_its_own_way_and_is_saved_with_its_name() {
     let file = ravenrs_flow_export::export(&picture, FlowExportFormat::Png, "Conversa").expect("a png");
     assert_eq!(file.name, "Conversa.png");
 }
+
+#[test]
+fn a_test_run_marks_the_way_taken_a_step_at_a_time() {
+    let graph = flow_chat_bot::sample();
+    let path = flow_chat_bot::run_path(&graph);
+    let ids: Vec<&str> = path.iter().map(|(id, _)| id.as_str()).collect();
+    assert_eq!(ids, ["start", "menu", "orders"], "the first way out each time");
+    let at_menu = flow_chat_bot::marked(&graph, &path, Some(1));
+    let status = |g: &FlowGraph, id: &str| g.find_node(id).map(|n| n.status.clone());
+    assert_eq!(status(&at_menu, "start"), Some(FlowNodeStatus::Success));
+    assert_eq!(status(&at_menu, "menu"), Some(FlowNodeStatus::Running));
+    assert_eq!(status(&at_menu, "orders"), Some(FlowNodeStatus::Normal));
+    assert!(at_menu.find_edge("e1").is_some_and(|e| e.animated), "the way taken moves");
+    let back = flow_chat_bot::marked(&at_menu, &path, None);
+    assert_eq!(back, graph, "stopping puts everything back");
+}
+
+#[test]
+fn the_test_buttons_run_and_stop() {
+    let mut ui = opened();
+    let press = |ui: &mut Ui, name: &str| {
+        let id = ui.access_tree().nodes.iter().find(|n| n.name.as_deref() == Some(name)).expect(name).id;
+        ui.perform_action(id, ravenrs::core::AccessAction::Click);
+        ui.update();
+        ui.update();
+    };
+    press(&mut ui, "Testar conversa");
+    press(&mut ui, "Próximo passo");
+    let tree = ui.access_tree();
+    let menu = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Boas-vindas")).expect("the welcome");
+    assert!(menu.description.as_deref().is_some_and(|d| d.contains("Running")), "{:?}", menu.description);
+    press(&mut ui, "Parar");
+    let tree = ui.access_tree();
+    let menu = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Boas-vindas")).expect("the welcome");
+    assert!(!menu.description.as_deref().unwrap_or_default().contains("Running"));
+}

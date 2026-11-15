@@ -32,6 +32,8 @@ pub struct FlowColors {
     pub danger: Color,
     /// A node that warns.
     pub warning: Color,
+    /// A node that ran and went well.
+    pub success: Color,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -47,6 +49,7 @@ impl FlowColors {
             line: Color::rgba(0.3, 0.4, 0.93, 1.0),
             danger: Color::rgba(0.86, 0.2, 0.2, 1.0),
             warning: Color::rgba(0.85, 0.55, 0.05, 1.0),
+            success: Color::rgba(0.13, 0.6, 0.38, 1.0),
         }
     }
 }
@@ -245,6 +248,8 @@ impl FlowGraph {
             let edge = match node.status {
                 FlowNodeStatus::Error(_) => colors.danger,
                 FlowNodeStatus::Warning(_) => colors.warning,
+                FlowNodeStatus::Running => colors.line,
+                FlowNodeStatus::Success => colors.success,
                 _ => colors.border,
             };
             let outline = turned(shape_outline(node.shape, r), r.center(), node.rotation);

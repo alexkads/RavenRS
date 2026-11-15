@@ -7,5 +7,9 @@ fn main() -> Result<(), ravenrs::native::PlatformError> {
         )
         .init();
     let options = ravenrs::native::WindowOptions::new("RavenRS · Design board").size(1280.0, 800.0);
-    ravenrs::native::run(flow_design_board::app(), options)
+    // The diagrams are kept in a folder of the person's, between runs.
+    let home = std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).unwrap_or_default();
+    let folder = std::path::PathBuf::from(home).join(".ravenrs").join("flow-design-board");
+    let storage = std::rc::Rc::new(ravenrs::core::FileStorage::new(folder));
+    ravenrs::native::run(flow_design_board::app_kept_in(storage), options)
 }

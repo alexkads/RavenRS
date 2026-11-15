@@ -5,6 +5,9 @@
 //! It validates the component as a whiteboard of this kind: everything here is the library's,
 //! and what it could not do is written in the README.
 
+use std::rc::Rc;
+
+use ravenrs::core::{MemoryStorage, Storage};
 use ravenrs::prelude::*;
 
 fn step(id: &str, title: &str, shape: FlowShape) -> FlowNode {
@@ -121,8 +124,16 @@ pub fn next(from: &FlowNode, _side: PortSide) -> Option<FlowNode> {
 }
 
 /// The whiteboard: which board, its shapes, the board and the selected shape's properties.
-#[derive(Debug, Default)]
-pub struct Whiteboard;
+pub struct Whiteboard {
+    /// Where the diagrams are kept between runs.
+    storage: Rc<dyn Storage>,
+}
+
+impl std::fmt::Debug for Whiteboard {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Whiteboard").finish_non_exhaustive()
+    }
+}
 
 impl View for Whiteboard {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
@@ -131,14 +142,16 @@ impl View for Whiteboard {
         let selection = cx.use_state(FlowSelection::default);
         let histories = [cx.use_state(FlowHistory::new), cx.use_state(FlowHistory::new)];
         let arrivals = cx.use_state(|| None::<FlowNode>);
+        let views = [cx.use_state(FlowViewport::fit), cx.use_state(FlowViewport::fit)];
         let which = board.get().min(1);
-        let (graph, history) = (&charts[which], &histories[which]);
+        let (graph, history, view) = (&charts[which], &histories[which], &views[which]);
         let layout = if which == 0 {
             FlowLayout::new(FlowDirection::Down)
         } else {
             FlowLayout::tree(FlowDirection::Right).gaps(72.0, 24.0)
         };
         let canvas = FlowCanvas::new(graph.binding())
+            .view(view.binding())
             .label(if which == 0 { "Fluxograma" } else { "Mapa mental" })
             .selection(selection.binding())
             .history(history.binding())
@@ -158,7 +171,21 @@ impl View for Whiteboard {
             &VStack::new((
                 switcher,
                 HStack::new((
-                    toolbox().title("Formas").arrivals(arrivals.binding()),
+                    VStack::new((
+                        Keyed::new(
+                            which as u64,
+                            FlowLibrary::new(graph.binding())
+                                .title("Quadros")
+                                .key(if which == 0 { "flowcharts" } else { "mind-maps" })
+                                .history(history.binding())
+                                .selection(selection.binding())
+                                .view(view.binding())
+                                .storage(self.storage.clone()),
+                        ),
+                        toolbox().title("Formas").arrivals(arrivals.binding()),
+                    ))
+                    .spacing(0.0)
+                    .align(Align::Stretch),
                     Keyed::new(which as u64, canvas),
                     inspector,
                 ))
@@ -175,5 +202,10 @@ impl View for Whiteboard {
 
 /// The whole app.
 pub fn app() -> Whiteboard {
-    Whiteboard
+    app_kept_in(Rc::new(MemoryStorage::default()))
+}
+
+/// The whole app, keeping its diagrams in `storage`.
+pub fn app_kept_in(storage: Rc<dyn Storage>) -> Whiteboard {
+    Whiteboard { storage }
 }

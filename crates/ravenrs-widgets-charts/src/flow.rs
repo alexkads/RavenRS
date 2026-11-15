@@ -20,9 +20,9 @@ use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 use ravenrs_text::TextAttrs;
 
 pub use ravenrs_graphics::flow::{
-    EdgeCap, EdgeShape, FlowColors, FlowDirection, FlowEdge, FlowEndpoint, FlowExportFormat, FlowGraph,
-    FlowHistory, FlowJsonError, FlowLayout, FlowLayoutKind, FlowNode, FlowNodeStatus, FlowPicture, FlowPort,
-    FlowShape, FlowText, PortDirection, PortSide,
+    EdgeCap, EdgeShape, FlowColors, FlowDirection, FlowDocument, FlowEdge, FlowEndpoint, FlowExportFormat,
+    FlowGraph, FlowHistory, FlowJsonError, FlowLayout, FlowLayoutKind, FlowNode, FlowNodeStatus, FlowPicture,
+    FlowPort, FlowShape, FlowShelf, FlowText, PortDirection, PortSide,
 };
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
@@ -1210,6 +1210,7 @@ impl Flow {
                 line: p.accent,
                 danger: p.danger,
                 warning: p.warning,
+                success: p.success,
             },
         };
         if let Some(picture) = graph.picture(only, colors) {
@@ -2008,6 +2009,7 @@ struct Palette {
     focus: Color,
     warning: Color,
     danger: Color,
+    success: Color,
     /// The alignment guides: a tone of their own, apart from the selection's accent.
     guide: Color,
 }
@@ -2027,6 +2029,7 @@ impl Palette {
             focus: theme.color(Semantic::FocusRing),
             warning: theme.color(Semantic::Warning),
             danger: theme.color(Semantic::Danger),
+            success: theme.color(Semantic::Success),
             guide: theme.color(Semantic::Guide),
         }
     }
@@ -2709,6 +2712,8 @@ impl NodeBox {
         match &self.node.status {
             FlowNodeStatus::Warning(m) | FlowNodeStatus::Error(m) => parts.push(m.clone()),
             FlowNodeStatus::Disabled => parts.push(labels.flow_disabled.clone()),
+            FlowNodeStatus::Running => parts.push(labels.flow_running.clone()),
+            FlowNodeStatus::Success => parts.push(labels.flow_done.clone()),
             _ => {}
         }
         if self.node.rotation != 0.0 {
@@ -2990,6 +2995,8 @@ fn draw_shape(
         _ if selected => (p.accent, 2.0),
         FlowNodeStatus::Warning(_) => (p.warning, 2.0),
         FlowNodeStatus::Error(_) => (p.danger, 2.0),
+        FlowNodeStatus::Running => (p.accent, 2.5),
+        FlowNodeStatus::Success => (p.success, 2.0),
         _ if note => (p.warning, 1.0),
         _ => (p.border, 1.0),
     };
@@ -3078,6 +3085,8 @@ fn draw_node(
         _ if selected => (p.accent, 2.0),
         FlowNodeStatus::Warning(_) => (p.warning, 2.0),
         FlowNodeStatus::Error(_) => (p.danger, 2.0),
+        FlowNodeStatus::Running => (p.accent, 2.5),
+        FlowNodeStatus::Success => (p.success, 2.0),
         _ => (p.border, 1.0),
     };
     if disabled {
@@ -3564,6 +3573,8 @@ impl View for MiniMap {
                     _ if self.selection.has_node(&n.id) => p.accent,
                     FlowNodeStatus::Warning(_) => p.warning,
                     FlowNodeStatus::Error(_) => p.danger,
+                    FlowNodeStatus::Running => p.accent,
+                    FlowNodeStatus::Success => p.success,
                     _ => p.control,
                 };
                 (n.extent(), color)
