@@ -43,8 +43,10 @@ ravenrs-app-library = { workspace = true, optional = true }
 ravenrs-app-remote = { workspace = true, optional = true }
 ravenrs-app-report = { workspace = true, optional = true }
 ravenrs-app-ui = { workspace = true, optional = true }
+# The texts of the widgets in the mode `componentes`, in the language of `idioma`.
+ravenrs-app-i18n.workspace = true
 # The expressions of the Editor de expressões page, worked out for its preview.
-ravenrs-criteria.workspace = true
+ravenrs-criteria = { workspace = true, features = ["json"] }
 ravenrs-report = { workspace = true, optional = true }
 rust_decimal = { version = "1", default-features = false, features = ["std"], optional = true }
 component-gallery = { path = "../component-gallery", default-features = false, optional = true }

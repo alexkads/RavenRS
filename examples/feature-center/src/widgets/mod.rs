@@ -3,6 +3,7 @@
 //! [`PAGES`] is the one list: the center puts each page in its navigation as a dashboard, and the
 //! mode `componentes` (#587) shows the same pages with no application framework around them.
 
+pub mod doca;
 pub mod graficos;
 pub mod kit;
 pub mod listas;
@@ -67,6 +68,20 @@ pub const PAGES: &[Page] = &[
         group: "Gráficos e fluxos",
         icon: IconName::Server,
         make: || Box::new(graficos::painel::PatchPanelPage),
+    },
+    Page {
+        id: doca::area::ID,
+        caption: doca::area::PAGE,
+        group: "Doca e faixa",
+        icon: IconName::LayoutDashboard,
+        make: || Box::new(doca::area::DockAreaPage),
+    },
+    Page {
+        id: doca::faixa::ID,
+        caption: doca::faixa::PAGE,
+        group: "Doca e faixa",
+        icon: IconName::Rows3,
+        make: || Box::new(doca::faixa::RibbonDemoPage),
     },
 ];
 

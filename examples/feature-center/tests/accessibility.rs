@@ -93,6 +93,8 @@ demonstrations! {
     diagrama_de_fluxo => "Diagrama de fluxo",
     cabos => "Cabos",
     painel_de_tomadas => "Painel de tomadas",
+    doca => "Doca",
+    faixa_de_opcoes => "Faixa de opções",
     formulario_de_parametros => "Formulário de parâmetros",
     editor_de_expressoes => "Editor de expressões",
     inspetor_de_dados => "Inspetor de dados",
