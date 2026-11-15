@@ -23,9 +23,15 @@ fn schema_of(entity: &EntityInfo) -> Json {
                 let codes: Vec<&str> = options.iter().map(|option| option.code.as_str()).collect();
                 json!({ "type": "string", "enum": codes })
             }
-            FieldKind::Reference(target) => {
-                json!({ "description": format!("The key of a record of {target}.") })
-            }
+            // A whole number or a text, as `from_json` takes it: the kind of key is for the record
+            // pointed to to settle, and some storage finds a whole-number key by its text.
+            FieldKind::Reference(target) => json!({
+                "description": format!("The key of a record of {target}."),
+                "anyOf": [
+                    { "type": "integer", "nullable": true },
+                    { "type": "string", "nullable": true },
+                ],
+            }),
             _ => json!({ "type": "string" }),
         };
         if let Some(object) = schema.as_object_mut() {
@@ -33,7 +39,8 @@ fn schema_of(entity: &EntityInfo) -> Json {
             if field.read_only || field.calculated.is_some() {
                 object.insert("readOnly".to_owned(), json!(true));
             }
-            if matches!(field.kind, FieldKind::Reference(_)) || !field.is_key {
+            // A reference says it within each kind, as 3.0 has `nullable` only next to a `type`.
+            if !field.is_key && !matches!(field.kind, FieldKind::Reference(_)) {
                 object.insert("nullable".to_owned(), json!(true));
             }
         }
@@ -101,6 +108,11 @@ fn constrain(property: &mut Map<String, Json>, field: &FieldInfo, rules: &[&Rule
         match &rule.kind {
             RuleKind::Required => {
                 property.remove("nullable");
+                if let Some(Json::Array(kinds)) = property.get_mut("anyOf") {
+                    for kind in kinds.iter_mut().filter_map(Json::as_object_mut) {
+                        kind.remove("nullable");
+                    }
+                }
                 if takes_text(&field.kind) {
                     // Blank text is empty too; one character is as much as is sure for every client.
                     property.insert("minLength".to_owned(), json!(1));
@@ -159,10 +171,15 @@ fn reference(name: &str) -> Json {
     json!({ "$ref": format!("#/components/schemas/{name}") })
 }
 
-/// The schema of an entity's key, as it is read.
+/// The schema of an entity's key, as it is sent to name a record. As it is read, it is read-only,
+/// and a client that is told so leaves it out of what it sends.
 fn key_schema(entity: &EntityInfo) -> Option<Json> {
     let key = entity.key_field()?;
-    schema_of(entity).get("properties")?.get(&key.name).cloned()
+    let mut schema = schema_of(entity).get("properties")?.get(&key.name).cloned()?;
+    if let Some(object) = schema.as_object_mut() {
+        object.remove("readOnly");
+    }
+    Some(schema)
 }
 
 /// The names of what a record within its owner is written as: new, or one it already has.
@@ -184,7 +201,9 @@ fn collection_of(model: &Model, owner: &EntityInfo, field: &FieldInfo) -> Option
     let delete = json!({ "type": "object", "required": ["$delete"], "properties": { "$delete": key } });
     Some(json!({
         "type": "array",
-        "items": { "anyOf": [reference(&new), reference(&existing), delete] },
+        // In the order the service reads them, which is also the order a client tries them in: one
+        // that drops what a shape does not know would make a record to change into a new one.
+        "items": { "anyOf": [delete, reference(&existing), reference(&new)] },
     }))
 }
 
@@ -218,6 +237,8 @@ fn input_of(model: &Model, entity: &EntityInfo, creating: bool, back: Option<&st
             continue;
         }
         let Some(Json::Object(mut property)) = read.get(&field.name).cloned() else { continue };
+        // Whatever is left can be written, a state included, and a client leaves out what is not.
+        property.remove("readOnly");
         let rules: Vec<&Rule> = entity
             .rules
             .iter()
@@ -346,6 +367,7 @@ pub(crate) fn document(title: &str, entities: &[EntityInfo], all: &[EntityInfo])
             format!("/api/data/{name}"),
             json!({
                 "get": {
+                    "operationId": format!("list{name}"),
                     "summary": format!("Reads records of {}", entity.caption),
                     "parameters": [
                         query("filter", "string", "An expression, such as [amount] > 10 And [name] Like 'a%'."),
@@ -358,6 +380,7 @@ pub(crate) fn document(title: &str, entities: &[EntityInfo], all: &[EntityInfo])
                     "responses": answers(list),
                 },
                 "post": {
+                    "operationId": format!("create{name}"),
                     "summary": format!("Creates a record of {}", entity.caption),
                     "requestBody": body(&creating(name)),
                     "responses": answers(one(name)),
@@ -369,13 +392,19 @@ pub(crate) fn document(title: &str, entities: &[EntityInfo], all: &[EntityInfo])
             format!("/api/data/{name}/{{key}}"),
             json!({
                 "parameters": [key],
-                "get": { "summary": "Reads one record", "responses": answers(one(name)) },
+                "get": {
+                    "operationId": format!("read{name}"),
+                    "summary": "Reads one record",
+                    "responses": answers(one(name)),
+                },
                 "patch": {
+                    "operationId": format!("change{name}"),
                     "summary": "Changes the fields sent, and no others",
                     "requestBody": body(&changing(name)),
                     "responses": answers(one(name)),
                 },
                 "delete": {
+                    "operationId": format!("delete{name}"),
                     "summary": "Deletes a record",
                     "responses": answers(json!({ "description": "It is gone." })),
                 },
@@ -385,6 +414,7 @@ pub(crate) fn document(title: &str, entities: &[EntityInfo], all: &[EntityInfo])
     paths.insert(
         "/api/batch".to_owned(),
         json!({ "post": {
+            "operationId": "batch",
             "summary": "Several writes that stay or go together",
             "requestBody": { "required": true, "content": { "application/json": { "schema": batch_of(&model) } } },
             "responses": answers(json!({ "description": "What each operation left." })),
@@ -393,6 +423,8 @@ pub(crate) fn document(title: &str, entities: &[EntityInfo], all: &[EntityInfo])
     json!({
         "openapi": "3.0.3",
         "info": { "title": title, "version": env!("CARGO_PKG_VERSION") },
+        // The host that serves the description serves the API.
+        "servers": [{ "url": "/" }],
         "security": [{ "token": [] }],
         "paths": paths,
         "components": {
@@ -543,10 +575,14 @@ mod tests {
         let all = orders(&[order(), line(), note()]);
         let schemas = &all["components"]["schemas"];
         let items = &schemas["Order.Create"]["properties"]["lines"]["items"]["anyOf"];
-        assert_eq!(items[0]["$ref"], "#/components/schemas/Order.lines.Create");
+        assert_eq!(items[0]["required"], json!(["$delete"]), "first, as the service reads it first");
+        assert_eq!(items[0]["properties"]["$delete"]["type"], "integer");
+        assert!(items[0]["properties"]["$delete"].get("readOnly").is_none(), "it is sent");
         assert_eq!(items[1]["$ref"], "#/components/schemas/Order.lines.Change");
-        assert_eq!(items[2]["required"], json!(["$delete"]));
-        assert_eq!(items[2]["properties"]["$delete"]["type"], "integer");
+        assert_eq!(
+            items[2]["$ref"], "#/components/schemas/Order.lines.Create",
+            "last, or a keyed one would lose its key"
+        );
         let new = &schemas["Order.lines.Create"];
         assert!(new["properties"].get("order").is_none(), "the owner fills it");
         assert_eq!(new["required"], json!(["amount"]), "and does not ask for it");
@@ -580,5 +616,49 @@ mod tests {
         assert_eq!(post["properties"]["body"]["anyOf"][0]["$ref"], "#/components/schemas/Order.Create");
         assert_eq!(post["properties"]["body"]["anyOf"][1]["nullable"], true);
         assert_eq!(each[1]["required"], json!(["method", "entity", "key"]));
+    }
+
+    #[test]
+    fn nothing_that_is_written_is_said_to_be_read_only() {
+        let all = orders(&[order(), line(), note()]);
+        let schemas = all["components"]["schemas"].as_object().unwrap();
+        assert_eq!(all["components"]["schemas"]["Order"]["properties"]["state"]["readOnly"], true);
+        for (name, schema) in schemas.iter().filter(|(name, _)| name.contains('.')) {
+            for (field, property) in schema["properties"].as_object().unwrap() {
+                assert!(property.get("readOnly").is_none(), "{name}.{field}");
+            }
+        }
+        assert!(schemas["Order.lines.Change"]["properties"]["id"].get("readOnly").is_none());
+    }
+
+    #[test]
+    fn a_reference_is_a_whole_number_or_a_text() {
+        let all = orders(&[order(), line(), note()]);
+        let read = &all["components"]["schemas"]["Line"]["properties"]["order"];
+        assert_eq!(
+            read["anyOf"],
+            json!([{ "type": "integer", "nullable": true }, { "type": "string", "nullable": true }])
+        );
+        assert!(read.get("nullable").is_none(), "3.0 has nullable only next to a type");
+        let required = &all["components"]["schemas"]["Line.Create"]["properties"]["order"];
+        assert_eq!(required["anyOf"], json!([{ "type": "integer" }, { "type": "string" }]));
+    }
+
+    #[test]
+    fn every_operation_has_a_name_of_its_own_and_a_server() {
+        let all = orders(&[order(), line()]);
+        assert_eq!(all["servers"], json!([{ "url": "/" }]));
+        let mut names: Vec<String> = all["paths"]
+            .as_object()
+            .unwrap()
+            .values()
+            .flat_map(|path| path.as_object().unwrap().values())
+            .filter_map(|operation| operation.get("operationId").and_then(Json::as_str).map(str::to_owned))
+            .collect();
+        assert_eq!(names.len(), 11, "five for each entity, and the batch");
+        names.sort();
+        names.dedup();
+        assert_eq!(names.len(), 11);
+        assert!(names.contains(&"createOrder".to_owned()));
     }
 }

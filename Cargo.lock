@@ -6318,6 +6318,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-flows"
+version = "27.1.28"
+dependencies = [
+ "js-sys",
+ "ravenrs-graphics",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ravenrs-graphics"
 version = "27.1.28"
 dependencies = [
