@@ -77,9 +77,16 @@ fn panel(interaction: &str) -> Setup {
 
 /// Sixty nodes in six rows, each tied to the next and to the one below.
 fn graph() -> FlowGraph {
+    grid(10, 6)
+}
+
+/// `columns` × `rows` nodes, each tied to the next in its row and to the one below: 1.000
+/// nodes and about 1.900 connections at 40 × 25, as the #238 asks to measure.
+fn grid(columns: usize, rows: usize) -> FlowGraph {
+    let count = columns * rows;
     let mut graph = FlowGraph::new();
-    for i in 0..60 {
-        let (column, row) = ((i % 10) as f32, (i / 10) as f32);
+    for i in 0..count {
+        let (column, row) = ((i % columns) as f32, (i / columns) as f32);
         graph = graph.node(
             FlowNode::new(
                 format!("n{i}"),
@@ -92,9 +99,9 @@ fn graph() -> FlowGraph {
             .port(FlowPort::output("out")),
         );
     }
-    for i in 0..60 {
-        for next in [i + 1, i + 10] {
-            if next < 60 && (next != i + 1 || next % 10 != 0) {
+    for i in 0..count {
+        for next in [i + 1, i + columns] {
+            if next < count && (next != i + 1 || next % columns != 0) {
                 graph = graph.edge(FlowEdge::new(
                     format!("e{i}-{next}"),
                     FlowEndpoint::new(format!("n{i}"), "out"),
@@ -107,7 +114,15 @@ fn graph() -> FlowGraph {
 }
 
 fn flow(interaction: &str) -> Setup {
-    let graph = State::new(graph());
+    flow_of(graph(), interaction)
+}
+
+fn flow_large(interaction: &str) -> Setup {
+    flow_of(grid(40, 25), interaction)
+}
+
+fn flow_of(graph: FlowGraph, interaction: &str) -> Setup {
+    let graph = State::new(graph);
     let canvas = FlowCanvas::new(graph.binding()).cables(true).minimap(false).size(1280.0, 800.0);
     let step = match interaction {
         // A node carried across: its cables swing and the ones around follow.
@@ -166,6 +181,14 @@ pub(super) fn scenes() -> Vec<PerfScene> {
             class: Class::Animated,
             interactions: &["drag", "hover", "idle", "resize"],
             make: flow,
+            ceilings: CABLE_CEILINGS,
+        },
+        PerfScene {
+            name: "flow-cables-large",
+            covers: &["FlowCanvas"],
+            class: Class::Animated,
+            interactions: &["drag", "idle", "resize"],
+            make: flow_large,
             ceilings: CABLE_CEILINGS,
         },
         PerfScene {

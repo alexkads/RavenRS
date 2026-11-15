@@ -2845,6 +2845,19 @@ impl View for FlowCanvas {
                 }
             }
         }
+        // The ports each node has connected, and those of the selected connections, found once:
+        // walking every connection for every node is millions of comparisons at a thousand.
+        let mut connected: std::collections::HashMap<&str, Vec<String>> = std::collections::HashMap::new();
+        let mut handles: std::collections::HashMap<&str, Vec<String>> = std::collections::HashMap::new();
+        for edge in &graph.edges {
+            let chosen = selection.has_edge(&edge.id);
+            for end in [&edge.from, &edge.to] {
+                connected.entry(end.node.as_str()).or_default().push(end.port.clone());
+                if chosen {
+                    handles.entry(end.node.as_str()).or_default().push(end.port.clone());
+                }
+            }
+        }
         let mut children = Vec::new();
         for node in &graph.nodes {
             let look = self.kinds.iter().find(|(k, _)| *k == node.kind).map(|(_, look)| look.clone());
@@ -2863,22 +2876,9 @@ impl View for FlowCanvas {
                 breakpoint: points.contains(&node.id),
                 members: graph.children(&node.id).count(),
                 editing: editing_now.as_deref() == Some(node.id.as_str()),
-                handles: graph
-                    .edges
-                    .iter()
-                    .filter(|e| selection.has_edge(&e.id))
-                    .flat_map(|e| [&e.from, &e.to])
-                    .filter(|end| end.node == node.id)
-                    .map(|end| end.port.clone())
-                    .collect(),
+                handles: handles.get(node.id.as_str()).cloned().unwrap_or_default(),
                 connecting: connecting_now.clone(),
-                connected: graph
-                    .edges
-                    .iter()
-                    .flat_map(|e| [&e.from, &e.to])
-                    .filter(|end| end.node == node.id)
-                    .map(|end| end.port.clone())
-                    .collect(),
+                connected: connected.get(node.id.as_str()).cloned().unwrap_or_default(),
                 flow: flow.clone(),
                 palette,
             };

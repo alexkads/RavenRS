@@ -161,6 +161,8 @@ Medido em 15/11/2026 (p99, ms, melhor de 3):
 
 O gêmeo na CPU passa da meta de GPU (3 ms) com 200 cabos, porque cada cabo vira caminhos rasterizados. Isso vale para o WebGL2.
 
+A cena `flow-cables-large` é o FlowCanvas com 1.000 nós e 1.935 ligações que a #238 pede para medir. Ao arrastar um nó, o tempo de CPU (ui, p99) era 268 ms com cabos e 27 ms com linhas. O culpado era o `build`, que percorria todas as ligações para cada nó. Com as portas indexadas por nó, o tempo caiu para 17,4 ms com cabos e 16,3 ms com linhas. O gêmeo na CPU fica em 73 ms. Ainda passa da meta de interação (4 ms); a #238 segue com "desenhar só o que aparece".
+
 ## Caixa e etiquetas
 
 A cena `counter-keys` (em `crates/ravenrs-perf/src/scenes/components.rs`) cobre `KeyBar` e `ScanField`. O caixa e a tela de etiquetas ainda não têm cena no gate: entram em `scenes/apps.rs`, como as outras telas de aplicação.
