@@ -937,3 +937,48 @@ fn groups_do_not_turn_and_turning_can_be_switched_off() {
     drag(&mut fixed.ui, Point::new(148.0, 14.0), Point::new(260.0, 92.0));
     assert_eq!(turn_of(&fixed, "a"), 0.0, "no handle, no keys");
 }
+
+/// A canvas where `a` shows an Approve button that counts its presses.
+fn with_content() -> (Rig, std::rc::Rc<std::cell::Cell<u32>>) {
+    let pressed = std::rc::Rc::new(std::cell::Cell::new(0));
+    let count = pressed.clone();
+    let rig = rig_with(graph(), move |c| {
+        c.content(move |node| {
+            let count = count.clone();
+            (node.id == "a").then(|| {
+                Box::new(Button::new("Approve").on_click(move || count.set(count.get() + 1))) as AnyView
+            })
+        })
+    });
+    (rig, pressed)
+}
+
+#[test]
+fn a_view_inside_a_node_takes_its_clicks_at_any_zoom() {
+    let (mut rig, pressed) = with_content();
+    let button = named(&mut rig.ui, "Approve").expect("the view inside the node");
+    let full = button.bounds;
+    assert!(full.x() >= 48.0 && full.max_x() <= 248.0 && full.y() >= 48.0, "{full:?}");
+    click(&mut rig.ui, full.center());
+    assert_eq!(pressed.get(), 1);
+    assert!(rig.selection.get().is_empty(), "the button took the click, not the node");
+
+    rig.view.set(FlowViewport::at(Point::new(0.0, 0.0), 0.5));
+    settle(&mut rig.ui);
+    let half = named(&mut rig.ui, "Approve").expect("still there").bounds;
+    assert!((half.width() - full.width() / 2.0).abs() < 0.5, "drawn at the zoom: {half:?} {full:?}");
+    assert!((half.x() - full.x() / 2.0).abs() < 0.5 && (half.y() - full.y() / 2.0).abs() < 0.5);
+    click(&mut rig.ui, half.center());
+    assert_eq!(pressed.get(), 2, "found where it shows at 50%");
+}
+
+#[test]
+fn the_rest_of_a_card_with_a_view_still_moves_the_node() {
+    let (mut rig, pressed) = with_content();
+    // Below the button, inside the card.
+    drag(&mut rig.ui, Point::new(200.0, 124.0), Point::new(250.0, 172.0));
+    assert_eq!(node_at(&rig, "a"), (96.0, 96.0));
+    assert_eq!(pressed.get(), 0);
+    assert!(named(&mut rig.ui, "New sale").is_some(), "the node keeps its name");
+    assert!(named(&mut rig.ui, "Check stock").is_some(), "a node without a view is as before");
+}

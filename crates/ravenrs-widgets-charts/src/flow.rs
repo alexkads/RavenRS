@@ -25,7 +25,11 @@ pub use ravenrs_graphics::flow::{
 };
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
-use crate::{ButtonSize, ButtonStyle, Clipboard, IconButton, IconName, TextField, View, util};
+use crate::{AnyView, ButtonSize, ButtonStyle, Clipboard, IconButton, IconName, TextField, View, util};
+
+/// What a node shows inside its card instead of its icon and words, for
+/// [`FlowCanvas::content`].
+pub type FlowContent = Rc<dyn Fn(&FlowNode) -> Option<AnyView>>;
 
 /// The least and the most zoom by default.
 const ZOOM_RANGE: (f32, f32) = (0.25, 2.0);
@@ -328,6 +332,7 @@ pub struct FlowCanvas {
     resizable: bool,
     rotatable: bool,
     editable_titles: bool,
+    content: Option<FlowContent>,
     grid: f32,
     snap: bool,
     controls: bool,
@@ -363,6 +368,7 @@ impl FlowCanvas {
             resizable: true,
             rotatable: true,
             editable_titles: true,
+            content: None,
             grid: 24.0,
             snap: true,
             controls: true,
@@ -453,6 +459,27 @@ impl FlowCanvas {
     /// (on by default). Groups never turn.
     pub fn rotatable(mut self, rotatable: bool) -> Self {
         self.rotatable = rotatable;
+        self
+    }
+
+    /// Puts any view inside the nodes it is given for: `content` is asked for each node (not
+    /// groups) on every build, and a node it answers shows that view inside its card, laid out
+    /// at the node's size in units of the diagram and drawn at the zoom, its text sharp at any
+    /// zoom. The view's own controls take the pointer and the keys; where it has none, the
+    /// node is pressed, dragged and connected as ever. A node without a view shows its icon
+    /// and words.
+    ///
+    /// ```
+    /// use ravenrs_reactive::State;
+    /// use ravenrs_widgets::{AnyView, FlowCanvas, FlowGraph, Text};
+    ///
+    /// let graph = State::new(FlowGraph::new());
+    /// let canvas = FlowCanvas::new(graph.binding()).content(|node| {
+    ///     (node.kind == "note").then(|| Box::new(Text::new(node.title.clone())) as AnyView)
+    /// });
+    /// ```
+    pub fn content(mut self, content: impl Fn(&FlowNode) -> Option<AnyView> + 'static) -> Self {
+        self.content = Some(Rc::new(content));
         self
     }
 
@@ -1769,7 +1796,9 @@ impl View for FlowCanvas {
         let mut children = Vec::new();
         for node in &graph.nodes {
             let look = self.kinds.iter().find(|(k, _)| *k == node.kind).map(|(_, look)| look.clone());
+            let inside = if node.group { None } else { self.content.as_ref().and_then(|f| f(node)) };
             let part = NodeBox {
+                inside,
                 node: node.clone(),
                 look,
                 view,
@@ -2025,6 +2054,8 @@ fn controls(
 
 /// A node of the diagram: a box placed and sized by the zoom, with its ports.
 struct NodeBox {
+    /// The app's view inside the card, from [`FlowCanvas::content`].
+    inside: Option<AnyView>,
     node: FlowNode,
     look: Option<FlowKind>,
     view: FlowViewport,
@@ -2159,6 +2190,25 @@ impl View for NodeBox {
                 Corner { size: Size::new(w, h), id: node.id.clone(), flow: self.flow.clone(), palette: p };
             ports.push(cx.keyed_child(util::hash_text("\u{0}corner"), &corner));
         }
+        // The app's view goes first, under the ports and handles: laid out at the node's size
+        // in units of the diagram and drawn at the zoom.
+        let card_only = self.inside.is_some();
+        if let Some(inside) = &self.inside {
+            let shown = cx.keyed_child(util::hash_text("\u{0}inside"), inside);
+            let holder = cx.container(
+                LayoutStyle {
+                    absolute: Some((0.0, 0.0)),
+                    width: Some(node.width),
+                    height: Some(node.height),
+                    align: Align::Stretch,
+                    ..LayoutStyle::stack(Axis::Vertical)
+                },
+                &[shown],
+                Paint::None,
+            );
+            cx.scale(holder, view.zoom);
+            ports.insert(0, holder);
+        }
         let look = self.look.clone();
         let (title, subtitle, status) = (node.title.clone(), node.subtitle.clone(), node.status.clone());
         let selected = self.selected;
@@ -2181,6 +2231,7 @@ impl View for NodeBox {
                 &status,
                 selected,
                 hovered,
+                card_only,
             );
         }));
         let root = cx.container(
@@ -2270,6 +2321,7 @@ fn draw_node(
     status: &FlowNodeStatus,
     selected: bool,
     hovered: bool,
+    card_only: bool,
 ) {
     let radius = theme.radii.md * zoom;
     let disabled = *status == FlowNodeStatus::Disabled;
@@ -2286,6 +2338,9 @@ fn draw_node(
         let fill = if hovered { p.control } else { p.elevated };
         let shadow = if selected { theme.elevation.raised } else { theme.elevation.soft };
         paint.scene.push_quad(Quad::new(frame, fill).radius(radius).border(edge_width, edge).shadow(shadow));
+    }
+    if card_only {
+        return;
     }
     let pad = theme.spacing.s3 * zoom;
     let tile = 36.0 * zoom;
