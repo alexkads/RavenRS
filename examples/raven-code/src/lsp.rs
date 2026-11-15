@@ -213,7 +213,8 @@ impl Lsp {
     ) -> Self {
         // The server names files by their real path: a folder reached through a link (the
         // temporary folder of a Mac, under /var, is /private/var) has to be named the same way.
-        let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+        let given = root.to_path_buf();
+        let root = root.canonicalize().unwrap_or_else(|_| given.clone());
         let lsp = Self {
             root,
             writer: Arc::new(Mutex::new(Box::new(writer))),
@@ -222,8 +223,9 @@ impl Lsp {
             versions: Mutex::new(HashMap::new()),
             child: None,
         };
-        let (heard, writer, root) = (lsp.heard.clone(), lsp.writer.clone(), lsp.root.clone());
-        std::thread::spawn(move || listen(BufReader::new(reader), &heard, &writer, &root, &wake));
+        // Paths may come back either way: as the server resolved them, or as they were given.
+        let (heard, writer, roots) = (lsp.heard.clone(), lsp.writer.clone(), [lsp.root.clone(), given]);
+        std::thread::spawn(move || listen(BufReader::new(reader), &heard, &writer, &roots, &wake));
         lsp.request(
             Asked::Initialize,
             "initialize",
@@ -398,7 +400,7 @@ fn listen(
     mut reader: impl BufRead,
     heard: &Mutex<Heard>,
     writer: &Mutex<Box<dyn Write + Send>>,
-    root: &Path,
+    roots: &[PathBuf],
     wake: &(dyn Fn() + Send + Sync),
 ) {
     while let Some(message) = read_message(&mut reader) {
@@ -422,8 +424,7 @@ fn listen(
             (Some("textDocument/publishDiagnostics"), None) => {
                 let params = &message["params"];
                 let Some(path) = params["uri"].as_str().and_then(path_of) else { continue };
-                let Ok(file) = path.strip_prefix(root) else { continue };
-                let file = file.to_string_lossy().replace('\\', "/");
+                let Some(file) = relative(&path, roots) else { continue };
                 if let Ok(mut heard) = heard.lock() {
                     let text = heard.texts.get(&file).cloned().unwrap_or_default();
                     let found = params["diagnostics"]
@@ -446,7 +447,7 @@ fn listen(
                         Asked::Completion => heard.completions = completions_of(result),
                         Asked::Hover => heard.hover = hover_of(result),
                         Asked::Definition => {
-                            heard.definition = definition_of(result, root, &heard.texts);
+                            heard.definition = definition_of(result, roots, &heard.texts);
                         }
                     }
                     if matches!(asked, Asked::Initialize) {
@@ -531,12 +532,18 @@ fn hover_of(result: &Value) -> Option<String> {
     (!text.is_empty()).then_some(text)
 }
 
-fn definition_of(result: &Value, root: &Path, texts: &HashMap<String, String>) -> Option<Definition> {
+/// A path of the project, from its folder, given any of the ways its folder is named.
+fn relative(path: &Path, roots: &[PathBuf]) -> Option<String> {
+    let inside = roots.iter().find_map(|root| path.strip_prefix(root).ok())?;
+    Some(inside.to_string_lossy().replace('\\', "/"))
+}
+
+fn definition_of(result: &Value, roots: &[PathBuf], texts: &HashMap<String, String>) -> Option<Definition> {
     let first = if result.is_array() { result.get(0)? } else { result };
     let uri = first["uri"].as_str().or_else(|| first["targetUri"].as_str())?;
     let range = if first["range"].is_object() { &first["range"] } else { &first["targetSelectionRange"] };
     let path = path_of(uri)?;
-    let file = path.strip_prefix(root).ok()?.to_string_lossy().replace('\\', "/");
+    let file = relative(&path, roots)?;
     let line = range["start"]["line"].as_u64()? as usize;
     let character = range["start"]["character"].as_u64()? as usize;
     let text = texts.get(&file).cloned().or_else(|| std::fs::read_to_string(&path).ok()).unwrap_or_default();
