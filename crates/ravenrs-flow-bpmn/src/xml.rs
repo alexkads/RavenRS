@@ -6,46 +6,48 @@ use quick_xml::events::{BytesStart, Event};
 use ravenrs_core::{Point, Rect};
 use ravenrs_widgets::*;
 
-use crate::elements::{self, ASSOCIATION, Family, LANE, MESSAGE};
+use crate::elements::{self, ASSOCIATION, Family, LANE, MESSAGE, PARTICIPANT};
 
 fn escaped(text: &str) -> String {
     text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;").replace('"', "&quot;")
 }
 
-/// The process as BPMN 2.0 XML, with its drawing, named `name`.
-pub fn to_xml(graph: &FlowGraph, name: &str) -> String {
-    let mut out = String::from(
-        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
-<bpmn:definitions xmlns:bpmn=\"http://www.omg.org/spec/BPMN/20100524/MODEL\" \
-xmlns:bpmndi=\"http://www.omg.org/spec/BPMN/20100524/DI\" \
-xmlns:dc=\"http://www.omg.org/spec/DD/20100524/DC\" \
-xmlns:di=\"http://www.omg.org/spec/DD/20100524/DI\" \
-id=\"Definitions_1\" targetNamespace=\"http://ravenrs.dev/bpmn\" exporter=\"RavenRS\">\n",
-    );
+/// Writes one process: its lanes, its elements and the flows and associations among them, for
+/// the elements `member` keeps.
+fn write_process(
+    out: &mut String,
+    graph: &FlowGraph,
+    id: &str,
+    name: &str,
+    member: &dyn Fn(&FlowNode) -> bool,
+) {
     out.push_str(&format!(
-        "  <bpmn:process id=\"Process_1\" name=\"{}\" isExecutable=\"false\">\n",
+        "  <bpmn:process id=\"{}\" name=\"{}\" isExecutable=\"false\">\n",
+        escaped(id),
         escaped(name)
     ));
-    let lanes: Vec<&FlowNode> = graph.nodes.iter().filter(|n| n.kind == LANE).collect();
+    let lanes: Vec<&FlowNode> = graph.nodes.iter().filter(|n| n.kind == LANE && member(n)).collect();
     if !lanes.is_empty() {
-        out.push_str("    <bpmn:laneSet id=\"LaneSet_1\">\n");
+        out.push_str(&format!("    <bpmn:laneSet id=\"LaneSet_{}\">\n", escaped(id)));
         for lane in &lanes {
             out.push_str(&format!(
                 "      <bpmn:lane id=\"{}\" name=\"{}\">\n",
                 escaped(&lane.id),
                 escaped(&lane.title)
             ));
-            for member in graph.children(&lane.id) {
+            for inside in graph.children(&lane.id) {
                 out.push_str(&format!(
                     "        <bpmn:flowNodeRef>{}</bpmn:flowNodeRef>\n",
-                    escaped(&member.id)
+                    escaped(&inside.id)
                 ));
             }
             out.push_str("      </bpmn:lane>\n");
         }
         out.push_str("    </bpmn:laneSet>\n");
     }
-    for node in graph.nodes.iter().filter(|n| n.kind != LANE) {
+    let mine: Vec<&FlowNode> =
+        graph.nodes.iter().filter(|n| n.kind != LANE && n.kind != PARTICIPANT && member(n)).collect();
+    for node in &mine {
         let kind = if elements::family(&node.kind).is_some() { node.kind.as_str() } else { "task" };
         if kind == "textAnnotation" {
             out.push_str(&format!(
@@ -55,19 +57,15 @@ id=\"Definitions_1\" targetNamespace=\"http://ravenrs.dev/bpmn\" exporter=\"Rave
             ));
             continue;
         }
-        let incoming: Vec<&FlowEdge> =
-            graph.edges.iter().filter(|e| e.to.node == node.id && e.kind.is_empty()).collect();
-        let outgoing: Vec<&FlowEdge> =
-            graph.edges.iter().filter(|e| e.from.node == node.id && e.kind.is_empty()).collect();
         out.push_str(&format!(
             "    <bpmn:{kind} id=\"{}\" name=\"{}\">\n",
             escaped(&node.id),
             escaped(&node.title)
         ));
-        for e in incoming {
+        for e in graph.edges.iter().filter(|e| e.to.node == node.id && e.kind.is_empty()) {
             out.push_str(&format!("      <bpmn:incoming>{}</bpmn:incoming>\n", escaped(&e.id)));
         }
-        for e in outgoing {
+        for e in graph.edges.iter().filter(|e| e.from.node == node.id && e.kind.is_empty()) {
             out.push_str(&format!("      <bpmn:outgoing>{}</bpmn:outgoing>\n", escaped(&e.id)));
         }
         if kind == "intermediateCatchEvent" {
@@ -81,18 +79,77 @@ id=\"Definitions_1\" targetNamespace=\"http://ravenrs.dev/bpmn\" exporter=\"Rave
             MESSAGE => continue,
             _ => "sequenceFlow",
         };
-        let name = edge.label.as_deref().map(|l| format!(" name=\"{}\"", escaped(l))).unwrap_or_default();
+        if !mine.iter().any(|n| n.id == edge.from.node) {
+            continue;
+        }
         out.push_str(&format!(
-            "    <bpmn:{tag} id=\"{}\" sourceRef=\"{}\" targetRef=\"{}\"{name} />\n",
+            "    <bpmn:{tag} id=\"{}\" sourceRef=\"{}\" targetRef=\"{}\"{} />\n",
             escaped(&edge.id),
             escaped(&edge.from.node),
-            escaped(&edge.to.node)
+            escaped(&edge.to.node),
+            label(edge)
         ));
     }
     out.push_str("  </bpmn:process>\n");
-    out.push_str("  <bpmndi:BPMNDiagram id=\"BPMNDiagram_1\">\n    <bpmndi:BPMNPlane id=\"BPMNPlane_1\" bpmnElement=\"Process_1\">\n");
+}
+
+fn label(edge: &FlowEdge) -> String {
+    edge.label.as_deref().map(|l| format!(" name=\"{}\"", escaped(l))).unwrap_or_default()
+}
+
+/// The process as BPMN 2.0 XML, with its drawing, named `name`. With participants, a
+/// collaboration holds them, each with a process of its own, and the messages between them.
+pub fn to_xml(graph: &FlowGraph, name: &str) -> String {
+    let mut out = String::from(
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n\
+<bpmn:definitions xmlns:bpmn=\"http://www.omg.org/spec/BPMN/20100524/MODEL\" \
+xmlns:bpmndi=\"http://www.omg.org/spec/BPMN/20100524/DI\" \
+xmlns:dc=\"http://www.omg.org/spec/DD/20100524/DC\" \
+xmlns:di=\"http://www.omg.org/spec/DD/20100524/DI\" \
+id=\"Definitions_1\" targetNamespace=\"http://ravenrs.dev/bpmn\" exporter=\"RavenRS\">\n",
+    );
+    let pools: Vec<&FlowNode> = graph.nodes.iter().filter(|n| n.kind == PARTICIPANT).collect();
+    let plane = if pools.is_empty() {
+        write_process(&mut out, graph, "Process_1", name, &|_| true);
+        "Process_1"
+    } else {
+        out.push_str("  <bpmn:collaboration id=\"Collaboration_1\">\n");
+        for pool in &pools {
+            out.push_str(&format!(
+                "    <bpmn:participant id=\"{0}\" name=\"{1}\" processRef=\"Process_{0}\" />\n",
+                escaped(&pool.id),
+                escaped(&pool.title)
+            ));
+        }
+        for edge in graph.edges.iter().filter(|e| e.kind == MESSAGE) {
+            out.push_str(&format!(
+                "    <bpmn:messageFlow id=\"{}\" sourceRef=\"{}\" targetRef=\"{}\"{} />\n",
+                escaped(&edge.id),
+                escaped(&edge.from.node),
+                escaped(&edge.to.node),
+                label(edge)
+            ));
+        }
+        out.push_str("  </bpmn:collaboration>\n");
+        for pool in &pools {
+            let id = pool.id.clone();
+            let inside =
+                move |n: &FlowNode| elements::participant_of(graph, &n.id).as_deref() == Some(id.as_str());
+            write_process(&mut out, graph, &format!("Process_{}", pool.id), &pool.title, &inside);
+        }
+        // What sits in no participant still belongs to a process.
+        let loose = |n: &FlowNode| n.kind != PARTICIPANT && elements::participant_of(graph, &n.id).is_none();
+        if graph.nodes.iter().any(|n| loose(n) && n.kind != LANE) {
+            write_process(&mut out, graph, "Process_1", name, &loose);
+        }
+        "Collaboration_1"
+    };
+    out.push_str(&format!(
+        "  <bpmndi:BPMNDiagram id=\"BPMNDiagram_1\">\n    <bpmndi:BPMNPlane id=\"BPMNPlane_1\" bpmnElement=\"{plane}\">\n"
+    ));
     for node in &graph.nodes {
-        let horizontal = if node.kind == LANE { " isHorizontal=\"true\"" } else { "" };
+        let horizontal =
+            if node.kind == LANE || node.kind == PARTICIPANT { " isHorizontal=\"true\"" } else { "" };
         out.push_str(&format!(
             "      <bpmndi:BPMNShape id=\"{0}_di\" bpmnElement=\"{0}\"{horizontal}>\n        <dc:Bounds x=\"{1}\" y=\"{2}\" width=\"{3}\" height=\"{4}\" />\n      </bpmndi:BPMNShape>\n",
             escaped(&node.id),
@@ -102,7 +159,7 @@ id=\"Definitions_1\" targetNamespace=\"http://ravenrs.dev/bpmn\" exporter=\"Rave
             node.height
         ));
     }
-    for edge in graph.edges.iter().filter(|e| e.kind != MESSAGE) {
+    for edge in &graph.edges {
         let Some(points) = graph.edge_controls(edge) else { continue };
         out.push_str(&format!(
             "      <bpmndi:BPMNEdge id=\"{0}_di\" bpmnElement=\"{0}\">\n",
@@ -120,7 +177,12 @@ id=\"Definitions_1\" targetNamespace=\"http://ravenrs.dev/bpmn\" exporter=\"Rave
 /// What was read of one element, before it is placed.
 #[derive(Default)]
 struct Read {
-    nodes: Vec<(String, String, String)>,
+    /// Each element: its id, kind, name and the process it is in.
+    nodes: Vec<(String, String, String, Option<String>)>,
+    /// Each participant: its id, name and the process it holds.
+    participants: Vec<(String, String, Option<String>)>,
+    /// The process each lane is in.
+    lane_process: Vec<(String, Option<String>)>,
     flows: Vec<(String, String, String, String, Option<String>)>,
     lanes: Vec<(String, String, Vec<String>)>,
     bounds: Vec<(String, Rect)>,
@@ -148,6 +210,7 @@ pub fn from_xml(text: &str) -> Result<(FlowGraph, String), String> {
     let mut open: Vec<String> = Vec::new();
     let mut element: Option<String> = None;
     let mut lane: Option<(String, String, Vec<String>)> = None;
+    let mut in_process: Option<String> = None;
     let mut text_of: Option<String> = None;
     loop {
         let event = reader.read_event().map_err(|e| format!("XML: {e}"))?;
@@ -156,8 +219,21 @@ pub fn from_xml(text: &str) -> Result<(FlowGraph, String), String> {
                 let local = String::from_utf8_lossy(tag.local_name().as_ref()).into_owned();
                 let id = attribute(tag, "id").unwrap_or_default();
                 match local.as_str() {
-                    "process" => read.process = attribute(tag, "name"),
-                    "lane" => lane = Some((id, attribute(tag, "name").unwrap_or_default(), Vec::new())),
+                    "process" => {
+                        if read.process.is_none() {
+                            read.process = attribute(tag, "name");
+                        }
+                        in_process = Some(id.clone());
+                    }
+                    "participant" => read.participants.push((
+                        id,
+                        attribute(tag, "name").unwrap_or_default(),
+                        attribute(tag, "processRef"),
+                    )),
+                    "lane" => {
+                        read.lane_process.push((id.clone(), in_process.clone()));
+                        lane = Some((id, attribute(tag, "name").unwrap_or_default(), Vec::new()));
+                    }
                     "sequenceFlow" | "association" | "messageFlow" => {
                         let kind = match local.as_str() {
                             "association" => ASSOCIATION,
@@ -216,7 +292,12 @@ pub fn from_xml(text: &str) -> Result<(FlowGraph, String), String> {
                         } else {
                             "task".into()
                         };
-                        read.nodes.push((id, kind, attribute(tag, "name").unwrap_or_default()));
+                        read.nodes.push((
+                            id,
+                            kind,
+                            attribute(tag, "name").unwrap_or_default(),
+                            in_process.clone(),
+                        ));
                     }
                     _ => {}
                 }
@@ -242,6 +323,9 @@ pub fn from_xml(text: &str) -> Result<(FlowGraph, String), String> {
             }
             Event::End(tag) => {
                 let local = String::from_utf8_lossy(tag.local_name().as_ref()).into_owned();
+                if local == "process" {
+                    in_process = None;
+                }
                 if local == "lane" {
                     read.lanes.extend(lane.take());
                 }
@@ -276,14 +360,29 @@ fn build(read: Read) -> Result<(FlowGraph, String), String> {
     }
     let mut graph = FlowGraph::new();
     let placed = |id: &str| read.bounds.iter().find(|(e, _)| e == id).map(|(_, r)| *r);
+    // The participant that holds a process.
+    let owner = |process: &Option<String>| {
+        read.participants.iter().find(|(_, _, p)| p.is_some() && p == process).map(|(id, _, _)| id.clone())
+    };
+    for (id, name, _) in &read.participants {
+        let mut pool = elements::element(PARTICIPANT, id, name);
+        if let Some(r) = placed(id) {
+            pool = FlowNode { x: r.x(), y: r.y(), width: r.width(), height: r.height(), ..pool };
+        }
+        graph = graph.node(pool);
+    }
     for (id, name, _) in &read.lanes {
         let mut lane = elements::element(LANE, id, name);
         if let Some(r) = placed(id) {
             lane = FlowNode { x: r.x(), y: r.y(), width: r.width(), height: r.height(), ..lane };
         }
+        let process = read.lane_process.iter().find(|(l, _)| l == id).and_then(|(_, p)| p.clone());
+        if let Some(pool) = owner(&process) {
+            lane = lane.parent(pool);
+        }
         graph = graph.node(lane);
     }
-    for (id, kind, name) in &read.nodes {
+    for (id, kind, name, process) in &read.nodes {
         let mut node = elements::element(kind, id, name);
         if let Some(r) = placed(id) {
             node = FlowNode {
@@ -296,10 +395,12 @@ fn build(read: Read) -> Result<(FlowGraph, String), String> {
         }
         if let Some((lane, _, _)) = read.lanes.iter().find(|(_, _, members)| members.contains(id)) {
             node = node.parent(lane.clone());
+        } else if let Some(pool) = owner(process) {
+            node = node.parent(pool);
         }
         graph = graph.node(node);
     }
-    let all_placed = read.nodes.iter().all(|(id, _, _)| placed(id).is_some());
+    let all_placed = read.nodes.iter().all(|(id, _, _, _)| placed(id).is_some());
     for (id, kind, from, to, name) in &read.flows {
         let (Some(a), Some(b)) = (graph.find_node(from).cloned(), graph.find_node(to).cloned()) else {
             continue;

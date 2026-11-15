@@ -109,6 +109,8 @@ impl View for Editor {
                         .title("Processos")
                         .key("processes")
                         .notation(&bpmn)
+                        .starter("Compra aprovada", ravenrs_flow_bpmn::example_process())
+                        .starter("Pedido entre cliente e loja", ravenrs_flow_bpmn::example_collaboration())
                         .history(history.binding())
                         .selection(selection.binding())
                         .view(view.binding())

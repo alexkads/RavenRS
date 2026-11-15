@@ -1604,3 +1604,37 @@ fn a_model_held_still_starts_carrying_and_a_quick_move_does_not() {
     settle(&mut shop.ui);
     assert!(!shop.ui.is_dragging(), "the press was given up");
 }
+
+#[test]
+fn starters_show_only_while_nothing_is_kept() {
+    let storage = std::rc::Rc::new(ravenrs_core::MemoryStorage::default());
+    let make = |storage: std::rc::Rc<ravenrs_core::MemoryStorage>| {
+        let graph = State::new(graph());
+        let library = FlowLibrary::new(graph.binding())
+            .storage(storage)
+            .starter("Exemplo", graph.get())
+            .starter("Vazio", FlowGraph::new());
+        let mut ui = Ui::new(library, Theme::raven_dark());
+        ui.set_viewport(Size::new(300.0, 600.0), 1.0);
+        settle(&mut ui);
+        ui
+    };
+    let mut ui = make(storage.clone());
+    assert!(starting(&mut ui, "Exemplo").is_some() && starting(&mut ui, "Vazio").is_some());
+    assert!(starting(&mut ui, "Untitled").is_none(), "the open diagram is the starter it equals");
+    press(&mut ui, "Delete Vazio");
+    let confirm = ui
+        .access_tree()
+        .nodes
+        .iter()
+        .filter(|n| n.name.as_deref() == Some("Delete"))
+        .last()
+        .map(|n| n.id)
+        .expect("the confirm button");
+    ui.perform_action(confirm, ravenrs_core::AccessAction::Click);
+    settle(&mut ui);
+    // Something is kept now: starting again shows what was kept, not the starters.
+    let mut again = make(storage);
+    assert!(starting(&mut again, "Exemplo").is_some());
+    assert!(starting(&mut again, "Vazio").is_none(), "the deleted starter does not come back");
+}
