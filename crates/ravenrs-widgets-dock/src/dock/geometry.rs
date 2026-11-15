@@ -12,6 +12,9 @@ use crate::reorder;
 const EDGE_PART: f32 = 0.25;
 /// How close to the border of the area a drop means a dock that is not showing.
 const BORDER_ZONE: f32 = 28.0;
+/// How close to the top a drop opens the top dock. Much thinner than the other borders: the tabs of
+/// the groups at the top lie under it, and dropping among them has to keep working.
+const TOP_ZONE: f32 = 4.0;
 /// How thick the line that marks a gap between tabs is.
 const GAP_LINE: f32 = 2.0;
 
@@ -29,6 +32,8 @@ pub struct Metrics {
     pub right: (f32, f32),
     /// The smallest and the largest the bottom dock gets.
     pub bottom: (f32, f32),
+    /// The smallest and the largest the top dock gets.
+    pub top: (f32, f32),
     /// The room the center keeps, which docks do not take from it.
     pub center_min: (f32, f32),
     /// The smallest a group gets along a split.
@@ -42,6 +47,7 @@ impl Metrics {
             DockSide::Left => self.left,
             DockSide::Right => self.right,
             DockSide::Bottom => self.bottom,
+            DockSide::Top => self.top,
             _ => (0.0, f32::MAX),
         }
     }
@@ -308,12 +314,26 @@ pub fn arrange(layout: &DockLayout, size: Size, metrics: &Metrics) -> Arranged {
         out.ghosts.push((DockSide::Right, Rect::new(x1 - ghost, 0.0, ghost, size.height)));
     }
     let middle = (x1 - x0).max(0.0);
+    let mut y0 = 0.0;
+    if toggles(DockSide::Top) {
+        out.toggles.push((DockSide::Top, Rect::new(x0, 0.0, middle, toggle)));
+        y0 += toggle;
+    }
     if toggles(DockSide::Bottom) {
         y1 -= toggle;
         out.toggles.push((DockSide::Bottom, Rect::new(x0, y1, middle, toggle)));
     }
-    if let (true, Some(node)) = (open(DockSide::Bottom), layout.node(DockSide::Bottom)) {
-        let (bottom, most) = dock_size(layout, DockSide::Bottom, y1, 0.0, center_h, metrics);
+    let height = (y1 - y0).max(0.0);
+    // The top gives way first when a short window has too little for both.
+    let bottom_size = open(DockSide::Bottom).then(|| {
+        let top_least = if open(DockSide::Top) { metrics.top.0 + metrics.bar } else { 0.0 };
+        dock_size(layout, DockSide::Bottom, height, top_least, center_h, metrics)
+    });
+    let top_size = open(DockSide::Top).then(|| {
+        let taken = bottom_size.map_or(0.0, |(bottom, _)| bottom + metrics.bar);
+        dock_size(layout, DockSide::Top, height, taken, center_h, metrics)
+    });
+    if let (Some((bottom, most)), Some(node)) = (bottom_size, layout.node(DockSide::Bottom)) {
         y1 -= bottom;
         place_node(node, Rect::new(x0, y1, middle, bottom), DockSide::Bottom, &mut path, metrics, &mut out);
         y1 -= metrics.bar;
@@ -328,10 +348,28 @@ pub fn arrange(layout: &DockLayout, size: Size, metrics: &Metrics) -> Arranged {
         });
     } else if !open(DockSide::Bottom) {
         let (min, max) = metrics.bottom;
-        let ghost = layout.size(DockSide::Bottom).clamp(min, max).min(y1 / 2.0);
+        let ghost = layout.size(DockSide::Bottom).clamp(min, max).min(height / 2.0);
         out.ghosts.push((DockSide::Bottom, Rect::new(x0, y1 - ghost, middle, ghost)));
     }
-    out.center = Rect::new(x0, 0.0, middle, y1.max(0.0));
+    if let (Some((top, most)), Some(node)) = (top_size, layout.node(DockSide::Top)) {
+        place_node(node, Rect::new(x0, y0, middle, top), DockSide::Top, &mut path, metrics, &mut out);
+        y0 += top;
+        let (min, _) = metrics.top;
+        out.bars.push(BarPlace {
+            kind: BarKind::Dock(DockSide::Top),
+            axis: Axis::Vertical,
+            rect: Rect::new(x0, y0, middle, metrics.bar),
+            value: top,
+            min,
+            max: most,
+        });
+        y0 += metrics.bar;
+    } else if !open(DockSide::Top) {
+        let (min, max) = metrics.top;
+        let ghost = layout.size(DockSide::Top).clamp(min, max).min(height / 2.0);
+        out.ghosts.push((DockSide::Top, Rect::new(x0, y0, middle, ghost)));
+    }
+    out.center = Rect::new(x0, y0, middle, (y1 - y0).max(0.0));
     if let Some(node) = layout.node(DockSide::Center) {
         place_node(node, out.center, DockSide::Center, &mut path, metrics, &mut out);
     }
@@ -394,6 +432,7 @@ pub fn aim(
             DockSide::Left => at.x < BORDER_ZONE,
             DockSide::Right => at.x > size.width - BORDER_ZONE,
             DockSide::Bottom => at.y > size.height - BORDER_ZONE,
+            DockSide::Top => at.y < TOP_ZONE && at.x >= rect.x() && at.x <= rect.max_x(),
             _ => false,
         };
         if near {
@@ -468,6 +507,7 @@ mod tests {
         left: (120.0, 500.0),
         right: (120.0, 500.0),
         bottom: (80.0, 400.0),
+        top: (60.0, 400.0),
         center_min: (160.0, 120.0),
         pane_min: 80.0,
     };
@@ -502,6 +542,30 @@ mod tests {
             arranged.center,
             Rect::new(12.0 + 200.0 + 10.0, 0.0, 1000.0 - 24.0 - 420.0 - 20.0, 700.0 - 12.0 - 150.0 - 10.0)
         );
+    }
+
+    #[test]
+    fn the_top_dock_sits_between_the_columns_above_the_center() {
+        let layout = full().top(DockNode::tabs(["t"]), 100.0);
+        let arranged = arrange(&layout, Size::new(1000.0, 700.0), &METRICS);
+        let top = arranged.groups.iter().find(|g| g.panels == ["t"]).expect("the top group");
+        let (x0, middle) = (12.0 + 200.0 + 10.0, 1000.0 - 24.0 - 420.0 - 20.0);
+        assert_eq!(top.rect, Rect::new(x0, 12.0, middle, 100.0), "under its strip, as wide as the center");
+        let bar = arranged.bars.iter().find(|b| b.kind == BarKind::Dock(DockSide::Top)).expect("its bar");
+        assert_eq!(bar.rect, Rect::new(x0, 112.0, middle, 10.0));
+        assert_eq!(bar.axis, Axis::Vertical);
+        assert_eq!(arranged.center, Rect::new(x0, 122.0, middle, 700.0 - 24.0 - 150.0 - 10.0 - 110.0));
+        assert!(arranged.toggles.iter().any(|(side, _)| *side == DockSide::Top));
+    }
+
+    #[test]
+    fn a_short_area_takes_from_the_top_before_the_bottom_and_keeps_the_center() {
+        let layout = full().top(DockNode::tabs(["t"]), 300.0);
+        let arranged = arrange(&layout, Size::new(1000.0, 520.0), &METRICS);
+        assert!(arranged.center.height() >= METRICS.center_min.1, "{:?}", arranged.center);
+        let size = |side| arranged.bars.iter().find(|b| b.kind == BarKind::Dock(side)).expect("a bar").value;
+        assert_eq!(size(DockSide::Bottom), 150.0, "the bottom keeps what it asked for");
+        assert!(size(DockSide::Top) < 300.0, "the top gives way");
     }
 
     #[test]
@@ -583,6 +647,19 @@ mod tests {
         let bottom = aim(&arranged, Point::new(400.0, 596.0), &no_strip, &|_| None).expect("aim");
         assert_eq!(bottom.target, DockDrop::Side(DockSide::Bottom));
         assert!(aim(&arranged, Point::new(900.0, 100.0), &no_strip, &|_| None).is_none(), "outside the area");
+    }
+
+    #[test]
+    fn only_the_very_top_between_the_columns_opens_the_top_dock() {
+        let arranged = arrange(&full(), Size::new(1000.0, 700.0), &METRICS);
+        let x = arranged.center.x() + 40.0;
+        let edge = aim(&arranged, Point::new(x, 2.0), &no_strip, &|_| None).expect("aim");
+        assert_eq!(edge.target, DockDrop::Side(DockSide::Top));
+        assert_eq!(edge.mark.y(), 0.0);
+        let tabs = aim(&arranged, Point::new(x, 6.0), &no_strip, &|_| None).expect("aim");
+        assert!(matches!(tabs.target, DockDrop::Tab { .. }), "a little lower it is the tabs again");
+        let left = aim(&arranged, Point::new(60.0, 2.0), &no_strip, &|_| None).expect("aim");
+        assert_ne!(left.target, DockDrop::Side(DockSide::Top), "above a column it is not the top dock");
     }
 
     #[test]

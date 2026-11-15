@@ -146,6 +146,8 @@ pub struct Labels {
     pub dock_right: String,
     /// The bottom dock of a `DockArea`, in a menu.
     pub dock_bottom: String,
+    /// The top dock of a `DockArea`, in a menu.
+    pub dock_top: String,
     /// The center of a `DockArea`, in a menu.
     pub dock_center: String,
     /// The item of a `DockArea`'s menu that opens where a panel can go.
@@ -984,6 +986,7 @@ impl Labels {
             dock_left: texts.get("widgets.dock_left"),
             dock_right: texts.get("widgets.dock_right"),
             dock_bottom: texts.get("widgets.dock_bottom"),
+            dock_top: texts.get("widgets.dock_top"),
             dock_center: texts.get("widgets.dock_center"),
             dock_move_to: texts.get("widgets.dock_move_to"),
             dock_with: texts.get("widgets.dock_with"),
