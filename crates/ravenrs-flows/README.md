@@ -14,7 +14,7 @@ The `FlowCanvas` draws a diagram, and its debugger (`FlowRun`) moves tokens thro
 | `Executor`, `Run` | Runs a plan in memory, in order, on an injected clock. It can run the whole flow, run from one node on (the nodes upstream do not run again, and their items come from an earlier run), or run one node alone. In a test run, pinned items take the place of running the node. A loop goes round its body while the loop node sends items into it, up to `LOOP_LIMIT` turns (`Executor::loop_limit`). |
 | `nodes`, `Catalog::builtin` | The built-in kinds, listed below. |
 | `Item`, `ItemRef` | What passes along a connection: a JSON value, the files it carries and where it came from. `Item::derive` makes a new item from another; an item passed on unchanged is traced to where it was. |
-| `to_graph`, `from_graph`, `Catalog::run_rules` | The bridge to the canvas. A flow is drawn as a `FlowGraph`, the drawing is read back into the flow (geometry stays in the graph, setup in the definition), and the debugger gets rules from the catalog. |
+| `to_graph`, `from_graph`, `Catalog::run_rules` | The bridge to the canvas. A flow is drawn as a `FlowGraph` with each node's setup in its card's `data` (under `GRAPH_KEY`), so copying, pasting and undoing on the canvas keep it; `from_graph` reads the drawing back on its own, and the debugger gets rules from the catalog. |
 
 ## How a run treats each node
 
@@ -102,6 +102,5 @@ assert_eq!(run.output("start", "main").len(), 1);
 Each of these has its own issue, under [#523](https://github.com/alexkads/RavenRS/issues/523):
 
 - The schema of a kind's parameters, beyond the names it requires: [#530](https://github.com/alexkads/RavenRS/issues/530).
-- The domain data of a node inside the `FlowGraph` itself: [#529](https://github.com/alexkads/RavenRS/issues/529). Until then, `from_graph` takes the flow the drawing came from, to keep each node's setup.
 
 License: MIT OR Apache-2.0.

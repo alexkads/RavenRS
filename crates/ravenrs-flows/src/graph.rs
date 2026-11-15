@@ -1,7 +1,8 @@
 //! The bridge to the canvas: a flow drawn as a [`FlowGraph`] for the `FlowCanvas`, the drawing
-//! read back into the flow, and the [`FlowRunRules`] its debugger follows. The geometry stays
-//! in the graph and the setup in the definition, so no automation rule goes into the drawing.
-//! Above `definition` and `catalog`.
+//! read back into the flow, and the [`FlowRunRules`] its debugger follows. Each node's setup
+//! rides in its card's `data` and the flow's name in the graph's, so copying, pasting and undoing
+//! on the canvas keep them; the drawing itself reads none of it, so no automation rule goes into
+//! the geometry. Above `definition` and `catalog`.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::rc::Rc;
@@ -10,8 +11,13 @@ use ravenrs_graphics::flow::{
     FlowEdge, FlowEndpoint, FlowGate, FlowGraph, FlowNode, FlowNodeStatus, FlowPort, FlowRunRules,
 };
 
+use serde_json::{Value, json};
+
 use crate::catalog::Catalog;
-use crate::definition::{Connection, FlowDefinition, NodeDef, PortRef};
+use crate::definition::{Connection, FORMAT, FlowDefinition, NodeDef, PortRef};
+
+/// The field of a card's `data`, and of the graph's, that holds what a flow keeps there.
+pub const GRAPH_KEY: &str = "flow";
 
 /// How far apart [`FlowDefinition::to_graph`] puts the nodes it lays out.
 const STEP: (f32, f32) = (260.0, 120.0);
@@ -29,13 +35,15 @@ fn edge_id(c: &Connection) -> String {
 
 impl FlowDefinition {
     /// The flow drawn for a `FlowCanvas`: a node card per node, with the ports of its kind,
-    /// titled by its title or its kind's, shown as disabled when it is; one connection per
-    /// connection. The nodes are laid out in columns by how far they are from a start, which
-    /// the app then moves as the person draws.
+    /// titled by its title or its kind's, shown as disabled when it is, and the node's whole
+    /// setup in its `data`; one connection per connection; the flow's id, name and revision in
+    /// the graph's `data`. The nodes are laid out in columns by how far they are from a start,
+    /// which the app then moves as the person draws.
     pub fn to_graph(&self, catalog: &Catalog) -> FlowGraph {
         let depth = depths(self);
         let mut rows: BTreeMap<usize, usize> = BTreeMap::new();
         let mut graph = FlowGraph::new();
+        graph.data = json!({ GRAPH_KEY: { "id": self.id, "name": self.name, "revision": self.revision } });
         for node in &self.nodes {
             let col = depth.get(node.id.as_str()).copied().unwrap_or(0);
             let row = rows.entry(col).or_default();
@@ -59,6 +67,7 @@ impl FlowDefinition {
             if node.disabled {
                 card.status = FlowNodeStatus::Disabled;
             }
+            card.data = json!({ GRAPH_KEY: node });
             graph.nodes.push(card);
         }
         for c in &self.connections {
@@ -71,18 +80,26 @@ impl FlowDefinition {
         graph
     }
 
-    /// The flow as the person left the drawing: its nodes and connections are the graph's, in
-    /// the graph's order, and each node keeps its setup from `base` (the flow the graph was
-    /// drawn from). A node new in the drawing starts with no parameters; one gone from it is
-    /// gone. A title the person typed over the kind's is kept, and the disabled look sets
+    /// The flow as the person left the drawing: its id, name and revision from the graph's
+    /// `data`, its nodes and connections the graph's, in the graph's order. Each node takes its
+    /// setup from its card's `data`, so a pasted card brings the setup of the node it was copied
+    /// from under its new id; a card with none (drawn from the toolbox) starts with no
+    /// parameters. A title the person typed over the kind's is kept, and the disabled look sets
     /// `disabled`. Groups are drawing only, and are left out.
-    pub fn from_graph(graph: &FlowGraph, base: &FlowDefinition, catalog: &Catalog) -> FlowDefinition {
-        let mut flow = FlowDefinition { nodes: Vec::new(), connections: Vec::new(), ..base.clone() };
+    pub fn from_graph(graph: &FlowGraph, catalog: &Catalog) -> FlowDefinition {
+        let head = graph.data.get(GRAPH_KEY);
+        let text =
+            |key: &str| head.and_then(|h| h.get(key)).and_then(Value::as_str).unwrap_or_default().to_owned();
+        let mut flow = FlowDefinition::new(text("id"), text("name"));
+        flow.format = FORMAT;
+        flow.revision = head.and_then(|h| h.get("revision")).and_then(Value::as_u64).unwrap_or(0) as u32;
         for card in graph.nodes.iter().filter(|n| !n.group) {
-            let mut node = match base.find(&card.id) {
-                Some(kept) => kept.clone(),
-                None => NodeDef::new(&card.id, &card.kind),
-            };
+            let kept = card
+                .data
+                .get(GRAPH_KEY)
+                .and_then(|setup| serde_json::from_value::<NodeDef>(setup.clone()).ok());
+            let mut node = kept.unwrap_or_else(|| NodeDef::new(&card.id, &card.kind));
+            node.id = card.id.clone();
             node.kind = card.kind.clone();
             node.title = None;
             if card.title != title_of(&node, catalog) {

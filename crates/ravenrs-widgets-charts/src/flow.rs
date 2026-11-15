@@ -20,10 +20,10 @@ use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 use ravenrs_text::TextAttrs;
 
 pub use ravenrs_graphics::flow::{
-    EdgeCap, EdgeShape, FlowColors, FlowDirection, FlowDocument, FlowEdge, FlowEndpoint, FlowExportFormat,
-    FlowGate, FlowGraph, FlowHistory, FlowJsonError, FlowLayout, FlowLayoutKind, FlowNode, FlowNodeStatus,
-    FlowPicture, FlowPort, FlowRun, FlowRunEvent, FlowRunRules, FlowShape, FlowShelf, FlowStyle, FlowText,
-    PortDirection, PortSide,
+    EdgeCap, EdgeShape, FLOW_FORMAT, FlowColors, FlowDirection, FlowDocument, FlowEdge, FlowEndpoint,
+    FlowExportFormat, FlowGate, FlowGraph, FlowHistory, FlowJsonError, FlowLayout, FlowLayoutKind, FlowNode,
+    FlowNodeStatus, FlowPicture, FlowPort, FlowRun, FlowRunEvent, FlowRunRules, FlowShape, FlowShelf,
+    FlowStyle, FlowText, NODE_REFS, PortDirection, PortSide,
 };
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};

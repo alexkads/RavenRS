@@ -431,12 +431,12 @@ fn the_flow_drawn_on_the_canvas_reads_back_as_the_same_flow() {
     assert_eq!(graph.find_node("yes").map(|n| n.status.clone()), Some(FlowNodeStatus::Disabled));
     assert!(graph.find_node("if").expect("drawn").x > graph.find_node("start").expect("drawn").x);
 
-    assert_eq!(FlowDefinition::from_graph(&graph, &flow, &catalog), flow);
+    assert_eq!(FlowDefinition::from_graph(&graph, &catalog), flow);
 
     let mut moved = graph.clone();
     moved.nodes.retain(|n| n.id != "filter");
     moved.nodes.push(FlowNode::new("new", "set", "Set", 0.0, 0.0));
-    let read = FlowDefinition::from_graph(&moved, &flow, &catalog);
+    let read = FlowDefinition::from_graph(&moved, &catalog);
     assert!(read.find("filter").is_none(), "a node gone from the drawing is gone");
     assert_eq!(read.connections.len(), 2, "and its connection with it");
     assert_eq!(read.find("start").map(|n| &n.parameters), Some(&three_orders().parameters), "setup kept");
@@ -471,4 +471,24 @@ fn the_canvas_debugger_runs_the_flow_by_the_catalog_rules() {
     run.step(&graph, &rules, Some(&way));
     run.step(&graph, &rules, None);
     assert!(run.is_over() && run.failure().is_none(), "{:?}", run.events);
+}
+
+#[test]
+fn a_card_copied_and_pasted_on_the_canvas_brings_the_node_setup_under_its_new_id() {
+    let catalog = catalog();
+    let flow = FlowDefinition::new("f", "copy")
+        .node(three_orders())
+        .node(paid_filter().on_error(ErrorPolicy::Continue))
+        .connect("start", "main", "filter", "main");
+    let mut graph = flow.to_graph(&catalog);
+    let piece = graph.extract(&["filter".to_owned()]);
+    let (pasted, _) = graph.insert(&piece, 40.0, 40.0);
+
+    let read = FlowDefinition::from_graph(&graph, &catalog);
+    let copy = read.find(&pasted[0]).expect("the pasted node is in the flow");
+    assert_ne!(copy.id, "filter");
+    assert_eq!(copy.kind, "filter");
+    assert_eq!(copy.parameters, paid_filter().parameters, "its parameters came with it");
+    assert_eq!(copy.on_error, ErrorPolicy::Continue);
+    assert_eq!((read.id.as_str(), read.name.as_str()), ("f", "copy"), "the flow's name rides in the graph");
 }
