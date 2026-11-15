@@ -174,11 +174,15 @@ impl Drop for Lsp {
 }
 
 impl Lsp {
-    /// Starts rust-analyzer in `root`. An error when it is not installed, which includes the
-    /// rustup stand-in that is there without the `rust-analyzer` component.
+    /// Starts rust-analyzer in `root`. An error when it is not installed for the toolchain of that
+    /// folder, which includes rustup's stand-in that is there without the `rust-analyzer`
+    /// component (`rustup component add rust-analyzer`, in that folder).
     pub fn start(root: &Path, wake: impl Fn() + Send + Sync + 'static) -> io::Result<Self> {
+        // Asked in the project's folder: rustup picks the toolchain by folder, and the project's
+        // may lack the component even when another toolchain has it.
         let works = Command::new("rust-analyzer")
             .arg("--version")
+            .current_dir(root)
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .status()
@@ -207,8 +211,11 @@ impl Lsp {
         root: &Path,
         wake: impl Fn() + Send + Sync + 'static,
     ) -> Self {
+        // The server names files by their real path: a folder reached through a link (the
+        // temporary folder of a Mac, under /var, is /private/var) has to be named the same way.
+        let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
         let lsp = Self {
-            root: root.to_path_buf(),
+            root,
             writer: Arc::new(Mutex::new(Box::new(writer))),
             heard: Arc::new(Mutex::new(Heard::default())),
             next: AtomicU64::new(1),
@@ -397,9 +404,16 @@ fn listen(
     while let Some(message) = read_message(&mut reader) {
         let method = message["method"].as_str();
         match (method, message.get("id")) {
-            // A request of the server's own, such as for a progress bar: answered, and ignored.
-            (Some(_), Some(id)) => {
-                let body = json!({"jsonrpc": "2.0", "id": id, "result": null}).to_string();
+            // A request of the server's own: settings are left at their defaults (one empty
+            // answer per item asked), and the rest, such as progress bars, answered and ignored.
+            (Some(method), Some(id)) => {
+                let result = if method == "workspace/configuration" {
+                    let asked = message["params"]["items"].as_array().map_or(0, Vec::len);
+                    Value::Array(vec![Value::Null; asked])
+                } else {
+                    Value::Null
+                };
+                let body = json!({"jsonrpc": "2.0", "id": id, "result": result}).to_string();
                 if let Ok(mut writer) = writer.lock() {
                     let _ = write!(writer, "Content-Length: {}\r\n\r\n{body}", body.len());
                     let _ = writer.flush();
