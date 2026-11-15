@@ -44,3 +44,15 @@ fn without_a_model_the_assistant_says_how_to_get_one() {
     });
     assert!(said);
 }
+
+#[test]
+fn the_editor_starts_with_two_processes_one_of_them_between_participants() {
+    let mut ui = opened();
+    let starts = |ui: &mut Ui, prefix: &str| {
+        ui.access_tree().nodes.iter().any(|n| n.name.as_deref().is_some_and(|t| t.starts_with(prefix)))
+    };
+    assert!(starts(&mut ui, "Compra aprovada"), "the open process has its name");
+    assert!(!starts(&mut ui, "Sem nome"));
+    press(&mut ui, "Pedido entre cliente e loja 8 nós");
+    assert!(find(&mut ui, "Loja").is_some() && find(&mut ui, "Cliente").is_some(), "the participants show");
+}

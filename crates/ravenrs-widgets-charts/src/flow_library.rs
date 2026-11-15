@@ -53,6 +53,7 @@ pub struct FlowLibrary {
     title: Option<String>,
     width: f32,
     formats: Vec<FlowFileFormat>,
+    starters: Vec<(String, FlowGraph)>,
 }
 
 impl fmt::Debug for FlowLibrary {
@@ -76,6 +77,7 @@ impl FlowLibrary {
             title: None,
             width: 240.0,
             formats: Vec::new(),
+            starters: Vec::new(),
         }
     }
 
@@ -125,6 +127,13 @@ impl FlowLibrary {
     /// The file formats of `notation`.
     pub fn notation(mut self, notation: &crate::FlowNotation) -> Self {
         self.formats.extend(notation.formats.iter().cloned());
+        self
+    }
+
+    /// A diagram the library starts with, called `name`, while its storage keeps none yet: a
+    /// sample to learn from, or a template. Once something is saved, only what is saved shows.
+    pub fn starter(mut self, name: impl Into<String>, graph: FlowGraph) -> Self {
+        self.starters.push((name.into(), graph));
         self
     }
 
@@ -310,18 +319,33 @@ impl View for FlowLibrary {
         let untitled = labels.flow_library_untitled.clone();
         let kept = {
             let read = storage.clone();
+            let starters = self.starters.clone();
             let shelf = cx.use_state(move || {
-                read.read(&key)
+                let kept = read
+                    .read(&key)
                     .ok()
                     .flatten()
                     .and_then(|bytes| FlowShelf::from_json(&String::from_utf8_lossy(&bytes)).ok())
-                    .unwrap_or_default()
+                    .unwrap_or_default();
+                if !kept.documents.is_empty() {
+                    return kept;
+                }
+                // Nothing kept yet: the starters, not written until something is saved.
+                let mut shelf = FlowShelf::default();
+                for (name, graph) in starters {
+                    let id = shelf.fresh_id();
+                    shelf.put(FlowDocument { id, name, graph });
+                }
+                shelf
             });
-            // The diagram on the canvas when the library first shows is a new document.
+            // The diagram on the canvas when the library first shows: the document it already
+            // is, or a new one.
             let first = {
                 let shelf = shelf.get();
-                let id = shelf.fresh_id();
-                FlowDocument { id, name: untitled.clone(), graph: graph_now.clone() }
+                shelf.documents.iter().find(|d| d.graph == graph_now).cloned().unwrap_or_else(|| {
+                    let id = shelf.fresh_id();
+                    FlowDocument { id, name: untitled.clone(), graph: graph_now.clone() }
+                })
             };
             let first_name = first.name.clone();
             Kept {

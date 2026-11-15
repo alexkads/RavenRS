@@ -13,6 +13,9 @@ pub const ASSOCIATION: &str = "association";
 pub const MESSAGE: &str = "messageFlow";
 /// A lane, a group of the steps someone does.
 pub const LANE: &str = "lane";
+/// A participant (a pool): a company, a system or a customer with a process of its own; what
+/// passes between participants is a message.
+pub const PARTICIPANT: &str = "participant";
 
 /// What a kind of element is, for the canvas, the palette and the checks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -30,7 +33,7 @@ pub enum Family {
 }
 
 /// The elements offered, by their XML name, with the words shown for each.
-pub const ELEMENTS: [(&str, &str, Family); 14] = [
+pub const ELEMENTS: [(&str, &str, Family); 15] = [
     ("startEvent", "Início", Family::Event),
     ("endEvent", "Fim", Family::Event),
     ("intermediateCatchEvent", "Espera", Family::Event),
@@ -45,6 +48,7 @@ pub const ELEMENTS: [(&str, &str, Family); 14] = [
     ("dataStoreReference", "Base de dados", Family::Artifact),
     ("textAnnotation", "Anotação", Family::Artifact),
     (LANE, "Raia", Family::Lane),
+    (PARTICIPANT, "Participante", Family::Lane),
 ];
 
 /// The family of an element's kind, `None` for a kind that is not BPMN.
@@ -108,6 +112,10 @@ pub fn element(kind: &str, id: &str, name: &str) -> FlowNode {
         "textAnnotation" => {
             base(160.0, 56.0).shape(FlowShape::Note).port(FlowPort::input("in").side(PortSide::Left))
         }
+        PARTICIPANT => FlowNode {
+            kind: PARTICIPANT.into(),
+            ..FlowNode::new_group(id, name, Rect::new(0.0, 0.0, 1100.0, 280.0))
+        },
         LANE => {
             FlowNode { kind: LANE.into(), ..FlowNode::new_group(id, name, Rect::new(0.0, 0.0, 960.0, 200.0)) }
         }
@@ -136,20 +144,38 @@ pub fn connection(id: &str, from: FlowEndpoint, to: FlowEndpoint, kind: &str) ->
     }
 }
 
+/// The participant a node is in, if any: the nearest group of that kind around it.
+pub fn participant_of(graph: &FlowGraph, id: &str) -> Option<String> {
+    let mut at = graph.find_node(id)?.parent.clone();
+    while let Some(parent) = at {
+        let node = graph.find_node(&parent)?;
+        if node.kind == PARTICIPANT {
+            return Some(parent);
+        }
+        at = node.parent.clone();
+    }
+    None
+}
+
 /// Makes every connection look as its ends say: one touching data or a note is an
-/// association; the rest are sequence flows unless they are messages. Says whether anything
-/// changed.
+/// association; one between two participants is a message; the rest are sequence flows.
+/// Says whether anything changed.
 pub fn normalize(graph: &mut FlowGraph) -> bool {
     let families: Vec<(String, Option<Family>)> =
         graph.nodes.iter().map(|n| (n.id.clone(), family(&n.kind))).collect();
+    let pools: Vec<(String, Option<String>)> =
+        graph.nodes.iter().map(|n| (n.id.clone(), participant_of(graph, &n.id))).collect();
+    let pool = |id: &str| pools.iter().find(|(i, _)| i == id).and_then(|(_, p)| p.clone());
     let of = |id: &str| families.iter().find(|(i, _)| i == id).and_then(|(_, f)| *f);
     let mut changed = false;
     for edge in &mut graph.edges {
         let artifact =
             of(&edge.from.node) == Some(Family::Artifact) || of(&edge.to.node) == Some(Family::Artifact);
+        let (a, b) = (pool(&edge.from.node), pool(&edge.to.node));
+        let across = a.is_some() && b.is_some() && a != b;
         let kind = match () {
             _ if artifact => ASSOCIATION,
-            _ if edge.kind == MESSAGE => MESSAGE,
+            _ if across => MESSAGE,
             _ => SEQUENCE,
         };
         if edge.kind != kind {

@@ -24,3 +24,14 @@ line a piece up with the edges of its frame, and ports that show only under the 
 
 Still out, as they belong to a drawing tool rather than a diagram: drawn paths, boolean shapes
 and distances shown while dragging.
+
+## In the browser, on Linux and on Windows
+
+In the browser, the diagrams are kept in the browser's own storage:
+
+```bash
+scripts/build-web.sh flow-design-board
+python3 -m http.server -d examples/flow-design-board/web 8080
+```
+
+On Linux and Windows, run `cargo run -p flow-design-board --release` and check that you can drag a shape onto a frame and turn it by its handle; hide a piece in Camadas and show it again; Exportar as PNG; Salvar, close and open again.

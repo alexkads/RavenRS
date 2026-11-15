@@ -278,7 +278,7 @@ pub use time_link::TimeLink;
 pub use timeline::{Timeline, TimelineEdit, TimelineItem, TimelineMarker, TimelineTrack};
 pub use tree::{TreeNode, TreeView};
 pub use turn::{QuarterTurn, Turn};
-pub use ui::{Ui, UiStats};
+pub use ui::{HOLD_TO_CARRY, Ui, UiStats};
 pub use view::{AnyView, Component, FnView, Keyed, Responsive, View, ViewSeq, responsive, view_fn};
 pub use wizard::{IndicatorStep, StepBadge, StepIndicator, StepState, Wizard, WizardStep};
 pub use zoom::{ZoomControl, ZoomView};

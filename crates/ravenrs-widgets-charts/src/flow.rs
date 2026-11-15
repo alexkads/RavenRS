@@ -131,7 +131,57 @@ fn debug_box(
         ),
     );
     if let Some(r) = run {
-        if let Some(node) = &r.choosing {
+        let many = r
+            .choosing
+            .as_ref()
+            .and_then(|n| graph.find_node(n))
+            .is_some_and(|n| (rules.gate)(n) == FlowGate::ChooseMany);
+        if let (Some(node), true) = (&r.choosing, many) {
+            // One or more ways: a box each, then Follow.
+            let name = graph.find_node(node).map_or(node.clone(), |n| n.title.clone());
+            rows.push(util::label(
+                cx,
+                &labels.flow_run_choose_many.replace("{0}", &name),
+                TextStyle::Callout,
+                None,
+                theme.color(Semantic::Ink),
+            ));
+            for e in FlowRun::ways_out(graph, rules, node) {
+                let to = graph.find_node(&e.to.node).map_or(e.to.node.clone(), |n| n.title.clone());
+                let words = e.label.clone().map_or(to.clone(), |l| format!("{l} → {to}"));
+                let (picked, id) = (flow.picked.clone(), e.id.clone());
+                let (reader, writer) = (picked.clone(), id.clone());
+                let ticked = ravenrs_reactive::Binding::new(
+                    move || reader.get().contains(&id),
+                    move |on: bool| {
+                        let mut all = picked.get();
+                        all.retain(|w| *w != writer);
+                        if on {
+                            all.push(writer.clone());
+                        }
+                        picked.set(all);
+                    },
+                );
+                rows.push(cx.child(&crate::Checkbox::new(words, ticked)));
+            }
+            let follow = flow.clone();
+            rows.push(
+                cx.child(
+                    &crate::Button::new(labels.flow_run_follow.clone())
+                        .size(ButtonSize::Small)
+                        .on_click(move || follow.run_ways()),
+                ),
+            );
+            if flow.refused_choice.get() {
+                rows.push(util::label(
+                    cx,
+                    &labels.flow_run_none_chosen,
+                    TextStyle::Caption,
+                    None,
+                    theme.color(Semantic::Danger),
+                ));
+            }
+        } else if let Some(node) = &r.choosing {
             let ways: Vec<crate::Button> = FlowRun::ways_out(graph, rules, node)
                 .into_iter()
                 .map(|e| {
@@ -969,10 +1019,15 @@ struct Flow {
     debugging: State<bool>,
     run: State<Option<FlowRun>>,
     breakpoints: State<Vec<String>>,
+    /// The ways out ticked where one or more are chosen, and why the last choice was refused.
+    picked: State<Vec<String>>,
+    refused_choice: State<bool>,
     export: Option<FlowExporter>,
     /// Whether Export takes only what is selected, and the format chosen last.
     export_only: State<bool>,
     export_format: State<FlowExportFormat>,
+    /// Whether the Export menu is open, which Cmd/Ctrl+Shift+E opens.
+    export_menu: State<bool>,
     palette: Palette,
     quick_create: bool,
     editable_titles: bool,
@@ -1499,6 +1554,23 @@ impl Flow {
         self.run.set(Some(run));
     }
 
+    /// Follows the ways out ticked, where one or more are chosen.
+    fn run_ways(&self) {
+        let Some(rules) = &self.runs else { return };
+        let graph = self.graph.get();
+        let Some(mut run) = self.run.get() else { return };
+        let ticked = self.picked.get();
+        let ways: Vec<&str> = ticked.iter().map(String::as_str).collect();
+        match run.step_ways(&graph, rules, &ways) {
+            Ok(()) => {
+                self.picked.set(Vec::new());
+                self.refused_choice.set(false);
+                self.run.set(Some(run));
+            }
+            Err(_) => self.refused_choice.set(true),
+        }
+    }
+
     /// Moves the run on until it ends, a way out is to be chosen or a token reaches a
     /// breakpoint.
     fn run_on(&self) {
@@ -1787,7 +1859,10 @@ impl Flow {
                 "c" => return self.copy(),
                 "x" => return self.cut(),
                 "v" => return self.paste(),
-                "e" if shift && self.export.is_some() => return self.export(self.export_format.get()),
+                "e" if shift && self.export.is_some() => {
+                    self.export_menu.set(true);
+                    return true;
+                }
                 "g" if shift => return self.ungroup_selection(),
                 "g" => return self.group_selection(),
                 "]" | "}" => return self.reorder(true),
@@ -2527,6 +2602,7 @@ impl View for FlowCanvas {
         let run = cx.use_state(|| None::<FlowRun>);
         let breakpoints = cx.use_state(Vec::<String>::new);
         let export_format = cx.use_state(FlowExportFormat::default);
+        let export_menu = cx.use_state(|| false);
         let notice = cx.use_state(|| None::<String>);
         let editing = cx.use_state(|| None::<String>);
         let draft = cx.use_state(String::new);
@@ -2561,8 +2637,11 @@ impl View for FlowCanvas {
             debugging: debugging.clone(),
             run: run.clone(),
             breakpoints: breakpoints.clone(),
+            picked: cx.use_state(Vec::<String>::new),
+            refused_choice: cx.use_state(|| false),
             export_only,
             export_format,
+            export_menu,
             palette,
             quick_create: self.quick_create,
             editable_titles: self.editable_titles,
@@ -3014,6 +3093,7 @@ fn controls(
         };
         let only = flow.export_only.clone();
         let mut menu = DropdownMenu::new(labels.flow_export.clone())
+            .open(flow.export_menu.binding())
             .icon(IconName::Download)
             .icon_only()
             .size(ButtonSize::Small)

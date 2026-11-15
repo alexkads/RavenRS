@@ -1427,7 +1427,7 @@ fn a_line_whose_two_ends_move_takes_its_points_along() {
 }
 
 #[test]
-fn the_shortcut_exports_the_whole_diagram_and_changes_nothing() {
+fn the_shortcut_opens_the_export_menu_and_exporting_changes_nothing() {
     let got: std::rc::Rc<std::cell::RefCell<Vec<(FlowExportFormat, FlowPicture)>>> = Default::default();
     let seen = got.clone();
     let mut rig = rig_with(graph(), move |c| {
@@ -1435,9 +1435,13 @@ fn the_shortcut_exports_the_whole_diagram_and_changes_nothing() {
     });
     assert!(named(&mut rig.ui, "Export").is_some(), "a button in the controls");
 
-    // Cmd/Ctrl+Shift+E exports at once, as a PNG at first, the whole diagram.
+    // Cmd/Ctrl+Shift+E opens the Export menu; its first item, PNG, exports the whole diagram.
     click(&mut rig.ui, Point::new(600.0, 500.0));
     key(&mut rig.ui, Key::Character("e".into()), command(true));
+    assert!(got.borrow().is_empty(), "the shortcut opens the menu, it does not export yet");
+    let png = named(&mut rig.ui, "PNG image").expect("the menu is open").id;
+    rig.ui.perform_action(png, ravenrs_core::AccessAction::Click);
+    settle(&mut rig.ui);
     {
         let got = got.borrow();
         let (format, picture) = got.last().expect("an export");
@@ -1565,4 +1569,71 @@ fn delete_asks_first_and_a_file_goes_out_and_comes_in() {
 
     press(&mut d.ui, "Delete Untitled");
     assert!(named(&mut d.ui, "Delete “Untitled”?").is_some(), "it asks first");
+}
+
+#[test]
+fn a_model_held_still_starts_carrying_and_a_quick_move_does_not() {
+    let mut shop = shop();
+    let before = shop.graph.get().nodes.len();
+    let tile = named(&mut shop.ui, "Step").expect("the model").bounds.center();
+    let left = named(&mut shop.ui, "New sale").expect("a node").bounds.origin.x - 48.0;
+
+    // Held still: once the time passes, it is carried, and the platform stops scrolling.
+    shop.ui.set_time(10.0);
+    shop.ui.handle_event(&Event::PointerMove { position: tile });
+    shop.ui.handle_event(&Event::PointerDown { position: tile, button: PointerButton::Primary });
+    settle(&mut shop.ui);
+    assert!(!shop.ui.is_dragging(), "not yet");
+    assert!(shop.ui.next_wake().is_some_and(|w| w <= 10.0 + HOLD_TO_CARRY + 0.001), "it asks to be woken");
+    shop.ui.set_time(10.0 + HOLD_TO_CARRY + 0.01);
+    settle(&mut shop.ui);
+    assert!(shop.ui.is_dragging(), "held long enough, it is carried");
+    let to = Point::new(left + 300.0, 300.0);
+    shop.ui.handle_event(&Event::PointerMove { position: to });
+    settle(&mut shop.ui);
+    shop.ui.handle_event(&Event::PointerUp { position: to, button: PointerButton::Primary });
+    settle(&mut shop.ui);
+    assert_eq!(shop.graph.get().nodes.len(), before + 1, "and it lands");
+
+    // A touch that becomes a scroll (the platform sends PointerLeave) carries nothing later.
+    shop.ui.set_time(20.0);
+    shop.ui.handle_event(&Event::PointerMove { position: tile });
+    shop.ui.handle_event(&Event::PointerDown { position: tile, button: PointerButton::Primary });
+    shop.ui.handle_event(&Event::PointerLeave);
+    shop.ui.set_time(21.0);
+    settle(&mut shop.ui);
+    assert!(!shop.ui.is_dragging(), "the press was given up");
+}
+
+#[test]
+fn starters_show_only_while_nothing_is_kept() {
+    let storage = std::rc::Rc::new(ravenrs_core::MemoryStorage::default());
+    let make = |storage: std::rc::Rc<ravenrs_core::MemoryStorage>| {
+        let graph = State::new(graph());
+        let library = FlowLibrary::new(graph.binding())
+            .storage(storage)
+            .starter("Exemplo", graph.get())
+            .starter("Vazio", FlowGraph::new());
+        let mut ui = Ui::new(library, Theme::raven_dark());
+        ui.set_viewport(Size::new(300.0, 600.0), 1.0);
+        settle(&mut ui);
+        ui
+    };
+    let mut ui = make(storage.clone());
+    assert!(starting(&mut ui, "Exemplo").is_some() && starting(&mut ui, "Vazio").is_some());
+    assert!(starting(&mut ui, "Untitled").is_none(), "the open diagram is the starter it equals");
+    press(&mut ui, "Delete Vazio");
+    let confirm = ui
+        .access_tree()
+        .nodes
+        .iter()
+        .rfind(|n| n.name.as_deref() == Some("Delete"))
+        .map(|n| n.id)
+        .expect("the confirm button");
+    ui.perform_action(confirm, ravenrs_core::AccessAction::Click);
+    settle(&mut ui);
+    // Something is kept now: starting again shows what was kept, not the starters.
+    let mut again = make(storage);
+    assert!(starting(&mut again, "Exemplo").is_some());
+    assert!(starting(&mut again, "Vazio").is_none(), "the deleted starter does not come back");
 }

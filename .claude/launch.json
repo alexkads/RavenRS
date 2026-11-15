@@ -96,6 +96,54 @@
         "8093"
       ],
       "port": 8093
+    },
+    {
+      "name": "bpmn-editor-web",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "-d",
+        "examples/bpmn-editor/web",
+        "8120"
+      ],
+      "port": 8120
+    },
+    {
+      "name": "flow-chat-bot-web",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "-d",
+        "examples/flow-chat-bot/web",
+        "8121"
+      ],
+      "port": 8121
+    },
+    {
+      "name": "flow-design-board-web",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "-d",
+        "examples/flow-design-board/web",
+        "8122"
+      ],
+      "port": 8122
+    },
+    {
+      "name": "flow-whiteboard-web",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "-d",
+        "examples/flow-whiteboard/web",
+        "8123"
+      ],
+      "port": 8123
     }
   ]
 }

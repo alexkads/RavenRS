@@ -25,6 +25,10 @@ type Waker = Rc<RefCell<Option<Rc<dyn Fn()>>>>;
 
 /// Lines scrolled per wheel notch are converted to pixels by the platform; this
 /// is the width of the overlay scrollbar.
+/// How long a press held still on a drag source waits before it starts carrying it, in
+/// seconds: on touch, a finger that moves sooner scrolls instead.
+pub const HOLD_TO_CARRY: f64 = 0.4;
+
 const SCROLLBAR_WIDTH: f32 = 4.0;
 /// How long a scrollbar stays after the last scroll, and how long it takes to go.
 const SCROLLBAR_HOLD: f64 = 0.9;
@@ -241,6 +245,8 @@ pub struct Ui {
     access_tree_asked: bool,
     /// Earliest time a widget asked to be rebuilt at.
     wake: Option<f64>,
+    /// When a press held still on a drag source starts carrying it.
+    hold_at: Option<f64>,
     pointer: Option<Point>,
     cursor: CursorIcon,
     scene: Scene,
@@ -356,6 +362,7 @@ impl Ui {
             activity: None,
             access_tree_asked: false,
             wake: None,
+            hold_at: None,
             pointer: None,
             cursor: CursorIcon::Default,
             scene: Scene::new(),
@@ -707,16 +714,15 @@ impl Ui {
     /// When the UI wants its next frame even without input (seconds, same clock
     /// as [`Ui::set_time`]). Platforms schedule a timer for it.
     pub fn next_wake(&self) -> Option<f64> {
-        match (self.wake, self.next_live) {
-            (Some(a), Some(b)) => Some(a.min(b)),
-            (a, b) => a.or(b),
-        }
+        [self.wake, self.next_live, self.hold_at].into_iter().flatten().reduce(f64::min)
     }
 
     /// True while a pointer drag that started on a draggable element (a slider,
-    /// a splitter) is in progress. Touch platforms use it to tell drags from scrolls.
+    /// a splitter) or a drag between components is in progress. Touch platforms use it to
+    /// tell drags from scrolls: a finger held still on a drag source for
+    /// [`HOLD_TO_CARRY`] seconds starts carrying it, and from then on it moves it.
     pub fn is_dragging(&self) -> bool {
-        self.dragging.is_some()
+        self.dragging.is_some() || self.carry.as_ref().is_some_and(|c| c.started && !c.keyboard)
     }
 
     /// The cursor the platform should show.
@@ -726,6 +732,7 @@ impl Ui {
 
     /// Rebuilds, lays out and paints as needed, then returns the current scene.
     pub fn update(&mut self) -> &Scene {
+        self.hold_carry();
         let anchor = self.links.take_anchor();
         if self.needs_rebuild() {
             self.rebuild();
@@ -911,6 +918,7 @@ impl Ui {
                         over: None,
                         verdict: None,
                     });
+                    self.hold_at = Some(self.time + HOLD_TO_CARRY);
                 }
             }
             Event::PointerUp { position, button: PointerButton::Primary } => {
@@ -942,6 +950,11 @@ impl Ui {
             }
             Event::PointerLeave => {
                 self.pointer = None;
+                // A press that became a scroll (on touch) carries nothing.
+                if self.carry.as_ref().is_some_and(|c| !c.started && !c.keyboard) {
+                    self.carry = None;
+                    self.hold_at = None;
+                }
                 self.refresh_hover();
                 if self.dragging.is_none() && self.interaction.pressed.take().is_some() {
                     self.ask_build(BuildCause::Press);
@@ -1138,6 +1151,24 @@ impl Ui {
                     self.ask_build(BuildCause::Focus);
                 }
             }
+        }
+    }
+
+    /// Starts carrying what a press held still on a drag source holds, once it was held for
+    /// [`HOLD_TO_CARRY`]: on touch, the way to pick something up instead of scrolling.
+    fn hold_carry(&mut self) {
+        let Some(at) = self.hold_at else { return };
+        if self.time < at {
+            return;
+        }
+        self.hold_at = None;
+        let still = self.carry.as_ref().is_some_and(|c| {
+            !c.started && !c.keyboard && (c.at.x - c.pressed.x).hypot(c.at.y - c.pressed.y) <= 4.0
+        });
+        if still && let Some(carry) = self.carry.as_mut() {
+            carry.started = true;
+            let at = carry.at;
+            self.carry_to(at);
         }
     }
 
