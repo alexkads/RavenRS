@@ -17,6 +17,7 @@ enum CompareSide
 enum CompositionGuide
 enum ContentMode
 enum ContentSpace
+enum DockChange
 enum DockDrop
 enum DockEdge
 enum DockLayoutError
@@ -844,6 +845,7 @@ impl Clone for DayMark
 impl Clone for DaySeparator
 impl Clone for Diagnostics
 impl Clone for Divider
+impl Clone for DockChange
 impl Clone for DockChild
 impl Clone for DockDrop
 impl Clone for DockEdge
@@ -1195,6 +1197,7 @@ impl Debug for Dialog
 impl Debug for Disclosure
 impl Debug for Divider
 impl Debug for DockArea
+impl Debug for DockChange
 impl Debug for DockChild
 impl Debug for DockDrop
 impl Debug for DockEdge
@@ -1795,6 +1798,7 @@ impl PartialEq for Date
 impl PartialEq for DateRange
 impl PartialEq for DateTime
 impl PartialEq for DayMark
+impl PartialEq for DockChange
 impl PartialEq for DockChild
 impl PartialEq for DockDrop
 impl PartialEq for DockEdge
@@ -2679,6 +2683,7 @@ method DockArea::height
 method DockArea::label
 method DockArea::movable
 method DockArea::new
+method DockArea::on_change
 method DockArea::on_end
 method DockArea::pane_min
 method DockArea::tab_bar
@@ -4522,6 +4527,7 @@ trait-item ViewExt::width
 trait-item ViewSeq::build_each
 type ActivityObserver
 type AnyView
+type DockGuard
 type DragHandler
 type DrawFn
 type FlowGuard
@@ -4592,6 +4598,12 @@ variant ContentMode::Fit
 variant ContentSpace::Fit
 variant ContentSpace::Frame
 variant ContentSpace::View
+variant DockChange::Activate
+variant DockChange::Close
+variant DockChange::Collapse
+variant DockChange::Move
+variant DockChange::Reopen
+variant DockChange::Resize
 variant DockDrop::Side
 variant DockDrop::Split
 variant DockDrop::Tab

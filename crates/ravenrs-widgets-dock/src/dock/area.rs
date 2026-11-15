@@ -12,7 +12,7 @@ use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle};
 
 use super::geometry::{self, Arranged, BarKind, BarPlace, DropAim, GroupPlace, Metrics};
-use super::layout::{DockDrop, DockEdge, DockLayout, DockSide};
+use super::layout::{DockChange, DockDrop, DockEdge, DockLayout, DockSide};
 use crate::commands::menu_trigger;
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, QuadPaint, Semantics};
 use crate::overlay::Entry;
@@ -34,8 +34,15 @@ const KEY_STRIP: u8 = 2;
 const KEY_BAR: u8 = 3;
 const KEY_TOGGLE: u8 = 4;
 
+/// How long the reason of a refusal shows, in seconds, unless another gesture comes first.
+const NOTICE_SECONDS: f64 = 4.0;
+
 /// What runs when the arrangement settles.
 type OnEnd = Rc<dyn Fn(&DockLayout)>;
+
+/// Decides whether a person may make a change, given the arrangement before and after it. When
+/// they may not, the arrangement stays as it was, nothing is saved, and the reason shows.
+pub type DockGuard = Rc<dyn Fn(&DockLayout, &DockLayout, &DockChange) -> Result<(), String>>;
 
 /// A panel of a [`DockArea`]: what it is called and whether it can close. What it shows comes from
 /// the function given to the area, by its id.
@@ -96,6 +103,9 @@ pub enum DockTabBar {
 /// Alt with an arrow moves one within its group, Alt and Shift with an arrow send it to a dock, the
 /// menu of a tab or of the button at the end of the strip has "Move to…", and Delete closes.
 ///
+/// Before each change a person makes, [`on_change`](Self::on_change) asks the app, which can refuse
+/// it and say why; a panel with unsaved work stays open that way.
+///
 /// The arrangement is a [`DockLayout`] in a [`Binding`], which holds ids alone and can be saved as
 /// text. What a panel shows is asked from the app, by id, for the panel at the front of each group:
 /// that is all a change of tab builds, and what a panel must remember while behind others belongs in
@@ -134,6 +144,7 @@ pub struct DockArea {
     movable: bool,
     tab_bar: DockTabBar,
     on_end: Option<OnEnd>,
+    guard: Option<DockGuard>,
     label: Option<String>,
 }
 
@@ -168,6 +179,7 @@ impl DockArea {
             movable: true,
             tab_bar: DockTabBar::Always,
             on_end: None,
+            guard: None,
             label: None,
         }
     }
@@ -226,6 +238,33 @@ impl DockArea {
     /// panel. It is the moment to save.
     pub fn on_end(mut self, handler: impl Fn(&DockLayout) + 'static) -> Self {
         self.on_end = Some(Rc::new(handler));
+        self
+    }
+
+    /// Asked before every change a person makes to the arrangement, with the arrangement before
+    /// and after and what the change is; an `Err` refuses it and says why, beside the tab or at
+    /// the top of the area, for a few seconds. A drag is asked once, when it is let go, and a
+    /// refused bar goes back. What the app writes to the [`Binding`] itself is not asked.
+    ///
+    /// ```
+    /// use ravenrs_reactive::State;
+    /// use ravenrs_widgets::{AnyView, DockArea, DockChange, DockLayout, DockNode, DockPanel, Text};
+    ///
+    /// let layout = State::new(DockLayout::new().center(DockNode::tabs(["sales.rs"])));
+    /// let unsaved = State::new(true);
+    /// let area = DockArea::new(layout.binding(), vec![DockPanel::new("sales.rs", "sales.rs")], |id| -> AnyView {
+    ///     Box::new(Text::new(id.to_owned()))
+    /// })
+    /// .on_change(move |_, _, change| match change {
+    ///     DockChange::Close { panel } if unsaved.get() => Err(format!("{panel} has unsaved changes")),
+    ///     _ => Ok(()),
+    /// });
+    /// ```
+    pub fn on_change(
+        mut self,
+        guard: impl Fn(&DockLayout, &DockLayout, &DockChange) -> Result<(), String> + 'static,
+    ) -> Self {
+        self.guard = Some(Rc::new(guard));
         self
     }
 
@@ -295,11 +334,26 @@ struct TabDrag {
     aim: Option<DropAim>,
 }
 
+/// Why the app refused the last change, and where it shows.
+#[derive(Clone, Debug, PartialEq)]
+struct Notice {
+    reason: String,
+    /// Its corner, relative to the area.
+    at: Point,
+    /// When it first showed, which its first build learns.
+    since: Rc<Cell<Option<f64>>>,
+}
+
 /// What the parts of the area change the arrangement through.
 #[derive(Clone)]
 struct Actions {
     layout: Binding<DockLayout>,
     on_end: Option<OnEnd>,
+    guard: Option<DockGuard>,
+    notice: State<Option<Notice>>,
+    frames: Rc<Frames>,
+    /// The arrangement as a bar's drag found it, until the drag is let go.
+    resizing: Rc<RefCell<Option<DockLayout>>>,
     spoken: State<String>,
     /// The panel whose tab takes focus when it is next built.
     focus: Rc<RefCell<Option<String>>>,
@@ -308,9 +362,12 @@ struct Actions {
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Actions {
-    fn apply(&self, change: impl FnOnce(&mut DockLayout) -> bool) -> bool {
-        let mut next = self.layout.get();
-        if !change(&mut next) {
+    /// Makes a change when it changes something and the app lets it, saying whether it was made.
+    fn apply(&self, change: DockChange, edit: impl FnOnce(&mut DockLayout) -> bool) -> bool {
+        self.forget_notice();
+        let before = self.layout.get();
+        let mut next = before.clone();
+        if !edit(&mut next) || !self.allowed(&before, &next, &change) {
             return false;
         }
         self.layout.set(next.clone());
@@ -320,15 +377,80 @@ impl Actions {
         true
     }
 
-    fn settled(&self) {
-        if let Some(on_end) = &self.on_end {
-            on_end(&self.layout.get());
+    /// Whether the app lets this change happen. A refusal shows its reason.
+    fn allowed(&self, before: &DockLayout, after: &DockLayout, change: &DockChange) -> bool {
+        let Some(guard) = &self.guard else { return true };
+        match guard(before, after, change) {
+            Ok(()) => true,
+            Err(reason) => {
+                let at = self.notice_at(change);
+                self.notice.set(Some(Notice { reason, at, since: Rc::default() }));
+                false
+            }
+        }
+    }
+
+    /// Where the reason of a refusal shows: under the tab of the panel it is about, or else at the
+    /// top of the area, and never past its right edge.
+    fn notice_at(&self, change: &DockChange) -> Point {
+        let root = self.frames.root.get();
+        let margin = 8.0;
+        let panel = match change {
+            DockChange::Activate { panel }
+            | DockChange::Move { panel, .. }
+            | DockChange::Close { panel }
+            | DockChange::Reopen { panel } => Some(panel),
+            _ => None,
+        };
+        let tab = panel.and_then(|panel| self.frames.tabs.borrow().get(panel).copied());
+        let (x, y) = match tab {
+            Some(tab) => (tab.x() - root.x(), tab.y() - root.y() + tab.height() + 4.0),
+            None => (margin, margin),
+        };
+        // About as wide as a bubble gets, so it stays inside the area.
+        let widest = 320.0;
+        Point::new(x.min(root.width() - widest).max(margin), y)
+    }
+
+    /// Lets go of the reason of the last refusal, as a new gesture starts.
+    fn forget_notice(&self) {
+        self.notice.set_if_changed(None);
+    }
+
+    /// Writes a size as a bar moves, remembering the arrangement from before the first move.
+    fn resize(&self, edit: impl FnOnce(&mut DockLayout)) {
+        let mut layout = self.layout.get();
+        {
+            let mut resizing = self.resizing.borrow_mut();
+            if resizing.is_none() {
+                *resizing = Some(layout.clone());
+                self.forget_notice();
+            }
+        }
+        edit(&mut layout);
+        self.layout.set(layout);
+    }
+
+    /// Ends what a bar changed: asks the app once, and either saves it or puts the sizes back.
+    fn settle_resize(&self, side: DockSide) {
+        let Some(before) = self.resizing.borrow_mut().take() else { return };
+        let after = self.layout.get();
+        if before == after {
+            return;
+        }
+        if self.allowed(&before, &after, &DockChange::Resize { side }) {
+            if let Some(on_end) = &self.on_end {
+                on_end(&after);
+            }
+        } else {
+            self.layout.set(before);
         }
     }
 
     /// Sends a panel somewhere, keeping focus on its tab and saying where it went.
     fn send(&self, id: &str, target: DockDrop) -> bool {
-        let moved = self.apply(|layout| layout.move_panel(id, target));
+        let change = DockChange::Move { panel: id.to_owned(), to: target.clone() };
+        let moved = self.apply(change, |layout| layout.move_panel(id, target));
         if moved {
             *self.focus.borrow_mut() = Some(id.to_owned());
             if let Some(side) = self.layout.get().side_of(id) {
@@ -339,14 +461,14 @@ impl Actions {
     }
 
     fn close(&self, id: &str, next: Option<String>, title: &str) {
-        if self.apply(|layout| layout.close(id)) {
+        if self.apply(DockChange::Close { panel: id.to_owned() }, |layout| layout.close(id)) {
             *self.focus.borrow_mut() = next;
             self.spoken.set(self.labels.dock_closed_name(title));
         }
     }
 
     fn reopen(&self, id: &str) {
-        if self.apply(|layout| layout.reopen(id)) {
+        if self.apply(DockChange::Reopen { panel: id.to_owned() }, |layout| layout.reopen(id)) {
             *self.focus.borrow_mut() = Some(id.to_owned());
         }
     }
@@ -569,7 +691,8 @@ impl View for TabView<'_> {
         cx.on_click(
             node,
             Rc::new(move || {
-                actions.apply(|layout| !layout.is_active(&to_show) && layout.activate(&to_show));
+                let change = DockChange::Activate { panel: to_show.clone() };
+                actions.apply(change, |layout| !layout.is_active(&to_show) && layout.activate(&to_show));
             }),
         );
         cx.cursor(node, CursorIcon::Pointer);
@@ -623,7 +746,7 @@ impl View for TabView<'_> {
         let (actions, panels) = (self.actions.clone(), group_panels.clone());
         let opens: Rc<dyn Fn(usize)> = Rc::new(move |to| {
             if let Some(id) = panels.get(to) {
-                actions.apply(|layout| layout.activate(id));
+                actions.apply(DockChange::Activate { panel: id.clone() }, |layout| layout.activate(id));
             }
         });
         self.roving.wire_with(cx, node, Some(opens), Some(before));
@@ -800,7 +923,7 @@ impl View for EdgeToggle {
         cx.on_click(
             node,
             Rc::new(move || {
-                actions.apply(|layout| {
+                actions.apply(DockChange::Collapse { side, open: !open }, |layout| {
                     layout.set_open(side, !open);
                     true
                 });
@@ -876,9 +999,16 @@ impl View for DockArea {
         if layout.reconcile(&known) {
             self.layout.set(layout.clone());
         }
+        let notice: State<Option<Notice>> = cx.use_state(|| None);
+        let resizing: Rc<RefCell<Option<DockLayout>>> =
+            cx.use_state(|| Rc::new(RefCell::new(None))).peek().clone();
         let actions = Actions {
             layout: self.layout.clone(),
             on_end: self.on_end.clone(),
+            guard: self.guard.clone(),
+            notice: notice.clone(),
+            frames: frames.clone(),
+            resizing,
             spoken: spoken.clone(),
             focus,
             labels: labels.clone(),
@@ -911,6 +1041,30 @@ impl View for DockArea {
         }
         if let Some(aim) = drag.get().and_then(|d| d.aim) {
             nodes.push(mark(cx, aim.mark));
+        }
+        // Why the app refused the last change, until the next gesture or a few seconds on.
+        if let Some(shown) = notice.get() {
+            let now = cx.now();
+            let since = shown.since.get().unwrap_or_else(|| {
+                shown.since.set(Some(now));
+                now
+            });
+            if now >= since + NOTICE_SECONDS {
+                notice.set(None);
+            } else {
+                cx.wake_at(since + NOTICE_SECONDS);
+                let (tone, ink) = (theme.color(Semantic::Warning), theme.color(Semantic::Ink));
+                let fill = theme.color(Semantic::SurfaceElevated);
+                nodes.push(util::bubble(
+                    cx,
+                    IconName::TriangleAlert,
+                    tone,
+                    &shown.reason,
+                    shown.at,
+                    ink,
+                    fill,
+                ));
+            }
         }
         let announcement = spoken.get();
         nodes.push(reorder::announcer(cx, announcement));
@@ -986,7 +1140,7 @@ impl DockArea {
 
     fn build_bar(&self, cx: &mut BuildCx<'_>, bar: &BarPlace, actions: &Actions) -> NodeId {
         let labels = cx.labels();
-        let (value, write) = (bar.value, self.layout.clone());
+        let value = bar.value;
         let (name, key, inverted) = match &bar.kind {
             BarKind::Dock(side) => (
                 labels.dock_resize_name(*side),
@@ -999,18 +1153,19 @@ impl DockArea {
                 false,
             ),
         };
-        let kind = bar.kind.clone();
+        let (kind, writer) = (bar.kind.clone(), actions.clone());
+        let side = match &bar.kind {
+            BarKind::Dock(side) | BarKind::Split { side, .. } => *side,
+        };
         let binding = Binding::new(
             move || value,
             move |next: f32| {
-                let mut layout = write.get();
-                match &kind {
+                writer.resize(|layout| match &kind {
                     BarKind::Dock(side) => layout.set_size(*side, next),
                     BarKind::Split { side, path, index, both, .. } => {
                         layout.resize_split(*side, path, *index, next, *both);
                     }
-                }
-                write.set(layout);
+                });
             },
         );
         let mut handle = SplitHandle::new(bar.axis, binding).range(bar.min, bar.max).label(name);
@@ -1018,7 +1173,7 @@ impl DockArea {
             handle = handle.inverted();
         }
         let actions = actions.clone();
-        let handle = handle.on_end(move || actions.settled());
+        let handle = handle.on_end(move || actions.settle_resize(side));
         let handle = cx.keyed_child(key_of(KEY_BAR, &key), &handle);
         // The bar stretches across its stack, so the stack goes the way the bar's own axis does.
         let style = LayoutStyle { axis: Some(bar.axis), ..placed(bar.rect) };

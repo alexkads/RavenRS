@@ -56,6 +56,50 @@ pub enum DockDrop {
     Side(DockSide),
 }
 
+/// What a person is about to change in a [`DockArea`](crate::DockArea), as its
+/// [`on_change`](crate::DockArea::on_change) is told. Panels are named by id.
+#[derive(Clone, Debug, PartialEq)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
+pub enum DockChange {
+    /// A panel comes to the front of its group.
+    Activate {
+        /// The panel.
+        panel: String,
+    },
+    /// A panel goes elsewhere: to another group, to another gap among the tabs of its own, to a
+    /// group of its own beside one, or to a place. A drag asks once, when it is let go.
+    Move {
+        /// The panel.
+        panel: String,
+        /// Where it goes.
+        to: DockDrop,
+    },
+    /// A panel closes, and can come back from the menus.
+    Close {
+        /// The panel.
+        panel: String,
+    },
+    /// A closed panel comes back where it was.
+    Reopen {
+        /// The panel.
+        panel: String,
+    },
+    /// A bar was let go after changing the size of a place or of the parts on each side of it.
+    /// A drag of the bar is asked once, when it ends; each key that moves it is asked by itself.
+    Resize {
+        /// The place the bar is in.
+        side: DockSide,
+    },
+    /// A dock collapses to its strip, or comes back from it.
+    Collapse {
+        /// The dock.
+        side: DockSide,
+        /// Whether it shows after the change.
+        open: bool,
+    },
+}
+
 /// A part of the tree: tabs, or parts side by side or stacked.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
