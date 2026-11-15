@@ -4,6 +4,7 @@
 //! mode `componentes` (#587) shows the same pages with no application framework around them.
 
 pub mod doca;
+pub mod grade;
 pub mod graficos;
 pub mod kit;
 pub mod listas;
@@ -47,6 +48,13 @@ pub const PAGES: &[Page] = &[
         group: "Listas e árvores",
         icon: IconName::Search,
         make: || Box::new(listas::inspetor::InspectorPage),
+    },
+    Page {
+        id: grade::dados::ID,
+        caption: grade::dados::PAGE,
+        group: "Grade",
+        icon: IconName::Table2,
+        make: || Box::new(grade::dados::DataGridPage),
     },
     Page {
         id: graficos::fluxo::ID,

@@ -27,6 +27,8 @@ from component_inventory import app_builders, built_components, public_methods_a
 CENTER = root / "examples/feature-center"
 MANIFEST = CENTER / "recursos.json"
 TOUR = CENTER / "tests/tour.rs"
+# A family's steps of the tour, each a module of tour.rs: `#[path = "tour/<family>.rs"] mod <family>;`.
+TOUR_PARTS = CENTER / "tests/tour"
 
 
 def place(path, line):
@@ -46,6 +48,11 @@ def main():
 
     center_source = "\n".join(path.read_text() for path in sorted((CENTER / "src").rglob("*.rs")))
     tour = TOUR.read_text()
+    for part in sorted(TOUR_PARTS.glob("*.rs")):
+        if f'#[path = "tour/{part.name}"]' not in tour:
+            problems.append(f"{part.relative_to(root)} is not declared in tests/tour.rs, so it never runs: "
+                            f'add `#[path = "tour/{part.name}"] mod {part.stem};`')
+        tour += "\n" + part.read_text()
     waiting = []
 
     for key, (path, line) in sorted(code.items()):

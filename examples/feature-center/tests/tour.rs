@@ -14,6 +14,10 @@ use ravenrs_widgets::Ui;
 use feature_center::seed::PASSWORD;
 use feature_center::{memory_database, watched};
 
+// The steps of each family of widgets, one file each.
+#[path = "tour/grade.rs"]
+mod grade;
+
 type Space = Rc<dyn Fn() -> Box<dyn ObjectSpace>>;
 
 struct Center {
