@@ -2,8 +2,7 @@
 resolver = "3"
 members = ["crates/*", "examples/*"]
 # Applications of their own, opened and built apart: they prove a package works outside this workspace.
-# examples/raven-flows holds only its survey until its code starts; then it becomes a member.
-exclude = ["examples/contracts", "examples/raven-flows"]
+exclude = ["examples/contracts"]
 
 [workspace.package]
 version = "27.1.28"

@@ -5885,6 +5885,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "raven-flows"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "pollster",
+ "ravenrs",
+ "ravenrs-flows",
+ "ravenrs-flows-runtime",
+ "serde",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "ravenrs"
 version = "27.1.28"
 dependencies = [

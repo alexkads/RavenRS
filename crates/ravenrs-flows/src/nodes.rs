@@ -665,6 +665,10 @@ impl NodeKind for Delay {
 
 /// Waits for the event named by its parameter `event` (an approval, a reply, a webhook), then
 /// gives the items the event brought. The run stops here until a durable run is told of it.
+///
+/// With `keep` true it is a gate instead: it gives the items that reached it, each with the
+/// first item the event brought under the field `as` (`"event"` when not said), so what waited
+/// for an approval goes on with the approval.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct WaitEvent;
 
@@ -674,10 +678,27 @@ impl NodeKind for WaitEvent {
     }
     fn execute(&self, cx: &NodeContext<'_>) -> Result<Ports, NodeError> {
         let event = text_parameter(cx, "event", "");
-        match cx.event(event) {
-            Some(items) => Ok(main_port(items.to_vec())),
-            None => Err(NodeError::wait_for(event)),
+        let Some(brought) = cx.event(event) else { return Err(NodeError::wait_for(event)) };
+        if !cx.parameter("keep").and_then(Value::as_bool).unwrap_or(false) {
+            return Ok(main_port(brought.to_vec()));
         }
+        let field = text_parameter(cx, "as", "event");
+        let news = brought.first().map(|item| item.json.clone()).unwrap_or(Value::Null);
+        let kept = cx
+            .input(MAIN)
+            .iter()
+            .map(|item| {
+                let mut json = item.json.clone();
+                match json.as_object_mut() {
+                    Some(fields) => {
+                        fields.insert(field.to_owned(), news.clone());
+                    }
+                    None => json = serde_json::json!({ "value": json, field: news.clone() }),
+                }
+                item.derive(json)
+            })
+            .collect();
+        Ok(main_port(kept))
     }
 }
 
