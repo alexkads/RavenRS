@@ -25,6 +25,9 @@ pub mod flow_inspector;
 pub mod flow_library;
 #[cfg(feature = "flow")]
 #[doc(hidden)]
+pub mod flow_notation;
+#[cfg(feature = "flow")]
+#[doc(hidden)]
 pub mod flow_toolbox;
 #[cfg(feature = "charts")]
 #[doc(hidden)]
@@ -38,16 +41,18 @@ pub use chart::{
 };
 #[cfg(feature = "flow")]
 pub use flow::{
-    EdgeCap, EdgeShape, FLOW_NODE_DRAG, FlowCanvas, FlowChange, FlowColors, FlowContent, FlowDirection,
-    FlowDocument, FlowEdge, FlowEndpoint, FlowExportFormat, FlowExporter, FlowGraph, FlowGuard, FlowHistory,
-    FlowJsonError, FlowKind, FlowLayout, FlowLayoutKind, FlowNext, FlowNode, FlowNodeStatus, FlowPicture,
-    FlowPort, FlowSelection, FlowShape, FlowShelf, FlowText, FlowValidator, FlowViewport, PortDirection,
-    PortSide,
+    EdgeCap, EdgeShape, FLOW_NODE_DRAG, FlowCanvas, FlowChange, FlowColors, FlowConnector, FlowContent,
+    FlowDirection, FlowDocument, FlowEdge, FlowEndpoint, FlowExportFormat, FlowExporter, FlowGraph,
+    FlowGuard, FlowHistory, FlowIssue, FlowJsonError, FlowKind, FlowLayout, FlowLayoutKind, FlowNext,
+    FlowNode, FlowNodeStatus, FlowPicture, FlowPort, FlowSelection, FlowShape, FlowShelf, FlowStyle,
+    FlowText, FlowValidator, FlowViewport, PortDirection, PortSide,
 };
 #[cfg(feature = "flow")]
 pub use flow_inspector::FlowInspector;
 #[cfg(feature = "flow")]
-pub use flow_library::FlowLibrary;
+pub use flow_library::{FlowFileFormat, FlowLibrary};
+#[cfg(feature = "flow")]
+pub use flow_notation::{FlowChecks, FlowNotation};
 #[cfg(feature = "flow")]
 pub use flow_toolbox::FlowToolbox;
 #[cfg(feature = "charts")]

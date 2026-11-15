@@ -644,6 +644,10 @@ pub struct FlowEdge {
     /// Drawn in dashes, as a line that says something other than "then".
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub dashed: bool,
+    /// What sort of connection it is, a name of the app's (a message, an association); empty
+    /// for the plain one.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub kind: String,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -662,6 +666,12 @@ impl FlowEdge {
     /// In `color` (`#rrggbb`).
     pub fn color(mut self, color: impl Into<String>) -> Self {
         self.color = Some(color.into());
+        self
+    }
+
+    /// Of this kind, a name of the app's.
+    pub fn kind(mut self, kind: impl Into<String>) -> Self {
+        self.kind = kind.into();
         self
     }
 
@@ -716,6 +726,7 @@ impl Default for FlowEdge {
             waypoints: Vec::new(),
             color: None,
             dashed: false,
+            kind: String::new(),
         }
     }
 }

@@ -267,11 +267,11 @@ impl View for Builder {
 }
 
 /// The whole app.
-pub fn app() -> Builder {
+pub fn app() -> Localized<Builder> {
     app_kept_in(Rc::new(MemoryStorage::default()))
 }
 
 /// The whole app, keeping its diagrams in `storage`.
-pub fn app_kept_in(storage: Rc<dyn Storage>) -> Builder {
-    Builder { storage }
+pub fn app_kept_in(storage: Rc<dyn Storage>) -> Localized<Builder> {
+    Localized::new(Labels::pt_br(), Builder { storage })
 }

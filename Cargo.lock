@@ -841,6 +841,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "bpmn-editor"
+version = "27.1.28"
+dependencies = [
+ "image",
+ "pollster",
+ "ravenrs",
+ "ravenrs-ai",
+ "ravenrs-flow-bpmn",
+ "ravenrs-flow-export",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "brotli"
 version = "8.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6240,6 +6253,17 @@ dependencies = [
  "sha1 0.10.7",
  "ureq",
  "zeroize",
+]
+
+[[package]]
+name = "ravenrs-flow-bpmn"
+version = "27.1.28"
+dependencies = [
+ "quick-xml",
+ "ravenrs-core",
+ "ravenrs-style",
+ "ravenrs-widgets",
+ "serde_json",
 ]
 
 [[package]]

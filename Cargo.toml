@@ -47,6 +47,7 @@ ravenrs-report-label = { version = "27.1.28", path = "crates/ravenrs-report-labe
 ravenrs-perifericos = { version = "27.1.28", path = "crates/ravenrs-perifericos" }
 ravenrs-grid-export = { version = "27.1.28", path = "crates/ravenrs-grid-export" }
 ravenrs-flow-export = { version = "27.1.28", path = "crates/ravenrs-flow-export" }
+ravenrs-flow-bpmn = { version = "27.1.28", path = "crates/ravenrs-flow-bpmn" }
 ravenrs-app = { version = "27.1.28", path = "crates/ravenrs-app" }
 ravenrs-app-a11y = { version = "27.1.28", path = "crates/ravenrs-app-a11y" }
 ravenrs-app-ui = { version = "27.1.28", path = "crates/ravenrs-app-ui" }

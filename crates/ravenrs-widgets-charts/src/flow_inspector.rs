@@ -111,6 +111,14 @@ impl FlowInspector {
         self
     }
 
+    /// The kinds of `notation`, with their words.
+    pub fn notation(mut self, notation: &crate::FlowNotation) -> Self {
+        for (kind, caption) in &notation.kinds {
+            Rc::make_mut(&mut self.kinds).push((kind.clone(), caption.clone()));
+        }
+        self
+    }
+
     /// Shows the properties without letting them change, as when the canvas is locked.
     pub fn read_only(mut self, read_only: bool) -> Self {
         self.read_only = read_only;

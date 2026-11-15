@@ -1,0 +1,26 @@
+[package]
+name = "ravenrs-flow-bpmn"
+description = "BPMN 2.0 for RavenRS diagram components: the notation as data, BPMN XML with its drawing in and out, the checks of a process, and plans a local model writes."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-flow-bpmn"
+keywords = ["bpmn", "diagram", "process", "gui"]
+categories = ["gui", "parser-implementations"]
+
+[dependencies]
+ravenrs-core.workspace = true
+ravenrs-widgets = { workspace = true, features = ["flow"] }
+quick-xml = "0.41"
+serde_json.workspace = true
+
+[dev-dependencies]
+ravenrs-style.workspace = true
+
+[lints]
+workspace = true

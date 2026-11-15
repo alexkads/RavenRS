@@ -607,6 +607,14 @@ pub struct Labels {
     pub flow_title: String,
     /// A turned node of a `FlowCanvas`, with `{0}` its turn in degrees.
     pub flow_turned: String,
+    /// The Check button of a `FlowCanvas`.
+    pub flow_check: String,
+    /// A `FlowCanvas` check that found nothing wrong.
+    pub flow_check_ok: String,
+    /// A `FlowCanvas` check that found problems, with `{0}` how many.
+    pub flow_check_found: String,
+    /// Closes the box of a `FlowCanvas` check.
+    pub flow_check_close: String,
     /// A field of a `FlowInspector`: the color inside a node.
     pub flow_field_fill: String,
     /// A field of a `FlowInspector`: the color of an outline or a line.
@@ -1343,6 +1351,10 @@ impl Labels {
             flow_members: texts.get("widgets.flow_members"),
             flow_title: texts.get("widgets.flow_title"),
             flow_turned: texts.get("widgets.flow_turned"),
+            flow_check: texts.get("widgets.flow_check"),
+            flow_check_ok: texts.get("widgets.flow_check_ok"),
+            flow_check_found: texts.get("widgets.flow_check_found"),
+            flow_check_close: texts.get("widgets.flow_check_close"),
             flow_field_fill: texts.get("widgets.flow_field_fill"),
             flow_field_stroke: texts.get("widgets.flow_field_stroke"),
             flow_field_text: texts.get("widgets.flow_field_text"),

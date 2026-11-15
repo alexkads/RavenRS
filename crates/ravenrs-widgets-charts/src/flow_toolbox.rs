@@ -109,6 +109,17 @@ impl FlowToolbox {
         self
     }
 
+    /// The elements of `notation`, in its groups, in the order they were given.
+    pub fn notation(mut self, notation: &crate::FlowNotation) -> Self {
+        for (group, caption, node) in &notation.models {
+            if self.groups.last().is_none_or(|g| g.title != *group) {
+                self = self.group(group.clone());
+            }
+            self = self.model(caption.clone(), node.clone());
+        }
+        self
+    }
+
     /// Another heading than "Shapes", for what the models are in this app: blocks, steps,
     /// pieces. Screen readers name the panel by it too.
     pub fn title(mut self, title: impl Into<String>) -> Self {

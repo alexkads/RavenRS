@@ -166,6 +166,21 @@ impl LocalAssistant {
         self.send(Job { system, user, text, waker, if_it_fails, done: Some(done), ..Job::blank() });
     }
 
+    /// Asks it to answer `user`, following `system`, as a message of a
+    /// [`Chat`](ravenrs_widgets::Chat): the answer shows as it is written, and `then` gets the
+    /// whole of it, on the UI thread, once it is over (empty if the model could not answer).
+    pub fn reply(
+        &self,
+        system: String,
+        user: String,
+        waker: UiWaker,
+        then: impl Fn(String) + 'static,
+    ) -> ravenrs_widgets::ChatMessage {
+        let (text, done) = (Arc::new(Mutex::new(String::new())), Arc::new(AtomicBool::new(false)));
+        self.answer(system, user, text.clone(), done.clone(), waker);
+        ravenrs_widgets::ChatMessage::assistant_writing(text).when_done(done, then)
+    }
+
     /// Whether a question waited too long on this machine. From then on it answers
     /// nothing, at once, so nobody waits for it again until another assistant is made.
     pub fn too_slow(&self) -> bool {

@@ -201,11 +201,11 @@ impl View for Whiteboard {
 }
 
 /// The whole app.
-pub fn app() -> Whiteboard {
+pub fn app() -> Localized<Whiteboard> {
     app_kept_in(Rc::new(MemoryStorage::default()))
 }
 
 /// The whole app, keeping its diagrams in `storage`.
-pub fn app_kept_in(storage: Rc<dyn Storage>) -> Whiteboard {
-    Whiteboard { storage }
+pub fn app_kept_in(storage: Rc<dyn Storage>) -> Localized<Whiteboard> {
+    Localized::new(Labels::pt_br(), Whiteboard { storage })
 }

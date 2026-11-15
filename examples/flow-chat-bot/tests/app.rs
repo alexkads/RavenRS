@@ -39,7 +39,7 @@ fn the_builder_shows_blocks_conversation_and_properties() {
     assert!(named(&mut ui, "Blocos").is_some(), "the blocks");
     assert!(named(&mut ui, "Conversa").is_some(), "the conversation");
     assert!(named(&mut ui, "Boas-vindas").is_some(), "a message");
-    assert!(named(&mut ui, "Export").is_some(), "saving it");
+    assert!(named(&mut ui, "Exportar").is_some(), "saving it");
 }
 
 #[test]
@@ -107,9 +107,9 @@ fn the_test_buttons_run_and_stop() {
     press(&mut ui, "Próximo passo");
     let tree = ui.access_tree();
     let menu = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Boas-vindas")).expect("the welcome");
-    assert!(menu.description.as_deref().is_some_and(|d| d.contains("Running")), "{:?}", menu.description);
+    assert!(menu.description.as_deref().is_some_and(|d| d.contains("Em execução")), "{:?}", menu.description);
     press(&mut ui, "Parar");
     let tree = ui.access_tree();
     let menu = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Boas-vindas")).expect("the welcome");
-    assert!(!menu.description.as_deref().unwrap_or_default().contains("Running"));
+    assert!(!menu.description.as_deref().unwrap_or_default().contains("Em execução"));
 }

@@ -27,8 +27,8 @@ pub use ravenrs_graphics::flow::{
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
 use crate::{
-    AnyView, ButtonSize, ButtonStyle, Clipboard, DropdownMenu, IconButton, IconName, MenuItem, TextField,
-    View, util,
+    Alert, AnyView, ButtonSize, ButtonStyle, Clipboard, DropdownMenu, IconButton, IconName, MenuItem,
+    TextField, View, util,
 };
 
 /// What a node shows inside its card instead of its icon and words, for
@@ -67,6 +67,8 @@ const CAP: f32 = 8.0;
 /// How near the straight between its neighbours a bend point let go is taken out, in screen
 /// pixels.
 const BEND_STRAIGHT: f32 = 4.0;
+/// How wide the box of a check is, in logical pixels.
+const CHECK_WIDTH: f32 = 340.0;
 /// The least zoom at which ports show their names.
 const PORT_LABEL_ZOOM: f32 = 0.5;
 /// The side of a bend point's square, in screen pixels.
@@ -138,6 +140,24 @@ impl FlowViewport {
             zoom,
             fit: false,
         }
+    }
+}
+
+/// Something wrong with a diagram, said in words, with the nodes it is about, which the
+/// canvas outlines while the check is shown.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct FlowIssue {
+    /// What is wrong.
+    pub text: String,
+    /// The nodes it is about, by id.
+    pub nodes: Vec<String>,
+}
+
+impl FlowIssue {
+    /// `text`, about these nodes.
+    pub fn new(text: impl Into<String>, nodes: impl IntoIterator<Item = impl Into<String>>) -> Self {
+        Self { text: text.into(), nodes: nodes.into_iter().map(Into::into).collect() }
     }
 }
 
@@ -315,6 +335,10 @@ pub type FlowExporter = Rc<dyn Fn(FlowExportFormat, FlowPicture)>;
 /// id and place are set by the canvas. `None` makes nothing on that side.
 pub type FlowNext = Rc<dyn Fn(&FlowNode, PortSide) -> Option<FlowNode>>;
 
+/// Gives a connection made on the canvas, or moved to other ports, the look and kind it should
+/// have for its ends (in the diagram as it is), from the plain one the canvas made.
+pub type FlowConnector = Rc<dyn Fn(&FlowGraph, FlowEdge) -> FlowEdge>;
+
 /// Decides whether a change may happen, given the diagram before and after it. When it may
 /// not, the diagram stays as it was, nothing goes into the history, and the reason shows.
 pub type FlowGuard = Rc<dyn Fn(&FlowGraph, &FlowGraph, &FlowChange) -> Result<(), String>>;
@@ -384,6 +408,8 @@ pub struct FlowCanvas {
     next: Option<FlowNext>,
     arrivals: Option<Binding<Option<FlowNode>>>,
     export: Option<FlowExporter>,
+    connector: Option<FlowConnector>,
+    checks: Option<crate::flow_notation::FlowChecks>,
     quick_create: bool,
     grid: f32,
     snap: bool,
@@ -424,6 +450,8 @@ impl FlowCanvas {
             next: None,
             arrivals: None,
             export: None,
+            connector: None,
+            checks: None,
             quick_create: true,
             grid: 24.0,
             snap: true,
@@ -436,6 +464,14 @@ impl FlowCanvas {
             height: None,
             grow: 1.0,
         }
+    }
+
+    /// Shapes every connection made or moved on the canvas: `shape` gets the diagram and the
+    /// plain connection (its id and ends set) and gives it back with its kind, look and
+    /// caps, as a notation draws that kind of line between those ends.
+    pub fn connection(mut self, shape: impl Fn(&FlowGraph, FlowEdge) -> FlowEdge + 'static) -> Self {
+        self.connector = Some(Rc::new(shape));
+        self
     }
 
     /// Offers Export in the controls, and Cmd/Ctrl+Shift+E: the diagram, or with "Only the
@@ -480,6 +516,34 @@ impl FlowCanvas {
     /// How nodes of `kind` look. A kind with no entry shows a plain box.
     pub fn kind(mut self, kind: impl Into<String>, look: FlowKind) -> Self {
         Rc::make_mut(&mut self.kinds).push((kind.into(), look));
+        self
+    }
+
+    /// Offers Check in the controls: what `checks` finds wrong shows in a box over the canvas,
+    /// kept up to date while it is open, and the nodes it is about are outlined.
+    pub fn checks(mut self, checks: impl Fn(&FlowGraph) -> Vec<FlowIssue> + 'static) -> Self {
+        self.checks = Some(Rc::new(checks));
+        self
+    }
+
+    /// Takes from `notation` how its kinds look, which connections may be made and how they
+    /// are drawn, what comes next from the keys, and what makes a diagram right.
+    pub fn notation(mut self, notation: &crate::FlowNotation) -> Self {
+        for (kind, look) in &notation.looks {
+            Rc::make_mut(&mut self.kinds).push((kind.clone(), look.clone()));
+        }
+        if notation.validate.is_some() {
+            self.validate = notation.validate.clone();
+        }
+        if notation.connector.is_some() {
+            self.connector = notation.connector.clone();
+        }
+        if notation.next.is_some() {
+            self.next = notation.next.clone();
+        }
+        if notation.checks.is_some() {
+            self.checks = notation.checks.clone();
+        }
         self
     }
 
@@ -719,6 +783,10 @@ struct Flow {
     /// Why a group does not turn.
     no_turn: String,
     next: Option<FlowNext>,
+    connector: Option<FlowConnector>,
+    checks: Option<crate::flow_notation::FlowChecks>,
+    /// Whether the check's box is open.
+    checking: State<bool>,
     export: Option<FlowExporter>,
     /// Whether Export takes only what is selected, and the format chosen last.
     export_only: State<bool>,
@@ -894,7 +962,7 @@ impl Flow {
         } else {
             pick(&made, PortDirection::Output, opposite).zip(pick(from, PortDirection::Input, side))
         };
-        let edge = ends.map(|(a, b)| FlowEdge::new(graph.fresh_edge_id("e"), a, b));
+        let edge = ends.map(|(a, b)| self.shaped(graph, FlowEdge::new(graph.fresh_edge_id("e"), a, b)));
         Some((made, edge))
     }
 
@@ -1217,6 +1285,17 @@ impl Flow {
             export(format, picture);
         }
         true
+    }
+
+    /// A connection as the app's connector shapes it, keeping its id and ends.
+    fn shaped(&self, graph: &FlowGraph, edge: FlowEdge) -> FlowEdge {
+        match &self.connector {
+            Some(shape) => {
+                let (id, from, to) = (edge.id.clone(), edge.from.clone(), edge.to.clone());
+                FlowEdge { id, from, to, ..shape(graph, edge) }
+            }
+            None => edge,
+        }
     }
 
     /// Where `at` (in the view) lands in the diagram, on the grid.
@@ -1840,14 +1919,15 @@ impl Flow {
         let (a, b) = Self::oriented(&graph, &connecting.from, end);
         let id = match &connecting.moving {
             Some(id) => {
-                let Some(edge) = graph.edges.iter_mut().find(|e| &e.id == id) else { return false };
-                edge.from = a;
-                edge.to = b;
+                let Some(i) = graph.edges.iter().position(|e| &e.id == id) else { return false };
+                let moved = FlowEdge { from: a, to: b, ..graph.edges[i].clone() };
+                graph.edges[i] = self.shaped(&graph, moved);
                 id.clone()
             }
             None => {
                 let id = graph.fresh_edge_id("e");
-                graph.edges.push(FlowEdge::new(id.clone(), a, b));
+                let edge = self.shaped(&graph, FlowEdge::new(id.clone(), a, b));
+                graph.edges.push(edge);
                 id
             }
         };
@@ -2203,6 +2283,7 @@ impl View for FlowCanvas {
         let marquee = cx.use_state(|| None::<Rect>);
         let guides = cx.use_state(|| (None::<f32>, None::<f32>));
         let export_only = cx.use_state(|| false);
+        let checking = cx.use_state(|| false);
         let export_format = cx.use_state(FlowExportFormat::default);
         let notice = cx.use_state(|| None::<String>);
         let editing = cx.use_state(|| None::<String>);
@@ -2231,6 +2312,9 @@ impl View for FlowCanvas {
             no_turn: labels.flow_no_turn.clone(),
             next: self.next.clone(),
             export: self.export.clone(),
+            connector: self.connector.clone(),
+            checks: self.checks.clone(),
+            checking: checking.clone(),
             export_only,
             export_format,
             palette,
@@ -2267,6 +2351,10 @@ impl View for FlowCanvas {
         let editing_now = editing.get();
         let is_locked = locked.get();
 
+        // The check, kept up to date while its box is open.
+        let issues: Option<Vec<FlowIssue>> =
+            self.checks.as_ref().filter(|_| checking.get()).map(|checks| checks(&graph));
+        let flagged: Vec<String> = issues.iter().flatten().flat_map(|i| i.nodes.iter().cloned()).collect();
         let mut children = Vec::new();
         for node in &graph.nodes {
             let look = self.kinds.iter().find(|(k, _)| *k == node.kind).map(|(_, look)| look.clone());
@@ -2281,6 +2369,7 @@ impl View for FlowCanvas {
                 rotatable: self.rotatable,
                 quick: self.quick_create && !is_locked,
                 selected_many: selection.nodes.len() > 1,
+                flagged: flagged.contains(&node.id),
                 members: graph.children(&node.id).count(),
                 editing: editing_now.as_deref() == Some(node.id.as_str()),
                 handles: graph
@@ -2362,6 +2451,28 @@ impl View for FlowCanvas {
         if let Some(reason) = notice.get() {
             let at = memory.pointer.get().unwrap_or(Point::new(FIT_MARGIN, FIT_MARGIN));
             children.push(refusal(cx, &reason, at, palette));
+        }
+        if let Some(issues) = &issues {
+            let title = if issues.is_empty() {
+                labels.flow_check_ok.clone()
+            } else {
+                labels.flow_check_found.replace("{0}", &issues.len().to_string())
+            };
+            let message: Vec<String> = issues.iter().map(|i| format!("• {}", i.text)).collect();
+            let close = checking.clone();
+            let alert = Alert::new(title, message.join("\n"))
+                .tone(if issues.is_empty() { crate::Tone::Success } else { crate::Tone::Warning })
+                .action(labels.flow_check_close.clone(), move || close.set(false));
+            let shown = cx.child(&alert);
+            children.push(cx.container(
+                LayoutStyle {
+                    absolute: Some((theme.spacing.s4, theme.spacing.s4)),
+                    width: Some(CHECK_WIDTH),
+                    ..LayoutStyle::stack(Axis::Vertical)
+                },
+                &[shown],
+                Paint::None,
+            ));
         }
         if let Some(size) = size {
             if self.controls {
@@ -2569,6 +2680,18 @@ fn controls(
             .selected(locked)
             .on_click(move || d.set(!d.get())),
     );
+    let check = flow.checks.is_some().then(|| {
+        let open = flow.checking.clone();
+        let on = open.get();
+        cx.child(
+            &IconButton::new(IconName::CircleCheck)
+                .label(labels.flow_check.clone())
+                .size(ButtonSize::Small)
+                .style(ButtonStyle::Ghost)
+                .selected(on)
+                .on_click(move || open.set(!on)),
+        )
+    });
     let export = flow.export.is_some().then(|| {
         let item = |name: &str, aside: Option<&str>, format: FlowExportFormat| {
             let f = flow.clone();
@@ -2621,6 +2744,7 @@ fn controls(
         },
         &[zoom_in, zoom_out, fit, arrange, lock]
             .into_iter()
+            .chain(check)
             .chain(export)
             .chain([percent])
             .collect::<Vec<_>>(),
@@ -2653,6 +2777,8 @@ struct NodeBox {
     quick: bool,
     /// More than one node is selected: the arrows stay away.
     selected_many: bool,
+    /// Outlined as a warning: a check found something wrong with it.
+    flagged: bool,
     /// For a group, how many nodes it holds directly.
     members: usize,
     /// Its title is being typed.
@@ -2850,7 +2976,10 @@ impl View for NodeBox {
             ports.insert(0, holder);
         }
         let look = self.look.clone();
-        let (title, subtitle, status) = (node.title.clone(), node.subtitle.clone(), node.status.clone());
+        let (title, subtitle, mut status) = (node.title.clone(), node.subtitle.clone(), node.status.clone());
+        if self.flagged && status == FlowNodeStatus::Normal {
+            status = FlowNodeStatus::Warning(String::new());
+        }
         let style = node.style.clone();
         let selected = self.selected;
         let zoom = view.zoom;

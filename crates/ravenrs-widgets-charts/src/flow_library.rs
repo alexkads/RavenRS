@@ -12,9 +12,47 @@ use ravenrs_style::{Semantic, TextStyle, Weight};
 use crate::context::{BuildCx, NodeId, Paint, Semantics};
 use crate::flow::{FlowDocument, FlowGraph, FlowHistory, FlowSelection, FlowShelf, FlowViewport};
 use crate::{
-    ButtonSize, ButtonStyle, ConfirmDialog, FileRequest, IconButton, IconName, ListItem, TextField, View,
-    util,
+    ButtonSize, ButtonStyle, ConfirmDialog, DropdownMenu, FileRequest, IconButton, IconName, ListItem,
+    MenuItem, TextField, View, util,
 };
+
+/// Makes a diagram of a file's text.
+type Reader = Rc<dyn Fn(&str) -> Result<FlowGraph, String>>;
+/// Makes the text of a diagram, given its name.
+type Writer = Rc<dyn Fn(&FlowGraph, &str) -> String>;
+
+/// A file format a [`FlowLibrary`] opens and saves diagrams in besides its own JSON, such as
+/// a notation's XML: what it is called, its extension, and how a diagram is read from it and
+/// written to it.
+#[derive(Clone)]
+pub struct FlowFileFormat {
+    name: String,
+    extension: String,
+    read: Reader,
+    write: Writer,
+}
+
+impl fmt::Debug for FlowFileFormat {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FlowFileFormat")
+            .field("name", &self.name)
+            .field("extension", &self.extension)
+            .finish()
+    }
+}
+
+impl FlowFileFormat {
+    /// A format called `name`, in files ending in `.extension`: `read` makes a diagram of a
+    /// file's text, or says why it cannot; `write` makes the text of a diagram, given its name.
+    pub fn new(
+        name: impl Into<String>,
+        extension: impl Into<String>,
+        read: impl Fn(&str) -> Result<FlowGraph, String> + 'static,
+        write: impl Fn(&FlowGraph, &str) -> String + 'static,
+    ) -> Self {
+        Self { name: name.into(), extension: extension.into(), read: Rc::new(read), write: Rc::new(write) }
+    }
+}
 
 /// The diagrams an app keeps, listed beside a [`FlowCanvas`](crate::FlowCanvas) that edits the
 /// open one through the same `graph`.
@@ -50,6 +88,7 @@ pub struct FlowLibrary {
     key: String,
     title: Option<String>,
     width: f32,
+    formats: Vec<FlowFileFormat>,
 }
 
 impl fmt::Debug for FlowLibrary {
@@ -71,6 +110,7 @@ impl FlowLibrary {
             key: "flows".into(),
             title: None,
             width: 240.0,
+            formats: Vec::new(),
         }
     }
 
@@ -116,6 +156,18 @@ impl FlowLibrary {
         self.width = width;
         self
     }
+
+    /// The file formats of `notation`.
+    pub fn notation(mut self, notation: &crate::FlowNotation) -> Self {
+        self.formats.extend(notation.formats.iter().cloned());
+        self
+    }
+
+    /// Also opens and saves files in `format`; Save as file then asks which.
+    pub fn format(mut self, format: FlowFileFormat) -> Self {
+        self.formats.push(format);
+        self
+    }
 }
 
 /// What the library knows between builds.
@@ -140,6 +192,7 @@ struct Shelf {
     storage: Rc<dyn Storage>,
     key: String,
     kept: Kept,
+    formats: Rc<Vec<FlowFileFormat>>,
 }
 
 impl Shelf {
@@ -233,15 +286,25 @@ impl Shelf {
         }
     }
 
-    /// Opens a diagram read from a JSON file as a new document named after the file.
+    /// Opens a diagram read from a file, in the format its extension names (JSON otherwise),
+    /// as a new document named after the file.
     fn import(&self, file_name: &str, bytes: &[u8]) {
         let text = String::from_utf8_lossy(bytes);
-        match FlowGraph::from_json(&text) {
+        let format = self
+            .formats
+            .iter()
+            .find(|f| file_name.to_lowercase().ends_with(&format!(".{}", f.extension.to_lowercase())));
+        let read = match format {
+            Some(format) => (format.read)(&text),
+            None => FlowGraph::from_json(&text).map_err(|e| e.to_string()),
+        };
+        let stem = file_name.rsplit_once('.').map_or(file_name, |(stem, _)| stem).to_owned();
+        match read {
             Ok(graph) => {
                 if self.unsaved() {
                     self.save();
                 }
-                let name = file_name.strip_suffix(".json").unwrap_or(file_name).to_owned();
+                let name = stem;
                 let id = self.kept.shelf.get().fresh_id();
                 let document = FlowDocument { id, name, graph };
                 let mut shelf = self.kept.shelf.get();
@@ -249,19 +312,24 @@ impl Shelf {
                 self.write(shelf);
                 self.show(document);
             }
-            Err(e) => self.kept.trouble.set(Some(e.to_string())),
+            Err(e) => self.kept.trouble.set(Some(e)),
         }
     }
 }
 
 /// A file name from a diagram's name, without what file systems refuse.
 fn file_name(name: &str) -> String {
+    file_named(name, "json")
+}
+
+/// A file name from a diagram's name and an extension.
+fn file_named(name: &str, extension: &str) -> String {
     let kept: String = name
         .chars()
         .filter(|c| !matches!(c, '/' | '\\' | ':' | '*' | '?' | '"' | '<' | '>' | '|') && !c.is_control())
         .collect();
     let kept = kept.trim();
-    format!("{}.json", if kept.is_empty() { "diagram" } else { kept })
+    format!("{}.{extension}", if kept.is_empty() { "diagram" } else { kept })
 }
 
 impl View for FlowLibrary {
@@ -306,6 +374,7 @@ impl View for FlowLibrary {
             storage,
             key: self.key.clone(),
             kept: kept.clone(),
+            formats: Rc::new(self.formats.clone()),
         };
         let muted = theme.color(Semantic::InkMuted);
         let title = self.title.clone().unwrap_or_else(|| labels.flow_library.clone());
@@ -339,7 +408,9 @@ impl View for FlowLibrary {
             Rc::new(move || {
                 let s = s3.clone();
                 let mut request = FileRequest::default();
-                request.extensions = vec!["json".into()];
+                request.extensions = std::iter::once("json".to_owned())
+                    .chain(s.formats.iter().map(|f| f.extension.clone()))
+                    .collect();
                 request.most_bytes = Some(20 << 20);
                 opener.pick(&request, move |files| {
                     if let Some(file) = files.first() {
@@ -348,15 +419,39 @@ impl View for FlowLibrary {
                 });
             }),
         );
-        let save_file = button(
-            cx,
-            IconName::Upload,
-            &labels.flow_library_save_file,
-            Rc::new(move || {
-                let current = s4.current();
-                picker.save(&file_name(&current.name), current.graph.to_json().as_bytes());
-            }),
-        );
+        let save_file = if self.formats.is_empty() {
+            button(
+                cx,
+                IconName::Upload,
+                &labels.flow_library_save_file,
+                Rc::new(move || {
+                    let current = s4.current();
+                    picker.save(&file_name(&current.name), current.graph.to_json().as_bytes());
+                }),
+            )
+        } else {
+            // Which format, in a menu: the library's own JSON first.
+            let (s5, p5) = (s4.clone(), picker.clone());
+            let mut menu = DropdownMenu::new(labels.flow_library_save_file.clone())
+                .icon(IconName::Upload)
+                .icon_only()
+                .size(ButtonSize::Small)
+                .style(ButtonStyle::Ghost)
+                .item(MenuItem::new("JSON").shortcut(".json").on_select(move || {
+                    let current = s5.current();
+                    p5.save(&file_name(&current.name), current.graph.to_json().as_bytes());
+                }));
+            for format in self.formats.iter().cloned() {
+                let (s6, p6) = (s4.clone(), picker.clone());
+                let aside = format!(".{}", format.extension);
+                menu = menu.item(MenuItem::new(format.name.clone()).shortcut(aside).on_select(move || {
+                    let current = s6.current();
+                    let text = (format.write)(&current.graph, &current.name);
+                    p6.save(&file_named(&current.name, &format.extension), text.as_bytes());
+                }));
+            }
+            cx.child(&menu)
+        };
         let spacer = cx.container(LayoutStyle { grow: 1.0, ..LayoutStyle::leaf() }, &[], Paint::None);
         rows.push(cx.container(
             LayoutStyle { align: Align::Center, spacing: 2.0, ..LayoutStyle::stack(Axis::Horizontal) },

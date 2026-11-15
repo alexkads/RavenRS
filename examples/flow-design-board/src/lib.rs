@@ -138,11 +138,11 @@ impl View for Board {
 }
 
 /// The whole app.
-pub fn app() -> Board {
+pub fn app() -> Localized<Board> {
     app_kept_in(Rc::new(MemoryStorage::default()))
 }
 
 /// The whole app, keeping its diagrams in `storage`.
-pub fn app_kept_in(storage: Rc<dyn Storage>) -> Board {
-    Board { storage }
+pub fn app_kept_in(storage: Rc<dyn Storage>) -> Localized<Board> {
+    Localized::new(Labels::pt_br(), Board { storage })
 }
