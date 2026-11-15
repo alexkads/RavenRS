@@ -72,6 +72,20 @@ impl Item {
         Self { json, from: parents.into_iter().filter_map(|p| p.at.clone()).collect(), ..Self::default() }
     }
 
+    /// A new item made from this one, saying it failed because of `message`: an object keeps its
+    /// fields and gains `error`; anything else is kept under `value`.
+    pub fn failed(&self, message: &str) -> Self {
+        let json = match &self.json {
+            Value::Object(map) => {
+                let mut map = map.clone();
+                map.insert("error".to_owned(), Value::String(message.to_owned()));
+                Value::Object(map)
+            }
+            other => serde_json::json!({ "error": message, "value": other }),
+        };
+        self.derive(json)
+    }
+
     /// The same item carrying the file `binary` under `name`.
     pub fn with_binary(mut self, name: impl Into<String>, binary: BinaryRef) -> Self {
         self.binary.insert(name.into(), binary);

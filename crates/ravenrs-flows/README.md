@@ -11,7 +11,8 @@ The `FlowCanvas` draws a diagram, and its debugger (`FlowRun`) moves tokens thro
 | `FlowDefinition`, `NodeDef`, `Connection` | The flow as the app keeps it: nodes with kind, version, title, parameters, disabled state, error policy and pinned items, and connections between named ports. Written as JSON with a format version; a newer version is refused, so an older build never drops what it does not know. |
 | `NodeKind`, `NodeSpec`, `Catalog` | The kinds of node. A kind says its ports, the parameters it requires, and whether it is a trigger, a loop or a branch, and it runs on what reached its inputs. The catalog keeps the kinds by name and version. |
 | `Plan` | The flow checked against the catalog and put in order. It reports everything wrong at once (an unknown kind, a port the kind lacks, a missing parameter, two nodes with one id, a connection to nowhere) and refuses a cycle unless it goes through a loop node. It also lists the nodes no trigger leads to. |
-| `Executor`, `Run` | Runs a plan in memory, in order, on an injected clock. It can run the whole flow, run from one node on (the nodes upstream do not run again, and their items come from an earlier run), or run one node alone. In a test run, pinned items take the place of running the node. |
+| `Executor`, `Run` | Runs a plan in memory, in order, on an injected clock. It can run the whole flow, run from one node on (the nodes upstream do not run again, and their items come from an earlier run), or run one node alone. In a test run, pinned items take the place of running the node. A loop goes round its body while the loop node sends items into it, up to `LOOP_LIMIT` turns (`Executor::loop_limit`). |
+| `nodes`, `Catalog::builtin` | The built-in kinds, listed below. |
 | `Item`, `ItemRef` | What passes along a connection: a JSON value, the files it carries and where it came from. `Item::derive` makes a new item from another; an item passed on unchanged is traced to where it was. |
 | `to_graph`, `from_graph`, `Catalog::run_rules` | The bridge to the canvas. A flow is drawn as a `FlowGraph`, the drawing is read back into the flow (geometry stays in the graph, setup in the definition), and the debugger gets rules from the catalog. |
 
@@ -22,6 +23,32 @@ The `FlowCanvas` draws a diagram, and its debugger (`FlowRun`) moves tokens thro
 - In a **test** (`Mode::Test`), a node with **pinned** items gives them instead of running. When the flow is working (`Mode::Active`), they are ignored.
 - A node that **fails** stops the run (`ErrorPolicy::Stop`), or gives nothing while the run goes on (`ErrorPolicy::Continue`). A node that answers on a port its kind does not have also fails.
 - The same flow, items and clock always give the same run.
+
+## The built-in kinds
+
+`Catalog::builtin()` holds them all, each at version 1. Conditions and values are written in the criteria language of `ravenrs-criteria`, such as `[paid] = true` or `[qty] * [price]`, and read each item's JSON. The language is parsed into a tree and runs no code.
+
+| Kind | What it does | Main parameters |
+|---|---|---|
+| `manual` | Starts a run with the items it is given. | `items` |
+| `if` | Sends each item to `true` or `false`. A side no item takes gives nothing, so a merge after it goes on with the other. | `condition` |
+| `switch` | One output per case and `otherwise` for the rest. | `value`, `cases` |
+| `merge` | Joins inputs `a` and `b`: `append` (the default), `position`, `key` (`key`, or `key_a` and `key_b`, and `keep_unmatched`) or `first`. | `mode` |
+| `batches` | A loop. Each turn it sends the next batch to `batch`; what the body sends back reaches `back`; with no batch left, everything that came back goes out on `done`. | `size` |
+| `set` | Sets fields from expressions, or keeps only them. | `fields`, `keep_only` |
+| `filter` | Keeps the items whose condition is true and sends the rest to `discarded`. | `condition` |
+| `sort` | Orders by fields, each rising or falling. Ties keep the order they came in. | `by` |
+| `group` | One item per group, with `sum`, `count`, `min`, `max`, `avg` and `list`. | `by`, `aggregates` |
+| `split` | One item per entry of a list field. An item whose field is not a list goes to the error output. | `field` |
+| `join` | One item holding a list of all that came, or of one field. | `field`, `as` |
+
+## When something fails
+
+Every node has an error output, `ERROR_PORT` (`"error"`), besides its kind's. A kind sends the items that failed one by one there (`Item::failed` keeps the item and adds why), and the node's `on_error` decides the rest:
+
+- `Stop` (the default): a failure of the node, or of any of its items, stops the run.
+- `Continue`: the failed items go to the error output and the others where they were going. A node that fails as a whole gives nothing.
+- `Route`: like `Continue`, but a node that fails as a whole sends every item that reached it to the error output, with the reason.
 
 ## Example
 
@@ -52,7 +79,6 @@ assert_eq!(run.output("start", "main").len(), 1);
 
 Each of these has its own issue, under [#523](https://github.com/alexkads/RavenRS/issues/523):
 
-- Loop operators, merge modes, batches and the other control and transform nodes: [#534](https://github.com/alexkads/RavenRS/issues/534). Until then, a run does not follow the connections that come back to a loop node (`Plan::back_connections`).
 - A durable run, with a queue, checkpoints, resuming and retention: [#535](https://github.com/alexkads/RavenRS/issues/535).
 - Cancellation, time limits and retries: [#536](https://github.com/alexkads/RavenRS/issues/536).
 - The schema of a kind's parameters, beyond the names it requires: [#530](https://github.com/alexkads/RavenRS/issues/530).
