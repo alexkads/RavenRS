@@ -307,6 +307,7 @@ pub struct FlowIssue {
     pub nodes: Vec<String>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FlowIssue {
     /// `text`, about these nodes.
     pub fn new(text: impl Into<String>, nodes: impl IntoIterator<Item = impl Into<String>>) -> Self {

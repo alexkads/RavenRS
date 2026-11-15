@@ -25,6 +25,7 @@ type Writer = Rc<dyn Fn(&FlowGraph, &str) -> String>;
 /// a notation's XML: what it is called, its extension, and how a diagram is read from it and
 /// written to it.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FlowFileFormat {
     name: String,
     extension: String,
@@ -41,6 +42,7 @@ impl fmt::Debug for FlowFileFormat {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FlowFileFormat {
     /// A format called `name`, in files ending in `.extension`: `read` makes a diagram of a
     /// file's text, or says why it cannot; `write` makes the text of a diagram, given its name.
@@ -79,6 +81,7 @@ impl FlowFileFormat {
 ///     FlowCanvas::new(graph.binding()).history(history.binding()),
 /// ));
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FlowLibrary {
     graph: Binding<FlowGraph>,
     history: Option<Binding<FlowHistory>>,
@@ -97,6 +100,7 @@ impl fmt::Debug for FlowLibrary {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FlowLibrary {
     /// The diagrams kept for the canvas editing `graph`, 240 pixels wide, under the name
     /// `flows` of a storage that lasts while the app runs.
@@ -195,6 +199,7 @@ struct Shelf {
     formats: Rc<Vec<FlowFileFormat>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Shelf {
     fn write(&self, shelf: FlowShelf) {
         let result = self.storage.write(&self.key, shelf.to_json().as_bytes());

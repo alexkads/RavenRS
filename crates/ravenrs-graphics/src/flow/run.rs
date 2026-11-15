@@ -9,6 +9,7 @@ use super::{FlowEdge, FlowGraph, FlowNode};
 /// How a node lets a token through.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum FlowGate {
     /// A token starts here when the run starts, and goes on along every way out.
     Start,
@@ -26,6 +27,7 @@ pub enum FlowGate {
 
 /// What a run needs to know of a notation.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FlowRunRules {
     /// How each node lets a token through.
     pub gate: Rc<dyn Fn(&FlowNode) -> FlowGate>,
@@ -42,6 +44,7 @@ impl std::fmt::Debug for FlowRunRules {
 /// Something that happened in a run, by the ids it is about.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum FlowRunEvent {
     /// A token left `from` along `edge` for `to`.
     Moved {
@@ -80,6 +83,7 @@ pub enum FlowRunEvent {
     NoStart,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FlowRunEvent {
     /// Whether it says something went wrong.
     pub fn is_error(&self) -> bool {
@@ -104,6 +108,7 @@ pub const RUN_LIMIT: usize = 500;
 
 /// A run of a diagram: where its tokens are, where they have been and what happened.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FlowRun {
     /// The nodes holding a token, the next to move first.
     pub tokens: Vec<String>,
@@ -120,6 +125,7 @@ pub struct FlowRun {
     steps: usize,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FlowRun {
     /// A run with a token at every start of `graph`.
     pub fn start(graph: &FlowGraph, rules: &FlowRunRules) -> Self {

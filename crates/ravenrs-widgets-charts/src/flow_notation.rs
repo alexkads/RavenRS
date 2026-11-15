@@ -37,6 +37,7 @@ pub type FlowChecks = Rc<dyn Fn(&FlowGraph) -> Vec<FlowIssue>>;
 /// let palette = FlowToolbox::new().notation(&notation);
 /// ```
 #[derive(Clone, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FlowNotation {
     pub(crate) kinds: Vec<(String, String)>,
     pub(crate) looks: Vec<(String, FlowKind)>,
@@ -55,6 +56,7 @@ impl fmt::Debug for FlowNotation {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FlowNotation {
     /// A notation with nothing yet.
     pub fn new() -> Self {

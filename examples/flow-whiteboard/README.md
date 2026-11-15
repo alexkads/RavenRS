@@ -1,6 +1,6 @@
 # flow-whiteboard
 
-A diagramming whiteboard made only with the library's `FlowCanvas`, `FlowToolbox`, `FlowInspector` and a `SegmentedControl`: a flowchart and a mind map, each on a board of its own. It is here to check that the diagram component is enough for this kind of product.
+A diagramming whiteboard made only with library components (`FlowCanvas`, `FlowToolbox`, `FlowInspector`, `FlowLibrary`, `SegmentedControl`): a flowchart and a mind map, each on a board of its own. It is here to check that the diagram component is enough for this kind of product.
 
 ```bash
 cargo run -p flow-whiteboard
@@ -14,10 +14,9 @@ cargo run -p flow-whiteboard
 - **Shapes to drag in** from a `FlowToolbox`, and their properties in a `FlowInspector`.
 - **Saving the board** as PNG, SVG or PDF with `ravenrs-flow-export`.
 
-## What the component did not cover
+## What it needed, now in the library
 
-Each of these is an issue of its own:
-
-- Ports that nothing joins show all the time; a whiteboard shows them only by the shape under the pointer.
-- No color per shape or per line, so groups of ideas cannot be told apart by color.
-- A mind map grows only to one side; growing to both sides of the middle idea needs a layout of its own.
+Building it showed what the component lacked, and each piece went into the library first:
+`FlowCanvas::ports_on_hover`, colors per shape and line (`FlowStyle`, `FlowEdge::color`), and
+`FlowLayout::mind_map`, which grows a mind map to both sides of its middle idea and turns the
+ports of the left half to face it.

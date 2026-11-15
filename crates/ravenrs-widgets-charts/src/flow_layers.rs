@@ -27,6 +27,7 @@ use crate::{ButtonSize, ButtonStyle, IconButton, IconName, ListItem, ScrollView,
 ///     FlowCanvas::new(graph.binding()).selection(selection.binding()),
 /// ));
 /// ```
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FlowLayers {
     graph: Binding<FlowGraph>,
     selection: Binding<FlowSelection>,
@@ -40,6 +41,7 @@ impl fmt::Debug for FlowLayers {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FlowLayers {
     /// The layers of `graph`, picking into `selection`, 240 pixels wide.
     pub fn new(graph: Binding<FlowGraph>, selection: Binding<FlowSelection>) -> Self {

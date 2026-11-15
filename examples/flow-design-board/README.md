@@ -1,6 +1,6 @@
 # flow-design-board
 
-A design board made only with the library's `FlowCanvas`, `FlowToolbox` and `FlowInspector`: screens as frames, the pieces of each screen placed freely, resized, turned and lined up with the guides, and arrows between screens saying where a tap leads. It is here to check how far the diagram component goes as a board of this kind.
+A design board made only with library components (`FlowCanvas`, `FlowToolbox`, `FlowInspector`, `FlowLibrary` and more): screens as frames, the pieces of each screen placed freely, resized, turned and lined up with the guides, and arrows between screens saying where a tap leads. It is here to check how far the diagram component goes as a board of this kind.
 
 ```bash
 cargo run -p flow-design-board
@@ -15,11 +15,12 @@ cargo run -p flow-design-board
 - **The size, place and words** of the selected piece in a `FlowInspector`.
 - **Saving the board** as PNG, SVG or PDF with `ravenrs-flow-export`.
 
-## What the component did not cover
+## What it needed, now in the library
 
-These are what keep it from being a design tool, each an issue of its own:
+Building it showed what the component lacked, and each piece went into the library first:
+`FlowStyle` (fill, line and text colors and widths per piece), `FlowShape::Text` for words
+alone, images through `FlowCanvas::content`, `FlowLayers` to pick, hide and reorder, guides that
+line a piece up with the edges of its frame, and ports that show only under the pointer.
 
-- No fill, line color or font per piece: every piece is drawn in the theme's colors.
-- No free text, image or drawn path: a piece is always one of the outlines with a title.
-- No list of layers to reorder and hide pieces (the order changes only with Cmd/Ctrl+] and [).
-- No snapping to the edges of the frame a piece is in, and no distances shown while dragging.
+Still out, as they belong to a drawing tool rather than a diagram: drawn paths, boolean shapes
+and distances shown while dragging.

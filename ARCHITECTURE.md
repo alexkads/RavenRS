@@ -81,6 +81,8 @@ ravenrs-widgets-grid, -lists, -scheduler, -dock, -imaging, -charts, -chat
                        ──► ravenrs-widgets-kit, ravenrs-widgets-base  (one family each; never another family)
 ravenrs-widgets-kit    ──► ravenrs-widgets-base
 ravenrs-grid-export    ──► ravenrs-widgets, ravenrs-report-export  (what a DataGrid shows ──► file)
+ravenrs-flow-export    ──► ravenrs-widgets, ravenrs-report-export, ravenrs-text  (a FlowCanvas picture ──► PNG, SVG, PDF)
+ravenrs-flow-bpmn      ──► ravenrs-widgets  (BPMN 2.0 as a FlowNotation, BPMN XML)
 ravenrs-app            ──► ravenrs-criteria, ravenrs-reactive  (entities, application model, object spaces, actions, frames; no GUI)
                            and ravenrs-app-spec with `source` (entities read from Rust source while running)
 ravenrs-app-spec       ──► ravenrs-criteria, syn  (what the derives read from a struct or enum, as data)
@@ -154,6 +156,8 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-app-pos` | `modelo`, `modulo` (`Pos`), `caixa`, `telas`, `etiquetas`, `entrada`, `preco`, `codigos` |
 | `ravenrs-report-export` | `lib` |
 | `ravenrs-grid-export` | `lib` |
+| `ravenrs-flow-export` | `lib` |
+| `ravenrs-flow-bpmn` | `elements`, `xml`, `rules`, `plan` |
 | `ravenrs-app-spec` | `lib` |
 | `ravenrs-project` | `lib` |
 | `ravenrs-app-derive` | `lib` |

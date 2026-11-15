@@ -280,6 +280,7 @@ struct Finished {
     then: Rc<dyn Fn(String)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl ChatMessage {
     /// Whether it is still being written.
     pub fn is_writing(&self) -> bool {
@@ -304,7 +305,7 @@ impl fmt::Debug for ChatMessage {
     }
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl ChatMessage {
     /// What the person wrote.
     pub fn person(text: impl Into<String>) -> Self {

@@ -1,6 +1,6 @@
 # flow-chat-bot
 
-An automation builder for chat conversations, made only with the library's `FlowCanvas`, `FlowToolbox` and `FlowInspector`. It is here to check that the diagram component is enough for this kind of product.
+An automation builder for chat conversations, made only with library components (`FlowCanvas`, `FlowToolbox`, `FlowInspector`, `FlowLibrary` and more). It is here to check that the diagram component is enough for this kind of product.
 
 ```bash
 cargo run -p flow-chat-bot
@@ -15,9 +15,10 @@ cargo run -p flow-chat-bot
 - **Properties beside it** in a `FlowInspector` sharing the canvas's selection and history, so a change there is undone like one made on the canvas.
 - **Saving the conversation** as PNG, SVG or PDF with `ravenrs-flow-export`.
 
-## What the component did not cover
+## What it needed, now in the library
 
-Each of these is an issue of its own:
-
-- A block cannot show a list of its own inside it, such as the text of each button as a row with its way out beside it. Today the port's name stands in for the row.
-- A block cannot be told to run, so the conversation cannot be tried in place. That belongs to the app, not to the canvas, but a way to mark the block running (a status) and the way taken would help.
+Building it showed what the component lacked, and each piece went into the library first:
+port names shown by the ports (one way out per answer), `FlowToolbox::title`, the run statuses
+`FlowNodeStatus::Running` and `Success` that the test run marks, and `FlowLibrary` to keep and
+open the conversations. Trying a conversation runs here a step at a time along the first way
+out; a real bot would answer through the app.

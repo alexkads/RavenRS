@@ -6,6 +6,7 @@ use super::FlowGraph;
 
 /// A diagram with a name, as a library keeps it.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FlowDocument {
     /// Unique among the documents of a shelf.
     pub id: String,
@@ -17,11 +18,13 @@ pub struct FlowDocument {
 
 /// Every document a library keeps, in the order they were made.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct FlowShelf {
     /// The documents.
     pub documents: Vec<FlowDocument>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FlowShelf {
     /// The shelf written as JSON, which [`Self::from_json`] reads back.
     pub fn to_json(&self) -> String {
