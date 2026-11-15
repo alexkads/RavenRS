@@ -268,7 +268,18 @@ pub enum FlowChange {
         /// The nodes turned.
         nodes: Vec<String>,
     },
+    /// A node was made next to another, by its arrows or Cmd/Ctrl+Enter.
+    Create {
+        /// The new node.
+        node: String,
+        /// The connection made to it, when the two have ports to join.
+        edge: Option<String>,
+    },
 }
+
+/// Gives the node made next to `from`, on `side` of it, by the arrows of quick creation: its
+/// id and place are set by the canvas. `None` makes nothing on that side.
+pub type FlowNext = Rc<dyn Fn(&FlowNode, PortSide) -> Option<FlowNode>>;
 
 /// Decides whether a change may happen, given the diagram before and after it. When it may
 /// not, the diagram stays as it was, nothing goes into the history, and the reason shows.
@@ -296,6 +307,9 @@ pub type FlowGuard = Rc<dyn Fn(&FlowGraph, &FlowGraph, &FlowChange) -> Result<()
 /// * Drag the round handle above a selected node to turn it, 15 degrees at a time (with Shift,
 ///   freely), or press Alt+Shift with the arrows; Alt+Shift+0 puts it straight. Groups do
 ///   not turn.
+/// * With the pointer over a node, arrows show on its sides: a click on one makes the next
+///   node there, joined to it, with its title open to type. Cmd/Ctrl+Enter does it to the right
+///   of the selected node, Cmd/Ctrl+Shift+Enter below ([`FlowCanvas::next_node`]).
 /// * Cmd/Ctrl+Z undoes, Shift+Cmd/Ctrl+Z (or Cmd/Ctrl+Y) redoes. Cmd/Ctrl+C copies the selected
 ///   nodes with the connections between them, as JSON, Cmd/Ctrl+X cuts them and Cmd/Ctrl+V
 ///   pastes them back with new ids, a little further along each time.
@@ -333,6 +347,8 @@ pub struct FlowCanvas {
     rotatable: bool,
     editable_titles: bool,
     content: Option<FlowContent>,
+    next: Option<FlowNext>,
+    quick_create: bool,
     grid: f32,
     snap: bool,
     controls: bool,
@@ -369,6 +385,8 @@ impl FlowCanvas {
             rotatable: true,
             editable_titles: true,
             content: None,
+            next: None,
+            quick_create: true,
             grid: 24.0,
             snap: true,
             controls: true,
@@ -459,6 +477,20 @@ impl FlowCanvas {
     /// (on by default). Groups never turn.
     pub fn rotatable(mut self, rotatable: bool) -> Self {
         self.rotatable = rotatable;
+        self
+    }
+
+    /// What the arrows of quick creation make next to a node: given the node and the side,
+    /// the node to make (its id and place are the canvas's), or none. Without it, a copy of the
+    /// node is made, with its kind, shape, size and ports.
+    pub fn next_node(mut self, next: impl Fn(&FlowNode, PortSide) -> Option<FlowNode> + 'static) -> Self {
+        self.next = Some(Rc::new(next));
+        self
+    }
+
+    /// Whether the arrows and keys of quick creation are there (on by default).
+    pub fn quick_create(mut self, on: bool) -> Self {
+        self.quick_create = on;
         self
     }
 
@@ -626,6 +658,8 @@ struct Flow {
     rotatable: bool,
     /// Why a group does not turn.
     no_turn: String,
+    next: Option<FlowNext>,
+    quick_create: bool,
     editable_titles: bool,
     /// The node whose title is being typed, and what has been typed.
     editing: State<Option<String>>,
@@ -731,6 +765,94 @@ impl Flow {
 
     /// Opens the title of `id` for typing, with all of it selected. Below the zoom at which
     /// nodes show words, the view first goes to 100% around the node, and comes back after.
+    /// The node to make next to `from` on `side`, and the connection that joins them (output
+    /// to input, in the way the side points), placed a layer away on the grid, lower down
+    /// while that place is taken.
+    fn next_to(
+        &self,
+        graph: &FlowGraph,
+        from: &FlowNode,
+        side: PortSide,
+    ) -> Option<(FlowNode, Option<FlowEdge>)> {
+        let made = match &self.next {
+            Some(next) => next(from, side)?,
+            None => FlowNode {
+                status: FlowNodeStatus::Normal,
+                parent: None,
+                group: false,
+                rotation: 0.0,
+                ..from.clone()
+            },
+        };
+        let gap = 96.0;
+        let (w, h) = (made.width, made.height);
+        let (mut x, mut y) = match side {
+            PortSide::Right => (from.x + from.width + gap, from.y),
+            PortSide::Left => (from.x - gap - w, from.y),
+            PortSide::Bottom => (from.x, from.y + from.height + gap),
+            PortSide::Top => (from.x, from.y - gap - h),
+        };
+        (x, y) = (self.snapped(x), self.snapped(y));
+        let taken = |x: f32, y: f32| {
+            let r = Rect::new(x, y, w, h);
+            graph.nodes.iter().any(|n| {
+                let e = n.extent();
+                !n.group && e.x() < r.max_x() && r.x() < e.max_x() && e.y() < r.max_y() && r.y() < e.max_y()
+            })
+        };
+        for _ in 0..20 {
+            if !taken(x, y) {
+                break;
+            }
+            y = self.snapped(y + h + 48.0);
+        }
+        let id = graph.fresh_node_id(&made.id);
+        let made = FlowNode { id: id.clone(), x, y, ..made };
+        // Forward (right, down): the old node's output to the new one's input; backward the
+        // other way round. A port on the side faced is preferred.
+        let forward = matches!(side, PortSide::Right | PortSide::Bottom);
+        let opposite = match side {
+            PortSide::Left => PortSide::Right,
+            PortSide::Right => PortSide::Left,
+            PortSide::Top => PortSide::Bottom,
+            PortSide::Bottom => PortSide::Top,
+        };
+        let pick = |node: &FlowNode, direction: PortDirection, facing: PortSide| {
+            let of: Vec<&FlowPort> = node.ports.iter().filter(|p| p.direction == direction).collect();
+            of.iter()
+                .find(|p| p.side == facing)
+                .or(of.first())
+                .map(|p| FlowEndpoint::new(node.id.clone(), p.id.clone()))
+        };
+        let ends = if forward {
+            pick(from, PortDirection::Output, side).zip(pick(&made, PortDirection::Input, opposite))
+        } else {
+            pick(&made, PortDirection::Output, opposite).zip(pick(from, PortDirection::Input, side))
+        };
+        let edge = ends.map(|(a, b)| FlowEdge::new(graph.fresh_edge_id("e"), a, b));
+        Some((made, edge))
+    }
+
+    /// Makes the next node beside `id` on `side`, joined to it, selects it and opens its title.
+    fn quick_create(&self, id: &str, side: PortSide) -> bool {
+        if self.locked.get() || !self.quick_create {
+            return false;
+        }
+        let mut graph = self.graph.get();
+        let Some(from) = graph.find_node(id).filter(|n| !n.group).cloned() else { return false };
+        let Some((made, edge)) = self.next_to(&graph, &from, side) else { return false };
+        let new_id = made.id.clone();
+        let edge_id = edge.as_ref().map(|e| e.id.clone());
+        graph.nodes.push(made);
+        graph.edges.extend(edge);
+        if !self.commit(graph, FlowChange::Create { node: new_id.clone(), edge: edge_id }) {
+            return true;
+        }
+        self.select(FlowSelection::node(new_id.clone()));
+        self.begin_rename(&new_id);
+        true
+    }
+
     fn begin_rename(&self, id: &str) -> bool {
         if self.locked.get() || !self.editable_titles {
             return false;
@@ -1148,6 +1270,12 @@ impl Flow {
                 Key::ArrowDown => return self.resize_by(0.0, step),
                 _ => {}
             }
+        }
+        if *key == Key::Enter
+            && command
+            && let [only] = self.selection.get().nodes.as_slice()
+        {
+            return self.quick_create(only, if shift { PortSide::Bottom } else { PortSide::Right });
         }
         if *key == Key::Function(2)
             && let [only] = self.selection.get().nodes.as_slice()
@@ -1779,6 +1907,8 @@ impl View for FlowCanvas {
             resizable: self.resizable,
             rotatable: self.rotatable,
             no_turn: labels.flow_no_turn.clone(),
+            next: self.next.clone(),
+            quick_create: self.quick_create,
             editable_titles: self.editable_titles,
             editing: editing.clone(),
             draft: draft.clone(),
@@ -1817,6 +1947,8 @@ impl View for FlowCanvas {
                 selected: selection.has_node(&node.id),
                 resizable: self.resizable && !is_locked && selection.has_node(&node.id),
                 rotatable: self.rotatable,
+                quick: self.quick_create && !is_locked,
+                selected_many: selection.nodes.len() > 1,
                 members: graph.children(&node.id).count(),
                 editing: editing_now.as_deref() == Some(node.id.as_str()),
                 handles: graph
@@ -2079,6 +2211,10 @@ struct NodeBox {
     resizable: bool,
     /// Shows the handle that turns it (with the corner, on a selected node).
     rotatable: bool,
+    /// Shows the arrows of quick creation while the pointer is over it.
+    quick: bool,
+    /// More than one node is selected: the arrows stay away.
+    selected_many: bool,
     /// For a group, how many nodes it holds directly.
     members: usize,
     /// Its title is being typed.
@@ -2193,6 +2329,20 @@ impl View for NodeBox {
 
         if self.editing {
             ports.push(self.title_field(cx, &theme, w, h));
+        }
+        // Over the node, or on a node selected alone, so the pointer can cross to an arrow.
+        let near = cx.is_hover_within() || self.selected;
+        if near && self.quick && !node.group && !self.selected_many {
+            for side in [PortSide::Right, PortSide::Bottom, PortSide::Left, PortSide::Top] {
+                let arrow = NextArrow {
+                    size: Size::new(w, h),
+                    side,
+                    id: node.id.clone(),
+                    flow: self.flow.clone(),
+                    palette: p,
+                };
+                ports.push(cx.keyed_child(util::hash_text(&format!("\u{0}next{side:?}")), &arrow));
+            }
         }
         if self.resizable && self.rotatable && !node.group {
             let turner = Turner { width: w, id: node.id.clone(), flow: self.flow.clone(), palette: p };
@@ -2334,6 +2484,10 @@ impl View for NodeBox {
                 let arrow = matches!(key, Key::ArrowLeft | Key::ArrowRight | Key::ArrowUp | Key::ArrowDown);
                 if arrow && !keyed.selection.get().has_node(&id) {
                     keyed.select(FlowSelection::node(id.clone()));
+                }
+                if *key == Key::Enter && (m.meta || m.ctrl) {
+                    let side = if m.shift { PortSide::Bottom } else { PortSide::Right };
+                    return keyed.quick_create(&id, side);
                 }
                 if *key == Key::Enter || *key == Key::Function(2) {
                     let selected = keyed.selection.get() == FlowSelection::node(id.clone());
@@ -2705,6 +2859,69 @@ impl View for Corner {
         cx.on_drag(node, Rc::new(move |d| dragged.on_resize_drag(&id, d.phase, d.position)));
         node
     }
+}
+
+/// An arrow on a side of the node under the pointer: a click makes the next node there.
+struct NextArrow {
+    /// The node's size on screen.
+    size: Size,
+    side: PortSide,
+    id: String,
+    flow: Flow,
+    palette: Palette,
+}
+
+impl View for NextArrow {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        const ARROW: f32 = 24.0;
+        const OUT: f32 = 12.0;
+        let (w, h) = (self.size.width, self.size.height);
+        let (x, y) = match self.side {
+            PortSide::Right => (w + OUT, h / 2.0 - ARROW / 2.0),
+            PortSide::Left => (-OUT - ARROW, h / 2.0 - ARROW / 2.0),
+            PortSide::Bottom => (w / 2.0 - ARROW / 2.0, h + OUT),
+            PortSide::Top => (w / 2.0 - ARROW / 2.0, -OUT - ARROW),
+        };
+        let (p, side, hovered) = (self.palette, self.side, cx.is_hovered());
+        let paint = Paint::Custom(Rc::new(move |frame: Rect, scene: &mut Scene| {
+            let r = ARROW / 2.0;
+            let fill = if hovered { p.accent } else { p.elevated };
+            let ink = if hovered { Color::WHITE } else { p.accent };
+            scene.push_quad(Quad::new(frame, fill).radius(r).border(1.0, p.accent));
+            let c = frame.center();
+            let d = side.outward();
+            let tip = Point::new(c.x + d.x * 6.0, c.y + d.y * 6.0);
+            let tail = Point::new(c.x - d.x * 6.0, c.y - d.y * 6.0);
+            stroke(scene, &[tail, tip], 2.0, ink);
+            fill_arrow(scene, tip, d, ink);
+        }));
+        let node = cx.container(
+            LayoutStyle {
+                absolute: Some((x, y)),
+                width: Some(ARROW),
+                height: Some(ARROW),
+                ..LayoutStyle::leaf()
+            },
+            &[],
+            paint,
+        );
+        cx.cursor(node, CursorIcon::Pointer);
+        // The keys do the same with Cmd/Ctrl+Enter, so screen readers do not need the arrows.
+        cx.semantics(node, Semantics::hidden());
+        let (made, id, side) = (self.flow.clone(), self.id.clone(), self.side);
+        cx.on_click(
+            node,
+            Rc::new(move || {
+                made.quick_create(&id, side);
+            }),
+        );
+        node
+    }
+}
+
+/// A small filled arrowhead at `tip` pointing along `direction`.
+fn fill_arrow(scene: &mut Scene, tip: Point, direction: Point, color: Color) {
+    fill(scene, geometry::arrow_head(tip, direction, 6.0), color);
 }
 
 /// The round handle above a selected node that turns it when dragged. The keys do the same with

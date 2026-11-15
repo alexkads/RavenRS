@@ -1046,3 +1046,65 @@ fn a_note_wraps_its_words_and_shapes_draw_their_outline() {
         .collect();
     assert!(lines.len() >= 3, "the note's words wrap over lines: {lines:?}");
 }
+
+#[test]
+fn the_arrow_beside_a_node_makes_the_next_one_joined_with_its_title_open() {
+    let mut rig = rig();
+    click(&mut rig.ui, Point::new(480.0, 70.0));
+    // `b` is 200 by 84 at (408, 48): its right arrow sits 12 past its edge, in the middle.
+    click(&mut rig.ui, Point::new(632.0, 90.0));
+    let g = rig.graph.get();
+    let made = g.find_node("b-2").cloned().expect("the next node");
+    assert_eq!((made.x, made.y), (696.0, 48.0), "a layer to the right, on the grid");
+    assert_eq!(made.kind, "action");
+    let joined = g.edges.iter().find(|e| e.to.node == "b-2").expect("joined");
+    assert_eq!(joined.from, FlowEndpoint::new("b", "out"));
+    assert_eq!(rig.selection.get(), FlowSelection::node("b-2"));
+    assert!(field(&mut rig.ui).is_some(), "its title is open");
+    type_text(&mut rig.ui, "Bill");
+    key(&mut rig.ui, Key::Enter, Modifiers::default());
+    assert_eq!(title_of(&rig, "b-2"), "Bill");
+    shortcut(&mut rig.ui, "z", false);
+    shortcut(&mut rig.ui, "z", false);
+    let g = rig.graph.get();
+    assert!(g.find_node("b-2").is_none() && g.edges.is_empty(), "made and joined in one change");
+}
+
+#[test]
+fn cmd_shift_enter_makes_it_below_and_finds_a_free_place() {
+    let mut rig = rig();
+    click(&mut rig.ui, Point::new(480.0, 70.0));
+    key(&mut rig.ui, Key::Escape, Modifiers::default());
+    click(&mut rig.ui, Point::new(480.0, 70.0));
+    key(&mut rig.ui, Key::Enter, Modifiers { meta: true, shift: true, ..Modifiers::default() });
+    // Below `b` is (408, 240), where `c` at (408, 288) is in the way: one place further down.
+    assert_eq!(node_at(&rig, "b-2"), (408.0, 384.0));
+}
+
+#[test]
+fn the_app_chooses_the_next_node_and_quick_creation_can_be_switched_off() {
+    let mut rig = rig_with(graph(), |c| {
+        c.next_node(|_, side| {
+            (side == PortSide::Right).then(|| {
+                FlowNode::new("step", "action", "New step", 0.0, 0.0)
+                    .port(FlowPort::input("in").kind("sale"))
+                    .port(FlowPort::output("out").kind("sale"))
+            })
+        })
+    });
+    click(&mut rig.ui, Point::new(120.0, 70.0));
+    key(&mut rig.ui, Key::Enter, Modifiers { meta: true, ..Modifiers::default() });
+    let g = rig.graph.get();
+    assert_eq!(g.find_node("step").map(|n| n.title.clone()).as_deref(), Some("New step"));
+    assert!(
+        g.edges
+            .iter()
+            .any(|e| e.from == FlowEndpoint::new("a", "out") && e.to == FlowEndpoint::new("step", "in"))
+    );
+
+    let mut off = rig_with(graph(), |c| c.quick_create(false));
+    click(&mut off.ui, Point::new(480.0, 70.0));
+    key(&mut off.ui, Key::Enter, Modifiers { meta: true, ..Modifiers::default() });
+    click(&mut off.ui, Point::new(632.0, 90.0));
+    assert_eq!(off.graph.get().nodes.len(), 3);
+}

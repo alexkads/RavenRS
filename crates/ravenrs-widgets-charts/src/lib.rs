@@ -30,8 +30,9 @@ pub use chart::{
 #[cfg(feature = "flow")]
 pub use flow::{
     EdgeCap, EdgeShape, FlowCanvas, FlowChange, FlowContent, FlowDirection, FlowEdge, FlowEndpoint,
-    FlowGraph, FlowGuard, FlowHistory, FlowJsonError, FlowKind, FlowLayout, FlowLayoutKind, FlowNode,
-    FlowNodeStatus, FlowPort, FlowSelection, FlowShape, FlowValidator, FlowViewport, PortDirection, PortSide,
+    FlowGraph, FlowGuard, FlowHistory, FlowJsonError, FlowKind, FlowLayout, FlowLayoutKind, FlowNext,
+    FlowNode, FlowNodeStatus, FlowPort, FlowSelection, FlowShape, FlowValidator, FlowViewport, PortDirection,
+    PortSide,
 };
 #[cfg(feature = "charts")]
 pub use sankey::{SankeyAlign, SankeyChart};

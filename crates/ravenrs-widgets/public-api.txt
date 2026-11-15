@@ -2926,7 +2926,9 @@ method FlowCanvas::layout
 method FlowCanvas::locked
 method FlowCanvas::minimap
 method FlowCanvas::new
+method FlowCanvas::next_node
 method FlowCanvas::on_change
+method FlowCanvas::quick_create
 method FlowCanvas::range
 method FlowCanvas::resizable
 method FlowCanvas::rotatable
@@ -4612,6 +4614,7 @@ type DropCheck
 type DropHandler
 type FlowContent
 type FlowGuard
+type FlowNext
 type FlowValidator
 type KeyHandler
 type LiveFn
@@ -4729,6 +4732,7 @@ variant FloatingCorner::TopLeft
 variant FloatingCorner::TopRight
 variant FlowChange::Arrange
 variant FlowChange::Connect
+variant FlowChange::Create
 variant FlowChange::Delete
 variant FlowChange::Group
 variant FlowChange::Move
