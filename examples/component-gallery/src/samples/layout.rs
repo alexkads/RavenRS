@@ -308,7 +308,7 @@ fn dock_area() -> impl View {
     );
     let panels = vec![
         DockPanel::new("photo", "Photo").icon(IconName::Camera).closable(false),
-        DockPanel::new("grid", "Grid"),
+        DockPanel::new("grid", "Grid").unsaved(true),
         DockPanel::new("folders", "Folders").icon(IconName::Folder),
         DockPanel::new("search", "Search").icon(IconName::Search),
         DockPanel::new("layers", "Layers"),

@@ -6,7 +6,9 @@ use super::lists_support;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Brush, Event, Key, Modifiers, Point, PointerButton, Primitive, Rect, Role};
+use ravenrs_core::{
+    Border, Brush, CursorIcon, Event, Key, Modifiers, Point, PointerButton, Primitive, Rect, Role,
+};
 use ravenrs_layout::{Axis, LayoutStyle};
 use ravenrs_reactive::State;
 use ravenrs_style::{Semantic, Theme};
@@ -1128,7 +1130,7 @@ fn a_document_stays_in_the_center_and_says_why() {
 }
 
 #[test]
-fn a_tool_stays_in_the_docks_and_its_menu_has_no_center() {
+fn a_tool_stays_in_the_docks_and_its_menu_shows_the_center_greyed_with_why() {
     let layout = State::new(documents_start());
     let mut ui = dock_ui_of(documents_area(&layout));
     let (from, sales) = (center(&tab(&mut ui, "Files")), tab(&mut ui, "sales.rs").bounds);
@@ -1143,10 +1145,19 @@ fn a_tool_stays_in_the_docks_and_its_menu_has_no_center() {
     let mut seen = Vec::new();
     for _ in 0..8 {
         seen.push(focused_name(&mut ui).unwrap_or_default());
+        if focused_name(&mut ui).as_deref() == Some("Center") {
+            break;
+        }
         press(&mut ui, Key::ArrowDown, Modifiers::default());
     }
     assert!(seen.iter().any(|name| name == "Top dock"), "{seen:?}");
-    assert!(!seen.iter().any(|name| name == "Center" || name.starts_with("With sales")), "{seen:?}");
+    assert!(!seen.iter().any(|name| name.starts_with("With sales")), "no group of the center: {seen:?}");
+    let center_item = named(&mut ui, "Center");
+    assert!(center_item.disabled, "the arrows reach it, greyed");
+    assert_eq!(center_item.description.as_deref(), Some("Tools stay in the docks"));
+    press(&mut ui, Key::Enter, Modifiers::default());
+    assert_eq!(layout.get().side_of("files"), Some(DockSide::Left), "and nothing chooses it");
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Center"), "the menu stays open");
 }
 
 #[test]
@@ -1203,4 +1214,173 @@ fn a_panel_that_closes_for_good_is_not_offered_back_and_the_app_fills_an_empty_c
     assert!(has(&mut ui, "No document open"), "the app's own words");
     assert!(has(&mut ui, "sales.rs") && has(&mut ui, "client.rs"), "what can come back, under them");
     assert!(!has(&mut ui, "Report"), "not what closed for good");
+}
+
+#[test]
+fn the_open_panel_goes_back_when_focus_leaves_it_and_stays_while_focus_moves_inside() {
+    let layout = State::new(start());
+    let mut ui = dock_ui(&layout);
+    let pin = center(&named(&mut ui, "Auto-hide Folders"));
+    click_at(&mut ui, pin, Modifiers::default());
+    settle(&mut ui);
+    let on_rail = center(&named(&mut ui, "Folders, hidden in the left dock"));
+    click_at(&mut ui, on_rail, Modifiers::default());
+    settle(&mut ui);
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Pin Folders"));
+    press(&mut ui, Key::Tab, Modifiers::default());
+    assert!(has(&mut ui, "Pin Folders"), "Tab inside the panel keeps it open");
+    for _ in 0..12 {
+        if !has(&mut ui, "Pin Folders") {
+            break;
+        }
+        press(&mut ui, Key::Tab, Modifiers::default());
+    }
+    assert!(!has(&mut ui, "Pin Folders"), "once focus is out, it goes back");
+    assert_eq!(named(&mut ui, "Folders, hidden in the left dock").expanded, Some(false));
+}
+
+fn ctrl() -> Modifiers {
+    Modifiers { ctrl: true, ..Modifiers::default() }
+}
+
+fn let_ctrl_go(ui: &mut Ui) {
+    ui.handle_event(&Event::KeyUp { key: Key::Other("Control".into()), modifiers: Modifiers::default() });
+    settle(ui);
+}
+
+#[test]
+fn a_quick_ctrl_tab_goes_back_to_the_panel_used_before_without_a_list() {
+    let layout = State::new(documents_start());
+    let mut ui = dock_ui_of(documents_area(&layout));
+    let report = center(&tab(&mut ui, "Report"));
+    click_at(&mut ui, report, Modifiers::default());
+    let sales = center(&tab(&mut ui, "sales.rs"));
+    click_at(&mut ui, sales, Modifiers::default());
+    assert!(layout.get().is_active("sales"));
+    ui.handle_event(&Event::KeyDown { key: Key::Tab, modifiers: ctrl() });
+    ui.update();
+    let_ctrl_go(&mut ui);
+    assert!(layout.get().is_active("report"), "back to the one used before");
+    assert!(!has(&mut ui, "Switch panel"), "with no list");
+    ui.handle_event(&Event::KeyDown { key: Key::Tab, modifiers: ctrl() });
+    ui.update();
+    let_ctrl_go(&mut ui);
+    assert!(layout.get().is_active("sales"), "and again, back to where it was");
+    assert!(!layout.get().to_text().contains("recent"), "the order of use is not saved");
+}
+
+#[test]
+fn holding_ctrl_shows_the_list_tab_walks_it_and_letting_go_opens_the_choice() {
+    let layout = State::new(documents_start());
+    let mut ui = dock_ui_of(documents_area(&layout));
+    let report = center(&tab(&mut ui, "Report"));
+    click_at(&mut ui, report, Modifiers::default());
+    let sales = center(&tab(&mut ui, "sales.rs"));
+    click_at(&mut ui, sales, Modifiers::default());
+    ui.set_time(10.0);
+    ui.handle_event(&Event::KeyDown { key: Key::Tab, modifiers: ctrl() });
+    ui.update();
+    ui.update();
+    assert!(!has(&mut ui, "Switch panel"), "not at once");
+    assert_eq!(ui.next_wake(), Some(10.15));
+    ui.set_time(10.15);
+    settle(&mut ui);
+    let list = named(&mut ui, "Switch panel");
+    assert_eq!(list.role, Role::Dialog);
+    assert!(has(&mut ui, "Documents") && has(&mut ui, "Tools"), "two columns");
+    let chosen = |ui: &mut Ui| {
+        of_role(ui, Role::ListBoxOption).into_iter().find(|n| n.selected == Some(true)).and_then(|n| n.name)
+    };
+    assert_eq!(chosen(&mut ui).as_deref(), Some("Report, center"), "the one used before, and where it is");
+    ui.handle_event(&Event::KeyDown { key: Key::Tab, modifiers: ctrl() });
+    settle(&mut ui);
+    let next = chosen(&mut ui).expect("one chosen");
+    assert_ne!(next, "Report, center", "Tab walks the list");
+    let_ctrl_go(&mut ui);
+    assert!(!has(&mut ui, "Switch panel"), "letting Ctrl go closes it");
+    let id = if next.starts_with("client.rs") {
+        "client"
+    } else if next.starts_with("Files") {
+        "files"
+    } else {
+        "output"
+    };
+    assert!(layout.get().is_active(id), "and opens {next}");
+}
+
+#[test]
+fn escape_gives_ctrl_tab_up() {
+    let layout = State::new(documents_start());
+    let mut ui = dock_ui_of(documents_area(&layout));
+    ui.set_time(10.0);
+    ui.handle_event(&Event::KeyDown { key: Key::Tab, modifiers: ctrl() });
+    ui.update();
+    ui.set_time(10.2);
+    settle(&mut ui);
+    assert!(has(&mut ui, "Switch panel"));
+    ui.handle_event(&Event::KeyDown { key: Key::Escape, modifiers: ctrl() });
+    settle(&mut ui);
+    assert!(!has(&mut ui, "Switch panel"));
+    let_ctrl_go(&mut ui);
+    assert!(layout.get().is_active("sales"), "nothing changed");
+}
+
+#[test]
+fn an_unsaved_panel_has_a_dot_on_its_tab_on_its_rail_and_when_it_floats() {
+    let layout = State::new(start());
+    let panels = vec![DockPanel::new("photo", "Photo"), DockPanel::new("folders", "Folders").unsaved(true)];
+    let view = DockArea::new(layout.binding(), panels, |id| -> AnyView { Box::new(Content(id.to_owned())) })
+        .height(600.0);
+    let mut ui = dock_ui_of(view);
+    assert_eq!(tab(&mut ui, "Folders").description.as_deref(), Some("Unsaved changes"), "heard on its tab");
+    assert_eq!(tab(&mut ui, "Photo").description, None);
+    // The dot is the only 7 by 7 thing drawn.
+    let dots = |ui: &Ui| {
+        ui.scene()
+            .primitives()
+            .iter()
+            .filter(|p| matches!(p, Primitive::Quad(q) if q.rect.width() == 7.0 && q.rect.height() == 7.0))
+            .count()
+    };
+    assert_eq!(dots(&ui), 1, "a dot on the tab");
+    let mut hidden = layout.get();
+    assert!(hidden.auto_hide("folders"));
+    layout.set(hidden);
+    settle(&mut ui);
+    assert_eq!(
+        named(&mut ui, "Folders, hidden in the left dock").description.as_deref(),
+        Some("Unsaved changes")
+    );
+    assert_eq!(dots(&ui), 1, "a dot on the rail");
+    let mut floating = layout.get();
+    assert!(floating.float("folders", Rect::new(200.0, 100.0, 240.0, 200.0)));
+    layout.set(floating);
+    settle(&mut ui);
+    assert_eq!(dots(&ui), 1, "a dot on its header");
+    assert_eq!(named(&mut ui, "Folders, floating").description.as_deref(), Some("Unsaved changes"));
+}
+
+#[test]
+fn a_floating_panel_drawn_to_an_edge_marks_it_while_it_moves() {
+    let layout = State::new(floating_start());
+    let mut ui = dock_ui(&layout);
+    let warning = Theme::raven_dark().color(Semantic::Warning);
+    let lines = |ui: &Ui| {
+        ui.scene()
+            .primitives()
+            .iter()
+            .filter(|p| matches!(p, Primitive::Quad(q) if q.fill == Brush::Solid(warning)))
+            .count()
+    };
+    let header = center(&named(&mut ui, "Move Layers"));
+    drag_to(&mut ui, header, Point::new(header.x - 295.0, header.y));
+    assert_eq!(lines(&ui), 1, "the edge it touches");
+    drag_to_more(&mut ui, Point::new(header.x - 150.0, header.y));
+    assert_eq!(lines(&ui), 0, "nothing near, no line");
+    release(&mut ui, Point::new(header.x - 150.0, header.y));
+    assert_eq!(lines(&ui), 0);
+    let over = center(&named(&mut ui, "Move Layers"));
+    ui.handle_event(&Event::PointerMove { position: over });
+    settle(&mut ui);
+    assert_eq!(ui.cursor(), CursorIcon::Move, "the header moves it, and says so");
 }

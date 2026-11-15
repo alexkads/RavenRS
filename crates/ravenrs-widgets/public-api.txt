@@ -72,6 +72,8 @@ enum grid::query::ViewRow
 field BoxTransform::angle
 field BoxTransform::pivot
 field BoxTransform::rect
+field BuildCx::focus_chain
+field BuildCx::modifiers_read
 field CalendarEvent::date
 field CalendarEvent::done
 field CalendarEvent::id
@@ -114,6 +116,7 @@ field DockPanel::icon
 field DockPanel::id
 field DockPanel::kind
 field DockPanel::title
+field DockPanel::unsaved
 field DocumentTab::closable
 field DocumentTab::color
 field DocumentTab::icon
@@ -296,6 +299,7 @@ field Labels::dock_close_others
 field Labels::dock_close_panel
 field Labels::dock_closed
 field Labels::dock_dock_back
+field Labels::dock_documents
 field Labels::dock_documents_center
 field Labels::dock_empty
 field Labels::dock_float_item
@@ -317,9 +321,13 @@ field Labels::dock_right
 field Labels::dock_show
 field Labels::dock_split_below
 field Labels::dock_split_right
+field Labels::dock_switcher
 field Labels::dock_tabs_name
+field Labels::dock_tools
 field Labels::dock_tools_docks
 field Labels::dock_top
+field Labels::dock_where_floating
+field Labels::dock_where_hidden
 field Labels::dock_with
 field Labels::document_name
 field Labels::document_tabs_name
@@ -2279,8 +2287,10 @@ method BuildCx::flush_overlay
 method BuildCx::focusable
 method BuildCx::foreground
 method BuildCx::full_screen
+method BuildCx::held
 method BuildCx::hit_outline
 method BuildCx::is_focus_visible
+method BuildCx::is_focus_within
 method BuildCx::is_focused
 method BuildCx::is_hover_within
 method BuildCx::is_hovered
@@ -2795,6 +2805,7 @@ method DockPanel::close_action
 method DockPanel::icon
 method DockPanel::kind
 method DockPanel::new
+method DockPanel::unsaved
 method DocumentTab::closable
 method DocumentTab::color
 method DocumentTab::icon
@@ -3259,6 +3270,7 @@ method MaskedField::read_only
 method MaskedField::width
 method MenuItem::checked
 method MenuItem::destructive
+method MenuItem::disabled
 method MenuItem::element
 method MenuItem::icon
 method MenuItem::item
