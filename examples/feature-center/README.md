@@ -27,10 +27,10 @@ These accounts exist only here. The password of all three is `raven-demo`.
 | Group | Demonstrations |
 |---|---|
 | Validação | Rules of every kind, warnings and notes, checking on leaving a field |
-| Aparência condicional | Colors, enabled and visible, on fields and actions |
-| Actions | Simple, with a question, with a value, with a choice, with a window, an address, by criteria, inside a form, messages |
+| Aparência condicional | Colors, enabled and visible, on fields and actions; words of the screens replaced by key, and keys of the center's own ("Dizer olá") |
+| Actions | Simple, with a question, with a value, with a choice, with a window, an address, by criteria, inside a form, messages, one that runs in the background, and "Fechar e dobrar", declared with no code |
 | Editores de campo | Every kind of field, and fields that come from the model |
-| Listas | Chart, month, timeline and tree; variants and filters; editing on the list; many rows |
+| Listas | Chart, month, timeline and tree; variants and filters; editing on the list; many rows; a panel written in code (Painel em código) |
 | Relações | Lists that belong to a record, link and unlink, a filtered reference, cloning |
 | Temas | The token editor, changing the whole application at once |
 | Sem armazenamento | A form with no storage behind it |
@@ -38,9 +38,20 @@ These accounts exist only here. The password of all three is `raven-demo`.
 | Segurança | The same documents as each of the three people |
 | Auditoria | Each mode side by side, a field left out, changes in collections |
 | Acessibilidade | Names and descriptions for screen readers from the model, the focus order of a form, an action that says its keys and announces what it did |
-| Registros prontos | `ravenrs-app-library` |
+| Balcão | Dados da loja, a record that is one of a kind and opens on its form, and Caixa de exemplo, a counter window with its notice and function keys inside the center (`cargo run -p feature-center -- caixa` opens it on its own) |
+| Registros prontos | Pessoas, Eventos, Países and Endereços from `ravenrs-app-library`, with their rules |
 | Relatórios | Reports people design and keep, and panels |
-| Administração | Users, roles, the audit trail and the model editor, for `ana` |
+| Administração | Users, roles, the audit trail and the model editor, for `ana`; Trocar senha, for everyone |
+
+## Over a web API
+
+```bash
+cargo run -p feature-center --bin api
+```
+
+The same center, with the same roles, people and audit trail, answers as a web API on `127.0.0.1:8090`, in memory or in the SQLite file given after `--`. It prints the address of its OpenAPI document. Sign in at `/api/auth/token` with the accounts above. To let a page on another origin call it, set `RAVEN_API_ORIGIN` to that origin.
+
+The center can also be the window of that server: build it with `RAVEN_API_URL=http://127.0.0.1:8090`, and it signs in there and reads every record from there. The address comes from the build and never from the page, so no link can send a password somewhere else. In the tour, `over_a_server_the_counter_window_has_its_control_too` opens the window over a server in memory.
 
 ## It is also the test
 

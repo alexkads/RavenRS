@@ -143,6 +143,13 @@ fn application() -> App {
         )
 }
 
+/// The controls the dashboards of `application()` show, for every way the center opens: one list,
+/// so the window over a server cannot leave one out (#581).
+fn register_controls(session: &Session) {
+    session.register_control(THEME_EDITOR, || Box::new(ThemeEditor::new()) as AnyView);
+    session.register_control(model::COUNTER_WINDOW, actions::counter_control());
+}
+
 /// The whole center over what `space` makes.
 pub fn center<S: ObjectSpace + 'static>(space: impl Fn() -> S + 'static) -> SecuredApp {
     watched(space, |_| {})
@@ -158,8 +165,7 @@ pub fn watched<S: ObjectSpace + 'static>(
     let mut secured = SecuredApp::new("Raven Centro de Recursos", space, move |_person| {
         let seen = seen.clone();
         application().with_session(move |session| {
-            session.register_control(THEME_EDITOR, || Box::new(ThemeEditor::new()) as AnyView);
-            session.register_control(model::COUNTER_WINDOW, actions::counter_control());
+            register_controls(session);
             seen(session);
         })
     })
@@ -237,8 +243,12 @@ pub fn counter_window() -> AnyView {
 /// The center over a server, as `cargo run --bin api` gives: it signs in there, and every record
 /// comes from there. Nothing is permitted or refused here: the server does it.
 pub fn remote(address: &str) -> Result<AnyView, String> {
+    remote_over(ravenrs_app_remote::RemoteClient::http(address))
+}
+
+/// The same over any client, as the tour does with a server in memory.
+pub fn remote_over(client: ravenrs_app_remote::RemoteClient) -> Result<AnyView, String> {
     register_is_even();
-    let client = ravenrs_app_remote::RemoteClient::http(address);
     let hidden: Vec<String> = security_entities()
         .into_iter()
         .chain([audit_entity(), ravenrs_app::settings_entity()])
@@ -252,9 +262,7 @@ pub fn remote(address: &str) -> Result<AnyView, String> {
         storage_entities()?.into_iter().filter(|entity| !hidden.contains(&entity.name)).collect(),
         |database| {
             let records = database.clone();
-            application().storage(move || records.space()).with_session(|session| {
-                session.register_control(THEME_EDITOR, || Box::new(ThemeEditor::new()) as AnyView);
-            })
+            application().storage(move || records.space()).with_session(register_controls)
         },
     )
     .map_err(|error| error.0)?;

@@ -24,14 +24,46 @@ struct Center {
 
 impl Center {
     fn over(space: Space, name: &str) -> Self {
+        let mut center = Self::at_the_door(space);
+        center.sign_in(name);
+        center
+    }
+
+    /// The center on its sign-in screen, with nobody in yet.
+    fn at_the_door(space: Space) -> Self {
         let session = Rc::new(RefCell::new(None));
         let (keep, making) = (session.clone(), space.clone());
         let app = watched(move || making(), move |seen| *keep.borrow_mut() = Some(seen.clone()));
         let mut ui = Ui::new(app.build().expect("it puts together"), Theme::raven_dark());
         ui.set_viewport(Size::new(1600.0, 1200.0), 1.0);
-        let mut center = Self { ui, session, space };
-        center.sign_in(name);
-        center
+        Self { ui, session, space }
+    }
+
+    /// Whether `name` gets in with `password`.
+    fn gets_in(&mut self, name: &str, password: &str) -> bool {
+        self.type_into("Nome", name);
+        self.type_into("Senha", password);
+        self.press("Entrar");
+        self.session.borrow().is_some()
+    }
+
+    fn key(&mut self, key: ravenrs_core::Key) {
+        self.ui.handle_event(&ravenrs_core::Event::KeyDown {
+            key,
+            modifiers: ravenrs_core::Modifiers::default(),
+        });
+        self.settle();
+    }
+
+    /// The name of what has the keyboard focus.
+    fn focused(&mut self) -> Option<String> {
+        self.settle();
+        let tree = self.ui.access_tree();
+        tree.focus.and_then(|id| tree.nodes.iter().find(|n| n.id == id)).and_then(|n| n.name.clone())
+    }
+
+    fn count(&self, entity: &str) -> usize {
+        (self.space)().query(entity, &Query::all()).expect("reads").len()
     }
 
     fn memory(name: &str) -> Self {
@@ -40,10 +72,8 @@ impl Center {
     }
 
     fn sign_in(&mut self, name: &str) {
-        self.type_into("Nome", name);
-        self.type_into("Senha", PASSWORD);
-        self.press("Entrar");
-        assert!(self.session.borrow().is_some(), "{name} got in: {:?}", self.texts());
+        let inside = self.gets_in(name, PASSWORD);
+        assert!(inside, "{name} got in: {:?}", self.texts());
     }
 
     fn settle(&mut self) {
@@ -920,4 +950,245 @@ fn a_receipt_is_one_long_page_with_its_printer_and_commands_in_place() {
     let page = c.ui.access_tree().nodes.iter().find(|n| n.name.as_deref() == Some("Saída")).map(|n| n.id);
     c.ui.perform_action(page.expect("the ribbon's page of output"), AccessAction::Click);
     assert!(c.says("Impressora direta"), "the designer offers printing straight: {:?}", c.texts());
+}
+
+#[test]
+fn leaving_a_field_checks_it_before_saving() {
+    let mut c = Center::memory("ana");
+    c.press("Ao sair do campo");
+    c.open_record("ValidationOnLeave", 1.0);
+    c.type_into("Nome", "");
+    for _ in "Recife".chars() {
+        c.key(ravenrs_core::Key::Backspace);
+    }
+    assert!(!c.says("obrigatório"), "nothing to say while the field still has the focus: {:?}", c.texts());
+    c.type_into("Cidade", "");
+    assert!(c.says("obrigatório"), "the field says it as soon as the focus leaves it: {:?}", c.texts());
+    assert_eq!(c.stored("ValidationOnLeave", 1.0).get("name"), Value::Text("Recife".into()), "nothing saved");
+}
+
+#[test]
+fn the_code_panel_counts_what_the_seed_put_there() {
+    let mut c = Center::memory("ana");
+    c.press("Painel em código");
+    for shown in [
+        "R$ 10.000,00",
+        "Ana Lima: R$ 7.000,00, Bia Rocha: R$ 3.000,00",
+        "Aberta: R$ 8.000,00, Atrasada: R$ 2.000,00",
+    ] {
+        assert!(c.says(shown), "{shown}: {:?}", c.texts());
+    }
+    let caio = &mut Center::memory("caio");
+    caio.press("Painel em código");
+    assert!(caio.session().error().is_none(), "{:?}", caio.session().error());
+}
+
+#[test]
+fn screen_readers_hear_the_model_and_the_check_action_announces_what_it_did() {
+    let mut c = Center::memory("ana");
+    c.press("Leitores de tela e teclado");
+    c.open_record("AccessibilityDemo", 1.0);
+    let tree = c.ui.access_tree();
+    assert!(tree.nodes.iter().any(|n| n.name.as_deref() == Some("Início do período")), "a name of its own");
+    assert!(
+        tree.nodes.iter().any(|n| n.description.as_deref() == Some("O último dia que entra na conta")),
+        "and what it means"
+    );
+    // The form draws De and Até first, and the model asks for Nome and Valor first.
+    c.type_into("Nome", "");
+    c.key(ravenrs_core::Key::Tab);
+    let second = c.focused().unwrap_or_default();
+    c.key(ravenrs_core::Key::Tab);
+    let third = c.focused().unwrap_or_default();
+    assert!(
+        second.starts_with("Valor") && third.starts_with("Início do período"),
+        "the order of the model: Nome, {second}, {third}"
+    );
+    c.open_list("AccessibilityDemo");
+    c.select("AccessibilityDemo", 1.0);
+    let check = c.session().frame().action("AccessibilityCheck").expect("there");
+    assert!(check.hotkey_text().is_some_and(|keys| !keys.is_empty()), "it says its keys");
+    c.run("AccessibilityCheck", ActionInput::None);
+    assert_eq!(c.stored("AccessibilityDemo", 1.0).get("checked"), Value::Bool(true));
+    assert!(c.says("Conferido: Aluguel"), "and says what it did: {:?}", c.texts());
+}
+
+#[test]
+fn the_ready_made_records_take_new_ones_with_their_own_rules() {
+    let mut c = Center::memory("ana");
+    c.press("Pessoas");
+    assert!(c.says("Ana Lima"), "the full name is worked out: {:?}", c.texts());
+    c.run("New", ActionInput::None);
+    c.set("first_name", "Caio");
+    c.set("last_name", "Dias");
+    c.set("email", "sem arroba");
+    c.save();
+    assert_eq!(c.count("Person"), 2, "an e-mail with no @ is refused");
+    c.set("email", "caio@exemplo.com");
+    c.save();
+    assert_eq!(c.count("Person"), 3, "{:?}", c.session().error());
+
+    for (caption, entity, fields) in [
+        ("Países", "Country", &[("name", "Brasil"), ("code", "BR")][..]),
+        ("Endereços", "Address", &[("street", "Rua da Aurora"), ("city", "Recife")][..]),
+    ] {
+        c.press(caption);
+        let before = c.count(entity);
+        c.run("New", ActionInput::None);
+        for (field, value) in fields {
+            c.set(field, *value);
+        }
+        c.save();
+        assert_eq!(c.count(entity), before + 1, "{caption}: {:?}", c.session().error());
+    }
+    c.press("Eventos");
+    c.run("New", ActionInput::None);
+    c.set("subject", "Reunião de obra");
+    let at = |day: i64| {
+        let now = ravenrs_app::local_now();
+        Value::Date(ravenrs_criteria::DateTime { days: now.days + day, ..now })
+    };
+    c.set("starts", at(2));
+    c.set("ends", at(1));
+    c.save();
+    assert_eq!(c.count("Event"), 0, "it cannot end before it starts");
+    c.set("ends", at(3));
+    c.save();
+    assert_eq!(c.count("Event"), 1, "{:?}", c.session().error());
+    c.press("Países");
+    c.run("New", ActionInput::None);
+    c.set("name", "Brasil");
+    c.save();
+    assert_eq!(c.count("Country"), 1, "the name of a country is unique");
+}
+
+#[test]
+fn the_lists_of_reports_panels_and_roles_open_from_the_navigation() {
+    let mut c = Center::memory("ana");
+    c.press("Relatórios");
+    assert!(c.says("Custos por tarefa"), "{:?}", c.texts());
+    c.press("Painéis");
+    let panels = (c.space)().query(ravenrs_app_report::ANALYTICS_DASHBOARD, &Query::all()).expect("reads");
+    let Value::Text(name) = panels[0].get("name") else { panic!("a panel with a name") };
+    assert!(c.says(&name), "{name}: {:?}", c.texts());
+    c.press("Papéis");
+    for role in ["Administradores", "Vendas", "Leitura"] {
+        assert!(c.says(role), "{role}: {:?}", c.texts());
+    }
+    c.press("Campos de fora");
+    assert!(c.says("Fora da auditoria"), "{:?}", c.texts());
+}
+
+#[test]
+fn a_new_password_lets_in_and_the_old_one_no_longer_does() {
+    let database = memory_database().unwrap_or_else(|why| panic!("{why}"));
+    let source = database.clone();
+    let space: Space = Rc::new(move || Box::new(source.space()) as Box<dyn ObjectSpace>);
+    let mut c = Center::over(space.clone(), "bia");
+    c.press("Trocar senha");
+    c.type_into("Senha atual", PASSWORD);
+    c.type_into("Nova senha", "uma-senha-bem-nova");
+    c.type_into("Repita a senha", "uma-senha-bem-nova");
+    c.press("Salvar senha");
+    assert!(c.session().error().is_none(), "{:?}", c.session().error());
+
+    let mut old = Center::at_the_door(space.clone());
+    assert!(!old.gets_in("bia", PASSWORD), "the old password is refused");
+    let mut new = Center::at_the_door(space);
+    assert!(new.gets_in("bia", "uma-senha-bem-nova"), "{:?}", new.texts());
+}
+
+/// Hands each request of the window to the center's own web API, at once, as `cargo run --bin api`
+/// would over the network.
+struct AtOnce(Rc<RefCell<ravenrs_app_server::ApiService>>);
+
+impl ravenrs_app_remote::Transport for AtOnce {
+    fn send(
+        &self,
+        request: ravenrs_app_remote::RemoteRequest,
+        done: Box<dyn FnOnce(Result<ravenrs_app_remote::RemoteResponse, String>)>,
+    ) {
+        let address = request.url.split_once("://").map_or(request.url.as_str(), |(_, rest)| rest);
+        let target = address.split_once('/').map_or("", |(_, rest)| rest);
+        let (path, query) = target.split_once('?').unwrap_or((target, ""));
+        let mut asked = ravenrs_app_server::ApiRequest::new(&request.method, path);
+        for pair in query.split('&').filter(|pair| !pair.is_empty()) {
+            let (name, value) = pair.split_once('=').unwrap_or((pair, ""));
+            asked = asked.query(name, value);
+        }
+        if let Some(token) = &request.bearer {
+            asked = asked.bearer(token);
+        }
+        if let Some(body) = &request.body {
+            asked.body = body.clone().into_bytes();
+        }
+        let answer = self.0.borrow_mut().handle(asked);
+        done(Ok(ravenrs_app_remote::RemoteResponse::new(answer.status, answer.body.to_string())));
+    }
+}
+
+#[test]
+fn over_a_server_the_counter_window_has_its_control_too() {
+    let service = Rc::new(RefCell::new(feature_center::api_service(None).expect("it starts")));
+    let client = ravenrs_app_remote::RemoteClient::new("http://centro", AtOnce(service));
+    let mut ui = Ui::new(feature_center::remote_over(client).expect("it opens"), Theme::raven_dark());
+    ui.set_viewport(Size::new(1600.0, 1200.0), 1.0);
+    let mut c = Window(ui);
+    c.type_into("Nome", "ana");
+    c.type_into("Senha", PASSWORD);
+    c.press("Entrar");
+    c.press("Caixa de exemplo");
+    assert!(c.says("Próximo número"), "the counter is drawn, not an empty panel: {:?}", c.texts());
+    c.press("Editor de tokens");
+    assert!(c.says("Tokens") || c.says("tokens"), "{:?}", c.texts());
+}
+
+/// The window over a server, read and pressed the same way as `Center`.
+struct Window(Ui);
+
+impl Window {
+    fn texts(&mut self) -> Vec<String> {
+        for _ in 0..4 {
+            self.0.update();
+        }
+        self.0
+            .access_tree()
+            .nodes
+            .iter()
+            .flat_map(|node| [node.name.clone(), node.value.clone(), node.description.clone()])
+            .flatten()
+            .collect()
+    }
+
+    fn says(&mut self, text: &str) -> bool {
+        self.texts().iter().any(|found| found.contains(text))
+    }
+
+    fn press(&mut self, name: &str) {
+        let _ = self.texts();
+        let tree = self.0.access_tree();
+        let found = tree.nodes.iter().find(|n| n.role == Role::Button && n.name.as_deref() == Some(name));
+        let id = found.unwrap_or_else(|| panic!("no button {name}: {:?}", self.texts())).id;
+        self.0.perform_action(id, AccessAction::Click);
+        let _ = self.texts();
+    }
+
+    fn type_into(&mut self, field: &str, text: &str) {
+        let _ = self.texts();
+        let tree = self.0.access_tree();
+        let id = tree
+            .nodes
+            .iter()
+            .find(|n| n.role == Role::TextInput && n.name.as_deref().is_some_and(|t| t.starts_with(field)))
+            .unwrap_or_else(|| panic!("no field {field}: {:?}", self.texts()))
+            .id;
+        self.0.perform_action(id, AccessAction::Focus);
+        for character in text.chars() {
+            self.0.handle_event(&ravenrs_core::Event::KeyDown {
+                key: ravenrs_core::Key::Character(character.to_string()),
+                modifiers: ravenrs_core::Modifiers::default(),
+            });
+        }
+        let _ = self.texts();
+    }
 }

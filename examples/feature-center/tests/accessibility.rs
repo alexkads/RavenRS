@@ -144,33 +144,12 @@ fn every_demonstration_has_its_audit_test() {
     assert!(gone.is_empty(), "the navigation no longer has {gone:?}: take them out of demonstrations!");
 }
 
-/// Demonstrations the tour does not visit yet, waiting for #581. The list only shrinks.
-const NOT_IN_THE_TOUR_YET: &[&str] = &[
-    "Painel em código",
-    "Campos de fora",
-    "Leitores de tela e teclado",
-    "Pessoas",
-    "Eventos",
-    "Países",
-    "Endereços",
-    "Relatórios",
-    "Painéis",
-    "Papéis",
-    "Trocar senha",
-];
-
 /// Every demonstration is also a step of tests/tour.rs, which proves it works and not only that it
 /// reads well: a new one comes with its step (skill ravenrs-feature-center).
 #[test]
 fn every_demonstration_has_a_step_in_the_tour() {
     let tour = include_str!("tour.rs");
     let visited = |name: &str| tour.contains(&format!("\"{name}\""));
-    let missing: Vec<&&str> =
-        DEMONSTRATIONS.iter().filter(|name| !visited(name) && !NOT_IN_THE_TOUR_YET.contains(name)).collect();
+    let missing: Vec<&&str> = DEMONSTRATIONS.iter().filter(|name| !visited(name)).collect();
     assert!(missing.is_empty(), "no step in tests/tour.rs for {missing:?}: visit each one there");
-    let done: Vec<&&str> = NOT_IN_THE_TOUR_YET.iter().filter(|name| visited(name)).collect();
-    assert!(done.is_empty(), "the tour visits {done:?} now: take them out of NOT_IN_THE_TOUR_YET");
-    let unknown: Vec<&&str> =
-        NOT_IN_THE_TOUR_YET.iter().filter(|name| !DEMONSTRATIONS.contains(name)).collect();
-    assert!(unknown.is_empty(), "{unknown:?} are not demonstrations: take them out of NOT_IN_THE_TOUR_YET");
 }
