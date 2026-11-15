@@ -416,6 +416,9 @@ pub struct Element {
     /// Turn of the node and everything in it around its center, in radians, clockwise on
     /// screen; painting and the pointer both follow it, layout does not.
     pub rotation: f32,
+    /// Size of the node and everything in it as painted, from its top left corner; painting
+    /// and the pointer follow it, layout does not.
+    pub scale: f32,
     pub on_double_click: Option<Rc<dyn Fn()>>,
     pub on_pinch: Option<Rc<dyn Fn(f32)>>,
     /// Takes the wheel over it, before any scroll container around it.
@@ -477,6 +480,7 @@ impl Element {
             rebuild_on_scroll: false,
             translate: Point::ZERO,
             rotation: 0.0,
+            scale: 1.0,
             on_double_click: None,
             on_pinch: None,
             on_wheel: None,
@@ -1524,6 +1528,17 @@ impl<'a> BuildCx<'a> {
     pub fn rotate(&mut self, node: NodeId, radians: f32) {
         if let Some(e) = self.element_mut(node) {
             e.rotation = radians;
+        }
+    }
+
+    /// Paints the node and its subtree `factor` times their laid out size, from the node's top
+    /// left corner, and has the pointer find them where they show. Layout is unchanged: lay a
+    /// subtree out at its natural size and show it at a zoom, text still sharp at that size.
+    /// With [`Self::rotate`] too, the scale comes first and the turn goes around the scaled
+    /// node's middle.
+    pub fn scale(&mut self, node: NodeId, factor: f32) {
+        if let Some(e) = self.element_mut(node) {
+            e.scale = factor.max(0.0);
         }
     }
 

@@ -2264,6 +2264,7 @@ method BuildCx::reduced_motion
 method BuildCx::report_frame
 method BuildCx::request_focus
 method BuildCx::rotate
+method BuildCx::scale
 method BuildCx::scroll_horizontally
 method BuildCx::scroll_linked
 method BuildCx::scroll_offset
@@ -2860,6 +2861,7 @@ method FloatingToolbar::new
 method FloatingToolbar::place
 method FloatingToolbar::separator
 method FloatingToolbar::view
+method FlowCanvas::content
 method FlowCanvas::controls
 method FlowCanvas::editable_titles
 method FlowCanvas::grid
@@ -4539,6 +4541,7 @@ type AnyView
 type DockGuard
 type DragHandler
 type DrawFn
+type FlowContent
 type FlowGuard
 type FlowValidator
 type KeyHandler
