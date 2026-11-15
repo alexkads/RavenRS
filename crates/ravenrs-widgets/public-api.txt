@@ -2243,6 +2243,7 @@ method BuildCx::flush_overlay
 method BuildCx::focusable
 method BuildCx::foreground
 method BuildCx::full_screen
+method BuildCx::hit_outline
 method BuildCx::is_focus_visible
 method BuildCx::is_focused
 method BuildCx::is_hover_within
@@ -4177,6 +4178,7 @@ reexport FlowLayoutKind = ravenrs_graphics::flow::layout::FlowLayoutKind
 reexport FlowNode = ravenrs_graphics::flow::FlowNode
 reexport FlowNodeStatus = ravenrs_graphics::flow::FlowNodeStatus
 reexport FlowPort = ravenrs_graphics::flow::FlowPort
+reexport FlowShape = ravenrs_graphics::flow::FlowShape
 reexport LottieAnimation = ravenrs_lottie::document::Animation
 reexport LottieError = ravenrs_lottie::document::LottieError
 reexport PortDirection = ravenrs_graphics::flow::PortDirection

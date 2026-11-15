@@ -425,6 +425,8 @@ pub struct Element {
     /// and the pointer follow it, layout does not.
     pub scale: f32,
     pub on_double_click: Option<Rc<dyn Fn()>>,
+    /// The pointer finds the node only inside this outline, from its top left corner.
+    pub hit_outline: Option<Rc<[Point]>>,
     pub on_pinch: Option<Rc<dyn Fn(f32)>>,
     /// Takes the wheel over it, before any scroll container around it.
     pub on_wheel: Option<Rc<dyn Fn(Point)>>,
@@ -487,6 +489,7 @@ impl Element {
             rotation: 0.0,
             scale: 1.0,
             on_double_click: None,
+            hit_outline: None,
             on_pinch: None,
             on_wheel: None,
             scrolls_with_widget: false,
@@ -1544,6 +1547,15 @@ impl<'a> BuildCx<'a> {
     pub fn scale(&mut self, node: NodeId, factor: f32) {
         if let Some(e) = self.element_mut(node) {
             e.scale = factor.max(0.0);
+        }
+    }
+
+    /// Has the pointer find the node only inside `outline`, a closed polygon in the node's own
+    /// coordinates (from its top left corner), instead of its whole box: a diamond or a round
+    /// button. Its children are found as ever.
+    pub fn hit_outline(&mut self, node: NodeId, outline: impl Into<Rc<[Point]>>) {
+        if let Some(e) = self.element_mut(node) {
+            e.hit_outline = Some(outline.into());
         }
     }
 

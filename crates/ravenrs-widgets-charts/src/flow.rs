@@ -21,7 +21,7 @@ use ravenrs_text::TextAttrs;
 
 pub use ravenrs_graphics::flow::{
     EdgeCap, EdgeShape, FlowDirection, FlowEdge, FlowEndpoint, FlowGraph, FlowHistory, FlowJsonError,
-    FlowLayout, FlowLayoutKind, FlowNode, FlowNodeStatus, FlowPort, PortDirection, PortSide,
+    FlowLayout, FlowLayoutKind, FlowNode, FlowNodeStatus, FlowPort, FlowShape, PortDirection, PortSide,
 };
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
@@ -2227,9 +2227,36 @@ impl View for NodeBox {
         let selected = self.selected;
         let zoom = view.zoom;
         let is_group = node.group;
+        let shape = node.shape;
+        // The outline on screen, from the node's corner, for drawing and for the pointer.
+        let outline: Rc<[Point]> = node
+            .outline()
+            .into_iter()
+            .map(|q| Point::new((q.x - node.x) * zoom, (q.y - node.y) * zoom))
+            .collect();
+        let drawn = outline.clone();
         let paint = Paint::Rich(Rc::new(move |frame: Rect, paint: &mut PaintCx<'_>| {
             if is_group {
                 draw_group(paint, frame, zoom, &theme, p, &title, selected, hovered);
+                return;
+            }
+            if shape != FlowShape::Card && !card_only {
+                let at: Vec<Point> =
+                    drawn.iter().map(|q| Point::new(frame.x() + q.x, frame.y() + q.y)).collect();
+                draw_shape(
+                    paint,
+                    frame,
+                    &at,
+                    shape,
+                    zoom,
+                    &theme,
+                    p,
+                    &title,
+                    subtitle.as_deref(),
+                    &status,
+                    selected,
+                    hovered,
+                );
                 return;
             }
             draw_node(
@@ -2258,6 +2285,9 @@ impl View for NodeBox {
             paint,
         );
         cx.focusable(root, theme.radii.md * view.zoom);
+        if !matches!(node.shape, FlowShape::Card | FlowShape::Rectangle | FlowShape::Note) && !node.group {
+            cx.hit_outline(root, outline);
+        }
         if node.rotation != 0.0 {
             cx.rotate(root, node.rotation.to_radians());
         }
@@ -2317,6 +2347,94 @@ impl View for NodeBox {
             }),
         );
         root
+    }
+}
+
+/// Draws a node in a shape other than the card: the outline filled and edged, its title (and
+/// line) in the middle; a note wraps its title over lines from its top left corner.
+#[allow(clippy::too_many_arguments, reason = "what one shape shows")]
+fn draw_shape(
+    paint: &mut PaintCx<'_>,
+    frame: Rect,
+    outline: &[Point],
+    shape: FlowShape,
+    zoom: f32,
+    theme: &Theme,
+    p: Palette,
+    title: &str,
+    subtitle: Option<&str>,
+    status: &FlowNodeStatus,
+    selected: bool,
+    hovered: bool,
+) {
+    let note = shape == FlowShape::Note;
+    let (edge, width) = match status {
+        _ if selected => (p.accent, 2.0),
+        FlowNodeStatus::Warning(_) => (p.warning, 2.0),
+        FlowNodeStatus::Error(_) => (p.danger, 2.0),
+        _ if note => (p.warning, 1.0),
+        _ => (p.border, 1.0),
+    };
+    let fill = match () {
+        _ if note => p.warning.with_alpha(0.18),
+        _ if hovered => p.control,
+        _ => p.elevated,
+    };
+    let path: Vec<ravenrs_core::PathElement> =
+        outline
+            .iter()
+            .enumerate()
+            .map(|(i, &q)| {
+                if i == 0 {
+                    ravenrs_core::PathElement::MoveTo(q)
+                } else {
+                    ravenrs_core::PathElement::LineTo(q)
+                }
+            })
+            .chain(std::iter::once(ravenrs_core::PathElement::Close))
+            .collect();
+    paint.scene.push_path(PathFill::solid(path, fill));
+    let mut ring: Vec<Point> = outline.to_vec();
+    ring.extend(outline.first().copied());
+    stroke(paint.scene, &ring, width, edge);
+    if zoom < TEXT_ZOOM {
+        return;
+    }
+    let scaled = |style: TextStyle, weight: Option<Weight>| {
+        let a = util::attrs(theme, style, weight);
+        TextAttrs {
+            size: a.size * zoom,
+            line_height: a.line_height * zoom,
+            letter_spacing: a.letter_spacing * zoom,
+            ..a
+        }
+    };
+    let pad = theme.spacing.s3 * zoom;
+    let ink = if *status == FlowNodeStatus::Disabled { p.muted } else { p.ink };
+    if note {
+        let mut layout = paint.text.layout(title, &scaled(TextStyle::Callout, None));
+        layout.measure(Some((frame.width() - pad * 2.0).max(0.0)));
+        layout.paint(Point::new(frame.x() + pad, frame.y() + pad), ink, paint.scene);
+        return;
+    }
+    // Words stay inside the narrower middle of a diamond or an ellipse.
+    let room = match shape {
+        FlowShape::Diamond | FlowShape::Ellipse => frame.width() * 0.6,
+        _ => frame.width() - pad * 2.0,
+    }
+    .max(0.0);
+    let mut lines: Vec<(String, TextAttrs, Color)> =
+        vec![(title.to_owned(), scaled(TextStyle::Body, Some(Weight::SEMIBOLD)), ink)];
+    if let Some(line) = subtitle {
+        lines.push((line.to_owned(), scaled(TextStyle::Callout, None), p.muted));
+    }
+    let total: f32 = lines.iter().map(|(_, a, _)| a.line_height).sum();
+    let mut y = frame.y() + (frame.height() - total) / 2.0;
+    for (text, attrs, color) in lines {
+        let mut layout = paint.text.layout_ellipsized(&text, &attrs, room);
+        let wide = layout.measure(None).width;
+        layout.paint(Point::new(frame.center().x - wide / 2.0, y), color, paint.scene);
+        y += attrs.line_height;
     }
 }
 
