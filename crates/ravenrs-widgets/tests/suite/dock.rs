@@ -1087,3 +1087,120 @@ fn the_app_can_refuse_floating() {
     assert!(!layout.get().is_floating("layers"));
     assert_eq!(refusals(&mut ui), ["Not now"]);
 }
+
+/// An area with documents in the center and tools around it.
+fn documents_area(layout: &State<DockLayout>) -> DockArea {
+    let panels = vec![
+        DockPanel::new("sales", "sales.rs").kind(DockPanelKind::Document),
+        DockPanel::new("report", "Report")
+            .kind(DockPanelKind::Document)
+            .close_action(DockCloseAction::Remove),
+        DockPanel::new("client", "client.rs").kind(DockPanelKind::Document),
+        DockPanel::new("files", "Files"),
+        DockPanel::new("output", "Output"),
+    ];
+    DockArea::new(layout.binding(), panels, |id| -> AnyView { Box::new(Content(id.to_owned())) })
+        .height(600.0)
+}
+
+fn documents_start() -> DockLayout {
+    DockLayout::new()
+        .center(DockNode::tabs(["sales", "report", "client"]))
+        .left(DockNode::tabs(["files"]), 240.0)
+        .bottom(DockNode::tabs(["output"]), 150.0)
+}
+
+#[test]
+fn a_document_stays_in_the_center_and_says_why() {
+    let layout = State::new(documents_start());
+    let mut ui = dock_ui_of(documents_area(&layout));
+    tab_to(&mut ui, "sales.rs");
+    let both = Modifiers { alt: true, shift: true, ..Modifiers::default() };
+    press(&mut ui, Key::ArrowLeft, both);
+    assert_eq!(layout.get().side_of("sales"), Some(DockSide::Center));
+    assert_eq!(refusals(&mut ui), ["Documents stay in the center"]);
+    let (from, files) = (center(&tab(&mut ui, "client.rs")), tab(&mut ui, "Files").bounds);
+    let target = Point::new(files.max_x() - 1.0, files.y() + 8.0);
+    drag_to(&mut ui, from, target);
+    assert_eq!(marks(&ui), 0, "a dock marks nothing for a document");
+    release(&mut ui, target);
+    assert_eq!(layout.get().side_of("client"), Some(DockSide::Center));
+}
+
+#[test]
+fn a_tool_stays_in_the_docks_and_its_menu_has_no_center() {
+    let layout = State::new(documents_start());
+    let mut ui = dock_ui_of(documents_area(&layout));
+    let (from, sales) = (center(&tab(&mut ui, "Files")), tab(&mut ui, "sales.rs").bounds);
+    let target = Point::new(sales.max_x() - 1.0, sales.y() + 8.0);
+    drag_to(&mut ui, from, target);
+    assert_eq!(marks(&ui), 0);
+    release(&mut ui, target);
+    assert_eq!(layout.get().side_of("files"), Some(DockSide::Left));
+    tab_to(&mut ui, "Options of Files");
+    press(&mut ui, Key::Enter, Modifiers::default());
+    press(&mut ui, Key::ArrowRight, Modifiers::default());
+    let mut seen = Vec::new();
+    for _ in 0..8 {
+        seen.push(focused_name(&mut ui).unwrap_or_default());
+        press(&mut ui, Key::ArrowDown, Modifiers::default());
+    }
+    assert!(seen.iter().any(|name| name == "Top dock"), "{seen:?}");
+    assert!(!seen.iter().any(|name| name == "Center" || name.starts_with("With sales")), "{seen:?}");
+}
+
+#[test]
+fn free_placement_lets_them_go_anywhere_and_an_area_without_documents_is_as_before() {
+    let layout = State::new(documents_start());
+    let mut ui = dock_ui_of(documents_area(&layout).free_placement(true));
+    tab_to(&mut ui, "sales.rs");
+    let both = Modifiers { alt: true, shift: true, ..Modifiers::default() };
+    press(&mut ui, Key::ArrowLeft, both);
+    assert_eq!(layout.get().side_of("sales"), Some(DockSide::Left));
+    let plain = State::new(start());
+    let mut ui = dock_ui(&plain);
+    tab_to(&mut ui, "Folders");
+    press(&mut ui, Key::Enter, both);
+    assert_eq!(
+        plain.get().side_of("folders"),
+        Some(DockSide::Center),
+        "with no documents, tools go anywhere"
+    );
+}
+
+#[test]
+fn close_others_closes_the_rest_of_the_group_and_stops_where_the_app_says_no() {
+    let layout = State::new(documents_start());
+    let view = documents_area(&layout).on_change(|_, _, change| match change {
+        DockChange::Close { panel } if panel == "client" => Err("client.rs has changes".into()),
+        _ => Ok(()),
+    });
+    let mut ui = dock_ui_of(view);
+    tab_to(&mut ui, "Options of sales.rs");
+    press(&mut ui, Key::Enter, Modifiers::default());
+    while focused_name(&mut ui).as_deref() != Some("Close others") {
+        press(&mut ui, Key::ArrowDown, Modifiers::default());
+    }
+    press(&mut ui, Key::Enter, Modifiers::default());
+    let now = layout.get();
+    assert!(!now.contains("report"), "the first goes");
+    assert!(now.contains("client"), "the one the app keeps stays");
+    assert!(now.contains("sales"));
+    assert!(refusals(&mut ui).contains(&"client.rs has changes".to_owned()));
+    assert!(has(&mut ui, "Report closed"), "and what closed is said");
+}
+
+#[test]
+fn a_panel_that_closes_for_good_is_not_offered_back_and_the_app_fills_an_empty_center() {
+    let mut empty = documents_start();
+    for id in ["sales", "report", "client"] {
+        assert!(empty.close(id));
+    }
+    let layout = State::new(empty);
+    let view =
+        documents_area(&layout).on_documents_empty(|| -> AnyView { Box::new(Text::new("No document open")) });
+    let mut ui = dock_ui_of(view);
+    assert!(has(&mut ui, "No document open"), "the app's own words");
+    assert!(has(&mut ui, "sales.rs") && has(&mut ui, "client.rs"), "what can come back, under them");
+    assert!(!has(&mut ui, "Report"), "not what closed for good");
+}

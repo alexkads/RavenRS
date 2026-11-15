@@ -18,10 +18,12 @@ enum CompositionGuide
 enum ContentMode
 enum ContentSpace
 enum DockChange
+enum DockCloseAction
 enum DockDrop
 enum DockEdge
 enum DockLayoutError
 enum DockNode
+enum DockPanelKind
 enum DockSide
 enum DockTabBar
 enum DragPhase
@@ -102,8 +104,10 @@ field DayMark::tone
 field DockChild::node
 field DockChild::share
 field DockPanel::closable
+field DockPanel::close_action
 field DockPanel::icon
 field DockPanel::id
+field DockPanel::kind
 field DockPanel::title
 field DocumentTab::closable
 field DocumentTab::color
@@ -283,9 +287,11 @@ field Labels::dock_auto_hide_item
 field Labels::dock_bottom
 field Labels::dock_center
 field Labels::dock_close
+field Labels::dock_close_others
 field Labels::dock_close_panel
 field Labels::dock_closed
 field Labels::dock_dock_back
+field Labels::dock_documents_center
 field Labels::dock_empty
 field Labels::dock_float_item
 field Labels::dock_floating
@@ -307,6 +313,7 @@ field Labels::dock_show
 field Labels::dock_split_below
 field Labels::dock_split_right
 field Labels::dock_tabs_name
+field Labels::dock_tools_docks
 field Labels::dock_top
 field Labels::dock_with
 field Labels::document_name
@@ -862,12 +869,14 @@ impl Clone for Diagnostics
 impl Clone for Divider
 impl Clone for DockChange
 impl Clone for DockChild
+impl Clone for DockCloseAction
 impl Clone for DockDrop
 impl Clone for DockEdge
 impl Clone for DockLayout
 impl Clone for DockLayoutError
 impl Clone for DockNode
 impl Clone for DockPanel
+impl Clone for DockPanelKind
 impl Clone for DockSide
 impl Clone for DockTabBar
 impl Clone for DocumentTab
@@ -1064,7 +1073,9 @@ impl Copy for Date
 impl Copy for DateRange
 impl Copy for DateTime
 impl Copy for Divider
+impl Copy for DockCloseAction
 impl Copy for DockEdge
+impl Copy for DockPanelKind
 impl Copy for DockSide
 impl Copy for DockTabBar
 impl Copy for Drag
@@ -1216,12 +1227,14 @@ impl Debug for Divider
 impl Debug for DockArea
 impl Debug for DockChange
 impl Debug for DockChild
+impl Debug for DockCloseAction
 impl Debug for DockDrop
 impl Debug for DockEdge
 impl Debug for DockLayout
 impl Debug for DockLayoutError
 impl Debug for DockNode
 impl Debug for DockPanel
+impl Debug for DockPanelKind
 impl Debug for DockSide
 impl Debug for DockTabBar
 impl Debug for DocumentTab
@@ -1557,7 +1570,9 @@ impl Default for ContentSpace
 impl Default for DayMark
 impl Default for Diagnostics
 impl Default for Divider
+impl Default for DockCloseAction
 impl Default for DockLayout
+impl Default for DockPanelKind
 impl Default for DockTabBar
 impl Default for Dot
 impl Default for EyedropperState
@@ -1691,9 +1706,11 @@ impl Eq for Date
 impl Eq for DateRange
 impl Eq for DateTime
 impl Eq for DayMark
+impl Eq for DockCloseAction
 impl Eq for DockDrop
 impl Eq for DockEdge
 impl Eq for DockLayoutError
+impl Eq for DockPanelKind
 impl Eq for DockSide
 impl Eq for DockTabBar
 impl Eq for DragPhase
@@ -1821,12 +1838,14 @@ impl PartialEq for DateTime
 impl PartialEq for DayMark
 impl PartialEq for DockChange
 impl PartialEq for DockChild
+impl PartialEq for DockCloseAction
 impl PartialEq for DockDrop
 impl PartialEq for DockEdge
 impl PartialEq for DockLayout
 impl PartialEq for DockLayoutError
 impl PartialEq for DockNode
 impl PartialEq for DockPanel
+impl PartialEq for DockPanelKind
 impl PartialEq for DockSide
 impl PartialEq for DockTabBar
 impl PartialEq for DocumentTab
@@ -2708,11 +2727,13 @@ method DockArea::center_min
 method DockArea::dock_limits
 method DockArea::edge_toggles
 method DockArea::floatable
+method DockArea::free_placement
 method DockArea::height
 method DockArea::label
 method DockArea::movable
 method DockArea::new
 method DockArea::on_change
+method DockArea::on_documents_empty
 method DockArea::on_end
 method DockArea::pane_min
 method DockArea::tab_bar
@@ -2758,7 +2779,9 @@ method DockNode::horizontal
 method DockNode::tabs
 method DockNode::vertical
 method DockPanel::closable
+method DockPanel::close_action
 method DockPanel::icon
+method DockPanel::kind
 method DockPanel::new
 method DocumentTab::closable
 method DocumentTab::color
@@ -4670,6 +4693,8 @@ variant DockChange::Pin
 variant DockChange::Place
 variant DockChange::Reopen
 variant DockChange::Resize
+variant DockCloseAction::Hide
+variant DockCloseAction::Remove
 variant DockDrop::Side
 variant DockDrop::Split
 variant DockDrop::Tab
@@ -4683,6 +4708,8 @@ variant DockLayoutError::Syntax
 variant DockLayoutError::UnsupportedVersion
 variant DockNode::Split
 variant DockNode::Tabs
+variant DockPanelKind::Document
+variant DockPanelKind::Tool
 variant DockSide::Bottom
 variant DockSide::Center
 variant DockSide::Left
