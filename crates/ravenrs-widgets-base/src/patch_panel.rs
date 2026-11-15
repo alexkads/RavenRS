@@ -743,7 +743,7 @@ impl PatchPanel {
                 None => (key_of(link), false),
             };
             look(CablePlug::between(nodes[a], nodes[b]), &self.jacks[a].signal)
-                .sides(CableSide::Bottom, CableSide::Bottom)
+                .sides(CableSide::Center, CableSide::Center)
                 .key(key)
                 .grow(fresh)
                 .build(cx);
@@ -756,12 +756,11 @@ impl PatchPanel {
                 .unwrap_or_else(|| shared.next_key.get());
             let hand = match (by_pointer, shared.aim.get()) {
                 // With the keys the plug hangs over the jack chosen with the arrows.
-                (None, Some(aim)) if aim != pull.from => {
-                    CablePlug::between(nodes[pull.from], nodes[aim]).sides(CableSide::Bottom, CableSide::Top)
-                }
+                (None, Some(aim)) if aim != pull.from => CablePlug::between(nodes[pull.from], nodes[aim])
+                    .sides(CableSide::Center, CableSide::Center),
                 (None, _) => CablePlug::between(nodes[pull.from], nodes[pull.from])
-                    .sides(CableSide::Bottom, CableSide::Bottom),
-                (Some(_), _) => CablePlug::from(nodes[pull.from]).sides(CableSide::Bottom, CableSide::Center),
+                    .sides(CableSide::Center, CableSide::Center),
+                (Some(_), _) => CablePlug::from(nodes[pull.from]).sides(CableSide::Center, CableSide::Center),
             };
             look(hand, &self.jacks[pull.from].signal).key(key).build(cx);
         }
