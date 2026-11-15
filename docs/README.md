@@ -34,6 +34,21 @@ You can start with high-level components and implement a custom view when you ne
 [Explore the architecture](../ARCHITECTURE.md), [browse the components](PARITY.md),
 or [build a record application](APP-FRAMEWORK.md).
 
+For capability-level gaps, source evidence and acceptance scenarios, see the
+[technical component audit](COMPONENT-AUDIT.md). It distinguishes existing APIs
+from planned work and records limitations of specific platform combinations.
+
+See also the [component inventory and projection](COMPONENT-INVENTORY.md) and
+the [project-planning roadmap](PROJECT-PLANNING-ROADMAP.md).
+
+The [software coverage assessment](SOFTWARE-COVERAGE.md) evaluates 15 application
+categories, with capability scores, missing components and infrastructure, and
+related backlog. Scores describe the audited scope, not product completion.
+
+For recurring business application capabilities, see the
+[ravenrs-app coverage assessment](APP-COVERAGE.md): declarative workflows, remaining
+integration work, related issues, and evaluation tasks for smaller AI models.
+
 ## Build with an AI assistant
 
 Read the [AI development guide](AI_DEVELOPMENT.md) for official context, version-matched MCP tools

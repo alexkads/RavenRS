@@ -4,6 +4,11 @@ RavenRS aims to be more complete than the three reference libraries. This table 
 
 Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned. Column S marks whether shadcn/ui ships it; D and T mark two commercial component suites for desktop and web.
 
+These are family-level statuses, not a claim that every feature or combination is
+supported. See the [technical component audit](COMPONENT-AUDIT.md) for source-level
+evidence, basic-control gaps and acceptance scenarios across local/remote data,
+virtualization, editing, keyboard interaction and export.
+
 ## Summary
 
 | | Families tracked | ✅ | 🟡 | ⬜ |
