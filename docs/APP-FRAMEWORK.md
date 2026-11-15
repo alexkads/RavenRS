@@ -474,11 +474,11 @@ let database = PostgresDatabase::builder(backend).managed(order, TableMap::new("
 - **Poolers.** A pooler in transaction mode hands each transaction to whichever server connection is free, so a statement prepared on one is missing on the next. Supavisor on port 6543, Neon's `-pooler` hosts and an address with `pgbouncer=true` are recognised, and statements then go unprepared: one round trip each, nothing left on the server, values as text that the server reads as it would in the statement. `PostgresOptions::statements` says it outright, and `PostgresBackend::with_statements` does it for a `Client` you opened. Behind a pooler, `SET`, `LISTEN` and session locks do not last past the transaction.
 - **A connection that drops.** Neon puts a database to sleep after a while with nothing to do, and the connection goes with it. Outside a transaction the backend opens the connection again before the next statement, and a read that met the drop goes once more. Inside one it never does: the commit fails, nothing of it stays, and the next unit of work starts on a new connection. With no `connect_timeout` in the address it waits 15 seconds, time for a database to wake up.
 
-| Service | Address to use | What to know |
-|---|---|---|
-| Supabase, direct | `db.<project>.supabase.co:5432`, `sslmode=require&sslrootcert=…` | IPv6 only unless the IPv4 add-on is on |
-| Supabase, Supavisor | `aws-0-<region>.pooler.supabase.com`: 5432 is a session, 6543 transactions | 6543 goes unprepared by itself; if the certificate check fails, add the project's authority with `sslrootcert` as for the direct connection |
-| Neon | the host with `-pooler` for many short connections, without it for one long one | the first statement after a sleep waits for it to wake |
+| Service | Address to use | What to know | Checked against the service |
+|---|---|---|---|
+| Supabase, direct | `db.<project>.supabase.co:5432`, `sslmode=require&sslrootcert=…` | IPv6 only unless the IPv4 add-on is on: the name has no IPv4 address | Records, migrations, the web API and the contract, prepared and unprepared, without TLS (14/11/2026). TLS with the project's authority not yet |
+| Supabase, Supavisor | `aws-0-<region>.pooler.supabase.com`: 5432 is a session, 6543 transactions | 6543 goes unprepared by itself. Supavisor's certificate is signed by Supabase's own authority, so `connect` refuses it (`UnknownIssuer`) until the project's authority is given with `sslrootcert`. On 6543, `SET search_path` and other session settings do not last: keep the tables in `public` or name the schema | Session (5432): the same as the direct connection, both ways. Transactions (6543): refused by the certificate check without the authority |
+| Neon | the host with `-pooler` for many short connections, without it for one long one; the address the console gives (`sslmode=require&channel_binding=require`) works as it is | the first statement after a sleep waits for it to wake. Neon's pooler keeps prepared statements across server connections; statements still go unprepared there, which works the same | Direct with TLS and channel binding: records, migrations, the web API and the contract, both ways. `-pooler`: unprepared by itself, records kept whole. First query after a suspension: 2 s (14/11/2026, PostgreSQL 18) |
 | Nhost | the Postgres address of the project, when its plan lets one in | Hasura's GraphQL is another way in, not this one |
 
 `PostgresBackend::from(client)` still takes a connection you opened yourself, with the TLS and credentials you chose; it is not opened again when it drops.
@@ -544,11 +544,11 @@ CREATE POLICY own_tenant ON orders
   WITH CHECK (tenant = current_setting('request.jwt.claims', true)::json ->> 'tenant');
 ```
 
-| Service | Address | Token |
-|---|---|---|
-| Your own PostgREST | where it listens; `.schema()` when it serves more than one | signed with its `jwt-secret` |
-| Supabase | `https://<project>.supabase.co/rest/v1`, with `.api_key(anon key)` | the session's access token from Supabase Auth; the anon key alone is the `anon` role |
-| Neon Data API | the endpoint the console shows for the branch | from Neon Auth, or your own provider through its JWKS |
+| Service | Address | Token | What to know |
+|---|---|---|---|
+| Your own PostgREST | where it listens; `.schema()` when it serves more than one | signed with its `jwt-secret` | `NOTIFY pgrst, 'reload schema'` after making tables |
+| Supabase | `https://<project>.supabase.co/rest/v1`, with `.api_key(publishable key)` | the session's access token from Supabase Auth (an hour); the publishable key alone is the `anon` role. A claim of the application's own goes in `app_metadata` | Every new table of `public` is granted to `anon` by default: revoke it where only those signed in may read. The firewall in front of the API answers 403 with a page of its own to a filter whose text looks like SQL injection (`B'; DROP TABLE …`), before the database sees it; writes in the body pass (#388) |
+| Neon Data API | the endpoint the console shows for the branch | from Neon Auth, or your own provider through its JWKS. Neon Auth's tokens last 15 minutes: give `token_source` a function that returns the current one | The anonymous role is `anonymous`. It does not hear `NOTIFY pgrst`: after making tables, press Refresh schema cache under Data API, or `PATCH {}` to `/projects/{project}/branches/{branch}/data-api/{database}` of Neon's API |
 
 Limits to know:
 - Desktop only: a space answers at once, and a browser cannot wait for HTTP.
@@ -556,7 +556,7 @@ Limits to know:
 - State machines are checked against what was read before the commit, not inside its transaction.
 - A table without row level security is open to every role that has grants on it: the function adds no rule of its own.
 
-Its tests run against a real PostgREST when `RAVENRS_POSTGREST_URL`, `RAVENRS_POSTGREST_ADMIN_URL` and `RAVENRS_POSTGREST_TOKEN_A`/`_B` say where; `tests/postgrest.rs` says what each must be.
+Its tests run against a real PostgREST when `RAVENRS_POSTGREST_URL`, `RAVENRS_POSTGREST_ADMIN_URL` and `RAVENRS_POSTGREST_TOKEN_A`/`_B` say where; `tests/postgrest.rs` says what each must be, and which variables point them at Supabase or Neon. On 14/11/2026 they passed against Neon's Data API, all five with the contract, and against Supabase but for the contract's case of a filter that looks like SQL injection, which Supabase's firewall refuses.
 
 ## A web API
 

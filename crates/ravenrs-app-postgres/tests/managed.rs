@@ -5,7 +5,12 @@
 //! - `RAVENRS_POSTGRES_TLS_URL`: `sslmode=require`, a certificate no public authority signed, and
 //!   `RAVENRS_POSTGRES_CA` the file of the authority that did.
 //! - `RAVENRS_POSTGRES_POOLER_URL`: PgBouncer in transaction mode with `max_prepared_statements = 0`,
-//!   as Supavisor on 6543 is.
+//!   as Supavisor on 6543 is. Neon's `-pooler` keeps prepared statements across server connections
+//!   (its PgBouncer has `max_prepared_statements` on): with `RAVENRS_POSTGRES_POOLER_PREPARES=1` the
+//!   test does not ask for a prepared statement to be lost there.
+//!
+//! - `RAVENRS_POSTGRES_COLD_URL`: a database that scales to zero, suspended just before (Neon). The
+//!   first query has to come back within 15 seconds, with no error for the person.
 //!
 //! Tables go in `public` under names no other test uses, dropped before each run.
 #![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
@@ -128,10 +133,12 @@ fn after_a_switch(mode: Statements) -> Result<(), String> {
 #[test]
 fn behind_a_pooler_statements_go_unprepared_and_records_are_kept_whole() {
     let Some(url) = var("RAVENRS_POSTGRES_POOLER_URL") else { return };
-    assert!(
-        after_a_switch(Statements::Prepared).is_err(),
-        "the pooler should have lost the prepared statement"
-    );
+    if var("RAVENRS_POSTGRES_POOLER_PREPARES").is_none() {
+        assert!(
+            after_a_switch(Statements::Prepared).is_err(),
+            "the pooler should have lost the prepared statement"
+        );
+    }
     after_a_switch(Statements::Unprepared).unwrap();
 
     let backend = PostgresBackend::connect(&url).unwrap();
@@ -196,4 +203,16 @@ fn behind_a_pooler_statements_go_unprepared_and_records_are_kept_whole() {
     space.save(wrong).unwrap();
     assert!(space.commit().is_err());
     assert_eq!(database.space().query("Plain", &Query::all()).unwrap().len(), 3, "nothing of it stayed");
+}
+
+/// A database that slept wakes on the first query, and the person only waits.
+#[test]
+fn a_database_that_slept_answers_the_first_query_within_fifteen_seconds() {
+    let Some(url) = var("RAVENRS_POSTGRES_COLD_URL") else { return };
+    let started = std::time::Instant::now();
+    let backend = PostgresBackend::connect(&url).unwrap();
+    assert!(matches!(one(&backend, "SELECT 1::bigint"), SqlCell::Integer(1)));
+    let waited = started.elapsed();
+    println!("first query after sleeping: {waited:?}");
+    assert!(waited < std::time::Duration::from_secs(15), "it took {waited:?}");
 }
