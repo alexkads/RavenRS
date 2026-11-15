@@ -866,6 +866,11 @@ impl ApplicationHandler<UserEvent> for App {
 
     /// Sleeps until input arrives or until the UI's next timed wake-up.
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
+        // A view closed the window once its question was answered.
+        if self.ui.take_close() && !self.close_to_tray(event_loop) {
+            event_loop.exit();
+            return;
+        }
         if self.in_tray.is_some()
             && let Some(active) = tray::app_is_active()
         {
@@ -960,6 +965,13 @@ impl ApplicationHandler<UserEvent> for App {
                 }
             }
             WindowEvent::CloseRequested => {
+                // A view that holds the window asks its own question first.
+                if !self.ui.may_close() {
+                    if let Some(state) = &self.window {
+                        state.window.request_redraw();
+                    }
+                    return;
+                }
                 if !self.close_to_tray(event_loop) {
                     event_loop.exit();
                 }

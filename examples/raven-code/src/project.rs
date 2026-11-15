@@ -68,6 +68,89 @@ impl Project {
         fs::write(self.file(path)?, text)
     }
 
+    /// Makes an empty file. Refused when something is there already.
+    pub fn create_file(&self, path: &str) -> io::Result<()> {
+        let file = self.file(path)?;
+        if let Some(parent) = file.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::OpenOptions::new().write(true).create_new(true).open(file).map(drop)
+    }
+
+    /// Makes a folder. Refused when something is there already.
+    pub fn create_folder(&self, path: &str) -> io::Result<()> {
+        let folder = self.file(path)?;
+        if folder.exists() {
+            return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{path} already exists")));
+        }
+        fs::create_dir_all(folder)
+    }
+
+    /// Renames or moves a file or a folder. Refused when something is at `to` already.
+    pub fn rename(&self, from: &str, to: &str) -> io::Result<()> {
+        let (from_at, to_at) = (self.file(from)?, self.file(to)?);
+        if to_at.exists() {
+            return Err(io::Error::new(io::ErrorKind::AlreadyExists, format!("{to} already exists")));
+        }
+        if let Some(parent) = to_at.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::rename(from_at, to_at)
+    }
+
+    /// Deletes a file, or a folder with all it holds. There is no way back.
+    pub fn remove(&self, path: &str) -> io::Result<()> {
+        let at = self.file(path)?;
+        if at.is_dir() { fs::remove_dir_all(at) } else { fs::remove_file(at) }
+    }
+
+    /// Where `query` is in the text files of the project (not in `target` or what is hidden),
+    /// line by line, at most [`MOST_HITS`]. With `case`, only with the same capitals.
+    pub fn search(&self, query: &str, case: bool) -> Vec<Hit> {
+        let mut hits = Vec::new();
+        if query.is_empty() {
+            return hits;
+        }
+        let folded = |text: &str| if case { text.to_owned() } else { text.to_lowercase() };
+        let wanted = folded(query);
+        let mut files = Vec::new();
+        collect_files(&self.tree().unwrap_or_default(), &mut files);
+        for path in files {
+            let Ok(text) = self.read(&path) else { continue };
+            if text.contains('\0') {
+                continue;
+            }
+            for (n, line) in text.lines().enumerate() {
+                if let Some(at) = folded(line).find(&wanted) {
+                    let column = line.get(..at).map_or(at, |before| before.chars().count()) + 1;
+                    hits.push(Hit { file: path.clone(), line: n + 1, column, text: line.trim().to_owned() });
+                    if hits.len() >= MOST_HITS {
+                        return hits;
+                    }
+                }
+            }
+        }
+        hits
+    }
+
+    /// A number that changes when a file or a folder of the project comes, goes, grows or is
+    /// written: what a watcher compares.
+    pub fn stamp(&self) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut hasher = std::hash::DefaultHasher::new();
+        let mut files = Vec::new();
+        let tree = self.tree().unwrap_or_default();
+        collect_all(&tree, &mut files);
+        for path in files {
+            path.hash(&mut hasher);
+            if let Ok(meta) = self.file(&path).and_then(fs::metadata) {
+                meta.len().hash(&mut hasher);
+                meta.modified().ok().hash(&mut hasher);
+            }
+        }
+        hasher.finish()
+    }
+
     /// Where a path of the project is on disk. A path that would leave the project is refused.
     fn file(&self, path: &str) -> io::Result<PathBuf> {
         let mut at = self.root.clone();
@@ -81,6 +164,54 @@ impl Project {
             at.push(part);
         }
         Ok(at)
+    }
+}
+
+/// The most a [`Project::search`] lists.
+pub const MOST_HITS: usize = 2000;
+
+/// A line of the project where a search found what it looked for.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Hit {
+    /// The file, from the project's folder.
+    pub file: String,
+    /// From 1.
+    pub line: usize,
+    /// Where it starts on the line, from 1, in characters.
+    pub column: usize,
+    /// The line, without the spaces around it.
+    pub text: String,
+}
+
+/// Why a name typed for a file or a folder cannot be used, if it cannot: empty, `.` or `..`,
+/// or with a separator in it.
+pub fn bad_name(name: &str) -> Option<&'static str> {
+    if name.trim().is_empty() {
+        Some("The name is empty")
+    } else if name == "." || name == ".." {
+        Some("That name is taken by the system")
+    } else if name.contains(['/', '\\']) {
+        Some("A name cannot have / or \\ in it")
+    } else {
+        None
+    }
+}
+
+/// Every file of a tree, by path.
+pub fn collect_files(entries: &[Entry], files: &mut Vec<String>) {
+    for entry in entries {
+        if entry.folder {
+            collect_files(&entry.children, files);
+        } else {
+            files.push(entry.path.clone());
+        }
+    }
+}
+
+fn collect_all(entries: &[Entry], all: &mut Vec<String>) {
+    for entry in entries {
+        all.push(entry.path.clone());
+        collect_all(&entry.children, all);
     }
 }
 

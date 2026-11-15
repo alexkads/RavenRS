@@ -91,6 +91,9 @@ field CellEdit::column
 field CellEdit::previous
 field CellEdit::row
 field CellEdit::value
+field CodeCompletion::detail
+field CodeCompletion::insert
+field CodeCompletion::label
 field CodeDiagnostic::column
 field CodeDiagnostic::hint
 field CodeDiagnostic::length
@@ -227,6 +230,18 @@ field Labels::close
 field Labels::close_other_tabs
 field Labels::close_tab
 field Labels::close_tabs_to_right
+field Labels::code_close_find
+field Labels::code_find
+field Labels::code_find_count
+field Labels::code_find_next
+field Labels::code_find_previous
+field Labels::code_match_case
+field Labels::code_no_results
+field Labels::code_replace
+field Labels::code_replace_all
+field Labels::code_show_replace
+field Labels::code_suggestions
+field Labels::code_whole_word
 field Labels::color_alpha
 field Labels::color_background
 field Labels::color_foreground
@@ -890,6 +905,7 @@ fn apple_keys
 fn days_in_month
 fn decode_image
 fn exceptions_text
+fn find_all
 fn grid::query::check_formula
 fn grid::query::formula_value
 fn grid::query::group_keys
@@ -944,6 +960,7 @@ impl Clone for ChatMedia
 impl Clone for ChatMessage
 impl Clone for Clipboard
 impl Clone for CodeBlock
+impl Clone for CodeCompletion
 impl Clone for CodeDiagnostic
 impl Clone for CodeLanguage
 impl Clone for Column
@@ -1089,6 +1106,7 @@ impl Clone for Summary
 impl Clone for SystemAppearance
 impl Clone for Table
 impl Clone for TabsVariant
+impl Clone for TextHistory
 impl Clone for ThemeEditor
 impl Clone for ThemePicker
 impl Clone for ThemeSwitcher
@@ -1113,6 +1131,7 @@ impl Clone for UiStats
 impl Clone for UiWaker
 impl Clone for Value
 impl Clone for WidgetId
+impl Clone for WindowCloser
 impl Clone for ZoomPanPaint
 impl Clone for ZoomView
 impl Clone for grid::CellAlign
@@ -1284,6 +1303,7 @@ impl Debug for ChatMessage
 impl Debug for Checkbox
 impl Debug for Clipboard
 impl Debug for CodeBlock
+impl Debug for CodeCompletion
 impl Debug for CodeDiagnostic
 impl Debug for CodeEditor
 impl Debug for CodeLanguage
@@ -1566,6 +1586,7 @@ impl Debug for TagBox
 impl Debug for Text
 impl Debug for TextArea
 impl Debug for TextField
+impl Debug for TextHistory
 impl Debug for ThemeEditor
 impl Debug for ThemePicker
 impl Debug for ThemeSwitcher
@@ -1612,6 +1633,7 @@ impl Debug for Value
 impl Debug for ValueSlider
 impl Debug for VirtualList
 impl Debug for WidgetId
+impl Debug for WindowCloser
 impl Debug for Wizard
 impl Debug for WizardStep
 impl Debug for YearView
@@ -1743,6 +1765,7 @@ impl Default for StatusBar
 impl Default for StepState
 impl Default for SystemAppearance
 impl Default for TabsVariant
+impl Default for TextHistory
 impl Default for ThemeEditor
 impl Default for ThemePicker
 impl Default for ThemeSwitcher
@@ -1758,6 +1781,7 @@ impl Default for Turn
 impl Default for UiStats
 impl Default for UiWaker
 impl Default for Value
+impl Default for WindowCloser
 impl Default for ZoomView
 impl Default for grid::CellAlign
 impl Default for grid::ColumnLayout
@@ -1808,6 +1832,7 @@ impl Eq for ChartBarFrom
 impl Eq for ChartIndicator
 impl Eq for ChartLegend
 impl Eq for ChatAuthor
+impl Eq for CodeCompletion
 impl Eq for CodeDiagnostic
 impl Eq for CodeLanguage
 impl Eq for CompareMode
@@ -1865,6 +1890,7 @@ impl Eq for SortLayout
 impl Eq for StepState
 impl Eq for Summary
 impl Eq for TabsVariant
+impl Eq for TextHistory
 impl Eq for TileSpot
 impl Eq for Time
 impl Eq for TimePoint
@@ -1936,6 +1962,7 @@ impl PartialEq for ChartIndicator
 impl PartialEq for ChartLegend
 impl PartialEq for ChartReference
 impl PartialEq for ChatAuthor
+impl PartialEq for CodeCompletion
 impl PartialEq for CodeDiagnostic
 impl PartialEq for CodeLanguage
 impl PartialEq for ColumnLayout
@@ -2024,6 +2051,7 @@ impl PartialEq for SoundClip
 impl PartialEq for StepState
 impl PartialEq for Summary
 impl PartialEq for TabsVariant
+impl PartialEq for TextHistory
 impl PartialEq for TileSpot
 impl PartialEq for Time
 impl PartialEq for TimeAxis
@@ -2410,6 +2438,7 @@ method BuildCx::now
 method BuildCx::observe_activity
 method BuildCx::on_appear
 method BuildCx::on_click
+method BuildCx::on_close_request
 method BuildCx::on_context_menu
 method BuildCx::on_context_menu_in
 method BuildCx::on_double_click
@@ -2457,6 +2486,7 @@ method BuildCx::viewport
 method BuildCx::wake_at
 method BuildCx::wheel_scrolls_sideways
 method BuildCx::widget_id
+method BuildCx::window_closer
 method BuildCx::with_foreground
 method Button::accessible_description
 method Button::accessible_name
@@ -2628,17 +2658,27 @@ method Clipboard::new
 method Clipboard::read
 method Clipboard::write
 method CodeBlock::new
+method CodeCompletion::detail
+method CodeCompletion::insert
+method CodeCompletion::new
 method CodeDiagnostic::error
 method CodeDiagnostic::hint
 method CodeDiagnostic::warning
 method CodeEditor::caret
+method CodeEditor::completions
 method CodeEditor::diagnostics
 method CodeEditor::fill
 method CodeEditor::focus_request
+method CodeEditor::follow_end
+method CodeEditor::history
+method CodeEditor::hover
 method CodeEditor::indent
 method CodeEditor::language
 method CodeEditor::line_numbers
 method CodeEditor::new
+method CodeEditor::on_complete
+method CodeEditor::on_go_to
+method CodeEditor::on_hover
 method CodeEditor::read_only
 method CodeEditor::rows
 method Collapse::boxed
@@ -3972,11 +4012,19 @@ method TextField::on_submit
 method TextField::placeholder
 method TextField::prefix
 method TextField::read_only
+method TextField::recall
 method TextField::secure
 method TextField::select_on_open
 method TextField::size
 method TextField::suffix
 method TextField::width
+method TextHistory::can_redo
+method TextHistory::can_undo
+method TextHistory::clear
+method TextHistory::new
+method TextHistory::record_change
+method TextHistory::redo
+method TextHistory::undo
 method ThemeEditor::new
 method ThemeEditor::theme
 method ThemePicker::new
@@ -4129,6 +4177,7 @@ method TreeNode::icon
 method TreeNode::lazy
 method TreeNode::new
 method TreeView::checked
+method TreeView::context_menu
 method TreeView::expanded
 method TreeView::filter
 method TreeView::height
@@ -4149,6 +4198,7 @@ method Ui::handle_event
 method Ui::is_animating
 method Ui::is_dragging
 method Ui::links
+method Ui::may_close
 method Ui::needs_redraw
 method Ui::new
 method Ui::next_wake
@@ -4176,6 +4226,7 @@ method Ui::sound
 method Ui::stats
 method Ui::system_appearance
 method Ui::system_themes
+method Ui::take_close
 method Ui::take_frame_work
 method Ui::text_system
 method Ui::theme
@@ -4225,6 +4276,7 @@ method VirtualList::row_name
 method VirtualList::scroll_to
 method VirtualList::selection
 method VirtualList::spacing
+method WindowCloser::close
 method Wizard::finish_label
 method Wizard::new
 method Wizard::on_cancel
@@ -4454,6 +4506,7 @@ struct ChatMessage
 struct Checkbox
 struct Clipboard
 struct CodeBlock
+struct CodeCompletion
 struct CodeDiagnostic
 struct CodeEditor
 struct Collapse
@@ -4696,6 +4749,7 @@ struct TagBox
 struct Text
 struct TextArea
 struct TextField
+struct TextHistory
 struct ThemeEditor
 struct ThemePicker
 struct ThemeSwitcher
@@ -4735,6 +4789,7 @@ struct VStack
 struct ValueSlider
 struct VirtualList
 struct WidgetId
+struct WindowCloser
 struct Wizard
 struct WizardStep
 struct YearView

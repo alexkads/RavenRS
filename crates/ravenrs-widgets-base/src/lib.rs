@@ -159,7 +159,7 @@ pub use ravenrs_text::TextAlign;
 pub use recurrence::{
     Frequency, RecurrenceEnd, RecurrenceRule, RecurrenceSet, exceptions_text, parse_exceptions,
 };
-pub use remote::UiWaker;
+pub use remote::{UiWaker, WindowCloser};
 pub use scroll_link::{ScrollLink, ScrollRange};
 pub use scroll_scene::{ScrollLinked, ScrollScene, Sticky};
 pub use selection_mode::SelectionMode;
@@ -171,7 +171,7 @@ pub use stack::{
 pub use summary::Summary;
 pub use system_appearance::SystemAppearance;
 pub use text::Text;
-pub use text_field::{Cursor, TextField};
+pub use text_field::{Cursor, TextField, TextHistory};
 pub use time_link::TimeLink;
 pub use turn::{QuarterTurn, Turn};
 pub use ui::{Ui, UiStats};

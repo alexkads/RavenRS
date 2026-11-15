@@ -594,3 +594,267 @@ fn a_place_turns_back_into_the_characters_before_it() {
     assert_eq!(offset_of(text, 2, 99), 17, "past the end of a line stops there");
     assert_eq!(offset_of(text, 9, 1), 19, "past the last line, at the end");
 }
+
+#[test]
+fn undo_takes_back_a_word_at_a_time_and_the_app_keeps_the_steps() {
+    let source = State::new(String::new());
+    let history = State::new(TextHistory::new());
+    let mut ui = ui(CodeEditor::new(source.binding()).history(history.clone()));
+    focus_editor(&mut ui);
+    typed(&mut ui, "let x");
+    key(&mut ui, Key::Enter);
+    typed(&mut ui, "done");
+    let cmd = Modifiers { meta: true, ..Modifiers::default() };
+    press(&mut ui, Key::Character("z".into()), cmd);
+    assert_eq!(source.get(), "let x\n");
+    press(&mut ui, Key::Character("z".into()), cmd);
+    assert_eq!(source.get(), "let x", "the line break is a step of its own");
+    assert!(history.peek().can_redo(), "the app sees what can be redone");
+    press(&mut ui, Key::Character("Z".into()), Modifiers { shift: true, ..cmd });
+    assert_eq!(source.get(), "let x\n");
+    // A read-only editor undoes nothing.
+    let shown = State::new("fixed".to_owned());
+    let mut ui = super_ui_read_only(shown.clone());
+    press(&mut ui, Key::Character("z".into()), cmd);
+    assert_eq!(shown.get(), "fixed");
+}
+
+fn super_ui_read_only(source: State<String>) -> Ui {
+    let mut ui = ui(CodeEditor::new(source.binding()).read_only(true));
+    focus_editor(&mut ui);
+    ui
+}
+
+#[test]
+fn find_all_respects_capitals_and_whole_words() {
+    let text = "let a = a + A; abc";
+    assert_eq!(find_all(text, "a", false, false).len(), 4);
+    assert_eq!(find_all(text, "a", true, false).len(), 3);
+    assert_eq!(find_all(text, "a", true, true), vec![(4, 5), (8, 9)]);
+    assert_eq!(find_all(text, "A", false, true).len(), 3, "abc is not the word a");
+    assert!(find_all(text, "", false, false).is_empty());
+    assert_eq!(find_all("ãão", "ão", false, false), vec![(1, 3)], "counted in characters");
+}
+
+fn names(ui: &mut Ui) -> Vec<String> {
+    ui.access_tree().nodes.iter().filter_map(|n| n.name.clone()).collect()
+}
+
+#[test]
+fn cmd_f_finds_walks_the_matches_and_replaces_all_in_one_undo() {
+    let source = State::new("let a = a + A;\nlet b = a;".to_owned());
+    let cursor = State::new(Cursor::at(0));
+    let mut ui = ui(CodeEditor::new(source.binding()).caret(cursor.clone()));
+    focus_editor(&mut ui);
+    let cmd = Modifiers { meta: true, ..Modifiers::default() };
+    press(&mut ui, Key::Character("f".into()), cmd);
+    ui.update();
+    typed(&mut ui, "a");
+    assert!(names(&mut ui).iter().any(|n| n == "? of 4"), "{:?}", names(&mut ui));
+    key(&mut ui, Key::Enter);
+    assert_eq!(cursor.get().selection(), Some((4, 5)));
+    assert!(names(&mut ui).iter().any(|n| n == "1 of 4"));
+    key(&mut ui, Key::Enter);
+    press(&mut ui, Key::Enter, Modifiers { shift: true, ..Modifiers::default() });
+    assert_eq!(cursor.get().selection(), Some((4, 5)), "Shift+Enter goes back");
+    press(&mut ui, Key::Enter, Modifiers { shift: true, ..Modifiers::default() });
+    assert_eq!(cursor.get().selection(), Some((23, 24)), "and round from the first to the last");
+    // Ctrl+H shows the replacing, while the find field keeps the focus.
+    press(&mut ui, Key::Character("h".into()), Modifiers { ctrl: true, ..Modifiers::default() });
+    ui.update();
+    press_named_button(&mut ui, "Replace all");
+    assert_eq!(source.get(), "let  =  + ;\nlet b = ;");
+    // Undo takes all of it back at once, in the code.
+    let code = {
+        let tree = ui.access_tree();
+        tree.nodes
+            .iter()
+            .find(|n| n.role == Role::TextInput && n.value.as_deref().is_some_and(|v| v.contains("let")))
+            .expect("the code")
+            .bounds
+            .center()
+    };
+    click(&mut ui, code);
+    press(&mut ui, Key::Character("z".into()), cmd);
+    assert_eq!(source.get(), "let a = a + A;\nlet b = a;");
+}
+
+#[test]
+fn nothing_found_says_so_and_escape_goes_back_to_the_code() {
+    let source = State::new("fn main() {}".to_owned());
+    let mut ui = ui(CodeEditor::new(source.binding()).read_only(true));
+    focus_editor(&mut ui);
+    press(&mut ui, Key::Character("f".into()), Modifiers { ctrl: true, ..Modifiers::default() });
+    ui.update();
+    typed(&mut ui, "zzz");
+    assert!(names(&mut ui).iter().any(|n| n == "No results"));
+    assert!(!names(&mut ui).iter().any(|n| n == "Toggle replace"), "a read-only editor does not replace");
+    key(&mut ui, Key::Escape);
+    ui.update();
+    assert!(!names(&mut ui).iter().any(|n| n == "No results"), "the bar closed");
+}
+
+fn press_named_button(ui: &mut Ui, name: &str) {
+    let spot = {
+        let tree = ui.access_tree();
+        tree.nodes
+            .iter()
+            .find(|n| n.role == Role::Button && n.name.as_deref() == Some(name))
+            .unwrap_or_else(|| panic!("a button named {name}"))
+            .bounds
+            .center()
+    };
+    click(ui, spot);
+}
+
+/// An editor that offers `hello` and `help` after `::`, says what is under the pointer, and
+/// writes down where F12 asked to go.
+struct Helped {
+    source: State<String>,
+    asked: State<Vec<String>>,
+    offered: State<Vec<CodeCompletion>>,
+    tip: State<Option<String>>,
+}
+
+impl View for Helped {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let (asked, offered) = (self.asked.clone(), self.offered.clone());
+        let (asked_tip, tip) = (self.asked.clone(), self.tip.clone());
+        let asked_go = self.asked.clone();
+        let editor = CodeEditor::new(self.source.binding())
+            .on_complete(move |at| {
+                asked.update(|a| a.push(format!("complete {at}")));
+                offered.set(vec![
+                    CodeCompletion::new("hello").detail("fn(&str) -> String"),
+                    CodeCompletion::new("help"),
+                    CodeCompletion::new("other"),
+                ]);
+            })
+            .completions(self.offered.get())
+            .on_hover(move |at| {
+                asked_tip.update(|a| a.push(format!("hover {at}")));
+                tip.set(Some("pub fn hello(name: &str) -> String".to_owned()));
+            })
+            .hover(self.tip.get())
+            .on_go_to(move |at| asked_go.update(|a| a.push(format!("go {at}"))));
+        cx.child(&editor)
+    }
+}
+
+fn helped(text: &str) -> (Ui, State<String>, State<Vec<String>>) {
+    let source = State::new(text.to_owned());
+    let asked = State::new(Vec::new());
+    let view = Helped {
+        source: source.clone(),
+        asked: asked.clone(),
+        offered: State::new(Vec::new()),
+        tip: State::new(None),
+    };
+    (ui(view), source, asked)
+}
+
+fn options(ui: &mut Ui) -> Vec<String> {
+    ui.access_tree()
+        .nodes
+        .iter()
+        .filter(|n| n.role == Role::ListBoxOption)
+        .filter_map(|n| n.name.clone())
+        .collect()
+}
+
+#[test]
+fn suggestions_come_after_two_colons_narrow_by_the_word_and_tab_puts_one_in() {
+    let (mut ui, source, asked) = helped("");
+    focus_editor(&mut ui);
+    typed(&mut ui, "greeting::");
+    assert_eq!(asked.get(), ["complete 10"]);
+    assert_eq!(options(&mut ui), ["hello", "help", "other"]);
+    typed(&mut ui, "hel");
+    assert_eq!(options(&mut ui), ["hello", "help"], "the word typed narrows them");
+    key(&mut ui, Key::ArrowDown);
+    key(&mut ui, Key::Tab);
+    assert_eq!(source.get(), "greeting::help");
+    assert!(options(&mut ui).is_empty(), "the list closed");
+    // Undo takes the suggestion out in one step.
+    press(&mut ui, Key::Character("z".into()), Modifiers { meta: true, ..Modifiers::default() });
+    assert_eq!(source.get(), "greeting::hel");
+    // Ctrl+Space asks anywhere, and Escape closes without changing anything.
+    press(&mut ui, Key::Space, Modifiers { ctrl: true, ..Modifiers::default() });
+    assert_eq!(options(&mut ui), ["hello", "help"]);
+    key(&mut ui, Key::Escape);
+    assert!(options(&mut ui).is_empty());
+    assert_eq!(source.get(), "greeting::hel");
+}
+
+#[test]
+fn f12_and_a_command_click_ask_where_it_is_defined() {
+    let (mut ui, _source, asked) = helped("hello()");
+    focus_editor(&mut ui);
+    key(&mut ui, Key::Home);
+    key(&mut ui, Key::ArrowRight);
+    key(&mut ui, Key::Function(12));
+    assert_eq!(asked.get(), ["go 1"]);
+}
+
+#[test]
+fn resting_the_pointer_on_a_word_shows_a_tip() {
+    let (mut ui, _source, asked) = helped("hello()");
+    let code = {
+        let tree = ui.access_tree();
+        tree.nodes.iter().find(|n| n.role == Role::TextInput).expect("the code").bounds
+    };
+    let spot = Point::new(code.x() + 70.0, code.y() + 16.0);
+    ui.set_time(1.0);
+    ui.handle_event(&Event::PointerMove { position: spot });
+    ui.update();
+    assert!(asked.get().is_empty(), "nothing is asked before the pointer rests");
+    ui.set_time(1.6);
+    ui.update();
+    ui.update();
+    assert_eq!(asked.get(), ["hover 0"], "asked once, for the word");
+    ui.update();
+    let tips: Vec<String> = ui
+        .access_tree()
+        .nodes
+        .iter()
+        .filter(|n| n.role == Role::Tooltip)
+        .filter_map(|n| n.name.clone())
+        .collect();
+    assert_eq!(tips, ["pub fn hello(name: &str) -> String"]);
+    assert_eq!(asked.get().len(), 1, "and not again while it rests there");
+}
+
+#[test]
+fn a_followed_log_keeps_its_end_in_sight_as_it_grows() {
+    let log = State::new((1..=5).map(|n| format!("line {n}\n")).collect::<String>());
+    let mut ui =
+        ui(CodeEditor::new(log.binding()).read_only(true).follow_end(true).line_numbers(false).rows(4));
+    log.update(|log| {
+        for n in 6..=60 {
+            log.push_str(&format!("line {n}\n"));
+        }
+    });
+    ui.update();
+    ui.update();
+    // Only the lines in sight are drawn: at the end they all have two digits, at the top
+    // "line 1" to "line 9" have one, and so one glyph fewer.
+    let glyphs = |ui: &Ui| -> Vec<usize> {
+        ui.scene()
+            .primitives()
+            .iter()
+            .filter_map(|p| match p {
+                Primitive::Glyphs(g) => Some(g.glyphs.len()),
+                _ => None,
+            })
+            .collect()
+    };
+    let at_end = glyphs(&ui);
+    assert!(!at_end.is_empty());
+    // Each line draws as "line" and its number: no number of one digit at the end.
+    assert!(!at_end.contains(&1), "only two-digit lines in sight: {at_end:?}");
+    // Without following, it stays at the top.
+    let still = State::new((1..=60).map(|n| format!("line {n}\n")).collect::<String>());
+    let other = super::code::ui(CodeEditor::new(still.binding()).read_only(true).line_numbers(false).rows(4));
+    let top = glyphs(&other);
+    assert!(top.contains(&1), "one-digit lines at the top: {top:?}");
+}

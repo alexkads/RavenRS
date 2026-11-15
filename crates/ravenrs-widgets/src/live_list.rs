@@ -437,6 +437,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Labels::__live_expose_part2(registry);
     crate::UiWaker::__live_expose_fields(registry);
     crate::UiWaker::__live_expose(registry);
+    crate::WindowCloser::__live_expose_fields(registry);
+    crate::WindowCloser::__live_expose(registry);
     crate::ScrollRange::__live_expose_variants(registry);
     crate::ScrollRange::__live_expose(registry);
     crate::ScrollLink::__live_expose_fields(registry);
@@ -480,6 +482,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::TextField::__live_expose_fields(registry);
     crate::TextField::__live_expose(registry);
     crate::Cursor::__live_expose(registry);
+    crate::TextHistory::__live_expose_fields(registry);
+    crate::TextHistory::__live_expose(registry);
     crate::TimeLink::__live_expose_fields(registry);
     crate::TimeLink::__live_expose(registry);
     crate::Turn::__live_expose_variants(registry);
@@ -672,6 +676,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     #[cfg(feature = "code")]
     crate::CodeEditor::__live_expose_fields(registry);
     #[cfg(feature = "code")]
+    crate::CodeCompletion::__live_expose_fields(registry);
+    #[cfg(feature = "code")]
+    crate::CodeCompletion::__live_expose(registry);
+    #[cfg(feature = "code")]
     crate::CodeEditor::__live_expose(registry);
     crate::Attachment::__live_expose_fields(registry);
     crate::Attachment::__live_expose(registry);
@@ -761,13 +769,13 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     #[cfg(feature = "flow")]
     crate::FlowLayers::__live_expose(registry);
     #[cfg(feature = "flow")]
-    crate::FlowFileFormat::__live_expose_fields(registry);
-    #[cfg(feature = "flow")]
-    crate::FlowFileFormat::__live_expose(registry);
-    #[cfg(feature = "flow")]
     crate::FlowLibrary::__live_expose_fields(registry);
     #[cfg(feature = "flow")]
     crate::FlowLibrary::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowFileFormat::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    crate::FlowFileFormat::__live_expose(registry);
     #[cfg(feature = "flow")]
     crate::FlowNotation::__live_expose_fields(registry);
     #[cfg(feature = "flow")]

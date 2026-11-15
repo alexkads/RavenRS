@@ -11,7 +11,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let project = raven_code::from_args(std::env::args().skip(1))?;
     let title = format!("{} — Raven Code", project.name());
     let options = ravenrs::native::WindowOptions::new(title).size(1440.0, 900.0);
-    ravenrs::native::run(raven_code::RavenCode::new(project), options)?;
+    let mut app = raven_code::RavenCode::new(project).with_language_server();
+    if let Some(config) = raven_code::config::Config::of_user() {
+        app = app.remembering(config);
+    }
+    ravenrs::native::run(app, options)?;
     Ok(())
 }
 

@@ -934,6 +934,21 @@ pub async fn start(root: impl View + 'static, options: WebOptions) -> Result<Web
             }),
         });
     }
+    // A view that holds the window (unsaved changes, say) has the browser ask before leaving;
+    // the browser words the question itself.
+    if let Some(window) = web_sys::window() {
+        let state = state.clone();
+        app.listeners.push(Listener {
+            target: window.into(),
+            kind: "beforeunload",
+            closure: Closure::new(move |e: web_sys::Event| {
+                let held = state.try_borrow().is_ok_and(|s| !s.ui.may_close());
+                if held {
+                    e.prevent_default();
+                }
+            }),
+        });
+    }
     // The app draws its own context menus.
     app.listeners.push(Listener {
         target: target.clone(),
