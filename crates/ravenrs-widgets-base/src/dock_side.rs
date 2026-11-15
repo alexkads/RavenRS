@@ -88,6 +88,26 @@ impl Labels {
         self.dock_pinned.replace("{title}", title)
     }
 
+    /// What is said as a panel floats, and the name of its box.
+    pub fn dock_floating_name(&self, title: &str) -> String {
+        self.dock_floating.replace("{title}", title)
+    }
+
+    /// The name of the button that puts a floating panel back.
+    pub fn dock_dock_back_name(&self, title: &str) -> String {
+        self.dock_dock_back.replace("{title}", title)
+    }
+
+    /// The name of the header that moves a floating panel.
+    pub fn dock_move_floating_name(&self, title: &str) -> String {
+        self.dock_move_floating.replace("{title}", title)
+    }
+
+    /// The name of an edge or a corner that resizes a floating panel.
+    pub fn dock_resize_floating_name(&self, title: &str) -> String {
+        self.dock_resize_floating.replace("{title}", title)
+    }
+
     /// What is announced after a panel went to a place.
     pub fn dock_moved_to(&self, side: DockSide) -> String {
         self.dock_moved.replace("{place}", &self.dock_place_lower(side))

@@ -490,6 +490,61 @@ pub fn aim(
     })
 }
 
+/// What a floating panel dragged by its header would do if let go here. Only the tabs of a group
+/// and the borders of the docks that do not show take it, so that it passes over the groups
+/// without landing in them; with `splits`, everything that takes a tab takes it.
+#[doc(hidden)]
+pub fn float_aim(
+    arranged: &Arranged,
+    at: Point,
+    strip: &dyn Fn(&GroupPlace) -> f32,
+    tab: &dyn Fn(&str) -> Option<Rect>,
+    splits: bool,
+) -> Option<DropAim> {
+    let found = aim(arranged, at, strip, tab)?;
+    if splits {
+        return Some(found);
+    }
+    let on_tabs =
+        arranged.groups.iter().any(|group| group.rect.contains(at) && at.y < group.rect.y() + strip(group));
+    (on_tabs || matches!(found.target, DockDrop::Side(_))).then_some(found)
+}
+
+/// Where a floating panel shows in an area of `size`: moved to fit, and made smaller only when it
+/// cannot fit at all, never below `least` while the area has room for that.
+#[doc(hidden)]
+pub fn clamp_floating(rect: Rect, size: Size, least: Size) -> Rect {
+    let room = |want: f32, least: f32, room: f32| want.max(least.min(room)).min(room.max(0.0));
+    let width = room(rect.width(), least.width, size.width);
+    let height = room(rect.height(), least.height, size.height);
+    let x = rect.x().clamp(0.0, (size.width - width).max(0.0));
+    let y = rect.y().clamp(0.0, (size.height - height).max(0.0));
+    Rect::new(x, y, width, height)
+}
+
+/// A floating panel's box drawn to the edges near it: of the area, and of the other floating
+/// panels, when one is within `reach`.
+#[doc(hidden)]
+pub fn snap_floating(rect: Rect, size: Size, others: &[Rect], reach: f32) -> Rect {
+    let nearest = |at: f32, lines: &[f32]| {
+        lines
+            .iter()
+            .copied()
+            .filter(|line| (line - at).abs() <= reach)
+            .min_by(|a, b| (a - at).abs().total_cmp(&(b - at).abs()))
+    };
+    let (width, height) = (rect.width(), rect.height());
+    let mut xs = vec![0.0, size.width - width];
+    let mut ys = vec![0.0, size.height - height];
+    for other in others {
+        xs.extend([other.max_x(), other.x() - width, other.x(), other.max_x() - width]);
+        ys.extend([other.max_y(), other.y() - height, other.y(), other.max_y() - height]);
+    }
+    let x = nearest(rect.x(), &xs).unwrap_or(rect.x());
+    let y = nearest(rect.y(), &ys).unwrap_or(rect.y());
+    Rect::new(x, y, width, height)
+}
+
 fn aim_tab(
     group: &GroupPlace,
     first: &str,
@@ -606,6 +661,43 @@ mod tests {
         let bottom = arranged.rails.iter().find(|(side, _)| *side == DockSide::Bottom).expect("a rail below");
         assert_eq!(bottom.1.max_y(), 700.0);
         assert_eq!(bottom.1.height(), RAIL);
+    }
+
+    #[test]
+    fn a_floating_panel_lands_only_on_tabs_and_borders_unless_asked_for_more() {
+        let arranged = arrange(&full(), Size::new(1000.0, 700.0), &METRICS);
+        let center = arranged.groups.iter().find(|g| g.panels == ["a", "b"]).expect("a group").rect;
+        let middle = Point::new(center.x() + 60.0, center.y() + 200.0);
+        assert_eq!(float_aim(&arranged, middle, &no_strip, &|_| None, false), None, "it passes over a group");
+        let split = float_aim(&arranged, middle, &no_strip, &|_| None, true).expect("with Shift");
+        assert!(matches!(split.target, DockDrop::Tab { .. } | DockDrop::Split { .. }));
+        let tabs = Point::new(center.x() + 20.0, center.y() + 10.0);
+        let on_tabs = float_aim(&arranged, tabs, &no_strip, &|_| None, false).expect("on the tabs");
+        assert!(matches!(on_tabs.target, DockDrop::Tab { .. }));
+    }
+
+    #[test]
+    fn a_floating_box_stays_in_the_area_and_draws_to_edges_near_it() {
+        let area = Size::new(800.0, 600.0);
+        let least = Size::new(200.0, 120.0);
+        assert_eq!(
+            clamp_floating(Rect::new(700.0, 550.0, 300.0, 200.0), area, least),
+            Rect::new(500.0, 400.0, 300.0, 200.0)
+        );
+        assert_eq!(
+            clamp_floating(Rect::new(0.0, 0.0, 900.0, 50.0), area, least),
+            Rect::new(0.0, 0.0, 800.0, 120.0)
+        );
+        let small = Size::new(150.0, 100.0);
+        assert_eq!(
+            clamp_floating(Rect::new(10.0, 10.0, 300.0, 200.0), small, least),
+            Rect::new(0.0, 0.0, 150.0, 100.0)
+        );
+        let other = Rect::new(400.0, 100.0, 200.0, 200.0);
+        let near = snap_floating(Rect::new(5.0, 106.0, 100.0, 80.0), area, &[other], 8.0);
+        assert_eq!(near, Rect::new(0.0, 100.0, 100.0, 80.0), "to the border and to the top of the other");
+        let far = snap_floating(Rect::new(30.0, 40.0, 100.0, 80.0), area, &[other], 8.0);
+        assert_eq!(far, Rect::new(30.0, 40.0, 100.0, 80.0));
     }
 
     #[test]

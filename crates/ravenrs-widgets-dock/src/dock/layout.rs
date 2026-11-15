@@ -4,6 +4,7 @@
 use std::collections::HashSet;
 use std::fmt;
 
+use ravenrs_core::Rect;
 use ravenrs_layout::Axis;
 use serde::{Deserialize, Serialize};
 
@@ -11,7 +12,7 @@ pub use crate::dock_side::DockSide;
 use crate::reorder;
 
 /// The version of the saved text this build writes, and the newest it reads.
-const FORMAT_VERSION: u64 = 3;
+const FORMAT_VERSION: u64 = 4;
 /// How far the shares of a split may stray from a sum of one before they are put right. Saved
 /// shares land within it, so reading a text and writing it again gives the same text.
 const SHARES_SUM_TOLERANCE: f32 = 1e-3;
@@ -98,6 +99,24 @@ pub enum DockChange {
     },
     /// A hidden panel goes back in its dock.
     Pin {
+        /// The panel.
+        panel: String,
+    },
+    /// A panel lifts out of the tree, or off its rail, to float over the area.
+    Float {
+        /// The panel.
+        panel: String,
+    },
+    /// A floating panel goes back into the tree.
+    Dock {
+        /// The panel.
+        panel: String,
+        /// Where it goes.
+        to: DockDrop,
+    },
+    /// A floating panel moves or changes size, asked once when the pointer lets it go, or for each
+    /// key that moves it.
+    Place {
         /// The panel.
         panel: String,
     },
@@ -389,8 +408,21 @@ struct Hidden {
     with: Option<String>,
 }
 
+/// A panel out of the tree, floating over the area in a box of its own.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+struct Floating {
+    panel: String,
+    /// Its box, relative to the area: `[x, y, width, height]`.
+    rect: [f32; 4],
+    /// The place it came from, to go back to.
+    side: DockSide,
+    /// Who stayed in its group as it went, to go back beside.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    with: Option<String>,
+}
+
 /// The arrangement of a [`DockArea`](crate::DockArea): which panel is where, the sizes, and what
-/// is collapsed, hidden at an edge or closed. It holds ids only, so it can be kept in a `State`, compared and saved;
+/// is collapsed, hidden at an edge, floating or closed. It holds ids only, so it can be kept in a `State`, compared and saved;
 /// what a panel shows comes from the app, by id, each time it is drawn.
 ///
 /// ```
@@ -421,6 +453,9 @@ pub struct DockLayout {
     top: Region,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     auto_hidden: Vec<Hidden>,
+    /// Back to front.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    floating: Vec<Floating>,
     #[serde(default)]
     closed: Vec<Closed>,
 }
@@ -490,6 +525,7 @@ impl DockLayout {
             bottom: bottom(),
             top: top(),
             auto_hidden: Vec::new(),
+            floating: Vec::new(),
             closed: Vec::new(),
         }
     }
@@ -656,8 +692,10 @@ impl DockLayout {
     /// away, and a split left with one part gives way to it. The last panel can close too: an
     /// arrangement with nothing open is still valid.
     pub fn close(&mut self, id: &str) -> bool {
-        let taken =
-            self.take_out(id).or_else(|| self.take_hidden(id).map(|hidden| (hidden.side, hidden.with)));
+        let taken = self
+            .take_out(id)
+            .or_else(|| self.take_hidden(id).map(|hidden| (hidden.side, hidden.with)))
+            .or_else(|| self.take_floating(id).map(|floating| (floating.side, floating.with)));
         let Some((place, with)) = taken else { return false };
         self.closed.retain(|closed| closed.panel != id);
         self.closed.push(Closed { panel: id.to_owned(), place, with });
@@ -686,7 +724,7 @@ impl DockLayout {
     /// panel is already what it would become.
     pub fn move_panel(&mut self, id: &str, target: DockDrop) -> bool {
         let closed = self.closed.iter().any(|closed| closed.panel == id);
-        if !closed && !self.contains(id) && !self.is_auto_hidden(id) {
+        if !closed && !self.contains(id) && !self.is_auto_hidden(id) && !self.is_floating(id) {
             return false;
         }
         let done = match target {
@@ -697,9 +735,77 @@ impl DockLayout {
         if done {
             self.closed.retain(|closed| closed.panel != id);
             self.auto_hidden.retain(|hidden| hidden.panel != id);
+            self.floating.retain(|floating| floating.panel != id);
             self.tidy();
         }
         done
+    }
+
+    /// Lifts a panel out of the tree, or off its rail, into a box of its own over the area, at
+    /// `rect` relative to the area, in front of the others. It remembers where it came from, for
+    /// [`Self::floating_home`]. It says whether there was such a panel to lift.
+    pub fn float(&mut self, id: &str, rect: Rect) -> bool {
+        let taken =
+            self.take_out(id).or_else(|| self.take_hidden(id).map(|hidden| (hidden.side, hidden.with)));
+        let Some((side, with)) = taken else { return false };
+        self.floating.push(Floating { panel: id.to_owned(), rect: [0.0; 4], side, with });
+        self.set_floating_rect(id, rect);
+        self.tidy();
+        true
+    }
+
+    /// Where a floating panel goes back to: the group of the panel it was with, if that is still
+    /// in the same place, or else the place it came from. Give it to [`Self::move_panel`].
+    pub fn floating_home(&self, id: &str) -> Option<DockDrop> {
+        let floating = self.floating.iter().find(|floating| floating.panel == id)?;
+        let beside = floating.with.as_ref().filter(|with| self.side_of(with) == Some(floating.side));
+        Some(match beside {
+            Some(beside) => DockDrop::Tab { beside: beside.clone(), at: usize::MAX },
+            None => DockDrop::Side(floating.side),
+        })
+    }
+
+    /// Whether a panel floats over the area.
+    pub fn is_floating(&self, id: &str) -> bool {
+        self.floating.iter().any(|floating| floating.panel == id)
+    }
+
+    /// The floating panels, from the back to the front.
+    pub fn floating_panels(&self) -> Vec<&str> {
+        self.floating.iter().map(|floating| floating.panel.as_str()).collect()
+    }
+
+    /// The box of a floating panel, relative to the area.
+    pub fn floating_rect(&self, id: &str) -> Option<Rect> {
+        self.floating.iter().find(|floating| floating.panel == id).map(|floating| {
+            let [x, y, width, height] = floating.rect;
+            Rect::new(x, y, width, height)
+        })
+    }
+
+    /// Moves or resizes a floating panel, in logical pixels relative to the area.
+    pub fn set_floating_rect(&mut self, id: &str, rect: Rect) {
+        let tidy = |value: f32| if value.is_finite() { value } else { 0.0 };
+        if let Some(floating) = self.floating.iter_mut().find(|floating| floating.panel == id) {
+            floating.rect =
+                [tidy(rect.x()), tidy(rect.y()), tidy(rect.width()).max(0.0), tidy(rect.height()).max(0.0)];
+        }
+    }
+
+    /// Brings a floating panel in front of the others, saying whether that changed anything.
+    pub fn bring_to_front(&mut self, id: &str) -> bool {
+        let Some(at) = self.floating.iter().position(|floating| floating.panel == id) else { return false };
+        if at + 1 == self.floating.len() {
+            return false;
+        }
+        let floating = self.floating.remove(at);
+        self.floating.push(floating);
+        true
+    }
+
+    fn take_floating(&mut self, id: &str) -> Option<Floating> {
+        let at = self.floating.iter().position(|floating| floating.panel == id)?;
+        Some(self.floating.remove(at))
     }
 
     /// Hides a panel of a dock at the edge of that dock, where a tab on the rail opens it over the
@@ -850,9 +956,11 @@ impl DockLayout {
         }
         self.closed.retain(|closed| known.contains(&closed.panel.as_str()));
         self.auto_hidden.retain(|hidden| known.contains(&hidden.panel.as_str()));
+        self.floating.retain(|floating| known.contains(&floating.panel.as_str()));
         for id in known {
             if !self.contains(id)
                 && !self.is_auto_hidden(id)
+                && !self.is_floating(id)
                 && !self.closed.iter().any(|closed| closed.panel == *id)
             {
                 self.closed.push(Closed { panel: (*id).to_owned(), place: DockSide::Center, with: None });
@@ -927,6 +1035,16 @@ impl DockLayout {
             if !hidden.size.is_finite() || hidden.size < 0.0 {
                 hidden.size = 0.0;
             }
+        }
+        self.floating.retain(|floating| seen.insert(floating.panel.clone()));
+        for floating in &mut self.floating {
+            for value in &mut floating.rect {
+                if !value.is_finite() {
+                    *value = 0.0;
+                }
+            }
+            floating.rect[2] = floating.rect[2].max(0.0);
+            floating.rect[3] = floating.rect[3].max(0.0);
         }
         self.closed.retain(|closed| seen.insert(closed.panel.clone()));
     }
@@ -1139,6 +1257,40 @@ mod tests {
     }
 
     #[test]
+    fn a_panel_floats_comes_to_the_front_and_goes_home_beside_its_neighbor() {
+        let mut layout =
+            DockLayout::new().center(DockNode::tabs(["a"])).right(DockNode::tabs(["props", "layers"]), 220.0);
+        assert!(layout.float("props", Rect::new(40.0, 60.0, 300.0, 240.0)));
+        assert!(!layout.contains("props"), "out of the tree");
+        assert_eq!(layout.floating_rect("props"), Some(Rect::new(40.0, 60.0, 300.0, 240.0)));
+        assert!(layout.float("a", Rect::new(0.0, 0.0, 200.0, 120.0)), "a panel of the center floats too");
+        assert_eq!(layout.floating_panels(), ["props", "a"], "the newest in front");
+        assert!(layout.bring_to_front("props"));
+        assert!(!layout.bring_to_front("props"), "already in front");
+        assert_eq!(layout.floating_panels(), ["a", "props"]);
+        let home = layout.floating_home("props").expect("a way home");
+        assert_eq!(home, DockDrop::Tab { beside: "layers".into(), at: usize::MAX });
+        assert!(layout.move_panel("props", home));
+        assert!(!layout.is_floating("props"));
+        assert_eq!(layout.side_of("props"), Some(DockSide::Right));
+        assert_eq!(layout.floating_home("a"), Some(DockDrop::Side(DockSide::Center)), "its group is gone");
+    }
+
+    #[test]
+    fn a_floating_panel_closes_reopens_where_it_came_from_and_is_saved() {
+        let mut layout =
+            DockLayout::new().center(DockNode::tabs(["a"])).left(DockNode::tabs(["files"]), 200.0);
+        assert!(layout.float("files", Rect::new(10.0, 10.0, 260.0, 300.0)));
+        let read = DockLayout::parse(&layout.to_text()).expect("it reads");
+        assert_eq!(read, layout);
+        assert!(layout.close("files"));
+        assert!(!layout.is_floating("files"));
+        assert!(layout.reopen("files"));
+        assert_eq!(layout.side_of("files"), Some(DockSide::Left));
+        assert!(!DockLayout::new().to_text().contains("floating"), "nothing written when none floats");
+    }
+
+    #[test]
     fn a_saved_text_reads_back_the_same_and_stays_the_same_text() {
         let mut layout = sample();
         layout.set_open(DockSide::Left, false);
@@ -1199,6 +1351,8 @@ mod tests {
         Resize(f32),
         Hide(usize),
         Pin(usize),
+        Float(usize),
+        Home(usize),
     }
 
     fn op() -> impl Strategy<Value = Op> {
@@ -1214,6 +1368,8 @@ mod tests {
             (0.0..800.0_f32).prop_map(Op::Resize),
             (0..IDS.len()).prop_map(Op::Hide),
             (0..IDS.len()).prop_map(Op::Pin),
+            (0..IDS.len()).prop_map(Op::Float),
+            (0..IDS.len()).prop_map(Op::Home),
         ]
     }
 
@@ -1252,6 +1408,14 @@ mod tests {
             Op::Pin(a) => {
                 layout.pin(IDS[a]);
             }
+            Op::Float(a) => {
+                layout.float(IDS[a], Rect::new(10.0, 20.0, 300.0, 200.0));
+            }
+            Op::Home(a) => {
+                if let Some(home) = layout.floating_home(IDS[a]) {
+                    layout.move_panel(IDS[a], home);
+                }
+            }
         }
     }
 
@@ -1289,6 +1453,7 @@ mod tests {
                 for side in DockSide::DOCKS {
                     all.extend(layout.auto_hidden_panels(side));
                 }
+                all.extend(layout.floating_panels());
                 all.sort_unstable();
                 prop_assert_eq!(all, IDS.to_vec(), "each panel exactly once, after {:?}", op);
                 for side in DockSide::ALL {

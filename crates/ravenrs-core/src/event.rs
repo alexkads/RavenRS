@@ -157,4 +157,6 @@ pub enum CursorIcon {
     RowResize,
     /// Diagonal resize from the bottom right corner, e.g. the handle of a box.
     NwseResize,
+    /// Diagonal resize from the bottom left or the top right corner.
+    NeswResize,
 }

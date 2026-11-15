@@ -474,7 +474,7 @@ fn the_arrangement_survives_saving_and_restoring() {
     drag_to(&mut ui, from, to);
     release(&mut ui, to);
     let text = saved.borrow().clone();
-    assert!(text.contains("\"version\": 3"), "{text}");
+    assert!(text.contains("\"version\": 4"), "{text}");
     let restored = DockLayout::parse(&text).expect("it reads");
     assert_eq!(restored, layout.get());
 
@@ -508,7 +508,7 @@ fn an_unknown_id_in_what_was_saved_is_left_out_and_the_rest_goes_on() {
 
 #[test]
 fn a_text_that_cannot_be_read_gives_an_error_not_a_panic() {
-    for text in ["", "ravenrs", "{", "{}", "null", r#"{"version":"x"}"#, r#"{"version":4}"#] {
+    for text in ["", "ravenrs", "{", "{}", "null", r#"{"version":"x"}"#, r#"{"version":5}"#] {
         let error = DockLayout::parse(text).expect_err(text);
         assert!(!error.to_string().is_empty());
     }
@@ -934,4 +934,156 @@ fn the_arrows_walk_the_tabs_of_a_rail() {
     assert_eq!(focused_name(&mut ui).as_deref(), Some("Search, hidden in the left dock"));
     press(&mut ui, Key::ArrowUp, Modifiers::default());
     assert_eq!(focused_name(&mut ui).as_deref(), Some("Folders, hidden in the left dock"));
+}
+
+fn floating_start() -> DockLayout {
+    let mut layout = start();
+    assert!(layout.float("layers", Rect::new(300.0, 100.0, 240.0, 200.0)));
+    layout
+}
+
+fn command_alt() -> Modifiers {
+    if apple_keys() {
+        Modifiers { meta: true, alt: true, ..Modifiers::default() }
+    } else {
+        Modifiers { ctrl: true, alt: true, ..Modifiers::default() }
+    }
+}
+
+#[test]
+fn float_in_the_menu_lifts_a_panel_into_a_box_of_its_own_with_focus_on_it() {
+    let layout = State::new(start());
+    let mut ui = dock_ui(&layout);
+    tab_to(&mut ui, "Options of Layers");
+    press(&mut ui, Key::Enter, Modifiers::default());
+    while focused_name(&mut ui).as_deref() != Some("Float") {
+        press(&mut ui, Key::ArrowDown, Modifiers::default());
+    }
+    press(&mut ui, Key::Enter, Modifiers::default());
+    let now = layout.get();
+    assert!(now.is_floating("layers"));
+    assert_eq!(now.side_of("layers"), None, "out of the tree");
+    let dialog = named(&mut ui, "Layers, floating");
+    assert_eq!(dialog.role, Role::Dialog);
+    assert_eq!(dialog.bounds, Rect::new(300.0, 150.0, 200.0, 300.0), "in the middle, as wide as it was");
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Move Layers"), "focus on its header");
+    assert!(shown(&mut ui).contains(&"layers".to_owned()), "what it shows is built");
+}
+
+#[test]
+fn the_header_moves_it_asking_once_and_draws_it_to_an_edge_near_it() {
+    let layout = State::new(floating_start());
+    let (view, asked, ends) = guarded(&layout, |_| false);
+    let mut ui = ui(view);
+    let header = center(&named(&mut ui, "Move Layers"));
+    drag_to(&mut ui, header, Point::new(header.x + 50.0, header.y + 30.0));
+    assert_eq!(named(&mut ui, "Layers, floating").bounds.x(), 350.0, "it follows the pointer");
+    assert!(asked.borrow().is_empty(), "nothing is asked while it moves");
+    release(&mut ui, Point::new(header.x + 50.0, header.y + 30.0));
+    assert_eq!(*asked.borrow(), [DockChange::Place { panel: "layers".into() }]);
+    assert_eq!(layout.get().floating_rect("layers"), Some(Rect::new(350.0, 130.0, 240.0, 200.0)));
+    assert_eq!(ends.get(), 1);
+    let header = center(&named(&mut ui, "Move Layers"));
+    drag_to(&mut ui, header, Point::new(header.x - 345.0, header.y));
+    release(&mut ui, Point::new(header.x - 345.0, header.y));
+    assert_eq!(
+        layout.get().floating_rect("layers").map(|r| r.x()),
+        Some(0.0),
+        "drawn to the border 5 px away"
+    );
+}
+
+#[test]
+fn the_header_lets_go_on_the_tabs_of_a_group_to_dock_there_and_passes_over_the_rest() {
+    let layout = State::new(floating_start());
+    let mut ui = dock_ui(&layout);
+    let header = center(&named(&mut ui, "Move Layers"));
+    let grid = center(&tab(&mut ui, "Grid"));
+    let body = Point::new(grid.x, grid.y + 200.0);
+    drag_to(&mut ui, header, body);
+    assert_eq!(marks(&ui), 0, "over the middle of a group nothing marks");
+    drag_to_more(&mut ui, grid);
+    assert_eq!(marks(&ui), 1, "on its tabs, the gap marks");
+    release(&mut ui, grid);
+    let now = layout.get();
+    assert!(!now.is_floating("layers"));
+    assert_eq!(now.side_of("layers"), Some(DockSide::Center));
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Layers"));
+}
+
+#[test]
+fn a_corner_resizes_it_no_smaller_than_its_least() {
+    let layout = State::new(floating_start());
+    let mut ui = dock_ui(&layout);
+    let corner = Point::new(300.0 + 240.0 + 3.0, 100.0 + 200.0 + 3.0);
+    drag_to(&mut ui, corner, Point::new(corner.x + 60.0, corner.y + 40.0));
+    release(&mut ui, Point::new(corner.x + 60.0, corner.y + 40.0));
+    assert_eq!(layout.get().floating_rect("layers"), Some(Rect::new(300.0, 100.0, 300.0, 240.0)));
+    let corner = Point::new(303.0, 103.0);
+    drag_to(&mut ui, corner, Point::new(corner.x + 400.0, corner.y + 400.0));
+    release(&mut ui, Point::new(corner.x + 400.0, corner.y + 400.0));
+    let rect = layout.get().floating_rect("layers").expect("still floating");
+    assert_eq!((rect.width(), rect.height()), (200.0, 120.0), "{rect:?}");
+    assert_eq!((rect.max_x(), rect.max_y()), (600.0, 340.0), "the other corner stays");
+}
+
+#[test]
+fn the_keys_move_resize_and_dock_it_back_and_a_double_click_does_too() {
+    let layout = State::new(floating_start());
+    let mut ui = dock_ui(&layout);
+    tab_to(&mut ui, "Move Layers");
+    press(&mut ui, Key::ArrowRight, Modifiers::default());
+    press(&mut ui, Key::ArrowDown, Modifiers { shift: true, ..Modifiers::default() });
+    press(&mut ui, Key::ArrowRight, Modifiers { alt: true, ..Modifiers::default() });
+    assert_eq!(layout.get().floating_rect("layers"), Some(Rect::new(308.0, 132.0, 248.0, 200.0)));
+    press(&mut ui, Key::Character("f".into()), command_alt());
+    assert_eq!(layout.get().side_of("layers"), Some(DockSide::Right), "back where it came from");
+    let mut again = floating_start();
+    again.set_floating_rect("layers", Rect::new(300.0, 100.0, 240.0, 200.0));
+    layout.set(again);
+    settle(&mut ui);
+    let header = center(&named(&mut ui, "Move Layers"));
+    ui.handle_event(&Event::DoubleClick { position: header });
+    settle(&mut ui);
+    assert_eq!(layout.get().side_of("layers"), Some(DockSide::Right));
+}
+
+#[test]
+fn a_tab_dragged_with_ctrl_floats_where_it_is_let_go() {
+    let layout = State::new(start());
+    let mut ui = dock_ui(&layout);
+    let from = center(&tab(&mut ui, "Search"));
+    let to = Point::new(400.0, 300.0);
+    drag_to(&mut ui, from, Point::new(from.x + 40.0, from.y + 40.0));
+    let ctrl = Modifiers { ctrl: true, ..Modifiers::default() };
+    ui.handle_event(&Event::KeyUp { key: Key::Other("Control".into()), modifiers: ctrl });
+    drag_to_more(&mut ui, to);
+    assert_eq!(marks(&ui), 0, "with Ctrl nothing lands");
+    release(&mut ui, to);
+    let now = layout.get();
+    assert!(now.is_floating("search"));
+    let rect = now.floating_rect("search").expect("a box");
+    assert!(rect.contains(to), "under the pointer: {rect:?}");
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Move Search"));
+}
+
+#[test]
+fn a_smaller_area_keeps_a_floating_panel_inside_without_changing_what_is_saved() {
+    let layout = State::new(floating_start());
+    let mut ui = dock_ui_of(area(&layout).height(260.0));
+    let shown = named(&mut ui, "Layers, floating").bounds;
+    assert_eq!((shown.y(), shown.max_y()), (60.0, 260.0), "moved up to fit");
+    assert_eq!(layout.get().floating_rect("layers"), Some(Rect::new(300.0, 100.0, 240.0, 200.0)));
+}
+
+#[test]
+fn the_app_can_refuse_floating() {
+    let layout = State::new(start());
+    let (view, asked, _) = guarded(&layout, |c| matches!(c, DockChange::Float { .. }));
+    let mut ui = ui(view);
+    tab_to(&mut ui, "Layers");
+    press(&mut ui, Key::Character("f".into()), command_alt());
+    assert_eq!(*asked.borrow(), [DockChange::Float { panel: "layers".into() }]);
+    assert!(!layout.get().is_floating("layers"));
+    assert_eq!(refusals(&mut ui), ["Not now"]);
 }
