@@ -45,6 +45,10 @@ The [software coverage assessment](SOFTWARE-COVERAGE.md) evaluates 15 applicatio
 categories, with capability scores, missing components and infrastructure, and
 related backlog. Scores describe the audited scope, not product completion.
 
+For recurring business application capabilities, see the
+[ravenrs-app coverage assessment](APP-COVERAGE.md): declarative workflows, remaining
+integration work, related issues, and evaluation tasks for smaller AI models.
+
 ## Build with an AI assistant
 
 Read the [AI development guide](AI_DEVELOPMENT.md) for official context, version-matched MCP tools

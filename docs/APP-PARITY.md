@@ -2,6 +2,11 @@
 
 What exists of the behavior documented for model-driven application frameworks, and the step that brings the rest. ✅ works, 🟡 in part, ⬜ planned. See [APP-FRAMEWORK.md](APP-FRAMEWORK.md), and [APP-CONTRACTS.md](APP-CONTRACTS.md) for what reusable modules have to honor and the scenarios that prove it.
 
+The [ravenrs-app coverage assessment](APP-COVERAGE.md) examines recurring business
+workflows, capability scores, remaining integration work, and consumption through
+the existing MCP and CLI. Its scores apply to the stated audit revision and do not
+replace the API statuses and adapter guarantees below.
+
 | Area | State | Step |
 |---|---|---|
 | Records declared by attributes, or at run time | ✅ `BusinessObject`, `EntityInfo` | |

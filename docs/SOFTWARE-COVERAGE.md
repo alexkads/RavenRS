@@ -5,6 +5,10 @@ Data: 15/11/2026. Checkout: `6b50ff874`. Avaliação exploratória de código, d
 Este é um retrato da base auditada. A integração desta documentação com um master
 mais recente não recalcula as notas nem classifica entregas posteriores como ausentes.
 
+A [cobertura do ravenrs-app](APP-COVERAGE.md) complementa esta matriz com recursos
+corporativos recorrentes, fluxos declarativos, integração restante e consumo pelo
+MCP por modelos de IA com menos recursos.
+
 ## Como interpretar
 
 Este indicador mede **cobertura de dez capacidades escolhidas por cenário**, com pesos iguais. Não mede percentual de um produto comercial desenvolvido, esforço restante, equivalência comercial ou prontidão de produção. As categorias têm recortes diferentes; os índices ajudam a localizar gaps e não formam ranking de qualidade.
