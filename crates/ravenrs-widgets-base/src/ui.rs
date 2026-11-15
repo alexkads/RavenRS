@@ -222,6 +222,8 @@ pub struct Ui {
     /// or code moved focus; a click never asks for this).
     reveal_focus: bool,
     dragging: Option<WidgetId>,
+    /// A drag between components in progress ([`BuildCx::drag_source`]).
+    carry: Option<crate::context::Carry>,
     /// When each scroll container last moved: its scrollbar shows only around that.
     scrolled_at: HashMap<WidgetId, f64>,
     /// A scrollbar was on the last frame, so another one has to follow.
@@ -338,6 +340,7 @@ impl Ui {
             interaction: Interaction::default(),
             reveal_focus: false,
             dragging: None,
+            carry: None,
             scrolled_at: HashMap::new(),
             scrollbar_showing: false,
             time: 0.0,
@@ -827,6 +830,9 @@ impl Ui {
                 if let Some(widget) = self.dragging {
                     self.drag(widget, DragPhase::Move, *position);
                 }
+                if self.carry.as_ref().is_some_and(|c| !c.keyboard) {
+                    self.carry_to(*position);
+                }
                 self.refresh_hover();
                 if let Some(node) = self.hit_test(*position) {
                     let i = node.0 as usize;
@@ -845,6 +851,7 @@ impl Ui {
                 let element = target.map(|n| &self.elements[n.0 as usize]);
                 let widget = element.map(|e| e.widget);
                 let draggable = element.is_some_and(|e| e.on_drag.is_some());
+                let source = element.and_then(|e| e.drag_source.clone().map(|p| (p, e.widget)));
                 if self.interaction.pressed != widget {
                     self.interaction.pressed = widget;
                     self.ask_build(BuildCause::Press);
@@ -868,11 +875,31 @@ impl Ui {
                 if let (true, Some(w)) = (draggable, widget) {
                     self.dragging = Some(w);
                     self.drag(w, DragPhase::Start, *position);
+                } else if let Some((payload, w)) = source {
+                    self.carry = Some(crate::context::Carry {
+                        payload,
+                        source: w,
+                        at: *position,
+                        pressed: *position,
+                        started: false,
+                        keyboard: false,
+                        over: None,
+                        verdict: None,
+                    });
                 }
             }
             Event::PointerUp { position, button: PointerButton::Primary } => {
                 if let Some(w) = self.dragging.take() {
                     self.drag(w, DragPhase::End, *position);
+                }
+                if let Some(carry) = self.carry.take_if(|c| !c.keyboard)
+                    && carry.started
+                {
+                    // A drag, not a click: the press does not click what it started on.
+                    self.drop_carried(carry);
+                    self.interaction.pressed = None;
+                    self.ask_build(BuildCause::Press);
+                    return self.needs_redraw();
                 }
                 let pressed = self.interaction.pressed.take();
                 if pressed.is_some() {
@@ -944,6 +971,9 @@ impl Ui {
                         return self.needs_redraw();
                     }
                 }
+                if self.carry_key(key, *modifiers) {
+                    return self.needs_redraw();
+                }
                 let handler = self.focused_element().and_then(|e| e.on_key.clone());
                 if let Some(handler) = handler
                     && handler(key, *modifiers)
@@ -986,6 +1016,7 @@ impl Ui {
             }
             Event::FocusLost => {
                 self.dragging = None;
+                self.carry = None;
                 if self.interaction.pressed.take().is_some() {
                     self.ask_build(BuildCause::Press);
                 }
@@ -1073,6 +1104,139 @@ impl Ui {
                 }
             }
         }
+    }
+
+    /// Moves what is carried to `at` (on screen): past a few pixels a press becomes a drag, and
+    /// the drop target under it is asked whether it takes it.
+    fn carry_to(&mut self, at: Point) {
+        let Some(mut carry) = self.carry.take() else { return };
+        carry.at = at;
+        if !carry.started && (at.x - carry.pressed.x).hypot(at.y - carry.pressed.y) > 4.0 {
+            carry.started = true;
+        }
+        if carry.started {
+            let target = self.paint_order.iter().rev().copied().find_map(|node| {
+                let i = node.0 as usize;
+                let e = &self.elements[i];
+                let (check, _) = e.drop_target.as_ref()?;
+                self.reaches(i, at).then(|| (e.widget, check(&carry.payload)))
+            });
+            (carry.over, carry.verdict) = match target {
+                Some((w, verdict)) => (Some(w), Some(verdict)),
+                None => (None, None),
+            };
+            self.ask_build(BuildCause::Press);
+        }
+        self.carry = Some(carry);
+    }
+
+    /// Gives what was carried to the target under it, when that target takes it.
+    fn drop_carried(&mut self, carry: crate::context::Carry) {
+        let (Some(over), Some(Ok(()))) = (carry.over, &carry.verdict) else { return };
+        let found = self.elements.iter().enumerate().find_map(|(i, e)| {
+            let (_, on_drop) = e.drop_target.as_ref().filter(|_| e.widget == over)?;
+            Some((i, on_drop.clone()))
+        });
+        let Some((i, on_drop)) = found else { return };
+        let back = self.turns.get(i).copied().flatten().map_or(carry.at, |(_, back)| apply(back, carry.at));
+        let frame = self.frames[i];
+        on_drop(&carry.payload, Point::new(back.x - frame.x(), back.y - frame.y()));
+    }
+
+    /// The keys of a drag between components: Space on a focused source picks it up; while it
+    /// is carried with the keys, the arrows move it, Enter drops it and Escape gives it up.
+    /// Escape also gives up a drag of the pointer. Says whether it took the key.
+    fn carry_key(&mut self, key: &Key, modifiers: Modifiers) -> bool {
+        match (&self.carry, key) {
+            (Some(c), Key::Escape) if c.started => {
+                self.carry = None;
+                self.ask_build(BuildCause::Press);
+                true
+            }
+            (Some(c), _) if c.keyboard => {
+                let step = if modifiers.shift { 64.0 } else { 16.0 };
+                let at = c.at;
+                match key {
+                    Key::ArrowLeft => self.carry_to(Point::new(at.x - step, at.y)),
+                    Key::ArrowRight => self.carry_to(Point::new(at.x + step, at.y)),
+                    Key::ArrowUp => self.carry_to(Point::new(at.x, at.y - step)),
+                    Key::ArrowDown => self.carry_to(Point::new(at.x, at.y + step)),
+                    Key::Enter | Key::Space => {
+                        if let Some(carry) = self.carry.take() {
+                            self.drop_carried(carry);
+                        }
+                        self.ask_build(BuildCause::Press);
+                    }
+                    // Other keys wait until the drag ends.
+                    _ => {}
+                }
+                true
+            }
+            (None, Key::Space) => {
+                let Some((i, payload, widget)) = self.elements.iter().enumerate().find_map(|(i, e)| {
+                    let focused = Some(e.widget) == self.interaction.focused && e.focus_radius.is_some();
+                    let payload = e.drag_source.clone().filter(|_| focused)?;
+                    Some((i, payload, e.widget))
+                }) else {
+                    return false;
+                };
+                let at = self.screen_frame(i).center();
+                self.carry = Some(crate::context::Carry {
+                    payload,
+                    source: widget,
+                    at,
+                    pressed: at,
+                    started: true,
+                    keyboard: true,
+                    over: None,
+                    verdict: None,
+                });
+                self.carry_to(at);
+                self.ask_build(BuildCause::Press);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// The tag that follows what is carried: its label, or why the target under it refuses.
+    fn paint_carry(&mut self, theme: &Theme) {
+        let Some(carry) = self.carry.as_ref().filter(|c| c.started) else { return };
+        let (words, edge) = match &carry.verdict {
+            Some(Err(why)) => (why.clone(), theme.color(Semantic::Danger)),
+            Some(Ok(())) => (carry.payload.label().to_owned(), theme.color(Semantic::Accent)),
+            None => (carry.payload.label().to_owned(), theme.color(Semantic::Border)),
+        };
+        let attrs = crate::util::attrs(theme, ravenrs_style::TextStyle::Callout, None);
+        let mut layout = self.text.layout(&words, &attrs);
+        let size = layout.measure(Some(280.0));
+        let pad = Size::new(theme.spacing.s3, theme.spacing.s2);
+        let tag = Rect::new(
+            carry.at.x + 14.0,
+            carry.at.y + 14.0,
+            size.width + pad.width * 2.0,
+            size.height + pad.height * 2.0,
+        );
+        self.scene.push_quad(
+            Quad::new(tag, theme.color(Semantic::SurfaceElevated))
+                .radius(theme.radii.md)
+                .border(1.0, edge)
+                .shadow(theme.elevation.raised),
+        );
+        layout.paint(
+            Point::new(tag.x() + pad.width, tag.y() + pad.height),
+            theme.color(Semantic::Ink),
+            &mut self.scene,
+        );
+    }
+
+    /// What screen readers hear while something is carried.
+    pub(crate) fn carry_status(&self) -> Option<String> {
+        let carry = self.carry.as_ref().filter(|c| c.started)?;
+        Some(match &carry.verdict {
+            Some(Err(why)) => why.clone(),
+            _ => carry.payload.label().to_owned(),
+        })
     }
 
     fn drag(&mut self, widget: WidgetId, phase: DragPhase, position: Point) {
@@ -1350,6 +1514,7 @@ impl Ui {
         let full_screen = self.full_screen.clone();
         let file_picker = self.file_picker.clone();
         let files_over = self.files_over.clone();
+        let carry = self.carry.clone();
         let appearance = self.appearance.clone();
         let ui_waker = self.ui_waker.clone();
         let view_profile = self.view_profile.clone();
@@ -1385,6 +1550,7 @@ impl Ui {
                 cx.full_screen = full_screen;
                 cx.file_picker = file_picker;
                 cx.files_over = files_over;
+                cx.carry = carry;
                 cx.appearance = appearance;
                 cx.motion_clock = motion_clock;
                 cx.motion_enabled = motion_enabled;
@@ -1701,6 +1867,7 @@ impl Ui {
         }
         self.motion.paint_ghosts(GhostLayer::Overlay, &mut self.scene);
         self.motion.paint_ghosts(GhostLayer::Top, &mut self.scene);
+        self.paint_carry(&theme);
         let live = self.has_live && !self.reduced_motion();
         self.next_live = (live || self.scrollbar_showing).then_some(self.time + LIVE_FRAME);
         self.tell_activity(crate::context::UiActivity::Painted(&self.scene));

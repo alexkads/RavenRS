@@ -389,3 +389,139 @@ fn turned_text_reads_the_same_and_its_glyphs_turn() {
     let files = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Files")).expect("still read");
     assert!(files.bounds.height() > files.bounds.width(), "taller than wide: {:?}", files.bounds);
 }
+
+/// An "Apple" source at (20, 20), a basket for fruit at (200, 20) and one for vegetables at
+/// (200, 200), each 100 by 100; drops and clicks are written down.
+struct Market {
+    log: Rc<std::cell::RefCell<Vec<String>>>,
+}
+
+impl View for Market {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        use ravenrs_layout::LayoutStyle;
+        use ravenrs_widgets::{DragPayload, Semantics};
+        let at = |x: f32, y: f32| LayoutStyle {
+            absolute: Some((x, y)),
+            width: Some(100.0),
+            height: Some(100.0),
+            ..LayoutStyle::leaf()
+        };
+        let apple = cx.container(at(20.0, 20.0), &[], Paint::None);
+        cx.focusable(apple, 4.0);
+        cx.semantics(apple, Semantics::new(ravenrs_core::Role::Button).name("Apple"));
+        cx.drag_source(apple, DragPayload::new("fruit", "Apple", 3_u32));
+        let log = self.log.clone();
+        cx.on_click(apple, Rc::new(move || log.borrow_mut().push("clicked".into())));
+        let mut baskets = vec![apple];
+        for (name, y, takes) in [("Fruit", 20.0, "fruit"), ("Vegetables", 200.0, "vegetable")] {
+            let basket = cx.container(at(200.0, y), &[], Paint::None);
+            // A preview of its own while something it would take is over it.
+            let over = cx.carrying().filter(|c| c.over).map(|c| c.verdict.is_some_and(|v| v.is_ok()));
+            let shown = match over {
+                Some(true) => format!("{name}: drop here"),
+                _ => name.to_owned(),
+            };
+            cx.semantics(basket, Semantics::new(ravenrs_core::Role::Group).name(shown));
+            let log = self.log.clone();
+            cx.drop_target(
+                basket,
+                move |p| if p.kind() == takes { Ok(()) } else { Err(format!("Only {takes}s here")) },
+                move |p, at| {
+                    log.borrow_mut().push(format!(
+                        "{} x{} at {},{}",
+                        p.label(),
+                        p.data::<u32>().copied().unwrap_or(0),
+                        at.x,
+                        at.y
+                    ))
+                },
+            );
+            baskets.push(basket);
+        }
+        cx.container(
+            LayoutStyle { width: Some(400.0), height: Some(400.0), ..LayoutStyle::leaf() },
+            &baskets,
+            Paint::None,
+        )
+    }
+}
+
+fn market() -> (Ui, Rc<std::cell::RefCell<Vec<String>>>) {
+    let log = Rc::new(std::cell::RefCell::new(Vec::new()));
+    let mut ui = Ui::new(Market { log: log.clone() }, Theme::raven_dark());
+    ui.set_viewport(Size::new(400.0, 400.0), 1.0);
+    ui.update();
+    (ui, log)
+}
+
+fn status(ui: &mut Ui) -> Option<String> {
+    ui.access_tree().nodes.iter().find(|n| n.role == ravenrs_core::Role::Status).and_then(|n| n.name.clone())
+}
+
+fn named_exists(ui: &mut Ui, name: &str) -> bool {
+    ui.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some(name))
+}
+
+#[test]
+fn something_carried_with_the_pointer_lands_on_the_target_that_takes_it() {
+    let (mut ui, log) = market();
+    ui.handle_event(&Event::PointerMove { position: Point::new(70.0, 70.0) });
+    ui.handle_event(&Event::PointerDown { position: Point::new(70.0, 70.0), button: PointerButton::Primary });
+    ui.handle_event(&Event::PointerMove { position: Point::new(150.0, 70.0) });
+    ui.update();
+    assert_eq!(status(&mut ui).as_deref(), Some("Apple"), "the tag follows, and is heard");
+    ui.handle_event(&Event::PointerMove { position: Point::new(230.0, 60.0) });
+    ui.update();
+    assert!(named_exists(&mut ui, "Fruit: drop here"), "the target shows its own preview");
+    ui.handle_event(&Event::PointerUp { position: Point::new(230.0, 60.0), button: PointerButton::Primary });
+    ui.update();
+    assert_eq!(*log.borrow(), vec!["Apple x3 at 30,40".to_owned()], "dropped, not clicked");
+    assert_eq!(status(&mut ui), None);
+}
+
+#[test]
+fn a_target_that_refuses_says_why_and_takes_nothing() {
+    let (mut ui, log) = market();
+    ui.handle_event(&Event::PointerMove { position: Point::new(70.0, 70.0) });
+    ui.handle_event(&Event::PointerDown { position: Point::new(70.0, 70.0), button: PointerButton::Primary });
+    ui.handle_event(&Event::PointerMove { position: Point::new(250.0, 250.0) });
+    ui.update();
+    assert_eq!(status(&mut ui).as_deref(), Some("Only vegetables here"));
+    ui.handle_event(&Event::PointerUp { position: Point::new(250.0, 250.0), button: PointerButton::Primary });
+    ui.update();
+    assert!(log.borrow().is_empty());
+}
+
+#[test]
+fn a_press_without_a_drag_clicks_and_escape_gives_a_drag_up() {
+    let (mut ui, log) = market();
+    click(&mut ui, Point::new(70.0, 70.0));
+    assert_eq!(*log.borrow(), vec!["clicked".to_owned()]);
+    ui.handle_event(&Event::PointerDown { position: Point::new(70.0, 70.0), button: PointerButton::Primary });
+    ui.handle_event(&Event::PointerMove { position: Point::new(230.0, 60.0) });
+    key(&mut ui, Key::Escape);
+    ui.update();
+    assert_eq!(status(&mut ui), None, "given up");
+    ui.handle_event(&Event::PointerUp { position: Point::new(230.0, 60.0), button: PointerButton::Primary });
+    ui.update();
+    assert_eq!(log.borrow().len(), 1, "nothing dropped");
+}
+
+#[test]
+fn the_keys_pick_up_carry_and_drop() {
+    let (mut ui, log) = market();
+    key(&mut ui, Key::Tab);
+    ui.update();
+    key(&mut ui, Key::Space);
+    ui.update();
+    assert_eq!(status(&mut ui).as_deref(), Some("Apple"), "picked up");
+    // From the middle of the apple (70, 70), ten steps of 16 to the right reach the fruit basket.
+    for _ in 0..10 {
+        key(&mut ui, Key::ArrowRight);
+    }
+    ui.update();
+    assert!(named_exists(&mut ui, "Fruit: drop here"));
+    key(&mut ui, Key::Enter);
+    ui.update();
+    assert_eq!(*log.borrow(), vec!["Apple x3 at 30,50".to_owned()]);
+}
