@@ -865,3 +865,63 @@ fn the_sample_reports_print_every_value_whole() {
         assert!(cut.is_empty(), "{name}: text cut at the edge of its box: {cut:?}");
     }
 }
+
+/// A process of three steps, as a `FlowCanvas` saves it.
+fn process() -> String {
+    use ravenrs_report::flow::{FlowEdge, FlowEndpoint, FlowGraph, FlowNode, FlowPort};
+    FlowGraph::new()
+        .node(FlowNode::new("a", "step", "Receber pedido", 0.0, 0.0).port(FlowPort::output("out")))
+        .node(
+            FlowNode::new("b", "step", "Separar itens", 300.0, 0.0)
+                .port(FlowPort::input("in"))
+                .port(FlowPort::output("out")),
+        )
+        .node(FlowNode::new("c", "step", "Entregar", 600.0, 0.0).port(FlowPort::input("in")))
+        .edge(FlowEdge::new("e1", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in")))
+        .edge(FlowEdge::new("e2", FlowEndpoint::new("b", "out"), FlowEndpoint::new("c", "in")))
+        .to_json()
+}
+
+#[test]
+fn a_diagram_prints_its_titles_as_text_inside_its_box() {
+    let control = Control::diagram(process()).at(10.0, 0.0, 400.0, 120.0);
+    let report = Report::new("Processo").detail(Band::new(120.0).control(control));
+    let doc = render(&report, &json!([{}]));
+    let mut words = doc.page_text(0);
+    words.sort();
+    assert_eq!(words, ["Entregar", "Receber pedido", "Separar itens"], "the titles are text");
+    assert!(doc.errors.is_empty(), "{:?}", doc.errors);
+    let page = &doc.pages[0];
+    let drawn = page.items.iter().find_map(|i| match i {
+        Item::Vector { rect, shapes } => Some((*rect, shapes.clone())),
+        _ => None,
+    });
+    let (rect, shapes) = drawn.expect("the shapes");
+    let points = shapes.iter().flat_map(|s| s.path.iter()).filter_map(|s| match s {
+        ravenrs_report::vector::PathSegment::Move(p) | ravenrs_report::vector::PathSegment::Line(p) => {
+            Some(*p)
+        }
+        _ => None,
+    });
+    for p in points {
+        assert!(p.x >= rect.x() - 0.01 && p.x <= rect.max_x() + 0.01, "{p:?} fits across");
+        assert!(p.y >= rect.y() - 0.01 && p.y <= rect.max_y() + 0.01, "{p:?} fits down");
+    }
+}
+
+#[test]
+fn a_diagram_from_a_field_shows_only_what_it_is_asked_and_a_bad_one_is_reported() {
+    let mut control = Control::diagram("").at(0.0, 0.0, 400.0, 120.0);
+    if let ControlKind::Diagram(d) = &mut control.kind {
+        d.expression = Some("[Processo]".into());
+        d.only = vec!["a".into(), "b".into()];
+    }
+    let report = Report::new("Processo").detail(Band::new(120.0).control(control));
+    let doc = render(&report, &json!([{ "Processo": process() }, { "Processo": "{ not a diagram" }]));
+    let mut words = doc.page_text(0);
+    words.sort();
+    assert_eq!(words, ["Receber pedido", "Separar itens"], "only the two asked for");
+    assert_eq!(doc.errors.len(), 1, "the broken one is reported: {:?}", doc.errors);
+    let again = Report::from_json(&report.to_json()).expect("reads back");
+    assert_eq!(again, report, "the control goes to the file and back");
+}

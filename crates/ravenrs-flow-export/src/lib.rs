@@ -17,7 +17,7 @@
 use std::io::Cursor;
 
 use ravenrs_core::{Color, Point, Primitive, Rect, Scene};
-use ravenrs_graphics::vector::{self, Layer, Shape};
+use ravenrs_graphics::vector;
 use ravenrs_report::{Document, Item, Page, PlacedLine, TextAlign, TextBlock};
 use ravenrs_report_export::ExportFormat;
 use ravenrs_text::{TextAttrs, TextSystem};
@@ -216,22 +216,26 @@ fn draw_run(
 /// The picture as one page of a document, the size of the diagram, written by the report
 /// engine's PDF exporter: shapes as vectors, words as text.
 fn pdf(picture: &FlowPicture, title: &str, text: &mut TextSystem) -> Result<Vec<u8>, String> {
-    let origin = picture.bounds.origin;
-    let to_page = Point::new(-origin.x, -origin.y);
-    let shapes: Vec<Shape> = picture
-        .layers
-        .iter()
-        .map(|layer| match layer {
-            Layer::Dashed { path, width, color, .. } => {
-                Shape { path: path.clone(), fill: None, stroke: Some((*width, *color)) }.translated(to_page)
-            }
-            other => other.to_shape().translated(to_page),
-        })
-        .collect();
+    // Laid out as a report's diagram control is, on a page the size of the diagram.
     let (w, h) = (picture.bounds.width(), picture.bounds.height());
-    let mut items = vec![Item::Vector { rect: Rect::new(0.0, 0.0, w, h), shapes }];
-    for t in &picture.texts {
-        let Some(placed) = place(t, origin, text) else { continue };
+    let page = Rect::new(0.0, 0.0, w, h);
+    let fitted = ravenrs_report::diagram::fit(picture, page);
+    let mut items = vec![Item::Vector { rect: page, shapes: fitted.shapes }];
+    for label in fitted.labels {
+        let words = FlowText {
+            text: label.text,
+            at: if label.centered {
+                label.rect.center()
+            } else {
+                Point::new(label.rect.x(), label.rect.center().y)
+            },
+            width: label.rect.width(),
+            size: label.size,
+            bold: label.bold,
+            centered: label.centered,
+            color: label.color,
+        };
+        let Some(placed) = place(&words, Point::new(0.0, 0.0), text) else { continue };
         items.push(Item::Text(TextBlock {
             clip: Rect::new(placed.left, placed.top, placed.width + 2.0, placed.height),
             lines: vec![PlacedLine {
@@ -241,10 +245,10 @@ fn pdf(picture: &FlowPicture, title: &str, text: &mut TextSystem) -> Result<Vec<
                 baseline: placed.baseline,
                 width: placed.width,
             }],
-            size: t.size,
+            size: words.size,
             line_height: placed.height,
-            bold: t.bold,
-            color: t.color,
+            bold: words.bold,
+            color: words.color,
             align: TextAlign::Left,
             value: None,
             format: None,

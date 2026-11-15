@@ -28,6 +28,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- Reports draw flow diagrams: `ControlKind::Diagram` (`Control::diagram`) takes the JSON a `FlowCanvas` keeps, fixed or from a field, and fits it into the control with its titles as text, only some nodes if asked; "Diagrama" in the report designer's toolbox with its field, JSON and nodes. `ravenrs_report::diagram::fit` lays a diagram into a box, and `ravenrs-flow-export` writes its PDF through it; `ravenrs_report::flow` re-exports the diagram model.
 - `FlowToolbox`: models of node in groups that open and close, with a search, each a drag source (`FLOW_NODE_DRAG`) the canvas takes as a copy with an id of its own, on the grid, as one change; Enter on a model leaves it in `FlowCanvas::arrivals`, which places it in the middle of the view.
 - Bend points on connections: `FlowEdge::waypoints`, a `+` in the middle of each stretch of the line selected to drag into a point, a double click on a line, Tab to reach the points, the arrows to move them and Delete to take them out; a point let go on the straight between its neighbours goes, lines whose two ends move take theirs along, and step lines turn at them.
 - Export: `FlowCanvas::on_export` puts PNG (2×), SVG and PDF in the controls, the whole diagram or the selection, and Cmd/Ctrl+Shift+E exports again; `FlowGraph::picture` and `FlowPicture::to_svg` in `ravenrs-graphics`, and the new crate `ravenrs-flow-export` writes the PNG and the PDF and hands the file over (`saver`).

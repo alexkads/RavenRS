@@ -356,6 +356,13 @@ pub fn design_text(c: &Control) -> String {
         ControlKind::Chart(c) => {
             format!("Gráfico: {}", if c.title.is_empty() { "sem título" } else { &c.title })
         }
+        ControlKind::Diagram(d) => match d.expression.as_deref().filter(|s| !s.trim().is_empty()) {
+            Some(field) => format!("Diagrama: {field}"),
+            None => match ravenrs_report::flow::FlowGraph::from_json(&d.json) {
+                Ok(g) => format!("Diagrama: {} nós", g.nodes.len()),
+                Err(_) => "Diagrama inválido".to_owned(),
+            },
+        },
         ControlKind::Barcode(b) => {
             format!("Código: {}", b.expression.clone().unwrap_or_else(|| b.text.clone()))
         }

@@ -366,6 +366,7 @@ impl Editor {
                     ControlKind::Label(l) => l.expression,
                     ControlKind::Barcode(b) => b.expression,
                     ControlKind::Bookmark(b) => b.expression,
+                    ControlKind::Diagram(d) => d.expression,
                     _ => None,
                 })
                 .unwrap_or_default(),
@@ -382,6 +383,7 @@ impl Editor {
             ControlKind::Label(l) => l.expression.is_some(),
             ControlKind::Barcode(b) => b.expression.is_some(),
             ControlKind::Bookmark(b) => b.expression.is_some(),
+            ControlKind::Diagram(d) => d.expression.is_some(),
             _ => false,
         })
     }
@@ -401,6 +403,7 @@ impl Editor {
                 ControlKind::Label(l) => l.expression = Some(text),
                 ControlKind::Barcode(b) => b.expression = Some(text),
                 ControlKind::Bookmark(b) => b.expression = Some(text),
+                ControlKind::Diagram(d) => d.expression = Some(text),
                 _ => {}
             }),
             ExpressionTarget::Filter => {
