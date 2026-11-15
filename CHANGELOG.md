@@ -107,6 +107,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- `ravenrs-app-server`: in `/api/openapi.json`, what a body writes is no longer marked read-only: clients generated from it (orval, openapi-generator) left out the state of a record and the key of one to change or delete. The records of a collection go in the order the service reads them, so a client that drops what a shape does not know keeps the key of one to change instead of making it a new one. A reference is a whole number or a text, `servers` and an `operationId` for each operation are there, and the description passes `redocly lint`. ([#514](https://github.com/alexkads/RavenRS/issues/514))
 - Raven Code finds the errors rust-analyzer reports: it looks for rust-analyzer with the toolchain of the project's folder, as rustup picks it, names files by their real path (a Mac's temporary folder is reached through a link), and answers the server's question for settings. ([#524](https://github.com/alexkads/RavenRS/issues/524))
 - `QuarterTurn` keeps a name on one line in a strip narrower than it: it is measured lying down in a room wide enough for it, so "Server Explorer" on a 28-pixel rail no longer breaks in two.
 - A window arranged for a counter (`App::counter`, `CounterTemplate`) has no Cmd/Ctrl+K palette of places, as it has no navigation; an application shown inside another no longer answers that key twice. `FrameTemplate::shows_navigation`.
