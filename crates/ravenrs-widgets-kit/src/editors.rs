@@ -130,6 +130,12 @@ pub struct CodeLook {
     pub fill: bool,
     #[doc(hidden)]
     pub background: Semantic,
+    /// Stretches found by a search, as char indices, shown under the text.
+    #[doc(hidden)]
+    pub found: Rc<Vec<(usize, usize)>>,
+    /// Scrolls to the caret when it moves even without the focus, as while a find bar has it.
+    #[doc(hidden)]
+    pub follow_caret: bool,
 }
 
 /// A marked line as drawn: its top, color, and the span to underline in pixels.
@@ -402,7 +408,8 @@ impl View for TextArea {
             offset = 0.0;
             cx.set_scroll_offset(Point::new(sideways, 0.0));
         }
-        if focused && followed.get() != caret {
+        let follow = focused || code.as_ref().is_some_and(|c| c.follow_caret);
+        if follow && followed.get() != caret {
             followed.set_if_changed(caret);
             let top = caret_line as f32 * line_height;
             // While it grows, the last layout's height is already out of date.
@@ -528,6 +535,25 @@ impl View for TextArea {
                     .collect()
             })
             .unwrap_or_default();
+        // What a search found, on the visible lines, under the selection.
+        let in_view: &[(usize, usize)] = &lines;
+        let found_bands: Vec<(f32, f32, f32)> = code
+            .as_ref()
+            .map(|c| {
+                c.found
+                    .iter()
+                    .flat_map(|&(a, b)| {
+                        (first..last)
+                            .filter(move |&n| in_view[n].0 <= b && a <= in_view[n].1 && a < b)
+                            .map(move |n| (n, a.max(in_view[n].0), b.min(in_view[n].1)))
+                    })
+                    .map(|(n, from, to)| {
+                        (n as f32 * line_height, x_at(from, n), x_at(to, n).max(x_at(from, n) + 4.0))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let found_color = theme.color(Semantic::Warning).with_alpha(0.28);
         let caret_spot = (focused && cur.selection().is_none() && state.accepts_input())
             .then(|| (x_at(caret, caret_line), caret_line as f32 * line_height));
         let accent = theme.color(Semantic::Accent);
@@ -577,6 +603,10 @@ impl View for TextArea {
                         let line = Rect::new(f.x() + a, f.y() + y + line_height - 3.0, b - a, 2.0);
                         scene.push_quad(Quad::new(line, *color).radius(1.0));
                     }
+                }
+                for (y, a, b) in &found_bands {
+                    let band = Rect::new(f.x() + a, f.y() + y + 2.0, b - a, line_height - 4.0);
+                    scene.push_quad(Quad::new(band, found_color).radius(2.0));
                 }
                 for (y, a, b) in &selected {
                     let band = Rect::new(f.x() + a, f.y() + y + 2.0, b - a, line_height - 4.0);

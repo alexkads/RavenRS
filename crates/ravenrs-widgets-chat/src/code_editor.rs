@@ -4,13 +4,15 @@
 use std::fmt;
 use std::rc::Rc;
 
+use ravenrs_core::{Insets, Key, Modifiers};
+use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
-use ravenrs_style::Semantic;
+use ravenrs_style::{Semantic, TextStyle};
 
-use crate::context::{BuildCx, NodeId};
+use crate::context::{BuildCx, NodeId, Paint, QuadPaint};
 use crate::editors::{CodeLook, Highlighter, LineMark};
 use crate::text_field::{Cursor, TextHistory};
-use crate::{TextArea, Tone, View};
+use crate::{Button, ButtonSize, ButtonStyle, IconButton, IconName, TextArea, TextField, Tone, View, util};
 
 /// The language a [`CodeEditor`] colors.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -78,7 +80,10 @@ pub fn tone_color(tone: Tone) -> Semantic {
 /// A source code editor: monospaced, no wrapping, line numbers, colors for the
 /// language, Tab and Shift+Tab to indent, and Enter keeping the indentation. Ctrl or Cmd
 /// with Enter is left to shortcuts, so a surrounding `Playground` can run the
-/// code. Diagnostics mark their lines and underline what they cover.
+/// code. Diagnostics mark their lines and underline what they cover. Cmd/Ctrl+Z undoes and
+/// Cmd+Shift+Z or Ctrl+Y redoes. Cmd/Ctrl+F opens a find bar over the code, and Ctrl+H the same
+/// bar with replacing: Enter and Shift+Enter walk the matches, which are marked in the code,
+/// and Escape closes it, back in the code at the match.
 ///
 /// ```
 /// use ravenrs_reactive::State;
@@ -198,8 +203,75 @@ impl CodeEditor {
     }
 }
 
+/// What the find bar of a [`CodeEditor`] holds.
+#[derive(Clone)]
+struct Finder {
+    open: State<bool>,
+    replacing: State<bool>,
+    query: State<String>,
+    replacement: State<String>,
+    case: State<bool>,
+    word: State<bool>,
+}
+
+/// The match after (or before, `back`) the caret, going round at the ends.
+fn next_match(found: &[(usize, usize)], cursor: Cursor, back: bool) -> Option<(usize, usize)> {
+    let (from, to) = cursor.selection().unwrap_or((cursor.caret, cursor.caret));
+    if back {
+        found.iter().rev().find(|m| m.0 < from).or(found.last()).copied()
+    } else {
+        found.iter().find(|m| m.0 > from || (m.0 == from && to == from)).or(found.first()).copied()
+    }
+}
+
+/// Selects a match, with the caret at its end.
+fn select(cursor: &State<Cursor>, found: (usize, usize)) {
+    cursor.set(Cursor { caret: found.1, anchor: Some(found.0) });
+}
+
 impl View for CodeEditor {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let own_cursor: State<Cursor> = cx.use_state(|| Cursor::at(usize::MAX));
+        let cursor = self.caret.clone().unwrap_or(own_cursor);
+        let own_request: State<bool> = cx.use_state(|| false);
+        let focus = self.focus_request.clone().unwrap_or(own_request);
+        let own_history: State<TextHistory> = cx.use_state(TextHistory::new);
+        let history = self.history.clone().unwrap_or(own_history);
+        let finder = Finder {
+            open: cx.use_state(|| false),
+            replacing: cx.use_state(|| false),
+            query: cx.use_state(String::new),
+            replacement: cx.use_state(String::new),
+            case: cx.use_state(|| false),
+            word: cx.use_state(|| false),
+        };
+        let writable = !self.read_only;
+        if cx.is_focus_within() {
+            for (letter, replacing) in [("f", false), ("h", true)] {
+                let (finder, cursor, value) = (finder.clone(), cursor.clone(), self.value.clone());
+                cx.shortcut(
+                    Key::Character(letter.into()),
+                    true,
+                    Rc::new(move || {
+                        // A selection on one line is what is looked for.
+                        let picked = cursor.get().selection().map(|(a, b)| {
+                            value.get().chars().skip(a).take(b - a).collect::<String>()
+                        });
+                        if let Some(picked) = picked.filter(|p| !p.contains('\n')) {
+                            finder.query.set(picked);
+                        }
+                        finder.replacing.set(replacing && writable);
+                        finder.open.set(true);
+                    }),
+                );
+            }
+        }
+
+        let text = self.value.get();
+        let open = finder.open.get();
+        let query = finder.query.get();
+        let found = if open { find_all(&text, &query, finder.case.get(), finder.word.get()) } else { Vec::new() };
+
         let highlight: Option<Highlighter> = match self.language {
             CodeLanguage::Plain => None,
             CodeLanguage::Rust => Some(Rc::new(highlight_rust)),
@@ -220,19 +292,281 @@ impl View for CodeEditor {
             indent: self.indent,
             fill: self.fill,
             background: Semantic::Surface,
+            found: Rc::new(found.clone()),
+            follow_caret: open,
         };
-        let mut area = TextArea::new(self.value.clone()).rows(self.rows).read_only(self.read_only).code(look);
-        if let Some(cursor) = &self.caret {
-            area = area.cursor(cursor.clone());
+        let area = TextArea::new(self.value.clone())
+            .rows(self.rows)
+            .read_only(self.read_only)
+            .code(look)
+            .cursor(cursor.clone())
+            .focus_request(focus.clone())
+            .history(history.clone());
+        let area = cx.keyed_child(1, &area);
+        let mut children = Vec::new();
+        if open {
+            let bar = FindBar {
+                finder: finder.clone(),
+                found: Rc::new(found),
+                value: self.value.clone(),
+                cursor: cursor.clone(),
+                focus: focus.clone(),
+                history: history.clone(),
+                writable,
+            };
+            children.push(cx.keyed_child(2, &bar));
         }
-        if let Some(request) = &self.focus_request {
-            area = area.focus_request(request.clone());
-        }
-        if let Some(history) = &self.history {
-            area = area.history(history.clone());
-        }
-        area.build(cx)
+        children.push(area);
+        cx.container(
+            LayoutStyle {
+                grow: if self.fill { 1.0 } else { 0.0 },
+                min_height: Some(0.0),
+                align: Align::Stretch,
+                spacing: 4.0,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &children,
+            Paint::None,
+        )
     }
+}
+
+/// The bar a [`CodeEditor`] shows over its code to find, and to replace.
+struct FindBar {
+    finder: Finder,
+    found: Rc<Vec<(usize, usize)>>,
+    value: Binding<String>,
+    cursor: State<Cursor>,
+    focus: State<bool>,
+    history: State<TextHistory>,
+    writable: bool,
+}
+
+impl FindBar {
+    /// Selects the next match, or the one before.
+    fn step(&self) -> impl Fn(bool) + 'static {
+        let (found, cursor) = (self.found.clone(), self.cursor.clone());
+        move |back| {
+            if let Some(m) = next_match(&found, cursor.get(), back) {
+                select(&cursor, m);
+            }
+        }
+    }
+
+    /// Replaces the selected match and goes to the next; with `all`, every match at once.
+    fn replace(&self, all: bool) -> impl Fn() + 'static {
+        let (found, cursor, value, history) =
+            (self.found.clone(), self.cursor.clone(), self.value.clone(), self.history.clone());
+        let replacement = self.finder.replacement.clone();
+        move || {
+            let before = value.get();
+            let with = replacement.get();
+            let chosen: Vec<(usize, usize)> = if all {
+                found.to_vec()
+            } else {
+                match cursor.get().selection() {
+                    Some(sel) if found.contains(&sel) => vec![sel],
+                    // Nothing found is selected: go to the next one first.
+                    _ => {
+                        if let Some(m) = next_match(&found, cursor.get(), false) {
+                            select(&cursor, m);
+                        }
+                        return;
+                    }
+                }
+            };
+            if chosen.is_empty() {
+                return;
+            }
+            let mut after = before.clone();
+            for &(a, b) in chosen.iter().rev() {
+                let (from, to) = (crate::text_field::byte_index(&after, a), crate::text_field::byte_index(&after, b));
+                after.replace_range(from..to, &with);
+            }
+            history.update(|h| h.record_change(&before, &after, cursor.get()));
+            let (a, b) = chosen[0];
+            let shift = with.chars().count() as isize - (b - a) as isize;
+            value.set(after);
+            if all {
+                cursor.set(Cursor::at(a + with.chars().count()));
+            } else {
+                // The next match, counted in the new text.
+                let next = found.iter().find(|m| m.0 >= b).map(|m| {
+                    ((m.0 as isize + shift) as usize, (m.1 as isize + shift) as usize)
+                });
+                match next {
+                    Some(m) => select(&cursor, m),
+                    None => cursor.set(Cursor::at(a + with.chars().count())),
+                }
+            }
+        }
+    }
+}
+
+impl View for FindBar {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let labels = cx.labels().clone();
+        let finder = &self.finder;
+        let replacing = finder.replacing.get() && self.writable;
+        let close: Rc<dyn Fn()> = {
+            let (open, focus) = (finder.open.clone(), self.focus.clone());
+            Rc::new(move || {
+                open.set(false);
+                focus.set(true);
+            })
+        };
+        let step = Rc::new(self.step());
+        let keys: crate::KeyHandler = {
+            let step = step.clone();
+            Rc::new(move |key: &Key, modifiers: Modifiers| {
+                if *key == Key::Enter {
+                    step(modifiers.shift);
+                    return true;
+                }
+                false
+            })
+        };
+        let field = TextField::new(finder.query.binding())
+            .placeholder(labels.code_find.clone())
+            .compact()
+            .width(220.0)
+            .autofocus()
+            .select_on_open()
+            .intercept_keys(keys)
+            .on_cancel({
+                let close = close.clone();
+                move || close()
+            });
+        let current = self.cursor.get().selection().and_then(|sel| self.found.iter().position(|m| *m == sel));
+        let count = if self.found.is_empty() {
+            labels.code_no_results.clone()
+        } else {
+            labels
+                .code_find_count
+                .replace("{current}", &current.map_or("?".to_owned(), |i| (i + 1).to_string()))
+                .replace("{total}", &self.found.len().to_string())
+        };
+        let toggle = |cx: &mut BuildCx<'_>, key: u64, glyph: &str, name: &str, on: &State<bool>| {
+            let flip = on.clone();
+            let button = Button::new(glyph)
+                .accessible_name(name)
+                .style(ButtonStyle::Ghost)
+                .size(ButtonSize::Mini)
+                .selected(on.get())
+                .on_click(move || flip.update(|v| *v = !*v));
+            cx.keyed_child(key, &button)
+        };
+        let mut first_row = Vec::new();
+        if self.writable {
+            let flip = finder.replacing.clone();
+            let chevron = if replacing { IconName::ChevronDown } else { IconName::ChevronRight };
+            let show = IconButton::new(chevron)
+                .label(labels.code_show_replace.clone())
+                .style(ButtonStyle::Ghost)
+                .size(ButtonSize::Mini)
+                .selected(replacing)
+                .on_click(move || flip.update(|v| *v = !*v));
+            first_row.push(cx.keyed_child(10, &show));
+        }
+        first_row.push(cx.keyed_child(11, &field));
+        first_row.push(toggle(cx, 12, "Aa", &labels.code_match_case, &finder.case));
+        first_row.push(toggle(cx, 13, "ab", &labels.code_whole_word, &finder.word));
+        let attrs = util::attrs(&theme, TextStyle::Caption, None);
+        let muted = theme.color(Semantic::InkMuted);
+        let counter = cx.text(&count, &attrs, muted, LayoutStyle { min_width: Some(72.0), ..LayoutStyle::leaf() });
+        first_row.push(counter);
+        for (key, icon, name, back) in [
+            (14, IconName::ArrowUp, labels.code_find_previous.clone(), true),
+            (15, IconName::ArrowDown, labels.code_find_next.clone(), false),
+        ] {
+            let step = step.clone();
+            let button = IconButton::new(icon)
+                .label(name)
+                .style(ButtonStyle::Ghost)
+                .size(ButtonSize::Mini)
+                .disabled(self.found.is_empty())
+                .on_click(move || step(back));
+            first_row.push(cx.keyed_child(key, &button));
+        }
+        let shut = IconButton::new(IconName::X)
+            .label(labels.code_close_find.clone())
+            .style(ButtonStyle::Ghost)
+            .size(ButtonSize::Mini)
+            .on_click(move || close());
+        first_row.push(cx.keyed_child(16, &shut));
+        let row = |cx: &mut BuildCx<'_>, items: &[NodeId]| {
+            cx.container(
+                LayoutStyle { spacing: 4.0, align: Align::Center, ..LayoutStyle::stack(Axis::Horizontal) },
+                items,
+                Paint::None,
+            )
+        };
+        let mut rows = vec![row(cx, &first_row)];
+        if replacing {
+            let swap = TextField::new(finder.replacement.binding())
+                .placeholder(labels.code_replace.clone())
+                .compact()
+                .width(220.0);
+            let one = Button::new(labels.code_replace.clone())
+                .style(ButtonStyle::Ghost)
+                .size(ButtonSize::Mini)
+                .disabled(self.found.is_empty())
+                .on_click(self.replace(false));
+            let every = Button::new(labels.code_replace_all.clone())
+                .style(ButtonStyle::Ghost)
+                .size(ButtonSize::Mini)
+                .disabled(self.found.is_empty())
+                .on_click(self.replace(true));
+            // Lined up under the find field, past the chevron.
+            let gap = cx.container(LayoutStyle { width: Some(24.0), ..LayoutStyle::leaf() }, &[], Paint::None);
+            let items = [gap, cx.keyed_child(20, &swap), cx.keyed_child(21, &one), cx.keyed_child(22, &every)];
+            rows.push(row(cx, &items));
+        }
+        cx.container(
+            LayoutStyle {
+                padding: Insets::symmetric(4.0, 6.0),
+                spacing: 4.0,
+                align: Align::Start,
+                align_self: Some(Align::End),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &rows,
+            Paint::Quad(QuadPaint {
+                corner_radius: theme.radii.md,
+                border: Some(ravenrs_core::Border { width: 1.0, color: theme.color(Semantic::Border) }),
+                ..QuadPaint::new(theme.color(Semantic::Surface))
+            }),
+        )
+    }
+}
+
+/// Where `query` is in `text`, as `(from, to)` char indices that do not overlap: with `case`,
+/// only with the same capitals; with `word`, only where it is not part of a longer word.
+pub fn find_all(text: &str, query: &str, case: bool, word: bool) -> Vec<(usize, usize)> {
+    if query.is_empty() {
+        return Vec::new();
+    }
+    let fold = |c: char| if case { c } else { c.to_lowercase().next().unwrap_or(c) };
+    let hay: Vec<char> = text.chars().map(fold).collect();
+    let needle: Vec<char> = query.chars().map(fold).collect();
+    let is_word = |c: char| c.is_alphanumeric() || c == '_';
+    let mut found = Vec::new();
+    let mut i = 0;
+    while i + needle.len() <= hay.len() {
+        if hay[i..i + needle.len()] == needle[..] {
+            let end = i + needle.len();
+            let whole = !word
+                || (i.checked_sub(1).is_none_or(|b| !is_word(hay[b])) && hay.get(end).is_none_or(|c| !is_word(*c)));
+            if whole {
+                found.push((i, end));
+                i = end;
+                continue;
+            }
+        }
+        i += 1;
+    }
+    found
 }
 
 const RUST_KEYWORDS: &[&str] = &[

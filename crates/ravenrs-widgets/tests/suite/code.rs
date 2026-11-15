@@ -624,3 +624,85 @@ fn super_ui_read_only(source: State<String>) -> Ui {
     focus_editor(&mut ui);
     ui
 }
+
+#[test]
+fn find_all_respects_capitals_and_whole_words() {
+    let text = "let a = a + A; abc";
+    assert_eq!(find_all(text, "a", false, false).len(), 4);
+    assert_eq!(find_all(text, "a", true, false).len(), 3);
+    assert_eq!(find_all(text, "a", true, true), vec![(4, 5), (8, 9)]);
+    assert_eq!(find_all(text, "A", false, true).len(), 3, "abc is not the word a");
+    assert!(find_all(text, "", false, false).is_empty());
+    assert_eq!(find_all("ãão", "ão", false, false), vec![(1, 3)], "counted in characters");
+}
+
+fn names(ui: &mut Ui) -> Vec<String> {
+    ui.access_tree().nodes.iter().filter_map(|n| n.name.clone()).collect()
+}
+
+#[test]
+fn cmd_f_finds_walks_the_matches_and_replaces_all_in_one_undo() {
+    let source = State::new("let a = a + A;\nlet b = a;".to_owned());
+    let cursor = State::new(Cursor::at(0));
+    let mut ui = ui(CodeEditor::new(source.binding()).caret(cursor.clone()));
+    focus_editor(&mut ui);
+    let cmd = Modifiers { meta: true, ..Modifiers::default() };
+    press(&mut ui, Key::Character("f".into()), cmd);
+    ui.update();
+    typed(&mut ui, "a");
+    assert!(names(&mut ui).iter().any(|n| n == "? of 4"), "{:?}", names(&mut ui));
+    key(&mut ui, Key::Enter);
+    assert_eq!(cursor.get().selection(), Some((4, 5)));
+    assert!(names(&mut ui).iter().any(|n| n == "1 of 4"));
+    key(&mut ui, Key::Enter);
+    press(&mut ui, Key::Enter, Modifiers { shift: true, ..Modifiers::default() });
+    assert_eq!(cursor.get().selection(), Some((4, 5)), "Shift+Enter goes back");
+    press(&mut ui, Key::Enter, Modifiers { shift: true, ..Modifiers::default() });
+    assert_eq!(cursor.get().selection(), Some((23, 24)), "and round from the first to the last");
+    // Ctrl+H shows the replacing, while the find field keeps the focus.
+    press(&mut ui, Key::Character("h".into()), Modifiers { ctrl: true, ..Modifiers::default() });
+    ui.update();
+    press_named_button(&mut ui, "Replace all");
+    assert_eq!(source.get(), "let  =  + ;\nlet b = ;");
+    // Undo takes all of it back at once, in the code.
+    let code = {
+        let tree = ui.access_tree();
+        tree.nodes
+            .iter()
+            .find(|n| n.role == Role::TextInput && n.value.as_deref().is_some_and(|v| v.contains("let")))
+            .expect("the code")
+            .bounds
+            .center()
+    };
+    click(&mut ui, code);
+    press(&mut ui, Key::Character("z".into()), cmd);
+    assert_eq!(source.get(), "let a = a + A;\nlet b = a;");
+}
+
+#[test]
+fn nothing_found_says_so_and_escape_goes_back_to_the_code() {
+    let source = State::new("fn main() {}".to_owned());
+    let mut ui = ui(CodeEditor::new(source.binding()).read_only(true));
+    focus_editor(&mut ui);
+    press(&mut ui, Key::Character("f".into()), Modifiers { ctrl: true, ..Modifiers::default() });
+    ui.update();
+    typed(&mut ui, "zzz");
+    assert!(names(&mut ui).iter().any(|n| n == "No results"));
+    assert!(!names(&mut ui).iter().any(|n| n == "Toggle replace"), "a read-only editor does not replace");
+    key(&mut ui, Key::Escape);
+    ui.update();
+    assert!(!names(&mut ui).iter().any(|n| n == "No results"), "the bar closed");
+}
+
+fn press_named_button(ui: &mut Ui, name: &str) {
+    let spot = {
+        let tree = ui.access_tree();
+        tree.nodes
+            .iter()
+            .find(|n| n.role == Role::Button && n.name.as_deref() == Some(name))
+            .unwrap_or_else(|| panic!("a button named {name}"))
+            .bounds
+            .center()
+    };
+    click(ui, spot);
+}

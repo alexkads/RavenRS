@@ -902,6 +902,28 @@ pub struct Labels {
     pub playground_download: String,
     /// The panel under the result of a `Playground`.
     pub playground_output: String,
+    /// The field a `CodeEditor` finds text with, and its Cmd/Ctrl+F.
+    pub code_find: String,
+    /// The field and the button that replace what a `CodeEditor` found.
+    pub code_replace: String,
+    /// The button that replaces everything a `CodeEditor` found.
+    pub code_replace_all: String,
+    /// Goes to the match before, in a `CodeEditor`.
+    pub code_find_previous: String,
+    /// Goes to the next match, in a `CodeEditor`.
+    pub code_find_next: String,
+    /// Finds only with the same capitals, in a `CodeEditor`.
+    pub code_match_case: String,
+    /// Finds only whole words, in a `CodeEditor`.
+    pub code_whole_word: String,
+    /// Which match of how many, in a `CodeEditor`: `{current}` and `{total}` are replaced.
+    pub code_find_count: String,
+    /// When a `CodeEditor` finds nothing.
+    pub code_no_results: String,
+    /// Shows or hides the replacing in the find bar of a `CodeEditor`.
+    pub code_show_replace: String,
+    /// Closes the find bar of a `CodeEditor`.
+    pub code_close_find: String,
     /// What the code of a `Playground` printed.
     pub playground_console: String,
     /// The problems of the code of a `Playground`.
@@ -1393,6 +1415,17 @@ impl Labels {
             playground_column: texts.get("widgets.playground_column"),
             playground_download: texts.get("widgets.playground_download"),
             playground_output: texts.get("widgets.playground_output"),
+            code_find: texts.get("widgets.code_find"),
+            code_replace: texts.get("widgets.code_replace"),
+            code_replace_all: texts.get("widgets.code_replace_all"),
+            code_find_previous: texts.get("widgets.code_find_previous"),
+            code_find_next: texts.get("widgets.code_find_next"),
+            code_match_case: texts.get("widgets.code_match_case"),
+            code_whole_word: texts.get("widgets.code_whole_word"),
+            code_find_count: texts.get("widgets.code_find_count"),
+            code_no_results: texts.get("widgets.code_no_results"),
+            code_show_replace: texts.get("widgets.code_show_replace"),
+            code_close_find: texts.get("widgets.code_close_find"),
             playground_console: texts.get("widgets.playground_console"),
             playground_problems: texts.get("widgets.playground_problems"),
             playground_no_problems: texts.get("widgets.playground_no_problems"),
