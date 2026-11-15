@@ -99,6 +99,8 @@ pub mod text_field;
 #[doc(hidden)]
 pub mod time_link;
 #[doc(hidden)]
+pub mod turn;
+#[doc(hidden)]
 pub mod ui;
 #[doc(hidden)]
 pub mod util;
@@ -170,6 +172,7 @@ pub use system_appearance::SystemAppearance;
 pub use text::Text;
 pub use text_field::TextField;
 pub use time_link::TimeLink;
+pub use turn::{QuarterTurn, Turn};
 pub use ui::{Ui, UiStats};
 pub use view::{AnyView, Component, FnView, Keyed, Responsive, View, ViewSeq, responsive, view_fn};
 pub use zoom::{ZoomControl, ZoomView};
