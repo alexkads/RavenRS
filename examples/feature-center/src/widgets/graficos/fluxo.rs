@@ -68,6 +68,9 @@ impl View for FlowPage {
             .look("start", FlowKind::new(IconName::Zap, "Início").tone(Semantic::Warning))
             .cables(true);
         let (on_change, on_export) = (said.clone(), said.clone());
+        // On a phone the options go one under the other and the diagram takes the width there is.
+        let narrow = cx.viewport().width < 720.0;
+        let wide = if narrow { (cx.viewport().width - 96.0).max(240.0) } else { 900.0 };
         let canvas = FlowCanvas::new(graph.binding())
             .notation(&notation)
             .view(view.binding())
@@ -123,12 +126,12 @@ impl View for FlowPage {
             .editable_titles(titles.get())
             .range(0.5, 2.0)
             .label("Diagrama de exemplo")
-            .size(900.0, 460.0)
+            .size(wide, 460.0)
             .grow(0.0);
 
         let a = arrivals.clone();
         let options = Grid::new(
-            4,
+            if narrow { 1 } else { 4 },
             (
                 Toggle::new(cables.binding()).label("Ligações como cabos"),
                 Toggle::new(locked.binding()).label("Travado"),
@@ -156,7 +159,8 @@ impl View for FlowPage {
                         ));
                     }),
                 ))
-                .spacing(12.0),
+                .spacing(12.0)
+                .wrap(),
                 canvas,
                 Text::new("Eventos").style(TextStyle::Headline),
                 Text::new(said.get()),

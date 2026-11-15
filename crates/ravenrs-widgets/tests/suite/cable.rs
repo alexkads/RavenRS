@@ -165,3 +165,80 @@ fn a_cable_in_the_hand_follows_the_pointer_and_tells_where_it_was_let_go() {
     assert_eq!(ui.next_wake(), None, "and is gone");
     assert!(ui.cables().ids().is_empty());
 }
+
+/// Two boxes inside a panel shown at half its size, tied by a cable.
+struct Shrunk;
+
+impl View for Shrunk {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let boxed = |cx: &mut BuildCx<'_>, x: f32| {
+            let style = LayoutStyle {
+                absolute: Some((x, 100.0)),
+                width: Some(40.0),
+                height: Some(40.0),
+                ..LayoutStyle::leaf()
+            };
+            cx.container(style, &[], Paint::None)
+        };
+        let (a, b) = (boxed(cx, 0.0), boxed(cx, 400.0));
+        CablePlug::between(a, b).sides(CableSide::Right, CableSide::Left).key(1).build(cx);
+        let panel =
+            LayoutStyle { width: Some(800.0), height: Some(400.0), ..LayoutStyle::stack(Axis::Vertical) };
+        let panel = cx.container(panel, &[a, b], Paint::None);
+        cx.scale(panel, 0.5);
+        panel
+    }
+}
+
+#[test]
+fn a_cable_ends_where_its_widgets_show_under_a_scale() {
+    let mut ui = Ui::new(Shrunk, Theme::raven_dark());
+    ui.set_viewport(Size::new(900.0, 600.0), 1.0);
+    ui.set_time(0.0);
+    ui.update();
+    run(&mut ui, 0.0, 3.0);
+    let id = cable_id(&ui);
+    let shape = ui.cables().shape(id).expect("placed");
+    let (first, last) = (shape[0], shape[shape.len() - 1]);
+    // At half size the right side of the first box is at x 20, y 60, and the left side of the
+    // second at x 200: not at 40 and 400, where they are laid out.
+    assert!((first.x - 20.0).abs() < 0.5 && (first.y - 60.0).abs() < 0.5, "{first:?}");
+    assert!((last.x - 200.0).abs() < 0.5 && (last.y - 60.0).abs() < 0.5, "{last:?}");
+}
+
+/// A panel twice the window's width shown at a quarter, inside a scroll view that clips, with
+/// a box laid out far past the window's right edge.
+struct Wide;
+
+impl View for Wide {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let style = LayoutStyle {
+            absolute: Some((1600.0, 100.0)),
+            width: Some(80.0),
+            height: Some(80.0),
+            ..LayoutStyle::leaf()
+        };
+        let far = cx.container(style, &[], Paint::Quad(QuadPaint::new(ravenrs_core::Color::hex(0xD64545))));
+        let panel =
+            LayoutStyle { width: Some(1800.0), height: Some(400.0), ..LayoutStyle::stack(Axis::Vertical) };
+        let panel = cx.container(panel, &[far], Paint::None);
+        cx.scale(panel, 0.25);
+        let place = LayoutStyle {
+            width: Some(450.0),
+            height: Some(100.0),
+            overflow_hidden: true,
+            ..LayoutStyle::stack(Axis::Vertical)
+        };
+        cx.container(place, &[panel], Paint::None)
+    }
+}
+
+#[test]
+fn a_scaled_panel_paints_what_is_laid_out_past_the_window_but_shows_inside_it() {
+    let mut ui = Ui::new(Wide, Theme::raven_dark());
+    ui.set_viewport(Size::new(900.0, 600.0), 1.0);
+    ui.update();
+    // Laid out at x 1600, shown at a quarter: from x 400, inside the 450 the place shows.
+    let quads = ui.scene().primitives().iter().filter(|p| matches!(p, Primitive::Quad(_))).count();
+    assert!(quads >= 1, "the far box was skipped");
+}
