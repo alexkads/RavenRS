@@ -37,7 +37,7 @@ pub fn customer(n: usize) -> Vec<Value> {
         Value::Text(SELLERS[n % SELLERS.len()].to_owned()),
         Value::Number((n * 37 % 50) as f64 + 1.0),
         Value::Number(((n * 97 % 9_000) as f64 + 1_000.0) / 10.0),
-        Value::Bool(n % 5 != 0),
+        Value::Bool(!n.is_multiple_of(5)),
     ]
 }
 

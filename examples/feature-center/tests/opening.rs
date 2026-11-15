@@ -123,7 +123,7 @@ fn a_page_asked_for_opens_once_inside_and_an_unknown_one_says_so() {
 fn only_the_components_with_no_door_and_a_list_on_a_phone() {
     let mut window = Window::of(feature_center::view(&opening(Mode::Components)));
     assert!(!window.says("Senha"), "no sign-in: {:?}", window.texts());
-    for page in feature_center::widgets::PAGES {
+    for page in feature_center::widgets::PAGES.iter() {
         assert!(window.has_button(page.caption), "{}: {:?}", page.caption, window.texts());
     }
     window.press("Cabos");

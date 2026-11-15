@@ -157,8 +157,13 @@ fn every_demonstration_has_its_audit_test() {
 /// reads well: a new one comes with its step (skill ravenrs-feature-center).
 #[test]
 fn every_demonstration_has_a_step_in_the_tour() {
-    let tour = include_str!("tour.rs");
+    // tests/tour.rs and the steps of each family, in tests/tour/.
+    let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests");
+    let mut tour = std::fs::read_to_string(folder.join("tour.rs")).expect("reads tour.rs");
+    for part in std::fs::read_dir(folder.join("tour")).expect("reads tests/tour") {
+        tour += &std::fs::read_to_string(part.expect("an entry").path()).expect("reads a part");
+    }
     let visited = |name: &str| tour.contains(&format!("\"{name}\""));
     let missing: Vec<&&str> = DEMONSTRATIONS.iter().filter(|name| !visited(name)).collect();
-    assert!(missing.is_empty(), "no step in tests/tour.rs for {missing:?}: visit each one there");
+    assert!(missing.is_empty(), "no step in tests/tour.rs or tests/tour/ for {missing:?}: visit each one there");
 }

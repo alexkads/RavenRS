@@ -15,8 +15,24 @@ use feature_center::seed::PASSWORD;
 use feature_center::{memory_database, watched};
 
 // The steps of each family of widgets, one file each.
+#[path = "tour/agenda.rs"]
+mod agenda;
+#[path = "tour/basicos.rs"]
+mod basicos;
+#[path = "tour/conversa.rs"]
+mod conversa;
+#[path = "tour/doca.rs"]
+mod doca;
 #[path = "tour/grade.rs"]
 mod grade;
+#[path = "tour/graficos.rs"]
+mod graficos;
+#[path = "tour/imagem.rs"]
+mod imagem;
+#[path = "tour/kit.rs"]
+mod kit;
+#[path = "tour/listas.rs"]
+mod listas;
 
 type Space = Rc<dyn Fn() -> Box<dyn ObjectSpace>>;
 

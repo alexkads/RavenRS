@@ -131,7 +131,7 @@ fn application() -> App {
             .icon("palette")
             .control("Editor de tokens", THEME_EDITOR),
     );
-    for page in widgets::PAGES {
+    for page in widgets::PAGES.iter() {
         app = app.dashboard(
             DashboardInfo::new(page.id, page.caption)
                 .navigation(page.group)
