@@ -349,6 +349,7 @@ field Labels::filter_remove
 field Labels::filter_starts_with
 field Labels::filter_value
 field Labels::filter_yes
+field Labels::flow_arrange
 field Labels::flow_canvas
 field Labels::flow_controls
 field Labels::flow_count
@@ -2847,10 +2848,12 @@ method FlowCanvas::grow
 method FlowCanvas::history
 method FlowCanvas::kind
 method FlowCanvas::label
+method FlowCanvas::layout
 method FlowCanvas::locked
 method FlowCanvas::minimap
 method FlowCanvas::new
 method FlowCanvas::range
+method FlowCanvas::resizable
 method FlowCanvas::selection
 method FlowCanvas::size
 method FlowCanvas::snap
@@ -4111,11 +4114,13 @@ reexport ChartLabelAt = ravenrs_graphics::plot::LabelAt
 reexport ChartPolarGrid = ravenrs_graphics::plot::PolarGrid
 reexport ChartStack = ravenrs_graphics::plot::Stack
 reexport EdgeShape = ravenrs_graphics::flow::EdgeShape
+reexport FlowDirection = ravenrs_graphics::flow::layout::FlowDirection
 reexport FlowEdge = ravenrs_graphics::flow::FlowEdge
 reexport FlowEndpoint = ravenrs_graphics::flow::FlowEndpoint
 reexport FlowGraph = ravenrs_graphics::flow::FlowGraph
 reexport FlowHistory = ravenrs_graphics::flow::FlowHistory
 reexport FlowJsonError = ravenrs_graphics::flow::FlowJsonError
+reexport FlowLayout = ravenrs_graphics::flow::layout::FlowLayout
 reexport FlowNode = ravenrs_graphics::flow::FlowNode
 reexport FlowNodeStatus = ravenrs_graphics::flow::FlowNodeStatus
 reexport FlowPort = ravenrs_graphics::flow::FlowPort

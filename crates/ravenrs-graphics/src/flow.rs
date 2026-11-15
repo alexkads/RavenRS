@@ -10,6 +10,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::vector::PathSegment;
 
+mod layout;
+
+pub use layout::{FlowDirection, FlowLayout};
+
 /// Which side of a node a port sits on, and the way a line leaves it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]

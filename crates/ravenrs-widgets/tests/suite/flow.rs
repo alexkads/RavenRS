@@ -531,3 +531,74 @@ fn ports_connect_with_the_keys_and_say_what_they_are() {
     assert!(named(&mut rig.ui, "Go to the other port and press Enter; Escape cancels").is_none());
     assert_eq!(rig.graph.get().edges.len(), 1);
 }
+
+fn size_of(rig: &Rig, id: &str) -> (f32, f32) {
+    let g = rig.graph.get();
+    let n = g.find_node(id).expect("the node");
+    (n.width, n.height)
+}
+
+#[test]
+fn the_arrange_button_lays_the_diagram_out_in_layers_as_one_change() {
+    let chain = graph()
+        .edge(FlowEdge::new("e1", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in")))
+        .edge(FlowEdge::new("e2", FlowEndpoint::new("b", "out"), FlowEndpoint::new("c", "in")));
+    let mut rig = rig_with(chain, |c| c);
+    let arrange = named(&mut rig.ui, "Arrange").expect("the button").bounds.center();
+    click(&mut rig.ui, arrange);
+    let (a, b, c) = (node_at(&rig, "a"), node_at(&rig, "b"), node_at(&rig, "c"));
+    assert!(a.0 < b.0 && b.0 < c.0, "one layer after the other: {a:?} {b:?} {c:?}");
+    assert!(a.1 == b.1 && b.1 == c.1, "a chain on one line");
+    for (x, y) in [a, b, c] {
+        assert_eq!((x % 24.0, y % 24.0), (0.0, 0.0), "on the grid");
+    }
+    assert!(rig.view.get().fit || rig.view.get().zoom <= 1.0, "the whole diagram in view");
+    shortcut(&mut rig.ui, "z", false);
+    assert_eq!((node_at(&rig, "b"), node_at(&rig, "c")), ((408.0, 48.0), (408.0, 288.0)));
+}
+
+#[test]
+fn a_locked_canvas_does_not_arrange() {
+    let mut rig = rig_with(
+        graph().edge(FlowEdge::new("e1", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in"))),
+        |c| c.locked(true),
+    );
+    let arrange = named(&mut rig.ui, "Arrange").expect("the button");
+    assert!(arrange.disabled);
+    click(&mut rig.ui, arrange.bounds.center());
+    assert_eq!(node_at(&rig, "b"), (408.0, 48.0));
+}
+
+#[test]
+fn the_corner_of_a_selected_node_resizes_it_on_the_grid() {
+    let mut rig = rig();
+    click(&mut rig.ui, Point::new(120.0, 70.0));
+    // The node is 200 by 84 at (48, 48): its corner ends at (248, 132).
+    drag(&mut rig.ui, Point::new(242.0, 126.0), Point::new(292.0, 168.0));
+    assert_eq!(size_of(&rig, "a"), (240.0, 120.0), "250 and 126, snapped to the grid");
+    assert_eq!(node_at(&rig, "a"), (48.0, 48.0), "the corner does not move the node");
+    shortcut(&mut rig.ui, "z", false);
+    assert_eq!(size_of(&rig, "a"), (200.0, 84.0), "the whole resize undoes at once");
+    // Not too small.
+    drag(&mut rig.ui, Point::new(242.0, 126.0), Point::new(60.0, 60.0));
+    assert_eq!(size_of(&rig, "a"), (96.0, 48.0));
+}
+
+#[test]
+fn alt_and_the_arrows_resize_the_selected_nodes() {
+    let mut rig = rig();
+    click(&mut rig.ui, Point::new(120.0, 70.0));
+    let alt = Modifiers { alt: true, ..Modifiers::default() };
+    key(&mut rig.ui, Key::ArrowRight, alt);
+    key(&mut rig.ui, Key::ArrowDown, Modifiers { shift: true, ..alt });
+    assert_eq!(size_of(&rig, "a"), (224.0, 180.0));
+    assert_eq!(node_at(&rig, "a"), (48.0, 48.0));
+
+    let mut fixed = rig_with(graph(), |c| c.resizable(false));
+    click(&mut fixed.ui, Point::new(120.0, 70.0));
+    key(&mut fixed.ui, Key::ArrowRight, alt);
+    assert_eq!(size_of(&fixed, "a"), (200.0, 84.0));
+    // Without a corner, a drag there moves the node instead.
+    drag(&mut fixed.ui, Point::new(242.0, 126.0), Point::new(290.0, 126.0));
+    assert_eq!((size_of(&fixed, "a"), node_at(&fixed, "a")), ((200.0, 84.0), (96.0, 48.0)));
+}

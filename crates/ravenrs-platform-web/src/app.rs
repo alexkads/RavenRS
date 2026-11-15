@@ -1173,6 +1173,7 @@ fn dispatch(state: &Rc<RefCell<State>>, scheduler: &Scheduler, event: Event) -> 
             CursorIcon::Text => "text",
             CursorIcon::ColResize => "col-resize",
             CursorIcon::RowResize => "row-resize",
+            CursorIcon::NwseResize => "nwse-resize",
             _ => "default",
         };
         s.canvas.style().set_property("cursor", css).ok();

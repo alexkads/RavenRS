@@ -155,4 +155,6 @@ pub enum CursorIcon {
     ColResize,
     /// Vertical resize, e.g. a horizontal splitter bar.
     RowResize,
+    /// Diagonal resize from the bottom right corner, e.g. the handle of a box.
+    NwseResize,
 }

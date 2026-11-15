@@ -1,0 +1,389 @@
+//! Arranging a diagram by itself, in layers: every connection runs one way, from one layer to a
+//! later one, and the nodes of a layer are ordered so that lines cross as little as they can.
+//!
+//! It is the usual layered method, kept small: cycles are broken by turning back the
+//! connections that close them, each node goes to the layer after the longest path that reaches
+//! it, the nodes of each layer are ordered by the average place of their neighbours over a few
+//! sweeps, and each node then moves towards its neighbours as far as the room in its layer lets
+//! it, so a chain comes out straight.
+
+use super::{FlowGraph, FlowNode};
+
+/// The way the layers follow one another.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
+pub enum FlowDirection {
+    /// From left to right: the first layer is the leftmost column.
+    #[default]
+    Right,
+    /// From top to bottom: the first layer is the top row.
+    Down,
+}
+
+/// How [`FlowLayout::apply`] arranges a diagram: the direction and the room between layers and
+/// between the nodes of a layer, in units of the diagram.
+#[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct FlowLayout {
+    /// The way the layers follow one another.
+    pub direction: FlowDirection,
+    /// The room between one layer and the next.
+    pub layer_gap: f32,
+    /// The room between two nodes of a layer.
+    pub node_gap: f32,
+}
+
+impl Default for FlowLayout {
+    fn default() -> Self {
+        Self::new(FlowDirection::Right)
+    }
+}
+
+/// How many times the order of the layers is swept, down and back up.
+const SWEEPS: usize = 4;
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl FlowLayout {
+    /// Layers in this direction, 96 units apart, with 48 between the nodes of a layer.
+    pub fn new(direction: FlowDirection) -> Self {
+        Self { direction, layer_gap: 96.0, node_gap: 48.0 }
+    }
+
+    /// With this room between layers and between the nodes of a layer.
+    pub fn gaps(mut self, layer_gap: f32, node_gap: f32) -> Self {
+        self.layer_gap = layer_gap.max(0.0);
+        self.node_gap = node_gap.max(0.0);
+        self
+    }
+
+    /// Where each node goes, its left and top edges, in the order of `graph.nodes`. The
+    /// arranged diagram starts where the diagram started: its box keeps its top left corner.
+    pub fn positions(&self, graph: &FlowGraph) -> Vec<(f32, f32)> {
+        let n = graph.nodes.len();
+        if n == 0 {
+            return Vec::new();
+        }
+        let links = links(graph);
+        let layer = layers(n, &links);
+        let mut order = order(n, &links, &layer);
+        let places = self.place(&graph.nodes, &links, &layer, &mut order);
+        let origin = graph.bounds().map_or((0.0, 0.0), |b| (b.x(), b.y()));
+        let (least_x, least_y) =
+            places.iter().fold((f32::INFINITY, f32::INFINITY), |(x, y), p| (x.min(p.0), y.min(p.1)));
+        places.into_iter().map(|(x, y)| (x - least_x + origin.0, y - least_y + origin.1)).collect()
+    }
+
+    /// Moves every node of `graph` where [`Self::positions`] puts it. Says whether any moved.
+    pub fn apply(&self, graph: &mut FlowGraph) -> bool {
+        let places = self.positions(graph);
+        let mut moved = false;
+        for (node, (x, y)) in graph.nodes.iter_mut().zip(places) {
+            if node.x != x || node.y != y {
+                node.x = x;
+                node.y = y;
+                moved = true;
+            }
+        }
+        moved
+    }
+
+    /// The size of a node along the layers (its extent in the direction they follow) and across.
+    fn extents(&self, node: &FlowNode) -> (f32, f32) {
+        match self.direction {
+            FlowDirection::Right => (node.width, node.height),
+            FlowDirection::Down => (node.height, node.width),
+        }
+    }
+
+    /// The left and top edge of each node, with layers and orders already chosen.
+    fn place(
+        &self,
+        nodes: &[FlowNode],
+        links: &[(usize, usize)],
+        layer: &[usize],
+        order: &mut [Vec<usize>],
+    ) -> Vec<(f32, f32)> {
+        // Along the layers: each layer as deep as its deepest node.
+        let mut along = Vec::with_capacity(order.len());
+        let mut at = 0.0;
+        for members in order.iter() {
+            along.push(at);
+            let depth = members.iter().map(|&i| self.extents(&nodes[i]).0).fold(0.0, f32::max);
+            at += depth + self.layer_gap;
+        }
+        // Across: the centre of each node, the first layer packed, each later one pulled
+        // towards the centres of the neighbours before it.
+        let mut centre = vec![0.0_f32; nodes.len()];
+        for (l, members) in order.iter().enumerate() {
+            let wanted: Vec<Option<f32>> = members
+                .iter()
+                .map(|&i| {
+                    let near: Vec<f32> = links
+                        .iter()
+                        .filter_map(|&(a, b)| match () {
+                            _ if b == i && layer[a] < l => Some(centre[a]),
+                            _ if a == i && layer[b] < l => Some(centre[b]),
+                            _ => None,
+                        })
+                        .collect();
+                    (!near.is_empty()).then(|| near.iter().sum::<f32>() / near.len() as f32)
+                })
+                .collect();
+            self.spread(nodes, members, &wanted, &mut centre);
+        }
+        order.iter().enumerate().flat_map(|(l, members)| members.iter().map(move |&i| (l, i))).fold(
+            vec![(0.0, 0.0); nodes.len()],
+            |mut out, (l, i)| {
+                let (_, across) = self.extents(&nodes[i]);
+                let (a, c) = (along[l], centre[i] - across / 2.0);
+                out[i] = match self.direction {
+                    FlowDirection::Right => (a, c),
+                    FlowDirection::Down => (c, a),
+                };
+                out
+            },
+        )
+    }
+
+    /// Places the centres of one layer, in its order: as near as each wants to be, at least a
+    /// gap apart, and shifted as a whole so that, on average, each is where it wanted.
+    fn spread(&self, nodes: &[FlowNode], members: &[usize], wanted: &[Option<f32>], centre: &mut [f32]) {
+        let half = |i: usize| self.extents(&nodes[i]).1 / 2.0;
+        // Packed from zero, for the nodes that want nowhere in particular.
+        let mut packed = Vec::with_capacity(members.len());
+        let mut edge = 0.0;
+        for &i in members {
+            packed.push(edge + half(i));
+            edge += half(i) * 2.0 + self.node_gap;
+        }
+        let mut placed: Vec<f32> = Vec::with_capacity(members.len());
+        for (k, &i) in members.iter().enumerate() {
+            let want = wanted[k].unwrap_or(packed[k]);
+            let least = match k {
+                0 => f32::NEG_INFINITY,
+                _ => placed[k - 1] + half(members[k - 1]) + self.node_gap + half(i),
+            };
+            placed.push(want.max(least));
+        }
+        let pulled: Vec<(f32, f32)> =
+            placed.iter().zip(wanted).filter_map(|(p, w)| w.map(|w| (*p, w))).collect();
+        let shift = match pulled.len() {
+            0 => 0.0,
+            count => pulled.iter().map(|(p, w)| w - p).sum::<f32>() / count as f32,
+        };
+        for (&i, p) in members.iter().zip(placed) {
+            centre[i] = p + shift;
+        }
+    }
+}
+
+/// The connections between two different nodes, by index, once each, ignoring the ports.
+fn links(graph: &FlowGraph) -> Vec<(usize, usize)> {
+    let index = |id: &str| graph.nodes.iter().position(|n| n.id == id);
+    let mut links: Vec<(usize, usize)> = Vec::new();
+    for edge in &graph.edges {
+        if let (Some(a), Some(b)) = (index(&edge.from.node), index(&edge.to.node))
+            && a != b
+            && !links.contains(&(a, b))
+        {
+            links.push((a, b));
+        }
+    }
+    links
+}
+
+/// The layer of each node: one after the longest path that reaches it, once the connections
+/// that close a cycle are turned back.
+fn layers(n: usize, links: &[(usize, usize)]) -> Vec<usize> {
+    let forward = acyclic(n, links);
+    let mut incoming = vec![0usize; n];
+    for &(_, b) in &forward {
+        incoming[b] += 1;
+    }
+    let mut ready: Vec<usize> = (0..n).filter(|&i| incoming[i] == 0).rev().collect();
+    let mut layer = vec![0usize; n];
+    while let Some(a) = ready.pop() {
+        for &(_, b) in forward.iter().filter(|(from, _)| *from == a) {
+            layer[b] = layer[b].max(layer[a] + 1);
+            incoming[b] -= 1;
+            if incoming[b] == 0 {
+                ready.push(b);
+            }
+        }
+    }
+    layer
+}
+
+/// The connections with those that close a cycle turned back, found by walking the nodes in
+/// their order, depth first.
+fn acyclic(n: usize, links: &[(usize, usize)]) -> Vec<(usize, usize)> {
+    // 0 not seen, 1 on the path being walked, 2 done.
+    let mut state = vec![0u8; n];
+    let mut back: Vec<(usize, usize)> = Vec::new();
+    for start in 0..n {
+        if state[start] != 0 {
+            continue;
+        }
+        let mut stack: Vec<(usize, usize)> = vec![(start, 0)];
+        state[start] = 1;
+        while let Some(&mut (node, ref mut next)) = stack.last_mut() {
+            let out: Vec<usize> = links.iter().filter(|(a, _)| *a == node).map(|(_, b)| *b).collect();
+            if let Some(&target) = out.get(*next) {
+                *next += 1;
+                match state[target] {
+                    0 => {
+                        state[target] = 1;
+                        stack.push((target, 0));
+                    }
+                    1 => back.push((node, target)),
+                    _ => {}
+                }
+            } else {
+                state[node] = 2;
+                stack.pop();
+            }
+        }
+    }
+    links.iter().map(|&(a, b)| if back.contains(&(a, b)) { (b, a) } else { (a, b) }).collect()
+}
+
+/// The nodes of each layer, ordered so that lines cross little: first as the diagram has them,
+/// then by the average place of their neighbours in the layer before (sweeping down) and after
+/// (sweeping up).
+fn order(n: usize, links: &[(usize, usize)], layer: &[usize]) -> Vec<Vec<usize>> {
+    let count = layer.iter().copied().max().map_or(0, |m| m + 1);
+    let mut order: Vec<Vec<usize>> = vec![Vec::new(); count];
+    for i in 0..n {
+        order[layer[i]].push(i);
+    }
+    let neighbours = |i: usize, of: usize| -> Vec<usize> {
+        links
+            .iter()
+            .filter_map(|&(a, b)| match () {
+                _ if a == i && layer[b] == of => Some(b),
+                _ if b == i && layer[a] == of => Some(a),
+                _ => None,
+            })
+            .collect()
+    };
+    for sweep in 0..SWEEPS * 2 {
+        let down = sweep % 2 == 0;
+        let layers: Vec<usize> =
+            if down { (1..count).collect() } else { (0..count.saturating_sub(1)).rev().collect() };
+        for l in layers {
+            let other = if down { l - 1 } else { l + 1 };
+            let place = |j: usize| order[other].iter().position(|&k| k == j).unwrap_or(0) as f32;
+            let mut keyed: Vec<(f32, usize)> = order[l]
+                .iter()
+                .enumerate()
+                .map(|(k, &i)| {
+                    let near = neighbours(i, other);
+                    let key = match near.len() {
+                        0 => k as f32,
+                        count => near.iter().map(|&j| place(j)).sum::<f32>() / count as f32,
+                    };
+                    (key, i)
+                })
+                .collect();
+            keyed.sort_by(|a, b| a.0.total_cmp(&b.0));
+            order[l] = keyed.into_iter().map(|(_, i)| i).collect();
+        }
+    }
+    order
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::flow::{FlowEdge, FlowEndpoint, FlowPort};
+
+    fn node(id: &str) -> FlowNode {
+        FlowNode::new(id, "step", id, 500.0, 500.0).port(FlowPort::input("in")).port(FlowPort::output("out"))
+    }
+
+    fn link(id: &str, from: &str, to: &str) -> FlowEdge {
+        FlowEdge::new(id, FlowEndpoint::new(from, "out"), FlowEndpoint::new(to, "in"))
+    }
+
+    fn at(graph: &FlowGraph, id: &str) -> (f32, f32) {
+        graph.find_node(id).map(|n| (n.x, n.y)).unwrap_or((f32::NAN, f32::NAN))
+    }
+
+    #[test]
+    fn a_chain_comes_out_straight_from_where_the_diagram_was() {
+        let mut g = FlowGraph::new()
+            .node(node("c"))
+            .node(FlowNode { x: 40.0, y: 24.0, ..node("a") })
+            .node(node("b"))
+            .edge(link("e1", "a", "b"))
+            .edge(link("e2", "b", "c"));
+        assert!(FlowLayout::default().apply(&mut g));
+        // 200 wide and 96 apart: one column every 296 units, on one line.
+        assert_eq!(at(&g, "a"), (40.0, 24.0));
+        assert_eq!(at(&g, "b"), (336.0, 24.0));
+        assert_eq!(at(&g, "c"), (632.0, 24.0));
+        assert!(!FlowLayout::default().apply(&mut g), "arranging again changes nothing");
+    }
+
+    #[test]
+    fn down_puts_the_layers_in_rows() {
+        let mut g = FlowGraph::new().node(node("a")).node(node("b")).edge(link("e1", "a", "b"));
+        FlowLayout::new(FlowDirection::Down).gaps(40.0, 20.0).apply(&mut g);
+        assert_eq!(at(&g, "b"), (500.0, 500.0 + 84.0 + 40.0));
+    }
+
+    #[test]
+    fn a_branch_spreads_and_its_source_sits_between_them() {
+        let mut g = FlowGraph::new()
+            .node(node("a"))
+            .node(node("b"))
+            .node(node("c"))
+            .edge(link("e1", "a", "b"))
+            .edge(link("e2", "a", "c"));
+        FlowLayout::default().apply(&mut g);
+        let (a, b, c) = (at(&g, "a"), at(&g, "b"), at(&g, "c"));
+        assert_eq!(b.0, c.0);
+        assert_eq!((c.1 - b.1).abs(), 84.0 + 48.0, "a gap apart");
+        assert!((a.1 - (b.1 + c.1) / 2.0).abs() < 0.01, "{a:?} {b:?} {c:?}");
+        let boxes: Vec<_> = g.nodes.iter().map(FlowNode::rect).collect();
+        for (i, r) in boxes.iter().enumerate() {
+            for s in &boxes[i + 1..] {
+                assert!(r.max_x() <= s.x() || s.max_x() <= r.x() || r.max_y() <= s.y() || s.max_y() <= r.y());
+            }
+        }
+    }
+
+    #[test]
+    fn a_cycle_still_gets_layers_and_crossings_are_undone() {
+        // a → b → c → a, and two lines that would cross in the order given.
+        let mut g = FlowGraph::new()
+            .node(node("a"))
+            .node(node("b"))
+            .node(node("c"))
+            .edge(link("e1", "a", "b"))
+            .edge(link("e2", "b", "c"))
+            .edge(link("e3", "c", "a"));
+        FlowLayout::default().apply(&mut g);
+        let xs = [at(&g, "a").0, at(&g, "b").0, at(&g, "c").0];
+        assert!(xs[0] < xs[1] && xs[1] < xs[2], "{xs:?}");
+
+        let mut crossed = FlowGraph::new()
+            .node(node("p"))
+            .node(node("q"))
+            .node(node("x"))
+            .node(node("y"))
+            .edge(link("e1", "p", "y"))
+            .edge(link("e2", "q", "x"));
+        FlowLayout::default().apply(&mut crossed);
+        let above = |a: &str, b: &str| at(&crossed, a).1 < at(&crossed, b).1;
+        assert_eq!(above("p", "q"), above("y", "x"), "the lines run side by side");
+    }
+
+    #[test]
+    fn nothing_to_arrange() {
+        assert!(FlowLayout::default().positions(&FlowGraph::new()).is_empty());
+        let mut alone = FlowGraph::new().node(node("a"));
+        assert!(!FlowLayout::default().apply(&mut alone));
+    }
+}
