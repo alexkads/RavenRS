@@ -158,6 +158,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     #[cfg(feature = "flow")]
     ravenrs_graphics::flow::EdgeShape::__live_expose_variants(registry);
     #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::EdgeCap::__live_expose_variants(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::EdgeCap::__live_expose(registry);
+    #[cfg(feature = "flow")]
     ravenrs_graphics::flow::FlowEdge::__live_expose_fields(registry);
     #[cfg(feature = "flow")]
     ravenrs_graphics::flow::FlowEdge::__live_expose(registry);
@@ -772,6 +776,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::DockArea::__live_expose_part1(registry);
     crate::DockEdge::__live_expose_variants(registry);
     crate::DockDrop::__live_expose_variants(registry);
+    crate::DockChange::__live_expose_variants(registry);
     crate::DockNode::__live_expose_variants(registry);
     crate::DockChild::__live_expose_fields(registry);
     crate::DockNode::__live_expose(registry);

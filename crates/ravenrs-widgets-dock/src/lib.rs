@@ -17,6 +17,7 @@ pub mod dock;
 pub mod ribbon;
 
 pub use dock::{
-    DockArea, DockChild, DockDrop, DockEdge, DockLayout, DockLayoutError, DockNode, DockPanel, DockTabBar,
+    DockArea, DockChange, DockChild, DockDrop, DockEdge, DockGuard, DockLayout, DockLayoutError, DockNode,
+    DockPanel, DockTabBar,
 };
 pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};

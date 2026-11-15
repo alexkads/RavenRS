@@ -5,5 +5,5 @@ mod area;
 mod geometry;
 mod layout;
 
-pub use area::{DockArea, DockPanel, DockTabBar};
-pub use layout::{DockChild, DockDrop, DockEdge, DockLayout, DockLayoutError, DockNode};
+pub use area::{DockArea, DockGuard, DockPanel, DockTabBar};
+pub use layout::{DockChange, DockChild, DockDrop, DockEdge, DockLayout, DockLayoutError, DockNode};

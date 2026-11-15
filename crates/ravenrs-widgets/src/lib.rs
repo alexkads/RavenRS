@@ -144,7 +144,8 @@ pub use date::{Date, days_in_month, is_leap_year};
 pub use diagnostics::{Diagnostics, DiagnosticsHost};
 pub use display::{Alert, AlertAction, Avatar, Badge, Divider, ProgressBar, Section, Skeleton, Stat, Tone};
 pub use dock::{
-    DockArea, DockChild, DockDrop, DockEdge, DockLayout, DockLayoutError, DockNode, DockPanel, DockTabBar,
+    DockArea, DockChange, DockChild, DockDrop, DockEdge, DockGuard, DockLayout, DockLayoutError, DockNode,
+    DockPanel, DockTabBar,
 };
 pub use dock_side::DockSide;
 pub use editors::{DateTime, DateTimePicker, MaskedField, NumberField, TextArea, Time, TimePicker};
@@ -166,7 +167,7 @@ pub use floating::{
 };
 #[cfg(feature = "flow")]
 pub use flow::{
-    EdgeShape, FlowCanvas, FlowChange, FlowDirection, FlowEdge, FlowEndpoint, FlowGraph, FlowGuard,
+    EdgeCap, EdgeShape, FlowCanvas, FlowChange, FlowDirection, FlowEdge, FlowEndpoint, FlowGraph, FlowGuard,
     FlowHistory, FlowJsonError, FlowKind, FlowLayout, FlowNode, FlowNodeStatus, FlowPort, FlowSelection,
     FlowValidator, FlowViewport, PortDirection, PortSide,
 };

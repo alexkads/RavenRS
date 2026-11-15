@@ -17,6 +17,7 @@ enum CompareSide
 enum CompositionGuide
 enum ContentMode
 enum ContentSpace
+enum DockChange
 enum DockDrop
 enum DockEdge
 enum DockLayoutError
@@ -362,6 +363,7 @@ field Labels::flow_members
 field Labels::flow_output
 field Labels::flow_pick_port
 field Labels::flow_refused
+field Labels::flow_title
 field Labels::flow_unlock
 field Labels::folder_empty
 field Labels::folder_word
@@ -844,6 +846,7 @@ impl Clone for DayMark
 impl Clone for DaySeparator
 impl Clone for Diagnostics
 impl Clone for Divider
+impl Clone for DockChange
 impl Clone for DockChild
 impl Clone for DockDrop
 impl Clone for DockEdge
@@ -1195,6 +1198,7 @@ impl Debug for Dialog
 impl Debug for Disclosure
 impl Debug for Divider
 impl Debug for DockArea
+impl Debug for DockChange
 impl Debug for DockChild
 impl Debug for DockDrop
 impl Debug for DockEdge
@@ -1795,6 +1799,7 @@ impl PartialEq for Date
 impl PartialEq for DateRange
 impl PartialEq for DateTime
 impl PartialEq for DayMark
+impl PartialEq for DockChange
 impl PartialEq for DockChild
 impl PartialEq for DockDrop
 impl PartialEq for DockEdge
@@ -2680,6 +2685,7 @@ method DockArea::height
 method DockArea::label
 method DockArea::movable
 method DockArea::new
+method DockArea::on_change
 method DockArea::on_end
 method DockArea::pane_min
 method DockArea::tab_bar
@@ -2851,6 +2857,7 @@ method FloatingToolbar::place
 method FloatingToolbar::separator
 method FloatingToolbar::view
 method FlowCanvas::controls
+method FlowCanvas::editable_titles
 method FlowCanvas::grid
 method FlowCanvas::grow
 method FlowCanvas::history
@@ -4122,6 +4129,7 @@ reexport ChartKind = ravenrs_graphics::chart::ChartKind
 reexport ChartLabelAt = ravenrs_graphics::plot::LabelAt
 reexport ChartPolarGrid = ravenrs_graphics::plot::PolarGrid
 reexport ChartStack = ravenrs_graphics::plot::Stack
+reexport EdgeCap = ravenrs_graphics::flow::EdgeCap
 reexport EdgeShape = ravenrs_graphics::flow::EdgeShape
 reexport FlowDirection = ravenrs_graphics::flow::layout::FlowDirection
 reexport FlowEdge = ravenrs_graphics::flow::FlowEdge
@@ -4523,6 +4531,7 @@ trait-item ViewExt::width
 trait-item ViewSeq::build_each
 type ActivityObserver
 type AnyView
+type DockGuard
 type DragHandler
 type DrawFn
 type FlowGuard
@@ -4593,6 +4602,12 @@ variant ContentMode::Fit
 variant ContentSpace::Fit
 variant ContentSpace::Frame
 variant ContentSpace::View
+variant DockChange::Activate
+variant DockChange::Close
+variant DockChange::Collapse
+variant DockChange::Move
+variant DockChange::Reopen
+variant DockChange::Resize
 variant DockDrop::Side
 variant DockDrop::Split
 variant DockDrop::Tab
@@ -4637,6 +4652,7 @@ variant FlowChange::Move
 variant FlowChange::Paste
 variant FlowChange::Reconnect
 variant FlowChange::Redo
+variant FlowChange::Rename
 variant FlowChange::Reorder
 variant FlowChange::Resize
 variant FlowChange::Undo
