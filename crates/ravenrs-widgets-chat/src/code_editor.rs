@@ -9,7 +9,7 @@ use ravenrs_style::Semantic;
 
 use crate::context::{BuildCx, NodeId};
 use crate::editors::{CodeLook, Highlighter, LineMark};
-use crate::text_field::Cursor;
+use crate::text_field::{Cursor, TextHistory};
 use crate::{TextArea, Tone, View};
 
 /// The language a [`CodeEditor`] colors.
@@ -103,6 +103,7 @@ pub struct CodeEditor {
     read_only: bool,
     caret: Option<State<Cursor>>,
     focus_request: Option<State<bool>>,
+    history: Option<State<TextHistory>>,
 }
 
 impl fmt::Debug for CodeEditor {
@@ -129,7 +130,15 @@ impl CodeEditor {
             read_only: false,
             caret: None,
             focus_request: None,
+            history: None,
         }
+    }
+
+    /// Keeps what Cmd/Ctrl+Z can undo in `history`, so it lasts while the editor comes and
+    /// goes (a document in a tab, say) and the app can undo and redo from its own buttons.
+    pub fn history(mut self, history: State<TextHistory>) -> Self {
+        self.history = Some(history);
+        self
     }
 
     /// Takes the keyboard focus whenever `request` turns on, and turns it back off: set the
@@ -218,6 +227,9 @@ impl View for CodeEditor {
         }
         if let Some(request) = &self.focus_request {
             area = area.focus_request(request.clone());
+        }
+        if let Some(history) = &self.history {
+            area = area.history(history.clone());
         }
         area.build(cx)
     }

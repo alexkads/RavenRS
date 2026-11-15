@@ -594,3 +594,33 @@ fn a_place_turns_back_into_the_characters_before_it() {
     assert_eq!(offset_of(text, 2, 99), 17, "past the end of a line stops there");
     assert_eq!(offset_of(text, 9, 1), 19, "past the last line, at the end");
 }
+
+#[test]
+fn undo_takes_back_a_word_at_a_time_and_the_app_keeps_the_steps() {
+    let source = State::new(String::new());
+    let history = State::new(TextHistory::new());
+    let mut ui = ui(CodeEditor::new(source.binding()).history(history.clone()));
+    focus_editor(&mut ui);
+    typed(&mut ui, "let x");
+    key(&mut ui, Key::Enter);
+    typed(&mut ui, "done");
+    let cmd = Modifiers { meta: true, ..Modifiers::default() };
+    press(&mut ui, Key::Character("z".into()), cmd);
+    assert_eq!(source.get(), "let x\n");
+    press(&mut ui, Key::Character("z".into()), cmd);
+    assert_eq!(source.get(), "let x", "the line break is a step of its own");
+    assert!(history.peek().can_redo(), "the app sees what can be redone");
+    press(&mut ui, Key::Character("Z".into()), Modifiers { shift: true, ..cmd });
+    assert_eq!(source.get(), "let x\n");
+    // A read-only editor undoes nothing.
+    let shown = State::new("fixed".to_owned());
+    let mut ui = super_ui_read_only(shown.clone());
+    press(&mut ui, Key::Character("z".into()), cmd);
+    assert_eq!(shown.get(), "fixed");
+}
+
+fn super_ui_read_only(source: State<String>) -> Ui {
+    let mut ui = ui(CodeEditor::new(source.binding()).read_only(true));
+    focus_editor(&mut ui);
+    ui
+}

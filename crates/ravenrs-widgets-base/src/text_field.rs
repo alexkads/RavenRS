@@ -440,6 +440,249 @@ pub fn edit(
     true
 }
 
+/// How many steps a [`TextHistory`] keeps; older ones are let go.
+const HISTORY_LIMIT: usize = 200;
+
+/// One change to a text: at byte `at`, `removed` gave way to `inserted`, and the caret went
+/// from `before` to `after`. Only what changed is kept, so a long text costs little per step.
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct Step {
+    at: usize,
+    removed: String,
+    inserted: String,
+    before: Cursor,
+    after: Cursor,
+}
+
+impl Step {
+    /// What changed from `old` to `new`: what lies between their common start and end.
+    fn between(old: &str, new: &str, before: Cursor, after: Cursor) -> Self {
+        let mut start = old.bytes().zip(new.bytes()).take_while(|(a, b)| a == b).count();
+        while !old.is_char_boundary(start) || !new.is_char_boundary(start) {
+            start -= 1;
+        }
+        let room = old.len().min(new.len()) - start;
+        let mut end = old.bytes().rev().zip(new.bytes().rev()).take(room).take_while(|(a, b)| a == b).count();
+        while !old.is_char_boundary(old.len() - end) || !new.is_char_boundary(new.len() - end) {
+            end -= 1;
+        }
+        Self {
+            at: start,
+            removed: old[start..old.len() - end].to_owned(),
+            inserted: new[start..new.len() - end].to_owned(),
+            before,
+            after,
+        }
+    }
+
+    /// Takes in a step that comes right after this one in the same run: more letters of a
+    /// word, or more characters taken out by Backspace or Delete.
+    fn join(&mut self, next: Step) -> bool {
+        if self.removed.is_empty() && next.removed.is_empty() && next.at == self.at + self.inserted.len() {
+            self.inserted.push_str(&next.inserted);
+        } else if self.inserted.is_empty() && next.inserted.is_empty() && next.at + next.removed.len() == self.at {
+            // Backspace: each character comes off before the last.
+            self.at = next.at;
+            self.removed.insert_str(0, &next.removed);
+        } else if self.inserted.is_empty() && next.inserted.is_empty() && next.at == self.at {
+            // Delete: each character comes off after the caret, which stays.
+            self.removed.push_str(&next.removed);
+        } else {
+            return false;
+        }
+        self.after = next.after;
+        true
+    }
+}
+
+/// What the step still open is made of, so the next key of the same kind joins it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Run {
+    /// Letters, digits and `_` typed one after another: a word.
+    Word,
+    /// Characters taken out one by one with Backspace or Delete.
+    Deleting,
+}
+
+/// What can be undone and redone in a text field, a text area or a code editor: Cmd/Ctrl+Z
+/// undoes, Cmd+Shift+Z or Ctrl+Y redoes.
+///
+/// A word typed letter by letter is one step, and so is each space or sign after it, each
+/// paste, cut and line break. Moving the caret closes the step being typed. When the app
+/// changes the text by itself, the next key starts a new step from what the app left, so an
+/// undo never jumps back past it; [`record_change`](Self::record_change) makes such a change
+/// a step of its own, to be undone too. It keeps the last 200 steps, and of each only what
+/// changed, so a long text costs little.
+///
+/// Each field keeps its own; give a `CodeEditor` one through its `history` to keep it while
+/// the editor comes and goes, or to undo from a button.
+///
+/// ```
+/// use ravenrs_widgets::{Cursor, TextHistory};
+///
+/// let mut history = TextHistory::new();
+/// let mut text = String::from("final");
+/// let mut cursor = Cursor::at(5);
+/// history.record_change("draft", &text, cursor);
+/// assert!(history.undo(&mut text, &mut cursor));
+/// assert_eq!(text, "draft");
+/// assert!(history.redo(&mut text, &mut cursor));
+/// assert_eq!(text, "final");
+/// ```
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TextHistory {
+    undo: Vec<Step>,
+    redo: Vec<Step>,
+    /// The text as the last key left it, to notice a change made from outside.
+    known: Option<String>,
+    /// The kind of the step still open, which the next key of that kind joins.
+    open: Option<Run>,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl TextHistory {
+    /// Nothing to undo or redo.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Whether there is a step to undo.
+    pub fn can_undo(&self) -> bool {
+        !self.undo.is_empty()
+    }
+
+    /// Whether there is a step to redo.
+    pub fn can_redo(&self) -> bool {
+        !self.redo.is_empty()
+    }
+
+    /// Puts back the text and the caret as they were before the last step. False when there
+    /// is nothing to undo, or when the text is no longer the one the step was made on.
+    pub fn undo(&mut self, text: &mut String, cursor: &mut Cursor) -> bool {
+        let Some(step) = self.undo.pop() else { return false };
+        let end = step.at + step.inserted.len();
+        if text.get(step.at..end) != Some(step.inserted.as_str()) {
+            self.forget();
+            return false;
+        }
+        text.replace_range(step.at..end, &step.removed);
+        *cursor = step.before;
+        self.redo.push(step);
+        self.settle(text);
+        true
+    }
+
+    /// Does again the last step undone. False when there is nothing to redo.
+    pub fn redo(&mut self, text: &mut String, cursor: &mut Cursor) -> bool {
+        let Some(step) = self.redo.pop() else { return false };
+        let end = step.at + step.removed.len();
+        if text.get(step.at..end) != Some(step.removed.as_str()) {
+            self.forget();
+            return false;
+        }
+        text.replace_range(step.at..end, &step.inserted);
+        *cursor = step.after;
+        self.undo.push(step);
+        self.settle(text);
+        true
+    }
+
+    /// Takes in a change the app made by itself (replacing all, reloading from disk) as one
+    /// step: the text was `before` and is now `after`, and the caret was at `cursor`.
+    pub fn record_change(&mut self, before: &str, after: &str, cursor: Cursor) {
+        if before == after {
+            return;
+        }
+        self.push(Step::between(before, after, cursor, cursor));
+        self.redo.clear();
+        self.known = Some(after.to_owned());
+    }
+
+    /// Lets go of every step, as when the text is replaced by another.
+    pub fn clear(&mut self) {
+        *self = Self::default();
+    }
+
+    fn forget(&mut self) {
+        self.undo.clear();
+        self.redo.clear();
+        self.open = None;
+    }
+
+    fn settle(&mut self, text: &str) {
+        self.known = Some(text.to_owned());
+        self.open = None;
+    }
+
+    fn push(&mut self, step: Step) {
+        self.undo.push(step);
+        if self.undo.len() > HISTORY_LIMIT {
+            self.undo.remove(0);
+        }
+        self.open = None;
+    }
+
+    /// Applies a key with `apply`, keeping the step it makes; Cmd/Ctrl+Z, Cmd+Shift+Z and
+    /// Ctrl+Y undo and redo instead. Returns whether the key was handled.
+    #[doc(hidden)]
+    pub fn apply(
+        &mut self,
+        text: &mut String,
+        cursor: &mut Cursor,
+        key: &Key,
+        modifiers: Modifiers,
+        apply: impl FnOnce(&mut String, &mut Cursor) -> bool,
+    ) -> bool {
+        let command = modifiers.ctrl || modifiers.meta;
+        if command && let Key::Character(c) = key {
+            let c = c.to_ascii_lowercase();
+            if c == "z" && !modifiers.shift {
+                self.undo(text, cursor);
+                return true;
+            }
+            if (c == "z" && modifiers.shift) || (c == "y" && modifiers.ctrl && !modifiers.meta) {
+                self.redo(text, cursor);
+                return true;
+            }
+        }
+        if self.known.as_deref().is_some_and(|known| known != text.as_str()) {
+            // The app changed the text, and the steps kept are about another one.
+            self.forget();
+        }
+        let (old, before) = (text.clone(), *cursor);
+        if !apply(text, cursor) {
+            return false;
+        }
+        if *text == old {
+            if *cursor != before {
+                self.open = None;
+            }
+            self.known = Some(old);
+            return true;
+        }
+        let run = match key {
+            Key::Character(s) if !command && before.selection().is_none() && s.chars().all(is_word) => {
+                Some(Run::Word)
+            }
+            Key::Backspace | Key::Delete if !modifiers.alt && !command && before.selection().is_none() => {
+                Some(Run::Deleting)
+            }
+            _ => None,
+        };
+        let step = Step::between(&old, text, before, *cursor);
+        let joined = run.is_some()
+            && self.open == run
+            && self.undo.last_mut().is_some_and(|last| last.after.caret == before.caret && last.join(step.clone()));
+        if !joined {
+            self.push(step);
+        }
+        self.open = run;
+        self.redo.clear();
+        self.known = Some(text.clone());
+        true
+    }
+}
+
 /// The char index nearest to `x` (relative to the text's left edge), given
 /// the x position of every char boundary.
 #[doc(hidden)]
@@ -469,6 +712,7 @@ impl View for TextField {
             }
         });
         let focus_requested: State<bool> = cx.use_state(|| false);
+        let history: State<TextHistory> = cx.use_state(TextHistory::new);
         let state = self.state;
         if self.autofocus && !state.disabled && !*focus_requested.peek() {
             focus_requested.set_if_changed(true);
@@ -697,7 +941,17 @@ impl View for TextField {
                 let mut text = value.get();
                 let mut c = cursor.get();
                 let access = ClipboardAccess { clipboard: &clipboard, secure, multiline: false };
-                let handled = edit(&mut text, &mut c, key, modifiers, Some(access));
+                let handled = if state.accepts_input() {
+                    let mut handled = false;
+                    history.update(|steps| {
+                        handled = steps.apply(&mut text, &mut c, key, modifiers, |t, c| {
+                            edit(t, c, key, modifiers, Some(access))
+                        });
+                    });
+                    handled
+                } else {
+                    edit(&mut text, &mut c, key, modifiers, Some(access))
+                };
                 if handled {
                     let changed = text != value.get();
                     if changed && !state.accepts_input() {
@@ -832,6 +1086,132 @@ mod tests {
         let (mut text, mut c) = (String::new(), Cursor::at(0));
         let access = Some(ClipboardAccess { clipboard: &clipboard, secure: false, multiline: false });
         assert!(!edit(&mut text, &mut c, &Key::Character("v".into()), CMD, access));
+    }
+
+    /// Types `keys` through a history, as a field does.
+    fn type_through(history: &mut TextHistory, text: &mut String, c: &mut Cursor, key: Key, modifiers: Modifiers) {
+        history.apply(text, c, &key, modifiers, |t, c| edit(t, c, &key, modifiers, None));
+    }
+
+    fn type_text(history: &mut TextHistory, text: &mut String, c: &mut Cursor, typed: &str) {
+        for ch in typed.chars() {
+            let key = if ch == ' ' { Key::Space } else { Key::Character(ch.to_string()) };
+            type_through(history, text, c, key, NONE);
+        }
+    }
+
+    fn z(shift: bool) -> (Key, Modifiers) {
+        (Key::Character(if shift { "Z" } else { "z" }.into()), Modifiers { shift, ..CMD })
+    }
+
+    #[test]
+    fn a_word_is_one_step_and_so_is_the_space_after_it() {
+        let (mut h, mut text, mut c) = (TextHistory::new(), String::new(), Cursor::at(0));
+        type_text(&mut h, &mut text, &mut c, "olá mundo");
+        let (undo, none) = z(false);
+        type_through(&mut h, &mut text, &mut c, undo.clone(), none);
+        assert_eq!((text.as_str(), c.caret), ("olá ", 4));
+        type_through(&mut h, &mut text, &mut c, undo.clone(), none);
+        assert_eq!(text, "olá");
+        type_through(&mut h, &mut text, &mut c, undo.clone(), none);
+        assert_eq!(text, "");
+        assert!(!h.can_undo());
+        let (redo, shift) = z(true);
+        type_through(&mut h, &mut text, &mut c, redo.clone(), shift);
+        type_through(&mut h, &mut text, &mut c, redo, shift);
+        assert_eq!(text, "olá ");
+        let ctrl_y = Modifiers { ctrl: true, ..NONE };
+        type_through(&mut h, &mut text, &mut c, Key::Character("y".into()), ctrl_y);
+        assert_eq!((text.as_str(), c.caret), ("olá mundo", 9));
+    }
+
+    #[test]
+    fn typing_after_an_undo_lets_the_redo_go() {
+        let (mut h, mut text, mut c) = (TextHistory::new(), String::new(), Cursor::at(0));
+        type_text(&mut h, &mut text, &mut c, "ab cd");
+        let (undo, none) = z(false);
+        type_through(&mut h, &mut text, &mut c, undo, none);
+        assert!(h.can_redo());
+        type_text(&mut h, &mut text, &mut c, "x");
+        assert!(!h.can_redo());
+        assert_eq!(text, "ab x");
+    }
+
+    #[test]
+    fn backspaces_in_a_row_are_one_step_and_moving_closes_it() {
+        let (mut h, mut text, mut c) = (TextHistory::new(), String::new(), Cursor::at(0));
+        type_text(&mut h, &mut text, &mut c, "hello");
+        for _ in 0..3 {
+            type_through(&mut h, &mut text, &mut c, Key::Backspace, NONE);
+        }
+        assert_eq!(text, "he");
+        let (undo, none) = z(false);
+        type_through(&mut h, &mut text, &mut c, undo.clone(), none);
+        assert_eq!((text.as_str(), c.caret), ("hello", 5));
+        // Typing at another place is another step, even inside the same word run.
+        type_through(&mut h, &mut text, &mut c, Key::Home, NONE);
+        type_text(&mut h, &mut text, &mut c, "x");
+        type_through(&mut h, &mut text, &mut c, Key::End, NONE);
+        type_text(&mut h, &mut text, &mut c, "y");
+        type_through(&mut h, &mut text, &mut c, undo, none);
+        assert_eq!(text, "xhello");
+    }
+
+    #[test]
+    fn a_paste_is_one_step_and_the_caret_comes_back() {
+        let clipboard = crate::Clipboard::default();
+        clipboard.write("pasted");
+        let (mut h, mut text, mut c) = (TextHistory::new(), String::from("ab"), Cursor::at(1));
+        let key = Key::Character("v".into());
+        h.apply(&mut text, &mut c, &key, CMD, |t, c| {
+            edit(t, c, &key, CMD, Some(ClipboardAccess { clipboard: &clipboard, secure: false, multiline: false }))
+        });
+        assert_eq!(text, "apastedb");
+        let (undo, none) = z(false);
+        type_through(&mut h, &mut text, &mut c, undo, none);
+        assert_eq!((text.as_str(), c), ("ab", Cursor::at(1)));
+    }
+
+    #[test]
+    fn a_change_from_outside_is_never_undone_past() {
+        let (mut h, mut text, mut c) = (TextHistory::new(), String::new(), Cursor::at(0));
+        type_text(&mut h, &mut text, &mut c, "one");
+        text = "replaced".to_owned();
+        c = Cursor::at(8);
+        type_text(&mut h, &mut text, &mut c, "!");
+        let (undo, none) = z(false);
+        type_through(&mut h, &mut text, &mut c, undo.clone(), none);
+        assert_eq!(text, "replaced");
+        type_through(&mut h, &mut text, &mut c, undo, none);
+        assert_eq!(text, "replaced", "what was typed before the change is gone");
+        // record_change makes such a change a step of its own.
+        let mut text = String::from("after");
+        h.record_change("before", &text, Cursor::at(0));
+        assert!(h.undo(&mut text, &mut c));
+        assert_eq!(text, "before");
+    }
+
+    #[test]
+    fn the_history_keeps_two_hundred_steps() {
+        let (mut h, mut text, mut c) = (TextHistory::new(), String::new(), Cursor::at(0));
+        for _ in 0..250 {
+            type_text(&mut h, &mut text, &mut c, ".");
+        }
+        let mut undone = 0;
+        while h.undo(&mut text, &mut c) {
+            undone += 1;
+        }
+        assert_eq!((undone, text.len()), (200, 50));
+    }
+
+    #[test]
+    fn steps_keep_only_what_changed() {
+        let step = Step::between("let ação = 1;", "let reação = 1;", Cursor::at(4), Cursor::at(6));
+        assert_eq!((step.removed.as_str(), step.inserted.as_str()), ("", "re"));
+        let step = Step::between("aaa", "aa", Cursor::at(3), Cursor::at(2));
+        assert_eq!((step.at, step.removed.as_str(), step.inserted.as_str()), (2, "a", ""));
+        let step = Step::between("é", "è", Cursor::at(1), Cursor::at(1));
+        assert_eq!((step.removed.as_str(), step.inserted.as_str()), ("é", "è"));
     }
 
     #[test]

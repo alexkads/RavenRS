@@ -171,7 +171,7 @@ pub use stack::{
 pub use summary::Summary;
 pub use system_appearance::SystemAppearance;
 pub use text::Text;
-pub use text_field::{Cursor, TextField};
+pub use text_field::{Cursor, TextField, TextHistory};
 pub use time_link::TimeLink;
 pub use turn::{QuarterTurn, Turn};
 pub use ui::{Ui, UiStats};

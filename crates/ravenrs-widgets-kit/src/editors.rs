@@ -12,7 +12,9 @@ use ravenrs_style::{Semantic, TextStyle};
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::date::Date;
 use crate::overlay::Options;
-use crate::text_field::{ClipboardAccess, Cursor, TextField, byte_index, edit, index_at, insert, word_at};
+use crate::text_field::{
+    ClipboardAccess, Cursor, TextField, TextHistory, byte_index, edit, index_at, insert, word_at,
+};
 use crate::{ButtonSize, DatePicker, IconButton, IconName, VStack, View, util};
 
 // ---------------------------------------------------------------- TextArea
@@ -160,6 +162,8 @@ pub struct TextArea {
     cursor: Option<State<Cursor>>,
     /// Turned on by whoever built the area to give it the keyboard focus; it turns back off.
     focus_request: Option<State<bool>>,
+    /// What can be undone, kept by whoever built the area; the area keeps its own otherwise.
+    history: Option<State<TextHistory>>,
     code: Option<CodeLook>,
 }
 
@@ -182,8 +186,17 @@ impl TextArea {
             state: util::EditorState::default(),
             cursor: None,
             focus_request: None,
+            history: None,
             code: None,
         }
+    }
+
+    /// Keeps what can be undone in `history`, for an editor whose app undoes from a button
+    /// or keeps the steps while the area comes and goes.
+    #[doc(hidden)]
+    pub fn history(mut self, history: State<TextHistory>) -> Self {
+        self.history = Some(history);
+        self
     }
 
     /// Takes the keyboard focus whenever `request` turns on, and turns it back off, for a
@@ -327,6 +340,8 @@ impl View for TextArea {
         let cursor = self.cursor.clone().unwrap_or(own);
         let own_request: State<bool> = cx.use_state(|| false);
         let focus_request = self.focus_request.clone().unwrap_or(own_request);
+        let own_history: State<TextHistory> = cx.use_state(TextHistory::new);
+        let history = self.history.clone().unwrap_or(own_history);
         if focus_request.get() && !state.disabled {
             focus_request.set(false);
             cx.request_focus();
@@ -757,7 +772,17 @@ impl View for TextArea {
                 let mut text = value.get();
                 let mut c = cursor.get();
                 let access = ClipboardAccess { clipboard: &clipboard, secure: false, multiline: true };
-                let handled = edit_area(&mut text, &mut c, &lines, key, modifiers, access, indent);
+                let handled = if state.accepts_input() {
+                    let mut handled = false;
+                    history.update(|steps| {
+                        handled = steps.apply(&mut text, &mut c, key, modifiers, |t, c| {
+                            edit_area(t, c, &lines, key, modifiers, access, indent)
+                        });
+                    });
+                    handled
+                } else {
+                    edit_area(&mut text, &mut c, &lines, key, modifiers, access, indent)
+                };
                 if handled {
                     let changed = text != value.get();
                     if changed && !state.accepts_input() {

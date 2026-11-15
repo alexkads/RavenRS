@@ -256,7 +256,7 @@ pub use summary::Summary;
 pub use system_appearance::SystemAppearance;
 pub use tag_box::TagBox;
 pub use text::Text;
-pub use text_field::{Cursor, TextField};
+pub use text_field::{Cursor, TextField, TextHistory};
 pub use theme::{ThemeEditor, ThemePicker};
 pub use tiles::{CardView, Tile, TileLayout, TileSpot};
 pub use time_link::TimeLink;
