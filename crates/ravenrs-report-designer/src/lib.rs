@@ -588,11 +588,27 @@ impl Designer {
     }
 }
 
+/// What a new diagram control shows until its JSON or field is chosen: three steps of a sale,
+/// written by the diagram model itself so that it always reads back.
+fn sample_diagram() -> String {
+    use ravenrs_report::flow::{FlowEdge, FlowEndpoint, FlowGraph, FlowNode, FlowPort};
+    let step = |id: &str, title: &str, x: f32| {
+        FlowNode::new(id, "step", title, x, 0.0).port(FlowPort::input("in")).port(FlowPort::output("out"))
+    };
+    FlowGraph::new()
+        .node(step("a", "Pedido", 0.0))
+        .node(step("b", "Pagamento", 280.0))
+        .node(step("c", "Entrega", 560.0))
+        .edge(FlowEdge::new("e1", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in")))
+        .edge(FlowEdge::new("e2", FlowEndpoint::new("b", "out"), FlowEndpoint::new("c", "in")))
+        .to_json()
+}
+
 /// A control of the toolbox: its name, its icon and how a new one starts.
 type Tool = (&'static str, IconName, fn() -> Control);
 
 /// The controls of the toolbox and of the Insert page, in order.
-const TOOLS: [Tool; 16] =
+const TOOLS: [Tool; 17] =
     [
         ("Rótulo", IconName::Type, || Control::label("Texto").at(0.0, 0.0, 140.0, 18.0)),
         ("Campo", IconName::Database, || Control::field("[Customer]").at(0.0, 0.0, 140.0, 18.0)),
@@ -608,6 +624,7 @@ const TOOLS: [Tool; 16] =
         ("Gráfico", IconName::ChartColumn, || {
             Control::chart(ChartKind::Bar, "[Region]", "[Quantity] * [UnitPrice]").at(0.0, 0.0, 320.0, 180.0)
         }),
+        ("Diagrama", IconName::GitBranch, || Control::diagram(sample_diagram()).at(0.0, 0.0, 360.0, 160.0)),
         ("Caixa de seleção", IconName::CircleCheck, || {
             Control::check_box("[Paid]", "Pago").at(0.0, 0.0, 100.0, 18.0)
         }),

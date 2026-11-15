@@ -464,3 +464,16 @@ fn dragging_one_of_several_controls_picked_moves_them_all() {
         assert!((after.x - before.x - 40.0).abs() < 8.0, "both went right: {picked:?} {moved:?}");
     }
 }
+
+#[test]
+fn the_toolbox_inserts_a_diagram_that_reads_its_sample_and_shows_its_fields() {
+    let mut ui = designer();
+    press(&mut ui, Role::Button, "Em branco");
+    press(&mut ui, Role::Button, "Diagrama");
+    assert!(shows(&mut ui, "Diagrama: 3 nós"), "the sample of a new diagram is a valid diagram");
+    for field in ["Campo", "JSON", "Só estes nós"] {
+        assert!(shows(&mut ui, field), "the properties offer {field}");
+    }
+    press(&mut ui, Role::Button, "Desfazer");
+    assert!(!shows(&mut ui, "Diagrama: 3 nós"), "undo takes it away");
+}

@@ -31,6 +31,7 @@
 //! ```
 
 pub mod base64;
+pub mod diagram;
 mod document;
 mod engine;
 mod model;
@@ -45,4 +46,4 @@ pub use model::*;
 pub use paint::paint_page;
 pub use ravenrs_criteria as criteria;
 pub use ravenrs_criteria::{Criteria, Culture, DateTime, ParseError, Value, format_composite, format_value};
-pub use ravenrs_graphics::{barcode, chart, vector};
+pub use ravenrs_graphics::{barcode, chart, flow, vector};

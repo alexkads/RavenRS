@@ -345,6 +345,60 @@ fn printer_command_props(e: &Editor, command: PrinterCommand, rows: &mut Vec<Any
     }
 }
 
+/// What a diagram shows: a field with its JSON, or the JSON itself, and which nodes.
+fn diagram_props(e: &Editor, rows: &mut Vec<AnyView>) {
+    let field = control_text(
+        e,
+        "diagram-field",
+        |k| match k {
+            ControlKind::Diagram(d) => d.expression.clone().unwrap_or_default(),
+            _ => String::new(),
+        },
+        |k, s| {
+            if let ControlKind::Diagram(d) = k {
+                d.expression = (!s.trim().is_empty()).then_some(s);
+            }
+        },
+    );
+    rows.push(Box::new(
+        FormField::new("Campo", with_editor(e, field, ExpressionTarget::Control))
+            .hint("Um campo com o diagrama em JSON, como o FlowCanvas salva. Ex.: [Processo]"),
+    ));
+    let json = control_text(
+        e,
+        "diagram-json",
+        |k| match k {
+            ControlKind::Diagram(d) => d.json.clone(),
+            _ => String::new(),
+        },
+        |k, s| {
+            if let ControlKind::Diagram(d) = k {
+                d.json = s;
+            }
+        },
+    );
+    rows.push(Box::new(
+        FormField::new("JSON", json).hint("Usado quando não há campo: cole o diagrama salvo."),
+    ));
+    let only = control_text(
+        e,
+        "diagram-only",
+        |k| match k {
+            ControlKind::Diagram(d) => d.only.join(", "),
+            _ => String::new(),
+        },
+        |k, s| {
+            if let ControlKind::Diagram(d) = k {
+                d.only = s.split(',').map(|id| id.trim().to_owned()).filter(|id| !id.is_empty()).collect();
+            }
+        },
+    );
+    rows.push(Box::new(
+        FormField::new("Só estes nós", only)
+            .hint("Ids separados por vírgula; vazio mostra o diagrama inteiro."),
+    ));
+}
+
 fn barcode_props(e: &Editor, barcode: &ravenrs_report::Barcode, rows: &mut Vec<AnyView>) {
     let index = SYMBOLOGIES.iter().position(|(_, s)| *s == barcode.symbology).unwrap_or(0);
     let write = e.clone();
@@ -498,6 +552,7 @@ fn control_props(e: &Editor) -> impl View + use<> {
         ControlKind::Picture(_) => "Imagem",
         ControlKind::Barcode(_) => "Código de barras",
         ControlKind::Chart(_) => "Gráfico",
+        ControlKind::Diagram(_) => "Diagrama",
         ControlKind::Link(_) => "Link",
         ControlKind::Bookmark(_) => "Marcador",
         ControlKind::PrinterCommand(_) => "Comando da impressora",
@@ -573,6 +628,7 @@ fn control_props(e: &Editor) -> impl View + use<> {
         ControlKind::Barcode(barcode) => barcode_props(e, barcode, &mut rows),
         ControlKind::PrinterCommand(command) => printer_command_props(e, *command, &mut rows),
         ControlKind::Chart(chart) => chart_props(e, chart, &mut rows),
+        ControlKind::Diagram(_) => diagram_props(e, &mut rows),
         _ => {}
     }
     rows.push(Box::new(section("Posição e tamanho (pt)")));

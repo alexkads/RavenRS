@@ -806,6 +806,48 @@ impl<'r> Run<'r> {
                 }
                 c.height
             }
+            ControlKind::Diagram(diagram) => {
+                let rect = Rect::new(at.x, at.y, c.width, c.height);
+                backdrop(&look, rect, items);
+                let json = match diagram.expression.as_deref().filter(|s| !s.trim().is_empty()) {
+                    Some(expression) => self
+                        .eval(ctx, expression, &control_name(c))
+                        .map(|value| format_value(&value, "", self.env.formats()))
+                        .unwrap_or_default(),
+                    None => diagram.json.clone(),
+                };
+                if !json.trim().is_empty() {
+                    match crate::flow::FlowGraph::from_json(&json) {
+                        Ok(graph) => {
+                            let only = (!diagram.only.is_empty()).then_some(diagram.only.as_slice());
+                            if let Some(picture) = graph.picture(only, crate::flow::FlowColors::paper()) {
+                                let fitted = crate::diagram::fit(&picture, rect);
+                                items.push(Item::Vector { rect, shapes: fitted.shapes });
+                                for label in fitted.labels {
+                                    let label_look = Look {
+                                        size: label.size,
+                                        bold: label.bold,
+                                        color: label.color,
+                                        align: if label.centered {
+                                            TextAlign::Center
+                                        } else {
+                                            TextAlign::Left
+                                        },
+                                        valign: VerticalAlign::Middle,
+                                        padding: 0.0,
+                                        wrap: false,
+                                        background: None,
+                                        border: None,
+                                    };
+                                    self.text_box(engine, &label.text, &label_look, label.rect, false, items);
+                                }
+                            }
+                        }
+                        Err(e) => self.errors.borrow_mut().push(format!("{}: {e}", control_name(c))),
+                    }
+                }
+                c.height
+            }
             ControlKind::Chart(chart) => {
                 let rect = Rect::new(at.x, at.y, c.width, c.height);
                 backdrop(&look, rect, items);

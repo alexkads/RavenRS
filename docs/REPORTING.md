@@ -62,6 +62,7 @@ Today `ravenrs-report`, `ravenrs-criteria`, `ravenrs-graphics`, `ravenrs-report-
     * Table of contents.
   * Graphics: Picture (PNG, JPEG, SVG), Line, Shape.
   * Barcodes: Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF, QR, Data Matrix, PDF417.
+  * Diagrams: a `FlowCanvas` diagram, from its JSON or a field, fitted into the control (`ravenrs_report::diagram::fit`, which a diagram exported alone as PDF uses too).
   * Data visualization:
     * Chart: bar, line, area, pie, doughnut, scatter.
     * Sparkline.
