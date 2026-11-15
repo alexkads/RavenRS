@@ -4,7 +4,6 @@
 use family_finance::db::Database;
 use family_finance::seed;
 use family_finance::ui::App;
-use family_finance::update::Updater;
 use ravenrs::core::{Event, Key, Modifiers};
 use ravenrs::prelude::*;
 
@@ -17,7 +16,7 @@ fn app() -> Ui {
     let today = Date::new(2026, 11, 15).expect("valid date");
     let db = Database::in_memory().expect("database");
     seed::load_demo(&db, today).expect("seed");
-    let mut ui = Ui::new(App::new(db, today, None, Updater::idle()), Theme::raven_light());
+    let mut ui = Ui::new(App::new(db, today, None, family_finance::update::idle()), Theme::raven_light());
     ui.set_viewport(Size::new(1360.0, 860.0), 1.0);
     settle(&mut ui);
     press(&mut ui, "Cadastros");

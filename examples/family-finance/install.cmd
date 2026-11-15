@@ -18,6 +18,8 @@ if not "%FF_SEM_PAUSA%"=="1" pause
 exit /b %FF_RESULTADO%
 ::FIM-DO-CMD
 # Raven Finanças: the installer and the updater are this one file. The app runs it to update itself.
+# Made from crates/ravenrs-app-update/install.cmd.in: change that file, then
+# `RAVENRS_WRITE_INSTALLER=1 cargo test` writes this one again.
 #
 # Each interpreter reads only its part. `cmd` runs the block above and stops at
 # `exit /b`. `sh` passes that block and the PowerShell one as two heredocs given

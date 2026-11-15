@@ -2280,6 +2280,7 @@ dependencies = [
  "ravenrs-app",
  "ravenrs-app-sqlite",
  "ravenrs-app-ui",
+ "ravenrs-app-update",
  "ravenrs-criteria",
  "ravenrs-report",
  "ravenrs-report-export",
@@ -6215,6 +6216,16 @@ dependencies = [
  "ravenrs-style",
  "ravenrs-widgets",
  "serde_json",
+]
+
+[[package]]
+name = "ravenrs-app-update"
+version = "27.1.28"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tracing",
+ "ureq",
 ]
 
 [[package]]

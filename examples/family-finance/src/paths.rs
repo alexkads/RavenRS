@@ -2,32 +2,18 @@
 
 use std::path::PathBuf;
 
+use crate::update::APP;
+
 /// The app's name to the system: on Linux, its `.desktop` file and the window that belongs to it.
-pub const APP_ID: &str = "family-finance";
+/// The installer names them after the package, so this is the package.
+pub const APP_ID: &str = APP.package;
 
 /// `~/.raven-financas`: the database, the exports and what the installer leaves.
 pub fn home() -> PathBuf {
-    let base = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" });
-    base.map_or_else(|| PathBuf::from("."), PathBuf::from).join(".raven-financas")
+    APP.home()
 }
 
 /// The database file.
 pub fn database() -> PathBuf {
     home().join("financas.db")
-}
-
-/// Where the installer puts the app; the update checks this one and reopens it.
-pub fn installed_binary() -> Option<PathBuf> {
-    let user_home = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" }).map(PathBuf::from);
-    if cfg!(windows) {
-        std::env::var_os("LOCALAPPDATA")
-            .map(|base| PathBuf::from(base).join("Programs").join("RavenFinancas").join("family-finance.exe"))
-    } else if cfg!(target_os = "macos") {
-        // The installer uses /Applications when it can write there.
-        const INSIDE: &str = "Raven Finanças.app/Contents/MacOS/family-finance";
-        let system = PathBuf::from("/Applications").join(INSIDE);
-        if system.exists() { Some(system) } else { user_home.map(|h| h.join("Applications").join(INSIDE)) }
-    } else {
-        user_home.map(|h| h.join(".local/bin/family-finance"))
-    }
 }
