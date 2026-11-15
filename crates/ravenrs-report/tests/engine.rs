@@ -925,3 +925,22 @@ fn a_diagram_from_a_field_shows_only_what_it_is_asked_and_a_bad_one_is_reported(
     let again = Report::from_json(&report.to_json()).expect("reads back");
     assert_eq!(again, report, "the control goes to the file and back");
 }
+
+#[test]
+fn a_dashed_line_of_a_diagram_prints_dashed() {
+    use ravenrs_report::flow::{FlowEdge, FlowEndpoint, FlowGraph, FlowNode, FlowPort};
+    let graph = |dashed: bool| {
+        let edge = FlowEdge::new("e", FlowEndpoint::new("a", "o"), FlowEndpoint::new("b", "i"));
+        FlowGraph::new()
+            .node(FlowNode::new("a", "", "Tarefa", 0.0, 0.0).port(FlowPort::output("o")))
+            .node(FlowNode::new("b", "", "Base", 600.0, 0.0).port(FlowPort::input("i")))
+            .edge(if dashed { edge.dashed() } else { edge })
+            .to_json()
+    };
+    let paths = |json: String| {
+        let report = Report::new("D")
+            .detail(Band::new(120.0).control(Control::diagram(json).at(0.0, 0.0, 400.0, 120.0)));
+        render(&report, &json!([{}])).page_svg(0).matches("<path").count()
+    };
+    assert!(paths(graph(true)) > paths(graph(false)) + 5, "the association prints as its dashes");
+}

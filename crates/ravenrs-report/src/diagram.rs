@@ -3,7 +3,7 @@
 //! a PDF is laid out the same way.
 
 use ravenrs_core::{Color, Point, Rect};
-use ravenrs_graphics::flow::{FlowPicture, FlowText};
+use ravenrs_graphics::flow::{FlowPicture, FlowText, dashes, flatten};
 use ravenrs_graphics::vector::{Layer, PathSegment, Shape};
 
 /// One run of words of a fitted diagram.
@@ -26,7 +26,8 @@ pub struct DiagramLabel {
 /// A diagram fitted into a box.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct FittedDiagram {
-    /// The shapes, back to front; the picture's background is left out, so the box shows its own.
+    /// The shapes, back to front; the picture's background is left out, so the box shows its own,
+    /// and dashed lines come as one short line per dash.
     pub shapes: Vec<Shape>,
     /// The words, over the shapes.
     pub labels: Vec<DiagramLabel>,
@@ -57,25 +58,37 @@ pub fn fit(picture: &FlowPicture, rect: Rect) -> FittedDiagram {
             })
             .collect()
     };
-    let shapes = picture
-        .layers
-        .iter()
-        .skip(1)
-        .map(|layer| {
-            let shape = match layer {
-                // Dashes are drawn whole on paper: a report's shapes have no dash.
-                Layer::Dashed { path, width, color, .. } => {
-                    Shape { path: path.clone(), fill: None, stroke: Some((*width, *color)) }
+    let mut shapes = Vec::new();
+    for layer in picture.layers.iter().skip(1) {
+        match layer {
+            // A dashed line is cut into its dashes, each a short line of its own, so it prints
+            // dashed in every output, which know only whole shapes.
+            Layer::Dashed { path, width, dash, color } => {
+                let points: Vec<Point> = flatten(path).into_iter().map(at).collect();
+                let step = (dash * scale).max(0.5);
+                for piece in dashes(&points, step, step, 0.0) {
+                    let line: Vec<PathSegment> = piece
+                        .iter()
+                        .enumerate()
+                        .map(|(i, p)| if i == 0 { PathSegment::Move(*p) } else { PathSegment::Line(*p) })
+                        .collect();
+                    shapes.push(Shape {
+                        path: line,
+                        fill: None,
+                        stroke: Some(((width * scale).max(0.25), *color)),
+                    });
                 }
-                other => other.to_shape(),
-            };
-            Shape {
-                path: moved(&shape.path),
-                fill: shape.fill,
-                stroke: shape.stroke.map(|(w, c)| ((w * scale).max(0.25), c)),
             }
-        })
-        .collect();
+            other => {
+                let shape = other.to_shape();
+                shapes.push(Shape {
+                    path: moved(&shape.path),
+                    fill: shape.fill,
+                    stroke: shape.stroke.map(|(w, c)| ((w * scale).max(0.25), c)),
+                });
+            }
+        }
+    }
     let labels = picture
         .texts
         .iter()
@@ -127,5 +140,26 @@ mod tests {
         let (least, most) = points.iter().fold((f32::MAX, f32::MIN), |(a, b), p| (a.min(p.y), b.max(p.y)));
         assert!((least - rect.y()) > 10.0 && (rect.max_y() - most) > 10.0);
         assert_eq!(fitted.labels.len(), 2, "both titles");
+    }
+
+    #[test]
+    fn a_dashed_line_comes_as_its_dashes() {
+        use ravenrs_graphics::flow::{FlowEdge, FlowEndpoint, FlowPort};
+        let g = FlowGraph::new()
+            .node(FlowNode::new("a", "", "A", 0.0, 0.0).port(FlowPort::output("o")))
+            .node(FlowNode::new("b", "", "B", 600.0, 0.0).port(FlowPort::input("i")))
+            .edge(FlowEdge::new("e", FlowEndpoint::new("a", "o"), FlowEndpoint::new("b", "i")).dashed());
+        let picture = g.picture(None, FlowColors::paper()).expect("a picture");
+        let whole = fit(&picture, Rect::new(0.0, 0.0, 800.0, 200.0));
+        let solid = g.clone();
+        let mut solid = solid;
+        solid.edges[0].dashed = false;
+        let plain = fit(
+            &solid.picture(None, FlowColors::paper()).expect("a picture"),
+            Rect::new(0.0, 0.0, 800.0, 200.0),
+        );
+        assert!(whole.shapes.len() > plain.shapes.len() + 5, "many short dashes instead of one line");
+        let open = whole.shapes.iter().filter(|s| s.fill.is_none() && s.path.len() >= 2).count();
+        assert!(open > 5, "each dash a short open line");
     }
 }

@@ -2,6 +2,7 @@
 # Written by scripts/public-api.py; `--check` fails when it changes. Regenerate it only
 # when the change is meant, and say so in the pull request.
 const FLOW_NODE_DRAG
+const HOLD_TO_CARRY
 enum AnchorPoint
 enum BoxHandle
 enum ButtonSize
@@ -473,14 +474,17 @@ field Labels::flow_pick_port
 field Labels::flow_refused
 field Labels::flow_run_breakpoint
 field Labels::flow_run_choose
+field Labels::flow_run_choose_many
 field Labels::flow_run_continue
 field Labels::flow_run_dead_end
 field Labels::flow_run_done
 field Labels::flow_run_ended
+field Labels::flow_run_follow
 field Labels::flow_run_hint
 field Labels::flow_run_looping
 field Labels::flow_run_moved
 field Labels::flow_run_no_start
+field Labels::flow_run_none_chosen
 field Labels::flow_run_start
 field Labels::flow_run_step
 field Labels::flow_run_stop
@@ -2990,6 +2994,7 @@ method DropdownMenu::icon
 method DropdownMenu::icon_only
 method DropdownMenu::item
 method DropdownMenu::new
+method DropdownMenu::open
 method DropdownMenu::separator
 method DropdownMenu::size
 method DropdownMenu::style
@@ -3140,6 +3145,7 @@ method FlowLibrary::key
 method FlowLibrary::new
 method FlowLibrary::notation
 method FlowLibrary::selection
+method FlowLibrary::starter
 method FlowLibrary::storage
 method FlowLibrary::title
 method FlowLibrary::view

@@ -64,6 +64,19 @@ pub fn problems(graph: &FlowGraph) -> Vec<FlowIssue> {
             found.push(about(format!("Os caminhos da decisão {} precisam de nome", named(node)), node));
         }
     }
+    // A message passes between participants, never inside one.
+    for e in graph.edges.iter().filter(|e| e.kind == crate::elements::MESSAGE) {
+        let (a, b) = (
+            crate::elements::participant_of(graph, &e.from.node),
+            crate::elements::participant_of(graph, &e.to.node),
+        );
+        if a.is_none() || a == b {
+            found.push(FlowIssue::new(
+                "Uma mensagem liga participantes diferentes; dentro de um, use um fluxo de sequência",
+                [e.from.node.clone(), e.to.node.clone()],
+            ));
+        }
+    }
     // What no start reaches.
     let mut reached: BTreeSet<String> = starts.iter().map(|n| n.id.clone()).collect();
     let mut grew = true;

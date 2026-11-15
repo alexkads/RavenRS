@@ -254,3 +254,137 @@ fn the_debugger_points_where_a_process_goes_wrong_and_stops_at_breakpoints() {
         "the error is said"
     );
 }
+
+fn tick(ui: &mut Ui, name: &str) {
+    let id = ui
+        .access_tree()
+        .nodes
+        .iter()
+        .find(|n| n.role == ravenrs_core::Role::CheckBox && n.name.as_deref() == Some(name))
+        .unwrap_or_else(|| panic!("no box {name}"))
+        .id;
+    ui.perform_action(id, ravenrs_core::AccessAction::Click);
+    ui.update();
+    ui.update();
+}
+
+#[test]
+fn the_debugger_takes_one_or_more_ways_at_an_inclusive_gateway() {
+    use ravenrs_flow_bpmn::elements::{SEQUENCE, connection, element};
+    let flow = |id: &str, a: (&str, &str), b: &str| {
+        connection(id, FlowEndpoint::new(a.0, a.1), FlowEndpoint::new(b, "in"), SEQUENCE)
+    };
+    let at = |n: FlowNode, x: f32, y: f32| FlowNode { x, y, ..n };
+    let graph = FlowGraph::new()
+        .node(at(element("startEvent", "s", "Início"), 0.0, 100.0))
+        .node(at(element("inclusiveGateway", "or", "Quais avisos?"), 120.0, 92.0))
+        .node(at(element("task", "mail", "E-mail"), 260.0, 0.0))
+        .node(at(element("task", "sms", "SMS"), 260.0, 100.0))
+        .node(at(element("task", "call", "Ligação"), 260.0, 200.0))
+        .node(at(element("inclusiveGateway", "join", "Avisado"), 500.0, 92.0))
+        .node(at(element("endEvent", "e", "Fim"), 640.0, 100.0))
+        .edge(flow("f1", ("s", "out"), "or"))
+        .edge(flow("f2", ("or", "up"), "mail"))
+        .edge(flow("f3", ("or", "out"), "sms"))
+        .edge(flow("f4", ("or", "down"), "call"))
+        .edge(flow("f5", ("mail", "out"), "join"))
+        .edge(flow("f6", ("sms", "out"), "join"))
+        .edge(flow("f7", ("call", "out"), "join"))
+        .edge(flow("f8", ("join", "out"), "e"));
+    let (mut ui, _) = debugger(graph);
+    press(&mut ui, "Debug");
+    press(&mut ui, "Start");
+    press(&mut ui, "Continue");
+    assert!(says(&mut ui, "Choose one or more ways out of Quais avisos?"));
+    press(&mut ui, "Follow");
+    assert!(says(&mut ui, "Choose at least one way out"), "none ticked is refused");
+    tick(&mut ui, "E-mail");
+    tick(&mut ui, "SMS");
+    press(&mut ui, "Follow");
+    press(&mut ui, "Continue");
+    assert!(says(&mut ui, "Run finished"), "the join did not wait for the call");
+    assert!(!says(&mut ui, "Quais avisos? → Ligação"));
+}
+
+/// A store and its customer, each a participant, an order passing between them as a message.
+fn collaboration() -> FlowGraph {
+    use ravenrs_flow_bpmn::elements::{MESSAGE, PARTICIPANT, SEQUENCE, connection, element};
+    let at = |n: FlowNode, x: f32, y: f32| FlowNode { x, y, ..n };
+    FlowGraph::new()
+        .node(at(element(PARTICIPANT, "customer", "Cliente"), 0.0, 0.0).size(900.0, 200.0))
+        .node(at(element(PARTICIPANT, "store", "Loja"), 0.0, 260.0).size(900.0, 200.0))
+        .node(at(element("startEvent", "want", "Quer comprar"), 80.0, 80.0).parent("customer"))
+        .node(at(element("task", "order", "Fazer pedido"), 180.0, 64.0).parent("customer"))
+        .node(at(element("startEvent", "got", "Pedido recebido"), 80.0, 340.0).parent("store"))
+        .node(at(element("task", "ship", "Enviar"), 180.0, 324.0).parent("store"))
+        .node(at(element("endEvent", "sent", "Enviado"), 420.0, 340.0).parent("store"))
+        .node(at(element("endEvent", "asked", "Pedido feito"), 420.0, 80.0).parent("customer"))
+        .edge(connection("s1", FlowEndpoint::new("want", "out"), FlowEndpoint::new("order", "in"), SEQUENCE))
+        .edge(connection("s2", FlowEndpoint::new("order", "out"), FlowEndpoint::new("asked", "in"), SEQUENCE))
+        .edge(connection("s3", FlowEndpoint::new("got", "out"), FlowEndpoint::new("ship", "in"), SEQUENCE))
+        .edge(connection("s4", FlowEndpoint::new("ship", "out"), FlowEndpoint::new("sent", "in"), SEQUENCE))
+        .edge(FlowEdge {
+            label: Some("Pedido".into()),
+            ..connection("m1", FlowEndpoint::new("order", "down"), FlowEndpoint::new("got", "top"), MESSAGE)
+        })
+}
+
+#[test]
+fn participants_and_their_messages_go_to_bpmn_and_back() {
+    let graph = collaboration();
+    let text = xml::to_xml(&graph, "Compra");
+    assert!(text.contains("<bpmn:collaboration id=\"Collaboration_1\">"));
+    assert!(text.contains("<bpmn:participant id=\"store\" name=\"Loja\" processRef=\"Process_store\" />"));
+    assert!(
+        text.contains("<bpmn:messageFlow id=\"m1\" sourceRef=\"order\" targetRef=\"got\" name=\"Pedido\" />")
+    );
+    assert_eq!(text.matches("<bpmn:process ").count(), 2, "a process per participant");
+    let (back, _) = xml::from_xml(&text).expect("it reads");
+    for node in &graph.nodes {
+        let read = back.find_node(&node.id).unwrap_or_else(|| panic!("{} is back", node.id));
+        assert_eq!(
+            (&read.kind, &read.parent, read.x, read.y),
+            (&node.kind, &node.parent, node.x, node.y),
+            "{}",
+            node.id
+        );
+    }
+    let message = back.find_edge("m1").expect("the message");
+    assert_eq!((message.kind.as_str(), message.label.as_deref()), (elements::MESSAGE, Some("Pedido")));
+    assert!(rules::problems(&back).is_empty(), "{:?}", rules::problems(&back));
+}
+
+#[test]
+fn a_collaboration_from_another_tool_opens_with_its_participants() {
+    let file = r#"<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" id="d">
+  <collaboration id="c">
+    <participant id="P1" name="Cliente" processRef="p1" />
+    <participant id="P2" name="Loja" processRef="p2" />
+    <messageFlow id="m" sourceRef="a" targetRef="b" />
+  </collaboration>
+  <process id="p1"><startEvent id="s1" /><task id="a" name="Pedir" /><sequenceFlow id="x" sourceRef="s1" targetRef="a" /></process>
+  <process id="p2"><startEvent id="b" name="Recebido" /></process>
+</definitions>"#;
+    let (graph, _) = xml::from_xml(file).expect("it reads");
+    assert_eq!(graph.find_node("P1").map(|n| n.kind.as_str()), Some(elements::PARTICIPANT));
+    assert_eq!(graph.find_node("a").and_then(|n| n.parent.clone()).as_deref(), Some("P1"));
+    assert_eq!(graph.find_node("b").and_then(|n| n.parent.clone()).as_deref(), Some("P2"));
+    assert_eq!(graph.find_edge("m").map(|e| e.kind.as_str()), Some(elements::MESSAGE));
+}
+
+#[test]
+fn a_line_between_participants_is_a_message_and_one_inside_a_participant_is_not() {
+    let mut graph = collaboration();
+    graph.edges.push(FlowEdge::new("x", FlowEndpoint::new("ship", "out"), FlowEndpoint::new("asked", "in")));
+    elements::normalize(&mut graph);
+    assert_eq!(graph.find_edge("x").map(|e| e.kind.as_str()), Some(elements::MESSAGE), "across: a message");
+    // A message inside one participant, as a file may bring it, is pointed out.
+    let mut inside = collaboration();
+    inside.edges.push(
+        FlowEdge::new("y", FlowEndpoint::new("got", "out"), FlowEndpoint::new("sent", "in"))
+            .kind(elements::MESSAGE),
+    );
+    let found: Vec<String> = rules::problems(&inside).into_iter().map(|p| p.text).collect();
+    assert!(found.iter().any(|p| p.contains("participantes diferentes")), "{found:?}");
+}

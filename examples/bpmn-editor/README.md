@@ -34,3 +34,16 @@ cargo run -p bpmn-editor --release
   -- --ignored --nocapture`. Measured with LFM3 1.7B on an Apple M2 Pro: a reimbursement process
   drafted in about 12 seconds, its broken JSON mended, and the checks pointing at the three
   mistakes the model made; the review in about 13 seconds.
+
+## In the browser, on Linux and on Windows
+
+In the browser, the diagrams are kept in the browser's own storage:
+
+```bash
+scripts/build-web.sh bpmn-editor
+python3 -m http.server -d examples/bpmn-editor/web 8080
+```
+
+On Linux and Windows, run `cargo run -p bpmn-editor --release` and check that you can open "Pedido entre cliente e loja"; Verificar says nothing is wrong; Depurar runs a step at a time; Salvar em arquivo as BPMN 2.0 and open the file again; on the desktop, pick a model and ask for a process.
+
+The local AI runs only on the desktop: in the browser the chat says so.

@@ -42,7 +42,7 @@ pub fn notation() -> FlowNotation {
         ("Atividades", Family::Activity),
         ("Gateways", Family::Gateway),
         ("Dados e anotações", Family::Artifact),
-        ("Raias", Family::Lane),
+        ("Raias e participantes", Family::Lane),
     ] {
         for (kind, caption, _) in ELEMENTS.iter().filter(|(_, _, f)| *f == family) {
             notation = notation.model(group, *caption, elements::element(kind, kind, caption));
@@ -70,14 +70,16 @@ pub fn notation() -> FlowNotation {
 }
 
 /// How a process runs: a token leaves each start event, passes tasks, chooses one way at an
-/// exclusive or inclusive gateway, waits for every way and splits at a parallel one, and stops at
-/// an end; it follows sequence flows only.
+/// exclusive gateway and one or more at an inclusive one (whose join waits only for the ways
+/// taken), waits for every way and splits at a parallel one, and stops at an end; it follows
+/// sequence flows only.
 pub fn run_rules() -> FlowRunRules {
     FlowRunRules {
         gate: std::rc::Rc::new(|node: &FlowNode| match node.kind.as_str() {
             "startEvent" => FlowGate::Start,
             "endEvent" => FlowGate::End,
-            "exclusiveGateway" | "inclusiveGateway" => FlowGate::Choose,
+            "exclusiveGateway" => FlowGate::Choose,
+            "inclusiveGateway" => FlowGate::ChooseMany,
             "parallelGateway" => FlowGate::Parallel,
             kind => match elements::family(kind) {
                 Some(Family::Artifact | Family::Lane) | None
@@ -114,6 +116,29 @@ fn at(node: FlowNode, x: f32, y: f32) -> FlowNode {
 
 fn flow(id: &str, from: (&str, &str), to: (&str, &str)) -> FlowEdge {
     elements::connection(id, FlowEndpoint::new(from.0, from.1), FlowEndpoint::new(to.0, to.1), SEQUENCE)
+}
+
+/// A customer and a store, each a participant with its process, an order passing between them
+/// as a message: a collaboration to start from.
+pub fn example_collaboration() -> FlowGraph {
+    use elements::{MESSAGE, PARTICIPANT, connection, element};
+    FlowGraph::new()
+        .node(at(element(PARTICIPANT, "customer", "Cliente"), 0.0, 0.0).size(900.0, 200.0))
+        .node(at(element(PARTICIPANT, "store", "Loja"), 0.0, 260.0).size(900.0, 200.0))
+        .node(at(element("startEvent", "want", "Quer comprar"), 80.0, 80.0).parent("customer"))
+        .node(at(element("userTask", "order", "Fazer pedido"), 180.0, 64.0).parent("customer"))
+        .node(at(element("endEvent", "asked", "Pedido feito"), 420.0, 80.0).parent("customer"))
+        .node(at(element("startEvent", "got", "Pedido recebido"), 80.0, 340.0).parent("store"))
+        .node(at(element("serviceTask", "ship", "Enviar"), 180.0, 324.0).parent("store"))
+        .node(at(element("endEvent", "sent", "Enviado"), 420.0, 340.0).parent("store"))
+        .edge(flow("s1", ("want", "out"), ("order", "in")))
+        .edge(flow("s2", ("order", "out"), ("asked", "in")))
+        .edge(flow("s3", ("got", "out"), ("ship", "in")))
+        .edge(flow("s4", ("ship", "out"), ("sent", "in")))
+        .edge(FlowEdge {
+            label: Some("Pedido".into()),
+            ..connection("m1", FlowEndpoint::new("order", "down"), FlowEndpoint::new("got", "top"), MESSAGE)
+        })
 }
 
 /// A purchase approved by the finance team, in two lanes: a process to start from.

@@ -17,6 +17,9 @@ pub enum FlowGate {
     Pass,
     /// It goes on along one way out, chosen when there is more than one.
     Choose,
+    /// It goes on along one or more ways out, chosen when there is more than one; where ways
+    /// come together, it waits while a token can still come along one of them.
+    ChooseMany,
     /// It waits for a token from every way in, then goes on along every way out.
     Parallel,
     /// It stops here.
@@ -174,10 +177,12 @@ impl FlowRun {
             self.visited.push(node.clone());
             let edge = edge.clone();
             self.advance(graph, rules, &node, &edge);
+            self.release(graph, rules);
             self.settle();
             return;
         }
         let Some(node) = self.tokens.first().cloned() else {
+            self.release(graph, rules);
             self.settle();
             return;
         };
@@ -198,12 +203,12 @@ impl FlowRun {
                 self.events.push(FlowRunEvent::DeadEnd { node });
                 return;
             }
-            FlowGate::Choose if ways.len() > 1 => {
+            FlowGate::Choose | FlowGate::ChooseMany if ways.len() > 1 => {
                 self.choosing = Some(node.clone());
                 self.events.push(FlowRunEvent::Choosing { node });
                 return;
             }
-            FlowGate::Choose => {
+            FlowGate::Choose | FlowGate::ChooseMany => {
                 self.tokens.remove(0);
                 self.visited.push(node.clone());
                 self.advance(graph, rules, &node, &ways[0]);
@@ -216,7 +221,77 @@ impl FlowRun {
                 }
             }
         }
+        self.release(graph, rules);
         self.settle();
+    }
+
+    /// Where a way out is to be chosen at a node that takes one or more, follows every one of
+    /// `ways` (connections' ids). Says why not when none of them leaves that node.
+    pub fn step_ways(
+        &mut self,
+        graph: &FlowGraph,
+        rules: &FlowRunRules,
+        ways: &[&str],
+    ) -> Result<(), String> {
+        let Some(node) = self.choosing.clone() else { return Err("nothing to choose".into()) };
+        let chosen: Vec<FlowEdge> = Self::ways_out(graph, rules, &node)
+            .into_iter()
+            .filter(|e| ways.contains(&e.id.as_str()))
+            .cloned()
+            .collect();
+        if chosen.is_empty() {
+            return Err("no way chosen".into());
+        }
+        self.steps += 1;
+        self.choosing = None;
+        if let Some(i) = self.tokens.iter().position(|t| *t == node) {
+            self.tokens.remove(i);
+        }
+        self.visited.push(node.clone());
+        for edge in &chosen {
+            self.advance(graph, rules, &node, edge);
+        }
+        self.release(graph, rules);
+        self.settle();
+        Ok(())
+    }
+
+    /// Whether a token at `from` can still reach `to` along connections a token follows.
+    fn reaches(graph: &FlowGraph, rules: &FlowRunRules, from: &str, to: &str) -> bool {
+        let mut seen = vec![from.to_owned()];
+        let mut i = 0;
+        while i < seen.len() {
+            let at = seen[i].clone();
+            for e in Self::ways_out(graph, rules, &at) {
+                if e.to.node == to {
+                    return true;
+                }
+                if !seen.contains(&e.to.node) {
+                    seen.push(e.to.node.clone());
+                }
+            }
+            i += 1;
+        }
+        false
+    }
+
+    /// Lets through the joins of several chosen ways that no token can still reach.
+    fn release(&mut self, graph: &FlowGraph, rules: &FlowRunRules) {
+        let mut joins: Vec<String> = Vec::new();
+        for (join, _) in &self.waiting {
+            let inclusive = graph.find_node(join).is_some_and(|n| (rules.gate)(n) == FlowGate::ChooseMany);
+            if inclusive && !joins.contains(join) {
+                joins.push(join.clone());
+            }
+        }
+        for join in joins {
+            let pending =
+                self.tokens.iter().chain(self.choosing.iter()).any(|t| Self::reaches(graph, rules, t, &join));
+            if !pending {
+                self.waiting.retain(|(j, _)| *j != join);
+                self.tokens.push(join);
+            }
+        }
     }
 
     /// A token from `from` along `edge`: it reaches the node, or waits there for the others.
@@ -228,10 +303,13 @@ impl FlowRun {
             to: to.clone(),
             edge: edge.id.clone(),
         });
-        let join = graph.find_node(&to).is_some_and(|n| (rules.gate)(n) == FlowGate::Parallel);
+        let gate = graph.find_node(&to).map(|n| (rules.gate)(n));
         let ins: Vec<&FlowEdge> =
             graph.edges.iter().filter(|e| e.to.node == to && (rules.follows)(e)).collect();
-        if join && ins.len() > 1 {
+        if gate == Some(FlowGate::ChooseMany) && ins.len() > 1 {
+            // An inclusive join waits; `release` lets it through once nothing else can come.
+            self.waiting.push((to, edge.id.clone()));
+        } else if gate == Some(FlowGate::Parallel) && ins.len() > 1 {
             self.waiting.push((to.clone(), edge.id.clone()));
             let came: Vec<&str> =
                 self.waiting.iter().filter(|(j, _)| *j == to).map(|(_, e)| e.as_str()).collect();
@@ -276,6 +354,7 @@ mod tests {
                 "end" => FlowGate::End,
                 "choice" => FlowGate::Choose,
                 "fork" => FlowGate::Parallel,
+                "many" => FlowGate::ChooseMany,
                 "note" => FlowGate::Outside,
                 _ => FlowGate::Pass,
             }),
@@ -349,6 +428,39 @@ mod tests {
         one.nodes[1].kind = "choice".into();
         let stuck = run_out(&one, &["2"]);
         assert_eq!(stuck.failure(), Some(&FlowRunEvent::Stuck { node: "j".into() }));
+    }
+
+    #[test]
+    fn an_inclusive_split_follows_the_ways_chosen_and_its_join_waits_only_for_them() {
+        let g = FlowGraph::new()
+            .node(node("s", "start"))
+            .node(node("or", "many"))
+            .node(node("a", "task"))
+            .node(node("b", "task"))
+            .node(node("c", "task"))
+            .node(node("join", "many"))
+            .node(node("e", "end"))
+            .edge(edge("1", "s", "or"))
+            .edge(edge("2", "or", "a"))
+            .edge(edge("3", "or", "b"))
+            .edge(edge("4", "or", "c"))
+            .edge(edge("5", "a", "join"))
+            .edge(edge("6", "b", "join"))
+            .edge(edge("7", "c", "join"))
+            .edge(edge("8", "join", "e"));
+        let rules = rules();
+        let mut run = FlowRun::start(&g, &rules);
+        run.step(&g, &rules, None);
+        run.step(&g, &rules, None);
+        assert_eq!(run.choosing.as_deref(), Some("or"));
+        assert!(run.step_ways(&g, &rules, &[]).is_err(), "at least one way");
+        run.step_ways(&g, &rules, &["2", "3"]).expect("two ways");
+        for _ in 0..10 {
+            run.step(&g, &rules, None);
+        }
+        assert_eq!(run.events.last(), Some(&FlowRunEvent::Finished), "{:?}", run.events);
+        assert!(!run.taken.contains(&"4".to_owned()), "the third way was not taken");
+        assert_eq!(run.taken.iter().filter(|t| *t == "8").count(), 1, "the join goes on once");
     }
 
     #[test]

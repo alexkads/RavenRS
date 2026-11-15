@@ -20,3 +20,14 @@ Building it showed what the component lacked, and each piece went into the libra
 `FlowCanvas::ports_on_hover`, colors per shape and line (`FlowStyle`, `FlowEdge::color`), and
 `FlowLayout::mind_map`, which grows a mind map to both sides of its middle idea and turns the
 ports of the left half to face it.
+
+## In the browser, on Linux and on Windows
+
+In the browser, the diagrams are kept in the browser's own storage:
+
+```bash
+scripts/build-web.sh flow-whiteboard
+python3 -m http.server -d examples/flow-whiteboard/web 8080
+```
+
+On Linux and Windows, run `cargo run -p flow-whiteboard --release` and check that you can switch between Fluxograma and Mapa mental; Cmd/Ctrl+Enter on an idea makes the next one; drag a bend point of the loop; Salvar, close and open again.

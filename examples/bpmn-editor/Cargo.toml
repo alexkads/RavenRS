@@ -1,18 +1,29 @@
 [package]
 name = "bpmn-editor"
-description = "A BPMN 2.0 editor made with FlowCanvas: the elements of a process, BPMN XML with its diagram in and out, checks, and a local AI that drafts and reviews processes."
+description = "A BPMN 2.0 editor made only of RavenRS components: the BPMN notation on the diagram components, BPMN XML in and out, checks, a debugger and a local AI that drafts and reviews processes."
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish = false
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
 ravenrs.workspace = true
-ravenrs-ai.workspace = true
 ravenrs-flow-bpmn.workspace = true
 ravenrs-flow-export.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 tracing-subscriber.workspace = true
+ravenrs-ai.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+console_error_panic_hook.workspace = true
+web-sys = { workspace = true, features = ["console"] }
 
 [lints]
 workspace = true

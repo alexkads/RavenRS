@@ -22,3 +22,14 @@ port names shown by the ports (one way out per answer), `FlowToolbox::title`, th
 `FlowNodeStatus::Running` and `Success` that the test run marks, and `FlowLibrary` to keep and
 open the conversations. Trying a conversation runs here a step at a time along the first way
 out; a real bot would answer through the app.
+
+## In the browser, on Linux and on Windows
+
+In the browser, the diagrams are kept in the browser's own storage:
+
+```bash
+scripts/build-web.sh flow-chat-bot
+python3 -m http.server -d examples/flow-chat-bot/web 8080
+```
+
+On Linux and Windows, run `cargo run -p flow-chat-bot --release` and check that you can drag a block from the left onto the conversation; join two blocks; Testar conversa, then Próximo passo until the end; Salvar, close and open again: the conversation is there.
