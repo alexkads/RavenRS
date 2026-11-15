@@ -206,7 +206,16 @@ impl LocalAssistant {
         waker: UiWaker,
     ) {
         let if_it_fails = String::new();
-        self.send(Job { system, user, text, waker, if_it_fails, done: Some(done), long: true, ..Job::blank() });
+        self.send(Job {
+            system,
+            user,
+            text,
+            waker,
+            if_it_fails,
+            done: Some(done),
+            long: true,
+            ..Job::blank()
+        });
     }
 
     /// Whether a question waited too long on this machine. From then on it answers
