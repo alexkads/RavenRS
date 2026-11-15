@@ -1,0 +1,115 @@
+//! A design board, made only with `FlowCanvas`, `FlowToolbox` and `FlowInspector`: frames
+//! hold the shapes of a screen, shapes are placed freely, resized, turned and lined up with
+//! the guides, and arrows between frames say where a tap leads, as in a clickable mock-up.
+//!
+//! It validates the component as a board of this kind: everything here is the library's,
+//! and what it could not do is written in the README.
+
+use ravenrs::prelude::*;
+
+/// The kinds of piece, with the word the inspector shows for each.
+pub const KINDS: [(&str, &str); 3] = [("shape", "Forma"), ("text", "Texto"), ("screen", "Tela")];
+
+fn piece(id: &str, title: &str, shape: FlowShape, w: f32, h: f32) -> FlowNode {
+    FlowNode::new(id, "shape", title, 0.0, 0.0).shape(shape).size(w, h)
+}
+
+fn at(node: FlowNode, x: f32, y: f32, frame: &str) -> FlowNode {
+    FlowNode { x, y, ..node }.parent(frame)
+}
+
+/// Two screens of a sign-in, their pieces inside each frame, and where the button leads.
+pub fn sample() -> FlowGraph {
+    let login = Rect::new(0.0, 0.0, 360.0, 600.0);
+    let home = Rect::new(480.0, 0.0, 360.0, 600.0);
+    FlowGraph::new()
+        .node(FlowNode::new_group("login", "Entrar", login))
+        .node(at(piece("logo", "Logo", FlowShape::Ellipse, 96.0, 96.0), 132.0, 72.0, "login"))
+        .node(at(piece("email", "E-mail", FlowShape::Rectangle, 264.0, 48.0), 48.0, 240.0, "login"))
+        .node(at(piece("password", "Senha", FlowShape::Rectangle, 264.0, 48.0), 48.0, 312.0, "login"))
+        .node(
+            at(piece("enter", "Entrar", FlowShape::RoundedRectangle, 264.0, 48.0), 48.0, 408.0, "login")
+                .port(FlowPort::output("tap").side(PortSide::Right)),
+        )
+        // A note beside the screen, outside its frame.
+        .node(
+            FlowNode::new("contrast", "text", "Revisar o contraste do botão", -240.0, 408.0)
+                .shape(FlowShape::Note)
+                .size(192.0, 96.0),
+        )
+        .node(FlowNode::new_group("home", "Início", home).port(FlowPort::input("in").side(PortSide::Left)))
+        .node(at(piece("header", "Cabeçalho", FlowShape::Rectangle, 312.0, 64.0), 504.0, 48.0, "home"))
+        .node(at(piece("card", "Cartão do pedido", FlowShape::Card, 312.0, 120.0), 504.0, 144.0, "home"))
+        .node(at(
+            piece("badge", "Novo", FlowShape::Ellipse, 64.0, 32.0).rotation(-12.0),
+            744.0,
+            120.0,
+            "home",
+        ))
+        .edge(
+            FlowEdge::new("tap", FlowEndpoint::new("enter", "tap"), FlowEndpoint::new("home", "in"))
+                .label("Toque")
+                .shape(EdgeShape::Curve),
+        )
+}
+
+/// The pieces to drag in, by group.
+pub fn toolbox() -> FlowToolbox {
+    FlowToolbox::new()
+        .group("Formas")
+        .model("Retângulo", piece("rect", "Retângulo", FlowShape::Rectangle, 160.0, 96.0))
+        .model("Arredondado", piece("round", "Botão", FlowShape::RoundedRectangle, 160.0, 48.0))
+        .model("Elipse", piece("ellipse", "Elipse", FlowShape::Ellipse, 120.0, 120.0))
+        .model("Losango", piece("diamond", "Losango", FlowShape::Diamond, 140.0, 100.0))
+        .model("Cilindro", piece("cylinder", "Cilindro", FlowShape::Cylinder, 120.0, 120.0))
+        .model("Paralelogramo", piece("slant", "Paralelogramo", FlowShape::Parallelogram, 160.0, 80.0))
+        .group("Texto")
+        .model(
+            "Nota",
+            FlowNode::new("note", "text", "Nota", 0.0, 0.0).shape(FlowShape::Note).size(192.0, 96.0),
+        )
+        .model("Cartão", piece("card", "Cartão", FlowShape::Card, 240.0, 96.0))
+        .group("Telas")
+        .model("Celular", FlowNode::new_group("phone", "Tela", Rect::new(0.0, 0.0, 360.0, 640.0)))
+        .model("Computador", FlowNode::new_group("desktop", "Tela", Rect::new(0.0, 0.0, 960.0, 600.0)))
+}
+
+/// The board: pieces on the left, the board in the middle, the selected piece's size, place
+/// and words on the right.
+#[derive(Debug, Default)]
+pub struct Board;
+
+impl View for Board {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let graph = cx.use_state(sample);
+        let selection = cx.use_state(FlowSelection::default);
+        let history = cx.use_state(FlowHistory::new);
+        let arrivals = cx.use_state(|| None::<FlowNode>);
+        let canvas = FlowCanvas::new(graph.binding())
+            .label("Quadro")
+            .selection(selection.binding())
+            .history(history.binding())
+            .arrivals(arrivals.binding())
+            // A board is drawn by hand: no arrows to make the next piece, a fine grid.
+            .quick_create(false)
+            .grid(8.0)
+            .kind("shape", FlowKind::new(IconName::Shapes, "Forma"))
+            .kind("text", FlowKind::new(IconName::Type, "Texto"))
+            .on_export(ravenrs_flow_export::saver(cx.file_picker(), "Quadro"));
+        let mut inspector =
+            FlowInspector::new(graph.binding(), selection.binding()).history(history.binding());
+        for (kind, caption) in KINDS {
+            inspector = inspector.kind(kind, caption);
+        }
+        cx.child(
+            &HStack::new((toolbox().title("Peças").arrivals(arrivals.binding()), canvas, inspector))
+                .align(Align::Stretch)
+                .grow(1.0),
+        )
+    }
+}
+
+/// The whole app.
+pub fn app() -> Board {
+    Board
+}

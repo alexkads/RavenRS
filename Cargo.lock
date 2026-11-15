@@ -2418,6 +2418,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "flow-chat-bot"
+version = "27.1.28"
+dependencies = [
+ "ravenrs",
+ "ravenrs-flow-export",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "flow-design-board"
+version = "27.1.28"
+dependencies = [
+ "ravenrs",
+ "ravenrs-flow-export",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "flow-whiteboard"
+version = "27.1.28"
+dependencies = [
+ "ravenrs",
+ "ravenrs-flow-export",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "fnv"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
