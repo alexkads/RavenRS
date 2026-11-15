@@ -584,6 +584,10 @@ pub struct Labels {
     pub flow_members: String,
     /// The field where a node's title of a `FlowCanvas` is typed.
     pub flow_title: String,
+    /// A turned node of a `FlowCanvas`, with `{0}` its turn in degrees.
+    pub flow_turned: String,
+    /// Why a group of a `FlowCanvas` does not turn.
+    pub flow_no_turn: String,
     /// A port of a `FlowCanvas` where connections end, with `{0}` its node's title.
     pub flow_input: String,
     /// A port of a `FlowCanvas` where connections start, with `{0}` its node's title.
@@ -1198,6 +1202,8 @@ impl Labels {
             flow_group: texts.get("widgets.flow_group"),
             flow_members: texts.get("widgets.flow_members"),
             flow_title: texts.get("widgets.flow_title"),
+            flow_turned: texts.get("widgets.flow_turned"),
+            flow_no_turn: texts.get("widgets.flow_no_turn"),
             flow_input: texts.get("widgets.flow_input"),
             flow_output: texts.get("widgets.flow_output"),
             flow_pick_port: texts.get("widgets.flow_pick_port"),

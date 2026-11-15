@@ -875,3 +875,65 @@ fn the_ends_of_a_line_draw_the_caps_asked_for() {
     assert_eq!(line(EdgeCap::Circle, EdgeCap::Diamond), bare + 2, "one cap at each end");
     assert_eq!(line(EdgeCap::None, EdgeCap::OpenArrow), bare + 1);
 }
+
+fn turn_of(rig: &Rig, id: &str) -> f32 {
+    rig.graph.get().find_node(id).map_or(f32::NAN, |n| n.rotation)
+}
+
+fn alt_shift() -> Modifiers {
+    Modifiers { alt: true, shift: true, ..Modifiers::default() }
+}
+
+#[test]
+fn alt_shift_and_the_arrows_turn_a_node_fifteen_degrees_at_a_time() {
+    let mut rig = rig();
+    click(&mut rig.ui, Point::new(120.0, 70.0));
+    key(&mut rig.ui, Key::ArrowRight, alt_shift());
+    key(&mut rig.ui, Key::ArrowRight, alt_shift());
+    assert_eq!(turn_of(&rig, "a"), 30.0);
+    let spoken = named(&mut rig.ui, "New sale").and_then(|n| n.description).unwrap_or_default();
+    assert!(spoken.ends_with("Turned 30°"), "{spoken}");
+    key(&mut rig.ui, Key::ArrowLeft, alt_shift());
+    assert_eq!(turn_of(&rig, "a"), 15.0);
+    key(&mut rig.ui, Key::Character("0".into()), alt_shift());
+    assert_eq!(turn_of(&rig, "a"), 0.0, "straight again");
+    shortcut(&mut rig.ui, "z", false);
+    assert_eq!(turn_of(&rig, "a"), 15.0, "each key is a change");
+}
+
+#[test]
+fn the_handle_turns_a_node_and_the_pointer_finds_it_turned() {
+    let mut rig = rig();
+    click(&mut rig.ui, Point::new(120.0, 70.0));
+    // Node `a` is 200 by 84 at (48, 48), its middle at (148, 90); the handle sits 24 above it.
+    drag(&mut rig.ui, Point::new(148.0, 14.0), Point::new(260.0, 92.0));
+    assert_eq!(turn_of(&rig, "a"), 90.0, "the pointer due right of the middle, on a 15° step");
+    assert_eq!(
+        rig.graph.get().anchor(&FlowEndpoint::new("a", "out")).map(|a| a.1),
+        Some(PortSide::Bottom),
+        "the output now faces down"
+    );
+    // Standing up, it covers 106..190 across and -10..190 down.
+    click(&mut rig.ui, Point::new(300.0, 500.0));
+    click(&mut rig.ui, Point::new(148.0, 170.0));
+    assert_eq!(rig.selection.get(), FlowSelection::node("a"), "found where it shows");
+    click(&mut rig.ui, Point::new(60.0, 70.0));
+    assert!(rig.selection.get().is_empty(), "not where it used to lie");
+    shortcut(&mut rig.ui, "z", false);
+    assert_eq!(turn_of(&rig, "a"), 0.0, "the whole drag is one change");
+}
+
+#[test]
+fn groups_do_not_turn_and_turning_can_be_switched_off() {
+    let mut rig = grouped_rig();
+    click(&mut rig.ui, Point::new(60.0, 20.0));
+    key(&mut rig.ui, Key::ArrowRight, alt_shift());
+    assert_eq!(turn_of(&rig, "g"), 0.0);
+    assert!(named(&mut rig.ui, "Groups do not turn").is_some());
+
+    let mut fixed = rig_with(graph(), |c| c.rotatable(false));
+    click(&mut fixed.ui, Point::new(120.0, 70.0));
+    key(&mut fixed.ui, Key::ArrowRight, alt_shift());
+    drag(&mut fixed.ui, Point::new(148.0, 14.0), Point::new(260.0, 92.0));
+    assert_eq!(turn_of(&fixed, "a"), 0.0, "no handle, no keys");
+}
