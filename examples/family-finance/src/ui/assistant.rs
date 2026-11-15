@@ -19,7 +19,7 @@ use super::store::Store;
 use super::training::{TRAINING_PAGE, TrainingState};
 use crate::model::{Category, Flow, Recurrence, date_label};
 use crate::money::format_brl;
-use crate::ui::spoken::spoken;
+use ravenrs_ai::spoken_pt_br as spoken;
 
 /// What tells the model it is choosing.
 pub const ASSISTANT_INTRO: &str =

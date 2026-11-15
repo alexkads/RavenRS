@@ -790,9 +790,10 @@ fn starts_voiced(phonemes: &str) -> bool {
         })
 }
 
-/// `text` in Brazilian Portuguese as phonemes for Kokoro. Numbers are left out: write
-/// them in words before.
+/// `text` in Brazilian Portuguese as phonemes for Kokoro. Numbers, money, dates and times
+/// written in digits are read in words first ([`spoken_pt_br`](crate::spoken_pt_br)).
 pub fn phonemes_pt_br(text: &str) -> String {
+    let text = &crate::spoken::spoken_pt_br(text);
     // Words and what lies between them, which keeps the punctuation the model knows.
     let mut pieces: Vec<(bool, String)> = Vec::new();
     let mut current = String::new();
@@ -889,6 +890,13 @@ pub fn phonemes_pt_br(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn digits_are_said_as_their_words() {
+        assert_eq!(phonemes_pt_br("R$ 2,50"), phonemes_pt_br("dois reais e cinquenta centavos"));
+        assert_eq!(phonemes_pt_br("às 14h"), phonemes_pt_br("às quatorze horas"));
+        assert!(!phonemes_pt_br("15%").is_empty());
+    }
 
     #[test]
     fn stress_follows_the_spelling() {
