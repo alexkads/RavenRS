@@ -61,6 +61,8 @@ pub struct ExpressionEditor {
     fields: Vec<FilterField>,
     parameters: Vec<FilterField>,
     rows: usize,
+    /// What the expression works out to over a sample, and whether that failed.
+    preview: Option<(bool, String)>,
 }
 
 impl fmt::Debug for ExpressionEditor {
@@ -76,7 +78,7 @@ impl fmt::Debug for ExpressionEditor {
 impl ExpressionEditor {
     /// An editor of `value`, offering the built-in functions, operators and constants.
     pub fn new(value: Binding<String>) -> Self {
-        Self { value, fields: Vec::new(), parameters: Vec::new(), rows: 5 }
+        Self { value, fields: Vec::new(), parameters: Vec::new(), rows: 5, preview: None }
     }
 
     /// Offers a field, written `[name]`; a dotted name reads a nested value.
@@ -106,6 +108,20 @@ impl ExpressionEditor {
     /// How many lines of the expression show before it scrolls (5 by default).
     pub fn rows(mut self, rows: usize) -> Self {
         self.rows = rows.max(1);
+        self
+    }
+
+    /// What the expression works out to over a sample the app chose, shown under it as the
+    /// person types. Give it again as the text changes.
+    pub fn preview(mut self, result: impl Into<String>) -> Self {
+        self.preview = Some((true, result.into()));
+        self
+    }
+
+    /// Why working the expression out over the sample failed, shown under it apart from a
+    /// result, so a failure never reads as an empty value.
+    pub fn preview_error(mut self, why: impl Into<String>) -> Self {
+        self.preview = Some((false, why.into()));
         self
     }
 
@@ -372,9 +388,17 @@ impl View for ExpressionEditor {
             None => Box::new(VStack::new(Vec::<AnyView>::new())),
         };
 
+        let preview = self.preview.as_ref().filter(|_| !text.trim().is_empty()).map(|(worked, words)| {
+            if *worked {
+                Alert::message(labels.expression_result.replace("{0}", words)).tone(Tone::Accent).compact()
+            } else {
+                Alert::message(labels.expression_failed.replace("{0}", words)).tone(Tone::Danger).compact()
+            }
+        });
         let editor = VStack::new((
             TextArea::new(self.value.clone()).rows(self.rows).cursor(cursor.clone()),
             status,
+            preview,
             HStack::new((
                 ScrollView::new((VStack::new(groups).spacing(2.0).align(Align::Stretch),))
                     .width(GROUPS_WIDTH),

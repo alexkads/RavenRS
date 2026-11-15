@@ -360,11 +360,13 @@ field Labels::document_tabs_name
 field Labels::expression_constants
 field Labels::expression_error_at
 field Labels::expression_errors
+field Labels::expression_failed
 field Labels::expression_functions
 field Labels::expression_groups
 field Labels::expression_insert
 field Labels::expression_no_match
 field Labels::expression_operators
+field Labels::expression_result
 field Labels::expression_search
 field Labels::expression_signatures
 field Labels::expression_text
@@ -3148,6 +3150,8 @@ method ExpressionEditor::fields
 method ExpressionEditor::new
 method ExpressionEditor::parameter
 method ExpressionEditor::parameters
+method ExpressionEditor::preview
+method ExpressionEditor::preview_error
 method ExpressionEditor::rows
 method Eyedropper::disabled
 method Eyedropper::hint

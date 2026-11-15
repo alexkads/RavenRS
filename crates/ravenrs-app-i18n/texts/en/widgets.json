@@ -124,6 +124,8 @@
  "widgets.inspector_in": "Present in",
  "widgets.inspector_present": "{0} of {1}",
  "widgets.inspector_chosen": "Field chosen: {0}",
+ "widgets.expression_result": "Result: {0}",
+ "widgets.expression_failed": "Could not work it out: {0}",
  "widgets.flow_export": "Export",
  "widgets.flow_export_pdf": "PDF to print",
  "widgets.flow_export_png": "PNG image",

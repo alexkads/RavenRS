@@ -188,7 +188,7 @@
 {"crate": "ravenrs-widgets-kit", "tipo": "Dot", "pendente": true, "issue": 579, "conhecidos": ["color", "label", "new", "size", "tone"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "DropZone", "pendente": true, "issue": 579, "conhecidos": ["accept", "choosable", "disabled", "fill", "hint", "label", "min_height", "most_bytes", "most_files", "new", "no_hint", "on_files", "on_refused", "padding", "quiet"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "EmptyState", "pendente": true, "issue": 579, "conhecidos": ["action", "description", "icon", "new"]},
-{"crate": "ravenrs-widgets-kit", "tipo": "ExpressionEditor", "pendente": true, "issue": 579, "conhecidos": ["field", "fields", "new", "parameter", "parameters", "rows"]},
+{"crate": "ravenrs-widgets-kit", "tipo": "ExpressionEditor", "pagina": "Editor de expressões", "recursos": ["field", "fields", "new", "parameter", "parameters", "preview", "preview_error", "rows"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "FileUpload", "pendente": true, "issue": 579, "conhecidos": ["accept", "disabled", "label", "most_bytes", "most_files", "new", "read_only", "width"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "FilterBuilder", "pendente": true, "issue": 579, "conhecidos": ["new"]},
 {"crate": "ravenrs-widgets-kit", "tipo": "FloatingToolbar", "pendente": true, "issue": 579, "conhecidos": ["action", "fill", "label", "margin", "movable", "new", "place", "separator", "view"]},

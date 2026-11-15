@@ -35,7 +35,7 @@ The `FlowCanvas` draws a diagram, and its debugger (`FlowRun`) moves tokens thro
 | `switch` | One output per case and `otherwise` for the rest. | `value`, `cases` |
 | `merge` | Joins inputs `a` and `b`: `append` (the default), `position`, `key` (`key`, or `key_a` and `key_b`, and `keep_unmatched`) or `first`. | `mode` |
 | `batches` | A loop. Each turn it sends the next batch to `batch`; what the body sends back reaches `back`; with no batch left, everything that came back goes out on `done`. | `size` |
-| `set` | Sets fields from expressions, or keeps only them. | `fields`, `keep_only` |
+| `set` | Sets fields from expressions, or from text with expressions inside it (`Olá {{ nome }}`), or keeps only them. | `fields`, `keep_only` |
 | `wait` | Waits on the run's clock and passes its items on; stops early when cancelled. In memory: a wait that outlives the app needs [#535](https://github.com/alexkads/RavenRS/issues/535). | `ms` |
 | `delay` | Waits in a way that outlives the app: the run stops here, and a durable run (`ravenrs-flows-runtime`) starts it again when the time comes. | `ms` |
 | `wait_event` | Waits for an event (an approval, a reply) and gives the items it brought; with `keep`, a gate: the items that waited go on, each with the event under `as`. | `event`, `keep`, `as` |
@@ -45,6 +45,10 @@ The `FlowCanvas` draws a diagram, and its debugger (`FlowRun`) moves tokens thro
 | `group` | One item per group, with `sum`, `count`, `min`, `max`, `avg` and `list`. | `by`, `aggregates` |
 | `split` | One item per entry of a list field. An item whose field is not a list goes to the error output. | `field` |
 | `join` | One item holding a list of all that came, or of one field. | `field`, `as` |
+
+## Expressions
+
+Conditions and values are in the criteria language. A text parameter may hold expressions inside it, `Olá {{ nome }}`, worked out per item by `NodeContext::text`. Besides the item's own fields, an expression reads `item`, `nodes.<id>` (the first item a node that already ran gave), `vars` and `run`; `expression::check` marks a `nodes.<id>` the flow lacks, and `expression::preview` works a text out for an editor, stopping past `PREVIEW_LIMIT`.
 
 ## When something fails
 

@@ -27,6 +27,13 @@ pub struct Page {
 /// Every page of a component, in the order of the navigation.
 pub const PAGES: &[Page] = &[
     Page {
+        id: kit::expressoes::ID,
+        caption: kit::expressoes::PAGE,
+        group: "Kit",
+        icon: IconName::Sigma,
+        make: || Box::new(kit::expressoes::ExpressionsPage),
+    },
+    Page {
         id: kit::parametros::ID,
         caption: kit::parametros::PAGE,
         group: "Kit",

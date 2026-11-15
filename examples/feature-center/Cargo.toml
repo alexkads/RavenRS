@@ -22,7 +22,6 @@ app = [
     "dep:ravenrs-app-remote",
     "dep:ravenrs-app-report",
     "dep:ravenrs-app-ui",
-    "dep:ravenrs-criteria",
     "dep:ravenrs-report",
     "dep:rust_decimal",
     "dep:ravenrs-app-server",
@@ -44,7 +43,8 @@ ravenrs-app-library = { workspace = true, optional = true }
 ravenrs-app-remote = { workspace = true, optional = true }
 ravenrs-app-report = { workspace = true, optional = true }
 ravenrs-app-ui = { workspace = true, optional = true }
-ravenrs-criteria = { workspace = true, optional = true }
+# The expressions of the Editor de expressões page, worked out for its preview.
+ravenrs-criteria.workspace = true
 ravenrs-report = { workspace = true, optional = true }
 rust_decimal = { version = "1", default-features = false, features = ["std"], optional = true }
 component-gallery = { path = "../component-gallery", default-features = false, optional = true }

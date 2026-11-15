@@ -1274,6 +1274,20 @@ fn the_data_inspector_shows_the_orders_four_ways_and_keeps_the_field_chosen() {
 }
 
 #[test]
+fn the_expression_editor_previews_the_result_and_tells_a_failure_apart() {
+    let mut c = Center::memory("ana");
+    c.press("Editor de expressões");
+    assert!(c.says("Resultado: 300"), "the preview over the sample order: {:?}", c.texts());
+    c.press("Usar um exemplo que dá certo");
+    assert!(c.says("Resultado: 140"), "with the parameter Desconto");
+    c.press("Usar um exemplo que falha");
+    assert!(c.says("Não deu para calcular"), "a failure says so");
+    assert!(!c.says("Resultado:"), "and is not a result");
+    c.press("Limpar");
+    assert!(!c.says("Não deu para calcular"), "nothing written, nothing to preview");
+}
+
+#[test]
 fn the_parameter_form_builds_from_a_schema_and_gives_back_only_on_apply() {
     let mut c = Center::memory("ana");
     c.press("Formulário de parâmetros");

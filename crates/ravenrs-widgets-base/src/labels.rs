@@ -795,6 +795,10 @@ pub struct Labels {
     pub inspector_present: String,
     /// The path of the field chosen in a `DataInspector`, with `{0}`.
     pub inspector_chosen: String,
+    /// What an `ExpressionEditor` expression works out to over a sample, with `{0}`.
+    pub expression_result: String,
+    /// Why an `ExpressionEditor` expression could not be worked out, with `{0}`.
+    pub expression_failed: String,
     /// The Export menu of a `FlowCanvas`.
     pub flow_export: String,
     /// Export a `FlowCanvas` as a PNG picture.
@@ -1609,6 +1613,8 @@ impl Labels {
             inspector_in: texts.get("widgets.inspector_in"),
             inspector_present: texts.get("widgets.inspector_present"),
             inspector_chosen: texts.get("widgets.inspector_chosen"),
+            expression_result: texts.get("widgets.expression_result"),
+            expression_failed: texts.get("widgets.expression_failed"),
             flow_export: texts.get("widgets.flow_export"),
             flow_export_png: texts.get("widgets.flow_export_png"),
             flow_export_svg: texts.get("widgets.flow_export_svg"),

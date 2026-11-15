@@ -77,6 +77,7 @@
 
 mod catalog;
 mod definition;
+pub mod expression;
 mod graph;
 mod item;
 pub mod nodes;

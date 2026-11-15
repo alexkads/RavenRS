@@ -324,11 +324,20 @@ impl NodeKind for Set {
         let Some(Value::Object(fields)) = cx.parameter("fields") else {
             return Err(NodeError::new("the parameter fields must map names to expressions"));
         };
+        // A field is an expression, or text with expressions inside it (`Olá {{ nome }}`).
         let mut parsed = Vec::with_capacity(fields.len());
+        let mut texts = Vec::new();
         for (name, text) in fields {
             let text = text
                 .as_str()
                 .ok_or_else(|| NodeError::new(format!("the field {name} must be an expression, as text")))?;
+            if text.contains("{{") {
+                let checked = ravenrs_criteria::Template::parse(text)
+                    .map_err(|errors| NodeError::new(format!("the field {name}: {}", errors[0].message)));
+                checked?;
+                texts.push((name.clone(), text.to_owned()));
+                continue;
+            }
             let criteria =
                 Criteria::parse(text).map_err(|e| NodeError::new(format!("the field {name}: {e}")))?;
             parsed.push((name.clone(), criteria));
@@ -346,9 +355,20 @@ impl NodeKind for Set {
                 for (name, criteria) in &parsed {
                     map.insert(name.clone(), to_json(work_out(&env, criteria, item)));
                 }
-                item.derive(Value::Object(map))
+                for (name, text) in &texts {
+                    let record = crate::expression::record(
+                        &item.json,
+                        &cx.nodes(),
+                        &Map::new(),
+                        &crate::expression::run_value(cx.now_ms()),
+                    );
+                    let written = crate::expression::render(text, &record)
+                        .map_err(|why| NodeError::new(format!("the field {name}: {why}")))?;
+                    map.insert(name.clone(), Value::String(written));
+                }
+                Ok(item.derive(Value::Object(map)))
             })
-            .collect();
+            .collect::<Result<Vec<_>, NodeError>>()?;
         Ok(main_port(made))
     }
 }
