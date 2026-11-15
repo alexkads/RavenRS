@@ -14,7 +14,7 @@ A component is ✅ in [PARITY.md](PARITY.md) only when all of these hold:
 6. **Edge cases.** Empty data, a single item, huge counts, non-ASCII text, out-of-range values (clamped, never panicking) and a zero-size viewport.
 7. **Performance.** Meets the [performance contract](#performance-contract) and stays inside the budgets below. Large collections are virtualized.
 8. **Tests.** At least one behavior test that drives it through `Ui` (pointer and keyboard). Property tests for any pure logic. A golden image for any component whose drawing is non-trivial.
-9. **Docs and demo.** A section in the [component gallery](../examples/component-gallery) that shows its variants and states.
+9. **Docs and demo.** A page in the [feature center](../examples/feature-center) that shows every public feature, with a step in its tour, in the same pull request: `scripts/feature-center-coverage.py` fails the check otherwise (#580). Until #579 retires the [component gallery](../examples/component-gallery), the short sample there stays too.
 
 ## Definition of done for a crate's documentation
 

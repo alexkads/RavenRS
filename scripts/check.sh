@@ -183,6 +183,9 @@ step "the widgets' crates keep their layers: no family depends on another"
 step "every test file runs: tests/suite/ modules are declared"
 ./scripts/check-test-suites.py
 
+step "the feature center shows every component with every feature (skill ravenrs-feature-center)"
+./scripts/feature-center-coverage.py
+
 if [ "${1:-}" != "--full" ]; then
     step "what the change reaches"
     # What the selection leaves out goes unchecked, so the selection has tests of its own.

@@ -15,24 +15,18 @@ links = {
 }
 listed = set(links)
 
-# Parts of a listed component, and plumbing that is not a component on its own.
-NOT_LISTED = {"DiagnosticsHost", "Command", "EyedropperArea", "ChatMedia", "ListItem", "SidebarGroup", "SidebarInset", "SidebarItem", "SidebarSection", "SidebarSkeleton", "SidebarTrigger", "Styled", "Faded", "Keyed", "Localized", "Responsive", "FnView", "AccessibleControl"}
+# What the code counts as a public component, shared with scripts/feature-center-coverage.py.
+sys.path.insert(0, str(root / "scripts"))
+from component_inventory import widget_components  # noqa: E402
 
-# The widgets and the base they re-export; what the base shares only with them is hidden.
-source = "\n".join(
-    p.read_text() for crate in ("ravenrs-widgets", "ravenrs-widgets-base", "ravenrs-widgets-kit", "ravenrs-widgets-grid", "ravenrs-widgets-lists", "ravenrs-widgets-scheduler", "ravenrs-widgets-dock", "ravenrs-widgets-imaging", "ravenrs-widgets-charts", "ravenrs-widgets-chat") for p in (root / "crates" / crate / "src").rglob("*.rs")
-)
-public = set(re.findall(r"^pub struct (\w+)", source, re.M)) - set(
-    re.findall(r"^#\[doc\(hidden\)\]\n(?:#\[.*\]\n|//.*\n)*pub struct (\w+)", source, re.M)
-)
-views = {name for name in public if re.search(rf"impl(<[^>]*>)? (View|Component) for {name}\b", source)}
+views = {name for _, name in widget_components()}
 
 docs = pathlib.Path(os.environ.get("RAVENRS_API_DOCS_DIR", pathlib.Path(os.environ.get("CARGO_TARGET_DIR", root / "target")) / "doc"))
 problems = []
 for name, path in sorted(links.items()):
     if not (docs / path).exists():
         problems.append(f"{name}: no API page; run cargo doc, or fix the link")
-for name in sorted(views - listed - NOT_LISTED):
+for name in sorted(views - listed):
     problems.append(f"{name}: public component missing from the list")
 
 # The playground's interpreter has to know every component as it is.

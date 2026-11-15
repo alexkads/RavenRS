@@ -44,4 +44,6 @@ These accounts exist only here. The password of all three is `raven-demo`.
 
 ## It is also the test
 
-`tests/tour.rs` goes through all of this, as each of the three people, in memory and in SQLite. A new feature of the framework gets a demonstration here and a place in that tour.
+`tests/tour.rs` goes through all of this, as each of the three people, in memory and in SQLite.
+
+Every component of the library is shown here, with every feature (#579). A component that is new or changes gets its page in the same pull request: the skill `ravenrs-feature-center` says how. `recursos.json` lists each component, the page that shows it and the features it calls. `scripts/feature-center-coverage.py` checks that list against the code, and `scripts/check.sh` runs it. In `tests/accessibility.rs`, `every_demonstration_has_a_step_in_the_tour` checks that every page of the navigation has a step in the tour.
