@@ -1,6 +1,6 @@
 # Raven Data Studio: wireframes
 
-Os desenhos abaixo são **estáticos e de baixa fidelidade**: mostram disposição, conteúdo e estados com os números do [cenário](cenario-de-referencia.md). O desenho de alta fidelidade, com o design system do RavenRS (tema Raven Dark), está no Claude Design: [Raven Data Studio](https://claude.ai/artifact/QT6Fc1Mp5CSJrXRK4VLM9g). Ele traz as telas 2, 8, 9, 12, 14 e 16 e a página de Interações, e aguarda aprovação antes de qualquer implementação (decisão D-09).
+Os desenhos abaixo são **estáticos e de baixa fidelidade**: mostram disposição, conteúdo e estados com os números do [cenário](cenario-de-referencia.md). O desenho de alta fidelidade, com o design system do RavenRS (tema Raven Dark), está no Claude Design: [Raven Data Studio](https://claude.ai/artifact/QT6Fc1Mp5CSJrXRK4VLM9g). Ele traz as telas 2, 8, 9, 12, 14 e 16 e a página de Interações, e foi aprovado em 15/11/2026 (decisão D-09). A implementação segue esse desenho.
 
 Os arquivos SVG usam tokens neutros e acompanham o tema claro ou escuro do sistema (`prefers-color-scheme`). Os números em círculo são chamadas explicadas abaixo de cada imagem.
 

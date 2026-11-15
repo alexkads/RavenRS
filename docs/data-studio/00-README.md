@@ -2,7 +2,7 @@
 
 Documentação de produto e arquitetura de um módulo do RavenRS para **importar, transformar e modelar dados com IA**, integrado ao `ravenrs-app`.
 
-> **Situação:** só documentação. Nada aqui foi implementado. Componentes, integrações, telas e motor ficam para tarefas futuras, que devem começar pelas decisões em aberto (D-03 e D-09 primeiro).
+> **Situação:** só documentação. Nada aqui foi implementado. Componentes, integrações, telas e motor ficam para tarefas futuras, que devem começar pela decisão D-03. O desenho das telas já foi aprovado (D-09).
 
 ## Revisão analisada
 
