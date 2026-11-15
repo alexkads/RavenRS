@@ -46,6 +46,7 @@ const REST_STEPS: u32 = 360;
 /// One end of a cable: where it is and, optionally, the direction the cable
 /// leaves it in (out of a port, out of a jack, down from a hole).
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CableEnd {
     /// Where the end is, in logical pixels.
     pub at: Point,
@@ -53,6 +54,7 @@ pub struct CableEnd {
     pub toward: Option<Point>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CableEnd {
     /// An end at `p` that the cable may leave in any direction.
     pub const fn at(p: Point) -> Self {
@@ -69,6 +71,7 @@ impl CableEnd {
 
 /// What happens to a cable when it is no longer described.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CableRelease {
     /// It disappears at once.
     #[default]
@@ -81,6 +84,7 @@ pub enum CableRelease {
 
 /// How a cable moves.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CablePhysics {
     /// Length at rest over the length of the path between its ends: the sag.
     pub slack: f32,
@@ -102,6 +106,7 @@ impl Default for CablePhysics {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CablePhysics {
     fn count(&self) -> usize {
         usize::from(self.points).clamp(4, CABLE_MAX_POINTS)
@@ -110,6 +115,7 @@ impl CablePhysics {
 
 /// The surface of a cable.
 #[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CableTexture {
     /// Plain, with a highlight along it.
     #[default]
@@ -132,6 +138,7 @@ pub enum CableTexture {
 
 /// How a cable looks.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CableLook {
     /// Body color.
     pub color: Color,
@@ -170,6 +177,7 @@ impl Default for CableLook {
 /// that pans and zooms simulates its cables in its own units, so panning does not
 /// shake them, and draws them through its view.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CableView {
     /// Scene pixels per unit.
     pub scale: f32,
@@ -183,6 +191,7 @@ impl Default for CableView {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CableView {
     /// Where `p` lands in the scene.
     pub fn apply(&self, p: Point) -> Point {
@@ -198,6 +207,7 @@ impl CableView {
 
 /// One cable as a widget describes it for a frame.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Cable {
     /// Stays the same from frame to frame for the same cable.
     pub id: u64,
@@ -224,6 +234,7 @@ pub struct Cable {
     pub view: CableView,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Cable {
     /// A cable from `from` to `to`, with the default physics and look.
     pub fn new(id: u64, from: CableEnd, to: CableEnd) -> Self {
@@ -292,6 +303,7 @@ impl Cable {
 
 /// The parameters of one step, the same on the CPU and the GPU.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CableStep {
     /// Distance between neighbouring points at rest.
     pub rest: f32,
@@ -455,6 +467,7 @@ struct Live {
     resting: bool,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Live {
     fn pins(&self) -> Vec<(usize, Point)> {
         match self.phase {
@@ -563,6 +576,7 @@ fn outside(cable: &Cable, view: Rect) -> bool {
 
 /// The work one cable has for the steps of a frame: what the GPU runs for it.
 #[derive(Clone, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CablePlan {
     /// The cable.
     pub id: u64,
@@ -578,6 +592,7 @@ pub struct CablePlan {
 /// held, which are on their way out, where they rest, how many steps are due. The
 /// CPU world and the GPU world keep the same book, so they follow the same rules.
 #[derive(Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CableBook {
     live: HashMap<u64, Live>,
     rests: HashMap<u64, Arc<[Point]>>,
@@ -589,6 +604,7 @@ pub struct CableBook {
     placed: HashSet<u64>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CableBook {
     /// An empty book.
     pub fn new() -> Self {
@@ -815,10 +831,12 @@ impl CableBook {
 /// The reference world, on the CPU: what runs where the GPU cannot (WebGL2, tests,
 /// exports) and what the GPU world is checked against.
 #[derive(Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CpuCables {
     book: CableBook,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CpuCables {
     /// An empty world.
     pub fn new() -> Self {

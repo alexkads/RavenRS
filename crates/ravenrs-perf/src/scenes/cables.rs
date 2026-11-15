@@ -1,5 +1,5 @@
-//! Cables with physics (#575): many `CablePlug`s between widgets and a `FlowCanvas` whose
-//! connections are cables. A window simulates them on the GPU; `--cpu-cables` measures the
+//! Cables with physics (#575): many `CablePlug`s between widgets, a `FlowCanvas` whose
+//! connections are cables and a full `PatchPanel` (#578). A window simulates them on the GPU; `--cpu-cables` measures the
 //! twin on the CPU, the one WebGL2 uses.
 
 use ravenrs_core::{Color, Point};
@@ -126,6 +126,27 @@ fn flow(interaction: &str) -> Setup {
     Setup { root: Box::new(canvas), step }
 }
 
+/// A panel of 48 jacks with 24 cables plugged: the back of a full rack.
+fn patch(interaction: &str) -> Setup {
+    let mut jacks = Vec::new();
+    let mut links = Vec::new();
+    for i in 0..24 {
+        let x = 40.0 + (i % 12) as f32 * 100.0;
+        let y = if i < 12 { 60.0 } else { 420.0 };
+        jacks.push(Jack::output(format!("o{i}"), format!("Saída {i}")).signal("áudio").at(x, y));
+        jacks.push(Jack::input(format!("i{i}"), format!("Entrada {i}")).signal("áudio").at(x, y + 200.0));
+        links.push(PatchLink::new(format!("o{i}"), format!("i{}", (i + 5) % 24)));
+    }
+    let links = State::new(links);
+    let root = PatchPanel::new(jacks, links.binding()).size(1240.0, 760.0);
+    let step = match interaction {
+        "hover" => hover_between(Point::new(140.0, 60.0), Point::new(640.0, 260.0)),
+        "resize" => resize(),
+        _ => nothing(),
+    };
+    Setup { root: Box::new(root), step }
+}
+
 /// Settled cables cost nothing: no frames while nothing moves.
 const CABLE_CEILINGS: &[Ceiling] = &[ceiling("idle", "frames", 0)];
 
@@ -145,6 +166,14 @@ pub(super) fn scenes() -> Vec<PerfScene> {
             class: Class::Animated,
             interactions: &["drag", "hover", "idle", "resize"],
             make: flow,
+            ceilings: CABLE_CEILINGS,
+        },
+        PerfScene {
+            name: "patch-panel",
+            covers: &["PatchPanel"],
+            class: Class::Static,
+            interactions: &["hover", "idle", "resize"],
+            make: patch,
             ceilings: CABLE_CEILINGS,
         },
     ]

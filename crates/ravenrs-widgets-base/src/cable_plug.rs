@@ -24,6 +24,7 @@ use crate::ids::NodeId;
 
 /// Where on a widget an end of a cable goes, and the way the cable leaves it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CableSide {
     /// The middle of the left edge, leaving to the left.
     Left,
@@ -38,6 +39,7 @@ pub enum CableSide {
     Center,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CableSide {
     pub(crate) fn end(self, frame: Rect) -> CableEnd {
         let c = frame.center();
@@ -53,6 +55,7 @@ impl CableSide {
 
 /// What an end of a [`CablePlug`] is held by.
 #[derive(Clone, Copy, Debug, PartialEq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum CableAnchor {
     /// A widget built in this build, on one of its sides.
     Node(NodeId, CableSide),
@@ -65,6 +68,7 @@ pub enum CableAnchor {
 /// A cable between two places of the window. Build it with `CablePlug::build` in the
 /// build of the view that owns it, after building what it ties.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct CablePlug {
     pub(crate) key: Option<u64>,
     pub(crate) from: CableAnchor,
@@ -84,6 +88,7 @@ impl std::fmt::Debug for CablePlug {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl CablePlug {
     fn new(from: CableAnchor, to: CableAnchor) -> Self {
         Self {
@@ -254,6 +259,7 @@ impl CablePlug {
 /// The cables of the window, to read their shapes back: where a cable is now, which
 /// one is under the pointer. On the GPU the shapes arrive a frame late.
 #[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Cables(pub(crate) Rc<RefCell<Box<dyn CableWorld>>>);
 
 impl std::fmt::Debug for Cables {
@@ -262,6 +268,7 @@ impl std::fmt::Debug for Cables {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Cables {
     /// The latest points of the cable `id`.
     pub fn shape(&self, id: u64) -> Option<Arc<[Point]>> {

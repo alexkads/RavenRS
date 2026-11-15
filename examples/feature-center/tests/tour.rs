@@ -1251,3 +1251,19 @@ fn the_cables_show_eight_uses_and_plug_in_each() {
         assert_eq!(c.ui.cables().ids().len(), cables, "{name}: {:?}", c.texts());
     }
 }
+
+#[test]
+fn the_patch_panel_turns_around_retracts_pairs_and_checks() {
+    let mut c = Center::memory("ana");
+    c.press("Painel de tomadas");
+    for (name, cables) in feature_center::widgets::graficos::painel::USES.iter().zip([1, 0, 0]) {
+        c.activate(name);
+        assert_eq!(c.ui.cables().ids().len(), cables, "{name}: {:?}", c.texts());
+    }
+    c.activate("Rack");
+    assert!(c.says("Entrada 1"), "the back: {:?}", c.texts());
+    c.activate("Virar");
+    assert!(c.says("Amplificador A-40"), "the front: {:?}", c.texts());
+    c.activate("Ver a traseira");
+    assert!(c.says("Saída L"));
+}

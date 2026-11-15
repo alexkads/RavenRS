@@ -38,6 +38,7 @@ mod live;
 mod lottie;
 mod motion;
 mod page_motion;
+mod patch_panel;
 mod performance_tools;
 mod properties;
 mod release_notes;

@@ -74,6 +74,8 @@ pub mod motion_spec;
 pub mod overlay;
 #[doc(hidden)]
 pub mod page_motion;
+/// Panels of jacks joined by cables (#578).
+pub mod patch_panel;
 #[doc(hidden)]
 pub mod recurrence;
 #[doc(hidden)]
@@ -158,6 +160,7 @@ pub use motion::Collapse;
 pub use motion_spec::Motion;
 pub use overlay::{Dialog, DropdownMenu, HelpTip, MenuItem, Popover, Select, Tooltip};
 pub use page_motion::{Anchor, CountUp, Ticker};
+pub use patch_panel::{Jack, JackFlow, PatchLink, PatchPanel};
 pub use ravenrs_text::TextAlign;
 pub use recurrence::{
     Frequency, RecurrenceEnd, RecurrenceRule, RecurrenceSet, exceptions_text, parse_exceptions,

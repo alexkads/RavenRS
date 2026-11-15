@@ -2484,6 +2484,7 @@ struct Surface {
     cables: Option<(crate::Cables, u64)>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Surface {
     /// The connections as cables: each one held at its ports and bend points, in units of
     /// the diagram so that panning does not shake them, drawn through the view. The one
@@ -2561,7 +2562,7 @@ impl Surface {
     }
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Surface {
     fn paint(&self, frame: Rect, time: f64, scene: &mut Scene) {
         let p = &self.palette;
