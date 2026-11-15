@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
 # Builds an example for the browser into examples/<name>/web/pkg.
-# Usage: scripts/build-web.sh [example-name]   (default: hello-world)
+# Usage: scripts/build-web.sh [example-name] [cargo flags...]   (default: hello-world)
+#        scripts/build-web.sh feature-center --no-default-features --features widgets,playground
 # Requires: rustup target add wasm32-unknown-unknown
 #           cargo install wasm-bindgen-cli --version 0.2.130   (must match Cargo.toml)
 # Optional: wasm-opt (binaryen) to shrink the output further.
 set -euo pipefail
 
 name="${1:-hello-world}"
+shift || true
 crate="${name//-/_}"
 root="$(cd "$(dirname "$0")/.." && pwd)"
 out="$root/examples/$name/web/pkg"
 
 cd "$root"
-cargo build -p "$name" --lib --target wasm32-unknown-unknown --profile wasm-release
+cargo build -p "$name" --lib --target wasm32-unknown-unknown --profile wasm-release "$@"
 wasm-bindgen --target web --no-typescript --out-dir "$out" \
   "${CARGO_TARGET_DIR:-target}/wasm32-unknown-unknown/wasm-release/$crate.wasm"
 

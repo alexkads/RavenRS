@@ -44,6 +44,38 @@ These accounts exist only here. The password of all three is `raven-demo`.
 | Relatórios | Reports people design and keep, and panels |
 | Administração | Users, roles, the audit trail and the model editor, for `ana`; Trocar senha, for everyone |
 
+## Opening it another way
+
+The same center opens in four modes, with the same parameters on the command line (`--name value`) and in the address of the page (`?name=value`). None of them takes an address: they only choose what is on the screen (#587).
+
+| Parameter | Values | What it does |
+|---|---|---|
+| `modo` | `completo` (default) | The whole center, after signing in, in SQLite on the desktop and in memory in the browser |
+| | `vitrine` | The same, always in memory, with ana filled in at the door and a notice that it starts over: the site's demonstration |
+| | `componentes` | Only the pages of the components, with no sign-in and no application framework |
+| | `playground` | The examples, to edit and run |
+| `pagina` | an id | The page it opens on: a view (`AuditFull_ListView`) or a dashboard of the center, or a page of a component (`CablePlugDemo`). In the playground, the example it opens on |
+| `componente` | a name | In the playground, the example of that component on its own (`Button`) |
+| `incorporado` | (no value) | In `componentes`, only the page, to sit inside another page |
+| `tema` | `escuro`, `claro`, `vidro` | The look |
+| `idioma` | `pt-BR`, `en` | The language of the screens |
+
+```bash
+cargo run -p feature-center -- --modo vitrine --pagina AuditFull_ListView
+```
+
+```bash
+cargo run -p feature-center -- --modo componentes --pagina CablePlugDemo --incorporado --tema claro
+```
+
+On the web, `index.html?modo=componentes&pagina=CablePlugDemo&incorporado`. A wrong value is refused, saying what it takes; a name it does not know in the address is left alone.
+
+What goes in the build is chosen by Cargo features: `app`, the center, its storage and its web API; `widgets`, the pages of the components; `playground`, the examples. All three are on by default. The pages of the site take less:
+
+```bash
+./scripts/build-web.sh feature-center --no-default-features --features widgets,playground
+```
+
 ## Over a web API
 
 ```bash

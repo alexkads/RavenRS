@@ -193,6 +193,12 @@ The size of a WebAssembly build, after `wasm-opt -Oz`:
 | `hello-world`, `charts` on, not using it | 2,806,628 | 1,203,232 |
 | `component-gallery` before charts used it | 3,301,057 | 1,399,745 |
 | `component-gallery` using every chart and code | 3,582,964 | 1,504,909 |
+| `component-gallery` on 2026-11-15, with the playground and every example (#587) | 19,693,812 | 6,161,710 |
+| `feature-center`, `--no-default-features --features widgets` (#587) | 5,487,036 | 2,282,172 |
+| `feature-center`, `--no-default-features --features widgets,playground` (#587) | 19,341,123 | 6,083,834 |
+| `feature-center`, every feature: the whole center, the components and the playground (#587) | 20,123,847 | 6,386,374 |
+
+The feature center replaces the gallery on the site (#579) at about the same size: with the playground it is 78 KB gzipped smaller than the gallery, and the whole center, application framework included, adds 225 KB gzipped to it. The pages of the components alone, with no playground, are a third of that.
 
 Link-time optimization drops what an app does not call, so the feature costs an app without charts about 0.2 KB gzipped. Turning it off saves compile time, not download size. An app that does use charts pays about 105 KB gzipped, its own demos included.
 
