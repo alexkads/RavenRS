@@ -15,9 +15,11 @@ use ravenrs_style::{Semantic, TextStyle, Weight};
 use crate::context::{BuildCx, NodeId, Paint, Semantics};
 use crate::flow::{
     EdgeCap, EdgeShape, FlowChange, FlowEdge, FlowGraph, FlowGuard, FlowHistory, FlowNode, FlowNodeStatus,
-    FlowSelection, FlowShape,
+    FlowSelection, FlowShape, FlowStyle,
 };
-use crate::{Checkbox, FormField, NumberField, SegmentedControl, Select, TextField, View, util};
+use crate::{Checkbox, ColorPicker, FormField, NumberField, SegmentedControl, Select, TextField, View, util};
+use ravenrs_core::Color;
+use ravenrs_graphics::flow::{color_hex, parse_color};
 
 const SHAPES: [FlowShape; 9] = [
     FlowShape::Card,
@@ -326,6 +328,7 @@ impl View for FlowInspector {
                     &SegmentedControl::new(status, status_names).label(labels.flow_field_status.clone()),
                 ));
             }
+            rows.extend(self.appearance(cx, &writer, ids.clone(), &labels, ro));
         } else if let ([], [only]) = (nodes.as_slice(), edges.as_slice()) {
             rows.push(heading(cx, &labels.flow_inspector_edge, Some(only)));
             let label = writer.edge(
@@ -367,10 +370,26 @@ impl View for FlowInspector {
             rows.push(grid(cx, &[start, end], theme.spacing.s3));
             let animated = writer.edge(only.clone(), |e| e.animated, |e, on: bool| e.animated = on);
             rows.push(cx.child(&Checkbox::new(labels.flow_field_animated.clone(), animated).disabled(ro)));
+            let dashed = writer.edge(only.clone(), |e| e.dashed, |e, on: bool| e.dashed = on);
+            rows.push(cx.child(&Checkbox::new(labels.flow_field_dashed.clone(), dashed).disabled(ro)));
+            let color = writer.edge(
+                only.clone(),
+                |e| e.color.as_deref().and_then(parse_color),
+                |e, c: Option<Color>| e.color = c.map(color_hex),
+            );
+            rows.push(
+                cx.child(
+                    &ColorPicker::new(color)
+                        .label(labels.flow_field_stroke.clone())
+                        .width(self.width - 32.0)
+                        .disabled(ro),
+                ),
+            );
         } else {
             let count = labels.flow_inspector_nodes.replace("{0}", &nodes.len().to_string());
             rows.push(heading(cx, &count, None));
             rows.extend(self.kind_and_shape(cx, &writer, nodes.clone(), &graph, &labels, ro));
+            rows.extend(self.appearance(cx, &writer, nodes.clone(), &labels, ro));
         }
         if ro {
             rows.push(util::label(cx, &labels.flow_inspector_read_only, TextStyle::Caption, None, muted));
@@ -399,6 +418,42 @@ impl View for FlowInspector {
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl FlowInspector {
     /// The kind and the shape of the nodes `ids`, shown as mixed where they differ.
+    /// The colors of the nodes in `ids` and their outline's width: each left empty is the
+    /// theme's.
+    fn appearance(
+        &self,
+        cx: &mut BuildCx<'_>,
+        writer: &Writer,
+        ids: Vec<String>,
+        labels: &crate::Labels,
+        ro: bool,
+    ) -> Vec<NodeId> {
+        let theme = *cx.theme();
+        let half = ((self.width - 32.0 - theme.spacing.s3) / 2.0).floor();
+        let color = |cx: &mut BuildCx<'_>,
+                     label: &str,
+                     read: fn(&FlowStyle) -> Option<Color>,
+                     write: fn(&mut FlowStyle, Option<String>)| {
+            let value = writer.nodes(
+                ids.clone(),
+                move |n| read(&n.style),
+                move |n, c: Option<Color>| write(&mut n.style, c.map(color_hex)),
+            );
+            cx.child(&ColorPicker::new(value).label(label).width(half).disabled(ro))
+        };
+        let fill = color(cx, &labels.flow_field_fill, FlowStyle::fill_color, |s, c| s.fill = c);
+        let stroke = color(cx, &labels.flow_field_stroke, FlowStyle::stroke_color, |s, c| s.stroke = c);
+        let text = color(cx, &labels.flow_field_text, FlowStyle::text_color, |s, c| s.text = c);
+        let width = writer.nodes(
+            ids.clone(),
+            |n| n.style.stroke_width.map(f64::from),
+            |n, v: Option<f64>| n.style.stroke_width = v.map(|v| (v as f32).clamp(0.5, 12.0)),
+        );
+        let width =
+            cx.child(&NumberField::new(width).label(labels.flow_field_stroke_width.as_str()).disabled(ro));
+        vec![grid(cx, &[fill, stroke, text, width], theme.spacing.s3)]
+    }
+
     fn kind_and_shape(
         &self,
         cx: &mut BuildCx<'_>,

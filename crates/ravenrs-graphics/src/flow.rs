@@ -14,11 +14,13 @@ mod document;
 mod layout;
 mod picture;
 mod routing;
+mod style;
 
 pub use document::{FlowDocument, FlowShelf};
 pub use layout::{FlowDirection, FlowLayout, FlowLayoutKind};
 pub use picture::{FlowColors, FlowExportFormat, FlowPicture, FlowText, PICTURE_MARGIN};
 pub use routing::{ROUTE_MARGIN, RouteCache, route_around};
+pub use style::{FlowStyle, color_hex, parse_color};
 
 /// Which side of a node a port sits on, and the way a line leaves it.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -301,6 +303,9 @@ pub struct FlowNode {
     /// The outline it is drawn in.
     #[serde(default, skip_serializing_if = "is_card")]
     pub shape: FlowShape,
+    /// Its colors and the place of its title, apart from the theme.
+    #[serde(default, skip_serializing_if = "FlowStyle::is_plain")]
+    pub style: FlowStyle,
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref, reason = "the signature serde asks for")]
@@ -363,7 +368,13 @@ impl FlowNode {
         self
     }
 
-    /// Drawn in this outline.
+    /// With these colors and this place for its title.
+    pub fn styled(mut self, style: FlowStyle) -> Self {
+        self.style = style;
+        self
+    }
+
+    /// In this outline.
     pub fn shape(mut self, shape: FlowShape) -> Self {
         self.shape = shape;
         self
@@ -627,6 +638,12 @@ pub struct FlowEdge {
     /// its start. A step line runs between them at right angles.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub waypoints: Vec<(f32, f32)>,
+    /// Its color, as `#rrggbb`, apart from the theme's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub color: Option<String>,
+    /// Drawn in dashes, as a line that says something other than "then".
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub dashed: bool,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -639,6 +656,18 @@ impl FlowEdge {
     /// With another shape.
     pub fn shape(mut self, shape: EdgeShape) -> Self {
         self.shape = shape;
+        self
+    }
+
+    /// In `color` (`#rrggbb`).
+    pub fn color(mut self, color: impl Into<String>) -> Self {
+        self.color = Some(color.into());
+        self
+    }
+
+    /// Drawn in dashes.
+    pub fn dashed(mut self) -> Self {
+        self.dashed = true;
         self
     }
 
@@ -685,6 +714,8 @@ impl Default for FlowEdge {
             start: EdgeCap::None,
             end: EdgeCap::Arrow,
             waypoints: Vec::new(),
+            color: None,
+            dashed: false,
         }
     }
 }

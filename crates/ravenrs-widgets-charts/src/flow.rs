@@ -22,7 +22,7 @@ use ravenrs_text::TextAttrs;
 pub use ravenrs_graphics::flow::{
     EdgeCap, EdgeShape, FlowColors, FlowDirection, FlowDocument, FlowEdge, FlowEndpoint, FlowExportFormat,
     FlowGraph, FlowHistory, FlowJsonError, FlowLayout, FlowLayoutKind, FlowNode, FlowNodeStatus, FlowPicture,
-    FlowPort, FlowShape, FlowShelf, FlowText, PortDirection, PortSide,
+    FlowPort, FlowShape, FlowShelf, FlowStyle, FlowText, PortDirection, PortSide,
 };
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
@@ -2116,10 +2116,15 @@ impl Surface {
             let points =
                 geometry::trim_start(&geometry::trim_end(&reach, edge.end.inset(CAP)), edge.start.inset(CAP));
             let on = touching(edge);
-            let (color, width) = if on { (p.accent, 2.0) } else { (p.muted, 1.5) };
+            let own = edge.color.as_deref().and_then(geometry::parse_color);
+            let (color, width) = if on { (p.accent, 2.0) } else { (own.unwrap_or(p.muted), 1.5) };
             if edge.animated {
                 let phase = (time as f32 * DASH_SPEED).rem_euclid(12.0);
                 for piece in geometry::dashes(&points, 6.0, 6.0, phase) {
+                    stroke(scene, &piece, width, color);
+                }
+            } else if edge.dashed {
+                for piece in geometry::dashes(&points, 7.0, 5.0, 0.0) {
                     stroke(scene, &piece, width, color);
                 }
             } else {
@@ -2846,6 +2851,7 @@ impl View for NodeBox {
         }
         let look = self.look.clone();
         let (title, subtitle, status) = (node.title.clone(), node.subtitle.clone(), node.status.clone());
+        let style = node.style.clone();
         let selected = self.selected;
         let zoom = view.zoom;
         let is_group = node.group;
@@ -2876,6 +2882,7 @@ impl View for NodeBox {
                     &title,
                     subtitle.as_deref(),
                     &status,
+                    &style,
                     selected,
                     hovered,
                 );
@@ -2891,6 +2898,7 @@ impl View for NodeBox {
                 &title,
                 subtitle.as_deref(),
                 &status,
+                &style,
                 selected,
                 hovered,
                 card_only,
@@ -2987,6 +2995,7 @@ fn draw_shape(
     title: &str,
     subtitle: Option<&str>,
     status: &FlowNodeStatus,
+    style: &FlowStyle,
     selected: bool,
     hovered: bool,
 ) {
@@ -2997,12 +3006,21 @@ fn draw_shape(
         FlowNodeStatus::Error(_) => (p.danger, 2.0),
         FlowNodeStatus::Running => (p.accent, 2.5),
         FlowNodeStatus::Success => (p.success, 2.0),
-        _ if note => (p.warning, 1.0),
-        _ => (p.border, 1.0),
+        _ if note => (style.stroke_color().unwrap_or(p.warning), 1.0),
+        _ => (style.stroke_color().unwrap_or(p.border), 1.0),
     };
-    let fill = match () {
-        _ if note => p.warning.with_alpha(0.18),
-        _ if hovered => p.control,
+    // A width of the app's grows with the zoom, as the outline does.
+    let width = match status {
+        FlowNodeStatus::Normal | FlowNodeStatus::Disabled if !selected => {
+            style.stroke_width.map_or(width, |w| (w * zoom).max(1.0))
+        }
+        _ => width,
+    };
+    let fill = match (style.fill_color(), note, hovered) {
+        (Some(own), _, true) => own.lerp(p.control, 0.3),
+        (Some(own), ..) => own,
+        (None, true, _) => p.warning.with_alpha(0.18),
+        (None, _, true) => p.control,
         _ => p.elevated,
     };
     let path: Vec<ravenrs_core::PathElement> =
@@ -3035,7 +3053,35 @@ fn draw_shape(
         }
     };
     let pad = theme.spacing.s3 * zoom;
-    let ink = if *status == FlowNodeStatus::Disabled { p.muted } else { p.ink };
+    let ink = if *status == FlowNodeStatus::Disabled { p.muted } else { style.text_color().unwrap_or(p.ink) };
+    // A sign in the middle, as large as the outline allows.
+    if let Some(marker) = style.marker.as_deref().filter(|m| !m.is_empty()) {
+        let size = frame.width().min(frame.height()) * 0.5;
+        let attrs = TextAttrs {
+            size,
+            line_height: size,
+            ..util::attrs(theme, TextStyle::Body, Some(Weight::SEMIBOLD))
+        };
+        let mut layout = paint.text.layout(marker, &attrs);
+        let wide = layout.measure(None).width;
+        layout.paint(
+            Point::new(frame.center().x - wide / 2.0, frame.center().y - size / 2.0),
+            ink,
+            paint.scene,
+        );
+    }
+    // The title under the outline, in as much room as twice its width.
+    if style.title_below {
+        let attrs = scaled(TextStyle::Callout, Some(Weight::SEMIBOLD));
+        let mut y = frame.max_y() + 4.0 * zoom;
+        for (text, color) in std::iter::once((title, ink)).chain(subtitle.map(|s| (s, p.muted))) {
+            let mut layout = paint.text.layout_ellipsized(text, &attrs, frame.width() * 2.5);
+            let wide = layout.measure(None).width;
+            layout.paint(Point::new(frame.center().x - wide / 2.0, y), color, paint.scene);
+            y += attrs.line_height;
+        }
+        return;
+    }
     if note {
         let mut layout = paint.text.layout(title, &scaled(TextStyle::Callout, None));
         layout.measure(Some((frame.width() - pad * 2.0).max(0.0)));
@@ -3075,6 +3121,7 @@ fn draw_node(
     title: &str,
     subtitle: Option<&str>,
     status: &FlowNodeStatus,
+    style: &FlowStyle,
     selected: bool,
     hovered: bool,
     card_only: bool,
@@ -3087,13 +3134,21 @@ fn draw_node(
         FlowNodeStatus::Error(_) => (p.danger, 2.0),
         FlowNodeStatus::Running => (p.accent, 2.5),
         FlowNodeStatus::Success => (p.success, 2.0),
-        _ => (p.border, 1.0),
+        _ => (
+            style.stroke_color().unwrap_or(p.border),
+            style.stroke_width.map_or(1.0, |w| (w * zoom).max(1.0)),
+        ),
     };
     if disabled {
         let outline = util::dashed_outline(frame, radius, 1.0, 6.0, 4.0);
         paint.scene.push_path(PathFill::solid(outline, if selected { p.accent } else { p.border }));
     } else {
-        let fill = if hovered { p.control } else { p.elevated };
+        let fill = match style.fill_color() {
+            Some(own) if hovered => own.lerp(p.control, 0.3),
+            Some(own) => own,
+            None if hovered => p.control,
+            None => p.elevated,
+        };
         let shadow = if selected { theme.elevation.raised } else { theme.elevation.soft };
         paint.scene.push_quad(Quad::new(frame, fill).radius(radius).border(edge_width, edge).shadow(shadow));
     }
@@ -3133,7 +3188,7 @@ fn draw_node(
     };
     let x = tile_rect.max_x() + pad;
     let room = (frame.max_x() - pad - x).max(0.0);
-    let ink = if disabled { p.muted } else { p.ink };
+    let ink = if disabled { p.muted } else { style.text_color().unwrap_or(p.ink) };
     let note = match status {
         FlowNodeStatus::Warning(m) => Some((m.as_str(), p.warning)),
         FlowNodeStatus::Error(m) => Some((m.as_str(), p.danger)),

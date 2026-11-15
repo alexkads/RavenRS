@@ -607,6 +607,16 @@ pub struct Labels {
     pub flow_title: String,
     /// A turned node of a `FlowCanvas`, with `{0}` its turn in degrees.
     pub flow_turned: String,
+    /// A field of a `FlowInspector`: the color inside a node.
+    pub flow_field_fill: String,
+    /// A field of a `FlowInspector`: the color of an outline or a line.
+    pub flow_field_stroke: String,
+    /// A field of a `FlowInspector`: the color of a node's words.
+    pub flow_field_text: String,
+    /// A field of a `FlowInspector`: an outline's width.
+    pub flow_field_stroke_width: String,
+    /// A field of a `FlowInspector`: a line drawn in dashes.
+    pub flow_field_dashed: String,
     /// The heading of a `FlowLibrary`.
     pub flow_library: String,
     /// Starts a new diagram in a `FlowLibrary`.
@@ -1333,6 +1343,11 @@ impl Labels {
             flow_members: texts.get("widgets.flow_members"),
             flow_title: texts.get("widgets.flow_title"),
             flow_turned: texts.get("widgets.flow_turned"),
+            flow_field_fill: texts.get("widgets.flow_field_fill"),
+            flow_field_stroke: texts.get("widgets.flow_field_stroke"),
+            flow_field_text: texts.get("widgets.flow_field_text"),
+            flow_field_stroke_width: texts.get("widgets.flow_field_stroke_width"),
+            flow_field_dashed: texts.get("widgets.flow_field_dashed"),
             flow_library: texts.get("widgets.flow_library"),
             flow_library_new: texts.get("widgets.flow_library_new"),
             flow_library_save: texts.get("widgets.flow_library_save"),

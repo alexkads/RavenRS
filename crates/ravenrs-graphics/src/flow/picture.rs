@@ -210,18 +210,23 @@ impl FlowGraph {
             if edge.start != EdgeCap::None {
                 body = trim_start(&body, cap);
             }
-            layers.push(shape(polyline(&body), None, Some((2.0, colors.line))));
+            let line = edge.color.as_deref().and_then(super::parse_color).unwrap_or(colors.line);
+            if edge.dashed {
+                layers.push(Layer::Dashed { path: polyline(&body), width: 2.0, dash: 6.0, color: line });
+            } else {
+                layers.push(shape(polyline(&body), None, Some((2.0, line))));
+            }
             if let (Some(&tip), Some(direction)) = (points.last(), end_direction(points)) {
                 let outline = cap_outline(edge.end, tip, direction, cap);
                 if !outline.is_empty() {
-                    layers.push(shape(outline, Some(colors.line), None));
+                    layers.push(shape(outline, Some(line), None));
                 }
             }
             let back: Vec<Point> = points.iter().rev().copied().collect();
             if let (Some(&tip), Some(direction)) = (back.last(), end_direction(&back)) {
                 let outline = cap_outline(edge.start, tip, direction, cap);
                 if !outline.is_empty() {
-                    layers.push(shape(outline, Some(colors.line), None));
+                    layers.push(shape(outline, Some(line), None));
                 }
             }
             if let (Some(label), Some(middle)) = (&edge.label, midpoint(points)) {
@@ -252,8 +257,35 @@ impl FlowGraph {
                 FlowNodeStatus::Success => colors.success,
                 _ => colors.border,
             };
+            let style = &node.style;
+            let edge = if edge == colors.border { style.stroke_color().unwrap_or(edge) } else { edge };
             let outline = turned(shape_outline(node.shape, r), r.center(), node.rotation);
-            layers.push(shape(outline, Some(colors.node), Some((1.5, edge))));
+            let fill = style.fill_color().unwrap_or(colors.node);
+            layers.push(shape(outline, Some(fill), Some((style.stroke_width.unwrap_or(1.5), edge))));
+            let ink = style.text_color().unwrap_or(colors.ink);
+            if let Some(marker) = style.marker.as_deref().filter(|m| !m.is_empty()) {
+                texts.push(FlowText {
+                    text: marker.to_owned(),
+                    at: r.center(),
+                    width: r.width(),
+                    size: r.width().min(r.height()) * 0.5,
+                    bold: true,
+                    centered: true,
+                    color: ink,
+                });
+            }
+            if style.title_below {
+                texts.push(FlowText {
+                    text: node.title.clone(),
+                    at: Point::new(r.center().x, r.max_y() + 12.0),
+                    width: r.width() * 2.5,
+                    size: 12.0,
+                    bold: true,
+                    centered: true,
+                    color: ink,
+                });
+                continue;
+            }
             let centered = node.shape != super::FlowShape::Card;
             let (x, width) =
                 if centered { (r.center().x, r.width() - 24.0) } else { (r.x() + 16.0, r.width() - 32.0) };
@@ -266,7 +298,7 @@ impl FlowGraph {
                 size: 14.0,
                 bold: true,
                 centered,
-                color: colors.ink,
+                color: ink,
             });
             // The names of its ports, by them: inside a box, outside the tips of a diamond or an
             // ellipse, as the canvas shows them.
