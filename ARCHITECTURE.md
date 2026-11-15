@@ -83,7 +83,7 @@ ravenrs-widgets-kit    ──► ravenrs-widgets-base
 ravenrs-grid-export    ──► ravenrs-widgets, ravenrs-report-export  (what a DataGrid shows ──► file)
 ravenrs-flow-export    ──► ravenrs-widgets, ravenrs-report-export, ravenrs-text  (a FlowCanvas picture ──► PNG, SVG, PDF)
 ravenrs-flow-bpmn      ──► ravenrs-widgets  (BPMN 2.0 as a FlowNotation, BPMN XML)
-ravenrs-flows          ──► ravenrs-graphics  (runs a flow: definition, catalog of node kinds, plan, items from node to node; no GUI)
+ravenrs-flows          ──► ravenrs-graphics, ravenrs-criteria  (runs a flow: definition, catalog of node kinds, plan, items from node to node, built-in nodes; no GUI)
 ravenrs-app            ──► ravenrs-criteria, ravenrs-reactive  (entities, application model, object spaces, actions, frames; no GUI)
                            and ravenrs-app-spec with `source` (entities read from Rust source while running)
 ravenrs-app-spec       ──► ravenrs-criteria, syn  (what the derives read from a struct or enum, as data)
@@ -159,7 +159,7 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-grid-export` | `lib` |
 | `ravenrs-flow-export` | `lib` |
 | `ravenrs-flow-bpmn` | `elements`, `xml`, `rules`, `plan` |
-| `ravenrs-flows` | `item`, `definition`, `catalog` (kinds and `NodeContext`), `plan`, `run` (`Executor`), `graph` (the bridge to `FlowGraph` and `FlowRunRules`) |
+| `ravenrs-flows` | `item`, `definition`, `catalog` (kinds and `NodeContext`), `plan`, `run` (`Executor`, loops), `nodes` (the built-in kinds, `Catalog::builtin`), `graph` (the bridge to `FlowGraph` and `FlowRunRules`) |
 | `ravenrs-app-spec` | `lib` |
 | `ravenrs-project` | `lib` |
 | `ravenrs-app-derive` | `lib` |

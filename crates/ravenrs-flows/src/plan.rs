@@ -6,7 +6,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
-use crate::catalog::{Catalog, NodeSpec};
+use crate::catalog::{Catalog, ERROR_PORT, NodeSpec};
 use crate::definition::{Connection, FlowDefinition};
 
 /// Why a flow could not be put in order.
@@ -83,9 +83,11 @@ impl std::error::Error for PlanError {}
 pub struct Plan {
     definition: FlowDefinition,
     specs: BTreeMap<String, NodeSpec>,
+    outputs: BTreeMap<String, Vec<String>>,
     order: Vec<String>,
     feeds: BTreeMap<String, Vec<Connection>>,
     back: Vec<Connection>,
+    bodies: BTreeMap<String, Vec<String>>,
     unreachable: Vec<String>,
 }
 
@@ -95,6 +97,7 @@ impl Plan {
     pub fn compile(definition: &FlowDefinition, catalog: &Catalog) -> Result<Self, Vec<PlanError>> {
         let mut errors = Vec::new();
         let mut specs = BTreeMap::new();
+        let mut outputs = BTreeMap::new();
         let mut index = BTreeMap::new();
         for (i, node) in definition.nodes.iter().enumerate() {
             if index.insert(node.id.clone(), i).is_some() {
@@ -112,6 +115,7 @@ impl Plan {
                             });
                         }
                     }
+                    outputs.insert(node.id.clone(), kind.outputs(node));
                     specs.insert(node.id.clone(), spec);
                 }
                 None => errors.push(PlanError::UnknownKind {
@@ -126,8 +130,13 @@ impl Plan {
                 if !index.contains_key(&end.node) {
                     errors.push(PlanError::UnknownNode { node: end.node.clone() });
                 } else if let Some(spec) = specs.get(&end.node) {
-                    let ports = if outward { &spec.outputs } else { &spec.inputs };
-                    if !ports.contains(&end.port) {
+                    let known = if outward {
+                        end.port == ERROR_PORT
+                            || outputs.get(&end.node).is_some_and(|o: &Vec<String>| o.contains(&end.port))
+                    } else {
+                        spec.inputs.contains(&end.port)
+                    };
+                    if !known {
                         errors
                             .push(PlanError::UnknownPort { node: end.node.clone(), port: end.port.clone() });
                     }
@@ -139,7 +148,7 @@ impl Plan {
         }
 
         let ids: Vec<String> = definition.nodes.iter().map(|n| n.id.clone()).collect();
-        let back = back_edges(&ids, &index, &definition.connections, &specs, &mut errors);
+        let (back, mut bodies) = back_edges(&ids, &index, &definition.connections, &specs, &mut errors);
         if !errors.is_empty() {
             return Err(errors);
         }
@@ -158,7 +167,11 @@ impl Plan {
             feeds.entry(c.to.node.clone()).or_default().push((*c).clone());
         }
         let unreachable = unreachable(&ids, &specs, &forward);
-        Ok(Self { definition: definition.clone(), specs, order, feeds, back, unreachable })
+        let place: BTreeMap<&str, usize> = order.iter().enumerate().map(|(i, id)| (id.as_str(), i)).collect();
+        for body in bodies.values_mut() {
+            body.sort_by_key(|id| place.get(id.as_str()).copied());
+        }
+        Ok(Self { definition: definition.clone(), specs, outputs, order, feeds, back, bodies, unreachable })
     }
 
     /// The flow it was made from.
@@ -177,13 +190,25 @@ impl Plan {
         self.specs.get(node)
     }
 
+    /// The output ports of `node`, as its kind gives them for its setup, besides
+    /// [`ERROR_PORT`].
+    pub fn outputs(&self, node: &str) -> &[String] {
+        self.outputs.get(node).map(Vec::as_slice).unwrap_or(&[])
+    }
+
+    /// The nodes a loop node goes round, in the order they run each turn; none for a node that
+    /// is not a loop's head.
+    pub fn loop_body(&self, node: &str) -> &[String] {
+        self.bodies.get(node).map(Vec::as_slice).unwrap_or(&[])
+    }
+
     /// The connections that feed `node`, leaving out those that come back to a loop.
     pub fn feeds(&self, node: &str) -> &[Connection] {
         self.feeds.get(node).map(Vec::as_slice).unwrap_or(&[])
     }
 
-    /// The connections that come back to a loop node from a node after it. A run does not
-    /// follow them yet: going round belongs to the loop operators.
+    /// The connections that come back to a loop node from a node after it: a run takes what
+    /// they carry back to the loop at the end of each turn.
     pub fn back_connections(&self) -> &[Connection] {
         &self.back
     }
@@ -205,16 +230,17 @@ impl Plan {
     }
 }
 
-/// The connections that close a cycle at a loop node, or a `Cycle` error for each cycle with
-/// none.
+/// The connections that close a cycle at a loop node and the nodes each loop goes round, or a
+/// `Cycle` error for each cycle with none.
 fn back_edges(
     ids: &[String],
     index: &BTreeMap<String, usize>,
     connections: &[Connection],
     specs: &BTreeMap<String, NodeSpec>,
     errors: &mut Vec<PlanError>,
-) -> Vec<Connection> {
+) -> (Vec<Connection>, BTreeMap<String, Vec<String>>) {
     let mut back = Vec::new();
+    let mut bodies = BTreeMap::new();
     for component in looping(ids, index, connections) {
         let inside: BTreeSet<&str> = component.iter().map(String::as_str).collect();
         let closes =
@@ -224,11 +250,12 @@ fn back_edges(
         match loop_nodes.first() {
             Some(head) => {
                 back.extend(connections.iter().filter(closes).filter(|c| c.to.node == **head).cloned());
+                bodies.insert((*head).clone(), component.iter().filter(|id| *id != *head).cloned().collect());
             }
             None => errors.push(PlanError::Cycle { path: cycle_path(&component, connections) }),
         }
     }
-    back
+    (back, bodies)
 }
 
 /// The groups of nodes that go round: more than one node reaching each other, or a node

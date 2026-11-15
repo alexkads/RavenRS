@@ -29,8 +29,13 @@ pub enum ErrorPolicy {
     /// The run stops at the node (the default).
     #[default]
     Stop,
-    /// The node gives nothing and the run goes on.
+    /// The run goes on: the items that failed go to the node's error output
+    /// ([`ERROR_PORT`](crate::ERROR_PORT)), the others where they were going, and a node that
+    /// fails as a whole gives nothing.
     Continue,
+    /// Like `Continue`, but a node that fails as a whole sends every item that reached it to
+    /// its error output, with the reason.
+    Route,
 }
 
 /// A port of a node: where a connection starts or ends.

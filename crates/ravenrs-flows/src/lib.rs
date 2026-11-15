@@ -56,20 +56,26 @@
 //! assert_eq!(run.output("filter", "main")[0].from[0].index, 0);
 //! ```
 //!
-//! Not here yet, each in its own issue: loop operators and the other control nodes (#534), a
-//! durable run with a queue and checkpoints (#535), cancellation and time limits (#536), and
-//! the schema of a kind's parameters (#530). A run does not follow the connections that come
-//! back to a loop node ([`Plan::back_connections`]) until the loop operators do.
+//! The built-in kinds are in [`nodes`], all at once in [`Catalog::builtin`]: a manual start,
+//! `if`, `switch`, `merge` (append, by position, by key, first), a loop in batches, and the
+//! nodes that set, filter, sort, group, split and join items. Their conditions and values are
+//! written in the criteria language of `ravenrs-criteria`. A loop node goes round its body
+//! while it sends items into it ([`NodeContext::iteration`], [`Plan::loop_body`]), and items
+//! that fail one by one go to every node's error output, [`ERROR_PORT`].
+//!
+//! Not here yet, each in its own issue: a durable run with a queue and checkpoints (#535),
+//! cancellation and time limits (#536), and the schema of a kind's parameters (#530).
 
 mod catalog;
 mod definition;
 mod graph;
 mod item;
+pub mod nodes;
 mod plan;
 mod run;
 
-pub use catalog::{Catalog, Mode, NodeContext, NodeError, NodeKind, NodeSpec};
+pub use catalog::{Catalog, ERROR_PORT, Mode, NodeContext, NodeError, NodeKind, NodeSpec};
 pub use definition::{Connection, DefinitionError, ErrorPolicy, FORMAT, FlowDefinition, NodeDef, PortRef};
 pub use item::{BinaryRef, Item, ItemRef, Ports};
 pub use plan::{Plan, PlanError};
-pub use run::{Clock, Executor, FixedClock, NodeRun, NodeStatus, Run, RunError, SystemClock};
+pub use run::{Clock, Executor, FixedClock, LOOP_LIMIT, NodeRun, NodeStatus, Run, RunError, SystemClock};
