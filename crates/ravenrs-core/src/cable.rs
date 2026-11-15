@@ -950,8 +950,16 @@ fn plug(at: Point, along: Point, look: &CableLook) -> [Primitive; 2] {
 }
 
 /// Draws `cable` at `points` as shapes, quads and pictures: what every output that
-/// is not the GPU shows.
+/// is not the GPU shows. Its body, then its plugs.
 pub fn cable_primitives(cable: &Cable, points: &[Point]) -> Vec<Primitive> {
+    let mut out = cable_body(cable, points);
+    out.extend(cable_plugs(cable, points));
+    out
+}
+
+/// The body of `cable` at `points` as shapes, without its plugs: to draw the bodies of a
+/// run of cables together and their plugs after, in two draws instead of two a cable.
+pub fn cable_body(cable: &Cable, points: &[Point]) -> Vec<Primitive> {
     let (cable, points) = &in_scene(cable, points);
     let look = &cable.look;
     let mut out = Vec::new();
@@ -997,7 +1005,6 @@ pub fn cable_primitives(cable: &Cable, points: &[Point]) -> Vec<Primitive> {
             )));
         }
     }
-    out.extend(plugs_of(cable, points));
     out
 }
 

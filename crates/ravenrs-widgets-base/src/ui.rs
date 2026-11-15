@@ -2060,7 +2060,7 @@ impl Ui {
     /// points in the scene (or leaves them to the GPU). True while one still moves.
     fn place_cables(&mut self) -> bool {
         use ravenrs_core::Primitive;
-        use ravenrs_core::cable::cable_primitives;
+        use ravenrs_core::cable::{cable_body, cable_plugs};
         let cables: Vec<_> = self
             .scene
             .primitives()
@@ -2091,22 +2091,31 @@ impl Ui {
             primitives.extend(leaving.into_iter().map(|c| Primitive::Cable(Box::new(c))));
         } else if !cables.is_empty() || !leaving.is_empty() {
             let old = std::mem::take(primitives);
+            // In a run of cables the bodies go first and the plugs after, so each kind is
+            // drawn together: two draws for the run, not two a cable.
+            let mut plugs = Vec::new();
             for p in old {
                 match p {
                     Primitive::Cable(c) => {
                         if let Some(points) = world.shape(c.id) {
                             let placed = c.placed(points.clone());
-                            primitives.extend(cable_primitives(&placed, &points));
+                            primitives.extend(cable_body(&placed, &points));
+                            plugs.extend(cable_plugs(&placed, &points));
                         }
                     }
-                    other => primitives.push(other),
+                    other => {
+                        primitives.append(&mut plugs);
+                        primitives.push(other);
+                    }
                 }
             }
             for c in leaving {
                 if let Some(points) = c.points.clone() {
-                    primitives.extend(cable_primitives(&c, &points));
+                    primitives.extend(cable_body(&c, &points));
+                    plugs.extend(cable_plugs(&c, &points));
                 }
             }
+            primitives.append(&mut plugs);
         }
         let moving = world.moving();
         if cables.is_empty() && !moving {

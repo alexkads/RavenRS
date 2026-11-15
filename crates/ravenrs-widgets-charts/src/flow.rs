@@ -2507,6 +2507,8 @@ impl Surface {
         let first = known.is_none();
         let seen = known.get_or_insert_with(Default::default);
         let mut now = std::collections::HashSet::new();
+        // The caps go after every cable, so the cables are drawn together and the caps too.
+        let mut caps_scene = Scene::new();
         for edge in &self.graph.edges {
             let id = cable_id(group, &edge.id);
             let Some(mut cable) = self.graph.edge_cable(edge, id) else { continue };
@@ -2548,12 +2550,13 @@ impl Surface {
                 let (Some(tip), Some(direction)) = (tip, direction) else { continue };
                 let outline = geometry::cap_outline(cap, tip, direction, CAP);
                 if cap.filled() {
-                    fill(scene, outline, color);
+                    fill(&mut caps_scene, outline, color);
                 } else if !outline.is_empty() {
-                    stroke(scene, &geometry::flatten(&outline), width, color);
+                    stroke(&mut caps_scene, &geometry::flatten(&outline), width, color);
                 }
             }
         }
+        scene.extend_from_slice(caps_scene.primitives());
         *seen = now;
     }
 }

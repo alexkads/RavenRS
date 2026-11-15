@@ -102,6 +102,9 @@ struct Readback {
     state: Arc<AtomicU8>,
     /// Which cable was in which slot, with how many points, when it was copied.
     slots: Vec<(u64, u32, usize)>,
+    /// Whether the dispatch it was copied after ran any step: one that ran none moved
+    /// nothing, and its zero says nothing about whether the cables are still.
+    stepped: bool,
 }
 
 struct Inner {
@@ -187,7 +190,9 @@ impl Inner {
                 2 => {
                     if let Ok(bytes) = rb.buffer.slice(..).get_mapped_range() {
                         let moved = u32::from_le_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
-                        self.book.set_moved(moved as f32 / 1000.0);
+                        if rb.stepped {
+                            self.book.set_moved(moved as f32 / 1000.0);
+                        }
                         for &(id, slot, n) in &rb.slots {
                             let at = (POINTS_AT + u64::from(slot) * CABLE_MAX_POINTS as u64 * POINT_BYTES)
                                 as usize;
@@ -248,6 +253,7 @@ impl Inner {
             }),
             state: Arc::new(AtomicU8::new(0)),
             slots: Vec::new(),
+            stepped: false,
         };
         if let Some(i) = self.readbacks.iter().position(free) {
             self.readbacks[i] = fresh;
@@ -328,6 +334,7 @@ impl Inner {
             let counts: HashMap<u64, usize> =
                 self.book.plans().into_iter().map(|p| (p.id, p.points)).collect();
             let rb = &mut self.readbacks[i];
+            rb.stepped = steps > 0;
             rb.slots = self
                 .slots
                 .iter()

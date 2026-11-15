@@ -210,6 +210,9 @@ pub struct Renderer {
     cable_bind: Option<(wgpu::BindGroup, u64, u64)>,
     /// The pictures on cables the GPU draws.
     cable_pictures: CablePictures,
+    /// The plugs of the cables drawn so far in a run of cables, drawn once the run ends:
+    /// the bodies go in one draw call and the plugs in another, instead of two per cable.
+    cable_plugs_pending: Vec<Primitive>,
 }
 
 /// Why the last frame needed more than one draw call.
@@ -502,6 +505,7 @@ impl Renderer {
             cable_look_buffer,
             cable_bind: None,
             cable_pictures: CablePictures::new(device),
+            cable_plugs_pending: Vec::new(),
         }
     }
 
@@ -784,9 +788,28 @@ impl Renderer {
         self.clips.clear();
         self.breaks = BatchBreaks::default();
         self.paths.begin_frame();
+        self.cable_plugs_pending.clear();
         for primitive in scene.primitives() {
+            if !matches!(primitive, Primitive::Cable(_)) {
+                self.flush_cable_plugs(scale, skip_missing)?;
+            }
             self.push_primitive(primitive, scale, skip_missing)?;
         }
+        self.flush_cable_plugs(scale, skip_missing)
+    }
+
+    /// Draws the plugs held back for the run of cables that just ended.
+    fn flush_cable_plugs(&mut self, scale: f32, skip_missing: bool) -> Result<(), AtlasFull> {
+        if self.cable_plugs_pending.is_empty() {
+            return Ok(());
+        }
+        let plugs = std::mem::take(&mut self.cable_plugs_pending);
+        for primitive in &plugs {
+            self.push_primitive(primitive, scale, skip_missing)?;
+        }
+        // Keep the allocation for the next run.
+        self.cable_plugs_pending = plugs;
+        self.cable_plugs_pending.clear();
         Ok(())
     }
 
@@ -894,9 +917,14 @@ impl Renderer {
                 let item = self.cable_looks.len() as u32;
                 self.cable_looks.push(look);
                 self.extend_batch(BatchKind::Cables, item * CABLE_SEGMENTS, (item + 1) * CABLE_SEGMENTS);
-                cable_plugs(cable, &points)
+                self.cable_plugs_pending.extend(cable_plugs(cable, &points));
+                return Ok(());
             }
-            None => cable_primitives(cable, &points),
+            None => {
+                // Drawn as shapes: the plugs of the cables before it go first, in order.
+                self.flush_cable_plugs(scale, skip_missing)?;
+                cable_primitives(cable, &points)
+            }
         };
         for primitive in &extra {
             self.push_primitive(primitive, scale, skip_missing)?;

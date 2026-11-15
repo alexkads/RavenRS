@@ -684,4 +684,27 @@ mod cables {
             assert!(close(a, b, 40), "gpu {a:?} and shapes {b:?} at {dy}");
         }
     }
+
+    #[test]
+    fn a_frame_with_no_step_due_does_not_stop_the_gpu_cables() {
+        let Some(gpu) = gpu() else { return };
+        let Some(mut on_gpu) = GpuCables::new(&gpu.device, &gpu.queue) else { return };
+        let mut on_cpu = CpuCables::new();
+        // A new cable drops from its start: it is moving for a good while.
+        let c = cable();
+        for _ in 0..10 {
+            for world in [&mut on_gpu as &mut dyn CableWorld, &mut on_cpu] {
+                world.sync(std::slice::from_ref(&c), view(), false);
+                world.step(1.0 / 120.0);
+                // Frames come faster than the steps: this one runs none.
+                world.step(0.0);
+            }
+            on_gpu.finish();
+        }
+        assert!(on_cpu.moving(), "the cpu world still swings");
+        assert!(
+            on_gpu.moving(),
+            "and so does the gpu one: a frame with no step moved nothing, it did not stop"
+        );
+    }
 }
