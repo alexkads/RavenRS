@@ -412,8 +412,9 @@ fn a_declared_action_asks_sets_and_keeps_with_no_code() {
     c.select("ActionDemo", 2.0);
     c.run("DemoDeclared", ActionInput::None);
     assert!(c.says("Fechar e dobrar o valor dos selecionados?"), "it asks first");
-    // #160: it can be changed again, so the question is plain, not the one of deleting.
-    assert!(c.says("Confira antes de continuar."), "{:?}", c.texts());
+    // #160: it can be changed again, so the question is plain, not the one of deleting, and it
+    // says what its model says besides.
+    assert!(c.says("O valor dobra e a situação passa a Fechado"), "{:?}", c.texts());
     assert!(!c.says("Não será possível desfazer"), "{:?}", c.texts());
     c.press("Fechar e dobrar");
     assert!(c.session().error().is_none(), "{:?}", c.session().error());
@@ -1444,4 +1445,592 @@ impl Center {
         self.settle();
         self.ui.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some(name))
     }
+}
+
+// Framework: storage and server (fork A).
+
+#[test]
+fn a_database_in_memory_comes_back_from_its_storage_and_goes_out_as_json() {
+    let mut c = Center::memory("ana");
+    c.press("Banco em memória");
+    c.press("Acrescentar anotação");
+    assert!(c.says("Anotação 1 gravada no armazenamento"), "{:?}", c.texts());
+    c.press("Abrir de novo");
+    assert!(c.says("Reaberto: 1 anotações voltaram do armazenamento"), "{:?}", c.texts());
+    c.press("Exportar JSON");
+    assert!(c.says("JSON exportado"), "{:?}", c.texts());
+    c.press("Trocar pela cópia de fora");
+    assert!(c.says("Anotações: Da matriz, Da filial"), "{:?}", c.texts());
+    c.press("Importar o exportado");
+    assert!(c.says("Importou 1 registros"), "{:?}", c.texts());
+    assert!(c.says("Anotações: Anotação 1"), "back as it was exported: {:?}", c.texts());
+    c.press("Gravar num disco cheio");
+    assert!(c.says("O armazenamento recusou: o disco está cheio"), "{:?}", c.texts());
+}
+
+#[test]
+fn a_backup_is_made_checked_restored_and_refused_by_another_tenant() {
+    let mut c = Center::memory("ana");
+    c.press("Cópias de segurança");
+    c.press("Acrescentar contato");
+    c.press("Fazer backup");
+    assert!(c.says("Backup 1 feito e conferido: contatos: 1"), "{:?}", c.texts());
+    c.press("Conferir o backup");
+    assert!(c.says("Backup de Raven Centro de Recursos, filial matriz, versão"), "{:?}", c.texts());
+    c.press("Acrescentar contato");
+    assert!(c.says("Contatos: 2"));
+    c.press("Restaurar o backup");
+    assert!(c.says("Restaurado (contatos: 1)"), "{:?}", c.texts());
+    assert!(c.says("Contatos: 1"), "the one added after the backup is gone");
+    c.press("Guardar uma cópia");
+    c.press("Guardar uma cópia");
+    c.press("Guardar uma cópia");
+    c.press("Guardar uma cópia");
+    assert!(c.says("Cópias guardadas: 3"), "no more than three stay: {:?}", c.texts());
+    c.press("Restaurar na filial");
+    assert!(c.says("A filial recusou"), "{:?}", c.texts());
+    let _ = std::fs::remove_dir_all(feature_center::framework::infra::copias::folder());
+}
+
+#[test]
+fn a_table_of_an_older_system_is_read_and_written_through_the_model() {
+    let mut c = Center::memory("ana");
+    c.press("Mapeamento SQL");
+    assert!(
+        c.says("Ana Lima (PE, 8 letras)"),
+        "trimmed after reading, counted by the database: {:?}",
+        c.texts()
+    );
+    assert!(c.says("o nome do primeiro tem 12 caracteres"), "kept as it was in the table: {:?}", c.texts());
+    c.press("Gravar cliente com uf minúscula");
+    assert!(c.says("Gravou Caio Dias; na tabela, uf = PE"), "{:?}", c.texts());
+    c.press("Repetir uma etiqueta");
+    assert!(c.says("O banco recusou a segunda"), "{:?}", c.texts());
+}
+
+#[test]
+fn postgres_checks_before_the_network_and_postgrest_reads_page_by_page() {
+    let mut c = Center::memory("ana");
+    c.press("Postgres e PostgREST");
+    assert!(c.says("sem RAVEN_POSTGRES_URL"), "{:?}", c.texts());
+    c.press("Conferir um endereço errado");
+    assert!(c.says("Recusado antes da rede: the database address could not be read"), "{:?}", c.texts());
+    c.press("Conferir um certificado errado");
+    assert!(c.says("a certificate authority could not be read"), "{:?}", c.texts());
+    c.press("Ler pela API");
+    assert!(c.says("Leu 3 em 3 pedidos de 2: Café, Açúcar, Leite"), "{:?}", c.texts());
+    assert!(c.says("Esquema: loja"), "{:?}", c.texts());
+    c.press("Ler com token fixo");
+    assert!(c.says("Authorization"), "{:?}", c.texts());
+    c.press("Gravar nome repetido");
+    assert!(c.says("O servidor recusou"), "{:?}", c.texts());
+}
+
+#[test]
+fn the_api_signs_in_with_a_code_takes_a_signed_payment_and_sends_its_event_once() {
+    let mut c = Center::memory("ana");
+    c.press("Integrações");
+    c.press("Pedidos pendentes");
+    assert!(c.says("Entre antes"));
+    c.press("Entrar com o código");
+    assert!(c.says("Entrou (200)"), "{:?}", c.texts());
+    c.press("Pedidos pendentes");
+    assert!(c.says("200: 2 pedidos pendentes, para integra"), "{:?}", c.texts());
+    c.press("Ler os eventos pela API");
+    assert!(c.says("404: os eventos ficam fora da API"), "{:?}", c.texts());
+    for _ in 0..3 {
+        c.press("Entrar com código errado");
+        assert!(c.says("401: o código não confere"), "{:?}", c.texts());
+    }
+    c.press("Entrar com código errado");
+    assert!(c.says("429"), "a fourth try in a minute is refused: {:?}", c.texts());
+    c.press("Receber aviso falso");
+    assert!(c.says("401: a assinatura não confere"), "{:?}", c.texts());
+    c.press("Receber pagamento assinado");
+    assert!(c.says("200: pedido 1 pago"), "{:?}", c.texts());
+    assert!(c.says("Pedidos: 1 de 2 pagos"));
+    c.press("Pedidos pagos");
+    assert!(c.says("200: 1 pagos (Mercado Boa Vista)"), "filtered by the query string: {:?}", c.texts());
+    assert!(c.says("Evento pedido.pago versão 2: pending"), "{:?}", c.texts());
+    c.press("Receber pagamento assinado");
+    assert!(c.says("aviso repetido, nada mudou"), "{:?}", c.texts());
+
+    c.press("ERP fora do ar");
+    c.press("Enviar eventos");
+    assert!(c.says("0 confirmados, 1 para tentar de novo"), "{:?}", c.texts());
+    c.press("ERP fora do ar");
+    c.press("Enviar como integra");
+    assert!(c.says("1 esperando"), "not again before the backoff: {:?}", c.texts());
+    c.press("Enviar daqui a um minuto");
+    assert!(c.says("1 confirmados"), "{:?}", c.texts());
+    assert!(c.says("O ERP recebeu: matriz/pedido-1"), "{:?}", c.texts());
+    c.press("Enviar daqui a um minuto");
+    assert!(c.says("0 confirmados, 0 para tentar de novo, 0 esperando"), "never twice: {:?}", c.texts());
+}
+
+#[test]
+fn the_center_s_own_api_has_an_endpoint_run_as_whoever_calls() {
+    use ravenrs_app_server::ApiRequest;
+    use serde_json::json;
+    let mut api = feature_center::api_service(None).expect("it starts");
+    let mut token_of = |name: &str| {
+        let body = json!({ "name": name, "password": PASSWORD });
+        let answer = api.handle(ApiRequest::new("POST", "/api/auth/token").json(&body));
+        answer.body["token"].as_str().expect("a token").to_owned()
+    };
+    let (bia, caio) = (token_of("bia"), token_of("caio"));
+    let answer = api.handle(ApiRequest::new("POST", "/api/run/contagem").bearer(&bia));
+    assert_eq!(answer.body["documentos"], 3, "{answer:?}");
+    let answer = api.handle(ApiRequest::new("POST", "/api/run/contagem").bearer(&caio));
+    assert_eq!(answer.body["documentos"], 2, "caio does not see what is of ana");
+    assert_eq!(answer.body["quem"], "caio");
+}
+
+// Framework: ready-made modules (fork B).
+
+impl Center {
+    /// Waits for work that runs out of the way of the screens, such as a note at the sandbox.
+    fn wait_for(&mut self, text: &str) -> bool {
+        for _ in 0..400 {
+            if self.says(text) {
+                return true;
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+        false
+    }
+}
+
+#[test]
+fn the_point_of_sale_scans_keeps_charges_issues_prints_and_swaps_the_note() {
+    let mut c = Center::memory("ana");
+    c.press("PDV de exemplo");
+    c.press("Passar arroz");
+    c.press("Passar 3 leites");
+    assert!(c.says("Itens: 2 · Total: R$ 44,37"), "27,90 + 3 x 5,49: {:?}", c.texts());
+    c.press("Passar código errado");
+    assert!(c.says("Problema: Produto 999 não encontrado."), "{:?}", c.texts());
+    c.press("Cancelar último");
+    assert!(c.says("Itens: 1"));
+    c.press("Guardar venda");
+    assert!(c.says("Vendas guardadas: 1") && c.says("Itens: 0"), "{:?}", c.texts());
+    c.press("Retomar a guardada");
+    assert!(c.says("Retomou: 1 itens") && c.says("Vendas guardadas: 0"), "{:?}", c.texts());
+    c.press("Avançar (F9)");
+    assert!(c.says("Tela: Pagando"));
+    c.press("Voltar (Esc)");
+    assert!(c.says("Tela: Vendendo"));
+    c.press("Voltar (Esc)");
+    assert!(c.says("Nada para voltar."));
+    c.press("Cancelar venda");
+    assert!(c.says("Itens: 0"));
+
+    c.press("Passar arroz");
+    c.press("Cobrar no débito com pergunta");
+    assert!(c.says("o provedor pergunta"), "{:?}", c.texts());
+    c.press("Responder a primeira opção");
+    assert!(c.wait_for("Nota 1 autorizada"), "{:?}", c.texts());
+    c.press("Imprimir o cupom");
+    assert!(c.says("TOTAL R$ 27,90") && c.says("Cartão de débito"), "the receipt itself: {:?}", c.texts());
+    c.press("Fechar");
+    assert!(c.says("Cupom na tela"), "{:?}", c.texts());
+    c.press("Trocar por nota grande");
+    assert!(c.wait_for("Ver o DANFE"), "the NFC-e canceled and a NF-e issued: {:?}", c.texts());
+    assert!(c.says("Nota grande (NF-e, A4)") && c.says("Consumidor 11444777000161"), "{:?}", c.texts());
+    c.press("Conferir pagamentos pendentes");
+    assert!(c.says("Pagamento pendente resolvido"), "the one left by an earlier session: {:?}", c.texts());
+}
+
+#[test]
+fn a_request_goes_step_by_step_once_and_a_lent_role_decides_only_for_its_hour() {
+    let mut c = Center::memory("ana");
+    c.press("Solicitações");
+    assert!(
+        c.says("Etapas: Gerência aprova (Gerência, prazo de 24 h) → Diretoria aprova"),
+        "{:?}",
+        c.texts()
+    );
+    assert!(c.says("Entidades do pacote: Request, Decision, RequestTask, Delegation"));
+    c.press("Ana pede um notebook");
+    assert!(c.says("Solicitação 1: Notebook para o caixa (manager)"), "{:?}", c.texts());
+    assert!(c.says("Caixa de entrada de bia: 1"));
+    c.press("Ana tenta aprovar");
+    assert!(c.says("ana foi recusado"), "{:?}", c.texts());
+    c.press("Bia aprova");
+    assert!(c.says("bia aprovou; agora: board"), "{:?}", c.texts());
+    c.press("Bia aprova de novo");
+    assert!(c.says("já estava registrada"), "{:?}", c.texts());
+    assert!(c.says("Eventos na caixa de saída: 1"), "the event of the decision, once");
+    assert!(c.says("Caixa de entrada de caio: 1"));
+    c.press("Caio aprova como diretoria");
+    assert!(c.says("Solicitação 1: Notebook para o caixa (approved)"), "{:?}", c.texts());
+
+    c.press("Bia empresta a Gerência a Caio");
+    assert!(c.says("Caio decide como: Diretoria, Gerência; emprestado: Gerência (lent)"), "{:?}", c.texts());
+    c.press("Ana pede um notebook");
+    c.press("Caio aprova como gerência");
+    assert!(c.says("caio aprovou; agora: board"), "{:?}", c.texts());
+    c.press("Ana pede um notebook");
+    c.press("Passar duas horas");
+    assert!(c.says("Caio decide como: Diretoria; emprestado: nada"), "{:?}", c.texts());
+    c.press("Caio aprova como gerência");
+    assert!(c.says("caio foi recusado"), "the loan is over: {:?}", c.texts());
+}
+
+#[test]
+fn the_catalog_of_texts_tells_its_own_from_english_and_takes_texts_on_top() {
+    let mut c = Center::memory("ana");
+    c.press("Catálogo de textos");
+    assert!(c.says("Idiomas: ") && c.says("pt-BR"), "{:?}", c.texts());
+    assert!(c.says("Faltam em pt-BR: "));
+    assert!(c.says("center.hello: próprio do pt-BR nenhum; com o inglês por trás nenhum"), "{:?}", c.texts());
+    c.press("Juntar o JSON do centro");
+    assert!(c.says("ui.refresh: próprio do pt-BR Recarregar"), "{:?}", c.texts());
+    assert!(c.says("center.hello: próprio do pt-BR Olá, {0}!"), "{:?}", c.texts());
+    c.press("Juntar o JSON errado");
+    assert!(c.says("Recusado, nada mudou"), "{:?}", c.texts());
+    c.press("Juntar o catálogo próprio");
+    assert!(c.says("center.bye: próprio do pt-BR Até logo!"));
+    assert!(
+        c.says("center.only_english: próprio do pt-BR nenhum; com o inglês por trás Only in English"),
+        "{:?}",
+        c.texts()
+    );
+    c.press("Pôr um texto");
+    assert!(c.says("ui.refresh: próprio do pt-BR Ler de novo"));
+    c.press("Recomeçar");
+    assert!(c.says("center.bye: próprio do pt-BR nenhum"));
+}
+
+#[test]
+fn the_accessibility_audit_runs_from_the_center_over_a_shop_put_together_in_code() {
+    let mut c = Center::memory("ana");
+    c.press("Auditoria de acessibilidade");
+    c.press("Listar os itens");
+    assert!(c.says("Itens da navegação: ") && c.says("Produtos do caixa"), "{:?}", c.texts());
+    let left_out = c.texts().into_iter().find(|t| t.starts_with("Deixando de fora")).expect("the line");
+    assert!(!left_out.trim_start_matches("Deixando de fora Produtos do caixa").contains("Produtos do caixa"));
+    c.press("Só a tela de abertura");
+    assert!(c.says("A tela de abertura: ") && c.says("em 1 telas (abertura)"), "{:?}", c.texts());
+    c.press("Sem passar o Tab");
+    assert!(c.says("A tela de abertura, sem o Tab: "), "{:?}", c.texts());
+    c.press("Auditar um item");
+    assert!(c.says("Produtos do caixa: "), "{:?}", c.texts());
+    c.press("Auditar a loja inteira");
+    assert!(c.says("A loja inteira, com o tema claro e o Novo de cada tela: "), "{:?}", c.texts());
+    assert!(c.says("Vendas da loja > Novo"), "it pressed Novo on each screen: {:?}", c.texts());
+}
+
+#[test]
+fn modules_are_put_together_by_their_manifests_or_refused_saying_why() {
+    let mut c = Center::memory("ana");
+    c.press("Módulos e manifestos");
+    assert!(c.says("Montada: "), "{:?}", c.texts());
+    assert!(c.says("Vendas da loja"), "an entity of a Rust struct");
+    assert!(c.says("Estoque 2.1.0 · roda em [Desktop, Server]"), "{:?}", c.texts());
+    assert!(c.says("papel Estoquistas · migração estoque-001-saldos · tarefa estoque.recontagem"));
+    assert!(c.says("Etiquetas 1.0.0 · aceita Estoque"), "{:?}", c.texts());
+    assert!(c.says("Serviço dado às Actions: margem de 30 %"));
+    for refused in ["Rodar na Web", "Usar Postgres", "Tirar events.status", "Estoque na versão 3"] {
+        c.press(refused);
+        assert!(c.says("Recusada ao montar"), "{refused}: {:?}", c.texts());
+        c.press(refused);
+        assert!(c.says("Montada: "), "{refused} undone");
+    }
+    c.press("Desligar Etiquetas");
+    assert!(c.says("Desligado, só para ler: ShelfLabel"), "{:?}", c.texts());
+}
+
+#[test]
+fn the_ready_made_organizations_tasks_notes_and_files_keep_their_rules() {
+    let mut c = Center::memory("ana");
+    c.press("Organizações");
+    c.run("New", ActionInput::None);
+    c.save();
+    assert_eq!(c.count("Organization"), 0, "a name is required");
+    c.set("name", "Raven Ltda");
+    c.save();
+    assert_eq!(c.count("Organization"), 1, "{:?}", c.session().error());
+    c.press("Tarefas");
+    c.run("New", ActionInput::None);
+    c.set("subject", "Conferir o estoque");
+    c.set("percent_done", 150.0);
+    c.save();
+    assert_eq!(c.count("Task"), 0, "no more than 100 %");
+    c.set("percent_done", 50.0);
+    c.save();
+    assert_eq!(c.count("Task"), 1, "{:?}", c.session().error());
+    c.press("Anotações");
+    c.run("New", ActionInput::None);
+    c.set("title", "Ligar para o fornecedor");
+    c.save();
+    assert_eq!(c.count("Note"), 1, "{:?}", c.session().error());
+    c.press("Arquivos");
+    c.run("New", ActionInput::None);
+    c.set("name", "contrato.pdf");
+    c.save();
+    assert_eq!(c.count("FileRecord"), 0, "a file record needs its file");
+}
+
+#[test]
+fn a_panel_declared_over_a_struct_adds_up_its_sales() {
+    let mut c = Center::memory("ana");
+    c.press("Vendas da loja");
+    assert!(c.says("Sabão em pó"), "the records the module put in place: {:?}", c.texts());
+    c.press("Vendas por mês");
+    for shown in [
+        "Total vendido",
+        "Mercearia: 64.59, Limpeza: 22.39, Bebidas: 18.49",
+        "2026-09: 36.69, 2026-10: 31.39, 2026-11: 37.39",
+        "Arroz 5 kg: 55.8",
+    ] {
+        assert!(c.says(shown), "{shown}: {:?}", c.texts());
+    }
+}
+
+// Framework: the model in code, security and screens put together in code.
+
+#[test]
+fn the_model_inside_says_what_code_reads_of_it() {
+    let mut c = Center::memory("ana");
+    c.press("O modelo por dentro");
+    for shown in [
+        "ValidationRules, conferida: sem problemas",
+        "O campo age se chama Idade, de 18 a 65",
+        "idade",
+        "Uma entidade sem chave, conferida: SemChave",
+    ] {
+        assert!(c.says(shown), "{shown}: {:?}", c.texts());
+    }
+    c.press("Calculados");
+    for shown in [
+        "parcela 100",
+        "Sem o que veio por caminho: amount, installment, months",
+        "Como fica guardado, sem o calculado: amount, months",
+        "Só com o valor: amount",
+    ] {
+        assert!(c.says(shown), "{shown}: {:?}", c.texts());
+    }
+    c.press("Aparência");
+    assert!(
+        c.says("Na lista, o nome do atrasado: texto Accent, fundo Warning, negrito sim"),
+        "{:?}",
+        c.texts()
+    );
+    assert!(
+        c.says("No formulário, o nome do atrasado: texto Danger, fundo nenhuma, negrito sim"),
+        "{:?}",
+        c.texts()
+    );
+    c.press("Actions declaradas");
+    for shown in [
+        "tem o id FieldPlacesDemo.Arquivar e vira a Action Arquivar, que pergunta Arquivar os selecionados?",
+        "Alcance só nas listas de Tipos de Action, na lista: sim",
+        "Alcance só nas listas de Tipos de Action, no formulário: não",
+        "Alcance só nas listas de Tipos de Action, dentro de outro: não",
+        "Alcance só na lista de Variantes, nela: sim",
+        "Alcance só na lista de Variantes, em Regras: não",
+    ] {
+        assert!(c.says(shown), "{shown}: {:?}", c.texts());
+    }
+    c.press("Nós do modelo");
+    assert!(
+        c.says("Validação, na ordem da navegação: Regras, Avisos e informações, Ao sair do campo"),
+        "{:?}",
+        c.texts()
+    );
+    assert!(c.says("índice 3, visível não, índice como texto 3"), "{:?}", c.texts());
+    c.press("Consulta");
+    assert!(c.says("Tarefas da mais cara para a mais barata: "), "{:?}", c.texts());
+    assert!(!c.says("(7 campos lidos)"), "only what was asked for: {:?}", c.texts());
+}
+
+#[test]
+fn a_rule_of_a_context_stops_only_the_action_that_asks_for_it() {
+    let mut c = Center::memory("ana");
+    c.press("Regras");
+    c.open_list("ValidationRules");
+    c.select("ValidationRules", 2.0);
+    c.run("DemoSend", ActionInput::None);
+    assert!(c.says("Para enviar, Outro precisa de um e-mail"), "{:?}", c.texts());
+    assert!(!c.says("Enviado para"), "it did not run");
+    c.select("ValidationRules", 1.0);
+    c.run("DemoSend", ActionInput::None);
+    assert!(c.says("Enviado para ana@exemplo.com."), "{:?}", c.texts());
+    c.open_record("ValidationRules", 2.0);
+    c.set("code", "");
+    c.save();
+    assert!(
+        c.says("O código é uma letra maiúscula e números"),
+        "an empty code is refused too: {:?}",
+        c.texts()
+    );
+    assert_eq!(c.stored("ValidationRules", 2.0).get("code"), Value::Text("B2".into()));
+}
+
+#[test]
+fn each_field_goes_where_the_model_says() {
+    let mut c = Center::memory("ana");
+    c.press("Onde cada campo aparece");
+    assert!(c.says("Clínica Boa Vista") && c.says("Laboratório Sul"), "{:?}", c.texts());
+    assert!(!c.says("Filial fechada"), "the list leaves out what is archived");
+    assert!(
+        c.has_name("Visitas") && !c.has_name("Contato interno"),
+        "a column only on the list: {:?}",
+        c.texts()
+    );
+    assert!(!c.says("chave-que-ninguem-ve"), "a secret shows nowhere");
+    c.session().open_detail("FieldPlacesDemo", &Value::Text("C-01".into()));
+    c.settle();
+    assert!(c.says("Contato interno: Bia"), "on the form: {:?}", c.texts());
+    assert!(!c.has_name("Chave de integração") && !c.says("chave-que-ninguem-ve"), "{:?}", c.texts());
+    assert!(!c.has_name("Visitas"), "and one only on the list is not on the form");
+    assert_eq!(
+        c.focused().as_deref().map(|name| name.starts_with("Nome")),
+        Some(true),
+        "the name takes the keyboard"
+    );
+    let places = c.session().entity("FieldPlacesDemo").expect("there");
+    assert_eq!(places.form_columns, Some(2));
+    let editors = c.session().entity("EditorsDemo").expect("there");
+    let document = editors.field_named("document").expect("there");
+    assert_eq!(
+        (document.accepted.clone(), document.most_bytes),
+        (vec!["pdf".to_owned(), "txt".to_owned()], Some(1_000_000))
+    );
+
+    c.open_list("RelationOwner");
+    c.select("RelationOwner", 1.0);
+    c.run("CloneObject", ActionInput::None);
+    c.save();
+    let owners = (c.space)().query("RelationOwner", &Query::all()).expect("reads");
+    let numbers: Vec<Value> = owners.iter().map(|owner| owner.get("number")).collect();
+    assert!(
+        numbers.contains(&Value::Text("PED-0001".into()))
+            && numbers.iter().any(|number| *number != Value::Text("PED-0001".into())),
+        "the number stays behind: {numbers:?}"
+    );
+}
+
+#[test]
+fn the_appearance_and_the_report_that_come_with_the_application() {
+    let mut c = Center::memory("ana");
+    c.press("Regras de aparência");
+    assert!(c.says("Atrasado"));
+    c.press("Relatórios");
+    assert!(c.says(feature_center::seed::PEOPLE_REPORT), "the module put it there: {:?}", c.texts());
+    let bia = &mut Center::memory("bia");
+    bia.open_list("SecuredDocument");
+    bia.select("SecuredDocument", 3.0);
+    let delete = bia.session().frame().action("Delete").expect("there");
+    assert!(!delete.is_enabled(), "Vendas never deletes a document, even her own");
+}
+
+#[test]
+fn a_company_login_lets_lia_in_and_her_session_answers_in_code() {
+    let database = memory_database().unwrap_or_else(|why| panic!("{why}"));
+    let mut door = Center::at_the_door(Rc::new(move || Box::new(database.space()) as Box<dyn ObjectSpace>));
+    assert!(
+        door.says("Quem pode entrar"),
+        "the center's door has who can sign in beside it: {:?}",
+        door.texts()
+    );
+
+    let mut c = Center::memory("ana");
+    c.press("Entrada pela empresa");
+    assert!(c.says("Empresa Exemplo"), "the portal's own aside: {:?}", c.texts());
+    c.press("Voltar à escolha da empresa");
+    assert!(c.says("Voltou à escolha da empresa"), "{:?}", c.texts());
+    c.type_into("Nome", "rui@outra");
+    c.type_into("Senha", "x");
+    c.press("Entrar");
+    assert!(!c.says("Manutenção do prédio"), "another company's issuer is not taken");
+    c.press("Preencher a Lia");
+    c.press("Entrar");
+    assert!(c.says("Manutenção do prédio"), "in, by the company's login: {:?}", c.texts());
+
+    c.press("Entrar pela empresa");
+    assert!(c.says("Entrou lia pela empresa, com Gerência e Contratos"), "{:?}", c.texts());
+    c.press("O que ela pode");
+    assert!(c.says("Gerência (não administra)"), "{:?}", c.texts());
+    assert!(c.says("Muda o modelo: sim. Lê contratos: sim. Apaga contratos: não."), "{:?}", c.texts());
+    c.press("Apagar um contrato");
+    assert!(c.says("Recusado: A Gerência não apaga contratos."), "{:?}", c.texts());
+    c.press("Trocar a própria senha");
+    assert!(c.says("Senha trocada; a trilha tem 1 anotações."), "{:?}", c.texts());
+    c.press("Trocar a própria senha");
+    assert!(c.says("Não trocou"), "the current one changed: {:?}", c.texts());
+    c.press("Dar senha provisória ao Rui");
+    assert!(c.says("Só quem administra dá senha"), "{:?}", c.texts());
+    c.press("Desligar o login da empresa");
+    c.press("Recarregar a sessão");
+    assert!(c.says("Papéis: nenhum"), "unlinked, she keeps nothing: {:?}", c.texts());
+}
+
+#[test]
+fn an_application_in_code_has_its_brand_counts_controls_and_records_from_elsewhere() {
+    let mut c = Center::memory("ana");
+    c.press("Aplicação em código");
+    for shown in ["Clínica Vida", "Unidade Centro", "3 consultas hoje"] {
+        assert!(c.says(shown), "{shown}: {:?}", c.texts());
+    }
+    c.press("Consultas de hoje");
+    assert!(c.says("Paula Nunes"), "records no storage keeps: {:?}", c.texts());
+    c.press("Pacientes");
+    assert!(c.says("Marta Reis"), "{:?}", c.texts());
+    c.activate("Visão");
+    c.activate("Fichas");
+    assert!(c.says("Ficha de Marta Reis"), "the list editor of the variant: {:?}", c.texts());
+    c.press("Abrir");
+    assert!(c.says("Exame de rotina"), "visits from elsewhere: {:?}", c.texts());
+    assert!(c.has_name("4 de 5"), "the stars control: {:?}", c.texts());
+    c.press("Banco feito do modelo");
+    assert!(c.says("banco feito das entidades do modelo"), "{:?}", c.texts());
+    c.press("Pacientes");
+    assert!(c.says("Otávio Lima"), "the same clinic, kept another way: {:?}", c.texts());
+}
+
+#[test]
+fn a_window_by_hand_hands_over_files_and_shows_only_what_can_be_done() {
+    let mut c = Center::memory("ana");
+    c.press("Janela montada à mão");
+    assert!(c.says("Luvas") && c.says("Almoxarifado"), "{:?}", c.texts());
+    assert!(c.says("1 item sem estoque"), "its count: {:?}", c.texts());
+    let buttons = |c: &mut Center, name: &str| {
+        c.settle();
+        c.ui.access_tree()
+            .nodes
+            .iter()
+            .filter(|n| n.role == Role::Button && n.name.as_deref() == Some(name))
+            .count()
+    };
+    assert_eq!(buttons(&mut c, "Retirar do estoque"), 1, "nothing selected: only the faded one of the bar");
+    c.activate("Selecionar Luvas");
+    assert_eq!(buttons(&mut c, "Retirar do estoque"), 2, "and the button of its own once it can be used");
+    c.press("Abrir no fornecedor");
+    assert!(c.says("entregou o endereço https://fornecedor.exemplo/?item=Luvas"), "{:?}", c.texts());
+    c.press("Exportar os itens");
+    assert!(c.says("A janela entregou itens.csv"), "{:?}", c.texts());
+    c.press("Abrir ou fechar a navegação");
+    assert!(c.says("Navegação fechada."), "{:?}", c.texts());
+}
+
+#[test]
+fn the_pieces_of_a_screen_show_a_list_its_own_way_and_a_pane_keeps_contacts() {
+    let mut c = Center::memory("ana");
+    c.press("Peças de uma tela");
+    assert!(c.says("120 un."), "the cell in the screen's words: {:?}", c.texts());
+    assert!(c.says("Aventais, chegando hoje"), "a list from elsewhere: {:?}", c.texts());
+    let columns = |c: &mut Center, name: &str| {
+        c.settle();
+        c.ui.access_tree().nodes.iter().filter(|n| n.name.as_deref() == Some(name)).count()
+    };
+    assert_eq!(columns(&mut c, "Unidade"), 1, "the same on every row, so only the deliveries have it");
+    c.press("Cadastrar");
+    assert!(c.says("O painel recusou"), "{:?}", c.texts());
+    c.type_into("Nome", "Zeca");
+    c.type_into("Telefone", "81 9999");
+    c.press("Cadastrar");
+    assert!(c.says("O painel avisou"), "{:?}", c.texts());
+    assert!(c.says("\u{260e} 81 9999"), "{:?}", c.texts());
 }

@@ -1114,9 +1114,28 @@ impl View for TextArea {
         let indent = code.as_ref().map_or(0, |c| c.indent);
         let complete = code.as_ref().and_then(|c| c.on_complete.clone());
         let offered_count = offered.len();
+        // Tab indents code, so Escape and then Tab leave the editor, as in most code editors:
+        // the keyboard is never held inside it.
+        let released = cx.use_state(|| false);
         cx.on_key(
             node,
             Rc::new(move |key, modifiers| {
+                // Nothing to indent where nothing can be typed: Tab moves on.
+                if *key == Key::Tab && !state.accepts_input() {
+                    return false;
+                }
+                if indent > 0 {
+                    if *key == Key::Escape && offered_count == 0 {
+                        released.set(true);
+                        return false;
+                    }
+                    if released.get() {
+                        released.set(false);
+                        if *key == Key::Tab {
+                            return false;
+                        }
+                    }
+                }
                 let caret_now = cursor.get().caret.min(value.get().chars().count());
                 if *key == Key::Function(12)
                     && let Some(go) = &go_to

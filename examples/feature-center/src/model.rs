@@ -2,8 +2,8 @@
 
 use ravenrs_app::BusinessObject;
 use ravenrs_app::{
-    AppearanceRule, AppearanceTarget, DataAccess, EntityInfo, EnumOption, FieldInfo, FieldKind, ListFilter,
-    RecordAction, Reminder, Rule, StateMachine, Tint, ViewVariant,
+    AppearanceContext, AppearanceRule, AppearanceTarget, DataAccess, EntityInfo, EnumOption, FieldInfo,
+    FieldKind, ListFilter, RecordAction, Reminder, Rule, RuleKind, Severity, StateMachine, Tint, ViewVariant,
 };
 use ravenrs_app_ui::{CALENDAR_EDITOR, CHART_EDITOR, SCHEDULER_EDITOR, TREE_EDITOR};
 use rust_decimal::Decimal;
@@ -50,6 +50,7 @@ fn icon_of(name: &str) -> &'static str {
         "AuditOwner" => "layers",
         "StoreSettings" => "settings",
         "AccessibilityDemo" => "keyboard",
+        "FieldPlacesDemo" => "layout-dashboard",
         _ => "file",
     }
 }
@@ -82,7 +83,8 @@ fn rule_kinds() -> EntityInfo {
         "Regras",
         VALIDATION,
         "Cada campo tem uma regra: obrigatório, único, intervalo, padrão e critério entre campos. \
-         Abra um registro, apague ou troque os valores e salve: a gravação não acontece e cada campo diz o que está errado.",
+         Abra um registro, apague ou troque os valores e salve: a gravação não acontece e cada campo diz o que está errado. \
+         O código não pode ficar vazio, e o e-mail só é exigido para Enviar por e-mail, que confere as regras do contexto Send antes de rodar.",
     )
     .field(title())
     .field(text("code", "Código, único").hint("Ao menos um igual ao de outro registro é recusado"))
@@ -94,8 +96,20 @@ fn rule_kinds() -> EntityInfo {
     .rule(Rule::unique("code"))
     .rule(Rule::range("age", Some(18.0), Some(65.0)))
     .rule(Rule::matches("email", "^[^@ ]+@[^@ ]+$").message("{name}: este e-mail não parece certo"))
+    // A rule of a kind given by hand, which also refuses an empty code.
+    .rule(
+        Rule::on("code", RuleKind::Matches("^[A-Z][0-9]+$".into()))
+            .skip_empty(false)
+            .severity(Severity::Error)
+            .message("O código é uma letra maiúscula e números, como A1"),
+    )
+    // Checked only by what runs in the context Send, not on saving.
+    .rule(Rule::required("email").contexts([SEND_CONTEXT]).message("Para enviar, {name} precisa de um e-mail"))
     .rule(Rule::criteria("ordered", "IsNull([start_day]) Or IsNull([end_day]) Or [end_day] >= [start_day]").message("O fim vem antes do início"))
 }
+
+/// The validation context of the action that sends a record by e-mail.
+pub const SEND_CONTEXT: &str = "Send";
 
 fn soft_rules() -> EntityInfo {
     demo(
@@ -135,13 +149,22 @@ fn appearance() -> EntityInfo {
         "Regras de aparência",
         APPEARANCE,
         "A situação muda como tudo aparece. Atrasado pinta o nome na lista e no formulário, bloqueado impede editar o valor e tira o Excluir, \
-         e sigiloso esconde o campo de observação.",
+         e sigiloso esconde o campo de observação. Só na lista, o atrasado ganha também fundo de alerta e a cor de destaque, \
+         que vence a do formulário por ter prioridade maior.",
     )
     .field(title())
     .field(FieldInfo::new("state", options(&[("ok", "Em dia"), ("late", "Atrasado"), ("locked", "Bloqueado"), ("secret", "Sigiloso")])).caption("Situação"))
     .field(FieldInfo::new("amount", FieldKind::Money).caption("Valor"))
     .field(text("notes", "Observação"))
     .appearance(AppearanceRule::new("late_name", ["name"]).criteria("[state] = 'late'").font(Tint::Danger).bold())
+    .appearance(
+        AppearanceRule::new("late_list", ["name"])
+            .context(AppearanceContext::List)
+            .criteria("[state] = 'late'")
+            .back(Tint::Warning)
+            .font(Tint::Accent)
+            .priority(1),
+    )
     .appearance(AppearanceRule::new("locked_amount", ["amount"]).criteria("[state] = 'locked'").enabled(false))
     .appearance(AppearanceRule::new("secret_notes", ["notes"]).criteria("[state] = 'secret'").visible(false))
     .appearance(
@@ -172,7 +195,8 @@ fn actions() -> EntityInfo {
             .id("DemoDeclared")
             .enabled("[state] = 'open'")
             .set("state = 'closed'; amount = [amount] * 2")
-            .confirm("Fechar e dobrar o valor dos selecionados?"),
+            .confirm("Fechar e dobrar o valor dos selecionados?")
+            .confirm_detail("O valor dobra e a situação passa a Fechado; dá para mudar de novo depois."),
     )
 }
 
@@ -196,8 +220,13 @@ fn all_editors() -> EntityInfo {
     .field(FieldInfo::new("side", options(&[("l", "Esquerda"), ("r", "Direita")])).caption("Lado a lado").editor("Segmented"))
     .field(FieldInfo::new("tags", FieldKind::Tags(vec![EnumOption::new("x", "Urgente"), EnumOption::new("y", "Revisar"), EnumOption::new("z", "Cliente")])).caption("Várias opções"))
     .field(FieldInfo::new("color", FieldKind::Color).caption("Cor"))
-    .field(FieldInfo::new("picture", FieldKind::Image).caption("Imagem"))
-    .field(FieldInfo::new("document", FieldKind::File).caption("Arquivo"))
+    .field(FieldInfo::new("picture", FieldKind::Image).caption("Imagem").most_bytes(2_000_000))
+    .field(
+        FieldInfo::new("document", FieldKind::File)
+            .caption("Arquivo, PDF ou texto de até 1 MB")
+            .accepted(["pdf", "txt"])
+            .most_bytes(1_000_000),
+    )
     .field(FieldInfo::new("rule", FieldKind::Criteria).caption("Critério").criteria_of("EditorsDemo"))
     .field(text("phone", "Máscara").edit_mask("(00) 00000-0000").group("Formatos"))
     .field(text("size", "Valores prontos").predefined(["Pequeno", "Médio", "Grande"]).group("Formatos"))
@@ -289,6 +318,7 @@ fn owner_with_lists() -> EntityInfo {
          ligadas com Vincular e desligadas com Desvincular. O campo Categoria pega só as categorias do tipo escolhido.",
     )
     .field(title())
+    .field(text("number", "Número, fica só no original").non_cloneable())
     .field(FieldInfo::new("kind", options(&[("x", "Tipo X"), ("y", "Tipo Y")])).caption("Tipo"))
     .field(
         FieldInfo::new("category", FieldKind::Reference("RelationCategory".into()))
@@ -315,8 +345,12 @@ fn relation_parts() -> Vec<EntityInfo> {
         plain("RelationLabel", "Etiquetas").field(
             FieldInfo::new("owner_id", FieldKind::Reference("RelationOwner".into())).caption("Pedido"),
         ),
-        plain("RelationCategory", "Categorias")
-            .field(FieldInfo::new("kind", options(&[("x", "Tipo X"), ("y", "Tipo Y")])).caption("Tipo")),
+        // Picking a category shows its kind beside its name.
+        plain("RelationCategory", "Categorias").field(
+            FieldInfo::new("kind", options(&[("x", "Tipo X"), ("y", "Tipo Y")]))
+                .caption("Tipo")
+                .in_lookup(true),
+        ),
     ]
 }
 
@@ -506,6 +540,30 @@ fn accessibility() -> EntityInfo {
     .focus_order(["name", "amount"])
 }
 
+/// Where each field goes: a key people type, columns only on the list or only on the form, a wide
+/// field, a hint in an empty field, the first to take the keyboard, a secret no screen shows, two
+/// columns on the form and a list that leaves out what is archived.
+fn field_places() -> EntityInfo {
+    EntityInfo::new("FieldPlacesDemo")
+        .caption("Onde cada campo aparece")
+        .icon(icon_of("FieldPlacesDemo"))
+        .navigation(EDITORS)
+        .description(
+            "O código é a chave, digitada por quem cadastra. Visitas só aparece na lista, Contato interno só no formulário, \
+             Observações ocupa a linha toda, o Nome mostra um exemplo enquanto está vazio e recebe o teclado ao abrir, \
+             e a Chave de integração não aparece em tela nenhuma. O formulário tem duas colunas, e a lista deixa de fora o arquivado.",
+        )
+        .field(text("code", "Código").typed_key())
+        .field(text("name", "Nome").default_property().placeholder("Ex.: Clínica Boa Vista").autofocus())
+        .field(FieldInfo::new("notes", FieldKind::LongText).caption("Observações").wide())
+        .field(text("internal", "Contato interno").in_list(false))
+        .field(FieldInfo::new("visits", FieldKind::Integer).caption("Visitas").in_detail(false))
+        .field(text("token", "Chave de integração").secret())
+        .field(FieldInfo::new("archived", FieldKind::Boolean).caption("Arquivado").in_list(false))
+        .form_columns(2)
+        .list_criteria("[archived] = False")
+}
+
 /// Every entity of the center that is not from a module.
 pub fn entities() -> Vec<EntityInfo> {
     let mut all = vec![
@@ -515,6 +573,7 @@ pub fn entities() -> Vec<EntityInfo> {
         appearance(),
         actions(),
         all_editors(),
+        field_places(),
         custom_fields(),
         texts(),
         plan(),

@@ -19,10 +19,19 @@ use ravenrs_app_ui::{App, CloneModule, Language, SecuredApp, Session, Words};
 const THEME_EDITOR: &str = "ThemeEditor";
 
 use crate::opening::{Look, Mode, Opening, Speech};
-use crate::{actions, model, seed, widgets};
+use crate::{actions, framework, model, seed, widgets};
 
 fn library() -> LibraryModule {
-    LibraryModule::new().navigation("Registros prontos").person().event().country().address()
+    LibraryModule::new()
+        .navigation("Registros prontos")
+        .person()
+        .organization()
+        .event()
+        .task()
+        .note()
+        .file_record()
+        .country()
+        .address()
 }
 
 /// A function of the application, for a filter on a list to use. Expressions are checked when the
@@ -39,7 +48,8 @@ fn register_is_even() {
 /// The entities storage has to know: the center's, the modules', and the fields the model adds.
 pub fn storage_entities() -> Result<Vec<EntityInfo>, String> {
     register_is_even();
-    let mut builder = Application::builder("Centro").module(library()).module(actions::CenterModule);
+    let mut builder =
+        framework::storage(Application::builder("Centro").module(library()).module(actions::CenterModule));
     for entity in model::entities() {
         builder = builder.entity(entity);
     }
@@ -63,6 +73,7 @@ fn roles() -> Vec<Role> {
         Role::new("Administradores").administrative(),
         Role::new("Vendas")
             .policy(PermissionPolicy::AllowAll)
+            .type_permission(document, [Operation::Delete], Access::Deny)
             .member_permission(document, ["cost"], None, [Operation::Read, Operation::Write], Access::Deny)
             .object_permission(
                 document,
@@ -116,7 +127,11 @@ fn application() -> App {
         .module(actions::CenterModule)
         .module(CloneModule::with_words(Words::pt_br()))
         .module(ReportModule::new("Relatório da lista"))
-        .module(StoredReportsModule::new(words()))
+        .module(StoredReportsModule::new(words()).predefined(
+            seed::PEOPLE_REPORT,
+            "Person",
+            seed::people_report(),
+        ))
         .module(AnalyticsModule::new(words()))
         .administrator_settings(model::CUSTOM_FIELDS)
         .translation("pt-BR", ravenrs_app_library::PT_BR)
@@ -139,6 +154,10 @@ fn application() -> App {
                 .control(page.caption, page.id),
         );
     }
+    for screen in framework::dashboards() {
+        app = app.dashboard(screen);
+    }
+    app = framework::extend(app);
     app.dashboard(
         DashboardInfo::new(model::COUNTER_WINDOW, "Caixa de exemplo")
             .navigation("Balcão")
@@ -153,6 +172,7 @@ fn register_controls(session: &Session) {
     session.register_control(THEME_EDITOR, || Box::new(ThemeEditor::new()) as AnyView);
     session.register_control(model::COUNTER_WINDOW, actions::counter_control());
     widgets::register(session);
+    framework::register(session);
 }
 
 /// The whole center over what `space` makes.
@@ -200,6 +220,7 @@ pub fn opened_as<S: ObjectSpace + 'static>(
     })
     .language(language)
     .audit(audit())
+    .aside(door_aside())
     .seed(seed::seed);
     if opening.mode == Mode::Showcase {
         secured = secured.demo_credentials("ana", seed::PASSWORD).notice(
@@ -210,6 +231,30 @@ pub fn opened_as<S: ObjectSpace + 'static>(
         secured = secured.role(role);
     }
     secured
+}
+
+/// Beside the card at the door, in a wide window: who there is to sign in as.
+fn door_aside() -> impl ravenrs::prelude::View {
+    use ravenrs::prelude::*;
+    let person = |name: &str, does: &str| {
+        Box::new(
+            VStack::new((
+                Text::new(name.to_owned()).style(TextStyle::Headline),
+                Text::new(does.to_owned()).foreground(Semantic::InkMuted),
+            ))
+            .spacing(2.0),
+        ) as AnyView
+    };
+    Card::new(
+        VStack::new(vec![
+            Box::new(Text::new("Quem pode entrar").style(TextStyle::Title)) as AnyView,
+            person("ana", "Administradores: tudo, com a Administração"),
+            person("bia", "Vendas: lê todos os documentos, não vê o custo e só altera os próprios"),
+            person("caio", "Leitura: só lê, e não vê o que é da ana"),
+            Box::new(Text::new(format!("A senha das três contas é {}.", seed::PASSWORD))),
+        ])
+        .spacing(12.0),
+    )
 }
 
 fn language_of(opening: &Opening) -> Language {
@@ -278,6 +323,7 @@ pub fn api_service(file: Option<&std::path::Path>) -> Result<ravenrs_app_server:
         .rule_words(ravenrs_app::RuleWords::pt_br())
         .setting("theme", ravenrs_app_server::SettingAccess::PerPerson)
         .audit(audit());
+    let service = framework::serve(service);
     let mut records = space();
     seed::seed(&mut *records)?;
     records.commit().map_err(wrong)?;

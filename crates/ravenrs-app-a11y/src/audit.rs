@@ -264,10 +264,23 @@ pub fn check_focus(ui: &mut Ui, place: &str) -> Vec<Finding> {
         if windows(&now).iter().any(|w| !opened.contains(w)) {
             return Vec::new();
         }
-        let Some(focus) = now.focus else { break };
+        let Some(mut focus) = now.focus else { break };
+        let mut now = now;
         if before == Some(focus) {
-            let on = now.get(focus).and_then(|n| n.name.clone());
-            return vec![Finding::new(place, Problem::FocusStuck { on })];
+            // A code editor takes Tab to indent and lets go after Escape: try that way out first.
+            press(ui, Key::Escape, Modifiers::default());
+            press(ui, Key::Tab, Modifiers::default());
+            let again = ui.access_tree();
+            match again.focus {
+                Some(moved) if moved != focus => {
+                    focus = moved;
+                    now = again;
+                }
+                _ => {
+                    let on = now.get(focus).and_then(|n| n.name.clone());
+                    return vec![Finding::new(place, Problem::FocusStuck { on })];
+                }
+            }
         }
         before = Some(focus);
         last = now;

@@ -598,6 +598,7 @@ impl View for Playground {
         let code = VStack::new((
             file_tab,
             CodeEditor::new(source.clone())
+                .label(labels.playground_code.clone())
                 .language(self.language)
                 .indent(INDENT)
                 .diagnostics(found.clone())
@@ -660,6 +661,7 @@ impl View for Playground {
             let shown = Binding::new(move || text.clone(), |_: String| {});
             Box::new(
                 CodeEditor::new(shown)
+                    .label(labels.playground_console.clone())
                     .language(CodeLanguage::Plain)
                     .line_numbers(false)
                     .read_only(true)

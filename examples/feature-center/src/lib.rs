@@ -22,6 +22,8 @@ pub mod actions;
 #[cfg(feature = "app")]
 mod centro;
 #[cfg(feature = "app")]
+pub mod framework;
+#[cfg(feature = "app")]
 pub mod model;
 #[cfg(feature = "app")]
 pub mod seed;

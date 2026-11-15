@@ -142,6 +142,18 @@ impl ViewController for Showcase {
                     ));
                     Ok(())
                 }),
+            // The rules of the context Send are checked before it runs: one with no e-mail stops here.
+            Action::simple("DemoSend", "Enviar por e-mail")
+                .target_entity("ValidationRules")
+                .category(ActionCategory::Edit)
+                .selection(Selection::RequireSingle)
+                .validation_contexts([crate::model::SEND_CONTEXT])
+                .on_execute(|cx| {
+                    let to =
+                        cx.selected.first().map(|record| record.get("email").to_text()).unwrap_or_default();
+                    cx.message(Message::new(format!("Enviado para {to}."), MessageKind::Success));
+                    Ok(())
+                }),
             Action::simple("DemoInForm", "Carimbar")
                 .target_entity(ENTITY)
                 .category(ActionCategory::InForm("Tools".into()))

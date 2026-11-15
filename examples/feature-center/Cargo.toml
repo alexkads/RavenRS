@@ -28,6 +28,15 @@ app = [
     "dep:tokio",
     "dep:ravenrs-app-sqlite",
     "dep:rusqlite",
+    "dep:ravenrs-app-sql",
+    "dep:ravenrs-app-requests",
+    "dep:ravenrs-app-a11y",
+    "dep:ravenrs-app-pos",
+    "dep:ravenrs-app-postgres",
+    "dep:ravenrs-app-postgrest",
+    "dep:ravenrs-app-nfe",
+    "dep:ravenrs-pagamento",
+    "dep:ravenrs-pos",
 ]
 # The pages of the components, every feature of each.
 widgets = []
@@ -36,13 +45,18 @@ playground = ["dep:component-gallery"]
 
 [dependencies]
 serde_json.workspace = true
-ravenrs.workspace = true
+# `code` brings the CodeEditor and the Playground of the page Editor de código.
+ravenrs = { workspace = true, features = ["code"] }
 ravenrs-widgets.workspace = true
-ravenrs-app = { workspace = true, optional = true }
+ravenrs-app ={ workspace = true, optional = true }
 ravenrs-app-library = { workspace = true, optional = true }
 ravenrs-app-remote = { workspace = true, optional = true }
 ravenrs-app-report = { workspace = true, optional = true }
 ravenrs-app-ui = { workspace = true, optional = true }
+ravenrs-app-sql = { workspace = true, optional = true }
+ravenrs-app-requests = { workspace = true, optional = true }
+# The accessibility audit, run from the center on a screen of its own.
+ravenrs-app-a11y = { workspace = true, optional = true }
 # The texts of the widgets in the mode `componentes`, in the language of `idioma`.
 ravenrs-app-i18n.workspace = true
 # The expressions of the Editor de expressões page, worked out for its preview.
@@ -56,6 +70,14 @@ ravenrs-app-server = { workspace = true, optional = true }
 tokio = { version = "1.54", default-features = false, features = ["net", "rt-multi-thread"], optional = true }
 ravenrs-app-sqlite = { workspace = true, optional = true }
 rusqlite = { workspace = true, optional = true }
+# The counter of a shop and the two remote databases: native only, as their drivers are.
+ravenrs-app-pos = { workspace = true, optional = true }
+ravenrs-app-postgres = { workspace = true, optional = true }
+ravenrs-app-postgrest = { workspace = true, optional = true }
+# What the counter of a shop issues and charges with: the sandbox of the SEFAZ and of the card.
+ravenrs-app-nfe = { workspace = true, optional = true }
+ravenrs-pagamento = { workspace = true, optional = true }
+ravenrs-pos = { workspace = true, optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen.workspace = true
@@ -64,7 +86,6 @@ console_error_panic_hook.workspace = true
 web-sys = { workspace = true, features = ["console", "Window", "Location", "UrlSearchParams"] }
 
 [dev-dependencies]
-ravenrs-app-a11y.workspace = true
 image.workspace = true
 pollster.workspace = true
 ravenrs-core.workspace = true

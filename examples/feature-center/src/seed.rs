@@ -221,7 +221,13 @@ fn demos(space: &mut dyn ObjectSpace) -> Result<(), String> {
     add(
         space,
         "RelationOwner",
-        &[("id", n(1.0)), ("name", t("Pedido 1")), ("kind", t("x")), ("category", n(1.0))],
+        &[
+            ("id", n(1.0)),
+            ("name", t("Pedido 1")),
+            ("kind", t("x")),
+            ("category", n(1.0)),
+            ("number", t("PED-0001")),
+        ],
     )?;
     add(
         space,
@@ -230,6 +236,25 @@ fn demos(space: &mut dyn ObjectSpace) -> Result<(), String> {
     )?;
     add(space, "RelationLabel", &[("id", n(1.0)), ("name", t("Ligada")), ("owner_id", n(1.0))])?;
     add(space, "RelationLabel", &[("id", n(2.0)), ("name", t("Solta"))])?;
+    for (code, name, archived, visits) in [
+        ("C-01", "Clínica Boa Vista", false, 3.0),
+        ("C-02", "Laboratório Sul", false, 7.0),
+        ("C-09", "Filial fechada", true, 0.0),
+    ] {
+        add(
+            space,
+            "FieldPlacesDemo",
+            &[
+                ("code", t(code)),
+                ("name", t(name)),
+                ("notes", t("Atende de segunda a sexta, das 8h às 18h.")),
+                ("internal", t("Contato interno: Bia")),
+                ("visits", n(visits)),
+                ("token", t("chave-que-ninguem-ve")),
+                ("archived", Value::Bool(archived)),
+            ],
+        )?;
+    }
     add(space, "StateDemo", &[("id", n(1.0)), ("name", t("Barato"))])?;
     add(space, "StateDemo", &[("id", n(2.0)), ("name", t("Caro")), ("cost", n(5000.0))])?;
     add(
@@ -274,6 +299,18 @@ fn demos(space: &mut dyn ObjectSpace) -> Result<(), String> {
 pub const LABELS_REPORT: &str = "Etiquetas em folha, 3 colunas";
 /// The name of the receipt on a roll, with commands for its printer.
 pub const RECEIPT_REPORT: &str = "Cupom em bobina de 80 mm";
+
+/// The name of the report that comes with the application, added once by its module.
+pub const PEOPLE_REPORT: &str = "Pessoas, uma por linha";
+
+/// The people of the library, one a line: what `StoredReportsModule::predefined` puts there.
+pub fn people_report() -> Report {
+    let mut report = Report::new(PEOPLE_REPORT);
+    report.detail = Band::new(16.0)
+        .control(Control::field("[full_name]").at(0.0, 0.0, 240.0, 14.0))
+        .control(Control::field("[email]").at(250.0, 0.0, 240.0, 14.0));
+    report
+}
 
 /// Labels from the catalog, in the columns of a sheet of paper.
 fn labels_on_a_sheet() -> Report {
