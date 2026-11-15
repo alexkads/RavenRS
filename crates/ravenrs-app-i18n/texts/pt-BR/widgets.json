@@ -111,7 +111,7 @@
  "widgets.flow_toolbox": "Formas",
  "widgets.flow_toolbox_hint": "Arraste para o diagrama, ou tecle Enter para pôr no meio",
  "widgets.flow_toolbox_none": "Nenhuma forma encontrada",
- "widgets.flow_toolbox_search": "Buscar formas",
+ "widgets.flow_toolbox_search": "Buscar",
  "widgets.printed_every_build": "Impresso a cada build: roda numa closure que a tela chama sempre que é montada.",
  "widgets.copied": "Copiado",
  "widgets.copy": "Copiar",

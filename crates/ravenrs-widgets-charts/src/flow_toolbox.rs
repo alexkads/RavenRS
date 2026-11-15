@@ -17,7 +17,7 @@ use ravenrs_style::{Semantic, TextStyle, Weight};
 
 use crate::context::{BuildCx, DragPayload, NodeId, Paint, Semantics};
 use crate::flow::{FLOW_NODE_DRAG, FlowNode, fill};
-use crate::{Disclosure, TextField, View, util};
+use crate::{Disclosure, ScrollView, Text, TextField, View, util};
 
 /// One model: the words on its tile and the node a copy is made of.
 #[derive(Clone, Debug)]
@@ -59,6 +59,7 @@ struct Group {
 pub struct FlowToolbox {
     groups: Vec<Group>,
     arrivals: Option<Binding<Option<FlowNode>>>,
+    title: Option<String>,
     searchable: bool,
     width: f32,
 }
@@ -78,7 +79,7 @@ impl Default for FlowToolbox {
 impl FlowToolbox {
     /// No models yet, with the search field, 240 pixels wide.
     pub fn new() -> Self {
-        Self { groups: Vec::new(), arrivals: None, searchable: true, width: 240.0 }
+        Self { groups: Vec::new(), arrivals: None, title: None, searchable: true, width: 240.0 }
     }
 
     /// Starts a group under this title; the models after it go in it.
@@ -103,6 +104,13 @@ impl FlowToolbox {
     /// Leaves the model picked with Enter here, for the canvas given the same binding.
     pub fn arrivals(mut self, arrivals: Binding<Option<FlowNode>>) -> Self {
         self.arrivals = Some(arrivals);
+        self
+    }
+
+    /// Another heading than "Shapes", for what the models are in this app: blocks, steps,
+    /// pieces. Screen readers name the panel by it too.
+    pub fn title(mut self, title: impl Into<String>) -> Self {
+        self.title = Some(title.into());
         self
     }
 
@@ -131,42 +139,23 @@ impl View for FlowToolbox {
         let labels = cx.labels();
         let query = cx.use_state(String::new);
         let muted = theme.color(Semantic::InkMuted);
+        let title = self.title.clone().unwrap_or_else(|| labels.flow_toolbox.clone());
         let mut rows: Vec<NodeId> = Vec::new();
-        rows.push(util::label(cx, &labels.flow_toolbox, TextStyle::Caption, Some(Weight::SEMIBOLD), muted));
+        rows.push(util::label(cx, &title, TextStyle::Caption, Some(Weight::SEMIBOLD), muted));
         if self.searchable {
             rows.push(
                 cx.child(&TextField::new(query.binding()).placeholder(labels.flow_toolbox_search.clone())),
             );
         }
-        let typed = query.get();
+        // The groups scroll under the heading and the field when they do not fit.
         let inner = self.width - theme.spacing.s4 * 2.0;
-        let tile_width = ((inner - theme.spacing.s2) / 2.0).floor();
-        let mut shown = 0;
-        for (g, group) in self.groups.iter().enumerate() {
-            let models: Vec<Model> =
-                group.models.iter().filter(|m| matches(&typed, &m.caption, &group.title)).cloned().collect();
-            if models.is_empty() {
-                continue;
-            }
-            shown += models.len();
-            let tiles = Tiles {
-                models,
-                arrivals: self.arrivals.clone(),
-                tile_width,
-                hint: labels.flow_toolbox_hint.clone(),
-            };
-            let key = util::hash_text(&format!("flow-toolbox-{g}-{}", group.title));
-            if group.title.is_empty() {
-                rows.push(cx.keyed_child(key, &tiles));
-            } else {
-                // Searching opens every group, so what matches is never hidden.
-                let open = !typed.trim().is_empty() || g == 0;
-                rows.push(cx.keyed_child(key, &Disclosure::new(group.title.clone(), tiles).open(open)));
-            }
-        }
-        if shown == 0 {
-            rows.push(util::label(cx, &labels.flow_toolbox_none, TextStyle::Callout, None, muted));
-        }
+        let groups = Groups {
+            groups: self.groups.clone(),
+            arrivals: self.arrivals.clone(),
+            typed: query.get(),
+            inner,
+        };
+        rows.push(cx.child(&ScrollView::new((groups,)).spacing(0.0)));
         let root = cx.container(
             LayoutStyle {
                 width: Some(self.width),
@@ -177,17 +166,81 @@ impl View for FlowToolbox {
             &rows,
             Paint::Quad(crate::context::QuadPaint::new(theme.color(Semantic::Surface))),
         );
-        cx.semantics(root, Semantics::new(Role::Group).name(labels.flow_toolbox.clone()));
+        cx.semantics(root, Semantics::new(Role::Group).name(title));
         root
     }
 }
+
+/// The groups whose models match what was typed, each opening and closing.
+struct Groups {
+    groups: Vec<Group>,
+    arrivals: Option<Binding<Option<FlowNode>>>,
+    typed: String,
+    /// The width inside the panel's padding.
+    inner: f32,
+}
+
+impl View for Groups {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let labels = cx.labels();
+        let muted = theme.color(Semantic::InkMuted);
+        let mut rows: Vec<NodeId> = Vec::new();
+        let mut shown = 0;
+        for (g, group) in self.groups.iter().enumerate() {
+            let models: Vec<Model> = group
+                .models
+                .iter()
+                .filter(|m| matches(&self.typed, &m.caption, &group.title))
+                .cloned()
+                .collect();
+            if models.is_empty() {
+                continue;
+            }
+            shown += models.len();
+            // A group's tiles sit inside the disclosure's indent; a group without a title has none.
+            let room = if group.title.is_empty() { self.inner } else { self.inner - DISCLOSURE_INDENT };
+            let width = ((room - theme.spacing.s2) / 2.0).floor();
+            let tiles = Tiles {
+                models,
+                arrivals: self.arrivals.clone(),
+                hint: labels.flow_toolbox_hint.clone(),
+                width,
+            };
+            let key = util::hash_text(&format!("flow-toolbox-{g}-{}", group.title));
+            if group.title.is_empty() {
+                rows.push(cx.keyed_child(key, &tiles));
+            } else {
+                // Searching opens every group, so what matches is never hidden.
+                let open = !self.typed.trim().is_empty() || g == 0;
+                rows.push(cx.keyed_child(key, &Disclosure::new(group.title.clone(), tiles).open(open)));
+            }
+        }
+        if shown == 0 {
+            rows.push(util::label(cx, &labels.flow_toolbox_none, TextStyle::Callout, None, muted));
+        }
+        cx.container(
+            LayoutStyle {
+                spacing: theme.spacing.s2,
+                align: Align::Stretch,
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &rows,
+            Paint::None,
+        )
+    }
+}
+
+/// How far a [`Disclosure`] sets its content in: 32 pixels on the left, 8 on the right.
+const DISCLOSURE_INDENT: f32 = 40.0;
 
 /// The tiles of one group, two to a row.
 struct Tiles {
     models: Vec<Model>,
     arrivals: Option<Binding<Option<FlowNode>>>,
-    tile_width: f32,
     hint: String,
+    /// Each tile's width.
+    width: f32,
 }
 
 impl View for Tiles {
@@ -203,8 +256,8 @@ impl View for Tiles {
                     &Tile {
                         model: model.clone(),
                         arrivals: self.arrivals.clone(),
-                        width: self.tile_width,
                         hint: self.hint.clone(),
+                        width: self.width,
                     },
                 )
             })
@@ -221,8 +274,8 @@ impl View for Tiles {
 struct Tile {
     model: Model,
     arrivals: Option<Binding<Option<FlowNode>>>,
-    width: f32,
     hint: String,
+    width: f32,
 }
 
 impl View for Tile {
@@ -230,8 +283,7 @@ impl View for Tile {
         const PREVIEW: (f32, f32) = (56.0, 32.0);
         let theme = *cx.theme();
         let (hovered, focused) = (cx.is_hovered(), cx.is_focused());
-        let (accent, ink, border) =
-            (theme.color(Semantic::Accent), theme.color(Semantic::Ink), theme.color(Semantic::Border));
+        let (accent, border) = (theme.color(Semantic::Accent), theme.color(Semantic::Border));
         let shape = self.model.node.shape;
         let preview = cx.container(
             LayoutStyle { width: Some(PREVIEW.0), height: Some(PREVIEW.1), ..LayoutStyle::leaf() },
@@ -248,13 +300,16 @@ impl View for Tile {
                 );
             })),
         );
-        let caption = util::label(cx, &self.model.caption, TextStyle::Caption, None, ink);
+        // A long name is cut with an ellipsis, so two tiles always fit a row; screen readers
+        // still get it whole.
+        let caption = cx.child(&Text::new(self.model.caption.clone()).style(TextStyle::Caption).truncate());
         let r = theme.radii.md;
         let tile = cx.container(
             LayoutStyle {
                 width: Some(self.width),
                 padding: Insets::uniform(theme.spacing.s2),
                 spacing: theme.spacing.s1,
+                overflow_hidden: true,
                 align: Align::Center,
                 ..LayoutStyle::stack(Axis::Vertical)
             },

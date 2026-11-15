@@ -256,6 +256,36 @@ impl FlowGraph {
                 centered,
                 color: colors.ink,
             });
+            // The names of its ports, by them: inside a box, outside the tips of a diamond or an
+            // ellipse, as the canvas shows them.
+            if node.rotation == 0.0 {
+                let boxed = !matches!(node.shape, super::FlowShape::Diamond | super::FlowShape::Ellipse);
+                for port in &node.ports {
+                    let (Some(name), Some(at)) = (&port.label, node.port_point(&port.id)) else { continue };
+                    let width = name.chars().count() as f32 * 6.5;
+                    let (left, right, top) =
+                        (at.x <= r.x() + 0.5, at.x >= r.max_x() - 0.5, at.y <= r.y() + 0.5);
+                    let (x, y) = match (boxed, left, right, top) {
+                        (true, true, _, _) => (at.x + 8.0, at.y),
+                        (true, _, true, _) => (at.x - 8.0 - width, at.y),
+                        (true, _, _, true) => (at.x - width / 2.0, at.y + 14.0),
+                        (true, ..) => (at.x - width / 2.0, at.y - 14.0),
+                        (false, true, _, _) => (at.x - 8.0 - width, at.y - 10.0),
+                        (false, _, true, _) => (at.x + 8.0, at.y - 10.0),
+                        (false, _, _, true) => (at.x + 8.0, at.y - 14.0),
+                        (false, ..) => (at.x + 8.0, at.y + 10.0),
+                    };
+                    texts.push(FlowText {
+                        text: name.clone(),
+                        at: Point::new(x, y),
+                        width: width + 8.0,
+                        size: 11.0,
+                        bold: false,
+                        centered: false,
+                        color: colors.muted,
+                    });
+                }
+            }
             if let Some(line) = &node.subtitle {
                 texts.push(FlowText {
                     text: line.clone(),

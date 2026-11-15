@@ -67,6 +67,8 @@ const CAP: f32 = 8.0;
 /// How near the straight between its neighbours a bend point let go is taken out, in screen
 /// pixels.
 const BEND_STRAIGHT: f32 = 4.0;
+/// The least zoom at which ports show their names.
+const PORT_LABEL_ZOOM: f32 = 0.5;
 /// The side of a bend point's square, in screen pixels.
 const BEND: f32 = 10.0;
 /// The square in a selected node's corner that resizes it, in screen pixels.
@@ -1693,7 +1695,7 @@ impl Flow {
                     let best = |mine: [f32; 3], theirs: &dyn Fn(&Rect) -> [f32; 3]| {
                         others
                             .iter()
-                            .flat_map(|r| theirs(r))
+                            .flat_map(theirs)
                             .flat_map(|t| mine.iter().map(move |m| (t - m, t)))
                             .filter(|(d, _)| d.abs() <= reach)
                             .min_by(|a, b| a.0.abs().total_cmp(&b.0.abs()))
@@ -2753,6 +2755,43 @@ impl View for NodeBox {
                 palette: p,
             };
             ports.push(cx.keyed_child(util::hash_text(&port.id), &dot));
+            // A port with a name shows it inside the node, beside it: the answers of a
+            // question, the ways out of a choice. Too small to read, it is left out.
+            if let Some(name) = &port.label
+                && view.zoom >= PORT_LABEL_ZOOM
+                && node.rotation == 0.0
+                && !node.group
+            {
+                // As large as the node's own words at this zoom.
+                let mut attrs = util::attrs(&theme, TextStyle::Caption, None);
+                attrs.size *= view.zoom;
+                attrs.line_height *= view.zoom;
+                let size = cx.measure_text(name, &attrs);
+                let local = Point::new((at.x - node.x) * view.zoom, (at.y - node.y) * view.zoom);
+                let gap = 8.0 * view.zoom;
+                // In a box, inside it by the port; at the tips of a diamond or an ellipse, whose
+                // middle holds the title, outside, along the way out, as flowcharts label them.
+                let boxed = !matches!(node.shape, FlowShape::Diamond | FlowShape::Ellipse);
+                let (x, y) = match (boxed, local.x <= 0.5, local.x >= w - 0.5, local.y <= 0.5) {
+                    (true, true, _, _) => (local.x + gap, local.y - size.height / 2.0),
+                    (true, _, true, _) => (local.x - gap - size.width, local.y - size.height / 2.0),
+                    (true, _, _, true) => (local.x - size.width / 2.0, local.y + gap),
+                    (true, ..) => (local.x - size.width / 2.0, local.y - gap - size.height),
+                    (false, true, _, _) => (local.x - gap - size.width, local.y - size.height - 2.0),
+                    (false, _, true, _) => (local.x + gap, local.y - size.height - 2.0),
+                    (false, _, _, true) => (local.x + gap, local.y - size.height - gap),
+                    (false, ..) => (local.x + gap, local.y + 2.0),
+                };
+                let style = LayoutStyle {
+                    absolute: Some((x, y)),
+                    width: Some(size.width),
+                    height: Some(size.height),
+                    ..LayoutStyle::leaf()
+                };
+                let words = cx.text(name, &attrs, p.muted, style);
+                cx.semantics(words, Semantics::hidden());
+                ports.push(words);
+            }
         }
 
         if self.editing {

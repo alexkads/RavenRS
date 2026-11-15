@@ -153,15 +153,12 @@ impl Writer {
     }
 
     /// A field bound to one value of every node in `ids`: read from the first, written to all.
-    fn nodes<T: Clone + PartialEq + 'static>(
+    fn nodes<T: Clone + PartialEq + Default + 'static>(
         &self,
         ids: Vec<String>,
         read: impl Fn(&FlowNode) -> T + 'static,
         write: impl Fn(&mut FlowNode, T) + 'static,
-    ) -> Binding<T>
-    where
-        T: Default,
-    {
+    ) -> Binding<T> {
         let (reader, writer, read_ids) = (self.graph.clone(), self.clone(), ids.clone());
         Binding::new(
             move || {
