@@ -74,6 +74,16 @@ use ravenrs_widgets_charts::chart;
 #[cfg(feature = "flow")]
 #[allow(unused_imports)]
 use ravenrs_widgets_charts::flow;
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::flow_inspector::FlowInspector;
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::flow_layers::FlowLayers;
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::flow_library::FlowLibrary;
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::flow_notation::{FlowChecks, FlowFileFormat, FlowNotation};
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::flow_toolbox::FlowToolbox;
 #[cfg(feature = "charts")]
 #[allow(unused_imports)]
 use ravenrs_widgets_charts::sankey;
@@ -130,7 +140,10 @@ pub use choice::{
 };
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
 #[cfg(feature = "code")]
-pub use code_editor::{CodeDiagnostic, CodeEditor, CodeLanguage, highlight_rust, line_and_column, offset_of};
+pub use code_editor::{
+    CodeCompletion, CodeDiagnostic, CodeEditor, CodeLanguage, find_all, highlight_rust, line_and_column,
+    offset_of,
+};
 pub use color_picker::ColorPicker;
 pub use commands::{ConfirmDialog, FloatingToolbar, SplitButton, Toolbar, ToolbarAction};
 pub use context::{
@@ -168,9 +181,11 @@ pub use floating::{
 };
 #[cfg(feature = "flow")]
 pub use flow::{
-    EdgeCap, EdgeShape, FlowCanvas, FlowChange, FlowContent, FlowDirection, FlowEdge, FlowEndpoint,
-    FlowGraph, FlowGuard, FlowHistory, FlowJsonError, FlowKind, FlowLayout, FlowLayoutKind, FlowNode,
-    FlowNodeStatus, FlowPort, FlowSelection, FlowShape, FlowValidator, FlowViewport, PortDirection, PortSide,
+    EdgeCap, EdgeShape, FLOW_NODE_DRAG, FlowCanvas, FlowChange, FlowColors, FlowConnector, FlowContent,
+    FlowDirection, FlowDocument, FlowEdge, FlowEndpoint, FlowExportFormat, FlowExporter, FlowGate, FlowGraph,
+    FlowGuard, FlowHistory, FlowIssue, FlowJsonError, FlowKind, FlowLayout, FlowLayoutKind, FlowNext,
+    FlowNode, FlowNodeStatus, FlowPicture, FlowPort, FlowRun, FlowRunEvent, FlowRunRules, FlowSelection,
+    FlowShape, FlowShelf, FlowStyle, FlowText, FlowValidator, FlowViewport, PortDirection, PortSide,
 };
 pub use form_layout::{FormGroup, FormLayout};
 pub use full_screen::{FullScreen, FullScreenProvider};
@@ -232,7 +247,7 @@ pub use recurrence::{
     Frequency, RecurrenceEnd, RecurrenceRule, RecurrenceSet, exceptions_text, parse_exceptions,
 };
 pub use release_notes::{CodeBlock, ReleaseNote, ReleaseNotes};
-pub use remote::UiWaker;
+pub use remote::{UiWaker, WindowCloser};
 pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};
 pub use rich_text::RichText;
 #[cfg(feature = "charts")]
@@ -256,7 +271,7 @@ pub use summary::Summary;
 pub use system_appearance::SystemAppearance;
 pub use tag_box::TagBox;
 pub use text::Text;
-pub use text_field::{Cursor, TextField};
+pub use text_field::{Cursor, TextField, TextHistory};
 pub use theme::{ThemeEditor, ThemePicker};
 pub use tiles::{CardView, Tile, TileLayout, TileSpot};
 pub use time_link::TimeLink;

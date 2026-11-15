@@ -17,6 +17,21 @@ pub mod chart;
 #[cfg(feature = "flow")]
 #[doc(hidden)]
 pub mod flow;
+#[cfg(feature = "flow")]
+#[doc(hidden)]
+pub mod flow_inspector;
+#[cfg(feature = "flow")]
+#[doc(hidden)]
+pub mod flow_layers;
+#[cfg(feature = "flow")]
+#[doc(hidden)]
+pub mod flow_library;
+#[cfg(feature = "flow")]
+#[doc(hidden)]
+pub mod flow_notation;
+#[cfg(feature = "flow")]
+#[doc(hidden)]
+pub mod flow_toolbox;
 #[cfg(feature = "charts")]
 #[doc(hidden)]
 pub mod sankey;
@@ -29,9 +44,21 @@ pub use chart::{
 };
 #[cfg(feature = "flow")]
 pub use flow::{
-    EdgeCap, EdgeShape, FlowCanvas, FlowChange, FlowContent, FlowDirection, FlowEdge, FlowEndpoint,
-    FlowGraph, FlowGuard, FlowHistory, FlowJsonError, FlowKind, FlowLayout, FlowLayoutKind, FlowNode,
-    FlowNodeStatus, FlowPort, FlowSelection, FlowShape, FlowValidator, FlowViewport, PortDirection, PortSide,
+    EdgeCap, EdgeShape, FLOW_NODE_DRAG, FlowCanvas, FlowChange, FlowColors, FlowConnector, FlowContent,
+    FlowDirection, FlowDocument, FlowEdge, FlowEndpoint, FlowExportFormat, FlowExporter, FlowGate, FlowGraph,
+    FlowGuard, FlowHistory, FlowIssue, FlowJsonError, FlowKind, FlowLayout, FlowLayoutKind, FlowNext,
+    FlowNode, FlowNodeStatus, FlowPicture, FlowPort, FlowRun, FlowRunEvent, FlowRunRules, FlowSelection,
+    FlowShape, FlowShelf, FlowStyle, FlowText, FlowValidator, FlowViewport, PortDirection, PortSide,
 };
+#[cfg(feature = "flow")]
+pub use flow_inspector::FlowInspector;
+#[cfg(feature = "flow")]
+pub use flow_layers::FlowLayers;
+#[cfg(feature = "flow")]
+pub use flow_library::FlowLibrary;
+#[cfg(feature = "flow")]
+pub use flow_notation::{FlowChecks, FlowFileFormat, FlowNotation};
+#[cfg(feature = "flow")]
+pub use flow_toolbox::FlowToolbox;
 #[cfg(feature = "charts")]
 pub use sankey::{SankeyAlign, SankeyChart};

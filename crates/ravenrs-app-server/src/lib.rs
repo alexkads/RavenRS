@@ -13,6 +13,7 @@ mod http;
 mod json;
 mod keys;
 mod openapi;
+mod pattern;
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::rc::Rc;
@@ -37,7 +38,7 @@ use crate::json::{apply, exposed, from_json, key_from_path, object_to_json};
 const DEFAULT_TOP: usize = 100;
 const MOST_TOP: usize = 1000;
 const MOST_FILTER: usize = 4096;
-const MOST_OPERATIONS: usize = 200;
+pub(crate) const MOST_OPERATIONS: usize = 200;
 /// How deep a record can carry its collections, and those theirs.
 const MOST_NESTING: usize = 4;
 /// How many collections a request can ask to bring along, and how many records it asks for that way.
@@ -672,7 +673,7 @@ impl ApiService {
             })
             .cloned()
             .collect();
-        openapi::document(&self.title, &reachable)
+        openapi::document(&self.title, &reachable, &self.entities)
     }
 
     fn reach_setting(
@@ -797,16 +798,7 @@ impl ApiService {
         owner: &EntityInfo,
         field: &ravenrs_app::FieldInfo,
     ) -> Option<(EntityInfo, String)> {
-        let FieldKind::Collection(target) = &field.kind else { return None };
-        let child = self.entities.iter().find(|entity| entity.name == *target)?.clone();
-        let back = field.back_reference.clone().or_else(|| {
-            child
-                .fields
-                .iter()
-                .find(|other| matches!(&other.kind, FieldKind::Reference(to) if *to == owner.name))
-                .map(|other| other.name.clone())
-        })?;
-        Some((child, back))
+        back_reference(&self.entities, owner, field)
     }
 
     fn expand(
@@ -1060,7 +1052,13 @@ impl ApiService {
         let text = |name: &str| operation.get(name).and_then(Json::as_str);
         let entity = text("entity").ok_or_else(|| Failure::bad_request("An operation names its entity."))?;
         let empty = Map::new();
-        let body = operation.get("body").and_then(Json::as_object).unwrap_or(&empty);
+        // No body is an empty one. Anything else that is not a record was a mistake, and taking it
+        // as empty would quietly write a record of nothing but its defaults.
+        let body = match operation.get("body") {
+            None | Some(Json::Null) => &empty,
+            Some(Json::Object(body)) => body,
+            Some(_) => return Err(Failure::bad_request("The body of an operation is a record.")),
+        };
         let info = self.entity(entity)?;
         let key = || -> Result<Value, Failure> {
             let field = info.key_field().ok_or_else(|| Failure::bad_request("It has no key."))?;
@@ -1078,4 +1076,23 @@ impl ApiService {
             _ => Err(Failure::bad_request("An operation is POST, PATCH or DELETE.")),
         }
     }
+}
+
+/// The entity of a collection's records and their field that holds the owner's key: the one the
+/// collection names, or else the first that points to the owner.
+pub(crate) fn back_reference(
+    entities: &[EntityInfo],
+    owner: &EntityInfo,
+    field: &ravenrs_app::FieldInfo,
+) -> Option<(EntityInfo, String)> {
+    let FieldKind::Collection(target) = &field.kind else { return None };
+    let child = entities.iter().find(|entity| entity.name == *target)?.clone();
+    let back = field.back_reference.clone().or_else(|| {
+        child
+            .fields
+            .iter()
+            .find(|other| matches!(&other.kind, FieldKind::Reference(to) if *to == owner.name))
+            .map(|other| other.name.clone())
+    })?;
+    Some((child, back))
 }

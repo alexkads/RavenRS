@@ -1,0 +1,16 @@
+[package]
+name = "flow-chat-bot"
+description = "An automation builder for chat conversations made with FlowCanvas: triggers, messages with buttons, conditions and actions."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+ravenrs.workspace = true
+ravenrs-flow-export.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true

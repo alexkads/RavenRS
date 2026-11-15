@@ -841,6 +841,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "bpmn-editor"
+version = "27.1.28"
+dependencies = [
+ "ravenrs",
+ "ravenrs-ai",
+ "ravenrs-flow-bpmn",
+ "ravenrs-flow-export",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "brotli"
 version = "8.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2425,6 +2436,33 @@ dependencies = [
  "num-traits",
  "rand 0.9.5",
  "rand_distr",
+]
+
+[[package]]
+name = "flow-chat-bot"
+version = "27.1.28"
+dependencies = [
+ "ravenrs",
+ "ravenrs-flow-export",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "flow-design-board"
+version = "27.1.28"
+dependencies = [
+ "ravenrs",
+ "ravenrs-flow-export",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "flow-whiteboard"
+version = "27.1.28"
+dependencies = [
+ "ravenrs",
+ "ravenrs-flow-export",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -6076,6 +6114,7 @@ dependencies = [
  "ravenrs-app",
  "ravenrs-app-testkit",
  "ravenrs-criteria",
+ "regex-lite",
  "serde_json",
  "sha2 0.10.9",
  "tokio",
@@ -6234,6 +6273,32 @@ dependencies = [
  "sha1 0.10.7",
  "ureq",
  "zeroize",
+]
+
+[[package]]
+name = "ravenrs-flow-bpmn"
+version = "27.1.28"
+dependencies = [
+ "quick-xml",
+ "ravenrs-core",
+ "ravenrs-reactive",
+ "ravenrs-style",
+ "ravenrs-widgets",
+ "serde_json",
+]
+
+[[package]]
+name = "ravenrs-flow-export"
+version = "27.1.28"
+dependencies = [
+ "image",
+ "ravenrs-core",
+ "ravenrs-graphics",
+ "ravenrs-report",
+ "ravenrs-report-export",
+ "ravenrs-text",
+ "ravenrs-widgets",
+ "swash",
 ]
 
 [[package]]
