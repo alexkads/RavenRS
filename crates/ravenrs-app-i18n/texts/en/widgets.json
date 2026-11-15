@@ -143,6 +143,7 @@
  "widgets.flow_shape_names.6": "Document",
  "widgets.flow_shape_names.7": "Database",
  "widgets.flow_shape_names.8": "Note",
+ "widgets.flow_shape_names.9": "Text",
  "widgets.flow_status_names.0": "Normal",
  "widgets.flow_status_names.1": "Warning",
  "widgets.flow_status_names.2": "Error",

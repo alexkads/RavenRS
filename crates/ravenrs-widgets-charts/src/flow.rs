@@ -3367,7 +3367,9 @@ impl View for NodeBox {
             paint,
         );
         cx.focusable(root, theme.radii.md * view.zoom);
-        if !matches!(node.shape, FlowShape::Card | FlowShape::Rectangle | FlowShape::Note) && !node.group {
+        if !matches!(node.shape, FlowShape::Card | FlowShape::Rectangle | FlowShape::Note | FlowShape::Text)
+            && !node.group
+        {
             cx.hit_outline(root, outline);
         }
         if node.rotation != 0.0 {
@@ -3452,6 +3454,7 @@ fn draw_shape(
     hovered: bool,
 ) {
     let note = shape == FlowShape::Note;
+    let words = shape == FlowShape::Text;
     let (edge, width) = match status {
         _ if selected => (p.accent, 2.0),
         FlowNodeStatus::Warning(_) => (p.warning, 2.0),
@@ -3488,10 +3491,15 @@ fn draw_shape(
             })
             .chain(std::iter::once(ravenrs_core::PathElement::Close))
             .collect();
-    paint.scene.push_path(PathFill::solid(path, fill));
+    // Words alone show their box only under the pointer or selected, for moving them.
     let mut ring: Vec<Point> = outline.to_vec();
     ring.extend(outline.first().copied());
-    stroke(paint.scene, &ring, width, edge);
+    if !words {
+        paint.scene.push_path(PathFill::solid(path, fill));
+        stroke(paint.scene, &ring, width, edge);
+    } else if selected || hovered {
+        stroke(paint.scene, &ring, 1.0, if selected { p.accent } else { p.border });
+    }
     if zoom < TEXT_ZOOM {
         return;
     }
@@ -3532,6 +3540,12 @@ fn draw_shape(
             layout.paint(Point::new(frame.center().x - wide / 2.0, y), color, paint.scene);
             y += attrs.line_height;
         }
+        return;
+    }
+    if words {
+        let mut layout = paint.text.layout(title, &scaled(TextStyle::Title, Some(Weight::SEMIBOLD)));
+        layout.measure(Some(frame.width().max(0.0)));
+        layout.paint(Point::new(frame.x(), frame.y()), ink, paint.scene);
         return;
     }
     if note {

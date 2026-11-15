@@ -751,7 +751,7 @@ pub struct Labels {
     /// The statuses of a node in a `FlowInspector`.
     pub flow_status_names: [String; 4],
     /// The shapes of a node in a `FlowInspector`, in the order of `FlowShape`.
-    pub flow_shape_names: [String; 9],
+    pub flow_shape_names: [String; 10],
     /// The shapes of a connection in a `FlowInspector`.
     pub flow_line_names: [String; 3],
     /// The ends of a connection in a `FlowInspector`.

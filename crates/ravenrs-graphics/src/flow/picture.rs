@@ -261,7 +261,10 @@ impl FlowGraph {
             let edge = if edge == colors.border { style.stroke_color().unwrap_or(edge) } else { edge };
             let outline = turned(shape_outline(node.shape, r), r.center(), node.rotation);
             let fill = style.fill_color().unwrap_or(colors.node);
-            layers.push(shape(outline, Some(fill), Some((style.stroke_width.unwrap_or(1.5), edge))));
+            // Words alone have no outline on paper either.
+            if node.shape != super::FlowShape::Text {
+                layers.push(shape(outline, Some(fill), Some((style.stroke_width.unwrap_or(1.5), edge))));
+            }
             let ink = style.text_color().unwrap_or(colors.ink);
             if let Some(marker) = style.marker.as_deref().filter(|m| !m.is_empty()) {
                 texts.push(FlowText {

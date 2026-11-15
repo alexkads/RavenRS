@@ -141,6 +141,8 @@ pub enum FlowShape {
     Cylinder,
     /// A sticky note: words on a tinted square with a folded corner, wrapped over lines.
     Note,
+    /// Words alone, wrapped over lines, with no outline: a heading or a caption on a board.
+    Text,
 }
 
 fn is_card(shape: &FlowShape) -> bool {
@@ -163,7 +165,7 @@ pub fn shape_outline(shape: FlowShape, r: Rect) -> Vec<PathSegment> {
     // A quarter of an ellipse as a cubic: control points 0.552 of the way.
     let k = 0.552_284_8;
     match shape {
-        FlowShape::Card | FlowShape::Rectangle => {
+        FlowShape::Card | FlowShape::Rectangle | FlowShape::Text => {
             polygon(&[p(x, y), p(x + w, y), p(x + w, y + h), p(x, y + h)])
         }
         FlowShape::RoundedRectangle => {
@@ -499,7 +501,7 @@ impl FlowNode {
 
     /// A point on the box's edge brought in, square to `side`, to where it meets the outline.
     fn onto_outline(&self, p: Point, side: PortSide) -> Point {
-        if matches!(self.shape, FlowShape::Card | FlowShape::Rectangle | FlowShape::Note) {
+        if matches!(self.shape, FlowShape::Card | FlowShape::Rectangle | FlowShape::Note | FlowShape::Text) {
             return p;
         }
         let outline = self.outline();

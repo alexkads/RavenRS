@@ -34,6 +34,17 @@ pub fn sample() -> FlowGraph {
             at(piece("enter", "Entrar", FlowShape::RoundedRectangle, 264.0, 48.0), 48.0, 408.0, "login")
                 .port(FlowPort::output("tap").side(PortSide::Right)),
         )
+        .node(
+            FlowNode::new("heading", "text", "Fluxo de entrada", 0.0, -96.0)
+                .shape(FlowShape::Text)
+                .size(480.0, 48.0),
+        )
+        .node(at(
+            FlowNode::new("photo", "image", "Foto do produto", 0.0, 0.0).size(312.0, 160.0),
+            504.0,
+            288.0,
+            "home",
+        ))
         // A note beside the screen, outside its frame.
         .node(
             FlowNode::new("contrast", "text", "Revisar o contraste do botão", -240.0, 408.0)
@@ -68,13 +79,27 @@ pub fn toolbox() -> FlowToolbox {
         .model("Paralelogramo", piece("slant", "Paralelogramo", FlowShape::Parallelogram, 160.0, 80.0))
         .group("Texto")
         .model(
+            "Título",
+            FlowNode::new("title", "text", "Título", 0.0, 0.0).shape(FlowShape::Text).size(320.0, 48.0),
+        )
+        .model(
             "Nota",
             FlowNode::new("note", "text", "Nota", 0.0, 0.0).shape(FlowShape::Note).size(192.0, 96.0),
         )
         .model("Cartão", piece("card", "Cartão", FlowShape::Card, 240.0, 96.0))
+        .model("Imagem", FlowNode::new("image", "image", "Imagem", 0.0, 0.0).size(240.0, 160.0))
         .group("Telas")
         .model("Celular", FlowNode::new_group("phone", "Tela", Rect::new(0.0, 0.0, 360.0, 640.0)))
         .model("Computador", FlowNode::new_group("desktop", "Tela", Rect::new(0.0, 0.0, 960.0, 600.0)))
+}
+
+/// A picture for the image pieces of the sample: a soft gradient, made here so that the example
+/// needs no file.
+pub fn sample_picture() -> Option<ImageData> {
+    ImageData::from_fn(240, 140, |x, y| {
+        let (u, v) = (x as f32 / 240.0, y as f32 / 140.0);
+        Color::rgba(0.25 + 0.5 * u, 0.4 + 0.3 * v, 0.85 - 0.3 * u, 1.0)
+    })
 }
 
 /// The board: pieces on the left, the board in the middle, the selected piece's size, place
@@ -109,6 +134,15 @@ impl View for Board {
             .grid(8.0)
             .kind("shape", FlowKind::new(IconName::Shapes, "Forma"))
             .kind("text", FlowKind::new(IconName::Type, "Texto"))
+            .kind("image", FlowKind::new(IconName::Image, "Imagem"))
+            // An image piece shows its picture: here one drawn for the sample, in an app the file.
+            .content(|node| {
+                if node.kind == "image" {
+                    sample_picture().map(|p| Box::new(Image::new(p)) as AnyView)
+                } else {
+                    None
+                }
+            })
             .on_export(ravenrs_flow_export::saver(cx.file_picker(), "Quadro"));
         let mut inspector =
             FlowInspector::new(graph.binding(), selection.binding()).history(history.binding());

@@ -21,7 +21,7 @@ use crate::{Checkbox, ColorPicker, FormField, NumberField, SegmentedControl, Sel
 use ravenrs_core::Color;
 use ravenrs_graphics::flow::{color_hex, parse_color};
 
-const SHAPES: [FlowShape; 9] = [
+const SHAPES: [FlowShape; 10] = [
     FlowShape::Card,
     FlowShape::Rectangle,
     FlowShape::RoundedRectangle,
@@ -31,6 +31,7 @@ const SHAPES: [FlowShape; 9] = [
     FlowShape::Document,
     FlowShape::Cylinder,
     FlowShape::Note,
+    FlowShape::Text,
 ];
 const LINES: [EdgeShape; 3] = [EdgeShape::Curve, EdgeShape::Step, EdgeShape::Straight];
 const CAPS: [EdgeCap; 5] =
