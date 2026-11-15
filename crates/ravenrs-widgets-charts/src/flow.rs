@@ -60,6 +60,11 @@ const TURNER: f32 = 20.0;
 const TURNER_GAP: f32 = 24.0;
 /// How long the cap at an end of a line is, in screen pixels.
 const CAP: f32 = 8.0;
+/// How near the straight between its neighbours a bend point let go is taken out, in screen
+/// pixels.
+const BEND_STRAIGHT: f32 = 4.0;
+/// The side of a bend point's square, in screen pixels.
+const BEND: f32 = 10.0;
 /// The square in a selected node's corner that resizes it, in screen pixels.
 const HANDLE: f32 = 14.0;
 /// The least a node can be resized to, in units of the diagram.
@@ -255,6 +260,11 @@ pub enum FlowChange {
     Undo,
     /// The last undo was redone.
     Redo,
+    /// The points a connection's line passes through were added, moved or taken out.
+    Bend {
+        /// Its id.
+        edge: String,
+    },
     /// Nodes went in front of or behind the others.
     Reorder {
         /// The nodes that moved in the order.
@@ -636,6 +646,8 @@ enum Gesture {
     Resize { id: String, pressed: Point, size: (f32, f32), before: FlowGraph },
     /// Turning a node by its handle, with the diagram before.
     Turn { id: String, before: FlowGraph },
+    /// Moving the bend point `index` of a connection, with the diagram before.
+    Bend { edge: String, index: usize, before: FlowGraph },
 }
 
 /// What the canvas remembers between events, none of which should rebuild it.
@@ -1151,6 +1163,109 @@ impl Flow {
         true
     }
 
+    /// Where `at` (in the view) lands in the diagram, on the grid.
+    fn bend_point(&self, at: Point) -> (f32, f32) {
+        let c = self.view.get().to_content(at);
+        (self.snapped(c.x), self.snapped(c.y))
+    }
+
+    /// A drag on a bend point of a connection, or on the `+` in the middle of a stretch
+    /// (`add`), which makes a point there, `index` among its points, and moves it.
+    fn on_bend_drag(&self, edge: &str, index: usize, add: bool, phase: DragPhase, position: Point) {
+        if self.locked.get() {
+            return;
+        }
+        let at = self.local(position);
+        let point = self.bend_point(at);
+        match phase {
+            DragPhase::Start => {
+                self.forget_notice();
+                let before = self.graph.get();
+                if add {
+                    let mut graph = before.clone();
+                    if let Some(e) = graph.find_edge_mut(edge) {
+                        e.waypoints.insert(index.min(e.waypoints.len()), point);
+                    }
+                    self.graph.set(graph);
+                }
+                *self.memory.gesture.borrow_mut() = Gesture::Bend { edge: edge.to_owned(), index, before };
+            }
+            DragPhase::Move => {
+                let Gesture::Bend { edge, index, .. } = self.memory.gesture.borrow().clone() else { return };
+                let mut graph = self.graph.get();
+                if let Some(w) = graph.find_edge_mut(&edge).and_then(|e| e.waypoints.get_mut(index))
+                    && *w != point
+                {
+                    *w = point;
+                    self.graph.set(graph);
+                }
+            }
+            DragPhase::End => {
+                let gesture = std::mem::take(&mut *self.memory.gesture.borrow_mut());
+                let Gesture::Bend { edge, index, before } = gesture else { return };
+                // A point let go on the straight between its neighbours is not needed: it goes.
+                let mut graph = self.graph.get();
+                let zoom = self.view.get().zoom;
+                let straight = graph.find_edge(&edge).and_then(|e| graph.edge_controls(e)).is_some_and(|c| {
+                    c.len() > index + 2
+                        && geometry::distance_to(&[c[index], c[index + 2]], c[index + 1]) * zoom
+                            <= BEND_STRAIGHT
+                });
+                if straight && let Some(e) = graph.find_edge_mut(&edge) {
+                    e.waypoints.remove(index);
+                    self.graph.set(graph);
+                }
+                self.settle(before, FlowChange::Bend { edge });
+            }
+            // The base may add more; they act as nothing here.
+            _ => {}
+        }
+    }
+
+    /// The keys on a bend point: the arrows move it a step of the grid (four with Shift),
+    /// Delete takes it out.
+    fn bend_key(&self, edge: &str, index: usize, key: &Key, m: Modifiers) -> bool {
+        if self.locked.get() {
+            return false;
+        }
+        let step = self.grid.max(1.0) * if m.shift { 4.0 } else { 1.0 };
+        let mut graph = self.graph.get();
+        let Some(e) = graph.find_edge_mut(edge) else { return false };
+        let Some(&(x, y)) = e.waypoints.get(index) else { return false };
+        match key {
+            Key::ArrowLeft => e.waypoints[index] = (x - step, y),
+            Key::ArrowRight => e.waypoints[index] = (x + step, y),
+            Key::ArrowUp => e.waypoints[index] = (x, y - step),
+            Key::ArrowDown => e.waypoints[index] = (x, y + step),
+            Key::Delete | Key::Backspace => {
+                e.waypoints.remove(index);
+                self.memory.refocus.set(true);
+            }
+            _ => return false,
+        }
+        self.commit(graph, FlowChange::Bend { edge: edge.to_owned() });
+        true
+    }
+
+    /// A double click on a line: a bend point there, on the grid.
+    fn add_bend_at(&self, at: Point) -> bool {
+        if self.locked.get() {
+            return false;
+        }
+        let Some(id) = self.edge_at(at) else { return false };
+        let point = self.bend_point(at);
+        let mut graph = self.graph.get();
+        let Some(controls) = graph.find_edge(&id).and_then(|e| graph.edge_controls(e)) else { return false };
+        let index = geometry::bend_index(&controls, Point::new(point.0, point.1)) - 1;
+        if let Some(e) = graph.find_edge_mut(&id) {
+            e.waypoints.insert(index, point);
+        }
+        if self.commit(graph, FlowChange::Bend { edge: id.clone() }) {
+            self.select(FlowSelection::edge(id));
+        }
+        true
+    }
+
     /// A drag on the corner of a node, which resizes it.
     fn on_resize_drag(&self, id: &str, phase: DragPhase, position: Point) {
         if self.locked.get() || !self.resizable {
@@ -1540,6 +1655,28 @@ impl Flow {
                 }
                 self.guides.set_if_changed((across, down));
                 let mut changed = false;
+                // A line whose two ends move takes its bend points along; with one end, they stay.
+                if let Gesture::Move { before, .. } = &*self.memory.gesture.borrow()
+                    && let Some((_, x0, y0)) = origins.iter().find(|(id, _, _)| *id == lead)
+                {
+                    let (nx, ny) = (
+                        if across.is_some() { x0 + dx } else { self.snapped(x0 + dx) },
+                        if down.is_some() { y0 + dy } else { self.snapped(y0 + dy) },
+                    );
+                    let moving = |id: &str| origins.iter().any(|(o, _, _)| o == id);
+                    for edge in &mut graph.edges {
+                        if edge.waypoints.is_empty() || !moving(&edge.from.node) || !moving(&edge.to.node) {
+                            continue;
+                        }
+                        let Some(was) = before.find_edge(&edge.id) else { continue };
+                        let shifted: Vec<(f32, f32)> =
+                            was.waypoints.iter().map(|(x, y)| (x + nx - x0, y + ny - y0)).collect();
+                        if shifted != edge.waypoints {
+                            edge.waypoints = shifted;
+                            changed = true;
+                        }
+                    }
+                }
                 for (id, x, y) in &origins {
                     let nx = if across.is_some() { x + dx } else { self.snapped(x + dx) };
                     let ny = if down.is_some() { y + dy } else { self.snapped(y + dy) };
@@ -2104,6 +2241,44 @@ impl View for FlowCanvas {
             let Some(middle) = geometry::midpoint(&points) else { continue };
             children.push(edge_label(cx, label, middle, &theme, palette));
         }
+        // The bend points of the one line selected, and a `+` in the middle of each stretch.
+        if let ([], [only]) = (selection.nodes.as_slice(), selection.edges.as_slice())
+            && !is_locked
+            && let Some(edge) = graph.find_edge(only)
+            && let Some(controls) = graph.edge_controls(edge)
+        {
+            let name = edge.label.clone().unwrap_or_else(|| edge.id.clone());
+            let count = edge.waypoints.len();
+            for (i, pair) in controls.windows(2).enumerate() {
+                let middle = Point::new((pair[0].x + pair[1].x) / 2.0, (pair[0].y + pair[1].y) / 2.0);
+                let part = BendHandle {
+                    at: view.to_screen(middle),
+                    edge: edge.id.clone(),
+                    index: i,
+                    add: true,
+                    name: String::new(),
+                    flow: flow.clone(),
+                    palette,
+                };
+                children.push(cx.keyed_child(util::hash_text(&format!("bend+{}-{i}", edge.id)), &part));
+            }
+            for (i, &(x, y)) in edge.waypoints.iter().enumerate() {
+                let part = BendHandle {
+                    at: view.to_screen(Point::new(x, y)),
+                    edge: edge.id.clone(),
+                    index: i,
+                    add: false,
+                    name: labels
+                        .flow_bend
+                        .replace("{0}", &(i + 1).to_string())
+                        .replace("{1}", &count.to_string())
+                        .replace("{2}", &name),
+                    flow: flow.clone(),
+                    palette,
+                };
+                children.push(cx.keyed_child(util::hash_text(&format!("bend-{}-{i}", edge.id)), &part));
+            }
+        }
         match &connecting_now {
             Some(Connecting { pointer, target: Some((_, Err(reason))), .. }) => {
                 children.push(refusal(cx, reason, *pointer, palette));
@@ -2183,6 +2358,15 @@ impl View for FlowCanvas {
         );
         cx.clip(root);
         cx.report_frame(root);
+        let bent = flow.clone();
+        cx.on_double_click(
+            root,
+            Rc::new(move || {
+                if let Some(at) = bent.memory.pointer.get() {
+                    bent.add_bend_at(at);
+                }
+            }),
+        );
         let (checked, dropped, refused) =
             (flow.locked.clone(), flow.clone(), labels.flow_inspector_read_only.clone());
         cx.drop_target(
@@ -3004,6 +3188,79 @@ impl View for Corner {
         cx.semantics(node, Semantics::hidden());
         let (dragged, id) = (self.flow.clone(), self.id.clone());
         cx.on_drag(node, Rc::new(move |d| dragged.on_resize_drag(&id, d.phase, d.position)));
+        node
+    }
+}
+
+/// A bend point of the selected line, which moves when dragged and with the arrows, or the
+/// `+` in the middle of a stretch (`add`), which becomes one when dragged.
+struct BendHandle {
+    /// Where it is, in the view.
+    at: Point,
+    edge: String,
+    index: usize,
+    add: bool,
+    /// What screen readers call it.
+    name: String,
+    flow: Flow,
+    palette: Palette,
+}
+
+impl View for BendHandle {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let (p, add, hovered, focused) = (self.palette, self.add, cx.is_hovered(), cx.is_focused());
+        let side = if add { BEND + 2.0 } else { BEND };
+        let paint = Paint::Custom(Rc::new(move |frame: Rect, scene: &mut Scene| {
+            if add {
+                let fill = if hovered { p.accent } else { p.elevated };
+                let ink = if hovered { Color::WHITE } else { p.focus };
+                scene.push_quad(Quad::new(frame, fill).radius(side / 2.0).border(1.5, p.focus));
+                let c = frame.center();
+                stroke(scene, &[Point::new(c.x - 3.0, c.y), Point::new(c.x + 3.0, c.y)], 1.5, ink);
+                stroke(scene, &[Point::new(c.x, c.y - 3.0), Point::new(c.x, c.y + 3.0)], 1.5, ink);
+            } else {
+                if focused {
+                    let ring = Rect::new(
+                        frame.x() - 4.0,
+                        frame.y() - 4.0,
+                        frame.width() + 8.0,
+                        frame.height() + 8.0,
+                    );
+                    scene.push_quad(Quad::new(ring, Color::TRANSPARENT).radius(5.0).border(2.0, p.focus));
+                }
+                scene.push_quad(Quad::new(frame, p.accent).radius(2.0).border(1.5, Color::WHITE));
+            }
+        }));
+        let node = cx.container(
+            LayoutStyle {
+                absolute: Some((self.at.x - side / 2.0, self.at.y - side / 2.0)),
+                width: Some(side),
+                height: Some(side),
+                ..LayoutStyle::leaf()
+            },
+            &[],
+            paint,
+        );
+        cx.cursor(node, CursorIcon::Pointer);
+        let (dragged, edge, index) = (self.flow.clone(), self.edge.clone(), self.index);
+        cx.on_drag(node, Rc::new(move |d| dragged.on_bend_drag(&edge, index, add, d.phase, d.position)));
+        if add {
+            // A double click on the line and the keys do the same, so screen readers skip it.
+            cx.semantics(node, Semantics::hidden());
+            // It sits on the line, so a double click there still makes a point.
+            let (doubled, at) = (self.flow.clone(), self.at);
+            cx.on_double_click(
+                node,
+                Rc::new(move || {
+                    doubled.add_bend_at(at);
+                }),
+            );
+        } else {
+            cx.focusable(node, 2.0);
+            cx.semantics(node, Semantics::new(Role::Button).name(self.name.clone()));
+            let (keyed, edge) = (self.flow.clone(), self.edge.clone());
+            cx.on_key(node, Rc::new(move |key, m| keyed.bend_key(&edge, index, key, m)));
+        }
         node
     }
 }

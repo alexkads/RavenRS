@@ -607,6 +607,9 @@ pub struct Labels {
     pub flow_title: String,
     /// A turned node of a `FlowCanvas`, with `{0}` its turn in degrees.
     pub flow_turned: String,
+    /// A bend point of a `FlowCanvas` line, with `{0}` its place, `{1}` how many and `{2}` the
+    /// line's label (or id).
+    pub flow_bend: String,
     /// Why a group of a `FlowCanvas` does not turn.
     pub flow_no_turn: String,
     /// The name of a `FlowInspector`.
@@ -1290,6 +1293,7 @@ impl Labels {
             flow_members: texts.get("widgets.flow_members"),
             flow_title: texts.get("widgets.flow_title"),
             flow_turned: texts.get("widgets.flow_turned"),
+            flow_bend: texts.get("widgets.flow_bend"),
             flow_no_turn: texts.get("widgets.flow_no_turn"),
             flow_inspector: texts.get("widgets.flow_inspector"),
             flow_inspector_empty: texts.get("widgets.flow_inspector_empty"),

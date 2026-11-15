@@ -61,6 +61,7 @@
  "widgets.compare_first": "Before",
  "widgets.compare_second": "After",
  "widgets.confirm_by_typing": "To confirm, type",
+ "widgets.flow_bend": "Point {0} of {1} of the connection {2}",
  "widgets.flow_cap_names.0": "None",
  "widgets.flow_cap_names.1": "Arrow",
  "widgets.flow_cap_names.2": "Open arrow",

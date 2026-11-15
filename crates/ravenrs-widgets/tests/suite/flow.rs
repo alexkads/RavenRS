@@ -1336,3 +1336,93 @@ fn a_locked_canvas_takes_no_model() {
     drag(&mut shop.ui, tile, Point::new(left + 300.0, 400.0));
     assert_eq!(shop.graph.get().nodes.len(), before, "nothing lands");
 }
+
+fn bent() -> Rig {
+    rig_with(
+        graph().edge(
+            FlowEdge::new("e1", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in")).label("Yes"),
+        ),
+        |c| c,
+    )
+}
+
+/// The middle of the line's only stretch, where its `+` is, in the view (at 100%, from 0, 0).
+fn stretch_middle(rig: &Rig) -> Point {
+    let g = rig.graph.get();
+    let c = g.edge_controls(&g.edges[0]).expect("the line");
+    Point::new((c[0].x + c[1].x) / 2.0, (c[0].y + c[1].y) / 2.0)
+}
+
+#[test]
+fn dragging_the_plus_of_a_selected_line_makes_a_bend_point_on_the_grid() {
+    let mut rig = bent();
+    let middle = stretch_middle(&rig);
+    click(&mut rig.ui, middle);
+    assert_eq!(rig.selection.get(), FlowSelection::edge("e1"), "the line is selected");
+
+    drag(&mut rig.ui, middle, Point::new(middle.x + 10.0, 250.0));
+    let point = (snapped(middle.x + 10.0), snapped(250.0));
+    assert_eq!(rig.graph.get().edges[0].waypoints, vec![point]);
+    // The line goes through it.
+    let g = rig.graph.get();
+    let path = ravenrs_graphics::flow::flatten(&g.edge_path(&g.edges[0]).expect("a path"));
+    assert!(ravenrs_graphics::flow::distance_to(&path, Point::new(point.0, point.1)) < 1.0);
+
+    // One change to undo.
+    key(&mut rig.ui, Key::Character("z".into()), command(false));
+    assert!(rig.graph.get().edges[0].waypoints.is_empty());
+}
+
+#[test]
+fn a_bend_point_moves_with_the_arrows_and_goes_with_delete() {
+    let mut rig = bent();
+    rig.graph.update(|g| g.edges[0].waypoints = vec![(336.0, 240.0)]);
+    rig.selection.set(FlowSelection::edge("e1"));
+    settle(&mut rig.ui);
+    let point = named(&mut rig.ui, "Point 1 of 1 of the connection Yes")
+        .expect("the point, named for screen readers");
+    click(&mut rig.ui, point.bounds.center());
+    key(&mut rig.ui, Key::ArrowRight, Modifiers::default());
+    assert_eq!(rig.graph.get().edges[0].waypoints, vec![(360.0, 240.0)]);
+    key(&mut rig.ui, Key::ArrowUp, Modifiers { shift: true, ..Modifiers::default() });
+    assert_eq!(rig.graph.get().edges[0].waypoints, vec![(360.0, 144.0)]);
+    key(&mut rig.ui, Key::Delete, Modifiers::default());
+    assert!(rig.graph.get().edges[0].waypoints.is_empty());
+    assert_eq!(rig.selection.get(), FlowSelection::edge("e1"), "the line stays selected");
+}
+
+#[test]
+fn a_double_click_on_a_line_makes_a_point_and_one_dropped_on_the_straight_goes() {
+    let mut rig = bent();
+    let middle = stretch_middle(&rig);
+    double_click(&mut rig.ui, middle);
+    assert_eq!(rig.graph.get().edges[0].waypoints.len(), 1, "a point where it was clicked");
+    assert_eq!(rig.selection.get(), FlowSelection::edge("e1"));
+
+    // Dragged back onto the straight between the ports, it is no longer needed.
+    rig.graph.update(|g| g.edges[0].waypoints = vec![(336.0, 240.0)]);
+    settle(&mut rig.ui);
+    let g = rig.graph.get();
+    let c = g.edge_controls(&g.edges[0]).expect("the line");
+    let on_straight = Point::new((c[0].x + c[2].x) / 2.0, (c[0].y + c[2].y) / 2.0);
+    drag(&mut rig.ui, Point::new(336.0, 240.0), on_straight);
+    // Snapped to the grid it may sit a little off the straight; near enough, it goes.
+    let left = rig.graph.get().edges[0].waypoints.clone();
+    assert!(left.is_empty() || left.iter().all(|&(_, y)| (y - on_straight.y).abs() > 4.0), "{left:?}");
+}
+
+#[test]
+fn a_line_whose_two_ends_move_takes_its_points_along() {
+    let mut rig = bent();
+    rig.graph.update(|g| g.edges[0].waypoints = vec![(336.0, 240.0)]);
+    rig.selection.set(FlowSelection { nodes: vec!["a".into(), "b".into()], edges: vec![] });
+    settle(&mut rig.ui);
+    drag(&mut rig.ui, Point::new(120.0, 70.0), Point::new(168.0, 118.0));
+    assert_eq!(rig.graph.get().edges[0].waypoints, vec![(384.0, 288.0)], "moved with both nodes");
+
+    // With one end moving, the point stays.
+    rig.selection.set(FlowSelection::node("a"));
+    settle(&mut rig.ui);
+    drag(&mut rig.ui, Point::new(168.0, 118.0), Point::new(168.0, 166.0));
+    assert_eq!(rig.graph.get().edges[0].waypoints, vec![(384.0, 288.0)]);
+}

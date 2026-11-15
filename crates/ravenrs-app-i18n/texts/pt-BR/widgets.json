@@ -61,6 +61,7 @@
  "widgets.compare_first": "Antes",
  "widgets.compare_second": "Depois",
  "widgets.confirm_by_typing": "Para confirmar, digite",
+ "widgets.flow_bend": "Ponto {0} de {1} da ligação {2}",
  "widgets.flow_cap_names.0": "Nenhuma",
  "widgets.flow_cap_names.1": "Seta",
  "widgets.flow_cap_names.2": "Seta aberta",
