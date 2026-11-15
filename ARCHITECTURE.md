@@ -224,6 +224,7 @@ Renderer::render:  batch quads/glyphs ──► upload instances ──► one r
 * **Layout** runs Taffy over the boxes. Text leaves are measured by Parley through Taffy's measure callback, so wrapping participates in flexbox sizing.
 * **Paint** walks the element tree in order and appends primitives (`Quad`, `GlyphRun`, `PathFill`) to the `Scene`. Focus rings are painted after the focused element's children so they sit on top. An element outside its clip adds nothing, though it still gets a place in the order, because it can take focus and its children can stand outside it.
 * **Render** turns the scene into instanced draws. Consecutive primitives of the same kind are merged into one draw call; painter's order is preserved.
+* **Turns.** `cx.rotate(node, radians)` turns a node and its subtree around its center. Paint applies `Effect::rotated` to the node's range of the scene, so quads, images and glyph runs carry a `rotation` and paths fold it into their transform. The same pass keeps, for each element under a turn, the map from its own coordinates to the screen and back (`Ui::turns`), so hit testing takes the point back into the element's coordinates before checking its frame and clip, and the accessibility tree reports the box around the turned frame. Layout never sees a turn.
 
 Every rebuild runs from the root, so its cost follows the size of the screen, not the size of the change. What keeps that cheap: text is shaped once (`TextSystem` keeps recent layouts), the pointer moving over views that never asked about it builds nothing, and drawing that moves repeats only the paint through `Paint::Live`.
 
@@ -362,7 +363,7 @@ Phase R1 is done. `ravenrs-report-pdf`, `ravenrs-report-xlsx` export the `Docume
 
 **No clock, no animation.** Motion starts with the first `Ui::set_time`. A `Ui` without a platform lands everything at once, which keeps headless tests and reference images deterministic.
 
-**Limits.** Effects run on the display list (`Scene::apply_effect`), so there is no rotation, and opacity applies per primitive: overlapping shapes show through each other while partly faded. Real group opacity and rotation need layers and transforms in the renderer. Text snaps to pixels vertically, so a slow move of a text block advances in device pixels.
+**Limits.** Effects run on the display list (`Scene::apply_effect`), and opacity applies per primitive: overlapping shapes show through each other while partly faded. Real group opacity needs layers in the renderer. A turn (`Effect::rotation`) is drawn by the renderer, but springs carry four numbers and do not animate it, and a clip under a turn becomes the box around the turned rectangle. Text snaps to pixels vertically, so a slow move of a text block advances in device pixels.
 
 ## 7. Rendering
 
@@ -370,7 +371,8 @@ Phase R1 is done. `ravenrs-report-pdf`, `ravenrs-report-xlsx` export the `Docume
 
 * **Quads** are instanced. The WGSL fragment shader evaluates a signed-distance function of a rounded box with per-corner radii, so edges are anti-aliased analytically (one device pixel of coverage ramp) at any scale factor. Borders, two-stop linear gradients and fill share the same shader.
 * **Soft shadows** are separate instances drawn under their shape: the coverage is an `erf` approximation over the same SDF, which gives a Gaussian-looking falloff in one pass with no blur texture.
-* **Text** is shaped by Parley, rasterized per glyph by `swash` (outline, alpha mask, 4 horizontal sub-pixel positions, no hinting) into an R8 atlas packed with shelves, and drawn as textured quads snapped to the device pixel grid. The atlas grows (×2 up to the device limit) when it fills; at the limit it is cleared.
+* **Turns.** Quads and images carry the cosine and sine of their turn; the vertex shader turns the corners around the center while the fragment shader keeps working in the shape's own coordinates, so borders, gradients and shadows turn with it. A glyph turns around its own origin.
+* **Text** is shaped by Parley, rasterized per glyph by `swash` (outline, alpha mask, 4 horizontal sub-pixel positions, no hinting) into an R8 atlas packed with shelves, and drawn as textured quads snapped to the device pixel grid. Turned glyphs are sampled linearly, so they lose the snapping. The atlas grows (×2 up to the device limit) when it fills; at the limit it is cleared.
 * **Color.** Tokens are sRGB. The renderer prefers non-sRGB surface formats so blending happens in sRGB space, as in browsers and design tools; on `*Srgb` targets the shaders linearize colors first. Output is premultiplied alpha.
 * **Resources** (pipelines, atlas, instance buffers) are created once and reused; instance buffers only grow. GPU→CPU readback exists only in tests: `crates/ravenrs-render/tests/offscreen.rs` checks pixels of real scenes and `crates/ravenrs/tests/suite/visual.rs` compares golden images. GPU timing is off unless asked for, and its answers arrive frames later through buffers mapped in the background, so it never makes a frame wait (`timing.rs`).
 

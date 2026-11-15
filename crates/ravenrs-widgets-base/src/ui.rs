@@ -46,6 +46,34 @@ const LIVE_FRAME: f64 = 1.0 / 60.0;
 const PAINT_MARGIN: f32 = 64.0;
 
 /// Whether anything `frame` draws, with its margin, can land inside `clip`.
+/// An affine map of points, `[a, b, c, d, e, f]` taking `(x, y)` to
+/// `(a x + c y + e, b x + d y + f)`, as [`ravenrs_core::PathFill::transform`].
+type Turn = [f32; 6];
+
+/// Turning by `radians` around `center`, clockwise on screen.
+fn turn_around(center: Point, radians: f32) -> Turn {
+    let (sin, cos) = radians.sin_cos();
+    [
+        cos,
+        sin,
+        -sin,
+        cos,
+        center.x - cos * center.x + sin * center.y,
+        center.y - sin * center.x - cos * center.y,
+    ]
+}
+
+/// `inner` first, then `outer`.
+fn compose(outer: Turn, inner: Turn) -> Turn {
+    let [a, b, c, d, e, f] = outer;
+    let [p, q, r, s, t, u] = inner;
+    [a * p + c * q, b * p + d * q, a * r + c * s, b * r + d * s, a * t + c * u + e, b * t + d * u + f]
+}
+
+fn apply(m: Turn, p: Point) -> Point {
+    Point::new(m[0] * p.x + m[2] * p.y + m[4], m[1] * p.x + m[3] * p.y + m[5])
+}
+
 fn touches(frame: Rect, clip: Rect) -> bool {
     frame.max_x() + PAINT_MARGIN > clip.x()
         && frame.x() - PAINT_MARGIN < clip.max_x()
@@ -153,6 +181,9 @@ pub struct Ui {
     content: Vec<Size>,
     /// Elements in painting (back-to-front) order; hit testing walks it backwards.
     paint_order: Vec<NodeId>,
+    /// For each element under a turn ([`BuildCx::rotate`]), from its own coordinates to the
+    /// screen and back; none for the rest. Worked out with the paint.
+    turns: Vec<Option<(Turn, Turn)>>,
     scroll: ScrollState,
     modifiers: Rc<Cell<Modifiers>>,
     /// Parent of each element, for hover-within.
@@ -273,6 +304,7 @@ impl Ui {
             clips: Vec::new(),
             content: Vec::new(),
             paint_order: Vec::new(),
+            turns: Vec::new(),
             scroll: ScrollState::default(),
             modifiers: Rc::new(Cell::new(Modifiers::default())),
             parents: Vec::new(),
@@ -1069,7 +1101,7 @@ impl Ui {
             let i = node.0 as usize;
             let e = &self.elements[i];
             let reachable = layers.as_ref().is_none_or(|l| l.iter().any(|root| self.is_inside(node, *root)));
-            let inside = self.frames[i].intersect(&self.clips[i]).contains(p);
+            let inside = self.reaches(i, p);
             if reachable && inside { e.on_pinch.clone() } else { None }
         });
         if let Some(handler) = handler {
@@ -1086,9 +1118,7 @@ impl Ui {
             let i = node.0 as usize;
             let e = &self.elements[i];
             let wheel = e.on_wheel.clone();
-            if !(e.scroll || e.scrolls_with_widget || wheel.is_some())
-                || !self.frames[i].intersect(&self.clips[i]).contains(p)
-            {
+            if !(e.scroll || e.scrolls_with_widget || wheel.is_some()) || !self.reaches(i, p) {
                 continue;
             }
             if !layers.as_ref().is_none_or(|l| l.iter().any(|root| self.is_inside(node, *root))) {
@@ -1199,11 +1229,35 @@ impl Ui {
         false
     }
 
+    /// Whether the point of the screen `p` falls on element `i` and inside its clip, in the
+    /// element's own coordinates when it is under a turn.
+    fn reaches(&self, i: usize, p: Point) -> bool {
+        let q = self.turns.get(i).copied().flatten().map_or(p, |(_, back)| apply(back, p));
+        self.frames.get(i).zip(self.clips.get(i)).is_some_and(|(f, c)| f.intersect(c).contains(q))
+    }
+
+    /// Where element `i` shows on screen: its frame, or the box around it when it is turned.
+    pub(crate) fn screen_frame(&self, i: usize) -> Rect {
+        let frame = self.frames.get(i).copied().unwrap_or(Rect::ZERO);
+        let Some((to, _)) = self.turns.get(i).copied().flatten() else { return frame };
+        let corners = [
+            frame.origin,
+            Point::new(frame.max_x(), frame.y()),
+            Point::new(frame.max_x(), frame.max_y()),
+            Point::new(frame.x(), frame.max_y()),
+        ]
+        .map(|c| apply(to, c));
+        let (x0, y0) =
+            corners.iter().fold((f32::INFINITY, f32::INFINITY), |(x, y), c| (x.min(c.x), y.min(c.y)));
+        let (x1, y1) =
+            corners.iter().fold((f32::NEG_INFINITY, f32::NEG_INFINITY), |(x, y), c| (x.max(c.x), y.max(c.y)));
+        Rect::new(x0, y0, x1 - x0, y1 - y0)
+    }
+
     fn hit_test(&self, p: Point) -> Option<NodeId> {
         self.paint_order.iter().rev().copied().find(|n| {
             let i = n.0 as usize;
-            self.elements[i].is_interactive()
-                && self.frames.get(i).zip(self.clips.get(i)).is_some_and(|(f, c)| f.intersect(c).contains(p))
+            self.elements[i].is_interactive() && self.reaches(i, p)
         })
     }
 
@@ -1606,17 +1660,19 @@ impl Ui {
         self.paint_order.clear();
         self.clips.clear();
         self.clips.resize(self.elements.len(), Rect::ZERO);
+        self.turns.clear();
+        self.turns.resize(self.elements.len(), None);
         self.motion.active = false;
         self.has_live = false;
         self.painting_overlays = false;
         if let Some(root) = self.root_node {
-            self.paint_node(root, viewport, &theme);
+            self.paint_node(root, viewport, &theme, None);
         }
         self.motion.paint_ghosts(GhostLayer::Main, &mut self.scene);
         self.painting_overlays = true;
         for i in 0..self.overlays.len() {
             let root = self.overlays[i].root;
-            self.paint_node(root, viewport, &theme);
+            self.paint_node(root, viewport, &theme, None);
         }
         self.motion.paint_ghosts(GhostLayer::Overlay, &mut self.scene);
         self.motion.paint_ghosts(GhostLayer::Top, &mut self.scene);
@@ -1712,11 +1768,25 @@ impl Ui {
         self.frames.get(overlay.anchor.0 as usize).copied()
     }
 
-    fn paint_node(&mut self, node: NodeId, clip: Rect, theme: &Theme) {
+    fn paint_node(&mut self, node: NodeId, clip: Rect, theme: &Theme, turn: Option<(Turn, Turn)>) {
         let i = node.0 as usize;
         self.paint_order.push(node);
         self.clips[i] = clip;
         let frame = self.frames[i];
+        // Its own turn after the ones around it: to the screen, the outer last; back, the outer first.
+        let rotation = self.elements[i].rotation;
+        let turn = if rotation == 0.0 {
+            turn
+        } else {
+            let (to, back) = (turn_around(frame.center(), rotation), turn_around(frame.center(), -rotation));
+            Some(match turn {
+                Some((outer_to, outer_back)) => (compose(outer_to, to), compose(back, outer_back)),
+                None => (to, back),
+            })
+        };
+        if let Some(slot) = self.turns.get_mut(i) {
+            *slot = turn;
+        }
         let start = self.scene.len();
         let sampled = self.sample_motion(i);
         let motion = sampled.as_ref().map(|(entry, _)| *entry);
@@ -1739,6 +1809,7 @@ impl Ui {
         // effect may land elsewhere, one leaving is captured for its way out, and one
         // without a size may draw around itself.
         let shown = effect != Effect::IDENTITY
+            || rotation != 0.0
             || motion.is_some_and(|m| m.motion.exit.is_some())
             || frame.is_empty()
             || touches(visual, clip);
@@ -1784,7 +1855,7 @@ impl Ui {
             }
         }
         for child in children {
-            self.paint_node(child, child_clip, theme);
+            self.paint_node(child, child_clip, theme, turn);
         }
         let outside = self.elements[i].scrollbar_outside;
         if shown && self.elements[i].scroll && outside == 0.0 {
@@ -1808,6 +1879,9 @@ impl Ui {
                 .radius(radius + grow)
                 .border(ix.focus_ring_width, theme.color(Semantic::FocusRing));
             self.scene.push_quad(ring);
+        }
+        if rotation != 0.0 {
+            self.scene.apply_effect(start..self.scene.len(), Effect::rotated(rotation), frame.center());
         }
         let Some(entry) = motion else {
             self.scene.apply_effect(start..self.scene.len(), linked, frame.center());

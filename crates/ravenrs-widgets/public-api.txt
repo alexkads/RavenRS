@@ -2255,6 +2255,7 @@ method BuildCx::pin_left
 method BuildCx::reduced_motion
 method BuildCx::report_frame
 method BuildCx::request_focus
+method BuildCx::rotate
 method BuildCx::scroll_horizontally
 method BuildCx::scroll_linked
 method BuildCx::scroll_offset

@@ -413,6 +413,9 @@ pub struct Element {
     pub rebuild_on_scroll: bool,
     /// Visual offset applied to the children's positions.
     pub translate: Point,
+    /// Turn of the node and everything in it around its center, in radians, clockwise on
+    /// screen; painting and the pointer both follow it, layout does not.
+    pub rotation: f32,
     pub on_double_click: Option<Rc<dyn Fn()>>,
     pub on_pinch: Option<Rc<dyn Fn(f32)>>,
     /// Takes the wheel over it, before any scroll container around it.
@@ -473,6 +476,7 @@ impl Element {
             scroll_x: false,
             rebuild_on_scroll: false,
             translate: Point::ZERO,
+            rotation: 0.0,
             on_double_click: None,
             on_pinch: None,
             on_wheel: None,
@@ -1497,6 +1501,29 @@ impl<'a> BuildCx<'a> {
     pub fn on_wheel(&mut self, node: NodeId, handler: Rc<dyn Fn(Point)>) {
         if let Some(e) = self.element_mut(node) {
             e.on_wheel = Some(handler);
+        }
+    }
+
+    /// Turns the node and its subtree around the node's center by `radians`, clockwise on
+    /// screen. Layout is unchanged; painting turns everything inside, text and images too, and
+    /// the pointer finds the node, and what is in it, where it shows. Screen readers get the
+    /// box around the turned node. Turns of nodes inside one another add up.
+    ///
+    /// ```
+    /// use ravenrs_widgets::{BuildCx, NodeId, View};
+    ///
+    /// struct Tilted;
+    /// impl View for Tilted {
+    ///     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+    ///         let node = cx.child(&ravenrs_widgets::Text::new("Tilted"));
+    ///         cx.rotate(node, 0.2);
+    ///         node
+    ///     }
+    /// }
+    /// ```
+    pub fn rotate(&mut self, node: NodeId, radians: f32) {
+        if let Some(e) = self.element_mut(node) {
+            e.rotation = radians;
         }
     }
 

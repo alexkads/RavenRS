@@ -492,3 +492,70 @@ fn more_shapes_than_the_coverage_atlas_holds_are_all_drawn_in_order() {
     assert_eq!(pixel(&img, 600, 300), [255, 255, 255, 255], "the first shapes, past the quad");
     assert_eq!(pixel(&img, 300, 40), [255, 255, 255, 255], "the second shapes, over the quad");
 }
+
+/// The box around the pixels brighter than half on the red channel.
+fn lit_box(img: &(u32, u32, Vec<u8>)) -> Option<(u32, u32, u32, u32)> {
+    let mut found: Option<(u32, u32, u32, u32)> = None;
+    for y in 0..img.1 {
+        for x in 0..img.0 {
+            if pixel(img, x, y)[0] > 128 {
+                found =
+                    Some(found.map_or((x, y, x, y), |(x0, y0, x1, y1)| {
+                        (x0.min(x), y0.min(y), x1.max(x), y1.max(y))
+                    }));
+            }
+        }
+    }
+    found
+}
+
+#[test]
+fn a_turned_quad_and_image_cover_the_turned_box() {
+    let Some(gpu) = gpu() else { return };
+    let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
+    let turn = std::f32::consts::FRAC_PI_2;
+    let image = ImageData::from_fn(4, 4, |_, _| Color::hex(0xff0000)).expect("an image");
+    for kind in ["quad", "image"] {
+        let mut scene = Scene::new();
+        scene.set_clear_color(Color::BLACK);
+        // 40 by 10 around (100, 50): turned a quarter, it stands 10 wide and 40 tall.
+        let rect = Rect::new(80.0, 45.0, 40.0, 10.0);
+        if kind == "quad" {
+            scene.push_quad(Quad::new(rect, Color::hex(0xff0000)).rotated(turn));
+        } else {
+            scene.push_image(ravenrs_core::ImageQuad::new(rect, image.clone()).rotated(turn));
+        }
+        let img = render(&gpu, &mut renderer, &scene, 1.0);
+        assert!(pixel(&img, 100, 33)[0] > 200, "{kind}: the top of the standing strip");
+        assert!(pixel(&img, 100, 67)[0] > 200, "{kind}: its bottom");
+        assert!(pixel(&img, 85, 50)[0] < 30, "{kind}: where the lying strip was");
+        assert!(pixel(&img, 115, 50)[0] < 30, "{kind}: and its other end");
+        let (x0, y0, x1, y1) = lit_box(&img).expect("something drawn");
+        assert!((94..=96).contains(&x0) && (104..=106).contains(&x1), "{kind}: {x0}..{x1}");
+        assert!((29..=31).contains(&y0) && (69..=71).contains(&y1), "{kind}: {y0}..{y1}");
+    }
+}
+
+#[test]
+fn turned_text_runs_down_a_column() {
+    let Some(gpu) = gpu() else { return };
+    let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
+    let mut text = TextSystem::new();
+    let mut layout = text
+        .layout("Raven", &TextAttrs { size: 16.0, line_height: 20.0, weight: 600.0, ..Default::default() });
+    layout.measure(None);
+    let mut scene = Scene::new();
+    scene.set_clear_color(Color::BLACK);
+    layout.paint(Point::new(100.0, 10.0), Color::WHITE, &mut scene);
+    let flat = lit_box(&render(&gpu, &mut renderer, &scene, 1.0)).expect("flat text");
+    assert!(flat.2 - flat.0 > flat.3 - flat.1, "flat text is wider than tall: {flat:?}");
+    let end = scene.len();
+    scene.apply_effect(
+        0..end,
+        ravenrs_core::Effect::rotated(std::f32::consts::FRAC_PI_2),
+        Point::new(100.0, 10.0),
+    );
+    let (x0, y0, x1, y1) = lit_box(&render(&gpu, &mut renderer, &scene, 1.0)).expect("turned text");
+    assert!(y1 - y0 > (x1 - x0) * 2, "turned text is taller than wide: {:?}", (x0, y0, x1, y1));
+    assert!(x1 <= 101 && y0 >= 9, "it turned around its start, to the left and down: {:?}", (x0, y0, x1, y1));
+}

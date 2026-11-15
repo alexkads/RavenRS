@@ -26,6 +26,8 @@ struct QuadInstance {
     gradient: [f32; 4],
     border_color: [f32; 4],
     params: [f32; 4],
+    /// Cosine and sine of the turn around the rect's center.
+    turn: [f32; 4],
 }
 
 #[repr(C)]
@@ -34,6 +36,8 @@ struct GlyphInstance {
     rect: [f32; 4],
     uv: [f32; 4],
     color: [f32; 4],
+    /// Cosine and sine of the turn, and the origin it turns around, in device pixels.
+    turn: [f32; 4],
 }
 
 #[repr(C)]
@@ -322,9 +326,10 @@ impl Renderer {
         });
         let quad_attributes = wgpu::vertex_attr_array![
             0 => Float32x4, 1 => Float32x4, 2 => Float32x4, 3 => Float32x4,
-            4 => Float32x4, 5 => Float32x4, 6 => Float32x4
+            4 => Float32x4, 5 => Float32x4, 6 => Float32x4, 7 => Float32x4
         ];
-        let glyph_attributes = wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4];
+        let glyph_attributes =
+            wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4, 3 => Float32x4];
         let image_attributes =
             wgpu::vertex_attr_array![0 => Float32x4, 1 => Float32x4, 2 => Float32x4, 3 => Float32x4];
         let image_pipeline = pipeline(
@@ -676,6 +681,7 @@ impl Renderer {
                     let size_q = (size_px * 4.0).round().max(1.0) as u32;
                     let color = run.color.to_array();
                     let inv_atlas = 1.0 / self.atlas.size as f32;
+                    let (sin, cos) = run.rotation.sin_cos();
                     for g in &run.glyphs {
                         let device_x = g.x * scale;
                         let mut ix = device_x.floor();
@@ -699,6 +705,7 @@ impl Renderer {
                         let Some(a) = entry else { continue };
                         let device_y = (g.y * scale).round();
                         self.glyphs.push(GlyphInstance {
+                            turn: [cos, sin, ix, device_y],
                             rect: [
                                 ix + a.left as f32,
                                 device_y - a.top as f32,
@@ -732,7 +739,10 @@ impl Renderer {
             rect: [r.x(), r.y(), r.width(), r.height()],
             uv: image.uv,
             radii: image.corner_radii,
-            params: [image.opacity.clamp(0.0, 1.0), 0.0, 0.0, 0.0],
+            params: {
+                let (sin, cos) = image.rotation.sin_cos();
+                [image.opacity.clamp(0.0, 1.0), cos, sin, 0.0]
+            },
         });
         self.extend_batch(BatchKind::Image(image.image.id()), start, start + 1);
     }
@@ -771,6 +781,8 @@ struct AtlasFull;
 
 fn push_quad(out: &mut Vec<QuadInstance>, quad: &Quad) {
     let r = quad.rect;
+    let (sin, cos) = quad.rotation.sin_cos();
+    let turn = [cos, sin, 0.0, 0.0];
     let rect = [r.x(), r.y(), r.width(), r.height()];
     if let Some(shadow) = quad.shadow {
         out.push(QuadInstance {
@@ -781,6 +793,7 @@ fn push_quad(out: &mut Vec<QuadInstance>, quad: &Quad) {
             gradient: [0.0; 4],
             border_color: [0.0; 4],
             params: [0.0, shadow.blur * 0.5, 1.0, 0.0],
+            turn,
         });
     }
     let (color0, color1, gradient, gradient_on) = match quad.fill {
@@ -800,5 +813,6 @@ fn push_quad(out: &mut Vec<QuadInstance>, quad: &Quad) {
         gradient,
         border_color,
         params: [border_width, 0.0, 0.0, gradient_on],
+        turn,
     });
 }

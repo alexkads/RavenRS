@@ -59,7 +59,13 @@ impl Animatable for Effect {
         [self.opacity, self.offset.x, self.offset.y, self.scale]
     }
     fn from_components(c: [f32; 4]) -> Self {
-        Effect { opacity: c[0].clamp(0.0, 1.0), offset: Point::new(c[1], c[2]), scale: c[3].max(0.0) }
+        // Springs carry four numbers: a turn is not animated by them and stays at none.
+        Effect {
+            opacity: c[0].clamp(0.0, 1.0),
+            offset: Point::new(c[1], c[2]),
+            scale: c[3].max(0.0),
+            rotation: 0.0,
+        }
     }
 }
 
