@@ -1427,7 +1427,7 @@ fn a_line_whose_two_ends_move_takes_its_points_along() {
 }
 
 #[test]
-fn the_shortcut_exports_the_whole_diagram_and_changes_nothing() {
+fn the_shortcut_opens_the_export_menu_and_exporting_changes_nothing() {
     let got: std::rc::Rc<std::cell::RefCell<Vec<(FlowExportFormat, FlowPicture)>>> = Default::default();
     let seen = got.clone();
     let mut rig = rig_with(graph(), move |c| {
@@ -1435,9 +1435,13 @@ fn the_shortcut_exports_the_whole_diagram_and_changes_nothing() {
     });
     assert!(named(&mut rig.ui, "Export").is_some(), "a button in the controls");
 
-    // Cmd/Ctrl+Shift+E exports at once, as a PNG at first, the whole diagram.
+    // Cmd/Ctrl+Shift+E opens the Export menu; its first item, PNG, exports the whole diagram.
     click(&mut rig.ui, Point::new(600.0, 500.0));
     key(&mut rig.ui, Key::Character("e".into()), command(true));
+    assert!(got.borrow().is_empty(), "the shortcut opens the menu, it does not export yet");
+    let png = named(&mut rig.ui, "PNG image").expect("the menu is open").id;
+    rig.ui.perform_action(png, ravenrs_core::AccessAction::Click);
+    settle(&mut rig.ui);
     {
         let got = got.borrow();
         let (format, picture) = got.last().expect("an export");

@@ -482,6 +482,7 @@ pub struct DropdownMenu {
     size: crate::ButtonSize,
     icon_only: bool,
     entries: Vec<Entry>,
+    open: Option<Binding<bool>>,
 }
 
 impl fmt::Debug for DropdownMenu {
@@ -501,7 +502,15 @@ impl DropdownMenu {
             size: crate::ButtonSize::Medium,
             icon_only: false,
             entries: Vec::new(),
+            open: None,
         }
+    }
+
+    /// Shares whether the menu is open, so that a shortcut or another control opens it (the
+    /// first item takes the focus, as on a click) and the app knows when it closes.
+    pub fn open(mut self, open: Binding<bool>) -> Self {
+        self.open = Some(open);
+        self
     }
 
     /// Shows only the icon, for a tight bar; the label still names the button for screen
@@ -946,13 +955,12 @@ impl View for MenuLevel<'_> {
 
 impl View for DropdownMenu {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
-        let open: State<bool> = cx.use_state(|| false);
+        let own: State<bool> = cx.use_state(|| false);
+        let open: Binding<bool> = self.open.clone().unwrap_or_else(|| own.binding());
         let toggle = open.clone();
         let shown = if self.icon_only { String::new() } else { self.label.clone() };
-        let mut trigger = Button::new(shown)
-            .style(self.style)
-            .size(self.size)
-            .on_click(move || toggle.update(|o| *o = !*o));
+        let mut trigger =
+            Button::new(shown).style(self.style).size(self.size).on_click(move || toggle.set(!toggle.get()));
         if !self.icon_only {
             trigger = trigger.trailing_icon(IconName::ChevronDown);
         }
