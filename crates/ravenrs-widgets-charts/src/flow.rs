@@ -2605,6 +2605,17 @@ impl View for FlowCanvas {
         let points = breakpoints.get();
         let real = graph.clone();
         let mut graph = graph;
+        // Hidden nodes, what they hold and their lines are left out of the drawing.
+        let hidden: Vec<String> = graph
+            .nodes
+            .iter()
+            .filter(|n| n.hidden)
+            .flat_map(|n| std::iter::once(n.id.clone()).chain(graph.descendants(&n.id)))
+            .collect();
+        if !hidden.is_empty() {
+            graph.nodes.retain(|n| !hidden.contains(&n.id));
+            graph.edges.retain(|e| !hidden.contains(&e.from.node) && !hidden.contains(&e.to.node));
+        }
         for issue in issues.iter().flatten() {
             for id in &issue.nodes {
                 if let Some(n) = graph.find_node_mut(id)

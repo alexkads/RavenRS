@@ -160,6 +160,7 @@ impl View for Board {
                         .view(view.binding())
                         .storage(self.storage.clone()),
                     toolbox().title("Peças").arrivals(arrivals.binding()),
+                    FlowLayers::new(graph.binding(), selection.binding()).history(history.binding()),
                 ))
                 .spacing(0.0)
                 .align(Align::Stretch),

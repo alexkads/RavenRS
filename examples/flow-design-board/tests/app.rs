@@ -29,6 +29,7 @@ fn frames_hold_their_pieces_and_a_piece_turns() {
 #[test]
 fn a_piece_dragged_in_lands_on_the_board() {
     let mut ui = opened();
+    let before = named(&mut ui, "Elipse").len();
     let tile = named(&mut ui, "Elipse").first().expect("the tile").bounds.center();
     let board = named(&mut ui, "Quadro").first().expect("the board").bounds;
     let to = Point::new(board.x() + 80.0, board.max_y() - 120.0);
@@ -44,7 +45,7 @@ fn a_piece_dragged_in_lands_on_the_board() {
     ui.handle_event(&Event::PointerUp { position: to, button: PointerButton::Primary });
     ui.update();
     ui.update();
-    assert_eq!(named(&mut ui, "Elipse").len(), 2, "the tile and the new piece");
+    assert_eq!(named(&mut ui, "Elipse").len(), before + 2, "the new piece, and its row in the layers");
 }
 
 #[test]
@@ -53,4 +54,25 @@ fn the_board_is_saved_as_a_drawing() {
     let file = ravenrs_flow_export::export(&picture, FlowExportFormat::Svg, "Quadro").expect("an svg");
     let svg = String::from_utf8(file.bytes).expect("text");
     assert!(svg.contains("Cabeçalho") && svg.contains("stroke-dasharray"), "pieces and frames");
+}
+
+#[test]
+fn layers_pick_hide_and_reorder_the_pieces() {
+    let mut ui = opened();
+    assert!(!named(&mut ui, "Camadas").is_empty());
+    assert!(!named(&mut ui, "Logo").is_empty());
+    let press = |ui: &mut Ui, name: &str| {
+        let id = named(ui, name).first().unwrap_or_else(|| panic!("no {name}")).id;
+        ui.perform_action(id, ravenrs::core::AccessAction::Click);
+        ui.update();
+        ui.update();
+    };
+    let logos = named(&mut ui, "Logo").len();
+    press(&mut ui, "Ocultar Logo");
+    assert!(!named(&mut ui, "Mostrar Logo").is_empty(), "the row offers it back");
+    assert_eq!(named(&mut ui, "Logo").len(), logos - 1, "the piece left the board, its row stays");
+    press(&mut ui, "Mostrar Logo");
+    assert_eq!(named(&mut ui, "Logo").len(), logos);
+    press(&mut ui, "Trazer Logo para frente");
+    assert!(!named(&mut ui, "Enviar Logo para trás").is_empty());
 }

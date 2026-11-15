@@ -310,6 +310,10 @@ pub struct FlowNode {
     /// Its colors and the place of its title, apart from the theme.
     #[serde(default, skip_serializing_if = "FlowStyle::is_plain")]
     pub style: FlowStyle,
+    /// Left out of the drawing for now, with its connections, as a layer turned off; it stays
+    /// in the diagram and in its files.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub hidden: bool,
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref, reason = "the signature serde asks for")]

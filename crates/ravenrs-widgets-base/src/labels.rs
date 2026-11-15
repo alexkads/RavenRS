@@ -607,6 +607,16 @@ pub struct Labels {
     pub flow_title: String,
     /// A turned node of a `FlowCanvas`, with `{0}` its turn in degrees.
     pub flow_turned: String,
+    /// The heading of a `FlowLayers`.
+    pub flow_layers: String,
+    /// Hides a node of a `FlowLayers`, with `{0}` its name.
+    pub flow_layer_hide: String,
+    /// Shows a hidden node of a `FlowLayers`, with `{0}` its name.
+    pub flow_layer_show: String,
+    /// Brings a node of a `FlowLayers` forward, with `{0}` its name.
+    pub flow_layer_up: String,
+    /// Sends a node of a `FlowLayers` back, with `{0}` its name.
+    pub flow_layer_down: String,
     /// Puts a breakpoint on the nodes selected in a `FlowCanvas`, or takes it off (F9).
     pub flow_run_breakpoint: String,
     /// The Debug button and box of a `FlowCanvas`.
@@ -1381,6 +1391,11 @@ impl Labels {
             flow_members: texts.get("widgets.flow_members"),
             flow_title: texts.get("widgets.flow_title"),
             flow_turned: texts.get("widgets.flow_turned"),
+            flow_layers: texts.get("widgets.flow_layers"),
+            flow_layer_hide: texts.get("widgets.flow_layer_hide"),
+            flow_layer_show: texts.get("widgets.flow_layer_show"),
+            flow_layer_up: texts.get("widgets.flow_layer_up"),
+            flow_layer_down: texts.get("widgets.flow_layer_down"),
             flow_run_breakpoint: texts.get("widgets.flow_run_breakpoint"),
             flow_debug: texts.get("widgets.flow_debug"),
             flow_run_start: texts.get("widgets.flow_run_start"),

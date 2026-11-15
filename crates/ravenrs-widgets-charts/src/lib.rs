@@ -22,6 +22,9 @@ pub mod flow;
 pub mod flow_inspector;
 #[cfg(feature = "flow")]
 #[doc(hidden)]
+pub mod flow_layers;
+#[cfg(feature = "flow")]
+#[doc(hidden)]
 pub mod flow_library;
 #[cfg(feature = "flow")]
 #[doc(hidden)]
@@ -49,6 +52,8 @@ pub use flow::{
 };
 #[cfg(feature = "flow")]
 pub use flow_inspector::FlowInspector;
+#[cfg(feature = "flow")]
+pub use flow_layers::FlowLayers;
 #[cfg(feature = "flow")]
 pub use flow_library::{FlowFileFormat, FlowLibrary};
 #[cfg(feature = "flow")]
