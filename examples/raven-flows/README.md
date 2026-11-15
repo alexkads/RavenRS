@@ -14,7 +14,7 @@ As contagens correspondem às linhas das tabelas abaixo, sem ponderação por es
 
 | Área | ✅ | 🟡 | ⬜ |
 |---|---:|---:|---:|
-| 1. Editor de fluxo | 10 | 3 | 0 |
+| 1. Editor de fluxo | 11 | 2 | 0 |
 | 2. Painel do nó | 4 | 4 | 0 |
 | 3. Expressões | 0 | 4 | 1 |
 | 4. Motor de execução | 8 | 1 | 0 |
@@ -28,7 +28,7 @@ As contagens correspondem às linhas das tabelas abaixo, sem ponderação por es
 | 12. Experiência geral | 6 | 1 | 0 |
 | 13. Vídeo e treinamento | 9 | 9 | 2 |
 | 14. Nós de agente por CLI | 0 | 9 | 6 |
-| **Total** | **45** | **55** | **16** |
+| **Total** | **46** | **54** | **16** |
 
 **Regra de construção:** toda peça visual ou de infraestrutura ausente deve entrar primeiro na biblioteca, no componente responsável. O exemplo apenas compõe APIs públicas e fornece os dados e as políticas do produto.
 
@@ -47,14 +47,14 @@ Os caminhos partem da raiz do repositório. As referências apontam para tipos o
 | Fixar dados de um nó | 🟡 | `NodeDef::pin`, `crates/ravenrs-flows/src/definition.rs:212`, e `Mode::Test`, `crates/ravenrs-flows/src/catalog.rs:106`: no teste, o nó fixado entrega os itens guardados sem rodar | Falta a marca visual no canvas (#528) e editar os itens fixados no inspetor (#531) | BIBLIOTECA: #528, #531 |
 | Notas adesivas | ✅ | `FlowShape::Note`, `crates/ravenrs-graphics/src/flow.rs:124`; `FlowCanvas::content`, `crates/ravenrs-widgets-charts/src/flow.rs:859` | App oferecer criação, texto e cor; definir se usa título simples ou conteúdo composto | APP, usando o canvas |
 | Zoom, pan, encaixe e minimapa | ✅ | `FlowViewport`, `crates/ravenrs-widgets-charts/src/flow.rs:289`; `FlowCanvas::controls` e `minimap`, mesmo arquivo:884 e :890 | Configurar limites e persistir viewport do usuário | APP |
-| Organização automática | ✅ | `FlowLayout::positions` e `apply`, `crates/ravenrs-graphics/src/flow/layout.rs:94` e :148 | Escolher direção e espaçamentos; organização geométrica não define ordem de execução | APP |
-| Desfazer e refazer do diagrama | ✅ | `FlowHistory::record`, `undo` e `redo`, `crates/ravenrs-graphics/src/flow.rs:1230`, :1243 e :1250 | Para alterações de parâmetros fora do grafo, histórico de documento completo | BIBLIOTECA: `L03`; APP: comandos do documento |
-| Copiar, colar e importar JSON | 🟡 | `FlowGraph::insert`, `to_json` e `from_json`, `crates/ravenrs-graphics/src/flow.rs:1069`, :1100 e :1107; `FlowDefinition::to_json` e `from_json`, com versão de formato, e `FlowDefinition::to_graph` e `from_graph`, `crates/ravenrs-flows/src/graph.rs:35` e :79 | Desfazer e colar ainda não levam os parâmetros junto com o desenho | BIBLIOTECA: #529 |
+| Organização automática | ✅ | `FlowLayout::positions` e `apply`, `crates/ravenrs-graphics/src/flow/layout.rs:94` e :150 | Escolher direção e espaçamentos; organização geométrica não define ordem de execução | APP |
+| Desfazer e refazer do diagrama | ✅ | `FlowHistory::record`, `undo` e `redo`, `crates/ravenrs-graphics/src/flow.rs:1319`, :1332 e :1339 | Para alterações de parâmetros fora do grafo, histórico de documento completo | BIBLIOTECA: `L03`; APP: comandos do documento |
+| Copiar, colar e importar JSON | ✅ | `FlowNode::data` e `FlowGraph::data`, `crates/ravenrs-graphics/src/flow.rs:322` e :760; `NODE_REFS` e `FlowGraph::insert_with`, `flow.rs:770` e :1123; `FlowGraph::from_json` com migração, `flow.rs:1178`; `FlowDefinition::to_graph` e `from_graph`, `crates/ravenrs-flows/src/graph.rs:42` e :89: a configuração de cada nó viaja no cartão, e colar renomeia o que um nó cita de outro | App listar em `NODE_REFS` onde os dados citam outros nós | APP |
 | Busca rápida ao soltar conexão no vazio | 🟡 | `FlowCanvas::quick_create`, `crates/ravenrs-widgets-charts/src/flow.rs:838`: as setas e Cmd/Ctrl+Enter criam o próximo nó já ligado. Soltar uma conexão no vazio não abre busca; busca `B1`: `on_connect_end`, `connection_drop`, `connect_to_empty` | Evento público com origem e posição ao soltar no vazio, busca no catálogo compatível com a porta e criação e conexão numa só transação | BIBLIOTECA: canvas, `L01` |
 | Catálogo lateral por categoria | ✅ | `FlowToolbox`, `crates/ravenrs-widgets-charts/src/flow_toolbox.rs:60`: grupos, busca, arrastar para o canvas e Enter pelo teclado, ligado por `FlowCanvas::arrivals`, `crates/ravenrs-widgets-charts/src/flow.rs:697` | App fornecer categorias, descrições e os modelos de nó do catálogo | APP, usando a caixa de ferramentas |
-| Grupos, conteúdo próprio, validação e religação | ✅ | `FlowGraph::group`, `crates/ravenrs-graphics/src/flow.rs:986`; `FlowCanvas::content`, `validate` e `on_change`, `crates/ravenrs-widgets-charts/src/flow.rs:859`, :772 e :794; `FlowChange::Reconnect`, mesmo arquivo:439 | Conectar os guards às regras e permissões do documento | APP |
+| Grupos, conteúdo próprio, validação e religação | ✅ | `FlowGraph::group`, `crates/ravenrs-graphics/src/flow.rs:1033`; `FlowCanvas::content`, `validate` e `on_change`, `crates/ravenrs-widgets-charts/src/flow.rs:859`, :772 e :794; `FlowChange::Reconnect`, mesmo arquivo:439 | Conectar os guards às regras e permissões do documento | APP |
 | Verificar o fluxo e apontar o erro no nó | ✅ | `FlowCanvas::checks` e `FlowIssue`, `crates/ravenrs-widgets-charts/src/flow.rs:732` e :353 | App escrever as regras (nó sem credencial, parâmetro obrigatório vazio, gatilho ausente) | APP |
-| Pontos de dobra manuais e exportação visual | ✅ | `FlowEdge::waypoint`, `crates/ravenrs-graphics/src/flow.rs:693`; `FlowExportFormat` (PNG, SVG e PDF), `crates/ravenrs-graphics/src/flow/picture.rs:61`; `FlowCanvas::on_export`, `crates/ravenrs-widgets-charts/src/flow.rs:689` | App decidir onde gravar o arquivo exportado | APP |
+| Pontos de dobra manuais e exportação visual | ✅ | `FlowEdge::waypoint`, `crates/ravenrs-graphics/src/flow.rs:699`; `FlowExportFormat` (PNG, SVG e PDF), `crates/ravenrs-graphics/src/flow/picture.rs:61`; `FlowCanvas::on_export`, `crates/ravenrs-widgets-charts/src/flow.rs:689` | App decidir onde gravar o arquivo exportado | APP |
 
 O histórico atual guarda até 100 estados completos do `FlowGraph`. Ele não constitui histórico de versões publicadas nem cobre automaticamente os parâmetros mantidos pelo app.
 
@@ -169,8 +169,8 @@ O `Scheduler` visual organiza eventos e recursos. Sua existência não substitui
 | Projetos | 🟡 | `Role::object_permission`, `crates/ravenrs-app/src/security/mod.rs:220` | Modelo de projeto e membros é do app; falta propagação uniforme da autorização aos comandos, trabalhadores e segredos | BIBLIOTECA: `L27`; APP: entidades e associações |
 | Ativar e desativar fluxo | 🟡 | `StateMachine::new` e `transition`, `crates/ravenrs-app/src/workflow.rs:15` e :32 | Validar versão publicável, instalar/remover gatilhos e definir tratamento das execuções em andamento | BIBLIOTECA: `L10`, `L14`, `L21`; APP: ciclo de publicação |
 | Versões e histórico | ⬜ | Não encontrado versionamento de fluxo executável; busca `B6`: `workflowversion`, `workflow_version` | Revisões imutáveis, rascunho, versão ativa, referência da execução e migração do formato | BIBLIOTECA: `L03`, `L10`, `L12`; APP: política editorial |
-| Importar e exportar | 🟡 | `FlowGraph::from_json` e `to_json`, `crates/ravenrs-graphics/src/flow.rs:1107` e :1100 | Documento completo, compatibilidade, resolução de tipos ausentes e remoção de segredos; importar não ativa o fluxo | BIBLIOTECA: `L03`, `L10`; APP: formato |
-| Modelos reutilizáveis de fluxo | 🟡 | `FlowGraph::insert`, `crates/ravenrs-graphics/src/flow.rs:1069` | Instanciar definição completa com novos IDs e credenciais a preencher; o conteúdo dos modelos é do exemplo | BIBLIOTECA: `L03`, `L10`; APP: modelos |
+| Importar e exportar | 🟡 | `FlowGraph::from_json` e `to_json`, `crates/ravenrs-graphics/src/flow.rs:1178` e :1164 | Documento completo, compatibilidade, resolução de tipos ausentes e remoção de segredos; importar não ativa o fluxo | BIBLIOTECA: `L03`, `L10`; APP: formato |
+| Modelos reutilizáveis de fluxo | 🟡 | `FlowGraph::insert`, `crates/ravenrs-graphics/src/flow.rs:1116` | Instanciar definição completa com novos IDs e credenciais a preencher; o conteúdo dos modelos é do exemplo | BIBLIOTECA: `L03`, `L10`; APP: modelos |
 | Variáveis e ambiente | 🟡 | `SettingsStore`, `crates/ravenrs-app/src/settings.rs:44`; `Environment::parameter`, `crates/ravenrs-criteria/src/eval.rs:130` | Resolver escopos e precedência, tipar valores e congelar contexto por execução. Configuração em texto não substitui cofre | BIBLIOTECA: `L09`, `L10`, `L23`; APP: nomes e escopos |
 
 ### 10. Usuários e permissões

@@ -314,6 +314,12 @@ pub struct FlowNode {
     /// in the diagram and in its files.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub hidden: bool,
+    /// What the app keeps for the node: its setup, the kind of thing it stands for. The diagram
+    /// carries it without reading it: it is copied, pasted, undone and written with the node.
+    /// When it names other nodes, the paths to those names listed under [`NODE_REFS`] are
+    /// renamed when the node is pasted with new ids.
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    pub data: serde_json::Value,
 }
 
 #[allow(clippy::trivially_copy_pass_by_ref, reason = "the signature serde asks for")]
@@ -749,6 +755,45 @@ pub struct FlowGraph {
     /// Drawn below the nodes, in this order.
     #[serde(default)]
     pub edges: Vec<FlowEdge>,
+    /// What the app keeps for the whole diagram, carried without being read.
+    #[serde(default, skip_serializing_if = "serde_json::Value::is_null")]
+    pub data: serde_json::Value,
+}
+
+/// The version of the JSON [`FlowGraph::to_json`] writes. Version 1 had no `format` field;
+/// [`FlowGraph::from_json`] reads it and every version up to this one.
+pub const FLOW_FORMAT: u32 = 2;
+
+/// The field of a node's [`data`](FlowNode::data) that lists, as JSON pointers (`/target`,
+/// `/routes/0/to`), where its data names other nodes of the diagram by id. Pasting the node
+/// renames those ids as the pasted nodes are renamed.
+pub const NODE_REFS: &str = "$node_refs";
+
+/// What a pasted node's data names: the same text, the id it was given if it was pasted too.
+fn rename_refs(data: &mut serde_json::Value, renamed: &dyn Fn(&str) -> Option<String>) {
+    let pointers: Vec<String> = match data.get(NODE_REFS) {
+        Some(serde_json::Value::Array(list)) => {
+            list.iter().filter_map(|p| p.as_str().map(str::to_owned)).collect()
+        }
+        _ => return,
+    };
+    for pointer in pointers {
+        if let Some(serde_json::Value::String(id)) = data.pointer_mut(&pointer)
+            && let Some(new) = renamed(id)
+        {
+            *id = new;
+        }
+    }
+}
+
+/// Moves a diagram's JSON from version `from` to the next one. A change of the format that
+/// needs old JSON rewritten adds its step here, by the version it starts from.
+fn migrate(json: &mut serde_json::Value, from: u32) {
+    // 1 → 2: version 2 adds `data` to nodes and to the diagram, which version 1 has none of, so
+    // nothing is rewritten.
+    if let Some(object) = json.as_object_mut() {
+        object.insert("format".to_owned(), serde_json::Value::from(from + 1));
+    }
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
@@ -894,6 +939,8 @@ impl FlowGraph {
         let nodes = self.with_descendants(nodes);
         let has = |id: &str| nodes.iter().any(|n| n == id);
         FlowGraph {
+            // The app's data of the whole diagram stays with the diagram.
+            data: serde_json::Value::Null,
             nodes: self
                 .nodes
                 .iter()
@@ -1067,6 +1114,19 @@ impl FlowGraph {
     /// a connection whose ends are not both in `piece` stays out. Returns the ids the copies
     /// got, nodes first.
     pub fn insert(&mut self, piece: &FlowGraph, dx: f32, dy: f32) -> (Vec<String>, Vec<String>) {
+        self.insert_with(piece, dx, dy, |_, _| {})
+    }
+
+    /// As [`insert`](Self::insert), and then `remap` is called on each node put in, with a
+    /// function from an id of `piece` to the id its copy was given: the app renames there what
+    /// the node's data says of other nodes that [`NODE_REFS`] does not list.
+    pub fn insert_with(
+        &mut self,
+        piece: &FlowGraph,
+        dx: f32,
+        dy: f32,
+        mut remap: impl FnMut(&mut FlowNode, &dyn Fn(&str) -> Option<String>),
+    ) -> (Vec<String>, Vec<String>) {
         let mut renamed: Vec<(&str, String)> = Vec::with_capacity(piece.nodes.len());
         let first = self.nodes.len();
         for node in &piece.nodes {
@@ -1075,9 +1135,12 @@ impl FlowGraph {
             renamed.push((&node.id, id));
         }
         let new_id = |old: &str| renamed.iter().find(|(o, _)| *o == old).map(|(_, id)| id.clone());
-        // The copies sit in the copies of their groups, or in none.
+        // The copies sit in the copies of their groups, or in none, and name the copies of
+        // the nodes their data names.
         for node in &mut self.nodes[first..] {
             node.parent = node.parent.as_deref().and_then(new_id);
+            rename_refs(&mut node.data, &new_id);
+            remap(node, &new_id);
         }
         let mut edges = Vec::new();
         for edge in &piece.edges {
@@ -1096,16 +1159,37 @@ impl FlowGraph {
         (renamed.into_iter().map(|(_, id)| id).collect(), edges)
     }
 
-    /// The diagram as JSON, indented, which [`Self::from_json`] reads back.
+    /// The diagram as JSON, indented, at the version [`FLOW_FORMAT`], which [`Self::from_json`]
+    /// reads back.
     pub fn to_json(&self) -> String {
-        // Nothing in the model can fail to serialize: every field is text, a number or a list.
-        serde_json::to_string_pretty(self).unwrap_or_default()
+        // Nothing in the model can fail to serialize: every field is text, a number, a list or
+        // the app's own JSON.
+        let mut json = serde_json::to_value(self).unwrap_or_default();
+        if let Some(object) = json.as_object_mut() {
+            object.insert("format".to_owned(), serde_json::Value::from(FLOW_FORMAT));
+        }
+        serde_json::to_string_pretty(&json).unwrap_or_default()
     }
 
-    /// Reads a diagram written by [`Self::to_json`] (or by hand), and checks that it holds
-    /// together: ids are not repeated and every connection joins ports that exist.
+    /// Reads a diagram written by [`Self::to_json`] (or by hand), moving JSON of an earlier
+    /// version to this one, and checks that it holds together: ids are not repeated and every
+    /// connection joins ports that exist. JSON of a newer version is refused, so an older build
+    /// never drops what it does not know; the app's [`data`](FlowNode::data) is kept as it came.
     pub fn from_json(text: &str) -> Result<Self, FlowJsonError> {
-        let graph: Self = serde_json::from_str(text).map_err(|e| FlowJsonError::Syntax(e.to_string()))?;
+        let mut json: serde_json::Value =
+            serde_json::from_str(text).map_err(|e| FlowJsonError::Syntax(e.to_string()))?;
+        let mut format = json.get("format").and_then(serde_json::Value::as_u64).unwrap_or(1) as u32;
+        if format > FLOW_FORMAT {
+            return Err(FlowJsonError::Newer(format));
+        }
+        while format < FLOW_FORMAT {
+            migrate(&mut json, format);
+            format += 1;
+        }
+        if let Some(object) = json.as_object_mut() {
+            object.remove("format");
+        }
+        let graph: Self = serde_json::from_value(json).map_err(|e| FlowJsonError::Syntax(e.to_string()))?;
         graph.check()?;
         Ok(graph)
     }
@@ -1180,6 +1264,8 @@ pub enum FlowJsonError {
     },
     /// A node is in a group that it holds, or in itself.
     GroupCycle(String),
+    /// It was written by a newer build, at this version of the format.
+    Newer(u32),
 }
 
 impl std::fmt::Display for FlowJsonError {
@@ -1200,6 +1286,9 @@ impl std::fmt::Display for FlowJsonError {
                 write!(f, "node \"{node}\" is in group \"{group}\", which is not a group of this diagram")
             }
             Self::GroupCycle(id) => write!(f, "node \"{id}\" is in a group it holds"),
+            Self::Newer(format) => {
+                write!(f, "written at version {format} of the format; this build reads up to {FLOW_FORMAT}")
+            }
         }
     }
 }

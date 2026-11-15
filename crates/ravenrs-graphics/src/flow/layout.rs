@@ -93,6 +93,8 @@ impl FlowLayout {
     /// it and its connections; what a group holds moves with it and keeps its own arrangement.
     pub fn positions(&self, graph: &FlowGraph) -> Vec<(f32, f32)> {
         let outer = FlowGraph {
+            // The app's data of the whole diagram stays with the diagram.
+            data: serde_json::Value::Null,
             nodes: graph.nodes.iter().filter(|n| n.parent.is_none()).cloned().collect(),
             edges: graph
                 .edges
