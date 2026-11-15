@@ -6,9 +6,9 @@ use std::rc::Rc;
 
 use ravenrs::prelude::*;
 use ravenrs_flows::Catalog;
-use serde_json::Value as Json;
 
 use crate::casa::{self, Casa};
+use ravenrs_app_update::{News, NoticeAction, UpdateStatus, Updater};
 
 mod editor;
 mod execucoes;
@@ -16,7 +16,7 @@ mod execucoes;
 pub use editor::apply_parameters;
 use editor::open_flow;
 
-/// A cell of a grid, apart from the JSON of a node's setup, which is `Json`.
+/// A cell of a grid, apart from the JSON of a node's setup.
 type Cell = ravenrs::prelude::Value;
 
 /// The pages of the sidebar.
@@ -56,6 +56,8 @@ struct Screens {
 /// The whole app.
 pub struct RavenFlows {
     casa: Rc<Casa>,
+    /// Looks for new versions, installs them and keeps every version's news.
+    updater: Updater,
     catalog: Rc<Catalog>,
     s: Rc<Screens>,
 }
@@ -68,7 +70,7 @@ impl std::fmt::Debug for RavenFlows {
 
 impl RavenFlows {
     /// The app over `casa`.
-    pub fn new(casa: Rc<Casa>) -> Self {
+    pub fn new(casa: Rc<Casa>, updater: Updater) -> Self {
         let s = Screens {
             page: State::new(FLOWS),
             open: State::new(None),
@@ -90,13 +92,17 @@ impl RavenFlows {
             message: State::new(String::new()),
             confirm: ConfirmDialog::new(),
         };
-        Self { casa, catalog: Rc::new(Catalog::builtin()), s: Rc::new(s) }
+        Self { casa, updater, catalog: Rc::new(Catalog::builtin()), s: Rc::new(s) }
     }
 }
 
 impl View for RavenFlows {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         self.casa.start(cx.ui_waker());
+        // The updater's threads wake the screen when they have something to say.
+        let waker = cx.ui_waker();
+        self.updater.connect(move || waker.wake());
+        self.updater.poll();
         let s = &self.s;
         let page = s.page.get();
         let item = |icon, label: &str, at: usize| {
@@ -132,9 +138,7 @@ impl View for RavenFlows {
             (RUNS, _) => self.runs(),
             _ => self.settings(),
         };
-        let status = StatusBar::new()
-            .left((StatusBar::text(format!("Raven Flows {}", crate::VERSION)),))
-            .right((StatusBar::text(s.message.get()).truncate(),));
+        let status = self.status_bar();
         cx.child(
             &VStack::new((
                 HStack::new((sidebar, VStack::new((content,)).align(Align::Stretch).grow(1.0)))
@@ -292,8 +296,21 @@ impl RavenFlows {
                 ))
                 .spacing(8.0)
                 .align(Align::Center),
-                Text::new(format!("Versão {}", crate::VERSION)).style(TextStyle::Headline),
-                ReleaseNotes::new(release_notes(), s.news.binding()).height(360.0),
+                HStack::new((
+                    Text::new(format!("Versão {}", crate::VERSION)).style(TextStyle::Headline),
+                    Spacer::new(),
+                    Button::new("Procurar atualização")
+                        .icon(IconName::RotateCcw)
+                        .style(ButtonStyle::Secondary)
+                        .on_click({
+                            let updater = self.updater.clone();
+                            move || updater.ask()
+                        }),
+                ))
+                .spacing(8.0)
+                .align(Align::Center),
+                self.failure(),
+                ReleaseNotes::new(release_notes(self.updater.timeline()), s.news.binding()).height(360.0),
             ))
             .spacing(16.0)
             .padding(24.0)
@@ -303,28 +320,83 @@ impl RavenFlows {
     }
 }
 
-/// The news of every version, from the files kept beside the code, in the format of Raven
-/// Finanças: `versao`, `titulo`, `data`, `novidades`, `contribuidores` and `issues`.
-pub fn release_notes() -> Vec<ReleaseNote> {
-    let history: Vec<Json> = serde_json::from_str(crate::HISTORY).unwrap_or_default();
-    history
-        .iter()
-        .map(|v| {
-            let text = |k: &str| v.get(k).and_then(Json::as_str).unwrap_or_default().to_owned();
-            let list = |k: &str| -> Vec<String> {
-                v.get(k)
-                    .and_then(Json::as_array)
-                    .map(|a| {
-                        a.iter().map(|x| x.as_str().map_or_else(|| x.to_string(), str::to_owned)).collect()
-                    })
-                    .unwrap_or_default()
-            };
-            let issues: Vec<String> = list("issues").into_iter().map(|n| format!("#{n}")).collect();
-            ReleaseNote::new(text("versao"), text("titulo"))
-                .date(text("data"))
-                .changes(list("novidades"))
-                .section("Quem contribuiu", list("contribuidores").join(", "))
+/// The news of every version, newest first, in the format Raven Finanças keeps them:
+/// what changed, who made it and the issues it closed.
+pub fn release_notes(timeline: Vec<News>) -> Vec<ReleaseNote> {
+    timeline
+        .into_iter()
+        .map(|news| {
+            let issues: Vec<String> = news.issues.iter().map(|n| format!("#{n}")).collect();
+            ReleaseNote::new(news.versao, news.titulo)
+                .date(news.data.unwrap_or_default())
+                .changes(news.novidades)
+                .section("Quem contribuiu", news.contribuidores.join(", "))
                 .section("Issues resolvidas", issues.join(", "))
         })
         .collect()
+}
+
+impl RavenFlows {
+    /// The status bar: the version, what the updater says with its buttons, and the last
+    /// message of the app.
+    fn status_bar(&self) -> StatusBar {
+        let page = self.s.page.clone();
+        let bar = StatusBar::new()
+            .left((StatusBar::action(format!("Raven Flows {}", crate::VERSION))
+                .on_click(move || page.set(SETTINGS)),))
+            .right((StatusBar::text(self.s.message.get()).truncate(),));
+        let Some(notice) = self.updater.notice() else { return bar };
+        let buttons: Vec<Button> = notice.actions.iter().map(|&action| self.notice_button(action)).collect();
+        let bar = bar.center((
+            StatusBar::text(notice.text).foreground(Semantic::Ink).truncate().grow(1.0),
+            HStack::new(buttons).spacing(4.0),
+        ));
+        if notice.important { bar.center_tone(Tone::Warning) } else { bar }
+    }
+
+    /// A button of the updater's notice, doing what Raven Finanças does with it.
+    fn notice_button(&self, action: NoticeAction) -> Button {
+        let (updater, page) = (self.updater.clone(), self.s.page.clone());
+        let button = StatusBar::action(action.label());
+        let button = if action.is_primary() { button.style(ButtonStyle::Primary) } else { button };
+        button.on_click(move || match action {
+            NoticeAction::News | NoticeAction::HowToUpdate | NoticeAction::Details => page.set(SETTINGS),
+            NoticeAction::Update | NoticeAction::Retry => {
+                if let Some(news) = updater.status().news().cloned() {
+                    updater.install(news);
+                }
+            }
+            NoticeAction::Reopen => updater.reopen(),
+            NoticeAction::CheckAgain => updater.ask(),
+            NoticeAction::Later | NoticeAction::Close => updater.dismiss(),
+        })
+    }
+
+    /// Why the last update failed, where it stopped, the end of the installer's log and how
+    /// to install by hand; nothing when it did not fail.
+    fn failure(&self) -> AnyView {
+        let UpdateStatus::Failed(_, reason) = self.updater.status() else {
+            return Box::new(Spacer::new().height(0.0));
+        };
+        let stage = self.updater.stage().map(|s| format!(" Parou em: {s}.")).unwrap_or_default();
+        let tail = crate::versao::APP.installer_log_tail(12).unwrap_or_default();
+        Box::new(
+            VStack::new((
+                Alert::new(
+                    "A atualização não deu certo",
+                    format!("{reason}.{stage} A versão em uso continua funcionando."),
+                )
+                .tone(Tone::Danger),
+                CodeEditor::new(State::new(tail).binding())
+                    .language(CodeLanguage::Plain)
+                    .read_only(true)
+                    .rows(8),
+                Text::new(format!("Para instalar à mão: {}", crate::versao::APP.install_command()))
+                    .style(TextStyle::Callout)
+                    .foreground(Semantic::InkMuted),
+            ))
+            .spacing(8.0)
+            .align(Align::Stretch),
+        )
+    }
 }

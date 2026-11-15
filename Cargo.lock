@@ -5892,6 +5892,7 @@ dependencies = [
  "image",
  "pollster",
  "ravenrs",
+ "ravenrs-app-update",
  "ravenrs-flows",
  "ravenrs-flows-runtime",
  "serde",

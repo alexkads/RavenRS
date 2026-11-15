@@ -9,7 +9,8 @@
       "Editor com caixa de nós, desfazer, salvar e parâmetros em JSON.",
       "Executar marca cada nó com o que aconteceu e cada conexão com o número de itens.",
       "Execuções guardadas em SQLite, que continuam do último passo depois de fechar o app.",
-      "Execuções paradas numa aprovação continuam com Aprovar e continuar; qualquer uma pode ser repetida."
+      "Execuções paradas numa aprovação continuam com Aprovar e continuar; qualquer uma pode ser repetida.",
+      "Instala e se atualiza como o Raven Finanças: o install.cmd compila o master neste computador, e o app avisa quando há versão nova."
     ],
     "por_que_atualizar": "Para desenhar e rodar automações neste computador, vendo o que cada nó fez.",
     "contribuidores": [
@@ -21,6 +22,7 @@
       534,
       535,
       536,
+      589,
       590
     ]
   }

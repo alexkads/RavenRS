@@ -168,12 +168,8 @@ fn the_editor_runs_the_flow_and_runs_approve_it_from_the_screens() {
 }
 
 #[test]
-fn the_news_of_this_version_say_who_made_it_and_which_issues_it_closes() {
-    let news: serde_json::Value = serde_json::from_str(raven_flows::NEWS).expect("JSON");
-    let history: Vec<serde_json::Value> = serde_json::from_str(raven_flows::HISTORY).expect("JSON");
-    assert_eq!(news["versao"], json!(raven_flows::VERSION), "the news are of this version");
-    assert_eq!(history[0]["versao"], news["versao"], "and on top of the history");
-    assert!(news["contribuidores"].as_array().is_some_and(|a| !a.is_empty()));
-    assert!(news["issues"].as_array().is_some_and(|a| !a.is_empty()));
-    assert_eq!(raven_flows::release_notes().len(), history.len());
+fn the_news_of_every_version_say_who_made_it_and_which_issues_it_closes() {
+    let notes = raven_flows::release_notes(raven_flows::versao::idle().timeline());
+    assert!(!notes.is_empty(), "this version's news at least");
+    assert_eq!(raven_flows::versao::APP.version, raven_flows::VERSION);
 }

@@ -13,6 +13,7 @@ publish = false
 ravenrs = { workspace = true, features = ["code"] }
 ravenrs-flows.workspace = true
 ravenrs-flows-runtime.workspace = true
+ravenrs-app-update.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true

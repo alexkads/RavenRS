@@ -1,5 +1,10 @@
 //! `cargo run -p raven-flows`
 fn main() -> Result<(), ravenrs::native::PlatformError> {
+    // The installer proves a new binary opens with this, before any window or folder.
+    if std::env::args().nth(1).as_deref() == Some("--versao") {
+        println!("{}", raven_flows::VERSION);
+        return Ok(());
+    }
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::try_from_default_env()
@@ -14,5 +19,9 @@ fn main() -> Result<(), ravenrs::native::PlatformError> {
             std::process::exit(1);
         }
     };
-    ravenrs::native::run(app, options)
+    // The window's id is the package, as the installer names the .desktop file and the icon.
+    let identity = ravenrs::native::AppIdentity::new(raven_flows::versao::APP.package)
+        .labels(ravenrs::prelude::Labels::pt_br())
+        .new_issue_url("https://github.com/alexkads/RavenRS/issues/new");
+    ravenrs::native::run_as(app, options, identity)
 }
