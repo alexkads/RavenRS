@@ -1,0 +1,346 @@
+//! The center itself: every feature of the application framework, one small demonstration each,
+//! with what to try on its own list. People sign in as ana, bia or caio, with [`seed::PASSWORD`].
+//! Behind the `app` feature: what only shows components or examples does not pay for it.
+
+use ravenrs::prelude::{AnyView, ThemeEditor};
+use ravenrs_app::{
+    Access, Application, AuditMode, AuditSettings, DashboardInfo, Diff, EntityInfo, MemoryDatabase,
+    ModelLayer, ObjectSpace, Operation, PermissionPolicy, Role, audit_entity, register_function,
+    security_entities,
+};
+use ravenrs_app_library::LibraryModule;
+use ravenrs_app_report::{
+    AnalyticsApp, AnalyticsModule, AnalyticsPanel, PanelChart, ReportModule, ReportWords,
+    StoredReportsModule, analytics_entities, report_entity,
+};
+use ravenrs_app_ui::{App, CloneModule, Language, SecuredApp, Session, Words};
+
+/// The demonstration of themes, which is the token editor itself.
+const THEME_EDITOR: &str = "ThemeEditor";
+
+use crate::opening::{Look, Mode, Opening, Speech};
+use crate::{actions, model, seed, widgets};
+
+fn library() -> LibraryModule {
+    LibraryModule::new().navigation("Registros prontos").person().event().country().address()
+}
+
+/// A function of the application, for a filter on a list to use. Expressions are checked when the
+/// model is put together, so it comes before that.
+fn register_is_even() {
+    if !ravenrs_app::environment().has_function("IsEven") {
+        register_function("IsEven", |values| match values.first() {
+            Some(ravenrs_app::Value::Number(number)) => Ok(ravenrs_app::Value::Bool(number % 2.0 == 0.0)),
+            _ => Ok(ravenrs_app::Value::Bool(false)),
+        });
+    }
+}
+
+/// The entities storage has to know: the center's, the modules', and the fields the model adds.
+pub fn storage_entities() -> Result<Vec<EntityInfo>, String> {
+    register_is_even();
+    let mut builder = Application::builder("Centro").module(library()).module(actions::CenterModule);
+    for entity in model::entities() {
+        builder = builder.entity(entity);
+    }
+    let mut application = builder.build().map_err(|e| e.0)?;
+    let difference = Diff::parse(model::CUSTOM_FIELDS).map_err(|e| e.0)?;
+    application.layers_mut().put(&ModelLayer::Administrator, difference);
+    application.refresh_model().map_err(|e| e.0)?;
+    let mut entities = application.entities().to_vec();
+    entities.extend(security_entities());
+    entities.push(audit_entity());
+    entities.push(report_entity());
+    entities.extend(analytics_entities());
+    entities.push(ravenrs_app::settings_entity());
+    Ok(entities)
+}
+
+/// Who can do what. Administrators come with every installation.
+fn roles() -> Vec<Role> {
+    let document = "SecuredDocument";
+    vec![
+        Role::new("Administradores").administrative(),
+        Role::new("Vendas")
+            .policy(PermissionPolicy::AllowAll)
+            .member_permission(document, ["cost"], None, [Operation::Read, Operation::Write], Access::Deny)
+            .object_permission(
+                document,
+                "[owner] <> ?CurrentUserName",
+                [Operation::Write, Operation::Delete],
+                Access::Deny,
+            ),
+        Role::new("Leitura")
+            .policy(PermissionPolicy::ReadOnlyAll)
+            .object_permission(document, "[owner] = 'ana'", [Operation::Read], Access::Deny)
+            .navigation_permission("Auditoria", Access::Deny)
+            .action_permission("DemoSimple", Access::Deny),
+    ]
+}
+
+fn audit() -> AuditSettings {
+    let mut settings = AuditSettings::new(AuditMode::Off)
+        .entity("AuditFull", AuditMode::Full)
+        .entity("AuditLight", AuditMode::Lightweight)
+        .entity("AuditCreation", AuditMode::CreationOnly)
+        .entity("AuditFields", AuditMode::Full)
+        .without_field("AuditFields", "ignored")
+        .entity("AuditOwner", AuditMode::Full)
+        .entity("AuditPart", AuditMode::Full);
+    for entity in security_entities() {
+        settings = settings.entity(entity.name, AuditMode::Full);
+    }
+    settings
+}
+
+/// A panel written in code over the plan of the Listas page: no record to seed, and each tile
+/// reads the tasks as whoever signed in can read them.
+fn code_panel() -> AnalyticsPanel {
+    let tasks = "ListEditorsDemo";
+    AnalyticsPanel::new("CodePanel", "Painel em código")
+        .navigation("Listas")
+        .number_in(tasks, "Custo total", "cost:Sum")
+        .number_in(tasks, "Tarefas", "")
+        .number_in(tasks, "Atrasadas", "")
+        .filtered("[state] = 'late'")
+        .chart_in(tasks, PanelChart::Bar, "Custo por responsável", "owner", "cost:Sum")
+        .chart_in(tasks, PanelChart::Doughnut, "Por situação", "state", "")
+}
+
+/// The application each person gets once they signed in.
+fn application() -> App {
+    let words = ReportWords::pt_br;
+    let mut app = App::new("Raven Centro de Recursos")
+        .language(Language::BrazilianPortuguese)
+        .module(library())
+        .module(actions::CenterModule)
+        .module(CloneModule::with_words(Words::pt_br()))
+        .module(ReportModule::new("Relatório da lista"))
+        .module(StoredReportsModule::new(words()))
+        .module(AnalyticsModule::new(words()))
+        .administrator_settings(model::CUSTOM_FIELDS)
+        .translation("pt-BR", ravenrs_app_library::PT_BR)
+        .translation("pt-BR", ravenrs_app_report::PT_BR)
+        .texts("pt-BR", model::TEXTS);
+    for entity in model::entities() {
+        app = app.entity_info(entity);
+    }
+    app = app.analytics_panel(code_panel()).dashboard(
+        DashboardInfo::new(THEME_EDITOR, "Editor de tokens")
+            .navigation("Temas")
+            .icon("palette")
+            .control("Editor de tokens", THEME_EDITOR),
+    );
+    for page in widgets::PAGES {
+        app = app.dashboard(
+            DashboardInfo::new(page.id, page.caption)
+                .navigation(page.group)
+                .icon(page.icon.name())
+                .control(page.caption, page.id),
+        );
+    }
+    app.dashboard(
+        DashboardInfo::new(model::COUNTER_WINDOW, "Caixa de exemplo")
+            .navigation("Balcão")
+            .icon("shopping-cart")
+            .control("Caixa de exemplo", model::COUNTER_WINDOW),
+    )
+}
+
+/// The controls the dashboards of `application()` show, for every way the center opens: one list,
+/// so the window over a server cannot leave one out (#581).
+fn register_controls(session: &Session) {
+    session.register_control(THEME_EDITOR, || Box::new(ThemeEditor::new()) as AnyView);
+    session.register_control(model::COUNTER_WINDOW, actions::counter_control());
+    widgets::register(session);
+}
+
+/// The whole center over what `space` makes.
+pub fn center<S: ObjectSpace + 'static>(space: impl Fn() -> S + 'static) -> SecuredApp {
+    watched(space, |_| {})
+}
+
+/// The same, telling `seen` the session of each person who signs in, for what drives it from outside.
+pub fn watched<S: ObjectSpace + 'static>(
+    space: impl Fn() -> S + 'static,
+    seen: impl Fn(&Session) + 'static,
+) -> SecuredApp {
+    opened_as(&Opening::default(), space, seen)
+}
+
+/// The center as `opening` says: its look, its language, the page it opens on and, in the
+/// showcase, the person of the demonstration filled in at the door (#587).
+pub fn opened_as<S: ObjectSpace + 'static>(
+    opening: &Opening,
+    space: impl Fn() -> S + 'static,
+    seen: impl Fn(&Session) + 'static,
+) -> SecuredApp {
+    let seen = std::rc::Rc::new(seen);
+    let (theme, language, page) = (opening.look.map(Look::theme), language_of(opening), opening.page.clone());
+    register_is_even();
+    let mut secured = SecuredApp::new("Raven Centro de Recursos", space, move |_person| {
+        let (seen, page) = (seen.clone(), page.clone());
+        let app = application().language(language);
+        let app = match theme {
+            Some(theme) => app.theme(theme),
+            None => app,
+        };
+        app.with_session(move |session| {
+            register_controls(session);
+            if let Some(page) = &page {
+                session.open_view(page);
+            }
+            seen(session);
+        })
+    })
+    .language(language)
+    .audit(audit())
+    .seed(seed::seed);
+    if opening.mode == Mode::Showcase {
+        secured = secured.demo_credentials("ana", seed::PASSWORD).notice(
+            "Demonstração: a Ana já vem preenchida, e tudo o que você fizer fica só nesta aba, até recarregar.",
+        );
+    }
+    for role in roles() {
+        secured = secured.role(role);
+    }
+    secured
+}
+
+fn language_of(opening: &Opening) -> Language {
+    match opening.speech {
+        Some(Speech::English) => Language::English,
+        _ => Language::BrazilianPortuguese,
+    }
+}
+
+/// In memory, as in the browser: it starts over each time it opens.
+pub fn in_memory() -> Result<SecuredApp, String> {
+    let database = memory_database()?;
+    Ok(center(move || database.space()))
+}
+
+/// In memory, as `opening` says.
+pub fn in_memory_as(opening: &Opening) -> Result<SecuredApp, String> {
+    let database = memory_database()?;
+    Ok(opened_as(opening, move || database.space(), |_| {}))
+}
+
+/// Where the center keeps its records: a file on the desktop, set by `RAVEN_CENTRO`, and memory in
+/// the browser.
+fn kept_as(opening: &Opening) -> Result<SecuredApp, String> {
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let file = std::env::var_os("RAVEN_CENTRO")
+            .map_or_else(|| std::env::temp_dir().join("raven-centro-de-recursos.db"), Into::into);
+        let database = sqlite_database(&file)?;
+        Ok(opened_as(opening, move || database.space(), |_| {}))
+    }
+    #[cfg(target_arch = "wasm32")]
+    in_memory_as(opening)
+}
+
+/// An empty database in memory that knows it all.
+pub fn memory_database() -> Result<MemoryDatabase, String> {
+    MemoryDatabase::new(storage_entities()?).map_err(|e| e.0)
+}
+
+/// In SQLite: what is done here is there the next time it opens.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn in_sqlite(file: &std::path::Path) -> Result<SecuredApp, String> {
+    let database = sqlite_database(file)?;
+    Ok(center(move || database.space()))
+}
+
+/// The center as a web API, in this file or else in memory, with the same roles, trail and people.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn api_service(file: Option<&std::path::Path>) -> Result<ravenrs_app_server::ApiService, String> {
+    let space: ravenrs_app::SpaceMaker = match file {
+        Some(file) => {
+            let database = sqlite_database(file)?;
+            std::rc::Rc::new(move || Box::new(database.space()) as Box<dyn ObjectSpace>)
+        }
+        None => {
+            let database = memory_database()?;
+            std::rc::Rc::new(move || Box::new(database.space()) as Box<dyn ObjectSpace>)
+        }
+    };
+    register_is_even();
+    let wrong = |error: ravenrs_app::SpaceError| error.to_string();
+    let service = ravenrs_app_server::ApiService::new(space.clone(), roles())
+        .map_err(wrong)?
+        .title("Raven Centro de Recursos")
+        .rule_words(ravenrs_app::RuleWords::pt_br())
+        .setting("theme", ravenrs_app_server::SettingAccess::PerPerson)
+        .audit(audit());
+    let mut records = space();
+    seed::seed(&mut *records)?;
+    records.commit().map_err(wrong)?;
+    Ok(service)
+}
+
+/// A database in this file that knows it all.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn sqlite_database(file: &std::path::Path) -> Result<ravenrs_app_sqlite::SqliteDatabase, String> {
+    let connection = rusqlite::Connection::open(file).map_err(|e| e.to_string())?;
+    let mut builder = ravenrs_app_sqlite::SqliteDatabase::builder(std::rc::Rc::new(connection));
+    for entity in storage_entities()? {
+        let table = ravenrs_app_sqlite::TableMap::new(entity.name.to_lowercase());
+        builder = builder.managed(entity, table).map_err(|e| e.0)?;
+    }
+    Ok(builder.build())
+}
+
+/// The counter window on its own, with a look of its own: `cargo run -p feature-center -- caixa`.
+pub fn counter_window() -> AnyView {
+    actions::counter_app().theme(ravenrs::prelude::Theme::raven_light()).into_view()
+}
+
+/// The center over a server, as `cargo run --bin api` gives: it signs in there, and every record
+/// comes from there. Nothing is permitted or refused here: the server does it.
+pub fn remote(address: &str) -> Result<AnyView, String> {
+    remote_over(ravenrs_app_remote::RemoteClient::http(address))
+}
+
+/// The same over any client, as the tour does with a server in memory.
+pub fn remote_over(client: ravenrs_app_remote::RemoteClient) -> Result<AnyView, String> {
+    register_is_even();
+    let hidden: Vec<String> = security_entities()
+        .into_iter()
+        .chain([audit_entity(), ravenrs_app::settings_entity()])
+        .map(|entity| entity.name)
+        .collect();
+    let view = ravenrs_app_remote::RemoteApp::view(
+        "Raven Centro de Recursos",
+        Language::BrazilianPortuguese,
+        client,
+        // Who can sign in and what was done stay on the server.
+        storage_entities()?.into_iter().filter(|entity| !hidden.contains(&entity.name)).collect(),
+        |database| {
+            let records = database.clone();
+            application().storage(move || records.space()).with_session(register_controls)
+        },
+    )
+    .map_err(|error| error.0)?;
+    Ok(Box::new(view))
+}
+
+/// The window: in a file on the desktop, set by `RAVEN_CENTRO`, and in memory in the browser. Built
+/// with `RAVEN_API_URL` it is a client of that server. It comes from the build, and never from the
+/// address of the page, so no link can make the page send a password somewhere else.
+pub fn app() -> AnyView {
+    opened(&Opening::default())
+}
+
+/// The center as `opening` says. The showcase is always in memory, on the desktop too.
+pub fn opened(opening: &Opening) -> AnyView {
+    if let Some(address) = option_env!("RAVEN_API_URL") {
+        return remote(address)
+            .unwrap_or_else(|why| Box::new(ravenrs_widgets::Alert::message(why)) as AnyView);
+    }
+    let made = if opening.mode == Mode::Showcase { in_memory_as(opening) } else { kept_as(opening) };
+    match made {
+        Ok(center) => center.into_view(),
+        Err(why) => Box::new(ravenrs::prelude::Alert::new("Raven Centro de Recursos", why)),
+    }
+}

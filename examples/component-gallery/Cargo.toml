@@ -10,6 +10,12 @@ publish = false
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+default = ["entry"]
+# Its own page in the browser. The feature center uses the examples as a library, with its own page,
+# so it leaves this off (#587).
+entry = []
+
 [dependencies]
 ravenrs = { workspace = true, features = ["code", "live"] }
 ravenrs-grid-export.workspace = true

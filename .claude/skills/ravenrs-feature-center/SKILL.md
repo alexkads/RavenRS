@@ -9,6 +9,19 @@ Decisão do Alex em 15/11/2026 (#579, #580): **o `examples/feature-center` é a 
 
 O centro mostra o que o framework faz, permite revisar as telas e prova que tudo ainda funciona. O `examples/component-gallery` sai até o fim da #579: o centro ganha parâmetros de abertura (`modo`, `pagina`, `incorporado`) para servir também ao site, ao Playground, ao perf e ao vídeo. Até lá, a amostra curta de um componente continua na galeria, e a demonstração completa fica no centro.
 
+## Como ele abre
+
+O centro tem quatro modos (#587), escolhidos por parâmetro na linha de comando (`--modo componentes`) ou na URL (`?modo=componentes`). A tabela completa está no README do centro.
+
+- **`completo`:** o padrão.
+- **`vitrine`:** o site, em memória, com a Ana preenchida.
+- **`componentes`:** só as páginas de [`widgets::PAGES`](../../../examples/feature-center/src/widgets/mod.rs), sem o framework de aplicação.
+- **`playground`:** os exemplos.
+
+`pagina` abre direto numa página, e `incorporado` mostra só a página.
+
+**Página de widget nova:** entra em `widgets::PAGES`, e só ali. Dali ela vai para a navegação do centro, para o modo `componentes` e para `pagina=<id>`. A página não pode depender de `ravenrs-app*`, porque o modo `componentes` compila sem a feature `app`.
+
 ## O que conta como componente
 
 Quem decide é o `scripts/component_inventory.py`, não a memória de quem faz o PR:
@@ -80,7 +93,7 @@ Cada família tem um grupo na navegação e uma pasta. Um componente por página
    python3 -c "import sys; sys.path.insert(0,'scripts'); import component_inventory as c; print(sorted(c.public_methods('<crate>', '<Tipo>')))"
    ```
 
-2. **Monte a página.** Uma demonstração de widget é um `DashboardInfo::new(ID, "<Componente>").navigation("<Grupo>").control("<Componente>", ID)`, com o controle registrado na função que registra os controles da sessão, usada por `watched()` e por `remote()`. O modelo é o `ThemeEditor` em `src/lib.rs`.
+2. **Monte a página.** Uma demonstração de widget é uma view em `src/widgets/<familia>/<componente>.rs` com uma entrada em `widgets::PAGES` (id, nome, grupo, ícone e a função que a cria). O centro já põe cada entrada como `DashboardInfo` no grupo dela e registra o controle para `watched()` e `remote()`. O modelo é a página dos cabos.
 3. **Mostre todos os recursos, organizados por tarefa e não por método.** Use seções como "Tamanhos", "Estados", "Teclado", "Eventos". Cada evento escreve o que aconteceu numa linha visível, para que o tour possa conferir. Cada variante aparece lado a lado com as outras.
 4. **Escreva o passo no tour:** abrir a página e exercitar cada recurso com o mouse e o teclado pelo `Ui`, conferindo o efeito, não só a presença.
 5. **Atualize junto:**

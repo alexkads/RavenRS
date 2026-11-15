@@ -480,7 +480,7 @@ impl View for PageBody {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "entry"))]
 mod web_entry {
     use std::cell::RefCell;
 
