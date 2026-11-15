@@ -1637,3 +1637,127 @@ fn starters_show_only_while_nothing_is_kept() {
     assert!(starting(&mut again, "Exemplo").is_some());
     assert!(starting(&mut again, "Vazio").is_none(), "the deleted starter does not come back");
 }
+
+mod cables {
+    use super::*;
+
+    fn tied() -> FlowGraph {
+        graph().edge(FlowEdge::new("e1", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in")))
+    }
+
+    /// Runs the clock for `seconds` at 60 frames a second, from `from`.
+    fn run(ui: &mut Ui, from: f64, seconds: f64) -> f64 {
+        let mut t = from;
+        while t < from + seconds {
+            t += 1.0 / 60.0;
+            ui.set_time(t);
+            ui.update();
+        }
+        t
+    }
+
+    fn lowest(ui: &Ui) -> f32 {
+        let id = ui.cables().ids()[0];
+        ui.cables().shape(id).expect("a cable").iter().map(|p| p.y).fold(f32::MIN, f32::max)
+    }
+
+    #[test]
+    fn without_cables_the_lines_are_those_of_today() {
+        let plain = rig_with(tied(), |c| c);
+        let off = rig_with(tied(), |c| c.cables(false));
+        assert_eq!(outlines(&plain.ui), outlines(&off.ui));
+        assert!(plain.ui.cables().ids().is_empty());
+    }
+
+    #[test]
+    fn connections_there_from_the_start_hang_at_rest_and_ask_for_no_frames() {
+        let mut rig = rig_with(tied(), |c| c.cables(true));
+        rig.ui.set_time(0.0);
+        settle(&mut rig.ui);
+        assert_eq!(rig.ui.cables().ids().len(), 1);
+        assert_eq!(rig.ui.next_wake(), None, "at rest from the start");
+        assert!(lowest(&rig.ui) > 70.0, "it hangs below the ports");
+    }
+
+    #[test]
+    fn a_new_connection_drops_and_settles_and_then_the_canvas_sleeps() {
+        let mut rig = rig_with(graph(), |c| c.cables(true));
+        rig.ui.set_time(0.0);
+        settle(&mut rig.ui);
+        assert_eq!(rig.ui.next_wake(), None);
+        rig.graph.set(tied());
+        settle(&mut rig.ui);
+        assert!(rig.ui.next_wake().is_some(), "the new cable drops");
+        let t = run(&mut rig.ui, 0.0, 1.0);
+        assert_eq!(rig.ui.next_wake(), None, "settled in under a second");
+        assert!(lowest(&rig.ui) > 70.0);
+        let _ = t;
+    }
+
+    #[test]
+    fn moving_a_node_swings_its_cable_until_it_settles() {
+        let mut rig = rig_with(tied(), |c| c.cables(true));
+        rig.ui.set_time(0.0);
+        settle(&mut rig.ui);
+        let mut g = rig.graph.get();
+        g.nodes.iter_mut().find(|n| n.id == "b").expect("b").y += 160.0;
+        rig.graph.set(g);
+        settle(&mut rig.ui);
+        let t = run(&mut rig.ui, 0.0, 0.1);
+        assert!(rig.ui.next_wake().is_some(), "it swings");
+        run(&mut rig.ui, t, 2.0);
+        assert_eq!(rig.ui.next_wake(), None, "and settles");
+    }
+
+    #[test]
+    fn panning_the_view_moves_the_cables_without_shaking_them() {
+        let mut rig = rig_with(tied(), |c| c.cables(true));
+        rig.ui.set_time(0.0);
+        settle(&mut rig.ui);
+        let before = rig.ui.cables().shape(rig.ui.cables().ids()[0]).expect("a cable");
+        rig.view.set(FlowViewport::at(Point::new(60.0, 40.0), 1.5));
+        settle(&mut rig.ui);
+        assert_eq!(rig.ui.next_wake(), None);
+        let after = rig.ui.cables().shape(rig.ui.cables().ids()[0]).expect("a cable");
+        assert_eq!(before, after, "the cable keeps the diagram's units");
+    }
+
+    #[test]
+    fn reduced_motion_shows_new_cables_at_rest_without_frames() {
+        let mut rig = rig_with(graph(), |c| c.cables(true));
+        rig.ui.set_reduced_motion(true);
+        rig.ui.set_time(0.0);
+        settle(&mut rig.ui);
+        rig.graph.set(tied());
+        settle(&mut rig.ui);
+        assert_eq!(rig.ui.next_wake(), None);
+        assert!(lowest(&rig.ui) > 70.0);
+    }
+
+    #[test]
+    fn a_click_on_the_hanging_cable_selects_its_connection() {
+        let mut rig = rig_with(tied(), |c| c.cables(true));
+        rig.ui.set_time(0.0);
+        settle(&mut rig.ui);
+        let shape = rig.ui.cables().shape(rig.ui.cables().ids()[0]).expect("a cable");
+        let middle = rig.view.get().to_screen(shape[shape.len() / 2]);
+        click(&mut rig.ui, middle);
+        assert_eq!(rig.selection.get().edges, vec!["e1".to_string()]);
+    }
+
+    #[test]
+    fn the_export_draws_the_cables_at_rest() {
+        let mut g = tied();
+        g.nodes.retain(|n| n.id != "c");
+        // Far apart, so the belly hangs below the cards.
+        g.nodes.iter_mut().find(|n| n.id == "b").expect("b").x = 900.0;
+        let flat = g.picture(None, FlowColors::paper()).expect("a picture");
+        let hanging = g.picture_with(None, FlowColors::paper(), true).expect("a picture");
+        assert!(hanging.bounds.height() > flat.bounds.height(), "the cable's belly makes it taller");
+        assert_eq!(
+            hanging,
+            g.picture_with(None, FlowColors::paper(), true).expect("a picture"),
+            "the same every time"
+        );
+    }
+}

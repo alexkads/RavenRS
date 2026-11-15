@@ -87,6 +87,7 @@ pub struct FlowNotation {
     pub(crate) checks: Option<FlowChecks>,
     pub(crate) runs: Option<crate::flow::FlowRunRules>,
     pub(crate) formats: Vec<FlowFileFormat>,
+    pub(crate) cables: Option<bool>,
 }
 
 impl fmt::Debug for FlowNotation {
@@ -151,6 +152,12 @@ impl FlowNotation {
     /// How a diagram of it runs, as [`FlowCanvas::runs`](crate::FlowCanvas::runs).
     pub fn runs(mut self, rules: crate::flow::FlowRunRules) -> Self {
         self.runs = Some(rules);
+        self
+    }
+
+    /// Whether its connections are cables, as [`FlowCanvas::cables`](crate::FlowCanvas::cables).
+    pub fn cables(mut self, cables: bool) -> Self {
+        self.cables = Some(cables);
         self
     }
 

@@ -5,9 +5,11 @@
 //! produce and renderers consume) and [`AccessTree`] (what assistive technology
 //! sees). Keeping them here lets widgets stay independent of any GPU or
 //! operating-system API. [`csv`] is here because the grid and the report
-//! exporters share nothing else lower down.
+//! exporters share nothing else lower down. [`cable`] holds the rope model behind
+//! `CablePlug`, shared by the widgets, the exporters and the renderer.
 
 mod access;
+pub mod cable;
 mod color;
 pub mod csv;
 mod diagnostics;

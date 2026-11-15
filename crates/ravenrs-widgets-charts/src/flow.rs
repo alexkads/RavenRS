@@ -20,10 +20,10 @@ use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 use ravenrs_text::TextAttrs;
 
 pub use ravenrs_graphics::flow::{
-    EdgeCap, EdgeShape, FlowColors, FlowDirection, FlowDocument, FlowEdge, FlowEndpoint, FlowExportFormat,
-    FlowGate, FlowGraph, FlowHistory, FlowJsonError, FlowLayout, FlowLayoutKind, FlowNode, FlowNodeStatus,
-    FlowPicture, FlowPort, FlowRun, FlowRunEvent, FlowRunRules, FlowShape, FlowShelf, FlowStyle, FlowText,
-    PortDirection, PortSide,
+    EdgeCap, EdgeShape, FLOW_FORMAT, FlowColors, FlowDirection, FlowDocument, FlowEdge, FlowEndpoint,
+    FlowExportFormat, FlowGate, FlowGraph, FlowHistory, FlowJsonError, FlowLayout, FlowLayoutKind, FlowNode,
+    FlowNodeStatus, FlowPicture, FlowPort, FlowRun, FlowRunEvent, FlowRunRules, FlowShape, FlowShelf,
+    FlowStyle, FlowText, NODE_REFS, PortDirection, PortSide,
 };
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
@@ -622,6 +622,7 @@ pub struct FlowCanvas {
     controls: bool,
     minimap: bool,
     locked: bool,
+    cables: bool,
     range: (f32, f32),
     label: Option<String>,
     width: Option<f32>,
@@ -666,6 +667,7 @@ impl FlowCanvas {
             controls: true,
             minimap: true,
             locked: false,
+            cables: false,
             range: ZOOM_RANGE,
             label: None,
             width: None,
@@ -763,6 +765,9 @@ impl FlowCanvas {
         }
         if notation.runs.is_some() {
             self.runs = notation.runs.clone();
+        }
+        if let Some(cables) = notation.cables {
+            self.cables = cables;
         }
         self
     }
@@ -899,6 +904,14 @@ impl FlowCanvas {
         self
     }
 
+    /// Draws the connections as cables that hang, swing and settle: a new one drops into
+    /// its sag, moving a node or an end makes its cables swing, and one taken away falls.
+    /// Off by default. Under reduced motion they show at rest; exports draw them at rest.
+    pub fn cables(mut self, cables: bool) -> Self {
+        self.cables = cables;
+        self
+    }
+
     /// The least and the most zoom, where 1 is 100% (25% to 200% by default).
     pub fn range(mut self, least: f32, most: f32) -> Self {
         self.range = (least.max(0.01), most.max(least.max(0.01)));
@@ -983,6 +996,9 @@ struct Memory {
     focus_node: RefCell<Option<String>>,
     /// Step lines already worked out around the nodes in their way.
     routes: RefCell<geometry::RouteCache>,
+    /// The connections drawn as cables so far; `None` before the first paint, whose
+    /// cables show up at rest instead of dropping.
+    cable_edges: RefCell<Option<std::collections::HashSet<String>>>,
 }
 
 /// How the parts of a canvas reach the same diagram.
@@ -1000,6 +1016,8 @@ struct Flow {
     /// this y, in units of the diagram.
     guides: State<(Option<f32>, Option<f32>)>,
     memory: Rc<Memory>,
+    /// The window's cables and the group of this canvas's, when it draws cables.
+    cables: Option<(crate::Cables, u64)>,
     validate: Option<FlowValidator>,
     guard: Option<FlowGuard>,
     /// Why the last change was refused, until the next gesture.
@@ -1518,7 +1536,7 @@ impl Flow {
                 success: p.success,
             },
         };
-        if let Some(picture) = graph.picture(only, colors) {
+        if let Some(picture) = graph.picture_with(only, colors, self.cables.is_some()) {
             export(format, picture);
         }
         true
@@ -1932,6 +1950,17 @@ impl Flow {
         true
     }
 
+    /// A connection's line in the view: the cable where it hangs now, when the canvas
+    /// draws cables, or the line worked out from its shape.
+    fn line(&self, graph: &FlowGraph, edge: &FlowEdge, view: &FlowViewport) -> Option<Vec<Point>> {
+        if let Some((cables, group)) = &self.cables
+            && let Some(shape) = cables.shape(cable_id(*group, &edge.id))
+        {
+            return Some(shape.iter().map(|p| view.to_screen(*p)).collect());
+        }
+        screen_points(graph, edge, view, &self.memory.routes)
+    }
+
     /// The connection whose line passes nearest `at` (in the view), if one is near enough.
     fn edge_at(&self, at: Point) -> Option<String> {
         let (graph, view) = (self.graph.get(), self.view.get());
@@ -1939,7 +1968,7 @@ impl Flow {
             .edges
             .iter()
             .filter_map(|edge| {
-                let points = screen_points(&graph, edge, &view, &self.memory.routes)?;
+                let points = self.line(&graph, edge, &view)?;
                 Some((geometry::distance_to(&points, at), edge.id.clone()))
             })
             .filter(|(d, _)| *d <= EDGE_REACH)
@@ -2332,6 +2361,11 @@ impl Flow {
     }
 }
 
+/// The cable of the connection `edge` on the canvas of `group`, the same from frame to frame.
+fn cable_id(group: u64, edge: &str) -> u64 {
+    group ^ util::hash_text(edge).wrapping_mul(0x9e37_79b9_7f4a_7c15)
+}
+
 /// A connection's line in the view, as points; step lines are worked out again only when
 /// something near them changed (`routes`).
 fn screen_points(
@@ -2446,6 +2480,82 @@ struct Surface {
     palette: Palette,
     /// Where the lines worked out before are kept.
     memory: Rc<Memory>,
+    /// The window's cables and this canvas's group, when connections are cables.
+    cables: Option<(crate::Cables, u64)>,
+}
+
+impl Surface {
+    /// The connections as cables: each one held at its ports and bend points, in units of
+    /// the diagram so that panning does not shake them, drawn through the view. The one
+    /// whose end is being moved hangs from the pointer.
+    fn paint_cables(
+        &self,
+        frame: Rect,
+        cables: &crate::Cables,
+        group: u64,
+        scene: &mut Scene,
+        touching: &dyn Fn(&FlowEdge) -> bool,
+    ) {
+        use ravenrs_core::cable::{CableEnd, CableRelease, CableView};
+        let p = &self.palette;
+        let zoom = self.view.zoom.max(f32::EPSILON);
+        let view = CableView {
+            scale: zoom,
+            offset: Point::new(frame.x() + self.view.offset.x, frame.y() + self.view.offset.y),
+        };
+        let mut known = self.memory.cable_edges.borrow_mut();
+        let first = known.is_none();
+        let seen = known.get_or_insert_with(Default::default);
+        let mut now = std::collections::HashSet::new();
+        for edge in &self.graph.edges {
+            let id = cable_id(group, &edge.id);
+            let Some(mut cable) = self.graph.edge_cable(edge, id) else { continue };
+            if let Some(c) = &self.connecting
+                && c.moving.as_deref() == Some(edge.id.as_str())
+            {
+                let hand = CableEnd::at(self.view.to_content(c.pointer));
+                if c.from == edge.to {
+                    cable.from = hand;
+                } else {
+                    cable.to = hand;
+                }
+            }
+            let on = touching(edge);
+            let own = edge.color.as_deref().and_then(geometry::parse_color);
+            let (color, width) = if on { (p.accent, 2.0) } else { (own.unwrap_or(p.muted), 1.5) };
+            cable.group = group;
+            cable.release = CableRelease::Fall;
+            cable.grow = !first && !seen.contains(&edge.id);
+            cable.view = view;
+            cable.look.color = color;
+            // The same width on screen at any zoom, a little fuller than a line.
+            cable.look.thickness = (width + 1.0) / zoom;
+            cable.look.shine = 0.35;
+            if edge.dashed || edge.animated {
+                cable.look.dash = Some([7.0, 5.0]);
+            }
+            now.insert(edge.id.clone());
+            scene.push_cable(cable);
+            // The caps where the cable hangs now.
+            let Some(shape) = cables.shape(id) else { continue };
+            let points: Vec<Point> = shape.iter().map(|q| view.apply(*q)).collect();
+            let back: Vec<Point> = points.iter().rev().copied().collect();
+            let caps = [
+                (edge.end, points.last().copied(), geometry::end_direction(&points)),
+                (edge.start, points.first().copied(), geometry::end_direction(&back)),
+            ];
+            for (cap, tip, direction) in caps {
+                let (Some(tip), Some(direction)) = (tip, direction) else { continue };
+                let outline = geometry::cap_outline(cap, tip, direction, CAP);
+                if cap.filled() {
+                    fill(scene, outline, color);
+                } else if !outline.is_empty() {
+                    stroke(scene, &geometry::flatten(&outline), width, color);
+                }
+            }
+        }
+        *seen = now;
+    }
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -2489,7 +2599,11 @@ impl Surface {
                 || self.selection.has_node(&edge.to.node)
         };
         let moving = self.connecting.as_ref().and_then(|c| c.moving.as_deref());
-        for edge in self.graph.edges.iter().filter(|e| Some(e.id.as_str()) != moving) {
+        if let Some((cables, group)) = &self.cables {
+            self.paint_cables(frame, cables, *group, scene, &touching);
+        }
+        for edge in self.graph.edges.iter().filter(|e| Some(e.id.as_str()) != moving && self.cables.is_none())
+        {
             let Some(points) = screen_points(&self.graph, edge, &self.view, &self.memory.routes) else {
                 continue;
             };
@@ -2535,6 +2649,7 @@ impl Surface {
             }
         }
         if let Some(connecting) = &self.connecting
+            && !(self.cables.is_some() && connecting.moving.is_some())
             && let Some((start, side)) = self.graph.anchor(&connecting.from)
         {
             let start = self.view.to_screen(start);
@@ -2621,6 +2736,7 @@ impl View for FlowCanvas {
             marquee: marquee.clone(),
             guides: guides.clone(),
             memory: memory.clone(),
+            cables: self.cables.then(|| (cx.cables(), cx.widget_id().raw())),
             validate: self.validate.clone(),
             guard: self.guard.clone(),
             notice: notice.clone(),
@@ -2767,7 +2883,7 @@ impl View for FlowCanvas {
         // The words on the lines, as text the screen shows and reads like any other.
         for edge in &graph.edges {
             let Some(label) = &edge.label else { continue };
-            let Some(points) = screen_points(&graph, edge, &view, &memory.routes) else { continue };
+            let Some(points) = flow.line(&graph, edge, &view) else { continue };
             let Some(middle) = geometry::midpoint(&points) else { continue };
             children.push(edge_label(cx, label, middle, &theme, palette));
         }
@@ -2886,6 +3002,7 @@ impl View for FlowCanvas {
             radius: theme.radii.lg,
             palette,
             memory: memory.clone(),
+            cables: flow.cables.clone(),
         };
         let animated = graph.edges.iter().any(|e| e.animated) && !cx.reduced_motion();
         let seen = memory.clone();

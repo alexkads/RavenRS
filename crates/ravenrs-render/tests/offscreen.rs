@@ -559,3 +559,75 @@ fn turned_text_runs_down_a_column() {
     assert!(y1 - y0 > (x1 - x0) * 2, "turned text is taller than wide: {:?}", (x0, y0, x1, y1));
     assert!(x1 <= 101 && y0 >= 9, "it turned around its start, to the left and down: {:?}", (x0, y0, x1, y1));
 }
+
+mod cables {
+    use ravenrs_core::cable::{Cable, CableEnd, CableWorld, CpuCables};
+    use ravenrs_core::{Color, Point, Rect, Scene};
+    use ravenrs_render::{GpuCables, Renderer};
+
+    use super::{FORMAT, close, gpu, pixel, render};
+
+    fn cable() -> Cable {
+        let mut c = Cable::new(
+            7,
+            CableEnd::at(Point::new(20.0, 20.0)).toward(1.0, 0.0),
+            CableEnd::at(Point::new(180.0, 20.0)).toward(-1.0, 0.0),
+        );
+        c.grow = true;
+        c.look.color = Color::rgb(1.0, 0.0, 0.0);
+        c.look.shine = 0.0;
+        c.look.thickness = 6.0;
+        c
+    }
+
+    fn view() -> Rect {
+        Rect::new(0.0, 0.0, 200.0, 100.0)
+    }
+
+    #[test]
+    fn the_gpu_world_moves_cables_as_the_cpu_world_does() {
+        let Some(gpu) = gpu() else { return };
+        let Some(mut on_gpu) = GpuCables::new(&gpu.device, &gpu.queue) else {
+            eprintln!("skipping: no compute on this device");
+            return;
+        };
+        let mut on_cpu = CpuCables::new();
+        let c = cable();
+        for _ in 0..45 {
+            for world in [&mut on_gpu as &mut dyn CableWorld, &mut on_cpu] {
+                world.sync(std::slice::from_ref(&c), view(), false);
+                world.step(1.0 / 60.0);
+            }
+            on_gpu.finish();
+        }
+        assert!(on_gpu.dispatches() >= 45);
+        let (a, b) = (on_gpu.shape(7).expect("gpu"), on_cpu.shape(7).expect("cpu"));
+        let lowest = b.iter().map(|p| p.y).fold(f32::MIN, f32::max);
+        assert!(lowest > 30.0, "it hangs: {lowest}");
+        for (p, q) in a.iter().zip(b.iter()) {
+            assert!((p.x - q.x).abs() < 0.5 && (p.y - q.y).abs() < 0.5, "gpu {p:?} vs cpu {q:?}");
+        }
+    }
+
+    #[test]
+    fn the_renderer_draws_a_cable_from_the_gpu_buffer() {
+        let Some(gpu) = gpu() else { return };
+        let Some(mut world) = GpuCables::new(&gpu.device, &gpu.queue) else { return };
+        let mut c = cable();
+        c.grow = false;
+        world.sync(std::slice::from_ref(&c), view(), false);
+        world.step(1.0 / 60.0);
+        world.finish();
+        let shape = world.shape(7).expect("placed");
+        let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
+        renderer.set_cables(Some(world.drawer()));
+        let mut scene = Scene::new();
+        scene.set_clear_color(Color::WHITE);
+        scene.push_cable(c.placed(shape.clone()));
+        let img = render(&gpu, &mut renderer, &scene, 1.0);
+        let middle = shape[shape.len() / 2];
+        let at = pixel(&img, middle.x.round() as u32, middle.y.round() as u32);
+        assert!(close(at, [255, 0, 0, 255], 40), "red at the middle of the cable: {at:?}");
+        assert!(close(pixel(&img, 100, 5), [255, 255, 255, 255], 2), "white above it");
+    }
+}

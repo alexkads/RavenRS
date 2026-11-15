@@ -90,6 +90,7 @@ pub use catalog::{
 pub use definition::{
     Connection, DefinitionError, ErrorPolicy, FORMAT, FlowDefinition, NodeDef, PortRef, Retry,
 };
+pub use graph::GRAPH_KEY;
 pub use item::{BinaryRef, Item, ItemRef, Ports};
 pub use plan::{Plan, PlanError};
 pub use run::{Executor, LOOP_LIMIT, NodeRun, NodeStatus, Run, RunError, RunOutcome, Step};

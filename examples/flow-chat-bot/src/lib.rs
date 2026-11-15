@@ -193,7 +193,10 @@ impl View for Builder {
         let history = cx.use_state(FlowHistory::new);
         let arrivals = cx.use_state(|| None::<FlowNode>);
         let view = cx.use_state(FlowViewport::fit);
+        // The connections hang as cables; the switch puts the plain lines back.
+        let cables = cx.use_state(|| true);
         let mut canvas = FlowCanvas::new(graph.binding())
+            .cables(cables.get())
             .view(view.binding())
             .label("Conversa")
             .selection(selection.binding())
@@ -234,6 +237,8 @@ impl View for Builder {
                 s3.set(None);
                 g3.set(marked(&g3.get(), &p3, None));
             }),
+            Spacer::new(),
+            Toggle::new(cables.binding()).label("Cabos"),
         ))
         .spacing(8.0)
         .padding(8.0);

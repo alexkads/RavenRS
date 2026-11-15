@@ -2,6 +2,8 @@
 
 - `widget_components()`: every public view of the widgets' crates, as scripts/check-component-list.py
   has always counted them (a `pub struct` with `impl View` or `impl Component`, not `#[doc(hidden)]`).
+- `built_components()`: every public type of the widgets' crates that is not a view but is put on
+  the screen by its own `build(self, cx: &mut BuildCx)`, like `CablePlug`.
 - `app_builders()`: every public type of the application framework (`ravenrs-app*`) configured by
   methods that take `mut self`: `App`, `EntityInfo`, `ApiService`, `SecuredApp` and the rest.
 - `public_methods()`: the `pub fn` of a type's own `impl` blocks, what a person can call on it.
@@ -79,6 +81,25 @@ def widget_components():
             if name in NOT_LISTED:
                 continue
             if re.search(rf"impl(<[^>]*>)? (View|Component) for {name}\b", source):
+                components[(crate, name)] = place
+    return components
+
+
+def built_components():
+    """(crate, type) -> (path, line) for every public type of the widgets that builds itself into a
+    `BuildCx` without being a view: `CablePlug::build(self, cx)`."""
+    components = {}
+    views = widget_components()
+    for crate in WIDGET_CRATES:
+        for name, place in _structs(crate).items():
+            if name in NOT_LISTED or (crate, name) in views:
+                continue
+            build = public_methods_at(crate, name).get("build")
+            if build is None:
+                continue
+            path, line, _ = build
+            signature = " ".join(path.read_text().split("\n")[line - 1 : line + 2])
+            if re.search(r"\(\s*&?(mut )?self,\s*cx: &mut BuildCx", signature):
                 components[(crate, name)] = place
     return components
 
