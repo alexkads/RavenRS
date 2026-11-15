@@ -11,6 +11,10 @@ use serde_json::{Map, Value};
 use crate::definition::NodeDef;
 use crate::item::{Item, Ports};
 
+/// The output every node has besides its kind's: where the items that failed go, each saying
+/// why. A connection may leave it from any node.
+pub const ERROR_PORT: &str = "error";
+
 /// What a kind of node says about itself: its ports and how a run treats it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NodeSpec {
@@ -113,12 +117,19 @@ pub struct NodeContext<'a> {
     inputs: &'a Ports,
     now_ms: i64,
     mode: Mode,
+    iteration: usize,
 }
 
 impl<'a> NodeContext<'a> {
     /// The context of `node`, with `inputs`, at `now_ms` milliseconds since 1970, in `mode`.
     pub fn new(node: &'a NodeDef, inputs: &'a Ports, now_ms: i64, mode: Mode) -> Self {
-        Self { node, inputs, now_ms, mode }
+        Self { node, inputs, now_ms, mode, iteration: 0 }
+    }
+
+    /// The same context, at the turn `iteration` of a loop.
+    pub fn at_iteration(mut self, iteration: usize) -> Self {
+        self.iteration = iteration;
+        self
     }
 
     /// The node being run.
@@ -155,6 +166,13 @@ impl<'a> NodeContext<'a> {
     pub fn mode(&self) -> Mode {
         self.mode
     }
+
+    /// Which turn of its loop this is, from 0. A loop node runs once per turn, and what came
+    /// back to it in every earlier turn reaches its input from the back connections; any other
+    /// node is at 0, or at the turn of the loop it is inside.
+    pub fn iteration(&self) -> usize {
+        self.iteration
+    }
 }
 
 /// Why a node failed.
@@ -186,8 +204,16 @@ pub trait NodeKind: Send + Sync {
     /// Its ports and how a run treats it.
     fn spec(&self) -> NodeSpec;
 
+    /// The output ports of `node`, a node of this kind: its spec's, unless they depend on how
+    /// the node is set up (a switch with one output per case).
+    fn outputs(&self, node: &NodeDef) -> Vec<String> {
+        let _ = node;
+        self.spec().outputs
+    }
+
     /// Runs one node of this kind: from what reached its inputs, the items of each output port.
-    /// A port it leaves out gives no items.
+    /// A port it leaves out gives no items. Items that failed one by one go to
+    /// [`ERROR_PORT`] (see [`Item::failed`]); a failure of the whole node is the `Err`.
     fn execute(&self, cx: &NodeContext<'_>) -> Result<Ports, NodeError>;
 }
 
