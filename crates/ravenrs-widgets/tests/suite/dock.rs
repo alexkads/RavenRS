@@ -615,3 +615,143 @@ fn changing_tabs_shapes_only_the_new_tab_s_state() {
     assert_eq!(ui.element_count(), elements_before, "another panel, of the same size");
     assert_eq!(ui.take_frame_work().shapes, 0, "no title changed");
 }
+
+/// The words of the bubbles that say why a change was refused.
+fn refusals(ui: &mut Ui) -> Vec<String> {
+    of_role(ui, Role::Status).into_iter().filter_map(|n| n.name).filter(|name| !name.is_empty()).collect()
+}
+
+/// The changes an area's app was asked about, in order.
+type Asked = Rc<RefCell<Vec<DockChange>>>;
+
+/// An area whose app refuses every change of one kind, writing down each one it is asked about,
+/// with how many times it settled.
+fn guarded(
+    layout: &State<DockLayout>,
+    refuse: fn(&DockChange) -> bool,
+) -> (DockArea, Asked, Rc<Cell<usize>>) {
+    let (asked, ends) = (Rc::new(RefCell::new(Vec::new())), Rc::new(Cell::new(0)));
+    let (log, count) = (asked.clone(), ends.clone());
+    let view = area(layout)
+        .on_change(move |_, _, change| {
+            log.borrow_mut().push(change.clone());
+            if refuse(change) { Err("Not now".into()) } else { Ok(()) }
+        })
+        .on_end(move |_| count.set(count.get() + 1));
+    (view, asked, ends)
+}
+
+#[test]
+fn a_refused_close_keeps_the_panel_says_why_and_saves_nothing() {
+    let layout = State::new(start());
+    let (view, asked, ends) = guarded(&layout, |c| matches!(c, DockChange::Close { .. }));
+    let mut ui = ui(view);
+    tab_to(&mut ui, "Grid");
+    press(&mut ui, Key::Delete, Modifiers::default());
+    assert!(layout.get().contains("grid"), "the panel stays");
+    assert!(layout.get().closed_panels().is_empty());
+    assert_eq!(*asked.borrow(), [DockChange::Close { panel: "grid".into() }]);
+    assert_eq!(refusals(&mut ui), ["Not now"], "the reason shows, as a status");
+    assert_eq!(ends.get(), 0, "nothing to save");
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Grid"), "focus stays on the tab");
+}
+
+#[test]
+fn the_reason_goes_after_a_few_seconds_or_at_the_next_gesture() {
+    let layout = State::new(start());
+    let (view, _, _) = guarded(&layout, |c| matches!(c, DockChange::Close { .. }));
+    let mut ui = ui(view);
+    ui.set_time(10.0);
+    tab_to(&mut ui, "Grid");
+    press(&mut ui, Key::Delete, Modifiers::default());
+    assert_eq!(refusals(&mut ui), ["Not now"]);
+    assert_eq!(ui.next_wake(), Some(14.0), "wakes when it is to go");
+    ui.set_time(14.0);
+    ui.update();
+    ui.update();
+    assert!(refusals(&mut ui).is_empty(), "gone on the clock");
+    press(&mut ui, Key::Delete, Modifiers::default());
+    assert_eq!(refusals(&mut ui), ["Not now"]);
+    let photo = center(&tab(&mut ui, "Photo"));
+    click_at(&mut ui, photo, Modifiers::default());
+    assert!(layout.get().is_active("photo"), "an allowed change goes ahead");
+    assert!(refusals(&mut ui).is_empty(), "and the next gesture takes the reason away");
+}
+
+#[test]
+fn a_refused_drop_leaves_the_tab_where_it_was() {
+    let layout = State::new(start());
+    let (view, asked, ends) = guarded(&layout, |c| matches!(c, DockChange::Move { .. }));
+    let mut ui = ui(view);
+    let (from, to) = (center(&tab(&mut ui, "Search")), tab(&mut ui, "Grid").bounds);
+    let target = Point::new(to.max_x() - 1.0, to.y() + 4.0);
+    drag_to(&mut ui, from, target);
+    assert!(asked.borrow().is_empty(), "nothing is asked while it moves");
+    release(&mut ui, target);
+    assert_eq!(layout.get().side_of("search"), Some(DockSide::Left));
+    assert_eq!(asked.borrow().len(), 1, "asked once, when let go");
+    let DockChange::Move { panel, to } = &asked.borrow()[0] else { panic!("a move") };
+    assert_eq!(panel, "search");
+    assert!(matches!(to, DockDrop::Tab { beside, .. } if beside == "photo"));
+    assert_eq!(refusals(&mut ui), ["Not now"]);
+    assert_eq!(ends.get(), 0);
+}
+
+#[test]
+fn a_refused_bar_goes_back_and_is_asked_once_when_let_go() {
+    let layout = State::new(start());
+    let (view, asked, ends) = guarded(&layout, |c| matches!(c, DockChange::Resize { .. }));
+    let mut ui = ui(view);
+    let bar = center(&named(&mut ui, "Resize left dock"));
+    drag_to(&mut ui, bar, Point::new(bar.x - 30.0, bar.y));
+    drag_to_more(&mut ui, Point::new(bar.x - 50.0, bar.y));
+    assert_eq!(layout.get().size(DockSide::Left), 230.0, "it follows the pointer while it moves");
+    release(&mut ui, Point::new(bar.x - 50.0, bar.y));
+    assert_eq!(*asked.borrow(), [DockChange::Resize { side: DockSide::Left }]);
+    assert_eq!(layout.get().size(DockSide::Left), 280.0, "and goes back when refused");
+    assert_eq!(refusals(&mut ui), ["Not now"]);
+    assert_eq!(ends.get(), 0);
+    tab_to(&mut ui, "Resize left dock");
+    press(&mut ui, Key::ArrowRight, Modifiers::default());
+    assert_eq!(asked.borrow().len(), 2, "each key that moves it is asked by itself");
+    assert_eq!(layout.get().size(DockSide::Left), 280.0);
+}
+
+#[test]
+fn every_change_a_person_makes_is_named_and_what_the_app_writes_is_not() {
+    let layout = State::new(start());
+    let seen: Rc<RefCell<Vec<(DockChange, bool)>>> = Rc::default();
+    let log = seen.clone();
+    let view = area(&layout).on_change(move |before, after, change| {
+        // The arrangement it is given is the one before and the one the change would leave.
+        let moved = match change {
+            DockChange::Move { panel, .. } => before.side_of(panel) != after.side_of(panel),
+            _ => before != after,
+        };
+        log.borrow_mut().push((change.clone(), moved));
+        Ok(())
+    });
+    let mut ui = ui(view);
+    let grid = center(&tab(&mut ui, "Grid"));
+    click_at(&mut ui, grid, Modifiers::default());
+    let both = Modifiers { alt: true, shift: true, ..Modifiers::default() };
+    press(&mut ui, Key::ArrowLeft, both);
+    tab_to(&mut ui, "Hide left dock");
+    press(&mut ui, Key::Enter, Modifiers::default());
+    tab_to(&mut ui, "Log");
+    press(&mut ui, Key::Delete, Modifiers::default());
+    layout.update(|now| {
+        now.reopen("log");
+    });
+    ui.update();
+    assert_eq!(
+        *seen.borrow(),
+        [
+            (DockChange::Activate { panel: "grid".into() }, true),
+            (DockChange::Move { panel: "grid".into(), to: DockDrop::Side(DockSide::Left) }, true),
+            (DockChange::Collapse { side: DockSide::Left, open: false }, true),
+            (DockChange::Close { panel: "log".into() }, true),
+        ]
+    );
+    assert!(layout.get().contains("log"), "the app brought it back without being asked");
+}
