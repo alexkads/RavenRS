@@ -12,6 +12,7 @@ mod models;
 mod phonemes;
 mod spectrum;
 mod speech;
+mod spoken;
 mod tools;
 mod voice;
 
@@ -23,5 +24,6 @@ pub use machine::Machine;
 pub use manager::{ModelManager, ModelManagerLabels};
 pub use models::{LocalModel, ModelError, ModelFamily, ModelFile, ModelFolder, ModelState};
 pub use speech::{KOKORO_SPEAKERS, SPEECH_LANGUAGES, SPEECH_RATE, SpeechEngine, SpeechSettings, SpeechVoice};
+pub use spoken::{number_in_words_pt_br, spoken_pt_br};
 pub use tools::{Tool, ToolCall, read_tool_call, tool_rules};
 pub use voice::{LocalVoice, VoiceLabels, VoiceManager, sentences};
