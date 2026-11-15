@@ -1761,3 +1761,102 @@ mod cables {
         );
     }
 }
+
+#[test]
+fn a_run_told_from_outside_marks_the_nodes_and_counts_the_items_without_touching_the_graph() {
+    let line = FlowEdge::new("e1", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in")).label("sale");
+    let run = FlowRunView::new()
+        .node("a", FlowNodeRun::new(FlowNodeStatus::Success).items("out", 3))
+        .node("b", FlowNodeRun::new(FlowNodeStatus::Waiting("Waiting for approval".into())))
+        .node("c", FlowNodeRun::new(FlowNodeStatus::Skipped));
+    let before = graph().edge(line);
+    let mut rig = rig_with(before.clone(), move |c| c.execution(run));
+    let said = |ui: &mut Ui, title: &str| {
+        let tree = ui.access_tree();
+        let node = tree.nodes.iter().find(|n| n.name.as_deref() == Some(title)).expect(title);
+        node.description.clone().unwrap_or_default()
+    };
+    assert!(said(&mut rig.ui, "New sale").contains("Done"), "{}", said(&mut rig.ui, "New sale"));
+    assert!(said(&mut rig.ui, "Check stock").contains("Waiting for approval"));
+    assert!(said(&mut rig.ui, "Send refusal").contains("Did not run"), "the run's status over its own");
+    assert!(named(&mut rig.ui, "sale · 3 items").is_some(), "the count after the line's own words");
+    assert_eq!(rig.graph.get(), before, "the drawing changes, the graph does not");
+
+    let one = FlowRunView::new().node("a", FlowNodeRun::new(FlowNodeStatus::Pinned).items("out", 1));
+    assert_eq!(one.items(&FlowEndpoint::new("a", "out")), Some(1));
+    assert_eq!(one.items(&FlowEndpoint::new("b", "out")), None, "a node that did nothing says nothing");
+    let waiting =
+        FlowRunView::new().node("a", FlowNodeRun::new(FlowNodeStatus::Waiting("x".into())).items("out", 5));
+    assert_eq!(
+        waiting.items(&FlowEndpoint::new("a", "out")),
+        None,
+        "a node that waits has given nothing yet"
+    );
+}
+
+#[test]
+fn a_read_only_canvas_offers_no_unlock_and_changes_nothing() {
+    let mut rig = rig_with(graph(), |c| c.read_only(true));
+    assert!(named(&mut rig.ui, "Unlock editing").is_none(), "no way out of the lock");
+    assert!(named(&mut rig.ui, "Lock editing").is_none());
+    drag(&mut rig.ui, Point::new(120.0, 70.0), Point::new(220.0, 170.0));
+    assert_eq!(node_at(&rig, "a"), (48.0, 48.0));
+    key(&mut rig.ui, Key::Delete, Modifiers::default());
+    assert_eq!(rig.graph.get().nodes.len(), 3);
+    double_click(&mut rig.ui, Point::new(120.0, 70.0));
+    assert!(field(&mut rig.ui).is_none(), "no title to type in");
+    drag(&mut rig.ui, Point::new(300.0, 500.0), Point::new(310.0, 500.0));
+    assert_eq!(rig.view.get().offset, Point::new(10.0, 0.0), "the view still pans");
+    click(&mut rig.ui, Point::new(120.0, 70.0));
+    assert_eq!(rig.selection.get().nodes, ["a"], "and a node can still be picked to read");
+}
+
+#[test]
+fn a_connection_let_go_in_the_open_offers_what_the_port_takes_and_creates_it_connected() {
+    let models = [
+        (
+            "Check again",
+            FlowNode::new("again", "action", "Check again", 0.0, 0.0)
+                .port(FlowPort::input("in").kind("sale"))
+                .port(FlowPort::output("out").kind("sale")),
+        ),
+        (
+            "Refuse",
+            FlowNode::new("refuse", "action", "Refuse", 0.0, 0.0).port(FlowPort::input("in").kind("refused")),
+        ),
+        (
+            "New trigger",
+            FlowNode::new("start", "trigger", "New trigger", 0.0, 0.0).port(FlowPort::output("out")),
+        ),
+    ];
+    let mut rig = rig_with(graph(), move |c| c.open_end(models.clone()));
+    drag(&mut rig.ui, Point::new(248.0, 90.0), Point::new(620.0, 480.0));
+    assert!(named(&mut rig.ui, "Find the next node").is_some(), "the search opens where it was let go");
+    assert!(named(&mut rig.ui, "Check again").is_some(), "a model the port takes");
+    assert!(named(&mut rig.ui, "Refuse").is_none(), "one the rules refuse is left out");
+    assert!(named(&mut rig.ui, "New trigger").is_none(), "and one with no way in");
+
+    let id = named(&mut rig.ui, "Check again").expect("listed").id;
+    rig.ui.perform_action(id, ravenrs_core::AccessAction::Click);
+    settle(&mut rig.ui);
+    let g = rig.graph.get();
+    assert_eq!(g.nodes.len(), 4, "the node is there");
+    assert_eq!(g.edges.len(), 1, "and connected");
+    assert_eq!((g.edges[0].from.node.as_str(), g.edges[0].to.port.as_str()), ("a", "in"));
+    assert!(named(&mut rig.ui, "Find the next node").is_none(), "the search closed");
+    key(&mut rig.ui, Key::Character("z".into()), Modifiers { meta: true, ..Modifiers::default() });
+    assert_eq!((rig.graph.get().nodes.len(), rig.graph.get().edges.len()), (3, 0), "one Undo takes both");
+
+    drag(&mut rig.ui, Point::new(248.0, 90.0), Point::new(620.0, 480.0));
+    key(&mut rig.ui, Key::Escape, Modifiers::default());
+    assert!(named(&mut rig.ui, "Find the next node").is_none(), "Escape closes it");
+    assert_eq!(rig.graph.get().nodes.len(), 3, "and creates nothing");
+}
+
+#[test]
+fn without_models_a_connection_let_go_in_the_open_is_given_up_as_before() {
+    let mut rig = rig();
+    drag(&mut rig.ui, Point::new(248.0, 90.0), Point::new(620.0, 480.0));
+    assert!(named(&mut rig.ui, "Find the next node").is_none());
+    assert!(rig.graph.get().edges.is_empty());
+}

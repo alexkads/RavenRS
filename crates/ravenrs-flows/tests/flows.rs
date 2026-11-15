@@ -8,7 +8,7 @@ use ravenrs_flows::{
     Catalog, ErrorPolicy, Executor, FixedClock, FlowDefinition, Item, ItemRef, Mode, NodeContext, NodeDef,
     NodeError, NodeKind, NodeSpec, NodeStatus, Plan, PlanError, Ports, Run, RunError,
 };
-use ravenrs_graphics::flow::{FlowGate, FlowNode, FlowNodeStatus, FlowRun};
+use ravenrs_graphics::flow::{FlowGate, FlowNode, FlowNodeStatus, FlowRun, PortDirection};
 use serde_json::{Value, json};
 
 fn main_port(items: Vec<Item>) -> Ports {
@@ -491,4 +491,30 @@ fn a_card_copied_and_pasted_on_the_canvas_brings_the_node_setup_under_its_new_id
     assert_eq!(copy.parameters, paid_filter().parameters, "its parameters came with it");
     assert_eq!(copy.on_error, ErrorPolicy::Continue);
     assert_eq!((read.id.as_str(), read.name.as_str()), ("f", "copy"), "the flow's name rides in the graph");
+}
+
+#[test]
+fn an_input_and_an_output_of_one_name_are_drawn_as_two_ports_and_read_back_as_one_name() {
+    let catalog = Catalog::builtin();
+    let flow = FlowDefinition::new("f", "Filtered")
+        .node(NodeDef::new("start", "manual"))
+        .node(NodeDef::new("keep", "filter").parameter("condition", json!("[ok] = true")))
+        .node(NodeDef::new("after", "sort").parameter("by", json!(["n"])))
+        .connect("start", "main", "keep", "main")
+        .connect("keep", "main", "after", "main");
+    let graph = flow.to_graph(&catalog);
+    let keep = graph.find_node("keep").expect("drawn");
+    let ids: Vec<&str> = keep.ports.iter().map(|p| p.id.as_str()).collect();
+    assert_eq!(ids, ["in:main", "main", "discarded"], "a port's id is unique within its node");
+    let into = graph.edges.iter().find(|e| e.to.node == "keep").expect("the way in");
+    assert_eq!(graph.port(&into.to).map(|p| p.direction), Some(PortDirection::Input));
+    let out = graph.edges.iter().find(|e| e.from.node == "keep").expect("the way out");
+    assert_eq!(graph.port(&out.from).map(|p| p.direction), Some(PortDirection::Output));
+
+    assert_eq!(FlowDefinition::from_graph(&graph, &catalog).connections, flow.connections);
+    assert_eq!(ravenrs_flows::port_name("in:main"), "main");
+    let rules = catalog.run_rules(&flow);
+    assert!(graph.edges.iter().all(|e| (rules.follows)(e)), "the debugger follows every connection");
+    let manual = catalog.specs().into_iter().find(|s| s.kind == "manual").expect("a start");
+    assert_eq!(ravenrs_flows::card(&manual, "x", "X").ports.len(), 1, "a start has no input");
 }

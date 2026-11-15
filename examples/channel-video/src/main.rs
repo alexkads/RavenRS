@@ -16,7 +16,7 @@ use std::path::{Path, PathBuf};
 
 use family_finance::db::Database;
 use family_finance::ui::App;
-use family_finance::update::Updater;
+use family_finance::update;
 use family_finance::{seed, themes};
 use ravenrs::core::Key;
 use ravenrs::movie::{Movie, MovieLabels, Narration, OverlayKind, RecordError, Recorder};
@@ -150,7 +150,7 @@ fn record(out: &Path) {
     let today = Date::new(2026, 11, 15).expect("valid date");
     let db = Database::in_memory().expect("database");
     seed::load_demo(&db, today).expect("seed");
-    let mut take = Recorder::new(App::new(db, today, None, Updater::idle()), themes::light(), SIZE);
+    let mut take = Recorder::new(App::new(db, today, None, update::idle()), themes::light(), SIZE);
     finance(&mut take).unwrap_or_else(|e| panic!("the finance script no longer fits: {e}"));
     let second = edit(take.finish().expect("film"), "", "");
     for (name, film) in [("1-componentes", &first), ("2-financas", &second)] {

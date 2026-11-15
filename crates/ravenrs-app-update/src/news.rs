@@ -39,11 +39,6 @@ pub fn parse_history(text: &str) -> Vec<News> {
     items.into_iter().filter_map(|item| serde_json::from_value(item).ok()).collect()
 }
 
-/// Every version up to this one, newest first, compiled into the app.
-pub fn history() -> Vec<News> {
-    parse_history(include_str!("../../historico-de-novidades.json"))
-}
-
 /// One list of versions, newest first, out of several. When a version is in
 /// more than one, the first list's account of it is the one that stays, with
 /// the date of whichever list has one.
@@ -60,7 +55,7 @@ pub fn join_history(lists: impl IntoIterator<Item = Vec<News>>) -> Vec<News> {
     all
 }
 
-pub(super) fn version_numbers(version: &str) -> Option<Vec<u64>> {
+pub(crate) fn version_numbers(version: &str) -> Option<Vec<u64>> {
     version.trim().split('.').map(|part| part.parse().ok()).collect()
 }
 

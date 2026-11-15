@@ -36,6 +36,8 @@ pub mod model_picker;
 #[doc(hidden)]
 pub mod nav;
 #[doc(hidden)]
+pub mod parameter_form;
+#[doc(hidden)]
 pub mod quad_field;
 #[doc(hidden)]
 pub mod quick_edit;
@@ -72,6 +74,7 @@ pub use nav::{
     SidebarItem, SidebarParts, SidebarSection, SidebarSkeleton, SidebarState, SidebarTrigger, SidebarVariant,
     Tabs, TabsVariant,
 };
+pub use parameter_form::{EXPRESSION_KEY, ParamField, ParamKind, ParamOptions, ParamValues, ParameterForm};
 pub use quad_field::QuadField;
 pub use quick_edit::{InlineRename, ValueSlider};
 pub use release_notes::{CodeBlock, ReleaseNote, ReleaseNotes};

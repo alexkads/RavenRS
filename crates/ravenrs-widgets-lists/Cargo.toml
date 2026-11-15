@@ -16,6 +16,7 @@ categories = ["gui"]
 [dependencies]
 ravenrs-widgets-base.workspace = true
 ravenrs-widgets-kit.workspace = true
+serde_json.workspace = true
 ravenrs-core.workspace = true
 ravenrs-reactive.workspace = true
 ravenrs-layout.workspace = true

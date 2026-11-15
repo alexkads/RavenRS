@@ -18,7 +18,7 @@ fn today() -> Date {
 fn app() -> Ui {
     let db = Database::in_memory().expect("database");
     seed::load_demo(&db, today()).expect("seed");
-    let mut ui = Ui::new(App::new(db, today(), None, Updater::idle()), Theme::raven_light());
+    let mut ui = Ui::new(App::new(db, today(), None, family_finance::update::idle()), Theme::raven_light());
     ui.set_viewport(Size::new(1360.0, 860.0), 1.0);
     settle(&mut ui);
     ui
@@ -202,7 +202,7 @@ fn an_idle_app_asks_for_nothing() {
     for (page, name) in PAGES.iter().enumerate() {
         let db = Database::in_memory().expect("database");
         seed::load_demo(&db, today()).expect("seed");
-        let app = App::new(db, today(), None, Updater::idle());
+        let app = App::new(db, today(), None, family_finance::update::idle());
         app.open_page(page);
         let mut ui = Ui::new(app, Theme::raven_light());
         ui.set_viewport(Size::new(1360.0, 860.0), 1.0);
@@ -297,7 +297,7 @@ fn news_of(version: &str) -> News {
 
 #[test]
 fn the_foot_of_the_window_always_shows_the_version_and_its_news() {
-    let mut ui = app_with(Updater::idle());
+    let mut ui = app_with(family_finance::update::idle());
     let label = format!("Raven Finanças · versão {CURRENT}");
     assert!(says(&mut ui, &label));
     assert!(!says(&mut ui, "disponível"), "nothing to say, nothing said");
@@ -309,7 +309,7 @@ fn the_foot_of_the_window_always_shows_the_version_and_its_news() {
 
 #[test]
 fn a_new_version_is_told_at_the_foot_and_later_hides_it() {
-    let updater = Updater::idle();
+    let updater = family_finance::update::idle();
     updater.set_status(UpdateStatus::Available(news_of("99.0.0")));
     let mut ui = app_with(updater.clone());
     assert!(says(&mut ui, "Versão 99.0.0 disponível — Boleto anexado"));
@@ -328,7 +328,7 @@ fn a_new_version_is_told_at_the_foot_and_later_hides_it() {
 
 #[test]
 fn asking_in_the_settings_answers_at_the_foot() {
-    let updater = Updater::idle();
+    let updater = family_finance::update::idle();
     updater.set_status(UpdateStatus::UpToDate);
     let mut ui = app_with(updater.clone());
     assert!(says(&mut ui, &format!("Você está na versão mais recente ({CURRENT}).")));
@@ -356,7 +356,10 @@ fn app_on_a_file(name: &str) -> (Ui, std::path::PathBuf) {
     seed::load_demo(&db, today()).expect("seed");
     family_finance::backup::keep_daily_copy(&db, &family_finance::backup::copies_folder(&path), today())
         .expect("copy");
-    let mut ui = Ui::new(App::new(db, today(), Some(path.clone()), Updater::idle()), Theme::raven_light());
+    let mut ui = Ui::new(
+        App::new(db, today(), Some(path.clone()), family_finance::update::idle()),
+        Theme::raven_light(),
+    );
     ui.set_viewport(Size::new(1360.0, 1400.0), 1.0);
     settle(&mut ui);
     press(&mut ui, Role::Button, "Ajustes");
@@ -601,8 +604,10 @@ fn the_dashboard_shows_one_account_and_remembers_it() {
         let wallet =
             db.accounts().expect("accounts").into_iter().find(|a| a.name == "Carteira").expect("a wallet");
         let total: i64 = db.accounts().expect("accounts").iter().map(|a| a.balance_cents).sum();
-        let mut ui =
-            Ui::new(App::new(db, today(), Some(path.clone()), Updater::idle()), Theme::raven_light());
+        let mut ui = Ui::new(
+            App::new(db, today(), Some(path.clone()), family_finance::update::idle()),
+            Theme::raven_light(),
+        );
         ui.set_viewport(Size::new(1360.0, 860.0), 1.0);
         settle(&mut ui);
         (
@@ -644,7 +649,8 @@ fn a_deleted_account_leaves_the_dashboard_on_all_of_them() {
     let db = Database::open(&path).expect("database");
     seed::load_demo(&db, today()).expect("seed");
     std::fs::write(path.with_extension("painel-conta"), "999").expect("an old choice");
-    let mut ui = Ui::new(App::new(db, today(), Some(path), Updater::idle()), Theme::raven_light());
+    let mut ui =
+        Ui::new(App::new(db, today(), Some(path), family_finance::update::idle()), Theme::raven_light());
     ui.set_viewport(Size::new(1360.0, 860.0), 1.0);
     settle(&mut ui);
     assert!(stat(&mut ui, "Saldo das contas").is_some());
@@ -675,7 +681,8 @@ fn another_account_counts_the_balance_to_its_own() {
     let total: i64 = accounts.iter().map(|a| a.balance_cents).sum();
     let (wallet, total) =
         (family_finance::money::format_brl(wallet), family_finance::money::format_brl(total));
-    let mut ui = Ui::new(App::new(db, today(), Some(path), Updater::idle()), Theme::raven_light());
+    let mut ui =
+        Ui::new(App::new(db, today(), Some(path), family_finance::update::idle()), Theme::raven_light());
     ui.set_viewport(Size::new(1360.0, 860.0), 1.0);
     ui.set_time(0.0);
     settle(&mut ui);
@@ -733,8 +740,10 @@ fn the_dashboard_cards_move_and_resize_and_stay_that_way() {
         if db.is_empty().expect("empty") {
             seed::load_demo(&db, today()).expect("seed");
         }
-        let mut ui =
-            Ui::new(App::new(db, today(), Some(path.clone()), Updater::idle()), Theme::raven_light());
+        let mut ui = Ui::new(
+            App::new(db, today(), Some(path.clone()), family_finance::update::idle()),
+            Theme::raven_light(),
+        );
         ui.set_viewport(Size::new(1360.0, 1600.0), 1.0);
         settle(&mut ui);
         ui
@@ -804,7 +813,8 @@ fn a_damaged_layout_file_gives_the_cards_their_places() {
     let db = Database::open(&path).expect("database");
     seed::load_demo(&db, today()).expect("seed");
     std::fs::write(path.with_extension("painel-cards.json"), "not json").expect("a damaged file");
-    let mut ui = Ui::new(App::new(db, today(), Some(path), Updater::idle()), Theme::raven_light());
+    let mut ui =
+        Ui::new(App::new(db, today(), Some(path), family_finance::update::idle()), Theme::raven_light());
     ui.set_viewport(Size::new(1360.0, 860.0), 1.0);
     settle(&mut ui);
     assert!(card(&mut ui, "Saldo das contas").width() > card(&mut ui, "Próximas contas").width());

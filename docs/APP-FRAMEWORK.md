@@ -15,6 +15,7 @@ Declare what a record is, and get the screens: navigation, a list, a form, comma
 | `ravenrs-app-sqlite` | `SqliteDatabase`, `TableMap`: on tables it creates or tables that exist, on a connection the app shares |
 | `ravenrs-app-report` | `ReportModule`: an action that lays out a list as a report and shows it in the viewer |
 | `ravenrs-app-library` | `LibraryModule`: people, organizations, addresses, tasks, events, notes and files, to use or extend, with `PT_BR` for their words |
+| `ravenrs-app-update` | No GUI. `InstalledApp`, `Updater`, `News` and `Notice`: installing and updating an app by compiling it on the user's machine, with one installer template for the three systems and `assert_release_files_agree` for the release files |
 | `ravenrs-grid-export` | What a `DataGrid` shows, as Excel, PDF or CSV |
 
 ## In five minutes

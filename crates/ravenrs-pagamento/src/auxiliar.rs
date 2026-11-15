@@ -341,51 +341,43 @@ pub use processo::CanalProcesso;
 
 #[cfg(not(target_arch = "wasm32"))]
 mod processo {
-    use std::io::{BufRead, BufReader, Write};
     use std::path::Path;
-    use std::process::{Child, ChildStdin, ChildStdout, Command, Stdio};
+
+    use ravenrs_process::{Event, Running, Spec};
 
     use super::CanalLinhas;
     use crate::provedor::ErroProvedor;
 
-    /// A real helper process, spoken to over its stdin and stdout.
+    /// A real helper process, spoken to over its stdin and stdout, run by `ravenrs-process`.
     ///
     /// Reads block until the helper answers. If it dies, the reading fails and the outcome is
-    /// unknown, so the journal and `recuperar` take it from there.
+    /// unknown, so the journal and `recuperar` take it from there. What it writes on stderr
+    /// goes to this process's stderr, as when it inherited it.
     #[derive(Debug)]
     pub struct CanalProcesso {
-        filho: Child,
-        entrada: ChildStdin,
-        saida: BufReader<ChildStdout>,
-    }
-
-    fn indisponivel(erro: &std::io::Error) -> ErroProvedor {
-        ErroProvedor::Indisponivel(format!("auxiliar: {erro}"))
+        filho: Running,
     }
 
     impl CanalProcesso {
-        /// Starts the helper at this path.
+        /// Starts the helper at this path, with the environment of this process.
         pub fn iniciar(executavel: impl AsRef<Path>, argumentos: &[&str]) -> Result<Self, ErroProvedor> {
-            let mut filho = Command::new(executavel.as_ref())
-                .args(argumentos)
-                .stdin(Stdio::piped())
-                .stdout(Stdio::piped())
-                .stderr(Stdio::inherit())
+            let filho = Spec::new(executavel.as_ref().as_os_str())
+                .args(argumentos.iter().copied())
+                .inherit_env()
+                .stdin()
                 .spawn()
-                .map_err(|erro| indisponivel(&erro))?;
-            let entrada =
-                filho.stdin.take().ok_or_else(|| ErroProvedor::Indisponivel("auxiliar sem stdin".into()))?;
-            let saida = filho
-                .stdout
-                .take()
-                .ok_or_else(|| ErroProvedor::Indisponivel("auxiliar sem stdout".into()))?;
-            Ok(Self { filho, entrada, saida: BufReader::new(saida) })
+                .map_err(|erro| ErroProvedor::Indisponivel(format!("auxiliar: {erro}")))?;
+            Ok(Self { filho })
         }
 
-        /// Kills the helper, as a test of what its crash does.
+        /// Kills the helper, as a test of what its crash does, and waits for it to end.
         pub fn matar(&mut self) {
-            let _ = self.filho.kill();
-            let _ = self.filho.wait();
+            self.filho.control().stop();
+            while let Some(evento) = self.filho.next_within(ravenrs_process::GRACE * 2) {
+                if matches!(evento, Event::Ended(_)) {
+                    break;
+                }
+            }
         }
     }
 
@@ -397,20 +389,23 @@ mod processo {
 
     impl CanalLinhas for CanalProcesso {
         fn enviar(&mut self, linha: &str) -> Result<(), ErroProvedor> {
-            self.entrada
-                .write_all(linha.as_bytes())
-                .and_then(|()| self.entrada.write_all(b"\n"))
-                .and_then(|()| self.entrada.flush())
-                .map_err(|erro| indisponivel(&erro))
+            if self.filho.control().send(linha) {
+                Ok(())
+            } else {
+                Err(ErroProvedor::Indisponivel("auxiliar: a entrada fechou".into()))
+            }
         }
 
         fn receber(&mut self) -> Result<String, ErroProvedor> {
-            let mut linha = String::new();
-            let lidos = self.saida.read_line(&mut linha).map_err(|erro| indisponivel(&erro))?;
-            if lidos == 0 {
-                return Err(ErroProvedor::Indisponivel("o auxiliar fechou a saída".into()));
+            loop {
+                match self.filho.events().next() {
+                    Some(Event::Out(linha)) => return Ok(linha.trim_end().to_owned()),
+                    Some(Event::Err(linha)) => eprintln!("{linha}"),
+                    Some(Event::Ended(_)) | None => {
+                        return Err(ErroProvedor::Indisponivel("o auxiliar fechou a saída".into()));
+                    }
+                }
             }
-            Ok(linha.trim_end().to_owned())
         }
     }
 }

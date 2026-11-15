@@ -717,6 +717,100 @@ pub struct Labels {
     pub flow_running: String,
     /// A `FlowCanvas` node that ran and went well, for screen readers.
     pub flow_done: String,
+    /// A `FlowCanvas` node that did not run in a run told from outside, for screen readers.
+    pub flow_skipped: String,
+    /// A `FlowCanvas` node stopped before it ended, for screen readers.
+    pub flow_cancelled: String,
+    /// A `FlowCanvas` node that gave the items fixed on it instead of running.
+    pub flow_pinned: String,
+    /// One item went along a `FlowCanvas` connection.
+    pub flow_item_one: String,
+    /// How many items went along a `FlowCanvas` connection, with `{count}`.
+    pub flow_items: String,
+    /// The search a `FlowCanvas` connection let go in the open leads to.
+    pub flow_open_search: String,
+    /// That search with no model the port accepts.
+    pub flow_open_none: String,
+    /// Closes that search without creating anything.
+    pub flow_open_close: String,
+    /// A `ParameterForm` field holding a value as it is.
+    pub param_fixed: String,
+    /// A `ParameterForm` field holding an expression.
+    pub param_expression: String,
+    /// What screen readers call the switch between value and expression, after the field's name.
+    pub param_mode: String,
+    /// The `ParameterForm` button that gives the values back.
+    pub param_apply: String,
+    /// The `ParameterForm` button that forgets what was edited.
+    pub param_discard: String,
+    /// Adds a row to a list of a `ParameterForm`.
+    pub param_add: String,
+    /// Removes a row of a list of a `ParameterForm`, with `{0}` its number.
+    pub param_remove: String,
+    /// While a `ParameterForm` field's options load.
+    pub param_loading: String,
+    /// The title of a `ParameterForm` field whose options failed to load.
+    pub param_load_failed: String,
+    /// Asks a `ParameterForm` field's options again.
+    pub param_retry: String,
+    /// A required `ParameterForm` field with no value, with `{0}` its name.
+    pub param_required: String,
+    /// A choice of a `ParameterForm` with nothing chosen.
+    pub param_none: String,
+    /// What screen readers call the switch between the ways a `DataInspector` shows its items.
+    pub inspector_mode: String,
+    /// The table of a `DataInspector`.
+    pub inspector_table: String,
+    /// The tree of a `DataInspector`.
+    pub inspector_tree: String,
+    /// The JSON of a `DataInspector`.
+    pub inspector_json: String,
+    /// The schema of a `DataInspector`.
+    pub inspector_schema: String,
+    /// A field a `DataInspector` item does not have, unlike one that is null.
+    pub inspector_absent: String,
+    /// A yes-or-no value in a `DataInspector` schema.
+    pub inspector_boolean: String,
+    /// A number in a `DataInspector` schema.
+    pub inspector_number: String,
+    /// A text in a `DataInspector` schema.
+    pub inspector_text: String,
+    /// A list in a `DataInspector` schema.
+    pub inspector_list: String,
+    /// An object in a `DataInspector` schema.
+    pub inspector_object: String,
+    /// Entries of a list a `DataInspector` left out, with `{0}`.
+    pub inspector_more: String,
+    /// Items a `DataInspector` shows of all, with `{0}` and `{1}`.
+    pub inspector_sampled: String,
+    /// A `DataInspector` with no items.
+    pub inspector_empty: String,
+    /// Goes to the item before in a `DataInspector`.
+    pub inspector_previous: String,
+    /// Goes to the next item in a `DataInspector`.
+    pub inspector_next: String,
+    /// The item a `DataInspector` shows, with `{0}` and `{1}`.
+    pub inspector_item: String,
+    /// The column of paths of a `DataInspector` schema.
+    pub inspector_path: String,
+    /// The column of kinds of a `DataInspector` schema.
+    pub inspector_kind: String,
+    /// The column of how many items have a field, in a `DataInspector` schema.
+    pub inspector_in: String,
+    /// How many items have a field, with `{0}` and `{1}`.
+    pub inspector_present: String,
+    /// The path of the field chosen in a `DataInspector`, with `{0}`.
+    pub inspector_chosen: String,
+    /// What an `ExpressionEditor` expression works out to over a sample, with `{0}`.
+    pub expression_result: String,
+    /// Why an `ExpressionEditor` expression could not be worked out, with `{0}`.
+    pub expression_failed: String,
+    /// The tag of the field chosen in a `DataInspector`, to carry to an expression, with `{0}`.
+    pub inspector_drag: String,
+    /// Copies the field chosen in a `DataInspector` as an expression.
+    pub inspector_copy: String,
+    /// A field of a `ParameterForm` that takes no field carried to it.
+    pub param_no_field: String,
     /// The Export menu of a `FlowCanvas`.
     pub flow_export: String,
     /// Export a `FlowCanvas` as a PNG picture.
@@ -1492,6 +1586,53 @@ impl Labels {
             flow_library_count: texts.get("widgets.flow_library_count"),
             flow_running: texts.get("widgets.flow_running"),
             flow_done: texts.get("widgets.flow_done"),
+            flow_skipped: texts.get("widgets.flow_skipped"),
+            flow_cancelled: texts.get("widgets.flow_cancelled"),
+            flow_pinned: texts.get("widgets.flow_pinned"),
+            flow_item_one: texts.get("widgets.flow_item_one"),
+            flow_items: texts.get("widgets.flow_items"),
+            flow_open_search: texts.get("widgets.flow_open_search"),
+            flow_open_none: texts.get("widgets.flow_open_none"),
+            flow_open_close: texts.get("widgets.flow_open_close"),
+            param_fixed: texts.get("widgets.param_fixed"),
+            param_expression: texts.get("widgets.param_expression"),
+            param_mode: texts.get("widgets.param_mode"),
+            param_apply: texts.get("widgets.param_apply"),
+            param_discard: texts.get("widgets.param_discard"),
+            param_add: texts.get("widgets.param_add"),
+            param_remove: texts.get("widgets.param_remove"),
+            param_loading: texts.get("widgets.param_loading"),
+            param_load_failed: texts.get("widgets.param_load_failed"),
+            param_retry: texts.get("widgets.param_retry"),
+            param_required: texts.get("widgets.param_required"),
+            param_none: texts.get("widgets.param_none"),
+            inspector_mode: texts.get("widgets.inspector_mode"),
+            inspector_table: texts.get("widgets.inspector_table"),
+            inspector_tree: texts.get("widgets.inspector_tree"),
+            inspector_json: texts.get("widgets.inspector_json"),
+            inspector_schema: texts.get("widgets.inspector_schema"),
+            inspector_absent: texts.get("widgets.inspector_absent"),
+            inspector_boolean: texts.get("widgets.inspector_boolean"),
+            inspector_number: texts.get("widgets.inspector_number"),
+            inspector_text: texts.get("widgets.inspector_text"),
+            inspector_list: texts.get("widgets.inspector_list"),
+            inspector_object: texts.get("widgets.inspector_object"),
+            inspector_more: texts.get("widgets.inspector_more"),
+            inspector_sampled: texts.get("widgets.inspector_sampled"),
+            inspector_empty: texts.get("widgets.inspector_empty"),
+            inspector_previous: texts.get("widgets.inspector_previous"),
+            inspector_next: texts.get("widgets.inspector_next"),
+            inspector_item: texts.get("widgets.inspector_item"),
+            inspector_path: texts.get("widgets.inspector_path"),
+            inspector_kind: texts.get("widgets.inspector_kind"),
+            inspector_in: texts.get("widgets.inspector_in"),
+            inspector_present: texts.get("widgets.inspector_present"),
+            inspector_chosen: texts.get("widgets.inspector_chosen"),
+            expression_result: texts.get("widgets.expression_result"),
+            expression_failed: texts.get("widgets.expression_failed"),
+            inspector_drag: texts.get("widgets.inspector_drag"),
+            inspector_copy: texts.get("widgets.inspector_copy"),
+            param_no_field: texts.get("widgets.param_no_field"),
             flow_export: texts.get("widgets.flow_export"),
             flow_export_png: texts.get("widgets.flow_export_png"),
             flow_export_svg: texts.get("widgets.flow_export_svg"),

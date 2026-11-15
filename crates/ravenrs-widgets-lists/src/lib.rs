@@ -1,5 +1,5 @@
 //! RavenRS long lists and what is built on them: `VirtualList`, `Filmstrip`, `PagedDocumentView`,
-//! `FileBrowser`, `YearView`, `SortableList`, `DocumentTabs`, and `TreeView`.
+//! `FileBrowser`, `YearView`, `SortableList`, `DocumentTabs`, `TreeView`, and `DataInspector`.
 //!
 //! Applications depend on `ravenrs-widgets` (or `ravenrs`), which re-exports all of this by the
 //! same names.
@@ -12,10 +12,13 @@ use ravenrs_widgets_base::*;
 use ravenrs_widgets_kit::*;
 
 #[doc(hidden)]
+pub mod inspector;
+#[doc(hidden)]
 pub mod lists;
 #[doc(hidden)]
 pub mod tree;
 
+pub use inspector::{DataInspector, PathStep, SAMPLE, field_path};
 pub use lists::{
     DayMark, DocumentTab, DocumentTabs, FileBrowser, FileEntry, FileSort, FileSortColumn, Filmstrip,
     FilmstripCell, PagedDocumentView, SortableList, VirtualList, YearView,

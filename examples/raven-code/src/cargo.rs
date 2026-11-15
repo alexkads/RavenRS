@@ -1,10 +1,12 @@
 //! Building and running the project with cargo, on a thread of its own, and reading what the
 //! compiler says. The reading is apart from the running, so it is tested with no cargo at all.
 
-use std::io::{self, BufRead, BufReader, Write};
+use std::io;
 use std::path::{Path, PathBuf};
-use std::process::{Child, ChildStdin, Command, Stdio};
+use std::process::{Command, Stdio};
 use std::sync::{Arc, Mutex};
+
+use ravenrs_process::{End, Event, Spec};
 
 use serde_json::Value;
 
@@ -235,8 +237,7 @@ pub fn binaries(root: &Path) -> io::Result<Vec<String>> {
 /// A handle on what cargo is running: to stop it, and to type into the program.
 #[derive(Clone, Default)]
 pub struct Control {
-    child: Arc<Mutex<Option<Child>>>,
-    stdin: Arc<Mutex<Option<ChildStdin>>>,
+    child: Arc<Mutex<Option<ravenrs_process::Control>>>,
 }
 
 impl std::fmt::Debug for Control {
@@ -249,20 +250,17 @@ impl std::fmt::Debug for Control {
 impl Control {
     /// Stops what runs, cargo and the program it started. False when nothing runs.
     pub fn stop(&self) -> bool {
-        let Ok(mut child) = self.child.lock() else { return false };
-        let Some(child) = child.as_mut() else { return false };
-        // Closing the input first lets a program that waits for a line end on its own.
-        if let Ok(mut stdin) = self.stdin.lock() {
-            stdin.take();
-        }
-        child.kill().is_ok()
+        let Ok(child) = self.child.lock() else { return false };
+        let Some(child) = child.as_ref() else { return false };
+        // Its input closes first, so a program that waits for a line ends on its own.
+        child.stop();
+        true
     }
 
     /// Sends a line to the program, as typed in a terminal. False when nothing takes it.
     pub fn send(&self, line: &str) -> bool {
-        let Ok(mut stdin) = self.stdin.lock() else { return false };
-        let Some(stdin) = stdin.as_mut() else { return false };
-        writeln!(stdin, "{line}").and_then(|()| stdin.flush()).is_ok()
+        let Ok(child) = self.child.lock() else { return false };
+        child.as_ref().is_some_and(|child| child.send(line))
     }
 }
 
@@ -288,20 +286,18 @@ pub fn start(
         }
         *now = Report { output: format!("{shown}\n"), running: true, task: Some(task), ..Report::default() };
     }
-    let wake = Arc::new(wake);
     std::thread::spawn(move || {
-        let mut command = Command::new("cargo");
-        command.arg(task.verb()).arg("--message-format=json");
+        // Cargo needs the person's whole environment (its toolchains, its caches), as in a terminal.
+        let mut spec =
+            Spec::new("cargo").arg(task.verb()).arg("--message-format=json").dir(&root).inherit_env();
         if let (Task::Run, Some(bin)) = (task, &bin) {
-            command.args(["--bin", bin]);
+            spec = spec.args(["--bin", bin]);
         }
-        command
-            .current_dir(&root)
-            .stdin(if task == Task::Run { Stdio::piped() } else { Stdio::null() })
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-        let mut child = match command.spawn() {
-            Ok(child) => child,
+        if task == Task::Run {
+            spec = spec.stdin();
+        }
+        let running = match spec.spawn() {
+            Ok(running) => running,
             Err(error) => {
                 if let Ok(mut now) = report.lock() {
                     now.output.push_str(&format!("could not start cargo: {error}\n"));
@@ -312,46 +308,32 @@ pub fn start(
                 return;
             }
         };
-        let (stdout, stderr) = (child.stdout.take(), child.stderr.take());
-        if let Ok(mut stdin) = control.stdin.lock() {
-            *stdin = child.stdin.take();
-        }
         if let Ok(mut held) = control.child.lock() {
-            *held = Some(child);
+            *held = Some(running.control());
         }
-        // What cargo itself says (Compiling…, Finished…) comes on the other stream.
-        let errors = stderr.map(|stderr| {
-            let (report, wake) = (report.clone(), wake.clone());
-            std::thread::spawn(move || {
-                for line in BufReader::new(stderr).lines().map_while(Result::ok) {
-                    if let Ok(mut now) = report.lock() {
+        let mut end = End::Code(-1);
+        for event in running.events() {
+            if let Ok(mut now) = report.lock() {
+                match event {
+                    // What the compiler says, as JSON.
+                    Event::Out(line) => now.take(&line),
+                    // What cargo itself says (Compiling…, Finished…), and the program's errors.
+                    Event::Err(line) => {
                         now.output.push_str(&line);
                         now.output.push('\n');
                     }
-                    wake();
+                    Event::Ended(how) => end = how,
                 }
-            })
-        });
-        if let Some(stdout) = stdout {
-            for line in BufReader::new(stdout).lines().map_while(Result::ok) {
-                if let Ok(mut now) = report.lock() {
-                    now.take(&line);
-                }
-                wake();
             }
+            wake();
         }
-        if let Some(errors) = errors {
-            let _ = errors.join();
-        }
-        // The streams ended: the program is over, or was stopped. Only now is the lock taken.
-        let status = control.child.lock().ok().and_then(|mut held| held.take()).map(|mut child| child.wait());
-        if let Ok(mut stdin) = control.stdin.lock() {
-            stdin.take();
+        if let Ok(mut held) = control.child.lock() {
+            held.take();
         }
         if let Ok(mut now) = report.lock() {
             now.running = false;
-            let ok = matches!(status, Some(Ok(status)) if status.success());
-            now.stopped = !ok && matches!(&status, Some(Ok(status)) if status.code().is_none());
+            let ok = end.success();
+            now.stopped = matches!(end, End::Stopped | End::TimedOut | End::Signal(_));
             if now.stopped {
                 now.output.push_str("stopped\n");
             }

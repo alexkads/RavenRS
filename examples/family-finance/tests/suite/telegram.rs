@@ -779,7 +779,6 @@ fn the_card_pairs_without_holding_up_the_window() {
 
 fn window_side() {
     use family_finance::ui::App;
-    use family_finance::update::Updater;
     use ravenrs::prelude::*;
 
     let home = PathBuf::from(std::env::var_os("FF_TELEGRAM_WINDOW").expect("home"));
@@ -788,7 +787,8 @@ fn window_side() {
     let db = Database::open(&path).expect("database");
     db.add_account("Banco", AccountKind::Checking, 0).expect("account");
     let today = Date::new(2026, 11, 6).expect("date");
-    let mut ui = Ui::new(App::new(db, today, Some(path), Updater::idle()), Theme::raven_light());
+    let mut ui =
+        Ui::new(App::new(db, today, Some(path), family_finance::update::idle()), Theme::raven_light());
     ui.set_viewport(Size::new(1360.0, 3200.0), 1.0);
     ui.update();
 

@@ -2280,6 +2280,7 @@ dependencies = [
  "ravenrs-app",
  "ravenrs-app-sqlite",
  "ravenrs-app-ui",
+ "ravenrs-app-update",
  "ravenrs-criteria",
  "ravenrs-report",
  "ravenrs-report-export",
@@ -5880,7 +5881,25 @@ dependencies = [
  "image",
  "pollster",
  "ravenrs",
+ "ravenrs-process",
  "serde_json",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "raven-flows"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "pollster",
+ "ravenrs",
+ "ravenrs-agent-cli",
+ "ravenrs-app-update",
+ "ravenrs-flows",
+ "ravenrs-flows-runtime",
+ "serde",
+ "serde_json",
+ "tracing",
  "tracing-subscriber",
 ]
 
@@ -5903,6 +5922,16 @@ dependencies = [
  "ravenrs-style",
  "ravenrs-text",
  "ravenrs-widgets",
+]
+
+[[package]]
+name = "ravenrs-agent-cli"
+version = "27.1.28"
+dependencies = [
+ "ravenrs-flows",
+ "ravenrs-process",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -6203,6 +6232,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-app-update"
+version = "27.1.28"
+dependencies = [
+ "serde",
+ "serde_json",
+ "tracing",
+ "ureq",
+]
+
+[[package]]
 name = "ravenrs-barcode"
 version = "27.1.28"
 dependencies = [
@@ -6487,6 +6526,7 @@ dependencies = [
 name = "ravenrs-pagamento"
 version = "27.1.28"
 dependencies = [
+ "ravenrs-process",
  "serde",
  "serde_json",
  "serialport",
@@ -6634,6 +6674,10 @@ dependencies = [
  "serde",
  "serde_json",
 ]
+
+[[package]]
+name = "ravenrs-process"
+version = "27.1.28"
 
 [[package]]
 name = "ravenrs-project"
@@ -7011,6 +7055,7 @@ dependencies = [
  "ravenrs-widgets",
  "ravenrs-widgets-base",
  "serde",
+ "serde_json",
  "tracing",
 ]
 
@@ -7026,6 +7071,7 @@ dependencies = [
  "ravenrs-widgets",
  "ravenrs-widgets-base",
  "ravenrs-widgets-kit",
+ "serde_json",
 ]
 
 [[package]]

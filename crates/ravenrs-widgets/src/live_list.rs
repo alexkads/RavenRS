@@ -190,6 +190,14 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     #[cfg(feature = "flow")]
     ravenrs_graphics::flow::FlowNodeStatus::__live_expose_variants(registry);
     #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowRunView::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowNodeRun::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowRunView::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowNodeRun::__live_expose(registry);
+    #[cfg(feature = "flow")]
     ravenrs_graphics::flow::FlowNode::__live_expose_fields(registry);
     #[cfg(feature = "flow")]
     ravenrs_graphics::flow::FlowNode::__live_expose(registry);
@@ -244,6 +252,13 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::ButtonGroup::__live_expose(registry);
     crate::IconButton::__live_expose_fields(registry);
     crate::IconButton::__live_expose(registry);
+    crate::CableSide::__live_expose_variants(registry);
+    crate::CableSide::__live_expose(registry);
+    crate::CableAnchor::__live_expose_variants(registry);
+    crate::CablePlug::__live_expose_fields(registry);
+    crate::CablePlug::__live_expose(registry);
+    crate::Cables::__live_expose_fields(registry);
+    crate::Cables::__live_expose(registry);
     crate::DateRange::__live_expose_fields(registry);
     crate::DateRange::__live_expose(registry);
     crate::Calendar::__live_expose_fields(registry);
@@ -336,6 +351,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::validate::__live_expose(registry);
     crate::FormField::<crate::AnyView>::__live_expose(registry);
     crate::AccessibleControl::<crate::AnyView>::__live_expose(registry);
+    crate::FieldDrag::__live_expose_fields(registry);
+    crate::FieldDrag::__live_expose(registry);
     crate::PickedFile::__live_expose_fields(registry);
     crate::PickedFile::__live_expose(registry);
     crate::FileRequest::__live_expose_fields(registry);
@@ -599,6 +616,14 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Disclosure::__live_expose(registry);
     crate::Accordion::__live_expose_fields(registry);
     crate::Accordion::__live_expose(registry);
+    crate::ParamKind::__live_expose_variants(registry);
+    crate::ParamField::__live_expose_fields(registry);
+    crate::ParamField::__live_expose(registry);
+    crate::ParamOptions::__live_expose_variants(registry);
+    crate::ParamValues::__live_expose_fields(registry);
+    crate::ParamValues::__live_expose(registry);
+    crate::ParameterForm::__live_expose_fields(registry);
+    crate::ParameterForm::__live_expose(registry);
     crate::QuadField::__live_expose_fields(registry);
     crate::QuadField::__live_expose(registry);
     crate::ValueSlider::__live_expose_fields(registry);
@@ -912,6 +937,9 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::TimelineEdit::__live_expose_variants(registry);
     crate::Timeline::__live_expose_fields(registry);
     crate::Timeline::__live_expose(registry);
+    crate::PathStep::__live_expose_variants(registry);
+    crate::DataInspector::__live_expose_fields(registry);
+    crate::DataInspector::__live_expose(registry);
     crate::DocumentTab::__live_expose_fields(registry);
     crate::DocumentTab::__live_expose(registry);
     crate::DocumentTabs::__live_expose_fields(registry);
@@ -1046,6 +1074,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::CropOverlay>(registry);
     crate::live::view::<crate::CurveEditor>(registry);
     crate::live::view::<crate::DataGrid>(registry);
+    crate::live::view::<crate::DataInspector>(registry);
     crate::live::view::<crate::DatePicker>(registry);
     crate::live::view::<crate::DateRangePicker>(registry);
     crate::live::view::<crate::DateTimePicker>(registry);
@@ -1123,6 +1152,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::PageHeader>(registry);
     crate::live::view::<crate::PagedDocumentView>(registry);
     crate::live::view::<crate::Pagination>(registry);
+    crate::live::view::<crate::ParameterForm>(registry);
     #[cfg(feature = "code")]
     crate::live::view::<crate::Playground>(registry);
     crate::live::view::<crate::Popover<crate::AnyView, crate::AnyView>>(registry);

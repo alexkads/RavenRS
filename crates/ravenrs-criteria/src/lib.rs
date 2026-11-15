@@ -9,6 +9,7 @@
 //! * [`validate`] checks it against a [`Schema`] before it runs.
 //! * [`to_sql`] translates it to parameterized SQL.
 //! * [`functions::catalog`] lists every function, for expression editors.
+//! * [`Template`] mixes text and expressions: `Olá {{ item.nome }}`.
 //!
 //! # Syntax
 //!
@@ -46,6 +47,7 @@ mod format;
 pub mod functions;
 mod parse;
 mod sql;
+mod template;
 mod validate;
 mod value;
 
@@ -55,5 +57,6 @@ pub use format::{Culture, NumberStyle, format_composite, format_value};
 pub use functions::{Aggregate, Category, Function, FunctionInfo};
 pub use parse::ParseError;
 pub use sql::{Dialect, SqlError, SqlParam, SqlQuery, to_sql};
+pub use template::{Part, RenderError, Template, TemplateError};
 pub use validate::{FieldType, Problem, Schema, validate};
 pub use value::{DateTime, Value};

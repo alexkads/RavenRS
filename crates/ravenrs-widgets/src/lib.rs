@@ -42,6 +42,8 @@ pub use ravenrs_widgets_grid::grid;
 
 // The lists family lives in its own crate, and keeps its module names here.
 #[allow(unused_imports)]
+use ravenrs_widgets_lists::inspector;
+#[allow(unused_imports)]
 use ravenrs_widgets_lists::lists;
 #[allow(unused_imports)]
 use ravenrs_widgets_lists::tree;
@@ -106,16 +108,16 @@ use ravenrs_widgets_chat::rich_text;
 #[allow(unused_imports)]
 use ravenrs_widgets_base::{
     button, cable_plug, calendar, canvas, card, choice, clipboard, color_picker, context, date, display,
-    dock_side, extras, file_picker, fill, floating, full_screen, hotkey, icon, icon_set, ids, image, inputs,
-    kbd, labels, link_service, links, localized, modifiers, motion, motion_spec, overlay, page_motion,
-    recurrence, remote, reorder, scroll_link, scroll_scene, selection_mode, sound, stack, summary,
-    system_appearance, text, text_field, time_link, turn, ui, util, view, zoom,
+    dock_side, extras, field_drag, file_picker, fill, floating, full_screen, hotkey, icon, icon_set, ids,
+    image, inputs, kbd, labels, link_service, links, localized, modifiers, motion, motion_spec, overlay,
+    page_motion, recurrence, remote, reorder, scroll_link, scroll_scene, selection_mode, sound, stack,
+    summary, system_appearance, text, text_field, time_link, turn, ui, util, view, zoom,
 };
 #[allow(unused_imports)]
 use ravenrs_widgets_kit::{
     commands, counter, data, diagnostics, editors, expression_editor, files, filter_builder, form_layout,
-    lookup, model_picker, nav, quad_field, quick_edit, release_notes, shortcuts, status, tag_box, theme,
-    tiles, wizard,
+    lookup, model_picker, nav, parameter_form, quad_field, quick_edit, release_notes, shortcuts, status,
+    tag_box, theme, tiles, wizard,
 };
 
 #[cfg(feature = "live")]
@@ -170,6 +172,7 @@ pub use extras::{
     AccessibleControl, Carousel, FormField, InputOtp, Menubar, Rule, Spinner, SplitHandle, SplitPane,
     SplitPanes, Splitter, validate,
 };
+pub use field_drag::{FIELD_DRAG, FieldDrag, field_expression};
 pub use file_picker::{FilePicker, FilePickerProvider, FileRequest, NoFilePicker, PickedFile};
 #[cfg(feature = "decode")]
 pub use files::ImageField;
@@ -185,9 +188,9 @@ pub use flow::{
     EdgeCap, EdgeShape, FLOW_FORMAT, FLOW_NODE_DRAG, FlowCanvas, FlowChange, FlowColors, FlowConnector,
     FlowContent, FlowDirection, FlowDocument, FlowEdge, FlowEndpoint, FlowExportFormat, FlowExporter,
     FlowGate, FlowGraph, FlowGuard, FlowHistory, FlowIssue, FlowJsonError, FlowKind, FlowLayout,
-    FlowLayoutKind, FlowNext, FlowNode, FlowNodeStatus, FlowPicture, FlowPort, FlowRun, FlowRunEvent,
-    FlowRunRules, FlowSelection, FlowShape, FlowShelf, FlowStyle, FlowText, FlowValidator, FlowViewport,
-    NODE_REFS, PortDirection, PortSide,
+    FlowLayoutKind, FlowNext, FlowNode, FlowNodeRun, FlowNodeStatus, FlowPicture, FlowPort, FlowRun,
+    FlowRunEvent, FlowRunRules, FlowRunView, FlowSelection, FlowShape, FlowShelf, FlowStyle, FlowText,
+    FlowValidator, FlowViewport, NODE_REFS, PortDirection, PortSide,
 };
 pub use form_layout::{FormGroup, FormLayout};
 pub use full_screen::{FullScreen, FullScreenProvider};
@@ -210,6 +213,7 @@ pub use imaging::{
     Protractor, RubberBand, RuleOfThirdsGrid, Ruler, TransformHandles, ZoomPanPaint, ZoomPanView,
 };
 pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeSwitcher, Toggle};
+pub use inspector::{DataInspector, PathStep, SAMPLE, field_path};
 pub use kbd::Kbd;
 pub use labels::Labels;
 pub use link_service::{LinkOpener, Links};
@@ -238,6 +242,7 @@ pub use nav::{
 };
 pub use overlay::{Dialog, DropdownMenu, HelpTip, MenuItem, Popover, Select, Tooltip};
 pub use page_motion::{Anchor, CountUp, Ticker};
+pub use parameter_form::{EXPRESSION_KEY, ParamField, ParamKind, ParamOptions, ParamValues, ParameterForm};
 #[cfg(feature = "code")]
 pub use playground::{Playground, RunOutput, Runner};
 pub use quad_field::QuadField;
