@@ -544,11 +544,11 @@ CREATE POLICY own_tenant ON orders
   WITH CHECK (tenant = current_setting('request.jwt.claims', true)::json ->> 'tenant');
 ```
 
-| Service | Address | Token |
-|---|---|---|
-| Your own PostgREST | where it listens; `.schema()` when it serves more than one | signed with its `jwt-secret` |
-| Supabase | `https://<project>.supabase.co/rest/v1`, with `.api_key(anon key)` | the session's access token from Supabase Auth; the anon key alone is the `anon` role |
-| Neon Data API | the endpoint the console shows for the branch | from Neon Auth, or your own provider through its JWKS |
+| Service | Address | Token | What to know |
+|---|---|---|---|
+| Your own PostgREST | where it listens; `.schema()` when it serves more than one | signed with its `jwt-secret` | `NOTIFY pgrst, 'reload schema'` after making tables |
+| Supabase | `https://<project>.supabase.co/rest/v1`, with `.api_key(publishable key)` | the session's access token from Supabase Auth (an hour); the publishable key alone is the `anon` role. A claim of the application's own goes in `app_metadata` | Every new table of `public` is granted to `anon` by default: revoke it where only those signed in may read. The firewall in front of the API answers 403 with a page of its own to a filter whose text looks like SQL injection (`B'; DROP TABLE …`), before the database sees it; writes in the body pass (#388) |
+| Neon Data API | the endpoint the console shows for the branch | from Neon Auth, or your own provider through its JWKS. Neon Auth's tokens last 15 minutes: give `token_source` a function that returns the current one | The anonymous role is `anonymous`. It does not hear `NOTIFY pgrst`: after making tables, press Refresh schema cache under Data API, or `PATCH {}` to `/projects/{project}/branches/{branch}/data-api/{database}` of Neon's API |
 
 Limits to know:
 - Desktop only: a space answers at once, and a browser cannot wait for HTTP.
@@ -556,7 +556,7 @@ Limits to know:
 - State machines are checked against what was read before the commit, not inside its transaction.
 - A table without row level security is open to every role that has grants on it: the function adds no rule of its own.
 
-Its tests run against a real PostgREST when `RAVENRS_POSTGREST_URL`, `RAVENRS_POSTGREST_ADMIN_URL` and `RAVENRS_POSTGREST_TOKEN_A`/`_B` say where; `tests/postgrest.rs` says what each must be.
+Its tests run against a real PostgREST when `RAVENRS_POSTGREST_URL`, `RAVENRS_POSTGREST_ADMIN_URL` and `RAVENRS_POSTGREST_TOKEN_A`/`_B` say where; `tests/postgrest.rs` says what each must be, and which variables point them at Supabase or Neon. On 14/11/2026 they passed against Neon's Data API, all five with the contract, and against Supabase but for the contract's case of a filter that looks like SQL injection, which Supabase's firewall refuses.
 
 ## A web API
 
