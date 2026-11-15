@@ -11,7 +11,7 @@ pub use crate::dock_side::DockSide;
 use crate::reorder;
 
 /// The version of the saved text this build writes, and the newest it reads.
-const FORMAT_VERSION: u64 = 1;
+const FORMAT_VERSION: u64 = 2;
 /// How far the shares of a split may stray from a sum of one before they are put right. Saved
 /// shares land within it, so reading a text and writing it again gives the same text.
 const SHARES_SUM_TOLERANCE: f32 = 1e-3;
@@ -353,6 +353,10 @@ fn bottom() -> Region {
     Region::new(200.0)
 }
 
+fn top() -> Region {
+    Region::new(120.0)
+}
+
 /// A panel out of the tree, with where to bring it back.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 struct Closed {
@@ -391,6 +395,8 @@ pub struct DockLayout {
     right: Region,
     #[serde(default = "bottom")]
     bottom: Region,
+    #[serde(default = "top")]
+    top: Region,
     #[serde(default)]
     closed: Vec<Closed>,
 }
@@ -453,7 +459,7 @@ struct Saved<'a> {
 impl DockLayout {
     /// Nothing anywhere yet, with the docks at their usual sizes.
     pub fn new() -> Self {
-        Self { center: None, left: left(), right: right(), bottom: bottom(), closed: Vec::new() }
+        Self { center: None, left: left(), right: right(), bottom: bottom(), top: top(), closed: Vec::new() }
     }
 
     /// Puts this in the center.
@@ -476,6 +482,12 @@ impl DockLayout {
     /// Puts this in the bottom dock, `size` logical pixels tall.
     pub fn bottom(self, node: DockNode, size: f32) -> Self {
         self.dock(DockSide::Bottom, node, size)
+    }
+
+    /// Puts this in the top dock, between the columns above the center, `size` logical pixels
+    /// tall.
+    pub fn top(self, node: DockNode, size: f32) -> Self {
+        self.dock(DockSide::Top, node, size)
     }
 
     /// Starts with these panels closed, ready to be reopened in `place`.
@@ -501,6 +513,7 @@ impl DockLayout {
             DockSide::Left => Some(&self.left),
             DockSide::Right => Some(&self.right),
             DockSide::Bottom => Some(&self.bottom),
+            DockSide::Top => Some(&self.top),
             DockSide::Center => None,
             // The base may add more.
             _ => None,
@@ -512,6 +525,7 @@ impl DockLayout {
             DockSide::Left => Some(&mut self.left),
             DockSide::Right => Some(&mut self.right),
             DockSide::Bottom => Some(&mut self.bottom),
+            DockSide::Top => Some(&mut self.top),
             DockSide::Center => None,
             // The base may add more.
             _ => None,
@@ -948,6 +962,36 @@ mod tests {
     }
 
     #[test]
+    fn a_text_saved_before_the_top_dock_reads_with_an_empty_one() {
+        let old = r#"{"version": 1, "center": {"tabs": {"panels": ["a"]}}, "bottom": {"node": {"tabs": {"panels": ["b"]}}, "size": 150.0}}"#;
+        let read = DockLayout::parse(old).expect("a text of the first version still reads");
+        assert_eq!(read.node(DockSide::Top), None);
+        assert_eq!(read.size(DockSide::Top), 120.0, "at its usual size");
+        assert_eq!(read.side_of("b"), Some(DockSide::Bottom));
+        assert!(read.to_text().contains("\"version\": 2"), "and is saved in the new one");
+    }
+
+    #[test]
+    fn the_top_dock_holds_panels_saves_and_takes_them_like_the_others() {
+        let mut layout =
+            DockLayout::new().center(DockNode::tabs(["a", "b"])).top(DockNode::tabs(["t"]), 90.0);
+        assert_eq!(layout.side_of("t"), Some(DockSide::Top));
+        assert_eq!(layout.size(DockSide::Top), 90.0);
+        assert!(layout.move_panel("b", DockDrop::Side(DockSide::Top)));
+        assert_eq!(
+            layout.node(DockSide::Top),
+            Some(&DockNode::Tabs { panels: vec!["t".into(), "b".into()], active: 1 })
+        );
+        layout.set_open(DockSide::Top, false);
+        let read = DockLayout::parse(&layout.to_text()).expect("it reads");
+        assert_eq!(read, layout);
+        assert!(!read.is_open(DockSide::Top));
+        assert!(layout.close("t"));
+        assert!(layout.reopen("t"));
+        assert_eq!(layout.side_of("t"), Some(DockSide::Top), "it comes back where it was");
+    }
+
+    #[test]
     fn a_saved_text_reads_back_the_same_and_stays_the_same_text() {
         let mut layout = sample();
         layout.set_open(DockSide::Left, false);
@@ -1023,7 +1067,8 @@ mod tests {
     }
 
     fn side(index: u8) -> DockSide {
-        [DockSide::Left, DockSide::Right, DockSide::Bottom, DockSide::Center][usize::from(index % 4)]
+        [DockSide::Left, DockSide::Right, DockSide::Top, DockSide::Bottom, DockSide::Center]
+            [usize::from(index % 5)]
     }
 
     fn apply(layout: &mut DockLayout, op: &Op) {

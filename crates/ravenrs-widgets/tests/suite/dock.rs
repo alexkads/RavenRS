@@ -374,10 +374,10 @@ fn the_button_of_a_strip_has_the_menu_with_move_to_from_the_keyboard() {
     press(&mut ui, Key::Enter, Modifiers::default());
     assert_eq!(focused_name(&mut ui).as_deref(), Some("Move to…"));
     press(&mut ui, Key::ArrowRight, Modifiers::default());
-    assert_eq!(focused_name(&mut ui).as_deref(), Some("Right dock"), "the first place it can go");
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Top dock"), "the first place it can go");
     press(&mut ui, Key::Enter, Modifiers::default());
     settle(&mut ui);
-    assert_eq!(layout.get().side_of("folders"), Some(DockSide::Right));
+    assert_eq!(layout.get().side_of("folders"), Some(DockSide::Top));
 }
 
 #[test]
@@ -470,7 +470,7 @@ fn the_arrangement_survives_saving_and_restoring() {
     drag_to(&mut ui, from, to);
     release(&mut ui, to);
     let text = saved.borrow().clone();
-    assert!(text.contains("\"version\": 1"), "{text}");
+    assert!(text.contains("\"version\": 2"), "{text}");
     let restored = DockLayout::parse(&text).expect("it reads");
     assert_eq!(restored, layout.get());
 
@@ -504,7 +504,7 @@ fn an_unknown_id_in_what_was_saved_is_left_out_and_the_rest_goes_on() {
 
 #[test]
 fn a_text_that_cannot_be_read_gives_an_error_not_a_panic() {
-    for text in ["", "ravenrs", "{", "{}", "null", r#"{"version":"x"}"#, r#"{"version":2}"#] {
+    for text in ["", "ravenrs", "{", "{}", "null", r#"{"version":"x"}"#, r#"{"version":3}"#] {
         let error = DockLayout::parse(text).expect_err(text);
         assert!(!error.to_string().is_empty());
     }
@@ -754,4 +754,50 @@ fn every_change_a_person_makes_is_named_and_what_the_app_writes_is_not() {
         ]
     );
     assert!(layout.get().contains("log"), "the app brought it back without being asked");
+}
+
+#[test]
+fn alt_and_shift_with_up_send_a_tab_to_the_top_dock_and_with_enter_to_the_center() {
+    let layout = State::new(start());
+    let mut ui = dock_ui(&layout);
+    tab_to(&mut ui, "Search");
+    let both = Modifiers { alt: true, shift: true, ..Modifiers::default() };
+    press(&mut ui, Key::ArrowUp, both);
+    assert_eq!(layout.get().side_of("search"), Some(DockSide::Top));
+    assert_eq!(focused_name(&mut ui).as_deref(), Some("Search"));
+    assert!(has(&mut ui, "Moved to top dock"), "and it is said");
+    assert!(has(&mut ui, "Resize top dock"), "the top dock has its bar");
+    press(&mut ui, Key::Enter, both);
+    assert_eq!(layout.get().side_of("search"), Some(DockSide::Center));
+}
+
+#[test]
+fn a_drop_at_the_very_top_opens_the_top_dock_and_its_strip_collapses_it() {
+    let layout = State::new(start());
+    let mut ui = dock_ui(&layout);
+    let (from, grid) = (center(&tab(&mut ui, "Search")), tab(&mut ui, "Grid").bounds);
+    let target = Point::new(grid.max_x() + 40.0, grid.y() + 1.0);
+    drag_to(&mut ui, from, target);
+    assert_eq!(marks(&ui), 1, "the room the top dock would take");
+    release(&mut ui, target);
+    assert_eq!(layout.get().side_of("search"), Some(DockSide::Top));
+    assert_eq!(layout.get().size(DockSide::Top), 120.0, "at its usual height");
+    tab_to(&mut ui, "Hide top dock");
+    press(&mut ui, Key::Enter, Modifiers::default());
+    assert!(!layout.get().is_open(DockSide::Top));
+    assert!(!has(&mut ui, "Resize top dock"));
+    assert!(has(&mut ui, "Show top dock"));
+}
+
+#[test]
+fn the_top_dock_has_its_limits() {
+    let layout = State::new(
+        DockLayout::new().center(DockNode::tabs(["photo"])).top(DockNode::tabs(["search"]), 120.0),
+    );
+    let mut ui = ui(area(&layout).dock_limits(DockSide::Top, 80.0, 200.0));
+    tab_to(&mut ui, "Resize top dock");
+    press(&mut ui, Key::Home, Modifiers::default());
+    assert_eq!(layout.get().size(DockSide::Top), 80.0);
+    press(&mut ui, Key::End, Modifiers::default());
+    assert_eq!(layout.get().size(DockSide::Top), 200.0);
 }
