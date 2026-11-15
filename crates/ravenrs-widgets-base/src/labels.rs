@@ -623,6 +623,14 @@ pub struct Labels {
     pub flow_inspector_mixed: String,
     /// What a read-only `FlowInspector` says.
     pub flow_inspector_read_only: String,
+    /// The heading of a `FlowToolbox`.
+    pub flow_toolbox: String,
+    /// What the search field of a `FlowToolbox` says while empty.
+    pub flow_toolbox_search: String,
+    /// What a `FlowToolbox` says when no model matches the search.
+    pub flow_toolbox_none: String,
+    /// What a model of a `FlowToolbox` says how to use it, to screen readers.
+    pub flow_toolbox_hint: String,
     /// A field of a `FlowInspector`: a node's title.
     pub flow_field_title: String,
     /// A field of a `FlowInspector`: the line under a node's title.
@@ -1290,6 +1298,10 @@ impl Labels {
             flow_inspector_nodes: texts.get("widgets.flow_inspector_nodes"),
             flow_inspector_mixed: texts.get("widgets.flow_inspector_mixed"),
             flow_inspector_read_only: texts.get("widgets.flow_inspector_read_only"),
+            flow_toolbox: texts.get("widgets.flow_toolbox"),
+            flow_toolbox_search: texts.get("widgets.flow_toolbox_search"),
+            flow_toolbox_none: texts.get("widgets.flow_toolbox_none"),
+            flow_toolbox_hint: texts.get("widgets.flow_toolbox_hint"),
             flow_field_title: texts.get("widgets.flow_field_title"),
             flow_field_line: texts.get("widgets.flow_field_line"),
             flow_field_kind: texts.get("widgets.flow_field_kind"),

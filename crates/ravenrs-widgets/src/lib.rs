@@ -76,6 +76,8 @@ use ravenrs_widgets_charts::chart;
 use ravenrs_widgets_charts::flow;
 #[cfg(feature = "flow")]
 pub use ravenrs_widgets_charts::flow_inspector::FlowInspector;
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::flow_toolbox::FlowToolbox;
 #[cfg(feature = "charts")]
 #[allow(unused_imports)]
 use ravenrs_widgets_charts::sankey;
@@ -170,10 +172,10 @@ pub use floating::{
 };
 #[cfg(feature = "flow")]
 pub use flow::{
-    EdgeCap, EdgeShape, FlowCanvas, FlowChange, FlowContent, FlowDirection, FlowEdge, FlowEndpoint,
-    FlowGraph, FlowGuard, FlowHistory, FlowJsonError, FlowKind, FlowLayout, FlowLayoutKind, FlowNext,
-    FlowNode, FlowNodeStatus, FlowPort, FlowSelection, FlowShape, FlowValidator, FlowViewport, PortDirection,
-    PortSide,
+    EdgeCap, EdgeShape, FLOW_NODE_DRAG, FlowCanvas, FlowChange, FlowContent, FlowDirection, FlowEdge,
+    FlowEndpoint, FlowGraph, FlowGuard, FlowHistory, FlowJsonError, FlowKind, FlowLayout, FlowLayoutKind,
+    FlowNext, FlowNode, FlowNodeStatus, FlowPort, FlowSelection, FlowShape, FlowValidator, FlowViewport,
+    PortDirection, PortSide,
 };
 pub use form_layout::{FormGroup, FormLayout};
 pub use full_screen::{FullScreen, FullScreenProvider};

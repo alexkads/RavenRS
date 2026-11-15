@@ -286,6 +286,11 @@ pub enum FlowChange {
     },
 }
 
+/// The kind of a [`DragPayload`](crate::DragPayload) that carries a [`FlowNode`] to a
+/// [`FlowCanvas`], as a [`FlowToolbox`](crate::FlowToolbox) does: dropped on the canvas, a copy
+/// of the node is made there, with an id of its own.
+pub const FLOW_NODE_DRAG: &str = "ravenrs/flow-node";
+
 /// Gives the node made next to `from`, on `side` of it, by the arrows of quick creation: its
 /// id and place are set by the canvas. `None` makes nothing on that side.
 pub type FlowNext = Rc<dyn Fn(&FlowNode, PortSide) -> Option<FlowNode>>;
@@ -357,6 +362,7 @@ pub struct FlowCanvas {
     editable_titles: bool,
     content: Option<FlowContent>,
     next: Option<FlowNext>,
+    arrivals: Option<Binding<Option<FlowNode>>>,
     quick_create: bool,
     grid: f32,
     snap: bool,
@@ -395,6 +401,7 @@ impl FlowCanvas {
             editable_titles: true,
             content: None,
             next: None,
+            arrivals: None,
             quick_create: true,
             grid: 24.0,
             snap: true,
@@ -407,6 +414,14 @@ impl FlowCanvas {
             height: None,
             grow: 1.0,
         }
+    }
+
+    /// Takes the nodes left here, as a [`FlowToolbox`](crate::FlowToolbox) given the same
+    /// binding leaves the one picked with Enter: each is copied to the middle of the view, with
+    /// an id of its own, selected, and the binding emptied.
+    pub fn arrivals(mut self, arrivals: Binding<Option<FlowNode>>) -> Self {
+        self.arrivals = Some(arrivals);
+        self
     }
 
     /// Shares the view, to read or move it from elsewhere. Without it, the canvas keeps its own
@@ -863,6 +878,34 @@ impl Flow {
         self.select(FlowSelection::node(new_id.clone()));
         self.begin_rename(&new_id);
         true
+    }
+
+    /// The box a node carried in lands in, centred on `at` (in units of the diagram), on the grid.
+    fn landing(&self, node: &FlowNode, at: Point) -> Rect {
+        let (x, y) = (self.snapped(at.x - node.width / 2.0), self.snapped(at.y - node.height / 2.0));
+        Rect::new(x, y, node.width, node.height)
+    }
+
+    /// Makes a copy of a node carried in and dropped at `at` (from the canvas's corner), with an
+    /// id of its own, and selects it.
+    fn drop_node(&self, template: &FlowNode, at: Point) {
+        if self.locked.get() {
+            return;
+        }
+        let place = self.landing(template, self.view.get().to_content(at));
+        let mut graph = self.graph.get();
+        let id = graph.fresh_node_id(&template.id);
+        graph.nodes.push(FlowNode {
+            id: id.clone(),
+            x: place.x(),
+            y: place.y(),
+            parent: None,
+            ..template.clone()
+        });
+        if self.commit(graph, FlowChange::Create { node: id.clone(), edge: None }) {
+            self.select(FlowSelection::node(id));
+            self.memory.refocus.set(true);
+        }
     }
 
     fn begin_rename(&self, id: &str) -> bool {
@@ -1741,7 +1784,7 @@ fn stroke(scene: &mut Scene, points: &[Point], width: f32, color: Color) {
     }
 }
 
-fn fill(scene: &mut Scene, path: Vec<ravenrs_graphics::vector::PathSegment>, color: Color) {
+pub(crate) fn fill(scene: &mut Scene, path: Vec<ravenrs_graphics::vector::PathSegment>, color: Color) {
     let elements: Vec<ravenrs_core::PathElement> = path.into_iter().filter_map(element).collect();
     scene.push_path(PathFill::solid(elements, color));
 }
@@ -1805,6 +1848,8 @@ struct Surface {
     connecting: Option<Connecting>,
     marquee: Option<Rect>,
     guides: (Option<f32>, Option<f32>),
+    /// Where a node carried over the canvas would land, in units of the diagram.
+    landing: Option<Rect>,
     grid: f32,
     /// The corner radius of a group's panel at 100%.
     radius: f32,
@@ -1921,6 +1966,14 @@ impl Surface {
                 stroke(scene, &piece, 2.0, color);
             }
         }
+        if let Some(r) = self.landing {
+            let (a, b) =
+                (self.view.to_screen(r.origin), self.view.to_screen(Point::new(r.max_x(), r.max_y())));
+            let shown = Rect::new(frame.x() + a.x, frame.y() + a.y, b.x - a.x, b.y - a.y);
+            scene.push_quad(Quad::new(shown, p.elevated.with_alpha(0.8)).radius(8.0 * self.view.zoom));
+            let outline = util::dashed_outline(shown, 8.0 * self.view.zoom, 1.5, 6.0, 4.0);
+            scene.push_path(PathFill::solid(outline, p.focus));
+        }
         if let Some(x) = self.guides.0 {
             let sx = frame.x() + self.view.to_screen(Point::new(x, 0.0)).x;
             stroke(scene, &[Point::new(sx, frame.y()), Point::new(sx, frame.max_y())], 1.0, p.guide);
@@ -1995,6 +2048,12 @@ impl View for FlowCanvas {
                 None => FlowViewport::at(Point::new(FIT_MARGIN, FIT_MARGIN), 1.0),
             };
             flow.view.set(view);
+        }
+        if let (Some(arrivals), Some(size)) = (&self.arrivals, size)
+            && let Some(node) = arrivals.get()
+        {
+            arrivals.set(None);
+            flow.drop_node(&node, Point::new(size.width / 2.0, size.height / 2.0));
         }
         let selection = flow.selection.get();
         let connecting_now = connecting.get();
@@ -2077,6 +2136,12 @@ impl View for FlowCanvas {
             }
         }
 
+        // A node carried here from a toolbox: where it would land, on the grid.
+        let landing = cx.carrying().filter(|c| c.over && c.verdict == Some(Ok(()))).and_then(|c| {
+            let node = c.payload.data::<FlowNode>()?;
+            let at = flow.local(c.position);
+            Some(flow.landing(node, view.to_content(at)))
+        });
         let surface = Surface {
             graph: graph.clone(),
             view,
@@ -2084,6 +2149,7 @@ impl View for FlowCanvas {
             connecting: connecting_now,
             marquee: marquee.get(),
             guides: guides.get(),
+            landing,
             grid: self.grid,
             radius: theme.radii.lg,
             palette,
@@ -2117,6 +2183,23 @@ impl View for FlowCanvas {
         );
         cx.clip(root);
         cx.report_frame(root);
+        let (checked, dropped, refused) =
+            (flow.locked.clone(), flow.clone(), labels.flow_inspector_read_only.clone());
+        cx.drop_target(
+            root,
+            move |payload| match () {
+                _ if payload.kind() != FLOW_NODE_DRAG || payload.data::<FlowNode>().is_none() => {
+                    Err(String::new())
+                }
+                _ if checked.get() => Err(refused.clone()),
+                _ => Ok(()),
+            },
+            move |payload, at| {
+                if let Some(node) = payload.data::<FlowNode>() {
+                    dropped.drop_node(node, at);
+                }
+            },
+        );
         cx.focusable(root, theme.radii.md);
         cx.cursor(root, CursorIcon::Default);
         let name = self.label.clone().unwrap_or_else(|| labels.flow_canvas.clone());

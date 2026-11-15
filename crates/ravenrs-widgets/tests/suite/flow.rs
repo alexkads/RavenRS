@@ -1234,3 +1234,105 @@ fn the_inspector_edits_a_connection_and_can_be_refused_or_read_only() {
     settle(&mut locked.ui);
     assert!(named(&mut locked.ui, "Editing is locked: read only").is_some());
 }
+
+/// A toolbox beside the canvas, sharing the binding the models picked with Enter go through.
+struct Shop {
+    ui: Ui,
+    graph: State<FlowGraph>,
+    selection: State<FlowSelection>,
+    history: State<FlowHistory>,
+}
+
+fn shop() -> Shop {
+    let graph = State::new(graph());
+    let selection = State::new(FlowSelection::default());
+    let history = State::new(FlowHistory::new());
+    let arrivals = State::new(None::<FlowNode>);
+    let toolbox = FlowToolbox::new()
+        .group("Flow")
+        .model("Step", FlowNode::new("step", "action", "Step", 0.0, 0.0))
+        .model(
+            "Choice",
+            FlowNode::new("choice", "action", "Choice", 0.0, 0.0).shape(FlowShape::Diamond).size(120.0, 80.0),
+        )
+        .arrivals(arrivals.binding());
+    let canvas = FlowCanvas::new(graph.binding())
+        .selection(selection.binding())
+        .history(history.binding())
+        .arrivals(arrivals.binding())
+        .view(State::new(FlowViewport::at(Point::new(0.0, 0.0), 1.0)).binding())
+        .size(700.0, 600.0);
+    let mut ui = Ui::new(HStack::new((toolbox, canvas)), Theme::raven_dark());
+    ui.set_viewport(Size::new(940.0, 600.0), 1.0);
+    settle(&mut ui);
+    Shop { ui, graph, selection, history }
+}
+
+fn snapped(v: f32) -> f32 {
+    (v / 24.0).round() * 24.0
+}
+
+#[test]
+fn a_model_dragged_onto_the_canvas_lands_there_as_a_new_node() {
+    let mut shop = shop();
+    let before = shop.graph.get().nodes.len();
+    let tile = named(&mut shop.ui, "Choice").expect("the model").bounds.center();
+    // The canvas's corner, from the node at (48, 48) of the diagram.
+    let left = named(&mut shop.ui, "New sale").expect("a node").bounds.origin.x - 48.0;
+    drag(&mut shop.ui, tile, Point::new(left + 300.0, 300.0));
+
+    let graph = shop.graph.get();
+    assert_eq!(graph.nodes.len(), before + 1, "one node more");
+    let made = graph.nodes.last().expect("the new node");
+    assert_eq!((made.title.as_str(), made.shape), ("Choice", FlowShape::Diamond));
+    assert_eq!(
+        (made.x, made.y),
+        (snapped(300.0 - 60.0), snapped(300.0 - 40.0)),
+        "centred where dropped, on the grid"
+    );
+    assert_eq!(shop.selection.get(), FlowSelection::node(made.id.clone()), "and selected");
+
+    let first = made.id.clone();
+
+    // A second copy gets an id of its own.
+    drag(&mut shop.ui, tile, Point::new(left + 500.0, 450.0));
+    let graph = shop.graph.get();
+    assert_eq!(graph.nodes.len(), before + 2);
+    assert_ne!(graph.nodes.last().expect("the second").id, first, "ids of their own");
+
+    // Each is one change: undo takes them away one by one.
+    let cmd = command(false);
+    key(&mut shop.ui, Key::Character("z".into()), cmd);
+    key(&mut shop.ui, Key::Character("z".into()), cmd);
+    assert_eq!(shop.graph.get().nodes.len(), before);
+}
+
+#[test]
+fn enter_on_a_model_puts_a_copy_in_the_middle_of_the_view() {
+    let mut shop = shop();
+    let before = shop.graph.get().nodes.len();
+    tab_to(&mut shop.ui, "Drag onto the diagram, or press Enter to place it in the middle");
+    key(&mut shop.ui, Key::Enter, Modifiers::default());
+    settle(&mut shop.ui);
+
+    let graph = shop.graph.get();
+    assert_eq!(graph.nodes.len(), before + 1);
+    let made = graph.nodes.last().expect("the new node");
+    assert_eq!(made.title, "Step");
+    let (w, h) = (made.width, made.height);
+    assert_eq!((made.x, made.y), (snapped(350.0 - w / 2.0), snapped(300.0 - h / 2.0)));
+    assert_eq!(shop.selection.get(), FlowSelection::node(made.id.clone()));
+}
+
+#[test]
+fn a_locked_canvas_takes_no_model() {
+    let mut shop = shop();
+    let before = shop.graph.get().nodes.len();
+    let lock = named(&mut shop.ui, "Lock editing").expect("the lock").bounds.center();
+    click(&mut shop.ui, lock);
+    let tile = named(&mut shop.ui, "Step").expect("the model").bounds.center();
+    // The canvas's corner, from the node at (48, 48) of the diagram.
+    let left = named(&mut shop.ui, "New sale").expect("a node").bounds.origin.x - 48.0;
+    drag(&mut shop.ui, tile, Point::new(left + 300.0, 400.0));
+    assert_eq!(shop.graph.get().nodes.len(), before, "nothing lands");
+}

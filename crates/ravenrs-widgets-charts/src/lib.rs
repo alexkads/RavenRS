@@ -20,6 +20,9 @@ pub mod flow;
 #[cfg(feature = "flow")]
 #[doc(hidden)]
 pub mod flow_inspector;
+#[cfg(feature = "flow")]
+#[doc(hidden)]
+pub mod flow_toolbox;
 #[cfg(feature = "charts")]
 #[doc(hidden)]
 pub mod sankey;
@@ -32,12 +35,14 @@ pub use chart::{
 };
 #[cfg(feature = "flow")]
 pub use flow::{
-    EdgeCap, EdgeShape, FlowCanvas, FlowChange, FlowContent, FlowDirection, FlowEdge, FlowEndpoint,
-    FlowGraph, FlowGuard, FlowHistory, FlowJsonError, FlowKind, FlowLayout, FlowLayoutKind, FlowNext,
-    FlowNode, FlowNodeStatus, FlowPort, FlowSelection, FlowShape, FlowValidator, FlowViewport, PortDirection,
-    PortSide,
+    EdgeCap, EdgeShape, FLOW_NODE_DRAG, FlowCanvas, FlowChange, FlowContent, FlowDirection, FlowEdge,
+    FlowEndpoint, FlowGraph, FlowGuard, FlowHistory, FlowJsonError, FlowKind, FlowLayout, FlowLayoutKind,
+    FlowNext, FlowNode, FlowNodeStatus, FlowPort, FlowSelection, FlowShape, FlowValidator, FlowViewport,
+    PortDirection, PortSide,
 };
 #[cfg(feature = "flow")]
 pub use flow_inspector::FlowInspector;
+#[cfg(feature = "flow")]
+pub use flow_toolbox::FlowToolbox;
 #[cfg(feature = "charts")]
 pub use sankey::{SankeyAlign, SankeyChart};
