@@ -20,11 +20,12 @@ use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
 use ravenrs_text::TextAttrs;
 
 pub use ravenrs_graphics::flow::{
-    EdgeShape, FlowEdge, FlowEndpoint, FlowGraph, FlowNode, FlowNodeStatus, FlowPort, PortDirection, PortSide,
+    EdgeShape, FlowEdge, FlowEndpoint, FlowGraph, FlowHistory, FlowJsonError, FlowNode, FlowNodeStatus,
+    FlowPort, PortDirection, PortSide,
 };
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
-use crate::{ButtonSize, ButtonStyle, IconButton, IconName, View, util};
+use crate::{ButtonSize, ButtonStyle, Clipboard, IconButton, IconName, View, util};
 
 /// The least and the most zoom by default.
 const ZOOM_RANGE: (f32, f32) = (0.25, 2.0);
@@ -186,6 +187,12 @@ pub type FlowValidator = Rc<dyn Fn(&FlowGraph, &FlowEndpoint, &FlowEndpoint) -> 
 ///   one grid step (with Shift, four), Delete takes it out and Escape lets it go.
 /// * Drag from a port to another to connect them. While dragging, the ports that would accept
 ///   the connection light up; one that refuses turns red, and the reason shows by the pointer.
+///   With the keys, Tab to a port, press Enter, Tab to the other port and press Enter again.
+/// * Select a connection and drag one of its ends, which show as handles, to another port to
+///   move that end.
+/// * Cmd/Ctrl+Z undoes, Shift+Cmd/Ctrl+Z (or Cmd/Ctrl+Y) redoes. Cmd/Ctrl+C copies the selected
+///   nodes with the connections between them, as JSON, Cmd/Ctrl+X cuts them and Cmd/Ctrl+V
+///   pastes them back with new ids, a little further along each time.
 ///
 /// The diagram is the app's, through a [`Binding`]: every move, connection and deletion is
 /// written back to it. Nodes say what they are with a [`FlowKind`] registered by name.
@@ -211,6 +218,7 @@ pub struct FlowCanvas {
     graph: Binding<FlowGraph>,
     view: Option<Binding<FlowViewport>>,
     selection: Option<Binding<FlowSelection>>,
+    history: Option<Binding<FlowHistory>>,
     kinds: Rc<Vec<(String, FlowKind)>>,
     validate: Option<FlowValidator>,
     grid: f32,
@@ -240,6 +248,7 @@ impl FlowCanvas {
             graph,
             view: None,
             selection: None,
+            history: None,
             kinds: Rc::new(Vec::new()),
             validate: None,
             grid: 24.0,
@@ -265,6 +274,15 @@ impl FlowCanvas {
     /// Shares the selection, to show what is selected elsewhere (a panel of properties, say).
     pub fn selection(mut self, selection: Binding<FlowSelection>) -> Self {
         self.selection = Some(selection);
+        self
+    }
+
+    /// Shares what can be undone and redone, to offer undo and redo buttons elsewhere (with
+    /// [`FlowHistory::can_undo`]) or to forget it when another diagram is opened. Without it,
+    /// the canvas keeps its own. Undo puts back the whole diagram as it was, so a change the
+    /// app made to the diagram in between goes too.
+    pub fn history(mut self, history: Binding<FlowHistory>) -> Self {
+        self.history = Some(history);
         self
     }
 
@@ -342,15 +360,19 @@ impl FlowCanvas {
     }
 }
 
-/// A connection being dragged out of a port.
+/// A connection being dragged out of a port, or chosen with the keys.
 #[derive(Clone, Debug, PartialEq)]
 struct Connecting {
-    /// The port it started from.
+    /// The port it started from: for a connection whose end is being moved, its other end.
     from: FlowEndpoint,
     /// Where the pointer is, in the view.
     pointer: Point,
     /// The port under the pointer, and whether it takes the connection.
     target: Option<(FlowEndpoint, Result<(), String>)>,
+    /// The connection whose end is being moved, which is drawn as this line meanwhile.
+    moving: Option<String>,
+    /// Started with Enter on a port: the next Enter on a port ends it.
+    keyboard: bool,
 }
 
 /// What a press on the surface or on a node is doing.
@@ -362,8 +384,9 @@ enum Gesture {
     Pan { pressed: Point, offset: Point, moved: bool },
     /// Selecting with a rectangle from where the pointer went down, adding to `base`.
     Select { pressed: Point, base: FlowSelection },
-    /// Moving nodes: where the pointer went down and where each of them was.
-    Move { pressed: Point, origins: Vec<(String, f32, f32)> },
+    /// Moving nodes: where the pointer went down, where each of them was and the diagram
+    /// before, which undo brings back.
+    Move { pressed: Point, origins: Vec<(String, f32, f32)>, before: FlowGraph },
 }
 
 /// What the canvas remembers between events, none of which should rebuild it.
@@ -374,6 +397,13 @@ struct Memory {
     /// The pointer, in the view.
     pointer: Cell<Option<Point>>,
     gesture: RefCell<Gesture>,
+    /// How many grid steps along the next paste lands: none after a cut, two more each time.
+    paste_step: Cell<u32>,
+    /// What was copied last, for a clipboard that cannot be read now (in the browser).
+    copied: RefCell<Option<String>>,
+    /// Nodes went, perhaps the one with the focus: the canvas takes it on the next build, so
+    /// the keys (undo, say) still reach it.
+    refocus: Cell<bool>,
 }
 
 /// How the parts of a canvas reach the same diagram.
@@ -382,6 +412,8 @@ struct Flow {
     graph: Binding<FlowGraph>,
     view: Binding<FlowViewport>,
     selection: Binding<FlowSelection>,
+    history: Binding<FlowHistory>,
+    clipboard: Clipboard,
     locked: State<bool>,
     connecting: State<Option<Connecting>>,
     marquee: State<Option<Rect>>,
@@ -438,18 +470,27 @@ impl Flow {
         if self.snap { geometry::snap(value, self.grid) } else { value }
     }
 
+    /// Writes a changed diagram, remembering the one before for undo.
+    fn commit(&self, next: FlowGraph) {
+        let before = self.graph.get();
+        if before != next {
+            self.history.update(|h| h.record(before));
+            self.graph.set(next);
+        }
+    }
+
     /// Moves the selected nodes by this much, in units of the diagram.
     fn nudge(&self, dx: f32, dy: f32) -> bool {
         let selection = self.selection.get();
         if selection.nodes.is_empty() || self.locked.get() {
             return false;
         }
-        self.graph.update(|g| {
-            for node in g.nodes.iter_mut().filter(|n| selection.has_node(&n.id)) {
-                node.x += dx;
-                node.y += dy;
-            }
-        });
+        let mut graph = self.graph.get();
+        for node in graph.nodes.iter_mut().filter(|n| selection.has_node(&n.id)) {
+            node.x += dx;
+            node.y += dy;
+        }
+        self.commit(graph);
         true
     }
 
@@ -460,9 +501,73 @@ impl Flow {
         }
         let mut graph = self.graph.get();
         if graph.remove(&selection.nodes, &selection.edges) {
-            self.graph.set(graph);
+            self.commit(graph);
+            self.memory.refocus.set(!selection.nodes.is_empty());
         }
         self.select(FlowSelection::default());
+        true
+    }
+
+    /// Goes back one change (or forward again, with `redo`), keeping in the selection what is
+    /// still there.
+    fn travel(&self, redo: bool) -> bool {
+        if self.locked.get() {
+            return false;
+        }
+        let now = self.graph.get();
+        let mut history = self.history.get();
+        let Some(graph) = (if redo { history.redo(now) } else { history.undo(now) }) else { return false };
+        self.history.set(history);
+        let mut selection = self.selection.get();
+        selection.nodes.retain(|id| graph.find_node(id).is_some());
+        selection.edges.retain(|id| graph.find_edge(id).is_some());
+        let before = self.graph.get();
+        self.memory.refocus.set(before.nodes.iter().any(|n| graph.find_node(&n.id).is_none()));
+        self.graph.set(graph);
+        self.select(selection);
+        true
+    }
+
+    /// Puts the selected nodes and the connections between them on the clipboard, as JSON.
+    fn copy(&self) -> bool {
+        let selection = self.selection.get();
+        if selection.nodes.is_empty() {
+            return false;
+        }
+        let json = self.graph.get().extract(&selection.nodes).to_json();
+        self.clipboard.write(&json);
+        *self.memory.copied.borrow_mut() = Some(json);
+        self.memory.paste_step.set(2);
+        true
+    }
+
+    fn cut(&self) -> bool {
+        if self.locked.get() || !self.copy() {
+            return false;
+        }
+        self.delete_selection();
+        // The first paste after a cut puts the nodes back where they were.
+        self.memory.paste_step.set(0);
+        true
+    }
+
+    /// Adds the nodes on the clipboard, with new ids, and selects them.
+    fn paste(&self) -> bool {
+        if self.locked.get() {
+            return false;
+        }
+        let text = self.clipboard.read().or_else(|| self.memory.copied.borrow().clone());
+        let Some(piece) = text.and_then(|t| FlowGraph::from_json(&t).ok()) else { return false };
+        if piece.nodes.is_empty() {
+            return false;
+        }
+        let step = self.memory.paste_step.get();
+        self.memory.paste_step.set(step + 2);
+        let along = self.grid * step as f32;
+        let mut graph = self.graph.get();
+        let (nodes, edges) = graph.insert(&piece, along, along);
+        self.commit(graph);
+        self.select(FlowSelection { nodes, edges });
         true
     }
 
@@ -470,6 +575,20 @@ impl Flow {
     fn on_key(&self, key: &Key, shift: bool, command: bool) -> bool {
         let step = self.grid * if shift { 4.0 } else { 1.0 };
         let has_nodes = !self.selection.get().nodes.is_empty();
+        if *key == Key::Escape && self.connecting.get().is_some() {
+            self.connecting.set(None);
+            return true;
+        }
+        if command && let Key::Character(c) = key {
+            match c.to_lowercase().as_str() {
+                "z" => return self.travel(shift),
+                "y" => return self.travel(true),
+                "c" => return self.copy(),
+                "x" => return self.cut(),
+                "v" => return self.paste(),
+                _ => {}
+            }
+        }
         match key {
             Key::Character(c) => match c.as_str() {
                 "+" | "=" => self.zoom_by(ZOOM_STEP),
@@ -615,10 +734,12 @@ impl Flow {
                     .filter(|n| selection.has_node(&n.id))
                     .map(|n| (n.id.clone(), n.x, n.y))
                     .collect();
-                *self.memory.gesture.borrow_mut() = Gesture::Move { pressed: at, origins };
+                *self.memory.gesture.borrow_mut() = Gesture::Move { pressed: at, origins, before: graph };
             }
             DragPhase::Move => {
-                let Gesture::Move { pressed, origins } = self.memory.gesture.borrow().clone() else { return };
+                let Gesture::Move { pressed, origins, .. } = self.memory.gesture.borrow().clone() else {
+                    return;
+                };
                 let zoom = self.view.get().zoom.max(f32::EPSILON);
                 let (dx, dy) = ((at.x - pressed.x) / zoom, (at.y - pressed.y) / zoom);
                 let mut graph = self.graph.get();
@@ -638,7 +759,13 @@ impl Flow {
                 }
             }
             DragPhase::End => {
-                *self.memory.gesture.borrow_mut() = Gesture::Idle;
+                let gesture = std::mem::take(&mut *self.memory.gesture.borrow_mut());
+                if let Gesture::Move { before, .. } = gesture
+                    && before != self.graph.get()
+                {
+                    // The whole move is one change to undo, not one per step of the pointer.
+                    self.history.update(|h| h.record(before));
+                }
             }
             // The base may add more; they act as nothing here.
             _ => {}
@@ -667,8 +794,71 @@ impl Flow {
         if starts_at_input { (other.clone(), start.clone()) } else { (start.clone(), other.clone()) }
     }
 
-    /// A drag that starts on a port.
-    fn on_port_drag(&self, from: &FlowEndpoint, phase: DragPhase, position: Point) {
+    /// The diagram a connection is checked against: without the connection whose end moves,
+    /// so it may go back where it was.
+    fn without(graph: &FlowGraph, moving: Option<&String>) -> FlowGraph {
+        match moving {
+            Some(id) => {
+                let mut g = graph.clone();
+                g.edges.retain(|e| &e.id != id);
+                g
+            }
+            None => graph.clone(),
+        }
+    }
+
+    /// The selected connection with an end at this port, whose end a drag from it moves.
+    fn selected_end(&self, port: &FlowEndpoint) -> Option<(String, FlowEndpoint)> {
+        let selection = self.selection.get();
+        let graph = self.graph.get();
+        graph.edges.iter().filter(|e| selection.has_edge(&e.id)).find_map(|e| {
+            if &e.to == port {
+                Some((e.id.clone(), e.from.clone()))
+            } else if &e.from == port {
+                Some((e.id.clone(), e.to.clone()))
+            } else {
+                None
+            }
+        })
+    }
+
+    /// What dropping the connection being made on `end` would do.
+    fn verdict(&self, connecting: &Connecting, end: &FlowEndpoint) -> Result<(), String> {
+        let graph = Self::without(&self.graph.get(), connecting.moving.as_ref());
+        let (a, b) = Self::oriented(&graph, &connecting.from, end);
+        self.check(&graph, &a, &b)
+    }
+
+    /// Ends the connection being made on `end`: adds it, or moves the end of the one being
+    /// moved, and selects it. Says whether it was made.
+    fn finish(&self, connecting: &Connecting, end: &FlowEndpoint) -> bool {
+        if self.verdict(connecting, end).is_err() {
+            return false;
+        }
+        let mut graph = self.graph.get();
+        let (a, b) = Self::oriented(&graph, &connecting.from, end);
+        let id = match &connecting.moving {
+            Some(id) => {
+                let Some(edge) = graph.edges.iter_mut().find(|e| &e.id == id) else { return false };
+                edge.from = a;
+                edge.to = b;
+                id.clone()
+            }
+            None => {
+                let id = graph.fresh_edge_id("e");
+                graph.edges.push(FlowEdge::new(id.clone(), a, b));
+                id
+            }
+        };
+        self.connecting.set(None);
+        self.commit(graph);
+        self.select(FlowSelection::edge(id));
+        true
+    }
+
+    /// A drag that starts on a port: a new connection, or, when a selected connection ends
+    /// there, that end moving.
+    fn on_port_drag(&self, port: &FlowEndpoint, phase: DragPhase, position: Point) {
         if self.locked.get() {
             return;
         }
@@ -676,31 +866,68 @@ impl Flow {
         self.memory.pointer.set(Some(at));
         match phase {
             DragPhase::Start => {
-                self.connecting.set(Some(Connecting { from: from.clone(), pointer: at, target: None }));
+                let (moving, from) = match self.selected_end(port) {
+                    Some((edge, other)) => (Some(edge), other),
+                    None => (None, port.clone()),
+                };
+                self.connecting.set(Some(Connecting {
+                    from,
+                    pointer: at,
+                    target: None,
+                    moving,
+                    keyboard: false,
+                }));
             }
             DragPhase::Move => {
+                let Some(mut connecting) = self.connecting.get() else { return };
                 let (graph, view) = (self.graph.get(), self.view.get());
-                let target = nearest_port(&graph, &view, at, from).map(|end| {
-                    let (a, b) = Self::oriented(&graph, from, &end);
-                    let verdict = self.check(&graph, &a, &b);
+                connecting.target = nearest_port(&graph, &view, at, &connecting.from).map(|end| {
+                    let verdict = self.verdict(&connecting, &end);
                     (end, verdict)
                 });
-                self.connecting.set_if_changed(Some(Connecting { from: from.clone(), pointer: at, target }));
+                connecting.pointer = at;
+                self.connecting.set_if_changed(Some(connecting));
             }
             DragPhase::End => {
                 let Some(connecting) = self.connecting.get() else { return };
                 self.connecting.set(None);
-                let Some((end, Ok(()))) = connecting.target else { return };
-                let mut graph = self.graph.get();
-                let (a, b) = Self::oriented(&graph, from, &end);
-                let id = graph.fresh_edge_id("e");
-                graph.edges.push(FlowEdge::new(id.clone(), a, b));
-                self.graph.set(graph);
-                self.select(FlowSelection::edge(id));
+                if let Some((end, Ok(()))) = &connecting.target {
+                    self.finish(&connecting, end);
+                }
             }
             // The base may add more; they act as nothing here.
             _ => {}
         }
+    }
+
+    /// Enter or Space on a port: starts a connection there, or ends the one started on another
+    /// port; on the port it started from, gives it up. A refused end stays open, saying why.
+    fn on_port_enter(&self, port: &FlowEndpoint) -> bool {
+        if self.locked.get() {
+            return false;
+        }
+        let pointer = {
+            let (graph, view) = (self.graph.get(), self.view.get());
+            graph.anchor(port).map_or(Point::new(0.0, 0.0), |(p, _)| view.to_screen(p))
+        };
+        match self.connecting.get() {
+            Some(connecting) if &connecting.from == port => self.connecting.set(None),
+            Some(mut connecting) => {
+                if !self.finish(&connecting, port) {
+                    connecting.target = Some((port.clone(), self.verdict(&connecting, port)));
+                    connecting.pointer = pointer;
+                    self.connecting.set(Some(connecting));
+                }
+            }
+            None => {
+                let (moving, from) = match self.selected_end(port) {
+                    Some((edge, other)) => (Some(edge), other),
+                    None => (None, port.clone()),
+                };
+                self.connecting.set(Some(Connecting { from, pointer, target: None, moving, keyboard: true }));
+            }
+        }
+        true
     }
 }
 
@@ -833,7 +1060,8 @@ impl Surface {
                 || self.selection.has_node(&edge.from.node)
                 || self.selection.has_node(&edge.to.node)
         };
-        for edge in &self.graph.edges {
+        let moving = self.connecting.as_ref().and_then(|c| c.moving.as_deref());
+        for edge in self.graph.edges.iter().filter(|e| Some(e.id.as_str()) != moving) {
             let Some(points) = screen_points(&self.graph, edge, &self.view) else { continue };
             // The line stops at the edge of the port's dot, so its arrow shows.
             let dot = PORT_DOT * self.view.zoom.clamp(0.75, 1.25) / 2.0 + 1.0;
@@ -893,14 +1121,20 @@ impl View for FlowCanvas {
         let palette = Palette::of(&theme);
         let own_view = cx.use_state(FlowViewport::fit);
         let own_selection = cx.use_state(FlowSelection::default);
+        let own_history = cx.use_state(FlowHistory::new);
         let locked = cx.use_state(|| self.locked);
         let connecting = cx.use_state(|| None::<Connecting>);
         let marquee = cx.use_state(|| None::<Rect>);
         let memory = cx.use_state(|| Rc::new(Memory::default())).get();
+        if memory.refocus.take() {
+            cx.request_focus();
+        }
         let flow = Flow {
             graph: self.graph.clone(),
             view: self.view.clone().unwrap_or_else(|| own_view.binding()),
             selection: self.selection.clone().unwrap_or_else(|| own_selection.binding()),
+            history: self.history.clone().unwrap_or_else(|| own_history.binding()),
+            clipboard: cx.clipboard(),
             locked: locked.clone(),
             connecting: connecting.clone(),
             marquee: marquee.clone(),
@@ -935,6 +1169,14 @@ impl View for FlowCanvas {
                 look,
                 view,
                 selected: selection.has_node(&node.id),
+                handles: graph
+                    .edges
+                    .iter()
+                    .filter(|e| selection.has_edge(&e.id))
+                    .flat_map(|e| [&e.from, &e.to])
+                    .filter(|end| end.node == node.id)
+                    .map(|end| end.port.clone())
+                    .collect(),
                 connecting: connecting_now.clone(),
                 connected: graph
                     .edges
@@ -955,8 +1197,14 @@ impl View for FlowCanvas {
             let Some(middle) = geometry::midpoint(&points) else { continue };
             children.push(edge_label(cx, label, middle, &theme, palette));
         }
-        if let Some(Connecting { pointer, target: Some((_, Err(reason))), .. }) = &connecting_now {
-            children.push(refusal(cx, reason, *pointer, &theme, palette));
+        match &connecting_now {
+            Some(Connecting { pointer, target: Some((_, Err(reason))), .. }) => {
+                children.push(refusal(cx, reason, *pointer, &theme, palette));
+            }
+            Some(Connecting { pointer, keyboard: true, .. }) => {
+                children.push(hint(cx, &labels.flow_pick_port, *pointer, &theme, palette));
+            }
+            _ => {}
         }
         if let Some(size) = size {
             if self.controls {
@@ -1075,9 +1323,27 @@ fn edge_label(cx: &mut BuildCx<'_>, text: &str, at: Point, theme: &Theme, p: Pal
 
 /// Why a connection cannot be made, beside the pointer.
 fn refusal(cx: &mut BuildCx<'_>, reason: &str, at: Point, theme: &Theme, p: Palette) -> NodeId {
+    bubble(cx, IconName::CircleX, p.danger, reason, at, theme, p)
+}
+
+/// What to do next while a connection is made with the keys, beside the port it starts from.
+fn hint(cx: &mut BuildCx<'_>, text: &str, at: Point, theme: &Theme, p: Palette) -> NodeId {
+    bubble(cx, IconName::Link, p.accent, text, at, theme, p)
+}
+
+/// A few words beside a point of the view, outlined in `tone`, which screen readers announce.
+fn bubble(
+    cx: &mut BuildCx<'_>,
+    icon: IconName,
+    tone: Color,
+    text: &str,
+    at: Point,
+    theme: &Theme,
+    p: Palette,
+) -> NodeId {
     let attrs = util::attrs(theme, TextStyle::Callout, None);
-    let icon = util::icon(cx, IconName::CircleX, 16.0, p.danger);
-    let words = cx.text(reason, &attrs, p.ink, LayoutStyle { max_width: Some(280.0), ..LayoutStyle::leaf() });
+    let icon = util::icon(cx, icon, 16.0, tone);
+    let words = cx.text(text, &attrs, p.ink, LayoutStyle { max_width: Some(280.0), ..LayoutStyle::leaf() });
     let node = cx.container(
         LayoutStyle {
             absolute: Some((at.x + 16.0, at.y + 16.0)),
@@ -1089,12 +1355,12 @@ fn refusal(cx: &mut BuildCx<'_>, reason: &str, at: Point, theme: &Theme, p: Pale
         &[icon, words],
         Paint::Quad(crate::context::QuadPaint {
             corner_radius: theme.radii.md,
-            border: Some(ravenrs_core::Border { width: 1.0, color: p.danger }),
+            border: Some(ravenrs_core::Border { width: 1.0, color: tone }),
             shadow: Some(theme.elevation.raised),
             ..crate::context::QuadPaint::new(p.elevated)
         }),
     );
-    cx.semantics(node, Semantics::new(Role::Status).name(reason.to_owned()));
+    cx.semantics(node, Semantics::new(Role::Status).name(text.to_owned()));
     node
 }
 
@@ -1166,6 +1432,8 @@ struct NodeBox {
     look: Option<FlowKind>,
     view: FlowViewport,
     selected: bool,
+    /// Its ports where a selected connection ends, which show as handles to drag.
+    handles: Vec<String>,
     connecting: Option<Connecting>,
     connected: Vec<String>,
     flow: Flow,
@@ -1211,13 +1479,18 @@ impl View for NodeBox {
                 Some(Connecting { target: Some((target, verdict)), .. }) if *target == end => {
                     if verdict.is_ok() { PortState::Accepts } else { PortState::Refuses }
                 }
+                _ if self.handles.contains(&port.id) => PortState::Handle,
                 _ if self.selected => PortState::Selected,
                 _ if self.connected.contains(&port.id) => PortState::Connected,
                 _ => PortState::Free,
             };
+            let template =
+                if port.direction == PortDirection::Input { &labels.flow_input } else { &labels.flow_output };
             let dot = PortDot {
                 at: Point::new((at.x - node.x) * view.zoom, (at.y - node.y) * view.zoom),
                 zoom: view.zoom,
+                name: port.label.clone().unwrap_or_else(|| port.id.clone()),
+                description: template.replace("{0}", &node.title),
                 end,
                 state,
                 flow: self.flow.clone(),
@@ -1395,6 +1668,8 @@ enum PortState {
     Connected,
     /// Its node is selected.
     Selected,
+    /// A selected connection ends here: dragging it moves that end.
+    Handle,
     /// The connection being made starts here.
     Source,
     /// The connection being made would end here.
@@ -1408,6 +1683,9 @@ struct PortDot {
     /// Its center, from the top left corner of its node.
     at: Point,
     zoom: f32,
+    /// What screen readers call it, and what it is for.
+    name: String,
+    description: String,
     end: FlowEndpoint,
     state: PortState,
     flow: Flow,
@@ -1423,7 +1701,7 @@ impl View for PortDot {
         let paint = Paint::Custom(Rc::new(move |frame: Rect, scene: &mut Scene| {
             let c = frame.center();
             let halo = match state {
-                PortState::Accepts | PortState::Source => Some(p.accent),
+                PortState::Accepts | PortState::Source | PortState::Handle => Some(p.accent),
                 PortState::Refuses => Some(p.danger),
                 _ => None,
             };
@@ -1435,7 +1713,7 @@ impl View for PortDot {
             let quad = match state {
                 PortState::Free => ring.border(2.0, p.muted),
                 PortState::Connected => Quad::new(rect, p.muted).radius(dot / 2.0).border(2.0, canvas),
-                PortState::Selected | PortState::Source => {
+                PortState::Selected | PortState::Source | PortState::Handle => {
                     Quad::new(rect, p.accent).radius(dot / 2.0).border(2.0, canvas)
                 }
                 PortState::Accepts => ring.border(2.0, p.accent),
@@ -1454,10 +1732,24 @@ impl View for PortDot {
             paint,
         );
         cx.cursor(node, CursorIcon::Pointer);
-        // Connections are made with the pointer for now; the node speaks for its ports.
-        cx.semantics(node, Semantics::hidden());
+        cx.focusable(node, PORT_HIT / 2.0);
+        cx.semantics(
+            node,
+            Semantics::new(Role::Button)
+                .name(self.name.clone())
+                .description(self.description.clone())
+                .selected(matches!(state, PortState::Source | PortState::Handle)),
+        );
         let (dragged, end) = (self.flow.clone(), self.end.clone());
         cx.on_drag(node, Rc::new(move |d| dragged.on_port_drag(&end, d.phase, d.position)));
+        let (keyed, end) = (self.flow.clone(), self.end.clone());
+        cx.on_key(
+            node,
+            Rc::new(move |key, m| match key {
+                Key::Enter | Key::Space => keyed.on_port_enter(&end),
+                _ => keyed.on_key(key, m.shift, m.meta || m.ctrl),
+            }),
+        );
         node
     }
 }

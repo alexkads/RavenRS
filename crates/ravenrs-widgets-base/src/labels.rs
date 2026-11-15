@@ -574,6 +574,12 @@ pub struct Labels {
     pub flow_refused: String,
     /// A node of a `FlowCanvas` that is switched off.
     pub flow_disabled: String,
+    /// A port of a `FlowCanvas` where connections end, with `{0}` its node's title.
+    pub flow_input: String,
+    /// A port of a `FlowCanvas` where connections start, with `{0}` its node's title.
+    pub flow_output: String,
+    /// What to do next while a connection is being made with the keys.
+    pub flow_pick_port: String,
     /// A `RubberBand`'s name.
     pub rubber_band: String,
     /// A `Marquee`'s name.
@@ -1177,6 +1183,9 @@ impl Labels {
             flow_unlock: texts.get("widgets.flow_unlock"),
             flow_refused: texts.get("widgets.flow_refused"),
             flow_disabled: texts.get("widgets.flow_disabled"),
+            flow_input: texts.get("widgets.flow_input"),
+            flow_output: texts.get("widgets.flow_output"),
+            flow_pick_port: texts.get("widgets.flow_pick_port"),
             rubber_band: texts.get("widgets.rubber_band"),
             marquee: texts.get("widgets.marquee"),
             transform: texts.get("widgets.transform"),

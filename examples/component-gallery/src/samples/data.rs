@@ -158,7 +158,7 @@ fn sankey_chart() -> impl View {
 }
 // end
 
-// sample: FlowCanvas, 460
+// sample: FlowCanvas, 520
 fn flow_canvas() -> impl View {
     let graph = State::new(
         FlowGraph::new()
@@ -203,7 +203,12 @@ fn flow_canvas() -> impl View {
                     .label("No"),
             ),
     );
-    FlowCanvas::new(graph.binding())
+    let history = State::new(FlowHistory::new());
+    let json = State::new(false);
+    let (undo, redo) = (history.clone(), history.clone());
+    let (shown, written) = (json.clone(), graph.clone());
+    let canvas = FlowCanvas::new(graph.binding())
+        .history(history.binding())
         .kind("trigger", FlowKind::new(IconName::Zap, "Trigger").tone(Semantic::Warning))
         .kind("action", FlowKind::new(IconName::Package, "Action"))
         .kind("condition", FlowKind::new(IconName::GitBranch, "Condition").tone(Semantic::Success))
@@ -215,7 +220,52 @@ fn flow_canvas() -> impl View {
                 Err(String::from("This input takes something else"))
             }
         })
-        .size(880.0, 440.0)
+        .size(880.0, 368.0);
+    VStack::new((
+        view_fn(move || {
+            // Undo and redo here go through the same history as Cmd+Z in the canvas.
+            let (back, again) = (undo.clone(), redo.clone());
+            let (g1, g2) = (written.clone(), written.clone());
+            let toggle = shown.clone();
+            HStack::new((
+                Button::new("Undo")
+                    .style(ButtonStyle::Secondary)
+                    .icon(IconName::Undo2)
+                    .disabled(!undo.get().can_undo())
+                    .on_click(move || {
+                        let mut h = back.get();
+                        if let Some(before) = h.undo(g1.get()) {
+                            back.set(h);
+                            g1.set(before);
+                        }
+                    }),
+                Button::new("Redo")
+                    .style(ButtonStyle::Secondary)
+                    .icon(IconName::Redo2)
+                    .disabled(!redo.get().can_redo())
+                    .on_click(move || {
+                        let mut h = again.get();
+                        if let Some(after) = h.redo(g2.get()) {
+                            again.set(h);
+                            g2.set(after);
+                        }
+                    }),
+                Button::new("Show JSON")
+                    .style(ButtonStyle::Ghost)
+                    .icon(IconName::Code)
+                    .selected(shown.get())
+                    .on_click(move || toggle.update(|on| *on = !*on)),
+            ))
+            .spacing(8.0)
+        }),
+        // The diagram as it is now, as the app would save it; `FlowGraph::from_json` reads it back.
+        view_fn(move || {
+            json.get().then(|| ScrollView::new((CodeBlock::new(graph.get().to_json()),)).height(200.0))
+        }),
+        canvas,
+    ))
+    .spacing(12.0)
+    .align(Align::Stretch)
 }
 // end
 

@@ -9,9 +9,11 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `Theme` has a new public field, `based_on`, the built-in theme it starts from, which its tokens are kept against. A literal with `..Theme::raven_light()` (or another theme) inherits it; one without `..` stops compiling.
 - `Theme` has a new public field, `charts` (`ChartSeries`), and `WizardOptions` in `ravenrs-report` has `on_accent`, `ink`, `muted` and `zebra`; `Labels` has `theme_charts` and `grid_select`. Literals with `..Default::default()` or `..Theme::raven_dark()` do not change.
 - With two or more `GridColumn::fill` columns, what is left is shared among them by weight; before, only the first took it.
+- `Labels` has `flow_input`, `flow_output` and `flow_pick_port`, for the ports of a `FlowCanvas`. Literals with `..Default::default()` do not change.
 
 ### Added
 
+- `FlowCanvas` undoes and redoes (Cmd/Ctrl+Z, Shift+Cmd/Ctrl+Z, Cmd/Ctrl+Y), copies, cuts and pastes nodes with the connections between them and new ids, moves the end of a selected connection to another port, and connects ports with the keys (Tab, Enter). `FlowCanvas::history` shares the `FlowHistory`, and `FlowGraph::to_json` and `from_json` save and read a diagram, checking that it holds together (`FlowJsonError`). ([#238](https://github.com/alexkads/RavenRS/issues/238))
 - **`ravenrs-deck`**, a new crate: the presentation model (slides, layouts and masters, shapes, text, tables, charts, animations and transitions), reading and writing PPTX and a native format, slides drawn to pixels, PDF export with notes pages and handouts, embedded audio and video probed and given poster frames, and the commands with undo an editor drives; it builds for the web too. ([#373](https://github.com/alexkads/RavenRS/issues/373))
 - `App::themes` and `AppShell::themes` offer only the application's own themes in the Theme menu, start on the first, and keep the one each person chooses, as before. `ThemePicker::of` is that menu on its own.
 - The tokens of a theme take a `"name"`, shown in menus and to screen readers. `to_tokens_json` writes it for a theme with a name of its own, and `from_tokens_json` takes it, up to 64 characters; without it nothing changes.

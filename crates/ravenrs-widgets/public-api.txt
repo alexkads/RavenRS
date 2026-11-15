@@ -353,7 +353,10 @@ field Labels::flow_canvas
 field Labels::flow_controls
 field Labels::flow_count
 field Labels::flow_disabled
+field Labels::flow_input
 field Labels::flow_lock
+field Labels::flow_output
+field Labels::flow_pick_port
 field Labels::flow_refused
 field Labels::flow_unlock
 field Labels::folder_empty
@@ -2841,6 +2844,7 @@ method FloatingToolbar::view
 method FlowCanvas::controls
 method FlowCanvas::grid
 method FlowCanvas::grow
+method FlowCanvas::history
 method FlowCanvas::kind
 method FlowCanvas::label
 method FlowCanvas::locked
@@ -4110,6 +4114,8 @@ reexport EdgeShape = ravenrs_graphics::flow::EdgeShape
 reexport FlowEdge = ravenrs_graphics::flow::FlowEdge
 reexport FlowEndpoint = ravenrs_graphics::flow::FlowEndpoint
 reexport FlowGraph = ravenrs_graphics::flow::FlowGraph
+reexport FlowHistory = ravenrs_graphics::flow::FlowHistory
+reexport FlowJsonError = ravenrs_graphics::flow::FlowJsonError
 reexport FlowNode = ravenrs_graphics::flow::FlowNode
 reexport FlowNodeStatus = ravenrs_graphics::flow::FlowNodeStatus
 reexport FlowPort = ravenrs_graphics::flow::FlowPort

@@ -159,6 +159,12 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     ravenrs_graphics::flow::FlowGraph::__live_expose_fields(registry);
     #[cfg(feature = "flow")]
     ravenrs_graphics::flow::FlowGraph::__live_expose(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowJsonError::__live_expose_variants(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowHistory::__live_expose_fields(registry);
+    #[cfg(feature = "flow")]
+    ravenrs_graphics::flow::FlowHistory::__live_expose(registry);
     #[cfg(feature = "charts")]
     ravenrs_graphics::plot::Curve::__live_expose_variants(registry);
     #[cfg(feature = "charts")]
