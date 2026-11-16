@@ -74,3 +74,12 @@ When the user asks to delegate the test, or to save your own context on a long d
 - `tools/raven-test-studio/src/report.rs`: the text and JSON reports.
 - `crates/ravenrs-e2e`: the engine, with `E2e`, `Query`, `Locator` and `Expect`.
 - Plan and phases: issue #627 on GitHub.
+
+## Pointing the RTS at a project
+
+When the user points the RTS at a Rust project ("aponta o RTS para a pasta …"), use the `scan_project` tool (or `raven-test-studio --project <folder>`). It reads the project without building it and says, per package made with RavenRS: app or library, its binaries, whether it opens on the test channel, its `.raventest` scenarios and the views it builds with file, line and test ids, plus the next step when something is missing (the channel, or scenarios).
+
+- `action: "run_all"` (`--run-all`) runs the scenarios of every app, opening each from the project's code.
+- `action: "suggest"` (`--suggest`): when an app has no scenario, or to find others, an AI reads the app's first screen, its views and test ids and the scenarios it has, and writes new ones. **The AI is local by default** (the largest text model RavenRS apps already downloaded); `delegate: "codex"` or `"claude"` only when the user asks. The Studio runs each suggestion on the app and says which passed; `write` keeps them in `tests/e2e/sugestoes/` for a person to review. Never move a suggestion into `tests/e2e/` without the user's ok.
+
+An app declares itself for the RTS in its `Cargo.toml`, `[package.metadata.ravenrs.e2e]`: `app` (the name its scenarios open), `binary`, `since` (first version with the channel), `variable`, `installed`. The RTS keeps no list of apps of its own.

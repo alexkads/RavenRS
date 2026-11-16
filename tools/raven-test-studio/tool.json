@@ -2,7 +2,7 @@
   "name": "Raven Test Studio",
   "also_called": ["RTS"],
   "package": "raven-test-studio",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "summary": "The end-to-end test tool of RavenRS, RTS for short: a scenario is a flow of blocks run against a RavenRS app with ravenrs-e2e, and the report tells a person or an AI what failed, why, how to fix it and what the screen showed.",
   "when_to_use": [
     "After changing a RavenRS screen or component, to prove it still works from the outside, with real clicks and typing.",
@@ -16,6 +16,11 @@
     { "command": "raven-test-studio --run <file.raventest|folder>", "does": "Runs scenario files kept anywhere: in an app's tests/e2e, or in a QA team's own folder (every .raventest of it, in name order)." },
     { "command": "raven-test-studio --run <scenario> --format json", "does": "The same report as JSON, for a tool or a coding agent." },
     { "command": "raven-test-studio --run <scenario> --no-cache", "does": "Runs again even when the cache has the answer." },
+    { "command": "raven-test-studio --project <folder>", "does": "Reads a Rust project without building it (cargo metadata and its sources): the packages made with RavenRS, which are apps and which libraries, their binaries, whether each speaks the test channel (--e2e-serve), its .raventest scenarios, and the views it builds (impl View, impl Component, functions that return impl View) with file, line and test ids. --format json for a tool. Exit code 2 when it finds no RavenRS package." },
+    { "command": "raven-test-studio --project <folder> --run-all", "does": "Runs the scenarios in tests/e2e of every app of the project that has the test channel, opening each app from the project's code with cargo run." },
+    { "command": "raven-test-studio --project <folder> --run <file|folder>", "does": "Runs scenario files, opening the apps they name from the project's code before any installed copy." },
+    { "command": "raven-test-studio --project <folder> --suggest", "does": "For each app of the project that opens on the test channel, a text model on this computer (the largest already downloaded by RavenRS apps) reads its first screen, its views and test ids and the scenarios it has, and writes new .raventest scenarios; the Studio runs each on the app and says which passed. --write keeps them in tests/e2e/sugestoes/ of the app, for a person to review and move to tests/e2e/." },
+    { "command": "raven-test-studio --project <folder> --suggest --delegate codex", "does": "The same, written by Codex (or claude) with its cheapest model, reading only, instead of the local model." },
     { "command": "raven-test-studio --clear-cache", "does": "Forgets every run kept." },
     { "command": "raven-test-studio --delegate codex --run <scenario>", "does": "Hands the scenario (the self-test without --run) to the Codex CLI with its cheapest model, reading only: it runs the Studio, reads the report and, when it failed, finds the cause in the Rust sources with file and line. Then the Studio runs the same scenario and says whether it confirms the agent's verdict. claude instead of codex uses the Claude CLI (haiku)." },
     { "command": "raven-test-studio --delegate codex --model <model>", "does": "The same with another model; the cheapest is read from the list the installed Codex keeps." },
@@ -63,7 +68,8 @@
   "ai": {
     "pane": "tools/raven-test-studio/claude-pane is a Claude Code plugin: a pane beside the conversation with the verdict, one square per block, the failure with its code, meaning, fix and screen, and a button that asks the AI to fix it. Load it with claude --plugin-dir tools/raven-test-studio/claude-pane; /raven-test-studio opens the pane. It runs the installed Studio when there is one, and cargo run otherwise.",
     "tools": [
-      { "name": "run_scenario", "input": "scenario (autoteste, financas, or the path of a .raventest file or folder), no_cache, delegate (codex or claude), model", "does": "Runs a scenario and returns the JSON report; with delegate, a cheaper agent runs and diagnoses it, and the report carries its answer under delegation with whether the Studio confirmed it." }
+      { "name": "run_scenario", "input": "scenario (autoteste, financas, or the path of a .raventest file or folder), no_cache, delegate (codex or claude), model", "does": "Runs a scenario and returns the JSON report; with delegate, a cheaper agent runs and diagnoses it, and the report carries its answer under delegation with whether the Studio confirmed it." },
+      { "name": "scan_project", "input": "folder (absolute), action (list, run_all or suggest), delegate (codex or claude, for suggest), write", "does": "Points the Studio at a Rust project: what is made with RavenRS there and can be tested; runs every app's scenarios; or has an AI (local by default) write new scenarios, which the Studio runs." }
     ],
     "skill": "tools/raven-test-studio/claude-pane/skills/raven-test-studio/SKILL.md"
   },
