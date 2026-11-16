@@ -440,6 +440,33 @@ impl Drop for WakeOnDrop {
     }
 }
 
+/// Asks now, on this thread, what the window's check asks in the background: the latest
+/// version the repository announces and what to do about it, by the same rule ([`decide`]).
+/// For a command line, or another program that asks the app (a pane beside a chat), with no
+/// window and no [`Updater`]: the news read, which names the latest version even when it is
+/// the one running, and the decision. `Err` says why the network gave no answer.
+pub fn check_now(app: &InstalledApp) -> Result<(News, Decision), String> {
+    let news = latest_news(app)?;
+    let home = app.home();
+    let now = seconds_now();
+    let decision = decide(
+        app.install_kind(),
+        app.version,
+        Some(news.clone()),
+        &read_memory(&home.join(installer::MEMORY)),
+        is_locked(&home.join(installer::LOCK), now),
+        now,
+    );
+    Ok((news, decision))
+}
+
+/// Installs `news` now, on this thread, with the installer the window runs: the same lock,
+/// the same memory of a failed version and the same check that the installed copy answers
+/// with the new version. `on_stage` hears each stage the installer reports, to show it.
+pub fn install_now(app: &InstalledApp, news: &News, on_stage: &dyn Fn(String)) -> Result<(), String> {
+    run_installer(&Setup::of(app), &news.versao, on_stage)
+}
+
 /// The latest version the repository announces, or why it could not be known.
 fn latest_news(app: &InstalledApp) -> Result<News, String> {
     let mut reason = "a resposta não veio completa.".to_owned();

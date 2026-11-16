@@ -31,6 +31,10 @@ The exit code is 0 when it passed, 1 when it failed and 2 when there is no such 
 
 When the user asks to delegate the test, or to save your own context on a long diagnosis, hand the scenario to Codex: `run_scenario` with `delegate: "codex"`, or `raven-test-studio --delegate codex --run <scenario>`. Codex runs it with its cheapest model (read from the list the installed Codex keeps; `model` names another), reading only, and answers with the verdict, the cause and the fix with file and line. The Studio then runs the same scenario itself: `delegation.confirmed` says whether it agrees. Report Codex's diagnosis as Codex's, and trust it only when it is confirmed; when it is not, the Studio's own report is the truth. `delegate: "claude"` uses the Claude CLI with `haiku`.
 
+## A newer Studio
+
+`raven-test-studio --atualizacao --format json` says whether there is one (`newer`, `latest`, `news`), and whether this copy installs itself (`updates_itself`) or comes from a checkout (`git pull`). The pane shows it and offers "Atualizar agora"; tell the user when `run_scenario`'s answer says a new version is out, and install only when they ask (`--atualizar`).
+
 ## Reading the report
 
 - `verdict` is `passed` or `failed`; `summary` says it in a line ("18 de 18 passos passaram").

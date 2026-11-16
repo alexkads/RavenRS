@@ -12,13 +12,54 @@
 //! `--delegate codex` (or `claude`) hands the scenario of `--run` (the self-test by default)
 //! to that coding agent, with its cheapest model unless `--model` names another, and checks its
 //! verdict by running the scenario here.
+//!
+//! `--atualizacao` says whether there is a newer Studio (`--format json` for a tool, as the
+//! Claude pane asks), and `--atualizar` installs it, printing each stage.
 
 use raven_test_studio::cache::{self, RunCache};
+
+/// Every option the Studio reads; any other is refused.
+const OPTIONS: [&str; 12] = [
+    "--versao",
+    "--clear-cache",
+    "--self-test",
+    "--run",
+    "--format",
+    "--no-cache",
+    "--delegate",
+    "--model",
+    "--atualizacao",
+    "--atualizar",
+    "--help",
+    "--",
+];
 
 fn main() -> std::process::ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let has = |flag: &str| args.iter().any(|a| a == flag);
     let value = |flag: &str| args.iter().position(|a| a == flag).and_then(|i| args.get(i + 1)).cloned();
+    // An option this Studio does not know is refused: opening the window instead would leave
+    // whoever asked (a pane, a script) waiting on a window nobody asked for.
+    if let Some(unknown) = args.iter().find(|a| a.starts_with("--") && !OPTIONS.contains(&a.as_str())) {
+        eprintln!("opção desconhecida: {unknown}; as que o Studio entende: {}", OPTIONS.join(", "));
+        return std::process::ExitCode::from(2);
+    }
+    if has("--help") {
+        println!(
+            "Raven Test Studio {}\n\n\
+             raven-test-studio                       abre a janela\n\
+             --self-test                             o Studio testa o Studio, sem janela\n\
+             --run <autoteste|lancamento|quebrado>   roda um cenário, sem janela\n\
+             --format json                           o relatório para uma ferramenta ou uma IA\n\
+             --no-cache, --clear-cache               roda de novo / esquece o cache\n\
+             --delegate <codex|claude> [--model m]   entrega o cenário a outro agente\n\
+             --atualizacao [--format json]           diz se há versão nova\n\
+             --atualizar                             instala a versão nova\n\
+             --versao                                a versão",
+            raven_test_studio::VERSION
+        );
+        return std::process::ExitCode::SUCCESS;
+    }
     // The installer proves a new binary opens with this, before any window or folder.
     if has("--versao") {
         println!("{}", raven_test_studio::VERSION);
@@ -33,6 +74,18 @@ fn main() -> std::process::ExitCode {
         }
         println!("cache do Studio limpo");
         return std::process::ExitCode::SUCCESS;
+    }
+    if has("--atualizacao") {
+        let answer = raven_test_studio::atualizacao::ask();
+        if value("--format").as_deref() == Some("json") {
+            println!("{}", serde_json::to_string_pretty(&answer.json()).unwrap_or_default());
+        } else {
+            println!("{}", answer.text());
+        }
+        return std::process::ExitCode::from(if answer.error.is_some() { 2 } else { 0 });
+    }
+    if has("--atualizar") {
+        return update();
     }
     let scenario = if has("--self-test") { Some("autoteste".to_owned()) } else { value("--run") };
     if let Some(agent) = value("--delegate") {
@@ -94,6 +147,43 @@ fn delegate(agent: &str, name: &str, model: Option<String>, json: bool) -> std::
         Err(why) => {
             eprintln!("{why}");
             std::process::ExitCode::from(2)
+        }
+    }
+}
+
+/// Installs the newer version now, printing each stage, when this copy was installed by the
+/// installer; a checkout updates with `git pull`. 0 when it is up to date afterwards.
+fn update() -> std::process::ExitCode {
+    use std::io::Write as _;
+    let answer = raven_test_studio::atualizacao::ask();
+    if let Some(reason) = &answer.error {
+        eprintln!("não deu para saber se há versão nova: {reason}");
+        return std::process::ExitCode::from(2);
+    }
+    let Some(news) = answer.latest.filter(|_| answer.newer) else {
+        println!("Raven Test Studio {} já é a versão mais nova", answer.installed);
+        return std::process::ExitCode::SUCCESS;
+    };
+    if !answer.updates_itself {
+        eprintln!("esta cópia é de um checkout do RavenRS: atualize com git pull");
+        return std::process::ExitCode::from(2);
+    }
+    println!("atualizando de {} para {}", answer.installed, news.versao);
+    let said = |stage: String| {
+        println!("etapa: {stage}");
+        let _ = std::io::stdout().flush();
+    };
+    match ravenrs_app_update::install_now(&raven_test_studio::versao::APP, &news, &said) {
+        Ok(()) => {
+            println!("Atualizado para {}", news.versao);
+            std::process::ExitCode::SUCCESS
+        }
+        Err(reason) => {
+            eprintln!("a atualização falhou: {reason}");
+            if let Some(tail) = raven_test_studio::versao::APP.installer_log_tail(12) {
+                eprintln!("{tail}");
+            }
+            std::process::ExitCode::FAILURE
         }
     }
 }

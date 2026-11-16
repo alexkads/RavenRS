@@ -695,3 +695,10 @@ fn an_installer_cut_in_half_is_refused_and_nothing_is_touched() {
     assert!(!Path::new(&previous).exists());
     let _ = std::fs::remove_dir_all(root);
 }
+
+#[test]
+fn asking_now_with_nowhere_to_ask_says_why_and_decides_nothing() {
+    // No address to read: the answer is the reason, as the window's check would show it.
+    let answer = check_now(&OTHER_APP);
+    assert_eq!(answer.err().as_deref(), Some("a resposta não veio completa."));
+}

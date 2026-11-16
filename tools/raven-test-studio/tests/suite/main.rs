@@ -2,6 +2,7 @@
 //! scenario no longer proves it works.
 #![allow(clippy::expect_used, clippy::unwrap_used, reason = "tests fail loudly")]
 
+mod atualizacao;
 mod delegate;
 mod manifest;
 mod self_test;
