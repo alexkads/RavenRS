@@ -67,9 +67,14 @@ pub fn step_of(node: &FlowNode) -> Result<Step, String> {
         return Err("Diga o alvo: #id ou o texto que aparece".to_owned());
     }
     let block = Block { kind, target: aim.to_owned(), text: text.clone(), title: node.title.clone() };
-    let needs_text = matches!(kind, Kind::Type | Kind::Check | Kind::Mention | Kind::Fill | Kind::Select);
+    let needs_text =
+        matches!(kind, Kind::Type | Kind::Check | Kind::Mention | Kind::Fill | Kind::Select | Kind::Drag);
     if needs_text && text.is_none() {
-        return Err("Diga o texto depois do alvo: #alvo = texto".to_owned());
+        return Err(if kind == Kind::Drag {
+            "Diga para onde arrastar: #de = #até".to_owned()
+        } else {
+            "Diga o texto depois do alvo: #alvo = texto".to_owned()
+        });
     }
     let Some(command) = block.command() else {
         return Err(format!("Bloco desconhecido: {}", node.kind));

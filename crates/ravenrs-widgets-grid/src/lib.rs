@@ -12,6 +12,8 @@ use ravenrs_widgets_base::*;
 use ravenrs_widgets_kit::*;
 
 pub mod grid;
+#[cfg(feature = "testing")]
+pub mod testing;
 
 pub use grid::{
     CellAlign, CellEdit, ColumnLayout, DataGrid, FilterLayout, GridCellStyle, GridColumn, GridCurrent,

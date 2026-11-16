@@ -45,7 +45,7 @@ pub fn app_icon() -> Option<ImageData> {
 }
 
 /// The kinds of block, with the word the canvas and the inspector show for each.
-pub const KINDS: [(&str, &str); 11] = [
+pub const KINDS: [(&str, &str); 12] = [
     ("open", "Início"),
     ("click", "Clicar"),
     ("type", "Digitar"),
@@ -54,6 +54,7 @@ pub const KINDS: [(&str, &str); 11] = [
     ("expand", "Expandir"),
     ("collapse", "Recolher"),
     ("scroll", "Rolar até"),
+    ("drag", "Arrastar"),
     ("wait", "Esperar"),
     ("check", "Conferir"),
     ("mention", "Conferir que menciona"),
@@ -62,7 +63,7 @@ pub const KINDS: [(&str, &str); 11] = [
 fn icon(kind: &str) -> IconName {
     match kind {
         "open" => IconName::Play,
-        "click" | "select" | "expand" | "collapse" | "scroll" => IconName::MousePointer,
+        "click" | "select" | "expand" | "collapse" | "scroll" | "drag" => IconName::MousePointer,
         "type" | "fill" => IconName::Keyboard,
         "wait" => IconName::Clock,
         _ => IconName::Check,

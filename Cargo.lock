@@ -5908,7 +5908,7 @@ dependencies = [
 
 [[package]]
 name = "raven-test-studio"
-version = "0.1.9"
+version = "0.1.10"
 dependencies = [
  "ravenrs",
  "ravenrs-agent-cli",
@@ -6961,6 +6961,7 @@ dependencies = [
  "ravenrs-animation",
  "ravenrs-core",
  "ravenrs-criteria",
+ "ravenrs-e2e",
  "ravenrs-graphics",
  "ravenrs-layout",
  "ravenrs-live",
@@ -7005,6 +7006,7 @@ version = "27.1.28"
 dependencies = [
  "ravenrs-animation",
  "ravenrs-core",
+ "ravenrs-e2e",
  "ravenrs-graphics",
  "ravenrs-layout",
  "ravenrs-live",
@@ -7054,6 +7056,7 @@ version = "27.1.28"
 dependencies = [
  "ravenrs-core",
  "ravenrs-criteria",
+ "ravenrs-e2e",
  "ravenrs-layout",
  "ravenrs-live",
  "ravenrs-reactive",

@@ -35,6 +35,8 @@ pub mod flow_toolbox;
 #[cfg(feature = "charts")]
 #[doc(hidden)]
 pub mod sankey;
+#[cfg(feature = "testing")]
+pub mod testing;
 
 #[cfg(feature = "charts")]
 pub use chart::{

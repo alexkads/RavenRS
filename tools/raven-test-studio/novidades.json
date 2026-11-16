@@ -1,18 +1,18 @@
 {
-  "versao": "0.1.9",
-  "titulo": "Relatório em JUnit e JSONL, tempo de cada passo e a tela da falha guardada.",
+  "versao": "0.1.10",
+  "titulo": "Editar células da grade, ligar nós do fluxo e arrastar nos cenários.",
   "importante": false,
   "novidades": [
-    "--format junit dá o XML que servidores de build e ferramentas de teste já leem, com o código da falha e os passos que não rodaram.",
-    "--format jsonl dá um evento por linha, com quanto cada passo levou.",
-    "--out <pasta> guarda relatorio.json, trace.jsonl e, quando falha, arvore.txt com a tela do app; com --project, vai para o target/e2e do projeto.",
-    "Um --format que o Studio não conhece é recusado, em vez de cair no texto."
+    "Bloco novo Arrastar (drag #de = #até): liga dois nós de um fluxo com #port:<nó>:<porta> dos dois lados, mesmo com portas que só aparecem com o ponteiro em cima.",
+    "Preencher numa célula da grade (#cell:<chave>:<coluna>) abre o editor com duplo clique, escreve e confirma; célula que não se edita falha com E2E_DISABLED.",
+    "Cabeçalhos e filtros da grade têm ids: #column:<coluna> e #filter:<coluna>.",
+    "Para quem testa em Rust: DataGridDriver (editar, ordenar, filtrar) e FlowCanvasDriver (ligar portas), na feature testing."
   ],
-  "por_que_atualizar": "Para ler uma falha depois sem rodar de novo e plugar o RTS em qualquer ferramenta que entende JUnit.",
+  "por_que_atualizar": "Para testar telas com grade e fluxo como a pessoa usa, pela chave do dado e não pela posição na tela.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    661
+    663
   ]
 }

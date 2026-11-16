@@ -4229,6 +4229,8 @@ impl View for PortDot {
                 .description(self.description.clone())
                 .selected(matches!(state, PortState::Source | PortState::Handle)),
         );
+        // Found by the node's key and the port's id, which do not move with the diagram.
+        cx.test_id(node, &format!("port:{}:{}", self.end.node, self.end.port));
         let (dragged, end) = (self.flow.clone(), self.end.clone());
         cx.on_drag(node, Rc::new(move |d| dragged.on_port_drag(&end, d.phase, d.position)));
         let (keyed, end) = (self.flow.clone(), self.end.clone());

@@ -1,5 +1,24 @@
 [
   {
+    "versao": "0.1.10",
+    "data": "2026-11-16",
+    "titulo": "Editar células da grade, ligar nós do fluxo e arrastar nos cenários.",
+    "importante": false,
+    "novidades": [
+      "Bloco novo Arrastar (drag #de = #até): liga dois nós de um fluxo com #port:<nó>:<porta> dos dois lados, mesmo com portas que só aparecem com o ponteiro em cima.",
+      "Preencher numa célula da grade (#cell:<chave>:<coluna>) abre o editor com duplo clique, escreve e confirma; célula que não se edita falha com E2E_DISABLED.",
+      "Cabeçalhos e filtros da grade têm ids: #column:<coluna> e #filter:<coluna>.",
+      "Para quem testa em Rust: DataGridDriver (editar, ordenar, filtrar) e FlowCanvasDriver (ligar portas), na feature testing."
+    ],
+    "por_que_atualizar": "Para testar telas com grade e fluxo como a pessoa usa, pela chave do dado e não pela posição na tela.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      663
+    ]
+  },
+  {
     "versao": "0.1.9",
     "data": "2026-11-16",
     "titulo": "Relatório em JUnit e JSONL, tempo de cada passo e a tela da falha guardada.",

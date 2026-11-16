@@ -69,6 +69,15 @@ use ravenrs_widgets_imaging::imaging;
 #[allow(unused_imports)]
 use ravenrs_widgets_imaging::lottie;
 
+/// Drivers for tests written with `ravenrs-e2e` (feature `testing`): they edit, sort and
+/// filter a `DataGrid` and join the nodes of a `FlowCanvas` by keys, as a person does, never by
+/// pixels.
+#[cfg(feature = "testing")]
+pub mod testing {
+    pub use ravenrs_widgets_charts::testing::FlowCanvasDriver;
+    pub use ravenrs_widgets_grid::testing::DataGridDriver;
+}
+
 // The charts family lives in its own crate, and keeps its module names here.
 #[cfg(feature = "charts")]
 #[allow(unused_imports)]

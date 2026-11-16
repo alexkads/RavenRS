@@ -189,6 +189,7 @@ pub fn toolbox() -> FlowToolbox {
         .model("Expandir", block("expand", "expand", "Expandir", "#alvo"))
         .model("Recolher", block("collapse", "collapse", "Recolher", "#alvo"))
         .model("Rolar até", block("scroll", "scroll", "Rolar até", "#alvo"))
+        .model("Arrastar", block("drag", "drag", "Arrastar", "#de = #até"))
         .group("Conferir")
         .model("Esperar", block("wait", "wait", "Esperar", "#alvo = texto"))
         .model("Conferir texto", block("check", "check", "Conferir", "#alvo = texto"))

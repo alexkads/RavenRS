@@ -19,6 +19,7 @@ mod data_inspector;
 mod datagrid;
 mod diagnostics;
 mod dock;
+mod drivers;
 mod editing_and_clipboard;
 mod editors;
 mod event_calendar;

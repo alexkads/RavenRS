@@ -6,6 +6,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Breaking
 
+- `ravenrs-e2e-wire`: `Command` has `Drag` and `Kind` has `Drag`; an exhaustive `match` on either needs the new arm. ([#663](https://github.com/alexkads/RavenRS/issues/663))
 
 - `ravenrs-e2e-wire`: `Command` has `Fill`, `Select`, `Expand`, `Collapse`, `Scroll` and `Wait`, and `Kind` the same kinds; an exhaustive `match` on either needs the new arms. `Command::apply` now tries a step again for up to `PATIENCE` (2 s) while its target is not ready, and scrolls to a target out of sight first. ([#658](https://github.com/alexkads/RavenRS/issues/658))
 
@@ -41,6 +42,9 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- Test drivers, feature `testing`: `DataGridDriver` (`edit_cell`, `sort_by`, `clear_sort`, `filter`) in `ravenrs-widgets-grid` and `FlowCanvasDriver` (`connect`, `move_node`) in `ravenrs-widgets-charts`, re-exported as `ravenrs_widgets::testing`. They act on test ids the components now give: a `DataGrid` with `key_column` gives each cell `cell:<key>:<column>`, each header `column:<column>` and each filter field `filter:<column>`, and a `FlowCanvas` gives each port `port:<node>:<port>`. A grid cell that does not edit is read only for assistive technology. ([#663](https://github.com/alexkads/RavenRS/issues/663))
+- `ravenrs-e2e`: `Locator::fill` on a grid cell opens its editor with a double click, writes and confirms with Enter, and fails with `E2E_DISABLED` on a cell that does not edit; `Locator::drag_to` looks for where to drop after the drag started, so a part that shows only while dragging can be the target; `E2e::failure` and `E2eError::hint` for drivers. ([#663](https://github.com/alexkads/RavenRS/issues/663))
+- Raven Test Studio 0.1.10: the block `drag`/`arrastar` (`drag #from = #to`). ([#663](https://github.com/alexkads/RavenRS/issues/663))
 - Raven Test Studio 0.1.9: `--format jsonl` (one event per line, with the time of each step) and `--format junit` (JUnit XML, the failure's code in `type`, the blocks after it skipped); `--out <folder>` keeps `relatorio.json`, `trace.jsonl` and, on a failure, `arvore.txt` with the app's screen, and with `--project` it defaults to the project's `target/e2e`. Each block of the JSON report says how long it took (`duration_ms`), and an unknown `--format` is refused. ([#661](https://github.com/alexkads/RavenRS/issues/661))
 - The menu beside the clock: `TrayMenu` and `TrayEntry` in `ravenrs-core` (state, item with detail and shortcut, check, submenu, separator), `SystemTray::menu` and `SystemTray::on_select` in `ravenrs-platform-native`, on macOS and Windows (`tray-icon`) and Linux (`ksni`); the menu redraws when the app sets new entries, and an id that starts with `open:` opens the window first. `ravenrs-app-update` gives the update's entries with `Updater::tray_entries` and acts on them with `Updater::tray_select`. Raven Finanças 0.1.41 shows the overdue bills, Nova despesa and Nova receita; Raven Test Studio 0.1.8 the self-test, Rodar autoteste and the update. ([#643](https://github.com/alexkads/RavenRS/issues/643))
 
