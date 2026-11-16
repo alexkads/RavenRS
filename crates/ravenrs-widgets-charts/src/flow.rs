@@ -3801,6 +3801,8 @@ impl View for NodeBox {
                 .selected(self.selected)
                 .disabled(node.status == FlowNodeStatus::Disabled),
         );
+        // Found by its key, which stays the same when the diagram moves or grows.
+        cx.test_id(root, &format!("node:{}", node.id));
         let modifiers = cx.modifiers();
         let (dragged, id) = (self.flow.clone(), node.id.clone());
         cx.on_drag(root, Rc::new(move |d| dragged.on_node_drag(&id, d.phase, d.position, modifiers.get())));

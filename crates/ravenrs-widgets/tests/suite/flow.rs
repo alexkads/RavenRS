@@ -1860,3 +1860,13 @@ fn without_models_a_connection_let_go_in_the_open_is_given_up_as_before() {
     assert!(named(&mut rig.ui, "Find the next node").is_none());
     assert!(rig.graph.get().edges.is_empty());
 }
+
+#[test]
+fn every_node_is_found_by_its_key() {
+    let mut r = rig();
+    let tree = r.ui.access_tree();
+    for (id, title) in [("a", "New sale"), ("b", "Check stock"), ("c", "Send refusal")] {
+        let node = tree.by_test_id(&format!("node:{id}")).unwrap_or_else(|| panic!("node:{id} is tagged"));
+        assert_eq!(node.name.as_deref(), Some(title));
+    }
+}

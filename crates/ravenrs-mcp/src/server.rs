@@ -14,6 +14,7 @@ use crate::docs;
 use crate::expression::{self, SchemaInput};
 use crate::feature_center;
 use crate::report::{self, CreateInput};
+use crate::tooling;
 
 /// Members listed per list in one answer, unless a filter narrows them down.
 const MAX_MEMBERS: usize = 60;
@@ -25,6 +26,9 @@ working with all its features. Use design_tokens to find the semantic name of a 
 parity_status before promising that a feature exists, app_contracts before writing a module meant for more than one application, validate_expression for filters and report expressions, \
 search_api when you do not know a type's name, and guides for how things work: the application framework, reports, \
 label and receipt printers, NF-e, the SEFAZ sandbox, the point of sale and what they do not prove. \
+To prove a screen works from the outside, ask ravenrs_tools for raven-test-studio, the end-to-end test tool that \
+runs scenarios with real clicks and typing and reports each failure with a stable code, its fix and the screen. \
+skills lists the instructions this repository keeps for coding agents; read the one that fits before working on it. \
 To make a report, read report_layout_format, start from create_report_layout or report_layout_templates, edit the \
 JSON and confirm it with check_report_layout before saving it as a .rvreport.json file.";
 
@@ -83,6 +87,20 @@ struct FeatureCenter {
     status: Option<String>,
     /// How many components to return, up to 300. Defaults to 50.
     limit: Option<usize>,
+}
+
+#[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
+struct RavenTools {
+    /// One tool, by name or package, such as raven-test-studio. Without it, the list.
+    name: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
+struct Skills {
+    /// One skill by name, such as ravenrs-check or raven-test-studio: returns its whole text.
+    name: Option<String>,
+    /// Only skills whose name or description has all these words, such as "teste e2e".
+    query: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
@@ -330,6 +348,22 @@ impl RavenServer {
             input.status.as_deref(),
             input.limit.unwrap_or(50).clamp(1, 300),
         ))
+    }
+
+    #[tool(
+        description = "The installable tools of RavenRS (tools/), such as Raven Test Studio, the end-to-end test tool. With no name, lists them with version and summary; with a name, everything the tool offers from its tool.json: when to use it, its commands and exit codes, scenarios, blocks, the fields of its report, the error codes with their meaning and fix, its cache, its pane and AI tools in Claude, how to install it, its limits and its README.",
+        annotations(read_only_hint = true, open_world_hint = false)
+    )]
+    fn ravenrs_tools(&self, Parameters(input): Parameters<RavenTools>) -> CallToolResult {
+        answer(tooling::tools(input.name.as_deref()))
+    }
+
+    #[tool(
+        description = "The skills of the RavenRS repository, the instructions written for coding agents: the project's (.claude/skills: architecture, the check, GitHub flow, coupling, the feature center, fiscal, performance and the engines), the plugin's and the tools' (such as raven-test-studio). With no name, lists them with their description, narrowed by query; with a name, returns the whole text to follow.",
+        annotations(read_only_hint = true, open_world_hint = false)
+    )]
+    fn skills(&self, Parameters(input): Parameters<Skills>) -> CallToolResult {
+        answer(tooling::skills(input.name.as_deref(), input.query.as_deref()))
     }
 
     #[tool(

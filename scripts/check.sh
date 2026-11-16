@@ -183,6 +183,9 @@ step "the widgets' crates keep their layers: no family depends on another"
 step "every test file runs: tests/suite/ modules are declared"
 ./scripts/check-test-suites.py
 
+step "every tool in tools/ is a product: version, news, installer, icons, tests (tools/README.md)"
+./scripts/check-tools.py
+
 step "the feature center shows every component with every feature (skill ravenrs-feature-center)"
 ./scripts/feature-center-coverage.py
 

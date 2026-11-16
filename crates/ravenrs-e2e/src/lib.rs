@@ -56,6 +56,9 @@ const DEFAULT_VIEWPORT: Size = Size::new(1280.0, 800.0);
 const SCREEN_LINES: usize = 80;
 /// Pointer moves on the way of a drag, so drag handlers see it travel.
 const DRAG_STEPS: u32 = 8;
+/// Frames past the first a step may take to settle, so a screen that keeps asking for one
+/// does not hang the test.
+const SETTLE_FRAMES: u32 = 4;
 
 /// A view running with no window, driven by a test. See the [crate documentation](crate).
 pub struct E2e {
@@ -163,9 +166,16 @@ impl E2e {
         self.frame();
     }
 
-    /// Builds the frame the latest input asks for and reads the tree again.
+    /// Builds the frames the latest input asks for, until the screen settles (some components,
+    /// such as a diagram, need a second frame for their layout), and reads the tree again.
     fn frame(&mut self) {
         self.ui.update();
+        for _ in 0..SETTLE_FRAMES {
+            if !self.ui.needs_redraw() {
+                break;
+            }
+            self.ui.update();
+        }
         self.tree = self.ui.access_tree();
         for node in &self.tree.nodes {
             if node.id != self.tree.root && !self.refs.contains_key(&node.id) {
@@ -510,6 +520,29 @@ impl Expect<'_> {
             Some(n) if n == name => Ok(()),
             other => Err(self.fail(format!("expected name {name:?}, found {other:?}"))),
         }
+    }
+
+    /// The node's accessible description is exactly `description`.
+    pub fn to_have_description(&self, description: &str) -> E2eResult {
+        let node = self.node()?;
+        match node.description.as_deref() {
+            Some(d) if d == description => Ok(()),
+            other => Err(self.fail(format!("expected description {description:?}, found {other:?}"))),
+        }
+    }
+
+    /// The node's name or description contains `text`, such as the state a diagram node says
+    /// ("done", an error message).
+    pub fn to_mention(&self, text: &str) -> E2eResult {
+        let node = self.node()?;
+        let said = [node.name.as_deref(), node.description.as_deref()];
+        if said.iter().flatten().any(|s| s.contains(text)) {
+            return Ok(());
+        }
+        Err(self.fail(format!(
+            "expected it to mention {text:?}; name {:?}, description {:?}",
+            node.name, node.description
+        )))
     }
 
     /// The node is checked (check box, switch, toggle).
