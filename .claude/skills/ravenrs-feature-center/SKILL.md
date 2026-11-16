@@ -101,6 +101,7 @@ Cada família tem um grupo na navegação e uma pasta. Um componente por página
    - `demonstrations!` em `tests/accessibility.rs`, que audita a tela nova;
    - a tabela "What is here" do `examples/feature-center/README.md`;
    - se o componente é novo, `site/components/index.html` e a amostra, como pede o `check-component-list.py`.
+   - se o componente é novo, a tabela "Components" do `README.md`: é dela que a ferramenta `list_components` do `ravenrs-mcp` tira o grupo, e o que não está lá cai em `Other`. O `ravenrs-mcp` lê o `recursos.json` sozinho (ferramenta `feature_center`).
 
 ## O que não fazer
 
