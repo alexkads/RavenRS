@@ -1,5 +1,24 @@
 [
   {
+    "versao": "0.1.4",
+    "data": "2026-11-16",
+    "titulo": "O Studio não traz cenários: roda os do app ou da pasta do QA.",
+    "importante": false,
+    "novidades": [
+      "O Studio instalado do zero abre sem nenhum cenário; o autoteste continua, como a saúde do próprio Studio na barra de status.",
+      "Os cenários são arquivos .raventest, um bloco por linha, escritos em inglês ou em português.",
+      "Eles podem ficar no próprio app, em tests/e2e, ou numa pasta do QA: --run <arquivo ou pasta> roda os arquivos, e --run financas roda os que o Raven Finanças traz.",
+      "Uma linha errada no arquivo diz o número da linha e as palavras aceitas."
+    ],
+    "por_que_atualizar": "Para guardar os testes onde a equipe de QA preferir, sem depender do que vem com o Studio.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      652
+    ]
+  },
+  {
     "versao": "0.1.3",
     "data": "2026-11-16",
     "titulo": "O Studio testa o Raven Finanças de verdade.",

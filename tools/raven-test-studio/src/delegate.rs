@@ -165,10 +165,7 @@ pub fn read_answer(message: &str) -> Option<Value> {
 /// Hands `scenario` to `cli`'s agent with `model` (its cheapest when `None`), then runs it in
 /// the Studio to check the answer. `Err` says why the agent could not run.
 pub fn delegate(cli: &Cli, scenario: &str, model: Option<String>) -> Result<Delegation, String> {
-    let Some(checked) = crate::run_bundled(scenario, None) else {
-        let known: Vec<&str> = crate::SCENARIOS.iter().map(|(key, _)| *key).collect();
-        return Err(format!("não há cenário {scenario:?}; os que vêm com o Studio: {}", known.join(", ")));
-    };
+    let checked = crate::run_named(scenario, None)?;
     let studio = std::env::current_exe().map_err(|e| format!("não achei o próprio Studio: {e}"))?;
     let model = model.or_else(|| cheapest_model(cli.agent()));
     let sources = sources();

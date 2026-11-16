@@ -504,7 +504,7 @@ fn ravenrs_tools_tells_everything_the_test_studio_offers() {
 
     let studio = client.call("ravenrs_tools", json!({ "name": "raven-test-studio" }));
     assert_eq!(studio["name"], "Raven Test Studio");
-    assert_eq!(names(&studio["scenarios"]), ["autoteste", "lancamento", "quebrado", "financas"]);
+    assert_eq!(names(&studio["scenarios"]), ["autoteste", "financas"]);
     let codes: Vec<&str> =
         studio["error_codes"].as_array().unwrap().iter().map(|c| c["code"].as_str().unwrap()).collect();
     assert!(codes.contains(&"E2E_NOT_FOUND") && codes.contains(&"E2E_COVERED"), "{codes:?}");

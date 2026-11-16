@@ -15,12 +15,18 @@
 //! network, and it ends with the child. The app first says [`Hello`], then answers each command
 //! in order.
 //!
+//! The hello may also carry scenarios the app keeps in its own `tests/e2e/` folder, as
+//! `.raventest` text ([`Scenario`]), so a tool can run the tests an app brings with it, installed
+//! or not, without the app's source. Scenarios kept apart, in a folder of the QA team, use the
+//! same format and are run by path.
+//!
 //! A step is written the way a person writes a block of a scenario: the target is `#id` for a
 //! test id or the text shown, as [`target`] reads it. [`Command::apply`] runs a command on a
 //! session in this process too, so a tool runs a scenario the same way whether the app is
 //! compiled in or opened apart.
 
 mod client;
+mod scenario;
 #[cfg(feature = "serve")]
 mod serve;
 
@@ -28,6 +34,7 @@ use ravenrs_e2e::{E2e, E2eError, Query};
 use serde::{Deserialize, Serialize};
 
 pub use client::Client;
+pub use scenario::{Block, EXTENSION, FOLDER, Kind, Scenario, ScenarioError, check_folder};
 #[cfg(feature = "serve")]
 pub use serve::{serve, serve_on};
 
@@ -57,12 +64,21 @@ pub struct Hello {
     pub version: u32,
     /// The app's name, as its window shows it.
     pub app: String,
+    /// The scenarios the app brings, each the text of a `.raventest` file of its `tests/e2e/`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub scenarios: Vec<String>,
 }
 
 impl Hello {
     /// The hello of `app` on this version of the channel.
     pub fn of(app: &str) -> Self {
-        Self { protocol: PROTOCOL.to_owned(), version: VERSION, app: app.to_owned() }
+        Self { protocol: PROTOCOL.to_owned(), version: VERSION, app: app.to_owned(), scenarios: Vec::new() }
+    }
+
+    /// With the scenarios the app brings, as the text of its `.raventest` files.
+    pub fn scenarios<S: Into<String>>(mut self, scenarios: impl IntoIterator<Item = S>) -> Self {
+        self.scenarios = scenarios.into_iter().map(Into::into).collect();
+        self
     }
 }
 

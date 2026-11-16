@@ -22,6 +22,7 @@ pub struct Client {
     lines: Receiver<String>,
     errors: Arc<Mutex<Vec<String>>>,
     app: String,
+    scenarios: Vec<String>,
     step_time: Duration,
 }
 
@@ -59,6 +60,7 @@ impl Client {
             lines,
             errors,
             app: String::new(),
+            scenarios: Vec::new(),
             step_time: STEP_TIME,
         };
         let hello = client.next_line(start_time, codes::APP_START)?;
@@ -74,12 +76,19 @@ impl Client {
             ));
         }
         client.app = hello.app;
+        client.scenarios = hello.scenarios;
         Ok(client)
     }
 
     /// The app's name, from its hello.
     pub fn app(&self) -> &str {
         &self.app
+    }
+
+    /// The scenarios the app brings, as the text of its `.raventest` files; read each with
+    /// [`crate::Scenario::parse`].
+    pub fn scenarios(&self) -> &[String] {
+        &self.scenarios
     }
 
     /// Gives each step up to `time` before the app is taken as stuck; 30 s by default.

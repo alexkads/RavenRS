@@ -1,17 +1,17 @@
 {
-  "versao": "0.1.39",
-  "titulo": "O Raven Finanças pode ser testado pelo Raven Test Studio.",
+  "versao": "0.1.40",
+  "titulo": "O Raven Finanças traz os próprios testes.",
   "importante": false,
   "novidades": [
-    "O Raven Test Studio (RTS) abre o Raven Finanças sem janela e lança uma despesa de teste, para provar que a tela de lançamentos funciona.",
-    "O teste usa só a família de exemplo, na memória: os seus dados nunca são abertos nem alterados.",
-    "Os campos e os botões dos formulários ganharam marcas para os testes acharem cada um, sem mudar nada do que você vê."
+    "O teste de lançar uma despesa agora mora no próprio Raven Finanças, num arquivo de cenário, e vai junto com o app instalado.",
+    "O Raven Test Studio (RTS) recebe esse cenário quando abre o app, então dá para testar a versão instalada sem o código do projeto.",
+    "Como antes, o teste usa só a família de exemplo, na memória: os seus dados nunca são abertos."
   ],
-  "por_que_atualizar": "Para que o Raven Test Studio teste esta versão instalada, e não só o código do repositório.",
+  "por_que_atualizar": "Para que o Raven Test Studio rode os testes que o próprio Raven Finanças traz.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    649
+    652
   ]
 }

@@ -2,7 +2,7 @@
   "name": "Raven Test Studio",
   "also_called": ["RTS"],
   "package": "raven-test-studio",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "summary": "The end-to-end test tool of RavenRS, RTS for short: a scenario is a flow of blocks run against a RavenRS app with ravenrs-e2e, and the report tells a person or an AI what failed, why, how to fix it and what the screen showed.",
   "when_to_use": [
     "After changing a RavenRS screen or component, to prove it still works from the outside, with real clicks and typing.",
@@ -10,9 +10,10 @@
     "To know whether the Studio itself still works: the self-test opens another Studio and tests it."
   ],
   "commands": [
-    { "command": "raven-test-studio", "does": "Opens the window: the scenario as a flow, Rodar, Próximo passo, Parar, Rodar sem cache, and the log of each block. On opening it tests itself and says so in the status bar. Closing the window keeps it beside the clock, as Raven Finanças does; launching it again opens the copy already running." },
+    { "command": "raven-test-studio", "does": "Opens the window, with no scenario: a Studio installed from scratch brings none. A scenario shows as a flow, with Rodar, Próximo passo, Parar, Rodar sem cache, and the log of each block. On opening it tests itself and says so in the status bar. Closing the window keeps it beside the clock, as Raven Finanças does; launching it again opens the copy already running." },
     { "command": "raven-test-studio --self-test", "does": "Runs the self-test with no window and prints the report as text." },
-    { "command": "raven-test-studio --run <scenario>", "does": "Runs a scenario that comes with the Studio and prints the report as text." },
+    { "command": "raven-test-studio --run <scenario>", "does": "Runs autoteste (the Studio's health check) or financas (the scenarios Raven Finanças brings) and prints the report as text." },
+    { "command": "raven-test-studio --run <file.raventest|folder>", "does": "Runs scenario files kept anywhere: in an app's tests/e2e, or in a QA team's own folder (every .raventest of it, in name order)." },
     { "command": "raven-test-studio --run <scenario> --format json", "does": "The same report as JSON, for a tool or a coding agent." },
     { "command": "raven-test-studio --run <scenario> --no-cache", "does": "Runs again even when the cache has the answer." },
     { "command": "raven-test-studio --clear-cache", "does": "Forgets every run kept." },
@@ -29,10 +30,8 @@
     { "code": 2, "means": "There is no scenario by that name, or the agent to delegate to could not run." }
   ],
   "scenarios": [
-    { "name": "autoteste", "title": "O Studio testa o Studio", "does": "Opens another Studio and checks that running, stepping, stopping and failing all show as they should: 18 blocks." },
-    { "name": "lancamento", "title": "Lançar despesa", "does": "Fills in a sample expense form and checks the result: 5 blocks." },
-    { "name": "quebrado", "title": "Cenário quebrado", "does": "Fails on purpose, to see a failure report with its code, fix and screen: 3 blocks." },
-    { "name": "financas", "title": "Raven Finanças: lançar despesa", "does": "Opens Raven Finanças apart, in a child process with no window on its sample family in memory, launches an expense and checks it in the month: 9 blocks. Never from the cache." }
+    { "name": "autoteste", "title": "O Studio testa o Studio", "does": "The Studio's health check: opens another Studio and checks that running, stepping, stopping and failing all show as they should: 18 blocks. It is not a scenario for people; a Studio installed from scratch brings none." },
+    { "name": "financas", "title": "Os cenários que o Raven Finanças traz", "does": "Opens Raven Finanças apart, in a child process with no window on its sample family in memory, and runs the .raventest scenarios it brings in its own tests/e2e (today: lançar despesa, 9 blocks). Never from the cache." }
   ],
   "blocks": [
     { "kind": "open", "subtitle": "the app to open", "does": "Opens an app the Studio knows: compiled in (the sample form, another Studio) or apart in a child process over the test channel (Raven Finanças)." },
@@ -64,7 +63,7 @@
   "ai": {
     "pane": "tools/raven-test-studio/claude-pane is a Claude Code plugin: a pane beside the conversation with the verdict, one square per block, the failure with its code, meaning, fix and screen, and a button that asks the AI to fix it. Load it with claude --plugin-dir tools/raven-test-studio/claude-pane; /raven-test-studio opens the pane. It runs the installed Studio when there is one, and cargo run otherwise.",
     "tools": [
-      { "name": "run_scenario", "input": "scenario (autoteste, lancamento, quebrado or financas), no_cache, delegate (codex or claude), model", "does": "Runs a scenario and returns the JSON report; with delegate, a cheaper agent runs and diagnoses it, and the report carries its answer under delegation with whether the Studio confirmed it." }
+      { "name": "run_scenario", "input": "scenario (autoteste, financas, or the path of a .raventest file or folder), no_cache, delegate (codex or claude), model", "does": "Runs a scenario and returns the JSON report; with delegate, a cheaper agent runs and diagnoses it, and the report carries its answer under delegation with whether the Studio confirmed it." }
     ],
     "skill": "tools/raven-test-studio/claude-pane/skills/raven-test-studio/SKILL.md"
   },

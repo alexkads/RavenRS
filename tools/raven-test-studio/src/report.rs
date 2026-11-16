@@ -54,6 +54,31 @@ impl Report {
         Self { scenario: scenario.to_owned(), outcomes, total, cached_at: None, duration_ms, apart }
     }
 
+    /// A run that could not start: its first block failed with `why`, before any app opened.
+    pub fn refused(scenario: &str, block: &str, why: &str) -> Self {
+        let outcome = Outcome {
+            id: "open".to_owned(),
+            kind: "open".to_owned(),
+            title: format!("Abrir o {block}"),
+            line: block.to_owned(),
+            error: Some(why.to_owned()),
+            code: None,
+            meaning: None,
+            detail: None,
+            fix: None,
+            close: Vec::new(),
+            screen: None,
+        };
+        Self {
+            scenario: scenario.to_owned(),
+            outcomes: vec![outcome],
+            total: 1,
+            cached_at: None,
+            duration_ms: 0,
+            apart: true,
+        }
+    }
+
     /// What this run could not check.
     pub fn not_verified(&self) -> [&'static str; 3] {
         if self.apart { NOT_VERIFIED_APART } else { NOT_VERIFIED }

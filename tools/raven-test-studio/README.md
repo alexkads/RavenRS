@@ -36,22 +36,31 @@ cargo run -p raven-test-studio
 
 ```bash
 cargo run -p raven-test-studio -- --self-test
-cargo run -p raven-test-studio -- --run quebrado --format json
 cargo run -p raven-test-studio -- --run financas
+cargo run -p raven-test-studio -- --run tools/raven-test-studio/tests/e2e/quebrado.raventest --format json
 ```
+
+**Where the scenarios live**
+
+A Studio installed from scratch brings **no test scenarios**: the window opens empty. Its only own test is its health check, "O Studio testa o Studio", shown in the status bar. Scenarios are `.raventest` files (one block per line, words in English or Portuguese, see [`ravenrs-e2e-wire`](../../crates/ravenrs-e2e-wire)), and where they live is the QA team's choice:
+
+- **in the app**, in its `tests/e2e/`: the app embeds them and hands them over when the Studio opens it, so the installed app is tested without its source; `--run financas` runs the ones Raven Finanças brings;
+- **apart from the app**, in a folder of the QA team: `--run <file.raventest>` runs one, `--run <folder>` every file in it.
+
+The scenarios this folder keeps in `tests/e2e/` are for the Studio's own tests in the repository; the installed Studio does not carry them.
 
 **A real app, apart: Raven Finanças**
 
-`--run financas` opens Raven Finanças in a child process with no window, over the test channel [`ravenrs-e2e-wire`](../../crates/ravenrs-e2e-wire), launches an expense and checks it in the month. The app runs on its sample family in memory on a fixed day; the database of the person using it is never opened. The Studio takes the app from `RAVEN_FINANCAS`, else the installed copy if it is 0.1.39 or later, else `cargo run` inside the checkout. An older installed copy is never given `--e2e-serve`: it would read it as the path of a database.
+`--run financas` opens Raven Finanças in a child process with no window, over the test channel [`ravenrs-e2e-wire`](../../crates/ravenrs-e2e-wire), and runs the scenarios it brings (today, an expense checked in the month). The app runs on its sample family in memory on a fixed day; the database of the person using it is never opened. The Studio takes the app from `RAVEN_FINANCAS`, else the installed copy if it is 0.1.39 or later, else `cargo run` inside the checkout. An older installed copy is never given `--e2e-serve`: it would read it as the path of a database.
 
 Closing the window keeps the Studio beside the clock, as Raven Finanças does: its menu opens the window again or quits, and launching it again opens the copy already running. When its window opens, the Studio runs its self-test first (from the cache when nothing changed) and says how it went in the status bar.
 
-`--run` takes `autoteste`, `lancamento` or `quebrado`. The text report is a few lines to read or quote; the JSON carries every block with its result, the stable code of a failure (`E2E_NOT_FOUND`…), what it means in Portuguese, the detail from `ravenrs-e2e`, how to fix it, what came close and the screen of the app under test at that moment. Every report ends with what was not verified. The exit code is 0 when the scenario passed and 1 when it did not.
+`--run` takes `autoteste`, `financas`, or the path of a `.raventest` file or folder. The text report is a few lines to read or quote; the JSON carries every block with its result, the stable code of a failure (`E2E_NOT_FOUND`…), what it means in Portuguese, the detail from `ravenrs-e2e`, how to fix it, what came close and the screen of the app under test at that moment. Every report ends with what was not verified. The exit code is 0 when the scenario passed and 1 when it did not.
 
 **Handing a scenario to Codex**
 
 ```bash
-raven-test-studio --delegate codex --run quebrado
+raven-test-studio --delegate codex --run tools/raven-test-studio/tests/e2e/quebrado.raventest
 ```
 
 The Studio asks the Codex CLI installed on the computer, with its cheapest model and reading only, to run the scenario through the Studio's command line, read the report and, when it failed, find the cause in the Rust sources with file and line. Then the Studio runs the same scenario itself and says whether it confirms what Codex said, so a delegated answer is never taken on trust. The cheapest model is read from the list of models the installed Codex keeps (`~/.codex/models_cache.json`), the first it calls affordable; `--model` names another, and `--delegate claude` uses the Claude CLI with `haiku`. With `--format json` the report carries Codex's answer under `delegation`. Codex is called through [`ravenrs-agent-cli`](../../crates/ravenrs-agent-cli), as Raven Flows calls it: it keeps its own login, and every limit is checked against what it says it can do.
@@ -79,7 +88,8 @@ claude --plugin-dir tools/raven-test-studio/claude-pane
 ## How it works
 
 - `src/runner.rs`: what each block means (`step_of`: the kind is the action, the subtitle is the target and the text, `#id` for a test id), running it (`perform`) on a `Session` compiled in or opened apart, with the commands of `ravenrs-e2e-wire`, and a run that marks the flow as it goes (`Run`).
-- `src/apps.rs`: the apps opened apart and how each is found.
+- `src/apps.rs`: the apps opened apart, how each is found, and the scenarios each brings.
+- `tests/e2e/`: the scenario files the Studio's own tests use; not shipped.
 - `src/sample.rs`: the apps an Open block can name and the scenarios that come with the Studio, the self-test among them.
 - `src/report.rs`: the report for a person (`text`) and for a tool (`json`).
 - `src/cache.rs`: the cache of runs.

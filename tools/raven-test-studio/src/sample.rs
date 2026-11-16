@@ -68,6 +68,9 @@ fn chain(blocks: Vec<FlowNode>) -> FlowGraph {
     graph
 }
 
+/// The scenario the Studio opened by the self-test runs (and the same as
+/// `tests/e2e/lancar-despesa.raventest`): it is part of the self-test, not a scenario for people.
+///
 /// The scenario a sample Studio opens with: fill in an expense, save it, check what it says.
 pub fn scenario() -> FlowGraph {
     chain(vec![
@@ -88,25 +91,33 @@ pub fn broken_scenario() -> FlowGraph {
     ])
 }
 
-/// An expense in Raven Finanças, opened apart in a child process with no window, on its sample
-/// family in memory: the database of the person using it is never opened.
-pub fn finance_scenario() -> FlowGraph {
-    chain(vec![
-        block("open", "open", "Abrir o Raven Finanças", crate::apps::FINANCE_APP),
-        block("ledger", "click", "Ir aos lançamentos", "Lançamentos"),
-        block("new", "click", "Nova despesa", "Nova despesa"),
-        block("description", "type", "Digitar a descrição", "#field:description = Conserto da pia"),
-        block("amount", "type", "Digitar o valor", "#field:amount = 150,75"),
-        block("save", "click", "Salvar o lançamento", "#form:save"),
-        block("saved", "check", "O aviso diz que salvou", "Lançamento salvo = Lançamento salvo"),
-        block("listed", "check", "A despesa está no mês", "Conserto da pia = Conserto da pia"),
-        block("amount-listed", "check", "Com o valor certo", "-R$ 150,75 = -R$ 150,75"),
-    ])
+/// Scenarios read from `.raventest` files, one after the other in a single flow: each starts
+/// with its Open block, so a run opens each app anew.
+pub fn from_scenarios(scenarios: &[ravenrs_e2e_wire::Scenario]) -> FlowGraph {
+    let blocks = scenarios
+        .iter()
+        .enumerate()
+        .flat_map(|(s, scenario)| {
+            scenario.blocks.iter().enumerate().map(move |(b, block)| {
+                let id = if scenarios.len() == 1 {
+                    format!("b{}", b + 1)
+                } else {
+                    format!("s{}b{}", s + 1, b + 1)
+                };
+                self::block(&id, block.kind.word(), &block.title, &block.line())
+            })
+        })
+        .collect();
+    chain(blocks)
 }
 
-/// Whether a scenario opens an app apart, whose build the Studio's cache knows nothing about.
+/// Whether a scenario opens an app apart, one not compiled into the Studio, whose build the
+/// Studio's cache knows nothing about.
 pub fn opens_apart(graph: &FlowGraph) -> bool {
-    graph.nodes.iter().any(|n| n.kind == "open" && n.subtitle.as_deref() == Some(crate::apps::FINANCE_APP))
+    graph.nodes.iter().any(|n| {
+        n.kind == "open"
+            && !matches!(n.subtitle.as_deref(), Some(EXPENSE_APP | STUDIO_APP | BROKEN_STUDIO_APP) | None)
+    })
 }
 
 /// The Studio testing the Studio: it opens another Studio and checks that running,
@@ -138,8 +149,7 @@ pub fn self_test() -> FlowGraph {
 pub fn toolbox() -> FlowToolbox {
     FlowToolbox::new()
         .group("Início")
-        .model("Abrir o formulário", block("open", "open", "Abrir o app", EXPENSE_APP))
-        .model("Abrir outro Studio", block("open", "open", "Abrir outro Studio", STUDIO_APP))
+        .model("Abrir um app", block("open", "open", "Abrir o app", "Nome do app"))
         .model(
             "Abrir o Raven Finanças",
             block("open", "open", "Abrir o Raven Finanças", crate::apps::FINANCE_APP),

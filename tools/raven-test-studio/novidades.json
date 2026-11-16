@@ -1,18 +1,18 @@
 {
-  "versao": "0.1.3",
-  "titulo": "O Studio testa o Raven Finanças de verdade.",
+  "versao": "0.1.4",
+  "titulo": "O Studio não traz cenários: roda os do app ou da pasta do QA.",
   "importante": false,
   "novidades": [
-    "O cenário \"Raven Finanças: lançar despesa\" abre o Raven Finanças à parte, num processo sem janela, e lança uma despesa: 9 blocos.",
-    "O app testado roda nos dados de exemplo, na memória, e termina junto com o teste; os dados de quem usa nunca são abertos.",
-    "Um Raven Finanças instalado antes da 0.1.39 não é aberto: o Studio pede para atualizá-lo, ou usa o código do repositório.",
-    "O Studio agora também atende por RTS no MCP do RavenRS e nas skills."
+    "O Studio instalado do zero abre sem nenhum cenário; o autoteste continua, como a saúde do próprio Studio na barra de status.",
+    "Os cenários são arquivos .raventest, um bloco por linha, escritos em inglês ou em português.",
+    "Eles podem ficar no próprio app, em tests/e2e, ou numa pasta do QA: --run <arquivo ou pasta> roda os arquivos, e --run financas roda os que o Raven Finanças traz.",
+    "Uma linha errada no arquivo diz o número da linha e as palavras aceitas."
   ],
-  "por_que_atualizar": "Para testar um app de verdade, e não só os exemplos que vêm com o Studio.",
+  "por_que_atualizar": "Para guardar os testes onde a equipe de QA preferir, sem depender do que vem com o Studio.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    649
+    652
   ]
 }

@@ -354,15 +354,12 @@ fn run_log(outcomes: &[Outcome], total: usize, from_cache: bool) -> impl View {
     .padding(16.0)
 }
 
-/// The scenarios that come with the Studio, by the name `--run` takes: the Studio's own test,
-/// the expense form, a scenario that fails on purpose, and an expense in Raven Finanças opened
-/// apart in a child process.
-pub const SCENARIOS: [(&str, &str); 4] = [
-    ("autoteste", "O Studio testa o Studio"),
-    ("lancamento", "Lançar despesa"),
-    ("quebrado", "Cenário quebrado"),
-    ("financas", "Raven Finanças: lançar despesa"),
-];
+/// What `--run` takes by name. A Studio installed from scratch brings no test scenarios: only
+/// its own health check, "O Studio testa o Studio", and `financas`, which runs the scenarios
+/// Raven Finanças brings in its own `tests/e2e/`. Any other scenario is a `.raventest` file,
+/// kept in the app or in a QA team's folder, and run by path ([`run_named`]).
+pub const SCENARIOS: [(&str, &str); 2] =
+    [("autoteste", "O Studio testa o Studio"), ("financas", "Os cenários que o Raven Finanças traz")];
 
 /// Runs a scenario that comes with the Studio, with no window, and reports it; `None` when
 /// there is no scenario by that name. With a `cache`, a scenario that did not change on a
@@ -371,9 +368,12 @@ pub fn run_bundled(name: &str, cache: Option<&mut cache::RunCache>) -> Option<re
     let (key, title) = SCENARIOS.iter().find(|(key, _)| *key == name)?;
     let graph = match *key {
         "autoteste" => sample::self_test(),
-        "lancamento" => sample::scenario(),
-        "financas" => sample::finance_scenario(),
-        _ => sample::broken_scenario(),
+        "financas" => match apps::scenarios(apps::FINANCE_APP) {
+            Some(Ok(scenarios)) => sample::from_scenarios(&scenarios),
+            Some(Err(why)) => return Some(report::Report::refused(title, apps::FINANCE_APP, &why)),
+            None => return None,
+        },
+        _ => return None,
     };
     // An app opened apart is built apart: the Studio's build says nothing about it, so its
     // scenario always runs.
@@ -393,6 +393,53 @@ pub fn run_bundled(name: &str, cache: Option<&mut cache::RunCache>) -> Option<re
         let _ = c.put(k, &report);
     }
     Some(report)
+}
+
+/// Runs what `name` says: a name of [`SCENARIOS`], or the path of a `.raventest` file or of a
+/// folder of them. `Err` says why nothing ran.
+pub fn run_named(name: &str, cache: Option<&mut cache::RunCache>) -> Result<report::Report, String> {
+    if let Some(report) = run_bundled(name, cache) {
+        return Ok(report);
+    }
+    let path = std::path::Path::new(name);
+    if path.exists() {
+        return run_files(path);
+    }
+    let known: Vec<&str> = SCENARIOS.iter().map(|(key, _)| *key).collect();
+    Err(format!(
+        "não há cenário {name:?}; por nome: {}, ou o caminho de um arquivo .raventest ou de uma pasta deles",
+        known.join(", ")
+    ))
+}
+
+/// Runs `.raventest` files with no window and reports them: one file, or every file of a folder
+/// (the QA team's own, or an app's `tests/e2e/`), one after the other.
+pub fn run_files(path: &std::path::Path) -> Result<report::Report, String> {
+    let mut files = if path.is_dir() {
+        std::fs::read_dir(path)
+            .map_err(|e| format!("{}: {e}", path.display()))?
+            .flatten()
+            .map(|entry| entry.path())
+            .filter(|p| p.extension().is_some_and(|ext| ext == ravenrs_e2e_wire::EXTENSION))
+            .collect()
+    } else {
+        vec![path.to_path_buf()]
+    };
+    files.sort();
+    if files.is_empty() {
+        return Err(format!("{} não tem arquivos .{}", path.display(), ravenrs_e2e_wire::EXTENSION));
+    }
+    let mut scenarios = Vec::new();
+    for file in &files {
+        let text = std::fs::read_to_string(file).map_err(|e| format!("{}: {e}", file.display()))?;
+        scenarios
+            .push(ravenrs_e2e_wire::Scenario::parse(&text).map_err(|e| format!("{}: {e}", file.display()))?);
+    }
+    let title = match scenarios.as_slice() {
+        [one] => one.name.clone(),
+        many => format!("{} cenários de {}", many.len(), path.display()),
+    };
+    Ok(report::Report::of(&title, sample::from_scenarios(&scenarios), Run::new(open)))
 }
 
 /// The Studio opening with its own test, "O Studio testa o Studio", keeping its scenarios in
@@ -416,7 +463,9 @@ pub fn self_checked_app(cache: Option<&mut cache::RunCache>) -> Localized<Studio
 fn checked(updater: Updater, cache: Option<&mut cache::RunCache>) -> Localized<Studio> {
     let health = run_bundled("autoteste", cache);
     let storage: Rc<dyn Storage> = Rc::new(MemoryStorage::default());
-    Localized::new(Labels::pt_br(), Studio { storage, scenario: sample::self_test(), updater, health })
+    // The window opens with no scenario: a Studio installed from scratch brings none. Its own
+    // test ran above and shows in the status bar.
+    Localized::new(Labels::pt_br(), Studio { storage, scenario: FlowGraph::new(), updater, health })
 }
 
 /// The Studio as its window opens: it tests itself, then looks for a new version when it opens
