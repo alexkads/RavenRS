@@ -111,6 +111,28 @@ pub fn from_scenarios(scenarios: &[ravenrs_e2e_wire::Scenario]) -> FlowGraph {
     chain(blocks)
 }
 
+/// The scenario a flow stands for, as a `.raventest` file writes it: its blocks in the order
+/// they run, read the way the runner reads them. `Err` says which block cannot be written.
+pub fn scenario_of(graph: &FlowGraph, name: &str) -> Result<ravenrs_e2e_wire::Scenario, String> {
+    use ravenrs_e2e_wire::{Block, Kind};
+    let mut blocks = Vec::new();
+    for id in crate::runner::path(graph) {
+        let Some(node) = graph.nodes.iter().find(|n| n.id == id) else { continue };
+        let kind = Kind::read(&node.kind)
+            .ok_or_else(|| format!("{}: bloco desconhecido {}", node.title, node.kind))?;
+        let line = node.subtitle.as_deref().unwrap_or_default().trim();
+        let (target, text) = match line.split_once('=') {
+            Some((aim, text)) if kind != Kind::Open => (aim.trim().to_owned(), Some(text.trim().to_owned())),
+            _ => (line.to_owned(), None),
+        };
+        blocks.push(Block { kind, target, text, title: node.title.clone() });
+    }
+    if blocks.first().map(|b| b.kind) != Some(Kind::Open) {
+        return Err("o cenário começa por um bloco Início, que abre o app".to_owned());
+    }
+    Ok(ravenrs_e2e_wire::Scenario { name: name.to_owned(), blocks })
+}
+
 /// Whether a scenario opens an app apart, one not compiled into the Studio, whose build the
 /// Studio's cache knows nothing about.
 pub fn opens_apart(graph: &FlowGraph) -> bool {
@@ -162,7 +184,13 @@ pub fn toolbox() -> FlowToolbox {
         .group("Agir")
         .model("Clicar", block("click", "click", "Clicar", "#alvo"))
         .model("Digitar", block("type", "type", "Digitar", "#alvo = texto"))
+        .model("Preencher", block("fill", "fill", "Preencher", "#alvo = texto"))
+        .model("Escolher", block("select", "select", "Escolher", "#alvo = opção"))
+        .model("Expandir", block("expand", "expand", "Expandir", "#alvo"))
+        .model("Recolher", block("collapse", "collapse", "Recolher", "#alvo"))
+        .model("Rolar até", block("scroll", "scroll", "Rolar até", "#alvo"))
         .group("Conferir")
+        .model("Esperar", block("wait", "wait", "Esperar", "#alvo = texto"))
         .model("Conferir texto", block("check", "check", "Conferir", "#alvo = texto"))
         .model("Conferir que menciona", block("mention", "mention", "Conferir que menciona", "#alvo = texto"))
 }

@@ -73,6 +73,12 @@ impl Delegation {
         report
     }
 
+    /// For a person, as a card: who answered, the verdict, the cause, the fix, and whether the
+    /// Studio confirmed it, without the Studio's report.
+    pub fn card(&self) -> String {
+        self.text().split("\n\n").next().unwrap_or_default().trim_end().to_owned()
+    }
+
     /// For a person.
     pub fn text(&self) -> String {
         let model = self.model.as_deref().unwrap_or("modelo padrão");
@@ -165,6 +171,17 @@ pub fn read_answer(message: &str) -> Option<Value> {
 /// Hands `scenario` to `cli`'s agent with `model` (its cheapest when `None`), then runs it in
 /// the Studio to check the answer. `Err` says why the agent could not run.
 pub fn delegate(cli: &Cli, scenario: &str, model: Option<String>) -> Result<Delegation, String> {
+    delegate_until(cli, scenario, model, &|| false)
+}
+
+/// [`delegate`], asking `stop` between the agent's events: when it says so, the agent's CLI is
+/// ended and the answer is `Err` with "parado".
+pub fn delegate_until(
+    cli: &Cli,
+    scenario: &str,
+    model: Option<String>,
+    stop: &dyn Fn() -> bool,
+) -> Result<Delegation, String> {
     let checked = crate::run_named(scenario, None)?;
     let studio = std::env::current_exe().map_err(|e| format!("não achei o próprio Studio: {e}"))?;
     let model = model.or_else(|| cheapest_model(cli.agent()));
@@ -177,9 +194,11 @@ pub fn delegate(cli: &Cli, scenario: &str, model: Option<String>) -> Result<Dele
         ..Policy::default()
     };
     let started = std::time::Instant::now();
-    let answer: Answer = cli
-        .run(&mission(&studio, scenario, &sources), &policy, None, &|| false)
-        .map_err(|e| format!("o {} não rodou: {e}", cli.agent().program()))?;
+    let answer = cli.run(&mission(&studio, scenario, &sources), &policy, None, stop);
+    if stop() {
+        return Err(format!("parado: o {} foi encerrado antes de responder", cli.agent().program()));
+    }
+    let answer: Answer = answer.map_err(|e| format!("o {} não rodou: {e}", cli.agent().program()))?;
     let message = answer.final_message.clone().unwrap_or_default();
     let commands = answer
         .events

@@ -464,6 +464,8 @@ impl View for TreeLine<'_> {
             semantics = semantics.toggled(check);
         }
         cx.semantics(row, semantics);
+        // Tests find an item by the key the app gave it, wherever the tree shows it.
+        cx.test_id(row, &format!("item:{}", node.key));
         row
     }
 }

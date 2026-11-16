@@ -33,7 +33,7 @@ A target is `#id` for a test id, or the text shown. A failed step comes back as 
 | Code | Means |
 |---|---|
 | `E2E_APP_START` | the app did not start, or ended before saying hello or during a step |
-| `E2E_TIMEOUT` | the app did not answer a step in time; the client ended it |
+| `E2E_TIMEOUT` | a `wait` ran out of time, or the app did not answer a step in time and the client ended it |
 | `E2E_WIRE` | a line that is not part of this protocol |
 
 The child ends when the `Client` is dropped.
@@ -52,7 +52,9 @@ tool → {"op":"bye"}
 app  → {"ok":true}
 ```
 
-Commands: `click`, `type`, `check` (value, or name when there is no value, is exactly the text), `mention` (name or description contains the text), `snapshot` and `bye`.
+Commands: `click`, `type`, `fill`, `select`, `expand`, `collapse`, `scroll`, `wait` (with an optional `text`), `check` (value, or name when there is no value, is exactly the text), `mention` (name or description contains the text), `snapshot` and `bye`.
+
+A step does not fail for being early. It tries again for up to `PATIENCE` (2 s), with the session's clock moving, while its target is not there, covered, disabled or out of sight, or its check does not hold yet. When time runs out, it fails with its own code. An action on a part out of sight scrolls to it first, even a row a long list has not built. `wait` waits up to `WAIT` (5 s) and fails with `E2E_TIMEOUT`. In a `.raventest` file the words are `fill`/`preencher`, `select`/`escolher`, `expand`/`expandir`, `collapse`/`recolher`, `scroll`/`rolar` and `wait`/`esperar`.
 
 ## Not yet
 

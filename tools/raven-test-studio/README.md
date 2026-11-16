@@ -32,6 +32,26 @@ cargo run -p raven-test-studio
 
 "Rodar" runs the scenario from the start; "Próximo passo" runs one block at a time; "Parar" puts every block back; "Rodar sem cache" runs again even when nothing changed. Each block turns done, failed with the error, or "Não rodou" after a failure, and the log on the right says how each went.
 
+"Delegar ao Codex" hands the scenario on the canvas to the Codex CLI, with its cheapest model and reading only ([#637](https://github.com/alexkads/RavenRS/issues/637)):
+
+- Codex works in a thread of its own, so the window keeps answering, and "Parar" ends it.
+- Its card (verdict, cause, fix) shows in the log, with whether the Studio confirmed it. The Studio runs the same scenario itself and marks the blocks with its own report, never with what Codex said.
+- With no Codex installed, the button is off and the log says why.
+
+The blocks are those of a `.raventest` file. Every step waits up to 2 s for its target, and an action scrolls to a target out of sight:
+
+| Block | What it does |
+|---|---|
+| Início | opens the app |
+| Clicar | clicks the target |
+| Digitar | types the text |
+| Preencher | puts the text in place of what the field has |
+| Escolher | picks the option |
+| Expandir, Recolher | opens or closes the item |
+| Rolar até | scrolls the target into sight |
+| Esperar | waits up to 5 s, `E2E_TIMEOUT` otherwise |
+| Conferir, Conferir que menciona | checks the value, or what the part mentions |
+
 **With no window, for a person or a tool**
 
 ```bash
@@ -47,7 +67,7 @@ A Studio installed from scratch brings **no test scenarios**: the window opens e
 - **in the app**, in its `tests/e2e/`: the app embeds them and hands them over when the Studio opens it, so the installed app is tested without its source; `--run financas` runs the ones Raven Finanças brings;
 - **apart from the app**, in a folder of the QA team: `--run <file.raventest>` runs one, `--run <folder>` every file in it.
 
-**The Studio tests the Studio with its own scenarios.** `tests/e2e/` has five `.raventest` files that test the Studio's window (health, running to the end, step by step, stopping, the cache). They open "Raven Test Studio", which the Studio declares in its `Cargo.toml` and serves with `--e2e-serve`, so another Studio drives it in a process of its own:
+**The Studio tests the Studio with its own scenarios.** `tests/e2e/` has six `.raventest` files that test the Studio's window (health, running to the end, step by step, stopping, the cache, and the toolbox groups opening and closing with the blocks `wait`, `expand` and `collapse`). They open "Raven Test Studio", which the Studio declares in its `Cargo.toml` and serves with `--e2e-serve`, so another Studio drives it in a process of its own:
 
 ```bash
 raven-test-studio --project tools/raven-test-studio --run-all
@@ -130,7 +150,7 @@ claude --plugin-dir tools/raven-test-studio/claude-pane
 
 ## Limits for now
 
-- Only Raven Finanças opens apart so far (F6a, #649). Frames over the channel, `E2E_APP_BUILD`, `attach` to an app already open with permission on screen, and `cargo ravenrs e2e install` are the rest of phase F6 of #627.
-- Scenarios come with the Studio; scenario files (`.raventest`) are phase F5.
+- Frames over the channel, `E2E_APP_BUILD`, `attach` to an app already open with permission on screen, and `cargo ravenrs e2e install` are the rest of phase F6 of #627.
+- The window delegates to Codex only. Claude and another model are chosen on the command line and in the pane, not yet in the window.
 - Linux and Windows have not been run.
 - The comparison of each screen with its design board is phase F14.

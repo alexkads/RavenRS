@@ -120,7 +120,7 @@ fn the_studios_own_scenarios_pass_on_another_studio_apart() {
     let report = on_a_studio_apart(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/e2e"));
     assert!(report.passed(), "{}", report.text());
     assert!(report.apart, "the Studio under test ran in a process of its own");
-    assert_eq!(report.total, 29, "the five scenarios, one after the other");
+    assert_eq!(report.total, 37, "the six scenarios, one after the other");
 }
 
 #[test]

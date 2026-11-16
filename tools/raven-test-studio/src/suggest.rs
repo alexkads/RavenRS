@@ -79,11 +79,16 @@ scenario: <name of the scenario>\n\
 open <app name> | <title>\n\
 click <target> | <title>\n\
 type <target> = <text> | <title>\n\
+fill <target> = <text that replaces what the field has> | <title>\n\
+select <target> = <option shown> | <title>\n\
+expand <target> | <title>\n\
+collapse <target> | <title>\n\
+wait <target> = <text it comes to show> | <title>\n\
 check <target> = <exact value or name> | <title>\n\
 mention <target> = <text it contains> | <title>\n\
 A target is #<test id> or the exact text shown on screen. The first block opens the app. \
-type, check and mention always have ` = ` and a text after the target; click never has. Write \
-only blocks for what the screen and the test ids below show; never invent a test id.";
+type, fill, select, check and mention always have ` = ` and a text after the target; click, \
+expand and collapse never have. Act only on the targets listed below; never invent a test id.";
 
 /// A whole scenario, for the AI to copy the shape of when the app has none of its own.
 const EXAMPLE: &str = "scenario: Salvar um contato\n\
@@ -120,9 +125,19 @@ pub fn prompt(app: &str, screen: &str, found: &Found, existing: &[String]) -> (S
     let mut user = format!(
         "App: {app}\n\nFirst screen, as text (one line per part: role, name, #test id, value):\n{screen}\n"
     );
+    let on_screen = targets_on(screen);
+    if !on_screen.is_empty() {
+        user.push_str(&format!(
+            "\nTargets on the first screen, the only ones to click or type into there: {}\n",
+            on_screen.join(", ")
+        ));
+    }
     user.push_str(&format!("\nViews in its sources: {}\n", views.join(", ")));
     if !ids.is_empty() {
-        user.push_str(&format!("Test ids declared in its sources: {}\n", ids.join(", ")));
+        user.push_str(&format!(
+            "Test ids declared in its sources, for the screens a click opens: {}\n",
+            ids.join(", ")
+        ));
     }
     user.push_str(
         "Generated forms tag each editor #field:<field> and their buttons #form:save and #form:cancel.\n",
@@ -133,6 +148,53 @@ pub fn prompt(app: &str, screen: &str, found: &Found, existing: &[String]) -> (S
         user.push_str(&format!("It already has these scenarios; suggest others: {}\n", existing.join("; ")));
     }
     (system, user)
+}
+
+/// The targets a screen read over the test channel shows: `#id` for each test id and the name
+/// of each part, as [`ravenrs_e2e::E2e::snapshot`] writes them, in the order they show.
+pub fn targets_on(screen: &str) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    let mut add = |target: String| {
+        if !target.is_empty() && !out.contains(&target) {
+            out.push(target);
+        }
+    };
+    for line in screen.lines() {
+        let line = line.trim_start().trim_start_matches("- ");
+        if let Some(start) = line.find('"')
+            && let Some(len) = line[start + 1..].find('"')
+        {
+            add(line[start + 1..start + 1 + len].to_owned());
+        }
+        for word in line.split_whitespace() {
+            if word.starts_with('#') && word.len() > 1 {
+                add(word.to_owned());
+            }
+        }
+    }
+    out
+}
+
+/// The first block of `scenario` that acts on a target the app does not show: not on its first
+/// screen, not a test id its sources declare, not a field or button of a generated form. A check,
+/// a mention or a wait may name what a later screen shows, which no one knows before running.
+pub fn unknown_target(scenario: &Scenario, on_screen: &[String], declared: &[String]) -> Option<String> {
+    use ravenrs_e2e_wire::Kind;
+    scenario.blocks.iter().skip(1).find_map(|block| {
+        if matches!(block.kind, Kind::Check | Kind::Mention | Kind::Wait) {
+            return None;
+        }
+        let target = block.target.trim();
+        let known = on_screen.iter().any(|t| t == target)
+            || target.strip_prefix('#').is_some_and(|id| {
+                declared.iter().any(|d| d == id)
+                    || id.starts_with("field:")
+                    || matches!(id, "form:save" | "form:cancel")
+            });
+        (!known).then(|| {
+            format!("{} {target}: não está na primeira tela nem nos test ids do app", block.kind.word())
+        })
+    })
 }
 
 /// The scenarios in an AI's answer: each from its `scenario:` line to the next one.
@@ -252,13 +314,23 @@ pub fn suggest(found: &Found, project: &Path, writer: &Writer, write: bool) -> R
         .filter_map(|text| Scenario::parse(&text).ok())
         .map(|s| steps_of(&s))
         .collect();
+    let on_screen = targets_on(&screen);
+    let declared: Vec<String> = found.screens.iter().flat_map(|s| s.test_ids.iter().cloned()).collect();
     let list = scenarios_in(&answer)
         .into_iter()
         .map(|text| {
             let mut suggestion =
                 Suggestion { text: text.clone(), scenario: None, problem: None, report: None, written: None };
-            match Scenario::parse(&text) {
+            let parsed = Scenario::parse(&text);
+            let unknown =
+                parsed.as_ref().ok().and_then(|scenario| unknown_target(scenario, &on_screen, &declared));
+            match parsed {
                 Err(e) => suggestion.problem = Some(e.to_string()),
+                // Made up by the AI: discarded before it runs, with the reason.
+                Ok(scenario) if unknown.is_some() => {
+                    suggestion.problem = unknown;
+                    suggestion.scenario = Some(scenario);
+                }
                 Ok(scenario) if had.contains(&steps_of(&scenario)) => {
                     suggestion.problem = Some("repete um cenário que o app já tem".to_owned());
                     suggestion.scenario = Some(scenario);

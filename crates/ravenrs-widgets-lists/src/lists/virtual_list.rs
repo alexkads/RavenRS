@@ -534,6 +534,10 @@ impl View for Row<'_> {
             semantics = semantics.name(name(self.index));
         }
         cx.semantics(node, semantics);
+        // Tests find a row by its key, which stays with the data as rows move.
+        if let Some(key) = &list.key {
+            cx.test_id(node, &format!("row:{}", key(self.index)));
+        }
         if let Some(pick) = &self.pick {
             let (pick, index) = (pick.clone(), self.index);
             cx.on_click(node, Rc::new(move || pick(index)));

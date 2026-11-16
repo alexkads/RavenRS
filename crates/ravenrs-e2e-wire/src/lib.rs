@@ -112,6 +112,44 @@ pub enum Command {
         /// What it must contain.
         text: String,
     },
+    /// Puts the text in the field in place of what it has, as [`ravenrs_e2e::Locator::fill`].
+    Fill {
+        /// `#id` or the text shown.
+        target: String,
+        /// What the field must have.
+        text: String,
+    },
+    /// Picks the option in a list or a combo box, as [`ravenrs_e2e::Locator::select`].
+    Select {
+        /// `#id` or the text shown.
+        target: String,
+        /// The option, as it is shown.
+        text: String,
+    },
+    /// Opens the item, if it is closed.
+    Expand {
+        /// `#id` or the text shown.
+        target: String,
+    },
+    /// Closes the item, if it is open.
+    Collapse {
+        /// `#id` or the text shown.
+        target: String,
+    },
+    /// Scrolls the target into sight, even a row a long list has not built yet.
+    Scroll {
+        /// `#id` or the text shown.
+        target: String,
+    },
+    /// Waits for the target to show (and to mention the text, when there is one), up to
+    /// [`WAIT`]; it fails with `E2E_TIMEOUT` when it does not.
+    Wait {
+        /// `#id` or the text shown.
+        target: String,
+        /// What it must mention, if anything.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        text: Option<String>,
+    },
     /// The screen as text, as [`E2e::snapshot`] writes it.
     Snapshot,
     /// Ends the session; the app exits.
@@ -126,13 +164,66 @@ pub fn target(text: &str) -> Query {
     }
 }
 
+/// How long a step tries again while its target is not ready yet (not there, covered,
+/// disabled, out of sight, or a check that does not hold yet) before it fails as it is.
+pub const PATIENCE: std::time::Duration = std::time::Duration::from_secs(2);
+/// How long a [`Command::Wait`] waits.
+pub const WAIT: std::time::Duration = std::time::Duration::from_secs(5);
+
 impl Command {
     /// Runs the command on `e2e`: `Ok` with the screen for [`Command::Snapshot`], `Ok(None)`
     /// for a step that passed, the failure otherwise. [`Command::Bye`] does nothing here.
+    ///
+    /// A step does not fail for being early: it tries again for up to [`PATIENCE`], with the
+    /// session's clock moving, and an action on a part out of sight scrolls to it first.
     pub fn apply(&self, e2e: &mut E2e) -> Result<Option<String>, Failure> {
         let done = match self {
+            Self::Snapshot => return Ok(Some(e2e.snapshot())),
+            Self::Bye => Ok(()),
+            Self::Wait { target: t, text } => {
+                let q = target(t);
+                match text {
+                    Some(text) => e2e.wait_until(WAIT, |e| e.locate(q.clone()).expect().to_mention(text)),
+                    None => e2e.wait_until(WAIT, |e| e.find(&q).map(drop)),
+                }
+            }
+            _ => {
+                if let Some(t) = self.acts_on() {
+                    let q = target(t);
+                    if e2e.locate(q.clone()).expect().to_be_visible().is_err() {
+                        // Out of sight, or a row a long list has not built: scroll to it once.
+                        let _ = e2e.locate(q).scroll_into_view();
+                    }
+                }
+                e2e.patiently(PATIENCE, |e| self.once(e))
+            }
+        };
+        done.map(|()| None).map_err(Failure::from)
+    }
+
+    /// The target of a command that acts on a part, which must be in sight.
+    fn acts_on(&self) -> Option<&str> {
+        match self {
+            Self::Click { target }
+            | Self::Type { target, .. }
+            | Self::Fill { target, .. }
+            | Self::Select { target, .. }
+            | Self::Expand { target }
+            | Self::Collapse { target } => Some(target),
+            _ => None,
+        }
+    }
+
+    /// One try of the step.
+    fn once(&self, e2e: &mut E2e) -> ravenrs_e2e::E2eResult {
+        match self {
             Self::Click { target: t } => e2e.locate(target(t)).click(),
             Self::Type { target: t, text } => e2e.locate(target(t)).type_text(text),
+            Self::Fill { target: t, text } => e2e.locate(target(t)).fill(text),
+            Self::Select { target: t, text } => e2e.locate(target(t)).select(text),
+            Self::Expand { target: t } => e2e.locate(target(t)).expand(),
+            Self::Collapse { target: t } => e2e.locate(target(t)).collapse(),
+            Self::Scroll { target: t } => e2e.locate(target(t)).scroll_into_view(),
             Self::Check { target: t, text } => {
                 let q = target(t);
                 match e2e.find(&q) {
@@ -142,10 +233,8 @@ impl Command {
                 }
             }
             Self::Mention { target: t, text } => e2e.locate(target(t)).expect().to_mention(text),
-            Self::Snapshot => return Ok(Some(e2e.snapshot())),
-            Self::Bye => Ok(()),
-        };
-        done.map(|()| None).map_err(Failure::from)
+            Self::Wait { .. } | Self::Snapshot | Self::Bye => Ok(()),
+        }
     }
 }
 

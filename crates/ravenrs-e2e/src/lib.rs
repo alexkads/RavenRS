@@ -30,12 +30,22 @@
 //! test, a report or a coding agent sees the screen without an image. Secret values never
 //! appear in it.
 //!
-//! What this session does not do yet: drive the animation clock or wait for background work
-//! (actions see the screen right after the frame they cause), and the newer accessibility
-//! actions (set a value, expand, select, scroll into view). Both come in the next steps of
-//! issue #627.
+//! Time is the session's: it moves only with [`E2e::advance`] and while a step waits, so an
+//! animation or a timer never makes a test pass on one machine and fail on another.
+//! [`E2e::wait_until`] looks again until a check holds, moving the clock with real time so
+//! timers fire and work done in the background shows, and fails with
+//! [`ErrorCode::Timeout`] when it does not; [`E2e::patiently`] is the same for a step that
+//! should simply not fail for being early.
+//!
+//! Besides clicks and keys, a [`Locator`] fills a field ([`Locator::fill`]), picks an option
+//! ([`Locator::select`]), opens and closes an item ([`Locator::expand`],
+//! [`Locator::collapse`]) and scrolls a part into sight ([`Locator::scroll_into_view`]), even a
+//! row a long list has not built yet. Lists, grids and trees with keys give their rows the test
+//! ids `row:<key>` and `item:<key>`, which stay with the data when it moves.
 
+mod actions;
 mod error;
+mod patience;
 mod query;
 mod snapshot;
 
@@ -67,6 +77,7 @@ pub struct E2e {
     refs: HashMap<u64, u32>,
     next_ref: u32,
     pointer: Point,
+    clock: f64,
 }
 
 impl std::fmt::Debug for E2e {
@@ -80,8 +91,14 @@ impl E2e {
     pub fn new(view: impl View + 'static, theme: Theme) -> Self {
         let mut ui = Ui::new(view, theme);
         ui.set_viewport(DEFAULT_VIEWPORT, 1.0);
-        let mut session =
-            Self { ui, tree: AccessTree::default(), refs: HashMap::new(), next_ref: 1, pointer: Point::ZERO };
+        let mut session = Self {
+            ui,
+            tree: AccessTree::default(),
+            refs: HashMap::new(),
+            next_ref: 1,
+            pointer: Point::ZERO,
+            clock: 0.0,
+        };
         session.frame();
         session
     }

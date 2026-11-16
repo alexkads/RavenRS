@@ -39,9 +39,17 @@ The Studio finds the app in this order: the path in `RAVEN_FINANCAS`; the instal
 
 In the app, generated forms tag each editor `field:<field>` and their buttons `form:save` and `form:cancel`, so a block writes `#field:description = Mercado`.
 
+## Writing blocks
+
+Blocks are lines of a `.raventest` file: `open`, `click`, `type`, `fill` (replaces what a field has; moves a slider to a number), `select` (picks an option of a combo box, list or tabs), `expand`, `collapse`, `scroll`, `wait` (up to 5 s, `E2E_TIMEOUT` otherwise), `check` and `mention`. They also read in Portuguese: `preencher`, `escolher`, `expandir`, `recolher`, `rolar`, `esperar`.
+
+- Every step waits up to 2 s for its target before failing with its own code, so do not add a `wait` before each step. Use it only for what takes longer, such as an answer from a server.
+- An action scrolls to a target out of sight by itself.
+- To reach a row whatever its position, target it by its key: `#row:<key>` in a `VirtualList` with `key` or a `DataGrid` with `key_column`, `#item:<key>` in a `TreeView`, `#node:<id>` in a `FlowCanvas`.
+
 ## Handing it to Codex
 
-When the user asks to delegate the test, or to save your own context on a long diagnosis, hand the scenario to Codex: `run_scenario` with `delegate: "codex"`, or `raven-test-studio --delegate codex --run <scenario>`. Codex runs it with its cheapest model (read from the list the installed Codex keeps; `model` names another), reading only, and answers with the verdict, the cause and the fix with file and line. The Studio then runs the same scenario itself: `delegation.confirmed` says whether it agrees. Report Codex's diagnosis as Codex's, and trust it only when it is confirmed; when it is not, the Studio's own report is the truth. `delegate: "claude"` uses the Claude CLI with `haiku`.
+When the user asks to delegate the test, or to save your own context on a long diagnosis, hand the scenario to Codex: `run_scenario` with `delegate: "codex"`, or `raven-test-studio --delegate codex --run <scenario>`. Codex runs it with its cheapest model (read from the list the installed Codex keeps; `model` names another), reading only, and answers with the verdict, the cause and the fix with file and line. The Studio then runs the same scenario itself: `delegation.confirmed` says whether it agrees. Report Codex's diagnosis as Codex's, and trust it only when it is confirmed; when it is not, the Studio's own report is the truth. `delegate: "claude"` uses the Claude CLI with `haiku`. In the Studio's window, "Delegar ao Codex" does the same without freezing the screen, and "Parar" ends it.
 
 ## A newer Studio
 
@@ -86,4 +94,4 @@ An app declares itself for the RTS in its `Cargo.toml`, `[package.metadata.raven
 
 ## The Studio's own tests
 
-The RTS is tested by the RTS: `tools/raven-test-studio/tests/e2e/*.raventest` test its window (health `#health`, `#run`, `#next`, `#stop`, `#run-fresh`, `#summary`, `#log-N`, `#cache-note`, the blocks `#node:<id>`) on another Studio opened apart with `--e2e-serve`. Run them with `raven-test-studio --project tools/raven-test-studio --run-all` (or `scan_project` with `action: "run_all"`). When the Studio's window changes, change these files in the same PR and run them.
+The RTS is tested by the RTS: `tools/raven-test-studio/tests/e2e/*.raventest` test its window (health `#health`, `#run`, `#next`, `#stop`, `#run-fresh`, `#summary`, `#log-N`, `#cache-note`, `#delegate`, `#delegation`, `#delegate-hint`, the blocks `#node:<id>`) on another Studio opened apart with `--e2e-serve`. Run them with `raven-test-studio --project tools/raven-test-studio --run-all` (or `scan_project` with `action: "run_all"`). When the Studio's window changes, change these files in the same PR and run them.
