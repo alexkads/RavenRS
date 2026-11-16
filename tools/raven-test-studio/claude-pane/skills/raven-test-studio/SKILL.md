@@ -1,17 +1,19 @@
 ---
 name: raven-test-studio
-description: How to test a RavenRS screen from the outside with Raven Test Studio, the end-to-end test tool of RavenRS, and how to read its report - the scenarios, the run_scenario tool, the CLI, the JSON report with stable E2E_* codes, the cache and the self-test. Use whenever you change a RavenRS screen or component and need to prove it still works with real clicks and typing, when asked to run, read or fix an end-to-end test, a scenario, the self-test or "o autoteste do Studio", or when a report shows an E2E_ code, even if the request does not name the Studio.
+description: How to test a RavenRS screen from the outside with Raven Test Studio (RTS), the end-to-end test tool of RavenRS, and how to read its report - the scenarios, the run_scenario tool, the CLI, the JSON report with stable E2E_* codes, the cache and the self-test. Use whenever you change a RavenRS screen or component and need to prove it still works with real clicks and typing, when asked to run, read or fix an end-to-end test, a scenario, the self-test or "o autoteste do Studio", whenever the user says RTS (Raven Test Studio), or asks to test Raven Finanças in the Studio, or when a report shows an E2E_ code, even if the request does not name the Studio.
 ---
 
-# Raven Test Studio
+# Raven Test Studio (RTS)
+
+RTS is how people call it for short: "roda no RTS", "o teste do RTS" mean this Studio.
 
 The Studio runs a scenario, a flow of blocks (open an app, click, type, check, mention), against a RavenRS app with `ravenrs-e2e`, and says how each block went. Its report is made to be acted on: each failure has a stable code, what it means, the detail, how to fix it, the parts that came close and the screen of the app at that moment.
 
-The whole list of what it offers is in `tools/raven-test-studio/tool.json`, the same one the RavenRS MCP server answers from (`ravenrs_tools` with name `raven-test-studio`).
+The whole list of what it offers is in `tools/raven-test-studio/tool.json`, the same one the RavenRS MCP server answers from (`ravenrs_tools` with name `raven-test-studio` or `RTS`).
 
 ## Running a scenario
 
-Prefer the tool when it is there: `run_scenario` with `scenario` (`autoteste`, `lancamento` or `quebrado`) returns the JSON report and shows it in the pane beside the chat.
+Prefer the tool when it is there: `run_scenario` with `scenario` (`autoteste`, `lancamento`, `quebrado` or `financas`) returns the JSON report and shows it in the pane beside the chat.
 
 Without the pane, the CLI does the same:
 
@@ -26,6 +28,14 @@ cargo run -q -p raven-test-studio -- --run autoteste --format json
 ```
 
 The exit code is 0 when it passed, 1 when it failed and 2 when there is no such scenario.
+
+## Testing a real app: Raven Finanças
+
+`financas` opens Raven Finanças **apart**, in a child process with no window, and drives it over the test channel (`ravenrs-e2e-wire`): it launches the expense "Conserto da pia" of R$ 150,75 and checks it in the month, 9 blocks. The app runs on its sample family in memory on a fixed day, so the database of the person using it is never opened. It never comes from the cache, because the Studio's build says nothing about the app's.
+
+The Studio finds the app in this order: the path in `RAVEN_FINANCAS`; the installed copy, only if `--versao` says 0.1.39 or later (an older one would read `--e2e-serve` as a database path); inside the RavenRS checkout, `cargo run -p family-finance --bin family-finance`. When none fits, the Open block fails saying which to do. A failure to start is `E2E_APP_START` with what the app wrote on leaving; an app that stops answering is ended with `E2E_TIMEOUT`.
+
+In the app, generated forms tag each editor `field:<field>` and their buttons `form:save` and `form:cancel`, so a block writes `#field:description = Conserto da pia`.
 
 ## Handing it to Codex
 

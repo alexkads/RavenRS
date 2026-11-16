@@ -1,22 +1,17 @@
 {
-  "versao": "0.1.38",
-  "titulo": "Painel do seu jeito, por conta, e bot do Telegram firme em rede ruim.",
+  "versao": "0.1.39",
+  "titulo": "O Raven Finanças pode ser testado pelo Raven Test Studio.",
   "importante": false,
   "novidades": [
-    "No Painel, cada card muda de lugar e de tamanho, pelo mouse ou pelo teclado. O arranjo fica guardado, e o botão Restaurar layout volta ao original.",
-    "O Painel mostra uma conta só ou todas: o saldo, o gráfico, as receitas, as despesas e as categorias seguem a conta escolhida, que fica guardada para a próxima vez.",
-    "O bot do Telegram não responde duas vezes depois de uma queda de rede, e um botão já usado avisa no próprio botão, sem encher o chat.",
-    "Os botões do bot respondem mais rápido, e as respostas ficaram mais claras: ✅ Lançado, ❌ Cancelado e ↩️ Desfeito.",
-    "Um comprovante em PDF com mais de um valor mostra os valores como botões para você escolher o total."
+    "O Raven Test Studio (RTS) abre o Raven Finanças sem janela e lança uma despesa de teste, para provar que a tela de lançamentos funciona.",
+    "O teste usa só a família de exemplo, na memória: os seus dados nunca são abertos nem alterados.",
+    "Os campos e os botões dos formulários ganharam marcas para os testes acharem cada um, sem mudar nada do que você vê."
   ],
-  "por_que_atualizar": "Para arrumar o Painel como prefere, ver cada conta separada e lançar pelo Telegram sem respostas repetidas, mesmo com a internet ruim.",
+  "por_que_atualizar": "Para que o Raven Test Studio teste esta versão instalada, e não só o código do repositório.",
   "contribuidores": [
-    "Matheus Braga de Carvalho",
     "Alex S S Fonseca"
   ],
   "issues": [
-    199,
-    200,
-    201
+    649
   ]
 }

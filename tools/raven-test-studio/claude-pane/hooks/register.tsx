@@ -7,7 +7,7 @@ const PANE = 'raven-test-studio'
 const TITLE = 'Raven Test Studio'
 const TOOL = 'mcp__raven-test-studio__run_scenario'
 // The scenarios that come with the Studio, by the name its `--run` takes.
-const SCENARIOS = ['autoteste', 'lancamento', 'quebrado'] as const
+const SCENARIOS = ['autoteste', 'lancamento', 'quebrado', 'financas'] as const
 // What each scenario is, for the empty pane.
 const ABOUT = {
   autoteste: {
@@ -17,6 +17,11 @@ const ABOUT = {
   },
   lancamento: { icon: '🧾', title: 'Lançar despesa', blurb: 'preenche e salva um formulário de exemplo · 5 blocos' },
   quebrado: { icon: '⚠', title: 'Cenário quebrado', blurb: 'falha no passo 2 de propósito, para ver um erro · 3 blocos' },
+  financas: {
+    icon: '💰',
+    title: 'Raven Finanças: lançar despesa',
+    blurb: 'abre o Raven Finanças à parte, sem janela e nos dados de exemplo, e lança uma despesa · 9 blocos',
+  },
 } as const
 
 /** The title of a scenario by the name `--run` takes. */
@@ -281,7 +286,7 @@ export const register: Register = on => {
     await $.tool.register({
       name: 'run_scenario',
       description:
-        'Runs a Raven Test Studio scenario with no window and returns its report: the verdict, each block with its result, the stable error code (E2E_*), what it means, how to fix it and the screen of the app under test when a block failed. "autoteste" is the Studio testing another Studio; "lancamento" fills in a sample form; "quebrado" fails on purpose. A scenario that did not change on a build that did not change comes back from the Studio cache unless no_cache is true. With delegate "codex" (or "claude") the Studio hands the scenario to that agent with its cheapest model, reading only: it runs the scenario, reads the report and finds the cause of a failure in the Rust sources; then the Studio runs it itself and says whether it confirms the agent. Delegate when the user asks for it or to save your own context.',
+        'Runs a Raven Test Studio (RTS) scenario with no window and returns its report: the verdict, each block with its result, the stable error code (E2E_*), what it means, how to fix it and the screen of the app under test when a block failed. "autoteste" is the Studio testing another Studio; "lancamento" fills in a sample form; "quebrado" fails on purpose; "financas" opens the real Raven Finanças apart, in a child process with no window on its sample data in memory, and launches an expense. When the user says RTS they mean this Studio. A scenario that did not change on a build that did not change comes back from the Studio cache unless no_cache is true. With delegate "codex" (or "claude") the Studio hands the scenario to that agent with its cheapest model, reading only: it runs the scenario, reads the report and finds the cause of a failure in the Rust sources; then the Studio runs it itself and says whether it confirms the agent. Delegate when the user asks for it or to save your own context.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -553,7 +558,7 @@ export const register: Register = on => {
           )}
           <Box flexDirection="column" gap={1}>
             {caption('Outros cenários')}
-            {(['lancamento', 'quebrado'] as const).map(key => (
+            {(['financas', 'lancamento', 'quebrado'] as const).map(key => (
               <Box key={`row-${key}`} flexDirection="row" alignItems="flex-start" gap={1} borderStyle="round" borderColor={LINE} paddingX={1}>
                 <Text>{ABOUT[key].icon}</Text>
                 <Box flexDirection="column" flexGrow={1} flexShrink={1}>
@@ -747,6 +752,11 @@ export const register: Register = on => {
             {asked !== 'autoteste' && (
               <Button key="self" onPress={press('autoteste', false)}>
                 Autoteste
+              </Button>
+            )}
+            {asked !== 'financas' && (
+              <Button key="finance" onPress={press('financas', false)}>
+                Raven Finanças
               </Button>
             )}
             {asked !== 'lancamento' && (

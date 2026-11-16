@@ -10,9 +10,16 @@ use serde_json::{Value, json};
 
 use crate::runner::{self, Outcome, Run};
 
-/// What this run could not check, said in every report.
+/// What a run of an app compiled into the Studio could not check, said in its report.
 pub const NOT_VERIFIED: [&str; 3] = [
-    "o app testado roda no mesmo processo do Studio; o processo filho vem na F6 da #627",
+    "o app testado roda no mesmo processo do Studio, compilado junto com ele",
+    "Linux e Windows não rodaram aqui",
+    "a comparação com as pranchetas do design vem na F14 da #627",
+];
+
+/// What a run of an app opened apart could not check, said in its report.
+pub const NOT_VERIFIED_APART: [&str; 3] = [
+    "o app testado rodou à parte, sem janela e sem GPU, nos dados de exemplo em memória: o desenho na tela e os dados de quem usa não foram tocados",
     "Linux e Windows não rodaram aqui",
     "a comparação com as pranchetas do design vem na F14 da #627",
 ];
@@ -32,16 +39,24 @@ pub struct Report {
     /// How long the run took, in milliseconds, measured on the clock of the machine that ran
     /// it (a report from the cache keeps the time of the run it came from).
     pub duration_ms: u64,
+    /// Whether the app ran apart, in a child process over the test channel.
+    pub apart: bool,
 }
 
 impl Report {
     /// Runs `graph` to the end with `run` and reports it under `scenario`.
     pub fn of(scenario: &str, mut graph: FlowGraph, mut run: Run) -> Self {
         let total = runner::path(&graph).len();
+        let apart = crate::sample::opens_apart(&graph);
         let started = std::time::Instant::now();
         let outcomes = run.to_end(&mut graph);
         let duration_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-        Self { scenario: scenario.to_owned(), outcomes, total, cached_at: None, duration_ms }
+        Self { scenario: scenario.to_owned(), outcomes, total, cached_at: None, duration_ms, apart }
+    }
+
+    /// What this run could not check.
+    pub fn not_verified(&self) -> [&'static str; 3] {
+        if self.apart { NOT_VERIFIED_APART } else { NOT_VERIFIED }
     }
 
     /// A report read back from what [`Report::json`] wrote.
@@ -77,6 +92,7 @@ impl Report {
             total: usize::try_from(value.get("total")?.as_u64()?).ok()?,
             cached_at: None,
             duration_ms: value.get("duration_ms").and_then(Value::as_u64).unwrap_or_default(),
+            apart: value.get("opened_apart").and_then(Value::as_bool).unwrap_or_default(),
         })
     }
 
@@ -131,7 +147,7 @@ impl Report {
             }
         }
         out.push_str("\nnão verificado: ");
-        out.push_str(&NOT_VERIFIED.join("; "));
+        out.push_str(&self.not_verified().join("; "));
         out
     }
 
@@ -169,7 +185,8 @@ impl Report {
             "duration_ms": self.duration_ms,
             "from_cache": self.cached_at.is_some(),
             "cached_at": self.cached_at,
-            "not_verified": NOT_VERIFIED,
+            "not_verified": self.not_verified(),
+            "opened_apart": self.apart,
         })
     }
 }

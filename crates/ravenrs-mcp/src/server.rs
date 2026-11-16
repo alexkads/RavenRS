@@ -351,7 +351,7 @@ impl RavenServer {
     }
 
     #[tool(
-        description = "The installable tools of RavenRS (tools/), such as Raven Test Studio, the end-to-end test tool. With no name, lists them with version and summary; with a name, everything the tool offers from its tool.json: when to use it, its commands and exit codes, scenarios, blocks, the fields of its report, the error codes with their meaning and fix, its cache, its pane and AI tools in Claude, how to install it, its limits and its README.",
+        description = "The installable tools of RavenRS (tools/), such as Raven Test Studio (RTS), the end-to-end test tool. With no name, lists them with version, summary and short names; with a name (or a short name such as RTS), everything the tool offers from its tool.json: when to use it, its commands and exit codes, scenarios, blocks, the fields of its report, the error codes with their meaning and fix, its cache, its pane and AI tools in Claude, how to install it, its limits and its README.",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     fn ravenrs_tools(&self, Parameters(input): Parameters<RavenTools>) -> CallToolResult {

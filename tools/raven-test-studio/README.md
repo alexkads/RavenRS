@@ -1,6 +1,6 @@
-# Raven Test Studio
+# Raven Test Studio (RTS)
 
-The end-to-end test tool of RavenRS, as an app: a scenario is a flow of blocks (open an app, type, click, check), run with [`ravenrs-e2e`](../../crates/ravenrs-e2e) against an app, each block marked as it goes. It is made only with RavenRS components (`FlowLibrary`, `FlowToolbox`, `FlowCanvas`, `FlowInspector`), and **it tests itself**: the scenario it opens with, "O Studio testa o Studio", opens another Studio and checks that running, stepping, stopping and failing all show as they should.
+The end-to-end test tool of RavenRS, RTS for short, as an app: a scenario is a flow of blocks (open an app, type, click, check), run with [`ravenrs-e2e`](../../crates/ravenrs-e2e) against an app, each block marked as it goes. It is made only with RavenRS components (`FlowLibrary`, `FlowToolbox`, `FlowCanvas`, `FlowInspector`), and **it tests itself**: the scenario it opens with, "O Studio testa o Studio", opens another Studio and checks that running, stepping, stopping and failing all show as they should.
 
 This is the first step of [#627](https://github.com/alexkads/RavenRS/issues/627), [#634](https://github.com/alexkads/RavenRS/issues/634). The plan, the design and what comes next are there.
 
@@ -37,7 +37,12 @@ cargo run -p raven-test-studio
 ```bash
 cargo run -p raven-test-studio -- --self-test
 cargo run -p raven-test-studio -- --run quebrado --format json
+cargo run -p raven-test-studio -- --run financas
 ```
+
+**A real app, apart: Raven Finanças**
+
+`--run financas` opens Raven Finanças in a child process with no window, over the test channel [`ravenrs-e2e-wire`](../../crates/ravenrs-e2e-wire), launches an expense and checks it in the month. The app runs on its sample family in memory on a fixed day; the database of the person using it is never opened. The Studio takes the app from `RAVEN_FINANCAS`, else the installed copy if it is 0.1.39 or later, else `cargo run` inside the checkout. An older installed copy is never given `--e2e-serve`: it would read it as the path of a database.
 
 Closing the window keeps the Studio beside the clock, as Raven Finanças does: its menu opens the window again or quits, and launching it again opens the copy already running. When its window opens, the Studio runs its self-test first (from the cache when nothing changed) and says how it went in the status bar.
 
@@ -73,7 +78,8 @@ claude --plugin-dir tools/raven-test-studio/claude-pane
 
 ## How it works
 
-- `src/runner.rs`: what each block means (`step_of`: the kind is the action, the subtitle is the target and the text, `#id` for a test id), running it (`perform`), and a run that marks the flow as it goes (`Run`).
+- `src/runner.rs`: what each block means (`step_of`: the kind is the action, the subtitle is the target and the text, `#id` for a test id), running it (`perform`) on a `Session` compiled in or opened apart, with the commands of `ravenrs-e2e-wire`, and a run that marks the flow as it goes (`Run`).
+- `src/apps.rs`: the apps opened apart and how each is found.
 - `src/sample.rs`: the apps an Open block can name and the scenarios that come with the Studio, the self-test among them.
 - `src/report.rs`: the report for a person (`text`) and for a tool (`json`).
 - `src/cache.rs`: the cache of runs.
@@ -84,7 +90,7 @@ claude --plugin-dir tools/raven-test-studio/claude-pane
 
 ## Limits for now
 
-- The app under test runs in the Studio's process. Opening the person's own app in another process is phase F6 of #627.
+- Only Raven Finanças opens apart so far (F6a, #649). Frames over the channel, `E2E_APP_BUILD`, `attach` to an app already open with permission on screen, and `cargo ravenrs e2e install` are the rest of phase F6 of #627.
 - Scenarios come with the Studio; scenario files (`.raventest`) are phase F5.
 - Linux and Windows have not been run.
 - The comparison of each screen with its design board is phase F14.

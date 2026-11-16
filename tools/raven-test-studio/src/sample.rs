@@ -88,6 +88,27 @@ pub fn broken_scenario() -> FlowGraph {
     ])
 }
 
+/// An expense in Raven Finanças, opened apart in a child process with no window, on its sample
+/// family in memory: the database of the person using it is never opened.
+pub fn finance_scenario() -> FlowGraph {
+    chain(vec![
+        block("open", "open", "Abrir o Raven Finanças", crate::apps::FINANCE_APP),
+        block("ledger", "click", "Ir aos lançamentos", "Lançamentos"),
+        block("new", "click", "Nova despesa", "Nova despesa"),
+        block("description", "type", "Digitar a descrição", "#field:description = Conserto da pia"),
+        block("amount", "type", "Digitar o valor", "#field:amount = 150,75"),
+        block("save", "click", "Salvar o lançamento", "#form:save"),
+        block("saved", "check", "O aviso diz que salvou", "Lançamento salvo = Lançamento salvo"),
+        block("listed", "check", "A despesa está no mês", "Conserto da pia = Conserto da pia"),
+        block("amount-listed", "check", "Com o valor certo", "-R$ 150,75 = -R$ 150,75"),
+    ])
+}
+
+/// Whether a scenario opens an app apart, whose build the Studio's cache knows nothing about.
+pub fn opens_apart(graph: &FlowGraph) -> bool {
+    graph.nodes.iter().any(|n| n.kind == "open" && n.subtitle.as_deref() == Some(crate::apps::FINANCE_APP))
+}
+
 /// The Studio testing the Studio: it opens another Studio and checks that running,
 /// stepping, stopping and failing all show as they should.
 pub fn self_test() -> FlowGraph {
@@ -119,6 +140,10 @@ pub fn toolbox() -> FlowToolbox {
         .group("Início")
         .model("Abrir o formulário", block("open", "open", "Abrir o app", EXPENSE_APP))
         .model("Abrir outro Studio", block("open", "open", "Abrir outro Studio", STUDIO_APP))
+        .model(
+            "Abrir o Raven Finanças",
+            block("open", "open", "Abrir o Raven Finanças", crate::apps::FINANCE_APP),
+        )
         .group("Agir")
         .model("Clicar", block("click", "click", "Clicar", "#alvo"))
         .model("Digitar", block("type", "type", "Digitar", "#alvo = texto"))

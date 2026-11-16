@@ -18,6 +18,7 @@ pub fn tools(name: Option<&str>) -> Result<Value, String> {
             .map(|(path, tool)| {
                 json!({
                     "name": tool["name"],
+                    "also_called": tool["also_called"],
                     "package": tool["package"],
                     "version": tool["version"],
                     "summary": tool["summary"],
@@ -35,8 +36,11 @@ pub fn tools(name: Option<&str>) -> Result<Value, String> {
     let (path, tool) = manifests
         .iter()
         .find(|(_, tool)| {
+            // The name, the package, or what people call it for short, such as "RTS".
+            let short = tool["also_called"].as_array().into_iter().flatten();
             [&tool["package"], &tool["name"]]
-                .iter()
+                .into_iter()
+                .chain(short)
                 .any(|field| field.as_str().is_some_and(|text| text.to_lowercase() == wanted))
         })
         .or_else(|| {
