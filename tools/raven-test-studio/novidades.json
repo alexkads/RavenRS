@@ -1,17 +1,21 @@
 {
-  "versao": "0.1.6",
-  "titulo": "O Studio se testa com cenários, como qualquer app.",
+  "versao": "0.1.7",
+  "titulo": "Cenários que esperam, escolhem, preenchem e rolam, e o Codex pela janela.",
   "importante": false,
   "novidades": [
-    "Os testes do próprio Studio agora são cenários .raventest: saúde, rodar até o fim, passo a passo, parar e cache.",
-    "Um Studio testa outro num processo à parte, pelo canal de teste: raven-test-studio --project tools/raven-test-studio --run-all.",
-    "O Studio instalado continua sem trazer nenhum cenário."
+    "Cada passo espera até 2 s o alvo ficar pronto antes de falhar, com o relógio do teste andando: temporizadores e trabalho em segundo plano aparecem.",
+    "Blocos novos: preencher, escolher, expandir, recolher, rolar e esperar (este falha com E2E_TIMEOUT).",
+    "Linhas de listas, grades e árvores com chave são achadas por #row:<chave> e #item:<chave>, mesmo fora da tela.",
+    "Botão Delegar ao Codex na janela: o Codex trabalha sem travar a tela, Parar o encerra, e o Studio confere o veredito rodando o mesmo cenário.",
+    "As sugestões da IA local só usam alvos que existem na primeira tela do app."
   ],
-  "por_que_atualizar": "Para que o Studio prove que funciona do mesmo jeito que testa os outros apps.",
+  "por_que_atualizar": "Para testar telas reais sem passos que falham por pressa ou por posição, e pedir o diagnóstico ao Codex sem sair da janela.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    656
+    637,
+    650,
+    658
   ]
 }

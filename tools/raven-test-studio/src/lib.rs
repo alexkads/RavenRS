@@ -44,10 +44,16 @@ pub fn app_icon() -> Option<ImageData> {
 }
 
 /// The kinds of block, with the word the canvas and the inspector show for each.
-pub const KINDS: [(&str, &str); 5] = [
+pub const KINDS: [(&str, &str); 11] = [
     ("open", "Início"),
     ("click", "Clicar"),
     ("type", "Digitar"),
+    ("fill", "Preencher"),
+    ("select", "Escolher"),
+    ("expand", "Expandir"),
+    ("collapse", "Recolher"),
+    ("scroll", "Rolar até"),
+    ("wait", "Esperar"),
     ("check", "Conferir"),
     ("mention", "Conferir que menciona"),
 ];
@@ -55,8 +61,9 @@ pub const KINDS: [(&str, &str); 5] = [
 fn icon(kind: &str) -> IconName {
     match kind {
         "open" => IconName::Play,
-        "click" => IconName::MousePointer,
-        "type" => IconName::Keyboard,
+        "click" | "select" | "expand" | "collapse" | "scroll" => IconName::MousePointer,
+        "type" | "fill" => IconName::Keyboard,
+        "wait" => IconName::Clock,
         _ => IconName::Check,
     }
 }
@@ -93,9 +100,20 @@ pub struct Studio {
     /// How the Studio's own test went when the window opened; `None` for a Studio that did not
     /// test itself, as the one a scenario opens.
     health: Option<report::Report>,
+    /// The agent the window hands its scenario to, Codex by default.
+    #[cfg(not(target_arch = "wasm32"))]
+    agent: ravenrs_agent_cli::Cli,
 }
 
 impl Studio {
+    /// The same window, handing its scenario to `agent` instead of Codex: Claude, or a fake one
+    /// in tests.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn agent(mut self, agent: ravenrs_agent_cli::Cli) -> Self {
+        self.agent = agent;
+        self
+    }
+
     /// The bar at the bottom: the version, how the Studio's own test went, and the updater's
     /// notice when there is one.
     fn status_bar(&self) -> StatusBar {
@@ -197,13 +215,61 @@ impl View for Studio {
         };
         let finished = run.get().borrow().finished(&graph.get());
         let ran = !log.get().is_empty();
+        #[cfg(not(target_arch = "wasm32"))]
+        let handing = cx.use_state(Handing::shared);
+        #[cfg(not(target_arch = "wasm32"))]
+        let turn = cx.use_state(|| 0_u32);
+        // What the agent said comes from another thread; the Studio's own report of the same
+        // scenario marks the blocks, never the agent's words.
+        #[cfg(not(target_arch = "wasm32"))]
+        let delegation = {
+            let shared = handing.get();
+            let mut h = lock(&shared);
+            let fresh = match &h.done {
+                Some(Ok(done)) if !h.shown => Some(done.checked.outcomes.clone()),
+                _ => None,
+            };
+            if let Some(outcomes) = fresh {
+                h.shown = true;
+                graph.set(runner::applied(&graph.get(), &outcomes));
+                log.set(outcomes);
+                from_cache.set(false);
+            }
+            DelegationView {
+                running: h.running.clone(),
+                card: h.done.as_ref().map(|r| match r {
+                    Ok(d) => (d.card(), d.confirmed()),
+                    Err(why) => (format!("A delegação não terminou: {why}"), false),
+                }),
+                hint: (!self.agent.installed()).then(|| {
+                    format!(
+                        "O {} não está instalado nesta máquina: instale o CLI e entre nele para delegar",
+                        self.agent.agent().program()
+                    )
+                }),
+            }
+        };
+        #[cfg(target_arch = "wasm32")]
+        let delegation = DelegationView::default();
+        let busy = delegation.running.is_some();
         let bar = HStack::new((
             Text::new("Raven Test Studio").style(TextStyle::Headline),
             Spacer::new(),
             run_button(&runs, true),
             run_button(&runs, false),
             next_button(&graph, &run, &log, finished),
-            stop_button(&runs, ran),
+            #[cfg(not(target_arch = "wasm32"))]
+            delegate_button(&graph, &handing, &turn, &self.agent, busy, cx.ui_waker()),
+            stop_button(&runs, ran, busy, {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    Some(handing.get())
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    None::<()>
+                }
+            }),
         ))
         .spacing(8.0)
         .padding(8.0);
@@ -227,7 +293,7 @@ impl View for Studio {
                     canvas,
                     VStack::new((
                         inspector,
-                        run_log(&log.get(), runner::path(&graph.get()).len(), from_cache.get()),
+                        run_log(&log.get(), runner::path(&graph.get()).len(), from_cache.get(), &delegation),
                     ))
                     .spacing(0.0)
                     .align(Align::Stretch),
@@ -316,13 +382,19 @@ fn next_button(
         .test_id("next")
 }
 
-/// Puts every block back and forgets the run; the cache keeps the last full run.
-fn stop_button(runs: &Runs, ran: bool) -> impl View {
+/// Puts every block back and forgets the run; the cache keeps the last full run. While an
+/// agent has the scenario, it ends the agent's CLI instead.
+#[cfg(not(target_arch = "wasm32"))]
+fn stop_button(runs: &Runs, ran: bool, busy: bool, handing: Option<Shared>) -> impl View {
     let runs = runs.clone();
     Button::new("Parar")
         .style(ButtonStyle::Ghost)
-        .disabled(!ran)
+        .disabled(!ran && !busy)
         .on_click(move || {
+            if let Some(handing) = handing.as_ref().filter(|_| busy) {
+                lock(handing).stop.store(true, std::sync::atomic::Ordering::SeqCst);
+                return;
+            }
             runs.graph.set(runner::cleared(&runs.graph.get()));
             runs.run.set(Rc::new(RefCell::new(Run::new(open))));
             runs.log.set(Vec::new());
@@ -331,9 +403,110 @@ fn stop_button(runs: &Runs, ran: bool) -> impl View {
         .test_id("stop")
 }
 
-/// The log of the run: a line that sums it up, whether it came from the cache, then one line
-/// per block that ran.
-fn run_log(outcomes: &[Outcome], total: usize, from_cache: bool) -> impl View {
+/// What the log shows of a delegation: that an agent has the scenario, its card once it
+/// answered, and why the button is off when the agent is not installed.
+#[derive(Clone, Debug, Default)]
+struct DelegationView {
+    running: Option<String>,
+    card: Option<(String, bool)>,
+    hint: Option<String>,
+}
+
+/// A delegation of this window, shared with the thread that runs it.
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Default)]
+struct Handing {
+    /// "Delegado ao Codex (modelo)…" while the agent works.
+    running: Option<String>,
+    /// Set by "Parar"; the agent's CLI is ended at its next event.
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    /// What came back.
+    done: Option<Result<delegate::Delegation, String>>,
+    /// Whether the window already marked its blocks with the report that came back.
+    shown: bool,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+type Shared = std::sync::Arc<std::sync::Mutex<Handing>>;
+
+#[cfg(not(target_arch = "wasm32"))]
+impl Handing {
+    fn shared() -> Shared {
+        Shared::default()
+    }
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+fn lock(shared: &Shared) -> std::sync::MutexGuard<'_, Handing> {
+    shared.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+}
+
+/// Hands the scenario on the canvas to the agent, in a thread of its own, so the window keeps
+/// answering while the agent works; the thread wakes the window when the answer is in.
+#[cfg(not(target_arch = "wasm32"))]
+fn delegate_button(
+    graph: &State<FlowGraph>,
+    handing: &State<Shared>,
+    turn: &State<u32>,
+    agent: &ravenrs_agent_cli::Cli,
+    busy: bool,
+    waker: UiWaker,
+) -> impl View {
+    let name = match agent.agent() {
+        ravenrs_agent_cli::Agent::Codex => "Codex",
+        ravenrs_agent_cli::Agent::Claude => "Claude",
+    };
+    let has_open = graph.get().nodes.iter().any(|n| n.kind == "open");
+    let (graph, handing, turn, agent) = (graph.clone(), handing.get(), turn.clone(), agent.clone());
+    let installed = agent.installed();
+    Button::new(format!("Delegar ao {name}"))
+        .icon(IconName::Sparkles)
+        .style(ButtonStyle::Secondary)
+        .disabled(busy || !installed || !has_open)
+        .on_click(move || {
+            let mut h = lock(&handing);
+            h.shown = false;
+            let written = sample::scenario_of(&graph.get(), "Cenário da janela").and_then(|scenario| {
+                let file = std::env::temp_dir()
+                    .join(format!("raven-test-studio-delegado-{}.raventest", std::process::id()));
+                std::fs::write(&file, scenario.write()).map(|()| file).map_err(|e| e.to_string())
+            });
+            let file = match written {
+                Ok(file) => file,
+                Err(why) => {
+                    h.done = Some(Err(why));
+                    turn.update(|t| *t += 1);
+                    return;
+                }
+            };
+            let model = ravenrs_agent_cli::cheapest_model(agent.agent());
+            h.running =
+                Some(format!("Delegado ao {name} ({})…", model.as_deref().unwrap_or("modelo padrão")));
+            h.done = None;
+            let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            h.stop = stop.clone();
+            drop(h);
+            let (shared, agent, waker) = (handing.clone(), agent.clone(), waker.clone());
+            std::thread::spawn(move || {
+                let asked = file.to_string_lossy().into_owned();
+                let result = delegate::delegate_until(&agent, &asked, model, &|| {
+                    stop.load(std::sync::atomic::Ordering::SeqCst)
+                });
+                let _ = std::fs::remove_file(&file);
+                let mut h = lock(&shared);
+                h.running = None;
+                h.done = Some(result);
+                drop(h);
+                waker.wake();
+            });
+            turn.update(|t| *t += 1);
+        })
+        .test_id("delegate")
+}
+
+/// The log of the run: a line that sums it up, whether it came from the cache, the agent's
+/// card when the scenario was delegated, then one line per block that ran.
+fn run_log(outcomes: &[Outcome], total: usize, from_cache: bool, delegation: &DelegationView) -> impl View {
     let note = if from_cache {
         "Do cache: o cenário não mudou desde a última vez que rodou nesta janela"
     } else {
@@ -356,10 +529,40 @@ fn run_log(outcomes: &[Outcome], total: usize, from_cache: bool) -> impl View {
         Text::new("Registro").style(TextStyle::Caption),
         Text::new(head).style(TextStyle::Headline).test_id("summary"),
         Text::new(note).style(TextStyle::Caption).test_id("cache-note"),
+        Text::new(delegation.hint.clone().unwrap_or_default())
+            .style(TextStyle::Caption)
+            .test_id("delegate-hint"),
+        Text::new(match (&delegation.running, &delegation.card) {
+            (Some(running), _) => running.clone(),
+            (None, Some((card, _))) => card.clone(),
+            (None, None) => String::new(),
+        })
+        .style(TextStyle::Callout)
+        .foreground(match &delegation.card {
+            Some((_, false)) if delegation.running.is_none() => Semantic::Danger,
+            _ => Semantic::Ink,
+        })
+        .test_id("delegation"),
         VStack::new(lines).spacing(4.0),
     ))
     .spacing(8.0)
     .padding(16.0)
+}
+
+fn studio(
+    storage: Rc<dyn Storage>,
+    scenario: FlowGraph,
+    updater: Updater,
+    health: Option<report::Report>,
+) -> Studio {
+    Studio {
+        storage,
+        scenario,
+        updater,
+        health,
+        #[cfg(not(target_arch = "wasm32"))]
+        agent: ravenrs_agent_cli::Cli::new(ravenrs_agent_cli::Agent::Codex),
+    }
 }
 
 /// What `--run` takes by name. A Studio installed from scratch brings no test scenarios: only
@@ -464,7 +667,17 @@ pub fn app() -> Localized<Studio> {
 
 /// The Studio opening `scenario`, keeping its scenarios in `storage`, not looking for updates.
 pub fn app_with(scenario: FlowGraph, storage: Rc<dyn Storage>) -> Localized<Studio> {
-    Localized::new(Labels::pt_br(), Studio { storage, scenario, updater: versao::idle(), health: None })
+    Localized::new(Labels::pt_br(), studio(storage, scenario, versao::idle(), None))
+}
+
+/// The Studio opening `scenario`, handing it to `agent` when "Delegar" is pressed: Claude
+/// instead of Codex, or a fake agent in tests.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn app_delegating(scenario: FlowGraph, agent: ravenrs_agent_cli::Cli) -> Localized<Studio> {
+    Localized::new(
+        Labels::pt_br(),
+        studio(Rc::new(MemoryStorage::default()), scenario, versao::idle(), None).agent(agent),
+    )
 }
 
 /// The Studio after testing itself, with no window: it runs "O Studio testa o Studio" before it
@@ -479,7 +692,7 @@ fn checked(updater: Updater, cache: Option<&mut cache::RunCache>) -> Localized<S
     let storage: Rc<dyn Storage> = Rc::new(MemoryStorage::default());
     // The window opens with no scenario: a Studio installed from scratch brings none. Its own
     // test ran above and shows in the status bar.
-    Localized::new(Labels::pt_br(), Studio { storage, scenario: FlowGraph::new(), updater, health })
+    Localized::new(Labels::pt_br(), studio(storage, FlowGraph::new(), updater, health))
 }
 
 /// The Studio another Studio drives over the test channel (`--e2e-serve`): the sample scenario
@@ -488,10 +701,7 @@ fn checked(updater: Updater, cache: Option<&mut cache::RunCache>) -> Localized<S
 pub fn served_app() -> Localized<Studio> {
     let health = run_bundled("autoteste", None);
     let storage: Rc<dyn Storage> = Rc::new(MemoryStorage::default());
-    Localized::new(
-        Labels::pt_br(),
-        Studio { storage, scenario: sample::scenario(), updater: versao::idle(), health },
-    )
+    Localized::new(Labels::pt_br(), studio(storage, sample::scenario(), versao::idle(), health))
 }
 
 /// The Studio as its window opens: it tests itself, then looks for a new version when it opens

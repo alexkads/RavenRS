@@ -2,7 +2,7 @@
   "name": "Raven Test Studio",
   "also_called": ["RTS"],
   "package": "raven-test-studio",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "summary": "The end-to-end test tool of RavenRS, RTS for short: a scenario is a flow of blocks run against a RavenRS app with ravenrs-e2e, and the report tells a person or an AI what failed, why, how to fix it and what the screen showed.",
   "when_to_use": [
     "After changing a RavenRS screen or component, to prove it still works from the outside, with real clicks and typing.",
@@ -10,7 +10,7 @@
     "To know whether the Studio itself still works: the self-test opens another Studio and tests it."
   ],
   "commands": [
-    { "command": "raven-test-studio", "does": "Opens the window, with no scenario: a Studio installed from scratch brings none. A scenario shows as a flow, with Rodar, Próximo passo, Parar, Rodar sem cache, and the log of each block. On opening it tests itself and says so in the status bar. Closing the window keeps it beside the clock, as Raven Finanças does; launching it again opens the copy already running." },
+    { "command": "raven-test-studio", "does": "Opens the window, with no scenario: a Studio installed from scratch brings none. A scenario shows as a flow, with Rodar, Rodar sem cache, Próximo passo, Delegar ao Codex and Parar, and the log of each block. Delegar ao Codex hands the scenario on the canvas to the Codex CLI (cheapest model, reading only) in a thread of its own: the window keeps answering, Parar ends the agent, the agent's card shows in the log, and the blocks are marked by the Studio's own run of the same scenario, never by what the agent said. With no Codex installed the button is off and the log says why. On opening it tests itself and says so in the status bar. Closing the window keeps it beside the clock, as Raven Finanças does; launching it again opens the copy already running." },
     { "command": "raven-test-studio --self-test", "does": "Runs the self-test with no window and prints the report as text." },
     { "command": "raven-test-studio --run <scenario>", "does": "Runs autoteste (the Studio's health check) or financas (the scenarios Raven Finanças brings) and prints the report as text." },
     { "command": "raven-test-studio --run <file.raventest|folder>", "does": "Runs scenario files kept anywhere: in an app's tests/e2e, or in a QA team's own folder (every .raventest of it, in name order)." },
@@ -41,14 +41,44 @@
   ],
   "blocks": [
     { "kind": "open", "subtitle": "the app to open", "does": "Opens an app the Studio knows: compiled in (the sample form, another Studio) or apart in a child process over the test channel (Raven Finanças)." },
-    { "kind": "click", "subtitle": "#test-id or the visible name", "does": "Clicks the part with a real pointer event." },
+    { "kind": "click", "subtitle": "#test-id or the visible name", "does": "Clicks the part with a real pointer event, scrolling to it first when it is out of sight (even a row a long list has not built yet)." },
     { "kind": "type", "subtitle": "#test-id = text", "does": "Focuses the field and types the text with real key events." },
+    { "kind": "fill", "subtitle": "#test-id = text", "does": "Puts the text in the field in place of what it has; a slider or spin button is moved with the arrow keys to the number." },
+    { "kind": "select", "subtitle": "#test-id = option", "does": "Picks the option: opens a combo box or menu first, or clicks it inside a list, tab list or group shown in place." },
+    { "kind": "expand", "subtitle": "#test-id", "does": "Opens the item (a tree item, a group row), if it is closed; fails with E2E_EXPECTATION on a part that does not open." },
+    { "kind": "collapse", "subtitle": "#test-id", "does": "Closes the item, if it is open." },
+    { "kind": "scroll", "subtitle": "#test-id", "does": "Turns the wheel over the part that scrolls until the target is in sight." },
+    { "kind": "wait", "subtitle": "#test-id [= text]", "does": "Waits up to 5 s for the target to show, and to mention the text when given; fails with E2E_TIMEOUT." },
     { "kind": "check", "subtitle": "#test-id = expected value", "does": "Checks the value or the name the part shows." },
     { "kind": "mention", "subtitle": "#test-id = text", "does": "Checks that the part's name or description mentions the text." }
   ],
   "report": {
-    "fields": ["verdict", "summary", "total", "ran", "blocks", "duration_ms", "from_cache", "cached_at", "not_verified"],
-    "block_fields": ["step", "id", "kind", "title", "line", "result", "code", "error", "meaning", "detail", "fix", "close", "screen"],
+    "fields": [
+      "verdict",
+      "summary",
+      "total",
+      "ran",
+      "blocks",
+      "duration_ms",
+      "from_cache",
+      "cached_at",
+      "not_verified"
+    ],
+    "block_fields": [
+      "step",
+      "id",
+      "kind",
+      "title",
+      "line",
+      "result",
+      "code",
+      "error",
+      "meaning",
+      "detail",
+      "fix",
+      "close",
+      "screen"
+    ],
     "results": ["passed", "failed"],
     "not_run": "Blocks after a failure are not in blocks: total minus ran is how many did not run.",
     "note": "Every report ends with what was not verified: no other process, no GPU frame, no other system than the one it ran on."
@@ -62,7 +92,7 @@
     { "code": "E2E_PROTECTED_VALUE", "means": "The value is secret and never shown.", "fix": "Check what the app does with the value instead, such as signing in." },
     { "code": "E2E_EXPECTATION", "means": "A check did not match.", "fix": "Compare the expected value with the screen in the report." },
     { "code": "E2E_APP_START", "means": "An app opened apart did not start, or ended before saying hello or during a step.", "fix": "Read what the app wrote on leaving, at the end of the message; check it was built with the test channel (Raven Finanças 0.1.39 or later)." },
-    { "code": "E2E_TIMEOUT", "means": "An app opened apart did not answer a step in time and was ended.", "fix": "Check whether the step opens something that waits for a person, such as a system dialog." },
+    { "code": "E2E_TIMEOUT", "means": "A wait block ran out of time, or an app opened apart did not answer a step in time and was ended.", "fix": "Read the screen in the report to see what it was waiting for; check whether the step opens something that waits for a person, such as a system dialog." },
     { "code": "E2E_WIRE", "means": "An app opened apart answered outside the test channel's protocol.", "fix": "Nothing else may write to the app's standard output while it serves." }
   ],
   "cache": "A scenario that did not change, on a build that did not change, comes back at once from ~/Library/Caches/ravenrs/test-studio/runs.json (the user's cache folder on Linux and Windows) and says from_cache. Editing a block or building again runs it again.",
@@ -80,10 +110,10 @@
     "updates": "An installed Studio looks for a new version when it opens and every hour after, and says so in its status bar."
   },
   "limits": [
-    "The app under test runs in the Studio's process; another process is phase F6 of #627.",
-    "Scenarios come with the Studio; scenario files (.raventest) are phase F5.",
     "Linux and Windows have not been run.",
-    "Comparing a screen with its design board is phase F14."
+    "The window delegates to Codex; choosing Claude or a model from the window is not there yet (the command line and the pane take them).",
+    "Comparing a screen with its design board is phase F14 of #627."
   ],
-  "issues": [627, 632, 634]
+  "issues": [627, 632, 634, 637, 658],
+  "blocks_note": "Every step waits up to 2 s for its target to be ready (there, uncovered, enabled, in sight, or a check that holds) before it fails with its own code; the session's clock moves meanwhile, so timers fire and work done in the background shows. Lists with keys give rows the test id row:<key>, a DataGrid with key_column row:<key value>, a TreeView item:<key>, a FlowCanvas node node:<id>."
 }

@@ -10,11 +10,25 @@
 //! check Lançamento salvo = Lançamento salvo    | O aviso diz que salvou
 //! ```
 //!
-//! A line is a word (`open`, `click`, `type`, `check`, `mention`), the target (`#id` for a test
-//! id, or the text shown; for `open`, the app's name), `= text` when the block needs one, and the
-//! block's title after ` | `. The words are written in English and read in Portuguese too
-//! (`abrir`, `clicar`, `digitar`, `conferir`, `mencionar`, `cenario:`), so one file serves any
-//! team; [`Scenario::write`] always writes the English ones.
+//! A line is a word, the target (`#id` for a test id, or the text shown; for `open`, the app's
+//! name), `= text` when the block takes one, and the block's title after ` | `:
+//!
+//! | Word | Portuguese | Does |
+//! |---|---|---|
+//! | `open` | `abrir` | opens the app by name |
+//! | `click` | `clicar` | clicks the target |
+//! | `type` | `digitar` | types the text into the target |
+//! | `fill` | `preencher` | puts the text in the field in place of what it has |
+//! | `select` | `escolher` | picks the option (the text) in a list or combo box |
+//! | `expand`, `collapse` | `expandir`, `recolher` | opens or closes the item |
+//! | `scroll` | `rolar` | scrolls the target into sight |
+//! | `wait` | `esperar` | waits for the target, and for it to mention the text, if given |
+//! | `check` | `conferir` | the target's value, or name, is exactly the text |
+//! | `mention` | `mencionar` | the target's name or description contains the text |
+//!
+//! Every step waits a little for its target to be ready, and an action scrolls to a target out
+//! of sight, so `wait` and `scroll` are only for what takes longer or must be seen. One file
+//! serves any team; [`Scenario::write`] always writes the English words.
 //!
 //! Where the files live is the QA team's choice, and the format is the same either way:
 //!
@@ -41,6 +55,18 @@ pub enum Kind {
     Check,
     /// The target's name or description contains the text.
     Mention,
+    /// Puts the text in the field in place of what it has.
+    Fill,
+    /// Picks the option (the text) in a list or a combo box.
+    Select,
+    /// Opens the item.
+    Expand,
+    /// Closes the item.
+    Collapse,
+    /// Scrolls the target into sight.
+    Scroll,
+    /// Waits for the target to show, and to mention the text when there is one.
+    Wait,
 }
 
 impl Kind {
@@ -52,6 +78,12 @@ impl Kind {
             Self::Type => "type",
             Self::Check => "check",
             Self::Mention => "mention",
+            Self::Fill => "fill",
+            Self::Select => "select",
+            Self::Expand => "expand",
+            Self::Collapse => "collapse",
+            Self::Scroll => "scroll",
+            Self::Wait => "wait",
         }
     }
 
@@ -63,12 +95,22 @@ impl Kind {
             "type" | "digitar" => Self::Type,
             "check" | "conferir" => Self::Check,
             "mention" | "mencionar" | "menciona" => Self::Mention,
+            "fill" | "preencher" => Self::Fill,
+            "select" | "escolher" => Self::Select,
+            "expand" | "expandir" | "abrir-item" => Self::Expand,
+            "collapse" | "recolher" => Self::Collapse,
+            "scroll" | "rolar" => Self::Scroll,
+            "wait" | "esperar" | "aguardar" => Self::Wait,
             _ => return None,
         })
     }
 
     fn needs_text(self) -> bool {
-        matches!(self, Self::Type | Self::Check | Self::Mention)
+        matches!(self, Self::Type | Self::Check | Self::Mention | Self::Fill | Self::Select)
+    }
+
+    fn takes_text(self) -> bool {
+        self.needs_text() || self == Self::Wait
     }
 }
 
@@ -103,6 +145,12 @@ impl Block {
             Kind::Type => Command::Type { target, text },
             Kind::Check => Command::Check { target, text },
             Kind::Mention => Command::Mention { target, text },
+            Kind::Fill => Command::Fill { target, text },
+            Kind::Select => Command::Select { target, text },
+            Kind::Expand => Command::Expand { target },
+            Kind::Collapse => Command::Collapse { target },
+            Kind::Scroll => Command::Scroll { target },
+            Kind::Wait => Command::Wait { target, text: self.text.clone() },
         })
     }
 }
@@ -133,7 +181,8 @@ impl fmt::Display for ScenarioError {
 
 impl std::error::Error for ScenarioError {}
 
-const WORDS: &str = "open, click, type, check, mention (ou abrir, clicar, digitar, conferir, mencionar)";
+const WORDS: &str = "open, click, type, check, mention, fill, select, expand, collapse, scroll, wait \
+     (ou abrir, clicar, digitar, conferir, mencionar, preencher, escolher, expandir, recolher, rolar, esperar)";
 
 impl Scenario {
     /// Reads a `.raventest` file.
@@ -162,6 +211,9 @@ impl Scenario {
             };
             let (target, text) = match (kind, body.split_once(" = ")) {
                 (Kind::Open, _) | (_, None) => (body.to_owned(), None),
+                (_, Some(_)) if !kind.takes_text() => {
+                    return Err(at(format!("{} não leva texto: só {} #alvo", kind.word(), kind.word())));
+                }
                 (_, Some((target, text))) => (target.trim().to_owned(), Some(text.trim().to_owned())),
             };
             if target.is_empty() {

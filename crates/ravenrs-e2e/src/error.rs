@@ -20,6 +20,8 @@ pub enum ErrorCode {
     ProtectedValue,
     /// A check did not hold.
     Expectation,
+    /// What a step waited for did not happen in time.
+    Timeout,
 }
 
 impl ErrorCode {
@@ -33,6 +35,7 @@ impl ErrorCode {
             Self::NotVisible => "E2E_NOT_VISIBLE",
             Self::ProtectedValue => "E2E_PROTECTED_VALUE",
             Self::Expectation => "E2E_EXPECTATION",
+            Self::Timeout => "E2E_TIMEOUT",
         }
     }
 }
@@ -55,6 +58,30 @@ pub struct E2eError {
 }
 
 impl E2eError {
+    /// Whether waiting could still make it pass: the part may not be there yet, may still be
+    /// covered or disabled, or the check may not hold yet. An ambiguous query or a secret value
+    /// stays so however long one waits.
+    pub fn may_pass_later(&self) -> bool {
+        matches!(
+            self.code,
+            ErrorCode::NotFound
+                | ErrorCode::Covered
+                | ErrorCode::Disabled
+                | ErrorCode::NotVisible
+                | ErrorCode::Expectation
+        )
+    }
+
+    /// The same failure, as a wait that ran out after `waited`.
+    pub(crate) fn timed_out(mut self, waited: std::time::Duration) -> Self {
+        self.message = format!("waited {:.1} s and still: {}", waited.as_secs_f64(), self.message);
+        self.code = ErrorCode::Timeout;
+        if self.hint.is_none() {
+            self.hint = Some("wait longer, or check what the screen is waiting for".to_owned());
+        }
+        self
+    }
+
     pub(crate) fn new(code: ErrorCode, message: impl Into<String>) -> Self {
         Self { code, message: message.into(), hint: None, similar: Vec::new(), screen: String::new() }
     }

@@ -7,7 +7,7 @@
 
 use ravenrs::prelude::*;
 use ravenrs_e2e::E2e;
-use ravenrs_e2e_wire::{Client, Command};
+use ravenrs_e2e_wire::{Block, Client, Command, Kind};
 
 use crate::sample;
 
@@ -57,21 +57,22 @@ pub fn step_of(node: &FlowNode) -> Result<Step, String> {
         Some((aim, text)) => (aim.trim(), Some(text.trim().to_owned())),
         None => (line, None),
     };
-    let needs_aim = || {
-        if aim.is_empty() {
-            Err("Diga o alvo: #id ou o texto que aparece".to_owned())
-        } else {
-            Ok(aim.to_owned())
-        }
+    let Some(kind) = Kind::read(&node.kind) else {
+        return Err(format!("Bloco desconhecido: {}", node.kind));
     };
-    let needs_text = || text.clone().ok_or_else(|| "Diga o texto depois do alvo: #alvo = texto".to_owned());
-    let command = match node.kind.as_str() {
-        "open" => return Ok(Step::Open(aim.to_owned())),
-        "click" => Command::Click { target: needs_aim()? },
-        "type" => Command::Type { target: needs_aim()?, text: needs_text()? },
-        "check" => Command::Check { target: needs_aim()?, text: needs_text()? },
-        "mention" => Command::Mention { target: needs_aim()?, text: needs_text()? },
-        other => return Err(format!("Bloco desconhecido: {other}")),
+    if kind == Kind::Open {
+        return Ok(Step::Open(aim.to_owned()));
+    }
+    if aim.is_empty() {
+        return Err("Diga o alvo: #id ou o texto que aparece".to_owned());
+    }
+    let block = Block { kind, target: aim.to_owned(), text: text.clone(), title: node.title.clone() };
+    let needs_text = matches!(kind, Kind::Type | Kind::Check | Kind::Mention | Kind::Fill | Kind::Select);
+    if needs_text && text.is_none() {
+        return Err("Diga o texto depois do alvo: #alvo = texto".to_owned());
+    }
+    let Some(command) = block.command() else {
+        return Err(format!("Bloco desconhecido: {}", node.kind));
     };
     Ok(Step::Do(command))
 }

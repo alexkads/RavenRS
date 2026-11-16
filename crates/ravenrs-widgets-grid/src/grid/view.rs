@@ -2420,6 +2420,13 @@ impl View for DataRow<'_> {
             semantics = semantics.selected(selected);
         }
         cx.semantics(node, semantics);
+        // With a key column, tests find a row by its key, which stays with the data when the
+        // grid sorts, filters or scrolls.
+        if let Some(key) = s.grid.key_column
+            && let (Some(column), Some(value)) = (s.grid.columns.get(key), self.values.get(key))
+        {
+            cx.test_id(node, &format!("row:{}", column.display(value)));
+        }
         node
     }
 }

@@ -290,6 +290,12 @@ impl Cli {
         self.agent
     }
 
+    /// Whether the program is on this machine, without running it: cheap enough for a window
+    /// to ask on every frame. [`Self::probe`] says what it can do.
+    pub fn installed(&self) -> bool {
+        ravenrs_process::resolve(&self.program).is_some()
+    }
+
     /// Whether it is installed and what it can keep.
     pub fn probe(&self) -> Probe {
         if ravenrs_process::resolve(&self.program).is_none() {

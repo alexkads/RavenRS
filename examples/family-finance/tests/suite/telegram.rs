@@ -77,7 +77,8 @@ impl FakeTelegram {
     }
 
     /// Sends what the person does (a message or a tap) and returns the bot's answer, or
-    /// `None` after `wait`.
+    /// `None` after `wait`. The answer is the first message after it: notices the bot sends
+    /// right behind, such as the Monday summary a chat hears as it pairs, come later.
     fn say_within(&self, update: Value, wait: Duration, mut tick: impl FnMut()) -> Option<String> {
         let before = self.sent().len();
         self.push(update);
@@ -86,7 +87,7 @@ impl FakeTelegram {
             tick();
             let sent = self.sent();
             if sent.len() > before {
-                return sent.last().and_then(|m| m["text"].as_str()).map(str::to_owned);
+                return sent.get(before).and_then(|m| m["text"].as_str()).map(str::to_owned);
             }
             std::thread::sleep(Duration::from_millis(50));
         }
@@ -768,13 +769,9 @@ fn the_card_pairs_without_holding_up_the_window() {
     let output = command.output().expect("the window's test");
     let _ = std::fs::remove_dir_all(&home);
     let said = String::from_utf8_lossy(&output.stdout);
-    assert!(said.contains("1 passed"), "the window's side did not run: {said}");
-    assert!(
-        output.status.success(),
-        "{}\n{}",
-        String::from_utf8_lossy(&output.stdout),
-        String::from_utf8_lossy(&output.stderr)
-    );
+    let complained = String::from_utf8_lossy(&output.stderr);
+    assert!(output.status.success(), "the window's side failed:\n{said}\n{complained}");
+    assert!(said.contains("1 passed"), "the window's side did not run:\n{said}\n{complained}");
 }
 
 fn window_side() {
@@ -830,7 +827,10 @@ fn window_side() {
     };
     let answer =
         fake.say_within(text(CHAT, &format!("/start rf1_{code}")), Duration::from_secs(20), &mut tick);
-    assert!(answer.is_some_and(|a| a.contains("Telegram conectado")), "the bot inside the window answered");
+    assert!(
+        answer.as_deref().is_some_and(|a| a.contains("Telegram conectado")),
+        "the bot inside the window answered {answer:?} to /start rf1_{code}, not \"Telegram conectado\""
+    );
     wait_for(&mut ui, "Telegram conectado");
     assert!(find(&mut ui, "Gerar novo QR").is_none(), "the QR was used: no QR left on screen");
     assert!(find(&mut ui, "Conectar outro chat").is_some(), "another person can pair a chat of their own");

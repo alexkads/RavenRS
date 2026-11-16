@@ -6,6 +6,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Breaking
 
+- `ravenrs-e2e-wire`: `Command` has `Fill`, `Select`, `Expand`, `Collapse`, `Scroll` and `Wait`, and `Kind` the same kinds; an exhaustive `match` on either needs the new arms. `Command::apply` now tries a step again for up to `PATIENCE` (2 s) while its target is not ready, and scrolls to a target out of sight first. ([#658](https://github.com/alexkads/RavenRS/issues/658))
+
 - `ravenrs-agent-cli`: `Policy` has a new public field, `model`, and `Caps` one, `model`. Literals with `..Policy::default()` or `..Caps::default()` do not change. ([#634](https://github.com/alexkads/RavenRS/issues/634))
 - `Labels` has `flow_open_search`, `flow_open_none` and `flow_open_close`. Literals with `..Default::default()` or `..Labels::pt_br()` do not change. ([#527](https://github.com/alexkads/RavenRS/issues/527))
 - `Labels` has `inspector_drag`, `inspector_copy` and `param_no_field`. Literals with `..Default::default()` or `..Labels::pt_br()` do not change. ([#532](https://github.com/alexkads/RavenRS/issues/532))
@@ -37,6 +39,10 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `Labels` has `flow_arrange`, `flow_input`, `flow_output` and `flow_pick_port`, for the arrange button and the ports of a `FlowCanvas`. Literals with `..Default::default()` do not change.
 
 ### Added
+
+- `ravenrs-e2e`: a session clock (`E2e::advance`, `E2e::clock`), waits (`E2e::wait_until`, `E2e::patiently`, `Locator::wait_for`, `Locator::wait_to_mention`) and the code `E2E_TIMEOUT`; actions `Locator::fill`, `select`, `expand`, `collapse` and `scroll_into_view`, which also finds a row a long list has not built. `VirtualList` with `key` and `DataGrid` with `key_column` give each row the test id `row:<key>`, and `TreeView` each item `item:<key>`. ([#658](https://github.com/alexkads/RavenRS/issues/658))
+- `ravenrs-agent-cli`: `Cli::installed`, whether the program is on the machine without running it. ([#637](https://github.com/alexkads/RavenRS/issues/637))
+- Raven Test Studio 0.1.7: the blocks fill, select, expand, collapse, scroll and wait; "Delegar ao Codex" in the window, in a thread of its own, with "Parar"; the local AI's suggestions use only targets the app shows, and one that acts on anything else is set aside with the reason. ([#637](https://github.com/alexkads/RavenRS/issues/637), [#658](https://github.com/alexkads/RavenRS/issues/658))
 
 - Raven Test Studio tests itself with `.raventest` scenarios in `tools/raven-test-studio/tests/e2e/` (health, running, stepping, stopping, the cache), run on another Studio in a process of its own: it serves itself on the test channel with `--e2e-serve` and declares itself in `[package.metadata.ravenrs.e2e]`. An app learned from a project comes before one compiled in with the same name. ([#656](https://github.com/alexkads/RavenRS/issues/656))
 - Raven Test Studio: `--project <folder>` reads a Rust project without building it and says which packages are made with RavenRS, which are apps, whether each opens on the test channel, its scenarios and the views it builds with file, line and test ids; `--run-all` runs every app's scenarios from the project's code, and `--suggest` has an AI, local by default (Codex or Claude with `--delegate`), write `.raventest` scenarios that the Studio runs on the app (`--write` keeps them in `tests/e2e/sugestoes/`). Apps declare themselves for the Studio in `[package.metadata.ravenrs.e2e]`, and the Studio keeps no list of apps; the Claude pane gets a `scan_project` tool. ([#654](https://github.com/alexkads/RavenRS/issues/654))
@@ -162,6 +168,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `create-ravenrs`: a guide for machines with little memory (LLD, two jobs, no debug info), and `npm run test:e2e:linux` takes `--memory`, `--jobs`, `--logs` and `--case`, building `hello`, `app-sqlite` and `relatorios` in a container of 4 GB. ([#220](https://github.com/alexkads/RavenRS/issues/220))
 
 ### Fixed
+
+- Raven Finanças: the test of pairing Telegram from Ajustes failed on Mondays. The fake Telegram took the last message sent, which on a Monday is the week's summary sent to a new chat, not the answer to `/start`. It now takes the answer, and a failure shows what the bot said. ([#650](https://github.com/alexkads/RavenRS/issues/650))
 
 - `FlowCanvas` keeps what it paints inside its frame: a connection to a node out of view, a cable's sag or a line being drawn no longer crosses the panel beside the canvas. ([#640](https://github.com/alexkads/RavenRS/issues/640))
 - `ravenrs-e2e` waits for the frames an action asks for (up to four) before it reads the screen, so a check right after a click sees what the click changed. ([#634](https://github.com/alexkads/RavenRS/issues/634))

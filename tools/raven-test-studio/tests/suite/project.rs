@@ -121,3 +121,27 @@ fn the_scenarios_in_an_ai_answer_are_read_one_by_one_and_checked() {
     );
     let _ = std::fs::remove_dir_all(&root);
 }
+
+#[test]
+fn the_ai_is_told_the_targets_on_screen_and_a_made_up_one_is_discarded() {
+    let screen = "- heading \"Caixa\" [ref=e1]\n- button \"Pagar\" #pagar [ref=e2]\n  - text_input \"Valor\" #valor [ref=e3] value=\"\"\n";
+    let targets = suggest::targets_on(screen);
+    assert_eq!(targets, ["Caixa", "Pagar", "#pagar", "Valor", "#valor"]);
+
+    let (root, metadata) = sample_project();
+    let project = project::of_metadata(&root, &metadata);
+    let (system, user) = suggest::prompt("Loja", screen, &project.found[2], &[]);
+    assert!(system.contains("fill <target>") && system.contains("select <target>"), "{system}");
+    assert!(user.contains("the only ones to click or type into there: Caixa, Pagar, #pagar"), "{user}");
+    let _ = std::fs::remove_dir_all(&root);
+
+    let read = |text: &str| ravenrs_e2e_wire::Scenario::parse(text).unwrap();
+    let declared = ["recibo".to_owned()];
+    let fine = read(
+        "scenario: a\nopen Loja\nfill #valor = 10\nclick Pagar\nclick #recibo\nclick #form:save\ncheck Pago = Pago\n",
+    );
+    assert_eq!(suggest::unknown_target(&fine, &targets, &declared), None);
+    let invented = read("scenario: b\nopen Loja\nclick #botao-magico\n");
+    let why = suggest::unknown_target(&invented, &targets, &declared).unwrap();
+    assert!(why.contains("#botao-magico") && why.contains("não está na primeira tela"), "{why}");
+}
