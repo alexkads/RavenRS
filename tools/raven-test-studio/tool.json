@@ -2,7 +2,7 @@
   "name": "Raven Test Studio",
   "also_called": ["RTS"],
   "package": "raven-test-studio",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "summary": "The end-to-end test tool of RavenRS, RTS for short: a scenario is a flow of blocks run against a RavenRS app with ravenrs-e2e, and the report tells a person or an AI what failed, why, how to fix it and what the screen showed.",
   "when_to_use": [
     "After changing a RavenRS screen or component, to prove it still works from the outside, with real clicks and typing.",
@@ -15,6 +15,9 @@
     { "command": "raven-test-studio --run <scenario>", "does": "Runs autoteste (the Studio's health check) or financas (the scenarios Raven Finanças brings) and prints the report as text." },
     { "command": "raven-test-studio --run <file.raventest|folder>", "does": "Runs scenario files kept anywhere: in an app's tests/e2e, or in a QA team's own folder (every .raventest of it, in name order)." },
     { "command": "raven-test-studio --run <scenario> --format json", "does": "The same report as JSON, for a tool or a coding agent." },
+    { "command": "raven-test-studio --run <scenario> --format junit", "does": "The report as JUnit XML, for build servers and test tools: a testsuite per report, a testcase per block with its time, the failure with its stable code in type, and the blocks after it as skipped." },
+    { "command": "raven-test-studio --run <scenario> --format jsonl", "does": "The run as one JSON event per line: start, a step per block with its time and result, skipped, and end with the verdict. It is what trace.jsonl keeps." },
+    { "command": "raven-test-studio --run <scenario> --out <folder>", "does": "Keeps the run in <folder>/<scenario>/: relatorio.json, trace.jsonl and, when it failed, arvore.txt with the app's screen at that moment (removed by a later pass). With --project it is the project's target/e2e by default, where cargo builds it. Where it kept them goes to stderr, so stdout stays only the report. --format with any other value is refused with exit code 2." },
     { "command": "raven-test-studio --run <scenario> --no-cache", "does": "Runs again even when the cache has the answer." },
     { "command": "raven-test-studio --project <folder>", "does": "Reads a Rust project without building it (cargo metadata and its sources): the packages made with RavenRS, which are apps and which libraries, their binaries, whether each speaks the test channel (--e2e-serve), its .raventest scenarios, and the views it builds (impl View, impl Component, functions that return impl View) with file, line and test ids. --format json for a tool. Exit code 2 when it finds no RavenRS package." },
     { "command": "raven-test-studio --project <folder> --run-all", "does": "Runs the scenarios in tests/e2e of every app of the project that has the test channel, opening each app from the project's code with cargo run." },

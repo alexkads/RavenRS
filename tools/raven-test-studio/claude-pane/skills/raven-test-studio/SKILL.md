@@ -27,7 +27,9 @@ From a RavenRS checkout with no install:
 cargo run -q -p raven-test-studio -- --run autoteste --format json
 ```
 
-The exit code is 0 when it passed, 1 when it failed and 2 when there is no such scenario.
+The exit code is 0 when it passed, 1 when it failed and 2 when there is no such scenario or the `--format` is not one of `text`, `json`, `jsonl`, `junit`.
+
+`--format junit` gives JUnit XML for a build server, and `--format jsonl` one event per line with the time of each step. `--out <folder>` keeps the run in `<folder>/<scenario>/` (`relatorio.json`, `trace.jsonl` and, on a failure, `arvore.txt` with the app's screen); with `--project` it is the project's `target/e2e`. To read a failure again, open that `arvore.txt` instead of running the scenario again.
 
 ## Testing a real app: Raven Finanças
 

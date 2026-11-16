@@ -21,8 +21,9 @@
 use raven_test_studio::cache::{self, RunCache};
 
 /// Every option the Studio reads; any other is refused.
-const OPTIONS: [&str; 17] = [
+const OPTIONS: [&str; 18] = [
     "--versao",
+    "--out",
     "--e2e-serve",
     "--project",
     "--run-all",
@@ -63,6 +64,10 @@ fn main() -> std::process::ExitCode {
              --project <pasta> --suggest [--write]   a IA local escreve cenários e o Studio os roda\n\
              --suggest --delegate <codex|claude>     o mesmo com o Codex ou o Claude, modelo mais barato\n\
              --format json                           o relatório para uma ferramenta ou uma IA\n\
+             --format jsonl                          um evento por linha, com o tempo de cada passo\n\
+             --format junit                          o XML JUnit que servidores de build leem\n\
+             --out <pasta>                           grava relatorio.json, trace.jsonl e, na falha,\n\
+                                                     arvore.txt (com --project: o target/e2e do projeto)\n\
              --no-cache, --clear-cache               roda de novo / esquece o cache\n\
              --delegate <codex|claude> [--model m]   entrega o cenário a outro agente\n\
              --atualizacao [--format json]           diz se há versão nova\n\
@@ -73,6 +78,16 @@ fn main() -> std::process::ExitCode {
         );
         return std::process::ExitCode::SUCCESS;
     }
+    let format = value("--format").unwrap_or_else(|| "text".to_owned());
+    if !raven_test_studio::report::FORMATS.contains(&format.as_str()) {
+        eprintln!(
+            "--format não aceita {format:?}; os formatos: {}",
+            raven_test_studio::report::FORMATS.join(", ")
+        );
+        return std::process::ExitCode::from(2);
+    }
+    let json = format == "json";
+    let mut out = value("--out").map(std::path::PathBuf::from);
     // Another Studio drives this one with no window over the test channel, to test it in a
     // process of its own; it brings no scenario.
     if has(ravenrs_e2e_wire::SERVE_FLAG) {
@@ -104,7 +119,7 @@ fn main() -> std::process::ExitCode {
     }
     if has("--atualizacao") {
         let answer = raven_test_studio::atualizacao::ask();
-        if value("--format").as_deref() == Some("json") {
+        if json {
             println!("{}", serde_json::to_string_pretty(&answer.json()).unwrap_or_default());
         } else {
             println!("{}", answer.text());
@@ -115,7 +130,6 @@ fn main() -> std::process::ExitCode {
         return update();
     }
     if let Some(folder) = value("--project") {
-        let json = value("--format").as_deref() == Some("json");
         let project = match raven_test_studio::project::read(std::path::Path::new(&folder)) {
             Ok(project) => project,
             Err(why) => {
@@ -129,8 +143,10 @@ fn main() -> std::process::ExitCode {
         }
         // Scenarios that open an app of the project open its code, before any installed copy.
         project.learn_apps();
+        // A run of a project keeps what it found where cargo keeps what it builds.
+        out = out.or_else(|| Some(project.e2e_folder()));
         if has("--run-all") {
-            return run_all(&project, json);
+            return run_all(&project, &format, out.as_deref());
         }
         if has("--suggest") {
             return suggest(&project, value("--delegate"), value("--model"), has("--write"), json);
@@ -143,11 +159,11 @@ fn main() -> std::process::ExitCode {
     let scenario = if has("--self-test") { Some("autoteste".to_owned()) } else { value("--run") };
     if let Some(agent) = value("--delegate") {
         let name = scenario.unwrap_or_else(|| "autoteste".to_owned());
-        return delegate(&agent, &name, value("--model"), value("--format").as_deref() == Some("json"));
+        return delegate(&agent, &name, value("--model"), json);
     }
     if let Some(name) = scenario {
         let mut kept = if has("--no-cache") { None } else { cache::default_file().map(|f| RunCache::at(&f)) };
-        return report(&name, value("--format").as_deref() == Some("json"), kept.as_mut());
+        return report(&name, &format, out.as_deref(), kept.as_mut());
     }
     tracing_subscriber::fmt()
         .with_env_filter(
@@ -303,7 +319,11 @@ fn suggest(
 }
 
 /// Runs the scenarios of every app of the project that has the test channel and scenarios.
-fn run_all(project: &raven_test_studio::project::Project, json: bool) -> std::process::ExitCode {
+fn run_all(
+    project: &raven_test_studio::project::Project,
+    format: &str,
+    out: Option<&std::path::Path>,
+) -> std::process::ExitCode {
     let folders = project.scenario_folders();
     if folders.is_empty() {
         eprintln!("nenhum app do projeto tem o canal de teste e cenários em tests/e2e:\n{}", project.text());
@@ -323,19 +343,50 @@ fn run_all(project: &raven_test_studio::project::Project, json: bool) -> std::pr
             }
         }
     }
-    if json {
-        let all: Vec<_> = reports.iter().map(raven_test_studio::report::Report::json).collect();
-        println!("{}", serde_json::to_string_pretty(&all).unwrap_or_default());
-    } else {
-        for report in &reports {
-            println!("{}\n", report.text());
-        }
-    }
+    show(&reports, true, format, out);
     std::process::ExitCode::from(u8::try_from(worst).unwrap_or(1))
 }
 
+/// Keeps each report in `out`, when given, and prints them all in `format`; the JSON is a list
+/// when `list`, else the one report. Where they were kept goes to stderr, so the JSON, JSONL or
+/// XML on stdout stays only that.
+fn show(
+    reports: &[raven_test_studio::report::Report],
+    list: bool,
+    format: &str,
+    out: Option<&std::path::Path>,
+) {
+    use raven_test_studio::report::Report;
+    if let Some(out) = out {
+        for report in reports {
+            match report.save(out) {
+                Ok(dir) => eprintln!("{}: gravado em {}", report.scenario, dir.display()),
+                Err(e) => eprintln!("{}: não gravou em {}: {e}", report.scenario, out.display()),
+            }
+        }
+    }
+    match format {
+        "json" => {
+            let all: Vec<_> = reports.iter().map(Report::json).collect();
+            let value = match all.as_slice() {
+                [one] if !list => one.clone(),
+                _ => serde_json::Value::Array(all),
+            };
+            println!("{}", serde_json::to_string_pretty(&value).unwrap_or_default());
+        }
+        "jsonl" => reports.iter().for_each(|r| print!("{}", r.trace())),
+        "junit" => print!("{}", Report::junit(reports)),
+        _ => reports.iter().for_each(|r| println!("{}\n", r.text())),
+    }
+}
+
 /// Runs a bundled scenario, or `.raventest` files by path, with no window and prints the report.
-fn report(name: &str, json: bool, cache: Option<&mut RunCache>) -> std::process::ExitCode {
+fn report(
+    name: &str,
+    format: &str,
+    out: Option<&std::path::Path>,
+    cache: Option<&mut RunCache>,
+) -> std::process::ExitCode {
     let report = match raven_test_studio::run_named(name, cache) {
         Ok(report) => report,
         Err(why) => {
@@ -343,10 +394,7 @@ fn report(name: &str, json: bool, cache: Option<&mut RunCache>) -> std::process:
             return std::process::ExitCode::from(2);
         }
     };
-    if json {
-        println!("{}", serde_json::to_string_pretty(&report.json()).unwrap_or_default());
-    } else {
-        println!("{}", report.text());
-    }
-    std::process::ExitCode::from(u8::try_from(report.exit_code()).unwrap_or(1))
+    let code = report.exit_code();
+    show(std::slice::from_ref(&report), false, format, out);
+    std::process::ExitCode::from(u8::try_from(code).unwrap_or(1))
 }

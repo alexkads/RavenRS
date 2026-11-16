@@ -7,6 +7,7 @@ mod atualizacao;
 mod delegate;
 mod delegate_window;
 mod manifest;
+mod outputs;
 mod project;
 mod self_test;
 mod tray;

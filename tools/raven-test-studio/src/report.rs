@@ -10,6 +10,9 @@ use serde_json::{Value, json};
 
 use crate::runner::{self, Outcome, Run};
 
+/// The formats a report prints in, as `--format` names them.
+pub const FORMATS: [&str; 4] = ["text", "json", "jsonl", "junit"];
+
 /// What a run of an app compiled into the Studio could not check, said in its report.
 pub const NOT_VERIFIED: [&str; 3] = [
     "o app testado roda no mesmo processo do Studio, compilado junto com ele",
@@ -41,6 +44,8 @@ pub struct Report {
     pub duration_ms: u64,
     /// Whether the app ran apart, in a child process over the test channel.
     pub apart: bool,
+    /// The titles of the blocks of the path that did not run, because one before them failed.
+    pub not_run: Vec<String>,
 }
 
 impl Report {
@@ -51,7 +56,13 @@ impl Report {
         let started = std::time::Instant::now();
         let outcomes = run.to_end(&mut graph);
         let duration_ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
-        Self { scenario: scenario.to_owned(), outcomes, total, cached_at: None, duration_ms, apart }
+        let not_run = runner::path(&graph)
+            .iter()
+            .skip(outcomes.len())
+            .filter_map(|id| graph.nodes.iter().find(|n| n.id == *id))
+            .map(|n| n.title.clone())
+            .collect();
+        Self { scenario: scenario.to_owned(), outcomes, total, cached_at: None, duration_ms, apart, not_run }
     }
 
     /// A run that could not start: its first block failed with `why`, before any app opened.
@@ -68,6 +79,7 @@ impl Report {
             fix: None,
             close: Vec::new(),
             screen: None,
+            ms: 0,
         };
         Self {
             scenario: scenario.to_owned(),
@@ -76,6 +88,7 @@ impl Report {
             cached_at: None,
             duration_ms: 0,
             apart: true,
+            not_run: Vec::new(),
         }
     }
 
@@ -108,6 +121,7 @@ impl Report {
                         .map(|a| a.iter().filter_map(Value::as_str).map(str::to_owned).collect())
                         .unwrap_or_default(),
                     screen: text(b, "screen"),
+                    ms: b.get("duration_ms").and_then(Value::as_u64).unwrap_or_default(),
                 })
             })
             .collect::<Option<Vec<_>>>()?;
@@ -118,6 +132,11 @@ impl Report {
             cached_at: None,
             duration_ms: value.get("duration_ms").and_then(Value::as_u64).unwrap_or_default(),
             apart: value.get("opened_apart").and_then(Value::as_bool).unwrap_or_default(),
+            not_run: value
+                .get("not_run")
+                .and_then(Value::as_array)
+                .map(|a| a.iter().filter_map(Value::as_str).map(str::to_owned).collect())
+                .unwrap_or_default(),
         })
     }
 
@@ -197,6 +216,7 @@ impl Report {
                     "fix": o.fix,
                     "close": o.close,
                     "screen": o.screen,
+                    "duration_ms": o.ms,
                 })
             })
             .collect();
@@ -212,6 +232,165 @@ impl Report {
             "cached_at": self.cached_at,
             "not_verified": self.not_verified(),
             "opened_apart": self.apart,
+            "not_run": self.not_run,
         })
     }
+}
+
+impl Report {
+    /// The run as lines of JSON, one per event: `start`, a `step` for each block that ran, with
+    /// how long it took and how it went, and `end` with the verdict. It is what `trace.jsonl`
+    /// keeps, and what `--format jsonl` prints.
+    pub fn trace(&self) -> String {
+        let mut lines = vec![json!({
+            "event": "start",
+            "scenario": self.scenario,
+            "total": self.total,
+            "opened_apart": self.apart,
+            "from_cache": self.cached_at.is_some(),
+        })];
+        for (i, o) in self.outcomes.iter().enumerate() {
+            lines.push(json!({
+                "event": "step",
+                "step": i + 1,
+                "id": o.id,
+                "kind": o.kind,
+                "title": o.title,
+                "line": o.line,
+                "result": if o.error.is_none() { "passed" } else { "failed" },
+                "code": o.code,
+                "error": o.error,
+                "duration_ms": o.ms,
+            }));
+        }
+        for (i, title) in self.not_run.iter().enumerate() {
+            lines.push(json!({
+                "event": "skipped",
+                "step": self.outcomes.len() + i + 1,
+                "title": title,
+            }));
+        }
+        lines.push(json!({
+            "event": "end",
+            "verdict": if self.passed() { "passed" } else { "failed" },
+            "summary": runner::summary(&self.outcomes, self.total),
+            "duration_ms": self.duration_ms,
+        }));
+        lines.iter().map(Value::to_string).collect::<Vec<_>>().join("\n") + "\n"
+    }
+
+    /// `reports` in the JUnit XML that build servers and test tools read: a `testsuite` for each
+    /// report and a `testcase` for each block of its path. A failure carries the stable code in
+    /// `type`, and the fix and the screen of the app in its text; the blocks after it are
+    /// `skipped`.
+    pub fn junit(reports: &[Report]) -> String {
+        let mut out = String::from("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n");
+        let tests: usize = reports.iter().map(|r| r.outcomes.len() + r.not_run.len()).sum();
+        let failures = reports.iter().filter(|r| r.failure().is_some()).count();
+        let skipped: usize = reports.iter().map(|r| r.not_run.len()).sum();
+        let seconds: u64 = reports.iter().map(|r| r.duration_ms).sum();
+        out.push_str(&format!(
+            "<testsuites name=\"Raven Test Studio\" tests=\"{tests}\" failures=\"{failures}\" skipped=\"{skipped}\" time=\"{}\">\n",
+            secs(seconds)
+        ));
+        for report in reports {
+            let suite = xml(&report.scenario);
+            out.push_str(&format!(
+                "  <testsuite name=\"{suite}\" tests=\"{}\" failures=\"{}\" skipped=\"{}\" time=\"{}\">\n",
+                report.outcomes.len() + report.not_run.len(),
+                usize::from(report.failure().is_some()),
+                report.not_run.len(),
+                secs(report.duration_ms)
+            ));
+            for (i, o) in report.outcomes.iter().enumerate() {
+                let name = xml(&format!("{} {}: {}", i + 1, o.title, o.line));
+                let open =
+                    format!("    <testcase classname=\"{suite}\" name=\"{name}\" time=\"{}\"", secs(o.ms));
+                match &o.error {
+                    None => out.push_str(&format!("{open}/>\n")),
+                    Some(error) => {
+                        let mut body = error.clone();
+                        if let Some(fix) = &o.fix {
+                            body.push_str(&format!("\ncomo corrigir: {fix}"));
+                        }
+                        if let Some(screen) = &o.screen {
+                            body.push_str(&format!("\ntela do app testado:\n{screen}"));
+                        }
+                        out.push_str(&format!(
+                            "{open}>\n      <failure type=\"{}\" message=\"{}\">{}</failure>\n    </testcase>\n",
+                            xml(o.code.as_deref().unwrap_or("E2E_FAILED")),
+                            xml(error),
+                            xml(&body)
+                        ));
+                    }
+                }
+            }
+            for (i, title) in report.not_run.iter().enumerate() {
+                let name = xml(&format!("{} {title}", report.outcomes.len() + i + 1));
+                out.push_str(&format!(
+                    "    <testcase classname=\"{suite}\" name=\"{name}\" time=\"0\">\n      <skipped message=\"um passo antes falhou\"/>\n    </testcase>\n"
+                ));
+            }
+            out.push_str("  </testsuite>\n");
+        }
+        out.push_str("</testsuites>\n");
+        out
+    }
+
+    /// Keeps the run in `folder`, under a folder named after the scenario: `relatorio.json`,
+    /// `trace.jsonl` and, when it failed and the app's screen came with the failure,
+    /// `arvore.txt`. A run that passes removes an `arvore.txt` left by an earlier failure.
+    /// Says where it kept them.
+    pub fn save(&self, folder: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
+        let dir = folder.join(folder_name(&self.scenario));
+        std::fs::create_dir_all(&dir)?;
+        let json = serde_json::to_string_pretty(&self.json()).unwrap_or_default();
+        std::fs::write(dir.join("relatorio.json"), json + "\n")?;
+        std::fs::write(dir.join("trace.jsonl"), self.trace())?;
+        let tree = dir.join("arvore.txt");
+        match self.failure().and_then(|f| f.screen.as_ref()) {
+            Some(screen) => std::fs::write(&tree, format!("{screen}\n"))?,
+            None if tree.exists() => std::fs::remove_file(&tree)?,
+            None => {}
+        }
+        Ok(dir)
+    }
+}
+
+/// A scenario's name as one folder: letters, digits, `-` and `_` stay, a run of anything else
+/// becomes one `-`, so a `/` or `..` in a name never leaves the folder given.
+pub fn folder_name(scenario: &str) -> String {
+    let mut name = String::new();
+    for c in scenario.chars() {
+        if c.is_alphanumeric() || c == '_' || c == '-' {
+            name.push(c);
+        } else if !name.ends_with('-') {
+            name.push('-');
+        }
+    }
+    let name = name.trim_matches('-');
+    if name.is_empty() { "cenario".to_owned() } else { name.to_owned() }
+}
+
+/// Text that goes inside an XML attribute or element.
+fn xml(text: &str) -> String {
+    let mut out = String::with_capacity(text.len());
+    for c in text.chars() {
+        match c {
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '"' => out.push_str("&quot;"),
+            '\'' => out.push_str("&apos;"),
+            // Control characters other than tab and line breaks are not allowed in XML 1.0.
+            c if c.is_control() && !matches!(c, '\t' | '\n' | '\r') => {}
+            c => out.push(c),
+        }
+    }
+    out
+}
+
+/// Milliseconds as the seconds JUnit writes.
+fn secs(ms: u64) -> String {
+    format!("{}.{:03}", ms / 1000, ms % 1000)
 }

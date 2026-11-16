@@ -1,17 +1,18 @@
 {
-  "versao": "0.1.8",
-  "titulo": "O menu ao lado do relógio diz como está o Studio.",
+  "versao": "0.1.9",
+  "titulo": "Relatório em JUnit e JSONL, tempo de cada passo e a tela da falha guardada.",
   "importante": false,
   "novidades": [
-    "O menu do ícone mostra o resultado do autoteste no topo.",
-    "Rodar autoteste roda de novo com a janela fechada, e o menu mostra o andamento e o resultado.",
-    "Quando uma versão nova termina de instalar, o menu mostra Reiniciar para atualizar, com o número da versão."
+    "--format junit dá o XML que servidores de build e ferramentas de teste já leem, com o código da falha e os passos que não rodaram.",
+    "--format jsonl dá um evento por linha, com quanto cada passo levou.",
+    "--out <pasta> guarda relatorio.json, trace.jsonl e, quando falha, arvore.txt com a tela do app; com --project, vai para o target/e2e do projeto.",
+    "Um --format que o Studio não conhece é recusado, em vez de cair no texto."
   ],
-  "por_que_atualizar": "Para saber se o Studio está saudável e atualizar sem abrir a janela.",
+  "por_que_atualizar": "Para ler uma falha depois sem rodar de novo e plugar o RTS em qualquer ferramenta que entende JUnit.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    643
+    661
   ]
 }
