@@ -3,10 +3,17 @@
 //! [`PAGES`] is the one list: the center puts each page in its navigation as a dashboard, and the
 //! mode `componentes` (#587) shows the same pages with no application framework around them.
 
+pub mod agenda;
+pub mod basicos;
+pub mod conversa;
 pub mod doca;
+pub mod grade;
 pub mod graficos;
+pub mod imagem;
 pub mod kit;
 pub mod listas;
+
+use std::sync::LazyLock;
 
 use ravenrs::prelude::{AnyView, IconName};
 
@@ -25,65 +32,25 @@ pub struct Page {
     pub make: fn() -> AnyView,
 }
 
-/// Every page of a component, in the order of the navigation.
-pub const PAGES: &[Page] = &[
-    Page {
-        id: kit::expressoes::ID,
-        caption: kit::expressoes::PAGE,
-        group: "Kit",
-        icon: IconName::Sigma,
-        make: || Box::new(kit::expressoes::ExpressionsPage),
-    },
-    Page {
-        id: kit::parametros::ID,
-        caption: kit::parametros::PAGE,
-        group: "Kit",
-        icon: IconName::FileText,
-        make: || Box::new(kit::parametros::ParametersPage),
-    },
-    Page {
-        id: listas::inspetor::ID,
-        caption: listas::inspetor::PAGE,
-        group: "Listas e árvores",
-        icon: IconName::Search,
-        make: || Box::new(listas::inspetor::InspectorPage),
-    },
-    Page {
-        id: graficos::fluxo::ID,
-        caption: graficos::fluxo::PAGE,
-        group: "Gráficos e fluxos",
-        icon: IconName::GitBranch,
-        make: || Box::new(graficos::fluxo::FlowPage),
-    },
-    Page {
-        id: graficos::cabos::ID,
-        caption: graficos::cabos::PAGE,
-        group: "Gráficos e fluxos",
-        icon: IconName::Plug,
-        make: || Box::new(graficos::cabos::CablesPage),
-    },
-    Page {
-        id: graficos::painel::ID,
-        caption: graficos::painel::PAGE,
-        group: "Gráficos e fluxos",
-        icon: IconName::Server,
-        make: || Box::new(graficos::painel::PatchPanelPage),
-    },
-    Page {
-        id: doca::area::ID,
-        caption: doca::area::PAGE,
-        group: "Doca e faixa",
-        icon: IconName::LayoutDashboard,
-        make: || Box::new(doca::area::DockAreaPage),
-    },
-    Page {
-        id: doca::faixa::ID,
-        caption: doca::faixa::PAGE,
-        group: "Doca e faixa",
-        icon: IconName::Rows3,
-        make: || Box::new(doca::faixa::RibbonDemoPage),
-    },
+/// The pages of each family, in the order of the navigation (skill ravenrs-feature-center).
+const FAMILIES: &[&[Page]] = &[
+    basicos::controles::PAGES,
+    basicos::estrutura::PAGES,
+    basicos::avisos::PAGES,
+    kit::PAGES,
+    kit::campos::PAGES,
+    kit::navegacao::PAGES,
+    listas::PAGES,
+    grade::PAGES,
+    graficos::PAGES,
+    conversa::PAGES,
+    doca::PAGES,
+    agenda::PAGES,
+    imagem::PAGES,
 ];
+
+/// Every page of a component, in the order of the navigation: each family's, one after another.
+pub static PAGES: LazyLock<Vec<Page>> = LazyLock::new(|| FAMILIES.concat());
 
 /// The page with this id.
 pub fn page(id: &str) -> Option<&'static Page> {
@@ -93,7 +60,7 @@ pub fn page(id: &str) -> Option<&'static Page> {
 /// Registers the control of every component page with the session.
 #[cfg(feature = "app")]
 pub fn register(session: &ravenrs_app_ui::Session) {
-    for page in PAGES {
+    for page in PAGES.iter() {
         session.register_control(page.id, page.make);
     }
 }

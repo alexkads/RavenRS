@@ -115,6 +115,7 @@ pub struct CodeEditor {
     on_hover: Option<Rc<dyn Fn(usize)>>,
     hover: Option<String>,
     on_go_to: Option<Rc<dyn Fn(usize)>>,
+    label: Option<String>,
 }
 
 /// Something a [`CodeEditor`] offers to put at the caret, from
@@ -182,7 +183,17 @@ impl CodeEditor {
             on_hover: None,
             hover: None,
             on_go_to: None,
+            label: None,
         }
+    }
+
+    /// What screen readers call the code, such as `Code` or the file's name. A [`FormField`]
+    /// around the editor names it the same way.
+    ///
+    /// [`FormField`]: crate::FormField
+    pub fn label(mut self, label: impl Into<String>) -> Self {
+        self.label = Some(label.into());
+        self
     }
 
     /// Keeps the last line in sight as the text grows, unless it was scrolled away from: for
@@ -404,6 +415,9 @@ impl View for CodeEditor {
             .focus_request(focus.clone())
             .history(history.clone());
         let area = cx.keyed_child(1, &area);
+        if let Some(label) = &self.label {
+            cx.label_control(area, label, None);
+        }
         let mut children = Vec::new();
         if open {
             let bar = FindBar {

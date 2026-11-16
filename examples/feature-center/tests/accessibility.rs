@@ -90,30 +90,86 @@ macro_rules! demonstrations {
 }
 
 demonstrations! {
+    botoes => "Botões",
+    escolhas => "Escolhas",
+    listas_de_escolha => "Listas de escolha",
+    campos_de_texto => "Campos de texto",
+    numeros_e_faixas => "Números e faixas",
+    datas => "Datas",
+    cores_e_temas => "Cores e temas",
+    ligacoes_e_posicao => "Ligações e posição",
+    texto_e_icones => "Texto e ícones",
+    cartoes_e_secoes => "Cartões e seções",
+    grade_e_camadas => "Grade e camadas",
+    divisoes => "Divisões",
+    rolagem => "Rolagem",
+    janela_e_barras => "Janela e barras",
+    avisos => "Avisos",
+    camadas_por_cima => "Camadas por cima",
+    menus => "Menus",
+    progresso_e_espera => "Progresso e espera",
+    numeros_ao_vivo => "Números ao vivo",
     diagrama_de_fluxo => "Diagrama de fluxo",
+    arvores_e_arquivos => "Árvores e arquivos",
+    listas_longas => "Listas longas",
+    documentos_e_miniaturas => "Documentos e miniaturas",
+    ano_inteiro => "Ano inteiro",
+    agenda_por_recurso => "Agenda por recurso",
+    calendario_de_eventos => "Calendário de eventos",
+    linha_do_tempo => "Linha do tempo",
     cabos => "Cabos",
     painel_de_tomadas => "Painel de tomadas",
+    graficos => "Gráficos",
+    diagrama_de_sankey => "Diagrama de Sankey",
+    codigo_de_barras => "Código de barras",
+    paineis_do_fluxo => "Painéis do fluxo",
+    conversa => "Conversa",
+    editor_e_playground => "Editor e playground",
+    texto_rico => "Texto rico",
+    grade_de_dados => "Grade de dados",
     doca => "Doca",
     faixa_de_opcoes => "Faixa de opções",
     formulario_de_parametros => "Formulário de parâmetros",
     editor_de_expressoes => "Editor de expressões",
+    campos_de_formulario => "Campos de formulário",
+    datas_e_horas => "Datas e horas",
+    busca_e_etiquetas => "Busca e etiquetas",
+    arquivos_e_imagens => "Arquivos e imagens",
+    construtor_de_filtros => "Construtor de filtros",
+    passo_a_passo_e_confirmacao => "Passo a passo e confirmação",
+    temas_e_aparencia => "Temas e aparência",
+    navegacao => "Navegação",
+    barras_de_ferramentas => "Barras de ferramentas",
+    listas_e_tabelas => "Listas e tabelas",
+    etapas_e_medidores => "Etapas e medidores",
+    destaques => "Destaques",
+    novidades_da_versao => "Novidades da versão",
     inspetor_de_dados => "Inspetor de dados",
     regras => "Regras",
     avisos_e_informacoes => "Avisos e informações",
     ao_sair_do_campo => "Ao sair do campo",
     regras_de_aparencia => "Regras de aparência",
     textos_por_chave => "Textos por chave",
+    catalogo_de_textos => "Catálogo de textos",
     tipos_de_action => "Tipos de Action",
     todos_os_tipos => "Todos os tipos",
     campos_personalizados => "Campos personalizados",
     uma_lista_cinco_visoes => "Uma lista, cinco visões",
     painel_em_codigo => "Painel em código",
+    vendas_por_mes => "Vendas por mês",
+    vendas_da_loja => "Vendas da loja",
     variantes_e_filtros => "Variantes e filtros",
     edicao_na_lista => "Edição na lista",
     muitas_linhas => "Muitas linhas",
     colecoes_e_vinculos => "Coleções e vínculos",
     maquina_de_estados => "Máquina de estados",
     lembretes => "Lembretes",
+    solicitacoes => "Solicitações",
+    banco_em_memoria => "Banco em memória",
+    copias_de_seguranca => "Cópias de segurança",
+    mapeamento_sql => "Mapeamento SQL",
+    postgres_e_postgrest => "Postgres e PostgREST",
+    integracoes => "Integrações",
     documentos_por_papel => "Documentos por papel",
     completa => "Completa",
     leve => "Leve",
@@ -122,9 +178,15 @@ demonstrations! {
     colecoes => "Coleções",
     dados_da_loja => "Dados da loja",
     caixa_de_exemplo => "Caixa de exemplo",
+    pdv_de_exemplo => "PDV de exemplo",
     leitores_de_tela_e_teclado => "Leitores de tela e teclado",
+    auditoria_de_acessibilidade => "Auditoria de acessibilidade",
     pessoas => "Pessoas",
+    organizacoes => "Organizações",
     eventos => "Eventos",
+    tarefas => "Tarefas",
+    anotacoes => "Anotações",
+    arquivos => "Arquivos",
     paises => "Países",
     enderecos => "Endereços",
     relatorios => "Relatórios",
@@ -135,7 +197,13 @@ demonstrations! {
     modelo_da_aplicacao => "Modelo da aplicação",
     editor_de_tokens => "Editor de tokens",
     simulacao_de_parcelas => "Simulação de parcelas",
+    modulos_e_manifestos => "Módulos e manifestos",
     trocar_senha => "Trocar senha",
+    ver_imagens => "Ver imagens",
+    recortar_e_girar => "Recortar e girar",
+    selecao_e_medida => "Seleção e medida",
+    cor_e_tons => "Cor e tons",
+    animacao => "Animação",
 }
 
 #[test]
@@ -156,8 +224,16 @@ fn every_demonstration_has_its_audit_test() {
 /// reads well: a new one comes with its step (skill ravenrs-feature-center).
 #[test]
 fn every_demonstration_has_a_step_in_the_tour() {
-    let tour = include_str!("tour.rs");
+    // tests/tour.rs and the steps of each family, in tests/tour/.
+    let folder = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("tests");
+    let mut tour = std::fs::read_to_string(folder.join("tour.rs")).expect("reads tour.rs");
+    for part in std::fs::read_dir(folder.join("tour")).expect("reads tests/tour") {
+        tour += &std::fs::read_to_string(part.expect("an entry").path()).expect("reads a part");
+    }
     let visited = |name: &str| tour.contains(&format!("\"{name}\""));
     let missing: Vec<&&str> = DEMONSTRATIONS.iter().filter(|name| !visited(name)).collect();
-    assert!(missing.is_empty(), "no step in tests/tour.rs for {missing:?}: visit each one there");
+    assert!(
+        missing.is_empty(),
+        "no step in tests/tour.rs or tests/tour/ for {missing:?}: visit each one there"
+    );
 }

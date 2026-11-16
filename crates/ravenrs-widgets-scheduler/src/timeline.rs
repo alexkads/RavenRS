@@ -347,6 +347,44 @@ impl View for Handle {
 }
 
 /// A block.
+/// A marker on the ruler, which moves the playhead to it when the app listens.
+struct Marker<'a> {
+    marker: &'a TimelineMarker,
+    per_ms: f32,
+    on_seek: Option<Rc<dyn Fn(u64)>>,
+}
+
+impl View for Marker<'_> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let theme = *cx.theme();
+        let marker = self.marker;
+        let node = cx.container(
+            LayoutStyle {
+                absolute: Some((
+                    marker.at_ms as f32 * self.per_ms - MARKER / 2.0,
+                    RULER_HEIGHT - MARKER / 2.0,
+                )),
+                width: Some(MARKER),
+                height: Some(MARKER),
+                ..LayoutStyle::stack(Axis::Vertical)
+            },
+            &[],
+            Paint::Quad(QuadPaint {
+                corner_radius: MARKER / 2.0,
+                ..QuadPaint::new(theme.color(Semantic::Warning))
+            }),
+        );
+        cx.semantics(node, Semantics::new(Role::Button).name(marker.title.clone()));
+        if let Some(seek) = self.on_seek.clone() {
+            let at = marker.at_ms;
+            cx.on_click(node, Rc::new(move || seek(at)));
+            cx.focusable(node, MARKER / 2.0);
+            cx.cursor(node, CursorIcon::Pointer);
+        }
+        node
+    }
+}
+
 struct Block<'a> {
     item: &'a TimelineItem,
     frame: Rect,
@@ -528,31 +566,10 @@ impl View for Rows<'_> {
             y += track.height;
         }
 
+        // Each marker is a view of its own, so each has a focus of its own and Tab walks them in
+        // turn; containers made in this loop would all share the identity of the rows.
         for marker in &timeline.markers {
-            let node = cx.container(
-                LayoutStyle {
-                    absolute: Some((
-                        marker.at_ms as f32 * per_ms - MARKER / 2.0,
-                        RULER_HEIGHT - MARKER / 2.0,
-                    )),
-                    width: Some(MARKER),
-                    height: Some(MARKER),
-                    ..LayoutStyle::stack(Axis::Vertical)
-                },
-                &[],
-                Paint::Quad(QuadPaint {
-                    corner_radius: MARKER / 2.0,
-                    ..QuadPaint::new(theme.color(Semantic::Warning))
-                }),
-            );
-            cx.semantics(node, Semantics::new(Role::Button).name(marker.title.clone()));
-            if let Some(seek) = timeline.on_seek.clone() {
-                let at = marker.at_ms;
-                cx.on_click(node, Rc::new(move || seek(at)));
-                cx.focusable(node, MARKER / 2.0);
-                cx.cursor(node, CursorIcon::Pointer);
-            }
-            children.push(node);
+            children.push(cx.child(&Marker { marker, per_ms, on_seek: timeline.on_seek.clone() }));
         }
 
         // The playhead, with the time where it can be read.

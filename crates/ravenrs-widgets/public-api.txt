@@ -2841,6 +2841,7 @@ method CodeEditor::follow_end
 method CodeEditor::history
 method CodeEditor::hover
 method CodeEditor::indent
+method CodeEditor::label
 method CodeEditor::language
 method CodeEditor::line_numbers
 method CodeEditor::new
