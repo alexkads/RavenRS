@@ -1,5 +1,5 @@
 import { atom, read, update } from 'claude-code'
-import type { Hook, Register } from 'claude-code'
+import type { Hook, Register, RenderChildren } from 'claude-code'
 
 import type { Block, Last, Report } from '../types'
 
@@ -11,11 +11,12 @@ const SCENARIOS = ['autoteste', 'lancamento', 'quebrado'] as const
 // What each scenario is, for the empty pane.
 const ABOUT = {
   autoteste: {
+    icon: '◆',
     title: 'O Studio testa o Studio',
     blurb: 'Abre outro Studio, roda o cenário dele, confere cada bloco, para, anda passo a passo e confere uma falha de propósito. 18 blocos.',
   },
-  lancamento: { title: 'Lançar despesa', blurb: 'preenche e salva um formulário de exemplo · 5 blocos' },
-  quebrado: { title: 'Cenário quebrado', blurb: 'falha no passo 2 de propósito, para ver um erro · 3 blocos' },
+  lancamento: { icon: '🧾', title: 'Lançar despesa', blurb: 'preenche e salva um formulário de exemplo · 5 blocos' },
+  quebrado: { icon: '⚠', title: 'Cenário quebrado', blurb: 'falha no passo 2 de propósito, para ver um erro · 3 blocos' },
 } as const
 
 /** The title of a scenario by the name `--run` takes. */
@@ -24,6 +25,12 @@ function titleOf(name: string): string {
 }
 // Blocks a group shows before "mais N".
 const SHOWN = 4
+// The design's colors, as the person's theme names them: the brand's mark, a card's fill and
+// edge, and the darker ground of the screen a failure shows.
+const BRAND = 'claude'
+const CARD = 'surface-2'
+const LINE = 'subtle'
+const DEEP = 'surface-0'
 
 const last = atom(
   { plugin: 'raven-test-studio', key: 'last' } as const,
@@ -75,7 +82,7 @@ async function run($: Ops, ask: Ask): Promise<Last> {
   let outcome: Last
   const base = { asked: ask.scenario, via: found.via, delegated: ask.delegate }
   try {
-    const done = await $.process.run(argv, { timeoutMs: 900_000 })
+    const done = await $.process.run(argv, { timeoutMs: 600_000 })
     if (done.exitCode === 0 || done.exitCode === 1) {
       outcome = { ...base, report: JSON.parse(done.stdout) as Report, problem: null }
     } else {
@@ -201,269 +208,328 @@ export const register: Register = on => {
     const skipped = r ? r.total - r.blocks.length : 0
     const asked = now.asked ?? 'autoteste'
 
-    // The header: the mark, the name, what is shown, and the verdict as a pill.
+    // The design's pieces (page "Painel no Claude" of the canvas, P1–P4), in the theme's colors:
+    // a filled card, an outlined card, a section caption and a pill for the verdict.
+    const card = (key: string, children: RenderChildren, border: string = LINE) => (
+      <Box key={key} flexDirection="column" gap={1} backgroundColor={CARD} borderStyle="round" borderColor={border} paddingX={1} paddingY={1}>
+        {children}
+      </Box>
+    )
+    const outlined = (key: string, children: RenderChildren) => (
+      <Box key={key} flexDirection="column" gap={0} borderStyle="round" borderColor={LINE} paddingX={1}>
+        {children}
+      </Box>
+    )
+    const caption = (text: string) => (
+      <Text size="caption" weight="semibold" dimColor>
+        {text.toUpperCase()}
+      </Text>
+    )
+    const pill = (text: string, color: string) => (
+      <Box backgroundColor={color} paddingX={1}>
+        <Text size="caption" bold color="inverseText">
+          {text}
+        </Text>
+      </Box>
+    )
+
+    // The header: the mark in the brand's color, the name, what is shown, and the verdict.
     const header = (
       <Box flexDirection="row" alignItems="flex-start" justifyContent="space-between" gap={1}>
         <Box flexDirection="column">
-          <Text size="heading" bold>
-            <Text color="claude">◆</Text> Raven Test Studio
+          <Text size="heading" weight="semibold">
+            <Text color={BRAND}>◆</Text> Raven Test Studio
           </Text>
           <Text size="caption" dimColor>
-            {r ? r.scenario : 'Testes ponta a ponta do RavenRS, pelo próprio RavenRS'}
+            {busy ? titleOf(asked) : r ? r.scenario : 'Testes ponta a ponta do RavenRS, pelo próprio RavenRS'}
           </Text>
         </Box>
-        {busy && (
-          <Box backgroundColor="warning" paddingX={1}>
-            <Text bold color="inverseText">
-              ● RODANDO
-            </Text>
-          </Box>
-        )}
-        {!busy && r && (
-          <Box backgroundColor={ok ? 'success' : 'error'} paddingX={1}>
-            <Text bold color="inverseText">
-              {ok ? '✓ PASSOU' : '✗ FALHOU'}
-            </Text>
-          </Box>
-        )}
+        {busy && pill('● RODANDO', 'warning')}
+        {!busy && r && pill(ok ? '✓ PASSOU' : '✗ FALHOU', ok ? 'success' : 'error')}
       </Box>
     )
 
     const footer = (
-      <Text size="caption" dimColor>
+      <Text size="caption" mono dimColor>
         Feito com RavenRS · ravenrs-e2e
-        {r ? ` · ${r.ran} blocos em ${r.duration_ms} ms${r.from_cache ? ' (do cache)' : ''}` : ' · /raven-test-studio reabre este painel'}
+        {busy || !r
+          ? busy
+            ? ''
+            : ' · /raven-test-studio reabre este painel'
+          : ` · ${r.ran} blocos em ${r.duration_ms} ms${r.from_cache ? ' (do cache)' : ''}`}
       </Text>
+    )
+    // What is left of the pane's height, so the footer sits at the bottom as in the design.
+    const spacer = <Box flexGrow={1} />
+    const page = (children: RenderChildren) => (
+      <Box flexDirection="column" gap={1} paddingX={1} paddingY={1} minHeight="100%">
+        {children}
+      </Box>
     )
 
     // P2: running, with the last run dimmed below.
     if (busy) {
-      return (
-        <Box flexDirection="column" gap={1} paddingX={1} paddingY={1}>
+      return page(
+        <Box flexDirection="column" gap={1}>
           {header}
-          <Box flexDirection="column" borderStyle="round" borderColor="subtle" paddingX={1} paddingY={1}>
-            <Text bold>{titleOf(asked)}</Text>
-            <Text>
-              <Text color="success">✓</Text> Usando {now.via ?? 'o Studio'}
-            </Text>
-            {now.delegated ? (
+          {card(
+            'steps',
+            <Box flexDirection="column" gap={1}>
+              <Text weight="semibold">{now.delegated ? `Delegado ao ${agentName(now.delegated)}` : 'Rodando o cenário'}</Text>
               <Text>
-                <Text color="warning">●</Text> Delegado ao {agentName(now.delegated)} com o modelo mais barato{' '}
-                <Text dimColor>· ele roda, lê o relatório e procura a causa</Text>
+                <Text color="success">✓</Text> Usando {now.via ?? 'o Studio'}
               </Text>
-            ) : (
-              <Text>
-                <Text color="warning">●</Text> Rodando, sem janela{' '}
-                <Text dimColor>{now.via === 'o código deste repositório' ? '· compilar a primeira vez demora mais' : ''}</Text>
-              </Text>
-            )}
-            <Text dimColor>○ Relatório para o painel e para a IA</Text>
-          </Box>
-          {r && (
-            <Box flexDirection="column" borderStyle="round" borderColor="subtle" paddingX={1}>
-              <Text size="caption" dimColor>
-                ÚLTIMA EXECUÇÃO
-              </Text>
-              <Text dimColor>
-                {r.scenario} · {ok ? '✓' : '✗'} {passedCount}/{r.total} · {r.duration_ms} ms
-              </Text>
-            </Box>
+              {now.delegated ? (
+                <Text>
+                  <Text color="warning">●</Text> Com o modelo mais barato <Text dimColor>· ele roda, lê o relatório e procura a causa</Text>
+                </Text>
+              ) : (
+                <Text>
+                  <Text color="warning">●</Text> Rodando, sem janela
+                  <Text dimColor>{now.via === 'o código deste repositório' ? ' · compilar a primeira vez demora mais' : ''}</Text>
+                </Text>
+              )}
+              <Text dimColor>○ Relatório para o painel e para a IA</Text>
+            </Box>,
           )}
+          {r &&
+            outlined(
+              'last',
+              <Box flexDirection="column" gap={1}>
+                {caption('Última execução')}
+                <Box flexDirection="row" justifyContent="space-between" gap={1}>
+                  <Text size="footnote" dimColor>
+                    {r.scenario}
+                  </Text>
+                  <Text size="footnote" tabular color={ok ? 'success' : 'error'}>
+                    {ok ? '✓' : '✗'} {passedCount}/{r.total} · {r.duration_ms} ms
+                  </Text>
+                </Box>
+              </Box>,
+            )}
+          {spacer}
           {footer}
-        </Box>
+        </Box>,
       )
     }
 
     // P1: nothing run yet.
     if (!r) {
-      return (
-        <Box flexDirection="column" gap={1} paddingX={1} paddingY={1}>
+      return page(
+        <Box flexDirection="column" gap={1}>
           {header}
-          {now.problem && (
-            <Box flexDirection="column" borderStyle="round" borderColor="error" paddingX={1}>
-              <Text bold color="error">
-                Não deu para rodar "{now.asked}"
+          {now.problem &&
+            card(
+              'problem',
+              <Box flexDirection="column" gap={1}>
+                <Text weight="semibold" color="error">
+                  Não deu para rodar "{titleOf(now.asked ?? 'autoteste')}"
+                </Text>
+                <Text size="footnote" dimColor>
+                  {now.problem}
+                </Text>
+              </Box>,
+              'error',
+            )}
+          {card(
+            'self',
+            <Box flexDirection="column" gap={1}>
+              <Text size="heading" weight="semibold">
+                {ABOUT.autoteste.title}
               </Text>
-              <Text dimColor>{now.problem}</Text>
-            </Box>
+              <Text size="footnote" dimColor>
+                {ABOUT.autoteste.blurb}
+              </Text>
+              <Button key="self" variant="primary" onPress={press('autoteste', false)}>
+                ▶ Rodar autoteste
+              </Button>
+              <Button key="self-codex" dimColor onPress={press('autoteste', true, 'codex')}>
+                Delegar ao Codex (modelo mais barato)
+              </Button>
+            </Box>,
           )}
-          <Box flexDirection="column" borderStyle="round" borderColor="subtle" paddingX={1} paddingY={1} gap={1}>
-            <Text bold>{ABOUT.autoteste.title}</Text>
-            <Text dimColor>{ABOUT.autoteste.blurb}</Text>
-            <Button key="self" variant="primary" onPress={press('autoteste', false)}>
-              ▶ Rodar autoteste
-            </Button>
-            <Button key="self-codex" onPress={press('autoteste', true, 'codex')}>
-              Delegar ao Codex (modelo mais barato)
-            </Button>
-          </Box>
           <Box flexDirection="column" gap={1}>
-            <Text size="caption" dimColor>
-              OUTROS CENÁRIOS
-            </Text>
+            {caption('Outros cenários')}
             {(['lancamento', 'quebrado'] as const).map(key => (
-              <Box key={key} flexDirection="row" justifyContent="space-between" alignItems="center" gap={1}>
-                <Box flexDirection="column" flexShrink={1}>
-                  <Text bold>{ABOUT[key].title}</Text>
-                  <Text size="caption" dimColor>
+              <Box key={`row-${key}`} flexDirection="row" alignItems="flex-start" gap={1} borderStyle="round" borderColor={LINE} paddingX={1}>
+                <Text>{ABOUT[key].icon}</Text>
+                <Box flexDirection="column" flexGrow={1} flexShrink={1}>
+                  <Button key={`run-${key}`} plain onPress={press(key, false)}>
+                    <Text weight="semibold">{ABOUT[key].title}</Text>
+                  </Button>
+                  <Text size="footnote" dimColor>
                     {ABOUT[key].blurb}
                   </Text>
                 </Box>
-                <Button key={`run-${key}`} onPress={press(key, false)}>
-                  Rodar
-                </Button>
+                <Text dimColor>›</Text>
               </Box>
             ))}
           </Box>
-          <Box flexDirection="column" borderStyle="round" borderColor="subtle" paddingX={1}>
-            <Text size="caption" dimColor>
-              PARA A IA
-            </Text>
-            <Text>
-              Peça na conversa: "roda o autoteste do Studio". A IA chama a ferramenta run_scenario, recebe o relatório
-              inteiro e o painel mostra o mesmo resultado.
-            </Text>
-          </Box>
+          {outlined(
+            'ai',
+            <Box flexDirection="column" gap={1}>
+              {caption('Para a IA')}
+              <Text size="footnote">
+                Peça na conversa: <Text italic>"roda o autoteste do Studio"</Text>. A IA chama a ferramenta{' '}
+                <Text mono>run_scenario</Text>, recebe o relatório inteiro e o painel mostra o mesmo resultado.
+              </Text>
+            </Box>,
+          )}
+          {spacer}
           {footer}
-        </Box>
+        </Box>,
       )
     }
 
     // P3 and P4: a finished run.
     const metric = (key: string, label: string, value: string, color?: 'success' | 'error' | 'warning') => (
-      <Box key={key} flexDirection="column" borderStyle="round" borderColor="subtle" paddingX={1} flexGrow={1}>
-        <Text size="caption" dimColor>
-          {label}
-        </Text>
-        <Text size="heading" bold color={color} dimColor={!color}>
+      <Box key={key} flexDirection="column" backgroundColor={CARD} borderStyle="round" borderColor={LINE} paddingX={1} flexGrow={1}>
+        {caption(label)}
+        <Text size="heading" weight="semibold" tabular color={color} dimColor={!color}>
           {value}
         </Text>
       </Box>
     )
 
-    return (
-      <Box flexDirection="column" gap={1} paddingX={1} paddingY={1}>
+    return page(
+      <Box flexDirection="column" gap={1}>
         {header}
 
-        <Box flexDirection="column" borderStyle="round" borderColor="subtle" paddingX={1}>
-          <Box flexDirection="row" justifyContent="space-between" alignItems="flex-end" gap={1}>
-            <Text size="title" bold>
-              {passedCount}
-              <Text dimColor>/{r.total}</Text>
-            </Text>
-            <Text dimColor>
-              {ok ? 'passos passaram' : `falhou no passo ${failed?.step ?? '?'}`} · {r.duration_ms} ms
-            </Text>
-          </Box>
-          <Text>
-            {r.blocks.map(b => (
-              <Text key={`bar-${b.id}`} color={b.result === 'passed' ? 'success' : 'error'}>
-                ■
+        {card(
+          'score',
+          <Box flexDirection="column" gap={1}>
+            <Box flexDirection="row" justifyContent="space-between" alignItems="flex-end" gap={1}>
+              <Text size="title" weight="semibold" tabular>
+                {passedCount}
+                <Text size="body" dimColor>
+                  /{r.total}
+                </Text>
               </Text>
-            ))}
-            {skipped > 0 && <Text color="subtle">{'■'.repeat(skipped)}</Text>}
-          </Text>
-          {r.from_cache && <Text size="caption" dimColor>do cache: nem o cenário nem o build mudaram</Text>}
-        </Box>
-
-        {d && (
-          <Box
-            flexDirection="column"
-            borderStyle="round"
-            borderColor={d.confirmed ? 'success' : 'warning'}
-            paddingX={1}
-            gap={1}
-          >
-            <Box flexDirection="row" justifyContent="space-between" gap={1}>
-              <Text bold>
-                Delegado ao {agentName(d.agent)} <Text dimColor>· {d.model ?? 'modelo padrão'}</Text>
+              <Text size="footnote" dimColor>
+                {ok ? 'passos passaram' : `falhou no passo ${failed?.step ?? '?'}`} · {r.duration_ms} ms
               </Text>
-              <Text dimColor>{(d.duration_ms / 1000).toFixed(1)} s</Text>
             </Box>
-            <Text>
-              Disse <Text bold>{d.verdict === 'passed' ? 'passou' : d.verdict === 'failed' ? 'falhou' : 'nada no formato pedido'}</Text>
-              {d.said?.summary ? ` — ${d.said.summary}` : ''}
+            <Text mono>
+              {r.blocks.map(b => (
+                <Text key={`bar-${b.id}`} color={b.result === 'passed' ? 'success' : 'error'}>
+                  ■
+                </Text>
+              ))}
+              {skipped > 0 && <Text color="subtle">{'■'.repeat(skipped)}</Text>}
             </Text>
-            {d.said?.cause && (
-              <Text>
-                <Text bold>Causa:</Text> {d.said.cause}
-              </Text>
-            )}
-            {d.said?.fix && (
-              <Text>
-                <Text bold>Como corrigir:</Text> {d.said.fix}
-              </Text>
-            )}
-            <Text color={d.confirmed ? 'success' : 'warning'}>
-              {d.confirmed
-                ? '✓ O Studio rodou o mesmo cenário e confirmou o veredito'
-                : '! O Studio rodou o mesmo cenário e chegou a outro veredito'}
+            <Text size="caption" dimColor>
+              {r.from_cache ? 'do cache: nem o cenário nem o build mudaram' : 'Um ■ por bloco do cenário, na ordem em que rodou'}
             </Text>
-          </Box>
+          </Box>,
         )}
 
-        {failed && (
-          <Box flexDirection="column" borderStyle="round" borderColor="error" paddingX={1} gap={1}>
-            <Box flexDirection="column">
-              <Text bold color="error">
-                ✗ Bloco {failed.step} · {failed.title}
+        {d &&
+          card(
+            'delegation',
+            <Box flexDirection="column" gap={1}>
+              <Box flexDirection="row" justifyContent="space-between" gap={1}>
+                <Text weight="semibold">
+                  Delegado ao {agentName(d.agent)} <Text dimColor>· {d.model ?? 'modelo padrão'}</Text>
+                </Text>
+                <Text size="footnote" tabular dimColor>
+                  {(d.duration_ms / 1000).toFixed(1)} s
+                </Text>
+              </Box>
+              <Text size="footnote">
+                Disse{' '}
+                <Text weight="semibold">
+                  {d.verdict === 'passed' ? 'passou' : d.verdict === 'failed' ? 'falhou' : 'nada no formato pedido'}
+                </Text>
+                {d.said?.summary ? ` — ${d.said.summary}` : ''}
               </Text>
-              <Text size="caption" dimColor>
-                {failed.kind} · {failed.line}
+              {d.said?.cause && (
+                <Text size="footnote">
+                  <Text weight="semibold">Causa:</Text> {d.said.cause}
+                </Text>
+              )}
+              {d.said?.fix && (
+                <Text size="footnote">
+                  <Text weight="semibold">Como corrigir:</Text> {d.said.fix}
+                </Text>
+              )}
+              <Text size="footnote" color={d.confirmed ? 'success' : 'warning'}>
+                {d.confirmed
+                  ? '✓ O Studio rodou o mesmo cenário e confirmou o veredito'
+                  : '! O Studio rodou o mesmo cenário e chegou a outro veredito'}
               </Text>
-            </Box>
-            <Box flexDirection="row" flexWrap="wrap" gap={1} alignItems="center">
-              {failed.code && (
-                <Box borderStyle="round" borderColor="error" paddingX={1}>
-                  <Text bold color="error">
-                    {failed.code}
-                  </Text>
+            </Box>,
+            d.confirmed ? 'success' : 'warning',
+          )}
+
+        {failed &&
+          card(
+            'failure',
+            <Box flexDirection="column" gap={1}>
+              <Box flexDirection="column">
+                <Text weight="semibold" color="error">
+                  ✗ Bloco {failed.step} · {failed.title}
+                </Text>
+                <Text size="footnote" dimColor>
+                  {failed.kind} · {failed.line}
+                </Text>
+              </Box>
+              <Box flexDirection="row" flexWrap="wrap" gap={1} alignItems="center">
+                {failed.code && (
+                  <Box borderStyle="round" borderColor="error" paddingX={1}>
+                    <Text size="caption" weight="semibold" mono color="error">
+                      {failed.code}
+                    </Text>
+                  </Box>
+                )}
+                <Text size="footnote">{failed.meaning ?? failed.error}</Text>
+              </Box>
+              {failed.detail && (
+                <Text size="footnote" dimColor>
+                  {failed.detail}
+                </Text>
+              )}
+              {failed.fix && (
+                <Text size="footnote">
+                  <Text weight="semibold">Como corrigir:</Text> {failed.fix}
+                </Text>
+              )}
+              {failed.close.length > 0 && (
+                <Box flexDirection="column">
+                  {caption('Parecidos na tela')}
+                  {failed.close.map(line => (
+                    <Text key={`close-${line}`} size="footnote" mono dimColor>
+                      {line}
+                    </Text>
+                  ))}
                 </Box>
               )}
-              <Text>{failed.meaning ?? failed.error}</Text>
-            </Box>
-            {failed.detail && <Text dimColor>{failed.detail}</Text>}
-            {failed.fix && (
-              <Text>
-                <Text bold>Como corrigir:</Text> {failed.fix}
-              </Text>
-            )}
-            {failed.close.length > 0 && (
-              <Box flexDirection="column">
-                <Text size="caption" dimColor>
-                  PARECIDOS NA TELA
-                </Text>
-                {failed.close.map(line => (
-                  <Text key={`close-${line}`} dimColor>
-                    {line}
-                  </Text>
-                ))}
+              {failed.screen && (
+                <Box flexDirection="column" gap={0}>
+                  {caption('Tela do app testado')}
+                  <Box backgroundColor={DEEP} paddingX={1} paddingY={1}>
+                    <Text size="caption" mono dimColor>
+                      {failed.screen.trimEnd()}
+                    </Text>
+                  </Box>
+                </Box>
+              )}
+              <Box flexDirection="row" gap={1}>
+                <Button key="ask-ai" onPress={() => void $.prompt.submit({ text: askToFix(r, failed) })}>
+                  Pedir à IA para corrigir
+                </Button>
+                <Button key="copy" dimColor onPress={() => void $.ui.copy({ text: askToFix(r, failed), surface: e.surface })}>
+                  Copiar
+                </Button>
               </Box>
-            )}
-            {failed.screen && (
-              <Box flexDirection="column">
-                <Text size="caption" dimColor>
-                  TELA DO APP TESTADO
-                </Text>
-                <Text dimColor>{failed.screen.trimEnd()}</Text>
-              </Box>
-            )}
-            <Box flexDirection="row" gap={1}>
-              <Button key="ask-ai" onPress={() => void $.prompt.submit({ text: askToFix(r, failed) })}>
-                Pedir à IA para corrigir
-              </Button>
-              <Button key="copy" onPress={() => void $.ui.copy({ text: askToFix(r, failed), surface: e.surface })}>
-                Copiar
-              </Button>
-            </Box>
-          </Box>
-        )}
+            </Box>,
+            'error',
+          )}
 
         <Box flexDirection="row" gap={1}>
-          {metric('passed', 'PASSARAM', String(passedCount), 'success')}
-          {metric('failed', 'FALHARAM', String(failedCount), failedCount > 0 ? 'error' : undefined)}
-          {metric('skipped', 'PULADAS', String(skipped), skipped > 0 ? 'warning' : undefined)}
-          {metric('cache', 'CACHE', r.from_cache ? 'sim' : 'não')}
+          {metric('passed', 'Passaram', String(passedCount), 'success')}
+          {metric('failed', 'Falharam', String(failedCount), failedCount > 0 ? 'error' : undefined)}
+          {metric('skipped', 'Puladas', String(skipped), skipped > 0 ? 'warning' : undefined)}
+          {metric('cache', 'Cache', r.from_cache ? 'sim' : 'não')}
         </Box>
 
         <Box flexDirection="column" gap={1}>
@@ -473,9 +539,6 @@ export const register: Register = on => {
           <Box flexDirection="row" flexWrap="wrap" gap={1}>
             <Button key="fresh" onPress={press(asked, true)}>
               ↻ Sem cache
-            </Button>
-            <Button key="codex" onPress={press(asked, true, 'codex')}>
-              Delegar ao Codex
             </Button>
             {asked !== 'autoteste' && (
               <Button key="self" onPress={press('autoteste', false)}>
@@ -492,6 +555,9 @@ export const register: Register = on => {
                 Quebrado
               </Button>
             )}
+            <Button key="codex" dimColor onPress={press(asked, true, 'codex')}>
+              Delegar ao Codex
+            </Button>
           </Box>
         </Box>
 
@@ -502,35 +568,46 @@ export const register: Register = on => {
             const rest = phase.blocks.length - shown.length
             return (
               <Box key={`phase-${i}`} flexDirection="column">
-                <Text size="caption" dimColor>
-                  {phase.title.toUpperCase()} · {phase.blocks.length} BLOCO{phase.blocks.length === 1 ? '' : 'S'}
-                </Text>
+                {caption(`${phase.title} · ${phase.blocks.length} bloco${phase.blocks.length === 1 ? '' : 's'}`)}
                 {shown.map(b => (
-                  <Text key={`row-${b.id}`} color={b.result === 'failed' ? 'error' : undefined}>
+                  <Text key={`row-${b.id}`} size="footnote" color={b.result === 'failed' ? 'error' : undefined}>
                     <Text color={b.result === 'passed' ? 'success' : 'error'}>{b.result === 'passed' ? '✓' : '✗'}</Text>{' '}
-                    <Text dimColor>{String(b.step).padStart(2, ' ')}</Text> {b.title}
+                    <Text tabular dimColor>
+                      {String(b.step).padStart(2, ' ')}
+                    </Text>{' '}
+                    {b.title}
                   </Text>
                 ))}
-                {rest > 0 && <Text dimColor>✓ … mais {rest}</Text>}
+                {rest > 0 && (
+                  <Text size="footnote" dimColor>
+                    <Text color="success">✓</Text> … mais {rest}
+                  </Text>
+                )}
               </Box>
             )
           })}
-          {skipped > 0 && <Text color="warning">○ {skipped} bloco(s) não rodaram depois da falha</Text>}
-        </Box>
-
-        <Box flexDirection="column" borderStyle="round" borderColor="subtle" paddingX={1}>
-          <Text size="caption" dimColor>
-            NÃO VERIFICADO
-          </Text>
-          {r.not_verified.map(line => (
-            <Text key={`nv-${line}`} dimColor>
-              · {line}
+          {skipped > 0 && (
+            <Text size="footnote" color="warning">
+              ○ {skipped} bloco{skipped === 1 ? '' : 's'} não rodou depois da falha
             </Text>
-          ))}
+          )}
         </Box>
 
+        {outlined(
+          'not-verified',
+          <Box flexDirection="column" gap={1}>
+            {caption('Não verificado')}
+            {r.not_verified.map(line => (
+              <Text key={`nv-${line}`} size="caption" dimColor>
+                · {line}
+              </Text>
+            ))}
+          </Box>,
+        )}
+
+        {spacer}
         {footer}
-      </Box>
+      </Box>,
     )
   })
 }
