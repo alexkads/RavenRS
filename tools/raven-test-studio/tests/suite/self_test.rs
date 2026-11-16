@@ -7,7 +7,7 @@ use raven_test_studio::{app, run_bundled, run_named};
 
 /// A scenario file the Studio's own tests keep in `tests/e2e/`; the installed Studio has none.
 fn kept(file: &str) -> String {
-    format!("{}/tests/e2e/{file}", env!("CARGO_MANIFEST_DIR"))
+    format!("{}/tests/e2e/amostras/{file}", env!("CARGO_MANIFEST_DIR"))
 }
 use ravenrs::prelude::*;
 use ravenrs_e2e::E2e;
@@ -100,4 +100,58 @@ fn the_files_the_studio_tests_keep_run_like_the_scenarios_inside_the_self_test()
 fn a_name_that_is_neither_a_scenario_nor_a_file_says_what_there_is() {
     let why = run_named("lancamento", None).unwrap_err();
     assert!(why.contains("autoteste, financas") && why.contains(".raventest"), "{why}");
+}
+
+/// Runs the Studio's own scenarios on another Studio opened apart: the binary of this build,
+/// with `--e2e-serve`, as `--project tools/raven-test-studio --run-all` does with `cargo run`.
+fn on_a_studio_apart(path: &str) -> raven_test_studio::report::Report {
+    raven_test_studio::apps::learn(raven_test_studio::apps::App {
+        name: "Raven Test Studio".to_owned(),
+        binary_path: Some(env!("CARGO_BIN_EXE_raven-test-studio").into()),
+        ..raven_test_studio::apps::App::default()
+    });
+    run_named(path, None).unwrap()
+}
+
+/// The Studio's own scenarios, `tests/e2e/*.raventest`, run by this Studio on another one in a
+/// process of its own. Every one must pass.
+#[test]
+fn the_studios_own_scenarios_pass_on_another_studio_apart() {
+    let report = on_a_studio_apart(concat!(env!("CARGO_MANIFEST_DIR"), "/tests/e2e"));
+    assert!(report.passed(), "{}", report.text());
+    assert!(report.apart, "the Studio under test ran in a process of its own");
+    assert_eq!(report.total, 29, "the five scenarios, one after the other");
+}
+
+#[test]
+fn a_wrong_check_on_the_studio_under_test_says_why_and_shows_its_screen() {
+    let folder = std::env::temp_dir().join(format!("rts-errado-{}", std::process::id()));
+    std::fs::create_dir_all(&folder).unwrap();
+    let file = folder.join("errado.raventest");
+    std::fs::write(
+        &file,
+        "scenario: Errado\nopen Raven Test Studio\nclick #run\ncheck #summary = 4 de 5 passos passaram\n",
+    )
+    .unwrap();
+    let report = on_a_studio_apart(file.to_str().unwrap());
+    let failed = report.failure().unwrap();
+    assert_eq!(failed.code.as_deref(), Some("E2E_EXPECTATION"));
+    assert!(failed.screen.as_deref().is_some_and(|s| s.contains("#summary")), "{failed:?}");
+    let _ = std::fs::remove_dir_all(&folder);
+}
+
+#[test]
+fn another_studio_drives_this_one_in_a_process_of_its_own_and_it_brings_no_scenario() {
+    let mut studio = std::process::Command::new(env!("CARGO_BIN_EXE_raven-test-studio"));
+    studio.arg(ravenrs_e2e_wire::SERVE_FLAG);
+    let mut app = ravenrs_e2e_wire::Client::spawn(studio, std::time::Duration::from_secs(60)).unwrap();
+    assert_eq!(app.app(), "Raven Test Studio");
+    assert!(app.scenarios().is_empty(), "the installed Studio brings no scenario");
+    let check = |target: &str, text: &str| ravenrs_e2e_wire::Command::Check {
+        target: target.into(),
+        text: text.into(),
+    };
+    app.send(&check("#health", "Autoteste: 18 de 18 passos passaram")).unwrap();
+    app.send(&ravenrs_e2e_wire::Command::Click { target: "#run".into() }).unwrap();
+    app.send(&check("#summary", "5 de 5 passos passaram")).unwrap();
 }

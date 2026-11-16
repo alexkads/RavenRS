@@ -230,6 +230,7 @@ impl Project {
                     .unwrap_or_else(|| found.binaries[0].clone()),
                 source: Some(self.root.clone()),
                 source_first: true,
+                binary_path: None,
                 ..declared
             });
         }
