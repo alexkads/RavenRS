@@ -2,38 +2,52 @@
 //!
 //! A block's kind says the action and its subtitle says the target and the text, as a person
 //! writes them: `#valor = 152,40` types into the field tagged `valor`, `Salvar` clicks what
-//! shows "Salvar".
+//! shows "Salvar". Each block becomes a command of the test channel (`ravenrs-e2e-wire`), run on
+//! an app compiled into the Studio or on one opened apart in a child process.
 
 use ravenrs::prelude::*;
-use ravenrs_e2e::{E2e, Query};
+use ravenrs_e2e::E2e;
+use ravenrs_e2e_wire::{Client, Command};
 
 use crate::sample;
 
-/// Opens the app a scenario's Open block names, or says there is none by that name.
-pub type Opener = fn(&str) -> Option<E2e>;
+/// The app a run drives: compiled into the Studio, or opened apart in a child process with no
+/// window and driven over the test channel (`ravenrs-e2e-wire`). A step runs the same either way.
+#[derive(Debug)]
+pub enum Session {
+    /// An app compiled into the Studio, such as the sample form or another Studio.
+    Here(Box<E2e>),
+    /// An app opened in a child process, such as Raven Finanças; it ends with the run.
+    Apart(Client),
+}
+
+impl Session {
+    /// Runs `command` on the app, as `Command::apply` answers.
+    pub fn run(&mut self, command: &Command) -> Result<Option<String>, ravenrs_e2e_wire::Failure> {
+        match self {
+            Self::Here(e2e) => command.apply(e2e),
+            Self::Apart(client) => client.send(command),
+        }
+    }
+
+    /// The screen of the app as text, when it can still say.
+    pub fn screen(&mut self) -> Option<String> {
+        self.run(&Command::Snapshot).ok().flatten()
+    }
+}
+
+/// Opens the app a scenario's Open block names: `None` when there is no app by that name, the
+/// reason when there is one and it could not be opened.
+pub type Opener = fn(&str) -> Option<Result<Session, String>>;
 
 /// One step a block stands for.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Step {
     /// Opens the app under test by name, from nothing.
     Open(String),
-    /// Clicks the target.
-    Click(Query),
-    /// Types the text into the target.
-    Type(Query, String),
-    /// The target's value, or its text when it has no value, is exactly the text.
-    Check(Query, String),
-    /// The target's name or description contains the text, such as the state of a diagram
-    /// block ("Concluído", an error code).
-    Mention(Query, String),
-}
-
-/// The target of a block: `#id` is a test id, anything else is the text shown.
-fn target(text: &str) -> Query {
-    match text.strip_prefix('#') {
-        Some(id) => Query::test_id(id.trim()),
-        None => Query::text(text),
-    }
+    /// Anything done on the app once it is open: click, type, check or mention, with its target
+    /// written as on the block (`#id` or the text shown).
+    Do(Command),
 }
 
 /// What `node` stands for, or why it cannot run.
@@ -47,24 +61,25 @@ pub fn step_of(node: &FlowNode) -> Result<Step, String> {
         if aim.is_empty() {
             Err("Diga o alvo: #id ou o texto que aparece".to_owned())
         } else {
-            Ok(target(aim))
+            Ok(aim.to_owned())
         }
     };
     let needs_text = || text.clone().ok_or_else(|| "Diga o texto depois do alvo: #alvo = texto".to_owned());
-    match node.kind.as_str() {
-        "open" => Ok(Step::Open(aim.to_owned())),
-        "click" => Ok(Step::Click(needs_aim()?)),
-        "type" => Ok(Step::Type(needs_aim()?, needs_text()?)),
-        "check" => Ok(Step::Check(needs_aim()?, needs_text()?)),
-        "mention" => Ok(Step::Mention(needs_aim()?, needs_text()?)),
-        other => Err(format!("Bloco desconhecido: {other}")),
-    }
+    let command = match node.kind.as_str() {
+        "open" => return Ok(Step::Open(aim.to_owned())),
+        "click" => Command::Click { target: needs_aim()? },
+        "type" => Command::Type { target: needs_aim()?, text: needs_text()? },
+        "check" => Command::Check { target: needs_aim()?, text: needs_text()? },
+        "mention" => Command::Mention { target: needs_aim()?, text: needs_text()? },
+        other => return Err(format!("Bloco desconhecido: {other}")),
+    };
+    Ok(Step::Do(command))
 }
 
 /// Opens the sample form, the only app this module knows by itself.
-pub fn open_sample(name: &str) -> Option<E2e> {
+pub fn open_sample(name: &str) -> Option<Result<Session, String>> {
     (name.is_empty() || name == sample::EXPENSE_APP)
-        .then(|| E2e::new(sample::expense_app(), Theme::raven_light()))
+        .then(|| Ok(Session::Here(Box::new(E2e::new(sample::expense_app(), Theme::raven_light())))))
 }
 
 /// Why a block failed: the message, and from `ravenrs-e2e` its stable code, how to fix it and
@@ -83,6 +98,8 @@ pub struct Failure {
     pub fix: Option<String>,
     /// Up to three nodes that came close to what the block asked for.
     pub close: Vec<String>,
+    /// The screen of the app when it failed, when the failure brought it.
+    pub screen: Option<String>,
 }
 
 impl Failure {
@@ -93,68 +110,75 @@ impl Failure {
 
 /// What a failure means and how to fix it, in Portuguese, by its stable code. The detail from
 /// `ravenrs-e2e` (which query, what was found) follows the meaning.
-fn in_portuguese(code: ravenrs_e2e::ErrorCode) -> (&'static str, Option<&'static str>) {
-    use ravenrs_e2e::ErrorCode as C;
+fn in_portuguese(code: &str) -> (&'static str, Option<&'static str>) {
     match code {
-        C::NotFound => (
+        "E2E_NOT_FOUND" => (
             "nada na tela corresponde ao alvo",
             Some("confira a tela do app testado; uma parte sem nome pode ganhar um ViewExt::test_id"),
         ),
-        C::Ambiguous => (
+        "E2E_AMBIGUOUS" => (
             "mais de uma parte corresponde ao alvo",
             Some("dê um test_id à parte, restrinja com within ou escolha uma com nth"),
         ),
-        C::Disabled => (
+        "E2E_DISABLED" => (
             "o alvo está desabilitado",
             Some("faça antes o que o habilita, ou confira que está desabilitado"),
         ),
-        C::Covered => ("outra coisa está por cima do alvo", Some("feche ou mova antes o que está por cima")),
-        C::NotVisible => ("o alvo está fora da janela", Some("role até ele ou aumente a janela")),
-        C::ProtectedValue => {
+        "E2E_COVERED" => {
+            ("outra coisa está por cima do alvo", Some("feche ou mova antes o que está por cima"))
+        }
+        "E2E_NOT_VISIBLE" => ("o alvo está fora da janela", Some("role até ele ou aumente a janela")),
+        "E2E_PROTECTED_VALUE" => {
             ("o valor é secreto e nunca é mostrado", Some("confira o que o app faz com o valor, como entrar"))
         }
-        C::Expectation => ("a conferência não bateu", None),
+        "E2E_EXPECTATION" => ("a conferência não bateu", None),
+        "E2E_APP_START" => (
+            "o app testado não abriu ou fechou no meio",
+            Some(
+                "veja no fim da mensagem o que o app escreveu ao sair; confira que ele foi compilado com o canal de teste",
+            ),
+        ),
+        "E2E_TIMEOUT" => (
+            "o app testado não respondeu a tempo e foi encerrado",
+            Some("confira se o passo abre algo que espera por quem usa, como um diálogo do sistema"),
+        ),
+        "E2E_WIRE" => ("o app testado respondeu fora do protocolo do canal de teste", None),
         _ => ("o passo falhou", None),
     }
 }
 
-impl From<ravenrs_e2e::E2eError> for Failure {
-    fn from(e: ravenrs_e2e::E2eError) -> Self {
-        let (meaning, fix) = in_portuguese(e.code());
+impl From<ravenrs_e2e_wire::Failure> for Failure {
+    fn from(f: ravenrs_e2e_wire::Failure) -> Self {
+        let (meaning, fix) = in_portuguese(&f.code);
         Self {
-            message: format!("[{}] {meaning}: {}", e.code(), e.message()),
-            code: Some(e.code().as_str().to_owned()),
+            message: format!("[{}] {meaning}: {}", f.code, f.message),
             meaning: Some(meaning.to_owned()),
-            detail: Some(e.message().to_owned()),
-            fix: fix.map(str::to_owned).or_else(|| e.fix().map(str::to_owned)),
-            close: e.close_matches().to_vec(),
+            detail: Some(f.message),
+            fix: fix.map(str::to_owned).or(f.fix),
+            close: f.close,
+            screen: (!f.screen.is_empty()).then_some(f.screen),
+            code: Some(f.code),
         }
     }
 }
 
 /// Runs `step` on the app in `session`, opening apps with `open`.
-pub fn perform(session: &mut Option<E2e>, step: &Step, open: Opener) -> Result<(), Box<Failure>> {
-    if let Step::Open(name) = step {
-        let opened = open(name)
-            .ok_or_else(|| Box::new(Failure::plain(format!("Não há app chamado {name:?} para abrir"))))?;
-        *session = Some(opened);
-        return Ok(());
-    }
-    let Some(e2e) = session.as_mut() else {
+pub fn perform(session: &mut Option<Session>, step: &Step, open: Opener) -> Result<(), Box<Failure>> {
+    let command = match step {
+        Step::Open(name) => {
+            // The app a previous Open block started ends before the next one starts.
+            *session = None;
+            let opened = open(name)
+                .ok_or_else(|| Box::new(Failure::plain(format!("Não há app chamado {name:?} para abrir"))))?;
+            *session = Some(opened.map_err(|reason| Box::new(Failure::plain(reason)))?);
+            return Ok(());
+        }
+        Step::Do(command) => command,
+    };
+    let Some(app) = session.as_mut() else {
         return Err(Box::new(Failure::plain("O app não está aberto: comece o cenário por um bloco Abrir")));
     };
-    let done = match step {
-        Step::Open(_) => Ok(()),
-        Step::Click(q) => e2e.locate(q.clone()).click(),
-        Step::Type(q, text) => e2e.locate(q.clone()).type_text(text),
-        Step::Check(q, text) => match e2e.find(q) {
-            Ok(node) if node.value.is_some() => e2e.locate(q.clone()).expect().to_have_value(text),
-            Ok(_) => e2e.locate(q.clone()).expect().to_have_name(text),
-            Err(e) => Err(e),
-        },
-        Step::Mention(q, text) => e2e.locate(q.clone()).expect().to_mention(text),
-    };
-    done.map_err(|e| Box::new(Failure::from(e)))
+    app.run(command).map(|_| ()).map_err(|f| Box::new(Failure::from(f)))
 }
 
 /// The blocks a run goes through: from the first Open block, along the first way out of each.
@@ -176,7 +200,7 @@ pub fn path(graph: &FlowGraph) -> Vec<String> {
 /// A run in progress: the app it drives and the next block on its path.
 #[derive(Debug)]
 pub struct Run {
-    session: Option<E2e>,
+    session: Option<Session>,
     next: usize,
     failed: bool,
     open: Opener,
@@ -258,10 +282,19 @@ impl Run {
                 }
             }
         }
-        let failure = result.err();
-        let screen = failure.as_ref().and_then(|_| self.session.as_ref().map(E2e::snapshot));
-        let f = failure.map(|f| *f).unwrap_or_default();
+        let failed = result.is_err();
+        let f = result.err().map(|f| *f).unwrap_or_default();
+        // The failure brings the screen as it was; when it did not, the app is asked for it.
+        let screen = match &f.screen {
+            Some(screen) => Some(screen.clone()),
+            None if failed => self.session.as_mut().and_then(Session::screen),
+            None => None,
+        };
         let error = (!f.message.is_empty()).then_some(f.message);
+        if self.finished(graph) {
+            // An app opened apart ends with the run, not when the next one starts.
+            self.session = None;
+        }
         Some(Outcome {
             id,
             kind,

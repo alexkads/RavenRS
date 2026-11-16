@@ -109,6 +109,7 @@ ravenrs-pdf            (PDF engine from PdfCraft: reading, saving, merging and s
 ravenrs-deck           (presentation engine from DeckCraft: slide model, PPTX, rendering, PDF export, commands with undo; depends on nothing in RavenRS)
 ravenrs-movie          ──► ravenrs-widgets (recorded draw lists ──► screen)
 ravenrs-e2e            ──► ravenrs-widgets-base (end-to-end tests: find by test id, role or text, real input events, the screen as text; no widget family)
+ravenrs-e2e-wire       ──► ravenrs-e2e (the test channel: a tool drives an app in a child process with no window, one JSON line per step; feature `serve` on the app's side)
 ravenrs-ai             ──► ravenrs-widgets (models on the machine; desktop only)
         ▲
         ├── ravenrs-report-server  (HTTP, schedules, delivery; only this crate has a runtime)
@@ -460,6 +461,7 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | Spreadsheet: `Spreadsheet` over `ravenrs-sheet` (500+ functions, dynamic arrays, XLSX/XLS/ODS/CSV in, XLSX/CSV out), editing in the cell and the formula bar, selection by pointer and keys, clipboard, undo, fonts, fills, borders, merges, number formats, column widths, sheet tabs | ✓ | | ribbon of every command, frozen panes, charts and pictures on the sheet, conditional formats drawn, fill handle, find, the culture's separators |
 | Reporting: engine, wizard, designer with preview, viewer, pictures, links, barcodes, charts, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4) | ✓ | | Other exports, parameter lookups, SQL data sources (phases R2 to R5) |
 | End-to-end tests (`ravenrs-e2e`, issue #627) | a session with no window: queries by test id, role and name, text or snapshot reference; clicks, typing, keys and drags as real input events, refused when the target is disabled, hidden or covered; checks; the screen as text; errors with stable codes | | the controlled clock and waiting (F2), new accessibility actions (F1b), the rest of #627 |
+| Test channel (`ravenrs-e2e-wire`, issue #649) | an app opened with `--e2e-serve` answers a tool over stdin and stdout with an `E2e` session of its own; `Client` opens it as a child process with a time limit per step; Raven Finanças serves its sample family in memory, and Raven Test Studio drives it | | frames over the channel, `E2E_APP_BUILD`, `attach` to an open app with permission, `cargo ravenrs e2e install` (rest of F6) |
 | Benchmarks and profiling | `tracing` spans per phase, criterion benches (`crates/*/benches`), a gate of exact counters and frame times (`crates/ravenrs-perf`, budgets in [docs/QUALITY.md](docs/QUALITY.md)), the diagnostics panel with GPU timestamps ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)) | | stepping through a frozen frame, a map of what was rebuilt, invalidation by subtree |
 | Application framework: `ravenrs-app`, `ravenrs-app-ui`; see [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md) | derive, model, actions (also declared as data), frames, rules, SQLite, generated lists and forms, permissions, sign-in, audit trail | the API |  relations |
 

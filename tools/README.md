@@ -25,7 +25,7 @@ The tools of RavenRS: apps that people install and use to build with RavenRS, ma
 
 | Tool | What it does |
 |---|---|
-| [Raven Test Studio](raven-test-studio) | End-to-end tests of RavenRS apps as flows of blocks, reported to a person or to the AI that asked; it tests itself |
+| [Raven Test Studio](raven-test-studio) (RTS) | End-to-end tests of RavenRS apps as flows of blocks, reported to a person or to the AI that asked; it tests itself |
 
 ## Install one
 

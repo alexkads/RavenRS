@@ -39,10 +39,14 @@ fn every_flag_in_the_manifest_is_one_the_program_reads() {
 }
 
 #[test]
-fn every_error_code_of_ravenrs_e2e_is_explained() {
+fn every_error_code_of_ravenrs_e2e_and_of_the_test_channel_is_explained() {
     let error = include_str!("../../../../crates/ravenrs-e2e/src/error.rs");
-    let codes: Vec<&str> =
-        error.split('"').filter(|part| part.starts_with("E2E_") && !part.contains(' ')).collect();
+    let channel = include_str!("../../../../crates/ravenrs-e2e-wire/src/lib.rs");
+    let codes: Vec<&str> = [error, channel]
+        .into_iter()
+        .flat_map(|source| source.split('"'))
+        .filter(|part| part.starts_with("E2E_") && !part.contains(' '))
+        .collect();
     assert!(!codes.is_empty());
     let tool = manifest();
     let explained = names(&tool["error_codes"], "code");
@@ -50,7 +54,7 @@ fn every_error_code_of_ravenrs_e2e_is_explained() {
         assert!(explained.contains(code), "tool.json does not explain {code}");
     }
     for code in &explained {
-        assert!(codes.contains(code), "{code} is not a code of ravenrs-e2e");
+        assert!(codes.contains(code), "{code} is not a code of ravenrs-e2e or of the test channel");
     }
 }
 

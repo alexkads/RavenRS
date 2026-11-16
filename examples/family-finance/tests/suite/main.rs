@@ -6,6 +6,7 @@
 mod app;
 mod commands;
 mod db;
+mod e2e;
 mod opening;
 mod records;
 mod screens;

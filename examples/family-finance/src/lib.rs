@@ -8,6 +8,7 @@
 
 pub mod backup;
 pub mod db;
+pub mod e2e;
 pub mod filter;
 pub mod model;
 pub mod money;

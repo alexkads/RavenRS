@@ -13,6 +13,7 @@
 //! The Studio is tested by the tool it is made of: its tests drive it with `ravenrs-e2e`, as
 //! `tests/suite/self_test.rs` shows.
 
+pub mod apps;
 pub mod atualizacao;
 pub mod cache;
 #[cfg(not(target_arch = "wasm32"))]
@@ -58,16 +59,20 @@ fn icon(kind: &str) -> IconName {
 }
 
 /// Opens the app an Open block names: the sample form, another Studio with the sample
-/// scenario, or another Studio whose scenario fails on purpose. A Studio opened here runs its
+/// scenario, or another Studio whose scenario fails on purpose, compiled in; or an app opened
+/// apart in a child process, such as Raven Finanças ([`apps`]). A Studio opened here runs its
 /// own scenario the same way, so the Studio can test the Studio.
-pub fn open(name: &str) -> Option<ravenrs_e2e::E2e> {
+pub fn open(name: &str) -> Option<Result<runner::Session, String>> {
     let studio = |scenario: FlowGraph| {
-        ravenrs_e2e::E2e::new(app_with(scenario, Rc::new(MemoryStorage::default())), Theme::raven_dark())
+        Ok(runner::Session::Here(Box::new(ravenrs_e2e::E2e::new(
+            app_with(scenario, Rc::new(MemoryStorage::default())),
+            Theme::raven_dark(),
+        ))))
     };
     match name {
         sample::STUDIO_APP => Some(studio(sample::scenario())),
         sample::BROKEN_STUDIO_APP => Some(studio(sample::broken_scenario())),
-        other => runner::open_sample(other),
+        other => runner::open_sample(other).or_else(|| apps::open(other)),
     }
 }
 
@@ -350,11 +355,13 @@ fn run_log(outcomes: &[Outcome], total: usize, from_cache: bool) -> impl View {
 }
 
 /// The scenarios that come with the Studio, by the name `--run` takes: the Studio's own test,
-/// the expense form, and a scenario that fails on purpose.
-pub const SCENARIOS: [(&str, &str); 3] = [
+/// the expense form, a scenario that fails on purpose, and an expense in Raven Finanças opened
+/// apart in a child process.
+pub const SCENARIOS: [(&str, &str); 4] = [
     ("autoteste", "O Studio testa o Studio"),
     ("lancamento", "Lançar despesa"),
     ("quebrado", "Cenário quebrado"),
+    ("financas", "Raven Finanças: lançar despesa"),
 ];
 
 /// Runs a scenario that comes with the Studio, with no window, and reports it; `None` when
@@ -365,9 +372,16 @@ pub fn run_bundled(name: &str, cache: Option<&mut cache::RunCache>) -> Option<re
     let graph = match *key {
         "autoteste" => sample::self_test(),
         "lancamento" => sample::scenario(),
+        "financas" => sample::finance_scenario(),
         _ => sample::broken_scenario(),
     };
-    let kept = cache::RunCache::key(&graph, cache::build_key().as_deref());
+    // An app opened apart is built apart: the Studio's build says nothing about it, so its
+    // scenario always runs.
+    let kept = if sample::opens_apart(&graph) {
+        None
+    } else {
+        cache::RunCache::key(&graph, cache::build_key().as_deref())
+    };
     if let (Some(c), Some(k)) = (cache.as_deref(), kept.as_deref())
         && let Some(report) = c.get(k)
     {

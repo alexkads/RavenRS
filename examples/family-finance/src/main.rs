@@ -20,6 +20,15 @@ fn main() -> Result<(), PlatformError> {
         println!("{}", update::CURRENT);
         return Ok(());
     }
+    // A tool such as Raven Test Studio drives the app with no window, on the sample family in
+    // memory: the database of the person using the app is never opened.
+    if first.as_deref() == Some(family_finance::e2e::SERVE_FLAG) {
+        if let Err(e) = family_finance::e2e::serve() {
+            eprintln!("o canal de teste parou: {e}");
+            std::process::exit(1);
+        }
+        return Ok(());
+    }
     // Sem janela nem banco, para responder mesmo quando a app não abre.
     if first.as_deref() == Some("--diagnostico") {
         print!("{}", diagnose());

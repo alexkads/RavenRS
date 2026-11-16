@@ -504,7 +504,7 @@ fn ravenrs_tools_tells_everything_the_test_studio_offers() {
 
     let studio = client.call("ravenrs_tools", json!({ "name": "raven-test-studio" }));
     assert_eq!(studio["name"], "Raven Test Studio");
-    assert_eq!(names(&studio["scenarios"]), ["autoteste", "lancamento", "quebrado"]);
+    assert_eq!(names(&studio["scenarios"]), ["autoteste", "lancamento", "quebrado", "financas"]);
     let codes: Vec<&str> =
         studio["error_codes"].as_array().unwrap().iter().map(|c| c["code"].as_str().unwrap()).collect();
     assert!(codes.contains(&"E2E_NOT_FOUND") && codes.contains(&"E2E_COVERED"), "{codes:?}");
@@ -512,6 +512,12 @@ fn ravenrs_tools_tells_everything_the_test_studio_offers() {
     assert_eq!(studio["ai"]["tools"][0]["name"], "run_scenario");
     assert_eq!(studio["readme"]["document"], "tools/raven-test-studio/README.md");
     assert!(studio["readme"]["text"].as_str().unwrap().contains("tests itself"));
+
+    // People call it RTS: the list says so, and the short name finds it.
+    let listed =
+        all["tools"].as_array().unwrap().iter().find(|t| t["package"] == "raven-test-studio").unwrap();
+    assert_eq!(listed["also_called"], json!(["RTS"]), "{listed}");
+    assert_eq!(client.call("ravenrs_tools", json!({ "name": "rts" }))["package"], "raven-test-studio");
 
     // By its name too, and a wrong one names the tools there are.
     assert_eq!(
