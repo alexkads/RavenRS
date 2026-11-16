@@ -83,3 +83,7 @@ When the user points the RTS at a Rust project ("aponta o RTS para a pasta …")
 - `action: "suggest"` (`--suggest`): when an app has no scenario, or to find others, an AI reads the app's first screen, its views and test ids and the scenarios it has, and writes new ones. **The AI is local by default** (the largest text model RavenRS apps already downloaded); `delegate: "codex"` or `"claude"` only when the user asks. The Studio runs each suggestion on the app and says which passed; `write` keeps them in `tests/e2e/sugestoes/` for a person to review. Never move a suggestion into `tests/e2e/` without the user's ok.
 
 An app declares itself for the RTS in its `Cargo.toml`, `[package.metadata.ravenrs.e2e]`: `app` (the name its scenarios open), `binary`, `since` (first version with the channel), `variable`, `installed`. The RTS keeps no list of apps of its own.
+
+## The Studio's own tests
+
+The RTS is tested by the RTS: `tools/raven-test-studio/tests/e2e/*.raventest` test its window (health `#health`, `#run`, `#next`, `#stop`, `#run-fresh`, `#summary`, `#log-N`, `#cache-note`, the blocks `#node:<id>`) on another Studio opened apart with `--e2e-serve`. Run them with `raven-test-studio --project tools/raven-test-studio --run-all` (or `scan_project` with `action: "run_all"`). When the Studio's window changes, change these files in the same PR and run them.

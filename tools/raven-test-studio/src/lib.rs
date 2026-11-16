@@ -72,6 +72,11 @@ pub fn open(name: &str) -> Option<Result<runner::Session, String>> {
             Theme::raven_dark(),
         ))))
     };
+    // An app of a project the Studio was pointed at comes first: pointed at its own folder, the
+    // Studio tests another Studio in a process of its own, not the one compiled in.
+    if apps::learned(name) {
+        return apps::open(name);
+    }
     match name {
         sample::STUDIO_APP => Some(studio(sample::scenario())),
         sample::BROKEN_STUDIO_APP => Some(studio(sample::broken_scenario())),
@@ -475,6 +480,18 @@ fn checked(updater: Updater, cache: Option<&mut cache::RunCache>) -> Localized<S
     // The window opens with no scenario: a Studio installed from scratch brings none. Its own
     // test ran above and shows in the status bar.
     Localized::new(Labels::pt_br(), Studio { storage, scenario: FlowGraph::new(), updater, health })
+}
+
+/// The Studio another Studio drives over the test channel (`--e2e-serve`): the sample scenario
+/// to run, step and stop, and its own health check in the status bar, as its window shows it.
+/// It brings no scenario of its own and does not look for updates.
+pub fn served_app() -> Localized<Studio> {
+    let health = run_bundled("autoteste", None);
+    let storage: Rc<dyn Storage> = Rc::new(MemoryStorage::default());
+    Localized::new(
+        Labels::pt_br(),
+        Studio { storage, scenario: sample::scenario(), updater: versao::idle(), health },
+    )
 }
 
 /// The Studio as its window opens: it tests itself, then looks for a new version when it opens

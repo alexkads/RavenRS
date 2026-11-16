@@ -50,6 +50,8 @@ pub struct App {
     pub source: Option<PathBuf>,
     /// Whether its code comes before the installed copy.
     pub source_first: bool,
+    /// A binary to open, before anything else: a test opens the Studio it was built with.
+    pub binary_path: Option<PathBuf>,
 }
 
 impl App {
@@ -73,6 +75,7 @@ impl App {
             installed,
             source: None,
             source_first: false,
+            binary_path: None,
         })
     }
 
@@ -137,6 +140,11 @@ pub fn learn(app: App) {
     }
 }
 
+/// Whether `name` is an app learned from a project the Studio was pointed at.
+pub fn learned(name: &str) -> bool {
+    LEARNED.lock().is_ok_and(|apps| apps.iter().any(|app| app.name == name))
+}
+
 /// The app named `name`: one learned from a project, or Raven Finanças.
 pub fn known(name: &str) -> Option<App> {
     let learned = LEARNED.lock().ok().and_then(|apps| apps.iter().find(|app| app.name == name).cloned());
@@ -194,6 +202,9 @@ fn cargo_run(app: &App, root: &Path) -> Process {
 
 /// The command that runs the app, and how long it may take to answer.
 fn find(app: &App) -> Result<(Process, Duration), String> {
+    if let Some(path) = &app.binary_path {
+        return Ok((Process::new(path), READY_TIME));
+    }
     if let Some(path) =
         Some(&app.variable).filter(|v| !v.is_empty()).and_then(std::env::var_os).map(PathBuf::from)
     {

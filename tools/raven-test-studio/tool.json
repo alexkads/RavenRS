@@ -2,7 +2,7 @@
   "name": "Raven Test Studio",
   "also_called": ["RTS"],
   "package": "raven-test-studio",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "summary": "The end-to-end test tool of RavenRS, RTS for short: a scenario is a flow of blocks run against a RavenRS app with ravenrs-e2e, and the report tells a person or an AI what failed, why, how to fix it and what the screen showed.",
   "when_to_use": [
     "After changing a RavenRS screen or component, to prove it still works from the outside, with real clicks and typing.",
@@ -21,6 +21,7 @@
     { "command": "raven-test-studio --project <folder> --run <file|folder>", "does": "Runs scenario files, opening the apps they name from the project's code before any installed copy." },
     { "command": "raven-test-studio --project <folder> --suggest", "does": "For each app of the project that opens on the test channel, a text model on this computer (the largest already downloaded by RavenRS apps) reads its first screen, its views and test ids and the scenarios it has, and writes new .raventest scenarios; the Studio runs each on the app and says which passed. --write keeps them in tests/e2e/sugestoes/ of the app, for a person to review and move to tests/e2e/." },
     { "command": "raven-test-studio --project <folder> --suggest --delegate codex", "does": "The same, written by Codex (or claude) with its cheapest model, reading only, instead of the local model." },
+    { "command": "raven-test-studio --e2e-serve", "does": "Answers another Studio on the test channel with no window: the sample scenario to run, step and stop, and its health in the status bar. It brings no scenario of its own. The Studio's own tests are in tools/raven-test-studio/tests/e2e and run with --project tools/raven-test-studio --run-all, one Studio testing another in a process of its own." },
     { "command": "raven-test-studio --clear-cache", "does": "Forgets every run kept." },
     { "command": "raven-test-studio --delegate codex --run <scenario>", "does": "Hands the scenario (the self-test without --run) to the Codex CLI with its cheapest model, reading only: it runs the Studio, reads the report and, when it failed, finds the cause in the Rust sources with file and line. Then the Studio runs the same scenario and says whether it confirms the agent's verdict. claude instead of codex uses the Claude CLI (haiku)." },
     { "command": "raven-test-studio --delegate codex --model <model>", "does": "The same with another model; the cheapest is read from the list the installed Codex keeps." },

@@ -1,5 +1,23 @@
 [
   {
+    "versao": "0.1.6",
+    "data": "2026-11-16",
+    "titulo": "O Studio se testa com cenários, como qualquer app.",
+    "importante": false,
+    "novidades": [
+      "Os testes do próprio Studio agora são cenários .raventest: saúde, rodar até o fim, passo a passo, parar e cache.",
+      "Um Studio testa outro num processo à parte, pelo canal de teste: raven-test-studio --project tools/raven-test-studio --run-all.",
+      "O Studio instalado continua sem trazer nenhum cenário."
+    ],
+    "por_que_atualizar": "Para que o Studio prove que funciona do mesmo jeito que testa os outros apps.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      656
+    ]
+  },
+  {
     "versao": "0.1.5",
     "data": "2026-11-16",
     "titulo": "Aponte o Studio para um projeto Rust: ele acha o que testar e a IA sugere cenários.",

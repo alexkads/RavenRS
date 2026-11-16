@@ -60,7 +60,7 @@ fn every_error_code_of_ravenrs_e2e_and_of_the_test_channel_is_explained() {
 
 #[test]
 fn the_report_fields_in_the_manifest_are_the_ones_the_report_writes() {
-    let file = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/e2e/quebrado.raventest");
+    let file = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/e2e/amostras/quebrado.raventest");
     let report = raven_test_studio::run_named(file, None).expect("a scenario file");
     let json = report.json();
     let tool = manifest();

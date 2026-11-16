@@ -69,7 +69,7 @@ fn chain(blocks: Vec<FlowNode>) -> FlowGraph {
 }
 
 /// The scenario the Studio opened by the self-test runs (and the same as
-/// `tests/e2e/lancar-despesa.raventest`): it is part of the self-test, not a scenario for people.
+/// `tests/e2e/amostras/lancar-despesa.raventest`): it is part of the self-test, not a scenario for people.
 ///
 /// The scenario a sample Studio opens with: fill in an expense, save it, check what it says.
 pub fn scenario() -> FlowGraph {
@@ -115,8 +115,13 @@ pub fn from_scenarios(scenarios: &[ravenrs_e2e_wire::Scenario]) -> FlowGraph {
 /// Studio's cache knows nothing about.
 pub fn opens_apart(graph: &FlowGraph) -> bool {
     graph.nodes.iter().any(|n| {
+        let name = n.subtitle.as_deref().unwrap_or_default();
         n.kind == "open"
-            && !matches!(n.subtitle.as_deref(), Some(EXPENSE_APP | STUDIO_APP | BROKEN_STUDIO_APP) | None)
+            && (crate::apps::learned(name)
+                || !matches!(
+                    n.subtitle.as_deref(),
+                    Some(EXPENSE_APP | STUDIO_APP | BROKEN_STUDIO_APP) | None
+                ))
     })
 }
 

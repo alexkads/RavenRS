@@ -37,7 +37,7 @@ cargo run -p raven-test-studio
 ```bash
 cargo run -p raven-test-studio -- --self-test
 cargo run -p raven-test-studio -- --run financas
-cargo run -p raven-test-studio -- --run tools/raven-test-studio/tests/e2e/quebrado.raventest --format json
+cargo run -p raven-test-studio -- --run tools/raven-test-studio/tests/e2e/amostras/quebrado.raventest --format json
 ```
 
 **Where the scenarios live**
@@ -47,7 +47,13 @@ A Studio installed from scratch brings **no test scenarios**: the window opens e
 - **in the app**, in its `tests/e2e/`: the app embeds them and hands them over when the Studio opens it, so the installed app is tested without its source; `--run financas` runs the ones Raven Finanças brings;
 - **apart from the app**, in a folder of the QA team: `--run <file.raventest>` runs one, `--run <folder>` every file in it.
 
-The scenarios this folder keeps in `tests/e2e/` are for the Studio's own tests in the repository; the installed Studio does not carry them.
+**The Studio tests the Studio with its own scenarios.** `tests/e2e/` has five `.raventest` files that test the Studio's window (health, running to the end, step by step, stopping, the cache). They open "Raven Test Studio", which the Studio declares in its `Cargo.toml` and serves with `--e2e-serve`, so another Studio drives it in a process of its own:
+
+```bash
+raven-test-studio --project tools/raven-test-studio --run-all
+```
+
+The repository's tests run the same files on the binary of the build (`tests/suite/self_test.rs`). `tests/e2e/amostras/` keeps the sample form's scenarios, used by the tests only. None of these files is carried by the installed Studio.
 
 **Pointing it at a project**
 
@@ -82,7 +88,7 @@ Closing the window keeps the Studio beside the clock, as Raven Finanças does: i
 **Handing a scenario to Codex**
 
 ```bash
-raven-test-studio --delegate codex --run tools/raven-test-studio/tests/e2e/quebrado.raventest
+raven-test-studio --delegate codex --run tools/raven-test-studio/tests/e2e/amostras/quebrado.raventest
 ```
 
 The Studio asks the Codex CLI installed on the computer, with its cheapest model and reading only, to run the scenario through the Studio's command line, read the report and, when it failed, find the cause in the Rust sources with file and line. Then the Studio runs the same scenario itself and says whether it confirms what Codex said, so a delegated answer is never taken on trust. The cheapest model is read from the list of models the installed Codex keeps (`~/.codex/models_cache.json`), the first it calls affordable; `--model` names another, and `--delegate claude` uses the Claude CLI with `haiku`. With `--format json` the report carries Codex's answer under `delegation`. Codex is called through [`ravenrs-agent-cli`](../../crates/ravenrs-agent-cli), as Raven Flows calls it: it keeps its own login, and every limit is checked against what it says it can do.

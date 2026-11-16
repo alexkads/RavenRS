@@ -21,8 +21,9 @@
 use raven_test_studio::cache::{self, RunCache};
 
 /// Every option the Studio reads; any other is refused.
-const OPTIONS: [&str; 16] = [
+const OPTIONS: [&str; 17] = [
     "--versao",
+    "--e2e-serve",
     "--project",
     "--run-all",
     "--suggest",
@@ -66,10 +67,25 @@ fn main() -> std::process::ExitCode {
              --delegate <codex|claude> [--model m]   entrega o cenário a outro agente\n\
              --atualizacao [--format json]           diz se há versão nova\n\
              --atualizar                             instala a versão nova\n\
+             --e2e-serve                             outro Studio testa este, sem janela\n\
              --versao                                a versão",
             raven_test_studio::VERSION
         );
         return std::process::ExitCode::SUCCESS;
+    }
+    // Another Studio drives this one with no window over the test channel, to test it in a
+    // process of its own; it brings no scenario.
+    if has(ravenrs_e2e_wire::SERVE_FLAG) {
+        let session =
+            ravenrs_e2e::E2e::new(raven_test_studio::served_app(), ravenrs::prelude::Theme::raven_dark())
+                .viewport(ravenrs::prelude::Size::new(1440.0, 900.0), 1.0);
+        return match ravenrs_e2e_wire::serve(ravenrs_e2e_wire::Hello::of("Raven Test Studio"), session) {
+            Ok(()) => std::process::ExitCode::SUCCESS,
+            Err(e) => {
+                eprintln!("o canal de teste parou: {e}");
+                std::process::ExitCode::FAILURE
+            }
+        };
     }
     // The installer proves a new binary opens with this, before any window or folder.
     if has("--versao") {
