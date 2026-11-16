@@ -86,6 +86,11 @@ pub use ravenrs_widgets_charts::flow_library::FlowLibrary;
 pub use ravenrs_widgets_charts::flow_notation::{FlowChecks, FlowFileFormat, FlowNotation};
 #[cfg(feature = "flow")]
 pub use ravenrs_widgets_charts::flow_toolbox::FlowToolbox;
+#[cfg(feature = "flow")]
+#[allow(unused_imports)]
+use ravenrs_widgets_charts::line_style;
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::line_style::{LINE_WIDTHS, LineStyle, LineStylePicker};
 #[cfg(feature = "charts")]
 #[allow(unused_imports)]
 use ravenrs_widgets_charts::sankey;
@@ -190,7 +195,7 @@ pub use flow::{
     FlowGate, FlowGraph, FlowGuard, FlowHistory, FlowIssue, FlowJsonError, FlowKind, FlowLayout,
     FlowLayoutKind, FlowNext, FlowNode, FlowNodeRun, FlowNodeStatus, FlowPicture, FlowPort, FlowRun,
     FlowRunEvent, FlowRunRules, FlowRunView, FlowSelection, FlowShape, FlowShelf, FlowStyle, FlowText,
-    FlowValidator, FlowViewport, NODE_REFS, PortDirection, PortSide,
+    FlowValidator, FlowViewport, NODE_REFS, PortDirection, PortSide, FlowAnchor, LineDash,
 };
 pub use form_layout::{FormGroup, FormLayout};
 pub use full_screen::{FullScreen, FullScreenProvider};

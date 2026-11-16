@@ -32,6 +32,9 @@ pub mod flow_notation;
 #[cfg(feature = "flow")]
 #[doc(hidden)]
 pub mod flow_toolbox;
+#[cfg(feature = "flow")]
+#[doc(hidden)]
+pub mod line_style;
 #[cfg(feature = "charts")]
 #[doc(hidden)]
 pub mod sankey;
@@ -49,7 +52,7 @@ pub use flow::{
     FlowGate, FlowGraph, FlowGuard, FlowHistory, FlowIssue, FlowJsonError, FlowKind, FlowLayout,
     FlowLayoutKind, FlowNext, FlowNode, FlowNodeRun, FlowNodeStatus, FlowPicture, FlowPort, FlowRun,
     FlowRunEvent, FlowRunRules, FlowRunView, FlowSelection, FlowShape, FlowShelf, FlowStyle, FlowText,
-    FlowValidator, FlowViewport, NODE_REFS, PortDirection, PortSide,
+    FlowValidator, FlowViewport, NODE_REFS, PortDirection, PortSide, FlowAnchor, LineDash,
 };
 #[cfg(feature = "flow")]
 pub use flow_inspector::FlowInspector;
@@ -61,5 +64,7 @@ pub use flow_library::FlowLibrary;
 pub use flow_notation::{FlowChecks, FlowFileFormat, FlowNotation};
 #[cfg(feature = "flow")]
 pub use flow_toolbox::FlowToolbox;
+#[cfg(feature = "flow")]
+pub use line_style::{LINE_WIDTHS, LineStyle, LineStylePicker};
 #[cfg(feature = "charts")]
 pub use sankey::{SankeyAlign, SankeyChart};

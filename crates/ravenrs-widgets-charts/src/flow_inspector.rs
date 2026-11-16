@@ -14,9 +14,10 @@ use ravenrs_style::{Semantic, TextStyle, Weight};
 
 use crate::context::{BuildCx, NodeId, Paint, Semantics};
 use crate::flow::{
-    EdgeCap, EdgeShape, FlowChange, FlowEdge, FlowGraph, FlowGuard, FlowHistory, FlowNode, FlowNodeStatus,
+    EdgeShape, FlowChange, FlowEdge, FlowGraph, FlowGuard, FlowHistory, FlowNode, FlowNodeStatus,
     FlowSelection, FlowShape, FlowStyle,
 };
+use crate::line_style::{LineStyle, LineStylePicker};
 use crate::{Checkbox, ColorPicker, FormField, NumberField, SegmentedControl, Select, TextField, View, util};
 use ravenrs_core::Color;
 use ravenrs_graphics::flow::{color_hex, parse_color};
@@ -34,8 +35,8 @@ const SHAPES: [FlowShape; 10] = [
     FlowShape::Text,
 ];
 const LINES: [EdgeShape; 3] = [EdgeShape::Curve, EdgeShape::Step, EdgeShape::Straight];
-const CAPS: [EdgeCap; 5] =
-    [EdgeCap::None, EdgeCap::Arrow, EdgeCap::OpenArrow, EdgeCap::Diamond, EdgeCap::Circle];
+/// The width a line has when it was given none, as the picker shows it.
+const LINE_WIDTH: f32 = 1.5;
 
 /// The properties of what is selected in a [`FlowCanvas`](crate::FlowCanvas): title, line,
 /// kind, shape, size, place and status of a node; label, shape, ends and motion of a
@@ -183,6 +184,41 @@ impl Writer {
                 writer.write(&ids, &[], |g| {
                     for node in g.nodes.iter_mut().filter(|n| ids.contains(&n.id)) {
                         write(node, value.clone());
+                    }
+                });
+            },
+        )
+    }
+
+    /// The style of the lines of these connections, mixed where they differ; a part picked
+    /// goes to all of them as one change.
+    fn line_style(&self, ids: Vec<String>) -> Binding<LineStyle> {
+        let (reader, writer, read_ids) = (self.graph.clone(), self.clone(), ids.clone());
+        let of = |e: &FlowEdge| {
+            LineStyle::new(e.width.unwrap_or(LINE_WIDTH), e.line_dash(), e.start, e.end)
+        };
+        Binding::new(
+            move || {
+                let g = reader.get();
+                LineStyle::shared(read_ids.iter().filter_map(|id| g.find_edge(id)).map(of))
+            },
+            move |style: LineStyle| {
+                writer.write(&[], &ids, |g| {
+                    for edge in g.edges.iter_mut().filter(|e| ids.contains(&e.id)) {
+                        let now = of(edge);
+                        if style.width != now.width && let Some(w) = style.width {
+                            edge.width = Some(w);
+                        }
+                        if style.dash != now.dash && let Some(d) = style.dash {
+                            edge.dash = d;
+                            edge.dashed = false;
+                        }
+                        if style.start != now.start && let Some(c) = style.start {
+                            edge.start = c;
+                        }
+                        if style.end != now.end && let Some(c) = style.end {
+                            edge.end = c;
+                        }
                     }
                 });
             },
@@ -363,24 +399,10 @@ impl View for FlowInspector {
                         .disabled(ro),
                 ),
             );
-            let cap = |cx: &mut BuildCx<'_>, label: &str, start: bool| {
-                let value = writer.edge(
-                    only.clone(),
-                    move |e| CAPS.iter().position(|c| *c == if start { e.start } else { e.end }).unwrap_or(0),
-                    move |e, i: usize| {
-                        let cap = CAPS[i.min(CAPS.len() - 1)];
-                        if start { e.start = cap } else { e.end = cap }
-                    },
-                );
-                cx.child(&Select::new(value, labels.flow_cap_names.to_vec()).label(label).disabled(ro))
-            };
-            let (start, end) =
-                (cap(cx, &labels.flow_field_start, true), cap(cx, &labels.flow_field_end, false));
-            rows.push(grid(cx, &[start, end], theme.spacing.s3));
+            let style = writer.line_style(vec![only.clone()]);
+            rows.push(cx.child(&LineStylePicker::new(style).disabled(ro)));
             let animated = writer.edge(only.clone(), |e| e.animated, |e, on: bool| e.animated = on);
             rows.push(cx.child(&Checkbox::new(labels.flow_field_animated.clone(), animated).disabled(ro)));
-            let dashed = writer.edge(only.clone(), |e| e.dashed, |e, on: bool| e.dashed = on);
-            rows.push(cx.child(&Checkbox::new(labels.flow_field_dashed.clone(), dashed).disabled(ro)));
             let color = writer.edge(
                 only.clone(),
                 |e| e.color.as_deref().and_then(parse_color),
@@ -394,6 +416,11 @@ impl View for FlowInspector {
                         .disabled(ro),
                 ),
             );
+        } else if nodes.is_empty() && edges.len() > 1 {
+            let count = labels.flow_inspector_edges.replace("{0}", &edges.len().to_string());
+            rows.push(heading(cx, &count, None));
+            let style = writer.line_style(edges.clone());
+            rows.push(cx.child(&LineStylePicker::new(style).disabled(ro)));
         } else {
             let count = labels.flow_inspector_nodes.replace("{0}", &nodes.len().to_string());
             rows.push(heading(cx, &count, None));
