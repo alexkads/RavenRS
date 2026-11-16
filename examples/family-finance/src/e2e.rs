@@ -4,6 +4,11 @@
 //! the sample family, in memory, on a fixed day, so a scenario sees the same screens and amounts
 //! on every run and on every computer, and the database of the person using the app is never
 //! opened or created.
+//!
+//! The app brings its own scenarios, the `.raventest` files of `tests/e2e/`, embedded in
+//! [`SCENARIOS`] and handed to the tool when it opens the app, so the installed app can be tested
+//! without its source. `tests/suite/e2e.rs` runs each of them and checks the folder and the list
+//! stay the same.
 
 use ravenrs::prelude::*;
 use ravenrs_e2e::E2e;
@@ -16,6 +21,9 @@ use crate::ui::App;
 pub const SERVE_FLAG: &str = ravenrs_e2e_wire::SERVE_FLAG;
 /// The name the app gives on the channel, which a scenario's Open block uses.
 pub const APP_NAME: &str = "Raven Finanças";
+
+/// The scenarios the app brings, one per file of `tests/e2e/`.
+pub const SCENARIOS: [&str; 1] = [include_str!("../tests/e2e/lancar-despesa.raventest")];
 
 /// The day a session lives on, so due dates and the month's totals never move.
 pub fn day() -> Date {
@@ -33,5 +41,5 @@ pub fn session() -> Result<E2e, String> {
 /// Answers the tool that opened the app, over standard input and output, until it says bye.
 pub fn serve() -> std::io::Result<()> {
     let session = session().map_err(std::io::Error::other)?;
-    ravenrs_e2e_wire::serve(APP_NAME, session)
+    ravenrs_e2e_wire::serve(ravenrs_e2e_wire::Hello::of(APP_NAME).scenarios(SCENARIOS), session)
 }

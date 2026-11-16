@@ -1,0 +1,5 @@
+scenario: Cenário quebrado
+// Falha de propósito no segundo bloco, para ver um relatório de falha.
+open Novo lançamento                                  | Abrir o app
+click #nao-existe                                     | Clicar no que não existe
+click #salvar                                         | Salvar

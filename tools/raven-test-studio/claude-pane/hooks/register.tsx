@@ -7,7 +7,7 @@ const PANE = 'raven-test-studio'
 const TITLE = 'Raven Test Studio'
 const TOOL = 'mcp__raven-test-studio__run_scenario'
 // The scenarios that come with the Studio, by the name its `--run` takes.
-const SCENARIOS = ['autoteste', 'lancamento', 'quebrado', 'financas'] as const
+const SCENARIOS = ['autoteste', 'financas'] as const
 // What each scenario is, for the empty pane.
 const ABOUT = {
   autoteste: {
@@ -15,12 +15,10 @@ const ABOUT = {
     title: 'O Studio testa o Studio',
     blurb: 'Abre outro Studio, roda o cenário dele, confere cada bloco, para, anda passo a passo e confere uma falha de propósito. 18 blocos.',
   },
-  lancamento: { icon: '🧾', title: 'Lançar despesa', blurb: 'preenche e salva um formulário de exemplo · 5 blocos' },
-  quebrado: { icon: '⚠', title: 'Cenário quebrado', blurb: 'falha no passo 2 de propósito, para ver um erro · 3 blocos' },
   financas: {
     icon: '💰',
-    title: 'Raven Finanças: lançar despesa',
-    blurb: 'abre o Raven Finanças à parte, sem janela e nos dados de exemplo, e lança uma despesa · 9 blocos',
+    title: 'Os cenários do Raven Finanças',
+    blurb: 'os arquivos .raventest que o próprio app traz em tests/e2e, rodados nele aberto à parte, sem janela e nos dados de exemplo',
   },
 } as const
 
@@ -286,11 +284,15 @@ export const register: Register = on => {
     await $.tool.register({
       name: 'run_scenario',
       description:
-        'Runs a Raven Test Studio (RTS) scenario with no window and returns its report: the verdict, each block with its result, the stable error code (E2E_*), what it means, how to fix it and the screen of the app under test when a block failed. "autoteste" is the Studio testing another Studio; "lancamento" fills in a sample form; "quebrado" fails on purpose; "financas" opens the real Raven Finanças apart, in a child process with no window on its sample data in memory, and launches an expense. When the user says RTS they mean this Studio. A scenario that did not change on a build that did not change comes back from the Studio cache unless no_cache is true. With delegate "codex" (or "claude") the Studio hands the scenario to that agent with its cheapest model, reading only: it runs the scenario, reads the report and finds the cause of a failure in the Rust sources; then the Studio runs it itself and says whether it confirms the agent. Delegate when the user asks for it or to save your own context.',
+        'Runs a Raven Test Studio (RTS) scenario with no window and returns its report: the verdict, each block with its result, the stable error code (E2E_*), what it means, how to fix it and the screen of the app under test when a block failed. "autoteste" is the Studio testing another Studio; "financas" runs the .raventest scenarios Raven Finanças brings in its own tests/e2e, on the real app opened apart in a child process with no window on its sample data in memory. Any other scenario is a .raventest file or a folder of them, in an app or in a folder of the QA team: pass its path. A Studio installed from scratch brings no test scenarios. When the user says RTS they mean this Studio. A scenario that did not change on a build that did not change comes back from the Studio cache unless no_cache is true. With delegate "codex" (or "claude") the Studio hands the scenario to that agent with its cheapest model, reading only: it runs the scenario, reads the report and finds the cause of a failure in the Rust sources; then the Studio runs it itself and says whether it confirms the agent. Delegate when the user asks for it or to save your own context.',
       inputSchema: {
         type: 'object',
         properties: {
-          scenario: { type: 'string', enum: [...SCENARIOS], description: 'Which scenario to run' },
+          scenario: {
+            type: 'string',
+            description:
+              'autoteste, financas, or the absolute path of a .raventest file or of a folder of them (an app\'s tests/e2e or a QA team\'s folder)',
+          },
           no_cache: { type: 'boolean', description: 'Run again even when the cache has the answer' },
           delegate: {
             type: 'string',
@@ -322,7 +324,12 @@ export const register: Register = on => {
 
   on('tool.call', { tool: TOOL }, async ($, e) => {
     const input = e as unknown as { scenario?: string; no_cache?: boolean; delegate?: string; model?: string }
-    const scenario = SCENARIOS.includes((input.scenario ?? '') as (typeof SCENARIOS)[number]) ? input.scenario! : 'autoteste'
+    const asked = (input.scenario ?? '').trim()
+    // A name the Studio knows, or a path of scenario files; the Studio is run with no shell.
+    const scenario =
+      SCENARIOS.includes(asked as (typeof SCENARIOS)[number]) || (asked.startsWith('/') && !asked.includes('\n'))
+        ? asked
+        : 'autoteste'
     const delegate = input.delegate === 'codex' || input.delegate === 'claude' ? input.delegate : null
     const model = typeof input.model === 'string' && /^[\w.:-]+$/.test(input.model) ? input.model : null
     void $.ui.open({ id: PANE, title: TITLE })
@@ -558,7 +565,7 @@ export const register: Register = on => {
           )}
           <Box flexDirection="column" gap={1}>
             {caption('Outros cenários')}
-            {(['financas', 'lancamento', 'quebrado'] as const).map(key => (
+            {(['financas'] as const).map(key => (
               <Box key={`row-${key}`} flexDirection="row" alignItems="flex-start" gap={1} borderStyle="round" borderColor={LINE} paddingX={1}>
                 <Text>{ABOUT[key].icon}</Text>
                 <Box flexDirection="column" flexGrow={1} flexShrink={1}>
@@ -759,16 +766,7 @@ export const register: Register = on => {
                 Raven Finanças
               </Button>
             )}
-            {asked !== 'lancamento' && (
-              <Button key="expense" onPress={press('lancamento', false)}>
-                Lançar despesa
-              </Button>
-            )}
-            {asked !== 'quebrado' && (
-              <Button key="broken" onPress={press('quebrado', false)}>
-                Quebrado
-              </Button>
-            )}
+
             <Button key="codex" dimColor onPress={press(asked, true, 'codex')}>
               Delegar ao Codex
             </Button>

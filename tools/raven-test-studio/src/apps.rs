@@ -52,6 +52,25 @@ const FINANCE: Apart = Apart {
 const READY_TIME: Duration = Duration::from_secs(20);
 const BUILD_TIME: Duration = Duration::from_secs(900);
 
+/// The scenarios the app named `name` brings, read from its hello: the `.raventest` files of its
+/// `tests/e2e/`, embedded in the app. `None` when the Studio does not know the app.
+pub fn scenarios(name: &str) -> Option<Result<Vec<ravenrs_e2e_wire::Scenario>, String>> {
+    let app = [FINANCE].into_iter().find(|app| app.name == name)?;
+    Some(start(&app).and_then(|client| {
+        if client.scenarios().is_empty() {
+            return Err(format!(
+                "O {} aberto não traz cenários na pasta tests/e2e (eles chegam na 0.1.40); atualize-o, ou rode um arquivo .raventest com --run",
+                app.name
+            ));
+        }
+        client
+            .scenarios()
+            .iter()
+            .map(|text| ravenrs_e2e_wire::Scenario::parse(text).map_err(|e| format!("cenário do {}: {e}", app.name)))
+            .collect()
+    }))
+}
+
 /// Opens the app named `name` apart, if it is one the Studio knows.
 pub fn open(name: &str) -> Option<Result<Session, String>> {
     let app = [FINANCE].into_iter().find(|app| app.name == name)?;

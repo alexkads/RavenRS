@@ -80,7 +80,7 @@ fn the_app_says_hello_answers_in_order_and_leaves_on_bye() {
     ]
     .join("\n");
     let mut output = Vec::new();
-    serve_on("Formulário", session(), Cursor::new(input), &mut output).unwrap();
+    serve_on(Hello::of("Formulário"), session(), Cursor::new(input), &mut output).unwrap();
     let lines: Vec<&str> = std::str::from_utf8(&output).unwrap().lines().collect();
     let hello: Hello = serde_json::from_str(lines[0]).unwrap();
     assert_eq!(hello, Hello::of("Formulário"));
@@ -105,7 +105,7 @@ fn child_app() {
     }
     // The test runner leaves "test child_app ... " on the line: the channel starts on a new one.
     println!();
-    serve("Formulário", session()).unwrap();
+    serve(Hello::of("Formulário"), session()).unwrap();
     std::process::exit(0);
 }
 
@@ -159,4 +159,66 @@ fn a_stuck_app_is_ended_after_its_time() {
     assert!(started.elapsed() < Duration::from_secs(10), "it did not wait for the child's 60 s");
     // Ended: the next step finds no app.
     assert_eq!(app.send(&Command::Snapshot).unwrap_err().code, codes::APP_START);
+}
+
+#[test]
+fn a_scenario_file_reads_in_english_or_portuguese_and_writes_in_english() {
+    use ravenrs_e2e_wire::{Kind, Scenario};
+    let english = "scenario: Salvar um nome\n// comentário\nopen Formulário | Abrir\ntype #nome = Ana | Digitar o nome\nclick #salvar | Salvar\ncheck #resultado = Salvo: Ana | Conferir\n";
+    let portuguese = "cenário: Salvar um nome\nabrir Formulário | Abrir\ndigitar #nome = Ana | Digitar o nome\nclicar #salvar | Salvar\nconferir #resultado = Salvo: Ana | Conferir\n";
+    let read = Scenario::parse(english).unwrap();
+    assert_eq!(Scenario::parse(portuguese).unwrap(), read);
+    assert_eq!(read.name, "Salvar um nome");
+    assert_eq!(read.app(), "Formulário");
+    assert_eq!(read.blocks[1].kind, Kind::Type);
+    assert_eq!(read.blocks[1].line(), "#nome = Ana");
+    assert_eq!(Scenario::parse(&read.write()).unwrap(), read, "what it writes reads back");
+    assert!(read.write().contains("type #nome = Ana | Digitar o nome"), "{}", read.write());
+
+    // The blocks drive the app as written.
+    let mut e2e = session();
+    for block in &read.blocks[1..] {
+        block.command().unwrap().apply(&mut e2e).unwrap();
+    }
+}
+
+#[test]
+fn a_wrong_scenario_line_says_which_and_why() {
+    use ravenrs_e2e_wire::Scenario;
+    let unknown = Scenario::parse("scenario: x\nopen App\npular #a\n").unwrap_err();
+    assert_eq!(unknown.line, 3);
+    assert!(unknown.message.contains("pular") && unknown.message.contains("clicar"), "{unknown}");
+    let no_text = Scenario::parse("scenario: x\nopen App\ntype #a\n").unwrap_err();
+    assert_eq!(no_text.line, 3);
+    assert!(Scenario::parse("open App\n").unwrap_err().message.contains("nome do cenário"));
+    assert!(Scenario::parse("scenario: x\nclick #a\n").unwrap_err().message.contains("open"));
+}
+
+#[test]
+fn the_hello_carries_the_scenarios_the_app_brings() {
+    let hello = Hello::of("Formulário").scenarios(["scenario: x\nopen Formulário\n"]);
+    let mut output = Vec::new();
+    serve_on(hello, session(), Cursor::new(""), &mut output).unwrap();
+    let back: Hello =
+        serde_json::from_str(std::str::from_utf8(&output).unwrap().lines().next().unwrap()).unwrap();
+    assert_eq!(back.scenarios.len(), 1);
+    // An app with none says nothing about them, as before.
+    assert!(!serde_json::to_string(&Hello::of("x")).unwrap().contains("scenarios"));
+}
+
+#[test]
+fn the_scenario_folder_and_what_the_app_embeds_stay_the_same() {
+    let folder = std::env::temp_dir().join(format!("ravenrs-e2e-wire-pasta-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&folder);
+    std::fs::create_dir_all(&folder).unwrap();
+    assert!(ravenrs_e2e_wire::check_folder(&folder, &[]).unwrap_err().contains(".raventest"));
+    let text = "scenario: x\nopen App\nclick #a\n";
+    std::fs::write(folder.join("a.raventest"), text).unwrap();
+    assert!(ravenrs_e2e_wire::check_folder(&folder, &[]).unwrap_err().contains("include_str"));
+    assert_eq!(ravenrs_e2e_wire::check_folder(&folder, &[text]).unwrap().len(), 1);
+    std::fs::write(folder.join("b.raventest"), "scenario: y\nopen App\npular\n").unwrap();
+    let broken =
+        ravenrs_e2e_wire::check_folder(&folder, &[text, "scenario: y\nopen App\npular\n"]).unwrap_err();
+    assert!(broken.contains("b.raventest: linha 3"), "{broken}");
+    let _ = std::fs::remove_dir_all(&folder);
 }

@@ -2,36 +2,33 @@
 //! same commands, and as a child process with no window.
 #![allow(clippy::expect_used, clippy::unwrap_used, reason = "test helpers fail loudly")]
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command as Process;
 use std::time::Duration;
 
 use family_finance::e2e;
-use ravenrs_e2e_wire::{Client, Command};
+use ravenrs_e2e_wire::{Client, Command, Scenario};
 
-/// Lançar despesa, as the Studio's scenario writes it.
-fn expense() -> Vec<Command> {
-    let click = |t: &str| Command::Click { target: t.into() };
-    let typed = |t: &str, x: &str| Command::Type { target: t.into(), text: x.into() };
-    let check = |t: &str, x: &str| Command::Check { target: t.into(), text: x.into() };
-    vec![
-        click("Lançamentos"),
-        click("Nova despesa"),
-        typed("#field:description", "Conserto da pia"),
-        typed("#field:amount", "150,75"),
-        click("#form:save"),
-        check("Lançamento salvo", "Lançamento salvo"),
-        check("Conserto da pia", "Conserto da pia"),
-        check("-R$ 150,75", "-R$ 150,75"),
-    ]
+/// The scenarios the app brings, read from the files it embeds; the folder must match.
+fn scenarios() -> Vec<Scenario> {
+    let folder = Path::new(env!("CARGO_MANIFEST_DIR")).join(ravenrs_e2e_wire::FOLDER);
+    ravenrs_e2e_wire::check_folder(&folder, &e2e::SCENARIOS).unwrap_or_else(|why| panic!("{why}"))
+}
+
+/// The commands of a scenario after its Open block, which the tool does itself.
+fn commands(scenario: &Scenario) -> Vec<Command> {
+    assert_eq!(scenario.app(), e2e::APP_NAME, "{} opens this app", scenario.name);
+    scenario.blocks.iter().filter_map(|b| b.command()).collect()
 }
 
 #[test]
-fn an_expense_goes_through_the_channel_commands() {
-    let mut session = e2e::session().unwrap();
-    for command in expense() {
-        if let Err(f) = command.apply(&mut session) {
-            panic!("{command:?} failed: {f}\n{}", f.screen);
+fn every_scenario_of_tests_e2e_passes_in_this_process() {
+    for scenario in scenarios() {
+        let mut session = e2e::session().unwrap();
+        for command in commands(&scenario) {
+            if let Err(f) = command.apply(&mut session) {
+                panic!("{}: {command:?} failed: {f}\n{}", scenario.name, f.screen);
+            }
         }
     }
 }
@@ -65,9 +62,12 @@ fn the_studio_drives_the_app_in_a_child_process_without_touching_its_data() {
         .env("XDG_DATA_HOME", &home);
     let mut app = Client::spawn(process, Duration::from_secs(60)).unwrap();
     assert_eq!(app.app(), e2e::APP_NAME);
-    for command in expense() {
-        if let Err(f) = app.send(&command) {
-            panic!("{command:?} failed: {f}\n{}", f.screen);
+    assert_eq!(app.scenarios(), e2e::SCENARIOS, "the hello brings the app's scenarios");
+    for scenario in scenarios() {
+        for command in commands(&scenario) {
+            if let Err(f) = app.send(&command) {
+                panic!("{}: {command:?} failed: {f}\n{}", scenario.name, f.screen);
+            }
         }
     }
     let missing = app.send(&Command::Click { target: "#nao-existe".into() }).unwrap_err();

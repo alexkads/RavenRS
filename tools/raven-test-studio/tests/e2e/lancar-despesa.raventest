@@ -1,0 +1,7 @@
+scenario: Lançar despesa
+// O formulário de exemplo que vem compilado no Studio, só para os testes do próprio Studio.
+open Novo lançamento                                  | Abrir o app
+type #descricao = Mercado                             | Digitar a descrição
+type #valor = 152,40                                  | Digitar o valor
+click #salvar                                         | Salvar
+check #resultado = Salvo: Mercado, R$ 152,40          | Conferir o resultado

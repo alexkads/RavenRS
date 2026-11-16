@@ -1,9 +1,11 @@
 //! `cargo run -p raven-test-studio` opens the Studio.
 //!
 //! `cargo run -p raven-test-studio -- --self-test` runs the Studio's own test with no window
-//! and prints a report; `--run <autoteste|lancamento|quebrado>` runs another scenario that
-//! comes with it, and `--format json` prints the report for a tool or a coding agent. The exit
-//! code is 0 when the scenario passed and 1 when it did not.
+//! and prints a report; `--run financas` runs the scenarios Raven Finanças brings in its
+//! `tests/e2e/`, and `--run <file.raventest|folder>` scenario files kept anywhere, such as a QA
+//! team's folder. A Studio installed from scratch brings no test scenarios of its own.
+//! `--format json` prints the report for a tool or a coding agent. The exit code is 0 when the
+//! scenario passed and 1 when it did not.
 //!
 //! A scenario that did not change, on a build that did not change, comes back from the
 //! Studio's cache at once and says so; `--no-cache` runs it again, and `--clear-cache` forgets
@@ -188,12 +190,14 @@ fn update() -> std::process::ExitCode {
     }
 }
 
-/// Runs a bundled scenario with no window and prints its report.
+/// Runs a bundled scenario, or `.raventest` files by path, with no window and prints the report.
 fn report(name: &str, json: bool, cache: Option<&mut RunCache>) -> std::process::ExitCode {
-    let Some(report) = raven_test_studio::run_bundled(name, cache) else {
-        let known: Vec<&str> = raven_test_studio::SCENARIOS.iter().map(|(key, _)| *key).collect();
-        eprintln!("não há cenário {name:?}; os que vêm com o Studio: {}", known.join(", "));
-        return std::process::ExitCode::from(2);
+    let report = match raven_test_studio::run_named(name, cache) {
+        Ok(report) => report,
+        Err(why) => {
+            eprintln!("{why}");
+            return std::process::ExitCode::from(2);
+        }
     };
     if json {
         println!("{}", serde_json::to_string_pretty(&report.json()).unwrap_or_default());

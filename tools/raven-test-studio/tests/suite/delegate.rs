@@ -38,5 +38,5 @@ fn a_missing_agent_or_an_unknown_scenario_says_so_and_runs_nothing() {
     let why = delegate(&missing, "autoteste", Some("gpt-luna".into())).expect_err("no CLI");
     assert!(why.contains("codex") && why.contains("not installed"), "{why}");
     let why = delegate(&missing, "nada-disso", None).expect_err("no scenario");
-    assert!(why.contains("autoteste, lancamento, quebrado, financas"), "{why}");
+    assert!(why.contains("autoteste, financas"), "{why}");
 }

@@ -13,7 +13,7 @@ The whole list of what it offers is in `tools/raven-test-studio/tool.json`, the 
 
 ## Running a scenario
 
-Prefer the tool when it is there: `run_scenario` with `scenario` (`autoteste`, `lancamento`, `quebrado` or `financas`) returns the JSON report and shows it in the pane beside the chat.
+Prefer the tool when it is there: `run_scenario` with `scenario` (`autoteste`, `financas`, or the absolute path of a `.raventest` file or folder) returns the JSON report and shows it in the pane beside the chat.
 
 Without the pane, the CLI does the same:
 
@@ -31,11 +31,13 @@ The exit code is 0 when it passed, 1 when it failed and 2 when there is no such 
 
 ## Testing a real app: Raven Finanças
 
-`financas` opens Raven Finanças **apart**, in a child process with no window, and drives it over the test channel (`ravenrs-e2e-wire`): it launches the expense "Conserto da pia" of R$ 150,75 and checks it in the month, 9 blocks. The app runs on its sample family in memory on a fixed day, so the database of the person using it is never opened. It never comes from the cache, because the Studio's build says nothing about the app's.
+A Studio installed from scratch brings **no test scenarios**. Scenarios are `.raventest` files, and the QA team chooses where they live: in the app's `tests/e2e/` (the app embeds them and hands them to the Studio) or in a folder of their own, run by path. To write one, put it in the app's `tests/e2e/` and add an `include_str!` to the app's list (Raven Finanças: `SCENARIOS` in `src/e2e.rs`; its test fails if a file is not embedded), or keep it in the QA folder.
+
+`financas` opens Raven Finanças **apart**, in a child process with no window, drives it over the test channel (`ravenrs-e2e-wire`) and runs the scenarios it brings in `examples/family-finance/tests/e2e/` (today, `lancar-despesa.raventest`: an expense checked in the month, 9 blocks). The app runs on its sample family in memory on a fixed day, so the database of the person using it is never opened. It never comes from the cache, because the Studio's build says nothing about the app's.
 
 The Studio finds the app in this order: the path in `RAVEN_FINANCAS`; the installed copy, only if `--versao` says 0.1.39 or later (an older one would read `--e2e-serve` as a database path); inside the RavenRS checkout, `cargo run -p family-finance --bin family-finance`. When none fits, the Open block fails saying which to do. A failure to start is `E2E_APP_START` with what the app wrote on leaving; an app that stops answering is ended with `E2E_TIMEOUT`.
 
-In the app, generated forms tag each editor `field:<field>` and their buttons `form:save` and `form:cancel`, so a block writes `#field:description = Conserto da pia`.
+In the app, generated forms tag each editor `field:<field>` and their buttons `form:save` and `form:cancel`, so a block writes `#field:description = Mercado`.
 
 ## Handing it to Codex
 
