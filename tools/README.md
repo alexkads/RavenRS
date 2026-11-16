@@ -14,6 +14,7 @@ The tools of RavenRS: apps that people install and use to build with RavenRS, ma
 | `--versao` | in `src/main.rs`, before any window | the installer proves a new binary opens before it replaces the old one |
 | `--self-test` | in `src/main.rs`, with no window, exit code 0 when it passed | a tool tests itself, before anyone trusts it; its window does the same when it opens |
 | What it offers, for AI agents | `tool.json`: summary, when to use it, commands, limits and whatever else it has, kept true by its own tests | the RavenRS MCP server answers `ravenrs_tools` with it, and a skill of the tool's own (`claude-pane/skills/`) is listed by `skills` |
+| Beside the clock when its window closes | `AppIdentity::close_to_tray(SystemTray…)` in `src/main.rs`, with the `tray` feature of `ravenrs` and the app's icon | a tool stays ready, as Raven Finanças does, and runs as one copy |
 | The window named by its package, with the updater's notice | `AppIdentity::new(APP.package)` and a status bar with the notice | it says when there is a new version, as Raven Finanças does |
 | Tests that prove it works, run with no window | `tests/suite/` | a tool is used by people and by AI agents; what it promises is tested |
 | A README that explains its role, how it works and how to use it | `README.md` | how people and agents learn it |

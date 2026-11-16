@@ -35,6 +35,12 @@ fn the_window_tests_itself_as_it_opens_and_says_so_in_its_status_bar() {
 }
 
 #[test]
+fn the_icon_beside_the_clock_is_the_studios_own() {
+    let icon = raven_test_studio::app_icon().expect("assets/icon.png decodes");
+    assert_eq!((icon.width(), icon.height()), (256, 256));
+}
+
+#[test]
 fn a_broken_scenario_reports_the_code_the_fix_and_the_screen() {
     let report = run_bundled("quebrado", None).unwrap();
     assert!(!report.passed());

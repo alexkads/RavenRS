@@ -37,7 +37,7 @@ cargo run -p raven-test-studio -- --self-test
 cargo run -p raven-test-studio -- --run quebrado --format json
 ```
 
-When its window opens, the Studio runs its self-test first (from the cache when nothing changed) and says how it went in the status bar.
+Closing the window keeps the Studio beside the clock, as Raven Finanças does: its menu opens the window again or quits, and launching it again opens the copy already running. When its window opens, the Studio runs its self-test first (from the cache when nothing changed) and says how it went in the status bar.
 
 `--run` takes `autoteste`, `lancamento` or `quebrado`. The text report is a few lines to read or quote; the JSON carries every block with its result, the stable code of a failure (`E2E_NOT_FOUND`…), what it means in Portuguese, the detail from `ravenrs-e2e`, how to fix it, what came close and the screen of the app under test at that moment. Every report ends with what was not verified. The exit code is 0 when the scenario passed and 1 when it did not.
 

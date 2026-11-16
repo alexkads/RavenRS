@@ -33,6 +33,11 @@ use crate::runner::{Outcome, Run};
 /// The Studio's version, the one its news speak of.
 pub const VERSION: &str = versao::VERSION;
 
+/// The Studio's icon, for the window and the icon beside the clock.
+pub fn app_icon() -> Option<ImageData> {
+    ravenrs::widgets::decode_image(include_bytes!("../assets/icon.png")).ok()
+}
+
 /// The kinds of block, with the word the canvas and the inspector show for each.
 pub const KINDS: [(&str, &str); 5] = [
     ("open", "Início"),
