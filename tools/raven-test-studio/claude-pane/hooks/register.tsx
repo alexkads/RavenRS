@@ -46,6 +46,9 @@ const updates = atom(
 )
 // How often the pane asks again, as the Studio's window does.
 const CHECK_EVERY_MS = 3_600_000
+// How often the pane asks the Studio only its version, to see at once that it was updated
+// outside the pane (by its window or the command line). `--versao` reads nothing on the network.
+const VERSION_EVERY_MS = 120_000
 
 /** The engine interface every hook receives. */
 type Ops = Parameters<Hook<'ui.render'>>[0]
@@ -101,6 +104,9 @@ async function run($: Ops, ask: Ask): Promise<Last> {
   }
   await update($, last, () => outcome)
   await update($, running, () => false)
+  // Running a scenario is when someone looks at the pane, so the card says what is true now:
+  // a Studio updated by its window since the last check stops being offered the same version.
+  void checkUpdate($)
   return outcome
 }
 
@@ -125,6 +131,25 @@ async function checkUpdate($: Ops): Promise<void> {
     }
   } catch {
     // A Studio that could not start: the pane says nothing about updates.
+  }
+}
+
+/**
+ * Asks again only when the Studio's version is not the one the card was written for, so the card
+ * of a Studio updated by its window goes away without waiting for the hourly check.
+ */
+async function checkIfChanged($: Ops): Promise<void> {
+  const known = (await read($, updates)).answer?.installed
+  if (!known || (await read($, updates)).installing) return
+  try {
+    const found = await studio($)
+    // In the checkout `--versao` would rebuild the Studio every few minutes; runs check there.
+    if (found.argv[0] === 'cargo') return
+    const version = await $.process.run([...found.argv, '--versao'], { timeoutMs: 600_000 })
+    const installed = version.stdout.trim().split('\n')[0]?.trim() ?? ''
+    if (version.exitCode === 0 && installed && installed !== known) await checkUpdate($)
+  } catch {
+    // A Studio that could not start: the card stays as it was.
   }
 }
 
@@ -276,9 +301,12 @@ export const register: Register = on => {
     void $.ui.open({ id: PANE, title: TITLE })
     // The Studio tests itself as the session starts, so the pane opens with its health; an
     // unchanged Studio answers from its cache at once.
-    void run($, { scenario: 'autoteste', noCache: false, delegate: null, model: null }).then(() => checkUpdate($))
+    // The run asks about updates as it ends.
+    void run($, { scenario: 'autoteste', noCache: false, delegate: null, model: null })
     // And looks for a newer Studio every hour after, as its window does.
     $.clock.every(CHECK_EVERY_MS, () => void checkUpdate($))
+    // In between, a Studio updated elsewhere is seen within minutes.
+    $.clock.every(VERSION_EVERY_MS, () => void checkIfChanged($))
     return next(e)
   })
 
