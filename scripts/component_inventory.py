@@ -33,7 +33,7 @@ WIDGET_CRATES = (
 NOT_LISTED = {
     "DiagnosticsHost", "Command", "EyedropperArea", "ChatMedia", "ListItem", "SidebarGroup",
     "SidebarInset", "SidebarItem", "SidebarSection", "SidebarSkeleton", "SidebarTrigger", "Styled",
-    "Faded", "Keyed", "Localized", "Responsive", "FnView", "AccessibleControl",
+    "Faded", "TestId", "Keyed", "Localized", "Responsive", "FnView", "AccessibleControl",
 }
 
 # Crates of the application framework with nothing to show on a screen: the test kit and the
