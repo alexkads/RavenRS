@@ -158,7 +158,7 @@ pub use labels::Labels;
 pub use link_service::{LinkOpener, Links};
 pub use links::Link;
 pub use localized::Localized;
-pub use modifiers::{Faded, Styled, ViewExt};
+pub use modifiers::{Faded, Styled, TestId, ViewExt};
 pub use motion::Collapse;
 pub use motion_spec::Motion;
 pub use overlay::{Dialog, DropdownMenu, HelpTip, MenuItem, Popover, Select, Tooltip};

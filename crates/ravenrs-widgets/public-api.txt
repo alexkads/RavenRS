@@ -1698,6 +1698,7 @@ impl Debug for Table
 impl Debug for Tabs
 impl Debug for TabsVariant
 impl Debug for TagBox
+impl Debug for TestId
 impl Debug for Text
 impl Debug for TextArea
 impl Debug for TextField
@@ -2435,6 +2436,7 @@ impl View for SwatchGrid
 impl View for Table
 impl View for Tabs
 impl View for TagBox
+impl View for TestId
 impl View for Text
 impl View for TextArea
 impl View for TextField
@@ -2612,6 +2614,7 @@ method BuildCx::shortcut_with_alt
 method BuildCx::shortcut_with_shift
 method BuildCx::sound
 method BuildCx::system_appearance
+method BuildCx::test_id
 method BuildCx::text
 method BuildCx::text_align
 method BuildCx::text_truncated
@@ -4005,6 +4008,7 @@ method Semantics::modal
 method Semantics::name
 method Semantics::new
 method Semantics::numeric
+method Semantics::protected
 method Semantics::read_only
 method Semantics::role
 method Semantics::selected
@@ -4411,6 +4415,7 @@ method TreeView::on_expand
 method TreeView::on_open
 method TreeView::row_height
 method TreeView::selected
+method Ui::access_node_at
 method Ui::access_tree
 method Ui::cables
 method Ui::clipboard
@@ -4987,6 +4992,7 @@ struct SystemAppearance
 struct Table
 struct Tabs
 struct TagBox
+struct TestId
 struct Text
 struct TextArea
 struct TextField
@@ -5101,6 +5107,7 @@ trait-item ViewExt::height
 trait-item ViewExt::opacity
 trait-item ViewExt::padding
 trait-item ViewExt::stretch
+trait-item ViewExt::test_id
 trait-item ViewExt::tooltip
 trait-item ViewExt::width
 trait-item ViewSeq::build_each

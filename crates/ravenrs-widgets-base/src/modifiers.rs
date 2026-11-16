@@ -65,6 +65,28 @@ pub trait ViewExt: View + Sized {
     fn opacity(self, opacity: f32) -> Faded<Self> {
         Faded { content: self, opacity: opacity.clamp(0.0, 1.0) }
     }
+    /// Tags the view with an id that tests and automation find it by, such as
+    /// `Button::new("Save").test_id("save")`. The id stays the same when the screen around the
+    /// view is reordered or wrapped, is not read by screen readers, and becomes `data-testid`
+    /// on the web; see [`BuildCx::test_id`] and [`TestId`].
+    fn test_id(self, id: impl Into<String>) -> TestId<Self> {
+        TestId { content: self, id: id.into() }
+    }
+}
+
+/// A view tagged with an id for tests and automation; see [`ViewExt::test_id`].
+#[derive(Debug)]
+pub struct TestId<V> {
+    content: V,
+    id: String,
+}
+
+impl<V: View> View for TestId<V> {
+    fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+        let node = self.content.build(cx);
+        cx.test_id(node, &self.id);
+        node
+    }
 }
 
 /// A view drawn at an opacity, such as the last result a playground keeps while its code has

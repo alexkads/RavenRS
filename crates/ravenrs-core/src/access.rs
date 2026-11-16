@@ -216,6 +216,11 @@ pub struct AccessNode {
     pub children: Vec<u64>,
     /// Actions assistive technology may request.
     pub actions: Vec<AccessAction>,
+    /// An id the app declared for tests and automation, which stays the same when the
+    /// screen around it changes. Screen readers do not read it.
+    pub test_id: Option<String>,
+    /// The value is secret (a password field): it is shown masked and never given out.
+    pub protected: bool,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -241,6 +246,8 @@ impl AccessNode {
             bounds,
             children: Vec::new(),
             actions: Vec::new(),
+            test_id: None,
+            protected: false,
         }
     }
 }
@@ -267,6 +274,11 @@ impl AccessTree {
     /// The first node with this role and name, for tests and tools.
     pub fn find(&self, role: Role, name: &str) -> Option<&AccessNode> {
         self.nodes.iter().find(|n| n.role == role && n.name.as_deref() == Some(name))
+    }
+
+    /// The node the app tagged with this test id, for tests and tools.
+    pub fn by_test_id(&self, test_id: &str) -> Option<&AccessNode> {
+        self.nodes.iter().find(|n| n.test_id.as_deref() == Some(test_id))
     }
 
     /// The node with keyboard focus.

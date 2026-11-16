@@ -232,7 +232,7 @@ pub use lookup::{LookupField, LookupItem, LookupRequest, LookupResponder};
 #[cfg(feature = "lottie")]
 pub use lottie::Lottie;
 pub use model_picker::{ModelChoice, ModelPicker, ModelPickerLabels, ModelStatus};
-pub use modifiers::{Faded, Styled, ViewExt};
+pub use modifiers::{Faded, Styled, TestId, ViewExt};
 pub use motion::Collapse;
 pub use motion_spec::Motion;
 pub use nav::{

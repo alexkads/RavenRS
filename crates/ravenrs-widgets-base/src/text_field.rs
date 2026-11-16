@@ -927,6 +927,9 @@ impl View for TextField {
         // field until a label (a FormField, say) gives it a real name.
         cx.semantics(text_area, Semantics::hidden());
         let mut semantics = Semantics::new(Role::TextInput).value(shown);
+        if self.secure {
+            semantics = semantics.protected();
+        }
         if !self.placeholder.is_empty() {
             semantics = semantics.name(self.placeholder.clone());
             semantics.fallback_name = true;
