@@ -3,6 +3,10 @@
 //!
 //! The rules follow the spelling: accents mark the stress, the ending decides it when
 //! there is none, and a short list keeps the open vowels that spelling does not show.
+//!
+//! They stand in for espeak-ng, which is GPL, and are checked against what it writes in
+//! `phonemes_close_to_espeak`. Not public: `SpeechEngine` calls [`phonemes_pt_br`] for
+//! Kokoro. Digits are left out, so the text must have its numbers in words.
 
 /// Words said apart from the rules, as they sound in a sentence.
 const SPOKEN: &[(&str, &str)] = &[

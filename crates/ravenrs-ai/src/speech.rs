@@ -1,6 +1,13 @@
 //! Speech, from Kokoro 82M or LFM3 Audio. In LFM3 Audio, following its model card, the
 //! model writes frames of codes, a small decoder finds each frame's codes, and the codec
 //! turns them into 24 kHz sound.
+//!
+//! [`SpeechEngine`] is the way in for both, and needs no UI: it gives back mono samples
+//! at [`SPEECH_RATE`]. For Kokoro, `KokoroSpeech::speak` writes the text as Brazilian
+//! phonemes (`crate::phonemes`), cuts them with `phoneme_pieces` and has `crate::kokoro`
+//! say each piece; only `language`, `speaker` (or `voice`) and `seed` of
+//! [`SpeechSettings`] matter to it. `LocalVoice` and `VoiceManager` (`src/voice.rs`) put a
+//! `SpeechEngine` on its own thread and on a screen.
 
 use std::fs::File;
 
