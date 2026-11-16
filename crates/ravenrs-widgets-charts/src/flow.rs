@@ -2685,7 +2685,16 @@ impl Surface {
 
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
 impl Surface {
+    /// Paints the canvas inside its frame. `BuildCx::clip` keeps the nodes, which are children,
+    /// inside the canvas, but not what the canvas paints itself: a connection to a node out of
+    /// view, a cable's sag or a line being drawn would cross whatever stands beside it.
     fn paint(&self, frame: Rect, time: f64, scene: &mut Scene) {
+        scene.push_clip(frame);
+        self.paint_inside(frame, time, scene);
+        scene.pop_clip();
+    }
+
+    fn paint_inside(&self, frame: Rect, time: f64, scene: &mut Scene) {
         let p = &self.palette;
         let at = |q: Point| Point::new(frame.x() + q.x, frame.y() + q.y);
         scene.push_quad(Quad::new(frame, p.canvas));

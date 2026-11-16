@@ -155,6 +155,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- `FlowCanvas` keeps what it paints inside its frame: a connection to a node out of view, a cable's sag or a line being drawn no longer crosses the panel beside the canvas. ([#640](https://github.com/alexkads/RavenRS/issues/640))
 - `ravenrs-e2e` waits for the frames an action asks for (up to four) before it reads the screen, so a check right after a click sees what the click changed. ([#634](https://github.com/alexkads/RavenRS/issues/634))
 - Cables plugged into widgets under a scale or a turn end where the widgets show, thinner by as much, and the children of a scaled widget laid out past the window are no longer skipped when they show inside it. ([#575](https://github.com/alexkads/RavenRS/issues/575))
 - On the GPU, a frame with no step due no longer tells the cables they stopped: a cable just plugged in used to freeze in the middle of its fall. ([#575](https://github.com/alexkads/RavenRS/issues/575))
