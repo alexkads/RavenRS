@@ -39,6 +39,7 @@ mod installer;
 mod news;
 mod release;
 mod template;
+mod tray;
 
 pub use app::{InstallKind, InstalledApp};
 pub use installer::{
@@ -51,6 +52,7 @@ pub use news::{
 };
 pub use release::{assert_release_files_agree, check_release_files};
 pub use template::{INSTALLER_TEMPLATE, WRITE_INSTALLER_ENV, assert_installer_is_current, check_installer};
+pub use tray::{TRAY_NEWS, TRAY_UPDATE, TrayChoice, tray_choice, tray_entries};
 
 /// How often an open app looks for a new version.
 pub const CHECK_EVERY: Duration = Duration::from_secs(3600);

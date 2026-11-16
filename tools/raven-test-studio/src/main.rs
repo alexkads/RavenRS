@@ -159,8 +159,14 @@ fn main() -> std::process::ExitCode {
     // The window's id is the package, as the installer names the .desktop file and the icon.
     // Closing the window keeps the Studio beside the clock, as Raven Finanças does: opening it
     // again brings the same window back, and launching it twice opens the copy already running.
-    let tray =
-        ravenrs::native::SystemTray::new("Raven Test Studio").open("Abrir o Raven Test Studio").quit("Sair");
+    // Its menu says how the self-test went, runs it again and offers an update that is ready.
+    let link = raven_test_studio::tray::TrayLink::new(ravenrs::core::TrayMenu::default());
+    let chosen = link.clone();
+    let tray = ravenrs::native::SystemTray::new("Raven Test Studio")
+        .open("Abrir o Raven Test Studio")
+        .quit("Sair")
+        .menu(link.menu().clone())
+        .on_select(move |id| chosen.choose(id));
     let identity = ravenrs::native::AppIdentity::new(raven_test_studio::versao::APP.package)
         .labels(ravenrs::prelude::Labels::pt_br())
         .new_issue_url("https://github.com/alexkads/RavenRS/issues/new")
@@ -169,7 +175,7 @@ fn main() -> std::process::ExitCode {
         Some(icon) => identity.icon(icon),
         None => identity,
     };
-    match ravenrs::native::run_as(raven_test_studio::installed_app(), options, identity) {
+    match ravenrs::native::run_as(raven_test_studio::installed_app_in_tray(Some(link)), options, identity) {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(e) => {
             eprintln!("{e}");

@@ -12,3 +12,4 @@ mod records;
 mod screens;
 mod telegram;
 mod training;
+mod tray;

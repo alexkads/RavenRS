@@ -24,6 +24,7 @@ pub mod runner;
 pub mod sample;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod suggest;
+pub mod tray;
 pub mod versao;
 
 use std::cell::RefCell;
@@ -100,6 +101,8 @@ pub struct Studio {
     /// How the Studio's own test went when the window opened; `None` for a Studio that did not
     /// test itself, as the one a scenario opens.
     health: Option<report::Report>,
+    /// The menu beside the clock, for the installed window.
+    tray: Option<tray::TrayLink>,
     /// The agent the window hands its scenario to, Codex by default.
     #[cfg(not(target_arch = "wasm32"))]
     agent: ravenrs_agent_cli::Cli,
@@ -181,6 +184,20 @@ impl View for Studio {
         let waker = cx.ui_waker();
         self.updater.connect(move || waker.wake());
         self.updater.poll();
+        // What was chosen on the icon's menu, then the menu as the window now stands.
+        if let Some(link) = &self.tray {
+            for id in link.take() {
+                if self.updater.tray_select(&id).is_some() {
+                    continue;
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                if id == tray::RUN_SELF_TEST {
+                    let waker = cx.ui_waker();
+                    link.run_self_test(move || waker.wake());
+                }
+            }
+            link.menu().set(link.entries(self.health.as_ref(), self.updater.tray_entries()));
+        }
         let start = self.scenario.clone();
         let graph = cx.use_state(move || start);
         let selection = cx.use_state(FlowSelection::default);
@@ -560,6 +577,7 @@ fn studio(
         scenario,
         updater,
         health,
+        tray: None,
         #[cfg(not(target_arch = "wasm32"))]
         agent: ravenrs_agent_cli::Cli::new(ravenrs_agent_cli::Agent::Codex),
     }
@@ -707,8 +725,26 @@ pub fn served_app() -> Localized<Studio> {
 /// The Studio as its window opens: it tests itself, then looks for a new version when it opens
 /// and every hour after, as Raven Finanças does.
 pub fn installed_app() -> Localized<Studio> {
+    installed_app_in_tray(None)
+}
+
+/// [`installed_app`], keeping `link`'s menu beside the clock as the window's state changes and
+/// acting on what is chosen there.
+pub fn installed_app_in_tray(link: Option<tray::TrayLink>) -> Localized<Studio> {
     let updater = versao::idle();
     updater.watch();
     let mut kept = cache::default_file().map(|file| cache::RunCache::at(&file));
-    checked(updater, kept.as_mut())
+    let health = run_bundled("autoteste", kept.as_mut());
+    let storage: Rc<dyn Storage> = Rc::new(MemoryStorage::default());
+    let mut studio = studio(storage, FlowGraph::new(), updater, health);
+    studio.tray = link;
+    Localized::new(Labels::pt_br(), studio)
+}
+
+/// The Studio as [`installed_app_in_tray`] opens it, with an updater that does nothing until
+/// told, for tests of the menu beside the clock.
+pub fn app_in_tray(link: tray::TrayLink, updater: Updater) -> Localized<Studio> {
+    let mut studio = studio(Rc::new(MemoryStorage::default()), sample::scenario(), updater, None);
+    studio.tray = Some(link);
+    Localized::new(Labels::pt_br(), studio)
 }

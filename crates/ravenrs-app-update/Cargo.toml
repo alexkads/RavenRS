@@ -16,6 +16,7 @@ categories = ["development-tools::build-utils"]
 include = ["src/**/*", "tests/**/*", "install.cmd.in", "README.md"]
 
 [dependencies]
+ravenrs-core.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 tracing.workspace = true
