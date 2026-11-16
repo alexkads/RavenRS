@@ -55,11 +55,33 @@ export type Last = {
   delegated: string | null
 }
 
+/** What `raven-test-studio --atualizacao --format json` answers. */
+export type UpdateAnswer = {
+  installed: string
+  latest: string | null
+  newer: boolean
+  updates_itself: boolean
+  /** Read by the pane itself, from a Studio too old to answer `--atualizacao`. */
+  old?: boolean
+  news: { title: string; items: string[]; why: string; important: boolean; issues: number[] } | null
+  error: string | null
+}
+
+/** A newer Studio, and how installing it goes. */
+export type Update = {
+  answer: UpdateAnswer | null
+  installing: boolean
+  stage: string | null
+  done: string | null
+  failed: string | null
+}
+
 declare module 'claude-code' {
   interface PluginState {
     'raven-test-studio': {
       last: Shaped<Last>
       running: Shaped<boolean>
+      update: Shaped<Update>
     }
   }
 }

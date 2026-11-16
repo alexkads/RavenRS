@@ -14,6 +14,8 @@ When it opens and every hour after that, the app reads `novidades.json` from the
 4. the installed app becomes the previous version, kept on macOS in `~/<home_dir>/anterior` (where it does not show as a second app) and elsewhere beside it as `.anterior`, and the new one moves in;
 5. the app asks the installed binary which version it is; only then does the status bar offer **Reabrir agora**.
 
+With no window, a command line or another program asking the app (a pane beside a Claude conversation asks Raven Test Studio) uses `check_now`, which reads the same news and decides by the same rule, and `install_now`, which runs the same installer with the same lock and memory, on the calling thread, telling each stage.
+
 A version that failed is not tried again by itself for a day (`RETRY_AFTER`); clicking **Tentar de novo** tries at once. Two windows never compile together: the second follows the first one's steps through a lock in `~/<home_dir>`, which counts as stale after three hours or twenty minutes of a silent log. A copy built with `cargo run` only mentions the new version.
 
 | In `~/<home_dir>` | What it is |

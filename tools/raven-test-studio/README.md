@@ -18,6 +18,8 @@ On Windows, in PowerShell:
 irm https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-test-studio/install.cmd -OutFile "$env:TEMP\install.cmd"; & "$env:TEMP\install.cmd"
 ```
 
+`raven-test-studio --atualizacao` says whether there is a newer version (`--format json` for a tool), and `--atualizar` installs it with the same installer, printing each stage; a copy run from a checkout updates with `git pull`. An option the Studio does not know is refused (`--help` lists them), so a script never opens a window by mistake.
+
 The version is its own (`version` in `Cargo.toml`), with its news in `novidades.json` and every version in `historico-de-novidades.json`. An installed Studio looks for a new version when it opens and every hour after, and says so in its status bar. `raven-test-studio --versao` prints the version.
 
 ## How to use it
@@ -63,7 +65,7 @@ Load it in a session started in this checkout:
 claude --plugin-dir tools/raven-test-studio/claude-pane
 ```
 
-`/raven-test-studio` opens the pane; asking "roda o autoteste do Studio" makes the AI call the tool, and "delega o teste ao Codex" makes it call the tool with `delegate`. The pane runs the self-test by itself as the session starts. In this checkout it runs the code here (`cargo run`); anywhere else it runs the installed Studio. The plugin also brings the skill `raven-test-studio`, which teaches an agent to run scenarios and read their reports.
+`/raven-test-studio` opens the pane; asking "roda o autoteste do Studio" makes the AI call the tool, and "delega o teste ao Codex" makes it call the tool with `delegate`. The pane runs the self-test by itself as the session starts, and looks for a newer Studio then and every hour: a card says which version is out and what it brings, and "Atualizar agora" installs it there, stage by stage. A Studio from before 0.1.2 cannot answer, so the pane reads the news itself and says to update from the Studio's window that one time. In this checkout it runs the code here (`cargo run`); anywhere else it runs the installed Studio. The plugin also brings the skill `raven-test-studio`, which teaches an agent to run scenarios and read their reports.
 
 **For any AI, through the RavenRS MCP server**
 

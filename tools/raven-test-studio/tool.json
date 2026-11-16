@@ -1,7 +1,7 @@
 {
   "name": "Raven Test Studio",
   "package": "raven-test-studio",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "summary": "The end-to-end test tool of RavenRS: a scenario is a flow of blocks run against a RavenRS app with ravenrs-e2e, and the report tells a person or an AI what failed, why, how to fix it and what the screen showed.",
   "when_to_use": [
     "After changing a RavenRS screen or component, to prove it still works from the outside, with real clicks and typing.",
@@ -17,6 +17,8 @@
     { "command": "raven-test-studio --clear-cache", "does": "Forgets every run kept." },
     { "command": "raven-test-studio --delegate codex --run <scenario>", "does": "Hands the scenario (the self-test without --run) to the Codex CLI with its cheapest model, reading only: it runs the Studio, reads the report and, when it failed, finds the cause in the Rust sources with file and line. Then the Studio runs the same scenario and says whether it confirms the agent's verdict. claude instead of codex uses the Claude CLI (haiku)." },
     { "command": "raven-test-studio --delegate codex --model <model>", "does": "The same with another model; the cheapest is read from the list the installed Codex keeps." },
+    { "command": "raven-test-studio --atualizacao --format json", "does": "Says whether there is a newer Studio: the version running, the latest one, its news, and whether this copy updates itself (installed) or with git pull (a checkout). The Claude pane asks it when the session starts and every hour." },
+    { "command": "raven-test-studio --atualizar", "does": "Installs the newer version now with the Studio's installer, printing each stage; a checkout is refused and told to use git pull." },
     { "command": "raven-test-studio --versao", "does": "Prints the version; the installer and the updater use it." },
     { "command": "cargo run -p raven-test-studio -- <flags>", "does": "The same, from a RavenRS checkout, with no install." }
   ],

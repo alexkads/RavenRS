@@ -1,7 +1,7 @@
 import { atom, read, update } from 'claude-code'
 import type { Hook, Register, RenderChildren } from 'claude-code'
 
-import type { Block, Last, Report } from '../types'
+import type { Block, Last, Report, Update } from '../types'
 
 const PANE = 'raven-test-studio'
 const TITLE = 'Raven Test Studio'
@@ -38,6 +38,14 @@ const last = atom(
   { shape: 'last-3' },
 )
 const running = atom({ plugin: 'raven-test-studio', key: 'running' } as const, false, { shape: 'running-1' })
+// Whether there is a newer Studio, as `--atualizacao` answers, and how installing it goes.
+const updates = atom(
+  { plugin: 'raven-test-studio', key: 'update' } as const,
+  { answer: null, installing: false, stage: null, done: null, failed: null } as Update,
+  { shape: 'update-1' },
+)
+// How often the pane asks again, as the Studio's window does.
+const CHECK_EVERY_MS = 3_600_000
 
 /** The engine interface every hook receives. */
 type Ops = Parameters<Hook<'ui.render'>>[0]
@@ -94,6 +102,100 @@ async function run($: Ops, ask: Ask): Promise<Last> {
   await update($, last, () => outcome)
   await update($, running, () => false)
   return outcome
+}
+
+/** Asks the Studio whether there is a newer version, and keeps the answer for the pane. */
+async function checkUpdate($: Ops): Promise<void> {
+  const found = await studio($)
+  try {
+    // Every Studio answers `--versao`; one before 0.1.2 would take `--atualizacao` for no option
+    // and open its window, so it is asked the old way.
+    const version = await $.process.run([...found.argv, '--versao'], { timeoutMs: 600_000 })
+    const installed = version.stdout.trim().split('\n')[0]?.trim() ?? ''
+    if (version.exitCode !== 0 || !installed) return
+    if (isNewer(ASKS_FROM, installed)) {
+      const answer = await olderStudio($, installed)
+      if (answer) await update($, updates, now => ({ ...now, answer }))
+      return
+    }
+    const done = await $.process.run([...found.argv, '--atualizacao', '--format', 'json'], { timeoutMs: 600_000 })
+    if (done.exitCode === 0 || done.exitCode === 2) {
+      const answer = JSON.parse(done.stdout) as Update['answer']
+      await update($, updates, now => ({ ...now, answer }))
+    }
+  } catch {
+    // A Studio that could not start: the pane says nothing about updates.
+  }
+}
+
+// The first Studio that answers `--atualizacao` and installs itself from the pane.
+const ASKS_FROM = '0.1.2'
+// Where the repository announces the latest version, the address the Studio's updater reads.
+const NEWS_URL = 'https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-test-studio/novidades.json'
+
+/** Whether `a` is a newer version than `b`, number by number. */
+function isNewer(a: string, b: string): boolean {
+  const x = a.split('.').map(Number)
+  const y = b.split('.').map(Number)
+  for (let i = 0; i < Math.max(x.length, y.length); i++) {
+    if ((x[i] ?? 0) !== (y[i] ?? 0)) return (x[i] ?? 0) > (y[i] ?? 0)
+  }
+  return false
+}
+
+/**
+ * A Studio from before 0.1.2 has no `--atualizacao`: the pane asks it `--versao`, reads the
+ * news itself with `curl`, and says so; such a copy installs from its window, not from here.
+ */
+async function olderStudio($: Ops, installed: string): Promise<Update['answer']> {
+  const fetched = await $.process.run(['curl', '-fsSL', NEWS_URL], { timeoutMs: 60_000 })
+  if (fetched.exitCode !== 0) return null
+  const news = JSON.parse(fetched.stdout) as { versao: string; titulo: string; novidades: string[]; por_que_atualizar: string }
+  const newer = isNewer(news.versao, installed)
+  return {
+    installed,
+    latest: news.versao,
+    newer,
+    updates_itself: false,
+    old: true,
+    news: newer
+      ? { title: news.titulo, items: news.novidades, why: news.por_que_atualizar, important: false, issues: [] }
+      : null,
+    error: null,
+  }
+}
+
+/**
+ * Installs the newer version with `--atualizar`, which runs the Studio's own installer: as long
+ * as compiling takes, so it streams, with no time limit, showing each stage it prints.
+ */
+async function installUpdate($: Ops): Promise<void> {
+  const found = await studio($)
+  await update($, updates, now => ({ ...now, installing: true, stage: 'baixando o instalador', done: null, failed: null }))
+  const said: string[] = []
+  let errors = ''
+  const stream = $.process.spawn({ argv: [...found.argv, '--atualizar'] })
+  let step = await stream.next()
+  while (!step.done) {
+    const { stream: which, text } = step.value
+    if (which === 'stderr') errors += text
+    for (const line of text.split('\n')) {
+      said.push(line)
+      const stage = line.startsWith('etapa: ') ? line.slice('etapa: '.length).trim() : null
+      if (stage) await update($, updates, now => ({ ...now, stage }))
+    }
+    step = await stream.next()
+  }
+  const ok = step.value.code === 0
+  const finished = said.find(line => line.startsWith('Atualizado para')) ?? 'Já está na versão mais nova'
+  await update($, updates, now => ({
+    ...now,
+    installing: false,
+    stage: null,
+    done: ok ? finished : null,
+    failed: ok ? null : errors.trim().split('\n').slice(-8).join('\n') || 'a atualização não terminou',
+  }))
+  if (ok) await checkUpdate($)
 }
 
 /** The name of an agent the Studio delegates to. */
@@ -174,7 +276,9 @@ export const register: Register = on => {
     void $.ui.open({ id: PANE, title: TITLE })
     // The Studio tests itself as the session starts, so the pane opens with its health; an
     // unchanged Studio answers from its cache at once.
-    void run($, { scenario: 'autoteste', noCache: false, delegate: null, model: null })
+    void run($, { scenario: 'autoteste', noCache: false, delegate: null, model: null }).then(() => checkUpdate($))
+    // And looks for a newer Studio every hour after, as its window does.
+    $.clock.every(CHECK_EVERY_MS, () => void checkUpdate($))
     return next(e)
   })
 
@@ -190,7 +294,12 @@ export const register: Register = on => {
     const model = typeof input.model === 'string' && /^[\w.:-]+$/.test(input.model) ? input.model : null
     void $.ui.open({ id: PANE, title: TITLE })
     const outcome = await run($, { scenario, noCache: input.no_cache === true, delegate, model })
-    return { result: forTheModel(outcome) }
+    const newer = (await read($, updates)).answer
+    const note =
+      newer?.newer && newer.latest
+        ? `\n\nHá uma versão nova do Raven Test Studio (${newer.installed} → ${newer.latest}); o painel oferece "Atualizar agora".`
+        : ''
+    return { result: forTheModel(outcome) + note }
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
@@ -249,6 +358,70 @@ export const register: Register = on => {
       </Box>
     )
 
+    // A newer Studio, said on every view of the pane, under the header.
+    const up = await read($, updates)
+    const a = up.answer
+    const updateCard =
+      up.installing || up.done || up.failed || (a?.newer && a.latest)
+        ? card(
+            'update',
+            <Box flexDirection="column" gap={1}>
+              {up.installing ? (
+                <Box flexDirection="column" gap={0}>
+                  <Text weight="semibold" color="warning">
+                    ● Atualizando para {a?.latest ?? 'a versão nova'}
+                  </Text>
+                  <Text size="footnote" dimColor>
+                    {up.stage ?? 'começando'} · compilar demora alguns minutos
+                  </Text>
+                </Box>
+              ) : up.done ? (
+                <Text weight="semibold" color="success">
+                  ✓ {up.done}
+                </Text>
+              ) : up.failed ? (
+                <Box flexDirection="column" gap={0}>
+                  <Text weight="semibold" color="error">
+                    A atualização falhou; o Studio instalado continua como estava
+                  </Text>
+                  <Text size="caption" mono dimColor>
+                    {up.failed}
+                  </Text>
+                </Box>
+              ) : (
+                <Box flexDirection="column" gap={0}>
+                  <Text weight="semibold">
+                    Versão {a?.latest} disponível <Text dimColor>· você tem a {a?.installed}</Text>
+                  </Text>
+                  {a?.news?.title && <Text size="footnote">{a.news.title}</Text>}
+                  {(a?.news?.items ?? []).slice(0, 3).map(item => (
+                    <Text key={`new-${item}`} size="footnote" dimColor>
+                      · {item}
+                    </Text>
+                  ))}
+                </Box>
+              )}
+              {!up.installing && !up.done && a?.newer && (
+                a.updates_itself ? (
+                  <Button key="update-now" onPress={() => void installUpdate($)}>
+                    Atualizar agora
+                  </Button>
+                ) : a.old ? (
+                  <Text size="footnote" dimColor>
+                    Esta versão do Studio atualiza pela janela: abra o Raven Test Studio e use "Atualizar" na barra de
+                    status. Da 0.1.2 em diante, atualiza daqui.
+                  </Text>
+                ) : (
+                  <Text size="footnote" dimColor>
+                    Esta cópia é do checkout do RavenRS: atualize com <Text mono>git pull</Text>
+                  </Text>
+                )
+              )}
+            </Box>,
+            up.failed ? 'error' : up.done ? 'success' : 'warning',
+          )
+        : null
+
     const footer = (
       <Text size="caption" mono dimColor>
         Feito com RavenRS · ravenrs-e2e
@@ -272,6 +445,7 @@ export const register: Register = on => {
       return page(
         <Box flexDirection="column" gap={1}>
           {header}
+          {updateCard}
           {card(
             'steps',
             <Box flexDirection="column" gap={1}>
@@ -318,6 +492,7 @@ export const register: Register = on => {
       return page(
         <Box flexDirection="column" gap={1}>
           {header}
+          {updateCard}
           {now.problem &&
             card(
               'problem',
@@ -394,6 +569,7 @@ export const register: Register = on => {
     return page(
       <Box flexDirection="column" gap={1}>
         {header}
+        {updateCard}
 
         {card(
           'score',

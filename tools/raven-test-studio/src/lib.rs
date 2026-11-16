@@ -13,6 +13,7 @@
 //! The Studio is tested by the tool it is made of: its tests drive it with `ravenrs-e2e`, as
 //! `tests/suite/self_test.rs` shows.
 
+pub mod atualizacao;
 pub mod cache;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod delegate;

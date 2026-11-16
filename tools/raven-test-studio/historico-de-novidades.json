@@ -1,5 +1,23 @@
 [
   {
+    "versao": "0.1.2",
+    "data": "2026-11-16",
+    "titulo": "O painel no Claude avisa da versão nova e atualiza.",
+    "importante": false,
+    "novidades": [
+      "O painel ao lado da conversa no Claude procura versão nova ao começar a sessão e de hora em hora, e mostra o que ela traz.",
+      "\"Atualizar agora\" no painel instala a versão nova com o mesmo instalador da janela, mostrando cada etapa.",
+      "raven-test-studio --atualizacao diz se há versão nova, e --atualizar instala pela linha de comando."
+    ],
+    "por_que_atualizar": "Para saber da versão nova e atualizar sem abrir a janela.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      645
+    ]
+  },
+  {
     "versao": "0.1.1",
     "data": "2026-11-16",
     "titulo": "Fica ao lado do relógio quando a janela fecha.",

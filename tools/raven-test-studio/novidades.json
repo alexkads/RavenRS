@@ -1,18 +1,17 @@
 {
-  "versao": "0.1.1",
-  "titulo": "Fica ao lado do relógio quando a janela fecha.",
+  "versao": "0.1.2",
+  "titulo": "O painel no Claude avisa da versão nova e atualiza.",
   "importante": false,
   "novidades": [
-    "Fechar a janela deixa o Studio ao lado do relógio, como o Raven Finanças: o menu do ícone abre a janela de novo ou sai de vez.",
-    "Abrir o Studio com ele já rodando traz a mesma janela, sem uma segunda cópia.",
-    "As ligações do cenário não passam mais por cima do registro, à direita do fluxo."
+    "O painel ao lado da conversa no Claude procura versão nova ao começar a sessão e de hora em hora, e mostra o que ela traz.",
+    "\"Atualizar agora\" no painel instala a versão nova com o mesmo instalador da janela, mostrando cada etapa.",
+    "raven-test-studio --atualizacao diz se há versão nova, e --atualizar instala pela linha de comando."
   ],
-  "por_que_atualizar": "Para o Studio continuar pronto, sem abrir do zero a cada teste.",
+  "por_que_atualizar": "Para saber da versão nova e atualizar sem abrir a janela.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    640,
-    641
+    645
   ]
 }
