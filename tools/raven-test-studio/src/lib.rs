@@ -672,7 +672,12 @@ pub fn run_files(path: &std::path::Path) -> Result<report::Report, String> {
     }
     let title = match scenarios.as_slice() {
         [one] => one.name.clone(),
-        many => format!("{} cenários de {}", many.len(), path.display()),
+        // Said from where the Studio was called, which is shorter and the same on every machine.
+        many => {
+            let here = std::env::current_dir().ok();
+            let shown = here.as_deref().and_then(|h| path.strip_prefix(h).ok()).unwrap_or(path);
+            format!("{} cenários de {}", many.len(), shown.display())
+        }
     };
     Ok(report::Report::of(&title, sample::from_scenarios(&scenarios), Run::new(open)))
 }

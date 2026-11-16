@@ -238,6 +238,8 @@ pub struct Outcome {
     pub close: Vec<String>,
     /// The screen of the app under test when the block failed, as `E2e::snapshot` writes it.
     pub screen: Option<String>,
+    /// How long the block took, in milliseconds, waits included.
+    pub ms: u64,
 }
 
 impl Run {
@@ -265,9 +267,11 @@ impl Run {
         let id = ids.get(self.next)?.clone();
         self.next += 1;
         let node = graph.nodes.iter_mut().find(|n| n.id == id)?;
+        let started = std::time::Instant::now();
         let result = step_of(node)
             .map_err(|m| Box::new(Failure::plain(m)))
             .and_then(|step| perform(&mut self.session, &step, self.open));
+        let ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
         let (title, kind, line) =
             (node.title.clone(), node.kind.clone(), node.subtitle.clone().unwrap_or_default());
         node.status = match &result {
@@ -308,6 +312,7 @@ impl Run {
             fix: f.fix,
             close: f.close,
             screen,
+            ms,
         })
     }
 

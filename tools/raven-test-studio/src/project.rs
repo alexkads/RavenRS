@@ -64,6 +64,8 @@ pub struct Project {
     pub root: PathBuf,
     /// Its packages made with RavenRS, in name order.
     pub found: Vec<Found>,
+    /// The folder cargo builds it into.
+    pub target: PathBuf,
 }
 
 /// The crates whose use makes a package one made with RavenRS.
@@ -143,7 +145,8 @@ pub fn of_metadata(root: &Path, metadata: &Value) -> Project {
         })
         .collect();
     found.sort_by(|a, b| a.package.cmp(&b.package));
-    Project { root: root.to_path_buf(), found }
+    let target = metadata["target_directory"].as_str().map_or_else(|| root.join("target"), PathBuf::from);
+    Project { root: root.to_path_buf(), found, target }
 }
 
 fn rust_files(folder: &Path) -> Vec<PathBuf> {
@@ -217,6 +220,13 @@ fn screens_in(root: &Path, files: &[PathBuf]) -> Vec<Screen> {
 }
 
 impl Project {
+    /// Where a run of this project keeps what it found: `e2e` inside the folder cargo builds
+    /// this project into, as `cargo metadata` says (the workspace's `target`, or
+    /// `CARGO_TARGET_DIR` and `build.target-dir` when set), so git never sees it.
+    pub fn e2e_folder(&self) -> PathBuf {
+        self.target.join("e2e")
+    }
+
     /// Makes the apps of the project known by name, its code before any installed copy, so its
     /// scenarios open them.
     pub fn learn_apps(&self) {
