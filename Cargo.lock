@@ -2267,7 +2267,7 @@ checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
 name = "family-finance"
-version = "0.1.40"
+version = "0.1.41"
 dependencies = [
  "image",
  "jiff",
@@ -5908,7 +5908,7 @@ dependencies = [
 
 [[package]]
 name = "raven-test-studio"
-version = "0.1.7"
+version = "0.1.8"
 dependencies = [
  "ravenrs",
  "ravenrs-agent-cli",
@@ -6253,6 +6253,7 @@ dependencies = [
 name = "ravenrs-app-update"
 version = "27.1.28"
 dependencies = [
+ "ravenrs-core",
  "serde",
  "serde_json",
  "tracing",

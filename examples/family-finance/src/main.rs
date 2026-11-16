@@ -59,10 +59,22 @@ fn main() -> Result<(), PlatformError> {
         Some(icon) => identity.icon(icon),
         None => identity,
     };
+    // The menu beside the clock says the overdue bills, starts the entries of the day and
+    // offers an update that is ready; the window acts on what is chosen there.
+    let link = family_finance::ui::TrayLink::new(ravenrs::core::TrayMenu::default());
+    let chosen = link.clone();
     let identity = if everyday {
-        identity.close_to_tray(SystemTray::new("Raven Finanças").open("Abrir o Raven Finanças").quit("Sair"))
+        identity.close_to_tray(
+            SystemTray::new("Raven Finanças")
+                .open("Abrir o Raven Finanças")
+                .quit("Sair")
+                .menu(link.menu().clone())
+                .on_select(move |id| chosen.choose(id)),
+        )
     } else {
         identity
     };
-    run_as(Opening::new(path, today(), update::idle(), diagnostics, errors), options, identity)
+    let opening = Opening::new(path, today(), update::idle(), diagnostics, errors);
+    let opening = if everyday { opening.tray(link) } else { opening };
+    run_as(opening, options, identity)
 }

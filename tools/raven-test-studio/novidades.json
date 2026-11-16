@@ -1,21 +1,17 @@
 {
-  "versao": "0.1.7",
-  "titulo": "Cenários que esperam, escolhem, preenchem e rolam, e o Codex pela janela.",
+  "versao": "0.1.8",
+  "titulo": "O menu ao lado do relógio diz como está o Studio.",
   "importante": false,
   "novidades": [
-    "Cada passo espera até 2 s o alvo ficar pronto antes de falhar, com o relógio do teste andando: temporizadores e trabalho em segundo plano aparecem.",
-    "Blocos novos: preencher, escolher, expandir, recolher, rolar e esperar (este falha com E2E_TIMEOUT).",
-    "Linhas de listas, grades e árvores com chave são achadas por #row:<chave> e #item:<chave>, mesmo fora da tela.",
-    "Botão Delegar ao Codex na janela: o Codex trabalha sem travar a tela, Parar o encerra, e o Studio confere o veredito rodando o mesmo cenário.",
-    "As sugestões da IA local só usam alvos que existem na primeira tela do app."
+    "O menu do ícone mostra o resultado do autoteste no topo.",
+    "Rodar autoteste roda de novo com a janela fechada, e o menu mostra o andamento e o resultado.",
+    "Quando uma versão nova termina de instalar, o menu mostra Reiniciar para atualizar, com o número da versão."
   ],
-  "por_que_atualizar": "Para testar telas reais sem passos que falham por pressa ou por posição, e pedir o diagnóstico ao Codex sem sair da janela.",
+  "por_que_atualizar": "Para saber se o Studio está saudável e atualizar sem abrir a janela.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    637,
-    650,
-    658
+    643
   ]
 }

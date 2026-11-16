@@ -1,17 +1,17 @@
 {
-  "versao": "0.1.40",
-  "titulo": "O Raven Finanças traz os próprios testes.",
+  "versao": "0.1.41",
+  "titulo": "O menu ao lado do relógio ficou útil.",
   "importante": false,
   "novidades": [
-    "O teste de lançar uma despesa agora mora no próprio Raven Finanças, num arquivo de cenário, e vai junto com o app instalado.",
-    "O Raven Test Studio (RTS) recebe esse cenário quando abre o app, então dá para testar a versão instalada sem o código do projeto.",
-    "Como antes, o teste usa só a família de exemplo, na memória: os seus dados nunca são abertos."
+    "Com a janela fechada, o ícone ao lado do relógio diz quantas contas estão vencidas.",
+    "Nova despesa e Nova receita no menu abrem a janela já no formulário.",
+    "Quando uma versão nova termina de instalar, o menu mostra Reiniciar para atualizar, com o número da versão."
   ],
-  "por_que_atualizar": "Para que o Raven Test Studio rode os testes que o próprio Raven Finanças traz.",
+  "por_que_atualizar": "Para lançar e saber das contas sem abrir a janela, e ver a atualização pronta mesmo com ela fechada.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    652
+    643
   ]
 }

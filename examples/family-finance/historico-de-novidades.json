@@ -1,5 +1,23 @@
 [
   {
+    "versao": "0.1.41",
+    "data": "2026-11-16",
+    "titulo": "O menu ao lado do relógio ficou útil.",
+    "importante": false,
+    "novidades": [
+      "Com a janela fechada, o ícone ao lado do relógio diz quantas contas estão vencidas.",
+      "Nova despesa e Nova receita no menu abrem a janela já no formulário.",
+      "Quando uma versão nova termina de instalar, o menu mostra Reiniciar para atualizar, com o número da versão."
+    ],
+    "por_que_atualizar": "Para lançar e saber das contas sem abrir a janela, e ver a atualização pronta mesmo com ela fechada.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      643
+    ]
+  },
+  {
     "versao": "0.1.40",
     "data": "2026-11-16",
     "titulo": "O Raven Finanças traz os próprios testes.",

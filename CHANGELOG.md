@@ -6,6 +6,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Breaking
 
+
 - `ravenrs-e2e-wire`: `Command` has `Fill`, `Select`, `Expand`, `Collapse`, `Scroll` and `Wait`, and `Kind` the same kinds; an exhaustive `match` on either needs the new arms. `Command::apply` now tries a step again for up to `PATIENCE` (2 s) while its target is not ready, and scrolls to a target out of sight first. ([#658](https://github.com/alexkads/RavenRS/issues/658))
 
 - `ravenrs-agent-cli`: `Policy` has a new public field, `model`, and `Caps` one, `model`. Literals with `..Policy::default()` or `..Caps::default()` do not change. ([#634](https://github.com/alexkads/RavenRS/issues/634))
@@ -39,6 +40,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `Labels` has `flow_arrange`, `flow_input`, `flow_output` and `flow_pick_port`, for the arrange button and the ports of a `FlowCanvas`. Literals with `..Default::default()` do not change.
 
 ### Added
+
+- The menu beside the clock: `TrayMenu` and `TrayEntry` in `ravenrs-core` (state, item with detail and shortcut, check, submenu, separator), `SystemTray::menu` and `SystemTray::on_select` in `ravenrs-platform-native`, on macOS and Windows (`tray-icon`) and Linux (`ksni`); the menu redraws when the app sets new entries, and an id that starts with `open:` opens the window first. `ravenrs-app-update` gives the update's entries with `Updater::tray_entries` and acts on them with `Updater::tray_select`. Raven Finanças 0.1.41 shows the overdue bills, Nova despesa and Nova receita; Raven Test Studio 0.1.8 the self-test, Rodar autoteste and the update. ([#643](https://github.com/alexkads/RavenRS/issues/643))
 
 - `ravenrs-e2e`: a session clock (`E2e::advance`, `E2e::clock`), waits (`E2e::wait_until`, `E2e::patiently`, `Locator::wait_for`, `Locator::wait_to_mention`) and the code `E2E_TIMEOUT`; actions `Locator::fill`, `select`, `expand`, `collapse` and `scroll_into_view`, which also finds a row a long list has not built. `VirtualList` with `key` and `DataGrid` with `key_column` give each row the test id `row:<key>`, and `TreeView` each item `item:<key>`. ([#658](https://github.com/alexkads/RavenRS/issues/658))
 - `ravenrs-agent-cli`: `Cli::installed`, whether the program is on the machine without running it. ([#637](https://github.com/alexkads/RavenRS/issues/637))

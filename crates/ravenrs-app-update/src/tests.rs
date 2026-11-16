@@ -702,3 +702,40 @@ fn asking_now_with_nowhere_to_ask_says_why_and_decides_nothing() {
     let answer = check_now(&OTHER_APP);
     assert_eq!(answer.err().as_deref(), Some("a resposta não veio completa."));
 }
+
+#[test]
+fn the_menu_beside_the_clock_says_the_update_and_installs_it() {
+    use ravenrs_core::TrayEntry;
+    let n = news("0.2.0");
+    assert!(tray_entries(&UpdateStatus::Quiet, None).is_empty());
+    assert!(tray_entries(&UpdateStatus::UpToDate, None).is_empty());
+
+    let ready = tray_entries(&UpdateStatus::Ready(n.clone()), None);
+    assert_eq!(
+        ready[0],
+        TrayEntry::item(TRAY_UPDATE, "Reiniciar para atualizar").detail("Versão 0.2.0 pronta")
+    );
+    assert_eq!(ready[1], TrayEntry::item(TRAY_NEWS, "Novidades da versão 0.2.0"));
+    assert!(TRAY_NEWS.starts_with(ravenrs_core::OPENS_WINDOW), "the news open the window");
+
+    let compiling = tray_entries(&UpdateStatus::Compiling(n.clone()), Some("compilando"));
+    assert_eq!(
+        compiling[0],
+        TrayEntry::status("Atualizando para a versão 0.2.0…", Some("compilando".into()))
+    );
+
+    assert_eq!(
+        tray_choice(&UpdateStatus::Available(n.clone()), TRAY_UPDATE),
+        Some(TrayChoice::Install(n.clone()))
+    );
+    assert_eq!(
+        tray_choice(&UpdateStatus::Failed(n.clone(), "x".into()), TRAY_UPDATE),
+        Some(TrayChoice::Install(n.clone()))
+    );
+    assert_eq!(tray_choice(&UpdateStatus::Ready(n.clone()), TRAY_UPDATE), Some(TrayChoice::Reopen));
+    assert_eq!(tray_choice(&UpdateStatus::Ready(n.clone()), TRAY_NEWS), Some(TrayChoice::News));
+    // While compiling there is nothing to choose, and the app's own ids are not the update's.
+    assert_eq!(tray_choice(&UpdateStatus::Compiling(n.clone()), TRAY_UPDATE), None);
+    assert_eq!(tray_choice(&UpdateStatus::Ready(n), "run"), None);
+    assert_eq!(Updater::idle(&TEST_APP).tray_select(TRAY_UPDATE), None, "nothing to install");
+}

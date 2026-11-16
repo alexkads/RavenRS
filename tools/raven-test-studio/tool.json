@@ -2,7 +2,7 @@
   "name": "Raven Test Studio",
   "also_called": ["RTS"],
   "package": "raven-test-studio",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "summary": "The end-to-end test tool of RavenRS, RTS for short: a scenario is a flow of blocks run against a RavenRS app with ravenrs-e2e, and the report tells a person or an AI what failed, why, how to fix it and what the screen showed.",
   "when_to_use": [
     "After changing a RavenRS screen or component, to prove it still works from the outside, with real clicks and typing.",
@@ -10,7 +10,7 @@
     "To know whether the Studio itself still works: the self-test opens another Studio and tests it."
   ],
   "commands": [
-    { "command": "raven-test-studio", "does": "Opens the window, with no scenario: a Studio installed from scratch brings none. A scenario shows as a flow, with Rodar, Rodar sem cache, Próximo passo, Delegar ao Codex and Parar, and the log of each block. Delegar ao Codex hands the scenario on the canvas to the Codex CLI (cheapest model, reading only) in a thread of its own: the window keeps answering, Parar ends the agent, the agent's card shows in the log, and the blocks are marked by the Studio's own run of the same scenario, never by what the agent said. With no Codex installed the button is off and the log says why. On opening it tests itself and says so in the status bar. Closing the window keeps it beside the clock, as Raven Finanças does; launching it again opens the copy already running." },
+    { "command": "raven-test-studio", "does": "Opens the window, with no scenario: a Studio installed from scratch brings none. A scenario shows as a flow, with Rodar, Rodar sem cache, Próximo passo, Delegar ao Codex and Parar, and the log of each block. Delegar ao Codex hands the scenario on the canvas to the Codex CLI (cheapest model, reading only) in a thread of its own: the window keeps answering, Parar ends the agent, the agent's card shows in the log, and the blocks are marked by the Studio's own run of the same scenario, never by what the agent said. With no Codex installed the button is off and the log says why. On opening it tests itself and says so in the status bar. Closing the window keeps it beside the clock, as Raven Finanças does, with a menu that shows how the self-test went, runs it again (Rodar autoteste) and offers an update that is ready (Reiniciar para atualizar); launching it again opens the copy already running." },
     { "command": "raven-test-studio --self-test", "does": "Runs the self-test with no window and prints the report as text." },
     { "command": "raven-test-studio --run <scenario>", "does": "Runs autoteste (the Studio's health check) or financas (the scenarios Raven Finanças brings) and prints the report as text." },
     { "command": "raven-test-studio --run <file.raventest|folder>", "does": "Runs scenario files kept anywhere: in an app's tests/e2e, or in a QA team's own folder (every .raventest of it, in name order)." },
@@ -114,6 +114,6 @@
     "The window delegates to Codex; choosing Claude or a model from the window is not there yet (the command line and the pane take them).",
     "Comparing a screen with its design board is phase F14 of #627."
   ],
-  "issues": [627, 632, 634, 637, 658],
+  "issues": [627, 632, 634, 637, 643, 658],
   "blocks_note": "Every step waits up to 2 s for its target to be ready (there, uncovered, enabled, in sight, or a check that holds) before it fails with its own code; the session's clock moves meanwhile, so timers fire and work done in the background shows. Lists with keys give rows the test id row:<key>, a DataGrid with key_column row:<key value>, a TreeView item:<key>, a FlowCanvas node node:<id>."
 }

@@ -47,6 +47,7 @@ use winit::window::{Icon, Window, WindowAttributes, WindowId};
 pub use diagnostics::diagnose;
 pub use files::{OpenDialog, SaveDialog, open_url, open_with_system};
 pub use notice::SystemNotifier;
+pub use ravenrs_core::{TrayEntry, TrayMenu};
 pub use tray::SystemTray;
 
 /// Wheel pixels that ask for twice the size, with Ctrl held.
@@ -65,6 +66,8 @@ enum UserEvent {
     Pinch(f32),
     /// From the icon beside the clock, or from opening the app a second time.
     Tray(tray::TrayAction),
+    /// The app changed the entries of the menu beside the clock.
+    TrayMenu,
 }
 
 impl From<accesskit_winit::Event> for UserEvent {
@@ -370,6 +373,12 @@ fn run_window(
         // It only fails once the loop is gone, when there is nothing left to tell.
         let _ = answer.send_event(UserEvent::Tray(action));
     });
+    if let Some(tray) = &tray {
+        let changed = event_loop.create_proxy();
+        tray.entries().on_change(move || {
+            let _ = changed.send_event(UserEvent::TrayMenu);
+        });
+    }
     if let Some(id) = single_copy
         && let Err(e) = tray::listen_for_other_copies(id, tray_notify.clone())
     {
@@ -571,6 +580,24 @@ impl App {
     }
 
     /// Brings the window back, or to the front if it never left.
+    /// An entry of the app's menu beside the clock was chosen: one whose id starts with
+    /// `open:` opens the window first, and the app hears the id on this, the interface's thread.
+    fn tray_choice(&mut self, event_loop: &ActiveEventLoop, id: &str) {
+        if id.starts_with(ravenrs_core::OPENS_WINDOW) {
+            self.open_window(event_loop);
+        }
+        if let Some(tray) = self.tray.clone() {
+            tray.select(id);
+        }
+        // The app may keep the choice for its next build, which runs now even with no window.
+        self.ui.ui_waker().wake();
+        self.ui.set_time(self.started.elapsed().as_secs_f64());
+        self.ui.update();
+        if let Some(state) = &self.window {
+            state.window.request_redraw();
+        }
+    }
+
     fn open_window(&mut self, event_loop: &ActiveEventLoop) {
         self.in_tray = None;
         if let Some(state) = &self.window {
@@ -917,6 +944,13 @@ impl ApplicationHandler<UserEvent> for App {
             UserEvent::Access(event) => event,
             UserEvent::Tray(tray::TrayAction::Open) => return self.open_window(event_loop),
             UserEvent::Tray(tray::TrayAction::Quit) => return event_loop.exit(),
+            UserEvent::Tray(tray::TrayAction::Select(id)) => return self.tray_choice(event_loop, &id),
+            UserEvent::TrayMenu => {
+                if let (Some(shown), Some(tray)) = (&self.in_tray, &self.tray) {
+                    shown.refresh(tray);
+                }
+                return;
+            }
             UserEvent::Pinch(delta) => {
                 if let Some(position) = self.pointer {
                     self.dispatch(Event::Pinch { position, delta });
@@ -925,7 +959,12 @@ impl ApplicationHandler<UserEvent> for App {
             }
             UserEvent::Wake => {
                 tracing::trace!("woken from another thread");
-                if let Some(state) = &self.window {
+                if self.in_tray.is_some() {
+                    // A hidden window draws nothing, but the screen still builds: what it reads
+                    // (an update that finished, a run that ended) reaches the menu of the icon.
+                    self.ui.set_time(self.started.elapsed().as_secs_f64());
+                    self.ui.update();
+                } else if let Some(state) = &self.window {
                     state.window.request_redraw();
                 }
                 return;

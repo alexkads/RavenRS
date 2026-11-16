@@ -9,3 +9,4 @@ mod delegate_window;
 mod manifest;
 mod project;
 mod self_test;
+mod tray;
