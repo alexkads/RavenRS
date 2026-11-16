@@ -5,7 +5,7 @@
 
 A tool has its own version (not the workspace's) and publish = false, its news and the history
 of its versions, an InstalledApp in src/versao.rs, the installer made from the shared template,
-its four icons, --versao and --self-test in src/main.rs, tests in tests/suite, a README, and a
+its four icons, --versao, --self-test and close_to_tray in src/main.rs, tests in tests/suite, a README, and a
 tool.json saying what it offers, which the RavenRS MCP server answers with (`ravenrs_tools`).
 """
 
@@ -54,6 +54,8 @@ for manifest in sorted(root.glob("tools/*/Cargo.toml")):
     main = tool / "src/main.rs"
     if main.exists() and "--versao" not in main.read_text():
         problems.append(f"{name}: src/main.rs needs --versao, which the installer runs")
+    if main.exists() and "close_to_tray" not in main.read_text():
+        problems.append(f"{name}: src/main.rs needs close_to_tray, so closing the window keeps it beside the clock")
     if main.exists() and '"--self-test"' not in main.read_text():
         problems.append(f"{name}: src/main.rs needs --self-test, the tool testing itself with no window")
     described = tool / "tool.json"

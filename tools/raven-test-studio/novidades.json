@@ -1,25 +1,18 @@
 {
-  "versao": "0.1.0",
-  "titulo": "Primeira versão: o Studio testa o próprio Studio.",
+  "versao": "0.1.1",
+  "titulo": "Fica ao lado do relógio quando a janela fecha.",
   "importante": false,
   "novidades": [
-    "Um cenário é um fluxo de blocos (abrir, clicar, digitar, conferir), rodado com o ravenrs-e2e contra um app, e cada bloco fica concluído, com o erro ou como não rodou.",
-    "O cenário que vem com ele, O Studio testa o Studio, abre outro Studio e confere rodar, passo a passo, parar e uma falha de propósito: 18 blocos.",
-    "Sem janela, raven-test-studio --self-test ou --run com --format json entrega o relatório para uma pessoa ou para a IA, com o código de cada falha, o que ele quer dizer, como corrigir e a tela do app testado.",
-    "Cache próprio: um cenário que não mudou, num build que não mudou, volta na hora e avisa que veio do cache.",
-    "Um painel ao lado da conversa no Claude, com a ferramenta run_scenario para a IA rodar um cenário e ler o resultado.",
-    "Instala e se atualiza como o Raven Finanças: o install.cmd compila o master neste computador, e o Studio avisa quando há versão nova.",
-    "Vida própria: ao abrir, a janela roda o autoteste e diz na barra de status como foi; o painel no Claude faz o mesmo quando a sessão começa, usando o Studio instalado fora do repositório do RavenRS.",
-    "Delega ao Codex: --delegate codex entrega o cenário ao Codex com o modelo mais barato dele, só lendo; ele roda, lê o relatório e aponta a causa com arquivo e linha, e o Studio roda o mesmo cenário para confirmar a resposta.",
-    "A IA sabe tudo o que ele faz: o servidor MCP do RavenRS responde ravenrs_tools com o tool.json do Studio e lista as skills, a do Studio entre elas."
+    "Fechar a janela deixa o Studio ao lado do relógio, como o Raven Finanças: o menu do ícone abre a janela de novo ou sai de vez.",
+    "Abrir o Studio com ele já rodando traz a mesma janela, sem uma segunda cópia.",
+    "As ligações do cenário não passam mais por cima do registro, à direita do fluxo."
   ],
-  "por_que_atualizar": "Para testar telas RavenRS de ponta a ponta, e deixar a IA rodar e ler esses testes.",
+  "por_que_atualizar": "Para o Studio continuar pronto, sem abrir do zero a cada teste.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    627,
-    632,
-    634
+    640,
+    641
   ]
 }
