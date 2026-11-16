@@ -17,13 +17,13 @@ fn main() {
         if args.first().is_some_and(|a| a == "exec") {
             println!("Usage: codex exec [OPTIONS] [PROMPT]\n  --json\n  --cd <DIR>");
             if !old {
-                println!("  -s, --sandbox <SANDBOX_MODE>");
+                println!("  -s, --sandbox <SANDBOX_MODE>\n  -m, --model <MODEL>");
             }
         } else {
             println!("Usage: claude [options]\n  --output-format <format> (choices: \"stream-json\")");
             if !old {
                 println!(
-                    "  --permission-mode <mode>\n  --allowedTools\n  --disallowedTools\n  --max-budget-usd <amount>"
+                    "  --permission-mode <mode>\n  --allowedTools\n  --disallowedTools\n  --max-budget-usd <amount>\n  --model <model>"
                 );
             }
         }

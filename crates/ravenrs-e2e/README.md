@@ -19,6 +19,8 @@ Everything is found in the accessibility tree, the same one screen readers read,
 
 A test id on a plain container, one that screen readers do not see, goes to the first accessible node inside it. Components can tag their own parts with `BuildCx::test_id`.
 
+`test_id` is a `ViewExt` modifier, like `padding` or `tooltip`: it wraps the view, so it goes last, after the component's own methods: `Button::new("Save").on_click(save).test_id("save")`.
+
 ## How it acts
 
 Actions are real input events at the middle of the node, so they take the same path as a person's: `click`, `double_click`, `right_click`, `hover`, `type_text` (it clicks the node first when it does not have the focus), `press` and `drag_to`. Before acting, the session checks that the node responds to input, has a size inside the window and is not under something else; a node that fails any of these is not acted on.

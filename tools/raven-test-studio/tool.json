@@ -1,0 +1,76 @@
+{
+  "name": "Raven Test Studio",
+  "package": "raven-test-studio",
+  "version": "0.1.0",
+  "summary": "The end-to-end test tool of RavenRS: a scenario is a flow of blocks run against a RavenRS app with ravenrs-e2e, and the report tells a person or an AI what failed, why, how to fix it and what the screen showed.",
+  "when_to_use": [
+    "After changing a RavenRS screen or component, to prove it still works from the outside, with real clicks and typing.",
+    "When an AI needs a verdict it can act on: the JSON report has a stable code, the meaning, the fix and the screen of each failure.",
+    "To know whether the Studio itself still works: the self-test opens another Studio and tests it."
+  ],
+  "commands": [
+    { "command": "raven-test-studio", "does": "Opens the window: the scenario as a flow, Rodar, Próximo passo, Parar, Rodar sem cache, and the log of each block. On opening it tests itself and says so in the status bar." },
+    { "command": "raven-test-studio --self-test", "does": "Runs the self-test with no window and prints the report as text." },
+    { "command": "raven-test-studio --run <scenario>", "does": "Runs a scenario that comes with the Studio and prints the report as text." },
+    { "command": "raven-test-studio --run <scenario> --format json", "does": "The same report as JSON, for a tool or a coding agent." },
+    { "command": "raven-test-studio --run <scenario> --no-cache", "does": "Runs again even when the cache has the answer." },
+    { "command": "raven-test-studio --clear-cache", "does": "Forgets every run kept." },
+    { "command": "raven-test-studio --delegate codex --run <scenario>", "does": "Hands the scenario (the self-test without --run) to the Codex CLI with its cheapest model, reading only: it runs the Studio, reads the report and, when it failed, finds the cause in the Rust sources with file and line. Then the Studio runs the same scenario and says whether it confirms the agent's verdict. claude instead of codex uses the Claude CLI (haiku)." },
+    { "command": "raven-test-studio --delegate codex --model <model>", "does": "The same with another model; the cheapest is read from the list the installed Codex keeps." },
+    { "command": "raven-test-studio --versao", "does": "Prints the version; the installer and the updater use it." },
+    { "command": "cargo run -p raven-test-studio -- <flags>", "does": "The same, from a RavenRS checkout, with no install." }
+  ],
+  "exit_codes": [
+    { "code": 0, "means": "The scenario passed." },
+    { "code": 1, "means": "The scenario failed, or a block could not run." },
+    { "code": 2, "means": "There is no scenario by that name, or the agent to delegate to could not run." }
+  ],
+  "scenarios": [
+    { "name": "autoteste", "title": "O Studio testa o Studio", "does": "Opens another Studio and checks that running, stepping, stopping and failing all show as they should: 18 blocks." },
+    { "name": "lancamento", "title": "Lançar despesa", "does": "Fills in a sample expense form and checks the result: 5 blocks." },
+    { "name": "quebrado", "title": "Cenário quebrado", "does": "Fails on purpose, to see a failure report with its code, fix and screen: 3 blocks." }
+  ],
+  "blocks": [
+    { "kind": "open", "subtitle": "the app to open", "does": "Opens an app the Studio knows." },
+    { "kind": "click", "subtitle": "#test-id or the visible name", "does": "Clicks the part with a real pointer event." },
+    { "kind": "type", "subtitle": "#test-id = text", "does": "Focuses the field and types the text with real key events." },
+    { "kind": "check", "subtitle": "#test-id = expected value", "does": "Checks the value or the name the part shows." },
+    { "kind": "mention", "subtitle": "#test-id = text", "does": "Checks that the part's name or description mentions the text." }
+  ],
+  "report": {
+    "fields": ["verdict", "summary", "total", "ran", "blocks", "duration_ms", "from_cache", "cached_at", "not_verified"],
+    "block_fields": ["step", "id", "kind", "title", "line", "result", "code", "error", "meaning", "detail", "fix", "close", "screen"],
+    "results": ["passed", "failed"],
+    "not_run": "Blocks after a failure are not in blocks: total minus ran is how many did not run.",
+    "note": "Every report ends with what was not verified: no other process, no GPU frame, no other system than the one it ran on."
+  },
+  "error_codes": [
+    { "code": "E2E_NOT_FOUND", "means": "Nothing on the screen matches the target.", "fix": "Read the screen in the report; a part with no name can get a ViewExt::test_id." },
+    { "code": "E2E_AMBIGUOUS", "means": "More than one part matches the target.", "fix": "Give the part a test_id, narrow it with within, or pick one with nth." },
+    { "code": "E2E_DISABLED", "means": "The target is disabled.", "fix": "Do first what enables it, or check that it should be disabled." },
+    { "code": "E2E_COVERED", "means": "Something is over the target, such as an open dialog.", "fix": "Close or move first what is over it." },
+    { "code": "E2E_NOT_VISIBLE", "means": "The target is outside the window.", "fix": "Scroll to it or make the window larger." },
+    { "code": "E2E_PROTECTED_VALUE", "means": "The value is secret and never shown.", "fix": "Check what the app does with the value instead, such as signing in." },
+    { "code": "E2E_EXPECTATION", "means": "A check did not match.", "fix": "Compare the expected value with the screen in the report." }
+  ],
+  "cache": "A scenario that did not change, on a build that did not change, comes back at once from ~/Library/Caches/ravenrs/test-studio/runs.json (the user's cache folder on Linux and Windows) and says from_cache. Editing a block or building again runs it again.",
+  "ai": {
+    "pane": "tools/raven-test-studio/claude-pane is a Claude Code plugin: a pane beside the conversation with the verdict, one square per block, the failure with its code, meaning, fix and screen, and a button that asks the AI to fix it. Load it with claude --plugin-dir tools/raven-test-studio/claude-pane; /raven-test-studio opens the pane. It runs the installed Studio when there is one, and cargo run otherwise.",
+    "tools": [
+      { "name": "run_scenario", "input": "scenario (autoteste, lancamento or quebrado), no_cache, delegate (codex or claude), model", "does": "Runs a scenario and returns the JSON report; with delegate, a cheaper agent runs and diagnoses it, and the report carries its answer under delegation with whether the Studio confirmed it." }
+    ],
+    "skill": "tools/raven-test-studio/claude-pane/skills/raven-test-studio/SKILL.md"
+  },
+  "install": {
+    "macos_linux": "curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-test-studio/install.cmd -o /tmp/install.cmd && sh /tmp/install.cmd",
+    "windows": "irm https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-test-studio/install.cmd -OutFile \"$env:TEMP\\install.cmd\"; & \"$env:TEMP\\install.cmd\"",
+    "updates": "An installed Studio looks for a new version when it opens and every hour after, and says so in its status bar."
+  },
+  "limits": [
+    "The app under test runs in the Studio's process; another process is phase F6 of #627.",
+    "Scenarios come with the Studio; scenario files (.raventest) are phase F5.",
+    "Linux and Windows have not been run.",
+    "Comparing a screen with its design board is phase F14."
+  ],
+  "issues": [627, 632, 634]
+}

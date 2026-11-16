@@ -27,6 +27,8 @@ Builder method names vary by component, so confirm them before writing a view. I
 | What does a reusable module have to honor, and which issue follows a capability? | `app_contracts` |
 | Is this expression valid? Which functions exist? | `validate_expression`, `expression_functions` |
 | How do I make a report? | `report_layout_format`, then `create_report_layout` or `report_layout_templates`; confirm with `check_report_layout` and save the JSON as a `.rvreport.json` file |
+| Which RavenRS tools can I run, and what does each offer? | `ravenrs_tools`; with name `raven-test-studio`, the end-to-end test tool's commands, scenarios, report fields and error codes |
+| Is there a written way to do this task? | `skills`: the instructions the repository keeps for coding agents, the whole text by name |
 
 Without the server, use the [API docs](https://alexkads.github.io/RavenRS/api/ravenrs/) and the [gallery source](https://github.com/alexkads/RavenRS/blob/master/examples/component-gallery/src/lib.rs). Check `parity_status` or [docs/PARITY.md](https://github.com/alexkads/RavenRS/blob/master/docs/PARITY.md) before promising a feature, because some are still planned. When a feature is missing, say so and propose composing it from what exists.
 
@@ -123,6 +125,8 @@ let tree = ui.access_tree(); // What a screen reader sees.
 ```
 
 Send input with `ui.handle_event(...)`, then call `ui.update()` and check the state, the access tree or the scene. The tests in [`crates/ravenrs-widgets/tests`](https://github.com/alexkads/RavenRS/tree/master/crates/ravenrs-widgets/tests) show the helpers for clicks and keys.
+
+To test a screen from the outside, as a person uses it, use [`ravenrs-e2e`](https://github.com/alexkads/RavenRS/tree/master/crates/ravenrs-e2e): find a part by its `test_id`, role or text, click and type with real events, and check what it shows; every failure has a stable `E2E_*` code and the screen. Give the parts a test reaches `.test_id("...")` as the last call of their builder chain. [Raven Test Studio](https://github.com/alexkads/RavenRS/tree/master/tools/raven-test-studio) runs such scenarios as a flow of blocks, tests itself, and gives an AI a JSON report with the code, the meaning, the fix and the screen of each failure; `ravenrs_tools` with name `raven-test-studio` says everything it offers.
 
 ## Running on the web
 

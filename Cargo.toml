@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/*", "examples/*"]
+members = ["crates/*", "examples/*", "tools/*"]
 # Applications of their own, opened and built apart: they prove a package works outside this workspace.
 exclude = ["examples/contracts"]
 
@@ -66,6 +66,7 @@ ravenrs-app-postgrest = { version = "27.1.28", path = "crates/ravenrs-app-postgr
 ravenrs-app-server = { version = "27.1.28", path = "crates/ravenrs-app-server" }
 ravenrs-app-remote = { version = "27.1.28", path = "crates/ravenrs-app-remote" }
 ravenrs-app-testkit = { version = "27.1.28", path = "crates/ravenrs-app-testkit" }
+ravenrs-e2e = { version = "27.1.28", path = "crates/ravenrs-e2e" }
 ravenrs-app-requests = { version = "27.1.28", path = "crates/ravenrs-app-requests" }
 ravenrs-app-library = { version = "27.1.28", path = "crates/ravenrs-app-library" }
 ravenrs-app-nfe = { version = "27.1.28", path = "crates/ravenrs-app-nfe" }

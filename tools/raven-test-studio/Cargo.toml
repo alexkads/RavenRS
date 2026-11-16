@@ -1,0 +1,24 @@
+[package]
+name = "raven-test-studio"
+description = "Raven Test Studio: end-to-end tests of RavenRS apps as flows of blocks, run with ravenrs-e2e, reported to a person or to the AI that asked, and tested by the Studio itself."
+# The tool's own version, read by its news, as Raven Finanças and Raven Flows do: raising it
+# is what announces an update to the copies installed with install.cmd.
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+ravenrs.workspace = true
+ravenrs-app-update.workspace = true
+ravenrs-e2e.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# Hands a scenario to Codex or Claude, as Raven Flows calls them.
+ravenrs-agent-cli.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true

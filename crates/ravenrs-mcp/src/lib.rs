@@ -6,6 +6,7 @@ mod expression;
 mod feature_center;
 mod report;
 mod server;
+mod tooling;
 
 use rmcp::ServiceExt;
 

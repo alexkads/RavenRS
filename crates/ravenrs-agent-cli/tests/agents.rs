@@ -3,7 +3,9 @@
 //! running, a secret taken out, a session resumed, and a node of a flow.
 #![allow(clippy::expect_used, reason = "tests fail loudly")]
 
-use ravenrs_agent_cli::{Agent, AgentError, AgentEvent, Cli, Policy, Probe, with_agents};
+use ravenrs_agent_cli::{
+    Agent, AgentError, AgentEvent, Cli, Policy, Probe, cheapest_codex_model_in, cheapest_model, with_agents,
+};
 use ravenrs_flows::{Catalog, Executor, FlowDefinition, NodeDef, Plan};
 use serde_json::json;
 
@@ -54,6 +56,36 @@ fn a_missing_cli_says_so_and_a_limit_an_old_one_does_not_keep_is_refused_before_
         matches!(codex.run("x", &tools, None, &never), Err(AgentError::Refused(_))),
         "Codex keeps no list of tools"
     );
+}
+
+#[test]
+fn a_model_reaches_the_cli_and_an_old_one_that_cannot_choose_refuses_it() {
+    let cheap = Policy { model: Some("gpt-luna".into()), ..Policy::default() };
+    let codex = Cli::new(Agent::Codex).program(FAKE);
+    let said = format!("{:?}", codex.run("x", &cheap, None, &never).expect("runs").events);
+    assert!(said.contains("--model gpt-luna"), "{said}");
+    let claude = Cli::new(Agent::Claude).program(FAKE);
+    let said = format!("{:?}", claude.run("x", &cheap, None, &never).expect("runs").events);
+    assert!(said.contains("--model gpt-luna"), "{said}");
+
+    let old = Cli::new(Agent::Claude).program(FAKE).env("FAKE_OLD", "1");
+    let refused = old.run("x", &cheap, None, &never);
+    assert!(matches!(refused, Err(AgentError::Refused(_))), "{refused:?}");
+}
+
+#[test]
+fn the_cheapest_model_is_read_from_the_list_codex_keeps() {
+    let list = json!({ "models": [
+        { "slug": "frontier", "description": "Frontier intelligence.", "visibility": "list", "priority": 1 },
+        { "slug": "hidden-cheap", "description": "Fast and affordable.", "visibility": "hide", "priority": 2 },
+        { "slug": "old-efficient", "description": "Older fast and efficient model.", "visibility": "list", "priority": 9 },
+        { "slug": "luna", "description": "Fast and affordable model for easier tasks.", "visibility": "list", "priority": 6 },
+    ] });
+    assert_eq!(cheapest_codex_model_in(&list.to_string()).as_deref(), Some("luna"));
+    let no_word = json!({ "models": [ { "slug": "only", "description": "Frontier.", "priority": 1 } ] });
+    assert_eq!(cheapest_codex_model_in(&no_word.to_string()), None);
+    assert_eq!(cheapest_codex_model_in("not json"), None);
+    assert_eq!(cheapest_model(Agent::Claude).as_deref(), Some("haiku"));
 }
 
 #[test]
