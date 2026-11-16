@@ -322,6 +322,38 @@ fn outlines(ui: &Ui) -> Vec<ravenrs_core::PathFill> {
 }
 
 #[test]
+fn connections_to_nodes_out_of_view_stay_inside_the_canvas() {
+    // A canvas narrower than the window, beside room something else would use: "Check stock"
+    // starts at x 408, past the canvas's right edge at 400, and the line runs out to it.
+    let graph =
+        graph().edge(FlowEdge::new("e1", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in")));
+    let rig = rig_with(graph, |c| c.size(400.0, 300.0));
+    let mut clips: Vec<ravenrs_core::Rect> = Vec::new();
+    let mut lines = 0;
+    for p in rig.ui.scene().primitives() {
+        match p {
+            ravenrs_core::Primitive::PushClip(rect) => {
+                let inner = clips.last().map_or(*rect, |outer| outer.intersect(rect));
+                clips.push(inner);
+            }
+            ravenrs_core::Primitive::PopClip => {
+                clips.pop();
+            }
+            ravenrs_core::Primitive::Path(_) => {
+                lines += 1;
+                let clip = clips.last().expect("every line the canvas draws is clipped");
+                assert!(
+                    clip.max_x() <= 400.5 && clip.max_y() <= 300.5,
+                    "a line may show outside the canvas, up to {clip:?}"
+                );
+            }
+            _ => {}
+        }
+    }
+    assert!(lines > 0, "the connection was drawn");
+}
+
+#[test]
 fn an_animated_connection_travels_until_motion_is_reduced() {
     let animated = || {
         graph().edge(
