@@ -43,6 +43,20 @@ image.workspace = true
 pollster.workspace = true
 
 # The house follows its own rules: `cargo run -p ravenrs-lint -- -p family-finance` (scripts/check.sh runs it).
+# How Raven Test Studio (RTS) finds and opens this app on the test channel (--e2e-serve):
+# its name on a scenario's Open block, the binary, the first version that speaks the channel,
+# a variable that points at another copy, and where the installer puts it, from the home folder.
+[package.metadata.ravenrs.e2e]
+app = "Raven Finanças"
+binary = "family-finance"
+since = "0.1.39"
+variable = "RAVEN_FINANCAS"
+installed = [
+    "Applications/Raven Finanças.app/Contents/MacOS/family-finance",
+    ".local/bin/family-finance",
+    "AppData/Local/Programs/RavenFinancas/family-finance.exe",
+]
+
 [package.metadata.ravenrs-lint]
 language = "pt-BR"
 

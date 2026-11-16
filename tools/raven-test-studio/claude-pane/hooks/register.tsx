@@ -6,6 +6,7 @@ import type { Block, Last, Report, Update } from '../types'
 const PANE = 'raven-test-studio'
 const TITLE = 'Raven Test Studio'
 const TOOL = 'mcp__raven-test-studio__run_scenario'
+const PROJECT_TOOL = 'mcp__raven-test-studio__scan_project'
 // The scenarios that come with the Studio, by the name its `--run` takes.
 const SCENARIOS = ['autoteste', 'financas'] as const
 // What each scenario is, for the empty pane.
@@ -305,6 +306,22 @@ export const register: Register = on => {
       },
       isDeferred: false,
     })
+    await $.tool.register({
+      name: 'scan_project',
+      description:
+        'Points Raven Test Studio (RTS) at a Rust project folder and says what can be tested there, without building it: the packages made with RavenRS, which are apps, whether each opens on the test channel, its .raventest scenarios and the views it builds with file, line and test ids. With action "run_all" it runs the scenarios of every app; with "suggest", an AI (local by default; codex or claude with delegate, cheapest model, reading only) reads the app\'s first screen and sources and writes new scenarios, which the Studio runs to say which pass; write keeps them in tests/e2e/sugestoes/ of the app for a person to review. Use it when the user points the RTS at a project, or when an app has no scenario yet.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          folder: { type: 'string', description: 'The absolute path of the project folder' },
+          action: { type: 'string', enum: ['list', 'run_all', 'suggest'], description: 'What to do; list by default' },
+          delegate: { type: 'string', enum: ['codex', 'claude'], description: 'For suggest: who writes instead of the local model' },
+          write: { type: 'boolean', description: 'For suggest: keep the scenarios in tests/e2e/sugestoes/' },
+        },
+        required: ['folder'],
+      },
+      isDeferred: false,
+    })
     void $.ui.open({ id: PANE, title: TITLE })
     // The Studio tests itself as the session starts, so the pane opens with its health; an
     // unchanged Studio answers from its cache at once.
@@ -340,6 +357,23 @@ export const register: Register = on => {
         ? `\n\nHá uma versão nova do Raven Test Studio (${newer.installed} → ${newer.latest}); o painel oferece "Atualizar agora".`
         : ''
     return { result: forTheModel(outcome) + note }
+  })
+
+  on('tool.call', { tool: PROJECT_TOOL }, async ($, e) => {
+    const input = e as unknown as { folder?: string; action?: string; delegate?: string; write?: boolean }
+    const folder = (input.folder ?? '').trim()
+    if (!folder.startsWith('/') || folder.includes('\n')) return { result: 'Diga o caminho absoluto da pasta do projeto.' }
+    const found = await studio($)
+    const argv = [...found.argv, '--project', folder, '--format', 'json']
+    if (input.action === 'run_all') argv.push('--run-all')
+    if (input.action === 'suggest') {
+      argv.push('--suggest')
+      if (input.delegate === 'codex' || input.delegate === 'claude') argv.push('--delegate', input.delegate)
+      if (input.write === true) argv.push('--write')
+    }
+    const done = await $.process.run(argv, { timeoutMs: 600_000 })
+    const said = done.stdout.trim() || done.stderr.trim()
+    return { result: `Raven Test Studio (${found.via}), --project ${folder}: saída ${done.exitCode}\n${said}` }
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {

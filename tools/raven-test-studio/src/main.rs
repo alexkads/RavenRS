@@ -21,8 +21,12 @@
 use raven_test_studio::cache::{self, RunCache};
 
 /// Every option the Studio reads; any other is refused.
-const OPTIONS: [&str; 12] = [
+const OPTIONS: [&str; 16] = [
     "--versao",
+    "--project",
+    "--run-all",
+    "--suggest",
+    "--write",
     "--clear-cache",
     "--self-test",
     "--run",
@@ -51,7 +55,12 @@ fn main() -> std::process::ExitCode {
             "Raven Test Studio {}\n\n\
              raven-test-studio                       abre a janela\n\
              --self-test                             o Studio testa o Studio, sem janela\n\
-             --run <autoteste|lancamento|quebrado>   roda um cenário, sem janela\n\
+             --run <autoteste|financas>              roda o autoteste ou os cenários do Raven Finanças\n\
+             --run <arquivo.raventest|pasta>         roda arquivos de cenário, de um app ou do QA\n\
+             --project <pasta>                       lê um projeto Rust: apps, telas e cenários RavenRS\n\
+             --project <pasta> --run-all             roda os cenários de cada app do projeto\n\
+             --project <pasta> --suggest [--write]   a IA local escreve cenários e o Studio os roda\n\
+             --suggest --delegate <codex|claude>     o mesmo com o Codex ou o Claude, modelo mais barato\n\
              --format json                           o relatório para uma ferramenta ou uma IA\n\
              --no-cache, --clear-cache               roda de novo / esquece o cache\n\
              --delegate <codex|claude> [--model m]   entrega o cenário a outro agente\n\
@@ -88,6 +97,32 @@ fn main() -> std::process::ExitCode {
     }
     if has("--atualizar") {
         return update();
+    }
+    if let Some(folder) = value("--project") {
+        let json = value("--format").as_deref() == Some("json");
+        let project = match raven_test_studio::project::read(std::path::Path::new(&folder)) {
+            Ok(project) => project,
+            Err(why) => {
+                eprintln!("{why}");
+                return std::process::ExitCode::from(2);
+            }
+        };
+        if project.found.is_empty() {
+            print_project(&project, json);
+            return std::process::ExitCode::from(2);
+        }
+        // Scenarios that open an app of the project open its code, before any installed copy.
+        project.learn_apps();
+        if has("--run-all") {
+            return run_all(&project, json);
+        }
+        if has("--suggest") {
+            return suggest(&project, value("--delegate"), value("--model"), has("--write"), json);
+        }
+        if !has("--run") && !has("--self-test") {
+            print_project(&project, json);
+            return std::process::ExitCode::SUCCESS;
+        }
     }
     let scenario = if has("--self-test") { Some("autoteste".to_owned()) } else { value("--run") };
     if let Some(agent) = value("--delegate") {
@@ -188,6 +223,93 @@ fn update() -> std::process::ExitCode {
             std::process::ExitCode::FAILURE
         }
     }
+}
+
+/// Prints what a project has that is made with RavenRS.
+fn print_project(project: &raven_test_studio::project::Project, json: bool) {
+    if json {
+        println!("{}", serde_json::to_string_pretty(&project.json()).unwrap_or_default());
+    } else {
+        println!("{}", project.text());
+    }
+}
+
+/// Asks an AI for scenarios for every app of the project that opens on the test channel, and
+/// runs each one.
+fn suggest(
+    project: &raven_test_studio::project::Project,
+    agent: Option<String>,
+    model: Option<String>,
+    write: bool,
+    json: bool,
+) -> std::process::ExitCode {
+    use raven_test_studio::suggest::{self, Writer};
+    let writer = match agent.as_deref().map(raven_test_studio::delegate::agent_named) {
+        None => Writer::Local,
+        Some(Some(agent)) => Writer::Agent(agent, model),
+        Some(None) => {
+            eprintln!("--delegate aceita codex ou claude");
+            return std::process::ExitCode::from(2);
+        }
+    };
+    let apps: Vec<_> = project.found.iter().filter(|f| f.is_app() && f.channel).collect();
+    if apps.is_empty() {
+        eprintln!("nenhum app do projeto abre pelo canal de teste:\n{}", project.text());
+        return std::process::ExitCode::from(2);
+    }
+    let mut code = 0;
+    let mut all = Vec::new();
+    for found in apps {
+        match suggest::suggest(found, &project.root, &writer, write) {
+            Ok(suggestions) => {
+                if json {
+                    all.push(suggestions.json());
+                } else {
+                    println!("{}", suggestions.text());
+                }
+            }
+            Err(why) => {
+                eprintln!("{}: {why}", found.name);
+                code = 2;
+            }
+        }
+    }
+    if json {
+        println!("{}", serde_json::to_string_pretty(&all).unwrap_or_default());
+    }
+    std::process::ExitCode::from(code)
+}
+
+/// Runs the scenarios of every app of the project that has the test channel and scenarios.
+fn run_all(project: &raven_test_studio::project::Project, json: bool) -> std::process::ExitCode {
+    let folders = project.scenario_folders();
+    if folders.is_empty() {
+        eprintln!("nenhum app do projeto tem o canal de teste e cenários em tests/e2e:\n{}", project.text());
+        return std::process::ExitCode::from(2);
+    }
+    let mut worst = 0;
+    let mut reports = Vec::new();
+    for folder in folders {
+        match raven_test_studio::run_files(&folder) {
+            Ok(report) => {
+                worst = worst.max(report.exit_code());
+                reports.push(report);
+            }
+            Err(why) => {
+                eprintln!("{why}");
+                worst = 2;
+            }
+        }
+    }
+    if json {
+        let all: Vec<_> = reports.iter().map(raven_test_studio::report::Report::json).collect();
+        println!("{}", serde_json::to_string_pretty(&all).unwrap_or_default());
+    } else {
+        for report in &reports {
+            println!("{}\n", report.text());
+        }
+    }
+    std::process::ExitCode::from(u8::try_from(worst).unwrap_or(1))
 }
 
 /// Runs a bundled scenario, or `.raventest` files by path, with no window and prints the report.

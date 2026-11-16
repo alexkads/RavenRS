@@ -5908,13 +5908,15 @@ dependencies = [
 
 [[package]]
 name = "raven-test-studio"
-version = "0.1.4"
+version = "0.1.5"
 dependencies = [
  "ravenrs",
  "ravenrs-agent-cli",
+ "ravenrs-ai",
  "ravenrs-app-update",
  "ravenrs-e2e",
  "ravenrs-e2e-wire",
+ "regex-lite",
  "serde_json",
  "tracing-subscriber",
 ]

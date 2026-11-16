@@ -6,4 +6,5 @@ mod apart;
 mod atualizacao;
 mod delegate;
 mod manifest;
+mod project;
 mod self_test;

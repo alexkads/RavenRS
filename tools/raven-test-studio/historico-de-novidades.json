@@ -1,5 +1,24 @@
 [
   {
+    "versao": "0.1.5",
+    "data": "2026-11-16",
+    "titulo": "Aponte o Studio para um projeto Rust: ele acha o que testar e a IA sugere cenários.",
+    "importante": false,
+    "novidades": [
+      "--project <pasta> lê um projeto Rust sem compilar e mostra os apps e as telas feitos com RavenRS, com arquivo, linha e as marcas de teste.",
+      "--run-all roda os cenários de cada app do projeto, abrindo cada um pelo código do projeto.",
+      "--suggest pede a uma IA, local por padrão, cenários novos a partir da tela do app; o Studio roda cada um e diz quais passaram, e --write os guarda em tests/e2e/sugestoes para você revisar.",
+      "O Studio não guarda mais lista de apps: cada app se declara no próprio Cargo.toml."
+    ],
+    "por_que_atualizar": "Para testar qualquer projeto RavenRS, mesmo os que ainda não têm cenário nenhum.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      654
+    ]
+  },
+  {
     "versao": "0.1.4",
     "data": "2026-11-16",
     "titulo": "O Studio não traz cenários: roda os do app ou da pasta do QA.",

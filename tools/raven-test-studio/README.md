@@ -49,6 +49,28 @@ A Studio installed from scratch brings **no test scenarios**: the window opens e
 
 The scenarios this folder keeps in `tests/e2e/` are for the Studio's own tests in the repository; the installed Studio does not carry them.
 
+**Pointing it at a project**
+
+```bash
+raven-test-studio --project ~/meu-app                 # what is made with RavenRS there, without building
+raven-test-studio --project ~/meu-app --run-all       # the scenarios of every app
+raven-test-studio --project ~/meu-app --suggest       # a local AI writes scenarios; the Studio runs them
+raven-test-studio --project ~/meu-app --suggest --write --delegate codex
+```
+
+`--project` reads `cargo metadata` and the sources, never builds: the packages made with RavenRS, apps or libraries, their binaries, whether each opens on the test channel, their scenarios, and the views they build (`impl View`, `impl Component`, functions that return `impl View`) with file, line and test ids. `--suggest` asks an AI for `.raventest` scenarios from the app's first screen, its views and test ids and what it already has; the AI is local by default (the largest text model RavenRS apps already downloaded on the computer), Codex or Claude with `--delegate`. The Studio runs each suggestion on the app and says which passed; `--write` keeps them in `tests/e2e/sugestoes/` of the app, for a person to review and move to `tests/e2e/`.
+
+An app declares itself for the Studio in its `Cargo.toml`, as Raven Finanças does:
+
+```toml
+[package.metadata.ravenrs.e2e]
+app = "Raven Finanças"          # the name its scenarios open
+binary = "family-finance"
+since = "0.1.39"                # the first version with the test channel
+variable = "RAVEN_FINANCAS"     # points at another copy
+installed = ["Applications/Raven Finanças.app/Contents/MacOS/family-finance", ".local/bin/family-finance"]
+```
+
 **A real app, apart: Raven Finanças**
 
 `--run financas` opens Raven Finanças in a child process with no window, over the test channel [`ravenrs-e2e-wire`](../../crates/ravenrs-e2e-wire), and runs the scenarios it brings (today, an expense checked in the month). The app runs on its sample family in memory on a fixed day; the database of the person using it is never opened. The Studio takes the app from `RAVEN_FINANCAS`, else the installed copy if it is 0.1.39 or later, else `cargo run` inside the checkout. An older installed copy is never given `--e2e-serve`: it would read it as the path of a database.
@@ -88,7 +110,9 @@ claude --plugin-dir tools/raven-test-studio/claude-pane
 ## How it works
 
 - `src/runner.rs`: what each block means (`step_of`: the kind is the action, the subtitle is the target and the text, `#id` for a test id), running it (`perform`) on a `Session` compiled in or opened apart, with the commands of `ravenrs-e2e-wire`, and a run that marks the flow as it goes (`Run`).
-- `src/apps.rs`: the apps opened apart, how each is found, and the scenarios each brings.
+- `src/apps.rs`: the apps opened apart, as each declares itself in its `Cargo.toml`, how each is found, and the scenarios each brings.
+- `src/project.rs`: a project read with `cargo metadata` and its sources.
+- `src/suggest.rs`: scenarios written by an AI, local by default, and run by the Studio.
 - `tests/e2e/`: the scenario files the Studio's own tests use; not shipped.
 - `src/sample.rs`: the apps an Open block can name and the scenarios that come with the Studio, the self-test among them.
 - `src/report.rs`: the report for a person (`text`) and for a tool (`json`).

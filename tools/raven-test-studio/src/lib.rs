@@ -18,9 +18,12 @@ pub mod atualizacao;
 pub mod cache;
 #[cfg(not(target_arch = "wasm32"))]
 pub mod delegate;
+pub mod project;
 pub mod report;
 pub mod runner;
 pub mod sample;
+#[cfg(not(target_arch = "wasm32"))]
+pub mod suggest;
 pub mod versao;
 
 use std::cell::RefCell;
@@ -371,7 +374,13 @@ pub fn run_bundled(name: &str, cache: Option<&mut cache::RunCache>) -> Option<re
         "financas" => match apps::scenarios(apps::FINANCE_APP) {
             Some(Ok(scenarios)) => sample::from_scenarios(&scenarios),
             Some(Err(why)) => return Some(report::Report::refused(title, apps::FINANCE_APP, &why)),
-            None => return None,
+            None => {
+                return Some(report::Report::refused(
+                    title,
+                    apps::FINANCE_APP,
+                    "o Studio não conhece o Raven Finanças",
+                ));
+            }
         },
         _ => return None,
     };
