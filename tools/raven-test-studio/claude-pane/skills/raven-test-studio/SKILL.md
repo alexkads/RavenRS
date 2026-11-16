@@ -45,7 +45,7 @@ In the app, generated forms tag each editor `field:<field>` and their buttons `f
 
 Blocks are lines of a `.raventest` file: `open`, `click`, `type`, `fill` (replaces what a field has; moves a slider to a number), `select` (picks an option of a combo box, list or tabs), `expand`, `collapse`, `scroll`, `drag` (`drag #from = #to`), `wait` (up to 5 s, `E2E_TIMEOUT` otherwise), `check` and `mention`. They also read in Portuguese: `preencher`, `escolher`, `expandir`, `recolher`, `rolar`, `arrastar`, `esperar`.
 
-Ids that components give a test: `row:<key>` (VirtualList with `key`, DataGrid with `key_column`), `item:<key>` (TreeView), `cell:<key>:<column>`, `column:<column>` and `filter:<column>` (DataGrid; a column is its field, or its title), `node:<id>` and `port:<node>:<port>` (FlowCanvas). `fill #cell:42:Name = Ana` edits a grid cell; `drag #port:a:out = #port:b:in` joins two nodes.
+Ids that components give a test: `row:<key>` (VirtualList with `key`, DataGrid with `key_column`), `item:<key>` (TreeView), `cell:<key>:<column>`, `column:<column>` and `filter:<column>` (DataGrid; a column is its field, or its title), `node:<id>` and `port:<node>:<port>` (FlowCanvas), `event:<id>` and `resource:<id>` (Scheduler), `panel:<id>`, `floating:<id>` and `floating-move:<id>` (DockArea). Rust tests get drivers for the four with the feature `testing` of `ravenrs-widgets` (`ravenrs_widgets::testing`). `fill #cell:42:Name = Ana` edits a grid cell; `drag #port:a:out = #port:b:in` joins two nodes.
 
 - Every step waits up to 2 s for its target before failing with its own code, so do not add a `wait` before each step. Use it only for what takes longer, such as an answer from a server.
 - An action scrolls to a target out of sight by itself.

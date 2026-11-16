@@ -42,6 +42,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- Test drivers for the `Scheduler` and the `DockArea`, feature `testing`: `SchedulerDriver` (`move_event`, `resize_event`, `move_to_resource`, by the arrow keys, one step of the snap each) and `DockDriver` (`float`, `dock_back`, by Ctrl+Alt+F or Cmd+Alt+F), in `ravenrs_widgets::testing` too. The `Scheduler` gives each bar the test id `event:<id>` and each resource's row `resource:<id>`; the `DockArea` gives each tab `panel:<id>`, a floating panel `floating:<id>` and its bar `floating-move:<id>`. ([#665](https://github.com/alexkads/RavenRS/issues/665))
 - Test drivers, feature `testing`: `DataGridDriver` (`edit_cell`, `sort_by`, `clear_sort`, `filter`) in `ravenrs-widgets-grid` and `FlowCanvasDriver` (`connect`, `move_node`) in `ravenrs-widgets-charts`, re-exported as `ravenrs_widgets::testing`. They act on test ids the components now give: a `DataGrid` with `key_column` gives each cell `cell:<key>:<column>`, each header `column:<column>` and each filter field `filter:<column>`, and a `FlowCanvas` gives each port `port:<node>:<port>`. A grid cell that does not edit is read only for assistive technology. ([#663](https://github.com/alexkads/RavenRS/issues/663))
 - `ravenrs-e2e`: `Locator::fill` on a grid cell opens its editor with a double click, writes and confirms with Enter, and fails with `E2E_DISABLED` on a cell that does not edit; `Locator::drag_to` looks for where to drop after the drag started, so a part that shows only while dragging can be the target; `E2e::failure` and `E2eError::hint` for drivers. ([#663](https://github.com/alexkads/RavenRS/issues/663))
 - Raven Test Studio 0.1.10: the block `drag`/`arrastar` (`drag #from = #to`). ([#663](https://github.com/alexkads/RavenRS/issues/663))
@@ -177,6 +178,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- `Scheduler`: clicking an event gives it the focus, so the arrow keys move the event that was clicked; they used to move the one that had the focus before, the first event when nothing was chosen yet. ([#665](https://github.com/alexkads/RavenRS/issues/665))
 - Raven Finanças: the test of pairing Telegram from Ajustes failed on Mondays. The fake Telegram took the last message sent, which on a Monday is the week's summary sent to a new chat, not the answer to `/start`. It now takes the answer, and a failure shows what the bot said. ([#650](https://github.com/alexkads/RavenRS/issues/650))
 
 - `FlowCanvas` keeps what it paints inside its frame: a connection to a node out of view, a cable's sag or a line being drawn no longer crosses the panel beside the canvas. ([#640](https://github.com/alexkads/RavenRS/issues/640))

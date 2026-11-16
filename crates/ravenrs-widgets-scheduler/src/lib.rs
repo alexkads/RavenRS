@@ -15,6 +15,8 @@ use ravenrs_widgets_kit::*;
 pub mod event_calendar;
 #[doc(hidden)]
 pub mod scheduler;
+#[cfg(feature = "testing")]
+pub mod testing;
 #[doc(hidden)]
 pub mod timeline;
 

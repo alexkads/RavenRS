@@ -7039,6 +7039,7 @@ version = "27.1.28"
 dependencies = [
  "proptest",
  "ravenrs-core",
+ "ravenrs-e2e",
  "ravenrs-layout",
  "ravenrs-live",
  "ravenrs-reactive",
@@ -7125,6 +7126,7 @@ name = "ravenrs-widgets-scheduler"
 version = "27.1.28"
 dependencies = [
  "ravenrs-core",
+ "ravenrs-e2e",
  "ravenrs-layout",
  "ravenrs-live",
  "ravenrs-reactive",
