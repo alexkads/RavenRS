@@ -23,7 +23,7 @@ pub use ravenrs_graphics::flow::{
     EdgeCap, EdgeShape, FLOW_FORMAT, FlowColors, FlowDirection, FlowDocument, FlowEdge, FlowEndpoint,
     FlowExportFormat, FlowGate, FlowGraph, FlowHistory, FlowJsonError, FlowLayout, FlowLayoutKind, FlowNode,
     FlowNodeRun, FlowNodeStatus, FlowPicture, FlowPort, FlowRun, FlowRunEvent, FlowRunRules, FlowRunView,
-    FlowShape, FlowShelf, FlowStyle, FlowText, NODE_REFS, PortDirection, PortSide,
+    FlowShape, FlowShelf, FlowStyle, FlowText, NODE_REFS, PortDirection, PortSide, FlowAnchor, LineDash,
 };
 
 use crate::context::{BuildCx, DragPhase, NodeId, Paint, PaintCx, Semantics};
@@ -626,12 +626,20 @@ pub struct FlowCanvas {
     execution: Option<FlowRunView>,
     open_end: Option<Rc<Vec<(String, FlowNode)>>>,
     cables: bool,
+    jumps: bool,
+    anywhere: bool,
+    menu: bool,
+    menu_items: Rc<Vec<(String, FlowMenuAction)>>,
     range: (f32, f32),
     label: Option<String>,
     width: Option<f32>,
     height: Option<f32>,
     grow: f32,
 }
+
+/// What an item of the app's on a [`FlowCanvas`]'s context menu does, with what was selected
+/// when the menu opened.
+pub type FlowMenuAction = Rc<dyn Fn(&FlowSelection)>;
 
 impl fmt::Debug for FlowCanvas {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -674,6 +682,10 @@ impl FlowCanvas {
             execution: None,
             open_end: None,
             cables: false,
+            jumps: false,
+            anywhere: false,
+            menu: true,
+            menu_items: Rc::new(Vec::new()),
             range: ZOOM_RANGE,
             label: None,
             width: None,
@@ -879,6 +891,38 @@ impl FlowCanvas {
         self
     }
 
+    /// Draws a small hop where a connection's line crosses one drawn before it (off by
+    /// default), and exports them so.
+    pub fn line_jumps(mut self, jumps: bool) -> Self {
+        self.jumps = jumps;
+        self
+    }
+
+    /// Lets a connection start from and end on any node, with ports or not (off by default):
+    /// a node with no ports shows a handle on each side under the pointer, a drag from one
+    /// starts a connection, and letting go over a node joins it there, on the side that faces
+    /// the other end; with Shift, at the point let go on. The connection's ends are
+    /// [`FlowEndpoint::floating`] and [`FlowEndpoint::fixed`].
+    pub fn connect_anywhere(mut self, anywhere: bool) -> Self {
+        self.anywhere = anywhere;
+        self
+    }
+
+    /// Opens a menu with a right click on the canvas (on by default): cut, copy, paste,
+    /// duplicate, delete, bring to front, send to back, group, ungroup and select all, the
+    /// ones that edit turned off while locked, then the app's own items.
+    pub fn context_menu(mut self, menu: bool) -> Self {
+        self.menu = menu;
+        self
+    }
+
+    /// Adds an item of the app's to the context menu, after the canvas's own: `action` gets
+    /// what was selected when the menu opened.
+    pub fn menu_item(mut self, label: impl Into<String>, action: impl Fn(&FlowSelection) + 'static) -> Self {
+        Rc::make_mut(&mut self.menu_items).push((label.into(), Rc::new(action)));
+        self
+    }
+
     /// The distance between the grid's dots, in units of the diagram (24 by default).
     pub fn grid(mut self, step: f32) -> Self {
         self.grid = step.max(1.0);
@@ -1045,6 +1089,13 @@ struct Memory {
 /// How the parts of a canvas reach the same diagram.
 #[derive(Clone)]
 struct Flow {
+    /// Connections may start from and end on nodes themselves.
+    anywhere: bool,
+    /// The connection whose label is being typed, and what is typed.
+    editing_edge: State<Option<String>>,
+    edge_draft: State<String>,
+    /// A label being dragged along its line: the diagram before, which undo brings back.
+    label_drag: State<Option<FlowGraph>>,
     graph: Binding<FlowGraph>,
     view: Binding<FlowViewport>,
     selection: Binding<FlowSelection>,
@@ -1352,6 +1403,74 @@ impl Flow {
         }
         node.title = title;
         self.commit(graph, FlowChange::Rename { node: id });
+    }
+
+    /// Opens the label of the connection `id` to be typed on the canvas. False when locked or
+    /// when there is no such connection.
+    fn begin_edge_label(&self, id: &str) -> bool {
+        if self.locked.get() {
+            return false;
+        }
+        let Some(edge) = self.graph.get().find_edge(id).cloned() else { return false };
+        self.select(FlowSelection::edge(id));
+        self.edge_draft.set(edge.label.unwrap_or_default());
+        self.editing_edge.set(Some(id.to_owned()));
+        true
+    }
+
+    /// Closes the label being typed, keeping it when `keep` and the app lets it; an emptied
+    /// label goes away.
+    fn end_edge_label(&self, keep: bool) {
+        let Some(id) = self.editing_edge.get() else { return };
+        self.editing_edge.set(None);
+        self.memory.refocus.set(true);
+        if !keep {
+            return;
+        }
+        let words = self.edge_draft.get().trim().to_owned();
+        let mut graph = self.graph.get();
+        let Some(edge) = graph.find_edge_mut(&id) else { return };
+        let label = (!words.is_empty()).then_some(words);
+        if edge.label == label {
+            return;
+        }
+        edge.label = label;
+        self.commit(graph, FlowChange::Edit { nodes: Vec::new(), edges: vec![id] });
+    }
+
+    /// A drag of the label of the connection `id`: it slides along its line, and letting go
+    /// is one change to undo.
+    fn on_label_drag(&self, id: &str, phase: DragPhase, position: Point) {
+        if self.locked.get() {
+            return;
+        }
+        let at = self.local(position);
+        match phase {
+            DragPhase::Start => {
+                self.select(FlowSelection::edge(id));
+                self.label_drag.set(Some(self.graph.get()));
+            }
+            DragPhase::Move => {
+                let (mut graph, view) = (self.graph.get(), self.view.get());
+                let Some(edge) = graph.find_edge(id).cloned() else { return };
+                let Some(points) = self.line(&graph, &edge, &view) else { return };
+                let share = (geometry::share_along(&points, at) * 100.0).round() / 100.0;
+                if let Some(edge) = graph.find_edge_mut(id)
+                    && (edge.label_at - share).abs() > f32::EPSILON
+                {
+                    edge.label_at = share;
+                    self.graph.set(graph);
+                }
+            }
+            DragPhase::End => {
+                let before = self.label_drag.get();
+                self.label_drag.set(None);
+                if let Some(before) = before {
+                    self.settle(before, FlowChange::Edit { nodes: Vec::new(), edges: vec![id.to_owned()] });
+                }
+            }
+            _ => {}
+        }
     }
 
     /// Brings the selected nodes in front of the others, or sends them behind.
@@ -1857,6 +1976,90 @@ impl Flow {
         true
     }
 
+    /// Selects every node and connection.
+    fn select_all(&self) {
+        let g = self.graph.get();
+        self.select(FlowSelection {
+            nodes: g.nodes.iter().map(|n| n.id.clone()).collect(),
+            edges: g.edges.iter().map(|e| e.id.clone()).collect(),
+        });
+    }
+
+    /// A copy of the selected nodes and the connections between them, beside them, selected.
+    fn duplicate(&self) -> bool {
+        !self.locked.get() && self.copy() && self.paste()
+    }
+
+    /// Before a context menu opens at `at` (in the window): the node under it is selected,
+    /// unless it already is, so the menu acts on what was clicked.
+    fn pick_at(&self, at: Point) {
+        let p = self.view.get().to_content(self.local(at));
+        let graph = self.graph.get();
+        let under = graph.nodes.iter().rev().find(|n| !n.hidden && n.extent().contains(p));
+        match under {
+            Some(node) if !self.selection.get().has_node(&node.id) => self.select(FlowSelection::node(node.id.clone())),
+            _ => {}
+        }
+    }
+
+    /// The items of the context menu: the canvas's own, the ones that edit turned off while
+    /// locked or with nothing to act on, then the app's.
+    fn menu_entries(
+        &self,
+        labels: &crate::Labels,
+        own: &[(String, FlowMenuAction)],
+        locked: bool,
+    ) -> Vec<crate::overlay::Entry> {
+        use crate::overlay::Entry;
+        let selection = self.selection.get();
+        let some = !selection.nodes.is_empty();
+        let anything = some || !selection.edges.is_empty();
+        let grouped = {
+            let g = self.graph.get();
+            selection.nodes.iter().any(|id| g.find_node(id).is_some_and(|n| n.group))
+        };
+        let why = labels.flow_inspector_read_only.clone();
+        let item = |label: &str, shortcut: &str, on: bool, edits: bool, act: Rc<dyn Fn()>| {
+            let mut item = MenuItem::new(label.to_owned()).shortcut(shortcut.to_owned());
+            if edits && locked {
+                item = item.disabled(why.clone());
+            } else if !on {
+                item = item.disabled(String::new());
+            } else {
+                item = item.on_select(move || act());
+            }
+            Entry::Item(item)
+        };
+        let f = self.clone();
+        let act = |run: fn(&Flow)| -> Rc<dyn Fn()> {
+            let f = f.clone();
+            Rc::new(move || run(&f))
+        };
+        let mut entries = vec![
+            item(&labels.flow_menu_cut, "⌘X", some, true, act(|f| { f.cut(); })),
+            item(&labels.flow_menu_copy, "⌘C", some, false, act(|f| { f.copy(); })),
+            item(&labels.flow_menu_paste, "⌘V", true, true, act(|f| { f.paste(); })),
+            item(&labels.flow_menu_duplicate, "", some, true, act(|f| { f.duplicate(); })),
+            item(&labels.flow_menu_delete, "⌫", anything, true, act(|f| { f.delete_selection(); })),
+            Entry::Separator,
+            item(&labels.flow_menu_front, "⌘]", some, true, act(|f| { f.reorder(true); })),
+            item(&labels.flow_menu_back, "⌘[", some, true, act(|f| { f.reorder(false); })),
+            Entry::Separator,
+            item(&labels.flow_menu_group, "⌘G", selection.nodes.len() > 1, true, act(|f| { f.group_selection(); })),
+            item(&labels.flow_menu_ungroup, "⇧⌘G", grouped, true, act(|f| { f.ungroup_selection(); })),
+            Entry::Separator,
+            item(&labels.flow_menu_select_all, "⌘A", true, false, act(Flow::select_all)),
+        ];
+        if !own.is_empty() {
+            entries.push(Entry::Separator);
+            for (label, action) in own {
+                let (action, chosen) = (action.clone(), selection.clone());
+                entries.push(Entry::Item(MenuItem::new(label.clone()).on_select(move || action(&chosen))));
+            }
+        }
+        entries
+    }
+
     /// Puts the selected nodes and the connections between them on the clipboard, as JSON.
     fn copy(&self) -> bool {
         let selection = self.selection.get();
@@ -1965,18 +2168,20 @@ impl Flow {
         {
             return self.begin_rename(only);
         }
+        if matches!(key, Key::Function(2) | Key::Enter)
+            && !command
+            && let FlowSelection { nodes, edges } = self.selection.get()
+            && nodes.is_empty()
+            && let [only] = edges.as_slice()
+        {
+            return self.begin_edge_label(only);
+        }
         match key {
             Key::Character(c) => match c.as_str() {
                 "+" | "=" => self.zoom_by(ZOOM_STEP),
                 "-" | "_" => self.zoom_by(1.0 / ZOOM_STEP),
                 "0" => self.fit(),
-                "a" | "A" if command => {
-                    let g = self.graph.get();
-                    self.select(FlowSelection {
-                        nodes: g.nodes.iter().map(|n| n.id.clone()).collect(),
-                        edges: g.edges.iter().map(|e| e.id.clone()).collect(),
-                    });
-                }
+                "a" | "A" if command => self.select_all(),
                 _ => return false,
             },
             Key::ArrowLeft if has_nodes => return self.nudge(-step, 0.0),
@@ -2302,9 +2507,18 @@ impl Flow {
     }
 
     fn check(&self, graph: &FlowGraph, from: &FlowEndpoint, to: &FlowEndpoint) -> Result<(), String> {
-        let (Some(a), Some(b)) = (graph.port(from), graph.port(to)) else { return Err(self.refused.clone()) };
-        if from.node == to.node || a.direction == b.direction || graph.connects(from, to) {
-            return Err(self.refused.clone());
+        if from.is_anchored() || to.is_anchored() {
+            // An end on a node itself: any two different nodes, once.
+            if from.node == to.node || !graph.has_end(from) || !graph.has_end(to) || graph.connects(from, to) {
+                return Err(self.refused.clone());
+            }
+        } else {
+            let (Some(a), Some(b)) = (graph.port(from), graph.port(to)) else {
+                return Err(self.refused.clone());
+            };
+            if from.node == to.node || a.direction == b.direction || graph.connects(from, to) {
+                return Err(self.refused.clone());
+            }
         }
         match &self.validate {
             Some(validate) => validate(graph, from, to),
@@ -2393,7 +2607,7 @@ impl Flow {
 
     /// A drag that starts on a port: a new connection, or, when a selected connection ends
     /// there, that end moving.
-    fn on_port_drag(&self, port: &FlowEndpoint, phase: DragPhase, position: Point) {
+    fn on_port_drag(&self, port: &FlowEndpoint, phase: DragPhase, position: Point, shift: bool) {
         if self.locked.get() {
             return;
         }
@@ -2417,7 +2631,9 @@ impl Flow {
             DragPhase::Move => {
                 let Some(mut connecting) = self.connecting.get() else { return };
                 let (graph, view) = (self.graph.get(), self.view.get());
-                connecting.target = nearest_port(&graph, &view, at, &connecting.from).map(|end| {
+                let near = nearest_port(&graph, &view, at, &connecting.from)
+                    .or_else(|| self.anywhere.then(|| node_end(&graph, &view, at, &connecting.from, shift)).flatten());
+                connecting.target = near.map(|end| {
                     let verdict = self.verdict(&connecting, &end);
                     (end, verdict)
                 });
@@ -2520,6 +2736,45 @@ fn nearest_port(
         .map(|(_, end)| end)
 }
 
+/// The end on the node under `at` (in the view) that a connection let go there takes: the
+/// node itself, on the side facing the other end, or with `fixed` at the point under `at`.
+/// Groups and the node the connection comes from are passed over.
+fn node_end(
+    graph: &FlowGraph,
+    view: &FlowViewport,
+    at: Point,
+    except: &FlowEndpoint,
+    fixed: bool,
+) -> Option<FlowEndpoint> {
+    let p = view.to_content(at);
+    let node = graph.nodes.iter().rev().find(|n| {
+        if n.group || n.hidden || n.id == except.node {
+            return false;
+        }
+        // The point in the unturned node's frame.
+        let c = n.rect().center();
+        let (sin, cos) = (-n.rotation).to_radians().sin_cos();
+        let (dx, dy) = (p.x - c.x, p.y - c.y);
+        let local = Point::new(c.x + dx * cos - dy * sin, c.y + dx * sin + dy * cos);
+        n.rect().contains(local)
+    })?;
+    if !fixed {
+        return Some(FlowEndpoint::floating(node.id.clone()));
+    }
+    let r = node.rect();
+    let c = r.center();
+    let (sin, cos) = (-node.rotation).to_radians().sin_cos();
+    let (dx, dy) = (p.x - c.x, p.y - c.y);
+    let (lx, ly) = (c.x + dx * cos - dy * sin, c.y + dx * sin + dy * cos);
+    // Snapped to tenths, so nearby points of the same side line up.
+    let share = |v: f32| (v * 10.0).round() / 10.0;
+    Some(FlowEndpoint::fixed(
+        node.id.clone(),
+        share((lx - r.x()) / r.width().max(1.0)),
+        share((ly - r.y()) / r.height().max(1.0)),
+    ))
+}
+
 /// A line of the width of `width` through `points`.
 fn stroke(scene: &mut Scene, points: &[Point], width: f32, color: Color) {
     if points.len() >= 2 {
@@ -2603,6 +2858,8 @@ struct Surface {
     memory: Rc<Memory>,
     /// The window's cables and this canvas's group, when connections are cables.
     cables: Option<(crate::Cables, u64)>,
+    /// Hops where lines cross.
+    jumps: bool,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -2655,7 +2912,7 @@ impl Surface {
             // The same width on screen at any zoom, a little fuller than a line.
             cable.look.thickness = (width + 1.0) / zoom;
             cable.look.shine = 0.35;
-            if edge.dashed || edge.animated {
+            if edge.is_broken() || edge.animated {
                 cable.look.dash = Some([7.0, 5.0]);
             }
             now.insert(edge.id.clone());
@@ -2727,11 +2984,28 @@ impl Surface {
         if let Some((cables, group)) = &self.cables {
             self.paint_cables(frame, cables, *group, scene, &touching);
         }
-        for edge in self.graph.edges.iter().filter(|e| Some(e.id.as_str()) != moving && self.cables.is_none())
-        {
-            let Some(points) = screen_points(&self.graph, edge, &self.view, &self.memory.routes) else {
-                continue;
-            };
+        let drawn: Vec<(&FlowEdge, Vec<Point>)> = self
+            .graph
+            .edges
+            .iter()
+            .filter(|e| Some(e.id.as_str()) != moving && self.cables.is_none())
+            .filter_map(|edge| Some((edge, screen_points(&self.graph, edge, &self.view, &self.memory.routes)?)))
+            .collect();
+        let hopped = if self.jumps {
+            let lines: Vec<Vec<Point>> = drawn.iter().map(|(_, points)| points.clone()).collect();
+            geometry::line_jumps(&lines, geometry::JUMP_RADIUS * self.view.zoom.clamp(0.5, 2.0))
+        } else {
+            drawn.iter().map(|(_, points)| points.clone()).collect()
+        };
+        for ((edge, _), points) in drawn.iter().zip(hopped) {
+            let edge = *edge;
+            let on = touching(edge);
+            let own = edge.color.as_deref().and_then(geometry::parse_color);
+            // A width of its own scales with the zoom, as the diagram does; the theme's stays the
+            // same on screen.
+            let base = edge.width.map_or(1.5, |w| (w * self.view.zoom).max(0.75));
+            let (color, width) = if on { (p.accent, base + 0.5) } else { (own.unwrap_or(p.muted), base) };
+            let cap = CAP.max(width * 3.0);
             // The line reaches the edge of each port's dot (the start only when it has a cap), so
             // its caps show; then it stops inside each cap.
             let dot = PORT_DOT * self.view.zoom.clamp(0.75, 1.25) / 2.0 + 1.0;
@@ -2747,41 +3021,43 @@ impl Surface {
                 }),
             ];
             let points =
-                geometry::trim_start(&geometry::trim_end(&reach, edge.end.inset(CAP)), edge.start.inset(CAP));
-            let on = touching(edge);
-            let own = edge.color.as_deref().and_then(geometry::parse_color);
-            let (color, width) = if on { (p.accent, 2.0) } else { (own.unwrap_or(p.muted), 1.5) };
+                geometry::trim_start(&geometry::trim_end(&reach, edge.end.inset(cap)), edge.start.inset(cap));
             if edge.animated {
                 let phase = (time as f32 * DASH_SPEED).rem_euclid(12.0);
                 for piece in geometry::dashes(&points, 6.0, 6.0, phase) {
                     stroke(scene, &piece, width, color);
                 }
-            } else if edge.dashed {
-                for piece in geometry::dashes(&points, 7.0, 5.0, 0.0) {
+            } else {
+                for piece in geometry::pattern_dashes(&points, &edge.line_dash().pattern(width), 0.0) {
                     stroke(scene, &piece, width, color);
                 }
-            } else {
-                stroke(scene, &points, width, color);
             }
-            for (cap, tip, direction) in caps {
+            for (kind, tip, direction) in caps {
                 let (Some(tip), Some(direction)) = (tip, direction) else { continue };
-                let outline = geometry::cap_outline(cap, tip, direction, CAP);
-                if cap.filled() {
+                let outline = geometry::cap_outline(kind, tip, direction, cap);
+                if kind.filled() {
                     fill(scene, outline, color);
                 } else if !outline.is_empty() {
+                    if matches!(kind, EdgeCap::OpenDiamond | EdgeCap::OpenCircle) {
+                        fill(scene, outline.clone(), p.canvas);
+                    }
                     stroke(scene, &geometry::flatten(&outline), width, color);
                 }
             }
         }
         if let Some(connecting) = &self.connecting
             && !(self.cables.is_some() && connecting.moving.is_some())
-            && let Some((start, side)) = self.graph.anchor(&connecting.from)
+            && let Some((start, side)) =
+                self.graph.anchor_toward(&connecting.from, self.view.to_content(connecting.pointer))
         {
+            let start_at = start;
             let start = self.view.to_screen(start);
             let (end, end_side, color) = match &connecting.target {
                 Some((target, verdict)) => {
-                    let (point, side) =
-                        self.graph.anchor(target).unwrap_or((Point::new(0.0, 0.0), PortSide::Left));
+                    let (point, side) = self
+                        .graph
+                        .anchor_toward(target, start_at)
+                        .unwrap_or((Point::new(0.0, 0.0), PortSide::Left));
                     let color = if verdict.is_ok() { p.accent } else { p.danger };
                     (self.view.to_screen(point), side, color)
                 }
@@ -2846,11 +3122,16 @@ impl View for FlowCanvas {
         let notice = cx.use_state(|| None::<String>);
         let editing = cx.use_state(|| None::<String>);
         let draft = cx.use_state(String::new);
+        let menu_at = cx.use_state(|| None::<Point>);
         let memory = cx.use_state(|| Rc::new(Memory::default())).get();
         if memory.refocus.take() {
             cx.request_focus();
         }
         let flow = Flow {
+            anywhere: self.anywhere,
+            editing_edge: cx.use_state(|| None::<String>),
+            edge_draft: cx.use_state(String::new),
+            label_drag: cx.use_state(|| None::<FlowGraph>),
             graph: self.graph.clone(),
             view: self.view.clone().unwrap_or_else(|| own_view.binding()),
             selection: self.selection.clone().unwrap_or_else(|| own_selection.binding()),
@@ -3033,11 +3314,26 @@ impl View for FlowCanvas {
             children.push(cx.keyed_child(util::hash_text(&node.id), &part));
         }
         // The words on the lines, as text the screen shows and reads like any other.
+        let typing = flow.editing_edge.get();
         for edge in &graph.edges {
-            let Some(label) = &edge.label else { continue };
             let Some(points) = flow.line(&graph, edge, &view) else { continue };
-            let Some(middle) = geometry::midpoint(&points) else { continue };
-            children.push(edge_label(cx, label, middle, &theme, palette));
+            let Some(at) = geometry::point_along(&points, edge.label_at) else { continue };
+            if typing.as_deref() == Some(edge.id.as_str()) {
+                children.push(edge_label_field(cx, &flow, edge, at, &labels));
+                continue;
+            }
+            let Some(label) = &edge.label else { continue };
+            let shown = edge_label(cx, label, at, &theme, palette);
+            if !is_locked {
+                let (typed, id) = (flow.clone(), edge.id.clone());
+                cx.on_double_click(shown, Rc::new(move || {
+                    typed.begin_edge_label(&id);
+                }));
+                let (dragged, id) = (flow.clone(), edge.id.clone());
+                cx.on_drag(shown, Rc::new(move |d| dragged.on_label_drag(&id, d.phase, d.position)));
+                cx.cursor(shown, CursorIcon::Move);
+            }
+            children.push(shown);
         }
         // The bend points of the one line selected, and a `+` in the middle of each stretch.
         if let ([], [only]) = (selection.nodes.as_slice(), selection.edges.as_slice())
@@ -3201,6 +3497,7 @@ impl View for FlowCanvas {
             palette,
             memory: memory.clone(),
             cables: flow.cables.clone(),
+            jumps: self.jumps,
         };
         let animated = graph.edges.iter().any(|e| e.animated) && !cx.reduced_motion();
         let seen = memory.clone();
@@ -3285,6 +3582,29 @@ impl View for FlowCanvas {
                 pinched.zoom_to(zoom, pinched.memory.pointer.get());
             }),
         );
+        if self.menu {
+            let (open, picked) = (menu_at.clone(), flow.clone());
+            cx.on_context_menu(
+                root,
+                Rc::new(move |at| {
+                    picked.pick_at(at);
+                    open.set(Some(at));
+                }),
+            );
+            if let Some(at) = menu_at.get() {
+                let close: Rc<dyn Fn()> = {
+                    let open = menu_at.clone();
+                    Rc::new(move || open.set(None))
+                };
+                let entries = flow.menu_entries(&labels, &self.menu_items, is_locked);
+                cx.overlay(
+                    root,
+                    crate::context::Placement::At(at),
+                    &crate::overlay::MenuList { entries: &entries, close: close.clone(), on_side: None },
+                    Some(close),
+                );
+            }
+        }
         let keyed = (flow, modifiers);
         cx.on_key(root, Rc::new(move |key, m| keyed.0.on_key(key, m)));
         root
@@ -3315,6 +3635,41 @@ fn edge_label(cx: &mut BuildCx<'_>, text: &str, at: Point, theme: &Theme, p: Pal
         }),
     )
 }
+
+/// The field a connection's label is typed in, on the line where the label goes.
+fn edge_label_field(
+    cx: &mut BuildCx<'_>,
+    flow: &Flow,
+    edge: &FlowEdge,
+    at: Point,
+    labels: &crate::Labels,
+) -> NodeId {
+    let flow = (flow.clone(), flow.clone(), flow.clone());
+    let name = labels.flow_edge_label.replace("{0}", edge.label.as_deref().unwrap_or(&edge.id));
+    let field = TextField::new(flow.0.edge_draft.binding())
+        .placeholder(name)
+        .compact()
+        .autofocus()
+        .select_on_open()
+        .on_submit(move |_| flow.0.end_edge_label(true))
+        .on_cancel(move || flow.1.end_edge_label(false))
+        .on_leave(move || flow.2.end_edge_label(true));
+    let field = cx.child(&field);
+    let (w, h) = (EDGE_LABEL_WIDTH, 30.0);
+    cx.container(
+        LayoutStyle {
+            absolute: Some((at.x - w / 2.0, at.y - h / 2.0)),
+            width: Some(w),
+            height: Some(h),
+            ..LayoutStyle::leaf()
+        },
+        &[field],
+        Paint::None,
+    )
+}
+
+/// How wide the field a connection's label is typed in is, in screen pixels.
+const EDGE_LABEL_WIDTH: f32 = 180.0;
 
 /// Why a connection cannot be made, beside the pointer.
 fn refusal(cx: &mut BuildCx<'_>, reason: &str, at: Point, p: Palette) -> NodeId {
@@ -3652,6 +4007,52 @@ impl View for NodeBox {
                 let words = cx.text(name, &attrs, p.muted, style);
                 cx.semantics(words, Semantics::hidden());
                 ports.push(words);
+            }
+        }
+
+        // A node with no ports, on a canvas that connects anywhere: a handle on each side, under
+        // the pointer, that starts a connection from the node itself.
+        let joined = |c: &Connecting| {
+            c.from.node == node.id && c.from.is_anchored()
+                || c.target.as_ref().is_some_and(|(t, _)| t.node == node.id && t.is_anchored())
+        };
+        if self.flow.anywhere
+            && node.ports.is_empty()
+            && !node.group
+            && !self.flow.locked.get()
+            && (cx.is_hover_within() || self.selected || self.connecting.as_ref().is_some_and(joined))
+        {
+            let end = FlowEndpoint::floating(node.id.clone());
+            let state = match &self.connecting {
+                Some(c) if c.from.node == node.id && c.from.is_anchored() => PortState::Source,
+                Some(Connecting { target: Some((target, verdict)), .. })
+                    if target.node == node.id && target.is_anchored() =>
+                {
+                    if verdict.is_ok() { PortState::Accepts } else { PortState::Refuses }
+                }
+                _ => PortState::Handle,
+            };
+            let r = node.rect();
+            let c = r.center();
+            let sides = [
+                ("top", Point::new(c.x, r.y())),
+                ("right", Point::new(r.max_x(), c.y)),
+                ("bottom", Point::new(c.x, r.max_y())),
+                ("left", Point::new(r.x(), c.y)),
+            ];
+            for (side, flat) in sides {
+                let at = node.turned(flat);
+                let dot = PortDot {
+                    at: Point::new((at.x - node.x) * view.zoom, (at.y - node.y) * view.zoom),
+                    zoom: view.zoom,
+                    name: labels.flow_connect_from.replace("{0}", &node.title),
+                    description: String::new(),
+                    end: end.clone(),
+                    state,
+                    flow: self.flow.clone(),
+                    palette: p,
+                };
+                ports.push(cx.keyed_child(util::hash_text(&format!("handle-{side}")), &dot));
             }
         }
 
@@ -4218,8 +4619,8 @@ impl View for PortDot {
                 .description(self.description.clone())
                 .selected(matches!(state, PortState::Source | PortState::Handle)),
         );
-        let (dragged, end) = (self.flow.clone(), self.end.clone());
-        cx.on_drag(node, Rc::new(move |d| dragged.on_port_drag(&end, d.phase, d.position)));
+        let (dragged, end, modifiers) = (self.flow.clone(), self.end.clone(), cx.modifiers());
+        cx.on_drag(node, Rc::new(move |d| dragged.on_port_drag(&end, d.phase, d.position, modifiers.get().shift)));
         let (keyed, end) = (self.flow.clone(), self.end.clone());
         cx.on_key(
             node,

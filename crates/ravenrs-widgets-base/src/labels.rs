@@ -836,6 +836,8 @@ pub struct Labels {
     pub flow_inspector_edge: String,
     /// The heading of a `FlowInspector` for several nodes, with `{0}` how many.
     pub flow_inspector_nodes: String,
+    /// The heading of a `FlowInspector` with several connections selected, with `{0}` how many.
+    pub flow_inspector_edges: String,
     /// A value of a `FlowInspector` that differs among the nodes selected.
     pub flow_inspector_mixed: String,
     /// What a read-only `FlowInspector` says.
@@ -880,8 +882,48 @@ pub struct Labels {
     pub flow_shape_names: [String; 10],
     /// The shapes of a connection in a `FlowInspector`.
     pub flow_line_names: [String; 3],
-    /// The ends of a connection in a `FlowInspector`.
-    pub flow_cap_names: [String; 5],
+    /// The ends of a connection in a `FlowInspector` and a `LineStylePicker`, in the order of
+    /// `EdgeCap::ALL`.
+    pub flow_cap_names: [String; 13],
+    /// The patterns of a line in a `LineStylePicker`, in the order of `LineDash::ALL`.
+    pub line_dash_names: [String; 5],
+    /// A `LineStylePicker`'s name.
+    pub line_style: String,
+    /// A `LineStylePicker`'s field: how wide the line is.
+    pub line_style_width: String,
+    /// A `LineStylePicker`'s field: the pattern the line is drawn in.
+    pub line_style_dash: String,
+    /// A `LineStylePicker`'s field: the cap at the line's start.
+    pub line_style_start: String,
+    /// A `LineStylePicker`'s field: the cap at the line's end.
+    pub line_style_end: String,
+    /// What a `LineStylePicker` shows for a value the lines it edits do not share.
+    pub line_style_mixed: String,
+    /// The items of a `FlowCanvas`'s context menu.
+    pub flow_menu_cut: String,
+    /// See `flow_menu_cut`.
+    pub flow_menu_copy: String,
+    /// See `flow_menu_cut`.
+    pub flow_menu_paste: String,
+    /// See `flow_menu_cut`.
+    pub flow_menu_duplicate: String,
+    /// See `flow_menu_cut`.
+    pub flow_menu_delete: String,
+    /// See `flow_menu_cut`.
+    pub flow_menu_front: String,
+    /// See `flow_menu_cut`.
+    pub flow_menu_back: String,
+    /// See `flow_menu_cut`.
+    pub flow_menu_group: String,
+    /// See `flow_menu_cut`.
+    pub flow_menu_ungroup: String,
+    /// See `flow_menu_cut`.
+    pub flow_menu_select_all: String,
+    /// A handle of a `FlowCanvas` node with no ports that starts a connection, with `{0}` its
+    /// node's title.
+    pub flow_connect_from: String,
+    /// The field a connection's label is typed in on a `FlowCanvas`, with `{0}` the connection.
+    pub flow_edge_label: String,
     /// A port of a `FlowCanvas` where connections end, with `{0}` its node's title.
     pub flow_input: String,
     /// A port of a `FlowCanvas` where connections start, with `{0}` its node's title.
@@ -1645,6 +1687,7 @@ impl Labels {
             flow_inspector_node: texts.get("widgets.flow_inspector_node"),
             flow_inspector_edge: texts.get("widgets.flow_inspector_edge"),
             flow_inspector_nodes: texts.get("widgets.flow_inspector_nodes"),
+            flow_inspector_edges: texts.get("widgets.flow_inspector_edges"),
             flow_inspector_mixed: texts.get("widgets.flow_inspector_mixed"),
             flow_inspector_read_only: texts.get("widgets.flow_inspector_read_only"),
             flow_toolbox: texts.get("widgets.flow_toolbox"),
@@ -1668,6 +1711,25 @@ impl Labels {
             flow_shape_names: texts.array("widgets.flow_shape_names"),
             flow_line_names: texts.array("widgets.flow_line_names"),
             flow_cap_names: texts.array("widgets.flow_cap_names"),
+            line_dash_names: texts.array("widgets.line_dash_names"),
+            line_style: texts.get("widgets.line_style"),
+            line_style_width: texts.get("widgets.line_style_width"),
+            line_style_dash: texts.get("widgets.line_style_dash"),
+            line_style_start: texts.get("widgets.line_style_start"),
+            line_style_end: texts.get("widgets.line_style_end"),
+            line_style_mixed: texts.get("widgets.line_style_mixed"),
+            flow_menu_cut: texts.get("widgets.flow_menu_cut"),
+            flow_menu_copy: texts.get("widgets.flow_menu_copy"),
+            flow_menu_paste: texts.get("widgets.flow_menu_paste"),
+            flow_menu_duplicate: texts.get("widgets.flow_menu_duplicate"),
+            flow_menu_delete: texts.get("widgets.flow_menu_delete"),
+            flow_menu_front: texts.get("widgets.flow_menu_front"),
+            flow_menu_back: texts.get("widgets.flow_menu_back"),
+            flow_menu_group: texts.get("widgets.flow_menu_group"),
+            flow_menu_ungroup: texts.get("widgets.flow_menu_ungroup"),
+            flow_menu_select_all: texts.get("widgets.flow_menu_select_all"),
+            flow_connect_from: texts.get("widgets.flow_connect_from"),
+            flow_edge_label: texts.get("widgets.flow_edge_label"),
             flow_input: texts.get("widgets.flow_input"),
             flow_output: texts.get("widgets.flow_output"),
             flow_pick_port: texts.get("widgets.flow_pick_port"),

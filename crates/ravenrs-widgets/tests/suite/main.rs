@@ -25,6 +25,7 @@ mod event_calendar;
 mod expression_editor;
 mod file_browser_year;
 mod flow;
+mod flow_lines;
 mod focus_scroll;
 mod footer;
 mod grid_filter_parity;

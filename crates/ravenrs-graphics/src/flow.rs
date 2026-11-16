@@ -21,7 +21,7 @@ mod style;
 
 pub use document::{FlowDocument, FlowShelf};
 pub use layout::{FlowDirection, FlowLayout, FlowLayoutKind};
-pub use picture::{FlowColors, FlowExportFormat, FlowPicture, FlowText, PICTURE_MARGIN};
+pub use picture::{FlowColors, FlowExportFormat, FlowPicture, FlowText, JUMP_RADIUS, PICTURE_MARGIN};
 pub use routing::{ROUTE_MARGIN, RouteCache, route_around};
 pub use run::{FlowGate, FlowRun, FlowRunEvent, FlowRunRules, RUN_LIMIT};
 pub use style::{FlowStyle, color_hex, parse_color};
@@ -562,6 +562,52 @@ impl FlowNode {
         self.flat_port_point(id).map(|p| self.turned(p))
     }
 
+    /// Where a connection holding on the node itself sits, and the side it leaves from, the
+    /// node's turn counted. A floating one takes the middle of the side facing `toward` (the
+    /// right side, with nothing to face).
+    pub fn anchor_point(&self, anchor: FlowAnchor, toward: Option<Point>) -> (Point, PortSide) {
+        let r = self.rect();
+        match anchor {
+            FlowAnchor::Fixed { x, y } => {
+                let flat = Point::new(r.x() + r.width() * x, r.y() + r.height() * y);
+                // The nearest side of the box, by share, is the one the end leaves from.
+                let side = [(x, PortSide::Left), (1.0 - x, PortSide::Right), (y, PortSide::Top), (1.0 - y, PortSide::Bottom)]
+                    .into_iter()
+                    .min_by(|a, b| a.0.total_cmp(&b.0))
+                    .map_or(PortSide::Right, |(_, side)| side);
+                (self.turned(flat), self.facing(side))
+            }
+            FlowAnchor::Floating => {
+                let c = r.center();
+                let side = match toward {
+                    None => PortSide::Right,
+                    Some(t) => {
+                        // Into the unturned node's frame, then scaled so the box is a square:
+                        // the side is the one the direction crosses.
+                        let (sin, cos) = (-self.rotation).to_radians().sin_cos();
+                        let (dx, dy) = (t.x - c.x, t.y - c.y);
+                        let (lx, ly) = (dx * cos - dy * sin, dx * sin + dy * cos);
+                        let (sx, sy) = (lx / r.width().max(1.0), ly / r.height().max(1.0));
+                        if sx.abs() >= sy.abs() {
+                            if sx >= 0.0 { PortSide::Right } else { PortSide::Left }
+                        } else if sy >= 0.0 {
+                            PortSide::Bottom
+                        } else {
+                            PortSide::Top
+                        }
+                    }
+                };
+                let on_box = match side {
+                    PortSide::Left => Point::new(r.x(), c.y),
+                    PortSide::Right => Point::new(r.max_x(), c.y),
+                    PortSide::Top => Point::new(c.x, r.y()),
+                    PortSide::Bottom => Point::new(c.x, r.max_y()),
+                };
+                (self.turned(self.onto_outline(on_box, side)), self.facing(side))
+            }
+        }
+    }
+
     /// Where a port sits on the unturned node.
     fn flat_port_point(&self, id: &str) -> Option<Point> {
         let port = self.find_port(id)?;
@@ -610,21 +656,74 @@ impl FlowNode {
     }
 }
 
-/// One end of a connection: a port of a node.
+/// Where a connection holds on a node when it does not go to one of its ports.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+pub enum FlowAnchor {
+    /// On the middle of the side that faces the other end, changing side as either node
+    /// moves.
+    Floating,
+    /// At this point of the node's box, as shares of its width and height from its top left
+    /// corner (`0.0` to `1.0`), turning with the node.
+    Fixed {
+        /// Across, from the left edge.
+        x: f32,
+        /// Down, from the top edge.
+        y: f32,
+    },
+}
+
+impl Eq for FlowAnchor {}
+
+impl std::hash::Hash for FlowAnchor {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            Self::Floating => 0u8.hash(state),
+            Self::Fixed { x, y } => {
+                1u8.hash(state);
+                x.to_bits().hash(state);
+                y.to_bits().hash(state);
+            }
+        }
+    }
+}
+
+/// One end of a connection: a port of a node, or a point of the node itself.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields", skip = "anchor"))]
 pub struct FlowEndpoint {
     /// The node's id.
     pub node: String,
-    /// The port's id on that node.
+    /// The port's id on that node; empty when the end holds on the node by [`Self::anchor`].
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub port: String,
+    /// Where on the node the end holds when it does not go to a port.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anchor: Option<FlowAnchor>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl FlowEndpoint {
     /// The port `port` of the node `node`.
     pub fn new(node: impl Into<String>, port: impl Into<String>) -> Self {
-        Self { node: node.into(), port: port.into() }
+        Self { node: node.into(), port: port.into(), anchor: None }
+    }
+
+    /// The node `node` itself, on the middle of whichever side faces the other end.
+    pub fn floating(node: impl Into<String>) -> Self {
+        Self { node: node.into(), port: String::new(), anchor: Some(FlowAnchor::Floating) }
+    }
+
+    /// The point of the node `node` at `x` across and `y` down its box, as shares of its size.
+    pub fn fixed(node: impl Into<String>, x: f32, y: f32) -> Self {
+        let (x, y) = (x.clamp(0.0, 1.0), y.clamp(0.0, 1.0));
+        Self { node: node.into(), port: String::new(), anchor: Some(FlowAnchor::Fixed { x, y }) }
+    }
+
+    /// Whether it holds on the node rather than on a port.
+    pub fn is_anchored(&self) -> bool {
+        self.anchor.is_some()
     }
 }
 
@@ -658,6 +757,77 @@ pub enum EdgeCap {
     Diamond,
     /// A filled dot.
     Circle,
+    /// The outline of a diamond (an aggregation, in a class diagram).
+    OpenDiamond,
+    /// The outline of a dot.
+    OpenCircle,
+    /// A short bar across the line ("one", in a data diagram).
+    Bar,
+    /// Two bars across the line ("one and only one").
+    DoubleBar,
+    /// A ring and a bar ("zero or one").
+    CircleBar,
+    /// A crow's foot ("many").
+    CrowFoot,
+    /// A crow's foot and a bar ("one or many").
+    CrowFootBar,
+    /// A crow's foot and a ring ("zero or many").
+    CrowFootCircle,
+}
+
+impl EdgeCap {
+    /// Every cap, in the order a picker shows them.
+    pub const ALL: [Self; 13] = [
+        Self::None,
+        Self::Arrow,
+        Self::OpenArrow,
+        Self::Diamond,
+        Self::Circle,
+        Self::OpenDiamond,
+        Self::OpenCircle,
+        Self::Bar,
+        Self::DoubleBar,
+        Self::CircleBar,
+        Self::CrowFoot,
+        Self::CrowFootBar,
+        Self::CrowFootCircle,
+    ];
+}
+
+/// The pattern a line is drawn in.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+#[non_exhaustive]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
+pub enum LineDash {
+    /// One unbroken line.
+    #[default]
+    Solid,
+    /// Dashes.
+    Dash,
+    /// Dots.
+    Dot,
+    /// A dash and a dot, in turn.
+    DashDot,
+    /// Long dashes.
+    LongDash,
+}
+
+impl LineDash {
+    /// Every pattern, in the order a picker shows them.
+    pub const ALL: [Self; 5] = [Self::Solid, Self::Dash, Self::Dot, Self::DashDot, Self::LongDash];
+
+    /// The lengths drawn and skipped in turn, for a line `width` wide; empty for a solid one.
+    pub fn pattern(self, width: f32) -> Vec<f32> {
+        let w = width.max(1.0);
+        match self {
+            Self::Solid => Vec::new(),
+            Self::Dash => vec![4.0 * w, 3.0 * w],
+            Self::Dot => vec![w, 2.0 * w],
+            Self::DashDot => vec![4.0 * w, 2.0 * w, w, 2.0 * w],
+            Self::LongDash => vec![8.0 * w, 3.0 * w],
+        }
+    }
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -666,16 +836,18 @@ impl EdgeCap {
     /// `size` long.
     pub fn inset(self, size: f32) -> f32 {
         match self {
-            Self::None | Self::OpenArrow => 0.0,
+            Self::None | Self::OpenArrow | Self::Bar | Self::DoubleBar | Self::CrowFoot | Self::CrowFootBar => 0.0,
             Self::Arrow => size * 0.9,
-            Self::Diamond => size * 1.5,
-            Self::Circle => size,
+            Self::Diamond | Self::OpenDiamond => size * 1.5,
+            Self::Circle | Self::OpenCircle => size,
+            // The line runs up to the ring, which sits beyond the bar or the foot.
+            Self::CircleBar | Self::CrowFootCircle => size * 2.0,
         }
     }
 
     /// Whether the outline of [`cap_outline`] is filled, or drawn as a line.
     pub fn filled(self) -> bool {
-        !matches!(self, Self::None | Self::OpenArrow)
+        matches!(self, Self::Arrow | Self::Diamond | Self::Circle)
     }
 }
 
@@ -689,6 +861,19 @@ fn is_none(cap: &EdgeCap) -> bool {
 
 fn arrow() -> EdgeCap {
     EdgeCap::Arrow
+}
+
+fn is_solid(dash: &LineDash) -> bool {
+    *dash == LineDash::Solid
+}
+
+fn middle() -> f32 {
+    0.5
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref, reason = "the signature serde asks for")]
+fn is_middle(at: &f32) -> bool {
+    (*at - 0.5).abs() < f32::EPSILON
 }
 
 /// A connection from an output to an input.
@@ -723,9 +908,19 @@ pub struct FlowEdge {
     /// Its color, as `#rrggbb`, apart from the theme's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub color: Option<String>,
-    /// Drawn in dashes, as a line that says something other than "then".
+    /// Drawn in dashes, as a line that says something other than "then". Kept for the files
+    /// written before [`Self::dash`]: a solid `dash` with this set draws as [`LineDash::Dash`].
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub dashed: bool,
+    /// The pattern its line is drawn in.
+    #[serde(default, skip_serializing_if = "is_solid")]
+    pub dash: LineDash,
+    /// How wide its line is, in units of the diagram; the theme's width when not set.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub width: Option<f32>,
+    /// Where along the line its label sits, from `0.0` at the start to `1.0` at the end.
+    #[serde(default = "middle", skip_serializing_if = "is_middle")]
+    pub label_at: f32,
     /// What sort of connection it is, a name of the app's (a message, an association); empty
     /// for the plain one.
     #[serde(default, skip_serializing_if = "String::is_empty")]
@@ -761,6 +956,36 @@ impl FlowEdge {
     pub fn dashed(mut self) -> Self {
         self.dashed = true;
         self
+    }
+
+    /// Drawn in this pattern.
+    pub fn dash(mut self, dash: LineDash) -> Self {
+        self.dash = dash;
+        self.dashed = false;
+        self
+    }
+
+    /// With a line this wide, in units of the diagram.
+    pub fn width(mut self, width: f32) -> Self {
+        self.width = Some(width.max(0.25));
+        self
+    }
+
+    /// With its label at this share of the way along, `0.0` at the start.
+    pub fn label_at(mut self, at: f32) -> Self {
+        self.label_at = at.clamp(0.0, 1.0);
+        self
+    }
+
+    /// The pattern its line is drawn in, a line marked [`Self::dashed`] in an older file
+    /// counted.
+    pub fn line_dash(&self) -> LineDash {
+        if self.dash == LineDash::Solid && self.dashed { LineDash::Dash } else { self.dash }
+    }
+
+    /// Whether its line is broken in any pattern.
+    pub fn is_broken(&self) -> bool {
+        self.line_dash() != LineDash::Solid
     }
 
     /// Passing through `(x, y)` after the points it already passes through.
@@ -808,6 +1033,9 @@ impl Default for FlowEdge {
             waypoints: Vec::new(),
             color: None,
             dashed: false,
+            dash: LineDash::Solid,
+            width: None,
+            label_at: 0.5,
             kind: String::new(),
         }
     }
@@ -903,11 +1131,53 @@ impl FlowGraph {
         self.edges.iter_mut().find(|e| e.id == id)
     }
 
-    /// Where an endpoint sits and the side its port faces, the node's turn counted.
+    /// Where an endpoint sits and the side its port faces, the node's turn counted. A
+    /// floating end, which has no other end to face here, sits on the middle of the right side.
     pub fn anchor(&self, end: &FlowEndpoint) -> Option<(Point, PortSide)> {
         let node = self.find_node(&end.node)?;
-        let side = node.facing(node.find_port(&end.port)?.side);
-        Some((node.port_point(&end.port)?, side))
+        match end.anchor {
+            Some(anchor) => Some(node.anchor_point(anchor, None)),
+            None => {
+                let side = node.facing(node.find_port(&end.port)?.side);
+                Some((node.port_point(&end.port)?, side))
+            }
+        }
+    }
+
+    /// Where an endpoint sits and the side it leaves from, facing `toward` when it floats.
+    pub fn anchor_toward(&self, end: &FlowEndpoint, toward: Point) -> Option<(Point, PortSide)> {
+        match end.anchor {
+            Some(anchor) => Some(self.find_node(&end.node)?.anchor_point(anchor, Some(toward))),
+            None => self.anchor(end),
+        }
+    }
+
+    /// Where both ends of a connection sit and the sides they leave from: a floating end faces
+    /// the first bend point after it, or the other end (the middle of its node, when that one
+    /// floats too).
+    pub fn edge_ends(&self, edge: &FlowEdge) -> Option<((Point, PortSide), (Point, PortSide))> {
+        let reference = |end: &FlowEndpoint| -> Option<Point> {
+            match end.anchor {
+                Some(FlowAnchor::Floating) => Some(self.find_node(&end.node)?.extent().center()),
+                _ => self.anchor(end).map(|(p, _)| p),
+            }
+        };
+        let first = edge.waypoints.first().map(|&(x, y)| Point::new(x, y));
+        let last = edge.waypoints.last().map(|&(x, y)| Point::new(x, y));
+        let to_ref = reference(&edge.to)?;
+        let from_ref = reference(&edge.from)?;
+        let from = self.anchor_toward(&edge.from, first.unwrap_or(to_ref))?;
+        let to = self.anchor_toward(&edge.to, last.unwrap_or(from_ref))?;
+        Some((from, to))
+    }
+
+    /// Whether an endpoint names a node of the diagram and, when it does not hold on the node
+    /// itself, one of its ports.
+    pub fn has_end(&self, end: &FlowEndpoint) -> bool {
+        match end.anchor {
+            Some(_) => self.find_node(&end.node).is_some(),
+            None => self.port(end).is_some(),
+        }
     }
 
     /// A connection as a hanging cable, in units of the diagram: from port to port,
@@ -915,8 +1185,7 @@ impl FlowGraph {
     /// is missing. `id` names the cable from frame to frame.
     pub fn edge_cable(&self, edge: &FlowEdge, id: u64) -> Option<ravenrs_core::cable::Cable> {
         use ravenrs_core::cable::{Cable, CableEnd};
-        let (from, from_side) = self.anchor(&edge.from)?;
-        let (to, to_side) = self.anchor(&edge.to)?;
+        let ((from, from_side), (to, to_side)) = self.edge_ends(edge)?;
         let (a, b) = (from_side.outward(), to_side.outward());
         let mut cable =
             Cable::new(id, CableEnd::at(from).toward(a.x, a.y), CableEnd::at(to).toward(b.x, b.y));
@@ -938,8 +1207,7 @@ impl FlowGraph {
     /// [`Self::edge_path`], working a step line out only when its ends or the nodes near it
     /// changed since `cache` last saw it.
     pub fn edge_path_cached(&self, edge: &FlowEdge, cache: &mut RouteCache) -> Option<Vec<PathSegment>> {
-        let (from, from_side) = self.anchor(&edge.from)?;
-        let (to, to_side) = self.anchor(&edge.to)?;
+        let ((from, from_side), (to, to_side)) = self.edge_ends(edge)?;
         if !edge.waypoints.is_empty() {
             let through: Vec<Point> = edge.waypoints.iter().map(|&(x, y)| Point::new(x, y)).collect();
             return Some(route_through(from, from_side, &through, to, to_side, edge.shape));
@@ -955,8 +1223,7 @@ impl FlowGraph {
     /// Where a connection's line starts, the points it passes through and where it ends, in
     /// units of the diagram: the corners of the polygon its bend points are edited on.
     pub fn edge_controls(&self, edge: &FlowEdge) -> Option<Vec<Point>> {
-        let (from, _) = self.anchor(&edge.from)?;
-        let (to, _) = self.anchor(&edge.to)?;
+        let ((from, _), (to, _)) = self.edge_ends(edge)?;
         let mut points = vec![from];
         points.extend(edge.waypoints.iter().map(|&(x, y)| Point::new(x, y)));
         points.push(to);
@@ -1231,8 +1498,8 @@ impl FlowGraph {
                 if self.find_edge(&edge.id).is_none() { edge.id.clone() } else { self.fresh_edge_id("e") };
             self.edges.push(FlowEdge {
                 id: id.clone(),
-                from: FlowEndpoint::new(from, edge.from.port.clone()),
-                to: FlowEndpoint::new(to, edge.to.port.clone()),
+                from: FlowEndpoint { node: from, ..edge.from.clone() },
+                to: FlowEndpoint { node: to, ..edge.to.clone() },
                 waypoints: edge.waypoints.iter().map(|(x, y)| (x + dx, y + dy)).collect(),
                 ..edge.clone()
             });
@@ -1303,7 +1570,7 @@ impl FlowGraph {
                 return Err(FlowJsonError::RepeatedEdge(edge.id.clone()));
             }
             for end in [&edge.from, &edge.to] {
-                if self.port(end).is_none() {
+                if !self.has_end(end) {
                     return Err(FlowJsonError::MissingEnd { edge: edge.id.clone(), end: end.clone() });
                 }
             }
@@ -1357,6 +1624,9 @@ impl std::fmt::Display for FlowJsonError {
             Self::RepeatedNode(id) => write!(f, "two nodes are called \"{id}\""),
             Self::RepeatedPort { node, port } => write!(f, "node \"{node}\" has two ports called \"{port}\""),
             Self::RepeatedEdge(id) => write!(f, "two connections are called \"{id}\""),
+            Self::MissingEnd { edge, end } if end.is_anchored() => {
+                write!(f, "connection \"{edge}\" goes to \"{}\", which is not there", end.node)
+            }
             Self::MissingEnd { edge, end } => {
                 write!(
                     f,
@@ -1696,17 +1966,157 @@ pub fn length(points: &[Point]) -> f32 {
 
 /// The point halfway along the polyline, where a label goes.
 pub fn midpoint(points: &[Point]) -> Option<Point> {
-    let half = length(points) / 2.0;
+    point_along(points, 0.5)
+}
+
+/// The point `share` of the way along the polyline (`0.0` at its start, `1.0` at its end).
+pub fn point_along(points: &[Point], share: f32) -> Option<Point> {
+    let goal = length(points) * share.clamp(0.0, 1.0);
     let mut walked = 0.0;
     for w in points.windows(2) {
         let piece = distance(w[0], w[1]);
-        if walked + piece >= half && piece > 0.0 {
-            let t = (half - walked) / piece;
+        if walked + piece >= goal && piece > 0.0 {
+            let t = (goal - walked) / piece;
             return Some(Point::new(w[0].x + (w[1].x - w[0].x) * t, w[0].y + (w[1].y - w[0].y) * t));
         }
         walked += piece;
     }
-    points.first().copied()
+    if share >= 1.0 { points.last().copied() } else { points.first().copied() }
+}
+
+/// How far along the polyline, as a share of its length, the point of it nearest `p` is.
+pub fn share_along(points: &[Point], p: Point) -> f32 {
+    let total = length(points);
+    if total <= 0.0 {
+        return 0.5;
+    }
+    let (mut best, mut best_at, mut walked) = (f32::INFINITY, 0.0, 0.0);
+    for w in points.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        let piece = distance(a, b);
+        if piece <= 0.0 {
+            continue;
+        }
+        let t = (((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / (piece * piece)).clamp(0.0, 1.0);
+        let q = Point::new(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t);
+        let d = distance(p, q);
+        if d < best {
+            best = d;
+            best_at = walked + piece * t;
+        }
+        walked += piece;
+    }
+    best_at / total
+}
+
+/// The pieces of the polyline drawn in `pattern`: lengths drawn and skipped in turn, shifted
+/// along by `phase`. The whole line, as one piece, for an empty pattern.
+pub fn pattern_dashes(points: &[Point], pattern: &[f32], phase: f32) -> Vec<Vec<Point>> {
+    let period: f32 = pattern.iter().sum();
+    if pattern.is_empty() || period <= 0.0 {
+        return if points.len() >= 2 { vec![points.to_vec()] } else { Vec::new() };
+    }
+    if let [dash, gap] = pattern {
+        return dashes(points, *dash, *gap, phase);
+    }
+    // Walk the line, switching between drawing and skipping at each mark of the pattern.
+    let mut pieces = Vec::new();
+    let mut current: Vec<Point> = Vec::new();
+    let mut position = (-phase).rem_euclid(period);
+    let mark = |position: f32| -> (usize, f32) {
+        let mut start = 0.0;
+        for (i, &len) in pattern.iter().enumerate() {
+            if position < start + len {
+                return (i, start + len);
+            }
+            start += len;
+        }
+        (pattern.len() - 1, period)
+    };
+    for w in points.windows(2) {
+        let (a, b) = (w[0], w[1]);
+        let piece = distance(a, b);
+        if piece <= 0.0 {
+            continue;
+        }
+        let at = |t: f32| Point::new(a.x + (b.x - a.x) * t / piece, a.y + (b.y - a.y) * t / piece);
+        let mut walked = 0.0;
+        while walked < piece - 1e-4 {
+            let (index, end) = mark(position);
+            let step = (end - position).min(piece - walked).max(1e-4);
+            if index % 2 == 0 {
+                if current.is_empty() {
+                    current.push(at(walked));
+                }
+                current.push(at(walked + step));
+            }
+            walked += step;
+            position += step;
+            if position >= end - 1e-4 {
+                if index % 2 == 0 && current.len() >= 2 {
+                    pieces.push(std::mem::take(&mut current));
+                }
+                current.clear();
+                if position >= period - 1e-4 {
+                    position = 0.0;
+                }
+            }
+        }
+    }
+    if current.len() >= 2 {
+        pieces.push(current);
+    }
+    pieces
+}
+
+/// The lines with a small hop wherever one crosses a line drawn before it, `radius` wide on
+/// each side of the crossing: the way a drawing says two lines cross without meeting.
+pub fn line_jumps(lines: &[Vec<Point>], radius: f32) -> Vec<Vec<Point>> {
+    let crossing = |a: Point, b: Point, c: Point, d: Point| -> Option<f32> {
+        let (r, s) = (Point::new(b.x - a.x, b.y - a.y), Point::new(d.x - c.x, d.y - c.y));
+        let denom = r.x * s.y - r.y * s.x;
+        if denom.abs() < 1e-6 {
+            return None;
+        }
+        let (qx, qy) = (c.x - a.x, c.y - a.y);
+        let t = (qx * s.y - qy * s.x) / denom;
+        let u = (qx * r.y - qy * r.x) / denom;
+        (t > 0.0 && t < 1.0 && u > 0.0 && u < 1.0).then_some(t)
+    };
+    let mut out = Vec::with_capacity(lines.len());
+    for (i, line) in lines.iter().enumerate() {
+        if line.len() < 2 {
+            out.push(line.clone());
+            continue;
+        }
+        let mut hopped = vec![line[0]];
+        for w in line.windows(2) {
+            let (a, b) = (w[0], w[1]);
+            let piece = distance(a, b);
+            let mut at: Vec<f32> = lines[..i]
+                .iter()
+                .flat_map(|other| other.windows(2).filter_map(move |o| crossing(a, b, o[0], o[1])))
+                .map(|t| t * piece)
+                .filter(|&d| d > radius && d < piece - radius)
+                .collect();
+            at.sort_by(f32::total_cmp);
+            at.dedup_by(|x, y| (*x - *y).abs() < radius * 2.0);
+            let (ux, uy) = if piece > 0.0 { ((b.x - a.x) / piece, (b.y - a.y) / piece) } else { (0.0, 0.0) };
+            // The hop bulges to the left of the way the line goes, up on a line going right.
+            let (nx, ny) = (uy, -ux);
+            for d in at {
+                for k in 0..=8 {
+                    let angle = std::f32::consts::PI * (k as f32) / 8.0;
+                    let along = d - radius * angle.cos();
+                    let up = radius * angle.sin();
+                    hopped.push(Point::new(a.x + ux * along + nx * up, a.y + uy * along + ny * up));
+                }
+            }
+            hopped.push(b);
+        }
+        out.push(hopped);
+    }
+    out
 }
 
 /// The polyline without its last `by` units of length.
@@ -1808,7 +2218,8 @@ pub fn arrow_head(tip: Point, direction: Point, size: f32) -> Vec<PathSegment> {
 pub fn cap_outline(cap: EdgeCap, tip: Point, direction: Point, size: f32) -> Vec<PathSegment> {
     let along = |by: f32| Point::new(tip.x - direction.x * by, tip.y - direction.y * by);
     let across = |p: Point, by: f32| Point::new(p.x - direction.y * by, p.y + direction.x * by);
-    match cap {
+    let bar = |p: Point| bar_at(p, direction, size);
+    return match cap {
         EdgeCap::Arrow => arrow_head(tip, direction, size),
         EdgeCap::OpenArrow => {
             let back = along(size);
@@ -1843,8 +2254,40 @@ pub fn cap_outline(cap: EdgeCap, tip: Point, direction: Point, size: f32) -> Vec
                 PathSegment::Close,
             ]
         }
+        EdgeCap::OpenDiamond => cap_outline(EdgeCap::Diamond, tip, direction, size),
+        EdgeCap::OpenCircle => cap_outline(EdgeCap::Circle, tip, direction, size),
+        EdgeCap::Bar => bar(along(size * 0.6)),
+        EdgeCap::DoubleBar => [bar(along(size * 0.5)), bar(along(size))].concat(),
+        EdgeCap::CircleBar => {
+            let ring = cap_outline(EdgeCap::Circle, along(size), direction, size);
+            [bar(along(size * 0.5)), ring].concat()
+        }
+        EdgeCap::CrowFoot => crow_foot(tip, direction, size),
+        EdgeCap::CrowFootBar => [crow_foot(tip, direction, size), bar(along(size * 1.4))].concat(),
+        EdgeCap::CrowFootCircle => {
+            let ring = cap_outline(EdgeCap::Circle, along(size * 1.1), direction, size);
+            [crow_foot(tip, direction, size), ring].concat()
+        }
         EdgeCap::None => Vec::new(),
+    };
+    // A bar across the line at `p`, as wide as the cap.
+    fn bar_at(p: Point, direction: Point, size: f32) -> Vec<PathSegment> {
+        let (x, y) = (-direction.y * size * 0.55, direction.x * size * 0.55);
+        vec![PathSegment::Move(Point::new(p.x + x, p.y + y)), PathSegment::Line(Point::new(p.x - x, p.y - y))]
     }
+}
+
+/// A crow's foot: three strokes that meet on the line `size` back from `tip` and spread to it.
+fn crow_foot(tip: Point, direction: Point, size: f32) -> Vec<PathSegment> {
+    let back = Point::new(tip.x - direction.x * size, tip.y - direction.y * size);
+    let (x, y) = (-direction.y * size * 0.6, direction.x * size * 0.6);
+    vec![
+        PathSegment::Move(Point::new(tip.x + x, tip.y + y)),
+        PathSegment::Line(back),
+        PathSegment::Line(Point::new(tip.x - x, tip.y - y)),
+        PathSegment::Move(back),
+        PathSegment::Line(tip),
+    ]
 }
 
 /// `value` on the nearest line of a grid `step` apart (none when `step` is not positive).
@@ -2346,5 +2789,122 @@ mod tests {
         assert_eq!(FlowGraph::new().bounds(), None);
         assert_eq!(snap(13.0, 8.0), 16.0);
         assert_eq!(snap(13.0, 0.0), 13.0);
+    }
+
+    fn boxes() -> FlowGraph {
+        FlowGraph::new()
+            .node(FlowNode::new("a", "", "A", 0.0, 0.0).size(100.0, 60.0).shape(FlowShape::Rectangle))
+            .node(FlowNode::new("b", "", "B", 400.0, 0.0).size(100.0, 60.0).shape(FlowShape::Rectangle))
+            .edge(FlowEdge::new("e", FlowEndpoint::floating("a"), FlowEndpoint::floating("b")))
+    }
+
+    #[test]
+    fn a_floating_end_leaves_from_the_side_facing_the_other_and_follows_it() {
+        let mut g = boxes();
+        let edge = g.edges[0].clone();
+        let ((from, from_side), (to, to_side)) = g.edge_ends(&edge).unwrap();
+        assert_eq!((from, from_side), (Point::new(100.0, 30.0), PortSide::Right));
+        assert_eq!((to, to_side), (Point::new(400.0, 30.0), PortSide::Left));
+        // B goes below A: the line now leaves A's bottom and reaches B's top.
+        let b = g.find_node_mut("b").unwrap();
+        (b.x, b.y) = (0.0, 300.0);
+        let ((from, from_side), (to, to_side)) = g.edge_ends(&edge).unwrap();
+        assert_eq!((from, from_side), (Point::new(50.0, 60.0), PortSide::Bottom));
+        assert_eq!((to, to_side), (Point::new(50.0, 300.0), PortSide::Top));
+        assert!(g.check().is_ok());
+        assert!(g.edge_path(&edge).is_some());
+    }
+
+    #[test]
+    fn a_fixed_end_holds_its_point_and_turns_with_the_node() {
+        let mut g = boxes();
+        g.edges[0].from = FlowEndpoint::fixed("a", 1.0, 0.5);
+        let edge = g.edges[0].clone();
+        assert_eq!(g.edge_ends(&edge).unwrap().0, (Point::new(100.0, 30.0), PortSide::Right));
+        g.find_node_mut("a").unwrap().rotation = 90.0;
+        let ((p, side), _) = g.edge_ends(&edge).unwrap();
+        assert!((p.x - 50.0).abs() < 0.01 && (p.y - 80.0).abs() < 0.01, "{p:?}");
+        assert_eq!(side, PortSide::Bottom);
+        // Out of range shares are brought in.
+        assert_eq!(FlowEndpoint::fixed("a", 2.0, -1.0).anchor, Some(FlowAnchor::Fixed { x: 1.0, y: 0.0 }));
+    }
+
+    #[test]
+    fn an_end_on_a_node_that_is_gone_is_missing_and_pasting_keeps_the_anchor() {
+        let mut g = boxes();
+        g.edges[0].to = FlowEndpoint::floating("nobody");
+        let error = g.check().unwrap_err();
+        assert!(matches!(error, FlowJsonError::MissingEnd { .. }));
+        assert!(error.to_string().contains("nobody"));
+        let mut target = FlowGraph::new();
+        let piece = boxes();
+        target.insert(&piece, 10.0, 10.0);
+        target.insert(&piece, 10.0, 10.0);
+        let copy = target.edges.last().unwrap();
+        assert_eq!(copy.from.anchor, Some(FlowAnchor::Floating));
+        assert_ne!(copy.from.node, "a");
+    }
+
+    #[test]
+    fn lines_of_older_files_read_the_same_and_new_styles_round_trip() {
+        // A dashed line between ports, as files have always had it.
+        let old = FlowGraph::new()
+            .node(FlowNode::new("a", "", "A", 0.0, 0.0).port(FlowPort::output("o")))
+            .node(FlowNode::new("b", "", "B", 300.0, 0.0).port(FlowPort::input("i")))
+            .edge(FlowEdge::new("e", FlowEndpoint::new("a", "o"), FlowEndpoint::new("b", "i")).dashed())
+            .to_json();
+        for new in ["\"dash\"", "label_at", "anchor"] {
+            assert!(!old.contains(new), "{new} is not written for an older line");
+        }
+        let old = old.as_str();
+        let g = FlowGraph::from_json(old).unwrap();
+        let edge = &g.edges[0];
+        assert_eq!((edge.line_dash(), edge.width, edge.label_at, edge.from.anchor), (LineDash::Dash, None, 0.5, None));
+        let mut styled = boxes();
+        styled.edges[0] =
+            styled.edges[0].clone().dash(LineDash::DashDot).width(3.0).label_at(0.25).end(EdgeCap::CrowFootBar);
+        let back = FlowGraph::from_json(&styled.to_json()).unwrap();
+        assert_eq!(back, styled);
+        assert!(styled.to_json().contains("\"label_at\": 0.25"));
+    }
+
+    #[test]
+    fn patterns_cover_their_marks_and_labels_go_where_they_are_put() {
+        let line = [Point::new(0.0, 0.0), Point::new(100.0, 0.0)];
+        assert_eq!(pattern_dashes(&line, &[], 0.0), vec![line.to_vec()]);
+        let dash_dot = pattern_dashes(&line, &LineDash::DashDot.pattern(1.0), 0.0);
+        // 4 on, 2 off, 1 on, 2 off: a period of 9, eleven of them and a bit in 100.
+        assert_eq!(dash_dot.len(), 23);
+        assert_eq!(dash_dot[0], vec![Point::new(0.0, 0.0), Point::new(4.0, 0.0)]);
+        assert!((dash_dot[1][0].x - 6.0).abs() < 1e-3 && (dash_dot[1][1].x - 7.0).abs() < 1e-3);
+        assert_eq!(point_along(&line, 0.25), Some(Point::new(25.0, 0.0)));
+        assert_eq!(point_along(&line, 1.0), Some(Point::new(100.0, 0.0)));
+        assert!((share_along(&line, Point::new(75.0, 30.0)) - 0.75).abs() < 1e-4);
+        for cap in EdgeCap::ALL.into_iter().skip(1) {
+            assert!(!cap_outline(cap, Point::new(100.0, 0.0), Point::new(1.0, 0.0), 8.0).is_empty(), "{cap:?}");
+        }
+    }
+
+    #[test]
+    fn a_line_hops_over_one_drawn_before_it() {
+        let across = vec![Point::new(0.0, 50.0), Point::new(100.0, 50.0)];
+        let down = vec![Point::new(50.0, 0.0), Point::new(50.0, 100.0)];
+        let hopped = line_jumps(&[across.clone(), down.clone()], 6.0);
+        assert_eq!(hopped[0], across, "the first line has nothing to hop");
+        assert!(hopped[1].len() > 2);
+        let widest = hopped[1].iter().map(|p| (p.x - 50.0).abs()).fold(0.0, f32::max);
+        assert!((widest - 6.0).abs() < 0.01, "{widest}");
+        // Lines that only meet at an end do not hop.
+        let touching = vec![Point::new(100.0, 50.0), Point::new(100.0, 100.0)];
+        assert_eq!(line_jumps(&[across, touching.clone()], 6.0)[1], touching);
+        let g = boxes()
+            .node(FlowNode::new("c", "", "C", 200.0, -200.0).size(60.0, 40.0))
+            .node(FlowNode::new("d", "", "D", 200.0, 200.0).size(60.0, 40.0))
+            .edge(FlowEdge::new("x", FlowEndpoint::fixed("c", 0.5, 1.0), FlowEndpoint::fixed("d", 0.5, 0.0)).shape(EdgeShape::Straight));
+        let mut g = g;
+        g.edges[0].shape = EdgeShape::Straight;
+        let plain = g.picture_with(None, FlowColors::paper(), false).unwrap().to_svg("Inter");
+        let hops = g.picture_with_jumps(None, FlowColors::paper(), false, true).unwrap().to_svg("Inter");
+        assert_ne!(plain, hops);
     }
 }

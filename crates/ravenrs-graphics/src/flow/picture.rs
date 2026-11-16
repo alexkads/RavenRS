@@ -7,8 +7,8 @@ use std::fmt::Write as _;
 use ravenrs_core::{Color, Point, Rect};
 
 use super::{
-    EdgeCap, FlowGraph, FlowNode, FlowNodeStatus, cap_outline, end_direction, flatten, midpoint,
-    shape_outline, trim_end, trim_start, union,
+    EdgeCap, FlowGraph, FlowNode, FlowNodeStatus, cap_outline, end_direction, flatten, line_jumps,
+    pattern_dashes, point_along, shape_outline, trim_end, trim_start, union,
 };
 use crate::vector::{Layer, PathSegment, Shape};
 
@@ -124,6 +124,10 @@ pub struct FlowPicture {
 /// The margin around a picture, in units of the diagram.
 pub const PICTURE_MARGIN: f32 = 24.0;
 
+/// How far a line's hop over another reaches on each side of the crossing, in units of the
+/// diagram.
+pub const JUMP_RADIUS: f32 = 6.0;
+
 fn shape(path: Vec<PathSegment>, fill: Option<Color>, stroke: Option<(f32, Color)>) -> Layer {
     Layer::Shape(Shape { path, fill, stroke })
 }
@@ -172,6 +176,18 @@ impl FlowGraph {
         colors: FlowColors,
         cables: bool,
     ) -> Option<FlowPicture> {
+        self.picture_with_jumps(only, colors, cables, false)
+    }
+
+    /// Like [`Self::picture_with`], with a small hop where a line crosses one drawn before it
+    /// when `jumps` is on, as a canvas with [`line_jumps`] on draws them.
+    pub fn picture_with_jumps(
+        &self,
+        only: Option<&[String]>,
+        colors: FlowColors,
+        cables: bool,
+        jumps: bool,
+    ) -> Option<FlowPicture> {
         let keep = |id: &str| only.is_none_or(|ids| ids.iter().any(|i| i == id));
         let nodes: Vec<&FlowNode> = self.nodes.iter().filter(|n| keep(&n.id)).collect();
         let first = nodes.first()?.extent();
@@ -184,8 +200,14 @@ impl FlowGraph {
                 Some(flatten(&self.edge_path(e)?))
             }
         };
-        let lines: Vec<(Vec<Point>, &super::FlowEdge)> =
+        let mut lines: Vec<(Vec<Point>, &super::FlowEdge)> =
             edges.iter().filter_map(|e| Some((line(e)?, *e))).collect();
+        if jumps {
+            let hopped = line_jumps(&lines.iter().map(|(p, _)| p.clone()).collect::<Vec<_>>(), JUMP_RADIUS);
+            for ((points, _), hopped) in lines.iter_mut().zip(hopped) {
+                *points = hopped;
+            }
+        }
         for (points, _) in &lines {
             for p in points {
                 bounds = union(bounds, Rect::new(p.x, p.y, 0.0, 0.0));
@@ -220,34 +242,27 @@ impl FlowGraph {
             });
         }
         for (points, edge) in &lines {
-            let mut body = points.clone();
-            let cap = 8.0;
-            if edge.end != EdgeCap::None {
-                body = trim_end(&body, cap);
-            }
-            if edge.start != EdgeCap::None {
-                body = trim_start(&body, cap);
-            }
+            let width = edge.width.unwrap_or(2.0);
+            let cap = 8.0_f32.max(width * 3.0);
+            let body = trim_start(&trim_end(points, edge.end.inset(cap)), edge.start.inset(cap));
             let line = edge.color.as_deref().and_then(super::parse_color).unwrap_or(colors.line);
-            if edge.dashed {
-                layers.push(Layer::Dashed { path: polyline(&body), width: 2.0, dash: 6.0, color: line });
-            } else {
-                layers.push(shape(polyline(&body), None, Some((2.0, line))));
-            }
-            if let (Some(&tip), Some(direction)) = (points.last(), end_direction(points)) {
-                let outline = cap_outline(edge.end, tip, direction, cap);
-                if !outline.is_empty() {
-                    layers.push(shape(outline, Some(line), None));
-                }
+            for piece in pattern_dashes(&body, &edge.line_dash().pattern(width), 0.0) {
+                layers.push(shape(polyline(&piece), None, Some((width, line))));
             }
             let back: Vec<Point> = points.iter().rev().copied().collect();
-            if let (Some(&tip), Some(direction)) = (back.last(), end_direction(&back)) {
-                let outline = cap_outline(edge.start, tip, direction, cap);
-                if !outline.is_empty() {
-                    layers.push(shape(outline, Some(line), None));
+            for (end, along) in [(edge.end, points.as_slice()), (edge.start, back.as_slice())] {
+                let (Some(&tip), Some(direction)) = (along.last(), end_direction(along)) else { continue };
+                let outline = cap_outline(end, tip, direction, cap);
+                if outline.is_empty() {
+                    continue;
                 }
+                let filled = end.filled();
+                let open = matches!(end, EdgeCap::OpenDiamond | EdgeCap::OpenCircle);
+                let fill = if filled { Some(line) } else if open { Some(colors.background) } else { None };
+                let stroke = (!filled).then_some((width, line));
+                layers.push(shape(outline, fill, stroke));
             }
-            if let (Some(label), Some(middle)) = (&edge.label, midpoint(points)) {
+            if let (Some(label), Some(middle)) = (&edge.label, point_along(points, edge.label_at)) {
                 let width = label.chars().count() as f32 * 7.0 + 16.0;
                 let pill = Rect::new(middle.x - width / 2.0, middle.y - 11.0, width, 22.0);
                 layers.push(shape(
