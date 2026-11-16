@@ -3,6 +3,7 @@
 mod api;
 mod docs;
 mod expression;
+mod feature_center;
 mod report;
 mod server;
 

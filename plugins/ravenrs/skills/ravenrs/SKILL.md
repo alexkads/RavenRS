@@ -19,6 +19,7 @@ Builder method names vary by component, so confirm them before writing a view. I
 | Which component fits? | `list_components` |
 | What are its methods and states? | `component_api`, which also accepts `ViewExt`, `State`, `Semantic`, `BuildCx` and any other public item |
 | How is it used in real code? | `component_examples` |
+| Where can I see it working, with every feature? | `feature_center`: the page of `examples/feature-center` and the command that opens it alone |
 | Which color or text style is this? | `design_tokens` |
 | Which type does this? I do not know its name. | `search_api`, over every crate |
 | How does this part work? What does it not do yet? | `guides`, over the repository's documents |

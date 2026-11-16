@@ -111,6 +111,7 @@ fn announces_every_tool_as_read_only() {
             "create_report_layout",
             "design_tokens",
             "expression_functions",
+            "feature_center",
             "guides",
             "list_components",
             "parity_status",
@@ -168,6 +169,51 @@ fn list_components_filters_by_group_and_text() {
 
     let grids = client.call("list_components", json!({ "query": "datagrid" }));
     assert!(names(&grids["components"]).contains(&"DataGrid"));
+
+    // A component put on the screen by its own build, not a view.
+    assert!(listed.contains(&"CablePlug"));
+    let components = all["components"].as_array().unwrap();
+    let group = |name: &str| {
+        components.iter().find(|c| c["name"] == name).map(|c| c["group"].clone()).unwrap_or_default()
+    };
+    for name in ["PatchPanel", "DataInspector", "ParameterForm", "KeyBar", "ScanField", "FlowToolbox"] {
+        assert_ne!(group(name), "Other", "{name} is missing from the README's components table");
+    }
+    assert_eq!(group("SidebarItem"), group("Sidebar"), "a part goes in its owner's group");
+    let cables = components.iter().find(|c| c["name"] == "CablePlug").unwrap();
+    assert_eq!(cables["feature_center"], "Cabos");
+}
+
+#[test]
+fn feature_center_shows_pages_and_what_waits() {
+    let mut client = Client::start();
+    let cables = client.call("feature_center", json!({ "name": "cableplug" }));
+    let cables = &cables["components"][0];
+    assert_eq!(cables["status"], "shown");
+    assert_eq!(cables["page"], "Cabos");
+    assert_eq!(cables["id"], "CablePlugDemo");
+    assert_eq!(cables["run"], "cargo run -p feature-center -- --modo componentes --pagina CablePlugDemo");
+    assert!(cables["source"].as_str().unwrap().ends_with("graficos/cabos.rs"));
+    assert!(cables["features"].as_array().unwrap().contains(&json!("physics")));
+
+    let button = client.call("feature_center", json!({ "name": "Button" }));
+    let button = &button["components"][0];
+    assert_eq!(button["status"], "waiting");
+    assert_eq!(button["issue"], 579);
+    assert!(button["known_features"].as_array().unwrap().contains(&json!("new")));
+
+    let all = client.call("feature_center", json!({ "status": "shown", "limit": 300 }));
+    assert_eq!(all["waiting"], 0);
+    assert!(all["shown"].as_u64().unwrap() >= 8, "{all}");
+    assert_eq!(all["total"], all["components"].as_array().unwrap().len());
+
+    let api = client.call("component_api", json!({ "name": "PatchPanel", "filter": "new" }));
+    assert_eq!(api["matches"][0]["feature_center"]["page"], "Painel de tomadas");
+
+    let missing = client.call_err("feature_center", json!({ "name": "NoSuchWidget" }));
+    assert!(missing["error"].as_str().unwrap().contains("recursos.json"));
+    let wrong = client.call_err("feature_center", json!({ "status": "done" }));
+    assert!(wrong["error"].as_str().unwrap().contains("'shown' or 'waiting'"));
 }
 
 #[test]
