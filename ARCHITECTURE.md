@@ -108,6 +108,7 @@ ravenrs-word           (word-processing engine from WordCraft: document model, D
 ravenrs-pdf            (PDF engine from PdfCraft: reading, saving, merging and splitting, rendering to pixels; depends on nothing in RavenRS)
 ravenrs-deck           (presentation engine from DeckCraft: slide model, PPTX, rendering, PDF export, commands with undo; depends on nothing in RavenRS)
 ravenrs-movie          ──► ravenrs-widgets (recorded draw lists ──► screen)
+ravenrs-e2e            ──► ravenrs-widgets-base (end-to-end tests: find by test id, role or text, real input events, the screen as text; no widget family)
 ravenrs-ai             ──► ravenrs-widgets (models on the machine; desktop only)
         ▲
         ├── ravenrs-report-server  (HTTP, schedules, delivery; only this crate has a runtime)
@@ -454,10 +455,11 @@ With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug
 | Motion (see §6.5): analytic springs, additive tweens, OKLab colors, implicit paint and layout transitions, shared layout, enter and exit, paint-only frames; scroll-driven `Sticky`, `ScrollScene`, `ScrollLinked` | ✓ | | rotation and true group opacity (renderer transforms and layers), gestures, momentum scrolling |
 | Desktop: window, HiDPI, resize, mouse, wheel/trackpad, keyboard, clipboard, sound and voice, device loss | ✓ | | multiple windows, IME |
 | Web: canvas, WebGPU or WebGL2 (`WebBackend`), DPR, pointer, wheel, touch scrolling with momentum, keyboard, text input through a hidden textarea (IME commit, dead keys, paste), clipboard copy, sound and voice, rAF on demand, cleanup, device loss | ✓ | IME preedit is not drawn yet | pinch |
-| Accessibility | keyboard focus and focus ring, WAI-ARIA keys, accessibility tree, AccessKit on desktop, ARIA mirror on the web | | caret and selection for screen readers, right-to-left |
+| Accessibility | keyboard focus and focus ring, WAI-ARIA keys, accessibility tree, AccessKit on desktop, ARIA mirror on the web, test ids (`ViewExt::test_id`, AccessKit `author_id`, `data-testid`) and protected values | | caret and selection for screen readers, right-to-left |
 | Criteria language: parsing, evaluation, validation, SQL, formatting (see §6.3) | ✓ | | `DataGrid` filters on this crate |
 | Spreadsheet: `Spreadsheet` over `ravenrs-sheet` (500+ functions, dynamic arrays, XLSX/XLS/ODS/CSV in, XLSX/CSV out), editing in the cell and the formula bar, selection by pointer and keys, clipboard, undo, fonts, fills, borders, merges, number formats, column widths, sheet tabs | ✓ | | ribbon of every command, frozen panes, charts and pictures on the sheet, conditional formats drawn, fill handle, find, the culture's separators |
 | Reporting: engine, wizard, designer with preview, viewer, pictures, links, barcodes, charts, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4) | ✓ | | Other exports, parameter lookups, SQL data sources (phases R2 to R5) |
+| End-to-end tests (`ravenrs-e2e`, issue #627) | a session with no window: queries by test id, role and name, text or snapshot reference; clicks, typing, keys and drags as real input events, refused when the target is disabled, hidden or covered; checks; the screen as text; errors with stable codes | | the controlled clock and waiting (F2), new accessibility actions (F1b), the rest of #627 |
 | Benchmarks and profiling | `tracing` spans per phase, criterion benches (`crates/*/benches`), a gate of exact counters and frame times (`crates/ravenrs-perf`, budgets in [docs/QUALITY.md](docs/QUALITY.md)), the diagnostics panel with GPU timestamps ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)) | | stepping through a frozen frame, a map of what was rebuilt, invalidation by subtree |
 | Application framework: `ravenrs-app`, `ravenrs-app-ui`; see [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md) | derive, model, actions (also declared as data), frames, rules, SQLite, generated lists and forms, permissions, sign-in, audit trail | the API |  relations |
 

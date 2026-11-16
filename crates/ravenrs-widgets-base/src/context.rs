@@ -354,6 +354,8 @@ pub struct Semantics {
     /// The name is a guess (an icon's name) that a tooltip may replace.
     #[doc(hidden)]
     pub fallback_name: bool,
+    #[doc(hidden)]
+    pub protected: bool,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -376,6 +378,7 @@ impl Semantics {
             hidden: false,
             active: false,
             fallback_name: false,
+            protected: false,
         }
     }
 
@@ -383,6 +386,13 @@ impl Semantics {
     /// (decorations, duplicated content).
     pub fn hidden() -> Self {
         Self { hidden: true, ..Self::new(Role::Group) }
+    }
+
+    /// Marks the value as secret (a password field): assistive technology and tests are told
+    /// it is protected, and the value given is the masked one.
+    pub fn protected(mut self) -> Self {
+        self.protected = true;
+        self
     }
 
     /// The role.
@@ -557,6 +567,8 @@ pub struct Element {
     pub time_link: Option<crate::TimeLink>,
     /// Told the scroll progress along this range before each paint.
     pub progress_out: Option<(crate::ScrollRange, Rc<std::cell::Cell<f32>>)>,
+    /// The id tests and automation find this element by (see [`BuildCx::test_id`]).
+    pub test_id: Option<Rc<str>>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -607,6 +619,7 @@ impl Element {
             on_appear: None,
             time_link: None,
             progress_out: None,
+            test_id: None,
         }
     }
 
@@ -1288,6 +1301,17 @@ impl<'a> BuildCx<'a> {
         }
         if let Some(description) = description {
             s.description = Some(description.to_owned());
+        }
+    }
+
+    /// Tags the node with an id that tests and automation find it by, which does not change
+    /// when the screen around it is reordered or wrapped. It is not read by screen readers; on
+    /// the web it becomes `data-testid`. A node that does not show to assistive technology
+    /// passes the id to the first one inside it. Components use it to tag their own parts;
+    /// apps use [`ViewExt::test_id`](crate::ViewExt::test_id).
+    pub fn test_id(&mut self, node: NodeId, id: &str) {
+        if let Some(e) = self.element_mut(node) {
+            e.test_id = Some(Rc::from(id));
         }
     }
 

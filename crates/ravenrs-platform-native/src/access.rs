@@ -71,7 +71,14 @@ pub(crate) fn action(action: Action) -> Option<AccessAction> {
 }
 
 fn node(n: &AccessNode, scale: f64, is_root: bool) -> Node {
-    let mut node = Node::new(role(n.role));
+    // A secret value is a password field to the operating system, so it is never read out.
+    let role =
+        if n.protected && n.role == Role::TextInput { accesskit::Role::PasswordInput } else { role(n.role) };
+    let mut node = Node::new(role);
+    // The id tests and automation (UI Automation's AutomationId) find the node by.
+    if let Some(test_id) = &n.test_id {
+        node.set_author_id(test_id.as_str());
+    }
     if is_root {
         // Bounds are in logical pixels; the root scales them to the window's.
         node.set_transform(Affine::scale(scale));
@@ -207,6 +214,22 @@ mod tests {
         assert_eq!(check.bounds(), Some(Rect::new(10.0, 10.0, 110.0, 30.0)));
         let (_, toast) = &update.nodes[2];
         assert_eq!(toast.live(), Some(Live::Polite), "status messages are announced");
+    }
+
+    #[test]
+    fn test_ids_reach_automation_and_secrets_stay_password_fields() {
+        let mut field = AccessNode::new(2, Role::TextInput, rect(0.0, 0.0, 100.0, 20.0));
+        field.name = Some("Password".into());
+        field.value = Some("•••".into());
+        field.test_id = Some("password".into());
+        field.protected = true;
+        let secret = node(&field, 1.0, false);
+        assert_eq!(secret.role(), accesskit::Role::PasswordInput);
+        assert_eq!(secret.author_id(), Some("password"));
+        assert_eq!(secret.label(), Some("Password"), "the test id is not read as the name");
+        let plain = node(&AccessNode::new(3, Role::TextInput, rect(0.0, 0.0, 1.0, 1.0)), 1.0, false);
+        assert_eq!(plain.role(), accesskit::Role::TextInput);
+        assert_eq!(plain.author_id(), None);
     }
 
     #[test]

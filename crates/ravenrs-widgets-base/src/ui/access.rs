@@ -32,6 +32,7 @@ impl Ui {
             map: HashMap::new(),
             focus: None,
             active: None,
+            pending_test_id: None,
         };
         builder.nodes.push(AccessNode::new(
             ROOT_ID,
@@ -88,6 +89,32 @@ impl Ui {
             .collect()
     }
 
+    /// The deepest node of the latest [`Ui::access_tree`] under `point`, as the pointer would
+    /// find it: what a click there lands on. Tests use it to tell that something covers the
+    /// node they mean to click.
+    pub fn access_node_at(&self, point: Point) -> Option<u64> {
+        let mut at = self.hit_test(point)?.0 as usize;
+        let mut parent = vec![usize::MAX; self.elements.len()];
+        for (i, e) in self.elements.iter().enumerate() {
+            for child in &e.children {
+                if let Some(slot) = parent.get_mut(child.0 as usize) {
+                    *slot = i;
+                }
+            }
+        }
+        let ids: HashMap<usize, u64> =
+            self.access_map.nodes.iter().map(|(id, node)| (node.0 as usize, *id)).collect();
+        loop {
+            if let Some(id) = ids.get(&at) {
+                return Some(*id);
+            }
+            at = *parent.get(at)?;
+            if at == usize::MAX {
+                return None;
+            }
+        }
+    }
+
     /// Performs an action assistive technology asked for on the node with
     /// this id (from the latest [`Ui::access_tree`]). Returns true if the UI
     /// needs a redraw.
@@ -137,6 +164,9 @@ struct Builder<'a> {
     focus: Option<u64>,
     /// The highlighted option of a combobox-style list.
     active: Option<u64>,
+    /// A test id from an element that shows nothing of its own, waiting for the first node
+    /// inside it.
+    pending_test_id: Option<std::rc::Rc<str>>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -152,6 +182,12 @@ impl Builder<'_> {
 
     /// Adds `node`'s accessible content to `out`. Text goes to `name` instead
     /// when an ancestor takes its name from its content.
+    /// The test id a new node takes: its element's own, or one waiting from a container.
+    fn claim_test_id(&mut self, own: Option<&std::rc::Rc<str>>) -> Option<String> {
+        let waiting = self.pending_test_id.take();
+        own.cloned().or(waiting).map(|id| id.to_string())
+    }
+
     fn visit(&mut self, node: NodeId, out: &mut Vec<u64>, mut name: Option<&mut String>) {
         let ui = self.ui;
         let i = node.0 as usize;
@@ -160,6 +196,7 @@ impl Builder<'_> {
         if semantics.is_some_and(|s| s.hidden) {
             return;
         }
+        let own_test_id = e.test_id.as_ref();
         if semantics.is_none()
             && let Some(text) = &e.text
         {
@@ -178,6 +215,7 @@ impl Builder<'_> {
                     let id = self.id_for(e.widget);
                     let mut label = AccessNode::new(id, Role::Label, ui.screen_frame(i));
                     label.name = Some(text);
+                    label.test_id = self.claim_test_id(own_test_id);
                     self.map.insert(id, node);
                     self.nodes.push(label);
                     out.push(id);
@@ -187,8 +225,14 @@ impl Builder<'_> {
         }
         let focusable = e.focus_radius.is_some();
         if semantics.is_none() && !focusable {
+            // A container passes its test id to the first node inside it.
+            let before = self.nodes.len();
+            let outer = own_test_id.map(|id| self.pending_test_id.replace(id.clone()));
             for child in &e.children {
                 self.visit(*child, out, name.as_deref_mut());
+            }
+            if let Some(outer) = outer {
+                self.pending_test_id = if self.nodes.len() > before { None } else { outer };
             }
             return;
         }
@@ -197,6 +241,7 @@ impl Builder<'_> {
         let index = self.nodes.len();
         let mut a = AccessNode::new(id, role, ui.screen_frame(i));
         a.focusable = focusable;
+        a.test_id = self.claim_test_id(own_test_id);
         if let Some(s) = semantics {
             a.name = s.name.clone();
             a.description = s.description.clone();
@@ -209,6 +254,7 @@ impl Builder<'_> {
             a.read_only = s.read_only;
             a.modal = s.modal;
             a.level = s.level;
+            a.protected = s.protected;
             if s.active {
                 self.active = Some(id);
             }

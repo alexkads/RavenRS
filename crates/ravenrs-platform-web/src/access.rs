@@ -114,6 +114,10 @@ pub(crate) fn aria_attributes(n: &AccessNode) -> Vec<(&'static str, String)> {
     if let Some(level) = n.level {
         out.push(("aria-level", level.to_string()));
     }
+    // For tests and automation only; screen readers do not read data attributes.
+    if let Some(test_id) = &n.test_id {
+        out.push(("data-testid", test_id.clone()));
+    }
     out
 }
 
