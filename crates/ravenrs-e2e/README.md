@@ -106,9 +106,9 @@ Rows with keys have test ids that stay with the data when it sorts, filters or s
 
 ## Finding a target's declaration
 
-Enable `e2e-source` in the app under test (`ravenrs`, `ravenrs-widgets`, `ravenrs-e2e` and `ravenrs-e2e-wire` expose the feature). `E2e::source(&query)` returns the static Rust caller location of `ViewExt::test_id` or `BuildCx::test_id`. It follows the test id when a container passes it to its first accessible child, and a child's own id keeps its own origin. The declaration stays the same when the screen is reordered.
+Enable `e2e-source` in the app under test (`ravenrs`, `ravenrs-widgets`, `ravenrs-e2e` and `ravenrs-e2e-wire` expose the feature). `E2e::source(&query)` returns the static Rust caller location of `ViewExt::test_id` or `BuildCx::test_id`. It follows the test id when a container passes it to its first accessible child, and a child's own id keeps its own origin. Without an explicit test tag, `Button::new` and `Text::{new,bound,dynamic}` record their constructor's caller. Queries by role, text or position use that same recorded location. An explicit tag takes priority. The origin stays the same when the screen is reordered or reactive text changes.
 
-Without the feature, no location is stored. A target without a recorded declaration fails with `E2E_NO_SOURCE`; missing or ambiguous targets keep their normal query error. Origins are metadata in the UI's test map, not fields read by screen readers or included in the text snapshot. Untagged views have no inferred origin. Paths are as recorded by the compiler and may reflect path remapping; the editor integration comes later.
+Without the feature, no location is stored. A target without a recorded origin fails with `E2E_NO_SOURCE`; missing or ambiguous targets keep their normal query error. Origins are metadata in the UI's test map, not fields read by screen readers or included in the text snapshot. Other untagged constructors are not instrumented yet; their implementation location is never guessed. Paths are as recorded by the compiler and may reflect path remapping; the editor integration comes later.
 
 ## Limits for now
 

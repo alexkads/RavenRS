@@ -1417,3 +1417,119 @@ impl Center {
         self.ui.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some(name))
     }
 }
+
+#[test]
+fn buttons_show_every_variant_and_activate_with_the_mouse_enter_and_space() {
+    let mut c = Center::memory("ana");
+    c.press("Botões");
+    for name in [
+        "Salvar",
+        "Revisar",
+        "Ver detalhes",
+        "Excluir",
+        "Pequeno",
+        "Médio",
+        "Grande",
+        "Mini",
+        "Enviar",
+        "Continuar",
+        "Ocupar a largura",
+    ] {
+        c.press(name);
+        assert!(c.says(&format!("Acionado: {name}")), "{name}: {:?}", c.texts());
+    }
+    let tree = c.ui.access_tree();
+    let button = |name| tree.find(Role::Button, name).expect("the demonstrated button");
+    for (name, height) in [("Pequeno", 32.0), ("Médio", 40.0), ("Grande", 48.0), ("Mini", 22.0)] {
+        assert_eq!(button(name).bounds.height(), height, "{name}");
+    }
+    assert!(button("Ocupar a largura").bounds.width() > button("Médio").bounds.width());
+    assert_eq!(button("Pesquisar documentos").description.as_deref(), Some("Abre a pesquisa de documentos"));
+    assert!(button("Indisponível").disabled);
+    assert!(button("Processando").disabled);
+    c.press("Pesquisar documentos");
+    assert!(c.says("Pesquisa aberta"));
+    c.press("Indisponível");
+    c.press("Processando");
+    assert!(c.says("Pesquisa aberta"), "inert buttons did not invoke their handlers");
+    c.press("Fixar");
+    assert!(c.says("Fixado"));
+    assert_eq!(
+        c.ui.access_tree().find(Role::Button, "Fixar").expect("toggle").toggled,
+        Some(ravenrs_core::Toggled::True)
+    );
+    c.press("Fixar");
+    assert!(c.says("Não fixado"));
+    c.press("Contar ativações");
+    let id = c.ui.access_tree().find(Role::Button, "Contar ativações").expect("counter").id;
+    c.ui.perform_action(id, AccessAction::Focus);
+    c.key(ravenrs_core::Key::Enter);
+    c.key(ravenrs_core::Key::Space);
+    assert!(c.says("Ativações: 3"), "{:?}", c.texts());
+}
+
+#[test]
+fn text_shows_the_type_scale_and_keeps_truncated_and_reactive_content_accessible() {
+    let mut c = Center::memory("ana");
+    c.press("Texto");
+    for name in [
+        "Métrica",
+        "Destaque",
+        "Título",
+        "Cabeçalho",
+        "Corpo",
+        "Chamada",
+        "Legenda",
+        "Tamanho, peso e cor",
+        "À esquerda",
+        "Ao centro",
+        "À direita",
+    ] {
+        assert!(c.has_name(name), "{name}: {:?}", c.texts());
+    }
+    assert!(
+        c.has_name(feature_center::widgets::basicos::texto::LONG),
+        "truncation preserves the accessible name"
+    );
+    let tree = c.ui.access_tree();
+    let bounds =
+        |name| tree.nodes.iter().find(|node| node.name.as_deref() == Some(name)).expect("the text").bounds;
+    let glyphs = |name| {
+        let area = bounds(name);
+        c.ui.scene()
+            .primitives()
+            .iter()
+            .filter_map(|primitive| {
+                let ravenrs_core::Primitive::Glyphs(run) = primitive else {
+                    return None;
+                };
+                run.glyphs
+                    .first()
+                    .filter(|glyph| {
+                        glyph.x >= area.x()
+                            && glyph.x <= area.x() + area.width()
+                            && glyph.y >= area.y()
+                            && glyph.y <= area.y() + area.height()
+                    })
+                    .map(|_| run)
+            })
+            .collect::<Vec<_>>()
+    };
+    assert!(bounds("Métrica").height() > bounds("Legenda").height());
+    assert!(glyphs("Tamanho, peso e cor").iter().any(|run| run.size == 20.0 && run.color == c.ui.theme().color(ravenrs_style::Semantic::InkMuted)));
+    let left = glyphs("À esquerda")[0].glyphs[0].x;
+    let center = glyphs("Ao centro")[0].glyphs[0].x;
+    let right = glyphs("À direita")[0].glyphs[0].x;
+    assert!(left < center && center < right, "the three alignments move the painted text");
+    let visible: usize =
+        glyphs(feature_center::widgets::basicos::texto::LONG).iter().map(|run| run.glyphs.len()).sum();
+    assert!(
+        visible > 0 && visible < feature_center::widgets::basicos::texto::LONG.chars().count() / 2,
+        "truncation limits the painted line, not the accessible text"
+    );
+    assert!(c.says("Vinculado: 0") && c.says("Calculado: 0"));
+    c.press("Alterar conteúdo");
+    assert!(c.says("Vinculado: 1") && c.says("Calculado: 2"));
+    c.press("Alterar conteúdo");
+    assert!(c.says("Vinculado: 2") && c.says("Calculado: 4"));
+}

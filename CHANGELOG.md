@@ -6,6 +6,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Breaking
 
+- With `e2e-source`, the internal `Element` literal has a `view_source` field for the instrumented constructor's caller; `Element::new` initializes it. Default builds do not have this field. ([#698](https://github.com/alexkads/RavenRS/issues/698))
 - `ravenrs-e2e-runner::app::scenarios` (also reexported by the Studio) returns `Box<session::Failure>` instead of `String` on failure, preserving the same typed diagnostics as the app opener. ([#692](https://github.com/alexkads/RavenRS/issues/692))
 - `ravenrs-e2e-runner::app::App` has a `features` field for source test builds; field-by-field literals need it (`..App::default()` keeps Cargo defaults). ([#687](https://github.com/alexkads/RavenRS/issues/687))
 - `ravenrs-e2e-wire`: `Command` has `Source { target }`, and `Reply` has an optional `source` field; exhaustive matches and field-by-field reply literals need updating. ([#685](https://github.com/alexkads/RavenRS/issues/685))
@@ -49,6 +50,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- Optional constructor origins for untagged `Button::new` and `Text::{new,bound,dynamic}`: `E2e::source` and the existing Source channel return the caller found by role/text queries, including after reactive rebuilds. Explicit test-id origins take priority; default builds and screen-reader trees keep no source metadata. Button and Text now have complete demonstrations and tours in the feature center. ([#698](https://github.com/alexkads/RavenRS/issues/698))
 - New apps from all four `cargo ravenrs new` templates (also used by `create-ravenrs`) include a native `--e2e-serve` entry, project metadata, opt-in source instrumentation and an initial `.raventest` scenario. They reuse the frame/film adapter and serve sample data in memory; the SQLite template's test entry and screen test never open its persistent database. ([#695](https://github.com/alexkads/RavenRS/issues/695))
 - `cargo ravenrs doctor` reads e2e configuration before assistant integration, including `--no-ai` projects. Missing channels/declarations/scenarios produce warnings; invalid configuration, binaries or scenarios fail. It reuses project discovery without compiling or launching apps, and reports channel detection as a static hint, not a verified handshake. ([#693](https://github.com/alexkads/RavenRS/issues/693))
 - Apps can declare Cargo test-build features in `[package.metadata.ravenrs.e2e]`. Both runners preserve them through discovery and pass them to the shared build executor; malformed lists are refused before execution. The Studio declares its optional source instrumentation for project test builds. ([#687](https://github.com/alexkads/RavenRS/issues/687))

@@ -3,6 +3,7 @@
 //! [`PAGES`] is the one list: the center puts each page in its navigation as a dashboard, and the
 //! mode `componentes` (#587) shows the same pages with no application framework around them.
 
+pub mod basicos;
 pub mod doca;
 pub mod graficos;
 pub mod kit;
@@ -27,6 +28,20 @@ pub struct Page {
 
 /// Every page of a component, in the order of the navigation.
 pub const PAGES: &[Page] = &[
+    Page {
+        id: basicos::botoes::ID,
+        caption: basicos::botoes::PAGE,
+        group: "Básicos",
+        icon: IconName::MousePointer,
+        make: || Box::new(basicos::botoes::ButtonsPage),
+    },
+    Page {
+        id: basicos::texto::ID,
+        caption: basicos::texto::PAGE,
+        group: "Básicos",
+        icon: IconName::FileText,
+        make: || Box::new(basicos::texto::TextPage),
+    },
     Page {
         id: kit::expressoes::ID,
         caption: kit::expressoes::PAGE,

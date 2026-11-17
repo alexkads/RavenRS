@@ -90,6 +90,8 @@ macro_rules! demonstrations {
 }
 
 demonstrations! {
+    botoes => "Botões",
+    texto => "Texto",
     diagrama_de_fluxo => "Diagrama de fluxo",
     cabos => "Cabos",
     painel_de_tomadas => "Painel de tomadas",
