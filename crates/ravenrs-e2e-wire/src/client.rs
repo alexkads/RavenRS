@@ -6,7 +6,7 @@ use std::sync::mpsc::{Receiver, RecvTimeoutError, channel};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use crate::{Command, Failure, Hello, PROTOCOL, Reply, VERSION, codes};
+use crate::{Command, Failure, Hello, PROTOCOL, Reply, Source, VERSION, codes};
 
 /// How long a step may take before the app is taken as stuck.
 const STEP_TIME: Duration = Duration::from_secs(30);
@@ -107,6 +107,12 @@ impl Client {
     /// in `ravenrs-movie`; this crate has no dependency on the movie engine.
     pub fn frame(&mut self) -> Result<Vec<u8>, Failure> {
         self.exchange(&Command::Frame)?.into_frame()
+    }
+
+    /// Where `target` (`#id` or accessible text) received its test id. The app under test must
+    /// have `e2e-source` enabled and a declared origin for the target.
+    pub fn source(&mut self, target: &str) -> Result<Source, Failure> {
+        self.exchange(&Command::Source { target: target.to_owned() })?.into_source()
     }
 
     fn exchange(&mut self, command: &Command) -> Result<Reply, Failure> {

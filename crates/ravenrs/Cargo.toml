@@ -15,6 +15,7 @@ readme = "README.md"
 
 [features]
 default = ["decode", "charts", "flow", "lottie"]
+e2e-source = ["ravenrs-widgets/e2e-source"]
 # PNG and JPEG decoding for `Image::from_bytes`.
 decode = ["ravenrs-widgets/decode"]
 # `Chart`, `BarChart`, `AreaChart` and `Barcode`.

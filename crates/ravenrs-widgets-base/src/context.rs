@@ -569,6 +569,9 @@ pub struct Element {
     pub progress_out: Option<(crate::ScrollRange, Rc<std::cell::Cell<f32>>)>,
     /// The id tests and automation find this element by (see [`BuildCx::test_id`]).
     pub test_id: Option<Rc<str>>,
+    /// The declaration site of that id, kept only in source-instrumented test builds.
+    #[cfg(feature = "e2e-source")]
+    pub test_source: Option<&'static std::panic::Location<'static>>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -620,6 +623,8 @@ impl Element {
             time_link: None,
             progress_out: None,
             test_id: None,
+            #[cfg(feature = "e2e-source")]
+            test_source: None,
         }
     }
 
@@ -1309,9 +1314,21 @@ impl<'a> BuildCx<'a> {
     /// the web it becomes `data-testid`. A node that does not show to assistive technology
     /// passes the id to the first one inside it. Components use it to tag their own parts;
     /// apps use [`ViewExt::test_id`](crate::ViewExt::test_id).
+    #[cfg_attr(feature = "e2e-source", track_caller)]
     pub fn test_id(&mut self, node: NodeId, id: &str) {
         if let Some(e) = self.element_mut(node) {
             e.test_id = Some(Rc::from(id));
+            #[cfg(feature = "e2e-source")]
+            {
+                e.test_source = Some(std::panic::Location::caller());
+            }
+        }
+    }
+
+    #[cfg(feature = "e2e-source")]
+    pub(crate) fn test_source(&mut self, node: NodeId, source: &'static std::panic::Location<'static>) {
+        if let Some(e) = self.element_mut(node) {
+            e.test_source = Some(source);
         }
     }
 

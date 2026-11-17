@@ -4463,6 +4463,7 @@ method Ui::system_appearance
 method Ui::system_themes
 method Ui::take_close
 method Ui::take_frame_work
+method Ui::test_source
 method Ui::text_system
 method Ui::theme
 method Ui::theme_state

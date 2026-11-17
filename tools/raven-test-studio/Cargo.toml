@@ -9,6 +9,9 @@ rust-version.workspace = true
 license.workspace = true
 publish = false
 
+[features]
+e2e-source = ["ravenrs/e2e-source", "ravenrs-e2e-wire/e2e-source"]
+
 [dependencies]
 ravenrs = { workspace = true, features = ["tray"] }
 ravenrs-app-update.workspace = true

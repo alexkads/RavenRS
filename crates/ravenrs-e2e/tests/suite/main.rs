@@ -5,4 +5,5 @@ mod accessible;
 mod actions;
 mod find;
 mod snapshot;
+mod source;
 mod waiting;

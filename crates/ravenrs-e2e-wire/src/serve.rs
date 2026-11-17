@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 
 use ravenrs_e2e::E2e;
 
-use crate::{Command, Failure, Hello, Reply, codes};
+use crate::{Command, Failure, Hello, Reply, Source, codes, target};
 
 /// Answers a tool over this process's standard input and output until it says
 /// [`Command::Bye`] or closes the input, starting with `hello`: the app's name and the scenarios
@@ -63,6 +63,10 @@ pub fn serve_with(
                 write_line(&mut output, &Reply::of(Ok(None)))?;
                 return Ok(());
             }
+            Ok(Command::Source { target: query }) => match session.source(&target(&query)) {
+                Ok(location) => Reply::source(Source::from(location)),
+                Err(error) => Reply::of(Err(error.into())),
+            },
             Ok(Command::Film { path }) if filming.is_some() => {
                 if let Some(film) = filming.as_deref_mut() {
                     film.start(&mut session, Path::new(&path));

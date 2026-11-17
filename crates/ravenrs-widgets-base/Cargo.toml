@@ -28,6 +28,8 @@ image = { workspace = true, optional = true }
 
 [features]
 default = ["decode"]
+# Keeps the declaration site of test ids for explicit source queries.
+e2e-source = []
 # PNG and JPEG decoding for `Image::from_bytes`.
 decode = ["dep:image"]
 # The types of the base exposed to the playground's interpreter.

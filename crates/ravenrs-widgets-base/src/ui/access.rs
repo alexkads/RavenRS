@@ -16,6 +16,8 @@ const ROOT_ID: u64 = 1;
 #[doc(hidden)]
 pub struct AccessMap {
     nodes: HashMap<u64, NodeId>,
+    #[cfg(feature = "e2e-source")]
+    sources: HashMap<u64, &'static std::panic::Location<'static>>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -32,7 +34,9 @@ impl Ui {
             map: HashMap::new(),
             focus: None,
             active: None,
-            pending_test_id: None,
+            pending_test_tag: None,
+            #[cfg(feature = "e2e-source")]
+            sources: HashMap::new(),
         };
         builder.nodes.push(AccessNode::new(
             ROOT_ID,
@@ -54,7 +58,15 @@ impl Ui {
         for root in roots {
             builder.visit(root, &mut children, None);
         }
-        let Builder { mut nodes, map, focus, active, .. } = builder;
+        let Builder {
+            mut nodes,
+            map,
+            focus,
+            active,
+            #[cfg(feature = "e2e-source")]
+            sources,
+            ..
+        } = builder;
         // What is being carried between components, said as it changes.
         if let Some(words) = self.carry_status() {
             // Out of the way of the ids widgets get.
@@ -70,7 +82,11 @@ impl Ui {
         {
             node.active_descendant = Some(active);
         }
-        self.access_map = AccessMap { nodes: map };
+        self.access_map = AccessMap {
+            nodes: map,
+            #[cfg(feature = "e2e-source")]
+            sources,
+        };
         AccessTree { root: ROOT_ID, nodes, focus }
     }
 
@@ -155,6 +171,29 @@ impl Ui {
     }
 }
 
+impl Ui {
+    /// Where this accessibility node's test id was declared, as of the latest
+    /// [`Self::access_tree`]. Returns `None` without `e2e-source`; not sent to screen readers.
+    pub fn test_source(&self, id: u64) -> Option<&'static std::panic::Location<'static>> {
+        #[cfg(feature = "e2e-source")]
+        {
+            self.access_map.sources.get(&id).copied()
+        }
+        #[cfg(not(feature = "e2e-source"))]
+        {
+            let _ = id;
+            None
+        }
+    }
+}
+
+#[derive(Clone)]
+struct TestTag {
+    id: std::rc::Rc<str>,
+    #[cfg(feature = "e2e-source")]
+    source: Option<&'static std::panic::Location<'static>>,
+}
+
 struct Builder<'a> {
     ui: &'a Ui,
     nodes: Vec<AccessNode>,
@@ -166,7 +205,9 @@ struct Builder<'a> {
     active: Option<u64>,
     /// A test id from an element that shows nothing of its own, waiting for the first node
     /// inside it.
-    pending_test_id: Option<std::rc::Rc<str>>,
+    pending_test_tag: Option<TestTag>,
+    #[cfg(feature = "e2e-source")]
+    sources: HashMap<u64, &'static std::panic::Location<'static>>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -183,9 +224,15 @@ impl Builder<'_> {
     /// Adds `node`'s accessible content to `out`. Text goes to `name` instead
     /// when an ancestor takes its name from its content.
     /// The test id a new node takes: its element's own, or one waiting from a container.
-    fn claim_test_id(&mut self, own: Option<&std::rc::Rc<str>>) -> Option<String> {
-        let waiting = self.pending_test_id.take();
-        own.cloned().or(waiting).map(|id| id.to_string())
+    fn claim_test_tag(&mut self, own: Option<TestTag>, id: u64) -> Option<String> {
+        let tag = own.or(self.pending_test_tag.take())?;
+        #[cfg(feature = "e2e-source")]
+        if let Some(source) = tag.source {
+            self.sources.insert(id, source);
+        }
+        #[cfg(not(feature = "e2e-source"))]
+        let _ = id;
+        Some(tag.id.to_string())
     }
 
     fn visit(&mut self, node: NodeId, out: &mut Vec<u64>, mut name: Option<&mut String>) {
@@ -196,7 +243,11 @@ impl Builder<'_> {
         if semantics.is_some_and(|s| s.hidden) {
             return;
         }
-        let own_test_id = e.test_id.as_ref();
+        let own_tag = e.test_id.as_ref().map(|id| TestTag {
+            id: id.clone(),
+            #[cfg(feature = "e2e-source")]
+            source: e.test_source,
+        });
         if semantics.is_none()
             && let Some(text) = &e.text
         {
@@ -215,7 +266,7 @@ impl Builder<'_> {
                     let id = self.id_for(e.widget);
                     let mut label = AccessNode::new(id, Role::Label, ui.screen_frame(i));
                     label.name = Some(text);
-                    label.test_id = self.claim_test_id(own_test_id);
+                    label.test_id = self.claim_test_tag(own_tag, id);
                     self.map.insert(id, node);
                     self.nodes.push(label);
                     out.push(id);
@@ -227,12 +278,12 @@ impl Builder<'_> {
         if semantics.is_none() && !focusable {
             // A container passes its test id to the first node inside it.
             let before = self.nodes.len();
-            let outer = own_test_id.map(|id| self.pending_test_id.replace(id.clone()));
+            let outer = own_tag.map(|tag| self.pending_test_tag.replace(tag));
             for child in &e.children {
                 self.visit(*child, out, name.as_deref_mut());
             }
             if let Some(outer) = outer {
-                self.pending_test_id = if self.nodes.len() > before { None } else { outer };
+                self.pending_test_tag = if self.nodes.len() > before { None } else { outer };
             }
             return;
         }
@@ -241,7 +292,7 @@ impl Builder<'_> {
         let index = self.nodes.len();
         let mut a = AccessNode::new(id, role, ui.screen_frame(i));
         a.focusable = focusable;
-        a.test_id = self.claim_test_id(own_test_id);
+        a.test_id = self.claim_test_tag(own_tag, id);
         if let Some(s) = semantics {
             a.name = s.name.clone();
             a.description = s.description.clone();

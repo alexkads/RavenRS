@@ -153,6 +153,10 @@ fn in_portuguese(code: &str) -> (&'static str, Option<&'static str>) {
             "o app testado não forneceu o quadro vetorial",
             Some("sirva o app com ravenrs_movie::ChannelFilm para fornecer quadros pelo canal"),
         ),
+        "E2E_NO_SOURCE" => (
+            "o alvo não tem origem declarada",
+            Some("ligue e2e-source no app testado e marque o alvo com test_id"),
+        ),
         _ => ("o passo falhou", None),
     }
 }

@@ -17,6 +17,7 @@ categories = ["gui", "development-tools::testing"]
 # On by default: every RavenRS app carries its test channel, closed until it is opened with
 # --e2e-serve. A tool that only drives apps can turn it off.
 default = ["serve"]
+e2e-source = ["ravenrs-e2e/e2e-source"]
 # The app's side: answers a tool over stdin and stdout.
 serve = []
 
