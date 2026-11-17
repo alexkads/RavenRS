@@ -1,17 +1,17 @@
 {
-  "versao": "0.1.41",
-  "titulo": "O menu ao lado do relógio ficou útil.",
+  "versao": "0.1.42",
+  "titulo": "Treinamentos regravados, e o teste pode filmar o app.",
   "importante": false,
   "novidades": [
-    "Com a janela fechada, o ícone ao lado do relógio diz quantas contas estão vencidas.",
-    "Nova despesa e Nova receita no menu abrem a janela já no formulário.",
-    "Quando uma versão nova termina de instalar, o menu mostra Reiniciar para atualizar, com o número da versão."
+    "Os seis treinamentos foram gravados de novo com a tela de hoje.",
+    "Quando o Raven Test Studio testa o app e um passo falha, ele pode guardar o filme do que aconteceu, para ver como foi."
   ],
-  "por_que_atualizar": "Para lançar e saber das contas sem abrir a janela, e ver a atualização pronta mesmo com ela fechada.",
+  "por_que_atualizar": "Para ver os treinamentos com as telas como estão agora.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    643
+    672,
+    674
   ]
 }

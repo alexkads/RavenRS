@@ -4,9 +4,10 @@
 //! folder = "tests/e2e"   # where its .raventest files are
 //! format = "junit"       # how `cargo ravenrs e2e run` reports, when --format is not given
 //! out = "target/e2e"     # where each run is kept, when --out is not given
+//! film = "on-failure"    # keep the film of the app a scenario failed on (never, always)
 //! ```
 //!
-//! `app`, `window`, `themes`, `film` and `load` are the keys #627 plans next; they are read
+//! `app`, `window`, `themes` and `load` are the keys #627 plans next; they are read
 //! and said to have no effect yet. Any other key, or a value of the wrong kind, is refused with
 //! the file and the key, so a typo never runs a suite with choices nobody made.
 
@@ -18,7 +19,7 @@ use crate::report::FORMATS;
 pub const FILE: &str = "e2e.toml";
 
 /// Keys #627 plans for the file, read now and used later.
-pub const PLANNED: [&str; 5] = ["app", "window", "themes", "film", "load"];
+pub const PLANNED: [&str; 4] = ["app", "window", "themes", "load"];
 
 /// What an `e2e.toml` says.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -29,13 +30,21 @@ pub struct Config {
     pub format: Option<String>,
     /// Where to keep each run, from the app's folder.
     pub out: Option<PathBuf>,
+    /// When to film the apps a run opens.
+    pub film: Option<crate::driver::FilmMode>,
     /// Planned keys the file has, which do nothing yet.
     pub planned: Vec<String>,
 }
 
 impl Default for Config {
     fn default() -> Self {
-        Self { folder: PathBuf::from(ravenrs_e2e_wire::FOLDER), format: None, out: None, planned: Vec::new() }
+        Self {
+            folder: PathBuf::from(ravenrs_e2e_wire::FOLDER),
+            format: None,
+            out: None,
+            film: None,
+            planned: Vec::new(),
+        }
     }
 }
 
@@ -73,10 +82,19 @@ impl Config {
                     }
                     config.format = Some(format);
                 }
+                "film" => {
+                    let word = as_text()?;
+                    config.film = Some(crate::driver::FilmMode::read(&word).ok_or_else(|| {
+                        format!(
+                            "film não aceita {word:?}; aceita: {}",
+                            crate::driver::FilmMode::WORDS.join(", ")
+                        )
+                    })?);
+                }
                 planned if PLANNED.contains(&planned) => config.planned.push(planned.to_owned()),
                 other => {
                     return Err(format!(
-                        "chave desconhecida {other:?}; as que o e2e.toml entende: folder, format, out (e, ainda sem efeito, {})",
+                        "chave desconhecida {other:?}; as que o e2e.toml entende: folder, format, out, film (e, ainda sem efeito, {})",
                         PLANNED.join(", ")
                     ));
                 }

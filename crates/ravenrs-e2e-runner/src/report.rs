@@ -45,6 +45,10 @@ pub struct Report {
     pub apart: bool,
     /// The titles of the blocks of the path that did not run, because one before them failed.
     pub not_run: Vec<String>,
+    /// The films kept of the apps the run drove (`.ravenmovie`), when it filmed.
+    pub films: Vec<String>,
+    /// Why an app was not filmed, when it was asked to be.
+    pub film_note: Option<String>,
 }
 
 impl Report {
@@ -72,6 +76,8 @@ impl Report {
             duration_ms: 0,
             apart: true,
             not_run: Vec::new(),
+            films: Vec::new(),
+            film_note: None,
         }
     }
 
@@ -120,6 +126,12 @@ impl Report {
                 .and_then(Value::as_array)
                 .map(|a| a.iter().filter_map(Value::as_str).map(str::to_owned).collect())
                 .unwrap_or_default(),
+            films: value
+                .get("films")
+                .and_then(Value::as_array)
+                .map(|a| a.iter().filter_map(Value::as_str).map(str::to_owned).collect())
+                .unwrap_or_default(),
+            film_note: text(value, "film_note"),
         })
     }
 
@@ -173,6 +185,12 @@ impl Report {
                 out.push_str(screen);
             }
         }
+        for film in &self.films {
+            out.push_str(&format!("\nfilme: {film}"));
+        }
+        if let Some(note) = &self.film_note {
+            out.push_str(&format!("\nsem filme: {note}"));
+        }
         out.push_str("\nnão verificado: ");
         out.push_str(&self.not_verified().join("; "));
         out
@@ -216,6 +234,8 @@ impl Report {
             "not_verified": self.not_verified(),
             "opened_apart": self.apart,
             "not_run": self.not_run,
+            "films": self.films,
+            "film_note": self.film_note,
         })
     }
 }
@@ -313,6 +333,14 @@ impl Report {
                 out.push_str(&format!(
                     "    <testcase classname=\"{suite}\" name=\"{name}\" time=\"0\">\n      <skipped message=\"um passo antes falhou\"/>\n    </testcase>\n"
                 ));
+            }
+            // A build server shows the film next to the suite, as JUnit's attachments say.
+            if !report.films.is_empty() {
+                out.push_str("    <system-out>");
+                for film in &report.films {
+                    out.push_str(&xml(&format!("[[ATTACHMENT|{film}]]\n")));
+                }
+                out.push_str("</system-out>\n");
             }
             out.push_str("  </testsuite>\n");
         }
@@ -432,6 +460,8 @@ pub fn schema() -> Value {
             "opened_apart": { "type": "boolean" },
             "not_verified": { "type": "array", "items": text },
             "not_run": { "type": "array", "items": text, "description": "titles of the blocks after a failure" },
+            "films": { "type": "array", "items": text, "description": "the .ravenmovie files kept of the apps the run drove" },
+            "film_note": { "type": ["string", "null"], "description": "why an app was not filmed, when it was asked to be" },
             "blocks": { "type": "array", "items": {
                 "type": "object",
                 "required": ["step", "id", "kind", "title", "line", "result"],

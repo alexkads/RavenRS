@@ -134,12 +134,18 @@ fn the_report_schema_names_every_field_the_json_has() {
 #[test]
 fn e2e_toml_gives_the_folder_format_and_out_and_refuses_what_it_does_not_know() {
     let config =
-        Config::parse("folder = \"testes\"\nformat = \"junit\"\nout = \"saida\"\nfilm = \"on-failure\"\n")
+        Config::parse("folder = \"testes\"\nformat = \"junit\"\nout = \"saida\"\nfilm = \"na-falha\"\nthemes = \"escuro\"\n")
             .unwrap();
     assert_eq!(config.folder, PathBuf::from("testes"));
     assert_eq!(config.format.as_deref(), Some("junit"));
     assert_eq!(config.out, Some(PathBuf::from("saida")));
-    assert!(config.planned_note().unwrap().contains("film"));
+    assert_eq!(
+        config.film,
+        Some(ravenrs_e2e_runner::driver::FilmMode::OnFailure),
+        "film counts now, in Portuguese too"
+    );
+    assert!(config.planned_note().unwrap().contains("themes"));
+    assert!(Config::parse("film = \"talvez\"").unwrap_err().contains("on-failure"));
     assert_eq!(Config::parse("").unwrap(), Config::default());
     assert!(Config::parse("formato = \"x\"").unwrap_err().contains("formato"));
     assert!(Config::parse("format = \"xml\"").unwrap_err().contains("junit"));

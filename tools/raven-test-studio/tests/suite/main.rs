@@ -6,6 +6,7 @@ mod apart;
 mod atualizacao;
 mod delegate;
 mod delegate_window;
+mod film;
 mod manifest;
 mod outputs;
 mod project;

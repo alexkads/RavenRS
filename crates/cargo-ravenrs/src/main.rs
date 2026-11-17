@@ -63,6 +63,10 @@ enum E2eCommand {
         /// project's target/e2e by default.
         #[arg(long)]
         out: Option<PathBuf>,
+        /// Film the apps: never, on-failure (keep only the film of the one that failed) or
+        /// always; the e2e.toml's, else never.
+        #[arg(long, default_value = "")]
+        film: String,
     },
     /// Print the JSON Schema of the report (report) or of a scenario as JSON (scenario).
     Schema {
@@ -126,8 +130,8 @@ async fn main() {
         Commands::Ai { plugin } => cargo_ravenrs::configure_ai(std::path::Path::new("."), plugin),
         Commands::Doctor => cargo_ravenrs::doctor(std::path::Path::new(".")),
         Commands::E2e { command } => std::process::exit(match command {
-            E2eCommand::Run { path, project, format, out } => {
-                cargo_ravenrs::e2e::run(&cargo_ravenrs::e2e::RunAsk { project, path, format, out })
+            E2eCommand::Run { path, project, format, out, film } => {
+                cargo_ravenrs::e2e::run(&cargo_ravenrs::e2e::RunAsk { project, path, format, out, film })
             }
             E2eCommand::List { project, json } => cargo_ravenrs::e2e::list(project.as_deref(), json),
             E2eCommand::Schema { which } => cargo_ravenrs::e2e::schema(&which),

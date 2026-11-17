@@ -23,8 +23,12 @@
 //! }
 //! ```
 
+// The JSON Schema of the report is one `json!` literal, deeper than the default allows.
+#![recursion_limit = "256"]
+
 pub mod app;
 pub mod config;
+pub mod driver;
 pub mod html;
 pub mod project;
 pub mod report;

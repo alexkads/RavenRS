@@ -41,6 +41,7 @@ preserving notes outside the block. An unmarked existing skill is preserved and 
 - with a path (`cargo ravenrs e2e run tests/e2e/pedido.raventest`, or a folder), it runs those files, opening the apps they name from the project before any installed copy;
 - `--format` is `text`, `json`, `jsonl` (one event per line, with the time of each step), `junit` (for build servers) or `html` (a page with the summary, each step and the failure);
 - each run is kept in `target/e2e/<scenario>/` (`--out` for another folder): `relatorio.json`, `relatorio.html`, `trace.jsonl` and, on a failure, `arvore.txt` with the app's screen;
+- `--film on-failure` films each app the scenarios open and keeps `filme-N.ravenmovie` of the one a block failed on, beside the report (`always` keeps every film, `never` films nothing; `film` in `e2e.toml` says it once). An app served without filming is not filmed, and the report says so;
 - the exit code is 0 when every scenario passed, 1 when one failed and 2 when nothing could run.
 
 An `e2e.toml` next to an app's `Cargo.toml` keeps the suite's choices: `folder` (where its scenarios are, `tests/e2e` by default), and, at the project's root, `format` and `out` for when the command line does not give them. `app`, `window`, `themes`, `film` and `load` are read and said to have no effect yet; any other key, or a wrong value, stops the run with exit code 2, the file and the key.
