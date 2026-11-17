@@ -675,6 +675,8 @@ pub struct FilmBuilder {
     known_fonts: HashMap<(u64, u32), u16>,
     known_images: HashMap<u64, u16>,
     list: Vec<u32>,
+    /// What was on screen before the last frame, so another frame at the same moment replaces it.
+    before_last: Vec<u32>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -702,6 +704,7 @@ impl FilmBuilder {
             known_fonts: HashMap::new(),
             known_images: HashMap::new(),
             list: Vec::new(),
+            before_last: Vec::new(),
         }
     }
 
@@ -816,12 +819,21 @@ impl FilmBuilder {
         if !self.header.frames.is_empty() && list == self.list {
             return;
         }
+        // A player shows one picture per moment: a frame drawn at the moment of the last one,
+        // as a screen settling after an input, takes its place instead of adding to the film.
+        if self.header.frames.last().is_some_and(|last| last.at == at_ms) {
+            self.header.frames.pop();
+            self.list = std::mem::take(&mut self.before_last);
+            if !self.header.frames.is_empty() && list == self.list {
+                return;
+            }
+        }
         let head = list.iter().zip(&self.list).take_while(|(a, b)| a == b).count();
         let tail =
             list[head..].iter().rev().zip(self.list[head..].iter().rev()).take_while(|(a, b)| a == b).count();
         let mid = list[head..list.len() - tail].to_vec();
         self.header.frames.push(StoredFrame { at: at_ms, head: head as u32, tail: tail as u32, mid });
-        self.list = list;
+        self.before_last = std::mem::replace(&mut self.list, list);
     }
 
     /// Notes where the pointer is.

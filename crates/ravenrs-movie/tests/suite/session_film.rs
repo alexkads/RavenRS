@@ -1,4 +1,4 @@
-//! Films of end-to-end test sessions (#670): made from what the session draws and does, the
+//! One film writer for every purpose (#670, #672): test sessions: made from what the session draws and does, the
 //! same bytes on every run, with nothing secret in them, and over the test channel too.
 
 #![allow(clippy::unwrap_used, reason = "tests fail loudly")]
@@ -8,7 +8,7 @@ use std::io::Cursor;
 use ravenrs_core::Size;
 use ravenrs_e2e::E2e;
 use ravenrs_e2e_wire::{Command, Hello, Reply, serve_on, serve_with};
-use ravenrs_movie::{ChannelFilm, Movie, Recorder, TestFilm};
+use ravenrs_movie::{ChannelFilm, Movie, Pace, Recorder, SessionFilm};
 use ravenrs_reactive::State;
 use ravenrs_style::Theme;
 use ravenrs_widgets::{Button, TextField, VStack, ViewExt};
@@ -32,14 +32,14 @@ fn session() -> E2e {
 /// Films the test: types a name and `secret`, and saves.
 fn filmed(secret: &str) -> Movie {
     let mut e2e = session();
-    let film = TestFilm::start(&mut e2e);
+    let film = SessionFilm::start(&mut e2e, Pace::Test);
     e2e.mark_step("Digitar o nome");
     e2e.by_test_id("nome").type_text("Ana").unwrap();
     e2e.mark_step("Digitar a senha");
     e2e.by_test_id("senha").type_text(secret).unwrap();
     e2e.mark_step("Salvar");
     e2e.by_test_id("salvar").click().unwrap();
-    film.finish(&mut e2e).unwrap()
+    film.finish(&mut e2e, 0).unwrap()
 }
 
 #[test]
@@ -125,4 +125,46 @@ fn the_recorder_finds_what_a_test_finds_by_its_id() {
     let missing = recorder.click("#nada").unwrap_err().to_string();
     assert!(missing.contains("#salvar"), "it lists the ids on the screen: {missing}");
     assert!(recorder.finish().is_ok());
+}
+
+#[test]
+fn the_recorder_and_a_test_find_the_same_part() {
+    let mut recorder = Recorder::new(form(), Theme::raven_light(), Size::new(480.0, 320.0));
+    let by_name = recorder.e2e_mut().by_text("Salvar").node().unwrap().id;
+    let by_id = recorder.e2e_mut().by_test_id("salvar").node().unwrap().id;
+    assert_eq!(by_name, by_id);
+    // The recorder finds it both ways and its click lands on it, as the session counts it.
+    recorder.click("Salvar").unwrap();
+    recorder.click("#salvar").unwrap();
+    let movie = recorder.finish().unwrap();
+    let end = movie.duration_ms();
+    let (_, ago) = movie.click_before(end).unwrap();
+    let second = end - ago;
+    assert!(movie.click_before(second.saturating_sub(1)).is_some(), "two clicks, one before the other");
+}
+
+#[test]
+fn a_recorder_films_at_a_persons_pace() {
+    let mut recorder = Recorder::new(form(), Theme::raven_light(), Size::new(480.0, 320.0));
+    recorder.type_into("#nome", "Ana").unwrap();
+    let movie = recorder.finish().unwrap();
+    // A person types a letter at a time, with the pointer gliding first: far longer than the
+    // dozen frames a test takes.
+    assert!(movie.duration_ms() > 1000, "{}", movie.duration_ms());
+    let early = movie.pointer_at(movie.duration_ms() / 8);
+    assert_ne!(early, movie.pointer_at(movie.duration_ms()), "the pointer glides");
+}
+
+#[test]
+fn a_film_fed_by_hand_gives_a_movie_without_stopping() {
+    let film = SessionFilm::new(Size::new(100.0, 100.0), ravenrs_core::Color::WHITE, Pace::Person);
+    film.at(0);
+    film.frame(&[]);
+    film.at(500);
+    film.pointer(ravenrs_core::Point::new(10.0, 10.0));
+    let first = film.movie(0).unwrap();
+    assert_eq!(first.duration_ms(), 500);
+    film.at(900);
+    film.click(ravenrs_core::Point::new(10.0, 10.0));
+    assert!(film.movie(0).unwrap().click_before(u64::MAX).is_some(), "it went on after the first movie");
 }

@@ -100,7 +100,7 @@ Rows with keys have test ids that stay with the data when it sorts, filters or s
 
 ## Watching a session
 
-`E2e::observe` hands a `FrameObserver` every frame the session draws, each pointer move, click and key, and each step a test marks with `E2e::mark_step`. `ravenrs-movie`'s `TestFilm` uses it to film a test. With no observer nothing is called and nothing is kept.
+`E2e::observe` hands a `FrameObserver` every frame the session draws, each pointer move, click and key, and each step a test marks with `E2e::mark_step`. `ravenrs-movie`'s `SessionFilm` uses it to film a test, and its `Recorder` scripts a training on a session with the raw input (`pointer_to`, `mouse_down`, `mouse_up`, `key_down`, `scroll_at`, `focus`, `frame_at`) and `find_all`. With no observer nothing is called and nothing is kept.
 
 ## Limits for now
 
