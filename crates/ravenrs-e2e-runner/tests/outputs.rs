@@ -161,7 +161,7 @@ fn a_scenario_becomes_a_rust_test_of_its_app() {
     )
     .unwrap();
     let code = rust::test(&scenario, "loja", "tests/e2e/a.raventest").unwrap();
-    assert!(code.contains("fn lancar_despesa()"), "{code}");
+    assert!(code.contains("fn scenario_lancar_despesa()"), "{code}");
     assert!(code.contains("CARGO_BIN_EXE_loja"));
     assert!(code.contains(r#"text: "Ana \"A\"".into()"#), "escaped: {code}");
     assert!(code.contains("Command::Wait { target: \"#ok\".into(), text: None }"));
@@ -179,4 +179,67 @@ fn a_scenario_becomes_a_rust_test_of_its_app() {
     };
     assert!(rust::test(&headless, "loja", "x").unwrap_err().contains("abrir"));
     assert_eq!(rust::ident("2 Cenários — Ação!"), "cenario_2_cenarios_acao");
+}
+
+#[test]
+fn generated_tests_compile_with_reserved_titles_and_helper_names() {
+    // Use the real channel library Cargo built for this suite, without another Cargo build
+    // or a second dependency tree. The generated tests only compile; they do not open an app.
+    let dependencies = std::env::current_exe().unwrap().parent().unwrap().to_path_buf();
+    let wire = std::fs::read_dir(&dependencies)
+        .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| {
+            path.file_name().is_some_and(|name| {
+                let name = name.to_string_lossy();
+                name.starts_with("libravenrs_e2e_wire-") && name.ends_with(".rlib")
+            })
+        })
+        .max_by_key(|path| path.metadata().unwrap().modified().unwrap())
+        .unwrap();
+    let folder = std::env::temp_dir().join(format!("ravenrs-generated-rust-{}", std::process::id()));
+    std::fs::create_dir_all(&folder).unwrap();
+    let mut modules = String::new();
+    for (i, title) in [
+        "type",
+        "self",
+        "Self",
+        "async",
+        "await",
+        "match",
+        "mod",
+        "gen",
+        "try",
+        "open",
+        "step",
+        "2 Cenários — Ação!",
+        "!!!",
+        "Lançar despesa",
+    ]
+    .iter()
+    .enumerate()
+    {
+        let scenario =
+            Scenario::parse(&format!("scenario: {title}\nopen Loja\nfill #nome = Ana\ncheck #nome = Ana\n"))
+                .unwrap();
+        let code = rust::test(&scenario, "loja", "tests/e2e/gerado.raventest").unwrap();
+        std::fs::write(folder.join(format!("scenario_{i}.rs")), code).unwrap();
+        modules.push_str(&format!("mod scenario_{i};\n"));
+    }
+    let source = folder.join("generated.rs");
+    std::fs::write(&source, modules).unwrap();
+    let result = std::process::Command::new("rustc")
+        .args(["--edition=2024", "--test", "--emit=metadata"])
+        .arg("--extern")
+        .arg(format!("ravenrs_e2e_wire={}", wire.display()))
+        .arg("-L")
+        .arg(format!("dependency={}", dependencies.display()))
+        .arg("--out-dir")
+        .arg(&folder)
+        .arg(&source)
+        .env("CARGO_BIN_EXE_loja", "not-run")
+        .output()
+        .unwrap();
+    std::fs::remove_dir_all(folder).unwrap();
+    assert!(result.status.success(), "{}", String::from_utf8_lossy(&result.stderr));
 }

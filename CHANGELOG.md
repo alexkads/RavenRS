@@ -186,6 +186,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- `cargo ravenrs e2e rust`: generated test names have a `scenario_` prefix, so titles such as `type`, `self`, `open` and `step` compile without reserved words or collisions with the generated helpers. ([#678](https://github.com/alexkads/RavenRS/issues/678))
 - Raven Test Studio and `cargo ravenrs e2e run`: a relative `--out` keeps the film beside the report even when the app under test runs in another project's folder. ([#676](https://github.com/alexkads/RavenRS/issues/676))
 - Raven Test Studio: the app opener takes its session type from the shared runner directly, removing the three-module cycle that blocked the local gate. ([#677](https://github.com/alexkads/RavenRS/issues/677))
 - `Scheduler`: clicking an event gives it the focus, so the arrow keys move the event that was clicked; they used to move the one that had the focus before, the first event when nothing was chosen yet. ([#665](https://github.com/alexkads/RavenRS/issues/665))
