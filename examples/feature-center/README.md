@@ -26,6 +26,7 @@ These accounts exist only here. The password of all three is `raven-demo`.
 
 | Group | Demonstrations |
 |---|---|
+| Básicos | `Button`: emphasis, sizes, icons, accessible names and descriptions, disabled/loading/selected states, width and keyboard activation. `Text`: the full type scale, custom size/weight/color, alignment, truncation and reactive bound/dynamic content |
 | Validação | Rules of every kind, warnings and notes, checking on leaving a field |
 | Aparência condicional | Colors, enabled and visible, on fields and actions; words of the screens replaced by key, and keys of the center's own ("Dizer olá") |
 | Actions | Simple, with a question, with a value, with a choice, with a window, an address, by criteria, inside a form, messages, one that runs in the background, and "Fechar e dobrar", declared with no code |

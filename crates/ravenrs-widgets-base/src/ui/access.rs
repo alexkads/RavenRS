@@ -172,7 +172,7 @@ impl Ui {
 }
 
 impl Ui {
-    /// Where this accessibility node's test id was declared, as of the latest
+    /// Where this node's test id was declared, or its instrumented view was constructed, as of the latest
     /// [`Self::access_tree`]. Returns `None` without `e2e-source`; not sent to screen readers.
     pub fn test_source(&self, id: u64) -> Option<&'static std::panic::Location<'static>> {
         #[cfg(feature = "e2e-source")]
@@ -224,15 +224,20 @@ impl Builder<'_> {
     /// Adds `node`'s accessible content to `out`. Text goes to `name` instead
     /// when an ancestor takes its name from its content.
     /// The test id a new node takes: its element's own, or one waiting from a container.
-    fn claim_test_tag(&mut self, own: Option<TestTag>, id: u64) -> Option<String> {
-        let tag = own.or(self.pending_test_tag.take())?;
+    fn claim_test_tag(
+        &mut self,
+        own: Option<TestTag>,
+        id: u64,
+        #[cfg(feature = "e2e-source")] view_source: Option<&'static std::panic::Location<'static>>,
+    ) -> Option<String> {
+        let tag = own.or(self.pending_test_tag.take());
         #[cfg(feature = "e2e-source")]
-        if let Some(source) = tag.source {
+        if let Some(source) = tag.as_ref().and_then(|tag| tag.source).or(view_source) {
             self.sources.insert(id, source);
         }
         #[cfg(not(feature = "e2e-source"))]
         let _ = id;
-        Some(tag.id.to_string())
+        tag.map(|tag| tag.id.to_string())
     }
 
     fn visit(&mut self, node: NodeId, out: &mut Vec<u64>, mut name: Option<&mut String>) {
@@ -266,7 +271,12 @@ impl Builder<'_> {
                     let id = self.id_for(e.widget);
                     let mut label = AccessNode::new(id, Role::Label, ui.screen_frame(i));
                     label.name = Some(text);
-                    label.test_id = self.claim_test_tag(own_tag, id);
+                    label.test_id = self.claim_test_tag(
+                        own_tag,
+                        id,
+                        #[cfg(feature = "e2e-source")]
+                        e.view_source,
+                    );
                     self.map.insert(id, node);
                     self.nodes.push(label);
                     out.push(id);
@@ -292,7 +302,12 @@ impl Builder<'_> {
         let index = self.nodes.len();
         let mut a = AccessNode::new(id, role, ui.screen_frame(i));
         a.focusable = focusable;
-        a.test_id = self.claim_test_tag(own_tag, id);
+        a.test_id = self.claim_test_tag(
+            own_tag,
+            id,
+            #[cfg(feature = "e2e-source")]
+            e.view_source,
+        );
         if let Some(s) = semantics {
             a.name = s.name.clone();
             a.description = s.description.clone();
@@ -362,6 +377,21 @@ fn readable(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::readable;
+
+    #[test]
+    #[cfg(not(feature = "e2e-source"))]
+    fn default_builds_do_not_record_view_origins() {
+        use crate::{Button, Text, Ui, VStack};
+        let mut ui = Ui::new(
+            VStack::new((Button::new("Save"), Text::new("Plain"))),
+            ravenrs_style::Theme::raven_light(),
+        );
+        ui.update();
+        let tree = ui.access_tree();
+        for node in &tree.nodes {
+            assert!(ui.test_source(node.id).is_none());
+        }
+    }
 
     #[test]
     fn readable_text_drops_icons_and_collapses_spaces() {

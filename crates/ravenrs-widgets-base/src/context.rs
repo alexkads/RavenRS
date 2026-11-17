@@ -572,6 +572,9 @@ pub struct Element {
     /// The declaration site of that id, kept only in source-instrumented test builds.
     #[cfg(feature = "e2e-source")]
     pub test_source: Option<&'static std::panic::Location<'static>>,
+    /// The view constructor's caller, used when no explicit test tag supplies an origin.
+    #[cfg(feature = "e2e-source")]
+    pub view_source: Option<&'static std::panic::Location<'static>>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -625,6 +628,8 @@ impl Element {
             test_id: None,
             #[cfg(feature = "e2e-source")]
             test_source: None,
+            #[cfg(feature = "e2e-source")]
+            view_source: None,
         }
     }
 
@@ -1329,6 +1334,13 @@ impl<'a> BuildCx<'a> {
     pub(crate) fn test_source(&mut self, node: NodeId, source: &'static std::panic::Location<'static>) {
         if let Some(e) = self.element_mut(node) {
             e.test_source = Some(source);
+        }
+    }
+
+    #[cfg(feature = "e2e-source")]
+    pub(crate) fn view_source(&mut self, node: NodeId, source: &'static std::panic::Location<'static>) {
+        if let Some(e) = self.element_mut(node) {
+            e.view_source = Some(source);
         }
     }
 

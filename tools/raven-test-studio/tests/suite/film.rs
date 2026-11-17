@@ -60,9 +60,16 @@ fn a_client_queries_a_studios_declared_source_only_when_instrumentation_is_enabl
         assert!(source.file.ends_with("src/lib.rs"), "{source:?}");
         let line = include_str!("../../src/lib.rs").lines().nth(source.line as usize - 1).unwrap();
         assert!(line.contains("test_id(id)"), "{source:?}: {line}");
+        let source = client.source("Registro").unwrap();
+        assert!(source.file.ends_with("src/lib.rs"), "{source:?}");
+        let line = include_str!("../../src/lib.rs").lines().nth(source.line as usize - 1).unwrap();
+        assert!(line.contains("Text::new(\"Registro\")"), "{source:?}: {line}");
     }
     #[cfg(not(feature = "e2e-source"))]
-    assert_eq!(client.source("#run").unwrap_err().code, "E2E_NO_SOURCE");
+    {
+        assert_eq!(client.source("#run").unwrap_err().code, "E2E_NO_SOURCE");
+        assert_eq!(client.source("Registro").unwrap_err().code, "E2E_NO_SOURCE");
+    }
     assert_eq!(client.source("#missing").unwrap_err().code, "E2E_NOT_FOUND");
 }
 
