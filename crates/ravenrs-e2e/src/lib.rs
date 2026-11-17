@@ -74,6 +74,15 @@ const DRAG_START: f32 = 6.0;
 /// does not hang the test.
 const SETTLE_FRAMES: u32 = 4;
 
+/// What a session for a window holds until it borrows the window's interface.
+struct Nothing;
+
+impl View for Nothing {
+    fn build(&self, cx: &mut ravenrs_widgets_base::BuildCx<'_>) -> ravenrs_widgets_base::NodeId {
+        cx.empty()
+    }
+}
+
 /// A view running with no window, driven by a test. See the [crate documentation](crate).
 pub struct E2e {
     ui: Ui,
@@ -109,6 +118,30 @@ impl E2e {
         };
         session.frame();
         session
+    }
+
+    /// A session with no interface of its own, to drive the interface of a real window with
+    /// [`Self::in_window`]: what an app opened with a test tool's `--headed` does, so the steps of
+    /// a scenario act on what the person sees. Until then it holds an empty screen.
+    pub fn for_window() -> Self {
+        Self::new(Nothing, Theme::default())
+    }
+
+    /// Runs `steps` on `ui`, the interface a window shows, whose clock reads `now` seconds: the
+    /// session borrows it for the steps and gives it back, so every click, key and check of
+    /// [`Self::for_window`] lands on the window, and its clock, size and references to parts of
+    /// the screen carry on from one call to the next. Waiting steps hold the window's thread
+    /// while they wait, as they hold the test's in a session with no window.
+    pub fn in_window<R>(&mut self, ui: &mut Ui, now: f64, steps: impl FnOnce(&mut Self) -> R) -> R {
+        std::mem::swap(&mut self.ui, ui);
+        self.size = self.ui.viewport();
+        // The window's clock may be ahead of the session's; the session's only moves forward.
+        self.clock = self.clock.max(now);
+        self.ui.set_time(self.clock);
+        self.frame();
+        let result = steps(self);
+        std::mem::swap(&mut self.ui, ui);
+        result
     }
 
     /// Changes the window size and scale, such as `Size::new(375.0, 812.0)` for a phone.

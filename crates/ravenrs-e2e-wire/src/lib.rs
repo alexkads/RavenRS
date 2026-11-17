@@ -24,8 +24,21 @@
 //! test id or the text shown, as [`target`] reads it. [`Command::apply`] runs a command on a
 //! session in this process too, so a tool runs a scenario the same way whether the app is
 //! compiled in or opened apart.
+//!
+//! # With the window
+//!
+//! Opened with `--e2e-serve --e2e-window` ([`WINDOW_FLAG`]), an app that supports it shows its
+//! real window and answers the same commands on the interface the window shows (`--headed` in
+//! the tools): it builds its view as usual, keeps its test data, and hands
+//! [`ravenrs_platform_native::run_driven`](https://docs.rs/ravenrs-platform-native) a
+//! [`Headed`] driver. Its hello says `window: true`; a tool that asked for the window and hears
+//! no such hello refuses with [`codes::NO_WINDOW`]. When the person closes the window during a
+//! test, the step waiting fails with [`codes::WINDOW_CLOSED`]. [`Command::Release`] ends the test
+//! and leaves the window to the person, to look at where a scenario failed.
 
 mod client;
+#[cfg(feature = "serve")]
+mod headed;
 mod scenario;
 #[cfg(feature = "serve")]
 mod serve;
@@ -34,6 +47,8 @@ use ravenrs_e2e::{E2e, E2eError, Query};
 use serde::{Deserialize, Serialize};
 
 pub use client::Client;
+#[cfg(feature = "serve")]
+pub use headed::{Headed, SETTLE};
 pub use scenario::{Block, EXTENSION, FOLDER, Kind, Scenario, ScenarioError, check_folder, scenario_schema};
 #[cfg(feature = "serve")]
 pub use serve::{Filming, serve, serve_filmed, serve_on, serve_with};
@@ -44,6 +59,9 @@ pub const PROTOCOL: &str = "ravenrs-e2e-wire";
 pub const VERSION: u32 = 1;
 /// The option that opens an app on this channel instead of its window.
 pub const SERVE_FLAG: &str = "--e2e-serve";
+/// The option, after [`SERVE_FLAG`], that asks the app to show its real window while it is
+/// driven. An app that cannot says so in its [`Hello`] (`window: false`).
+pub const WINDOW_FLAG: &str = "--e2e-window";
 
 /// Codes of this channel, next to the `E2E_*` codes of `ravenrs-e2e`.
 pub mod codes {
@@ -57,6 +75,11 @@ pub mod codes {
     pub const NO_FILM: &str = "E2E_NO_FILM";
     /// The app does not provide vector frames, or it could not capture its current frame.
     pub const NO_FRAME: &str = "E2E_NO_FRAME";
+    /// A window was asked for, and the app cannot show one: it does not support the window on the
+    /// channel, or the computer has no graphical session.
+    pub const NO_WINDOW: &str = "E2E_NO_WINDOW";
+    /// The person closed the app's window while a test drove it.
+    pub const WINDOW_CLOSED: &str = "E2E_WINDOW_CLOSED";
 }
 
 /// What the app says first: that it speaks this channel, which version, and its name.
@@ -71,12 +94,22 @@ pub struct Hello {
     /// The scenarios the app brings, each the text of a `.raventest` file of its `tests/e2e/`.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub scenarios: Vec<String>,
+    /// Whether the app shows its real window while it is driven: it was opened with
+    /// [`WINDOW_FLAG`] and supports it. Apps from before the window say nothing, read as `false`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub window: bool,
 }
 
 impl Hello {
     /// The hello of `app` on this version of the channel.
     pub fn of(app: &str) -> Self {
-        Self { protocol: PROTOCOL.to_owned(), version: VERSION, app: app.to_owned(), scenarios: Vec::new() }
+        Self {
+            protocol: PROTOCOL.to_owned(),
+            version: VERSION,
+            app: app.to_owned(),
+            scenarios: Vec::new(),
+            window: false,
+        }
     }
 
     /// With the scenarios the app brings, as the text of its `.raventest` files.
@@ -183,6 +216,9 @@ pub enum Command {
     Snapshot,
     /// Ends the session; the app exits.
     Bye,
+    /// Ends the test and leaves the window to the person, to look at how the app was left; the
+    /// app exits when the person closes it. With no window, the same as [`Command::Bye`].
+    Release,
 }
 
 /// What a step needs to find: `#id` is a test id, anything else is the text shown.
@@ -217,7 +253,7 @@ impl Command {
             Self::Film { .. } | Self::FilmStop => {
                 return Err(Failure::of(codes::NO_FILM, "this app is served without filming"));
             }
-            Self::Bye => Ok(()),
+            Self::Bye | Self::Release => Ok(()),
             Self::Wait { target: t, text } => {
                 let q = target(t);
                 match text {
@@ -276,6 +312,7 @@ impl Command {
             Self::Wait { .. }
             | Self::Snapshot
             | Self::Bye
+            | Self::Release
             | Self::Film { .. }
             | Self::FilmStop
             | Self::Frame

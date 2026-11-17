@@ -24,6 +24,7 @@ serve = []
 [dependencies]
 ravenrs-core.workspace = true
 ravenrs-e2e.workspace = true
+ravenrs-widgets-base.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

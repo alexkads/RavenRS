@@ -23,6 +23,15 @@ fn main() -> Result<(), PlatformError> {
     // A tool such as Raven Test Studio drives the app with no window, on the sample family in
     // memory: the database of the person using the app is never opened.
     if first.as_deref() == Some(family_finance::e2e::SERVE_FLAG) {
+        // With the window, the same sample family shows on screen while the tool drives it.
+        let rest: Vec<String> = arguments.collect();
+        if family_finance::e2e::wants_window(&rest) {
+            if let Err(e) = family_finance::e2e::serve_headed() {
+                eprintln!("a janela de teste não abriu: {e}");
+                std::process::exit(1);
+            }
+            return Ok(());
+        }
         if let Err(e) = family_finance::e2e::serve() {
             eprintln!("o canal de teste parou: {e}");
             std::process::exit(1);

@@ -29,6 +29,8 @@ pub mod date;
 pub mod display;
 #[doc(hidden)]
 pub mod dock_side;
+
+pub mod drive;
 #[doc(hidden)]
 pub mod extras;
 #[doc(hidden)]
@@ -134,6 +136,7 @@ pub use context::{
 pub use date::{Date, days_in_month, is_leap_year};
 pub use display::{Alert, AlertAction, Avatar, Badge, Divider, ProgressBar, Section, Skeleton, Stat, Tone};
 pub use dock_side::DockSide;
+pub use drive::{Driving, UiDriver};
 pub use extras::{
     AccessibleControl, Carousel, FormField, InputOtp, Menubar, Rule, Spinner, SplitHandle, SplitPane,
     SplitPanes, Splitter, validate,

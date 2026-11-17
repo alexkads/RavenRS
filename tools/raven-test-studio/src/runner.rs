@@ -7,8 +7,9 @@
 
 use ravenrs::prelude::*;
 use ravenrs_e2e::E2e;
-pub use ravenrs_e2e_runner::driver::{Driver, FilmMode};
+pub use ravenrs_e2e_runner::driver::{Driver, FilmMode, Inspection};
 pub use ravenrs_e2e_runner::session::{Failure, Opener, Outcome, Session, Step, perform, summary};
+use ravenrs_e2e_runner::window::{Control, Window};
 use ravenrs_e2e_wire::{Block, Kind};
 
 use crate::sample;
@@ -55,6 +56,7 @@ pub struct Run {
     driver: Driver,
     next: usize,
     failed: bool,
+    stopped: bool,
 }
 
 impl Default for Run {
@@ -66,7 +68,30 @@ impl Default for Run {
 impl Run {
     /// A run that opens apps with `open`.
     pub fn new(open: Opener) -> Self {
-        Self { driver: Driver::new(open), next: 0, failed: false }
+        Self { driver: Driver::new(open), next: 0, failed: false, stopped: false }
+    }
+
+    /// Shows the apps as `window` says (with the real window, at a pace a person follows), steered
+    /// by `control` when given.
+    #[must_use]
+    pub fn presenting(mut self, window: Window, control: Option<Control>) -> Self {
+        self.driver = self.driver.presenting(window, control);
+        self
+    }
+
+    /// How the run shows the apps.
+    pub fn window(&self) -> Window {
+        self.driver.window()
+    }
+
+    /// Whether the person watching stopped the run before its end.
+    pub fn stopped(&self) -> bool {
+        self.stopped
+    }
+
+    /// The window left open at the end, when the run keeps it; tell the person and wait on it.
+    pub fn inspection(&mut self) -> Option<Inspection> {
+        self.driver.inspection()
     }
 
     /// Films each app the run opens, keeping the films in `folder` as `mode` says.
@@ -83,12 +108,12 @@ impl Run {
 
     /// A run with nothing left to do, as one whose result came from the cache.
     pub fn finished_with(open: Opener) -> Self {
-        Self { driver: Driver::new(open), next: usize::MAX, failed: false }
+        Self { driver: Driver::new(open), next: usize::MAX, failed: false, stopped: false }
     }
 
     /// Whether the run has nothing left to do: it reached the end or a block failed.
     pub fn finished(&self, graph: &FlowGraph) -> bool {
-        self.failed || self.next >= path(graph).len()
+        self.failed || self.stopped || self.next >= path(graph).len()
     }
 
     /// Runs the next block, marks it in `graph` and says how it went; `None` when finished.
@@ -97,6 +122,17 @@ impl Run {
             return None;
         }
         let ids = path(graph);
+        if !self.driver.turn() {
+            // The person stopped it: what is left does not run, and the app ends.
+            self.stopped = true;
+            for later in &ids[self.next..] {
+                if let Some(n) = graph.nodes.iter_mut().find(|n| n.id == *later) {
+                    n.status = FlowNodeStatus::Skipped;
+                }
+            }
+            self.driver.end(self.failed);
+            return None;
+        }
         let id = ids.get(self.next)?.clone();
         self.next += 1;
         let node = graph.nodes.iter_mut().find(|n| n.id == id)?;

@@ -10,6 +10,7 @@ use std::time::Instant;
 use ravenrs_e2e_wire::{Command, codes};
 
 use crate::session::{self, Failure, Opener, Outcome, Session, Step};
+use crate::window::{Control, Window};
 
 /// When a run keeps the film of the app it drives.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -57,12 +58,74 @@ pub struct Driver {
     open: Opener,
     films: Films,
     ended: bool,
+    window: Window,
+    control: Option<Control>,
+    kept: Option<Inspection>,
+}
+
+/// The window of the last app of a run, left open for the person to look at how the run left
+/// it ([`crate::window::KeepOpen`]). Dropping it closes the window and ends the app.
+#[derive(Debug)]
+pub struct Inspection(ravenrs_e2e_wire::Client);
+
+impl Inspection {
+    /// The app whose window is open.
+    pub fn app(&self) -> &str {
+        self.0.app()
+    }
+
+    /// Leaves the window to the person and waits until they close it; the app ends then.
+    pub fn wait(self) -> Result<(), String> {
+        self.0.release().map_err(|f| f.to_string())
+    }
+
+    /// [`Self::wait`], after telling the person at the terminal, who reads the report first.
+    pub fn hold(self) {
+        eprintln!("[e2e] a janela do {} ficou aberta para inspeção: feche-a para terminar", self.app());
+        if let Err(why) = self.wait() {
+            eprintln!("[e2e] {why}");
+        }
+    }
 }
 
 impl Driver {
     /// A driver that opens apps with `open`, filming nothing.
     pub fn new(open: Opener) -> Self {
-        Self { session: None, open, films: Films::default(), ended: false }
+        Self {
+            session: None,
+            open,
+            films: Films::default(),
+            ended: false,
+            window: Window::default(),
+            control: None,
+            kept: None,
+        }
+    }
+
+    /// Shows the apps as `window` says, steered by `control` when given (else at the pace of
+    /// `window`). With the window, it is set for every app this process opens
+    /// ([`crate::app::set_window`]).
+    pub fn presenting(mut self, window: Window, control: Option<Control>) -> Self {
+        crate::app::set_window(window.mode);
+        self.control = control.or_else(|| window.headed().then(|| Control::new(window.slow_mo)));
+        self.window = window;
+        self
+    }
+
+    /// How the run shows the apps.
+    pub fn window(&self) -> Window {
+        self.window
+    }
+
+    /// Waits for the turn of the next block, as the person watching steers it: `false` when the
+    /// run was stopped, and the blocks left do not run.
+    pub fn turn(&self) -> bool {
+        self.control.as_ref().is_none_or(Control::turn)
+    }
+
+    /// Whether the person watching stopped the run.
+    pub fn stopped(&self) -> bool {
+        self.control.as_ref().is_some_and(Control::is_stopped)
     }
 
     /// Films each app it opens, keeping the films in `folder` as `filme-1.ravenmovie`,
@@ -100,6 +163,10 @@ impl Driver {
         }
         let ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
         let failed = result.is_err();
+        if !failed && let Some(control) = &self.control {
+            // After the step is timed: the pace is the person's, not the app's.
+            control.present();
+        }
         let f = result.err().map(|f| *f).unwrap_or_default();
         // The failure brings the screen as it was; when it did not, the app is asked for it.
         let screen = match &f.screen {
@@ -132,7 +199,14 @@ impl Driver {
         }
         self.ended = true;
         self.stop_film(failed);
-        self.session = None;
+        let session = self.session.take();
+        if self.window.headed()
+            && self.window.keep_open.keeps(failed)
+            && let Some(Session::Apart(client)) = session
+            && client.window()
+        {
+            self.kept = Some(Inspection(client));
+        }
         if self.films.mode == FilmMode::OnFailure {
             self.films.done.retain(|(path, failed)| {
                 if !failed {
@@ -142,6 +216,12 @@ impl Driver {
                 *failed
             });
         }
+    }
+
+    /// The window left open at the end of the run, when [`Window::keep_open`] says so; the
+    /// caller tells the person and [waits](Inspection::wait).
+    pub fn inspection(&mut self) -> Option<Inspection> {
+        self.kept.take()
     }
 
     /// The films kept, once the run [ended](Self::end).

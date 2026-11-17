@@ -2269,7 +2269,7 @@ checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
 name = "family-finance"
-version = "0.1.42"
+version = "0.1.43"
 dependencies = [
  "image",
  "jiff",
@@ -5910,7 +5910,7 @@ dependencies = [
 
 [[package]]
 name = "raven-test-studio"
-version = "0.1.13"
+version = "0.1.14"
 dependencies = [
  "ravenrs",
  "ravenrs-agent-cli",
@@ -6370,6 +6370,8 @@ dependencies = [
  "ravenrs-e2e",
  "ravenrs-e2e-wire",
  "ravenrs-process",
+ "ravenrs-style",
+ "ravenrs-widgets",
  "regex-lite",
  "serde_json",
  "toml_edit 0.22.27",
@@ -6385,6 +6387,7 @@ dependencies = [
  "ravenrs-reactive",
  "ravenrs-style",
  "ravenrs-widgets",
+ "ravenrs-widgets-base",
  "serde",
  "serde_json",
 ]

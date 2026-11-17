@@ -22,10 +22,12 @@ fn render(reports: &[Report], folder: Option<&std::path::Path>) -> String {
     let mut body = format!(
         "<header><h1>Relatório e2e</h1><p class=\"verdict {verdict}\">{}</p>\
          <dl><div><dt>Cenários</dt><dd>{passed} de {} passaram</dd></div>\
-         <div><dt>Passos</dt><dd>{blocks}</dd></div><div><dt>Tempo</dt><dd>{}</dd></div></dl></header>",
+         <div><dt>Passos</dt><dd>{blocks}</dd></div><div><dt>Tempo</dt><dd>{}</dd></div>\
+         <div><dt>Janela</dt><dd>{}</dd></div></dl></header>",
         if verdict == "passed" { "Passou" } else { "Falhou" },
         reports.len(),
-        seconds(ms)
+        seconds(ms),
+        esc(&window_line(reports))
     );
     for report in reports {
         body.push_str(&scenario(report, folder));
@@ -120,6 +122,22 @@ fn scenario(report: &Report, folder: Option<&std::path::Path>) -> String {
     }
     out.push_str("</section>");
     out
+}
+
+/// How the apps were shown, as the header says it: with the window or not, where, at what pace.
+fn window_line(reports: &[Report]) -> String {
+    let headed = reports.iter().any(|r| r.window == crate::window::WindowMode::Headed);
+    if !headed {
+        return format!("sem janela, em {}", crate::window::this_system());
+    }
+    let mut line = format!("com a janela do app, em {}", crate::window::this_system());
+    if let Some(ms) = reports.iter().map(|r| r.slow_mo_ms).find(|ms| *ms > 0) {
+        line.push_str(&format!(", {ms} ms entre os passos"));
+    }
+    if reports.iter().any(|r| r.stopped) {
+        line.push_str(", parado antes do fim");
+    }
+    line
 }
 
 fn film_href(film: &str, folder: Option<&std::path::Path>) -> Option<String> {

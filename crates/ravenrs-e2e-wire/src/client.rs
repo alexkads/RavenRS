@@ -23,6 +23,7 @@ pub struct Client {
     errors: Arc<Mutex<Vec<String>>>,
     app: String,
     scenarios: Vec<String>,
+    window: bool,
     step_time: Duration,
 }
 
@@ -61,6 +62,7 @@ impl Client {
             errors,
             app: String::new(),
             scenarios: Vec::new(),
+            window: false,
             step_time: STEP_TIME,
         };
         let hello = client.next_line(start_time, codes::APP_START)?;
@@ -77,6 +79,7 @@ impl Client {
         }
         client.app = hello.app;
         client.scenarios = hello.scenarios;
+        client.window = hello.window;
         Ok(client)
     }
 
@@ -89,6 +92,28 @@ impl Client {
     /// [`crate::Scenario::parse`].
     pub fn scenarios(&self) -> &[String] {
         &self.scenarios
+    }
+
+    /// Whether the app shows its real window while it is driven: it was opened with
+    /// [`crate::WINDOW_FLAG`] and supports it.
+    pub fn window(&self) -> bool {
+        self.window
+    }
+
+    /// Ends the test and leaves the app's window to the person ([`Command::Release`]), then waits
+    /// until they close it and the app ends. An app with no window, or one from before the
+    /// window, just ends, as when the client is dropped.
+    pub fn release(mut self) -> Result<(), Failure> {
+        if !self.window {
+            return Ok(());
+        }
+        self.send(&Command::Release)?;
+        // Closing its input is not a goodbye for a released window: it stays until closed.
+        self.input = None;
+        self.child
+            .wait()
+            .map(drop)
+            .map_err(|e| Failure::of(codes::APP_START, format!("could not wait for the app: {e}")))
     }
 
     /// Gives each step up to `time` before the app is taken as stuck; 30 s by default.

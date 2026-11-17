@@ -17,7 +17,10 @@ fn nothing(_: &str) -> Option<Result<Session, Box<Failure>>> {
 }
 
 fn failed() -> Report {
-    let dir = std::env::temp_dir().join(format!("ravenrs-e2e-runner-html-{}", std::process::id()));
+    // One folder per call: the tests that use it run at the same time, and each removes its own.
+    static CALLS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+    let call = CALLS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+    let dir = std::env::temp_dir().join(format!("ravenrs-e2e-runner-html-{}-{call}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let file = dir.join("a.raventest");
     std::fs::write(&file, "scenario: Pedido <novo> & \"rápido\"\nopen Loja\nclick #salvar | Salvar\n")
