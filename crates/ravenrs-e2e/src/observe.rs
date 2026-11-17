@@ -57,6 +57,12 @@ impl E2e {
         self.ui.scene().clear_color()
     }
 
+    /// The current frame's display list, without advancing time or replacing the observer.
+    /// Protected fields are already drawn hidden, as they are on screen.
+    pub fn primitives(&self) -> &[Primitive] {
+        self.ui.scene().primitives()
+    }
+
     pub(crate) fn observed_frame(&mut self) {
         if let Some(observer) = &mut self.observer {
             observer.frame(self.ui.scene().primitives());

@@ -1795,6 +1795,10 @@ impl Debug for grid::query::GridTableColumn
 impl Debug for grid::query::GridTableKind
 impl Debug for grid::query::QueryResult
 impl Debug for grid::query::ViewRow
+impl Debug for testing::DataGridDriver
+impl Debug for testing::DockDriver
+impl Debug for testing::FlowCanvasDriver
+impl Debug for testing::SchedulerDriver
 impl Default for AnchorPoint
 impl Default for AudioPlayerButton
 impl Default for ButtonSize
@@ -4659,8 +4663,25 @@ method grid::query::GridQuery::set_filter
 method grid::query::GridQuery::toggle_collapsed
 method grid::query::GridQuery::toggle_group
 method grid::query::GridQuery::toggle_sort
+method testing::DataGridDriver::clear_sort
+method testing::DataGridDriver::edit_cell
+method testing::DataGridDriver::filter
+method testing::DataGridDriver::new
+method testing::DataGridDriver::sort_by
+method testing::DataGridDriver::within
+method testing::DockDriver::dock_back
+method testing::DockDriver::float
+method testing::DockDriver::new
+method testing::FlowCanvasDriver::connect
+method testing::FlowCanvasDriver::move_node
+method testing::FlowCanvasDriver::new
+method testing::SchedulerDriver::move_event
+method testing::SchedulerDriver::move_to_resource
+method testing::SchedulerDriver::new
+method testing::SchedulerDriver::resize_event
 mod grid
 mod grid::query
+mod testing
 mod validate
 reexport ChartCurve = ravenrs_graphics::plot::Curve
 reexport ChartGrid = ravenrs_graphics::plot::Grid
@@ -5071,6 +5092,10 @@ struct grid::query::GridQuery
 struct grid::query::GridTable
 struct grid::query::GridTableColumn
 struct grid::query::QueryResult
+struct testing::DataGridDriver
+struct testing::DockDriver
+struct testing::FlowCanvasDriver
+struct testing::SchedulerDriver
 trait ClipboardProvider
 trait Component
 trait FilePickerProvider

@@ -82,4 +82,6 @@ the whole sound as samples. The `ravenrs-movie-video` crate turns these into a v
 - the `FlightRecorder` feeds it what the running app paints, at the app's clock (`SessionFilm::new`, `at`, `frame`, `movie`), for a bug report;
 - an app opened apart films its own session over the test channel with `ravenrs_e2e_wire::serve_filmed(hello, session, ChannelFilm::default())`.
 
+The same `ChannelFilm` also provides the current vector frame through `Client::frame()`: the bytes of a single-frame `.ravenmovie`, made with `SessionFilm` and read with `Movie::from_bytes`. This needs no GPU or file in the app. Capturing neither advances the session's clock nor replaces the observer, so a take in progress keeps filming after a preview is requested. Two captures without an action have the same bytes.
+
 Nothing comes from the wall clock in a test or a training, so two runs give the same bytes. A protected field stays hidden as the session draws it. A frame drawn at the moment of the last one takes its place, since a player shows one picture per moment.

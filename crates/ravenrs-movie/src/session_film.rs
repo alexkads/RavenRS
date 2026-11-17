@@ -196,6 +196,13 @@ pub struct ChannelFilm {
 }
 
 impl ravenrs_e2e_wire::Filming for ChannelFilm {
+    fn frame(&mut self, e2e: &E2e) -> Result<Vec<u8>, String> {
+        // Reuse the film writer without attaching an observer: an ongoing take keeps filming.
+        let frame = SessionFilm::new(e2e.size(), e2e.background(), Pace::Person);
+        frame.frame(e2e.primitives());
+        frame.movie(1).map(|movie| movie.to_bytes()).map_err(|error| error.to_string())
+    }
+
     fn start(&mut self, e2e: &mut E2e, path: &std::path::Path) {
         if let Some((film, _)) = self.taking.take() {
             drop(film.finish(e2e, 0));

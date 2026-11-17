@@ -34,6 +34,22 @@ const PASSES: &str =
     "scenario: Passa filmado\nopen Raven Test Studio\nclick #run\ncheck #summary = 5 de 5 passos passaram\n";
 
 #[test]
+fn a_client_receives_the_vector_frame_of_another_studio_and_what_an_action_changed() {
+    let mut process = std::process::Command::new(env!("CARGO_BIN_EXE_raven-test-studio"));
+    process.arg("--e2e-serve");
+    let mut client = ravenrs_e2e_wire::Client::spawn(process, std::time::Duration::from_secs(20)).unwrap();
+    let first = client.frame().unwrap();
+    assert_eq!(first, client.frame().unwrap());
+    let movie = Movie::from_bytes(&first).unwrap();
+    assert_eq!(movie.logical_size(), ravenrs::prelude::Size::new(1440.0, 900.0));
+    assert!(movie.draw_list(0).is_some_and(|(_, draws)| !draws.is_empty()));
+    client.send(&ravenrs_e2e_wire::Command::Click { target: "#run".into() }).unwrap();
+    let after = client.frame().unwrap();
+    assert_ne!(first, after, "the frame shows what Rodar changed");
+    Movie::from_bytes(&after).unwrap();
+}
+
+#[test]
 fn a_failure_keeps_the_film_of_the_app_it_failed_on() {
     let (dir, file) = scenario("falha", FAILS);
     let report = on_a_studio_apart(&file, FilmMode::OnFailure, &dir.join("out"));

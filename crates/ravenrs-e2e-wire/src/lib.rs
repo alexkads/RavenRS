@@ -55,6 +55,8 @@ pub mod codes {
     pub const WIRE: &str = "E2E_WIRE";
     /// The app was asked to film, and it is not served with filming, or it could not keep the film.
     pub const NO_FILM: &str = "E2E_NO_FILM";
+    /// The app does not provide vector frames, or it could not capture its current frame.
+    pub const NO_FRAME: &str = "E2E_NO_FRAME";
 }
 
 /// What the app says first: that it speaks this channel, which version, and its name.
@@ -170,6 +172,8 @@ pub enum Command {
     /// Stops filming and keeps the film; answers with its path.
     #[serde(rename = "film_stop")]
     FilmStop,
+    /// The current vector frame, in [`Reply::frame`], encoded as a single-frame `.ravenmovie`.
+    Frame,
     /// The screen as text, as [`E2e::snapshot`] writes it.
     Snapshot,
     /// Ends the session; the app exits.
@@ -199,6 +203,9 @@ impl Command {
     pub fn apply(&self, e2e: &mut E2e) -> Result<Option<String>, Failure> {
         let done = match self {
             Self::Snapshot => return Ok(Some(e2e.snapshot())),
+            Self::Frame => {
+                return Err(Failure::of(codes::NO_FRAME, "this app is served without vector frames"));
+            }
             Self::Film { .. } | Self::FilmStop => {
                 return Err(Failure::of(codes::NO_FILM, "this app is served without filming"));
             }
@@ -258,7 +265,12 @@ impl Command {
                 }
             }
             Self::Mention { target: t, text } => e2e.locate(target(t)).expect().to_mention(text),
-            Self::Wait { .. } | Self::Snapshot | Self::Bye | Self::Film { .. } | Self::FilmStop => Ok(()),
+            Self::Wait { .. }
+            | Self::Snapshot
+            | Self::Bye
+            | Self::Film { .. }
+            | Self::FilmStop
+            | Self::Frame => Ok(()),
         }
     }
 }
@@ -317,6 +329,9 @@ pub struct Reply {
     /// The screen, for [`Command::Snapshot`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub snapshot: Option<String>,
+    /// The current vector frame, a single-frame `.ravenmovie`, for [`Command::Frame`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub frame: Option<Vec<u8>>,
     /// Why it failed, when it did.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failure: Option<Failure>,
@@ -326,14 +341,30 @@ impl Reply {
     /// The reply to what [`Command::apply`] returned.
     pub fn of(result: Result<Option<String>, Failure>) -> Self {
         match result {
-            Ok(snapshot) => Self { ok: true, snapshot, failure: None },
-            Err(failure) => Self { ok: false, snapshot: None, failure: Some(failure) },
+            Ok(snapshot) => Self { ok: true, snapshot, ..Self::default() },
+            Err(failure) => Self { failure: Some(failure), ..Self::default() },
         }
+    }
+
+    /// A successful vector-frame reply, with the bytes of one `.ravenmovie` frame.
+    pub fn frame(bytes: Vec<u8>) -> Self {
+        Self { ok: true, frame: Some(bytes), ..Self::default() }
+    }
+
+    /// The vector frame, or the app's failure. A successful reply without a frame is a
+    /// protocol error, so an unavailable preview never looks like an empty screen.
+    pub fn into_frame(mut self) -> Result<Vec<u8>, Failure> {
+        let frame = self.frame.take();
+        self.into_result()?;
+        frame.ok_or_else(|| Failure::of(codes::WIRE, "the app answered without a vector frame"))
     }
 
     /// Back to what [`Command::apply`] returned.
     pub fn into_result(self) -> Result<Option<String>, Failure> {
         if self.ok {
+            if self.frame.is_some() {
+                return Err(Failure::of(codes::WIRE, "use Client::frame to receive a vector frame"));
+            }
             Ok(self.snapshot)
         } else {
             Err(self

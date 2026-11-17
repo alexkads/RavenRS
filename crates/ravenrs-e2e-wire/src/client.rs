@@ -99,6 +99,17 @@ impl Client {
 
     /// Sends `command` and waits for the app's answer, as [`Command::apply`] returns it.
     pub fn send(&mut self, command: &Command) -> Result<Option<String>, Failure> {
+        self.exchange(command)?.into_result()
+    }
+
+    /// The app's current vector frame, encoded as a single-frame `.ravenmovie`. The app must
+    /// provide frames through its `Filming` adapter. Decode with `Movie::from_bytes`
+    /// in `ravenrs-movie`; this crate has no dependency on the movie engine.
+    pub fn frame(&mut self) -> Result<Vec<u8>, Failure> {
+        self.exchange(&Command::Frame)?.into_frame()
+    }
+
+    fn exchange(&mut self, command: &Command) -> Result<Reply, Failure> {
         let line = serde_json::to_string(command).map_err(|e| Failure::of(codes::WIRE, e.to_string()))?;
         let written = match self.input.as_mut() {
             Some(input) => writeln!(input, "{line}").and_then(|()| input.flush()).is_ok(),
@@ -108,9 +119,8 @@ impl Client {
             return Err(self.failure(codes::APP_START, "the app is no longer running"));
         }
         let answer = self.next_line(self.step_time, codes::TIMEOUT)?;
-        let reply: Reply = serde_json::from_str(&answer)
-            .map_err(|e| Failure::of(codes::WIRE, format!("not an answer of this channel: {e}")))?;
-        reply.into_result()
+        serde_json::from_str(&answer)
+            .map_err(|e| Failure::of(codes::WIRE, format!("not an answer of this channel: {e}")))
     }
 
     /// The next line of the channel, or why there is none: the app ended, or took too long.
