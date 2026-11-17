@@ -45,9 +45,8 @@ pub fn run(ask: &RunAsk) -> i32 {
     if let Some(note) = config.planned_note() {
         eprintln!("{note}");
     }
-    let broken: Vec<&str> = project.found.iter().filter_map(|f| f.config_error.as_deref()).collect();
-    if !broken.is_empty() {
-        eprintln!("{}", broken.join("\n"));
+    if let Err(why) = project.check_configs() {
+        eprintln!("{why}");
         return 2;
     }
     let format = if ask.format.is_empty() {

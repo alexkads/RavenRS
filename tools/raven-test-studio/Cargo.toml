@@ -40,6 +40,7 @@ app = "Raven Test Studio"
 binary = "raven-test-studio"
 since = "0.1.6"
 variable = "RAVEN_TEST_STUDIO"
+features = ["e2e-source"]
 installed = [
     "Applications/Raven Test Studio.app/Contents/MacOS/raven-test-studio",
     ".local/bin/raven-test-studio",

@@ -21,7 +21,19 @@ const KEPT: usize = 16;
 /// its target directory and configuration. The build gets `timeout`; an error preserves the
 /// rendered Rust diagnostic, including source location and suggestions, in the failure detail.
 pub fn compile(root: &Path, package: &str, binary: &str, timeout: Duration) -> Result<PathBuf, Box<Failure>> {
-    let process = Spec::new("cargo")
+    compile_with_features(root, package, binary, &[], timeout)
+}
+
+/// [`compile`] with the Cargo features the app declared for its test build. This is the same
+/// executor; features are passed as an argument, never interpreted by a shell.
+pub fn compile_with_features(
+    root: &Path,
+    package: &str,
+    binary: &str,
+    features: &[String],
+    timeout: Duration,
+) -> Result<PathBuf, Box<Failure>> {
+    let mut spec = Spec::new("cargo")
         .args([
             "build",
             "--message-format=json-render-diagnostics",
@@ -34,7 +46,11 @@ pub fn compile(root: &Path, package: &str, binary: &str, timeout: Duration) -> R
         ])
         .dir(root)
         .inherit_env()
-        .timeout(timeout)
+        .timeout(timeout);
+    if !features.is_empty() {
+        spec = spec.arg("--features").arg(features.join(","));
+    }
+    let process = spec
         .spawn()
         .map_err(|error| failure(format!("Não deu para compilar {package}/{binary}: {error}")))?;
     let mut output = Output::default();

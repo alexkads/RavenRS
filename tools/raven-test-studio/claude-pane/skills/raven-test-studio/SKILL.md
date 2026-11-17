@@ -41,6 +41,8 @@ The Studio finds the app in this order: the path in `RAVEN_FINANCAS`; the instal
 
 In the app, generated forms tag each editor `field:<field>` and their buttons `form:save` and `form:cancel`, so a block writes `#field:description = Mercado`.
 
+For a project's source build, `[package.metadata.ravenrs.e2e]` may declare `features = ["e2e-source"]` (the app must define that Cargo feature). The Studio and CLI enable the list only for the test build. Discovery shows the features and any configuration errors; malformed lists are refused before an app runs. Omit the list for Cargo defaults. This does not rebuild an installed or explicitly selected binary.
+
 ## Writing blocks
 
 Blocks are lines of a `.raventest` file: `open`, `click`, `type`, `fill` (replaces what a field has; moves a slider to a number), `select` (picks an option of a combo box, list or tabs), `expand`, `collapse`, `scroll`, `drag` (`drag #from = #to`), `wait` (up to 5 s, `E2E_TIMEOUT` otherwise), `check` and `mention`. They also read in Portuguese: `preencher`, `escolher`, `expandir`, `recolher`, `rolar`, `arrastar`, `esperar`.

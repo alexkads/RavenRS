@@ -160,6 +160,12 @@ fn main() -> std::process::ExitCode {
             return std::process::ExitCode::from(2);
         }
         // Scenarios that open an app of the project open its code, before any installed copy.
+        if (has("--run-all") || has("--run") || has("--suggest") || has("--self-test"))
+            && let Err(why) = project.check_configs()
+        {
+            eprintln!("{why}");
+            return std::process::ExitCode::from(2);
+        }
         project.learn_apps();
         // A run of a project keeps what it found where cargo keeps what it builds.
         out = out.or_else(|| Some(project.e2e_folder()));

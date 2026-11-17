@@ -118,6 +118,8 @@ variable = "RAVEN_FINANCAS"     # points at another copy
 installed = ["Applications/Raven Finanças.app/Contents/MacOS/family-finance", ".local/bin/family-finance"]
 ```
 
+The declaration can also set `features = ["e2e-source"]`: the app's own Cargo features to enable only when the Studio/CLI builds it for a test. The app must define those features; omit the list to use Cargo defaults. The Studio declares its `e2e-source` this way, so testing it from a project records the origins of its test ids without instrumenting an ordinary install. Discovery lists the features and any malformed configuration; execution refuses it before opening an app.
+
 **A real app, apart: Raven Finanças**
 
 `--run financas` opens Raven Finanças in a child process with no window, over the test channel [`ravenrs-e2e-wire`](../../crates/ravenrs-e2e-wire), and runs the scenarios it brings (today, an expense checked in the month). The app runs on its sample family in memory on a fixed day; the database of the person using it is never opened. The Studio takes the app from `RAVEN_FINANCAS`, else the installed copy if it is 0.1.39 or later, else a Cargo build inside the checkout, followed by the executable Cargo reports. An older installed copy is never given `--e2e-serve`: it would read it as the path of a database.

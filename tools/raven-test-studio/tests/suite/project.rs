@@ -81,6 +81,40 @@ fn a_project_says_its_apps_their_channel_scenarios_and_screens() {
 }
 
 #[test]
+fn invalid_test_features_are_shown_and_refused_before_the_studio_runs_an_app() {
+    let root = std::env::temp_dir().join(format!("rts-invalid-features-{}", std::process::id()));
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    std::fs::create_dir_all(root.join(".cargo")).unwrap();
+    let wire = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates/ravenrs-e2e-wire");
+    std::fs::write(root.join("Cargo.toml"), format!(
+        "[package]\nname = \"invalid-feature-app\"\nversion = \"0.1.0\"\nedition = \"2024\"\n[workspace]\n[dependencies]\nravenrs-e2e-wire = {{path = {:?}, optional = true}}\nravenrs-widgets-base = {{path = {:?}, optional = true}}\n[package.metadata.ravenrs.e2e]\nfeatures = \"not-a-list\"\n",
+        wire.to_string_lossy(), wire.parent().unwrap().join("ravenrs-widgets-base").to_string_lossy(),
+    )).unwrap();
+    std::fs::write(root.join(".cargo/config.toml"), "[net]\noffline = true\n").unwrap();
+    std::fs::write(
+        root.join("src/main.rs"),
+        "fn main() { let _ = \"--e2e-serve\"; std::fs::write(\"app-ran\", \"yes\").unwrap(); }\n",
+    )
+    .unwrap();
+    let project = project::read(&root).unwrap();
+    let error = project.check_configs().unwrap_err();
+    assert!(error.contains("Cargo.toml") && error.contains("ravenrs.e2e.features"), "{error}");
+    assert!(project.json()["found"][0]["config_error"].as_str().unwrap().contains("features"));
+    project.learn_apps();
+    assert!(!raven_test_studio::apps::learned("invalid-feature-app"));
+    let output = std::process::Command::new(env!("CARGO_BIN_EXE_raven-test-studio"))
+        .arg("--project")
+        .arg(&root)
+        .arg("--run-all")
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("ravenrs.e2e.features"));
+    assert!(!root.join("app-ran").exists());
+    std::fs::remove_dir_all(root).unwrap();
+}
+
+#[test]
 fn an_app_declares_itself_for_the_studio_in_its_cargo_toml() {
     let finance =
         App::declared_in(include_str!("../../../../examples/family-finance/Cargo.toml")).expect("declared");

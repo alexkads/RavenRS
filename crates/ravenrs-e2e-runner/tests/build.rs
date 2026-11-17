@@ -67,6 +67,7 @@ fn a_compiler_error_keeps_its_code_source_and_line_in_every_report() {
 const CHANNEL_APP: &str = r##"
 use std::io::{self, BufRead};
 fn main() {
+    if !std::env::args().any(|arg| arg == "--e2e-serve") { return; }
     println!("{}", r#"{"protocol":"ravenrs-e2e-wire","version":1,"app":"Built shop"}"#);
     for line in io::stdin().lock().lines() {
         let Ok(line) = line else { break };
@@ -118,4 +119,85 @@ fn a_build_past_its_deadline_is_ended_and_reported_as_a_build_failure() {
             .unwrap_err();
     assert_eq!(failure.code.as_deref(), Some(build::APP_BUILD));
     assert!(failure.detail.as_deref().unwrap().contains("tempo-limite"), "{failure}");
+}
+
+#[test]
+fn the_project_preserves_and_builds_with_the_apps_declared_test_features() {
+    let project = Project::new(
+        "features",
+        &format!(
+            "#[cfg(not(feature = \"e2e-source\"))]\ncompile_error!(\"enable the test feature\");\n{CHANNEL_APP}"
+        ),
+    );
+    let wire = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("ravenrs-e2e-wire");
+    let manifest = project.root.join("Cargo.toml");
+    let mut text = std::fs::read_to_string(&manifest).unwrap();
+    text.push_str(&format!(
+        "\n[dependencies]\nravenrs-e2e-wire = {{ path = {:?}, optional = true }}\nravenrs-widgets-base = {{ path = {:?}, optional = true }}\n[features]\ne2e-source = []\n[package.metadata.ravenrs.e2e]\napp = {:?}\nbinary = {:?}\nfeatures = [\"e2e-source\"]\n",
+        wire.to_string_lossy(), wire.parent().unwrap().join("ravenrs-widgets-base").to_string_lossy(), project.package, project.package,
+    ));
+    std::fs::write(&manifest, text).unwrap();
+    let missing_feature =
+        build::compile(&project.root, &project.package, &project.package, Duration::from_secs(60))
+            .unwrap_err();
+    assert_eq!(missing_feature.code.as_deref(), Some(build::APP_BUILD));
+    assert!(missing_feature.detail.as_deref().unwrap().contains("enable the test feature"));
+
+    let discovered = ravenrs_e2e_runner::project::read(&project.root).unwrap();
+    discovered.check_configs().unwrap();
+    assert_eq!(discovered.found[0].declared.as_ref().unwrap().features, ["e2e-source"]);
+    assert_eq!(discovered.json()["found"][0]["features"][0], "e2e-source");
+    assert!(discovered.text().contains("features de teste: e2e-source"));
+    discovered.learn_apps();
+    let mut session = app::open(&project.package).unwrap().unwrap();
+    assert_eq!(session.screen().as_deref(), Some("Built in the custom target"));
+}
+
+#[test]
+fn an_unknown_test_feature_is_a_build_error() {
+    let project = Project::new("unknown-feature", "fn main() {}\n");
+    let error = build::compile_with_features(
+        &project.root,
+        &project.package,
+        &project.package,
+        &["not-declared".into()],
+        Duration::from_secs(60),
+    )
+    .unwrap_err();
+    assert_eq!(error.code.as_deref(), Some(build::APP_BUILD));
+    assert!(error.detail.as_deref().unwrap().contains("not-declared"), "{error}");
+}
+
+#[test]
+fn toml_and_cargo_metadata_share_test_features_and_reject_invalid_lists() {
+    let manifest = r#"
+[package]
+name = "shop"
+[package.metadata.ravenrs.e2e]
+app = "A \"shop\"" # comment outside the string
+features = ["e2e-source", "mock-data"]
+installed = [
+    'folder # data/shop',
+]
+"#;
+    let from_toml = app::App::declared_in(manifest).unwrap();
+    let metadata = serde_json::json!({"name":"shop", "metadata":{"ravenrs":{"e2e":{
+        "app":"A \"shop\"", "features":["e2e-source", "mock-data"], "installed":["folder # data/shop"]
+    }}}});
+    assert_eq!(from_toml, app::App::declared(&metadata).unwrap());
+    let multiline = manifest.replace(
+        "features = [\"e2e-source\", \"mock-data\"]",
+        "features = [\n\"e2e-source\", # comment\n\"mock-data\",\n]",
+    );
+    assert_eq!(app::App::declared_in(&multiline).unwrap().features, from_toml.features);
+    for invalid in [
+        serde_json::json!("source"),
+        serde_json::json!([1]),
+        serde_json::json!([""]),
+        serde_json::json!(["   "]),
+    ] {
+        let mut bad = metadata.clone();
+        bad["metadata"]["ravenrs"]["e2e"]["features"] = invalid;
+        assert!(app::App::declared(&bad).is_none());
+    }
 }
