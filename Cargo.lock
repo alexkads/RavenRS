@@ -6373,6 +6373,7 @@ dependencies = [
  "regex-lite",
  "serde_json",
  "toml_edit 0.22.27",
+ "url",
 ]
 
 [[package]]
