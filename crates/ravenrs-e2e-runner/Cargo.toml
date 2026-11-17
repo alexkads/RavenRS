@@ -1,0 +1,26 @@
+[package]
+name = "ravenrs-e2e-runner"
+description = "Runs end-to-end scenarios (.raventest) of RavenRS apps opened apart and reports them as text, JSON, JSON lines or JUnit: the engine of Raven Test Studio and cargo ravenrs e2e."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+keywords = ["gui", "testing", "e2e"]
+categories = ["development-tools::testing"]
+
+[dependencies]
+ravenrs-e2e.workspace = true
+ravenrs-e2e-wire.workspace = true
+serde_json.workspace = true
+# Finds the views and test ids in the sources of a project.
+regex-lite.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true
