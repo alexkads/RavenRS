@@ -13,6 +13,8 @@ A scenario is a `.raventest` file, one block per line (see [`ravenrs-e2e-wire`](
 3. **runs each block** (`session::perform`) as a step on the test channel. A failure comes back with its stable code (`E2E_NOT_FOUND`, `E2E_COVERED`, `E2E_TIMEOUT`, …), its meaning and fix in Portuguese, what came close and the app's screen;
 4. **reports** (`report::Report`) as text, JSON, JSON lines (`trace`), JUnit or one HTML page (`html`), and keeps each run in a folder: `relatorio.json`, `relatorio.html`, `trace.jsonl` and, on a failure, `arvore.txt`.
 
+Every tool runs the blocks with the same `driver::Driver`: it opens the app a block names, runs the step, times it, asks for the screen on a failure and, with `filming(FilmMode::OnFailure, folder)`, films each app over the test channel and keeps the film of the one that failed (`films`, `film_note` in the report).
+
 Around it:
 
 - `config` reads an app's `e2e.toml` (`folder`, `format`, `out`; the planned keys are read and said to do nothing yet; anything else is refused with the key);

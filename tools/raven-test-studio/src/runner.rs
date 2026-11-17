@@ -7,6 +7,7 @@
 
 use ravenrs::prelude::*;
 use ravenrs_e2e::E2e;
+pub use ravenrs_e2e_runner::driver::{Driver, FilmMode};
 pub use ravenrs_e2e_runner::session::{Failure, Opener, Outcome, Session, Step, perform, summary};
 use ravenrs_e2e_wire::{Block, Kind};
 
@@ -50,10 +51,10 @@ pub fn path(graph: &FlowGraph) -> Vec<String> {
 /// A run in progress: the app it drives and the next block on its path.
 #[derive(Debug)]
 pub struct Run {
-    session: Option<Session>,
+    /// Opens, drives and films the apps, as every tool that runs scenarios does.
+    driver: Driver,
     next: usize,
     failed: bool,
-    open: Opener,
 }
 
 impl Default for Run {
@@ -65,12 +66,24 @@ impl Default for Run {
 impl Run {
     /// A run that opens apps with `open`.
     pub fn new(open: Opener) -> Self {
-        Self { session: None, next: 0, failed: false, open }
+        Self { driver: Driver::new(open), next: 0, failed: false }
+    }
+
+    /// Films each app the run opens, keeping the films in `folder` as `mode` says.
+    #[must_use]
+    pub fn filming(mut self, mode: FilmMode, folder: Option<std::path::PathBuf>) -> Self {
+        self.driver = self.driver.filming(mode, folder);
+        self
+    }
+
+    /// The films the run kept, and why an app was not filmed, once it finished.
+    pub fn films(&self) -> (Vec<String>, Option<String>) {
+        (self.driver.films(), self.driver.film_note())
     }
 
     /// A run with nothing left to do, as one whose result came from the cache.
     pub fn finished_with(open: Opener) -> Self {
-        Self { session: None, next: usize::MAX, failed: false, open }
+        Self { driver: Driver::new(open), next: usize::MAX, failed: false }
     }
 
     /// Whether the run has nothing left to do: it reached the end or a block failed.
@@ -87,18 +100,14 @@ impl Run {
         let id = ids.get(self.next)?.clone();
         self.next += 1;
         let node = graph.nodes.iter_mut().find(|n| n.id == id)?;
-        let started = std::time::Instant::now();
-        let result = step_of(node)
-            .map_err(|m| Box::new(Failure::plain(m)))
-            .and_then(|step| perform(&mut self.session, &step, self.open));
-        let ms = u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX);
         let (title, kind, line) =
             (node.title.clone(), node.kind.clone(), node.subtitle.clone().unwrap_or_default());
-        node.status = match &result {
-            Ok(()) => FlowNodeStatus::Success,
-            Err(e) => FlowNodeStatus::Error(e.message.clone()),
+        let outcome = self.driver.step(step_of(node), &id, &kind, &title, &line);
+        node.status = match &outcome.error {
+            None => FlowNodeStatus::Success,
+            Some(e) => FlowNodeStatus::Error(e.clone()),
         };
-        if result.is_err() {
+        if outcome.error.is_some() {
             self.failed = true;
             // What comes after a failed block does not run.
             for later in &ids[self.next..] {
@@ -107,33 +116,11 @@ impl Run {
                 }
             }
         }
-        let failed = result.is_err();
-        let f = result.err().map(|f| *f).unwrap_or_default();
-        // The failure brings the screen as it was; when it did not, the app is asked for it.
-        let screen = match &f.screen {
-            Some(screen) => Some(screen.clone()),
-            None if failed => self.session.as_mut().and_then(Session::screen),
-            None => None,
-        };
-        let error = (!f.message.is_empty()).then_some(f.message);
         if self.finished(graph) {
             // An app opened apart ends with the run, not when the next one starts.
-            self.session = None;
+            self.driver.end(self.failed);
         }
-        Some(Outcome {
-            id,
-            kind,
-            title,
-            line,
-            error,
-            code: f.code,
-            meaning: f.meaning,
-            detail: f.detail,
-            fix: f.fix,
-            close: f.close,
-            screen,
-            ms,
-        })
+        Some(outcome)
     }
 
     /// Runs every block left, and says how each went.

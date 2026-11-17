@@ -1,5 +1,25 @@
 [
   {
+    "versao": "0.1.13",
+    "data": "2026-11-16",
+    "titulo": "A falha vem com o filme.",
+    "importante": false,
+    "novidades": [
+      "--film on-failure filma o app testado e guarda o filme de quando um passo falha, ao lado do relatório; --film always guarda todos.",
+      "O relatório lista os filmes, e a página HTML tem o link para abrir cada um.",
+      "O Studio aberto à parte para ser testado também filma.",
+      "Quem roda os passos agora é um só, o mesmo do cargo ravenrs e2e."
+    ],
+    "por_que_atualizar": "Para ver no MoviePlayer o que levou a uma falha, sem rodar de novo.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      672,
+      674
+    ]
+  },
+  {
     "versao": "0.1.12",
     "data": "2026-11-16",
     "titulo": "O teste pode ser filmado.",

@@ -6,8 +6,9 @@ use std::time::Instant;
 
 use ravenrs_e2e_wire::{EXTENSION, Scenario};
 
+use crate::driver::{Driver, FilmMode};
 use crate::report::Report;
-use crate::session::{self, Failure, Opener, Outcome, Session, Step};
+use crate::session::{Opener, Outcome, Step};
 
 /// The `.raventest` files at `path`: the file itself, or every one in the folder, in name order.
 pub fn files_at(path: &Path) -> Result<Vec<PathBuf>, String> {
@@ -41,62 +42,72 @@ pub fn read(files: &[PathBuf]) -> Result<Vec<Scenario>, String> {
         .collect()
 }
 
-/// Runs the scenario files at `path` (one file, or every one in a folder), opening apps with
-/// `open`, and reports them all as one run under a title that names them.
-pub fn run_files(path: &Path, open: Opener) -> Result<Report, String> {
-    let scenarios = read(&files_at(path)?)?;
-    let title = match scenarios.as_slice() {
+/// How a run goes beyond its blocks: whether it films, and where it keeps what it makes.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct RunOptions {
+    /// When to keep the film of the apps it opens.
+    pub film: FilmMode,
+    /// Where each run is kept, a folder per scenario; films go there too.
+    pub out: Option<PathBuf>,
+}
+
+impl RunOptions {
+    /// The folder of the run called `title`, where its films go.
+    pub fn folder_of(&self, title: &str) -> Option<PathBuf> {
+        self.out.as_ref().map(|out| out.join(crate::report::folder_name(title)))
+    }
+}
+
+/// The title of a run of `scenarios` read from `path`: the scenario's name, or how many there
+/// are and where, said from where it was called.
+pub fn title_of(path: &Path, scenarios: &[Scenario]) -> String {
+    match scenarios {
         [one] => one.name.clone(),
         many => {
-            // Said from where it was called, which is shorter and the same on every machine.
             let here = std::env::current_dir().ok();
             let shown = here.as_deref().and_then(|h| path.strip_prefix(h).ok()).unwrap_or(path);
             format!("{} cenários de {}", many.len(), shown.display())
         }
-    };
-    Ok(run(&title, &scenarios, open))
+    }
+}
+
+/// Runs the scenario files at `path` (one file, or every one in a folder), opening apps with
+/// `open`, and reports them all as one run under a title that names them.
+pub fn run_files(path: &Path, open: Opener) -> Result<Report, String> {
+    run_files_with(path, open, &RunOptions::default())
+}
+
+/// [`run_files`] as `options` say: filming, and where to keep the films.
+pub fn run_files_with(path: &Path, open: Opener, options: &RunOptions) -> Result<Report, String> {
+    let scenarios = read(&files_at(path)?)?;
+    let title = title_of(path, &scenarios);
+    Ok(run_with(&title, &scenarios, open, options))
 }
 
 /// Runs `scenarios` one after the other, each from its first block, and stops at the first
 /// block that fails: the blocks after it are reported as not run. Each scenario's app ends
 /// with it.
 pub fn run(title: &str, scenarios: &[Scenario], open: Opener) -> Report {
+    run_with(title, scenarios, open, &RunOptions::default())
+}
+
+/// [`run`] as `options` say.
+pub fn run_with(title: &str, scenarios: &[Scenario], open: Opener, options: &RunOptions) -> Report {
     let started = Instant::now();
     let blocks: Vec<_> = scenarios.iter().flat_map(|s| s.blocks.iter()).collect();
-    let mut outcomes = Vec::new();
-    let mut session: Option<Session> = None;
+    let mut driver = Driver::new(open).filming(options.film, options.folder_of(title));
+    let mut outcomes: Vec<Outcome> = Vec::new();
     for block in &blocks {
-        let begun = Instant::now();
-        let result = Step::of(block)
-            .map_err(|m| Box::new(Failure::plain(m)))
-            .and_then(|step| session::perform(&mut session, &step, open));
-        let ms = u64::try_from(begun.elapsed().as_millis()).unwrap_or(u64::MAX);
-        let failed = result.is_err();
-        let f = result.err().map(|f| *f).unwrap_or_default();
-        let screen = match &f.screen {
-            Some(screen) => Some(screen.clone()),
-            None if failed => session.as_mut().and_then(Session::screen),
-            None => None,
-        };
-        outcomes.push(Outcome {
-            id: format!("b{}", outcomes.len() + 1),
-            kind: block.kind.word().to_owned(),
-            title: block.title.clone(),
-            line: block.line(),
-            error: (!f.message.is_empty()).then_some(f.message),
-            code: f.code,
-            meaning: f.meaning,
-            detail: f.detail,
-            fix: f.fix,
-            close: f.close,
-            screen,
-            ms,
-        });
+        let id = format!("b{}", outcomes.len() + 1);
+        let outcome = driver.step(Step::of(block), &id, block.kind.word(), &block.title, &block.line());
+        let failed = outcome.error.is_some();
+        outcomes.push(outcome);
         if failed {
             break;
         }
     }
-    drop(session);
+    let failed = outcomes.iter().any(|o| o.error.is_some());
+    driver.end(failed);
     let not_run = blocks.iter().skip(outcomes.len()).map(|b| b.title.clone()).collect();
     Report {
         scenario: title.to_owned(),
@@ -106,5 +117,7 @@ pub fn run(title: &str, scenarios: &[Scenario], open: Opener) -> Report {
         duration_ms: u64::try_from(started.elapsed().as_millis()).unwrap_or(u64::MAX),
         apart: true,
         not_run,
+        films: driver.films(),
+        film_note: driver.film_note(),
     }
 }

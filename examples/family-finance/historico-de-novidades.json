@@ -1,5 +1,23 @@
 [
   {
+    "versao": "0.1.42",
+    "data": "2026-11-16",
+    "titulo": "Treinamentos regravados, e o teste pode filmar o app.",
+    "importante": false,
+    "novidades": [
+      "Os seis treinamentos foram gravados de novo com a tela de hoje.",
+      "Quando o Raven Test Studio testa o app e um passo falha, ele pode guardar o filme do que aconteceu, para ver como foi."
+    ],
+    "por_que_atualizar": "Para ver os treinamentos com as telas como estão agora.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      672,
+      674
+    ]
+  },
+  {
     "versao": "0.1.41",
     "data": "2026-11-16",
     "titulo": "O menu ao lado do relógio ficou útil.",

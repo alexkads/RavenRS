@@ -35,6 +35,7 @@ use ravenrs::prelude::*;
 use ravenrs_app_update::{NoticeAction, Updater};
 
 use crate::runner::{Outcome, Run};
+pub use ravenrs_e2e_runner::run::RunOptions;
 
 /// The Studio's version, the one its news speak of.
 pub const VERSION: &str = versao::VERSION;
@@ -595,6 +596,17 @@ pub const SCENARIOS: [(&str, &str); 2] =
 /// there is no scenario by that name. With a `cache`, a scenario that did not change on a
 /// build that did not change comes back from it instead of running again.
 pub fn run_bundled(name: &str, cache: Option<&mut cache::RunCache>) -> Option<report::Report> {
+    run_bundled_with(name, cache, &RunOptions::default())
+}
+
+/// [`run_bundled`] as `options` say: filming, and where to keep the films. A run that films
+/// runs again, since the cache keeps no film.
+pub fn run_bundled_with(
+    name: &str,
+    cache: Option<&mut cache::RunCache>,
+    options: &RunOptions,
+) -> Option<report::Report> {
+    let cache = if options.film == runner::FilmMode::Never { cache } else { None };
     let (key, title) = SCENARIOS.iter().find(|(key, _)| *key == name)?;
     let graph = match *key {
         "autoteste" => sample::self_test(),
@@ -623,7 +635,7 @@ pub fn run_bundled(name: &str, cache: Option<&mut cache::RunCache>) -> Option<re
     {
         return Some(report);
     }
-    let report = report::of(title, graph, Run::new(open));
+    let report = report::of(title, graph, Run::new(open).filming(options.film, options.folder_of(title)));
     if let (Some(c), Some(k)) = (cache, kept.as_deref()) {
         // A cache that cannot be written only means the next run runs again.
         let _ = c.put(k, &report);
@@ -634,12 +646,21 @@ pub fn run_bundled(name: &str, cache: Option<&mut cache::RunCache>) -> Option<re
 /// Runs what `name` says: a name of [`SCENARIOS`], or the path of a `.raventest` file or of a
 /// folder of them. `Err` says why nothing ran.
 pub fn run_named(name: &str, cache: Option<&mut cache::RunCache>) -> Result<report::Report, String> {
-    if let Some(report) = run_bundled(name, cache) {
+    run_named_with(name, cache, &RunOptions::default())
+}
+
+/// [`run_named`] as `options` say.
+pub fn run_named_with(
+    name: &str,
+    cache: Option<&mut cache::RunCache>,
+    options: &RunOptions,
+) -> Result<report::Report, String> {
+    if let Some(report) = run_bundled_with(name, cache, options) {
         return Ok(report);
     }
     let path = std::path::Path::new(name);
     if path.exists() {
-        return run_files(path);
+        return run_files_with(path, options);
     }
     let known: Vec<&str> = SCENARIOS.iter().map(|(key, _)| *key).collect();
     Err(format!(
@@ -651,36 +672,17 @@ pub fn run_named(name: &str, cache: Option<&mut cache::RunCache>) -> Result<repo
 /// Runs `.raventest` files with no window and reports them: one file, or every file of a folder
 /// (the QA team's own, or an app's `tests/e2e/`), one after the other.
 pub fn run_files(path: &std::path::Path) -> Result<report::Report, String> {
-    let mut files = if path.is_dir() {
-        std::fs::read_dir(path)
-            .map_err(|e| format!("{}: {e}", path.display()))?
-            .flatten()
-            .map(|entry| entry.path())
-            .filter(|p| p.extension().is_some_and(|ext| ext == ravenrs_e2e_wire::EXTENSION))
-            .collect()
-    } else {
-        vec![path.to_path_buf()]
-    };
-    files.sort();
-    if files.is_empty() {
-        return Err(format!("{} não tem arquivos .{}", path.display(), ravenrs_e2e_wire::EXTENSION));
-    }
-    let mut scenarios = Vec::new();
-    for file in &files {
-        let text = std::fs::read_to_string(file).map_err(|e| format!("{}: {e}", file.display()))?;
-        scenarios
-            .push(ravenrs_e2e_wire::Scenario::parse(&text).map_err(|e| format!("{}: {e}", file.display()))?);
-    }
-    let title = match scenarios.as_slice() {
-        [one] => one.name.clone(),
-        // Said from where the Studio was called, which is shorter and the same on every machine.
-        many => {
-            let here = std::env::current_dir().ok();
-            let shown = here.as_deref().and_then(|h| path.strip_prefix(h).ok()).unwrap_or(path);
-            format!("{} cenários de {}", many.len(), shown.display())
-        }
-    };
-    Ok(report::of(&title, sample::from_scenarios(&scenarios), Run::new(open)))
+    run_files_with(path, &RunOptions::default())
+}
+
+/// [`run_files`] as `options` say. The files are read as `cargo ravenrs e2e` reads them, and run
+/// on the Studio's diagram, which opens the apps compiled into the Studio too.
+pub fn run_files_with(path: &std::path::Path, options: &RunOptions) -> Result<report::Report, String> {
+    use ravenrs_e2e_runner::run::{files_at, read, title_of};
+    let scenarios = read(&files_at(path)?)?;
+    let title = title_of(path, &scenarios);
+    let run = Run::new(open).filming(options.film, options.folder_of(&title));
+    Ok(report::of(&title, sample::from_scenarios(&scenarios), run))
 }
 
 /// The Studio opening with its own test, "O Studio testa o Studio", keeping its scenarios in

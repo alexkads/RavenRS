@@ -41,5 +41,7 @@ pub fn session() -> Result<E2e, String> {
 /// Answers the tool that opened the app, over standard input and output, until it says bye.
 pub fn serve() -> std::io::Result<()> {
     let session = session().map_err(std::io::Error::other)?;
-    ravenrs_e2e_wire::serve(ravenrs_e2e_wire::Hello::of(APP_NAME).scenarios(SCENARIOS), session)
+    // Filmed when the tool asks (`--film`): the film of a failure shows what led to it.
+    let hello = ravenrs_e2e_wire::Hello::of(APP_NAME).scenarios(SCENARIOS);
+    ravenrs_e2e_wire::serve_filmed(hello, session, ravenrs::movie::ChannelFilm::default())
 }

@@ -89,6 +89,24 @@ fn scenario(report: &Report) -> String {
         }
         out.push_str("</div>");
     }
+    if !report.films.is_empty() || report.film_note.is_some() {
+        out.push_str("<div class=\"films\"><h3>Filme</h3><ul>");
+        for film in &report.films {
+            // The film sits beside the page, in the same folder, when the run was kept.
+            let name = std::path::Path::new(film)
+                .file_name()
+                .map_or_else(|| film.clone(), |n| n.to_string_lossy().into_owned());
+            out.push_str(&format!(
+                "<li><a href=\"{}\">{}</a> <small>abre no MoviePlayer</small></li>",
+                esc(&name),
+                esc(&name)
+            ));
+        }
+        if let Some(note) = &report.film_note {
+            out.push_str(&format!("<li>{}</li>", esc(note)));
+        }
+        out.push_str("</ul></div>");
+    }
     out.push_str("</section>");
     out
 }
@@ -133,5 +151,5 @@ td small{display:block;color:var(--muted);font-size:12px}tr.ok td:nth-child(4){c
 tr.bad td{color:var(--bad);font-weight:600}tr.skip td{color:var(--skip)}\
 code,pre{font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--code);border-radius:4px}\
 code{padding:1px 4px}pre{padding:12px;overflow-x:auto;white-space:pre}\
-.failure{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}footer{color:var(--muted);font-size:13px}\
+.films{margin-top:12px}.films a{color:inherit}.failure{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}footer{color:var(--muted);font-size:13px}\
 footer h2{font-size:14px}";

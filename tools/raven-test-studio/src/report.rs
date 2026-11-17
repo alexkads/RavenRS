@@ -19,5 +19,16 @@ pub fn of(scenario: &str, mut graph: FlowGraph, mut run: Run) -> Report {
         .filter_map(|id| graph.nodes.iter().find(|n| n.id == *id))
         .map(|n| n.title.clone())
         .collect();
-    Report { scenario: scenario.to_owned(), outcomes, total, cached_at: None, duration_ms, apart, not_run }
+    let (films, film_note) = run.films();
+    Report {
+        scenario: scenario.to_owned(),
+        outcomes,
+        total,
+        cached_at: None,
+        duration_ms,
+        apart,
+        not_run,
+        films,
+        film_note,
+    }
 }

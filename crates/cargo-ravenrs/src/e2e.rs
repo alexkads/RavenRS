@@ -4,6 +4,7 @@
 use std::path::{Path, PathBuf};
 
 use ravenrs_e2e_runner::config::Config;
+use ravenrs_e2e_runner::driver::FilmMode;
 use ravenrs_e2e_runner::report::{self, FORMATS, Report};
 use ravenrs_e2e_runner::{app, project, run};
 
@@ -18,6 +19,8 @@ pub struct RunAsk {
     pub format: String,
     /// Where to keep each run; `e2e/` in the folder cargo builds the project into by default.
     pub out: Option<PathBuf>,
+    /// `never`, `on-failure` or `always`; empty for the `e2e.toml`'s, else never.
+    pub film: String,
 }
 
 /// The exit code a run ends with: 0 when every scenario passed, 1 when one failed, 2 when
@@ -69,10 +72,22 @@ pub fn run(ask: &RunAsk) -> i32 {
         eprintln!("nenhum app do projeto tem o canal de teste e cenários em tests/e2e:\n{}", project.text());
         return 2;
     }
+    let film = if ask.film.is_empty() {
+        config.film.unwrap_or_default()
+    } else {
+        match FilmMode::read(&ask.film) {
+            Some(mode) => mode,
+            None => {
+                eprintln!("--film não aceita {:?}; aceita: {}", ask.film, FilmMode::WORDS.join(", "));
+                return 2;
+            }
+        }
+    };
+    let options = run::RunOptions { film, out: Some(out.clone()) };
     let mut worst = 0;
     let mut reports: Vec<Report> = Vec::new();
     for folder in &folders {
-        match run::run_files(folder, app::open) {
+        match run::run_files_with(folder, app::open, &options) {
             Ok(report) => {
                 worst = worst.max(report.exit_code());
                 reports.push(report);

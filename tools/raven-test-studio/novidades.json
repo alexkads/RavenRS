@@ -1,18 +1,19 @@
 {
-  "versao": "0.1.12",
-  "titulo": "O teste pode ser filmado.",
+  "versao": "0.1.13",
+  "titulo": "A falha vem com o filme.",
   "importante": false,
   "novidades": [
-    "Um teste e2e pode virar filme vetorial (.ravenmovie): cada passo marcado vira capítulo, com cliques e teclas, e duas execuções dão o mesmo arquivo.",
-    "Um app servido com filmagem grava o filme da própria sessão quando o RTS pede, pelo canal de teste.",
-    "Senha digitada no teste nunca aparece no filme.",
-    "Roteiros de treinamento podem achar as partes pelo mesmo #id dos testes."
+    "--film on-failure filma o app testado e guarda o filme de quando um passo falha, ao lado do relatório; --film always guarda todos.",
+    "O relatório lista os filmes, e a página HTML tem o link para abrir cada um.",
+    "O Studio aberto à parte para ser testado também filma.",
+    "Quem roda os passos agora é um só, o mesmo do cargo ravenrs e2e."
   ],
-  "por_que_atualizar": "Para ver um teste como ele aconteceu, no MoviePlayer, sem rodar de novo.",
+  "por_que_atualizar": "Para ver no MoviePlayer o que levou a uma falha, sem rodar de novo.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    670
+    672,
+    674
   ]
 }
