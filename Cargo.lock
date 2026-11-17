@@ -5910,7 +5910,7 @@ dependencies = [
 
 [[package]]
 name = "raven-test-studio"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "ravenrs",
  "ravenrs-agent-cli",
@@ -6527,6 +6527,8 @@ dependencies = [
  "flate2",
  "ravenrs-app-i18n",
  "ravenrs-core",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-layout",
  "ravenrs-live",
  "ravenrs-reactive",

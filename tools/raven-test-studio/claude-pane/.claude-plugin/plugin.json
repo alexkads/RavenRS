@@ -1,6 +1,6 @@
 {
   "name": "raven-test-studio",
-  "version": "0.1.11",
+  "version": "0.1.12",
   "description": "Raven Test Studio (RTS) in a pane beside the chat: tests itself when the session starts, runs the Studio's scenarios, hands one to Codex with its cheapest model when asked, and gives the report to the AI that asked.",
   "author": { "name": "RavenRS", "url": "https://github.com/alexkads/RavenRS" },
   "icon": "./.claude-plugin/icon.png",

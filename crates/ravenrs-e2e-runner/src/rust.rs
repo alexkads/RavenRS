@@ -92,6 +92,8 @@ fn command_code(command: &Command) -> String {
             s(target),
             text.as_deref().map_or_else(|| "None".to_owned(), |t| format!("Some({})", s(t)))
         ),
+        Command::Film { path } => format!("Command::Film {{ path: {} }}", s(path)),
+        Command::FilmStop => "Command::FilmStop".to_owned(),
         Command::Snapshot => "Command::Snapshot".to_owned(),
         Command::Bye => "Command::Bye".to_owned(),
     }

@@ -45,6 +45,7 @@
 
 mod actions;
 mod error;
+mod observe;
 mod patience;
 mod query;
 mod snapshot;
@@ -58,6 +59,7 @@ use ravenrs_style::Theme;
 use ravenrs_widgets_base::{Ui, View};
 
 pub use error::{E2eError, E2eResult, ErrorCode};
+pub use observe::FrameObserver;
 pub use query::Query;
 
 /// The window size a session starts with, a common laptop screen.
@@ -80,6 +82,8 @@ pub struct E2e {
     next_ref: u32,
     pointer: Point,
     clock: f64,
+    size: Size,
+    observer: Option<Box<dyn FrameObserver>>,
 }
 
 impl std::fmt::Debug for E2e {
@@ -100,6 +104,8 @@ impl E2e {
             next_ref: 1,
             pointer: Point::ZERO,
             clock: 0.0,
+            size: DEFAULT_VIEWPORT,
+            observer: None,
         };
         session.frame();
         session
@@ -107,6 +113,7 @@ impl E2e {
 
     /// Changes the window size and scale, such as `Size::new(375.0, 812.0)` for a phone.
     pub fn viewport(mut self, size: Size, scale: f32) -> Self {
+        self.size = size;
         self.ui.set_viewport(size, scale);
         self.frame();
         self
@@ -169,6 +176,7 @@ impl E2e {
 
     /// Presses and releases `key` with modifiers held, such as Command for a shortcut.
     pub fn press_with(&mut self, key: Key, modifiers: Modifiers) {
+        self.observed_key();
         self.send(&Event::KeyDown { key: key.clone(), modifiers });
         self.send(&Event::KeyUp { key, modifiers });
     }
@@ -195,6 +203,7 @@ impl E2e {
             }
             self.ui.update();
         }
+        self.observed_frame();
         self.tree = self.ui.access_tree();
         for node in &self.tree.nodes {
             if node.id != self.tree.root && !self.refs.contains_key(&node.id) {
@@ -365,11 +374,15 @@ impl E2e {
 
     fn move_to(&mut self, point: Point) {
         self.pointer = point;
+        self.observed_pointer(point);
         self.send(&Event::PointerMove { position: point });
     }
 
     fn button(&mut self, point: Point, button: PointerButton) {
         self.move_to(point);
+        if button == PointerButton::Primary {
+            self.observed_click(point);
+        }
         self.send(&Event::PointerDown { position: point, button });
         self.send(&Event::PointerUp { position: point, button });
     }
