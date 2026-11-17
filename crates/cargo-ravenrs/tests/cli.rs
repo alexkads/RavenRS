@@ -57,6 +57,16 @@ fn templates_embed_the_versioned_examples_and_published_dependencies() {
             );
             assert!(!manifest.contains("path ="));
             assert!(manifest.contains(&format!("={VERSION}")));
+            let app = ravenrs_e2e_runner::app::App::declared_in(manifest).unwrap();
+            assert_eq!(app.name, "sample-app");
+            assert_eq!(app.binary, "sample-app");
+            assert_eq!(app.features, ["e2e-source"]);
+            let scenario =
+                &files.iter().find(|file| file.path == "tests/e2e/start.raventest").unwrap().contents;
+            let scenario = ravenrs_e2e_wire::Scenario::parse(scenario).unwrap();
+            assert_eq!(scenario.blocks[0].kind, ravenrs_e2e_wire::Kind::Open);
+            assert_eq!(scenario.blocks[0].target, app.name);
+            assert!(scenario.blocks.len() > 1, "the initial scenario checks the screen");
             assert_eq!(files.iter().any(|f| f.path == "web/index.html"), target != "desktop");
             let source = &files.iter().find(|f| f.path == "src/lib.rs").unwrap().contents;
             assert_eq!(
@@ -267,6 +277,79 @@ fn every_template_and_target_compiles() {
                 success(&command.output().unwrap());
             }
         }
+    }
+}
+
+/// Actual generated apps, outside the workspace: no window/GPU and no persistent database.
+#[test]
+#[ignore = "builds and runs all four native templates in release; explicit F6 validation"]
+fn generated_apps_serve_scenarios_and_frames_without_persistent_storage() {
+    use ravenrs_e2e_runner::{
+        run,
+        session::{Failure, Session},
+    };
+    use ravenrs_e2e_wire::{Client, Command as WireCommand, SERVE_FLAG};
+    use std::time::Duration;
+
+    thread_local! {
+        static OPENED: std::cell::RefCell<Option<Session>> = const { std::cell::RefCell::new(None) };
+    }
+    fn open(name: &str) -> Option<Result<Session, Box<Failure>>> {
+        if name != "sample-app" {
+            return None;
+        }
+        OPENED.with(|session| session.borrow_mut().take().map(Ok))
+    }
+
+    let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..").canonicalize().unwrap();
+    let target = workspace.join("target/generated-projects");
+    for template in ["hello", "app", "app-sqlite", "relatorios"] {
+        let dir = TempDir::new().unwrap();
+        write_project(dir.path(), template, "desktop");
+        patch_checkout(dir.path(), &workspace);
+        eprintln!("Building and driving {template}");
+        success(
+            &Command::new("cargo")
+                .args(["build", "--release", "--offline", "--features", "e2e-source"])
+                .current_dir(dir.path())
+                .env("CARGO_TARGET_DIR", &target)
+                .output()
+                .unwrap(),
+        );
+        let binary = target.join("release").join(format!("sample-app{}", std::env::consts::EXE_SUFFIX));
+        let mut process = Command::new(&binary);
+        process.arg(SERVE_FLAG).current_dir(dir.path());
+        let mut client = Client::spawn(process, Duration::from_secs(20)).unwrap();
+        assert_eq!(client.app(), "sample-app");
+        let scenario = fs::read_to_string(dir.path().join("tests/e2e/start.raventest")).unwrap();
+        assert_eq!(client.scenarios(), &[scenario]);
+        assert!(!client.send(&WireCommand::Snapshot).unwrap().unwrap().is_empty(), "{template}");
+        assert!(!client.frame().unwrap().is_empty(), "{template} must provide a vector frame");
+        client.send(&WireCommand::Bye).unwrap();
+        drop(client);
+        assert!(!dir.path().join("tasks.sqlite").exists(), "{template} opened persistent storage");
+        // Even an existing, invalid database must stay untouched: the test branch uses memory.
+        let sentinel = b"database owned by the person using the app";
+        fs::write(dir.path().join("tasks.sqlite"), sentinel).unwrap();
+        let mut process = Command::new(binary);
+        process.arg(SERVE_FLAG).current_dir(dir.path());
+        let client = Client::spawn(process, Duration::from_secs(20)).unwrap();
+        OPENED.with(|session| *session.borrow_mut() = Some(Session::Apart(client)));
+        let report = run::run_files(&dir.path().join("tests/e2e/start.raventest"), open).unwrap();
+        assert!(report.passed(), "{template}: {}", report.text());
+        if template == "app-sqlite" {
+            success(
+                &Command::new("cargo")
+                    .args(["test", "--release", "--offline", "--features", "e2e-source", "--test", "screen"])
+                    .current_dir(dir.path())
+                    .env("CARGO_TARGET_DIR", &target)
+                    .output()
+                    .unwrap(),
+            );
+        }
+        assert_eq!(fs::read(dir.path().join("tasks.sqlite")).unwrap(), sentinel);
+        assert!(!dir.path().join("tasks.sqlite-wal").exists());
+        assert!(!dir.path().join("tasks.sqlite-shm").exists());
     }
 }
 
