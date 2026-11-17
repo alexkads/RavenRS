@@ -8,6 +8,47 @@ use ravenrs_e2e_runner::driver::FilmMode;
 use ravenrs_e2e_runner::report::{self, FORMATS, Report};
 use ravenrs_e2e_runner::{app, project, run};
 
+/// Static configuration checks only: metadata does not run Cargo builds or an app.
+pub(crate) fn doctor(root: &Path) -> Result<(), String> {
+    let project = project::read(root)?;
+    Config::read(&project.root)?;
+    project.check_configs()?;
+    println!("E2E: leitura estática; nenhum app foi compilado ou executado e o canal não foi consultado.");
+    let mut errors = Vec::new();
+    for found in project.found.iter().filter(|found| found.is_app()) {
+        let label = &found.package;
+        if found.declared.is_none() {
+            println!("! E2E {label}: falta [package.metadata.ravenrs.e2e] no Cargo.toml (app e binary).");
+        }
+        if !found.channel {
+            println!(
+                "! E2E {label}: canal não identificado nas dependências/fontes; configure ravenrs-e2e-wire e --e2e-serve antes de executar cenários."
+            );
+        } else {
+            println!(
+                "✓ E2E {label}: indícios do canal nas dependências/fontes; resposta em execução não verificada."
+            );
+        }
+        if let Some(app) = &found.declared
+            && !found.binaries.contains(&app.binary)
+        {
+            errors.push(format!("{label}: binary {:?} não é um binário do pacote; ajuste package.metadata.ravenrs.e2e.binary.", app.binary));
+        }
+        if found.scenarios.is_empty() {
+            println!(
+                "! E2E {label}: sem cenários em {}; crie um arquivo .raventest.",
+                found.folder.join(&found.config.folder).display()
+            );
+        }
+        for (file, scenario) in &found.scenarios {
+            if let Err(why) = scenario {
+                errors.push(format!("{}: {why}", file.display()));
+            }
+        }
+    }
+    if errors.is_empty() { Ok(()) } else { Err(errors.join("\n")) }
+}
+
 /// What `cargo ravenrs e2e run` was asked.
 #[derive(Clone, Debug, Default)]
 pub struct RunAsk {

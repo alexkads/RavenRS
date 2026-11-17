@@ -55,7 +55,12 @@ An `e2e.toml` next to an app's `Cargo.toml` keeps the suite's choices: `folder` 
 `doctor` compares RavenRS dependency versions with the CLI, checks managed
 files, and runs initialize + tools/list through all four registered commands. It reports
 stale files and versions with a nonzero exit code. Projects made with `--no-ai` are checked
-without requiring assistant files. Versions are read as Cargo resolves them, without
+without requiring assistant files. Before checking assistant integration, it reads each app's
+e2e metadata and scenario files without compiling or launching the app. Missing channel
+configuration or scenarios produces a warning; invalid `e2e.toml`, test features, declared
+binary or scenarios fails the check. Libraries do not need a test channel. Channel detection
+is a static hint from dependencies and sources, not proof of a successful handshake; run
+`cargo ravenrs e2e run` to test the channel in execution. Versions are read as Cargo resolves them, without
 touching any manifest: renamed dependencies (`ui = { package = "ravenrs", .. }`), tables
 under `[target.'cfg(..)']`, and `ravenrs.workspace = true`, taken from the
 `[workspace.dependencies]` of the workspace that owns the package (`package.workspace`, or
