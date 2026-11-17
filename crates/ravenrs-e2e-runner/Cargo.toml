@@ -18,6 +18,8 @@ ravenrs-e2e-wire.workspace = true
 serde_json.workspace = true
 # Finds the views and test ids in the sources of a project.
 regex-lite.workspace = true
+# Reads e2e.toml.
+toml_edit = "0.22"
 
 [dev-dependencies]
 serde_json.workspace = true

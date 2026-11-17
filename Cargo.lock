@@ -1026,6 +1026,7 @@ version = "27.1.28"
 dependencies = [
  "clap",
  "ravenrs-e2e-runner",
+ "ravenrs-e2e-wire",
  "ravenrs-mcp",
  "ravenrs-project",
  "serde_json",
@@ -5909,7 +5910,7 @@ dependencies = [
 
 [[package]]
 name = "raven-test-studio"
-version = "0.1.10"
+version = "0.1.11"
 dependencies = [
  "ravenrs",
  "ravenrs-agent-cli",
@@ -6370,6 +6371,7 @@ dependencies = [
  "ravenrs-e2e-wire",
  "regex-lite",
  "serde_json",
+ "toml_edit 0.22.27",
 ]
 
 [[package]]

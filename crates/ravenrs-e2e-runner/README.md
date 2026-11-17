@@ -11,7 +11,13 @@ A scenario is a `.raventest` file, one block per line (see [`ravenrs-e2e-wire`](
 1. **reads the project** (`project::read`) with `cargo metadata`, without building it. It finds the packages made with RavenRS, which are apps, whether each speaks the test channel (`--e2e-serve`), its `tests/e2e/` scenarios and the screens it builds;
 2. **opens the app a scenario names** (`app::open`) in a child process with no window. It uses the app's code with `cargo run` when the project declares it in `[package.metadata.ravenrs.e2e]`, else an installed copy that speaks the channel, else the binary its variable names;
 3. **runs each block** (`session::perform`) as a step on the test channel. A failure comes back with its stable code (`E2E_NOT_FOUND`, `E2E_COVERED`, `E2E_TIMEOUT`, …), its meaning and fix in Portuguese, what came close and the app's screen;
-4. **reports** (`report::Report`) as text, JSON, JSON lines (`trace`) or JUnit, and keeps each run in a folder: `relatorio.json`, `trace.jsonl` and, on a failure, `arvore.txt`.
+4. **reports** (`report::Report`) as text, JSON, JSON lines (`trace`), JUnit or one HTML page (`html`), and keeps each run in a folder: `relatorio.json`, `relatorio.html`, `trace.jsonl` and, on a failure, `arvore.txt`.
+
+Around it:
+
+- `config` reads an app's `e2e.toml` (`folder`, `format`, `out`; the planned keys are read and said to do nothing yet; anything else is refused with the key);
+- `report::schema()` and `ravenrs_e2e_wire::scenario_schema()` are the JSON Schemas (2020-12) of the report and of a scenario as JSON (`Scenario::to_json`, `Scenario::from_json`);
+- `rust::test` turns a scenario into a Rust integration test of its app, which compiles and runs with `cargo test`.
 
 The first block that fails stops the run, and the blocks after it are reported as not run.
 

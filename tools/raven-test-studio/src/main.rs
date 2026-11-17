@@ -66,7 +66,8 @@ fn main() -> std::process::ExitCode {
              --format json                           o relatório para uma ferramenta ou uma IA\n\
              --format jsonl                          um evento por linha, com o tempo de cada passo\n\
              --format junit                          o XML JUnit que servidores de build leem\n\
-             --out <pasta>                           grava relatorio.json, trace.jsonl e, na falha,\n\
+             --format html                           uma página com o resumo, os passos e a falha\n\
+             --out <pasta>                           grava relatorio.json e .html, trace.jsonl e, na falha,\n\
                                                      arvore.txt (com --project: o target/e2e do projeto)\n\
              --no-cache, --clear-cache               roda de novo / esquece o cache\n\
              --delegate <codex|claude> [--model m]   entrega o cenário a outro agente\n\

@@ -34,7 +34,7 @@ use ravenrs_e2e::{E2e, E2eError, Query};
 use serde::{Deserialize, Serialize};
 
 pub use client::Client;
-pub use scenario::{Block, EXTENSION, FOLDER, Kind, Scenario, ScenarioError, check_folder};
+pub use scenario::{Block, EXTENSION, FOLDER, Kind, Scenario, ScenarioError, check_folder, scenario_schema};
 #[cfg(feature = "serve")]
 pub use serve::{serve, serve_on};
 

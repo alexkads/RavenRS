@@ -55,13 +55,30 @@ enum E2eCommand {
         /// The project's folder; the current one by default.
         #[arg(long)]
         project: Option<PathBuf>,
-        /// text, json, jsonl (one event per line) or junit (XML for build servers).
-        #[arg(long, default_value = "text")]
+        /// text, json, jsonl (one event per line), junit (XML for build servers) or html; the
+        /// e2e.toml's, else text.
+        #[arg(long, default_value = "")]
         format: String,
         /// Where to keep relatorio.json, trace.jsonl and, on a failure, arvore.txt; the
         /// project's target/e2e by default.
         #[arg(long)]
         out: Option<PathBuf>,
+    },
+    /// Print the JSON Schema of the report (report) or of a scenario as JSON (scenario).
+    Schema {
+        /// report or scenario.
+        which: String,
+    },
+    /// Print a scenario as a Rust integration test of the app it opens, to read or keep.
+    Rust {
+        /// The .raventest file.
+        file: PathBuf,
+        /// The project's folder; the current one by default.
+        #[arg(long)]
+        project: Option<PathBuf>,
+        /// The app's binary, when the scenario's app is not found in the project.
+        #[arg(long)]
+        bin: Option<String>,
     },
     /// List the project's RavenRS packages, apps, test channel, scenarios and screens.
     List {
@@ -113,6 +130,10 @@ async fn main() {
                 cargo_ravenrs::e2e::run(&cargo_ravenrs::e2e::RunAsk { project, path, format, out })
             }
             E2eCommand::List { project, json } => cargo_ravenrs::e2e::list(project.as_deref(), json),
+            E2eCommand::Schema { which } => cargo_ravenrs::e2e::schema(&which),
+            E2eCommand::Rust { file, project, bin } => {
+                cargo_ravenrs::e2e::rust(&file, project.as_deref(), bin.as_deref())
+            }
         }),
     };
     if let Err(error) = result {

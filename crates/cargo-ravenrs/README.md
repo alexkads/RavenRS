@@ -39,9 +39,13 @@ preserving notes outside the block. An unmarked existing skill is preserved and 
 
 - with no path, it runs the `tests/e2e/*.raventest` of every app of the project that speaks the test channel ([`ravenrs-e2e-wire`](../ravenrs-e2e-wire)), opening each from the project's code with `cargo run`;
 - with a path (`cargo ravenrs e2e run tests/e2e/pedido.raventest`, or a folder), it runs those files, opening the apps they name from the project before any installed copy;
-- `--format` is `text`, `json`, `jsonl` (one event per line, with the time of each step) or `junit` (for build servers);
-- each run is kept in `target/e2e/<scenario>/` (`--out` for another folder): `relatorio.json`, `trace.jsonl` and, on a failure, `arvore.txt` with the app's screen;
+- `--format` is `text`, `json`, `jsonl` (one event per line, with the time of each step), `junit` (for build servers) or `html` (a page with the summary, each step and the failure);
+- each run is kept in `target/e2e/<scenario>/` (`--out` for another folder): `relatorio.json`, `relatorio.html`, `trace.jsonl` and, on a failure, `arvore.txt` with the app's screen;
 - the exit code is 0 when every scenario passed, 1 when one failed and 2 when nothing could run.
+
+An `e2e.toml` next to an app's `Cargo.toml` keeps the suite's choices: `folder` (where its scenarios are, `tests/e2e` by default), and, at the project's root, `format` and `out` for when the command line does not give them. `app`, `window`, `themes`, `film` and `load` are read and said to have no effect yet; any other key, or a wrong value, stops the run with exit code 2, the file and the key.
+
+`cargo ravenrs e2e schema scenario` prints the JSON Schema of a scenario as JSON (what an AI writes before it becomes a `.raventest`), and `schema report` the one of the JSON report. `cargo ravenrs e2e rust <file>` prints the scenario as a Rust integration test of the app it opens, through its `CARGO_BIN_EXE_*` and the test channel: generated, to read, or to keep in the app's `tests/` when a team prefers Rust (`--bin` names the binary when the app is not found).
 
 `cargo ravenrs e2e list` says which packages are made with RavenRS, which are apps, whether each speaks the test channel, its scenarios and the screens it builds (`--json` for a tool). `--project <folder>` points either command at another project.
 
