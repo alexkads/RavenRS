@@ -52,6 +52,15 @@ An `e2e.toml` next to an app's `Cargo.toml` keeps the suite's choices: `folder` 
 
 `features = ["e2e-source"]` in the app's `[package.metadata.ravenrs.e2e]` enables its named Cargo features for source test builds only. This is separate from `e2e.toml`. Omit it for defaults; the app must define the selected features. Discovery lists the choices and configuration errors; execution refuses malformed lists before opening an app.
 
+All four templates (`hello`, `app`, `app-sqlite`, `relatorios`) include that metadata, an opt-in
+`e2e-source` feature, and `tests/e2e/start.raventest`. Their native entry handles the explicit
+`--e2e-serve` argument before opening a window, with the existing frame/film adapter over
+stdin/stdout. The test branch uses memory, including `app-sqlite`; its normal desktop entry
+still opens the persistent database. The generated screen test also uses the memory fixture.
+The channel adds no runner, Studio or AI dependency to the generated app. Web builds keep
+their existing browser entry; this channel is native and does not open a socket or attach
+to a window already running.
+
 `doctor` compares RavenRS dependency versions with the CLI, checks managed
 files, and runs initialize + tools/list through all four registered commands. It reports
 stale files and versions with a nonzero exit code. Projects made with `--no-ai` are checked
@@ -81,5 +90,7 @@ The compilation matrix checks every template/target with local workspace patches
 a build cache. Set `RAVENRS_TEST_PUBLISHED=1` to check against crates.io after publishing
 the corresponding framework release. The regular tests start the real MCP binary from
 each configuration and verify idempotence, version checks, and the embedded sources.
+The explicit ignored tests also build all four native templates in release and drive their
+test channels and initial scenarios, including frames and untouched SQLite storage.
 
 CLI, framework, templates and MCP use the same release version. The current Git tag is `v27.1.28`.
