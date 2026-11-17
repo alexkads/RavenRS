@@ -87,6 +87,7 @@ pub fn doctor(root: &Path) -> Result<(), String> {
         }
     }
     println!("✓ CLI: {CLI_VERSION}; crates e MCP: {VERSION}");
+    crate::e2e::doctor(root)?;
     if root.join(".ravenrs-project.toml").is_file() && !root.join(".ravenrs-ai.toml").is_file() {
         let state: DocumentMut =
             read(&root.join(".ravenrs-project.toml"))?.parse().map_err(|e| format!("Projeto: {e}"))?;
@@ -138,6 +139,6 @@ pub fn doctor(root: &Path) -> Result<(), String> {
         .map(|v| v.as_str().map(str::to_owned).ok_or("Codex argumento inválido".into()))
         .collect::<Result<Vec<String>, String>>()?;
     probe(server["command"].as_str().ok_or("Codex command ausente")?, &args, root)?;
-    println!("✓ MCP .codex/config.toml\nDoctor: tudo certo.");
+    println!("✓ MCP .codex/config.toml\nDoctor: verificação concluída.");
     Ok(())
 }
