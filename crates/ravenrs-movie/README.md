@@ -74,3 +74,5 @@ that finds nothing never reaches the model.
 controls, and `SocialFrame`, the same moment laid out for a phone screen with the words under the
 film. `Movie::following` brings the camera close to each spot explained, and `Soundtrack` gives
 the whole sound as samples. The `ravenrs-movie-video` crate turns these into a video file.
+
+**Films of tests.** `TestFilm::start(&mut e2e)` films a [`ravenrs-e2e`](../ravenrs-e2e) session as the test runs, and `finish` gives the `Movie`. It goes at a test's pace: each frame the session draws lasts a thirtieth of a second, the pointer jumps, and each step marked with `E2e::mark_step` becomes a chapter. Nothing comes from the wall clock, so two runs give the same bytes, and a protected field stays hidden as the session draws it. An app opened apart films its own session over the test channel when it is served with `ravenrs_e2e_wire::serve_filmed(hello, session, ChannelFilm::default())`: the tool sends `Film { path }` and `FilmStop`, and the app keeps the `.ravenmovie` there. A `Recorder` script finds `#test-id` as a test does, so a training and a test name parts the same way.

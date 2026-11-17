@@ -6,6 +6,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Breaking
 
+- `ravenrs-e2e-wire`: `Command` has `Film` and `FilmStop`; an exhaustive `match` needs the new arms. ([#670](https://github.com/alexkads/RavenRS/issues/670))
 - `ravenrs-e2e-wire`: `Command` has `Drag` and `Kind` has `Drag`; an exhaustive `match` on either needs the new arm. ([#663](https://github.com/alexkads/RavenRS/issues/663))
 
 - `ravenrs-e2e-wire`: `Command` has `Fill`, `Select`, `Expand`, `Collapse`, `Scroll` and `Wait`, and `Kind` the same kinds; an exhaustive `match` on either needs the new arms. `Command::apply` now tries a step again for up to `PATIENCE` (2 s) while its target is not ready, and scrolls to a target out of sight first. ([#658](https://github.com/alexkads/RavenRS/issues/658))
@@ -42,6 +43,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- Films of end-to-end tests: `ravenrs-e2e`'s `FrameObserver` (`E2e::observe`, `stop_observing`, `mark_step`, `size`, `background`) tells a watcher each frame, pointer move, click, key and step, and costs nothing when no one watches; `ravenrs_movie::TestFilm` makes a `.ravenmovie` from it at a test's pace, a chapter per marked step, the same bytes on every run, with a protected field hidden as the session draws it. Over the test channel, `Command::Film { path }` and `Command::FilmStop` film an app served with `ravenrs_e2e_wire::serve_filmed` and `ravenrs_movie::ChannelFilm`; one served with `serve` answers the new code `E2E_NO_FILM`. The `Recorder` finds `#test-id` as a test does. ([#670](https://github.com/alexkads/RavenRS/issues/670))
 - End-to-end reports as one HTML page (`--format html`, and `relatorio.html` beside each kept run), JSON Schemas of the report and of a scenario as JSON (`ravenrs_e2e_runner::report::schema`, `ravenrs_e2e_wire::scenario_schema`, `Scenario::to_json` and `from_json`, `cargo ravenrs e2e schema`), an `e2e.toml` per app (`folder`, `format`, `out`) and `cargo ravenrs e2e rust <file>`, which prints a scenario as a Rust integration test of its app. Raven Test Studio 0.1.11 takes `--format html`. ([#668](https://github.com/alexkads/RavenRS/issues/668))
 - `ravenrs-e2e-runner`: the engine that runs `.raventest` scenarios on apps opened apart and reports them (text, JSON, JSON lines, JUnit, kept in a folder), with the reading of a project (`project`), the opening of apps (`app`), the steps and failures in Portuguese by code (`session`) and `run::run_files`, which runs files straight from their blocks. Raven Test Studio now uses it, with no change in what it does. ([#666](https://github.com/alexkads/RavenRS/issues/666))
 - `cargo ravenrs e2e run [path] --format text|json|jsonl|junit --out <folder>` runs a project's end-to-end scenarios with no window and no Studio, exit code 0, 1 or 2, each run kept in `target/e2e/`; `cargo ravenrs e2e list` says the project's apps, test channel, scenarios and screens. An Open block that names no app fails with `E2E_APP_START` and says where the name comes from. ([#666](https://github.com/alexkads/RavenRS/issues/666))

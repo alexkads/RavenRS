@@ -129,6 +129,19 @@ impl Recorder {
 
     fn find(&mut self, name: &str) -> Result<AccessNode, RecordError> {
         let tree = self.ui.access_tree();
+        // `#id` is a test id, as `ravenrs-e2e` reads a target: the same script runs as a test.
+        if let Some(id) = name.strip_prefix('#') {
+            return tree.nodes.iter().find(|n| n.test_id.as_deref() == Some(id.trim())).cloned().ok_or_else(
+                || RecordError::NotOnScreen {
+                    name: name.to_owned(),
+                    available: tree
+                        .nodes
+                        .iter()
+                        .filter_map(|n| n.test_id.as_ref().map(|t| format!("#{t}")))
+                        .collect(),
+                },
+            );
+        }
         let named = |n: &&AccessNode| n.name.as_deref() == Some(name);
         let starts = |n: &&AccessNode| n.name.as_deref().is_some_and(|text| text.starts_with(name));
         let interactive =
@@ -187,7 +200,8 @@ impl Recorder {
         self.note(name, title, text, seconds)
     }
 
-    /// Slides the pointer to the middle of what is called `name`.
+    /// Slides the pointer to the middle of what is called `name`, or of what has the test id
+    /// after `#` (`#salvar`), as a test of `ravenrs-e2e` finds it.
     pub fn move_to(&mut self, name: &str) -> Result<&mut Self, RecordError> {
         let target = self.find(name)?.bounds.center();
         let start = self.pointer;

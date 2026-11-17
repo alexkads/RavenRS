@@ -131,6 +131,12 @@ fn in_portuguese(code: &str) -> (&'static str, Option<&'static str>) {
             Some("confira se o passo abre algo que espera por quem usa, como um diálogo do sistema"),
         ),
         "E2E_WIRE" => ("o app testado respondeu fora do protocolo do canal de teste", None),
+        "E2E_NO_FILM" => (
+            "o app testado não filmou",
+            Some(
+                "sirva o app com ravenrs_e2e_wire::serve_filmed e ravenrs_movie::ChannelFilm, ou rode sem filmar",
+            ),
+        ),
         _ => ("o passo falhou", None),
     }
 }

@@ -36,7 +36,7 @@ use serde::{Deserialize, Serialize};
 pub use client::Client;
 pub use scenario::{Block, EXTENSION, FOLDER, Kind, Scenario, ScenarioError, check_folder, scenario_schema};
 #[cfg(feature = "serve")]
-pub use serve::{serve, serve_on};
+pub use serve::{Filming, serve, serve_filmed, serve_on, serve_with};
 
 /// The name the app gives in its [`Hello`], so a tool knows it is talking to this channel.
 pub const PROTOCOL: &str = "ravenrs-e2e-wire";
@@ -53,6 +53,8 @@ pub mod codes {
     pub const TIMEOUT: &str = "E2E_TIMEOUT";
     /// A line that is not a command or an answer of this protocol.
     pub const WIRE: &str = "E2E_WIRE";
+    /// The app was asked to film, and it is not served with filming, or it could not keep the film.
+    pub const NO_FILM: &str = "E2E_NO_FILM";
 }
 
 /// What the app says first: that it speaks this channel, which version, and its name.
@@ -158,6 +160,16 @@ pub enum Command {
         /// `#id` or the text shown: where it is dropped.
         to: String,
     },
+    /// Starts filming the session, to keep the film at `path` (a `.ravenmovie`) when
+    /// [`Command::FilmStop`] comes. Only an app served with [`serve_filmed`] films; one served
+    /// with [`serve`] answers `E2E_NO_FILM`.
+    Film {
+        /// Where the film goes, on the computer the app runs on.
+        path: String,
+    },
+    /// Stops filming and keeps the film; answers with its path.
+    #[serde(rename = "film_stop")]
+    FilmStop,
     /// The screen as text, as [`E2e::snapshot`] writes it.
     Snapshot,
     /// Ends the session; the app exits.
@@ -187,6 +199,9 @@ impl Command {
     pub fn apply(&self, e2e: &mut E2e) -> Result<Option<String>, Failure> {
         let done = match self {
             Self::Snapshot => return Ok(Some(e2e.snapshot())),
+            Self::Film { .. } | Self::FilmStop => {
+                return Err(Failure::of(codes::NO_FILM, "this app is served without filming"));
+            }
             Self::Bye => Ok(()),
             Self::Wait { target: t, text } => {
                 let q = target(t);
@@ -243,7 +258,7 @@ impl Command {
                 }
             }
             Self::Mention { target: t, text } => e2e.locate(target(t)).expect().to_mention(text),
-            Self::Wait { .. } | Self::Snapshot | Self::Bye => Ok(()),
+            Self::Wait { .. } | Self::Snapshot | Self::Bye | Self::Film { .. } | Self::FilmStop => Ok(()),
         }
     }
 }

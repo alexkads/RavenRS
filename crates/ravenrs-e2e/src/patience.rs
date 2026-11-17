@@ -25,6 +25,8 @@ impl E2e {
             self.clock = (self.clock + FRAME).min(end);
             self.ui.set_time(self.clock);
             self.ui.update();
+            // A film sees the animation, not only where it ends.
+            self.observed_frame();
         }
         self.frame();
     }

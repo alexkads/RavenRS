@@ -1,5 +1,24 @@
 [
   {
+    "versao": "0.1.12",
+    "data": "2026-11-16",
+    "titulo": "O teste pode ser filmado.",
+    "importante": false,
+    "novidades": [
+      "Um teste e2e pode virar filme vetorial (.ravenmovie): cada passo marcado vira capítulo, com cliques e teclas, e duas execuções dão o mesmo arquivo.",
+      "Um app servido com filmagem grava o filme da própria sessão quando o RTS pede, pelo canal de teste.",
+      "Senha digitada no teste nunca aparece no filme.",
+      "Roteiros de treinamento podem achar as partes pelo mesmo #id dos testes."
+    ],
+    "por_que_atualizar": "Para ver um teste como ele aconteceu, no MoviePlayer, sem rodar de novo.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      670
+    ]
+  },
+  {
     "versao": "0.1.11",
     "data": "2026-11-16",
     "titulo": "Relatório em página HTML, e os cenários também pelo cargo ravenrs e2e.",

@@ -98,6 +98,10 @@ Rows with keys have test ids that stay with the data when it sorts, filters or s
 - `item:<key>` for a `TreeView` item;
 - `node:<id>` for a `FlowCanvas` node.
 
+## Watching a session
+
+`E2e::observe` hands a `FrameObserver` every frame the session draws, each pointer move, click and key, and each step a test marks with `E2e::mark_step`. `ravenrs-movie`'s `TestFilm` uses it to film a test. With no observer nothing is called and nothing is kept.
+
 ## Limits for now
 
 - It runs in the test's process. An app in another process is driven through [`ravenrs-e2e-wire`](../ravenrs-e2e-wire).

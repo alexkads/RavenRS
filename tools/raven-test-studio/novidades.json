@@ -1,19 +1,18 @@
 {
-  "versao": "0.1.11",
-  "titulo": "Relatório em página HTML, e os cenários também pelo cargo ravenrs e2e.",
+  "versao": "0.1.12",
+  "titulo": "O teste pode ser filmado.",
   "importante": false,
   "novidades": [
-    "--format html dá uma página com o resumo, cada passo com o resultado e o tempo, e a falha com a correção e a tela; --out a guarda como relatorio.html.",
-    "O motor do Studio agora é o crate ravenrs-e2e-runner: cargo ravenrs e2e run roda os mesmos cenários sem abrir o Studio.",
-    "O cenário vira JSON e tem JSON Schema (cargo ravenrs e2e schema scenario), e o relatório também (schema report).",
-    "Cada app pode ter um e2e.toml com a pasta, o formato e a saída dos testes."
+    "Um teste e2e pode virar filme vetorial (.ravenmovie): cada passo marcado vira capítulo, com cliques e teclas, e duas execuções dão o mesmo arquivo.",
+    "Um app servido com filmagem grava o filme da própria sessão quando o RTS pede, pelo canal de teste.",
+    "Senha digitada no teste nunca aparece no filme.",
+    "Roteiros de treinamento podem achar as partes pelo mesmo #id dos testes."
   ],
-  "por_que_atualizar": "Para ler o resultado de uma suíte no navegador e usar o mesmo motor no terminal e no build.",
+  "por_que_atualizar": "Para ver um teste como ele aconteceu, no MoviePlayer, sem rodar de novo.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    666,
-    668
+    670
   ]
 }
