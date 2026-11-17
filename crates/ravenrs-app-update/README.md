@@ -97,7 +97,22 @@ RAVENRS_WRITE_INSTALLER=1 cargo test -p raven-flows the_installer_is_the_one
 
 From then on the test fails if the copy and [`install.cmd.in`](install.cmd.in) part ways. Change the template, never the copy, and write the copies again. A field that would change what the script does (a quote, a `$`, a `%`) is refused before anything is written.
 
-**5. Put it on screen.** The updater lives on the UI thread and its work on background threads:
+**5. Put it on screen.** Turn on the feature `ui` (`ravenrs-app-update = { workspace = true, features = ["ui"] }`) and every app shows the news and the notice the same way, with nothing to draw:
+
+```rust,ignore
+use ravenrs_app_update::ui::{NewsDialog, version_button, with_notice};
+
+let news = NewsDialog::new().on_open_file(|log| { let _ = ravenrs::native::open_with_system(log); });
+// In the status bar: the version opens the news of the version running; the notice, in the middle.
+let bar = StatusBar::new().left((version_button(format!("Raven Exemplo · versão {}", APP.version), &updater, &news),));
+let bar = with_notice(bar, &updater, &news);
+// Somewhere in the tree, over the screen: "Novidades", or "Detalhes da atualização" when one failed.
+let dialog = news.view(&updater);
+```
+
+`ui::release_note` draws one version (what changed, why update or why it mattered, **Quem contribuiu**, **Issues resolvidas** opening through the app's links, the date, "Nova" with **Como atualizar** and the installer's command, or "Instalada"), and `ui::release_notes` every version, for a `ReleaseNotes` placed elsewhere, as Raven Flows does in its settings. Raven Finanças, Raven Flows and Raven Test Studio all use it; a new app should too, instead of drawing its own.
+
+What it is made of, for an app that needs something else:
 
 - create it with `Updater::idle(&APP)`, and call `watch()` once the window is open;
 - in a view that builds every frame, call `connect(move || waker.wake())` with `cx.ui_waker()`, then `poll()`;
@@ -105,7 +120,7 @@ From then on the test fails if the copy and [`install.cmd.in`](install.cmd.in) p
 - `timeline()` is every version known, newest first, for `ReleaseNotes`, with `contribuidores` under **Quem contribuiu** and `issues` linked by `APP.issue_url(n)` under **Issues resolvidas**;
 - a failure's details are its reason, `stage()` and `APP.installer_log_tail(n)`, with `APP.install_command()` for running the installer by hand.
 
-`examples/family-finance/src/ui/updates.rs` does all of this with `StatusBar`, `ReleaseNotes` and `Button`, and **Procurar atualização** in its Ajustes is `ask()`.
+`ui` does all of this with `StatusBar`, `ReleaseNotes`, `Dialog` and `Button`, and **Procurar atualização** in the Ajustes of Raven Finanças is `ask()`.
 
 **6. Show the commands in the README.** `APP.install_command_on(true)` (PowerShell) and `APP.install_command_on(false)` (a terminal) are the commands to paste; the app shows the one for its system when updating from inside fails.
 

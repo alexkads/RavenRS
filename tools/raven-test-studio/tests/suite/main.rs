@@ -9,6 +9,7 @@ mod delegate_window;
 mod embedded;
 mod film;
 mod manifest;
+mod novidades;
 mod outputs;
 mod project;
 mod self_test;

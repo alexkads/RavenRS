@@ -25,7 +25,7 @@ use std::rc::Rc;
 use ravenrs::prelude::*;
 
 pub use casa::{Casa, Worker};
-pub use ui::{RavenFlows, apply_parameters, release_notes};
+pub use ui::{RavenFlows, apply_parameters};
 
 /// The app's version, the one its news speak of.
 pub const VERSION: &str = versao::APP.version;

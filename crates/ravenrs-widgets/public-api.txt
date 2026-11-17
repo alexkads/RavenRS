@@ -34,6 +34,7 @@ enum DockPanelKind
 enum DockSide
 enum DockTabBar
 enum DragPhase
+enum Driving
 enum FileSortColumn
 enum Fill
 enum FilterFieldKind
@@ -1082,6 +1083,7 @@ impl Clone for Dot
 impl Clone for Drag
 impl Clone for DragPayload
 impl Clone for DragPhase
+impl Clone for Driving
 impl Clone for EyedropperState
 impl Clone for FieldDrag
 impl Clone for FileEntry
@@ -1296,6 +1298,7 @@ impl Copy for DockSide
 impl Copy for DockTabBar
 impl Copy for Drag
 impl Copy for DragPhase
+impl Copy for Driving
 impl Copy for FileSort
 impl Copy for FileSortColumn
 impl Copy for Fill
@@ -1467,6 +1470,7 @@ impl Debug for Dot
 impl Debug for Drag
 impl Debug for DragPayload
 impl Debug for DragPhase
+impl Debug for Driving
 impl Debug for DropZone
 impl Debug for DropdownMenu
 impl Debug for EmptyState
@@ -1973,6 +1977,7 @@ impl Eq for DockPanelKind
 impl Eq for DockSide
 impl Eq for DockTabBar
 impl Eq for DragPhase
+impl Eq for Driving
 impl Eq for FieldDrag
 impl Eq for FileRequest
 impl Eq for FileSort
@@ -2121,6 +2126,7 @@ impl PartialEq for DockTabBar
 impl PartialEq for DocumentTab
 impl PartialEq for Drag
 impl PartialEq for DragPhase
+impl PartialEq for Driving
 impl PartialEq for FieldDrag
 impl PartialEq for FileEntry
 impl PartialEq for FileRequest
@@ -5104,6 +5110,7 @@ trait FullScreenProvider
 trait LinkOpener
 trait Runner
 trait SoundProvider
+trait UiDriver
 trait View
 trait ViewExt
 trait ViewSeq
@@ -5123,6 +5130,10 @@ trait-item SoundProvider::play
 trait-item SoundProvider::speak
 trait-item SoundProvider::speak_clip
 trait-item SoundProvider::stop_speaking
+trait-item UiDriver::drive
+trait-item UiDriver::start
+trait-item UiDriver::time
+trait-item UiDriver::window_closed
 trait-item View::build
 trait-item View::type_name
 trait-item ViewExt::background
@@ -5264,6 +5275,9 @@ variant DockTabBar::WhenSeveral
 variant DragPhase::End
 variant DragPhase::Move
 variant DragPhase::Start
+variant Driving::Done
+variant Driving::Driven
+variant Driving::Released
 variant FileSortColumn::Modified
 variant FileSortColumn::Name
 variant FileSortColumn::Size

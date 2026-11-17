@@ -1,5 +1,21 @@
 [
   {
+    "versao": "0.1.44",
+    "data": "2026-11-17",
+    "titulo": "As novidades passam a ser as mesmas em todos os apps do RavenRS.",
+    "importante": false,
+    "novidades": [
+      "A tela de novidades e o aviso de versão nova agora são os mesmos do Raven Test Studio e do Raven Flows; para você, nada muda."
+    ],
+    "por_que_atualizar": "Para manter o app em dia com os outros apps do RavenRS.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      744
+    ]
+  },
+  {
     "versao": "0.1.43",
     "data": "2026-11-17",
     "titulo": "O teste pode rodar com a janela aberta.",

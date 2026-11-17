@@ -25,8 +25,9 @@
 //! only speaks when there is a version, or when someone asked and is waiting for an answer.
 //!
 //! Who the app is, its folders and its addresses, is an [`InstalledApp`]; nothing
-//! here knows any app. The README says how an app adopts it. The crate draws
-//! nothing: the app shows [`Notice`] and [`News`] with its own components.
+//! here knows any app. The README says how an app adopts it. With no features the
+//! crate draws nothing; the feature `ui` adds [`ui`], the news and the notice drawn the same
+//! way in every app.
 
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -40,6 +41,8 @@ mod news;
 mod release;
 mod template;
 mod tray;
+#[cfg(feature = "ui")]
+pub mod ui;
 
 pub use app::{InstallKind, InstalledApp};
 pub use installer::{
@@ -205,6 +208,11 @@ impl Updater {
         if let Some(waker) = self.waker.borrow().as_ref() {
             waker.wake();
         }
+    }
+
+    /// The app it updates.
+    pub fn app(&self) -> &'static InstalledApp {
+        self.app
     }
 
     /// The step the installer was on, as it last said.
