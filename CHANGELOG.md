@@ -197,6 +197,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- Timeout reports describe the step's time limit without claiming the app was stopped: a failed `wait` can leave its process answering normally. The original condition or transport detail, code and screen remain in text, JSON and JUnit. ([#697](https://github.com/alexkads/RavenRS/issues/697))
 - Raven Test Studio: preflight of an app's embedded scenarios (`--run financas`) preserves build/start error codes, details and fixes in JSON and JUnit, just as running scenario files does. Malformed embedded scenarios remain parse errors. ([#692](https://github.com/alexkads/RavenRS/issues/692))
 - The aggregated HTML report links to each film's real file URL, so equal film names in different scenario folders no longer collide. Saved per-scenario pages keep portable relative links; file URL escaping handles spaces, Unicode and `#`. ([#690](https://github.com/alexkads/RavenRS/issues/690))
 - The public API snapshot includes the e2e drivers already delivered in F3, so the local gate no longer reports them as unexpected additions. ([#684](https://github.com/alexkads/RavenRS/issues/684))
