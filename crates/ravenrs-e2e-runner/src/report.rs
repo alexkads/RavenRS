@@ -10,7 +10,7 @@ use serde_json::{Value, json};
 use crate::session::{self as runner, Outcome};
 
 /// The formats a report prints in, as `--format` names them.
-pub const FORMATS: [&str; 4] = ["text", "json", "jsonl", "junit"];
+pub const FORMATS: [&str; 5] = ["text", "json", "jsonl", "junit", "html"];
 
 /// What a run of an app compiled into the tool could not check, said in its report.
 pub const NOT_VERIFIED: [&str; 3] = [
@@ -321,7 +321,7 @@ impl Report {
     }
 
     /// Keeps the run in `folder`, under a folder named after the scenario: `relatorio.json`,
-    /// `trace.jsonl` and, when it failed and the app's screen came with the failure,
+    /// `relatorio.html`, `trace.jsonl` and, when it failed and the app's screen came with the failure,
     /// `arvore.txt`. A run that passes removes an `arvore.txt` left by an earlier failure.
     /// Says where it kept them.
     pub fn save(&self, folder: &std::path::Path) -> std::io::Result<std::path::PathBuf> {
@@ -330,6 +330,7 @@ impl Report {
         let json = serde_json::to_string_pretty(&self.json()).unwrap_or_default();
         std::fs::write(dir.join("relatorio.json"), json + "\n")?;
         std::fs::write(dir.join("trace.jsonl"), self.trace())?;
+        std::fs::write(dir.join("relatorio.html"), crate::html::page(std::slice::from_ref(self)))?;
         let tree = dir.join("arvore.txt");
         match self.failure().and_then(|f| f.screen.as_ref()) {
             Some(screen) => std::fs::write(&tree, format!("{screen}\n"))?,
@@ -406,6 +407,44 @@ pub fn render(reports: &[Report], list: bool, format: &str) -> String {
         }
         "jsonl" => reports.iter().map(Report::trace).collect(),
         "junit" => Report::junit(reports),
+        "html" => crate::html::page(reports),
         _ => reports.iter().map(|r| format!("{}\n\n", r.text())).collect(),
     }
+}
+
+/// The JSON Schema (2020-12) of [`Report::json`], for a tool or an AI that reads it.
+pub fn schema() -> Value {
+    let text = json!({ "type": "string" });
+    let maybe = json!({ "type": ["string", "null"] });
+    json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://github.com/alexkads/RavenRS/schemas/e2e-report.json",
+        "title": "RavenRS e2e report",
+        "description": "How a run of .raventest scenarios went, as Raven Test Studio and cargo ravenrs e2e give it with --format json.",
+        "type": "object",
+        "required": ["scenario", "verdict", "summary", "total", "ran", "blocks", "duration_ms"],
+        "properties": {
+            "scenario": text, "verdict": { "enum": ["passed", "failed"] }, "summary": text,
+            "total": { "type": "integer", "minimum": 0, "description": "blocks on the scenario's path" },
+            "ran": { "type": "integer", "minimum": 0 },
+            "duration_ms": { "type": "integer", "minimum": 0 },
+            "from_cache": { "type": "boolean" }, "cached_at": { "type": ["integer", "null"] },
+            "opened_apart": { "type": "boolean" },
+            "not_verified": { "type": "array", "items": text },
+            "not_run": { "type": "array", "items": text, "description": "titles of the blocks after a failure" },
+            "blocks": { "type": "array", "items": {
+                "type": "object",
+                "required": ["step", "id", "kind", "title", "line", "result"],
+                "properties": {
+                    "step": { "type": "integer", "minimum": 1 }, "id": text, "kind": text, "title": text, "line": text,
+                    "result": { "enum": ["passed", "failed"] },
+                    "code": { "type": ["string", "null"], "pattern": "^E2E_[A-Z_]+$", "description": "stable code of a failure" },
+                    "error": maybe, "meaning": maybe, "detail": maybe, "fix": maybe,
+                    "close": { "type": "array", "items": text },
+                    "screen": { "type": ["string", "null"], "description": "the app's screen as text when it failed" },
+                    "duration_ms": { "type": "integer", "minimum": 0 }
+                }
+            }}
+        }
+    })
 }

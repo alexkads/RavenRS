@@ -24,7 +24,10 @@
 //! ```
 
 pub mod app;
+pub mod config;
+pub mod html;
 pub mod project;
 pub mod report;
 pub mod run;
+pub mod rust;
 pub mod session;

@@ -191,6 +191,58 @@ const WORDS: &str = "open, click, type, check, mention, fill, select, expand, co
      (ou abrir, clicar, digitar, conferir, mencionar, preencher, escolher, expandir, recolher, rolar, esperar, arrastar)";
 
 impl Scenario {
+    /// The scenario as JSON, the form [`scenario_schema`] describes: what a tool or an AI that
+    /// writes scenarios produces, and [`Scenario::from_json`] reads back.
+    pub fn to_json(&self) -> serde_json::Value {
+        let blocks: Vec<serde_json::Value> = self
+            .blocks
+            .iter()
+            .map(|b| {
+                let mut block =
+                    serde_json::json!({ "kind": b.kind.word(), "target": b.target, "title": b.title });
+                if let Some(text) = &b.text {
+                    block["text"] = serde_json::Value::from(text.clone());
+                }
+                block
+            })
+            .collect();
+        serde_json::json!({ "scenario": self.name, "blocks": blocks })
+    }
+
+    /// Reads the JSON form of a scenario, with the rules of the text: a known word (English or
+    /// Portuguese), a target, and the text for the blocks that need it.
+    pub fn from_json(value: &serde_json::Value) -> Result<Self, ScenarioError> {
+        let at = |line: usize, message: String| ScenarioError { line, message };
+        let name = value
+            .get("scenario")
+            .and_then(serde_json::Value::as_str)
+            .filter(|n| !n.trim().is_empty())
+            .ok_or_else(|| at(0, "falta \"scenario\", o nome do cenário".to_owned()))?;
+        let list = value
+            .get("blocks")
+            .and_then(serde_json::Value::as_array)
+            .ok_or_else(|| at(0, "falta \"blocks\", a lista de blocos".to_owned()))?;
+        let mut blocks = Vec::new();
+        for (i, b) in list.iter().enumerate() {
+            let text = |key: &str| b.get(key).and_then(serde_json::Value::as_str).map(str::to_owned);
+            let word = text("kind").unwrap_or_default();
+            let kind = Kind::read(&word).ok_or_else(|| {
+                at(i + 1, format!("bloco {}: {word:?} não é um bloco; os blocos: {WORDS}", i + 1))
+            })?;
+            let target = text("target").unwrap_or_default();
+            if target.trim().is_empty() {
+                return Err(at(i + 1, format!("bloco {}: falta o alvo", i + 1)));
+            }
+            let body = text("text");
+            if kind.needs_text() && body.is_none() {
+                return Err(at(i + 1, format!("bloco {}: {} precisa de \"text\"", i + 1, kind.word())));
+            }
+            let title = text("title").filter(|t| !t.trim().is_empty()).unwrap_or_else(|| word.clone());
+            blocks.push(Block { kind, target, text: body.filter(|_| kind.takes_text()), title });
+        }
+        Ok(Self { name: name.to_owned(), blocks })
+    }
+
     /// Reads a `.raventest` file.
     pub fn parse(text: &str) -> Result<Self, ScenarioError> {
         let mut name = None;
@@ -300,4 +352,59 @@ pub fn check_folder(folder: &std::path::Path, embedded: &[&str]) -> Result<Vec<S
         problems.push(format!("o app embute {} cenários e a pasta tem {}", embedded.len(), files.len()));
     }
     if problems.is_empty() { Ok(scenarios) } else { Err(problems.join("\n")) }
+}
+
+/// The JSON Schema (2020-12) of [`Scenario::to_json`]: a scenario as an AI or a tool writes it
+/// before it becomes a `.raventest` file.
+pub fn scenario_schema() -> serde_json::Value {
+    let words: Vec<&str> = [
+        Kind::Open,
+        Kind::Click,
+        Kind::Type,
+        Kind::Check,
+        Kind::Mention,
+        Kind::Fill,
+        Kind::Select,
+        Kind::Expand,
+        Kind::Collapse,
+        Kind::Scroll,
+        Kind::Wait,
+        Kind::Drag,
+    ]
+    .iter()
+    .map(|k| k.word())
+    .collect();
+    let needs: Vec<&str> = [Kind::Type, Kind::Check, Kind::Mention, Kind::Fill, Kind::Select, Kind::Drag]
+        .iter()
+        .map(|k| k.word())
+        .collect();
+    serde_json::json!({
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "$id": "https://github.com/alexkads/RavenRS/schemas/raventest.json",
+        "title": "RavenRS e2e scenario (.raventest)",
+        "description": "A scenario as JSON. Each block is one line of a .raventest file: `kind target = text | title`.",
+        "type": "object",
+        "required": ["scenario", "blocks"],
+        "additionalProperties": false,
+        "properties": {
+            "scenario": { "type": "string", "minLength": 1 },
+            "blocks": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                    "type": "object",
+                    "required": ["kind", "target"],
+                    "additionalProperties": false,
+                    "properties": {
+                        "kind": { "enum": words, "description": "the English word; the file also reads the Portuguese ones" },
+                        "target": { "type": "string", "minLength": 1, "description": "#test-id, the text shown, or for open the app's name" },
+                        "text": { "type": "string", "description": "what to type, check or pick; for drag, where to drop" },
+                        "title": { "type": "string", "description": "how the block is called in reports" }
+                    },
+                    "if": { "properties": { "kind": { "enum": needs } } },
+                    "then": { "required": ["text"] }
+                }
+            }
+        }
+    })
 }

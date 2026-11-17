@@ -33,6 +33,11 @@ pub struct Found {
     pub scenarios: Vec<(PathBuf, Result<String, String>)>,
     /// The views it builds.
     pub screens: Vec<Screen>,
+    /// Its `e2e.toml`, or the defaults; a file that does not read leaves the defaults here and
+    /// says why in `config_error`.
+    pub config: crate::config::Config,
+    /// Why its `e2e.toml` could not be read, when it could not.
+    pub config_error: Option<String>,
 }
 
 /// A view the package builds, where, and the test ids its file declares.
@@ -132,15 +137,21 @@ pub fn of_metadata(root: &Path, metadata: &Value) -> Project {
                             || text.contains("ravenrs_e2e_wire::serve")
                     })
                 });
+            let (config, config_error) = match crate::config::Config::read(&folder) {
+                Ok(config) => (config, None),
+                Err(why) => (crate::config::Config::default(), Some(why)),
+            };
             Some(Found {
                 name: declared.as_ref().map_or_else(|| package_name.clone(), |d| d.name.clone()),
                 package: package_name,
-                scenarios: scenarios_in(&folder.join(ravenrs_e2e_wire::FOLDER)),
+                scenarios: scenarios_in(&folder.join(&config.folder)),
                 screens: screens_in(root, &sources),
                 folder,
                 binaries,
                 channel,
                 declared,
+                config,
+                config_error,
             })
         })
         .collect();
@@ -251,7 +262,7 @@ impl Project {
         self.found
             .iter()
             .filter(|f| f.is_app() && f.channel && !f.scenarios.is_empty())
-            .map(|f| f.folder.join(ravenrs_e2e_wire::FOLDER))
+            .map(|f| f.folder.join(&f.config.folder))
             .collect()
     }
 
@@ -312,6 +323,9 @@ impl Project {
                     Ok(name) => out.push_str(&format!("  cenário {shown}: {name}\n")),
                     Err(why) => out.push_str(&format!("  cenário {shown}: não lê ({why})\n")),
                 }
+            }
+            if let Some(why) = &f.config_error {
+                out.push_str(&format!("  e2e.toml não lê: {why}\n"));
             }
             if let Some(next) = next_step(f) {
                 out.push_str(&format!("  próximo passo: {next}\n"));

@@ -62,13 +62,14 @@ cargo run -p raven-test-studio -- --run tools/raven-test-studio/tests/e2e/amostr
 cargo run -p raven-test-studio -- --run tools/raven-test-studio/tests/e2e/amostras/quebrado.raventest --format junit --out target/e2e
 ```
 
-`--format` is `text` (the default), `json`, `jsonl` or `junit`; any other value is refused with exit code 2:
+`--format` is `text` (the default), `json`, `jsonl`, `junit` or `html`; any other value is refused with exit code 2:
 
 - `json` is the whole report: each block with its result, time (`duration_ms`), stable code, fix and the screen of the app when it failed;
 - `jsonl` is one event per line (`start`, a `step` per block that ran, `skipped` for those after a failure, `end` with the verdict), the same lines `trace.jsonl` keeps;
+- `html` is one page with nothing from the network: the summary, a table of the blocks with result, time and code, and the failure with its meaning, fix and the app's screen;
 - `junit` is the XML build servers and test tools read: a `testsuite` per report, a `testcase` per block with its time, the failure with the code in `type` and the fix and screen in its text, and the blocks after it as `skipped`.
 
-`--out <folder>` keeps each run in `<folder>/<scenario>/`: `relatorio.json`, `trace.jsonl` and, when it failed, `arvore.txt` with the app's screen at that moment, so a failure can be read later without running it again. A later pass removes the old `arvore.txt`. With `--project` it defaults to `e2e/` in the folder cargo builds the project into (`target_directory` from `cargo metadata`), which git already ignores. Where it kept them goes to stderr, so stdout carries only the report. The scenario's name becomes one folder: anything but letters, digits, `-` and `_` turns into `-`, so a name never leaves the folder given.
+`--out <folder>` keeps each run in `<folder>/<scenario>/`: `relatorio.json`, `relatorio.html`, `trace.jsonl` and, when it failed, `arvore.txt` with the app's screen at that moment, so a failure can be read later without running it again. A later pass removes the old `arvore.txt`. With `--project` it defaults to `e2e/` in the folder cargo builds the project into (`target_directory` from `cargo metadata`), which git already ignores. Where it kept them goes to stderr, so stdout carries only the report. The scenario's name becomes one folder: anything but letters, digits, `-` and `_` turns into `-`, so a name never leaves the folder given.
 
 **Where the scenarios live**
 
