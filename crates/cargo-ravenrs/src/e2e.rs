@@ -8,6 +8,26 @@ use ravenrs_e2e_runner::driver::FilmMode;
 use ravenrs_e2e_runner::report::{self, FORMATS, Report};
 use ravenrs_e2e_runner::{app, project, run};
 
+/// Installs the channel without building or starting the app. Exit code 2 means installation failed.
+pub fn install(folder: Option<&Path>) -> i32 {
+    match crate::e2e_install::install(folder.unwrap_or_else(|| Path::new("."))) {
+        Ok(0) => {
+            println!("E2E já configurado; nenhum arquivo alterado.");
+            0
+        }
+        Ok(count) => {
+            println!(
+                "E2E instalado: {count} arquivos atualizados.\nRode cargo ravenrs e2e run para testar o canal."
+            );
+            0
+        }
+        Err(why) => {
+            eprintln!("{why}");
+            2
+        }
+    }
+}
+
 /// Static configuration checks only: metadata does not run Cargo builds or an app.
 pub(crate) fn doctor(root: &Path) -> Result<(), String> {
     let project = project::read(root)?;

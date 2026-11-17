@@ -61,6 +61,23 @@ The channel adds no runner, Studio or AI dependency to the generated app. Web bu
 their existing browser entry; this channel is native and does not open a socket or attach
 to a window already running.
 
+`cargo ravenrs e2e install` equips an existing generated app (or `--project <folder>`),
+without building or starting it. It recognizes the original native entry and the installed
+entry, including after `cargo fmt`; new projects already have the channel. It merges only
+the e2e dependencies, metadata and source feature, keeps comments/custom fields and valid
+scenarios, and honors a scenario folder inside the app. A second run preserves bytes and
+modification times. The SQLite template's original screen test is also switched to memory;
+custom tests stay untouched.
+
+Initial support is limited to the four templates recorded in `.ravenrs-project.toml`, with
+the framework version matching the CLI and a single default binary. A changed entry,
+conflicting declaration, invalid configuration/scenario or linked destination is refused
+before generated files are written. For custom startup, add `--e2e-serve` manually before
+the window or persistence, using the channel described in `ravenrs-e2e-wire`. Recognition of
+formatted entries uses `rustfmt` on stdin, never to rewrite the user's file. The fixture is
+`tasks().into_view()` for SQLite and `app()` for the other templates; review that factory
+when changing application startup or storage.
+
 `doctor` compares RavenRS dependency versions with the CLI, checks managed
 files, and runs initialize + tools/list through all four registered commands. It reports
 stale files and versions with a nonzero exit code. Projects made with `--no-ai` are checked

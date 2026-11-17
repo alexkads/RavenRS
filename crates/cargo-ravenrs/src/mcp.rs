@@ -74,18 +74,7 @@ pub(crate) fn probe(command: &str, args: &[String], root: &Path) -> Result<(), S
 
 /// Verify the current project version, managed files and every registered MCP command.
 pub fn doctor(root: &Path) -> Result<(), String> {
-    let versions = crate::versions::ravenrs_versions(root)?;
-    if versions.is_empty() {
-        return Err("Nenhuma dependência RavenRS com versão no projeto nem no workspace.".into());
-    }
-    for declared in versions {
-        if declared.version.trim_start_matches(['=', '^', '~']) != VERSION {
-            return Err(format!(
-                "{} ({}) usa {}, mas cargo-ravenrs usa {VERSION}. Instale a tag correspondente.",
-                declared.package, declared.origin, declared.version
-            ));
-        }
-    }
+    crate::versions::ensure_current(root)?;
     println!("✓ CLI: {CLI_VERSION}; crates e MCP: {VERSION}");
     crate::e2e::doctor(root)?;
     if root.join(".ravenrs-project.toml").is_file() && !root.join(".ravenrs-ai.toml").is_file() {

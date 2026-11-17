@@ -47,6 +47,12 @@ enum Commands {
 
 #[derive(Debug, Subcommand)]
 enum E2eCommand {
+    /// Install the native test channel in a recognized generated app, preserving custom code.
+    Install {
+        /// The generated app's folder; the current one by default.
+        #[arg(long)]
+        project: Option<PathBuf>,
+    },
     /// Run the scenarios: every app's tests/e2e, or the file or folder given. Exit code 0
     /// when all passed, 1 when one failed, 2 when nothing could run.
     Run {
@@ -130,6 +136,7 @@ async fn main() {
         Commands::Ai { plugin } => cargo_ravenrs::configure_ai(std::path::Path::new("."), plugin),
         Commands::Doctor => cargo_ravenrs::doctor(std::path::Path::new(".")),
         Commands::E2e { command } => std::process::exit(match command {
+            E2eCommand::Install { project } => cargo_ravenrs::e2e::install(project.as_deref()),
             E2eCommand::Run { path, project, format, out, film } => {
                 cargo_ravenrs::e2e::run(&cargo_ravenrs::e2e::RunAsk { project, path, format, out, film })
             }
