@@ -92,3 +92,50 @@ fn film_with_nowhere_to_keep_it_is_refused() {
         .unwrap();
     assert_eq!(bad.status.code(), Some(2));
 }
+
+/// The child uses a different working folder, as an app opened with `--project` does.
+fn studio_in_another_folder(_: &str) -> Option<Result<raven_test_studio::runner::Session, String>> {
+    let child_folder = std::env::temp_dir().join(format!("rts-film-child-{}", std::process::id()));
+    let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_raven-test-studio"));
+    command.current_dir(child_folder).arg("--e2e-serve");
+    Some(
+        ravenrs_e2e_wire::Client::spawn(command, std::time::Duration::from_secs(20))
+            .map(raven_test_studio::runner::Session::Apart)
+            .map_err(|error| error.message),
+    )
+}
+
+#[test]
+fn a_relative_out_keeps_films_beside_the_report_when_the_child_runs_elsewhere() {
+    let child_folder = std::env::temp_dir().join(format!("rts-film-child-{}", std::process::id()));
+    std::fs::create_dir_all(&child_folder).unwrap();
+    let relative_out = PathBuf::from(format!("target/rts-relative-film-{}", std::process::id()));
+    let expected_out = std::env::current_dir().unwrap().join(&relative_out);
+    assert!(!expected_out.exists(), "the output folder need not exist yet");
+    for (text, film) in [(FAILS, FilmMode::OnFailure), (PASSES, FilmMode::Always)] {
+        let scenario = ravenrs_e2e_wire::Scenario::parse(text).unwrap();
+        let options = RunOptions { film, out: Some(relative_out.clone()) };
+        let report = ravenrs_e2e_runner::run::run_with(
+            &scenario.name,
+            std::slice::from_ref(&scenario),
+            studio_in_another_folder,
+            &options,
+        );
+        assert_eq!(report.passed(), film == FilmMode::Always, "{}", report.text());
+        assert_eq!(report.film_note, None, "{}", report.text());
+        assert_eq!(report.films.len(), 1, "{}", report.text());
+        let folder = report.save(&relative_out).unwrap();
+        let saved_film = folder.join("filme-1.ravenmovie");
+        let bytes = std::fs::read(&saved_film).unwrap();
+        Movie::from_bytes(&bytes).unwrap();
+        assert_eq!(
+            std::fs::canonicalize(&report.films[0]).unwrap(),
+            std::fs::canonicalize(&saved_film).unwrap()
+        );
+        let html = std::fs::read_to_string(folder.join("relatorio.html")).unwrap();
+        assert!(html.contains("href=\"filme-1.ravenmovie\""));
+        assert!(!child_folder.join(&relative_out).exists(), "no output in the child's folder");
+    }
+    std::fs::remove_dir_all(expected_out).unwrap();
+    std::fs::remove_dir_all(child_folder).unwrap();
+}

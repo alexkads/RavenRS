@@ -44,7 +44,7 @@ preserving notes outside the block. An unmarked existing skill is preserved and 
 - `--film on-failure` films each app the scenarios open and keeps `filme-N.ravenmovie` of the one a block failed on, beside the report (`always` keeps every film, `never` films nothing; `film` in `e2e.toml` says it once). An app served without filming is not filmed, and the report says so;
 - the exit code is 0 when every scenario passed, 1 when one failed and 2 when nothing could run.
 
-An `e2e.toml` next to an app's `Cargo.toml` keeps the suite's choices: `folder` (where its scenarios are, `tests/e2e` by default), and, at the project's root, `format` and `out` for when the command line does not give them. `app`, `window`, `themes`, `film` and `load` are read and said to have no effect yet; any other key, or a wrong value, stops the run with exit code 2, the file and the key.
+An `e2e.toml` next to an app's `Cargo.toml` keeps the suite's choices: `folder` (where its scenarios are, `tests/e2e` by default), and, at the project's root, `format`, `out` and `film` for when the command line does not give them. `app`, `window`, `themes` and `load` are read and said to have no effect yet; any other key, or a wrong value, stops the run with exit code 2, the file and the key.
 
 `cargo ravenrs e2e schema scenario` prints the JSON Schema of a scenario as JSON (what an AI writes before it becomes a `.raventest`), and `schema report` the one of the JSON report. `cargo ravenrs e2e rust <file>` prints the scenario as a Rust integration test of the app it opens, through its `CARGO_BIN_EXE_*` and the test channel: generated, to read, or to keep in the app's `tests/` when a team prefers Rust (`--bin` names the binary when the app is not found).
 

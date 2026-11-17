@@ -6,7 +6,7 @@ use std::path::Path;
 
 pub use ravenrs_e2e_runner::app::*;
 
-use crate::runner::Session;
+use ravenrs_e2e_runner::session::Session;
 
 /// The name Raven Finanças declares, which `--run financas` opens.
 pub const FINANCE_APP: &str = "Raven Finanças";

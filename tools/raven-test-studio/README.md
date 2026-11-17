@@ -71,6 +71,14 @@ cargo run -p raven-test-studio -- --run tools/raven-test-studio/tests/e2e/amostr
 
 `--out <folder>` keeps each run in `<folder>/<scenario>/`: `relatorio.json`, `relatorio.html`, `trace.jsonl` and, when it failed, `arvore.txt` with the app's screen at that moment, so a failure can be read later without running it again. A later pass removes the old `arvore.txt`. With `--project` it defaults to `e2e/` in the folder cargo builds the project into (`target_directory` from `cargo metadata`), which git already ignores. Where it kept them goes to stderr, so stdout carries only the report. The scenario's name becomes one folder: anything but letters, digits, `-` and `_` turns into `-`, so a name never leaves the folder given.
 
+`--film on-failure` films the apps opened over the test channel and keeps the film of the app a block failed on, beside the report as `filme-N.ravenmovie`. `--film always` keeps every film, and `--film never` (the default) films nothing. Filming needs `--out` or `--project`, bypasses the run cache, and reports why an app could not be filmed without changing the scenario's verdict. Relative output folders are resolved from where the Studio was called, even when the app runs in another project. The JSON report lists the films in `films`, with any explanation in `film_note`; the saved HTML links to each film, which opens in MoviePlayer.
+
+```bash
+raven-test-studio --project ~/meu-app --run-all --film on-failure --out target/e2e
+```
+
+The same film modes work with `cargo ravenrs e2e run`; its `e2e.toml` can set `film = "on-failure"` when the command line does not give `--film`.
+
 **Where the scenarios live**
 
 A Studio installed from scratch brings **no test scenarios**: the window opens empty. Its only own test is its health check, "O Studio testa o Studio", shown in the status bar. Scenarios are `.raventest` files (one block per line, words in English or Portuguese, see [`ravenrs-e2e-wire`](../../crates/ravenrs-e2e-wire)), and where they live is the QA team's choice:

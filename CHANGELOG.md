@@ -186,6 +186,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- Raven Test Studio and `cargo ravenrs e2e run`: a relative `--out` keeps the film beside the report even when the app under test runs in another project's folder. ([#676](https://github.com/alexkads/RavenRS/issues/676))
+- Raven Test Studio: the app opener takes its session type from the shared runner directly, removing the three-module cycle that blocked the local gate. ([#677](https://github.com/alexkads/RavenRS/issues/677))
 - `Scheduler`: clicking an event gives it the focus, so the arrow keys move the event that was clicked; they used to move the one that had the focus before, the first event when nothing was chosen yet. ([#665](https://github.com/alexkads/RavenRS/issues/665))
 - Raven Finanças: the test of pairing Telegram from Ajustes failed on Mondays. The fake Telegram took the last message sent, which on a Monday is the week's summary sent to a new chat, not the answer to `/start`. It now takes the answer, and a failure shows what the bot said. ([#650](https://github.com/alexkads/RavenRS/issues/650))
 
