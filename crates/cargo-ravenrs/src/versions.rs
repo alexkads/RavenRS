@@ -22,6 +22,26 @@ pub struct Declared {
 
 const KINDS: [&str; 3] = ["dependencies", "dev-dependencies", "build-dependencies"];
 
+/// Refuses a framework version different from the CLI before modifying or diagnosing a project.
+pub(crate) fn ensure_current(root: &Path) -> Result<(), String> {
+    let versions = ravenrs_versions(root)?;
+    if versions.is_empty() {
+        return Err("Nenhuma dependência RavenRS com versão no projeto nem no workspace.".into());
+    }
+    for declared in versions {
+        if declared.version.trim_start_matches(['=', '^', '~']) != crate::VERSION {
+            return Err(format!(
+                "{} ({}) usa {}, mas cargo-ravenrs usa {}. Instale a tag correspondente.",
+                declared.package,
+                declared.origin,
+                declared.version,
+                crate::VERSION
+            ));
+        }
+    }
+    Ok(())
+}
+
 fn manifest(path: &Path) -> Result<DocumentMut, String> {
     read(path)?.parse().map_err(|e| format!("{}: {e}", path.display()))
 }
