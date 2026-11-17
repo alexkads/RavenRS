@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LIMITE_DOCUMENTO"],"fn":["de_gzip","de_gzip_base64","gzip_base64"]};

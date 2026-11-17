@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PADDING"],"enum":["Algorithm","Auth","CryptError","Method","StreamKind"],"fn":["aes_cbc_decrypt","aes_cbc_encrypt","create","effective_password","file_id","pdfdoc_byte","pdfdoc_char","rc4"],"struct":["EncryptDict","NewEncryption","Permissions","SecurityHandler"]};

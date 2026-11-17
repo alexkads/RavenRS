@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CATALOGO"],"enum":["Alcance","Confianca","Efeito","Fonte"],"fn":["cobertura","regra","regras_do_c_stat"],"struct":["Cobertura","Regra"]};

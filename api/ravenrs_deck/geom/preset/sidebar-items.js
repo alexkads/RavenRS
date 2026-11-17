@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Category","FillMode"],"fn":["build","info","is_line_like","mitred_by_default"],"static":["CATALOG"],"struct":["Geometry","Handle","PresetInfo","SubPath"]};

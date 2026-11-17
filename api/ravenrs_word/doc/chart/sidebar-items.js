@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_CELLS","MAX_POINTS","MAX_SERIES","MAX_TEXT"],"enum":["ChartType","LegendPos"],"fn":["clean_text"],"struct":["ChartSeries","ChartSpec"]};

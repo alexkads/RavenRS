@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["civil","date_field_text","handout_placeholder","notes_placeholder","specs","today"]};

@@ -1,0 +1,1045 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc="" data-has-sidebar="" data-astro-cid-g5ptsecz=""><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Cobertura por tipo de software | RavenRS</title><link rel="sitemap" href="/RavenRS/sitemap-index.xml"><link rel="shortcut icon" href="/RavenRS/favicon.svg" type="image/svg+xml"><meta name="generator" content="Astro v7.4.12"><meta name="generator" content="Starlight v0.43.1"><script>
+	(() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+	})();
+</script><link rel="stylesheet" href="/RavenRS/_astro/print.C9eyqPGL.css" media="print"><link rel="stylesheet" href="/RavenRS/_astro/index.BcKmb9jH.css"><style>@layer starlight.components.icon{svg[data-astro-cid-hkc32dio]{color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em;overflow:visible}}
+</style><script type="module" src="/RavenRS/_astro/page.cNngjUgL.js"></script><meta name="description" content="Cobertura por tipo de software — the RavenRS guide to native and web applications in Rust."><link rel="canonical" href="https://ravenrs.vercel.app/docs/software-coverage/"><meta property="og:title" content="Cobertura por tipo de software | RavenRS"><meta property="og:description" content="Cobertura por tipo de software — the RavenRS guide to native and web applications in Rust."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/docs/software-coverage/"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Cobertura por tipo de software | RavenRS — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Cobertura por tipo de software | RavenRS"><meta name="twitter:description" content="Cobertura por tipo de software — the RavenRS guide to native and web applications in Rust."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta name="twitter:image:alt" content="Cobertura por tipo de software | RavenRS — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Cobertura por tipo de software | RavenRS","description":"Cobertura por tipo de software — the RavenRS guide to native and web applications in Rust.","url":"https://ravenrs.vercel.app/docs/software-coverage/","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body data-astro-cid-g5ptsecz=""><a class="sl-skip-link" href="#_top" data-astro-cid-qb7clj6f="">Skip to content</a><div class="page sl-flex" data-astro-cid-yntsjkba=""><header class="header" data-astro-cid-yntsjkba=""><div class="header" data-astro-cid-by6fddyj=""><div class="title-wrapper sl-flex" data-astro-cid-by6fddyj=""><a href="/RavenRS/" class="site-title sl-flex" data-astro-cid-6rvad3va=""><span translate="no" data-astro-cid-6rvad3va="">RavenRS</span></a></div><div class="sl-flex print:hidden" data-astro-cid-by6fddyj=""><site-search data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}" data-astro-cid-b5kgnn7o="true"><button data-open-modal="" disabled="" aria-label="Search" aria-keyshortcuts="Control+K" data-astro-cid-b5kgnn7o=""><svg data-astro-cid-b5kgnn7o="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"></path></svg><span class="sl-hidden md:sl-block" aria-hidden="true" data-astro-cid-b5kgnn7o="">Search</span><kbd class="sl-hidden md:sl-flex" style="display: none" data-astro-cid-b5kgnn7o=""><kbd data-astro-cid-b5kgnn7o="">Ctrl</kbd><kbd data-astro-cid-b5kgnn7o="">K</kbd></kbd></button><dialog style="padding: 0" aria-label="Search" data-astro-cid-b5kgnn7o=""><div class="dialog-frame sl-flex" data-astro-cid-b5kgnn7o=""><button data-close-modal="" class="sl-flex md:sl-hidden" data-astro-cid-b5kgnn7o="">Cancel</button><div class="search-container" data-astro-cid-b5kgnn7o=""><div id="starlight__search" data-astro-cid-b5kgnn7o=""></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/RavenRS/_astro/Search.astro_astro_type_script_index_0_lang.B287-pOx.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group" data-astro-cid-by6fddyj=""><div class="sl-flex social-icons" data-astro-cid-by6fddyj=""><a href="https://github.com/alexkads/RavenRS" rel="me" class="sl-flex" data-astro-cid-n2mnl6yq=""><span class="sr-only" data-astro-cid-n2mnl6yq="">GitHub</span><svg data-astro-cid-n2mnl6yq="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"></path></svg></a></div><starlight-theme-select data-astro-cid-smhvfpqh="true"><label style="--sl-select-width: 6.25em" data-astro-cid-2z5xp7gb=""><span class="sr-only" data-astro-cid-2z5xp7gb="">Select theme</span><span class="icon label-icon" data-astro-cid-2z5xp7gb=""><svg class="sl-theme-icon-dark" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"></path></svg><svg class="sl-theme-icon-light" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"></path></svg><svg class="sl-theme-icon-auto" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"></path></svg></span><select autocomplete="off" data-astro-cid-2z5xp7gb=""><option value="dark" data-astro-cid-2z5xp7gb="">Dark</option><option value="light" data-astro-cid-2z5xp7gb="">Light</option><option value="auto" selected="" data-astro-cid-2z5xp7gb="">Auto</option></select><svg class="icon caret" data-astro-cid-2z5xp7gb="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"></path></svg></label></starlight-theme-select><script>(() => {
+		const theme = (typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme'));
+		if (theme) document.querySelectorAll('starlight-theme-select select').forEach((s) => { s.value = theme; });
+	})();</script><script type="module">var e=`starlight-theme`,t=e=>e===`auto`||e===`dark`||e===`light`?e:`auto`,n=()=>t(typeof localStorage<`u`&&localStorage.getItem(e));function r(t){typeof localStorage<`u`&&localStorage.setItem(e,t===`light`||t===`dark`?t:``)}var i=()=>matchMedia(`(prefers-color-scheme: light)`).matches?`light`:`dark`;function a(e){document.querySelectorAll(`starlight-theme-select select`).forEach(t=>{t.value=e}),document.documentElement.dataset.theme=e===`auto`?i():e,r(e)}matchMedia(`(prefers-color-scheme: light)`).addEventListener(`change`,()=>{n()===`auto`&&a(`auto`)});var o=class extends HTMLElement{constructor(){super(),a(n()),this.querySelector(`select`)?.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&a(t(e.currentTarget.value))})}};customElements.define(`starlight-theme-select`,o);</script><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script></div></div></header><nav class="sidebar print:hidden" aria-label="Main" data-astro-cid-yntsjkba=""><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden" data-astro-cid-r2osgdlg=""><svg class="open-menu" data-astro-cid-r2osgdlg="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"></path></svg><svg class="close-menu" data-astro-cid-r2osgdlg="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"></path></svg><span class="sr-only" data-astro-cid-r2osgdlg="">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover="" id="starlight__sidebar" class="sidebar-pane" data-astro-cid-yntsjkba="true"><div class="sidebar-content sl-flex" data-astro-cid-yntsjkba=""><sl-sidebar-state-persist data-hash="1q49ps1" data-astro-cid-ipdry5cl="true"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level" data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/" class="large" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Home</span></a></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Start here</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Introduction</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/getting-started/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Installation</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/cli/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">CLI &amp; AI assistants</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/ai/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">AI-assisted development</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Build applications</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/architecture/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Architecture</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/design-system/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Design system</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/applications/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Records &amp; forms</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/components/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Component coverage</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Reports</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/reporting/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Create reports</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/report-server/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Report server</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Reference</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/quality/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Quality &amp; accessibility</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/performance/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Performance</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/versioning/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Versions &amp; upgrades</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Technical guides</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-contracts/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Contracts and acceptance scenarios for reusable modules</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-coverage/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Cobertura do ravenrs-app para aplicações corporativas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-parity/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Application framework parity</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/automacao-comercial/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Automação comercial: o que existe e o que falta para vender</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/component-audit/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Auditoria técnica de componentes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/component-inventory/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Inventário e projeção de componentes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/developer-platform-plan/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Plataforma de desenvolvimento RavenRS — inventário e proposta</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/nfse/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">NFS-e Padrão Nacional: pesquisa para o PDV (hoje: 05/11/2026)</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/pagamentos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Pagamentos: pinpads, TEF e os quatro provedores</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/perifericos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Periféricos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/project-planning-roadmap/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Capacidades de planejamento para aplicações RavenRS</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/proximas-etapas/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Automação comercial: próximas etapas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/reporting-parity/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">RavenRS Reporting — feature parity</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/site-seo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Site SEO and publication</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/software-coverage/" aria-current="page" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Cobertura por tipo de software</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/tef-comparativo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">TEF para o PDV: comparativo e recomendação</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Data Studio</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/01-visao-e-requisitos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: visão do produto e requisitos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/02-analise-do-codigo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: análise do código</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/03-matriz-de-componentes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: matriz de componentes reutilizáveis</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/04-lacunas-e-novos-componentes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: lacunas e novos componentes propostos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/05-fluxos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: fluxos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/06-telas/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: especificação das telas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/07-wireframes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: wireframes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/08-arquitetura/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: arquitetura</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/09-modelo-de-dominio/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: modelo de domínio</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/10-mcp-e-conectores/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: MCP, agente e conectores</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/11-schema-mapeamento-transformacoes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: descoberta, schema, mapeamento e transformações</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/12-execucao-e-recuperacao/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: execução e recuperação</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/13-seguranca-privacidade-a11y-i18n/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: segurança, privacidade, acessibilidade, idiomas e desempenho</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/14-referencias-e-roadmap/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: referências e roadmap</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/15-criterios-de-aceitacao/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: critérios de aceitação</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/16-decisoes-em-aberto/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: decisões em aberto</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/cenario-de-referencia/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: cenário de referência</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Tutorials</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/tutorials/ravenrs-app-vscode/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Primeiro app com ravenrs-app no VS Code — RavenDevLab</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Explore</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="7"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/components/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Components</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/playground/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Playground</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/api/ravenrs/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Rust API</span></a></li></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex" data-astro-cid-p4azlveh=""><div class="social-icons" data-astro-cid-p4azlveh=""><a href="https://github.com/alexkads/RavenRS" rel="me" class="sl-flex" data-astro-cid-n2mnl6yq=""><span class="sr-only" data-astro-cid-n2mnl6yq="">GitHub</span><svg data-astro-cid-n2mnl6yq="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"></path></svg></a></div><starlight-theme-select data-astro-cid-smhvfpqh="true"><label style="--sl-select-width: 6.25em" data-astro-cid-2z5xp7gb=""><span class="sr-only" data-astro-cid-2z5xp7gb="">Select theme</span><span class="icon label-icon" data-astro-cid-2z5xp7gb=""><svg class="sl-theme-icon-dark" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"></path></svg><svg class="sl-theme-icon-light" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"></path></svg><svg class="sl-theme-icon-auto" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"></path></svg></span><select autocomplete="off" data-astro-cid-2z5xp7gb=""><option value="dark" data-astro-cid-2z5xp7gb="">Dark</option><option value="light" data-astro-cid-2z5xp7gb="">Light</option><option value="auto" selected="" data-astro-cid-2z5xp7gb="">Auto</option></select><svg class="icon caret" data-astro-cid-2z5xp7gb="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"></path></svg></label></starlight-theme-select><script>(() => {
+		const theme = (typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme'));
+		if (theme) document.querySelectorAll('starlight-theme-select select').forEach((s) => { s.value = theme; });
+	})();</script></div></div></div></sl-sidebar-pane></nav><div class="main-frame" data-astro-cid-yntsjkba=""><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex" data-astro-cid-lrzkfocr=""><aside class="right-sidebar-container print:hidden" data-astro-cid-lrzkfocr=""><div class="right-sidebar" data-astro-cid-lrzkfocr=""><div class="lg:sl-hidden" data-astro-cid-qok35upx=""><mobile-starlight-toc data-min-h="2" data-max-h="3" data-astro-cid-66cqc7ze="true"><nav aria-labelledby="starlight__on-this-page--mobile" data-astro-cid-66cqc7ze=""><details id="starlight__mobile-toc" data-astro-cid-66cqc7ze=""><summary id="starlight__on-this-page--mobile" class="sl-flex" data-astro-cid-66cqc7ze=""><span class="toggle sl-flex" data-astro-cid-66cqc7ze="">On this page<svg class="caret" data-astro-cid-66cqc7ze="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></span><span class="display-current" data-astro-cid-66cqc7ze=""></span></summary><div class="dropdown" data-astro-cid-66cqc7ze=""><ul class="isMobile" style="--depth: 0;" data-astro-cid-jugkfwgx=""><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#_top" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Overview</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#como-interpretar" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Como interpretar</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#visao-geral" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Visão geral</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#diagramas-e-quadros-visuais-70" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Diagramas e quadros visuais: 70%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#design-visual-de-interfaces-30" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Design visual de interfaces: 30%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#construtor-visual-de-sites-35" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Construtor visual de sites: 35%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#automacao-visual-e-chatbots-35" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Automação visual e chatbots: 35%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#planejamento-avancado-de-projetos-20" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Planejamento avançado de projetos: 20%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#bi-e-dashboards-analiticos-45" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">BI e dashboards analíticos: 45%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#planilha-de-uso-geral-70" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Planilha de uso geral: 70%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#editor-paginado-de-documentos-55" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Editor paginado de documentos: 55%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#ide-de-desenvolvimento-35" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">IDE de desenvolvimento: 35%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#editor-de-imagens-em-camadas-65" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Editor de imagens em camadas: 65%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#edicao-audiovisual-geral-40" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Edição audiovisual geral: 40%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#gis-e-edicao-geografica-15" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">GIS e edição geográfica: 15%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#cad-2d-tecnico-25" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">CAD 2D técnico: 25%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#modelagem-e-animacao-3d-15" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Modelagem e animação 3D: 15%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#producao-musical-daw-20" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Produção musical / DAW: 20%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#lacunas-com-reuso-entre-categorias" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Lacunas com reuso entre categorias</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#ordem-de-investigacao-sugerida" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Ordem de investigação sugerida</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#limites-e-referencias" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Limites e referências</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/RavenRS/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block" data-astro-cid-qok35upx=""><div class="sl-container" data-astro-cid-qok35upx=""><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul style="--depth: 0;" data-astro-cid-jugkfwgx=""><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#_top" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Overview</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#como-interpretar" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Como interpretar</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#visao-geral" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Visão geral</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#diagramas-e-quadros-visuais-70" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Diagramas e quadros visuais: 70%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#design-visual-de-interfaces-30" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Design visual de interfaces: 30%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#construtor-visual-de-sites-35" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Construtor visual de sites: 35%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#automacao-visual-e-chatbots-35" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Automação visual e chatbots: 35%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#planejamento-avancado-de-projetos-20" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Planejamento avançado de projetos: 20%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#bi-e-dashboards-analiticos-45" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">BI e dashboards analíticos: 45%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#planilha-de-uso-geral-70" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Planilha de uso geral: 70%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#editor-paginado-de-documentos-55" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Editor paginado de documentos: 55%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#ide-de-desenvolvimento-35" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">IDE de desenvolvimento: 35%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#editor-de-imagens-em-camadas-65" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Editor de imagens em camadas: 65%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#edicao-audiovisual-geral-40" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Edição audiovisual geral: 40%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#gis-e-edicao-geografica-15" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">GIS e edição geográfica: 15%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#cad-2d-tecnico-25" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">CAD 2D técnico: 25%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#modelagem-e-animacao-3d-15" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Modelagem e animação 3D: 15%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#producao-musical-daw-20" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Produção musical / DAW: 20%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#lacunas-com-reuso-entre-categorias" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Lacunas com reuso entre categorias</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#ordem-de-investigacao-sugerida" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Ordem de investigação sugerida</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#limites-e-referencias" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Limites e referências</span></a></li></ul></nav></starlight-toc><script type="module" src="/RavenRS/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane" data-astro-cid-lrzkfocr=""><main data-pagefind-body="" lang="en" dir="ltr" data-astro-cid-g5ptsecz=""><div class="content-panel" data-astro-cid-a7po4psb=""><div class="sl-container" data-astro-cid-a7po4psb=""><h1 id="_top" data-astro-cid-bebwqqxs="">Cobertura por tipo de software</h1><p class="page-source" data-astro-cid-u72m6wot="">RavenRS 27.1.28 · <a href="index.md" data-astro-cid-u72m6wot="">View Markdown</a></p></div></div><div class="content-panel" data-astro-cid-a7po4psb=""><div class="sl-container" data-astro-cid-a7po4psb=""><div class="sl-markdown-content"><p>Data: 15/11/2026. Checkout: <code dir="auto">6b50ff874</code>. Avaliação exploratória de código, documentação e backlog; sem testes de runtime nesta rodada.</p>
+<p>Este é um retrato da base auditada. A integração desta documentação com um master
+mais recente não recalcula as notas nem classifica entregas posteriores como ausentes.
+Exceção: <strong>Diagramas e quadros visuais</strong> foi reavaliado em <code dir="auto">35932d841</code>, depois do layout
+de árvore, das ligações que desviam dos nós, da rotação e das views dentro dos nós do
+FlowCanvas (#456, #479, #481). As demais categorias seguem a base <code dir="auto">6b50ff874</code>.</p>
+<p>A <a href="/RavenRS/docs/app-coverage/">cobertura do ravenrs-app</a> complementa esta matriz com recursos
+corporativos recorrentes, fluxos declarativos, integração restante e consumo pelo
+MCP por modelos de IA com menos recursos.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="como-interpretar">Como interpretar</h2><a class="sl-anchor-link" href="#como-interpretar"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Como interpretar”</span></a></div>
+<p>Este indicador mede <strong>cobertura de dez capacidades escolhidas por cenário</strong>, com pesos iguais. Não mede percentual de um produto comercial desenvolvido, esforço restante, equivalência comercial ou prontidão de produção. As categorias têm recortes diferentes; os índices ajudam a localizar gaps e não formam ranking de qualidade.</p>
+<ul>
+<li><strong>1:</strong> API/modelo documentado no checkout para a capacidade delimitada. Não significa fluxo inteiro validado.</li>
+<li><strong>0,5:</strong> suporte parcial ou ferramentas genéricas de composição; falta especialização/integração.</li>
+<li><strong>0:</strong> capacidade especializada não comprovada no recorte, ou apenas prevista. Não é prova de impossibilidade nem auditoria exaustiva de ausência.</li>
+</ul>
+<p>Índice = soma dos pontos / 10 × 100. As notas são julgamento técnico inicial; reservar aproximadamente ±10 pontos percentuais como faixa de incerteza qualitativa, sem interpretação estatística. Refinar cada item com documentação de consumo e aplicação de referência antes de usar como meta.</p>
+<p>Uma issue não soma pontos de implementação. Motores, serviços da aplicação e componentes visuais são separados abaixo. Projetos com recursos novos fora deste checkout precisam ser reavaliados; o backlog remoto já contém descrição de entregas posteriores, por exemplo a atualização de #458 sobre o PR #433.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="visao-geral">Visão geral</h2><a class="sl-anchor-link" href="#visao-geral"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Visão geral”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Categoria</th>
+<th>Referência de cenário</th>
+<th align="right">Índice na base auditada</th>
+<th>Componentes e experiências a completar</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Diagramas e quadros visuais</td>
+<td>Whimsical / FigJam</td>
+<td align="right">70%</td>
+<td>Formas/toolbox, inspector de diagrama, wireframes, edição de mapa mental, pontos de dobra, exportação e comentários ancorados.</td>
+</tr>
+<tr>
+<td>Design visual de interfaces</td>
+<td>Figma Design</td>
+<td align="right">30%</td>
+<td>Editor vetorial, camadas de documento, texto no canvas, inspector, máscaras e editor de layout.</td>
+</tr>
+<tr>
+<td>Construtor visual de sites</td>
+<td>Wix</td>
+<td align="right">35%</td>
+<td>Paleta de seções, árvore de página, inspector, edição inline e simulador/editor de breakpoints.</td>
+</tr>
+<tr>
+<td>Automação visual e chatbots</td>
+<td>ManyChat</td>
+<td align="right">35%</td>
+<td>Blocos ricos, inspector de condições/mensagens, simulador e monitor de execuções.</td>
+</tr>
+<tr>
+<td>Planejamento avançado de projetos</td>
+<td>Primavera / Microsoft Project</td>
+<td align="right">20%</td>
+<td>Gantt, TreeGrid, WorkCalendarEditor, TimePhasedGrid e ActivityNetwork.</td>
+</tr>
+<tr>
+<td>BI e dashboards analíticos</td>
+<td>Power BI / Tableau, como referência de categoria</td>
+<td align="right">45%</td>
+<td>PivotGrid, editor de dashboard, painéis rearranjáveis e Chart ampliado.</td>
+</tr>
+<tr>
+<td>Planilha de uso geral</td>
+<td>Excel, em um recorte de edição comum</td>
+<td align="right">70%</td>
+<td>Completar comandos de Spreadsheet, edição de gráficos e experiência de pivot.</td>
+</tr>
+<tr>
+<td>Editor paginado de documentos</td>
+<td>Word, em um recorte de edição comum</td>
+<td align="right">55%</td>
+<td>DocumentEditor paginado, seleção entre blocos, ferramentas de tabela/imagem e cabeçalho/rodapé.</td>
+</tr>
+<tr>
+<td>IDE de desenvolvimento</td>
+<td>VS Code</td>
+<td align="right">35%</td>
+<td>Editor de código avançado, completion, diff, terminal e painéis de depuração.</td>
+</tr>
+<tr>
+<td>Editor de imagens em camadas</td>
+<td>Photoshop / Affinity Photo, como referência de categoria</td>
+<td align="right">65%</td>
+<td>ImageEditor integrado, painel de camadas, máscaras, pincéis e seleção de pixels.</td>
+</tr>
+<tr>
+<td>Edição audiovisual geral</td>
+<td>DaVinci Resolve / Premiere, como referência de categoria</td>
+<td align="right">40%</td>
+<td>Timeline audiovisual integrada, waveform, mixer e monitores de cor.</td>
+</tr>
+<tr>
+<td>GIS e edição geográfica</td>
+<td>QGIS / ArcGIS</td>
+<td align="right">15%</td>
+<td>Map, gerenciador de camadas, editor de feições, legenda e ferramentas cartográficas.</td>
+</tr>
+<tr>
+<td>CAD 2D técnico</td>
+<td>AutoCAD, recorte 2D</td>
+<td align="right">25%</td>
+<td>Viewport técnico, ferramentas geométricas, cotas, camadas e inspector especializado.</td>
+</tr>
+<tr>
+<td>Modelagem e animação 3D</td>
+<td>Blender</td>
+<td align="right">15%</td>
+<td>Viewport3D, gizmos, editor de malhas/UV, materiais e animação.</td>
+</tr>
+<tr>
+<td>Produção musical / DAW</td>
+<td>Ableton / Reaper</td>
+<td align="right">20%</td>
+<td>Waveform, piano roll, mixer, medidores e timeline musical.</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="diagramas-e-quadros-visuais-70">Diagramas e quadros visuais: 70%</h2><a class="sl-anchor-link" href="#diagramas-e-quadros-visuais-70"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Diagramas e quadros visuais: 70%”</span></a></div>
+<p>Referência de cenário: Whimsical / FigJam. A referência delimita um uso, sem prometer reproduzir todo o produto.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pan, zoom e minimapa</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Nós, portas e conexões</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Seleção múltipla e grupos</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Histórico e clipboard de diagrama</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Documento de grafo JSON</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Layouts especializados e roteamento</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Formas e propriedades de diagrama</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Biblioteca de wireframes</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Edição própria de mapas mentais</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Colaboração simultânea no documento</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Componentes/experiências:</strong> Formas/toolbox, inspector de diagrama, wireframes, edição de mapa mental, pontos de dobra, exportação e comentários ancorados.</p>
+<p><strong>Infraestrutura e domínio:</strong> Pontos de dobra editáveis, exportação do diagrama e colaboração de documento. O layout de árvore (organograma de cima para baixo ou mapa mental na horizontal) e o roteamento em degrau que desvia dos nós já existem; falta a edição própria do mapa mental, como criar o filho pelo teclado.</p>
+<p><strong>Backlog relacionado:</strong> #396, #397 (pontos de dobra e exportação) e #402; #195, #238 e #395 descrevem a base existente.</p>
+<p><strong>Evidência local/documental:</strong> crates/ravenrs-widgets-charts/src/flow.rs; crates/ravenrs-graphics/src/flow.rs.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="design-visual-de-interfaces-30">Design visual de interfaces: 30%</h2><a class="sl-anchor-link" href="#design-visual-de-interfaces-30"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Design visual de interfaces: 30%”</span></a></div>
+<p>Referência de cenário: Figma Design. A referência delimita um uso, sem prometer reproduzir todo o produto.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Navegação de superfície 2D</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Transformações de objetos compostos</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Árvore de camadas de documento</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Editor de caminhos e alças Bézier</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Operações booleanas e máscaras editáveis</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Componentes visuais com instâncias e overrides</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Edição visual de layout e restrições</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Texto rico editável sobre o canvas</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Documento visual persistente integrado</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Edição simultânea do documento</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Componentes/experiências:</strong> Editor vetorial, camadas de documento, texto no canvas, inspector, máscaras e editor de layout.</p>
+<p><strong>Infraestrutura e domínio:</strong> Modelo de documento vetorial, booleanas, instâncias/overrides e colaboração.</p>
+<p><strong>Backlog relacionado:</strong> #402 e #437 contribuem; não especificam um editor equivalente ao cenário inteiro.</p>
+<p><strong>Evidência local/documental:</strong> crates/ravenrs-widgets-imaging/README.md; crates/ravenrs-widgets-base/src/canvas.rs; #437.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="construtor-visual-de-sites-35">Construtor visual de sites: 35%</h2><a class="sl-anchor-link" href="#construtor-visual-de-sites-35"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Construtor visual de sites: 35%”</span></a></div>
+<p>Referência de cenário: Wix. A referência delimita um uso, sem prometer reproduzir todo o produto.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Paleta de blocos de página</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Inserção e reposicionamento visual de blocos</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Árvore estrutural de página</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Inspector tipado de propriedades</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Layout editável responsivo</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Overrides editáveis por breakpoint</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Edição de conteúdo no contexto da página</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Documento de site e versões integradas</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Pipeline de geração e publicação do site</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Saída HTML/CSS semântica do documento visual</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Componentes/experiências:</strong> Paleta de seções, árvore de página, inspector, edição inline e simulador/editor de breakpoints.</p>
+<p><strong>Infraestrutura e domínio:</strong> Documento de site, estilos por breakpoint, componentes reutilizáveis e geração de saída web.</p>
+<p><strong>Backlog relacionado:</strong> #437, #402, #245 e #264 ajudam em partes; #437 limita-se a navegação/lista/formulário sobre entidades.</p>
+<p><strong>Evidência local/documental:</strong> crates/ravenrs-project/src/lib.rs; #437. O gerador atual produz um app RavenRS com canvas, não prova um exportador de sites HTML/CSS..</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="automacao-visual-e-chatbots-35">Automação visual e chatbots: 35%</h2><a class="sl-anchor-link" href="#automacao-visual-e-chatbots-35"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Automação visual e chatbots: 35%”</span></a></div>
+<p>Referência de cenário: ManyChat. A referência delimita um uso, sem prometer reproduzir todo o produto.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Editor de grafo</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Representação de condições e ramificações</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Configuração de blocos</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Prévia conversacional integrada ao fluxo</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Cadastros de contatos e campos</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Gatilhos interpretados pelo fluxo</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Execução durável com esperas e retomada</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Conectores de canais ligados ao motor</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Inspeção e depuração de execuções do fluxo</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Versão publicável e testável da automação</td>
+<td align="right">0,5</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Componentes/experiências:</strong> Blocos ricos, inspector de condições/mensagens, simulador e monitor de execuções.</p>
+<p><strong>Infraestrutura e domínio:</strong> Motor de workflow, estado durável, filas, retomada, idempotência e conectores da aplicação.</p>
+<p><strong>Backlog relacionado:</strong> #395–#397 e #402 ajudam no editor; #82 prevê contratos de extensão. Isso não comprova motor de automação entregue.</p>
+<p><strong>Evidência local/documental:</strong> crates/ravenrs-widgets-charts/src/flow.rs; #82.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="planejamento-avancado-de-projetos-20">Planejamento avançado de projetos: 20%</h2><a class="sl-anchor-link" href="#planejamento-avancado-de-projetos-20"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Planejamento avançado de projetos: 20%”</span></a></div>
+<p>Referência de cenário: Primavera / Microsoft Project. A referência delimita um uso, sem prometer reproduzir todo o produto.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Estrutura de tarefas/WBS editável</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Gantt com edição de dependências</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Calendários úteis e jornadas</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>CPM e explicação de folgas</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Atribuições e nivelamento de recursos</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Baseline e cenários comparáveis</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Grade temporal de uso/capacidade</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Custos e valor agregado integrados</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Intercâmbio de planejamento</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Grade tabular de dados</td>
+<td align="right">1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Componentes/experiências:</strong> Gantt, TreeGrid, WorkCalendarEditor, TimePhasedGrid e ActivityNetwork.</p>
+<p><strong>Infraestrutura e domínio:</strong> Modelo de planejamento, calendário útil, CPM, esforço, nivelamento, baseline, custos/EVM e importadores.</p>
+<p><strong>Backlog relacionado:</strong> #457 coordena #459–#478; também #401 e #406.</p>
+<p><strong>Evidência local/documental:</strong> docs/PROJECT-PLANNING-ROADMAP.md; docs/COMPONENT-AUDIT.md.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="bi-e-dashboards-analiticos-45">BI e dashboards analíticos: 45%</h2><a class="sl-anchor-link" href="#bi-e-dashboards-analiticos-45"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “BI e dashboards analíticos: 45%”</span></a></div>
+<p>Referência de cenário: Power BI / Tableau, como referência de categoria. A referência delimita um uso, sem prometer reproduzir todo o produto.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gráficos básicos</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Filtros e seleção de dados</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Composição de dashboard</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Designer visual persistente de dashboard</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>PivotGrid interativo</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Drilldown de Chart</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Eixos analíticos avançados</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Séries extensas e dados remotos analíticos</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Exportação analítica integrada</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Crossfilter entre visualizações</td>
+<td align="right">0,5</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Componentes/experiências:</strong> PivotGrid, editor de dashboard, painéis rearranjáveis e Chart ampliado.</p>
+<p><strong>Infraestrutura e domínio:</strong> Modelo semântico e conectores conforme a aplicação, consultas/agregações e propagação de filtros.</p>
+<p><strong>Backlog relacionado:</strong> #203, #403, #410, #420–#427 e #432.</p>
+<p><strong>Evidência local/documental:</strong> docs/COMPONENT-AUDIT.md; docs/COMPONENT-INVENTORY.md.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="planilha-de-uso-geral-70">Planilha de uso geral: 70%</h2><a class="sl-anchor-link" href="#planilha-de-uso-geral-70"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Planilha de uso geral: 70%”</span></a></div>
+<p>Referência de cenário: Excel, em um recorte de edição comum. A referência delimita um uso, sem prometer reproduzir todo o produto.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Edição de células</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Fórmulas e recálculo</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Estilos e formatos</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Múltiplas folhas</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Undo e clipboard</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Comandos visuais de congelamento</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Inserção/edição visual de gráficos</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Comandos de formatação condicional</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Preenchimento e busca completos na UI</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Pivot interativo na experiência visual</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Componentes/experiências:</strong> Completar comandos de Spreadsheet, edição de gráficos e experiência de pivot.</p>
+<p><strong>Infraestrutura e domínio:</strong> Integração de UI com o motor existente; formatos avançados e compatibilidade exigem matriz própria.</p>
+<p><strong>Backlog relacionado:</strong> #411 e #403. Capacidade do motor ravenrs-sheet não implica comando disponível na UI.</p>
+<p><strong>Evidência local/documental:</strong> crates/ravenrs-spreadsheet/README.md; docs/COMPONENT-AUDIT.md.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="editor-paginado-de-documentos-55">Editor paginado de documentos: 55%</h2><a class="sl-anchor-link" href="#editor-paginado-de-documentos-55"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Editor paginado de documentos: 55%”</span></a></div>
+<p>Referência de cenário: Word, em um recorte de edição comum. A referência delimita um uso, sem prometer reproduzir todo o produto.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Modelo de documento</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Edição textual reutilizável</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Edição paginada WYSIWYG integrada</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Estilos pela UI do documento</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Edição contextual de tabelas</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Edição contextual de imagens</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Seções e quebras editáveis visualmente</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Cabeçalhos/rodapés editáveis visualmente</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Base de leitura e escrita de documentos</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Impressão integrada ao editor</td>
+<td align="right">0,5</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Componentes/experiências:</strong> DocumentEditor paginado, seleção entre blocos, ferramentas de tabela/imagem e cabeçalho/rodapé.</p>
+<p><strong>Infraestrutura e domínio:</strong> Sessão de edição sobre ravenrs-word, layout e histórico coerentes, compatibilidade por formato.</p>
+<p><strong>Backlog relacionado:</strong> #405; #404 cobre visualização de PDF externo, outra experiência.</p>
+<p><strong>Evidência local/documental:</strong> crates/ravenrs-word/src/lib.rs; docs/COMPONENT-AUDIT.md.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="ide-de-desenvolvimento-35">IDE de desenvolvimento: 35%</h2><a class="sl-anchor-link" href="#ide-de-desenvolvimento-35"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “IDE de desenvolvimento: 35%”</span></a></div>
+<p>Referência de cenário: VS Code. A referência delimita um uso, sem prometer reproduzir todo o produto.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CodeEditor básico</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Explorador integrado de projeto</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Workspace de documentos e painéis</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Exibição de diagnósticos</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Edição com suporte a várias linguagens</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Completion/hover por LSP</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Refatoração semântica</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Terminal integrado</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Depuração por DAP</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Ciclo projeto/executar/exportar</td>
+<td align="right">0,5</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Componentes/experiências:</strong> Editor de código avançado, completion, diff, terminal e painéis de depuração.</p>
+<p><strong>Infraestrutura e domínio:</strong> LSP, DAP, processos/PTY por host e modelo de workspace.</p>
+<p><strong>Backlog relacionado:</strong> #399, #418, #153 e #82 contribuem; não fecham uma IDE completa.</p>
+<p><strong>Evidência local/documental:</strong> crates/ravenrs-widgets-chat/src/code_editor.rs; crates/ravenrs-project/src/lib.rs.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="editor-de-imagens-em-camadas-65">Editor de imagens em camadas: 65%</h2><a class="sl-anchor-link" href="#editor-de-imagens-em-camadas-65"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Editor de imagens em camadas: 65%”</span></a></div>
+<p>Referência de cenário: Photoshop / Affinity Photo, como referência de categoria. A referência delimita um uso, sem prometer reproduzir todo o produto.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Pan/zoom de imagem</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Recorte</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Alças de transformação</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Seletores de cor</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Histograma e curvas</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Comparação de imagens</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Camadas editáveis de imagem</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Máscaras de edição</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Pincéis e seleção de pixels</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Sessão integrada de edição/exportação</td>
+<td align="right">0,5</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Componentes/experiências:</strong> ImageEditor integrado, painel de camadas, máscaras, pincéis e seleção de pixels.</p>
+<p><strong>Infraestrutura e domínio:</strong> Documento raster em camadas, composição/filtros, histórico e gerenciamento de cor conforme escopo.</p>
+<p><strong>Backlog relacionado:</strong> #412 integra ferramentas existentes; não pressupõe todas as capacidades de um editor profissional.</p>
+<p><strong>Evidência local/documental:</strong> crates/ravenrs-widgets-imaging/README.md; docs/COMPONENT-INVENTORY.md.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="edicao-audiovisual-geral-40">Edição audiovisual geral: 40%</h2><a class="sl-anchor-link" href="#edicao-audiovisual-geral-40"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Edição audiovisual geral: 40%”</span></a></div>
+<p>Referência de cenário: DaVinci Resolve / Premiere, como referência de categoria. A referência delimita um uso, sem prometer reproduzir todo o produto.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Timeline reutilizável</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Corte/trim em mídias arbitrárias</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Overlays e legendas de filmes RavenRS</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Animação por parâmetros/keyframes gerais</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Ingestão integrada de mídias arbitrárias</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Prévia sincronizada de áudio/vídeo geral</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Mixagem multitrilha</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Pipeline extensível de efeitos audiovisuais</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Render/export de projeto audiovisual geral</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Prévia com som no MovieEditor</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Componentes/experiências:</strong> Timeline audiovisual integrada, waveform, mixer e monitores de cor.</p>
+<p><strong>Infraestrutura e domínio:</strong> Pipeline de mídia geral, decodificação/seek/cache, sincronização A/V, DSP e render.</p>
+<p><strong>Backlog relacionado:</strong> #265 ajuda na reprodução. MovieEditor é base especializada em filmes de apps, não prova um editor audiovisual geral.</p>
+<p><strong>Evidência local/documental:</strong> crates/ravenrs-movie/README.md; crates/ravenrs-widgets-scheduler/src/timeline.rs.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="gis-e-edicao-geografica-15">GIS e edição geográfica: 15%</h2><a class="sl-anchor-link" href="#gis-e-edicao-geografica-15"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “GIS e edição geográfica: 15%”</span></a></div>
+<p>Referência de cenário: QGIS / ArcGIS. A referência delimita um uso, sem prometer reproduzir todo o produto.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Controles de navegação de mapa</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Componente Map integrado</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Projeções no fluxo geográfico</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Visualização vetorial geográfica</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Camadas raster georreferenciadas</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Edição de feições</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Consultas espaciais</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Validação topológica</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Intercâmbio geográfico integrado</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Composição cartográfica para impressão</td>
+<td align="right">0,5</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Componentes/experiências:</strong> Map, gerenciador de camadas, editor de feições, legenda e ferramentas cartográficas.</p>
+<p><strong>Infraestrutura e domínio:</strong> CRS, consultas/índices espaciais, topologia e raster georreferenciado.</p>
+<p><strong>Backlog relacionado:</strong> #170 prevê tiles e também mapas vetoriais, GeoJSON/TopoJSON e projeções; isso não equivale a GIS completo.</p>
+<p><strong>Evidência local/documental:</strong> docs/COMPONENT-INVENTORY.md; #170.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="cad-2d-tecnico-25">CAD 2D técnico: 25%</h2><a class="sl-anchor-link" href="#cad-2d-tecnico-25"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “CAD 2D técnico: 25%”</span></a></div>
+<p>Referência de cenário: AutoCAD, recorte 2D. A referência delimita um uso, sem prometer reproduzir todo o produto.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Viewport 2D navegável</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Seleção geométrica precisa</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Réguas/medição técnica</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Entidades geométricas editáveis de CAD</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Restrições geométricas</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Cotas associativas</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Camadas técnicas de documento</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Blocos e referências de CAD</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Intercâmbio de formatos CAD</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Snapping geométrico preciso</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Componentes/experiências:</strong> Viewport técnico, ferramentas geométricas, cotas, camadas e inspector especializado.</p>
+<p><strong>Infraestrutura e domínio:</strong> Kernel geométrico, restrições, precisão/unidades, snapping e adaptadores de formatos.</p>
+<p><strong>Backlog relacionado:</strong> As ferramentas de imagem e #402 contribuem; não comprovam kernel de CAD.</p>
+<p><strong>Evidência local/documental:</strong> crates/ravenrs-widgets-imaging/README.md; crates/ravenrs-widgets-base/src/canvas.rs.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="modelagem-e-animacao-3d-15">Modelagem e animação 3D: 15%</h2><a class="sl-anchor-link" href="#modelagem-e-animacao-3d-15"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Modelagem e animação 3D: 15%”</span></a></div>
+<p>Referência de cenário: Blender. A referência delimita um uso, sem prometer reproduzir todo o produto.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Viewport de cena 3D interativo</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Hierarquia de objetos 3D</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Gizmos de transformação 3D</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Edição de malha</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Materiais e UV</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Iluminação/câmeras 3D</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Timeline de animação 3D</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Rigging</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Render de cena 3D</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Intercâmbio de cena 3D</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Componentes/experiências:</strong> Viewport3D, gizmos, editor de malhas/UV, materiais e animação.</p>
+<p><strong>Infraestrutura e domínio:</strong> Cena 3D, picking, geometria, render e animação. Renderer 2D em GPU não comprova cena 3D.</p>
+<p><strong>Backlog relacionado:</strong> Componentes genéricos contribuem; não foi comprovado conjunto especializado no recorte consultado.</p>
+<p><strong>Evidência local/documental:</strong> crates/ravenrs-widgets-imaging/README.md; crates/ravenrs-widgets-scheduler/src/timeline.rs.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="producao-musical-daw-20">Produção musical / DAW: 20%</h2><a class="sl-anchor-link" href="#producao-musical-daw-20"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Produção musical / DAW: 20%”</span></a></div>
+<p>Referência de cenário: Ableton / Reaper. A referência delimita um uso, sem prometer reproduzir todo o produto.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Timeline de áudio especializada</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Waveform editável</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Piano roll</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Entrada/saída MIDI</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Mixer com roteamento</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>DSP/plugins de áudio</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Gravação de áudio geral</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Transporte de áudio profissional</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Curvas de automação de áudio</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Documento de sessão musical</td>
+<td align="right">0,5</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Componentes/experiências:</strong> Waveform, piano roll, mixer, medidores e timeline musical.</p>
+<p><strong>Infraestrutura e domínio:</strong> Motor de áudio com baixa latência, MIDI, DSP, sincronização e plugins.</p>
+<p><strong>Backlog relacionado:</strong> #265 cobre parte da reprodução; não estabelece uma DAW.</p>
+<p><strong>Evidência local/documental:</strong> crates/ravenrs-movie/README.md; crates/ravenrs-widgets-scheduler/src/timeline.rs.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="lacunas-com-reuso-entre-categorias">Lacunas com reuso entre categorias</h2><a class="sl-anchor-link" href="#lacunas-com-reuso-entre-categorias"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Lacunas com reuso entre categorias”</span></a></div>
+<ol>
+<li>Documento editável com ids estáveis, hierarquia, referências, versões e migrações. Os documentos atuais de FlowCanvas, planilha, Word, relatório e filme têm contratos próprios: reusar conceitos e adaptadores sem exigir um formato universal.</li>
+<li>Comandos/transações e integração de histórico. Já existem históricos especializados; falta comprovar sua extensão e composição em um editor consumidor.</li>
+<li>Inspector/PropertyGrid, registro de editores e ferramentas contextuais.</li>
+<li>Estrutura de documento visual, seleção, snapping, alinhamento e transformações. Seleção de pixels, seleção de feições e seleção de nós possuem semânticas diferentes.</li>
+<li>Layout visual, estilos compartilhados, componentes/instâncias e overrides responsivos.</li>
+<li>Colaboração de documento, presença e resolução de conflitos. Concorrência de registros #241 não equivale automaticamente a colaboração de canvas.</li>
+<li>Contratos de extensão para ferramentas, tipos de bloco, conectores e exportadores, relacionados à #82.</li>
+<li>Aplicações de referência que consumam APIs públicas e provem salvar/reabrir, editar, desfazer/refazer e produzir uma saída utilizável.</li>
+</ol>
+<div class="sl-heading-wrapper level-h2"><h2 id="ordem-de-investigacao-sugerida">Ordem de investigação sugerida</h2><a class="sl-anchor-link" href="#ordem-de-investigacao-sugerida"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Ordem de investigação sugerida”</span></a></div>
+<p>Após concluir os componentes atualmente em desenvolvimento, investigar o núcleo de edição visual pelos cenários diagramas → design de interfaces → sites, e a especialização de workflows em paralelo conceitual ao editor de grafos. Isso é uma prioridade proposta, não autorização para criar ou implementar novas issues nesta análise.</p>
+<p>Os motores de planejamento já têm backlog detalhado. CAD, GIS avançado, áudio e 3D requerem decisões explícitas de domínio e integração; não presumir que todos esses motores devem pertencer ao núcleo RavenRS.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="limites-e-referencias">Limites e referências</h2><a class="sl-anchor-link" href="#limites-e-referencias"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Limites e referências”</span></a></div>
+<p>A avaliação não é uma lista exaustiva dos tipos de software. Aplicações administrativas, CRM, ERP, PDV e portais podem aproveitar a base existente; seu grau de cobertura depende do recorte e não foi pontuado aqui. Nenhuma família da matriz representa impossibilidade de desenvolvimento: representa trabalho ainda necessário para obter a experiência com os recursos comprovados do RavenRS.</p>
+<p>Fontes do RavenRS: <a href="/RavenRS/docs/component-audit/">auditoria</a>, <a href="/RavenRS/docs/component-inventory/">inventário</a>, <a href="/RavenRS/docs/project-planning-roadmap/">roadmap de planejamento</a>, READMEs e código indicados em cada cenário. A busca remota de issues foi direcionada; não se declara inexistência de issue apenas porque não apareceu nos resultados.</p>
+<p>Referências oficiais consultadas para os cenários recentes:</p>
+<ul>
+<li><a href="https://whimsical.com/">Whimsical: diagramas, mapas mentais e wireframes</a>.</li>
+<li><a href="https://help.figma.com/hc/en-us/articles/5731482952599-Toggle-on-auto-layout-in-designs">Figma: auto layout</a>.</li>
+<li><a href="https://support.wix.com/en/article/studio-editor-managing-breakpoints">Wix Studio: breakpoints</a>.</li>
+<li><a href="https://help.manychat.com/en/articles/17741989-how-to-build-a-manychat-automation">ManyChat: construir automações</a>.</li>
+<li><a href="https://help.manychat.com/en/articles/17741964-condition-block">ManyChat: condições</a>.</li>
+</ul>
+<p>Não foram alteradas issues nem implementados componentes nesta rodada.</p></div><footer class="sl-flex" data-astro-cid-ddtxxk7k=""><div class="meta sl-flex" data-astro-cid-ddtxxk7k=""><a href="https://github.com/alexkads/RavenRS/edit/master/docs/SOFTWARE-COVERAGE.md" class="sl-flex print:hidden" data-astro-cid-qlekgd3o=""><svg data-astro-cid-qlekgd3o="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;" data-astro-cid-hkc32dio=""><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"></path></svg>Edit page</a></div><div class="pagination-links print:hidden" dir="ltr" data-astro-cid-b5raizh3=""><a href="/RavenRS/docs/site-seo/" rel="prev" data-astro-cid-b5raizh3=""><svg data-astro-cid-b5raizh3="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;" data-astro-cid-hkc32dio=""><path d="M17 11H9.41l3.3-3.29a1.004 1.004 0 1 0-1.42-1.42l-5 5a1 1 0 0 0-.21.33 1 1 0 0 0 0 .76 1 1 0 0 0 .21.33l5 5a1.002 1.002 0 0 0 1.639-.325 1 1 0 0 0-.219-1.095L9.41 13H17a1 1 0 0 0 0-2Z"></path></svg><span data-astro-cid-b5raizh3="">Previous<br data-astro-cid-b5raizh3=""><span class="link-title" data-astro-cid-b5raizh3="">Site SEO and publication</span></span></a><a href="/RavenRS/docs/tef-comparativo/" rel="next" data-astro-cid-b5raizh3=""><svg data-astro-cid-b5raizh3="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;" data-astro-cid-hkc32dio=""><path d="M17.92 11.62a1.001 1.001 0 0 0-.21-.33l-5-5a1.003 1.003 0 1 0-1.42 1.42l3.3 3.29H7a1 1 0 0 0 0 2h7.59l-3.3 3.29a1.002 1.002 0 0 0 .325 1.639 1 1 0 0 0 1.095-.219l5-5a1 1 0 0 0 .21-.33 1 1 0 0 0 0-.76Z"></path></svg><span data-astro-cid-b5raizh3="">Next<br data-astro-cid-b5raizh3=""><span class="link-title" data-astro-cid-b5raizh3="">TEF para o PDV: comparativo e recomendação</span></span></a></div></footer></div></div></main></div></div></div></div></body></html>

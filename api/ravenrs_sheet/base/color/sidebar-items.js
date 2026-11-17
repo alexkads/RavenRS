@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["INDEXED"],"fn":["indexed_color"]};

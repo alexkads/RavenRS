@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["agent_named","delegate","delegate_until","mission","read_answer"],"struct":["Delegation"]};

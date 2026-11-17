@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_PALETTE","MAX_COLS","MAX_ROWS"],"enum":["BorderStyle","CellError","HAlign","Pattern","Script","Underline","VAlign","Value","Visibility"],"fn":["builtin_format","builtin_format_id","col_from_letters","col_letters","push_col","quote_sheet","sheet_needs_quotes"],"struct":["CellRef","Range"]};

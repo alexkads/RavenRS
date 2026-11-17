@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DRAW_TABLE","FREEFORM_TOOLS","TABLE_ERASER"],"enum":["Hit","PointerKind","ToolKind"],"fn":["box_handles","is_freeform_tool","line_xfrm","resize_box","table_rows","text_pos","wordart_handles"],"struct":["Guide","Mods","PointerEvent","ToolState"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_CHAPTERS","MAX_CHAPTER_TITLE_BYTES"],"fn":["normalize_chapters","parse_text_sample"],"struct":["Chapter"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ARABIC","HEBREW","LATIN"],"enum":["FontSlot"],"fn":["default_language","joins_following","joins_preceding","resolve","script_of","slot_of","slot_of_script"],"type":["ScriptTag"]};

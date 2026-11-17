@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["rtf_to_outline","slides_to_rtf","sniff_rtf"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Compression","Error"],"fn":["check_entry_count","stored_mimetype"],"mod":["preflight"],"struct":["Archive","Budget","Exceeded","Limits","Writer"]};

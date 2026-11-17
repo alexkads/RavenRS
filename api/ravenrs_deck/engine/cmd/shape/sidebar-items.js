@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["freeform_path","quick_style_for","specs"]};

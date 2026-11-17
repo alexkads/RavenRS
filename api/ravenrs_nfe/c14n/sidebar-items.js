@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["canonicalize_by_id","canonicalize_by_name","canonicalize_document"]};

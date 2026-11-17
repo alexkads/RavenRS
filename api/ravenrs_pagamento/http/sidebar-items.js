@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ErroTransporte","Metodo"],"struct":["RequisicaoHttp","RespostaHttp"],"trait":["TransporteHttp"]};

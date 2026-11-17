@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LIMITE_XML"],"fn":["conferir_assinatura","ler_nota_recebida"],"struct":["ItemRecebido","NotaRecebida"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["analisar","diagnosticar"],"struct":["Analise","Diagnostico","Opcoes"]};

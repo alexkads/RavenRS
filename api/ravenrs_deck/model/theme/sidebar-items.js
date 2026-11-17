@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["builtin_color_schemes","builtin_font_schemes","builtin_format_schemes","builtin_themes","default_format","theme_variants"],"struct":["FontScheme","FontSet","FormatScheme","ScriptFont","Theme"]};

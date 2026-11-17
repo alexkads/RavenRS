@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_NODES","NS","UNICODEMATH"],"enum":["Item"],"fn":["linear_to_mathml","local","read","to_mathml","to_tree"],"struct":["El"]};

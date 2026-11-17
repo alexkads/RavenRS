@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DATE_KINDS"],"fn":["field_text","is_date_field"],"struct":["DateTime"]};

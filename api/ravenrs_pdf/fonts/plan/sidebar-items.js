@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_PLAN_GLYPHS","MAX_TYPE3_GLYPHS"],"struct":["PlannedType3","TextPlan"]};

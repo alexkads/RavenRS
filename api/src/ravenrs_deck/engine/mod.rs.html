@@ -1,0 +1,918 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="ravenrs_deck" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../src-files.js"></script><script defer="" src="../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-deck/src/engine/mod.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_deck/engine/mod.rs.html"><meta property="og:title" content="mod.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-deck/src/engine/mod.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_deck/engine/mod.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="mod.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-deck/src/engine/mod.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"mod.rs - source","description":"Source of the Rust file `crates/ravenrs-deck/src/engine/mod.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_deck/engine/mod.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_deck/engine/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! The DeckCraft engine façade.
+<a href="#2" id="2" data-nosnippet="">2</a>//!
+<a href="#3" id="3" data-nosnippet="">3</a>//! Every user-visible action is a command with a stable id (`slide.new`, `shape.insert`,
+<a href="#4" id="4" data-nosnippet="">4</a>//! `text.insert`, `format.bold`…) and JSON parameters. The egui UI, the CLI, the control channel
+<a href="#5" id="5" data-nosnippet="">5</a>//! and MCP all go through [`Session::execute`]. Pointer tools reduce to commands too, so every
+<a href="#6" id="6" data-nosnippet="">6</a>//! gesture is journaled, undoable and replayable.
+<a href="#7" id="7" data-nosnippet="">7</a></span><span class="attr">#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
+<a href="#8" id="8" data-nosnippet="">8</a>#![forbid(unsafe_code)]
+<a href="#9" id="9" data-nosnippet="">9</a>
+<a href="#10" id="10" data-nosnippet="">10</a></span><span class="kw">pub mod </span>cmd;
+<a href="#11" id="11" data-nosnippet="">11</a><span class="kw">pub mod </span>compare;
+<a href="#12" id="12" data-nosnippet="">12</a><span class="kw">pub mod </span>connect;
+<a href="#13" id="13" data-nosnippet="">13</a><span class="kw">pub mod </span>drawtable;
+<a href="#14" id="14" data-nosnippet="">14</a><span class="kw">pub mod </span>file_access;
+<a href="#15" id="15" data-nosnippet="">15</a><span class="kw">pub mod </span>fonts;
+<a href="#16" id="16" data-nosnippet="">16</a><span class="kw">pub mod </span>gif_export;
+<a href="#17" id="17" data-nosnippet="">17</a><span class="kw">pub mod </span>guard;
+<a href="#18" id="18" data-nosnippet="">18</a><span class="kw">pub mod </span>icons;
+<a href="#19" id="19" data-nosnippet="">19</a><span class="kw">pub mod </span>inkshape;
+<a href="#20" id="20" data-nosnippet="">20</a><span class="kw">pub mod </span>io;
+<a href="#21" id="21" data-nosnippet="">21</a><span class="kw">pub mod </span>keys;
+<a href="#22" id="22" data-nosnippet="">22</a><span class="kw">pub mod </span>links;
+<a href="#23" id="23" data-nosnippet="">23</a><span class="kw">pub mod </span>media_refs;
+<a href="#24" id="24" data-nosnippet="">24</a><span class="kw">pub mod </span>recovery;
+<a href="#25" id="25" data-nosnippet="">25</a><span class="kw">pub mod </span>sample;
+<a href="#26" id="26" data-nosnippet="">26</a><span class="kw">pub mod </span>sounds;
+<a href="#27" id="27" data-nosnippet="">27</a><span class="kw">pub mod </span>spell;
+<a href="#28" id="28" data-nosnippet="">28</a><span class="kw">pub mod </span>templates;
+<a href="#29" id="29" data-nosnippet="">29</a><span class="kw">pub mod </span>thesaurus;
+<a href="#30" id="30" data-nosnippet="">30</a><span class="kw">pub mod </span>tools;
+<a href="#31" id="31" data-nosnippet="">31</a>
+<a href="#32" id="32" data-nosnippet="">32</a><span class="kw">use </span>std::sync::Arc;
+<a href="#33" id="33" data-nosnippet="">33</a>
+<a href="#34" id="34" data-nosnippet="">34</a><span class="kw">use </span><span class="kw">crate</span>::model::{Presentation, Shape, ShapeId, Slide, SlideId};
+<a href="#35" id="35" data-nosnippet="">35</a><span class="kw">use </span>serde::{Deserialize, Serialize};
+<a href="#36" id="36" data-nosnippet="">36</a><span class="kw">use </span>serde_json::Value;
+<a href="#37" id="37" data-nosnippet="">37</a>
+<a href="#38" id="38" data-nosnippet="">38</a><span class="kw">pub use </span><span class="kw">crate</span>::geom;
+<a href="#39" id="39" data-nosnippet="">39</a><span class="kw">pub use </span><span class="kw">crate</span>::media;
+<a href="#40" id="40" data-nosnippet="">40</a><span class="kw">pub use </span><span class="kw">crate</span>::model;
+<a href="#41" id="41" data-nosnippet="">41</a><span class="kw">pub use </span><span class="kw">crate</span>::pdf;
+<a href="#42" id="42" data-nosnippet="">42</a><span class="kw">pub use </span><span class="kw">crate</span>::render;
+<a href="#43" id="43" data-nosnippet="">43</a><span class="kw">pub use </span>cmd::{CommandInfo, CommandSpec, command_specs, find_command};
+<a href="#44" id="44" data-nosnippet="">44</a><span class="kw">pub use </span>tools::{Mods, PointerEvent, PointerKind, ToolKind};
+<a href="#45" id="45" data-nosnippet="">45</a>
+<a href="#46" id="46" data-nosnippet="">46</a><span class="attr">#[derive(Debug, thiserror::Error)]
+<a href="#47" id="47" data-nosnippet="">47</a></span><span class="kw">pub enum </span>EngineError {
+<a href="#48" id="48" data-nosnippet="">48</a>    <span class="attr">#[error(<span class="string">"unknown command `{0}`"</span>)]
+<a href="#49" id="49" data-nosnippet="">49</a>    </span>UnknownCommand(String),
+<a href="#50" id="50" data-nosnippet="">50</a>    <span class="attr">#[error(<span class="string">"command `{0}` is not available right now: {1}"</span>)]
+<a href="#51" id="51" data-nosnippet="">51</a>    </span>Disabled(String, String),
+<a href="#52" id="52" data-nosnippet="">52</a>    <span class="attr">#[error(<span class="string">"invalid parameters for `{cmd}`: {msg}"</span>)]
+<a href="#53" id="53" data-nosnippet="">53</a>    </span>BadParams { cmd: String, msg: String },
+<a href="#54" id="54" data-nosnippet="">54</a>    <span class="attr">#[error(<span class="string">"no active presentation"</span>)]
+<a href="#55" id="55" data-nosnippet="">55</a>    </span>NoDocument,
+<a href="#56" id="56" data-nosnippet="">56</a>    <span class="attr">#[error(<span class="string">"{0}"</span>)]
+<a href="#57" id="57" data-nosnippet="">57</a>    </span>Other(String),
+<a href="#58" id="58" data-nosnippet="">58</a>    <span class="attr">#[error(<span class="string">"internal error in `{0}` (the presentation was kept as it was): {1}"</span>)]
+<a href="#59" id="59" data-nosnippet="">59</a>    </span>Internal(String, String),
+<a href="#60" id="60" data-nosnippet="">60</a>}
+<a href="#61" id="61" data-nosnippet="">61</a>
+<a href="#62" id="62" data-nosnippet="">62</a><span class="kw">impl </span>From&lt;<span class="kw">crate</span>::model::ModelError&gt; <span class="kw">for </span>EngineError {
+<a href="#63" id="63" data-nosnippet="">63</a>    <span class="kw">fn </span>from(e: <span class="kw">crate</span>::model::ModelError) -&gt; <span class="self">Self </span>{
+<a href="#64" id="64" data-nosnippet="">64</a>        EngineError::Other(e.to_string())
+<a href="#65" id="65" data-nosnippet="">65</a>    }
+<a href="#66" id="66" data-nosnippet="">66</a>}
+<a href="#67" id="67" data-nosnippet="">67</a>
+<a href="#68" id="68" data-nosnippet="">68</a><span class="kw">pub type </span><span class="prelude-ty">Result</span>&lt;T&gt; = std::result::Result&lt;T, EngineError&gt;;
+<a href="#69" id="69" data-nosnippet="">69</a>
+<a href="#70" id="70" data-nosnippet="">70</a><span class="doccomment">/// Text being edited in place: a shape's body (or a table cell, or the slide's notes).
+<a href="#71" id="71" data-nosnippet="">71</a></span><span class="attr">#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+<a href="#72" id="72" data-nosnippet="">72</a>#[serde(rename_all = <span class="string">"camelCase"</span>)]
+<a href="#73" id="73" data-nosnippet="">73</a></span><span class="kw">pub struct </span>TextSel {
+<a href="#74" id="74" data-nosnippet="">74</a>    <span class="kw">pub </span>shape: ShapeId,
+<a href="#75" id="75" data-nosnippet="">75</a>    <span class="doccomment">/// Selection anchor and caret: (paragraph, char).
+<a href="#76" id="76" data-nosnippet="">76</a>    </span><span class="kw">pub </span>anchor: (usize, usize),
+<a href="#77" id="77" data-nosnippet="">77</a>    <span class="kw">pub </span>caret: (usize, usize),
+<a href="#78" id="78" data-nosnippet="">78</a>    <span class="doccomment">/// Editing a table cell (row, col).
+<a href="#79" id="79" data-nosnippet="">79</a>    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href="#80" id="80" data-nosnippet="">80</a>    </span><span class="kw">pub </span>cell: <span class="prelude-ty">Option</span>&lt;(usize, usize)&gt;,
+<a href="#81" id="81" data-nosnippet="">81</a>    <span class="doccomment">/// Editing the slide's speaker notes (shape is ignored).
+<a href="#82" id="82" data-nosnippet="">82</a>    </span><span class="attr">#[serde(default)]
+<a href="#83" id="83" data-nosnippet="">83</a>    </span><span class="kw">pub </span>notes: bool,
+<a href="#84" id="84" data-nosnippet="">84</a>    <span class="doccomment">/// The caret position that sits at the end of a wrapped line (after End) rather than at the
+<a href="#85" id="85" data-nosnippet="">85</a>    /// start of the next line. Ignored once the caret moves anywhere else.
+<a href="#86" id="86" data-nosnippet="">86</a>    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href="#87" id="87" data-nosnippet="">87</a>    </span><span class="kw">pub </span>line_end: <span class="prelude-ty">Option</span>&lt;(usize, usize)&gt;,
+<a href="#88" id="88" data-nosnippet="">88</a>}
+<a href="#89" id="89" data-nosnippet="">89</a>
+<a href="#90" id="90" data-nosnippet="">90</a><span class="kw">impl </span>TextSel {
+<a href="#91" id="91" data-nosnippet="">91</a>    <span class="kw">pub fn </span>is_range(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#92" id="92" data-nosnippet="">92</a>        <span class="self">self</span>.anchor != <span class="self">self</span>.caret
+<a href="#93" id="93" data-nosnippet="">93</a>    }
+<a href="#94" id="94" data-nosnippet="">94</a>    <span class="kw">pub fn </span>ordered(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; ((usize, usize), (usize, usize)) {
+<a href="#95" id="95" data-nosnippet="">95</a>        <span class="kw">if </span><span class="self">self</span>.anchor &lt;= <span class="self">self</span>.caret { (<span class="self">self</span>.anchor, <span class="self">self</span>.caret) } <span class="kw">else </span>{ (<span class="self">self</span>.caret, <span class="self">self</span>.anchor) }
+<a href="#96" id="96" data-nosnippet="">96</a>    }
+<a href="#97" id="97" data-nosnippet="">97</a>    <span class="doccomment">/// Is the caret drawn at the end of the line before (upstream), not the start of the next?
+<a href="#98" id="98" data-nosnippet="">98</a>    </span><span class="kw">pub fn </span>at_line_end(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#99" id="99" data-nosnippet="">99</a>        <span class="self">self</span>.line_end == <span class="prelude-val">Some</span>(<span class="self">self</span>.caret)
+<a href="#100" id="100" data-nosnippet="">100</a>    }
+<a href="#101" id="101" data-nosnippet="">101</a>}
+<a href="#102" id="102" data-nosnippet="">102</a>
+<a href="#103" id="103" data-nosnippet="">103</a><span class="doccomment">/// Which shape tree is being edited: slides (normal), or a master/layout (Slide Master view).
+<a href="#104" id="104" data-nosnippet="">104</a></span><span class="attr">#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+<a href="#105" id="105" data-nosnippet="">105</a>#[serde(rename_all = <span class="string">"camelCase"</span>, tag = <span class="string">"kind"</span>)]
+<a href="#106" id="106" data-nosnippet="">106</a></span><span class="kw">pub enum </span>Target {
+<a href="#107" id="107" data-nosnippet="">107</a>    <span class="attr">#[default]
+<a href="#108" id="108" data-nosnippet="">108</a>    </span>Slides,
+<a href="#109" id="109" data-nosnippet="">109</a>    Master {
+<a href="#110" id="110" data-nosnippet="">110</a>        master: usize,
+<a href="#111" id="111" data-nosnippet="">111</a>    },
+<a href="#112" id="112" data-nosnippet="">112</a>    Layout {
+<a href="#113" id="113" data-nosnippet="">113</a>        master: usize,
+<a href="#114" id="114" data-nosnippet="">114</a>        layout: usize,
+<a href="#115" id="115" data-nosnippet="">115</a>    },
+<a href="#116" id="116" data-nosnippet="">116</a>    <span class="doccomment">/// The handout master (View ▸ Handout Master), a page at the notes size.
+<a href="#117" id="117" data-nosnippet="">117</a>    </span>Handout,
+<a href="#118" id="118" data-nosnippet="">118</a>    <span class="doccomment">/// The notes master (View ▸ Notes Master), a page at the notes size.
+<a href="#119" id="119" data-nosnippet="">119</a>    </span>NotesMaster,
+<a href="#120" id="120" data-nosnippet="">120</a>}
+<a href="#121" id="121" data-nosnippet="">121</a>
+<a href="#122" id="122" data-nosnippet="">122</a><span class="kw">impl </span>Target {
+<a href="#123" id="123" data-nosnippet="">123</a>    <span class="doccomment">/// A notes-size master page (Handout or Notes Master view).
+<a href="#124" id="124" data-nosnippet="">124</a>    </span><span class="kw">pub fn </span>is_page_master(<span class="self">self</span>) -&gt; bool {
+<a href="#125" id="125" data-nosnippet="">125</a>        <span class="macro">matches!</span>(<span class="self">self</span>, Target::Handout | Target::NotesMaster)
+<a href="#126" id="126" data-nosnippet="">126</a>    }
+<a href="#127" id="127" data-nosnippet="">127</a>}
+<a href="#128" id="128" data-nosnippet="">128</a>
+<a href="#129" id="129" data-nosnippet="">129</a><span class="doccomment">/// The handout or notes master edited in that view.
+<a href="#130" id="130" data-nosnippet="">130</a></span><span class="kw">pub fn </span>page_master(doc: <span class="kw-2">&amp;</span>Presentation, t: Target) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Arc&lt;<span class="kw">crate</span>::model::Master&gt;&gt; {
+<a href="#131" id="131" data-nosnippet="">131</a>    <span class="kw">match </span>t {
+<a href="#132" id="132" data-nosnippet="">132</a>        Target::Handout =&gt; doc.handout_master.as_ref(),
+<a href="#133" id="133" data-nosnippet="">133</a>        Target::NotesMaster =&gt; doc.notes_master.as_ref(),
+<a href="#134" id="134" data-nosnippet="">134</a>        <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#135" id="135" data-nosnippet="">135</a>    }
+<a href="#136" id="136" data-nosnippet="">136</a>}
+<a href="#137" id="137" data-nosnippet="">137</a>
+<a href="#138" id="138" data-nosnippet="">138</a><span class="kw">pub fn </span>page_master_mut(doc: <span class="kw-2">&amp;mut </span>Presentation, t: Target) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>Arc&lt;<span class="kw">crate</span>::model::Master&gt;&gt; {
+<a href="#139" id="139" data-nosnippet="">139</a>    <span class="kw">match </span>t {
+<a href="#140" id="140" data-nosnippet="">140</a>        Target::Handout =&gt; doc.handout_master.as_mut(),
+<a href="#141" id="141" data-nosnippet="">141</a>        Target::NotesMaster =&gt; doc.notes_master.as_mut(),
+<a href="#142" id="142" data-nosnippet="">142</a>        <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#143" id="143" data-nosnippet="">143</a>    }
+<a href="#144" id="144" data-nosnippet="">144</a>}
+<a href="#145" id="145" data-nosnippet="">145</a>
+<a href="#146" id="146" data-nosnippet="">146</a><span class="attr">#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+<a href="#147" id="147" data-nosnippet="">147</a>#[serde(rename_all = <span class="string">"camelCase"</span>)]
+<a href="#148" id="148" data-nosnippet="">148</a></span><span class="kw">pub struct </span>Selection {
+<a href="#149" id="149" data-nosnippet="">149</a>    <span class="doccomment">/// Current slide index.
+<a href="#150" id="150" data-nosnippet="">150</a>    </span><span class="kw">pub </span>slide: usize,
+<a href="#151" id="151" data-nosnippet="">151</a>    <span class="doccomment">/// Slides selected in the thumbnail pane / sorter (includes the current one when non-empty).
+<a href="#152" id="152" data-nosnippet="">152</a>    </span><span class="kw">pub </span>slides: Vec&lt;SlideId&gt;,
+<a href="#153" id="153" data-nosnippet="">153</a>    <span class="doccomment">/// Selected shapes on the current slide (top-level or inside groups).
+<a href="#154" id="154" data-nosnippet="">154</a>    </span><span class="kw">pub </span>shapes: Vec&lt;ShapeId&gt;,
+<a href="#155" id="155" data-nosnippet="">155</a>    <span class="kw">pub </span>text: <span class="prelude-ty">Option</span>&lt;TextSel&gt;,
+<a href="#156" id="156" data-nosnippet="">156</a>    <span class="doccomment">/// Selected table cells: (table, (r0, c0), (r1, c1)).
+<a href="#157" id="157" data-nosnippet="">157</a>    </span><span class="kw">pub </span>cells: <span class="prelude-ty">Option</span>&lt;(ShapeId, (usize, usize), (usize, usize))&gt;,
+<a href="#158" id="158" data-nosnippet="">158</a>    <span class="doccomment">/// Slide-list range last made with Shift-click: `(anchor, end)`. A further Shift-click extends from
+<a href="#159" id="159" data-nosnippet="">159</a>    /// the anchor while the current slide is still `end`; moving to another slide drops it. Held as
+<a href="#160" id="160" data-nosnippet="">160</a>    /// slide ids, so moving, inserting or deleting slides can't make it name other slides.
+<a href="#161" id="161" data-nosnippet="">161</a>    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href="#162" id="162" data-nosnippet="">162</a>    </span><span class="kw">pub </span>range_anchor: <span class="prelude-ty">Option</span>&lt;(SlideId, SlideId)&gt;,
+<a href="#163" id="163" data-nosnippet="">163</a>    <span class="kw">pub </span>target: Target,
+<a href="#164" id="164" data-nosnippet="">164</a>}
+<a href="#165" id="165" data-nosnippet="">165</a>
+<a href="#166" id="166" data-nosnippet="">166</a><span class="attr">#[derive(Clone, Debug)]
+<a href="#167" id="167" data-nosnippet="">167</a></span><span class="kw">pub struct </span>HistoryEntry {
+<a href="#168" id="168" data-nosnippet="">168</a>    <span class="kw">pub </span>label: String,
+<a href="#169" id="169" data-nosnippet="">169</a>    <span class="kw">pub </span>doc: Arc&lt;Presentation&gt;,
+<a href="#170" id="170" data-nosnippet="">170</a>    <span class="kw">pub </span>selection: Selection,
+<a href="#171" id="171" data-nosnippet="">171</a>    <span class="doccomment">/// The point type Edit Points remembered with `doc` (`ToolState::vertex_kind`).
+<a href="#172" id="172" data-nosnippet="">172</a>    </span><span class="kw">pub </span>vertex_kind: <span class="prelude-ty">Option</span>&lt;(ShapeId, usize, usize, String)&gt;,
+<a href="#173" id="173" data-nosnippet="">173</a>}
+<a href="#174" id="174" data-nosnippet="">174</a>
+<a href="#175" id="175" data-nosnippet="">175</a><span class="attr">#[derive(Clone, Debug, Default)]
+<a href="#176" id="176" data-nosnippet="">176</a></span><span class="kw">pub struct </span>History {
+<a href="#177" id="177" data-nosnippet="">177</a>    <span class="kw">pub </span>undo: Vec&lt;HistoryEntry&gt;,
+<a href="#178" id="178" data-nosnippet="">178</a>    <span class="kw">pub </span>redo: Vec&lt;HistoryEntry&gt;,
+<a href="#179" id="179" data-nosnippet="">179</a>    <span class="kw">pub </span>limit: usize,
+<a href="#180" id="180" data-nosnippet="">180</a>    <span class="doccomment">/// Most memory (estimated bytes) the undo steps may keep beyond the current document;
+<a href="#181" id="181" data-nosnippet="">181</a>    /// 0 means [`UNDO_BYTE_BUDGET`].
+<a href="#182" id="182" data-nosnippet="">182</a>    </span><span class="kw">pub </span>byte_limit: usize,
+<a href="#183" id="183" data-nosnippet="">183</a>    <span class="doccomment">/// Estimated bytes each undo step keeps that the document after it doesn't share, by the
+<a href="#184" id="184" data-nosnippet="">184</a>    /// step's document address.
+<a href="#185" id="185" data-nosnippet="">185</a>    </span><span class="kw">pub </span>costs: std::collections::HashMap&lt;usize, usize&gt;,
+<a href="#186" id="186" data-nosnippet="">186</a>}
+<a href="#187" id="187" data-nosnippet="">187</a>
+<a href="#188" id="188" data-nosnippet="">188</a><span class="doccomment">/// A live pointer interaction: the document before it began (one undo step at the end).
+<a href="#189" id="189" data-nosnippet="">189</a></span><span class="attr">#[derive(Clone, Debug)]
+<a href="#190" id="190" data-nosnippet="">190</a></span><span class="kw">pub struct </span>Interaction {
+<a href="#191" id="191" data-nosnippet="">191</a>    <span class="kw">pub </span>label: String,
+<a href="#192" id="192" data-nosnippet="">192</a>    <span class="kw">pub </span>doc: Arc&lt;Presentation&gt;,
+<a href="#193" id="193" data-nosnippet="">193</a>    <span class="kw">pub </span>selection: Selection,
+<a href="#194" id="194" data-nosnippet="">194</a>    <span class="doccomment">/// The point type Edit Points remembered when it began.
+<a href="#195" id="195" data-nosnippet="">195</a>    </span><span class="kw">pub </span>vertex_kind: <span class="prelude-ty">Option</span>&lt;(ShapeId, usize, usize, String)&gt;,
+<a href="#196" id="196" data-nosnippet="">196</a>}
+<a href="#197" id="197" data-nosnippet="">197</a>
+<a href="#198" id="198" data-nosnippet="">198</a><span class="doccomment">/// Text an input method is composing (#101): its preedit sits in the edited text body, at `start`
+<a href="#199" id="199" data-nosnippet="">199</a>/// for `len` characters, until it is committed, replaced or cancelled. The presentation from
+<a href="#200" id="200" data-nosnippet="">200</a>/// before it began makes the whole composition one undo step.
+<a href="#201" id="201" data-nosnippet="">201</a></span><span class="attr">#[derive(Clone, Debug)]
+<a href="#202" id="202" data-nosnippet="">202</a></span><span class="kw">pub struct </span>Composition {
+<a href="#203" id="203" data-nosnippet="">203</a>    <span class="doccomment">/// Where the composed text starts: (paragraph, char).
+<a href="#204" id="204" data-nosnippet="">204</a>    </span><span class="kw">pub </span>start: (usize, usize),
+<a href="#205" id="205" data-nosnippet="">205</a>    <span class="doccomment">/// Its length in characters (it never spans paragraphs).
+<a href="#206" id="206" data-nosnippet="">206</a>    </span><span class="kw">pub </span>len: usize,
+<a href="#207" id="207" data-nosnippet="">207</a>    <span class="doccomment">/// The part the input method is converting, relative to `start` (drawn with a thicker line).
+<a href="#208" id="208" data-nosnippet="">208</a>    </span><span class="kw">pub </span>active: <span class="prelude-ty">Option</span>&lt;(usize, usize)&gt;,
+<a href="#209" id="209" data-nosnippet="">209</a>    <span class="doccomment">/// The formatting the composed text is typed with (as `text.insert` would choose).
+<a href="#210" id="210" data-nosnippet="">210</a>    </span><span class="kw">pub </span>props: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::model::text::RunProps&gt;,
+<a href="#211" id="211" data-nosnippet="">211</a>    <span class="doccomment">/// The presentation and selection before the composition began.
+<a href="#212" id="212" data-nosnippet="">212</a>    </span><span class="kw">pub </span>before: Arc&lt;Presentation&gt;,
+<a href="#213" id="213" data-nosnippet="">213</a>    <span class="kw">pub </span>before_selection: Selection,
+<a href="#214" id="214" data-nosnippet="">214</a>}
+<a href="#215" id="215" data-nosnippet="">215</a>
+<a href="#216" id="216" data-nosnippet="">216</a><span class="attr">#[derive(Clone, Debug)]
+<a href="#217" id="217" data-nosnippet="">217</a></span><span class="kw">pub struct </span>DocState {
+<a href="#218" id="218" data-nosnippet="">218</a>    <span class="kw">pub </span>doc: Arc&lt;Presentation&gt;,
+<a href="#219" id="219" data-nosnippet="">219</a>    <span class="kw">pub </span>selection: Selection,
+<a href="#220" id="220" data-nosnippet="">220</a>    <span class="kw">pub </span>history: History,
+<a href="#221" id="221" data-nosnippet="">221</a>    <span class="kw">pub </span>path: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#222" id="222" data-nosnippet="">222</a>    <span class="kw">pub </span>revision: u64,
+<a href="#223" id="223" data-nosnippet="">223</a>    <span class="kw">pub </span>saved_doc: Arc&lt;Presentation&gt;,
+<a href="#224" id="224" data-nosnippet="">224</a>    <span class="kw">pub </span>interaction: <span class="prelude-ty">Option</span>&lt;Interaction&gt;,
+<a href="#225" id="225" data-nosnippet="">225</a>    <span class="kw">pub </span>uid: u64,
+<a href="#226" id="226" data-nosnippet="">226</a>    <span class="kw">pub </span>title: String,
+<a href="#227" id="227" data-nosnippet="">227</a>    <span class="doccomment">/// Fonts the file's text uses that aren't installed, found when it was opened (empty for new
+<a href="#228" id="228" data-nosnippet="">228</a>    /// documents); the app mentions them once.
+<a href="#229" id="229" data-nosnippet="">229</a>    </span><span class="kw">pub </span>missing_fonts: Vec&lt;String&gt;,
+<a href="#230" id="230" data-nosnippet="">230</a>    <span class="doccomment">/// An input method's composition in progress ([`Composition`]).
+<a href="#231" id="231" data-nosnippet="">231</a>    </span><span class="kw">pub </span>composition: <span class="prelude-ty">Option</span>&lt;Composition&gt;,
+<a href="#232" id="232" data-nosnippet="">232</a>    <span class="doccomment">/// Review › Compare in progress: the revised copy.
+<a href="#233" id="233" data-nosnippet="">233</a>    </span><span class="kw">pub </span>compare: <span class="prelude-ty">Option</span>&lt;compare::Compare&gt;,
+<a href="#234" id="234" data-nosnippet="">234</a>    <span class="doccomment">/// The last Duplicate: where it happened and each original with its copy, so duplicating the
+<a href="#235" id="235" data-nosnippet="">235</a>    /// copies again repeats how far they were moved, as in PowerPoint (#966).
+<a href="#236" id="236" data-nosnippet="">236</a>    </span><span class="kw">pub </span>last_duplicate: <span class="prelude-ty">Option</span>&lt;(usize, Target, Vec&lt;(ShapeId, ShapeId)&gt;)&gt;,
+<a href="#237" id="237" data-nosnippet="">237</a>    <span class="doccomment">/// The list AutoFormat just started from a typed `* ` or `1. `, so Backspace right after
+<a href="#238" id="238" data-nosnippet="">238</a>    /// can put the typed text back.
+<a href="#239" id="239" data-nosnippet="">239</a>    </span><span class="kw">pub </span>auto_list: <span class="prelude-ty">Option</span>&lt;cmd::text::AutoList&gt;,
+<a href="#240" id="240" data-nosnippet="">240</a>}
+<a href="#241" id="241" data-nosnippet="">241</a>
+<a href="#242" id="242" data-nosnippet="">242</a><span class="kw">static </span>NEXT_UID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(<span class="number">0</span>);
+<a href="#243" id="243" data-nosnippet="">243</a>
+<a href="#244" id="244" data-nosnippet="">244</a><span class="doccomment">/// A document id unique across processes, not just within this one: recovery entries are named
+<a href="#245" id="245" data-nosnippet="">245</a>/// by it in a folder every running instance shares. Ids are this process's random base (see
+<a href="#246" id="246" data-nosnippet="">246</a>/// [`recovery::instance_id`]) plus a counter.
+<a href="#247" id="247" data-nosnippet="">247</a></span><span class="kw">fn </span>next_uid() -&gt; u64 {
+<a href="#248" id="248" data-nosnippet="">248</a>    recovery::instance_id().wrapping_add(NEXT_UID.fetch_add(<span class="number">1</span>, std::sync::atomic::Ordering::Relaxed)) &amp; recovery::UID_MASK
+<a href="#249" id="249" data-nosnippet="">249</a>}
+<a href="#250" id="250" data-nosnippet="">250</a>
+<a href="#251" id="251" data-nosnippet="">251</a><span class="kw">impl </span>DocState {
+<a href="#252" id="252" data-nosnippet="">252</a>    <span class="kw">pub fn </span>new(doc: Presentation, path: <span class="prelude-ty">Option</span>&lt;String&gt;, title: String) -&gt; <span class="self">Self </span>{
+<a href="#253" id="253" data-nosnippet="">253</a>        <span class="kw">let </span>doc = Arc::new(doc);
+<a href="#254" id="254" data-nosnippet="">254</a>        DocState {
+<a href="#255" id="255" data-nosnippet="">255</a>            saved_doc: doc.clone(),
+<a href="#256" id="256" data-nosnippet="">256</a>            doc,
+<a href="#257" id="257" data-nosnippet="">257</a>            selection: Selection::default(),
+<a href="#258" id="258" data-nosnippet="">258</a>            history: History { limit: <span class="number">500</span>, ..Default::default() },
+<a href="#259" id="259" data-nosnippet="">259</a>            path,
+<a href="#260" id="260" data-nosnippet="">260</a>            revision: <span class="number">1</span>,
+<a href="#261" id="261" data-nosnippet="">261</a>            interaction: <span class="prelude-val">None</span>,
+<a href="#262" id="262" data-nosnippet="">262</a>            uid: next_uid(),
+<a href="#263" id="263" data-nosnippet="">263</a>            title,
+<a href="#264" id="264" data-nosnippet="">264</a>            missing_fonts: Vec::new(),
+<a href="#265" id="265" data-nosnippet="">265</a>            composition: <span class="prelude-val">None</span>,
+<a href="#266" id="266" data-nosnippet="">266</a>            compare: <span class="prelude-val">None</span>,
+<a href="#267" id="267" data-nosnippet="">267</a>            last_duplicate: <span class="prelude-val">None</span>,
+<a href="#268" id="268" data-nosnippet="">268</a>            auto_list: <span class="prelude-val">None</span>,
+<a href="#269" id="269" data-nosnippet="">269</a>        }
+<a href="#270" id="270" data-nosnippet="">270</a>    }
+<a href="#271" id="271" data-nosnippet="">271</a>    <span class="kw">pub fn </span>is_dirty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#272" id="272" data-nosnippet="">272</a>        !Arc::ptr_eq(<span class="kw-2">&amp;</span><span class="self">self</span>.doc, <span class="kw-2">&amp;</span><span class="self">self</span>.saved_doc)
+<a href="#273" id="273" data-nosnippet="">273</a>    }
+<a href="#274" id="274" data-nosnippet="">274</a>    <span class="kw">pub fn </span>title(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
+<a href="#275" id="275" data-nosnippet="">275</a>        <span class="self">self</span>.path
+<a href="#276" id="276" data-nosnippet="">276</a>            .as_deref()
+<a href="#277" id="277" data-nosnippet="">277</a>            .and_then(|p| std::path::Path::new(p).file_stem())
+<a href="#278" id="278" data-nosnippet="">278</a>            .map(|n| n.to_string_lossy().to_string())
+<a href="#279" id="279" data-nosnippet="">279</a>            .unwrap_or_else(|| <span class="self">self</span>.title.clone())
+<a href="#280" id="280" data-nosnippet="">280</a>    }
+<a href="#281" id="281" data-nosnippet="">281</a>    <span class="kw">pub fn </span>current_slide(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Slide&gt; {
+<a href="#282" id="282" data-nosnippet="">282</a>        <span class="self">self</span>.doc.slides.get(<span class="self">self</span>.selection.slide).map(|s| s.as_ref())
+<a href="#283" id="283" data-nosnippet="">283</a>    }
+<a href="#284" id="284" data-nosnippet="">284</a>    <span class="doccomment">/// Shapes of the edited tree (current slide, or the master/layout in Slide Master view).
+<a href="#285" id="285" data-nosnippet="">285</a>    </span><span class="kw">pub fn </span>shapes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[Shape] {
+<a href="#286" id="286" data-nosnippet="">286</a>        <span class="kw">match </span><span class="self">self</span>.selection.target {
+<a href="#287" id="287" data-nosnippet="">287</a>            Target::Slides =&gt; <span class="self">self</span>.current_slide().map(|s| s.shapes.as_slice()).unwrap_or(<span class="kw-2">&amp;</span>[]),
+<a href="#288" id="288" data-nosnippet="">288</a>            Target::Master { master } =&gt; <span class="self">self</span>.doc.masters.get(master).map(|m| m.shapes.as_slice()).unwrap_or(<span class="kw-2">&amp;</span>[]),
+<a href="#289" id="289" data-nosnippet="">289</a>            Target::Handout | Target::NotesMaster =&gt; page_master(<span class="kw-2">&amp;</span><span class="self">self</span>.doc, <span class="self">self</span>.selection.target).map(|m| m.shapes.as_slice()).unwrap_or(<span class="kw-2">&amp;</span>[]),
+<a href="#290" id="290" data-nosnippet="">290</a>            Target::Layout { master, layout } =&gt; {
+<a href="#291" id="291" data-nosnippet="">291</a>                <span class="self">self</span>.doc.masters.get(master).and_then(|m| m.layouts.get(layout)).map(|l| l.shapes.as_slice()).unwrap_or(<span class="kw-2">&amp;</span>[])
+<a href="#292" id="292" data-nosnippet="">292</a>            }
+<a href="#293" id="293" data-nosnippet="">293</a>        }
+<a href="#294" id="294" data-nosnippet="">294</a>    }
+<a href="#295" id="295" data-nosnippet="">295</a>    <span class="kw">pub fn </span>shape(<span class="kw-2">&amp;</span><span class="self">self</span>, id: ShapeId) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Shape&gt; {
+<a href="#296" id="296" data-nosnippet="">296</a>        <span class="kw">crate</span>::model::find_shape(<span class="self">self</span>.shapes(), id)
+<a href="#297" id="297" data-nosnippet="">297</a>    }
+<a href="#298" id="298" data-nosnippet="">298</a>    <span class="kw">pub fn </span>selected_shapes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;<span class="kw-2">&amp;</span>Shape&gt; {
+<a href="#299" id="299" data-nosnippet="">299</a>        <span class="self">self</span>.selection.shapes.iter().filter_map(|id| <span class="self">self</span>.shape(<span class="kw-2">*</span>id)).collect()
+<a href="#300" id="300" data-nosnippet="">300</a>    }
+<a href="#301" id="301" data-nosnippet="">301</a>}
+<a href="#302" id="302" data-nosnippet="">302</a>
+<a href="#303" id="303" data-nosnippet="">303</a><span class="doccomment">/// The page being edited: the slide size, or the notes size in Handout Master view.
+<a href="#304" id="304" data-nosnippet="">304</a></span><span class="kw">pub fn </span>page_size(st: <span class="kw-2">&amp;</span>DocState) -&gt; <span class="kw">crate</span>::geom::Size {
+<a href="#305" id="305" data-nosnippet="">305</a>    <span class="kw">if </span>st.selection.target.is_page_master() { st.doc.notes_size } <span class="kw">else </span>{ st.doc.slide_size }
+<a href="#306" id="306" data-nosnippet="">306</a>}
+<a href="#307" id="307" data-nosnippet="">307</a>
+<a href="#308" id="308" data-nosnippet="">308</a><span class="doccomment">/// The handout or notes master as a one-master presentation at the notes page size, for drawing
+<a href="#309" id="309" data-nosnippet="">309</a>/// it with the layout renderer.
+<a href="#310" id="310" data-nosnippet="">310</a></span><span class="kw">pub fn </span>master_page(doc: <span class="kw-2">&amp;</span>Presentation, t: Target) -&gt; <span class="prelude-ty">Option</span>&lt;Presentation&gt; {
+<a href="#311" id="311" data-nosnippet="">311</a>    <span class="kw">let </span>m = page_master(doc, t)<span class="question-mark">?</span>.clone();
+<a href="#312" id="312" data-nosnippet="">312</a>    <span class="kw">let </span><span class="kw-2">mut </span>p = doc.clone();
+<a href="#313" id="313" data-nosnippet="">313</a>    p.slide_size = doc.notes_size;
+<a href="#314" id="314" data-nosnippet="">314</a>    p.masters = <span class="macro">vec!</span>[m];
+<a href="#315" id="315" data-nosnippet="">315</a>    p.slides.clear();
+<a href="#316" id="316" data-nosnippet="">316</a>    <span class="prelude-val">Some</span>(p)
+<a href="#317" id="317" data-nosnippet="">317</a>}
+<a href="#318" id="318" data-nosnippet="">318</a>
+<a href="#319" id="319" data-nosnippet="">319</a><span class="doccomment">/// Mutable access to the edited shape tree of a presentation.
+<a href="#320" id="320" data-nosnippet="">320</a></span><span class="kw">pub fn </span>shapes_mut&lt;<span class="lifetime">'a</span>&gt;(doc: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Presentation, sel: <span class="kw-2">&amp;</span>Selection) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>Vec&lt;Shape&gt;&gt; {
+<a href="#321" id="321" data-nosnippet="">321</a>    <span class="kw">match </span>sel.target {
+<a href="#322" id="322" data-nosnippet="">322</a>        Target::Slides =&gt; doc.slides.get_mut(sel.slide).map(|s| <span class="kw-2">&amp;mut </span>Arc::make_mut(s).shapes),
+<a href="#323" id="323" data-nosnippet="">323</a>        Target::Master { master } =&gt; doc.masters.get_mut(master).map(|m| <span class="kw-2">&amp;mut </span>Arc::make_mut(m).shapes),
+<a href="#324" id="324" data-nosnippet="">324</a>        t @ (Target::Handout | Target::NotesMaster) =&gt; page_master_mut(doc, t).map(|m| <span class="kw-2">&amp;mut </span>Arc::make_mut(m).shapes),
+<a href="#325" id="325" data-nosnippet="">325</a>        Target::Layout { master, layout } =&gt; {
+<a href="#326" id="326" data-nosnippet="">326</a>            doc.masters.get_mut(master).and_then(|m| Arc::make_mut(m).layouts.get_mut(layout)).map(|l| <span class="kw-2">&amp;mut </span>l.shapes)
+<a href="#327" id="327" data-nosnippet="">327</a>        }
+<a href="#328" id="328" data-nosnippet="">328</a>    }
+<a href="#329" id="329" data-nosnippet="">329</a>}
+<a href="#330" id="330" data-nosnippet="">330</a>
+<a href="#331" id="331" data-nosnippet="">331</a><span class="doccomment">/// Engine preferences (the UI keeps its own).
+<a href="#332" id="332" data-nosnippet="">332</a></span><span class="attr">#[derive(Clone, Debug, Serialize, Deserialize)]
+<a href="#333" id="333" data-nosnippet="">333</a>#[serde(default, rename_all = <span class="string">"camelCase"</span>)]
+<a href="#334" id="334" data-nosnippet="">334</a></span><span class="kw">pub struct </span>Prefs {
+<a href="#335" id="335" data-nosnippet="">335</a>    <span class="kw">pub </span>snap_to_grid: bool,
+<a href="#336" id="336" data-nosnippet="">336</a>    <span class="kw">pub </span>grid_spacing: f64,
+<a href="#337" id="337" data-nosnippet="">337</a>    <span class="kw">pub </span>smart_guides: bool,
+<a href="#338" id="338" data-nosnippet="">338</a>    <span class="doccomment">/// Ctrl+D / Paste offset.
+<a href="#339" id="339" data-nosnippet="">339</a>    </span><span class="kw">pub </span>duplicate_offset: f64,
+<a href="#340" id="340" data-nosnippet="">340</a>    <span class="kw">pub </span>autocorrect: bool,
+<a href="#341" id="341" data-nosnippet="">341</a>    <span class="kw">pub </span>smart_quotes: bool,
+<a href="#342" id="342" data-nosnippet="">342</a>    <span class="doccomment">/// AutoCorrect options (Tools ▸ AutoCorrect): fix TWo INitial CApitals, capitalize the first
+<a href="#343" id="343" data-nosnippet="">343</a>    /// letter of sentences and the names of days, fix accidental cAPS lOCK, and replace 1/2, 1/4
+<a href="#344" id="344" data-nosnippet="">344</a>    /// and 3/4 with fraction characters; AutoFormat superscripts ordinals (1st) and starts
+<a href="#345" id="345" data-nosnippet="">345</a>    /// bulleted and numbered lists (`* `, `1. `) as you type.
+<a href="#346" id="346" data-nosnippet="">346</a>    </span><span class="kw">pub </span>ac_two_initials: bool,
+<a href="#347" id="347" data-nosnippet="">347</a>    <span class="kw">pub </span>ac_sentence_caps: bool,
+<a href="#348" id="348" data-nosnippet="">348</a>    <span class="kw">pub </span>ac_days: bool,
+<a href="#349" id="349" data-nosnippet="">349</a>    <span class="kw">pub </span>ac_caps_lock: bool,
+<a href="#350" id="350" data-nosnippet="">350</a>    <span class="kw">pub </span>ac_fractions: bool,
+<a href="#351" id="351" data-nosnippet="">351</a>    <span class="kw">pub </span>ac_ordinals: bool,
+<a href="#352" id="352" data-nosnippet="">352</a>    <span class="kw">pub </span>ac_lists: bool,
+<a href="#353" id="353" data-nosnippet="">353</a>    <span class="doccomment">/// Your own "replace … with …" entries; they win over the built-in list.
+<a href="#354" id="354" data-nosnippet="">354</a>    </span><span class="kw">pub </span>ac_entries: Vec&lt;(String, String)&gt;,
+<a href="#355" id="355" data-nosnippet="">355</a>    <span class="doccomment">/// Built-in entries you deleted.
+<a href="#356" id="356" data-nosnippet="">356</a>    </span><span class="kw">pub </span>ac_removed: Vec&lt;String&gt;,
+<a href="#357" id="357" data-nosnippet="">357</a>    <span class="kw">pub </span>author: String,
+<a href="#358" id="358" data-nosnippet="">358</a>    <span class="kw">pub </span>undo_limit: usize,
+<a href="#359" id="359" data-nosnippet="">359</a>    <span class="doccomment">/// Minutes between AutoRecover saves of unsaved presentations.
+<a href="#360" id="360" data-nosnippet="">360</a>    </span><span class="kw">pub </span>recovery_minutes: f64,
+<a href="#361" id="361" data-nosnippet="">361</a>    <span class="doccomment">/// The unit the rulers, the Format pane and the size dialogs show (Preferences); the deck
+<a href="#362" id="362" data-nosnippet="">362</a>    /// itself always stores points.
+<a href="#363" id="363" data-nosnippet="">363</a>    </span><span class="kw">pub </span>units: <span class="kw">crate</span>::geom::Unit,
+<a href="#364" id="364" data-nosnippet="">364</a>}
+<a href="#365" id="365" data-nosnippet="">365</a>
+<a href="#366" id="366" data-nosnippet="">366</a><span class="kw">impl </span>Default <span class="kw">for </span>Prefs {
+<a href="#367" id="367" data-nosnippet="">367</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href="#368" id="368" data-nosnippet="">368</a>        Prefs {
+<a href="#369" id="369" data-nosnippet="">369</a>            snap_to_grid: <span class="bool-val">true</span>,
+<a href="#370" id="370" data-nosnippet="">370</a>            grid_spacing: <span class="number">6.0</span>,
+<a href="#371" id="371" data-nosnippet="">371</a>            smart_guides: <span class="bool-val">true</span>,
+<a href="#372" id="372" data-nosnippet="">372</a>            duplicate_offset: <span class="number">12.0</span>,
+<a href="#373" id="373" data-nosnippet="">373</a>            autocorrect: <span class="bool-val">true</span>,
+<a href="#374" id="374" data-nosnippet="">374</a>            smart_quotes: <span class="bool-val">true</span>,
+<a href="#375" id="375" data-nosnippet="">375</a>            ac_two_initials: <span class="bool-val">true</span>,
+<a href="#376" id="376" data-nosnippet="">376</a>            ac_sentence_caps: <span class="bool-val">true</span>,
+<a href="#377" id="377" data-nosnippet="">377</a>            ac_days: <span class="bool-val">true</span>,
+<a href="#378" id="378" data-nosnippet="">378</a>            ac_caps_lock: <span class="bool-val">true</span>,
+<a href="#379" id="379" data-nosnippet="">379</a>            ac_fractions: <span class="bool-val">true</span>,
+<a href="#380" id="380" data-nosnippet="">380</a>            ac_ordinals: <span class="bool-val">true</span>,
+<a href="#381" id="381" data-nosnippet="">381</a>            ac_lists: <span class="bool-val">true</span>,
+<a href="#382" id="382" data-nosnippet="">382</a>            ac_entries: Vec::new(),
+<a href="#383" id="383" data-nosnippet="">383</a>            ac_removed: Vec::new(),
+<a href="#384" id="384" data-nosnippet="">384</a>            author: <span class="string">"Presenter"</span>.into(),
+<a href="#385" id="385" data-nosnippet="">385</a>            undo_limit: <span class="number">500</span>,
+<a href="#386" id="386" data-nosnippet="">386</a>            recovery_minutes: <span class="number">1.0</span>,
+<a href="#387" id="387" data-nosnippet="">387</a>            units: <span class="kw">crate</span>::geom::Unit::Inches,
+<a href="#388" id="388" data-nosnippet="">388</a>        }
+<a href="#389" id="389" data-nosnippet="">389</a>    }
+<a href="#390" id="390" data-nosnippet="">390</a>}
+<a href="#391" id="391" data-nosnippet="">391</a>
+<a href="#392" id="392" data-nosnippet="">392</a><span class="kw">impl </span>Prefs {
+<a href="#393" id="393" data-nosnippet="">393</a>    <span class="doccomment">/// The preferences with every value in a range the editor can use: `prefs.json` is a file
+<a href="#394" id="394" data-nosnippet="">394</a>    /// on disk, and a hand-edited or damaged one (a zero grid, a huge paste offset or undo
+<a href="#395" id="395" data-nosnippet="">395</a>    /// limit) must not break editing or exhaust memory. Out-of-range numbers take their
+<a href="#396" id="396" data-nosnippet="">396</a>    /// defaults or the nearest usable value.
+<a href="#397" id="397" data-nosnippet="">397</a>    </span><span class="kw">pub fn </span>sanitized(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; Prefs {
+<a href="#398" id="398" data-nosnippet="">398</a>        <span class="kw">let </span>d = Prefs::default();
+<a href="#399" id="399" data-nosnippet="">399</a>        <span class="kw">let </span>within = |v: f64, lo: f64, hi: f64, default: f64| <span class="kw">if </span>v.is_finite() { v.clamp(lo, hi) } <span class="kw">else </span>{ default };
+<a href="#400" id="400" data-nosnippet="">400</a>        <span class="self">self</span>.grid_spacing =
+<a href="#401" id="401" data-nosnippet="">401</a>            <span class="kw">if </span><span class="self">self</span>.grid_spacing.is_finite() &amp;&amp; <span class="self">self</span>.grid_spacing &gt; <span class="number">0.0 </span>{ <span class="self">self</span>.grid_spacing.clamp(<span class="number">0.5</span>, <span class="number">1000.0</span>) } <span class="kw">else </span>{ d.grid_spacing };
+<a href="#402" id="402" data-nosnippet="">402</a>        <span class="self">self</span>.duplicate_offset = within(<span class="self">self</span>.duplicate_offset, -<span class="number">1000.0</span>, <span class="number">1000.0</span>, d.duplicate_offset);
+<a href="#403" id="403" data-nosnippet="">403</a>        <span class="self">self</span>.undo_limit = <span class="self">self</span>.undo_limit.min(MAX_UNDO_LIMIT);
+<a href="#404" id="404" data-nosnippet="">404</a>        <span class="self">self</span>.recovery_minutes = within(<span class="self">self</span>.recovery_minutes, <span class="number">0.1</span>, <span class="number">24.0 </span>* <span class="number">60.0</span>, d.recovery_minutes);
+<a href="#405" id="405" data-nosnippet="">405</a>        <span class="kw">if </span><span class="self">self</span>.author.chars().count() &gt; <span class="number">256 </span>{
+<a href="#406" id="406" data-nosnippet="">406</a>            <span class="self">self</span>.author = <span class="self">self</span>.author.chars().take(<span class="number">256</span>).collect();
+<a href="#407" id="407" data-nosnippet="">407</a>        }
+<a href="#408" id="408" data-nosnippet="">408</a>        <span class="self">self
+<a href="#409" id="409" data-nosnippet="">409</a>    </span>}
+<a href="#410" id="410" data-nosnippet="">410</a>}
+<a href="#411" id="411" data-nosnippet="">411</a>
+<a href="#412" id="412" data-nosnippet="">412</a><span class="doccomment">/// The most undo steps [`Prefs::undo_limit`] can keep.
+<a href="#413" id="413" data-nosnippet="">413</a></span><span class="kw">pub const </span>MAX_UNDO_LIMIT: usize = <span class="number">10_000</span>;
+<a href="#414" id="414" data-nosnippet="">414</a>
+<a href="#415" id="415" data-nosnippet="">415</a><span class="doccomment">/// Things a command or tool asks the UI to do (open a dialog, show a pane, start the show…).
+<a href="#416" id="416" data-nosnippet="">416</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+<a href="#417" id="417" data-nosnippet="">417</a>#[serde(rename_all = <span class="string">"camelCase"</span>, tag = <span class="string">"kind"</span>)]
+<a href="#418" id="418" data-nosnippet="">418</a></span><span class="kw">pub enum </span>UiRequest {
+<a href="#419" id="419" data-nosnippet="">419</a>    Dialog {
+<a href="#420" id="420" data-nosnippet="">420</a>        id: String,
+<a href="#421" id="421" data-nosnippet="">421</a>        params: Value,
+<a href="#422" id="422" data-nosnippet="">422</a>    },
+<a href="#423" id="423" data-nosnippet="">423</a>    Pane {
+<a href="#424" id="424" data-nosnippet="">424</a>        id: String,
+<a href="#425" id="425" data-nosnippet="">425</a>    },
+<a href="#426" id="426" data-nosnippet="">426</a>    StartShow {
+<a href="#427" id="427" data-nosnippet="">427</a>        from: usize,
+<a href="#428" id="428" data-nosnippet="">428</a>    },
+<a href="#429" id="429" data-nosnippet="">429</a>    Message {
+<a href="#430" id="430" data-nosnippet="">430</a>        text: String,
+<a href="#431" id="431" data-nosnippet="">431</a>    },
+<a href="#432" id="432" data-nosnippet="">432</a>    PickFile {
+<a href="#433" id="433" data-nosnippet="">433</a>        purpose: String,
+<a href="#434" id="434" data-nosnippet="">434</a>    },
+<a href="#435" id="435" data-nosnippet="">435</a>    <span class="doccomment">/// Media playback for the UI host (`media.play` / `pause` / `stop` / `seek`): `action` is
+<a href="#436" id="436" data-nosnippet="">436</a>    /// `play`, `pause`, `toggle`, `stop` or `seek`; `ms` the media time to start from / seek to.
+<a href="#437" id="437" data-nosnippet="">437</a>    </span>Media {
+<a href="#438" id="438" data-nosnippet="">438</a>        action: String,
+<a href="#439" id="439" data-nosnippet="">439</a>        shape: ShapeId,
+<a href="#440" id="440" data-nosnippet="">440</a>        ms: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#441" id="441" data-nosnippet="">441</a>    },
+<a href="#442" id="442" data-nosnippet="">442</a>}
+<a href="#443" id="443" data-nosnippet="">443</a>
+<a href="#444" id="444" data-nosnippet="">444</a><span class="doccomment">/// Playback state of a media shape as the UI host reports it (see [`Session::media_status`]).
+<a href="#445" id="445" data-nosnippet="">445</a></span><span class="attr">#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+<a href="#446" id="446" data-nosnippet="">446</a>#[serde(rename_all = <span class="string">"camelCase"</span>)]
+<a href="#447" id="447" data-nosnippet="">447</a></span><span class="kw">pub struct </span>MediaStatus {
+<a href="#448" id="448" data-nosnippet="">448</a>    <span class="doccomment">/// `loading`, `playing`, `paused` or `ended`.
+<a href="#449" id="449" data-nosnippet="">449</a>    </span><span class="kw">pub </span>state: String,
+<a href="#450" id="450" data-nosnippet="">450</a>    <span class="kw">pub </span>position_ms: u64,
+<a href="#451" id="451" data-nosnippet="">451</a>    <span class="kw">pub </span>duration_ms: u64,
+<a href="#452" id="452" data-nosnippet="">452</a>    <span class="doccomment">/// Why the media is silent / blank, when it can't be decoded.
+<a href="#453" id="453" data-nosnippet="">453</a>    </span><span class="kw">pub </span>error: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#454" id="454" data-nosnippet="">454</a>}
+<a href="#455" id="455" data-nosnippet="">455</a>
+<a href="#456" id="456" data-nosnippet="">456</a><span class="doccomment">/// Clipboard contents copied within the app.
+<a href="#457" id="457" data-nosnippet="">457</a>/// The theme a copy drew with. The colours and the map stay apart, as in
+<a href="#458" id="458" data-nosnippet="">458</a>/// `crate::model::resolve::Ctx::color`: the map renames only `tx1`, `bg1`, `tx2` and `bg2`, and
+<a href="#459" id="459" data-nosnippet="">459</a>/// a direct `dk1` keeps the theme's colour.
+<a href="#460" id="460" data-nosnippet="">460</a></span><span class="attr">#[derive(Clone, Debug)]
+<a href="#461" id="461" data-nosnippet="">461</a></span><span class="kw">pub struct </span>SourceTheme {
+<a href="#462" id="462" data-nosnippet="">462</a>    <span class="doccomment">/// The theme's own colours, no colour map applied.
+<a href="#463" id="463" data-nosnippet="">463</a>    </span><span class="kw">pub </span>colors: <span class="kw">crate</span>::color::ColorScheme,
+<a href="#464" id="464" data-nosnippet="">464</a>    <span class="kw">pub </span>color_map: Vec&lt;(String, String)&gt;,
+<a href="#465" id="465" data-nosnippet="">465</a>    <span class="kw">pub </span>fonts: <span class="kw">crate</span>::model::theme::FontScheme,
+<a href="#466" id="466" data-nosnippet="">466</a>}
+<a href="#467" id="467" data-nosnippet="">467</a>
+<a href="#468" id="468" data-nosnippet="">468</a><span class="attr">#[derive(Clone, Debug, Default)]
+<a href="#469" id="469" data-nosnippet="">469</a></span><span class="kw">pub struct </span>Clipboard {
+<a href="#470" id="470" data-nosnippet="">470</a>    <span class="kw">pub </span>shapes: Vec&lt;Shape&gt;,
+<a href="#471" id="471" data-nosnippet="">471</a>    <span class="doccomment">/// The copied placeholders as they were, by id. `shapes` holds a slide's placeholders as
+<a href="#472" id="472" data-nosnippet="">472</a>    /// regular shapes; a paste in Slide Master view takes these, which stay placeholders.
+<a href="#473" id="473" data-nosnippet="">473</a>    </span><span class="kw">pub </span>placeholders: Vec&lt;Shape&gt;,
+<a href="#474" id="474" data-nosnippet="">474</a>    <span class="kw">pub </span>slides: Vec&lt;Slide&gt;,
+<a href="#475" id="475" data-nosnippet="">475</a>    <span class="doccomment">/// Media the copied shapes/slides reference.
+<a href="#476" id="476" data-nosnippet="">476</a>    </span><span class="kw">pub </span>media: Vec&lt;<span class="kw">crate</span>::model::MediaItem&gt;,
+<a href="#477" id="477" data-nosnippet="">477</a>    <span class="kw">pub </span>text: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::model::TextBody&gt;,
+<a href="#478" id="478" data-nosnippet="">478</a>    <span class="kw">pub </span>plain: String,
+<a href="#479" id="479" data-nosnippet="">479</a>    <span class="doccomment">/// The theme the shapes were copied under, for Paste Special › Keep Source Formatting.
+<a href="#480" id="480" data-nosnippet="">480</a>    </span><span class="kw">pub </span>source_theme: <span class="prelude-ty">Option</span>&lt;SourceTheme&gt;,
+<a href="#481" id="481" data-nosnippet="">481</a>    <span class="doccomment">/// How many times the shapes were pasted (each paste offsets further).
+<a href="#482" id="482" data-nosnippet="">482</a>    </span><span class="kw">pub </span>pastes: u32,
+<a href="#483" id="483" data-nosnippet="">483</a>}
+<a href="#484" id="484" data-nosnippet="">484</a>
+<a href="#485" id="485" data-nosnippet="">485</a><span class="kw">pub struct </span>Session {
+<a href="#486" id="486" data-nosnippet="">486</a>    docs: Vec&lt;DocState&gt;,
+<a href="#487" id="487" data-nosnippet="">487</a>    active: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+<a href="#488" id="488" data-nosnippet="">488</a>    <span class="kw">pub </span>prefs: Prefs,
+<a href="#489" id="489" data-nosnippet="">489</a>    <span class="kw">pub </span>journal: Vec&lt;(String, Value)&gt;,
+<a href="#490" id="490" data-nosnippet="">490</a>    <span class="kw">pub </span>clipboard: Clipboard,
+<a href="#491" id="491" data-nosnippet="">491</a>    <span class="kw">pub </span>ui_requests: Vec&lt;UiRequest&gt;,
+<a href="#492" id="492" data-nosnippet="">492</a>    <span class="kw">pub </span>tool: tools::ToolState,
+<a href="#493" id="493" data-nosnippet="">493</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) untitled: u32,
+<a href="#494" id="494" data-nosnippet="">494</a>    <span class="doccomment">/// Format Painter: copied shape/text formatting and whether it stays on (double-click).
+<a href="#495" id="495" data-nosnippet="">495</a>    </span><span class="kw">pub </span>painter: <span class="prelude-ty">Option</span>&lt;(cmd::format::Painted, bool)&gt;,
+<a href="#496" id="496" data-nosnippet="">496</a>    <span class="doccomment">/// Animation Painter: copied shape animations and whether it stays on (double-click).
+<a href="#497" id="497" data-nosnippet="">497</a>    </span><span class="kw">pub </span>anim_painter: <span class="prelude-ty">Option</span>&lt;(Vec&lt;<span class="kw">crate</span>::model::anim::Animation&gt;, bool)&gt;,
+<a href="#498" id="498" data-nosnippet="">498</a>    <span class="doccomment">/// Set as Default Shape: the look new shapes get.
+<a href="#499" id="499" data-nosnippet="">499</a>    </span><span class="kw">pub </span>default_look: <span class="prelude-ty">Option</span>&lt;cmd::format::Painted&gt;,
+<a href="#500" id="500" data-nosnippet="">500</a>    <span class="doccomment">/// Nesting of commands run by commands: only the outermost one is an undo step and a journal
+<a href="#501" id="501" data-nosnippet="">501</a>    /// entry.
+<a href="#502" id="502" data-nosnippet="">502</a>    </span>depth: u32,
+<a href="#503" id="503" data-nosnippet="">503</a>    <span class="doccomment">/// Crash-recovery folder (the app sets it; saving or closing a presentation removes its entry).
+<a href="#504" id="504" data-nosnippet="">504</a>    </span><span class="kw">pub </span>recovery_dir: <span class="prelude-ty">Option</span>&lt;std::path::PathBuf&gt;,
+<a href="#505" id="505" data-nosnippet="">505</a>    <span class="doccomment">/// Media playback state, written by the UI host every frame (empty without a host).
+<a href="#506" id="506" data-nosnippet="">506</a>    </span><span class="kw">pub </span>media_status: std::collections::HashMap&lt;ShapeId, MediaStatus&gt;,
+<a href="#507" id="507" data-nosnippet="">507</a>    <span class="doccomment">/// Animated GIF pictures paused with `media.gifPlay` (the others play).
+<a href="#508" id="508" data-nosnippet="">508</a>    </span><span class="kw">pub </span>gif_paused: std::collections::HashSet&lt;ShapeId&gt;,
+<a href="#509" id="509" data-nosnippet="">509</a>    <span class="doccomment">/// Text keys follow the Mac (Option+arrows move by word, Cmd+arrows to the line or text
+<a href="#510" id="510" data-nosnippet="">510</a>    /// ends) instead of Windows and Linux (Ctrl+arrows by word or paragraph). Defaults to the
+<a href="#511" id="511" data-nosnippet="">511</a>    /// platform DeckCraft was built for.
+<a href="#512" id="512" data-nosnippet="">512</a>    </span><span class="kw">pub </span>mac_keys: bool,
+<a href="#513" id="513" data-nosnippet="">513</a>    <span class="doccomment">/// Command panics caught by the guard (the document was rolled back); soak tests require 0.
+<a href="#514" id="514" data-nosnippet="">514</a>    </span><span class="kw">pub </span>panics_caught: u64,
+<a href="#515" id="515" data-nosnippet="">515</a>    <span class="doccomment">/// Presentations a host read off the UI thread, waiting for `file.adopt` (by token).
+<a href="#516" id="516" data-nosnippet="">516</a>    </span>loaded: Vec&lt;(u64, cmd::file::LoadedFile)&gt;,
+<a href="#517" id="517" data-nosnippet="">517</a>    next_loaded: u64,
+<a href="#518" id="518" data-nosnippet="">518</a>    <span class="doccomment">/// Compositions the application settled itself (see [`Session::composition_settles`]).
+<a href="#519" id="519" data-nosnippet="">519</a>    </span>composition_settles: u64,
+<a href="#520" id="520" data-nosnippet="">520</a>}
+<a href="#521" id="521" data-nosnippet="">521</a>
+<a href="#522" id="522" data-nosnippet="">522</a><span class="kw">impl </span>Default <span class="kw">for </span>Session {
+<a href="#523" id="523" data-nosnippet="">523</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href="#524" id="524" data-nosnippet="">524</a>        <span class="self">Self</span>::new()
+<a href="#525" id="525" data-nosnippet="">525</a>    }
+<a href="#526" id="526" data-nosnippet="">526</a>}
+<a href="#527" id="527" data-nosnippet="">527</a>
+<a href="#528" id="528" data-nosnippet="">528</a><span class="kw">impl </span>Session {
+<a href="#529" id="529" data-nosnippet="">529</a>    <span class="doccomment">/// Install the process panic hook and construct an empty session with default preferences,
+<a href="#530" id="530" data-nosnippet="">530</a>    /// clipboard, tool state, and no active document.
+<a href="#531" id="531" data-nosnippet="">531</a>    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+<a href="#532" id="532" data-nosnippet="">532</a>        guard::install_panic_hook();
+<a href="#533" id="533" data-nosnippet="">533</a>        Session {
+<a href="#534" id="534" data-nosnippet="">534</a>            docs: <span class="macro">vec!</span>[],
+<a href="#535" id="535" data-nosnippet="">535</a>            active: <span class="prelude-val">None</span>,
+<a href="#536" id="536" data-nosnippet="">536</a>            prefs: Prefs::default(),
+<a href="#537" id="537" data-nosnippet="">537</a>            journal: <span class="macro">vec!</span>[],
+<a href="#538" id="538" data-nosnippet="">538</a>            clipboard: Clipboard::default(),
+<a href="#539" id="539" data-nosnippet="">539</a>            ui_requests: <span class="macro">vec!</span>[],
+<a href="#540" id="540" data-nosnippet="">540</a>            tool: tools::ToolState::default(),
+<a href="#541" id="541" data-nosnippet="">541</a>            untitled: <span class="number">0</span>,
+<a href="#542" id="542" data-nosnippet="">542</a>            default_look: <span class="prelude-val">None</span>,
+<a href="#543" id="543" data-nosnippet="">543</a>            painter: <span class="prelude-val">None</span>,
+<a href="#544" id="544" data-nosnippet="">544</a>            anim_painter: <span class="prelude-val">None</span>,
+<a href="#545" id="545" data-nosnippet="">545</a>            depth: <span class="number">0</span>,
+<a href="#546" id="546" data-nosnippet="">546</a>            recovery_dir: <span class="prelude-val">None</span>,
+<a href="#547" id="547" data-nosnippet="">547</a>            media_status: Default::default(),
+<a href="#548" id="548" data-nosnippet="">548</a>            gif_paused: Default::default(),
+<a href="#549" id="549" data-nosnippet="">549</a>            mac_keys: <span class="macro">cfg!</span>(target_os = <span class="string">"macos"</span>),
+<a href="#550" id="550" data-nosnippet="">550</a>            panics_caught: <span class="number">0</span>,
+<a href="#551" id="551" data-nosnippet="">551</a>            loaded: <span class="macro">vec!</span>[],
+<a href="#552" id="552" data-nosnippet="">552</a>            next_loaded: <span class="number">0</span>,
+<a href="#553" id="553" data-nosnippet="">553</a>            composition_settles: <span class="number">0</span>,
+<a href="#554" id="554" data-nosnippet="">554</a>        }
+<a href="#555" id="555" data-nosnippet="">555</a>    }
+<a href="#556" id="556" data-nosnippet="">556</a>    <span class="doccomment">/// Hand over a presentation read on another thread ([`cmd::file::read_presentation_file`]);
+<a href="#557" id="557" data-nosnippet="">557</a>    /// `file.adopt` with the returned token adds it as a document, through the command path like
+<a href="#558" id="558" data-nosnippet="">558</a>    /// `file.open` (journaled, panic-guarded). Only the latest few wait; older ones are dropped.
+<a href="#559" id="559" data-nosnippet="">559</a>    </span><span class="kw">pub fn </span>stage_loaded(<span class="kw-2">&amp;mut </span><span class="self">self</span>, f: cmd::file::LoadedFile) -&gt; u64 {
+<a href="#560" id="560" data-nosnippet="">560</a>        <span class="kw">const </span>KEEP: usize = <span class="number">4</span>;
+<a href="#561" id="561" data-nosnippet="">561</a>        <span class="self">self</span>.next_loaded = <span class="self">self</span>.next_loaded.wrapping_add(<span class="number">1</span>);
+<a href="#562" id="562" data-nosnippet="">562</a>        <span class="kw">if </span><span class="self">self</span>.loaded.len() &gt;= KEEP {
+<a href="#563" id="563" data-nosnippet="">563</a>            <span class="self">self</span>.loaded.remove(<span class="number">0</span>);
+<a href="#564" id="564" data-nosnippet="">564</a>        }
+<a href="#565" id="565" data-nosnippet="">565</a>        <span class="self">self</span>.loaded.push((<span class="self">self</span>.next_loaded, f));
+<a href="#566" id="566" data-nosnippet="">566</a>        <span class="self">self</span>.next_loaded
+<a href="#567" id="567" data-nosnippet="">567</a>    }
+<a href="#568" id="568" data-nosnippet="">568</a>    <span class="doccomment">/// The staged presentation for `token`, removed from the session.
+<a href="#569" id="569" data-nosnippet="">569</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>take_loaded(<span class="kw-2">&amp;mut </span><span class="self">self</span>, token: u64) -&gt; <span class="prelude-ty">Option</span>&lt;cmd::file::LoadedFile&gt; {
+<a href="#570" id="570" data-nosnippet="">570</a>        <span class="kw">let </span>i = <span class="self">self</span>.loaded.iter().position(|(t, <span class="kw">_</span>)| <span class="kw-2">*</span>t == token)<span class="question-mark">?</span>;
+<a href="#571" id="571" data-nosnippet="">571</a>        <span class="prelude-val">Some</span>(<span class="self">self</span>.loaded.remove(i).<span class="number">1</span>)
+<a href="#572" id="572" data-nosnippet="">572</a>    }
+<a href="#573" id="573" data-nosnippet="">573</a>    <span class="doccomment">/// A session with one new presentation open.
+<a href="#574" id="574" data-nosnippet="">574</a>    </span><span class="kw">pub fn </span>with_new() -&gt; <span class="self">Self </span>{
+<a href="#575" id="575" data-nosnippet="">575</a>        <span class="kw">let </span><span class="kw-2">mut </span>s = <span class="self">Self</span>::new();
+<a href="#576" id="576" data-nosnippet="">576</a>        <span class="kw">let _ </span>= s.execute(<span class="string">"file.new"</span>, <span class="kw-2">&amp;</span>Value::Null);
+<a href="#577" id="577" data-nosnippet="">577</a>        s
+<a href="#578" id="578" data-nosnippet="">578</a>    }
+<a href="#579" id="579" data-nosnippet="">579</a>    <span class="kw">pub fn </span>documents(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[DocState] {
+<a href="#580" id="580" data-nosnippet="">580</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.docs
+<a href="#581" id="581" data-nosnippet="">581</a>    }
+<a href="#582" id="582" data-nosnippet="">582</a>    <span class="kw">pub fn </span>active_index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+<a href="#583" id="583" data-nosnippet="">583</a>        <span class="self">self</span>.active
+<a href="#584" id="584" data-nosnippet="">584</a>    }
+<a href="#585" id="585" data-nosnippet="">585</a>    <span class="kw">pub fn </span>active(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>DocState&gt; {
+<a href="#586" id="586" data-nosnippet="">586</a>        <span class="self">self</span>.active.and_then(|i| <span class="self">self</span>.docs.get(i))
+<a href="#587" id="587" data-nosnippet="">587</a>    }
+<a href="#588" id="588" data-nosnippet="">588</a>    <span class="kw">pub fn </span>active_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>DocState&gt; {
+<a href="#589" id="589" data-nosnippet="">589</a>        <span class="self">self</span>.active.and_then(|i| <span class="self">self</span>.docs.get_mut(i))
+<a href="#590" id="590" data-nosnippet="">590</a>    }
+<a href="#591" id="591" data-nosnippet="">591</a>    <span class="kw">pub fn </span>doc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;</span>DocState&gt; {
+<a href="#592" id="592" data-nosnippet="">592</a>        <span class="self">self</span>.active().ok_or(EngineError::NoDocument)
+<a href="#593" id="593" data-nosnippet="">593</a>    }
+<a href="#594" id="594" data-nosnippet="">594</a>    <span class="kw">pub fn </span>doc_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;mut </span>DocState&gt; {
+<a href="#595" id="595" data-nosnippet="">595</a>        <span class="self">self</span>.active_mut().ok_or(EngineError::NoDocument)
+<a href="#596" id="596" data-nosnippet="">596</a>    }
+<a href="#597" id="597" data-nosnippet="">597</a>    <span class="kw">pub fn </span>set_active(<span class="kw-2">&amp;mut </span><span class="self">self</span>, i: usize) {
+<a href="#598" id="598" data-nosnippet="">598</a>        <span class="kw">let </span>was = <span class="self">self</span>.active().map(|d| d.uid);
+<a href="#599" id="599" data-nosnippet="">599</a>        <span class="kw">if </span>i &lt; <span class="self">self</span>.docs.len() {
+<a href="#600" id="600" data-nosnippet="">600</a>            <span class="self">self</span>.active = <span class="prelude-val">Some</span>(i);
+<a href="#601" id="601" data-nosnippet="">601</a>        }
+<a href="#602" id="602" data-nosnippet="">602</a>        <span class="self">self</span>.forget_vertex_kind_unless(was);
+<a href="#603" id="603" data-nosnippet="">603</a>    }
+<a href="#604" id="604" data-nosnippet="">604</a>    <span class="kw">pub fn </span>add_document(<span class="kw-2">&amp;mut </span><span class="self">self</span>, d: DocState) -&gt; usize {
+<a href="#605" id="605" data-nosnippet="">605</a>        <span class="kw">let </span>was = <span class="self">self</span>.active().map(|d| d.uid);
+<a href="#606" id="606" data-nosnippet="">606</a>        <span class="self">self</span>.docs.push(d);
+<a href="#607" id="607" data-nosnippet="">607</a>        <span class="self">self</span>.active = <span class="prelude-val">Some</span>(<span class="self">self</span>.docs.len() - <span class="number">1</span>);
+<a href="#608" id="608" data-nosnippet="">608</a>        <span class="self">self</span>.forget_vertex_kind_unless(was);
+<a href="#609" id="609" data-nosnippet="">609</a>        <span class="self">self</span>.docs.len() - <span class="number">1
+<a href="#610" id="610" data-nosnippet="">610</a>    </span>}
+<a href="#611" id="611" data-nosnippet="">611</a>    <span class="kw">pub fn </span>close_document(<span class="kw-2">&amp;mut </span><span class="self">self</span>, i: usize) {
+<a href="#612" id="612" data-nosnippet="">612</a>        <span class="kw">let </span>was = <span class="self">self</span>.active().map(|d| d.uid);
+<a href="#613" id="613" data-nosnippet="">613</a>        <span class="kw">if </span>i &lt; <span class="self">self</span>.docs.len() {
+<a href="#614" id="614" data-nosnippet="">614</a>            <span class="kw">let </span>d = <span class="self">self</span>.docs.remove(i);
+<a href="#615" id="615" data-nosnippet="">615</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = <span class="kw-2">&amp;</span><span class="self">self</span>.recovery_dir {
+<a href="#616" id="616" data-nosnippet="">616</a>                recovery::discard(dir, d.uid);
+<a href="#617" id="617" data-nosnippet="">617</a>            }
+<a href="#618" id="618" data-nosnippet="">618</a>            <span class="self">self</span>.active = <span class="kw">if </span><span class="self">self</span>.docs.is_empty() { <span class="prelude-val">None </span>} <span class="kw">else </span>{ <span class="prelude-val">Some</span>(i.min(<span class="self">self</span>.docs.len() - <span class="number">1</span>)) };
+<a href="#619" id="619" data-nosnippet="">619</a>        }
+<a href="#620" id="620" data-nosnippet="">620</a>        <span class="self">self</span>.forget_vertex_kind_unless(was);
+<a href="#621" id="621" data-nosnippet="">621</a>    }
+<a href="#622" id="622" data-nosnippet="">622</a>    <span class="doccomment">/// The point type Edit Points remembers names a shape of the active document, and another
+<a href="#623" id="623" data-nosnippet="">623</a>    /// document can have a shape with the same id: a change of active document forgets it.
+<a href="#624" id="624" data-nosnippet="">624</a>    </span><span class="kw">fn </span>forget_vertex_kind_unless(<span class="kw-2">&amp;mut </span><span class="self">self</span>, was: <span class="prelude-ty">Option</span>&lt;u64&gt;) {
+<a href="#625" id="625" data-nosnippet="">625</a>        <span class="kw">if </span><span class="self">self</span>.active().map(|d| d.uid) != was {
+<a href="#626" id="626" data-nosnippet="">626</a>            <span class="self">self</span>.tool.vertex_kind = <span class="prelude-val">None</span>;
+<a href="#627" id="627" data-nosnippet="">627</a>        }
+<a href="#628" id="628" data-nosnippet="">628</a>    }
+<a href="#629" id="629" data-nosnippet="">629</a>    <span class="kw">pub fn </span>next_untitled(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; String {
+<a href="#630" id="630" data-nosnippet="">630</a>        <span class="self">self</span>.untitled += <span class="number">1</span>;
+<a href="#631" id="631" data-nosnippet="">631</a>        <span class="macro">format!</span>(<span class="string">"Presentation{}"</span>, <span class="self">self</span>.untitled)
+<a href="#632" id="632" data-nosnippet="">632</a>    }
+<a href="#633" id="633" data-nosnippet="">633</a>
+<a href="#634" id="634" data-nosnippet="">634</a>    <span class="doccomment">/// Run command `id`. A panic inside it becomes [`EngineError::Internal`] and leaves the
+<a href="#635" id="635" data-nosnippet="">635</a>    /// presentation as it was.
+<a href="#636" id="636" data-nosnippet="">636</a>    </span><span class="kw">pub fn </span>execute(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str, params: <span class="kw-2">&amp;</span>Value) -&gt; <span class="prelude-ty">Result</span>&lt;Value&gt; {
+<a href="#637" id="637" data-nosnippet="">637</a>        <span class="self">self</span>.guarded(id, |s| s.execute_unguarded(id, params))
+<a href="#638" id="638" data-nosnippet="">638</a>    }
+<a href="#639" id="639" data-nosnippet="">639</a>
+<a href="#640" id="640" data-nosnippet="">640</a>    <span class="doccomment">/// Resolve and run a command, settling composition first, checking eligibility, rolling back a
+<a href="#641" id="641" data-nosnippet="">641</a>    /// failed outer command, and committing the resulting undo entry or journal record.
+<a href="#642" id="642" data-nosnippet="">642</a>    </span><span class="kw">fn </span>execute_unguarded(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str, params: <span class="kw-2">&amp;</span>Value) -&gt; <span class="prelude-ty">Result</span>&lt;Value&gt; {
+<a href="#643" id="643" data-nosnippet="">643</a>        <span class="kw">let </span>spec = find_command(id).ok_or_else(|| EngineError::UnknownCommand(id.into()))<span class="question-mark">?</span>;
+<a href="#644" id="644" data-nosnippet="">644</a>        <span class="comment">// Any other edit (or a click, a key, undo) settles an input method's composition first.
+<a href="#645" id="645" data-nosnippet="">645</a>        </span><span class="kw">if </span><span class="self">self</span>.depth == <span class="number">0 </span>&amp;&amp; (spec.journal || spec.undoable) &amp;&amp; !<span class="macro">matches!</span>(id, <span class="string">"text.compose" </span>| <span class="string">"text.commit"</span>) {
+<a href="#646" id="646" data-nosnippet="">646</a>            <span class="self">self</span>.settle_composition();
+<a href="#647" id="647" data-nosnippet="">647</a>        }
+<a href="#648" id="648" data-nosnippet="">648</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = (spec.enabled)(<span class="self">self</span>) {
+<a href="#649" id="649" data-nosnippet="">649</a>            <span class="comment">// A command told which shapes to act on doesn't depend on what is selected.
+<a href="#650" id="650" data-nosnippet="">650</a>            </span><span class="kw">let </span>named = (e == cmd::NOTHING_SELECTED || e == cmd::SELECT_TWO || e == cmd::merge::IN_GROUP)
+<a href="#651" id="651" data-nosnippet="">651</a>                &amp;&amp; (params.get(<span class="string">"ids"</span>).is_some() || params.get(<span class="string">"id"</span>).is_some());
+<a href="#652" id="652" data-nosnippet="">652</a>            <span class="kw">if </span>!named {
+<a href="#653" id="653" data-nosnippet="">653</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(EngineError::Disabled(id.into(), e));
+<a href="#654" id="654" data-nosnippet="">654</a>            }
+<a href="#655" id="655" data-nosnippet="">655</a>        }
+<a href="#656" id="656" data-nosnippet="">656</a>        <span class="kw">let </span>before = <span class="self">self</span>.active().map(|d| (d.uid, d.doc.clone(), d.selection.clone()));
+<a href="#657" id="657" data-nosnippet="">657</a>        <span class="kw">let </span>vertex_kind = <span class="self">self</span>.tool.vertex_kind.clone();
+<a href="#658" id="658" data-nosnippet="">658</a>        <span class="kw">let </span>outer = <span class="self">self</span>.depth == <span class="number">0</span>;
+<a href="#659" id="659" data-nosnippet="">659</a>        <span class="self">self</span>.depth += <span class="number">1</span>;
+<a href="#660" id="660" data-nosnippet="">660</a>        <span class="kw">let </span>r = (spec.run)(<span class="self">self</span>, params);
+<a href="#661" id="661" data-nosnippet="">661</a>        <span class="self">self</span>.depth -= <span class="number">1</span>;
+<a href="#662" id="662" data-nosnippet="">662</a>        <span class="kw">let </span>r = <span class="kw">match </span>r {
+<a href="#663" id="663" data-nosnippet="">663</a>            <span class="prelude-val">Ok</span>(r) =&gt; r,
+<a href="#664" id="664" data-nosnippet="">664</a>            <span class="prelude-val">Err</span>(e) =&gt; {
+<a href="#665" id="665" data-nosnippet="">665</a>                <span class="comment">// A command made of several edits can fail after some of them went through; the
+<a href="#666" id="666" data-nosnippet="">666</a>                // outermost one puts the presentation back, so a failed command changes nothing.
+<a href="#667" id="667" data-nosnippet="">667</a>                </span><span class="kw">if </span>outer
+<a href="#668" id="668" data-nosnippet="">668</a>                    &amp;&amp; <span class="kw">let </span>(<span class="prelude-val">Some</span>((uid, old, sel)), <span class="prelude-val">Some</span>(st)) = (before, <span class="self">self</span>.active_mut())
+<a href="#669" id="669" data-nosnippet="">669</a>                    &amp;&amp; st.uid == uid
+<a href="#670" id="670" data-nosnippet="">670</a>                    &amp;&amp; !Arc::ptr_eq(<span class="kw-2">&amp;</span>old, <span class="kw-2">&amp;</span>st.doc)
+<a href="#671" id="671" data-nosnippet="">671</a>                {
+<a href="#672" id="672" data-nosnippet="">672</a>                    st.doc = old;
+<a href="#673" id="673" data-nosnippet="">673</a>                    st.selection = sel;
+<a href="#674" id="674" data-nosnippet="">674</a>                    st.revision += <span class="number">1</span>;
+<a href="#675" id="675" data-nosnippet="">675</a>                }
+<a href="#676" id="676" data-nosnippet="">676</a>                <span class="kw">if </span>outer {
+<a href="#677" id="677" data-nosnippet="">677</a>                    <span class="self">self</span>.tool.vertex_kind = vertex_kind;
+<a href="#678" id="678" data-nosnippet="">678</a>                }
+<a href="#679" id="679" data-nosnippet="">679</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(e);
+<a href="#680" id="680" data-nosnippet="">680</a>            }
+<a href="#681" id="681" data-nosnippet="">681</a>        };
+<a href="#682" id="682" data-nosnippet="">682</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(st) = <span class="self">self</span>.active_mut() {
+<a href="#683" id="683" data-nosnippet="">683</a>            clamp_selection(st);
+<a href="#684" id="684" data-nosnippet="">684</a>        }
+<a href="#685" id="685" data-nosnippet="">685</a>        <span class="kw">if let </span>(<span class="prelude-val">Some</span>((uid, old, sel)), <span class="prelude-val">Some</span>(st)) = (before, <span class="self">self</span>.active_mut())
+<a href="#686" id="686" data-nosnippet="">686</a>            &amp;&amp; st.uid == uid
+<a href="#687" id="687" data-nosnippet="">687</a>            &amp;&amp; !Arc::ptr_eq(<span class="kw-2">&amp;</span>old, <span class="kw-2">&amp;</span>st.doc)
+<a href="#688" id="688" data-nosnippet="">688</a>            &amp;&amp; st.interaction.is_none()
+<a href="#689" id="689" data-nosnippet="">689</a>            &amp;&amp; spec.undoable
+<a href="#690" id="690" data-nosnippet="">690</a>            &amp;&amp; outer
+<a href="#691" id="691" data-nosnippet="">691</a>        {
+<a href="#692" id="692" data-nosnippet="">692</a>            push_undo(st, HistoryEntry { label: spec.label.to_string(), doc: old, selection: sel, vertex_kind });
+<a href="#693" id="693" data-nosnippet="">693</a>        }
+<a href="#694" id="694" data-nosnippet="">694</a>        <span class="kw">if </span>spec.journal &amp;&amp; outer {
+<a href="#695" id="695" data-nosnippet="">695</a>            <span class="self">self</span>.journal.push((id.to_string(), params.clone()));
+<a href="#696" id="696" data-nosnippet="">696</a>            <span class="kw">if </span><span class="self">self</span>.journal.len() &gt; <span class="number">10_000 </span>{
+<a href="#697" id="697" data-nosnippet="">697</a>                <span class="self">self</span>.journal.drain(..<span class="number">1000</span>);
+<a href="#698" id="698" data-nosnippet="">698</a>            }
+<a href="#699" id="699" data-nosnippet="">699</a>        }
+<a href="#700" id="700" data-nosnippet="">700</a>        <span class="prelude-val">Ok</span>(<span class="kw">if </span>outer { <span class="self">self</span>.with_editing(id, r) } <span class="kw">else </span>{ r })
+<a href="#701" id="701" data-nosnippet="">701</a>    }
+<a href="#702" id="702" data-nosnippet="">702</a>
+<a href="#703" id="703" data-nosnippet="">703</a>    <span class="doccomment">/// In Slide Master / layout (or handout / notes master) view the insert commands edit the
+<a href="#704" id="704" data-nosnippet="">704</a>    /// master or layout, not a slide; their answer says so with `editing: {kind, name}`, as
+<a href="#705" id="705" data-nosnippet="">705</a>    /// `slide.inspect` does. Nothing is added on slides, so those answers stay as they were.
+<a href="#706" id="706" data-nosnippet="">706</a>    </span><span class="kw">fn </span>with_editing(<span class="kw-2">&amp;</span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>str, <span class="kw-2">mut </span>r: Value) -&gt; Value {
+<a href="#707" id="707" data-nosnippet="">707</a>        <span class="kw">let </span>inserts = id.starts_with(<span class="string">"insert."</span>) || <span class="macro">matches!</span>(id, <span class="string">"shape.insert" </span>| <span class="string">"shape.freeform" </span>| <span class="string">"shape.connect" </span>| <span class="string">"slide.new"</span>);
+<a href="#708" id="708" data-nosnippet="">708</a>        <span class="kw">let </span>(<span class="bool-val">true</span>, <span class="prelude-val">Some</span>(st), <span class="prelude-val">Some</span>(o)) = (inserts, <span class="self">self</span>.active(), r.as_object_mut()) <span class="kw">else </span>{ <span class="kw">return </span>r };
+<a href="#709" id="709" data-nosnippet="">709</a>        <span class="kw">let </span>doc = <span class="kw-2">&amp;</span>st.doc;
+<a href="#710" id="710" data-nosnippet="">710</a>        <span class="kw">let </span>edited = <span class="kw">match </span>st.selection.target {
+<a href="#711" id="711" data-nosnippet="">711</a>            Target::Master { master } =&gt; doc.masters.get(master).map(|m| (<span class="string">"master"</span>, m.name.clone())),
+<a href="#712" id="712" data-nosnippet="">712</a>            Target::Layout { master, layout } =&gt; doc.masters.get(master).and_then(|m| m.layouts.get(layout)).map(|l| (<span class="string">"layout"</span>, l.name.clone())),
+<a href="#713" id="713" data-nosnippet="">713</a>            t @ (Target::Handout | Target::NotesMaster) =&gt; {
+<a href="#714" id="714" data-nosnippet="">714</a>                page_master(doc, t).map(|m| (<span class="kw">if </span><span class="macro">matches!</span>(t, Target::Handout) { <span class="string">"handout" </span>} <span class="kw">else </span>{ <span class="string">"notesMaster" </span>}, m.name.clone()))
+<a href="#715" id="715" data-nosnippet="">715</a>            }
+<a href="#716" id="716" data-nosnippet="">716</a>            Target::Slides =&gt; <span class="prelude-val">None</span>,
+<a href="#717" id="717" data-nosnippet="">717</a>        };
+<a href="#718" id="718" data-nosnippet="">718</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>((kind, name)) = edited {
+<a href="#719" id="719" data-nosnippet="">719</a>            o.entry(<span class="string">"editing"</span>).or_insert_with(|| <span class="macro">serde_json::json!</span>({<span class="string">"kind"</span>: kind, <span class="string">"name"</span>: name}));
+<a href="#720" id="720" data-nosnippet="">720</a>        }
+<a href="#721" id="721" data-nosnippet="">721</a>        r
+<a href="#722" id="722" data-nosnippet="">722</a>    }
+<a href="#723" id="723" data-nosnippet="">723</a>
+<a href="#724" id="724" data-nosnippet="">724</a>    <span class="kw">pub fn </span>commands(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;CommandInfo&gt; {
+<a href="#725" id="725" data-nosnippet="">725</a>        command_specs().iter().map(|c| c.info(<span class="self">self</span>)).collect()
+<a href="#726" id="726" data-nosnippet="">726</a>    }
+<a href="#727" id="727" data-nosnippet="">727</a>
+<a href="#728" id="728" data-nosnippet="">728</a>    <span class="doccomment">/// Mutate the active presentation (copy-on-write) and bump the revision.
+<a href="#729" id="729" data-nosnippet="">729</a>    </span><span class="kw">pub fn </span>edit&lt;T&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, f: <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;mut </span>Presentation, <span class="kw-2">&amp;mut </span>Selection) -&gt; <span class="prelude-ty">Result</span>&lt;T&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;T&gt; {
+<a href="#730" id="730" data-nosnippet="">730</a>        <span class="kw">let </span>st = <span class="self">self</span>.doc_mut()<span class="question-mark">?</span>;
+<a href="#731" id="731" data-nosnippet="">731</a>        <span class="kw">let </span><span class="kw-2">mut </span>doc = (<span class="kw-2">*</span>st.doc).clone();
+<a href="#732" id="732" data-nosnippet="">732</a>        <span class="kw">let </span><span class="kw-2">mut </span>sel = st.selection.clone();
+<a href="#733" id="733" data-nosnippet="">733</a>        <span class="kw">let </span>r = f(<span class="kw-2">&amp;mut </span>doc, <span class="kw-2">&amp;mut </span>sel)<span class="question-mark">?</span>;
+<a href="#734" id="734" data-nosnippet="">734</a>        cmd::arrange::refit_groups(<span class="kw-2">&amp;</span>st.doc, <span class="kw-2">&amp;mut </span>doc);
+<a href="#735" id="735" data-nosnippet="">735</a>        connect::reroute(<span class="kw-2">&amp;mut </span>doc, <span class="kw-2">&amp;</span>sel);
+<a href="#736" id="736" data-nosnippet="">736</a>        st.doc = Arc::new(doc);
+<a href="#737" id="737" data-nosnippet="">737</a>        st.selection = sel;
+<a href="#738" id="738" data-nosnippet="">738</a>        st.revision += <span class="number">1</span>;
+<a href="#739" id="739" data-nosnippet="">739</a>        <span class="prelude-val">Ok</span>(r)
+<a href="#740" id="740" data-nosnippet="">740</a>    }
+<a href="#741" id="741" data-nosnippet="">741</a>
+<a href="#742" id="742" data-nosnippet="">742</a>    <span class="doccomment">/// Keep an input method's composition as it stands (#101): its text stays and the whole
+<a href="#743" id="743" data-nosnippet="">743</a>    /// composition becomes one undo step. Nothing happens without one.
+<a href="#744" id="744" data-nosnippet="">744</a>    ///
+<a href="#745" id="745" data-nosnippet="">745</a>    /// This is also how the input method's own commit ends a composition: the platform has
+<a href="#746" id="746" data-nosnippet="">746</a>    /// already finished that one, so it must not ask for an interrupt.
+<a href="#747" id="747" data-nosnippet="">747</a>    </span><span class="kw">pub fn </span>end_composition(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href="#748" id="748" data-nosnippet="">748</a>        <span class="kw">let </span>vertex_kind = <span class="self">self</span>.tool.vertex_kind.clone();
+<a href="#749" id="749" data-nosnippet="">749</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(st) = <span class="self">self</span>.active_mut() <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href="#750" id="750" data-nosnippet="">750</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(c) = st.composition.take() <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href="#751" id="751" data-nosnippet="">751</a>        <span class="kw">if </span>!Arc::ptr_eq(<span class="kw-2">&amp;</span>c.before, <span class="kw-2">&amp;</span>st.doc) {
+<a href="#752" id="752" data-nosnippet="">752</a>            push_undo(st, HistoryEntry { label: <span class="string">"Type Text"</span>.into(), doc: c.before, selection: c.before_selection, vertex_kind });
+<a href="#753" id="753" data-nosnippet="">753</a>        }
+<a href="#754" id="754" data-nosnippet="">754</a>    }
+<a href="#755" id="755" data-nosnippet="">755</a>
+<a href="#756" id="756" data-nosnippet="">756</a>    <span class="doccomment">/// Settle a composition because the application did something else (a click, a key, a
+<a href="#757" id="757" data-nosnippet="">757</a>    /// command, a target change) rather than because the input method committed it.
+<a href="#758" id="758" data-nosnippet="">758</a>    ///
+<a href="#759" id="759" data-nosnippet="">759</a>    /// The platform still holds its own copy of that composition, so a host must publish one
+<a href="#760" id="760" data-nosnippet="">760</a>    /// `should_interrupt_composition` for each increment of [`Self::composition_settles`]: the
+<a href="#761" id="761" data-nosnippet="">761</a>    /// backend then cancels it instead of committing its text into whatever is selected next.
+<a href="#762" id="762" data-nosnippet="">762</a>    </span><span class="kw">pub fn </span>settle_composition(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href="#763" id="763" data-nosnippet="">763</a>        <span class="kw">if </span><span class="self">self</span>.active().is_some_and(|d| d.composition.is_some()) {
+<a href="#764" id="764" data-nosnippet="">764</a>            <span class="self">self</span>.composition_settles = <span class="self">self</span>.composition_settles.wrapping_add(<span class="number">1</span>);
+<a href="#765" id="765" data-nosnippet="">765</a>        }
+<a href="#766" id="766" data-nosnippet="">766</a>        <span class="self">self</span>.end_composition();
+<a href="#767" id="767" data-nosnippet="">767</a>    }
+<a href="#768" id="768" data-nosnippet="">768</a>
+<a href="#769" id="769" data-nosnippet="">769</a>    <span class="doccomment">/// How many compositions the application settled itself (clicks, keys, other commands).
+<a href="#770" id="770" data-nosnippet="">770</a>    ///
+<a href="#771" id="771" data-nosnippet="">771</a>    /// A host compares this with the value it last published; every increment is one platform
+<a href="#772" id="772" data-nosnippet="">772</a>    /// composition that must be interrupted. The input method's own commits do not count.
+<a href="#773" id="773" data-nosnippet="">773</a>    </span><span class="kw">pub fn </span>composition_settles(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+<a href="#774" id="774" data-nosnippet="">774</a>        <span class="self">self</span>.composition_settles
+<a href="#775" id="775" data-nosnippet="">775</a>    }
+<a href="#776" id="776" data-nosnippet="">776</a>
+<a href="#777" id="777" data-nosnippet="">777</a>    <span class="doccomment">/// Change only the selection (no undo step).
+<a href="#778" id="778" data-nosnippet="">778</a>    </span><span class="kw">pub fn </span>select(<span class="kw-2">&amp;mut </span><span class="self">self</span>, f: <span class="kw">impl </span>FnOnce(<span class="kw-2">&amp;</span>Presentation, <span class="kw-2">&amp;mut </span>Selection)) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
+<a href="#779" id="779" data-nosnippet="">779</a>        <span class="kw">let </span>st = <span class="self">self</span>.doc_mut()<span class="question-mark">?</span>;
+<a href="#780" id="780" data-nosnippet="">780</a>        <span class="kw">let </span>doc = st.doc.clone();
+<a href="#781" id="781" data-nosnippet="">781</a>        <span class="comment">// A caret placed anywhere starts downstream; only End puts it back at a line's end.
+<a href="#782" id="782" data-nosnippet="">782</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(t) = st.selection.text.as_mut() {
+<a href="#783" id="783" data-nosnippet="">783</a>            t.line_end = <span class="prelude-val">None</span>;
+<a href="#784" id="784" data-nosnippet="">784</a>        }
+<a href="#785" id="785" data-nosnippet="">785</a>        <span class="kw">let </span>owner = |sel: <span class="kw-2">&amp;</span>Selection| sel.text.as_ref().map(|t| (sel.slide, sel.target, t.shape, t.cell, t.notes));
+<a href="#786" id="786" data-nosnippet="">786</a>        <span class="kw">let </span>before = owner(<span class="kw-2">&amp;</span>st.selection);
+<a href="#787" id="787" data-nosnippet="">787</a>        f(<span class="kw-2">&amp;</span>doc, <span class="kw-2">&amp;mut </span>st.selection);
+<a href="#788" id="788" data-nosnippet="">788</a>        clamp_selection(st);
+<a href="#789" id="789" data-nosnippet="">789</a>        st.revision += <span class="number">1</span>;
+<a href="#790" id="790" data-nosnippet="">790</a>        <span class="comment">// A composition belongs to the text body it began in: leaving that body settles it.
+<a href="#791" id="791" data-nosnippet="">791</a>        </span><span class="kw">if </span>st.composition.is_some() &amp;&amp; owner(<span class="kw-2">&amp;</span>st.selection) != before {
+<a href="#792" id="792" data-nosnippet="">792</a>            <span class="self">self</span>.settle_composition();
+<a href="#793" id="793" data-nosnippet="">793</a>        }
+<a href="#794" id="794" data-nosnippet="">794</a>        <span class="prelude-val">Ok</span>(())
+<a href="#795" id="795" data-nosnippet="">795</a>    }
+<a href="#796" id="796" data-nosnippet="">796</a>}
+<a href="#797" id="797" data-nosnippet="">797</a>
+<a href="#798" id="798" data-nosnippet="">798</a><span class="doccomment">/// Keep the selection pointing at things that exist.
+<a href="#799" id="799" data-nosnippet="">799</a></span><span class="kw">fn </span>clamp_selection(st: <span class="kw-2">&amp;mut </span>DocState) {
+<a href="#800" id="800" data-nosnippet="">800</a>    <span class="kw">let </span>n = st.doc.slides.len();
+<a href="#801" id="801" data-nosnippet="">801</a>    <span class="kw">if </span>n == <span class="number">0 </span>{
+<a href="#802" id="802" data-nosnippet="">802</a>        st.selection.slide = <span class="number">0</span>;
+<a href="#803" id="803" data-nosnippet="">803</a>    } <span class="kw">else if </span>st.selection.slide &gt;= n {
+<a href="#804" id="804" data-nosnippet="">804</a>        st.selection.slide = n - <span class="number">1</span>;
+<a href="#805" id="805" data-nosnippet="">805</a>    }
+<a href="#806" id="806" data-nosnippet="">806</a>    <span class="kw">let </span>ids: Vec&lt;ShapeId&gt; = st.selection.shapes.iter().copied().filter(|id| st.shape(<span class="kw-2">*</span>id).is_some()).collect();
+<a href="#807" id="807" data-nosnippet="">807</a>    st.selection.shapes = ids;
+<a href="#808" id="808" data-nosnippet="">808</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(t) = <span class="kw-2">&amp;</span>st.selection.text
+<a href="#809" id="809" data-nosnippet="">809</a>        &amp;&amp; !t.notes
+<a href="#810" id="810" data-nosnippet="">810</a>        &amp;&amp; st.shape(t.shape).is_none()
+<a href="#811" id="811" data-nosnippet="">811</a>    {
+<a href="#812" id="812" data-nosnippet="">812</a>        st.selection.text = <span class="prelude-val">None</span>;
+<a href="#813" id="813" data-nosnippet="">813</a>    }
+<a href="#814" id="814" data-nosnippet="">814</a>    <span class="kw">let </span>slides: Vec&lt;SlideId&gt; = st.selection.slides.iter().copied().filter(|id| st.doc.slide(<span class="kw-2">*</span>id).is_some()).collect();
+<a href="#815" id="815" data-nosnippet="">815</a>    st.selection.slides = slides;
+<a href="#816" id="816" data-nosnippet="">816</a>    <span class="kw">match </span>st.selection.target {
+<a href="#817" id="817" data-nosnippet="">817</a>        Target::Master { master } <span class="kw">if </span>master &gt;= st.doc.masters.len() =&gt; st.selection.target = Target::Slides,
+<a href="#818" id="818" data-nosnippet="">818</a>        t @ (Target::Handout | Target::NotesMaster) <span class="kw">if </span>page_master(<span class="kw-2">&amp;</span>st.doc, t).is_none() =&gt; st.selection.target = Target::Slides,
+<a href="#819" id="819" data-nosnippet="">819</a>        Target::Layout { master, layout } <span class="kw">if </span>st.doc.masters.get(master).is_none_or(|m| layout &gt;= m.layouts.len()) =&gt; {
+<a href="#820" id="820" data-nosnippet="">820</a>            st.selection.target = Target::Slides
+<a href="#821" id="821" data-nosnippet="">821</a>        }
+<a href="#822" id="822" data-nosnippet="">822</a>        <span class="kw">_ </span>=&gt; {}
+<a href="#823" id="823" data-nosnippet="">823</a>    }
+<a href="#824" id="824" data-nosnippet="">824</a>}
+<a href="#825" id="825" data-nosnippet="">825</a>
+<a href="#826" id="826" data-nosnippet="">826</a><span class="doccomment">/// Default for [`History::byte_limit`].
+<a href="#827" id="827" data-nosnippet="">827</a></span><span class="kw">pub const </span>UNDO_BYTE_BUDGET: usize = <span class="number">256 </span>&lt;&lt; <span class="number">20</span>;
+<a href="#828" id="828" data-nosnippet="">828</a>
+<a href="#829" id="829" data-nosnippet="">829</a><span class="doccomment">/// A rough size of a text body in memory: its paragraphs and runs, at their inline struct sizes.
+<a href="#830" id="830" data-nosnippet="">830</a></span><span class="kw">fn </span>text_cost(t: <span class="kw-2">&amp;</span><span class="kw">crate</span>::model::text::TextBody) -&gt; usize {
+<a href="#831" id="831" data-nosnippet="">831</a>    <span class="kw">use </span><span class="kw">crate</span>::model::text::{Paragraph, Run};
+<a href="#832" id="832" data-nosnippet="">832</a>    <span class="kw">let </span>(para, run) = (std::mem::size_of::&lt;Paragraph&gt;(), std::mem::size_of::&lt;Run&gt;());
+<a href="#833" id="833" data-nosnippet="">833</a>    t.paragraphs.iter().map(|p| para + p.runs.iter().map(|r| run + r.text.len()).sum::&lt;usize&gt;()).sum()
+<a href="#834" id="834" data-nosnippet="">834</a>}
+<a href="#835" id="835" data-nosnippet="">835</a>
+<a href="#836" id="836" data-nosnippet="">836</a><span class="doccomment">/// A rough size of comments in memory, replies included.
+<a href="#837" id="837" data-nosnippet="">837</a></span><span class="kw">fn </span>comments_cost(cs: <span class="kw-2">&amp;</span>[<span class="kw">crate</span>::model::Comment], depth: usize) -&gt; usize {
+<a href="#838" id="838" data-nosnippet="">838</a>    <span class="kw">let </span>kids = |c: <span class="kw-2">&amp;</span><span class="kw">crate</span>::model::Comment| <span class="kw">if </span>depth &lt; <span class="number">64 </span>{ comments_cost(<span class="kw-2">&amp;</span>c.replies, depth + <span class="number">1</span>) } <span class="kw">else </span>{ <span class="number">0 </span>};
+<a href="#839" id="839" data-nosnippet="">839</a>    cs.iter().map(|c| <span class="number">256 </span>+ c.author.len() + c.initials.len() + c.text.len() + c.date.len() + kids(c)).sum()
+<a href="#840" id="840" data-nosnippet="">840</a>}
+<a href="#841" id="841" data-nosnippet="">841</a>
+<a href="#842" id="842" data-nosnippet="">842</a><span class="doccomment">/// A rough size of a slide's own data besides its shapes: notes, comments, tags and kept XML,
+<a href="#843" id="843" data-nosnippet="">843</a>/// all copied with the slide when an edit changes it.
+<a href="#844" id="844" data-nosnippet="">844</a></span><span class="kw">fn </span>slide_extra_cost(s: <span class="kw-2">&amp;</span><span class="kw">crate</span>::model::Slide) -&gt; usize {
+<a href="#845" id="845" data-nosnippet="">845</a>    text_cost(<span class="kw-2">&amp;</span>s.notes)
+<a href="#846" id="846" data-nosnippet="">846</a>        + comments_cost(<span class="kw-2">&amp;</span>s.comments, <span class="number">0</span>)
+<a href="#847" id="847" data-nosnippet="">847</a>        + s.name.len()
+<a href="#848" id="848" data-nosnippet="">848</a>        + s.tags.iter().map(|(k, v)| <span class="number">48 </span>+ k.len() + v.len()).sum::&lt;usize&gt;()
+<a href="#849" id="849" data-nosnippet="">849</a>        + s.raw_ext.as_ref().map_or(<span class="number">0</span>, String::len)
+<a href="#850" id="850" data-nosnippet="">850</a>}
+<a href="#851" id="851" data-nosnippet="">851</a>
+<a href="#852" id="852" data-nosnippet="">852</a><span class="doccomment">/// A rough size of a shape in memory: the struct, its text and kept XML, its children.
+<a href="#853" id="853" data-nosnippet="">853</a></span><span class="kw">fn </span>shape_cost(sh: <span class="kw-2">&amp;</span><span class="kw">crate</span>::model::Shape, depth: usize) -&gt; usize {
+<a href="#854" id="854" data-nosnippet="">854</a>    <span class="kw">let </span>text: usize = sh.text.as_ref().map_or(<span class="number">0</span>, text_cost);
+<a href="#855" id="855" data-nosnippet="">855</a>    <span class="kw">let </span>kids: usize = <span class="kw">if </span>depth &lt; <span class="number">64 </span>{ sh.children().iter().map(|c| shape_cost(c, depth + <span class="number">1</span>)).sum() } <span class="kw">else </span>{ <span class="number">0 </span>};
+<a href="#856" id="856" data-nosnippet="">856</a>    <span class="number">768 </span>+ text + sh.raw_ext.as_ref().map_or(<span class="number">0</span>, String::len) + kids
+<a href="#857" id="857" data-nosnippet="">857</a>}
+<a href="#858" id="858" data-nosnippet="">858</a>
+<a href="#859" id="859" data-nosnippet="">859</a><span class="kw">fn </span>shapes_cost(shapes: <span class="kw-2">&amp;</span>[<span class="kw">crate</span>::model::Shape]) -&gt; usize {
+<a href="#860" id="860" data-nosnippet="">860</a>    shapes.iter().map(|s| shape_cost(s, <span class="number">0</span>)).sum()
+<a href="#861" id="861" data-nosnippet="">861</a>}
+<a href="#862" id="862" data-nosnippet="">862</a>
+<a href="#863" id="863" data-nosnippet="">863</a><span class="doccomment">/// Estimated bytes `doc` keeps alive that `newer` doesn't share: its slides, masters and media
+<a href="#864" id="864" data-nosnippet="">864</a>/// that aren't the same allocations (undo steps share everything an edit didn't touch).
+<a href="#865" id="865" data-nosnippet="">865</a></span><span class="kw">pub fn </span>undo_cost(doc: <span class="kw-2">&amp;</span>Presentation, newer: <span class="kw-2">&amp;</span>Presentation) -&gt; usize {
+<a href="#866" id="866" data-nosnippet="">866</a>    <span class="kw">use </span>std::collections::HashSet;
+<a href="#867" id="867" data-nosnippet="">867</a>    <span class="kw">let </span>slides: HashSet&lt;<span class="kw-2">*const </span><span class="kw">crate</span>::model::Slide&gt; = newer.slides.iter().map(Arc::as_ptr).collect();
+<a href="#868" id="868" data-nosnippet="">868</a>    <span class="kw">let </span>masters: HashSet&lt;<span class="kw-2">*const </span><span class="kw">crate</span>::model::Master&gt; = newer.masters.iter().map(Arc::as_ptr).collect();
+<a href="#869" id="869" data-nosnippet="">869</a>    <span class="kw">let </span>media: HashSet&lt;<span class="kw-2">*const </span>Vec&lt;u8&gt;&gt; = newer.media.iter().map(|m| Arc::as_ptr(<span class="kw-2">&amp;</span>m.data)).collect();
+<a href="#870" id="870" data-nosnippet="">870</a>    <span class="kw">let </span><span class="kw-2">mut </span>n = <span class="number">64 </span>* doc.slides.len();
+<a href="#871" id="871" data-nosnippet="">871</a>    <span class="kw">for </span>s <span class="kw">in </span>doc.slides.iter().filter(|s| !slides.contains(<span class="kw-2">&amp;</span>Arc::as_ptr(s))) {
+<a href="#872" id="872" data-nosnippet="">872</a>        n += <span class="number">512 </span>+ shapes_cost(<span class="kw-2">&amp;</span>s.shapes) + slide_extra_cost(s);
+<a href="#873" id="873" data-nosnippet="">873</a>    }
+<a href="#874" id="874" data-nosnippet="">874</a>    <span class="kw">for </span>m <span class="kw">in </span>doc.masters.iter().filter(|m| !masters.contains(<span class="kw-2">&amp;</span>Arc::as_ptr(m))) {
+<a href="#875" id="875" data-nosnippet="">875</a>        n += <span class="number">4096 </span>+ shapes_cost(<span class="kw-2">&amp;</span>m.shapes) + m.layouts.iter().map(|l| <span class="number">512 </span>+ shapes_cost(<span class="kw-2">&amp;</span>l.shapes)).sum::&lt;usize&gt;();
+<a href="#876" id="876" data-nosnippet="">876</a>    }
+<a href="#877" id="877" data-nosnippet="">877</a>    <span class="kw">for </span>m <span class="kw">in </span>doc.media.iter().filter(|m| !media.contains(<span class="kw-2">&amp;</span>Arc::as_ptr(<span class="kw-2">&amp;</span>m.data))) {
+<a href="#878" id="878" data-nosnippet="">878</a>        n += m.data.len();
+<a href="#879" id="879" data-nosnippet="">879</a>    }
+<a href="#880" id="880" data-nosnippet="">880</a>    n
+<a href="#881" id="881" data-nosnippet="">881</a>}
+<a href="#882" id="882" data-nosnippet="">882</a>
+<a href="#883" id="883" data-nosnippet="">883</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>push_undo(st: <span class="kw-2">&amp;mut </span>DocState, e: HistoryEntry) {
+<a href="#884" id="884" data-nosnippet="">884</a>    <span class="kw">let </span>h = <span class="kw-2">&amp;mut </span>st.history;
+<a href="#885" id="885" data-nosnippet="">885</a>    h.costs.insert(Arc::as_ptr(<span class="kw-2">&amp;</span>e.doc) <span class="kw">as </span>usize, undo_cost(<span class="kw-2">&amp;</span>e.doc, <span class="kw-2">&amp;</span>st.doc));
+<a href="#886" id="886" data-nosnippet="">886</a>    h.undo.push(e);
+<a href="#887" id="887" data-nosnippet="">887</a>    h.redo.clear();
+<a href="#888" id="888" data-nosnippet="">888</a>    <span class="kw">if </span>h.undo.len() &gt; h.limit.max(<span class="number">1</span>) {
+<a href="#889" id="889" data-nosnippet="">889</a>        h.undo.remove(<span class="number">0</span>);
+<a href="#890" id="890" data-nosnippet="">890</a>    }
+<a href="#891" id="891" data-nosnippet="">891</a>    <span class="comment">// Memory too: drop the oldest steps while the kept ones pass the budget (the newest always
+<a href="#892" id="892" data-nosnippet="">892</a>    // stays, however big). A deck-wide edit keeps a copy of every slide, so 500 of them on a big
+<a href="#893" id="893" data-nosnippet="">893</a>    // deck could hold hundreds of copies.
+<a href="#894" id="894" data-nosnippet="">894</a>    </span><span class="kw">let </span>budget = <span class="kw">if </span>h.byte_limit == <span class="number">0 </span>{ UNDO_BYTE_BUDGET } <span class="kw">else </span>{ h.byte_limit };
+<a href="#895" id="895" data-nosnippet="">895</a>    <span class="kw">let </span>cost = |h: <span class="kw-2">&amp;</span>History, e: <span class="kw-2">&amp;</span>HistoryEntry| h.costs.get(<span class="kw-2">&amp;</span>(Arc::as_ptr(<span class="kw-2">&amp;</span>e.doc) <span class="kw">as </span>usize)).copied().unwrap_or(<span class="number">0</span>);
+<a href="#896" id="896" data-nosnippet="">896</a>    <span class="kw">let </span><span class="kw-2">mut </span>total: usize = h.undo.iter().map(|e| cost(h, e)).sum();
+<a href="#897" id="897" data-nosnippet="">897</a>    <span class="kw">let </span><span class="kw-2">mut </span>drop = <span class="number">0</span>;
+<a href="#898" id="898" data-nosnippet="">898</a>    <span class="kw">while </span>total &gt; budget &amp;&amp; drop + <span class="number">1 </span>&lt; h.undo.len() {
+<a href="#899" id="899" data-nosnippet="">899</a>        total -= cost(h, <span class="kw-2">&amp;</span>h.undo[drop]);
+<a href="#900" id="900" data-nosnippet="">900</a>        drop += <span class="number">1</span>;
+<a href="#901" id="901" data-nosnippet="">901</a>    }
+<a href="#902" id="902" data-nosnippet="">902</a>    <span class="kw">if </span>drop &gt; <span class="number">0 </span>{
+<a href="#903" id="903" data-nosnippet="">903</a>        h.undo.drain(..drop);
+<a href="#904" id="904" data-nosnippet="">904</a>    }
+<a href="#905" id="905" data-nosnippet="">905</a>    <span class="comment">// Costs of steps that are gone (dropped, or redo steps cleared above).
+<a href="#906" id="906" data-nosnippet="">906</a>    </span><span class="kw">if </span>h.costs.len() &gt; h.undo.len() + <span class="number">16 </span>{
+<a href="#907" id="907" data-nosnippet="">907</a>        <span class="kw">let </span>live: std::collections::HashSet&lt;usize&gt; = h.undo.iter().chain(h.redo.iter()).map(|e| Arc::as_ptr(<span class="kw-2">&amp;</span>e.doc) <span class="kw">as </span>usize).collect();
+<a href="#908" id="908" data-nosnippet="">908</a>        h.costs.retain(|k, <span class="kw">_</span>| live.contains(k));
+<a href="#909" id="909" data-nosnippet="">909</a>    }
+<a href="#910" id="910" data-nosnippet="">910</a>}
+<a href="#911" id="911" data-nosnippet="">911</a>
+<a href="#912" id="912" data-nosnippet="">912</a><span class="attr">#[cfg(test)]
+<a href="#913" id="913" data-nosnippet="">913</a></span><span class="kw">mod </span>soak_tests;
+<a href="#914" id="914" data-nosnippet="">914</a><span class="attr">#[cfg(test)]
+<a href="#915" id="915" data-nosnippet="">915</a></span><span class="kw">mod </span>tests;
+<a href="#916" id="916" data-nosnippet="">916</a><span class="attr">#[cfg(test)]
+<a href="#917" id="917" data-nosnippet="">917</a></span><span class="kw">mod </span>tests_keys;
+</code></pre></div></section></main></body></html>

@@ -1,0 +1,1608 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc="" data-has-sidebar="" data-astro-cid-g5ptsecz=""><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Component coverage | RavenRS</title><link rel="sitemap" href="/RavenRS/sitemap-index.xml"><link rel="shortcut icon" href="/RavenRS/favicon.svg" type="image/svg+xml"><meta name="generator" content="Astro v7.4.12"><meta name="generator" content="Starlight v0.43.1"><script>
+	(() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+	})();
+</script><link rel="stylesheet" href="/RavenRS/_astro/print.C9eyqPGL.css" media="print"><link rel="stylesheet" href="/RavenRS/_astro/index.BcKmb9jH.css"><style>@layer starlight.components.icon{svg[data-astro-cid-hkc32dio]{color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em;overflow:visible}}
+</style><script type="module" src="/RavenRS/_astro/page.cNngjUgL.js"></script><meta name="description" content="Component coverage — the RavenRS guide to native and web applications in Rust."><link rel="canonical" href="https://ravenrs.vercel.app/docs/components/"><meta property="og:title" content="Component coverage | RavenRS"><meta property="og:description" content="Component coverage — the RavenRS guide to native and web applications in Rust."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/docs/components/"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Component coverage | RavenRS — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Component coverage | RavenRS"><meta name="twitter:description" content="Component coverage — the RavenRS guide to native and web applications in Rust."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta name="twitter:image:alt" content="Component coverage | RavenRS — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Component coverage | RavenRS","description":"Component coverage — the RavenRS guide to native and web applications in Rust.","url":"https://ravenrs.vercel.app/docs/components/","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body data-astro-cid-g5ptsecz=""><a class="sl-skip-link" href="#_top" data-astro-cid-qb7clj6f="">Skip to content</a><div class="page sl-flex" data-astro-cid-yntsjkba=""><header class="header" data-astro-cid-yntsjkba=""><div class="header" data-astro-cid-by6fddyj=""><div class="title-wrapper sl-flex" data-astro-cid-by6fddyj=""><a href="/RavenRS/" class="site-title sl-flex" data-astro-cid-6rvad3va=""><span translate="no" data-astro-cid-6rvad3va="">RavenRS</span></a></div><div class="sl-flex print:hidden" data-astro-cid-by6fddyj=""><site-search data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}" data-astro-cid-b5kgnn7o="true"><button data-open-modal="" disabled="" aria-label="Search" aria-keyshortcuts="Control+K" data-astro-cid-b5kgnn7o=""><svg data-astro-cid-b5kgnn7o="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"></path></svg><span class="sl-hidden md:sl-block" aria-hidden="true" data-astro-cid-b5kgnn7o="">Search</span><kbd class="sl-hidden md:sl-flex" style="display: none" data-astro-cid-b5kgnn7o=""><kbd data-astro-cid-b5kgnn7o="">Ctrl</kbd><kbd data-astro-cid-b5kgnn7o="">K</kbd></kbd></button><dialog style="padding: 0" aria-label="Search" data-astro-cid-b5kgnn7o=""><div class="dialog-frame sl-flex" data-astro-cid-b5kgnn7o=""><button data-close-modal="" class="sl-flex md:sl-hidden" data-astro-cid-b5kgnn7o="">Cancel</button><div class="search-container" data-astro-cid-b5kgnn7o=""><div id="starlight__search" data-astro-cid-b5kgnn7o=""></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/RavenRS/_astro/Search.astro_astro_type_script_index_0_lang.B287-pOx.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group" data-astro-cid-by6fddyj=""><div class="sl-flex social-icons" data-astro-cid-by6fddyj=""><a href="https://github.com/alexkads/RavenRS" rel="me" class="sl-flex" data-astro-cid-n2mnl6yq=""><span class="sr-only" data-astro-cid-n2mnl6yq="">GitHub</span><svg data-astro-cid-n2mnl6yq="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"></path></svg></a></div><starlight-theme-select data-astro-cid-smhvfpqh="true"><label style="--sl-select-width: 6.25em" data-astro-cid-2z5xp7gb=""><span class="sr-only" data-astro-cid-2z5xp7gb="">Select theme</span><span class="icon label-icon" data-astro-cid-2z5xp7gb=""><svg class="sl-theme-icon-dark" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"></path></svg><svg class="sl-theme-icon-light" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"></path></svg><svg class="sl-theme-icon-auto" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"></path></svg></span><select autocomplete="off" data-astro-cid-2z5xp7gb=""><option value="dark" data-astro-cid-2z5xp7gb="">Dark</option><option value="light" data-astro-cid-2z5xp7gb="">Light</option><option value="auto" selected="" data-astro-cid-2z5xp7gb="">Auto</option></select><svg class="icon caret" data-astro-cid-2z5xp7gb="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"></path></svg></label></starlight-theme-select><script>(() => {
+		const theme = (typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme'));
+		if (theme) document.querySelectorAll('starlight-theme-select select').forEach((s) => { s.value = theme; });
+	})();</script><script type="module">var e=`starlight-theme`,t=e=>e===`auto`||e===`dark`||e===`light`?e:`auto`,n=()=>t(typeof localStorage<`u`&&localStorage.getItem(e));function r(t){typeof localStorage<`u`&&localStorage.setItem(e,t===`light`||t===`dark`?t:``)}var i=()=>matchMedia(`(prefers-color-scheme: light)`).matches?`light`:`dark`;function a(e){document.querySelectorAll(`starlight-theme-select select`).forEach(t=>{t.value=e}),document.documentElement.dataset.theme=e===`auto`?i():e,r(e)}matchMedia(`(prefers-color-scheme: light)`).addEventListener(`change`,()=>{n()===`auto`&&a(`auto`)});var o=class extends HTMLElement{constructor(){super(),a(n()),this.querySelector(`select`)?.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&a(t(e.currentTarget.value))})}};customElements.define(`starlight-theme-select`,o);</script><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script></div></div></header><nav class="sidebar print:hidden" aria-label="Main" data-astro-cid-yntsjkba=""><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden" data-astro-cid-r2osgdlg=""><svg class="open-menu" data-astro-cid-r2osgdlg="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"></path></svg><svg class="close-menu" data-astro-cid-r2osgdlg="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"></path></svg><span class="sr-only" data-astro-cid-r2osgdlg="">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover="" id="starlight__sidebar" class="sidebar-pane" data-astro-cid-yntsjkba="true"><div class="sidebar-content sl-flex" data-astro-cid-yntsjkba=""><sl-sidebar-state-persist data-hash="1q49ps1" data-astro-cid-ipdry5cl="true"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level" data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/" class="large" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Home</span></a></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Start here</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Introduction</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/getting-started/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Installation</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/cli/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">CLI &amp; AI assistants</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/ai/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">AI-assisted development</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Build applications</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/architecture/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Architecture</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/design-system/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Design system</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/applications/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Records &amp; forms</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/components/" aria-current="page" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Component coverage</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Reports</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/reporting/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Create reports</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/report-server/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Report server</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Reference</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/quality/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Quality &amp; accessibility</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/performance/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Performance</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/versioning/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Versions &amp; upgrades</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Technical guides</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-contracts/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Contracts and acceptance scenarios for reusable modules</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-coverage/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Cobertura do ravenrs-app para aplicações corporativas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-parity/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Application framework parity</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/automacao-comercial/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Automação comercial: o que existe e o que falta para vender</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/component-audit/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Auditoria técnica de componentes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/component-inventory/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Inventário e projeção de componentes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/developer-platform-plan/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Plataforma de desenvolvimento RavenRS — inventário e proposta</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/nfse/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">NFS-e Padrão Nacional: pesquisa para o PDV (hoje: 05/11/2026)</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/pagamentos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Pagamentos: pinpads, TEF e os quatro provedores</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/perifericos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Periféricos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/project-planning-roadmap/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Capacidades de planejamento para aplicações RavenRS</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/proximas-etapas/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Automação comercial: próximas etapas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/reporting-parity/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">RavenRS Reporting — feature parity</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/site-seo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Site SEO and publication</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/software-coverage/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Cobertura por tipo de software</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/tef-comparativo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">TEF para o PDV: comparativo e recomendação</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Data Studio</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/01-visao-e-requisitos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: visão do produto e requisitos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/02-analise-do-codigo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: análise do código</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/03-matriz-de-componentes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: matriz de componentes reutilizáveis</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/04-lacunas-e-novos-componentes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: lacunas e novos componentes propostos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/05-fluxos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: fluxos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/06-telas/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: especificação das telas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/07-wireframes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: wireframes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/08-arquitetura/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: arquitetura</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/09-modelo-de-dominio/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: modelo de domínio</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/10-mcp-e-conectores/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: MCP, agente e conectores</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/11-schema-mapeamento-transformacoes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: descoberta, schema, mapeamento e transformações</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/12-execucao-e-recuperacao/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: execução e recuperação</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/13-seguranca-privacidade-a11y-i18n/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: segurança, privacidade, acessibilidade, idiomas e desempenho</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/14-referencias-e-roadmap/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: referências e roadmap</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/15-criterios-de-aceitacao/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: critérios de aceitação</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/16-decisoes-em-aberto/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: decisões em aberto</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/cenario-de-referencia/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: cenário de referência</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Tutorials</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/tutorials/ravenrs-app-vscode/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Primeiro app com ravenrs-app no VS Code — RavenDevLab</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Explore</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="7"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/components/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Components</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/playground/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Playground</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/api/ravenrs/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Rust API</span></a></li></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex" data-astro-cid-p4azlveh=""><div class="social-icons" data-astro-cid-p4azlveh=""><a href="https://github.com/alexkads/RavenRS" rel="me" class="sl-flex" data-astro-cid-n2mnl6yq=""><span class="sr-only" data-astro-cid-n2mnl6yq="">GitHub</span><svg data-astro-cid-n2mnl6yq="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"></path></svg></a></div><starlight-theme-select data-astro-cid-smhvfpqh="true"><label style="--sl-select-width: 6.25em" data-astro-cid-2z5xp7gb=""><span class="sr-only" data-astro-cid-2z5xp7gb="">Select theme</span><span class="icon label-icon" data-astro-cid-2z5xp7gb=""><svg class="sl-theme-icon-dark" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"></path></svg><svg class="sl-theme-icon-light" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"></path></svg><svg class="sl-theme-icon-auto" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"></path></svg></span><select autocomplete="off" data-astro-cid-2z5xp7gb=""><option value="dark" data-astro-cid-2z5xp7gb="">Dark</option><option value="light" data-astro-cid-2z5xp7gb="">Light</option><option value="auto" selected="" data-astro-cid-2z5xp7gb="">Auto</option></select><svg class="icon caret" data-astro-cid-2z5xp7gb="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"></path></svg></label></starlight-theme-select><script>(() => {
+		const theme = (typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme'));
+		if (theme) document.querySelectorAll('starlight-theme-select select').forEach((s) => { s.value = theme; });
+	})();</script></div></div></div></sl-sidebar-pane></nav><div class="main-frame" data-astro-cid-yntsjkba=""><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex" data-astro-cid-lrzkfocr=""><aside class="right-sidebar-container print:hidden" data-astro-cid-lrzkfocr=""><div class="right-sidebar" data-astro-cid-lrzkfocr=""><div class="lg:sl-hidden" data-astro-cid-qok35upx=""><mobile-starlight-toc data-min-h="2" data-max-h="3" data-astro-cid-66cqc7ze="true"><nav aria-labelledby="starlight__on-this-page--mobile" data-astro-cid-66cqc7ze=""><details id="starlight__mobile-toc" data-astro-cid-66cqc7ze=""><summary id="starlight__on-this-page--mobile" class="sl-flex" data-astro-cid-66cqc7ze=""><span class="toggle sl-flex" data-astro-cid-66cqc7ze="">On this page<svg class="caret" data-astro-cid-66cqc7ze="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></span><span class="display-current" data-astro-cid-66cqc7ze=""></span></summary><div class="dropdown" data-astro-cid-66cqc7ze=""><ul class="isMobile" style="--depth: 0;" data-astro-cid-jugkfwgx=""><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#_top" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Overview</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#summary" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Summary</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#layout-and-structure" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Layout and structure</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#navigation" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Navigation</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#buttons-and-actions" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Buttons and actions</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#inputs-and-editors" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Inputs and editors</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#data" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Data</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#charts-and-visualization" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Charts and visualization</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#overlays-and-feedback" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Overlays and feedback</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#media-and-content" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Media and content</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#reporting" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Reporting</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#platform-capabilities" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Platform capabilities</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#scheduler" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Scheduler</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/RavenRS/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block" data-astro-cid-qok35upx=""><div class="sl-container" data-astro-cid-qok35upx=""><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul style="--depth: 0;" data-astro-cid-jugkfwgx=""><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#_top" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Overview</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#summary" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Summary</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#layout-and-structure" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Layout and structure</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#navigation" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Navigation</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#buttons-and-actions" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Buttons and actions</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#inputs-and-editors" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Inputs and editors</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#data" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Data</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#charts-and-visualization" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Charts and visualization</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#overlays-and-feedback" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Overlays and feedback</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#media-and-content" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Media and content</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#reporting" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Reporting</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#platform-capabilities" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Platform capabilities</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#scheduler" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Scheduler</span></a></li></ul></nav></starlight-toc><script type="module" src="/RavenRS/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane" data-astro-cid-lrzkfocr=""><main data-pagefind-body="" lang="en" dir="ltr" data-astro-cid-g5ptsecz=""><div class="content-panel" data-astro-cid-a7po4psb=""><div class="sl-container" data-astro-cid-a7po4psb=""><h1 id="_top" data-astro-cid-bebwqqxs="">Component coverage</h1><p class="page-source" data-astro-cid-u72m6wot="">RavenRS 27.1.28 · <a href="index.md" data-astro-cid-u72m6wot="">View Markdown</a></p></div></div><div class="content-panel" data-astro-cid-a7po4psb=""><div class="sl-container" data-astro-cid-a7po4psb=""><div class="sl-markdown-content"><p>RavenRS aims to be more complete than the three reference libraries. This table tracks every component family they offer and where RavenRS stands. It is updated with each batch.</p>
+<p>Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned. Column S marks whether shadcn/ui ships it; D and T mark two commercial component suites for desktop and web.</p>
+<p>These are family-level statuses, not a claim that every feature or combination is
+supported. See the <a href="/RavenRS/docs/component-audit/">technical component audit</a> for source-level
+evidence, basic-control gaps and acceptance scenarios across local/remote data,
+virtualization, editing, keyboard interaction and export.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="summary">Summary</h2><a class="sl-anchor-link" href="#summary"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Summary”</span></a></div>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Families tracked</th>
+<th>✅</th>
+<th>🟡</th>
+<th>⬜</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>All</td>
+<td>122</td>
+<td>82</td>
+<td>7</td>
+<td>33</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="layout-and-structure">Layout and structure</h2><a class="sl-anchor-link" href="#layout-and-structure"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Layout and structure”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Stack (VStack/HStack), Spacer</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Overlap (ZStack)</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">ZStack</code>: as large as the largest layer</td>
+</tr>
+<tr>
+<td>Page header, property row</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">PageHeader</code>, <code dir="auto">PropertyRow</code></td>
+</tr>
+<tr>
+<td>Grid layout</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Grid</code></td>
+</tr>
+<tr>
+<td>Card</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Card</code> with a selected state, <code dir="auto">GlassCard</code> (blur planned)</td>
+</tr>
+<tr>
+<td>Separator</td>
+<td>✓</td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">Divider</code></td>
+</tr>
+<tr>
+<td>Aspect ratio</td>
+<td>✓</td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">AspectRatio</code></td>
+</tr>
+<tr>
+<td>Scroll area</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">ScrollView</code> (vertical; horizontal inside DataGrid)</td>
+</tr>
+<tr>
+<td>Sticky content and scroll-driven effects</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Sticky</code>, <code dir="auto">ScrollScene</code>, <code dir="auto">ScrollLinked</code> with <code dir="auto">ScrollLink</code> (ranges, windows, easing, keyframes)</td>
+</tr>
+<tr>
+<td>Links, anchors, counters, marquees</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Link</code>, <code dir="auto">Anchor</code>, <code dir="auto">CountUp</code> (also counts to a new value, with even digits), <code dir="auto">Ticker</code> with <code dir="auto">TimeLink</code>, <code dir="auto">QuadField</code></td>
+</tr>
+<tr>
+<td>Resizable panels / Splitter</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Splitter</code> for two panes, <code dir="auto">SplitPanes</code> for any number with limits, <code dir="auto">SplitHandle</code> for a bar of your own; all move with the keyboard</td>
+</tr>
+<tr>
+<td>Tile layout / Dashboard layout</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">TileLayout</code>: drag and resize, also from the keyboard; fewer columns when narrow; a layout to keep; controls in a tile’s header (<code dir="auto">Tile::accessory</code>)</td>
+</tr>
+<tr>
+<td>Docking / Dock manager</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">DockArea</code>: a tree of splits and tabs in five places (left, right, top, bottom and center); moves by a drag with a mark on the target, by keys or by a menu; bars with limits and keys; docks that collapse, panels that hide at the edge of their dock (a rail with their names, opening over the rest with a click or the pointer at rest, pinned back) and panels that close and come back; documents kept in the center and tools in the docks (<code dir="auto">DockPanelKind</code>), panels that close for good, an empty center the app fills, a dot on unsaved panels, Ctrl+Tab by the order of use; every change asked of the app first (<code dir="auto">on_change</code>), which can refuse it and say why; an arrangement saved as versioned text, where an unknown id is left out. Panels float over the area in boxes of their own, moved by their header, resized by their edges and docked back onto the tabs of a group or the border of a dock. Floating in a window of its own, outside the main one, is left out until the runtime has more than one window</td>
+</tr>
+<tr>
+<td>Window (floating)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code dir="auto">FloatingPanel::movable</code>: moves and reduces, does not resize</td>
+</tr>
+<tr>
+<td>App bar / Toolbar</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Toolbar</code>, <code dir="auto">ToolbarAction</code>: what does not fit folds into a menu</td>
+</tr>
+<tr>
+<td>Toolbar floating over content</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>✅ <code dir="auto">FloatingToolbar</code>: translucent, placed by side, moved by a handle or the arrows</td>
+</tr>
+<tr>
+<td>Arrows on the ends of a scrolling strip</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>✅ <code dir="auto">ScrollEdgeArrow</code>: only where there is more to show, with the keyboard kept at the end</td>
+</tr>
+<tr>
+<td>Custom title bar</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>🟡 <code dir="auto">TitleBar</code>: title, actions and the window’s buttons, drawing and calling back only. Dragging the window and hiding the system’s frame belong to the platform layer, which offers neither yet</td>
+</tr>
+<tr>
+<td>Footer</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">Footer</code></td>
+</tr>
+<tr>
+<td>Status bar</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">StatusBar</code></td>
+</tr>
+<tr>
+<td>Tool rail</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">ToolRail</code>: variants in a menu at the side, lines between groups, icons only, several columns</td>
+</tr>
+<tr>
+<td>Timeline with tracks</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>✅ <code dir="auto">Timeline</code></td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="navigation">Navigation</h2><a class="sl-anchor-link" href="#navigation"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Navigation”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Tabs / TabStrip</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Tabs</code>: underlined or segmented, sizes, the bar alone, disabled while waiting</td>
+</tr>
+<tr>
+<td>Document tabs</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">DocumentTabs</code>: close, reorder by drag or keys, rename, color, a dot for what was not saved, context menu, scrolling with arrows</td>
+</tr>
+<tr>
+<td>Sidebar / Drawer navigation</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Sidebar</code>: closes to icons or off the screen, a rail along its edge, a brand, keys on a row, header and footer, groups, submenus, actions, badges, skeleton, sheet in narrow windows, floating and inset variants. Drag to resize: <code dir="auto">Splitter</code></td>
+</tr>
+<tr>
+<td>Breadcrumb</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Breadcrumb</code>: locations can be links, an icon at the root</td>
+</tr>
+<tr>
+<td>Pagination / Pager</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Pagination</code></td>
+</tr>
+<tr>
+<td>Accordion / PanelBar</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Accordion</code>, <code dir="auto">Disclosure</code>: any view as title, a mark, an on/off switch, open state kept by the app</td>
+</tr>
+<tr>
+<td>Menu / Menubar</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Menubar</code></td>
+</tr>
+<tr>
+<td>Ribbon (Office-style command bar)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Ribbon</code> (app menu, quick access, contextual tabs, collapse; key tips and gallery items planned)</td>
+</tr>
+<tr>
+<td>Navigation menu (mega menu)</td>
+<td>✓</td>
+<td></td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Context menu</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">ContextMenu</code>: submenus, check marks and any view in a row, like <code dir="auto">DropdownMenu</code></td>
+</tr>
+<tr>
+<td>Stepper / Wizard</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Wizard</code>: a step can refuse to be left or be marked with a problem; steps done can be reopened. <code dir="auto">StepIndicator</code>, <code dir="auto">StepBadge</code> for an app’s own layout</td>
+</tr>
+<tr>
+<td>Bottom navigation</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>TreeView</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">TreeView</code>: keyboard, selection, three-state checks, filter, items on demand, virtualized, a menu of actions per item (right click, Shift+F10, Menu key)</td>
+</tr>
+<tr>
+<td>Command palette</td>
+<td>✓</td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">CommandPalette</code></td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="buttons-and-actions">Buttons and actions</h2><a class="sl-anchor-link" href="#buttons-and-actions"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Buttons and actions”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Button (variants, sizes, icons)</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Button</code>, <code dir="auto">IconButton</code>: loading that holds the width, selected, key cap in the label’s color</td>
+</tr>
+<tr>
+<td>Toggle button</td>
+<td>✓</td>
+<td></td>
+<td>✓</td>
+<td>✅ <code dir="auto">ToggleButton</code>: count and pill shape</td>
+</tr>
+<tr>
+<td>Favorite mark</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">FavoriteToggle</code>: heart or star</td>
+</tr>
+<tr>
+<td>Swatch grid, color pair, nine-point anchor</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">SwatchGrid</code> (the handler gets the modifiers), <code dir="auto">ColorPair</code>, <code dir="auto">NinePointAnchor</code></td>
+</tr>
+<tr>
+<td>Toggle group / Button group</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">ToggleGroup</code>, and <code dir="auto">ButtonGroup</code> for buttons glued side by side</td>
+</tr>
+<tr>
+<td>Dropdown button</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">DropdownMenu</code>: submenus opened by hover, click or the Right arrow, check marks and any view in a row</td>
+</tr>
+<tr>
+<td>Split button</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">SplitButton</code></td>
+</tr>
+<tr>
+<td>Floating action button</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Speed dial</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Floating action button with a panel</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">FloatingPanel</code>: a round button that drags between corners, or placed anywhere by its header with the place kept by the app; reduces to its header</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="inputs-and-editors">Inputs and editors</h2><a class="sl-anchor-link" href="#inputs-and-editors"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Inputs and editors”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Text box</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">TextField</code> (selection, clipboard, views before and after the text, clear button, sizes)</td>
+</tr>
+<tr>
+<td>Text area (multi-line)</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">TextArea</code>: wraps, scrolls, builds only the lines in view, grows with the text between two limits</td>
+</tr>
+<tr>
+<td>Code editor</td>
+<td></td>
+<td>✓</td>
+<td></td>
+<td>✅ <code dir="auto">CodeEditor</code> (feature <code dir="auto">code</code>): Fira Mono, line numbers, Rust colors by token, Tab and Shift+Tab indent, Enter keeps the indentation, diagnostics mark the line and underline the columns, horizontal scrolling, undo and redo by words, find and replace with capitals and whole words, suggestions under the caret, tips by the pointer and going to a definition, all answered by the app (a language server, say), and a read-only log that follows its end. No folding or several carets yet</td>
+</tr>
+<tr>
+<td>Code playground</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">Playground</code> (feature <code dir="auto">code</code>): one bar, code beside its result, an Output panel with Console (<code dir="auto">println!</code>) and Problems (also from closures that fail later), examples that run when picked, Restore, Ctrl/Cmd+Enter runs through a <code dir="auto">Runner</code>, problems marked on their lines, last result kept and faded, Code/Result/Output tabs with a ⋯ menu below 768 px, and <code dir="auto">download</code> to save what the code makes. The gallery downloads each example as a Cargo project (<code dir="auto">ravenrs-project</code>) that <code dir="auto">cargo run</code>s on the desktop and builds for the browser; <code dir="auto">scripts/check.sh --full</code> builds all of them. <code dir="auto">LiveRunner</code> (feature <code dir="auto">live</code>) runs edited Rust without a compiler through <code dir="auto">ravenrs-live</code>: all 181 gallery examples, each building as many elements as compiled; what it cannot read yet would be listed in <code dir="auto">examples/component-gallery/live-pending.txt</code></td>
+</tr>
+<tr>
+<td>Label</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Label</code></td>
+</tr>
+<tr>
+<td>Form, field validation</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">FormField</code> + validators</td>
+</tr>
+<tr>
+<td>Form layout (groups, columns, tabs, error list)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">FormLayout</code>, <code dir="auto">FormGroup</code></td>
+</tr>
+<tr>
+<td>Checkbox</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Radio group</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Switch</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Toggle</code>, with a small size</td>
+</tr>
+<tr>
+<td>Slider</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Slider</code>: marks, colored track, fill from a neutral value that a double click returns to, value at the right</td>
+</tr>
+<tr>
+<td>Value in small that opens a slider</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">ValueSlider</code>: a button, or a field with <code dir="auto">field</code>, and the keyboard goes into the slider</td>
+</tr>
+<tr>
+<td>Rename in place</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>✅ <code dir="auto">InlineRename</code>: double click, F2 or Enter; Enter and leaving confirm, Escape cancels</td>
+</tr>
+<tr>
+<td>Range slider</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Select / Drop-down list</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Select</code>: by index or by value (<code dir="auto">Select::of</code>), search, sizes</td>
+</tr>
+<tr>
+<td>Combobox / Autocomplete</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Combobox</code></td>
+</tr>
+<tr>
+<td>Filter builder</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">FilterBuilder</code>: lines and groups over the expression language; “is any of” and “is none of” with values to pick; what it cannot show stays as text; also in the <code dir="auto">DataGrid</code> toolbar and behind “Edit filter” on its filter panel, which opens every column’s expression as one</td>
+</tr>
+<tr>
+<td>Lookup (records loaded on demand)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">LookupField</code>: from memory or a callback, ignores stale answers</td>
+</tr>
+<tr>
+<td>Multi-select / Tag box</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">TagBox</code>: search, new values, a limit</td>
+</tr>
+<tr>
+<td>Numeric input / Spin editor</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">NumberField</code> (range, step, separators, money in whole cents), <code dir="auto">Stepper</code></td>
+</tr>
+<tr>
+<td>Masked input</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">MaskedField</code></td>
+</tr>
+<tr>
+<td>One-time code (OTP)</td>
+<td>✓</td>
+<td></td>
+<td>✓</td>
+<td>✅ <code dir="auto">InputOtp</code></td>
+</tr>
+<tr>
+<td>Calendar</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Calendar</code></td>
+</tr>
+<tr>
+<td>Year view</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">YearView</code>: twelve months with marks per day, clicks and one Tab stop</td>
+</tr>
+<tr>
+<td>Date picker</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">DatePicker</code></td>
+</tr>
+<tr>
+<td>Date range picker</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">DateRangePicker</code>: two months, ready-made periods</td>
+</tr>
+<tr>
+<td>Time picker / DateTime picker</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">TimePicker</code>, <code dir="auto">DateTimePicker</code></td>
+</tr>
+<tr>
+<td>Theme picker and token editor</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>✅ <code dir="auto">ThemePicker</code>: menu of themes. <code dir="auto">ThemeEditor</code>: colors, corners and text sizes by token name, applied at once, with live contrast and JSON to copy and paste</td>
+</tr>
+<tr>
+<td>Color picker / palette / gradient</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code dir="auto">ColorPicker</code>: palette, shade square, hue and opacity bars, hexadecimal; gradients planned</td>
+</tr>
+<tr>
+<td>Rating</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Rating</code>: read-only at the cost of one element, or given with the pointer, arrows, Home, End and digits</td>
+</tr>
+<tr>
+<td>File upload</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">FileUpload</code>, <code dir="auto">ImageField</code>: the system’s chooser and drops, on desktop and web; sending is up to the app</td>
+</tr>
+<tr>
+<td>Drop zone</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">DropZone</code>: around any content, with the rules of <code dir="auto">FileUpload</code>; every zone lights up during the drag, since platforms say only that files are over the window</td>
+</tr>
+<tr>
+<td>Signature</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Rich text editor</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Code editor</td>
+<td></td>
+<td>✓</td>
+<td></td>
+<td>✅ <code dir="auto">CodeEditor</code>, as above</td>
+</tr>
+<tr>
+<td>Spreadsheet</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code dir="auto">Spreadsheet</code> (<code dir="auto">ravenrs-spreadsheet</code>): opens XLSX, XLS, ODS and CSV and saves XLSX, 500+ functions with recalculation, editing in the cell and the formula bar, pointer and keyboard selection, clipboard, undo, bold, italic, underline, alignment, number formats, column widths, sheet tabs. Planned: every command on a ribbon, frozen panes, charts and pictures on the sheet, conditional formats drawn, fill handle, find</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="data">Data</h2><a class="sl-anchor-link" href="#data"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Data”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Table</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Table</code></td>
+</tr>
+<tr>
+<td>Data grid</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code dir="auto">DataGrid</code>; see its parity table in ARCHITECTURE.md</td>
+</tr>
+<tr>
+<td>Tree list / Tree grid</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Pivot grid</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>List / List view</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">List</code>, <code dir="auto">ListItem</code></td>
+</tr>
+<tr>
+<td>Virtual list with rows of any height</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">VirtualList</code>: measured in layout and kept by key, jump to a row, stays at the end, still when rows enter above, keyboard and semantics of a list</td>
+</tr>
+<tr>
+<td>Sortable list</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">SortableList</code>: a drag with a line at the target, Alt and the arrows, announced to screen readers. It keeps every row built, so it is for lists of a screenful</td>
+</tr>
+<tr>
+<td>List box (with reordering)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Card view / Tile view</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">CardView</code>: virtualized, as many columns as fit, keyboard and selection</td>
+</tr>
+<tr>
+<td>Scheduler (resource timeline)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code dir="auto">Scheduler</code>; gaps listed under “Scheduler” below</td>
+</tr>
+<tr>
+<td>Calendar with events</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">EventCalendar</code></td>
+</tr>
+<tr>
+<td>Recurrence editor</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">RecurrenceEditor</code>, <code dir="auto">RecurrenceRule</code> (reads and writes iCalendar’s <code dir="auto">RRULE</code>)</td>
+</tr>
+<tr>
+<td>Gantt</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Kanban / Task board</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Timeline</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>File manager</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code dir="auto">FileBrowser</code>: breadcrumb, sorting, selection, icon, size and date over the app’s data, virtualized. No upload, tree of folders or thumbnails view</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="charts-and-visualization">Charts and visualization</h2><a class="sl-anchor-link" href="#charts-and-visualization"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Charts and visualization”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Bar / column chart</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Chart</code>, <code dir="auto">BarChart</code>: horizontal, grouped, stacked, negative, labels, active, focus that fades the rest, gradient, least length, growing from any side, categories on the line of zero</td>
+</tr>
+<tr>
+<td>Area chart, sparkline</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Chart</code>, <code dir="auto">AreaChart</code>: stacked, expanded, gradient, curves; a sparkline with a tooltip and cursor when asked</td>
+</tr>
+<tr>
+<td>Line chart</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Chart</code>: natural, monotone, linear and step curves, dots, icons, labels</td>
+</tr>
+<tr>
+<td>Pie / donut</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Chart</code>: rings, active slice, a slice that comes forward under the pointer, center text, labels, guides with an elbow, a real gap between slices, a radius per slice</td>
+</tr>
+<tr>
+<td>Radar, radial</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Chart</code>: polygon and circle grids, filled, tracks, stacked</td>
+</tr>
+<tr>
+<td>Chart tooltip, legend, keyboard</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">ChartTooltip</code> (share, color by value, free content, either side on both axes), <code dir="auto">ChartLegend</code>, arrow keys; cursor and dots that glide and fade</td>
+</tr>
+<tr>
+<td>Chart entrance</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code dir="auto">Chart</code>, <code dir="auto">SankeyChart</code>: the data draws in the first time it is painted, with axes and grid there from the first frame: lines, areas, candles and flows from the left, bars out of zero, pies clockwise, radars out of the center; the tooltip waits; <code dir="auto">no_appear</code>, <code dir="auto">appear_key</code>; <code dir="auto">animate_changes</code> moves from old data to new, with the axis; radial bars only fade in ⬜</td>
+</tr>
+<tr>
+<td>Chart axes</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Chart</code>: dashed grid, columns, steps of the axis, labels measured with the real font, aligned ends, lines of reference, fixed domain</td>
+</tr>
+<tr>
+<td>Scatter, bubble, funnel, financial</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 scatter in <code dir="auto">Chart</code>, with a tooltip and cursor when asked; candlestick in <code dir="auto">Chart</code>, with an axis of round numbers, outlines for what rose and the keyboard; bubble and funnel ⬜</td>
+</tr>
+<tr>
+<td>Sankey</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">SankeyChart</code>: alignment, ribbons in a gradient, the rest fading around the focus, arrow keys, every flow read aloud, a clear message when the flows go in a circle</td>
+</tr>
+<tr>
+<td>Gauges (linear, circular, arc)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">ProgressBar</code>, <code dir="auto">Chart</code> with <code dir="auto">RadialBar</code></td>
+</tr>
+<tr>
+<td>Flow diagram (nodes and connections)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">FlowCanvas</code>: endless surface with a grid, pan by drag and wheel, zoom by pinch and keys around the pointer, nodes that move on the grid and take focus, ports that check what connects and say why not, curve, step and straight lines with arrows, labels and dashes that travel, selection by press, Shift and rectangle, Delete, a lock, controls and a map. undo and redo, copy, cut and paste with new ids, JSON that is checked as it is read, moving a line’s end to another port, ports that connect with the keys, arranging the diagram in layers (left to right or top down) and resizing a node by its corner or with Alt and the arrows, groups that hold nodes, nest, move, copy and go with what they hold, bringing nodes to the front or sending them back, and the app’s say before every change (<code dir="auto">on_change</code>), which can refuse it with a reason, a title typed in place (double click, F2 or Enter), the ends of a line (none, arrow, open arrow, diamond, circle), nodes turned by a handle or the keys, their ports and lines turning with them, and any view of the app inside a node (<code dir="auto">FlowCanvas::content</code>), laid out at the node’s size and drawn at the zoom; a palette of models to drag in (<code dir="auto">FlowToolbox</code>), properties beside it (<code dir="auto">FlowInspector</code>), bend points, alignment guides, quick creation, colors and lines per node and connection, words alone, layers (<code dir="auto">FlowLayers</code>), the diagrams kept by name with files (<code dir="auto">FlowLibrary</code>), export to PNG, SVG and PDF, notations as data (<code dir="auto">FlowNotation</code>, BPMN 2.0 in <code dir="auto">ravenrs-flow-bpmn</code>), checks written on the nodes and a step-by-step debugger with breakpoints</td>
+</tr>
+</tbody>
+</table>
+<p>The whole <a href="https://ui.shadcn.com/charts">shadcn/ui chart catalog</a> can be built with <code dir="auto">Chart</code> and <code dir="auto">ChartCard</code>: all 70 patterns are in the gallery’s Charts page, under their names (<code dir="auto">examples/component-gallery/src/charts.rs</code>).
+| Maps | | ✓ | ✓ | ⬜ |
+| Diagram / Org chart | | ✓ | ✓ | ✅ <code dir="auto">FlowCanvas</code> with <code dir="auto">FlowLayout::tree</code>: each node centred over the ones it leads to, down as an org chart or across as a mind map; step lines go around the nodes in their way |
+| QR code / Barcode | | ✓ | ✓ | ✅ <code dir="auto">Barcode</code>: QR Code, Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF |</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="overlays-and-feedback">Overlays and feedback</h2><a class="sl-anchor-link" href="#overlays-and-feedback"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Overlays and feedback”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Dialog / Alert dialog</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Dialog</code>, <code dir="auto">ConfirmDialog</code>: Escape, the backdrop and the X can each be turned off</td>
+</tr>
+<tr>
+<td>Sheet / Drawer (side panel)</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Sheet</code></td>
+</tr>
+<tr>
+<td>Splash screen</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">SplashScreen</code></td>
+</tr>
+<tr>
+<td>Tray icon, closing to it</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">AppIdentity::close_to_tray</code></td>
+</tr>
+<tr>
+<td>System notifications</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">SystemNotifier</code></td>
+</tr>
+<tr>
+<td>Popover</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Popover</code>: any placement, with or without the panel</td>
+</tr>
+<tr>
+<td>Tooltip</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Tooltip</code> with a key cap, and <code dir="auto">.tooltip()</code> on any view</td>
+</tr>
+<tr>
+<td>Hover card</td>
+<td>✓</td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">HoverCard</code></td>
+</tr>
+<tr>
+<td>Toast / Notification</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Toaster</code>: six places, per stack or per toast, and toasts that stay until closed</td>
+</tr>
+<tr>
+<td>Alert / Callout</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Alert</code>: with a compact strip</td>
+</tr>
+<tr>
+<td>Code snippet with copy</td>
+<td></td>
+<td>✓</td>
+<td></td>
+<td>✅ <code dir="auto">CodeBlock</code></td>
+</tr>
+<tr>
+<td>Release notes</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">ReleaseNotes</code></td>
+</tr>
+<tr>
+<td>Training film and player</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">ravenrs::movie</code>: <code dir="auto">Recorder</code>, <code dir="auto">MoviePlayer</code>, with click and key sounds, a voice and boxes that explain each step</td>
+</tr>
+<tr>
+<td>Question that opens a film at the right moment</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">MovieAssistant</code>, <code dir="auto">MovieLibrary</code>: words the films hold, no model</td>
+</tr>
+<tr>
+<td>Film editor with timeline</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">MovieEditor</code>; its preview has no sound</td>
+</tr>
+<tr>
+<td>Bug report with a film</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">FlightRecorder</code>, <code dir="auto">BugReporter</code></td>
+</tr>
+<tr>
+<td>Progress bar</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">ProgressBar</code>: label, percentage, detail, height, color</td>
+</tr>
+<tr>
+<td>Loader / Spinner</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Spinner</code></td>
+</tr>
+<tr>
+<td>Lottie animation</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Lottie</code>; no expressions, text layers, 3D, blend modes or effects other than Fill yet, and <code dir="auto">.lottie</code> archives need unpacking first</td>
+</tr>
+<tr>
+<td>Skeleton</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Badge</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Chip / Chip list</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code dir="auto">Badge</code> (tone or own color, outline, height); removable chips via <code dir="auto">Button</code> with an icon</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="media-and-content">Media and content</h2><a class="sl-anchor-link" href="#media-and-content"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Media and content”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Avatar</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Avatar</code>: initials or picture, with a ring</td>
+</tr>
+<tr>
+<td>Icon set</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ 200 Lucide icons</td>
+</tr>
+<tr>
+<td>Image</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Image</code>: dissolves into the next one if asked, and asks for frames only meanwhile</td>
+</tr>
+<tr>
+<td>Carousel / Scroll view</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Carousel</code></td>
+</tr>
+<tr>
+<td>Kbd</td>
+<td>✓</td>
+<td></td>
+<td></td>
+<td>✅ takes the color of what it is in, on request</td>
+</tr>
+<tr>
+<td>List of shortcuts</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">ShortcutSheet</code>, <code dir="auto">ShortcutHintBar</code>, over <code dir="auto">Kbd</code> and <code dir="auto">Dialog</code></td>
+</tr>
+<tr>
+<td>Bar of function keys, as on a point of sale</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">KeyBar</code>: F keys or Alt and a letter that work wherever the focus is, with disabled and primary keys</td>
+</tr>
+<tr>
+<td>Field for a barcode scanner</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">ScanField</code>: keeps the focus, tells a scanner from typing by the pace and empties after each code. Not tried with a physical scanner</td>
+</tr>
+<tr>
+<td>Empty state</td>
+<td>✓</td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">EmptyState</code>, over <code dir="auto">IconTile</code></td>
+</tr>
+<tr>
+<td>Status dot, badge on a corner</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>✅ <code dir="auto">Dot</code>, <code dir="auto">OverlayBadge</code></td>
+</tr>
+<tr>
+<td>Banner, stacked meters, text with a shine</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">HeroBanner</code>, <code dir="auto">MultiProgress</code>, <code dir="auto">ShimmerText</code> (still with reduced motion)</td>
+</tr>
+<tr>
+<td>Day divider in a list</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">DaySeparator</code></td>
+</tr>
+<tr>
+<td>Typography scale</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Text</code> styles</td>
+</tr>
+<tr>
+<td>PDF viewer</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code dir="auto">PagedDocumentView</code>: bar, zoom and virtual pages, with pictures from the app. Reading the PDF and searching it are up to the app</td>
+</tr>
+<tr>
+<td>Filmstrip</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">Filmstrip</code>: virtual, cells from the app, selection with modifiers, keyboard, arrows on the ends</td>
+</tr>
+<tr>
+<td>Histogram</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">Histogram</code>: channels from ready-made bins, added up as light, linear or logarithmic, with marks at clipped ends</td>
+</tr>
+<tr>
+<td>Ruler</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">Ruler</code>: horizontal or vertical, in the units of the caller, with a round step for the zoom, origin and marker; vertical numbers stack, since text does not rotate</td>
+</tr>
+<tr>
+<td>Color wheel</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">ColorWheel</code>: hue and saturation on a disc that is computed once and shared, with arrow keys and Shift to keep the hue</td>
+</tr>
+<tr>
+<td>Curve editor</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">CurveEditor</code>: points over a monotone curve, added with a press, removed with a double click or Delete, moved with the arrows; baseline and histogram behind</td>
+</tr>
+<tr>
+<td>Zoom control</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">ZoomControl</code>: fit, 1:1, percentage, + and −, through a <code dir="auto">ZoomView</code> shared with <code dir="auto">ZoomPanView</code> and <code dir="auto">Minimap</code></td>
+</tr>
+<tr>
+<td>Zoom and pan</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">ZoomPanView</code>: pinch, Cmd/Ctrl with the wheel, wheel and drag to move, double click, keys, inertia that respects reduced motion, limits. Content is an image or a closure: the runtime has no transform for a subtree</td>
+</tr>
+<tr>
+<td>Minimap</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">Minimap</code>: a small copy with the rectangle of what is in view, by the same <code dir="auto">ZoomView</code> as <code dir="auto">ZoomPanView</code>, with drag and arrow keys</td>
+</tr>
+<tr>
+<td>Composition grid</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">RuleOfThirdsGrid</code>: thirds, equal divisions, squares or the golden ratio, in a box or over a <code dir="auto">ZoomPanView</code>, taking no input</td>
+</tr>
+<tr>
+<td>Rubber band selection</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">RubberBand</code>: a rectangle drawn with a drag in <code dir="auto">Binding</code>, selected on release, with the keyboard; costs no builds while dragged if nobody else reads it</td>
+</tr>
+<tr>
+<td>Selection outline</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">Marquee</code>: marching ants around a rectangle, a path or loose segments, which stop and ask for no frames with reduced motion</td>
+</tr>
+<tr>
+<td>Transform box</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">TransformHandles</code>: eight handles, turn and pivot over a <code dir="auto">BoxTransform</code> in content units, with Shift and Alt as in image editors and the keyboard. It returns geometry and turns nothing, since the renderer has no transforms; <code dir="auto">CursorIcon</code> has no diagonals, so corners show the hand</td>
+</tr>
+<tr>
+<td>Protractor</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">Protractor</code>: a band of ticks along an arc that sets an angle by a drag from anywhere, a double click back to zero, keys and value</td>
+</tr>
+<tr>
+<td>Crop</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">CropOverlay</code>: on <code dir="auto">TransformHandles</code> and the lines of <code dir="auto">RuleOfThirdsGrid</code>, with a veil outside, fixed proportion and angle, returning rectangle and angle. The frame turns over a still picture, since the renderer has no transforms</td>
+</tr>
+<tr>
+<td>Eyedropper</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">Eyedropper</code> and <code dir="auto">EyedropperArea</code>: an armed button that takes the color of the point clicked, which the caller supplies with a closure or <code dir="auto">EyedropperState::pick</code>; Esc disarms. It does not capture the screen, and <code dir="auto">CursorIcon</code> has no dropper, so the cursor is the hand</td>
+</tr>
+<tr>
+<td>Compare images</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">CompareView</code>: two images side by side or with a divider dragged or moved with the arrows, through <code dir="auto">ImageQuad.uv</code>, with captions and an optional chosen side</td>
+</tr>
+<tr>
+<td>Image lightbox</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">ImageLightbox</code>: a picture over the whole app with zoom by <code dir="auto">ZoomPanView</code>, arrows, Esc, caption and counter, from <code dir="auto">Labels</code></td>
+</tr>
+<tr>
+<td>Image editor</td>
+<td></td>
+<td></td>
+<td>✓</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Text with marks and links</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">RichText</code>: <code dir="auto">*bold*</code>, <code dir="auto">_italic_</code>, <code dir="auto">~struck~</code>, <code dir="auto">`code`</code>, fenced blocks, lists, quotes and web addresses as links with click and keyboard, wrapped word by word. <code dir="auto">ravenrs-text</code> has one style per text and no italic or monospace font, so italics are told apart by a muted color and code by a chip</td>
+</tr>
+<tr>
+<td>Attachments of a message</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">AttachmentStrip</code>: icon or thumbnail, name that gives way, size, a menu for how to send it when there is a choice and a button to remove it; the app holds the list</td>
+</tr>
+<tr>
+<td>Audio player</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">AudioPlayerButton</code>: play and stop over <code dir="auto">SoundProvider::speak_clip</code>, progress by the clock, drawn without rebuilding, audio the app can deliver after the press, and a transcript to open or ask for. A new recording sends the old one back to rest. It has no seek, since the service does not report or change where it is</td>
+</tr>
+<tr>
+<td>Bar over a multiple selection</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">SelectionBar</code>: the count from <code dir="auto">Labels</code>, a way out by button or Esc, and actions over <code dir="auto">Toolbar</code>, which go to a menu when they do not fit and wait for something chosen</td>
+</tr>
+<tr>
+<td>Chat</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">Chat</code>, with marks and links by <code dir="auto">RichText</code> and a photo, a document or a recording in the bubble by <code dir="auto">ChatMedia</code>; <code dir="auto">MovieChat</code> over training films</td>
+</tr>
+<tr>
+<td>Choosing local AI models</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ <code dir="auto">ModelPicker</code>; <code dir="auto">ravenrs_ai::ModelManager</code> offers only what fits</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="reporting">Reporting</h2><a class="sl-anchor-link" href="#reporting"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Reporting”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Component</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Report engine (bands, groups, summaries, expressions)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code dir="auto">ravenrs-report</code>; see <a href="/RavenRS/docs/reporting-parity/">REPORTING-PARITY.md</a></td>
+</tr>
+<tr>
+<td>Document viewer (pages, zoom, search, thumbnails)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ <code dir="auto">ravenrs-report-viewer</code></td>
+</tr>
+<tr>
+<td>End-user report designer</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code dir="auto">examples/report-designer</code>, <a href="https://alexkads.github.io/RavenRS/designer/">live</a></td>
+</tr>
+<tr>
+<td>Export: PDF, XLSX, DOCX, CSV, HTML, images</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 <code dir="auto">ravenrs-report-pdf</code>, <code dir="auto">ravenrs-report-xlsx</code> (XLSX and CSV), SVG per page, Excel, PDF and CSV from <code dir="auto">DataGrid</code>; DOCX, HTML and PNG planned</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="platform-capabilities">Platform capabilities</h2><a class="sl-anchor-link" href="#platform-capabilities"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Platform capabilities”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>S</th>
+<th>D</th>
+<th>T</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Themes (light, dark, custom tokens)</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ Raven Dark, Light, Glass</td>
+</tr>
+<tr>
+<td>Keyboard navigation and focus</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Screen reader support</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓ AccessKit on desktop, ARIA mirror on the web</td>
+</tr>
+<tr>
+<td>Right-to-left</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>⬜ (Parley supports bidi; layout mirroring planned)</td>
+</tr>
+<tr>
+<td>Localization (formats, strings)</td>
+<td></td>
+<td>✓</td>
+<td>✓</td>
+<td>🟡 number formats; <code dir="auto">Labels</code> and <code dir="auto">Localized</code> for component text (Ribbon, Carousel and InputOtp still fixed)</td>
+</tr>
+<tr>
+<td>Animations</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✅ springs, transitions, shared layout, enter and exit; 🟡 no rotation or group opacity yet</td>
+</tr>
+<tr>
+<td>Native desktop and browser from one codebase</td>
+<td></td>
+<td></td>
+<td></td>
+<td>✅ (none of the three does both)</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="scheduler">Scheduler</h2><a class="sl-anchor-link" href="#scheduler"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Scheduler”</span></a></div>
+<p>The reference is <a href="https://bryntum.com/products/scheduler/">Bryntum Scheduler</a>. The behavior is the model and the implementation is our own.</p>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rows of resources, time axis with two header rows, bars by time</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Hours, days, weeks and months, with zoom keeping the same time</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Drag along time and between rows, resize by the ends, draw on an empty stretch</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Snap to the scale, refusal through <code dir="auto">can_drop</code>, locked and fixed-length events</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Overlapping events on lanes, with the row growing</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Rows sharing the height left over (<code dir="auto">fill_rows</code>)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>A full look: tinted bars with a stripe, a second line on bars, avatars, today’s column (<code dir="auto">card</code>, <code dir="auto">event_detail</code>, <code dir="auto">avatars</code>)</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Weekend shading, marked time ranges, a line at now, opening at now</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Collapsible groups of resources</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Keyboard for events; names and dates for screen readers</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Only what is in view is built</td>
+<td>✅ tested with 5,000 rows</td>
+</tr>
+<tr>
+<td>Recurring events</td>
+<td>✅ <code dir="auto">RecurrenceRule</code>; the app expands the days</td>
+</tr>
+<tr>
+<td>Scrolling the wheel over the resources column</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Scrolling by itself while dragging near an edge</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Tooltip while hovering over or dragging an event</td>
+<td>✅ with <code dir="auto">card</code></td>
+</tr>
+<tr>
+<td>Scrolling a bar into view when keyboard focus moves to it</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Dependencies between events</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Resource tree of any depth, multiple assignment, extra columns</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Working hours, non-continuous axis, vertical mode, nested events</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Summaries and histograms per row or period</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Dragging from a list or grid onto the timeline, or between schedulers</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Menus on events and on empty stretches (<code dir="auto">event_menu</code>, <code dir="auto">lane_menu</code>), zoom with a pinch or Ctrl and the wheel</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>Undo and redo</td>
+<td>🟡 the app keeps the moves, as in Raven Finanças’ agenda; none built in</td>
+</tr>
+<tr>
+<td>Built-in event editor</td>
+<td>⬜</td>
+</tr>
+<tr>
+<td>Export to PDF, PNG, Excel and ICS, printing</td>
+<td>⬜</td>
+</tr>
+</tbody>
+</table></div><footer class="sl-flex" data-astro-cid-ddtxxk7k=""><div class="meta sl-flex" data-astro-cid-ddtxxk7k=""><a href="https://github.com/alexkads/RavenRS/edit/master/docs/PARITY.md" class="sl-flex print:hidden" data-astro-cid-qlekgd3o=""><svg data-astro-cid-qlekgd3o="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;" data-astro-cid-hkc32dio=""><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"></path></svg>Edit page</a></div><div class="pagination-links print:hidden" dir="ltr" data-astro-cid-b5raizh3=""><a href="/RavenRS/docs/applications/" rel="prev" data-astro-cid-b5raizh3=""><svg data-astro-cid-b5raizh3="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;" data-astro-cid-hkc32dio=""><path d="M17 11H9.41l3.3-3.29a1.004 1.004 0 1 0-1.42-1.42l-5 5a1 1 0 0 0-.21.33 1 1 0 0 0 0 .76 1 1 0 0 0 .21.33l5 5a1.002 1.002 0 0 0 1.639-.325 1 1 0 0 0-.219-1.095L9.41 13H17a1 1 0 0 0 0-2Z"></path></svg><span data-astro-cid-b5raizh3="">Previous<br data-astro-cid-b5raizh3=""><span class="link-title" data-astro-cid-b5raizh3="">Records &amp; forms</span></span></a><a href="/RavenRS/docs/reporting/" rel="next" data-astro-cid-b5raizh3=""><svg data-astro-cid-b5raizh3="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;" data-astro-cid-hkc32dio=""><path d="M17.92 11.62a1.001 1.001 0 0 0-.21-.33l-5-5a1.003 1.003 0 1 0-1.42 1.42l3.3 3.29H7a1 1 0 0 0 0 2h7.59l-3.3 3.29a1.002 1.002 0 0 0 .325 1.639 1 1 0 0 0 1.095-.219l5-5a1 1 0 0 0 .21-.33 1 1 0 0 0 0-.76Z"></path></svg><span data-astro-cid-b5raizh3="">Next<br data-astro-cid-b5raizh3=""><span class="link-title" data-astro-cid-b5raizh3="">Create reports</span></span></a></div></footer></div></div></main></div></div></div></div></body></html>

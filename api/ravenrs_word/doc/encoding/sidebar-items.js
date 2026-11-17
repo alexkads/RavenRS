@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAC_ROMAN_CODE_PAGE","MULTIBYTE_CODE_PAGES","OEM_CODE_PAGES","SINGLE_BYTE_CODE_PAGES"],"fn":["charset_code_page","code_page_byte","cp1252","is_byte_code_page","is_multibyte_code_page","is_text_code_page","multibyte_encoding_name","oem_byte","windows_byte"]};

@@ -1,0 +1,1108 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc="" data-has-sidebar="" data-astro-cid-g5ptsecz=""><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Architecture | RavenRS</title><link rel="sitemap" href="/RavenRS/sitemap-index.xml"><link rel="shortcut icon" href="/RavenRS/favicon.svg" type="image/svg+xml"><meta name="generator" content="Astro v7.4.12"><meta name="generator" content="Starlight v0.43.1"><script>
+	(() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+	})();
+</script><link rel="stylesheet" href="/RavenRS/_astro/print.C9eyqPGL.css" media="print"><link rel="stylesheet" href="/RavenRS/_astro/index.BcKmb9jH.css"><style>@layer starlight.components.icon{svg[data-astro-cid-hkc32dio]{color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em;overflow:visible}}
+</style><script type="module" src="/RavenRS/_astro/page.cNngjUgL.js"></script><meta name="description" content="Architecture — the RavenRS guide to native and web applications in Rust."><link rel="canonical" href="https://ravenrs.vercel.app/docs/architecture/"><meta property="og:title" content="Architecture | RavenRS"><meta property="og:description" content="Architecture — the RavenRS guide to native and web applications in Rust."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/docs/architecture/"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Architecture | RavenRS — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Architecture | RavenRS"><meta name="twitter:description" content="Architecture — the RavenRS guide to native and web applications in Rust."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta name="twitter:image:alt" content="Architecture | RavenRS — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Architecture | RavenRS","description":"Architecture — the RavenRS guide to native and web applications in Rust.","url":"https://ravenrs.vercel.app/docs/architecture/","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body data-astro-cid-g5ptsecz=""><a class="sl-skip-link" href="#_top" data-astro-cid-qb7clj6f="">Skip to content</a><div class="page sl-flex" data-astro-cid-yntsjkba=""><header class="header" data-astro-cid-yntsjkba=""><div class="header" data-astro-cid-by6fddyj=""><div class="title-wrapper sl-flex" data-astro-cid-by6fddyj=""><a href="/RavenRS/" class="site-title sl-flex" data-astro-cid-6rvad3va=""><span translate="no" data-astro-cid-6rvad3va="">RavenRS</span></a></div><div class="sl-flex print:hidden" data-astro-cid-by6fddyj=""><site-search data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}" data-astro-cid-b5kgnn7o="true"><button data-open-modal="" disabled="" aria-label="Search" aria-keyshortcuts="Control+K" data-astro-cid-b5kgnn7o=""><svg data-astro-cid-b5kgnn7o="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"></path></svg><span class="sl-hidden md:sl-block" aria-hidden="true" data-astro-cid-b5kgnn7o="">Search</span><kbd class="sl-hidden md:sl-flex" style="display: none" data-astro-cid-b5kgnn7o=""><kbd data-astro-cid-b5kgnn7o="">Ctrl</kbd><kbd data-astro-cid-b5kgnn7o="">K</kbd></kbd></button><dialog style="padding: 0" aria-label="Search" data-astro-cid-b5kgnn7o=""><div class="dialog-frame sl-flex" data-astro-cid-b5kgnn7o=""><button data-close-modal="" class="sl-flex md:sl-hidden" data-astro-cid-b5kgnn7o="">Cancel</button><div class="search-container" data-astro-cid-b5kgnn7o=""><div id="starlight__search" data-astro-cid-b5kgnn7o=""></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/RavenRS/_astro/Search.astro_astro_type_script_index_0_lang.B287-pOx.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group" data-astro-cid-by6fddyj=""><div class="sl-flex social-icons" data-astro-cid-by6fddyj=""><a href="https://github.com/alexkads/RavenRS" rel="me" class="sl-flex" data-astro-cid-n2mnl6yq=""><span class="sr-only" data-astro-cid-n2mnl6yq="">GitHub</span><svg data-astro-cid-n2mnl6yq="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"></path></svg></a></div><starlight-theme-select data-astro-cid-smhvfpqh="true"><label style="--sl-select-width: 6.25em" data-astro-cid-2z5xp7gb=""><span class="sr-only" data-astro-cid-2z5xp7gb="">Select theme</span><span class="icon label-icon" data-astro-cid-2z5xp7gb=""><svg class="sl-theme-icon-dark" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"></path></svg><svg class="sl-theme-icon-light" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"></path></svg><svg class="sl-theme-icon-auto" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"></path></svg></span><select autocomplete="off" data-astro-cid-2z5xp7gb=""><option value="dark" data-astro-cid-2z5xp7gb="">Dark</option><option value="light" data-astro-cid-2z5xp7gb="">Light</option><option value="auto" selected="" data-astro-cid-2z5xp7gb="">Auto</option></select><svg class="icon caret" data-astro-cid-2z5xp7gb="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"></path></svg></label></starlight-theme-select><script>(() => {
+		const theme = (typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme'));
+		if (theme) document.querySelectorAll('starlight-theme-select select').forEach((s) => { s.value = theme; });
+	})();</script><script type="module">var e=`starlight-theme`,t=e=>e===`auto`||e===`dark`||e===`light`?e:`auto`,n=()=>t(typeof localStorage<`u`&&localStorage.getItem(e));function r(t){typeof localStorage<`u`&&localStorage.setItem(e,t===`light`||t===`dark`?t:``)}var i=()=>matchMedia(`(prefers-color-scheme: light)`).matches?`light`:`dark`;function a(e){document.querySelectorAll(`starlight-theme-select select`).forEach(t=>{t.value=e}),document.documentElement.dataset.theme=e===`auto`?i():e,r(e)}matchMedia(`(prefers-color-scheme: light)`).addEventListener(`change`,()=>{n()===`auto`&&a(`auto`)});var o=class extends HTMLElement{constructor(){super(),a(n()),this.querySelector(`select`)?.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&a(t(e.currentTarget.value))})}};customElements.define(`starlight-theme-select`,o);</script><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script></div></div></header><nav class="sidebar print:hidden" aria-label="Main" data-astro-cid-yntsjkba=""><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden" data-astro-cid-r2osgdlg=""><svg class="open-menu" data-astro-cid-r2osgdlg="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"></path></svg><svg class="close-menu" data-astro-cid-r2osgdlg="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"></path></svg><span class="sr-only" data-astro-cid-r2osgdlg="">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover="" id="starlight__sidebar" class="sidebar-pane" data-astro-cid-yntsjkba="true"><div class="sidebar-content sl-flex" data-astro-cid-yntsjkba=""><sl-sidebar-state-persist data-hash="1q49ps1" data-astro-cid-ipdry5cl="true"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level" data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/" class="large" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Home</span></a></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Start here</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Introduction</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/getting-started/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Installation</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/cli/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">CLI &amp; AI assistants</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/ai/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">AI-assisted development</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Build applications</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/architecture/" aria-current="page" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Architecture</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/design-system/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Design system</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/applications/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Records &amp; forms</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/components/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Component coverage</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Reports</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/reporting/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Create reports</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/report-server/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Report server</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Reference</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/quality/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Quality &amp; accessibility</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/performance/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Performance</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/versioning/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Versions &amp; upgrades</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Technical guides</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-contracts/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Contracts and acceptance scenarios for reusable modules</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-coverage/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Cobertura do ravenrs-app para aplicações corporativas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-parity/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Application framework parity</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/automacao-comercial/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Automação comercial: o que existe e o que falta para vender</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/component-audit/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Auditoria técnica de componentes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/component-inventory/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Inventário e projeção de componentes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/developer-platform-plan/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Plataforma de desenvolvimento RavenRS — inventário e proposta</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/nfse/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">NFS-e Padrão Nacional: pesquisa para o PDV (hoje: 05/11/2026)</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/pagamentos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Pagamentos: pinpads, TEF e os quatro provedores</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/perifericos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Periféricos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/project-planning-roadmap/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Capacidades de planejamento para aplicações RavenRS</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/proximas-etapas/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Automação comercial: próximas etapas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/reporting-parity/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">RavenRS Reporting — feature parity</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/site-seo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Site SEO and publication</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/software-coverage/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Cobertura por tipo de software</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/tef-comparativo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">TEF para o PDV: comparativo e recomendação</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Data Studio</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/01-visao-e-requisitos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: visão do produto e requisitos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/02-analise-do-codigo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: análise do código</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/03-matriz-de-componentes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: matriz de componentes reutilizáveis</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/04-lacunas-e-novos-componentes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: lacunas e novos componentes propostos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/05-fluxos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: fluxos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/06-telas/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: especificação das telas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/07-wireframes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: wireframes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/08-arquitetura/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: arquitetura</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/09-modelo-de-dominio/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: modelo de domínio</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/10-mcp-e-conectores/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: MCP, agente e conectores</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/11-schema-mapeamento-transformacoes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: descoberta, schema, mapeamento e transformações</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/12-execucao-e-recuperacao/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: execução e recuperação</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/13-seguranca-privacidade-a11y-i18n/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: segurança, privacidade, acessibilidade, idiomas e desempenho</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/14-referencias-e-roadmap/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: referências e roadmap</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/15-criterios-de-aceitacao/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: critérios de aceitação</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/16-decisoes-em-aberto/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: decisões em aberto</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/cenario-de-referencia/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: cenário de referência</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Tutorials</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/tutorials/ravenrs-app-vscode/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Primeiro app com ravenrs-app no VS Code — RavenDevLab</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Explore</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="7"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/components/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Components</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/playground/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Playground</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/api/ravenrs/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Rust API</span></a></li></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex" data-astro-cid-p4azlveh=""><div class="social-icons" data-astro-cid-p4azlveh=""><a href="https://github.com/alexkads/RavenRS" rel="me" class="sl-flex" data-astro-cid-n2mnl6yq=""><span class="sr-only" data-astro-cid-n2mnl6yq="">GitHub</span><svg data-astro-cid-n2mnl6yq="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"></path></svg></a></div><starlight-theme-select data-astro-cid-smhvfpqh="true"><label style="--sl-select-width: 6.25em" data-astro-cid-2z5xp7gb=""><span class="sr-only" data-astro-cid-2z5xp7gb="">Select theme</span><span class="icon label-icon" data-astro-cid-2z5xp7gb=""><svg class="sl-theme-icon-dark" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"></path></svg><svg class="sl-theme-icon-light" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"></path></svg><svg class="sl-theme-icon-auto" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"></path></svg></span><select autocomplete="off" data-astro-cid-2z5xp7gb=""><option value="dark" data-astro-cid-2z5xp7gb="">Dark</option><option value="light" data-astro-cid-2z5xp7gb="">Light</option><option value="auto" selected="" data-astro-cid-2z5xp7gb="">Auto</option></select><svg class="icon caret" data-astro-cid-2z5xp7gb="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"></path></svg></label></starlight-theme-select><script>(() => {
+		const theme = (typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme'));
+		if (theme) document.querySelectorAll('starlight-theme-select select').forEach((s) => { s.value = theme; });
+	})();</script></div></div></div></sl-sidebar-pane></nav><div class="main-frame" data-astro-cid-yntsjkba=""><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex" data-astro-cid-lrzkfocr=""><aside class="right-sidebar-container print:hidden" data-astro-cid-lrzkfocr=""><div class="right-sidebar" data-astro-cid-lrzkfocr=""><div class="lg:sl-hidden" data-astro-cid-qok35upx=""><mobile-starlight-toc data-min-h="2" data-max-h="3" data-astro-cid-66cqc7ze="true"><nav aria-labelledby="starlight__on-this-page--mobile" data-astro-cid-66cqc7ze=""><details id="starlight__mobile-toc" data-astro-cid-66cqc7ze=""><summary id="starlight__on-this-page--mobile" class="sl-flex" data-astro-cid-66cqc7ze=""><span class="toggle sl-flex" data-astro-cid-66cqc7ze="">On this page<svg class="caret" data-astro-cid-66cqc7ze="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></span><span class="display-current" data-astro-cid-66cqc7ze=""></span></summary><div class="dropdown" data-astro-cid-66cqc7ze=""><ul class="isMobile" style="--depth: 0;" data-astro-cid-jugkfwgx=""><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#_top" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Overview</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#1-goals-and-constraints" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">1. Goals and constraints</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#2-ecosystem-survey" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">2. Ecosystem survey</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#3-crate-graph" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">3. Crate graph</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#3-1-where-things-live" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">3.1 Where things live</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#4-the-frame-pipeline" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">4. The frame pipeline</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#5-reactive-system" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">5. Reactive system</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#6-extensibility-making-your-own-components" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">6. Extensibility: making your own components</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#6-1-runtime-services-for-components" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">6.1 Runtime services for components</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#6-2-datagrid" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">6.2 DataGrid</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#6-3-criteria-language" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">6.3 Criteria language</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#6-4-reporting" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">6.4 Reporting</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#6-5-motion" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">6.5 Motion</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#7-rendering" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">7. Rendering</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#8-layout" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">8. Layout</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#9-text" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">9. Text</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#10-platforms" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">10. Platforms</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#11-status" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">11. Status</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#12-decisions-log" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">12. Decisions log</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/RavenRS/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block" data-astro-cid-qok35upx=""><div class="sl-container" data-astro-cid-qok35upx=""><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul style="--depth: 0;" data-astro-cid-jugkfwgx=""><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#_top" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Overview</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#1-goals-and-constraints" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">1. Goals and constraints</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#2-ecosystem-survey" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">2. Ecosystem survey</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#3-crate-graph" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">3. Crate graph</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#3-1-where-things-live" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">3.1 Where things live</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#4-the-frame-pipeline" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">4. The frame pipeline</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#5-reactive-system" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">5. Reactive system</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#6-extensibility-making-your-own-components" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">6. Extensibility: making your own components</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#6-1-runtime-services-for-components" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">6.1 Runtime services for components</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#6-2-datagrid" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">6.2 DataGrid</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#6-3-criteria-language" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">6.3 Criteria language</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#6-4-reporting" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">6.4 Reporting</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#6-5-motion" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">6.5 Motion</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#7-rendering" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">7. Rendering</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#8-layout" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">8. Layout</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#9-text" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">9. Text</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#10-platforms" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">10. Platforms</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#11-status" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">11. Status</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#12-decisions-log" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">12. Decisions log</span></a></li></ul></nav></starlight-toc><script type="module" src="/RavenRS/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane" data-astro-cid-lrzkfocr=""><main data-pagefind-body="" lang="en" dir="ltr" data-astro-cid-g5ptsecz=""><div class="content-panel" data-astro-cid-a7po4psb=""><div class="sl-container" data-astro-cid-a7po4psb=""><h1 id="_top" data-astro-cid-bebwqqxs="">Architecture</h1><p class="page-source" data-astro-cid-u72m6wot="">RavenRS 27.1.28 · <a href="index.md" data-astro-cid-u72m6wot="">View Markdown</a></p></div></div><div class="content-panel" data-astro-cid-a7po4psb=""><div class="sl-container" data-astro-cid-a7po4psb=""><div class="sl-markdown-content"><p>RavenRS is a declarative GUI framework written in Rust. One UI description runs in a native window (Windows, macOS, Linux) and in the browser (WebAssembly + WebGPU), and RavenRS draws every pixel itself with <code dir="auto">wgpu</code>. This document records the decisions behind the first milestone, why they were made, and what is implemented, experimental or planned.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="1-goals-and-constraints">1. Goals and constraints</h2><a class="sl-anchor-link" href="#1-goals-and-constraints"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “1. Goals and constraints”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Principle</th>
+<th>What it means in practice</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rust-first</td>
+<td>All framework logic is Rust. No code from the original Raven GUI (C) is used.</td>
+</tr>
+<tr>
+<td>GPU-first</td>
+<td>Rendering goes through <code dir="auto">wgpu</code> and WGSL shaders on every platform.</td>
+</tr>
+<tr>
+<td>WebAssembly-first</td>
+<td>Every crate that is not platform glue compiles for <code dir="auto">wasm32-unknown-unknown</code>. No threads, no <code dir="auto">SharedArrayBuffer</code>, no blocking.</td>
+</tr>
+<tr>
+<td>Canvas-first</td>
+<td>On the web the UI is drawn into one <code dir="auto">&lt;canvas&gt;</code>. The DOM hosts the canvas and delivers input, nothing else.</td>
+</tr>
+<tr>
+<td>Declarative-first</td>
+<td>Views are small values composed with builders; state changes trigger rebuilds of what depends on them.</td>
+</tr>
+<tr>
+<td>Beautiful by default</td>
+<td>Components read semantic design tokens; nothing is styled by hand in app code unless the app wants to.</td>
+</tr>
+<tr>
+<td>Performance-first</td>
+<td>Frames are produced only on demand; buffers and allocations are reused; there is no GPU→CPU readback in normal rendering.</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="2-ecosystem-survey">2. Ecosystem survey</h2><a class="sl-anchor-link" href="#2-ecosystem-survey"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “2. Ecosystem survey”</span></a></div>
+<p>The survey was done against the official repositories and docs (October 2026). Nothing was copied from these projects; they informed design choices only.</p>
+<table>
+<thead>
+<tr>
+<th>Project</th>
+<th>License</th>
+<th>Rendering</th>
+<th>State model</th>
+<th>Layout</th>
+<th>Text</th>
+<th>Web</th>
+<th>Lesson for RavenRS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="https://github.com/oscar-soirey/Raven">Raven</a> (C)</td>
+<td>Apache-2.0</td>
+<td>Vulkan behind a function table, separate render thread</td>
+<td>UI thread + job system</td>
+<td>Two-pass measure/arrange</td>
+<td>unverified</td>
+<td>none</td>
+<td>Keep the renderer behind a narrow interface. <em>This is the closest match to “the original Raven GUI”; the identification is probable, not confirmed.</em></td>
+</tr>
+<tr>
+<td><a href="https://github.com/zed-industries/zed/tree/main/crates/gpui">GPUI</a></td>
+<td>Apache-2.0</td>
+<td>Metal; wgpu on Linux</td>
+<td>Entities owned by the app, handles + contexts</td>
+<td>Taffy</td>
+<td>Platform text stacks</td>
+<td>Experimental <code dir="auto">gpui_web</code></td>
+<td>Context-passing ownership avoids <code dir="auto">Rc&lt;RefCell&gt;</code> sprawl.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/linebender/xilem">Xilem / Masonry</a></td>
+<td>Apache-2.0</td>
+<td>Vello on wgpu</td>
+<td>View tree diffed into a retained widget tree</td>
+<td>Masonry’s own</td>
+<td>Parley</td>
+<td>DOM backend (<code dir="auto">xilem_web</code>)</td>
+<td>Separating the API layer from a retained widget core lets several API styles share it.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/iced-rs/iced">Iced</a></td>
+<td>MIT</td>
+<td>wgpu, tiny-skia fallback</td>
+<td>The Elm Architecture</td>
+<td>Own</td>
+<td>cosmic-text (fork)</td>
+<td>Yes, WebGL feature</td>
+<td>Bundle a font for WASM; the browser gives you no system fonts.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/slint-ui/slint">Slint</a></td>
+<td>GPL-3.0 / royalty-free / commercial</td>
+<td>femtovg, Skia, software, optional wgpu</td>
+<td>Compiled DSL with property bindings</td>
+<td>Own + Taffy</td>
+<td>Parley (optional)</td>
+<td>Yes</td>
+<td>Trim text features per target to keep WASM small.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/project-blinc/Blinc">Blinc</a></td>
+<td>Apache-2.0</td>
+<td>wgpu, SDF primitives, glass</td>
+<td>Signals + state machines</td>
+<td>Flexbox builder</td>
+<td>Own atlas</td>
+<td>WebGPU preview</td>
+<td>Closest prior art to RavenRS; validates the SDF + atlas approach.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/linebender/vello">Vello</a></td>
+<td>Apache-2.0 OR MIT</td>
+<td>Compute-shader 2D renderer; <code dir="auto">vello_cpu</code>, <code dir="auto">vello_gpu</code> variants</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>Needs WebGPU compute</td>
+<td>Do not make compute-only rendering the only path.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/DioxusLabs/taffy">Taffy</a></td>
+<td>MIT</td>
+<td>—</td>
+<td>—</td>
+<td>Flexbox, Grid, Block</td>
+<td>Measure callback</td>
+<td>Yes</td>
+<td>Wire text into layout through the measure function from day one.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/gfx-rs/wgpu">wgpu</a></td>
+<td>MIT OR Apache-2.0</td>
+<td>Vulkan, Metal, DX12, GL, WebGPU</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>WebGPU and WebGL2</td>
+<td>Pin the major version; breaking releases arrive roughly quarterly.</td>
+</tr>
+<tr>
+<td><a href="https://github.com/linebender/parley">Parley</a></td>
+<td>Apache-2.0 OR MIT</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>HarfRust shaping, Skrifa outlines, ICU4X</td>
+<td>Yes</td>
+<td>Mature rich-text layout without platform dependencies.</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="3-crate-graph">3. Crate graph</h2><a class="sl-anchor-link" href="#3-crate-graph"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “3. Crate graph”</span></a></div>
+<div class="expressive-code"><link rel="stylesheet" href="/RavenRS/_astro/ec.w36nc.css"><script type="module" src="/RavenRS/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-core ─────────────┬──────────────┬──────────────┬─────────────┐</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53"> </span></span><span style="--0:#d6deeb;--1:#403f53">(geometry, color,      │              │              │             │</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">events, Scene)        ▼              ▼              ▼             ▼</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                  </span></span><span style="--0:#d6deeb;--1:#403f53">ravenrs-layout    ravenrs-text     ravenrs-style   ravenrs-render</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                   </span></span><span style="--0:#d6deeb;--1:#403f53">(Taffy)        (Parley)       (tokens)      (wgpu, swash)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-reactive ───┐      │              │              │             │</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53"> </span></span><span style="--0:#d6deeb;--1:#403f53">(State, Binding, │      └──────┬───────┴──────────────┘             │</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">  </span></span><span style="--0:#d6deeb;--1:#403f53">Derived)        └────► ravenrs-widgets                               │</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                         </span></span><span style="--0:#d6deeb;--1:#403f53">(View, Component, BuildCx, Ui)              │</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                                </span></span><span style="--0:#d6deeb;--1:#403f53">│                                    │</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                </span></span><span style="--0:#d6deeb;--1:#403f53">┌───────────────┴───────────────┐                    │</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                </span></span><span style="--0:#d6deeb;--1:#403f53">▼                               ▼                    │</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">     </span></span><span style="--0:#d6deeb;--1:#403f53">ravenrs-platform-native             ravenrs-platform-web ◄──────────┘</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">       </span></span><span style="--0:#d6deeb;--1:#403f53">(winit + wgpu)              (canvas + WebGPU, wasm32 only)</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                </span></span><span style="--0:#d6deeb;--1:#403f53">└───────────────┬───────────────┘</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                                </span></span><span style="--0:#d6deeb;--1:#403f53">▼</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                             </span></span><span style="--0:#d6deeb;--1:#403f53">ravenrs  (facade + prelude)</span></div></div><div class="ec-line"><div class="code">
+</div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-mcp  ──► ravenrs-criteria  (tool for coding assistants; nothing depends on it)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-lint                       (lints for applications; reads sources with syn, depends on no RavenRS crate)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-xcache                     (compiler cache that worktrees share; stands in front of rustc, depends on no RavenRS crate, not published)</span></div></div><div class="ec-line"><div class="code">
+</div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-criteria  (expression language, no RavenRS dependencies)</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">        </span></span><span style="--0:#d6deeb;--1:#403f53">▲</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">        </span></span><span style="--0:#d6deeb;--1:#403f53">├── ravenrs-widgets  (DataGrid filter expressions, number layout)</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">        </span></span><span style="--0:#d6deeb;--1:#403f53">│</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-barcode  (what a barcode is, GTIN checks; no RavenRS dependencies, nothing about drawing)</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">        </span></span><span style="--0:#d6deeb;--1:#403f53">▲</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">        </span></span><span style="--0:#d6deeb;--1:#403f53">├── ravenrs-graphics, ravenrs-nfe, ravenrs-app-ui (GTIN editor), ravenrs-pos</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">        </span></span><span style="--0:#d6deeb;--1:#403f53">│</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-graphics  ──► ravenrs-core  (shapes, chart layout, barcodes; shared, knows no engine)</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">        </span></span><span style="--0:#d6deeb;--1:#403f53">▲</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">        </span></span><span style="--0:#d6deeb;--1:#403f53">│</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-lottie  ──► ravenrs-core  (reads Lottie files into curves; no GPU, no widgets)</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">        </span></span><span style="--0:#d6deeb;--1:#403f53">▲</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">        </span></span><span style="--0:#d6deeb;--1:#403f53">└── ravenrs-widgets  (`Lottie`, with the `lottie` feature)</span></div></div><div class="ec-line"><div class="code">
+</div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-report  ──► ravenrs-core, ravenrs-text  (no GPU, no window)</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">        </span></span><span style="--0:#d6deeb;--1:#403f53">▲</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">        </span></span><span style="--0:#d6deeb;--1:#403f53">│</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-report-pdf, ravenrs-report-xlsx  (exporters: Document ──► file)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-report-export  ──► the exporters  (one entry point: format, name, media type)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-widgets        ──► every ravenrs-widgets-* below  (the facade: re-exports them all by the same names)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-widgets-grid, -lists, -scheduler, -dock, -imaging, -charts, -chat</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                       </span></span><span style="--0:#d6deeb;--1:#403f53">──► ravenrs-widgets-kit, ravenrs-widgets-base  (one family each; never another family)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-widgets-kit    ──► ravenrs-widgets-base</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-grid-export    ──► ravenrs-widgets, ravenrs-report-export  (what a DataGrid shows ──► file)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-flow-export    ──► ravenrs-widgets, ravenrs-report-export, ravenrs-text  (a FlowCanvas picture ──► PNG, SVG, PDF)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-flow-bpmn      ──► ravenrs-widgets  (BPMN 2.0 as a FlowNotation, BPMN XML)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-flows          ──► ravenrs-graphics, ravenrs-criteria  (runs a flow: definition, catalog of node kinds, plan, items from node to node, built-in nodes; no GUI)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-flows-runtime  ──► ravenrs-flows, rusqlite  (durable runs: a queue with leases, checkpoints, resuming, waits, reruns, retention)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-app            ──► ravenrs-criteria, ravenrs-reactive  (entities, application model, object spaces, actions, frames; no GUI)</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                           </span></span><span style="--0:#d6deeb;--1:#403f53">and ravenrs-app-spec with `source` (entities read from Rust source while running)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-app-spec       ──► ravenrs-criteria, syn  (what the derives read from a struct or enum, as data)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-app-derive     ──► ravenrs-app-spec  (the derives, re-exported by ravenrs-app)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-live           ──► ravenrs-reactive, syn  (interprets the Rust of examples; host types through a Registry)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-project        ──► syn, zip  (code of the playground ──► a Cargo project, as files or a .zip)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-live-derive    (#[expose]: registers an impl block, struct, enum or module; behind `live` in core, style, layout, graphics, lottie, widgets, movie, app, app-ui)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-app-sqlite     ──► ravenrs-app, rusqlite  (records in SQLite)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-app-ui         ──► ravenrs-app, ravenrs-widgets, ravenrs-grid-export, ravenrs-report  (the screens, from the model)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-app-library    ──► ravenrs-app  (ready-made records)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-app-update     ──► serde_json, ureq  (installing and updating an app by compiling it; no GUI, knows no app)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-app-report     ──► ravenrs-app-ui, ravenrs-grid-export, ravenrs-report-designer  (reports and panels)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-app-server     ──► ravenrs-app, ravenrs-criteria  (HTTP on one worker thread; no GUI)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-app-remote     ──► ravenrs-app-ui  (the same screens over the API of ravenrs-app-server, which it does not depend on)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-app-sqlite, ravenrs-app-postgres ──► ravenrs-app-sql ──► ravenrs-app, ravenrs-criteria  (only these two know a database driver)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-app-postgrest  ──► ravenrs-app, ravenrs-app-sql (its words only), ureq  (the same records through PostgREST over HTTP; no driver)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-sheet          (spreadsheet engine from GridCraft: formulas, recalculation, XLSX; depends on nothing in RavenRS)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-spreadsheet    ──► ravenrs-sheet, ravenrs-widgets  (`Spreadsheet`: the engine ──► screen)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-word           (word-processing engine from WordCraft: document model, DOCX/DOC/RTF/ODT/HTML/Markdown; depends on nothing in RavenRS)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-pdf            (PDF engine from PdfCraft: reading, saving, merging and splitting, rendering to pixels; depends on nothing in RavenRS)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-deck           (presentation engine from DeckCraft: slide model, PPTX, rendering, PDF export, commands with undo; depends on nothing in RavenRS)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-movie          ──► ravenrs-widgets (recorded draw lists ──► screen)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-e2e            ──► ravenrs-widgets-base (end-to-end tests: find by test id, role or text, real input events, the screen as text; no widget family)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-e2e-wire       ──► ravenrs-e2e (the test channel: a tool drives an app in a child process with no window, one JSON line per step; feature `serve` on the app's side)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-ai             ──► ravenrs-widgets (models on the machine; desktop only)</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">        </span></span><span style="--0:#d6deeb;--1:#403f53">▲</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">        </span></span><span style="--0:#d6deeb;--1:#403f53">├── ravenrs-report-server  (HTTP, schedules, delivery; only this crate has a runtime)</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">        </span></span><span style="--0:#d6deeb;--1:#403f53">│</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-report-label    ──► ravenrs-report, ravenrs-text  (Document ──► printer language; no GUI)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-report-designer ──► ravenrs-report-viewer, ravenrs-report-export, ravenrs-report-label, ravenrs-widgets  (the designer)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">examples/report-designer  ──► ravenrs, ravenrs-report-designer</span></div></div><div class="ec-line"><div class="code">
+</div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-dfe        (BETA: XML, C14N, XMLDSig, `Transport`, sandbox handlers, certificates; shared by the fiscal engines)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-nfe        ──► ravenrs-dfe, ravenrs-barcode  (BETA: NF-e and NFC-e with no GUI; everything leaves through `Transport`)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-nfse       ──► ravenrs-dfe  (BETA: NFS-e of the national standard with no GUI; `SefinSandbox`)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-pagamento  (BETA: payments with no GUI; everything goes through `ProvedorPagamento`)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-perifericos  (BETA: peripherals as data, in versioned manifests)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-pos        (the rules of a counter with no GUI and nothing fiscal)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-app-nfe    ──► ravenrs-nfe, ravenrs-nfse, ravenrs-app-ui, ravenrs-app-report, ravenrs-report-label  (BETA: the module)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">ravenrs-app-pos    ──► ravenrs-pos, ravenrs-app-nfe, ravenrs-app-ui, ravenrs-app-report, ravenrs-report-label  (BETA: the module)</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">examples/mini-pdv  ──► ravenrs-app-pos, ravenrs-app-nfe, ravenrs-app-sqlite  (native only: it only puts them together)</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="ravenrs-core ─────────────┬──────────────┬──────────────┬─────────────┐ (geometry, color,      │              │              │             │  events, Scene)        ▼              ▼              ▼             ▼                  ravenrs-layout    ravenrs-text     ravenrs-style   ravenrs-render                   (Taffy)        (Parley)       (tokens)      (wgpu, swash)ravenrs-reactive ───┐      │              │              │             │ (State, Binding, │      └──────┬───────┴──────────────┘             │  Derived)        └────► ravenrs-widgets                               │                         (View, Component, BuildCx, Ui)              │                                │                                    │                ┌───────────────┴───────────────┐                    │                ▼                               ▼                    │     ravenrs-platform-native             ravenrs-platform-web ◄──────────┘       (winit + wgpu)              (canvas + WebGPU, wasm32 only)                └───────────────┬───────────────┘                                ▼                             ravenrs  (facade + prelude)ravenrs-mcp  ──► ravenrs-criteria  (tool for coding assistants; nothing depends on it)ravenrs-lint                       (lints for applications; reads sources with syn, depends on no RavenRS crate)ravenrs-xcache                     (compiler cache that worktrees share; stands in front of rustc, depends on no RavenRS crate, not published)ravenrs-criteria  (expression language, no RavenRS dependencies)        ▲        ├── ravenrs-widgets  (DataGrid filter expressions, number layout)        │ravenrs-barcode  (what a barcode is, GTIN checks; no RavenRS dependencies, nothing about drawing)        ▲        ├── ravenrs-graphics, ravenrs-nfe, ravenrs-app-ui (GTIN editor), ravenrs-pos        │ravenrs-graphics  ──► ravenrs-core  (shapes, chart layout, barcodes; shared, knows no engine)        ▲        │ravenrs-lottie  ──► ravenrs-core  (reads Lottie files into curves; no GPU, no widgets)        ▲        └── ravenrs-widgets  (`Lottie`, with the `lottie` feature)ravenrs-report  ──► ravenrs-core, ravenrs-text  (no GPU, no window)        ▲        │ravenrs-report-pdf, ravenrs-report-xlsx  (exporters: Document ──► file)ravenrs-report-export  ──► the exporters  (one entry point: format, name, media type)ravenrs-widgets        ──► every ravenrs-widgets-* below  (the facade: re-exports them all by the same names)ravenrs-widgets-grid, -lists, -scheduler, -dock, -imaging, -charts, -chat                       ──► ravenrs-widgets-kit, ravenrs-widgets-base  (one family each; never another family)ravenrs-widgets-kit    ──► ravenrs-widgets-baseravenrs-grid-export    ──► ravenrs-widgets, ravenrs-report-export  (what a DataGrid shows ──► file)ravenrs-flow-export    ──► ravenrs-widgets, ravenrs-report-export, ravenrs-text  (a FlowCanvas picture ──► PNG, SVG, PDF)ravenrs-flow-bpmn      ──► ravenrs-widgets  (BPMN 2.0 as a FlowNotation, BPMN XML)ravenrs-flows          ──► ravenrs-graphics, ravenrs-criteria  (runs a flow: definition, catalog of node kinds, plan, items from node to node, built-in nodes; no GUI)ravenrs-flows-runtime  ──► ravenrs-flows, rusqlite  (durable runs: a queue with leases, checkpoints, resuming, waits, reruns, retention)ravenrs-app            ──► ravenrs-criteria, ravenrs-reactive  (entities, application model, object spaces, actions, frames; no GUI)                           and ravenrs-app-spec with `source` (entities read from Rust source while running)ravenrs-app-spec       ──► ravenrs-criteria, syn  (what the derives read from a struct or enum, as data)ravenrs-app-derive     ──► ravenrs-app-spec  (the derives, re-exported by ravenrs-app)ravenrs-live           ──► ravenrs-reactive, syn  (interprets the Rust of examples; host types through a Registry)ravenrs-project        ──► syn, zip  (code of the playground ──► a Cargo project, as files or a .zip)ravenrs-live-derive    (#[expose]: registers an impl block, struct, enum or module; behind `live` in core, style, layout, graphics, lottie, widgets, movie, app, app-ui)ravenrs-app-sqlite     ──► ravenrs-app, rusqlite  (records in SQLite)ravenrs-app-ui         ──► ravenrs-app, ravenrs-widgets, ravenrs-grid-export, ravenrs-report  (the screens, from the model)ravenrs-app-library    ──► ravenrs-app  (ready-made records)ravenrs-app-update     ──► serde_json, ureq  (installing and updating an app by compiling it; no GUI, knows no app)ravenrs-app-report     ──► ravenrs-app-ui, ravenrs-grid-export, ravenrs-report-designer  (reports and panels)ravenrs-app-server     ──► ravenrs-app, ravenrs-criteria  (HTTP on one worker thread; no GUI)ravenrs-app-remote     ──► ravenrs-app-ui  (the same screens over the API of ravenrs-app-server, which it does not depend on)ravenrs-app-sqlite, ravenrs-app-postgres ──► ravenrs-app-sql ──► ravenrs-app, ravenrs-criteria  (only these two know a database driver)ravenrs-app-postgrest  ──► ravenrs-app, ravenrs-app-sql (its words only), ureq  (the same records through PostgREST over HTTP; no driver)ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)ravenrs-sheet          (spreadsheet engine from GridCraft: formulas, recalculation, XLSX; depends on nothing in RavenRS)ravenrs-spreadsheet    ──► ravenrs-sheet, ravenrs-widgets  (`Spreadsheet`: the engine ──► screen)ravenrs-word           (word-processing engine from WordCraft: document model, DOCX/DOC/RTF/ODT/HTML/Markdown; depends on nothing in RavenRS)ravenrs-pdf            (PDF engine from PdfCraft: reading, saving, merging and splitting, rendering to pixels; depends on nothing in RavenRS)ravenrs-deck           (presentation engine from DeckCraft: slide model, PPTX, rendering, PDF export, commands with undo; depends on nothing in RavenRS)ravenrs-movie          ──► ravenrs-widgets (recorded draw lists ──► screen)ravenrs-e2e            ──► ravenrs-widgets-base (end-to-end tests: find by test id, role or text, real input events, the screen as text; no widget family)ravenrs-e2e-wire       ──► ravenrs-e2e (the test channel: a tool drives an app in a child process with no window, one JSON line per step; feature `serve` on the app's side)ravenrs-ai             ──► ravenrs-widgets (models on the machine; desktop only)        ▲        ├── ravenrs-report-server  (HTTP, schedules, delivery; only this crate has a runtime)        │ravenrs-report-label    ──► ravenrs-report, ravenrs-text  (Document ──► printer language; no GUI)ravenrs-report-designer ──► ravenrs-report-viewer, ravenrs-report-export, ravenrs-report-label, ravenrs-widgets  (the designer)examples/report-designer  ──► ravenrs, ravenrs-report-designerravenrs-dfe        (BETA: XML, C14N, XMLDSig, `Transport`, sandbox handlers, certificates; shared by the fiscal engines)ravenrs-nfe        ──► ravenrs-dfe, ravenrs-barcode  (BETA: NF-e and NFC-e with no GUI; everything leaves through `Transport`)ravenrs-nfse       ──► ravenrs-dfe  (BETA: NFS-e of the national standard with no GUI; `SefinSandbox`)ravenrs-pagamento  (BETA: payments with no GUI; everything goes through `ProvedorPagamento`)ravenrs-perifericos  (BETA: peripherals as data, in versioned manifests)ravenrs-pos        (the rules of a counter with no GUI and nothing fiscal)ravenrs-app-nfe    ──► ravenrs-nfe, ravenrs-nfse, ravenrs-app-ui, ravenrs-app-report, ravenrs-report-label  (BETA: the module)ravenrs-app-pos    ──► ravenrs-pos, ravenrs-app-nfe, ravenrs-app-ui, ravenrs-app-report, ravenrs-report-label  (BETA: the module)examples/mini-pdv  ──► ravenrs-app-pos, ravenrs-app-nfe, ravenrs-app-sqlite  (native only: it only puts them together)"><div></div></button></div></figure></div>
+<p><code dir="auto">ravenrs-criteria</code> (the expression language) depends on nothing else in RavenRS, so any module can use it for filters, rules and validation. <code dir="auto">ravenrs-report</code> (the report engine) depends only on <code dir="auto">ravenrs-core</code>, <code dir="auto">ravenrs-text</code> and <code dir="auto">ravenrs-criteria</code>, so it also runs on servers. <code dir="auto">ravenrs-widgets</code> uses <code dir="auto">ravenrs-criteria</code> without its JSON feature, for <code dir="auto">DataGrid</code> filter expressions and number layout. The <code dir="auto">ravenrs</code> facade re-exports neither of them; apps depend on them directly. See <a href="#63-criteria-language">§6.3</a>, <a href="#64-reporting">§6.4</a> and <a href="/RavenRS/docs/reporting/">docs/REPORTING.md</a>.</p>
+<p>There are no cycles. <code dir="auto">ravenrs-render</code> also uses <code dir="auto">ravenrs-text</code>, and the platform crates are where widgets and the renderer come together. <code dir="auto">ravenrs-widgets</code> never touches the GPU and <code dir="auto">ravenrs-render</code> knows nothing about widgets; they meet only through <code dir="auto">ravenrs_core::Scene</code>, a plain display list. That boundary keeps widgets testable without a GPU (the widget tests run headless) and keeps the renderer replaceable.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="3-1-where-things-live">3.1 Where things live</h2><a class="sl-anchor-link" href="#3-1-where-things-live"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “3.1 Where things live”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Crate</th>
+<th>Modules</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code dir="auto">ravenrs-core</code></td>
+<td><code dir="auto">geometry</code>, <code dir="auto">color</code>, <code dir="auto">event</code>, <code dir="auto">scene</code> (the display list), <code dir="auto">access</code> (the accessibility tree), <code dir="auto">csv</code> (field quoting for every CSV export)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-animation</code></td>
+<td><code dir="auto">spring</code>, <code dir="auto">easing</code>, <code dir="auto">oklab</code>, <code dir="auto">animated</code> (pure functions of time)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-reactive</code></td>
+<td><code dir="auto">state</code>, <code dir="auto">binding</code>, <code dir="auto">derived</code>, <code dir="auto">observer</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-render</code></td>
+<td><code dir="auto">renderer</code> (batching and passes), <code dir="auto">gpu</code> (surface and device), <code dir="auto">atlas</code> (glyphs), <code dir="auto">images</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-platform-native</code></td>
+<td><code dir="auto">lib</code> (winit loop), <code dir="auto">access</code> (AccessKit)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-wayland-gestures</code></td>
+<td>Touchpad pinches on Wayland, until winit delivers them; the only <code dir="auto">unsafe</code> call</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-wayland-gestures</code></td>
+<td>Touchpad pinches on Wayland, until winit delivers them; the only <code dir="auto">unsafe</code> call</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-platform-web</code></td>
+<td><code dir="auto">app</code> (canvas, events, frames), <code dir="auto">access</code> (ARIA mirror), <code dir="auto">error</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-criteria</code></td>
+<td><code dir="auto">ast</code>, <code dir="auto">parse</code>, <code dir="auto">format</code>, <code dir="auto">eval</code>, <code dir="auto">functions</code>, <code dir="auto">validate</code>, <code dir="auto">sql</code>, <code dir="auto">value</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-report</code></td>
+<td><code dir="auto">model</code>, <code dir="auto">engine</code>, <code dir="auto">document</code>, <code dir="auto">base64</code>, <code dir="auto">paint</code>, <code dir="auto">wizard</code>, <code dir="auto">samples</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-graphics</code></td>
+<td><code dir="auto">vector</code>, <code dir="auto">chart</code>, <code dir="auto">plot</code>, <code dir="auto">sankey</code>, <code dir="auto">flow</code> (diagrams of nodes and the routes of their lines), <code dir="auto">barcode</code>; also the optional layout behind <code dir="auto">Chart</code> and <code dir="auto">Barcode</code> in <code dir="auto">ravenrs-widgets</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-lottie</code></td>
+<td><code dir="auto">document</code> (reading a file, and what it asks for that is not done yet), <code dir="auto">property</code> (keyframes), <code dir="auto">geometry</code> (trim, dash, stroke), <code dir="auto">player</code> (one moment as <code dir="auto">PathFill</code>s)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-barcode</code></td>
+<td><code dir="auto">lib</code> (<code dir="auto">Symbology</code>, <code dir="auto">Pattern</code>, <code dir="auto">encode</code>, GTIN)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-report-label</code></td>
+<td><code dir="auto">raster</code> (a page as dots), <code dir="auto">bitmap</code>, <code dir="auto">language</code> (<code dir="auto">LabelJob</code>, <code dir="auto">Language</code>, <code dir="auto">compile</code>), <code dir="auto">output</code> (TCP 9100, CUPS, file, Windows share), <code dir="auto">preset</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-dfe</code></td>
+<td><code dir="auto">xml</code>, <code dir="auto">c14n</code>, <code dir="auto">assinatura</code> (<code dir="auto">Algoritmo</code>, <code dir="auto">Signer</code>), <code dir="auto">transporte</code> (<code dir="auto">Transport</code>, <code dir="auto">Metodo</code>), <code dir="auto">interceptacao</code> (<code dir="auto">Cadeia</code>, <code dir="auto">OnUnhandled</code>, <code dir="auto">Rota</code>), <code dir="auto">compactacao</code>, <code dir="auto">certificado_x509</code>, <code dir="auto">certificados</code> (the laboratory), <code dir="auto">tempo</code>, <code dir="auto">http</code> (feature <code dir="auto">http</code>, native only)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-nfe</code></td>
+<td><code dir="auto">modelo</code>, <code dir="auto">totais</code>, <code dir="auto">chave</code>, <code dir="auto">documento</code> (deterministic XML), <code dir="auto">soap</code>, <code dir="auto">retorno</code>, <code dir="auto">urls</code>, <code dir="auto">ambiente</code> (no production), <code dir="auto">sandbox</code> (<code dir="auto">SefazSandbox</code>, handlers and scenarios; <code dir="auto">catalogo</code>, <code dir="auto">analise</code>, <code dir="auto">autopsia</code>, <code dir="auto">certificados</code>, <code dir="auto">vigencia</code>); re-exports <code dir="auto">xml</code>, <code dir="auto">c14n</code>, <code dir="auto">assinatura</code>, <code dir="auto">transporte</code> and <code dir="auto">http</code> from <code dir="auto">ravenrs-dfe</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-nfse</code></td>
+<td><code dir="auto">modelo</code>, <code dir="auto">dps</code> (deterministic XML), <code dir="auto">chave</code>, <code dir="auto">evento</code> (cancellation), <code dir="auto">retorno</code> (JSON), <code dir="auto">danfse</code> (the rules of the NT 008), <code dir="auto">ambiente</code> (no production), <code dir="auto">sandbox</code> (<code dir="auto">SefinSandbox</code>, routes, scenarios, <code dir="auto">REGRAS</code>)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-pagamento</code></td>
+<td><code dir="auto">dominio</code>, <code dir="auto">provedor</code>, <code dir="auto">pagamentos</code>, <code dir="auto">diario</code> (written before it acts), <code dir="auto">fiscal</code>, <code dir="auto">simulador</code>, <code dir="auto">abecs</code>, <code dir="auto">intpos</code>, <code dir="auto">sitef</code>, <code dir="auto">mercado_pago</code>, <code dir="auto">stone</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-perifericos</code></td>
+<td><code dir="auto">manifesto</code>, <code dir="auto">catalogo</code>, <code dir="auto">registro</code>, <code dir="auto">armazem</code>, <code dir="auto">comando</code>, <code dir="auto">transporte</code>, <code dir="auto">embutidos</code>, <code dir="auto">data</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-pos</code></td>
+<td><code dir="auto">lib</code> (<code dir="auto">Carrinho</code>, <code dir="auto">Leitura</code>, totals, payments), <code dir="auto">entrada</code>, <code dir="auto">preco</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-app-nfe</code></td>
+<td><code dir="auto">module</code> (<code dir="auto">NfeModule</code>), <code dir="auto">service</code> (<code dir="auto">NfeService</code>), <code dir="auto">cupom</code> (receipt and DANFE as stored reports)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-app-pos</code></td>
+<td><code dir="auto">modelo</code>, <code dir="auto">modulo</code> (<code dir="auto">Pos</code>), <code dir="auto">caixa</code>, <code dir="auto">telas</code>, <code dir="auto">etiquetas</code>, <code dir="auto">entrada</code>, <code dir="auto">preco</code>, <code dir="auto">codigos</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-report-export</code></td>
+<td><code dir="auto">lib</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-grid-export</code></td>
+<td><code dir="auto">lib</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-flow-export</code></td>
+<td><code dir="auto">lib</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-flow-bpmn</code></td>
+<td><code dir="auto">elements</code>, <code dir="auto">xml</code>, <code dir="auto">rules</code>, <code dir="auto">plan</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-flows</code></td>
+<td><code dir="auto">item</code>, <code dir="auto">time</code> (clocks and <code dir="auto">CancelToken</code>), <code dir="auto">definition</code>, <code dir="auto">catalog</code> (kinds and <code dir="auto">NodeContext</code>), <code dir="auto">plan</code>, <code dir="auto">run</code> (<code dir="auto">Executor</code>, loops), <code dir="auto">nodes</code> (the built-in kinds, <code dir="auto">Catalog::builtin</code>), <code dir="auto">graph</code> (the bridge to <code dir="auto">FlowGraph</code> and <code dir="auto">FlowRunRules</code>)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-flows-runtime</code></td>
+<td><code dir="auto">store</code> (the tables and statements), <code dir="auto">runtime</code> (<code dir="auto">Runtime</code>: queue, leases, checkpoints, waits, reruns, retention)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-app-spec</code></td>
+<td><code dir="auto">lib</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-project</code></td>
+<td><code dir="auto">lib</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-app-derive</code></td>
+<td><code dir="auto">lib</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-live</code></td>
+<td><code dir="auto">value</code> (values, host objects, conversions), <code dir="auto">registry</code> (what the host offers), <code dir="auto">eval</code> (the interpreter), <code dir="auto">bridge</code> (what <code dir="auto">#[expose]</code> calls through)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-live-derive</code></td>
+<td><code dir="auto">lib</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-app-sqlite</code></td>
+<td><code dir="auto">lib</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-app-library</code></td>
+<td><code dir="auto">lib</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-app-update</code></td>
+<td><code dir="auto">lib</code> (<code dir="auto">Updater</code>, <code dir="auto">decide</code>), <code dir="auto">app</code> (<code dir="auto">InstalledApp</code>: folders and addresses), <code dir="auto">news</code>, <code dir="auto">installer</code> (lock, steps, running it), <code dir="auto">template</code> (the <code dir="auto">install.cmd</code> of each app), <code dir="auto">release</code> (the three release files)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-app-report</code></td>
+<td><code dir="auto">lib</code>, <code dir="auto">stored</code>, <code dir="auto">analytics</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-app-server</code></td>
+<td><code dir="auto">lib</code> (<code dir="auto">ApiService</code>, routes, sessions), <code dir="auto">json</code>, <code dir="auto">openapi</code>, <code dir="auto">http</code> (worker thread and axum)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-app-remote</code></td>
+<td><code dir="auto">lib</code> (<code dir="auto">RemoteClient</code>, <code dir="auto">RemoteDatabase</code>, <code dir="auto">RemoteObjectSpace</code>), <code dir="auto">transport</code>, <code dir="auto">gate</code> (<code dir="auto">RemoteApp</code>)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-app-sql</code></td>
+<td><code dir="auto">lib</code> (<code dir="auto">SqlBackend</code>, <code dir="auto">SqlDatabase</code>, <code dir="auto">SqlObjectSpace</code>, <code dir="auto">TableMap</code>)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-app-postgres</code></td>
+<td><code dir="auto">lib</code> (<code dir="auto">PostgresBackend</code>, types in and out)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-app-postgrest</code></td>
+<td><code dir="auto">lib</code> (<code dir="auto">PostgrestDatabase</code>, <code dir="auto">PostgrestObjectSpace</code>, <code dir="auto">ResourceMap</code>), <code dir="auto">filter</code> (criteria in PostgREST’s words), <code dir="auto">http</code> (<code dir="auto">Http</code>, <code dir="auto">UreqHttp</code>), <code dir="auto">server</code> (<code dir="auto">SERVER_SQL</code>)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-report-designer</code></td>
+<td><code dir="auto">lib</code>, <code dir="auto">editor</code>, <code dir="auto">bands</code>, <code dir="auto">surface</code>, <code dir="auto">props</code>, <code dir="auto">preview</code>, <code dir="auto">thermal</code> (printing straight to a printer)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-app-ui</code></td>
+<td><code dir="auto">app</code>, <code dir="auto">pane</code>, <code dir="auto">form</code>, <code dir="auto">session</code>, <code dir="auto">background</code>, <code dir="auto">shell</code>, <code dir="auto">list_view</code>, <code dir="auto">detail_view</code>, <code dir="auto">nested</code>, <code dir="auto">dashboard</code>, <code dir="auto">editors</code>, <code dir="auto">container</code>, <code dir="auto">system</code>, <code dir="auto">values</code>, <code dir="auto">security</code>, <code dir="auto">model_editor</code>, <code dir="auto">list_editors</code>, <code dir="auto">reminders</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-app</code></td>
+<td><code dir="auto">entity</code>, <code dir="auto">object</code>, <code dir="auto">model</code> (<code dir="auto">node</code>, <code dir="auto">layers</code>, <code dir="auto">store</code>, <code dir="auto">generate</code>, <code dir="auto">captions</code>), <code dir="auto">space</code>, <code dir="auto">action</code>, <code dir="auto">controller</code>, <code dir="auto">frame</code>, <code dir="auto">module</code>, <code dir="auto">functions</code>, <code dir="auto">files</code>, <code dir="auto">workflow</code>, <code dir="auto">records</code> (numbers and drafts), <code dir="auto">security</code> (<code dir="auto">space</code>, <code dir="auto">directory</code>, <code dir="auto">password</code>, <code dir="auto">records</code>, <code dir="auto">audit</code>)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-report-pdf</code></td>
+<td><code dir="auto">lib</code> (pages, fonts)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-report-xlsx</code></td>
+<td><code dir="auto">lib</code> (grid, cells, CSV), <code dir="auto">format</code> (Excel number formats)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-report-viewer</code></td>
+<td><code dir="auto">lib</code> (<code dir="auto">DocumentViewer</code>), <code dir="auto">search</code>, <code dir="auto">parameters</code> (<code dir="auto">ParameterPanel</code>)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-sheet</code></td>
+<td><code dir="auto">base</code> (addresses, values, dates), <code dir="auto">numfmt</code>, <code dir="auto">formula</code>, <code dir="auto">functions</code>, <code dir="auto">math</code>, <code dir="auto">model</code>, <code dir="auto">calc</code>, <code dir="auto">xlsx</code>, <code dir="auto">chart</code>, <code dir="auto">pdf</code>, <code dir="auto">engine</code> (<code dir="auto">Session</code>: every action a command with undo). Kept as it came from GridCraft, with its own <code dir="auto">rustfmt.toml</code> and <code dir="auto">clippy.toml</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-word</code></td>
+<td><code dir="auto">geom</code>, <code dir="auto">doc</code> (the model: stories, styles, lists, sections, notes, tracked changes), <code dir="auto">metafile</code> (WMF/EMF), <code dir="auto">docx</code>, <code dir="auto">docbin</code> (<code dir="auto">.doc</code>, read-only), <code dir="auto">formats</code> (TXT, Markdown, HTML, RTF, ODT, LaTeX). Kept as it came from WordCraft, with its own <code dir="auto">rustfmt.toml</code> and <code dir="auto">clippy.toml</code>; <code dir="auto">scripts/storytold/</code> converts and merges new revisions</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-pdf</code></td>
+<td><code dir="auto">geom</code>, <code dir="auto">crypt</code>, <code dir="auto">filters</code>, <code dir="auto">cos</code> (objects, repair, saves, encryption), <code dir="auto">model</code>, <code dir="auto">content</code>, <code dir="auto">fonts</code>, <code dir="auto">render</code> (pages to pixels, text, inspection), <code dir="auto">organize</code> (merge, split, pages, attachments); <code dir="auto">third_party</code> holds the hayro, vello_cpu and lopdf revisions PdfCraft patches. Kept as it came, with its own <code dir="auto">rustfmt.toml</code> and <code dir="auto">clippy.toml</code>; built at <code dir="auto">opt-level = 1</code> in dev, as PdfCraft is</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-deck</code></td>
+<td><code dir="auto">geom</code>, <code dir="auto">color</code>, <code dir="auto">model</code> (slides, layouts, masters, shapes, text, tables, charts), <code dir="auto">fonts</code>, <code dir="auto">text</code> (line breaking, bidi, fields), <code dir="auto">anim</code>, <code dir="auto">render</code> (slides to pixels), <code dir="auto">pptx</code>, <code dir="auto">format</code> (the native zip), <code dir="auto">pdf</code>, <code dir="auto">media</code> (probing, poster frames), <code dir="auto">engine</code> (<code dir="auto">Session</code>: every action a command with undo), <code dir="auto">mcp</code> (the commands as agent tools); <code dir="auto">craft</code> holds the craft-libs crates DeckCraft uses (metafile, pdf, media, audio, video) and <code dir="auto">third_party</code> the krilla it patches. Kept as it came, with its own <code dir="auto">rustfmt.toml</code> and <code dir="auto">clippy.toml</code>; built at <code dir="auto">opt-level = 1</code> in dev, as DeckCraft is</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-spreadsheet</code></td>
+<td><code dir="auto">lib</code> (<code dir="auto">Spreadsheet</code>, labels), <code dir="auto">state</code> (<code dir="auto">SpreadsheetState</code>), <code dir="auto">surface</code> (the painted grid, pointer and keys), <code dir="auto">geometry</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-ai</code></td>
+<td><code dir="auto">machine</code> (memory and disk), <code dir="auto">models</code> (<code dir="auto">LocalModel</code>, <code dir="auto">ModelFolder</code>: download checked by hash, remove), <code dir="auto">catalog</code>, <code dir="auto">manager</code> (<code dir="auto">ModelManager</code>). Desktop only</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-movie</code></td>
+<td><code dir="auto">movie</code> (the film: draw lists, each thing stored once), <code dir="auto">project</code> (non-destructive edits), <code dir="auto">composition</code> (one moment drawn), <code dir="auto">record</code> (<code dir="auto">Recorder</code>), <code dir="auto">player</code> (with sound and the boxes that explain each step), <code dir="auto">search</code> (<code dir="auto">MovieLibrary</code>), <code dir="auto">assistant</code> (<code dir="auto">MovieAssistant</code>), <code dir="auto">chat</code> (<code dir="auto">MovieChat</code>), <code dir="auto">editor</code>, <code dir="auto">flight</code> (<code dir="auto">FlightRecorder</code>, <code dir="auto">BugReporter</code>)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-report-server</code></td>
+<td><code dir="auto">config</code>, <code dir="auto">store</code>, <code dir="auto">cron</code>, <code dir="auto">job</code>, <code dir="auto">render</code>, <code dir="auto">deliver</code>, <code dir="auto">scheduler</code>, <code dir="auto">http</code>, <code dir="auto">main</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-mcp</code></td>
+<td><code dir="auto">api</code> (index of the public API, parsed from embedded sources), <code dir="auto">docs</code>, <code dir="auto">expression</code>, <code dir="auto">server</code></td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-lint</code></td>
+<td><code dir="auto">rules</code> (the syntax-tree walk and <code dir="auto">allow</code> comments), <code dir="auto">config</code> (<code dir="auto">[metadata.ravenrs-lint]</code>), <code dir="auto">workspace</code> (<code dir="auto">cargo metadata</code>), <code dir="auto">report</code> (compiler-style and JSON), <code dir="auto">init</code> (strict lints, agents’ instructions)</td>
+</tr>
+<tr>
+<td><code dir="auto">ravenrs-xcache</code></td>
+<td><code dir="auto">args</code> (what a rustc command line asks for, and whether it can be kept), <code dir="auto">paths</code> (the build directory and the checkout, taken out with <code dir="auto">--remap-path-prefix</code>, and the search for a path left in an artifact), <code dir="auto">store</code> (files by SHA-256, results, manifests, the log of requests), <code dir="auto">wrapper</code> (look up, restore, or compile and keep)</td>
+</tr>
+</tbody>
+</table>
+<p>The widgets are ten crates, and applications see one: <code dir="auto">ravenrs-widgets</code>. <code dir="auto">ravenrs-widgets-base</code> holds the runtime (<code dir="auto">view</code>, <code dir="auto">context</code> with <code dir="auto">BuildCx</code>, <code dir="auto">ui</code> and <code dir="auto">ui/access</code>, <code dir="auto">motion</code>, <code dir="auto">modifiers</code>, <code dir="auto">util</code>), the services the platform provides (<code dir="auto">clipboard</code>, <code dir="auto">sound</code>, <code dir="auto">link_service</code>, <code dir="auto">file_picker</code>, <code dir="auto">full_screen</code>, <code dir="auto">remote</code>), the value types more than one family uses (<code dir="auto">ids</code>, <code dir="auto">date</code>, <code dir="auto">recurrence</code>, <code dir="auto">hotkey</code>, <code dir="auto">selection_mode</code>, <code dir="auto">summary</code>, <code dir="auto">dock_side</code>, <code dir="auto">zoom</code>, <code dir="auto">scroll_link</code>, <code dir="auto">time_link</code>), and the basic controls (<code dir="auto">button</code>, <code dir="auto">display</code>, <code dir="auto">stack</code>, <code dir="auto">overlay</code>, <code dir="auto">floating</code>, <code dir="auto">extras</code>, <code dir="auto">choice</code>, <code dir="auto">inputs</code>, <code dir="auto">text_field</code>, <code dir="auto">color_picker</code>, <code dir="auto">calendar</code>). <code dir="auto">ravenrs-widgets-kit</code> holds the components of general use the families are built on (<code dir="auto">nav</code>, <code dir="auto">commands</code>, <code dir="auto">status</code>, <code dir="auto">shortcuts</code>, <code dir="auto">tiles</code>, <code dir="auto">theme</code>, <code dir="auto">diagnostics</code>, <code dir="auto">release_notes</code>, <code dir="auto">model_picker</code>, <code dir="auto">counter</code>, <code dir="auto">data</code>, <code dir="auto">editors</code>, <code dir="auto">filter_builder</code>, <code dir="auto">expression_editor</code>, <code dir="auto">lookup</code>, <code dir="auto">tag_box</code>, <code dir="auto">quick_edit</code>, <code dir="auto">form_layout</code>, <code dir="auto">wizard</code>, <code dir="auto">quad_field</code>, <code dir="auto">files</code>). Each family is a crate of its own that uses only the base and the kit: <code dir="auto">ravenrs-widgets-grid</code> (<code dir="auto">grid/</code>), <code dir="auto">-lists</code> (<code dir="auto">lists/</code>, <code dir="auto">tree</code>), <code dir="auto">-scheduler</code> (<code dir="auto">scheduler/</code>, <code dir="auto">event_calendar</code>, <code dir="auto">timeline</code>), <code dir="auto">-dock</code> (<code dir="auto">dock/</code>, <code dir="auto">ribbon</code>), <code dir="auto">-imaging</code> (<code dir="auto">imaging/</code>, <code dir="auto">lottie</code>), <code dir="auto">-charts</code> (<code dir="auto">chart</code>, <code dir="auto">flow</code>, <code dir="auto">sankey</code>) and <code dir="auto">-chat</code> (<code dir="auto">chat</code>, <code dir="auto">conversation</code>, <code dir="auto">rich_text</code>, <code dir="auto">code_editor</code>, <code dir="auto">playground</code>). <code dir="auto">scripts/check-widget-layers.py</code> fails if a family names another in its <code dir="auto">Cargo.toml</code>. <code dir="auto">ravenrs-widgets</code> is the facade: the playground’s registry (<code dir="auto">live</code>, <code dir="auto">live_list</code>) and the re-export of every name at its root, so <code dir="auto">ravenrs_widgets::Button</code> and <code dir="auto">ravenrs_widgets::DataGrid</code> are written the same way. Its components reach the base’s modules by their old names (<code dir="auto">crate::context::BuildCx</code>); the base makes them <code dir="auto">#[doc(hidden)] pub</code>, which is not a stable API. <code dir="auto">scripts/public-api.py</code> keeps the list of public paths in <code dir="auto">crates/ravenrs-widgets/public-api.txt</code>, reading every <code dir="auto">ravenrs-widgets-*</code> crate as part of the facade. The components are grouped by family:</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Components</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code dir="auto">stack</code>, <code dir="auto">card</code>, <code dir="auto">canvas</code>, <code dir="auto">fill</code>, <code dir="auto">text</code>, <code dir="auto">icon</code>, <code dir="auto">icon_set</code>, <code dir="auto">image</code></td>
+<td>Layout primitives, <code dir="auto">ZStack</code>, <code dir="auto">ScrollEdgeArrow</code>, <code dir="auto">PropertyRow</code>, <code dir="auto">PageHeader</code>, <code dir="auto">TitleBar</code>, <code dir="auto">Footer</code>, cards, custom drawing, text, icons, images</td>
+</tr>
+<tr>
+<td><code dir="auto">button</code>, <code dir="auto">inputs</code>, <code dir="auto">text_field</code>, <code dir="auto">choice</code>, <code dir="auto">calendar</code>, <code dir="auto">date</code></td>
+<td>Buttons, <code dir="auto">ButtonGroup</code>, form controls, text input, <code dir="auto">ToggleGroup</code>, <code dir="auto">FavoriteToggle</code>, <code dir="auto">SwatchGrid</code>, <code dir="auto">NinePointAnchor</code>, <code dir="auto">ColorPair</code>, <code dir="auto">Pagination</code>, <code dir="auto">Label</code>, <code dir="auto">AspectRatio</code>, <code dir="auto">Calendar</code>, <code dir="auto">DatePicker</code>, <code dir="auto">EventCalendar</code>, <code dir="auto">RecurrenceEditor</code></td>
+</tr>
+<tr>
+<td><code dir="auto">files</code></td>
+<td><code dir="auto">FileUpload</code>, <code dir="auto">DropZone</code>, <code dir="auto">ImageField</code> and the service that brings files in</td>
+</tr>
+<tr>
+<td><code dir="auto">quick_edit</code></td>
+<td><code dir="auto">ValueSlider</code>, <code dir="auto">InlineRename</code>: controls that stay small until they are used</td>
+</tr>
+<tr>
+<td><code dir="auto">dock</code></td>
+<td><code dir="auto">DockArea</code>: the arrangement in <code dir="auto">dock::layout</code> (<code dir="auto">DockLayout</code>: a tree of ids, its moves and its saved text) and <code dir="auto">dock::geometry</code> (rectangles and what lies under a drag), both without <code dir="auto">Ui</code>, and the drawing in <code dir="auto">dock::area</code></td>
+</tr>
+<tr>
+<td><code dir="auto">lists</code></td>
+<td>Long lists and what is built on them: <code dir="auto">VirtualList</code>, <code dir="auto">Filmstrip</code>, <code dir="auto">PagedDocumentView</code>, <code dir="auto">FileBrowser</code>, <code dir="auto">YearView</code>, <code dir="auto">SortableList</code>, <code dir="auto">DocumentTabs</code>, with the arithmetic of a reorder drag in <code dir="auto">reorder</code>, in the base, which <code dir="auto">dock</code> uses too</td>
+</tr>
+<tr>
+<td><code dir="auto">imaging</code></td>
+<td>Instruments for pictures, fed by the caller’s data: <code dir="auto">Histogram</code>, <code dir="auto">Ruler</code>, <code dir="auto">ColorWheel</code>, <code dir="auto">CurveEditor</code>, <code dir="auto">ZoomControl</code>, <code dir="auto">ZoomPanView</code>, <code dir="auto">Minimap</code>, <code dir="auto">RuleOfThirdsGrid</code>, <code dir="auto">RubberBand</code>, <code dir="auto">Marquee</code>, <code dir="auto">TransformHandles</code>, <code dir="auto">Protractor</code>, <code dir="auto">CropOverlay</code>, <code dir="auto">Eyedropper</code>, <code dir="auto">CompareView</code>, <code dir="auto">ImageLightbox</code></td>
+</tr>
+<tr>
+<td><code dir="auto">scheduler</code>, <code dir="auto">recurrence</code></td>
+<td><code dir="auto">Scheduler</code> and its time axis, and <code dir="auto">RecurrenceRule</code>, which needs no UI</td>
+</tr>
+<tr>
+<td><code dir="auto">nav</code>, <code dir="auto">ribbon</code></td>
+<td><code dir="auto">Tabs</code>, <code dir="auto">Sidebar</code> and its parts, <code dir="auto">Breadcrumb</code>, <code dir="auto">Disclosure</code>, <code dir="auto">Ribbon</code></td>
+</tr>
+<tr>
+<td><code dir="auto">overlay</code>, <code dir="auto">floating</code>, <code dir="auto">shortcuts</code></td>
+<td><code dir="auto">Tooltip</code>, <code dir="auto">Popover</code>, <code dir="auto">DropdownMenu</code>, <code dir="auto">Select</code>, <code dir="auto">Dialog</code>, then <code dir="auto">ContextMenu</code>, <code dir="auto">HoverCard</code>, <code dir="auto">Sheet</code>, <code dir="auto">SplashScreen</code>, <code dir="auto">Toaster</code>, <code dir="auto">Combobox</code>, <code dir="auto">CommandPalette</code>, then <code dir="auto">ShortcutSheet</code>, <code dir="auto">ShortcutHintBar</code></td>
+</tr>
+<tr>
+<td><code dir="auto">chat</code>, <code dir="auto">rich_text</code>, <code dir="auto">conversation</code></td>
+<td><code dir="auto">Chat</code>, <code dir="auto">ChatMedia</code>, <code dir="auto">FloatingPanel</code>; <code dir="auto">RichText</code>; <code dir="auto">AttachmentStrip</code>, <code dir="auto">AudioPlayerButton</code>, <code dir="auto">SelectionBar</code></td>
+</tr>
+<tr>
+<td><code dir="auto">display</code>, <code dir="auto">status</code>, <code dir="auto">data</code>, <code dir="auto">extras</code></td>
+<td>Badges and alerts; <code dir="auto">Dot</code>, <code dir="auto">OverlayBadge</code>, <code dir="auto">Rating</code>, <code dir="auto">IconTile</code>, <code dir="auto">EmptyState</code>, <code dir="auto">HeroBanner</code>, <code dir="auto">MultiProgress</code>, <code dir="auto">ShimmerText</code>, <code dir="auto">DaySeparator</code>; lists, tables and charts; <code dir="auto">Spinner</code>, <code dir="auto">Carousel</code>, <code dir="auto">Splitter</code>, <code dir="auto">SplitPanes</code>, <code dir="auto">SplitHandle</code>, <code dir="auto">Menubar</code>, <code dir="auto">InputOtp</code>, <code dir="auto">FormField</code></td>
+</tr>
+<tr>
+<td><code dir="auto">counter</code></td>
+<td><code dir="auto">KeyBar</code>, <code dir="auto">ScanField</code>: keys always in sight and a field for a scanner, with nothing about shops</td>
+</tr>
+<tr>
+<td><code dir="auto">grid/</code></td>
+<td><code dir="auto">DataGrid</code>: <code dir="auto">query</code> (pure pipeline), <code dir="auto">model</code>, <code dir="auto">view</code></td>
+</tr>
+</tbody>
+</table>
+<p>Examples use the public API, among them <code dir="auto">feature-center</code>, every feature of the application framework, and: <code dir="auto">hello-world</code>, <code dir="auto">component-gallery</code> (one demo per component), <code dir="auto">report-designer</code> and <code dir="auto">family-finance</code>, a desktop app on SQLite that also finds what is missing in the framework. The design tokens are defined in <a href="https://github.com/alexkads/RavenRS/blob/master/docs/design-system">docs/design-system</a>, and <code dir="auto">ravenrs-style</code> mirrors them value for value.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="4-the-frame-pipeline">4. The frame pipeline</h2><a class="sl-anchor-link" href="#4-the-frame-pipeline"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “4. The frame pipeline”</span></a></div>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">input event ──► Ui::handle_event ──► hit test ──► handler ──► State::set</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                                                                  </span></span><span style="--0:#d6deeb;--1:#403f53">│</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                         </span></span><span style="--0:#d6deeb;--1:#403f53">Observer marks the UI dirty, calls the waker</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                                                                  </span></span><span style="--0:#d6deeb;--1:#403f53">▼</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">platform schedules one frame (winit request_redraw / requestAnimationFrame)</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                                                                  </span></span><span style="--0:#d6deeb;--1:#403f53">▼</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Ui::update:  build (views → elements, tracked)  ──►  layout (Taffy)  ──►  paint (Scene)</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                                                                  </span></span><span style="--0:#d6deeb;--1:#403f53">▼</span></div></div><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Renderer::render:  batch quads/glyphs ──► upload instances ──► one render pass ──► present</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="input event ──► Ui::handle_event ──► hit test ──► handler ──► State::set                                                                  │                         Observer marks the UI dirty, calls the waker                                                                  ▼platform schedules one frame (winit request_redraw / requestAnimationFrame)                                                                  ▼Ui::update:  build (views → elements, tracked)  ──►  layout (Taffy)  ──►  paint (Scene)                                                                  ▼Renderer::render:  batch quads/glyphs ──► upload instances ──► one render pass ──► present"><div></div></button></div></figure></div>
+<ul>
+<li><strong>Build</strong> walks the view tree. Each <code dir="auto">View::build</code> creates layout boxes and paint instructions through <code dir="auto">BuildCx</code>. The whole build runs inside a reactive <code dir="auto">Observer</code>, so every <code dir="auto">State</code> read is recorded.</li>
+<li><strong>Layout</strong> runs Taffy over the boxes. Text leaves are measured by Parley through Taffy’s measure callback, so wrapping participates in flexbox sizing.</li>
+<li><strong>Paint</strong> walks the element tree in order and appends primitives (<code dir="auto">Quad</code>, <code dir="auto">GlyphRun</code>, <code dir="auto">PathFill</code>) to the <code dir="auto">Scene</code>. Focus rings are painted after the focused element’s children so they sit on top. An element outside its clip adds nothing, though it still gets a place in the order, because it can take focus and its children can stand outside it.</li>
+<li><strong>Render</strong> turns the scene into instanced draws. Consecutive primitives of the same kind are merged into one draw call; painter’s order is preserved.</li>
+<li><strong>Turns and scales.</strong> <code dir="auto">cx.rotate(node, radians)</code> turns a node and its subtree around its center, and <code dir="auto">cx.scale(node, factor)</code> draws them larger or smaller from its top left corner (laid out at their natural size, shown at a zoom; the scale comes before the turn). Paint applies <code dir="auto">Effect::rotated</code> to the node’s range of the scene, so quads, images and glyph runs carry a <code dir="auto">rotation</code> and paths fold it into their transform. The same pass keeps, for each element under a turn, the map from its own coordinates to the screen and back (<code dir="auto">Ui::turns</code>), so hit testing takes the point back into the element’s coordinates before checking its frame and clip, and the accessibility tree reports the box around the turned frame. Layout never sees a turn.</li>
+</ul>
+<p>Every rebuild runs from the root, so its cost follows the size of the screen, not the size of the change. What keeps that cheap: text is shaped once (<code dir="auto">TextSystem</code> keeps recent layouts), the pointer moving over views that never asked about it builds nothing, and drawing that moves repeats only the paint through <code dir="auto">Paint::Live</code>.</p>
+<p>Nothing runs between frames. An idle app sleeps on the desktop (<code dir="auto">ControlFlow::Wait</code>) and schedules no animation frames on the web. Work on another thread sends its result through a channel and calls a <code dir="auto">UiWaker</code>, the one handle that may leave the UI thread; state itself stays on that thread. While an animation runs, frames repeat only the paint phase (<a href="#65-motion">§6.5</a>).</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="5-reactive-system">5. Reactive system</h2><a class="sl-anchor-link" href="#5-reactive-system"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “5. Reactive system”</span></a></div>
+<p><code dir="auto">ravenrs-reactive</code> is single-threaded by design: <code dir="auto">Rc</code>, <code dir="auto">Cell</code>, <code dir="auto">RefCell</code>, no locks. UI state lives on the UI thread on every platform, including the browser main thread.</p>
+<ul>
+<li><code dir="auto">State&lt;T&gt;</code> owns a value. <code dir="auto">get</code>/<code dir="auto">with</code> record a read in the innermost tracking <code dir="auto">Observer</code>; <code dir="auto">set</code>/<code dir="auto">update</code> notify only the observers that read it during their latest run.</li>
+<li><code dir="auto">Binding&lt;T&gt;</code> is a read/write view of a value owned elsewhere (SwiftUI’s <code dir="auto">@Binding</code>). <code dir="auto">Binding::map</code> projects onto a field.</li>
+<li><code dir="auto">Derived&lt;T&gt;</code> is a lazily recomputed, cached value over other state (a memo). It notifies its own readers when its inputs change.</li>
+<li><code dir="auto">Observer</code> runs a closure and calls back once when any dependency changes.</li>
+</ul>
+<p><strong>Dependency bookkeeping without back-references.</strong> Each observer run increments an <em>epoch</em>. A source stores <code dir="auto">(Weak&lt;observer&gt;, epoch)</code> pairs; on notification, entries from older epochs or dropped observers are discarded. This keeps ownership one-directional (sources never keep observers alive), makes re-tracking O(reads), and makes dropping either side safe at any time.</p>
+<p><strong>What is rebuilt.</strong> In this milestone the <code dir="auto">Ui</code> has one observer for the whole build, so a change to any state the UI read triggers a full rebuild + relayout + repaint, and a change to state the UI never read triggers nothing (covered by <code dir="auto">unrelated_state_does_not_invalidate</code>). Per-component observers and incremental reconciliation (rebuilding only the subtrees whose dependencies changed, reusing their layout nodes) are the next step (Phase 3); the <code dir="auto">WidgetId</code> identity scheme below is already what that needs.</p>
+<p><strong>Identity.</strong> Every view gets a <code dir="auto">WidgetId</code> derived from its parent’s id and its position (or an explicit key via <code dir="auto">BuildCx::keyed_child</code>). Hover, press and focus survive rebuilds because they are stored per <code dir="auto">WidgetId</code>, not per element.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="6-extensibility-making-your-own-components">6. Extensibility: making your own components</h2><a class="sl-anchor-link" href="#6-extensibility-making-your-own-components"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “6. Extensibility: making your own components”</span></a></div>
+<p>Components can be created at three levels, and the built-in widgets use the same public API as apps:</p>
+<ol>
+<li><strong>Functions</strong> returning <code dir="auto">impl View</code> for stateless composition.</li>
+<li><strong><code dir="auto">Component</code></strong>: a struct that holds its state and implements <code dir="auto">body() -&gt; impl View</code>. Every <code dir="auto">Component</code> is a <code dir="auto">View</code> through a blanket implementation.</li>
+<li><strong><code dir="auto">View</code></strong> implemented directly, with full access to <code dir="auto">BuildCx</code>:
+<ul>
+<li><code dir="auto">cx.child(&amp;view)</code>, <code dir="auto">cx.children(&amp;seq)</code>, <code dir="auto">cx.keyed_child(key, &amp;view)</code> to build children;</li>
+<li><code dir="auto">cx.container(LayoutStyle, &amp;children, Paint)</code> and <code dir="auto">cx.text(...)</code> to create layout boxes;</li>
+<li><code dir="auto">Paint::Quad(QuadPaint)</code> or <code dir="auto">Paint::Custom(DrawFn)</code> to draw anything into the <code dir="auto">Scene</code>, or <code dir="auto">Paint::Rich(RichFn)</code> when the drawing also shapes text or needs the device scale;</li>
+<li><code dir="auto">cx.on_click</code>, <code dir="auto">cx.focusable</code>, <code dir="auto">cx.cursor</code> for behavior;</li>
+<li><code dir="auto">cx.is_hovered()</code>, <code dir="auto">cx.is_pressed()</code>, <code dir="auto">cx.is_focused()</code>, <code dir="auto">cx.theme()</code> to style by state and tokens.</li>
+</ul>
+</li>
+</ol>
+<p><code dir="auto">Canvas</code> wraps <code dir="auto">Paint::Custom</code> for custom drawing inside normal layout, <code dir="auto">view_fn</code> turns a closure into a reactive view, and <code dir="auto">Option&lt;V&gt;</code> renders conditionally.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="6-1-runtime-services-for-components">6.1 Runtime services for components</h2><a class="sl-anchor-link" href="#6-1-runtime-services-for-components"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “6.1 Runtime services for components”</span></a></div>
+<p>Rich components need more than layout and paint; the runtime provides them generically, so third-party components get the same powers as built-in ones:</p>
+<ul>
+<li><strong>Drag and drop between components.</strong> <code dir="auto">cx.drag_source(node, DragPayload)</code> lets a node be carried, by the pointer past a few pixels or, focused, with Space, the arrows and Enter (Escape gives it up); <code dir="auto">cx.drop_target(node, check, on_drop)</code> takes it, saying why when it does not. The runtime keeps the carry (<code dir="auto">Ui::carry</code>), asks the target under it on each move, paints a tag with the label (or the refusal) by the pointer and gives screen readers a status. While something is carried, <code dir="auto">cx.carrying()</code> tells each component whether it is over its own target, for a preview of its own; the drop arrives in the target’s coordinates, turns undone.</li>
+<li><strong>Widget-local state.</strong> <code dir="auto">cx.use_state(init)</code> returns a <code dir="auto">State&lt;T&gt;</code> owned by that widget instance, keyed by its <code dir="auto">WidgetId</code> and call order. It survives rebuilds and is dropped when the widget is no longer built. <code dir="auto">Keyed::new(key, view)</code> resets it on purpose.</li>
+<li><strong>Overlays.</strong> <code dir="auto">cx.overlay(anchor, placement, &amp;view, on_dismiss)</code> builds a floating layer after the main tree. It is laid out as its own Taffy root, placed relative to the anchor’s final frame (flipped and clamped to the viewport), painted last, hit-tested first, and dismissed on outside clicks or Escape.</li>
+<li><strong>Scrolling and clipping.</strong> <code dir="auto">cx.scrollable(node)</code> makes a vertical scroll container (<code dir="auto">cx.scroll_horizontally</code> adds the other axis, which <code dir="auto">DataGrid</code> uses): offsets are kept per <code dir="auto">WidgetId</code>, wheel events move the innermost scrollable under the pointer, children are clipped with scissor rectangles, and a thin scrollbar is drawn. Scrolling only re-places and repaints; it does not rebuild or re-run layout. When Tab or <code dir="auto">cx.request_focus</code> moves focus, the containers around the focused element scroll just far enough to show it, innermost first, stopping at the edge of a floating layer. A click focuses without scrolling.</li>
+<li><strong>Scroll-driven pages.</strong> <code dir="auto">cx.pin(node, top)</code> keeps a node <code dir="auto">top</code> pixels below the top of its scroll container while its parent passes, and lets the parent’s bottom take it away (<code dir="auto">Sticky</code>). It is moved when frames are placed, before hit testing, so input and the accessibility tree see it where it shows. <code dir="auto">cx.scroll_track(node, top, length)</code> marks a scene track (<code dir="auto">ScrollScene</code>), and <code dir="auto">cx.scroll_linked(node, link)</code> paints a subtree with the <code dir="auto">Effect</code> a <code dir="auto">ScrollLink</code> computes from scroll progress (<code dir="auto">ScrollLinked</code>): progress through the nearest scene, or the node’s own pass across the view (<code dir="auto">ScrollRange</code>). Both are worked out from the placed frames and the visible area of each node’s scroll container (<code dir="auto">Ui::views</code>), so scrolling still only re-places and repaints. Linked effects, like motion effects, change neither layout nor hit testing; under reduced motion they keep only their opacity.</li>
+<li><strong>Showcase pages.</strong> <code dir="auto">cx.links()</code> opens addresses through a provider each platform installs (<code dir="auto">Ui::set_links</code>: the browser navigates, the desktop opens the system’s browser); <code dir="auto">#name</code> instead glides the scroll container to the node marked with <code dir="auto">cx.anchor(node, name, offset)</code> (<code dir="auto">Anchor</code>), over a few paint frames. <code dir="auto">cx.on_appear(node, handler)</code> calls a handler once, after the first frame in which a node shows in its scroll container (<code dir="auto">CountUp</code>). <code dir="auto">cx.time_linked(node, link)</code> paints a subtree with an <code dir="auto">Effect</code> of the clock and its frame, keeping frames coming only while it shows (<code dir="auto">Ticker</code>). <code dir="auto">cx.scroll_progress(node, range, cell)</code> writes the scroll progress into a cell before each paint, for live drawing that follows the scroll itself (<code dir="auto">QuadField</code>).</li>
+<li><strong>Input.</strong> <code dir="auto">cx.on_key</code> (focused element first, default handling otherwise), <code dir="auto">cx.on_drag</code> (start/move/end with the element frame), <code dir="auto">cx.on_wheel</code> (the wheel over a surface that pans on its own, taken before any scroll container around it), <code dir="auto">cx.on_click</code>, <code dir="auto">cx.focusable</code>, <code dir="auto">cx.cursor</code>, and <code dir="auto">cx.is_hover_within()</code> for hover over a subtree.</li>
+<li><strong>Clipboard.</strong> <code dir="auto">cx.clipboard()</code> reads and writes the system clipboard: <code dir="auto">arboard</code> on desktop, <code dir="auto">navigator.clipboard</code> on the web (where reading is asynchronous, so a paste arrives through the browser’s <code dir="auto">paste</code> event as typed text). <code dir="auto">Ui::set_clipboard</code> swaps the provider; tests use an in-memory one.</li>
+<li><strong>Sound.</strong> <code dir="auto">cx.sound()</code> plays short clips and speaks. On the desktop, <code dir="auto">cpal</code> plays on a thread that starts with the first sound, and its output closes once quiet; the voice is the system’s own program (<code dir="auto">say</code>, Windows speech through PowerShell, <code dir="auto">espeak-ng</code>), which gets the text on stdin. On the web it is Web Audio and <code dir="auto">speechSynthesis</code>. <code dir="auto">Ui::set_sound</code> swaps the provider; the default is silence.</li>
+<li><strong>Theme as state.</strong> The theme is a <code dir="auto">State&lt;Theme&gt;</code>; <code dir="auto">ThemeSwitcher</code> or any component can change it through <code dir="auto">cx.theme_state()</code> and the whole UI rebuilds with the new tokens.</li>
+<li><strong>Icons.</strong> A subset of Lucide (ISC), about 200 icons in 68 KB, is embedded as a font, so icons are glyphs: sharp at any size, colored like text, and batched with text. <code dir="auto">scripts/gen-icons.py</code> regenerates the subset and the <code dir="auto">IconName</code> enum.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="6-2-datagrid">6.2 DataGrid</h2><a class="sl-anchor-link" href="#6-2-datagrid"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “6.2 DataGrid”</span></a></div>
+<p><code dir="auto">DataGrid</code> is split in two layers. <code dir="auto">grid::query</code> is a pure pipeline over rows (filter → search → sort → group → summarize) with no UI dependency: it is unit-tested on its own, including a 100,000-row sort-and-group run. The view caches the query result per (query, data version) and builds only the rows inside the viewport plus a small overscan, with spacers above and below; scrolling rebuilds just that window (<code dir="auto">BuildCx::scrollable_virtual</code>, <code dir="auto">scroll_viewport</code>, <code dir="auto">set_scroll_offset</code>). Data lives in <code dir="auto">GridData</code>, shared copy-on-write so edits invalidate the cache exactly once.</p>
+<p>Parity with the feature set of commercial data grids:</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>RavenRS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Virtual scrolling (100k+ rows), vertical</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Horizontal scrolling</td>
+<td>✓ (all shown columns are built for each visible row)</td>
+</tr>
+<tr>
+<td>Column virtualization</td>
+<td>planned (<a href="https://github.com/alexkads/RavenRS/issues/451">#451</a>)</td>
+</tr>
+<tr>
+<td>Sorting, multi-column (Shift/Ctrl-click), with priority badges</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Filter row with operators (<code dir="auto">&gt;</code>, <code dir="auto">&gt;=</code>, <code dir="auto">&lt;</code>, <code dir="auto">&lt;=</code>, <code dir="auto">=</code>, <code dir="auto">&lt;&gt;</code>, <code dir="auto">a..b</code>), text and yes/no</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Filter row expressions over column titles (<code dir="auto">[Seats] &gt; 10 And [Country] = 'Brazil'</code>), from <code dir="auto">ravenrs-criteria</code></td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Search panel across visible columns</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Grouping, nested, expand/collapse (click or arrows), group panel chips</td>
+<td>✓ (by dragging headers to the panel, reorder or ungroup by dragging chips, expand and collapse all)</td>
+</tr>
+<tr>
+<td>Group summaries and footer totals (sum, average, min, max, count)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Column resizing (drag), columns that keep their width, column chooser (show/hide), min widths</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Selection: single, multiple with check boxes, Shift ranges, Ctrl toggle, select all</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Keyboard navigation (arrows, Home/End, Page Up/Down, Space, Enter/F2) with auto-scroll</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Cell editing (double-click, Enter, F2; Enter commits, Escape cancels), typed parsing</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Cell templates (any view) and custom formats; number/currency formats with separators (digits from <code dir="auto">ravenrs_criteria::NumberStyle</code>)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>CSV export (RFC 4180, raw numbers; quoting from <code dir="auto">ravenrs_core::csv</code>, shared with reports)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Copying rows as tab-separated text (Cmd/Ctrl+C)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Column reordering by drag, menu on each column, fit width</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Columns pinned to the left</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Multi-level (banded) headers, columns pinned to the right</td>
+<td>planned</td>
+</tr>
+<tr>
+<td>Filter by value (checklists, offering only what the other filters leave) with a filter panel</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Filter builder</td>
+<td>✓ <code dir="auto">FilterBuilder</code>, also in the toolbar with <code dir="auto">filter_builder</code> and behind “Edit filter” on the filter panel, over the whole filter</td>
+</tr>
+<tr>
+<td>Paging UI, infinite scroll and rows on a server (<code dir="auto">RemoteRows</code>: bounded memory, settled requests, no totals needed, keyset by <code dir="auto">after</code>)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Summaries changed at run time, with formulas over <code dir="auto">ravenrs-criteria</code></td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Row add and delete (<code dir="auto">on_add_row</code>, <code dir="auto">on_delete_rows</code>), buttons on rows (<code dir="auto">row_action</code>), edits that can be refused (<code dir="auto">on_cell_edit</code>)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Keys that survive data changes (<code dir="auto">key_column</code>, <code dir="auto">selected_keys</code>), dates (<code dir="auto">GridColumn::date</code>), field names (<code dir="auto">GridColumn::field</code>)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Master-detail rows (<code dir="auto">row_detail</code>, a fixed height for each, so the rows stay virtualized)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Row drag and drop</td>
+<td>planned</td>
+</tr>
+<tr>
+<td>Saved layouts and named scenarios (<code dir="auto">GridLayout</code>, <code dir="auto">GridScenario</code>, JSON)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Excel and PDF export (<code dir="auto">on_export_file</code>, with <code dir="auto">ravenrs-grid-export</code>)</td>
+<td>✓</td>
+</tr>
+<tr>
+<td>Cell range copy</td>
+<td>planned</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="6-3-criteria-language">6.3 Criteria language</h2><a class="sl-anchor-link" href="#6-3-criteria-language"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “6.3 Criteria language”</span></a></div>
+<p><code dir="auto">ravenrs-criteria</code> is one expression language for filters, report totals, rules and SQL <code dir="auto">WHERE</code> clauses, with the syntax and behavior business developers already know from filter languages of commercial suites. It knows nothing about reports or UI, and nothing specific to a module belongs in it.</p>
+<ul>
+<li><strong>Tree.</strong> <code dir="auto">Criteria</code> is public: parse it from text (<code dir="auto">parse</code>), build it in code, walk it, and print it back to text that parses to the same tree (<code dir="auto">format</code>).</li>
+<li><strong>Evaluation.</strong> <code dir="auto">Scope</code> interprets the tree in memory over any <code dir="auto">Record</code>, such as JSON, a map or your own rows. <code dir="auto">Environment</code> holds parameters and custom functions.</li>
+<li><strong>Function catalog.</strong> One table in <code dir="auto">functions</code> drives parsing, arity checks and expression editors.</li>
+<li><strong>Validation.</strong> <code dir="auto">validate</code> checks an expression against a <code dir="auto">Schema</code> before anything runs.</li>
+<li><strong>SQL.</strong> <code dir="auto">to_sql</code> translates to parameterized SQL per <code dir="auto">Dialect</code>.</li>
+<li><strong>Formatting.</strong> <code dir="auto">format_value</code> and <code dir="auto">format_composite</code> use .NET-style format strings per <code dir="auto">Culture</code>.</li>
+</ul>
+<p><code dir="auto">DataGrid</code> filter rows use this crate for expressions. Text that parses, whose fields are all column titles and that needs nothing beyond the row (no aggregates, parameters or custom functions), runs here over raw cell values. Anything else keeps the short syntax in <code dir="auto">grid::query</code>, which stays a native fast path: it is checked against a frozen copy of its old behavior, and costs no parsing unless the text has a <code dir="auto">[</code>. <code dir="auto">NumberStyle</code> lays out digits for both <code dir="auto">Culture</code> and the grid’s <code dir="auto">NumberFormat</code>.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="6-4-reporting">6.4 Reporting</h2><a class="sl-anchor-link" href="#6-4-reporting"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “6.4 Reporting”</span></a></div>
+<p><code dir="auto">ravenrs-report</code> turns a definition plus data into a paginated document. Layout happens once, and every consumer draws the same result, so a preview and an export cannot drift apart.</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="plaintext"><code><div class="ec-line"><div class="code"><span style="--0:#d6deeb;--1:#403f53">Report (model: JSON or builder) + data ──► ReportEngine (engine) ──► Document (pages in points)</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                                                                         </span></span><span style="--0:#d6deeb;--1:#403f53">│</span></div></div><div class="ec-line"><div class="code"><span class="indent"><span style="--0:#d6deeb;--1:#403f53">                                               </span></span><span style="--0:#d6deeb;--1:#403f53">paint_page ──► Scene ──► on-screen preview</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="Report (model: JSON or builder) + data ──► ReportEngine (engine) ──► Document (pages in points)                                                                         │                                               paint_page ──► Scene ──► on-screen preview"><div></div></button></div></figure></div>
+<p>Expressions in a report come from <code dir="auto">ravenrs-criteria</code>, and text is measured with the same Parley stack as the UI. <code dir="auto">wizard</code> builds a finished table report from a data source, and <code dir="auto">samples</code> holds the templates. The designer is <code dir="auto">examples/report-designer</code>, built on <code dir="auto">Ribbon</code> and the other public components: <code dir="auto">editor</code> (shared state), <code dir="auto">surface</code> (bands and controls), <code dir="auto">props</code> (property grid), <code dir="auto">preview</code> (document viewer).</p>
+<p>Phase R1 is done. <code dir="auto">ravenrs-report-pdf</code>, <code dir="auto">ravenrs-report-xlsx</code> export the <code dir="auto">Document</code> to PDF, XLSX and CSV, also in the browser. <code dir="auto">ravenrs-report-server</code> stores layouts, renders over HTTP and delivers scheduled reports (<a href="/RavenRS/docs/report-server/">docs/REPORT-SERVER.md</a>). <code dir="auto">ravenrs-report-viewer</code> shows documents with thumbnails and search, and asks for parameters; <a href="/RavenRS/docs/reporting/">docs/REPORTING.md</a> has the design and phases, and <a href="/RavenRS/docs/reporting-parity/">docs/REPORTING-PARITY.md</a> tracks each feature.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="6-5-motion">6.5 Motion</h2><a class="sl-anchor-link" href="#6-5-motion"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “6.5 Motion”</span></a></div>
+<p><code dir="auto">ravenrs-animation</code> holds the mathematics and knows nothing about the UI. <code dir="auto">ravenrs-style</code> carries the tokens in <code dir="auto">Theme::motion</code>. The runtime is <code dir="auto">motion.rs</code> in <code dir="auto">ravenrs-widgets</code>.</p>
+<p><strong>Declared, not driven.</strong> A view says how a node moves with <code dir="auto">cx.motion(node, Motion::new()...)</code>. Builds only set targets, on tracks that live outside the view tree and are keyed by identity. Then <code dir="auto">Ui::update</code> has three cases: state changed, so build, lay out and paint; only animations are due, so paint alone; nothing is due, so no frame is requested. An animation therefore costs a repaint, not a rebuild. <code dir="auto">Scene</code> stays the only meeting point with the renderer, so motion works headless and needed no GPU changes.</p>
+<table>
+<thead>
+<tr>
+<th>Technique</th>
+<th>Where</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Closed-form springs</td>
+<td><code dir="auto">Spring::sample</code></td>
+<td>The position depends only on time, so results do not vary with frame rate and a long frame cannot blow up.</td>
+</tr>
+<tr>
+<td>Interruption without a jump</td>
+<td><code dir="auto">Animated::set_target</code></td>
+<td>A spring restarts from its current position and velocity. Tweens are additive: each one eases in its share of the change and the sum has no corner.</td>
+</tr>
+<tr>
+<td>OKLab with premultiplied alpha</td>
+<td><code dir="auto">Animatable for Color</code></td>
+<td>Midpoints keep lightness and hue, and a fade from transparent does not pass through gray. At rest the exact token comes back, with no rounding.</td>
+</tr>
+<tr>
+<td>Layout animation</td>
+<td><code dir="auto">Motion::layout</code></td>
+<td>The node’s old frame eases to its new one while children travel with it. Its size is redrawn rather than scaled, so nothing distorts. Input uses the final frame, and frames are compared without scroll offsets, so scrolling never animates.</td>
+</tr>
+<tr>
+<td>Shared layout</td>
+<td><code dir="auto">Motion::shared_layout</code></td>
+<td>Nodes of different widgets count as one object, which is how a tab underline slides. <code dir="auto">underlay</code> paints it behind its siblings.</td>
+</tr>
+<tr>
+<td>Exit by snapshot</td>
+<td><code dir="auto">Motion::exit</code></td>
+<td>A view that stops being built is gone at once for the app: state, input and accessibility. Its last primitives stay on screen as a <em>ghost</em> that plays the exit. Reopening revives it from where it was. A nested exit (a dialog’s card in its backdrop) plays inside the outer one.</td>
+</tr>
+<tr>
+<td>Anchored popups</td>
+<td><code dir="auto">Motion::anchored</code></td>
+<td>Scale around the point nearest the anchor; offsets flip when the popup flipped.</td>
+</tr>
+<tr>
+<td>Height to fit</td>
+<td><code dir="auto">Collapse</code></td>
+<td>The runtime reports the content’s natural size to the next build. This one does rebuild on each frame, because it changes layout.</td>
+</tr>
+<tr>
+<td>Live drawing</td>
+<td><code dir="auto">Paint::Live</code></td>
+<td>Spinners and pulses repaint at no more than 60 Hz with no rebuild.</td>
+</tr>
+<tr>
+<td>Theme crossfade</td>
+<td><code dir="auto">Ui::paint</code></td>
+<td>The old picture fades over the new one, in a single layer, instead of every color moving at its own pace.</td>
+</tr>
+<tr>
+<td>Lag smoothing</td>
+<td><code dir="auto">Ui::set_time</code></td>
+<td>Animations have their own clock, in which a gap above 250 ms counts as 50 ms: after a stall they continue instead of jumping to the end, and a very slow machine still gets through them.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Reduced motion.</strong> It comes from <code dir="auto">Ui::set_reduced_motion</code> (the browser’s <code dir="auto">prefers-reduced-motion</code>, live) or from the theme’s token. Things stop traveling and bouncing, colors and opacity fade briefly, and live drawing stops.</p>
+<p><strong>No clock, no animation.</strong> Motion starts with the first <code dir="auto">Ui::set_time</code>. A <code dir="auto">Ui</code> without a platform lands everything at once, which keeps headless tests and reference images deterministic.</p>
+<p><strong>Limits.</strong> Effects run on the display list (<code dir="auto">Scene::apply_effect</code>), and opacity applies per primitive: overlapping shapes show through each other while partly faded. Real group opacity needs layers in the renderer. A turn (<code dir="auto">Effect::rotation</code>) is drawn by the renderer, but springs carry four numbers and do not animate it, and a clip under a turn becomes the box around the turned rectangle. Text snaps to pixels vertically, so a slow move of a text block advances in device pixels.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="7-rendering">7. Rendering</h2><a class="sl-anchor-link" href="#7-rendering"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “7. Rendering”</span></a></div>
+<p><code dir="auto">ravenrs-render</code> is a small 2D renderer on <code dir="auto">wgpu</code> 30.</p>
+<ul>
+<li><strong>Quads</strong> are instanced. The WGSL fragment shader evaluates a signed-distance function of a rounded box with per-corner radii, so edges are anti-aliased analytically (one device pixel of coverage ramp) at any scale factor. Borders, two-stop linear gradients and fill share the same shader.</li>
+<li><strong>Soft shadows</strong> are separate instances drawn under their shape: the coverage is an <code dir="auto">erf</code> approximation over the same SDF, which gives a Gaussian-looking falloff in one pass with no blur texture.</li>
+<li><strong>Turns.</strong> Quads and images carry the cosine and sine of their turn; the vertex shader turns the corners around the center while the fragment shader keeps working in the shape’s own coordinates, so borders, gradients and shadows turn with it. A glyph turns around its own origin.</li>
+<li><strong>Text</strong> is shaped by Parley, rasterized per glyph by <code dir="auto">swash</code> (outline, alpha mask, 4 horizontal sub-pixel positions, no hinting) into an R8 atlas packed with shelves, and drawn as textured quads snapped to the device pixel grid. Turned glyphs are sampled linearly, so they lose the snapping. The atlas grows (×2 up to the device limit) when it fills; at the limit it is cleared.</li>
+<li><strong>Color.</strong> Tokens are sRGB. The renderer prefers non-sRGB surface formats so blending happens in sRGB space, as in browsers and design tools; on <code dir="auto">*Srgb</code> targets the shaders linearize colors first. Output is premultiplied alpha.</li>
+<li><strong>Resources</strong> (pipelines, atlas, instance buffers) are created once and reused; instance buffers only grow. GPU→CPU readback exists only in tests: <code dir="auto">crates/ravenrs-render/tests/offscreen.rs</code> checks pixels of real scenes and <code dir="auto">crates/ravenrs/tests/suite/visual.rs</code> compares golden images. GPU timing is off unless asked for, and its answers arrive frames later through buffers mapped in the background, so it never makes a frame wait (<code dir="auto">timing.rs</code>).</li>
+</ul>
+<p><strong>Why not Vello (yet).</strong> Vello’s main renderer requires compute shaders and is still labelled experimental; its hybrid variant is promising but young. RavenRS needs a handful of primitives that an SDF quad pipeline draws in one pass, with a small WASM footprint. Arbitrary vector paths have their own pipeline, <code dir="auto">Primitive::Path</code>: edges add up the exact area they cover in each pixel of a coverage texture, in one pass, and the main pass paints from it in scene order. It needs no compute, tessellation or multisampling.</p>
+<p><strong>Glass and blur (planned).</strong> Raven Glass’s backdrop blur needs a layer compositor: render the content behind a glass surface to an intermediate texture, blur it (separable Gaussian, downsampled), then composite. Until that lands, glass surfaces render their translucent fill; this is the documented degradation path for platforms where the extra passes are too costly.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="8-layout">8. Layout</h2><a class="sl-anchor-link" href="#8-layout"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “8. Layout”</span></a></div>
+<p><code dir="auto">ravenrs-layout</code> exposes a small typed subset of flexbox (<code dir="auto">LayoutStyle</code>: axis, spacing, padding, alignment, justification, sizes, growth) over Taffy. The UI root is a box sized to the viewport; stacks are flex containers; text leaves have zero minimum width so they wrap instead of overflowing. The <code dir="auto">Grid</code> view uses Taffy’s Grid layout with equal-width columns (<code dir="auto">grid_columns</code>).</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="9-text">9. Text</h2><a class="sl-anchor-link" href="#9-text"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “9. Text”</span></a></div>
+<p>Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at weights 400 and 600, so text is identical on every platform and works in browsers, which expose no system fonts to WebAssembly. <code dir="auto">TextSystem::register_font</code> adds more fonts. Layout happens in logical pixels; glyphs are rasterized at the device scale factor, so HiDPI text is sharp without reshaping.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="10-platforms">10. Platforms</h2><a class="sl-anchor-link" href="#10-platforms"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “10. Platforms”</span></a></div>
+<p><strong>Desktop (<code dir="auto">ravenrs-platform-native</code>).</strong> winit 0.30 (<code dir="auto">ApplicationHandler</code>), one window, <code dir="auto">ControlFlow::Wait</code>. Surface reconfiguration on resize and scale-factor changes, logical-pixel input, cursor icons, keyboard focus traversal, and GPU device-loss recovery (the device, surface and renderer are recreated on the next frame).</p>
+<p><strong>Diagnostics (desktop only for now).</strong> The native platform wraps every root in <code dir="auto">DiagnosticsHost</code>, which adds no element and no wake-up while closed. Ctrl+Shift+D (Cmd+Shift+D on a Mac) or the <code dir="auto">RAVENRS_DIAG</code> variable opens a panel with the GPU in use, the alternatives, what is wrong and what recent frames cost, with text to copy. <code dir="auto">ravenrs::native::diagnose</code> gives the same GPU report without a window, for a command line option. The data is plain types in <code dir="auto">ravenrs-core</code>, so widgets and the renderer still only meet through it. Its performance test redraws the window for 5 seconds and judges the frames per second, which do count the GPU’s work, since a busy GPU holds back the next frame. Each frame asks for the next only while it runs. The other durations are CPU time: there are no GPU timestamps, so a busy GPU only shows as waiting in acquire or present. The web platform does not record frames yet.</p>
+<p>With <code dir="auto">AppIdentity::new_issue_url</code>, the panel also has a button that starts a bug report: <code dir="auto">ravenrs_core::new_issue_url</code> puts the report in the URL of a new issue, percent-encoded and cut to <code dir="auto">MAX_ISSUE_URL</code>, and <code dir="auto">ravenrs::native::open_url</code> opens it in the browser. The app sends nothing; the person reviews and submits on that page. The report is made to be shared: <code dir="auto">VK_DRIVER_FILES</code> and <code dir="auto">VK_ICD_FILENAMES</code> keep only file names, the panel passes everything it shows through <code dir="auto">redact_user_paths</code>, and no app data reaches it. The panel says this next to the button, above the exact text.</p>
+<p><strong>Tray (desktop, <code dir="auto">tray</code> feature).</strong> With <code dir="auto">AppIdentity::close_to_tray</code>, closing the window hides it, or destroys it on Wayland, which cannot hide one, and keeps the <code dir="auto">Ui</code> and its state behind an icon: <code dir="auto">tray-icon</code> on macOS and Windows, <code dir="auto">ksni</code> on Linux, which asks for no GTK. Where nothing hosts the icon, as on plain GNOME, closing the window closes the app. A copy of the app started meanwhile finds the first through a local TCP port, asks it to open its window and leaves.</p>
+<p><strong>Web (<code dir="auto">ravenrs-platform-web</code>).</strong> Plain <code dir="auto">web-sys</code> on a <code dir="auto">&lt;canvas&gt;</code>:</p>
+<ul>
+<li>async adapter and device creation (<code dir="auto">wasm-bindgen-futures</code>), never blocking the main thread;</li>
+<li>a friendly message next to the canvas when <code dir="auto">navigator.gpu</code> is missing (no WebGL fallback in this phase);</li>
+<li>canvas backing store sized from CSS size × <code dir="auto">devicePixelRatio</code>, re-checked every frame and on <code dir="auto">ResizeObserver</code> callbacks;</li>
+<li>pointer events with pointer capture, keyboard events with Tab/Space/Enter kept inside the app;</li>
+<li><code dir="auto">requestAnimationFrame</code> scheduled only when the UI is invalidated (at most one pending);</li>
+<li>GPU device-loss recovery: the device is re-requested asynchronously;</li>
+<li><code dir="auto">WebApp</code> removes every listener and observer and releases GPU resources when dropped.</li>
+</ul>
+<p><code dir="auto">winit</code>’s web backend was not used so that DPR handling, frame scheduling and (later) IME and accessibility bridges stay explicit.</p>
+<p><strong>Accessibility.</strong> After layout, <code dir="auto">Ui::access_tree</code> walks the element tree and builds a platform-neutral <code dir="auto">AccessTree</code> (<code dir="auto">ravenrs-core</code>).</p>
+<ul>
+<li><strong>Which elements become nodes.</strong> An element becomes a node when a widget described it with <code dir="auto">Semantics</code> or when it is focusable (it then defaults to a button). Text is a label, except inside roles that take their name from content, where it becomes the name (“Save” on a button). Other boxes are transparent.</li>
+<li><strong>Ids.</strong> Node ids derive from <code dir="auto">WidgetId</code>, so they stay stable across rebuilds.</li>
+<li><strong>Modal layers.</strong> While one is open, only it is exposed.</li>
+<li><strong>Actions.</strong> <code dir="auto">Ui::perform_action</code> maps click, focus and increment/decrement back to the element’s handlers. Assistive technology therefore drives the same code paths as the mouse and keyboard.</li>
+<li><strong>Desktop.</strong> The tree goes to AccessKit (<code dir="auto">accesskit_winit</code>) only while a screen reader is listening, and is resent when it changes. The root transform scales logical to physical pixels.</li>
+<li><strong>Web.</strong> It is mirrored as invisible, absolutely positioned ARIA elements over the canvas. The hidden text input that holds keyboard focus points at the focused node with <code dir="auto">aria-activedescendant</code>. New status and alert nodes are announced through a live region, and clicks on mirror elements become click actions.</li>
+</ul>
+<p><strong>WASM size (hello-world, <code dir="auto">wasm-release</code> profile + <code dir="auto">wasm-opt -Oz</code>).</strong> ≈2.4 MB raw, ≈1.06 MB gzipped, of which about 830 KB raw are the two embedded Inter faces. Shipping a subsetted font is the first size win available.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="11-status">11. Status</h2><a class="sl-anchor-link" href="#11-status"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “11. Status”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>Implemented</th>
+<th>Experimental</th>
+<th>Planned</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Workspace, local checks (<code dir="auto">scripts/check.sh</code>: desktop + wasm)</td>
+<td>✓</td>
+<td></td>
+<td>Hosted CI (intentionally not used for now)</td>
+</tr>
+<tr>
+<td><code dir="auto">State</code>, <code dir="auto">Binding</code>, <code dir="auto">Derived</code>, dependency tracking</td>
+<td>✓</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Full rebuild on tracked change</td>
+<td>✓</td>
+<td></td>
+<td>Incremental reconciliation, per-component observers</td>
+</tr>
+<tr>
+<td><code dir="auto">View</code>, <code dir="auto">Component</code>, <code dir="auto">BuildCx</code>, <code dir="auto">view_fn</code>, <code dir="auto">responsive</code>, <code dir="auto">Option&lt;V&gt;</code>, <code dir="auto">Keyed</code>, <code dir="auto">ViewExt</code> modifiers, <code dir="auto">use_state</code> widget-local state</td>
+<td>✓</td>
+<td></td>
+<td>Environment values, <code dir="auto">#[component]</code> macro (<code dir="auto">ravenrs-macros</code>)</td>
+</tr>
+<tr>
+<td>Layout: <code dir="auto">VStack</code>, <code dir="auto">HStack</code>, <code dir="auto">ZStack</code>, <code dir="auto">Grid</code>, <code dir="auto">ScrollView</code>, <code dir="auto">Sticky</code>, <code dir="auto">ScrollScene</code>, <code dir="auto">ScrollLinked</code>, <code dir="auto">Anchor</code>, <code dir="auto">Ticker</code>, <code dir="auto">CountUp</code>, <code dir="auto">Link</code>, <code dir="auto">QuadField</code>, <code dir="auto">Spacer</code>, <code dir="auto">Footer</code>, <code dir="auto">PropertyRow</code>, <code dir="auto">PageHeader</code>, <code dir="auto">Section</code>, <code dir="auto">Card</code>, <code dir="auto">Splitter</code>, <code dir="auto">SplitPanes</code>, <code dir="auto">SplitHandle</code>, <code dir="auto">DockArea</code>, <code dir="auto">AspectRatio</code>, <code dir="auto">VirtualList</code> (rows of any height, measured and kept by key), <code dir="auto">SortableList</code></td>
+<td>✓</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Inputs: <code dir="auto">Button</code> (4 styles, 3 sizes), <code dir="auto">IconButton</code>, <code dir="auto">ButtonGroup</code>, <code dir="auto">TextField</code>, <code dir="auto">TextArea</code>, <code dir="auto">CodeEditor</code>, <code dir="auto">Playground</code> (feature <code dir="auto">code</code>), <code dir="auto">NumberField</code>, <code dir="auto">MaskedField</code>, <code dir="auto">TimePicker</code>, <code dir="auto">DateTimePicker</code>, <code dir="auto">LookupField</code>, <code dir="auto">FormLayout</code>, <code dir="auto">Toolbar</code>, <code dir="auto">FloatingToolbar</code>, <code dir="auto">TitleBar</code>, <code dir="auto">SplitButton</code>, <code dir="auto">ConfirmDialog</code>, <code dir="auto">Toggle</code>, <code dir="auto">Checkbox</code>, <code dir="auto">RadioGroup</code>, <code dir="auto">Slider</code>, <code dir="auto">ValueSlider</code>, <code dir="auto">InlineRename</code>, <code dir="auto">Stepper</code>, <code dir="auto">SegmentedControl</code>, <code dir="auto">Select</code>, <code dir="auto">Combobox</code>, <code dir="auto">ToggleButton</code>, <code dir="auto">ToggleGroup</code>, <code dir="auto">InputOtp</code>, <code dir="auto">Calendar</code>, <code dir="auto">DatePicker</code>, <code dir="auto">ThemeSwitcher</code>, <code dir="auto">FavoriteToggle</code>, <code dir="auto">SwatchGrid</code>, <code dir="auto">NinePointAnchor</code>, <code dir="auto">ColorPair</code>; text selection in <code dir="auto">TextField</code></td>
+<td>✓</td>
+<td></td>
+<td>multi-line text</td>
+</tr>
+<tr>
+<td>Navigation: <code dir="auto">Tabs</code> (underlined, segmented), <code dir="auto">DocumentTabs</code>, <code dir="auto">FileBrowser</code>, <code dir="auto">YearView</code>, <code dir="auto">Sidebar</code>, <code dir="auto">Breadcrumb</code>, <code dir="auto">Disclosure</code>, <code dir="auto">Accordion</code>, <code dir="auto">Pagination</code>, <code dir="auto">Menubar</code>, <code dir="auto">Ribbon</code></td>
+<td>✓</td>
+<td></td>
+<td><code dir="auto">NavigationView</code></td>
+</tr>
+<tr>
+<td>Overlays: <code dir="auto">Tooltip</code>, <code dir="auto">Popover</code>, <code dir="auto">HoverCard</code>, <code dir="auto">DropdownMenu</code>, <code dir="auto">ContextMenu</code>, <code dir="auto">Dialog</code>, <code dir="auto">Sheet</code>, <code dir="auto">SplashScreen</code>, <code dir="auto">Toaster</code>, <code dir="auto">CommandPalette</code>, <code dir="auto">ShortcutSheet</code></td>
+<td>✓</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>Data grid: <code dir="auto">DataGrid</code> (see §6.2)</td>
+<td>✓</td>
+<td></td>
+<td>see the parity table in §6.2</td>
+</tr>
+<tr>
+<td>Display: <code dir="auto">Image</code> (PNG/JPEG, cover/fit/fill, mipmaps), <code dir="auto">Filmstrip</code>, <code dir="auto">PagedDocumentView</code>, <code dir="auto">ImageLightbox</code>, <code dir="auto">CompareView</code>, <code dir="auto">Eyedropper</code>, <code dir="auto">CropOverlay</code>, <code dir="auto">Protractor</code>, <code dir="auto">TransformHandles</code>, <code dir="auto">Marquee</code>, <code dir="auto">RubberBand</code>, <code dir="auto">RuleOfThirdsGrid</code>, <code dir="auto">Minimap</code>, <code dir="auto">ZoomPanView</code>, <code dir="auto">ZoomControl</code>, <code dir="auto">CurveEditor</code>, <code dir="auto">ColorWheel</code>, <code dir="auto">Ruler</code>, <code dir="auto">Histogram</code>, <code dir="auto">Text</code>, <code dir="auto">RichText</code>, <code dir="auto">AttachmentStrip</code>, <code dir="auto">AudioPlayerButton</code>, <code dir="auto">SelectionBar</code>, <code dir="auto">Icon</code> (about 200 Lucide icons), <code dir="auto">Badge</code>, <code dir="auto">Dot</code>, <code dir="auto">OverlayBadge</code>, <code dir="auto">Rating</code>, <code dir="auto">IconTile</code>, <code dir="auto">EmptyState</code>, <code dir="auto">HeroBanner</code>, <code dir="auto">MultiProgress</code>, <code dir="auto">ShimmerText</code>, <code dir="auto">DaySeparator</code>, <code dir="auto">Avatar</code>, <code dir="auto">Kbd</code>, <code dir="auto">Divider</code>, <code dir="auto">ProgressBar</code>, <code dir="auto">Spinner</code>, <code dir="auto">Skeleton</code>, <code dir="auto">Carousel</code>, <code dir="auto">ColorSwatch</code>, <code dir="auto">Alert</code>, <code dir="auto">Stat</code>, <code dir="auto">List</code>, <code dir="auto">Table</code>, <code dir="auto">Chart</code> (line, area, bar, pie, doughnut, radar, radial, scatter, sparkline, candlestick), <code dir="auto">SankeyChart</code>, <code dir="auto">BarChart</code>, <code dir="auto">AreaChart</code>, <code dir="auto">Barcode</code> (QR Code and six linear formats), <code dir="auto">Canvas</code>, <code dir="auto">Lottie</code></td>
+<td>✓</td>
+<td></td>
+<td>image loading from URLs, funnel charts</td>
+</tr>
+<tr>
+<td>Diagrams: <code dir="auto">FlowCanvas</code> (pan, zoom, nodes on a grid, ports that check what connects, curve, step and straight lines, labels, dashes that travel, selection, lock, controls, map)</td>
+<td>✓</td>
+<td></td>
+<td>undo, copy and paste, JSON, automatic layout, views inside nodes (needs a transform for a subtree), groups, reconnecting a line by its end</td>
+</tr>
+<tr>
+<td><code dir="auto">GlassCard</code></td>
+<td></td>
+<td>translucent fill only</td>
+<td>backdrop blur</td>
+</tr>
+<tr>
+<td>Rounded rects, borders, gradients, soft shadows, text, images (mipmapped, rounded), rectangular clipping</td>
+<td>✓</td>
+<td></td>
+<td>rounded clipping, radial gradients, transforms, layers</td>
+</tr>
+<tr>
+<td>Raven Dark / Light / Glass tokens, runtime theme switching, reduced motion from the theme token, <code dir="auto">Ui::set_reduced_motion</code> and the browser’s <code dir="auto">prefers-reduced-motion</code></td>
+<td>✓</td>
+<td></td>
+<td>reading the setting on the desktop (winit does not expose it)</td>
+</tr>
+<tr>
+<td>Motion (see §6.5): analytic springs, additive tweens, OKLab colors, implicit paint and layout transitions, shared layout, enter and exit, paint-only frames; scroll-driven <code dir="auto">Sticky</code>, <code dir="auto">ScrollScene</code>, <code dir="auto">ScrollLinked</code></td>
+<td>✓</td>
+<td></td>
+<td>rotation and true group opacity (renderer transforms and layers), gestures, momentum scrolling</td>
+</tr>
+<tr>
+<td>Desktop: window, HiDPI, resize, mouse, wheel/trackpad, keyboard, clipboard, sound and voice, device loss</td>
+<td>✓</td>
+<td></td>
+<td>multiple windows, IME</td>
+</tr>
+<tr>
+<td>Web: canvas, WebGPU or WebGL2 (<code dir="auto">WebBackend</code>), DPR, pointer, wheel, touch scrolling with momentum, keyboard, text input through a hidden textarea (IME commit, dead keys, paste), clipboard copy, sound and voice, rAF on demand, cleanup, device loss</td>
+<td>✓</td>
+<td>IME preedit is not drawn yet</td>
+<td>pinch</td>
+</tr>
+<tr>
+<td>Accessibility</td>
+<td>keyboard focus and focus ring, WAI-ARIA keys, accessibility tree, AccessKit on desktop, ARIA mirror on the web, test ids (<code dir="auto">ViewExt::test_id</code>, AccessKit <code dir="auto">author_id</code>, <code dir="auto">data-testid</code>) and protected values</td>
+<td></td>
+<td>caret and selection for screen readers, right-to-left</td>
+</tr>
+<tr>
+<td>Criteria language: parsing, evaluation, validation, SQL, formatting (see §6.3)</td>
+<td>✓</td>
+<td></td>
+<td><code dir="auto">DataGrid</code> filters on this crate</td>
+</tr>
+<tr>
+<td>Spreadsheet: <code dir="auto">Spreadsheet</code> over <code dir="auto">ravenrs-sheet</code> (500+ functions, dynamic arrays, XLSX/XLS/ODS/CSV in, XLSX/CSV out), editing in the cell and the formula bar, selection by pointer and keys, clipboard, undo, fonts, fills, borders, merges, number formats, column widths, sheet tabs</td>
+<td>✓</td>
+<td></td>
+<td>ribbon of every command, frozen panes, charts and pictures on the sheet, conditional formats drawn, fill handle, find, the culture’s separators</td>
+</tr>
+<tr>
+<td>Reporting: engine, wizard, designer with preview, viewer, pictures, links, barcodes, charts, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4)</td>
+<td>✓</td>
+<td></td>
+<td>Other exports, parameter lookups, SQL data sources (phases R2 to R5)</td>
+</tr>
+<tr>
+<td>End-to-end tests (<code dir="auto">ravenrs-e2e</code>, issue #627)</td>
+<td>a session with no window: queries by test id, role and name, text or snapshot reference; clicks, typing, keys and drags as real input events, refused when the target is disabled, hidden or covered; checks; the screen as text; errors with stable codes</td>
+<td></td>
+<td>the controlled clock and waiting (F2), new accessibility actions (F1b), the rest of #627</td>
+</tr>
+<tr>
+<td>Test channel (<code dir="auto">ravenrs-e2e-wire</code>, issue #649)</td>
+<td>an app opened with <code dir="auto">--e2e-serve</code> answers a tool over stdin and stdout with an <code dir="auto">E2e</code> session of its own; <code dir="auto">Client</code> opens it as a child process with a time limit per step; Raven Finanças serves its sample family in memory, and Raven Test Studio drives it</td>
+<td></td>
+<td>frames over the channel, <code dir="auto">E2E_APP_BUILD</code>, <code dir="auto">attach</code> to an open app with permission, <code dir="auto">cargo ravenrs e2e install</code> (rest of F6)</td>
+</tr>
+<tr>
+<td>Benchmarks and profiling</td>
+<td><code dir="auto">tracing</code> spans per phase, criterion benches (<code dir="auto">crates/*/benches</code>), a gate of exact counters and frame times (<code dir="auto">crates/ravenrs-perf</code>, budgets in <a href="/RavenRS/docs/quality/">docs/QUALITY.md</a>), the diagnostics panel with GPU timestamps (<a href="/RavenRS/docs/performance/">docs/PERFORMANCE.md</a>)</td>
+<td></td>
+<td>stepping through a frozen frame, a map of what was rebuilt, invalidation by subtree</td>
+</tr>
+<tr>
+<td>Application framework: <code dir="auto">ravenrs-app</code>, <code dir="auto">ravenrs-app-ui</code>; see <a href="/RavenRS/docs/applications/">docs/APP-FRAMEWORK.md</a></td>
+<td>derive, model, actions (also declared as data), frames, rules, SQLite, generated lists and forms, permissions, sign-in, audit trail</td>
+<td>the API</td>
+<td>relations</td>
+</tr>
+</tbody>
+</table>
+<p>| Reports on label and receipt printers: ZPL II, EPL2/PPLB, PPLA, TSPL, ESC/POS (<code dir="auto">ravenrs-report-label</code>), columns, a continuous page, commands for the printer and printing straight from the designer | output read back by a parser and a separate decoder | never printed on a physical printer | checking each brand on paper |
+| NFS-e of the national standard (<code dir="auto">ravenrs-nfse</code>, DANFSe in <code dir="auto">ravenrs-app-nfe</code>), with <code dir="auto">SefinSandbox</code> | | <strong>beta, proof of concept</strong>: order of the DPS read in the XSD v1.01, never validated by <code dir="auto">xmllint</code> nor sent to the Sefin. No production | see <a href="/RavenRS/docs/nfse/">docs/NFSE.md</a> |
+| NF-e and NFC-e (<code dir="auto">ravenrs-nfe</code>, <code dir="auto">ravenrs-app-nfe</code>), with <code dir="auto">SefazSandbox</code> | | <strong>beta, proof of concept</strong>: XML checked against the official XSD, signature against <code dir="auto">openssl</code>, and never sent to a real SEFAZ. No production | see <a href="/RavenRS/docs/automacao-comercial/">docs/AUTOMACAO-COMERCIAL.md</a> |
+| Payments (<code dir="auto">ravenrs-pagamento</code>), with a simulator | | <strong>beta, proof of concept</strong>: never tested against a real provider, pinpad or card | see <a href="/RavenRS/docs/pagamentos/">docs/PAGAMENTOS.md</a> |
+| Point of sale (<code dir="auto">ravenrs-pos</code>, <code dir="auto">ravenrs-app-pos</code>, <code dir="auto">examples/mini-pdv</code>) | the rules of a cart, in <code dir="auto">ravenrs-pos</code> | <strong>beta, proof of concept</strong>: tested with no window, against the sandbox | see <a href="/RavenRS/docs/automacao-comercial/">docs/AUTOMACAO-COMERCIAL.md</a> |</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="12-decisions-log">12. Decisions log</h2><a class="sl-anchor-link" href="#12-decisions-log"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “12. Decisions log”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Decision</th>
+<th>Alternatives considered</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Own SDF quad renderer on wgpu</td>
+<td>Vello, tiny-skia</td>
+<td>One pass per primitive, small WASM, no compute requirement.</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Parley + swash + own atlas</td>
+<td>glyphon/cosmic-text</td>
+<td>Parley is the most complete pure-Rust rich text layout; owning the atlas keeps text in the same batching and pass as quads.</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Embedded Inter, no system fonts</td>
+<td>System fonts on desktop</td>
+<td>Identical rendering everywhere; the web has no system fonts.</td>
+</tr>
+<tr>
+<td>4</td>
+<td><code dir="auto">web-sys</code> directly on the web</td>
+<td>winit web backend</td>
+<td>Explicit control of DPR, frame scheduling, IME and accessibility bridges.</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Single-threaded reactivity with epoch subscriptions</td>
+<td>Signals with back-references, <code dir="auto">Arc&lt;Mutex&gt;</code></td>
+<td>No locks on the UI thread; safe drops; matches the browser model.</td>
+</tr>
+<tr>
+<td>6</td>
+<td>Display list (<code dir="auto">Scene</code>) as the widget/renderer boundary</td>
+<td>Widgets calling the renderer</td>
+<td>Headless widget tests; swappable renderers.</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Builders before macros</td>
+<td><code dir="auto">VStack!{}</code> proc macros first</td>
+<td>Real, type-checked API first; macros later as sugar over it.</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Non-sRGB surface formats preferred</td>
+<td>Linear blending</td>
+<td>Matches how designers and browsers blend, so tokens look as designed.</td>
+</tr>
+<tr>
+<td>9</td>
+<td>The spreadsheet engine is GridCraft’s, brought in as <code dir="auto">ravenrs-sheet</code></td>
+<td>Writing an engine; a git dependency on GridCraft</td>
+<td>GridCraft is pure Rust under MIT OR Apache-2.0, runs in wasm32 and has 1,800 tests for formulas, recalculation and XLSX. It is not on crates.io, so a git dependency would stop RavenRS publishing; the code lives here with <code dir="auto">NOTICE</code> naming the commit it came from. Only the view is ours (<code dir="auto">ravenrs-spreadsheet</code>), built on <code dir="auto">ravenrs-widgets</code>.</td>
+</tr>
+<tr>
+<td>10</td>
+<td>The word-processing engine is WordCraft’s, brought in as <code dir="auto">ravenrs-word</code>, and every engine taken from the same publisher goes through one converter (<code dir="auto">scripts/storytold/</code>)</td>
+<td>Writing DOCX, RTF and ODT readers; a git dependency; one script per project</td>
+<td>WordCraft is pure Rust under MIT OR Apache-2.0, runs in wasm32 and has about 1,900 tests for its model and formats. Only the crates with crates.io dependencies come (no page layout yet), so the crate stays publishable. One converter driven by <code dir="auto">projects.json</code> keeps each copy reproducible from the commit in its <code dir="auto">NOTICE</code>, so a newer revision arrives as a three-way merge.</td>
+</tr>
+<tr>
+<td>11</td>
+<td>The PDF engine is PdfCraft’s, brought in as <code dir="auto">ravenrs-pdf</code>, with the renderer crates PdfCraft patches copied in as modules</td>
+<td><code dir="auto">hayro</code> and <code dir="auto">vello_cpu</code> from crates.io; a git dependency; <code dir="auto">[patch]</code></td>
+<td>PdfCraft renders with hayro, vello_cpu and lopdf at old versions carrying about a thousand patches of its own (stack overflows on hostile files, tiles, appearance states), each covered by a PdfCraft test. The released crates lack them and have moved on; a <code dir="auto">[patch]</code> does not reach the users of a published crate. So those nine crates are modules too (<code dir="auto">third_party</code>), converted from the same commit, with their licences in <code dir="auto">LICENSES/</code>.</td>
+</tr>
+<tr>
+<td>12</td>
+<td>The presentation engine is DeckCraft’s, brought in as <code dir="auto">ravenrs-deck</code>, with the craft-libs crates it uses and the krilla it patches copied in as modules</td>
+<td>Writing a PPTX reader and a slide renderer; git dependencies on craft-libs; <code dir="auto">[patch]</code> for krilla</td>
+<td>DeckCraft is pure Rust under MIT OR Apache-2.0, runs in wasm32 and has about 1,600 tests for its model, rendering, PPTX and commands. Its crates reach craft-libs by git and a patched krilla by <code dir="auto">[patch]</code>, neither of which a published crate can carry, so those crates are modules too (<code dir="auto">craft</code>, <code dir="auto">third_party</code>), read by the same converter from the craft-libs commit DeckCraft pins. Of the video and audio codecs only the decoders DeckCraft turns on are compiled. Only the egui interface stays out: the editor will be ours.</td>
+</tr>
+</tbody>
+</table></div><footer class="sl-flex" data-astro-cid-ddtxxk7k=""><div class="meta sl-flex" data-astro-cid-ddtxxk7k=""><a href="https://github.com/alexkads/RavenRS/edit/master/ARCHITECTURE.md" class="sl-flex print:hidden" data-astro-cid-qlekgd3o=""><svg data-astro-cid-qlekgd3o="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;" data-astro-cid-hkc32dio=""><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"></path></svg>Edit page</a></div><div class="pagination-links print:hidden" dir="ltr" data-astro-cid-b5raizh3=""><a href="/RavenRS/docs/ai/" rel="prev" data-astro-cid-b5raizh3=""><svg data-astro-cid-b5raizh3="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;" data-astro-cid-hkc32dio=""><path d="M17 11H9.41l3.3-3.29a1.004 1.004 0 1 0-1.42-1.42l-5 5a1 1 0 0 0-.21.33 1 1 0 0 0 0 .76 1 1 0 0 0 .21.33l5 5a1.002 1.002 0 0 0 1.639-.325 1 1 0 0 0-.219-1.095L9.41 13H17a1 1 0 0 0 0-2Z"></path></svg><span data-astro-cid-b5raizh3="">Previous<br data-astro-cid-b5raizh3=""><span class="link-title" data-astro-cid-b5raizh3="">AI-assisted development</span></span></a><a href="/RavenRS/docs/design-system/" rel="next" data-astro-cid-b5raizh3=""><svg data-astro-cid-b5raizh3="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;" data-astro-cid-hkc32dio=""><path d="M17.92 11.62a1.001 1.001 0 0 0-.21-.33l-5-5a1.003 1.003 0 1 0-1.42 1.42l3.3 3.29H7a1 1 0 0 0 0 2h7.59l-3.3 3.29a1.002 1.002 0 0 0 .325 1.639 1 1 0 0 0 1.095-.219l5-5a1 1 0 0 0 .21-.33 1 1 0 0 0 0-.76Z"></path></svg><span data-astro-cid-b5raizh3="">Next<br data-astro-cid-b5raizh3=""><span class="link-title" data-astro-cid-b5raizh3="">Design system</span></span></a></div></footer></div></div></main></div></div></div></div></body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["build_chart","chart_kind","recommend_charts","scatter_x_from_first","series_from_range","specs"]};

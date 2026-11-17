@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["find_in_text","fold_case","layout"],"struct":["PageText","TextFilter","TextGlyph"]};

@@ -1,0 +1,489 @@
+# RavenRS Architecture
+
+RavenRS is a declarative GUI framework written in Rust. One UI description runs in a native window (Windows, macOS, Linux) and in the browser (WebAssembly + WebGPU), and RavenRS draws every pixel itself with `wgpu`. This document records the decisions behind the first milestone, why they were made, and what is implemented, experimental or planned.
+
+## 1. Goals and constraints
+
+| Principle | What it means in practice |
+|---|---|
+| Rust-first | All framework logic is Rust. No code from the original Raven GUI (C) is used. |
+| GPU-first | Rendering goes through `wgpu` and WGSL shaders on every platform. |
+| WebAssembly-first | Every crate that is not platform glue compiles for `wasm32-unknown-unknown`. No threads, no `SharedArrayBuffer`, no blocking. |
+| Canvas-first | On the web the UI is drawn into one `<canvas>`. The DOM hosts the canvas and delivers input, nothing else. |
+| Declarative-first | Views are small values composed with builders; state changes trigger rebuilds of what depends on them. |
+| Beautiful by default | Components read semantic design tokens; nothing is styled by hand in app code unless the app wants to. |
+| Performance-first | Frames are produced only on demand; buffers and allocations are reused; there is no GPU→CPU readback in normal rendering. |
+
+## 2. Ecosystem survey
+
+The survey was done against the official repositories and docs (October 2026). Nothing was copied from these projects; they informed design choices only.
+
+| Project | License | Rendering | State model | Layout | Text | Web | Lesson for RavenRS |
+|---|---|---|---|---|---|---|---|
+| [Raven](https://github.com/oscar-soirey/Raven) (C) | Apache-2.0 | Vulkan behind a function table, separate render thread | UI thread + job system | Two-pass measure/arrange | unverified | none | Keep the renderer behind a narrow interface. *This is the closest match to "the original Raven GUI"; the identification is probable, not confirmed.* |
+| [GPUI](https://github.com/zed-industries/zed/tree/main/crates/gpui) | Apache-2.0 | Metal; wgpu on Linux | Entities owned by the app, handles + contexts | Taffy | Platform text stacks | Experimental `gpui_web` | Context-passing ownership avoids `Rc<RefCell>` sprawl. |
+| [Xilem / Masonry](https://github.com/linebender/xilem) | Apache-2.0 | Vello on wgpu | View tree diffed into a retained widget tree | Masonry's own | Parley | DOM backend (`xilem_web`) | Separating the API layer from a retained widget core lets several API styles share it. |
+| [Iced](https://github.com/iced-rs/iced) | MIT | wgpu, tiny-skia fallback | The Elm Architecture | Own | cosmic-text (fork) | Yes, WebGL feature | Bundle a font for WASM; the browser gives you no system fonts. |
+| [Slint](https://github.com/slint-ui/slint) | GPL-3.0 / royalty-free / commercial | femtovg, Skia, software, optional wgpu | Compiled DSL with property bindings | Own + Taffy | Parley (optional) | Yes | Trim text features per target to keep WASM small. |
+| [Blinc](https://github.com/project-blinc/Blinc) | Apache-2.0 | wgpu, SDF primitives, glass | Signals + state machines | Flexbox builder | Own atlas | WebGPU preview | Closest prior art to RavenRS; validates the SDF + atlas approach. |
+| [Vello](https://github.com/linebender/vello) | Apache-2.0 OR MIT | Compute-shader 2D renderer; `vello_cpu`, `vello_gpu` variants | — | — | — | Needs WebGPU compute | Do not make compute-only rendering the only path. |
+| [Taffy](https://github.com/DioxusLabs/taffy) | MIT | — | — | Flexbox, Grid, Block | Measure callback | Yes | Wire text into layout through the measure function from day one. |
+| [wgpu](https://github.com/gfx-rs/wgpu) | MIT OR Apache-2.0 | Vulkan, Metal, DX12, GL, WebGPU | — | — | — | WebGPU and WebGL2 | Pin the major version; breaking releases arrive roughly quarterly. |
+| [Parley](https://github.com/linebender/parley) | Apache-2.0 OR MIT | — | — | — | HarfRust shaping, Skrifa outlines, ICU4X | Yes | Mature rich-text layout without platform dependencies. |
+
+## 3. Crate graph
+
+```
+ravenrs-core ─────────────┬──────────────┬──────────────┬─────────────┐
+ (geometry, color,      │              │              │             │
+  events, Scene)        ▼              ▼              ▼             ▼
+                  ravenrs-layout    ravenrs-text     ravenrs-style   ravenrs-render
+                   (Taffy)        (Parley)       (tokens)      (wgpu, swash)
+ravenrs-reactive ───┐      │              │              │             │
+ (State, Binding, │      └──────┬───────┴──────────────┘             │
+  Derived)        └────► ravenrs-widgets                               │
+                         (View, Component, BuildCx, Ui)              │
+                                │                                    │
+                ┌───────────────┴───────────────┐                    │
+                ▼                               ▼                    │
+     ravenrs-platform-native             ravenrs-platform-web ◄──────────┘
+       (winit + wgpu)              (canvas + WebGPU, wasm32 only)
+                └───────────────┬───────────────┘
+                                ▼
+                             ravenrs  (facade + prelude)
+
+ravenrs-mcp  ──► ravenrs-criteria  (tool for coding assistants; nothing depends on it)
+ravenrs-lint                       (lints for applications; reads sources with syn, depends on no RavenRS crate)
+ravenrs-xcache                     (compiler cache that worktrees share; stands in front of rustc, depends on no RavenRS crate, not published)
+
+ravenrs-criteria  (expression language, no RavenRS dependencies)
+        ▲
+        ├── ravenrs-widgets  (DataGrid filter expressions, number layout)
+        │
+ravenrs-barcode  (what a barcode is, GTIN checks; no RavenRS dependencies, nothing about drawing)
+        ▲
+        ├── ravenrs-graphics, ravenrs-nfe, ravenrs-app-ui (GTIN editor), ravenrs-pos
+        │
+ravenrs-graphics  ──► ravenrs-core  (shapes, chart layout, barcodes; shared, knows no engine)
+        ▲
+        │
+ravenrs-lottie  ──► ravenrs-core  (reads Lottie files into curves; no GPU, no widgets)
+        ▲
+        └── ravenrs-widgets  (`Lottie`, with the `lottie` feature)
+
+ravenrs-report  ──► ravenrs-core, ravenrs-text  (no GPU, no window)
+        ▲
+        │
+ravenrs-report-pdf, ravenrs-report-xlsx  (exporters: Document ──► file)
+ravenrs-report-export  ──► the exporters  (one entry point: format, name, media type)
+ravenrs-widgets        ──► every ravenrs-widgets-* below  (the facade: re-exports them all by the same names)
+ravenrs-widgets-grid, -lists, -scheduler, -dock, -imaging, -charts, -chat
+                       ──► ravenrs-widgets-kit, ravenrs-widgets-base  (one family each; never another family)
+ravenrs-widgets-kit    ──► ravenrs-widgets-base
+ravenrs-grid-export    ──► ravenrs-widgets, ravenrs-report-export  (what a DataGrid shows ──► file)
+ravenrs-flow-export    ──► ravenrs-widgets, ravenrs-report-export, ravenrs-text  (a FlowCanvas picture ──► PNG, SVG, PDF)
+ravenrs-flow-bpmn      ──► ravenrs-widgets  (BPMN 2.0 as a FlowNotation, BPMN XML)
+ravenrs-flows          ──► ravenrs-graphics, ravenrs-criteria  (runs a flow: definition, catalog of node kinds, plan, items from node to node, built-in nodes; no GUI)
+ravenrs-flows-runtime  ──► ravenrs-flows, rusqlite  (durable runs: a queue with leases, checkpoints, resuming, waits, reruns, retention)
+ravenrs-app            ──► ravenrs-criteria, ravenrs-reactive  (entities, application model, object spaces, actions, frames; no GUI)
+                           and ravenrs-app-spec with `source` (entities read from Rust source while running)
+ravenrs-app-spec       ──► ravenrs-criteria, syn  (what the derives read from a struct or enum, as data)
+ravenrs-app-derive     ──► ravenrs-app-spec  (the derives, re-exported by ravenrs-app)
+ravenrs-live           ──► ravenrs-reactive, syn  (interprets the Rust of examples; host types through a Registry)
+ravenrs-project        ──► syn, zip  (code of the playground ──► a Cargo project, as files or a .zip)
+ravenrs-live-derive    (#[expose]: registers an impl block, struct, enum or module; behind `live` in core, style, layout, graphics, lottie, widgets, movie, app, app-ui)
+ravenrs-app-sqlite     ──► ravenrs-app, rusqlite  (records in SQLite)
+ravenrs-app-ui         ──► ravenrs-app, ravenrs-widgets, ravenrs-grid-export, ravenrs-report  (the screens, from the model)
+ravenrs-app-library    ──► ravenrs-app  (ready-made records)
+ravenrs-app-update     ──► serde_json, ureq  (installing and updating an app by compiling it; no GUI, knows no app)
+ravenrs-app-report     ──► ravenrs-app-ui, ravenrs-grid-export, ravenrs-report-designer  (reports and panels)
+ravenrs-app-server     ──► ravenrs-app, ravenrs-criteria  (HTTP on one worker thread; no GUI)
+ravenrs-app-remote     ──► ravenrs-app-ui  (the same screens over the API of ravenrs-app-server, which it does not depend on)
+ravenrs-app-sqlite, ravenrs-app-postgres ──► ravenrs-app-sql ──► ravenrs-app, ravenrs-criteria  (only these two know a database driver)
+ravenrs-app-postgrest  ──► ravenrs-app, ravenrs-app-sql (its words only), ureq  (the same records through PostgREST over HTTP; no driver)
+ravenrs-report-viewer  ──► ravenrs-widgets (Document ──► screen)
+ravenrs-sheet          (spreadsheet engine from GridCraft: formulas, recalculation, XLSX; depends on nothing in RavenRS)
+ravenrs-spreadsheet    ──► ravenrs-sheet, ravenrs-widgets  (`Spreadsheet`: the engine ──► screen)
+ravenrs-word           (word-processing engine from WordCraft: document model, DOCX/DOC/RTF/ODT/HTML/Markdown; depends on nothing in RavenRS)
+ravenrs-pdf            (PDF engine from PdfCraft: reading, saving, merging and splitting, rendering to pixels; depends on nothing in RavenRS)
+ravenrs-deck           (presentation engine from DeckCraft: slide model, PPTX, rendering, PDF export, commands with undo; depends on nothing in RavenRS)
+ravenrs-movie          ──► ravenrs-widgets (recorded draw lists ──► screen)
+ravenrs-e2e            ──► ravenrs-widgets-base (end-to-end tests: find by test id, role or text, real input events, the screen as text; no widget family)
+ravenrs-e2e-wire       ──► ravenrs-e2e (the test channel: a tool drives an app in a child process with no window, one JSON line per step; feature `serve` on the app's side)
+ravenrs-ai             ──► ravenrs-widgets (models on the machine; desktop only)
+        ▲
+        ├── ravenrs-report-server  (HTTP, schedules, delivery; only this crate has a runtime)
+        │
+ravenrs-report-label    ──► ravenrs-report, ravenrs-text  (Document ──► printer language; no GUI)
+ravenrs-report-designer ──► ravenrs-report-viewer, ravenrs-report-export, ravenrs-report-label, ravenrs-widgets  (the designer)
+examples/report-designer  ──► ravenrs, ravenrs-report-designer
+
+ravenrs-dfe        (BETA: XML, C14N, XMLDSig, `Transport`, sandbox handlers, certificates; shared by the fiscal engines)
+ravenrs-nfe        ──► ravenrs-dfe, ravenrs-barcode  (BETA: NF-e and NFC-e with no GUI; everything leaves through `Transport`)
+ravenrs-nfse       ──► ravenrs-dfe  (BETA: NFS-e of the national standard with no GUI; `SefinSandbox`)
+ravenrs-pagamento  (BETA: payments with no GUI; everything goes through `ProvedorPagamento`)
+ravenrs-perifericos  (BETA: peripherals as data, in versioned manifests)
+ravenrs-pos        (the rules of a counter with no GUI and nothing fiscal)
+ravenrs-app-nfe    ──► ravenrs-nfe, ravenrs-nfse, ravenrs-app-ui, ravenrs-app-report, ravenrs-report-label  (BETA: the module)
+ravenrs-app-pos    ──► ravenrs-pos, ravenrs-app-nfe, ravenrs-app-ui, ravenrs-app-report, ravenrs-report-label  (BETA: the module)
+examples/mini-pdv  ──► ravenrs-app-pos, ravenrs-app-nfe, ravenrs-app-sqlite  (native only: it only puts them together)
+```
+
+`ravenrs-criteria` (the expression language) depends on nothing else in RavenRS, so any module can use it for filters, rules and validation. `ravenrs-report` (the report engine) depends only on `ravenrs-core`, `ravenrs-text` and `ravenrs-criteria`, so it also runs on servers. `ravenrs-widgets` uses `ravenrs-criteria` without its JSON feature, for `DataGrid` filter expressions and number layout. The `ravenrs` facade re-exports neither of them; apps depend on them directly. See [§6.3](#63-criteria-language), [§6.4](#64-reporting) and [docs/REPORTING.md](docs/REPORTING.md).
+
+There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform crates are where widgets and the renderer come together. `ravenrs-widgets` never touches the GPU and `ravenrs-render` knows nothing about widgets; they meet only through `ravenrs_core::Scene`, a plain display list. That boundary keeps widgets testable without a GPU (the widget tests run headless) and keeps the renderer replaceable.
+
+## 3.1 Where things live
+
+| Crate | Modules |
+|---|---|
+| `ravenrs-core` | `geometry`, `color`, `event`, `scene` (the display list), `access` (the accessibility tree), `csv` (field quoting for every CSV export) |
+| `ravenrs-animation` | `spring`, `easing`, `oklab`, `animated` (pure functions of time) |
+| `ravenrs-reactive` | `state`, `binding`, `derived`, `observer` |
+| `ravenrs-render` | `renderer` (batching and passes), `gpu` (surface and device), `atlas` (glyphs), `images` |
+| `ravenrs-platform-native` | `lib` (winit loop), `access` (AccessKit) |
+| `ravenrs-wayland-gestures` | Touchpad pinches on Wayland, until winit delivers them; the only `unsafe` call |
+| `ravenrs-wayland-gestures` | Touchpad pinches on Wayland, until winit delivers them; the only `unsafe` call |
+| `ravenrs-platform-web` | `app` (canvas, events, frames), `access` (ARIA mirror), `error` |
+| `ravenrs-criteria` | `ast`, `parse`, `format`, `eval`, `functions`, `validate`, `sql`, `value` |
+| `ravenrs-report` | `model`, `engine`, `document`, `base64`, `paint`, `wizard`, `samples` |
+| `ravenrs-graphics` | `vector`, `chart`, `plot`, `sankey`, `flow` (diagrams of nodes and the routes of their lines), `barcode`; also the optional layout behind `Chart` and `Barcode` in `ravenrs-widgets` |
+| `ravenrs-lottie` | `document` (reading a file, and what it asks for that is not done yet), `property` (keyframes), `geometry` (trim, dash, stroke), `player` (one moment as `PathFill`s) |
+| `ravenrs-barcode` | `lib` (`Symbology`, `Pattern`, `encode`, GTIN) |
+| `ravenrs-report-label` | `raster` (a page as dots), `bitmap`, `language` (`LabelJob`, `Language`, `compile`), `output` (TCP 9100, CUPS, file, Windows share), `preset` |
+| `ravenrs-dfe` | `xml`, `c14n`, `assinatura` (`Algoritmo`, `Signer`), `transporte` (`Transport`, `Metodo`), `interceptacao` (`Cadeia`, `OnUnhandled`, `Rota`), `compactacao`, `certificado_x509`, `certificados` (the laboratory), `tempo`, `http` (feature `http`, native only) |
+| `ravenrs-nfe` | `modelo`, `totais`, `chave`, `documento` (deterministic XML), `soap`, `retorno`, `urls`, `ambiente` (no production), `sandbox` (`SefazSandbox`, handlers and scenarios; `catalogo`, `analise`, `autopsia`, `certificados`, `vigencia`); re-exports `xml`, `c14n`, `assinatura`, `transporte` and `http` from `ravenrs-dfe` |
+| `ravenrs-nfse` | `modelo`, `dps` (deterministic XML), `chave`, `evento` (cancellation), `retorno` (JSON), `danfse` (the rules of the NT 008), `ambiente` (no production), `sandbox` (`SefinSandbox`, routes, scenarios, `REGRAS`) |
+| `ravenrs-pagamento` | `dominio`, `provedor`, `pagamentos`, `diario` (written before it acts), `fiscal`, `simulador`, `abecs`, `intpos`, `sitef`, `mercado_pago`, `stone` |
+| `ravenrs-perifericos` | `manifesto`, `catalogo`, `registro`, `armazem`, `comando`, `transporte`, `embutidos`, `data` |
+| `ravenrs-pos` | `lib` (`Carrinho`, `Leitura`, totals, payments), `entrada`, `preco` |
+| `ravenrs-app-nfe` | `module` (`NfeModule`), `service` (`NfeService`), `cupom` (receipt and DANFE as stored reports) |
+| `ravenrs-app-pos` | `modelo`, `modulo` (`Pos`), `caixa`, `telas`, `etiquetas`, `entrada`, `preco`, `codigos` |
+| `ravenrs-report-export` | `lib` |
+| `ravenrs-grid-export` | `lib` |
+| `ravenrs-flow-export` | `lib` |
+| `ravenrs-flow-bpmn` | `elements`, `xml`, `rules`, `plan` |
+| `ravenrs-flows` | `item`, `time` (clocks and `CancelToken`), `definition`, `catalog` (kinds and `NodeContext`), `plan`, `run` (`Executor`, loops), `nodes` (the built-in kinds, `Catalog::builtin`), `graph` (the bridge to `FlowGraph` and `FlowRunRules`) |
+| `ravenrs-flows-runtime` | `store` (the tables and statements), `runtime` (`Runtime`: queue, leases, checkpoints, waits, reruns, retention) |
+| `ravenrs-app-spec` | `lib` |
+| `ravenrs-project` | `lib` |
+| `ravenrs-app-derive` | `lib` |
+| `ravenrs-live` | `value` (values, host objects, conversions), `registry` (what the host offers), `eval` (the interpreter), `bridge` (what `#[expose]` calls through) |
+| `ravenrs-live-derive` | `lib` |
+| `ravenrs-app-sqlite` | `lib` |
+| `ravenrs-app-library` | `lib` |
+| `ravenrs-app-update` | `lib` (`Updater`, `decide`), `app` (`InstalledApp`: folders and addresses), `news`, `installer` (lock, steps, running it), `template` (the `install.cmd` of each app), `release` (the three release files) |
+| `ravenrs-app-report` | `lib`, `stored`, `analytics` |
+| `ravenrs-app-server` | `lib` (`ApiService`, routes, sessions), `json`, `openapi`, `http` (worker thread and axum) |
+| `ravenrs-app-remote` | `lib` (`RemoteClient`, `RemoteDatabase`, `RemoteObjectSpace`), `transport`, `gate` (`RemoteApp`) |
+| `ravenrs-app-sql` | `lib` (`SqlBackend`, `SqlDatabase`, `SqlObjectSpace`, `TableMap`) |
+| `ravenrs-app-postgres` | `lib` (`PostgresBackend`, types in and out) |
+| `ravenrs-app-postgrest` | `lib` (`PostgrestDatabase`, `PostgrestObjectSpace`, `ResourceMap`), `filter` (criteria in PostgREST's words), `http` (`Http`, `UreqHttp`), `server` (`SERVER_SQL`) |
+| `ravenrs-report-designer` | `lib`, `editor`, `bands`, `surface`, `props`, `preview`, `thermal` (printing straight to a printer) |
+| `ravenrs-app-ui` | `app`, `pane`, `form`, `session`, `background`, `shell`, `list_view`, `detail_view`, `nested`, `dashboard`, `editors`, `container`, `system`, `values`, `security`, `model_editor`, `list_editors`, `reminders` |
+| `ravenrs-app` | `entity`, `object`, `model` (`node`, `layers`, `store`, `generate`, `captions`), `space`, `action`, `controller`, `frame`, `module`, `functions`, `files`, `workflow`, `records` (numbers and drafts), `security` (`space`, `directory`, `password`, `records`, `audit`) |
+| `ravenrs-report-pdf` | `lib` (pages, fonts) |
+| `ravenrs-report-xlsx` | `lib` (grid, cells, CSV), `format` (Excel number formats) |
+| `ravenrs-report-viewer` | `lib` (`DocumentViewer`), `search`, `parameters` (`ParameterPanel`) |
+| `ravenrs-sheet` | `base` (addresses, values, dates), `numfmt`, `formula`, `functions`, `math`, `model`, `calc`, `xlsx`, `chart`, `pdf`, `engine` (`Session`: every action a command with undo). Kept as it came from GridCraft, with its own `rustfmt.toml` and `clippy.toml` |
+| `ravenrs-word` | `geom`, `doc` (the model: stories, styles, lists, sections, notes, tracked changes), `metafile` (WMF/EMF), `docx`, `docbin` (`.doc`, read-only), `formats` (TXT, Markdown, HTML, RTF, ODT, LaTeX). Kept as it came from WordCraft, with its own `rustfmt.toml` and `clippy.toml`; `scripts/storytold/` converts and merges new revisions |
+| `ravenrs-pdf` | `geom`, `crypt`, `filters`, `cos` (objects, repair, saves, encryption), `model`, `content`, `fonts`, `render` (pages to pixels, text, inspection), `organize` (merge, split, pages, attachments); `third_party` holds the hayro, vello_cpu and lopdf revisions PdfCraft patches. Kept as it came, with its own `rustfmt.toml` and `clippy.toml`; built at `opt-level = 1` in dev, as PdfCraft is |
+| `ravenrs-deck` | `geom`, `color`, `model` (slides, layouts, masters, shapes, text, tables, charts), `fonts`, `text` (line breaking, bidi, fields), `anim`, `render` (slides to pixels), `pptx`, `format` (the native zip), `pdf`, `media` (probing, poster frames), `engine` (`Session`: every action a command with undo), `mcp` (the commands as agent tools); `craft` holds the craft-libs crates DeckCraft uses (metafile, pdf, media, audio, video) and `third_party` the krilla it patches. Kept as it came, with its own `rustfmt.toml` and `clippy.toml`; built at `opt-level = 1` in dev, as DeckCraft is |
+| `ravenrs-spreadsheet` | `lib` (`Spreadsheet`, labels), `state` (`SpreadsheetState`), `surface` (the painted grid, pointer and keys), `geometry` |
+| `ravenrs-ai` | `machine` (memory and disk), `models` (`LocalModel`, `ModelFolder`: download checked by hash, remove), `catalog`, `manager` (`ModelManager`). Desktop only |
+| `ravenrs-movie` | `movie` (the film: draw lists, each thing stored once), `project` (non-destructive edits), `composition` (one moment drawn), `record` (`Recorder`), `player` (with sound and the boxes that explain each step), `search` (`MovieLibrary`), `assistant` (`MovieAssistant`), `chat` (`MovieChat`), `editor`, `flight` (`FlightRecorder`, `BugReporter`) |
+| `ravenrs-report-server` | `config`, `store`, `cron`, `job`, `render`, `deliver`, `scheduler`, `http`, `main` |
+| `ravenrs-mcp` | `api` (index of the public API, parsed from embedded sources), `docs`, `expression`, `server` |
+| `ravenrs-lint` | `rules` (the syntax-tree walk and `allow` comments), `config` (`[metadata.ravenrs-lint]`), `workspace` (`cargo metadata`), `report` (compiler-style and JSON), `init` (strict lints, agents' instructions) |
+| `ravenrs-xcache` | `args` (what a rustc command line asks for, and whether it can be kept), `paths` (the build directory and the checkout, taken out with `--remap-path-prefix`, and the search for a path left in an artifact), `store` (files by SHA-256, results, manifests, the log of requests), `wrapper` (look up, restore, or compile and keep) |
+
+The widgets are ten crates, and applications see one: `ravenrs-widgets`. `ravenrs-widgets-base` holds the runtime (`view`, `context` with `BuildCx`, `ui` and `ui/access`, `motion`, `modifiers`, `util`), the services the platform provides (`clipboard`, `sound`, `link_service`, `file_picker`, `full_screen`, `remote`), the value types more than one family uses (`ids`, `date`, `recurrence`, `hotkey`, `selection_mode`, `summary`, `dock_side`, `zoom`, `scroll_link`, `time_link`), and the basic controls (`button`, `display`, `stack`, `overlay`, `floating`, `extras`, `choice`, `inputs`, `text_field`, `color_picker`, `calendar`). `ravenrs-widgets-kit` holds the components of general use the families are built on (`nav`, `commands`, `status`, `shortcuts`, `tiles`, `theme`, `diagnostics`, `release_notes`, `model_picker`, `counter`, `data`, `editors`, `filter_builder`, `expression_editor`, `lookup`, `tag_box`, `quick_edit`, `form_layout`, `wizard`, `quad_field`, `files`). Each family is a crate of its own that uses only the base and the kit: `ravenrs-widgets-grid` (`grid/`), `-lists` (`lists/`, `tree`), `-scheduler` (`scheduler/`, `event_calendar`, `timeline`), `-dock` (`dock/`, `ribbon`), `-imaging` (`imaging/`, `lottie`), `-charts` (`chart`, `flow`, `sankey`) and `-chat` (`chat`, `conversation`, `rich_text`, `code_editor`, `playground`). `scripts/check-widget-layers.py` fails if a family names another in its `Cargo.toml`. `ravenrs-widgets` is the facade: the playground's registry (`live`, `live_list`) and the re-export of every name at its root, so `ravenrs_widgets::Button` and `ravenrs_widgets::DataGrid` are written the same way. Its components reach the base's modules by their old names (`crate::context::BuildCx`); the base makes them `#[doc(hidden)] pub`, which is not a stable API. `scripts/public-api.py` keeps the list of public paths in `crates/ravenrs-widgets/public-api.txt`, reading every `ravenrs-widgets-*` crate as part of the facade. The components are grouped by family:
+
+| Module | Components |
+|---|---|
+| `stack`, `card`, `canvas`, `fill`, `text`, `icon`, `icon_set`, `image` | Layout primitives, `ZStack`, `ScrollEdgeArrow`, `PropertyRow`, `PageHeader`, `TitleBar`, `Footer`, cards, custom drawing, text, icons, images |
+| `button`, `inputs`, `text_field`, `choice`, `calendar`, `date` | Buttons, `ButtonGroup`, form controls, text input, `ToggleGroup`, `FavoriteToggle`, `SwatchGrid`, `NinePointAnchor`, `ColorPair`, `Pagination`, `Label`, `AspectRatio`, `Calendar`, `DatePicker`, `EventCalendar`, `RecurrenceEditor` |
+| `files` | `FileUpload`, `DropZone`, `ImageField` and the service that brings files in |
+| `quick_edit` | `ValueSlider`, `InlineRename`: controls that stay small until they are used |
+| `dock` | `DockArea`: the arrangement in `dock::layout` (`DockLayout`: a tree of ids, its moves and its saved text) and `dock::geometry` (rectangles and what lies under a drag), both without `Ui`, and the drawing in `dock::area` |
+| `lists` | Long lists and what is built on them: `VirtualList`, `Filmstrip`, `PagedDocumentView`, `FileBrowser`, `YearView`, `SortableList`, `DocumentTabs`, with the arithmetic of a reorder drag in `reorder`, in the base, which `dock` uses too |
+| `imaging` | Instruments for pictures, fed by the caller's data: `Histogram`, `Ruler`, `ColorWheel`, `CurveEditor`, `ZoomControl`, `ZoomPanView`, `Minimap`, `RuleOfThirdsGrid`, `RubberBand`, `Marquee`, `TransformHandles`, `Protractor`, `CropOverlay`, `Eyedropper`, `CompareView`, `ImageLightbox` |
+| `scheduler`, `recurrence` | `Scheduler` and its time axis, and `RecurrenceRule`, which needs no UI |
+| `nav`, `ribbon` | `Tabs`, `Sidebar` and its parts, `Breadcrumb`, `Disclosure`, `Ribbon` |
+| `overlay`, `floating`, `shortcuts` | `Tooltip`, `Popover`, `DropdownMenu`, `Select`, `Dialog`, then `ContextMenu`, `HoverCard`, `Sheet`, `SplashScreen`, `Toaster`, `Combobox`, `CommandPalette`, then `ShortcutSheet`, `ShortcutHintBar` |
+| `chat`, `rich_text`, `conversation` | `Chat`, `ChatMedia`, `FloatingPanel`; `RichText`; `AttachmentStrip`, `AudioPlayerButton`, `SelectionBar` |
+| `display`, `status`, `data`, `extras` | Badges and alerts; `Dot`, `OverlayBadge`, `Rating`, `IconTile`, `EmptyState`, `HeroBanner`, `MultiProgress`, `ShimmerText`, `DaySeparator`; lists, tables and charts; `Spinner`, `Carousel`, `Splitter`, `SplitPanes`, `SplitHandle`, `Menubar`, `InputOtp`, `FormField` |
+| `counter` | `KeyBar`, `ScanField`: keys always in sight and a field for a scanner, with nothing about shops |
+| `grid/` | `DataGrid`: `query` (pure pipeline), `model`, `view` |
+
+Examples use the public API, among them `feature-center`, every feature of the application framework, and: `hello-world`, `component-gallery` (one demo per component), `report-designer` and `family-finance`, a desktop app on SQLite that also finds what is missing in the framework. The design tokens are defined in [docs/design-system](docs/design-system), and `ravenrs-style` mirrors them value for value.
+
+## 4. The frame pipeline
+
+```
+input event ──► Ui::handle_event ──► hit test ──► handler ──► State::set
+                                                                  │
+                         Observer marks the UI dirty, calls the waker
+                                                                  ▼
+platform schedules one frame (winit request_redraw / requestAnimationFrame)
+                                                                  ▼
+Ui::update:  build (views → elements, tracked)  ──►  layout (Taffy)  ──►  paint (Scene)
+                                                                  ▼
+Renderer::render:  batch quads/glyphs ──► upload instances ──► one render pass ──► present
+```
+
+* **Build** walks the view tree. Each `View::build` creates layout boxes and paint instructions through `BuildCx`. The whole build runs inside a reactive `Observer`, so every `State` read is recorded.
+* **Layout** runs Taffy over the boxes. Text leaves are measured by Parley through Taffy's measure callback, so wrapping participates in flexbox sizing.
+* **Paint** walks the element tree in order and appends primitives (`Quad`, `GlyphRun`, `PathFill`) to the `Scene`. Focus rings are painted after the focused element's children so they sit on top. An element outside its clip adds nothing, though it still gets a place in the order, because it can take focus and its children can stand outside it.
+* **Render** turns the scene into instanced draws. Consecutive primitives of the same kind are merged into one draw call; painter's order is preserved.
+* **Turns and scales.** `cx.rotate(node, radians)` turns a node and its subtree around its center, and `cx.scale(node, factor)` draws them larger or smaller from its top left corner (laid out at their natural size, shown at a zoom; the scale comes before the turn). Paint applies `Effect::rotated` to the node's range of the scene, so quads, images and glyph runs carry a `rotation` and paths fold it into their transform. The same pass keeps, for each element under a turn, the map from its own coordinates to the screen and back (`Ui::turns`), so hit testing takes the point back into the element's coordinates before checking its frame and clip, and the accessibility tree reports the box around the turned frame. Layout never sees a turn.
+
+Every rebuild runs from the root, so its cost follows the size of the screen, not the size of the change. What keeps that cheap: text is shaped once (`TextSystem` keeps recent layouts), the pointer moving over views that never asked about it builds nothing, and drawing that moves repeats only the paint through `Paint::Live`.
+
+Nothing runs between frames. An idle app sleeps on the desktop (`ControlFlow::Wait`) and schedules no animation frames on the web. Work on another thread sends its result through a channel and calls a `UiWaker`, the one handle that may leave the UI thread; state itself stays on that thread. While an animation runs, frames repeat only the paint phase ([§6.5](#65-motion)).
+
+## 5. Reactive system
+
+`ravenrs-reactive` is single-threaded by design: `Rc`, `Cell`, `RefCell`, no locks. UI state lives on the UI thread on every platform, including the browser main thread.
+
+* `State<T>` owns a value. `get`/`with` record a read in the innermost tracking `Observer`; `set`/`update` notify only the observers that read it during their latest run.
+* `Binding<T>` is a read/write view of a value owned elsewhere (SwiftUI's `@Binding`). `Binding::map` projects onto a field.
+* `Derived<T>` is a lazily recomputed, cached value over other state (a memo). It notifies its own readers when its inputs change.
+* `Observer` runs a closure and calls back once when any dependency changes.
+
+**Dependency bookkeeping without back-references.** Each observer run increments an *epoch*. A source stores `(Weak<observer>, epoch)` pairs; on notification, entries from older epochs or dropped observers are discarded. This keeps ownership one-directional (sources never keep observers alive), makes re-tracking O(reads), and makes dropping either side safe at any time.
+
+**What is rebuilt.** In this milestone the `Ui` has one observer for the whole build, so a change to any state the UI read triggers a full rebuild + relayout + repaint, and a change to state the UI never read triggers nothing (covered by `unrelated_state_does_not_invalidate`). Per-component observers and incremental reconciliation (rebuilding only the subtrees whose dependencies changed, reusing their layout nodes) are the next step (Phase 3); the `WidgetId` identity scheme below is already what that needs.
+
+**Identity.** Every view gets a `WidgetId` derived from its parent's id and its position (or an explicit key via `BuildCx::keyed_child`). Hover, press and focus survive rebuilds because they are stored per `WidgetId`, not per element.
+
+## 6. Extensibility: making your own components
+
+Components can be created at three levels, and the built-in widgets use the same public API as apps:
+
+1. **Functions** returning `impl View` for stateless composition.
+2. **`Component`**: a struct that holds its state and implements `body() -> impl View`. Every `Component` is a `View` through a blanket implementation.
+3. **`View`** implemented directly, with full access to `BuildCx`:
+   * `cx.child(&view)`, `cx.children(&seq)`, `cx.keyed_child(key, &view)` to build children;
+   * `cx.container(LayoutStyle, &children, Paint)` and `cx.text(...)` to create layout boxes;
+   * `Paint::Quad(QuadPaint)` or `Paint::Custom(DrawFn)` to draw anything into the `Scene`, or `Paint::Rich(RichFn)` when the drawing also shapes text or needs the device scale;
+   * `cx.on_click`, `cx.focusable`, `cx.cursor` for behavior;
+   * `cx.is_hovered()`, `cx.is_pressed()`, `cx.is_focused()`, `cx.theme()` to style by state and tokens.
+
+`Canvas` wraps `Paint::Custom` for custom drawing inside normal layout, `view_fn` turns a closure into a reactive view, and `Option<V>` renders conditionally.
+
+## 6.1 Runtime services for components
+
+Rich components need more than layout and paint; the runtime provides them generically, so third-party components get the same powers as built-in ones:
+
+* **Drag and drop between components.** `cx.drag_source(node, DragPayload)` lets a node be carried, by the pointer past a few pixels or, focused, with Space, the arrows and Enter (Escape gives it up); `cx.drop_target(node, check, on_drop)` takes it, saying why when it does not. The runtime keeps the carry (`Ui::carry`), asks the target under it on each move, paints a tag with the label (or the refusal) by the pointer and gives screen readers a status. While something is carried, `cx.carrying()` tells each component whether it is over its own target, for a preview of its own; the drop arrives in the target's coordinates, turns undone.
+* **Widget-local state.** `cx.use_state(init)` returns a `State<T>` owned by that widget instance, keyed by its `WidgetId` and call order. It survives rebuilds and is dropped when the widget is no longer built. `Keyed::new(key, view)` resets it on purpose.
+* **Overlays.** `cx.overlay(anchor, placement, &view, on_dismiss)` builds a floating layer after the main tree. It is laid out as its own Taffy root, placed relative to the anchor's final frame (flipped and clamped to the viewport), painted last, hit-tested first, and dismissed on outside clicks or Escape.
+* **Scrolling and clipping.** `cx.scrollable(node)` makes a vertical scroll container (`cx.scroll_horizontally` adds the other axis, which `DataGrid` uses): offsets are kept per `WidgetId`, wheel events move the innermost scrollable under the pointer, children are clipped with scissor rectangles, and a thin scrollbar is drawn. Scrolling only re-places and repaints; it does not rebuild or re-run layout. When Tab or `cx.request_focus` moves focus, the containers around the focused element scroll just far enough to show it, innermost first, stopping at the edge of a floating layer. A click focuses without scrolling.
+* **Scroll-driven pages.** `cx.pin(node, top)` keeps a node `top` pixels below the top of its scroll container while its parent passes, and lets the parent's bottom take it away (`Sticky`). It is moved when frames are placed, before hit testing, so input and the accessibility tree see it where it shows. `cx.scroll_track(node, top, length)` marks a scene track (`ScrollScene`), and `cx.scroll_linked(node, link)` paints a subtree with the `Effect` a `ScrollLink` computes from scroll progress (`ScrollLinked`): progress through the nearest scene, or the node's own pass across the view (`ScrollRange`). Both are worked out from the placed frames and the visible area of each node's scroll container (`Ui::views`), so scrolling still only re-places and repaints. Linked effects, like motion effects, change neither layout nor hit testing; under reduced motion they keep only their opacity.
+* **Showcase pages.** `cx.links()` opens addresses through a provider each platform installs (`Ui::set_links`: the browser navigates, the desktop opens the system's browser); `#name` instead glides the scroll container to the node marked with `cx.anchor(node, name, offset)` (`Anchor`), over a few paint frames. `cx.on_appear(node, handler)` calls a handler once, after the first frame in which a node shows in its scroll container (`CountUp`). `cx.time_linked(node, link)` paints a subtree with an `Effect` of the clock and its frame, keeping frames coming only while it shows (`Ticker`). `cx.scroll_progress(node, range, cell)` writes the scroll progress into a cell before each paint, for live drawing that follows the scroll itself (`QuadField`).
+* **Input.** `cx.on_key` (focused element first, default handling otherwise), `cx.on_drag` (start/move/end with the element frame), `cx.on_wheel` (the wheel over a surface that pans on its own, taken before any scroll container around it), `cx.on_click`, `cx.focusable`, `cx.cursor`, and `cx.is_hover_within()` for hover over a subtree.
+* **Clipboard.** `cx.clipboard()` reads and writes the system clipboard: `arboard` on desktop, `navigator.clipboard` on the web (where reading is asynchronous, so a paste arrives through the browser's `paste` event as typed text). `Ui::set_clipboard` swaps the provider; tests use an in-memory one.
+* **Sound.** `cx.sound()` plays short clips and speaks. On the desktop, `cpal` plays on a thread that starts with the first sound, and its output closes once quiet; the voice is the system's own program (`say`, Windows speech through PowerShell, `espeak-ng`), which gets the text on stdin. On the web it is Web Audio and `speechSynthesis`. `Ui::set_sound` swaps the provider; the default is silence.
+* **Theme as state.** The theme is a `State<Theme>`; `ThemeSwitcher` or any component can change it through `cx.theme_state()` and the whole UI rebuilds with the new tokens.
+* **Icons.** A subset of Lucide (ISC), about 200 icons in 68 KB, is embedded as a font, so icons are glyphs: sharp at any size, colored like text, and batched with text. `scripts/gen-icons.py` regenerates the subset and the `IconName` enum.
+
+## 6.2 DataGrid
+
+`DataGrid` is split in two layers. `grid::query` is a pure pipeline over rows (filter → search → sort → group → summarize) with no UI dependency: it is unit-tested on its own, including a 100,000-row sort-and-group run. The view caches the query result per (query, data version) and builds only the rows inside the viewport plus a small overscan, with spacers above and below; scrolling rebuilds just that window (`BuildCx::scrollable_virtual`, `scroll_viewport`, `set_scroll_offset`). Data lives in `GridData`, shared copy-on-write so edits invalidate the cache exactly once.
+
+Parity with the feature set of commercial data grids:
+
+| Feature | RavenRS |
+|---|---|
+| Virtual scrolling (100k+ rows), vertical | ✓ |
+| Horizontal scrolling | ✓ (all shown columns are built for each visible row) |
+| Column virtualization | planned ([#451](https://github.com/alexkads/RavenRS/issues/451)) |
+| Sorting, multi-column (Shift/Ctrl-click), with priority badges | ✓ |
+| Filter row with operators (`>`, `>=`, `<`, `<=`, `=`, `<>`, `a..b`), text and yes/no | ✓ |
+| Filter row expressions over column titles (`[Seats] > 10 And [Country] = 'Brazil'`), from `ravenrs-criteria` | ✓ |
+| Search panel across visible columns | ✓ |
+| Grouping, nested, expand/collapse (click or arrows), group panel chips | ✓ (by dragging headers to the panel, reorder or ungroup by dragging chips, expand and collapse all) |
+| Group summaries and footer totals (sum, average, min, max, count) | ✓ |
+| Column resizing (drag), columns that keep their width, column chooser (show/hide), min widths | ✓ |
+| Selection: single, multiple with check boxes, Shift ranges, Ctrl toggle, select all | ✓ |
+| Keyboard navigation (arrows, Home/End, Page Up/Down, Space, Enter/F2) with auto-scroll | ✓ |
+| Cell editing (double-click, Enter, F2; Enter commits, Escape cancels), typed parsing | ✓ |
+| Cell templates (any view) and custom formats; number/currency formats with separators (digits from `ravenrs_criteria::NumberStyle`) | ✓ |
+| CSV export (RFC 4180, raw numbers; quoting from `ravenrs_core::csv`, shared with reports) | ✓ |
+| Copying rows as tab-separated text (Cmd/Ctrl+C) | ✓ |
+| Column reordering by drag, menu on each column, fit width | ✓ |
+| Columns pinned to the left | ✓ |
+| Multi-level (banded) headers, columns pinned to the right | planned |
+| Filter by value (checklists, offering only what the other filters leave) with a filter panel | ✓ |
+| Filter builder | ✓ `FilterBuilder`, also in the toolbar with `filter_builder` and behind "Edit filter" on the filter panel, over the whole filter |
+| Paging UI, infinite scroll and rows on a server (`RemoteRows`: bounded memory, settled requests, no totals needed, keyset by `after`) | ✓ |
+| Summaries changed at run time, with formulas over `ravenrs-criteria` | ✓ |
+| Row add and delete (`on_add_row`, `on_delete_rows`), buttons on rows (`row_action`), edits that can be refused (`on_cell_edit`) | ✓ |
+| Keys that survive data changes (`key_column`, `selected_keys`), dates (`GridColumn::date`), field names (`GridColumn::field`) | ✓ |
+| Master-detail rows (`row_detail`, a fixed height for each, so the rows stay virtualized) | ✓ |
+| Row drag and drop | planned |
+| Saved layouts and named scenarios (`GridLayout`, `GridScenario`, JSON) | ✓ |
+| Excel and PDF export (`on_export_file`, with `ravenrs-grid-export`) | ✓ |
+| Cell range copy | planned |
+
+## 6.3 Criteria language
+
+`ravenrs-criteria` is one expression language for filters, report totals, rules and SQL `WHERE` clauses, with the syntax and behavior business developers already know from filter languages of commercial suites. It knows nothing about reports or UI, and nothing specific to a module belongs in it.
+
+* **Tree.** `Criteria` is public: parse it from text (`parse`), build it in code, walk it, and print it back to text that parses to the same tree (`format`).
+* **Evaluation.** `Scope` interprets the tree in memory over any `Record`, such as JSON, a map or your own rows. `Environment` holds parameters and custom functions.
+* **Function catalog.** One table in `functions` drives parsing, arity checks and expression editors.
+* **Validation.** `validate` checks an expression against a `Schema` before anything runs.
+* **SQL.** `to_sql` translates to parameterized SQL per `Dialect`.
+* **Formatting.** `format_value` and `format_composite` use .NET-style format strings per `Culture`.
+
+`DataGrid` filter rows use this crate for expressions. Text that parses, whose fields are all column titles and that needs nothing beyond the row (no aggregates, parameters or custom functions), runs here over raw cell values. Anything else keeps the short syntax in `grid::query`, which stays a native fast path: it is checked against a frozen copy of its old behavior, and costs no parsing unless the text has a `[`. `NumberStyle` lays out digits for both `Culture` and the grid's `NumberFormat`.
+
+## 6.4 Reporting
+
+`ravenrs-report` turns a definition plus data into a paginated document. Layout happens once, and every consumer draws the same result, so a preview and an export cannot drift apart.
+
+```
+Report (model: JSON or builder) + data ──► ReportEngine (engine) ──► Document (pages in points)
+                                                                         │
+                                               paint_page ──► Scene ──► on-screen preview
+```
+
+Expressions in a report come from `ravenrs-criteria`, and text is measured with the same Parley stack as the UI. `wizard` builds a finished table report from a data source, and `samples` holds the templates. The designer is `examples/report-designer`, built on `Ribbon` and the other public components: `editor` (shared state), `surface` (bands and controls), `props` (property grid), `preview` (document viewer).
+
+Phase R1 is done. `ravenrs-report-pdf`, `ravenrs-report-xlsx` export the `Document` to PDF, XLSX and CSV, also in the browser. `ravenrs-report-server` stores layouts, renders over HTTP and delivers scheduled reports ([docs/REPORT-SERVER.md](docs/REPORT-SERVER.md)). `ravenrs-report-viewer` shows documents with thumbnails and search, and asks for parameters; [docs/REPORTING.md](docs/REPORTING.md) has the design and phases, and [docs/REPORTING-PARITY.md](docs/REPORTING-PARITY.md) tracks each feature.
+
+## 6.5 Motion
+
+`ravenrs-animation` holds the mathematics and knows nothing about the UI. `ravenrs-style` carries the tokens in `Theme::motion`. The runtime is `motion.rs` in `ravenrs-widgets`.
+
+**Declared, not driven.** A view says how a node moves with `cx.motion(node, Motion::new()...)`. Builds only set targets, on tracks that live outside the view tree and are keyed by identity. Then `Ui::update` has three cases: state changed, so build, lay out and paint; only animations are due, so paint alone; nothing is due, so no frame is requested. An animation therefore costs a repaint, not a rebuild. `Scene` stays the only meeting point with the renderer, so motion works headless and needed no GPU changes.
+
+| Technique | Where | Why |
+|---|---|---|
+| Closed-form springs | `Spring::sample` | The position depends only on time, so results do not vary with frame rate and a long frame cannot blow up. |
+| Interruption without a jump | `Animated::set_target` | A spring restarts from its current position and velocity. Tweens are additive: each one eases in its share of the change and the sum has no corner. |
+| OKLab with premultiplied alpha | `Animatable for Color` | Midpoints keep lightness and hue, and a fade from transparent does not pass through gray. At rest the exact token comes back, with no rounding. |
+| Layout animation | `Motion::layout` | The node's old frame eases to its new one while children travel with it. Its size is redrawn rather than scaled, so nothing distorts. Input uses the final frame, and frames are compared without scroll offsets, so scrolling never animates. |
+| Shared layout | `Motion::shared_layout` | Nodes of different widgets count as one object, which is how a tab underline slides. `underlay` paints it behind its siblings. |
+| Exit by snapshot | `Motion::exit` | A view that stops being built is gone at once for the app: state, input and accessibility. Its last primitives stay on screen as a *ghost* that plays the exit. Reopening revives it from where it was. A nested exit (a dialog's card in its backdrop) plays inside the outer one. |
+| Anchored popups | `Motion::anchored` | Scale around the point nearest the anchor; offsets flip when the popup flipped. |
+| Height to fit | `Collapse` | The runtime reports the content's natural size to the next build. This one does rebuild on each frame, because it changes layout. |
+| Live drawing | `Paint::Live` | Spinners and pulses repaint at no more than 60 Hz with no rebuild. |
+| Theme crossfade | `Ui::paint` | The old picture fades over the new one, in a single layer, instead of every color moving at its own pace. |
+| Lag smoothing | `Ui::set_time` | Animations have their own clock, in which a gap above 250 ms counts as 50 ms: after a stall they continue instead of jumping to the end, and a very slow machine still gets through them. |
+
+**Reduced motion.** It comes from `Ui::set_reduced_motion` (the browser's `prefers-reduced-motion`, live) or from the theme's token. Things stop traveling and bouncing, colors and opacity fade briefly, and live drawing stops.
+
+**No clock, no animation.** Motion starts with the first `Ui::set_time`. A `Ui` without a platform lands everything at once, which keeps headless tests and reference images deterministic.
+
+**Limits.** Effects run on the display list (`Scene::apply_effect`), and opacity applies per primitive: overlapping shapes show through each other while partly faded. Real group opacity needs layers in the renderer. A turn (`Effect::rotation`) is drawn by the renderer, but springs carry four numbers and do not animate it, and a clip under a turn becomes the box around the turned rectangle. Text snaps to pixels vertically, so a slow move of a text block advances in device pixels.
+
+## 7. Rendering
+
+`ravenrs-render` is a small 2D renderer on `wgpu` 30.
+
+* **Quads** are instanced. The WGSL fragment shader evaluates a signed-distance function of a rounded box with per-corner radii, so edges are anti-aliased analytically (one device pixel of coverage ramp) at any scale factor. Borders, two-stop linear gradients and fill share the same shader.
+* **Soft shadows** are separate instances drawn under their shape: the coverage is an `erf` approximation over the same SDF, which gives a Gaussian-looking falloff in one pass with no blur texture.
+* **Turns.** Quads and images carry the cosine and sine of their turn; the vertex shader turns the corners around the center while the fragment shader keeps working in the shape's own coordinates, so borders, gradients and shadows turn with it. A glyph turns around its own origin.
+* **Text** is shaped by Parley, rasterized per glyph by `swash` (outline, alpha mask, 4 horizontal sub-pixel positions, no hinting) into an R8 atlas packed with shelves, and drawn as textured quads snapped to the device pixel grid. Turned glyphs are sampled linearly, so they lose the snapping. The atlas grows (×2 up to the device limit) when it fills; at the limit it is cleared.
+* **Color.** Tokens are sRGB. The renderer prefers non-sRGB surface formats so blending happens in sRGB space, as in browsers and design tools; on `*Srgb` targets the shaders linearize colors first. Output is premultiplied alpha.
+* **Resources** (pipelines, atlas, instance buffers) are created once and reused; instance buffers only grow. GPU→CPU readback exists only in tests: `crates/ravenrs-render/tests/offscreen.rs` checks pixels of real scenes and `crates/ravenrs/tests/suite/visual.rs` compares golden images. GPU timing is off unless asked for, and its answers arrive frames later through buffers mapped in the background, so it never makes a frame wait (`timing.rs`).
+
+**Why not Vello (yet).** Vello's main renderer requires compute shaders and is still labelled experimental; its hybrid variant is promising but young. RavenRS needs a handful of primitives that an SDF quad pipeline draws in one pass, with a small WASM footprint. Arbitrary vector paths have their own pipeline, `Primitive::Path`: edges add up the exact area they cover in each pixel of a coverage texture, in one pass, and the main pass paints from it in scene order. It needs no compute, tessellation or multisampling.
+
+**Glass and blur (planned).** Raven Glass's backdrop blur needs a layer compositor: render the content behind a glass surface to an intermediate texture, blur it (separable Gaussian, downsampled), then composite. Until that lands, glass surfaces render their translucent fill; this is the documented degradation path for platforms where the extra passes are too costly.
+
+## 8. Layout
+
+`ravenrs-layout` exposes a small typed subset of flexbox (`LayoutStyle`: axis, spacing, padding, alignment, justification, sizes, growth) over Taffy. The UI root is a box sized to the viewport; stacks are flex containers; text leaves have zero minimum width so they wrap instead of overflowing. The `Grid` view uses Taffy's Grid layout with equal-width columns (`grid_columns`).
+
+## 9. Text
+
+Parley is used with system fonts disabled and Inter (SIL OFL 1.1) embedded at weights 400 and 600, so text is identical on every platform and works in browsers, which expose no system fonts to WebAssembly. `TextSystem::register_font` adds more fonts. Layout happens in logical pixels; glyphs are rasterized at the device scale factor, so HiDPI text is sharp without reshaping.
+
+## 10. Platforms
+
+**Desktop (`ravenrs-platform-native`).** winit 0.30 (`ApplicationHandler`), one window, `ControlFlow::Wait`. Surface reconfiguration on resize and scale-factor changes, logical-pixel input, cursor icons, keyboard focus traversal, and GPU device-loss recovery (the device, surface and renderer are recreated on the next frame).
+
+**Diagnostics (desktop only for now).** The native platform wraps every root in `DiagnosticsHost`, which adds no element and no wake-up while closed. Ctrl+Shift+D (Cmd+Shift+D on a Mac) or the `RAVENRS_DIAG` variable opens a panel with the GPU in use, the alternatives, what is wrong and what recent frames cost, with text to copy. `ravenrs::native::diagnose` gives the same GPU report without a window, for a command line option. The data is plain types in `ravenrs-core`, so widgets and the renderer still only meet through it. Its performance test redraws the window for 5 seconds and judges the frames per second, which do count the GPU's work, since a busy GPU holds back the next frame. Each frame asks for the next only while it runs. The other durations are CPU time: there are no GPU timestamps, so a busy GPU only shows as waiting in acquire or present. The web platform does not record frames yet.
+
+With `AppIdentity::new_issue_url`, the panel also has a button that starts a bug report: `ravenrs_core::new_issue_url` puts the report in the URL of a new issue, percent-encoded and cut to `MAX_ISSUE_URL`, and `ravenrs::native::open_url` opens it in the browser. The app sends nothing; the person reviews and submits on that page. The report is made to be shared: `VK_DRIVER_FILES` and `VK_ICD_FILENAMES` keep only file names, the panel passes everything it shows through `redact_user_paths`, and no app data reaches it. The panel says this next to the button, above the exact text.
+
+**Tray (desktop, `tray` feature).** With `AppIdentity::close_to_tray`, closing the window hides it, or destroys it on Wayland, which cannot hide one, and keeps the `Ui` and its state behind an icon: `tray-icon` on macOS and Windows, `ksni` on Linux, which asks for no GTK. Where nothing hosts the icon, as on plain GNOME, closing the window closes the app. A copy of the app started meanwhile finds the first through a local TCP port, asks it to open its window and leaves.
+
+**Web (`ravenrs-platform-web`).** Plain `web-sys` on a `<canvas>`:
+
+* async adapter and device creation (`wasm-bindgen-futures`), never blocking the main thread;
+* a friendly message next to the canvas when `navigator.gpu` is missing (no WebGL fallback in this phase);
+* canvas backing store sized from CSS size × `devicePixelRatio`, re-checked every frame and on `ResizeObserver` callbacks;
+* pointer events with pointer capture, keyboard events with Tab/Space/Enter kept inside the app;
+* `requestAnimationFrame` scheduled only when the UI is invalidated (at most one pending);
+* GPU device-loss recovery: the device is re-requested asynchronously;
+* `WebApp` removes every listener and observer and releases GPU resources when dropped.
+
+`winit`'s web backend was not used so that DPR handling, frame scheduling and (later) IME and accessibility bridges stay explicit.
+
+**Accessibility.** After layout, `Ui::access_tree` walks the element tree and builds a platform-neutral `AccessTree` (`ravenrs-core`).
+* **Which elements become nodes.** An element becomes a node when a widget described it with `Semantics` or when it is focusable (it then defaults to a button). Text is a label, except inside roles that take their name from content, where it becomes the name ("Save" on a button). Other boxes are transparent.
+* **Ids.** Node ids derive from `WidgetId`, so they stay stable across rebuilds.
+* **Modal layers.** While one is open, only it is exposed.
+* **Actions.** `Ui::perform_action` maps click, focus and increment/decrement back to the element's handlers. Assistive technology therefore drives the same code paths as the mouse and keyboard.
+* **Desktop.** The tree goes to AccessKit (`accesskit_winit`) only while a screen reader is listening, and is resent when it changes. The root transform scales logical to physical pixels.
+* **Web.** It is mirrored as invisible, absolutely positioned ARIA elements over the canvas. The hidden text input that holds keyboard focus points at the focused node with `aria-activedescendant`. New status and alert nodes are announced through a live region, and clicks on mirror elements become click actions.
+
+**WASM size (hello-world, `wasm-release` profile + `wasm-opt -Oz`).** ≈2.4 MB raw, ≈1.06 MB gzipped, of which about 830 KB raw are the two embedded Inter faces. Shipping a subsetted font is the first size win available.
+
+## 11. Status
+
+| Area | Implemented | Experimental | Planned |
+|---|---|---|---|
+| Workspace, local checks (`scripts/check.sh`: desktop + wasm) | ✓ | | Hosted CI (intentionally not used for now) |
+| `State`, `Binding`, `Derived`, dependency tracking | ✓ | | |
+| Full rebuild on tracked change | ✓ | | Incremental reconciliation, per-component observers |
+| `View`, `Component`, `BuildCx`, `view_fn`, `responsive`, `Option<V>`, `Keyed`, `ViewExt` modifiers, `use_state` widget-local state | ✓ | | Environment values, `#[component]` macro (`ravenrs-macros`) |
+| Layout: `VStack`, `HStack`, `ZStack`, `Grid`, `ScrollView`, `Sticky`, `ScrollScene`, `ScrollLinked`, `Anchor`, `Ticker`, `CountUp`, `Link`, `QuadField`, `Spacer`, `Footer`, `PropertyRow`, `PageHeader`, `Section`, `Card`, `Splitter`, `SplitPanes`, `SplitHandle`, `DockArea`, `AspectRatio`, `VirtualList` (rows of any height, measured and kept by key), `SortableList` | ✓ | | |
+| Inputs: `Button` (4 styles, 3 sizes), `IconButton`, `ButtonGroup`, `TextField`, `TextArea`, `CodeEditor`, `Playground` (feature `code`), `NumberField`, `MaskedField`, `TimePicker`, `DateTimePicker`, `LookupField`, `FormLayout`, `Toolbar`, `FloatingToolbar`, `TitleBar`, `SplitButton`, `ConfirmDialog`, `Toggle`, `Checkbox`, `RadioGroup`, `Slider`, `ValueSlider`, `InlineRename`, `Stepper`, `SegmentedControl`, `Select`, `Combobox`, `ToggleButton`, `ToggleGroup`, `InputOtp`, `Calendar`, `DatePicker`, `ThemeSwitcher`, `FavoriteToggle`, `SwatchGrid`, `NinePointAnchor`, `ColorPair`; text selection in `TextField` | ✓ | | multi-line text |
+| Navigation: `Tabs` (underlined, segmented), `DocumentTabs`, `FileBrowser`, `YearView`, `Sidebar`, `Breadcrumb`, `Disclosure`, `Accordion`, `Pagination`, `Menubar`, `Ribbon` | ✓ | | `NavigationView` |
+| Overlays: `Tooltip`, `Popover`, `HoverCard`, `DropdownMenu`, `ContextMenu`, `Dialog`, `Sheet`, `SplashScreen`, `Toaster`, `CommandPalette`, `ShortcutSheet` | ✓ | | |
+| Data grid: `DataGrid` (see §6.2) | ✓ | | see the parity table in §6.2 |
+| Display: `Image` (PNG/JPEG, cover/fit/fill, mipmaps), `Filmstrip`, `PagedDocumentView`, `ImageLightbox`, `CompareView`, `Eyedropper`, `CropOverlay`, `Protractor`, `TransformHandles`, `Marquee`, `RubberBand`, `RuleOfThirdsGrid`, `Minimap`, `ZoomPanView`, `ZoomControl`, `CurveEditor`, `ColorWheel`, `Ruler`, `Histogram`, `Text`, `RichText`, `AttachmentStrip`, `AudioPlayerButton`, `SelectionBar`, `Icon` (about 200 Lucide icons), `Badge`, `Dot`, `OverlayBadge`, `Rating`, `IconTile`, `EmptyState`, `HeroBanner`, `MultiProgress`, `ShimmerText`, `DaySeparator`, `Avatar`, `Kbd`, `Divider`, `ProgressBar`, `Spinner`, `Skeleton`, `Carousel`, `ColorSwatch`, `Alert`, `Stat`, `List`, `Table`, `Chart` (line, area, bar, pie, doughnut, radar, radial, scatter, sparkline, candlestick), `SankeyChart`, `BarChart`, `AreaChart`, `Barcode` (QR Code and six linear formats), `Canvas`, `Lottie` | ✓ | | image loading from URLs, funnel charts |
+| Diagrams: `FlowCanvas` (pan, zoom, nodes on a grid, ports that check what connects, curve, step and straight lines, labels, dashes that travel, selection, lock, controls, map) | ✓ | | undo, copy and paste, JSON, automatic layout, views inside nodes (needs a transform for a subtree), groups, reconnecting a line by its end |
+| `GlassCard` | | translucent fill only | backdrop blur |
+| Rounded rects, borders, gradients, soft shadows, text, images (mipmapped, rounded), rectangular clipping | ✓ | | rounded clipping, radial gradients, transforms, layers |
+| Raven Dark / Light / Glass tokens, runtime theme switching, reduced motion from the theme token, `Ui::set_reduced_motion` and the browser's `prefers-reduced-motion` | ✓ | | reading the setting on the desktop (winit does not expose it) |
+| Motion (see §6.5): analytic springs, additive tweens, OKLab colors, implicit paint and layout transitions, shared layout, enter and exit, paint-only frames; scroll-driven `Sticky`, `ScrollScene`, `ScrollLinked` | ✓ | | rotation and true group opacity (renderer transforms and layers), gestures, momentum scrolling |
+| Desktop: window, HiDPI, resize, mouse, wheel/trackpad, keyboard, clipboard, sound and voice, device loss | ✓ | | multiple windows, IME |
+| Web: canvas, WebGPU or WebGL2 (`WebBackend`), DPR, pointer, wheel, touch scrolling with momentum, keyboard, text input through a hidden textarea (IME commit, dead keys, paste), clipboard copy, sound and voice, rAF on demand, cleanup, device loss | ✓ | IME preedit is not drawn yet | pinch |
+| Accessibility | keyboard focus and focus ring, WAI-ARIA keys, accessibility tree, AccessKit on desktop, ARIA mirror on the web, test ids (`ViewExt::test_id`, AccessKit `author_id`, `data-testid`) and protected values | | caret and selection for screen readers, right-to-left |
+| Criteria language: parsing, evaluation, validation, SQL, formatting (see §6.3) | ✓ | | `DataGrid` filters on this crate |
+| Spreadsheet: `Spreadsheet` over `ravenrs-sheet` (500+ functions, dynamic arrays, XLSX/XLS/ODS/CSV in, XLSX/CSV out), editing in the cell and the formula bar, selection by pointer and keys, clipboard, undo, fonts, fills, borders, merges, number formats, column widths, sheet tabs | ✓ | | ribbon of every command, frozen panes, charts and pictures on the sheet, conditional formats drawn, fill handle, find, the culture's separators |
+| Reporting: engine, wizard, designer with preview, viewer, pictures, links, barcodes, charts, PDF, XLSX and CSV export, server with scheduled delivery (see §6.4) | ✓ | | Other exports, parameter lookups, SQL data sources (phases R2 to R5) |
+| End-to-end tests (`ravenrs-e2e`, issue #627) | a session with no window: queries by test id, role and name, text or snapshot reference; clicks, typing, keys and drags as real input events, refused when the target is disabled, hidden or covered; checks; the screen as text; errors with stable codes | | the controlled clock and waiting (F2), new accessibility actions (F1b), the rest of #627 |
+| Test channel (`ravenrs-e2e-wire`, issue #649) | an app opened with `--e2e-serve` answers a tool over stdin and stdout with an `E2e` session of its own; `Client` opens it as a child process with a time limit per step; Raven Finanças serves its sample family in memory, and Raven Test Studio drives it | | frames over the channel, `E2E_APP_BUILD`, `attach` to an open app with permission, `cargo ravenrs e2e install` (rest of F6) |
+| Benchmarks and profiling | `tracing` spans per phase, criterion benches (`crates/*/benches`), a gate of exact counters and frame times (`crates/ravenrs-perf`, budgets in [docs/QUALITY.md](docs/QUALITY.md)), the diagnostics panel with GPU timestamps ([docs/PERFORMANCE.md](docs/PERFORMANCE.md)) | | stepping through a frozen frame, a map of what was rebuilt, invalidation by subtree |
+| Application framework: `ravenrs-app`, `ravenrs-app-ui`; see [docs/APP-FRAMEWORK.md](docs/APP-FRAMEWORK.md) | derive, model, actions (also declared as data), frames, rules, SQLite, generated lists and forms, permissions, sign-in, audit trail | the API |  relations |
+
+| Reports on label and receipt printers: ZPL II, EPL2/PPLB, PPLA, TSPL, ESC/POS (`ravenrs-report-label`), columns, a continuous page, commands for the printer and printing straight from the designer | output read back by a parser and a separate decoder | never printed on a physical printer | checking each brand on paper |
+| NFS-e of the national standard (`ravenrs-nfse`, DANFSe in `ravenrs-app-nfe`), with `SefinSandbox` | | **beta, proof of concept**: order of the DPS read in the XSD v1.01, never validated by `xmllint` nor sent to the Sefin. No production | see [docs/NFSE.md](docs/NFSE.md) |
+| NF-e and NFC-e (`ravenrs-nfe`, `ravenrs-app-nfe`), with `SefazSandbox` | | **beta, proof of concept**: XML checked against the official XSD, signature against `openssl`, and never sent to a real SEFAZ. No production | see [docs/AUTOMACAO-COMERCIAL.md](docs/AUTOMACAO-COMERCIAL.md) |
+| Payments (`ravenrs-pagamento`), with a simulator | | **beta, proof of concept**: never tested against a real provider, pinpad or card | see [docs/PAGAMENTOS.md](docs/PAGAMENTOS.md) |
+| Point of sale (`ravenrs-pos`, `ravenrs-app-pos`, `examples/mini-pdv`) | the rules of a cart, in `ravenrs-pos` | **beta, proof of concept**: tested with no window, against the sandbox | see [docs/AUTOMACAO-COMERCIAL.md](docs/AUTOMACAO-COMERCIAL.md) |
+
+## 12. Decisions log
+
+| # | Decision | Alternatives considered | Why |
+|---|---|---|---|
+| 1 | Own SDF quad renderer on wgpu | Vello, tiny-skia | One pass per primitive, small WASM, no compute requirement. |
+| 2 | Parley + swash + own atlas | glyphon/cosmic-text | Parley is the most complete pure-Rust rich text layout; owning the atlas keeps text in the same batching and pass as quads. |
+| 3 | Embedded Inter, no system fonts | System fonts on desktop | Identical rendering everywhere; the web has no system fonts. |
+| 4 | `web-sys` directly on the web | winit web backend | Explicit control of DPR, frame scheduling, IME and accessibility bridges. |
+| 5 | Single-threaded reactivity with epoch subscriptions | Signals with back-references, `Arc<Mutex>` | No locks on the UI thread; safe drops; matches the browser model. |
+| 6 | Display list (`Scene`) as the widget/renderer boundary | Widgets calling the renderer | Headless widget tests; swappable renderers. |
+| 7 | Builders before macros | `VStack!{}` proc macros first | Real, type-checked API first; macros later as sugar over it. |
+| 8 | Non-sRGB surface formats preferred | Linear blending | Matches how designers and browsers blend, so tokens look as designed. |
+| 9 | The spreadsheet engine is GridCraft's, brought in as `ravenrs-sheet` | Writing an engine; a git dependency on GridCraft | GridCraft is pure Rust under MIT OR Apache-2.0, runs in wasm32 and has 1,800 tests for formulas, recalculation and XLSX. It is not on crates.io, so a git dependency would stop RavenRS publishing; the code lives here with `NOTICE` naming the commit it came from. Only the view is ours (`ravenrs-spreadsheet`), built on `ravenrs-widgets`. |
+| 10 | The word-processing engine is WordCraft's, brought in as `ravenrs-word`, and every engine taken from the same publisher goes through one converter (`scripts/storytold/`) | Writing DOCX, RTF and ODT readers; a git dependency; one script per project | WordCraft is pure Rust under MIT OR Apache-2.0, runs in wasm32 and has about 1,900 tests for its model and formats. Only the crates with crates.io dependencies come (no page layout yet), so the crate stays publishable. One converter driven by `projects.json` keeps each copy reproducible from the commit in its `NOTICE`, so a newer revision arrives as a three-way merge. |
+| 11 | The PDF engine is PdfCraft's, brought in as `ravenrs-pdf`, with the renderer crates PdfCraft patches copied in as modules | `hayro` and `vello_cpu` from crates.io; a git dependency; `[patch]` | PdfCraft renders with hayro, vello_cpu and lopdf at old versions carrying about a thousand patches of its own (stack overflows on hostile files, tiles, appearance states), each covered by a PdfCraft test. The released crates lack them and have moved on; a `[patch]` does not reach the users of a published crate. So those nine crates are modules too (`third_party`), converted from the same commit, with their licences in `LICENSES/`. |
+| 12 | The presentation engine is DeckCraft's, brought in as `ravenrs-deck`, with the craft-libs crates it uses and the krilla it patches copied in as modules | Writing a PPTX reader and a slide renderer; git dependencies on craft-libs; `[patch]` for krilla | DeckCraft is pure Rust under MIT OR Apache-2.0, runs in wasm32 and has about 1,600 tests for its model, rendering, PPTX and commands. Its crates reach craft-libs by git and a patched krilla by `[patch]`, neither of which a published crate can carry, so those crates are modules too (`craft`, `third_party`), read by the same converter from the craft-libs commit DeckCraft pins. Of the video and audio codecs only the decoders DeckCraft turns on are compiled. Only the egui interface stays out: the editor will be ours. |

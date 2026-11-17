@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["KEYS"],"enum":["KeepOpen","WindowMode"],"fn":["graphic_session","graphic_session_in","other_systems","steer","steer_from_terminal","steer_when_terminal","this_system"],"struct":["Ask","Control","Window"]};

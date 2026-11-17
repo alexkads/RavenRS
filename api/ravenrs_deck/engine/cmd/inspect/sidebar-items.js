@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["shape_summary","specs"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["TERMINAL_VIRTUAL","URL_API"],"enum":["EventoSimulado"],"fn":["ler_notificacao"],"struct":["MercadoPagoPoint","NotificacaoOrdem","TokenAcesso"]};

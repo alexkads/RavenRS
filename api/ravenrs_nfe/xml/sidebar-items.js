@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Node"],"fn":["escape_attr","escape_text","parse","parse_document","to_string"],"struct":["Document","Element"]};

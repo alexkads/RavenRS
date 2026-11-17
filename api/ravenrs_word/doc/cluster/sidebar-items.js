@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["backspaces_by_char","cluster_starts","is_cluster_boundary","joins_cluster","myanmar_breaks","next_cluster","prev_cluster"]};

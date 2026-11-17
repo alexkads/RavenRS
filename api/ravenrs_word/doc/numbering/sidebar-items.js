@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["LevelSuffix","ListKind"],"fn":["default_bullet","levels_for","template_levels"],"struct":["AbstractNum","Counters","Level","Num","Numbering"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["fill","font","layout","line","list","master","picture","shape","shapes","slide","table_style","text","theme"],"type":["F"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["AUTOCORRECT","IME_SURROUNDING_MAX_BYTES"],"fn":["body_of","caret_color","caret_line","cell_range_underlines","composition_underlines","correct_word","fit_text_box","format_range","ime_surrounding","layout_for","range_underlines","specs","text_frame","text_pos_at"],"struct":["AutoList","ImeSurrounding"]};

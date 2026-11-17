@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CN_CURINGA","NOME_AC","ORGANIZACAO"],"enum":["CasoFalha","ErroToken"],"fn":["certificado_curinga","cita_icp_brasil","eh_do_laboratorio","pem_certificado","serial_revogado_padrao"],"struct":["AcTeste","CertificadoGerado","GeradorCertificado","SlotInfo","TokenSimulado"],"trait":["RegraDoCaso"]};

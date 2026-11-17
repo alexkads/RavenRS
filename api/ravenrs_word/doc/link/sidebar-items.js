@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["hyperlink_target","is_safe_href","is_web_or_mail_link"]};

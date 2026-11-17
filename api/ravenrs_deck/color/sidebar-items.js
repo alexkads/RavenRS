@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PRESET_NAMES","STANDARD_COLORS","SYSTEM_NAMES"],"enum":["ColorTransform","SchemeSlot"],"fn":["apply","is_preset_name","is_system_name","preset","theme_variants"],"struct":["ColorScheme","Rgba"]};

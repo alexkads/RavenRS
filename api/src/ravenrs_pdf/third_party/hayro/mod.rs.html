@@ -1,0 +1,715 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="ravenrs_pdf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../src-files.js"></script><script defer="" src="../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-pdf/src/third_party/hayro/mod.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_pdf/third_party/hayro/mod.rs.html"><meta property="og:title" content="mod.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-pdf/src/third_party/hayro/mod.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_pdf/third_party/hayro/mod.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="mod.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-pdf/src/third_party/hayro/mod.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"mod.rs - source","description":"Source of the Rust file `crates/ravenrs-pdf/src/third_party/hayro/mod.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_pdf/third_party/hayro/mod.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_pdf/third_party/hayro/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">/*!
+<a href="#2" id="2" data-nosnippet="">2</a>A crate for rendering PDF files.
+<a href="#3" id="3" data-nosnippet="">3</a>
+<a href="#4" id="4" data-nosnippet="">4</a>This crate allows you to render pages of a PDF file into bitmaps. It is supposed to be relatively
+<a href="#5" id="5" data-nosnippet="">5</a>lightweight, since we do not have any dependencies on the GPU. All the rendering happens on the CPU.
+<a href="#6" id="6" data-nosnippet="">6</a>
+<a href="#7" id="7" data-nosnippet="">7</a>The ultimate goal of this crate is to be a *feature-complete* and *performant* PDF rasterizer.
+<a href="#8" id="8" data-nosnippet="">8</a>With that said, we are currently still very far away from reaching that goal: So far, no effort
+<a href="#9" id="9" data-nosnippet="">9</a>has been put into performance optimizations, as we are still working on implementing missing features.
+<a href="#10" id="10" data-nosnippet="">10</a>However, this crate is currently the most comprehensive and feature-complete
+<a href="#11" id="11" data-nosnippet="">11</a>implementation of a PDF rasterizer in pure Rust. This claim is supported by the fact that we currently
+<a href="#12" id="12" data-nosnippet="">12</a>include over 1000 PDF files in our regression test suite. The majority of those have been scraped
+<a href="#13" id="13" data-nosnippet="">13</a>from the `pdf.js` and `PDFBOX` test suites and therefore represent a very large and diverse sample
+<a href="#14" id="14" data-nosnippet="">14</a>of PDF files.
+<a href="#15" id="15" data-nosnippet="">15</a>
+<a href="#16" id="16" data-nosnippet="">16</a>As mentioned, there are still some serious limitations, including lack of support for
+<a href="#17" id="17" data-nosnippet="">17</a>encrypted/password-protected PDF files, blending and isolation, knockout groups as well as a range
+<a href="#18" id="18" data-nosnippet="">18</a>of smaller features such as color key masking. But you should be able to render the vast majority
+<a href="#19" id="19" data-nosnippet="">19</a>of PDF files without too many issues.
+<a href="#20" id="20" data-nosnippet="">20</a>
+<a href="#21" id="21" data-nosnippet="">21</a>## Safety
+<a href="#22" id="22" data-nosnippet="">22</a>This crate forbids unsafe code via a crate-level attribute.
+<a href="#23" id="23" data-nosnippet="">23</a>
+<a href="#24" id="24" data-nosnippet="">24</a>## Examples
+<a href="#25" id="25" data-nosnippet="">25</a>For usage examples, see the [example](https://github.com/LaurenzV/hayro/tree/master/hayro/examples) in
+<a href="#26" id="26" data-nosnippet="">26</a>the GitHub repository.
+<a href="#27" id="27" data-nosnippet="">27</a>
+<a href="#28" id="28" data-nosnippet="">28</a>## Cargo features
+<a href="#29" id="29" data-nosnippet="">29</a>This crate has one optional feature:
+<a href="#30" id="30" data-nosnippet="">30</a>- `embed-fonts`: See the description of [`hayro-interpret`](https://docs.rs/hayro-interpret/latest/hayro_interpret/#cargo-features) for more information.
+<a href="#31" id="31" data-nosnippet="">31</a>*/
+<a href="#32" id="32" data-nosnippet="">32</a>
+<a href="#33" id="33" data-nosnippet="">33</a></span><span class="attr">#![forbid(unsafe_code)]
+<a href="#34" id="34" data-nosnippet="">34</a>#![deny(missing_docs)]
+<a href="#35" id="35" data-nosnippet="">35</a>
+<a href="#36" id="36" data-nosnippet="">36</a></span><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro::renderer::Renderer;
+<a href="#37" id="37" data-nosnippet="">37</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::Device;
+<a href="#38" id="38" data-nosnippet="">38</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::FillRule;
+<a href="#39" id="39" data-nosnippet="">39</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::InterpreterCache;
+<a href="#40" id="40" data-nosnippet="">40</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::InterpreterSettings;
+<a href="#41" id="41" data-nosnippet="">41</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::hayro_syntax::Pdf;
+<a href="#42" id="42" data-nosnippet="">42</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::hayro_syntax::page::Page;
+<a href="#43" id="43" data-nosnippet="">43</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::util::{RectExt, TransformExt};
+<a href="#44" id="44" data-nosnippet="">44</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::{BlendMode, Context};
+<a href="#45" id="45" data-nosnippet="">45</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::{ClipPath, interpret_page};
+<a href="#46" id="46" data-nosnippet="">46</a><span class="kw">use </span>kurbo::{Affine, Rect, Shape};
+<a href="#47" id="47" data-nosnippet="">47</a><span class="kw">use </span>std::cell::RefCell;
+<a href="#48" id="48" data-nosnippet="">48</a><span class="kw">use </span>std::collections::HashMap;
+<a href="#49" id="49" data-nosnippet="">49</a><span class="kw">use </span>std::ops::RangeInclusive;
+<a href="#50" id="50" data-nosnippet="">50</a><span class="kw">use </span>std::rc::Rc;
+<a href="#51" id="51" data-nosnippet="">51</a>
+<a href="#52" id="52" data-nosnippet="">52</a><span class="kw">pub use </span><span class="kw">crate</span>::third_party::hayro_interpret;
+<a href="#53" id="53" data-nosnippet="">53</a><span class="kw">pub use </span><span class="kw">crate</span>::third_party::hayro_interpret::hayro_syntax;
+<a href="#54" id="54" data-nosnippet="">54</a><span class="kw">pub use </span><span class="kw">crate</span>::third_party::vello_cpu;
+<a href="#55" id="55" data-nosnippet="">55</a>
+<a href="#56" id="56" data-nosnippet="">56</a><span class="kw">use </span><span class="kw">crate</span>::third_party::vello_cpu::color::AlphaColor;
+<a href="#57" id="57" data-nosnippet="">57</a><span class="kw">use </span><span class="kw">crate</span>::third_party::vello_cpu::color::Srgb;
+<a href="#58" id="58" data-nosnippet="">58</a><span class="kw">use </span><span class="kw">crate</span>::third_party::vello_cpu::color::palette::css::TRANSPARENT;
+<a href="#59" id="59" data-nosnippet="">59</a><span class="kw">use </span><span class="kw">crate</span>::third_party::vello_cpu::color::palette::css::WHITE;
+<a href="#60" id="60" data-nosnippet="">60</a><span class="kw">use </span><span class="kw">crate</span>::third_party::vello_cpu::{Level, Pixmap, RenderMode};
+<a href="#61" id="61" data-nosnippet="">61</a>
+<a href="#62" id="62" data-nosnippet="">62</a><span class="kw">mod </span>renderer;
+<a href="#63" id="63" data-nosnippet="">63</a><span class="doccomment">/// PdfCraft patch (27): exported for its regression test.
+<a href="#64" id="64" data-nosnippet="">64</a></span><span class="attr">#[doc(hidden)]
+<a href="#65" id="65" data-nosnippet="">65</a></span><span class="kw">pub use </span>renderer::set_cmyk_band_pixels;
+<a href="#66" id="66" data-nosnippet="">66</a><span class="doccomment">/// PdfCraft patch: exported for its regression test.
+<a href="#67" id="67" data-nosnippet="">67</a></span><span class="attr">#[doc(hidden)]
+<a href="#68" id="68" data-nosnippet="">68</a></span><span class="kw">pub use </span>renderer::set_skip_offscreen_paths;
+<a href="#69" id="69" data-nosnippet="">69</a><span class="doccomment">/// PdfCraft patch (30): exported for its regression tests.
+<a href="#70" id="70" data-nosnippet="">70</a></span><span class="attr">#[doc(hidden)]
+<a href="#71" id="71" data-nosnippet="">71</a></span><span class="kw">pub use </span>renderer::{OffscreenDraws, offscreen_draws};
+<a href="#72" id="72" data-nosnippet="">72</a><span class="doccomment">/// PdfCraft patch: exported for its regression test.
+<a href="#73" id="73" data-nosnippet="">73</a></span><span class="kw">pub use </span>renderer::{image_resampling_size, tiling_cell_pixels, tiling_cell_scale, usable_cell_scale};
+<a href="#74" id="74" data-nosnippet="">74</a>
+<a href="#75" id="75" data-nosnippet="">75</a><span class="doccomment">/// A cache used by the renderer.
+<a href="#76" id="76" data-nosnippet="">76</a>///
+<a href="#77" id="77" data-nosnippet="">77</a>/// Ideally, such a cache should be constructed once per PDF and then reused across
+<a href="#78" id="78" data-nosnippet="">78</a>/// multiple render invocations on the same document.
+<a href="#79" id="79" data-nosnippet="">79</a></span><span class="attr">#[derive(Clone, Default)]
+<a href="#80" id="80" data-nosnippet="">80</a></span><span class="kw">pub struct </span>RenderCache&lt;<span class="lifetime">'a</span>&gt; {
+<a href="#81" id="81" data-nosnippet="">81</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) interpreter_cache: InterpreterCache&lt;<span class="lifetime">'a</span>&gt;,
+<a href="#82" id="82" data-nosnippet="">82</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) outline_cache: Rc&lt;RefCell&lt;HashMap&lt;u128, Rc&lt;kurbo::BezPath&gt;&gt;&gt;&gt;,
+<a href="#83" id="83" data-nosnippet="">83</a>}
+<a href="#84" id="84" data-nosnippet="">84</a>
+<a href="#85" id="85" data-nosnippet="">85</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; RenderCache&lt;<span class="lifetime">'a</span>&gt; {
+<a href="#86" id="86" data-nosnippet="">86</a>    <span class="doccomment">/// Create a new render cache.
+<a href="#87" id="87" data-nosnippet="">87</a>    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+<a href="#88" id="88" data-nosnippet="">88</a>        <span class="self">Self </span>{ interpreter_cache: InterpreterCache::new(), outline_cache: Rc::new(RefCell::new(HashMap::new())) }
+<a href="#89" id="89" data-nosnippet="">89</a>    }
+<a href="#90" id="90" data-nosnippet="">90</a>}
+<a href="#91" id="91" data-nosnippet="">91</a>
+<a href="#92" id="92" data-nosnippet="">92</a><span class="doccomment">/// PdfCraft patch: replacement colours for the "reading colours" view setting (Acrobat's
+<a href="#93" id="93" data-nosnippet="">93</a>/// "Replace Document Colors"). Solid paints are mapped by luminance: dark paints move towards
+<a href="#94" id="94" data-nosnippet="">94</a>/// `text`, light paints towards `background`. Images, shadings and patterns never pass through
+<a href="#95" id="95" data-nosnippet="">95</a>/// the mapping.
+<a href="#96" id="96" data-nosnippet="">96</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq)]
+<a href="#97" id="97" data-nosnippet="">97</a></span><span class="kw">pub struct </span>ColorReplacement {
+<a href="#98" id="98" data-nosnippet="">98</a>    <span class="doccomment">/// The sRGB colour that dark paints (low luminance) are mapped towards.
+<a href="#99" id="99" data-nosnippet="">99</a>    </span><span class="kw">pub </span>text: [u8; <span class="number">3</span>],
+<a href="#100" id="100" data-nosnippet="">100</a>    <span class="doccomment">/// The sRGB colour that light paints (high luminance) are mapped towards.
+<a href="#101" id="101" data-nosnippet="">101</a>    </span><span class="kw">pub </span>background: [u8; <span class="number">3</span>],
+<a href="#102" id="102" data-nosnippet="">102</a>    <span class="doccomment">/// When `true`, paints with a luminance above 10% are left unchanged, so only near-black
+<a href="#103" id="103" data-nosnippet="">103</a>    /// text and line art is recoloured.
+<a href="#104" id="104" data-nosnippet="">104</a>    </span><span class="kw">pub </span>only_black: bool,
+<a href="#105" id="105" data-nosnippet="">105</a>    <span class="doccomment">/// When `true`, line-art paints are mapped in addition to text paints.
+<a href="#106" id="106" data-nosnippet="">106</a>    </span><span class="kw">pub </span>line_art: bool,
+<a href="#107" id="107" data-nosnippet="">107</a>}
+<a href="#108" id="108" data-nosnippet="">108</a>
+<a href="#109" id="109" data-nosnippet="">109</a><span class="kw">impl </span>ColorReplacement {
+<a href="#110" id="110" data-nosnippet="">110</a>    <span class="doccomment">/// Maps a solid paint colour. `is_text` distinguishes glyph fills/strokes from
+<a href="#111" id="111" data-nosnippet="">111</a>    /// plain path art. Alpha is copied verbatim. Never panics.
+<a href="#112" id="112" data-nosnippet="">112</a>    </span><span class="kw">pub fn </span>map(<span class="kw-2">&amp;</span><span class="self">self</span>, rgba8: [u8; <span class="number">4</span>], is_text: bool) -&gt; [u8; <span class="number">4</span>] {
+<a href="#113" id="113" data-nosnippet="">113</a>        <span class="kw">if </span>!is_text &amp;&amp; !<span class="self">self</span>.line_art {
+<a href="#114" id="114" data-nosnippet="">114</a>            <span class="kw">return </span>rgba8;
+<a href="#115" id="115" data-nosnippet="">115</a>        }
+<a href="#116" id="116" data-nosnippet="">116</a>        <span class="kw">let </span>[r, g, b, a] = rgba8;
+<a href="#117" id="117" data-nosnippet="">117</a>        <span class="comment">// Luminance of the gamma-encoded sRGB bytes, normalized to `0.0..=1.0`.
+<a href="#118" id="118" data-nosnippet="">118</a>        </span><span class="kw">let </span>t = (<span class="number">0.2126 </span>* f32::from(r) + <span class="number">0.7152 </span>* f32::from(g) + <span class="number">0.0722 </span>* f32::from(b)) / <span class="number">255.0</span>;
+<a href="#119" id="119" data-nosnippet="">119</a>        <span class="kw">if </span><span class="self">self</span>.only_black &amp;&amp; t &gt; <span class="number">0.10 </span>{
+<a href="#120" id="120" data-nosnippet="">120</a>            <span class="kw">return </span>rgba8;
+<a href="#121" id="121" data-nosnippet="">121</a>        }
+<a href="#122" id="122" data-nosnippet="">122</a>        <span class="kw">let </span>[text_r, text_g, text_b] = <span class="self">self</span>.text;
+<a href="#123" id="123" data-nosnippet="">123</a>        <span class="kw">let </span>[background_r, background_g, background_b] = <span class="self">self</span>.background;
+<a href="#124" id="124" data-nosnippet="">124</a>        <span class="kw">let </span>channel = |text_ch: u8, background_ch: u8| {
+<a href="#125" id="125" data-nosnippet="">125</a>            <span class="kw">let </span>mixed = f32::from(text_ch) * (<span class="number">1.0 </span>- t) + f32::from(background_ch) * t;
+<a href="#126" id="126" data-nosnippet="">126</a>            <span class="comment">// The mixture of two channel values with weights summing to one stays within
+<a href="#127" id="127" data-nosnippet="">127</a>            // `0.0..=255.0` up to float noise; the clamp keeps the cast total anyway.
+<a href="#128" id="128" data-nosnippet="">128</a>            </span>mixed.round().clamp(<span class="number">0.0</span>, <span class="number">255.0</span>) <span class="kw">as </span>u8
+<a href="#129" id="129" data-nosnippet="">129</a>        };
+<a href="#130" id="130" data-nosnippet="">130</a>        [channel(text_r, background_r), channel(text_g, background_g), channel(text_b, background_b), a]
+<a href="#131" id="131" data-nosnippet="">131</a>    }
+<a href="#132" id="132" data-nosnippet="">132</a>}
+<a href="#133" id="133" data-nosnippet="">133</a>
+<a href="#134" id="134" data-nosnippet="">134</a><span class="doccomment">/// Settings to apply during rendering.
+<a href="#135" id="135" data-nosnippet="">135</a></span><span class="attr">#[derive(Clone, Copy)]
+<a href="#136" id="136" data-nosnippet="">136</a></span><span class="kw">pub struct </span>RenderSettings {
+<a href="#137" id="137" data-nosnippet="">137</a>    <span class="doccomment">/// How much the contents should be scaled into the x direction.
+<a href="#138" id="138" data-nosnippet="">138</a>    </span><span class="kw">pub </span>x_scale: f32,
+<a href="#139" id="139" data-nosnippet="">139</a>    <span class="doccomment">/// How much the contents should be scaled into the y direction.
+<a href="#140" id="140" data-nosnippet="">140</a>    </span><span class="kw">pub </span>y_scale: f32,
+<a href="#141" id="141" data-nosnippet="">141</a>    <span class="doccomment">/// The width of the viewport. If this is set to `None`, the width will be chosen
+<a href="#142" id="142" data-nosnippet="">142</a>    /// automatically based on the scale factor and the dimensions of the PDF.
+<a href="#143" id="143" data-nosnippet="">143</a>    </span><span class="kw">pub </span>width: <span class="prelude-ty">Option</span>&lt;u16&gt;,
+<a href="#144" id="144" data-nosnippet="">144</a>    <span class="doccomment">/// The height of the viewport. If this is set to `None`, the height will be chosen
+<a href="#145" id="145" data-nosnippet="">145</a>    /// automatically based on the scale factor and the dimensions of the PDF.
+<a href="#146" id="146" data-nosnippet="">146</a>    </span><span class="kw">pub </span>height: <span class="prelude-ty">Option</span>&lt;u16&gt;,
+<a href="#147" id="147" data-nosnippet="">147</a>    <span class="doccomment">/// The background color. Determines the color of the base
+<a href="#148" id="148" data-nosnippet="">148</a>    /// rectangle during rendering to a pixmap.
+<a href="#149" id="149" data-nosnippet="">149</a>    </span><span class="kw">pub </span>bg_color: AlphaColor&lt;Srgb&gt;,
+<a href="#150" id="150" data-nosnippet="">150</a>    <span class="doccomment">/// PdfCraft patch: top-left corner of the rendered region, in device pixels of the scaled
+<a href="#151" id="151" data-nosnippet="">151</a>    /// page. Together with `width`/`height` this renders one tile of a large page.
+<a href="#152" id="152" data-nosnippet="">152</a>    </span><span class="kw">pub </span>x_offset: f32,
+<a href="#153" id="153" data-nosnippet="">153</a>    <span class="doccomment">/// See `x_offset`.
+<a href="#154" id="154" data-nosnippet="">154</a>    </span><span class="kw">pub </span>y_offset: f32,
+<a href="#155" id="155" data-nosnippet="">155</a>    <span class="doccomment">/// PdfCraft patch: when set, solid text and line-art paint colours are remapped while
+<a href="#156" id="156" data-nosnippet="">156</a>    /// rendering; `None` renders exactly as without the patch.
+<a href="#157" id="157" data-nosnippet="">157</a>    </span><span class="kw">pub </span>color_replacement: <span class="prelude-ty">Option</span>&lt;ColorReplacement&gt;,
+<a href="#158" id="158" data-nosnippet="">158</a>    <span class="doccomment">/// PdfCraft patch (31): the most coverage values the rasterizer keeps for the page; paths
+<a href="#159" id="159" data-nosnippet="">159</a>    /// past it are left out, with `InterpreterWarning::ContentTruncated`. `None` keeps as many
+<a href="#160" id="160" data-nosnippet="">160</a>    /// as a strip's index reaches (2^31).
+<a href="#161" id="161" data-nosnippet="">161</a>    </span><span class="kw">pub </span>max_coverage: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+<a href="#162" id="162" data-nosnippet="">162</a>}
+<a href="#163" id="163" data-nosnippet="">163</a>
+<a href="#164" id="164" data-nosnippet="">164</a><span class="kw">impl </span>Default <span class="kw">for </span>RenderSettings {
+<a href="#165" id="165" data-nosnippet="">165</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href="#166" id="166" data-nosnippet="">166</a>        <span class="self">Self </span>{
+<a href="#167" id="167" data-nosnippet="">167</a>            x_scale: <span class="number">1.0</span>,
+<a href="#168" id="168" data-nosnippet="">168</a>            y_scale: <span class="number">1.0</span>,
+<a href="#169" id="169" data-nosnippet="">169</a>            width: <span class="prelude-val">None</span>,
+<a href="#170" id="170" data-nosnippet="">170</a>            height: <span class="prelude-val">None</span>,
+<a href="#171" id="171" data-nosnippet="">171</a>            bg_color: TRANSPARENT,
+<a href="#172" id="172" data-nosnippet="">172</a>            x_offset: <span class="number">0.0</span>,
+<a href="#173" id="173" data-nosnippet="">173</a>            y_offset: <span class="number">0.0</span>,
+<a href="#174" id="174" data-nosnippet="">174</a>            color_replacement: <span class="prelude-val">None</span>,
+<a href="#175" id="175" data-nosnippet="">175</a>            max_coverage: <span class="prelude-val">None</span>,
+<a href="#176" id="176" data-nosnippet="">176</a>        }
+<a href="#177" id="177" data-nosnippet="">177</a>    }
+<a href="#178" id="178" data-nosnippet="">178</a>}
+<a href="#179" id="179" data-nosnippet="">179</a>
+<a href="#180" id="180" data-nosnippet="">180</a><span class="doccomment">/// Render the page with the given settings to a pixmap.
+<a href="#181" id="181" data-nosnippet="">181</a></span><span class="kw">pub fn </span>render&lt;<span class="lifetime">'a</span>&gt;(
+<a href="#182" id="182" data-nosnippet="">182</a>    page: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Page&lt;<span class="lifetime">'a</span>&gt;,
+<a href="#183" id="183" data-nosnippet="">183</a>    cache: <span class="kw-2">&amp;</span>RenderCache&lt;<span class="lifetime">'a</span>&gt;,
+<a href="#184" id="184" data-nosnippet="">184</a>    interpreter_settings: <span class="kw-2">&amp;</span>InterpreterSettings,
+<a href="#185" id="185" data-nosnippet="">185</a>    render_settings: <span class="kw-2">&amp;</span>RenderSettings,
+<a href="#186" id="186" data-nosnippet="">186</a>) -&gt; Pixmap {
+<a href="#187" id="187" data-nosnippet="">187</a>    <span class="kw">let </span>(pix_width, pix_height) = render_size(page, render_settings);
+<a href="#188" id="188" data-nosnippet="">188</a>    <span class="kw">let </span><span class="kw-2">mut </span>pixmap = Pixmap::new(pix_width, pix_height);
+<a href="#189" id="189" data-nosnippet="">189</a>    render_into(page, cache, interpreter_settings, render_settings, pixmap.data_as_u8_slice_mut());
+<a href="#190" id="190" data-nosnippet="">190</a>    pixmap
+<a href="#191" id="191" data-nosnippet="">191</a>}
+<a href="#192" id="192" data-nosnippet="">192</a>
+<a href="#193" id="193" data-nosnippet="">193</a><span class="doccomment">/// PdfCraft patch: the size in pixels of what [`render`] produces with these settings.
+<a href="#194" id="194" data-nosnippet="">194</a></span><span class="kw">pub fn </span>render_size(page: <span class="kw-2">&amp;</span>Page&lt;<span class="lifetime">'_</span>&gt;, render_settings: <span class="kw-2">&amp;</span>RenderSettings) -&gt; (u16, u16) {
+<a href="#195" id="195" data-nosnippet="">195</a>    <span class="kw">let </span>(width, height) = page.render_dimensions();
+<a href="#196" id="196" data-nosnippet="">196</a>    <span class="kw">let </span>(scaled_width, scaled_height) = ((width * render_settings.x_scale) <span class="kw">as </span>f64, (height * render_settings.y_scale) <span class="kw">as </span>f64);
+<a href="#197" id="197" data-nosnippet="">197</a>    (render_settings.width.unwrap_or(scaled_width.floor() <span class="kw">as </span>u16), render_settings.height.unwrap_or(scaled_height.floor() <span class="kw">as </span>u16))
+<a href="#198" id="198" data-nosnippet="">198</a>}
+<a href="#199" id="199" data-nosnippet="">199</a>
+<a href="#200" id="200" data-nosnippet="">200</a><span class="doccomment">/// PdfCraft patch: [`render`] into `buffer`, premultiplied RGBA8 rows of [`render_size`]
+<a href="#201" id="201" data-nosnippet="">201</a>/// pixels, so the caller chooses the allocation (one aligned to whole pixels can then become
+<a href="#202" id="202" data-nosnippet="">202</a>/// texture data without a copy). `buffer.len()` must be width × height × 4; any other length
+<a href="#203" id="203" data-nosnippet="">203</a>/// leaves `buffer` untouched (vello_cpu asserts on the length, and a panic must not be reachable).
+<a href="#204" id="204" data-nosnippet="">204</a></span><span class="kw">pub fn </span>render_into&lt;<span class="lifetime">'a</span>&gt;(
+<a href="#205" id="205" data-nosnippet="">205</a>    page: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Page&lt;<span class="lifetime">'a</span>&gt;,
+<a href="#206" id="206" data-nosnippet="">206</a>    cache: <span class="kw-2">&amp;</span>RenderCache&lt;<span class="lifetime">'a</span>&gt;,
+<a href="#207" id="207" data-nosnippet="">207</a>    interpreter_settings: <span class="kw-2">&amp;</span>InterpreterSettings,
+<a href="#208" id="208" data-nosnippet="">208</a>    render_settings: <span class="kw-2">&amp;</span>RenderSettings,
+<a href="#209" id="209" data-nosnippet="">209</a>    buffer: <span class="kw-2">&amp;mut </span>[u8],
+<a href="#210" id="210" data-nosnippet="">210</a>) {
+<a href="#211" id="211" data-nosnippet="">211</a>    <span class="kw">let </span>(x_scale, y_scale) = (render_settings.x_scale, render_settings.y_scale);
+<a href="#212" id="212" data-nosnippet="">212</a>    <span class="kw">let </span>initial_transform = Affine::translate((-render_settings.x_offset <span class="kw">as </span>f64, -render_settings.y_offset <span class="kw">as </span>f64))
+<a href="#213" id="213" data-nosnippet="">213</a>        * Affine::scale_non_uniform(x_scale <span class="kw">as </span>f64, y_scale <span class="kw">as </span>f64)
+<a href="#214" id="214" data-nosnippet="">214</a>        * page.initial_transform(<span class="bool-val">true</span>).to_kurbo();
+<a href="#215" id="215" data-nosnippet="">215</a>
+<a href="#216" id="216" data-nosnippet="">216</a>    <span class="kw">let </span>(pix_width, pix_height) = render_size(page, render_settings);
+<a href="#217" id="217" data-nosnippet="">217</a>    <span class="kw">let </span>expected = (pix_width <span class="kw">as </span>usize).checked_mul(pix_height <span class="kw">as </span>usize).and_then(|n| n.checked_mul(<span class="number">4</span>));
+<a href="#218" id="218" data-nosnippet="">218</a>    <span class="kw">if </span>expected != <span class="prelude-val">Some</span>(buffer.len()) {
+<a href="#219" id="219" data-nosnippet="">219</a>        <span class="kw">return</span>;
+<a href="#220" id="220" data-nosnippet="">220</a>    }
+<a href="#221" id="221" data-nosnippet="">221</a>    <span class="kw">let </span><span class="kw-2">mut </span>state = Context::new(
+<a href="#222" id="222" data-nosnippet="">222</a>        initial_transform,
+<a href="#223" id="223" data-nosnippet="">223</a>        Rect::new(<span class="number">0.0</span>, <span class="number">0.0</span>, pix_width <span class="kw">as </span>f64, pix_height <span class="kw">as </span>f64),
+<a href="#224" id="224" data-nosnippet="">224</a>        <span class="kw-2">&amp;</span>cache.interpreter_cache,
+<a href="#225" id="225" data-nosnippet="">225</a>        page.xref(),
+<a href="#226" id="226" data-nosnippet="">226</a>        interpreter_settings.clone(),
+<a href="#227" id="227" data-nosnippet="">227</a>    );
+<a href="#228" id="228" data-nosnippet="">228</a>
+<a href="#229" id="229" data-nosnippet="">229</a>    <span class="kw">let </span>vc_settings = <span class="kw">crate</span>::third_party::vello_cpu::RenderSettings { level: Level::new(), num_threads: <span class="number">0</span>, render_mode: RenderMode::OptimizeSpeed };
+<a href="#230" id="230" data-nosnippet="">230</a>
+<a href="#231" id="231" data-nosnippet="">231</a>    <span class="kw">let </span><span class="kw-2">mut </span>device = Renderer::new(pix_width, pix_height, vc_settings, cache, render_settings.color_replacement, interpreter_settings.preview);
+<a href="#232" id="232" data-nosnippet="">232</a>
+<a href="#233" id="233" data-nosnippet="">233</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(max) = render_settings.max_coverage {
+<a href="#234" id="234" data-nosnippet="">234</a>        device.ctx.set_max_coverage(max);
+<a href="#235" id="235" data-nosnippet="">235</a>    }
+<a href="#236" id="236" data-nosnippet="">236</a>
+<a href="#237" id="237" data-nosnippet="">237</a>    <span class="comment">// PdfCraft patch (18): the page renders as one transparency group (the page group). Its
+<a href="#238" id="238" data-nosnippet="">238</a>    // objects composite with an initially transparent backdrop, and the group is then put on
+<a href="#239" id="239" data-nosnippet="">239</a>    // the paper (ISO 32000-2, page group), so a blend mode only blends where something was
+<a href="#240" id="240" data-nosnippet="">240</a>    // drawn: a /BM /Screen fill over an empty part of the page keeps its colour (#2970).
+<a href="#241" id="241" data-nosnippet="">241</a>    // Under reading colours the background is painted *inside* the group instead, as its
+<a href="#242" id="242" data-nosnippet="">242</a>    // initial backdrop, so a Multiply highlight blends with the dark background: outside it,
+<a href="#243" id="243" data-nosnippet="">243</a>    // the highlight kept its own flat colour and the words under it vanished into the band
+<a href="#244" id="244" data-nosnippet="">244</a>    // (#1548). Reading colours replace the page's colours anyway; for document colours the
+<a href="#245" id="245" data-nosnippet="">245</a>    // background stays outside, or every separable mode but Normal, Multiply, Darken and
+<a href="#246" id="246" data-nosnippet="">246</a>    // HardLight would blend with the white paper.
+<a href="#247" id="247" data-nosnippet="">247</a>    </span><span class="kw">let </span>backdrop_inside = render_settings.color_replacement.is_some();
+<a href="#248" id="248" data-nosnippet="">248</a>    <span class="kw">if </span>backdrop_inside {
+<a href="#249" id="249" data-nosnippet="">249</a>        device.push_transparency_group(<span class="number">1.0</span>, <span class="prelude-val">None</span>, BlendMode::Normal);
+<a href="#250" id="250" data-nosnippet="">250</a>    }
+<a href="#251" id="251" data-nosnippet="">251</a>
+<a href="#252" id="252" data-nosnippet="">252</a>    device.ctx.set_paint(render_settings.bg_color);
+<a href="#253" id="253" data-nosnippet="">253</a>    device.ctx.fill_rect(<span class="kw-2">&amp;</span>Rect::new(<span class="number">0.0</span>, <span class="number">0.0</span>, pix_width <span class="kw">as </span>f64, pix_height <span class="kw">as </span>f64));
+<a href="#254" id="254" data-nosnippet="">254</a>    <span class="kw">let </span><span class="kw-2">mut </span>clip_path = page.intersected_crop_box().to_kurbo().to_path(<span class="number">0.1</span>);
+<a href="#255" id="255" data-nosnippet="">255</a>    clip_path.apply_affine(initial_transform);
+<a href="#256" id="256" data-nosnippet="">256</a>    device.push_clip_path(<span class="kw-2">&amp;</span>ClipPath { path: clip_path, fill: FillRule::NonZero });
+<a href="#257" id="257" data-nosnippet="">257</a>    <span class="kw">if </span>!backdrop_inside {
+<a href="#258" id="258" data-nosnippet="">258</a>        device.push_transparency_group(<span class="number">1.0</span>, <span class="prelude-val">None</span>, BlendMode::Normal);
+<a href="#259" id="259" data-nosnippet="">259</a>    }
+<a href="#260" id="260" data-nosnippet="">260</a>
+<a href="#261" id="261" data-nosnippet="">261</a>    interpret_page(page, <span class="kw-2">&amp;mut </span>state, <span class="kw-2">&amp;mut </span>device);
+<a href="#262" id="262" data-nosnippet="">262</a>    <span class="comment">// PdfCraft patch (31): what the rasterizer left out once its coverage was full (a page that
+<a href="#263" id="263" data-nosnippet="">263</a>    // paints the same content millions of times over) is content left out, said as such.
+<a href="#264" id="264" data-nosnippet="">264</a>    </span><span class="kw">if </span>device.ctx.coverage_full() {
+<a href="#265" id="265" data-nosnippet="">265</a>        (interpreter_settings.warning_sink)(<span class="kw">crate</span>::third_party::hayro_interpret::InterpreterWarning::ContentTruncated);
+<a href="#266" id="266" data-nosnippet="">266</a>    }
+<a href="#267" id="267" data-nosnippet="">267</a>
+<a href="#268" id="268" data-nosnippet="">268</a>    <span class="kw">if </span>!backdrop_inside {
+<a href="#269" id="269" data-nosnippet="">269</a>        device.pop_transparency_group();
+<a href="#270" id="270" data-nosnippet="">270</a>    }
+<a href="#271" id="271" data-nosnippet="">271</a>    device.pop_clip_path();
+<a href="#272" id="272" data-nosnippet="">272</a>    <span class="kw">if </span>backdrop_inside {
+<a href="#273" id="273" data-nosnippet="">273</a>        device.pop_transparency_group();
+<a href="#274" id="274" data-nosnippet="">274</a>    }
+<a href="#275" id="275" data-nosnippet="">275</a>
+<a href="#276" id="276" data-nosnippet="">276</a>    <span class="kw">let </span><span class="kw-2">mut </span>resources = <span class="kw">crate</span>::third_party::vello_cpu::Resources::default();
+<a href="#277" id="277" data-nosnippet="">277</a>    device.ctx.render_to_buffer(<span class="kw-2">&amp;mut </span>resources, buffer, pix_width, pix_height, vc_settings.render_mode);
+<a href="#278" id="278" data-nosnippet="">278</a>}
+<a href="#279" id="279" data-nosnippet="">279</a>
+<a href="#280" id="280" data-nosnippet="">280</a><span class="comment">// Just a convenience method for testing.
+<a href="#281" id="281" data-nosnippet="">281</a></span><span class="attr">#[doc(hidden)]
+<a href="#282" id="282" data-nosnippet="">282</a></span><span class="kw">pub fn </span>render_pdf(
+<a href="#283" id="283" data-nosnippet="">283</a>    pdf: <span class="kw-2">&amp;</span>Pdf,
+<a href="#284" id="284" data-nosnippet="">284</a>    scale: f32,
+<a href="#285" id="285" data-nosnippet="">285</a>    settings: InterpreterSettings,
+<a href="#286" id="286" data-nosnippet="">286</a>    color_replacement: <span class="prelude-ty">Option</span>&lt;ColorReplacement&gt;,
+<a href="#287" id="287" data-nosnippet="">287</a>    range: <span class="prelude-ty">Option</span>&lt;RangeInclusive&lt;usize&gt;&gt;,
+<a href="#288" id="288" data-nosnippet="">288</a>) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;Pixmap&gt;&gt; {
+<a href="#289" id="289" data-nosnippet="">289</a>    <span class="kw">let </span>cache = RenderCache::new();
+<a href="#290" id="290" data-nosnippet="">290</a>    <span class="kw">let </span>rendered = pdf
+<a href="#291" id="291" data-nosnippet="">291</a>        .pages()
+<a href="#292" id="292" data-nosnippet="">292</a>        .iter()
+<a href="#293" id="293" data-nosnippet="">293</a>        .enumerate()
+<a href="#294" id="294" data-nosnippet="">294</a>        .flat_map(|(idx, page)| {
+<a href="#295" id="295" data-nosnippet="">295</a>            <span class="kw">if </span>range.clone().is_some_and(|range| !range.contains(<span class="kw-2">&amp;</span>idx)) {
+<a href="#296" id="296" data-nosnippet="">296</a>                <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#297" id="297" data-nosnippet="">297</a>            }
+<a href="#298" id="298" data-nosnippet="">298</a>
+<a href="#299" id="299" data-nosnippet="">299</a>            <span class="kw">let </span>pixmap = render(
+<a href="#300" id="300" data-nosnippet="">300</a>                page,
+<a href="#301" id="301" data-nosnippet="">301</a>                <span class="kw-2">&amp;</span>cache,
+<a href="#302" id="302" data-nosnippet="">302</a>                <span class="kw-2">&amp;</span>settings,
+<a href="#303" id="303" data-nosnippet="">303</a>                <span class="kw-2">&amp;</span>RenderSettings { x_scale: scale, y_scale: scale, bg_color: WHITE, color_replacement, ..Default::default() },
+<a href="#304" id="304" data-nosnippet="">304</a>            );
+<a href="#305" id="305" data-nosnippet="">305</a>
+<a href="#306" id="306" data-nosnippet="">306</a>            <span class="prelude-val">Some</span>(pixmap)
+<a href="#307" id="307" data-nosnippet="">307</a>        })
+<a href="#308" id="308" data-nosnippet="">308</a>        .collect();
+<a href="#309" id="309" data-nosnippet="">309</a>
+<a href="#310" id="310" data-nosnippet="">310</a>    <span class="prelude-val">Some</span>(rendered)
+<a href="#311" id="311" data-nosnippet="">311</a>}
+<a href="#312" id="312" data-nosnippet="">312</a>
+<a href="#313" id="313" data-nosnippet="">313</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>derive_settings(settings: <span class="kw-2">&amp;</span><span class="kw">crate</span>::third_party::vello_cpu::RenderSettings) -&gt; <span class="kw">crate</span>::third_party::vello_cpu::RenderSettings {
+<a href="#314" id="314" data-nosnippet="">314</a>    <span class="kw">crate</span>::third_party::vello_cpu::RenderSettings { num_threads: <span class="number">0</span>, ..<span class="kw-2">*</span>settings }
+<a href="#315" id="315" data-nosnippet="">315</a>}
+<a href="#316" id="316" data-nosnippet="">316</a>
+<a href="#317" id="317" data-nosnippet="">317</a><span class="comment">// PdfCraft patch: unit tests for the reading-colours mapping.
+<a href="#318" id="318" data-nosnippet="">318</a></span><span class="attr">#[cfg(any())]
+<a href="#319" id="319" data-nosnippet="">319</a></span><span class="kw">mod </span>color_replacement_tests {
+<a href="#320" id="320" data-nosnippet="">320</a>    <span class="kw">use </span><span class="kw">super</span>::ColorReplacement;
+<a href="#321" id="321" data-nosnippet="">321</a>
+<a href="#322" id="322" data-nosnippet="">322</a>    <span class="kw">fn </span>config(text: [u8; <span class="number">3</span>], background: [u8; <span class="number">3</span>], only_black: bool, line_art: bool) -&gt; ColorReplacement {
+<a href="#323" id="323" data-nosnippet="">323</a>        ColorReplacement { text, background, only_black, line_art }
+<a href="#324" id="324" data-nosnippet="">324</a>    }
+<a href="#325" id="325" data-nosnippet="">325</a>
+<a href="#326" id="326" data-nosnippet="">326</a>    <span class="attr">#[cfg(any())]
+<a href="#327" id="327" data-nosnippet="">327</a>    </span><span class="kw">fn </span>black_maps_to_text_colour() {
+<a href="#328" id="328" data-nosnippet="">328</a>        <span class="kw">let </span>r = config([<span class="number">0x12</span>, <span class="number">0x34</span>, <span class="number">0x56</span>], [<span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>], <span class="bool-val">false</span>, <span class="bool-val">true</span>);
+<a href="#329" id="329" data-nosnippet="">329</a>        <span class="macro">assert_eq!</span>(r.map([<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0xff</span>], <span class="bool-val">true</span>), [<span class="number">0x12</span>, <span class="number">0x34</span>, <span class="number">0x56</span>, <span class="number">0xff</span>]);
+<a href="#330" id="330" data-nosnippet="">330</a>    }
+<a href="#331" id="331" data-nosnippet="">331</a>
+<a href="#332" id="332" data-nosnippet="">332</a>    <span class="attr">#[cfg(any())]
+<a href="#333" id="333" data-nosnippet="">333</a>    </span><span class="kw">fn </span>white_maps_to_background() {
+<a href="#334" id="334" data-nosnippet="">334</a>        <span class="kw">let </span>r = config([<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>], [<span class="number">0xab</span>, <span class="number">0xcd</span>, <span class="number">0xef</span>], <span class="bool-val">false</span>, <span class="bool-val">true</span>);
+<a href="#335" id="335" data-nosnippet="">335</a>        <span class="macro">assert_eq!</span>(r.map([<span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>], <span class="bool-val">true</span>), [<span class="number">0xab</span>, <span class="number">0xcd</span>, <span class="number">0xef</span>, <span class="number">0xff</span>]);
+<a href="#336" id="336" data-nosnippet="">336</a>    }
+<a href="#337" id="337" data-nosnippet="">337</a>
+<a href="#338" id="338" data-nosnippet="">338</a>    <span class="attr">#[cfg(any())]
+<a href="#339" id="339" data-nosnippet="">339</a>    </span><span class="kw">fn </span>midgrey_interpolates() {
+<a href="#340" id="340" data-nosnippet="">340</a>        <span class="comment">// 0x80 grey between black text and a white background lands near 0x80.
+<a href="#341" id="341" data-nosnippet="">341</a>        </span><span class="kw">let </span>r = config([<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>], [<span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>], <span class="bool-val">false</span>, <span class="bool-val">true</span>);
+<a href="#342" id="342" data-nosnippet="">342</a>        <span class="kw">let </span>[mapped_r, mapped_g, mapped_b, mapped_a] = r.map([<span class="number">0x80</span>, <span class="number">0x80</span>, <span class="number">0x80</span>, <span class="number">0xff</span>], <span class="bool-val">true</span>);
+<a href="#343" id="343" data-nosnippet="">343</a>        <span class="macro">assert!</span>(mapped_r.abs_diff(<span class="number">0x80</span>) &lt;= <span class="number">2</span>);
+<a href="#344" id="344" data-nosnippet="">344</a>        <span class="macro">assert!</span>(mapped_g.abs_diff(<span class="number">0x80</span>) &lt;= <span class="number">2</span>);
+<a href="#345" id="345" data-nosnippet="">345</a>        <span class="macro">assert!</span>(mapped_b.abs_diff(<span class="number">0x80</span>) &lt;= <span class="number">2</span>);
+<a href="#346" id="346" data-nosnippet="">346</a>        <span class="macro">assert_eq!</span>(mapped_a, <span class="number">0xff</span>);
+<a href="#347" id="347" data-nosnippet="">347</a>    }
+<a href="#348" id="348" data-nosnippet="">348</a>
+<a href="#349" id="349" data-nosnippet="">349</a>    <span class="attr">#[cfg(any())]
+<a href="#350" id="350" data-nosnippet="">350</a>    </span><span class="kw">fn </span>alpha_copied_verbatim() {
+<a href="#351" id="351" data-nosnippet="">351</a>        <span class="kw">let </span>r = config([<span class="number">0xff</span>, <span class="number">0x00</span>, <span class="number">0x00</span>], [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0xff</span>], <span class="bool-val">false</span>, <span class="bool-val">true</span>);
+<a href="#352" id="352" data-nosnippet="">352</a>        <span class="macro">assert_eq!</span>(r.map([<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">137</span>], <span class="bool-val">true</span>), [<span class="number">0xff</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">137</span>]);
+<a href="#353" id="353" data-nosnippet="">353</a>        <span class="macro">assert_eq!</span>(r.map([<span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0</span>], <span class="bool-val">true</span>), [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0xff</span>, <span class="number">0</span>]);
+<a href="#354" id="354" data-nosnippet="">354</a>    }
+<a href="#355" id="355" data-nosnippet="">355</a>
+<a href="#356" id="356" data-nosnippet="">356</a>    <span class="attr">#[cfg(any())]
+<a href="#357" id="357" data-nosnippet="">357</a>    </span><span class="kw">fn </span>only_black_threshold() {
+<a href="#358" id="358" data-nosnippet="">358</a>        <span class="comment">// White text on black: a mapped grey v becomes 255 - v, so mapped and skipped
+<a href="#359" id="359" data-nosnippet="">359</a>        // values are distinguishable.
+<a href="#360" id="360" data-nosnippet="">360</a>        </span><span class="kw">let </span>r = config([<span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>], [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>], <span class="bool-val">true</span>, <span class="bool-val">true</span>);
+<a href="#361" id="361" data-nosnippet="">361</a>        <span class="comment">// Luminance t = 25/255 ≈ 0.098 is just under the 0.10 threshold: mapped.
+<a href="#362" id="362" data-nosnippet="">362</a>        </span><span class="macro">assert_eq!</span>(r.map([<span class="number">25</span>, <span class="number">25</span>, <span class="number">25</span>, <span class="number">255</span>], <span class="bool-val">true</span>), [<span class="number">230</span>, <span class="number">230</span>, <span class="number">230</span>, <span class="number">255</span>]);
+<a href="#363" id="363" data-nosnippet="">363</a>        <span class="comment">// Luminance t = 27/255 ≈ 0.106 is just over it: left unchanged.
+<a href="#364" id="364" data-nosnippet="">364</a>        </span><span class="macro">assert_eq!</span>(r.map([<span class="number">27</span>, <span class="number">27</span>, <span class="number">27</span>, <span class="number">255</span>], <span class="bool-val">true</span>), [<span class="number">27</span>, <span class="number">27</span>, <span class="number">27</span>, <span class="number">255</span>]);
+<a href="#365" id="365" data-nosnippet="">365</a>    }
+<a href="#366" id="366" data-nosnippet="">366</a>
+<a href="#367" id="367" data-nosnippet="">367</a>    <span class="attr">#[cfg(any())]
+<a href="#368" id="368" data-nosnippet="">368</a>    </span><span class="kw">fn </span>line_art_false_skips_paths_but_not_text() {
+<a href="#369" id="369" data-nosnippet="">369</a>        <span class="kw">let </span>r = config([<span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>], [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>], <span class="bool-val">false</span>, <span class="bool-val">false</span>);
+<a href="#370" id="370" data-nosnippet="">370</a>        <span class="comment">// A plain path fill is left unchanged when line art is off.
+<a href="#371" id="371" data-nosnippet="">371</a>        </span><span class="macro">assert_eq!</span>(r.map([<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">255</span>], <span class="bool-val">false</span>), [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">255</span>]);
+<a href="#372" id="372" data-nosnippet="">372</a>        <span class="comment">// Text fills/strokes still map.
+<a href="#373" id="373" data-nosnippet="">373</a>        </span><span class="macro">assert_eq!</span>(r.map([<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">255</span>], <span class="bool-val">true</span>), [<span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">255</span>]);
+<a href="#374" id="374" data-nosnippet="">374</a>    }
+<a href="#375" id="375" data-nosnippet="">375</a>}
+<a href="#376" id="376" data-nosnippet="">376</a>
+<a href="#377" id="377" data-nosnippet="">377</a><span class="comment">// PdfCraft patch: end-to-end test for the reading-colours renderer hook.
+<a href="#378" id="378" data-nosnippet="">378</a></span><span class="attr">#[cfg(any())]
+<a href="#379" id="379" data-nosnippet="">379</a></span><span class="kw">mod </span>color_replacement_render_tests {
+<a href="#380" id="380" data-nosnippet="">380</a>    <span class="kw">use super</span>::{ColorReplacement, InterpreterSettings, Pdf, Pixmap, render_pdf};
+<a href="#381" id="381" data-nosnippet="">381</a>    <span class="kw">use </span><span class="kw">crate</span>::third_party::vello_cpu::color::{AlphaColor, Srgb};
+<a href="#382" id="382" data-nosnippet="">382</a>
+<a href="#383" id="383" data-nosnippet="">383</a>    <span class="doccomment">/// A one-page 200×100 pt PDF with a white background rect, black Helvetica text,
+<a href="#384" id="384" data-nosnippet="">384</a>    /// a solid red `rg` rect, a CMYK-filled rect and a 4×4 uncompressed `/DeviceRGB`
+<a href="#385" id="385" data-nosnippet="">385</a>    /// image. Byte-level object layout follows `fixture()` in
+<a href="#386" id="386" data-nosnippet="">386</a>    /// `crates/automation/tests/automation.rs`.
+<a href="#387" id="387" data-nosnippet="">387</a>    </span><span class="kw">fn </span>fixture() -&gt; Vec&lt;u8&gt; {
+<a href="#388" id="388" data-nosnippet="">388</a>        <span class="kw">let </span>body = <span class="string">"1 1 1 rg 0 0 200 100 re f\n\
+<a href="#389" id="389" data-nosnippet="">389</a>                    0 0 0 rg BT /F1 24 Tf 20 70 Td (HI) Tj ET\n\
+<a href="#390" id="390" data-nosnippet="">390</a>                    1 0 0 rg 20 20 50 40 re f\n\
+<a href="#391" id="391" data-nosnippet="">391</a>                    1 0 0 0 k 100 20 50 40 re f\n\
+<a href="#392" id="392" data-nosnippet="">392</a>                    q 20 0 0 20 160 20 cm /Im0 Do Q"</span>;
+<a href="#393" id="393" data-nosnippet="">393</a>        <span class="comment">// 16 opaque pure-blue pixels; blue's low luminance makes an (incorrect) mapping
+<a href="#394" id="394" data-nosnippet="">394</a>        // immediately visible as a light grey.
+<a href="#395" id="395" data-nosnippet="">395</a>        </span><span class="kw">let </span>image: Vec&lt;u8&gt; = (<span class="number">0</span>..<span class="number">16</span>).flat_map(|<span class="kw">_</span>| [<span class="number">0x00_u8</span>, <span class="number">0x00</span>, <span class="number">0xff</span>]).collect();
+<a href="#396" id="396" data-nosnippet="">396</a>
+<a href="#397" id="397" data-nosnippet="">397</a>        <span class="kw">let </span><span class="kw-2">mut </span>objs: Vec&lt;Vec&lt;u8&gt;&gt; = <span class="macro">vec!</span>[
+<a href="#398" id="398" data-nosnippet="">398</a>            <span class="string">b"&lt;&lt; /Type /Catalog /Pages 2 0 R &gt;&gt;"</span>.to_vec(),
+<a href="#399" id="399" data-nosnippet="">399</a>            <span class="string">b"&lt;&lt; /Type /Pages /Kids [4 0 R] /Count 1 /MediaBox [0 0 200 100] &gt;&gt;"</span>.to_vec(),
+<a href="#400" id="400" data-nosnippet="">400</a>            <span class="string">b"&lt;&lt; /Type /Font /Subtype /Type1 /BaseFont /Helvetica &gt;&gt;"</span>.to_vec(),
+<a href="#401" id="401" data-nosnippet="">401</a>            <span class="string">b"&lt;&lt; /Type /Page /Parent 2 0 R /Contents 5 0 R /Resources &lt;&lt; /Font &lt;&lt; /F1 3 0 R &gt;&gt; \
+<a href="#402" id="402" data-nosnippet="">402</a>              /XObject &lt;&lt; /Im0 6 0 R &gt;&gt; &gt;&gt; &gt;&gt;"
+<a href="#403" id="403" data-nosnippet="">403</a>                </span>.to_vec(),
+<a href="#404" id="404" data-nosnippet="">404</a>            <span class="macro">format!</span>(<span class="string">"&lt;&lt; /Length {} &gt;&gt;\nstream\n{body}\nendstream"</span>, body.len()).into_bytes(),
+<a href="#405" id="405" data-nosnippet="">405</a>        ];
+<a href="#406" id="406" data-nosnippet="">406</a>        <span class="kw">let </span><span class="kw-2">mut </span>image_obj = <span class="macro">format!</span>(
+<a href="#407" id="407" data-nosnippet="">407</a>            <span class="string">"&lt;&lt; /Type /XObject /Subtype /Image /Width 4 /Height 4 /ColorSpace /DeviceRGB \
+<a href="#408" id="408" data-nosnippet="">408</a>             /BitsPerComponent 8 /Length {} &gt;&gt;\nstream\n"</span>,
+<a href="#409" id="409" data-nosnippet="">409</a>            image.len()
+<a href="#410" id="410" data-nosnippet="">410</a>        )
+<a href="#411" id="411" data-nosnippet="">411</a>        .into_bytes();
+<a href="#412" id="412" data-nosnippet="">412</a>        image_obj.extend_from_slice(<span class="kw-2">&amp;</span>image);
+<a href="#413" id="413" data-nosnippet="">413</a>        image_obj.extend_from_slice(<span class="string">b"\nendstream"</span>);
+<a href="#414" id="414" data-nosnippet="">414</a>        objs.push(image_obj);
+<a href="#415" id="415" data-nosnippet="">415</a>
+<a href="#416" id="416" data-nosnippet="">416</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = <span class="string">b"%PDF-1.7\n"</span>.to_vec();
+<a href="#417" id="417" data-nosnippet="">417</a>        <span class="kw">let </span><span class="kw-2">mut </span>offsets = Vec::new();
+<a href="#418" id="418" data-nosnippet="">418</a>        <span class="kw">for </span>(i, o) <span class="kw">in </span>objs.iter().enumerate() {
+<a href="#419" id="419" data-nosnippet="">419</a>            offsets.push(out.len());
+<a href="#420" id="420" data-nosnippet="">420</a>            out.extend_from_slice(<span class="macro">format!</span>(<span class="string">"{} 0 obj\n"</span>, i + <span class="number">1</span>).as_bytes());
+<a href="#421" id="421" data-nosnippet="">421</a>            out.extend_from_slice(o);
+<a href="#422" id="422" data-nosnippet="">422</a>            out.extend_from_slice(<span class="string">b"\nendobj\n"</span>);
+<a href="#423" id="423" data-nosnippet="">423</a>        }
+<a href="#424" id="424" data-nosnippet="">424</a>        <span class="kw">let </span>xref = out.len();
+<a href="#425" id="425" data-nosnippet="">425</a>        out.extend_from_slice(<span class="macro">format!</span>(<span class="string">"xref\n0 {}\n0000000000 65535 f \n"</span>, objs.len() + <span class="number">1</span>).as_bytes());
+<a href="#426" id="426" data-nosnippet="">426</a>        <span class="kw">for </span>o <span class="kw">in </span>offsets {
+<a href="#427" id="427" data-nosnippet="">427</a>            out.extend_from_slice(<span class="macro">format!</span>(<span class="string">"{o:010} 00000 n \n"</span>).as_bytes());
+<a href="#428" id="428" data-nosnippet="">428</a>        }
+<a href="#429" id="429" data-nosnippet="">429</a>        out.extend_from_slice(<span class="macro">format!</span>(<span class="string">"trailer\n&lt;&lt; /Size {} /Root 1 0 R &gt;&gt;\nstartxref\n{xref}\n%%EOF\n"</span>, objs.len() + <span class="number">1</span>).as_bytes());
+<a href="#430" id="430" data-nosnippet="">430</a>        out
+<a href="#431" id="431" data-nosnippet="">431</a>    }
+<a href="#432" id="432" data-nosnippet="">432</a>
+<a href="#433" id="433" data-nosnippet="">433</a>    <span class="kw">fn </span>replacement(line_art: bool) -&gt; ColorReplacement {
+<a href="#434" id="434" data-nosnippet="">434</a>        ColorReplacement { text: [<span class="number">0xff</span>, <span class="number">0xff</span>, <span class="number">0xff</span>], background: [<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>], only_black: <span class="bool-val">false</span>, line_art }
+<a href="#435" id="435" data-nosnippet="">435</a>    }
+<a href="#436" id="436" data-nosnippet="">436</a>
+<a href="#437" id="437" data-nosnippet="">437</a>    <span class="doccomment">/// A one-page 100×50 pt PDF whose only content is a 4×4 `/ImageMask` stencil (CCITT-style
+<a href="#438" id="438" data-nosnippet="">438</a>    /// line art) painted with the current fill colour, black. Each row's four samples are
+<a href="#439" id="439" data-nosnippet="">439</a>    /// `0011`: under `/Decode [0 1]` a sample value of 0 marks the painted area, so the left
+<a href="#440" id="440" data-nosnippet="">440</a>    /// half of the 40×40 pt image paints and the right half does not.
+<a href="#441" id="441" data-nosnippet="">441</a>    </span><span class="kw">fn </span>stencil_fixture() -&gt; Vec&lt;u8&gt; {
+<a href="#442" id="442" data-nosnippet="">442</a>        <span class="kw">let </span>body = <span class="string">"0 0 0 rg q 40 0 0 40 30 5 cm /Im0 Do Q"</span>;
+<a href="#443" id="443" data-nosnippet="">443</a>        <span class="comment">// Four rows, one byte each (a 4-wide row uses the top nibble): samples 0,0,1,1 —
+<a href="#444" id="444" data-nosnippet="">444</a>        // under Decode [0 1] the zeros paint, so the left half of every row is ink and the
+<a href="#445" id="445" data-nosnippet="">445</a>        // right half is unpainted.
+<a href="#446" id="446" data-nosnippet="">446</a>        </span><span class="kw">let </span>mask: [u8; <span class="number">4</span>] = [<span class="number">0x30</span>, <span class="number">0x30</span>, <span class="number">0x30</span>, <span class="number">0x30</span>];
+<a href="#447" id="447" data-nosnippet="">447</a>
+<a href="#448" id="448" data-nosnippet="">448</a>        <span class="kw">let </span>objs: Vec&lt;Vec&lt;u8&gt;&gt; = <span class="macro">vec!</span>[
+<a href="#449" id="449" data-nosnippet="">449</a>            <span class="string">b"&lt;&lt; /Type /Catalog /Pages 2 0 R &gt;&gt;"</span>.to_vec(),
+<a href="#450" id="450" data-nosnippet="">450</a>            <span class="string">b"&lt;&lt; /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 100 50] &gt;&gt;"</span>.to_vec(),
+<a href="#451" id="451" data-nosnippet="">451</a>            <span class="string">b"&lt;&lt; /Type /Page /Parent 2 0 R /Contents 4 0 R /Resources &lt;&lt; /XObject &lt;&lt; /Im0 5 0 R &gt;&gt; &gt;&gt; &gt;&gt;"</span>.to_vec(),
+<a href="#452" id="452" data-nosnippet="">452</a>            <span class="macro">format!</span>(<span class="string">"&lt;&lt; /Length {} &gt;&gt;\nstream\n{body}\nendstream"</span>, body.len()).into_bytes(),
+<a href="#453" id="453" data-nosnippet="">453</a>            {
+<a href="#454" id="454" data-nosnippet="">454</a>                <span class="kw">let </span><span class="kw-2">mut </span>o = <span class="macro">format!</span>(
+<a href="#455" id="455" data-nosnippet="">455</a>                    <span class="string">"&lt;&lt; /Type /XObject /Subtype /Image /Width 4 /Height 4 /ImageMask true \
+<a href="#456" id="456" data-nosnippet="">456</a>                     /BitsPerComponent 1 /Decode [0 1] /Length {} &gt;&gt;\nstream\n"</span>,
+<a href="#457" id="457" data-nosnippet="">457</a>                    mask.len()
+<a href="#458" id="458" data-nosnippet="">458</a>                )
+<a href="#459" id="459" data-nosnippet="">459</a>                .into_bytes();
+<a href="#460" id="460" data-nosnippet="">460</a>                o.extend_from_slice(<span class="kw-2">&amp;</span>mask);
+<a href="#461" id="461" data-nosnippet="">461</a>                o.extend_from_slice(<span class="string">b"\nendstream"</span>);
+<a href="#462" id="462" data-nosnippet="">462</a>                o
+<a href="#463" id="463" data-nosnippet="">463</a>            },
+<a href="#464" id="464" data-nosnippet="">464</a>        ];
+<a href="#465" id="465" data-nosnippet="">465</a>
+<a href="#466" id="466" data-nosnippet="">466</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = <span class="string">b"%PDF-1.7\n"</span>.to_vec();
+<a href="#467" id="467" data-nosnippet="">467</a>        <span class="kw">let </span><span class="kw-2">mut </span>offsets = Vec::new();
+<a href="#468" id="468" data-nosnippet="">468</a>        <span class="kw">for </span>(i, o) <span class="kw">in </span>objs.iter().enumerate() {
+<a href="#469" id="469" data-nosnippet="">469</a>            offsets.push(out.len());
+<a href="#470" id="470" data-nosnippet="">470</a>            out.extend_from_slice(<span class="macro">format!</span>(<span class="string">"{} 0 obj\n"</span>, i + <span class="number">1</span>).as_bytes());
+<a href="#471" id="471" data-nosnippet="">471</a>            out.extend_from_slice(o);
+<a href="#472" id="472" data-nosnippet="">472</a>            out.extend_from_slice(<span class="string">b"\nendobj\n"</span>);
+<a href="#473" id="473" data-nosnippet="">473</a>        }
+<a href="#474" id="474" data-nosnippet="">474</a>        <span class="kw">let </span>xref = out.len();
+<a href="#475" id="475" data-nosnippet="">475</a>        out.extend_from_slice(<span class="macro">format!</span>(<span class="string">"xref\n0 {}\n0000000000 65535 f \n"</span>, objs.len() + <span class="number">1</span>).as_bytes());
+<a href="#476" id="476" data-nosnippet="">476</a>        <span class="kw">for </span>o <span class="kw">in </span>offsets {
+<a href="#477" id="477" data-nosnippet="">477</a>            out.extend_from_slice(<span class="macro">format!</span>(<span class="string">"{o:010} 00000 n \n"</span>).as_bytes());
+<a href="#478" id="478" data-nosnippet="">478</a>        }
+<a href="#479" id="479" data-nosnippet="">479</a>        out.extend_from_slice(<span class="macro">format!</span>(<span class="string">"trailer\n&lt;&lt; /Size {} /Root 1 0 R &gt;&gt;\nstartxref\n{xref}\n%%EOF\n"</span>, objs.len() + <span class="number">1</span>).as_bytes());
+<a href="#480" id="480" data-nosnippet="">480</a>        out
+<a href="#481" id="481" data-nosnippet="">481</a>    }
+<a href="#482" id="482" data-nosnippet="">482</a>
+<a href="#483" id="483" data-nosnippet="">483</a>    <span class="doccomment">/// Renders the stencil fixture the way the app's render crate drives hayro for a
+<a href="#484" id="484" data-nosnippet="">484</a>    /// white-on-black user: the page clears to `bg` (`RenderSettings.bg_color`) while the
+<a href="#485" id="485" data-nosnippet="">485</a>    /// solid paints go through `color_replacement`. `render_pdf` cannot express the mapped
+<a href="#486" id="486" data-nosnippet="">486</a>    /// clear colour (it always clears white).
+<a href="#487" id="487" data-nosnippet="">487</a>    </span><span class="kw">fn </span>render_stencil_on(bg: AlphaColor&lt;Srgb&gt;, color_replacement: <span class="prelude-ty">Option</span>&lt;ColorReplacement&gt;) -&gt; Pixmap {
+<a href="#488" id="488" data-nosnippet="">488</a>        <span class="kw">use super</span>::{RenderCache, RenderSettings, render};
+<a href="#489" id="489" data-nosnippet="">489</a>
+<a href="#490" id="490" data-nosnippet="">490</a>        <span class="kw">let </span>pdf = Pdf::new(stencil_fixture()).unwrap();
+<a href="#491" id="491" data-nosnippet="">491</a>        <span class="kw">let </span>cache = RenderCache::new();
+<a href="#492" id="492" data-nosnippet="">492</a>        <span class="kw">let </span>settings = RenderSettings { x_scale: <span class="number">1.0</span>, y_scale: <span class="number">1.0</span>, bg_color: bg, color_replacement, ..RenderSettings::default() };
+<a href="#493" id="493" data-nosnippet="">493</a>        render(pdf.pages().get(<span class="number">0</span>).expect(<span class="string">"the fixture has one page"</span>), <span class="kw-2">&amp;</span>cache, <span class="kw-2">&amp;</span>InterpreterSettings::default(), <span class="kw-2">&amp;</span>settings)
+<a href="#494" id="494" data-nosnippet="">494</a>    }
+<a href="#495" id="495" data-nosnippet="">495</a>
+<a href="#496" id="496" data-nosnippet="">496</a>    <span class="kw">fn </span>render(color_replacement: <span class="prelude-ty">Option</span>&lt;ColorReplacement&gt;) -&gt; Pixmap {
+<a href="#497" id="497" data-nosnippet="">497</a>        <span class="kw">let </span>pdf = Pdf::new(fixture()).unwrap();
+<a href="#498" id="498" data-nosnippet="">498</a>        render_pdf(<span class="kw-2">&amp;</span>pdf, <span class="number">1.0</span>, InterpreterSettings::default(), color_replacement, <span class="prelude-val">None</span>).unwrap().remove(<span class="number">0</span>)
+<a href="#499" id="499" data-nosnippet="">499</a>    }
+<a href="#500" id="500" data-nosnippet="">500</a>
+<a href="#501" id="501" data-nosnippet="">501</a>    <span class="doccomment">/// Samples the pixel at (x, y); all fixture content is opaque, so the premultiplied
+<a href="#502" id="502" data-nosnippet="">502</a>    /// value is the straight colour.
+<a href="#503" id="503" data-nosnippet="">503</a>    </span><span class="kw">fn </span>sample(pixmap: <span class="kw-2">&amp;</span>Pixmap, x: u16, y: u16) -&gt; [u8; <span class="number">4</span>] {
+<a href="#504" id="504" data-nosnippet="">504</a>        <span class="kw">let </span>p = pixmap.sample(x, y);
+<a href="#505" id="505" data-nosnippet="">505</a>        [p.r, p.g, p.b, p.a]
+<a href="#506" id="506" data-nosnippet="">506</a>    }
+<a href="#507" id="507" data-nosnippet="">507</a>
+<a href="#508" id="508" data-nosnippet="">508</a>    <span class="kw">fn </span>count_pixels(pixmap: <span class="kw-2">&amp;</span>Pixmap, region: (u16, u16, u16, u16), matches: <span class="kw">impl </span>Fn([u8; <span class="number">4</span>]) -&gt; bool) -&gt; u32 {
+<a href="#509" id="509" data-nosnippet="">509</a>        <span class="kw">let </span>(x0, y0, x1, y1) = region;
+<a href="#510" id="510" data-nosnippet="">510</a>        <span class="kw">let </span><span class="kw-2">mut </span>count = <span class="number">0</span>;
+<a href="#511" id="511" data-nosnippet="">511</a>        <span class="kw">for </span>y <span class="kw">in </span>y0..y1 {
+<a href="#512" id="512" data-nosnippet="">512</a>            <span class="kw">for </span>x <span class="kw">in </span>x0..x1 {
+<a href="#513" id="513" data-nosnippet="">513</a>                <span class="kw">if </span>matches(sample(pixmap, x, y)) {
+<a href="#514" id="514" data-nosnippet="">514</a>                    count += <span class="number">1</span>;
+<a href="#515" id="515" data-nosnippet="">515</a>                }
+<a href="#516" id="516" data-nosnippet="">516</a>            }
+<a href="#517" id="517" data-nosnippet="">517</a>        }
+<a href="#518" id="518" data-nosnippet="">518</a>        count
+<a href="#519" id="519" data-nosnippet="">519</a>    }
+<a href="#520" id="520" data-nosnippet="">520</a>
+<a href="#521" id="521" data-nosnippet="">521</a>    <span class="attr">#[cfg(any())]
+<a href="#522" id="522" data-nosnippet="">522</a>    </span><span class="kw">fn </span>color_replacement_maps_text_and_line_art() {
+<a href="#523" id="523" data-nosnippet="">523</a>        <span class="kw">let </span>is_white = |p: [u8; <span class="number">4</span>]| p == [<span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>];
+<a href="#524" id="524" data-nosnippet="">524</a>        <span class="kw">let </span>is_black = |p: [u8; <span class="number">4</span>]| p == [<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>];
+<a href="#525" id="525" data-nosnippet="">525</a>
+<a href="#526" id="526" data-nosnippet="">526</a>        <span class="kw">let </span>control = render(<span class="prelude-val">None</span>);
+<a href="#527" id="527" data-nosnippet="">527</a>        <span class="kw">let </span>replaced = render(<span class="prelude-val">Some</span>(replacement(<span class="bool-val">true</span>)));
+<a href="#528" id="528" data-nosnippet="">528</a>
+<a href="#529" id="529" data-nosnippet="">529</a>        <span class="comment">// Background: the full-page white rect is line art and maps to the
+<a href="#530" id="530" data-nosnippet="">530</a>        // `background` colour exactly (t = 1.0).
+<a href="#531" id="531" data-nosnippet="">531</a>        </span><span class="macro">assert_eq!</span>(sample(<span class="kw-2">&amp;</span>control, <span class="number">5</span>, <span class="number">5</span>), [<span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>]);
+<a href="#532" id="532" data-nosnippet="">532</a>        <span class="macro">assert_eq!</span>(sample(<span class="kw-2">&amp;</span>replaced, <span class="number">5</span>, <span class="number">5</span>), [<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>]);
+<a href="#533" id="533" data-nosnippet="">533</a>
+<a href="#534" id="534" data-nosnippet="">534</a>        <span class="comment">// Text: solid black glyph cores in the control, fully white after replacement.
+<a href="#535" id="535" data-nosnippet="">535</a>        // Region covers the "HI" glyphs (PDF baseline y=70, 24 pt → device y 10..34).
+<a href="#536" id="536" data-nosnippet="">536</a>        </span><span class="kw">let </span>text_region = (<span class="number">16</span>, <span class="number">10</span>, <span class="number">56</span>, <span class="number">34</span>);
+<a href="#537" id="537" data-nosnippet="">537</a>        <span class="macro">assert!</span>(count_pixels(<span class="kw-2">&amp;</span>control, text_region, is_black) &gt;= <span class="number">10</span>);
+<a href="#538" id="538" data-nosnippet="">538</a>        <span class="macro">assert!</span>(count_pixels(<span class="kw-2">&amp;</span>replaced, text_region, is_white) &gt;= <span class="number">10</span>);
+<a href="#539" id="539" data-nosnippet="">539</a>
+<a href="#540" id="540" data-nosnippet="">540</a>        <span class="comment">// Red rect: luminance t ≈ 0.2126 maps every channel to 255·(1−t) ≈ 201 (≈0xC9),
+<a href="#541" id="541" data-nosnippet="">541</a>        // a near-white neutral grey.
+<a href="#542" id="542" data-nosnippet="">542</a>        </span><span class="macro">assert_eq!</span>(sample(<span class="kw-2">&amp;</span>control, <span class="number">45</span>, <span class="number">60</span>), [<span class="number">255</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>]);
+<a href="#543" id="543" data-nosnippet="">543</a>        <span class="kw">let </span>[r, g, b, a] = sample(<span class="kw-2">&amp;</span>replaced, <span class="number">45</span>, <span class="number">60</span>);
+<a href="#544" id="544" data-nosnippet="">544</a>        <span class="macro">assert!</span>(r.abs_diff(<span class="number">201</span>) &lt;= <span class="number">4</span>, <span class="string">"red channel {r} not ≈ 201"</span>);
+<a href="#545" id="545" data-nosnippet="">545</a>        <span class="macro">assert!</span>(g.abs_diff(<span class="number">201</span>) &lt;= <span class="number">4 </span>&amp;&amp; b.abs_diff(<span class="number">201</span>) &lt;= <span class="number">4</span>, <span class="string">"g/b not ≈ 201: {g}/{b}"</span>);
+<a href="#546" id="546" data-nosnippet="">546</a>        <span class="macro">assert_eq!</span>(a, <span class="number">255</span>);
+<a href="#547" id="547" data-nosnippet="">547</a>
+<a href="#548" id="548" data-nosnippet="">548</a>        <span class="comment">// CMYK rect (cyan): mapped to a neutral grey that differs from the control
+<a href="#549" id="549" data-nosnippet="">549</a>        // colour, whatever exact value the CMYK→RGB transform produces.
+<a href="#550" id="550" data-nosnippet="">550</a>        </span><span class="kw">let </span>cmyk_control = sample(<span class="kw-2">&amp;</span>control, <span class="number">125</span>, <span class="number">60</span>);
+<a href="#551" id="551" data-nosnippet="">551</a>        <span class="kw">let </span>cmyk_replaced = sample(<span class="kw-2">&amp;</span>replaced, <span class="number">125</span>, <span class="number">60</span>);
+<a href="#552" id="552" data-nosnippet="">552</a>        <span class="macro">assert_ne!</span>(cmyk_control[..<span class="number">3</span>], cmyk_replaced[..<span class="number">3</span>]);
+<a href="#553" id="553" data-nosnippet="">553</a>        <span class="macro">assert!</span>(
+<a href="#554" id="554" data-nosnippet="">554</a>            (i32::from(cmyk_replaced[<span class="number">0</span>]) - i32::from(cmyk_replaced[<span class="number">1</span>])).abs() &lt;= <span class="number">2
+<a href="#555" id="555" data-nosnippet="">555</a>                </span>&amp;&amp; (i32::from(cmyk_replaced[<span class="number">1</span>]) - i32::from(cmyk_replaced[<span class="number">2</span>])).abs() &lt;= <span class="number">2</span>,
+<a href="#556" id="556" data-nosnippet="">556</a>            <span class="string">"mapped CMYK not neutral: {cmyk_replaced:?}"
+<a href="#557" id="557" data-nosnippet="">557</a>        </span>);
+<a href="#558" id="558" data-nosnippet="">558</a>        <span class="macro">assert_eq!</span>(cmyk_replaced[<span class="number">3</span>], <span class="number">255</span>);
+<a href="#559" id="559" data-nosnippet="">559</a>
+<a href="#560" id="560" data-nosnippet="">560</a>        <span class="comment">// Image pixels pass through untouched, identical to the control render.
+<a href="#561" id="561" data-nosnippet="">561</a>        </span><span class="macro">assert_eq!</span>(sample(<span class="kw-2">&amp;</span>control, <span class="number">170</span>, <span class="number">70</span>), [<span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>, <span class="number">255</span>]);
+<a href="#562" id="562" data-nosnippet="">562</a>        <span class="macro">assert_eq!</span>(sample(<span class="kw-2">&amp;</span>replaced, <span class="number">170</span>, <span class="number">70</span>), [<span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>, <span class="number">255</span>]);
+<a href="#563" id="563" data-nosnippet="">563</a>
+<a href="#564" id="564" data-nosnippet="">564</a>        <span class="comment">// With line-art replacement off, the red rect and the background rect keep
+<a href="#565" id="565" data-nosnippet="">565</a>        // their original colours while text is still replaced.
+<a href="#566" id="566" data-nosnippet="">566</a>        </span><span class="kw">let </span>no_line_art = render(<span class="prelude-val">Some</span>(replacement(<span class="bool-val">false</span>)));
+<a href="#567" id="567" data-nosnippet="">567</a>        <span class="macro">assert_eq!</span>(sample(<span class="kw-2">&amp;</span>no_line_art, <span class="number">45</span>, <span class="number">60</span>), [<span class="number">255</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>]);
+<a href="#568" id="568" data-nosnippet="">568</a>        <span class="macro">assert_eq!</span>(sample(<span class="kw-2">&amp;</span>no_line_art, <span class="number">5</span>, <span class="number">5</span>), [<span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>]);
+<a href="#569" id="569" data-nosnippet="">569</a>        <span class="macro">assert!</span>(count_pixels(<span class="kw-2">&amp;</span>no_line_art, text_region, is_white) &gt;= <span class="number">10</span>);
+<a href="#570" id="570" data-nosnippet="">570</a>    }
+<a href="#571" id="571" data-nosnippet="">571</a>
+<a href="#572" id="572" data-nosnippet="">572</a>    <span class="doccomment">/// A stencil mask's ink paints with the mapped solid colour on the mapped background:
+<a href="#573" id="573" data-nosnippet="">573</a>    /// it is line art in disguise, so white-on-black must leave it visible (black ink on
+<a href="#574" id="574" data-nosnippet="">574</a>    /// black would disappear). The image occupies device x 30..70, y 5..45 (PDF 30..70 ×
+<a href="#575" id="575" data-nosnippet="">575</a>    /// 5..45 pt); its left half is painted ink, its right half shows the page background.
+<a href="#576" id="576" data-nosnippet="">576</a>    </span><span class="attr">#[cfg(any())]
+<a href="#577" id="577" data-nosnippet="">577</a>    </span><span class="kw">fn </span>color_replacement_maps_stencil_mask_ink() {
+<a href="#578" id="578" data-nosnippet="">578</a>        <span class="kw">use </span><span class="kw">crate</span>::third_party::vello_cpu::color::palette::css::{BLACK, WHITE};
+<a href="#579" id="579" data-nosnippet="">579</a>
+<a href="#580" id="580" data-nosnippet="">580</a>        <span class="kw">let </span>control = render_stencil_on(WHITE, <span class="prelude-val">None</span>);
+<a href="#581" id="581" data-nosnippet="">581</a>        <span class="kw">let </span>replaced = render_stencil_on(BLACK, <span class="prelude-val">Some</span>(replacement(<span class="bool-val">true</span>)));
+<a href="#582" id="582" data-nosnippet="">582</a>
+<a href="#583" id="583" data-nosnippet="">583</a>        <span class="comment">// Control: the page clears white and the stencil's ink keeps its black fill colour.
+<a href="#584" id="584" data-nosnippet="">584</a>        </span><span class="macro">assert_eq!</span>(sample(<span class="kw-2">&amp;</span>control, <span class="number">5</span>, <span class="number">5</span>), [<span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>]);
+<a href="#585" id="585" data-nosnippet="">585</a>        <span class="macro">assert_eq!</span>(sample(<span class="kw-2">&amp;</span>control, <span class="number">40</span>, <span class="number">25</span>), [<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>]);
+<a href="#586" id="586" data-nosnippet="">586</a>        <span class="comment">// With white-on-black, the background clears black and the ink maps to white: ink
+<a href="#587" id="587" data-nosnippet="">587</a>        // and background stay distinguishable, and each matches its mapped colour exactly.
+<a href="#588" id="588" data-nosnippet="">588</a>        </span><span class="macro">assert_eq!</span>(sample(<span class="kw-2">&amp;</span>replaced, <span class="number">5</span>, <span class="number">5</span>), [<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>]);
+<a href="#589" id="589" data-nosnippet="">589</a>        <span class="kw">let </span>ink = sample(<span class="kw-2">&amp;</span>replaced, <span class="number">40</span>, <span class="number">25</span>);
+<a href="#590" id="590" data-nosnippet="">590</a>        <span class="macro">assert_eq!</span>(ink, [<span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>]);
+<a href="#591" id="591" data-nosnippet="">591</a>        <span class="macro">assert_ne!</span>(ink[..<span class="number">3</span>], sample(<span class="kw-2">&amp;</span>replaced, <span class="number">5</span>, <span class="number">5</span>)[..<span class="number">3</span>], <span class="string">"ink must differ from the background"</span>);
+<a href="#592" id="592" data-nosnippet="">592</a>        <span class="comment">// The unpainted right half of the image area shows the mapped background.
+<a href="#593" id="593" data-nosnippet="">593</a>        </span><span class="macro">assert_eq!</span>(sample(<span class="kw-2">&amp;</span>replaced, <span class="number">60</span>, <span class="number">25</span>), [<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>]);
+<a href="#594" id="594" data-nosnippet="">594</a>
+<a href="#595" id="595" data-nosnippet="">595</a>        <span class="comment">// The line-art gate holds: with line-art replacement off, the ink keeps its
+<a href="#596" id="596" data-nosnippet="">596</a>        // original colour while the page still clears to the background.
+<a href="#597" id="597" data-nosnippet="">597</a>        </span><span class="kw">let </span>no_line_art = render_stencil_on(BLACK, <span class="prelude-val">Some</span>(replacement(<span class="bool-val">false</span>)));
+<a href="#598" id="598" data-nosnippet="">598</a>        <span class="macro">assert_eq!</span>(sample(<span class="kw-2">&amp;</span>no_line_art, <span class="number">5</span>, <span class="number">5</span>), [<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>]);
+<a href="#599" id="599" data-nosnippet="">599</a>        <span class="macro">assert_eq!</span>(sample(<span class="kw-2">&amp;</span>no_line_art, <span class="number">40</span>, <span class="number">25</span>), [<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>]);
+<a href="#600" id="600" data-nosnippet="">600</a>    }
+<a href="#601" id="601" data-nosnippet="">601</a>}
+<a href="#602" id="602" data-nosnippet="">602</a>
+<a href="#603" id="603" data-nosnippet="">603</a><span class="doccomment">/// PdfCraft patch (19): a mesh shading paints its triangles alone (`EncodedShadingPattern::extent`),
+<a href="#604" id="604" data-nosnippet="">604</a>/// and one with no triangle on the canvas paints nothing.
+<a href="#605" id="605" data-nosnippet="">605</a></span><span class="attr">#[cfg(any())]
+<a href="#606" id="606" data-nosnippet="">606</a></span><span class="kw">mod </span>mesh_extent_tests {
+<a href="#607" id="607" data-nosnippet="">607</a>    <span class="kw">use super</span>::{InterpreterSettings, Pdf, Pixmap, RenderCache, RenderSettings, render};
+<a href="#608" id="608" data-nosnippet="">608</a>    <span class="kw">use </span><span class="kw">crate</span>::third_party::vello_cpu::color::palette::css::WHITE;
+<a href="#609" id="609" data-nosnippet="">609</a>
+<a href="#610" id="610" data-nosnippet="">610</a>    <span class="doccomment">/// A one-page 200×200 pt PDF whose content is `body`, with a type 4 (free-form triangle)
+<a href="#611" id="611" data-nosnippet="">611</a>    /// shading `/Sh0`: one red triangle with corners (x0, y0), (x1, y0) and (x0, y1) in user
+<a href="#612" id="612" data-nosnippet="">612</a>    /// space, and an ExtGState `/Half` with 50% alpha.
+<a href="#613" id="613" data-nosnippet="">613</a>    </span><span class="kw">fn </span>fixture(body: <span class="kw-2">&amp;</span>str, (x0, y0, x1, y1): (i32, i32, i32, i32)) -&gt; Vec&lt;u8&gt; {
+<a href="#614" id="614" data-nosnippet="">614</a>        <span class="comment">// Three vertices: a flag, x and y (8 bits each, decoded into the ranges) and RGB.
+<a href="#615" id="615" data-nosnippet="">615</a>        </span><span class="kw">let </span>mesh: [u8; <span class="number">18</span>] = [
+<a href="#616" id="616" data-nosnippet="">616</a>            <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="comment">//
+<a href="#617" id="617" data-nosnippet="">617</a>            </span><span class="number">0</span>, <span class="number">255</span>, <span class="number">0</span>, <span class="number">255</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="comment">//
+<a href="#618" id="618" data-nosnippet="">618</a>            </span><span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">0</span>, <span class="number">0</span>,
+<a href="#619" id="619" data-nosnippet="">619</a>        ];
+<a href="#620" id="620" data-nosnippet="">620</a>        <span class="kw">let </span><span class="kw-2">mut </span>objs: Vec&lt;Vec&lt;u8&gt;&gt; = <span class="macro">vec!</span>[
+<a href="#621" id="621" data-nosnippet="">621</a>            <span class="string">b"&lt;&lt; /Type /Catalog /Pages 2 0 R &gt;&gt;"</span>.to_vec(),
+<a href="#622" id="622" data-nosnippet="">622</a>            <span class="string">b"&lt;&lt; /Type /Pages /Kids [3 0 R] /Count 1 /MediaBox [0 0 200 200] &gt;&gt;"</span>.to_vec(),
+<a href="#623" id="623" data-nosnippet="">623</a>            <span class="string">b"&lt;&lt; /Type /Page /Parent 2 0 R /Contents 4 0 R /Resources &lt;&lt; /Shading &lt;&lt; /Sh0 5 0 R &gt;&gt; \
+<a href="#624" id="624" data-nosnippet="">624</a>              /ExtGState &lt;&lt; /Half &lt;&lt; /ca 0.5 /CA 0.5 &gt;&gt; &gt;&gt; &gt;&gt; &gt;&gt;"
+<a href="#625" id="625" data-nosnippet="">625</a>                </span>.to_vec(),
+<a href="#626" id="626" data-nosnippet="">626</a>            <span class="macro">format!</span>(<span class="string">"&lt;&lt; /Length {} &gt;&gt;\nstream\n{body}\nendstream"</span>, body.len()).into_bytes(),
+<a href="#627" id="627" data-nosnippet="">627</a>        ];
+<a href="#628" id="628" data-nosnippet="">628</a>        <span class="kw">let </span><span class="kw-2">mut </span>shading = <span class="macro">format!</span>(
+<a href="#629" id="629" data-nosnippet="">629</a>            <span class="string">"&lt;&lt; /ShadingType 4 /ColorSpace /DeviceRGB /BitsPerCoordinate 8 /BitsPerComponent 8 \
+<a href="#630" id="630" data-nosnippet="">630</a>             /BitsPerFlag 8 /Decode [{x0} {x1} {y0} {y1} 0 1 0 1 0 1] /Length {} &gt;&gt;\nstream\n"</span>,
+<a href="#631" id="631" data-nosnippet="">631</a>            mesh.len()
+<a href="#632" id="632" data-nosnippet="">632</a>        )
+<a href="#633" id="633" data-nosnippet="">633</a>        .into_bytes();
+<a href="#634" id="634" data-nosnippet="">634</a>        shading.extend_from_slice(<span class="kw-2">&amp;</span>mesh);
+<a href="#635" id="635" data-nosnippet="">635</a>        shading.extend_from_slice(<span class="string">b"\nendstream"</span>);
+<a href="#636" id="636" data-nosnippet="">636</a>        objs.push(shading);
+<a href="#637" id="637" data-nosnippet="">637</a>
+<a href="#638" id="638" data-nosnippet="">638</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = <span class="string">b"%PDF-1.7\n"</span>.to_vec();
+<a href="#639" id="639" data-nosnippet="">639</a>        <span class="kw">let </span><span class="kw-2">mut </span>offsets = Vec::new();
+<a href="#640" id="640" data-nosnippet="">640</a>        <span class="kw">for </span>(i, o) <span class="kw">in </span>objs.iter().enumerate() {
+<a href="#641" id="641" data-nosnippet="">641</a>            offsets.push(out.len());
+<a href="#642" id="642" data-nosnippet="">642</a>            out.extend_from_slice(<span class="macro">format!</span>(<span class="string">"{} 0 obj\n"</span>, i + <span class="number">1</span>).as_bytes());
+<a href="#643" id="643" data-nosnippet="">643</a>            out.extend_from_slice(o);
+<a href="#644" id="644" data-nosnippet="">644</a>            out.extend_from_slice(<span class="string">b"\nendobj\n"</span>);
+<a href="#645" id="645" data-nosnippet="">645</a>        }
+<a href="#646" id="646" data-nosnippet="">646</a>        <span class="kw">let </span>xref = out.len();
+<a href="#647" id="647" data-nosnippet="">647</a>        out.extend_from_slice(<span class="macro">format!</span>(<span class="string">"xref\n0 {}\n0000000000 65535 f \n"</span>, objs.len() + <span class="number">1</span>).as_bytes());
+<a href="#648" id="648" data-nosnippet="">648</a>        <span class="kw">for </span>o <span class="kw">in </span>offsets {
+<a href="#649" id="649" data-nosnippet="">649</a>            out.extend_from_slice(<span class="macro">format!</span>(<span class="string">"{o:010} 00000 n \n"</span>).as_bytes());
+<a href="#650" id="650" data-nosnippet="">650</a>        }
+<a href="#651" id="651" data-nosnippet="">651</a>        out.extend_from_slice(<span class="macro">format!</span>(<span class="string">"trailer\n&lt;&lt; /Size {} /Root 1 0 R &gt;&gt;\nstartxref\n{xref}\n%%EOF\n"</span>, objs.len() + <span class="number">1</span>).as_bytes());
+<a href="#652" id="652" data-nosnippet="">652</a>        out
+<a href="#653" id="653" data-nosnippet="">653</a>    }
+<a href="#654" id="654" data-nosnippet="">654</a>
+<a href="#655" id="655" data-nosnippet="">655</a>    <span class="kw">fn </span>render_at(pdf: Vec&lt;u8&gt;, scale: f32) -&gt; Pixmap {
+<a href="#656" id="656" data-nosnippet="">656</a>        <span class="kw">let </span>pdf = Pdf::new(pdf).unwrap();
+<a href="#657" id="657" data-nosnippet="">657</a>        <span class="kw">let </span>cache = RenderCache::new();
+<a href="#658" id="658" data-nosnippet="">658</a>        <span class="kw">let </span>settings = RenderSettings { x_scale: scale, y_scale: scale, bg_color: WHITE, ..RenderSettings::default() };
+<a href="#659" id="659" data-nosnippet="">659</a>        render(pdf.pages().get(<span class="number">0</span>).expect(<span class="string">"the fixture has one page"</span>), <span class="kw-2">&amp;</span>cache, <span class="kw-2">&amp;</span>InterpreterSettings::default(), <span class="kw-2">&amp;</span>settings)
+<a href="#660" id="660" data-nosnippet="">660</a>    }
+<a href="#661" id="661" data-nosnippet="">661</a>
+<a href="#662" id="662" data-nosnippet="">662</a>    <span class="kw">fn </span>px(pixmap: <span class="kw-2">&amp;</span>Pixmap, x: u16, y: u16) -&gt; [u8; <span class="number">4</span>] {
+<a href="#663" id="663" data-nosnippet="">663</a>        <span class="kw">let </span>p = pixmap.sample(x, y);
+<a href="#664" id="664" data-nosnippet="">664</a>        [p.r, p.g, p.b, p.a]
+<a href="#665" id="665" data-nosnippet="">665</a>    }
+<a href="#666" id="666" data-nosnippet="">666</a>
+<a href="#667" id="667" data-nosnippet="">667</a>    <span class="kw">fn </span>inked(pixmap: <span class="kw-2">&amp;</span>Pixmap) -&gt; usize {
+<a href="#668" id="668" data-nosnippet="">668</a>        (<span class="number">0</span>..pixmap.height()).flat_map(|y| (<span class="number">0</span>..pixmap.width()).map(<span class="kw">move </span>|x| (x, y))).filter(|<span class="kw-2">&amp;</span>(x, y)| px(pixmap, x, y) != [<span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>]).count()
+<a href="#669" id="669" data-nosnippet="">669</a>    }
+<a href="#670" id="670" data-nosnippet="">670</a>
+<a href="#671" id="671" data-nosnippet="">671</a>    <span class="doccomment">/// The triangle (100, 100)–(110, 100)–(100, 110) in a 200 pt page: in device space (y
+<a href="#672" id="672" data-nosnippet="">672</a>    /// down) the pixel (102, 97) is inside it, (108, 91) past its hypotenuse, and the rest of
+<a href="#673" id="673" data-nosnippet="">673</a>    /// the page is nowhere near it.
+<a href="#674" id="674" data-nosnippet="">674</a>    </span><span class="attr">#[cfg(any())]
+<a href="#675" id="675" data-nosnippet="">675</a>    </span><span class="kw">fn </span>a_mesh_paints_its_triangles_alone() {
+<a href="#676" id="676" data-nosnippet="">676</a>        <span class="kw">let </span>white = [<span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>];
+<a href="#677" id="677" data-nosnippet="">677</a>        <span class="kw">for </span>scale <span class="kw">in </span>[<span class="number">1.0_f32</span>, <span class="number">4.0</span>] {
+<a href="#678" id="678" data-nosnippet="">678</a>            <span class="kw">let </span>p = render_at(fixture(<span class="string">"/Sh0 sh"</span>, (<span class="number">100</span>, <span class="number">100</span>, <span class="number">110</span>, <span class="number">110</span>)), scale);
+<a href="#679" id="679" data-nosnippet="">679</a>            <span class="kw">let </span>at = |x: f32, y: f32| ((x * scale) <span class="kw">as </span>u16, (y * scale) <span class="kw">as </span>u16);
+<a href="#680" id="680" data-nosnippet="">680</a>            <span class="kw">let </span>(x, y) = at(<span class="number">102.5</span>, <span class="number">97.5</span>);
+<a href="#681" id="681" data-nosnippet="">681</a>            <span class="macro">assert_eq!</span>(px(<span class="kw-2">&amp;</span>p, x, y), [<span class="number">255</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>], <span class="string">"scale {scale}: inside the triangle"</span>);
+<a href="#682" id="682" data-nosnippet="">682</a>            <span class="kw">let </span>(x, y) = at(<span class="number">108.5</span>, <span class="number">91.5</span>);
+<a href="#683" id="683" data-nosnippet="">683</a>            <span class="macro">assert_eq!</span>(px(<span class="kw-2">&amp;</span>p, x, y), white, <span class="string">"scale {scale}: past the hypotenuse"</span>);
+<a href="#684" id="684" data-nosnippet="">684</a>            <span class="kw">let </span>(x, y) = at(<span class="number">150.0</span>, <span class="number">50.0</span>);
+<a href="#685" id="685" data-nosnippet="">685</a>            <span class="macro">assert_eq!</span>(px(<span class="kw-2">&amp;</span>p, x, y), white, <span class="string">"scale {scale}: far from it"</span>);
+<a href="#686" id="686" data-nosnippet="">686</a>            <span class="kw">let </span>(x, y) = at(<span class="number">10.0</span>, <span class="number">190.0</span>);
+<a href="#687" id="687" data-nosnippet="">687</a>            <span class="macro">assert_eq!</span>(px(<span class="kw-2">&amp;</span>p, x, y), white, <span class="string">"scale {scale}: the texture is not repeated"</span>);
+<a href="#688" id="688" data-nosnippet="">688</a>            <span class="comment">// A 10 × 10 pt right triangle covers 50 pt²; the sampler counts the pixels whose
+<a href="#689" id="689" data-nosnippet="">689</a>            // corner lies inside it (36 at scale 1, nearer 50 as the scale grows), and nothing
+<a href="#690" id="690" data-nosnippet="">690</a>            // beyond its own bounding box is touched.
+<a href="#691" id="691" data-nosnippet="">691</a>            </span><span class="kw">let </span>area = inked(<span class="kw-2">&amp;</span>p) <span class="kw">as </span>f32 / (scale * scale);
+<a href="#692" id="692" data-nosnippet="">692</a>            <span class="macro">assert!</span>((<span class="number">30.0</span>..=<span class="number">60.0</span>).contains(<span class="kw-2">&amp;</span>area), <span class="string">"scale {scale}: {area} pt² inked"</span>);
+<a href="#693" id="693" data-nosnippet="">693</a>        }
+<a href="#694" id="694" data-nosnippet="">694</a>    }
+<a href="#695" id="695" data-nosnippet="">695</a>
+<a href="#696" id="696" data-nosnippet="">696</a>    <span class="doccomment">/// The alpha of the graphics state still applies: red at 50% over white is pink.
+<a href="#697" id="697" data-nosnippet="">697</a>    </span><span class="attr">#[cfg(any())]
+<a href="#698" id="698" data-nosnippet="">698</a>    </span><span class="kw">fn </span>a_mesh_keeps_the_graphics_state_alpha() {
+<a href="#699" id="699" data-nosnippet="">699</a>        <span class="kw">let </span>p = render_at(fixture(<span class="string">"/Half gs /Sh0 sh"</span>, (<span class="number">100</span>, <span class="number">100</span>, <span class="number">110</span>, <span class="number">110</span>)), <span class="number">1.0</span>);
+<a href="#700" id="700" data-nosnippet="">700</a>        <span class="kw">let </span>[r, g, b, a] = px(<span class="kw-2">&amp;</span>p, <span class="number">102</span>, <span class="number">97</span>);
+<a href="#701" id="701" data-nosnippet="">701</a>        <span class="macro">assert!</span>(r == <span class="number">255 </span>&amp;&amp; (<span class="number">120</span>..=<span class="number">136</span>).contains(<span class="kw-2">&amp;</span>g) &amp;&amp; g == b &amp;&amp; a == <span class="number">255</span>, <span class="string">"{:?}"</span>, [r, g, b, a]);
+<a href="#702" id="702" data-nosnippet="">702</a>    }
+<a href="#703" id="703" data-nosnippet="">703</a>
+<a href="#704" id="704" data-nosnippet="">704</a>    <span class="doccomment">/// A mesh whose triangle lies off the canvas paints nothing, and costs no texture.
+<a href="#705" id="705" data-nosnippet="">705</a>    </span><span class="attr">#[cfg(any())]
+<a href="#706" id="706" data-nosnippet="">706</a>    </span><span class="kw">fn </span>a_mesh_off_the_canvas_paints_nothing() {
+<a href="#707" id="707" data-nosnippet="">707</a>        <span class="kw">let </span>p = render_at(fixture(<span class="string">"/Sh0 sh"</span>, (<span class="number">300</span>, <span class="number">300</span>, <span class="number">310</span>, <span class="number">310</span>)), <span class="number">1.0</span>);
+<a href="#708" id="708" data-nosnippet="">708</a>        <span class="macro">assert_eq!</span>(inked(<span class="kw-2">&amp;</span>p), <span class="number">0</span>);
+<a href="#709" id="709" data-nosnippet="">709</a>        <span class="comment">// One straddling the edge paints its part on the canvas.
+<a href="#710" id="710" data-nosnippet="">710</a>        </span><span class="kw">let </span>p = render_at(fixture(<span class="string">"/Sh0 sh"</span>, (<span class="number">195</span>, <span class="number">100</span>, <span class="number">205</span>, <span class="number">110</span>)), <span class="number">1.0</span>);
+<a href="#711" id="711" data-nosnippet="">711</a>        <span class="macro">assert_eq!</span>(px(<span class="kw-2">&amp;</span>p, <span class="number">196</span>, <span class="number">98</span>), [<span class="number">255</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">255</span>]);
+<a href="#712" id="712" data-nosnippet="">712</a>        <span class="macro">assert_eq!</span>(px(<span class="kw-2">&amp;</span>p, <span class="number">150</span>, <span class="number">50</span>), [<span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>, <span class="number">255</span>]);
+<a href="#713" id="713" data-nosnippet="">713</a>    }
+<a href="#714" id="714" data-nosnippet="">714</a>}
+</code></pre></div></section></main></body></html>

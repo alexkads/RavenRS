@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_BACKGROUND_PIXELS"],"enum":["DrawFailure","Refusal"],"fn":["background_size","check_for_drawing","decode","decode_for_drawing","probe","probe_dib"],"struct":["Probe"]};

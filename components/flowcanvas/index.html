@@ -1,0 +1,169 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>FlowCanvas — Rust GUI component · RavenRS</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;500&amp;display=swap">
+<link rel="stylesheet" href="../style.css">
+<meta name="description" content="Nodes joined by connections on an endless surface: pan, zoom, ports that check what connects, a map and keys for everything. Explore a live FlowCanvas example, Rust source and API documentation for desktop and WebAssembly."><link rel="canonical" href="https://ravenrs.vercel.app/components/flowcanvas/"><meta property="og:title" content="FlowCanvas — Rust GUI component · RavenRS"><meta property="og:description" content="Nodes joined by connections on an endless surface: pan, zoom, ports that check what connects, a map and keys for everything. Explore a live FlowCanvas example, Rust source and API documentation for desktop and WebAssembly."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/components/flowcanvas/"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/component-flowcanvas.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/component-flowcanvas.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="FlowCanvas — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="FlowCanvas — Rust GUI component · RavenRS"><meta name="twitter:description" content="Nodes joined by connections on an endless surface: pan, zoom, ports that check what connects, a map and keys for everything. Explore a live FlowCanvas example, Rust source and API documentation for desktop and WebAssembly."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/component-flowcanvas.png"><meta name="twitter:image:alt" content="FlowCanvas — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"FlowCanvas — Rust GUI component · RavenRS","description":"Nodes joined by connections on an endless surface: pan, zoom, ports that check what connects, a map and keys for everything. Explore a live FlowCanvas example, Rust source and API documentation for desktop and WebAssembly.","url":"https://ravenrs.vercel.app/components/flowcanvas/","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head>
+<body>
+<nav class="nav" aria-label="Main">
+  <a class="brand" href="../../"><span class="mark"><i></i></span>RavenRS</a>
+  <ul>
+    <li><a href="../" aria-current="page">Components</a></li>
+    <li class="hide-sm"><a href="../../demo/">Live demo</a></li>
+    <li class="hide-sm"><a href="../../playground/">Playground</a></li>
+    <li class="hide-sm"><a href="../../designer/">Reports</a></li>
+    <li><a href="../../api/ravenrs/">API</a></li>
+    <li class="hide-sm"><a href="https://github.com/alexkads/RavenRS">GitHub</a></li>
+  </ul>
+</nav>
+<div class="layout">
+  <aside class="side" aria-label="All components">
+    <h2>A to Z</h2>
+    <ul><li><a href="../accordion/">Accordion</a></li><li><a href="../alert/">Alert</a></li><li><a href="../anchor/">Anchor</a></li><li><a href="../areachart/">AreaChart</a></li><li><a href="../aspectratio/">AspectRatio</a></li><li><a href="../attachmentstrip/">AttachmentStrip</a></li><li><a href="../audioplayerbutton/">AudioPlayerButton</a></li><li><a href="../avatar/">Avatar</a></li><li><a href="../badge/">Badge</a></li><li><a href="../barchart/">BarChart</a></li><li><a href="../barcode/">Barcode</a></li><li><a href="../breadcrumb/">Breadcrumb</a></li><li><a href="../button/">Button</a></li><li><a href="../buttongroup/">ButtonGroup</a></li><li><a href="../calendar/">Calendar</a></li><li><a href="../canvas/">Canvas</a></li><li><a href="../card/">Card</a></li><li><a href="../cardview/">CardView</a></li><li><a href="../carousel/">Carousel</a></li><li><a href="../chart/">Chart</a></li><li><a href="../chartcard/">ChartCard</a></li><li><a href="../chartreference/">ChartReference</a></li><li><a href="../chat/">Chat</a></li><li><a href="../checkbox/">Checkbox</a></li><li><a href="../codeblock/">CodeBlock</a></li><li><a href="../codeeditor/">CodeEditor</a></li><li><a href="../collapse/">Collapse</a></li><li><a href="../colorpair/">ColorPair</a></li><li><a href="../colorpicker/">ColorPicker</a></li><li><a href="../colorswatch/">ColorSwatch</a></li><li><a href="../colorwheel/">ColorWheel</a></li><li><a href="../combobox/">Combobox</a></li><li><a href="../commandpalette/">CommandPalette</a></li><li><a href="../compareview/">CompareView</a></li><li><a href="../confirmdialog/">ConfirmDialog</a></li><li><a href="../contextmenu/">ContextMenu</a></li><li><a href="../countup/">CountUp</a></li><li><a href="../cropoverlay/">CropOverlay</a></li><li><a href="../curveeditor/">CurveEditor</a></li><li><a href="../datagrid/">DataGrid</a></li><li><a href="../datainspector/">DataInspector</a></li><li><a href="../datepicker/">DatePicker</a></li><li><a href="../daterangepicker/">DateRangePicker</a></li><li><a href="../datetimepicker/">DateTimePicker</a></li><li><a href="../dayseparator/">DaySeparator</a></li><li><a href="../dialog/">Dialog</a></li><li><a href="../disclosure/">Disclosure</a></li><li><a href="../divider/">Divider</a></li><li><a href="../dockarea/">DockArea</a></li><li><a href="../documenttabs/">DocumentTabs</a></li><li><a href="../dot/">Dot</a></li><li><a href="../dropdownmenu/">DropdownMenu</a></li><li><a href="../dropzone/">DropZone</a></li><li><a href="../emptystate/">EmptyState</a></li><li><a href="../eventcalendar/">EventCalendar</a></li><li><a href="../expressioneditor/">ExpressionEditor</a></li><li><a href="../expressioneditor/">ExpressionEditor</a></li><li><a href="../eyedropper/">Eyedropper</a></li><li><a href="../favoritetoggle/">FavoriteToggle</a></li><li><a href="../filebrowser/">FileBrowser</a></li><li><a href="../fileupload/">FileUpload</a></li><li><a href="../filmstrip/">Filmstrip</a></li><li><a href="../filterbuilder/">FilterBuilder</a></li><li><a href="../floatingpanel/">FloatingPanel</a></li><li><a href="../floatingtoolbar/">FloatingToolbar</a></li><li><a href="../flowcanvas/" aria-current="page">FlowCanvas</a></li><li><a href="../flowinspector/">FlowInspector</a></li><li><a href="../flowlayers/">FlowLayers</a></li><li><a href="../flowlibrary/">FlowLibrary</a></li><li><a href="../flowtoolbox/">FlowToolbox</a></li><li><a href="../footer/">Footer</a></li><li><a href="../formfield/">FormField</a></li><li><a href="../formlayout/">FormLayout</a></li><li><a href="../glasscard/">GlassCard</a></li><li><a href="../grid/">Grid</a></li><li><a href="../helptip/">HelpTip</a></li><li><a href="../herobanner/">HeroBanner</a></li><li><a href="../histogram/">Histogram</a></li><li><a href="../hovercard/">HoverCard</a></li><li><a href="../hstack/">HStack</a></li><li><a href="../icon/">Icon</a></li><li><a href="../iconbutton/">IconButton</a></li><li><a href="../icontile/">IconTile</a></li><li><a href="../image/">Image</a></li><li><a href="../imagefield/">ImageField</a></li><li><a href="../imagelightbox/">ImageLightbox</a></li><li><a href="../inlinerename/">InlineRename</a></li><li><a href="../inputotp/">InputOtp</a></li><li><a href="../kbd/">Kbd</a></li><li><a href="../keybar/">KeyBar</a></li><li><a href="../label/">Label</a></li><li><a href="../link/">Link</a></li><li><a href="../list/">List</a></li><li><a href="../lookupfield/">LookupField</a></li><li><a href="../lottie/">Lottie</a></li><li><a href="../marquee/">Marquee</a></li><li><a href="../maskedfield/">MaskedField</a></li><li><a href="../menubar/">Menubar</a></li><li><a href="../minimap/">Minimap</a></li><li><a href="../modelpicker/">ModelPicker</a></li><li><a href="../multiprogress/">MultiProgress</a></li><li><a href="../ninepointanchor/">NinePointAnchor</a></li><li><a href="../numberfield/">NumberField</a></li><li><a href="../overlaybadge/">OverlayBadge</a></li><li><a href="../pageddocumentview/">PagedDocumentView</a></li><li><a href="../pageheader/">PageHeader</a></li><li><a href="../pagination/">Pagination</a></li><li><a href="../parameterform/">ParameterForm</a></li><li><a href="../patchpanel/">PatchPanel</a></li><li><a href="../playground/">Playground</a></li><li><a href="../popover/">Popover</a></li><li><a href="../progressbar/">ProgressBar</a></li><li><a href="../propertyrow/">PropertyRow</a></li><li><a href="../protractor/">Protractor</a></li><li><a href="../quadfield/">QuadField</a></li><li><a href="../quarterturn/">QuarterTurn</a></li><li><a href="../radiogroup/">RadioGroup</a></li><li><a href="../rating/">Rating</a></li><li><a href="../recurrenceeditor/">RecurrenceEditor</a></li><li><a href="../releasenotes/">ReleaseNotes</a></li><li><a href="../ribbon/">Ribbon</a></li><li><a href="../richtext/">RichText</a></li><li><a href="../rubberband/">RubberBand</a></li><li><a href="../ruleofthirdsgrid/">RuleOfThirdsGrid</a></li><li><a href="../ruler/">Ruler</a></li><li><a href="../sankeychart/">SankeyChart</a></li><li><a href="../scanfield/">ScanField</a></li><li><a href="../scheduler/">Scheduler</a></li><li><a href="../scrolledgearrow/">ScrollEdgeArrow</a></li><li><a href="../scrolllinked/">ScrollLinked</a></li><li><a href="../scrollscene/">ScrollScene</a></li><li><a href="../scrollview/">ScrollView</a></li><li><a href="../section/">Section</a></li><li><a href="../segmentedcontrol/">SegmentedControl</a></li><li><a href="../select/">Select</a></li><li><a href="../selectionbar/">SelectionBar</a></li><li><a href="../sheet/">Sheet</a></li><li><a href="../shimmertext/">ShimmerText</a></li><li><a href="../shortcuthintbar/">ShortcutHintBar</a></li><li><a href="../shortcutsheet/">ShortcutSheet</a></li><li><a href="../sidebar/">Sidebar</a></li><li><a href="../sidebarbrand/">SidebarBrand</a></li><li><a href="../skeleton/">Skeleton</a></li><li><a href="../slider/">Slider</a></li><li><a href="../sortablelist/">SortableList</a></li><li><a href="../spacer/">Spacer</a></li><li><a href="../spinner/">Spinner</a></li><li><a href="../splashscreen/">SplashScreen</a></li><li><a href="../splitbutton/">SplitButton</a></li><li><a href="../splithandle/">SplitHandle</a></li><li><a href="../splitpanes/">SplitPanes</a></li><li><a href="../splitter/">Splitter</a></li><li><a href="../stat/">Stat</a></li><li><a href="../statusbar/">StatusBar</a></li><li><a href="../stepbadge/">StepBadge</a></li><li><a href="../stepindicator/">StepIndicator</a></li><li><a href="../stepper/">Stepper</a></li><li><a href="../sticky/">Sticky</a></li><li><a href="../swatchgrid/">SwatchGrid</a></li><li><a href="../table/">Table</a></li><li><a href="../tabs/">Tabs</a></li><li><a href="../tagbox/">TagBox</a></li><li><a href="../text/">Text</a></li><li><a href="../textarea/">TextArea</a></li><li><a href="../textfield/">TextField</a></li><li><a href="../themeeditor/">ThemeEditor</a></li><li><a href="../themepicker/">ThemePicker</a></li><li><a href="../themeswitcher/">ThemeSwitcher</a></li><li><a href="../ticker/">Ticker</a></li><li><a href="../tilelayout/">TileLayout</a></li><li><a href="../timeline/">Timeline</a></li><li><a href="../timepicker/">TimePicker</a></li><li><a href="../titlebar/">TitleBar</a></li><li><a href="../toaster/">Toaster</a></li><li><a href="../toggle/">Toggle</a></li><li><a href="../togglebutton/">ToggleButton</a></li><li><a href="../togglegroup/">ToggleGroup</a></li><li><a href="../toolbar/">Toolbar</a></li><li><a href="../toolrail/">ToolRail</a></li><li><a href="../tooltip/">Tooltip</a></li><li><a href="../transformhandles/">TransformHandles</a></li><li><a href="../treeview/">TreeView</a></li><li><a href="../valueslider/">ValueSlider</a></li><li><a href="../virtuallist/">VirtualList</a></li><li><a href="../vstack/">VStack</a></li><li><a href="../wizard/">Wizard</a></li><li><a href="../yearview/">YearView</a></li><li><a href="../zoomcontrol/">ZoomControl</a></li><li><a href="../zoompanview/">ZoomPanView</a></li><li><a href="../zstack/">ZStack</a></li></ul>
+  </aside>
+  <script src="../side.js"></script>
+  <main>
+    <p class="crumb"><a href="../">Components</a> / FlowCanvas</p>
+    <h1>FlowCanvas</h1>
+    <p class="lede">Nodes joined by connections on an endless surface: pan, zoom, ports that check what connects, a map and keys for everything.</p>
+    <h2 class="block">Example</h2>
+    <p class="sub">The component itself, running in WebAssembly, beside its code in a playground. Try it.</p>
+    <iframe class="stage" src="../../demo/?component=FlowCanvas" title="Live example of FlowCanvas" height="2665" allow="fullscreen" allowfullscreen=""></iframe>
+    <div class="block-head">
+      <h2 class="block">Code</h2>
+      <button class="copy" type="button" hidden="">Copy</button>
+    </div>
+    <pre class="code" tabindex="0"><code><span class="t-keyword">use</span> ravenrs::prelude::*;
+
+<span class="t-keyword">fn</span> flow_canvas() -&gt; <span class="t-keyword">impl</span> <span class="t-type">View</span> {
+    <span class="t-keyword">let</span> graph = <span class="t-type">State</span>::new(
+        <span class="t-type">FlowGraph</span>::new()
+            .node(
+                <span class="t-type">FlowNode</span>::new(<span class="t-string">"sale"</span>, <span class="t-string">"trigger"</span>, <span class="t-string">"New sale"</span>, <span class="t-number">0.0</span>, <span class="t-number">96.0</span>)
+                    .subtitle(<span class="t-string">"Registers 1 and 2"</span>)
+                    .port(<span class="t-type">FlowPort</span>::output(<span class="t-string">"out"</span>).kind(<span class="t-string">"sale"</span>)),
+            )
+            .node(
+                <span class="t-type">FlowNode</span>::new(<span class="t-string">"stock"</span>, <span class="t-string">"action"</span>, <span class="t-string">"Check stock"</span>, <span class="t-number">264.0</span>, <span class="t-number">96.0</span>)
+                    .subtitle(<span class="t-string">"For each item"</span>)
+                    .port(<span class="t-type">FlowPort</span>::input(<span class="t-string">"in"</span>).kind(<span class="t-string">"sale"</span>))
+                    .port(<span class="t-type">FlowPort</span>::output(<span class="t-string">"out"</span>).kind(<span class="t-string">"sale"</span>)),
+            )
+            .node(
+                <span class="t-type">FlowNode</span>::new(<span class="t-string">"enough"</span>, <span class="t-string">"condition"</span>, <span class="t-string">"Enough in stock?"</span>, <span class="t-number">528.0</span>, <span class="t-number">96.0</span>)
+                    .port(<span class="t-type">FlowPort</span>::input(<span class="t-string">"in"</span>).kind(<span class="t-string">"sale"</span>))
+                    .port(<span class="t-type">FlowPort</span>::output(<span class="t-string">"yes"</span>).side(<span class="t-type">PortSide</span>::<span class="t-type">Bottom</span>).kind(<span class="t-string">"sale"</span>))
+                    .port(<span class="t-type">FlowPort</span>::output(<span class="t-string">"no"</span>).side(<span class="t-type">PortSide</span>::<span class="t-type">Bottom</span>).kind(<span class="t-string">"shortage"</span>)),
+            )
+            .node(
+                <span class="t-type">FlowNode</span>::new(<span class="t-string">"invoice"</span>, <span class="t-string">"action"</span>, <span class="t-string">"Issue receipt"</span>, <span class="t-number">360.0</span>, <span class="t-number">312.0</span>)
+                    .port(<span class="t-type">FlowPort</span>::input(<span class="t-string">"in"</span>).side(<span class="t-type">PortSide</span>::<span class="t-type">Top</span>).kind(<span class="t-string">"sale"</span>)),
+            )
+            .node(
+                <span class="t-type">FlowNode</span>::new(<span class="t-string">"warn"</span>, <span class="t-string">"action"</span>, <span class="t-string">"Tell the manager"</span>, <span class="t-number">648.0</span>, <span class="t-number">312.0</span>)
+                    .status(<span class="t-type">FlowNodeStatus</span>::<span class="t-type">Warning</span>(<span class="t-string">"No chat chosen"</span>.into()))
+                    .port(<span class="t-type">FlowPort</span>::input(<span class="t-string">"in"</span>).side(<span class="t-type">PortSide</span>::<span class="t-type">Top</span>).kind(<span class="t-string">"shortage"</span>)),
+            )
+            .edge(
+                <span class="t-type">FlowEdge</span>::new(<span class="t-string">"e1"</span>, <span class="t-type">FlowEndpoint</span>::new(<span class="t-string">"sale"</span>, <span class="t-string">"out"</span>), <span class="t-type">FlowEndpoint</span>::new(<span class="t-string">"stock"</span>, <span class="t-string">"in"</span>))
+                    .animated(true),
+            )
+            .edge(<span class="t-type">FlowEdge</span>::new(<span class="t-string">"e2"</span>, <span class="t-type">FlowEndpoint</span>::new(<span class="t-string">"stock"</span>, <span class="t-string">"out"</span>), <span class="t-type">FlowEndpoint</span>::new(<span class="t-string">"enough"</span>, <span class="t-string">"in"</span>)))
+            .edge(
+                <span class="t-type">FlowEdge</span>::new(<span class="t-string">"e3"</span>, <span class="t-type">FlowEndpoint</span>::new(<span class="t-string">"enough"</span>, <span class="t-string">"yes"</span>), <span class="t-type">FlowEndpoint</span>::new(<span class="t-string">"invoice"</span>, <span class="t-string">"in"</span>))
+                    .label(<span class="t-string">"Yes"</span>),
+            )
+            .edge(
+                <span class="t-type">FlowEdge</span>::new(<span class="t-string">"e4"</span>, <span class="t-type">FlowEndpoint</span>::new(<span class="t-string">"enough"</span>, <span class="t-string">"no"</span>), <span class="t-type">FlowEndpoint</span>::new(<span class="t-string">"warn"</span>, <span class="t-string">"in"</span>))
+                    .shape(<span class="t-type">EdgeShape</span>::<span class="t-type">Step</span>)
+                    .label(<span class="t-string">"No"</span>),
+            ),
+    );
+    <span class="t-keyword">let</span> history = <span class="t-type">State</span>::new(<span class="t-type">FlowHistory</span>::new());
+    <span class="t-keyword">let</span> json = <span class="t-type">State</span>::new(false);
+    <span class="t-keyword">let</span> (undo, redo) = (history.clone(), history.clone());
+    <span class="t-keyword">let</span> (shown, written) = (json.clone(), graph.clone());
+    <span class="t-keyword">let</span> canvas = <span class="t-type">FlowCanvas</span>::new(graph.binding())
+        .history(history.binding())
+        .kind(<span class="t-string">"trigger"</span>, <span class="t-type">FlowKind</span>::new(<span class="t-type">IconName</span>::<span class="t-type">Zap</span>, <span class="t-string">"Trigger"</span>).tone(<span class="t-type">Semantic</span>::<span class="t-type">Warning</span>))
+        .kind(<span class="t-string">"action"</span>, <span class="t-type">FlowKind</span>::new(<span class="t-type">IconName</span>::<span class="t-type">Package</span>, <span class="t-string">"Action"</span>))
+        .kind(<span class="t-string">"condition"</span>, <span class="t-type">FlowKind</span>::new(<span class="t-type">IconName</span>::<span class="t-type">GitBranch</span>, <span class="t-string">"Condition"</span>).tone(<span class="t-type">Semantic</span>::<span class="t-type">Success</span>))
+        .validate(|graph, from, to| {
+            <span class="t-keyword">let</span> carries = |end: &amp;<span class="t-type">FlowEndpoint</span>| graph.port(end).and_then(|port| port.kind.clone());
+            <span class="t-keyword">if</span> carries(from) == carries(to) {
+                <span class="t-type">Ok</span>(())
+            } <span class="t-keyword">else</span> {
+                <span class="t-type">Err</span>(<span class="t-type">String</span>::from(<span class="t-string">"This input takes something else"</span>))
+            }
+        })
+        .size(<span class="t-number">880.0</span>, <span class="t-number">368.0</span>);
+    <span class="t-type">VStack</span>::new((
+        view_fn(<span class="t-keyword">move</span> || {
+            <span class="t-comment">// Undo and redo here go through the same history as Cmd+Z in the canvas.</span>
+            <span class="t-keyword">let</span> (back, again) = (undo.clone(), redo.clone());
+            <span class="t-keyword">let</span> (g1, g2) = (written.clone(), written.clone());
+            <span class="t-keyword">let</span> toggle = shown.clone();
+            <span class="t-type">HStack</span>::new((
+                <span class="t-type">Button</span>::new(<span class="t-string">"Undo"</span>)
+                    .style(<span class="t-type">ButtonStyle</span>::<span class="t-type">Secondary</span>)
+                    .icon(<span class="t-type">IconName</span>::<span class="t-type">Undo2</span>)
+                    .disabled(!undo.get().can_undo())
+                    .on_click(<span class="t-keyword">move</span> || {
+                        <span class="t-keyword">let</span> <span class="t-keyword">mut</span> h = back.get();
+                        <span class="t-keyword">if</span> <span class="t-keyword">let</span> <span class="t-type">Some</span>(before) = h.undo(g1.get()) {
+                            back.set(h);
+                            g1.set(before);
+                        }
+                    }),
+                <span class="t-type">Button</span>::new(<span class="t-string">"Redo"</span>)
+                    .style(<span class="t-type">ButtonStyle</span>::<span class="t-type">Secondary</span>)
+                    .icon(<span class="t-type">IconName</span>::<span class="t-type">Redo2</span>)
+                    .disabled(!redo.get().can_redo())
+                    .on_click(<span class="t-keyword">move</span> || {
+                        <span class="t-keyword">let</span> <span class="t-keyword">mut</span> h = again.get();
+                        <span class="t-keyword">if</span> <span class="t-keyword">let</span> <span class="t-type">Some</span>(after) = h.redo(g2.get()) {
+                            again.set(h);
+                            g2.set(after);
+                        }
+                    }),
+                <span class="t-type">Button</span>::new(<span class="t-string">"Show JSON"</span>)
+                    .style(<span class="t-type">ButtonStyle</span>::<span class="t-type">Ghost</span>)
+                    .icon(<span class="t-type">IconName</span>::<span class="t-type">Code</span>)
+                    .selected(shown.get())
+                    .on_click(<span class="t-keyword">move</span> || toggle.update(|on| *on = !*on)),
+            ))
+            .spacing(<span class="t-number">8.0</span>)
+        }),
+        <span class="t-comment">// The diagram as it is now, as the app would save it; `FlowGraph::from_json` reads it back.</span>
+        view_fn(<span class="t-keyword">move</span> || {
+            json.get().then(|| <span class="t-type">ScrollView</span>::new((<span class="t-type">CodeBlock</span>::new(graph.get().to_json()),)).height(<span class="t-number">200.0</span>))
+        }),
+        canvas,
+    ))
+    .spacing(<span class="t-number">12.0</span>)
+    .align(<span class="t-type">Align</span>::<span class="t-type">Stretch</span>)
+}
+</code></pre>
+    <p><a class="more" href="/RavenRS/playground/examples/flowcanvas/">Open in the playground, with every example →</a></p>
+    <p><a class="more" href="../../api/ravenrs_widgets/struct.FlowCanvas.html">Full API of FlowCanvas →</a></p>
+    <nav class="pager" aria-label="Other components"><a href="../floatingtoolbar/">← FloatingToolbar</a><a href="../flowinspector/">FlowInspector →</a></nav>
+  </main>
+</div>
+<script>
+  const copy = document.querySelector(".copy");
+  if (navigator.clipboard) {
+    copy.hidden = false;
+    copy.addEventListener("click", async () => {
+      await navigator.clipboard.writeText(document.querySelector(".code").textContent);
+      copy.textContent = "Copied";
+      setTimeout(() => (copy.textContent = "Copy"), 1500);
+    });
+  }
+</script>
+
+
+</body></html>

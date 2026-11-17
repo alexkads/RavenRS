@@ -1,0 +1,521 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>inspector.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ravenrs_widgets_lists" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../static.files/src-script-813739b1.js"></script><script defer="" src="../../src-files.js"></script><script defer="" src="../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-widgets-lists/src/inspector.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_widgets_lists/inspector.rs.html"><meta property="og:title" content="inspector.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-widgets-lists/src/inspector.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_widgets_lists/inspector.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="inspector.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-widgets-lists/src/inspector.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"inspector.rs - source","description":"Source of the Rust file `crates/ravenrs-widgets-lists/src/inspector.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_widgets_lists/inspector.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_widgets_lists/</div>inspector.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! Looking at JSON items four ways: a table with a column per key, a tree that opens, the JSON
+<a href="#2" id="2" data-nosnippet="">2</a>//! itself and the schema of what the items hold. The same item and the same field stay chosen
+<a href="#3" id="3" data-nosnippet="">3</a>//! from one way to the next, and the field chosen is said as a path (`cliente.nome`,
+<a href="#4" id="4" data-nosnippet="">4</a>//! `itens[0].preço`) the app can turn into an expression.
+<a href="#5" id="5" data-nosnippet="">5</a>//!
+<a href="#6" id="6" data-nosnippet="">6</a>//! A field that is absent and one that is `null` are told apart everywhere. Whole numbers stay
+<a href="#7" id="7" data-nosnippet="">7</a>//! exact, as the JSON had them. A list longer than the limit shows its first items and says so.
+<a href="#8" id="8" data-nosnippet="">8</a>
+<a href="#9" id="9" data-nosnippet="">9</a></span><span class="kw">use </span>std::collections::{BTreeMap, BTreeSet};
+<a href="#10" id="10" data-nosnippet="">10</a><span class="kw">use </span>std::rc::Rc;
+<a href="#11" id="11" data-nosnippet="">11</a>
+<a href="#12" id="12" data-nosnippet="">12</a><span class="kw">use </span>ravenrs_layout::Align;
+<a href="#13" id="13" data-nosnippet="">13</a><span class="kw">use </span>ravenrs_reactive::Binding;
+<a href="#14" id="14" data-nosnippet="">14</a><span class="kw">use </span>ravenrs_style::{Semantic, TextStyle};
+<a href="#15" id="15" data-nosnippet="">15</a><span class="kw">use </span>serde_json::Value;
+<a href="#16" id="16" data-nosnippet="">16</a>
+<a href="#17" id="17" data-nosnippet="">17</a><span class="kw">use </span><span class="kw">crate</span>::context::{BuildCx, NodeId, Semantics};
+<a href="#18" id="18" data-nosnippet="">18</a><span class="kw">use </span><span class="kw">crate</span>::tree::{TreeNode, TreeView};
+<a href="#19" id="19" data-nosnippet="">19</a><span class="kw">use crate</span>::{
+<a href="#20" id="20" data-nosnippet="">20</a>    AnyView, Badge, Button, ButtonSize, ButtonStyle, Column, FieldDrag, HStack, IconButton, IconName,
+<a href="#21" id="21" data-nosnippet="">21</a>    ScrollView, SegmentedControl, Spacer, Table, Text, VStack, View,
+<a href="#22" id="22" data-nosnippet="">22</a>};
+<a href="#23" id="23" data-nosnippet="">23</a>
+<a href="#24" id="24" data-nosnippet="">24</a><span class="doccomment">/// How many items, and how many entries of a list inside one, are shown before the rest is
+<a href="#25" id="25" data-nosnippet="">25</a>/// left out, unless [`DataInspector::limit`] says otherwise.
+<a href="#26" id="26" data-nosnippet="">26</a></span><span class="kw">pub const </span>SAMPLE: usize = <span class="number">1000</span>;
+<a href="#27" id="27" data-nosnippet="">27</a>
+<a href="#28" id="28" data-nosnippet="">28</a><span class="doccomment">/// The path of a field inside an item: keys joined by dots, rows in brackets, and a key that
+<a href="#29" id="29" data-nosnippet="">29</a>/// is not a plain word in quotes, as `cliente.nome`, `itens[0].preço` or `["nome completo"]`.
+<a href="#30" id="30" data-nosnippet="">30</a></span><span class="kw">pub fn </span>field_path(steps: <span class="kw-2">&amp;</span>[PathStep]) -&gt; String {
+<a href="#31" id="31" data-nosnippet="">31</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = String::new();
+<a href="#32" id="32" data-nosnippet="">32</a>    <span class="kw">for </span>step <span class="kw">in </span>steps {
+<a href="#33" id="33" data-nosnippet="">33</a>        <span class="kw">match </span>step {
+<a href="#34" id="34" data-nosnippet="">34</a>            PathStep::Row(i) =&gt; out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"[{i}]"</span>)),
+<a href="#35" id="35" data-nosnippet="">35</a>            PathStep::Key(k) <span class="kw">if </span>plain(k) =&gt; {
+<a href="#36" id="36" data-nosnippet="">36</a>                <span class="kw">if </span>!out.is_empty() {
+<a href="#37" id="37" data-nosnippet="">37</a>                    out.push(<span class="string">'.'</span>);
+<a href="#38" id="38" data-nosnippet="">38</a>                }
+<a href="#39" id="39" data-nosnippet="">39</a>                out.push_str(k);
+<a href="#40" id="40" data-nosnippet="">40</a>            }
+<a href="#41" id="41" data-nosnippet="">41</a>            PathStep::Key(k) =&gt; out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"[{}]"</span>, Value::String(k.clone()))),
+<a href="#42" id="42" data-nosnippet="">42</a>        }
+<a href="#43" id="43" data-nosnippet="">43</a>    }
+<a href="#44" id="44" data-nosnippet="">44</a>    out
+<a href="#45" id="45" data-nosnippet="">45</a>}
+<a href="#46" id="46" data-nosnippet="">46</a>
+<a href="#47" id="47" data-nosnippet="">47</a><span class="doccomment">/// A key that reads as it is in a path: letters, digits and `_`, not starting with a digit.
+<a href="#48" id="48" data-nosnippet="">48</a></span><span class="kw">fn </span>plain(key: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href="#49" id="49" data-nosnippet="">49</a>    <span class="kw">let </span><span class="kw-2">mut </span>chars = key.chars();
+<a href="#50" id="50" data-nosnippet="">50</a>    chars.next().is_some_and(|c| c.is_alphabetic() || c == <span class="string">'_'</span>)
+<a href="#51" id="51" data-nosnippet="">51</a>        &amp;&amp; chars.all(|c| c.is_alphanumeric() || c == <span class="string">'_'</span>)
+<a href="#52" id="52" data-nosnippet="">52</a>}
+<a href="#53" id="53" data-nosnippet="">53</a>
+<a href="#54" id="54" data-nosnippet="">54</a><span class="doccomment">/// One step of a [`field_path`]: a key of an object or a row of a list.
+<a href="#55" id="55" data-nosnippet="">55</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
+<a href="#56" id="56" data-nosnippet="">56</a>#[cfg_attr(feature = <span class="string">"live"</span>, ravenrs_live::expose(part = <span class="string">"variants"</span>))]
+<a href="#57" id="57" data-nosnippet="">57</a></span><span class="kw">pub enum </span>PathStep {
+<a href="#58" id="58" data-nosnippet="">58</a>    <span class="doccomment">/// A key of an object.
+<a href="#59" id="59" data-nosnippet="">59</a>    </span>Key(String),
+<a href="#60" id="60" data-nosnippet="">60</a>    <span class="doccomment">/// A row of a list.
+<a href="#61" id="61" data-nosnippet="">61</a>    </span>Row(usize),
+<a href="#62" id="62" data-nosnippet="">62</a>}
+<a href="#63" id="63" data-nosnippet="">63</a>
+<a href="#64" id="64" data-nosnippet="">64</a><span class="doccomment">/// Hears the path of a field chosen.
+<a href="#65" id="65" data-nosnippet="">65</a></span><span class="kw">type </span>Pick = Rc&lt;<span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>str)&gt;;
+<a href="#66" id="66" data-nosnippet="">66</a>
+<a href="#67" id="67" data-nosnippet="">67</a><span class="doccomment">/// Looks at JSON items as a table, a tree, the JSON itself or their schema.
+<a href="#68" id="68" data-nosnippet="">68</a></span><span class="attr">#[cfg_attr(feature = <span class="string">"live"</span>, ravenrs_live::expose(part = <span class="string">"fields"</span>))]
+<a href="#69" id="69" data-nosnippet="">69</a></span><span class="kw">pub struct </span>DataInspector {
+<a href="#70" id="70" data-nosnippet="">70</a>    items: Rc&lt;Vec&lt;Value&gt;&gt;,
+<a href="#71" id="71" data-nosnippet="">71</a>    total: usize,
+<a href="#72" id="72" data-nosnippet="">72</a>    mode: <span class="prelude-ty">Option</span>&lt;Binding&lt;usize&gt;&gt;,
+<a href="#73" id="73" data-nosnippet="">73</a>    item: <span class="prelude-ty">Option</span>&lt;Binding&lt;usize&gt;&gt;,
+<a href="#74" id="74" data-nosnippet="">74</a>    selected: <span class="prelude-ty">Option</span>&lt;Binding&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt;&gt;,
+<a href="#75" id="75" data-nosnippet="">75</a>    on_pick: <span class="prelude-ty">Option</span>&lt;Pick&gt;,
+<a href="#76" id="76" data-nosnippet="">76</a>    limit: usize,
+<a href="#77" id="77" data-nosnippet="">77</a>    label: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#78" id="78" data-nosnippet="">78</a>}
+<a href="#79" id="79" data-nosnippet="">79</a>
+<a href="#80" id="80" data-nosnippet="">80</a><span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>DataInspector {
+<a href="#81" id="81" data-nosnippet="">81</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+<a href="#82" id="82" data-nosnippet="">82</a>        f.debug_struct(<span class="string">"DataInspector"</span>).field(<span class="string">"items"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.items.len()).finish_non_exhaustive()
+<a href="#83" id="83" data-nosnippet="">83</a>    }
+<a href="#84" id="84" data-nosnippet="">84</a>}
+<a href="#85" id="85" data-nosnippet="">85</a>
+<a href="#86" id="86" data-nosnippet="">86</a><span class="attr">#[cfg_attr(feature = <span class="string">"live"</span>, ravenrs_live::expose)]
+<a href="#87" id="87" data-nosnippet="">87</a></span><span class="kw">impl </span>DataInspector {
+<a href="#88" id="88" data-nosnippet="">88</a>    <span class="doccomment">/// The items of the JSON `text`: each entry of a list, or the one object. Text that is not
+<a href="#89" id="89" data-nosnippet="">89</a>    /// JSON shows as no items.
+<a href="#90" id="90" data-nosnippet="">90</a>    </span><span class="kw">pub fn </span>new(text: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
+<a href="#91" id="91" data-nosnippet="">91</a>        <span class="kw">let </span>value: Value = serde_json::from_str(<span class="kw-2">&amp;</span>text.into()).unwrap_or(Value::Null);
+<a href="#92" id="92" data-nosnippet="">92</a>        <span class="kw">let </span>items = <span class="kw">match </span>value {
+<a href="#93" id="93" data-nosnippet="">93</a>            Value::Array(items) =&gt; items,
+<a href="#94" id="94" data-nosnippet="">94</a>            Value::Null =&gt; Vec::new(),
+<a href="#95" id="95" data-nosnippet="">95</a>            other =&gt; <span class="macro">vec!</span>[other],
+<a href="#96" id="96" data-nosnippet="">96</a>        };
+<a href="#97" id="97" data-nosnippet="">97</a>        <span class="self">Self</span>::of(items)
+<a href="#98" id="98" data-nosnippet="">98</a>    }
+<a href="#99" id="99" data-nosnippet="">99</a>
+<a href="#100" id="100" data-nosnippet="">100</a>    <span class="doccomment">/// The items as the app has them.
+<a href="#101" id="101" data-nosnippet="">101</a>    </span><span class="kw">pub fn </span>of(items: Vec&lt;Value&gt;) -&gt; <span class="self">Self </span>{
+<a href="#102" id="102" data-nosnippet="">102</a>        <span class="self">Self </span>{
+<a href="#103" id="103" data-nosnippet="">103</a>            total: items.len(),
+<a href="#104" id="104" data-nosnippet="">104</a>            items: Rc::new(items),
+<a href="#105" id="105" data-nosnippet="">105</a>            mode: <span class="prelude-val">None</span>,
+<a href="#106" id="106" data-nosnippet="">106</a>            item: <span class="prelude-val">None</span>,
+<a href="#107" id="107" data-nosnippet="">107</a>            selected: <span class="prelude-val">None</span>,
+<a href="#108" id="108" data-nosnippet="">108</a>            on_pick: <span class="prelude-val">None</span>,
+<a href="#109" id="109" data-nosnippet="">109</a>            limit: SAMPLE,
+<a href="#110" id="110" data-nosnippet="">110</a>            label: <span class="prelude-val">None</span>,
+<a href="#111" id="111" data-nosnippet="">111</a>        }
+<a href="#112" id="112" data-nosnippet="">112</a>    }
+<a href="#113" id="113" data-nosnippet="">113</a>
+<a href="#114" id="114" data-nosnippet="">114</a>    <span class="doccomment">/// Which way it shows them: 0 the table, 1 the tree, 2 the JSON, 3 the schema.
+<a href="#115" id="115" data-nosnippet="">115</a>    </span><span class="kw">pub fn </span>mode(<span class="kw-2">mut </span><span class="self">self</span>, mode: Binding&lt;usize&gt;) -&gt; <span class="self">Self </span>{
+<a href="#116" id="116" data-nosnippet="">116</a>        <span class="self">self</span>.mode = <span class="prelude-val">Some</span>(mode);
+<a href="#117" id="117" data-nosnippet="">117</a>        <span class="self">self
+<a href="#118" id="118" data-nosnippet="">118</a>    </span>}
+<a href="#119" id="119" data-nosnippet="">119</a>
+<a href="#120" id="120" data-nosnippet="">120</a>    <span class="doccomment">/// Which item the tree and the JSON show, from 0.
+<a href="#121" id="121" data-nosnippet="">121</a>    </span><span class="kw">pub fn </span>item(<span class="kw-2">mut </span><span class="self">self</span>, item: Binding&lt;usize&gt;) -&gt; <span class="self">Self </span>{
+<a href="#122" id="122" data-nosnippet="">122</a>        <span class="self">self</span>.item = <span class="prelude-val">Some</span>(item);
+<a href="#123" id="123" data-nosnippet="">123</a>        <span class="self">self
+<a href="#124" id="124" data-nosnippet="">124</a>    </span>}
+<a href="#125" id="125" data-nosnippet="">125</a>
+<a href="#126" id="126" data-nosnippet="">126</a>    <span class="doccomment">/// The path of the field chosen, the same in every way of showing.
+<a href="#127" id="127" data-nosnippet="">127</a>    </span><span class="kw">pub fn </span>selected(<span class="kw-2">mut </span><span class="self">self</span>, selected: Binding&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt;) -&gt; <span class="self">Self </span>{
+<a href="#128" id="128" data-nosnippet="">128</a>        <span class="self">self</span>.selected = <span class="prelude-val">Some</span>(selected);
+<a href="#129" id="129" data-nosnippet="">129</a>        <span class="self">self
+<a href="#130" id="130" data-nosnippet="">130</a>    </span>}
+<a href="#131" id="131" data-nosnippet="">131</a>
+<a href="#132" id="132" data-nosnippet="">132</a>    <span class="doccomment">/// Hears the path of a field chosen in the tree or the schema.
+<a href="#133" id="133" data-nosnippet="">133</a>    </span><span class="kw">pub fn </span>on_pick(<span class="kw-2">mut </span><span class="self">self</span>, handler: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>str) + <span class="lifetime">'static</span>) -&gt; <span class="self">Self </span>{
+<a href="#134" id="134" data-nosnippet="">134</a>        <span class="self">self</span>.on_pick = <span class="prelude-val">Some</span>(Rc::new(handler));
+<a href="#135" id="135" data-nosnippet="">135</a>        <span class="self">self
+<a href="#136" id="136" data-nosnippet="">136</a>    </span>}
+<a href="#137" id="137" data-nosnippet="">137</a>
+<a href="#138" id="138" data-nosnippet="">138</a>    <span class="doccomment">/// How many items, and entries of a list inside one, it shows before saying the rest was
+<a href="#139" id="139" data-nosnippet="">139</a>    /// left out.
+<a href="#140" id="140" data-nosnippet="">140</a>    </span><span class="kw">pub fn </span>limit(<span class="kw-2">mut </span><span class="self">self</span>, limit: usize) -&gt; <span class="self">Self </span>{
+<a href="#141" id="141" data-nosnippet="">141</a>        <span class="self">self</span>.limit = limit.max(<span class="number">1</span>);
+<a href="#142" id="142" data-nosnippet="">142</a>        <span class="self">self
+<a href="#143" id="143" data-nosnippet="">143</a>    </span>}
+<a href="#144" id="144" data-nosnippet="">144</a>
+<a href="#145" id="145" data-nosnippet="">145</a>    <span class="doccomment">/// What screen readers call it.
+<a href="#146" id="146" data-nosnippet="">146</a>    </span><span class="kw">pub fn </span>label(<span class="kw-2">mut </span><span class="self">self</span>, label: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
+<a href="#147" id="147" data-nosnippet="">147</a>        <span class="self">self</span>.label = <span class="prelude-val">Some</span>(label.into());
+<a href="#148" id="148" data-nosnippet="">148</a>        <span class="self">self
+<a href="#149" id="149" data-nosnippet="">149</a>    </span>}
+<a href="#150" id="150" data-nosnippet="">150</a>}
+<a href="#151" id="151" data-nosnippet="">151</a>
+<a href="#152" id="152" data-nosnippet="">152</a><span class="doccomment">/// A value as a cell says it: text as it is, numbers exact, a list or an object by its size.
+<a href="#153" id="153" data-nosnippet="">153</a></span><span class="kw">fn </span>cell(value: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Value&gt;, labels: <span class="kw-2">&amp;</span><span class="kw">crate</span>::Labels) -&gt; String {
+<a href="#154" id="154" data-nosnippet="">154</a>    <span class="kw">match </span>value {
+<a href="#155" id="155" data-nosnippet="">155</a>        <span class="prelude-val">None </span>=&gt; labels.inspector_absent.clone(),
+<a href="#156" id="156" data-nosnippet="">156</a>        <span class="prelude-val">Some</span>(Value::Null) =&gt; <span class="string">"null"</span>.to_owned(),
+<a href="#157" id="157" data-nosnippet="">157</a>        <span class="prelude-val">Some</span>(Value::String(s)) =&gt; s.clone(),
+<a href="#158" id="158" data-nosnippet="">158</a>        <span class="prelude-val">Some</span>(Value::Array(a)) =&gt; <span class="macro">format!</span>(<span class="string">"[{}]"</span>, a.len()),
+<a href="#159" id="159" data-nosnippet="">159</a>        <span class="prelude-val">Some</span>(Value::Object(o)) =&gt; <span class="macro">format!</span>(<span class="string">"{{{}}}"</span>, o.len()),
+<a href="#160" id="160" data-nosnippet="">160</a>        <span class="prelude-val">Some</span>(other) =&gt; other.to_string(),
+<a href="#161" id="161" data-nosnippet="">161</a>    }
+<a href="#162" id="162" data-nosnippet="">162</a>}
+<a href="#163" id="163" data-nosnippet="">163</a>
+<a href="#164" id="164" data-nosnippet="">164</a><span class="doccomment">/// The tree of `value`, its items keyed by their paths, lists cut at `limit`.
+<a href="#165" id="165" data-nosnippet="">165</a></span><span class="kw">fn </span>tree(
+<a href="#166" id="166" data-nosnippet="">166</a>    steps: <span class="kw-2">&amp;mut </span>Vec&lt;PathStep&gt;,
+<a href="#167" id="167" data-nosnippet="">167</a>    name: String,
+<a href="#168" id="168" data-nosnippet="">168</a>    value: <span class="kw-2">&amp;</span>Value,
+<a href="#169" id="169" data-nosnippet="">169</a>    limit: usize,
+<a href="#170" id="170" data-nosnippet="">170</a>    labels: <span class="kw-2">&amp;</span><span class="kw">crate</span>::Labels,
+<a href="#171" id="171" data-nosnippet="">171</a>) -&gt; TreeNode {
+<a href="#172" id="172" data-nosnippet="">172</a>    <span class="kw">let </span>key = field_path(steps);
+<a href="#173" id="173" data-nosnippet="">173</a>    <span class="kw">match </span>value {
+<a href="#174" id="174" data-nosnippet="">174</a>        Value::Object(map) =&gt; {
+<a href="#175" id="175" data-nosnippet="">175</a>            <span class="kw">let </span><span class="kw-2">mut </span>node = TreeNode::new(key, <span class="macro">format!</span>(<span class="string">"{name} {{{}}}"</span>, map.len()));
+<a href="#176" id="176" data-nosnippet="">176</a>            <span class="kw">for </span>(k, v) <span class="kw">in </span>map {
+<a href="#177" id="177" data-nosnippet="">177</a>                steps.push(PathStep::Key(k.clone()));
+<a href="#178" id="178" data-nosnippet="">178</a>                node = node.child(tree(steps, k.clone(), v, limit, labels));
+<a href="#179" id="179" data-nosnippet="">179</a>                steps.pop();
+<a href="#180" id="180" data-nosnippet="">180</a>            }
+<a href="#181" id="181" data-nosnippet="">181</a>            node
+<a href="#182" id="182" data-nosnippet="">182</a>        }
+<a href="#183" id="183" data-nosnippet="">183</a>        Value::Array(list) =&gt; {
+<a href="#184" id="184" data-nosnippet="">184</a>            <span class="kw">let </span><span class="kw-2">mut </span>node = TreeNode::new(key.clone(), <span class="macro">format!</span>(<span class="string">"{name} [{}]"</span>, list.len()));
+<a href="#185" id="185" data-nosnippet="">185</a>            <span class="kw">for </span>(i, v) <span class="kw">in </span>list.iter().enumerate().take(limit) {
+<a href="#186" id="186" data-nosnippet="">186</a>                steps.push(PathStep::Row(i));
+<a href="#187" id="187" data-nosnippet="">187</a>                node = node.child(tree(steps, <span class="macro">format!</span>(<span class="string">"[{i}]"</span>), v, limit, labels));
+<a href="#188" id="188" data-nosnippet="">188</a>                steps.pop();
+<a href="#189" id="189" data-nosnippet="">189</a>            }
+<a href="#190" id="190" data-nosnippet="">190</a>            <span class="kw">if </span>list.len() &gt; limit {
+<a href="#191" id="191" data-nosnippet="">191</a>                <span class="kw">let </span>left = labels.inspector_more.replace(<span class="string">"{0}"</span>, <span class="kw-2">&amp;</span>(list.len() - limit).to_string());
+<a href="#192" id="192" data-nosnippet="">192</a>                node = node.child(TreeNode::new(<span class="macro">format!</span>(<span class="string">"{key}…"</span>), left).disabled(<span class="bool-val">true</span>));
+<a href="#193" id="193" data-nosnippet="">193</a>            }
+<a href="#194" id="194" data-nosnippet="">194</a>            node
+<a href="#195" id="195" data-nosnippet="">195</a>        }
+<a href="#196" id="196" data-nosnippet="">196</a>        leaf =&gt; TreeNode::new(key, <span class="macro">format!</span>(<span class="string">"{name}: {}"</span>, cell(<span class="prelude-val">Some</span>(leaf), labels))),
+<a href="#197" id="197" data-nosnippet="">197</a>    }
+<a href="#198" id="198" data-nosnippet="">198</a>}
+<a href="#199" id="199" data-nosnippet="">199</a>
+<a href="#200" id="200" data-nosnippet="">200</a><span class="doccomment">/// The keys that reach each path of `value`, by the path as people read it.
+<a href="#201" id="201" data-nosnippet="">201</a></span><span class="kw">fn </span>keys_of(value: <span class="kw-2">&amp;</span>Value, steps: <span class="kw-2">&amp;mut </span>Vec&lt;PathStep&gt;, out: <span class="kw-2">&amp;mut </span>BTreeMap&lt;String, Vec&lt;String&gt;&gt;) {
+<a href="#202" id="202" data-nosnippet="">202</a>    <span class="kw">if </span>!steps.is_empty() {
+<a href="#203" id="203" data-nosnippet="">203</a>        <span class="kw">let </span>keys = steps
+<a href="#204" id="204" data-nosnippet="">204</a>            .iter()
+<a href="#205" id="205" data-nosnippet="">205</a>            .map(|s| <span class="kw">match </span>s {
+<a href="#206" id="206" data-nosnippet="">206</a>                PathStep::Key(k) =&gt; k.clone(),
+<a href="#207" id="207" data-nosnippet="">207</a>                PathStep::Row(i) =&gt; i.to_string(),
+<a href="#208" id="208" data-nosnippet="">208</a>            })
+<a href="#209" id="209" data-nosnippet="">209</a>            .collect();
+<a href="#210" id="210" data-nosnippet="">210</a>        out.insert(field_path(steps), keys);
+<a href="#211" id="211" data-nosnippet="">211</a>    }
+<a href="#212" id="212" data-nosnippet="">212</a>    <span class="kw">match </span>value {
+<a href="#213" id="213" data-nosnippet="">213</a>        Value::Object(map) =&gt; {
+<a href="#214" id="214" data-nosnippet="">214</a>            <span class="kw">for </span>(k, v) <span class="kw">in </span>map {
+<a href="#215" id="215" data-nosnippet="">215</a>                steps.push(PathStep::Key(k.clone()));
+<a href="#216" id="216" data-nosnippet="">216</a>                keys_of(v, steps, out);
+<a href="#217" id="217" data-nosnippet="">217</a>                steps.pop();
+<a href="#218" id="218" data-nosnippet="">218</a>            }
+<a href="#219" id="219" data-nosnippet="">219</a>        }
+<a href="#220" id="220" data-nosnippet="">220</a>        Value::Array(list) =&gt; {
+<a href="#221" id="221" data-nosnippet="">221</a>            <span class="kw">for </span>(i, v) <span class="kw">in </span>list.iter().enumerate().take(SAMPLE) {
+<a href="#222" id="222" data-nosnippet="">222</a>                steps.push(PathStep::Row(i));
+<a href="#223" id="223" data-nosnippet="">223</a>                keys_of(v, steps, out);
+<a href="#224" id="224" data-nosnippet="">224</a>                steps.pop();
+<a href="#225" id="225" data-nosnippet="">225</a>            }
+<a href="#226" id="226" data-nosnippet="">226</a>        }
+<a href="#227" id="227" data-nosnippet="">227</a>        <span class="kw">_ </span>=&gt; {}
+<a href="#228" id="228" data-nosnippet="">228</a>    }
+<a href="#229" id="229" data-nosnippet="">229</a>}
+<a href="#230" id="230" data-nosnippet="">230</a>
+<a href="#231" id="231" data-nosnippet="">231</a><span class="doccomment">/// The field chosen, as a tag to carry with the pointer to where an expression is written.
+<a href="#232" id="232" data-nosnippet="">232</a></span><span class="kw">struct </span>Carry {
+<a href="#233" id="233" data-nosnippet="">233</a>    field: FieldDrag,
+<a href="#234" id="234" data-nosnippet="">234</a>    words: String,
+<a href="#235" id="235" data-nosnippet="">235</a>}
+<a href="#236" id="236" data-nosnippet="">236</a>
+<a href="#237" id="237" data-nosnippet="">237</a><span class="kw">impl </span>View <span class="kw">for </span>Carry {
+<a href="#238" id="238" data-nosnippet="">238</a>    <span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>BuildCx&lt;<span class="lifetime">'_</span>&gt;) -&gt; NodeId {
+<a href="#239" id="239" data-nosnippet="">239</a>        <span class="kw">let </span>node = cx.child(
+<a href="#240" id="240" data-nosnippet="">240</a>            <span class="kw-2">&amp;</span>HStack::new((
+<a href="#241" id="241" data-nosnippet="">241</a>                <span class="kw">crate</span>::Icon::new(IconName::MousePointer),
+<a href="#242" id="242" data-nosnippet="">242</a>                Badge::new(<span class="self">self</span>.field.path.clone()).tone(<span class="kw">crate</span>::Tone::Accent),
+<a href="#243" id="243" data-nosnippet="">243</a>            ))
+<a href="#244" id="244" data-nosnippet="">244</a>            .spacing(<span class="number">6.0</span>)
+<a href="#245" id="245" data-nosnippet="">245</a>            .align(Align::Center),
+<a href="#246" id="246" data-nosnippet="">246</a>        );
+<a href="#247" id="247" data-nosnippet="">247</a>        cx.focusable(node, <span class="number">6.0</span>);
+<a href="#248" id="248" data-nosnippet="">248</a>        cx.semantics(node, Semantics::new(ravenrs_core::Role::Button).name(<span class="self">self</span>.words.clone()));
+<a href="#249" id="249" data-nosnippet="">249</a>        cx.drag_source(node, <span class="self">self</span>.field.payload());
+<a href="#250" id="250" data-nosnippet="">250</a>        node
+<a href="#251" id="251" data-nosnippet="">251</a>    }
+<a href="#252" id="252" data-nosnippet="">252</a>}
+<a href="#253" id="253" data-nosnippet="">253</a>
+<a href="#254" id="254" data-nosnippet="">254</a><span class="doccomment">/// Every path of the items, with the kinds seen at it and in how many items it is.
+<a href="#255" id="255" data-nosnippet="">255</a></span><span class="kw">fn </span>schema(items: <span class="kw-2">&amp;</span>[Value]) -&gt; BTreeMap&lt;String, (BTreeSet&lt;String&gt;, usize)&gt; {
+<a href="#256" id="256" data-nosnippet="">256</a>    <span class="kw">fn </span>walk(
+<a href="#257" id="257" data-nosnippet="">257</a>        steps: <span class="kw-2">&amp;mut </span>Vec&lt;PathStep&gt;,
+<a href="#258" id="258" data-nosnippet="">258</a>        value: <span class="kw-2">&amp;</span>Value,
+<a href="#259" id="259" data-nosnippet="">259</a>        seen: <span class="kw-2">&amp;mut </span>BTreeMap&lt;String, (BTreeSet&lt;String&gt;, usize)&gt;,
+<a href="#260" id="260" data-nosnippet="">260</a>        first: bool,
+<a href="#261" id="261" data-nosnippet="">261</a>    ) {
+<a href="#262" id="262" data-nosnippet="">262</a>        <span class="kw">if </span>!steps.is_empty() {
+<a href="#263" id="263" data-nosnippet="">263</a>            <span class="kw">let </span>entry = seen.entry(field_path(steps)).or_default();
+<a href="#264" id="264" data-nosnippet="">264</a>            entry.<span class="number">0</span>.insert(kind_word(value).to_owned());
+<a href="#265" id="265" data-nosnippet="">265</a>            <span class="kw">if </span>first {
+<a href="#266" id="266" data-nosnippet="">266</a>                entry.<span class="number">1 </span>+= <span class="number">1</span>;
+<a href="#267" id="267" data-nosnippet="">267</a>            }
+<a href="#268" id="268" data-nosnippet="">268</a>        }
+<a href="#269" id="269" data-nosnippet="">269</a>        <span class="kw">match </span>value {
+<a href="#270" id="270" data-nosnippet="">270</a>            Value::Object(map) =&gt; {
+<a href="#271" id="271" data-nosnippet="">271</a>                <span class="kw">for </span>(k, v) <span class="kw">in </span>map {
+<a href="#272" id="272" data-nosnippet="">272</a>                    steps.push(PathStep::Key(k.clone()));
+<a href="#273" id="273" data-nosnippet="">273</a>                    walk(steps, v, seen, first);
+<a href="#274" id="274" data-nosnippet="">274</a>                    steps.pop();
+<a href="#275" id="275" data-nosnippet="">275</a>                }
+<a href="#276" id="276" data-nosnippet="">276</a>            }
+<a href="#277" id="277" data-nosnippet="">277</a>            <span class="comment">// The entries of a list share one path, the first entry's, so a list of records
+<a href="#278" id="278" data-nosnippet="">278</a>            // reads as its records.
+<a href="#279" id="279" data-nosnippet="">279</a>            </span>Value::Array(list) =&gt; {
+<a href="#280" id="280" data-nosnippet="">280</a>                <span class="kw">for </span>(i, v) <span class="kw">in </span>list.iter().enumerate() {
+<a href="#281" id="281" data-nosnippet="">281</a>                    steps.push(PathStep::Row(<span class="number">0</span>));
+<a href="#282" id="282" data-nosnippet="">282</a>                    walk(steps, v, seen, first &amp;&amp; i == <span class="number">0</span>);
+<a href="#283" id="283" data-nosnippet="">283</a>                    steps.pop();
+<a href="#284" id="284" data-nosnippet="">284</a>                }
+<a href="#285" id="285" data-nosnippet="">285</a>            }
+<a href="#286" id="286" data-nosnippet="">286</a>            <span class="kw">_ </span>=&gt; {}
+<a href="#287" id="287" data-nosnippet="">287</a>        }
+<a href="#288" id="288" data-nosnippet="">288</a>    }
+<a href="#289" id="289" data-nosnippet="">289</a>    <span class="kw">let </span><span class="kw-2">mut </span>seen = BTreeMap::new();
+<a href="#290" id="290" data-nosnippet="">290</a>    <span class="kw">for </span>item <span class="kw">in </span>items {
+<a href="#291" id="291" data-nosnippet="">291</a>        walk(<span class="kw-2">&amp;mut </span>Vec::new(), item, <span class="kw-2">&amp;mut </span>seen, <span class="bool-val">true</span>);
+<a href="#292" id="292" data-nosnippet="">292</a>    }
+<a href="#293" id="293" data-nosnippet="">293</a>    seen
+<a href="#294" id="294" data-nosnippet="">294</a>}
+<a href="#295" id="295" data-nosnippet="">295</a>
+<a href="#296" id="296" data-nosnippet="">296</a><span class="doccomment">/// The kind of a value, as the schema keys it before the words.
+<a href="#297" id="297" data-nosnippet="">297</a></span><span class="kw">fn </span>kind_word(value: <span class="kw-2">&amp;</span>Value) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+<a href="#298" id="298" data-nosnippet="">298</a>    <span class="kw">match </span>value {
+<a href="#299" id="299" data-nosnippet="">299</a>        Value::Null =&gt; <span class="string">"null"</span>,
+<a href="#300" id="300" data-nosnippet="">300</a>        Value::Bool(<span class="kw">_</span>) =&gt; <span class="string">"boolean"</span>,
+<a href="#301" id="301" data-nosnippet="">301</a>        Value::Number(<span class="kw">_</span>) =&gt; <span class="string">"number"</span>,
+<a href="#302" id="302" data-nosnippet="">302</a>        Value::String(<span class="kw">_</span>) =&gt; <span class="string">"text"</span>,
+<a href="#303" id="303" data-nosnippet="">303</a>        Value::Array(<span class="kw">_</span>) =&gt; <span class="string">"list"</span>,
+<a href="#304" id="304" data-nosnippet="">304</a>        Value::Object(<span class="kw">_</span>) =&gt; <span class="string">"object"</span>,
+<a href="#305" id="305" data-nosnippet="">305</a>    }
+<a href="#306" id="306" data-nosnippet="">306</a>}
+<a href="#307" id="307" data-nosnippet="">307</a>
+<a href="#308" id="308" data-nosnippet="">308</a><span class="kw">impl </span>View <span class="kw">for </span>DataInspector {
+<a href="#309" id="309" data-nosnippet="">309</a>    <span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>BuildCx&lt;<span class="lifetime">'_</span>&gt;) -&gt; NodeId {
+<a href="#310" id="310" data-nosnippet="">310</a>        <span class="kw">let </span>labels = cx.labels();
+<a href="#311" id="311" data-nosnippet="">311</a>        <span class="kw">let </span>own_mode = cx.use_state(|| <span class="number">0_usize</span>);
+<a href="#312" id="312" data-nosnippet="">312</a>        <span class="kw">let </span>own_item = cx.use_state(|| <span class="number">0_usize</span>);
+<a href="#313" id="313" data-nosnippet="">313</a>        <span class="kw">let </span>own_selected = cx.use_state(|| <span class="prelude-val">None</span>::&lt;String&gt;);
+<a href="#314" id="314" data-nosnippet="">314</a>        <span class="kw">let </span>expanded = cx.use_state(BTreeSet::&lt;String&gt;::new);
+<a href="#315" id="315" data-nosnippet="">315</a>        <span class="kw">let </span>mode = <span class="self">self</span>.mode.clone().unwrap_or_else(|| own_mode.binding());
+<a href="#316" id="316" data-nosnippet="">316</a>        <span class="kw">let </span>item = <span class="self">self</span>.item.clone().unwrap_or_else(|| own_item.binding());
+<a href="#317" id="317" data-nosnippet="">317</a>        <span class="kw">let </span>selected = <span class="self">self</span>.selected.clone().unwrap_or_else(|| own_selected.binding());
+<a href="#318" id="318" data-nosnippet="">318</a>
+<a href="#319" id="319" data-nosnippet="">319</a>        <span class="kw">let </span>shown = <span class="self">self</span>.items.len().min(<span class="self">self</span>.limit);
+<a href="#320" id="320" data-nosnippet="">320</a>        <span class="kw">let </span>at = item.get().min(shown.saturating_sub(<span class="number">1</span>));
+<a href="#321" id="321" data-nosnippet="">321</a>        <span class="kw">let </span><span class="kw-2">mut </span>parts: Vec&lt;AnyView&gt; = Vec::new();
+<a href="#322" id="322" data-nosnippet="">322</a>        parts.push(Box::new(
+<a href="#323" id="323" data-nosnippet="">323</a>            SegmentedControl::new(
+<a href="#324" id="324" data-nosnippet="">324</a>                mode.clone(),
+<a href="#325" id="325" data-nosnippet="">325</a>                [
+<a href="#326" id="326" data-nosnippet="">326</a>                    labels.inspector_table.clone(),
+<a href="#327" id="327" data-nosnippet="">327</a>                    labels.inspector_tree.clone(),
+<a href="#328" id="328" data-nosnippet="">328</a>                    labels.inspector_json.clone(),
+<a href="#329" id="329" data-nosnippet="">329</a>                    labels.inspector_schema.clone(),
+<a href="#330" id="330" data-nosnippet="">330</a>                ],
+<a href="#331" id="331" data-nosnippet="">331</a>            )
+<a href="#332" id="332" data-nosnippet="">332</a>            .label(<span class="self">self</span>.label.clone().unwrap_or_else(|| labels.inspector_mode.clone())),
+<a href="#333" id="333" data-nosnippet="">333</a>        ));
+<a href="#334" id="334" data-nosnippet="">334</a>        <span class="kw">if </span><span class="self">self</span>.total &gt; shown {
+<a href="#335" id="335" data-nosnippet="">335</a>            parts.push(Box::new(
+<a href="#336" id="336" data-nosnippet="">336</a>                Text::new(
+<a href="#337" id="337" data-nosnippet="">337</a>                    labels
+<a href="#338" id="338" data-nosnippet="">338</a>                        .inspector_sampled
+<a href="#339" id="339" data-nosnippet="">339</a>                        .replace(<span class="string">"{0}"</span>, <span class="kw-2">&amp;</span>shown.to_string())
+<a href="#340" id="340" data-nosnippet="">340</a>                        .replace(<span class="string">"{1}"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.total.to_string()),
+<a href="#341" id="341" data-nosnippet="">341</a>                )
+<a href="#342" id="342" data-nosnippet="">342</a>                .style(TextStyle::Callout)
+<a href="#343" id="343" data-nosnippet="">343</a>                .foreground(Semantic::Warning),
+<a href="#344" id="344" data-nosnippet="">344</a>            ));
+<a href="#345" id="345" data-nosnippet="">345</a>        }
+<a href="#346" id="346" data-nosnippet="">346</a>        <span class="kw">if </span><span class="self">self</span>.items.is_empty() {
+<a href="#347" id="347" data-nosnippet="">347</a>            parts.push(Box::new(Text::new(labels.inspector_empty.clone()).foreground(Semantic::InkMuted)));
+<a href="#348" id="348" data-nosnippet="">348</a>            <span class="kw">return </span>cx.child(<span class="kw-2">&amp;</span>VStack::new(parts).spacing(<span class="number">8.0</span>).align(Align::Stretch));
+<a href="#349" id="349" data-nosnippet="">349</a>        }
+<a href="#350" id="350" data-nosnippet="">350</a>        <span class="comment">// Tree and JSON show one item at a time.
+<a href="#351" id="351" data-nosnippet="">351</a>        </span><span class="kw">if </span><span class="macro">matches!</span>(mode.get(), <span class="number">1 </span>| <span class="number">2</span>) &amp;&amp; shown &gt; <span class="number">1 </span>{
+<a href="#352" id="352" data-nosnippet="">352</a>            <span class="kw">let </span>(back, next) = (item.clone(), item.clone());
+<a href="#353" id="353" data-nosnippet="">353</a>            <span class="kw">let </span>last = shown - <span class="number">1</span>;
+<a href="#354" id="354" data-nosnippet="">354</a>            parts.push(Box::new(
+<a href="#355" id="355" data-nosnippet="">355</a>                HStack::new((
+<a href="#356" id="356" data-nosnippet="">356</a>                    IconButton::new(IconName::ChevronLeft)
+<a href="#357" id="357" data-nosnippet="">357</a>                        .label(labels.inspector_previous.clone())
+<a href="#358" id="358" data-nosnippet="">358</a>                        .size(ButtonSize::Small)
+<a href="#359" id="359" data-nosnippet="">359</a>                        .style(ButtonStyle::Ghost)
+<a href="#360" id="360" data-nosnippet="">360</a>                        .disabled(at == <span class="number">0</span>)
+<a href="#361" id="361" data-nosnippet="">361</a>                        .on_click(<span class="kw">move </span>|| back.set(at.saturating_sub(<span class="number">1</span>))),
+<a href="#362" id="362" data-nosnippet="">362</a>                    Text::new(
+<a href="#363" id="363" data-nosnippet="">363</a>                        labels
+<a href="#364" id="364" data-nosnippet="">364</a>                            .inspector_item
+<a href="#365" id="365" data-nosnippet="">365</a>                            .replace(<span class="string">"{0}"</span>, <span class="kw-2">&amp;</span>(at + <span class="number">1</span>).to_string())
+<a href="#366" id="366" data-nosnippet="">366</a>                            .replace(<span class="string">"{1}"</span>, <span class="kw-2">&amp;</span>shown.to_string()),
+<a href="#367" id="367" data-nosnippet="">367</a>                    )
+<a href="#368" id="368" data-nosnippet="">368</a>                    .style(TextStyle::Callout),
+<a href="#369" id="369" data-nosnippet="">369</a>                    IconButton::new(IconName::ChevronRight)
+<a href="#370" id="370" data-nosnippet="">370</a>                        .label(labels.inspector_next.clone())
+<a href="#371" id="371" data-nosnippet="">371</a>                        .size(ButtonSize::Small)
+<a href="#372" id="372" data-nosnippet="">372</a>                        .style(ButtonStyle::Ghost)
+<a href="#373" id="373" data-nosnippet="">373</a>                        .disabled(at == last)
+<a href="#374" id="374" data-nosnippet="">374</a>                        .on_click(<span class="kw">move </span>|| next.set((at + <span class="number">1</span>).min(last))),
+<a href="#375" id="375" data-nosnippet="">375</a>                    Spacer::new(),
+<a href="#376" id="376" data-nosnippet="">376</a>                ))
+<a href="#377" id="377" data-nosnippet="">377</a>                .spacing(<span class="number">4.0</span>)
+<a href="#378" id="378" data-nosnippet="">378</a>                .align(Align::Center),
+<a href="#379" id="379" data-nosnippet="">379</a>            ));
+<a href="#380" id="380" data-nosnippet="">380</a>        }
+<a href="#381" id="381" data-nosnippet="">381</a>        <span class="kw">let </span>items = <span class="kw-2">&amp;</span><span class="self">self</span>.items[..shown];
+<a href="#382" id="382" data-nosnippet="">382</a>        <span class="kw">let </span>body: AnyView = <span class="kw">match </span>mode.get() {
+<a href="#383" id="383" data-nosnippet="">383</a>            <span class="number">1 </span>=&gt; {
+<a href="#384" id="384" data-nosnippet="">384</a>                <span class="kw">let </span>picked = selected.clone();
+<a href="#385" id="385" data-nosnippet="">385</a>                <span class="kw">let </span>on_pick = <span class="self">self</span>.on_pick.clone();
+<a href="#386" id="386" data-nosnippet="">386</a>                <span class="kw">let </span>roots: Vec&lt;TreeNode&gt; = <span class="kw">match </span><span class="kw-2">&amp;</span>items[at] {
+<a href="#387" id="387" data-nosnippet="">387</a>                    Value::Object(map) =&gt; map
+<a href="#388" id="388" data-nosnippet="">388</a>                        .iter()
+<a href="#389" id="389" data-nosnippet="">389</a>                        .map(|(k, v)| {
+<a href="#390" id="390" data-nosnippet="">390</a>                            tree(<span class="kw-2">&amp;mut </span><span class="macro">vec!</span>[PathStep::Key(k.clone())], k.clone(), v, <span class="self">self</span>.limit, <span class="kw-2">&amp;</span>labels)
+<a href="#391" id="391" data-nosnippet="">391</a>                        })
+<a href="#392" id="392" data-nosnippet="">392</a>                        .collect(),
+<a href="#393" id="393" data-nosnippet="">393</a>                    other =&gt; <span class="macro">vec!</span>[tree(<span class="kw-2">&amp;mut </span>Vec::new(), <span class="string">"item"</span>.to_owned(), other, <span class="self">self</span>.limit, <span class="kw-2">&amp;</span>labels)],
+<a href="#394" id="394" data-nosnippet="">394</a>                };
+<a href="#395" id="395" data-nosnippet="">395</a>                <span class="comment">// A pick in the tree is heard as the path chosen.
+<a href="#396" id="396" data-nosnippet="">396</a>                </span><span class="kw">let </span>read = picked.clone();
+<a href="#397" id="397" data-nosnippet="">397</a>                <span class="kw">let </span>heard = Binding::new(
+<a href="#398" id="398" data-nosnippet="">398</a>                    <span class="kw">move </span>|| read.get(),
+<a href="#399" id="399" data-nosnippet="">399</a>                    <span class="kw">move </span>|path: <span class="prelude-ty">Option</span>&lt;String&gt;| {
+<a href="#400" id="400" data-nosnippet="">400</a>                        <span class="kw">if let </span>(<span class="prelude-val">Some</span>(path), <span class="prelude-val">Some</span>(on_pick)) = (<span class="kw-2">&amp;</span>path, <span class="kw-2">&amp;</span>on_pick) {
+<a href="#401" id="401" data-nosnippet="">401</a>                            on_pick(path);
+<a href="#402" id="402" data-nosnippet="">402</a>                        }
+<a href="#403" id="403" data-nosnippet="">403</a>                        picked.set(path);
+<a href="#404" id="404" data-nosnippet="">404</a>                    },
+<a href="#405" id="405" data-nosnippet="">405</a>                );
+<a href="#406" id="406" data-nosnippet="">406</a>                Box::new(
+<a href="#407" id="407" data-nosnippet="">407</a>                    TreeView::new(roots)
+<a href="#408" id="408" data-nosnippet="">408</a>                        .selected(heard)
+<a href="#409" id="409" data-nosnippet="">409</a>                        .expanded(expanded.binding())
+<a href="#410" id="410" data-nosnippet="">410</a>                        .label(<span class="self">self</span>.label.clone().unwrap_or_else(|| labels.inspector_tree.clone())),
+<a href="#411" id="411" data-nosnippet="">411</a>                )
+<a href="#412" id="412" data-nosnippet="">412</a>            }
+<a href="#413" id="413" data-nosnippet="">413</a>            <span class="number">2 </span>=&gt; Box::new(ScrollView::new((Text::new(
+<a href="#414" id="414" data-nosnippet="">414</a>                serde_json::to_string_pretty(<span class="kw-2">&amp;</span>items[at]).unwrap_or_default(),
+<a href="#415" id="415" data-nosnippet="">415</a>            )
+<a href="#416" id="416" data-nosnippet="">416</a>            .style(TextStyle::Callout),))),
+<a href="#417" id="417" data-nosnippet="">417</a>            <span class="number">3 </span>=&gt; {
+<a href="#418" id="418" data-nosnippet="">418</a>                <span class="kw">let </span><span class="kw-2">mut </span>table = Table::new([
+<a href="#419" id="419" data-nosnippet="">419</a>                    Column::new(labels.inspector_path.clone()),
+<a href="#420" id="420" data-nosnippet="">420</a>                    Column::new(labels.inspector_kind.clone()),
+<a href="#421" id="421" data-nosnippet="">421</a>                    Column::new(labels.inspector_in.clone()),
+<a href="#422" id="422" data-nosnippet="">422</a>                ]);
+<a href="#423" id="423" data-nosnippet="">423</a>                <span class="kw">for </span>(path, (kinds, count)) <span class="kw">in </span>schema(items) {
+<a href="#424" id="424" data-nosnippet="">424</a>                    <span class="kw">let </span>words: Vec&lt;String&gt; = kinds
+<a href="#425" id="425" data-nosnippet="">425</a>                        .iter()
+<a href="#426" id="426" data-nosnippet="">426</a>                        .map(|k| <span class="kw">match </span>k.as_str() {
+<a href="#427" id="427" data-nosnippet="">427</a>                            <span class="string">"null" </span>=&gt; <span class="string">"null"</span>.to_owned(),
+<a href="#428" id="428" data-nosnippet="">428</a>                            <span class="string">"boolean" </span>=&gt; labels.inspector_boolean.clone(),
+<a href="#429" id="429" data-nosnippet="">429</a>                            <span class="string">"number" </span>=&gt; labels.inspector_number.clone(),
+<a href="#430" id="430" data-nosnippet="">430</a>                            <span class="string">"text" </span>=&gt; labels.inspector_text.clone(),
+<a href="#431" id="431" data-nosnippet="">431</a>                            <span class="string">"list" </span>=&gt; labels.inspector_list.clone(),
+<a href="#432" id="432" data-nosnippet="">432</a>                            <span class="kw">_ </span>=&gt; labels.inspector_object.clone(),
+<a href="#433" id="433" data-nosnippet="">433</a>                        })
+<a href="#434" id="434" data-nosnippet="">434</a>                        .collect();
+<a href="#435" id="435" data-nosnippet="">435</a>                    <span class="kw">let </span>mark = <span class="kw">if </span>selected.get().as_deref() == <span class="prelude-val">Some</span>(path.as_str()) { <span class="string">"▸ " </span>} <span class="kw">else </span>{ <span class="string">"" </span>};
+<a href="#436" id="436" data-nosnippet="">436</a>                    table = table.row([
+<a href="#437" id="437" data-nosnippet="">437</a>                        <span class="macro">format!</span>(<span class="string">"{mark}{path}"</span>),
+<a href="#438" id="438" data-nosnippet="">438</a>                        words.join(<span class="string">" · "</span>),
+<a href="#439" id="439" data-nosnippet="">439</a>                        labels
+<a href="#440" id="440" data-nosnippet="">440</a>                            .inspector_present
+<a href="#441" id="441" data-nosnippet="">441</a>                            .replace(<span class="string">"{0}"</span>, <span class="kw-2">&amp;</span>count.to_string())
+<a href="#442" id="442" data-nosnippet="">442</a>                            .replace(<span class="string">"{1}"</span>, <span class="kw-2">&amp;</span>items.len().to_string()),
+<a href="#443" id="443" data-nosnippet="">443</a>                    ]);
+<a href="#444" id="444" data-nosnippet="">444</a>                }
+<a href="#445" id="445" data-nosnippet="">445</a>                Box::new(table)
+<a href="#446" id="446" data-nosnippet="">446</a>            }
+<a href="#447" id="447" data-nosnippet="">447</a>            <span class="kw">_ </span>=&gt; {
+<a href="#448" id="448" data-nosnippet="">448</a>                <span class="comment">// A column per key, in the order the keys sort (as JSON objects keep them).
+<a href="#449" id="449" data-nosnippet="">449</a>                </span><span class="kw">let </span><span class="kw-2">mut </span>keys: Vec&lt;String&gt; = Vec::new();
+<a href="#450" id="450" data-nosnippet="">450</a>                <span class="kw">for </span>it <span class="kw">in </span>items {
+<a href="#451" id="451" data-nosnippet="">451</a>                    <span class="kw">if let </span>Value::Object(map) = it {
+<a href="#452" id="452" data-nosnippet="">452</a>                        <span class="kw">for </span>k <span class="kw">in </span>map.keys() {
+<a href="#453" id="453" data-nosnippet="">453</a>                            <span class="kw">if </span>!keys.contains(k) {
+<a href="#454" id="454" data-nosnippet="">454</a>                                keys.push(k.clone());
+<a href="#455" id="455" data-nosnippet="">455</a>                            }
+<a href="#456" id="456" data-nosnippet="">456</a>                        }
+<a href="#457" id="457" data-nosnippet="">457</a>                    }
+<a href="#458" id="458" data-nosnippet="">458</a>                }
+<a href="#459" id="459" data-nosnippet="">459</a>                <span class="kw">let </span><span class="kw-2">mut </span>table = Table::new(keys.iter().map(|k| Column::new(k.clone())));
+<a href="#460" id="460" data-nosnippet="">460</a>                <span class="kw">for </span>it <span class="kw">in </span>items {
+<a href="#461" id="461" data-nosnippet="">461</a>                    table = table.row(keys.iter().map(|k| cell(it.get(k.as_str()), <span class="kw-2">&amp;</span>labels)));
+<a href="#462" id="462" data-nosnippet="">462</a>                }
+<a href="#463" id="463" data-nosnippet="">463</a>                Box::new(table)
+<a href="#464" id="464" data-nosnippet="">464</a>            }
+<a href="#465" id="465" data-nosnippet="">465</a>        };
+<a href="#466" id="466" data-nosnippet="">466</a>        parts.push(body);
+<a href="#467" id="467" data-nosnippet="">467</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(path) = selected.get() {
+<a href="#468" id="468" data-nosnippet="">468</a>            parts.push(Box::new(
+<a href="#469" id="469" data-nosnippet="">469</a>                Text::new(labels.inspector_chosen.replace(<span class="string">"{0}"</span>, <span class="kw-2">&amp;</span>path))
+<a href="#470" id="470" data-nosnippet="">470</a>                    .style(TextStyle::Callout)
+<a href="#471" id="471" data-nosnippet="">471</a>                    .foreground(Semantic::InkMuted),
+<a href="#472" id="472" data-nosnippet="">472</a>            ));
+<a href="#473" id="473" data-nosnippet="">473</a>            <span class="comment">// The field chosen can be carried to an expression, or copied as one from the keyboard.
+<a href="#474" id="474" data-nosnippet="">474</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>keys = BTreeMap::new();
+<a href="#475" id="475" data-nosnippet="">475</a>            keys_of(<span class="kw-2">&amp;</span>items[at], <span class="kw-2">&amp;mut </span>Vec::new(), <span class="kw-2">&amp;mut </span>keys);
+<a href="#476" id="476" data-nosnippet="">476</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(found) = keys.get(<span class="kw-2">&amp;</span>path) {
+<a href="#477" id="477" data-nosnippet="">477</a>                <span class="kw">let </span>field = FieldDrag::new(path.clone(), <span class="kw">crate</span>::field_expression(found));
+<a href="#478" id="478" data-nosnippet="">478</a>                <span class="kw">let </span>(clipboard, expression) = (cx.clipboard(), field.expression.clone());
+<a href="#479" id="479" data-nosnippet="">479</a>                parts.push(Box::new(
+<a href="#480" id="480" data-nosnippet="">480</a>                    HStack::new((
+<a href="#481" id="481" data-nosnippet="">481</a>                        Carry { words: labels.inspector_drag.replace(<span class="string">"{0}"</span>, <span class="kw-2">&amp;</span>path), field },
+<a href="#482" id="482" data-nosnippet="">482</a>                        Button::new(labels.inspector_copy.clone())
+<a href="#483" id="483" data-nosnippet="">483</a>                            .icon(IconName::Copy)
+<a href="#484" id="484" data-nosnippet="">484</a>                            .style(ButtonStyle::Secondary)
+<a href="#485" id="485" data-nosnippet="">485</a>                            .size(ButtonSize::Small)
+<a href="#486" id="486" data-nosnippet="">486</a>                            .on_click(<span class="kw">move </span>|| clipboard.write(<span class="kw-2">&amp;</span>expression)),
+<a href="#487" id="487" data-nosnippet="">487</a>                    ))
+<a href="#488" id="488" data-nosnippet="">488</a>                    .spacing(<span class="number">8.0</span>)
+<a href="#489" id="489" data-nosnippet="">489</a>                    .align(Align::Center),
+<a href="#490" id="490" data-nosnippet="">490</a>                ));
+<a href="#491" id="491" data-nosnippet="">491</a>            }
+<a href="#492" id="492" data-nosnippet="">492</a>        }
+<a href="#493" id="493" data-nosnippet="">493</a>        cx.child(<span class="kw-2">&amp;</span>VStack::new(parts).spacing(<span class="number">8.0</span>).align(Align::Stretch))
+<a href="#494" id="494" data-nosnippet="">494</a>    }
+<a href="#495" id="495" data-nosnippet="">495</a>}
+<a href="#496" id="496" data-nosnippet="">496</a>
+<a href="#497" id="497" data-nosnippet="">497</a><span class="attr">#[cfg(test)]
+<a href="#498" id="498" data-nosnippet="">498</a></span><span class="kw">mod </span>tests {
+<a href="#499" id="499" data-nosnippet="">499</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#500" id="500" data-nosnippet="">500</a>
+<a href="#501" id="501" data-nosnippet="">501</a>    <span class="attr">#[test]
+<a href="#502" id="502" data-nosnippet="">502</a>    </span><span class="kw">fn </span>a_path_quotes_what_is_not_a_plain_word() {
+<a href="#503" id="503" data-nosnippet="">503</a>        <span class="kw">let </span>steps =
+<a href="#504" id="504" data-nosnippet="">504</a>            [PathStep::Key(<span class="string">"cliente"</span>.into()), PathStep::Key(<span class="string">"nome completo"</span>.into()), PathStep::Row(<span class="number">2</span>)];
+<a href="#505" id="505" data-nosnippet="">505</a>        <span class="macro">assert_eq!</span>(field_path(<span class="kw-2">&amp;</span>steps), <span class="string">r#"cliente["nome completo"][2]"#</span>);
+<a href="#506" id="506" data-nosnippet="">506</a>        <span class="macro">assert_eq!</span>(
+<a href="#507" id="507" data-nosnippet="">507</a>            field_path(<span class="kw-2">&amp;</span>[PathStep::Key(<span class="string">"itens"</span>.into()), PathStep::Row(<span class="number">0</span>), PathStep::Key(<span class="string">"preço"</span>.into())]),
+<a href="#508" id="508" data-nosnippet="">508</a>            <span class="string">"itens[0].preço"
+<a href="#509" id="509" data-nosnippet="">509</a>        </span>);
+<a href="#510" id="510" data-nosnippet="">510</a>    }
+<a href="#511" id="511" data-nosnippet="">511</a>
+<a href="#512" id="512" data-nosnippet="">512</a>    <span class="attr">#[test]
+<a href="#513" id="513" data-nosnippet="">513</a>    </span><span class="kw">fn </span>the_schema_counts_in_how_many_items_a_field_is() {
+<a href="#514" id="514" data-nosnippet="">514</a>        <span class="kw">let </span>items = <span class="macro">vec!</span>[<span class="macro">serde_json::json!</span>({<span class="string">"a"</span>: <span class="number">1</span>, <span class="string">"b"</span>: null}), <span class="macro">serde_json::json!</span>({<span class="string">"a"</span>: <span class="string">"x"</span>})];
+<a href="#515" id="515" data-nosnippet="">515</a>        <span class="kw">let </span>seen = schema(<span class="kw-2">&amp;</span>items);
+<a href="#516" id="516" data-nosnippet="">516</a>        <span class="macro">assert_eq!</span>(seen[<span class="string">"a"</span>].<span class="number">1</span>, <span class="number">2</span>);
+<a href="#517" id="517" data-nosnippet="">517</a>        <span class="macro">assert_eq!</span>(seen[<span class="string">"a"</span>].<span class="number">0</span>.len(), <span class="number">2</span>, <span class="string">"a number and a text"</span>);
+<a href="#518" id="518" data-nosnippet="">518</a>        <span class="macro">assert_eq!</span>(seen[<span class="string">"b"</span>].<span class="number">1</span>, <span class="number">1</span>, <span class="string">"absent in the second"</span>);
+<a href="#519" id="519" data-nosnippet="">519</a>    }
+<a href="#520" id="520" data-nosnippet="">520</a>}
+</code></pre></div></section></main></body></html>

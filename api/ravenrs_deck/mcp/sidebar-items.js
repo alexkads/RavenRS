@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_PORT","PROTOCOL_VERSION"],"fn":["call_tool","control_addr","tool_definitions"],"struct":["Headless","Remote","Server","ToolResult"],"trait":["Backend"]};

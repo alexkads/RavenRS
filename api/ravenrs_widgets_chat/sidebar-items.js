@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ChatAuthor","CodeLanguage"],"fn":["find_all","highlight_rust","line_and_column","offset_of"],"struct":["Attachment","AttachmentStrip","AudioPlayerButton","Chat","ChatMedia","ChatMessage","CodeCompletion","CodeDiagnostic","CodeEditor","FloatingPanel","Playground","RichText","RunOutput","SelectionBar"],"trait":["Runner"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["document_of","document_of_with","export","export_with","paper_colors"]};

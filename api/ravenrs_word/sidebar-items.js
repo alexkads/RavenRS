@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["doc","docbin","docx","formats","geom","metafile"]};

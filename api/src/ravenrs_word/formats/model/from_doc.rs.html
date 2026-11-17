@@ -1,0 +1,1250 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>from_doc.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="ravenrs_word" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../src-files.js"></script><script defer="" src="../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-word/src/formats/model/from_doc.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_word/formats/model/from_doc.rs.html"><meta property="og:title" content="from_doc.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-word/src/formats/model/from_doc.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_word/formats/model/from_doc.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="from_doc.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-word/src/formats/model/from_doc.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"from_doc.rs - source","description":"Source of the Rust file `crates/ravenrs-word/src/formats/model/from_doc.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_word/formats/model/from_doc.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_word/formats/model/</div>from_doc.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="kw">use </span><span class="kw">super</span>::types::{
+<a href="#2" id="2" data-nosnippet="">2</a>    BoxLook, Cell, FBlock, FComment, FTable, Flow, FlowOpts, Fmt, FmtChange, Img, Inline, Kind, ListInfo, MAX_DEPTH, MAX_GROUP_DEPTH, Member, Meta,
+<a href="#3" id="3" data-nosnippet="">3</a>    Para, RevMark, Spacing,
+<a href="#4" id="4" data-nosnippet="">4</a>};
+<a href="#5" id="5" data-nosnippet="">5</a><span class="kw">use super</span>::{
+<a href="#6" id="6" data-nosnippet="">6</a>    Arc, Block, Blocks, CharProps, Document, InlineObject, NumFormat, OBJ, PAGE_BREAK, ParaProps, Paragraph, StyleKind, Table, TextColor, Underline,
+<a href="#7" id="7" data-nosnippet="">7</a>    VMerge, VertAlign,
+<a href="#8" id="8" data-nosnippet="">8</a>};
+<a href="#9" id="9" data-nosnippet="">9</a>
+<a href="#10" id="10" data-nosnippet="">10</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>uses_kind(blocks: <span class="kw-2">&amp;</span>[FBlock], k: Kind, depth: usize) -&gt; bool {
+<a href="#11" id="11" data-nosnippet="">11</a>    depth &lt;= MAX_DEPTH
+<a href="#12" id="12" data-nosnippet="">12</a>        &amp;&amp; blocks.iter().any(|b| <span class="kw">match </span>b {
+<a href="#13" id="13" data-nosnippet="">13</a>            FBlock::Para(p) =&gt; p.kind == k,
+<a href="#14" id="14" data-nosnippet="">14</a>            FBlock::Table(t) =&gt; t.rows.iter().flatten().any(|c| uses_kind(<span class="kw-2">&amp;</span>c.blocks, k, depth + <span class="number">1</span>)),
+<a href="#15" id="15" data-nosnippet="">15</a>        })
+<a href="#16" id="16" data-nosnippet="">16</a>}
+<a href="#17" id="17" data-nosnippet="">17</a>
+<a href="#18" id="18" data-nosnippet="">18</a><span class="comment">// ---------------------------------------------------------------------------------------------
+<a href="#19" id="19" data-nosnippet="">19</a>// Document → Flow
+<a href="#20" id="20" data-nosnippet="">20</a>
+<a href="#21" id="21" data-nosnippet="">21</a></span><span class="doccomment">/// Is this a monospace family name?
+<a href="#22" id="22" data-nosnippet="">22</a></span><span class="kw">pub fn </span>is_mono(font: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href="#23" id="23" data-nosnippet="">23</a>    <span class="kw">let </span>f = font.to_ascii_lowercase();
+<a href="#24" id="24" data-nosnippet="">24</a>    f.contains(<span class="string">"courier"</span>) || f.contains(<span class="string">"mono"</span>) || f.contains(<span class="string">"consolas"</span>) || f.contains(<span class="string">"menlo"</span>) || f.contains(<span class="string">"code"</span>) || f == <span class="string">"monaco"
+<a href="#25" id="25" data-nosnippet="">25</a></span>}
+<a href="#26" id="26" data-nosnippet="">26</a>
+<a href="#27" id="27" data-nosnippet="">27</a><span class="kw">fn </span>is_code_style(doc: <span class="kw-2">&amp;</span>Document, id: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href="#28" id="28" data-nosnippet="">28</a>    <span class="kw">let </span>names = |s: <span class="kw-2">&amp;</span>str| {
+<a href="#29" id="29" data-nosnippet="">29</a>        <span class="kw">let </span>l = s.to_ascii_lowercase().replace([<span class="string">' '</span>, <span class="string">'-'</span>, <span class="string">'_'</span>], <span class="string">""</span>);
+<a href="#30" id="30" data-nosnippet="">30</a>        l == <span class="string">"code" </span>|| l.contains(<span class="string">"preformatted"</span>) || l == <span class="string">"plaintext" </span>|| l == <span class="string">"codeblock" </span>|| l == <span class="string">"sourcecode"
+<a href="#31" id="31" data-nosnippet="">31</a>    </span>};
+<a href="#32" id="32" data-nosnippet="">32</a>    doc.styles.chain(id).iter().any(|s| names(<span class="kw-2">&amp;</span>s.id) || names(<span class="kw-2">&amp;</span>s.name)) || names(id)
+<a href="#33" id="33" data-nosnippet="">33</a>}
+<a href="#34" id="34" data-nosnippet="">34</a>
+<a href="#35" id="35" data-nosnippet="">35</a><span class="doccomment">/// Character formatting from a run's character style chain plus direct formatting (the
+<a href="#36" id="36" data-nosnippet="">36</a>/// paragraph style is left out: it is expressed by the paragraph kind).
+<a href="#37" id="37" data-nosnippet="">37</a></span><span class="kw">fn </span>effective(doc: <span class="kw-2">&amp;</span>Document, cp: <span class="kw-2">&amp;</span>CharProps) -&gt; CharProps {
+<a href="#38" id="38" data-nosnippet="">38</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = CharProps::default();
+<a href="#39" id="39" data-nosnippet="">39</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(cs) = cp.style.as_deref() {
+<a href="#40" id="40" data-nosnippet="">40</a>        <span class="kw">for </span>s <span class="kw">in </span>doc.styles.chain(cs) {
+<a href="#41" id="41" data-nosnippet="">41</a>            <span class="kw">if </span>s.kind == StyleKind::Character {
+<a href="#42" id="42" data-nosnippet="">42</a>                out.overlay(<span class="kw-2">&amp;</span>s.chr);
+<a href="#43" id="43" data-nosnippet="">43</a>            }
+<a href="#44" id="44" data-nosnippet="">44</a>        }
+<a href="#45" id="45" data-nosnippet="">45</a>    }
+<a href="#46" id="46" data-nosnippet="">46</a>    <span class="kw">let </span><span class="kw-2">mut </span>direct = cp.clone();
+<a href="#47" id="47" data-nosnippet="">47</a>    direct.style = <span class="prelude-val">None</span>;
+<a href="#48" id="48" data-nosnippet="">48</a>    out.overlay(<span class="kw-2">&amp;</span>direct);
+<a href="#49" id="49" data-nosnippet="">49</a>    out
+<a href="#50" id="50" data-nosnippet="">50</a>}
+<a href="#51" id="51" data-nosnippet="">51</a>
+<a href="#52" id="52" data-nosnippet="">52</a><span class="kw">fn </span>fmt_of(doc: <span class="kw-2">&amp;</span>Document, cp: <span class="kw-2">&amp;</span>CharProps, in_code: bool) -&gt; Fmt {
+<a href="#53" id="53" data-nosnippet="">53</a>    <span class="kw">let </span>e = effective(doc, cp);
+<a href="#54" id="54" data-nosnippet="">54</a>    <span class="kw">let </span>code = !in_code &amp;&amp; e.font.as_deref().is_some_and(is_mono);
+<a href="#55" id="55" data-nosnippet="">55</a>    Fmt {
+<a href="#56" id="56" data-nosnippet="">56</a>        bold: e.bold.unwrap_or(<span class="bool-val">false</span>),
+<a href="#57" id="57" data-nosnippet="">57</a>        italic: e.italic.unwrap_or(<span class="bool-val">false</span>),
+<a href="#58" id="58" data-nosnippet="">58</a>        underline: e.underline.is_some_and(|u| u != Underline::None) &amp;&amp; e.link.is_none(),
+<a href="#59" id="59" data-nosnippet="">59</a>        strike: e.strike.unwrap_or(<span class="bool-val">false</span>) || e.double_strike.unwrap_or(<span class="bool-val">false</span>),
+<a href="#60" id="60" data-nosnippet="">60</a>        code,
+<a href="#61" id="61" data-nosnippet="">61</a>        sup: e.vert_align == <span class="prelude-val">Some</span>(VertAlign::Superscript),
+<a href="#62" id="62" data-nosnippet="">62</a>        sub: e.vert_align == <span class="prelude-val">Some</span>(VertAlign::Subscript),
+<a href="#63" id="63" data-nosnippet="">63</a>        link: e.link.as_deref().map(Arc::from),
+<a href="#64" id="64" data-nosnippet="">64</a>        color: <span class="kw">match </span>e.color {
+<a href="#65" id="65" data-nosnippet="">65</a>            <span class="prelude-val">Some</span>(TextColor::Rgb(c)) =&gt; <span class="prelude-val">Some</span>(c),
+<a href="#66" id="66" data-nosnippet="">66</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#67" id="67" data-nosnippet="">67</a>        },
+<a href="#68" id="68" data-nosnippet="">68</a>        size: e.size,
+<a href="#69" id="69" data-nosnippet="">69</a>        font: <span class="kw">if </span>code || in_code { <span class="prelude-val">None </span>} <span class="kw">else </span>{ e.shown_font().map(Arc::from) },
+<a href="#70" id="70" data-nosnippet="">70</a>        background: e.highlight.and_then(|h| h.rgb()).or(e.shading),
+<a href="#71" id="71" data-nosnippet="">71</a>        ins: <span class="prelude-val">None</span>,
+<a href="#72" id="72" data-nosnippet="">72</a>        del: <span class="prelude-val">None</span>,
+<a href="#73" id="73" data-nosnippet="">73</a>        fmt_change: <span class="prelude-val">None</span>,
+<a href="#74" id="74" data-nosnippet="">74</a>        extra: <span class="prelude-val">None</span>,
+<a href="#75" id="75" data-nosnippet="">75</a>    }
+<a href="#76" id="76" data-nosnippet="">76</a>}
+<a href="#77" id="77" data-nosnippet="">77</a>
+<a href="#78" id="78" data-nosnippet="">78</a><span class="doccomment">/// The flow formatting of a run with properties `props`: with `opts.chars`, its extra formatting,
+<a href="#79" id="79" data-nosnippet="">79</a>/// its custom character style by name (only its direct formatting then its own) and a
+<a href="#80" id="80" data-nosnippet="">80</a>/// monospaced font by its name.
+<a href="#81" id="81" data-nosnippet="">81</a></span><span class="kw">fn </span>run_fmt(doc: <span class="kw-2">&amp;</span>Document, para_style: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;, props: <span class="kw-2">&amp;</span>CharProps, in_code: bool, opts: FlowOpts) -&gt; Fmt {
+<a href="#82" id="82" data-nosnippet="">82</a>    <span class="kw">let </span><span class="kw-2">mut </span>f = fmt_of(doc, props, in_code);
+<a href="#83" id="83" data-nosnippet="">83</a>    <span class="kw">if </span>!opts.chars {
+<a href="#84" id="84" data-nosnippet="">84</a>        <span class="kw">return </span>f;
+<a href="#85" id="85" data-nosnippet="">85</a>    }
+<a href="#86" id="86" data-nosnippet="">86</a>    <span class="kw">let </span>custom = props.style.as_deref().filter(|id| is_custom_char_style(doc, id));
+<a href="#87" id="87" data-nosnippet="">87</a>    <span class="kw">let </span>direct;
+<a href="#88" id="88" data-nosnippet="">88</a>    <span class="kw">let </span>props_now = <span class="kw">match </span>custom {
+<a href="#89" id="89" data-nosnippet="">89</a>        <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {
+<a href="#90" id="90" data-nosnippet="">90</a>            direct = CharProps { style: <span class="prelude-val">None</span>, ..props.clone() };
+<a href="#91" id="91" data-nosnippet="">91</a>            f = fmt_of(doc, <span class="kw-2">&amp;</span>direct, in_code);
+<a href="#92" id="92" data-nosnippet="">92</a>            <span class="kw-2">&amp;</span>direct
+<a href="#93" id="93" data-nosnippet="">93</a>        }
+<a href="#94" id="94" data-nosnippet="">94</a>        <span class="prelude-val">None </span>=&gt; props,
+<a href="#95" id="95" data-nosnippet="">95</a>    };
+<a href="#96" id="96" data-nosnippet="">96</a>    <span class="kw">let </span>e = effective(doc, props_now);
+<a href="#97" id="97" data-nosnippet="">97</a>    f.extra = extra_of(<span class="kw-2">&amp;</span>e);
+<a href="#98" id="98" data-nosnippet="">98</a>    <span class="comment">// Kerning on or off where it differs from the document's default.
+<a href="#99" id="99" data-nosnippet="">99</a>    </span><span class="kw">let </span>kerns = |k: <span class="prelude-ty">Option</span>&lt;f32&gt;| k.is_some_and(|k| k.is_finite() &amp;&amp; k &gt; <span class="number">0.0</span>);
+<a href="#100" id="100" data-nosnippet="">100</a>    <span class="kw">let </span>(kern, default) = (kerns(e.kern.or(doc.styles.default_chr.kern)), kerns(doc.styles.default_chr.kern));
+<a href="#101" id="101" data-nosnippet="">101</a>    <span class="kw">if </span>kern != default {
+<a href="#102" id="102" data-nosnippet="">102</a>        f.extra.get_or_insert_with(Default::default).kern = <span class="prelude-val">Some</span>(<span class="kw">if </span>kern { <span class="number">1.0 </span>} <span class="kw">else </span>{ <span class="number">0.0 </span>});
+<a href="#103" id="103" data-nosnippet="">103</a>    }
+<a href="#104" id="104" data-nosnippet="">104</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(id) = custom {
+<a href="#105" id="105" data-nosnippet="">105</a>        f.extra.get_or_insert_with(Default::default).style = <span class="prelude-val">Some</span>(id.to_string());
+<a href="#106" id="106" data-nosnippet="">106</a>    }
+<a href="#107" id="107" data-nosnippet="">107</a>    <span class="comment">// A size stated without a complex-script size leaves the complex size to what is above it
+<a href="#108" id="108" data-nosnippet="">108</a>    // (a style's, or this size where none says one): said where it isn't this size, since a
+<a href="#109" id="109" data-nosnippet="">109</a>    // writer that gives every script the one size would otherwise change it.
+<a href="#110" id="110" data-nosnippet="">110</a>    </span><span class="kw">let </span>sized = props.size.is_some() || custom.is_some_and(|id| doc.styles.chain(id).iter().any(|s| s.chr.size.is_some()));
+<a href="#111" id="111" data-nosnippet="">111</a>    <span class="kw">if </span>props.size_cs.is_none() &amp;&amp; sized &amp;&amp; f.extra.as_ref().is_none_or(|x| x.size_cs.is_none()) {
+<a href="#112" id="112" data-nosnippet="">112</a>        <span class="kw">let </span>cs = doc.styles.resolve_char(para_style, props).size_cs;
+<a href="#113" id="113" data-nosnippet="">113</a>        <span class="kw">if </span>f.size != <span class="prelude-val">Some</span>(cs) {
+<a href="#114" id="114" data-nosnippet="">114</a>            f.extra.get_or_insert_with(Default::default).size_cs = <span class="prelude-val">Some</span>(cs);
+<a href="#115" id="115" data-nosnippet="">115</a>        }
+<a href="#116" id="116" data-nosnippet="">116</a>    }
+<a href="#117" id="117" data-nosnippet="">117</a>    <span class="kw">if </span>f.code {
+<a href="#118" id="118" data-nosnippet="">118</a>        f.code = <span class="bool-val">false</span>;
+<a href="#119" id="119" data-nosnippet="">119</a>        f.font = e.shown_font().map(Arc::from);
+<a href="#120" id="120" data-nosnippet="">120</a>    }
+<a href="#121" id="121" data-nosnippet="">121</a>    f
+<a href="#122" id="122" data-nosnippet="">122</a>}
+<a href="#123" id="123" data-nosnippet="">123</a>
+<a href="#124" id="124" data-nosnippet="">124</a><span class="doccomment">/// The formatting in `e` (effective character properties) that only [`Fmt::extra`] holds;
+<a href="#125" id="125" data-nosnippet="">125</a>/// `None` when it sets none of it.
+<a href="#126" id="126" data-nosnippet="">126</a></span><span class="kw">fn </span>extra_of(e: <span class="kw-2">&amp;</span>CharProps) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;CharProps&gt;&gt; {
+<a href="#127" id="127" data-nosnippet="">127</a>    <span class="kw">let </span>set = |v: <span class="prelude-ty">Option</span>&lt;bool&gt;| v.filter(|b| <span class="kw-2">*</span>b);
+<a href="#128" id="128" data-nosnippet="">128</a>    <span class="kw">let </span>x = CharProps {
+<a href="#129" id="129" data-nosnippet="">129</a>        <span class="comment">// What it turns off, over what the style of its paragraph or span turns on, too.
+<a href="#130" id="130" data-nosnippet="">130</a>        </span>bold: e.bold.filter(|b| !<span class="kw-2">*</span>b),
+<a href="#131" id="131" data-nosnippet="">131</a>        italic: e.italic.filter(|b| !<span class="kw-2">*</span>b),
+<a href="#132" id="132" data-nosnippet="">132</a>        strike: e.strike.filter(|b| !<span class="kw-2">*</span>b),
+<a href="#133" id="133" data-nosnippet="">133</a>        underline: e.underline.filter(|u| <span class="kw-2">*</span>u != Underline::Single),
+<a href="#134" id="134" data-nosnippet="">134</a>        underline_color: e.underline_color,
+<a href="#135" id="135" data-nosnippet="">135</a>        double_strike: set(e.double_strike),
+<a href="#136" id="136" data-nosnippet="">136</a>        caps: e.caps,
+<a href="#137" id="137" data-nosnippet="">137</a>        small_caps: e.small_caps,
+<a href="#138" id="138" data-nosnippet="">138</a>        hidden: set(e.hidden),
+<a href="#139" id="139" data-nosnippet="">139</a>        spacing: e.spacing.filter(|v| <span class="kw-2">*</span>v != <span class="number">0.0 </span>&amp;&amp; v.is_finite()),
+<a href="#140" id="140" data-nosnippet="">140</a>        scale: e.scale.filter(|v| <span class="kw-2">*</span>v != <span class="number">100.0 </span>&amp;&amp; v.is_finite()),
+<a href="#141" id="141" data-nosnippet="">141</a>        emphasis: e.emphasis.filter(|m| <span class="kw-2">*</span>m != <span class="kw">crate</span>::doc::props::EmphasisMark::None),
+<a href="#142" id="142" data-nosnippet="">142</a>        position: e.position.filter(|v| <span class="kw-2">*</span>v != <span class="number">0.0 </span>&amp;&amp; v.is_finite()),
+<a href="#143" id="143" data-nosnippet="">143</a>        outline: set(e.outline),
+<a href="#144" id="144" data-nosnippet="">144</a>        shadow: set(e.shadow),
+<a href="#145" id="145" data-nosnippet="">145</a>        emboss: set(e.emboss),
+<a href="#146" id="146" data-nosnippet="">146</a>        engrave: set(e.engrave),
+<a href="#147" id="147" data-nosnippet="">147</a>        border: e.border.filter(|b| b.is_visible()),
+<a href="#148" id="148" data-nosnippet="">148</a>        lang: e.lang.clone().filter(|l| !l.is_empty()),
+<a href="#149" id="149" data-nosnippet="">149</a>        font_cs: e.font_cs.clone().filter(|f| !f.is_empty()),
+<a href="#150" id="150" data-nosnippet="">150</a>        font_ea: e.font_ea.clone().filter(|f| !f.is_empty()),
+<a href="#151" id="151" data-nosnippet="">151</a>        size_cs: e.size_cs.filter(|s| s.is_finite()),
+<a href="#152" id="152" data-nosnippet="">152</a>        bold_cs: e.bold_cs,
+<a href="#153" id="153" data-nosnippet="">153</a>        italic_cs: e.italic_cs,
+<a href="#154" id="154" data-nosnippet="">154</a>        lang_bidi: e.lang_bidi.clone().filter(|l| !l.is_empty()),
+<a href="#155" id="155" data-nosnippet="">155</a>        lang_ea: e.lang_ea.clone().filter(|l| !l.is_empty()),
+<a href="#156" id="156" data-nosnippet="">156</a>        ..Default::default()
+<a href="#157" id="157" data-nosnippet="">157</a>    };
+<a href="#158" id="158" data-nosnippet="">158</a>    (x != CharProps::default()).then(|| Box::new(x))
+<a href="#159" id="159" data-nosnippet="">159</a>}
+<a href="#160" id="160" data-nosnippet="">160</a>
+<a href="#161" id="161" data-nosnippet="">161</a><span class="doccomment">/// Whether character style `id` of `doc` is one of its own rather than one WordCraft gives links,
+<a href="#162" id="162" data-nosnippet="">162</a>/// note and comment marks or placeholders.
+<a href="#163" id="163" data-nosnippet="">163</a></span><span class="kw">pub fn </span>is_custom_char_style(doc: <span class="kw-2">&amp;</span>Document, id: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href="#164" id="164" data-nosnippet="">164</a>    <span class="kw">let </span>builtin =
+<a href="#165" id="165" data-nosnippet="">165</a>        [<span class="string">"DefaultParagraphFont"</span>, <span class="string">"Hyperlink"</span>, <span class="string">"FollowedHyperlink"</span>, <span class="string">"FootnoteReference"</span>, <span class="string">"EndnoteReference"</span>, <span class="string">"CommentReference"</span>, <span class="string">"PlaceholderText"</span>];
+<a href="#166" id="166" data-nosnippet="">166</a>    !builtin.contains(<span class="kw-2">&amp;</span>id) &amp;&amp; doc.styles.get(id).is_some_and(|s| s.kind == <span class="kw">crate</span>::doc::styles::StyleKind::Character)
+<a href="#167" id="167" data-nosnippet="">167</a>}
+<a href="#168" id="168" data-nosnippet="">168</a>
+<a href="#169" id="169" data-nosnippet="">169</a><span class="doccomment">/// Whether paragraph style `id` of `doc` is one of its own rather than one the flow model's
+<a href="#170" id="170" data-nosnippet="">170</a>/// paragraph kinds, lists and notes stand for (Normal, the headings, Title, Quote, Code, List
+<a href="#171" id="171" data-nosnippet="">171</a>/// Paragraph, the note texts).
+<a href="#172" id="172" data-nosnippet="">172</a></span><span class="kw">pub fn </span>is_custom_style(doc: <span class="kw-2">&amp;</span>Document, id: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href="#173" id="173" data-nosnippet="">173</a>    <span class="comment">// The styles the kinds stand for, and the names formats write fixed styles under.
+<a href="#174" id="174" data-nosnippet="">174</a>    </span><span class="kw">let </span>kinds =
+<a href="#175" id="175" data-nosnippet="">175</a>        [<span class="string">"Normal"</span>, <span class="string">"Title"</span>, <span class="string">"Quote"</span>, <span class="kw">super</span>::types::CODE_STYLE, <span class="string">"FootnoteText"</span>, <span class="string">"EndnoteText"</span>, <span class="string">"Standard"</span>, <span class="string">"Footnote"</span>, <span class="string">"Endnote"</span>, <span class="string">"Quotations"</span>];
+<a href="#176" id="176" data-nosnippet="">176</a>    <span class="kw">let </span>heading = id.strip_prefix(<span class="string">"Heading"</span>).is_some_and(|n| n.len() == <span class="number">1 </span>&amp;&amp; n.chars().all(|c| c.is_ascii_digit()));
+<a href="#177" id="177" data-nosnippet="">177</a>    !heading &amp;&amp; !kinds.contains(<span class="kw-2">&amp;</span>id) &amp;&amp; doc.styles.get(id).is_some_and(|s| s.kind == <span class="kw">crate</span>::doc::styles::StyleKind::Paragraph)
+<a href="#178" id="178" data-nosnippet="">178</a>}
+<a href="#179" id="179" data-nosnippet="">179</a>
+<a href="#180" id="180" data-nosnippet="">180</a><span class="doccomment">/// Whether `doc`'s tab stops are measured from each paragraph's indent (an ODF document whose
+<a href="#181" id="181" data-nosnippet="">181</a>/// file says so): [`Para::extra`]'s tab stops then are too.
+<a href="#182" id="182" data-nosnippet="">182</a></span><span class="kw">pub fn </span>tabs_from_indent(doc: <span class="kw-2">&amp;</span>Document) -&gt; bool {
+<a href="#183" id="183" data-nosnippet="">183</a>    doc.settings.odf.is_some_and(|o| o.tabs_from_indent)
+<a href="#184" id="184" data-nosnippet="">184</a>}
+<a href="#185" id="185" data-nosnippet="">185</a>
+<a href="#186" id="186" data-nosnippet="">186</a><span class="doccomment">/// The paragraph formatting only [`Para::extra`] holds that `p` sets itself; `None` when none.
+<a href="#187" id="187" data-nosnippet="">187</a></span><span class="kw">fn </span>para_extra(doc: <span class="kw-2">&amp;</span>Document, p: <span class="kw-2">&amp;</span><span class="kw">crate</span>::doc::props::ParaProps) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">crate</span>::doc::props::ParaProps&gt;&gt; {
+<a href="#188" id="188" data-nosnippet="">188</a>    <span class="kw">let </span>tabs = p.tabs.clone().filter(|t| !t.is_empty()).map(|<span class="kw-2">mut </span>tabs| {
+<a href="#189" id="189" data-nosnippet="">189</a>        <span class="comment">// Measured from the paragraph's indent where the document measures them so (ODT).
+<a href="#190" id="190" data-nosnippet="">190</a>        </span><span class="kw">if </span>tabs_from_indent(doc) {
+<a href="#191" id="191" data-nosnippet="">191</a>            <span class="kw">let </span>indent = doc.styles.resolve_para(p).indent_left;
+<a href="#192" id="192" data-nosnippet="">192</a>            <span class="kw">for </span>t <span class="kw">in </span><span class="kw-2">&amp;mut </span>tabs {
+<a href="#193" id="193" data-nosnippet="">193</a>                t.pos = (t.pos - indent).clamp(-<span class="number">1584.0</span>, <span class="number">1584.0</span>);
+<a href="#194" id="194" data-nosnippet="">194</a>            }
+<a href="#195" id="195" data-nosnippet="">195</a>        }
+<a href="#196" id="196" data-nosnippet="">196</a>        tabs
+<a href="#197" id="197" data-nosnippet="">197</a>    });
+<a href="#198" id="198" data-nosnippet="">198</a>    <span class="kw">let </span>style = p.style.clone().filter(|id| is_custom_style(doc, id));
+<a href="#199" id="199" data-nosnippet="">199</a>    <span class="comment">// Its own, else its custom style's: the kind doesn't say (it stops at Heading 6, and is the
+<a href="#200" id="200" data-nosnippet="">200</a>    // heading style's where the style is based on one).
+<a href="#201" id="201" data-nosnippet="">201</a>    </span><span class="kw">let </span>outline_level = p.outline_level.or_else(|| style.as_ref().and_then(|<span class="kw">_</span>| doc.styles.resolve_para(p).outline_level));
+<a href="#202" id="202" data-nosnippet="">202</a>    <span class="kw">let </span>x = <span class="kw">crate</span>::doc::props::ParaProps {
+<a href="#203" id="203" data-nosnippet="">203</a>        tabs,
+<a href="#204" id="204" data-nosnippet="">204</a>        shading: p.shading,
+<a href="#205" id="205" data-nosnippet="">205</a>        style,
+<a href="#206" id="206" data-nosnippet="">206</a>        contextual_spacing: p.contextual_spacing,
+<a href="#207" id="207" data-nosnippet="">207</a>        bidi: p.bidi.filter(|b| <span class="kw-2">*</span>b),
+<a href="#208" id="208" data-nosnippet="">208</a>        drop_cap: p.drop_cap.filter(|l| <span class="kw-2">*</span>l &gt; <span class="number">1</span>),
+<a href="#209" id="209" data-nosnippet="">209</a>        drop_cap_distance: p.drop_cap_distance.filter(|<span class="kw">_</span>| p.drop_cap.is_some_and(|l| l &gt; <span class="number">1</span>)),
+<a href="#210" id="210" data-nosnippet="">210</a>        keep_lines: p.keep_lines.filter(|k| <span class="kw-2">*</span>k),
+<a href="#211" id="211" data-nosnippet="">211</a>        outline_level,
+<a href="#212" id="212" data-nosnippet="">212</a>        widow_control: p.widow_control.filter(|w| !<span class="kw-2">*</span>w),
+<a href="#213" id="213" data-nosnippet="">213</a>        <span class="comment">// Hyphenated (the document hyphenates and the paragraph doesn't opt out): `Some(false)`.
+<a href="#214" id="214" data-nosnippet="">214</a>        </span>suppress_hyphens: (doc.settings.auto_hyphenation &amp;&amp; p.suppress_hyphens != <span class="prelude-val">Some</span>(<span class="bool-val">true</span>)).then_some(<span class="bool-val">false</span>),
+<a href="#215" id="215" data-nosnippet="">215</a>        ..Default::default()
+<a href="#216" id="216" data-nosnippet="">216</a>    };
+<a href="#217" id="217" data-nosnippet="">217</a>    (x != <span class="kw">crate</span>::doc::props::ParaProps::default()).then(|| Box::new(x))
+<a href="#218" id="218" data-nosnippet="">218</a>}
+<a href="#219" id="219" data-nosnippet="">219</a>
+<a href="#220" id="220" data-nosnippet="">220</a><span class="doccomment">/// Revision `i` as a flow mark (unknown author and date when there is none).
+<a href="#221" id="221" data-nosnippet="">221</a></span><span class="kw">fn </span>rev_mark(doc: <span class="kw-2">&amp;</span>Document, i: u32) -&gt; RevMark {
+<a href="#222" id="222" data-nosnippet="">222</a>    doc.revisions.get(i <span class="kw">as </span>usize).map(|r| RevMark { author: r.author.clone(), date: r.date.clone(), id: <span class="prelude-val">Some</span>(i) }).unwrap_or_default()
+<a href="#223" id="223" data-nosnippet="">223</a>}
+<a href="#224" id="224" data-nosnippet="">224</a>
+<a href="#225" id="225" data-nosnippet="">225</a><span class="doccomment">/// The insertion and deletion `cp` tracks, as flow marks.
+<a href="#226" id="226" data-nosnippet="">226</a></span><span class="kw">fn </span>rev_marks(doc: <span class="kw-2">&amp;</span>Document, cp: <span class="kw-2">&amp;</span>CharProps) -&gt; (<span class="prelude-ty">Option</span>&lt;RevMark&gt;, <span class="prelude-ty">Option</span>&lt;RevMark&gt;) {
+<a href="#227" id="227" data-nosnippet="">227</a>    (cp.ins.map(|i| rev_mark(doc, i)), cp.del.map(|i| rev_mark(doc, i)))
+<a href="#228" id="228" data-nosnippet="">228</a>}
+<a href="#229" id="229" data-nosnippet="">229</a>
+<a href="#230" id="230" data-nosnippet="">230</a><span class="doccomment">/// Paragraph kind and list membership of a document paragraph.
+<a href="#231" id="231" data-nosnippet="">231</a></span><span class="kw">pub fn </span>para_kind(doc: <span class="kw-2">&amp;</span>Document, p: <span class="kw-2">&amp;</span>Paragraph) -&gt; (Kind, <span class="prelude-ty">Option</span>&lt;ListInfo&gt;) {
+<a href="#232" id="232" data-nosnippet="">232</a>    <span class="kw">let </span>blank = p.plain_text().trim().is_empty() &amp;&amp; p.objects.iter().all(|o| o.is_marker());
+<a href="#233" id="233" data-nosnippet="">233</a>    props_kind(doc, <span class="kw-2">&amp;</span>p.props, blank)
+<a href="#234" id="234" data-nosnippet="">234</a>}
+<a href="#235" id="235" data-nosnippet="">235</a>
+<a href="#236" id="236" data-nosnippet="">236</a><span class="doccomment">/// Paragraph kind and list membership of paragraph properties; `blank` = the paragraph shows
+<a href="#237" id="237" data-nosnippet="">237</a>/// nothing (a bottom border then makes it a rule).
+<a href="#238" id="238" data-nosnippet="">238</a></span><span class="kw">fn </span>props_kind(doc: <span class="kw-2">&amp;</span>Document, props: <span class="kw-2">&amp;</span>ParaProps, blank: bool) -&gt; (Kind, <span class="prelude-ty">Option</span>&lt;ListInfo&gt;) {
+<a href="#239" id="239" data-nosnippet="">239</a>    <span class="kw">let </span>rp = doc.styles.resolve_para(props);
+<a href="#240" id="240" data-nosnippet="">240</a>    <span class="kw">let </span>style = props.style.as_deref().unwrap_or(<span class="string">"Normal"</span>);
+<a href="#241" id="241" data-nosnippet="">241</a>    <span class="comment">// A heading's kind is its style's (Heading 2 looks as Heading 2 whatever its outline level,
+<a href="#242" id="242" data-nosnippet="">242</a>    // which the paragraph may set apart); else its outline level's.
+<a href="#243" id="243" data-nosnippet="">243</a>    </span><span class="kw">let </span>style_level =
+<a href="#244" id="244" data-nosnippet="">244</a>        doc.styles.chain(style).iter().find_map(|s| s.id.strip_prefix(<span class="string">"Heading"</span>).and_then(|n| n.parse::&lt;u8&gt;().ok()).filter(|n| (<span class="number">1</span>..=<span class="number">9</span>).contains(n)));
+<a href="#245" id="245" data-nosnippet="">245</a>    <span class="kw">let </span>kind = <span class="kw">if let </span><span class="prelude-val">Some</span>(l) = style_level.filter(|<span class="kw">_</span>| rp.outline_level.is_some()) {
+<a href="#246" id="246" data-nosnippet="">246</a>        Kind::Heading(l.min(<span class="number">6</span>))
+<a href="#247" id="247" data-nosnippet="">247</a>    } <span class="kw">else if let </span><span class="prelude-val">Some</span>(l) = rp.outline_level {
+<a href="#248" id="248" data-nosnippet="">248</a>        Kind::Heading((l + <span class="number">1</span>).min(<span class="number">6</span>))
+<a href="#249" id="249" data-nosnippet="">249</a>    } <span class="kw">else if </span>doc.styles.chain(style).iter().any(|s| s.id == <span class="string">"Title"</span>) {
+<a href="#250" id="250" data-nosnippet="">250</a>        Kind::Title
+<a href="#251" id="251" data-nosnippet="">251</a>    } <span class="kw">else if </span>doc.styles.chain(style).iter().any(|s| s.id == <span class="string">"Quote" </span>|| s.id == <span class="string">"IntenseQuote"</span>) {
+<a href="#252" id="252" data-nosnippet="">252</a>        Kind::Quote
+<a href="#253" id="253" data-nosnippet="">253</a>    } <span class="kw">else if </span>is_code_style(doc, style) {
+<a href="#254" id="254" data-nosnippet="">254</a>        Kind::Code
+<a href="#255" id="255" data-nosnippet="">255</a>    } <span class="kw">else if </span>blank &amp;&amp; rp.borders.and_then(|b| b.bottom).is_some_and(|b| b.is_visible()) {
+<a href="#256" id="256" data-nosnippet="">256</a>        Kind::Rule
+<a href="#257" id="257" data-nosnippet="">257</a>    } <span class="kw">else </span>{
+<a href="#258" id="258" data-nosnippet="">258</a>        Kind::Normal
+<a href="#259" id="259" data-nosnippet="">259</a>    };
+<a href="#260" id="260" data-nosnippet="">260</a>    <span class="kw">let </span>list = rp.numbering.and_then(|n| {
+<a href="#261" id="261" data-nosnippet="">261</a>        <span class="kw">let </span>lv = doc.numbering.level(n.num, n.level)<span class="question-mark">?</span>;
+<a href="#262" id="262" data-nosnippet="">262</a>        <span class="prelude-val">Some</span>(ListInfo {
+<a href="#263" id="263" data-nosnippet="">263</a>            ordered: !<span class="macro">matches!</span>(lv.format, NumFormat::Bullet | NumFormat::None),
+<a href="#264" id="264" data-nosnippet="">264</a>            level: n.level.min(<span class="number">8</span>),
+<a href="#265" id="265" data-nosnippet="">265</a>            start: lv.start,
+<a href="#266" id="266" data-nosnippet="">266</a>            list: n.num,
+<a href="#267" id="267" data-nosnippet="">267</a>            label: <span class="prelude-val">Some</span>(<span class="kw">super</span>::types::Label::of_level(lv.format, <span class="kw-2">&amp;</span>lv.text).placed(lv.indent, lv.hanging, lv.align)),
+<a href="#268" id="268" data-nosnippet="">268</a>        })
+<a href="#269" id="269" data-nosnippet="">269</a>    });
+<a href="#270" id="270" data-nosnippet="">270</a>    (kind, list)
+<a href="#271" id="271" data-nosnippet="">271</a>}
+<a href="#272" id="272" data-nosnippet="">272</a>
+<a href="#273" id="273" data-nosnippet="">273</a><span class="kw">fn </span>media_ext(key: <span class="kw-2">&amp;</span>str, data: <span class="kw-2">&amp;</span>[u8]) -&gt; String {
+<a href="#274" id="274" data-nosnippet="">274</a>    <span class="kw">match </span>image::guess_format(data) {
+<a href="#275" id="275" data-nosnippet="">275</a>        <span class="prelude-val">Ok</span>(image::ImageFormat::Png) =&gt; <span class="string">"png"</span>.into(),
+<a href="#276" id="276" data-nosnippet="">276</a>        <span class="prelude-val">Ok</span>(image::ImageFormat::Jpeg) =&gt; <span class="string">"jpeg"</span>.into(),
+<a href="#277" id="277" data-nosnippet="">277</a>        <span class="prelude-val">Ok</span>(image::ImageFormat::Gif) =&gt; <span class="string">"gif"</span>.into(),
+<a href="#278" id="278" data-nosnippet="">278</a>        <span class="prelude-val">Ok</span>(image::ImageFormat::WebP) =&gt; <span class="string">"webp"</span>.into(),
+<a href="#279" id="279" data-nosnippet="">279</a>        <span class="prelude-val">Ok</span>(image::ImageFormat::Bmp) =&gt; <span class="string">"bmp"</span>.into(),
+<a href="#280" id="280" data-nosnippet="">280</a>        <span class="kw">_ </span>=&gt; key.rsplit(<span class="string">'.'</span>).next().filter(|e| e.len() &lt;= <span class="number">5 </span>&amp;&amp; <span class="kw-2">*</span>e != key).unwrap_or(<span class="string">"png"</span>).to_ascii_lowercase(),
+<a href="#281" id="281" data-nosnippet="">281</a>    }
+<a href="#282" id="282" data-nosnippet="">282</a>}
+<a href="#283" id="283" data-nosnippet="">283</a>
+<a href="#284" id="284" data-nosnippet="">284</a><span class="doccomment">/// The flow inlines for a note reference, comment mark or field `o` of `doc`, when `opts` asks
+<a href="#285" id="285" data-nosnippet="">285</a>/// for them; `None` for other objects. `f` is the formatting of the run `o` is in.
+<a href="#286" id="286" data-nosnippet="">286</a></span><span class="kw">fn </span>rich_inlines(doc: <span class="kw-2">&amp;</span>Document, o: <span class="kw-2">&amp;</span>InlineObject, f: <span class="kw-2">&amp;</span>Fmt, opts: FlowOpts) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;Inline&gt;&gt; {
+<a href="#287" id="287" data-nosnippet="">287</a>    <span class="prelude-val">Some</span>(<span class="kw">match </span>o {
+<a href="#288" id="288" data-nosnippet="">288</a>        InlineObject::NoteRef { kind, id, custom } <span class="kw">if </span>opts.notes =&gt; {
+<a href="#289" id="289" data-nosnippet="">289</a>            <span class="comment">// The note's content without its own mark (a note holds no notes).
+<a href="#290" id="290" data-nosnippet="">290</a>            </span><span class="kw">let </span>story = doc.parts.get(id).map(|part| <span class="kw-2">&amp;</span>part.blocks);
+<a href="#291" id="291" data-nosnippet="">291</a>            <span class="kw">let </span><span class="kw-2">mut </span>blocks = story.map(|b| flow_blocks(doc, b, <span class="number">0</span>, FlowOpts { notes: <span class="bool-val">false</span>, ..opts })).unwrap_or_default();
+<a href="#292" id="292" data-nosnippet="">292</a>            <span class="comment">// The space after the mark is the mark's (see `to_doc`'s `note`); a tab or more
+<a href="#293" id="293" data-nosnippet="">293</a>            // spaces there are the note's own.
+<a href="#294" id="294" data-nosnippet="">294</a>            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(FBlock::Para(first)) = blocks.first_mut() {
+<a href="#295" id="295" data-nosnippet="">295</a>                <span class="kw">let </span>k = first.inlines.iter().take_while(|i| <span class="macro">matches!</span>(i, Inline::Text(t, <span class="kw">_</span>) <span class="kw">if </span>t.is_empty())).count();
+<a href="#296" id="296" data-nosnippet="">296</a>                first.inlines.drain(..k);
+<a href="#297" id="297" data-nosnippet="">297</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(Inline::Text(t, <span class="kw">_</span>)) = first.inlines.first_mut()
+<a href="#298" id="298" data-nosnippet="">298</a>                    &amp;&amp; t.starts_with(<span class="string">' '</span>)
+<a href="#299" id="299" data-nosnippet="">299</a>                {
+<a href="#300" id="300" data-nosnippet="">300</a>                    t.remove(<span class="number">0</span>);
+<a href="#301" id="301" data-nosnippet="">301</a>                }
+<a href="#302" id="302" data-nosnippet="">302</a>            }
+<a href="#303" id="303" data-nosnippet="">303</a>            <span class="kw">let </span>endnote = <span class="kw-2">*</span>kind == <span class="kw">crate</span>::doc::para::NoteKind::Endnote;
+<a href="#304" id="304" data-nosnippet="">304</a>            <span class="macro">vec!</span>[Inline::Note { endnote, custom: custom.clone(), blocks, fmt: f.clone() }]
+<a href="#305" id="305" data-nosnippet="">305</a>        }
+<a href="#306" id="306" data-nosnippet="">306</a>        <span class="comment">// The comment, then the replies in its thread (replies to replies too, each answering the
+<a href="#307" id="307" data-nosnippet="">307</a>        // comment that starts the thread), which have no place of their own.
+<a href="#308" id="308" data-nosnippet="">308</a>        </span>InlineObject::CommentStart { id } <span class="kw">if </span>opts.comments =&gt; {
+<a href="#309" id="309" data-nosnippet="">309</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(c) = doc.comments.get(id) <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Some</span>(Vec::new()) };
+<a href="#310" id="310" data-nosnippet="">310</a>            <span class="kw">let </span><span class="kw-2">mut </span>out = <span class="macro">vec!</span>[Inline::Comment { id: <span class="kw-2">*</span>id, comment: Box::new(flow_comment(doc, c, <span class="prelude-val">None</span>, opts)) }];
+<a href="#311" id="311" data-nosnippet="">311</a>            <span class="kw">let </span><span class="kw-2">mut </span>thread = std::collections::BTreeSet::from([<span class="kw-2">*</span>id]);
+<a href="#312" id="312" data-nosnippet="">312</a>            <span class="kw">let </span><span class="kw-2">mut </span>k = <span class="number">0</span>;
+<a href="#313" id="313" data-nosnippet="">313</a>            <span class="kw">while let </span><span class="prelude-val">Some</span>(Inline::Comment { id: at, .. }) = out.get(k) {
+<a href="#314" id="314" data-nosnippet="">314</a>                <span class="kw">let </span>at = <span class="kw-2">*</span>at;
+<a href="#315" id="315" data-nosnippet="">315</a>                k += <span class="number">1</span>;
+<a href="#316" id="316" data-nosnippet="">316</a>                <span class="kw">for </span>(rid, r) <span class="kw">in </span>doc.comments.iter().filter(|(<span class="kw">_</span>, r)| r.parent == <span class="prelude-val">Some</span>(at)) {
+<a href="#317" id="317" data-nosnippet="">317</a>                    <span class="kw">if </span>thread.insert(<span class="kw-2">*</span>rid) {
+<a href="#318" id="318" data-nosnippet="">318</a>                        out.push(Inline::Comment { id: <span class="kw-2">*</span>rid, comment: Box::new(flow_comment(doc, r, <span class="prelude-val">Some</span>(<span class="kw-2">*</span>id), opts)) });
+<a href="#319" id="319" data-nosnippet="">319</a>                    }
+<a href="#320" id="320" data-nosnippet="">320</a>                }
+<a href="#321" id="321" data-nosnippet="">321</a>            }
+<a href="#322" id="322" data-nosnippet="">322</a>            out
+<a href="#323" id="323" data-nosnippet="">323</a>        }
+<a href="#324" id="324" data-nosnippet="">324</a>        InlineObject::CommentEnd { id } <span class="kw">if </span>opts.comments =&gt; {
+<a href="#325" id="325" data-nosnippet="">325</a>            <span class="kw">if </span>doc.comments.contains_key(id) {
+<a href="#326" id="326" data-nosnippet="">326</a>                <span class="macro">vec!</span>[Inline::CommentEnd(<span class="kw-2">*</span>id)]
+<a href="#327" id="327" data-nosnippet="">327</a>            } <span class="kw">else </span>{
+<a href="#328" id="328" data-nosnippet="">328</a>                Vec::new()
+<a href="#329" id="329" data-nosnippet="">329</a>            }
+<a href="#330" id="330" data-nosnippet="">330</a>        }
+<a href="#331" id="331" data-nosnippet="">331</a>        <span class="comment">// A text box's content, without notes, comments or boxes of its own.
+<a href="#332" id="332" data-nosnippet="">332</a>        // A drawing shape, text box or group (pictures have their own place below).
+<a href="#333" id="333" data-nosnippet="">333</a>        </span>InlineObject::Shape { .. } | InlineObject::Group { .. } <span class="kw">if </span>opts.boxes =&gt; <span class="macro">vec!</span>[drawing_inline(doc, o, opts, <span class="number">0</span>, (<span class="number">1.0</span>, <span class="number">1.0</span>))<span class="question-mark">?</span>],
+<a href="#334" id="334" data-nosnippet="">334</a>        InlineObject::FieldStart { instr, .. } <span class="kw">if </span>opts.fields =&gt; <span class="macro">vec!</span>[Inline::FieldStart(instr.clone())],
+<a href="#335" id="335" data-nosnippet="">335</a>        InlineObject::FieldEnd <span class="kw">if </span>opts.fields =&gt; <span class="macro">vec!</span>[Inline::FieldEnd],
+<a href="#336" id="336" data-nosnippet="">336</a>        <span class="comment">// Where a bookmark ends, so it covers its text (Word's `_GoBack` is the last edit's spot).
+<a href="#337" id="337" data-nosnippet="">337</a>        </span>InlineObject::BookmarkEnd { name } <span class="kw">if </span>opts.fields &amp;&amp; name != <span class="string">"_GoBack" </span>=&gt; <span class="macro">vec!</span>[Inline::AnchorEnd(name.clone())],
+<a href="#338" id="338" data-nosnippet="">338</a>        InlineObject::Field { instr, result, locked, .. } <span class="kw">if </span>opts.fields =&gt; {
+<a href="#339" id="339" data-nosnippet="">339</a>            <span class="macro">vec!</span>[Inline::Field { instr: instr.clone(), result: result.clone(), fmt: f.clone(), locked: <span class="kw-2">*</span>locked }]
+<a href="#340" id="340" data-nosnippet="">340</a>        }
+<a href="#341" id="341" data-nosnippet="">341</a>        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
+<a href="#342" id="342" data-nosnippet="">342</a>    })
+<a href="#343" id="343" data-nosnippet="">343</a>}
+<a href="#344" id="344" data-nosnippet="">344</a>
+<a href="#345" id="345" data-nosnippet="">345</a><span class="doccomment">/// Comment `c` (a reply to `parent`) of `doc` as a flow comment: its text holds no comments or
+<a href="#346" id="346" data-nosnippet="">346</a>/// notes of its own.
+<a href="#347" id="347" data-nosnippet="">347</a>/// The flow inline for picture, shape or group `o` of `doc` (a member of groups `depth` deep),
+<a href="#348" id="348" data-nosnippet="">348</a>/// its size scaled by `scale` (a group's members are in its own coordinates). A shape or text
+<a href="#349" id="349" data-nosnippet="">349</a>/// box keeps its text, but not notes, comments or boxes of its own. `None` for what a flow has
+<a href="#350" id="350" data-nosnippet="">350</a>/// no drawing for: a freeform's paths, a picture whose data is missing.
+<a href="#351" id="351" data-nosnippet="">351</a></span><span class="kw">fn </span>drawing_inline(doc: <span class="kw-2">&amp;</span>Document, o: <span class="kw-2">&amp;</span>InlineObject, opts: FlowOpts, depth: usize, scale: (f32, f32)) -&gt; <span class="prelude-ty">Option</span>&lt;Inline&gt; {
+<a href="#352" id="352" data-nosnippet="">352</a>    <span class="kw">use </span><span class="kw">crate</span>::doc::para::ShapeKind;
+<a href="#353" id="353" data-nosnippet="">353</a>    <span class="kw">let </span>(sx, sy) = scale;
+<a href="#354" id="354" data-nosnippet="">354</a>    <span class="kw">match </span>o {
+<a href="#355" id="355" data-nosnippet="">355</a>        <span class="comment">// A freeform needs its paths.
+<a href="#356" id="356" data-nosnippet="">356</a>        </span>InlineObject::Shape { kind, w, h, float, story, fill, stroke, stroke_width, extra, freeform, .. }
+<a href="#357" id="357" data-nosnippet="">357</a>            <span class="kw">if </span><span class="kw-2">*</span>kind != ShapeKind::Freeform || freeform.is_some() =&gt;
+<a href="#358" id="358" data-nosnippet="">358</a>        {
+<a href="#359" id="359" data-nosnippet="">359</a>            <span class="comment">// A connector stays one in formats that glue them (ODT, with boxes); elsewhere it is a
+<a href="#360" id="360" data-nosnippet="">360</a>            // straight line.
+<a href="#361" id="361" data-nosnippet="">361</a>            </span><span class="kw">let </span>kind = <span class="kw">match </span>kind {
+<a href="#362" id="362" data-nosnippet="">362</a>                ShapeKind::StraightConnector | ShapeKind::ElbowConnector | ShapeKind::CurvedConnector <span class="kw">if </span>!opts.boxes =&gt; ShapeKind::Line,
+<a href="#363" id="363" data-nosnippet="">363</a>                k =&gt; <span class="kw-2">*</span>k,
+<a href="#364" id="364" data-nosnippet="">364</a>            };
+<a href="#365" id="365" data-nosnippet="">365</a>            <span class="kw">let </span>inner = FlowOpts { notes: <span class="bool-val">false</span>, comments: <span class="bool-val">false</span>, boxes: <span class="bool-val">false</span>, ..opts };
+<a href="#366" id="366" data-nosnippet="">366</a>            <span class="kw">let </span>part = story.and_then(|id| doc.parts.get(<span class="kw-2">&amp;</span>id));
+<a href="#367" id="367" data-nosnippet="">367</a>            <span class="kw">let </span>blocks = part.map(|p| flow_blocks(doc, <span class="kw-2">&amp;</span>p.blocks, <span class="number">0</span>, inner)).unwrap_or_default();
+<a href="#368" id="368" data-nosnippet="">368</a>            <span class="kw">let </span>look = BoxLook {
+<a href="#369" id="369" data-nosnippet="">369</a>                fill: fill.clone().filter(|<span class="kw">_</span>| kind != ShapeKind::Line),
+<a href="#370" id="370" data-nosnippet="">370</a>                line: stroke.filter(|<span class="kw">_</span>| stroke_width.is_finite() &amp;&amp; <span class="kw-2">*</span>stroke_width &gt; <span class="number">0.0</span>).map(|c| (c, stroke_width.min(<span class="number">12.0</span>))),
+<a href="#371" id="371" data-nosnippet="">371</a>                dash: extra.dash.clone(),
+<a href="#372" id="372" data-nosnippet="">372</a>                arrows: (extra.arrow_start, extra.arrow_end),
+<a href="#373" id="373" data-nosnippet="">373</a>                inset: part.and_then(|p| p.body.inset.is_some().then(|| p.body.insets_pt())),
+<a href="#374" id="374" data-nosnippet="">374</a>                auto_fit: part.is_some_and(|p| p.body.auto_fit),
+<a href="#375" id="375" data-nosnippet="">375</a>                vert: part.map(|p| p.body.vert).unwrap_or_default(),
+<a href="#376" id="376" data-nosnippet="">376</a>                <span class="comment">// Kept only while it is still the freeform it was read as.
+<a href="#377" id="377" data-nosnippet="">377</a>                </span>geometry: extra.odf_geometry.clone().filter(|<span class="kw">_</span>| (kind == ShapeKind::Freeform &amp;&amp; freeform.is_some()) || kind == ShapeKind::Rectangle),
+<a href="#378" id="378" data-nosnippet="">378</a>                conn: (opts.boxes &amp;&amp; (extra.id != <span class="number">0 </span>|| extra.start.is_some() || extra.end.is_some()))
+<a href="#379" id="379" data-nosnippet="">379</a>                    .then(|| Box::new(<span class="kw">crate</span>::formats::model::Conn { id: extra.id, start: extra.start, end: extra.end })),
+<a href="#380" id="380" data-nosnippet="">380</a>                <span class="comment">// A text box is named after its story; a linked one names the box it continues in.
+<a href="#381" id="381" data-nosnippet="">381</a>                </span>chain: story.filter(|<span class="kw">_</span>| opts.boxes).map(|id| {
+<a href="#382" id="382" data-nosnippet="">382</a>                    <span class="kw">let </span>next = part.and_then(|p| p.body.next).map(|n| <span class="macro">format!</span>(<span class="string">"Frame{n}"</span>));
+<a href="#383" id="383" data-nosnippet="">383</a>                    Box::new(<span class="kw">crate</span>::formats::model::Chain { name: <span class="macro">format!</span>(<span class="string">"Frame{id}"</span>), next })
+<a href="#384" id="384" data-nosnippet="">384</a>                }),
+<a href="#385" id="385" data-nosnippet="">385</a>            };
+<a href="#386" id="386" data-nosnippet="">386</a>            <span class="kw">let </span>path = freeform.clone().filter(|<span class="kw">_</span>| kind == ShapeKind::Freeform);
+<a href="#387" id="387" data-nosnippet="">387</a>            <span class="prelude-val">Some</span>(Inline::Shape { kind, w: w * sx, h: h * sy, float: kept_float(float), blocks, look, path })
+<a href="#388" id="388" data-nosnippet="">388</a>        }
+<a href="#389" id="389" data-nosnippet="">389</a>        InlineObject::Image { media, w, h, alt, float, ole, crop, .. } =&gt; {
+<a href="#390" id="390" data-nosnippet="">390</a>            <span class="kw">let </span>data = doc.media.get(media)<span class="question-mark">?</span>;
+<a href="#391" id="391" data-nosnippet="">391</a>            <span class="kw">let </span>alt = <span class="kw">if </span>o.is_decorative() { <span class="string">"" </span>} <span class="kw">else </span>{ alt.as_str() };
+<a href="#392" id="392" data-nosnippet="">392</a>            <span class="prelude-val">Some</span>(Inline::Image(Img {
+<a href="#393" id="393" data-nosnippet="">393</a>                data: data.clone(),
+<a href="#394" id="394" data-nosnippet="">394</a>                ext: media_ext(media, data),
+<a href="#395" id="395" data-nosnippet="">395</a>                w: w * sx,
+<a href="#396" id="396" data-nosnippet="">396</a>                h: h * sy,
+<a href="#397" id="397" data-nosnippet="">397</a>                alt: alt.to_string(),
+<a href="#398" id="398" data-nosnippet="">398</a>                float: kept_float(float),
+<a href="#399" id="399" data-nosnippet="">399</a>                object: ole.as_deref().filter(|<span class="kw">_</span>| opts.boxes).and_then(|e| <span class="kw">super</span>::odf_object::load(doc, e)),
+<a href="#400" id="400" data-nosnippet="">400</a>                crop: <span class="kw">if </span>opts.paras { <span class="kw-2">*</span>crop } <span class="kw">else </span>{ [<span class="number">0.0</span>; <span class="number">4</span>] },
+<a href="#401" id="401" data-nosnippet="">401</a>            }))
+<a href="#402" id="402" data-nosnippet="">402</a>        }
+<a href="#403" id="403" data-nosnippet="">403</a>        InlineObject::Group { w, h, float, ch_w, ch_h, children, .. } <span class="kw">if </span>depth &lt; MAX_GROUP_DEPTH =&gt; {
+<a href="#404" id="404" data-nosnippet="">404</a>            <span class="kw">let </span>ratio = |outer: f32, inner: f32| {
+<a href="#405" id="405" data-nosnippet="">405</a>                <span class="kw">let </span>r = outer / inner;
+<a href="#406" id="406" data-nosnippet="">406</a>                <span class="kw">if </span>r.is_finite() &amp;&amp; r &gt; <span class="number">0.0 </span>{ r } <span class="kw">else </span>{ <span class="number">1.0 </span>}
+<a href="#407" id="407" data-nosnippet="">407</a>            };
+<a href="#408" id="408" data-nosnippet="">408</a>            <span class="kw">let </span>inner = (sx * ratio(<span class="kw-2">*</span>w, <span class="kw-2">*</span>ch_w), sy * ratio(<span class="kw-2">*</span>h, <span class="kw-2">*</span>ch_h));
+<a href="#409" id="409" data-nosnippet="">409</a>            <span class="kw">let </span>members: Vec&lt;Member&gt; = children
+<a href="#410" id="410" data-nosnippet="">410</a>                .iter()
+<a href="#411" id="411" data-nosnippet="">411</a>                .filter_map(|c| {
+<a href="#412" id="412" data-nosnippet="">412</a>                    drawing_inline(doc, <span class="kw-2">&amp;</span>c.obj, opts, depth + <span class="number">1</span>, inner).map(|inline| Member { x: c.x * inner.<span class="number">0</span>, y: c.y * inner.<span class="number">1</span>, inline })
+<a href="#413" id="413" data-nosnippet="">413</a>                })
+<a href="#414" id="414" data-nosnippet="">414</a>                .collect();
+<a href="#415" id="415" data-nosnippet="">415</a>            (!members.is_empty()).then(|| Inline::Group { w: w * sx, h: h * sy, float: kept_float(float), members })
+<a href="#416" id="416" data-nosnippet="">416</a>        }
+<a href="#417" id="417" data-nosnippet="">417</a>        <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#418" id="418" data-nosnippet="">418</a>    }
+<a href="#419" id="419" data-nosnippet="">419</a>}
+<a href="#420" id="420" data-nosnippet="">420</a>
+<a href="#421" id="421" data-nosnippet="">421</a><span class="doccomment">/// The placement a flow keeps for a drawing: when it floats, or turns or mirrors it in line.
+<a href="#422" id="422" data-nosnippet="">422</a></span><span class="kw">fn </span>kept_float(f: <span class="kw-2">&amp;</span><span class="kw">crate</span>::doc::para::Float) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">crate</span>::doc::para::Float&gt;&gt; {
+<a href="#423" id="423" data-nosnippet="">423</a>    <span class="kw">let </span>turned = f.rot.is_finite() &amp;&amp; f.rot.rem_euclid(<span class="number">360.0</span>) &gt; <span class="number">0.001 </span>&amp;&amp; f.rot.rem_euclid(<span class="number">360.0</span>) &lt; <span class="number">359.999</span>;
+<a href="#424" id="424" data-nosnippet="">424</a>    (f.wrap != <span class="kw">crate</span>::doc::para::Wrap::Inline || turned || f.flip_h || f.flip_v).then(|| Box::new(f.clone()))
+<a href="#425" id="425" data-nosnippet="">425</a>}
+<a href="#426" id="426" data-nosnippet="">426</a>
+<a href="#427" id="427" data-nosnippet="">427</a><span class="kw">fn </span>flow_comment(doc: <span class="kw-2">&amp;</span>Document, c: <span class="kw-2">&amp;</span><span class="kw">crate</span>::doc::Comment, parent: <span class="prelude-ty">Option</span>&lt;u32&gt;, opts: FlowOpts) -&gt; FComment {
+<a href="#428" id="428" data-nosnippet="">428</a>    <span class="kw">let </span>story = doc.parts.get(<span class="kw-2">&amp;</span>c.part).map(|p| <span class="kw-2">&amp;</span>p.blocks);
+<a href="#429" id="429" data-nosnippet="">429</a>    <span class="kw">let </span>blocks = story.map(|b| flow_blocks(doc, b, <span class="number">0</span>, FlowOpts { notes: <span class="bool-val">false</span>, comments: <span class="bool-val">false</span>, ..opts })).unwrap_or_default();
+<a href="#430" id="430" data-nosnippet="">430</a>    FComment { author: c.author.clone(), initials: c.initials.clone(), date: c.date.clone(), resolved: c.resolved, parent, blocks }
+<a href="#431" id="431" data-nosnippet="">431</a>}
+<a href="#432" id="432" data-nosnippet="">432</a>
+<a href="#433" id="433" data-nosnippet="">433</a><span class="doccomment">/// Whether `li`, the list of heading `p`, is the number its outline level has from its heading
+<a href="#434" id="434" data-nosnippet="">434</a>/// style's list, not a list of its own: it states that level, and the heading style of that level
+<a href="#435" id="435" data-nosnippet="">435</a>/// numbers with that list there. Past Heading 6 no such style gives the written outline a number.
+<a href="#436" id="436" data-nosnippet="">436</a></span><span class="kw">fn </span>numbered_by_outline(doc: <span class="kw-2">&amp;</span>Document, p: <span class="kw-2">&amp;</span>Paragraph, li: <span class="kw-2">&amp;</span>ListInfo) -&gt; bool {
+<a href="#437" id="437" data-nosnippet="">437</a>    <span class="kw">use </span><span class="kw">crate</span>::doc::props::NumRef;
+<a href="#438" id="438" data-nosnippet="">438</a>    p.props.outline_level == <span class="prelude-val">Some</span>(li.level)
+<a href="#439" id="439" data-nosnippet="">439</a>        &amp;&amp; li.level &lt; <span class="number">6
+<a href="#440" id="440" data-nosnippet="">440</a>        </span>&amp;&amp; doc.styles.para_style_props(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"Heading{}"</span>, li.level + <span class="number">1</span>)).<span class="number">0</span>.numbering == <span class="prelude-val">Some</span>(NumRef { num: li.list, level: li.level })
+<a href="#441" id="441" data-nosnippet="">441</a>}
+<a href="#442" id="442" data-nosnippet="">442</a>
+<a href="#443" id="443" data-nosnippet="">443</a><span class="doccomment">/// A paragraph's list membership as the flow keeps it: without the list's identity and label
+<a href="#444" id="444" data-nosnippet="">444</a>/// unless `opts` asks for them, and none for a heading numbered only through its style or
+<a href="#445" id="445" data-nosnippet="">445</a>/// [`numbered_by_outline`], which a format with heading numbering of its own (ODT's outline style)
+<a href="#446" id="446" data-nosnippet="">446</a>/// numbers instead, in its first six levels.
+<a href="#447" id="447" data-nosnippet="">447</a></span><span class="kw">fn </span>flow_list(doc: <span class="kw-2">&amp;</span>Document, kind: Kind, list: <span class="prelude-ty">Option</span>&lt;ListInfo&gt;, p: <span class="kw-2">&amp;</span>Paragraph, opts: FlowOpts) -&gt; <span class="prelude-ty">Option</span>&lt;ListInfo&gt; {
+<a href="#448" id="448" data-nosnippet="">448</a>    <span class="kw">let </span><span class="kw-2">mut </span>li = list<span class="question-mark">?</span>;
+<a href="#449" id="449" data-nosnippet="">449</a>    <span class="kw">if </span>!opts.lists {
+<a href="#450" id="450" data-nosnippet="">450</a>        (li.list, li.label) = (<span class="number">0</span>, <span class="prelude-val">None</span>);
+<a href="#451" id="451" data-nosnippet="">451</a>    } <span class="kw">else if </span><span class="macro">matches!</span>(kind, Kind::Heading(<span class="kw">_</span>)) &amp;&amp; li.level &lt; <span class="number">6 </span>&amp;&amp; (p.props.numbering.is_none() || numbered_by_outline(doc, p, <span class="kw-2">&amp;</span>li)) {
+<a href="#452" id="452" data-nosnippet="">452</a>        <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#453" id="453" data-nosnippet="">453</a>    }
+<a href="#454" id="454" data-nosnippet="">454</a>    <span class="prelude-val">Some</span>(li)
+<a href="#455" id="455" data-nosnippet="">455</a>}
+<a href="#456" id="456" data-nosnippet="">456</a>
+<a href="#457" id="457" data-nosnippet="">457</a><span class="doccomment">/// The spacing and indents a paragraph sets itself (its style's are not included).
+<a href="#458" id="458" data-nosnippet="">458</a></span><span class="kw">fn </span>direct_spacing(p: <span class="kw-2">&amp;</span><span class="kw">crate</span>::doc::props::ParaProps) -&gt; Spacing {
+<a href="#459" id="459" data-nosnippet="">459</a>    Spacing {
+<a href="#460" id="460" data-nosnippet="">460</a>        before: p.space_before,
+<a href="#461" id="461" data-nosnippet="">461</a>        after: p.space_after,
+<a href="#462" id="462" data-nosnippet="">462</a>        line: p.line_spacing,
+<a href="#463" id="463" data-nosnippet="">463</a>        left: p.indent_left,
+<a href="#464" id="464" data-nosnippet="">464</a>        right: p.indent_right,
+<a href="#465" id="465" data-nosnippet="">465</a>        first: p.indent_first,
+<a href="#466" id="466" data-nosnippet="">466</a>        ..Default::default()
+<a href="#467" id="467" data-nosnippet="">467</a>    }
+<a href="#468" id="468" data-nosnippet="">468</a>}
+<a href="#469" id="469" data-nosnippet="">469</a>
+<a href="#470" id="470" data-nosnippet="">470</a><span class="doccomment">/// A document paragraph as flow paragraphs: a page break character inside the text ends the
+<a href="#471" id="471" data-nosnippet="">471</a>/// paragraph, and the text after it starts a new one that carries `page_break`.
+<a href="#472" id="472" data-nosnippet="">472</a>/// An object's text in the flow: ASK and SET show nothing, whatever result they hold.
+<a href="#473" id="473" data-nosnippet="">473</a></span><span class="kw">fn </span>shown_text(o: <span class="kw-2">&amp;</span>InlineObject) -&gt; <span class="kw-2">&amp;</span>str {
+<a href="#474" id="474" data-nosnippet="">474</a>    <span class="kw">match </span>o {
+<a href="#475" id="475" data-nosnippet="">475</a>        InlineObject::Field { instr, .. } <span class="kw">if </span><span class="kw">super</span>::shows_nothing(instr) =&gt; <span class="string">""</span>,
+<a href="#476" id="476" data-nosnippet="">476</a>        o =&gt; o.plain_text(),
+<a href="#477" id="477" data-nosnippet="">477</a>    }
+<a href="#478" id="478" data-nosnippet="">478</a>}
+<a href="#479" id="479" data-nosnippet="">479</a>
+<a href="#480" id="480" data-nosnippet="">480</a><span class="kw">pub fn </span>flow_paras(doc: <span class="kw-2">&amp;</span>Document, p: <span class="kw-2">&amp;</span>Paragraph) -&gt; Vec&lt;Para&gt; {
+<a href="#481" id="481" data-nosnippet="">481</a>    flow_paras_in(doc, p, FlowOpts::default())
+<a href="#482" id="482" data-nosnippet="">482</a>}
+<a href="#483" id="483" data-nosnippet="">483</a>
+<a href="#484" id="484" data-nosnippet="">484</a><span class="doccomment">/// [`flow_paras`]; `tracked` keeps tracked changes: deleted text stays, and text carries its
+<a href="#485" id="485" data-nosnippet="">485</a>/// insertion and deletion marks.
+<a href="#486" id="486" data-nosnippet="">486</a></span><span class="kw">fn </span>flow_paras_in(doc: <span class="kw-2">&amp;</span>Document, p: <span class="kw-2">&amp;</span>Paragraph, opts: FlowOpts) -&gt; Vec&lt;Para&gt; {
+<a href="#487" id="487" data-nosnippet="">487</a>    <span class="kw">let </span>tracked = opts.tracked;
+<a href="#488" id="488" data-nosnippet="">488</a>    <span class="kw">let </span>(kind, list) = para_kind(doc, p);
+<a href="#489" id="489" data-nosnippet="">489</a>    <span class="kw">let </span>list = flow_list(doc, kind, list, p, opts);
+<a href="#490" id="490" data-nosnippet="">490</a>    <span class="kw">let </span><span class="kw-2">mut </span>done: Vec&lt;Para&gt; = Vec::new();
+<a href="#491" id="491" data-nosnippet="">491</a>    <span class="kw">let </span>borders = <span class="kw">if </span>kind == Kind::Rule { <span class="prelude-val">None </span>} <span class="kw">else </span>{ p.props.borders.filter(|b| b.takes_room()) };
+<a href="#492" id="492" data-nosnippet="">492</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = Para {
+<a href="#493" id="493" data-nosnippet="">493</a>        kind,
+<a href="#494" id="494" data-nosnippet="">494</a>        list,
+<a href="#495" id="495" data-nosnippet="">495</a>        align: p.props.align,
+<a href="#496" id="496" data-nosnippet="">496</a>        page_break: p.props.page_break_before.unwrap_or(<span class="bool-val">false</span>),
+<a href="#497" id="497" data-nosnippet="">497</a>        keep_next: p.props.keep_next.unwrap_or(<span class="bool-val">false</span>),
+<a href="#498" id="498" data-nosnippet="">498</a>        inlines: Vec::new(),
+<a href="#499" id="499" data-nosnippet="">499</a>        spacing: direct_spacing(<span class="kw-2">&amp;</span>p.props),
+<a href="#500" id="500" data-nosnippet="">500</a>        borders,
+<a href="#501" id="501" data-nosnippet="">501</a>        section: <span class="prelude-val">None</span>,
+<a href="#502" id="502" data-nosnippet="">502</a>        mark_ins: <span class="prelude-val">None</span>,
+<a href="#503" id="503" data-nosnippet="">503</a>        mark_del: <span class="prelude-val">None</span>,
+<a href="#504" id="504" data-nosnippet="">504</a>        fmt_change: <span class="prelude-val">None</span>,
+<a href="#505" id="505" data-nosnippet="">505</a>        extra: <span class="prelude-val">None</span>,
+<a href="#506" id="506" data-nosnippet="">506</a>        mark: <span class="prelude-val">None</span>,
+<a href="#507" id="507" data-nosnippet="">507</a>        kept: <span class="prelude-val">None</span>,
+<a href="#508" id="508" data-nosnippet="">508</a>        wrap: <span class="prelude-val">None</span>,
+<a href="#509" id="509" data-nosnippet="">509</a>        index: <span class="prelude-val">None</span>,
+<a href="#510" id="510" data-nosnippet="">510</a>        group: <span class="prelude-val">None</span>,
+<a href="#511" id="511" data-nosnippet="">511</a>    };
+<a href="#512" id="512" data-nosnippet="">512</a>    <span class="kw">if </span>opts.paras {
+<a href="#513" id="513" data-nosnippet="">513</a>        out.extra = para_extra(doc, <span class="kw-2">&amp;</span>p.props);
+<a href="#514" id="514" data-nosnippet="">514</a>    }
+<a href="#515" id="515" data-nosnippet="">515</a>    <span class="kw">let </span>in_code = kind == Kind::Code;
+<a href="#516" id="516" data-nosnippet="">516</a>    <span class="kw">let </span><span class="kw-2">mut </span>k = <span class="number">0usize</span>;
+<a href="#517" id="517" data-nosnippet="">517</a>    <span class="kw">let </span><span class="kw-2">mut </span>control = OpenControl::default();
+<a href="#518" id="518" data-nosnippet="">518</a>    <span class="kw">for </span>(range, props) <span class="kw">in </span>p.run_ranges() {
+<a href="#519" id="519" data-nosnippet="">519</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(text) = p.text.get(range.clone()) <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href="#520" id="520" data-nosnippet="">520</a>        <span class="comment">// Deleted objects and page breaks stay out even when tracking: the flow has no marks for them.
+<a href="#521" id="521" data-nosnippet="">521</a>        </span><span class="kw">let </span>hidden = props.hidden.unwrap_or(<span class="bool-val">false</span>) || props.del.is_some();
+<a href="#522" id="522" data-nosnippet="">522</a>        <span class="comment">// Formats that keep hidden text get it, marked hidden.
+<a href="#523" id="523" data-nosnippet="">523</a>        </span><span class="kw">let </span>hidden_text = (props.hidden.unwrap_or(<span class="bool-val">false</span>) &amp;&amp; !opts.chars) || (props.del.is_some() &amp;&amp; !tracked);
+<a href="#524" id="524" data-nosnippet="">524</a>        <span class="kw">let </span>hidden_obj = (props.hidden.unwrap_or(<span class="bool-val">false</span>) &amp;&amp; !opts.chars) || props.del.is_some();
+<a href="#525" id="525" data-nosnippet="">525</a>        <span class="kw">let </span><span class="kw-2">mut </span>f = run_fmt(doc, p.props.style.as_deref(), props, in_code, opts);
+<a href="#526" id="526" data-nosnippet="">526</a>        <span class="kw">if </span>tracked {
+<a href="#527" id="527" data-nosnippet="">527</a>            (f.ins, f.del) = rev_marks(doc, props);
+<a href="#528" id="528" data-nosnippet="">528</a>            f.fmt_change = props.fmt_change.as_deref().map(|c| Box::new(FmtChange { mark: rev_mark(doc, c.rev), old: fmt_of(doc, <span class="kw-2">&amp;</span>c.old, in_code) }));
+<a href="#529" id="529" data-nosnippet="">529</a>        }
+<a href="#530" id="530" data-nosnippet="">530</a>        <span class="kw">let </span><span class="kw-2">mut </span>buf = String::new();
+<a href="#531" id="531" data-nosnippet="">531</a>        <span class="kw">for </span>c <span class="kw">in </span>text.chars() {
+<a href="#532" id="532" data-nosnippet="">532</a>            <span class="kw">if </span>c == PAGE_BREAK {
+<a href="#533" id="533" data-nosnippet="">533</a>                <span class="kw">if </span>!hidden {
+<a href="#534" id="534" data-nosnippet="">534</a>                    out.push_text(<span class="kw-2">&amp;</span>std::mem::take(<span class="kw-2">&amp;mut </span>buf), <span class="kw-2">&amp;</span>f);
+<a href="#535" id="535" data-nosnippet="">535</a>                    <span class="kw">let </span>next = Para {
+<a href="#536" id="536" data-nosnippet="">536</a>                        kind,
+<a href="#537" id="537" data-nosnippet="">537</a>                        list: <span class="prelude-val">None</span>,
+<a href="#538" id="538" data-nosnippet="">538</a>                        align: p.props.align,
+<a href="#539" id="539" data-nosnippet="">539</a>                        page_break: <span class="bool-val">true</span>,
+<a href="#540" id="540" data-nosnippet="">540</a>                        keep_next: p.props.keep_next.unwrap_or(<span class="bool-val">false</span>),
+<a href="#541" id="541" data-nosnippet="">541</a>                        inlines: Vec::new(),
+<a href="#542" id="542" data-nosnippet="">542</a>                        spacing: direct_spacing(<span class="kw-2">&amp;</span>p.props),
+<a href="#543" id="543" data-nosnippet="">543</a>                        borders,
+<a href="#544" id="544" data-nosnippet="">544</a>                        section: <span class="prelude-val">None</span>,
+<a href="#545" id="545" data-nosnippet="">545</a>                        mark_ins: <span class="prelude-val">None</span>,
+<a href="#546" id="546" data-nosnippet="">546</a>                        mark_del: <span class="prelude-val">None</span>,
+<a href="#547" id="547" data-nosnippet="">547</a>                        fmt_change: <span class="prelude-val">None</span>,
+<a href="#548" id="548" data-nosnippet="">548</a>                        extra: <span class="prelude-val">None</span>,
+<a href="#549" id="549" data-nosnippet="">549</a>                        mark: <span class="prelude-val">None</span>,
+<a href="#550" id="550" data-nosnippet="">550</a>                        kept: <span class="prelude-val">None</span>,
+<a href="#551" id="551" data-nosnippet="">551</a>                        wrap: <span class="prelude-val">None</span>,
+<a href="#552" id="552" data-nosnippet="">552</a>                        index: <span class="prelude-val">None</span>,
+<a href="#553" id="553" data-nosnippet="">553</a>                        group: <span class="prelude-val">None</span>,
+<a href="#554" id="554" data-nosnippet="">554</a>                    };
+<a href="#555" id="555" data-nosnippet="">555</a>                    <span class="kw">let </span>prev = std::mem::replace(<span class="kw-2">&amp;mut </span>out, next);
+<a href="#556" id="556" data-nosnippet="">556</a>                    <span class="kw">if </span>prev.inlines.is_empty() {
+<a href="#557" id="557" data-nosnippet="">557</a>                        out.page_break |= prev.page_break;
+<a href="#558" id="558" data-nosnippet="">558</a>                        out.list = prev.list;
+<a href="#559" id="559" data-nosnippet="">559</a>                    } <span class="kw">else </span>{
+<a href="#560" id="560" data-nosnippet="">560</a>                        done.push(prev);
+<a href="#561" id="561" data-nosnippet="">561</a>                    }
+<a href="#562" id="562" data-nosnippet="">562</a>                }
+<a href="#563" id="563" data-nosnippet="">563</a>                <span class="kw">continue</span>;
+<a href="#564" id="564" data-nosnippet="">564</a>            }
+<a href="#565" id="565" data-nosnippet="">565</a>            <span class="kw">if </span>c != OBJ {
+<a href="#566" id="566" data-nosnippet="">566</a>                buf.push(c);
+<a href="#567" id="567" data-nosnippet="">567</a>                <span class="kw">continue</span>;
+<a href="#568" id="568" data-nosnippet="">568</a>            }
+<a href="#569" id="569" data-nosnippet="">569</a>            <span class="kw">let </span>obj = p.objects.get(k);
+<a href="#570" id="570" data-nosnippet="">570</a>            k += <span class="number">1</span>;
+<a href="#571" id="571" data-nosnippet="">571</a>            control.interrupt(obj, <span class="kw-2">&amp;mut </span>out, <span class="kw-2">&amp;</span>f);
+<a href="#572" id="572" data-nosnippet="">572</a>            <span class="comment">// Hidden text a format leaves out, a deleted object, or a hidden drawing: not in the
+<a href="#573" id="573" data-nosnippet="">573</a>            // copy (a format keeping hidden text keeps its objects too, as it keeps the text).
+<a href="#574" id="574" data-nosnippet="">574</a>            </span><span class="kw">if </span>hidden_obj || obj.and_then(InlineObject::frame).is_some_and(|(<span class="kw">_</span>, <span class="kw">_</span>, f)| f.hidden) {
+<a href="#575" id="575" data-nosnippet="">575</a>                <span class="kw">continue</span>;
+<a href="#576" id="576" data-nosnippet="">576</a>            }
+<a href="#577" id="577" data-nosnippet="">577</a>            <span class="kw">let </span>from = out.inlines.len();
+<a href="#578" id="578" data-nosnippet="">578</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(items) = obj.and_then(|o| rich_inlines(doc, o, <span class="kw-2">&amp;</span>f, opts)) {
+<a href="#579" id="579" data-nosnippet="">579</a>                <span class="kw">if </span>!buf.is_empty() {
+<a href="#580" id="580" data-nosnippet="">580</a>                    out.push_text(<span class="kw-2">&amp;</span>std::mem::take(<span class="kw-2">&amp;mut </span>buf), <span class="kw-2">&amp;</span>f);
+<a href="#581" id="581" data-nosnippet="">581</a>                }
+<a href="#582" id="582" data-nosnippet="">582</a>                out.inlines.extend(items);
+<a href="#583" id="583" data-nosnippet="">583</a>                raise_drawings(<span class="kw-2">&amp;mut </span>out.inlines, from, props.position.filter(|<span class="kw">_</span>| opts.paras));
+<a href="#584" id="584" data-nosnippet="">584</a>                <span class="kw">continue</span>;
+<a href="#585" id="585" data-nosnippet="">585</a>            }
+<a href="#586" id="586" data-nosnippet="">586</a>            <span class="kw">match </span>obj {
+<a href="#587" id="587" data-nosnippet="">587</a>                <span class="prelude-val">Some</span>(o @ InlineObject::Image { media, w, h, alt, float, ole, crop, .. }) =&gt; {
+<a href="#588" id="588" data-nosnippet="">588</a>                    <span class="kw">if </span>!buf.is_empty() {
+<a href="#589" id="589" data-nosnippet="">589</a>                        out.push_text(<span class="kw-2">&amp;</span>std::mem::take(<span class="kw-2">&amp;mut </span>buf), <span class="kw-2">&amp;</span>f);
+<a href="#590" id="590" data-nosnippet="">590</a>                    }
+<a href="#591" id="591" data-nosnippet="">591</a>                    <span class="comment">// A picture marked decorative keeps its description in the document, but
+<a href="#592" id="592" data-nosnippet="">592</a>                    // exports with none (`alt=""`), so screen readers skip it.
+<a href="#593" id="593" data-nosnippet="">593</a>                    </span><span class="kw">let </span>alt = <span class="kw">if </span>o.is_decorative() { <span class="string">"" </span>} <span class="kw">else </span>{ alt.as_str() };
+<a href="#594" id="594" data-nosnippet="">594</a>                    <span class="kw">match </span>doc.media.get(media) {
+<a href="#595" id="595" data-nosnippet="">595</a>                        <span class="prelude-val">Some</span>(data) =&gt; out.inlines.push(Inline::Image(Img {
+<a href="#596" id="596" data-nosnippet="">596</a>                            data: data.clone(),
+<a href="#597" id="597" data-nosnippet="">597</a>                            ext: media_ext(media, data),
+<a href="#598" id="598" data-nosnippet="">598</a>                            w: <span class="kw-2">*</span>w,
+<a href="#599" id="599" data-nosnippet="">599</a>                            h: <span class="kw-2">*</span>h,
+<a href="#600" id="600" data-nosnippet="">600</a>                            alt: alt.to_string(),
+<a href="#601" id="601" data-nosnippet="">601</a>                            float: kept_float(float).filter(|<span class="kw">_</span>| opts.paras),
+<a href="#602" id="602" data-nosnippet="">602</a>                            object: ole.as_deref().filter(|<span class="kw">_</span>| opts.boxes).and_then(|e| <span class="kw">super</span>::odf_object::load(doc, e)),
+<a href="#603" id="603" data-nosnippet="">603</a>                            crop: <span class="kw">if </span>opts.paras { <span class="kw-2">*</span>crop } <span class="kw">else </span>{ [<span class="number">0.0</span>; <span class="number">4</span>] },
+<a href="#604" id="604" data-nosnippet="">604</a>                        })),
+<a href="#605" id="605" data-nosnippet="">605</a>                        <span class="prelude-val">None </span><span class="kw">if </span>!alt.is_empty() =&gt; buf.push_str(alt),
+<a href="#606" id="606" data-nosnippet="">606</a>                        <span class="prelude-val">None </span>=&gt; {}
+<a href="#607" id="607" data-nosnippet="">607</a>                    }
+<a href="#608" id="608" data-nosnippet="">608</a>                }
+<a href="#609" id="609" data-nosnippet="">609</a>                <span class="prelude-val">Some</span>(InlineObject::Graphic { alt, w, h, float, graphic }) =&gt; {
+<a href="#610" id="610" data-nosnippet="">610</a>                    <span class="kw">if </span>!buf.is_empty() {
+<a href="#611" id="611" data-nosnippet="">611</a>                        out.push_text(<span class="kw-2">&amp;</span>std::mem::take(<span class="kw-2">&amp;mut </span>buf), <span class="kw-2">&amp;</span>f);
+<a href="#612" id="612" data-nosnippet="">612</a>                    }
+<a href="#613" id="613" data-nosnippet="">613</a>                    out.inlines.extend(graphic_inline(doc, (alt, <span class="kw-2">*</span>w, <span class="kw-2">*</span>h), float, graphic, opts));
+<a href="#614" id="614" data-nosnippet="">614</a>                }
+<a href="#615" id="615" data-nosnippet="">615</a>                <span class="prelude-val">Some</span>(InlineObject::Equation { linear, display, math }) =&gt; {
+<a href="#616" id="616" data-nosnippet="">616</a>                    <span class="kw">if </span>!buf.is_empty() {
+<a href="#617" id="617" data-nosnippet="">617</a>                        out.push_text(<span class="kw-2">&amp;</span>std::mem::take(<span class="kw-2">&amp;mut </span>buf), <span class="kw-2">&amp;</span>f);
+<a href="#618" id="618" data-nosnippet="">618</a>                    }
+<a href="#619" id="619" data-nosnippet="">619</a>                    <span class="comment">// The linear format is the shared form; an equation known only by its
+<a href="#620" id="620" data-nosnippet="">620</a>                    // structure gets it from there.
+<a href="#621" id="621" data-nosnippet="">621</a>                    </span><span class="kw">let </span>linear = <span class="kw">if </span>linear.is_empty() { <span class="kw">crate</span>::doc::math::to_linear(<span class="kw-2">&amp;</span>math.nodes) } <span class="kw">else </span>{ linear.clone() };
+<a href="#622" id="622" data-nosnippet="">622</a>                    out.inlines.push(Inline::Equation { linear, display: <span class="kw-2">*</span>display });
+<a href="#623" id="623" data-nosnippet="">623</a>                }
+<a href="#624" id="624" data-nosnippet="">624</a>                <span class="prelude-val">Some</span>(InlineObject::Ruby { base, ruby, .. }) =&gt; {
+<a href="#625" id="625" data-nosnippet="">625</a>                    <span class="kw">if </span>!buf.is_empty() {
+<a href="#626" id="626" data-nosnippet="">626</a>                        out.push_text(<span class="kw-2">&amp;</span>std::mem::take(<span class="kw-2">&amp;mut </span>buf), <span class="kw-2">&amp;</span>f);
+<a href="#627" id="627" data-nosnippet="">627</a>                    }
+<a href="#628" id="628" data-nosnippet="">628</a>                    <span class="comment">// The base text and reading, in the run's formatting; the guide's own
+<a href="#629" id="629" data-nosnippet="">629</a>                    // attributes (alignment, size, raise) stay in the document model.
+<a href="#630" id="630" data-nosnippet="">630</a>                    </span>out.inlines.push(Inline::Ruby { base: base.clone(), ruby: ruby.clone(), fmt: f.clone() });
+<a href="#631" id="631" data-nosnippet="">631</a>                }
+<a href="#632" id="632" data-nosnippet="">632</a>                <span class="prelude-val">Some</span>(InlineObject::BookmarkStart { name }) <span class="kw">if </span>name != <span class="string">"_GoBack" </span>=&gt; {
+<a href="#633" id="633" data-nosnippet="">633</a>                    <span class="kw">if </span>!buf.is_empty() {
+<a href="#634" id="634" data-nosnippet="">634</a>                        out.push_text(<span class="kw-2">&amp;</span>std::mem::take(<span class="kw-2">&amp;mut </span>buf), <span class="kw-2">&amp;</span>f);
+<a href="#635" id="635" data-nosnippet="">635</a>                    }
+<a href="#636" id="636" data-nosnippet="">636</a>                    out.inlines.push(Inline::Anchor(name.clone()));
+<a href="#637" id="637" data-nosnippet="">637</a>                }
+<a href="#638" id="638" data-nosnippet="">638</a>                <span class="prelude-val">Some</span>(o @ (InlineObject::ControlStart { .. } | InlineObject::ControlEnd)) <span class="kw">if </span>control.object(o, opts, <span class="kw-2">&amp;mut </span>buf, <span class="kw-2">&amp;mut </span>out, <span class="kw-2">&amp;</span>f) =&gt; {}
+<a href="#639" id="639" data-nosnippet="">639</a>                <span class="prelude-val">Some</span>(o) =&gt; buf.push_str(shown_text(o)),
+<a href="#640" id="640" data-nosnippet="">640</a>                <span class="prelude-val">None </span>=&gt; {}
+<a href="#641" id="641" data-nosnippet="">641</a>            }
+<a href="#642" id="642" data-nosnippet="">642</a>            raise_drawings(<span class="kw-2">&amp;mut </span>out.inlines, from, props.position.filter(|<span class="kw">_</span>| opts.paras));
+<a href="#643" id="643" data-nosnippet="">643</a>        }
+<a href="#644" id="644" data-nosnippet="">644</a>        <span class="kw">if </span>!hidden_text {
+<a href="#645" id="645" data-nosnippet="">645</a>            control.run_end(<span class="kw-2">&amp;</span>buf, <span class="kw-2">&amp;mut </span>out, <span class="kw-2">&amp;</span>f);
+<a href="#646" id="646" data-nosnippet="">646</a>        }
+<a href="#647" id="647" data-nosnippet="">647</a>    }
+<a href="#648" id="648" data-nosnippet="">648</a>    control.finish(<span class="kw-2">&amp;mut </span>out);
+<a href="#649" id="649" data-nosnippet="">649</a>    <span class="kw">if </span>tracked {
+<a href="#650" id="650" data-nosnippet="">650</a>        <span class="kw">let </span>(ins, del) = rev_marks(doc, <span class="kw-2">&amp;</span>p.mark);
+<a href="#651" id="651" data-nosnippet="">651</a>        (out.mark_ins, out.mark_del) = (ins.map(Box::new), del.map(Box::new));
+<a href="#652" id="652" data-nosnippet="">652</a>        <span class="comment">// The formatting change belongs to the paragraph the mark ends.
+<a href="#653" id="653" data-nosnippet="">653</a>        </span>out.fmt_change = p.props.fmt_change.as_deref().map(|c| {
+<a href="#654" id="654" data-nosnippet="">654</a>            <span class="kw">let </span>blank = out.inlines.is_empty();
+<a href="#655" id="655" data-nosnippet="">655</a>            <span class="kw">let </span>(kind, <span class="kw-2">mut </span>list) = props_kind(doc, <span class="kw-2">&amp;</span>c.old, blank);
+<a href="#656" id="656" data-nosnippet="">656</a>            <span class="kw">if </span>!opts.lists
+<a href="#657" id="657" data-nosnippet="">657</a>                &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(li) = <span class="kw-2">&amp;mut </span>list
+<a href="#658" id="658" data-nosnippet="">658</a>            {
+<a href="#659" id="659" data-nosnippet="">659</a>                (li.list, li.label) = (<span class="number">0</span>, <span class="prelude-val">None</span>);
+<a href="#660" id="660" data-nosnippet="">660</a>            }
+<a href="#661" id="661" data-nosnippet="">661</a>            <span class="kw">let </span>old = Para { kind, list, align: c.old.align, page_break: c.old.page_break_before.unwrap_or(<span class="bool-val">false</span>), ..Default::default() };
+<a href="#662" id="662" data-nosnippet="">662</a>            Box::new(FmtChange { mark: rev_mark(doc, c.rev), old })
+<a href="#663" id="663" data-nosnippet="">663</a>        });
+<a href="#664" id="664" data-nosnippet="">664</a>    }
+<a href="#665" id="665" data-nosnippet="">665</a>    <span class="comment">// The paragraph that ends a section carries its properties (the last piece of it does).
+<a href="#666" id="666" data-nosnippet="">666</a>    </span>out.section.clone_from(<span class="kw-2">&amp;</span>p.section);
+<a href="#667" id="667" data-nosnippet="">667</a>    out.mark = empty_mark(<span class="kw-2">&amp;</span>out, p, opts);
+<a href="#668" id="668" data-nosnippet="">668</a>    <span class="comment">// Still what the file it came from had (a whole paragraph): its markup, for its format. Not
+<a href="#669" id="669" data-nosnippet="">669</a>    // for one starting a page: the break may be its element's or the one before's (a break after
+<a href="#670" id="670" data-nosnippet="">670</a>    // it), and only the model says which is written where.
+<a href="#671" id="671" data-nosnippet="">671</a>    </span><span class="kw">if </span>opts.paras &amp;&amp; done.is_empty() &amp;&amp; p.props.page_break_before != <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) {
+<a href="#672" id="672" data-nosnippet="">672</a>        <span class="comment">// With its comments and its text boxes' text, while they're as read.
+<a href="#673" id="673" data-nosnippet="">673</a>        </span>out.kept = doc
+<a href="#674" id="674" data-nosnippet="">674</a>            .kept
+<a href="#675" id="675" data-nosnippet="">675</a>            .of(<span class="string">"odt"</span>)
+<a href="#676" id="676" data-nosnippet="">676</a>            .and_then(|k| {
+<a href="#677" id="677" data-nosnippet="">677</a>                k.para(p).filter(|xml| (!xml.contains(<span class="string">"&lt;office:annotation"</span>) || k.comments_as_read(doc, p, xml)) &amp;&amp; k.stories_as_read(doc, p))
+<a href="#678" id="678" data-nosnippet="">678</a>            })
+<a href="#679" id="679" data-nosnippet="">679</a>            .cloned();
+<a href="#680" id="680" data-nosnippet="">680</a>        <span class="comment">// With the group it is written as read with, if any (see `model::Group`).
+<a href="#681" id="681" data-nosnippet="">681</a>        </span>out.group = out
+<a href="#682" id="682" data-nosnippet="">682</a>            .kept
+<a href="#683" id="683" data-nosnippet="">683</a>            .as_ref()
+<a href="#684" id="684" data-nosnippet="">684</a>            .and_then(|<span class="kw">_</span>| doc.kept.of(<span class="string">"odt"</span>)<span class="question-mark">?</span>.group(p))
+<a href="#685" id="685" data-nosnippet="">685</a>            .map(|id| Box::new(<span class="kw">crate</span>::formats::model::Group { links: Vec::new(), id: <span class="prelude-val">Some</span>(id) }));
+<a href="#686" id="686" data-nosnippet="">686</a>    }
+<a href="#687" id="687" data-nosnippet="">687</a>    <span class="comment">// The sections kept as read that it opens or closes.
+<a href="#688" id="688" data-nosnippet="">688</a>    </span><span class="kw">if </span>opts.paras {
+<a href="#689" id="689" data-nosnippet="">689</a>        out.wrap = doc.kept.of(<span class="string">"odt"</span>).and_then(|k| k.wrap(p)).map(|w| Box::new(w.clone()));
+<a href="#690" id="690" data-nosnippet="">690</a>    }
+<a href="#691" id="691" data-nosnippet="">691</a>    done.push(out);
+<a href="#692" id="692" data-nosnippet="">692</a>    done
+<a href="#693" id="693" data-nosnippet="">693</a>}
+<a href="#694" id="694" data-nosnippet="">694</a>
+<a href="#695" id="695" data-nosnippet="">695</a><span class="doccomment">/// A chart or diagram in a flow: an editable chart for formats that keep charts (ODT), a
+<a href="#696" id="696" data-nosnippet="">696</a>/// diagram's drawing as a group for formats that keep shapes, else its alt text.
+<a href="#697" id="697" data-nosnippet="">697</a></span><span class="kw">fn </span>graphic_inline(
+<a href="#698" id="698" data-nosnippet="">698</a>    doc: <span class="kw-2">&amp;</span>Document,
+<a href="#699" id="699" data-nosnippet="">699</a>    (alt, w, h): (<span class="kw-2">&amp;</span>str, f32, f32),
+<a href="#700" id="700" data-nosnippet="">700</a>    float: <span class="kw-2">&amp;</span><span class="kw">crate</span>::doc::para::Float,
+<a href="#701" id="701" data-nosnippet="">701</a>    graphic: <span class="kw-2">&amp;</span><span class="kw">crate</span>::doc::graphic::Graphic,
+<a href="#702" id="702" data-nosnippet="">702</a>    opts: FlowOpts,
+<a href="#703" id="703" data-nosnippet="">703</a>) -&gt; <span class="prelude-ty">Option</span>&lt;Inline&gt; {
+<a href="#704" id="704" data-nosnippet="">704</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(spec) = graphic.chart.as_ref().filter(|<span class="kw">_</span>| opts.boxes) {
+<a href="#705" id="705" data-nosnippet="">705</a>        <span class="kw">return </span><span class="prelude-val">Some</span>(Inline::Chart(<span class="kw">crate</span>::formats::model::Chart {
+<a href="#706" id="706" data-nosnippet="">706</a>            spec: spec.clone(),
+<a href="#707" id="707" data-nosnippet="">707</a>            w,
+<a href="#708" id="708" data-nosnippet="">708</a>            h,
+<a href="#709" id="709" data-nosnippet="">709</a>            alt: alt.to_string(),
+<a href="#710" id="710" data-nosnippet="">710</a>            float: kept_float(float).filter(|<span class="kw">_</span>| opts.paras),
+<a href="#711" id="711" data-nosnippet="">711</a>            source: graphic.source.as_deref().and_then(|e| <span class="kw">super</span>::odf_object::load(doc, e)),
+<a href="#712" id="712" data-nosnippet="">712</a>        }));
+<a href="#713" id="713" data-nosnippet="">713</a>    }
+<a href="#714" id="714" data-nosnippet="">714</a>    <span class="comment">// A diagram (SmartArt) for formats without one: its drawing as a group of shapes, text boxes
+<a href="#715" id="715" data-nosnippet="">715</a>    // and pictures every reader draws.
+<a href="#716" id="716" data-nosnippet="">716</a>    </span><span class="kw">if </span>opts.boxes
+<a href="#717" id="717" data-nosnippet="">717</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(group) = graphic_group(doc, (w, h), float, graphic)
+<a href="#718" id="718" data-nosnippet="">718</a>    {
+<a href="#719" id="719" data-nosnippet="">719</a>        <span class="kw">return </span><span class="prelude-val">Some</span>(group);
+<a href="#720" id="720" data-nosnippet="">720</a>    }
+<a href="#721" id="721" data-nosnippet="">721</a>    (!alt.trim().is_empty()).then(|| Inline::Figure(alt.to_string()))
+<a href="#722" id="722" data-nosnippet="">722</a>}
+<a href="#723" id="723" data-nosnippet="">723</a>
+<a href="#724" id="724" data-nosnippet="">724</a><span class="doccomment">/// A graphic's drawing items ([`crate::doc::graphic::GraphicItem`]) as a group `w` × `h`
+<a href="#725" id="725" data-nosnippet="">725</a>/// points: its shapes as shapes, its text as borderless text boxes centred on their places, its
+<a href="#726" id="726" data-nosnippet="">726</a>/// pictures as pictures. `None` when nothing in it can be drawn so (paths are left out).
+<a href="#727" id="727" data-nosnippet="">727</a></span><span class="kw">fn </span>graphic_group(doc: <span class="kw-2">&amp;</span>Document, (w, h): (f32, f32), float: <span class="kw-2">&amp;</span><span class="kw">crate</span>::doc::para::Float, graphic: <span class="kw-2">&amp;</span><span class="kw">crate</span>::doc::graphic::Graphic) -&gt; <span class="prelude-ty">Option</span>&lt;Inline&gt; {
+<a href="#728" id="728" data-nosnippet="">728</a>    <span class="kw">use </span><span class="kw">crate</span>::doc::graphic::{GraphicItem, TextAlign};
+<a href="#729" id="729" data-nosnippet="">729</a>    <span class="kw">use </span><span class="kw">crate</span>::doc::para::ShapeKind;
+<a href="#730" id="730" data-nosnippet="">730</a>    <span class="kw">let </span>ratio = |outer: f32, inner: f32| {
+<a href="#731" id="731" data-nosnippet="">731</a>        <span class="kw">let </span>r = outer / inner;
+<a href="#732" id="732" data-nosnippet="">732</a>        <span class="kw">if </span>r.is_finite() &amp;&amp; r &gt; <span class="number">0.0 </span>{ r } <span class="kw">else </span>{ <span class="number">1.0 </span>}
+<a href="#733" id="733" data-nosnippet="">733</a>    };
+<a href="#734" id="734" data-nosnippet="">734</a>    <span class="kw">let </span>(sx, sy) = (ratio(w, graphic.w), ratio(h, graphic.h));
+<a href="#735" id="735" data-nosnippet="">735</a>    <span class="kw">let </span>finite = |r: <span class="kw-2">&amp;</span>[f32; <span class="number">4</span>]| r.iter().all(|v| v.is_finite()) &amp;&amp; r[<span class="number">2</span>] &gt;= <span class="number">0.0 </span>&amp;&amp; r[<span class="number">3</span>] &gt;= <span class="number">0.0</span>;
+<a href="#736" id="736" data-nosnippet="">736</a>    <span class="kw">let </span>plain = BoxLook { fill: <span class="prelude-val">None</span>, line: <span class="prelude-val">None</span>, inset: <span class="prelude-val">Some</span>([<span class="number">0.0</span>; <span class="number">4</span>]), ..BoxLook::default() };
+<a href="#737" id="737" data-nosnippet="">737</a>    <span class="kw">let </span>members: Vec&lt;Member&gt; = graphic
+<a href="#738" id="738" data-nosnippet="">738</a>        .items
+<a href="#739" id="739" data-nosnippet="">739</a>        .iter()
+<a href="#740" id="740" data-nosnippet="">740</a>        .take(<span class="number">10_000</span>)
+<a href="#741" id="741" data-nosnippet="">741</a>        .filter_map(|item| <span class="kw">match </span>item {
+<a href="#742" id="742" data-nosnippet="">742</a>            GraphicItem::Shape { rect, kind, fill, stroke, stroke_width } <span class="kw">if </span>finite(rect) =&gt; {
+<a href="#743" id="743" data-nosnippet="">743</a>                <span class="kw">let </span>look = BoxLook {
+<a href="#744" id="744" data-nosnippet="">744</a>                    fill: fill.map(<span class="kw">crate</span>::doc::fill::Fill::solid).filter(|<span class="kw">_</span>| <span class="kw-2">*</span>kind != ShapeKind::Line),
+<a href="#745" id="745" data-nosnippet="">745</a>                    line: stroke.filter(|<span class="kw">_</span>| stroke_width.is_finite() &amp;&amp; <span class="kw-2">*</span>stroke_width &gt; <span class="number">0.0</span>).map(|c| (c, stroke_width.min(<span class="number">12.0</span>))),
+<a href="#746" id="746" data-nosnippet="">746</a>                    ..plain.clone()
+<a href="#747" id="747" data-nosnippet="">747</a>                };
+<a href="#748" id="748" data-nosnippet="">748</a>                <span class="kw">let </span>inline = Inline::Shape { kind: <span class="kw-2">*</span>kind, w: rect[<span class="number">2</span>] * sx, h: rect[<span class="number">3</span>] * sy, float: <span class="prelude-val">None</span>, blocks: Vec::new(), look, path: <span class="prelude-val">None </span>};
+<a href="#749" id="749" data-nosnippet="">749</a>                <span class="prelude-val">Some</span>(Member { x: rect[<span class="number">0</span>] * sx, y: rect[<span class="number">1</span>] * sy, inline })
+<a href="#750" id="750" data-nosnippet="">750</a>            }
+<a href="#751" id="751" data-nosnippet="">751</a>            GraphicItem::Text { rect, text, size, color, bold, align, font } <span class="kw">if </span>finite(rect) &amp;&amp; !text.trim().is_empty() =&gt; {
+<a href="#752" id="752" data-nosnippet="">752</a>                <span class="kw">let </span>size = <span class="kw">if </span>size.is_finite() { size.clamp(<span class="number">1.0</span>, <span class="number">400.0</span>) } <span class="kw">else </span>{ <span class="number">11.0 </span>};
+<a href="#753" id="753" data-nosnippet="">753</a>                <span class="comment">// One line, centred vertically in its place as the graphic draws it.
+<a href="#754" id="754" data-nosnippet="">754</a>                </span><span class="kw">let </span>line = size * <span class="number">1.2</span>;
+<a href="#755" id="755" data-nosnippet="">755</a>                <span class="kw">let </span>(bw, bh) = (rect[<span class="number">2</span>] * sx, line.max(<span class="number">1.0</span>));
+<a href="#756" id="756" data-nosnippet="">756</a>                <span class="kw">let </span>y = rect[<span class="number">1</span>] * sy + (rect[<span class="number">3</span>] * sy - bh) / <span class="number">2.0</span>;
+<a href="#757" id="757" data-nosnippet="">757</a>                <span class="kw">let </span>fmt = Fmt { bold: <span class="kw-2">*</span>bold, color: <span class="prelude-val">Some</span>(<span class="kw-2">*</span>color), size: <span class="prelude-val">Some</span>(size), font: font.as_deref().map(Arc::from), ..Fmt::default() };
+<a href="#758" id="758" data-nosnippet="">758</a>                <span class="kw">let </span>para = Para {
+<a href="#759" id="759" data-nosnippet="">759</a>                    align: <span class="prelude-val">Some</span>(<span class="kw">match </span>align {
+<a href="#760" id="760" data-nosnippet="">760</a>                        TextAlign::Left =&gt; <span class="kw">crate</span>::doc::Align::Left,
+<a href="#761" id="761" data-nosnippet="">761</a>                        TextAlign::Right =&gt; <span class="kw">crate</span>::doc::Align::Right,
+<a href="#762" id="762" data-nosnippet="">762</a>                        <span class="kw">_ </span>=&gt; <span class="kw">crate</span>::doc::Align::Center,
+<a href="#763" id="763" data-nosnippet="">763</a>                    }),
+<a href="#764" id="764" data-nosnippet="">764</a>                    inlines: <span class="macro">vec!</span>[Inline::Text(text.clone(), fmt)],
+<a href="#765" id="765" data-nosnippet="">765</a>                    spacing: Spacing { before: <span class="prelude-val">Some</span>(<span class="number">0.0</span>), after: <span class="prelude-val">Some</span>(<span class="number">0.0</span>), ..Spacing::default() },
+<a href="#766" id="766" data-nosnippet="">766</a>                    ..Para::default()
+<a href="#767" id="767" data-nosnippet="">767</a>                };
+<a href="#768" id="768" data-nosnippet="">768</a>                <span class="kw">let </span>inline = Inline::Shape {
+<a href="#769" id="769" data-nosnippet="">769</a>                    kind: ShapeKind::Rectangle,
+<a href="#770" id="770" data-nosnippet="">770</a>                    w: bw,
+<a href="#771" id="771" data-nosnippet="">771</a>                    h: bh,
+<a href="#772" id="772" data-nosnippet="">772</a>                    float: <span class="prelude-val">None</span>,
+<a href="#773" id="773" data-nosnippet="">773</a>                    blocks: <span class="macro">vec!</span>[FBlock::Para(para)],
+<a href="#774" id="774" data-nosnippet="">774</a>                    look: plain.clone(),
+<a href="#775" id="775" data-nosnippet="">775</a>                    path: <span class="prelude-val">None</span>,
+<a href="#776" id="776" data-nosnippet="">776</a>                };
+<a href="#777" id="777" data-nosnippet="">777</a>                <span class="prelude-val">Some</span>(Member { x: rect[<span class="number">0</span>] * sx, y, inline })
+<a href="#778" id="778" data-nosnippet="">778</a>            }
+<a href="#779" id="779" data-nosnippet="">779</a>            GraphicItem::Image { rect, media } <span class="kw">if </span>finite(rect) =&gt; {
+<a href="#780" id="780" data-nosnippet="">780</a>                <span class="kw">let </span>data = doc.media.get(media)<span class="question-mark">?</span>;
+<a href="#781" id="781" data-nosnippet="">781</a>                <span class="kw">let </span>img = Img {
+<a href="#782" id="782" data-nosnippet="">782</a>                    data: data.clone(),
+<a href="#783" id="783" data-nosnippet="">783</a>                    ext: media_ext(media, data),
+<a href="#784" id="784" data-nosnippet="">784</a>                    w: rect[<span class="number">2</span>] * sx,
+<a href="#785" id="785" data-nosnippet="">785</a>                    h: rect[<span class="number">3</span>] * sy,
+<a href="#786" id="786" data-nosnippet="">786</a>                    alt: String::new(),
+<a href="#787" id="787" data-nosnippet="">787</a>                    float: <span class="prelude-val">None</span>,
+<a href="#788" id="788" data-nosnippet="">788</a>                    object: <span class="prelude-val">None</span>,
+<a href="#789" id="789" data-nosnippet="">789</a>                    crop: [<span class="number">0.0</span>; <span class="number">4</span>],
+<a href="#790" id="790" data-nosnippet="">790</a>                };
+<a href="#791" id="791" data-nosnippet="">791</a>                <span class="prelude-val">Some</span>(Member { x: rect[<span class="number">0</span>] * sx, y: rect[<span class="number">1</span>] * sy, inline: Inline::Image(img) })
+<a href="#792" id="792" data-nosnippet="">792</a>            }
+<a href="#793" id="793" data-nosnippet="">793</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#794" id="794" data-nosnippet="">794</a>        })
+<a href="#795" id="795" data-nosnippet="">795</a>        .collect();
+<a href="#796" id="796" data-nosnippet="">796</a>    <span class="kw">if </span>members.is_empty() {
+<a href="#797" id="797" data-nosnippet="">797</a>        <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#798" id="798" data-nosnippet="">798</a>    }
+<a href="#799" id="799" data-nosnippet="">799</a>    <span class="comment">// A group is as big as its members together (ODF 1.3 §10.3.15): an invisible rectangle the
+<a href="#800" id="800" data-nosnippet="">800</a>    // size of the graphic keeps the room around its drawing.
+<a href="#801" id="801" data-nosnippet="">801</a>    </span><span class="kw">let </span>frame = Inline::Shape { kind: ShapeKind::Rectangle, w, h, float: <span class="prelude-val">None</span>, blocks: Vec::new(), look: plain, path: <span class="prelude-val">None </span>};
+<a href="#802" id="802" data-nosnippet="">802</a>    <span class="kw">let </span>all = std::iter::once(Member { x: <span class="number">0.0</span>, y: <span class="number">0.0</span>, inline: frame }).chain(members).collect();
+<a href="#803" id="803" data-nosnippet="">803</a>    <span class="prelude-val">Some</span>(Inline::Group { w, h, float: kept_float(float), members: all })
+<a href="#804" id="804" data-nosnippet="">804</a>}
+<a href="#805" id="805" data-nosnippet="">805</a>
+<a href="#806" id="806" data-nosnippet="">806</a><span class="doccomment">/// The mark formatting of `out`, the last piece of `p`, when it holds no text (its height, its
+<a href="#807" id="807" data-nosnippet="">807</a>/// drawings' formatting), for
+<a href="#808" id="808" data-nosnippet="">808</a>/// formats that keep it (flows asked for paragraph formatting).
+<a href="#809" id="809" data-nosnippet="">809</a></span><span class="kw">fn </span>empty_mark(out: <span class="kw-2">&amp;</span>Para, p: <span class="kw-2">&amp;</span>Paragraph, opts: FlowOpts) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;CharProps&gt;&gt; {
+<a href="#810" id="810" data-nosnippet="">810</a>    <span class="kw">let </span>m = CharProps { ins: <span class="prelude-val">None</span>, del: <span class="prelude-val">None</span>, fmt_change: <span class="prelude-val">None</span>, ..p.mark.clone() };
+<a href="#811" id="811" data-nosnippet="">811</a>    (opts.paras &amp;&amp; out.textless() &amp;&amp; !m.is_empty()).then(|| Box::new(m))
+<a href="#812" id="812" data-nosnippet="">812</a>}
+<a href="#813" id="813" data-nosnippet="">813</a>
+<a href="#814" id="814" data-nosnippet="">814</a><span class="doccomment">/// The drawings from `from` on (just added) raised by their run's position `raise` (points): a
+<a href="#815" id="815" data-nosnippet="">815</a>/// drawing in line keeps it as its float's `y` (see [`crate::formats::model::Img::float`]).
+<a href="#816" id="816" data-nosnippet="">816</a></span><span class="kw">fn </span>raise_drawings(inlines: <span class="kw-2">&amp;mut </span>[Inline], from: usize, raise: <span class="prelude-ty">Option</span>&lt;f32&gt;) {
+<a href="#817" id="817" data-nosnippet="">817</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(r) = raise.filter(|r| r.is_finite() &amp;&amp; <span class="kw-2">*</span>r != <span class="number">0.0</span>) <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href="#818" id="818" data-nosnippet="">818</a>    <span class="kw">for </span>i <span class="kw">in </span>inlines.iter_mut().skip(from) {
+<a href="#819" id="819" data-nosnippet="">819</a>        <span class="kw">let </span>float = <span class="kw">match </span>i {
+<a href="#820" id="820" data-nosnippet="">820</a>            Inline::Image(img) =&gt; <span class="kw-2">&amp;mut </span>img.float,
+<a href="#821" id="821" data-nosnippet="">821</a>            Inline::Chart(c) =&gt; <span class="kw-2">&amp;mut </span>c.float,
+<a href="#822" id="822" data-nosnippet="">822</a>            Inline::Shape { float, .. } | Inline::Group { float, .. } =&gt; float,
+<a href="#823" id="823" data-nosnippet="">823</a>            <span class="kw">_ </span>=&gt; <span class="kw">continue</span>,
+<a href="#824" id="824" data-nosnippet="">824</a>        };
+<a href="#825" id="825" data-nosnippet="">825</a>        <span class="kw">let </span>f = float.get_or_insert_with(Default::default);
+<a href="#826" id="826" data-nosnippet="">826</a>        <span class="kw">if </span>f.wrap == <span class="kw">crate</span>::doc::para::Wrap::Inline {
+<a href="#827" id="827" data-nosnippet="">827</a>            f.y = r;
+<a href="#828" id="828" data-nosnippet="">828</a>        }
+<a href="#829" id="829" data-nosnippet="">829</a>    }
+<a href="#830" id="830" data-nosnippet="">830</a>}
+<a href="#831" id="831" data-nosnippet="">831</a>
+<a href="#832" id="832" data-nosnippet="">832</a><span class="doccomment">/// A content control of plain text being read (formats with form controls): it, its text so
+<a href="#833" id="833" data-nosnippet="">833</a>/// far and that text's formatting.
+<a href="#834" id="834" data-nosnippet="">834</a></span><span class="attr">#[derive(Default)]
+<a href="#835" id="835" data-nosnippet="">835</a></span><span class="kw">struct </span>OpenControl(<span class="prelude-ty">Option</span>&lt;(Box&lt;<span class="kw">crate</span>::doc::control::ContentControl&gt;, String, <span class="prelude-ty">Option</span>&lt;Fmt&gt;)&gt;);
+<a href="#836" id="836" data-nosnippet="">836</a>
+<a href="#837" id="837" data-nosnippet="">837</a><span class="kw">impl </span>OpenControl {
+<a href="#838" id="838" data-nosnippet="">838</a>    <span class="doccomment">/// Object `obj` comes: anything but the control's end makes the control its text after all.
+<a href="#839" id="839" data-nosnippet="">839</a>    </span><span class="kw">fn </span>interrupt(<span class="kw-2">&amp;mut </span><span class="self">self</span>, obj: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>InlineObject&gt;, out: <span class="kw-2">&amp;mut </span>Para, f: <span class="kw-2">&amp;</span>Fmt) {
+<a href="#840" id="840" data-nosnippet="">840</a>        <span class="kw">if </span>!<span class="macro">matches!</span>(obj, <span class="prelude-val">Some</span>(InlineObject::ControlEnd))
+<a href="#841" id="841" data-nosnippet="">841</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, text, fmt)) = <span class="self">self</span>.<span class="number">0</span>.take()
+<a href="#842" id="842" data-nosnippet="">842</a>        {
+<a href="#843" id="843" data-nosnippet="">843</a>            out.push_text(<span class="kw-2">&amp;</span>text, <span class="kw-2">&amp;</span>fmt.unwrap_or_else(|| f.clone()));
+<a href="#844" id="844" data-nosnippet="">844</a>        }
+<a href="#845" id="845" data-nosnippet="">845</a>    }
+<a href="#846" id="846" data-nosnippet="">846</a>
+<a href="#847" id="847" data-nosnippet="">847</a>    <span class="doccomment">/// A content control starts or ends (`o`): whether it is one read here (a plain-text
+<a href="#848" id="848" data-nosnippet="">848</a>    /// control, in a flow that keeps them).
+<a href="#849" id="849" data-nosnippet="">849</a>    </span><span class="kw">fn </span>object(<span class="kw-2">&amp;mut </span><span class="self">self</span>, o: <span class="kw-2">&amp;</span>InlineObject, opts: FlowOpts, buf: <span class="kw-2">&amp;mut </span>String, out: <span class="kw-2">&amp;mut </span>Para, f: <span class="kw-2">&amp;</span>Fmt) -&gt; bool {
+<a href="#850" id="850" data-nosnippet="">850</a>        <span class="kw">match </span>o {
+<a href="#851" id="851" data-nosnippet="">851</a>            InlineObject::ControlStart { control: c } <span class="kw">if </span>opts.boxes &amp;&amp; !c.block &amp;&amp; plain_control(<span class="kw-2">&amp;</span>c.kind) =&gt; {
+<a href="#852" id="852" data-nosnippet="">852</a>                <span class="kw">if </span>!buf.is_empty() {
+<a href="#853" id="853" data-nosnippet="">853</a>                    out.push_text(<span class="kw-2">&amp;</span>std::mem::take(buf), f);
+<a href="#854" id="854" data-nosnippet="">854</a>                }
+<a href="#855" id="855" data-nosnippet="">855</a>                <span class="self">self</span>.<span class="number">0 </span>= <span class="prelude-val">Some</span>((c.clone(), String::new(), <span class="prelude-val">None</span>));
+<a href="#856" id="856" data-nosnippet="">856</a>                <span class="bool-val">true
+<a href="#857" id="857" data-nosnippet="">857</a>            </span>}
+<a href="#858" id="858" data-nosnippet="">858</a>            InlineObject::ControlEnd <span class="kw">if </span><span class="self">self</span>.<span class="number">0</span>.is_some() =&gt; {
+<a href="#859" id="859" data-nosnippet="">859</a>                <span class="self">self</span>.close(buf, out, f);
+<a href="#860" id="860" data-nosnippet="">860</a>                <span class="bool-val">true
+<a href="#861" id="861" data-nosnippet="">861</a>            </span>}
+<a href="#862" id="862" data-nosnippet="">862</a>            <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
+<a href="#863" id="863" data-nosnippet="">863</a>        }
+<a href="#864" id="864" data-nosnippet="">864</a>    }
+<a href="#865" id="865" data-nosnippet="">865</a>
+<a href="#866" id="866" data-nosnippet="">866</a>    <span class="doccomment">/// The control ends: it, with its text (the rest in `buf`), goes into `out`.
+<a href="#867" id="867" data-nosnippet="">867</a>    </span><span class="kw">fn </span>close(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>String, out: <span class="kw-2">&amp;mut </span>Para, f: <span class="kw-2">&amp;</span>Fmt) {
+<a href="#868" id="868" data-nosnippet="">868</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>((c, <span class="kw-2">mut </span>text, fmt)) = <span class="self">self</span>.<span class="number">0</span>.take() {
+<a href="#869" id="869" data-nosnippet="">869</a>            text.push_str(<span class="kw-2">&amp;</span>std::mem::take(buf));
+<a href="#870" id="870" data-nosnippet="">870</a>            out.inlines.push(Inline::Control { control: c, text, fmt: fmt.unwrap_or_else(|| f.clone()) });
+<a href="#871" id="871" data-nosnippet="">871</a>        }
+<a href="#872" id="872" data-nosnippet="">872</a>    }
+<a href="#873" id="873" data-nosnippet="">873</a>
+<a href="#874" id="874" data-nosnippet="">874</a>    <span class="doccomment">/// A run ends with `buf`: the control's text when one is open, else the paragraph's.
+<a href="#875" id="875" data-nosnippet="">875</a>    </span><span class="kw">fn </span>run_end(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;</span>str, out: <span class="kw-2">&amp;mut </span>Para, f: <span class="kw-2">&amp;</span>Fmt) {
+<a href="#876" id="876" data-nosnippet="">876</a>        <span class="kw">match </span><span class="kw-2">&amp;mut </span><span class="self">self</span>.<span class="number">0 </span>{
+<a href="#877" id="877" data-nosnippet="">877</a>            <span class="prelude-val">Some</span>((<span class="kw">_</span>, text, fmt)) =&gt; {
+<a href="#878" id="878" data-nosnippet="">878</a>                text.push_str(buf);
+<a href="#879" id="879" data-nosnippet="">879</a>                fmt.get_or_insert_with(|| f.clone());
+<a href="#880" id="880" data-nosnippet="">880</a>            }
+<a href="#881" id="881" data-nosnippet="">881</a>            <span class="prelude-val">None </span>=&gt; out.push_text(buf, f),
+<a href="#882" id="882" data-nosnippet="">882</a>        }
+<a href="#883" id="883" data-nosnippet="">883</a>    }
+<a href="#884" id="884" data-nosnippet="">884</a>
+<a href="#885" id="885" data-nosnippet="">885</a>    <span class="doccomment">/// The paragraph ends: a control it doesn't close is its text.
+<a href="#886" id="886" data-nosnippet="">886</a>    </span><span class="kw">fn </span>finish(<span class="kw-2">&amp;mut </span><span class="self">self</span>, out: <span class="kw-2">&amp;mut </span>Para) {
+<a href="#887" id="887" data-nosnippet="">887</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, text, fmt)) = <span class="self">self</span>.<span class="number">0</span>.take() {
+<a href="#888" id="888" data-nosnippet="">888</a>            out.push_text(<span class="kw-2">&amp;</span>text, <span class="kw-2">&amp;</span>fmt.unwrap_or_default());
+<a href="#889" id="889" data-nosnippet="">889</a>        }
+<a href="#890" id="890" data-nosnippet="">890</a>    }
+<a href="#891" id="891" data-nosnippet="">891</a>}
+<a href="#892" id="892" data-nosnippet="">892</a>
+<a href="#893" id="893" data-nosnippet="">893</a><span class="doccomment">/// A content control that holds plain text, as a form control does.
+<a href="#894" id="894" data-nosnippet="">894</a></span><span class="kw">fn </span>plain_control(kind: <span class="kw-2">&amp;</span><span class="kw">crate</span>::doc::control::ControlKind) -&gt; bool {
+<a href="#895" id="895" data-nosnippet="">895</a>    <span class="kw">use </span><span class="kw">crate</span>::doc::control::ControlKind <span class="kw">as </span>K;
+<a href="#896" id="896" data-nosnippet="">896</a>    <span class="macro">matches!</span>(kind, K::Text { .. } | K::CheckBox { .. } | K::DropDown { .. } | K::ComboBox { .. } | K::Date { .. })
+<a href="#897" id="897" data-nosnippet="">897</a>}
+<a href="#898" id="898" data-nosnippet="">898</a>
+<a href="#899" id="899" data-nosnippet="">899</a><span class="doccomment">/// The index kept as read starting at block `i` of `bl`, while the paragraphs it takes are all
+<a href="#900" id="900" data-nosnippet="">900</a>/// as read: how many blocks, and its markup.
+<a href="#901" id="901" data-nosnippet="">901</a></span><span class="kw">fn </span>kept_index(doc: <span class="kw-2">&amp;</span>Document, bl: <span class="kw-2">&amp;</span>Blocks, i: usize) -&gt; <span class="prelude-ty">Option</span>&lt;(usize, std::sync::Arc&lt;str&gt;)&gt; {
+<a href="#902" id="902" data-nosnippet="">902</a>    <span class="kw">let </span>k = doc.kept.of(<span class="string">"odt"</span>)<span class="question-mark">?</span>;
+<a href="#903" id="903" data-nosnippet="">903</a>    <span class="kw">let </span>p = bl.get(i)<span class="question-mark">?</span>.as_para()<span class="question-mark">?</span>;
+<a href="#904" id="904" data-nosnippet="">904</a>    <span class="kw">let </span>(n, run, xml) = k.index(p)<span class="question-mark">?</span>;
+<a href="#905" id="905" data-nosnippet="">905</a>    <span class="kw">let </span>paras: Vec&lt;<span class="kw-2">&amp;</span>Paragraph&gt; = bl.get(i..i + n)<span class="question-mark">?</span>.iter().filter_map(|b| b.as_para()).collect();
+<a href="#906" id="906" data-nosnippet="">906</a>    (paras.len() == <span class="kw-2">*</span>n &amp;&amp; <span class="kw">crate</span>::doc::kept::run_fingerprint(paras.into_iter()) == <span class="kw-2">*</span>run).then(|| (<span class="kw-2">*</span>n, xml.clone()))
+<a href="#907" id="907" data-nosnippet="">907</a>}
+<a href="#908" id="908" data-nosnippet="">908</a>
+<a href="#909" id="909" data-nosnippet="">909</a><span class="kw">fn </span>flow_blocks(doc: <span class="kw-2">&amp;</span>Document, bl: <span class="kw-2">&amp;</span>Blocks, depth: usize, tracked: FlowOpts) -&gt; Vec&lt;FBlock&gt; {
+<a href="#910" id="910" data-nosnippet="">910</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
+<a href="#911" id="911" data-nosnippet="">911</a>    <span class="kw">let </span><span class="kw-2">mut </span>skip = <span class="number">0usize</span>;
+<a href="#912" id="912" data-nosnippet="">912</a>    <span class="kw">for </span>(i, b) <span class="kw">in </span>bl.iter().enumerate() {
+<a href="#913" id="913" data-nosnippet="">913</a>        <span class="kw">if </span>skip &gt; <span class="number">0 </span>{
+<a href="#914" id="914" data-nosnippet="">914</a>            skip -= <span class="number">1</span>;
+<a href="#915" id="915" data-nosnippet="">915</a>            <span class="kw">continue</span>;
+<a href="#916" id="916" data-nosnippet="">916</a>        }
+<a href="#917" id="917" data-nosnippet="">917</a>        <span class="comment">// An index kept as read, while every paragraph it takes still is what was read: its
+<a href="#918" id="918" data-nosnippet="">918</a>        // flow paragraphs, the first carrying its markup and how many there are.
+<a href="#919" id="919" data-nosnippet="">919</a>        </span><span class="kw">if </span>tracked.paras
+<a href="#920" id="920" data-nosnippet="">920</a>            &amp;&amp; depth == <span class="number">0
+<a href="#921" id="921" data-nosnippet="">921</a>            </span>&amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(ix) = kept_index(doc, bl, i)
+<a href="#922" id="922" data-nosnippet="">922</a>        {
+<a href="#923" id="923" data-nosnippet="">923</a>            <span class="kw">let </span>from = out.len();
+<a href="#924" id="924" data-nosnippet="">924</a>            <span class="kw">for </span>b <span class="kw">in </span>bl.get(i..i + ix.<span class="number">0</span>).unwrap_or(<span class="kw-2">&amp;</span>[]) {
+<a href="#925" id="925" data-nosnippet="">925</a>                <span class="kw">if let </span>Block::Para(p) = <span class="kw-2">&amp;**</span>b {
+<a href="#926" id="926" data-nosnippet="">926</a>                    out.extend(flow_paras_in(doc, p, tracked).into_iter().map(FBlock::Para));
+<a href="#927" id="927" data-nosnippet="">927</a>                }
+<a href="#928" id="928" data-nosnippet="">928</a>            }
+<a href="#929" id="929" data-nosnippet="">929</a>            <span class="kw">let </span>n = out.len() - from;
+<a href="#930" id="930" data-nosnippet="">930</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(FBlock::Para(first)) = out.get_mut(from) {
+<a href="#931" id="931" data-nosnippet="">931</a>                first.index = <span class="prelude-val">Some</span>(Box::new((ix.<span class="number">1</span>, n)));
+<a href="#932" id="932" data-nosnippet="">932</a>            }
+<a href="#933" id="933" data-nosnippet="">933</a>            skip = ix.<span class="number">0</span>.saturating_sub(<span class="number">1</span>);
+<a href="#934" id="934" data-nosnippet="">934</a>            <span class="kw">continue</span>;
+<a href="#935" id="935" data-nosnippet="">935</a>        }
+<a href="#936" id="936" data-nosnippet="">936</a>        <span class="kw">match </span><span class="kw-2">&amp;**</span>b {
+<a href="#937" id="937" data-nosnippet="">937</a>            Block::Para(p) =&gt; out.extend(flow_paras_in(doc, p, tracked).into_iter().map(FBlock::Para)),
+<a href="#938" id="938" data-nosnippet="">938</a>            Block::Table(t) <span class="kw">if </span>depth &lt; MAX_DEPTH =&gt; out.push(FBlock::Table(flow_table(doc, t, depth, tracked))),
+<a href="#939" id="939" data-nosnippet="">939</a>            Block::Table(t) =&gt; {
+<a href="#940" id="940" data-nosnippet="">940</a>                <span class="kw">for </span>r <span class="kw">in </span><span class="kw-2">&amp;</span>t.rows {
+<a href="#941" id="941" data-nosnippet="">941</a>                    <span class="kw">for </span>c <span class="kw">in </span><span class="kw-2">&amp;</span>r.cells {
+<a href="#942" id="942" data-nosnippet="">942</a>                        out.extend(flow_blocks(doc, <span class="kw-2">&amp;</span>c.blocks, depth, tracked));
+<a href="#943" id="943" data-nosnippet="">943</a>                    }
+<a href="#944" id="944" data-nosnippet="">944</a>                }
+<a href="#945" id="945" data-nosnippet="">945</a>            }
+<a href="#946" id="946" data-nosnippet="">946</a>        }
+<a href="#947" id="947" data-nosnippet="">947</a>    }
+<a href="#948" id="948" data-nosnippet="">948</a>    out
+<a href="#949" id="949" data-nosnippet="">949</a>}
+<a href="#950" id="950" data-nosnippet="">950</a>
+<a href="#951" id="951" data-nosnippet="">951</a><span class="doccomment">/// Word's default cell margins (top, left, bottom, right), points.
+<a href="#952" id="952" data-nosnippet="">952</a></span><span class="kw">const </span>WORD_CELL_MARGINS: [f32; <span class="number">4</span>] = [<span class="number">0.0</span>, <span class="number">5.4</span>, <span class="number">0.0</span>, <span class="number">5.4</span>];
+<a href="#953" id="953" data-nosnippet="">953</a>
+<a href="#954" id="954" data-nosnippet="">954</a><span class="doccomment">/// What a table's style and borders give one cell, worked out as the layout does, for formats
+<a href="#955" id="955" data-nosnippet="">955</a>/// that keep cell formatting (ODT) but have no table styles of Word's kind: its shading, its four
+<a href="#956" id="956" data-nosnippet="">956</a>/// edges (a side without a line is a "none" border), its vertical alignment, and its text's
+<a href="#957" id="957" data-nosnippet="">957</a>/// character formatting and alignment.
+<a href="#958" id="958" data-nosnippet="">958</a></span><span class="kw">struct </span>StyledCell {
+<a href="#959" id="959" data-nosnippet="">959</a>    fill: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::doc::props::Rgb&gt;,
+<a href="#960" id="960" data-nosnippet="">960</a>    borders: <span class="kw">crate</span>::doc::props::Borders,
+<a href="#961" id="961" data-nosnippet="">961</a>    v_align: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::doc::props::VAlign&gt;,
+<a href="#962" id="962" data-nosnippet="">962</a>    chr: CharProps,
+<a href="#963" id="963" data-nosnippet="">963</a>    align: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::doc::Align&gt;,
+<a href="#964" id="964" data-nosnippet="">964</a>    <span class="doccomment">/// The style's paragraph formatting (spacing, line spacing) under each paragraph's own.
+<a href="#965" id="965" data-nosnippet="">965</a>    </span>para: ParaProps,
+<a href="#966" id="966" data-nosnippet="">966</a>}
+<a href="#967" id="967" data-nosnippet="">967</a>
+<a href="#968" id="968" data-nosnippet="">968</a><span class="kw">fn </span>styled_cell(t: <span class="kw-2">&amp;</span>Table, style: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="kw">crate</span>::doc::styles::TableStyleProps&gt;, (ri, ci): (usize, usize), ncols: usize) -&gt; <span class="prelude-ty">Option</span>&lt;StyledCell&gt; {
+<a href="#969" id="969" data-nosnippet="">969</a>    <span class="kw">use </span><span class="kw">crate</span>::doc::props::{Border, BorderStyle, Borders};
+<a href="#970" id="970" data-nosnippet="">970</a>    <span class="kw">use </span><span class="kw">crate</span>::doc::styles::{PartSet, TablePart};
+<a href="#971" id="971" data-nosnippet="">971</a>    <span class="kw">let </span>row = t.rows.get(ri)<span class="question-mark">?</span>;
+<a href="#972" id="972" data-nosnippet="">972</a>    <span class="kw">let </span>cell = row.cells.get(ci)<span class="question-mark">?</span>;
+<a href="#973" id="973" data-nosnippet="">973</a>    <span class="kw">let </span>nrows = t.rows.len();
+<a href="#974" id="974" data-nosnippet="">974</a>    <span class="kw">let </span>g = t.grid_col(ri, ci);
+<a href="#975" id="975" data-nosnippet="">975</a>    <span class="kw">let </span>span = cell.span();
+<a href="#976" id="976" data-nosnippet="">976</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = StyledCell {
+<a href="#977" id="977" data-nosnippet="">977</a>        fill: <span class="prelude-val">None</span>,
+<a href="#978" id="978" data-nosnippet="">978</a>        borders: Borders::default(),
+<a href="#979" id="979" data-nosnippet="">979</a>        v_align: <span class="prelude-val">None</span>,
+<a href="#980" id="980" data-nosnippet="">980</a>        chr: CharProps::default(),
+<a href="#981" id="981" data-nosnippet="">981</a>        align: <span class="prelude-val">None</span>,
+<a href="#982" id="982" data-nosnippet="">982</a>        para: style.map(|s| s.para.clone()).unwrap_or_default(),
+<a href="#983" id="983" data-nosnippet="">983</a>    };
+<a href="#984" id="984" data-nosnippet="">984</a>    <span class="kw">let </span><span class="kw-2">mut </span>part_borders = Vec::new();
+<a href="#985" id="985" data-nosnippet="">985</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(st) = style {
+<a href="#986" id="986" data-nosnippet="">986</a>        <span class="kw">let </span>sizes = (st.parts.band_size.unwrap_or(<span class="number">0</span>), st.parts.col_band_size.unwrap_or(<span class="number">0</span>));
+<a href="#987" id="987" data-nosnippet="">987</a>        <span class="kw">for </span>part <span class="kw">in </span>PartSet::of_cell(<span class="kw-2">&amp;</span>t.props.look, sizes, (ri, nrows), (g, span, ncols)).iter() {
+<a href="#988" id="988" data-nosnippet="">988</a>            <span class="kw">let </span>f = st.part(part);
+<a href="#989" id="989" data-nosnippet="">989</a>            out.fill = f.fill.or(out.fill);
+<a href="#990" id="990" data-nosnippet="">990</a>            out.v_align = f.v_align.or(out.v_align);
+<a href="#991" id="991" data-nosnippet="">991</a>            out.chr.overlay(<span class="kw-2">&amp;</span>f.chr);
+<a href="#992" id="992" data-nosnippet="">992</a>            out.align = f.align.or(out.align);
+<a href="#993" id="993" data-nosnippet="">993</a>            <span class="kw">if </span>part != TablePart::WholeTable
+<a href="#994" id="994" data-nosnippet="">994</a>                &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(b) = f.borders
+<a href="#995" id="995" data-nosnippet="">995</a>            {
+<a href="#996" id="996" data-nosnippet="">996</a>                part_borders.push((part, b));
+<a href="#997" id="997" data-nosnippet="">997</a>            }
+<a href="#998" id="998" data-nosnippet="">998</a>        }
+<a href="#999" id="999" data-nosnippet="">999</a>    }
+<a href="#1000" id="1000" data-nosnippet="">1000</a>    <span class="kw">let </span><span class="kw-2">mut </span>tb = style.and_then(|s| s.parts.borders).unwrap_or_default();
+<a href="#1001" id="1001" data-nosnippet="">1001</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(own) = t.props.borders {
+<a href="#1002" id="1002" data-nosnippet="">1002</a>        tb.overlay(<span class="kw-2">&amp;</span>own);
+<a href="#1003" id="1003" data-nosnippet="">1003</a>    }
+<a href="#1004" id="1004" data-nosnippet="">1004</a>    <span class="kw">let </span>cb = cell.props.borders.unwrap_or_default();
+<a href="#1005" id="1005" data-nosnippet="">1005</a>    <span class="kw">let </span>rowb = row.props.exceptions.as_ref().and_then(|e| e.borders).unwrap_or_default();
+<a href="#1006" id="1006" data-nosnippet="">1006</a>    <span class="kw">let </span>(first_g, last_g) = (g == row.first_grid(), g + span &gt;= ncols.saturating_sub(row.grid_after()));
+<a href="#1007" id="1007" data-nosnippet="">1007</a>    <span class="kw">let </span>rb = <span class="kw">crate</span>::doc::styles::part_borders(<span class="kw-2">&amp;</span>part_borders, (ri, nrows), (first_g, last_g));
+<a href="#1008" id="1008" data-nosnippet="">1008</a>    <span class="kw">let </span>edge = |own: <span class="prelude-ty">Option</span>&lt;Border&gt;, outer: bool, outer_b: <span class="prelude-ty">Option</span>&lt;Border&gt;, inner_b: <span class="prelude-ty">Option</span>&lt;Border&gt;| own.or(<span class="kw">if </span>outer { outer_b } <span class="kw">else </span>{ inner_b });
+<a href="#1009" id="1009" data-nosnippet="">1009</a>    <span class="kw">let </span>none = Border { style: BorderStyle::None, width: <span class="number">0.0</span>, color: <span class="prelude-val">None</span>, space: <span class="number">0.0 </span>};
+<a href="#1010" id="1010" data-nosnippet="">1010</a>    <span class="kw">let </span>top = edge(cb.top.or(<span class="kw">if </span>ri == <span class="number">0 </span>{ rowb.top } <span class="kw">else </span>{ rowb.between }).or(rb.top), ri == <span class="number">0</span>, tb.top, tb.between);
+<a href="#1011" id="1011" data-nosnippet="">1011</a>    <span class="kw">let </span>bottom = edge(cb.bottom.or(<span class="kw">if </span>ri + <span class="number">1 </span>== nrows { rowb.bottom } <span class="kw">else </span>{ rowb.between }).or(rb.bottom), ri + <span class="number">1 </span>== nrows, tb.bottom, tb.between);
+<a href="#1012" id="1012" data-nosnippet="">1012</a>    <span class="kw">let </span>left = edge(
+<a href="#1013" id="1013" data-nosnippet="">1013</a>        cb.left.or(<span class="kw">if </span>first_g { rowb.left } <span class="kw">else </span>{ rowb.inside_v }).or(<span class="kw">if </span>first_g { rb.left } <span class="kw">else </span>{ rb.inside_v }),
+<a href="#1014" id="1014" data-nosnippet="">1014</a>        first_g,
+<a href="#1015" id="1015" data-nosnippet="">1015</a>        tb.left,
+<a href="#1016" id="1016" data-nosnippet="">1016</a>        tb.inside_v,
+<a href="#1017" id="1017" data-nosnippet="">1017</a>    );
+<a href="#1018" id="1018" data-nosnippet="">1018</a>    <span class="kw">let </span>right = edge(
+<a href="#1019" id="1019" data-nosnippet="">1019</a>        cb.right.or(<span class="kw">if </span>last_g { rowb.right } <span class="kw">else </span>{ rowb.inside_v }).or(<span class="kw">if </span>last_g { rb.right } <span class="kw">else </span>{ rb.inside_v }),
+<a href="#1020" id="1020" data-nosnippet="">1020</a>        last_g,
+<a href="#1021" id="1021" data-nosnippet="">1021</a>        tb.right,
+<a href="#1022" id="1022" data-nosnippet="">1022</a>        tb.inside_v,
+<a href="#1023" id="1023" data-nosnippet="">1023</a>    );
+<a href="#1024" id="1024" data-nosnippet="">1024</a>    out.borders = Borders {
+<a href="#1025" id="1025" data-nosnippet="">1025</a>        top: top.or(<span class="prelude-val">Some</span>(none)),
+<a href="#1026" id="1026" data-nosnippet="">1026</a>        bottom: bottom.or(<span class="prelude-val">Some</span>(none)),
+<a href="#1027" id="1027" data-nosnippet="">1027</a>        left: left.or(<span class="prelude-val">Some</span>(none)),
+<a href="#1028" id="1028" data-nosnippet="">1028</a>        right: right.or(<span class="prelude-val">Some</span>(none)),
+<a href="#1029" id="1029" data-nosnippet="">1029</a>        between: <span class="prelude-val">None</span>,
+<a href="#1030" id="1030" data-nosnippet="">1030</a>        inside_v: <span class="prelude-val">None</span>,
+<a href="#1031" id="1031" data-nosnippet="">1031</a>    };
+<a href="#1032" id="1032" data-nosnippet="">1032</a>    <span class="prelude-val">Some</span>(out)
+<a href="#1033" id="1033" data-nosnippet="">1033</a>}
+<a href="#1034" id="1034" data-nosnippet="">1034</a>
+<a href="#1035" id="1035" data-nosnippet="">1035</a><span class="doccomment">/// `blocks` with what a table style's character and paragraph formatting changes (see
+<a href="#1036" id="1036" data-nosnippet="">1036</a>/// [`crate::doc::styles::StyleSheet::table_para_patch`]) stated on each paragraph and run.
+<a href="#1037" id="1037" data-nosnippet="">1037</a></span><span class="kw">fn </span>with_cell_text(doc: <span class="kw-2">&amp;</span>Document, blocks: <span class="kw-2">&amp;</span>Blocks, chr: <span class="kw-2">&amp;</span>CharProps, align: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::doc::Align&gt;, para: <span class="kw-2">&amp;</span>ParaProps) -&gt; Blocks {
+<a href="#1038" id="1038" data-nosnippet="">1038</a>    <span class="kw">if </span>chr.is_empty() &amp;&amp; align.is_none() &amp;&amp; para.is_empty() {
+<a href="#1039" id="1039" data-nosnippet="">1039</a>        <span class="kw">return </span>blocks.clone();
+<a href="#1040" id="1040" data-nosnippet="">1040</a>    }
+<a href="#1041" id="1041" data-nosnippet="">1041</a>    blocks
+<a href="#1042" id="1042" data-nosnippet="">1042</a>        .iter()
+<a href="#1043" id="1043" data-nosnippet="">1043</a>        .map(|b| <span class="kw">match </span><span class="kw-2">&amp;**</span>b {
+<a href="#1044" id="1044" data-nosnippet="">1044</a>            Block::Para(p) =&gt; {
+<a href="#1045" id="1045" data-nosnippet="">1045</a>                <span class="kw">let </span><span class="kw-2">mut </span>p = p.clone();
+<a href="#1046" id="1046" data-nosnippet="">1046</a>                <span class="kw">let </span>pstyle = p.props.style.clone();
+<a href="#1047" id="1047" data-nosnippet="">1047</a>                <span class="kw">if </span>!chr.is_empty() {
+<a href="#1048" id="1048" data-nosnippet="">1048</a>                    <span class="kw">for </span>r <span class="kw">in </span><span class="kw-2">&amp;mut </span>p.runs {
+<a href="#1049" id="1049" data-nosnippet="">1049</a>                        <span class="kw">let </span><span class="kw-2">mut </span>props = doc.styles.table_char_patch(pstyle.as_deref(), r.props.style.as_deref(), chr);
+<a href="#1050" id="1050" data-nosnippet="">1050</a>                        props.overlay(<span class="kw-2">&amp;</span>r.props);
+<a href="#1051" id="1051" data-nosnippet="">1051</a>                        r.props = props;
+<a href="#1052" id="1052" data-nosnippet="">1052</a>                    }
+<a href="#1053" id="1053" data-nosnippet="">1053</a>                    <span class="kw">let </span><span class="kw-2">mut </span>mark = doc.styles.table_char_patch(pstyle.as_deref(), p.mark.style.as_deref(), chr);
+<a href="#1054" id="1054" data-nosnippet="">1054</a>                    mark.overlay(<span class="kw-2">&amp;</span>p.mark);
+<a href="#1055" id="1055" data-nosnippet="">1055</a>                    p.mark = mark;
+<a href="#1056" id="1056" data-nosnippet="">1056</a>                }
+<a href="#1057" id="1057" data-nosnippet="">1057</a>                <span class="comment">// A part's alignment is table style paragraph formatting too, under the paragraph's styles.
+<a href="#1058" id="1058" data-nosnippet="">1058</a>                </span><span class="kw">let </span>table = ParaProps { align: align.or(para.align), ..para.clone() };
+<a href="#1059" id="1059" data-nosnippet="">1059</a>                <span class="kw">if </span>!table.is_empty() {
+<a href="#1060" id="1060" data-nosnippet="">1060</a>                    <span class="kw">let </span><span class="kw-2">mut </span>props = doc.styles.table_para_patch(<span class="kw-2">&amp;</span>p.props, <span class="kw-2">&amp;</span>table);
+<a href="#1061" id="1061" data-nosnippet="">1061</a>                    props.overlay(<span class="kw-2">&amp;</span>p.props);
+<a href="#1062" id="1062" data-nosnippet="">1062</a>                    p.props = props;
+<a href="#1063" id="1063" data-nosnippet="">1063</a>                }
+<a href="#1064" id="1064" data-nosnippet="">1064</a>                Arc::new(Block::Para(p))
+<a href="#1065" id="1065" data-nosnippet="">1065</a>            }
+<a href="#1066" id="1066" data-nosnippet="">1066</a>            <span class="kw">_ </span>=&gt; b.clone(),
+<a href="#1067" id="1067" data-nosnippet="">1067</a>        })
+<a href="#1068" id="1068" data-nosnippet="">1068</a>        .collect()
+<a href="#1069" id="1069" data-nosnippet="">1069</a>}
+<a href="#1070" id="1070" data-nosnippet="">1070</a>
+<a href="#1071" id="1071" data-nosnippet="">1071</a><span class="kw">fn </span>flow_table(doc: <span class="kw-2">&amp;</span>Document, t: <span class="kw-2">&amp;</span>Table, depth: usize, tracked: FlowOpts) -&gt; FTable {
+<a href="#1072" id="1072" data-nosnippet="">1072</a>    <span class="kw">let </span><span class="kw-2">mut </span>rows = Vec::new();
+<a href="#1073" id="1073" data-nosnippet="">1073</a>    <span class="comment">// Formats that keep cell formatting get the table style's and the table's borders cell by cell.
+<a href="#1074" id="1074" data-nosnippet="">1074</a>    </span><span class="kw">let </span>style = t.props.style.as_deref().and_then(|id| doc.styles.table_style(id));
+<a href="#1075" id="1075" data-nosnippet="">1075</a>    <span class="kw">let </span>bake = tracked.paras;
+<a href="#1076" id="1076" data-nosnippet="">1076</a>    <span class="kw">let </span>ncols =
+<a href="#1077" id="1077" data-nosnippet="">1077</a>        t.rows.iter().map(|r| r.first_grid() + r.cells.iter().map(|c| c.span()).sum::&lt;usize&gt;() + r.grid_after()).max().unwrap_or(<span class="number">0</span>).max(t.grid.len());
+<a href="#1078" id="1078" data-nosnippet="">1078</a>    <span class="kw">for </span>(ri, r) <span class="kw">in </span>t.rows.iter().enumerate() {
+<a href="#1079" id="1079" data-nosnippet="">1079</a>        <span class="kw">let </span>header = r.props.header || (ri == <span class="number">0 </span>&amp;&amp; t.props.look.header_row &amp;&amp; t.rows.len() &gt; <span class="number">1</span>);
+<a href="#1080" id="1080" data-nosnippet="">1080</a>        <span class="kw">let </span><span class="kw-2">mut </span>cells = Vec::new();
+<a href="#1081" id="1081" data-nosnippet="">1081</a>        <span class="kw">for </span>(ci, c) <span class="kw">in </span>r.cells.iter().enumerate() {
+<a href="#1082" id="1082" data-nosnippet="">1082</a>            <span class="kw">let </span>styled = <span class="kw">if </span>bake { styled_cell(t, style.as_ref(), (ri, ci), ncols) } <span class="kw">else </span>{ <span class="prelude-val">None </span>};
+<a href="#1083" id="1083" data-nosnippet="">1083</a>            <span class="kw">let </span><span class="kw-2">mut </span>rowspan = <span class="number">1</span>;
+<a href="#1084" id="1084" data-nosnippet="">1084</a>            <span class="kw">if </span>c.props.vmerge == VMerge::Restart {
+<a href="#1085" id="1085" data-nosnippet="">1085</a>                <span class="kw">let </span>g = t.grid_col(ri, ci);
+<a href="#1086" id="1086" data-nosnippet="">1086</a>                <span class="kw">for </span>(k, below) <span class="kw">in </span>t.rows.iter().enumerate().skip(ri + <span class="number">1</span>) {
+<a href="#1087" id="1087" data-nosnippet="">1087</a>                    <span class="kw">let </span>cont = t.cell_at_grid(k, g).and_then(|i| below.cells.get(i)).is_some_and(|bc| bc.props.vmerge == VMerge::Continue);
+<a href="#1088" id="1088" data-nosnippet="">1088</a>                    <span class="kw">if </span>!cont {
+<a href="#1089" id="1089" data-nosnippet="">1089</a>                        <span class="kw">break</span>;
+<a href="#1090" id="1090" data-nosnippet="">1090</a>                    }
+<a href="#1091" id="1091" data-nosnippet="">1091</a>                    rowspan += <span class="number">1</span>;
+<a href="#1092" id="1092" data-nosnippet="">1092</a>                }
+<a href="#1093" id="1093" data-nosnippet="">1093</a>            }
+<a href="#1094" id="1094" data-nosnippet="">1094</a>            <span class="kw">let </span>blocks = <span class="kw">match </span><span class="kw-2">&amp;</span>styled {
+<a href="#1095" id="1095" data-nosnippet="">1095</a>                <span class="prelude-val">Some</span>(st) =&gt; flow_blocks(doc, <span class="kw-2">&amp;</span>with_cell_text(doc, <span class="kw-2">&amp;</span>c.blocks, <span class="kw-2">&amp;</span>st.chr, st.align, <span class="kw-2">&amp;</span>st.para), depth + <span class="number">1</span>, tracked),
+<a href="#1096" id="1096" data-nosnippet="">1096</a>                <span class="prelude-val">None </span>=&gt; flow_blocks(doc, <span class="kw-2">&amp;</span>c.blocks, depth + <span class="number">1</span>, tracked),
+<a href="#1097" id="1097" data-nosnippet="">1097</a>            };
+<a href="#1098" id="1098" data-nosnippet="">1098</a>            cells.push(Cell {
+<a href="#1099" id="1099" data-nosnippet="">1099</a>                blocks,
+<a href="#1100" id="1100" data-nosnippet="">1100</a>                colspan: c.span() <span class="kw">as </span>u32,
+<a href="#1101" id="1101" data-nosnippet="">1101</a>                rowspan,
+<a href="#1102" id="1102" data-nosnippet="">1102</a>                covered: c.props.vmerge == VMerge::Continue,
+<a href="#1103" id="1103" data-nosnippet="">1103</a>                header,
+<a href="#1104" id="1104" data-nosnippet="">1104</a>                shading: c.props.shading.or(styled.as_ref().and_then(|s| s.fill)),
+<a href="#1105" id="1105" data-nosnippet="">1105</a>                borders: styled.as_ref().map(|s| s.borders).or(c.props.borders),
+<a href="#1106" id="1106" data-nosnippet="">1106</a>                valign: c.props.valign.or(styled.as_ref().and_then(|s| s.v_align)),
+<a href="#1107" id="1107" data-nosnippet="">1107</a>                <span class="comment">// Formats that keep cell padding get each cell's, its table's or Word's default.
+<a href="#1108" id="1108" data-nosnippet="">1108</a>                </span>margins: tracked.paras.then(|| c.props.resolved_margins(t.props.cell_margins.unwrap_or(WORD_CELL_MARGINS))),
+<a href="#1109" id="1109" data-nosnippet="">1109</a>                direction: c.props.text_direction,
+<a href="#1110" id="1110" data-nosnippet="">1110</a>                <span class="comment">// Its background picture, for formats that keep cell formatting (ODT).
+<a href="#1111" id="1111" data-nosnippet="">1111</a>                </span>picture: c.props.picture.as_deref().filter(|<span class="kw">_</span>| tracked.paras).and_then(|p| {
+<a href="#1112" id="1112" data-nosnippet="">1112</a>                    <span class="kw">let </span>data = doc.media.get(<span class="kw-2">&amp;</span>p.media)<span class="question-mark">?</span>;
+<a href="#1113" id="1113" data-nosnippet="">1113</a>                    <span class="kw">let </span>img = Img {
+<a href="#1114" id="1114" data-nosnippet="">1114</a>                        data: data.clone(),
+<a href="#1115" id="1115" data-nosnippet="">1115</a>                        ext: media_ext(<span class="kw-2">&amp;</span>p.media, data),
+<a href="#1116" id="1116" data-nosnippet="">1116</a>                        w: p.size[<span class="number">0</span>],
+<a href="#1117" id="1117" data-nosnippet="">1117</a>                        h: p.size[<span class="number">1</span>],
+<a href="#1118" id="1118" data-nosnippet="">1118</a>                        alt: String::new(),
+<a href="#1119" id="1119" data-nosnippet="">1119</a>                        float: <span class="prelude-val">None</span>,
+<a href="#1120" id="1120" data-nosnippet="">1120</a>                        object: <span class="prelude-val">None</span>,
+<a href="#1121" id="1121" data-nosnippet="">1121</a>                        crop: [<span class="number">0.0</span>; <span class="number">4</span>],
+<a href="#1122" id="1122" data-nosnippet="">1122</a>                    };
+<a href="#1123" id="1123" data-nosnippet="">1123</a>                    <span class="prelude-val">Some</span>(Box::new(<span class="kw">crate</span>::formats::model::CellPic { img, repeat: p.repeat, align: p.align }))
+<a href="#1124" id="1124" data-nosnippet="">1124</a>                }),
+<a href="#1125" id="1125" data-nosnippet="">1125</a>                width: <span class="prelude-val">None</span>,
+<a href="#1126" id="1126" data-nosnippet="">1126</a>            });
+<a href="#1127" id="1127" data-nosnippet="">1127</a>        }
+<a href="#1128" id="1128" data-nosnippet="">1128</a>        rows.push(cells);
+<a href="#1129" id="1129" data-nosnippet="">1129</a>    }
+<a href="#1130" id="1130" data-nosnippet="">1130</a>    <span class="comment">// Without a table style and without visible table or cell borders the table shows no grid.
+<a href="#1131" id="1131" data-nosnippet="">1131</a>    </span><span class="kw">let </span>visible = |b: <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::doc::props::Borders&gt;| b.as_ref().is_some_and(|b| b.any_visible());
+<a href="#1132" id="1132" data-nosnippet="">1132</a>    <span class="kw">let </span>borderless =
+<a href="#1133" id="1133" data-nosnippet="">1133</a>        t.props.style.is_none() &amp;&amp; !visible(<span class="kw-2">&amp;</span>t.props.borders) &amp;&amp; t.rows.iter().flat_map(|r| <span class="kw-2">&amp;</span>r.cells).all(|c| !visible(<span class="kw-2">&amp;</span>c.props.borders));
+<a href="#1134" id="1134" data-nosnippet="">1134</a>    <span class="comment">// Formats that keep them get the table's alignment, width and row heights.
+<a href="#1135" id="1135" data-nosnippet="">1135</a>    </span><span class="kw">let </span>extra = tracked.paras.then(|| {
+<a href="#1136" id="1136" data-nosnippet="">1136</a>        <span class="kw">use </span><span class="kw">crate</span>::doc::props::HeightRule;
+<a href="#1137" id="1137" data-nosnippet="">1137</a>        <span class="kw">let </span>heights = t
+<a href="#1138" id="1138" data-nosnippet="">1138</a>            .rows
+<a href="#1139" id="1139" data-nosnippet="">1139</a>            .iter()
+<a href="#1140" id="1140" data-nosnippet="">1140</a>            .map(|r| <span class="kw">match </span>(r.props.height, r.props.height_rule) {
+<a href="#1141" id="1141" data-nosnippet="">1141</a>                (<span class="prelude-val">Some</span>(h), HeightRule::Exact) =&gt; <span class="prelude-val">Some</span>((h, <span class="bool-val">true</span>)),
+<a href="#1142" id="1142" data-nosnippet="">1142</a>                (<span class="prelude-val">Some</span>(h), HeightRule::AtLeast) =&gt; <span class="prelude-val">Some</span>((h, <span class="bool-val">false</span>)),
+<a href="#1143" id="1143" data-nosnippet="">1143</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#1144" id="1144" data-nosnippet="">1144</a>            })
+<a href="#1145" id="1145" data-nosnippet="">1145</a>            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+<a href="#1146" id="1146" data-nosnippet="">1146</a>        <span class="kw">super</span>::types::TableExtra {
+<a href="#1147" id="1147" data-nosnippet="">1147</a>            align: t.props.align,
+<a href="#1148" id="1148" data-nosnippet="">1148</a>            width: t.props.width,
+<a href="#1149" id="1149" data-nosnippet="">1149</a>            width_pct: t.props.width_pct,
+<a href="#1150" id="1150" data-nosnippet="">1150</a>            heights,
+<a href="#1151" id="1151" data-nosnippet="">1151</a>            keep_rows: t.rows.iter().map(|r| r.props.cant_split).collect(),
+<a href="#1152" id="1152" data-nosnippet="">1152</a>            fixed: t.props.fixed,
+<a href="#1153" id="1153" data-nosnippet="">1153</a>            space: [t.props.space_before, t.props.space_after],
+<a href="#1154" id="1154" data-nosnippet="">1154</a>            header_rows: t.rows.iter().take_while(|r| r.props.header).count(),
+<a href="#1155" id="1155" data-nosnippet="">1155</a>        }
+<a href="#1156" id="1156" data-nosnippet="">1156</a>    });
+<a href="#1157" id="1157" data-nosnippet="">1157</a>    <span class="comment">// Kept whole for formats that ask for it: its header rows count even without the rest.
+<a href="#1158" id="1158" data-nosnippet="">1158</a>    </span><span class="kw">let </span>extra = extra.map(Box::new);
+<a href="#1159" id="1159" data-nosnippet="">1159</a>    <span class="kw">let </span>kept = (tracked.paras &amp;&amp; depth == <span class="number">0</span>).then(|| doc.kept.of(<span class="string">"odt"</span>).and_then(|k| k.table(t)).cloned()).flatten();
+<a href="#1160" id="1160" data-nosnippet="">1160</a>    <span class="kw">let </span>wrap = (tracked.paras &amp;&amp; depth == <span class="number">0</span>).then(|| doc.kept.of(<span class="string">"odt"</span>).and_then(|k| k.table_wrap(t)).cloned().map(Box::new)).flatten();
+<a href="#1161" id="1161" data-nosnippet="">1161</a>    FTable { rows, widths: t.grid.clone(), borderless, extra, kept, wrap }
+<a href="#1162" id="1162" data-nosnippet="">1162</a>}
+<a href="#1163" id="1163" data-nosnippet="">1163</a>
+<a href="#1164" id="1164" data-nosnippet="">1164</a><span class="doccomment">/// The document body as a flow.
+<a href="#1165" id="1165" data-nosnippet="">1165</a></span><span class="kw">pub fn </span>from_doc(doc: <span class="kw-2">&amp;</span>Document) -&gt; Flow {
+<a href="#1166" id="1166" data-nosnippet="">1166</a>    flow_of(doc, FlowOpts::default())
+<a href="#1167" id="1167" data-nosnippet="">1167</a>}
+<a href="#1168" id="1168" data-nosnippet="">1168</a>
+<a href="#1169" id="1169" data-nosnippet="">1169</a><span class="doccomment">/// [`from_doc`] keeping tracked changes: deleted text stays, and text carries its insertion and
+<a href="#1170" id="1170" data-nosnippet="">1170</a>/// deletion marks ([`Fmt::ins`], [`Fmt::del`]), for formats that can write revisions (RTF).
+<a href="#1171" id="1171" data-nosnippet="">1171</a></span><span class="kw">pub fn </span>from_doc_tracked(doc: <span class="kw-2">&amp;</span>Document) -&gt; Flow {
+<a href="#1172" id="1172" data-nosnippet="">1172</a>    flow_of(doc, FlowOpts { tracked: <span class="bool-val">true</span>, ..Default::default() })
+<a href="#1173" id="1173" data-nosnippet="">1173</a>}
+<a href="#1174" id="1174" data-nosnippet="">1174</a>
+<a href="#1175" id="1175" data-nosnippet="">1175</a><span class="doccomment">/// [`from_doc`] keeping what `opts` asks for.
+<a href="#1176" id="1176" data-nosnippet="">1176</a></span><span class="kw">pub fn </span>from_doc_with(doc: <span class="kw-2">&amp;</span>Document, opts: FlowOpts) -&gt; Flow {
+<a href="#1177" id="1177" data-nosnippet="">1177</a>    <span class="comment">// Paragraphs kept as read are checked against the document's comments and page setup:
+<a href="#1178" id="1178" data-nosnippet="">1178</a>    // worked out once for the whole document, not once per paragraph.
+<a href="#1179" id="1179" data-nosnippet="">1179</a>    </span><span class="kw">crate</span>::doc::kept::while_writing(doc, || flow_of(doc, opts))
+<a href="#1180" id="1180" data-nosnippet="">1180</a>}
+<a href="#1181" id="1181" data-nosnippet="">1181</a>
+<a href="#1182" id="1182" data-nosnippet="">1182</a><span class="doccomment">/// `blocks` of `doc` (a header, footer or note) as flow blocks, keeping what `opts` asks for.
+<a href="#1183" id="1183" data-nosnippet="">1183</a></span><span class="kw">pub fn </span>part_flow(doc: <span class="kw-2">&amp;</span>Document, blocks: <span class="kw-2">&amp;</span>Blocks, opts: FlowOpts) -&gt; Vec&lt;FBlock&gt; {
+<a href="#1184" id="1184" data-nosnippet="">1184</a>    flow_blocks(doc, blocks, <span class="number">0</span>, opts)
+<a href="#1185" id="1185" data-nosnippet="">1185</a>}
+<a href="#1186" id="1186" data-nosnippet="">1186</a>
+<a href="#1187" id="1187" data-nosnippet="">1187</a><span class="kw">fn </span>flow_of(doc: <span class="kw-2">&amp;</span>Document, tracked: FlowOpts) -&gt; Flow {
+<a href="#1188" id="1188" data-nosnippet="">1188</a>    <span class="kw">let </span>c = <span class="kw-2">&amp;</span>doc.core;
+<a href="#1189" id="1189" data-nosnippet="">1189</a>    Flow {
+<a href="#1190" id="1190" data-nosnippet="">1190</a>        blocks: flow_blocks(doc, <span class="kw-2">&amp;</span>doc.body, <span class="number">0</span>, tracked),
+<a href="#1191" id="1191" data-nosnippet="">1191</a>        meta: Meta {
+<a href="#1192" id="1192" data-nosnippet="">1192</a>            title: c.title.clone(),
+<a href="#1193" id="1193" data-nosnippet="">1193</a>            author: c.creator.clone(),
+<a href="#1194" id="1194" data-nosnippet="">1194</a>            subject: c.subject.clone(),
+<a href="#1195" id="1195" data-nosnippet="">1195</a>            keywords: c.keywords.clone(),
+<a href="#1196" id="1196" data-nosnippet="">1196</a>            description: c.description.clone(),
+<a href="#1197" id="1197" data-nosnippet="">1197</a>            created: c.created.clone(),
+<a href="#1198" id="1198" data-nosnippet="">1198</a>        },
+<a href="#1199" id="1199" data-nosnippet="">1199</a>    }
+<a href="#1200" id="1200" data-nosnippet="">1200</a>}
+<a href="#1201" id="1201" data-nosnippet="">1201</a>
+<a href="#1202" id="1202" data-nosnippet="">1202</a><span class="doccomment">/// List labels in document order for list paragraphs of a flow ("1.", "a.", "•"), computed by a
+<a href="#1203" id="1203" data-nosnippet="">1203</a>/// simple per-level counter (what text exports show).
+<a href="#1204" id="1204" data-nosnippet="">1204</a></span><span class="attr">#[derive(Default)]
+<a href="#1205" id="1205" data-nosnippet="">1205</a></span><span class="kw">pub struct </span>ListCounter {
+<a href="#1206" id="1206" data-nosnippet="">1206</a>    counts: [u32; <span class="number">9</span>],
+<a href="#1207" id="1207" data-nosnippet="">1207</a>    ordered: [bool; <span class="number">9</span>],
+<a href="#1208" id="1208" data-nosnippet="">1208</a>}
+<a href="#1209" id="1209" data-nosnippet="">1209</a>
+<a href="#1210" id="1210" data-nosnippet="">1210</a><span class="kw">impl </span>ListCounter {
+<a href="#1211" id="1211" data-nosnippet="">1211</a>    <span class="kw">pub fn </span>reset(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href="#1212" id="1212" data-nosnippet="">1212</a>        <span class="kw-2">*</span><span class="self">self </span>= ListCounter::default();
+<a href="#1213" id="1213" data-nosnippet="">1213</a>    }
+<a href="#1214" id="1214" data-nosnippet="">1214</a>    <span class="doccomment">/// Advance for `li` and return its number (1-based; bullets also count).
+<a href="#1215" id="1215" data-nosnippet="">1215</a>    </span><span class="kw">pub fn </span>next(<span class="kw-2">&amp;mut </span><span class="self">self</span>, li: ListInfo) -&gt; u32 {
+<a href="#1216" id="1216" data-nosnippet="">1216</a>        <span class="kw">let </span>lv = li.level.min(<span class="number">8</span>) <span class="kw">as </span>usize;
+<a href="#1217" id="1217" data-nosnippet="">1217</a>        <span class="kw">if </span><span class="self">self</span>.ordered.get(lv).copied() != <span class="prelude-val">Some</span>(li.ordered)
+<a href="#1218" id="1218" data-nosnippet="">1218</a>            &amp;&amp; <span class="kw">let </span>(<span class="prelude-val">Some</span>(o), <span class="prelude-val">Some</span>(c)) = (<span class="self">self</span>.ordered.get_mut(lv), <span class="self">self</span>.counts.get_mut(lv))
+<a href="#1219" id="1219" data-nosnippet="">1219</a>        {
+<a href="#1220" id="1220" data-nosnippet="">1220</a>            <span class="kw-2">*</span>o = li.ordered;
+<a href="#1221" id="1221" data-nosnippet="">1221</a>            <span class="kw-2">*</span>c = <span class="number">0</span>;
+<a href="#1222" id="1222" data-nosnippet="">1222</a>        }
+<a href="#1223" id="1223" data-nosnippet="">1223</a>        <span class="kw">let </span>n = <span class="kw">match </span><span class="self">self</span>.counts.get_mut(lv) {
+<a href="#1224" id="1224" data-nosnippet="">1224</a>            <span class="prelude-val">Some</span>(c) =&gt; {
+<a href="#1225" id="1225" data-nosnippet="">1225</a>                <span class="kw">if </span><span class="kw-2">*</span>c == <span class="number">0 </span>{
+<a href="#1226" id="1226" data-nosnippet="">1226</a>                    <span class="kw-2">*</span>c = li.start.saturating_sub(<span class="number">1</span>);
+<a href="#1227" id="1227" data-nosnippet="">1227</a>                }
+<a href="#1228" id="1228" data-nosnippet="">1228</a>                <span class="kw-2">*</span>c = c.saturating_add(<span class="number">1</span>);
+<a href="#1229" id="1229" data-nosnippet="">1229</a>                <span class="kw-2">*</span>c
+<a href="#1230" id="1230" data-nosnippet="">1230</a>            }
+<a href="#1231" id="1231" data-nosnippet="">1231</a>            <span class="prelude-val">None </span>=&gt; <span class="number">1</span>,
+<a href="#1232" id="1232" data-nosnippet="">1232</a>        };
+<a href="#1233" id="1233" data-nosnippet="">1233</a>        <span class="kw">for </span>d <span class="kw">in </span><span class="self">self</span>.counts.iter_mut().skip(lv + <span class="number">1</span>) {
+<a href="#1234" id="1234" data-nosnippet="">1234</a>            <span class="kw-2">*</span>d = <span class="number">0</span>;
+<a href="#1235" id="1235" data-nosnippet="">1235</a>        }
+<a href="#1236" id="1236" data-nosnippet="">1236</a>        n
+<a href="#1237" id="1237" data-nosnippet="">1237</a>    }
+<a href="#1238" id="1238" data-nosnippet="">1238</a>    <span class="kw">pub fn </span>label(<span class="kw-2">&amp;mut </span><span class="self">self</span>, li: ListInfo) -&gt; String {
+<a href="#1239" id="1239" data-nosnippet="">1239</a>        <span class="kw">let </span>n = <span class="self">self</span>.next(li);
+<a href="#1240" id="1240" data-nosnippet="">1240</a>        <span class="kw">if </span>!li.ordered {
+<a href="#1241" id="1241" data-nosnippet="">1241</a>            <span class="kw">return </span>[<span class="string">"•"</span>, <span class="string">"◦"</span>, <span class="string">"▪"</span>].get(li.level <span class="kw">as </span>usize % <span class="number">3</span>).copied().unwrap_or(<span class="string">"•"</span>).to_string();
+<a href="#1242" id="1242" data-nosnippet="">1242</a>        }
+<a href="#1243" id="1243" data-nosnippet="">1243</a>        <span class="kw">match </span>li.level % <span class="number">3 </span>{
+<a href="#1244" id="1244" data-nosnippet="">1244</a>            <span class="number">0 </span>=&gt; <span class="macro">format!</span>(<span class="string">"{n}."</span>),
+<a href="#1245" id="1245" data-nosnippet="">1245</a>            <span class="number">1 </span>=&gt; <span class="macro">format!</span>(<span class="string">"{}."</span>, <span class="kw">crate</span>::doc::section::letters(n)),
+<a href="#1246" id="1246" data-nosnippet="">1246</a>            <span class="kw">_ </span>=&gt; <span class="macro">format!</span>(<span class="string">"{}."</span>, <span class="kw">crate</span>::doc::section::roman(n)),
+<a href="#1247" id="1247" data-nosnippet="">1247</a>        }
+<a href="#1248" id="1248" data-nosnippet="">1248</a>    }
+<a href="#1249" id="1249" data-nosnippet="">1249</a>}
+</code></pre></div></section></main></body></html>

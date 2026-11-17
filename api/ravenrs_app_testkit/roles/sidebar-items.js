@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["administrator","events_worker","registrar","worker"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["TableBorder","TablePart"],"fn":["table_styles"],"struct":["Cell","Row","Table","TablePartStyle","TableStyleDef"]};

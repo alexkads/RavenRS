@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["AVISO_SEM_VALIDADE","QR_MINIMO_CM","QR_MINIMO_PONTOS"],"fn":["conteudo_qr"]};

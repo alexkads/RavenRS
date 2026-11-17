@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_COLS","MAX_ROWS","MAX_TABLE_DEPTH"],"struct":["Cell","Row","Table"]};

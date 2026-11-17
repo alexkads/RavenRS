@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ASSOCIATION","ELEMENTS","LANE","MESSAGE","PARTICIPANT","SEQUENCE"],"enum":["Family"],"fn":["caption","connection","element","family","icon","normalize","participant_of"]};

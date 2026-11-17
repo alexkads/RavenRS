@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["STYLES"],"fn":["apply","look","specs"],"struct":["Look"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["chart_type","content_type","specs"]};

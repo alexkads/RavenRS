@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["from_args","sample"],"mod":["app","cargo","config","lsp","project"]};

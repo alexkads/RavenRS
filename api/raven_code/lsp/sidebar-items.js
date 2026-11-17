@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["column_of","path_of","position_of","uri_of"],"struct":["Completion","Definition","Lsp","Position"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["CalendarView","TimeScale","TimelineEdit"],"struct":["CalendarEvent","EventCalendar","RecurrenceEditor","Resource","Scheduler","SchedulerChange","SchedulerEvent","SchedulerRange","TimeAxis","TimePoint","Timeline","TimelineItem","TimelineMarker","TimelineTrack"]};

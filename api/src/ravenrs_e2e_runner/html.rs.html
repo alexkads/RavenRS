@@ -1,0 +1,200 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>html.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ravenrs_e2e_runner" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../static.files/src-script-813739b1.js"></script><script defer="" src="../../src-files.js"></script><script defer="" src="../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-e2e-runner/src/html.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_e2e_runner/html.rs.html"><meta property="og:title" content="html.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-e2e-runner/src/html.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_e2e_runner/html.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="html.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-e2e-runner/src/html.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"html.rs - source","description":"Source of the Rust file `crates/ravenrs-e2e-runner/src/html.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_e2e_runner/html.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_e2e_runner/</div>html.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! The report of a suite as one HTML page (T5 of #627): the summary, a table per scenario
+<a href="#2" id="2" data-nosnippet="">2</a>//! with each block, and the failure with its meaning, fix and the app's screen. The page needs
+<a href="#3" id="3" data-nosnippet="">3</a>//! nothing from the network, reads in light and dark, and fits a phone.
+<a href="#4" id="4" data-nosnippet="">4</a>
+<a href="#5" id="5" data-nosnippet="">5</a></span><span class="kw">use </span><span class="kw">crate</span>::report::Report;
+<a href="#6" id="6" data-nosnippet="">6</a>
+<a href="#7" id="7" data-nosnippet="">7</a><span class="doccomment">/// `reports` as one self-contained page.
+<a href="#8" id="8" data-nosnippet="">8</a></span><span class="kw">pub fn </span>page(reports: <span class="kw-2">&amp;</span>[Report]) -&gt; String {
+<a href="#9" id="9" data-nosnippet="">9</a>    render(reports, <span class="prelude-val">None</span>)
+<a href="#10" id="10" data-nosnippet="">10</a>}
+<a href="#11" id="11" data-nosnippet="">11</a>
+<a href="#12" id="12" data-nosnippet="">12</a><span class="doccomment">/// A page kept in `folder`, so films beside it can have portable relative links.
+<a href="#13" id="13" data-nosnippet="">13</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>page_in(reports: <span class="kw-2">&amp;</span>[Report], folder: <span class="kw-2">&amp;</span>std::path::Path) -&gt; String {
+<a href="#14" id="14" data-nosnippet="">14</a>    render(reports, <span class="prelude-val">Some</span>(folder))
+<a href="#15" id="15" data-nosnippet="">15</a>}
+<a href="#16" id="16" data-nosnippet="">16</a>
+<a href="#17" id="17" data-nosnippet="">17</a><span class="kw">fn </span>render(reports: <span class="kw-2">&amp;</span>[Report], folder: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>std::path::Path&gt;) -&gt; String {
+<a href="#18" id="18" data-nosnippet="">18</a>    <span class="kw">let </span>passed = reports.iter().filter(|r| r.passed()).count();
+<a href="#19" id="19" data-nosnippet="">19</a>    <span class="kw">let </span>blocks: usize = reports.iter().map(|r| r.total).sum();
+<a href="#20" id="20" data-nosnippet="">20</a>    <span class="kw">let </span>ms: u64 = reports.iter().map(|r| r.duration_ms).sum();
+<a href="#21" id="21" data-nosnippet="">21</a>    <span class="kw">let </span>verdict = <span class="kw">if </span>passed == reports.len() { <span class="string">"passed" </span>} <span class="kw">else </span>{ <span class="string">"failed" </span>};
+<a href="#22" id="22" data-nosnippet="">22</a>    <span class="kw">let </span><span class="kw-2">mut </span>body = <span class="macro">format!</span>(
+<a href="#23" id="23" data-nosnippet="">23</a>        <span class="string">"&lt;header&gt;&lt;h1&gt;Relatório e2e&lt;/h1&gt;&lt;p class=\"verdict {verdict}\"&gt;{}&lt;/p&gt;\
+<a href="#24" id="24" data-nosnippet="">24</a>         &lt;dl&gt;&lt;div&gt;&lt;dt&gt;Cenários&lt;/dt&gt;&lt;dd&gt;{passed} de {} passaram&lt;/dd&gt;&lt;/div&gt;\
+<a href="#25" id="25" data-nosnippet="">25</a>         &lt;div&gt;&lt;dt&gt;Passos&lt;/dt&gt;&lt;dd&gt;{blocks}&lt;/dd&gt;&lt;/div&gt;&lt;div&gt;&lt;dt&gt;Tempo&lt;/dt&gt;&lt;dd&gt;{}&lt;/dd&gt;&lt;/div&gt;\
+<a href="#26" id="26" data-nosnippet="">26</a>         &lt;div&gt;&lt;dt&gt;Janela&lt;/dt&gt;&lt;dd&gt;{}&lt;/dd&gt;&lt;/div&gt;&lt;/dl&gt;&lt;/header&gt;"</span>,
+<a href="#27" id="27" data-nosnippet="">27</a>        <span class="kw">if </span>verdict == <span class="string">"passed" </span>{ <span class="string">"Passou" </span>} <span class="kw">else </span>{ <span class="string">"Falhou" </span>},
+<a href="#28" id="28" data-nosnippet="">28</a>        reports.len(),
+<a href="#29" id="29" data-nosnippet="">29</a>        seconds(ms),
+<a href="#30" id="30" data-nosnippet="">30</a>        esc(<span class="kw-2">&amp;</span>window_line(reports))
+<a href="#31" id="31" data-nosnippet="">31</a>    );
+<a href="#32" id="32" data-nosnippet="">32</a>    <span class="kw">for </span>report <span class="kw">in </span>reports {
+<a href="#33" id="33" data-nosnippet="">33</a>        body.push_str(<span class="kw-2">&amp;</span>scenario(report, folder));
+<a href="#34" id="34" data-nosnippet="">34</a>    }
+<a href="#35" id="35" data-nosnippet="">35</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(report) = reports.first() {
+<a href="#36" id="36" data-nosnippet="">36</a>        body.push_str(<span class="string">"&lt;footer&gt;&lt;h2&gt;Não verificado&lt;/h2&gt;&lt;ul&gt;"</span>);
+<a href="#37" id="37" data-nosnippet="">37</a>        <span class="kw">for </span>item <span class="kw">in </span>report.not_verified() {
+<a href="#38" id="38" data-nosnippet="">38</a>            body.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;li&gt;{}&lt;/li&gt;"</span>, esc(item)));
+<a href="#39" id="39" data-nosnippet="">39</a>        }
+<a href="#40" id="40" data-nosnippet="">40</a>        body.push_str(<span class="string">"&lt;/ul&gt;&lt;/footer&gt;"</span>);
+<a href="#41" id="41" data-nosnippet="">41</a>    }
+<a href="#42" id="42" data-nosnippet="">42</a>    <span class="macro">format!</span>(
+<a href="#43" id="43" data-nosnippet="">43</a>        <span class="string">"&lt;!doctype html&gt;\n&lt;html lang=\"pt-BR\"&gt;&lt;head&gt;&lt;meta charset=\"utf-8\"&gt;\
+<a href="#44" id="44" data-nosnippet="">44</a>         &lt;meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"&gt;\
+<a href="#45" id="45" data-nosnippet="">45</a>         &lt;title&gt;Relatório e2e&lt;/title&gt;&lt;style&gt;{STYLE}&lt;/style&gt;&lt;/head&gt;&lt;body&gt;&lt;main&gt;{body}&lt;/main&gt;&lt;/body&gt;&lt;/html&gt;\n"
+<a href="#46" id="46" data-nosnippet="">46</a>    </span>)
+<a href="#47" id="47" data-nosnippet="">47</a>}
+<a href="#48" id="48" data-nosnippet="">48</a>
+<a href="#49" id="49" data-nosnippet="">49</a><span class="kw">fn </span>scenario(report: <span class="kw-2">&amp;</span>Report, folder: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>std::path::Path&gt;) -&gt; String {
+<a href="#50" id="50" data-nosnippet="">50</a>    <span class="kw">let </span>state = <span class="kw">if </span>report.passed() { <span class="string">"passed" </span>} <span class="kw">else </span>{ <span class="string">"failed" </span>};
+<a href="#51" id="51" data-nosnippet="">51</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = <span class="macro">format!</span>(
+<a href="#52" id="52" data-nosnippet="">52</a>        <span class="string">"&lt;section class=\"{state}\"&gt;&lt;h2&gt;{}&lt;/h2&gt;&lt;p class=\"summary\"&gt;{} · {}{}&lt;/p&gt;\
+<a href="#53" id="53" data-nosnippet="">53</a>         &lt;div class=\"scroll\"&gt;&lt;table&gt;&lt;thead&gt;&lt;tr&gt;&lt;th&gt;#&lt;/th&gt;&lt;th&gt;Bloco&lt;/th&gt;&lt;th&gt;Alvo&lt;/th&gt;&lt;th&gt;Resultado&lt;/th&gt;&lt;th&gt;Tempo&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;&lt;tbody&gt;"</span>,
+<a href="#54" id="54" data-nosnippet="">54</a>        esc(<span class="kw-2">&amp;</span>report.scenario),
+<a href="#55" id="55" data-nosnippet="">55</a>        esc(<span class="kw-2">&amp;</span><span class="kw">crate</span>::session::summary(<span class="kw-2">&amp;</span>report.outcomes, report.total)),
+<a href="#56" id="56" data-nosnippet="">56</a>        seconds(report.duration_ms),
+<a href="#57" id="57" data-nosnippet="">57</a>        <span class="kw">if </span>report.cached_at.is_some() { <span class="string">" · do cache" </span>} <span class="kw">else </span>{ <span class="string">"" </span>}
+<a href="#58" id="58" data-nosnippet="">58</a>    );
+<a href="#59" id="59" data-nosnippet="">59</a>    <span class="kw">for </span>(i, o) <span class="kw">in </span>report.outcomes.iter().enumerate() {
+<a href="#60" id="60" data-nosnippet="">60</a>        <span class="kw">let </span>(class, result) = <span class="kw">match </span>(<span class="kw-2">&amp;</span>o.error, <span class="kw-2">&amp;</span>o.code) {
+<a href="#61" id="61" data-nosnippet="">61</a>            (<span class="prelude-val">None</span>, <span class="kw">_</span>) =&gt; (<span class="string">"ok"</span>, <span class="string">"passou"</span>.to_owned()),
+<a href="#62" id="62" data-nosnippet="">62</a>            (<span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="prelude-val">Some</span>(code)) =&gt; (<span class="string">"bad"</span>, <span class="macro">format!</span>(<span class="string">"falhou · &lt;code&gt;{}&lt;/code&gt;"</span>, esc(code))),
+<a href="#63" id="63" data-nosnippet="">63</a>            (<span class="prelude-val">Some</span>(<span class="kw">_</span>), <span class="prelude-val">None</span>) =&gt; (<span class="string">"bad"</span>, <span class="string">"falhou"</span>.to_owned()),
+<a href="#64" id="64" data-nosnippet="">64</a>        };
+<a href="#65" id="65" data-nosnippet="">65</a>        out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+<a href="#66" id="66" data-nosnippet="">66</a>            <span class="string">"&lt;tr class=\"{class}\"&gt;&lt;td&gt;{}&lt;/td&gt;&lt;td&gt;{}&lt;small&gt;{}&lt;/small&gt;&lt;/td&gt;&lt;td&gt;&lt;code&gt;{}&lt;/code&gt;&lt;/td&gt;&lt;td&gt;{result}&lt;/td&gt;&lt;td&gt;{}&lt;/td&gt;&lt;/tr&gt;"</span>,
+<a href="#67" id="67" data-nosnippet="">67</a>            i + <span class="number">1</span>,
+<a href="#68" id="68" data-nosnippet="">68</a>            esc(<span class="kw-2">&amp;</span>o.title),
+<a href="#69" id="69" data-nosnippet="">69</a>            esc(<span class="kw-2">&amp;</span>o.kind),
+<a href="#70" id="70" data-nosnippet="">70</a>            esc(<span class="kw-2">&amp;</span>o.line),
+<a href="#71" id="71" data-nosnippet="">71</a>            seconds(o.ms)
+<a href="#72" id="72" data-nosnippet="">72</a>        ));
+<a href="#73" id="73" data-nosnippet="">73</a>    }
+<a href="#74" id="74" data-nosnippet="">74</a>    <span class="kw">for </span>(i, title) <span class="kw">in </span>report.not_run.iter().enumerate() {
+<a href="#75" id="75" data-nosnippet="">75</a>        out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+<a href="#76" id="76" data-nosnippet="">76</a>            <span class="string">"&lt;tr class=\"skip\"&gt;&lt;td&gt;{}&lt;/td&gt;&lt;td&gt;{}&lt;/td&gt;&lt;td&gt;&lt;/td&gt;&lt;td&gt;não rodou&lt;/td&gt;&lt;td&gt;&lt;/td&gt;&lt;/tr&gt;"</span>,
+<a href="#77" id="77" data-nosnippet="">77</a>            report.outcomes.len() + i + <span class="number">1</span>,
+<a href="#78" id="78" data-nosnippet="">78</a>            esc(title)
+<a href="#79" id="79" data-nosnippet="">79</a>        ));
+<a href="#80" id="80" data-nosnippet="">80</a>    }
+<a href="#81" id="81" data-nosnippet="">81</a>    out.push_str(<span class="string">"&lt;/tbody&gt;&lt;/table&gt;&lt;/div&gt;"</span>);
+<a href="#82" id="82" data-nosnippet="">82</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(f) = report.failure() {
+<a href="#83" id="83" data-nosnippet="">83</a>        out.push_str(<span class="string">"&lt;div class=\"failure\"&gt;&lt;h3&gt;Por que falhou&lt;/h3&gt;"</span>);
+<a href="#84" id="84" data-nosnippet="">84</a>        out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;p&gt;{}&lt;/p&gt;"</span>, esc(f.error.as_deref().unwrap_or_default())));
+<a href="#85" id="85" data-nosnippet="">85</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(fix) = <span class="kw-2">&amp;</span>f.fix {
+<a href="#86" id="86" data-nosnippet="">86</a>            out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;p&gt;&lt;strong&gt;Como corrigir:&lt;/strong&gt; {}&lt;/p&gt;"</span>, esc(fix)));
+<a href="#87" id="87" data-nosnippet="">87</a>        }
+<a href="#88" id="88" data-nosnippet="">88</a>        <span class="kw">if </span>!f.close.is_empty() {
+<a href="#89" id="89" data-nosnippet="">89</a>            out.push_str(<span class="string">"&lt;p&gt;&lt;strong&gt;Parecidos na tela:&lt;/strong&gt;&lt;/p&gt;&lt;ul&gt;"</span>);
+<a href="#90" id="90" data-nosnippet="">90</a>            <span class="kw">for </span>close <span class="kw">in </span><span class="kw-2">&amp;</span>f.close {
+<a href="#91" id="91" data-nosnippet="">91</a>                out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;li&gt;&lt;code&gt;{}&lt;/code&gt;&lt;/li&gt;"</span>, esc(close)));
+<a href="#92" id="92" data-nosnippet="">92</a>            }
+<a href="#93" id="93" data-nosnippet="">93</a>            out.push_str(<span class="string">"&lt;/ul&gt;"</span>);
+<a href="#94" id="94" data-nosnippet="">94</a>        }
+<a href="#95" id="95" data-nosnippet="">95</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(screen) = <span class="kw-2">&amp;</span>f.screen {
+<a href="#96" id="96" data-nosnippet="">96</a>            out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+<a href="#97" id="97" data-nosnippet="">97</a>                <span class="string">"&lt;details open&gt;&lt;summary&gt;Tela do app testado&lt;/summary&gt;&lt;pre&gt;{}&lt;/pre&gt;&lt;/details&gt;"</span>,
+<a href="#98" id="98" data-nosnippet="">98</a>                esc(screen)
+<a href="#99" id="99" data-nosnippet="">99</a>            ));
+<a href="#100" id="100" data-nosnippet="">100</a>        }
+<a href="#101" id="101" data-nosnippet="">101</a>        out.push_str(<span class="string">"&lt;/div&gt;"</span>);
+<a href="#102" id="102" data-nosnippet="">102</a>    }
+<a href="#103" id="103" data-nosnippet="">103</a>    <span class="kw">if </span>!report.films.is_empty() || report.film_note.is_some() {
+<a href="#104" id="104" data-nosnippet="">104</a>        out.push_str(<span class="string">"&lt;div class=\"films\"&gt;&lt;h3&gt;Filme&lt;/h3&gt;&lt;ul&gt;"</span>);
+<a href="#105" id="105" data-nosnippet="">105</a>        <span class="kw">for </span>film <span class="kw">in </span><span class="kw-2">&amp;</span>report.films {
+<a href="#106" id="106" data-nosnippet="">106</a>            <span class="kw">let </span>name = std::path::Path::new(film)
+<a href="#107" id="107" data-nosnippet="">107</a>                .file_name()
+<a href="#108" id="108" data-nosnippet="">108</a>                .map_or_else(|| film.clone(), |n| n.to_string_lossy().into_owned());
+<a href="#109" id="109" data-nosnippet="">109</a>            <span class="kw">match </span>film_href(film, folder) {
+<a href="#110" id="110" data-nosnippet="">110</a>                <span class="prelude-val">Some</span>(href) =&gt; out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(
+<a href="#111" id="111" data-nosnippet="">111</a>                    <span class="string">"&lt;li&gt;&lt;a href=\"{}\"&gt;{}&lt;/a&gt; &lt;small&gt;abre no MoviePlayer&lt;/small&gt;&lt;/li&gt;"</span>,
+<a href="#112" id="112" data-nosnippet="">112</a>                    esc(<span class="kw-2">&amp;</span>href),
+<a href="#113" id="113" data-nosnippet="">113</a>                    esc(<span class="kw-2">&amp;</span>name)
+<a href="#114" id="114" data-nosnippet="">114</a>                )),
+<a href="#115" id="115" data-nosnippet="">115</a>                <span class="prelude-val">None </span>=&gt; out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;li&gt;{} &lt;small&gt;caminho indisponível&lt;/small&gt;&lt;/li&gt;"</span>, esc(film))),
+<a href="#116" id="116" data-nosnippet="">116</a>            }
+<a href="#117" id="117" data-nosnippet="">117</a>        }
+<a href="#118" id="118" data-nosnippet="">118</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(note) = <span class="kw-2">&amp;</span>report.film_note {
+<a href="#119" id="119" data-nosnippet="">119</a>            out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;li&gt;{}&lt;/li&gt;"</span>, esc(note)));
+<a href="#120" id="120" data-nosnippet="">120</a>        }
+<a href="#121" id="121" data-nosnippet="">121</a>        out.push_str(<span class="string">"&lt;/ul&gt;&lt;/div&gt;"</span>);
+<a href="#122" id="122" data-nosnippet="">122</a>    }
+<a href="#123" id="123" data-nosnippet="">123</a>    out.push_str(<span class="string">"&lt;/section&gt;"</span>);
+<a href="#124" id="124" data-nosnippet="">124</a>    out
+<a href="#125" id="125" data-nosnippet="">125</a>}
+<a href="#126" id="126" data-nosnippet="">126</a>
+<a href="#127" id="127" data-nosnippet="">127</a><span class="doccomment">/// How the apps were shown, as the header says it: with the window or not, where, at what pace.
+<a href="#128" id="128" data-nosnippet="">128</a></span><span class="kw">fn </span>window_line(reports: <span class="kw-2">&amp;</span>[Report]) -&gt; String {
+<a href="#129" id="129" data-nosnippet="">129</a>    <span class="kw">let </span>headed = reports.iter().any(|r| r.window == <span class="kw">crate</span>::window::WindowMode::Headed);
+<a href="#130" id="130" data-nosnippet="">130</a>    <span class="kw">if </span>!headed {
+<a href="#131" id="131" data-nosnippet="">131</a>        <span class="kw">return </span><span class="macro">format!</span>(<span class="string">"sem janela, em {}"</span>, <span class="kw">crate</span>::window::this_system());
+<a href="#132" id="132" data-nosnippet="">132</a>    }
+<a href="#133" id="133" data-nosnippet="">133</a>    <span class="kw">let </span><span class="kw-2">mut </span>line = <span class="macro">format!</span>(<span class="string">"com a janela do app, em {}"</span>, <span class="kw">crate</span>::window::this_system());
+<a href="#134" id="134" data-nosnippet="">134</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(ms) = reports.iter().map(|r| r.slow_mo_ms).find(|ms| <span class="kw-2">*</span>ms &gt; <span class="number">0</span>) {
+<a href="#135" id="135" data-nosnippet="">135</a>        line.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">", {ms} ms entre os passos"</span>));
+<a href="#136" id="136" data-nosnippet="">136</a>    }
+<a href="#137" id="137" data-nosnippet="">137</a>    <span class="kw">if </span>reports.iter().any(|r| r.stopped) {
+<a href="#138" id="138" data-nosnippet="">138</a>        line.push_str(<span class="string">", parado antes do fim"</span>);
+<a href="#139" id="139" data-nosnippet="">139</a>    }
+<a href="#140" id="140" data-nosnippet="">140</a>    line
+<a href="#141" id="141" data-nosnippet="">141</a>}
+<a href="#142" id="142" data-nosnippet="">142</a>
+<a href="#143" id="143" data-nosnippet="">143</a><span class="kw">fn </span>film_href(film: <span class="kw-2">&amp;</span>str, folder: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>std::path::Path&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href="#144" id="144" data-nosnippet="">144</a>    <span class="comment">// Existing symlinks resolve to the real file; a missing old artifact still gets a path.
+<a href="#145" id="145" data-nosnippet="">145</a>    </span><span class="kw">let </span>path = std::fs::canonicalize(film).or_else(|<span class="kw">_</span>| std::path::absolute(film)).ok()<span class="question-mark">?</span>;
+<a href="#146" id="146" data-nosnippet="">146</a>    <span class="kw">let </span>url = url::Url::from_file_path(<span class="kw-2">&amp;</span>path).ok()<span class="question-mark">?</span>;
+<a href="#147" id="147" data-nosnippet="">147</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(folder) = folder
+<a href="#148" id="148" data-nosnippet="">148</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Ok</span>(folder) = std::fs::canonicalize(folder).or_else(|<span class="kw">_</span>| std::path::absolute(folder))
+<a href="#149" id="149" data-nosnippet="">149</a>        &amp;&amp; path.parent() == <span class="prelude-val">Some</span>(folder.as_path())
+<a href="#150" id="150" data-nosnippet="">150</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Ok</span>(base) = url::Url::from_directory_path(folder)
+<a href="#151" id="151" data-nosnippet="">151</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(relative) = base.make_relative(<span class="kw-2">&amp;</span>url)
+<a href="#152" id="152" data-nosnippet="">152</a>    {
+<a href="#153" id="153" data-nosnippet="">153</a>        <span class="kw">return </span><span class="prelude-val">Some</span>(relative);
+<a href="#154" id="154" data-nosnippet="">154</a>    }
+<a href="#155" id="155" data-nosnippet="">155</a>    <span class="prelude-val">Some</span>(url.into())
+<a href="#156" id="156" data-nosnippet="">156</a>}
+<a href="#157" id="157" data-nosnippet="">157</a>
+<a href="#158" id="158" data-nosnippet="">158</a><span class="doccomment">/// Text that goes inside an element or an attribute.
+<a href="#159" id="159" data-nosnippet="">159</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>esc(text: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href="#160" id="160" data-nosnippet="">160</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = String::with_capacity(text.len());
+<a href="#161" id="161" data-nosnippet="">161</a>    <span class="kw">for </span>c <span class="kw">in </span>text.chars() {
+<a href="#162" id="162" data-nosnippet="">162</a>        <span class="kw">match </span>c {
+<a href="#163" id="163" data-nosnippet="">163</a>            <span class="string">'&amp;' </span>=&gt; out.push_str(<span class="string">"&amp;amp;"</span>),
+<a href="#164" id="164" data-nosnippet="">164</a>            <span class="string">'&lt;' </span>=&gt; out.push_str(<span class="string">"&amp;lt;"</span>),
+<a href="#165" id="165" data-nosnippet="">165</a>            <span class="string">'&gt;' </span>=&gt; out.push_str(<span class="string">"&amp;gt;"</span>),
+<a href="#166" id="166" data-nosnippet="">166</a>            <span class="string">'"' </span>=&gt; out.push_str(<span class="string">"&amp;quot;"</span>),
+<a href="#167" id="167" data-nosnippet="">167</a>            <span class="string">'\'' </span>=&gt; out.push_str(<span class="string">"&amp;#39;"</span>),
+<a href="#168" id="168" data-nosnippet="">168</a>            c =&gt; out.push(c),
+<a href="#169" id="169" data-nosnippet="">169</a>        }
+<a href="#170" id="170" data-nosnippet="">170</a>    }
+<a href="#171" id="171" data-nosnippet="">171</a>    out
+<a href="#172" id="172" data-nosnippet="">172</a>}
+<a href="#173" id="173" data-nosnippet="">173</a>
+<a href="#174" id="174" data-nosnippet="">174</a><span class="kw">fn </span>seconds(ms: u64) -&gt; String {
+<a href="#175" id="175" data-nosnippet="">175</a>    <span class="macro">format!</span>(<span class="string">"{},{:03} s"</span>, ms / <span class="number">1000</span>, ms % <span class="number">1000</span>)
+<a href="#176" id="176" data-nosnippet="">176</a>}
+<a href="#177" id="177" data-nosnippet="">177</a>
+<a href="#178" id="178" data-nosnippet="">178</a><span class="doccomment">/// The page's look, with the RavenRS theme's colors for light and dark.
+<a href="#179" id="179" data-nosnippet="">179</a></span><span class="kw">const </span>STYLE: <span class="kw-2">&amp;</span>str = <span class="string">":root{--bg:#f7f8fa;--surface:#fff;--ink:#16181d;--muted:#5b6170;--line:#e2e5eb;\
+<a href="#180" id="180" data-nosnippet="">180</a>--ok:#1d7f4e;--bad:#c2362b;--skip:#8a8f9c;--code:#eef0f4}\
+<a href="#181" id="181" data-nosnippet="">181</a>@media (prefers-color-scheme:dark){:root{--bg:#121418;--surface:#1b1e24;--ink:#e8eaee;--muted:#9aa1ae;\
+<a href="#182" id="182" data-nosnippet="">182</a>--line:#2c3038;--ok:#4cc38a;--bad:#ff6b5e;--skip:#7d8390;--code:#252932}}\
+<a href="#183" id="183" data-nosnippet="">183</a>*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);\
+<a href="#184" id="184" data-nosnippet="">184</a>font:15px/1.5 system-ui,-apple-system,'Segoe UI',sans-serif}main{max-width:1040px;margin:0 auto;padding:24px 16px}\
+<a href="#185" id="185" data-nosnippet="">185</a>h1{font-size:24px;margin:0 0 4px}h2{font-size:18px;margin:0}h3{font-size:15px;margin:0 0 8px}\
+<a href="#186" id="186" data-nosnippet="">186</a>.verdict{display:inline-block;font-weight:600;margin:0 0 16px;padding:2px 10px;border-radius:999px;color:#fff}\
+<a href="#187" id="187" data-nosnippet="">187</a>.verdict.passed{background:var(--ok)}.verdict.failed{background:var(--bad)}\
+<a href="#188" id="188" data-nosnippet="">188</a>dl{display:flex;flex-wrap:wrap;gap:12px;margin:0 0 24px}dl div{background:var(--surface);border:1px solid var(--line);\
+<a href="#189" id="189" data-nosnippet="">189</a>border-radius:8px;padding:8px 14px;min-width:120px}dt{color:var(--muted);font-size:13px}dd{margin:0;font-weight:600}\
+<a href="#190" id="190" data-nosnippet="">190</a>section{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--ok);border-radius:8px;\
+<a href="#191" id="191" data-nosnippet="">191</a>padding:16px;margin:0 0 16px}section.failed{border-left-color:var(--bad)}.summary{color:var(--muted);margin:4px 0 12px}\
+<a href="#192" id="192" data-nosnippet="">192</a>.scroll{overflow-x:auto}table{border-collapse:collapse;width:100%;min-width:560px}th,td{text-align:left;padding:6px 8px;\
+<a href="#193" id="193" data-nosnippet="">193</a>border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-weight:500;font-size:13px}\
+<a href="#194" id="194" data-nosnippet="">194</a>td small{display:block;color:var(--muted);font-size:12px}tr.ok td:nth-child(4){color:var(--ok)}\
+<a href="#195" id="195" data-nosnippet="">195</a>tr.bad td{color:var(--bad);font-weight:600}tr.skip td{color:var(--skip)}\
+<a href="#196" id="196" data-nosnippet="">196</a>code,pre{font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--code);border-radius:4px}\
+<a href="#197" id="197" data-nosnippet="">197</a>code{padding:1px 4px}pre{padding:12px;overflow-x:auto;white-space:pre}\
+<a href="#198" id="198" data-nosnippet="">198</a>.films{margin-top:12px}.films a{color:inherit}.failure{margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}footer{color:var(--muted);font-size:13px}\
+<a href="#199" id="199" data-nosnippet="">199</a>footer h2{font-size:14px}"</span>;
+</code></pre></div></section></main></body></html>

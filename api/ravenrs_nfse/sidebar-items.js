@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["NS_NFSE","VERSAO"],"enum":["Ambiente","NfseError"],"mod":["chave","danfse","dps","evento","exemplo","modelo","retorno","sandbox"],"struct":["BetaAck","Decimal","Emissor","EmissorBuilder","Emitida","Mensagem"]};

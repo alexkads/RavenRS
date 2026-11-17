@@ -1,0 +1,1144 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>model.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="ravenrs_pdf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../src-files.js"></script><script defer="" src="../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-pdf/src/render/inspect/model.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_pdf/render/inspect/model.rs.html"><meta property="og:title" content="model.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-pdf/src/render/inspect/model.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_pdf/render/inspect/model.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="model.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-pdf/src/render/inspect/model.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"model.rs - source","description":"Source of the Rust file `crates/ravenrs-pdf/src/render/inspect/model.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_pdf/render/inspect/model.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_pdf/render/inspect/</div>model.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="kw">use super</span>::{HashMap, HashSet};
+<a href="#2" id="2" data-nosnippet="">2</a>
+<a href="#3" id="3" data-nosnippet="">3</a><span class="doccomment">/// What kind of XFA form a document has (`/AcroForm /XFA`).
+<a href="#4" id="4" data-nosnippet="">4</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+<a href="#5" id="5" data-nosnippet="">5</a></span><span class="kw">pub enum </span>Xfa {
+<a href="#6" id="6" data-nosnippet="">6</a>    <span class="doccomment">/// The pages and fields are ordinary PDF; the XFA packets describe the same form (and hold
+<a href="#7" id="7" data-nosnippet="">7</a>    /// its data, which Acrobat shows in preference to the fields).
+<a href="#8" id="8" data-nosnippet="">8</a>    </span>Static,
+<a href="#9" id="9" data-nosnippet="">9</a>    <span class="doccomment">/// The form is laid out from the XFA packets at open (`/NeedsRendering`, or no fields and a
+<a href="#10" id="10" data-nosnippet="">10</a>    /// configuration that doesn't forbid dynamic rendering): the PDF pages are only a placeholder.
+<a href="#11" id="11" data-nosnippet="">11</a>    </span>Dynamic,
+<a href="#12" id="12" data-nosnippet="">12</a>}
+<a href="#13" id="13" data-nosnippet="">13</a>
+<a href="#14" id="14" data-nosnippet="">14</a><span class="doccomment">/// A page's presentation transition and display time (ISO 32000-2 §12.4.4): how the page comes
+<a href="#15" id="15" data-nosnippet="">15</a>/// into view in a full-screen presentation, and how long it stays before advancing. Only pages
+<a href="#16" id="16" data-nosnippet="">16</a>/// carrying `/Trans` or `/Dur` are listed. Values outside the spec's ranges fall back to the
+<a href="#17" id="17" data-nosnippet="">17</a>/// defaults rather than being refused.
+<a href="#18" id="18" data-nosnippet="">18</a></span><span class="attr">#[derive(Clone, Debug, PartialEq)]
+<a href="#19" id="19" data-nosnippet="">19</a></span><span class="kw">pub struct </span>PageTransition {
+<a href="#20" id="20" data-nosnippet="">20</a>    <span class="kw">pub </span>page: usize,
+<a href="#21" id="21" data-nosnippet="">21</a>    <span class="doccomment">/// `/Trans /S`; `None` when the page has only `/Dur`.
+<a href="#22" id="22" data-nosnippet="">22</a>    </span><span class="kw">pub </span>style: <span class="prelude-ty">Option</span>&lt;TransitionStyle&gt;,
+<a href="#23" id="23" data-nosnippet="">23</a>    <span class="doccomment">/// `/D`: how long the transition takes, in seconds (default 1).
+<a href="#24" id="24" data-nosnippet="">24</a>    </span><span class="kw">pub </span>duration: f32,
+<a href="#25" id="25" data-nosnippet="">25</a>    <span class="doccomment">/// `/Dm /H` (true) or `/V` (Split, Blinds).
+<a href="#26" id="26" data-nosnippet="">26</a>    </span><span class="kw">pub </span>horizontal: bool,
+<a href="#27" id="27" data-nosnippet="">27</a>    <span class="doccomment">/// `/M /I` (true) or `/O` (Split, Box, Fly).
+<a href="#28" id="28" data-nosnippet="">28</a>    </span><span class="kw">pub </span>inward: bool,
+<a href="#29" id="29" data-nosnippet="">29</a>    <span class="doccomment">/// `/Di`: 0, 90, 180, 270 or 315 degrees (Wipe, Glitter, Fly, Cover, Uncover, Push); `None`
+<a href="#30" id="30" data-nosnippet="">30</a>    /// for `/None` (Fly only).
+<a href="#31" id="31" data-nosnippet="">31</a>    </span><span class="kw">pub </span>direction: <span class="prelude-ty">Option</span>&lt;u16&gt;,
+<a href="#32" id="32" data-nosnippet="">32</a>    <span class="doccomment">/// `/SS`: the Fly scale (default 1).
+<a href="#33" id="33" data-nosnippet="">33</a>    </span><span class="kw">pub </span>scale: f32,
+<a href="#34" id="34" data-nosnippet="">34</a>    <span class="doccomment">/// `/B`: Fly with an opaque backdrop.
+<a href="#35" id="35" data-nosnippet="">35</a>    </span><span class="kw">pub </span>opaque: bool,
+<a href="#36" id="36" data-nosnippet="">36</a>    <span class="doccomment">/// `/Dur`: seconds the page shows before the presentation advances; `None` waits for the
+<a href="#37" id="37" data-nosnippet="">37</a>    /// presenter.
+<a href="#38" id="38" data-nosnippet="">38</a>    </span><span class="kw">pub </span>display: <span class="prelude-ty">Option</span>&lt;f32&gt;,
+<a href="#39" id="39" data-nosnippet="">39</a>}
+<a href="#40" id="40" data-nosnippet="">40</a>
+<a href="#41" id="41" data-nosnippet="">41</a><span class="doccomment">/// The transition styles of ISO 32000-2 table 164 (`/Trans /S`).
+<a href="#42" id="42" data-nosnippet="">42</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+<a href="#43" id="43" data-nosnippet="">43</a></span><span class="kw">pub enum </span>TransitionStyle {
+<a href="#44" id="44" data-nosnippet="">44</a>    Split,
+<a href="#45" id="45" data-nosnippet="">45</a>    Blinds,
+<a href="#46" id="46" data-nosnippet="">46</a>    Box,
+<a href="#47" id="47" data-nosnippet="">47</a>    Wipe,
+<a href="#48" id="48" data-nosnippet="">48</a>    Dissolve,
+<a href="#49" id="49" data-nosnippet="">49</a>    Glitter,
+<a href="#50" id="50" data-nosnippet="">50</a>    <span class="doccomment">/// `/R`: the next page replaces the old one with no effect (the default).
+<a href="#51" id="51" data-nosnippet="">51</a>    </span>Replace,
+<a href="#52" id="52" data-nosnippet="">52</a>    Fly,
+<a href="#53" id="53" data-nosnippet="">53</a>    Push,
+<a href="#54" id="54" data-nosnippet="">54</a>    Cover,
+<a href="#55" id="55" data-nosnippet="">55</a>    Uncover,
+<a href="#56" id="56" data-nosnippet="">56</a>    Fade,
+<a href="#57" id="57" data-nosnippet="">57</a>}
+<a href="#58" id="58" data-nosnippet="">58</a>
+<a href="#59" id="59" data-nosnippet="">59</a><span class="kw">impl </span>TransitionStyle {
+<a href="#60" id="60" data-nosnippet="">60</a>    <span class="doccomment">/// The style a `/S` name means; an unknown name is `Replace`, the spec's default.
+<a href="#61" id="61" data-nosnippet="">61</a>    </span><span class="kw">pub fn </span>from_name(name: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
+<a href="#62" id="62" data-nosnippet="">62</a>        <span class="kw">match </span>name {
+<a href="#63" id="63" data-nosnippet="">63</a>            <span class="string">"Split" </span>=&gt; <span class="self">Self</span>::Split,
+<a href="#64" id="64" data-nosnippet="">64</a>            <span class="string">"Blinds" </span>=&gt; <span class="self">Self</span>::Blinds,
+<a href="#65" id="65" data-nosnippet="">65</a>            <span class="string">"Box" </span>=&gt; <span class="self">Self</span>::Box,
+<a href="#66" id="66" data-nosnippet="">66</a>            <span class="string">"Wipe" </span>=&gt; <span class="self">Self</span>::Wipe,
+<a href="#67" id="67" data-nosnippet="">67</a>            <span class="string">"Dissolve" </span>=&gt; <span class="self">Self</span>::Dissolve,
+<a href="#68" id="68" data-nosnippet="">68</a>            <span class="string">"Glitter" </span>=&gt; <span class="self">Self</span>::Glitter,
+<a href="#69" id="69" data-nosnippet="">69</a>            <span class="string">"Fly" </span>=&gt; <span class="self">Self</span>::Fly,
+<a href="#70" id="70" data-nosnippet="">70</a>            <span class="string">"Push" </span>=&gt; <span class="self">Self</span>::Push,
+<a href="#71" id="71" data-nosnippet="">71</a>            <span class="string">"Cover" </span>=&gt; <span class="self">Self</span>::Cover,
+<a href="#72" id="72" data-nosnippet="">72</a>            <span class="string">"Uncover" </span>=&gt; <span class="self">Self</span>::Uncover,
+<a href="#73" id="73" data-nosnippet="">73</a>            <span class="string">"Fade" </span>=&gt; <span class="self">Self</span>::Fade,
+<a href="#74" id="74" data-nosnippet="">74</a>            <span class="kw">_ </span>=&gt; <span class="self">Self</span>::Replace,
+<a href="#75" id="75" data-nosnippet="">75</a>        }
+<a href="#76" id="76" data-nosnippet="">76</a>    }
+<a href="#77" id="77" data-nosnippet="">77</a>
+<a href="#78" id="78" data-nosnippet="">78</a>    <span class="doccomment">/// The name as written in a PDF (`/S`).
+<a href="#79" id="79" data-nosnippet="">79</a>    </span><span class="kw">pub fn </span>name(<span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+<a href="#80" id="80" data-nosnippet="">80</a>        <span class="kw">match </span><span class="self">self </span>{
+<a href="#81" id="81" data-nosnippet="">81</a>            <span class="self">Self</span>::Split =&gt; <span class="string">"Split"</span>,
+<a href="#82" id="82" data-nosnippet="">82</a>            <span class="self">Self</span>::Blinds =&gt; <span class="string">"Blinds"</span>,
+<a href="#83" id="83" data-nosnippet="">83</a>            <span class="self">Self</span>::Box =&gt; <span class="string">"Box"</span>,
+<a href="#84" id="84" data-nosnippet="">84</a>            <span class="self">Self</span>::Wipe =&gt; <span class="string">"Wipe"</span>,
+<a href="#85" id="85" data-nosnippet="">85</a>            <span class="self">Self</span>::Dissolve =&gt; <span class="string">"Dissolve"</span>,
+<a href="#86" id="86" data-nosnippet="">86</a>            <span class="self">Self</span>::Glitter =&gt; <span class="string">"Glitter"</span>,
+<a href="#87" id="87" data-nosnippet="">87</a>            <span class="self">Self</span>::Replace =&gt; <span class="string">"R"</span>,
+<a href="#88" id="88" data-nosnippet="">88</a>            <span class="self">Self</span>::Fly =&gt; <span class="string">"Fly"</span>,
+<a href="#89" id="89" data-nosnippet="">89</a>            <span class="self">Self</span>::Push =&gt; <span class="string">"Push"</span>,
+<a href="#90" id="90" data-nosnippet="">90</a>            <span class="self">Self</span>::Cover =&gt; <span class="string">"Cover"</span>,
+<a href="#91" id="91" data-nosnippet="">91</a>            <span class="self">Self</span>::Uncover =&gt; <span class="string">"Uncover"</span>,
+<a href="#92" id="92" data-nosnippet="">92</a>            <span class="self">Self</span>::Fade =&gt; <span class="string">"Fade"</span>,
+<a href="#93" id="93" data-nosnippet="">93</a>        }
+<a href="#94" id="94" data-nosnippet="">94</a>    }
+<a href="#95" id="95" data-nosnippet="">95</a>}
+<a href="#96" id="96" data-nosnippet="">96</a>
+<a href="#97" id="97" data-nosnippet="">97</a><span class="attr">#[derive(Clone, Debug)]
+<a href="#98" id="98" data-nosnippet="">98</a></span><span class="kw">pub struct </span>PageInfo {
+<a href="#99" id="99" data-nosnippet="">99</a>    <span class="doccomment">/// Displayed size in points, after `/Rotate` and `/UserUnit`.
+<a href="#100" id="100" data-nosnippet="">100</a>    </span><span class="kw">pub </span>width: f32,
+<a href="#101" id="101" data-nosnippet="">101</a>    <span class="kw">pub </span>height: f32,
+<a href="#102" id="102" data-nosnippet="">102</a>    <span class="doccomment">/// Page label (`/PageLabels`), falling back to the 1-based page number.
+<a href="#103" id="103" data-nosnippet="">103</a>    </span><span class="kw">pub </span>label: String,
+<a href="#104" id="104" data-nosnippet="">104</a>    <span class="doccomment">/// Effective crop box in user space [x0, y0, x1, y1] (the visible region).
+<a href="#105" id="105" data-nosnippet="">105</a>    </span><span class="kw">pub </span>crop: [f32; <span class="number">4</span>],
+<a href="#106" id="106" data-nosnippet="">106</a>    <span class="doccomment">/// Clockwise page rotation in degrees (0, 90, 180, 270).
+<a href="#107" id="107" data-nosnippet="">107</a>    </span><span class="kw">pub </span>rotation: u16,
+<a href="#108" id="108" data-nosnippet="">108</a>}
+<a href="#109" id="109" data-nosnippet="">109</a>
+<a href="#110" id="110" data-nosnippet="">110</a><span class="kw">impl </span>PageInfo {
+<a href="#111" id="111" data-nosnippet="">111</a>    <span class="doccomment">/// A point in view space (points, y down, after `/Rotate`; what the text layer uses) →
+<a href="#112" id="112" data-nosnippet="">112</a>    /// PDF user space.
+<a href="#113" id="113" data-nosnippet="">113</a>    </span><span class="kw">pub fn </span>view_to_user(<span class="kw-2">&amp;</span><span class="self">self</span>, x: f32, y: f32) -&gt; [f32; <span class="number">2</span>] {
+<a href="#114" id="114" data-nosnippet="">114</a>        <span class="kw">let </span>[cx0, cy0, cx1, cy1] = <span class="self">self</span>.crop;
+<a href="#115" id="115" data-nosnippet="">115</a>        <span class="kw">let </span>(a, b) = (x / <span class="self">self</span>.width.max(<span class="number">1e-3</span>), y / <span class="self">self</span>.height.max(<span class="number">1e-3</span>));
+<a href="#116" id="116" data-nosnippet="">116</a>        <span class="kw">let </span>(u, v) = <span class="kw">match </span><span class="self">self</span>.rotation {
+<a href="#117" id="117" data-nosnippet="">117</a>            <span class="number">90 </span>=&gt; (b, <span class="number">1.0 </span>- a),
+<a href="#118" id="118" data-nosnippet="">118</a>            <span class="number">180 </span>=&gt; (<span class="number">1.0 </span>- a, <span class="number">1.0 </span>- b),
+<a href="#119" id="119" data-nosnippet="">119</a>            <span class="number">270 </span>=&gt; (<span class="number">1.0 </span>- b, a),
+<a href="#120" id="120" data-nosnippet="">120</a>            <span class="kw">_ </span>=&gt; (a, b),
+<a href="#121" id="121" data-nosnippet="">121</a>        };
+<a href="#122" id="122" data-nosnippet="">122</a>        [cx0 + u * (cx1 - cx0), cy1 - v * (cy1 - cy0)]
+<a href="#123" id="123" data-nosnippet="">123</a>    }
+<a href="#124" id="124" data-nosnippet="">124</a>
+<a href="#125" id="125" data-nosnippet="">125</a>    <span class="doccomment">/// PDF user space → view space (the inverse of [`Self::view_to_user`]).
+<a href="#126" id="126" data-nosnippet="">126</a>    </span><span class="kw">pub fn </span>user_to_view(<span class="kw-2">&amp;</span><span class="self">self</span>, x: f32, y: f32) -&gt; [f32; <span class="number">2</span>] {
+<a href="#127" id="127" data-nosnippet="">127</a>        <span class="kw">let </span>[cx0, cy0, cx1, cy1] = <span class="self">self</span>.crop;
+<a href="#128" id="128" data-nosnippet="">128</a>        <span class="kw">let </span>(u, v) = ((x - cx0) / (cx1 - cx0).max(<span class="number">1e-3</span>), (cy1 - y) / (cy1 - cy0).max(<span class="number">1e-3</span>));
+<a href="#129" id="129" data-nosnippet="">129</a>        <span class="kw">let </span>(a, b) = <span class="kw">match </span><span class="self">self</span>.rotation {
+<a href="#130" id="130" data-nosnippet="">130</a>            <span class="number">90 </span>=&gt; (<span class="number">1.0 </span>- v, u),
+<a href="#131" id="131" data-nosnippet="">131</a>            <span class="number">180 </span>=&gt; (<span class="number">1.0 </span>- u, <span class="number">1.0 </span>- v),
+<a href="#132" id="132" data-nosnippet="">132</a>            <span class="number">270 </span>=&gt; (v, <span class="number">1.0 </span>- u),
+<a href="#133" id="133" data-nosnippet="">133</a>            <span class="kw">_ </span>=&gt; (u, v),
+<a href="#134" id="134" data-nosnippet="">134</a>        };
+<a href="#135" id="135" data-nosnippet="">135</a>        [a * <span class="self">self</span>.width, b * <span class="self">self</span>.height]
+<a href="#136" id="136" data-nosnippet="">136</a>    }
+<a href="#137" id="137" data-nosnippet="">137</a>
+<a href="#138" id="138" data-nosnippet="">138</a>    <span class="doccomment">/// A point as displayed (points from the page's top-left, y down, before any view rotation)
+<a href="#139" id="139" data-nosnippet="">139</a>    /// → the `/XYZ` position `[left, top]` in user space that puts it at the window's top-left.
+<a href="#140" id="140" data-nosnippet="">140</a>    /// Only a coordinate that is given is pinned: a bookmark made at the top of the window
+<a href="#141" id="141" data-nosnippet="">141</a>    /// leaves the horizontal position alone. On a page turned a quarter, the displayed `y` decides
+<a href="#142" id="142" data-nosnippet="">142</a>    /// the user `left` and the displayed `x` the user `top` (the inverse of [`Self::dest_fraction`]).
+<a href="#143" id="143" data-nosnippet="">143</a>    /// A value that is not finite counts as not given.
+<a href="#144" id="144" data-nosnippet="">144</a>    </span><span class="kw">pub fn </span>xyz_for_view(<span class="kw-2">&amp;</span><span class="self">self</span>, x: <span class="prelude-ty">Option</span>&lt;f32&gt;, y: <span class="prelude-ty">Option</span>&lt;f32&gt;) -&gt; [<span class="prelude-ty">Option</span>&lt;f32&gt;; <span class="number">2</span>] {
+<a href="#145" id="145" data-nosnippet="">145</a>        <span class="kw">let </span>(x, y) = (x.filter(|v| v.is_finite()), y.filter(|v| v.is_finite()));
+<a href="#146" id="146" data-nosnippet="">146</a>        <span class="kw">let </span>[ux, uy] = <span class="self">self</span>.view_to_user(x.unwrap_or(<span class="number">0.0</span>), y.unwrap_or(<span class="number">0.0</span>));
+<a href="#147" id="147" data-nosnippet="">147</a>        <span class="kw">if </span><span class="self">self</span>.rotation.is_multiple_of(<span class="number">180</span>) { [x.map(|<span class="kw">_</span>| ux), y.map(|<span class="kw">_</span>| uy)] } <span class="kw">else </span>{ [y.map(|<span class="kw">_</span>| ux), x.map(|<span class="kw">_</span>| uy)] }
+<a href="#148" id="148" data-nosnippet="">148</a>    }
+<a href="#149" id="149" data-nosnippet="">149</a>
+<a href="#150" id="150" data-nosnippet="">150</a>    <span class="doccomment">/// A destination's user-space point (each coordinate possibly unspecified) → the same point
+<a href="#151" id="151" data-nosnippet="">151</a>    /// as a fraction of the displayed page `[x, y]` (0..1 from its top-left corner, y down),
+<a href="#152" id="152" data-nosnippet="">152</a>    /// after `/Rotate` and a further clockwise `view_rotation` (0, 90, 180 or 270). On a page
+<a href="#153" id="153" data-nosnippet="">153</a>    /// turned a quarter, the user `x` decides the displayed `y` and vice versa, so each output
+<a href="#154" id="154" data-nosnippet="">154</a>    /// is `None` when the input it comes from is (or is not finite). Points off the page are
+<a href="#155" id="155" data-nosnippet="">155</a>    /// clamped to its edge.
+<a href="#156" id="156" data-nosnippet="">156</a>    </span><span class="kw">pub fn </span>dest_fraction(<span class="kw-2">&amp;</span><span class="self">self</span>, x: <span class="prelude-ty">Option</span>&lt;f32&gt;, y: <span class="prelude-ty">Option</span>&lt;f32&gt;, view_rotation: u16) -&gt; [<span class="prelude-ty">Option</span>&lt;f32&gt;; <span class="number">2</span>] {
+<a href="#157" id="157" data-nosnippet="">157</a>        <span class="kw">let </span>[cx0, cy0, cx1, cy1] = <span class="self">self</span>.crop;
+<a href="#158" id="158" data-nosnippet="">158</a>        <span class="kw">let </span>frac = |v: f32| <span class="kw">if </span>v.is_finite() { <span class="prelude-val">Some</span>(v.clamp(<span class="number">0.0</span>, <span class="number">1.0</span>)) } <span class="kw">else </span>{ <span class="prelude-val">None </span>};
+<a href="#159" id="159" data-nosnippet="">159</a>        <span class="comment">// Unrotated fractions across (u, from the crop's left) and down (v, from its top).
+<a href="#160" id="160" data-nosnippet="">160</a>        </span><span class="kw">let </span>u = x.and_then(|x| frac((x - cx0) / (cx1 - cx0).max(<span class="number">1e-3</span>)));
+<a href="#161" id="161" data-nosnippet="">161</a>        <span class="kw">let </span>v = y.and_then(|y| frac((cy1 - y) / (cy1 - cy0).max(<span class="number">1e-3</span>)));
+<a href="#162" id="162" data-nosnippet="">162</a>        <span class="kw">let </span>flip = |f: <span class="prelude-ty">Option</span>&lt;f32&gt;| f.map(|f| <span class="number">1.0 </span>- f);
+<a href="#163" id="163" data-nosnippet="">163</a>        <span class="kw">match </span>(u32::from(<span class="self">self</span>.rotation) + u32::from(view_rotation)) % <span class="number">360 </span>{
+<a href="#164" id="164" data-nosnippet="">164</a>            <span class="number">90 </span>=&gt; [flip(v), u],
+<a href="#165" id="165" data-nosnippet="">165</a>            <span class="number">180 </span>=&gt; [flip(u), flip(v)],
+<a href="#166" id="166" data-nosnippet="">166</a>            <span class="number">270 </span>=&gt; [v, flip(u)],
+<a href="#167" id="167" data-nosnippet="">167</a>            <span class="kw">_ </span>=&gt; [u, v],
+<a href="#168" id="168" data-nosnippet="">168</a>        }
+<a href="#169" id="169" data-nosnippet="">169</a>    }
+<a href="#170" id="170" data-nosnippet="">170</a>
+<a href="#171" id="171" data-nosnippet="">171</a>    <span class="doccomment">/// A view-space rectangle → the normalized user-space rectangle covering the same area of the
+<a href="#172" id="172" data-nosnippet="">172</a>    /// page (`[x0, y0, x1, y1]`, `x0 &lt;= x1`, `y0 &lt;= y1`). Under `/Rotate` the corners swap roles,
+<a href="#173" id="173" data-nosnippet="">173</a>    /// so a view rectangle's top-left is not in general the user rectangle's `[x0, y1]`.
+<a href="#174" id="174" data-nosnippet="">174</a>    </span><span class="kw">pub fn </span>view_rect_to_user(<span class="kw-2">&amp;</span><span class="self">self</span>, r: [f32; <span class="number">4</span>]) -&gt; [f32; <span class="number">4</span>] {
+<a href="#175" id="175" data-nosnippet="">175</a>        <span class="kw">let </span>(a, b) = (<span class="self">self</span>.view_to_user(r[<span class="number">0</span>], r[<span class="number">1</span>]), <span class="self">self</span>.view_to_user(r[<span class="number">2</span>], r[<span class="number">3</span>]));
+<a href="#176" id="176" data-nosnippet="">176</a>        [a[<span class="number">0</span>].min(b[<span class="number">0</span>]), a[<span class="number">1</span>].min(b[<span class="number">1</span>]), a[<span class="number">0</span>].max(b[<span class="number">0</span>]), a[<span class="number">1</span>].max(b[<span class="number">1</span>])]
+<a href="#177" id="177" data-nosnippet="">177</a>    }
+<a href="#178" id="178" data-nosnippet="">178</a>
+<a href="#179" id="179" data-nosnippet="">179</a>    <span class="doccomment">/// A view-space rectangle as a text-markup quad in user space: top-left, top-right,
+<a href="#180" id="180" data-nosnippet="">180</a>    /// bottom-left, bottom-right as read on screen.
+<a href="#181" id="181" data-nosnippet="">181</a>    </span><span class="kw">pub fn </span>view_rect_to_quad(<span class="kw-2">&amp;</span><span class="self">self</span>, r: [f32; <span class="number">4</span>]) -&gt; [f64; <span class="number">8</span>] {
+<a href="#182" id="182" data-nosnippet="">182</a>        <span class="kw">let </span><span class="kw-2">mut </span>q = [<span class="number">0.0</span>; <span class="number">8</span>];
+<a href="#183" id="183" data-nosnippet="">183</a>        <span class="kw">for </span>(i, (x, y)) <span class="kw">in </span>[(r[<span class="number">0</span>], r[<span class="number">1</span>]), (r[<span class="number">2</span>], r[<span class="number">1</span>]), (r[<span class="number">0</span>], r[<span class="number">3</span>]), (r[<span class="number">2</span>], r[<span class="number">3</span>])].into_iter().enumerate() {
+<a href="#184" id="184" data-nosnippet="">184</a>            <span class="kw">let </span>[ux, uy] = <span class="self">self</span>.view_to_user(x, y);
+<a href="#185" id="185" data-nosnippet="">185</a>            q[<span class="number">2 </span>* i] = ux <span class="kw">as </span>f64;
+<a href="#186" id="186" data-nosnippet="">186</a>            q[<span class="number">2 </span>* i + <span class="number">1</span>] = uy <span class="kw">as </span>f64;
+<a href="#187" id="187" data-nosnippet="">187</a>        }
+<a href="#188" id="188" data-nosnippet="">188</a>        q
+<a href="#189" id="189" data-nosnippet="">189</a>    }
+<a href="#190" id="190" data-nosnippet="">190</a>}
+<a href="#191" id="191" data-nosnippet="">191</a>
+<a href="#192" id="192" data-nosnippet="">192</a><span class="doccomment">/// A clickable link annotation.
+<a href="#193" id="193" data-nosnippet="">193</a></span><span class="attr">#[derive(Clone, Debug)]
+<a href="#194" id="194" data-nosnippet="">194</a></span><span class="kw">pub struct </span>Link {
+<a href="#195" id="195" data-nosnippet="">195</a>    <span class="kw">pub </span>page: usize,
+<a href="#196" id="196" data-nosnippet="">196</a>    <span class="doccomment">/// Zero-based position in the page's raw `/Annots` array.
+<a href="#197" id="197" data-nosnippet="">197</a>    </span><span class="kw">pub </span>index: usize,
+<a href="#198" id="198" data-nosnippet="">198</a>    <span class="kw">pub </span>rect: [f32; <span class="number">4</span>],
+<a href="#199" id="199" data-nosnippet="">199</a>    <span class="doccomment">/// Where the link is active when that isn't the whole of `rect`: its `/QuadPoints`, 8 numbers
+<a href="#200" id="200" data-nosnippet="">200</a>    /// each in user space (ISO 32000-2 Table 176). Empty when the link is active over `rect`
+<a href="#201" id="201" data-nosnippet="">201</a>    /// ([`crate::render::link_quads`]).
+<a href="#202" id="202" data-nosnippet="">202</a>    </span><span class="kw">pub </span>quads: Vec&lt;[f32; <span class="number">8</span>]&gt;,
+<a href="#203" id="203" data-nosnippet="">203</a>    <span class="kw">pub </span>target: LinkTarget,
+<a href="#204" id="204" data-nosnippet="">204</a>}
+<a href="#205" id="205" data-nosnippet="">205</a>
+<a href="#206" id="206" data-nosnippet="">206</a><span class="kw">impl </span>Link {
+<a href="#207" id="207" data-nosnippet="">207</a>    <span class="doccomment">/// Whether the user-space point `(x, y)` activates the link: inside one of its quadrilaterals,
+<a href="#208" id="208" data-nosnippet="">208</a>    /// or inside its rectangle when it has none.
+<a href="#209" id="209" data-nosnippet="">209</a>    </span><span class="kw">pub fn </span>contains(<span class="kw-2">&amp;</span><span class="self">self</span>, x: f32, y: f32) -&gt; bool {
+<a href="#210" id="210" data-nosnippet="">210</a>        <span class="kw">let </span>[x0, y0, x1, y1] = <span class="self">self</span>.rect;
+<a href="#211" id="211" data-nosnippet="">211</a>        <span class="kw">if </span><span class="self">self</span>.quads.is_empty() {
+<a href="#212" id="212" data-nosnippet="">212</a>            <span class="kw">return </span>x &gt;= x0 &amp;&amp; x &lt;= x1 &amp;&amp; y &gt;= y0 &amp;&amp; y &lt;= y1;
+<a href="#213" id="213" data-nosnippet="">213</a>        }
+<a href="#214" id="214" data-nosnippet="">214</a>        <span class="comment">// Every kept quadrilateral lies within `/Rect` give or take the slack `link_quads`
+<a href="#215" id="215" data-nosnippet="">215</a>        // accepts, so a point outside that is in none of them: skip the scan (up to
+<a href="#216" id="216" data-nosnippet="">216</a>        // `MAX_LINK_QUADS` per link, run per link on every pointer move).
+<a href="#217" id="217" data-nosnippet="">217</a>        </span><span class="kw">let </span>s = <span class="kw">crate</span>::render::link_area::RECT_SLACK;
+<a href="#218" id="218" data-nosnippet="">218</a>        <span class="kw">if </span>!(x &gt;= x0 - s &amp;&amp; x &lt;= x1 + s &amp;&amp; y &gt;= y0 - s &amp;&amp; y &lt;= y1 + s) {
+<a href="#219" id="219" data-nosnippet="">219</a>            <span class="kw">return </span><span class="bool-val">false</span>;
+<a href="#220" id="220" data-nosnippet="">220</a>        }
+<a href="#221" id="221" data-nosnippet="">221</a>        <span class="self">self</span>.quads.iter().any(|q| <span class="kw">crate</span>::render::quad_contains(q, x, y))
+<a href="#222" id="222" data-nosnippet="">222</a>    }
+<a href="#223" id="223" data-nosnippet="">223</a>}
+<a href="#224" id="224" data-nosnippet="">224</a>
+<a href="#225" id="225" data-nosnippet="">225</a><span class="attr">#[derive(Clone, Debug, PartialEq)]
+<a href="#226" id="226" data-nosnippet="">226</a></span><span class="kw">pub enum </span>LinkTarget {
+<a href="#227" id="227" data-nosnippet="">227</a>    <span class="doccomment">/// A destination in this document: the 0-based page and where on it the view goes.
+<a href="#228" id="228" data-nosnippet="">228</a>    </span>Page(usize, DestView),
+<a href="#229" id="229" data-nosnippet="">229</a>    <span class="doccomment">/// A URI action's address, resolved against the catalog's `/URI /Base` when it is a relative
+<a href="#230" id="230" data-nosnippet="">230</a>    /// reference ([`crate::render::resolve_uri`]); not yet checked, as the opener must
+<a href="#231" id="231" data-nosnippet="">231</a>    /// (`pdfcraft_engine::links::document_url`).
+<a href="#232" id="232" data-nosnippet="">232</a>    </span>Uri(String),
+<a href="#233" id="233" data-nosnippet="">233</a>    <span class="doccomment">/// A set-layer-visibility action (`SetOCGState`, ISO 32000-2 §12.6.4.13): each change in
+<a href="#234" id="234" data-nosnippet="">234</a>    /// order, naming the layer by its optional content group. With `preserve_rb`, a layer turned
+<a href="#235" id="235" data-nosnippet="">235</a>    /// on turns off the other layers of its radio-button groups.
+<a href="#236" id="236" data-nosnippet="">236</a>    </span>SetLayers {
+<a href="#237" id="237" data-nosnippet="">237</a>        changes: Vec&lt;(LayerOp, (u32, u16))&gt;,
+<a href="#238" id="238" data-nosnippet="">238</a>        preserve_rb: bool,
+<a href="#239" id="239" data-nosnippet="">239</a>    },
+<a href="#240" id="240" data-nosnippet="">240</a>    <span class="doccomment">/// A local-file remote Go-To action. The caller resolves `file` relative to the source path.
+<a href="#241" id="241" data-nosnippet="">241</a>    /// `launch` marks a Launch action that names a PDF file (see `launch_pdf`), opened the same
+<a href="#242" id="242" data-nosnippet="">242</a>    /// way: as a document in PdfCraft, never by the operating system.
+<a href="#243" id="243" data-nosnippet="">243</a>    </span>RemoteGoTo {
+<a href="#244" id="244" data-nosnippet="">244</a>        launch: bool,
+<a href="#245" id="245" data-nosnippet="">245</a>        file: String,
+<a href="#246" id="246" data-nosnippet="">246</a>        destination: RemoteDestination,
+<a href="#247" id="247" data-nosnippet="">247</a>        new_window: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+<a href="#248" id="248" data-nosnippet="">248</a>    },
+<a href="#249" id="249" data-nosnippet="">249</a>    Other(String),
+<a href="#250" id="250" data-nosnippet="">250</a>}
+<a href="#251" id="251" data-nosnippet="">251</a>
+<a href="#252" id="252" data-nosnippet="">252</a><span class="attr">#[derive(Clone, Debug, PartialEq)]
+<a href="#253" id="253" data-nosnippet="">253</a></span><span class="kw">pub enum </span>RemoteDestination {
+<a href="#254" id="254" data-nosnippet="">254</a>    Default,
+<a href="#255" id="255" data-nosnippet="">255</a>    Page { page: usize, view: DestView },
+<a href="#256" id="256" data-nosnippet="">256</a>    Named(String),
+<a href="#257" id="257" data-nosnippet="">257</a>}
+<a href="#258" id="258" data-nosnippet="">258</a>
+<a href="#259" id="259" data-nosnippet="">259</a><span class="doccomment">/// What a set-layer-visibility action does to a layer.
+<a href="#260" id="260" data-nosnippet="">260</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+<a href="#261" id="261" data-nosnippet="">261</a></span><span class="kw">pub enum </span>LayerOp {
+<a href="#262" id="262" data-nosnippet="">262</a>    On,
+<a href="#263" id="263" data-nosnippet="">263</a>    Off,
+<a href="#264" id="264" data-nosnippet="">264</a>    Toggle,
+<a href="#265" id="265" data-nosnippet="">265</a>}
+<a href="#266" id="266" data-nosnippet="">266</a>
+<a href="#267" id="267" data-nosnippet="">267</a><span class="doccomment">/// Where an explicit destination (ISO 32000-2 §12.3.2.2, Table 149) places its page in the
+<a href="#268" id="268" data-nosnippet="">268</a>/// window. Coordinates are PDF user space; `None` is a `null` (or unusable) operand, which keeps
+<a href="#269" id="269" data-nosnippet="">269</a>/// that part of the view as it is.
+<a href="#270" id="270" data-nosnippet="">270</a></span><span class="attr">#[derive(Clone, Copy, Debug, Default, PartialEq)]
+<a href="#271" id="271" data-nosnippet="">271</a></span><span class="kw">pub enum </span>DestView {
+<a href="#272" id="272" data-nosnippet="">272</a>    <span class="doccomment">/// The top of the page at the current zoom: a destination with no position, or one whose
+<a href="#273" id="273" data-nosnippet="">273</a>    /// type is missing or unknown.
+<a href="#274" id="274" data-nosnippet="">274</a>    </span><span class="attr">#[default]
+<a href="#275" id="275" data-nosnippet="">275</a>    </span>Top,
+<a href="#276" id="276" data-nosnippet="">276</a>    <span class="doccomment">/// `/XYZ left top zoom`: the point (left, top) at the window's upper-left corner, at `zoom`
+<a href="#277" id="277" data-nosnippet="">277</a>    /// (1.0 = 100%; 0 or null keeps the current zoom).
+<a href="#278" id="278" data-nosnippet="">278</a>    </span>Xyz { left: <span class="prelude-ty">Option</span>&lt;f32&gt;, top: <span class="prelude-ty">Option</span>&lt;f32&gt;, zoom: <span class="prelude-ty">Option</span>&lt;f32&gt; },
+<a href="#279" id="279" data-nosnippet="">279</a>    <span class="doccomment">/// `/Fit`, and `/FitB` (fit the page's content box; read as the whole page).
+<a href="#280" id="280" data-nosnippet="">280</a>    </span>Fit,
+<a href="#281" id="281" data-nosnippet="">281</a>    <span class="doccomment">/// `/FitH top`, and `/FitBH`: fit the width, with `top` at the window's top edge.
+<a href="#282" id="282" data-nosnippet="">282</a>    </span>FitH { top: <span class="prelude-ty">Option</span>&lt;f32&gt; },
+<a href="#283" id="283" data-nosnippet="">283</a>    <span class="doccomment">/// `/FitV left`, and `/FitBV`: fit the height, with `left` at the window's left edge.
+<a href="#284" id="284" data-nosnippet="">284</a>    </span>FitV { left: <span class="prelude-ty">Option</span>&lt;f32&gt; },
+<a href="#285" id="285" data-nosnippet="">285</a>    <span class="doccomment">/// `/FitR left bottom right top`: fit the rectangle `[x0, y0, x1, y1]` (normalized).
+<a href="#286" id="286" data-nosnippet="">286</a>    </span>FitR { rect: [f32; <span class="number">4</span>] },
+<a href="#287" id="287" data-nosnippet="">287</a>}
+<a href="#288" id="288" data-nosnippet="">288</a>
+<a href="#289" id="289" data-nosnippet="">289</a><span class="kw">impl </span>DestView {
+<a href="#290" id="290" data-nosnippet="">290</a>    <span class="doccomment">/// The view an explicit destination array asks for, from its elements after the page
+<a href="#291" id="291" data-nosnippet="">291</a>    /// (`/XYZ left top zoom`, `/FitH top`, …). Hostile input never fails: a missing or unknown
+<a href="#292" id="292" data-nosnippet="">292</a>    /// type, or a `/FitR` without four usable numbers, is [`DestView::Top`]; a non-numeric,
+<a href="#293" id="293" data-nosnippet="">293</a>    /// non-finite or missing operand is `None`; a zoom that is not positive is `None`.
+<a href="#294" id="294" data-nosnippet="">294</a>    </span><span class="kw">pub fn </span>from_operands(kind: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt;, operands: <span class="kw-2">&amp;</span>[<span class="prelude-ty">Option</span>&lt;f32&gt;]) -&gt; <span class="self">Self </span>{
+<a href="#295" id="295" data-nosnippet="">295</a>        <span class="kw">let </span>n = |i: usize| operands.get(i).copied().flatten().filter(|v| v.is_finite());
+<a href="#296" id="296" data-nosnippet="">296</a>        <span class="kw">match </span>kind {
+<a href="#297" id="297" data-nosnippet="">297</a>            <span class="prelude-val">Some</span>(<span class="string">b"XYZ"</span>) =&gt; <span class="self">Self</span>::Xyz { left: n(<span class="number">0</span>), top: n(<span class="number">1</span>), zoom: n(<span class="number">2</span>).filter(|z| <span class="kw-2">*</span>z &gt; <span class="number">0.0</span>) },
+<a href="#298" id="298" data-nosnippet="">298</a>            <span class="prelude-val">Some</span>(<span class="string">b"Fit" </span>| <span class="string">b"FitB"</span>) =&gt; <span class="self">Self</span>::Fit,
+<a href="#299" id="299" data-nosnippet="">299</a>            <span class="prelude-val">Some</span>(<span class="string">b"FitH" </span>| <span class="string">b"FitBH"</span>) =&gt; <span class="self">Self</span>::FitH { top: n(<span class="number">0</span>) },
+<a href="#300" id="300" data-nosnippet="">300</a>            <span class="prelude-val">Some</span>(<span class="string">b"FitV" </span>| <span class="string">b"FitBV"</span>) =&gt; <span class="self">Self</span>::FitV { left: n(<span class="number">0</span>) },
+<a href="#301" id="301" data-nosnippet="">301</a>            <span class="prelude-val">Some</span>(<span class="string">b"FitR"</span>) =&gt; <span class="kw">match </span>(n(<span class="number">0</span>), n(<span class="number">1</span>), n(<span class="number">2</span>), n(<span class="number">3</span>)) {
+<a href="#302" id="302" data-nosnippet="">302</a>                (<span class="prelude-val">Some</span>(x0), <span class="prelude-val">Some</span>(y0), <span class="prelude-val">Some</span>(x1), <span class="prelude-val">Some</span>(y1)) =&gt; <span class="self">Self</span>::FitR { rect: [x0.min(x1), y0.min(y1), x0.max(x1), y0.max(y1)] },
+<a href="#303" id="303" data-nosnippet="">303</a>                <span class="kw">_ </span>=&gt; <span class="self">Self</span>::Top,
+<a href="#304" id="304" data-nosnippet="">304</a>            },
+<a href="#305" id="305" data-nosnippet="">305</a>            <span class="kw">_ </span>=&gt; <span class="self">Self</span>::Top,
+<a href="#306" id="306" data-nosnippet="">306</a>        }
+<a href="#307" id="307" data-nosnippet="">307</a>    }
+<a href="#308" id="308" data-nosnippet="">308</a>}
+<a href="#309" id="309" data-nosnippet="">309</a>
+<a href="#310" id="310" data-nosnippet="">310</a><span class="attr">#[derive(Clone, Debug)]
+<a href="#311" id="311" data-nosnippet="">311</a></span><span class="kw">pub struct </span>OutlineItem {
+<a href="#312" id="312" data-nosnippet="">312</a>    <span class="kw">pub </span>title: String,
+<a href="#313" id="313" data-nosnippet="">313</a>    <span class="kw">pub </span>page: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+<a href="#314" id="314" data-nosnippet="">314</a>    <span class="doccomment">/// Where on `page` the bookmark goes ([`DestView::Top`] for a bookmark without a page).
+<a href="#315" id="315" data-nosnippet="">315</a>    </span><span class="kw">pub </span>view: DestView,
+<a href="#316" id="316" data-nosnippet="">316</a>    <span class="doccomment">/// What the bookmark does instead when its action (`/A`, ISO 32000-2 §12.3.3 Table 151) goes
+<a href="#317" id="317" data-nosnippet="">317</a>    /// nowhere in this document: a web address, another PDF, a layer change, or an action named
+<a href="#318" id="318" data-nosnippet="">318</a>    /// but not run ([`LinkTarget::Other`]), read as a link's is. Never [`LinkTarget::Page`]: a
+<a href="#319" id="319" data-nosnippet="">319</a>    /// go-to is `page` and `view`.
+<a href="#320" id="320" data-nosnippet="">320</a>    </span><span class="kw">pub </span>action: <span class="prelude-ty">Option</span>&lt;LinkTarget&gt;,
+<a href="#321" id="321" data-nosnippet="">321</a>    <span class="kw">pub </span>children: Vec&lt;OutlineItem&gt;,
+<a href="#322" id="322" data-nosnippet="">322</a>    <span class="doccomment">/// Whether the bookmark starts open: only a positive `/Count` says so (ISO 32000-2 §12.3.3,
+<a href="#323" id="323" data-nosnippet="">323</a>    /// Table 151). A negative one is closed, and so is a missing one, which a bookmark with
+<a href="#324" id="324" data-nosnippet="">324</a>    /// children should not have.
+<a href="#325" id="325" data-nosnippet="">325</a>    </span><span class="kw">pub </span>open: bool,
+<a href="#326" id="326" data-nosnippet="">326</a>    <span class="doccomment">/// The title's colour (`/C`, DeviceRGB, ISO 32000-2 §12.3.3 Table 151), or `None` for the
+<a href="#327" id="327" data-nosnippet="">327</a>    /// default black or a value that isn't three numbers.
+<a href="#328" id="328" data-nosnippet="">328</a>    </span><span class="kw">pub </span>color: <span class="prelude-ty">Option</span>&lt;[f32; <span class="number">3</span>]&gt;,
+<a href="#329" id="329" data-nosnippet="">329</a>    <span class="doccomment">/// The title's style (`/F`, Table 152): bit 1 italic, bit 2 bold.
+<a href="#330" id="330" data-nosnippet="">330</a>    </span><span class="kw">pub </span>italic: bool,
+<a href="#331" id="331" data-nosnippet="">331</a>    <span class="kw">pub </span>bold: bool,
+<a href="#332" id="332" data-nosnippet="">332</a>}
+<a href="#333" id="333" data-nosnippet="">333</a>
+<a href="#334" id="334" data-nosnippet="">334</a><span class="attr">#[derive(Clone, Debug)]
+<a href="#335" id="335" data-nosnippet="">335</a></span><span class="kw">pub struct </span>Annotation {
+<a href="#336" id="336" data-nosnippet="">336</a>    <span class="kw">pub </span>page: usize,
+<a href="#337" id="337" data-nosnippet="">337</a>    <span class="kw">pub </span>subtype: String,
+<a href="#338" id="338" data-nosnippet="">338</a>    <span class="kw">pub </span>author: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#339" id="339" data-nosnippet="">339</a>    <span class="kw">pub </span>contents: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#340" id="340" data-nosnippet="">340</a>    <span class="kw">pub </span>modified: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#341" id="341" data-nosnippet="">341</a>    <span class="doccomment">/// `/NM` of this annotation, and of the one it replies to (`/IRT`).
+<a href="#342" id="342" data-nosnippet="">342</a>    </span><span class="kw">pub </span>name: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#343" id="343" data-nosnippet="">343</a>    <span class="kw">pub </span>in_reply_to: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#344" id="344" data-nosnippet="">344</a>    <span class="doccomment">/// The page and `/Annots` position of the comment `/IRT` points at, found by object
+<a href="#345" id="345" data-nosnippet="">345</a>    /// reference. Threads follow this rather than `/NM`, which need not be unique: PyMuPDF
+<a href="#346" id="346" data-nosnippet="">346</a>    /// names the first comment on every page `fitz-A0`. `None` when `/IRT` leads to no listed
+<a href="#347" id="347" data-nosnippet="">347</a>    /// comment ([`link_replies`]).
+<a href="#348" id="348" data-nosnippet="">348</a>    </span><span class="kw">pub </span>parent: <span class="prelude-ty">Option</span>&lt;(usize, usize)&gt;,
+<a href="#349" id="349" data-nosnippet="">349</a>    <span class="doccomment">/// `/RT /Group` (ISO 32000-2 §12.5.6.2, Table 172): with a `parent`, a subordinate of the
+<a href="#350" id="350" data-nosnippet="">350</a>    /// group whose primary `/IRT` points at, not a reply ([`Self::is_group_member`]). Its own
+<a href="#351" id="351" data-nosnippet="">351</a>    /// text, author, colour and dates are ignored; see [`group_primaries`].
+<a href="#352" id="352" data-nosnippet="">352</a>    </span><span class="kw">pub </span>grouped: bool,
+<a href="#353" id="353" data-nosnippet="">353</a>    <span class="doccomment">/// Rect in PDF user space: [x0, y0, x1, y1].
+<a href="#354" id="354" data-nosnippet="">354</a>    </span><span class="kw">pub </span>rect: [f32; <span class="number">4</span>],
+<a href="#355" id="355" data-nosnippet="">355</a>    <span class="kw">pub </span>color: <span class="prelude-ty">Option</span>&lt;[f32; <span class="number">3</span>]&gt;,
+<a href="#356" id="356" data-nosnippet="">356</a>    <span class="doccomment">/// Position in the page's `/Annots` (how edits address the comment).
+<a href="#357" id="357" data-nosnippet="">357</a>    </span><span class="kw">pub </span>index: usize,
+<a href="#358" id="358" data-nosnippet="">358</a>    <span class="doccomment">/// For a status reply (`/State`, Acrobat's "Set status"): the state it sets.
+<a href="#359" id="359" data-nosnippet="">359</a>    </span><span class="kw">pub </span>state: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#360" id="360" data-nosnippet="">360</a>    <span class="doccomment">/// Text markup quadrilaterals (`/QuadPoints`), 8 numbers each.
+<a href="#361" id="361" data-nosnippet="">361</a>    </span><span class="kw">pub </span>quads: Vec&lt;[f32; <span class="number">8</span>]&gt;,
+<a href="#362" id="362" data-nosnippet="">362</a>    <span class="doccomment">/// The Locked flag (`/F` bit 8): the comment can't be moved, resized, restyled or deleted.
+<a href="#363" id="363" data-nosnippet="">363</a>    </span><span class="kw">pub </span>locked: bool,
+<a href="#364" id="364" data-nosnippet="">364</a>    <span class="doccomment">/// `/IT`, the intent: `FreeTextCallout`, `PolygonCloud`, `FreeTextTypeWriter`…
+<a href="#365" id="365" data-nosnippet="">365</a>    </span><span class="kw">pub </span>intent: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#366" id="366" data-nosnippet="">366</a>    <span class="doccomment">/// A Fill &amp; Sign mark: typed text, a check, cross, dot or line, or a typed, drawn or picture
+<a href="#367" id="367" data-nosnippet="">367</a>    /// signature or initials (the rules of `pdfcraft_annot::is_fill_sign`).
+<a href="#368" id="368" data-nosnippet="">368</a>    </span><span class="kw">pub </span>fill_sign: bool,
+<a href="#369" id="369" data-nosnippet="">369</a>    <span class="doccomment">/// The NoRotate flag (`/F` bit 5), set on sticky notes and attachments: on a turned page the
+<a href="#370" id="370" data-nosnippet="">370</a>    /// appearance stays upright, turned about the upper-left corner of `rect`
+<a href="#371" id="371" data-nosnippet="">371</a>    /// ([`Self::shown_rect`]).
+<a href="#372" id="372" data-nosnippet="">372</a>    </span><span class="kw">pub </span>no_rotate: bool,
+<a href="#373" id="373" data-nosnippet="">373</a>    <span class="doccomment">/// The points that shape a line (its two ends, `/L`), connected lines, a polygon or a cloud
+<a href="#374" id="374" data-nosnippet="">374</a>    /// (their corners, `/Vertices`), or a callout (its arrow point and knee: `/CL` without its
+<a href="#375" id="375" data-nosnippet="">375</a>    /// end, which follows the text box), in user space; empty for other comments.
+<a href="#376" id="376" data-nosnippet="">376</a>    </span><span class="kw">pub </span>points: Vec&lt;[f32; <span class="number">2</span>]&gt;,
+<a href="#377" id="377" data-nosnippet="">377</a>    <span class="doccomment">/// A callout's text box (`/Rect` inset by `/RD`), in user space; `None` for other comments.
+<a href="#378" id="378" data-nosnippet="">378</a>    </span><span class="kw">pub </span>text_box: <span class="prelude-ty">Option</span>&lt;[f32; <span class="number">4</span>]&gt;,
+<a href="#379" id="379" data-nosnippet="">379</a>    <span class="doccomment">/// The comment's pop-up window (`/Popup`): where it sits and whether it is open.
+<a href="#380" id="380" data-nosnippet="">380</a>    </span><span class="kw">pub </span>popup: <span class="prelude-ty">Option</span>&lt;Popup&gt;,
+<a href="#381" id="381" data-nosnippet="">381</a>}
+<a href="#382" id="382" data-nosnippet="">382</a>
+<a href="#383" id="383" data-nosnippet="">383</a><span class="doccomment">/// How far [`group_primaries`] follows `/IRT` from a group subordinate to its primary.
+<a href="#384" id="384" data-nosnippet="">384</a></span><span class="kw">pub const </span>MAX_GROUP_DEPTH: usize = <span class="number">64</span>;
+<a href="#385" id="385" data-nosnippet="">385</a>
+<a href="#386" id="386" data-nosnippet="">386</a><span class="doccomment">/// For each annotation of `all`, the position in `all` of the primary of the group it is a
+<a href="#387" id="387" data-nosnippet="">387</a>/// subordinate of ([`Annotation::is_group_member`], ISO 32000-2 §12.5.6.2), or `None` when it is
+<a href="#388" id="388" data-nosnippet="">388</a>/// not one. The group's attributes, its comment and its replies are the primary's. A subordinate
+<a href="#389" id="389" data-nosnippet="">389</a>/// of a subordinate leads to the first non-subordinate up the `/IRT` chain. Expects links
+<a href="#390" id="390" data-nosnippet="">390</a>/// [`link_replies`] settled: a subordinate whose chain loops or names nothing listed has lost its
+<a href="#391" id="391" data-nosnippet="">391</a>/// `parent` there and is a comment of its own, as such a reply is. One still on a subordinate
+<a href="#392" id="392" data-nosnippet="">392</a>/// after [`MAX_GROUP_DEPTH`] steps has no primary (`None`) and is listed under no comment.
+<a href="#393" id="393" data-nosnippet="">393</a></span><span class="kw">pub fn </span>group_primaries(all: <span class="kw-2">&amp;</span>[Annotation]) -&gt; Vec&lt;<span class="prelude-ty">Option</span>&lt;usize&gt;&gt; {
+<a href="#394" id="394" data-nosnippet="">394</a>    <span class="kw">let </span><span class="kw-2">mut </span>at: HashMap&lt;(usize, usize), usize&gt; = HashMap::new();
+<a href="#395" id="395" data-nosnippet="">395</a>    <span class="kw">for </span>(i, a) <span class="kw">in </span>all.iter().enumerate() {
+<a href="#396" id="396" data-nosnippet="">396</a>        at.entry((a.page, a.index)).or_insert(i);
+<a href="#397" id="397" data-nosnippet="">397</a>    }
+<a href="#398" id="398" data-nosnippet="">398</a>    <span class="kw">let </span>primary = |start: usize| -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+<a href="#399" id="399" data-nosnippet="">399</a>        <span class="kw">let </span><span class="kw-2">mut </span>i = start;
+<a href="#400" id="400" data-nosnippet="">400</a>        <span class="kw">for _ in </span><span class="number">0</span>..MAX_GROUP_DEPTH {
+<a href="#401" id="401" data-nosnippet="">401</a>            <span class="kw">let </span>a = all.get(i)<span class="question-mark">?</span>;
+<a href="#402" id="402" data-nosnippet="">402</a>            <span class="kw">if </span>!a.is_group_member() {
+<a href="#403" id="403" data-nosnippet="">403</a>                <span class="kw">return </span><span class="prelude-val">Some</span>(i);
+<a href="#404" id="404" data-nosnippet="">404</a>            }
+<a href="#405" id="405" data-nosnippet="">405</a>            i = <span class="kw-2">*</span>at.get(<span class="kw-2">&amp;</span>a.parent<span class="question-mark">?</span>)<span class="question-mark">?</span>;
+<a href="#406" id="406" data-nosnippet="">406</a>        }
+<a href="#407" id="407" data-nosnippet="">407</a>        <span class="prelude-val">None
+<a href="#408" id="408" data-nosnippet="">408</a>    </span>};
+<a href="#409" id="409" data-nosnippet="">409</a>    all.iter().enumerate().map(|(i, a)| <span class="kw">if </span>a.is_group_member() { primary(i) } <span class="kw">else </span>{ <span class="prelude-val">None </span>}).collect()
+<a href="#410" id="410" data-nosnippet="">410</a>}
+<a href="#411" id="411" data-nosnippet="">411</a>
+<a href="#412" id="412" data-nosnippet="">412</a><span class="doccomment">/// Give a group's StrikeOut primary with no text of its own (`/Contents` missing or empty) the
+<a href="#413" id="413" data-nosnippet="">413</a>/// text of its first Caret subordinate that has some. A reader ignores a subordinate's
+<a href="#414" id="414" data-nosnippet="">414</a>/// `/Contents` (ISO 32000-2 §12.5.6.2), but Replace Text groups written by earlier PdfCraft builds
+<a href="#415" id="415" data-nosnippet="">415</a>/// made the strikeout the primary, with no text, and kept the replacement only on the caret:
+<a href="#416" id="416" data-nosnippet="">416</a>/// without this they would list as a comment with no text. A primary's own text always wins, no
+<a href="#417" id="417" data-nosnippet="">417</a>/// other subordinate lends its text, and no other kind of primary borrows one. Only the listing
+<a href="#418" id="418" data-nosnippet="">418</a>/// changes, not the file.
+<a href="#419" id="419" data-nosnippet="">419</a></span><span class="kw">pub fn </span>fill_group_text(all: <span class="kw-2">&amp;mut </span>[Annotation]) {
+<a href="#420" id="420" data-nosnippet="">420</a>    <span class="kw">if </span>!all.iter().any(Annotation::is_group_member) {
+<a href="#421" id="421" data-nosnippet="">421</a>        <span class="kw">return</span>;
+<a href="#422" id="422" data-nosnippet="">422</a>    }
+<a href="#423" id="423" data-nosnippet="">423</a>    <span class="kw">let </span>primaries = group_primaries(all);
+<a href="#424" id="424" data-nosnippet="">424</a>    <span class="kw">let </span>lacks_text = |p: usize| all.get(p).is_some_and(|a| a.subtype == <span class="string">"StrikeOut" </span>&amp;&amp; a.contents.as_deref().is_none_or(str::is_empty));
+<a href="#425" id="425" data-nosnippet="">425</a>    <span class="comment">// Keyed by the primary's position: the first caret with text per primary wins (an empty one
+<a href="#426" id="426" data-nosnippet="">426</a>    // lends nothing), and each primary is written once, so the order of the map does not matter.
+<a href="#427" id="427" data-nosnippet="">427</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>texts: HashMap&lt;usize, String&gt; = HashMap::new();
+<a href="#428" id="428" data-nosnippet="">428</a>    <span class="kw">for </span>(a, p) <span class="kw">in </span>all.iter().zip(<span class="kw-2">&amp;</span>primaries) {
+<a href="#429" id="429" data-nosnippet="">429</a>        <span class="kw">if let </span>(<span class="prelude-val">Some</span>(p), <span class="prelude-val">Some</span>(text), <span class="string">"Caret"</span>) = (<span class="kw-2">*</span>p, a.contents.as_ref(), a.subtype.as_str())
+<a href="#430" id="430" data-nosnippet="">430</a>            &amp;&amp; !text.is_empty()
+<a href="#431" id="431" data-nosnippet="">431</a>            &amp;&amp; lacks_text(p)
+<a href="#432" id="432" data-nosnippet="">432</a>        {
+<a href="#433" id="433" data-nosnippet="">433</a>            texts.entry(p).or_insert_with(|| text.clone());
+<a href="#434" id="434" data-nosnippet="">434</a>        }
+<a href="#435" id="435" data-nosnippet="">435</a>    }
+<a href="#436" id="436" data-nosnippet="">436</a>    <span class="kw">for </span>(p, text) <span class="kw">in </span>texts {
+<a href="#437" id="437" data-nosnippet="">437</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(primary) = all.get_mut(p) {
+<a href="#438" id="438" data-nosnippet="">438</a>            primary.contents = <span class="prelude-val">Some</span>(text);
+<a href="#439" id="439" data-nosnippet="">439</a>        }
+<a href="#440" id="440" data-nosnippet="">440</a>    }
+<a href="#441" id="441" data-nosnippet="">441</a>}
+<a href="#442" id="442" data-nosnippet="">442</a>
+<a href="#443" id="443" data-nosnippet="">443</a><span class="doccomment">/// A comment's pop-up window (ISO 32000-2 §12.5.6.14).
+<a href="#444" id="444" data-nosnippet="">444</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq)]
+<a href="#445" id="445" data-nosnippet="">445</a></span><span class="kw">pub struct </span>Popup {
+<a href="#446" id="446" data-nosnippet="">446</a>    <span class="doccomment">/// `/Rect` of the `/Popup` annotation, in user space.
+<a href="#447" id="447" data-nosnippet="">447</a>    </span><span class="kw">pub </span>rect: [f32; <span class="number">4</span>],
+<a href="#448" id="448" data-nosnippet="">448</a>    <span class="doccomment">/// `/Open`: shown open.
+<a href="#449" id="449" data-nosnippet="">449</a>    </span><span class="kw">pub </span>open: bool,
+<a href="#450" id="450" data-nosnippet="">450</a>}
+<a href="#451" id="451" data-nosnippet="">451</a>
+<a href="#452" id="452" data-nosnippet="">452</a><span class="kw">impl </span>Annotation {
+<a href="#453" id="453" data-nosnippet="">453</a>    <span class="doccomment">/// A checkmark reply (`/StateModel /Marked`): "Marked" or "Unmarked" rather than a review status.
+<a href="#454" id="454" data-nosnippet="">454</a>    </span><span class="kw">pub fn </span>is_mark(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#455" id="455" data-nosnippet="">455</a>        <span class="macro">matches!</span>(<span class="self">self</span>.state.as_deref(), <span class="prelude-val">Some</span>(<span class="string">"Marked" </span>| <span class="string">"Unmarked"</span>))
+<a href="#456" id="456" data-nosnippet="">456</a>    }
+<a href="#457" id="457" data-nosnippet="">457</a>
+<a href="#458" id="458" data-nosnippet="">458</a>    <span class="doccomment">/// A reply (or status reply) to another comment rather than a comment of its own.
+<a href="#459" id="459" data-nosnippet="">459</a>    </span><span class="kw">pub fn </span>is_reply(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#460" id="460" data-nosnippet="">460</a>        <span class="self">self</span>.parent.is_some()
+<a href="#461" id="461" data-nosnippet="">461</a>    }
+<a href="#462" id="462" data-nosnippet="">462</a>
+<a href="#463" id="463" data-nosnippet="">463</a>    <span class="doccomment">/// A comment of its own: not a reply, and not a status or checkmark. One whose comment can't
+<a href="#464" id="464" data-nosnippet="">464</a>    /// be found (deleted from another page, or never listed) has nothing to show, so it is listed
+<a href="#465" id="465" data-nosnippet="">465</a>    /// nowhere: not as a card, on the page or in a count.
+<a href="#466" id="466" data-nosnippet="">466</a>    </span><span class="kw">pub fn </span>is_comment(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#467" id="467" data-nosnippet="">467</a>        !<span class="self">self</span>.is_reply() &amp;&amp; <span class="self">self</span>.state.is_none()
+<a href="#468" id="468" data-nosnippet="">468</a>    }
+<a href="#469" id="469" data-nosnippet="">469</a>
+<a href="#470" id="470" data-nosnippet="">470</a>    <span class="doccomment">/// A subordinate of a group (`/RT /Group` with an `/IRT` that leads to a listed comment, ISO
+<a href="#471" id="471" data-nosnippet="">471</a>    /// 32000-2 §12.5.6.2): part of its primary's comment ([`group_primaries`]), neither a comment
+<a href="#472" id="472" data-nosnippet="">472</a>    /// of its own nor one of its replies. Expects links [`link_replies`] settled.
+<a href="#473" id="473" data-nosnippet="">473</a>    </span><span class="kw">pub fn </span>is_group_member(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#474" id="474" data-nosnippet="">474</a>        <span class="self">self</span>.grouped &amp;&amp; <span class="self">self</span>.is_reply()
+<a href="#475" id="475" data-nosnippet="">475</a>    }
+<a href="#476" id="476" data-nosnippet="">476</a>
+<a href="#477" id="477" data-nosnippet="">477</a>    <span class="doccomment">/// Whether this annotation's `/IRT` points at `other`.
+<a href="#478" id="478" data-nosnippet="">478</a>    </span><span class="kw">pub fn </span>replies_to(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>Annotation) -&gt; bool {
+<a href="#479" id="479" data-nosnippet="">479</a>        <span class="self">self</span>.parent == <span class="prelude-val">Some</span>((other.page, other.index))
+<a href="#480" id="480" data-nosnippet="">480</a>    }
+<a href="#481" id="481" data-nosnippet="">481</a>
+<a href="#482" id="482" data-nosnippet="">482</a>    <span class="doccomment">/// Where the comment is drawn on a page turned by `rotation` (`PageInfo::rotation`), in user
+<a href="#483" id="483" data-nosnippet="">483</a>    /// space: `rect`, or for a NoRotate comment `rect` turned upright about its upper-left corner
+<a href="#484" id="484" data-nosnippet="">484</a>    /// (see [`Self::no_rotate`]). Hit-testing, selection and anything placed beside the comment
+<a href="#485" id="485" data-nosnippet="">485</a>    /// use this, so they match the drawing.
+<a href="#486" id="486" data-nosnippet="">486</a>    </span><span class="kw">pub fn </span>shown_rect(<span class="kw-2">&amp;</span><span class="self">self</span>, rotation: u16) -&gt; [f32; <span class="number">4</span>] {
+<a href="#487" id="487" data-nosnippet="">487</a>        <span class="self">self</span>.shown(<span class="self">self</span>.rect.map(f64::from), rotation).map(|v| v <span class="kw">as </span>f32)
+<a href="#488" id="488" data-nosnippet="">488</a>    }
+<a href="#489" id="489" data-nosnippet="">489</a>
+<a href="#490" id="490" data-nosnippet="">490</a>    <span class="doccomment">/// [`Self::shown_rect`] for this comment with its `/Rect` at `rect` (one being moved or
+<a href="#491" id="491" data-nosnippet="">491</a>    /// resized).
+<a href="#492" id="492" data-nosnippet="">492</a>    </span><span class="kw">pub fn </span>shown(<span class="kw-2">&amp;</span><span class="self">self</span>, rect: [f64; <span class="number">4</span>], rotation: u16) -&gt; [f64; <span class="number">4</span>] {
+<a href="#493" id="493" data-nosnippet="">493</a>        <span class="kw">if </span><span class="self">self</span>.no_rotate { upright_rect(rect, rotation) } <span class="kw">else </span>{ rect }
+<a href="#494" id="494" data-nosnippet="">494</a>    }
+<a href="#495" id="495" data-nosnippet="">495</a>
+<a href="#496" id="496" data-nosnippet="">496</a>    <span class="doccomment">/// The `/Rect` that shows this comment in the user-space box `shown`: the inverse of
+<a href="#497" id="497" data-nosnippet="">497</a>    /// [`Self::shown`], for a box resized as drawn.
+<a href="#498" id="498" data-nosnippet="">498</a>    </span><span class="kw">pub fn </span>rect_for_shown(<span class="kw-2">&amp;</span><span class="self">self</span>, shown: [f64; <span class="number">4</span>], rotation: u16) -&gt; [f64; <span class="number">4</span>] {
+<a href="#499" id="499" data-nosnippet="">499</a>        <span class="kw">if </span><span class="self">self</span>.no_rotate { rect_from_upright(shown, rotation) } <span class="kw">else </span>{ shown }
+<a href="#500" id="500" data-nosnippet="">500</a>    }
+<a href="#501" id="501" data-nosnippet="">501</a>}
+<a href="#502" id="502" data-nosnippet="">502</a>
+<a href="#503" id="503" data-nosnippet="">503</a><span class="doccomment">/// The user-space box a NoRotate annotation with `/Rect` `rect` is drawn in on a page turned
+<a href="#504" id="504" data-nosnippet="">504</a>/// clockwise by `rotation` (ISO 32000-2 §12.5.3): `rect` turned as far counterclockwise about its
+<a href="#505" id="505" data-nosnippet="">505</a>/// upper-left corner `(x0, y1)`, which stays where it is on the page. As displayed, the box's
+<a href="#506" id="506" data-nosnippet="">506</a>/// top-left is that corner, the rectangle's width runs across and its height down, as on an
+<a href="#507" id="507" data-nosnippet="">507</a>/// unturned page. `rect` itself for 0 or anything that isn't a quarter turn. The vendored
+<a href="#508" id="508" data-nosnippet="">508</a>/// renderer draws the appearance there (hayro-interpret patch 37).
+<a href="#509" id="509" data-nosnippet="">509</a></span><span class="kw">fn </span>upright_rect(rect: [f64; <span class="number">4</span>], rotation: u16) -&gt; [f64; <span class="number">4</span>] {
+<a href="#510" id="510" data-nosnippet="">510</a>    <span class="kw">let </span>[x0, y0, x1, y1] = [rect[<span class="number">0</span>].min(rect[<span class="number">2</span>]), rect[<span class="number">1</span>].min(rect[<span class="number">3</span>]), rect[<span class="number">0</span>].max(rect[<span class="number">2</span>]), rect[<span class="number">1</span>].max(rect[<span class="number">3</span>])];
+<a href="#511" id="511" data-nosnippet="">511</a>    <span class="kw">let </span>(w, h) = (x1 - x0, y1 - y0);
+<a href="#512" id="512" data-nosnippet="">512</a>    <span class="kw">match </span>rotation {
+<a href="#513" id="513" data-nosnippet="">513</a>        <span class="number">90 </span>=&gt; [x0, y1, x0 + h, y1 + w],
+<a href="#514" id="514" data-nosnippet="">514</a>        <span class="number">180 </span>=&gt; [x0 - w, y1, x0, y1 + h],
+<a href="#515" id="515" data-nosnippet="">515</a>        <span class="number">270 </span>=&gt; [x0 - h, y1 - w, x0, y1],
+<a href="#516" id="516" data-nosnippet="">516</a>        <span class="kw">_ </span>=&gt; [x0, y0, x1, y1],
+<a href="#517" id="517" data-nosnippet="">517</a>    }
+<a href="#518" id="518" data-nosnippet="">518</a>}
+<a href="#519" id="519" data-nosnippet="">519</a>
+<a href="#520" id="520" data-nosnippet="">520</a><span class="doccomment">/// The `/Rect` whose [`upright_rect`] is `shown`: `shown` turned back about the corner that
+<a href="#521" id="521" data-nosnippet="">521</a>/// stays put.
+<a href="#522" id="522" data-nosnippet="">522</a></span><span class="kw">fn </span>rect_from_upright(shown: [f64; <span class="number">4</span>], rotation: u16) -&gt; [f64; <span class="number">4</span>] {
+<a href="#523" id="523" data-nosnippet="">523</a>    <span class="kw">let </span>[s0, s1, s2, s3] = [shown[<span class="number">0</span>].min(shown[<span class="number">2</span>]), shown[<span class="number">1</span>].min(shown[<span class="number">3</span>]), shown[<span class="number">0</span>].max(shown[<span class="number">2</span>]), shown[<span class="number">1</span>].max(shown[<span class="number">3</span>])];
+<a href="#524" id="524" data-nosnippet="">524</a>    <span class="kw">let </span>(sw, sh) = (s2 - s0, s3 - s1);
+<a href="#525" id="525" data-nosnippet="">525</a>    <span class="comment">// The upper-left corner of `/Rect` and the rectangle's width and height.
+<a href="#526" id="526" data-nosnippet="">526</a>    </span><span class="kw">let </span>((x0, y1), w, h) = <span class="kw">match </span>rotation {
+<a href="#527" id="527" data-nosnippet="">527</a>        <span class="number">90 </span>=&gt; ((s0, s1), sh, sw),
+<a href="#528" id="528" data-nosnippet="">528</a>        <span class="number">180 </span>=&gt; ((s2, s1), sw, sh),
+<a href="#529" id="529" data-nosnippet="">529</a>        <span class="number">270 </span>=&gt; ((s2, s3), sh, sw),
+<a href="#530" id="530" data-nosnippet="">530</a>        <span class="kw">_ </span>=&gt; <span class="kw">return </span>[s0, s1, s2, s3],
+<a href="#531" id="531" data-nosnippet="">531</a>    };
+<a href="#532" id="532" data-nosnippet="">532</a>    [x0, y1 - h, x0 + w, y1]
+<a href="#533" id="533" data-nosnippet="">533</a>}
+<a href="#534" id="534" data-nosnippet="">534</a>
+<a href="#535" id="535" data-nosnippet="">535</a><span class="doccomment">/// Settle the reply links of a document's annotations: a reply keeps its `parent` only when
+<a href="#536" id="536" data-nosnippet="">536</a>/// following the links reaches a comment of its own. An `/IRT` to an unlisted object, a pop-up,
+<a href="#537" id="537" data-nosnippet="">537</a>/// the annotation itself or a loop leaves it a comment of its own, so it stays in view instead of
+<a href="#538" id="538" data-nosnippet="">538</a>/// hanging off nothing. A chain of any length settles: each reviewer's state changes reply to
+<a href="#539" id="539" data-nosnippet="">539</a>/// their previous one (ISO 32000-2 §12.5.6.3), so a long review history is a long chain. Each
+<a href="#540" id="540" data-nosnippet="">540</a>/// annotation is walked once, with a seen-set against loops. Both comment readers (inspect, and
+<a href="#541" id="541" data-nosnippet="">541</a>/// the engine's list after an edit) run this.
+<a href="#542" id="542" data-nosnippet="">542</a>///
+<a href="#543" id="543" data-nosnippet="">543</a>/// Only comments can be parents: both readers leave links, form widgets, pop-ups and other
+<a href="#544" id="544" data-nosnippet="">544</a>/// non-markup annotations out of `annotations` (`pdfcraft_annot::is_comment_subtype`), so an
+<a href="#545" id="545" data-nosnippet="">545</a>/// `/IRT` to one of those finds no parent here. Pop-ups are skipped again in case a caller's list
+<a href="#546" id="546" data-nosnippet="">546</a>/// has them.
+<a href="#547" id="547" data-nosnippet="">547</a></span><span class="kw">pub fn </span>link_replies(annotations: <span class="kw-2">&amp;mut </span>[Annotation]) {
+<a href="#548" id="548" data-nosnippet="">548</a>    <span class="kw">let </span>at: HashMap&lt;(usize, usize), usize&gt; =
+<a href="#549" id="549" data-nosnippet="">549</a>        annotations.iter().enumerate().filter(|(<span class="kw">_</span>, a)| a.subtype != <span class="string">"Popup"</span>).map(|(i, a)| ((a.page, a.index), i)).collect();
+<a href="#550" id="550" data-nosnippet="">550</a>    <span class="kw">let </span>links: Vec&lt;<span class="prelude-ty">Option</span>&lt;usize&gt;&gt; =
+<a href="#551" id="551" data-nosnippet="">551</a>        annotations.iter().enumerate().map(|(i, a)| a.parent.and_then(|p| at.get(<span class="kw-2">&amp;</span>p).copied()).filter(|<span class="kw-2">&amp;</span>j| j != i)).collect();
+<a href="#552" id="552" data-nosnippet="">552</a>    <span class="comment">// Whether each annotation's chain reaches a comment of its own, filled in along each walk.
+<a href="#553" id="553" data-nosnippet="">553</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>settled: Vec&lt;<span class="prelude-ty">Option</span>&lt;bool&gt;&gt; = <span class="macro">vec!</span>[<span class="prelude-val">None</span>; annotations.len()];
+<a href="#554" id="554" data-nosnippet="">554</a>    <span class="kw">for </span>start <span class="kw">in </span><span class="number">0</span>..annotations.len() {
+<a href="#555" id="555" data-nosnippet="">555</a>        <span class="kw">let </span>(<span class="kw-2">mut </span>path, <span class="kw-2">mut </span>seen, <span class="kw-2">mut </span>at) = (Vec::new(), HashSet::new(), start);
+<a href="#556" id="556" data-nosnippet="">556</a>        <span class="kw">let </span>ends_well = <span class="kw">loop </span>{
+<a href="#557" id="557" data-nosnippet="">557</a>            <span class="kw">match </span>settled.get(at).copied().flatten() {
+<a href="#558" id="558" data-nosnippet="">558</a>                <span class="prelude-val">Some</span>(known) =&gt; <span class="kw">break </span>known,
+<a href="#559" id="559" data-nosnippet="">559</a>                <span class="prelude-val">None </span><span class="kw">if </span>!seen.insert(at) =&gt; <span class="kw">break </span><span class="bool-val">false</span>,
+<a href="#560" id="560" data-nosnippet="">560</a>                <span class="prelude-val">None </span>=&gt; {}
+<a href="#561" id="561" data-nosnippet="">561</a>            }
+<a href="#562" id="562" data-nosnippet="">562</a>            path.push(at);
+<a href="#563" id="563" data-nosnippet="">563</a>            <span class="kw">match </span>links.get(at).copied().flatten() {
+<a href="#564" id="564" data-nosnippet="">564</a>                <span class="prelude-val">Some</span>(up) =&gt; at = up,
+<a href="#565" id="565" data-nosnippet="">565</a>                <span class="prelude-val">None </span>=&gt; <span class="kw">break </span><span class="bool-val">true</span>,
+<a href="#566" id="566" data-nosnippet="">566</a>            }
+<a href="#567" id="567" data-nosnippet="">567</a>        };
+<a href="#568" id="568" data-nosnippet="">568</a>        <span class="kw">for </span>i <span class="kw">in </span>path {
+<a href="#569" id="569" data-nosnippet="">569</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(s) = settled.get_mut(i) {
+<a href="#570" id="570" data-nosnippet="">570</a>                <span class="kw-2">*</span>s = <span class="prelude-val">Some</span>(ends_well);
+<a href="#571" id="571" data-nosnippet="">571</a>            }
+<a href="#572" id="572" data-nosnippet="">572</a>        }
+<a href="#573" id="573" data-nosnippet="">573</a>    }
+<a href="#574" id="574" data-nosnippet="">574</a>    <span class="comment">// A reply keeps its parent when it has a listed one and its chain reaches a comment; one whose
+<a href="#575" id="575" data-nosnippet="">575</a>    // `/IRT` leads nowhere listed (itself, an unlisted object) is a comment of its own.
+<a href="#576" id="576" data-nosnippet="">576</a>    </span><span class="kw">for </span>((a, ok), link) <span class="kw">in </span>annotations.iter_mut().zip(settled).zip(links) {
+<a href="#577" id="577" data-nosnippet="">577</a>        <span class="kw">if </span>link.is_none() || ok != <span class="prelude-val">Some</span>(<span class="bool-val">true</span>) {
+<a href="#578" id="578" data-nosnippet="">578</a>            a.parent = <span class="prelude-val">None</span>;
+<a href="#579" id="579" data-nosnippet="">579</a>        }
+<a href="#580" id="580" data-nosnippet="">580</a>    }
+<a href="#581" id="581" data-nosnippet="">581</a>    <span class="comment">// A group is one page's (Acrobat reads it so): a subordinate whose primary is on another page
+<a href="#582" id="582" data-nosnippet="">582</a>    // is a comment of its own, with its own author and text, rather than part of that group or a
+<a href="#583" id="583" data-nosnippet="">583</a>    // reply to it. ISO 32000-2 §12.5.6.2 doesn't limit a group to a page, but Acrobat (desktop and
+<a href="#584" id="584" data-nosnippet="">584</a>    // iPad) and PDF-XChange all delete the primary without such a subordinate, and Acrobat desktop
+<a href="#585" id="585" data-nosnippet="">585</a>    // lists it on its own. Keep in step with
+<a href="#586" id="586" data-nosnippet="">586</a>    // `pdfcraft_annot::summaries`.
+<a href="#587" id="587" data-nosnippet="">587</a>    </span><span class="kw">for </span>a <span class="kw">in </span>annotations.iter_mut() {
+<a href="#588" id="588" data-nosnippet="">588</a>        <span class="kw">if </span>a.grouped &amp;&amp; a.parent.is_some_and(|(page, <span class="kw">_</span>)| page != a.page) {
+<a href="#589" id="589" data-nosnippet="">589</a>            a.parent = <span class="prelude-val">None</span>;
+<a href="#590" id="590" data-nosnippet="">590</a>            a.in_reply_to = <span class="prelude-val">None</span>;
+<a href="#591" id="591" data-nosnippet="">591</a>        }
+<a href="#592" id="592" data-nosnippet="">592</a>    }
+<a href="#593" id="593" data-nosnippet="">593</a>}
+<a href="#594" id="594" data-nosnippet="">594</a>
+<a href="#595" id="595" data-nosnippet="">595</a><span class="doccomment">/// The comment each reply's thread starts from, by the reply's page and `/Annots` position: a
+<a href="#596" id="596" data-nosnippet="">596</a>/// reply to a reply files under that comment too. Expects links [`link_replies`] settled; a loop
+<a href="#597" id="597" data-nosnippet="">597</a>/// in an unsettled list ends where it comes back round.
+<a href="#598" id="598" data-nosnippet="">598</a></span><span class="kw">pub fn </span>thread_tops(annotations: <span class="kw-2">&amp;</span>[Annotation]) -&gt; HashMap&lt;(usize, usize), (usize, usize)&gt; {
+<a href="#599" id="599" data-nosnippet="">599</a>    <span class="kw">let </span>parents: HashMap&lt;(usize, usize), (usize, usize)&gt; = annotations.iter().filter_map(|a| <span class="prelude-val">Some</span>(((a.page, a.index), a.parent<span class="question-mark">?</span>))).collect();
+<a href="#600" id="600" data-nosnippet="">600</a>    <span class="kw">let </span><span class="kw-2">mut </span>tops: HashMap&lt;(usize, usize), (usize, usize)&gt; = HashMap::new();
+<a href="#601" id="601" data-nosnippet="">601</a>    <span class="kw">for </span><span class="kw-2">&amp;</span>reply <span class="kw">in </span>parents.keys() {
+<a href="#602" id="602" data-nosnippet="">602</a>        <span class="kw">let </span>(<span class="kw-2">mut </span>path, <span class="kw-2">mut </span>seen, <span class="kw-2">mut </span>at) = (Vec::new(), HashSet::new(), reply);
+<a href="#603" id="603" data-nosnippet="">603</a>        <span class="kw">let </span>top = <span class="kw">loop </span>{
+<a href="#604" id="604" data-nosnippet="">604</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>known) = tops.get(<span class="kw-2">&amp;</span>at) {
+<a href="#605" id="605" data-nosnippet="">605</a>                <span class="kw">break </span>known;
+<a href="#606" id="606" data-nosnippet="">606</a>            }
+<a href="#607" id="607" data-nosnippet="">607</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>up) = parents.get(<span class="kw-2">&amp;</span>at) <span class="kw">else </span>{ <span class="kw">break </span>at };
+<a href="#608" id="608" data-nosnippet="">608</a>            <span class="kw">if </span>!seen.insert(at) {
+<a href="#609" id="609" data-nosnippet="">609</a>                <span class="kw">break </span>up;
+<a href="#610" id="610" data-nosnippet="">610</a>            }
+<a href="#611" id="611" data-nosnippet="">611</a>            path.push(at);
+<a href="#612" id="612" data-nosnippet="">612</a>            at = up;
+<a href="#613" id="613" data-nosnippet="">613</a>        };
+<a href="#614" id="614" data-nosnippet="">614</a>        <span class="kw">for </span>r <span class="kw">in </span>path {
+<a href="#615" id="615" data-nosnippet="">615</a>            tops.insert(r, top);
+<a href="#616" id="616" data-nosnippet="">616</a>        }
+<a href="#617" id="617" data-nosnippet="">617</a>    }
+<a href="#618" id="618" data-nosnippet="">618</a>    tops
+<a href="#619" id="619" data-nosnippet="">619</a>}
+<a href="#620" id="620" data-nosnippet="">620</a>
+<a href="#621" id="621" data-nosnippet="">621</a><span class="doccomment">/// The status and checkmark replies of a document's annotations, by the annotation whose state
+<a href="#622" id="622" data-nosnippet="">622</a>/// each one sets, found by object reference (the settled `parent` links of [`link_replies`]).
+<a href="#623" id="623" data-nosnippet="">623</a>///
+<a href="#624" id="624" data-nosnippet="">624</a>/// ISO 32000-2 §12.5.6.3: a state change is a text annotation whose `/IRT` "shall refer to the
+<a href="#625" id="625" data-nosnippet="">625</a>/// original annotation" and whose `/State` and `/StateModel` "update the state of the original
+<a href="#626" id="626" data-nosnippet="">626</a>/// annotation for the specified user" (`/T`); "Additional state changes shall be made by adding
+<a href="#627" id="627" data-nosnippet="">627</a>/// text annotations in reply to the previous reply for a given user". So a state reply sets the
+<a href="#628" id="628" data-nosnippet="">628</a>/// state of the first annotation up its `/IRT` chain that is not itself a state reply: the
+<a href="#629" id="629" data-nosnippet="">629</a>/// comment, or the reply the state was set on (a reply is an annotation with a state of its own,
+<a href="#630" id="630" data-nosnippet="">630</a>/// and is never folded into its thread's comment). There is one status per reviewer, and a
+<a href="#631" id="631" data-nosnippet="">631</a>/// checkmark only for the reviewer who set it.
+<a href="#632" id="632" data-nosnippet="">632</a></span><span class="kw">pub struct </span>ReviewStates&lt;<span class="lifetime">'a</span>&gt; {
+<a href="#633" id="633" data-nosnippet="">633</a>    by_target: HashMap&lt;(usize, usize), Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Annotation&gt;&gt;,
+<a href="#634" id="634" data-nosnippet="">634</a>}
+<a href="#635" id="635" data-nosnippet="">635</a>
+<a href="#636" id="636" data-nosnippet="">636</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ReviewStates&lt;<span class="lifetime">'a</span>&gt; {
+<a href="#637" id="637" data-nosnippet="">637</a>    <span class="kw">pub fn </span>new(all: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[Annotation]) -&gt; <span class="self">Self </span>{
+<a href="#638" id="638" data-nosnippet="">638</a>        <span class="kw">let </span>at: HashMap&lt;(usize, usize), <span class="kw-2">&amp;</span>Annotation&gt; = all.iter().filter(|a| a.subtype != <span class="string">"Popup"</span>).map(|a| ((a.page, a.index), a)).collect();
+<a href="#639" id="639" data-nosnippet="">639</a>        <span class="comment">// The annotation each state reply's chain reaches past other state replies, `None` for a
+<a href="#640" id="640" data-nosnippet="">640</a>        // loop or a reference to nothing listed; filled in along each walk, so a long history
+<a href="#641" id="641" data-nosnippet="">641</a>        // costs one walk, not one per reply.
+<a href="#642" id="642" data-nosnippet="">642</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>reaches: HashMap&lt;(usize, usize), <span class="prelude-ty">Option</span>&lt;(usize, usize)&gt;&gt; = HashMap::new();
+<a href="#643" id="643" data-nosnippet="">643</a>        <span class="kw">let </span><span class="kw-2">mut </span>by_target: HashMap&lt;(usize, usize), Vec&lt;<span class="kw-2">&amp;</span>Annotation&gt;&gt; = HashMap::new();
+<a href="#644" id="644" data-nosnippet="">644</a>        <span class="comment">// A state set on a group subordinate is the group's, its primary's (ISO 32000-2 §12.5.6.2).
+<a href="#645" id="645" data-nosnippet="">645</a>        </span><span class="kw">let </span>primary_of: HashMap&lt;(usize, usize), (usize, usize)&gt; =
+<a href="#646" id="646" data-nosnippet="">646</a>            all.iter().zip(group_primaries(all)).filter_map(|(a, p)| all.get(p<span class="question-mark">?</span>).map(|p| ((a.page, a.index), (p.page, p.index)))).collect();
+<a href="#647" id="647" data-nosnippet="">647</a>        <span class="kw">for </span>r <span class="kw">in </span>all.iter().filter(|a| a.state.is_some()) {
+<a href="#648" id="648" data-nosnippet="">648</a>            <span class="kw">let </span>(<span class="kw-2">mut </span>path, <span class="kw-2">mut </span>seen, <span class="kw-2">mut </span>up) = (<span class="macro">vec!</span>[(r.page, r.index)], HashSet::from([(r.page, r.index)]), r.parent);
+<a href="#649" id="649" data-nosnippet="">649</a>            <span class="kw">let </span>target = <span class="kw">loop </span>{
+<a href="#650" id="650" data-nosnippet="">650</a>                <span class="kw">let </span><span class="prelude-val">Some</span>(key) = up <span class="kw">else </span>{ <span class="kw">break </span><span class="prelude-val">None </span>};
+<a href="#651" id="651" data-nosnippet="">651</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>known) = reaches.get(<span class="kw-2">&amp;</span>key) {
+<a href="#652" id="652" data-nosnippet="">652</a>                    <span class="kw">break </span>known;
+<a href="#653" id="653" data-nosnippet="">653</a>                }
+<a href="#654" id="654" data-nosnippet="">654</a>                <span class="kw">match </span>at.get(<span class="kw-2">&amp;</span>key) {
+<a href="#655" id="655" data-nosnippet="">655</a>                    <span class="prelude-val">None </span>=&gt; <span class="kw">break </span><span class="prelude-val">None</span>,
+<a href="#656" id="656" data-nosnippet="">656</a>                    <span class="prelude-val">Some</span>(p) <span class="kw">if </span>p.state.is_none() =&gt; <span class="kw">break </span><span class="prelude-val">Some</span>(key),
+<a href="#657" id="657" data-nosnippet="">657</a>                    <span class="prelude-val">Some</span>(<span class="kw">_</span>) <span class="kw">if </span>!seen.insert(key) =&gt; <span class="kw">break </span><span class="prelude-val">None</span>,
+<a href="#658" id="658" data-nosnippet="">658</a>                    <span class="prelude-val">Some</span>(p) =&gt; {
+<a href="#659" id="659" data-nosnippet="">659</a>                        path.push(key);
+<a href="#660" id="660" data-nosnippet="">660</a>                        up = p.parent;
+<a href="#661" id="661" data-nosnippet="">661</a>                    }
+<a href="#662" id="662" data-nosnippet="">662</a>                }
+<a href="#663" id="663" data-nosnippet="">663</a>            };
+<a href="#664" id="664" data-nosnippet="">664</a>            <span class="kw">for </span>key <span class="kw">in </span>path {
+<a href="#665" id="665" data-nosnippet="">665</a>                reaches.insert(key, target);
+<a href="#666" id="666" data-nosnippet="">666</a>            }
+<a href="#667" id="667" data-nosnippet="">667</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(t) = target.map(|t| primary_of.get(<span class="kw-2">&amp;</span>t).copied().unwrap_or(t)) {
+<a href="#668" id="668" data-nosnippet="">668</a>                by_target.entry(t).or_default().push(r);
+<a href="#669" id="669" data-nosnippet="">669</a>            }
+<a href="#670" id="670" data-nosnippet="">670</a>        }
+<a href="#671" id="671" data-nosnippet="">671</a>        <span class="self">Self </span>{ by_target }
+<a href="#672" id="672" data-nosnippet="">672</a>    }
+<a href="#673" id="673" data-nosnippet="">673</a>
+<a href="#674" id="674" data-nosnippet="">674</a>    <span class="doccomment">/// Every status and checkmark reply about `target`, in document order.
+<a href="#675" id="675" data-nosnippet="">675</a>    </span><span class="kw">pub fn </span>history(<span class="kw-2">&amp;</span><span class="self">self</span>, target: <span class="kw-2">&amp;</span>Annotation) -&gt; <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Annotation] {
+<a href="#676" id="676" data-nosnippet="">676</a>        <span class="self">self</span>.by_target.get(<span class="kw-2">&amp;</span>(target.page, target.index)).map(Vec::as_slice).unwrap_or(<span class="kw-2">&amp;</span>[])
+<a href="#677" id="677" data-nosnippet="">677</a>    }
+<a href="#678" id="678" data-nosnippet="">678</a>
+<a href="#679" id="679" data-nosnippet="">679</a>    <span class="doccomment">/// Each reviewer's review status on `target`: their latest, in the order they first set one.
+<a href="#680" id="680" data-nosnippet="">680</a>    /// Empty when nobody set one; a status set back to "None" stays listed, since None is a state
+<a href="#681" id="681" data-nosnippet="">681</a>    /// (ISO 32000-2 Table 174: "The user has indicated nothing about the change").
+<a href="#682" id="682" data-nosnippet="">682</a>    </span><span class="kw">pub fn </span>statuses(<span class="kw-2">&amp;</span><span class="self">self</span>, target: <span class="kw-2">&amp;</span>Annotation) -&gt; Vec&lt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str, <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str)&gt; {
+<a href="#683" id="683" data-nosnippet="">683</a>        <span class="self">self</span>.by_reviewer(target, <span class="bool-val">false</span>).into_iter().filter_map(|(who, mine)| <span class="prelude-val">Some</span>((who, latest(<span class="kw-2">&amp;</span>mine)<span class="question-mark">?</span>.state.as_deref()<span class="question-mark">?</span>))).collect()
+<a href="#684" id="684" data-nosnippet="">684</a>    }
+<a href="#685" id="685" data-nosnippet="">685</a>
+<a href="#686" id="686" data-nosnippet="">686</a>    <span class="doccomment">/// The latest review status set on `target` by anyone, for callers that show one.
+<a href="#687" id="687" data-nosnippet="">687</a>    </span><span class="kw">pub fn </span>latest_status(<span class="kw-2">&amp;</span><span class="self">self</span>, target: <span class="kw-2">&amp;</span>Annotation) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt; {
+<a href="#688" id="688" data-nosnippet="">688</a>        <span class="self">self</span>.history(target).iter().rev().filter(|r| !r.is_mark()).find_map(|r| r.state.as_deref())
+<a href="#689" id="689" data-nosnippet="">689</a>    }
+<a href="#690" id="690" data-nosnippet="">690</a>
+<a href="#691" id="691" data-nosnippet="">691</a>    <span class="doccomment">/// Whether `author`'s latest checkmark on `target` is "Marked". Checkmarks are each
+<a href="#692" id="692" data-nosnippet="">692</a>    /// reviewer's own (ISO 32000-2 Table 174: "The annotation has been marked by the user").
+<a href="#693" id="693" data-nosnippet="">693</a>    </span><span class="kw">pub fn </span>marked_by(<span class="kw-2">&amp;</span><span class="self">self</span>, target: <span class="kw-2">&amp;</span>Annotation, author: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href="#694" id="694" data-nosnippet="">694</a>        <span class="kw">let </span>mine: Vec&lt;<span class="kw-2">&amp;</span>Annotation&gt; = <span class="self">self</span>.history(target).iter().copied().filter(|r| r.is_mark() &amp;&amp; reviewer(r) == author.trim()).collect();
+<a href="#695" id="695" data-nosnippet="">695</a>        latest(<span class="kw-2">&amp;</span>mine).is_some_and(|r| r.state.as_deref() == <span class="prelude-val">Some</span>(<span class="string">"Marked"</span>))
+<a href="#696" id="696" data-nosnippet="">696</a>    }
+<a href="#697" id="697" data-nosnippet="">697</a>
+<a href="#698" id="698" data-nosnippet="">698</a>    <span class="doccomment">/// The reviewers whose latest checkmark on `target` is "Marked".
+<a href="#699" id="699" data-nosnippet="">699</a>    </span><span class="kw">pub fn </span>marked(<span class="kw-2">&amp;</span><span class="self">self</span>, target: <span class="kw-2">&amp;</span>Annotation) -&gt; Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt; {
+<a href="#700" id="700" data-nosnippet="">700</a>        <span class="self">self</span>.by_reviewer(target, <span class="bool-val">true</span>)
+<a href="#701" id="701" data-nosnippet="">701</a>            .into_iter()
+<a href="#702" id="702" data-nosnippet="">702</a>            .filter(|(<span class="kw">_</span>, mine)| latest(mine).is_some_and(|r| r.state.as_deref() == <span class="prelude-val">Some</span>(<span class="string">"Marked"</span>)))
+<a href="#703" id="703" data-nosnippet="">703</a>            .map(|(who, <span class="kw">_</span>)| who)
+<a href="#704" id="704" data-nosnippet="">704</a>            .collect()
+<a href="#705" id="705" data-nosnippet="">705</a>    }
+<a href="#706" id="706" data-nosnippet="">706</a>
+<a href="#707" id="707" data-nosnippet="">707</a>    <span class="doccomment">/// The checkmark (`marks`) or status replies about `target`, by reviewer, in the order each
+<a href="#708" id="708" data-nosnippet="">708</a>    /// reviewer first set one.
+<a href="#709" id="709" data-nosnippet="">709</a>    </span><span class="kw">fn </span>by_reviewer(<span class="kw-2">&amp;</span><span class="self">self</span>, target: <span class="kw-2">&amp;</span>Annotation, marks: bool) -&gt; Vec&lt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str, Vec&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Annotation&gt;)&gt; {
+<a href="#710" id="710" data-nosnippet="">710</a>        <span class="kw">let </span><span class="kw-2">mut </span>out: Vec&lt;(<span class="kw-2">&amp;</span>str, Vec&lt;<span class="kw-2">&amp;</span>Annotation&gt;)&gt; = Vec::new();
+<a href="#711" id="711" data-nosnippet="">711</a>        <span class="kw">for </span><span class="kw-2">&amp;</span>r <span class="kw">in </span><span class="self">self</span>.history(target).iter().filter(|r| r.is_mark() == marks) {
+<a href="#712" id="712" data-nosnippet="">712</a>            <span class="kw">match </span>out.iter_mut().find(|(who, <span class="kw">_</span>)| <span class="kw-2">*</span>who == reviewer(r)) {
+<a href="#713" id="713" data-nosnippet="">713</a>                <span class="prelude-val">Some</span>((<span class="kw">_</span>, mine)) =&gt; mine.push(r),
+<a href="#714" id="714" data-nosnippet="">714</a>                <span class="prelude-val">None </span>=&gt; out.push((reviewer(r), <span class="macro">vec!</span>[r])),
+<a href="#715" id="715" data-nosnippet="">715</a>            }
+<a href="#716" id="716" data-nosnippet="">716</a>        }
+<a href="#717" id="717" data-nosnippet="">717</a>        out
+<a href="#718" id="718" data-nosnippet="">718</a>    }
+<a href="#719" id="719" data-nosnippet="">719</a>}
+<a href="#720" id="720" data-nosnippet="">720</a>
+<a href="#721" id="721" data-nosnippet="">721</a><span class="doccomment">/// Of one reviewer's replies in one state model, the latest: the end of their chain, a reply none
+<a href="#722" id="722" data-nosnippet="">722</a>/// of the others replies to (by reference), whatever order the file lists them in. Among several
+<a href="#723" id="723" data-nosnippet="">723</a>/// such (changes that don't chain), the last listed.
+<a href="#724" id="724" data-nosnippet="">724</a></span><span class="kw">fn </span>latest&lt;<span class="lifetime">'b</span>&gt;(mine: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="lifetime">'b </span>Annotation]) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'b </span>Annotation&gt; {
+<a href="#725" id="725" data-nosnippet="">725</a>    <span class="kw">let </span>answered: HashSet&lt;(usize, usize)&gt; = mine.iter().filter_map(|r| r.parent).collect();
+<a href="#726" id="726" data-nosnippet="">726</a>    mine.iter().rev().find(|r| !answered.contains(<span class="kw-2">&amp;</span>(r.page, r.index))).copied()
+<a href="#727" id="727" data-nosnippet="">727</a>}
+<a href="#728" id="728" data-nosnippet="">728</a>
+<a href="#729" id="729" data-nosnippet="">729</a><span class="doccomment">/// A reply's state: `/State`, or for a reply that gives only `/StateModel` the model's default
+<a href="#730" id="730" data-nosnippet="">730</a>/// (ISO 32000-2 Table 175: "Unmarked if StateModel is Marked; None if StateModel is Review").
+<a href="#731" id="731" data-nosnippet="">731</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>state_or_default(state: <span class="prelude-ty">Option</span>&lt;String&gt;, model: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href="#732" id="732" data-nosnippet="">732</a>    state.or_else(|| <span class="kw">match </span>model<span class="question-mark">? </span>{
+<a href="#733" id="733" data-nosnippet="">733</a>        <span class="string">"Marked" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"Unmarked"</span>.into()),
+<a href="#734" id="734" data-nosnippet="">734</a>        <span class="string">"Review" </span>=&gt; <span class="prelude-val">Some</span>(<span class="string">"None"</span>.into()),
+<a href="#735" id="735" data-nosnippet="">735</a>        <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#736" id="736" data-nosnippet="">736</a>    })
+<a href="#737" id="737" data-nosnippet="">737</a>}
+<a href="#738" id="738" data-nosnippet="">738</a>
+<a href="#739" id="739" data-nosnippet="">739</a><span class="doccomment">/// Who set a state: `/T`, trimmed (an author setting typed with spaces is the same reviewer).
+<a href="#740" id="740" data-nosnippet="">740</a></span><span class="kw">fn </span>reviewer(r: <span class="kw-2">&amp;</span>Annotation) -&gt; <span class="kw-2">&amp;</span>str {
+<a href="#741" id="741" data-nosnippet="">741</a>    r.author.as_deref().unwrap_or(<span class="string">""</span>).trim()
+<a href="#742" id="742" data-nosnippet="">742</a>}
+<a href="#743" id="743" data-nosnippet="">743</a>
+<a href="#744" id="744" data-nosnippet="">744</a><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+<a href="#745" id="745" data-nosnippet="">745</a></span><span class="kw">pub enum </span>FieldKind {
+<a href="#746" id="746" data-nosnippet="">746</a>    Text,
+<a href="#747" id="747" data-nosnippet="">747</a>    CheckBox,
+<a href="#748" id="748" data-nosnippet="">748</a>    Radio,
+<a href="#749" id="749" data-nosnippet="">749</a>    PushButton,
+<a href="#750" id="750" data-nosnippet="">750</a>    Combo,
+<a href="#751" id="751" data-nosnippet="">751</a>    List,
+<a href="#752" id="752" data-nosnippet="">752</a>    Signature,
+<a href="#753" id="753" data-nosnippet="">753</a>    Unknown,
+<a href="#754" id="754" data-nosnippet="">754</a>}
+<a href="#755" id="755" data-nosnippet="">755</a>
+<a href="#756" id="756" data-nosnippet="">756</a><span class="attr">#[derive(Clone, Debug)]
+<a href="#757" id="757" data-nosnippet="">757</a></span><span class="kw">pub struct </span>Field {
+<a href="#758" id="758" data-nosnippet="">758</a>    <span class="kw">pub </span>name: String,
+<a href="#759" id="759" data-nosnippet="">759</a>    <span class="kw">pub </span>kind: FieldKind,
+<a href="#760" id="760" data-nosnippet="">760</a>    <span class="kw">pub </span>value: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#761" id="761" data-nosnippet="">761</a>    <span class="kw">pub </span>page: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+<a href="#762" id="762" data-nosnippet="">762</a>    <span class="kw">pub </span>tooltip: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#763" id="763" data-nosnippet="">763</a>    <span class="kw">pub </span>has_actions: bool,
+<a href="#764" id="764" data-nosnippet="">764</a>    <span class="doccomment">/// Rect of the first widget, in user space.
+<a href="#765" id="765" data-nosnippet="">765</a>    </span><span class="kw">pub </span>rect: <span class="prelude-ty">Option</span>&lt;[f32; <span class="number">4</span>]&gt;,
+<a href="#766" id="766" data-nosnippet="">766</a>}
+<a href="#767" id="767" data-nosnippet="">767</a>
+<a href="#768" id="768" data-nosnippet="">768</a><span class="attr">#[derive(Clone, Debug)]
+<a href="#769" id="769" data-nosnippet="">769</a></span><span class="kw">pub struct </span>Layer {
+<a href="#770" id="770" data-nosnippet="">770</a>    <span class="doccomment">/// Object number and generation of the optional content group.
+<a href="#771" id="771" data-nosnippet="">771</a>    </span><span class="kw">pub </span>id: (u32, u16),
+<a href="#772" id="772" data-nosnippet="">772</a>    <span class="kw">pub </span>name: String,
+<a href="#773" id="773" data-nosnippet="">773</a>    <span class="kw">pub </span>visible: bool,
+<a href="#774" id="774" data-nosnippet="">774</a>    <span class="doccomment">/// Shown as the file opens: the default configuration (`/OCProperties /D`).
+<a href="#775" id="775" data-nosnippet="">775</a>    </span><span class="kw">pub </span>initial: bool,
+<a href="#776" id="776" data-nosnippet="">776</a>}
+<a href="#777" id="777" data-nosnippet="">777</a>
+<a href="#778" id="778" data-nosnippet="">778</a><span class="doccomment">/// One row of the Layers panel ([`DocInfo::layer_order`](super::DocInfo::layer_order)).
+<a href="#779" id="779" data-nosnippet="">779</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
+<a href="#780" id="780" data-nosnippet="">780</a></span><span class="kw">pub struct </span>LayerRow {
+<a href="#781" id="781" data-nosnippet="">781</a>    <span class="doccomment">/// Nesting level, 0 at the top: a nested array's entries are one deeper than the layer or
+<a href="#782" id="782" data-nosnippet="">782</a>    /// label before them.
+<a href="#783" id="783" data-nosnippet="">783</a>    </span><span class="kw">pub </span>depth: usize,
+<a href="#784" id="784" data-nosnippet="">784</a>    <span class="kw">pub </span>item: LayerItem,
+<a href="#785" id="785" data-nosnippet="">785</a>}
+<a href="#786" id="786" data-nosnippet="">786</a>
+<a href="#787" id="787" data-nosnippet="">787</a><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
+<a href="#788" id="788" data-nosnippet="">788</a></span><span class="kw">pub enum </span>LayerItem {
+<a href="#789" id="789" data-nosnippet="">789</a>    <span class="doccomment">/// A layer, by its index in [`DocInfo::layers`](super::DocInfo::layers).
+<a href="#790" id="790" data-nosnippet="">790</a>    </span>Layer(usize),
+<a href="#791" id="791" data-nosnippet="">791</a>    <span class="doccomment">/// A text label heading a nested array: not a layer, so it can't be selected or toggled.
+<a href="#792" id="792" data-nosnippet="">792</a>    </span>Label(String),
+<a href="#793" id="793" data-nosnippet="">793</a>}
+<a href="#794" id="794" data-nosnippet="">794</a>
+<a href="#795" id="795" data-nosnippet="">795</a><span class="attr">#[derive(Clone, Debug)]
+<a href="#796" id="796" data-nosnippet="">796</a></span><span class="kw">pub struct </span>Attachment {
+<a href="#797" id="797" data-nosnippet="">797</a>    <span class="kw">pub </span>name: String,
+<a href="#798" id="798" data-nosnippet="">798</a>    <span class="kw">pub </span>description: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#799" id="799" data-nosnippet="">799</a>    <span class="doccomment">/// Whether the file specification contained `/Desc`, including an empty value.
+<a href="#800" id="800" data-nosnippet="">800</a>    </span><span class="kw">pub </span>has_description: bool,
+<a href="#801" id="801" data-nosnippet="">801</a>    <span class="kw">pub </span>size: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+<a href="#802" id="802" data-nosnippet="">802</a>    <span class="kw">pub </span>source: AttachmentSource,
+<a href="#803" id="803" data-nosnippet="">803</a>}
+<a href="#804" id="804" data-nosnippet="">804</a>
+<a href="#805" id="805" data-nosnippet="">805</a><span class="doccomment">/// Where an attachment lives (so its bytes can be fetched on demand).
+<a href="#806" id="806" data-nosnippet="">806</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
+<a href="#807" id="807" data-nosnippet="">807</a></span><span class="kw">pub enum </span>AttachmentSource {
+<a href="#808" id="808" data-nosnippet="">808</a>    <span class="doccomment">/// Document-level: `/Names /EmbeddedFiles` entry with this key.
+<a href="#809" id="809" data-nosnippet="">809</a>    </span>Document { key: String },
+<a href="#810" id="810" data-nosnippet="">810</a>    <span class="doccomment">/// A FileAttachment annotation: page index and position in the page's `/Annots`.
+<a href="#811" id="811" data-nosnippet="">811</a>    </span>Annotation { page: usize, index: usize },
+<a href="#812" id="812" data-nosnippet="">812</a>}
+<a href="#813" id="813" data-nosnippet="">813</a>
+<a href="#814" id="814" data-nosnippet="">814</a><span class="doccomment">/// A PDF portfolio: a catalog with a `/Collection` (ISO 32000-2 §7.11.6, Table 153). Its pages
+<a href="#815" id="815" data-nosnippet="">815</a>/// are a cover sheet for viewers that show no file list; its documents are its attachments.
+<a href="#816" id="816" data-nosnippet="">816</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
+<a href="#817" id="817" data-nosnippet="">817</a></span><span class="kw">pub struct </span>Portfolio {
+<a href="#818" id="818" data-nosnippet="">818</a>    <span class="doccomment">/// The document to present first (`/D`): the index in `DocInfo::attachments` of the
+<a href="#819" id="819" data-nosnippet="">819</a>    /// `/EmbeddedFiles` entry it names. `None` without `/D` (the portfolio's own pages come
+<a href="#820" id="820" data-nosnippet="">820</a>    /// first) or when it names no listed attachment.
+<a href="#821" id="821" data-nosnippet="">821</a>    </span><span class="kw">pub </span>initial: <span class="prelude-ty">Option</span>&lt;usize&gt;,
+<a href="#822" id="822" data-nosnippet="">822</a>    <span class="doccomment">/// How the file list first shows (`/View`).
+<a href="#823" id="823" data-nosnippet="">823</a>    </span><span class="kw">pub </span>view: PortfolioView,
+<a href="#824" id="824" data-nosnippet="">824</a>}
+<a href="#825" id="825" data-nosnippet="">825</a>
+<a href="#826" id="826" data-nosnippet="">826</a><span class="doccomment">/// A portfolio's initial view (`/Collection /View`, Table 153).
+<a href="#827" id="827" data-nosnippet="">827</a></span><span class="attr">#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+<a href="#828" id="828" data-nosnippet="">828</a></span><span class="kw">pub enum </span>PortfolioView {
+<a href="#829" id="829" data-nosnippet="">829</a>    <span class="doccomment">/// `D`, the default: the files with their details.
+<a href="#830" id="830" data-nosnippet="">830</a>    </span><span class="attr">#[default]
+<a href="#831" id="831" data-nosnippet="">831</a>    </span>Details,
+<a href="#832" id="832" data-nosnippet="">832</a>    <span class="doccomment">/// `T`: the files as tiles.
+<a href="#833" id="833" data-nosnippet="">833</a>    </span>Tile,
+<a href="#834" id="834" data-nosnippet="">834</a>    <span class="doccomment">/// `H`: the file list starts hidden, shown when the reader asks for it.
+<a href="#835" id="835" data-nosnippet="">835</a>    </span>Hidden,
+<a href="#836" id="836" data-nosnippet="">836</a>    <span class="doccomment">/// `C`: a custom navigator (`/Navigator`).
+<a href="#837" id="837" data-nosnippet="">837</a>    </span>Custom,
+<a href="#838" id="838" data-nosnippet="">838</a>}
+<a href="#839" id="839" data-nosnippet="">839</a>
+<a href="#840" id="840" data-nosnippet="">840</a><span class="kw">impl </span>PortfolioView {
+<a href="#841" id="841" data-nosnippet="">841</a>    <span class="doccomment">/// The view's name in `doc_info`.
+<a href="#842" id="842" data-nosnippet="">842</a>    </span><span class="kw">pub fn </span>name(<span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+<a href="#843" id="843" data-nosnippet="">843</a>        <span class="kw">match </span><span class="self">self </span>{
+<a href="#844" id="844" data-nosnippet="">844</a>            <span class="self">Self</span>::Details =&gt; <span class="string">"details"</span>,
+<a href="#845" id="845" data-nosnippet="">845</a>            <span class="self">Self</span>::Tile =&gt; <span class="string">"tile"</span>,
+<a href="#846" id="846" data-nosnippet="">846</a>            <span class="self">Self</span>::Hidden =&gt; <span class="string">"hidden"</span>,
+<a href="#847" id="847" data-nosnippet="">847</a>            <span class="self">Self</span>::Custom =&gt; <span class="string">"custom"</span>,
+<a href="#848" id="848" data-nosnippet="">848</a>        }
+<a href="#849" id="849" data-nosnippet="">849</a>    }
+<a href="#850" id="850" data-nosnippet="">850</a>}
+<a href="#851" id="851" data-nosnippet="">851</a>
+<a href="#852" id="852" data-nosnippet="">852</a><span class="doccomment">/// A font used by the document (Document Properties ▸ Fonts).
+<a href="#853" id="853" data-nosnippet="">853</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
+<a href="#854" id="854" data-nosnippet="">854</a></span><span class="kw">pub struct </span>FontInfo {
+<a href="#855" id="855" data-nosnippet="">855</a>    <span class="doccomment">/// BaseFont without the subset tag.
+<a href="#856" id="856" data-nosnippet="">856</a>    </span><span class="kw">pub </span>name: String,
+<a href="#857" id="857" data-nosnippet="">857</a>    <span class="doccomment">/// Type1, TrueType, Type0, Type3, MMType1, CIDFontType0/2 …
+<a href="#858" id="858" data-nosnippet="">858</a>    </span><span class="kw">pub </span>kind: String,
+<a href="#859" id="859" data-nosnippet="">859</a>    <span class="kw">pub </span>embedded: bool,
+<a href="#860" id="860" data-nosnippet="">860</a>    <span class="kw">pub </span>subset: bool,
+<a href="#861" id="861" data-nosnippet="">861</a>    <span class="kw">pub </span>encoding: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#862" id="862" data-nosnippet="">862</a>    <span class="doccomment">/// The face standing in for a program the document does not embed. `None` when the font is
+<a href="#863" id="863" data-nosnippet="">863</a>    /// embedded (nothing stands in) or when no face was available at all -- `substitution` then
+<a href="#864" id="864" data-nosnippet="">864</a>    /// says which of the two it is.
+<a href="#865" id="865" data-nosnippet="">865</a>    </span><span class="kw">pub </span>substitute: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#866" id="866" data-nosnippet="">866</a>    <span class="doccomment">/// Why a face was substituted, as a sentence for whoever has to act on it. `None` only when
+<a href="#867" id="867" data-nosnippet="">867</a>    /// the document's own glyphs are being shown.
+<a href="#868" id="868" data-nosnippet="">868</a>    </span><span class="kw">pub </span>substitution: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#869" id="869" data-nosnippet="">869</a>}
+<a href="#870" id="870" data-nosnippet="">870</a>
+<a href="#871" id="871" data-nosnippet="">871</a><span class="doccomment">/// The review states and reply links of synthetic annotation lists.
+<a href="#872" id="872" data-nosnippet="">872</a></span><span class="attr">#[cfg(test)]
+<a href="#873" id="873" data-nosnippet="">873</a></span><span class="kw">mod </span>review_state_tests {
+<a href="#874" id="874" data-nosnippet="">874</a>    <span class="kw">use super</span>::{Annotation, ReviewStates, link_replies, thread_tops};
+<a href="#875" id="875" data-nosnippet="">875</a>
+<a href="#876" id="876" data-nosnippet="">876</a>    <span class="doccomment">/// One annotation of a synthetic page: `key` is its `/NM`, and `irt` the key of the
+<a href="#877" id="877" data-nosnippet="">877</a>    /// annotation its `/IRT` references, resolved by position as the readers resolve references.
+<a href="#878" id="878" data-nosnippet="">878</a>    </span><span class="kw">type </span>Spec&lt;<span class="lifetime">'s</span>&gt; = (<span class="kw-2">&amp;</span><span class="lifetime">'s </span>str, <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'s </span>str&gt;, <span class="kw-2">&amp;</span><span class="lifetime">'s </span>str, <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'s </span>str&gt;);
+<a href="#879" id="879" data-nosnippet="">879</a>
+<a href="#880" id="880" data-nosnippet="">880</a>    <span class="doccomment">/// The annotations of `specs` on page 0, in order, with their reply links settled as the
+<a href="#881" id="881" data-nosnippet="">881</a>    /// readers settle them. An `irt` that names no key references nothing listed.
+<a href="#882" id="882" data-nosnippet="">882</a>    </span><span class="kw">fn </span>listed(specs: <span class="kw-2">&amp;</span>[Spec&lt;<span class="lifetime">'_</span>&gt;]) -&gt; Vec&lt;Annotation&gt; {
+<a href="#883" id="883" data-nosnippet="">883</a>        <span class="kw">let </span><span class="kw-2">mut </span>all: Vec&lt;Annotation&gt; = specs
+<a href="#884" id="884" data-nosnippet="">884</a>            .iter()
+<a href="#885" id="885" data-nosnippet="">885</a>            .enumerate()
+<a href="#886" id="886" data-nosnippet="">886</a>            .map(|(index, <span class="kw-2">&amp;</span>(nm, irt, author, state))| Annotation {
+<a href="#887" id="887" data-nosnippet="">887</a>                page: <span class="number">0</span>,
+<a href="#888" id="888" data-nosnippet="">888</a>                subtype: <span class="string">"Text"</span>.into(),
+<a href="#889" id="889" data-nosnippet="">889</a>                author: <span class="prelude-val">Some</span>(author.into()),
+<a href="#890" id="890" data-nosnippet="">890</a>                contents: <span class="prelude-val">None</span>,
+<a href="#891" id="891" data-nosnippet="">891</a>                modified: <span class="prelude-val">None</span>,
+<a href="#892" id="892" data-nosnippet="">892</a>                name: <span class="prelude-val">Some</span>(nm.into()),
+<a href="#893" id="893" data-nosnippet="">893</a>                in_reply_to: irt.map(Into::into),
+<a href="#894" id="894" data-nosnippet="">894</a>                parent: irt.map(|k| (<span class="number">0</span>, specs.iter().position(|s| s.<span class="number">0 </span>== k).unwrap_or(usize::MAX))),
+<a href="#895" id="895" data-nosnippet="">895</a>                grouped: <span class="bool-val">false</span>,
+<a href="#896" id="896" data-nosnippet="">896</a>                rect: [<span class="number">0.0</span>; <span class="number">4</span>],
+<a href="#897" id="897" data-nosnippet="">897</a>                color: <span class="prelude-val">None</span>,
+<a href="#898" id="898" data-nosnippet="">898</a>                index,
+<a href="#899" id="899" data-nosnippet="">899</a>                state: state.map(Into::into),
+<a href="#900" id="900" data-nosnippet="">900</a>                quads: Vec::new(),
+<a href="#901" id="901" data-nosnippet="">901</a>                locked: <span class="bool-val">false</span>,
+<a href="#902" id="902" data-nosnippet="">902</a>                intent: <span class="prelude-val">None</span>,
+<a href="#903" id="903" data-nosnippet="">903</a>                fill_sign: <span class="bool-val">false</span>,
+<a href="#904" id="904" data-nosnippet="">904</a>                no_rotate: <span class="bool-val">false</span>,
+<a href="#905" id="905" data-nosnippet="">905</a>                points: Vec::new(),
+<a href="#906" id="906" data-nosnippet="">906</a>                text_box: <span class="prelude-val">None</span>,
+<a href="#907" id="907" data-nosnippet="">907</a>                popup: <span class="prelude-val">None</span>,
+<a href="#908" id="908" data-nosnippet="">908</a>            })
+<a href="#909" id="909" data-nosnippet="">909</a>            .collect();
+<a href="#910" id="910" data-nosnippet="">910</a>        link_replies(<span class="kw-2">&amp;mut </span>all);
+<a href="#911" id="911" data-nosnippet="">911</a>        all
+<a href="#912" id="912" data-nosnippet="">912</a>    }
+<a href="#913" id="913" data-nosnippet="">913</a>
+<a href="#914" id="914" data-nosnippet="">914</a>    <span class="kw">fn </span>by_name&lt;<span class="lifetime">'a</span>&gt;(all: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[Annotation], nm: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Annotation {
+<a href="#915" id="915" data-nosnippet="">915</a>        all.iter().find(|a| a.name.as_deref() == <span class="prelude-val">Some</span>(nm)).expect(<span class="string">"listed"</span>)
+<a href="#916" id="916" data-nosnippet="">916</a>    }
+<a href="#917" id="917" data-nosnippet="">917</a>
+<a href="#918" id="918" data-nosnippet="">918</a>    <span class="doccomment">/// The states these replies set (ISO 32000-2 §12.5.6.3, with synthetic files): one status per
+<a href="#919" id="919" data-nosnippet="">919</a>    /// reviewer, their latest, whether or not their changes chain; "None" stays listed; a
+<a href="#920" id="920" data-nosnippet="">920</a>    /// checkmark only for the reviewer who set it.
+<a href="#921" id="921" data-nosnippet="">921</a>    </span><span class="attr">#[test]
+<a href="#922" id="922" data-nosnippet="">922</a>    </span><span class="kw">fn </span>review_states_are_each_reviewers_latest_through_chains() {
+<a href="#923" id="923" data-nosnippet="">923</a>        <span class="kw">let </span>all = listed(<span class="kw-2">&amp;</span>[
+<a href="#924" id="924" data-nosnippet="">924</a>            (<span class="string">"c"</span>, <span class="prelude-val">None</span>, <span class="string">"Alice"</span>, <span class="prelude-val">None</span>),
+<a href="#925" id="925" data-nosnippet="">925</a>            (<span class="string">"b1"</span>, <span class="prelude-val">Some</span>(<span class="string">"c"</span>), <span class="string">"Bob"</span>, <span class="prelude-val">Some</span>(<span class="string">"Accepted"</span>)),
+<a href="#926" id="926" data-nosnippet="">926</a>            (<span class="string">"k1"</span>, <span class="prelude-val">Some</span>(<span class="string">"c"</span>), <span class="string">"Carol"</span>, <span class="prelude-val">Some</span>(<span class="string">"Completed"</span>)),
+<a href="#927" id="927" data-nosnippet="">927</a>            (<span class="string">"b2"</span>, <span class="prelude-val">Some</span>(<span class="string">"b1"</span>), <span class="string">"Bob"</span>, <span class="prelude-val">Some</span>(<span class="string">"Rejected"</span>)), <span class="comment">// chained, per §12.5.6.3
+<a href="#928" id="928" data-nosnippet="">928</a>            </span>(<span class="string">"r"</span>, <span class="prelude-val">Some</span>(<span class="string">"c"</span>), <span class="string">"Dan"</span>, <span class="prelude-val">None</span>),               <span class="comment">// a reply, not a state
+<a href="#929" id="929" data-nosnippet="">929</a>            </span>(<span class="string">"rs"</span>, <span class="prelude-val">Some</span>(<span class="string">"r"</span>), <span class="string">"Dan"</span>, <span class="prelude-val">Some</span>(<span class="string">"Cancelled"</span>)), <span class="comment">// a state on the reply, not on c
+<a href="#930" id="930" data-nosnippet="">930</a>            </span>(<span class="string">"m1"</span>, <span class="prelude-val">Some</span>(<span class="string">"c"</span>), <span class="string">"Bob"</span>, <span class="prelude-val">Some</span>(<span class="string">"Marked"</span>)),
+<a href="#931" id="931" data-nosnippet="">931</a>            (<span class="string">"m2"</span>, <span class="prelude-val">Some</span>(<span class="string">"m1"</span>), <span class="string">"Bob"</span>, <span class="prelude-val">Some</span>(<span class="string">"Unmarked"</span>)),
+<a href="#932" id="932" data-nosnippet="">932</a>            (<span class="string">"m3"</span>, <span class="prelude-val">Some</span>(<span class="string">"c"</span>), <span class="string">"Carol"</span>, <span class="prelude-val">Some</span>(<span class="string">"Marked"</span>)),
+<a href="#933" id="933" data-nosnippet="">933</a>            (<span class="string">"n"</span>, <span class="prelude-val">None</span>, <span class="string">"Alice"</span>, <span class="prelude-val">None</span>),
+<a href="#934" id="934" data-nosnippet="">934</a>            (<span class="string">"n1"</span>, <span class="prelude-val">Some</span>(<span class="string">"n"</span>), <span class="string">"Bob"</span>, <span class="prelude-val">Some</span>(<span class="string">"Completed"</span>)),
+<a href="#935" id="935" data-nosnippet="">935</a>            (<span class="string">"n2"</span>, <span class="prelude-val">Some</span>(<span class="string">"n"</span>), <span class="string">"Bob"</span>, <span class="prelude-val">Some</span>(<span class="string">"None"</span>)), <span class="comment">// unchained, as PdfCraft wrote it before
+<a href="#936" id="936" data-nosnippet="">936</a>            // A loop of state replies belongs to nothing.
+<a href="#937" id="937" data-nosnippet="">937</a>            </span>(<span class="string">"x"</span>, <span class="prelude-val">Some</span>(<span class="string">"y"</span>), <span class="string">"Eve"</span>, <span class="prelude-val">Some</span>(<span class="string">"Accepted"</span>)),
+<a href="#938" id="938" data-nosnippet="">938</a>            (<span class="string">"y"</span>, <span class="prelude-val">Some</span>(<span class="string">"x"</span>), <span class="string">"Eve"</span>, <span class="prelude-val">Some</span>(<span class="string">"Accepted"</span>)),
+<a href="#939" id="939" data-nosnippet="">939</a>        ]);
+<a href="#940" id="940" data-nosnippet="">940</a>        <span class="kw">let </span>states = ReviewStates::new(<span class="kw-2">&amp;</span>all);
+<a href="#941" id="941" data-nosnippet="">941</a>        <span class="kw">let </span>(c, r, n, x) = (by_name(<span class="kw-2">&amp;</span>all, <span class="string">"c"</span>), by_name(<span class="kw-2">&amp;</span>all, <span class="string">"r"</span>), by_name(<span class="kw-2">&amp;</span>all, <span class="string">"n"</span>), by_name(<span class="kw-2">&amp;</span>all, <span class="string">"x"</span>));
+<a href="#942" id="942" data-nosnippet="">942</a>        <span class="macro">assert_eq!</span>(states.statuses(c), [(<span class="string">"Bob"</span>, <span class="string">"Rejected"</span>), (<span class="string">"Carol"</span>, <span class="string">"Completed"</span>)]);
+<a href="#943" id="943" data-nosnippet="">943</a>        <span class="macro">assert_eq!</span>(states.latest_status(c), <span class="prelude-val">Some</span>(<span class="string">"Rejected"</span>));
+<a href="#944" id="944" data-nosnippet="">944</a>        <span class="macro">assert_eq!</span>(states.history(c).len(), <span class="number">6</span>, <span class="string">"every change, the checkmarks included"</span>);
+<a href="#945" id="945" data-nosnippet="">945</a>        <span class="macro">assert_eq!</span>(states.statuses(r), [(<span class="string">"Dan"</span>, <span class="string">"Cancelled"</span>)]);
+<a href="#946" id="946" data-nosnippet="">946</a>        <span class="macro">assert!</span>(!states.marked_by(c, <span class="string">"Bob"</span>), <span class="string">"Bob took his off"</span>);
+<a href="#947" id="947" data-nosnippet="">947</a>        <span class="macro">assert!</span>(states.marked_by(c, <span class="string">"Carol"</span>));
+<a href="#948" id="948" data-nosnippet="">948</a>        <span class="macro">assert!</span>(!states.marked_by(c, <span class="string">"Alice"</span>), <span class="string">"nobody else's checkmark shows"</span>);
+<a href="#949" id="949" data-nosnippet="">949</a>        <span class="macro">assert_eq!</span>(states.marked(c), [<span class="string">"Carol"</span>]);
+<a href="#950" id="950" data-nosnippet="">950</a>        <span class="macro">assert_eq!</span>(states.statuses(n), [(<span class="string">"Bob"</span>, <span class="string">"None"</span>)], <span class="string">"a status set back to None stays listed"</span>);
+<a href="#951" id="951" data-nosnippet="">951</a>        <span class="macro">assert!</span>(states.statuses(x).is_empty() &amp;&amp; states.history(x).is_empty());
+<a href="#952" id="952" data-nosnippet="">952</a>    }
+<a href="#953" id="953" data-nosnippet="">953</a>
+<a href="#954" id="954" data-nosnippet="">954</a>    <span class="doccomment">/// §12.5.6.3: a state reply's `/IRT` "shall refer to the original annotation", and a reply is
+<a href="#955" id="955" data-nosnippet="">955</a>    /// an annotation of its own. A status set on a reply, and the changes that chain from it, are
+<a href="#956" id="956" data-nosnippet="">956</a>    /// that reply's and never its thread's comment's, at any depth of the thread.
+<a href="#957" id="957" data-nosnippet="">957</a>    </span><span class="attr">#[test]
+<a href="#958" id="958" data-nosnippet="">958</a>    </span><span class="kw">fn </span>a_status_on_a_reply_and_its_chain_stay_the_replys() {
+<a href="#959" id="959" data-nosnippet="">959</a>        <span class="kw">let </span>all = listed(<span class="kw-2">&amp;</span>[
+<a href="#960" id="960" data-nosnippet="">960</a>            (<span class="string">"c"</span>, <span class="prelude-val">None</span>, <span class="string">"Alice"</span>, <span class="prelude-val">None</span>),
+<a href="#961" id="961" data-nosnippet="">961</a>            (<span class="string">"r"</span>, <span class="prelude-val">Some</span>(<span class="string">"c"</span>), <span class="string">"Bob"</span>, <span class="prelude-val">None</span>),
+<a href="#962" id="962" data-nosnippet="">962</a>            (<span class="string">"rr"</span>, <span class="prelude-val">Some</span>(<span class="string">"r"</span>), <span class="string">"Carol"</span>, <span class="prelude-val">None</span>),
+<a href="#963" id="963" data-nosnippet="">963</a>            (<span class="string">"s1"</span>, <span class="prelude-val">Some</span>(<span class="string">"rr"</span>), <span class="string">"Dan"</span>, <span class="prelude-val">Some</span>(<span class="string">"Accepted"</span>)),
+<a href="#964" id="964" data-nosnippet="">964</a>            (<span class="string">"s2"</span>, <span class="prelude-val">Some</span>(<span class="string">"s1"</span>), <span class="string">"Dan"</span>, <span class="prelude-val">Some</span>(<span class="string">"Rejected"</span>)),
+<a href="#965" id="965" data-nosnippet="">965</a>            (<span class="string">"e1"</span>, <span class="prelude-val">Some</span>(<span class="string">"s2"</span>), <span class="string">"Eve"</span>, <span class="prelude-val">Some</span>(<span class="string">"Completed"</span>)), <span class="comment">// Eve answering Dan's state reply
+<a href="#966" id="966" data-nosnippet="">966</a>            </span>(<span class="string">"m1"</span>, <span class="prelude-val">Some</span>(<span class="string">"r"</span>), <span class="string">"Dan"</span>, <span class="prelude-val">Some</span>(<span class="string">"Marked"</span>)),
+<a href="#967" id="967" data-nosnippet="">967</a>        ]);
+<a href="#968" id="968" data-nosnippet="">968</a>        <span class="kw">let </span>states = ReviewStates::new(<span class="kw-2">&amp;</span>all);
+<a href="#969" id="969" data-nosnippet="">969</a>        <span class="kw">let </span>(c, r, rr) = (by_name(<span class="kw-2">&amp;</span>all, <span class="string">"c"</span>), by_name(<span class="kw-2">&amp;</span>all, <span class="string">"r"</span>), by_name(<span class="kw-2">&amp;</span>all, <span class="string">"rr"</span>));
+<a href="#970" id="970" data-nosnippet="">970</a>        <span class="macro">assert!</span>(states.history(c).is_empty() &amp;&amp; states.statuses(c).is_empty(), <span class="string">"not folded to the comment"</span>);
+<a href="#971" id="971" data-nosnippet="">971</a>        <span class="macro">assert!</span>(states.statuses(r).is_empty() &amp;&amp; states.marked_by(r, <span class="string">"Dan"</span>));
+<a href="#972" id="972" data-nosnippet="">972</a>        <span class="macro">assert_eq!</span>(states.statuses(rr), [(<span class="string">"Dan"</span>, <span class="string">"Rejected"</span>), (<span class="string">"Eve"</span>, <span class="string">"Completed"</span>)]);
+<a href="#973" id="973" data-nosnippet="">973</a>        <span class="macro">assert!</span>(states.history(by_name(<span class="kw-2">&amp;</span>all, <span class="string">"s1"</span>)).is_empty(), <span class="string">"a state reply has no states of its own"</span>);
+<a href="#974" id="974" data-nosnippet="">974</a>    }
+<a href="#975" id="975" data-nosnippet="">975</a>
+<a href="#976" id="976" data-nosnippet="">976</a>    <span class="doccomment">/// §12.5.6.2: a group is one comment, its primary's, so a status set on a subordinate is the
+<a href="#977" id="977" data-nosnippet="">977</a>    /// group's; one set on an ordinary reply stays the reply's.
+<a href="#978" id="978" data-nosnippet="">978</a>    </span><span class="attr">#[test]
+<a href="#979" id="979" data-nosnippet="">979</a>    </span><span class="kw">fn </span>a_status_on_a_group_subordinate_is_the_groups() {
+<a href="#980" id="980" data-nosnippet="">980</a>        <span class="kw">let </span><span class="kw-2">mut </span>all = listed(<span class="kw-2">&amp;</span>[
+<a href="#981" id="981" data-nosnippet="">981</a>            (<span class="string">"p"</span>, <span class="prelude-val">None</span>, <span class="string">"Alice"</span>, <span class="prelude-val">None</span>),
+<a href="#982" id="982" data-nosnippet="">982</a>            (<span class="string">"sub"</span>, <span class="prelude-val">Some</span>(<span class="string">"p"</span>), <span class="string">"Bob"</span>, <span class="prelude-val">None</span>),
+<a href="#983" id="983" data-nosnippet="">983</a>            (<span class="string">"s"</span>, <span class="prelude-val">Some</span>(<span class="string">"sub"</span>), <span class="string">"Dan"</span>, <span class="prelude-val">Some</span>(<span class="string">"Accepted"</span>)),
+<a href="#984" id="984" data-nosnippet="">984</a>            (<span class="string">"r"</span>, <span class="prelude-val">Some</span>(<span class="string">"p"</span>), <span class="string">"Carol"</span>, <span class="prelude-val">None</span>),
+<a href="#985" id="985" data-nosnippet="">985</a>            (<span class="string">"rs"</span>, <span class="prelude-val">Some</span>(<span class="string">"r"</span>), <span class="string">"Eve"</span>, <span class="prelude-val">Some</span>(<span class="string">"Rejected"</span>)),
+<a href="#986" id="986" data-nosnippet="">986</a>        ]);
+<a href="#987" id="987" data-nosnippet="">987</a>        all[<span class="number">1</span>].grouped = <span class="bool-val">true</span>;
+<a href="#988" id="988" data-nosnippet="">988</a>        <span class="kw">let </span>states = ReviewStates::new(<span class="kw-2">&amp;</span>all);
+<a href="#989" id="989" data-nosnippet="">989</a>        <span class="macro">assert_eq!</span>(states.statuses(by_name(<span class="kw-2">&amp;</span>all, <span class="string">"p"</span>)), [(<span class="string">"Dan"</span>, <span class="string">"Accepted"</span>)]);
+<a href="#990" id="990" data-nosnippet="">990</a>        <span class="macro">assert!</span>(states.history(by_name(<span class="kw-2">&amp;</span>all, <span class="string">"sub"</span>)).is_empty());
+<a href="#991" id="991" data-nosnippet="">991</a>        <span class="macro">assert_eq!</span>(states.statuses(by_name(<span class="kw-2">&amp;</span>all, <span class="string">"r"</span>)), [(<span class="string">"Eve"</span>, <span class="string">"Rejected"</span>)]);
+<a href="#992" id="992" data-nosnippet="">992</a>    }
+<a href="#993" id="993" data-nosnippet="">993</a>
+<a href="#994" id="994" data-nosnippet="">994</a>    <span class="doccomment">/// States follow object references, not `/NM`: two comments with the same `/NM` (some writers
+<a href="#995" id="995" data-nosnippet="">995</a>    /// name the first comment on every page alike) each keep their own statuses.
+<a href="#996" id="996" data-nosnippet="">996</a>    </span><span class="attr">#[test]
+<a href="#997" id="997" data-nosnippet="">997</a>    </span><span class="kw">fn </span>states_follow_references_not_repeated_names() {
+<a href="#998" id="998" data-nosnippet="">998</a>        <span class="kw">let </span><span class="kw-2">mut </span>all = listed(<span class="kw-2">&amp;</span>[
+<a href="#999" id="999" data-nosnippet="">999</a>            (<span class="string">"a"</span>, <span class="prelude-val">None</span>, <span class="string">"Alice"</span>, <span class="prelude-val">None</span>),
+<a href="#1000" id="1000" data-nosnippet="">1000</a>            (<span class="string">"b"</span>, <span class="prelude-val">None</span>, <span class="string">"Alice"</span>, <span class="prelude-val">None</span>),
+<a href="#1001" id="1001" data-nosnippet="">1001</a>            (<span class="string">"sa"</span>, <span class="prelude-val">Some</span>(<span class="string">"a"</span>), <span class="string">"Bob"</span>, <span class="prelude-val">Some</span>(<span class="string">"Accepted"</span>)),
+<a href="#1002" id="1002" data-nosnippet="">1002</a>            (<span class="string">"sb"</span>, <span class="prelude-val">Some</span>(<span class="string">"b"</span>), <span class="string">"Bob"</span>, <span class="prelude-val">Some</span>(<span class="string">"Rejected"</span>)),
+<a href="#1003" id="1003" data-nosnippet="">1003</a>            (<span class="string">"sb2"</span>, <span class="prelude-val">Some</span>(<span class="string">"sb"</span>), <span class="string">"Bob"</span>, <span class="prelude-val">Some</span>(<span class="string">"Completed"</span>)),
+<a href="#1004" id="1004" data-nosnippet="">1004</a>        ]);
+<a href="#1005" id="1005" data-nosnippet="">1005</a>        <span class="kw">for </span>a <span class="kw">in </span>all.iter_mut().take(<span class="number">2</span>) {
+<a href="#1006" id="1006" data-nosnippet="">1006</a>            a.name = <span class="prelude-val">Some</span>(<span class="string">"dup"</span>.into());
+<a href="#1007" id="1007" data-nosnippet="">1007</a>        }
+<a href="#1008" id="1008" data-nosnippet="">1008</a>        <span class="kw">for </span>s <span class="kw">in </span>all.iter_mut().skip(<span class="number">2</span>) {
+<a href="#1009" id="1009" data-nosnippet="">1009</a>            <span class="kw">if </span>s.in_reply_to.as_deref().is_some_and(|k| k == <span class="string">"a" </span>|| k == <span class="string">"b"</span>) {
+<a href="#1010" id="1010" data-nosnippet="">1010</a>                s.in_reply_to = <span class="prelude-val">Some</span>(<span class="string">"dup"</span>.into());
+<a href="#1011" id="1011" data-nosnippet="">1011</a>            }
+<a href="#1012" id="1012" data-nosnippet="">1012</a>        }
+<a href="#1013" id="1013" data-nosnippet="">1013</a>        <span class="kw">let </span>states = ReviewStates::new(<span class="kw-2">&amp;</span>all);
+<a href="#1014" id="1014" data-nosnippet="">1014</a>        <span class="macro">assert_eq!</span>(states.statuses(<span class="kw-2">&amp;</span>all[<span class="number">0</span>]), [(<span class="string">"Bob"</span>, <span class="string">"Accepted"</span>)]);
+<a href="#1015" id="1015" data-nosnippet="">1015</a>        <span class="macro">assert_eq!</span>(states.statuses(<span class="kw-2">&amp;</span>all[<span class="number">1</span>]), [(<span class="string">"Bob"</span>, <span class="string">"Completed"</span>)]);
+<a href="#1016" id="1016" data-nosnippet="">1016</a>    }
+<a href="#1017" id="1017" data-nosnippet="">1017</a>
+<a href="#1018" id="1018" data-nosnippet="">1018</a>    <span class="doccomment">/// A state reply whose `/IRT` references nothing listed, or nothing at all, sets no
+<a href="#1019" id="1019" data-nosnippet="">1019</a>    /// annotation's state, and a loop that never reaches an annotation without a state belongs to
+<a href="#1020" id="1020" data-nosnippet="">1020</a>    /// nothing even in a list whose links were not settled.
+<a href="#1021" id="1021" data-nosnippet="">1021</a>    </span><span class="attr">#[test]
+<a href="#1022" id="1022" data-nosnippet="">1022</a>    </span><span class="kw">fn </span>a_state_reply_without_a_listed_target_belongs_to_nothing() {
+<a href="#1023" id="1023" data-nosnippet="">1023</a>        <span class="kw">let </span>all = listed(<span class="kw-2">&amp;</span>[
+<a href="#1024" id="1024" data-nosnippet="">1024</a>            (<span class="string">"c"</span>, <span class="prelude-val">None</span>, <span class="string">"Alice"</span>, <span class="prelude-val">None</span>),
+<a href="#1025" id="1025" data-nosnippet="">1025</a>            (<span class="string">"gone"</span>, <span class="prelude-val">Some</span>(<span class="string">"deleted"</span>), <span class="string">"Bob"</span>, <span class="prelude-val">Some</span>(<span class="string">"Accepted"</span>)),
+<a href="#1026" id="1026" data-nosnippet="">1026</a>            (<span class="string">"bare"</span>, <span class="prelude-val">None</span>, <span class="string">"Bob"</span>, <span class="prelude-val">Some</span>(<span class="string">"Rejected"</span>)),
+<a href="#1027" id="1027" data-nosnippet="">1027</a>            (<span class="string">"next"</span>, <span class="prelude-val">Some</span>(<span class="string">"gone"</span>), <span class="string">"Bob"</span>, <span class="prelude-val">Some</span>(<span class="string">"Completed"</span>)),
+<a href="#1028" id="1028" data-nosnippet="">1028</a>        ]);
+<a href="#1029" id="1029" data-nosnippet="">1029</a>        <span class="kw">let </span>states = ReviewStates::new(<span class="kw-2">&amp;</span>all);
+<a href="#1030" id="1030" data-nosnippet="">1030</a>        <span class="macro">assert!</span>(all.iter().all(|a| states.history(a).is_empty()));
+<a href="#1031" id="1031" data-nosnippet="">1031</a>        <span class="comment">// Unsettled: the loop's links are still in place.
+<a href="#1032" id="1032" data-nosnippet="">1032</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>raw = listed(<span class="kw-2">&amp;</span>[(<span class="string">"c"</span>, <span class="prelude-val">None</span>, <span class="string">"Alice"</span>, <span class="prelude-val">None</span>)]);
+<a href="#1033" id="1033" data-nosnippet="">1033</a>        <span class="kw">let </span><span class="kw-2">mut </span>x = raw[<span class="number">0</span>].clone();
+<a href="#1034" id="1034" data-nosnippet="">1034</a>        (x.index, x.name, x.state, x.parent) = (<span class="number">1</span>, <span class="prelude-val">Some</span>(<span class="string">"x"</span>.into()), <span class="prelude-val">Some</span>(<span class="string">"Accepted"</span>.into()), <span class="prelude-val">Some</span>((<span class="number">0</span>, <span class="number">2</span>)));
+<a href="#1035" id="1035" data-nosnippet="">1035</a>        <span class="kw">let </span><span class="kw-2">mut </span>y = x.clone();
+<a href="#1036" id="1036" data-nosnippet="">1036</a>        (y.index, y.name, y.parent) = (<span class="number">2</span>, <span class="prelude-val">Some</span>(<span class="string">"y"</span>.into()), <span class="prelude-val">Some</span>((<span class="number">0</span>, <span class="number">1</span>)));
+<a href="#1037" id="1037" data-nosnippet="">1037</a>        raw.extend([x, y]);
+<a href="#1038" id="1038" data-nosnippet="">1038</a>        <span class="kw">let </span>states = ReviewStates::new(<span class="kw-2">&amp;</span>raw);
+<a href="#1039" id="1039" data-nosnippet="">1039</a>        <span class="macro">assert!</span>(raw.iter().all(|a| states.history(a).is_empty()));
+<a href="#1040" id="1040" data-nosnippet="">1040</a>    }
+<a href="#1041" id="1041" data-nosnippet="">1041</a>
+<a href="#1042" id="1042" data-nosnippet="">1042</a>    <span class="doccomment">/// A long reply chain, as a reviewer's long status history makes (§12.5.6.3: each change
+<a href="#1043" id="1043" data-nosnippet="">1043</a>    /// replies to the previous), settles, and its replies file under the comment; a loop, an `/IRT`
+<a href="#1044" id="1044" data-nosnippet="">1044</a>    /// to itself and one to nothing listed leave an annotation a comment of its own.
+<a href="#1045" id="1045" data-nosnippet="">1045</a>    </span><span class="attr">#[test]
+<a href="#1046" id="1046" data-nosnippet="">1046</a>    </span><span class="kw">fn </span>reply_links_settle_at_any_depth_but_not_in_a_loop() {
+<a href="#1047" id="1047" data-nosnippet="">1047</a>        <span class="kw">let </span>keys: Vec&lt;String&gt; = (<span class="number">0</span>..<span class="number">200</span>).map(|i| <span class="macro">format!</span>(<span class="string">"r{i}"</span>)).collect();
+<a href="#1048" id="1048" data-nosnippet="">1048</a>        <span class="kw">let </span><span class="kw-2">mut </span>specs: Vec&lt;Spec&lt;<span class="lifetime">'_</span>&gt;&gt; = <span class="macro">vec!</span>[(<span class="string">"c"</span>, <span class="prelude-val">None</span>, <span class="string">"Alice"</span>, <span class="prelude-val">None</span>)];
+<a href="#1049" id="1049" data-nosnippet="">1049</a>        <span class="kw">for </span>(i, k) <span class="kw">in </span>keys.iter().enumerate() {
+<a href="#1050" id="1050" data-nosnippet="">1050</a>            specs.push((k, <span class="prelude-val">Some</span>(<span class="kw">if </span>i == <span class="number">0 </span>{ <span class="string">"c" </span>} <span class="kw">else </span>{ keys[i - <span class="number">1</span>].as_str() }), <span class="string">"Bob"</span>, <span class="prelude-val">None</span>));
+<a href="#1051" id="1051" data-nosnippet="">1051</a>        }
+<a href="#1052" id="1052" data-nosnippet="">1052</a>        specs.extend([
+<a href="#1053" id="1053" data-nosnippet="">1053</a>            (<span class="string">"x"</span>, <span class="prelude-val">Some</span>(<span class="string">"y"</span>), <span class="string">"Eve"</span>, <span class="prelude-val">None</span>),
+<a href="#1054" id="1054" data-nosnippet="">1054</a>            (<span class="string">"y"</span>, <span class="prelude-val">Some</span>(<span class="string">"x"</span>), <span class="string">"Eve"</span>, <span class="prelude-val">None</span>),
+<a href="#1055" id="1055" data-nosnippet="">1055</a>            (<span class="string">"z"</span>, <span class="prelude-val">Some</span>(<span class="string">"x"</span>), <span class="string">"Eve"</span>, <span class="prelude-val">None</span>),
+<a href="#1056" id="1056" data-nosnippet="">1056</a>            (<span class="string">"me"</span>, <span class="prelude-val">Some</span>(<span class="string">"me"</span>), <span class="string">"Eve"</span>, <span class="prelude-val">None</span>),
+<a href="#1057" id="1057" data-nosnippet="">1057</a>            (<span class="string">"lost"</span>, <span class="prelude-val">Some</span>(<span class="string">"unlisted"</span>), <span class="string">"Eve"</span>, <span class="prelude-val">None</span>),
+<a href="#1058" id="1058" data-nosnippet="">1058</a>        ]);
+<a href="#1059" id="1059" data-nosnippet="">1059</a>        <span class="comment">// In file order and newest first: the first reply read then walks the whole chain at once.
+<a href="#1060" id="1060" data-nosnippet="">1060</a>        </span><span class="kw">for </span>newest_first <span class="kw">in </span>[<span class="bool-val">false</span>, <span class="bool-val">true</span>] {
+<a href="#1061" id="1061" data-nosnippet="">1061</a>            <span class="kw">if </span>newest_first {
+<a href="#1062" id="1062" data-nosnippet="">1062</a>                specs.reverse();
+<a href="#1063" id="1063" data-nosnippet="">1063</a>            }
+<a href="#1064" id="1064" data-nosnippet="">1064</a>            <span class="kw">let </span>all = listed(<span class="kw-2">&amp;</span>specs);
+<a href="#1065" id="1065" data-nosnippet="">1065</a>            <span class="kw">let </span>replies: Vec&lt;<span class="kw-2">&amp;</span>Annotation&gt; = all.iter().filter(|a| a.name.as_deref().is_some_and(|n| n.starts_with(<span class="string">'r'</span>))).collect();
+<a href="#1066" id="1066" data-nosnippet="">1066</a>            <span class="macro">assert!</span>(replies.len() == <span class="number">200 </span>&amp;&amp; replies.iter().all(|a| a.is_reply()), <span class="string">"{newest_first}"</span>);
+<a href="#1067" id="1067" data-nosnippet="">1067</a>            <span class="kw">let </span>nowhere = all.iter().filter(|a| <span class="macro">matches!</span>(a.name.as_deref(), <span class="prelude-val">Some</span>(<span class="string">"x" </span>| <span class="string">"y" </span>| <span class="string">"z" </span>| <span class="string">"me" </span>| <span class="string">"lost"</span>)));
+<a href="#1068" id="1068" data-nosnippet="">1068</a>            <span class="macro">assert!</span>(nowhere.clone().count() == <span class="number">5 </span>&amp;&amp; nowhere.clone().all(|a| !a.is_reply()), <span class="string">"a loop, a chain into one, itself or nothing listed"</span>);
+<a href="#1069" id="1069" data-nosnippet="">1069</a>            <span class="kw">let </span>c = by_name(<span class="kw-2">&amp;</span>all, <span class="string">"c"</span>);
+<a href="#1070" id="1070" data-nosnippet="">1070</a>            <span class="kw">let </span>tops = thread_tops(<span class="kw-2">&amp;</span>all);
+<a href="#1071" id="1071" data-nosnippet="">1071</a>            <span class="macro">assert_eq!</span>(tops.len(), <span class="number">200</span>, <span class="string">"{newest_first}"</span>);
+<a href="#1072" id="1072" data-nosnippet="">1072</a>            <span class="macro">assert!</span>(tops.values().all(|<span class="kw-2">&amp;</span>t| t == (c.page, c.index)), <span class="string">"{newest_first}"</span>);
+<a href="#1073" id="1073" data-nosnippet="">1073</a>        }
+<a href="#1074" id="1074" data-nosnippet="">1074</a>    }
+<a href="#1075" id="1075" data-nosnippet="">1075</a>
+<a href="#1076" id="1076" data-nosnippet="">1076</a>    <span class="doccomment">/// Review on #4126: a history has no length limit, and a reviewer's name is compared without
+<a href="#1077" id="1077" data-nosnippet="">1077</a>    /// surrounding spaces.
+<a href="#1078" id="1078" data-nosnippet="">1078</a>    </span><span class="attr">#[test]
+<a href="#1079" id="1079" data-nosnippet="">1079</a>    </span><span class="kw">fn </span>a_long_chain_still_reaches_its_comment_and_names_are_trimmed() {
+<a href="#1080" id="1080" data-nosnippet="">1080</a>        <span class="kw">let </span>keys: Vec&lt;String&gt; = (<span class="number">0</span>..<span class="number">200</span>).map(|i| <span class="macro">format!</span>(<span class="string">"s{i}"</span>)).collect();
+<a href="#1081" id="1081" data-nosnippet="">1081</a>        <span class="kw">let </span><span class="kw-2">mut </span>specs: Vec&lt;Spec&lt;<span class="lifetime">'_</span>&gt;&gt; = <span class="macro">vec!</span>[(<span class="string">"c"</span>, <span class="prelude-val">None</span>, <span class="string">"Alice"</span>, <span class="prelude-val">None</span>)];
+<a href="#1082" id="1082" data-nosnippet="">1082</a>        <span class="kw">for </span>(i, k) <span class="kw">in </span>keys.iter().enumerate() {
+<a href="#1083" id="1083" data-nosnippet="">1083</a>            <span class="kw">let </span>parent = <span class="kw">if </span>i == <span class="number">0 </span>{ <span class="string">"c" </span>} <span class="kw">else </span>{ keys[i - <span class="number">1</span>].as_str() };
+<a href="#1084" id="1084" data-nosnippet="">1084</a>            specs.push((k, <span class="prelude-val">Some</span>(parent), <span class="string">"Bob"</span>, <span class="prelude-val">Some</span>(<span class="kw">if </span>i == <span class="number">199 </span>{ <span class="string">"Completed" </span>} <span class="kw">else </span>{ <span class="string">"Accepted" </span>})));
+<a href="#1085" id="1085" data-nosnippet="">1085</a>        }
+<a href="#1086" id="1086" data-nosnippet="">1086</a>        specs.push((<span class="string">"m"</span>, <span class="prelude-val">Some</span>(<span class="string">"c"</span>), <span class="string">" Carol "</span>, <span class="prelude-val">Some</span>(<span class="string">"Marked"</span>)));
+<a href="#1087" id="1087" data-nosnippet="">1087</a>        <span class="kw">let </span>all = listed(<span class="kw-2">&amp;</span>specs);
+<a href="#1088" id="1088" data-nosnippet="">1088</a>        <span class="kw">let </span>states = ReviewStates::new(<span class="kw-2">&amp;</span>all);
+<a href="#1089" id="1089" data-nosnippet="">1089</a>        <span class="macro">assert_eq!</span>(states.history(<span class="kw-2">&amp;</span>all[<span class="number">0</span>]).len(), <span class="number">201</span>);
+<a href="#1090" id="1090" data-nosnippet="">1090</a>        <span class="macro">assert_eq!</span>(states.statuses(<span class="kw-2">&amp;</span>all[<span class="number">0</span>]), [(<span class="string">"Bob"</span>, <span class="string">"Completed"</span>)]);
+<a href="#1091" id="1091" data-nosnippet="">1091</a>        <span class="macro">assert!</span>(states.marked_by(<span class="kw-2">&amp;</span>all[<span class="number">0</span>], <span class="string">"Carol"</span>) &amp;&amp; states.marked_by(<span class="kw-2">&amp;</span>all[<span class="number">0</span>], <span class="string">"Carol "</span>));
+<a href="#1092" id="1092" data-nosnippet="">1092</a>        <span class="macro">assert_eq!</span>(states.marked(<span class="kw-2">&amp;</span>all[<span class="number">0</span>]), [<span class="string">"Carol"</span>]);
+<a href="#1093" id="1093" data-nosnippet="">1093</a>        <span class="comment">// Listed newest first, the first reply read walks the whole chain at once.
+<a href="#1094" id="1094" data-nosnippet="">1094</a>        </span>specs.reverse();
+<a href="#1095" id="1095" data-nosnippet="">1095</a>        <span class="kw">let </span>all = listed(<span class="kw-2">&amp;</span>specs);
+<a href="#1096" id="1096" data-nosnippet="">1096</a>        <span class="kw">let </span>states = ReviewStates::new(<span class="kw-2">&amp;</span>all);
+<a href="#1097" id="1097" data-nosnippet="">1097</a>        <span class="kw">let </span>c = by_name(<span class="kw-2">&amp;</span>all, <span class="string">"c"</span>);
+<a href="#1098" id="1098" data-nosnippet="">1098</a>        <span class="macro">assert_eq!</span>(states.statuses(c), [(<span class="string">"Bob"</span>, <span class="string">"Completed"</span>)]);
+<a href="#1099" id="1099" data-nosnippet="">1099</a>        <span class="macro">assert_eq!</span>(states.history(c).len(), <span class="number">201</span>);
+<a href="#1100" id="1100" data-nosnippet="">1100</a>    }
+<a href="#1101" id="1101" data-nosnippet="">1101</a>
+<a href="#1102" id="1102" data-nosnippet="">1102</a>    <span class="doccomment">/// The inspector reads a `/StateModel`-only reply as the model's default state, so it counts
+<a href="#1103" id="1103" data-nosnippet="">1103</a>    /// as Bob's status (None) on the note.
+<a href="#1104" id="1104" data-nosnippet="">1104</a>    </span><span class="attr">#[test]
+<a href="#1105" id="1105" data-nosnippet="">1105</a>    </span><span class="kw">fn </span>the_inspector_reads_a_state_model_alone_as_its_default() {
+<a href="#1106" id="1106" data-nosnippet="">1106</a>        <span class="kw">let </span>objs: Vec&lt;<span class="kw-2">&amp;</span>[u8]&gt; = <span class="macro">vec!</span>[
+<a href="#1107" id="1107" data-nosnippet="">1107</a>            <span class="string">b"&lt;&lt; /Type /Catalog /Pages 2 0 R &gt;&gt;"</span>,
+<a href="#1108" id="1108" data-nosnippet="">1108</a>            <span class="string">b"&lt;&lt; /Type /Pages /Kids [3 0 R] /Count 1 &gt;&gt;"</span>,
+<a href="#1109" id="1109" data-nosnippet="">1109</a>            <span class="string">b"&lt;&lt; /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [4 0 R 5 0 R] &gt;&gt;"</span>,
+<a href="#1110" id="1110" data-nosnippet="">1110</a>            <span class="string">b"&lt;&lt; /Type /Annot /Subtype /Text /Rect [10 10 30 30] /NM (note) /T (Ann) &gt;&gt;"</span>,
+<a href="#1111" id="1111" data-nosnippet="">1111</a>            <span class="string">b"&lt;&lt; /Type /Annot /Subtype /Text /Rect [10 10 30 30] /NM (bare) /T (Bob) /IRT 4 0 R /F 30 /StateModel (Review) &gt;&gt;"</span>,
+<a href="#1112" id="1112" data-nosnippet="">1112</a>        ];
+<a href="#1113" id="1113" data-nosnippet="">1113</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = <span class="string">b"%PDF-1.7\n"</span>.to_vec();
+<a href="#1114" id="1114" data-nosnippet="">1114</a>        <span class="kw">let </span><span class="kw-2">mut </span>offsets = Vec::new();
+<a href="#1115" id="1115" data-nosnippet="">1115</a>        <span class="kw">for </span>(i, o) <span class="kw">in </span>objs.iter().enumerate() {
+<a href="#1116" id="1116" data-nosnippet="">1116</a>            offsets.push(out.len());
+<a href="#1117" id="1117" data-nosnippet="">1117</a>            out.extend_from_slice(<span class="macro">format!</span>(<span class="string">"{} 0 obj\n"</span>, i + <span class="number">1</span>).as_bytes());
+<a href="#1118" id="1118" data-nosnippet="">1118</a>            out.extend_from_slice(o);
+<a href="#1119" id="1119" data-nosnippet="">1119</a>            out.extend_from_slice(<span class="string">b"\nendobj\n"</span>);
+<a href="#1120" id="1120" data-nosnippet="">1120</a>        }
+<a href="#1121" id="1121" data-nosnippet="">1121</a>        <span class="kw">let </span>xref = out.len();
+<a href="#1122" id="1122" data-nosnippet="">1122</a>        out.extend_from_slice(<span class="macro">format!</span>(<span class="string">"xref\n0 {}\n0000000000 65535 f \n"</span>, objs.len() + <span class="number">1</span>).as_bytes());
+<a href="#1123" id="1123" data-nosnippet="">1123</a>        <span class="kw">for </span>o <span class="kw">in </span>offsets {
+<a href="#1124" id="1124" data-nosnippet="">1124</a>            out.extend_from_slice(<span class="macro">format!</span>(<span class="string">"{o:010} 00000 n \n"</span>).as_bytes());
+<a href="#1125" id="1125" data-nosnippet="">1125</a>        }
+<a href="#1126" id="1126" data-nosnippet="">1126</a>        out.extend_from_slice(<span class="macro">format!</span>(<span class="string">"trailer\n&lt;&lt; /Size {} /Root 1 0 R &gt;&gt;\nstartxref\n{xref}\n%%EOF\n"</span>, objs.len() + <span class="number">1</span>).as_bytes());
+<a href="#1127" id="1127" data-nosnippet="">1127</a>        <span class="kw">let </span>info = <span class="kw">crate</span>::render::inspect(std::sync::Arc::new(out), <span class="prelude-val">None</span>).expect(<span class="string">"inspects"</span>);
+<a href="#1128" id="1128" data-nosnippet="">1128</a>        <span class="kw">let </span>note = by_name(<span class="kw-2">&amp;</span>info.annotations, <span class="string">"note"</span>);
+<a href="#1129" id="1129" data-nosnippet="">1129</a>        <span class="macro">assert_eq!</span>(ReviewStates::new(<span class="kw-2">&amp;</span>info.annotations).statuses(note), [(<span class="string">"Bob"</span>, <span class="string">"None"</span>)]);
+<a href="#1130" id="1130" data-nosnippet="">1130</a>    }
+<a href="#1131" id="1131" data-nosnippet="">1131</a>
+<a href="#1132" id="1132" data-nosnippet="">1132</a>    <span class="doccomment">/// ISO 32000-2 Table 175: a missing `/State` is "Unmarked if StateModel is Marked; None if
+<a href="#1133" id="1133" data-nosnippet="">1133</a>    /// StateModel is Review".
+<a href="#1134" id="1134" data-nosnippet="">1134</a>    </span><span class="attr">#[test]
+<a href="#1135" id="1135" data-nosnippet="">1135</a>    </span><span class="kw">fn </span>a_state_model_alone_gives_its_default_state() {
+<a href="#1136" id="1136" data-nosnippet="">1136</a>        <span class="kw">use </span><span class="kw">super</span>::state_or_default;
+<a href="#1137" id="1137" data-nosnippet="">1137</a>        <span class="macro">assert_eq!</span>(state_or_default(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="string">"Review"</span>)).as_deref(), <span class="prelude-val">Some</span>(<span class="string">"None"</span>));
+<a href="#1138" id="1138" data-nosnippet="">1138</a>        <span class="macro">assert_eq!</span>(state_or_default(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="string">"Marked"</span>)).as_deref(), <span class="prelude-val">Some</span>(<span class="string">"Unmarked"</span>));
+<a href="#1139" id="1139" data-nosnippet="">1139</a>        <span class="macro">assert_eq!</span>(state_or_default(<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="string">"Other"</span>)), <span class="prelude-val">None</span>);
+<a href="#1140" id="1140" data-nosnippet="">1140</a>        <span class="macro">assert_eq!</span>(state_or_default(<span class="prelude-val">None</span>, <span class="prelude-val">None</span>), <span class="prelude-val">None</span>);
+<a href="#1141" id="1141" data-nosnippet="">1141</a>        <span class="macro">assert_eq!</span>(state_or_default(<span class="prelude-val">Some</span>(<span class="string">"Accepted"</span>.into()), <span class="prelude-val">Some</span>(<span class="string">"Review"</span>)).as_deref(), <span class="prelude-val">Some</span>(<span class="string">"Accepted"</span>));
+<a href="#1142" id="1142" data-nosnippet="">1142</a>    }
+<a href="#1143" id="1143" data-nosnippet="">1143</a>}
+</code></pre></div></section></main></body></html>

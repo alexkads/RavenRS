@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["covers","embed","embed_mapping","face_key","matching_faces","names","validate","validate_document_input"]};

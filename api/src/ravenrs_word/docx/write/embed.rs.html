@@ -1,0 +1,948 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>embed.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="ravenrs_word" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../src-files.js"></script><script defer="" src="../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-word/src/docx/write/embed.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_word/docx/write/embed.rs.html"><meta property="og:title" content="embed.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-word/src/docx/write/embed.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_word/docx/write/embed.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="embed.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-word/src/docx/write/embed.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"embed.rs - source","description":"Source of the Rust file `crates/ravenrs-word/src/docx/write/embed.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_word/docx/write/embed.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_word/docx/write/</div>embed.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! Writing back charts, SmartArt diagrams, native ink and OLE objects read from a file (see `read::embed`).
+<a href="#2" id="2" data-nosnippet="">2</a>//!
+<a href="#3" id="3" data-nosnippet="">3</a>//! Each written object gets its kept markup with fresh relationship ids, pointing at copies of the
+<a href="#4" id="4" data-nosnippet="">4</a>//! parts it needs. The first object to use a part writes it under its original name (unless that
+<a href="#5" id="5" data-nosnippet="">5</a>//! name is one this writer uses for something else: then it's renamed). An object written again
+<a href="#6" id="6" data-nosnippet="">6</a>//! (copied and pasted in WordCraft) gets its own renamed copies of every part, so the copies stay
+<a href="#7" id="7" data-nosnippet="">7</a>//! independent in Word; past [`MAX_COPY_BYTES`] of such copies, later ones share the first's parts.
+<a href="#8" id="8" data-nosnippet="">8</a>
+<a href="#9" id="9" data-nosnippet="">9</a></span><span class="kw">use </span>std::collections::{BTreeMap, HashMap, HashSet};
+<a href="#10" id="10" data-nosnippet="">10</a><span class="kw">use </span>std::sync::Arc;
+<a href="#11" id="11" data-nosnippet="">11</a>
+<a href="#12" id="12" data-nosnippet="">12</a><span class="kw">use </span><span class="kw">crate</span>::doc::graphic::Embedded;
+<a href="#13" id="13" data-nosnippet="">13</a><span class="kw">use </span><span class="kw">crate</span>::doc::para::Float;
+<a href="#14" id="14" data-nosnippet="">14</a>
+<a href="#15" id="15" data-nosnippet="">15</a><span class="kw">use </span><span class="kw">super</span>::PartRels;
+<a href="#16" id="16" data-nosnippet="">16</a><span class="kw">use </span><span class="kw">crate</span>::docx::package::{
+<a href="#17" id="17" data-nosnippet="">17</a>    CUSTOM_XML_ROOTS, EMBEDDED_PARTS, EmbeddedManifest, MAX_EMBEDDED_PARTS, MAX_EMBEDDED_RELS, VBA_PROJECT_PART, VBA_RELATED, rel_is, relative, rt,
+<a href="#18" id="18" data-nosnippet="">18</a>};
+<a href="#19" id="19" data-nosnippet="">19</a><span class="kw">use </span><span class="kw">crate</span>::docx::units::{MAX_LEN_PT, emu, int};
+<a href="#20" id="20" data-nosnippet="">20</a><span class="kw">use </span><span class="kw">crate</span>::docx::xml::{<span class="self">self</span>, El, MAX_DEPTH};
+<a href="#21" id="21" data-nosnippet="">21</a>
+<a href="#22" id="22" data-nosnippet="">22</a><span class="doccomment">/// Most bytes written for copies of parts (objects pasted more than once).
+<a href="#23" id="23" data-nosnippet="">23</a></span><span class="kw">const </span>MAX_COPY_BYTES: u64 = <span class="number">256 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;
+<a href="#24" id="24" data-nosnippet="">24</a><span class="doccomment">/// Most bytes of kept markup written for all objects (objects can share one kept markup).
+<a href="#25" id="25" data-nosnippet="">25</a></span><span class="kw">const </span>MAX_MARKUP_BYTES: u64 = <span class="number">128 </span>* <span class="number">1024 </span>* <span class="number">1024</span>;
+<a href="#26" id="26" data-nosnippet="">26</a><span class="doccomment">/// What one part copy costs at least against [`MAX_COPY_BYTES`] (its relationships, entry…).
+<a href="#27" id="27" data-nosnippet="">27</a></span><span class="kw">const </span>PART_COST: u64 = <span class="number">4096</span>;
+<a href="#28" id="28" data-nosnippet="">28</a>
+<a href="#29" id="29" data-nosnippet="">29</a><span class="doccomment">/// Where the stories' parts live: every story this writer makes is a part in `word/`.
+<a href="#30" id="30" data-nosnippet="">30</a></span><span class="kw">const </span>STORY_PART: <span class="kw-2">&amp;</span>str = <span class="string">"word/document.xml"</span>;
+<a href="#31" id="31" data-nosnippet="">31</a>
+<a href="#32" id="32" data-nosnippet="">32</a><span class="doccomment">/// The embedded-object parts of a package being written.
+<a href="#33" id="33" data-nosnippet="">33</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>EmbedWriter&lt;<span class="lifetime">'d</span>&gt; {
+<a href="#34" id="34" data-nosnippet="">34</a>    manifest: EmbeddedManifest,
+<a href="#35" id="35" data-nosnippet="">35</a>    passthrough: <span class="kw-2">&amp;</span><span class="lifetime">'d </span>BTreeMap&lt;String, Arc&lt;Vec&lt;u8&gt;&gt;&gt;,
+<a href="#36" id="36" data-nosnippet="">36</a>    <span class="doccomment">/// Part names in use (lower case): this writer's own, and parts written so far.
+<a href="#37" id="37" data-nosnippet="">37</a>    </span>taken: HashSet&lt;String&gt;,
+<a href="#38" id="38" data-nosnippet="">38</a>    <span class="doccomment">/// Next suffix to try when renaming a part.
+<a href="#39" id="39" data-nosnippet="">39</a>    </span>next: HashMap&lt;String, u32&gt;,
+<a href="#40" id="40" data-nosnippet="">40</a>    <span class="doccomment">/// Original part name → name written, for parts written by an object's first copy.
+<a href="#41" id="41" data-nosnippet="">41</a>    </span>first: HashMap&lt;String, String&gt;,
+<a href="#42" id="42" data-nosnippet="">42</a>    <span class="doccomment">/// Budget left for copies.
+<a href="#43" id="43" data-nosnippet="">43</a>    </span>copy_bytes: u64,
+<a href="#44" id="44" data-nosnippet="">44</a>    <span class="doccomment">/// Budget left for kept markup.
+<a href="#45" id="45" data-nosnippet="">45</a>    </span>markup_bytes: u64,
+<a href="#46" id="46" data-nosnippet="">46</a>    <span class="doccomment">/// Parts to write: (name, bytes, content type, relationships).
+<a href="#47" id="47" data-nosnippet="">47</a>    </span><span class="kw">pub </span>parts: Vec&lt;(String, Vec&lt;u8&gt;, String, PartRels)&gt;,
+<a href="#48" id="48" data-nosnippet="">48</a>    <span class="doccomment">/// Leave out the main document's kept glossary (it's written from the model instead).
+<a href="#49" id="49" data-nosnippet="">49</a>    </span><span class="kw">pub </span>drop_glossary: bool,
+<a href="#50" id="50" data-nosnippet="">50</a>    <span class="doccomment">/// Kept parts written with these bytes instead of their own (see [`Self::scrub_glossary`]).
+<a href="#51" id="51" data-nosnippet="">51</a>    </span>scrubbed: HashMap&lt;String, Vec&lt;u8&gt;&gt;,
+<a href="#52" id="52" data-nosnippet="">52</a>    <span class="doccomment">/// A chart past the chart limits has been written (and the loss logged, once per save).
+<a href="#53" id="53" data-nosnippet="">53</a>    </span>chart_cut: bool,
+<a href="#54" id="54" data-nosnippet="">54</a>}
+<a href="#55" id="55" data-nosnippet="">55</a>
+<a href="#56" id="56" data-nosnippet="">56</a><span class="kw">impl</span>&lt;<span class="lifetime">'d</span>&gt; EmbedWriter&lt;<span class="lifetime">'d</span>&gt; {
+<a href="#57" id="57" data-nosnippet="">57</a>    <span class="kw">pub fn </span>new(doc: <span class="kw-2">&amp;</span><span class="lifetime">'d </span><span class="kw">crate</span>::doc::Document) -&gt; EmbedWriter&lt;<span class="lifetime">'d</span>&gt; {
+<a href="#58" id="58" data-nosnippet="">58</a>        <span class="kw">let </span>manifest = doc.passthrough.get(EMBEDDED_PARTS).map(|m| EmbeddedManifest::parse(m)).unwrap_or_default();
+<a href="#59" id="59" data-nosnippet="">59</a>        <span class="kw">let </span><span class="kw-2">mut </span>taken: HashSet&lt;String&gt; = [
+<a href="#60" id="60" data-nosnippet="">60</a>            <span class="string">"word/document.xml"</span>,
+<a href="#61" id="61" data-nosnippet="">61</a>            <span class="string">"word/styles.xml"</span>,
+<a href="#62" id="62" data-nosnippet="">62</a>            <span class="string">"word/numbering.xml"</span>,
+<a href="#63" id="63" data-nosnippet="">63</a>            <span class="string">"word/settings.xml"</span>,
+<a href="#64" id="64" data-nosnippet="">64</a>            <span class="string">"word/theme/theme1.xml"</span>,
+<a href="#65" id="65" data-nosnippet="">65</a>            <span class="string">"word/footnotes.xml"</span>,
+<a href="#66" id="66" data-nosnippet="">66</a>            <span class="string">"word/endnotes.xml"</span>,
+<a href="#67" id="67" data-nosnippet="">67</a>            <span class="string">"word/comments.xml"</span>,
+<a href="#68" id="68" data-nosnippet="">68</a>            <span class="string">"word/commentsextended.xml"</span>,
+<a href="#69" id="69" data-nosnippet="">69</a>            <span class="string">"word/commentsids.xml"</span>,
+<a href="#70" id="70" data-nosnippet="">70</a>            <span class="string">"word/commentsextensible.xml"</span>,
+<a href="#71" id="71" data-nosnippet="">71</a>            <span class="string">"[content_types].xml"</span>,
+<a href="#72" id="72" data-nosnippet="">72</a>        ]
+<a href="#73" id="73" data-nosnippet="">73</a>        .iter()
+<a href="#74" id="74" data-nosnippet="">74</a>        .map(ToString::to_string)
+<a href="#75" id="75" data-nosnippet="">75</a>        .collect();
+<a href="#76" id="76" data-nosnippet="">76</a>        taken.insert(VBA_PROJECT_PART.to_ascii_lowercase());
+<a href="#77" id="77" data-nosnippet="">77</a>        <span class="comment">// The bibliography writer uses these names when sources are present (#532).
+<a href="#78" id="78" data-nosnippet="">78</a>        </span><span class="kw">if </span>!doc.sources.is_empty() {
+<a href="#79" id="79" data-nosnippet="">79</a>            taken.extend([<span class="string">"customxml/item1.xml"</span>.into(), <span class="string">"customxml/itemprops1.xml"</span>.into()]);
+<a href="#80" id="80" data-nosnippet="">80</a>        }
+<a href="#81" id="81" data-nosnippet="">81</a>        <span class="comment">// The macro project's parts keep their names (see `write_as`).
+<a href="#82" id="82" data-nosnippet="">82</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(m) = doc.passthrough.get(VBA_RELATED) {
+<a href="#83" id="83" data-nosnippet="">83</a>            <span class="kw">for </span>line <span class="kw">in </span>String::from_utf8_lossy(m).lines() {
+<a href="#84" id="84" data-nosnippet="">84</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(path) = line.split(<span class="string">'\t'</span>).nth(<span class="number">1</span>) {
+<a href="#85" id="85" data-nosnippet="">85</a>                    taken.insert(path.to_ascii_lowercase());
+<a href="#86" id="86" data-nosnippet="">86</a>                }
+<a href="#87" id="87" data-nosnippet="">87</a>            }
+<a href="#88" id="88" data-nosnippet="">88</a>        }
+<a href="#89" id="89" data-nosnippet="">89</a>        EmbedWriter {
+<a href="#90" id="90" data-nosnippet="">90</a>            manifest,
+<a href="#91" id="91" data-nosnippet="">91</a>            passthrough: <span class="kw-2">&amp;</span>doc.passthrough,
+<a href="#92" id="92" data-nosnippet="">92</a>            taken,
+<a href="#93" id="93" data-nosnippet="">93</a>            next: HashMap::new(),
+<a href="#94" id="94" data-nosnippet="">94</a>            first: HashMap::new(),
+<a href="#95" id="95" data-nosnippet="">95</a>            copy_bytes: MAX_COPY_BYTES,
+<a href="#96" id="96" data-nosnippet="">96</a>            markup_bytes: MAX_MARKUP_BYTES,
+<a href="#97" id="97" data-nosnippet="">97</a>            parts: Vec::new(),
+<a href="#98" id="98" data-nosnippet="">98</a>            drop_glossary: <span class="bool-val">false</span>,
+<a href="#99" id="99" data-nosnippet="">99</a>            scrubbed: HashMap::new(),
+<a href="#100" id="100" data-nosnippet="">100</a>            chart_cut: <span class="bool-val">false</span>,
+<a href="#101" id="101" data-nosnippet="">101</a>        }
+<a href="#102" id="102" data-nosnippet="">102</a>    }
+<a href="#103" id="103" data-nosnippet="">103</a>
+<a href="#104" id="104" data-nosnippet="">104</a>    <span class="doccomment">/// Write the font table kept from a file, with the fonts it embeds, relating it from `rels`.
+<a href="#105" id="105" data-nosnippet="">105</a>    </span><span class="kw">pub fn </span>font_table(<span class="kw-2">&amp;mut </span><span class="self">self</span>, rels: <span class="kw-2">&amp;mut </span>PartRels) {
+<a href="#106" id="106" data-nosnippet="">106</a>        <span class="kw">let </span><span class="kw-2">mut </span>written = Vec::new();
+<a href="#107" id="107" data-nosnippet="">107</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(root) = <span class="kw">crate</span>::docx::package::font_table_key(<span class="self">self</span>.passthrough).map(str::to_string) <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href="#108" id="108" data-nosnippet="">108</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = <span class="self">self</span>.copy_tree(<span class="kw-2">&amp;</span>root, <span class="kw-2">&amp;mut </span>HashMap::new(), <span class="kw-2">&amp;mut </span>written) {
+<a href="#109" id="109" data-nosnippet="">109</a>            rels.add(rt::FONT_TABLE, <span class="kw-2">&amp;</span>relative(STORY_PART, <span class="kw-2">&amp;</span>name), <span class="bool-val">false</span>);
+<a href="#110" id="110" data-nosnippet="">110</a>        }
+<a href="#111" id="111" data-nosnippet="">111</a>    }
+<a href="#112" id="112" data-nosnippet="">112</a>
+<a href="#113" id="113" data-nosnippet="">113</a>    <span class="doccomment">/// Reserve the names of the media files this writer writes.
+<a href="#114" id="114" data-nosnippet="">114</a>    </span><span class="kw">pub fn </span>reserve_media&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, files: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'a </span>String&gt;) {
+<a href="#115" id="115" data-nosnippet="">115</a>        <span class="kw">for </span>f <span class="kw">in </span>files {
+<a href="#116" id="116" data-nosnippet="">116</a>            <span class="self">self</span>.taken.insert(<span class="macro">format!</span>(<span class="string">"word/media/{f}"</span>).to_ascii_lowercase());
+<a href="#117" id="117" data-nosnippet="">117</a>        }
+<a href="#118" id="118" data-nosnippet="">118</a>    }
+<a href="#119" id="119" data-nosnippet="">119</a>
+<a href="#120" id="120" data-nosnippet="">120</a>    <span class="doccomment">/// Names this writer may give its own parts later (headers, footers, package parts).
+<a href="#121" id="121" data-nosnippet="">121</a>    </span><span class="kw">fn </span>reserved(lower: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href="#122" id="122" data-nosnippet="">122</a>        lower.ends_with(<span class="string">".rels"</span>)
+<a href="#123" id="123" data-nosnippet="">123</a>            || (lower.starts_with(<span class="string">"docprops/"</span>) &amp;&amp; !lower.starts_with(<span class="string">"docprops/thumbnail."</span>))
+<a href="#124" id="124" data-nosnippet="">124</a>            || lower.starts_with(<span class="string">"_rels/"</span>)
+<a href="#125" id="125" data-nosnippet="">125</a>            || ((lower.starts_with(<span class="string">"word/header"</span>) || lower.starts_with(<span class="string">"word/footer"</span>)) &amp;&amp; lower.ends_with(<span class="string">".xml"</span>))
+<a href="#126" id="126" data-nosnippet="">126</a>    }
+<a href="#127" id="127" data-nosnippet="">127</a>
+<a href="#128" id="128" data-nosnippet="">128</a>    <span class="doccomment">/// A free part name for (a copy of) `orig`: `orig` itself if free, else `stem_N.ext`.
+<a href="#129" id="129" data-nosnippet="">129</a>    </span><span class="kw">fn </span>alloc(<span class="kw-2">&amp;mut </span><span class="self">self</span>, orig: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href="#130" id="130" data-nosnippet="">130</a>        <span class="kw">let </span>clean = valid_part_name(orig);
+<a href="#131" id="131" data-nosnippet="">131</a>        <span class="kw">let </span>orig = clean.as_str();
+<a href="#132" id="132" data-nosnippet="">132</a>        <span class="comment">// Suffixes cannot escape reserved directories or a .rels extension. Such a kept
+<a href="#133" id="133" data-nosnippet="">133</a>        // part needs a different base name, otherwise every candidate would be reserved.
+<a href="#134" id="134" data-nosnippet="">134</a>        </span><span class="kw">let </span>orig = <span class="kw">if </span><span class="self">Self</span>::reserved(<span class="kw-2">&amp;</span>orig.to_ascii_lowercase()) { <span class="string">"word/embeddings/part.xml" </span>} <span class="kw">else </span>{ orig };
+<a href="#135" id="135" data-nosnippet="">135</a>        <span class="kw">let </span>lower = orig.to_ascii_lowercase();
+<a href="#136" id="136" data-nosnippet="">136</a>        <span class="kw">if </span>!<span class="self">Self</span>::reserved(<span class="kw-2">&amp;</span>lower) &amp;&amp; <span class="self">self</span>.taken.insert(lower) {
+<a href="#137" id="137" data-nosnippet="">137</a>            <span class="kw">return </span>orig.to_string();
+<a href="#138" id="138" data-nosnippet="">138</a>        }
+<a href="#139" id="139" data-nosnippet="">139</a>        <span class="kw">let </span>file_at = orig.rfind(<span class="string">'/'</span>).map_or(<span class="number">0</span>, |i| i + <span class="number">1</span>);
+<a href="#140" id="140" data-nosnippet="">140</a>        <span class="kw">let </span>(stem, ext) = <span class="kw">match </span>orig.rfind(<span class="string">'.'</span>).filter(|i| <span class="kw-2">*</span>i &gt; file_at) {
+<a href="#141" id="141" data-nosnippet="">141</a>            <span class="prelude-val">Some</span>(i) =&gt; (orig.get(..i).unwrap_or(orig), orig.get(i..).unwrap_or(<span class="string">""</span>)),
+<a href="#142" id="142" data-nosnippet="">142</a>            <span class="prelude-val">None </span>=&gt; (orig, <span class="string">""</span>),
+<a href="#143" id="143" data-nosnippet="">143</a>        };
+<a href="#144" id="144" data-nosnippet="">144</a>        <span class="kw">loop </span>{
+<a href="#145" id="145" data-nosnippet="">145</a>            <span class="kw">let </span>n = <span class="self">self</span>.next.entry(orig.to_string()).or_insert(<span class="number">1</span>);
+<a href="#146" id="146" data-nosnippet="">146</a>            <span class="kw-2">*</span>n = n.saturating_add(<span class="number">1</span>);
+<a href="#147" id="147" data-nosnippet="">147</a>            <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">"{stem}_{n}{ext}"</span>);
+<a href="#148" id="148" data-nosnippet="">148</a>            <span class="kw">let </span>lower = name.to_ascii_lowercase();
+<a href="#149" id="149" data-nosnippet="">149</a>            <span class="kw">if </span>!<span class="self">Self</span>::reserved(<span class="kw-2">&amp;</span>lower) &amp;&amp; <span class="self">self</span>.taken.insert(lower) {
+<a href="#150" id="150" data-nosnippet="">150</a>                <span class="kw">return </span>name;
+<a href="#151" id="151" data-nosnippet="">151</a>            }
+<a href="#152" id="152" data-nosnippet="">152</a>        }
+<a href="#153" id="153" data-nosnippet="">153</a>    }
+<a href="#154" id="154" data-nosnippet="">154</a>
+<a href="#155" id="155" data-nosnippet="">155</a>    <span class="doccomment">/// A number `n` for which every `{stem}{n}{ext}` is a free part name, with those names taken.
+<a href="#156" id="156" data-nosnippet="">156</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>fresh_set(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stems: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str], ext: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;String&gt; {
+<a href="#157" id="157" data-nosnippet="">157</a>        <span class="kw">let </span><span class="kw-2">mut </span>n: u32 = <span class="number">1</span>;
+<a href="#158" id="158" data-nosnippet="">158</a>        <span class="kw">loop </span>{
+<a href="#159" id="159" data-nosnippet="">159</a>            <span class="kw">let </span>names: Vec&lt;String&gt; = stems.iter().map(|s| <span class="macro">format!</span>(<span class="string">"{s}{n}{ext}"</span>)).collect();
+<a href="#160" id="160" data-nosnippet="">160</a>            <span class="kw">if </span>names.iter().all(|name| {
+<a href="#161" id="161" data-nosnippet="">161</a>                <span class="kw">let </span>lower = name.to_ascii_lowercase();
+<a href="#162" id="162" data-nosnippet="">162</a>                !<span class="self">Self</span>::reserved(<span class="kw-2">&amp;</span>lower) &amp;&amp; !<span class="self">self</span>.taken.contains(<span class="kw-2">&amp;</span>lower)
+<a href="#163" id="163" data-nosnippet="">163</a>            }) {
+<a href="#164" id="164" data-nosnippet="">164</a>                <span class="kw">for </span>name <span class="kw">in </span><span class="kw-2">&amp;</span>names {
+<a href="#165" id="165" data-nosnippet="">165</a>                    <span class="self">self</span>.taken.insert(name.to_ascii_lowercase());
+<a href="#166" id="166" data-nosnippet="">166</a>                }
+<a href="#167" id="167" data-nosnippet="">167</a>                <span class="kw">return </span>names;
+<a href="#168" id="168" data-nosnippet="">168</a>            }
+<a href="#169" id="169" data-nosnippet="">169</a>            n = n.saturating_add(<span class="number">1</span>);
+<a href="#170" id="170" data-nosnippet="">170</a>        }
+<a href="#171" id="171" data-nosnippet="">171</a>    }
+<a href="#172" id="172" data-nosnippet="">172</a>
+<a href="#173" id="173" data-nosnippet="">173</a>    <span class="doccomment">/// A free part name `{stem}{n}{ext}` for a new part, from n = 1 up.
+<a href="#174" id="174" data-nosnippet="">174</a>    </span><span class="kw">fn </span>fresh(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stem: <span class="kw-2">&amp;</span>str, ext: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href="#175" id="175" data-nosnippet="">175</a>        <span class="kw">let </span><span class="kw-2">mut </span>n: u32 = <span class="number">1</span>;
+<a href="#176" id="176" data-nosnippet="">176</a>        <span class="kw">loop </span>{
+<a href="#177" id="177" data-nosnippet="">177</a>            <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">"{stem}{n}{ext}"</span>);
+<a href="#178" id="178" data-nosnippet="">178</a>            <span class="kw">let </span>lower = name.to_ascii_lowercase();
+<a href="#179" id="179" data-nosnippet="">179</a>            <span class="kw">if </span>!<span class="self">Self</span>::reserved(<span class="kw-2">&amp;</span>lower) &amp;&amp; <span class="self">self</span>.taken.insert(lower) {
+<a href="#180" id="180" data-nosnippet="">180</a>                <span class="kw">return </span>name;
+<a href="#181" id="181" data-nosnippet="">181</a>            }
+<a href="#182" id="182" data-nosnippet="">182</a>            n = n.saturating_add(<span class="number">1</span>);
+<a href="#183" id="183" data-nosnippet="">183</a>        }
+<a href="#184" id="184" data-nosnippet="">184</a>    }
+<a href="#185" id="185" data-nosnippet="">185</a>
+<a href="#186" id="186" data-nosnippet="">186</a>    <span class="doccomment">/// Can part `name` be written (bytes and manifest entry both kept)?
+<a href="#187" id="187" data-nosnippet="">187</a>    </span><span class="kw">fn </span>available(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href="#188" id="188" data-nosnippet="">188</a>        <span class="self">self</span>.manifest.parts.contains_key(name) &amp;&amp; <span class="self">self</span>.passthrough.contains_key(name)
+<a href="#189" id="189" data-nosnippet="">189</a>    }
+<a href="#190" id="190" data-nosnippet="">190</a>
+<a href="#191" id="191" data-nosnippet="">191</a>    <span class="doccomment">/// Reattach implicit custom XML roots, sharing their kept parts across both owners.
+<a href="#192" id="192" data-nosnippet="">192</a>    </span><span class="kw">pub fn </span>custom_xml_rels(<span class="kw-2">&amp;mut </span><span class="self">self</span>, owner: <span class="kw-2">&amp;</span>str, rels: <span class="kw-2">&amp;mut </span>PartRels) {
+<a href="#193" id="193" data-nosnippet="">193</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(roots) = <span class="self">self</span>.passthrough.get(CUSTOM_XML_ROOTS).cloned() <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href="#194" id="194" data-nosnippet="">194</a>        <span class="kw">let </span><span class="kw-2">mut </span>memo = std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.first);
+<a href="#195" id="195" data-nosnippet="">195</a>        <span class="kw">let </span><span class="kw-2">mut </span>written = Vec::new();
+<a href="#196" id="196" data-nosnippet="">196</a>        <span class="kw">for </span>line <span class="kw">in </span>String::from_utf8_lossy(<span class="kw-2">&amp;</span>roots).lines().take(MAX_EMBEDDED_RELS * <span class="number">2</span>) {
+<a href="#197" id="197" data-nosnippet="">197</a>            <span class="kw">let </span>fields: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = line.split(<span class="string">'\t'</span>).collect();
+<a href="#198" id="198" data-nosnippet="">198</a>            <span class="kw">let </span>[source, kind, target] = fields.as_slice() <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href="#199" id="199" data-nosnippet="">199</a>            <span class="kw">if </span><span class="kw-2">*</span>source != owner || !rel_is(kind, rt::CUSTOM_XML) {
+<a href="#200" id="200" data-nosnippet="">200</a>                <span class="kw">continue</span>;
+<a href="#201" id="201" data-nosnippet="">201</a>            }
+<a href="#202" id="202" data-nosnippet="">202</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = <span class="self">self</span>.copy_tree(target, <span class="kw-2">&amp;mut </span>memo, <span class="kw-2">&amp;mut </span>written) {
+<a href="#203" id="203" data-nosnippet="">203</a>                <span class="kw">let </span>source_part = <span class="kw">if </span>owner == <span class="string">"P" </span>{ <span class="string">"" </span>} <span class="kw">else </span>{ STORY_PART };
+<a href="#204" id="204" data-nosnippet="">204</a>                rels.add(kind, <span class="kw-2">&amp;</span>relative(source_part, <span class="kw-2">&amp;</span>name), <span class="bool-val">false</span>);
+<a href="#205" id="205" data-nosnippet="">205</a>            }
+<a href="#206" id="206" data-nosnippet="">206</a>        }
+<a href="#207" id="207" data-nosnippet="">207</a>        <span class="self">self</span>.first = memo;
+<a href="#208" id="208" data-nosnippet="">208</a>    }
+<a href="#209" id="209" data-nosnippet="">209</a>
+<a href="#210" id="210" data-nosnippet="">210</a>    <span class="doccomment">/// Reattach the parts kept by `keep_unmodelled` (`UNMODELLED_ROOTS`) to their owner: the
+<a href="#211" id="211" data-nosnippet="">211</a>    /// package (`P`) or the main document (`D`).
+<a href="#212" id="212" data-nosnippet="">212</a>    </span><span class="kw">pub fn </span>unmodelled_rels(<span class="kw-2">&amp;mut </span><span class="self">self</span>, owner: <span class="kw-2">&amp;</span>str, rels: <span class="kw-2">&amp;mut </span>PartRels) {
+<a href="#213" id="213" data-nosnippet="">213</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(roots) = <span class="self">self</span>.passthrough.get(<span class="kw">crate</span>::docx::package::UNMODELLED_ROOTS).cloned() <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href="#214" id="214" data-nosnippet="">214</a>        <span class="kw">let </span><span class="kw-2">mut </span>memo = std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.first);
+<a href="#215" id="215" data-nosnippet="">215</a>        <span class="kw">let </span><span class="kw-2">mut </span>written = Vec::new();
+<a href="#216" id="216" data-nosnippet="">216</a>        <span class="kw">for </span>line <span class="kw">in </span>String::from_utf8_lossy(<span class="kw-2">&amp;</span>roots).lines().take(MAX_EMBEDDED_RELS * <span class="number">2</span>) {
+<a href="#217" id="217" data-nosnippet="">217</a>            <span class="kw">let </span>fields: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = line.split(<span class="string">'\t'</span>).collect();
+<a href="#218" id="218" data-nosnippet="">218</a>            <span class="kw">let </span>[source, kind, target] = fields.as_slice() <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href="#219" id="219" data-nosnippet="">219</a>            <span class="kw">if </span><span class="kw-2">*</span>source != owner || (<span class="self">self</span>.drop_glossary &amp;&amp; owner == <span class="string">"D" </span>&amp;&amp; rel_is(kind, rt::GLOSSARY)) {
+<a href="#220" id="220" data-nosnippet="">220</a>                <span class="kw">continue</span>;
+<a href="#221" id="221" data-nosnippet="">221</a>            }
+<a href="#222" id="222" data-nosnippet="">222</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = <span class="self">self</span>.copy_tree(target, <span class="kw-2">&amp;mut </span>memo, <span class="kw-2">&amp;mut </span>written) {
+<a href="#223" id="223" data-nosnippet="">223</a>                <span class="kw">let </span>source_part = <span class="kw">if </span>owner == <span class="string">"P" </span>{ <span class="string">"" </span>} <span class="kw">else </span>{ STORY_PART };
+<a href="#224" id="224" data-nosnippet="">224</a>                rels.add(kind, <span class="kw-2">&amp;</span>relative(source_part, <span class="kw-2">&amp;</span>name), <span class="bool-val">false</span>);
+<a href="#225" id="225" data-nosnippet="">225</a>            }
+<a href="#226" id="226" data-nosnippet="">226</a>        }
+<a href="#227" id="227" data-nosnippet="">227</a>        <span class="self">self</span>.first = memo;
+<a href="#228" id="228" data-nosnippet="">228</a>    }
+<a href="#229" id="229" data-nosnippet="">229</a>
+<a href="#230" id="230" data-nosnippet="">230</a>    <span class="doccomment">/// Whether `unmodelled_rels("D", …)` can write the main document's kept glossary back.
+<a href="#231" id="231" data-nosnippet="">231</a>    </span><span class="kw">pub fn </span>kept_glossary(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#232" id="232" data-nosnippet="">232</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(roots) = <span class="self">self</span>.passthrough.get(<span class="kw">crate</span>::docx::package::UNMODELLED_ROOTS) <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
+<a href="#233" id="233" data-nosnippet="">233</a>        String::from_utf8_lossy(roots).lines().take(MAX_EMBEDDED_RELS * <span class="number">2</span>).any(|line| {
+<a href="#234" id="234" data-nosnippet="">234</a>            <span class="kw">let </span>fields: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = line.split(<span class="string">'\t'</span>).collect();
+<a href="#235" id="235" data-nosnippet="">235</a>            <span class="macro">matches!</span>(fields.as_slice(), [source, kind, target] <span class="kw">if </span><span class="kw-2">*</span>source == <span class="string">"D" </span>&amp;&amp; rel_is(kind, rt::GLOSSARY) &amp;&amp; (<span class="self">self</span>.first.contains_key(<span class="kw-2">*</span>target) || <span class="self">self</span>.available(target)))
+<a href="#236" id="236" data-nosnippet="">236</a>        })
+<a href="#237" id="237" data-nosnippet="">237</a>    }
+<a href="#238" id="238" data-nosnippet="">238</a>
+<a href="#239" id="239" data-nosnippet="">239</a>    <span class="doccomment">/// Have the main document's kept glossary, and the parts it reaches, written without the
+<a href="#240" id="240" data-nosnippet="">240</a>    /// personal information (`names`) and dates the privacy settings remove (#3692). False when a
+<a href="#241" id="241" data-nosnippet="">241</a>    /// part's markup can't be rewritten: the glossary is then written from the model.
+<a href="#242" id="242" data-nosnippet="">242</a>    </span><span class="kw">pub fn </span>scrub_glossary(<span class="kw-2">&amp;mut </span><span class="self">self</span>, names: bool, dates: bool) -&gt; bool {
+<a href="#243" id="243" data-nosnippet="">243</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(roots) = <span class="self">self</span>.passthrough.get(<span class="kw">crate</span>::docx::package::UNMODELLED_ROOTS) <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">true </span>};
+<a href="#244" id="244" data-nosnippet="">244</a>        <span class="kw">let </span><span class="kw-2">mut </span>todo: Vec&lt;String&gt; = String::from_utf8_lossy(roots)
+<a href="#245" id="245" data-nosnippet="">245</a>            .lines()
+<a href="#246" id="246" data-nosnippet="">246</a>            .take(MAX_EMBEDDED_RELS * <span class="number">2</span>)
+<a href="#247" id="247" data-nosnippet="">247</a>            .filter_map(|line| <span class="kw">match </span>line.split(<span class="string">'\t'</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;().as_slice() {
+<a href="#248" id="248" data-nosnippet="">248</a>                [source, kind, target] <span class="kw">if </span><span class="kw-2">*</span>source == <span class="string">"D" </span>&amp;&amp; rel_is(kind, rt::GLOSSARY) =&gt; <span class="prelude-val">Some</span>(target.to_string()),
+<a href="#249" id="249" data-nosnippet="">249</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#250" id="250" data-nosnippet="">250</a>            })
+<a href="#251" id="251" data-nosnippet="">251</a>            .collect();
+<a href="#252" id="252" data-nosnippet="">252</a>        <span class="kw">let </span><span class="kw-2">mut </span>seen: HashSet&lt;String&gt; = HashSet::new();
+<a href="#253" id="253" data-nosnippet="">253</a>        <span class="kw">while let </span><span class="prelude-val">Some</span>(p) = todo.pop() {
+<a href="#254" id="254" data-nosnippet="">254</a>            <span class="kw">if </span>seen.len() &gt;= MAX_EMBEDDED_PARTS || !seen.insert(p.clone()) {
+<a href="#255" id="255" data-nosnippet="">255</a>                <span class="kw">continue</span>;
+<a href="#256" id="256" data-nosnippet="">256</a>            }
+<a href="#257" id="257" data-nosnippet="">257</a>            <span class="kw">let </span>(<span class="prelude-val">Some</span>(info), <span class="prelude-val">Some</span>(bytes)) = (<span class="self">self</span>.manifest.parts.get(<span class="kw-2">&amp;</span>p), <span class="self">self</span>.passthrough.get(<span class="kw-2">&amp;</span>p)) <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href="#258" id="258" data-nosnippet="">258</a>            todo.extend(info.rels.iter().filter(|r| !r.external).map(|r| r.target.clone()));
+<a href="#259" id="259" data-nosnippet="">259</a>            <span class="kw">if </span>!(info.content_type.ends_with(<span class="string">"xml"</span>) || p.to_ascii_lowercase().ends_with(<span class="string">".xml"</span>)) {
+<a href="#260" id="260" data-nosnippet="">260</a>                <span class="kw">continue</span>;
+<a href="#261" id="261" data-nosnippet="">261</a>            }
+<a href="#262" id="262" data-nosnippet="">262</a>            <span class="kw">match </span>scrub_private(bytes, names, dates) {
+<a href="#263" id="263" data-nosnippet="">263</a>                <span class="prelude-val">Some</span>(b) =&gt; {
+<a href="#264" id="264" data-nosnippet="">264</a>                    <span class="self">self</span>.scrubbed.insert(p, b);
+<a href="#265" id="265" data-nosnippet="">265</a>                }
+<a href="#266" id="266" data-nosnippet="">266</a>                <span class="prelude-val">None </span>=&gt; {
+<a href="#267" id="267" data-nosnippet="">267</a>                    <span class="macro">log::warn!</span>(
+<a href="#268" id="268" data-nosnippet="">268</a>                        <span class="string">"docx: the glossary's part {p} can't be cleaned of personal information; the glossary is written from its entries, without what WordCraft doesn't model"
+<a href="#269" id="269" data-nosnippet="">269</a>                    </span>);
+<a href="#270" id="270" data-nosnippet="">270</a>                    <span class="kw">return </span><span class="bool-val">false</span>;
+<a href="#271" id="271" data-nosnippet="">271</a>                }
+<a href="#272" id="272" data-nosnippet="">272</a>            }
+<a href="#273" id="273" data-nosnippet="">273</a>        }
+<a href="#274" id="274" data-nosnippet="">274</a>        <span class="bool-val">true
+<a href="#275" id="275" data-nosnippet="">275</a>    </span>}
+<a href="#276" id="276" data-nosnippet="">276</a>
+<a href="#277" id="277" data-nosnippet="">277</a>    <span class="doccomment">/// What copying the parts reached from `roots` costs against the copy budget.
+<a href="#278" id="278" data-nosnippet="">278</a>    </span><span class="kw">fn </span>tree_cost(<span class="kw-2">&amp;</span><span class="self">self</span>, roots: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str]) -&gt; u64 {
+<a href="#279" id="279" data-nosnippet="">279</a>        <span class="kw">let </span><span class="kw-2">mut </span>seen: HashSet&lt;<span class="kw-2">&amp;</span>str&gt; = HashSet::new();
+<a href="#280" id="280" data-nosnippet="">280</a>        <span class="kw">let </span><span class="kw-2">mut </span>todo: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = roots.to_vec();
+<a href="#281" id="281" data-nosnippet="">281</a>        <span class="kw">let </span><span class="kw-2">mut </span>cost = <span class="number">0u64</span>;
+<a href="#282" id="282" data-nosnippet="">282</a>        <span class="kw">while let </span><span class="prelude-val">Some</span>(p) = todo.pop() {
+<a href="#283" id="283" data-nosnippet="">283</a>            <span class="kw">if </span>!seen.insert(p) || seen.len() &gt; MAX_EMBEDDED_PARTS {
+<a href="#284" id="284" data-nosnippet="">284</a>                <span class="kw">continue</span>;
+<a href="#285" id="285" data-nosnippet="">285</a>            }
+<a href="#286" id="286" data-nosnippet="">286</a>            cost = cost.saturating_add(<span class="self">self</span>.passthrough.get(p).map_or(<span class="number">0</span>, |b| b.len() <span class="kw">as </span>u64)).saturating_add(PART_COST);
+<a href="#287" id="287" data-nosnippet="">287</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(info) = <span class="self">self</span>.manifest.parts.get(p) {
+<a href="#288" id="288" data-nosnippet="">288</a>                todo.extend(info.rels.iter().filter(|r| !r.external).map(|r| r.target.as_str()));
+<a href="#289" id="289" data-nosnippet="">289</a>            }
+<a href="#290" id="290" data-nosnippet="">290</a>        }
+<a href="#291" id="291" data-nosnippet="">291</a>        cost
+<a href="#292" id="292" data-nosnippet="">292</a>    }
+<a href="#293" id="293" data-nosnippet="">293</a>
+<a href="#294" id="294" data-nosnippet="">294</a>    <span class="doccomment">/// Write part `root` and the parts it reaches, naming them through `memo` (original → written
+<a href="#295" id="295" data-nosnippet="">295</a>    /// name; parts already in it aren't written again). Returns `root`'s written name and adds
+<a href="#296" id="296" data-nosnippet="">296</a>    /// the indices of the parts written to `written`.
+<a href="#297" id="297" data-nosnippet="">297</a>    </span><span class="kw">fn </span>copy_tree(<span class="kw-2">&amp;mut </span><span class="self">self</span>, root: <span class="kw-2">&amp;</span>str, memo: <span class="kw-2">&amp;mut </span>HashMap&lt;String, String&gt;, written: <span class="kw-2">&amp;mut </span>Vec&lt;usize&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href="#298" id="298" data-nosnippet="">298</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(n) = memo.get(root) {
+<a href="#299" id="299" data-nosnippet="">299</a>            <span class="kw">return </span><span class="prelude-val">Some</span>(n.clone());
+<a href="#300" id="300" data-nosnippet="">300</a>        }
+<a href="#301" id="301" data-nosnippet="">301</a>        <span class="kw">if </span>!<span class="self">self</span>.available(root) {
+<a href="#302" id="302" data-nosnippet="">302</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#303" id="303" data-nosnippet="">303</a>        }
+<a href="#304" id="304" data-nosnippet="">304</a>        <span class="kw">let </span>name = <span class="self">self</span>.alloc(root);
+<a href="#305" id="305" data-nosnippet="">305</a>        memo.insert(root.to_string(), name.clone());
+<a href="#306" id="306" data-nosnippet="">306</a>        <span class="kw">let </span><span class="kw-2">mut </span>todo = <span class="macro">vec!</span>[root.to_string()];
+<a href="#307" id="307" data-nosnippet="">307</a>        <span class="kw">while let </span><span class="prelude-val">Some</span>(orig) = todo.pop() {
+<a href="#308" id="308" data-nosnippet="">308</a>            <span class="kw">let </span>(<span class="prelude-val">Some</span>(info), <span class="prelude-val">Some</span>(bytes)) = (<span class="self">self</span>.manifest.parts.get(<span class="kw-2">&amp;</span>orig).cloned(), <span class="self">self</span>.passthrough.get(<span class="kw-2">&amp;</span>orig)) <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href="#309" id="309" data-nosnippet="">309</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(new) = memo.get(<span class="kw-2">&amp;</span>orig).cloned() <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href="#310" id="310" data-nosnippet="">310</a>            <span class="kw">let </span><span class="kw-2">mut </span>rels = PartRels::default();
+<a href="#311" id="311" data-nosnippet="">311</a>            <span class="kw">for </span>r <span class="kw">in </span><span class="kw-2">&amp;</span>info.rels {
+<a href="#312" id="312" data-nosnippet="">312</a>                <span class="kw">if </span>r.external {
+<a href="#313" id="313" data-nosnippet="">313</a>                    rels.add_with_id(<span class="kw-2">&amp;</span>r.id, <span class="kw-2">&amp;</span>r.kind, <span class="kw-2">&amp;</span>r.target, <span class="bool-val">true</span>);
+<a href="#314" id="314" data-nosnippet="">314</a>                    <span class="kw">continue</span>;
+<a href="#315" id="315" data-nosnippet="">315</a>                }
+<a href="#316" id="316" data-nosnippet="">316</a>                <span class="kw">let </span>target = <span class="kw">match </span>memo.get(<span class="kw-2">&amp;</span>r.target) {
+<a href="#317" id="317" data-nosnippet="">317</a>                    <span class="prelude-val">Some</span>(t) =&gt; t.clone(),
+<a href="#318" id="318" data-nosnippet="">318</a>                    <span class="prelude-val">None </span><span class="kw">if </span><span class="self">self</span>.available(<span class="kw-2">&amp;</span>r.target) =&gt; {
+<a href="#319" id="319" data-nosnippet="">319</a>                        <span class="kw">let </span>t = <span class="self">self</span>.alloc(<span class="kw-2">&amp;</span>r.target);
+<a href="#320" id="320" data-nosnippet="">320</a>                        memo.insert(r.target.clone(), t.clone());
+<a href="#321" id="321" data-nosnippet="">321</a>                        todo.push(r.target.clone());
+<a href="#322" id="322" data-nosnippet="">322</a>                        t
+<a href="#323" id="323" data-nosnippet="">323</a>                    }
+<a href="#324" id="324" data-nosnippet="">324</a>                    <span class="comment">// A part that wasn't kept: leave the relationship out.
+<a href="#325" id="325" data-nosnippet="">325</a>                    </span><span class="prelude-val">None </span>=&gt; <span class="kw">continue</span>,
+<a href="#326" id="326" data-nosnippet="">326</a>                };
+<a href="#327" id="327" data-nosnippet="">327</a>                rels.add_with_id(<span class="kw-2">&amp;</span>r.id, <span class="kw-2">&amp;</span>r.kind, <span class="kw-2">&amp;</span>relative(<span class="kw-2">&amp;</span>new, <span class="kw-2">&amp;</span>target), <span class="bool-val">false</span>);
+<a href="#328" id="328" data-nosnippet="">328</a>            }
+<a href="#329" id="329" data-nosnippet="">329</a>            <span class="kw">let </span>ct = <span class="kw">if </span>info.content_type.is_empty() { <span class="string">"application/octet-stream"</span>.to_string() } <span class="kw">else </span>{ info.content_type };
+<a href="#330" id="330" data-nosnippet="">330</a>            <span class="kw">let </span>bytes = <span class="self">self</span>.scrubbed.get(<span class="kw-2">&amp;</span>orig).cloned().unwrap_or_else(|| bytes.to_vec());
+<a href="#331" id="331" data-nosnippet="">331</a>            written.push(<span class="self">self</span>.parts.len());
+<a href="#332" id="332" data-nosnippet="">332</a>            <span class="self">self</span>.parts.push((new, bytes, ct, rels));
+<a href="#333" id="333" data-nosnippet="">333</a>        }
+<a href="#334" id="334" data-nosnippet="">334</a>        <span class="prelude-val">Some</span>(name)
+<a href="#335" id="335" data-nosnippet="">335</a>    }
+<a href="#336" id="336" data-nosnippet="">336</a>}
+<a href="#337" id="337" data-nosnippet="">337</a>
+<a href="#338" id="338" data-nosnippet="">338</a><span class="kw">impl </span><span class="kw">super</span>::Writer&lt;<span class="lifetime">'_</span>&gt; {
+<a href="#339" id="339" data-nosnippet="">339</a>    <span class="doccomment">/// The markup for an object kept from a file, with its relationships added to `rels` (the
+<a href="#340" id="340" data-nosnippet="">340</a>    /// story part's) and the parts it needs queued for writing. `resize`, for an OLE object, writes
+<a href="#341" id="341" data-nosnippet="">341</a>    /// the object's current size and position into its own markup (a chart or diagram's frame is
+<a href="#342" id="342" data-nosnippet="">342</a>    /// written by the caller). `None` when it can't be written back (its parts are gone).
+<a href="#343" id="343" data-nosnippet="">343</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>embedded_xml(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: <span class="kw-2">&amp;</span>Embedded, rels: <span class="kw-2">&amp;mut </span>PartRels, resize: <span class="prelude-ty">Option</span>&lt;(f32, f32, <span class="kw-2">&amp;</span>Float, <span class="kw-2">&amp;</span>str)&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href="#344" id="344" data-nosnippet="">344</a>        <span class="self">self</span>.embedded_tree(src, rels, resize).map(|root| root.to_xml())
+<a href="#345" id="345" data-nosnippet="">345</a>    }
+<a href="#346" id="346" data-nosnippet="">346</a>
+<a href="#347" id="347" data-nosnippet="">347</a>    <span class="doccomment">/// The same bounded preservation operation, retaining the parsed tree for a caller that
+<a href="#348" id="348" data-nosnippet="">348</a>    /// must rebuild an ink AlternateContent drawing frame without reparsing unbound prefixes.
+<a href="#349" id="349" data-nosnippet="">349</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>embedded_tree(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: <span class="kw-2">&amp;</span>Embedded, rels: <span class="kw-2">&amp;mut </span>PartRels, resize: <span class="prelude-ty">Option</span>&lt;(f32, f32, <span class="kw-2">&amp;</span>Float, <span class="kw-2">&amp;</span>str)&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;El&gt; {
+<a href="#350" id="350" data-nosnippet="">350</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(left) = <span class="self">self</span>.embeds.markup_bytes.checked_sub(src.xml.len() <span class="kw">as </span>u64) <span class="kw">else </span>{
+<a href="#351" id="351" data-nosnippet="">351</a>            <span class="macro">log::warn!</span>(<span class="string">"docx: too much embedded-object markup; the rest is left out"</span>);
+<a href="#352" id="352" data-nosnippet="">352</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#353" id="353" data-nosnippet="">353</a>        };
+<a href="#354" id="354" data-nosnippet="">354</a>        <span class="self">self</span>.embeds.markup_bytes = left;
+<a href="#355" id="355" data-nosnippet="">355</a>        <span class="kw">let </span><span class="kw-2">mut </span>root = xml::parse(src.xml.as_bytes()).ok()<span class="question-mark">?</span>;
+<a href="#356" id="356" data-nosnippet="">356</a>        <span class="kw">let </span><span class="kw-2">mut </span>used = HashSet::new();
+<a href="#357" id="357" data-nosnippet="">357</a>        rel_attr_values(<span class="kw-2">&amp;</span>root, <span class="kw-2">&amp;mut </span>used, <span class="number">0</span>);
+<a href="#358" id="358" data-nosnippet="">358</a>        <span class="comment">// Every relationship the markup uses must be writable, or the object would be broken.
+<a href="#359" id="359" data-nosnippet="">359</a>        </span><span class="kw">let </span>writable: HashSet&lt;<span class="kw-2">&amp;</span>str&gt; = src.refs.iter().filter(|r| r.external || <span class="self">self</span>.embeds.available(<span class="kw-2">&amp;</span>r.target)).map(|r| r.id.as_str()).collect();
+<a href="#360" id="360" data-nosnippet="">360</a>        <span class="kw">if </span>!used.iter().all(|id| writable.contains(id.as_str())) {
+<a href="#361" id="361" data-nosnippet="">361</a>            <span class="macro">log::warn!</span>(<span class="string">"docx: an embedded object's parts are missing; it is left out"</span>);
+<a href="#362" id="362" data-nosnippet="">362</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#363" id="363" data-nosnippet="">363</a>        }
+<a href="#364" id="364" data-nosnippet="">364</a>        <span class="kw">let </span>roots: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = src.refs.iter().filter(|r| !r.external).map(|r| r.target.as_str()).collect();
+<a href="#365" id="365" data-nosnippet="">365</a>        <span class="comment">// Written before (a copy of this object): give this one its own parts while the budget lasts.
+<a href="#366" id="366" data-nosnippet="">366</a>        </span><span class="kw">let </span>again = roots.iter().any(|r| <span class="self">self</span>.embeds.first.contains_key(<span class="kw-2">*</span>r));
+<a href="#367" id="367" data-nosnippet="">367</a>        <span class="kw">let </span>cost = <span class="kw">if </span>again { <span class="self">self</span>.embeds.tree_cost(<span class="kw-2">&amp;</span>roots) } <span class="kw">else </span>{ <span class="number">0 </span>};
+<a href="#368" id="368" data-nosnippet="">368</a>        <span class="kw">let </span>fresh = again &amp;&amp; cost &lt;= <span class="self">self</span>.embeds.copy_bytes;
+<a href="#369" id="369" data-nosnippet="">369</a>        <span class="kw">if </span>fresh {
+<a href="#370" id="370" data-nosnippet="">370</a>            <span class="self">self</span>.embeds.copy_bytes -= cost;
+<a href="#371" id="371" data-nosnippet="">371</a>        }
+<a href="#372" id="372" data-nosnippet="">372</a>        <span class="kw">let </span><span class="kw-2">mut </span>memo = <span class="kw">if </span>fresh { HashMap::new() } <span class="kw">else </span>{ std::mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.embeds.first) };
+<a href="#373" id="373" data-nosnippet="">373</a>        <span class="kw">let </span><span class="kw-2">mut </span>written = Vec::new();
+<a href="#374" id="374" data-nosnippet="">374</a>        <span class="kw">let </span><span class="kw-2">mut </span>ids: HashMap&lt;String, String&gt; = HashMap::new();
+<a href="#375" id="375" data-nosnippet="">375</a>        <span class="kw">for </span>r <span class="kw">in </span><span class="kw-2">&amp;</span>src.refs {
+<a href="#376" id="376" data-nosnippet="">376</a>            <span class="kw">let </span>new_id = <span class="kw">if </span>r.external {
+<a href="#377" id="377" data-nosnippet="">377</a>                <span class="prelude-val">Some</span>(rels.add(<span class="kw-2">&amp;</span>r.kind, <span class="kw-2">&amp;</span>r.target, <span class="bool-val">true</span>))
+<a href="#378" id="378" data-nosnippet="">378</a>            } <span class="kw">else </span>{
+<a href="#379" id="379" data-nosnippet="">379</a>                <span class="self">self</span>.embeds.copy_tree(<span class="kw-2">&amp;</span>r.target, <span class="kw-2">&amp;mut </span>memo, <span class="kw-2">&amp;mut </span>written).map(|name| rels.add(<span class="kw-2">&amp;</span>r.kind, <span class="kw-2">&amp;</span>relative(STORY_PART, <span class="kw-2">&amp;</span>name), <span class="bool-val">false</span>))
+<a href="#380" id="380" data-nosnippet="">380</a>            };
+<a href="#381" id="381" data-nosnippet="">381</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(id) = new_id {
+<a href="#382" id="382" data-nosnippet="">382</a>                ids.insert(r.id.clone(), id);
+<a href="#383" id="383" data-nosnippet="">383</a>            }
+<a href="#384" id="384" data-nosnippet="">384</a>        }
+<a href="#385" id="385" data-nosnippet="">385</a>        <span class="kw">if </span>!fresh {
+<a href="#386" id="386" data-nosnippet="">386</a>            <span class="self">self</span>.embeds.first = memo;
+<a href="#387" id="387" data-nosnippet="">387</a>        }
+<a href="#388" id="388" data-nosnippet="">388</a>        <span class="kw">if </span>used.iter().any(|u| !ids.contains_key(u)) {
+<a href="#389" id="389" data-nosnippet="">389</a>            <span class="macro">log::warn!</span>(<span class="string">"docx: an embedded object lost a part; it is left out"</span>);
+<a href="#390" id="390" data-nosnippet="">390</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#391" id="391" data-nosnippet="">391</a>        }
+<a href="#392" id="392" data-nosnippet="">392</a>        <span class="comment">// A SmartArt data part names its drawing's relationship (of the story part) by id.
+<a href="#393" id="393" data-nosnippet="">393</a>        </span><span class="kw">for </span>i <span class="kw">in </span>written {
+<a href="#394" id="394" data-nosnippet="">394</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, bytes, ct, <span class="kw">_</span>)) = <span class="self">self</span>.embeds.parts.get_mut(i)
+<a href="#395" id="395" data-nosnippet="">395</a>                &amp;&amp; ct.contains(<span class="string">"diagramData"</span>)
+<a href="#396" id="396" data-nosnippet="">396</a>            {
+<a href="#397" id="397" data-nosnippet="">397</a>                <span class="kw-2">*</span>bytes = patch_rel_ids(bytes, <span class="kw-2">&amp;</span>ids);
+<a href="#398" id="398" data-nosnippet="">398</a>            }
+<a href="#399" id="399" data-nosnippet="">399</a>        }
+<a href="#400" id="400" data-nosnippet="">400</a>        set_rel_ids(<span class="kw-2">&amp;mut </span>root, <span class="kw-2">&amp;</span>ids, <span class="number">0</span>);
+<a href="#401" id="401" data-nosnippet="">401</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>((w, h, float, alt)) = resize {
+<a href="#402" id="402" data-nosnippet="">402</a>            <span class="self">self</span>.resize_object(<span class="kw-2">&amp;mut </span>root, w, h, float, alt, <span class="number">0</span>);
+<a href="#403" id="403" data-nosnippet="">403</a>        }
+<a href="#404" id="404" data-nosnippet="">404</a>        <span class="prelude-val">Some</span>(root)
+<a href="#405" id="405" data-nosnippet="">405</a>    }
+<a href="#406" id="406" data-nosnippet="">406</a>
+<a href="#407" id="407" data-nosnippet="">407</a>    <span class="doccomment">/// The `a:graphic` of a SmartArt graphic written from its model, laid out `w` × `h` points:
+<a href="#408" id="408" data-nosnippet="">408</a>    /// new diagram parts (`word/diagrams/{data,layout,quickStyle,colors,drawing}N.xml`) related
+<a href="#409" id="409" data-nosnippet="">409</a>    /// from the story part through `rels`.
+<a href="#410" id="410" data-nosnippet="">410</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>smart_art_graphic(<span class="kw-2">&amp;mut </span><span class="self">self</span>, spec: <span class="kw-2">&amp;</span><span class="kw">crate</span>::doc::smart_art::SmartArtSpec, w: f32, h: f32, rels: <span class="kw-2">&amp;mut </span>PartRels) -&gt; String {
+<a href="#411" id="411" data-nosnippet="">411</a>        <span class="kw">use </span><span class="kw">crate</span>::docx::package::rt;
+<a href="#412" id="412" data-nosnippet="">412</a>        <span class="kw">use </span><span class="kw">crate</span>::docx::smart_art <span class="kw">as </span>sa;
+<a href="#413" id="413" data-nosnippet="">413</a>        <span class="kw">let </span>names = <span class="self">self</span>.embeds.fresh_set(
+<a href="#414" id="414" data-nosnippet="">414</a>            <span class="kw-2">&amp;</span>[<span class="string">"word/diagrams/data"</span>, <span class="string">"word/diagrams/layout"</span>, <span class="string">"word/diagrams/quickStyle"</span>, <span class="string">"word/diagrams/colors"</span>, <span class="string">"word/diagrams/drawing"</span>],
+<a href="#415" id="415" data-nosnippet="">415</a>            <span class="string">".xml"</span>,
+<a href="#416" id="416" data-nosnippet="">416</a>        );
+<a href="#417" id="417" data-nosnippet="">417</a>        <span class="kw">let </span>[data, layout, style, colors, drawing] = names.as_slice() <span class="kw">else </span>{ <span class="kw">return </span>String::new() };
+<a href="#418" id="418" data-nosnippet="">418</a>        <span class="comment">// The drawing first: the data part names it by the story part's relationship id.
+<a href="#419" id="419" data-nosnippet="">419</a>        </span><span class="kw">let </span>drawing_id = rels.add(rt::DIAGRAM_DRAWING, <span class="kw-2">&amp;</span>relative(STORY_PART, drawing), <span class="bool-val">false</span>);
+<a href="#420" id="420" data-nosnippet="">420</a>        <span class="kw">let </span>parts = [
+<a href="#421" id="421" data-nosnippet="">421</a>            (data, sa::data_xml(spec, <span class="kw-2">&amp;</span>drawing_id), sa::DATA_CT, rt::DIAGRAM_DATA),
+<a href="#422" id="422" data-nosnippet="">422</a>            (layout, sa::layout_xml(spec.layout), sa::LAYOUT_CT, rt::DIAGRAM_LAYOUT),
+<a href="#423" id="423" data-nosnippet="">423</a>            (style, sa::quick_style_xml(), sa::STYLE_CT, rt::DIAGRAM_QUICK_STYLE),
+<a href="#424" id="424" data-nosnippet="">424</a>            (colors, sa::colors_xml(spec.colors), sa::COLORS_CT, rt::DIAGRAM_COLORS),
+<a href="#425" id="425" data-nosnippet="">425</a>            (drawing, sa::drawing_xml(spec, w, h), sa::DRAWING_CT, rt::DIAGRAM_DRAWING),
+<a href="#426" id="426" data-nosnippet="">426</a>        ];
+<a href="#427" id="427" data-nosnippet="">427</a>        <span class="kw">let </span><span class="kw-2">mut </span>ids = Vec::new();
+<a href="#428" id="428" data-nosnippet="">428</a>        <span class="kw">for </span>(name, xml, ct, kind) <span class="kw">in </span>parts {
+<a href="#429" id="429" data-nosnippet="">429</a>            <span class="self">self</span>.embeds.parts.push((name.clone(), xml.into_bytes(), ct.to_string(), PartRels::default()));
+<a href="#430" id="430" data-nosnippet="">430</a>            ids.push(rels.add(kind, <span class="kw-2">&amp;</span>relative(STORY_PART, name), <span class="bool-val">false</span>));
+<a href="#431" id="431" data-nosnippet="">431</a>        }
+<a href="#432" id="432" data-nosnippet="">432</a>        <span class="kw">let </span>id = |i: usize| ids.get(i).cloned().unwrap_or_default();
+<a href="#433" id="433" data-nosnippet="">433</a>        <span class="kw">let </span><span class="kw-2">mut </span>x = xml::W::default();
+<a href="#434" id="434" data-nosnippet="">434</a>        x.open(<span class="string">"a:graphic"</span>, <span class="kw-2">&amp;</span>[(<span class="string">"xmlns:a"</span>, <span class="string">"http://schemas.openxmlformats.org/drawingml/2006/main"</span>)]);
+<a href="#435" id="435" data-nosnippet="">435</a>        x.open(<span class="string">"a:graphicData"</span>, <span class="kw-2">&amp;</span>[(<span class="string">"uri"</span>, sa::DIAGRAM_URI)]);
+<a href="#436" id="436" data-nosnippet="">436</a>        x.empty(
+<a href="#437" id="437" data-nosnippet="">437</a>            <span class="string">"dgm:relIds"</span>,
+<a href="#438" id="438" data-nosnippet="">438</a>            <span class="kw-2">&amp;</span>[
+<a href="#439" id="439" data-nosnippet="">439</a>                (<span class="string">"xmlns:dgm"</span>, <span class="string">"http://schemas.openxmlformats.org/drawingml/2006/diagram"</span>),
+<a href="#440" id="440" data-nosnippet="">440</a>                (<span class="string">"xmlns:r"</span>, <span class="string">"http://schemas.openxmlformats.org/officeDocument/2006/relationships"</span>),
+<a href="#441" id="441" data-nosnippet="">441</a>                (<span class="string">"r:dm"</span>, <span class="kw-2">&amp;</span>id(<span class="number">0</span>)),
+<a href="#442" id="442" data-nosnippet="">442</a>                (<span class="string">"r:lo"</span>, <span class="kw-2">&amp;</span>id(<span class="number">1</span>)),
+<a href="#443" id="443" data-nosnippet="">443</a>                (<span class="string">"r:qs"</span>, <span class="kw-2">&amp;</span>id(<span class="number">2</span>)),
+<a href="#444" id="444" data-nosnippet="">444</a>                (<span class="string">"r:cs"</span>, <span class="kw-2">&amp;</span>id(<span class="number">3</span>)),
+<a href="#445" id="445" data-nosnippet="">445</a>            ],
+<a href="#446" id="446" data-nosnippet="">446</a>        );
+<a href="#447" id="447" data-nosnippet="">447</a>        x.close(<span class="string">"a:graphicData"</span>);
+<a href="#448" id="448" data-nosnippet="">448</a>        x.close(<span class="string">"a:graphic"</span>);
+<a href="#449" id="449" data-nosnippet="">449</a>        x.s
+<a href="#450" id="450" data-nosnippet="">450</a>    }
+<a href="#451" id="451" data-nosnippet="">451</a>
+<a href="#452" id="452" data-nosnippet="">452</a>    <span class="doccomment">/// The `a:graphic` of a chart written from its model: a new chart part (`word/charts/chartN.xml`)
+<a href="#453" id="453" data-nosnippet="">453</a>    /// related from the story part through `rels`.
+<a href="#454" id="454" data-nosnippet="">454</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>chart_graphic(<span class="kw-2">&amp;mut </span><span class="self">self</span>, spec: <span class="kw-2">&amp;</span><span class="kw">crate</span>::doc::chart::ChartSpec, rels: <span class="kw-2">&amp;mut </span>PartRels) -&gt; String {
+<a href="#455" id="455" data-nosnippet="">455</a>        <span class="kw">let </span>name = <span class="self">self</span>.embeds.fresh(<span class="string">"word/charts/chart"</span>, <span class="string">".xml"</span>);
+<a href="#456" id="456" data-nosnippet="">456</a>        <span class="kw">let </span>(xml, cut) = <span class="kw">crate</span>::docx::chart_spec::chart_part(spec);
+<a href="#457" id="457" data-nosnippet="">457</a>        <span class="kw">if </span>cut &amp;&amp; !<span class="self">self</span>.embeds.chart_cut {
+<a href="#458" id="458" data-nosnippet="">458</a>            <span class="self">self</span>.embeds.chart_cut = <span class="bool-val">true</span>;
+<a href="#459" id="459" data-nosnippet="">459</a>            <span class="macro">log::warn!</span>(<span class="string">"docx: a chart has more series or points than a chart part holds; the rest are left out of the file"</span>);
+<a href="#460" id="460" data-nosnippet="">460</a>        }
+<a href="#461" id="461" data-nosnippet="">461</a>        <span class="kw">let </span>bytes = xml.into_bytes();
+<a href="#462" id="462" data-nosnippet="">462</a>        <span class="self">self</span>.embeds.parts.push((name.clone(), bytes, <span class="kw">crate</span>::docx::chart_spec::CHART_CT.to_string(), PartRels::default()));
+<a href="#463" id="463" data-nosnippet="">463</a>        <span class="kw">let </span>id = rels.add(<span class="kw">crate</span>::docx::package::rt::CHART, <span class="kw-2">&amp;</span>relative(STORY_PART, <span class="kw-2">&amp;</span>name), <span class="bool-val">false</span>);
+<a href="#464" id="464" data-nosnippet="">464</a>        <span class="kw">let </span><span class="kw-2">mut </span>w = xml::W::default();
+<a href="#465" id="465" data-nosnippet="">465</a>        w.open(<span class="string">"a:graphic"</span>, <span class="kw-2">&amp;</span>[(<span class="string">"xmlns:a"</span>, <span class="string">"http://schemas.openxmlformats.org/drawingml/2006/main"</span>)]);
+<a href="#466" id="466" data-nosnippet="">466</a>        w.open(<span class="string">"a:graphicData"</span>, <span class="kw-2">&amp;</span>[(<span class="string">"uri"</span>, <span class="kw">crate</span>::docx::chart_spec::CHART_URI)]);
+<a href="#467" id="467" data-nosnippet="">467</a>        w.empty(
+<a href="#468" id="468" data-nosnippet="">468</a>            <span class="string">"c:chart"</span>,
+<a href="#469" id="469" data-nosnippet="">469</a>            <span class="kw-2">&amp;</span>[
+<a href="#470" id="470" data-nosnippet="">470</a>                (<span class="string">"xmlns:c"</span>, <span class="string">"http://schemas.openxmlformats.org/drawingml/2006/chart"</span>),
+<a href="#471" id="471" data-nosnippet="">471</a>                (<span class="string">"xmlns:r"</span>, <span class="string">"http://schemas.openxmlformats.org/officeDocument/2006/relationships"</span>),
+<a href="#472" id="472" data-nosnippet="">472</a>                (<span class="string">"r:id"</span>, <span class="kw-2">&amp;</span>id),
+<a href="#473" id="473" data-nosnippet="">473</a>            ],
+<a href="#474" id="474" data-nosnippet="">474</a>        );
+<a href="#475" id="475" data-nosnippet="">475</a>        w.close(<span class="string">"a:graphicData"</span>);
+<a href="#476" id="476" data-nosnippet="">476</a>        w.close(<span class="string">"a:graphic"</span>);
+<a href="#477" id="477" data-nosnippet="">477</a>        w.s
+<a href="#478" id="478" data-nosnippet="">478</a>    }
+<a href="#479" id="479" data-nosnippet="">479</a>
+<a href="#480" id="480" data-nosnippet="">480</a>    <span class="doccomment">/// Write an OLE object's size (and position, when floating), rotation and flips into its VML
+<a href="#481" id="481" data-nosnippet="">481</a>    /// shape and DrawingML picture, with the effect extent covering the rotated bounds as for
+<a href="#482" id="482" data-nosnippet="">482</a>    /// other drawings, its alt text into both, and give its drawing a fresh `wp:docPr` id.
+<a href="#483" id="483" data-nosnippet="">483</a>    </span><span class="kw">fn </span>resize_object(<span class="kw-2">&amp;mut </span><span class="self">self</span>, e: <span class="kw-2">&amp;mut </span>El, w: f32, h: f32, float: <span class="kw-2">&amp;</span>Float, alt: <span class="kw-2">&amp;</span>str, depth: usize) {
+<a href="#484" id="484" data-nosnippet="">484</a>        <span class="kw">if </span>depth &gt; MAX_DEPTH {
+<a href="#485" id="485" data-nosnippet="">485</a>            <span class="kw">return</span>;
+<a href="#486" id="486" data-nosnippet="">486</a>        }
+<a href="#487" id="487" data-nosnippet="">487</a>        <span class="kw">match </span>e.name.as_str() {
+<a href="#488" id="488" data-nosnippet="">488</a>            <span class="string">"v:shape" </span>=&gt; {
+<a href="#489" id="489" data-nosnippet="">489</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, style)) = e.attrs.iter_mut().find(|(k, <span class="kw">_</span>)| k == <span class="string">"style"</span>) {
+<a href="#490" id="490" data-nosnippet="">490</a>                    <span class="kw-2">*</span>style = vml_style_with(style, w, h, float);
+<a href="#491" id="491" data-nosnippet="">491</a>                }
+<a href="#492" id="492" data-nosnippet="">492</a>                set_attr(e, <span class="string">"alt"</span>, alt);
+<a href="#493" id="493" data-nosnippet="">493</a>            }
+<a href="#494" id="494" data-nosnippet="">494</a>            <span class="string">"wp:extent" </span>=&gt; set_size_attrs(e, w, h),
+<a href="#495" id="495" data-nosnippet="">495</a>            <span class="comment">// A turned object needs an effect extent (filled in below) right after its extent.
+<a href="#496" id="496" data-nosnippet="">496</a>            </span><span class="string">"wp:inline" </span>| <span class="string">"wp:anchor" </span><span class="kw">if </span>!e.els().any(|c| c.name == <span class="string">"wp:effectExtent"</span>) &amp;&amp; float.spin().deg != <span class="number">0.0 </span>=&gt; {
+<a href="#497" id="497" data-nosnippet="">497</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(at) = e.kids.iter().position(|k| <span class="macro">matches!</span>(k, xml::Node::El(c) <span class="kw">if </span>c.name == <span class="string">"wp:extent"</span>)) {
+<a href="#498" id="498" data-nosnippet="">498</a>                    e.kids.insert(at + <span class="number">1</span>, xml::Node::El(El { name: <span class="string">"wp:effectExtent"</span>.to_string(), attrs: Vec::new(), kids: Vec::new() }));
+<a href="#499" id="499" data-nosnippet="">499</a>                }
+<a href="#500" id="500" data-nosnippet="">500</a>            }
+<a href="#501" id="501" data-nosnippet="">501</a>            <span class="string">"wp:effectExtent" </span>=&gt; {
+<a href="#502" id="502" data-nosnippet="">502</a>                <span class="comment">// Word's effect extent also covers a rotated object's overhang (its rotated bounds),
+<a href="#503" id="503" data-nosnippet="">503</a>                // unless the file it came from kept none.
+<a href="#504" id="504" data-nosnippet="">504</a>                </span><span class="kw">let </span>(px, py) = <span class="kw">if </span>float.is_bare_turn() { (<span class="number">0.0</span>, <span class="number">0.0</span>) } <span class="kw">else </span>{ float.spin_pad(w, h) };
+<a href="#505" id="505" data-nosnippet="">505</a>                <span class="kw">let </span>[el, et, er, eb] = float.effect_extent();
+<a href="#506" id="506" data-nosnippet="">506</a>                <span class="kw">let </span>ext = [el + px, et + py, er + px, eb + py].map(emu);
+<a href="#507" id="507" data-nosnippet="">507</a>                e.attrs.retain(|(k, <span class="kw">_</span>)| !<span class="macro">matches!</span>(k.as_str(), <span class="string">"l" </span>| <span class="string">"t" </span>| <span class="string">"r" </span>| <span class="string">"b"</span>));
+<a href="#508" id="508" data-nosnippet="">508</a>                <span class="kw">for </span>(k, v) <span class="kw">in </span>[<span class="string">"l"</span>, <span class="string">"t"</span>, <span class="string">"r"</span>, <span class="string">"b"</span>].into_iter().zip(ext) {
+<a href="#509" id="509" data-nosnippet="">509</a>                    e.attrs.push((k.to_string(), v));
+<a href="#510" id="510" data-nosnippet="">510</a>                }
+<a href="#511" id="511" data-nosnippet="">511</a>            }
+<a href="#512" id="512" data-nosnippet="">512</a>            <span class="comment">// The picture's own frame (`pic:spPr`): its size and the object's rotation and flips.
+<a href="#513" id="513" data-nosnippet="">513</a>            </span><span class="string">"a:xfrm" </span>=&gt; {
+<a href="#514" id="514" data-nosnippet="">514</a>                e.attrs.retain(|(k, <span class="kw">_</span>)| !<span class="macro">matches!</span>(k.as_str(), <span class="string">"rot" </span>| <span class="string">"flipH" </span>| <span class="string">"flipV"</span>));
+<a href="#515" id="515" data-nosnippet="">515</a>                <span class="kw">for </span>(k, v) <span class="kw">in </span><span class="kw">super</span>::story::spin_attrs(float.spin()) {
+<a href="#516" id="516" data-nosnippet="">516</a>                    e.attrs.push((k.to_string(), v));
+<a href="#517" id="517" data-nosnippet="">517</a>                }
+<a href="#518" id="518" data-nosnippet="">518</a>                <span class="kw">for </span>k <span class="kw">in </span>e.kids.iter_mut() {
+<a href="#519" id="519" data-nosnippet="">519</a>                    <span class="kw">if let </span>xml::Node::El(c) = k
+<a href="#520" id="520" data-nosnippet="">520</a>                        &amp;&amp; c.name == <span class="string">"a:ext"
+<a href="#521" id="521" data-nosnippet="">521</a>                    </span>{
+<a href="#522" id="522" data-nosnippet="">522</a>                        set_size_attrs(c, w, h);
+<a href="#523" id="523" data-nosnippet="">523</a>                    }
+<a href="#524" id="524" data-nosnippet="">524</a>                }
+<a href="#525" id="525" data-nosnippet="">525</a>                <span class="kw">return</span>;
+<a href="#526" id="526" data-nosnippet="">526</a>            }
+<a href="#527" id="527" data-nosnippet="">527</a>            <span class="string">"wp:docPr" </span>=&gt; {
+<a href="#528" id="528" data-nosnippet="">528</a>                <span class="kw">let </span>id = <span class="self">self</span>.next_docpr();
+<a href="#529" id="529" data-nosnippet="">529</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, v)) = e.attrs.iter_mut().find(|(k, <span class="kw">_</span>)| k == <span class="string">"id"</span>) {
+<a href="#530" id="530" data-nosnippet="">530</a>                    <span class="kw-2">*</span>v = id;
+<a href="#531" id="531" data-nosnippet="">531</a>                }
+<a href="#532" id="532" data-nosnippet="">532</a>                set_attr(e, <span class="string">"descr"</span>, alt);
+<a href="#533" id="533" data-nosnippet="">533</a>            }
+<a href="#534" id="534" data-nosnippet="">534</a>            <span class="kw">_ </span>=&gt; {}
+<a href="#535" id="535" data-nosnippet="">535</a>        }
+<a href="#536" id="536" data-nosnippet="">536</a>        <span class="kw">for </span>k <span class="kw">in </span>e.kids.iter_mut() {
+<a href="#537" id="537" data-nosnippet="">537</a>            <span class="kw">if let </span>xml::Node::El(c) = k {
+<a href="#538" id="538" data-nosnippet="">538</a>                <span class="self">self</span>.resize_object(c, w, h, float, alt, depth + <span class="number">1</span>);
+<a href="#539" id="539" data-nosnippet="">539</a>            }
+<a href="#540" id="540" data-nosnippet="">540</a>        }
+<a href="#541" id="541" data-nosnippet="">541</a>    }
+<a href="#542" id="542" data-nosnippet="">542</a>
+<a href="#543" id="543" data-nosnippet="">543</a>    <span class="doccomment">/// Ink's own transform need not fill its outer drawing frame. Scale its original offsets
+<a href="#544" id="544" data-nosnippet="">544</a>    /// and extents proportionally; an unrelated edit must not stretch the preserved strokes.
+<a href="#545" id="545" data-nosnippet="">545</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>ink_transform(e: <span class="kw-2">&amp;mut </span>El, from: (f32, f32), to: (f32, f32), float: <span class="kw-2">&amp;</span>Float, depth: usize) {
+<a href="#546" id="546" data-nosnippet="">546</a>        <span class="kw">if </span>depth &gt; MAX_DEPTH {
+<a href="#547" id="547" data-nosnippet="">547</a>            <span class="kw">return</span>;
+<a href="#548" id="548" data-nosnippet="">548</a>        }
+<a href="#549" id="549" data-nosnippet="">549</a>        <span class="kw">if </span>e.name == <span class="string">"w14:xfrm" </span>{
+<a href="#550" id="550" data-nosnippet="">550</a>            e.attrs.retain(|(k, <span class="kw">_</span>)| !<span class="macro">matches!</span>(k.as_str(), <span class="string">"rot" </span>| <span class="string">"flipH" </span>| <span class="string">"flipV"</span>));
+<a href="#551" id="551" data-nosnippet="">551</a>            <span class="kw">for </span>(k, v) <span class="kw">in </span><span class="kw">super</span>::story::spin_attrs(float.spin()) {
+<a href="#552" id="552" data-nosnippet="">552</a>                e.attrs.push((k.to_string(), v));
+<a href="#553" id="553" data-nosnippet="">553</a>            }
+<a href="#554" id="554" data-nosnippet="">554</a>            <span class="kw">let </span>scale = |old: f32, new: f32| <span class="kw">if </span>old.is_finite() &amp;&amp; old &gt; <span class="number">0.0 </span>&amp;&amp; new.is_finite() { (new.max(<span class="number">0.0</span>) / old) <span class="kw">as </span>f64 } <span class="kw">else </span>{ <span class="number">1.0 </span>};
+<a href="#555" id="555" data-nosnippet="">555</a>            <span class="kw">let </span>(sx, sy) = (scale(from.<span class="number">0</span>, to.<span class="number">0</span>), scale(from.<span class="number">1</span>, to.<span class="number">1</span>));
+<a href="#556" id="556" data-nosnippet="">556</a>            <span class="kw">let </span>max = MAX_LEN_PT <span class="kw">as </span>f64 * <span class="number">12_700.0</span>;
+<a href="#557" id="557" data-nosnippet="">557</a>            <span class="kw">for </span>c <span class="kw">in </span>e.kids.iter_mut().filter_map(|k| <span class="kw">match </span>k {
+<a href="#558" id="558" data-nosnippet="">558</a>                xml::Node::El(c) =&gt; <span class="prelude-val">Some</span>(c),
+<a href="#559" id="559" data-nosnippet="">559</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#560" id="560" data-nosnippet="">560</a>            }) {
+<a href="#561" id="561" data-nosnippet="">561</a>                <span class="kw">if </span>!<span class="macro">matches!</span>(c.name.as_str(), <span class="string">"a:off" </span>| <span class="string">"a:ext"</span>) {
+<a href="#562" id="562" data-nosnippet="">562</a>                    <span class="kw">continue</span>;
+<a href="#563" id="563" data-nosnippet="">563</a>                }
+<a href="#564" id="564" data-nosnippet="">564</a>                <span class="kw">for </span>(key, value) <span class="kw">in </span><span class="kw-2">&amp;mut </span>c.attrs {
+<a href="#565" id="565" data-nosnippet="">565</a>                    <span class="kw">let </span>factor = <span class="kw">match </span>key.as_str() {
+<a href="#566" id="566" data-nosnippet="">566</a>                        <span class="string">"x" </span>| <span class="string">"cx" </span>=&gt; sx,
+<a href="#567" id="567" data-nosnippet="">567</a>                        <span class="string">"y" </span>| <span class="string">"cy" </span>=&gt; sy,
+<a href="#568" id="568" data-nosnippet="">568</a>                        <span class="kw">_ </span>=&gt; <span class="kw">continue</span>,
+<a href="#569" id="569" data-nosnippet="">569</a>                    };
+<a href="#570" id="570" data-nosnippet="">570</a>                    <span class="kw">if </span>factor != <span class="number">1.0
+<a href="#571" id="571" data-nosnippet="">571</a>                        </span>&amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(n) = int(value)
+<a href="#572" id="572" data-nosnippet="">572</a>                    {
+<a href="#573" id="573" data-nosnippet="">573</a>                        <span class="kw">let </span>min = <span class="kw">if </span>c.name == <span class="string">"a:ext" </span>{ <span class="number">0.0 </span>} <span class="kw">else </span>{ -max };
+<a href="#574" id="574" data-nosnippet="">574</a>                        <span class="kw-2">*</span>value = ((n <span class="kw">as </span>f64 * factor).clamp(min, max).round() <span class="kw">as </span>i64).to_string();
+<a href="#575" id="575" data-nosnippet="">575</a>                    }
+<a href="#576" id="576" data-nosnippet="">576</a>                }
+<a href="#577" id="577" data-nosnippet="">577</a>            }
+<a href="#578" id="578" data-nosnippet="">578</a>            <span class="kw">return</span>;
+<a href="#579" id="579" data-nosnippet="">579</a>        }
+<a href="#580" id="580" data-nosnippet="">580</a>        <span class="kw">for </span>c <span class="kw">in </span>e.kids.iter_mut().filter_map(|k| <span class="kw">match </span>k {
+<a href="#581" id="581" data-nosnippet="">581</a>            xml::Node::El(c) =&gt; <span class="prelude-val">Some</span>(c),
+<a href="#582" id="582" data-nosnippet="">582</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#583" id="583" data-nosnippet="">583</a>        }) {
+<a href="#584" id="584" data-nosnippet="">584</a>            <span class="self">Self</span>::ink_transform(c, from, to, float, depth + <span class="number">1</span>);
+<a href="#585" id="585" data-nosnippet="">585</a>        }
+<a href="#586" id="586" data-nosnippet="">586</a>    }
+<a href="#587" id="587" data-nosnippet="">587</a>
+<a href="#588" id="588" data-nosnippet="">588</a>    <span class="doccomment">/// Put a group or canvas member kept from a file (native ink and its picture fallback) at
+<a href="#589" id="589" data-nosnippet="">589</a>    /// `frame` ([x, y, w, h] in points, in the group's space, as the group is written): its
+<a href="#590" id="590" data-nosnippet="">590</a>    /// `w14:xfrm` and the fallback's `a:xfrm` get that offset and extent and the member's turn.
+<a href="#591" id="591" data-nosnippet="">591</a>    /// It rewrites every `w14:xfrm` and `a:xfrm` under `e` and doesn't descend into them: right
+<a href="#592" id="592" data-nosnippet="">592</a>    /// for the forms Word writes (the content part's own transform and one `pic:pic` fallback's
+<a href="#593" id="593" data-nosnippet="">593</a>    /// `pic:spPr/a:xfrm`); a fallback holding several transforms (a group) would get one frame.
+<a href="#594" id="594" data-nosnippet="">594</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>place_member(e: <span class="kw-2">&amp;mut </span>El, frame: [f32; <span class="number">4</span>], float: <span class="kw-2">&amp;</span>Float, depth: usize) {
+<a href="#595" id="595" data-nosnippet="">595</a>        <span class="kw">if </span>depth &gt; MAX_DEPTH {
+<a href="#596" id="596" data-nosnippet="">596</a>            <span class="kw">return</span>;
+<a href="#597" id="597" data-nosnippet="">597</a>        }
+<a href="#598" id="598" data-nosnippet="">598</a>        <span class="kw">if </span><span class="macro">matches!</span>(e.name.as_str(), <span class="string">"w14:xfrm" </span>| <span class="string">"a:xfrm"</span>) {
+<a href="#599" id="599" data-nosnippet="">599</a>            e.attrs.retain(|(k, <span class="kw">_</span>)| !<span class="macro">matches!</span>(k.as_str(), <span class="string">"rot" </span>| <span class="string">"flipH" </span>| <span class="string">"flipV"</span>));
+<a href="#600" id="600" data-nosnippet="">600</a>            <span class="kw">for </span>(k, v) <span class="kw">in </span><span class="kw">super</span>::story::spin_attrs(float.spin()) {
+<a href="#601" id="601" data-nosnippet="">601</a>                e.attrs.push((k.to_string(), v));
+<a href="#602" id="602" data-nosnippet="">602</a>            }
+<a href="#603" id="603" data-nosnippet="">603</a>            <span class="kw">let </span>[x, y, w, h] = frame.map(|v| v.clamp(-MAX_LEN_PT, MAX_LEN_PT));
+<a href="#604" id="604" data-nosnippet="">604</a>            e.kids.retain(|k| !<span class="macro">matches!</span>(k, xml::Node::El(c) <span class="kw">if </span><span class="macro">matches!</span>(c.name.as_str(), <span class="string">"a:off" </span>| <span class="string">"a:ext"</span>)));
+<a href="#605" id="605" data-nosnippet="">605</a>            <span class="kw">let </span>el = |name: <span class="kw-2">&amp;</span>str, attrs: [(<span class="kw-2">&amp;</span>str, String); <span class="number">2</span>]| {
+<a href="#606" id="606" data-nosnippet="">606</a>                xml::Node::El(El { name: name.to_string(), attrs: attrs.map(|(k, v)| (k.to_string(), v)).to_vec(), kids: Vec::new() })
+<a href="#607" id="607" data-nosnippet="">607</a>            };
+<a href="#608" id="608" data-nosnippet="">608</a>            e.kids.insert(<span class="number">0</span>, el(<span class="string">"a:ext"</span>, [(<span class="string">"cx"</span>, emu(w.max(<span class="number">0.0</span>))), (<span class="string">"cy"</span>, emu(h.max(<span class="number">0.0</span>)))]));
+<a href="#609" id="609" data-nosnippet="">609</a>            e.kids.insert(<span class="number">0</span>, el(<span class="string">"a:off"</span>, [(<span class="string">"x"</span>, emu(x)), (<span class="string">"y"</span>, emu(y))]));
+<a href="#610" id="610" data-nosnippet="">610</a>            <span class="kw">return</span>;
+<a href="#611" id="611" data-nosnippet="">611</a>        }
+<a href="#612" id="612" data-nosnippet="">612</a>        <span class="kw">for </span>c <span class="kw">in </span>e.kids.iter_mut().filter_map(|k| <span class="kw">match </span>k {
+<a href="#613" id="613" data-nosnippet="">613</a>            xml::Node::El(c) =&gt; <span class="prelude-val">Some</span>(c),
+<a href="#614" id="614" data-nosnippet="">614</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#615" id="615" data-nosnippet="">615</a>        }) {
+<a href="#616" id="616" data-nosnippet="">616</a>            <span class="self">Self</span>::place_member(c, frame, float, depth + <span class="number">1</span>);
+<a href="#617" id="617" data-nosnippet="">617</a>        }
+<a href="#618" id="618" data-nosnippet="">618</a>    }
+<a href="#619" id="619" data-nosnippet="">619</a>}
+<a href="#620" id="620" data-nosnippet="">620</a>
+<a href="#621" id="621" data-nosnippet="">621</a><span class="doccomment">/// Set an extent's `cx` and `cy` (those it has) to `w` × `h` points.
+<a href="#622" id="622" data-nosnippet="">622</a></span><span class="kw">fn </span>set_size_attrs(e: <span class="kw-2">&amp;mut </span>El, w: f32, h: f32) {
+<a href="#623" id="623" data-nosnippet="">623</a>    <span class="kw">for </span>(k, v) <span class="kw">in </span>e.attrs.iter_mut() {
+<a href="#624" id="624" data-nosnippet="">624</a>        <span class="kw">match </span>k.as_str() {
+<a href="#625" id="625" data-nosnippet="">625</a>            <span class="string">"cx" </span>=&gt; <span class="kw-2">*</span>v = emu(w.max(<span class="number">0.0</span>)),
+<a href="#626" id="626" data-nosnippet="">626</a>            <span class="string">"cy" </span>=&gt; <span class="kw-2">*</span>v = emu(h.max(<span class="number">0.0</span>)),
+<a href="#627" id="627" data-nosnippet="">627</a>            <span class="kw">_ </span>=&gt; {}
+<a href="#628" id="628" data-nosnippet="">628</a>        }
+<a href="#629" id="629" data-nosnippet="">629</a>    }
+<a href="#630" id="630" data-nosnippet="">630</a>}
+<a href="#631" id="631" data-nosnippet="">631</a>
+<a href="#632" id="632" data-nosnippet="">632</a><span class="doccomment">/// Set attribute `k` of `e` to `v` (added when missing; left out when both are empty).
+<a href="#633" id="633" data-nosnippet="">633</a></span><span class="kw">fn </span>set_attr(e: <span class="kw-2">&amp;mut </span>El, k: <span class="kw-2">&amp;</span>str, v: <span class="kw-2">&amp;</span>str) {
+<a href="#634" id="634" data-nosnippet="">634</a>    <span class="kw">match </span>e.attrs.iter_mut().find(|(n, <span class="kw">_</span>)| n == k) {
+<a href="#635" id="635" data-nosnippet="">635</a>        <span class="prelude-val">Some</span>((<span class="kw">_</span>, old)) =&gt; <span class="kw-2">*</span>old = v.to_string(),
+<a href="#636" id="636" data-nosnippet="">636</a>        <span class="prelude-val">None </span><span class="kw">if </span>!v.is_empty() =&gt; e.attrs.push((k.to_string(), v.to_string())),
+<a href="#637" id="637" data-nosnippet="">637</a>        <span class="prelude-val">None </span>=&gt; {}
+<a href="#638" id="638" data-nosnippet="">638</a>    }
+<a href="#639" id="639" data-nosnippet="">639</a>}
+<a href="#640" id="640" data-nosnippet="">640</a>
+<a href="#641" id="641" data-nosnippet="">641</a><span class="doccomment">/// The distinct relationship ids `e` uses: a set, so a large tree (a native document's markup
+<a href="#642" id="642" data-nosnippet="">642</a>/// never went through the reader's id limit) costs no scan per attribute.
+<a href="#643" id="643" data-nosnippet="">643</a></span><span class="kw">fn </span>rel_attr_values(e: <span class="kw-2">&amp;</span>El, out: <span class="kw-2">&amp;mut </span>HashSet&lt;String&gt;, depth: usize) {
+<a href="#644" id="644" data-nosnippet="">644</a>    <span class="kw">if </span>depth &gt; MAX_DEPTH {
+<a href="#645" id="645" data-nosnippet="">645</a>        <span class="kw">return</span>;
+<a href="#646" id="646" data-nosnippet="">646</a>    }
+<a href="#647" id="647" data-nosnippet="">647</a>    <span class="kw">for </span>(k, v) <span class="kw">in </span><span class="kw-2">&amp;</span>e.attrs {
+<a href="#648" id="648" data-nosnippet="">648</a>        <span class="kw">if </span>xml::is_rel_attr(<span class="kw-2">&amp;</span>e.name, k) &amp;&amp; !out.contains(v) {
+<a href="#649" id="649" data-nosnippet="">649</a>            out.insert(v.clone());
+<a href="#650" id="650" data-nosnippet="">650</a>        }
+<a href="#651" id="651" data-nosnippet="">651</a>    }
+<a href="#652" id="652" data-nosnippet="">652</a>    <span class="kw">for </span>c <span class="kw">in </span>e.els() {
+<a href="#653" id="653" data-nosnippet="">653</a>        rel_attr_values(c, out, depth + <span class="number">1</span>);
+<a href="#654" id="654" data-nosnippet="">654</a>    }
+<a href="#655" id="655" data-nosnippet="">655</a>}
+<a href="#656" id="656" data-nosnippet="">656</a>
+<a href="#657" id="657" data-nosnippet="">657</a><span class="kw">fn </span>set_rel_ids(e: <span class="kw-2">&amp;mut </span>El, ids: <span class="kw-2">&amp;</span>HashMap&lt;String, String&gt;, depth: usize) {
+<a href="#658" id="658" data-nosnippet="">658</a>    <span class="kw">if </span>depth &gt; MAX_DEPTH {
+<a href="#659" id="659" data-nosnippet="">659</a>        <span class="kw">return</span>;
+<a href="#660" id="660" data-nosnippet="">660</a>    }
+<a href="#661" id="661" data-nosnippet="">661</a>    <span class="kw">let </span>name = e.name.clone();
+<a href="#662" id="662" data-nosnippet="">662</a>    <span class="kw">for </span>(k, v) <span class="kw">in </span>e.attrs.iter_mut() {
+<a href="#663" id="663" data-nosnippet="">663</a>        <span class="kw">if </span>xml::is_rel_attr(<span class="kw-2">&amp;</span>name, k)
+<a href="#664" id="664" data-nosnippet="">664</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(n) = ids.get(v.as_str())
+<a href="#665" id="665" data-nosnippet="">665</a>        {
+<a href="#666" id="666" data-nosnippet="">666</a>            <span class="kw-2">*</span>v = n.clone();
+<a href="#667" id="667" data-nosnippet="">667</a>        }
+<a href="#668" id="668" data-nosnippet="">668</a>    }
+<a href="#669" id="669" data-nosnippet="">669</a>    <span class="kw">for </span>k <span class="kw">in </span>e.kids.iter_mut() {
+<a href="#670" id="670" data-nosnippet="">670</a>        <span class="kw">if let </span>xml::Node::El(c) = k {
+<a href="#671" id="671" data-nosnippet="">671</a>            set_rel_ids(c, ids, depth + <span class="number">1</span>);
+<a href="#672" id="672" data-nosnippet="">672</a>        }
+<a href="#673" id="673" data-nosnippet="">673</a>    }
+<a href="#674" id="674" data-nosnippet="">674</a>}
+<a href="#675" id="675" data-nosnippet="">675</a>
+<a href="#676" id="676" data-nosnippet="">676</a><span class="doccomment">/// `bytes` with each `relId="old"` naming a remapped relationship rewritten to its new id.
+<a href="#677" id="677" data-nosnippet="">677</a></span><span class="kw">fn </span>patch_rel_ids(bytes: <span class="kw-2">&amp;</span>[u8], ids: <span class="kw-2">&amp;</span>HashMap&lt;String, String&gt;) -&gt; Vec&lt;u8&gt; {
+<a href="#678" id="678" data-nosnippet="">678</a>    <span class="kw">const </span>KEY: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"relId=\""</span>;
+<a href="#679" id="679" data-nosnippet="">679</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::with_capacity(bytes.len());
+<a href="#680" id="680" data-nosnippet="">680</a>    <span class="kw">let </span><span class="kw-2">mut </span>rest = bytes;
+<a href="#681" id="681" data-nosnippet="">681</a>    <span class="kw">while let </span><span class="prelude-val">Some</span>(at) = rest.windows(KEY.len()).position(|w| w == KEY) {
+<a href="#682" id="682" data-nosnippet="">682</a>        <span class="kw">let </span>(head, tail) = rest.split_at(at + KEY.len());
+<a href="#683" id="683" data-nosnippet="">683</a>        out.extend_from_slice(head);
+<a href="#684" id="684" data-nosnippet="">684</a>        <span class="kw">let </span>end = tail.iter().position(|b| <span class="kw-2">*</span>b == <span class="string">b'"'</span>).unwrap_or(tail.len());
+<a href="#685" id="685" data-nosnippet="">685</a>        <span class="kw">let </span>(old, after) = tail.split_at(end);
+<a href="#686" id="686" data-nosnippet="">686</a>        <span class="kw">match </span>std::str::from_utf8(old).ok().and_then(|o| ids.get(o)) {
+<a href="#687" id="687" data-nosnippet="">687</a>            <span class="prelude-val">Some</span>(new) =&gt; out.extend_from_slice(new.as_bytes()),
+<a href="#688" id="688" data-nosnippet="">688</a>            <span class="prelude-val">None </span>=&gt; out.extend_from_slice(old),
+<a href="#689" id="689" data-nosnippet="">689</a>        }
+<a href="#690" id="690" data-nosnippet="">690</a>        rest = after;
+<a href="#691" id="691" data-nosnippet="">691</a>    }
+<a href="#692" id="692" data-nosnippet="">692</a>    out.extend_from_slice(rest);
+<a href="#693" id="693" data-nosnippet="">693</a>    out
+<a href="#694" id="694" data-nosnippet="">694</a>}
+<a href="#695" id="695" data-nosnippet="">695</a>
+<a href="#696" id="696" data-nosnippet="">696</a><span class="doccomment">/// `bytes` (kept XML) without the personal information and dates the privacy settings remove, as
+<a href="#697" id="697" data-nosnippet="">697</a>/// the writer leaves them out of the parts it writes: annotation authors become "Author" and
+<a href="#698" id="698" data-nosnippet="">698</a>/// comment initials "A" (`names`); annotation dates and UTC dates go (`dates`); and with `names`,
+<a href="#699" id="699" data-nosnippet="">699</a>/// a people part's authors become "Author" and their presence information goes. Attributes are
+<a href="#700" id="700" data-nosnippet="">700</a>/// matched by namespace, so any prefix is caught. `None` when the markup can't be rewritten
+<a href="#701" id="701" data-nosnippet="">701</a>/// (malformed, or not UTF-8).
+<a href="#702" id="702" data-nosnippet="">702</a></span><span class="kw">fn </span>scrub_private(bytes: <span class="kw-2">&amp;</span>[u8], names: bool, dates: bool) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt; {
+<a href="#703" id="703" data-nosnippet="">703</a>    <span class="kw">use </span>std::borrow::Cow;
+<a href="#704" id="704" data-nosnippet="">704</a>
+<a href="#705" id="705" data-nosnippet="">705</a>    <span class="kw">use </span>quick_xml::events::Event;
+<a href="#706" id="706" data-nosnippet="">706</a>    <span class="kw">use </span>quick_xml::events::attributes::Attribute;
+<a href="#707" id="707" data-nosnippet="">707</a>    <span class="kw">use </span>quick_xml::name::{QName, ResolveResult};
+<a href="#708" id="708" data-nosnippet="">708</a>    <span class="kw">use </span>quick_xml::reader::NsReader;
+<a href="#709" id="709" data-nosnippet="">709</a>    <span class="kw">use </span>quick_xml::writer::Writer;
+<a href="#710" id="710" data-nosnippet="">710</a>
+<a href="#711" id="711" data-nosnippet="">711</a>    <span class="kw">const </span>WML: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"http://schemas.openxmlformats.org/wordprocessingml/2006/main"</span>;
+<a href="#712" id="712" data-nosnippet="">712</a>    <span class="kw">const </span>WML_STRICT: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"http://purl.oclc.org/ooxml/wordprocessingml/main"</span>;
+<a href="#713" id="713" data-nosnippet="">713</a>    <span class="kw">const </span>W15: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"http://schemas.microsoft.com/office/word/2012/wordml"</span>;
+<a href="#714" id="714" data-nosnippet="">714</a>    <span class="comment">// UTF-16 (or other wide encodings) would pass through unread.
+<a href="#715" id="715" data-nosnippet="">715</a>    </span><span class="kw">if </span>bytes.contains(<span class="kw-2">&amp;</span><span class="number">0</span>) || bytes.starts_with(<span class="kw-2">&amp;</span>[<span class="number">0xFF</span>, <span class="number">0xFE</span>]) || bytes.starts_with(<span class="kw-2">&amp;</span>[<span class="number">0xFE</span>, <span class="number">0xFF</span>]) {
+<a href="#716" id="716" data-nosnippet="">716</a>        <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#717" id="717" data-nosnippet="">717</a>    }
+<a href="#718" id="718" data-nosnippet="">718</a>    <span class="kw">let </span>ns_is = |r: <span class="kw-2">&amp;</span>ResolveResult, ns: <span class="kw-2">&amp;</span>[u8]| <span class="macro">matches!</span>(r, ResolveResult::Bound(n) <span class="kw">if </span>n.as_ref() == ns);
+<a href="#719" id="719" data-nosnippet="">719</a>    <span class="kw">let </span>wml = |r: <span class="kw-2">&amp;</span>ResolveResult| ns_is(r, WML) || ns_is(r, WML_STRICT);
+<a href="#720" id="720" data-nosnippet="">720</a>    <span class="kw">let </span><span class="kw-2">mut </span>r = NsReader::from_reader(bytes);
+<a href="#721" id="721" data-nosnippet="">721</a>    r.config_mut().check_end_names = <span class="bool-val">false</span>;
+<a href="#722" id="722" data-nosnippet="">722</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = Writer::new(Vec::with_capacity(bytes.len()));
+<a href="#723" id="723" data-nosnippet="">723</a>    <span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::new();
+<a href="#724" id="724" data-nosnippet="">724</a>    <span class="kw">let </span><span class="kw-2">mut </span>skip = Vec::new();
+<a href="#725" id="725" data-nosnippet="">725</a>    <span class="kw">loop </span>{
+<a href="#726" id="726" data-nosnippet="">726</a>        buf.clear();
+<a href="#727" id="727" data-nosnippet="">727</a>        <span class="kw">let </span>(res, ev) = r.read_resolved_event_into(<span class="kw-2">&amp;mut </span>buf).ok()<span class="question-mark">?</span>;
+<a href="#728" id="728" data-nosnippet="">728</a>        <span class="kw">let </span>(in_wml, in_w15) = (wml(<span class="kw-2">&amp;</span>res), ns_is(<span class="kw-2">&amp;</span>res, W15));
+<a href="#729" id="729" data-nosnippet="">729</a>        <span class="kw">let </span>ev = <span class="kw">match </span>ev {
+<a href="#730" id="730" data-nosnippet="">730</a>            Event::Eof =&gt; <span class="kw">break</span>,
+<a href="#731" id="731" data-nosnippet="">731</a>            Event::Start(<span class="kw-2">ref </span>e) | Event::Empty(<span class="kw-2">ref </span>e) <span class="kw">if </span>names &amp;&amp; in_w15 &amp;&amp; e.local_name().as_ref() == <span class="string">b"presenceInfo" </span>=&gt; {
+<a href="#732" id="732" data-nosnippet="">732</a>                <span class="kw">if </span><span class="macro">matches!</span>(ev, Event::Start(<span class="kw">_</span>)) {
+<a href="#733" id="733" data-nosnippet="">733</a>                    <span class="kw">let </span>end = e.name().as_ref().to_vec();
+<a href="#734" id="734" data-nosnippet="">734</a>                    r.read_to_end_into(QName(<span class="kw-2">&amp;</span>end), <span class="kw-2">&amp;mut </span>skip).ok()<span class="question-mark">?</span>;
+<a href="#735" id="735" data-nosnippet="">735</a>                    skip.clear();
+<a href="#736" id="736" data-nosnippet="">736</a>                }
+<a href="#737" id="737" data-nosnippet="">737</a>                <span class="kw">continue</span>;
+<a href="#738" id="738" data-nosnippet="">738</a>            }
+<a href="#739" id="739" data-nosnippet="">739</a>            Event::Start(<span class="kw-2">ref </span>e) | Event::Empty(<span class="kw-2">ref </span>e) =&gt; {
+<a href="#740" id="740" data-nosnippet="">740</a>                <span class="kw">let </span><span class="kw-2">mut </span>el = e.to_owned();
+<a href="#741" id="741" data-nosnippet="">741</a>                el.clear_attributes();
+<a href="#742" id="742" data-nosnippet="">742</a>                <span class="kw">for </span>a <span class="kw">in </span>e.attributes().with_checks(<span class="bool-val">false</span>) {
+<a href="#743" id="743" data-nosnippet="">743</a>                    <span class="kw">let </span>a = a.ok()<span class="question-mark">?</span>;
+<a href="#744" id="744" data-nosnippet="">744</a>                    <span class="kw">let </span>(ares, local) = r.resolver_mut().resolve_attribute(a.key);
+<a href="#745" id="745" data-nosnippet="">745</a>                    <span class="comment">// An unprefixed attribute of a WordprocessingML element is read as its own.
+<a href="#746" id="746" data-nosnippet="">746</a>                    </span><span class="kw">let </span>wml_attr = wml(<span class="kw-2">&amp;</span>ares) || (<span class="macro">matches!</span>(ares, ResolveResult::Unbound) &amp;&amp; in_wml);
+<a href="#747" id="747" data-nosnippet="">747</a>                    <span class="kw">let </span>value: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt; = <span class="kw">match </span>local.as_ref() {
+<a href="#748" id="748" data-nosnippet="">748</a>                        <span class="string">b"author" </span><span class="kw">if </span>names &amp;&amp; (wml_attr || ns_is(<span class="kw-2">&amp;</span>ares, W15)) =&gt; <span class="prelude-val">Some</span>(<span class="kw">super</span>::ANONYMOUS_AUTHOR.as_bytes()),
+<a href="#749" id="749" data-nosnippet="">749</a>                        <span class="string">b"initials" </span><span class="kw">if </span>names &amp;&amp; wml_attr =&gt; <span class="prelude-val">Some</span>(<span class="kw">super</span>::ANONYMOUS_INITIALS.as_bytes()),
+<a href="#750" id="750" data-nosnippet="">750</a>                        <span class="string">b"date" </span><span class="kw">if </span>dates &amp;&amp; wml_attr =&gt; <span class="prelude-val">None</span>,
+<a href="#751" id="751" data-nosnippet="">751</a>                        <span class="string">b"dateUtc" </span><span class="kw">if </span>dates =&gt; <span class="prelude-val">None</span>,
+<a href="#752" id="752" data-nosnippet="">752</a>                        <span class="kw">_ </span>=&gt; {
+<a href="#753" id="753" data-nosnippet="">753</a>                            <span class="comment">// `push_attribute` writes the value as given, inside `"`. In well-formed
+<a href="#754" id="754" data-nosnippet="">754</a>                            // markup the raw value holds no `&lt;` and every `&amp;` starts a valid
+<a href="#755" id="755" data-nosnippet="">755</a>                            // reference, so only a `"` from a single-quoted value needs escaping;
+<a href="#756" id="756" data-nosnippet="">756</a>                            // references such as `&amp;#10;` stay as written (#3872).
+<a href="#757" id="757" data-nosnippet="">757</a>                            </span><span class="kw">let </span>raw = a.value.as_ref();
+<a href="#758" id="758" data-nosnippet="">758</a>                            <span class="kw">let </span>value = <span class="kw">if </span>raw.contains(<span class="kw-2">&amp;</span><span class="string">b'"'</span>) {
+<a href="#759" id="759" data-nosnippet="">759</a>                                <span class="kw">let </span><span class="kw-2">mut </span>v = Vec::with_capacity(raw.len() + <span class="number">8</span>);
+<a href="#760" id="760" data-nosnippet="">760</a>                                <span class="kw">for </span><span class="kw-2">&amp;</span>c <span class="kw">in </span>raw {
+<a href="#761" id="761" data-nosnippet="">761</a>                                    <span class="kw">if </span>c == <span class="string">b'"' </span>{
+<a href="#762" id="762" data-nosnippet="">762</a>                                        v.extend_from_slice(<span class="string">b"&amp;quot;"</span>);
+<a href="#763" id="763" data-nosnippet="">763</a>                                    } <span class="kw">else </span>{
+<a href="#764" id="764" data-nosnippet="">764</a>                                        v.push(c);
+<a href="#765" id="765" data-nosnippet="">765</a>                                    }
+<a href="#766" id="766" data-nosnippet="">766</a>                                }
+<a href="#767" id="767" data-nosnippet="">767</a>                                Cow::Owned(v)
+<a href="#768" id="768" data-nosnippet="">768</a>                            } <span class="kw">else </span>{
+<a href="#769" id="769" data-nosnippet="">769</a>                                Cow::Borrowed(raw)
+<a href="#770" id="770" data-nosnippet="">770</a>                            };
+<a href="#771" id="771" data-nosnippet="">771</a>                            el.push_attribute(Attribute { key: a.key, value });
+<a href="#772" id="772" data-nosnippet="">772</a>                            <span class="kw">continue</span>;
+<a href="#773" id="773" data-nosnippet="">773</a>                        }
+<a href="#774" id="774" data-nosnippet="">774</a>                    };
+<a href="#775" id="775" data-nosnippet="">775</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = value {
+<a href="#776" id="776" data-nosnippet="">776</a>                        el.push_attribute(Attribute { key: a.key, value: Cow::Borrowed(v) });
+<a href="#777" id="777" data-nosnippet="">777</a>                    }
+<a href="#778" id="778" data-nosnippet="">778</a>                }
+<a href="#779" id="779" data-nosnippet="">779</a>                <span class="kw">if </span><span class="macro">matches!</span>(ev, Event::Start(<span class="kw">_</span>)) { Event::Start(el) } <span class="kw">else </span>{ Event::Empty(el) }
+<a href="#780" id="780" data-nosnippet="">780</a>            }
+<a href="#781" id="781" data-nosnippet="">781</a>            ev =&gt; ev,
+<a href="#782" id="782" data-nosnippet="">782</a>        };
+<a href="#783" id="783" data-nosnippet="">783</a>        out.write_event(ev).ok()<span class="question-mark">?</span>;
+<a href="#784" id="784" data-nosnippet="">784</a>    }
+<a href="#785" id="785" data-nosnippet="">785</a>    <span class="prelude-val">Some</span>(out.into_inner())
+<a href="#786" id="786" data-nosnippet="">786</a>}
+<a href="#787" id="787" data-nosnippet="">787</a>
+<a href="#788" id="788" data-nosnippet="">788</a><span class="doccomment">/// A VML `style` with the object's size, rotation and flips, and its offset when it floats
+<a href="#789" id="789" data-nosnippet="">789</a>/// (`position:absolute`).
+<a href="#790" id="790" data-nosnippet="">790</a></span><span class="kw">fn </span>vml_style_with(style: <span class="kw-2">&amp;</span>str, w: f32, h: f32, float: <span class="kw-2">&amp;</span>Float) -&gt; String {
+<a href="#791" id="791" data-nosnippet="">791</a>    <span class="kw">let </span>absolute = style
+<a href="#792" id="792" data-nosnippet="">792</a>        .split(<span class="string">';'</span>)
+<a href="#793" id="793" data-nosnippet="">793</a>        .filter_map(|d| d.split_once(<span class="string">':'</span>))
+<a href="#794" id="794" data-nosnippet="">794</a>        .any(|(k, v)| k.trim().eq_ignore_ascii_case(<span class="string">"position"</span>) &amp;&amp; v.trim().eq_ignore_ascii_case(<span class="string">"absolute"</span>));
+<a href="#795" id="795" data-nosnippet="">795</a>    <span class="kw">let </span><span class="kw-2">mut </span>out: Vec&lt;String&gt; = style
+<a href="#796" id="796" data-nosnippet="">796</a>        .split(<span class="string">';'</span>)
+<a href="#797" id="797" data-nosnippet="">797</a>        .filter(|d| {
+<a href="#798" id="798" data-nosnippet="">798</a>            <span class="kw">let </span>key = d.split_once(<span class="string">':'</span>).map_or(<span class="string">""</span>, |(k, <span class="kw">_</span>)| k).trim().to_ascii_lowercase();
+<a href="#799" id="799" data-nosnippet="">799</a>            !(d.trim().is_empty()
+<a href="#800" id="800" data-nosnippet="">800</a>                || <span class="macro">matches!</span>(key.as_str(), <span class="string">"width" </span>| <span class="string">"height" </span>| <span class="string">"rotation" </span>| <span class="string">"flip"</span>)
+<a href="#801" id="801" data-nosnippet="">801</a>                || (absolute &amp;&amp; <span class="macro">matches!</span>(key.as_str(), <span class="string">"left" </span>| <span class="string">"top" </span>| <span class="string">"margin-left" </span>| <span class="string">"margin-top"</span>)))
+<a href="#802" id="802" data-nosnippet="">802</a>        })
+<a href="#803" id="803" data-nosnippet="">803</a>        .map(|d| d.trim().to_string())
+<a href="#804" id="804" data-nosnippet="">804</a>        .collect();
+<a href="#805" id="805" data-nosnippet="">805</a>    <span class="kw">if </span>absolute {
+<a href="#806" id="806" data-nosnippet="">806</a>        out.push(<span class="macro">format!</span>(<span class="string">"margin-left:{}pt"</span>, pt(float.x)));
+<a href="#807" id="807" data-nosnippet="">807</a>        out.push(<span class="macro">format!</span>(<span class="string">"margin-top:{}pt"</span>, pt(float.y)));
+<a href="#808" id="808" data-nosnippet="">808</a>    }
+<a href="#809" id="809" data-nosnippet="">809</a>    out.push(<span class="macro">format!</span>(<span class="string">"width:{}pt"</span>, pt(w.max(<span class="number">0.0</span>))));
+<a href="#810" id="810" data-nosnippet="">810</a>    out.push(<span class="macro">format!</span>(<span class="string">"height:{}pt"</span>, pt(h.max(<span class="number">0.0</span>))));
+<a href="#811" id="811" data-nosnippet="">811</a>    <span class="comment">// VML `rotation`: degrees clockwise; `flip`: `x` and/or `y` (as `read::story::vml_float` reads them).
+<a href="#812" id="812" data-nosnippet="">812</a>    </span><span class="kw">let </span>spin = float.spin();
+<a href="#813" id="813" data-nosnippet="">813</a>    <span class="kw">if </span>spin.deg != <span class="number">0.0 </span>{
+<a href="#814" id="814" data-nosnippet="">814</a>        out.push(<span class="macro">format!</span>(<span class="string">"rotation:{}"</span>, pt(spin.deg)));
+<a href="#815" id="815" data-nosnippet="">815</a>    }
+<a href="#816" id="816" data-nosnippet="">816</a>    <span class="kw">let </span>flip: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = [(spin.flip_h, <span class="string">"x"</span>), (spin.flip_v, <span class="string">"y"</span>)].into_iter().filter(|(on, <span class="kw">_</span>)| <span class="kw-2">*</span>on).map(|(<span class="kw">_</span>, f)| f).collect();
+<a href="#817" id="817" data-nosnippet="">817</a>    <span class="kw">if </span>!flip.is_empty() {
+<a href="#818" id="818" data-nosnippet="">818</a>        out.push(<span class="macro">format!</span>(<span class="string">"flip:{}"</span>, flip.join(<span class="string">" "</span>)));
+<a href="#819" id="819" data-nosnippet="">819</a>    }
+<a href="#820" id="820" data-nosnippet="">820</a>    out.join(<span class="string">";"</span>)
+<a href="#821" id="821" data-nosnippet="">821</a>}
+<a href="#822" id="822" data-nosnippet="">822</a>
+<a href="#823" id="823" data-nosnippet="">823</a><span class="doccomment">/// Points for a VML style: finite, bounded, at most two decimals.
+<a href="#824" id="824" data-nosnippet="">824</a></span><span class="kw">fn </span>pt(v: f32) -&gt; String {
+<a href="#825" id="825" data-nosnippet="">825</a>    <span class="kw">let </span>v = <span class="kw">crate</span>::geom::finite(v).clamp(-<span class="kw">crate</span>::docx::units::MAX_LEN_PT, <span class="kw">crate</span>::docx::units::MAX_LEN_PT);
+<a href="#826" id="826" data-nosnippet="">826</a>    <span class="kw">let </span>s = <span class="macro">format!</span>(<span class="string">"{v:.2}"</span>);
+<a href="#827" id="827" data-nosnippet="">827</a>    s.trim_end_matches(<span class="string">'0'</span>).trim_end_matches(<span class="string">'.'</span>).to_string()
+<a href="#828" id="828" data-nosnippet="">828</a>}
+<a href="#829" id="829" data-nosnippet="">829</a>
+<a href="#830" id="830" data-nosnippet="">830</a><span class="doccomment">/// `name` as a valid OPC part name: no backslashes, empty or dot segments, segments ending in a
+<a href="#831" id="831" data-nosnippet="">831</a>/// dot, or encoded separators.
+<a href="#832" id="832" data-nosnippet="">832</a></span><span class="kw">fn </span>valid_part_name(name: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href="#833" id="833" data-nosnippet="">833</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
+<a href="#834" id="834" data-nosnippet="">834</a>    <span class="kw">for </span>seg <span class="kw">in </span>name.split(<span class="string">'/'</span>) {
+<a href="#835" id="835" data-nosnippet="">835</a>        <span class="kw">let </span><span class="kw-2">mut </span>seg = seg.replace(<span class="string">'\\'</span>, <span class="string">"_"</span>);
+<a href="#836" id="836" data-nosnippet="">836</a>        <span class="kw">for </span>enc <span class="kw">in </span>[<span class="string">"%2f"</span>, <span class="string">"%5c"</span>] {
+<a href="#837" id="837" data-nosnippet="">837</a>            <span class="kw">while let </span><span class="prelude-val">Some</span>(i) = seg.to_ascii_lowercase().find(enc) {
+<a href="#838" id="838" data-nosnippet="">838</a>                seg.replace_range(i..i + <span class="number">3</span>, <span class="string">"_"</span>);
+<a href="#839" id="839" data-nosnippet="">839</a>            }
+<a href="#840" id="840" data-nosnippet="">840</a>        }
+<a href="#841" id="841" data-nosnippet="">841</a>        <span class="kw">if </span>seg.is_empty() || seg == <span class="string">"." </span>|| seg == <span class="string">".." </span>{
+<a href="#842" id="842" data-nosnippet="">842</a>            <span class="kw">continue</span>;
+<a href="#843" id="843" data-nosnippet="">843</a>        }
+<a href="#844" id="844" data-nosnippet="">844</a>        <span class="comment">// A segment can't end in a dot either (`word/a.`).
+<a href="#845" id="845" data-nosnippet="">845</a>        </span><span class="kw">if </span>seg.ends_with(<span class="string">'.'</span>) {
+<a href="#846" id="846" data-nosnippet="">846</a>            seg = <span class="macro">format!</span>(<span class="string">"{}_"</span>, seg.trim_end_matches(<span class="string">'.'</span>));
+<a href="#847" id="847" data-nosnippet="">847</a>        }
+<a href="#848" id="848" data-nosnippet="">848</a>        out.push(seg);
+<a href="#849" id="849" data-nosnippet="">849</a>    }
+<a href="#850" id="850" data-nosnippet="">850</a>    <span class="kw">if </span>out.is_empty() { <span class="string">"word/embeddings/part.xml"</span>.to_string() } <span class="kw">else </span>{ out.join(<span class="string">"/"</span>) }
+<a href="#851" id="851" data-nosnippet="">851</a>}
+<a href="#852" id="852" data-nosnippet="">852</a>
+<a href="#853" id="853" data-nosnippet="">853</a><span class="attr">#[cfg(test)]
+<a href="#854" id="854" data-nosnippet="">854</a></span><span class="kw">mod </span>tests {
+<a href="#855" id="855" data-nosnippet="">855</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#856" id="856" data-nosnippet="">856</a>
+<a href="#857" id="857" data-nosnippet="">857</a>    <span class="attr">#[test]
+<a href="#858" id="858" data-nosnippet="">858</a>    </span><span class="kw">fn </span>relationship_ids_are_collected_once_each() {
+<a href="#859" id="859" data-nosnippet="">859</a>        <span class="comment">// A native document's embedded markup skips the reader's id limit: 40,000 distinct ids
+<a href="#860" id="860" data-nosnippet="">860</a>        // (each named twice) were a scan of every id collected so far, per attribute.
+<a href="#861" id="861" data-nosnippet="">861</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>xml = String::from(
+<a href="#862" id="862" data-nosnippet="">862</a>            <span class="string">r#"&lt;w:p xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"&gt;"#</span>,
+<a href="#863" id="863" data-nosnippet="">863</a>        );
+<a href="#864" id="864" data-nosnippet="">864</a>        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">40_000 </span>{
+<a href="#865" id="865" data-nosnippet="">865</a>            xml.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">r#"&lt;w:r r:id="rId{i}"/&gt;&lt;w:r r:id="rId{i}"/&gt;"#</span>));
+<a href="#866" id="866" data-nosnippet="">866</a>        }
+<a href="#867" id="867" data-nosnippet="">867</a>        xml.push_str(<span class="string">"&lt;/w:p&gt;"</span>);
+<a href="#868" id="868" data-nosnippet="">868</a>        <span class="kw">let </span>root = xml::parse(xml.as_bytes()).unwrap();
+<a href="#869" id="869" data-nosnippet="">869</a>        <span class="kw">let </span><span class="kw-2">mut </span>used = HashSet::new();
+<a href="#870" id="870" data-nosnippet="">870</a>        rel_attr_values(<span class="kw-2">&amp;</span>root, <span class="kw-2">&amp;mut </span>used, <span class="number">0</span>);
+<a href="#871" id="871" data-nosnippet="">871</a>        <span class="macro">assert_eq!</span>(used.len(), <span class="number">40_000</span>);
+<a href="#872" id="872" data-nosnippet="">872</a>        <span class="macro">assert!</span>(used.contains(<span class="string">"rId39999"</span>));
+<a href="#873" id="873" data-nosnippet="">873</a>    }
+<a href="#874" id="874" data-nosnippet="">874</a>
+<a href="#875" id="875" data-nosnippet="">875</a>    <span class="attr">#[test]
+<a href="#876" id="876" data-nosnippet="">876</a>    </span><span class="kw">fn </span>charts_cut_to_the_limits_on_save_say_so_once() {
+<a href="#877" id="877" data-nosnippet="">877</a>        <span class="comment">// A model deserialised as is can hold more than a chart part keeps; the save left the rest
+<a href="#878" id="878" data-nosnippet="">878</a>        // out without a word (review of #3872).
+<a href="#879" id="879" data-nosnippet="">879</a>        </span><span class="kw">use </span><span class="kw">crate</span>::doc::chart::{ChartSeries, ChartSpec, ChartType, MAX_SERIES};
+<a href="#880" id="880" data-nosnippet="">880</a>        <span class="kw">use </span><span class="kw">crate</span>::doc::graphic::{Graphic, GraphicKind};
+<a href="#881" id="881" data-nosnippet="">881</a>        <span class="kw">use </span><span class="kw">crate</span>::doc::{CharProps, InlineObject, Pos};
+<a href="#882" id="882" data-nosnippet="">882</a>        <span class="kw">use </span>std::sync::Arc;
+<a href="#883" id="883" data-nosnippet="">883</a>        <span class="kw">let </span>chart = |series: usize| {
+<a href="#884" id="884" data-nosnippet="">884</a>            <span class="kw">let </span>spec = ChartSpec {
+<a href="#885" id="885" data-nosnippet="">885</a>                kind: ChartType::Column,
+<a href="#886" id="886" data-nosnippet="">886</a>                categories: <span class="macro">vec!</span>[<span class="string">"a"</span>.into(), <span class="string">"b"</span>.into()],
+<a href="#887" id="887" data-nosnippet="">887</a>                series: (<span class="number">0</span>..series).map(|i| ChartSeries { name: <span class="macro">format!</span>(<span class="string">"S{i}"</span>), values: <span class="macro">vec!</span>[<span class="prelude-val">Some</span>(<span class="number">1.0</span>); <span class="number">2</span>] }).collect(),
+<a href="#888" id="888" data-nosnippet="">888</a>                title: <span class="prelude-val">None</span>,
+<a href="#889" id="889" data-nosnippet="">889</a>                legend: <span class="prelude-val">None</span>,
+<a href="#890" id="890" data-nosnippet="">890</a>                data_labels: <span class="bool-val">false</span>,
+<a href="#891" id="891" data-nosnippet="">891</a>            };
+<a href="#892" id="892" data-nosnippet="">892</a>            <span class="kw">let </span>graphic = Graphic { kind: GraphicKind::Chart, w: <span class="number">100.0</span>, h: <span class="number">100.0</span>, chart: <span class="prelude-val">Some</span>(Arc::new(spec)), ..Default::default() };
+<a href="#893" id="893" data-nosnippet="">893</a>            InlineObject::Graphic { w: <span class="number">100.0</span>, h: <span class="number">100.0</span>, alt: String::new(), float: Default::default(), graphic: Arc::new(graphic) }
+<a href="#894" id="894" data-nosnippet="">894</a>        };
+<a href="#895" id="895" data-nosnippet="">895</a>        <span class="kw">let </span>save = |charts: Vec&lt;InlineObject&gt;| {
+<a href="#896" id="896" data-nosnippet="">896</a>            <span class="kw">let </span><span class="kw-2">mut </span>doc = <span class="kw">crate</span>::doc::Document::new();
+<a href="#897" id="897" data-nosnippet="">897</a>            <span class="kw">for </span>c <span class="kw">in </span>charts {
+<a href="#898" id="898" data-nosnippet="">898</a>                doc.insert_object(<span class="kw-2">&amp;</span>Pos::body(<span class="number">0</span>, <span class="number">0</span>), c, <span class="kw-2">&amp;</span>CharProps::default()).unwrap();
+<a href="#899" id="899" data-nosnippet="">899</a>            }
+<a href="#900" id="900" data-nosnippet="">900</a>            <span class="kw">crate</span>::docx::test_log::warnings(|| <span class="kw">crate</span>::docx::write(<span class="kw-2">&amp;</span>doc).unwrap()).<span class="number">1
+<a href="#901" id="901" data-nosnippet="">901</a>        </span>};
+<a href="#902" id="902" data-nosnippet="">902</a>        <span class="kw">let </span>cut = |w: <span class="kw-2">&amp;</span>Vec&lt;String&gt;| w.iter().filter(|w| w.contains(<span class="string">"chart"</span>)).count();
+<a href="#903" id="903" data-nosnippet="">903</a>        <span class="kw">let </span>warned = save(<span class="macro">vec!</span>[chart(MAX_SERIES + <span class="number">1</span>), chart(MAX_SERIES + <span class="number">5</span>), chart(<span class="number">2</span>)]);
+<a href="#904" id="904" data-nosnippet="">904</a>        <span class="macro">assert_eq!</span>(cut(<span class="kw-2">&amp;</span>warned), <span class="number">1</span>, <span class="string">"one warning for the save, not one per chart: {warned:?}"</span>);
+<a href="#905" id="905" data-nosnippet="">905</a>        <span class="kw">let </span>warned = save(<span class="macro">vec!</span>[chart(<span class="number">3</span>)]);
+<a href="#906" id="906" data-nosnippet="">906</a>        <span class="macro">assert_eq!</span>(cut(<span class="kw-2">&amp;</span>warned), <span class="number">0</span>, <span class="string">"nothing left out: {warned:?}"</span>);
+<a href="#907" id="907" data-nosnippet="">907</a>    }
+<a href="#908" id="908" data-nosnippet="">908</a>
+<a href="#909" id="909" data-nosnippet="">909</a>    <span class="attr">#[test]
+<a href="#910" id="910" data-nosnippet="">910</a>    </span><span class="kw">fn </span>data_part_drawing_ids_are_rewritten_once() {
+<a href="#911" id="911" data-nosnippet="">911</a>        <span class="kw">let </span>ids: HashMap&lt;String, String&gt; = [(<span class="string">"rId9"</span>.to_string(), <span class="string">"rId2"</span>.to_string()), (<span class="string">"rId2"</span>.to_string(), <span class="string">"rId3"</span>.to_string())].into_iter().collect();
+<a href="#912" id="912" data-nosnippet="">912</a>        <span class="kw">let </span>out = patch_rel_ids(<span class="string">br#"&lt;x relId="rId9"/&gt;&lt;y relId="rId2"/&gt;&lt;z relId="rId7"/&gt;&lt;w relId="unterminated"#</span>, <span class="kw-2">&amp;</span>ids);
+<a href="#913" id="913" data-nosnippet="">913</a>        <span class="macro">assert_eq!</span>(String::from_utf8(out).unwrap(), <span class="string">r#"&lt;x relId="rId2"/&gt;&lt;y relId="rId3"/&gt;&lt;z relId="rId7"/&gt;&lt;w relId="unterminated"#</span>);
+<a href="#914" id="914" data-nosnippet="">914</a>    }
+<a href="#915" id="915" data-nosnippet="">915</a>
+<a href="#916" id="916" data-nosnippet="">916</a>    <span class="attr">#[test]
+<a href="#917" id="917" data-nosnippet="">917</a>    </span><span class="kw">fn </span>vml_style_takes_the_new_size_and_offset() {
+<a href="#918" id="918" data-nosnippet="">918</a>        <span class="kw">let </span>inline = vml_style_with(<span class="string">"width:100pt;height:50pt;mso-wrap-style:square"</span>, <span class="number">120.5</span>, <span class="number">60.0</span>, <span class="kw-2">&amp;</span>Float::default());
+<a href="#919" id="919" data-nosnippet="">919</a>        <span class="macro">assert_eq!</span>(inline, <span class="string">"mso-wrap-style:square;width:120.5pt;height:60pt"</span>);
+<a href="#920" id="920" data-nosnippet="">920</a>        <span class="kw">let </span>float = Float { x: <span class="number">10.0</span>, y: <span class="number">20.25</span>, ..Float::default() };
+<a href="#921" id="921" data-nosnippet="">921</a>        <span class="kw">let </span>abs = vml_style_with(<span class="string">"position:absolute;left:5pt;margin-left:3pt;top:1pt;width:1pt;height:1pt"</span>, <span class="number">2.0</span>, <span class="number">3.0</span>, <span class="kw-2">&amp;</span>float);
+<a href="#922" id="922" data-nosnippet="">922</a>        <span class="macro">assert_eq!</span>(abs, <span class="string">"position:absolute;margin-left:10pt;margin-top:20.25pt;width:2pt;height:3pt"</span>);
+<a href="#923" id="923" data-nosnippet="">923</a>        <span class="macro">assert_eq!</span>(pt(f32::NAN), <span class="string">"0"</span>);
+<a href="#924" id="924" data-nosnippet="">924</a>    }
+<a href="#925" id="925" data-nosnippet="">925</a>
+<a href="#926" id="926" data-nosnippet="">926</a>    <span class="attr">#[test]
+<a href="#927" id="927" data-nosnippet="">927</a>    </span><span class="kw">fn </span>vml_style_takes_the_rotation_and_flips() {
+<a href="#928" id="928" data-nosnippet="">928</a>        <span class="kw">let </span><span class="kw-2">mut </span>float = Float::default();
+<a href="#929" id="929" data-nosnippet="">929</a>        float.set_spin(<span class="kw">crate</span>::geom::Spin::new(-<span class="number">30.5</span>, <span class="bool-val">true</span>, <span class="bool-val">true</span>));
+<a href="#930" id="930" data-nosnippet="">930</a>        <span class="kw">let </span>s = vml_style_with(<span class="string">"width:1pt;rotation:10;flip:x;height:1pt;z-index:3"</span>, <span class="number">2.0</span>, <span class="number">3.0</span>, <span class="kw-2">&amp;</span>float);
+<a href="#931" id="931" data-nosnippet="">931</a>        <span class="macro">assert_eq!</span>(s, <span class="string">"z-index:3;width:2pt;height:3pt;rotation:329.5;flip:x y"</span>);
+<a href="#932" id="932" data-nosnippet="">932</a>        <span class="comment">// Unturned: no rotation or flip left behind.
+<a href="#933" id="933" data-nosnippet="">933</a>        </span><span class="macro">assert_eq!</span>(vml_style_with(<span class="string">"rotation:90;flip:y;width:1pt"</span>, <span class="number">2.0</span>, <span class="number">3.0</span>, <span class="kw-2">&amp;</span>Float::default()), <span class="string">"width:2pt;height:3pt"</span>);
+<a href="#934" id="934" data-nosnippet="">934</a>    }
+<a href="#935" id="935" data-nosnippet="">935</a>
+<a href="#936" id="936" data-nosnippet="">936</a>    <span class="attr">#[test]
+<a href="#937" id="937" data-nosnippet="">937</a>    </span><span class="kw">fn </span>kept_part_names_are_valid_opc_names() {
+<a href="#938" id="938" data-nosnippet="">938</a>        <span class="kw">let </span>doc = <span class="kw">crate</span>::doc::Document::default();
+<a href="#939" id="939" data-nosnippet="">939</a>        <span class="kw">let </span><span class="kw-2">mut </span>w = EmbedWriter::new(<span class="kw-2">&amp;</span>doc);
+<a href="#940" id="940" data-nosnippet="">940</a>        <span class="kw">for </span>orig <span class="kw">in </span>[<span class="string">"word/a\\b.bin"</span>, <span class="string">"word/..\\..\\x.bin"</span>, <span class="string">"word/a/../b%2Fc.bin"</span>, <span class="string">"word/a//./b%5Cc.bin"</span>, <span class="string">"word/a./b.bin"</span>, <span class="string">"word/a..."</span>] {
+<a href="#941" id="941" data-nosnippet="">941</a>            <span class="kw">let </span>name = w.alloc(orig);
+<a href="#942" id="942" data-nosnippet="">942</a>            <span class="macro">assert!</span>(!name.contains(<span class="string">'\\'</span>), <span class="string">"{name}"</span>);
+<a href="#943" id="943" data-nosnippet="">943</a>            <span class="macro">assert!</span>(!name.to_ascii_lowercase().contains(<span class="string">"%2f"</span>) &amp;&amp; !name.to_ascii_lowercase().contains(<span class="string">"%5c"</span>), <span class="string">"{name}"</span>);
+<a href="#944" id="944" data-nosnippet="">944</a>            <span class="macro">assert!</span>(name.split(<span class="string">'/'</span>).all(|s| !s.is_empty() &amp;&amp; !s.ends_with(<span class="string">'.'</span>)), <span class="string">"{name}"</span>);
+<a href="#945" id="945" data-nosnippet="">945</a>        }
+<a href="#946" id="946" data-nosnippet="">946</a>    }
+<a href="#947" id="947" data-nosnippet="">947</a>}
+</code></pre></div></section></main></body></html>

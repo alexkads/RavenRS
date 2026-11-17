@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_BYTES","MAX_COLS","MAX_ROWS"],"enum":["Error","Value"],"fn":["r1c1_formula_to_a1","read"],"struct":["Cell","ColumnWidth","Sheet"]};

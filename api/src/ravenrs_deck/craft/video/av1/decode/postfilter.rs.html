@@ -1,0 +1,380 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>postfilter.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../../../" data-static-root-path="../../../../../../static.files/" data-current-crate="ravenrs_deck" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../../../src-files.js"></script><script defer="" src="../../../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-deck/src/craft/video/av1/decode/postfilter.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_deck/craft/video/av1/decode/postfilter.rs.html"><meta property="og:title" content="postfilter.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-deck/src/craft/video/av1/decode/postfilter.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_deck/craft/video/av1/decode/postfilter.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="postfilter.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-deck/src/craft/video/av1/decode/postfilter.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"postfilter.rs - source","description":"Source of the Rust file `crates/ravenrs-deck/src/craft/video/av1/decode/postfilter.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_deck/craft/video/av1/decode/postfilter.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_deck/craft/video/av1/decode/</div>postfilter.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! In-loop post filters run by decode_frame_wrapup: loop filter (7.14), CDEF (7.15),
+<a href="#2" id="2" data-nosnippet="">2</a>//! super-resolution upscaling (7.16) and loop restoration (7.17).
+<a href="#3" id="3" data-nosnippet="">3</a>
+<a href="#4" id="4" data-nosnippet="">4</a></span><span class="kw">use </span><span class="kw">crate</span>::craft::video::av1::decode::frame::RowBand;
+<a href="#5" id="5" data-nosnippet="">5</a><span class="kw">use </span><span class="kw">crate</span>::craft::video::av1::decode::spec_tables::{
+<a href="#6" id="6" data-nosnippet="">6</a>    GLOBAL_GLOBALMV, GLOBALMV, INTRA_FRAME, MAX_LOOP_FILTER, NEARESTMV, NUM_4X4_BLOCKS_HIGH, NUM_4X4_BLOCKS_WIDE, SEG_LVL_ALT_LF_Y_V, TX_HEIGHT,
+<a href="#7" id="7" data-nosnippet="">7</a>    TX_WIDTH,
+<a href="#8" id="8" data-nosnippet="">8</a>};
+<a href="#9" id="9" data-nosnippet="">9</a><span class="kw">use </span><span class="kw">crate</span>::craft::video::av1::decode::state::FrameState;
+<a href="#10" id="10" data-nosnippet="">10</a><span class="kw">use </span><span class="kw">crate</span>::craft::video::av1::decode::stats::{DecodeStats, Stage, Timer};
+<a href="#11" id="11" data-nosnippet="">11</a>
+<a href="#12" id="12" data-nosnippet="">12</a><span class="doccomment">/// Luma rows per band of the row-parallel filters: whole 64x64 CDEF filter blocks, and no
+<a href="#13" id="13" data-nosnippet="">13</a>/// transform block crosses a band edge.
+<a href="#14" id="14" data-nosnippet="">14</a></span><span class="kw">const </span>BAND_ROWS: usize = <span class="number">64</span>;
+<a href="#15" id="15" data-nosnippet="">15</a>
+<a href="#16" id="16" data-nosnippet="">16</a><span class="doccomment">/// The [start, end) luma rows of the bands covering `rows`: [`BAND_ROWS`] each (the last one
+<a href="#17" id="17" data-nosnippet="">17</a>/// runs to the end of the plane), or one band for everything when `pool` is sequential.
+<a href="#18" id="18" data-nosnippet="">18</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>bands(pool: <span class="kw-2">&amp;</span><span class="kw">crate</span>::craft::video::av1::decode::par::Pool, rows: usize) -&gt; Vec&lt;(usize, usize)&gt; {
+<a href="#19" id="19" data-nosnippet="">19</a>    <span class="kw">let </span>n = <span class="kw">if </span>pool.is_parallel() { rows.div_ceil(BAND_ROWS).max(<span class="number">1</span>) } <span class="kw">else </span>{ <span class="number">1 </span>};
+<a href="#20" id="20" data-nosnippet="">20</a>    (<span class="number">0</span>..n).map(|b| (b * BAND_ROWS, <span class="kw">if </span>b + <span class="number">1 </span>== n { usize::MAX } <span class="kw">else </span>{ (b + <span class="number">1</span>) * BAND_ROWS })).collect()
+<a href="#21" id="21" data-nosnippet="">21</a>}
+<a href="#22" id="22" data-nosnippet="">22</a>
+<a href="#23" id="23" data-nosnippet="">23</a><span class="doccomment">/// The post-filters run on the frame worker, each in row bands on `pool` (the result does not
+<a href="#24" id="24" data-nosnippet="">24</a>/// depend on how the bands are scheduled). `draft`: only super-resolution (which sets the
+<a href="#25" id="25" data-nosnippet="">25</a>/// output size) runs.
+<a href="#26" id="26" data-nosnippet="">26</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>apply(fs: <span class="kw-2">&amp;mut </span>FrameState, stats: <span class="kw-2">&amp;mut </span>DecodeStats, pool: <span class="kw-2">&amp;</span><span class="kw">crate</span>::craft::video::av1::decode::par::Pool, draft: bool) {
+<a href="#27" id="27" data-nosnippet="">27</a>    <span class="kw">let </span><span class="kw-2">mut </span>t = Timer::start();
+<a href="#28" id="28" data-nosnippet="">28</a>    <span class="kw">let </span>lvl = fs.fh.lf.level;
+<a href="#29" id="29" data-nosnippet="">29</a>    <span class="kw">if </span>(lvl[<span class="number">0</span>] != <span class="number">0 </span>|| lvl[<span class="number">1</span>] != <span class="number">0</span>) &amp;&amp; !draft {
+<a href="#30" id="30" data-nosnippet="">30</a>        loop_filter(fs, pool);
+<a href="#31" id="31" data-nosnippet="">31</a>    }
+<a href="#32" id="32" data-nosnippet="">32</a>    stats.add(Stage::LoopFilter, t.lap());
+<a href="#33" id="33" data-nosnippet="">33</a>    <span class="kw">let </span>cdef = <span class="kw">if </span>draft { <span class="prelude-val">None </span>} <span class="kw">else </span>{ <span class="kw">crate</span>::craft::video::av1::decode::cdef::apply(fs, pool) };
+<a href="#34" id="34" data-nosnippet="">34</a>    stats.add(Stage::Cdef, t.lap());
+<a href="#35" id="35" data-nosnippet="">35</a>    <span class="kw">let </span>(up_cur, up_cdef) = <span class="kw">if </span>fs.fh.use_superres {
+<a href="#36" id="36" data-nosnippet="">36</a>        <span class="kw">let </span>c = <span class="kw">crate</span>::craft::video::av1::decode::restoration::upscale(fs, <span class="kw-2">&amp;</span>fs.cur);
+<a href="#37" id="37" data-nosnippet="">37</a>        <span class="kw">let </span>d = cdef.as_ref().map(|f| <span class="kw">crate</span>::craft::video::av1::decode::restoration::upscale(fs, f));
+<a href="#38" id="38" data-nosnippet="">38</a>        (c, d)
+<a href="#39" id="39" data-nosnippet="">39</a>    } <span class="kw">else </span>{
+<a href="#40" id="40" data-nosnippet="">40</a>        (std::mem::take(<span class="kw-2">&amp;mut </span>fs.cur), cdef)
+<a href="#41" id="41" data-nosnippet="">41</a>    };
+<a href="#42" id="42" data-nosnippet="">42</a>    stats.add(Stage::Superres, t.lap());
+<a href="#43" id="43" data-nosnippet="">43</a>    fs.cur = <span class="kw">if </span>fs.fh.lr.uses_lr &amp;&amp; !draft {
+<a href="#44" id="44" data-nosnippet="">44</a>        <span class="kw">crate</span>::craft::video::av1::decode::restoration::loop_restoration(fs, <span class="kw-2">&amp;</span>up_cur, up_cdef.as_ref().unwrap_or(<span class="kw-2">&amp;</span>up_cur), pool)
+<a href="#45" id="45" data-nosnippet="">45</a>    } <span class="kw">else </span>{
+<a href="#46" id="46" data-nosnippet="">46</a>        up_cdef.unwrap_or(up_cur)
+<a href="#47" id="47" data-nosnippet="">47</a>    };
+<a href="#48" id="48" data-nosnippet="">48</a>    stats.add(Stage::Restoration, t.lap());
+<a href="#49" id="49" data-nosnippet="">49</a>}
+<a href="#50" id="50" data-nosnippet="">50</a>
+<a href="#51" id="51" data-nosnippet="">51</a><span class="comment">// ---------------------------------------------------------------------------------------------
+<a href="#52" id="52" data-nosnippet="">52</a>// Loop filter (7.14)
+<a href="#53" id="53" data-nosnippet="">53</a>
+<a href="#54" id="54" data-nosnippet="">54</a></span><span class="doccomment">/// Luma rows above a band that its horizontal edges read or write (p6 .. p0 of the widest
+<a href="#55" id="55" data-nosnippet="">55</a>/// filter, rounded up to whole 4x4 rows); chroma: `LF_MARGIN &gt;&gt; subsampling_y`.
+<a href="#56" id="56" data-nosnippet="">56</a></span><span class="kw">const </span>LF_MARGIN: usize = <span class="number">8</span>;
+<a href="#57" id="57" data-nosnippet="">57</a>
+<a href="#58" id="58" data-nosnippet="">58</a><span class="doccomment">/// The loop filter in row bands, all of a frame's in one parallel pass (each join costs a
+<a href="#59" id="59" data-nosnippet="">59</a>/// worker wake-up, which is slow on a busy machine).
+<a href="#60" id="60" data-nosnippet="">60</a>///
+<a href="#61" id="61" data-nosnippet="">61</a>/// Vertical edges (pass 0) only touch the 4 rows of their own edge. A horizontal edge (pass 1)
+<a href="#62" id="62" data-nosnippet="">62</a>/// reads and writes at most `filter_size / 2` samples on each side, never more than the
+<a href="#63" id="63" data-nosnippet="">63</a>/// transform blocks on either side are high, so no two edges touch the same sample and
+<a href="#64" id="64" data-nosnippet="">64</a>/// any order gives the spec's raster-order result. Transform blocks never cross a band edge, so
+<a href="#65" id="65" data-nosnippet="">65</a>/// the only edges reaching outside a band are those on its top row, whose p side lies in the
+<a href="#66" id="66" data-nosnippet="">66</a>/// band above. Each band therefore also filters the vertical edges of a copy of the
+<a href="#67" id="67" data-nosnippet="">67</a>/// `LF_MARGIN` rows above it (the same work as the band above does on them), runs its top
+<a href="#68" id="68" data-nosnippet="">68</a>/// horizontal edges against that copy, and afterwards the samples those edges changed are
+<a href="#69" id="69" data-nosnippet="">69</a>/// written back; the band above never touches them.
+<a href="#70" id="70" data-nosnippet="">70</a></span><span class="kw">fn </span>loop_filter(fs: <span class="kw-2">&amp;mut </span>FrameState, pool: <span class="kw-2">&amp;</span><span class="kw">crate</span>::craft::video::av1::decode::par::Pool) {
+<a href="#71" id="71" data-nosnippet="">71</a>    <span class="kw">let </span>luma = bands(pool, fs.fh.mi_rows <span class="kw">as </span>usize * <span class="number">4</span>);
+<a href="#72" id="72" data-nosnippet="">72</a>    <span class="kw">let </span>planes: Vec&lt;usize&gt; = (<span class="number">0</span>..fs.num_planes).filter(|<span class="kw-2">&amp;</span>p| p == <span class="number">0 </span>|| fs.fh.lf.level[<span class="number">1 </span>+ p] != <span class="number">0</span>).collect();
+<a href="#73" id="73" data-nosnippet="">73</a>    <span class="kw">let </span><span class="kw-2">mut </span>cur = std::mem::take(<span class="kw-2">&amp;mut </span>fs.cur);
+<a href="#74" id="74" data-nosnippet="">74</a>    <span class="kw">let </span>f: <span class="kw-2">&amp;</span>FrameState = fs;
+<a href="#75" id="75" data-nosnippet="">75</a>    <span class="comment">// Unfiltered copies of the rows above each band but the first.
+<a href="#76" id="76" data-nosnippet="">76</a>    </span><span class="kw">let </span>margins: Vec&lt;[Vec&lt;u16&gt;; <span class="number">3</span>]&gt; = luma
+<a href="#77" id="77" data-nosnippet="">77</a>        .iter()
+<a href="#78" id="78" data-nosnippet="">78</a>        .map(|<span class="kw-2">&amp;</span>(start, <span class="kw">_</span>)| {
+<a href="#79" id="79" data-nosnippet="">79</a>            std::array::from_fn(|p| {
+<a href="#80" id="80" data-nosnippet="">80</a>                <span class="kw">let </span>sub_y = <span class="kw">if </span>p == <span class="number">0 </span>{ <span class="number">0 </span>} <span class="kw">else </span>{ f.ssy };
+<a href="#81" id="81" data-nosnippet="">81</a>                <span class="kw">let </span>pl = <span class="kw-2">&amp;</span>cur.planes[p];
+<a href="#82" id="82" data-nosnippet="">82</a>                <span class="kw">let </span>(y0, y1) = ((start.saturating_sub(LF_MARGIN)) &gt;&gt; sub_y, start &gt;&gt; sub_y);
+<a href="#83" id="83" data-nosnippet="">83</a>                <span class="kw">let </span>rows = pl.data.get(y0 * pl.stride..y1 * pl.stride);
+<a href="#84" id="84" data-nosnippet="">84</a>                <span class="kw">if </span>start == <span class="number">0 </span>|| !planes.contains(<span class="kw-2">&amp;</span>p) { Vec::new() } <span class="kw">else </span>{ rows.map(&lt;[u16]&gt;::to_vec).unwrap_or_default() }
+<a href="#85" id="85" data-nosnippet="">85</a>            })
+<a href="#86" id="86" data-nosnippet="">86</a>        })
+<a href="#87" id="87" data-nosnippet="">87</a>        .collect();
+<a href="#88" id="88" data-nosnippet="">88</a>    <span class="kw">let </span><span class="kw-2">mut </span>bands: Vec&lt;([RowBand; <span class="number">3</span>], [Vec&lt;u16&gt;; <span class="number">3</span>])&gt; = cur.row_bands(<span class="kw-2">&amp;</span>luma).into_iter().zip(margins).collect();
+<a href="#89" id="89" data-nosnippet="">89</a>    <span class="kw">let </span>changed = pool.map_mut(<span class="kw-2">&amp;mut </span>bands, |b, (band, margin)| {
+<a href="#90" id="90" data-nosnippet="">90</a>        <span class="kw">let </span><span class="kw-2">mut </span>changed: [Vec&lt;(usize, u16)&gt;; <span class="number">3</span>] = Default::default();
+<a href="#91" id="91" data-nosnippet="">91</a>        <span class="kw">for </span><span class="kw-2">&amp;</span>p <span class="kw">in </span><span class="kw-2">&amp;</span>planes {
+<a href="#92" id="92" data-nosnippet="">92</a>            changed[p] = filter_band(f, p, luma[b], <span class="kw-2">&amp;mut </span>band[p], <span class="kw-2">&amp;mut </span>margin[p]);
+<a href="#93" id="93" data-nosnippet="">93</a>        }
+<a href="#94" id="94" data-nosnippet="">94</a>        changed
+<a href="#95" id="95" data-nosnippet="">95</a>    });
+<a href="#96" id="96" data-nosnippet="">96</a>    drop(bands);
+<a href="#97" id="97" data-nosnippet="">97</a>    <span class="kw">for </span>(<span class="kw-2">&amp;</span>(start, <span class="kw">_</span>), ch) <span class="kw">in </span>luma.iter().zip(<span class="kw-2">&amp;</span>changed) {
+<a href="#98" id="98" data-nosnippet="">98</a>        <span class="kw">for </span>(p, list) <span class="kw">in </span>ch.iter().enumerate() {
+<a href="#99" id="99" data-nosnippet="">99</a>            <span class="kw">let </span>sub_y = <span class="kw">if </span>p == <span class="number">0 </span>{ <span class="number">0 </span>} <span class="kw">else </span>{ f.ssy };
+<a href="#100" id="100" data-nosnippet="">100</a>            <span class="kw">let </span>pl = <span class="kw-2">&amp;mut </span>cur.planes[p];
+<a href="#101" id="101" data-nosnippet="">101</a>            <span class="kw">let </span>first = (start.saturating_sub(LF_MARGIN) &gt;&gt; sub_y) * pl.stride;
+<a href="#102" id="102" data-nosnippet="">102</a>            <span class="kw">for </span><span class="kw-2">&amp;</span>(i, v) <span class="kw">in </span>list {
+<a href="#103" id="103" data-nosnippet="">103</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(d) = pl.data.get_mut(first + i) {
+<a href="#104" id="104" data-nosnippet="">104</a>                    <span class="kw-2">*</span>d = v;
+<a href="#105" id="105" data-nosnippet="">105</a>                }
+<a href="#106" id="106" data-nosnippet="">106</a>            }
+<a href="#107" id="107" data-nosnippet="">107</a>        }
+<a href="#108" id="108" data-nosnippet="">108</a>    }
+<a href="#109" id="109" data-nosnippet="">109</a>    fs.cur = cur;
+<a href="#110" id="110" data-nosnippet="">110</a>}
+<a href="#111" id="111" data-nosnippet="">111</a>
+<a href="#112" id="112" data-nosnippet="">112</a><span class="doccomment">/// Both loop filter passes over the band of `plane` holding luma rows [start, end); `margin` is
+<a href="#113" id="113" data-nosnippet="">113</a>/// an unfiltered copy of the rows above the band (empty for the first band). Returns the samples
+<a href="#114" id="114" data-nosnippet="">114</a>/// of `margin` that the band's top horizontal edges changed, as (index, value).
+<a href="#115" id="115" data-nosnippet="">115</a></span><span class="kw">fn </span>filter_band(fs: <span class="kw-2">&amp;</span>FrameState, plane: usize, (start, end): (usize, usize), band: <span class="kw-2">&amp;mut </span>RowBand, margin: <span class="kw-2">&amp;mut </span>[u16]) -&gt; Vec&lt;(usize, u16)&gt; {
+<a href="#116" id="116" data-nosnippet="">116</a>    <span class="kw">let </span>mi_rows = fs.fh.mi_rows <span class="kw">as </span>usize;
+<a href="#117" id="117" data-nosnippet="">117</a>    <span class="kw">let </span>(r0, r1) = (start / <span class="number">4</span>, mi_rows.min(end / <span class="number">4</span>));
+<a href="#118" id="118" data-nosnippet="">118</a>    <span class="kw">let </span>sub_y = <span class="kw">if </span>plane == <span class="number">0 </span>{ <span class="number">0 </span>} <span class="kw">else </span>{ fs.ssy };
+<a href="#119" id="119" data-nosnippet="">119</a>    <span class="kw">let </span>edges = |band: <span class="kw-2">&amp;mut </span>RowBand, <span class="kw-2">mut </span>above: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>RowBand&gt;, pass: usize, rows: std::ops::Range&lt;usize&gt;| {
+<a href="#120" id="120" data-nosnippet="">120</a>        <span class="kw">let </span>row_step = <span class="kw">if </span>plane == <span class="number">0 </span>{ <span class="number">1 </span>} <span class="kw">else </span>{ <span class="number">1 </span>&lt;&lt; fs.ssy };
+<a href="#121" id="121" data-nosnippet="">121</a>        <span class="kw">let </span>col_step = <span class="kw">if </span>plane == <span class="number">0 </span>{ <span class="number">1 </span>} <span class="kw">else </span>{ <span class="number">1 </span>&lt;&lt; fs.ssx };
+<a href="#122" id="122" data-nosnippet="">122</a>        <span class="kw">let </span>mi_cols = fs.fh.mi_cols <span class="kw">as </span>usize;
+<a href="#123" id="123" data-nosnippet="">123</a>        <span class="kw">let </span><span class="kw-2">mut </span>row = rows.start;
+<a href="#124" id="124" data-nosnippet="">124</a>        <span class="kw">while </span>row &lt; rows.end {
+<a href="#125" id="125" data-nosnippet="">125</a>            <span class="kw">let </span><span class="kw-2">mut </span>col = <span class="number">0</span>;
+<a href="#126" id="126" data-nosnippet="">126</a>            <span class="kw">while </span>col &lt; mi_cols {
+<a href="#127" id="127" data-nosnippet="">127</a>                edge(fs, band, above.as_deref_mut(), plane, pass, row, col);
+<a href="#128" id="128" data-nosnippet="">128</a>                col += col_step;
+<a href="#129" id="129" data-nosnippet="">129</a>            }
+<a href="#130" id="130" data-nosnippet="">130</a>            row += row_step;
+<a href="#131" id="131" data-nosnippet="">131</a>        }
+<a href="#132" id="132" data-nosnippet="">132</a>    };
+<a href="#133" id="133" data-nosnippet="">133</a>    edges(band, <span class="prelude-val">None</span>, <span class="number">0</span>, r0..r1);
+<a href="#134" id="134" data-nosnippet="">134</a>    <span class="kw">if </span>margin.is_empty() {
+<a href="#135" id="135" data-nosnippet="">135</a>        edges(band, <span class="prelude-val">None</span>, <span class="number">1</span>, r0..r1);
+<a href="#136" id="136" data-nosnippet="">136</a>        <span class="kw">return </span>Vec::new();
+<a href="#137" id="137" data-nosnippet="">137</a>    }
+<a href="#138" id="138" data-nosnippet="">138</a>    <span class="kw">let </span>stride = band.stride;
+<a href="#139" id="139" data-nosnippet="">139</a>    <span class="kw">let </span>y0 = start.saturating_sub(LF_MARGIN) &gt;&gt; sub_y;
+<a href="#140" id="140" data-nosnippet="">140</a>    <span class="kw">let </span><span class="kw-2">mut </span>above = RowBand { data: margin, stride, y0 };
+<a href="#141" id="141" data-nosnippet="">141</a>    edges(<span class="kw-2">&amp;mut </span>above, <span class="prelude-val">None</span>, <span class="number">0</span>, r0.saturating_sub(LF_MARGIN / <span class="number">4</span>)..r0);
+<a href="#142" id="142" data-nosnippet="">142</a>    <span class="kw">let </span>before = above.data.to_vec();
+<a href="#143" id="143" data-nosnippet="">143</a>    edges(band, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span>above), <span class="number">1</span>, r0..r1);
+<a href="#144" id="144" data-nosnippet="">144</a>    above.data.iter().zip(<span class="kw-2">&amp;</span>before).enumerate().filter(|(<span class="kw">_</span>, (a, b))| a != b).map(|(i, (<span class="kw-2">&amp;</span>a, <span class="kw">_</span>))| (i, a)).collect()
+<a href="#145" id="145" data-nosnippet="">145</a>}
+<a href="#146" id="146" data-nosnippet="">146</a>
+<a href="#147" id="147" data-nosnippet="">147</a><span class="doccomment">/// One loop filter edge (7.14.2) at mode info position (row, col): 4 lines of samples across
+<a href="#148" id="148" data-nosnippet="">148</a>/// it. `above` holds the rows above `band` for horizontal edges on the band's top row.
+<a href="#149" id="149" data-nosnippet="">149</a></span><span class="kw">fn </span>edge(fs: <span class="kw-2">&amp;</span>FrameState, band: <span class="kw-2">&amp;mut </span>RowBand, above: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>RowBand&gt;, plane: usize, pass: usize, row: usize, col: usize) {
+<a href="#150" id="150" data-nosnippet="">150</a>    <span class="kw">let </span>(sub_x, sub_y) = <span class="kw">if </span>plane == <span class="number">0 </span>{ (<span class="number">0</span>, <span class="number">0</span>) } <span class="kw">else </span>{ (fs.ssx, fs.ssy) };
+<a href="#151" id="151" data-nosnippet="">151</a>    <span class="kw">let </span>(dx, dy) = <span class="kw">if </span>pass == <span class="number">0 </span>{ (<span class="number">1i32</span>, <span class="number">0i32</span>) } <span class="kw">else </span>{ (<span class="number">0</span>, <span class="number">1</span>) };
+<a href="#152" id="152" data-nosnippet="">152</a>    <span class="kw">let </span>x = col * <span class="number">4</span>;
+<a href="#153" id="153" data-nosnippet="">153</a>    <span class="kw">let </span>y = row * <span class="number">4</span>;
+<a href="#154" id="154" data-nosnippet="">154</a>    <span class="kw">let </span>row = row | sub_y;
+<a href="#155" id="155" data-nosnippet="">155</a>    <span class="kw">let </span>col = col | sub_x;
+<a href="#156" id="156" data-nosnippet="">156</a>    <span class="kw">let </span>on_screen = !(x &gt;= fs.fh.frame_width <span class="kw">as </span>usize || y &gt;= fs.fh.frame_height <span class="kw">as </span>usize || (pass == <span class="number">0 </span>&amp;&amp; x == <span class="number">0</span>) || (pass == <span class="number">1 </span>&amp;&amp; y == <span class="number">0</span>));
+<a href="#157" id="157" data-nosnippet="">157</a>    <span class="kw">if </span>!on_screen {
+<a href="#158" id="158" data-nosnippet="">158</a>        <span class="kw">return</span>;
+<a href="#159" id="159" data-nosnippet="">159</a>    }
+<a href="#160" id="160" data-nosnippet="">160</a>    <span class="kw">let </span>xp = x &gt;&gt; sub_x;
+<a href="#161" id="161" data-nosnippet="">161</a>    <span class="kw">let </span>yp = y &gt;&gt; sub_y;
+<a href="#162" id="162" data-nosnippet="">162</a>    <span class="kw">let </span>prev_row = row - ((dy <span class="kw">as </span>usize) &lt;&lt; sub_y);
+<a href="#163" id="163" data-nosnippet="">163</a>    <span class="kw">let </span>prev_col = col - ((dx <span class="kw">as </span>usize) &lt;&lt; sub_x);
+<a href="#164" id="164" data-nosnippet="">164</a>    <span class="kw">let </span>tx_sz = fs.lf_tx_size(plane, row &gt;&gt; sub_y, col &gt;&gt; sub_x);
+<a href="#165" id="165" data-nosnippet="">165</a>    <span class="kw">let </span>is_tx_edge = <span class="kw">if </span>pass == <span class="number">0 </span>{ xp.is_multiple_of(TX_WIDTH[tx_sz] <span class="kw">as </span>usize) } <span class="kw">else </span>{ yp.is_multiple_of(TX_HEIGHT[tx_sz] <span class="kw">as </span>usize) };
+<a href="#166" id="166" data-nosnippet="">166</a>    <span class="kw">if </span>!is_tx_edge {
+<a href="#167" id="167" data-nosnippet="">167</a>        <span class="kw">return</span>;
+<a href="#168" id="168" data-nosnippet="">168</a>    }
+<a href="#169" id="169" data-nosnippet="">169</a>    <span class="kw">let </span>mi = <span class="kw-2">&amp;</span>fs.mi;
+<a href="#170" id="170" data-nosnippet="">170</a>    <span class="kw">let </span>i = mi.idx(row, col);
+<a href="#171" id="171" data-nosnippet="">171</a>    <span class="kw">let </span>mi_size = mi.mi_size[i] <span class="kw">as </span>usize;
+<a href="#172" id="172" data-nosnippet="">172</a>    <span class="kw">let </span>plane_size = fs.plane_residual_size(mi_size, plane);
+<a href="#173" id="173" data-nosnippet="">173</a>    <span class="kw">let </span>skip = mi.skip[i];
+<a href="#174" id="174" data-nosnippet="">174</a>    <span class="kw">let </span>is_intra = mi.ref_frame[i][<span class="number">0</span>] &lt;= INTRA_FRAME <span class="kw">as </span>i8;
+<a href="#175" id="175" data-nosnippet="">175</a>    <span class="kw">let </span>is_block_edge = <span class="kw">if </span>pass == <span class="number">0 </span>{
+<a href="#176" id="176" data-nosnippet="">176</a>        xp.is_multiple_of(<span class="number">4 </span>* NUM_4X4_BLOCKS_WIDE[plane_size] <span class="kw">as </span>usize)
+<a href="#177" id="177" data-nosnippet="">177</a>    } <span class="kw">else </span>{
+<a href="#178" id="178" data-nosnippet="">178</a>        yp.is_multiple_of(<span class="number">4 </span>* NUM_4X4_BLOCKS_HIGH[plane_size] <span class="kw">as </span>usize)
+<a href="#179" id="179" data-nosnippet="">179</a>    };
+<a href="#180" id="180" data-nosnippet="">180</a>    <span class="kw">if </span>!(is_block_edge || !skip || is_intra) {
+<a href="#181" id="181" data-nosnippet="">181</a>        <span class="kw">return</span>;
+<a href="#182" id="182" data-nosnippet="">182</a>    }
+<a href="#183" id="183" data-nosnippet="">183</a>    <span class="kw">let </span>prev_tx_sz = fs.lf_tx_size(plane, prev_row &gt;&gt; sub_y, prev_col &gt;&gt; sub_x);
+<a href="#184" id="184" data-nosnippet="">184</a>    <span class="comment">// filter size (7.14.3)
+<a href="#185" id="185" data-nosnippet="">185</a>    </span><span class="kw">let </span>base_size = <span class="kw">if </span>pass == <span class="number">0 </span>{ TX_WIDTH[prev_tx_sz].min(TX_WIDTH[tx_sz]) } <span class="kw">else </span>{ TX_HEIGHT[prev_tx_sz].min(TX_HEIGHT[tx_sz]) } <span class="kw">as </span>usize;
+<a href="#186" id="186" data-nosnippet="">186</a>    <span class="kw">let </span>filter_size = <span class="kw">if </span>plane == <span class="number">0 </span>{ <span class="number">16</span>.min(base_size) } <span class="kw">else </span>{ <span class="number">8</span>.min(base_size) };
+<a href="#187" id="187" data-nosnippet="">187</a>    <span class="kw">let </span>(<span class="kw-2">mut </span>lvl, <span class="kw-2">mut </span>limit, <span class="kw-2">mut </span>blimit, <span class="kw-2">mut </span>thresh) = strength(fs, row, col, plane, pass);
+<a href="#188" id="188" data-nosnippet="">188</a>    <span class="kw">if </span>lvl == <span class="number">0 </span>{
+<a href="#189" id="189" data-nosnippet="">189</a>        (lvl, limit, blimit, thresh) = strength(fs, prev_row, prev_col, plane, pass);
+<a href="#190" id="190" data-nosnippet="">190</a>    }
+<a href="#191" id="191" data-nosnippet="">191</a>    <span class="kw">if </span>lvl == <span class="number">0 </span>{
+<a href="#192" id="192" data-nosnippet="">192</a>        <span class="kw">return</span>;
+<a href="#193" id="193" data-nosnippet="">193</a>    }
+<a href="#194" id="194" data-nosnippet="">194</a>    <span class="kw">let </span>t = LfThresh::new(limit, blimit, thresh, fs.bit_depth);
+<a href="#195" id="195" data-nosnippet="">195</a>    <span class="kw">let </span>chroma = plane &gt; <span class="number">0</span>;
+<a href="#196" id="196" data-nosnippet="">196</a>    <span class="kw">let </span>stride = band.stride;
+<a href="#197" id="197" data-nosnippet="">197</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(above) = above.filter(|<span class="kw">_</span>| pass == <span class="number">1 </span>&amp;&amp; yp == band.y0) {
+<a href="#198" id="198" data-nosnippet="">198</a>        <span class="comment">// The p side is in the rows above the band: filter each line in a copy that spans both.
+<a href="#199" id="199" data-nosnippet="">199</a>        </span><span class="kw">let </span>(n_above, n_band) = (above.data.len() / stride.max(<span class="number">1</span>), band.data.len() / stride.max(<span class="number">1</span>));
+<a href="#200" id="200" data-nosnippet="">200</a>        <span class="kw">for </span>k <span class="kw">in </span><span class="number">0</span>..<span class="number">4 </span>{
+<a href="#201" id="201" data-nosnippet="">201</a>            <span class="kw">let </span>x = xp + k;
+<a href="#202" id="202" data-nosnippet="">202</a>            <span class="kw">let </span><span class="kw-2">mut </span>line = [<span class="number">0u16</span>; <span class="number">2 </span>* LF_LINE];
+<a href="#203" id="203" data-nosnippet="">203</a>            <span class="kw">for </span>j <span class="kw">in </span><span class="number">1</span>..=n_above.min(LF_LINE) {
+<a href="#204" id="204" data-nosnippet="">204</a>                line[LF_LINE - j] = above.data[(n_above - j) * stride + x];
+<a href="#205" id="205" data-nosnippet="">205</a>            }
+<a href="#206" id="206" data-nosnippet="">206</a>            <span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..n_band.min(LF_LINE) {
+<a href="#207" id="207" data-nosnippet="">207</a>                line[LF_LINE + j] = band.data[j * stride + x];
+<a href="#208" id="208" data-nosnippet="">208</a>            }
+<a href="#209" id="209" data-nosnippet="">209</a>            sample_filter(<span class="kw-2">&amp;mut </span>line, LF_LINE, <span class="number">1</span>, chroma, filter_size, t);
+<a href="#210" id="210" data-nosnippet="">210</a>            <span class="kw">for </span>j <span class="kw">in </span><span class="number">1</span>..=n_above.min(LF_LINE) {
+<a href="#211" id="211" data-nosnippet="">211</a>                above.data[(n_above - j) * stride + x] = line[LF_LINE - j];
+<a href="#212" id="212" data-nosnippet="">212</a>            }
+<a href="#213" id="213" data-nosnippet="">213</a>            <span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..n_band.min(LF_LINE) {
+<a href="#214" id="214" data-nosnippet="">214</a>                band.data[j * stride + x] = line[LF_LINE + j];
+<a href="#215" id="215" data-nosnippet="">215</a>            }
+<a href="#216" id="216" data-nosnippet="">216</a>        }
+<a href="#217" id="217" data-nosnippet="">217</a>        <span class="kw">return</span>;
+<a href="#218" id="218" data-nosnippet="">218</a>    }
+<a href="#219" id="219" data-nosnippet="">219</a>    <span class="kw">let </span>(step, along) = <span class="kw">if </span>pass == <span class="number">0 </span>{ (<span class="number">1</span>, stride) } <span class="kw">else </span>{ (stride, <span class="number">1</span>) };
+<a href="#220" id="220" data-nosnippet="">220</a>    <span class="kw">let </span>base = (yp - band.y0) * stride + xp;
+<a href="#221" id="221" data-nosnippet="">221</a>    <span class="kw">for </span>k <span class="kw">in </span><span class="number">0</span>..<span class="number">4 </span>{
+<a href="#222" id="222" data-nosnippet="">222</a>        sample_filter(band.data, base + k * along, step, chroma, filter_size, t);
+<a href="#223" id="223" data-nosnippet="">223</a>    }
+<a href="#224" id="224" data-nosnippet="">224</a>}
+<a href="#225" id="225" data-nosnippet="">225</a>
+<a href="#226" id="226" data-nosnippet="">226</a><span class="doccomment">/// Samples on each side of an edge that the sample filter can read (at most p6 .. q6).
+<a href="#227" id="227" data-nosnippet="">227</a></span><span class="kw">const </span>LF_LINE: usize = <span class="number">8</span>;
+<a href="#228" id="228" data-nosnippet="">228</a>
+<a href="#229" id="229" data-nosnippet="">229</a><span class="doccomment">/// Adaptive filter strength (7.14.4): (lvl, limit, blimit, thresh).
+<a href="#230" id="230" data-nosnippet="">230</a></span><span class="kw">fn </span>strength(fs: <span class="kw-2">&amp;</span>FrameState, row: usize, col: usize, plane: usize, pass: usize) -&gt; (i32, i32, i32, i32) {
+<a href="#231" id="231" data-nosnippet="">231</a>    <span class="kw">let </span>mi = <span class="kw-2">&amp;</span>fs.mi;
+<a href="#232" id="232" data-nosnippet="">232</a>    <span class="kw">let </span>i = mi.idx(row, col);
+<a href="#233" id="233" data-nosnippet="">233</a>    <span class="kw">let </span>segment = mi.segment_id[i] <span class="kw">as </span>usize;
+<a href="#234" id="234" data-nosnippet="">234</a>    <span class="kw">let </span>rf = mi.ref_frame[i][<span class="number">0</span>];
+<a href="#235" id="235" data-nosnippet="">235</a>    <span class="kw">let </span>mode = mi.y_mode[i] <span class="kw">as </span>usize;
+<a href="#236" id="236" data-nosnippet="">236</a>    <span class="kw">let </span>mode_type = (mode &gt;= NEARESTMV &amp;&amp; mode != GLOBALMV &amp;&amp; mode != GLOBAL_GLOBALMV) <span class="kw">as </span>usize;
+<a href="#237" id="237" data-nosnippet="">237</a>    <span class="kw">let </span>delta_lf = <span class="kw">if </span>fs.fh.delta_lf_multi { mi.delta_lf[i][<span class="kw">if </span>plane == <span class="number">0 </span>{ pass } <span class="kw">else </span>{ plane + <span class="number">1 </span>}] } <span class="kw">else </span>{ mi.delta_lf[i][<span class="number">0</span>] } <span class="kw">as </span>i32;
+<a href="#238" id="238" data-nosnippet="">238</a>    <span class="comment">// 7.14.5
+<a href="#239" id="239" data-nosnippet="">239</a>    </span><span class="kw">let </span>idx = <span class="kw">if </span>plane == <span class="number">0 </span>{ pass } <span class="kw">else </span>{ plane + <span class="number">1 </span>};
+<a href="#240" id="240" data-nosnippet="">240</a>    <span class="kw">let </span>base = (delta_lf + fs.fh.lf.level[idx] <span class="kw">as </span>i32).clamp(<span class="number">0</span>, MAX_LOOP_FILTER <span class="kw">as </span>i32);
+<a href="#241" id="241" data-nosnippet="">241</a>    <span class="kw">let </span><span class="kw-2">mut </span>lvl_seg = base;
+<a href="#242" id="242" data-nosnippet="">242</a>    <span class="kw">let </span>feature = SEG_LVL_ALT_LF_Y_V + idx;
+<a href="#243" id="243" data-nosnippet="">243</a>    <span class="kw">if </span>fs.fh.seg.enabled &amp;&amp; fs.fh.seg.features.enabled[segment][feature] {
+<a href="#244" id="244" data-nosnippet="">244</a>        lvl_seg = (fs.fh.seg.features.data[segment][feature] + lvl_seg).clamp(<span class="number">0</span>, MAX_LOOP_FILTER <span class="kw">as </span>i32);
+<a href="#245" id="245" data-nosnippet="">245</a>    }
+<a href="#246" id="246" data-nosnippet="">246</a>    <span class="kw">if </span>fs.fh.lf.delta_enabled {
+<a href="#247" id="247" data-nosnippet="">247</a>        <span class="kw">let </span>n_shift = lvl_seg &gt;&gt; <span class="number">5</span>;
+<a href="#248" id="248" data-nosnippet="">248</a>        <span class="kw">let </span>d = <span class="kw-2">&amp;</span>fs.fh.lf.deltas;
+<a href="#249" id="249" data-nosnippet="">249</a>        <span class="kw">if </span>rf == INTRA_FRAME <span class="kw">as </span>i8 {
+<a href="#250" id="250" data-nosnippet="">250</a>            lvl_seg += d.ref_deltas[INTRA_FRAME] &lt;&lt; n_shift;
+<a href="#251" id="251" data-nosnippet="">251</a>        } <span class="kw">else if </span>rf &gt; INTRA_FRAME <span class="kw">as </span>i8 {
+<a href="#252" id="252" data-nosnippet="">252</a>            lvl_seg += (d.ref_deltas[rf <span class="kw">as </span>usize] &lt;&lt; n_shift) + (d.mode_deltas[mode_type] &lt;&lt; n_shift);
+<a href="#253" id="253" data-nosnippet="">253</a>        }
+<a href="#254" id="254" data-nosnippet="">254</a>        lvl_seg = lvl_seg.clamp(<span class="number">0</span>, MAX_LOOP_FILTER <span class="kw">as </span>i32);
+<a href="#255" id="255" data-nosnippet="">255</a>    }
+<a href="#256" id="256" data-nosnippet="">256</a>    <span class="kw">let </span>lvl = lvl_seg;
+<a href="#257" id="257" data-nosnippet="">257</a>    <span class="kw">let </span>sharp = fs.fh.lf.sharpness <span class="kw">as </span>i32;
+<a href="#258" id="258" data-nosnippet="">258</a>    <span class="kw">let </span>shift = <span class="kw">if </span>sharp &gt; <span class="number">4 </span>{
+<a href="#259" id="259" data-nosnippet="">259</a>        <span class="number">2
+<a href="#260" id="260" data-nosnippet="">260</a>    </span>} <span class="kw">else if </span>sharp &gt; <span class="number">0 </span>{
+<a href="#261" id="261" data-nosnippet="">261</a>        <span class="number">1
+<a href="#262" id="262" data-nosnippet="">262</a>    </span>} <span class="kw">else </span>{
+<a href="#263" id="263" data-nosnippet="">263</a>        <span class="number">0
+<a href="#264" id="264" data-nosnippet="">264</a>    </span>};
+<a href="#265" id="265" data-nosnippet="">265</a>    <span class="kw">let </span>limit = <span class="kw">if </span>sharp &gt; <span class="number">0 </span>{ (lvl &gt;&gt; shift).clamp(<span class="number">1</span>, <span class="number">9 </span>- sharp) } <span class="kw">else </span>{ (lvl &gt;&gt; shift).max(<span class="number">1</span>) };
+<a href="#266" id="266" data-nosnippet="">266</a>    <span class="kw">let </span>blimit = <span class="number">2 </span>* (lvl + <span class="number">2</span>) + limit;
+<a href="#267" id="267" data-nosnippet="">267</a>    <span class="kw">let </span>thresh = lvl &gt;&gt; <span class="number">4</span>;
+<a href="#268" id="268" data-nosnippet="">268</a>    (lvl, limit, blimit, thresh)
+<a href="#269" id="269" data-nosnippet="">269</a>}
+<a href="#270" id="270" data-nosnippet="">270</a>
+<a href="#271" id="271" data-nosnippet="">271</a><span class="doccomment">/// Per-edge thresholds of the sample filter, scaled to the bit depth.
+<a href="#272" id="272" data-nosnippet="">272</a></span><span class="attr">#[derive(Clone, Copy)]
+<a href="#273" id="273" data-nosnippet="">273</a></span><span class="kw">struct </span>LfThresh {
+<a href="#274" id="274" data-nosnippet="">274</a>    limit: i32,
+<a href="#275" id="275" data-nosnippet="">275</a>    blimit: i32,
+<a href="#276" id="276" data-nosnippet="">276</a>    thresh: i32,
+<a href="#277" id="277" data-nosnippet="">277</a>    <span class="doccomment">/// Flatness threshold 1 &lt;&lt; (BitDepth - 8).
+<a href="#278" id="278" data-nosnippet="">278</a>    </span>flat: i32,
+<a href="#279" id="279" data-nosnippet="">279</a>    <span class="doccomment">/// 0x80 &lt;&lt; (BitDepth - 8) and 1 &lt;&lt; (BitDepth - 1).
+<a href="#280" id="280" data-nosnippet="">280</a>    </span>off: i32,
+<a href="#281" id="281" data-nosnippet="">281</a>    half: i32,
+<a href="#282" id="282" data-nosnippet="">282</a>}
+<a href="#283" id="283" data-nosnippet="">283</a>
+<a href="#284" id="284" data-nosnippet="">284</a><span class="kw">impl </span>LfThresh {
+<a href="#285" id="285" data-nosnippet="">285</a>    <span class="kw">fn </span>new(limit: i32, blimit: i32, thresh: i32, bd: u32) -&gt; LfThresh {
+<a href="#286" id="286" data-nosnippet="">286</a>        <span class="kw">let </span>sh = bd - <span class="number">8</span>;
+<a href="#287" id="287" data-nosnippet="">287</a>        LfThresh { limit: limit &lt;&lt; sh, blimit: blimit &lt;&lt; sh, thresh: thresh &lt;&lt; sh, flat: <span class="number">1 </span>&lt;&lt; sh, off: <span class="number">0x80 </span>&lt;&lt; sh, half: <span class="number">1 </span>&lt;&lt; (bd - <span class="number">1</span>) }
+<a href="#288" id="288" data-nosnippet="">288</a>    }
+<a href="#289" id="289" data-nosnippet="">289</a>}
+<a href="#290" id="290" data-nosnippet="">290</a>
+<a href="#291" id="291" data-nosnippet="">291</a><span class="doccomment">/// Sample filtering process (7.14.6) for one line across the edge: `base` indexes q0 and
+<a href="#292" id="292" data-nosnippet="">292</a>/// `step` is the distance between samples across the edge.
+<a href="#293" id="293" data-nosnippet="">293</a></span><span class="attr">#[inline(always)]
+<a href="#294" id="294" data-nosnippet="">294</a></span><span class="kw">fn </span>sample_filter(d: <span class="kw-2">&amp;mut </span>[u16], base: usize, step: usize, chroma: bool, filter_size: usize, t: LfThresh) {
+<a href="#295" id="295" data-nosnippet="">295</a>    <span class="kw">let </span>at = |d: <span class="kw-2">&amp;</span>[u16], k: isize| -&gt; i32 { d[(base <span class="kw">as </span>isize + k * step <span class="kw">as </span>isize) <span class="kw">as </span>usize] <span class="kw">as </span>i32 };
+<a href="#296" id="296" data-nosnippet="">296</a>    <span class="kw">let </span>(q0, q1, p0, p1) = (at(d, <span class="number">0</span>), at(d, <span class="number">1</span>), at(d, -<span class="number">1</span>), at(d, -<span class="number">2</span>));
+<a href="#297" id="297" data-nosnippet="">297</a>    <span class="kw">let </span>lim = t.limit;
+<a href="#298" id="298" data-nosnippet="">298</a>    <span class="comment">// filter mask (7.14.6.2)
+<a href="#299" id="299" data-nosnippet="">299</a>    </span><span class="kw">if </span>(p1 - p0).abs() &gt; lim || (q1 - q0).abs() &gt; lim || (p0 - q0).abs() * <span class="number">2 </span>+ (p1 - q1).abs() / <span class="number">2 </span>&gt; t.blimit {
+<a href="#300" id="300" data-nosnippet="">300</a>        <span class="kw">return</span>;
+<a href="#301" id="301" data-nosnippet="">301</a>    }
+<a href="#302" id="302" data-nosnippet="">302</a>    <span class="kw">let </span>hev = (p1 - p0).abs() &gt; t.thresh || (q1 - q0).abs() &gt; t.thresh;
+<a href="#303" id="303" data-nosnippet="">303</a>    <span class="kw">let </span><span class="kw-2">mut </span>flat = <span class="bool-val">false</span>;
+<a href="#304" id="304" data-nosnippet="">304</a>    <span class="kw">if </span>filter_size &gt; <span class="number">4 </span>{
+<a href="#305" id="305" data-nosnippet="">305</a>        <span class="kw">let </span>(q2, p2) = (at(d, <span class="number">2</span>), at(d, -<span class="number">3</span>));
+<a href="#306" id="306" data-nosnippet="">306</a>        <span class="kw">if </span>(p2 - p1).abs() &gt; lim || (q2 - q1).abs() &gt; lim {
+<a href="#307" id="307" data-nosnippet="">307</a>            <span class="kw">return</span>;
+<a href="#308" id="308" data-nosnippet="">308</a>        }
+<a href="#309" id="309" data-nosnippet="">309</a>        <span class="kw">let </span>tf = t.flat;
+<a href="#310" id="310" data-nosnippet="">310</a>        flat = (p1 - p0).abs() &lt;= tf &amp;&amp; (q1 - q0).abs() &lt;= tf &amp;&amp; (p2 - p0).abs() &lt;= tf &amp;&amp; (q2 - q0).abs() &lt;= tf;
+<a href="#311" id="311" data-nosnippet="">311</a>        <span class="kw">if </span>!chroma {
+<a href="#312" id="312" data-nosnippet="">312</a>            <span class="comment">// filterLen &gt;= 8
+<a href="#313" id="313" data-nosnippet="">313</a>            </span><span class="kw">let </span>(q3, p3) = (at(d, <span class="number">3</span>), at(d, -<span class="number">4</span>));
+<a href="#314" id="314" data-nosnippet="">314</a>            <span class="kw">if </span>(p3 - p2).abs() &gt; lim || (q3 - q2).abs() &gt; lim {
+<a href="#315" id="315" data-nosnippet="">315</a>                <span class="kw">return</span>;
+<a href="#316" id="316" data-nosnippet="">316</a>            }
+<a href="#317" id="317" data-nosnippet="">317</a>            flat = flat &amp;&amp; (p3 - p0).abs() &lt;= tf &amp;&amp; (q3 - q0).abs() &lt;= tf;
+<a href="#318" id="318" data-nosnippet="">318</a>        }
+<a href="#319" id="319" data-nosnippet="">319</a>    }
+<a href="#320" id="320" data-nosnippet="">320</a>    <span class="kw">if </span>!flat {
+<a href="#321" id="321" data-nosnippet="">321</a>        <span class="comment">// narrow filter (7.14.6.3)
+<a href="#322" id="322" data-nosnippet="">322</a>        </span><span class="kw">let </span>c = |v: i32| v.clamp(-t.half, t.half - <span class="number">1</span>);
+<a href="#323" id="323" data-nosnippet="">323</a>        <span class="kw">let </span>off = t.off;
+<a href="#324" id="324" data-nosnippet="">324</a>        <span class="kw">let </span>(ps1, ps0, qs0, qs1) = (p1 - off, p0 - off, q0 - off, q1 - off);
+<a href="#325" id="325" data-nosnippet="">325</a>        <span class="kw">let </span><span class="kw-2">mut </span>filter = <span class="kw">if </span>hev { c(ps1 - qs1) } <span class="kw">else </span>{ <span class="number">0 </span>};
+<a href="#326" id="326" data-nosnippet="">326</a>        filter = c(filter + <span class="number">3 </span>* (qs0 - ps0));
+<a href="#327" id="327" data-nosnippet="">327</a>        <span class="kw">let </span>filter1 = c(filter + <span class="number">4</span>) &gt;&gt; <span class="number">3</span>;
+<a href="#328" id="328" data-nosnippet="">328</a>        <span class="kw">let </span>filter2 = c(filter + <span class="number">3</span>) &gt;&gt; <span class="number">3</span>;
+<a href="#329" id="329" data-nosnippet="">329</a>        d[base] = (c(qs0 - filter1) + off) <span class="kw">as </span>u16;
+<a href="#330" id="330" data-nosnippet="">330</a>        d[base - step] = (c(ps0 + filter2) + off) <span class="kw">as </span>u16;
+<a href="#331" id="331" data-nosnippet="">331</a>        <span class="kw">if </span>!hev {
+<a href="#332" id="332" data-nosnippet="">332</a>            <span class="kw">let </span>f = (filter1 + <span class="number">1</span>) &gt;&gt; <span class="number">1</span>;
+<a href="#333" id="333" data-nosnippet="">333</a>            d[base + step] = (c(qs1 - f) + off) <span class="kw">as </span>u16;
+<a href="#334" id="334" data-nosnippet="">334</a>            d[base - <span class="number">2 </span>* step] = (c(ps1 + f) + off) <span class="kw">as </span>u16;
+<a href="#335" id="335" data-nosnippet="">335</a>        }
+<a href="#336" id="336" data-nosnippet="">336</a>        <span class="kw">return</span>;
+<a href="#337" id="337" data-nosnippet="">337</a>    }
+<a href="#338" id="338" data-nosnippet="">338</a>    <span class="kw">if </span>chroma {
+<a href="#339" id="339" data-nosnippet="">339</a>        wide::&lt;<span class="number">2</span>, <span class="number">1</span>, <span class="number">3</span>&gt;(d, base, step);
+<a href="#340" id="340" data-nosnippet="">340</a>    } <span class="kw">else if </span>filter_size == <span class="number">8 </span>{
+<a href="#341" id="341" data-nosnippet="">341</a>        wide::&lt;<span class="number">3</span>, <span class="number">0</span>, <span class="number">3</span>&gt;(d, base, step);
+<a href="#342" id="342" data-nosnippet="">342</a>    } <span class="kw">else </span>{
+<a href="#343" id="343" data-nosnippet="">343</a>        <span class="kw">let </span>tf = t.flat;
+<a href="#344" id="344" data-nosnippet="">344</a>        <span class="kw">let </span>q0 = at(d, <span class="number">0</span>);
+<a href="#345" id="345" data-nosnippet="">345</a>        <span class="kw">let </span>p0 = at(d, -<span class="number">1</span>);
+<a href="#346" id="346" data-nosnippet="">346</a>        <span class="kw">let </span>flat2 = (<span class="number">4</span>..<span class="number">7</span>).all(|k| (at(d, k) - q0).abs() &lt;= tf &amp;&amp; (at(d, -k - <span class="number">1</span>) - p0).abs() &lt;= tf);
+<a href="#347" id="347" data-nosnippet="">347</a>        <span class="kw">if </span>flat2 { wide::&lt;<span class="number">6</span>, <span class="number">1</span>, <span class="number">4</span>&gt;(d, base, step) } <span class="kw">else </span>{ wide::&lt;<span class="number">3</span>, <span class="number">0</span>, <span class="number">3</span>&gt;(d, base, step) }
+<a href="#348" id="348" data-nosnippet="">348</a>    }
+<a href="#349" id="349" data-nosnippet="">349</a>}
+<a href="#350" id="350" data-nosnippet="">350</a>
+<a href="#351" id="351" data-nosnippet="">351</a><span class="doccomment">/// Wide filter process (7.14.6.4) with n = N, the 2-weight taps |j| &lt;= N2 and log2Size = LOG2.
+<a href="#352" id="352" data-nosnippet="">352</a></span><span class="attr">#[inline(always)]
+<a href="#353" id="353" data-nosnippet="">353</a></span><span class="kw">fn </span>wide&lt;<span class="kw">const </span>N: usize, <span class="kw">const </span>N2: usize, <span class="kw">const </span>LOG2: u32&gt;(d: <span class="kw-2">&amp;mut </span>[u16], base: usize, step: usize) {
+<a href="#354" id="354" data-nosnippet="">354</a>    <span class="comment">// v[k] = sample at offset k - (N + 1) from q0, k in 0 .. 2N + 2
+<a href="#355" id="355" data-nosnippet="">355</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>v = [<span class="number">0i32</span>; <span class="number">14</span>];
+<a href="#356" id="356" data-nosnippet="">356</a>    <span class="kw">let </span>first = base - (N + <span class="number">1</span>) * step;
+<a href="#357" id="357" data-nosnippet="">357</a>    <span class="kw">for </span>(k, x) <span class="kw">in </span>v[..<span class="number">2 </span>* N + <span class="number">2</span>].iter_mut().enumerate() {
+<a href="#358" id="358" data-nosnippet="">358</a>        <span class="kw-2">*</span>x = d[first + k * step] <span class="kw">as </span>i32;
+<a href="#359" id="359" data-nosnippet="">359</a>    }
+<a href="#360" id="360" data-nosnippet="">360</a>    <span class="comment">// e[m] = v[clamp(m - N, 0, 2N + 1)]: the clamped tap positions as one array, so
+<a href="#361" id="361" data-nosnippet="">361</a>    // F[i] = sum_{jj = 0}^{2N} e[i + 1 + jj] * (2 if |jj - N| &lt;= N2 else 1), a sliding window.
+<a href="#362" id="362" data-nosnippet="">362</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>e = [<span class="number">0i32</span>; <span class="number">25</span>];
+<a href="#363" id="363" data-nosnippet="">363</a>    <span class="kw">for </span>(m, x) <span class="kw">in </span>e[..<span class="number">4 </span>* N + <span class="number">1</span>].iter_mut().enumerate() {
+<a href="#364" id="364" data-nosnippet="">364</a>        <span class="kw-2">*</span>x = v[m.saturating_sub(N).min(<span class="number">2 </span>* N + <span class="number">1</span>)];
+<a href="#365" id="365" data-nosnippet="">365</a>    }
+<a href="#366" id="366" data-nosnippet="">366</a>    <span class="kw">let </span><span class="kw-2">mut </span>f = [<span class="number">0i32</span>; <span class="number">12</span>];
+<a href="#367" id="367" data-nosnippet="">367</a>    <span class="kw">let </span><span class="kw-2">mut </span>win: i32 = e[<span class="number">1</span>..<span class="number">2 </span>* N + <span class="number">2</span>].iter().sum();
+<a href="#368" id="368" data-nosnippet="">368</a>    <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">2 </span>* N {
+<a href="#369" id="369" data-nosnippet="">369</a>        <span class="kw">if </span>i &gt; <span class="number">0 </span>{
+<a href="#370" id="370" data-nosnippet="">370</a>            win += e[i + <span class="number">1 </span>+ <span class="number">2 </span>* N] - e[i];
+<a href="#371" id="371" data-nosnippet="">371</a>        }
+<a href="#372" id="372" data-nosnippet="">372</a>        <span class="kw">let </span>centre: i32 = e[i + <span class="number">1 </span>+ N - N2..=i + <span class="number">1 </span>+ N + N2].iter().sum();
+<a href="#373" id="373" data-nosnippet="">373</a>        f[i] = (win + centre + (<span class="number">1 </span>&lt;&lt; (LOG2 - <span class="number">1</span>))) &gt;&gt; LOG2;
+<a href="#374" id="374" data-nosnippet="">374</a>    }
+<a href="#375" id="375" data-nosnippet="">375</a>    <span class="kw">let </span>out = base - N * step;
+<a href="#376" id="376" data-nosnippet="">376</a>    <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">2 </span>* N {
+<a href="#377" id="377" data-nosnippet="">377</a>        d[out + i * step] = f[i] <span class="kw">as </span>u16;
+<a href="#378" id="378" data-nosnippet="">378</a>    }
+<a href="#379" id="379" data-nosnippet="">379</a>}
+</code></pre></div></section></main></body></html>

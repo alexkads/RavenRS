@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["COMMIT_FUNCTION","SERVER_SQL"],"enum":["HttpError"],"struct":["HttpRequest","HttpResponse","PostgrestBuilder","PostgrestDatabase","PostgrestObjectSpace","ResourceMap","SqlWords","UreqHttp"],"trait":["Http"],"type":["TokenSource"]};

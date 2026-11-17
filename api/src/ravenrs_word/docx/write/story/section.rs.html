@@ -1,0 +1,234 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>section.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="ravenrs_word" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../../src-files.js"></script><script defer="" src="../../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-word/src/docx/write/story/section.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_word/docx/write/story/section.rs.html"><meta property="og:title" content="section.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-word/src/docx/write/story/section.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_word/docx/write/story/section.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="section.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-word/src/docx/write/story/section.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"section.rs - source","description":"Source of the Rust file `crates/ravenrs-word/src/docx/write/story/section.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_word/docx/write/story/section.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_word/docx/write/story/</div>section.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="kw">use super</span>::{LineNumberRestart, NoteProps, PartRels, SectionProps, SectionStart, W, Writer, borders, n, open_change, twips};
+<a href="#2" id="2" data-nosnippet="">2</a>
+<a href="#3" id="3" data-nosnippet="">3</a><span class="kw">impl </span>Writer&lt;<span class="lifetime">'_</span>&gt; {
+<a href="#4" id="4" data-nosnippet="">4</a>    <span class="doccomment">/// The section's headers, plus the header holding only the watermark in each slot the
+<a href="#5" id="5" data-nosnippet="">5</a>    /// pages show (first page with a title page, even pages with even/odd headers) that has no
+<a href="#6" id="6" data-nosnippet="">6</a>    /// header of its own or linked from an earlier section. Sections are written in body order.
+<a href="#7" id="7" data-nosnippet="">7</a>    </span><span class="kw">fn </span>watermark_headers(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: <span class="kw-2">&amp;</span>SectionProps) -&gt; <span class="kw">crate</span>::doc::section::HeaderSet {
+<a href="#8" id="8" data-nosnippet="">8</a>        <span class="kw">let </span><span class="kw-2">mut </span>set = s.headers;
+<a href="#9" id="9" data-nosnippet="">9</a>        <span class="kw">let </span>linked = <span class="kw-2">&amp;mut </span><span class="self">self</span>.linked_headers;
+<a href="#10" id="10" data-nosnippet="">10</a>        <span class="kw">if </span><span class="self">self</span>.doc.settings.watermark.as_ref().and_then(<span class="kw">crate</span>::docx::write::watermark::text).is_some() {
+<a href="#11" id="11" data-nosnippet="">11</a>            <span class="kw">let </span>id = <span class="self">self</span>.wm_header;
+<a href="#12" id="12" data-nosnippet="">12</a>            <span class="kw">if </span>set.default.or(linked.default).is_none() {
+<a href="#13" id="13" data-nosnippet="">13</a>                set.default = <span class="prelude-val">Some</span>(id);
+<a href="#14" id="14" data-nosnippet="">14</a>            }
+<a href="#15" id="15" data-nosnippet="">15</a>            <span class="kw">if </span>s.title_page &amp;&amp; set.first.or(linked.first).is_none() {
+<a href="#16" id="16" data-nosnippet="">16</a>                set.first = <span class="prelude-val">Some</span>(id);
+<a href="#17" id="17" data-nosnippet="">17</a>            }
+<a href="#18" id="18" data-nosnippet="">18</a>            <span class="kw">if </span><span class="self">self</span>.doc.settings.even_odd_headers &amp;&amp; set.even.or(linked.even).is_none() {
+<a href="#19" id="19" data-nosnippet="">19</a>                set.even = <span class="prelude-val">Some</span>(id);
+<a href="#20" id="20" data-nosnippet="">20</a>            }
+<a href="#21" id="21" data-nosnippet="">21</a>        }
+<a href="#22" id="22" data-nosnippet="">22</a>        linked.default = set.default.or(linked.default);
+<a href="#23" id="23" data-nosnippet="">23</a>        linked.first = set.first.or(linked.first);
+<a href="#24" id="24" data-nosnippet="">24</a>        linked.even = set.even.or(linked.even);
+<a href="#25" id="25" data-nosnippet="">25</a>        set
+<a href="#26" id="26" data-nosnippet="">26</a>    }
+<a href="#27" id="27" data-nosnippet="">27</a>
+<a href="#28" id="28" data-nosnippet="">28</a>    <span class="kw">pub fn </span>sectpr(<span class="kw-2">&amp;mut </span><span class="self">self</span>, w: <span class="kw-2">&amp;mut </span>W, s: <span class="kw-2">&amp;</span>SectionProps, rels: <span class="kw-2">&amp;mut </span>PartRels) {
+<a href="#29" id="29" data-nosnippet="">29</a>        w.open(<span class="string">"w:sectPr"</span>, <span class="kw-2">&amp;</span>[]);
+<a href="#30" id="30" data-nosnippet="">30</a>        <span class="kw">let </span>headers = <span class="self">self</span>.watermark_headers(s);
+<a href="#31" id="31" data-nosnippet="">31</a>        <span class="kw">for </span>(set, footer) <span class="kw">in </span>[(<span class="kw-2">&amp;</span>headers, <span class="bool-val">false</span>), (<span class="kw-2">&amp;</span>s.footers, <span class="bool-val">true</span>)] {
+<a href="#32" id="32" data-nosnippet="">32</a>            <span class="kw">for </span>(kind, id) <span class="kw">in </span>[(<span class="string">"default"</span>, set.default), (<span class="string">"first"</span>, set.first), (<span class="string">"even"</span>, set.even)] {
+<a href="#33" id="33" data-nosnippet="">33</a>                <span class="kw">let </span><span class="prelude-val">Some</span>(id) = id <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href="#34" id="34" data-nosnippet="">34</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(rid) = <span class="self">self</span>.hf_rel(id, footer, rels) {
+<a href="#35" id="35" data-nosnippet="">35</a>                    w.empty(<span class="kw">if </span>footer { <span class="string">"w:footerReference" </span>} <span class="kw">else </span>{ <span class="string">"w:headerReference" </span>}, <span class="kw-2">&amp;</span>[(<span class="string">"w:type"</span>, kind), (<span class="string">"r:id"</span>, <span class="kw-2">&amp;</span>rid)]);
+<a href="#36" id="36" data-nosnippet="">36</a>                }
+<a href="#37" id="37" data-nosnippet="">37</a>            }
+<a href="#38" id="38" data-nosnippet="">38</a>        }
+<a href="#39" id="39" data-nosnippet="">39</a>        sectpr_body(w, s);
+<a href="#40" id="40" data-nosnippet="">40</a>        <span class="comment">// The properties before a tracked change come last (§17.13.5.32).
+<a href="#41" id="41" data-nosnippet="">41</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(ch) = <span class="kw-2">&amp;</span>s.fmt_change {
+<a href="#42" id="42" data-nosnippet="">42</a>            <span class="kw">let </span>a = <span class="self">self</span>.change_attrs(ch.rev);
+<a href="#43" id="43" data-nosnippet="">43</a>            open_change(w, <span class="string">"w:sectPrChange"</span>, <span class="kw-2">&amp;</span>a);
+<a href="#44" id="44" data-nosnippet="">44</a>            w.open(<span class="string">"w:sectPr"</span>, <span class="kw-2">&amp;</span>[]);
+<a href="#45" id="45" data-nosnippet="">45</a>            sectpr_body(w, <span class="kw-2">&amp;</span>ch.old);
+<a href="#46" id="46" data-nosnippet="">46</a>            w.close(<span class="string">"w:sectPr"</span>);
+<a href="#47" id="47" data-nosnippet="">47</a>            w.close(<span class="string">"w:sectPrChange"</span>);
+<a href="#48" id="48" data-nosnippet="">48</a>        }
+<a href="#49" id="49" data-nosnippet="">49</a>        w.close(<span class="string">"w:sectPr"</span>);
+<a href="#50" id="50" data-nosnippet="">50</a>    }
+<a href="#51" id="51" data-nosnippet="">51</a>}
+<a href="#52" id="52" data-nosnippet="">52</a>
+<a href="#53" id="53" data-nosnippet="">53</a><span class="doccomment">/// `w:sectPr` content after the header and footer references.
+<a href="#54" id="54" data-nosnippet="">54</a></span><span class="kw">fn </span>sectpr_body(w: <span class="kw-2">&amp;mut </span>W, s: <span class="kw-2">&amp;</span>SectionProps) {
+<a href="#55" id="55" data-nosnippet="">55</a>    {
+<a href="#56" id="56" data-nosnippet="">56</a>        <span class="comment">// The section's own note options come before `w:type` (ECMA-376 §17.6.17).
+<a href="#57" id="57" data-nosnippet="">57</a>        </span><span class="kw">for </span>(tag, pr) <span class="kw">in </span>[(<span class="string">"w:footnotePr"</span>, <span class="kw-2">&amp;</span>s.footnote_pr), (<span class="string">"w:endnotePr"</span>, <span class="kw-2">&amp;</span>s.endnote_pr)] {
+<a href="#58" id="58" data-nosnippet="">58</a>            <span class="kw">if </span>!pr.is_empty() {
+<a href="#59" id="59" data-nosnippet="">59</a>                w.open(tag, <span class="kw-2">&amp;</span>[]);
+<a href="#60" id="60" data-nosnippet="">60</a>                note_pr_inner(w, pr);
+<a href="#61" id="61" data-nosnippet="">61</a>                w.close(tag);
+<a href="#62" id="62" data-nosnippet="">62</a>            }
+<a href="#63" id="63" data-nosnippet="">63</a>        }
+<a href="#64" id="64" data-nosnippet="">64</a>        <span class="kw">let </span>start = <span class="kw">match </span>s.start {
+<a href="#65" id="65" data-nosnippet="">65</a>            SectionStart::NextPage =&gt; <span class="string">"nextPage"</span>,
+<a href="#66" id="66" data-nosnippet="">66</a>            SectionStart::Continuous =&gt; <span class="string">"continuous"</span>,
+<a href="#67" id="67" data-nosnippet="">67</a>            SectionStart::EvenPage =&gt; <span class="string">"evenPage"</span>,
+<a href="#68" id="68" data-nosnippet="">68</a>            SectionStart::OddPage =&gt; <span class="string">"oddPage"</span>,
+<a href="#69" id="69" data-nosnippet="">69</a>            SectionStart::NextColumn =&gt; <span class="string">"nextColumn"</span>,
+<a href="#70" id="70" data-nosnippet="">70</a>        };
+<a href="#71" id="71" data-nosnippet="">71</a>        w.val(<span class="string">"w:type"</span>, start);
+<a href="#72" id="72" data-nosnippet="">72</a>        <span class="kw">let </span>(pw, ph) = (s.page_w.clamp(<span class="number">36.0</span>, <span class="kw">crate</span>::docx::units::MAX_LEN_PT), s.page_h.clamp(<span class="number">36.0</span>, <span class="kw">crate</span>::docx::units::MAX_LEN_PT));
+<a href="#73" id="73" data-nosnippet="">73</a>        <span class="kw">if </span>s.landscape {
+<a href="#74" id="74" data-nosnippet="">74</a>            w.empty(<span class="string">"w:pgSz"</span>, <span class="kw-2">&amp;</span>[(<span class="string">"w:w"</span>, <span class="kw-2">&amp;</span>twips(pw)), (<span class="string">"w:h"</span>, <span class="kw-2">&amp;</span>twips(ph)), (<span class="string">"w:orient"</span>, <span class="string">"landscape"</span>)]);
+<a href="#75" id="75" data-nosnippet="">75</a>        } <span class="kw">else </span>{
+<a href="#76" id="76" data-nosnippet="">76</a>            w.empty(<span class="string">"w:pgSz"</span>, <span class="kw-2">&amp;</span>[(<span class="string">"w:w"</span>, <span class="kw-2">&amp;</span>twips(pw)), (<span class="string">"w:h"</span>, <span class="kw-2">&amp;</span>twips(ph))]);
+<a href="#77" id="77" data-nosnippet="">77</a>        }
+<a href="#78" id="78" data-nosnippet="">78</a>        w.empty(
+<a href="#79" id="79" data-nosnippet="">79</a>            <span class="string">"w:pgMar"</span>,
+<a href="#80" id="80" data-nosnippet="">80</a>            <span class="kw-2">&amp;</span>[
+<a href="#81" id="81" data-nosnippet="">81</a>                (<span class="string">"w:top"</span>, <span class="kw-2">&amp;</span>twips(s.margin_top)),
+<a href="#82" id="82" data-nosnippet="">82</a>                (<span class="string">"w:right"</span>, <span class="kw-2">&amp;</span>twips(s.margin_right.max(<span class="number">0.0</span>))),
+<a href="#83" id="83" data-nosnippet="">83</a>                (<span class="string">"w:bottom"</span>, <span class="kw-2">&amp;</span>twips(s.margin_bottom)),
+<a href="#84" id="84" data-nosnippet="">84</a>                (<span class="string">"w:left"</span>, <span class="kw-2">&amp;</span>twips(s.margin_left.max(<span class="number">0.0</span>))),
+<a href="#85" id="85" data-nosnippet="">85</a>                (<span class="string">"w:header"</span>, <span class="kw-2">&amp;</span>twips(s.header.max(<span class="number">0.0</span>))),
+<a href="#86" id="86" data-nosnippet="">86</a>                (<span class="string">"w:footer"</span>, <span class="kw-2">&amp;</span>twips(s.footer.max(<span class="number">0.0</span>))),
+<a href="#87" id="87" data-nosnippet="">87</a>                (<span class="string">"w:gutter"</span>, <span class="kw-2">&amp;</span>twips(s.gutter.max(<span class="number">0.0</span>))),
+<a href="#88" id="88" data-nosnippet="">88</a>            ],
+<a href="#89" id="89" data-nosnippet="">89</a>        );
+<a href="#90" id="90" data-nosnippet="">90</a>        paper_source(w, s);
+<a href="#91" id="91" data-nosnippet="">91</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(b) = <span class="kw-2">&amp;</span>s.page_borders {
+<a href="#92" id="92" data-nosnippet="">92</a>            borders(w, <span class="string">"w:pgBorders"</span>, b, <span class="prelude-val">None</span>, <span class="kw-2">&amp;</span>[(<span class="string">"w:offsetFrom"</span>, <span class="string">"text"</span>)]);
+<a href="#93" id="93" data-nosnippet="">93</a>        }
+<a href="#94" id="94" data-nosnippet="">94</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(l) = <span class="kw-2">&amp;</span>s.line_numbers {
+<a href="#95" id="95" data-nosnippet="">95</a>            <span class="kw">let </span>restart = <span class="kw">match </span>l.restart {
+<a href="#96" id="96" data-nosnippet="">96</a>                LineNumberRestart::Page =&gt; <span class="string">"newPage"</span>,
+<a href="#97" id="97" data-nosnippet="">97</a>                LineNumberRestart::Section =&gt; <span class="string">"newSection"</span>,
+<a href="#98" id="98" data-nosnippet="">98</a>                LineNumberRestart::Continuous =&gt; <span class="string">"continuous"</span>,
+<a href="#99" id="99" data-nosnippet="">99</a>            };
+<a href="#100" id="100" data-nosnippet="">100</a>            <span class="kw">let </span><span class="kw-2">mut </span>a = <span class="macro">vec!</span>[
+<a href="#101" id="101" data-nosnippet="">101</a>                (<span class="string">"w:countBy"</span>, n(l.count_by.clamp(<span class="number">1</span>, <span class="number">100</span>) <span class="kw">as </span>i64)),
+<a href="#102" id="102" data-nosnippet="">102</a>                (<span class="string">"w:start"</span>, n(l.start.saturating_sub(<span class="number">1</span>).min(<span class="number">32_767</span>) <span class="kw">as </span>i64)),
+<a href="#103" id="103" data-nosnippet="">103</a>                (<span class="string">"w:restart"</span>, restart.to_string()),
+<a href="#104" id="104" data-nosnippet="">104</a>            ];
+<a href="#105" id="105" data-nosnippet="">105</a>            <span class="kw">if </span>l.distance &gt; <span class="number">0.0 </span>{
+<a href="#106" id="106" data-nosnippet="">106</a>                a.push((<span class="string">"w:distance"</span>, twips(l.distance)));
+<a href="#107" id="107" data-nosnippet="">107</a>            }
+<a href="#108" id="108" data-nosnippet="">108</a>            <span class="kw">let </span>refs: Vec&lt;(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str)&gt; = a.iter().map(|(k, v)| (<span class="kw-2">*</span>k, v.as_str())).collect();
+<a href="#109" id="109" data-nosnippet="">109</a>            w.empty(<span class="string">"w:lnNumType"</span>, <span class="kw-2">&amp;</span>refs);
+<a href="#110" id="110" data-nosnippet="">110</a>        }
+<a href="#111" id="111" data-nosnippet="">111</a>        page_number_type(w, s);
+<a href="#112" id="112" data-nosnippet="">112</a>        <span class="kw">let </span>c = <span class="kw-2">&amp;</span>s.columns;
+<a href="#113" id="113" data-nosnippet="">113</a>        <span class="kw">let </span>count = c.count.clamp(<span class="number">1</span>, <span class="number">45</span>);
+<a href="#114" id="114" data-nosnippet="">114</a>        <span class="kw">let </span><span class="kw-2">mut </span>ca = <span class="macro">vec!</span>[(<span class="string">"w:space"</span>, twips(c.space.max(<span class="number">0.0</span>))), (<span class="string">"w:num"</span>, n(count <span class="kw">as </span>i64))];
+<a href="#115" id="115" data-nosnippet="">115</a>        <span class="kw">if </span>c.separator {
+<a href="#116" id="116" data-nosnippet="">116</a>            ca.push((<span class="string">"w:sep"</span>, <span class="string">"1"</span>.into()));
+<a href="#117" id="117" data-nosnippet="">117</a>        }
+<a href="#118" id="118" data-nosnippet="">118</a>        <span class="kw">let </span>unequal = !c.widths.is_empty() &amp;&amp; c.widths.len() == count <span class="kw">as </span>usize;
+<a href="#119" id="119" data-nosnippet="">119</a>        <span class="kw">if </span>unequal {
+<a href="#120" id="120" data-nosnippet="">120</a>            ca.push((<span class="string">"w:equalWidth"</span>, <span class="string">"0"</span>.into()));
+<a href="#121" id="121" data-nosnippet="">121</a>            <span class="kw">let </span>refs: Vec&lt;(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str)&gt; = ca.iter().map(|(k, v)| (<span class="kw-2">*</span>k, v.as_str())).collect();
+<a href="#122" id="122" data-nosnippet="">122</a>            w.open(<span class="string">"w:cols"</span>, <span class="kw-2">&amp;</span>refs);
+<a href="#123" id="123" data-nosnippet="">123</a>            <span class="kw">for </span>(cw, sp) <span class="kw">in </span><span class="kw-2">&amp;</span>c.widths {
+<a href="#124" id="124" data-nosnippet="">124</a>                w.empty(<span class="string">"w:col"</span>, <span class="kw-2">&amp;</span>[(<span class="string">"w:w"</span>, <span class="kw-2">&amp;</span>twips(cw.max(<span class="number">0.0</span>))), (<span class="string">"w:space"</span>, <span class="kw-2">&amp;</span>twips(sp.max(<span class="number">0.0</span>)))]);
+<a href="#125" id="125" data-nosnippet="">125</a>            }
+<a href="#126" id="126" data-nosnippet="">126</a>            w.close(<span class="string">"w:cols"</span>);
+<a href="#127" id="127" data-nosnippet="">127</a>        } <span class="kw">else </span>{
+<a href="#128" id="128" data-nosnippet="">128</a>            <span class="kw">let </span>refs: Vec&lt;(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str)&gt; = ca.iter().map(|(k, v)| (<span class="kw-2">*</span>k, v.as_str())).collect();
+<a href="#129" id="129" data-nosnippet="">129</a>            w.empty(<span class="string">"w:cols"</span>, <span class="kw-2">&amp;</span>refs);
+<a href="#130" id="130" data-nosnippet="">130</a>        }
+<a href="#131" id="131" data-nosnippet="">131</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(count) = s.footnote_columns.filter(|count| <span class="kw-2">*</span>count &gt; <span class="number">0</span>) {
+<a href="#132" id="132" data-nosnippet="">132</a>            w.empty(<span class="string">"w15:footnoteColumns"</span>, <span class="kw-2">&amp;</span>[(<span class="string">"w:val"</span>, <span class="kw-2">&amp;</span>count.clamp(<span class="number">1</span>, <span class="number">45</span>).to_string())]);
+<a href="#133" id="133" data-nosnippet="">133</a>        }
+<a href="#134" id="134" data-nosnippet="">134</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(on) = s.form_prot {
+<a href="#135" id="135" data-nosnippet="">135</a>            w.empty(<span class="string">"w:formProt"</span>, <span class="kw">if </span>on { <span class="kw-2">&amp;</span>[] } <span class="kw">else </span>{ <span class="kw-2">&amp;</span>[(<span class="string">"w:val"</span>, <span class="string">"0"</span>)] });
+<a href="#136" id="136" data-nosnippet="">136</a>        }
+<a href="#137" id="137" data-nosnippet="">137</a>        <span class="kw">match </span>s.valign {
+<a href="#138" id="138" data-nosnippet="">138</a>            <span class="kw">crate</span>::doc::section::PageVAlign::Top =&gt; {}
+<a href="#139" id="139" data-nosnippet="">139</a>            <span class="kw">crate</span>::doc::section::PageVAlign::Center =&gt; w.val(<span class="string">"w:vAlign"</span>, <span class="string">"center"</span>),
+<a href="#140" id="140" data-nosnippet="">140</a>            <span class="kw">crate</span>::doc::section::PageVAlign::Justify =&gt; w.val(<span class="string">"w:vAlign"</span>, <span class="string">"both"</span>),
+<a href="#141" id="141" data-nosnippet="">141</a>            <span class="kw">crate</span>::doc::section::PageVAlign::Bottom =&gt; w.val(<span class="string">"w:vAlign"</span>, <span class="string">"bottom"</span>),
+<a href="#142" id="142" data-nosnippet="">142</a>        }
+<a href="#143" id="143" data-nosnippet="">143</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(on) = s.no_endnote {
+<a href="#144" id="144" data-nosnippet="">144</a>            w.empty(<span class="string">"w:noEndnote"</span>, <span class="kw">if </span>on { <span class="kw-2">&amp;</span>[] } <span class="kw">else </span>{ <span class="kw-2">&amp;</span>[(<span class="string">"w:val"</span>, <span class="string">"0"</span>)] });
+<a href="#145" id="145" data-nosnippet="">145</a>        }
+<a href="#146" id="146" data-nosnippet="">146</a>        <span class="kw">if </span>s.title_page {
+<a href="#147" id="147" data-nosnippet="">147</a>            w.empty(<span class="string">"w:titlePg"</span>, <span class="kw-2">&amp;</span>[]);
+<a href="#148" id="148" data-nosnippet="">148</a>        }
+<a href="#149" id="149" data-nosnippet="">149</a>        <span class="kw">if </span>s.text_direction.is_turned() || s.text_direction_set {
+<a href="#150" id="150" data-nosnippet="">150</a>            w.val(<span class="string">"w:textDirection"</span>, s.text_direction.ooxml());
+<a href="#151" id="151" data-nosnippet="">151</a>        }
+<a href="#152" id="152" data-nosnippet="">152</a>        <span class="kw">if </span>s.rtl {
+<a href="#153" id="153" data-nosnippet="">153</a>            w.empty(<span class="string">"w:bidi"</span>, <span class="kw-2">&amp;</span>[]);
+<a href="#154" id="154" data-nosnippet="">154</a>        }
+<a href="#155" id="155" data-nosnippet="">155</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(g) = <span class="kw-2">&amp;</span>s.doc_grid {
+<a href="#156" id="156" data-nosnippet="">156</a>            <span class="kw">let </span><span class="kw-2">mut </span>a = <span class="macro">vec!</span>[(<span class="string">"w:linePitch"</span>, twips(g.line_pitch()))];
+<a href="#157" id="157" data-nosnippet="">157</a>            <span class="kw">if </span>g.kind != <span class="kw">crate</span>::doc::section::DocGridType::Default {
+<a href="#158" id="158" data-nosnippet="">158</a>                a.insert(<span class="number">0</span>, (<span class="string">"w:type"</span>, g.kind.ooxml().to_string()));
+<a href="#159" id="159" data-nosnippet="">159</a>            }
+<a href="#160" id="160" data-nosnippet="">160</a>            <span class="kw">if </span>g.char_space != <span class="number">0 </span>{
+<a href="#161" id="161" data-nosnippet="">161</a>                <span class="kw">let </span>cs = g.char_space.clamp(-<span class="kw">crate</span>::doc::section::MAX_CHAR_SPACE, <span class="kw">crate</span>::doc::section::MAX_CHAR_SPACE);
+<a href="#162" id="162" data-nosnippet="">162</a>                a.push((<span class="string">"w:charSpace"</span>, n(cs <span class="kw">as </span>i64)));
+<a href="#163" id="163" data-nosnippet="">163</a>            }
+<a href="#164" id="164" data-nosnippet="">164</a>            <span class="kw">let </span>refs: Vec&lt;(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str)&gt; = a.iter().map(|(k, v)| (<span class="kw-2">*</span>k, v.as_str())).collect();
+<a href="#165" id="165" data-nosnippet="">165</a>            w.empty(<span class="string">"w:docGrid"</span>, <span class="kw-2">&amp;</span>refs);
+<a href="#166" id="166" data-nosnippet="">166</a>        }
+<a href="#167" id="167" data-nosnippet="">167</a>    }
+<a href="#168" id="168" data-nosnippet="">168</a>}
+<a href="#169" id="169" data-nosnippet="">169</a>
+<a href="#170" id="170" data-nosnippet="">170</a><span class="kw">fn </span>paper_source(w: <span class="kw-2">&amp;mut </span>W, s: <span class="kw-2">&amp;</span>SectionProps) {
+<a href="#171" id="171" data-nosnippet="">171</a>    <span class="kw">let </span><span class="kw-2">mut </span>attrs = Vec::new();
+<a href="#172" id="172" data-nosnippet="">172</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(first) = s.paper_src_first {
+<a href="#173" id="173" data-nosnippet="">173</a>        attrs.push((<span class="string">"w:first"</span>, first.to_string()));
+<a href="#174" id="174" data-nosnippet="">174</a>    }
+<a href="#175" id="175" data-nosnippet="">175</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(other) = s.paper_src_other {
+<a href="#176" id="176" data-nosnippet="">176</a>        attrs.push((<span class="string">"w:other"</span>, other.to_string()));
+<a href="#177" id="177" data-nosnippet="">177</a>    }
+<a href="#178" id="178" data-nosnippet="">178</a>    <span class="kw">if </span>!attrs.is_empty() {
+<a href="#179" id="179" data-nosnippet="">179</a>        <span class="kw">let </span>refs: Vec&lt;(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str)&gt; = attrs.iter().map(|(k, v)| (<span class="kw-2">*</span>k, v.as_str())).collect();
+<a href="#180" id="180" data-nosnippet="">180</a>        w.empty(<span class="string">"w:paperSrc"</span>, <span class="kw-2">&amp;</span>refs);
+<a href="#181" id="181" data-nosnippet="">181</a>    }
+<a href="#182" id="182" data-nosnippet="">182</a>}
+<a href="#183" id="183" data-nosnippet="">183</a>
+<a href="#184" id="184" data-nosnippet="">184</a><span class="kw">fn </span>page_number_type(w: <span class="kw-2">&amp;mut </span>W, s: <span class="kw-2">&amp;</span>SectionProps) {
+<a href="#185" id="185" data-nosnippet="">185</a>    <span class="kw">if </span>!(s.page_num_set
+<a href="#186" id="186" data-nosnippet="">186</a>        || s.page_num_start.is_some()
+<a href="#187" id="187" data-nosnippet="">187</a>        || s.page_num_format != <span class="kw">crate</span>::doc::section::NumFormat::Decimal
+<a href="#188" id="188" data-nosnippet="">188</a>        || s.chapter_style.is_some()
+<a href="#189" id="189" data-nosnippet="">189</a>        || s.chapter_sep.is_some())
+<a href="#190" id="190" data-nosnippet="">190</a>    {
+<a href="#191" id="191" data-nosnippet="">191</a>        <span class="kw">return</span>;
+<a href="#192" id="192" data-nosnippet="">192</a>    }
+<a href="#193" id="193" data-nosnippet="">193</a>    <span class="kw">let </span><span class="kw-2">mut </span>attrs = <span class="macro">vec!</span>[(<span class="string">"w:fmt"</span>, s.page_num_format.ooxml().to_string())];
+<a href="#194" id="194" data-nosnippet="">194</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(start) = s.page_num_start {
+<a href="#195" id="195" data-nosnippet="">195</a>        attrs.push((<span class="string">"w:start"</span>, start.to_string()));
+<a href="#196" id="196" data-nosnippet="">196</a>    }
+<a href="#197" id="197" data-nosnippet="">197</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(style) = s.chapter_style {
+<a href="#198" id="198" data-nosnippet="">198</a>        attrs.push((<span class="string">"w:chapStyle"</span>, style.to_string()));
+<a href="#199" id="199" data-nosnippet="">199</a>    }
+<a href="#200" id="200" data-nosnippet="">200</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(separator) = s.chapter_sep {
+<a href="#201" id="201" data-nosnippet="">201</a>        attrs.push((<span class="string">"w:chapSep"</span>, separator.ooxml().to_string()));
+<a href="#202" id="202" data-nosnippet="">202</a>    }
+<a href="#203" id="203" data-nosnippet="">203</a>    <span class="kw">let </span>refs: Vec&lt;(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str)&gt; = attrs.iter().map(|(k, v)| (<span class="kw-2">*</span>k, v.as_str())).collect();
+<a href="#204" id="204" data-nosnippet="">204</a>    w.empty(<span class="string">"w:pgNumType"</span>, <span class="kw-2">&amp;</span>refs);
+<a href="#205" id="205" data-nosnippet="">205</a>}
+<a href="#206" id="206" data-nosnippet="">206</a>
+<a href="#207" id="207" data-nosnippet="">207</a><span class="doccomment">/// The children of a `w:footnotePr` / `w:endnotePr` in schema order (`w:pos`, `w:numFmt`,
+<a href="#208" id="208" data-nosnippet="">208</a>/// `w:numStart`, `w:numRestart`; ECMA-376 §17.11.11), for the fields that are set.
+<a href="#209" id="209" data-nosnippet="">209</a></span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">super</span>::<span class="kw">super</span>) <span class="kw">fn </span>note_pr_inner(w: <span class="kw-2">&amp;mut </span>W, pr: <span class="kw-2">&amp;</span>NoteProps) {
+<a href="#210" id="210" data-nosnippet="">210</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(p) = pr.pos {
+<a href="#211" id="211" data-nosnippet="">211</a>        w.val(<span class="string">"w:pos"</span>, p.ooxml());
+<a href="#212" id="212" data-nosnippet="">212</a>    }
+<a href="#213" id="213" data-nosnippet="">213</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(f) = pr.num_fmt {
+<a href="#214" id="214" data-nosnippet="">214</a>        w.val(<span class="string">"w:numFmt"</span>, f.ooxml());
+<a href="#215" id="215" data-nosnippet="">215</a>    }
+<a href="#216" id="216" data-nosnippet="">216</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(n) = pr.num_start {
+<a href="#217" id="217" data-nosnippet="">217</a>        w.val(<span class="string">"w:numStart"</span>, <span class="kw-2">&amp;</span>n.clamp(<span class="number">1</span>, <span class="kw">crate</span>::doc::section::MAX_NOTE_START).to_string());
+<a href="#218" id="218" data-nosnippet="">218</a>    }
+<a href="#219" id="219" data-nosnippet="">219</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = pr.num_restart {
+<a href="#220" id="220" data-nosnippet="">220</a>        w.val(<span class="string">"w:numRestart"</span>, r.ooxml());
+<a href="#221" id="221" data-nosnippet="">221</a>    }
+<a href="#222" id="222" data-nosnippet="">222</a>}
+<a href="#223" id="223" data-nosnippet="">223</a>
+<a href="#224" id="224" data-nosnippet="">224</a><span class="doccomment">/// The character style for comment reference marks: the document's "annotation reference" style
+<a href="#225" id="225" data-nosnippet="">225</a>/// (Word's built-in name; localized documents give it another id, e.g. Polish
+<a href="#226" id="226" data-nosnippet="">226</a>/// `Odwoaniedokomentarza`), else `CommentReference`.
+<a href="#227" id="227" data-nosnippet="">227</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>comment_reference_style(doc: <span class="kw-2">&amp;</span><span class="kw">crate</span>::doc::Document) -&gt; <span class="kw-2">&amp;</span>str {
+<a href="#228" id="228" data-nosnippet="">228</a>    doc.styles
+<a href="#229" id="229" data-nosnippet="">229</a>        .styles
+<a href="#230" id="230" data-nosnippet="">230</a>        .iter()
+<a href="#231" id="231" data-nosnippet="">231</a>        .find(|s| s.kind == <span class="kw">crate</span>::doc::styles::StyleKind::Character &amp;&amp; s.name.eq_ignore_ascii_case(<span class="string">"annotation reference"</span>))
+<a href="#232" id="232" data-nosnippet="">232</a>        .map_or(<span class="string">"CommentReference"</span>, |s| s.id.as_str())
+<a href="#233" id="233" data-nosnippet="">233</a>}
+</code></pre></div></section></main></body></html>

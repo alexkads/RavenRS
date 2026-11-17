@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["decimal_separator","format_number","parse_number"]};

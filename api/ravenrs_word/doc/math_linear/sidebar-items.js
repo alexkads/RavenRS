@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["FUNCTION_NAMES","PLACEHOLDER"],"fn":["closer","is_combining","map_args","parse","strip_parens"]};

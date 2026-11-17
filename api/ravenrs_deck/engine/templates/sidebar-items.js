@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["build","find","matching","starters"],"struct":["SlideSeed","Starter"]};

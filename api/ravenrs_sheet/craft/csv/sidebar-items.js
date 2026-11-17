@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["decode_text","field_len","parse_records","push_field","records","sniff_delimiter"],"mod":["sylk"]};

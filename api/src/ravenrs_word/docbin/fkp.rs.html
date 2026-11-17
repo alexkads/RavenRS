@@ -1,0 +1,148 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>fkp.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="ravenrs_word" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../src-files.js"></script><script defer="" src="../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-word/src/docbin/fkp.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_word/docbin/fkp.rs.html"><meta property="og:title" content="fkp.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-word/src/docbin/fkp.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_word/docbin/fkp.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="fkp.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-word/src/docbin/fkp.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"fkp.rs - source","description":"Source of the Rust file `crates/ravenrs-word/src/docbin/fkp.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_word/docbin/fkp.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_word/docbin/</div>fkp.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! Character and paragraph formatting lookup: the bin tables (`PlcBteChpx`/`PlcBtePapx`) in
+<a href="#2" id="2" data-nosnippet="">2</a>//! the Table stream point at 512-byte FKP pages in the WordDocument stream, which map FC
+<a href="#3" id="3" data-nosnippet="">3</a>//! ranges to CHPX (grpprls) and PAPX (istd + grpprl) ([MS-DOC] §2.4.6.1/2.4.6.2).
+<a href="#4" id="4" data-nosnippet="">4</a>
+<a href="#5" id="5" data-nosnippet="">5</a></span><span class="kw">use </span><span class="kw">crate</span>::docbin::DocbinError;
+<a href="#6" id="6" data-nosnippet="">6</a>
+<a href="#7" id="7" data-nosnippet="">7</a><span class="doccomment">/// Largest bin table (entries) we accept.
+<a href="#8" id="8" data-nosnippet="">8</a></span><span class="kw">const </span>MAX_BINS: usize = <span class="number">100_000</span>;
+<a href="#9" id="9" data-nosnippet="">9</a>
+<a href="#10" id="10" data-nosnippet="">10</a><span class="doccomment">/// A Chpx grpprl and the FCs `[lo, hi)` for which it is the one [`Bins::chpx`] returns.
+<a href="#11" id="11" data-nosnippet="">11</a></span><span class="attr">#[derive(Clone, Copy)]
+<a href="#12" id="12" data-nosnippet="">12</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>ChpxRun&lt;<span class="lifetime">'w</span>&gt; {
+<a href="#13" id="13" data-nosnippet="">13</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) grpprl: <span class="kw-2">&amp;</span><span class="lifetime">'w </span>[u8],
+<a href="#14" id="14" data-nosnippet="">14</a>    lo: u32,
+<a href="#15" id="15" data-nosnippet="">15</a>    hi: u32,
+<a href="#16" id="16" data-nosnippet="">16</a>}
+<a href="#17" id="17" data-nosnippet="">17</a>
+<a href="#18" id="18" data-nosnippet="">18</a><span class="kw">impl </span>ChpxRun&lt;<span class="lifetime">'_</span>&gt; {
+<a href="#19" id="19" data-nosnippet="">19</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>contains(<span class="kw-2">&amp;</span><span class="self">self</span>, fc: u32) -&gt; bool {
+<a href="#20" id="20" data-nosnippet="">20</a>        <span class="self">self</span>.lo &lt;= fc &amp;&amp; fc &lt; <span class="self">self</span>.hi
+<a href="#21" id="21" data-nosnippet="">21</a>    }
+<a href="#22" id="22" data-nosnippet="">22</a>}
+<a href="#23" id="23" data-nosnippet="">23</a>
+<a href="#24" id="24" data-nosnippet="">24</a><span class="doccomment">/// A parsed `PlcBte*`: FC breakpoints and the FKP page each range lives in.
+<a href="#25" id="25" data-nosnippet="">25</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Bins {
+<a href="#26" id="26" data-nosnippet="">26</a>    fcs: Vec&lt;u32&gt;,
+<a href="#27" id="27" data-nosnippet="">27</a>    <span class="doccomment">/// `fcs` ascends, so the bin of an FC holds every FC up to the next breakpoint (a corrupt
+<a href="#28" id="28" data-nosnippet="">28</a>    /// table that does not gets no cached ranges, [`ChpxRun`]).
+<a href="#29" id="29" data-nosnippet="">29</a>    </span>sorted: bool,
+<a href="#30" id="30" data-nosnippet="">30</a>    <span class="doccomment">/// Page number (× 512 = byte offset in the WordDocument stream).
+<a href="#31" id="31" data-nosnippet="">31</a>    </span>pns: Vec&lt;u32&gt;,
+<a href="#32" id="32" data-nosnippet="">32</a>}
+<a href="#33" id="33" data-nosnippet="">33</a>
+<a href="#34" id="34" data-nosnippet="">34</a><span class="kw">impl </span>Bins {
+<a href="#35" id="35" data-nosnippet="">35</a>    <span class="doccomment">/// Parse the Plc at `table[fc..fc+lcb]` (aFc[n+1] u32s + aPn[n] u32s).
+<a href="#36" id="36" data-nosnippet="">36</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>parse(table: <span class="kw-2">&amp;</span>[u8], fc: u32, lcb: u32) -&gt; <span class="prelude-ty">Result</span>&lt;Bins, DocbinError&gt; {
+<a href="#37" id="37" data-nosnippet="">37</a>        <span class="kw">let </span>fc = fc <span class="kw">as </span>usize;
+<a href="#38" id="38" data-nosnippet="">38</a>        <span class="kw">let </span>lcb = lcb <span class="kw">as </span>usize;
+<a href="#39" id="39" data-nosnippet="">39</a>        <span class="kw">if </span>lcb &lt; <span class="number">4 </span>|| !(lcb - <span class="number">4</span>).is_multiple_of(<span class="number">8</span>) {
+<a href="#40" id="40" data-nosnippet="">40</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(Bins { fcs: Vec::new(), sorted: <span class="bool-val">true</span>, pns: Vec::new() });
+<a href="#41" id="41" data-nosnippet="">41</a>        }
+<a href="#42" id="42" data-nosnippet="">42</a>        <span class="kw">let </span>end = fc.checked_add(lcb).ok_or_else(|| DocbinError::Malformed(<span class="string">"bin table overflow"</span>.into()))<span class="question-mark">?</span>;
+<a href="#43" id="43" data-nosnippet="">43</a>        <span class="kw">let </span>plc = table.get(fc..end).ok_or_else(|| DocbinError::Malformed(<span class="string">"bin table outside the Table stream"</span>.into()))<span class="question-mark">?</span>;
+<a href="#44" id="44" data-nosnippet="">44</a>        <span class="kw">let </span>n = (lcb - <span class="number">4</span>) / <span class="number">8</span>;
+<a href="#45" id="45" data-nosnippet="">45</a>        <span class="kw">if </span>n &gt; MAX_BINS {
+<a href="#46" id="46" data-nosnippet="">46</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(DocbinError::Limit(<span class="macro">format!</span>(<span class="string">"bin table has {n} entries"</span>)));
+<a href="#47" id="47" data-nosnippet="">47</a>        }
+<a href="#48" id="48" data-nosnippet="">48</a>        <span class="kw">let </span>at = |i: usize| -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; { plc.get(i * <span class="number">4</span>..i * <span class="number">4 </span>+ <span class="number">4</span>).map(|b| u32::from_le_bytes([b[<span class="number">0</span>], b[<span class="number">1</span>], b[<span class="number">2</span>], b[<span class="number">3</span>]])) };
+<a href="#49" id="49" data-nosnippet="">49</a>        <span class="kw">let </span><span class="kw-2">mut </span>fcs = Vec::with_capacity(n + <span class="number">1</span>);
+<a href="#50" id="50" data-nosnippet="">50</a>        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..=n {
+<a href="#51" id="51" data-nosnippet="">51</a>            fcs.push(at(i).ok_or_else(|| DocbinError::Malformed(<span class="string">"truncated bin aFc"</span>.into()))<span class="question-mark">?</span>);
+<a href="#52" id="52" data-nosnippet="">52</a>        }
+<a href="#53" id="53" data-nosnippet="">53</a>        <span class="kw">let </span><span class="kw-2">mut </span>pns = Vec::with_capacity(n);
+<a href="#54" id="54" data-nosnippet="">54</a>        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..n {
+<a href="#55" id="55" data-nosnippet="">55</a>            <span class="comment">// PnBte* keeps the page number in its low bits; the rest must be zero.
+<a href="#56" id="56" data-nosnippet="">56</a>            </span>pns.push(at(n + <span class="number">1 </span>+ i).ok_or_else(|| DocbinError::Malformed(<span class="string">"truncated bin aPn"</span>.into()))<span class="question-mark">? </span>&amp; <span class="number">0x003F_FFFF</span>);
+<a href="#57" id="57" data-nosnippet="">57</a>        }
+<a href="#58" id="58" data-nosnippet="">58</a>        <span class="kw">let </span>sorted = fcs.windows(<span class="number">2</span>).all(|w| w.first() &lt;= w.get(<span class="number">1</span>));
+<a href="#59" id="59" data-nosnippet="">59</a>        <span class="prelude-val">Ok</span>(Bins { fcs, sorted, pns })
+<a href="#60" id="60" data-nosnippet="">60</a>    }
+<a href="#61" id="61" data-nosnippet="">61</a>
+<a href="#62" id="62" data-nosnippet="">62</a>    <span class="doccomment">/// The page containing `fc`, as a slice of the WordDocument stream, and the FC range
+<a href="#63" id="63" data-nosnippet="">63</a>    /// `[lo, hi)` of its bin (`hi` is `u32::MAX` for the last; an empty range when the table
+<a href="#64" id="64" data-nosnippet="">64</a>    /// is not ascending, so nothing is cached from it).
+<a href="#65" id="65" data-nosnippet="">65</a>    </span><span class="kw">fn </span>page&lt;<span class="lifetime">'w</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, word: <span class="kw-2">&amp;</span><span class="lifetime">'w </span>[u8], fc: u32) -&gt; <span class="prelude-ty">Option</span>&lt;(<span class="kw-2">&amp;</span><span class="lifetime">'w </span>[u8], u32, u32)&gt; {
+<a href="#66" id="66" data-nosnippet="">66</a>        <span class="kw">let </span>i = <span class="self">self</span>.fcs.partition_point(|<span class="kw-2">&amp;</span>f| f &lt;= fc).checked_sub(<span class="number">1</span>)<span class="question-mark">?</span>;
+<a href="#67" id="67" data-nosnippet="">67</a>        <span class="kw">let </span>pn = <span class="kw-2">*</span><span class="self">self</span>.pns.get(i)<span class="question-mark">?</span>;
+<a href="#68" id="68" data-nosnippet="">68</a>        <span class="kw">let </span>at = pn.checked_mul(<span class="number">512</span>)<span class="question-mark">? </span><span class="kw">as </span>usize;
+<a href="#69" id="69" data-nosnippet="">69</a>        <span class="kw">let </span>page = word.get(at..at.checked_add(<span class="number">512</span>)<span class="question-mark">?</span>)<span class="question-mark">?</span>;
+<a href="#70" id="70" data-nosnippet="">70</a>        <span class="kw">if </span>!<span class="self">self</span>.sorted {
+<a href="#71" id="71" data-nosnippet="">71</a>            <span class="kw">return </span><span class="prelude-val">Some</span>((page, <span class="number">1</span>, <span class="number">0</span>));
+<a href="#72" id="72" data-nosnippet="">72</a>        }
+<a href="#73" id="73" data-nosnippet="">73</a>        <span class="kw">let </span>lo = <span class="self">self</span>.fcs.get(i).copied().unwrap_or(<span class="number">0</span>);
+<a href="#74" id="74" data-nosnippet="">74</a>        <span class="kw">let </span>hi = <span class="self">self</span>.fcs.get(i + <span class="number">1</span>).copied().unwrap_or(u32::MAX);
+<a href="#75" id="75" data-nosnippet="">75</a>        <span class="prelude-val">Some</span>((page, lo, hi))
+<a href="#76" id="76" data-nosnippet="">76</a>    }
+<a href="#77" id="77" data-nosnippet="">77</a>
+<a href="#78" id="78" data-nosnippet="">78</a>    <span class="doccomment">/// The grpprl of the Chpx covering `fc` ([MS-DOC] ChpxFkp: rgfc u32s, rgb offsets ×2,
+<a href="#79" id="79" data-nosnippet="">79</a>    /// crun in the last byte).
+<a href="#80" id="80" data-nosnippet="">80</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>chpx&lt;<span class="lifetime">'w</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, word: <span class="kw-2">&amp;</span><span class="lifetime">'w </span>[u8], fc: u32) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'w </span>[u8] {
+<a href="#81" id="81" data-nosnippet="">81</a>        <span class="self">self</span>.chpx_run(word, fc).grpprl
+<a href="#82" id="82" data-nosnippet="">82</a>    }
+<a href="#83" id="83" data-nosnippet="">83</a>
+<a href="#84" id="84" data-nosnippet="">84</a>    <span class="doccomment">/// [`Bins::chpx`] with the FC range over which the same grpprl is the answer, so a walk
+<a href="#85" id="85" data-nosnippet="">85</a>    /// over consecutive characters looks it up once per run, not once per character.
+<a href="#86" id="86" data-nosnippet="">86</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>chpx_run&lt;<span class="lifetime">'w</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, word: <span class="kw-2">&amp;</span><span class="lifetime">'w </span>[u8], fc: u32) -&gt; ChpxRun&lt;<span class="lifetime">'w</span>&gt; {
+<a href="#87" id="87" data-nosnippet="">87</a>        <span class="kw">let </span>none = ChpxRun { grpprl: <span class="kw-2">&amp;</span>[], lo: <span class="number">1</span>, hi: <span class="number">0 </span>};
+<a href="#88" id="88" data-nosnippet="">88</a>        <span class="kw">let </span><span class="prelude-val">Some</span>((page, page_lo, page_hi)) = <span class="self">self</span>.page(word, fc) <span class="kw">else </span>{ <span class="kw">return </span>none };
+<a href="#89" id="89" data-nosnippet="">89</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>crun) = page.get(<span class="number">511</span>) <span class="kw">else </span>{ <span class="kw">return </span>none };
+<a href="#90" id="90" data-nosnippet="">90</a>        <span class="kw">let </span>crun = crun.min(<span class="number">0x65</span>) <span class="kw">as </span>usize;
+<a href="#91" id="91" data-nosnippet="">91</a>        <span class="kw">let </span>rgfc = |i: usize| -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; { page.get(i * <span class="number">4</span>..i * <span class="number">4 </span>+ <span class="number">4</span>).map(|b| u32::from_le_bytes([b[<span class="number">0</span>], b[<span class="number">1</span>], b[<span class="number">2</span>], b[<span class="number">3</span>]])) };
+<a href="#92" id="92" data-nosnippet="">92</a>        <span class="comment">// rgb array sits right after rgfc (crun+1 u32s); each byte is a half-offset into the
+<a href="#93" id="93" data-nosnippet="">93</a>        // region between rgb's end and crun.
+<a href="#94" id="94" data-nosnippet="">94</a>        </span><span class="kw">let </span>rgb_at = (crun + <span class="number">1</span>) * <span class="number">4</span>;
+<a href="#95" id="95" data-nosnippet="">95</a>        <span class="comment">// The last run starting at or before `fc`. It stays the answer for every FC from its own
+<a href="#96" id="96" data-nosnippet="">96</a>        // start up to the smallest start after it (also in a page whose starts do not ascend).
+<a href="#97" id="97" data-nosnippet="">97</a>        </span><span class="kw">let </span>j = (<span class="number">0</span>..crun).rev().find(|<span class="kw-2">&amp;</span>j| rgfc(j).is_some_and(|f| f &lt;= fc));
+<a href="#98" id="98" data-nosnippet="">98</a>        <span class="kw">let </span>first_after = j.map_or(<span class="number">0</span>, |j| j + <span class="number">1</span>);
+<a href="#99" id="99" data-nosnippet="">99</a>        <span class="kw">let </span>hi = (first_after..crun).filter_map(rgfc).min().map_or(page_hi, |m| m.min(page_hi));
+<a href="#100" id="100" data-nosnippet="">100</a>        <span class="kw">let </span>lo = j.and_then(rgfc).map_or(page_lo, |f| f.max(page_lo));
+<a href="#101" id="101" data-nosnippet="">101</a>        <span class="kw">let </span>run = |grpprl: <span class="kw-2">&amp;</span><span class="lifetime">'w </span>[u8]| ChpxRun { grpprl, lo, hi };
+<a href="#102" id="102" data-nosnippet="">102</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(j) = j <span class="kw">else </span>{ <span class="kw">return </span>run(<span class="kw-2">&amp;</span>[]) };
+<a href="#103" id="103" data-nosnippet="">103</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>off) = page.get(rgb_at + j) <span class="kw">else </span>{ <span class="kw">return </span>run(<span class="kw-2">&amp;</span>[]) };
+<a href="#104" id="104" data-nosnippet="">104</a>        <span class="kw">if </span>off == <span class="number">0 </span>{
+<a href="#105" id="105" data-nosnippet="">105</a>            <span class="kw">return </span>run(<span class="kw-2">&amp;</span>[]);
+<a href="#106" id="106" data-nosnippet="">106</a>        }
+<a href="#107" id="107" data-nosnippet="">107</a>        <span class="kw">let </span>at = off <span class="kw">as </span>usize * <span class="number">2</span>;
+<a href="#108" id="108" data-nosnippet="">108</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>cb) = page.get(at) <span class="kw">else </span>{ <span class="kw">return </span>run(<span class="kw-2">&amp;</span>[]) };
+<a href="#109" id="109" data-nosnippet="">109</a>        run(page.get(at + <span class="number">1</span>..at + <span class="number">1 </span>+ cb <span class="kw">as </span>usize).unwrap_or(<span class="kw-2">&amp;</span>[]))
+<a href="#110" id="110" data-nosnippet="">110</a>    }
+<a href="#111" id="111" data-nosnippet="">111</a>
+<a href="#112" id="112" data-nosnippet="">112</a>    <span class="doccomment">/// The (istd, grpprl) of the Papx of the paragraph whose mark is just before `fc`
+<a href="#113" id="113" data-nosnippet="">113</a>    /// ([MS-DOC] PapxFkp: rgfc u32s — each the FC *following* a paragraph mark —, rgbx BX
+<a href="#114" id="114" data-nosnippet="">114</a>    /// entries (1 offset byte + 12 PHE bytes), crun in the last byte; the PAPX itself is a
+<a href="#115" id="115" data-nosnippet="">115</a>    /// PapxInFkp with the cb/cb' size quirk). Query with the FC of the character after the mark.
+<a href="#116" id="116" data-nosnippet="">116</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>papx&lt;<span class="lifetime">'w</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, word: <span class="kw-2">&amp;</span><span class="lifetime">'w </span>[u8], fc: u32) -&gt; (u16, <span class="kw-2">&amp;</span><span class="lifetime">'w </span>[u8]) {
+<a href="#117" id="117" data-nosnippet="">117</a>        <span class="kw">let </span><span class="prelude-val">Some</span>((page, <span class="kw">_</span>, <span class="kw">_</span>)) = <span class="self">self</span>.page(word, fc) <span class="kw">else </span>{ <span class="kw">return </span>(<span class="number">0</span>, <span class="kw-2">&amp;</span>[]) };
+<a href="#118" id="118" data-nosnippet="">118</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>crun) = page.get(<span class="number">511</span>) <span class="kw">else </span>{ <span class="kw">return </span>(<span class="number">0</span>, <span class="kw-2">&amp;</span>[]) };
+<a href="#119" id="119" data-nosnippet="">119</a>        <span class="comment">// BX is 13 bytes; cap crun at what fits before byte 511.
+<a href="#120" id="120" data-nosnippet="">120</a>        </span><span class="kw">let </span>max_run = (<span class="number">511usize</span>.saturating_sub((crun <span class="kw">as </span>usize + <span class="number">1</span>) * <span class="number">4</span>)) / <span class="number">13</span>;
+<a href="#121" id="121" data-nosnippet="">121</a>        <span class="kw">let </span>crun = (crun <span class="kw">as </span>usize).min(max_run);
+<a href="#122" id="122" data-nosnippet="">122</a>        <span class="kw">let </span>rgfc = |i: usize| -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; { page.get(i * <span class="number">4</span>..i * <span class="number">4 </span>+ <span class="number">4</span>).map(|b| u32::from_le_bytes([b[<span class="number">0</span>], b[<span class="number">1</span>], b[<span class="number">2</span>], b[<span class="number">3</span>]])) };
+<a href="#123" id="123" data-nosnippet="">123</a>        <span class="kw">let </span>rgbx_at = (crun + <span class="number">1</span>) * <span class="number">4</span>;
+<a href="#124" id="124" data-nosnippet="">124</a>        <span class="kw">let </span>j = (<span class="number">0</span>..crun).rev().find(|<span class="kw-2">&amp;</span>j| rgfc(j).is_some_and(|f| f &lt;= fc));
+<a href="#125" id="125" data-nosnippet="">125</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(j) = j <span class="kw">else </span>{ <span class="kw">return </span>(<span class="number">0</span>, <span class="kw-2">&amp;</span>[]) };
+<a href="#126" id="126" data-nosnippet="">126</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>off) = page.get(rgbx_at + j * <span class="number">13</span>) <span class="kw">else </span>{ <span class="kw">return </span>(<span class="number">0</span>, <span class="kw-2">&amp;</span>[]) };
+<a href="#127" id="127" data-nosnippet="">127</a>        <span class="kw">if </span>off == <span class="number">0 </span>{
+<a href="#128" id="128" data-nosnippet="">128</a>            <span class="kw">return </span>(<span class="number">0</span>, <span class="kw-2">&amp;</span>[]);
+<a href="#129" id="129" data-nosnippet="">129</a>        }
+<a href="#130" id="130" data-nosnippet="">130</a>        <span class="kw">let </span>at = off <span class="kw">as </span>usize * <span class="number">2</span>;
+<a href="#131" id="131" data-nosnippet="">131</a>        <span class="kw">let </span>u16at = |o: usize| -&gt; <span class="prelude-ty">Option</span>&lt;u16&gt; { page.get(o..o + <span class="number">2</span>).map(|b| u16::from_le_bytes([b[<span class="number">0</span>], b[<span class="number">1</span>]])) };
+<a href="#132" id="132" data-nosnippet="">132</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(cb) = page.get(at).copied() <span class="kw">else </span>{ <span class="kw">return </span>(<span class="number">0</span>, <span class="kw-2">&amp;</span>[]) };
+<a href="#133" id="133" data-nosnippet="">133</a>        <span class="comment">// PapxInFkp: if cb is nonzero the GrpPrlAndIstd (istd u16 + grpprl) is 2×cb-1 bytes;
+<a href="#134" id="134" data-nosnippet="">134</a>        // if cb is zero, the next byte cb' (1 byte) gives 2×cb' bytes of it.
+<a href="#135" id="135" data-nosnippet="">135</a>        </span><span class="kw">let </span>(data_at, data_len) = <span class="kw">if </span>cb != <span class="number">0 </span>{
+<a href="#136" id="136" data-nosnippet="">136</a>            (at + <span class="number">1</span>, <span class="number">2 </span>* cb <span class="kw">as </span>usize - <span class="number">1</span>)
+<a href="#137" id="137" data-nosnippet="">137</a>        } <span class="kw">else </span>{
+<a href="#138" id="138" data-nosnippet="">138</a>            <span class="kw">let </span>cb2 = page.get(at + <span class="number">1</span>).copied().unwrap_or(<span class="number">0</span>) <span class="kw">as </span>usize;
+<a href="#139" id="139" data-nosnippet="">139</a>            (at + <span class="number">2</span>, <span class="number">2 </span>* cb2)
+<a href="#140" id="140" data-nosnippet="">140</a>        };
+<a href="#141" id="141" data-nosnippet="">141</a>        <span class="kw">if </span>data_len &lt; <span class="number">2 </span>{
+<a href="#142" id="142" data-nosnippet="">142</a>            <span class="kw">return </span>(<span class="number">0</span>, <span class="kw-2">&amp;</span>[]);
+<a href="#143" id="143" data-nosnippet="">143</a>        }
+<a href="#144" id="144" data-nosnippet="">144</a>        <span class="kw">let </span>istd = u16at(data_at).unwrap_or(<span class="number">0</span>);
+<a href="#145" id="145" data-nosnippet="">145</a>        (istd, page.get(data_at + <span class="number">2</span>..data_at + data_len).unwrap_or(<span class="kw-2">&amp;</span>[]))
+<a href="#146" id="146" data-nosnippet="">146</a>    }
+<a href="#147" id="147" data-nosnippet="">147</a>}
+</code></pre></div></section></main></body></html>

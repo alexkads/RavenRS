@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["KINDS"],"fn":["app","app_kept_in","sample","sample_picture","toolbox"],"struct":["Board"]};

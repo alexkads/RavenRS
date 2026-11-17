@@ -1,0 +1,261 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>session.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ravenrs_e2e_runner" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../static.files/src-script-813739b1.js"></script><script defer="" src="../../src-files.js"></script><script defer="" src="../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-e2e-runner/src/session.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_e2e_runner/session.rs.html"><meta property="og:title" content="session.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-e2e-runner/src/session.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_e2e_runner/session.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="session.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-e2e-runner/src/session.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"session.rs - source","description":"Source of the Rust file `crates/ravenrs-e2e-runner/src/session.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_e2e_runner/session.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_e2e_runner/</div>session.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! What a run drives and how each step goes: the app under test (in this process or apart, over
+<a href="#2" id="2" data-nosnippet="">2</a>//! the test channel), the step a block stands for, why a step failed in words a person reads
+<a href="#3" id="3" data-nosnippet="">3</a>//! (Portuguese, by the stable code) and how each block went.
+<a href="#4" id="4" data-nosnippet="">4</a>
+<a href="#5" id="5" data-nosnippet="">5</a></span><span class="kw">use </span>ravenrs_e2e::E2e;
+<a href="#6" id="6" data-nosnippet="">6</a><span class="kw">use </span>ravenrs_e2e_wire::{Block, Client, Command, Kind};
+<a href="#7" id="7" data-nosnippet="">7</a>
+<a href="#8" id="8" data-nosnippet="">8</a><span class="doccomment">/// The app a run drives: compiled into the tool, or opened apart in a child process with no
+<a href="#9" id="9" data-nosnippet="">9</a>/// window and driven over the test channel (`ravenrs-e2e-wire`). A step runs the same either way.
+<a href="#10" id="10" data-nosnippet="">10</a></span><span class="attr">#[derive(Debug)]
+<a href="#11" id="11" data-nosnippet="">11</a></span><span class="kw">pub enum </span>Session {
+<a href="#12" id="12" data-nosnippet="">12</a>    <span class="doccomment">/// An app compiled into the tool, such as the sample form or another Studio.
+<a href="#13" id="13" data-nosnippet="">13</a>    </span>Here(Box&lt;E2e&gt;),
+<a href="#14" id="14" data-nosnippet="">14</a>    <span class="doccomment">/// An app opened in a child process, such as Raven Finanças; it ends with the run.
+<a href="#15" id="15" data-nosnippet="">15</a>    </span>Apart(Client),
+<a href="#16" id="16" data-nosnippet="">16</a>}
+<a href="#17" id="17" data-nosnippet="">17</a>
+<a href="#18" id="18" data-nosnippet="">18</a><span class="kw">impl </span>Session {
+<a href="#19" id="19" data-nosnippet="">19</a>    <span class="doccomment">/// Runs `command` on the app, as `Command::apply` answers.
+<a href="#20" id="20" data-nosnippet="">20</a>    </span><span class="kw">pub fn </span>run(<span class="kw-2">&amp;mut </span><span class="self">self</span>, command: <span class="kw-2">&amp;</span>Command) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;String&gt;, ravenrs_e2e_wire::Failure&gt; {
+<a href="#21" id="21" data-nosnippet="">21</a>        <span class="kw">match </span><span class="self">self </span>{
+<a href="#22" id="22" data-nosnippet="">22</a>            <span class="self">Self</span>::Here(e2e) =&gt; command.apply(e2e),
+<a href="#23" id="23" data-nosnippet="">23</a>            <span class="self">Self</span>::Apart(client) =&gt; client.send(command),
+<a href="#24" id="24" data-nosnippet="">24</a>        }
+<a href="#25" id="25" data-nosnippet="">25</a>    }
+<a href="#26" id="26" data-nosnippet="">26</a>
+<a href="#27" id="27" data-nosnippet="">27</a>    <span class="doccomment">/// The screen of the app as text, when it can still say.
+<a href="#28" id="28" data-nosnippet="">28</a>    </span><span class="kw">pub fn </span>screen(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href="#29" id="29" data-nosnippet="">29</a>        <span class="self">self</span>.run(<span class="kw-2">&amp;</span>Command::Snapshot).ok().flatten()
+<a href="#30" id="30" data-nosnippet="">30</a>    }
+<a href="#31" id="31" data-nosnippet="">31</a>}
+<a href="#32" id="32" data-nosnippet="">32</a>
+<a href="#33" id="33" data-nosnippet="">33</a><span class="doccomment">/// Opens the app a scenario's Open block names: `None` when there is no app by that name, the
+<a href="#34" id="34" data-nosnippet="">34</a>/// reason when there is one and it could not be opened.
+<a href="#35" id="35" data-nosnippet="">35</a></span><span class="kw">pub type </span>Opener = <span class="kw">fn</span>(<span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Result</span>&lt;Session, Box&lt;Failure&gt;&gt;&gt;;
+<a href="#36" id="36" data-nosnippet="">36</a>
+<a href="#37" id="37" data-nosnippet="">37</a><span class="doccomment">/// One step a block stands for.
+<a href="#38" id="38" data-nosnippet="">38</a></span><span class="attr">#[derive(Clone, Debug, PartialEq)]
+<a href="#39" id="39" data-nosnippet="">39</a></span><span class="kw">pub enum </span>Step {
+<a href="#40" id="40" data-nosnippet="">40</a>    <span class="doccomment">/// Opens the app under test by name, from nothing.
+<a href="#41" id="41" data-nosnippet="">41</a>    </span>Open(String),
+<a href="#42" id="42" data-nosnippet="">42</a>    <span class="doccomment">/// Anything done on the app once it is open: click, type, check or mention, with its target
+<a href="#43" id="43" data-nosnippet="">43</a>    /// written as on the block (`#id` or the text shown).
+<a href="#44" id="44" data-nosnippet="">44</a>    </span>Do(Command),
+<a href="#45" id="45" data-nosnippet="">45</a>}
+<a href="#46" id="46" data-nosnippet="">46</a>
+<a href="#47" id="47" data-nosnippet="">47</a><span class="kw">impl </span>Step {
+<a href="#48" id="48" data-nosnippet="">48</a>    <span class="doccomment">/// The step `block` stands for, or why it cannot run, said to whoever wrote it.
+<a href="#49" id="49" data-nosnippet="">49</a>    </span><span class="kw">pub fn </span>of(block: <span class="kw-2">&amp;</span>Block) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, String&gt; {
+<a href="#50" id="50" data-nosnippet="">50</a>        <span class="kw">if </span>block.kind == Kind::Open {
+<a href="#51" id="51" data-nosnippet="">51</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="self">Self</span>::Open(block.target.clone()));
+<a href="#52" id="52" data-nosnippet="">52</a>        }
+<a href="#53" id="53" data-nosnippet="">53</a>        <span class="kw">if </span>block.target.trim().is_empty() {
+<a href="#54" id="54" data-nosnippet="">54</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Diga o alvo: #id ou o texto que aparece"</span>.to_owned());
+<a href="#55" id="55" data-nosnippet="">55</a>        }
+<a href="#56" id="56" data-nosnippet="">56</a>        <span class="kw">let </span>needs_text = <span class="macro">matches!</span>(
+<a href="#57" id="57" data-nosnippet="">57</a>            block.kind,
+<a href="#58" id="58" data-nosnippet="">58</a>            Kind::Type | Kind::Check | Kind::Mention | Kind::Fill | Kind::Select | Kind::Drag
+<a href="#59" id="59" data-nosnippet="">59</a>        );
+<a href="#60" id="60" data-nosnippet="">60</a>        <span class="kw">if </span>needs_text &amp;&amp; block.text.is_none() {
+<a href="#61" id="61" data-nosnippet="">61</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="kw">if </span>block.kind == Kind::Drag {
+<a href="#62" id="62" data-nosnippet="">62</a>                <span class="string">"Diga para onde arrastar: #de = #até"</span>.to_owned()
+<a href="#63" id="63" data-nosnippet="">63</a>            } <span class="kw">else </span>{
+<a href="#64" id="64" data-nosnippet="">64</a>                <span class="string">"Diga o texto depois do alvo: #alvo = texto"</span>.to_owned()
+<a href="#65" id="65" data-nosnippet="">65</a>            });
+<a href="#66" id="66" data-nosnippet="">66</a>        }
+<a href="#67" id="67" data-nosnippet="">67</a>        block.command().map(<span class="self">Self</span>::Do).ok_or_else(|| <span class="macro">format!</span>(<span class="string">"Bloco desconhecido: {}"</span>, block.kind.word()))
+<a href="#68" id="68" data-nosnippet="">68</a>    }
+<a href="#69" id="69" data-nosnippet="">69</a>}
+<a href="#70" id="70" data-nosnippet="">70</a>
+<a href="#71" id="71" data-nosnippet="">71</a><span class="doccomment">/// Why a block failed: the message, and from `ravenrs-e2e` its stable code, how to fix it and
+<a href="#72" id="72" data-nosnippet="">72</a>/// what came close on the screen.
+<a href="#73" id="73" data-nosnippet="">73</a></span><span class="attr">#[derive(Clone, Debug, Default, PartialEq)]
+<a href="#74" id="74" data-nosnippet="">74</a></span><span class="kw">pub struct </span>Failure {
+<a href="#75" id="75" data-nosnippet="">75</a>    <span class="doccomment">/// What went wrong, starting with the code when there is one: `[E2E_NOT_FOUND] …`.
+<a href="#76" id="76" data-nosnippet="">76</a>    </span><span class="kw">pub </span>message: String,
+<a href="#77" id="77" data-nosnippet="">77</a>    <span class="doccomment">/// The stable code, such as `E2E_NOT_FOUND`.
+<a href="#78" id="78" data-nosnippet="">78</a>    </span><span class="kw">pub </span>code: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#79" id="79" data-nosnippet="">79</a>    <span class="doccomment">/// What the failure means, in Portuguese, from its code.
+<a href="#80" id="80" data-nosnippet="">80</a>    </span><span class="kw">pub </span>meaning: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#81" id="81" data-nosnippet="">81</a>    <span class="doccomment">/// The detail `ravenrs-e2e` gave: which query, what it found.
+<a href="#82" id="82" data-nosnippet="">82</a>    </span><span class="kw">pub </span>detail: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#83" id="83" data-nosnippet="">83</a>    <span class="doccomment">/// How to fix it, when there is an obvious way.
+<a href="#84" id="84" data-nosnippet="">84</a>    </span><span class="kw">pub </span>fix: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#85" id="85" data-nosnippet="">85</a>    <span class="doccomment">/// Up to three nodes that came close to what the block asked for.
+<a href="#86" id="86" data-nosnippet="">86</a>    </span><span class="kw">pub </span>close: Vec&lt;String&gt;,
+<a href="#87" id="87" data-nosnippet="">87</a>    <span class="doccomment">/// The screen of the app when it failed, when the failure brought it.
+<a href="#88" id="88" data-nosnippet="">88</a>    </span><span class="kw">pub </span>screen: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#89" id="89" data-nosnippet="">89</a>}
+<a href="#90" id="90" data-nosnippet="">90</a>
+<a href="#91" id="91" data-nosnippet="">91</a><span class="kw">impl </span>Failure {
+<a href="#92" id="92" data-nosnippet="">92</a>    <span class="doccomment">/// A failure with only a message, for what is not a step of the app: no app to open, a
+<a href="#93" id="93" data-nosnippet="">93</a>    /// block that cannot run.
+<a href="#94" id="94" data-nosnippet="">94</a>    </span><span class="kw">pub fn </span>plain(message: <span class="kw">impl </span>Into&lt;String&gt;) -&gt; <span class="self">Self </span>{
+<a href="#95" id="95" data-nosnippet="">95</a>        <span class="self">Self </span>{ message: message.into(), ..<span class="self">Self</span>::default() }
+<a href="#96" id="96" data-nosnippet="">96</a>    }
+<a href="#97" id="97" data-nosnippet="">97</a>}
+<a href="#98" id="98" data-nosnippet="">98</a>
+<a href="#99" id="99" data-nosnippet="">99</a><span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>Failure {
+<a href="#100" id="100" data-nosnippet="">100</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+<a href="#101" id="101" data-nosnippet="">101</a>        f.write_str(<span class="kw-2">&amp;</span><span class="self">self</span>.message)
+<a href="#102" id="102" data-nosnippet="">102</a>    }
+<a href="#103" id="103" data-nosnippet="">103</a>}
+<a href="#104" id="104" data-nosnippet="">104</a>
+<a href="#105" id="105" data-nosnippet="">105</a><span class="kw">impl </span>std::error::Error <span class="kw">for </span>Failure {}
+<a href="#106" id="106" data-nosnippet="">106</a>
+<a href="#107" id="107" data-nosnippet="">107</a><span class="doccomment">/// What a failure means and how to fix it, in Portuguese, by its stable code. The detail from
+<a href="#108" id="108" data-nosnippet="">108</a>/// `ravenrs-e2e` (which query, what was found) follows the meaning.
+<a href="#109" id="109" data-nosnippet="">109</a></span><span class="kw">fn </span>in_portuguese(code: <span class="kw-2">&amp;</span>str) -&gt; (<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str, <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt;) {
+<a href="#110" id="110" data-nosnippet="">110</a>    <span class="kw">match </span>code {
+<a href="#111" id="111" data-nosnippet="">111</a>        <span class="string">"E2E_NOT_FOUND" </span>=&gt; (
+<a href="#112" id="112" data-nosnippet="">112</a>            <span class="string">"nada na tela corresponde ao alvo"</span>,
+<a href="#113" id="113" data-nosnippet="">113</a>            <span class="prelude-val">Some</span>(<span class="string">"confira a tela do app testado; uma parte sem nome pode ganhar um ViewExt::test_id"</span>),
+<a href="#114" id="114" data-nosnippet="">114</a>        ),
+<a href="#115" id="115" data-nosnippet="">115</a>        <span class="string">"E2E_AMBIGUOUS" </span>=&gt; (
+<a href="#116" id="116" data-nosnippet="">116</a>            <span class="string">"mais de uma parte corresponde ao alvo"</span>,
+<a href="#117" id="117" data-nosnippet="">117</a>            <span class="prelude-val">Some</span>(<span class="string">"dê um test_id à parte, restrinja com within ou escolha uma com nth"</span>),
+<a href="#118" id="118" data-nosnippet="">118</a>        ),
+<a href="#119" id="119" data-nosnippet="">119</a>        <span class="string">"E2E_DISABLED" </span>=&gt; (
+<a href="#120" id="120" data-nosnippet="">120</a>            <span class="string">"o alvo está desabilitado"</span>,
+<a href="#121" id="121" data-nosnippet="">121</a>            <span class="prelude-val">Some</span>(<span class="string">"faça antes o que o habilita, ou confira que está desabilitado"</span>),
+<a href="#122" id="122" data-nosnippet="">122</a>        ),
+<a href="#123" id="123" data-nosnippet="">123</a>        <span class="string">"E2E_COVERED" </span>=&gt; {
+<a href="#124" id="124" data-nosnippet="">124</a>            (<span class="string">"outra coisa está por cima do alvo"</span>, <span class="prelude-val">Some</span>(<span class="string">"feche ou mova antes o que está por cima"</span>))
+<a href="#125" id="125" data-nosnippet="">125</a>        }
+<a href="#126" id="126" data-nosnippet="">126</a>        <span class="string">"E2E_NOT_VISIBLE" </span>=&gt; (<span class="string">"o alvo está fora da janela"</span>, <span class="prelude-val">Some</span>(<span class="string">"role até ele ou aumente a janela"</span>)),
+<a href="#127" id="127" data-nosnippet="">127</a>        <span class="string">"E2E_PROTECTED_VALUE" </span>=&gt; {
+<a href="#128" id="128" data-nosnippet="">128</a>            (<span class="string">"o valor é secreto e nunca é mostrado"</span>, <span class="prelude-val">Some</span>(<span class="string">"confira o que o app faz com o valor, como entrar"</span>))
+<a href="#129" id="129" data-nosnippet="">129</a>        }
+<a href="#130" id="130" data-nosnippet="">130</a>        <span class="string">"E2E_EXPECTATION" </span>=&gt; (<span class="string">"a conferência não bateu"</span>, <span class="prelude-val">None</span>),
+<a href="#131" id="131" data-nosnippet="">131</a>        <span class="string">"E2E_APP_BUILD" </span>=&gt; (
+<a href="#132" id="132" data-nosnippet="">132</a>            <span class="string">"o app testado não compilou"</span>,
+<a href="#133" id="133" data-nosnippet="">133</a>            <span class="prelude-val">Some</span>(<span class="string">"corrija os erros do Cargo/Rust no arquivo e na linha indicados e rode o cenário de novo"</span>),
+<a href="#134" id="134" data-nosnippet="">134</a>        ),
+<a href="#135" id="135" data-nosnippet="">135</a>        <span class="string">"E2E_APP_START" </span>=&gt; (
+<a href="#136" id="136" data-nosnippet="">136</a>            <span class="string">"o app testado não abriu ou fechou no meio"</span>,
+<a href="#137" id="137" data-nosnippet="">137</a>            <span class="prelude-val">Some</span>(
+<a href="#138" id="138" data-nosnippet="">138</a>                <span class="string">"veja no fim da mensagem o que o app escreveu ao sair; confira que ele foi compilado com o canal de teste"</span>,
+<a href="#139" id="139" data-nosnippet="">139</a>            ),
+<a href="#140" id="140" data-nosnippet="">140</a>        ),
+<a href="#141" id="141" data-nosnippet="">141</a>        <span class="string">"E2E_TIMEOUT" </span>=&gt; (
+<a href="#142" id="142" data-nosnippet="">142</a>            <span class="string">"o passo excedeu o tempo limite"</span>,
+<a href="#143" id="143" data-nosnippet="">143</a>            <span class="prelude-val">Some</span>(
+<a href="#144" id="144" data-nosnippet="">144</a>                <span class="string">"confira no detalhe se a condição esperada não ficou pronta ou se o canal deixou de responder"</span>,
+<a href="#145" id="145" data-nosnippet="">145</a>            ),
+<a href="#146" id="146" data-nosnippet="">146</a>        ),
+<a href="#147" id="147" data-nosnippet="">147</a>        <span class="string">"E2E_WIRE" </span>=&gt; (<span class="string">"o app testado respondeu fora do protocolo do canal de teste"</span>, <span class="prelude-val">None</span>),
+<a href="#148" id="148" data-nosnippet="">148</a>        <span class="string">"E2E_NO_FILM" </span>=&gt; (
+<a href="#149" id="149" data-nosnippet="">149</a>            <span class="string">"o app testado não filmou"</span>,
+<a href="#150" id="150" data-nosnippet="">150</a>            <span class="prelude-val">Some</span>(
+<a href="#151" id="151" data-nosnippet="">151</a>                <span class="string">"sirva o app com ravenrs_e2e_wire::serve_filmed e ravenrs_movie::ChannelFilm, ou rode sem filmar"</span>,
+<a href="#152" id="152" data-nosnippet="">152</a>            ),
+<a href="#153" id="153" data-nosnippet="">153</a>        ),
+<a href="#154" id="154" data-nosnippet="">154</a>        <span class="string">"E2E_NO_FRAME" </span>=&gt; (
+<a href="#155" id="155" data-nosnippet="">155</a>            <span class="string">"o app testado não forneceu o quadro vetorial"</span>,
+<a href="#156" id="156" data-nosnippet="">156</a>            <span class="prelude-val">Some</span>(<span class="string">"sirva o app com ravenrs_movie::ChannelFilm para fornecer quadros pelo canal"</span>),
+<a href="#157" id="157" data-nosnippet="">157</a>        ),
+<a href="#158" id="158" data-nosnippet="">158</a>        <span class="string">"E2E_NO_WINDOW" </span>=&gt; (
+<a href="#159" id="159" data-nosnippet="">159</a>            <span class="string">"o app testado não pôde mostrar a janela"</span>,
+<a href="#160" id="160" data-nosnippet="">160</a>            <span class="prelude-val">Some</span>(<span class="string">"rode sem --headed, ou atualize o app para o canal com janela, numa sessão com tela"</span>),
+<a href="#161" id="161" data-nosnippet="">161</a>        ),
+<a href="#162" id="162" data-nosnippet="">162</a>        <span class="string">"E2E_WINDOW_CLOSED" </span>=&gt; (
+<a href="#163" id="163" data-nosnippet="">163</a>            <span class="string">"a janela do app foi fechada durante o teste"</span>,
+<a href="#164" id="164" data-nosnippet="">164</a>            <span class="prelude-val">Some</span>(<span class="string">"deixe a janela aberta até o fim, ou pare o teste com q no terminal"</span>),
+<a href="#165" id="165" data-nosnippet="">165</a>        ),
+<a href="#166" id="166" data-nosnippet="">166</a>        <span class="string">"E2E_NO_SOURCE" </span>=&gt; (
+<a href="#167" id="167" data-nosnippet="">167</a>            <span class="string">"o alvo não tem origem declarada"</span>,
+<a href="#168" id="168" data-nosnippet="">168</a>            <span class="prelude-val">Some</span>(<span class="string">"ligue e2e-source no app testado e marque o alvo com test_id"</span>),
+<a href="#169" id="169" data-nosnippet="">169</a>        ),
+<a href="#170" id="170" data-nosnippet="">170</a>        <span class="kw">_ </span>=&gt; (<span class="string">"o passo falhou"</span>, <span class="prelude-val">None</span>),
+<a href="#171" id="171" data-nosnippet="">171</a>    }
+<a href="#172" id="172" data-nosnippet="">172</a>}
+<a href="#173" id="173" data-nosnippet="">173</a>
+<a href="#174" id="174" data-nosnippet="">174</a><span class="kw">impl </span>From&lt;ravenrs_e2e_wire::Failure&gt; <span class="kw">for </span>Failure {
+<a href="#175" id="175" data-nosnippet="">175</a>    <span class="kw">fn </span>from(f: ravenrs_e2e_wire::Failure) -&gt; <span class="self">Self </span>{
+<a href="#176" id="176" data-nosnippet="">176</a>        <span class="kw">let </span>(meaning, fix) = in_portuguese(<span class="kw-2">&amp;</span>f.code);
+<a href="#177" id="177" data-nosnippet="">177</a>        <span class="self">Self </span>{
+<a href="#178" id="178" data-nosnippet="">178</a>            message: <span class="macro">format!</span>(<span class="string">"[{}] {meaning}: {}"</span>, f.code, f.message),
+<a href="#179" id="179" data-nosnippet="">179</a>            meaning: <span class="prelude-val">Some</span>(meaning.to_owned()),
+<a href="#180" id="180" data-nosnippet="">180</a>            detail: <span class="prelude-val">Some</span>(f.message),
+<a href="#181" id="181" data-nosnippet="">181</a>            fix: fix.map(str::to_owned).or(f.fix),
+<a href="#182" id="182" data-nosnippet="">182</a>            close: f.close,
+<a href="#183" id="183" data-nosnippet="">183</a>            screen: (!f.screen.is_empty()).then_some(f.screen),
+<a href="#184" id="184" data-nosnippet="">184</a>            code: <span class="prelude-val">Some</span>(f.code),
+<a href="#185" id="185" data-nosnippet="">185</a>        }
+<a href="#186" id="186" data-nosnippet="">186</a>    }
+<a href="#187" id="187" data-nosnippet="">187</a>}
+<a href="#188" id="188" data-nosnippet="">188</a>
+<a href="#189" id="189" data-nosnippet="">189</a><span class="doccomment">/// The failure of an Open block that names no app this run knows.
+<a href="#190" id="190" data-nosnippet="">190</a></span><span class="kw">fn </span>no_app(name: <span class="kw-2">&amp;</span>str) -&gt; Failure {
+<a href="#191" id="191" data-nosnippet="">191</a>    <span class="kw">let </span>(meaning, <span class="kw">_</span>) = in_portuguese(<span class="string">"E2E_APP_START"</span>);
+<a href="#192" id="192" data-nosnippet="">192</a>    Failure {
+<a href="#193" id="193" data-nosnippet="">193</a>        message: <span class="macro">format!</span>(<span class="string">"[E2E_APP_START] {meaning}: não há app chamado {name:?} para abrir"</span>),
+<a href="#194" id="194" data-nosnippet="">194</a>        code: <span class="prelude-val">Some</span>(<span class="string">"E2E_APP_START"</span>.to_owned()),
+<a href="#195" id="195" data-nosnippet="">195</a>        meaning: <span class="prelude-val">Some</span>(meaning.to_owned()),
+<a href="#196" id="196" data-nosnippet="">196</a>        detail: <span class="prelude-val">Some</span>(<span class="macro">format!</span>(<span class="string">"não há app chamado {name:?}"</span>)),
+<a href="#197" id="197" data-nosnippet="">197</a>        fix: <span class="prelude-val">Some</span>(
+<a href="#198" id="198" data-nosnippet="">198</a>            <span class="string">"o nome no bloco abrir é o app que um pacote declara em [package.metadata.ravenrs.e2e]; rode dentro do projeto dele, ou o abra pelo Studio, que tem apps compilados nele"
+<a href="#199" id="199" data-nosnippet="">199</a>                </span>.to_owned(),
+<a href="#200" id="200" data-nosnippet="">200</a>        ),
+<a href="#201" id="201" data-nosnippet="">201</a>        ..Failure::default()
+<a href="#202" id="202" data-nosnippet="">202</a>    }
+<a href="#203" id="203" data-nosnippet="">203</a>}
+<a href="#204" id="204" data-nosnippet="">204</a>
+<a href="#205" id="205" data-nosnippet="">205</a><span class="doccomment">/// Runs `step` on the app in `session`, opening apps with `open`.
+<a href="#206" id="206" data-nosnippet="">206</a></span><span class="kw">pub fn </span>perform(session: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;Session&gt;, step: <span class="kw-2">&amp;</span>Step, open: Opener) -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;Failure&gt;&gt; {
+<a href="#207" id="207" data-nosnippet="">207</a>    <span class="kw">let </span>command = <span class="kw">match </span>step {
+<a href="#208" id="208" data-nosnippet="">208</a>        Step::Open(name) =&gt; {
+<a href="#209" id="209" data-nosnippet="">209</a>            <span class="comment">// The app a previous Open block started ends before the next one starts.
+<a href="#210" id="210" data-nosnippet="">210</a>            </span><span class="kw-2">*</span>session = <span class="prelude-val">None</span>;
+<a href="#211" id="211" data-nosnippet="">211</a>            <span class="kw">let </span>opened = open(name).ok_or_else(|| Box::new(no_app(name)))<span class="question-mark">?</span>;
+<a href="#212" id="212" data-nosnippet="">212</a>            <span class="kw-2">*</span>session = <span class="prelude-val">Some</span>(opened<span class="question-mark">?</span>);
+<a href="#213" id="213" data-nosnippet="">213</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+<a href="#214" id="214" data-nosnippet="">214</a>        }
+<a href="#215" id="215" data-nosnippet="">215</a>        Step::Do(command) =&gt; command,
+<a href="#216" id="216" data-nosnippet="">216</a>    };
+<a href="#217" id="217" data-nosnippet="">217</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(app) = session.as_mut() <span class="kw">else </span>{
+<a href="#218" id="218" data-nosnippet="">218</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(Box::new(Failure::plain(<span class="string">"O app não está aberto: comece o cenário por um bloco Abrir"</span>)));
+<a href="#219" id="219" data-nosnippet="">219</a>    };
+<a href="#220" id="220" data-nosnippet="">220</a>    app.run(command).map(|<span class="kw">_</span>| ()).map_err(|f| Box::new(Failure::from(f)))
+<a href="#221" id="221" data-nosnippet="">221</a>}
+<a href="#222" id="222" data-nosnippet="">222</a>
+<a href="#223" id="223" data-nosnippet="">223</a><span class="doccomment">/// What a step of a run did, for the log and for whoever called the Studio.
+<a href="#224" id="224" data-nosnippet="">224</a></span><span class="attr">#[derive(Clone, Debug, PartialEq)]
+<a href="#225" id="225" data-nosnippet="">225</a></span><span class="kw">pub struct </span>Outcome {
+<a href="#226" id="226" data-nosnippet="">226</a>    <span class="doccomment">/// The block's id in the scenario.
+<a href="#227" id="227" data-nosnippet="">227</a>    </span><span class="kw">pub </span>id: String,
+<a href="#228" id="228" data-nosnippet="">228</a>    <span class="doccomment">/// The block's kind: `open`, `click`, `type`, `check` or `mention`.
+<a href="#229" id="229" data-nosnippet="">229</a>    </span><span class="kw">pub </span>kind: String,
+<a href="#230" id="230" data-nosnippet="">230</a>    <span class="doccomment">/// The block's title.
+<a href="#231" id="231" data-nosnippet="">231</a>    </span><span class="kw">pub </span>title: String,
+<a href="#232" id="232" data-nosnippet="">232</a>    <span class="doccomment">/// The block's target and text, as written on it.
+<a href="#233" id="233" data-nosnippet="">233</a>    </span><span class="kw">pub </span>line: String,
+<a href="#234" id="234" data-nosnippet="">234</a>    <span class="doccomment">/// `None` when it passed, else what went wrong, starting with its code when it has one.
+<a href="#235" id="235" data-nosnippet="">235</a>    </span><span class="kw">pub </span>error: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#236" id="236" data-nosnippet="">236</a>    <span class="doccomment">/// The stable code of the failure, such as `E2E_NOT_FOUND`, when it has one.
+<a href="#237" id="237" data-nosnippet="">237</a>    </span><span class="kw">pub </span>code: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#238" id="238" data-nosnippet="">238</a>    <span class="doccomment">/// What the failure means, in Portuguese, from its code.
+<a href="#239" id="239" data-nosnippet="">239</a>    </span><span class="kw">pub </span>meaning: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#240" id="240" data-nosnippet="">240</a>    <span class="doccomment">/// The detail `ravenrs-e2e` gave: which query, what it found.
+<a href="#241" id="241" data-nosnippet="">241</a>    </span><span class="kw">pub </span>detail: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#242" id="242" data-nosnippet="">242</a>    <span class="doccomment">/// How to fix the failure, when there is an obvious way.
+<a href="#243" id="243" data-nosnippet="">243</a>    </span><span class="kw">pub </span>fix: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#244" id="244" data-nosnippet="">244</a>    <span class="doccomment">/// Up to three nodes that came close to what the block asked for.
+<a href="#245" id="245" data-nosnippet="">245</a>    </span><span class="kw">pub </span>close: Vec&lt;String&gt;,
+<a href="#246" id="246" data-nosnippet="">246</a>    <span class="doccomment">/// The screen of the app under test when the block failed, as `E2e::snapshot` writes it.
+<a href="#247" id="247" data-nosnippet="">247</a>    </span><span class="kw">pub </span>screen: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#248" id="248" data-nosnippet="">248</a>    <span class="doccomment">/// How long the block took, in milliseconds, waits included.
+<a href="#249" id="249" data-nosnippet="">249</a>    </span><span class="kw">pub </span>ms: u64,
+<a href="#250" id="250" data-nosnippet="">250</a>}
+<a href="#251" id="251" data-nosnippet="">251</a>
+<a href="#252" id="252" data-nosnippet="">252</a><span class="doccomment">/// One line that sums up a run: how many blocks passed out of the path.
+<a href="#253" id="253" data-nosnippet="">253</a></span><span class="kw">pub fn </span>summary(outcomes: <span class="kw-2">&amp;</span>[Outcome], total: usize) -&gt; String {
+<a href="#254" id="254" data-nosnippet="">254</a>    <span class="kw">let </span>passed = outcomes.iter().filter(|o| o.error.is_none()).count();
+<a href="#255" id="255" data-nosnippet="">255</a>    <span class="kw">match </span>outcomes.iter().position(|o| o.error.is_some()) {
+<a href="#256" id="256" data-nosnippet="">256</a>        <span class="prelude-val">Some</span>(i) =&gt; <span class="macro">format!</span>(<span class="string">"Falhou no passo {} de {total}"</span>, i + <span class="number">1</span>),
+<a href="#257" id="257" data-nosnippet="">257</a>        <span class="prelude-val">None </span><span class="kw">if </span>passed == total =&gt; <span class="macro">format!</span>(<span class="string">"{passed} de {total} passos passaram"</span>),
+<a href="#258" id="258" data-nosnippet="">258</a>        <span class="prelude-val">None </span>=&gt; <span class="macro">format!</span>(<span class="string">"{passed} de {total} passos até agora"</span>),
+<a href="#259" id="259" data-nosnippet="">259</a>    }
+<a href="#260" id="260" data-nosnippet="">260</a>}
+</code></pre></div></section></main></body></html>

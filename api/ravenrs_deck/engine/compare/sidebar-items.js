@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ChangeKind"],"fn":["accept","adopt","diff","pending","unrelated"],"struct":["Change","ChangeKey","Compare"]};

@@ -1,0 +1,522 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>retorno.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ravenrs_nfe" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../static.files/src-script-813739b1.js"></script><script defer="" src="../../src-files.js"></script><script defer="" src="../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-nfe/src/retorno.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_nfe/retorno.rs.html"><meta property="og:title" content="retorno.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-nfe/src/retorno.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_nfe/retorno.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="retorno.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-nfe/src/retorno.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"retorno.rs - source","description":"Source of the Rust file `crates/ravenrs-nfe/src/retorno.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_nfe/retorno.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_nfe/</div>retorno.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! Reads what the services answer, and the table of the `cStat` this crate knows.
+<a href="#2" id="2" data-nosnippet="">2</a>
+<a href="#3" id="3" data-nosnippet="">3</a></span><span class="kw">use </span><span class="kw">crate</span>::error::NfeError;
+<a href="#4" id="4" data-nosnippet="">4</a><span class="kw">use </span><span class="kw">crate</span>::transporte::HttpResponse;
+<a href="#5" id="5" data-nosnippet="">5</a><span class="kw">use </span><span class="kw">crate</span>::xml::{<span class="self">self</span>, Element};
+<a href="#6" id="6" data-nosnippet="">6</a>
+<a href="#7" id="7" data-nosnippet="">7</a><span class="doccomment">/// The fields every return has.
+<a href="#8" id="8" data-nosnippet="">8</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
+<a href="#9" id="9" data-nosnippet="">9</a></span><span class="kw">pub struct </span>Retorno {
+<a href="#10" id="10" data-nosnippet="">10</a>    <span class="doccomment">/// The status code.
+<a href="#11" id="11" data-nosnippet="">11</a>    </span><span class="kw">pub </span>c_stat: u32,
+<a href="#12" id="12" data-nosnippet="">12</a>    <span class="doccomment">/// The text the server sent.
+<a href="#13" id="13" data-nosnippet="">13</a>    </span><span class="kw">pub </span>x_motivo: String,
+<a href="#14" id="14" data-nosnippet="">14</a>    <span class="doccomment">/// Which application answered. The sandbox says `RAVENRS-SANDBOX`.
+<a href="#15" id="15" data-nosnippet="">15</a>    </span><span class="kw">pub </span>ver_aplic: String,
+<a href="#16" id="16" data-nosnippet="">16</a>    <span class="doccomment">/// The environment the server says it is, `tpAmb`.
+<a href="#17" id="17" data-nosnippet="">17</a>    </span><span class="kw">pub </span>tp_amb: String,
+<a href="#18" id="18" data-nosnippet="">18</a>    <span class="doccomment">/// When the server received the message, when it says.
+<a href="#19" id="19" data-nosnippet="">19</a>    </span><span class="kw">pub </span>dh_recbto: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#20" id="20" data-nosnippet="">20</a>}
+<a href="#21" id="21" data-nosnippet="">21</a>
+<a href="#22" id="22" data-nosnippet="">22</a><span class="kw">impl </span>Retorno {
+<a href="#23" id="23" data-nosnippet="">23</a>    <span class="doccomment">/// Whether this came from the local sandbox.
+<a href="#24" id="24" data-nosnippet="">24</a>    </span><span class="attr">#[must_use]
+<a href="#25" id="25" data-nosnippet="">25</a>    </span><span class="kw">pub fn </span>veio_do_sandbox(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#26" id="26" data-nosnippet="">26</a>        <span class="self">self</span>.ver_aplic == <span class="string">"RAVENRS-SANDBOX"
+<a href="#27" id="27" data-nosnippet="">27</a>    </span>}
+<a href="#28" id="28" data-nosnippet="">28</a>}
+<a href="#29" id="29" data-nosnippet="">29</a>
+<a href="#30" id="30" data-nosnippet="">30</a><span class="doccomment">/// The answer of the service status.
+<a href="#31" id="31" data-nosnippet="">31</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
+<a href="#32" id="32" data-nosnippet="">32</a></span><span class="kw">pub struct </span>StatusServico {
+<a href="#33" id="33" data-nosnippet="">33</a>    <span class="doccomment">/// The common fields.
+<a href="#34" id="34" data-nosnippet="">34</a>    </span><span class="kw">pub </span>retorno: Retorno,
+<a href="#35" id="35" data-nosnippet="">35</a>    <span class="doccomment">/// The average time the server reports, in seconds.
+<a href="#36" id="36" data-nosnippet="">36</a>    </span><span class="kw">pub </span>t_med: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#37" id="37" data-nosnippet="">37</a>}
+<a href="#38" id="38" data-nosnippet="">38</a>
+<a href="#39" id="39" data-nosnippet="">39</a><span class="kw">impl </span>StatusServico {
+<a href="#40" id="40" data-nosnippet="">40</a>    <span class="doccomment">/// Whether the service is up: `cStat` 107.
+<a href="#41" id="41" data-nosnippet="">41</a>    </span><span class="attr">#[must_use]
+<a href="#42" id="42" data-nosnippet="">42</a>    </span><span class="kw">pub fn </span>em_operacao(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#43" id="43" data-nosnippet="">43</a>        <span class="self">self</span>.retorno.c_stat == <span class="number">107
+<a href="#44" id="44" data-nosnippet="">44</a>    </span>}
+<a href="#45" id="45" data-nosnippet="">45</a>}
+<a href="#46" id="46" data-nosnippet="">46</a>
+<a href="#47" id="47" data-nosnippet="">47</a><span class="doccomment">/// The protocol of one document.
+<a href="#48" id="48" data-nosnippet="">48</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
+<a href="#49" id="49" data-nosnippet="">49</a></span><span class="kw">pub struct </span>Protocolo {
+<a href="#50" id="50" data-nosnippet="">50</a>    <span class="doccomment">/// The key.
+<a href="#51" id="51" data-nosnippet="">51</a>    </span><span class="kw">pub </span>ch_nfe: String,
+<a href="#52" id="52" data-nosnippet="">52</a>    <span class="doccomment">/// When the server processed it.
+<a href="#53" id="53" data-nosnippet="">53</a>    </span><span class="kw">pub </span>dh_recbto: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#54" id="54" data-nosnippet="">54</a>    <span class="doccomment">/// The protocol number, when one was given.
+<a href="#55" id="55" data-nosnippet="">55</a>    </span><span class="kw">pub </span>n_prot: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#56" id="56" data-nosnippet="">56</a>    <span class="doccomment">/// The digest the server saw.
+<a href="#57" id="57" data-nosnippet="">57</a>    </span><span class="kw">pub </span>dig_val: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#58" id="58" data-nosnippet="">58</a>    <span class="doccomment">/// The status of the document.
+<a href="#59" id="59" data-nosnippet="">59</a>    </span><span class="kw">pub </span>c_stat: u32,
+<a href="#60" id="60" data-nosnippet="">60</a>    <span class="doccomment">/// The text of the status.
+<a href="#61" id="61" data-nosnippet="">61</a>    </span><span class="kw">pub </span>x_motivo: String,
+<a href="#62" id="62" data-nosnippet="">62</a>}
+<a href="#63" id="63" data-nosnippet="">63</a>
+<a href="#64" id="64" data-nosnippet="">64</a><span class="doccomment">/// The outcome of a document, read from its `cStat`.
+<a href="#65" id="65" data-nosnippet="">65</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+<a href="#66" id="66" data-nosnippet="">66</a></span><span class="kw">pub enum </span>Situacao {
+<a href="#67" id="67" data-nosnippet="">67</a>    <span class="doccomment">/// The use was authorized: 100 or 150.
+<a href="#68" id="68" data-nosnippet="">68</a>    </span>Autorizada,
+<a href="#69" id="69" data-nosnippet="">69</a>    <span class="doccomment">/// The use was denied: 110, 205, 301, 302 or 303.
+<a href="#70" id="70" data-nosnippet="">70</a>    </span>Denegada,
+<a href="#71" id="71" data-nosnippet="">71</a>    <span class="doccomment">/// The document already exists with this key or number: 204 or 539.
+<a href="#72" id="72" data-nosnippet="">72</a>    </span>Duplicada,
+<a href="#73" id="73" data-nosnippet="">73</a>    <span class="doccomment">/// The service is down for now: 108 or 109.
+<a href="#74" id="74" data-nosnippet="">74</a>    </span>Paralisado,
+<a href="#75" id="75" data-nosnippet="">75</a>    <span class="doccomment">/// The document was refused.
+<a href="#76" id="76" data-nosnippet="">76</a>    </span>Rejeitada,
+<a href="#77" id="77" data-nosnippet="">77</a>}
+<a href="#78" id="78" data-nosnippet="">78</a>
+<a href="#79" id="79" data-nosnippet="">79</a><span class="doccomment">/// The situation of a `cStat`.
+<a href="#80" id="80" data-nosnippet="">80</a></span><span class="attr">#[must_use]
+<a href="#81" id="81" data-nosnippet="">81</a></span><span class="kw">pub const fn </span>situacao_de(c_stat: u32) -&gt; Situacao {
+<a href="#82" id="82" data-nosnippet="">82</a>    <span class="kw">match </span>c_stat {
+<a href="#83" id="83" data-nosnippet="">83</a>        <span class="number">100 </span>| <span class="number">150 </span>=&gt; Situacao::Autorizada,
+<a href="#84" id="84" data-nosnippet="">84</a>        <span class="number">110 </span>| <span class="number">205 </span>| <span class="number">301 </span>| <span class="number">302 </span>| <span class="number">303 </span>=&gt; Situacao::Denegada,
+<a href="#85" id="85" data-nosnippet="">85</a>        <span class="number">204 </span>| <span class="number">539 </span>=&gt; Situacao::Duplicada,
+<a href="#86" id="86" data-nosnippet="">86</a>        <span class="number">108 </span>| <span class="number">109 </span>=&gt; Situacao::Paralisado,
+<a href="#87" id="87" data-nosnippet="">87</a>        <span class="kw">_ </span>=&gt; Situacao::Rejeitada,
+<a href="#88" id="88" data-nosnippet="">88</a>    }
+<a href="#89" id="89" data-nosnippet="">89</a>}
+<a href="#90" id="90" data-nosnippet="">90</a>
+<a href="#91" id="91" data-nosnippet="">91</a><span class="doccomment">/// The answer of a synchronous authorization.
+<a href="#92" id="92" data-nosnippet="">92</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
+<a href="#93" id="93" data-nosnippet="">93</a></span><span class="kw">pub struct </span>Autorizacao {
+<a href="#94" id="94" data-nosnippet="">94</a>    <span class="doccomment">/// The status of the batch.
+<a href="#95" id="95" data-nosnippet="">95</a>    </span><span class="kw">pub </span>lote: Retorno,
+<a href="#96" id="96" data-nosnippet="">96</a>    <span class="doccomment">/// The protocol of the document, absent when the batch itself was refused.
+<a href="#97" id="97" data-nosnippet="">97</a>    </span><span class="kw">pub </span>protocolo: <span class="prelude-ty">Option</span>&lt;Protocolo&gt;,
+<a href="#98" id="98" data-nosnippet="">98</a>    <span class="doccomment">/// The document with its protocol, `nfeProc`, present only when authorized.
+<a href="#99" id="99" data-nosnippet="">99</a>    </span><span class="kw">pub </span>nfe_proc: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#100" id="100" data-nosnippet="">100</a>}
+<a href="#101" id="101" data-nosnippet="">101</a>
+<a href="#102" id="102" data-nosnippet="">102</a><span class="kw">impl </span>Autorizacao {
+<a href="#103" id="103" data-nosnippet="">103</a>    <span class="doccomment">/// The status that decides: the document's if it has one, otherwise the batch's.
+<a href="#104" id="104" data-nosnippet="">104</a>    </span><span class="attr">#[must_use]
+<a href="#105" id="105" data-nosnippet="">105</a>    </span><span class="kw">pub fn </span>c_stat(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+<a href="#106" id="106" data-nosnippet="">106</a>        <span class="self">self</span>.protocolo.as_ref().map_or(<span class="self">self</span>.lote.c_stat, |protocolo| protocolo.c_stat)
+<a href="#107" id="107" data-nosnippet="">107</a>    }
+<a href="#108" id="108" data-nosnippet="">108</a>
+<a href="#109" id="109" data-nosnippet="">109</a>    <span class="doccomment">/// The text of [`Self::c_stat`].
+<a href="#110" id="110" data-nosnippet="">110</a>    </span><span class="attr">#[must_use]
+<a href="#111" id="111" data-nosnippet="">111</a>    </span><span class="kw">pub fn </span>x_motivo(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+<a href="#112" id="112" data-nosnippet="">112</a>        <span class="self">self</span>.protocolo.as_ref().map_or(<span class="self">self</span>.lote.x_motivo.as_str(), |p| p.x_motivo.as_str())
+<a href="#113" id="113" data-nosnippet="">113</a>    }
+<a href="#114" id="114" data-nosnippet="">114</a>
+<a href="#115" id="115" data-nosnippet="">115</a>    <span class="doccomment">/// The outcome.
+<a href="#116" id="116" data-nosnippet="">116</a>    </span><span class="attr">#[must_use]
+<a href="#117" id="117" data-nosnippet="">117</a>    </span><span class="kw">pub fn </span>situacao(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Situacao {
+<a href="#118" id="118" data-nosnippet="">118</a>        situacao_de(<span class="self">self</span>.c_stat())
+<a href="#119" id="119" data-nosnippet="">119</a>    }
+<a href="#120" id="120" data-nosnippet="">120</a>}
+<a href="#121" id="121" data-nosnippet="">121</a>
+<a href="#122" id="122" data-nosnippet="">122</a><span class="doccomment">/// The answer of a protocol query.
+<a href="#123" id="123" data-nosnippet="">123</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
+<a href="#124" id="124" data-nosnippet="">124</a></span><span class="kw">pub struct </span>ConsultaProtocolo {
+<a href="#125" id="125" data-nosnippet="">125</a>    <span class="doccomment">/// The common fields; `cStat` is the situation of the key.
+<a href="#126" id="126" data-nosnippet="">126</a>    </span><span class="kw">pub </span>retorno: Retorno,
+<a href="#127" id="127" data-nosnippet="">127</a>    <span class="doccomment">/// The key the server answered about.
+<a href="#128" id="128" data-nosnippet="">128</a>    </span><span class="kw">pub </span>ch_nfe: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#129" id="129" data-nosnippet="">129</a>    <span class="doccomment">/// The protocol, when there is one.
+<a href="#130" id="130" data-nosnippet="">130</a>    </span><span class="kw">pub </span>protocolo: <span class="prelude-ty">Option</span>&lt;Protocolo&gt;,
+<a href="#131" id="131" data-nosnippet="">131</a>}
+<a href="#132" id="132" data-nosnippet="">132</a>
+<a href="#133" id="133" data-nosnippet="">133</a><span class="doccomment">/// The answer to an event.
+<a href="#134" id="134" data-nosnippet="">134</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
+<a href="#135" id="135" data-nosnippet="">135</a></span><span class="kw">pub struct </span>RetornoEvento {
+<a href="#136" id="136" data-nosnippet="">136</a>    <span class="doccomment">/// The status of the batch.
+<a href="#137" id="137" data-nosnippet="">137</a>    </span><span class="kw">pub </span>lote: Retorno,
+<a href="#138" id="138" data-nosnippet="">138</a>    <span class="doccomment">/// The status of the event, or of the batch if the event was not reached.
+<a href="#139" id="139" data-nosnippet="">139</a>    </span><span class="kw">pub </span>c_stat: u32,
+<a href="#140" id="140" data-nosnippet="">140</a>    <span class="doccomment">/// The text of the status.
+<a href="#141" id="141" data-nosnippet="">141</a>    </span><span class="kw">pub </span>x_motivo: String,
+<a href="#142" id="142" data-nosnippet="">142</a>    <span class="doccomment">/// The key of the document.
+<a href="#143" id="143" data-nosnippet="">143</a>    </span><span class="kw">pub </span>ch_nfe: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#144" id="144" data-nosnippet="">144</a>    <span class="doccomment">/// The protocol of the event.
+<a href="#145" id="145" data-nosnippet="">145</a>    </span><span class="kw">pub </span>n_prot: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#146" id="146" data-nosnippet="">146</a>}
+<a href="#147" id="147" data-nosnippet="">147</a>
+<a href="#148" id="148" data-nosnippet="">148</a><span class="kw">impl </span>RetornoEvento {
+<a href="#149" id="149" data-nosnippet="">149</a>    <span class="doccomment">/// Whether the cancellation was registered: 135, 136 or 155.
+<a href="#150" id="150" data-nosnippet="">150</a>    </span><span class="attr">#[must_use]
+<a href="#151" id="151" data-nosnippet="">151</a>    </span><span class="kw">pub fn </span>registrado(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#152" id="152" data-nosnippet="">152</a>        <span class="macro">matches!</span>(<span class="self">self</span>.c_stat, <span class="number">135 </span>| <span class="number">136 </span>| <span class="number">155</span>)
+<a href="#153" id="153" data-nosnippet="">153</a>    }
+<a href="#154" id="154" data-nosnippet="">154</a>}
+<a href="#155" id="155" data-nosnippet="">155</a>
+<a href="#156" id="156" data-nosnippet="">156</a><span class="doccomment">/// Finds the return element, or says what came instead: a SOAP fault or nothing usable.
+<a href="#157" id="157" data-nosnippet="">157</a></span><span class="kw">fn </span>corpo(resposta: <span class="kw-2">&amp;</span>HttpResponse, raiz: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Element, NfeError&gt; {
+<a href="#158" id="158" data-nosnippet="">158</a>    <span class="kw">let </span>invalido = |motivo: String| NfeError::RetornoInvalido { status: resposta.status, motivo };
+<a href="#159" id="159" data-nosnippet="">159</a>    <span class="kw">let </span>texto = std::str::from_utf8(<span class="kw-2">&amp;</span>resposta.body)
+<a href="#160" id="160" data-nosnippet="">160</a>        .map_err(|<span class="kw">_</span>| invalido(<span class="string">"corpo da resposta não é UTF-8"</span>.to_string()))<span class="question-mark">?</span>;
+<a href="#161" id="161" data-nosnippet="">161</a>    <span class="kw">let </span>documento = xml::parse(texto).map_err(|erro| invalido(erro.to_string()))<span class="question-mark">?</span>;
+<a href="#162" id="162" data-nosnippet="">162</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(retorno) = documento.find(raiz) {
+<a href="#163" id="163" data-nosnippet="">163</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(retorno.clone());
+<a href="#164" id="164" data-nosnippet="">164</a>    }
+<a href="#165" id="165" data-nosnippet="">165</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(fault) = documento.find(<span class="string">"Fault"</span>) {
+<a href="#166" id="166" data-nosnippet="">166</a>        <span class="kw">let </span>motivo = fault
+<a href="#167" id="167" data-nosnippet="">167</a>            .find(<span class="string">"Reason"</span>)
+<a href="#168" id="168" data-nosnippet="">168</a>            .and_then(|reason| reason.find_text(<span class="string">"Text"</span>))
+<a href="#169" id="169" data-nosnippet="">169</a>            .or_else(|| fault.find_text(<span class="string">"faultstring"</span>))
+<a href="#170" id="170" data-nosnippet="">170</a>            .unwrap_or_else(|| <span class="string">"SOAP Fault sem texto"</span>.to_string());
+<a href="#171" id="171" data-nosnippet="">171</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(invalido(motivo));
+<a href="#172" id="172" data-nosnippet="">172</a>    }
+<a href="#173" id="173" data-nosnippet="">173</a>    <span class="prelude-val">Err</span>(invalido(<span class="macro">format!</span>(<span class="string">"{raiz} não encontrado na resposta"</span>)))
+<a href="#174" id="174" data-nosnippet="">174</a>}
+<a href="#175" id="175" data-nosnippet="">175</a>
+<a href="#176" id="176" data-nosnippet="">176</a><span class="kw">fn </span>comum(element: <span class="kw-2">&amp;</span>Element, status: u16) -&gt; <span class="prelude-ty">Result</span>&lt;Retorno, NfeError&gt; {
+<a href="#177" id="177" data-nosnippet="">177</a>    <span class="kw">let </span>c_stat = element
+<a href="#178" id="178" data-nosnippet="">178</a>        .child_text(<span class="string">"cStat"</span>)
+<a href="#179" id="179" data-nosnippet="">179</a>        .and_then(|text| text.trim().parse().ok())
+<a href="#180" id="180" data-nosnippet="">180</a>        .ok_or_else(|| NfeError::RetornoInvalido { status, motivo: <span class="string">"retorno sem cStat"</span>.to_string() })<span class="question-mark">?</span>;
+<a href="#181" id="181" data-nosnippet="">181</a>    <span class="prelude-val">Ok</span>(Retorno {
+<a href="#182" id="182" data-nosnippet="">182</a>        c_stat,
+<a href="#183" id="183" data-nosnippet="">183</a>        x_motivo: element.child_text(<span class="string">"xMotivo"</span>).unwrap_or_default(),
+<a href="#184" id="184" data-nosnippet="">184</a>        ver_aplic: element.child_text(<span class="string">"verAplic"</span>).unwrap_or_default(),
+<a href="#185" id="185" data-nosnippet="">185</a>        tp_amb: element.child_text(<span class="string">"tpAmb"</span>).unwrap_or_default(),
+<a href="#186" id="186" data-nosnippet="">186</a>        dh_recbto: element.child_text(<span class="string">"dhRecbto"</span>),
+<a href="#187" id="187" data-nosnippet="">187</a>    })
+<a href="#188" id="188" data-nosnippet="">188</a>}
+<a href="#189" id="189" data-nosnippet="">189</a>
+<a href="#190" id="190" data-nosnippet="">190</a><span class="kw">fn </span>protocolo(element: <span class="kw-2">&amp;</span>Element, status: u16) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Protocolo&gt;, NfeError&gt; {
+<a href="#191" id="191" data-nosnippet="">191</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(inf) = element.child(<span class="string">"protNFe"</span>).and_then(|prot| prot.child(<span class="string">"infProt"</span>)) <span class="kw">else </span>{
+<a href="#192" id="192" data-nosnippet="">192</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+<a href="#193" id="193" data-nosnippet="">193</a>    };
+<a href="#194" id="194" data-nosnippet="">194</a>    <span class="kw">let </span>base = comum(inf, status)<span class="question-mark">?</span>;
+<a href="#195" id="195" data-nosnippet="">195</a>    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(Protocolo {
+<a href="#196" id="196" data-nosnippet="">196</a>        ch_nfe: inf.child_text(<span class="string">"chNFe"</span>).unwrap_or_default(),
+<a href="#197" id="197" data-nosnippet="">197</a>        dh_recbto: base.dh_recbto,
+<a href="#198" id="198" data-nosnippet="">198</a>        n_prot: inf.child_text(<span class="string">"nProt"</span>),
+<a href="#199" id="199" data-nosnippet="">199</a>        dig_val: inf.child_text(<span class="string">"digVal"</span>),
+<a href="#200" id="200" data-nosnippet="">200</a>        c_stat: base.c_stat,
+<a href="#201" id="201" data-nosnippet="">201</a>        x_motivo: base.x_motivo,
+<a href="#202" id="202" data-nosnippet="">202</a>    }))
+<a href="#203" id="203" data-nosnippet="">203</a>}
+<a href="#204" id="204" data-nosnippet="">204</a>
+<a href="#205" id="205" data-nosnippet="">205</a><span class="doccomment">/// Reads the service status return.
+<a href="#206" id="206" data-nosnippet="">206</a></span><span class="kw">pub fn </span>ler_status(resposta: <span class="kw-2">&amp;</span>HttpResponse) -&gt; <span class="prelude-ty">Result</span>&lt;StatusServico, NfeError&gt; {
+<a href="#207" id="207" data-nosnippet="">207</a>    <span class="kw">let </span>element = corpo(resposta, <span class="string">"retConsStatServ"</span>)<span class="question-mark">?</span>;
+<a href="#208" id="208" data-nosnippet="">208</a>    <span class="prelude-val">Ok</span>(StatusServico { retorno: comum(<span class="kw-2">&amp;</span>element, resposta.status)<span class="question-mark">?</span>, t_med: element.child_text(<span class="string">"tMed"</span>) })
+<a href="#209" id="209" data-nosnippet="">209</a>}
+<a href="#210" id="210" data-nosnippet="">210</a>
+<a href="#211" id="211" data-nosnippet="">211</a><span class="doccomment">/// Reads the authorization return; `nfe_assinada` becomes `nfeProc` when it was authorized.
+<a href="#212" id="212" data-nosnippet="">212</a></span><span class="kw">pub fn </span>ler_autorizacao(resposta: <span class="kw-2">&amp;</span>HttpResponse, nfe_assinada: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Autorizacao, NfeError&gt; {
+<a href="#213" id="213" data-nosnippet="">213</a>    <span class="kw">let </span>element = corpo(resposta, <span class="string">"retEnviNFe"</span>)<span class="question-mark">?</span>;
+<a href="#214" id="214" data-nosnippet="">214</a>    <span class="kw">let </span>lote = comum(<span class="kw-2">&amp;</span>element, resposta.status)<span class="question-mark">?</span>;
+<a href="#215" id="215" data-nosnippet="">215</a>    <span class="kw">let </span>protocolo = protocolo(<span class="kw-2">&amp;</span>element, resposta.status)<span class="question-mark">?</span>;
+<a href="#216" id="216" data-nosnippet="">216</a>    <span class="kw">let </span>autorizada = protocolo.as_ref().is_some_and(|p| situacao_de(p.c_stat) == Situacao::Autorizada);
+<a href="#217" id="217" data-nosnippet="">217</a>    <span class="kw">let </span>nfe_proc = element.child(<span class="string">"protNFe"</span>).filter(|<span class="kw">_</span>| autorizada).map(|prot| {
+<a href="#218" id="218" data-nosnippet="">218</a>        <span class="macro">format!</span>(
+<a href="#219" id="219" data-nosnippet="">219</a>            <span class="string">"&lt;nfeProc versao=\"4.00\" xmlns=\"{}\"&gt;{nfe_assinada}{}&lt;/nfeProc&gt;"</span>,
+<a href="#220" id="220" data-nosnippet="">220</a>            <span class="kw">crate</span>::soap::NS_NFE,
+<a href="#221" id="221" data-nosnippet="">221</a>            xml::to_string(prot)
+<a href="#222" id="222" data-nosnippet="">222</a>        )
+<a href="#223" id="223" data-nosnippet="">223</a>    });
+<a href="#224" id="224" data-nosnippet="">224</a>    <span class="prelude-val">Ok</span>(Autorizacao { lote, protocolo, nfe_proc })
+<a href="#225" id="225" data-nosnippet="">225</a>}
+<a href="#226" id="226" data-nosnippet="">226</a>
+<a href="#227" id="227" data-nosnippet="">227</a><span class="doccomment">/// Reads the protocol query return.
+<a href="#228" id="228" data-nosnippet="">228</a></span><span class="kw">pub fn </span>ler_consulta(resposta: <span class="kw-2">&amp;</span>HttpResponse) -&gt; <span class="prelude-ty">Result</span>&lt;ConsultaProtocolo, NfeError&gt; {
+<a href="#229" id="229" data-nosnippet="">229</a>    <span class="kw">let </span>element = corpo(resposta, <span class="string">"retConsSitNFe"</span>)<span class="question-mark">?</span>;
+<a href="#230" id="230" data-nosnippet="">230</a>    <span class="prelude-val">Ok</span>(ConsultaProtocolo {
+<a href="#231" id="231" data-nosnippet="">231</a>        retorno: comum(<span class="kw-2">&amp;</span>element, resposta.status)<span class="question-mark">?</span>,
+<a href="#232" id="232" data-nosnippet="">232</a>        ch_nfe: element.child_text(<span class="string">"chNFe"</span>),
+<a href="#233" id="233" data-nosnippet="">233</a>        protocolo: protocolo(<span class="kw-2">&amp;</span>element, resposta.status)<span class="question-mark">?</span>,
+<a href="#234" id="234" data-nosnippet="">234</a>    })
+<a href="#235" id="235" data-nosnippet="">235</a>}
+<a href="#236" id="236" data-nosnippet="">236</a>
+<a href="#237" id="237" data-nosnippet="">237</a><span class="doccomment">/// Reads the event return.
+<a href="#238" id="238" data-nosnippet="">238</a></span><span class="kw">pub fn </span>ler_evento(resposta: <span class="kw-2">&amp;</span>HttpResponse) -&gt; <span class="prelude-ty">Result</span>&lt;RetornoEvento, NfeError&gt; {
+<a href="#239" id="239" data-nosnippet="">239</a>    <span class="kw">let </span>element = corpo(resposta, <span class="string">"retEnvEvento"</span>)<span class="question-mark">?</span>;
+<a href="#240" id="240" data-nosnippet="">240</a>    <span class="kw">let </span>lote = comum(<span class="kw-2">&amp;</span>element, resposta.status)<span class="question-mark">?</span>;
+<a href="#241" id="241" data-nosnippet="">241</a>    <span class="kw">let </span>inf = element.child(<span class="string">"retEvento"</span>).and_then(|retorno| retorno.child(<span class="string">"infEvento"</span>));
+<a href="#242" id="242" data-nosnippet="">242</a>    <span class="kw">let </span>(c_stat, x_motivo) = <span class="kw">match </span>inf {
+<a href="#243" id="243" data-nosnippet="">243</a>        <span class="prelude-val">Some</span>(inf) =&gt; {
+<a href="#244" id="244" data-nosnippet="">244</a>            <span class="kw">let </span>base = comum(inf, resposta.status)<span class="question-mark">?</span>;
+<a href="#245" id="245" data-nosnippet="">245</a>            (base.c_stat, base.x_motivo)
+<a href="#246" id="246" data-nosnippet="">246</a>        }
+<a href="#247" id="247" data-nosnippet="">247</a>        <span class="prelude-val">None </span>=&gt; (lote.c_stat, lote.x_motivo.clone()),
+<a href="#248" id="248" data-nosnippet="">248</a>    };
+<a href="#249" id="249" data-nosnippet="">249</a>    <span class="prelude-val">Ok</span>(RetornoEvento {
+<a href="#250" id="250" data-nosnippet="">250</a>        c_stat,
+<a href="#251" id="251" data-nosnippet="">251</a>        x_motivo,
+<a href="#252" id="252" data-nosnippet="">252</a>        ch_nfe: inf.and_then(|inf| inf.child_text(<span class="string">"chNFe"</span>)),
+<a href="#253" id="253" data-nosnippet="">253</a>        n_prot: inf.and_then(|inf| inf.child_text(<span class="string">"nProt"</span>)),
+<a href="#254" id="254" data-nosnippet="">254</a>        lote,
+<a href="#255" id="255" data-nosnippet="">255</a>    })
+<a href="#256" id="256" data-nosnippet="">256</a>}
+<a href="#257" id="257" data-nosnippet="">257</a>
+<a href="#258" id="258" data-nosnippet="">258</a><span class="doccomment">/// The name of a `cStat`, condensed from the code table of the MOC 7.0 (Anexo I, 4.4.1) and of the
+<a href="#259" id="259" data-nosnippet="">259</a>/// technical notes that created later codes. The server's own `xMotivo` is what counts.
+<a href="#260" id="260" data-nosnippet="">260</a></span><span class="attr">#[must_use]
+<a href="#261" id="261" data-nosnippet="">261</a></span><span class="kw">pub const fn </span>descricao_c_stat(c_stat: u32) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str&gt; {
+<a href="#262" id="262" data-nosnippet="">262</a>    <span class="prelude-val">Some</span>(<span class="kw">match </span>c_stat {
+<a href="#263" id="263" data-nosnippet="">263</a>        <span class="number">100 </span>=&gt; <span class="string">"Autorizado o uso da NF-e"</span>,
+<a href="#264" id="264" data-nosnippet="">264</a>        <span class="number">101 </span>=&gt; <span class="string">"Cancelamento de NF-e homologado"</span>,
+<a href="#265" id="265" data-nosnippet="">265</a>        <span class="number">104 </span>=&gt; <span class="string">"Lote processado"</span>,
+<a href="#266" id="266" data-nosnippet="">266</a>        <span class="number">107 </span>=&gt; <span class="string">"Serviço em Operação"</span>,
+<a href="#267" id="267" data-nosnippet="">267</a>        <span class="number">108 </span>=&gt; <span class="string">"Serviço Paralisado Momentaneamente (curto prazo)"</span>,
+<a href="#268" id="268" data-nosnippet="">268</a>        <span class="number">109 </span>=&gt; <span class="string">"Serviço Paralisado sem Previsão"</span>,
+<a href="#269" id="269" data-nosnippet="">269</a>        <span class="number">126 </span>=&gt; <span class="string">"Rejeição: Enviado lote com mais de 1 NFC-e"</span>,
+<a href="#270" id="270" data-nosnippet="">270</a>        <span class="number">128 </span>=&gt; <span class="string">"Lote de Evento Processado"</span>,
+<a href="#271" id="271" data-nosnippet="">271</a>        <span class="number">129 </span>=&gt; <span class="string">"Rejeição: A autorização deve ser solicitada de forma síncrona"</span>,
+<a href="#272" id="272" data-nosnippet="">272</a>        <span class="number">135 </span>=&gt; <span class="string">"Evento registrado e vinculado a NF-e"</span>,
+<a href="#273" id="273" data-nosnippet="">273</a>        <span class="number">136 </span>=&gt; <span class="string">"Evento registrado, mas não vinculado a NF-e"</span>,
+<a href="#274" id="274" data-nosnippet="">274</a>        <span class="number">137 </span>=&gt; <span class="string">"Nenhum documento localizado para o Destinatário"</span>,
+<a href="#275" id="275" data-nosnippet="">275</a>        <span class="number">138 </span>=&gt; <span class="string">"Documento localizado para o Destinatário"</span>,
+<a href="#276" id="276" data-nosnippet="">276</a>        <span class="number">150 </span>=&gt; <span class="string">"Autorizado o uso da NF-e, autorização fora de prazo"</span>,
+<a href="#277" id="277" data-nosnippet="">277</a>        <span class="number">155 </span>=&gt; <span class="string">"Cancelamento homologado fora de prazo"</span>,
+<a href="#278" id="278" data-nosnippet="">278</a>        <span class="number">204 </span>=&gt; <span class="string">"Rejeição: Duplicidade de NF-e"</span>,
+<a href="#279" id="279" data-nosnippet="">279</a>        <span class="number">207 </span>=&gt; <span class="string">"Rejeição: CNPJ do emitente inválido"</span>,
+<a href="#280" id="280" data-nosnippet="">280</a>        <span class="number">213 </span>=&gt; <span class="string">"Rejeição: CNPJ-Base do Emitente difere do CNPJ-Base do Certificado Digital"</span>,
+<a href="#281" id="281" data-nosnippet="">281</a>        <span class="number">215 </span>=&gt; <span class="string">"Rejeição: Falha no schema XML"</span>,
+<a href="#282" id="282" data-nosnippet="">282</a>        <span class="number">217 </span>=&gt; <span class="string">"Rejeição: NF-e não consta na base de dados da SEFAZ"</span>,
+<a href="#283" id="283" data-nosnippet="">283</a>        <span class="number">222 </span>=&gt; <span class="string">"Rejeição: Protocolo de Autorização de Uso difere do cadastrado"</span>,
+<a href="#284" id="284" data-nosnippet="">284</a>        <span class="number">225 </span>=&gt; <span class="string">"Rejeição: Falha no Schema XML do lote de NFe"</span>,
+<a href="#285" id="285" data-nosnippet="">285</a>        <span class="number">227 </span>=&gt; <span class="string">"Rejeição: CPF do Emitente difere do CPF do Certificado Digital"</span>,
+<a href="#286" id="286" data-nosnippet="">286</a>        <span class="number">236 </span>=&gt; <span class="string">"Rejeição: Chave de Acesso com dígito verificador inválido"</span>,
+<a href="#287" id="287" data-nosnippet="">287</a>        <span class="number">239 </span>=&gt; <span class="string">"Rejeição: Versão do arquivo XML não suportada"</span>,
+<a href="#288" id="288" data-nosnippet="">288</a>        <span class="number">243 </span>=&gt; <span class="string">"Rejeição: XML Mal Formado"</span>,
+<a href="#289" id="289" data-nosnippet="">289</a>        <span class="number">252 </span>=&gt; <span class="string">"Rejeição: Ambiente informado diverge do Ambiente de recebimento"</span>,
+<a href="#290" id="290" data-nosnippet="">290</a>        <span class="number">253 </span>=&gt; <span class="string">"Rejeição: Digito Verificador da chave de acesso composta inválida"</span>,
+<a href="#291" id="291" data-nosnippet="">291</a>        <span class="number">271 </span>=&gt; <span class="string">"Rejeição: Código Município do Fato Gerador difere da UF do emitente"</span>,
+<a href="#292" id="292" data-nosnippet="">292</a>        <span class="number">280 </span>=&gt; <span class="string">"Rejeição: Certificado Transmissor inválido"</span>,
+<a href="#293" id="293" data-nosnippet="">293</a>        <span class="number">281 </span>=&gt; <span class="string">"Rejeição: Certificado Transmissor Data Validade"</span>,
+<a href="#294" id="294" data-nosnippet="">294</a>        <span class="number">282 </span>=&gt; <span class="string">"Rejeição: Certificado Transmissor sem CNPJ/CPF"</span>,
+<a href="#295" id="295" data-nosnippet="">295</a>        <span class="number">283 </span>=&gt; <span class="string">"Rejeição: Certificado Transmissor - erro Cadeia de Certificação"</span>,
+<a href="#296" id="296" data-nosnippet="">296</a>        <span class="number">284 </span>=&gt; <span class="string">"Rejeição: Certificado Transmissor revogado"</span>,
+<a href="#297" id="297" data-nosnippet="">297</a>        <span class="number">285 </span>=&gt; <span class="string">"Rejeição: Certificado Transmissor difere ICP-Brasil"</span>,
+<a href="#298" id="298" data-nosnippet="">298</a>        <span class="number">286 </span>=&gt; <span class="string">"Rejeição: Certificado Transmissor erro no acesso a LCR"</span>,
+<a href="#299" id="299" data-nosnippet="">299</a>        <span class="number">290 </span>=&gt; <span class="string">"Rejeição: Certificado Assinatura inválido"</span>,
+<a href="#300" id="300" data-nosnippet="">300</a>        <span class="number">291 </span>=&gt; <span class="string">"Rejeição: Certificado Assinatura Data Validade"</span>,
+<a href="#301" id="301" data-nosnippet="">301</a>        <span class="number">292 </span>=&gt; <span class="string">"Rejeição: Certificado de Assinatura sem CNPJ/CPF"</span>,
+<a href="#302" id="302" data-nosnippet="">302</a>        <span class="number">293 </span>=&gt; <span class="string">"Rejeição: Certificado Assinatura - erro Cadeia de Certificação"</span>,
+<a href="#303" id="303" data-nosnippet="">303</a>        <span class="number">294 </span>=&gt; <span class="string">"Rejeição: Certificado Assinatura revogado"</span>,
+<a href="#304" id="304" data-nosnippet="">304</a>        <span class="number">295 </span>=&gt; <span class="string">"Rejeição: Certificado Assinatura difere ICP-Brasil"</span>,
+<a href="#305" id="305" data-nosnippet="">305</a>        <span class="number">296 </span>=&gt; <span class="string">"Rejeição: Certificado Assinatura erro no acesso a LCR"</span>,
+<a href="#306" id="306" data-nosnippet="">306</a>        <span class="number">297 </span>=&gt; <span class="string">"Rejeição: Assinatura difere do calculado"</span>,
+<a href="#307" id="307" data-nosnippet="">307</a>        <span class="number">298 </span>=&gt; <span class="string">"Rejeição: Assinatura difere do padrão do Sistema"</span>,
+<a href="#308" id="308" data-nosnippet="">308</a>        <span class="number">373 </span>=&gt; <span class="string">"Rejeição: Descrição do primeiro item diferente do texto de homologação"</span>,
+<a href="#309" id="309" data-nosnippet="">309</a>        <span class="number">391 </span>=&gt; <span class="string">"Rejeição: Não informados os dados do cartão nas Formas de Pagamento"</span>,
+<a href="#310" id="310" data-nosnippet="">310</a>        <span class="number">392 </span>=&gt; <span class="string">"Rejeição: Não informados os dados da operação de pagamento por cartão"</span>,
+<a href="#311" id="311" data-nosnippet="">311</a>        <span class="number">394 </span>=&gt; <span class="string">"Rejeição: Nota Fiscal sem a informação do QR-Code"</span>,
+<a href="#312" id="312" data-nosnippet="">312</a>        <span class="number">397 </span>=&gt; <span class="string">"Rejeição: Parâmetro do QR-Code divergente da Nota Fiscal"</span>,
+<a href="#313" id="313" data-nosnippet="">313</a>        <span class="number">398 </span>=&gt; <span class="string">"Rejeição: Parâmetro Versão informada no QR-Code diverge do previsto"</span>,
+<a href="#314" id="314" data-nosnippet="">314</a>        <span class="number">437 </span>=&gt; <span class="string">"Rejeição: CNPJ da instituição de pagamento inválido"</span>,
+<a href="#315" id="315" data-nosnippet="">315</a>        <span class="number">452 </span>=&gt; <span class="string">"Rejeição: Solicitada resposta assíncrona para Lote com somente 1 NF-e"</span>,
+<a href="#316" id="316" data-nosnippet="">316</a>        <span class="number">489 </span>=&gt; <span class="string">"Rejeição: CNPJ informado inválido"</span>,
+<a href="#317" id="317" data-nosnippet="">317</a>        <span class="number">491 </span>=&gt; <span class="string">"Rejeição: O tpEvento informado inválido"</span>,
+<a href="#318" id="318" data-nosnippet="">318</a>        <span class="number">492 </span>=&gt; <span class="string">"Rejeição: O verEvento informado inválido"</span>,
+<a href="#319" id="319" data-nosnippet="">319</a>        <span class="number">493 </span>=&gt; <span class="string">"Rejeição: Evento não atende o Schema XML específico"</span>,
+<a href="#320" id="320" data-nosnippet="">320</a>        <span class="number">494 </span>=&gt; <span class="string">"Rejeição: Chave de Acesso inexistente"</span>,
+<a href="#321" id="321" data-nosnippet="">321</a>        <span class="number">501 </span>=&gt; <span class="string">"Rejeição: Prazo de cancelamento superior ao previsto na Legislação"</span>,
+<a href="#322" id="322" data-nosnippet="">322</a>        <span class="number">502 </span>=&gt; <span class="string">"Rejeição: Chave de Acesso do campo Id difere da concatenação dos campos"</span>,
+<a href="#323" id="323" data-nosnippet="">323</a>        <span class="number">516 </span>=&gt; <span class="string">"Rejeição: Falha no schema XML – inexiste a tag raiz esperada para a mensagem"</span>,
+<a href="#324" id="324" data-nosnippet="">324</a>        <span class="number">517 </span>=&gt; <span class="string">"Rejeição: Falha no schema XML – inexiste atributo versao na tag raiz"</span>,
+<a href="#325" id="325" data-nosnippet="">325</a>        <span class="number">537 </span>=&gt; <span class="string">"Rejeição: Total do Desconto difere do somatório dos itens"</span>,
+<a href="#326" id="326" data-nosnippet="">326</a>        <span class="number">539 </span>=&gt; <span class="string">"Rejeição: Duplicidade de NF-e com diferença na Chave de Acesso"</span>,
+<a href="#327" id="327" data-nosnippet="">327</a>        <span class="number">564 </span>=&gt; <span class="string">"Rejeição: Total do Produto / Serviço difere do somatório dos itens"</span>,
+<a href="#328" id="328" data-nosnippet="">328</a>        <span class="number">565 </span>=&gt; <span class="string">"Rejeição: Falha no schema XML – inexiste a tag raiz esperada para o lote"</span>,
+<a href="#329" id="329" data-nosnippet="">329</a>        <span class="number">573 </span>=&gt; <span class="string">"Rejeição: Duplicidade de Evento"</span>,
+<a href="#330" id="330" data-nosnippet="">330</a>        <span class="number">574 </span>=&gt; <span class="string">"Rejeição: O autor do evento diverge do emissor da NF-e"</span>,
+<a href="#331" id="331" data-nosnippet="">331</a>        <span class="number">575 </span>=&gt; <span class="string">"Rejeição: O autor do evento diverge do destinatário da NF-e"</span>,
+<a href="#332" id="332" data-nosnippet="">332</a>        <span class="number">577 </span>=&gt; <span class="string">"Rejeição: A data do evento não pode ser menor que a data de emissão"</span>,
+<a href="#333" id="333" data-nosnippet="">333</a>        <span class="number">578 </span>=&gt; <span class="string">"Rejeição: A data do evento não pode ser maior que a data do processamento"</span>,
+<a href="#334" id="334" data-nosnippet="">334</a>        <span class="number">579 </span>=&gt; <span class="string">"Rejeição: A data do evento não pode ser menor que a data de autorização"</span>,
+<a href="#335" id="335" data-nosnippet="">335</a>        <span class="number">580 </span>=&gt; <span class="string">"Rejeição: O evento exige uma NF-e autorizada"</span>,
+<a href="#336" id="336" data-nosnippet="">336</a>        <span class="number">587 </span>=&gt; <span class="string">"Rejeição: Usar somente o namespace padrão da NF-e"</span>,
+<a href="#337" id="337" data-nosnippet="">337</a>        <span class="number">588 </span>=&gt; <span class="string">"Rejeição: Caracteres de edição no início, no fim ou entre as tags da mensagem"</span>,
+<a href="#338" id="338" data-nosnippet="">338</a>        <span class="number">589 </span>=&gt; <span class="string">"Rejeição: NSU informado superior ao maior NSU do Ambiente Nacional"</span>,
+<a href="#339" id="339" data-nosnippet="">339</a>        <span class="number">593 </span>=&gt; <span class="string">"Rejeição: CNPJ-Base consultado difere do CNPJ-Base do Certificado Digital"</span>,
+<a href="#340" id="340" data-nosnippet="">340</a>        <span class="number">594 </span>=&gt; <span class="string">"Rejeição: O número de sequencia do evento informado é maior que o permitido"</span>,
+<a href="#341" id="341" data-nosnippet="">341</a>        <span class="number">595 </span>=&gt; <span class="string">"Rejeição: Obrigatória a informação da justificativa do evento"</span>,
+<a href="#342" id="342" data-nosnippet="">342</a>        <span class="number">598 </span>=&gt; <span class="string">"Rejeição: Razão Social do destinatário diferente do texto de homologação"</span>,
+<a href="#343" id="343" data-nosnippet="">343</a>        <span class="number">610 </span>=&gt; <span class="string">"Rejeição: Total da NF difere do somatório dos Valores que compõem o Total"</span>,
+<a href="#344" id="344" data-nosnippet="">344</a>        <span class="number">629 </span>=&gt; <span class="string">"Rejeição: Valor do Produto difere de Valor Unitário de Comercialização vezes Quantidade"</span>,
+<a href="#345" id="345" data-nosnippet="">345</a>        <span class="number">630 </span>=&gt; <span class="string">"Rejeição: Valor do Produto difere de Valor Unitário de Tributação vezes Quantidade"</span>,
+<a href="#346" id="346" data-nosnippet="">346</a>        <span class="number">640 </span>=&gt; <span class="string">"Rejeição: CNPJ/CPF do interessado não possui permissão para consultar esta NF-e"</span>,
+<a href="#347" id="347" data-nosnippet="">347</a>        <span class="number">656 </span>=&gt; <span class="string">"Rejeição: Consumo Indevido"</span>,
+<a href="#348" id="348" data-nosnippet="">348</a>        <span class="number">703 </span>=&gt; <span class="string">"Rejeição: Data-Hora de Emissão posterior ao horário de recebimento"</span>,
+<a href="#349" id="349" data-nosnippet="">349</a>        <span class="number">704 </span>=&gt; <span class="string">"Rejeição: NFC-e com Data-Hora de emissão atrasada"</span>,
+<a href="#350" id="350" data-nosnippet="">350</a>        <span class="number">707 </span>=&gt; <span class="string">"Rejeição: NFC-e para operação interestadual ou com o exterior"</span>,
+<a href="#351" id="351" data-nosnippet="">351</a>        <span class="number">709 </span>=&gt; <span class="string">"Rejeição: NFC-e com formato de DANFE inválido"</span>,
+<a href="#352" id="352" data-nosnippet="">352</a>        <span class="number">710 </span>=&gt; <span class="string">"Rejeição: NF-e com formato de DANFE inválido"</span>,
+<a href="#353" id="353" data-nosnippet="">353</a>        <span class="number">715 </span>=&gt; <span class="string">"Rejeição: NFC-e com finalidade inválida"</span>,
+<a href="#354" id="354" data-nosnippet="">354</a>        <span class="number">716 </span>=&gt; <span class="string">"Rejeição: NFC-e em operação não destinada a consumidor final"</span>,
+<a href="#355" id="355" data-nosnippet="">355</a>        <span class="number">717 </span>=&gt; <span class="string">"Rejeição: NFC-e em operação não presencial"</span>,
+<a href="#356" id="356" data-nosnippet="">356</a>        <span class="number">719 </span>=&gt; <span class="string">"Rejeição: NF-e sem a identificação do destinatário"</span>,
+<a href="#357" id="357" data-nosnippet="">357</a>        <span class="number">724 </span>=&gt; <span class="string">"Rejeição: NF-e sem o nome do destinatário"</span>,
+<a href="#358" id="358" data-nosnippet="">358</a>        <span class="number">725 </span>=&gt; <span class="string">"Rejeição: NFC-e com CFOP inválido"</span>,
+<a href="#359" id="359" data-nosnippet="">359</a>        <span class="number">726 </span>=&gt; <span class="string">"Rejeição: NF-e sem a informação de endereço do destinatário"</span>,
+<a href="#360" id="360" data-nosnippet="">360</a>        <span class="number">789 </span>=&gt; <span class="string">"Rejeição: NFC-e para destinatário contribuinte de ICMS"</span>,
+<a href="#361" id="361" data-nosnippet="">361</a>        <span class="number">796 </span>=&gt; <span class="string">"Rejeição: CNPJ recebedor do pagamento inválido"</span>,
+<a href="#362" id="362" data-nosnippet="">362</a>        <span class="number">806 </span>=&gt; <span class="string">"Rejeição: Operação com ICMS-ST sem informação do CEST"</span>,
+<a href="#363" id="363" data-nosnippet="">363</a>        <span class="number">865 </span>=&gt; <span class="string">"Rejeição: Total dos pagamentos menor que o total da nota"</span>,
+<a href="#364" id="364" data-nosnippet="">364</a>        <span class="number">866 </span>=&gt; <span class="string">"Rejeição: Ausência de troco quando os pagamentos passam do total da nota"</span>,
+<a href="#365" id="365" data-nosnippet="">365</a>        <span class="number">869 </span>=&gt; <span class="string">"Rejeição: Valor do troco incorreto"</span>,
+<a href="#366" id="366" data-nosnippet="">366</a>        <span class="number">878 </span>=&gt; <span class="string">"Rejeição: Endereço do site da UF da Consulta por chave de acesso diverge do previsto"</span>,
+<a href="#367" id="367" data-nosnippet="">367</a>        <span class="number">897 </span>=&gt; <span class="string">"Rejeição: Código numérico em formato inválido"</span>,
+<a href="#368" id="368" data-nosnippet="">368</a>        <span class="number">899 </span>=&gt; <span class="string">"Rejeição: Informado incorretamente o campo meio de pagamento"</span>,
+<a href="#369" id="369" data-nosnippet="">369</a>        <span class="number">904 </span>=&gt; <span class="string">"Rejeição: Informado indevidamente campo valor de pagamento"</span>,
+<a href="#370" id="370" data-nosnippet="">370</a>        <span class="number">963 </span>=&gt; <span class="string">"Rejeição: Tipo de pagamento não aceita o grupo de cartões ou boletos"</span>,
+<a href="#371" id="371" data-nosnippet="">371</a>        <span class="number">1115 </span>=&gt; <span class="string">"Rejeição: Grupo IBSCBS não informado"</span>,
+<a href="#372" id="372" data-nosnippet="">372</a>        <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
+<a href="#373" id="373" data-nosnippet="">373</a>    })
+<a href="#374" id="374" data-nosnippet="">374</a>}
+<a href="#375" id="375" data-nosnippet="">375</a>
+<a href="#376" id="376" data-nosnippet="">376</a><span class="doccomment">/// One document of a distribution batch, already decompressed.
+<a href="#377" id="377" data-nosnippet="">377</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
+<a href="#378" id="378" data-nosnippet="">378</a></span><span class="kw">pub struct </span>DocumentoDfe {
+<a href="#379" id="379" data-nosnippet="">379</a>    <span class="doccomment">/// The NSU; since NT 2014.002 v1.15 the server may leave it out.
+<a href="#380" id="380" data-nosnippet="">380</a>    </span><span class="kw">pub </span>nsu: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#381" id="381" data-nosnippet="">381</a>    <span class="doccomment">/// The schema that names the kind: `resNFe_v1.01.xsd`, `procNFe_v4.00.xsd` and so on.
+<a href="#382" id="382" data-nosnippet="">382</a>    </span><span class="kw">pub </span>schema: String,
+<a href="#383" id="383" data-nosnippet="">383</a>    <span class="doccomment">/// The XML.
+<a href="#384" id="384" data-nosnippet="">384</a>    </span><span class="kw">pub </span>xml: String,
+<a href="#385" id="385" data-nosnippet="">385</a>}
+<a href="#386" id="386" data-nosnippet="">386</a>
+<a href="#387" id="387" data-nosnippet="">387</a><span class="kw">impl </span>DocumentoDfe {
+<a href="#388" id="388" data-nosnippet="">388</a>    <span class="doccomment">/// Whether this is only the summary, which asks for a manifestation before the full XML.
+<a href="#389" id="389" data-nosnippet="">389</a>    </span><span class="attr">#[must_use]
+<a href="#390" id="390" data-nosnippet="">390</a>    </span><span class="kw">pub fn </span>eh_resumo(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#391" id="391" data-nosnippet="">391</a>        <span class="self">self</span>.schema.starts_with(<span class="string">"resNFe"</span>)
+<a href="#392" id="392" data-nosnippet="">392</a>    }
+<a href="#393" id="393" data-nosnippet="">393</a>
+<a href="#394" id="394" data-nosnippet="">394</a>    <span class="doccomment">/// Whether this is the full document with its protocol.
+<a href="#395" id="395" data-nosnippet="">395</a>    </span><span class="attr">#[must_use]
+<a href="#396" id="396" data-nosnippet="">396</a>    </span><span class="kw">pub fn </span>eh_nota_completa(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#397" id="397" data-nosnippet="">397</a>        <span class="self">self</span>.schema.starts_with(<span class="string">"procNFe"</span>)
+<a href="#398" id="398" data-nosnippet="">398</a>    }
+<a href="#399" id="399" data-nosnippet="">399</a>}
+<a href="#400" id="400" data-nosnippet="">400</a>
+<a href="#401" id="401" data-nosnippet="">401</a><span class="doccomment">/// The answer of the distribution service.
+<a href="#402" id="402" data-nosnippet="">402</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
+<a href="#403" id="403" data-nosnippet="">403</a></span><span class="kw">pub struct </span>LoteDfe {
+<a href="#404" id="404" data-nosnippet="">404</a>    <span class="doccomment">/// The last NSU handed over: the next query starts here.
+<a href="#405" id="405" data-nosnippet="">405</a>    </span><span class="kw">pub </span>ult_nsu: u64,
+<a href="#406" id="406" data-nosnippet="">406</a>    <span class="doccomment">/// The largest NSU there is.
+<a href="#407" id="407" data-nosnippet="">407</a>    </span><span class="kw">pub </span>max_nsu: u64,
+<a href="#408" id="408" data-nosnippet="">408</a>    <span class="doccomment">/// The documents.
+<a href="#409" id="409" data-nosnippet="">409</a>    </span><span class="kw">pub </span>documentos: Vec&lt;DocumentoDfe&gt;,
+<a href="#410" id="410" data-nosnippet="">410</a>    <span class="doccomment">/// The status.
+<a href="#411" id="411" data-nosnippet="">411</a>    </span><span class="kw">pub </span>c_stat: u32,
+<a href="#412" id="412" data-nosnippet="">412</a>    <span class="doccomment">/// The text of the status.
+<a href="#413" id="413" data-nosnippet="">413</a>    </span><span class="kw">pub </span>x_motivo: String,
+<a href="#414" id="414" data-nosnippet="">414</a>}
+<a href="#415" id="415" data-nosnippet="">415</a>
+<a href="#416" id="416" data-nosnippet="">416</a><span class="kw">impl </span>LoteDfe {
+<a href="#417" id="417" data-nosnippet="">417</a>    <span class="doccomment">/// Whether nothing is left to fetch: the next query should wait one hour (NT 2014.002, 3.11.4).
+<a href="#418" id="418" data-nosnippet="">418</a>    </span><span class="attr">#[must_use]
+<a href="#419" id="419" data-nosnippet="">419</a>    </span><span class="kw">pub fn </span>sem_novidade(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#420" id="420" data-nosnippet="">420</a>        <span class="self">self</span>.c_stat == <span class="number">137 </span>|| (<span class="self">self</span>.c_stat == <span class="number">138 </span>&amp;&amp; <span class="self">self</span>.ult_nsu &gt;= <span class="self">self</span>.max_nsu)
+<a href="#421" id="421" data-nosnippet="">421</a>    }
+<a href="#422" id="422" data-nosnippet="">422</a>}
+<a href="#423" id="423" data-nosnippet="">423</a>
+<a href="#424" id="424" data-nosnippet="">424</a><span class="doccomment">/// Reads the distribution return, decompressing each document with the limit of
+<a href="#425" id="425" data-nosnippet="">425</a>/// [`ravenrs_dfe::compactacao::LIMITE_DOCUMENTO`], so a gzip bomb stops there.
+<a href="#426" id="426" data-nosnippet="">426</a></span><span class="kw">pub fn </span>ler_distribuicao(resposta: <span class="kw-2">&amp;</span>HttpResponse) -&gt; <span class="prelude-ty">Result</span>&lt;LoteDfe, NfeError&gt; {
+<a href="#427" id="427" data-nosnippet="">427</a>    <span class="kw">let </span>element = corpo(resposta, <span class="string">"retDistDFeInt"</span>)<span class="question-mark">?</span>;
+<a href="#428" id="428" data-nosnippet="">428</a>    <span class="kw">let </span>retorno = comum(<span class="kw-2">&amp;</span>element, resposta.status)<span class="question-mark">?</span>;
+<a href="#429" id="429" data-nosnippet="">429</a>    <span class="kw">let </span>numero = |tag: <span class="kw-2">&amp;</span>str| element.child_text(tag).and_then(|t| t.parse::&lt;u64&gt;().ok()).unwrap_or(<span class="number">0</span>);
+<a href="#430" id="430" data-nosnippet="">430</a>    <span class="kw">let </span><span class="kw-2">mut </span>documentos = Vec::new();
+<a href="#431" id="431" data-nosnippet="">431</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(lote) = element.child(<span class="string">"loteDistDFeInt"</span>) {
+<a href="#432" id="432" data-nosnippet="">432</a>        <span class="kw">for </span>zip <span class="kw">in </span>lote.elements().filter(|e| e.local_name() == <span class="string">"docZip"</span>) {
+<a href="#433" id="433" data-nosnippet="">433</a>            <span class="kw">let </span>invalido = |motivo: <span class="kw-2">&amp;</span>str| NfeError::RetornoInvalido {
+<a href="#434" id="434" data-nosnippet="">434</a>                status: resposta.status,
+<a href="#435" id="435" data-nosnippet="">435</a>                motivo: motivo.to_string(),
+<a href="#436" id="436" data-nosnippet="">436</a>            };
+<a href="#437" id="437" data-nosnippet="">437</a>            <span class="kw">let </span>xml = ravenrs_dfe::compactacao::de_gzip_base64(<span class="kw-2">&amp;</span>zip.text())
+<a href="#438" id="438" data-nosnippet="">438</a>                .map_err(|erro| invalido(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"docZip: {erro}"</span>)))<span class="question-mark">?</span>;
+<a href="#439" id="439" data-nosnippet="">439</a>            documentos.push(DocumentoDfe {
+<a href="#440" id="440" data-nosnippet="">440</a>                nsu: zip.attr(<span class="string">"NSU"</span>).and_then(|n| n.parse().ok()),
+<a href="#441" id="441" data-nosnippet="">441</a>                schema: zip.attr(<span class="string">"schema"</span>).unwrap_or_default().to_string(),
+<a href="#442" id="442" data-nosnippet="">442</a>                xml,
+<a href="#443" id="443" data-nosnippet="">443</a>            });
+<a href="#444" id="444" data-nosnippet="">444</a>        }
+<a href="#445" id="445" data-nosnippet="">445</a>    }
+<a href="#446" id="446" data-nosnippet="">446</a>    <span class="prelude-val">Ok</span>(LoteDfe {
+<a href="#447" id="447" data-nosnippet="">447</a>        ult_nsu: numero(<span class="string">"ultNSU"</span>),
+<a href="#448" id="448" data-nosnippet="">448</a>        max_nsu: numero(<span class="string">"maxNSU"</span>),
+<a href="#449" id="449" data-nosnippet="">449</a>        documentos,
+<a href="#450" id="450" data-nosnippet="">450</a>        c_stat: retorno.c_stat,
+<a href="#451" id="451" data-nosnippet="">451</a>        x_motivo: retorno.x_motivo,
+<a href="#452" id="452" data-nosnippet="">452</a>    })
+<a href="#453" id="453" data-nosnippet="">453</a>}
+<a href="#454" id="454" data-nosnippet="">454</a>
+<a href="#455" id="455" data-nosnippet="">455</a><span class="attr">#[cfg(test)]
+<a href="#456" id="456" data-nosnippet="">456</a></span><span class="kw">mod </span>tests {
+<a href="#457" id="457" data-nosnippet="">457</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#458" id="458" data-nosnippet="">458</a>
+<a href="#459" id="459" data-nosnippet="">459</a>    <span class="kw">fn </span>resposta(body: <span class="kw-2">&amp;</span>str) -&gt; HttpResponse {
+<a href="#460" id="460" data-nosnippet="">460</a>        HttpResponse { status: <span class="number">200</span>, headers: Vec::new(), body: body.as_bytes().to_vec() }
+<a href="#461" id="461" data-nosnippet="">461</a>    }
+<a href="#462" id="462" data-nosnippet="">462</a>
+<a href="#463" id="463" data-nosnippet="">463</a>    <span class="attr">#[test]
+<a href="#464" id="464" data-nosnippet="">464</a>    </span><span class="kw">fn </span>reads_a_status_inside_a_prefixed_envelope() {
+<a href="#465" id="465" data-nosnippet="">465</a>        <span class="kw">let </span>body = <span class="string">"&lt;env:Envelope xmlns:env=\"http://www.w3.org/2003/05/soap-envelope\"&gt;&lt;env:Body&gt;&lt;nfeResultMsg xmlns=\"u\"&gt;&lt;retConsStatServ versao=\"4.00\"&gt;&lt;tpAmb&gt;2&lt;/tpAmb&gt;&lt;verAplic&gt;SP_NFE&lt;/verAplic&gt;&lt;cStat&gt;107&lt;/cStat&gt;&lt;xMotivo&gt;ok&lt;/xMotivo&gt;&lt;tMed&gt;1&lt;/tMed&gt;&lt;/retConsStatServ&gt;&lt;/nfeResultMsg&gt;&lt;/env:Body&gt;&lt;/env:Envelope&gt;"</span>;
+<a href="#466" id="466" data-nosnippet="">466</a>        <span class="kw">let </span>status = ler_status(<span class="kw-2">&amp;</span>resposta(body)).expect(<span class="string">"status"</span>);
+<a href="#467" id="467" data-nosnippet="">467</a>        <span class="macro">assert!</span>(status.em_operacao());
+<a href="#468" id="468" data-nosnippet="">468</a>        <span class="macro">assert!</span>(!status.retorno.veio_do_sandbox());
+<a href="#469" id="469" data-nosnippet="">469</a>        <span class="macro">assert_eq!</span>(status.t_med.as_deref(), <span class="prelude-val">Some</span>(<span class="string">"1"</span>));
+<a href="#470" id="470" data-nosnippet="">470</a>    }
+<a href="#471" id="471" data-nosnippet="">471</a>
+<a href="#472" id="472" data-nosnippet="">472</a>    <span class="attr">#[test]
+<a href="#473" id="473" data-nosnippet="">473</a>    </span><span class="kw">fn </span>soap_fault_comes_as_an_invalid_return() {
+<a href="#474" id="474" data-nosnippet="">474</a>        <span class="kw">let </span>body = <span class="string">"&lt;e:Envelope xmlns:e=\"u\"&gt;&lt;e:Body&gt;&lt;e:Fault&gt;&lt;e:Reason&gt;&lt;e:Text&gt;caiu&lt;/e:Text&gt;&lt;/e:Reason&gt;&lt;/e:Fault&gt;&lt;/e:Body&gt;&lt;/e:Envelope&gt;"</span>;
+<a href="#475" id="475" data-nosnippet="">475</a>        <span class="macro">assert_eq!</span>(
+<a href="#476" id="476" data-nosnippet="">476</a>            ler_status(<span class="kw-2">&amp;</span>resposta(body)),
+<a href="#477" id="477" data-nosnippet="">477</a>            <span class="prelude-val">Err</span>(NfeError::RetornoInvalido { status: <span class="number">200</span>, motivo: <span class="string">"caiu"</span>.to_string() })
+<a href="#478" id="478" data-nosnippet="">478</a>        );
+<a href="#479" id="479" data-nosnippet="">479</a>    }
+<a href="#480" id="480" data-nosnippet="">480</a>
+<a href="#481" id="481" data-nosnippet="">481</a>    <span class="attr">#[test]
+<a href="#482" id="482" data-nosnippet="">482</a>    </span><span class="kw">fn </span>garbage_is_an_invalid_return() {
+<a href="#483" id="483" data-nosnippet="">483</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(ler_status(<span class="kw-2">&amp;</span>resposta(<span class="string">"não é xml"</span>)), <span class="prelude-val">Err</span>(NfeError::RetornoInvalido { .. })));
+<a href="#484" id="484" data-nosnippet="">484</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(ler_status(<span class="kw-2">&amp;</span>resposta(<span class="string">"&lt;a/&gt;"</span>)), <span class="prelude-val">Err</span>(NfeError::RetornoInvalido { .. })));
+<a href="#485" id="485" data-nosnippet="">485</a>    }
+<a href="#486" id="486" data-nosnippet="">486</a>
+<a href="#487" id="487" data-nosnippet="">487</a>    <span class="attr">#[test]
+<a href="#488" id="488" data-nosnippet="">488</a>    </span><span class="kw">fn </span>authorization_decides_by_the_document_status() {
+<a href="#489" id="489" data-nosnippet="">489</a>        <span class="kw">let </span>body = <span class="string">"&lt;retEnviNFe&gt;&lt;tpAmb&gt;2&lt;/tpAmb&gt;&lt;verAplic&gt;x&lt;/verAplic&gt;&lt;cStat&gt;104&lt;/cStat&gt;&lt;xMotivo&gt;lote&lt;/xMotivo&gt;&lt;protNFe versao=\"4.00\"&gt;&lt;infProt&gt;&lt;chNFe&gt;1&lt;/chNFe&gt;&lt;cStat&gt;297&lt;/cStat&gt;&lt;xMotivo&gt;nao&lt;/xMotivo&gt;&lt;/infProt&gt;&lt;/protNFe&gt;&lt;/retEnviNFe&gt;"</span>;
+<a href="#490" id="490" data-nosnippet="">490</a>        <span class="kw">let </span>retorno = ler_autorizacao(<span class="kw-2">&amp;</span>resposta(body), <span class="string">"&lt;NFe/&gt;"</span>).expect(<span class="string">"return"</span>);
+<a href="#491" id="491" data-nosnippet="">491</a>        <span class="macro">assert_eq!</span>(retorno.c_stat(), <span class="number">297</span>);
+<a href="#492" id="492" data-nosnippet="">492</a>        <span class="macro">assert_eq!</span>(retorno.x_motivo(), <span class="string">"nao"</span>);
+<a href="#493" id="493" data-nosnippet="">493</a>        <span class="macro">assert_eq!</span>(retorno.situacao(), Situacao::Rejeitada);
+<a href="#494" id="494" data-nosnippet="">494</a>        <span class="macro">assert_eq!</span>(retorno.nfe_proc, <span class="prelude-val">None</span>);
+<a href="#495" id="495" data-nosnippet="">495</a>    }
+<a href="#496" id="496" data-nosnippet="">496</a>
+<a href="#497" id="497" data-nosnippet="">497</a>    <span class="attr">#[test]
+<a href="#498" id="498" data-nosnippet="">498</a>    </span><span class="kw">fn </span>authorized_document_gets_its_nfe_proc() {
+<a href="#499" id="499" data-nosnippet="">499</a>        <span class="kw">let </span>body = <span class="string">"&lt;retEnviNFe&gt;&lt;cStat&gt;104&lt;/cStat&gt;&lt;protNFe versao=\"4.00\"&gt;&lt;infProt&gt;&lt;chNFe&gt;1&lt;/chNFe&gt;&lt;nProt&gt;9&lt;/nProt&gt;&lt;cStat&gt;100&lt;/cStat&gt;&lt;xMotivo&gt;sim&lt;/xMotivo&gt;&lt;/infProt&gt;&lt;/protNFe&gt;&lt;/retEnviNFe&gt;"</span>;
+<a href="#500" id="500" data-nosnippet="">500</a>        <span class="kw">let </span>retorno = ler_autorizacao(<span class="kw-2">&amp;</span>resposta(body), <span class="string">"&lt;NFe/&gt;"</span>).expect(<span class="string">"return"</span>);
+<a href="#501" id="501" data-nosnippet="">501</a>        <span class="macro">assert_eq!</span>(retorno.situacao(), Situacao::Autorizada);
+<a href="#502" id="502" data-nosnippet="">502</a>        <span class="kw">let </span>proc_text = retorno.nfe_proc.expect(<span class="string">"proc"</span>);
+<a href="#503" id="503" data-nosnippet="">503</a>        <span class="macro">assert!</span>(proc_text.contains(<span class="string">"&lt;NFe/&gt;&lt;protNFe versao=\"4.00\"&gt;"</span>));
+<a href="#504" id="504" data-nosnippet="">504</a>    }
+<a href="#505" id="505" data-nosnippet="">505</a>
+<a href="#506" id="506" data-nosnippet="">506</a>    <span class="attr">#[test]
+<a href="#507" id="507" data-nosnippet="">507</a>    </span><span class="kw">fn </span>batch_refusal_has_no_protocol() {
+<a href="#508" id="508" data-nosnippet="">508</a>        <span class="kw">let </span>body = <span class="string">"&lt;retEnviNFe&gt;&lt;cStat&gt;108&lt;/cStat&gt;&lt;xMotivo&gt;parado&lt;/xMotivo&gt;&lt;/retEnviNFe&gt;"</span>;
+<a href="#509" id="509" data-nosnippet="">509</a>        <span class="kw">let </span>retorno = ler_autorizacao(<span class="kw-2">&amp;</span>resposta(body), <span class="string">"&lt;NFe/&gt;"</span>).expect(<span class="string">"return"</span>);
+<a href="#510" id="510" data-nosnippet="">510</a>        <span class="macro">assert_eq!</span>(retorno.c_stat(), <span class="number">108</span>);
+<a href="#511" id="511" data-nosnippet="">511</a>        <span class="macro">assert_eq!</span>(retorno.situacao(), Situacao::Paralisado);
+<a href="#512" id="512" data-nosnippet="">512</a>    }
+<a href="#513" id="513" data-nosnippet="">513</a>
+<a href="#514" id="514" data-nosnippet="">514</a>    <span class="attr">#[test]
+<a href="#515" id="515" data-nosnippet="">515</a>    </span><span class="kw">fn </span>event_status_comes_from_inside() {
+<a href="#516" id="516" data-nosnippet="">516</a>        <span class="kw">let </span>body = <span class="string">"&lt;retEnvEvento&gt;&lt;cStat&gt;128&lt;/cStat&gt;&lt;xMotivo&gt;lote&lt;/xMotivo&gt;&lt;retEvento versao=\"1.00\"&gt;&lt;infEvento&gt;&lt;cStat&gt;135&lt;/cStat&gt;&lt;xMotivo&gt;ok&lt;/xMotivo&gt;&lt;chNFe&gt;1&lt;/chNFe&gt;&lt;nProt&gt;2&lt;/nProt&gt;&lt;/infEvento&gt;&lt;/retEvento&gt;&lt;/retEnvEvento&gt;"</span>;
+<a href="#517" id="517" data-nosnippet="">517</a>        <span class="kw">let </span>retorno = ler_evento(<span class="kw-2">&amp;</span>resposta(body)).expect(<span class="string">"return"</span>);
+<a href="#518" id="518" data-nosnippet="">518</a>        <span class="macro">assert!</span>(retorno.registrado());
+<a href="#519" id="519" data-nosnippet="">519</a>        <span class="macro">assert_eq!</span>(retorno.lote.c_stat, <span class="number">128</span>);
+<a href="#520" id="520" data-nosnippet="">520</a>    }
+<a href="#521" id="521" data-nosnippet="">521</a>}
+</code></pre></div></section></main></body></html>

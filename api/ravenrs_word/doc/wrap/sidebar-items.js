@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ALPHA_GRID","MAX_DERIVED_POINTS","MAX_WRAP_POINTS","WRAP_SPACE"],"fn":["alpha_outline","arrow_outline","shape_outline"],"struct":["WrapPolygon"]};

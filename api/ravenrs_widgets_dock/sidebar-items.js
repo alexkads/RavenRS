@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DockChange","DockCloseAction","DockDrop","DockEdge","DockLayoutError","DockNode","DockPanelKind","DockTabBar","RibbonSize"],"struct":["DockArea","DockChild","DockLayout","DockPanel","Ribbon","RibbonGroup","RibbonItem","RibbonPage"],"type":["DockGuard"]};

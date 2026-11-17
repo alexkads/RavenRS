@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_BLUR","MAX_DISTANCE","MAX_GLOW","MAX_SOFT_EDGE","SHADOW_PRESETS"],"fn":["bands"],"struct":["Glow","Shadow","ShapeEffects"]};

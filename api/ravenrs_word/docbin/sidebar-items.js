@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DocbinError"],"fn":["is_encrypted","read","read_with_password"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["arredondar_preco"],"struct":["Composicao","Formacao"]};

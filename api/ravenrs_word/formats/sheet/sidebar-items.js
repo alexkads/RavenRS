@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["EXTENSIONS","MAX_CELLS","MAX_CELL_CHARS","MAX_COLS","MAX_ENTRY","MAX_ROWS","MAX_SHEETS","MAX_TEXT_BYTES","MAX_TOTAL"],"enum":["Kind","Pick"],"fn":["detect","field_names","is_extension","read_rows","sheet_names"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["FillRule","LineCap","LineJoin","SpreadMethod"],"struct":["Fill","LinearGradient","MeshGradient","MeshPatch","Paint","Pattern","RadialGradient","Stop","Stroke","StrokeDash","SweepGradient"]};

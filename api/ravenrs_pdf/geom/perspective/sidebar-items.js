@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["order_quad"],"struct":["Homography"],"type":["Point"]};

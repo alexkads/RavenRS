@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["app","app_com_pos","arquivo_padrao","compra_de_exemplo"]};

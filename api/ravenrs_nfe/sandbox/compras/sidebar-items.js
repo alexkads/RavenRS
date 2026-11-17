@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["gerar_nota_de_compra"],"struct":["Fornecedor"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Path","PathBuilder","Point","Quadrilateral","Rect","Size","Transform"]};

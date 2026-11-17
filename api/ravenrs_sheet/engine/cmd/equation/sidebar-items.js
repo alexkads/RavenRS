@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_SIZE_PT","PADDING"],"fn":["describe","fit_scale","source_excerpt","specs"]};

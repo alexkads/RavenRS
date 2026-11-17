@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["TEXTO_HOMOLOGACAO_DESTINATARIO","TEXTO_HOMOLOGACAO_ITEM","TEXTO_POC_BETA"],"enum":["Csosn","DocumentoDestinatario","FormaPagamento","TipoIntegracao"],"fn":["codigo_numerico_aceito"],"struct":["Cartao","Destinatario","Emitente","Endereco","Item","Pagamento","Rascunho","ResponsavelTecnico"]};

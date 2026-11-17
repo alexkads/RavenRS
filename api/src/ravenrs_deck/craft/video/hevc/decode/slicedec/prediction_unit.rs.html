@@ -1,0 +1,207 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>prediction_unit.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../../../../" data-static-root-path="../../../../../../../static.files/" data-current-crate="ravenrs_deck" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../../../../src-files.js"></script><script defer="" src="../../../../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-deck/src/craft/video/hevc/decode/slicedec/prediction_unit.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_deck/craft/video/hevc/decode/slicedec/prediction_unit.rs.html"><meta property="og:title" content="prediction_unit.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-deck/src/craft/video/hevc/decode/slicedec/prediction_unit.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_deck/craft/video/hevc/decode/slicedec/prediction_unit.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="prediction_unit.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-deck/src/craft/video/hevc/decode/slicedec/prediction_unit.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"prediction_unit.rs - source","description":"Source of the Rust file `crates/ravenrs-deck/src/craft/video/hevc/decode/slicedec/prediction_unit.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_deck/craft/video/hevc/decode/slicedec/prediction_unit.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_deck/craft/video/hevc/decode/slicedec/</div>prediction_unit.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="kw">use super</span>::{
+<a href="#2" id="2" data-nosnippet="">2</a>    ABS_MVD_GT0, ABS_MVD_GT1, INTER_PRED_IDC, MERGE_FLAG, MERGE_IDX, MVP_FLAG, MvField, REF_IDX, <span class="prelude-ty">Result</span>, Sample, SliceDecoder, SliceType, ensure,
+<a href="#3" id="3" data-nosnippet="">3</a>    inter,
+<a href="#4" id="4" data-nosnippet="">4</a>};
+<a href="#5" id="5" data-nosnippet="">5</a><span class="kw">use </span><span class="kw">crate</span>::craft::video::hevc::decode::mvpred::PredBlock;
+<a href="#6" id="6" data-nosnippet="">6</a>
+<a href="#7" id="7" data-nosnippet="">7</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, S: Sample&gt; SliceDecoder&lt;<span class="lifetime">'a</span>, S&gt; {
+<a href="#8" id="8" data-nosnippet="">8</a>    <span class="doccomment">/// prediction_unit(): parse, derive motion, store it and predict. Returns merge_flag.
+<a href="#9" id="9" data-nosnippet="">9</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>prediction_unit(<span class="kw-2">&amp;mut </span><span class="self">self</span>, pb: <span class="kw-2">&amp;</span>PredBlock, skip: bool) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
+<a href="#10" id="10" data-nosnippet="">10</a>        <span class="kw">let </span>PredBlock { xc, yc, xp, yp, w, h, .. } = <span class="kw-2">*</span>pb;
+<a href="#11" id="11" data-nosnippet="">11</a>        <span class="kw">let </span>merge = <span class="kw">if </span>skip { <span class="bool-val">true </span>} <span class="kw">else </span>{ <span class="self">self</span>.dd(MERGE_FLAG) == <span class="number">1 </span>};
+<a href="#12" id="12" data-nosnippet="">12</a>        <span class="kw">let </span>mvf = <span class="kw">if </span>merge {
+<a href="#13" id="13" data-nosnippet="">13</a>            <span class="kw">let </span>idx = <span class="kw">if </span><span class="self">self</span>.sh.max_num_merge_cand &gt; <span class="number">1 </span>{
+<a href="#14" id="14" data-nosnippet="">14</a>                <span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">0</span>;
+<a href="#15" id="15" data-nosnippet="">15</a>                <span class="kw">if </span><span class="self">self</span>.dd(MERGE_IDX) == <span class="number">1 </span>{
+<a href="#16" id="16" data-nosnippet="">16</a>                    i = <span class="number">1</span>;
+<a href="#17" id="17" data-nosnippet="">17</a>                    <span class="kw">while </span>i &lt; <span class="self">self</span>.sh.max_num_merge_cand - <span class="number">1 </span>&amp;&amp; <span class="self">self</span>.bypass() == <span class="number">1 </span>{
+<a href="#18" id="18" data-nosnippet="">18</a>                        i += <span class="number">1</span>;
+<a href="#19" id="19" data-nosnippet="">19</a>                    }
+<a href="#20" id="20" data-nosnippet="">20</a>                }
+<a href="#21" id="21" data-nosnippet="">21</a>                i
+<a href="#22" id="22" data-nosnippet="">22</a>            } <span class="kw">else </span>{
+<a href="#23" id="23" data-nosnippet="">23</a>                <span class="number">0
+<a href="#24" id="24" data-nosnippet="">24</a>            </span>};
+<a href="#25" id="25" data-nosnippet="">25</a>            <span class="self">self</span>.derive_merge(pb, idx <span class="kw">as </span>usize)
+<a href="#26" id="26" data-nosnippet="">26</a>        } <span class="kw">else </span>{
+<a href="#27" id="27" data-nosnippet="">27</a>            <span class="kw">let </span>pred_idc = <span class="kw">if </span><span class="self">self</span>.sh.is_b() {
+<a href="#28" id="28" data-nosnippet="">28</a>                <span class="kw">if </span>w + h != <span class="number">12 </span>{
+<a href="#29" id="29" data-nosnippet="">29</a>                    <span class="kw">let </span>depth = <span class="self">self</span>.pic.blk_at(xc, yc).depth <span class="kw">as </span>usize;
+<a href="#30" id="30" data-nosnippet="">30</a>                    <span class="kw">if </span><span class="self">self</span>.dd(INTER_PRED_IDC + depth) == <span class="number">1 </span>{ <span class="number">2 </span>} <span class="kw">else </span>{ <span class="self">self</span>.dd(INTER_PRED_IDC + <span class="number">4</span>) }
+<a href="#31" id="31" data-nosnippet="">31</a>                } <span class="kw">else </span>{
+<a href="#32" id="32" data-nosnippet="">32</a>                    <span class="self">self</span>.dd(INTER_PRED_IDC + <span class="number">4</span>)
+<a href="#33" id="33" data-nosnippet="">33</a>                }
+<a href="#34" id="34" data-nosnippet="">34</a>            } <span class="kw">else </span>{
+<a href="#35" id="35" data-nosnippet="">35</a>                <span class="number">0
+<a href="#36" id="36" data-nosnippet="">36</a>            </span>};
+<a href="#37" id="37" data-nosnippet="">37</a>            <span class="kw">let </span><span class="kw-2">mut </span>ref_idx = [-<span class="number">1i8</span>; <span class="number">2</span>];
+<a href="#38" id="38" data-nosnippet="">38</a>            <span class="kw">let </span><span class="kw-2">mut </span>mvd = [[<span class="number">0i32</span>; <span class="number">2</span>]; <span class="number">2</span>];
+<a href="#39" id="39" data-nosnippet="">39</a>            <span class="kw">let </span><span class="kw-2">mut </span>mvp_flag = [<span class="number">0u32</span>; <span class="number">2</span>];
+<a href="#40" id="40" data-nosnippet="">40</a>            <span class="kw">for </span>l <span class="kw">in </span><span class="number">0</span>..<span class="number">2 </span>{
+<a href="#41" id="41" data-nosnippet="">41</a>                <span class="kw">let </span>used = <span class="kw">if </span>l == <span class="number">0 </span>{ pred_idc != <span class="number">1 </span>} <span class="kw">else </span>{ pred_idc != <span class="number">0 </span>};
+<a href="#42" id="42" data-nosnippet="">42</a>                <span class="kw">if </span>!used {
+<a href="#43" id="43" data-nosnippet="">43</a>                    <span class="kw">continue</span>;
+<a href="#44" id="44" data-nosnippet="">44</a>                }
+<a href="#45" id="45" data-nosnippet="">45</a>                <span class="kw">let </span>nref = <span class="self">self</span>.sh.num_ref_idx[l];
+<a href="#46" id="46" data-nosnippet="">46</a>                <span class="kw">let </span><span class="kw-2">mut </span>ri = <span class="number">0</span>;
+<a href="#47" id="47" data-nosnippet="">47</a>                <span class="kw">if </span>nref &gt; <span class="number">1 </span>{
+<a href="#48" id="48" data-nosnippet="">48</a>                    <span class="kw">while </span>ri &lt; nref - <span class="number">1 </span>{
+<a href="#49" id="49" data-nosnippet="">49</a>                        <span class="kw">let </span>bin = <span class="kw">if </span>ri &lt; <span class="number">2 </span>{ <span class="self">self</span>.dd(REF_IDX + ri <span class="kw">as </span>usize) } <span class="kw">else </span>{ <span class="self">self</span>.bypass() };
+<a href="#50" id="50" data-nosnippet="">50</a>                        <span class="kw">if </span>bin == <span class="number">0 </span>{
+<a href="#51" id="51" data-nosnippet="">51</a>                            <span class="kw">break</span>;
+<a href="#52" id="52" data-nosnippet="">52</a>                        }
+<a href="#53" id="53" data-nosnippet="">53</a>                        ri += <span class="number">1</span>;
+<a href="#54" id="54" data-nosnippet="">54</a>                    }
+<a href="#55" id="55" data-nosnippet="">55</a>                }
+<a href="#56" id="56" data-nosnippet="">56</a>                ref_idx[l] = ri <span class="kw">as </span>i8;
+<a href="#57" id="57" data-nosnippet="">57</a>                <span class="kw">if </span>l == <span class="number">1 </span>&amp;&amp; <span class="self">self</span>.sh.mvd_l1_zero &amp;&amp; pred_idc == <span class="number">2 </span>{
+<a href="#58" id="58" data-nosnippet="">58</a>                    mvd[<span class="number">1</span>] = [<span class="number">0</span>, <span class="number">0</span>];
+<a href="#59" id="59" data-nosnippet="">59</a>                } <span class="kw">else </span>{
+<a href="#60" id="60" data-nosnippet="">60</a>                    mvd[l] = <span class="self">self</span>.mvd_coding()<span class="question-mark">?</span>;
+<a href="#61" id="61" data-nosnippet="">61</a>                }
+<a href="#62" id="62" data-nosnippet="">62</a>                mvp_flag[l] = <span class="self">self</span>.dd(MVP_FLAG);
+<a href="#63" id="63" data-nosnippet="">63</a>            }
+<a href="#64" id="64" data-nosnippet="">64</a>            <span class="kw">let </span><span class="kw-2">mut </span>f = MvField { mv: [[<span class="number">0</span>; <span class="number">2</span>]; <span class="number">2</span>], ref_idx };
+<a href="#65" id="65" data-nosnippet="">65</a>            <span class="kw">for </span>l <span class="kw">in </span><span class="number">0</span>..<span class="number">2 </span>{
+<a href="#66" id="66" data-nosnippet="">66</a>                <span class="kw">if </span>ref_idx[l] &lt; <span class="number">0 </span>{
+<a href="#67" id="67" data-nosnippet="">67</a>                    <span class="kw">continue</span>;
+<a href="#68" id="68" data-nosnippet="">68</a>                }
+<a href="#69" id="69" data-nosnippet="">69</a>                <span class="kw">let </span>mvp = <span class="self">self</span>.derive_amvp(pb, l, ref_idx[l] <span class="kw">as </span>usize, mvp_flag[l] <span class="kw">as </span>usize);
+<a href="#70" id="70" data-nosnippet="">70</a>                <span class="comment">// mvLX = (mvp + mvd) wrapped to 16 bits (8-94)
+<a href="#71" id="71" data-nosnippet="">71</a>                </span>f.mv[l] = [(mvp[<span class="number">0</span>] <span class="kw">as </span>i32 + mvd[l][<span class="number">0</span>]) <span class="kw">as </span>i16, (mvp[<span class="number">1</span>] <span class="kw">as </span>i32 + mvd[l][<span class="number">1</span>]) <span class="kw">as </span>i16];
+<a href="#72" id="72" data-nosnippet="">72</a>            }
+<a href="#73" id="73" data-nosnippet="">73</a>            f
+<a href="#74" id="74" data-nosnippet="">74</a>        };
+<a href="#75" id="75" data-nosnippet="">75</a>        <span class="kw">for </span>l <span class="kw">in </span><span class="number">0</span>..<span class="number">2 </span>{
+<a href="#76" id="76" data-nosnippet="">76</a>            <span class="kw">if </span>mvf.ref_idx[l] &gt;= <span class="number">0 </span>{
+<a href="#77" id="77" data-nosnippet="">77</a>                <span class="macro">ensure!</span>((mvf.ref_idx[l] <span class="kw">as </span>usize) &lt; <span class="self">self</span>.refs[l].len(), <span class="string">"reference index out of range"</span>);
+<a href="#78" id="78" data-nosnippet="">78</a>            }
+<a href="#79" id="79" data-nosnippet="">79</a>        }
+<a href="#80" id="80" data-nosnippet="">80</a>        <span class="comment">// store motion
+<a href="#81" id="81" data-nosnippet="">81</a>        </span><span class="kw">let </span>w4 = <span class="self">self</span>.pic.w4;
+<a href="#82" id="82" data-nosnippet="">82</a>        <span class="kw">for </span>by <span class="kw">in </span>(yp &gt;&gt; <span class="number">2</span>)..((yp + h) &gt;&gt; <span class="number">2</span>) {
+<a href="#83" id="83" data-nosnippet="">83</a>            <span class="kw">let </span>o = by <span class="kw">as </span>usize * w4;
+<a href="#84" id="84" data-nosnippet="">84</a>            <span class="self">self</span>.pic.mvf[o + (xp &gt;&gt; <span class="number">2</span>) <span class="kw">as </span>usize..o + ((xp + w) &gt;&gt; <span class="number">2</span>) <span class="kw">as </span>usize].fill(mvf);
+<a href="#85" id="85" data-nosnippet="">85</a>        }
+<a href="#86" id="86" data-nosnippet="">86</a>        <span class="self">self</span>.motion_compensate(xp, yp, w <span class="kw">as </span>usize, h <span class="kw">as </span>usize, <span class="kw-2">&amp;</span>mvf);
+<a href="#87" id="87" data-nosnippet="">87</a>        <span class="prelude-val">Ok</span>(merge)
+<a href="#88" id="88" data-nosnippet="">88</a>    }
+<a href="#89" id="89" data-nosnippet="">89</a>
+<a href="#90" id="90" data-nosnippet="">90</a>    <span class="kw">fn </span>mvd_coding(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;[i32; <span class="number">2</span>]&gt; {
+<a href="#91" id="91" data-nosnippet="">91</a>        <span class="kw">let </span>g0 = [<span class="self">self</span>.dd(ABS_MVD_GT0), <span class="self">self</span>.dd(ABS_MVD_GT0)];
+<a href="#92" id="92" data-nosnippet="">92</a>        <span class="kw">let </span><span class="kw-2">mut </span>g1 = [<span class="number">0</span>, <span class="number">0</span>];
+<a href="#93" id="93" data-nosnippet="">93</a>        <span class="kw">for </span>k <span class="kw">in </span><span class="number">0</span>..<span class="number">2 </span>{
+<a href="#94" id="94" data-nosnippet="">94</a>            <span class="kw">if </span>g0[k] == <span class="number">1 </span>{
+<a href="#95" id="95" data-nosnippet="">95</a>                g1[k] = <span class="self">self</span>.dd(ABS_MVD_GT1);
+<a href="#96" id="96" data-nosnippet="">96</a>            }
+<a href="#97" id="97" data-nosnippet="">97</a>        }
+<a href="#98" id="98" data-nosnippet="">98</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = [<span class="number">0i32</span>; <span class="number">2</span>];
+<a href="#99" id="99" data-nosnippet="">99</a>        <span class="kw">for </span>k <span class="kw">in </span><span class="number">0</span>..<span class="number">2 </span>{
+<a href="#100" id="100" data-nosnippet="">100</a>            <span class="kw">if </span>g0[k] == <span class="number">1 </span>{
+<a href="#101" id="101" data-nosnippet="">101</a>                <span class="kw">let </span><span class="kw-2">mut </span>v = <span class="number">1i32</span>;
+<a href="#102" id="102" data-nosnippet="">102</a>                <span class="kw">if </span>g1[k] == <span class="number">1 </span>{
+<a href="#103" id="103" data-nosnippet="">103</a>                    <span class="comment">// EG1
+<a href="#104" id="104" data-nosnippet="">104</a>                    </span><span class="kw">let </span><span class="kw-2">mut </span>kk = <span class="number">1</span>;
+<a href="#105" id="105" data-nosnippet="">105</a>                    <span class="kw">let </span><span class="kw-2">mut </span>val = <span class="number">0i32</span>;
+<a href="#106" id="106" data-nosnippet="">106</a>                    <span class="kw">while </span><span class="self">self</span>.bypass() == <span class="number">1 </span>{
+<a href="#107" id="107" data-nosnippet="">107</a>                        val += <span class="number">1 </span>&lt;&lt; kk;
+<a href="#108" id="108" data-nosnippet="">108</a>                        kk += <span class="number">1</span>;
+<a href="#109" id="109" data-nosnippet="">109</a>                        <span class="macro">ensure!</span>(kk &lt; <span class="number">31</span>, <span class="string">"invalid abs_mvd_minus2"</span>);
+<a href="#110" id="110" data-nosnippet="">110</a>                    }
+<a href="#111" id="111" data-nosnippet="">111</a>                    val += <span class="self">self</span>.bypass_bits(kk) <span class="kw">as </span>i32;
+<a href="#112" id="112" data-nosnippet="">112</a>                    v = val + <span class="number">2</span>;
+<a href="#113" id="113" data-nosnippet="">113</a>                }
+<a href="#114" id="114" data-nosnippet="">114</a>                <span class="kw">if </span><span class="self">self</span>.bypass() == <span class="number">1 </span>{
+<a href="#115" id="115" data-nosnippet="">115</a>                    v = -v;
+<a href="#116" id="116" data-nosnippet="">116</a>                }
+<a href="#117" id="117" data-nosnippet="">117</a>                out[k] = v;
+<a href="#118" id="118" data-nosnippet="">118</a>            }
+<a href="#119" id="119" data-nosnippet="">119</a>        }
+<a href="#120" id="120" data-nosnippet="">120</a>        <span class="prelude-val">Ok</span>(out)
+<a href="#121" id="121" data-nosnippet="">121</a>    }
+<a href="#122" id="122" data-nosnippet="">122</a>
+<a href="#123" id="123" data-nosnippet="">123</a>    <span class="doccomment">/// Motion compensation + weighted prediction of one PU into the picture.
+<a href="#124" id="124" data-nosnippet="">124</a>    </span><span class="kw">fn </span>motion_compensate(<span class="kw-2">&amp;mut </span><span class="self">self</span>, xp: i32, yp: i32, w: usize, h: usize, f: <span class="kw-2">&amp;</span>MvField) {
+<a href="#125" id="125" data-nosnippet="">125</a>        <span class="kw">let </span>weighted = <span class="kw">match </span><span class="self">self</span>.sh.slice_type {
+<a href="#126" id="126" data-nosnippet="">126</a>            SliceType::P =&gt; <span class="self">self</span>.pps.weighted_pred,
+<a href="#127" id="127" data-nosnippet="">127</a>            SliceType::B =&gt; <span class="self">self</span>.pps.weighted_bipred,
+<a href="#128" id="128" data-nosnippet="">128</a>            SliceType::I =&gt; <span class="bool-val">false</span>,
+<a href="#129" id="129" data-nosnippet="">129</a>        };
+<a href="#130" id="130" data-nosnippet="">130</a>        <span class="kw">let </span>bi = f.pred(<span class="number">0</span>) &amp;&amp; f.pred(<span class="number">1</span>);
+<a href="#131" id="131" data-nosnippet="">131</a>        <span class="kw">let </span>pwt = <span class="self">self</span>.sh.pwt.as_ref().filter(|<span class="kw">_</span>| weighted);
+<a href="#132" id="132" data-nosnippet="">132</a>        <span class="kw">let </span>(sx, sy) = <span class="self">self</span>.pic.chroma.shifts();
+<a href="#133" id="133" data-nosnippet="">133</a>        <span class="kw">for </span>c <span class="kw">in </span><span class="number">0</span>..<span class="number">3 </span>{
+<a href="#134" id="134" data-nosnippet="">134</a>            <span class="kw">let </span>(x, y, bw, bh, bd) = <span class="kw">if </span>c == <span class="number">0 </span>{ (xp, yp, w, h, <span class="self">self</span>.pic.bd_y) } <span class="kw">else </span>{ (xp &gt;&gt; sx, yp &gt;&gt; sy, w &gt;&gt; sx, h &gt;&gt; sy, <span class="self">self</span>.pic.bd_c) };
+<a href="#135" id="135" data-nosnippet="">135</a>            <span class="comment">// Explicit weights equal to the default ones (weight 2^denom and offset 0 for every
+<a href="#136" id="136" data-nosnippet="">136</a>            // list used, as signalled for most slices of a weighted-prediction stream) give exactly
+<a href="#137" id="137" data-nosnippet="">137</a>            // the default prediction: with log2WD = denom + shift1 the weighted sums of 8-265 /
+<a href="#138" id="138" data-nosnippet="">138</a>            // 8-266 are those of 8-262 / 8-263 multiplied by 2^denom.
+<a href="#139" id="139" data-nosnippet="">139</a>            </span><span class="kw">let </span>pwt = pwt.filter(|pwt| !default_weights(pwt, f, c));
+<a href="#140" id="140" data-nosnippet="">140</a>            <span class="comment">// Uni-prediction at a full-sample position without weighting: the prediction
+<a href="#141" id="141" data-nosnippet="">141</a>            // ((s &lt;&lt; shift3) + off) &gt;&gt; shift3 (8-228, 8-262) is the reference sample itself.
+<a href="#142" id="142" data-nosnippet="">142</a>            </span><span class="kw">if </span>!bi &amp;&amp; pwt.is_none() {
+<a href="#143" id="143" data-nosnippet="">143</a>                <span class="kw">let </span>l = <span class="kw">if </span>f.pred(<span class="number">0</span>) { <span class="number">0 </span>} <span class="kw">else </span>{ <span class="number">1 </span>};
+<a href="#144" id="144" data-nosnippet="">144</a>                <span class="comment">// the vector in this component's units: quarter luma samples, 1/8 chroma samples
+<a href="#145" id="145" data-nosnippet="">145</a>                </span><span class="kw">let </span>(mv, frac, sh) =
+<a href="#146" id="146" data-nosnippet="">146</a>                    <span class="kw">if </span>c == <span class="number">0 </span>{ ([f.mv[l][<span class="number">0</span>] <span class="kw">as </span>i32, f.mv[l][<span class="number">1</span>] <span class="kw">as </span>i32], <span class="number">3</span>, <span class="number">2</span>) } <span class="kw">else </span>{ (inter::chroma_mv(f.mv[l], (sx, sy)), <span class="number">7</span>, <span class="number">3</span>) };
+<a href="#147" id="147" data-nosnippet="">147</a>                <span class="kw">if </span>f.pred(l) &amp;&amp; mv[<span class="number">0</span>] &amp; frac == <span class="number">0 </span>&amp;&amp; mv[<span class="number">1</span>] &amp; frac == <span class="number">0 </span>{
+<a href="#148" id="148" data-nosnippet="">148</a>                    <span class="kw">let </span>stride = <span class="kw">if </span>c == <span class="number">0 </span>{ <span class="self">self</span>.pic.width } <span class="kw">else </span>{ <span class="self">self</span>.pic.cwidth };
+<a href="#149" id="149" data-nosnippet="">149</a>                    <span class="kw">let </span>frame = <span class="kw-2">&amp;</span><span class="self">self</span>.refs[l][f.ref_idx[l] <span class="kw">as </span>usize].frame;
+<a href="#150" id="150" data-nosnippet="">150</a>                    <span class="kw">let </span>dst = <span class="kw-2">&amp;mut </span><span class="self">self</span>.pic.planes[c][y <span class="kw">as </span>usize * stride + x <span class="kw">as </span>usize..];
+<a href="#151" id="151" data-nosnippet="">151</a>                    frame.copy_block(c, (x + (mv[<span class="number">0</span>] &gt;&gt; sh), y + (mv[<span class="number">1</span>] &gt;&gt; sh)), (bw, bh), dst, stride);
+<a href="#152" id="152" data-nosnippet="">152</a>                    <span class="kw">continue</span>;
+<a href="#153" id="153" data-nosnippet="">153</a>                }
+<a href="#154" id="154" data-nosnippet="">154</a>            }
+<a href="#155" id="155" data-nosnippet="">155</a>            <span class="kw">let </span><span class="kw-2">mut </span>lists = [<span class="bool-val">false</span>; <span class="number">2</span>];
+<a href="#156" id="156" data-nosnippet="">156</a>            <span class="kw">for </span>l <span class="kw">in </span><span class="number">0</span>..<span class="number">2 </span>{
+<a href="#157" id="157" data-nosnippet="">157</a>                <span class="kw">if </span>!f.pred(l) {
+<a href="#158" id="158" data-nosnippet="">158</a>                    <span class="kw">continue</span>;
+<a href="#159" id="159" data-nosnippet="">159</a>                }
+<a href="#160" id="160" data-nosnippet="">160</a>                lists[l] = <span class="bool-val">true</span>;
+<a href="#161" id="161" data-nosnippet="">161</a>                <span class="kw">let </span>frame = <span class="kw-2">&amp;</span><span class="self">self</span>.refs[l][f.ref_idx[l] <span class="kw">as </span>usize].frame;
+<a href="#162" id="162" data-nosnippet="">162</a>                <span class="kw">let </span>buf = <span class="kw">if </span>l == <span class="number">0 </span>|| !bi { <span class="kw-2">&amp;mut </span><span class="self">self</span>.pred0 } <span class="kw">else </span>{ <span class="kw-2">&amp;mut </span><span class="self">self</span>.pred1 };
+<a href="#163" id="163" data-nosnippet="">163</a>                <span class="kw">if </span>c == <span class="number">0 </span>{
+<a href="#164" id="164" data-nosnippet="">164</a>                    inter::mc_luma::&lt;S&gt;(frame, (x, y), f.mv[l], (bw, bh), buf, <span class="kw-2">&amp;mut </span><span class="self">self</span>.mc);
+<a href="#165" id="165" data-nosnippet="">165</a>                } <span class="kw">else </span>{
+<a href="#166" id="166" data-nosnippet="">166</a>                    inter::mc_chroma::&lt;S&gt;(frame, c - <span class="number">1</span>, (x, y), inter::chroma_mv(f.mv[l], (sx, sy)), (bw, bh), buf, <span class="kw-2">&amp;mut </span><span class="self">self</span>.mc);
+<a href="#167" id="167" data-nosnippet="">167</a>                }
+<a href="#168" id="168" data-nosnippet="">168</a>            }
+<a href="#169" id="169" data-nosnippet="">169</a>            <span class="kw">let </span>stride = <span class="kw">if </span>c == <span class="number">0 </span>{ <span class="self">self</span>.pic.width } <span class="kw">else </span>{ <span class="self">self</span>.pic.cwidth };
+<a href="#170" id="170" data-nosnippet="">170</a>            <span class="kw">let </span>dst = <span class="kw-2">&amp;mut </span><span class="self">self</span>.pic.planes[c][y <span class="kw">as </span>usize * stride + x <span class="kw">as </span>usize..];
+<a href="#171" id="171" data-nosnippet="">171</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(pwt) = pwt <span class="kw">else </span>{
+<a href="#172" id="172" data-nosnippet="">172</a>                <span class="kw">if </span>bi {
+<a href="#173" id="173" data-nosnippet="">173</a>                    inter::put_bi(<span class="kw-2">&amp;</span><span class="self">self</span>.pred0, <span class="kw-2">&amp;</span><span class="self">self</span>.pred1, bw, bh, bd, dst, stride);
+<a href="#174" id="174" data-nosnippet="">174</a>                } <span class="kw">else </span>{
+<a href="#175" id="175" data-nosnippet="">175</a>                    inter::put_uni(<span class="kw-2">&amp;</span><span class="self">self</span>.pred0, bw, bh, bd, dst, stride);
+<a href="#176" id="176" data-nosnippet="">176</a>                }
+<a href="#177" id="177" data-nosnippet="">177</a>                <span class="kw">continue</span>;
+<a href="#178" id="178" data-nosnippet="">178</a>            };
+<a href="#179" id="179" data-nosnippet="">179</a>            <span class="kw">let </span>shift1 = <span class="number">14 </span>- bd;
+<a href="#180" id="180" data-nosnippet="">180</a>            <span class="kw">let </span>log2wd = <span class="kw">if </span>c == <span class="number">0 </span>{ pwt.luma_log2_denom } <span class="kw">else </span>{ pwt.chroma_log2_denom } + shift1;
+<a href="#181" id="181" data-nosnippet="">181</a>            <span class="kw">let </span>get = |l: usize| -&gt; (i32, i32) {
+<a href="#182" id="182" data-nosnippet="">182</a>                <span class="kw">let </span>e = <span class="kw-2">&amp;</span>pwt.l[l][f.ref_idx[l] <span class="kw">as </span>usize];
+<a href="#183" id="183" data-nosnippet="">183</a>                <span class="kw">let </span>(wt, o) = <span class="kw">if </span>c == <span class="number">0 </span>{ e.luma } <span class="kw">else </span>{ e.chroma[c - <span class="number">1</span>] };
+<a href="#184" id="184" data-nosnippet="">184</a>                (wt, o &lt;&lt; (bd - <span class="number">8</span>))
+<a href="#185" id="185" data-nosnippet="">185</a>            };
+<a href="#186" id="186" data-nosnippet="">186</a>            <span class="kw">if </span>bi {
+<a href="#187" id="187" data-nosnippet="">187</a>                inter::put_weighted_bi([<span class="kw-2">&amp;</span><span class="self">self</span>.pred0, <span class="kw-2">&amp;</span><span class="self">self</span>.pred1], (bw, bh), bd, log2wd, [get(<span class="number">0</span>), get(<span class="number">1</span>)], dst, stride);
+<a href="#188" id="188" data-nosnippet="">188</a>            } <span class="kw">else </span>{
+<a href="#189" id="189" data-nosnippet="">189</a>                <span class="kw">let </span>l = <span class="kw">if </span>lists[<span class="number">0</span>] { <span class="number">0 </span>} <span class="kw">else </span>{ <span class="number">1 </span>};
+<a href="#190" id="190" data-nosnippet="">190</a>                inter::put_weighted_uni(<span class="kw-2">&amp;</span><span class="self">self</span>.pred0, (bw, bh), bd, log2wd, get(l), dst, stride);
+<a href="#191" id="191" data-nosnippet="">191</a>            }
+<a href="#192" id="192" data-nosnippet="">192</a>        }
+<a href="#193" id="193" data-nosnippet="">193</a>    }
+<a href="#194" id="194" data-nosnippet="">194</a>}
+<a href="#195" id="195" data-nosnippet="">195</a>
+<a href="#196" id="196" data-nosnippet="">196</a><span class="doccomment">/// Whether the explicit weights of the lists `f` predicts from are the default ones for component
+<a href="#197" id="197" data-nosnippet="">197</a>/// `c` (weight 2^denom, offset 0).
+<a href="#198" id="198" data-nosnippet="">198</a></span><span class="kw">fn </span>default_weights(pwt: <span class="kw-2">&amp;</span><span class="kw">crate</span>::craft::video::hevc::decode::slice::PredWeightTable, f: <span class="kw-2">&amp;</span>MvField, c: usize) -&gt; bool {
+<a href="#199" id="199" data-nosnippet="">199</a>    <span class="kw">let </span>denom = <span class="kw">if </span>c == <span class="number">0 </span>{ pwt.luma_log2_denom } <span class="kw">else </span>{ pwt.chroma_log2_denom };
+<a href="#200" id="200" data-nosnippet="">200</a>    (<span class="number">0</span>..<span class="number">2</span>).filter(|<span class="kw-2">&amp;</span>l| f.pred(l)).all(|l| {
+<a href="#201" id="201" data-nosnippet="">201</a>        pwt.l[l].get(f.ref_idx[l] <span class="kw">as </span>usize).is_some_and(|e| {
+<a href="#202" id="202" data-nosnippet="">202</a>            <span class="kw">let </span>(wt, o) = <span class="kw">if </span>c == <span class="number">0 </span>{ e.luma } <span class="kw">else </span>{ e.chroma[c - <span class="number">1</span>] };
+<a href="#203" id="203" data-nosnippet="">203</a>            wt == <span class="number">1 </span>&lt;&lt; denom &amp;&amp; o == <span class="number">0
+<a href="#204" id="204" data-nosnippet="">204</a>        </span>})
+<a href="#205" id="205" data-nosnippet="">205</a>    })
+<a href="#206" id="206" data-nosnippet="">206</a>}
+</code></pre></div></section></main></body></html>

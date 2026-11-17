@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_PREALLOCATION"],"enum":["Error","ReadError"],"fn":["preflight","read_entry"],"struct":["Directory","Limits"]};

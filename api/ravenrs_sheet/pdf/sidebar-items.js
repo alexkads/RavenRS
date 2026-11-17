@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Family","Font"],"fn":["symbol_code","symbol_width","text_width","win_ansi"],"struct":["Info","Page","PdfDoc","Point","Rect"],"type":["Rgb"]};

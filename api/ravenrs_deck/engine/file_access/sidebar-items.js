@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Access"],"fn":["check_read","check_write","check_write_path","confine","confine_process","current","unconfined"],"struct":["AutomationRoots"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["is_symbol_font","map_text","symbol_char"]};

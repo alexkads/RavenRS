@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_TAG_BYTES"],"enum":["PptxError"],"fn":["export","export_as","import","import_checked","import_theme","is_encrypted","parse_xml","sniff"],"struct":["XmlDoc","XmlEl"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAIN"],"struct":["Batches","Delay","Filter","Group","If","Join","Manual","Merge","Set","Sort","Split","Subflow","Switch","Wait","WaitEvent"]};

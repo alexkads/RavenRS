@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Forma"],"fn":["ler_codigo","ler_valor","troco","valor_em_texto"],"mod":["entrada","preco"],"struct":["Carrinho","Leitura","Linha"]};

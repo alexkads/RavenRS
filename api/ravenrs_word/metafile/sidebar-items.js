@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_BITMAP_SIDE"],"enum":["Error","HAlign","Item","PlacedItem","Seg","VAlign"],"fn":["crop_window","is_metafile","parse","size"],"struct":["Picture","Text","TextLayout"]};

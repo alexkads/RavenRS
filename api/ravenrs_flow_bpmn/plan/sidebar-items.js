@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DRAFT_RULES","REVIEW_RULES"],"fn":["plan","summary"],"struct":["Drafted"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["SAMPLE_RATES"],"enum":["Bandwidth","Error","Mode"],"fn":["wav_order"],"mod":["packet"],"struct":["Decoder","OpusHead","Packet","StreamDecoder","Toc"],"type":["Result"]};

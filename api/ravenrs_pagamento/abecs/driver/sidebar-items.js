@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ErroPinpad"],"struct":["InformacaoEstendida","Pinpad"],"trait":["PortaPinpad"]};

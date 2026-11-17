@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_BINS","MAX_BOX_CELLS","MAX_LEVELS"],"enum":["ChartType","TrendlineType"],"fn":["axis_scale","box_stats","box_stats_by","nice_scale"],"struct":["Bin","BoxStats","Chart","ChartKept","ChartPart","ChartRel","ErrorBars","LegendEntry","Series","SeriesStats","TreeNode","Trendline"]};

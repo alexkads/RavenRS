@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GraphicItem","GraphicKind","PathSeg","TextAlign"],"struct":["Embedded","EmbeddedRef","Graphic"]};

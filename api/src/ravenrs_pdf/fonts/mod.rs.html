@@ -1,0 +1,511 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="ravenrs_pdf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../src-files.js"></script><script defer="" src="../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-pdf/src/fonts/mod.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_pdf/fonts/mod.rs.html"><meta property="og:title" content="mod.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-pdf/src/fonts/mod.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_pdf/fonts/mod.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="mod.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-pdf/src/fonts/mod.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"mod.rs - source","description":"Source of the Rust file `crates/ravenrs-pdf/src/fonts/mod.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_pdf/fonts/mod.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_pdf/fonts/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! pdfcraft-fonts — font metrics and encodings for generated appearances (L2).
+<a href="#2" id="2" data-nosnippet="">2</a>//!
+<a href="#3" id="3" data-nosnippet="">3</a>//! Standard-14 advance widths are exact (`Std14`, ISO 32000-2 Annex D). What remains approximate
+<a href="#4" id="4" data-nosnippet="">4</a>//! is everything that needs a font *program*: this crate reads font dictionaries, never embedded
+<a href="#5" id="5" data-nosnippet="">5</a>//! programs, so it has no glyph outlines for document fonts and cannot subset or re-embed. That
+<a href="#6" id="6" data-nosnippet="">6</a>//! is phase F 4.2 in docs/plan/execution-plan.md.
+<a href="#7" id="7" data-nosnippet="">7</a>
+<a href="#8" id="8" data-nosnippet="">8</a></span><span class="attr">#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
+<a href="#9" id="9" data-nosnippet="">9</a>
+<a href="#10" id="10" data-nosnippet="">10</a>#[cfg(test)]
+<a href="#11" id="11" data-nosnippet="">11</a></span><span class="kw">mod </span>cjk_scripts;
+<a href="#12" id="12" data-nosnippet="">12</a><span class="kw">mod </span>craft;
+<a href="#13" id="13" data-nosnippet="">13</a><span class="kw">pub mod </span>embedding;
+<a href="#14" id="14" data-nosnippet="">14</a><span class="kw">mod </span>encodings;
+<a href="#15" id="15" data-nosnippet="">15</a><span class="kw">pub mod </span>fallback;
+<a href="#16" id="16" data-nosnippet="">16</a><span class="kw">pub mod </span>pdf;
+<a href="#17" id="17" data-nosnippet="">17</a><span class="kw">pub mod </span>plan;
+<a href="#18" id="18" data-nosnippet="">18</a><span class="kw">mod </span>script;
+<a href="#19" id="19" data-nosnippet="">19</a><span class="kw">pub mod </span>shaped_text;
+<a href="#20" id="20" data-nosnippet="">20</a><span class="kw">mod </span>shaping;
+<a href="#21" id="21" data-nosnippet="">21</a><span class="kw">pub mod </span>source_shaping;
+<a href="#22" id="22" data-nosnippet="">22</a><span class="kw">mod </span>std14;
+<a href="#23" id="23" data-nosnippet="">23</a><span class="kw">mod </span>std14_metrics;
+<a href="#24" id="24" data-nosnippet="">24</a><span class="kw">pub use </span>craft::{
+<a href="#25" id="25" data-nosnippet="">25</a>    CRAFT_FONTS, CraftFont, SHIPPORI_MINCHO, document_arabic_font, document_devanagari_font, document_hebrew_font, document_japanese_font,
+<a href="#26" id="26" data-nosnippet="">26</a>    document_japanese_font_for_style, document_japanese_fonts_for_style, document_latin_fonts, document_thai_font, ui_arabic_fonts, ui_chinese_fonts,
+<a href="#27" id="27" data-nosnippet="">27</a>    ui_cjk_fonts, ui_devanagari_fonts, ui_hebrew_fonts, ui_japanese_fonts, ui_telugu_fonts, ui_thai_fonts,
+<a href="#28" id="28" data-nosnippet="">28</a>};
+<a href="#29" id="29" data-nosnippet="">29</a><span class="kw">pub use </span>plan::{MAX_PLAN_GLYPHS, MAX_TYPE3_GLYPHS, PlannedType3, TextPlan};
+<a href="#30" id="30" data-nosnippet="">30</a><span class="kw">pub use </span>script::{
+<a href="#31" id="31" data-nosnippet="">31</a>    GlyphError, GlyphOutline, INTER_REGULAR, MAX_SIGNATURE_CHARS, ScriptOutline, craft_glyph, face_has, japanese_glyph, japanese_glyph_from,
+<a href="#32" id="32" data-nosnippet="">32</a>    script_missing, script_outline,
+<a href="#33" id="33" data-nosnippet="">33</a>};
+<a href="#34" id="34" data-nosnippet="">34</a><span class="kw">pub use </span>shaping::{
+<a href="#35" id="35" data-nosnippet="">35</a>    ShapedCluster, ShapedScript, arabic_glyph, arabic_has, face_glyph, hebrew_has, shape_arabic, shape_hebrew, shape_thai, shaped_glyph, thai_has,
+<a href="#36" id="36" data-nosnippet="">36</a>};
+<a href="#37" id="37" data-nosnippet="">37</a><span class="kw">pub use </span>std14::{Match <span class="kw">as </span>Std14Match, Std14};
+<a href="#38" id="38" data-nosnippet="">38</a>
+<a href="#39" id="39" data-nosnippet="">39</a><span class="doccomment">/// Advance of `s` in Helvetica at `size` points, using the exact standard-14 metrics.
+<a href="#40" id="40" data-nosnippet="">40</a>///
+<a href="#41" id="41" data-nosnippet="">41</a>/// Kept as a free function because generated appearances overwhelmingly use Helvetica; reach for
+<a href="#42" id="42" data-nosnippet="">42</a>/// [`Std14`] directly for any other face, and never for a scaled approximation of this one.
+<a href="#43" id="43" data-nosnippet="">43</a></span><span class="kw">pub fn </span>helvetica_width(s: <span class="kw-2">&amp;</span>str, size: f64) -&gt; f64 {
+<a href="#44" id="44" data-nosnippet="">44</a>    Std14::Helvetica.text_width(s, size)
+<a href="#45" id="45" data-nosnippet="">45</a>}
+<a href="#46" id="46" data-nosnippet="">46</a>
+<a href="#47" id="47" data-nosnippet="">47</a><span class="doccomment">/// Approximate advance of `s` at `size` points in a CJK font: full-width characters take one
+<a href="#48" id="48" data-nosnippet="">48</a>/// em, half-width forms half of one, and everything else is measured as Helvetica.
+<a href="#49" id="49" data-nosnippet="">49</a></span><span class="kw">pub fn </span>cjk_width(s: <span class="kw-2">&amp;</span>str, size: f64) -&gt; f64 {
+<a href="#50" id="50" data-nosnippet="">50</a>    <span class="kw">let </span><span class="kw-2">mut </span>buf = [<span class="number">0u8</span>; <span class="number">4</span>];
+<a href="#51" id="51" data-nosnippet="">51</a>    s.chars()
+<a href="#52" id="52" data-nosnippet="">52</a>        .map(|c| <span class="kw">match </span>c {
+<a href="#53" id="53" data-nosnippet="">53</a>            <span class="string">'\u{ff61}'</span>..=<span class="string">'\u{ffdc}' </span>| <span class="string">'\u{ffe8}'</span>..=<span class="string">'\u{ffee}' </span>=&gt; size * <span class="number">0.5</span>,
+<a href="#54" id="54" data-nosnippet="">54</a>            <span class="kw">_ if </span>is_wide(c) =&gt; size,
+<a href="#55" id="55" data-nosnippet="">55</a>            <span class="kw">_ </span>=&gt; helvetica_width(c.encode_utf8(<span class="kw-2">&amp;mut </span>buf), size),
+<a href="#56" id="56" data-nosnippet="">56</a>        })
+<a href="#57" id="57" data-nosnippet="">57</a>        .sum()
+<a href="#58" id="58" data-nosnippet="">58</a>}
+<a href="#59" id="59" data-nosnippet="">59</a>
+<a href="#60" id="60" data-nosnippet="">60</a><span class="doccomment">/// Approximate advance of `s` in Inter Regular at `size` points.
+<a href="#61" id="61" data-nosnippet="">61</a></span><span class="kw">pub fn </span>inter_width(s: <span class="kw-2">&amp;</span>str, size: f64) -&gt; f64 {
+<a href="#62" id="62" data-nosnippet="">62</a>    <span class="kw">use </span>skrifa::MetadataProvider <span class="kw">as _</span>;
+<a href="#63" id="63" data-nosnippet="">63</a>    <span class="kw">let </span><span class="prelude-val">Ok</span>(font) = skrifa::FontRef::new(INTER_REGULAR) <span class="kw">else </span>{ <span class="kw">return </span>helvetica_width(s, size) };
+<a href="#64" id="64" data-nosnippet="">64</a>    <span class="kw">let </span>loc = skrifa::instance::LocationRef::default();
+<a href="#65" id="65" data-nosnippet="">65</a>    <span class="kw">let </span>upem = font.metrics(skrifa::instance::Size::unscaled(), loc).units_per_em.max(<span class="number">1</span>) <span class="kw">as </span>f64;
+<a href="#66" id="66" data-nosnippet="">66</a>    <span class="kw">let </span>scale = size / upem;
+<a href="#67" id="67" data-nosnippet="">67</a>    <span class="kw">let </span>charmap = font.charmap();
+<a href="#68" id="68" data-nosnippet="">68</a>    <span class="kw">let </span>advances = font.glyph_metrics(skrifa::instance::Size::unscaled(), loc);
+<a href="#69" id="69" data-nosnippet="">69</a>    s.chars().map(|c| charmap.map(c).and_then(|gid| advances.advance_width(gid)).unwrap_or(<span class="number">0.0</span>) <span class="kw">as </span>f64 * scale).sum()
+<a href="#70" id="70" data-nosnippet="">70</a>}
+<a href="#71" id="71" data-nosnippet="">71</a>
+<a href="#72" id="72" data-nosnippet="">72</a><span class="doccomment">/// East Asian wide and full-width characters (Unicode UAX #11 W and F, by block).
+<a href="#73" id="73" data-nosnippet="">73</a></span><span class="kw">fn </span>is_wide(c: char) -&gt; bool {
+<a href="#74" id="74" data-nosnippet="">74</a>    <span class="macro">matches!</span>(c,
+<a href="#75" id="75" data-nosnippet="">75</a>        <span class="string">'\u{1100}'</span>..=<span class="string">'\u{115f}' </span><span class="comment">// Hangul Jamo initials
+<a href="#76" id="76" data-nosnippet="">76</a>        </span>| <span class="string">'\u{2e80}'</span>..=<span class="string">'\u{303e}' </span><span class="comment">// CJK radicals, Kangxi, ideographic description, CJK symbols
+<a href="#77" id="77" data-nosnippet="">77</a>        </span>| <span class="string">'\u{3041}'</span>..=<span class="string">'\u{33ff}' </span><span class="comment">// kana, Bopomofo, Hangul compatibility, Kanbun, CJK compatibility
+<a href="#78" id="78" data-nosnippet="">78</a>        </span>| <span class="string">'\u{3400}'</span>..=<span class="string">'\u{4dbf}' </span><span class="comment">// CJK extension A
+<a href="#79" id="79" data-nosnippet="">79</a>        </span>| <span class="string">'\u{4e00}'</span>..=<span class="string">'\u{9fff}' </span><span class="comment">// CJK unified ideographs
+<a href="#80" id="80" data-nosnippet="">80</a>        </span>| <span class="string">'\u{a000}'</span>..=<span class="string">'\u{a4cf}' </span><span class="comment">// Yi
+<a href="#81" id="81" data-nosnippet="">81</a>        </span>| <span class="string">'\u{ac00}'</span>..=<span class="string">'\u{d7a3}' </span><span class="comment">// Hangul syllables
+<a href="#82" id="82" data-nosnippet="">82</a>        </span>| <span class="string">'\u{f900}'</span>..=<span class="string">'\u{faff}' </span><span class="comment">// CJK compatibility ideographs
+<a href="#83" id="83" data-nosnippet="">83</a>        </span>| <span class="string">'\u{fe30}'</span>..=<span class="string">'\u{fe4f}' </span><span class="comment">// CJK compatibility forms
+<a href="#84" id="84" data-nosnippet="">84</a>        </span>| <span class="string">'\u{ff00}'</span>..=<span class="string">'\u{ff60}' </span><span class="comment">// full-width forms
+<a href="#85" id="85" data-nosnippet="">85</a>        </span>| <span class="string">'\u{ffe0}'</span>..=<span class="string">'\u{ffe6}'
+<a href="#86" id="86" data-nosnippet="">86</a>        </span>| <span class="string">'\u{20000}'</span>..=<span class="string">'\u{3fffd}' </span><span class="comment">// supplementary ideographic planes
+<a href="#87" id="87" data-nosnippet="">87</a>    </span>)
+<a href="#88" id="88" data-nosnippet="">88</a>}
+<a href="#89" id="89" data-nosnippet="">89</a>
+<a href="#90" id="90" data-nosnippet="">90</a><span class="doccomment">/// Greedy line breaking within `width` points (paragraphs split on line breaks, where CRLF counts as one; words longer
+<a href="#91" id="91" data-nosnippet="">91</a>/// than a line are broken by character).
+<a href="#92" id="92" data-nosnippet="">92</a></span><span class="kw">pub fn </span>wrap(text: <span class="kw-2">&amp;</span>str, size: f64, width: f64) -&gt; Vec&lt;String&gt; {
+<a href="#93" id="93" data-nosnippet="">93</a>    wrap_with(text, size, width, helvetica_width)
+<a href="#94" id="94" data-nosnippet="">94</a>}
+<a href="#95" id="95" data-nosnippet="">95</a>
+<a href="#96" id="96" data-nosnippet="">96</a><span class="doccomment">/// [`wrap`], measuring with `measure` (for example [`cjk_width`]).
+<a href="#97" id="97" data-nosnippet="">97</a>///
+<a href="#98" id="98" data-nosnippet="">98</a>/// A line measures as the sum of its words, the spaces between them and the characters of a broken
+<a href="#99" id="99" data-nosnippet="">99</a>/// word, each measured once, so the work stays linear in `text` however much fits on a line.
+<a href="#100" id="100" data-nosnippet="">100</a></span><span class="kw">pub fn </span>wrap_with(text: <span class="kw-2">&amp;</span>str, size: f64, width: f64, measure: <span class="kw">impl </span>Fn(<span class="kw-2">&amp;</span>str, f64) -&gt; f64) -&gt; Vec&lt;String&gt; {
+<a href="#101" id="101" data-nosnippet="">101</a>    <span class="kw">let </span><span class="kw-2">mut </span>lines = Vec::new();
+<a href="#102" id="102" data-nosnippet="">102</a>    <span class="kw">let </span>space = measure(<span class="string">" "</span>, size);
+<a href="#103" id="103" data-nosnippet="">103</a>    <span class="comment">// A CRLF pair is one break, a lone CR or LF is one break each.
+<a href="#104" id="104" data-nosnippet="">104</a>    </span><span class="kw">for </span>para <span class="kw">in </span>text.replace(<span class="string">"\r\n"</span>, <span class="string">"\n"</span>).split([<span class="string">'\n'</span>, <span class="string">'\r'</span>]) {
+<a href="#105" id="105" data-nosnippet="">105</a>        <span class="kw">let </span><span class="kw-2">mut </span>line = String::new();
+<a href="#106" id="106" data-nosnippet="">106</a>        <span class="kw">let </span><span class="kw-2">mut </span>line_width = <span class="number">0.0</span>;
+<a href="#107" id="107" data-nosnippet="">107</a>        <span class="comment">// No word is on the line yet; an empty word (a leading space) still starts it.
+<a href="#108" id="108" data-nosnippet="">108</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>fresh = <span class="bool-val">true</span>;
+<a href="#109" id="109" data-nosnippet="">109</a>        <span class="kw">for </span>word <span class="kw">in </span>para.split(<span class="string">' '</span>) {
+<a href="#110" id="110" data-nosnippet="">110</a>            <span class="kw">let </span>word_width = measure(word, size);
+<a href="#111" id="111" data-nosnippet="">111</a>            <span class="kw">let </span>candidate = <span class="kw">if </span>fresh { word_width } <span class="kw">else </span>{ line_width + space + word_width };
+<a href="#112" id="112" data-nosnippet="">112</a>            <span class="kw">if </span>candidate &lt;= width {
+<a href="#113" id="113" data-nosnippet="">113</a>                <span class="kw">if </span>!fresh {
+<a href="#114" id="114" data-nosnippet="">114</a>                    line.push(<span class="string">' '</span>);
+<a href="#115" id="115" data-nosnippet="">115</a>                }
+<a href="#116" id="116" data-nosnippet="">116</a>                line.push_str(word);
+<a href="#117" id="117" data-nosnippet="">117</a>                line_width = candidate;
+<a href="#118" id="118" data-nosnippet="">118</a>                fresh = <span class="bool-val">false</span>;
+<a href="#119" id="119" data-nosnippet="">119</a>                <span class="kw">continue</span>;
+<a href="#120" id="120" data-nosnippet="">120</a>            }
+<a href="#121" id="121" data-nosnippet="">121</a>            <span class="comment">// Indentation alone is not a line: drop it before an over-long word.
+<a href="#122" id="122" data-nosnippet="">122</a>            </span><span class="kw">if </span>line.trim().is_empty() {
+<a href="#123" id="123" data-nosnippet="">123</a>                line.clear();
+<a href="#124" id="124" data-nosnippet="">124</a>            } <span class="kw">else </span>{
+<a href="#125" id="125" data-nosnippet="">125</a>                lines.push(std::mem::take(<span class="kw-2">&amp;mut </span>line));
+<a href="#126" id="126" data-nosnippet="">126</a>            }
+<a href="#127" id="127" data-nosnippet="">127</a>            line_width = <span class="number">0.0</span>;
+<a href="#128" id="128" data-nosnippet="">128</a>            <span class="comment">// Broken between characters, but never before a Thai mark: it stays on its letter.
+<a href="#129" id="129" data-nosnippet="">129</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>start = <span class="number">0</span>;
+<a href="#130" id="130" data-nosnippet="">130</a>            <span class="kw">let </span><span class="kw-2">mut </span>units = Vec::new();
+<a href="#131" id="131" data-nosnippet="">131</a>            <span class="kw">for </span>(i, ch) <span class="kw">in </span>word.char_indices().skip(<span class="number">1</span>) {
+<a href="#132" id="132" data-nosnippet="">132</a>                <span class="kw">if </span>!shaped_text::joins_previous(ch) {
+<a href="#133" id="133" data-nosnippet="">133</a>                    units.extend(word.get(start..i));
+<a href="#134" id="134" data-nosnippet="">134</a>                    start = i;
+<a href="#135" id="135" data-nosnippet="">135</a>                }
+<a href="#136" id="136" data-nosnippet="">136</a>            }
+<a href="#137" id="137" data-nosnippet="">137</a>            units.extend(word.get(start..).filter(|u| !u.is_empty()));
+<a href="#138" id="138" data-nosnippet="">138</a>            <span class="kw">for </span>unit <span class="kw">in </span>units {
+<a href="#139" id="139" data-nosnippet="">139</a>                <span class="kw">let </span>unit_width = measure(unit, size);
+<a href="#140" id="140" data-nosnippet="">140</a>                <span class="kw">if </span>!line.is_empty() &amp;&amp; line_width + unit_width &gt; width {
+<a href="#141" id="141" data-nosnippet="">141</a>                    lines.push(std::mem::take(<span class="kw-2">&amp;mut </span>line));
+<a href="#142" id="142" data-nosnippet="">142</a>                    line_width = <span class="number">0.0</span>;
+<a href="#143" id="143" data-nosnippet="">143</a>                }
+<a href="#144" id="144" data-nosnippet="">144</a>                line.push_str(unit);
+<a href="#145" id="145" data-nosnippet="">145</a>                line_width += unit_width;
+<a href="#146" id="146" data-nosnippet="">146</a>            }
+<a href="#147" id="147" data-nosnippet="">147</a>            fresh = line.is_empty();
+<a href="#148" id="148" data-nosnippet="">148</a>        }
+<a href="#149" id="149" data-nosnippet="">149</a>        lines.push(line);
+<a href="#150" id="150" data-nosnippet="">150</a>    }
+<a href="#151" id="151" data-nosnippet="">151</a>    lines
+<a href="#152" id="152" data-nosnippet="">152</a>}
+<a href="#153" id="153" data-nosnippet="">153</a>
+<a href="#154" id="154" data-nosnippet="">154</a><span class="doccomment">/// The WinAnsiEncoding (ISO 32000-2 Annex D) code for `c`, if the encoding has one.
+<a href="#155" id="155" data-nosnippet="">155</a>///
+<a href="#156" id="156" data-nosnippet="">156</a>/// Codes 0x80–0x9F come from the same table the text extractor decodes with, so encoding and
+<a href="#157" id="157" data-nosnippet="">157</a>/// decoding agree (Š š Ž ž Œ œ Ÿ ƒ † ‡ ˆ ˜ ‰ ‹ › as well as quotes, dashes, € and ™).
+<a href="#158" id="158" data-nosnippet="">158</a></span><span class="kw">pub fn </span>win_ansi_byte(c: char) -&gt; <span class="prelude-ty">Option</span>&lt;u8&gt; {
+<a href="#159" id="159" data-nosnippet="">159</a>    <span class="kw">match </span>c {
+<a href="#160" id="160" data-nosnippet="">160</a>        <span class="string">'\u{20}'</span>..=<span class="string">'\u{7e}' </span>| <span class="string">'\u{a0}'</span>..=<span class="string">'\u{ff}' </span>=&gt; u8::try_from(u32::from(c)).ok(),
+<a href="#161" id="161" data-nosnippet="">161</a>        <span class="kw">_ </span>=&gt; {
+<a href="#162" id="162" data-nosnippet="">162</a>            <span class="kw">let </span>high = encodings::WIN_ANSI.get(<span class="number">0x80</span>..<span class="number">0xa0</span>)<span class="question-mark">?</span>;
+<a href="#163" id="163" data-nosnippet="">163</a>            <span class="kw">let </span>i = high.iter().position(|<span class="kw-2">&amp;</span>u| u != <span class="number">0 </span>&amp;&amp; u == u32::from(c))<span class="question-mark">?</span>;
+<a href="#164" id="164" data-nosnippet="">164</a>            u8::try_from(<span class="number">0x80 </span>+ i).ok()
+<a href="#165" id="165" data-nosnippet="">165</a>        }
+<a href="#166" id="166" data-nosnippet="">166</a>    }
+<a href="#167" id="167" data-nosnippet="">167</a>}
+<a href="#168" id="168" data-nosnippet="">168</a>
+<a href="#169" id="169" data-nosnippet="">169</a><span class="doccomment">/// Encode text in WinAnsiEncoding (ISO 32000-2 Annex D); tabs become spaces and unmappable
+<a href="#170" id="170" data-nosnippet="">170</a>/// characters become `?`.
+<a href="#171" id="171" data-nosnippet="">171</a></span><span class="kw">pub fn </span>win_ansi(s: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;u8&gt; {
+<a href="#172" id="172" data-nosnippet="">172</a>    s.chars().map(|c| <span class="kw">if </span>c == <span class="string">'\t' </span>{ <span class="string">b' ' </span>} <span class="kw">else </span>{ win_ansi_byte(c).unwrap_or(<span class="string">b'?'</span>) }).collect()
+<a href="#173" id="173" data-nosnippet="">173</a>}
+<a href="#174" id="174" data-nosnippet="">174</a>
+<a href="#175" id="175" data-nosnippet="">175</a><span class="doccomment">/// The character encoding of a predefined Unicode CMap (`UniJIS-UTF16-H`, `UniGB-UCS2-H`, …;
+<a href="#176" id="176" data-nosnippet="">176</a>/// ISO 32000-2 §9.7.5.2), which maps Unicode text straight to codes.
+<a href="#177" id="177" data-nosnippet="">177</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+<a href="#178" id="178" data-nosnippet="">178</a></span><span class="kw">pub enum </span>UnicodeCMap {
+<a href="#179" id="179" data-nosnippet="">179</a>    Ucs2,
+<a href="#180" id="180" data-nosnippet="">180</a>    Utf16,
+<a href="#181" id="181" data-nosnippet="">181</a>    Utf8,
+<a href="#182" id="182" data-nosnippet="">182</a>    Utf32,
+<a href="#183" id="183" data-nosnippet="">183</a>}
+<a href="#184" id="184" data-nosnippet="">184</a>
+<a href="#185" id="185" data-nosnippet="">185</a><span class="kw">impl </span>UnicodeCMap {
+<a href="#186" id="186" data-nosnippet="">186</a>    <span class="doccomment">/// The encoding of the predefined CMap `name`, if it is a horizontal Unicode one. Vertical
+<a href="#187" id="187" data-nosnippet="">187</a>    /// (`-V`) CMaps are refused: field appearances are laid out horizontally, so their glyphs
+<a href="#188" id="188" data-nosnippet="">188</a>    /// would be drawn stacked down the field instead of across it.
+<a href="#189" id="189" data-nosnippet="">189</a>    </span><span class="kw">pub fn </span>from_name(name: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+<a href="#190" id="190" data-nosnippet="">190</a>        <span class="kw">let </span>name = std::str::from_utf8(name).ok()<span class="question-mark">?</span>;
+<a href="#191" id="191" data-nosnippet="">191</a>        <span class="kw">if </span>!name.starts_with(<span class="string">"Uni"</span>) || !name.ends_with(<span class="string">"-H"</span>) {
+<a href="#192" id="192" data-nosnippet="">192</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#193" id="193" data-nosnippet="">193</a>        }
+<a href="#194" id="194" data-nosnippet="">194</a>        name.split(<span class="string">'-'</span>).find_map(|part| <span class="kw">match </span>part {
+<a href="#195" id="195" data-nosnippet="">195</a>            <span class="string">"UCS2" </span>=&gt; <span class="prelude-val">Some</span>(<span class="self">Self</span>::Ucs2),
+<a href="#196" id="196" data-nosnippet="">196</a>            <span class="string">"UTF16" </span>=&gt; <span class="prelude-val">Some</span>(<span class="self">Self</span>::Utf16),
+<a href="#197" id="197" data-nosnippet="">197</a>            <span class="string">"UTF8" </span>=&gt; <span class="prelude-val">Some</span>(<span class="self">Self</span>::Utf8),
+<a href="#198" id="198" data-nosnippet="">198</a>            <span class="string">"UTF32" </span>=&gt; <span class="prelude-val">Some</span>(<span class="self">Self</span>::Utf32),
+<a href="#199" id="199" data-nosnippet="">199</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#200" id="200" data-nosnippet="">200</a>        })
+<a href="#201" id="201" data-nosnippet="">201</a>    }
+<a href="#202" id="202" data-nosnippet="">202</a>
+<a href="#203" id="203" data-nosnippet="">203</a>    <span class="doccomment">/// The first character of `s` this encoding can't hold, which [`Self::encode`] would write as
+<a href="#204" id="204" data-nosnippet="">204</a>    /// `?`: a character beyond U+FFFF in UCS-2 (`𠀋`). UTF-16, UTF-8 and UTF-32 hold every one.
+<a href="#205" id="205" data-nosnippet="">205</a>    </span><span class="kw">pub fn </span>first_unencodable(<span class="self">self</span>, s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;char&gt; {
+<a href="#206" id="206" data-nosnippet="">206</a>        <span class="kw">match </span><span class="self">self </span>{
+<a href="#207" id="207" data-nosnippet="">207</a>            <span class="self">Self</span>::Ucs2 =&gt; s.chars().find(|c| u16::try_from(u32::from(<span class="kw-2">*</span>c)).is_err()),
+<a href="#208" id="208" data-nosnippet="">208</a>            <span class="self">Self</span>::Utf16 | <span class="self">Self</span>::Utf8 | <span class="self">Self</span>::Utf32 =&gt; <span class="prelude-val">None</span>,
+<a href="#209" id="209" data-nosnippet="">209</a>        }
+<a href="#210" id="210" data-nosnippet="">210</a>    }
+<a href="#211" id="211" data-nosnippet="">211</a>
+<a href="#212" id="212" data-nosnippet="">212</a>    <span class="doccomment">/// Encode `s`; tabs become spaces, and characters UCS-2 can't hold become `?` (check them
+<a href="#213" id="213" data-nosnippet="">213</a>    /// first with [`Self::first_unencodable`]: PdfCraft refuses such text rather than write `?`).
+<a href="#214" id="214" data-nosnippet="">214</a>    </span><span class="kw">pub fn </span>encode(<span class="self">self</span>, s: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;u8&gt; {
+<a href="#215" id="215" data-nosnippet="">215</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::with_capacity(s.len().saturating_mul(<span class="number">2</span>));
+<a href="#216" id="216" data-nosnippet="">216</a>        <span class="kw">let </span><span class="kw-2">mut </span>units = [<span class="number">0u16</span>; <span class="number">2</span>];
+<a href="#217" id="217" data-nosnippet="">217</a>        <span class="kw">let </span><span class="kw-2">mut </span>buf = [<span class="number">0u8</span>; <span class="number">4</span>];
+<a href="#218" id="218" data-nosnippet="">218</a>        <span class="kw">for </span>c <span class="kw">in </span>s.chars() {
+<a href="#219" id="219" data-nosnippet="">219</a>            <span class="kw">let </span>c = <span class="kw">if </span>c == <span class="string">'\t' </span>{ <span class="string">' ' </span>} <span class="kw">else </span>{ c };
+<a href="#220" id="220" data-nosnippet="">220</a>            <span class="kw">match </span><span class="self">self </span>{
+<a href="#221" id="221" data-nosnippet="">221</a>                <span class="self">Self</span>::Ucs2 =&gt; {
+<a href="#222" id="222" data-nosnippet="">222</a>                    <span class="kw">let </span>unit = u16::try_from(u32::from(c)).unwrap_or(u16::from(<span class="string">b'?'</span>));
+<a href="#223" id="223" data-nosnippet="">223</a>                    out.extend_from_slice(<span class="kw-2">&amp;</span>unit.to_be_bytes());
+<a href="#224" id="224" data-nosnippet="">224</a>                }
+<a href="#225" id="225" data-nosnippet="">225</a>                <span class="self">Self</span>::Utf16 =&gt; {
+<a href="#226" id="226" data-nosnippet="">226</a>                    <span class="kw">for </span>unit <span class="kw">in </span>c.encode_utf16(<span class="kw-2">&amp;mut </span>units) {
+<a href="#227" id="227" data-nosnippet="">227</a>                        out.extend_from_slice(<span class="kw-2">&amp;</span>unit.to_be_bytes());
+<a href="#228" id="228" data-nosnippet="">228</a>                    }
+<a href="#229" id="229" data-nosnippet="">229</a>                }
+<a href="#230" id="230" data-nosnippet="">230</a>                <span class="self">Self</span>::Utf8 =&gt; out.extend_from_slice(c.encode_utf8(<span class="kw-2">&amp;mut </span>buf).as_bytes()),
+<a href="#231" id="231" data-nosnippet="">231</a>                <span class="self">Self</span>::Utf32 =&gt; out.extend_from_slice(<span class="kw-2">&amp;</span>u32::from(c).to_be_bytes()),
+<a href="#232" id="232" data-nosnippet="">232</a>            }
+<a href="#233" id="233" data-nosnippet="">233</a>        }
+<a href="#234" id="234" data-nosnippet="">234</a>        out
+<a href="#235" id="235" data-nosnippet="">235</a>    }
+<a href="#236" id="236" data-nosnippet="">236</a>}
+<a href="#237" id="237" data-nosnippet="">237</a>
+<a href="#238" id="238" data-nosnippet="">238</a><span class="doccomment">/// Whether [`win_ansi`] keeps `c` rather than writing `?` (a tab becomes a space).
+<a href="#239" id="239" data-nosnippet="">239</a></span><span class="kw">pub fn </span>win_ansi_encodable(c: char) -&gt; bool {
+<a href="#240" id="240" data-nosnippet="">240</a>    c == <span class="string">'\t' </span>|| win_ansi_byte(c).is_some()
+<a href="#241" id="241" data-nosnippet="">241</a>}
+<a href="#242" id="242" data-nosnippet="">242</a>
+<a href="#243" id="243" data-nosnippet="">243</a><span class="doccomment">/// The first character of `s` that [`win_ansi`] can't encode and would write as `?`.
+<a href="#244" id="244" data-nosnippet="">244</a></span><span class="kw">pub fn </span>first_non_win_ansi(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;char&gt; {
+<a href="#245" id="245" data-nosnippet="">245</a>    s.chars().find(|c| !win_ansi_encodable(<span class="kw-2">*</span>c))
+<a href="#246" id="246" data-nosnippet="">246</a>}
+<a href="#247" id="247" data-nosnippet="">247</a>
+<a href="#248" id="248" data-nosnippet="">248</a><span class="doccomment">/// The first character of `s` the standard fonts (Helvetica and the rest of the standard 14, in
+<a href="#249" id="249" data-nosnippet="">249</a>/// WinAnsiEncoding) can't draw, so that a generated appearance would show it as `?`. Line breaks
+<a href="#250" id="250" data-nosnippet="">250</a>/// don't count: appearances lay lines out themselves. PdfCraft refuses such text with
+<a href="#251" id="251" data-nosnippet="">251</a>/// [`undrawable_message`] instead of writing `?` (AGENTS.md §4: never lose work silently).
+<a href="#252" id="252" data-nosnippet="">252</a></span><span class="kw">pub fn </span>first_undrawable(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;char&gt; {
+<a href="#253" id="253" data-nosnippet="">253</a>    s.chars().find(|c| !<span class="macro">matches!</span>(c, <span class="string">'\n' </span>| <span class="string">'\r'</span>) &amp;&amp; !win_ansi_encodable(<span class="kw-2">*</span>c))
+<a href="#254" id="254" data-nosnippet="">254</a>}
+<a href="#255" id="255" data-nosnippet="">255</a>
+<a href="#256" id="256" data-nosnippet="">256</a><span class="doccomment">/// The error for text the standard fonts can't draw ([`first_undrawable`]): which character, in
+<a href="#257" id="257" data-nosnippet="">257</a>/// what (`"the comment"`, `"the reason"`), and what can be written instead. One wording for every
+<a href="#258" id="258" data-nosnippet="">258</a>/// path that writes text in the standard fonts, so agents and users can act on it the same way.
+<a href="#259" id="259" data-nosnippet="">259</a></span><span class="kw">pub fn </span>undrawable_message(what: <span class="kw-2">&amp;</span>str, c: char) -&gt; String {
+<a href="#260" id="260" data-nosnippet="">260</a>    <span class="macro">format!</span>(
+<a href="#261" id="261" data-nosnippet="">261</a>        <span class="string">"the standard fonts can't draw \"{}\" (U+{:04X}) in {what}; only Western European characters can be written there for now"</span>,
+<a href="#262" id="262" data-nosnippet="">262</a>        c.escape_debug(),
+<a href="#263" id="263" data-nosnippet="">263</a>        u32::from(c)
+<a href="#264" id="264" data-nosnippet="">264</a>    )
+<a href="#265" id="265" data-nosnippet="">265</a>}
+<a href="#266" id="266" data-nosnippet="">266</a>
+<a href="#267" id="267" data-nosnippet="">267</a><span class="doccomment">/// The private key on an annotation (a comment or a form field's widget) whose appearance PdfCraft
+<a href="#268" id="268" data-nosnippet="">268</a>/// drew with `?` in place of characters its fonts can't draw: a text string holding the first
+<a href="#269" id="269" data-nosnippet="">269</a>/// such character. The text itself (a field's `/V`, a comment's `/Contents`) is stored as typed;
+<a href="#270" id="270" data-nosnippet="">270</a>/// the mark lets flattening refuse to make that `?` permanent, lets an edit report it, and tells
+<a href="#271" id="271" data-nosnippet="">271</a>/// such an appearance apart from one another program drew with a font that has those characters.
+<a href="#272" id="272" data-nosnippet="">272</a></span><span class="kw">pub const </span>UNDRAWN_MARK: <span class="kw-2">&amp;</span>[u8] = <span class="string">b"PCUndrawn"</span>;
+<a href="#273" id="273" data-nosnippet="">273</a>
+<a href="#274" id="274" data-nosnippet="">274</a><span class="doccomment">/// The character [`UNDRAWN_MARK`] records on `d`, if PdfCraft drew its appearance with `?`.
+<a href="#275" id="275" data-nosnippet="">275</a></span><span class="kw">pub fn </span>undrawn_mark(d: <span class="kw-2">&amp;</span><span class="kw">crate</span>::cos::Dict) -&gt; <span class="prelude-ty">Option</span>&lt;char&gt; {
+<a href="#276" id="276" data-nosnippet="">276</a>    d.get(UNDRAWN_MARK).and_then(<span class="kw">crate</span>::cos::Object::as_string).and_then(|s| s.to_text().chars().next())
+<a href="#277" id="277" data-nosnippet="">277</a>}
+<a href="#278" id="278" data-nosnippet="">278</a>
+<a href="#279" id="279" data-nosnippet="">279</a><span class="doccomment">/// Record (`Some`) or clear (`None`) [`UNDRAWN_MARK`] on `d`, for the appearance just drawn.
+<a href="#280" id="280" data-nosnippet="">280</a></span><span class="kw">pub fn </span>set_undrawn_mark(d: <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::cos::Dict, c: <span class="prelude-ty">Option</span>&lt;char&gt;) {
+<a href="#281" id="281" data-nosnippet="">281</a>    <span class="kw">match </span>c {
+<a href="#282" id="282" data-nosnippet="">282</a>        <span class="prelude-val">Some</span>(c) =&gt; d.set(UNDRAWN_MARK.to_vec(), <span class="kw">crate</span>::cos::PdfString::text(<span class="kw-2">&amp;</span>c.to_string())),
+<a href="#283" id="283" data-nosnippet="">283</a>        <span class="prelude-val">None </span>=&gt; {
+<a href="#284" id="284" data-nosnippet="">284</a>            d.remove(UNDRAWN_MARK);
+<a href="#285" id="285" data-nosnippet="">285</a>        }
+<a href="#286" id="286" data-nosnippet="">286</a>    }
+<a href="#287" id="287" data-nosnippet="">287</a>}
+<a href="#288" id="288" data-nosnippet="">288</a>
+<a href="#289" id="289" data-nosnippet="">289</a><span class="doccomment">/// The byte used by Unicode text plans, from the shared WinAnsi table (tabs become spaces).
+<a href="#290" id="290" data-nosnippet="">290</a></span><span class="kw">pub fn </span>win_ansi_char(c: char) -&gt; <span class="prelude-ty">Option</span>&lt;u8&gt; {
+<a href="#291" id="291" data-nosnippet="">291</a>    <span class="kw">if </span>c == <span class="string">'\t' </span>{ <span class="prelude-val">Some</span>(<span class="string">b' '</span>) } <span class="kw">else </span>{ win_ansi_byte(c) }
+<a href="#292" id="292" data-nosnippet="">292</a>}
+<a href="#293" id="293" data-nosnippet="">293</a>
+<a href="#294" id="294" data-nosnippet="">294</a><span class="doccomment">/// Whether every character can be represented without substitution in WinAnsi.
+<a href="#295" id="295" data-nosnippet="">295</a></span><span class="kw">pub fn </span>fits_win_ansi(s: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href="#296" id="296" data-nosnippet="">296</a>    s.chars().all(win_ansi_encodable)
+<a href="#297" id="297" data-nosnippet="">297</a>}
+<a href="#298" id="298" data-nosnippet="">298</a>
+<a href="#299" id="299" data-nosnippet="">299</a><span class="doccomment">/// Bytes as a PDF literal string, `(` … `)`, with delimiters escaped.
+<a href="#300" id="300" data-nosnippet="">300</a></span><span class="kw">pub fn </span>literal(bytes: <span class="kw-2">&amp;</span>[u8]) -&gt; Vec&lt;u8&gt; {
+<a href="#301" id="301" data-nosnippet="">301</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::with_capacity(bytes.len() + <span class="number">2</span>);
+<a href="#302" id="302" data-nosnippet="">302</a>    out.push(<span class="string">b'('</span>);
+<a href="#303" id="303" data-nosnippet="">303</a>    <span class="kw">for </span><span class="kw-2">&amp;</span>b <span class="kw">in </span>bytes {
+<a href="#304" id="304" data-nosnippet="">304</a>        <span class="kw">match </span>b {
+<a href="#305" id="305" data-nosnippet="">305</a>            <span class="string">b'(' </span>| <span class="string">b')' </span>| <span class="string">b'\\' </span>=&gt; out.extend_from_slice(<span class="kw-2">&amp;</span>[<span class="string">b'\\'</span>, b]),
+<a href="#306" id="306" data-nosnippet="">306</a>            <span class="string">b'\r' </span>=&gt; out.extend_from_slice(<span class="string">b"\\r"</span>),
+<a href="#307" id="307" data-nosnippet="">307</a>            <span class="string">b'\n' </span>=&gt; out.extend_from_slice(<span class="string">b"\\n"</span>),
+<a href="#308" id="308" data-nosnippet="">308</a>            <span class="kw">_ </span>=&gt; out.push(b),
+<a href="#309" id="309" data-nosnippet="">309</a>        }
+<a href="#310" id="310" data-nosnippet="">310</a>    }
+<a href="#311" id="311" data-nosnippet="">311</a>    out.push(<span class="string">b')'</span>);
+<a href="#312" id="312" data-nosnippet="">312</a>    out
+<a href="#313" id="313" data-nosnippet="">313</a>}
+<a href="#314" id="314" data-nosnippet="">314</a>
+<a href="#315" id="315" data-nosnippet="">315</a><span class="attr">#[cfg(test)]
+<a href="#316" id="316" data-nosnippet="">316</a></span><span class="kw">mod </span>tests {
+<a href="#317" id="317" data-nosnippet="">317</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#318" id="318" data-nosnippet="">318</a>
+<a href="#319" id="319" data-nosnippet="">319</a>    <span class="attr">#[test]
+<a href="#320" id="320" data-nosnippet="">320</a>    </span><span class="kw">fn </span>wrap_keeps_leading_spaces() {
+<a href="#321" id="321" data-nosnippet="">321</a>        <span class="macro">assert_eq!</span>(wrap(<span class="string">"    indented"</span>, <span class="number">11.0</span>, <span class="number">500.0</span>), [<span class="string">"    indented"</span>]);
+<a href="#322" id="322" data-nosnippet="">322</a>        <span class="macro">assert_eq!</span>(wrap(<span class="string">"  a b\n c"</span>, <span class="number">11.0</span>, <span class="number">500.0</span>), [<span class="string">"  a b"</span>, <span class="string">" c"</span>]);
+<a href="#323" id="323" data-nosnippet="">323</a>        <span class="macro">assert_eq!</span>(wrap(<span class="string">""</span>, <span class="number">11.0</span>, <span class="number">500.0</span>), [<span class="string">""</span>]);
+<a href="#324" id="324" data-nosnippet="">324</a>        <span class="comment">// A single leading space before a word that must be broken leaves no blank first line.
+<a href="#325" id="325" data-nosnippet="">325</a>        </span><span class="kw">let </span>broken = wrap(<span class="string">" abcdefghijklmnopqrstuvwxyz"</span>, <span class="number">11.0</span>, <span class="number">40.0</span>);
+<a href="#326" id="326" data-nosnippet="">326</a>        <span class="macro">assert!</span>(broken.len() &gt; <span class="number">1 </span>&amp;&amp; broken.iter().all(|l| !l.is_empty()), <span class="string">"{broken:?}"</span>);
+<a href="#327" id="327" data-nosnippet="">327</a>        <span class="comment">// So does indentation of two or more spaces: no whitespace-only line, same as one space.
+<a href="#328" id="328" data-nosnippet="">328</a>        </span><span class="kw">let </span>broken = wrap(<span class="string">"  abcdefghijklmnopqrstuvwxyz"</span>, <span class="number">11.0</span>, <span class="number">40.0</span>);
+<a href="#329" id="329" data-nosnippet="">329</a>        <span class="macro">assert!</span>(broken.len() &gt; <span class="number">1 </span>&amp;&amp; broken.iter().all(|l| !l.trim().is_empty()), <span class="string">"{broken:?}"</span>);
+<a href="#330" id="330" data-nosnippet="">330</a>        <span class="macro">assert_eq!</span>(broken, wrap(<span class="string">" abcdefghijklmnopqrstuvwxyz"</span>, <span class="number">11.0</span>, <span class="number">40.0</span>));
+<a href="#331" id="331" data-nosnippet="">331</a>    }
+<a href="#332" id="332" data-nosnippet="">332</a>
+<a href="#333" id="333" data-nosnippet="">333</a>    <span class="attr">#[test]
+<a href="#334" id="334" data-nosnippet="">334</a>    </span><span class="kw">fn </span>a_broken_thai_word_keeps_its_marks_on_their_letters() {
+<a href="#335" id="335" data-nosnippet="">335</a>        <span class="comment">// Every character one point wide: "น้ำ" (three characters) is one unit, never split.
+<a href="#336" id="336" data-nosnippet="">336</a>        </span><span class="kw">let </span>lines = wrap_with(<span class="string">"น้ำปั้นบุญฤทธิ์"</span>, <span class="number">1.0</span>, <span class="number">2.0</span>, |s, <span class="kw">_</span>| s.chars().count() <span class="kw">as </span>f64);
+<a href="#337" id="337" data-nosnippet="">337</a>        <span class="macro">assert_eq!</span>(lines.concat(), <span class="string">"น้ำปั้นบุญฤทธิ์"</span>);
+<a href="#338" id="338" data-nosnippet="">338</a>        <span class="macro">assert_eq!</span>(lines, [<span class="string">"น้ำ"</span>, <span class="string">"ปั้"</span>, <span class="string">"น"</span>, <span class="string">"บุ"</span>, <span class="string">"ญฤ"</span>, <span class="string">"ท"</span>, <span class="string">"ธิ์"</span>]);
+<a href="#339" id="339" data-nosnippet="">339</a>        <span class="macro">assert!</span>(lines.iter().all(|l| l.chars().next().is_some_and(|c| !shaped_text::joins_previous(c))), <span class="string">"{lines:?}"</span>);
+<a href="#340" id="340" data-nosnippet="">340</a>    }
+<a href="#341" id="341" data-nosnippet="">341</a>
+<a href="#342" id="342" data-nosnippet="">342</a>    <span class="attr">#[test]
+<a href="#343" id="343" data-nosnippet="">343</a>    </span><span class="kw">fn </span>crlf_is_one_line_break() {
+<a href="#344" id="344" data-nosnippet="">344</a>        <span class="macro">assert_eq!</span>(wrap(<span class="string">"a\r\nb"</span>, <span class="number">12.0</span>, <span class="number">100.0</span>), [<span class="string">"a"</span>, <span class="string">"b"</span>]);
+<a href="#345" id="345" data-nosnippet="">345</a>        <span class="macro">assert_eq!</span>(wrap(<span class="string">"a\rb"</span>, <span class="number">12.0</span>, <span class="number">100.0</span>), [<span class="string">"a"</span>, <span class="string">"b"</span>]);
+<a href="#346" id="346" data-nosnippet="">346</a>        <span class="macro">assert_eq!</span>(wrap(<span class="string">"a\nb"</span>, <span class="number">12.0</span>, <span class="number">100.0</span>), [<span class="string">"a"</span>, <span class="string">"b"</span>]);
+<a href="#347" id="347" data-nosnippet="">347</a>        <span class="macro">assert_eq!</span>(wrap(<span class="string">"a\r\n\r\nb"</span>, <span class="number">12.0</span>, <span class="number">100.0</span>), [<span class="string">"a"</span>, <span class="string">""</span>, <span class="string">"b"</span>]);
+<a href="#348" id="348" data-nosnippet="">348</a>        <span class="macro">assert_eq!</span>(wrap(<span class="string">"a\n\rb"</span>, <span class="number">12.0</span>, <span class="number">100.0</span>), [<span class="string">"a"</span>, <span class="string">""</span>, <span class="string">"b"</span>]);
+<a href="#349" id="349" data-nosnippet="">349</a>    }
+<a href="#350" id="350" data-nosnippet="">350</a>
+<a href="#351" id="351" data-nosnippet="">351</a>    <span class="attr">#[test]
+<a href="#352" id="352" data-nosnippet="">352</a>    </span><span class="kw">fn </span>win_ansi_encodability_matches_the_encoder() {
+<a href="#353" id="353" data-nosnippet="">353</a>        <span class="kw">for </span>c <span class="kw">in </span>[<span class="string">'a'</span>, <span class="string">'é'</span>, <span class="string">'ÿ'</span>, <span class="string">'€'</span>, <span class="string">'—'</span>, <span class="string">'™'</span>, <span class="string">'\t'</span>, <span class="string">'?'</span>] {
+<a href="#354" id="354" data-nosnippet="">354</a>            <span class="macro">assert!</span>(win_ansi_encodable(c), <span class="string">"{c:?}"</span>);
+<a href="#355" id="355" data-nosnippet="">355</a>        }
+<a href="#356" id="356" data-nosnippet="">356</a>        <span class="kw">for </span>c <span class="kw">in </span>[<span class="string">'中'</span>, <span class="string">'あ'</span>, <span class="string">'Ω'</span>, <span class="string">'č'</span>, <span class="string">'ă'</span>, <span class="string">'☃'</span>, <span class="string">'😀'</span>] {
+<a href="#357" id="357" data-nosnippet="">357</a>            <span class="macro">assert!</span>(!win_ansi_encodable(c), <span class="string">"{c:?}"</span>);
+<a href="#358" id="358" data-nosnippet="">358</a>        }
+<a href="#359" id="359" data-nosnippet="">359</a>        <span class="macro">assert_eq!</span>(first_non_win_ansi(<span class="string">"Café — 5€"</span>), <span class="prelude-val">None</span>);
+<a href="#360" id="360" data-nosnippet="">360</a>        <span class="macro">assert_eq!</span>(first_non_win_ansi(<span class="string">"Dvořák"</span>), <span class="prelude-val">Some</span>(<span class="string">'ř'</span>));
+<a href="#361" id="361" data-nosnippet="">361</a>        <span class="comment">// Line breaks are laid out, not drawn; other controls would be written as `?`.
+<a href="#362" id="362" data-nosnippet="">362</a>        </span><span class="macro">assert_eq!</span>(first_undrawable(<span class="string">"Café\r\n— 5€\tok"</span>), <span class="prelude-val">None</span>);
+<a href="#363" id="363" data-nosnippet="">363</a>        <span class="macro">assert_eq!</span>(first_undrawable(<span class="string">"签名 Ada"</span>), <span class="prelude-val">Some</span>(<span class="string">'签'</span>));
+<a href="#364" id="364" data-nosnippet="">364</a>        <span class="macro">assert_eq!</span>(first_undrawable(<span class="string">"a\u{7}b"</span>), <span class="prelude-val">Some</span>(<span class="string">'\u{7}'</span>));
+<a href="#365" id="365" data-nosnippet="">365</a>        <span class="macro">assert_eq!</span>(first_undrawable(<span class="string">"𠀋"</span>), <span class="prelude-val">Some</span>(<span class="string">'𠀋'</span>));
+<a href="#366" id="366" data-nosnippet="">366</a>        <span class="kw">let </span>m = undrawable_message(<span class="string">"the comment"</span>, <span class="string">'签'</span>);
+<a href="#367" id="367" data-nosnippet="">367</a>        <span class="macro">assert_eq!</span>(m, <span class="string">"the standard fonts can't draw \"签\" (U+7B7E) in the comment; only Western European characters can be written there for now"</span>);
+<a href="#368" id="368" data-nosnippet="">368</a>        <span class="macro">assert!</span>(undrawable_message(<span class="string">"the reason"</span>, <span class="string">'\u{7}'</span>).contains(<span class="string">"\"\\u{7}\" (U+0007)"</span>));
+<a href="#369" id="369" data-nosnippet="">369</a>        <span class="macro">assert!</span>(undrawable_message(<span class="string">"x"</span>, <span class="string">'𠀋'</span>).contains(<span class="string">"(U+2000B)"</span>));
+<a href="#370" id="370" data-nosnippet="">370</a>    }
+<a href="#371" id="371" data-nosnippet="">371</a>
+<a href="#372" id="372" data-nosnippet="">372</a>    <span class="attr">#[test]
+<a href="#373" id="373" data-nosnippet="">373</a>    </span><span class="kw">fn </span>the_undrawn_mark_records_one_character_and_clears() {
+<a href="#374" id="374" data-nosnippet="">374</a>        <span class="kw">let </span><span class="kw-2">mut </span>d = <span class="kw">crate</span>::cos::Dict::new();
+<a href="#375" id="375" data-nosnippet="">375</a>        <span class="macro">assert_eq!</span>(undrawn_mark(<span class="kw-2">&amp;</span>d), <span class="prelude-val">None</span>);
+<a href="#376" id="376" data-nosnippet="">376</a>        set_undrawn_mark(<span class="kw-2">&amp;mut </span>d, <span class="prelude-val">Some</span>(<span class="string">'𠀋'</span>));
+<a href="#377" id="377" data-nosnippet="">377</a>        <span class="macro">assert_eq!</span>(undrawn_mark(<span class="kw-2">&amp;</span>d), <span class="prelude-val">Some</span>(<span class="string">'𠀋'</span>), <span class="string">"beyond U+FFFF, as a UTF-16 text string"</span>);
+<a href="#378" id="378" data-nosnippet="">378</a>        set_undrawn_mark(<span class="kw-2">&amp;mut </span>d, <span class="prelude-val">Some</span>(<span class="string">'签'</span>));
+<a href="#379" id="379" data-nosnippet="">379</a>        <span class="macro">assert_eq!</span>(undrawn_mark(<span class="kw-2">&amp;</span>d), <span class="prelude-val">Some</span>(<span class="string">'签'</span>));
+<a href="#380" id="380" data-nosnippet="">380</a>        set_undrawn_mark(<span class="kw-2">&amp;mut </span>d, <span class="prelude-val">None</span>);
+<a href="#381" id="381" data-nosnippet="">381</a>        <span class="macro">assert!</span>(!d.contains(UNDRAWN_MARK));
+<a href="#382" id="382" data-nosnippet="">382</a>        <span class="comment">// Another value under the key is not a character: no mark.
+<a href="#383" id="383" data-nosnippet="">383</a>        </span>d.set(UNDRAWN_MARK.to_vec(), <span class="kw">crate</span>::cos::Object::Bool(<span class="bool-val">true</span>));
+<a href="#384" id="384" data-nosnippet="">384</a>        <span class="macro">assert_eq!</span>(undrawn_mark(<span class="kw-2">&amp;</span>d), <span class="prelude-val">None</span>);
+<a href="#385" id="385" data-nosnippet="">385</a>    }
+<a href="#386" id="386" data-nosnippet="">386</a>
+<a href="#387" id="387" data-nosnippet="">387</a>    <span class="attr">#[test]
+<a href="#388" id="388" data-nosnippet="">388</a>    </span><span class="kw">fn </span>inter_width_measures_latin_extended_and_ascii() {
+<a href="#389" id="389" data-nosnippet="">389</a>        <span class="macro">assert!</span>(inter_width(<span class="string">"Luka Petravić"</span>, <span class="number">12.0</span>) &gt; <span class="number">0.0</span>);
+<a href="#390" id="390" data-nosnippet="">390</a>        <span class="macro">assert_eq!</span>(inter_width(<span class="string">""</span>, <span class="number">12.0</span>), <span class="number">0.0</span>);
+<a href="#391" id="391" data-nosnippet="">391</a>        <span class="kw">let </span>w = inter_width(<span class="string">"čžšć"</span>, <span class="number">10.0</span>);
+<a href="#392" id="392" data-nosnippet="">392</a>        <span class="macro">assert!</span>(w &gt; <span class="number">10.0 </span>&amp;&amp; w &lt; <span class="number">100.0</span>);
+<a href="#393" id="393" data-nosnippet="">393</a>    }
+<a href="#394" id="394" data-nosnippet="">394</a>
+<a href="#395" id="395" data-nosnippet="">395</a>    <span class="attr">#[test]
+<a href="#396" id="396" data-nosnippet="">396</a>    </span><span class="kw">fn </span>widths_wrap_and_encode() {
+<a href="#397" id="397" data-nosnippet="">397</a>        <span class="macro">assert!</span>(helvetica_width(<span class="string">"MMMM"</span>, <span class="number">10.0</span>) &gt; helvetica_width(<span class="string">"iiii"</span>, <span class="number">10.0</span>) * <span class="number">2.0</span>);
+<a href="#398" id="398" data-nosnippet="">398</a>        <span class="macro">assert_eq!</span>(helvetica_width(<span class="string">""</span>, <span class="number">12.0</span>), <span class="number">0.0</span>);
+<a href="#399" id="399" data-nosnippet="">399</a>        <span class="kw">let </span>lines = wrap(<span class="string">"the quick brown fox jumps over the lazy dog"</span>, <span class="number">12.0</span>, <span class="number">80.0</span>);
+<a href="#400" id="400" data-nosnippet="">400</a>        <span class="macro">assert!</span>(lines.len() &gt; <span class="number">2 </span>&amp;&amp; lines.iter().all(|l| helvetica_width(l, <span class="number">12.0</span>) &lt;= <span class="number">80.0</span>));
+<a href="#401" id="401" data-nosnippet="">401</a>        <span class="macro">assert_eq!</span>(wrap(<span class="string">"a\nb"</span>, <span class="number">12.0</span>, <span class="number">100.0</span>), [<span class="string">"a"</span>, <span class="string">"b"</span>]);
+<a href="#402" id="402" data-nosnippet="">402</a>        <span class="kw">let </span>long = wrap(<span class="string">"Supercalifragilisticexpialidocious"</span>, <span class="number">12.0</span>, <span class="number">40.0</span>);
+<a href="#403" id="403" data-nosnippet="">403</a>        <span class="macro">assert!</span>(long.len() &gt; <span class="number">3 </span>&amp;&amp; long.concat() == <span class="string">"Supercalifragilisticexpialidocious"</span>);
+<a href="#404" id="404" data-nosnippet="">404</a>        <span class="macro">assert_eq!</span>(win_ansi(<span class="string">"Café — 5€ ☃"</span>), <span class="string">b"Caf\xe9 \x97 5\x80 ?"</span>);
+<a href="#405" id="405" data-nosnippet="">405</a>        <span class="macro">assert_eq!</span>(literal(<span class="string">b"a(b)\\c"</span>), <span class="string">b"(a\\(b\\)\\\\c)"</span>);
+<a href="#406" id="406" data-nosnippet="">406</a>    }
+<a href="#407" id="407" data-nosnippet="">407</a>
+<a href="#408" id="408" data-nosnippet="">408</a>    <span class="doccomment">/// WinAnsiEncoding's 0xAD is the `hyphen` glyph and its 0xA0 is `space`, not U+00AD and
+<a href="#409" id="409" data-nosnippet="">409</a>    /// U+00A0; MacRomanEncoding's 0xCA is `space` too.
+<a href="#410" id="410" data-nosnippet="">410</a>    ///
+<a href="#411" id="411" data-nosnippet="">411</a>    /// Annex D.2 gives each of those codes the same glyph name as the ordinary one (0x2D, 0x20),
+<a href="#412" id="412" data-nosnippet="">412</a>    /// so the bytes a Windows codepage calls a soft hyphen and a non-breaking space draw ordinary
+<a href="#413" id="413" data-nosnippet="">413</a>    /// ink and must extract as it. Reading them as the formatting characters hid them: a soft
+<a href="#414" id="414" data-nosnippet="">414</a>    /// hyphen is invisible, so a search for "well-known" missed text that drew exactly that, and
+<a href="#415" id="415" data-nosnippet="">415</a>    /// `redact`'s pattern matching missed it too; a non-breaking space does not match the space a
+<a href="#416" id="416" data-nosnippet="">416</a>    /// reader types. Over the 989-file pdf.js corpus this takes the soft hyphens we extract from
+<a href="#417" id="417" data-nosnippet="">417</a>    /// 117 to 13 (104 of them in `XiaoBiaoSong.pdf` alone) and the non-breaking spaces from 30 to
+<a href="#418" id="418" data-nosnippet="">418</a>    /// 26; what remains comes from `/ToUnicode` maps, which say so explicitly and are not touched.
+<a href="#419" id="419" data-nosnippet="">419</a>    /// pdftotext reads both codes as the ordinary character.
+<a href="#420" id="420" data-nosnippet="">420</a>    </span><span class="attr">#[test]
+<a href="#421" id="421" data-nosnippet="">421</a>    </span><span class="kw">fn </span>the_alias_codes_read_as_the_glyph_they_draw() {
+<a href="#422" id="422" data-nosnippet="">422</a>        <span class="macro">assert_eq!</span>(encodings::WIN_ANSI.get(<span class="number">0xAD</span>), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>u32::from(<span class="string">'-'</span>)));
+<a href="#423" id="423" data-nosnippet="">423</a>        <span class="macro">assert_eq!</span>(encodings::WIN_ANSI.get(<span class="number">0x2D</span>), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>u32::from(<span class="string">'-'</span>)));
+<a href="#424" id="424" data-nosnippet="">424</a>        <span class="macro">assert_eq!</span>(encodings::WIN_ANSI.get(<span class="number">0xA0</span>), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>u32::from(<span class="string">' '</span>)));
+<a href="#425" id="425" data-nosnippet="">425</a>        <span class="macro">assert_eq!</span>(encodings::WIN_ANSI.get(<span class="number">0x20</span>), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>u32::from(<span class="string">' '</span>)));
+<a href="#426" id="426" data-nosnippet="">426</a>        <span class="macro">assert_eq!</span>(encodings::MAC_ROMAN.get(<span class="number">0xCA</span>), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>u32::from(<span class="string">' '</span>)));
+<a href="#427" id="427" data-nosnippet="">427</a>        <span class="macro">assert_eq!</span>(encodings::MAC_ROMAN.get(<span class="number">0x20</span>), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>u32::from(<span class="string">' '</span>)));
+<a href="#428" id="428" data-nosnippet="">428</a>        <span class="comment">// MacRoman has no soft hyphen; 0xAD there is `notequal`, and keeps it.
+<a href="#429" id="429" data-nosnippet="">429</a>        </span><span class="macro">assert_eq!</span>(encodings::MAC_ROMAN.get(<span class="number">0xAD</span>), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="number">0x2260</span>));
+<a href="#430" id="430" data-nosnippet="">430</a>        <span class="comment">// Writing is unaffected: '-' and ' ' take the canonical low codes, and a caller holding a
+<a href="#431" id="431" data-nosnippet="">431</a>        // literal U+00AD or U+00A0 still writes the high byte, which is the one that draws them.
+<a href="#432" id="432" data-nosnippet="">432</a>        </span><span class="macro">assert_eq!</span>(win_ansi_byte(<span class="string">'-'</span>), <span class="prelude-val">Some</span>(<span class="number">0x2D</span>));
+<a href="#433" id="433" data-nosnippet="">433</a>        <span class="macro">assert_eq!</span>(win_ansi_byte(<span class="string">' '</span>), <span class="prelude-val">Some</span>(<span class="number">0x20</span>));
+<a href="#434" id="434" data-nosnippet="">434</a>        <span class="macro">assert_eq!</span>(win_ansi_byte(<span class="string">'\u{00ad}'</span>), <span class="prelude-val">Some</span>(<span class="number">0xAD</span>));
+<a href="#435" id="435" data-nosnippet="">435</a>        <span class="macro">assert_eq!</span>(win_ansi_byte(<span class="string">'\u{00a0}'</span>), <span class="prelude-val">Some</span>(<span class="number">0xA0</span>));
+<a href="#436" id="436" data-nosnippet="">436</a>        <span class="macro">assert_eq!</span>(win_ansi(<span class="string">"a-b c"</span>), <span class="string">b"a-b c"</span>);
+<a href="#437" id="437" data-nosnippet="">437</a>    }
+<a href="#438" id="438" data-nosnippet="">438</a>
+<a href="#439" id="439" data-nosnippet="">439</a>    <span class="attr">#[test]
+<a href="#440" id="440" data-nosnippet="">440</a>    </span><span class="kw">fn </span>win_ansi_covers_the_0x80_to_0x9f_glyphs() {
+<a href="#441" id="441" data-nosnippet="">441</a>        <span class="comment">// Every character in the WinAnsiEncoding table encodes to its code and back (#347), except
+<a href="#442" id="442" data-nosnippet="">442</a>        // where two codes share one glyph: 0xAD is `hyphen`, the same glyph as 0x2D, and 0xA0 is
+<a href="#443" id="443" data-nosnippet="">443</a>        // `space`, the same glyph as 0x20, so each decodes to the ordinary character and that
+<a href="#444" id="444" data-nosnippet="">444</a>        // character encodes back to the canonical low code. Round-tripping the *code* is what
+<a href="#445" id="445" data-nosnippet="">445</a>        // cannot hold there; round-tripping the character still does.
+<a href="#446" id="446" data-nosnippet="">446</a>        </span><span class="kw">const </span>ALIASES: <span class="kw-2">&amp;</span>[u8] = <span class="kw-2">&amp;</span>[<span class="number">0xA0</span>, <span class="number">0xAD</span>];
+<a href="#447" id="447" data-nosnippet="">447</a>        <span class="kw">for </span>(code, <span class="kw-2">&amp;</span>u) <span class="kw">in </span>encodings::WIN_ANSI.iter().enumerate() {
+<a href="#448" id="448" data-nosnippet="">448</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(c) = char::from_u32(u).filter(|<span class="kw">_</span>| u != <span class="number">0</span>) <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href="#449" id="449" data-nosnippet="">449</a>            <span class="kw">if </span>ALIASES.contains(<span class="kw-2">&amp;</span>(code <span class="kw">as </span>u8)) {
+<a href="#450" id="450" data-nosnippet="">450</a>                <span class="kw">let </span>canonical = win_ansi_byte(c).expect(<span class="string">"an aliased glyph still encodes"</span>);
+<a href="#451" id="451" data-nosnippet="">451</a>                <span class="macro">assert!</span>(canonical &lt; code <span class="kw">as </span>u8, <span class="string">"{c:?}: the canonical code is the lower one"</span>);
+<a href="#452" id="452" data-nosnippet="">452</a>                <span class="macro">assert_eq!</span>(encodings::WIN_ANSI.get(usize::from(canonical)), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>u), <span class="string">"both codes mean the same character"</span>);
+<a href="#453" id="453" data-nosnippet="">453</a>                <span class="kw">continue</span>;
+<a href="#454" id="454" data-nosnippet="">454</a>            }
+<a href="#455" id="455" data-nosnippet="">455</a>            <span class="macro">assert_eq!</span>(win_ansi_byte(c), <span class="prelude-val">Some</span>(code <span class="kw">as </span>u8), <span class="string">"{c:?} (U+{u:04X})"</span>);
+<a href="#456" id="456" data-nosnippet="">456</a>            <span class="macro">assert_eq!</span>(win_ansi(<span class="kw-2">&amp;</span>c.to_string()), [code <span class="kw">as </span>u8]);
+<a href="#457" id="457" data-nosnippet="">457</a>        }
+<a href="#458" id="458" data-nosnippet="">458</a>        <span class="macro">assert_eq!</span>(
+<a href="#459" id="459" data-nosnippet="">459</a>            win_ansi(<span class="string">"Šta? žaba, œuvre — „ok“ ‰ ƒ † ‡ ˆ ˜ ‹›Ÿ"</span>),
+<a href="#460" id="460" data-nosnippet="">460</a>            <span class="string">b"\x8ata? \x9eaba, \x9cuvre \x97 \x84ok\x93 \x89 \x83 \x86 \x87 \x88 \x98 \x8b\x9b\x9f"
+<a href="#461" id="461" data-nosnippet="">461</a>        </span>);
+<a href="#462" id="462" data-nosnippet="">462</a>        <span class="comment">// Not in WinAnsi: č ć still need the fallback font; undefined codes are never produced.
+<a href="#463" id="463" data-nosnippet="">463</a>        </span><span class="macro">assert_eq!</span>(win_ansi(<span class="string">"čć\u{81}\u{8d}\t"</span>), <span class="string">b"???? "</span>);
+<a href="#464" id="464" data-nosnippet="">464</a>        <span class="macro">assert_eq!</span>(win_ansi_byte(<span class="string">'\0'</span>), <span class="prelude-val">None</span>);
+<a href="#465" id="465" data-nosnippet="">465</a>    }
+<a href="#466" id="466" data-nosnippet="">466</a>
+<a href="#467" id="467" data-nosnippet="">467</a>    <span class="attr">#[test]
+<a href="#468" id="468" data-nosnippet="">468</a>    </span><span class="kw">fn </span>unicode_cmaps_encode_cjk_text() {
+<a href="#469" id="469" data-nosnippet="">469</a>        <span class="macro">assert_eq!</span>(UnicodeCMap::from_name(<span class="string">b"UniJIS-UTF16-H"</span>), <span class="prelude-val">Some</span>(UnicodeCMap::Utf16));
+<a href="#470" id="470" data-nosnippet="">470</a>        <span class="macro">assert_eq!</span>(UnicodeCMap::from_name(<span class="string">b"UniGB-UCS2-V"</span>), <span class="prelude-val">None</span>);
+<a href="#471" id="471" data-nosnippet="">471</a>        <span class="macro">assert_eq!</span>(UnicodeCMap::from_name(<span class="string">b"UniJIS-UCS2-HW-H"</span>), <span class="prelude-val">Some</span>(UnicodeCMap::Ucs2));
+<a href="#472" id="472" data-nosnippet="">472</a>        <span class="macro">assert_eq!</span>(UnicodeCMap::from_name(<span class="string">b"UniKS-UTF8-H"</span>), <span class="prelude-val">Some</span>(UnicodeCMap::Utf8));
+<a href="#473" id="473" data-nosnippet="">473</a>        <span class="macro">assert_eq!</span>(UnicodeCMap::from_name(<span class="string">b"UniJIS2004-UTF32-H"</span>), <span class="prelude-val">Some</span>(UnicodeCMap::Utf32));
+<a href="#474" id="474" data-nosnippet="">474</a>        <span class="macro">assert_eq!</span>(UnicodeCMap::from_name(<span class="string">b"Identity-H"</span>), <span class="prelude-val">None</span>);
+<a href="#475" id="475" data-nosnippet="">475</a>        <span class="macro">assert_eq!</span>(UnicodeCMap::from_name(<span class="string">b"90ms-RKSJ-H"</span>), <span class="prelude-val">None</span>);
+<a href="#476" id="476" data-nosnippet="">476</a>        <span class="macro">assert_eq!</span>(UnicodeCMap::from_name(<span class="string">b"\xff\xfe"</span>), <span class="prelude-val">None</span>);
+<a href="#477" id="477" data-nosnippet="">477</a>        <span class="macro">assert_eq!</span>(UnicodeCMap::Utf16.encode(<span class="string">"令A"</span>), [<span class="number">0x4e</span>, <span class="number">0xe4</span>, <span class="number">0x00</span>, <span class="number">0x41</span>]);
+<a href="#478" id="478" data-nosnippet="">478</a>        <span class="macro">assert_eq!</span>(UnicodeCMap::Utf16.encode(<span class="string">"𠀋"</span>), [<span class="number">0xd8</span>, <span class="number">0x40</span>, <span class="number">0xdc</span>, <span class="number">0x0b</span>]);
+<a href="#479" id="479" data-nosnippet="">479</a>        <span class="macro">assert_eq!</span>(UnicodeCMap::Ucs2.encode(<span class="string">"𠀋\t"</span>), [<span class="number">0x00</span>, <span class="string">b'?'</span>, <span class="number">0x00</span>, <span class="string">b' '</span>]);
+<a href="#480" id="480" data-nosnippet="">480</a>        <span class="comment">// That `?` is never written silently: callers check first.
+<a href="#481" id="481" data-nosnippet="">481</a>        </span><span class="macro">assert_eq!</span>(UnicodeCMap::Ucs2.first_unencodable(<span class="string">"令和𠀋"</span>), <span class="prelude-val">Some</span>(<span class="string">'𠀋'</span>));
+<a href="#482" id="482" data-nosnippet="">482</a>        <span class="macro">assert_eq!</span>(UnicodeCMap::Ucs2.first_unencodable(<span class="string">"令和"</span>), <span class="prelude-val">None</span>);
+<a href="#483" id="483" data-nosnippet="">483</a>        <span class="kw">for </span>cmap <span class="kw">in </span>[UnicodeCMap::Utf16, UnicodeCMap::Utf8, UnicodeCMap::Utf32] {
+<a href="#484" id="484" data-nosnippet="">484</a>            <span class="macro">assert_eq!</span>(cmap.first_unencodable(<span class="string">"令和𠀋"</span>), <span class="prelude-val">None</span>, <span class="string">"{cmap:?}"</span>);
+<a href="#485" id="485" data-nosnippet="">485</a>        }
+<a href="#486" id="486" data-nosnippet="">486</a>        <span class="macro">assert_eq!</span>(UnicodeCMap::Utf8.encode(<span class="string">"令"</span>), <span class="string">"令"</span>.as_bytes());
+<a href="#487" id="487" data-nosnippet="">487</a>        <span class="macro">assert_eq!</span>(UnicodeCMap::Utf32.encode(<span class="string">"令"</span>), [<span class="number">0</span>, <span class="number">0</span>, <span class="number">0x4e</span>, <span class="number">0xe4</span>]);
+<a href="#488" id="488" data-nosnippet="">488</a>        <span class="macro">assert_eq!</span>(cjk_width(<span class="string">"令和"</span>, <span class="number">10.0</span>), <span class="number">20.0</span>);
+<a href="#489" id="489" data-nosnippet="">489</a>        <span class="macro">assert_eq!</span>(cjk_width(<span class="string">"ｱ"</span>, <span class="number">10.0</span>), <span class="number">5.0</span>);
+<a href="#490" id="490" data-nosnippet="">490</a>        <span class="macro">assert_eq!</span>(cjk_width(<span class="string">"A"</span>, <span class="number">10.0</span>), helvetica_width(<span class="string">"A"</span>, <span class="number">10.0</span>));
+<a href="#491" id="491" data-nosnippet="">491</a>        <span class="kw">let </span>lines = wrap_with(<span class="string">"日本語のテキストは文字単位で折り返されます"</span>, <span class="number">10.0</span>, <span class="number">45.0</span>, cjk_width);
+<a href="#492" id="492" data-nosnippet="">492</a>        <span class="macro">assert!</span>(lines.len() &gt; <span class="number">3 </span>&amp;&amp; lines.iter().all(|l| cjk_width(l, <span class="number">10.0</span>) &lt;= <span class="number">45.0</span>), <span class="string">"{lines:?}"</span>);
+<a href="#493" id="493" data-nosnippet="">493</a>    }
+<a href="#494" id="494" data-nosnippet="">494</a>
+<a href="#495" id="495" data-nosnippet="">495</a>    <span class="doccomment">/// Wrapping measures each word and character a bounded number of times, however many fit on a line.
+<a href="#496" id="496" data-nosnippet="">496</a>    </span><span class="attr">#[test]
+<a href="#497" id="497" data-nosnippet="">497</a>    </span><span class="kw">fn </span>wrapping_measures_each_word_a_few_times() {
+<a href="#498" id="498" data-nosnippet="">498</a>        <span class="kw">let </span>measured = std::cell::Cell::new(<span class="number">0usize</span>);
+<a href="#499" id="499" data-nosnippet="">499</a>        <span class="kw">let </span>measure = |s: <span class="kw-2">&amp;</span>str, size: f64| {
+<a href="#500" id="500" data-nosnippet="">500</a>            measured.set(measured.get() + s.len());
+<a href="#501" id="501" data-nosnippet="">501</a>            helvetica_width(s, size)
+<a href="#502" id="502" data-nosnippet="">502</a>        };
+<a href="#503" id="503" data-nosnippet="">503</a>        <span class="kw">let </span>text = <span class="macro">format!</span>(<span class="string">"{} {}"</span>, <span class="string">"word "</span>.repeat(<span class="number">5_000</span>), <span class="string">"x"</span>.repeat(<span class="number">5_000</span>));
+<a href="#504" id="504" data-nosnippet="">504</a>        <span class="kw">let </span>lines = wrap_with(<span class="kw-2">&amp;</span>text, <span class="number">1.0</span>, <span class="number">13_000.0</span>, measure);
+<a href="#505" id="505" data-nosnippet="">505</a>        <span class="macro">assert_eq!</span>(lines.len(), <span class="number">2</span>, <span class="string">"the words fit on one line, the long word on another"</span>);
+<a href="#506" id="506" data-nosnippet="">506</a>        <span class="macro">assert!</span>(measured.get() &lt;= <span class="number">4 </span>* text.len(), <span class="string">"{} bytes measured"</span>, measured.get());
+<a href="#507" id="507" data-nosnippet="">507</a>        <span class="kw">let </span>narrow = wrap_with(<span class="kw-2">&amp;</span>text, <span class="number">10.0</span>, <span class="number">100.0</span>, helvetica_width);
+<a href="#508" id="508" data-nosnippet="">508</a>        <span class="macro">assert!</span>(narrow.iter().all(|l| helvetica_width(l, <span class="number">10.0</span>) &lt;= <span class="number">100.0</span>), <span class="string">"{narrow:?}"</span>);
+<a href="#509" id="509" data-nosnippet="">509</a>    }
+<a href="#510" id="510" data-nosnippet="">510</a>}
+</code></pre></div></section></main></body></html>

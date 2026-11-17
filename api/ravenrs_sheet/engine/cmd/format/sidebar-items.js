@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CELL_STYLE_NAMES"],"fn":["adjust_decimals","approx_text_width","builtin_cell_style","chars_to_points","format_code_for","specs"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["EXTENSION","LEGACY_MIMETYPE","MIMETYPE","SLIDE_SIDE","VERSION"],"enum":["FormatError"],"fn":["load","load_checked","markdown_to_slides","outline_to_slides","repair","sane_numbers","sane_slide_size","save","slides_to_outline","sniff"],"mod":["rtf"],"type":["Result"]};

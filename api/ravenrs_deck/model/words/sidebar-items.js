@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["back_stops","delete_forward_end","is_closing_punct","is_combining_mark","is_sentence_punct","is_space","next_stop","prev_stop","stops","word_at"]};

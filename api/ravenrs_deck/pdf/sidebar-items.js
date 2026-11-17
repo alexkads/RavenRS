@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PAPERS"],"enum":["PageLayout","PdfError"],"fn":["export","handout_boxes","master_text_pieces","master_text_style","master_texts","notes_frames","notes_slide_box","paper_size"],"struct":["PdfOptions","TextPiece","TextStyle"],"type":["Result"]};

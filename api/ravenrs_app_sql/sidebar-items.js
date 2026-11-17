@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MIGRATIONS"],"enum":["SqlCell","SqlError"],"struct":["SqlBuilder","SqlDatabase","SqlObjectSpace","SqlRows","SqlWords","TableMap"],"trait":["SqlBackend"]};

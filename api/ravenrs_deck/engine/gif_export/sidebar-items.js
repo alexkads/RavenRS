@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_SECONDS","DEFAULT_WIDTH","MAX_FRAMES","MAX_SECONDS","MAX_SIDE","MAX_TOTAL_PIXELS","MAX_WIDTH","MIN_SECONDS","MIN_WIDTH","SIZE_PRESETS"],"fn":["check_seconds","encode","frame_size"],"struct":["GifOptions","GifOutput"]};

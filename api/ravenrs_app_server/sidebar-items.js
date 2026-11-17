@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ORGANIZATION_HEADER","SIGNATURE_HEADER","WEBHOOK_EVENT"],"enum":["SettingAccess"],"fn":["router","router_with","serve","serve_with","sign","webhook_event_entity"],"struct":["ApiOptions","ApiRequest","ApiResponse","ApiService","EndpointContext","Failure","Webhook","WebhookContext"],"type":["Endpoint","WebhookHandler"]};

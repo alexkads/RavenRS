@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PREFIXO","REGRAS","VER_APLIC"],"enum":["Confianca","Resposta"],"fn":["get","head","post","regra"],"mod":["cenarios"],"struct":["Handler","PedidoSefin","Registro","Regra","SefinSandbox"]};

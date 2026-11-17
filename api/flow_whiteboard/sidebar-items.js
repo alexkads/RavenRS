@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["app","app_kept_in","flowchart","mind_map","next","toolbox"],"struct":["Whiteboard"]};

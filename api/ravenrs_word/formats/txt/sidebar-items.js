@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["decode","decode_as","export","import","import_on","is_text","legacy"]};

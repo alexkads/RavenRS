@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Workbench"],"mod":["chat","editor","ide"]};

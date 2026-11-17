@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ColorBase","Compound","Dash","Fill","GradientFlip","GradientShape","LineAlign","LineCap","LineJoin","PictureMode"],"struct":["Artistic","ColorRef","Effects","FillOverlay","Glow","Gradient","GradientStop","Line","LineEnd","PatternFill","PictureAdjust","PictureFill","Reflection","Shadow","ShapeStyle"]};

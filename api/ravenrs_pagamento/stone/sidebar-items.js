@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["URL_AUTOTEF"],"fn":["dados_de_charge_paid"],"struct":["AutoTef"]};

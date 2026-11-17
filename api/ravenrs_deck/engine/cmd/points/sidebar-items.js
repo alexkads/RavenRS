@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Seg"],"fn":["closed_at","kind_of","parse","point_kind","segment_at","segment_kind_of","segment_start_of","slide_handles","slide_vertices","specs","vertex_at","vertices","write"]};

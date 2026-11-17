@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_BUILD_PARAGRAPHS"],"enum":["AnimClass","AnimStart","BuildRole","TextBuild"],"fn":["animation_info","build_filled","paragraph_build_roles","preset_path","transition_option_label"],"static":["ANIMATIONS","TRANSITIONS"],"struct":["Animation","Transition"]};

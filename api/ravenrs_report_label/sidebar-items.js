@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["LabelError","Language"],"fn":["bitmap_to_png","compile","compile_with","encode_bitmap","output_for","presets","rasterize_page"],"struct":["Bitmap","CupsOutput","FileOutput","LabelJob","PrinterPreset","TcpOutput"],"trait":["LabelOutput"]};

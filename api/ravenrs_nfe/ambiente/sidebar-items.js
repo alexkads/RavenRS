@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Ambiente","Modelo","Origem","Uf"],"struct":["BetaAck"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BUDGET_120","BUDGET_60","LOADS"],"fn":["drops_from","fits"],"struct":["Assets","Load","Point2"]};

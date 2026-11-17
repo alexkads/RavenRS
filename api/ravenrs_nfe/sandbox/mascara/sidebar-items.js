@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["mascarar_em_caminho","mascarar_texto_de_relatorio","mascarar_valor","mascarar_xml"]};

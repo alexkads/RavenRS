@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MOST_HITS","SAMPLE"],"fn":["bad_name","collect_files","write_sample"],"struct":["Entry","Hit","Project"]};

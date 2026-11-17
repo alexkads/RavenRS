@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PREFIXO_INTERNO"],"fn":["codigo_interno","conferir_codigo","e_codigo_interno","entrar_no_estoque","gtin_fiscal","sugerir_etiqueta"],"struct":["EstoqueAtualizado","LinhaCompra","SugestaoEtiqueta"]};

@@ -1,0 +1,151 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>tables.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="ravenrs_word" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../../src-files.js"></script><script defer="" src="../../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-word/src/formats/odt/body/tables.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_word/formats/odt/body/tables.rs.html"><meta property="og:title" content="tables.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-word/src/formats/odt/body/tables.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_word/formats/odt/body/tables.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="tables.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-word/src/formats/odt/body/tables.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"tables.rs - source","description":"Source of the Rust file `crates/ravenrs-word/src/formats/odt/body/tables.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_word/formats/odt/body/tables.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_word/formats/odt/body/</div>tables.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! Tables being read (ODF 1.3 §9.1): rows, cells and their shared edges.
+<a href="#2" id="2" data-nosnippet="">2</a>
+<a href="#3" id="3" data-nosnippet="">3</a></span><span class="kw">use super</span>::{Borders, Cell, FTable};
+<a href="#4" id="4" data-nosnippet="">4</a>
+<a href="#5" id="5" data-nosnippet="">5</a><span class="doccomment">/// Give each edge two cells share the line either cell draws: LibreOffice gives a shared edge to
+<a href="#6" id="6" data-nosnippet="">6</a>/// one of them only (the left cell's right side is `none`, the right cell's left side draws it),
+<a href="#7" id="7" data-nosnippet="">7</a>/// while WordCraft's cells each draw their own four sides. The cell below is the one in the next
+<a href="#8" id="8" data-nosnippet="">8</a>/// row starting at the same column.
+<a href="#9" id="9" data-nosnippet="">9</a></span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) <span class="kw">fn </span>share_edges(rows: <span class="kw-2">&amp;mut </span>[Vec&lt;Cell&gt;]) {
+<a href="#10" id="10" data-nosnippet="">10</a>    <span class="kw">let </span>visible = |b: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::doc::props::Border&gt;| b.filter(|b| b.is_visible());
+<a href="#11" id="11" data-nosnippet="">11</a>    <span class="kw">for </span>r <span class="kw">in </span><span class="number">0</span>..rows.len() {
+<a href="#12" id="12" data-nosnippet="">12</a>        <span class="kw">let </span>starts: Vec&lt;usize&gt; = rows
+<a href="#13" id="13" data-nosnippet="">13</a>            .get(r)
+<a href="#14" id="14" data-nosnippet="">14</a>            .map(|row| {
+<a href="#15" id="15" data-nosnippet="">15</a>                row.iter()
+<a href="#16" id="16" data-nosnippet="">16</a>                    .scan(<span class="number">0usize</span>, |g, c| {
+<a href="#17" id="17" data-nosnippet="">17</a>                        <span class="kw">let </span>s = <span class="kw-2">*</span>g;
+<a href="#18" id="18" data-nosnippet="">18</a>                        <span class="kw-2">*</span>g += c.colspan.max(<span class="number">1</span>) <span class="kw">as </span>usize;
+<a href="#19" id="19" data-nosnippet="">19</a>                        <span class="prelude-val">Some</span>(s)
+<a href="#20" id="20" data-nosnippet="">20</a>                    })
+<a href="#21" id="21" data-nosnippet="">21</a>                    .collect()
+<a href="#22" id="22" data-nosnippet="">22</a>            })
+<a href="#23" id="23" data-nosnippet="">23</a>            .unwrap_or_default();
+<a href="#24" id="24" data-nosnippet="">24</a>        <span class="kw">for </span>k <span class="kw">in </span><span class="number">0</span>..starts.len() {
+<a href="#25" id="25" data-nosnippet="">25</a>            <span class="comment">// The cell to the right.
+<a href="#26" id="26" data-nosnippet="">26</a>            </span><span class="kw">if let </span><span class="prelude-val">Some</span>(row) = rows.get_mut(r)
+<a href="#27" id="27" data-nosnippet="">27</a>                &amp;&amp; <span class="kw">let </span>[<span class="prelude-val">Some</span>(a), <span class="prelude-val">Some</span>(b)] = [k, k + <span class="number">1</span>].map(|i| row.get(i).map(|c| c.borders))
+<a href="#28" id="28" data-nosnippet="">28</a>                &amp;&amp; (a.is_some() || b.is_some())
+<a href="#29" id="29" data-nosnippet="">29</a>            {
+<a href="#30" id="30" data-nosnippet="">30</a>                <span class="kw">let </span>(a, b) = (a.unwrap_or_default(), b.unwrap_or_default());
+<a href="#31" id="31" data-nosnippet="">31</a>                <span class="kw">let </span>line = visible(a.right).or(visible(b.left));
+<a href="#32" id="32" data-nosnippet="">32</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(line) = line {
+<a href="#33" id="33" data-nosnippet="">33</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = row.get_mut(k) {
+<a href="#34" id="34" data-nosnippet="">34</a>                        c.borders = <span class="prelude-val">Some</span>(Borders { right: <span class="prelude-val">Some</span>(line), ..a });
+<a href="#35" id="35" data-nosnippet="">35</a>                    }
+<a href="#36" id="36" data-nosnippet="">36</a>                    <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = row.get_mut(k + <span class="number">1</span>) {
+<a href="#37" id="37" data-nosnippet="">37</a>                        c.borders = <span class="prelude-val">Some</span>(Borders { left: <span class="prelude-val">Some</span>(line), ..b });
+<a href="#38" id="38" data-nosnippet="">38</a>                    }
+<a href="#39" id="39" data-nosnippet="">39</a>                }
+<a href="#40" id="40" data-nosnippet="">40</a>            }
+<a href="#41" id="41" data-nosnippet="">41</a>            <span class="comment">// The cell below.
+<a href="#42" id="42" data-nosnippet="">42</a>            </span><span class="kw">let </span>start = starts.get(k).copied().unwrap_or(<span class="number">0</span>);
+<a href="#43" id="43" data-nosnippet="">43</a>            <span class="kw">let </span>below = rows.get(r + <span class="number">1</span>).and_then(|row| {
+<a href="#44" id="44" data-nosnippet="">44</a>                <span class="kw">let </span><span class="kw-2">mut </span>g = <span class="number">0</span>;
+<a href="#45" id="45" data-nosnippet="">45</a>                row.iter().position(|c| {
+<a href="#46" id="46" data-nosnippet="">46</a>                    <span class="kw">let </span>s = g;
+<a href="#47" id="47" data-nosnippet="">47</a>                    g += c.colspan.max(<span class="number">1</span>) <span class="kw">as </span>usize;
+<a href="#48" id="48" data-nosnippet="">48</a>                    s == start
+<a href="#49" id="49" data-nosnippet="">49</a>                })
+<a href="#50" id="50" data-nosnippet="">50</a>            });
+<a href="#51" id="51" data-nosnippet="">51</a>            <span class="kw">let </span>(<span class="prelude-val">Some</span>(j), <span class="prelude-val">Some</span>(a)) = (below, rows.get(r).and_then(|row| row.get(k)).map(|c| c.borders)) <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href="#52" id="52" data-nosnippet="">52</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(b) = rows.get(r + <span class="number">1</span>).and_then(|row| row.get(j)).map(|c| c.borders) <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href="#53" id="53" data-nosnippet="">53</a>            <span class="kw">if </span>a.is_none() &amp;&amp; b.is_none() {
+<a href="#54" id="54" data-nosnippet="">54</a>                <span class="kw">continue</span>;
+<a href="#55" id="55" data-nosnippet="">55</a>            }
+<a href="#56" id="56" data-nosnippet="">56</a>            <span class="kw">let </span>(a, b) = (a.unwrap_or_default(), b.unwrap_or_default());
+<a href="#57" id="57" data-nosnippet="">57</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(line) = visible(a.bottom).or(visible(b.top)) {
+<a href="#58" id="58" data-nosnippet="">58</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = rows.get_mut(r).and_then(|row| row.get_mut(k)) {
+<a href="#59" id="59" data-nosnippet="">59</a>                    c.borders = <span class="prelude-val">Some</span>(Borders { bottom: <span class="prelude-val">Some</span>(line), ..a });
+<a href="#60" id="60" data-nosnippet="">60</a>                }
+<a href="#61" id="61" data-nosnippet="">61</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = rows.get_mut(r + <span class="number">1</span>).and_then(|row| row.get_mut(j)) {
+<a href="#62" id="62" data-nosnippet="">62</a>                    c.borders = <span class="prelude-val">Some</span>(Borders { top: <span class="prelude-val">Some</span>(line), ..b });
+<a href="#63" id="63" data-nosnippet="">63</a>                }
+<a href="#64" id="64" data-nosnippet="">64</a>            }
+<a href="#65" id="65" data-nosnippet="">65</a>        }
+<a href="#66" id="66" data-nosnippet="">66</a>    }
+<a href="#67" id="67" data-nosnippet="">67</a>}
+<a href="#68" id="68" data-nosnippet="">68</a>
+<a href="#69" id="69" data-nosnippet="">69</a><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) <span class="kw">struct </span>TableB {
+<a href="#70" id="70" data-nosnippet="">70</a>    <span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) rows: Vec&lt;Vec&lt;Cell&gt;&gt;,
+<a href="#71" id="71" data-nosnippet="">71</a>    <span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) row: Vec&lt;Cell&gt;,
+<a href="#72" id="72" data-nosnippet="">72</a>    <span class="doccomment">/// Covered cells still owed to the previous cell's column span.
+<a href="#73" id="73" data-nosnippet="">73</a>    </span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) hcover: usize,
+<a href="#74" id="74" data-nosnippet="">74</a>    <span class="doccomment">/// Widths in points of the `table:table-column`s so far, 0 where the style gives none.
+<a href="#75" id="75" data-nosnippet="">75</a>    </span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) widths: Vec&lt;f32&gt;,
+<a href="#76" id="76" data-nosnippet="">76</a>    <span class="doccomment">/// Each column's share of the table (`style:rel-column-width`), 0 where the style gives none.
+<a href="#77" id="77" data-nosnippet="">77</a>    </span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) shares: Vec&lt;f32&gt;,
+<a href="#78" id="78" data-nosnippet="">78</a>    <span class="doccomment">/// The table's width, points: what the shares divide.
+<a href="#79" id="79" data-nosnippet="">79</a>    </span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) room: <span class="prelude-ty">Option</span>&lt;f32&gt;,
+<a href="#80" id="80" data-nosnippet="">80</a>    <span class="doccomment">/// It is in a cell, a frame or a column narrower than the page, whose width isn't known here.
+<a href="#81" id="81" data-nosnippet="">81</a>    </span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) contained: bool,
+<a href="#82" id="82" data-nosnippet="">82</a>    <span class="doccomment">/// Its alignment and width, and each row's height so far (see [`crate::formats::model::TableExtra`]).
+<a href="#83" id="83" data-nosnippet="">83</a>    </span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) extra: <span class="kw">crate</span>::formats::model::TableExtra,
+<a href="#84" id="84" data-nosnippet="">84</a>    <span class="doccomment">/// The background of each column's default cell style (`table:default-cell-style-name`).
+<a href="#85" id="85" data-nosnippet="">85</a>    </span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) column_backgrounds: Vec&lt;<span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::doc::props::Rgb&gt;&gt;,
+<a href="#86" id="86" data-nosnippet="">86</a>    <span class="doccomment">/// The table's background, and the row's being read.
+<a href="#87" id="87" data-nosnippet="">87</a>    </span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) background: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::doc::props::Rgb&gt;,
+<a href="#88" id="88" data-nosnippet="">88</a>    <span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) row_background: <span class="prelude-ty">Option</span>&lt;<span class="kw">crate</span>::doc::props::Rgb&gt;,
+<a href="#89" id="89" data-nosnippet="">89</a>}
+<a href="#90" id="90" data-nosnippet="">90</a>
+<a href="#91" id="91" data-nosnippet="">91</a><span class="doccomment">/// The narrowest column the document model keeps (a narrower one would lose the table its grid).
+<a href="#92" id="92" data-nosnippet="">92</a></span><span class="kw">const </span>MIN_COLUMN: f32 = <span class="number">6.0</span>;
+<a href="#93" id="93" data-nosnippet="">93</a>
+<a href="#94" id="94" data-nosnippet="">94</a><span class="doccomment">/// Each column's width out of `room` points, as LibreOffice shares it out: by its share if it has
+<a href="#95" id="95" data-nosnippet="">95</a>/// one, else its stated width, which comes off the room first; none narrower than a column can be
+<a href="#96" id="96" data-nosnippet="">96</a>/// (6 pt). Empty if a column has neither, or no room is left to share.
+<a href="#97" id="97" data-nosnippet="">97</a></span><span class="kw">fn </span>widths_of_shares(widths: <span class="kw-2">&amp;</span>[f32], shares: <span class="kw-2">&amp;</span>[f32], room: f32) -&gt; Vec&lt;f32&gt; {
+<a href="#98" id="98" data-nosnippet="">98</a>    <span class="kw">let </span>columns = || widths.iter().zip(shares);
+<a href="#99" id="99" data-nosnippet="">99</a>    <span class="kw">let </span>usable = |v: f32| v.is_finite() &amp;&amp; v &gt; <span class="number">0.0</span>;
+<a href="#100" id="100" data-nosnippet="">100</a>    <span class="kw">let </span>left = room - columns().filter(|(<span class="kw">_</span>, s)| <span class="kw-2">**</span>s &lt;= <span class="number">0.0</span>).map(|(w, <span class="kw">_</span>)| <span class="kw-2">*</span>w).sum::&lt;f32&gt;();
+<a href="#101" id="101" data-nosnippet="">101</a>    <span class="kw">let </span>total: f32 = shares.iter().filter(|s| <span class="kw-2">**</span>s &gt; <span class="number">0.0</span>).sum();
+<a href="#102" id="102" data-nosnippet="">102</a>    <span class="kw">if </span>widths.len() != shares.len() || !usable(left) || !usable(total) || columns().any(|(w, s)| <span class="kw-2">*</span>w &lt;= <span class="number">0.0 </span>&amp;&amp; <span class="kw-2">*</span>s &lt;= <span class="number">0.0</span>) {
+<a href="#103" id="103" data-nosnippet="">103</a>        <span class="kw">return </span>Vec::new();
+<a href="#104" id="104" data-nosnippet="">104</a>    }
+<a href="#105" id="105" data-nosnippet="">105</a>    columns().map(|(w, s)| <span class="kw">if </span><span class="kw-2">*</span>s &gt; <span class="number">0.0 </span>{ (s / total * left).max(MIN_COLUMN) } <span class="kw">else </span>{ <span class="kw-2">*</span>w }).collect()
+<a href="#106" id="106" data-nosnippet="">106</a>}
+<a href="#107" id="107" data-nosnippet="">107</a>
+<a href="#108" id="108" data-nosnippet="">108</a><span class="kw">impl </span>TableB {
+<a href="#109" id="109" data-nosnippet="">109</a>    <span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) <span class="kw">fn </span>finish(<span class="self">self</span>) -&gt; FTable {
+<a href="#110" id="110" data-nosnippet="">110</a>        <span class="comment">// Columns stating their shares (LibreOffice's tables filling the margins, §20.334) divide
+<a href="#111" id="111" data-nosnippet="">111</a>        // the table's width by them; a column with neither leaves the whole grid to the equal split.
+<a href="#112" id="112" data-nosnippet="">112</a>        // An aligned table's shares go before the widths its columns state too, as LibreOffice
+<a href="#113" id="113" data-nosnippet="">113</a>        // reads them. (A table filling the margins is fitted to them whatever its widths say, and
+<a href="#114" id="114" data-nosnippet="">114</a>        // files give it both in proportion; in something narrower than the page, whose width isn't
+<a href="#115" id="115" data-nosnippet="">115</a>        // known here, stated widths are the best guess.)
+<a href="#116" id="116" data-nosnippet="">116</a>        </span><span class="kw">let </span>all_widths = <span class="self">self</span>.widths.iter().all(|w| <span class="kw-2">*</span>w &gt; <span class="number">0.0</span>);
+<a href="#117" id="117" data-nosnippet="">117</a>        <span class="kw">let </span>all_shares = !<span class="self">self</span>.shares.is_empty() &amp;&amp; <span class="self">self</span>.shares.iter().all(|s| <span class="kw-2">*</span>s &gt; <span class="number">0.0</span>);
+<a href="#118" id="118" data-nosnippet="">118</a>        <span class="kw">let </span>aligned = <span class="self">self</span>.extra.align.is_some() &amp;&amp; !<span class="self">self</span>.contained;
+<a href="#119" id="119" data-nosnippet="">119</a>        <span class="kw">let </span>by_shares = <span class="self">self
+<a href="#120" id="120" data-nosnippet="">120</a>            </span>.room
+<a href="#121" id="121" data-nosnippet="">121</a>            .filter(|<span class="kw">_</span>| all_shares &amp;&amp; (aligned || !all_widths))
+<a href="#122" id="122" data-nosnippet="">122</a>            .map(|room| widths_of_shares(<span class="kw-2">&amp;</span><span class="self">self</span>.widths, <span class="kw-2">&amp;</span><span class="self">self</span>.shares, room))
+<a href="#123" id="123" data-nosnippet="">123</a>            .filter(|w| !w.is_empty());
+<a href="#124" id="124" data-nosnippet="">124</a>        <span class="kw">let </span>widths = <span class="kw">if let </span><span class="prelude-val">Some</span>(w) = by_shares {
+<a href="#125" id="125" data-nosnippet="">125</a>            w
+<a href="#126" id="126" data-nosnippet="">126</a>        } <span class="kw">else if </span>all_widths {
+<a href="#127" id="127" data-nosnippet="">127</a>            <span class="self">self</span>.widths
+<a href="#128" id="128" data-nosnippet="">128</a>        } <span class="kw">else </span>{
+<a href="#129" id="129" data-nosnippet="">129</a>            <span class="comment">// With nothing to divide, or in something narrower than the page with widths stated
+<a href="#130" id="130" data-nosnippet="">130</a>            // too, the shares can't be worked out here: the equal split, as before.
+<a href="#131" id="131" data-nosnippet="">131</a>            </span><span class="kw">let </span>mixed = <span class="self">self</span>.shares.iter().any(|s| <span class="kw-2">*</span>s &lt;= <span class="number">0.0</span>);
+<a href="#132" id="132" data-nosnippet="">132</a>            <span class="kw">match </span><span class="self">self</span>.room.filter(|<span class="kw">_</span>| !(<span class="self">self</span>.contained &amp;&amp; mixed)) {
+<a href="#133" id="133" data-nosnippet="">133</a>                <span class="prelude-val">Some</span>(room) =&gt; widths_of_shares(<span class="kw-2">&amp;</span><span class="self">self</span>.widths, <span class="kw-2">&amp;</span><span class="self">self</span>.shares, room),
+<a href="#134" id="134" data-nosnippet="">134</a>                <span class="prelude-val">None </span>=&gt; Vec::new(),
+<a href="#135" id="135" data-nosnippet="">135</a>            }
+<a href="#136" id="136" data-nosnippet="">136</a>        };
+<a href="#137" id="137" data-nosnippet="">137</a>        <span class="kw">let </span><span class="kw-2">mut </span>rows = <span class="self">self</span>.rows;
+<a href="#138" id="138" data-nosnippet="">138</a>        share_edges(<span class="kw-2">&amp;mut </span>rows);
+<a href="#139" id="139" data-nosnippet="">139</a>        <span class="comment">// A table whose cells all say "no line" draws none.
+<a href="#140" id="140" data-nosnippet="">140</a>        </span><span class="kw">let </span>stated = rows.iter().flatten().filter(|c| !c.covered).all(|c| c.borders.is_some());
+<a href="#141" id="141" data-nosnippet="">141</a>        <span class="kw">let </span>borderless = stated &amp;&amp; rows.iter().flatten().all(|c| !c.borders.is_some_and(|b| b.any_visible()));
+<a href="#142" id="142" data-nosnippet="">142</a>        <span class="kw">let </span>extra = <span class="self">self</span>.extra;
+<a href="#143" id="143" data-nosnippet="">143</a>        <span class="kw">let </span>kept = extra.fixed
+<a href="#144" id="144" data-nosnippet="">144</a>            || extra.align.is_some()
+<a href="#145" id="145" data-nosnippet="">145</a>            || extra.width_pct.is_some()
+<a href="#146" id="146" data-nosnippet="">146</a>            || extra.heights.iter().any(Option::is_some)
+<a href="#147" id="147" data-nosnippet="">147</a>            || extra.keep_rows.contains(<span class="kw-2">&amp;</span><span class="bool-val">true</span>);
+<a href="#148" id="148" data-nosnippet="">148</a>        FTable { rows, widths, borderless, extra: kept.then(|| Box::new(extra)), kept: <span class="prelude-val">None</span>, wrap: <span class="prelude-val">None </span>}
+<a href="#149" id="149" data-nosnippet="">149</a>    }
+<a href="#150" id="150" data-nosnippet="">150</a>}
+</code></pre></div></section></main></body></html>

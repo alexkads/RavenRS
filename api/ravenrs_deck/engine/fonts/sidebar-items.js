@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["install_embedded_fonts","missing_fonts","replace_font","used_fonts"]};

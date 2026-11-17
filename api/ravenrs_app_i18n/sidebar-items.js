@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["FALLBACK"],"enum":["Language"],"fn":["format","format_with"],"mod":["model"],"struct":["Catalog","TextError","Texts"]};

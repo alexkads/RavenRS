@@ -1,0 +1,353 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>type3.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="ravenrs_pdf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../../src-files.js"></script><script defer="" src="../../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-pdf/src/third_party/hayro_interpret/font/type3.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_pdf/third_party/hayro_interpret/font/type3.rs.html"><meta property="og:title" content="type3.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-pdf/src/third_party/hayro_interpret/font/type3.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_pdf/third_party/hayro_interpret/font/type3.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="type3.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-pdf/src/third_party/hayro_interpret/font/type3.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"type3.rs - source","description":"Source of the Rust file `crates/ravenrs-pdf/src/third_party/hayro_interpret/font/type3.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_pdf/third_party/hayro_interpret/font/type3.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_pdf/third_party/hayro_interpret/font/</div>type3.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_cmap::{BfString, CMap};
+<a href="#2" id="2" data-nosnippet="">2</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::CMapResolverFn;
+<a href="#3" id="3" data-nosnippet="">3</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::context::{Context, HeldContent, MAX_CACHED_TYPE3_PROCS, Type3Procs, content_left, hold_content};
+<a href="#4" id="4" data-nosnippet="">4</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::device::Device;
+<a href="#5" id="5" data-nosnippet="">5</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::font::glyph_simulator::GlyphSimulator;
+<a href="#6" id="6" data-nosnippet="">6</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::font::true_type::{Width, read_encoding, read_widths};
+<a href="#7" id="7" data-nosnippet="">7</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::font::{
+<a href="#8" id="8" data-nosnippet="">8</a>    Encoding, Glyph, Type3Glyph, UNITS_PER_EM, numbered_glyph_name_at_its_code, numbered_names_name_their_codes, read_to_unicode,
+<a href="#9" id="9" data-nosnippet="">9</a>};
+<a href="#10" id="10" data-nosnippet="">10</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::interpret::state::TextState;
+<a href="#11" id="11" data-nosnippet="">11</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::soft_mask::SoftMask;
+<a href="#12" id="12" data-nosnippet="">12</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::util::RectExt;
+<a href="#13" id="13" data-nosnippet="">13</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::{BlendMode, interpret};
+<a href="#14" id="14" data-nosnippet="">14</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::{CacheKey, ClipPath, GlyphDrawMode, PathDrawMode};
+<a href="#15" id="15" data-nosnippet="">15</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::{Image, Paint};
+<a href="#16" id="16" data-nosnippet="">16</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_syntax::content::TypedIter;
+<a href="#17" id="17" data-nosnippet="">17</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_syntax::content::ops::TypedInstruction;
+<a href="#18" id="18" data-nosnippet="">18</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_syntax::object::Dict;
+<a href="#19" id="19" data-nosnippet="">19</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_syntax::object::Stream;
+<a href="#20" id="20" data-nosnippet="">20</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_syntax::object::dict::keys::{CHAR_PROCS, FONT_BBOX, FONT_MATRIX, RESOURCES};
+<a href="#21" id="21" data-nosnippet="">21</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_syntax::page::Resources;
+<a href="#22" id="22" data-nosnippet="">22</a><span class="kw">use </span>kurbo::{Affine, BezPath, Rect};
+<a href="#23" id="23" data-nosnippet="">23</a><span class="kw">use </span>skrifa_047::GlyphId;
+<a href="#24" id="24" data-nosnippet="">24</a><span class="kw">use </span>std::cell::{OnceCell, RefCell};
+<a href="#25" id="25" data-nosnippet="">25</a><span class="kw">use </span>std::collections::HashMap;
+<a href="#26" id="26" data-nosnippet="">26</a><span class="kw">use </span>std::rc::Rc;
+<a href="#27" id="27" data-nosnippet="">27</a><span class="kw">use </span>std::sync::OnceLock;
+<a href="#28" id="28" data-nosnippet="">28</a>
+<a href="#29" id="29" data-nosnippet="">29</a><span class="attr">#[derive(Debug)]
+<a href="#30" id="30" data-nosnippet="">30</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>Type3&lt;<span class="lifetime">'a</span>&gt; {
+<a href="#31" id="31" data-nosnippet="">31</a>    widths: Vec&lt;Width&gt;,
+<a href="#32" id="32" data-nosnippet="">32</a>    missing_width: f32,
+<a href="#33" id="33" data-nosnippet="">33</a>    <span class="doccomment">/// PdfCraft patch (90): the width each code's glyph procedure gives with `d0`/`d1`, read
+<a href="#34" id="34" data-nosnippet="">34</a>    /// the first time the code is shown in a font without `/Widths`. One cell per code.
+<a href="#35" id="35" data-nosnippet="">35</a>    </span>proc_widths: Vec&lt;OnceCell&lt;<span class="prelude-ty">Option</span>&lt;f32&gt;&gt;&gt;,
+<a href="#36" id="36" data-nosnippet="">36</a>    encoding: Encoding,
+<a href="#37" id="37" data-nosnippet="">37</a>    encodings: HashMap&lt;u8, String&gt;,
+<a href="#38" id="38" data-nosnippet="">38</a>    dict: Dict&lt;<span class="lifetime">'a</span>&gt;,
+<a href="#39" id="39" data-nosnippet="">39</a>    char_procs: HashMap&lt;String, Stream&lt;<span class="lifetime">'a</span>&gt;&gt;,
+<a href="#40" id="40" data-nosnippet="">40</a>    glyph_simulator: GlyphSimulator,
+<a href="#41" id="41" data-nosnippet="">41</a>    font_bbox: Rect,
+<a href="#42" id="42" data-nosnippet="">42</a>    matrix: Affine,
+<a href="#43" id="43" data-nosnippet="">43</a>    to_unicode: <span class="prelude-ty">Option</span>&lt;CMap&gt;,
+<a href="#44" id="44" data-nosnippet="">44</a>    <span class="doccomment">/// PdfCraft patch (87): glyph procedures already decoded, by glyph name, so a glyph shown
+<a href="#45" id="45" data-nosnippet="">45</a>    /// again and again (a Type 3 font used as a fill pattern draws one glyph hundreds of
+<a href="#46" id="46" data-nosnippet="">46</a>    /// thousands of times) isn't inflated again for every copy. Only procedures of at most
+<a href="#47" id="47" data-nosnippet="">47</a>    /// [`MAX_CACHED_PROC`] bytes are kept, and the fonts of one interpreter cache keep at most
+<a href="#48" id="48" data-nosnippet="">48</a>    /// `context::MAX_CACHED_TYPE3_PROCS` bytes together.
+<a href="#49" id="49" data-nosnippet="">49</a>    </span>decoded_procs: RefCell&lt;HashMap&lt;String, Rc&lt;[u8]&gt;&gt;&gt;,
+<a href="#50" id="50" data-nosnippet="">50</a>    <span class="doccomment">/// PdfCraft patch: whether the font's numbered glyph names all name their own codes
+<a href="#51" id="51" data-nosnippet="">51</a>    /// (`numbered_names_name_their_codes`), worked out on first use.
+<a href="#52" id="52" data-nosnippet="">52</a>    </span>own_code_names: OnceLock&lt;bool&gt;,
+<a href="#53" id="53" data-nosnippet="">53</a>}
+<a href="#54" id="54" data-nosnippet="">54</a>
+<a href="#55" id="55" data-nosnippet="">55</a><span class="doccomment">/// PdfCraft patch (87): the largest decoded glyph procedure [`Type3`] keeps.
+<a href="#56" id="56" data-nosnippet="">56</a></span><span class="kw">const </span>MAX_CACHED_PROC: usize = <span class="number">64 </span>&lt;&lt; <span class="number">10</span>;
+<a href="#57" id="57" data-nosnippet="">57</a><span class="doccomment">/// PdfCraft patch (87): what a kept procedure costs the cache besides its bytes and its glyph
+<a href="#58" id="58" data-nosnippet="">58</a>/// name (the map entry and the shared allocation's counts), so many empty procedures count too.
+<a href="#59" id="59" data-nosnippet="">59</a></span><span class="kw">const </span>CACHED_PROC_OVERHEAD: usize = <span class="number">64</span>;
+<a href="#60" id="60" data-nosnippet="">60</a>
+<a href="#61" id="61" data-nosnippet="">61</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Type3&lt;<span class="lifetime">'a</span>&gt; {
+<a href="#62" id="62" data-nosnippet="">62</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(dict: <span class="kw-2">&amp;</span>Dict&lt;<span class="lifetime">'a</span>&gt;, cmap_resolver: <span class="kw-2">&amp;</span>CMapResolverFn) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt; {
+<a href="#63" id="63" data-nosnippet="">63</a>        <span class="kw">let </span>(encoding, encodings) = read_encoding(dict);
+<a href="#64" id="64" data-nosnippet="">64</a>        <span class="kw">let </span>(widths, missing_width) = read_widths(dict, dict)<span class="question-mark">?</span>;
+<a href="#65" id="65" data-nosnippet="">65</a>        <span class="kw">let </span>font_bbox = dict
+<a href="#66" id="66" data-nosnippet="">66</a>            .get::&lt;<span class="kw">crate</span>::third_party::hayro_syntax::object::Rect&gt;(FONT_BBOX)
+<a href="#67" id="67" data-nosnippet="">67</a>            .unwrap_or(<span class="kw">crate</span>::third_party::hayro_syntax::object::Rect::ZERO)
+<a href="#68" id="68" data-nosnippet="">68</a>            .to_kurbo();
+<a href="#69" id="69" data-nosnippet="">69</a>
+<a href="#70" id="70" data-nosnippet="">70</a>        <span class="kw">let </span>matrix = Affine::new(dict.get::&lt;[f64; <span class="number">6</span>]&gt;(FONT_MATRIX).unwrap_or([<span class="number">0.001</span>, <span class="number">0.0</span>, <span class="number">0.0</span>, <span class="number">0.001</span>, <span class="number">0.0</span>, <span class="number">0.0</span>]));
+<a href="#71" id="71" data-nosnippet="">71</a>
+<a href="#72" id="72" data-nosnippet="">72</a>        <span class="kw">let </span>char_procs = {
+<a href="#73" id="73" data-nosnippet="">73</a>            <span class="kw">let </span><span class="kw-2">mut </span>procs = HashMap::new();
+<a href="#74" id="74" data-nosnippet="">74</a>            <span class="kw">let </span>dict = dict.get::&lt;Dict&lt;<span class="lifetime">'_</span>&gt;&gt;(CHAR_PROCS).unwrap_or_default();
+<a href="#75" id="75" data-nosnippet="">75</a>
+<a href="#76" id="76" data-nosnippet="">76</a>            <span class="kw">for </span>name <span class="kw">in </span>dict.keys() {
+<a href="#77" id="77" data-nosnippet="">77</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(prog) = dict.get::&lt;Stream&lt;<span class="lifetime">'_</span>&gt;&gt;(name.as_ref()) {
+<a href="#78" id="78" data-nosnippet="">78</a>                    procs.insert(name.as_str().to_string(), prog);
+<a href="#79" id="79" data-nosnippet="">79</a>                }
+<a href="#80" id="80" data-nosnippet="">80</a>            }
+<a href="#81" id="81" data-nosnippet="">81</a>
+<a href="#82" id="82" data-nosnippet="">82</a>            procs
+<a href="#83" id="83" data-nosnippet="">83</a>        };
+<a href="#84" id="84" data-nosnippet="">84</a>
+<a href="#85" id="85" data-nosnippet="">85</a>        <span class="kw">let </span>to_unicode = read_to_unicode(dict, cmap_resolver);
+<a href="#86" id="86" data-nosnippet="">86</a>
+<a href="#87" id="87" data-nosnippet="">87</a>        <span class="prelude-val">Some</span>(<span class="self">Self </span>{
+<a href="#88" id="88" data-nosnippet="">88</a>            glyph_simulator: GlyphSimulator::new(),
+<a href="#89" id="89" data-nosnippet="">89</a>            encoding,
+<a href="#90" id="90" data-nosnippet="">90</a>            font_bbox,
+<a href="#91" id="91" data-nosnippet="">91</a>            char_procs,
+<a href="#92" id="92" data-nosnippet="">92</a>            widths,
+<a href="#93" id="93" data-nosnippet="">93</a>            missing_width,
+<a href="#94" id="94" data-nosnippet="">94</a>            proc_widths: <span class="macro">vec!</span>[OnceCell::new(); usize::from(u8::MAX) + <span class="number">1</span>],
+<a href="#95" id="95" data-nosnippet="">95</a>            encodings,
+<a href="#96" id="96" data-nosnippet="">96</a>            matrix,
+<a href="#97" id="97" data-nosnippet="">97</a>            dict: dict.clone(),
+<a href="#98" id="98" data-nosnippet="">98</a>            to_unicode,
+<a href="#99" id="99" data-nosnippet="">99</a>            decoded_procs: RefCell::new(HashMap::new()),
+<a href="#100" id="100" data-nosnippet="">100</a>            own_code_names: OnceLock::new(),
+<a href="#101" id="101" data-nosnippet="">101</a>        })
+<a href="#102" id="102" data-nosnippet="">102</a>    }
+<a href="#103" id="103" data-nosnippet="">103</a>
+<a href="#104" id="104" data-nosnippet="">104</a>    <span class="doccomment">/// PdfCraft patch (87): the decoded procedure of glyph `name`, held within the page's
+<a href="#105" id="105" data-nosnippet="">105</a>    /// content budget while the glyph is painted, whether it was decoded now or kept from an
+<a href="#106" id="106" data-nosnippet="">106</a>    /// earlier copy, so a page skips the same glyphs either way once the budget is spent. It is
+<a href="#107" id="107" data-nosnippet="">107</a>    /// decoded the first time and kept, when small enough and while `procs` has room, for the
+<a href="#108" id="108" data-nosnippet="">108</a>    /// next copies. Only a procedure decoded with more budget left than [`MAX_CACHED_PROC`] is
+<a href="#109" id="109" data-nosnippet="">109</a>    /// kept, so one the budget may have cut short isn't.
+<a href="#110" id="110" data-nosnippet="">110</a>    </span><span class="kw">fn </span>decoded_proc(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, program: <span class="kw-2">&amp;</span>Stream&lt;<span class="lifetime">'a</span>&gt;, procs: <span class="kw-2">&amp;</span>Type3Procs) -&gt; <span class="prelude-ty">Option</span>&lt;(Rc&lt;[u8]&gt;, HeldContent)&gt; {
+<a href="#111" id="111" data-nosnippet="">111</a>        <span class="kw">let </span>kept = <span class="self">self</span>.decoded_procs.borrow().get(name).cloned();
+<a href="#112" id="112" data-nosnippet="">112</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(bytes) = kept {
+<a href="#113" id="113" data-nosnippet="">113</a>            <span class="kw">let </span>held = hold_content(bytes.len())<span class="question-mark">?</span>;
+<a href="#114" id="114" data-nosnippet="">114</a>            <span class="kw">return </span><span class="prelude-val">Some</span>((bytes, held));
+<a href="#115" id="115" data-nosnippet="">115</a>        }
+<a href="#116" id="116" data-nosnippet="">116</a>        <span class="kw">let </span>left = content_left();
+<a href="#117" id="117" data-nosnippet="">117</a>        <span class="comment">// PdfCraft patch: see `context::MAX_PAGE_CONTENT`.
+<a href="#118" id="118" data-nosnippet="">118</a>        </span><span class="kw">let </span>decoded = <span class="kw">crate</span>::third_party::hayro_interpret::context::decode_content(program)<span class="question-mark">?</span>;
+<a href="#119" id="119" data-nosnippet="">119</a>        procs.decodes.set(procs.decodes.get().saturating_add(<span class="number">1</span>));
+<a href="#120" id="120" data-nosnippet="">120</a>        <span class="kw">let </span>bytes: Rc&lt;[u8]&gt; = Rc::from(decoded.as_ref());
+<a href="#121" id="121" data-nosnippet="">121</a>        drop(decoded);
+<a href="#122" id="122" data-nosnippet="">122</a>        <span class="kw">let </span>held = hold_content(bytes.len())<span class="question-mark">?</span>;
+<a href="#123" id="123" data-nosnippet="">123</a>        <span class="kw">let </span>cost = bytes.len().saturating_add(name.len()).saturating_add(CACHED_PROC_OVERHEAD);
+<a href="#124" id="124" data-nosnippet="">124</a>        <span class="kw">let </span>total = procs.held.get().saturating_add(cost);
+<a href="#125" id="125" data-nosnippet="">125</a>        <span class="kw">if </span>left &gt; MAX_CACHED_PROC &amp;&amp; bytes.len() &lt;= MAX_CACHED_PROC &amp;&amp; total &lt;= MAX_CACHED_TYPE3_PROCS {
+<a href="#126" id="126" data-nosnippet="">126</a>            procs.held.set(total);
+<a href="#127" id="127" data-nosnippet="">127</a>            <span class="self">self</span>.decoded_procs.borrow_mut().insert(name.to_string(), bytes.clone());
+<a href="#128" id="128" data-nosnippet="">128</a>        }
+<a href="#129" id="129" data-nosnippet="">129</a>        <span class="prelude-val">Some</span>((bytes, held))
+<a href="#130" id="130" data-nosnippet="">130</a>    }
+<a href="#131" id="131" data-nosnippet="">131</a>
+<a href="#132" id="132" data-nosnippet="">132</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>map_code(<span class="kw-2">&amp;</span><span class="self">self</span>, code: u8) -&gt; GlyphId {
+<a href="#133" id="133" data-nosnippet="">133</a>        <span class="self">self</span>.encodings
+<a href="#134" id="134" data-nosnippet="">134</a>            .get(<span class="kw-2">&amp;</span>code)
+<a href="#135" id="135" data-nosnippet="">135</a>            .map(|s| s.as_str())
+<a href="#136" id="136" data-nosnippet="">136</a>            .or_else(|| <span class="self">self</span>.encoding.map_code(code))
+<a href="#137" id="137" data-nosnippet="">137</a>            .map(|g| <span class="self">self</span>.glyph_simulator.string_to_glyph(g))
+<a href="#138" id="138" data-nosnippet="">138</a>            .unwrap_or(GlyphId::NOTDEF)
+<a href="#139" id="139" data-nosnippet="">139</a>    }
+<a href="#140" id="140" data-nosnippet="">140</a>
+<a href="#141" id="141" data-nosnippet="">141</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>glyph_width(<span class="kw-2">&amp;</span><span class="self">self</span>, code: u8) -&gt; f32 {
+<a href="#142" id="142" data-nosnippet="">142</a>        <span class="comment">// PdfCraft patch (90): /Widths, /FirstChar and /LastChar are required for Type 3 fonts
+<a href="#143" id="143" data-nosnippet="">143</a>        // (Table 110), but a font without them gave every glyph no advance and its text was drawn on one spot. The glyph
+<a href="#144" id="144" data-nosnippet="">144</a>        // procedure's `d0`/`d1` operator states the glyph's width too (9.6.4), so such a font
+<a href="#145" id="145" data-nosnippet="">145</a>        // takes that width, as PDFium does. A font with /Widths is read as before: a code
+<a href="#146" id="146" data-nosnippet="">146</a>        // outside FirstChar..LastChar has width 0 (Table 110), as in Poppler and MuPDF.
+<a href="#147" id="147" data-nosnippet="">147</a>        </span><span class="kw">let </span>w = <span class="kw">match </span><span class="self">self</span>.widths.get(code <span class="kw">as </span>usize).copied() {
+<a href="#148" id="148" data-nosnippet="">148</a>            <span class="prelude-val">Some</span>(Width::Value(w)) =&gt; w,
+<a href="#149" id="149" data-nosnippet="">149</a>            <span class="kw">_ if </span><span class="self">self</span>.widths.is_empty() =&gt; <span class="self">self</span>.proc_width(code).unwrap_or(<span class="self">self</span>.missing_width),
+<a href="#150" id="150" data-nosnippet="">150</a>            <span class="kw">_ </span>=&gt; <span class="self">self</span>.missing_width,
+<a href="#151" id="151" data-nosnippet="">151</a>        };
+<a href="#152" id="152" data-nosnippet="">152</a>        (w * <span class="self">self</span>.matrix.as_coeffs()[<span class="number">0</span>] <span class="kw">as </span>f32) * UNITS_PER_EM
+<a href="#153" id="153" data-nosnippet="">153</a>    }
+<a href="#154" id="154" data-nosnippet="">154</a>
+<a href="#155" id="155" data-nosnippet="">155</a>    <span class="doccomment">/// PdfCraft patch (90): whether the font has no `/Widths` (or `/FirstChar`/`/LastChar`), so
+<a href="#156" id="156" data-nosnippet="">156</a>    /// that `glyph_width` falls back on the glyph procedures' `d0`/`d1` widths.
+<a href="#157" id="157" data-nosnippet="">157</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>widths_missing(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#158" id="158" data-nosnippet="">158</a>        <span class="self">self</span>.widths.is_empty()
+<a href="#159" id="159" data-nosnippet="">159</a>    }
+<a href="#160" id="160" data-nosnippet="">160</a>
+<a href="#161" id="161" data-nosnippet="">161</a>    <span class="doccomment">/// PdfCraft patch (90): the horizontal width `wx` that the glyph procedure for `code`
+<a href="#162" id="162" data-nosnippet="">162</a>    /// sets with `d0` or `d1`, in glyph space. `None` when the code has no procedure, the
+<a href="#163" id="163" data-nosnippet="">163</a>    /// procedure sets no width or its width isn't finite. A procedure the page's content
+<a href="#164" id="164" data-nosnippet="">164</a>    /// budget can't decode isn't remembered, so a later page may still read it.
+<a href="#165" id="165" data-nosnippet="">165</a>    </span><span class="kw">fn </span>proc_width(<span class="kw-2">&amp;</span><span class="self">self</span>, code: u8) -&gt; <span class="prelude-ty">Option</span>&lt;f32&gt; {
+<a href="#166" id="166" data-nosnippet="">166</a>        <span class="kw">let </span>cell = <span class="self">self</span>.proc_widths.get(usize::from(code))<span class="question-mark">?</span>;
+<a href="#167" id="167" data-nosnippet="">167</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(width) = cell.get() {
+<a href="#168" id="168" data-nosnippet="">168</a>            <span class="kw">return </span><span class="kw-2">*</span>width;
+<a href="#169" id="169" data-nosnippet="">169</a>        }
+<a href="#170" id="170" data-nosnippet="">170</a>        <span class="kw">let </span>name = <span class="self">self</span>.glyph_simulator.glyph_to_string(<span class="self">self</span>.map_code(code))<span class="question-mark">?</span>;
+<a href="#171" id="171" data-nosnippet="">171</a>        <span class="kw">let </span>program = <span class="self">self</span>.char_procs.get(<span class="kw-2">&amp;</span>name)<span class="question-mark">?</span>;
+<a href="#172" id="172" data-nosnippet="">172</a>        <span class="kw">let </span>decoded = <span class="kw">crate</span>::third_party::hayro_interpret::context::decode_content(program)<span class="question-mark">?</span>;
+<a href="#173" id="173" data-nosnippet="">173</a>        <span class="kw">let </span><span class="kw-2">mut </span>iter = TypedIter::new(decoded.as_ref());
+<a href="#174" id="174" data-nosnippet="">174</a>        <span class="kw">let </span><span class="kw-2">mut </span>width = <span class="prelude-val">None</span>;
+<a href="#175" id="175" data-nosnippet="">175</a>        <span class="kw">while let </span><span class="prelude-val">Some</span>(op) = iter.next() {
+<a href="#176" id="176" data-nosnippet="">176</a>            <span class="kw">match </span>op {
+<a href="#177" id="177" data-nosnippet="">177</a>                TypedInstruction::ColorGlyph(d0) =&gt; width = <span class="prelude-val">Some</span>(d0.<span class="number">0</span>.as_f32()),
+<a href="#178" id="178" data-nosnippet="">178</a>                TypedInstruction::ShapeGlyph(d1) =&gt; width = <span class="prelude-val">Some</span>(d1.<span class="number">0</span>.as_f32()),
+<a href="#179" id="179" data-nosnippet="">179</a>                <span class="kw">_ </span>=&gt; <span class="kw">continue</span>,
+<a href="#180" id="180" data-nosnippet="">180</a>            }
+<a href="#181" id="181" data-nosnippet="">181</a>            <span class="kw">break</span>;
+<a href="#182" id="182" data-nosnippet="">182</a>        }
+<a href="#183" id="183" data-nosnippet="">183</a>        <span class="kw">let </span>width = width.filter(|w| w.is_finite());
+<a href="#184" id="184" data-nosnippet="">184</a>        <span class="comment">// Setting can't fail here: the cell was empty above and nothing in between fills it.
+<a href="#185" id="185" data-nosnippet="">185</a>        </span><span class="kw">let _ </span>= cell.set(width);
+<a href="#186" id="186" data-nosnippet="">186</a>        width
+<a href="#187" id="187" data-nosnippet="">187</a>    }
+<a href="#188" id="188" data-nosnippet="">188</a>
+<a href="#189" id="189" data-nosnippet="">189</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>char_code_to_unicode(<span class="kw-2">&amp;</span><span class="self">self</span>, char_code: u32) -&gt; <span class="prelude-ty">Option</span>&lt;BfString&gt; {
+<a href="#190" id="190" data-nosnippet="">190</a>        <span class="comment">// PdfCraft patch: upstream only consulted ToUnicode. Many Type3 fonts (e.g. TeX/dvips
+<a href="#191" id="191" data-nosnippet="">191</a>        // bitmap fonts) have none; fall back to the /Encoding glyph names, then to printable
+<a href="#192" id="192" data-nosnippet="">192</a>        // ASCII codes, as other viewers do for text extraction.
+<a href="#193" id="193" data-nosnippet="">193</a>        </span><span class="self">self</span>.to_unicode.as_ref().and_then(|t| t.lookup_bf_string(char_code)).or_else(|| {
+<a href="#194" id="194" data-nosnippet="">194</a>            <span class="kw">let </span>code = u8::try_from(char_code).ok()<span class="question-mark">?</span>;
+<a href="#195" id="195" data-nosnippet="">195</a>            <span class="kw">let </span>name = <span class="self">self
+<a href="#196" id="196" data-nosnippet="">196</a>                </span>.encodings
+<a href="#197" id="197" data-nosnippet="">197</a>                .get(<span class="kw-2">&amp;</span>code)
+<a href="#198" id="198" data-nosnippet="">198</a>                .map(|s| s.as_str())
+<a href="#199" id="199" data-nosnippet="">199</a>                <span class="comment">// PdfCraft patch: an Annex D.2 alias code reads as the ordinary character;
+<a href="#200" id="200" data-nosnippet="">200</a>                // see `Encoding::text_alias`.
+<a href="#201" id="201" data-nosnippet="">201</a>                </span>.or_else(|| <span class="self">self</span>.encoding.text_alias(code))
+<a href="#202" id="202" data-nosnippet="">202</a>                .or_else(|| <span class="self">self</span>.encoding.map_code(code));
+<a href="#203" id="203" data-nosnippet="">203</a>            name.and_then(<span class="kw">crate</span>::third_party::hayro_interpret::font::glyph_name_to_unicode)
+<a href="#204" id="204" data-nosnippet="">204</a>                .or_else(|| (<span class="number">0x20</span>..<span class="number">0x7f</span>).contains(<span class="kw-2">&amp;</span>code).then_some(code <span class="kw">as </span>char))
+<a href="#205" id="205" data-nosnippet="">205</a>                .map(BfString::Char)
+<a href="#206" id="206" data-nosnippet="">206</a>                <span class="comment">// PdfCraft patch (100): above 126, a name that only numbers its glyph reads
+<a href="#207" id="207" data-nosnippet="">207</a>                // as the code's Latin-1 character when the number is that code and every
+<a href="#208" id="208" data-nosnippet="">208</a>                // numbered name in the font names its own code (`C174` at 174 reads `®`),
+<a href="#209" id="209" data-nosnippet="">209</a>                // as in a Type 1 font.
+<a href="#210" id="210" data-nosnippet="">210</a>                </span>.or_else(|| {
+<a href="#211" id="211" data-nosnippet="">211</a>                    <span class="kw">let </span>own_codes = <span class="kw-2">*</span><span class="self">self
+<a href="#212" id="212" data-nosnippet="">212</a>                        </span>.own_code_names
+<a href="#213" id="213" data-nosnippet="">213</a>                        .get_or_init(|| numbered_names_name_their_codes((<span class="number">0</span>..=u8::MAX).filter_map(|c| <span class="prelude-val">Some</span>((c, <span class="self">self</span>.code_to_name(c)<span class="question-mark">?</span>)))));
+<a href="#214" id="214" data-nosnippet="">214</a>                    name.filter(|<span class="kw">_</span>| own_codes).and_then(|name| numbered_glyph_name_at_its_code(name, code))
+<a href="#215" id="215" data-nosnippet="">215</a>                })
+<a href="#216" id="216" data-nosnippet="">216</a>        })
+<a href="#217" id="217" data-nosnippet="">217</a>    }
+<a href="#218" id="218" data-nosnippet="">218</a>
+<a href="#219" id="219" data-nosnippet="">219</a>    <span class="doccomment">/// PdfCraft patch: the glyph name `/Encoding` gives a code, as `map_code` reads it.
+<a href="#220" id="220" data-nosnippet="">220</a>    </span><span class="kw">fn </span>code_to_name(<span class="kw-2">&amp;</span><span class="self">self</span>, code: u8) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt; {
+<a href="#221" id="221" data-nosnippet="">221</a>        <span class="self">self</span>.encodings.get(<span class="kw-2">&amp;</span>code).map(String::as_str).or_else(|| <span class="self">self</span>.encoding.map_code(code))
+<a href="#222" id="222" data-nosnippet="">222</a>    }
+<a href="#223" id="223" data-nosnippet="">223</a>
+<a href="#224" id="224" data-nosnippet="">224</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>render_glyph(
+<a href="#225" id="225" data-nosnippet="">225</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href="#226" id="226" data-nosnippet="">226</a>        glyph: <span class="kw-2">&amp;</span>Type3Glyph&lt;<span class="lifetime">'a</span>&gt;,
+<a href="#227" id="227" data-nosnippet="">227</a>        transform: Affine,
+<a href="#228" id="228" data-nosnippet="">228</a>        glyph_transform: Affine,
+<a href="#229" id="229" data-nosnippet="">229</a>        paint: <span class="kw-2">&amp;</span>Paint&lt;<span class="lifetime">'a</span>&gt;,
+<a href="#230" id="230" data-nosnippet="">230</a>        device: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Device&lt;<span class="lifetime">'a</span>&gt;,
+<a href="#231" id="231" data-nosnippet="">231</a>    ) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+<a href="#232" id="232" data-nosnippet="">232</a>        <span class="comment">// PdfCraft patch: a glyph procedure may show text in this same font (through
+<a href="#233" id="233" data-nosnippet="">233</a>        // inherited resources), recursing until the stack overflowed.
+<a href="#234" id="234" data-nosnippet="">234</a>        </span><span class="kw">if </span>glyph.nesting_depth &gt; <span class="kw">crate</span>::third_party::hayro_interpret::context::MAX_PAINT_NESTING
+<a href="#235" id="235" data-nosnippet="">235</a>            || !<span class="kw">crate</span>::third_party::hayro_interpret::context::take_nested_paint(glyph.nesting_depth)
+<a href="#236" id="236" data-nosnippet="">236</a>        {
+<a href="#237" id="237" data-nosnippet="">237</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#238" id="238" data-nosnippet="">238</a>        }
+<a href="#239" id="239" data-nosnippet="">239</a>        <span class="kw">let </span><span class="kw-2">mut </span>state = glyph.state.clone();
+<a href="#240" id="240" data-nosnippet="">240</a>        <span class="kw">let </span>root_transform = transform * glyph_transform * <span class="self">self</span>.matrix * Affine::scale(UNITS_PER_EM <span class="kw">as </span>f64);
+<a href="#241" id="241" data-nosnippet="">241</a>        state.ctm = root_transform;
+<a href="#242" id="242" data-nosnippet="">242</a>
+<a href="#243" id="243" data-nosnippet="">243</a>        <span class="comment">// Not sure if this is mentioned anywhere, but I do think we need to reset the text state
+<a href="#244" id="244" data-nosnippet="">244</a>        // (though the graphics state itself should be preserved).
+<a href="#245" id="245" data-nosnippet="">245</a>        </span>state.text_state = TextState::default();
+<a href="#246" id="246" data-nosnippet="">246</a>
+<a href="#247" id="247" data-nosnippet="">247</a>        <span class="kw">let </span>name = <span class="self">self</span>.glyph_simulator.glyph_to_string(glyph.glyph_id)<span class="question-mark">?</span>;
+<a href="#248" id="248" data-nosnippet="">248</a>        <span class="kw">let </span>program = <span class="self">self</span>.char_procs.get(<span class="kw-2">&amp;</span>name)<span class="question-mark">?</span>;
+<a href="#249" id="249" data-nosnippet="">249</a>        <span class="kw">let </span>(decoded, _held) = <span class="self">self</span>.decoded_proc(<span class="kw-2">&amp;</span>name, program, <span class="kw-2">&amp;</span>glyph.cache.type3_procs)<span class="question-mark">?</span>;
+<a href="#250" id="250" data-nosnippet="">250</a>        <span class="kw">let </span>iter = TypedIter::new(<span class="kw-2">&amp;</span>decoded);
+<a href="#251" id="251" data-nosnippet="">251</a>
+<a href="#252" id="252" data-nosnippet="">252</a>        <span class="kw">let </span>is_shape_glyph = {
+<a href="#253" id="253" data-nosnippet="">253</a>            <span class="kw">let </span><span class="kw-2">mut </span>iter = iter.clone();
+<a href="#254" id="254" data-nosnippet="">254</a>            <span class="kw">let </span><span class="kw-2">mut </span>is_shape_glyph = <span class="bool-val">true</span>;
+<a href="#255" id="255" data-nosnippet="">255</a>
+<a href="#256" id="256" data-nosnippet="">256</a>            <span class="kw">while let </span><span class="prelude-val">Some</span>(op) = iter.next() {
+<a href="#257" id="257" data-nosnippet="">257</a>                <span class="kw">match </span>op {
+<a href="#258" id="258" data-nosnippet="">258</a>                    TypedInstruction::ShapeGlyph(<span class="kw">_</span>) =&gt; {
+<a href="#259" id="259" data-nosnippet="">259</a>                        <span class="kw">break</span>;
+<a href="#260" id="260" data-nosnippet="">260</a>                    }
+<a href="#261" id="261" data-nosnippet="">261</a>                    TypedInstruction::ColorGlyph(<span class="kw">_</span>) =&gt; {
+<a href="#262" id="262" data-nosnippet="">262</a>                        is_shape_glyph = <span class="bool-val">false</span>;
+<a href="#263" id="263" data-nosnippet="">263</a>                        <span class="kw">break</span>;
+<a href="#264" id="264" data-nosnippet="">264</a>                    }
+<a href="#265" id="265" data-nosnippet="">265</a>                    <span class="kw">_ </span>=&gt; {}
+<a href="#266" id="266" data-nosnippet="">266</a>                }
+<a href="#267" id="267" data-nosnippet="">267</a>            }
+<a href="#268" id="268" data-nosnippet="">268</a>
+<a href="#269" id="269" data-nosnippet="">269</a>            is_shape_glyph
+<a href="#270" id="270" data-nosnippet="">270</a>        };
+<a href="#271" id="271" data-nosnippet="">271</a>
+<a href="#272" id="272" data-nosnippet="">272</a>        <span class="comment">// PdfCraft patch: context clips and shading bounds are in device space; FontBBox is in glyph space.
+<a href="#273" id="273" data-nosnippet="">273</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>context = Context::new_with(
+<a href="#274" id="274" data-nosnippet="">274</a>            state.ctm,
+<a href="#275" id="275" data-nosnippet="">275</a>            root_transform.transform_rect_bbox(<span class="self">self</span>.font_bbox),
+<a href="#276" id="276" data-nosnippet="">276</a>            <span class="kw-2">&amp;</span>glyph.cache,
+<a href="#277" id="277" data-nosnippet="">277</a>            glyph.xref,
+<a href="#278" id="278" data-nosnippet="">278</a>            glyph.settings.clone(),
+<a href="#279" id="279" data-nosnippet="">279</a>            state,
+<a href="#280" id="280" data-nosnippet="">280</a>            glyph.nesting_depth,
+<a href="#281" id="281" data-nosnippet="">281</a>        );
+<a href="#282" id="282" data-nosnippet="">282</a>
+<a href="#283" id="283" data-nosnippet="">283</a>        <span class="kw">let </span><span class="kw-2">mut </span>resources = Resources::from_parent(<span class="self">self</span>.dict.get(RESOURCES).unwrap_or_default(), glyph.parent_resources.clone());
+<a href="#284" id="284" data-nosnippet="">284</a>
+<a href="#285" id="285" data-nosnippet="">285</a>        <span class="comment">// Technically not valid, but also support by Adobe Acrobat. See PDFBOX-5294.
+<a href="#286" id="286" data-nosnippet="">286</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(procs_resources) = program.dict().get::&lt;Dict&lt;<span class="lifetime">'_</span>&gt;&gt;(RESOURCES) {
+<a href="#287" id="287" data-nosnippet="">287</a>            resources = Resources::from_parent(procs_resources, resources);
+<a href="#288" id="288" data-nosnippet="">288</a>        }
+<a href="#289" id="289" data-nosnippet="">289</a>
+<a href="#290" id="290" data-nosnippet="">290</a>        <span class="kw">if </span>is_shape_glyph {
+<a href="#291" id="291" data-nosnippet="">291</a>            <span class="kw">let </span><span class="kw-2">mut </span>device = Type3ShapeGlyphDevice::new(device, paint.clone());
+<a href="#292" id="292" data-nosnippet="">292</a>            interpret(iter, <span class="kw-2">&amp;</span>resources, <span class="kw-2">&amp;mut </span>context, <span class="kw-2">&amp;mut </span>device);
+<a href="#293" id="293" data-nosnippet="">293</a>        } <span class="kw">else </span>{
+<a href="#294" id="294" data-nosnippet="">294</a>            interpret(iter, <span class="kw-2">&amp;</span>resources, <span class="kw-2">&amp;mut </span>context, device);
+<a href="#295" id="295" data-nosnippet="">295</a>        }
+<a href="#296" id="296" data-nosnippet="">296</a>
+<a href="#297" id="297" data-nosnippet="">297</a>        <span class="prelude-val">Some</span>(())
+<a href="#298" id="298" data-nosnippet="">298</a>    }
+<a href="#299" id="299" data-nosnippet="">299</a>}
+<a href="#300" id="300" data-nosnippet="">300</a>
+<a href="#301" id="301" data-nosnippet="">301</a><span class="kw">impl </span>CacheKey <span class="kw">for </span>Type3&lt;<span class="lifetime">'_</span>&gt; {
+<a href="#302" id="302" data-nosnippet="">302</a>    <span class="kw">fn </span>cache_key(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u128 {
+<a href="#303" id="303" data-nosnippet="">303</a>        <span class="self">self</span>.dict.cache_key()
+<a href="#304" id="304" data-nosnippet="">304</a>    }
+<a href="#305" id="305" data-nosnippet="">305</a>}
+<a href="#306" id="306" data-nosnippet="">306</a>
+<a href="#307" id="307" data-nosnippet="">307</a><span class="kw">struct </span>Type3ShapeGlyphDevice&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, T: Device&lt;<span class="lifetime">'a</span>&gt;&gt; {
+<a href="#308" id="308" data-nosnippet="">308</a>    inner: <span class="kw-2">&amp;</span><span class="lifetime">'b </span><span class="kw-2">mut </span>T,
+<a href="#309" id="309" data-nosnippet="">309</a>    paint: Paint&lt;<span class="lifetime">'a</span>&gt;,
+<a href="#310" id="310" data-nosnippet="">310</a>}
+<a href="#311" id="311" data-nosnippet="">311</a>
+<a href="#312" id="312" data-nosnippet="">312</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, T: Device&lt;<span class="lifetime">'a</span>&gt;&gt; Type3ShapeGlyphDevice&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, T&gt; {
+<a href="#313" id="313" data-nosnippet="">313</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(device: <span class="kw-2">&amp;</span><span class="lifetime">'b </span><span class="kw-2">mut </span>T, paint: Paint&lt;<span class="lifetime">'a</span>&gt;) -&gt; <span class="self">Self </span>{
+<a href="#314" id="314" data-nosnippet="">314</a>        <span class="self">Self </span>{ inner: device, paint }
+<a href="#315" id="315" data-nosnippet="">315</a>    }
+<a href="#316" id="316" data-nosnippet="">316</a>}
+<a href="#317" id="317" data-nosnippet="">317</a>
+<a href="#318" id="318" data-nosnippet="">318</a><span class="comment">// Only filling, stroking of paths and stencil masks are allowed.
+<a href="#319" id="319" data-nosnippet="">319</a></span><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T: Device&lt;<span class="lifetime">'a</span>&gt;&gt; Device&lt;<span class="lifetime">'a</span>&gt; <span class="kw">for </span>Type3ShapeGlyphDevice&lt;<span class="lifetime">'a</span>, <span class="lifetime">'_</span>, T&gt; {
+<a href="#320" id="320" data-nosnippet="">320</a>    <span class="kw">fn </span>set_soft_mask(<span class="kw-2">&amp;mut </span><span class="self">self</span>, m: <span class="prelude-ty">Option</span>&lt;SoftMask&lt;<span class="lifetime">'a</span>&gt;&gt;) {
+<a href="#321" id="321" data-nosnippet="">321</a>        <span class="self">self</span>.inner.set_soft_mask(m);
+<a href="#322" id="322" data-nosnippet="">322</a>    }
+<a href="#323" id="323" data-nosnippet="">323</a>
+<a href="#324" id="324" data-nosnippet="">324</a>    <span class="kw">fn </span>draw_path(<span class="kw-2">&amp;mut </span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>BezPath, transform: Affine, <span class="kw">_</span>: <span class="kw-2">&amp;</span>Paint&lt;<span class="lifetime">'_</span>&gt;, draw_mode: <span class="kw-2">&amp;</span>PathDrawMode) {
+<a href="#325" id="325" data-nosnippet="">325</a>        <span class="self">self</span>.inner.draw_path(path, transform, <span class="kw-2">&amp;</span><span class="self">self</span>.paint, draw_mode);
+<a href="#326" id="326" data-nosnippet="">326</a>    }
+<a href="#327" id="327" data-nosnippet="">327</a>
+<a href="#328" id="328" data-nosnippet="">328</a>    <span class="kw">fn </span>push_clip_path(<span class="kw-2">&amp;mut </span><span class="self">self</span>, clip_path: <span class="kw-2">&amp;</span>ClipPath) {
+<a href="#329" id="329" data-nosnippet="">329</a>        <span class="self">self</span>.inner.push_clip_path(clip_path);
+<a href="#330" id="330" data-nosnippet="">330</a>    }
+<a href="#331" id="331" data-nosnippet="">331</a>
+<a href="#332" id="332" data-nosnippet="">332</a>    <span class="kw">fn </span>push_transparency_group(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw">_</span>: f32, <span class="kw">_</span>: <span class="prelude-ty">Option</span>&lt;SoftMask&lt;<span class="lifetime">'_</span>&gt;&gt;, <span class="kw">_</span>: BlendMode) {}
+<a href="#333" id="333" data-nosnippet="">333</a>
+<a href="#334" id="334" data-nosnippet="">334</a>    <span class="kw">fn </span>draw_glyph(<span class="kw-2">&amp;mut </span><span class="self">self</span>, g: <span class="kw-2">&amp;</span>Glyph&lt;<span class="lifetime">'a</span>&gt;, transform: Affine, glyph_transform: Affine, p: <span class="kw-2">&amp;</span>Paint&lt;<span class="lifetime">'a</span>&gt;, draw_mode: <span class="kw-2">&amp;</span>GlyphDrawMode) {
+<a href="#335" id="335" data-nosnippet="">335</a>        <span class="self">self</span>.inner.draw_glyph(g, transform, glyph_transform, p, draw_mode);
+<a href="#336" id="336" data-nosnippet="">336</a>    }
+<a href="#337" id="337" data-nosnippet="">337</a>
+<a href="#338" id="338" data-nosnippet="">338</a>    <span class="kw">fn </span>pop_clip_path(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href="#339" id="339" data-nosnippet="">339</a>        <span class="self">self</span>.inner.pop_clip_path();
+<a href="#340" id="340" data-nosnippet="">340</a>    }
+<a href="#341" id="341" data-nosnippet="">341</a>
+<a href="#342" id="342" data-nosnippet="">342</a>    <span class="kw">fn </span>pop_transparency_group(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
+<a href="#343" id="343" data-nosnippet="">343</a>
+<a href="#344" id="344" data-nosnippet="">344</a>    <span class="kw">fn </span>draw_image(<span class="kw-2">&amp;mut </span><span class="self">self</span>, image: Image&lt;<span class="lifetime">'a</span>, <span class="lifetime">'_</span>&gt;, transform: Affine) {
+<a href="#345" id="345" data-nosnippet="">345</a>        <span class="kw">if let </span>Image::Stencil(<span class="kw-2">mut </span>s) = image {
+<a href="#346" id="346" data-nosnippet="">346</a>            s.paint = <span class="self">self</span>.paint.clone();
+<a href="#347" id="347" data-nosnippet="">347</a>            <span class="self">self</span>.inner.draw_image(Image::Stencil(s), transform);
+<a href="#348" id="348" data-nosnippet="">348</a>        }
+<a href="#349" id="349" data-nosnippet="">349</a>    }
+<a href="#350" id="350" data-nosnippet="">350</a>
+<a href="#351" id="351" data-nosnippet="">351</a>    <span class="kw">fn </span>set_blend_mode(<span class="kw-2">&amp;mut </span><span class="self">self</span>, <span class="kw">_</span>: BlendMode) {}
+<a href="#352" id="352" data-nosnippet="">352</a>}
+</code></pre></div></section></main></body></html>

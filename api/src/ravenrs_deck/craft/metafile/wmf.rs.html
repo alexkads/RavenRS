@@ -1,0 +1,393 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>wmf.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="ravenrs_deck" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../src-files.js"></script><script defer="" src="../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-deck/src/craft/metafile/wmf.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_deck/craft/metafile/wmf.rs.html"><meta property="og:title" content="wmf.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-deck/src/craft/metafile/wmf.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_deck/craft/metafile/wmf.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="wmf.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-deck/src/craft/metafile/wmf.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"wmf.rs - source","description":"Source of the Rust file `crates/ravenrs-deck/src/craft/metafile/wmf.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_deck/craft/metafile/wmf.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_deck/craft/metafile/</div>wmf.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! WMF reader (MS-WMF). A file is an optional 22-byte placeable header, a 9-word standard header, then
+<a href="#2" id="2" data-nosnippet="">2</a>//! records of (size in 16-bit words, function, parameters). Parameters are read at byte 6 of each record.
+<a href="#3" id="3" data-nosnippet="">3</a>
+<a href="#4" id="4" data-nosnippet="">4</a></span><span class="kw">use </span>std::sync::Arc;
+<a href="#5" id="5" data-nosnippet="">5</a>
+<a href="#6" id="6" data-nosnippet="">6</a><span class="kw">use </span><span class="kw">crate</span>::craft::metafile::bytes::Bytes;
+<a href="#7" id="7" data-nosnippet="">7</a><span class="kw">use </span><span class="kw">crate</span>::craft::metafile::canvas::{BS_HATCHED, Brush, Canvas, LogFont, Obj, Pen, colorref};
+<a href="#8" id="8" data-nosnippet="">8</a><span class="kw">use </span><span class="kw">crate</span>::craft::metafile::dib;
+<a href="#9" id="9" data-nosnippet="">9</a><span class="kw">use </span><span class="kw">crate</span>::craft::metafile::geom::{<span class="self">self</span>, ArcKind, P};
+<a href="#10" id="10" data-nosnippet="">10</a><span class="kw">use </span><span class="kw">crate</span>::craft::metafile::text::{ETO_CLIPPED, ETO_OPAQUE, Font, MAX_CHARS, decode_bytes};
+<a href="#11" id="11" data-nosnippet="">11</a><span class="kw">use </span><span class="kw">crate</span>::craft::metafile::{Error, Frame, MAX_PATH_OPS};
+<a href="#12" id="12" data-nosnippet="">12</a>
+<a href="#13" id="13" data-nosnippet="">13</a><span class="kw">const </span>PLACEABLE_KEY: u32 = <span class="number">0x9AC6_CDD7</span>;
+<a href="#14" id="14" data-nosnippet="">14</a><span class="kw">const </span>DEFAULT_INCH: f64 = <span class="number">1440.0</span>;
+<a href="#15" id="15" data-nosnippet="">15</a><span class="doccomment">/// A placeable WMF plays into a target sized in points; brushes are laid out in 96-dpi pixels.
+<a href="#16" id="16" data-nosnippet="">16</a></span><span class="kw">const </span>PT_PER_PX: f64 = <span class="number">72.0 </span>/ <span class="number">96.0</span>;
+<a href="#17" id="17" data-nosnippet="">17</a>
+<a href="#18" id="18" data-nosnippet="">18</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_wmf(b: Bytes) -&gt; bool {
+<a href="#19" id="19" data-nosnippet="">19</a>    <span class="kw">if </span>b.u32(<span class="number">0</span>) == <span class="prelude-val">Some</span>(PLACEABLE_KEY) {
+<a href="#20" id="20" data-nosnippet="">20</a>        <span class="kw">return </span><span class="bool-val">true</span>;
+<a href="#21" id="21" data-nosnippet="">21</a>    }
+<a href="#22" id="22" data-nosnippet="">22</a>    <span class="macro">matches!</span>(b.u16(<span class="number">0</span>), <span class="prelude-val">Some</span>(<span class="number">1 </span>| <span class="number">2</span>)) &amp;&amp; b.u16(<span class="number">2</span>) == <span class="prelude-val">Some</span>(<span class="number">9</span>) &amp;&amp; <span class="macro">matches!</span>(b.u16(<span class="number">4</span>), <span class="prelude-val">Some</span>(<span class="number">0x100 </span>| <span class="number">0x300</span>))
+<a href="#23" id="23" data-nosnippet="">23</a>}
+<a href="#24" id="24" data-nosnippet="">24</a>
+<a href="#25" id="25" data-nosnippet="">25</a><span class="doccomment">/// Reads all records. Returns the drawing state and the picture frame, or an error when no record
+<a href="#26" id="26" data-nosnippet="">26</a>/// could be read at all.
+<a href="#27" id="27" data-nosnippet="">27</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>parse(input: Bytes) -&gt; <span class="prelude-ty">Result</span>&lt;(Canvas, <span class="prelude-ty">Option</span>&lt;Frame&gt;), Error&gt; {
+<a href="#28" id="28" data-nosnippet="">28</a>    <span class="kw">let </span>placeable = input.u32(<span class="number">0</span>) == <span class="prelude-val">Some</span>(PLACEABLE_KEY);
+<a href="#29" id="29" data-nosnippet="">29</a>    <span class="comment">// Placeable bounds: logical corners (left, top, right, bottom) and their size in points.
+<a href="#30" id="30" data-nosnippet="">30</a>    </span><span class="kw">let </span>(hdr, bounds) = <span class="kw">if </span>placeable {
+<a href="#31" id="31" data-nosnippet="">31</a>        <span class="kw">let </span>[l, t, r, b] = [<span class="number">6</span>, <span class="number">8</span>, <span class="number">10</span>, <span class="number">12</span>].map(|o| input.i16(o).map(f64::from));
+<a href="#32" id="32" data-nosnippet="">32</a>        <span class="kw">let </span>(<span class="prelude-val">Some</span>(l), <span class="prelude-val">Some</span>(t), <span class="prelude-val">Some</span>(r), <span class="prelude-val">Some</span>(b)) = (l, t, r, b) <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Err</span>(Error::BadHeader) };
+<a href="#33" id="33" data-nosnippet="">33</a>        <span class="kw">let </span>inch = input.u16(<span class="number">14</span>).filter(|v| <span class="kw-2">*</span>v &gt; <span class="number">0</span>).map_or(DEFAULT_INCH, f64::from);
+<a href="#34" id="34" data-nosnippet="">34</a>        <span class="kw">let </span>(w, h) = (r - l, b - t);
+<a href="#35" id="35" data-nosnippet="">35</a>        <span class="kw">let </span>bounds = (w &gt; <span class="number">0.0 </span>&amp;&amp; h &gt; <span class="number">0.0</span>).then_some(([l, t, r, b], (w * <span class="number">72.0 </span>/ inch, h * <span class="number">72.0 </span>/ inch)));
+<a href="#36" id="36" data-nosnippet="">36</a>        (<span class="number">22</span>, bounds)
+<a href="#37" id="37" data-nosnippet="">37</a>    } <span class="kw">else </span>{
+<a href="#38" id="38" data-nosnippet="">38</a>        (<span class="number">0</span>, <span class="prelude-val">None</span>)
+<a href="#39" id="39" data-nosnippet="">39</a>    };
+<a href="#40" id="40" data-nosnippet="">40</a>    <span class="kw">let </span>hsize = input.u16(hdr + <span class="number">2</span>).ok_or(Error::BadHeader)<span class="question-mark">? </span><span class="kw">as </span>usize;
+<a href="#41" id="41" data-nosnippet="">41</a>    <span class="kw">if </span>hsize &lt; <span class="number">9 </span>{
+<a href="#42" id="42" data-nosnippet="">42</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(Error::BadHeader);
+<a href="#43" id="43" data-nosnippet="">43</a>    }
+<a href="#44" id="44" data-nosnippet="">44</a>    <span class="kw">let </span><span class="kw-2">mut </span>pos = hdr.checked_add(hsize.checked_mul(<span class="number">2</span>).ok_or(Error::BadHeader)<span class="question-mark">?</span>).ok_or(Error::BadHeader)<span class="question-mark">?</span>;
+<a href="#45" id="45" data-nosnippet="">45</a>    <span class="comment">// Played into a target like Word does: the placeable bounds are the first window, the target (the
+<a href="#46" id="46" data-nosnippet="">46</a>    // picture size) the viewport. A plain WMF's target is its first window.
+<a href="#47" id="47" data-nosnippet="">47</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>cv = Canvas::new();
+<a href="#48" id="48" data-nosnippet="">48</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>((c, size)) = bounds {
+<a href="#49" id="49" data-nosnippet="">49</a>        cv.play_into(<span class="prelude-val">Some</span>([c[<span class="number">0</span>], c[<span class="number">1</span>], c[<span class="number">2</span>] - c[<span class="number">0</span>], c[<span class="number">3</span>] - c[<span class="number">1</span>]]), size);
+<a href="#50" id="50" data-nosnippet="">50</a>        cv.set_clip_surface([<span class="number">0.0</span>, <span class="number">0.0</span>, size.<span class="number">0</span>, size.<span class="number">1</span>]);
+<a href="#51" id="51" data-nosnippet="">51</a>        cv.pattern_px = PT_PER_PX;
+<a href="#52" id="52" data-nosnippet="">52</a>    }
+<a href="#53" id="53" data-nosnippet="">53</a>    <span class="kw">let </span><span class="kw-2">mut </span>player_viewport = bounds.is_some();
+<a href="#54" id="54" data-nosnippet="">54</a>    <span class="kw">let </span><span class="kw-2">mut </span>parsed = <span class="number">0usize</span>;
+<a href="#55" id="55" data-nosnippet="">55</a>    <span class="kw">while </span>!cv.full() {
+<a href="#56" id="56" data-nosnippet="">56</a>        <span class="kw">let </span>(<span class="prelude-val">Some</span>(words), <span class="prelude-val">Some</span>(func)) = (input.u32(pos), pos.checked_add(<span class="number">4</span>).and_then(|o| input.u16(o))) <span class="kw">else </span>{ <span class="kw">break </span>};
+<a href="#57" id="57" data-nosnippet="">57</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(len) = (words <span class="kw">as </span>usize).checked_mul(<span class="number">2</span>).filter(|l| <span class="kw-2">*</span>l &gt;= <span class="number">6</span>) <span class="kw">else </span>{ <span class="kw">break </span>};
+<a href="#58" id="58" data-nosnippet="">58</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(rec) = input.slice(pos, len) <span class="kw">else </span>{ <span class="kw">break </span>};
+<a href="#59" id="59" data-nosnippet="">59</a>        <span class="kw">if </span>func == <span class="number">0 </span>{
+<a href="#60" id="60" data-nosnippet="">60</a>            <span class="kw">break</span>;
+<a href="#61" id="61" data-nosnippet="">61</a>        }
+<a href="#62" id="62" data-nosnippet="">62</a>        record(<span class="kw-2">&amp;mut </span>cv, func, Bytes(rec));
+<a href="#63" id="63" data-nosnippet="">63</a>        <span class="kw">if </span>func == <span class="number">0x020C </span>&amp;&amp; cv.window_set &amp;&amp; !player_viewport &amp;&amp; !cv.viewport_set {
+<a href="#64" id="64" data-nosnippet="">64</a>            <span class="kw">let </span>we = cv.map.window_ext();
+<a href="#65" id="65" data-nosnippet="">65</a>            cv.play_into(<span class="prelude-val">None</span>, (we.<span class="number">0</span>.abs(), we.<span class="number">1</span>.abs()));
+<a href="#66" id="66" data-nosnippet="">66</a>            player_viewport = <span class="bool-val">true</span>;
+<a href="#67" id="67" data-nosnippet="">67</a>        }
+<a href="#68" id="68" data-nosnippet="">68</a>        parsed += <span class="number">1</span>;
+<a href="#69" id="69" data-nosnippet="">69</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(next) = pos.checked_add(len) <span class="kw">else </span>{ <span class="kw">break </span>};
+<a href="#70" id="70" data-nosnippet="">70</a>        pos = next;
+<a href="#71" id="71" data-nosnippet="">71</a>    }
+<a href="#72" id="72" data-nosnippet="">72</a>    <span class="kw">if </span>parsed == <span class="number">0 </span>{
+<a href="#73" id="73" data-nosnippet="">73</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(Error::NoRecords);
+<a href="#74" id="74" data-nosnippet="">74</a>    }
+<a href="#75" id="75" data-nosnippet="">75</a>    <span class="kw">let </span>frame = <span class="kw">match </span>bounds {
+<a href="#76" id="76" data-nosnippet="">76</a>        <span class="comment">// Played into its target: the frame is the target.
+<a href="#77" id="77" data-nosnippet="">77</a>        </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, size)) <span class="kw">if </span>!cv.viewport_set &amp;&amp; cv.map.uses_extents() =&gt; <span class="prelude-val">Some</span>(Frame { rect: [<span class="number">0.0</span>, <span class="number">0.0</span>, size.<span class="number">0</span>, size.<span class="number">1</span>], size: <span class="prelude-val">Some</span>(size) }),
+<a href="#78" id="78" data-nosnippet="">78</a>        <span class="comment">// The file set its own viewport, so the drawing is in its device units and the logical bounds
+<a href="#79" id="79" data-nosnippet="">79</a>        // go through the final mapping.
+<a href="#80" id="80" data-nosnippet="">80</a>        </span><span class="prelude-val">Some</span>((c, size)) =&gt; {
+<a href="#81" id="81" data-nosnippet="">81</a>            <span class="kw">let </span>(a, b) = (cv.map.device((c[<span class="number">0</span>], c[<span class="number">1</span>])), cv.map.device((c[<span class="number">2</span>], c[<span class="number">3</span>])));
+<a href="#82" id="82" data-nosnippet="">82</a>            <span class="kw">let </span>rect = [a.<span class="number">0</span>.min(b.<span class="number">0</span>), a.<span class="number">1</span>.min(b.<span class="number">1</span>), (b.<span class="number">0 </span>- a.<span class="number">0</span>).abs(), (b.<span class="number">1 </span>- a.<span class="number">1</span>).abs()];
+<a href="#83" id="83" data-nosnippet="">83</a>            (rect[<span class="number">2</span>] &gt; <span class="number">0.0 </span>&amp;&amp; rect[<span class="number">3</span>] &gt; <span class="number">0.0</span>).then_some(Frame { rect, size: <span class="prelude-val">Some</span>(size) })
+<a href="#84" id="84" data-nosnippet="">84</a>        }
+<a href="#85" id="85" data-nosnippet="">85</a>        <span class="prelude-val">None </span><span class="kw">if </span>player_viewport &amp;&amp; !cv.viewport_set &amp;&amp; cv.map.uses_extents() =&gt; {
+<a href="#86" id="86" data-nosnippet="">86</a>            <span class="kw">let </span>ve = cv.map.viewport_ext();
+<a href="#87" id="87" data-nosnippet="">87</a>            <span class="prelude-val">Some</span>(Frame { rect: [<span class="number">0.0</span>, <span class="number">0.0</span>, ve.<span class="number">0</span>, ve.<span class="number">1</span>], size: <span class="prelude-val">None </span>})
+<a href="#88" id="88" data-nosnippet="">88</a>        }
+<a href="#89" id="89" data-nosnippet="">89</a>        <span class="prelude-val">None </span><span class="kw">if </span>cv.window_set =&gt; <span class="prelude-val">Some</span>(Frame { rect: cv.map.window_rect(), size: <span class="prelude-val">None </span>}),
+<a href="#90" id="90" data-nosnippet="">90</a>        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#91" id="91" data-nosnippet="">91</a>    };
+<a href="#92" id="92" data-nosnippet="">92</a>    <span class="prelude-val">Ok</span>((cv, frame))
+<a href="#93" id="93" data-nosnippet="">93</a>}
+<a href="#94" id="94" data-nosnippet="">94</a>
+<a href="#95" id="95" data-nosnippet="">95</a><span class="kw">fn </span>record(cv: <span class="kw-2">&amp;mut </span>Canvas, func: u16, r: Bytes) {
+<a href="#96" id="96" data-nosnippet="">96</a>    <span class="kw">if </span>cv.full() {
+<a href="#97" id="97" data-nosnippet="">97</a>        <span class="kw">return</span>;
+<a href="#98" id="98" data-nosnippet="">98</a>    }
+<a href="#99" id="99" data-nosnippet="">99</a>    <span class="kw">let _ </span>= <span class="kw">match </span>func {
+<a href="#100" id="100" data-nosnippet="">100</a>        <span class="number">0x0103 </span>=&gt; r.u16(<span class="number">6</span>).map(|m| cv.set_map_mode(u32::from(m))),
+<a href="#101" id="101" data-nosnippet="">101</a>        <span class="number">0x0106 </span>=&gt; r.u16(<span class="number">6</span>).map(|m| cv.set_polyfill(u32::from(m))),
+<a href="#102" id="102" data-nosnippet="">102</a>        <span class="number">0x0104 </span>=&gt; r.u16(<span class="number">6</span>).map(|m| cv.set_rop2(u32::from(m))),
+<a href="#103" id="103" data-nosnippet="">103</a>        <span class="comment">// Y is stored before X in these records.
+<a href="#104" id="104" data-nosnippet="">104</a>        </span><span class="number">0x020B </span>=&gt; xy16(r, <span class="number">6</span>).map(|p| cv.set_window_org(p)),
+<a href="#105" id="105" data-nosnippet="">105</a>        <span class="number">0x020C </span>=&gt; xy16(r, <span class="number">6</span>).map(|p| cv.set_window_ext(p)),
+<a href="#106" id="106" data-nosnippet="">106</a>        <span class="number">0x020D </span>=&gt; xy16(r, <span class="number">6</span>).map(|p| cv.set_viewport_org(p)),
+<a href="#107" id="107" data-nosnippet="">107</a>        <span class="number">0x020E </span>=&gt; xy16(r, <span class="number">6</span>).map(|p| cv.set_viewport_ext(p)),
+<a href="#108" id="108" data-nosnippet="">108</a>        <span class="number">0x001E </span>=&gt; {
+<a href="#109" id="109" data-nosnippet="">109</a>            cv.save_dc();
+<a href="#110" id="110" data-nosnippet="">110</a>            <span class="prelude-val">Some</span>(())
+<a href="#111" id="111" data-nosnippet="">111</a>        }
+<a href="#112" id="112" data-nosnippet="">112</a>        <span class="number">0x0127 </span>=&gt; r.i16(<span class="number">6</span>).map(|n| cv.restore_dc(i32::from(n))),
+<a href="#113" id="113" data-nosnippet="">113</a>        <span class="number">0x0214 </span>=&gt; xy16(r, <span class="number">6</span>).map(|p| cv.move_to(p)),
+<a href="#114" id="114" data-nosnippet="">114</a>        <span class="number">0x0213 </span>=&gt; xy16(r, <span class="number">6</span>).map(|p| cv.line_to(p)),
+<a href="#115" id="115" data-nosnippet="">115</a>        <span class="number">0x0325 </span>=&gt; counted_points(r).map(|pts| cv.poly(<span class="kw-2">&amp;</span>pts, <span class="bool-val">false</span>, <span class="bool-val">false</span>, <span class="bool-val">true</span>)),
+<a href="#116" id="116" data-nosnippet="">116</a>        <span class="number">0x0324 </span>=&gt; counted_points(r).map(|pts| cv.poly(<span class="kw-2">&amp;</span>pts, <span class="bool-val">true</span>, <span class="bool-val">true</span>, <span class="bool-val">true</span>)),
+<a href="#117" id="117" data-nosnippet="">117</a>        <span class="number">0x0538 </span>=&gt; polypolygon(r).map(|ops| cv.shape(ops, <span class="bool-val">true</span>, <span class="bool-val">true</span>)),
+<a href="#118" id="118" data-nosnippet="">118</a>        <span class="number">0x041B </span>=&gt; rect16(r, <span class="number">6</span>).map(|[l, t, rr, b]| cv.shape(geom::rect(l, t, rr, b), <span class="bool-val">true</span>, <span class="bool-val">true</span>)),
+<a href="#119" id="119" data-nosnippet="">119</a>        <span class="number">0x061C </span>=&gt; {
+<a href="#120" id="120" data-nosnippet="">120</a>            <span class="kw">let </span>[ew, eh] = [r.i16(<span class="number">8</span>), r.i16(<span class="number">6</span>)];
+<a href="#121" id="121" data-nosnippet="">121</a>            <span class="kw">let </span>(<span class="prelude-val">Some</span>(ew), <span class="prelude-val">Some</span>(eh)) = (ew, eh) <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href="#122" id="122" data-nosnippet="">122</a>            rect16(r, <span class="number">10</span>).map(|[l, t, rr, b]| {
+<a href="#123" id="123" data-nosnippet="">123</a>                cv.shape(geom::round_rect(l, t, rr, b, f64::from(ew), f64::from(eh)), <span class="bool-val">true</span>, <span class="bool-val">true</span>);
+<a href="#124" id="124" data-nosnippet="">124</a>            })
+<a href="#125" id="125" data-nosnippet="">125</a>        }
+<a href="#126" id="126" data-nosnippet="">126</a>        <span class="number">0x0415 </span>=&gt; rect16(r, <span class="number">6</span>).map(|rect| cv.exclude_clip_rect(rect)),
+<a href="#127" id="127" data-nosnippet="">127</a>        <span class="number">0x0416 </span>=&gt; rect16(r, <span class="number">6</span>).map(|rect| cv.intersect_clip_rect(rect)),
+<a href="#128" id="128" data-nosnippet="">128</a>        <span class="number">0x0418 </span>=&gt; rect16(r, <span class="number">6</span>).map(|[l, t, rr, b]| cv.shape(geom::ellipse(l, t, rr, b), <span class="bool-val">true</span>, <span class="bool-val">true</span>)),
+<a href="#129" id="129" data-nosnippet="">129</a>        <span class="number">0x0817 </span>| <span class="number">0x081A </span>| <span class="number">0x0830 </span>=&gt; arc16(r).map(|(bounds, s, e)| {
+<a href="#130" id="130" data-nosnippet="">130</a>            <span class="kw">let </span>kind = <span class="kw">match </span>func {
+<a href="#131" id="131" data-nosnippet="">131</a>                <span class="number">0x0817 </span>=&gt; ArcKind::Arc,
+<a href="#132" id="132" data-nosnippet="">132</a>                <span class="number">0x081A </span>=&gt; ArcKind::Pie,
+<a href="#133" id="133" data-nosnippet="">133</a>                <span class="kw">_ </span>=&gt; ArcKind::Chord,
+<a href="#134" id="134" data-nosnippet="">134</a>            };
+<a href="#135" id="135" data-nosnippet="">135</a>            <span class="kw">let </span>[l, t, rr, b] = bounds;
+<a href="#136" id="136" data-nosnippet="">136</a>            cv.shape(geom::arc_shape(l, t, rr, b, s, e, kind), kind != ArcKind::Arc, <span class="bool-val">true</span>);
+<a href="#137" id="137" data-nosnippet="">137</a>        }),
+<a href="#138" id="138" data-nosnippet="">138</a>        <span class="number">0x02FA </span>=&gt; create_pen(cv, r),
+<a href="#139" id="139" data-nosnippet="">139</a>        <span class="number">0x02FC </span>=&gt; create_brush(cv, r),
+<a href="#140" id="140" data-nosnippet="">140</a>        <span class="number">0x02FB </span>=&gt; {
+<a href="#141" id="141" data-nosnippet="">141</a>            <span class="kw">let </span>f = font(r).unwrap_or_default();
+<a href="#142" id="142" data-nosnippet="">142</a>            cv.add_object(<span class="prelude-val">None</span>, Obj::Font(Arc::new(f)));
+<a href="#143" id="143" data-nosnippet="">143</a>            <span class="prelude-val">Some</span>(())
+<a href="#144" id="144" data-nosnippet="">144</a>        }
+<a href="#145" id="145" data-nosnippet="">145</a>        <span class="number">0x0142 </span>=&gt; {
+<a href="#146" id="146" data-nosnippet="">146</a>            <span class="comment">// A pattern the reader cannot decode still takes its handle slot.
+<a href="#147" id="147" data-nosnippet="">147</a>            </span><span class="kw">let </span>b = dib_pattern_brush(r).map_or(Obj::Other, Obj::Brush);
+<a href="#148" id="148" data-nosnippet="">148</a>            cv.add_object(<span class="prelude-val">None</span>, b);
+<a href="#149" id="149" data-nosnippet="">149</a>            <span class="prelude-val">Some</span>(())
+<a href="#150" id="150" data-nosnippet="">150</a>        }
+<a href="#151" id="151" data-nosnippet="">151</a>        <span class="comment">// Palettes, old-style pattern brushes and regions take a handle slot too, so later
+<a href="#152" id="152" data-nosnippet="">152</a>        // SELECTOBJECT handles count them; selecting one draws nothing.
+<a href="#153" id="153" data-nosnippet="">153</a>        </span><span class="number">0x00F7 </span>| <span class="number">0x01F9 </span>| <span class="number">0x06FF </span>=&gt; {
+<a href="#154" id="154" data-nosnippet="">154</a>            cv.add_object(<span class="prelude-val">None</span>, Obj::Other);
+<a href="#155" id="155" data-nosnippet="">155</a>            <span class="prelude-val">Some</span>(())
+<a href="#156" id="156" data-nosnippet="">156</a>        }
+<a href="#157" id="157" data-nosnippet="">157</a>        <span class="number">0x0209 </span>=&gt; r.u32(<span class="number">6</span>).map(|c| cv.set_text_color(c)),
+<a href="#158" id="158" data-nosnippet="">158</a>        <span class="number">0x0201 </span>=&gt; r.u32(<span class="number">6</span>).map(|c| cv.set_bk_color(c)),
+<a href="#159" id="159" data-nosnippet="">159</a>        <span class="number">0x0102 </span>=&gt; r.u16(<span class="number">6</span>).map(|m| cv.set_bk_mode(u32::from(m))),
+<a href="#160" id="160" data-nosnippet="">160</a>        <span class="number">0x012E </span>=&gt; r.u16(<span class="number">6</span>).map(|a| cv.set_text_align(u32::from(a))),
+<a href="#161" id="161" data-nosnippet="">161</a>        <span class="number">0x0A32 </span>=&gt; ext_text_out(cv, r),
+<a href="#162" id="162" data-nosnippet="">162</a>        <span class="number">0x0521 </span>=&gt; text_out(cv, r),
+<a href="#163" id="163" data-nosnippet="">163</a>        <span class="comment">// PATBLT: rop(4), height, width, y, x.
+<a href="#164" id="164" data-nosnippet="">164</a>        </span><span class="number">0x061D </span>=&gt; r.u32(<span class="number">6</span>).map(|rop| cv.fill_rop([i16s(r, <span class="number">16</span>), i16s(r, <span class="number">14</span>), i16s(r, <span class="number">12</span>), i16s(r, <span class="number">10</span>)], rop)),
+<a href="#165" id="165" data-nosnippet="">165</a>        <span class="number">0x012D </span>=&gt; r.u16(<span class="number">6</span>).map(|h| cv.select(wmf_handle(h))),
+<a href="#166" id="166" data-nosnippet="">166</a>        <span class="number">0x01F0 </span>=&gt; r.u16(<span class="number">6</span>).map(|h| cv.delete_object(u32::from(h))),
+<a href="#167" id="167" data-nosnippet="">167</a>        <span class="comment">// STRETCHDIB: rop(4) usage(2) srcH srcW ySrc xSrc destH destW yDest xDest, then the DIB.
+<a href="#168" id="168" data-nosnippet="">168</a>        </span><span class="number">0x0F43 </span>=&gt; {
+<a href="#169" id="169" data-nosnippet="">169</a>            <span class="kw">let </span>rop = r.u32(<span class="number">6</span>).unwrap_or(<span class="number">0</span>);
+<a href="#170" id="170" data-nosnippet="">170</a>            dib_blit(cv, r, <span class="number">28</span>, rop, [i16s(r, <span class="number">26</span>), i16s(r, <span class="number">24</span>), i16s(r, <span class="number">22</span>), i16s(r, <span class="number">20</span>)], [i16s(r, <span class="number">18</span>), i16s(r, <span class="number">16</span>), i16s(r, <span class="number">14</span>), i16s(r, <span class="number">12</span>)])
+<a href="#171" id="171" data-nosnippet="">171</a>        }
+<a href="#172" id="172" data-nosnippet="">172</a>        <span class="number">0x0B41 </span>=&gt; dib_stretchblt(cv, r),
+<a href="#173" id="173" data-nosnippet="">173</a>        <span class="number">0x0940 </span>=&gt; dib_bitblt(cv, r),
+<a href="#174" id="174" data-nosnippet="">174</a>        f <span class="kw">if </span>IGNORED.contains(<span class="kw-2">&amp;</span>f) =&gt; <span class="prelude-val">Some</span>(()),
+<a href="#175" id="175" data-nosnippet="">175</a>        <span class="kw">_ </span>=&gt; {
+<a href="#176" id="176" data-nosnippet="">176</a>            cv.skipped = cv.skipped.saturating_add(<span class="number">1</span>);
+<a href="#177" id="177" data-nosnippet="">177</a>            <span class="prelude-val">Some</span>(())
+<a href="#178" id="178" data-nosnippet="">178</a>        }
+<a href="#179" id="179" data-nosnippet="">179</a>    };
+<a href="#180" id="180" data-nosnippet="">180</a>}
+<a href="#181" id="181" data-nosnippet="">181</a>
+<a href="#182" id="182" data-nosnippet="">182</a><span class="doccomment">/// Records that change nothing the picture keeps: relative-absolute and stretch modes, character
+<a href="#183" id="183" data-nosnippet="">183</a>/// spacing and justification, mapper flags, palettes, escapes and the layout. Every other record
+<a href="#184" id="184" data-nosnippet="">184</a>/// the reader does not play is counted as skipped.
+<a href="#185" id="185" data-nosnippet="">185</a></span><span class="kw">const </span>IGNORED: <span class="kw-2">&amp;</span>[u16] = <span class="kw-2">&amp;</span>[<span class="number">0x0105</span>, <span class="number">0x0107</span>, <span class="number">0x0108</span>, <span class="number">0x020A</span>, <span class="number">0x0231</span>, <span class="number">0x0234</span>, <span class="number">0x0035</span>, <span class="number">0x0037</span>, <span class="number">0x0139</span>, <span class="number">0x0436</span>, <span class="number">0x0626</span>, <span class="number">0x0149</span>];
+<a href="#186" id="186" data-nosnippet="">186</a>
+<a href="#187" id="187" data-nosnippet="">187</a><span class="doccomment">/// A 16-bit WMF handle as a canvas object index: stock objects are `0x8000 | index`, which the
+<a href="#188" id="188" data-nosnippet="">188</a>/// canvas reads with the 32-bit stock flag.
+<a href="#189" id="189" data-nosnippet="">189</a></span><span class="kw">fn </span>wmf_handle(h: u16) -&gt; u32 {
+<a href="#190" id="190" data-nosnippet="">190</a>    <span class="kw">let </span>h = u32::from(h);
+<a href="#191" id="191" data-nosnippet="">191</a>    <span class="kw">if </span>h &amp; <span class="number">0x8000 </span>!= <span class="number">0 </span>{ (h &amp; <span class="number">0x7FFF</span>) | <span class="number">0x8000_0000 </span>} <span class="kw">else </span>{ h }
+<a href="#192" id="192" data-nosnippet="">192</a>}
+<a href="#193" id="193" data-nosnippet="">193</a>
+<a href="#194" id="194" data-nosnippet="">194</a><span class="doccomment">/// An i16 field as f64; 0 past the end.
+<a href="#195" id="195" data-nosnippet="">195</a></span><span class="kw">fn </span>i16s(r: Bytes, off: usize) -&gt; f64 {
+<a href="#196" id="196" data-nosnippet="">196</a>    r.i16(off).map_or(<span class="number">0.0</span>, f64::from)
+<a href="#197" id="197" data-nosnippet="">197</a>}
+<a href="#198" id="198" data-nosnippet="">198</a>
+<a href="#199" id="199" data-nosnippet="">199</a><span class="doccomment">/// CREATEPENINDIRECT: style, width (x, y), colour. Only the width's x component is used.
+<a href="#200" id="200" data-nosnippet="">200</a></span><span class="kw">fn </span>create_pen(cv: <span class="kw-2">&amp;mut </span>Canvas, r: Bytes) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+<a href="#201" id="201" data-nosnippet="">201</a>    <span class="kw">let </span>style = r.u16(<span class="number">6</span>)<span class="question-mark">?</span>;
+<a href="#202" id="202" data-nosnippet="">202</a>    <span class="kw">let </span>width = r.i16(<span class="number">8</span>)<span class="question-mark">?</span>;
+<a href="#203" id="203" data-nosnippet="">203</a>    <span class="kw">let </span>color = r.u32(<span class="number">12</span>)<span class="question-mark">?</span>;
+<a href="#204" id="204" data-nosnippet="">204</a>    cv.add_object(<span class="prelude-val">None</span>, Obj::Pen(Pen::new(u32::from(style), f64::from(width), colorref(color))));
+<a href="#205" id="205" data-nosnippet="">205</a>    <span class="prelude-val">Some</span>(())
+<a href="#206" id="206" data-nosnippet="">206</a>}
+<a href="#207" id="207" data-nosnippet="">207</a>
+<a href="#208" id="208" data-nosnippet="">208</a><span class="doccomment">/// CREATEBRUSHINDIRECT: style, colour, hatch.
+<a href="#209" id="209" data-nosnippet="">209</a></span><span class="kw">fn </span>create_brush(cv: <span class="kw-2">&amp;mut </span>Canvas, r: Bytes) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+<a href="#210" id="210" data-nosnippet="">210</a>    <span class="kw">let </span>style = u32::from(r.u16(<span class="number">6</span>)<span class="question-mark">?</span>);
+<a href="#211" id="211" data-nosnippet="">211</a>    <span class="kw">let </span>color = r.u32(<span class="number">8</span>)<span class="question-mark">?</span>;
+<a href="#212" id="212" data-nosnippet="">212</a>    <span class="kw">let </span><span class="kw-2">mut </span>b = Brush::new(style, colorref(color));
+<a href="#213" id="213" data-nosnippet="">213</a>    <span class="kw">if </span>style == BS_HATCHED {
+<a href="#214" id="214" data-nosnippet="">214</a>        b.hatch = u32::from(r.u16(<span class="number">12</span>).unwrap_or(<span class="number">0</span>));
+<a href="#215" id="215" data-nosnippet="">215</a>    }
+<a href="#216" id="216" data-nosnippet="">216</a>    cv.add_object(<span class="prelude-val">None</span>, Obj::Brush(b));
+<a href="#217" id="217" data-nosnippet="">217</a>    <span class="prelude-val">Some</span>(())
+<a href="#218" id="218" data-nosnippet="">218</a>}
+<a href="#219" id="219" data-nosnippet="">219</a>
+<a href="#220" id="220" data-nosnippet="">220</a><span class="doccomment">/// DIBCREATEPATTERNBRUSH: style, colour usage, then a DIB (MS-WMF 2.3.4.8). The DIB's own palette
+<a href="#221" id="221" data-nosnippet="">221</a>/// gives the colours; with DIB_PAL_COLORS (indices into a palette the reader does not keep) a
+<a href="#222" id="222" data-nosnippet="">222</a>/// monochrome DIB takes the text and background colours.
+<a href="#223" id="223" data-nosnippet="">223</a></span><span class="kw">fn </span>dib_pattern_brush(r: Bytes) -&gt; <span class="prelude-ty">Option</span>&lt;Brush&gt; {
+<a href="#224" id="224" data-nosnippet="">224</a>    <span class="kw">let </span>usage = r.u16(<span class="number">8</span>)<span class="question-mark">?</span>;
+<a href="#225" id="225" data-nosnippet="">225</a>    <span class="kw">let </span>dib = r.tail(<span class="number">10</span>)<span class="question-mark">?</span>;
+<a href="#226" id="226" data-nosnippet="">226</a>    <span class="kw">let </span>n = dib::info_len(dib)<span class="question-mark">?</span>;
+<a href="#227" id="227" data-nosnippet="">227</a>    <span class="kw">let </span>img = dib::decode(Bytes(dib.slice(<span class="number">0</span>, n)<span class="question-mark">?</span>), dib.tail(n)<span class="question-mark">?</span>, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
+<a href="#228" id="228" data-nosnippet="">228</a>    Brush::pattern(img, usage == <span class="number">1</span>)
+<a href="#229" id="229" data-nosnippet="">229</a>}
+<a href="#230" id="230" data-nosnippet="">230</a>
+<a href="#231" id="231" data-nosnippet="">231</a><span class="doccomment">/// Font object (MS-WMF 2.2.1.2): height, width, escapement, orientation, weight (i16 each), italic,
+<a href="#232" id="232" data-nosnippet="">232</a>/// underline, strike-out and charset bytes, three precision/quality bytes, pitch and family, then the
+<a href="#233" id="233" data-nosnippet="">233</a>/// face name (up to 32 bytes, NUL-terminated, in the font's character set).
+<a href="#234" id="234" data-nosnippet="">234</a></span><span class="kw">fn </span>font(r: Bytes) -&gt; <span class="prelude-ty">Option</span>&lt;LogFont&gt; {
+<a href="#235" id="235" data-nosnippet="">235</a>    <span class="kw">let </span>height = r.i16(<span class="number">6</span>)<span class="question-mark">?</span>;
+<a href="#236" id="236" data-nosnippet="">236</a>    <span class="kw">let </span>width = r.i16(<span class="number">8</span>).unwrap_or(<span class="number">0</span>);
+<a href="#237" id="237" data-nosnippet="">237</a>    <span class="kw">let </span>escapement = r.i16(<span class="number">10</span>).unwrap_or(<span class="number">0</span>);
+<a href="#238" id="238" data-nosnippet="">238</a>    <span class="kw">let </span>weight = r.i16(<span class="number">14</span>).unwrap_or(<span class="number">0</span>);
+<a href="#239" id="239" data-nosnippet="">239</a>    <span class="kw">let </span>byte = |o: usize| r.<span class="number">0</span>.get(o).copied().unwrap_or(<span class="number">0</span>);
+<a href="#240" id="240" data-nosnippet="">240</a>    <span class="kw">let </span>charset = byte(<span class="number">19</span>);
+<a href="#241" id="241" data-nosnippet="">241</a>    <span class="kw">let </span>name = r.<span class="number">0</span>.get(<span class="number">24</span>..).unwrap_or(<span class="kw-2">&amp;</span>[]);
+<a href="#242" id="242" data-nosnippet="">242</a>    <span class="kw">let </span>name = name.get(..<span class="number">32</span>).unwrap_or(name);
+<a href="#243" id="243" data-nosnippet="">243</a>    <span class="kw">let </span>name = name.split(|b| <span class="kw-2">*</span>b == <span class="number">0</span>).next().unwrap_or(<span class="kw-2">&amp;</span>[]);
+<a href="#244" id="244" data-nosnippet="">244</a>    <span class="comment">// A face name is in the font's own code page (East Asian fonts are often named in their
+<a href="#245" id="245" data-nosnippet="">245</a>    // script); a symbol font's name is not in symbol codes.
+<a href="#246" id="246" data-nosnippet="">246</a>    </span><span class="kw">let </span>(family, <span class="kw">_</span>) = decode_bytes(name, <span class="kw">if </span>charset == <span class="kw">crate</span>::craft::metafile::SYMBOL_CHARSET { <span class="number">0 </span>} <span class="kw">else </span>{ charset }, <span class="kw-2">&amp;</span>[]);
+<a href="#247" id="247" data-nosnippet="">247</a>    <span class="prelude-val">Some</span>(LogFont {
+<a href="#248" id="248" data-nosnippet="">248</a>        font: Font {
+<a href="#249" id="249" data-nosnippet="">249</a>            family: family.trim().to_string(),
+<a href="#250" id="250" data-nosnippet="">250</a>            height: f32::from(height),
+<a href="#251" id="251" data-nosnippet="">251</a>            width: f32::from(width),
+<a href="#252" id="252" data-nosnippet="">252</a>            weight: weight.clamp(<span class="number">0</span>, <span class="number">1000</span>) <span class="kw">as </span>u16,
+<a href="#253" id="253" data-nosnippet="">253</a>            italic: byte(<span class="number">16</span>) != <span class="number">0</span>,
+<a href="#254" id="254" data-nosnippet="">254</a>            underline: byte(<span class="number">17</span>) != <span class="number">0</span>,
+<a href="#255" id="255" data-nosnippet="">255</a>            strike: byte(<span class="number">18</span>) != <span class="number">0</span>,
+<a href="#256" id="256" data-nosnippet="">256</a>            charset,
+<a href="#257" id="257" data-nosnippet="">257</a>        },
+<a href="#258" id="258" data-nosnippet="">258</a>        escapement: f64::from(escapement),
+<a href="#259" id="259" data-nosnippet="">259</a>    })
+<a href="#260" id="260" data-nosnippet="">260</a>}
+<a href="#261" id="261" data-nosnippet="">261</a>
+<a href="#262" id="262" data-nosnippet="">262</a><span class="doccomment">/// The charset of the selected font, for decoding 8-bit text.
+<a href="#263" id="263" data-nosnippet="">263</a></span><span class="kw">fn </span>charset(cv: <span class="kw-2">&amp;</span>Canvas) -&gt; u8 {
+<a href="#264" id="264" data-nosnippet="">264</a>    cv.font_charset()
+<a href="#265" id="265" data-nosnippet="">265</a>}
+<a href="#266" id="266" data-nosnippet="">266</a>
+<a href="#267" id="267" data-nosnippet="">267</a><span class="doccomment">/// EXTTEXTOUT (MS-WMF 2.3.3.5): y, x, string length, options, the rectangle (left, top, right,
+<a href="#268" id="268" data-nosnippet="">268</a>/// bottom) when ETO_OPAQUE or ETO_CLIPPED is set, the string padded to a word, then an optional dx
+<a href="#269" id="269" data-nosnippet="">269</a>/// array of i16 advances.
+<a href="#270" id="270" data-nosnippet="">270</a></span><span class="kw">fn </span>ext_text_out(cv: <span class="kw-2">&amp;mut </span>Canvas, r: Bytes) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+<a href="#271" id="271" data-nosnippet="">271</a>    <span class="kw">let </span>(y, x) = (r.i16(<span class="number">6</span>)<span class="question-mark">?</span>, r.i16(<span class="number">8</span>)<span class="question-mark">?</span>);
+<a href="#272" id="272" data-nosnippet="">272</a>    <span class="kw">let </span>n = usize::from(r.u16(<span class="number">10</span>)<span class="question-mark">?</span>).min(MAX_CHARS);
+<a href="#273" id="273" data-nosnippet="">273</a>    <span class="kw">let </span>opts = u32::from(r.u16(<span class="number">12</span>)<span class="question-mark">?</span>);
+<a href="#274" id="274" data-nosnippet="">274</a>    <span class="kw">let </span>has_rect = opts &amp; (ETO_OPAQUE | ETO_CLIPPED) != <span class="number">0</span>;
+<a href="#275" id="275" data-nosnippet="">275</a>    <span class="kw">let </span>rect = <span class="kw">if </span>has_rect { <span class="prelude-val">Some</span>([i16s(r, <span class="number">14</span>), i16s(r, <span class="number">16</span>), i16s(r, <span class="number">18</span>), i16s(r, <span class="number">20</span>)]) } <span class="kw">else </span>{ <span class="prelude-val">None </span>};
+<a href="#276" id="276" data-nosnippet="">276</a>    <span class="kw">let </span>at = <span class="kw">if </span>has_rect { <span class="number">22 </span>} <span class="kw">else </span>{ <span class="number">14 </span>};
+<a href="#277" id="277" data-nosnippet="">277</a>    <span class="comment">// A string running past the record is cut to what the record holds.
+<a href="#278" id="278" data-nosnippet="">278</a>    </span><span class="kw">let </span>avail = r.<span class="number">0</span>.len().saturating_sub(at);
+<a href="#279" id="279" data-nosnippet="">279</a>    <span class="kw">let </span>n = n.min(avail);
+<a href="#280" id="280" data-nosnippet="">280</a>    <span class="kw">let </span>bytes = r.slice(at, n)<span class="question-mark">?</span>;
+<a href="#281" id="281" data-nosnippet="">281</a>    <span class="kw">let </span>dx_at = at + n.next_multiple_of(<span class="number">2</span>);
+<a href="#282" id="282" data-nosnippet="">282</a>    <span class="kw">let </span>dx: Vec&lt;f32&gt; = <span class="kw">if </span>r.<span class="number">0</span>.len() &gt;= dx_at + <span class="number">2 </span>* n { (<span class="number">0</span>..n).filter_map(|i| r.i16(dx_at + <span class="number">2 </span>* i)).map(f32::from).collect() } <span class="kw">else </span>{ Vec::new() };
+<a href="#283" id="283" data-nosnippet="">283</a>    <span class="kw">let </span>(text, dx) = decode_bytes(bytes, charset(cv), <span class="kw-2">&amp;</span>dx);
+<a href="#284" id="284" data-nosnippet="">284</a>    cv.text((f64::from(x), f64::from(y)), text, dx, opts, rect);
+<a href="#285" id="285" data-nosnippet="">285</a>    <span class="prelude-val">Some</span>(())
+<a href="#286" id="286" data-nosnippet="">286</a>}
+<a href="#287" id="287" data-nosnippet="">287</a>
+<a href="#288" id="288" data-nosnippet="">288</a><span class="doccomment">/// TEXTOUT (MS-WMF 2.3.3.20): string length, the string padded to a word, then y and x.
+<a href="#289" id="289" data-nosnippet="">289</a></span><span class="kw">fn </span>text_out(cv: <span class="kw-2">&amp;mut </span>Canvas, r: Bytes) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+<a href="#290" id="290" data-nosnippet="">290</a>    <span class="kw">let </span>n = usize::from(r.u16(<span class="number">6</span>)<span class="question-mark">?</span>).min(MAX_CHARS);
+<a href="#291" id="291" data-nosnippet="">291</a>    <span class="kw">let </span>bytes = r.slice(<span class="number">8</span>, n)<span class="question-mark">?</span>;
+<a href="#292" id="292" data-nosnippet="">292</a>    <span class="kw">let </span>at = <span class="number">8 </span>+ n.next_multiple_of(<span class="number">2</span>);
+<a href="#293" id="293" data-nosnippet="">293</a>    <span class="kw">let </span>(y, x) = (r.i16(at)<span class="question-mark">?</span>, r.i16(at + <span class="number">2</span>)<span class="question-mark">?</span>);
+<a href="#294" id="294" data-nosnippet="">294</a>    <span class="kw">let </span>(text, <span class="kw">_</span>) = decode_bytes(bytes, charset(cv), <span class="kw-2">&amp;</span>[]);
+<a href="#295" id="295" data-nosnippet="">295</a>    cv.text((f64::from(x), f64::from(y)), text, Vec::new(), <span class="number">0</span>, <span class="prelude-val">None</span>);
+<a href="#296" id="296" data-nosnippet="">296</a>    <span class="prelude-val">Some</span>(())
+<a href="#297" id="297" data-nosnippet="">297</a>}
+<a href="#298" id="298" data-nosnippet="">298</a>
+<a href="#299" id="299" data-nosnippet="">299</a><span class="doccomment">/// (x, y) from a Y-then-X pair stored at `off`.
+<a href="#300" id="300" data-nosnippet="">300</a></span><span class="kw">fn </span>xy16(r: Bytes, off: usize) -&gt; <span class="prelude-ty">Option</span>&lt;P&gt; {
+<a href="#301" id="301" data-nosnippet="">301</a>    <span class="prelude-val">Some</span>((f64::from(r.i16(off + <span class="number">2</span>)<span class="question-mark">?</span>), f64::from(r.i16(off)<span class="question-mark">?</span>)))
+<a href="#302" id="302" data-nosnippet="">302</a>}
+<a href="#303" id="303" data-nosnippet="">303</a>
+<a href="#304" id="304" data-nosnippet="">304</a><span class="doccomment">/// Rectangle stored as bottom, right, top, left (the order MS-WMF uses for RECTANGLE and ELLIPSE).
+<a href="#305" id="305" data-nosnippet="">305</a></span><span class="kw">fn </span>rect16(r: Bytes, off: usize) -&gt; <span class="prelude-ty">Option</span>&lt;[f64; <span class="number">4</span>]&gt; {
+<a href="#306" id="306" data-nosnippet="">306</a>    <span class="kw">let </span>(b, rr, t, l) = (r.i16(off)<span class="question-mark">?</span>, r.i16(off + <span class="number">2</span>)<span class="question-mark">?</span>, r.i16(off + <span class="number">4</span>)<span class="question-mark">?</span>, r.i16(off + <span class="number">6</span>)<span class="question-mark">?</span>);
+<a href="#307" id="307" data-nosnippet="">307</a>    <span class="prelude-val">Some</span>([f64::from(l), f64::from(t), f64::from(rr), f64::from(b)])
+<a href="#308" id="308" data-nosnippet="">308</a>}
+<a href="#309" id="309" data-nosnippet="">309</a>
+<a href="#310" id="310" data-nosnippet="">310</a><span class="doccomment">/// ARC, PIE and CHORD: end Y, end X, start Y, start X, then the bounding rectangle (bottom, right, top, left).
+<a href="#311" id="311" data-nosnippet="">311</a></span><span class="kw">fn </span>arc16(r: Bytes) -&gt; <span class="prelude-ty">Option</span>&lt;([f64; <span class="number">4</span>], P, P)&gt; {
+<a href="#312" id="312" data-nosnippet="">312</a>    <span class="kw">let </span>end = xy16(r, <span class="number">6</span>)<span class="question-mark">?</span>;
+<a href="#313" id="313" data-nosnippet="">313</a>    <span class="kw">let </span>start = xy16(r, <span class="number">10</span>)<span class="question-mark">?</span>;
+<a href="#314" id="314" data-nosnippet="">314</a>    <span class="kw">let </span>bounds = rect16(r, <span class="number">14</span>)<span class="question-mark">?</span>;
+<a href="#315" id="315" data-nosnippet="">315</a>    <span class="prelude-val">Some</span>((bounds, start, end))
+<a href="#316" id="316" data-nosnippet="">316</a>}
+<a href="#317" id="317" data-nosnippet="">317</a>
+<a href="#318" id="318" data-nosnippet="">318</a><span class="doccomment">/// A count of 16-bit points, then the points (POLYLINE, POLYGON).
+<a href="#319" id="319" data-nosnippet="">319</a></span><span class="kw">fn </span>counted_points(r: Bytes) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;P&gt;&gt; {
+<a href="#320" id="320" data-nosnippet="">320</a>    <span class="kw">let </span>n = r.u16(<span class="number">6</span>)<span class="question-mark">? </span><span class="kw">as </span>usize;
+<a href="#321" id="321" data-nosnippet="">321</a>    r.tail(<span class="number">8</span>)<span class="question-mark">?</span>.points(<span class="number">0</span>, n, <span class="bool-val">false</span>)
+<a href="#322" id="322" data-nosnippet="">322</a>}
+<a href="#323" id="323" data-nosnippet="">323</a>
+<a href="#324" id="324" data-nosnippet="">324</a><span class="doccomment">/// POLYPOLYGON: polygon count, one 16-bit point count per polygon, then all points.
+<a href="#325" id="325" data-nosnippet="">325</a></span><span class="kw">fn </span>polypolygon(r: Bytes) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;geom::Op&gt;&gt; {
+<a href="#326" id="326" data-nosnippet="">326</a>    <span class="kw">let </span>n = r.u16(<span class="number">6</span>)<span class="question-mark">? </span><span class="kw">as </span>usize;
+<a href="#327" id="327" data-nosnippet="">327</a>    <span class="kw">let </span><span class="kw-2">mut </span>counts = Vec::with_capacity(n);
+<a href="#328" id="328" data-nosnippet="">328</a>    <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..n {
+<a href="#329" id="329" data-nosnippet="">329</a>        counts.push(r.u16(i.checked_mul(<span class="number">2</span>)<span class="question-mark">?</span>.checked_add(<span class="number">8</span>)<span class="question-mark">?</span>)<span class="question-mark">? </span><span class="kw">as </span>usize);
+<a href="#330" id="330" data-nosnippet="">330</a>    }
+<a href="#331" id="331" data-nosnippet="">331</a>    <span class="kw">let </span>total = counts.iter().try_fold(<span class="number">0usize</span>, |a, c| a.checked_add(<span class="kw-2">*</span>c))<span class="question-mark">?</span>;
+<a href="#332" id="332" data-nosnippet="">332</a>    <span class="kw">if </span>total &gt; MAX_PATH_OPS {
+<a href="#333" id="333" data-nosnippet="">333</a>        <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#334" id="334" data-nosnippet="">334</a>    }
+<a href="#335" id="335" data-nosnippet="">335</a>    <span class="kw">let </span>pts = r.tail(n.checked_mul(<span class="number">2</span>)<span class="question-mark">?</span>.checked_add(<span class="number">8</span>)<span class="question-mark">?</span>)<span class="question-mark">?</span>.points(<span class="number">0</span>, total, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
+<a href="#336" id="336" data-nosnippet="">336</a>    <span class="prelude-val">Some</span>(geom::subpaths(<span class="kw-2">&amp;</span>pts, <span class="kw-2">&amp;</span>counts, <span class="bool-val">true</span>))
+<a href="#337" id="337" data-nosnippet="">337</a>}
+<a href="#338" id="338" data-nosnippet="">338</a>
+<a href="#339" id="339" data-nosnippet="">339</a><span class="doccomment">/// Whether a DIBBITBLT or DIBSTRETCHBLT record carries a bitmap: without one it is exactly
+<a href="#340" id="340" data-nosnippet="">340</a>/// `(function &gt;&gt; 8) + 3` words long (MS-WMF 2.3.1.2, 2.3.1.3).
+<a href="#341" id="341" data-nosnippet="">341</a></span><span class="kw">fn </span>has_bitmap(func: u16, r: Bytes) -&gt; bool {
+<a href="#342" id="342" data-nosnippet="">342</a>    r.<span class="number">0</span>.len() / <span class="number">2 </span>&gt; usize::from(func &gt;&gt; <span class="number">8</span>) + <span class="number">3
+<a href="#343" id="343" data-nosnippet="">343</a></span>}
+<a href="#344" id="344" data-nosnippet="">344</a>
+<a href="#345" id="345" data-nosnippet="">345</a><span class="doccomment">/// META_DIBBITBLT: rop(4), ySrc, xSrc, then height, width, yDest, xDest and the DIB at 22. The
+<a href="#346" id="346" data-nosnippet="">346</a>/// bitmap-less form has a reserved word before the height, so its fields sit 2 bytes later; it, or
+<a href="#347" id="347" data-nosnippet="">347</a>/// a source-less raster operation, fills the destination.
+<a href="#348" id="348" data-nosnippet="">348</a></span><span class="kw">fn </span>dib_bitblt(cv: <span class="kw-2">&amp;mut </span>Canvas, r: Bytes) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+<a href="#349" id="349" data-nosnippet="">349</a>    <span class="kw">let </span>rop = r.u32(<span class="number">6</span>)<span class="question-mark">?</span>;
+<a href="#350" id="350" data-nosnippet="">350</a>    <span class="kw">if </span>!has_bitmap(<span class="number">0x0940</span>, r) {
+<a href="#351" id="351" data-nosnippet="">351</a>        cv.fill_rop([i16s(r, <span class="number">22</span>), i16s(r, <span class="number">20</span>), i16s(r, <span class="number">18</span>), i16s(r, <span class="number">16</span>)], rop);
+<a href="#352" id="352" data-nosnippet="">352</a>        <span class="kw">return </span><span class="prelude-val">Some</span>(());
+<a href="#353" id="353" data-nosnippet="">353</a>    }
+<a href="#354" id="354" data-nosnippet="">354</a>    <span class="kw">let </span>dst = [i16s(r, <span class="number">20</span>), i16s(r, <span class="number">18</span>), i16s(r, <span class="number">16</span>), i16s(r, <span class="number">14</span>)];
+<a href="#355" id="355" data-nosnippet="">355</a>    <span class="kw">if </span>Canvas::sourceless(rop) {
+<a href="#356" id="356" data-nosnippet="">356</a>        cv.fill_rop(dst, rop);
+<a href="#357" id="357" data-nosnippet="">357</a>        <span class="kw">return </span><span class="prelude-val">Some</span>(());
+<a href="#358" id="358" data-nosnippet="">358</a>    }
+<a href="#359" id="359" data-nosnippet="">359</a>    <span class="kw">let </span>src = [i16s(r, <span class="number">12</span>), i16s(r, <span class="number">10</span>), dst[<span class="number">2</span>], dst[<span class="number">3</span>]];
+<a href="#360" id="360" data-nosnippet="">360</a>    dib_blit(cv, r, <span class="number">22</span>, rop, dst, src)
+<a href="#361" id="361" data-nosnippet="">361</a>}
+<a href="#362" id="362" data-nosnippet="">362</a>
+<a href="#363" id="363" data-nosnippet="">363</a><span class="doccomment">/// META_DIBSTRETCHBLT: rop(4), srcH, srcW, ySrc, xSrc, then destH, destW, yDest, xDest and the DIB at
+<a href="#364" id="364" data-nosnippet="">364</a>/// 26. The bitmap-less form has a reserved word after xSrc, so the destination sits 2 bytes later;
+<a href="#365" id="365" data-nosnippet="">365</a>/// it, or a source-less raster operation, fills the destination.
+<a href="#366" id="366" data-nosnippet="">366</a></span><span class="kw">fn </span>dib_stretchblt(cv: <span class="kw-2">&amp;mut </span>Canvas, r: Bytes) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+<a href="#367" id="367" data-nosnippet="">367</a>    <span class="kw">let </span>rop = r.u32(<span class="number">6</span>)<span class="question-mark">?</span>;
+<a href="#368" id="368" data-nosnippet="">368</a>    <span class="kw">if </span>!has_bitmap(<span class="number">0x0B41</span>, r) {
+<a href="#369" id="369" data-nosnippet="">369</a>        cv.fill_rop([i16s(r, <span class="number">26</span>), i16s(r, <span class="number">24</span>), i16s(r, <span class="number">22</span>), i16s(r, <span class="number">20</span>)], rop);
+<a href="#370" id="370" data-nosnippet="">370</a>        <span class="kw">return </span><span class="prelude-val">Some</span>(());
+<a href="#371" id="371" data-nosnippet="">371</a>    }
+<a href="#372" id="372" data-nosnippet="">372</a>    <span class="kw">let </span>dst = [i16s(r, <span class="number">24</span>), i16s(r, <span class="number">22</span>), i16s(r, <span class="number">20</span>), i16s(r, <span class="number">18</span>)];
+<a href="#373" id="373" data-nosnippet="">373</a>    <span class="kw">if </span>Canvas::sourceless(rop) {
+<a href="#374" id="374" data-nosnippet="">374</a>        cv.fill_rop(dst, rop);
+<a href="#375" id="375" data-nosnippet="">375</a>        <span class="kw">return </span><span class="prelude-val">Some</span>(());
+<a href="#376" id="376" data-nosnippet="">376</a>    }
+<a href="#377" id="377" data-nosnippet="">377</a>    <span class="kw">let </span>src = [i16s(r, <span class="number">16</span>), i16s(r, <span class="number">14</span>), i16s(r, <span class="number">12</span>), i16s(r, <span class="number">10</span>)];
+<a href="#378" id="378" data-nosnippet="">378</a>    dib_blit(cv, r, <span class="number">26</span>, rop, dst, src)
+<a href="#379" id="379" data-nosnippet="">379</a>}
+<a href="#380" id="380" data-nosnippet="">380</a>
+<a href="#381" id="381" data-nosnippet="">381</a><span class="doccomment">/// A DIB at `at`, stretched from source rectangle `src` into `dst` (both in logical units, pixels for `src`).
+<a href="#382" id="382" data-nosnippet="">382</a>/// The raster operation `rop` decides how the pixels combine (see [`dib::prepare`]).
+<a href="#383" id="383" data-nosnippet="">383</a></span><span class="kw">fn </span>dib_blit(cv: <span class="kw-2">&amp;mut </span>Canvas, r: Bytes, at: usize, rop: u32, dst: [f64; <span class="number">4</span>], src: [f64; <span class="number">4</span>]) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+<a href="#384" id="384" data-nosnippet="">384</a>    <span class="kw">let </span>dib = r.tail(at)<span class="question-mark">?</span>;
+<a href="#385" id="385" data-nosnippet="">385</a>    <span class="kw">let </span>n = dib::info_len(dib)<span class="question-mark">?</span>;
+<a href="#386" id="386" data-nosnippet="">386</a>    <span class="kw">let </span>info = dib.slice(<span class="number">0</span>, n)<span class="question-mark">?</span>;
+<a href="#387" id="387" data-nosnippet="">387</a>    <span class="kw">let </span>bits = dib.tail(n)<span class="question-mark">?</span>;
+<a href="#388" id="388" data-nosnippet="">388</a>    <span class="kw">let </span>(<span class="kw-2">mut </span>img, dst) = dib::decode_clip(Bytes(info), bits, <span class="bool-val">false</span>, src.map(|v| v <span class="kw">as </span>i64), dst)<span class="question-mark">?</span>;
+<a href="#389" id="389" data-nosnippet="">389</a>    dib::prepare(<span class="kw-2">&amp;mut </span>img, dib::Blend::Rop(rop));
+<a href="#390" id="390" data-nosnippet="">390</a>    cv.bitmap(dst, img);
+<a href="#391" id="391" data-nosnippet="">391</a>    <span class="prelude-val">Some</span>(())
+<a href="#392" id="392" data-nosnippet="">392</a>}
+</code></pre></div></section></main></body></html>

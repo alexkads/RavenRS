@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["presentation_media","shapes_media","slide_media","visit_presentation"],"mod":["visit","visit_mut"]};

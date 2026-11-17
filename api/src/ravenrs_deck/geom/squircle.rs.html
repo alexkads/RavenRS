@@ -1,0 +1,184 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>squircle.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="ravenrs_deck" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../src-files.js"></script><script defer="" src="../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-deck/src/geom/squircle.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_deck/geom/squircle.rs.html"><meta property="og:title" content="squircle.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-deck/src/geom/squircle.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_deck/geom/squircle.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="squircle.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-deck/src/geom/squircle.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"squircle.rs - source","description":"Source of the Rust file `crates/ravenrs-deck/src/geom/squircle.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_deck/geom/squircle.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_deck/geom/</div>squircle.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! Rectangles with smoothed ("squircle") corners, as design tools offer next to the corner radius
+<a href="#2" id="2" data-nosnippet="">2</a>//! (#286). A plain rounded corner joins the straight edge with a sudden change of curvature; a
+<a href="#3" id="3" data-nosnippet="">3</a>//! smoothed corner starts curving earlier, along a cubic Bézier, and keeps a shorter circular arc
+<a href="#4" id="4" data-nosnippet="">4</a>//! in the middle, so the outline flows into the edge.
+<a href="#5" id="5" data-nosnippet="">5</a>//!
+<a href="#6" id="6" data-nosnippet="">6</a>//! For a corner of radius `r` and smoothing `s` (0 = circular, 1 = no arc left), the corner takes
+<a href="#7" id="7" data-nosnippet="">7</a>//! `p = (1 + s) · r` of each edge. The arc keeps `90° · (1 − s)` around the corner's diagonal and
+<a href="#8" id="8" data-nosnippet="">8</a>//! each side of it is a cubic whose handles lie on the edge, so the curve is tangent to the edge
+<a href="#9" id="9" data-nosnippet="">9</a>//! where it starts and to the arc where it meets it. When `p` would exceed half the shorter side,
+<a href="#10" id="10" data-nosnippet="">10</a>//! the smoothing is reduced first, then the radius. The construction is our own derivation from
+<a href="#11" id="11" data-nosnippet="">11</a>//! these constraints.
+<a href="#12" id="12" data-nosnippet="">12</a>
+<a href="#13" id="13" data-nosnippet="">13</a>/// The outline of a `w` x `h` rectangle with corners of radius `radius` smoothed by `smoothing`
+<a href="#14" id="14" data-nosnippet="">14</a>/// (0..=1), as path data in the rectangle's own coordinates (`M`, `L`, `C`, `Z`; y down).
+<a href="#15" id="15" data-nosnippet="">15</a></span><span class="kw">pub fn </span>path_d(w: f64, h: f64, radius: f64, smoothing: f64) -&gt; String {
+<a href="#16" id="16" data-nosnippet="">16</a>    <span class="kw">let </span>w = <span class="kw">if </span>w.is_finite() { w.max(<span class="number">0.0</span>) } <span class="kw">else </span>{ <span class="number">0.0 </span>};
+<a href="#17" id="17" data-nosnippet="">17</a>    <span class="kw">let </span>h = <span class="kw">if </span>h.is_finite() { h.max(<span class="number">0.0</span>) } <span class="kw">else </span>{ <span class="number">0.0 </span>};
+<a href="#18" id="18" data-nosnippet="">18</a>    <span class="kw">let </span>half = w.min(h) / <span class="number">2.0</span>;
+<a href="#19" id="19" data-nosnippet="">19</a>    <span class="kw">let </span>r = <span class="kw">if </span>radius.is_finite() { radius.clamp(<span class="number">0.0</span>, half) } <span class="kw">else </span>{ <span class="number">0.0 </span>};
+<a href="#20" id="20" data-nosnippet="">20</a>    <span class="kw">let </span><span class="kw-2">mut </span>s = <span class="kw">if </span>smoothing.is_finite() { smoothing.clamp(<span class="number">0.0</span>, <span class="number">1.0</span>) } <span class="kw">else </span>{ <span class="number">0.0 </span>};
+<a href="#21" id="21" data-nosnippet="">21</a>    <span class="kw">if </span>r &lt;= <span class="number">0.0 </span>{
+<a href="#22" id="22" data-nosnippet="">22</a>        <span class="kw">return </span><span class="macro">format!</span>(<span class="string">"M 0 0 L {w} 0 L {w} {h} L 0 {h} Z"</span>);
+<a href="#23" id="23" data-nosnippet="">23</a>    }
+<a href="#24" id="24" data-nosnippet="">24</a>    s = s.min(half / r - <span class="number">1.0</span>).max(<span class="number">0.0</span>);
+<a href="#25" id="25" data-nosnippet="">25</a>    <span class="kw">let </span>c = corner(r, s);
+<a href="#26" id="26" data-nosnippet="">26</a>    <span class="comment">// The top-right corner in local terms: `u` runs back along the top edge from the corner,
+<a href="#27" id="27" data-nosnippet="">27</a>    // `v` down the right edge. Each corner maps (u, v) to the rectangle by symmetry.
+<a href="#28" id="28" data-nosnippet="">28</a>    </span><span class="kw">let </span>corners: [<span class="kw-2">&amp;</span><span class="kw">dyn </span>Fn(f64, f64) -&gt; (f64, f64); <span class="number">4</span>] = [
+<a href="#29" id="29" data-nosnippet="">29</a>        <span class="kw-2">&amp;</span>|u, v| (w - u, v),     <span class="comment">// top right: from the top edge to the right edge
+<a href="#30" id="30" data-nosnippet="">30</a>        </span><span class="kw-2">&amp;</span>|u, v| (w - v, h - u), <span class="comment">// bottom right: from the right edge to the bottom edge
+<a href="#31" id="31" data-nosnippet="">31</a>        </span><span class="kw-2">&amp;</span>|u, v| (u, h - v),     <span class="comment">// bottom left: from the bottom edge to the left edge
+<a href="#32" id="32" data-nosnippet="">32</a>        </span><span class="kw-2">&amp;</span>|u, v| (v, u),         <span class="comment">// top left: from the left edge to the top edge
+<a href="#33" id="33" data-nosnippet="">33</a>    </span>];
+<a href="#34" id="34" data-nosnippet="">34</a>    <span class="kw">let </span><span class="kw-2">mut </span>d = String::new();
+<a href="#35" id="35" data-nosnippet="">35</a>    <span class="kw">let </span>pt = |f: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Fn(f64, f64) -&gt; (f64, f64), (u, v): (f64, f64)| {
+<a href="#36" id="36" data-nosnippet="">36</a>        <span class="kw">let </span>(x, y) = f(u, v);
+<a href="#37" id="37" data-nosnippet="">37</a>        <span class="macro">format!</span>(<span class="string">"{} {}"</span>, round(x), round(y))
+<a href="#38" id="38" data-nosnippet="">38</a>    };
+<a href="#39" id="39" data-nosnippet="">39</a>    <span class="kw">for </span>(i, f) <span class="kw">in </span>corners.iter().enumerate() {
+<a href="#40" id="40" data-nosnippet="">40</a>        <span class="kw">let </span>segs = c.segments();
+<a href="#41" id="41" data-nosnippet="">41</a>        <span class="kw">if </span>i == <span class="number">0 </span>{
+<a href="#42" id="42" data-nosnippet="">42</a>            d.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"M {}"</span>, pt(<span class="kw-2">*</span>f, segs[<span class="number">0</span>])));
+<a href="#43" id="43" data-nosnippet="">43</a>        } <span class="kw">else </span>{
+<a href="#44" id="44" data-nosnippet="">44</a>            d.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">" L {}"</span>, pt(<span class="kw-2">*</span>f, segs[<span class="number">0</span>])));
+<a href="#45" id="45" data-nosnippet="">45</a>        }
+<a href="#46" id="46" data-nosnippet="">46</a>        <span class="kw">for </span>k <span class="kw">in </span><span class="number">0</span>..<span class="number">3 </span>{
+<a href="#47" id="47" data-nosnippet="">47</a>            <span class="kw">let </span>b = <span class="number">1 </span>+ k * <span class="number">3</span>;
+<a href="#48" id="48" data-nosnippet="">48</a>            d.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">" C {} {} {}"</span>, pt(<span class="kw-2">*</span>f, segs[b]), pt(<span class="kw-2">*</span>f, segs[b + <span class="number">1</span>]), pt(<span class="kw-2">*</span>f, segs[b + <span class="number">2</span>])));
+<a href="#49" id="49" data-nosnippet="">49</a>        }
+<a href="#50" id="50" data-nosnippet="">50</a>    }
+<a href="#51" id="51" data-nosnippet="">51</a>    d.push_str(<span class="string">" Z"</span>);
+<a href="#52" id="52" data-nosnippet="">52</a>    d
+<a href="#53" id="53" data-nosnippet="">53</a>}
+<a href="#54" id="54" data-nosnippet="">54</a>
+<a href="#55" id="55" data-nosnippet="">55</a><span class="kw">fn </span>round(v: f64) -&gt; f64 {
+<a href="#56" id="56" data-nosnippet="">56</a>    (v * <span class="number">1000.0</span>).round() / <span class="number">1000.0 </span>+ <span class="number">0.0
+<a href="#57" id="57" data-nosnippet="">57</a></span>}
+<a href="#58" id="58" data-nosnippet="">58</a>
+<a href="#59" id="59" data-nosnippet="">59</a><span class="doccomment">/// One corner in (u, v) terms: distance back along the incoming edge, distance along the outgoing.
+<a href="#60" id="60" data-nosnippet="">60</a></span><span class="kw">struct </span>Corner {
+<a href="#61" id="61" data-nosnippet="">61</a>    p: f64,
+<a href="#62" id="62" data-nosnippet="">62</a>    a: f64,
+<a href="#63" id="63" data-nosnippet="">63</a>    b: f64,
+<a href="#64" id="64" data-nosnippet="">64</a>    c: f64,
+<a href="#65" id="65" data-nosnippet="">65</a>    d: f64,
+<a href="#66" id="66" data-nosnippet="">66</a>    r: f64,
+<a href="#67" id="67" data-nosnippet="">67</a>    arc: f64,
+<a href="#68" id="68" data-nosnippet="">68</a>}
+<a href="#69" id="69" data-nosnippet="">69</a>
+<a href="#70" id="70" data-nosnippet="">70</a><span class="kw">fn </span>corner(r: f64, s: f64) -&gt; Corner {
+<a href="#71" id="71" data-nosnippet="">71</a>    <span class="kw">use </span>std::f64::consts::{FRAC_PI_2, FRAC_PI_4};
+<a href="#72" id="72" data-nosnippet="">72</a>    <span class="kw">let </span>p = (<span class="number">1.0 </span>+ s) * r;
+<a href="#73" id="73" data-nosnippet="">73</a>    <span class="kw">let </span>arc = FRAC_PI_2 * (<span class="number">1.0 </span>- s);
+<a href="#74" id="74" data-nosnippet="">74</a>    <span class="comment">// The arc's chord, and where the edge curve meets the arc.
+<a href="#75" id="75" data-nosnippet="">75</a>    </span><span class="kw">let </span>arc_chord = (arc / <span class="number">2.0</span>).sin() * r * std::f64::consts::SQRT_2;
+<a href="#76" id="76" data-nosnippet="">76</a>    <span class="kw">let </span>alpha = (FRAC_PI_2 - arc) / <span class="number">2.0</span>;
+<a href="#77" id="77" data-nosnippet="">77</a>    <span class="kw">let </span>p3_p4 = r * (alpha / <span class="number">2.0</span>).tan();
+<a href="#78" id="78" data-nosnippet="">78</a>    <span class="kw">let </span>beta = FRAC_PI_4 * s;
+<a href="#79" id="79" data-nosnippet="">79</a>    <span class="kw">let </span>c = p3_p4 * beta.cos();
+<a href="#80" id="80" data-nosnippet="">80</a>    <span class="kw">let </span>d = c * beta.tan();
+<a href="#81" id="81" data-nosnippet="">81</a>    <span class="kw">let </span>b = ((p - arc_chord - c - d) / <span class="number">3.0</span>).max(<span class="number">0.0</span>);
+<a href="#82" id="82" data-nosnippet="">82</a>    <span class="kw">let </span>a = <span class="number">2.0 </span>* b;
+<a href="#83" id="83" data-nosnippet="">83</a>    Corner { p, a, b, c, d, r, arc }
+<a href="#84" id="84" data-nosnippet="">84</a>}
+<a href="#85" id="85" data-nosnippet="">85</a>
+<a href="#86" id="86" data-nosnippet="">86</a><span class="kw">impl </span>Corner {
+<a href="#87" id="87" data-nosnippet="">87</a>    <span class="doccomment">/// Ten points: the start on the incoming edge, then three cubics (control, control, end):
+<a href="#88" id="88" data-nosnippet="">88</a>    /// edge → arc start, the arc, arc end → outgoing edge.
+<a href="#89" id="89" data-nosnippet="">89</a>    </span><span class="kw">fn </span>segments(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; [(f64, f64); <span class="number">10</span>] {
+<a href="#90" id="90" data-nosnippet="">90</a>        <span class="kw">let </span>Corner { p, a, b, c, d, r, arc } = <span class="kw-2">*</span><span class="self">self</span>;
+<a href="#91" id="91" data-nosnippet="">91</a>        <span class="comment">// Edge curve into the arc: handles on the edge, ending where the arc starts.
+<a href="#92" id="92" data-nosnippet="">92</a>        </span><span class="kw">let </span>e0 = (p, <span class="number">0.0</span>);
+<a href="#93" id="93" data-nosnippet="">93</a>        <span class="kw">let </span>e1 = (p - a, <span class="number">0.0</span>);
+<a href="#94" id="94" data-nosnippet="">94</a>        <span class="kw">let </span>e2 = (p - a - b, <span class="number">0.0</span>);
+<a href="#95" id="95" data-nosnippet="">95</a>        <span class="kw">let </span>e3 = (p - a - b - c, d);
+<a href="#96" id="96" data-nosnippet="">96</a>        <span class="comment">// The arc around the centre (r, r) in (u, v), symmetric about the corner's diagonal.
+<a href="#97" id="97" data-nosnippet="">97</a>        // Angles from +u towards +v: the corner itself is at 5π/4 from the centre; the arc runs
+<a href="#98" id="98" data-nosnippet="">98</a>        // from the incoming edge's side (larger angle) to the outgoing edge's side.
+<a href="#99" id="99" data-nosnippet="">99</a>        </span><span class="kw">let </span>start = std::f64::consts::FRAC_PI_4 * <span class="number">5.0 </span>+ arc / <span class="number">2.0</span>;
+<a href="#100" id="100" data-nosnippet="">100</a>        <span class="kw">let </span>end = start - arc;
+<a href="#101" id="101" data-nosnippet="">101</a>        <span class="kw">let </span>at = |t: f64| (r + r * t.cos(), r + r * t.sin());
+<a href="#102" id="102" data-nosnippet="">102</a>        <span class="kw">let </span>k = <span class="number">4.0 </span>/ <span class="number">3.0 </span>* (arc / <span class="number">4.0</span>).tan() * r;
+<a href="#103" id="103" data-nosnippet="">103</a>        <span class="kw">let </span>a0 = at(start);
+<a href="#104" id="104" data-nosnippet="">104</a>        <span class="kw">let </span>a3 = at(end);
+<a href="#105" id="105" data-nosnippet="">105</a>        <span class="comment">// Tangent of the arc travelled towards smaller angles: (sin t, −cos t).
+<a href="#106" id="106" data-nosnippet="">106</a>        </span><span class="kw">let </span>a1 = (a0.<span class="number">0 </span>+ k * start.sin(), a0.<span class="number">1 </span>- k * start.cos());
+<a href="#107" id="107" data-nosnippet="">107</a>        <span class="kw">let </span>a2 = (a3.<span class="number">0 </span>- k * end.sin(), a3.<span class="number">1 </span>+ k * end.cos());
+<a href="#108" id="108" data-nosnippet="">108</a>        <span class="comment">// Mirror of the edge curve onto the outgoing edge (swap u and v), reversed.
+<a href="#109" id="109" data-nosnippet="">109</a>        </span><span class="kw">let </span>o1 = (e2.<span class="number">1</span>, e2.<span class="number">0</span>);
+<a href="#110" id="110" data-nosnippet="">110</a>        <span class="kw">let </span>o2 = (e1.<span class="number">1</span>, e1.<span class="number">0</span>);
+<a href="#111" id="111" data-nosnippet="">111</a>        <span class="kw">let </span>o3 = (e0.<span class="number">1</span>, e0.<span class="number">0</span>);
+<a href="#112" id="112" data-nosnippet="">112</a>        <span class="kw">let _ </span>= (e3, a0);
+<a href="#113" id="113" data-nosnippet="">113</a>        [e0, e1, e2, a0, a1, a2, a3, o1, o2, o3]
+<a href="#114" id="114" data-nosnippet="">114</a>    }
+<a href="#115" id="115" data-nosnippet="">115</a>}
+<a href="#116" id="116" data-nosnippet="">116</a>
+<a href="#117" id="117" data-nosnippet="">117</a><span class="attr">#[cfg(test)]
+<a href="#118" id="118" data-nosnippet="">118</a></span><span class="kw">mod </span>tests {
+<a href="#119" id="119" data-nosnippet="">119</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#120" id="120" data-nosnippet="">120</a>
+<a href="#121" id="121" data-nosnippet="">121</a>    <span class="kw">fn </span>numbers(d: <span class="kw-2">&amp;</span>str) -&gt; Vec&lt;f64&gt; {
+<a href="#122" id="122" data-nosnippet="">122</a>        d.split_whitespace().filter_map(|t| t.parse().ok()).collect()
+<a href="#123" id="123" data-nosnippet="">123</a>    }
+<a href="#124" id="124" data-nosnippet="">124</a>
+<a href="#125" id="125" data-nosnippet="">125</a>    <span class="attr">#[test]
+<a href="#126" id="126" data-nosnippet="">126</a>    </span><span class="kw">fn </span>no_radius_is_a_rectangle() {
+<a href="#127" id="127" data-nosnippet="">127</a>        <span class="macro">assert_eq!</span>(path_d(<span class="number">100.0</span>, <span class="number">50.0</span>, <span class="number">0.0</span>, <span class="number">0.6</span>), <span class="string">"M 0 0 L 100 0 L 100 50 L 0 50 Z"</span>);
+<a href="#128" id="128" data-nosnippet="">128</a>    }
+<a href="#129" id="129" data-nosnippet="">129</a>
+<a href="#130" id="130" data-nosnippet="">130</a>    <span class="attr">#[test]
+<a href="#131" id="131" data-nosnippet="">131</a>    </span><span class="kw">fn </span>edge_curve_meets_the_arc() {
+<a href="#132" id="132" data-nosnippet="">132</a>        <span class="kw">for </span>s <span class="kw">in </span>[<span class="number">0.0</span>, <span class="number">0.3</span>, <span class="number">0.6</span>, <span class="number">1.0</span>] {
+<a href="#133" id="133" data-nosnippet="">133</a>            <span class="kw">let </span>c = corner(<span class="number">10.0</span>, s);
+<a href="#134" id="134" data-nosnippet="">134</a>            <span class="kw">let </span>seg = c.segments();
+<a href="#135" id="135" data-nosnippet="">135</a>            <span class="kw">let </span>e3 = (c.p - c.a - c.b - c.c, c.d);
+<a href="#136" id="136" data-nosnippet="">136</a>            <span class="comment">// The arc starts on the circle and where the edge curve ends.
+<a href="#137" id="137" data-nosnippet="">137</a>            </span><span class="macro">assert!</span>((seg[<span class="number">3</span>].<span class="number">0 </span>- e3.<span class="number">0</span>).abs() &lt; <span class="number">1e-6 </span>&amp;&amp; (seg[<span class="number">3</span>].<span class="number">1 </span>- e3.<span class="number">1</span>).abs() &lt; <span class="number">1e-6</span>, <span class="string">"s={s}: {:?} vs {:?}"</span>, seg[<span class="number">3</span>], e3);
+<a href="#138" id="138" data-nosnippet="">138</a>            <span class="comment">// The arc is symmetric about the diagonal u = v.
+<a href="#139" id="139" data-nosnippet="">139</a>            </span><span class="macro">assert!</span>((seg[<span class="number">3</span>].<span class="number">0 </span>- seg[<span class="number">6</span>].<span class="number">1</span>).abs() &lt; <span class="number">1e-9 </span>&amp;&amp; (seg[<span class="number">3</span>].<span class="number">1 </span>- seg[<span class="number">6</span>].<span class="number">0</span>).abs() &lt; <span class="number">1e-9</span>);
+<a href="#140" id="140" data-nosnippet="">140</a>        }
+<a href="#141" id="141" data-nosnippet="">141</a>    }
+<a href="#142" id="142" data-nosnippet="">142</a>
+<a href="#143" id="143" data-nosnippet="">143</a>    <span class="attr">#[test]
+<a href="#144" id="144" data-nosnippet="">144</a>    </span><span class="kw">fn </span>zero_smoothing_is_a_circular_corner() {
+<a href="#145" id="145" data-nosnippet="">145</a>        <span class="kw">let </span>c = corner(<span class="number">10.0</span>, <span class="number">0.0</span>);
+<a href="#146" id="146" data-nosnippet="">146</a>        <span class="kw">let </span>seg = c.segments();
+<a href="#147" id="147" data-nosnippet="">147</a>        <span class="macro">assert!</span>((c.p - <span class="number">10.0</span>).abs() &lt; <span class="number">1e-9</span>);
+<a href="#148" id="148" data-nosnippet="">148</a>        <span class="macro">assert!</span>((seg[<span class="number">3</span>].<span class="number">0 </span>- <span class="number">10.0</span>).abs() &lt; <span class="number">1e-9 </span>&amp;&amp; seg[<span class="number">3</span>].<span class="number">1</span>.abs() &lt; <span class="number">1e-9</span>);
+<a href="#149" id="149" data-nosnippet="">149</a>        <span class="macro">assert!</span>((seg[<span class="number">6</span>].<span class="number">0</span>).abs() &lt; <span class="number">1e-9 </span>&amp;&amp; (seg[<span class="number">6</span>].<span class="number">1 </span>- <span class="number">10.0</span>).abs() &lt; <span class="number">1e-9</span>);
+<a href="#150" id="150" data-nosnippet="">150</a>    }
+<a href="#151" id="151" data-nosnippet="">151</a>
+<a href="#152" id="152" data-nosnippet="">152</a>    <span class="attr">#[test]
+<a href="#153" id="153" data-nosnippet="">153</a>    </span><span class="kw">fn </span>smoothing_uses_more_of_the_edge() {
+<a href="#154" id="154" data-nosnippet="">154</a>        <span class="kw">let </span>d0 = numbers(<span class="kw-2">&amp;</span>path_d(<span class="number">200.0</span>, <span class="number">100.0</span>, <span class="number">20.0</span>, <span class="number">0.0</span>));
+<a href="#155" id="155" data-nosnippet="">155</a>        <span class="kw">let </span>d6 = numbers(<span class="kw-2">&amp;</span>path_d(<span class="number">200.0</span>, <span class="number">100.0</span>, <span class="number">20.0</span>, <span class="number">0.6</span>));
+<a href="#156" id="156" data-nosnippet="">156</a>        <span class="comment">// The first point is where the top-right corner starts on the top edge.
+<a href="#157" id="157" data-nosnippet="">157</a>        </span><span class="macro">assert_eq!</span>((d0[<span class="number">0</span>], d0[<span class="number">1</span>]), (<span class="number">180.0</span>, <span class="number">0.0</span>));
+<a href="#158" id="158" data-nosnippet="">158</a>        <span class="macro">assert_eq!</span>((d6[<span class="number">0</span>], d6[<span class="number">1</span>]), (<span class="number">168.0</span>, <span class="number">0.0</span>));
+<a href="#159" id="159" data-nosnippet="">159</a>    }
+<a href="#160" id="160" data-nosnippet="">160</a>
+<a href="#161" id="161" data-nosnippet="">161</a>    <span class="attr">#[test]
+<a href="#162" id="162" data-nosnippet="">162</a>    </span><span class="kw">fn </span>stays_inside_and_reduces_smoothing_when_the_rectangle_is_small() {
+<a href="#163" id="163" data-nosnippet="">163</a>        <span class="kw">for </span>(w, h, r, s) <span class="kw">in </span>[(<span class="number">100.0</span>, <span class="number">40.0</span>, <span class="number">20.0</span>, <span class="number">1.0</span>), (<span class="number">40.0</span>, <span class="number">40.0</span>, <span class="number">50.0</span>, <span class="number">0.8</span>), (<span class="number">10.0</span>, <span class="number">300.0</span>, <span class="number">4.0</span>, <span class="number">0.6</span>), (<span class="number">300.0</span>, <span class="number">120.0</span>, <span class="number">30.0</span>, <span class="number">0.6</span>)] {
+<a href="#164" id="164" data-nosnippet="">164</a>            <span class="kw">let </span>n = numbers(<span class="kw-2">&amp;</span>path_d(w, h, r, s));
+<a href="#165" id="165" data-nosnippet="">165</a>            <span class="macro">assert!</span>(n.chunks(<span class="number">2</span>).all(|p| p[<span class="number">0</span>] &gt;= -<span class="number">1e-6 </span>&amp;&amp; p[<span class="number">0</span>] &lt;= w + <span class="number">1e-6 </span>&amp;&amp; p[<span class="number">1</span>] &gt;= -<span class="number">1e-6 </span>&amp;&amp; p[<span class="number">1</span>] &lt;= h + <span class="number">1e-6</span>), <span class="string">"{w}x{h} r{r} s{s}"</span>);
+<a href="#166" id="166" data-nosnippet="">166</a>            <span class="comment">// Corners never cross the middle of an edge.
+<a href="#167" id="167" data-nosnippet="">167</a>            </span><span class="macro">assert!</span>(n[<span class="number">0</span>] &gt;= w / <span class="number">2.0 </span>- <span class="number">1e-6</span>);
+<a href="#168" id="168" data-nosnippet="">168</a>        }
+<a href="#169" id="169" data-nosnippet="">169</a>        <span class="macro">assert!</span>(numbers(<span class="kw-2">&amp;</span>path_d(f64::NAN, <span class="number">10.0</span>, f64::INFINITY, f64::NAN)).iter().all(|v| v.is_finite()));
+<a href="#170" id="170" data-nosnippet="">170</a>    }
+<a href="#171" id="171" data-nosnippet="">171</a>
+<a href="#172" id="172" data-nosnippet="">172</a>    <span class="attr">#[test]
+<a href="#173" id="173" data-nosnippet="">173</a>    </span><span class="kw">fn </span>four_symmetric_corners() {
+<a href="#174" id="174" data-nosnippet="">174</a>        <span class="kw">let </span>n = numbers(<span class="kw-2">&amp;</span>path_d(<span class="number">120.0</span>, <span class="number">80.0</span>, <span class="number">16.0</span>, <span class="number">0.6</span>));
+<a href="#175" id="175" data-nosnippet="">175</a>        <span class="comment">// 4 corners x 10 points, 2 numbers each.
+<a href="#176" id="176" data-nosnippet="">176</a>        </span><span class="macro">assert_eq!</span>(n.len(), <span class="number">80</span>);
+<a href="#177" id="177" data-nosnippet="">177</a>        <span class="kw">let </span>pts: Vec&lt;(f64, f64)&gt; = n.chunks(<span class="number">2</span>).map(|p| (p[<span class="number">0</span>], p[<span class="number">1</span>])).collect();
+<a href="#178" id="178" data-nosnippet="">178</a>        <span class="kw">for </span><span class="kw-2">&amp;</span>(x, y) <span class="kw">in </span><span class="kw-2">&amp;</span>pts {
+<a href="#179" id="179" data-nosnippet="">179</a>            <span class="kw">let </span>mirrored = (<span class="number">120.0 </span>- x, <span class="number">80.0 </span>- y);
+<a href="#180" id="180" data-nosnippet="">180</a>            <span class="macro">assert!</span>(pts.iter().any(|q| (q.<span class="number">0 </span>- mirrored.<span class="number">0</span>).abs() &lt; <span class="number">0.01 </span>&amp;&amp; (q.<span class="number">1 </span>- mirrored.<span class="number">1</span>).abs() &lt; <span class="number">0.01</span>), <span class="string">"{x},{y}"</span>);
+<a href="#181" id="181" data-nosnippet="">181</a>        }
+<a href="#182" id="182" data-nosnippet="">182</a>    }
+<a href="#183" id="183" data-nosnippet="">183</a>}
+</code></pre></div></section></main></body></html>

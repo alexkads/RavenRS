@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CANCELAMENTO"],"enum":["MotivoCancelamento"],"fn":["id_pedido","pedido_cancelamento"]};

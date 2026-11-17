@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BUILD_TIME","READY_TIME"],"fn":["checkout_with","is_older","know","known","learn","learned","open","open_from","pick_installed","scenarios","set_window","window"],"struct":["App"]};

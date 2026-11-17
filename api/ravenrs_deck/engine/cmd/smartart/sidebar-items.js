@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BRICK_CAMERA","COLORS","LAYOUTS","MAX_LEVEL","STYLES"],"fn":["add","category","demote_node","insert","is_3d","is_kind","layout","nodes_from_lines","normalize","preview","promote_node","remove","selected","specs"]};

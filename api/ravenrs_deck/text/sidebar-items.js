@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["UPRIGHT_CENTRE"],"enum":["Affinity","Dash","DecoLine","MoveMode"],"fn":["autonum","fit_height","fit_width","layout","map_symbol_bullet","symbol_char"],"mod":["datetime"],"struct":["Deco","GlyphRun","LineInfo","NoFields","Opts","Pos","RunEffects","TextLayout","TextShadow"],"trait":["Fields"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["aguardando","aprovado","c_aut_ausente","cancelado_pelo_operador","menu_debito_credito","negado","pergunta_parcelas","qr_pix","queda_antes_da_confirmacao","queda_depois_da_confirmacao","sem_papel","timeout","timeout_depois_de_processar"]};

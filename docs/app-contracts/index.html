@@ -1,0 +1,528 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc="" data-has-sidebar="" data-astro-cid-g5ptsecz=""><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Contracts and acceptance scenarios for reusable modules | RavenRS</title><link rel="sitemap" href="/RavenRS/sitemap-index.xml"><link rel="shortcut icon" href="/RavenRS/favicon.svg" type="image/svg+xml"><meta name="generator" content="Astro v7.4.12"><meta name="generator" content="Starlight v0.43.1"><script>
+	(() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+	})();
+</script><link rel="stylesheet" href="/RavenRS/_astro/print.C9eyqPGL.css" media="print"><link rel="stylesheet" href="/RavenRS/_astro/index.BcKmb9jH.css"><style>@layer starlight.components.icon{svg[data-astro-cid-hkc32dio]{color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em;overflow:visible}}
+</style><script type="module" src="/RavenRS/_astro/page.cNngjUgL.js"></script><meta name="description" content="Contracts and acceptance scenarios for reusable modules — the RavenRS guide to native and web applications in Rust."><link rel="canonical" href="https://ravenrs.vercel.app/docs/app-contracts/"><meta property="og:title" content="Contracts and acceptance scenarios for reusable modules | RavenRS"><meta property="og:description" content="Contracts and acceptance scenarios for reusable modules — the RavenRS guide to native and web applications in Rust."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/docs/app-contracts/"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Contracts and acceptance scenarios for reusable modules | RavenRS — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Contracts and acceptance scenarios for reusable modules | RavenRS"><meta name="twitter:description" content="Contracts and acceptance scenarios for reusable modules — the RavenRS guide to native and web applications in Rust."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta name="twitter:image:alt" content="Contracts and acceptance scenarios for reusable modules | RavenRS — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Contracts and acceptance scenarios for reusable modules | RavenRS","description":"Contracts and acceptance scenarios for reusable modules — the RavenRS guide to native and web applications in Rust.","url":"https://ravenrs.vercel.app/docs/app-contracts/","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body data-astro-cid-g5ptsecz=""><a class="sl-skip-link" href="#_top" data-astro-cid-qb7clj6f="">Skip to content</a><div class="page sl-flex" data-astro-cid-yntsjkba=""><header class="header" data-astro-cid-yntsjkba=""><div class="header" data-astro-cid-by6fddyj=""><div class="title-wrapper sl-flex" data-astro-cid-by6fddyj=""><a href="/RavenRS/" class="site-title sl-flex" data-astro-cid-6rvad3va=""><span translate="no" data-astro-cid-6rvad3va="">RavenRS</span></a></div><div class="sl-flex print:hidden" data-astro-cid-by6fddyj=""><site-search data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}" data-astro-cid-b5kgnn7o="true"><button data-open-modal="" disabled="" aria-label="Search" aria-keyshortcuts="Control+K" data-astro-cid-b5kgnn7o=""><svg data-astro-cid-b5kgnn7o="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"></path></svg><span class="sl-hidden md:sl-block" aria-hidden="true" data-astro-cid-b5kgnn7o="">Search</span><kbd class="sl-hidden md:sl-flex" style="display: none" data-astro-cid-b5kgnn7o=""><kbd data-astro-cid-b5kgnn7o="">Ctrl</kbd><kbd data-astro-cid-b5kgnn7o="">K</kbd></kbd></button><dialog style="padding: 0" aria-label="Search" data-astro-cid-b5kgnn7o=""><div class="dialog-frame sl-flex" data-astro-cid-b5kgnn7o=""><button data-close-modal="" class="sl-flex md:sl-hidden" data-astro-cid-b5kgnn7o="">Cancel</button><div class="search-container" data-astro-cid-b5kgnn7o=""><div id="starlight__search" data-astro-cid-b5kgnn7o=""></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/RavenRS/_astro/Search.astro_astro_type_script_index_0_lang.B287-pOx.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group" data-astro-cid-by6fddyj=""><div class="sl-flex social-icons" data-astro-cid-by6fddyj=""><a href="https://github.com/alexkads/RavenRS" rel="me" class="sl-flex" data-astro-cid-n2mnl6yq=""><span class="sr-only" data-astro-cid-n2mnl6yq="">GitHub</span><svg data-astro-cid-n2mnl6yq="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"></path></svg></a></div><starlight-theme-select data-astro-cid-smhvfpqh="true"><label style="--sl-select-width: 6.25em" data-astro-cid-2z5xp7gb=""><span class="sr-only" data-astro-cid-2z5xp7gb="">Select theme</span><span class="icon label-icon" data-astro-cid-2z5xp7gb=""><svg class="sl-theme-icon-dark" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"></path></svg><svg class="sl-theme-icon-light" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"></path></svg><svg class="sl-theme-icon-auto" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"></path></svg></span><select autocomplete="off" data-astro-cid-2z5xp7gb=""><option value="dark" data-astro-cid-2z5xp7gb="">Dark</option><option value="light" data-astro-cid-2z5xp7gb="">Light</option><option value="auto" selected="" data-astro-cid-2z5xp7gb="">Auto</option></select><svg class="icon caret" data-astro-cid-2z5xp7gb="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"></path></svg></label></starlight-theme-select><script>(() => {
+		const theme = (typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme'));
+		if (theme) document.querySelectorAll('starlight-theme-select select').forEach((s) => { s.value = theme; });
+	})();</script><script type="module">var e=`starlight-theme`,t=e=>e===`auto`||e===`dark`||e===`light`?e:`auto`,n=()=>t(typeof localStorage<`u`&&localStorage.getItem(e));function r(t){typeof localStorage<`u`&&localStorage.setItem(e,t===`light`||t===`dark`?t:``)}var i=()=>matchMedia(`(prefers-color-scheme: light)`).matches?`light`:`dark`;function a(e){document.querySelectorAll(`starlight-theme-select select`).forEach(t=>{t.value=e}),document.documentElement.dataset.theme=e===`auto`?i():e,r(e)}matchMedia(`(prefers-color-scheme: light)`).addEventListener(`change`,()=>{n()===`auto`&&a(`auto`)});var o=class extends HTMLElement{constructor(){super(),a(n()),this.querySelector(`select`)?.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&a(t(e.currentTarget.value))})}};customElements.define(`starlight-theme-select`,o);</script><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script></div></div></header><nav class="sidebar print:hidden" aria-label="Main" data-astro-cid-yntsjkba=""><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden" data-astro-cid-r2osgdlg=""><svg class="open-menu" data-astro-cid-r2osgdlg="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"></path></svg><svg class="close-menu" data-astro-cid-r2osgdlg="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"></path></svg><span class="sr-only" data-astro-cid-r2osgdlg="">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover="" id="starlight__sidebar" class="sidebar-pane" data-astro-cid-yntsjkba="true"><div class="sidebar-content sl-flex" data-astro-cid-yntsjkba=""><sl-sidebar-state-persist data-hash="1q49ps1" data-astro-cid-ipdry5cl="true"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level" data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/" class="large" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Home</span></a></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Start here</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Introduction</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/getting-started/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Installation</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/cli/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">CLI &amp; AI assistants</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/ai/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">AI-assisted development</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Build applications</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/architecture/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Architecture</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/design-system/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Design system</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/applications/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Records &amp; forms</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/components/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Component coverage</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Reports</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/reporting/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Create reports</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/report-server/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Report server</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Reference</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/quality/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Quality &amp; accessibility</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/performance/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Performance</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/versioning/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Versions &amp; upgrades</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Technical guides</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-contracts/" aria-current="page" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Contracts and acceptance scenarios for reusable modules</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-coverage/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Cobertura do ravenrs-app para aplicações corporativas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-parity/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Application framework parity</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/automacao-comercial/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Automação comercial: o que existe e o que falta para vender</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/component-audit/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Auditoria técnica de componentes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/component-inventory/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Inventário e projeção de componentes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/developer-platform-plan/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Plataforma de desenvolvimento RavenRS — inventário e proposta</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/nfse/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">NFS-e Padrão Nacional: pesquisa para o PDV (hoje: 05/11/2026)</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/pagamentos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Pagamentos: pinpads, TEF e os quatro provedores</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/perifericos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Periféricos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/project-planning-roadmap/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Capacidades de planejamento para aplicações RavenRS</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/proximas-etapas/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Automação comercial: próximas etapas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/reporting-parity/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">RavenRS Reporting — feature parity</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/site-seo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Site SEO and publication</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/software-coverage/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Cobertura por tipo de software</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/tef-comparativo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">TEF para o PDV: comparativo e recomendação</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Data Studio</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/01-visao-e-requisitos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: visão do produto e requisitos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/02-analise-do-codigo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: análise do código</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/03-matriz-de-componentes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: matriz de componentes reutilizáveis</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/04-lacunas-e-novos-componentes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: lacunas e novos componentes propostos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/05-fluxos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: fluxos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/06-telas/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: especificação das telas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/07-wireframes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: wireframes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/08-arquitetura/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: arquitetura</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/09-modelo-de-dominio/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: modelo de domínio</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/10-mcp-e-conectores/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: MCP, agente e conectores</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/11-schema-mapeamento-transformacoes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: descoberta, schema, mapeamento e transformações</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/12-execucao-e-recuperacao/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: execução e recuperação</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/13-seguranca-privacidade-a11y-i18n/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: segurança, privacidade, acessibilidade, idiomas e desempenho</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/14-referencias-e-roadmap/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: referências e roadmap</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/15-criterios-de-aceitacao/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: critérios de aceitação</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/16-decisoes-em-aberto/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: decisões em aberto</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/cenario-de-referencia/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: cenário de referência</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Tutorials</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/tutorials/ravenrs-app-vscode/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Primeiro app com ravenrs-app no VS Code — RavenDevLab</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Explore</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="7"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/components/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Components</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/playground/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Playground</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/api/ravenrs/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Rust API</span></a></li></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex" data-astro-cid-p4azlveh=""><div class="social-icons" data-astro-cid-p4azlveh=""><a href="https://github.com/alexkads/RavenRS" rel="me" class="sl-flex" data-astro-cid-n2mnl6yq=""><span class="sr-only" data-astro-cid-n2mnl6yq="">GitHub</span><svg data-astro-cid-n2mnl6yq="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"></path></svg></a></div><starlight-theme-select data-astro-cid-smhvfpqh="true"><label style="--sl-select-width: 6.25em" data-astro-cid-2z5xp7gb=""><span class="sr-only" data-astro-cid-2z5xp7gb="">Select theme</span><span class="icon label-icon" data-astro-cid-2z5xp7gb=""><svg class="sl-theme-icon-dark" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"></path></svg><svg class="sl-theme-icon-light" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"></path></svg><svg class="sl-theme-icon-auto" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"></path></svg></span><select autocomplete="off" data-astro-cid-2z5xp7gb=""><option value="dark" data-astro-cid-2z5xp7gb="">Dark</option><option value="light" data-astro-cid-2z5xp7gb="">Light</option><option value="auto" selected="" data-astro-cid-2z5xp7gb="">Auto</option></select><svg class="icon caret" data-astro-cid-2z5xp7gb="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"></path></svg></label></starlight-theme-select><script>(() => {
+		const theme = (typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme'));
+		if (theme) document.querySelectorAll('starlight-theme-select select').forEach((s) => { s.value = theme; });
+	})();</script></div></div></div></sl-sidebar-pane></nav><div class="main-frame" data-astro-cid-yntsjkba=""><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex" data-astro-cid-lrzkfocr=""><aside class="right-sidebar-container print:hidden" data-astro-cid-lrzkfocr=""><div class="right-sidebar" data-astro-cid-lrzkfocr=""><div class="lg:sl-hidden" data-astro-cid-qok35upx=""><mobile-starlight-toc data-min-h="2" data-max-h="3" data-astro-cid-66cqc7ze="true"><nav aria-labelledby="starlight__on-this-page--mobile" data-astro-cid-66cqc7ze=""><details id="starlight__mobile-toc" data-astro-cid-66cqc7ze=""><summary id="starlight__on-this-page--mobile" class="sl-flex" data-astro-cid-66cqc7ze=""><span class="toggle sl-flex" data-astro-cid-66cqc7ze="">On this page<svg class="caret" data-astro-cid-66cqc7ze="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></span><span class="display-current" data-astro-cid-66cqc7ze=""></span></summary><div class="dropdown" data-astro-cid-66cqc7ze=""><ul class="isMobile" style="--depth: 0;" data-astro-cid-jugkfwgx=""><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#_top" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Overview</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#rules-every-package-follows" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Rules every package follows</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#test-fixture" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Test fixture</span></a><ul class="isMobile" style="--depth: 1;" data-astro-cid-jugkfwgx=""><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#profiles-of-the-example-policy" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Profiles of the example policy</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#conventions" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Conventions</span></a></li></ul></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#contract-1-module-and-host-application" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Contract 1: module and host application</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#contract-2-external-provider" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Contract 2: external provider</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#contract-3-commands-events-and-failures" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Contract 3: commands, events and failures</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#scenarios" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Scenarios</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#first-slice" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">First slice</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#groups" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Groups</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#running-the-scenarios" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Running the scenarios</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#what-a-pull-request-shows" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">What a pull request shows</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/RavenRS/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block" data-astro-cid-qok35upx=""><div class="sl-container" data-astro-cid-qok35upx=""><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul style="--depth: 0;" data-astro-cid-jugkfwgx=""><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#_top" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Overview</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#rules-every-package-follows" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Rules every package follows</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#test-fixture" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Test fixture</span></a><ul style="--depth: 1;" data-astro-cid-jugkfwgx=""><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#profiles-of-the-example-policy" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Profiles of the example policy</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#conventions" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Conventions</span></a></li></ul></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#contract-1-module-and-host-application" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Contract 1: module and host application</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#contract-2-external-provider" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Contract 2: external provider</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#contract-3-commands-events-and-failures" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Contract 3: commands, events and failures</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#scenarios" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Scenarios</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#first-slice" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">First slice</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#groups" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Groups</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#running-the-scenarios" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Running the scenarios</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#what-a-pull-request-shows" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">What a pull request shows</span></a></li></ul></nav></starlight-toc><script type="module" src="/RavenRS/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane" data-astro-cid-lrzkfocr=""><main data-pagefind-body="" lang="en" dir="ltr" data-astro-cid-g5ptsecz=""><div class="content-panel" data-astro-cid-a7po4psb=""><div class="sl-container" data-astro-cid-a7po4psb=""><h1 id="_top" data-astro-cid-bebwqqxs="">Contracts and acceptance scenarios for reusable modules</h1><p class="page-source" data-astro-cid-u72m6wot="">RavenRS 27.1.28 · <a href="index.md" data-astro-cid-u72m6wot="">View Markdown</a></p></div></div><div class="content-panel" data-astro-cid-a7po4psb=""><div class="sl-container" data-astro-cid-a7po4psb=""><div class="sl-markdown-content"><p>What a reusable component, module or plugin of <code dir="auto">ravenrs-app</code> has to honor so that <strong>any</strong> application can install it, and the scenarios that prove it. The state of each capability lives in <a href="/RavenRS/docs/app-parity/">APP-PARITY.md</a>; this page says what “done” means. Coordination: <a href="https://github.com/alexkads/RavenRS/issues/253">issue #253</a>.</p>
+<p><strong>Status: specification.</strong> Nothing on this page is implemented by this page. Names in <code dir="auto">code</code> that do not exist yet are illustrative; each implementation issue decides the final ones.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="rules-every-package-follows">Rules every package follows</h2><a class="sl-anchor-link" href="#rules-every-package-follows"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Rules every package follows”</span></a></div>
+<ul>
+<li>Public APIs, schemas, events and base examples use generic words: organization, unit, person, group, session, request, obligation, posting, document, resource.</li>
+<li>No generic package requires a concept of one sector. Sector presets live in optional packages, named as such.</li>
+<li>The application supplies eligibility, access, calendar, approval, billing and retention rules through documented contracts. A missing setting never grants wide access.</li>
+<li>A package never reads another application’s private tables and never depends on its binary. It integrates through public APIs and the authorized context.</li>
+<li>At least two consumers from different sectors exercise the same package with different settings, without copying it. Changing one consumer never needs <code dir="auto">if application == "..."</code> in the framework.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="test-fixture">Test fixture</h2><a class="sl-anchor-link" href="#test-fixture"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Test fixture”</span></a></div>
+<p>Every scenario runs on synthetic data, with no private database, credential or account. <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-testkit"><code dir="auto">ravenrs-app-testkit</code></a> builds it: organizations, units, people, the example roles and a controlled clock.</p>
+<table>
+<thead>
+<tr>
+<th>Record</th>
+<th>Fields and relations</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code dir="auto">Organization</code></td>
+<td>id, name. T1 and T2, isolated</td>
+</tr>
+<tr>
+<td><code dir="auto">Unit</code></td>
+<td>id, organization, name. U1 and U2 in T1; U1 in T2</td>
+</tr>
+<tr>
+<td><code dir="auto">Person</code></td>
+<td>id, unit, name, contact, reserved note. A P1 in T1 and another P1 in T2</td>
+</tr>
+<tr>
+<td><code dir="auto">Membership</code></td>
+<td>person, group, start and end</td>
+</tr>
+<tr>
+<td><code dir="auto">Group</code>, <code dir="auto">Session</code></td>
+<td>unit, owners, eligible participants, start, end, time zone, state</td>
+</tr>
+<tr>
+<td><code dir="auto">Request</code>, <code dir="auto">Decision</code></td>
+<td>requester, kind, state, approver, deadline, reason, version</td>
+</tr>
+<tr>
+<td><code dir="auto">Obligation</code>, <code dir="auto">Posting</code></td>
+<td>amount in minor units, currency, state, source reference, uniqueness of the effect</td>
+</tr>
+<tr>
+<td><code dir="auto">Document</code>, <code dir="auto">Revision</code></td>
+<td>owner, audience, version, content hash, issue and signature state</td>
+</tr>
+<tr>
+<td><code dir="auto">Resource</code>, <code dir="auto">Reservation</code></td>
+<td>unit, availability, interval, preparation time, link to the request</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h3"><h3 id="profiles-of-the-example-policy">Profiles of the example policy</h3><a class="sl-anchor-link" href="#profiles-of-the-example-policy"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Profiles of the example policy”</span></a></div>
+<p>The policy belongs to the test application, not to RavenRS. Composition and precedence of roles are documented and tested; nothing is inferred from a role’s name or from a hidden menu.</p>
+<table>
+<thead>
+<tr>
+<th>Profile</th>
+<th>Granted</th>
+<th>Refusal to prove</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Administrator of T1</td>
+<td>administration of T1</td>
+<td>never enters T2, never becomes a global operator</td>
+</tr>
+<tr>
+<td>Registrar of U1</td>
+<td>people and common data of U1</td>
+<td>no finance, reserved notes or people of U2</td>
+</tr>
+<tr>
+<td>Finance of U1</td>
+<td>obligations and postings of U1</td>
+<td>no reserved notes, no finance of U2</td>
+</tr>
+<tr>
+<td>Owner of G1</td>
+<td>sessions and attendance of G1</td>
+<td>cannot write to G2 by changing keys or references</td>
+</tr>
+<tr>
+<td>Participant P1</td>
+<td>own profile, requests and what is shared</td>
+<td>cannot reach the P1 of T2 or another person of T1 by id</td>
+</tr>
+<tr>
+<td>Integration worker</td>
+<td>only the operation and organization granted to the job</td>
+<td>no universal administrative account</td>
+</tr>
+<tr>
+<td>Revoked user</td>
+<td>nothing new</td>
+<td>sessions, files, subscriptions and MCP tools keep no earlier access</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h3"><h3 id="conventions">Conventions</h3><a class="sl-anchor-link" href="#conventions"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Conventions”</span></a></div>
+<ul>
+<li>T1 and T2 use the <strong>same local keys</strong> on purpose, to catch mixing across connection, cache, file, job and event.</li>
+<li>Money is an integer in minor units: <code dir="auto">10000</code> is 100 units when the currency scale is two. The application declares currency and scale; no contract fixes one currency.</li>
+<li>Times keep the instant and the time zone the rule needs. Tests use a controlled clock, never the machine’s clock or language.</li>
+<li>Identity and organization come from a trusted source. An <code dir="auto">organization_id</code>, author or role sent by the client grants nothing.</li>
+<li>A critical write is atomic within its documented boundary. External effects go through events and idempotency keys; a network failure does not mean the operation did not happen.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="contract-1-module-and-host-application">Contract 1: module and host application</h2><a class="sl-anchor-link" href="#contract-1-module-and-host-application"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Contract 1: module and host application”</span></a></div>
+<p><strong>Input:</strong> module settings, an authorized data context, the access policy, language, clock and the providers the module needs.
+<strong>Registers:</strong> entities and adapters, actions, screens, migrations, jobs, translations and capabilities.
+<strong>Output:</strong> public surfaces the application can use, and clear configuration and compatibility errors.</p>
+<p><code dir="auto">Module</code> (<code dir="auto">crates/ravenrs-app/src/module.rs</code>) declares its name, dependencies, entities, view and window controllers, model extensions, its model difference and initial records. <code dir="auto">Module::manifest</code> adds a <code dir="auto">ModuleManifest</code>: its version, the range it accepts of each module it depends on, targets, databases, capabilities the host has to offer, and the roles, migrations and jobs it brings. A module that says nothing is accepted everywhere.</p>
+<p><code dir="auto">ApplicationBuilder</code> tells the target, the database and the capabilities of the host, and <code dir="auto">build</code> refuses, naming the module: a dependency missing or outside its range, a cycle, an entity declared twice, a target or database not supported, a capability the host lacks, the same migration or job in two modules. <code dir="auto">Application::manifests</code> lists what each module says.</p>
+<p><code dir="auto">ApplicationBuilder::switch_off</code> turns a module off without deleting data and without granting access: its entities stay, read only, so they can be read and exported; its controllers and actions go; <code dir="auto">Application::guard</code> refuses to write them with <code dir="auto">SpaceError::Unavailable</code>.</p>
+<p>A small application installs one module without the whole platform. A mobile client uses the service contract and never reads the server’s SQLite directly.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="contract-2-external-provider">Contract 2: external provider</h2><a class="sl-anchor-link" href="#contract-2-external-provider"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Contract 2: external provider”</span></a></div>
+<p>A provider declares the capabilities it supports, its settings and secrets, the authorized context it runs in, cancellation and timeout, its result and how to resume. A deterministic <strong>fake provider</strong> tests success, refusal, late answer, duplicate and outage with no paid account and no network.</p>
+<p>In <code dir="auto">ravenrs-app</code>, <code dir="auto">Provider</code> names a provider and the capabilities it declares, and <code dir="auto">EventSink</code> sends events under a key and, with <code dir="auto">CAN_TELL_STATUS</code>, tells whether it already has one. Failures use the meanings of contract 3. <code dir="auto">ravenrs_app_testkit::FakeSink</code> is the fake one.</p>
+<p>A provider that pushes notifications in reaches <code dir="auto">ravenrs-app-server</code> at <code dir="auto">POST /api/hooks/{source}</code> (<code dir="auto">ApiService::webhook</code>, #256). The service answers for one organization, with its own database; each source has a secret per organization, given to <code dir="auto">Webhook::secret</code> and never written to a record, an answer, a log or a debug print. Before the body is read, the <code dir="auto">X-RavenRS-Organization</code> header has to name an organization with a secret for that source and <code dir="auto">X-RavenRS-Signature</code> has to be <code dir="auto">sha256=</code> and the HMAC-SHA256 of the body with that secret; anything else gets the same 401, with no detail of which part failed. The body is <code dir="auto">{ "id", "subject", "at", "data" }</code>, <code dir="auto">at</code> in milliseconds at the provider. Each event is kept in <code dir="auto">WebhookEvent</code> (<code dir="auto">webhook_event_entity</code>) by organization, source and <code dir="auto">id</code>: the same <code dir="auto">id</code> again answers <code dir="auto">duplicate</code> with no effect, and an <code dir="auto">at</code> no newer than the last applied for the same <code dir="auto">subject</code> is kept with <code dir="auto">applied: false</code>. The handler runs with no person behind it, in a unit of work committed together with the record of the event.</p>
+<p>Capabilities are honest: messaging may send without receiving, a printer may produce a document without confirming paper, storage may limit sizes, a player may not play every format on every host. The interface shows the effective capability and never shows a failure as success.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="contract-3-commands-events-and-failures">Contract 3: commands, events and failures</h2><a class="sl-anchor-link" href="#contract-3-commands-events-and-failures"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Contract 3: commands, events and failures”</span></a></div>
+<p>Every operation that changes data documents its preconditions, permission, transaction boundary, idempotency, consequence, audit and the result shown to the person. An effect key belongs to its organization: a key of T1 never deduplicates an operation of T2.</p>
+<p>In <code dir="auto">ravenrs-app</code>, <code dir="auto">ObjectSpaceExt::emit</code> adds an <code dir="auto">Event</code> to the unit of work in progress, so the commit keeps the change and its event together or neither; an organization keeps one event per key. <code dir="auto">OutboxModule</code> declares the entity, and <code dir="auto">Dispatcher</code> hands pending events to an <code dir="auto">EventSink</code> in this process.</p>
+<p>The result distinguishes six meanings, all of them in <code dir="auto">SpaceError</code> (<code dir="auto">crates/ravenrs-app/src/space.rs</code>). <code dir="auto">is_temporary()</code> says when trying again later may work, and <code dir="auto">may_have_happened()</code> when doing it again could do it twice:</p>
+<table>
+<thead>
+<tr>
+<th>Meaning</th>
+<th>Today</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Not allowed</td>
+<td><code dir="auto">SpaceError::Denied</code></td>
+</tr>
+<tr>
+<td>Invalid data</td>
+<td><code dir="auto">SpaceError::Refused</code>, <code dir="auto">BadQuery</code>, <code dir="auto">DuplicateKey</code></td>
+</tr>
+<tr>
+<td>Version conflict</td>
+<td><code dir="auto">SpaceError::Conflict</code></td>
+</tr>
+<tr>
+<td>Capability unavailable</td>
+<td><code dir="auto">SpaceError::Unavailable</code></td>
+</tr>
+<tr>
+<td>Temporary integration failure</td>
+<td><code dir="auto">SpaceError::Temporary</code>; SQLite busy or locked by another connection answers it</td>
+</tr>
+<tr>
+<td>Outcome still unknown</td>
+<td><code dir="auto">SpaceError::Unknown</code></td>
+</tr>
+</tbody>
+</table>
+<p>Messages never reveal that data the person cannot reach exists.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="scenarios">Scenarios</h2><a class="sl-anchor-link" href="#scenarios"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Scenarios”</span></a></div>
+<p>Each scenario has one owner issue, where its checklist lives. The text of the interface may change; the observable result is the contract. Sketches V01–V16 and diagrams D01–D03 are in the <a href="https://github.com/alexkads/RavenRS/issues/253#issuecomment-6828194062">visual appendix of #253</a>.</p>
+<table>
+<thead>
+<tr>
+<th>Scenario</th>
+<th>What it proves</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>C01</td>
+<td>The same read through the local and the remote client returns the same allowed fields; a forged key of T2 is refused; paging and export keep the scope</td>
+<td>#226</td>
+</tr>
+<tr>
+<td>C02</td>
+<td>A relation is authorized on create too, including references the storage computes; switching organization clears the previous context</td>
+<td>#232, #225</td>
+</tr>
+<tr>
+<td>C03</td>
+<td>An external identity never widens scope: no linking by e-mail, revocation stops the next operation, provider outage has a documented recovery</td>
+<td>#257 (done)</td>
+</tr>
+<tr>
+<td>C04</td>
+<td>A second writer on the same version does not overwrite silently; a backup of T1 restores on a clean install, a file of T2 is refused; migrations keep data and can be recovered</td>
+<td>#241, #229, #243</td>
+</tr>
+<tr>
+<td>C05</td>
+<td>An offline change reconciles once; a permission revoked meanwhile is refused; an online-only command shows pending, never false success; turning a module off keeps reads and exports</td>
+<td>#240, #242</td>
+</tr>
+<tr>
+<td>C06</td>
+<td>An approval survives a restart without losing or repeating a decision; self-approval follows the application’s policy; delegation ends on its date</td>
+<td>#258 (done)</td>
+</tr>
+<tr>
+<td>C07</td>
+<td>An event leaves only after its commit; a duplicate or a crash between send and confirmation never doubles the effect; an unauthenticated incoming event is refused</td>
+<td>#254 (done), #255 (done in this process), #256 (done)</td>
+</tr>
+<tr>
+<td>C08</td>
+<td>Conversations follow membership and the application’s history policy; a repeated notification does not duplicate a message</td>
+<td>#259</td>
+</tr>
+<tr>
+<td>C09</td>
+<td>A published form keeps its versions; an audience fires once per change; a field without read permission never leaks through filter, preview or count</td>
+<td>#260</td>
+</tr>
+<tr>
+<td>C10</td>
+<td>An issued document stays frozen at its template revision, with its hash; download checks permission; a repeated signature callback changes nothing</td>
+<td>#261</td>
+</tr>
+<tr>
+<td>C11</td>
+<td>Two requests for the last resource confirm one; one occurrence moves without the series; a staffing suggestion stays a proposal</td>
+<td>#227</td>
+</tr>
+<tr>
+<td>C12</td>
+<td>A payment confirms the right obligation once; a partial refund keeps the original; a callback for the wrong organization is refused</td>
+<td>#262</td>
+</tr>
+<tr>
+<td>C13</td>
+<td>A pass is validated by the service, not the scanner; reading it twice does not add attendance; printing and attendance have separate states</td>
+<td>#263</td>
+</tr>
+<tr>
+<td>C14</td>
+<td>Map, list and report show the same allowed people; nothing of U2 appears anywhere; a failed geocoder keeps the address</td>
+<td>#170</td>
+</tr>
+<tr>
+<td>C15</td>
+<td>A page has draft, version and audience; a direct address checks the audience; publishing installs without the other modules</td>
+<td>#264</td>
+</tr>
+<tr>
+<td>C16</td>
+<td>Preview and public output stay apart; a disconnected screen recovers; the player states what each host can play</td>
+<td>#237, #265</td>
+</tr>
+<tr>
+<td>C17</td>
+<td>Card, chart, list and export share filter and period; restricted is not zero; aggregation happens in storage; one failing tile does not break the rest</td>
+<td>#203</td>
+</tr>
+<tr>
+<td>C18</td>
+<td>An assistant sees and changes only what its user can; a write shows its effect first and is checked again on confirmation</td>
+<td>#266</td>
+</tr>
+<tr>
+<td>C19</td>
+<td>One package runs in two applications of different sectors, with different entities, texts, roles and policies, without copying it</td>
+<td>#268</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="first-slice">First slice</h2><a class="sl-anchor-link" href="#first-slice"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “First slice”</span></a></div>
+<p><a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-requests"><code dir="auto">ravenrs-app-requests</code></a> is the first package held to these contracts (#268). Its tests prove, on the fixture:</p>
+<ul>
+<li><strong>C02</strong>, as far as <code dir="auto">master</code> goes: a registrar of U1 reads only the people of U1, never the reserved note, and cannot create a person in U2; T1 and T2 never mix although they share keys; a worker reaches only the entities of its job. References computed on create wait for #232.</li>
+<li><strong>C06:</strong> the role of each step and the application’s own rule decide; a decision on an old version is a conflict; reopening the SQLite files continues on the right step, and the same decision sent again changes nothing.</li>
+<li><strong>C07, minimum:</strong> a refused decision leaves no event; an answer lost on the way back is checked before sending again; a destination that stays down ends in failed after the limit; the same local key in T1 and T2 makes two effects.</li>
+<li><strong>C07, delivery</strong> (<code dir="auto">crates/ravenrs-app-testkit/tests/delivery.rs</code>, #255): a worker that stops after the send leaves the event <code dir="auto">sending</code>, held until its deadline and then reconciled with the destination, with no second send; one that stops before the destination kept it sends once more; a destination that stays down is tried by the clock, 30 s and then 60 s later, and fails, seen only by those granted the events; a worker turned off is refused on its next run; sending again takes permission to write events and keeps the key, and the destination keeps one effect.</li>
+<li><strong>C07, incoming</strong> (<code dir="auto">crates/ravenrs-app-server/tests/hooks.rs</code>, #256): a missing, wrong or tampered signature is refused with the same words and no effect; an event signed for T2 at the address of T1 is refused and leaves the same key of T1 untouched; the same event twice has one effect; an older event after a newer one is kept and leaves the newer state; the secret is in no record, answer or debug print; over real HTTP a signed notification needs no token while the rest of the API still does.</li>
+<li><strong>C19:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/examples/contracts"><code dir="auto">examples/contracts</code></a> installs it in two applications outside this workspace.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="groups">Groups</h2><a class="sl-anchor-link" href="#groups"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Groups”</span></a></div>
+<p>What each group of capabilities uses today and where the rest is followed. <em>Master</em> means it is in <code dir="auto">master</code> and not yet in a published release; the last published release is 27.1.27. Targets: <code dir="auto">ravenrs-app</code> builds for desktop, web (wasm32) and server; <code dir="auto">ravenrs-app-sqlite</code> and what stands on it are native only.</p>
+<table>
+<thead>
+<tr>
+<th>Group</th>
+<th>Package or API to use</th>
+<th>Depends on</th>
+<th>Targets and databases</th>
+<th>State</th>
+<th>Owner</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>M01 API and client</td>
+<td><code dir="auto">ravenrs-app-server</code>, <code dir="auto">ravenrs-app-remote</code>, <code dir="auto">ravenrs-app-sql</code>, <code dir="auto">ravenrs-app-postgres</code></td>
+<td>security of <code dir="auto">ravenrs-app</code></td>
+<td>desktop, web, server; SQLite, PostgreSQL</td>
+<td>in PR #244</td>
+<td>#226</td>
+</tr>
+<tr>
+<td>M02 Organization and unit</td>
+<td><code dir="auto">SecuredObjectSpace</code>, <code dir="auto">Role::object_permission</code>, <code dir="auto">member_permission</code></td>
+<td>#225 for the organization in context</td>
+<td>any; any</td>
+<td>partial; references on create in PR #236</td>
+<td>#225, #232</td>
+</tr>
+<tr>
+<td>M03 Identity</td>
+<td><code dir="auto">Authenticator</code>, <code dir="auto">UserDirectory</code>, <code dir="auto">SecurityContext</code>, <code dir="auto">ExternalSignIn</code>, <code dir="auto">IdentityProvider</code>, <code dir="auto">Claims</code></td>
+<td></td>
+<td>any; any</td>
+<td>partial (master): outside identities linked by issuer and revocable (#257); no OIDC provider or MFA</td>
+<td>#257</td>
+</tr>
+<tr>
+<td>M04 Data and recovery</td>
+<td><code dir="auto">merge_changes</code>, <code dir="auto">SqliteBuilder::migration</code>, <code dir="auto">SpaceError::Conflict</code></td>
+<td></td>
+<td>native; SQLite</td>
+<td>partial; backup in PR #230</td>
+<td>#241, #229, #243</td>
+</tr>
+<tr>
+<td>M05 Offline and features</td>
+<td><code dir="auto">ApplicationBuilder::switch_off</code>, <code dir="auto">Application::guard</code></td>
+<td>#241</td>
+<td>any; any</td>
+<td>partial (master)</td>
+<td>#240, #242</td>
+</tr>
+<tr>
+<td>M06 Durable processes</td>
+<td><code dir="auto">ravenrs-app-requests</code> (<code dir="auto">RequestsModule</code>, <code dir="auto">Step::when</code>, <code dir="auto">Step::due_in</code>, <code dir="auto">task_reader</code>, <code dir="auto">delegate</code>, <code dir="auto">delegated_roles</code>, <code dir="auto">tasks_for</code>), <code dir="auto">StateMachine</code></td>
+<td>#66 for escalation</td>
+<td>any; any</td>
+<td>partial (master): tasks, inboxes, deadlines and delegations done (#258); no escalation</td>
+<td>#66</td>
+</tr>
+<tr>
+<td>M07 Events and worker</td>
+<td><code dir="auto">ObjectSpaceExt::emit</code>, <code dir="auto">Event</code>, <code dir="auto">OutboxModule</code>, <code dir="auto">Dispatcher</code>, <code dir="auto">Provider</code>, <code dir="auto">EventSink</code>, <code dir="auto">CAN_TELL_STATUS</code></td>
+<td>#66</td>
+<td>any; any</td>
+<td>partial (master): events in the commit (#254), delivery with tries, deadline and reconciling (#255) and signed incoming webhooks (#256) done, in this process only; no scheduler or worker process yet</td>
+<td>#66</td>
+</tr>
+<tr>
+<td>M08 Conversations</td>
+<td><code dir="auto">Chat</code>, <code dir="auto">ChatMessage</code>, <code dir="auto">AttachmentStrip</code> widgets</td>
+<td>#254, #255</td>
+<td>desktop, web; —</td>
+<td>partial: drawing only</td>
+<td>#259</td>
+</tr>
+<tr>
+<td>M09 Forms and audiences</td>
+<td><code dir="auto">FilterBuilder</code>, <code dir="auto">ravenrs-criteria</code>, <code dir="auto">EntityInfo</code> at run time</td>
+<td>#232</td>
+<td>any; any</td>
+<td>planned</td>
+<td>#260</td>
+</tr>
+<tr>
+<td>M10 Documents</td>
+<td><code dir="auto">AttachmentStore</code>, <code dir="auto">SqliteAttachmentStore</code>, <code dir="auto">ravenrs-report-pdf</code></td>
+<td>#256</td>
+<td>any; any</td>
+<td>partial: files by key, no issued revisions</td>
+<td>#261</td>
+</tr>
+<tr>
+<td>M11 Schedule and resources</td>
+<td><code dir="auto">EventCalendar</code>, <code dir="auto">Scheduler</code>, <code dir="auto">RecurrenceRule</code>, <code dir="auto">RecurrenceEditor</code> widgets</td>
+<td></td>
+<td>desktop, web; any</td>
+<td>partial; recurrence in PR #251</td>
+<td>#227</td>
+</tr>
+<tr>
+<td>M12 Payments</td>
+<td><code dir="auto">EventSink</code> and <code dir="auto">SpaceError</code> meanings as the base</td>
+<td>#254, #256</td>
+<td>any; any</td>
+<td>planned</td>
+<td>#262</td>
+</tr>
+<tr>
+<td>M13 Passes and devices</td>
+<td><code dir="auto">ravenrs_graphics::barcode::encode</code>, <code dir="auto">ControlKind::Barcode</code></td>
+<td>#237</td>
+<td>desktop, web; any</td>
+<td>partial: codes drawn and printed only</td>
+<td>#263</td>
+</tr>
+<tr>
+<td>M14 Maps</td>
+<td>none yet</td>
+<td>#232</td>
+<td>desktop, web; any</td>
+<td>planned</td>
+<td>#170</td>
+</tr>
+<tr>
+<td>M15 Publishing</td>
+<td><code dir="auto">RichText</code></td>
+<td><code dir="auto">ModuleManifest</code></td>
+<td>desktop, web; any</td>
+<td>planned</td>
+<td>#264</td>
+</tr>
+<tr>
+<td>M16 Media</td>
+<td><code dir="auto">SoundClip</code>, <code dir="auto">SoundProvider</code>, <code dir="auto">AudioPlayerButton</code></td>
+<td>#237</td>
+<td>desktop, web; —</td>
+<td>partial: sound only</td>
+<td>#265, #237</td>
+</tr>
+<tr>
+<td>M17 Analysis</td>
+<td><code dir="auto">AnalyticsModule</code>, <code dir="auto">DashboardInfo</code>, <code dir="auto">Chart</code></td>
+<td>#181 (PR #223)</td>
+<td>desktop, web; any</td>
+<td>partial</td>
+<td>#203</td>
+</tr>
+<tr>
+<td>M18 Assistant</td>
+<td><code dir="auto">ravenrs-mcp</code> (about the framework, no effects), <code dir="auto">ravenrs-ai</code> (local models)</td>
+<td>#257, #226</td>
+<td>desktop, server; any</td>
+<td>planned for application data</td>
+<td>#266</td>
+</tr>
+<tr>
+<td>M19 Package in two applications</td>
+<td><code dir="auto">ravenrs-app-testkit</code>, <code dir="auto">ravenrs-app-requests</code>, <code dir="auto">ModuleManifest</code>, <code dir="auto">examples/contracts</code></td>
+<td></td>
+<td>any; memory, SQLite</td>
+<td>done (master, not published)</td>
+<td>#268</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="running-the-scenarios">Running the scenarios</h2><a class="sl-anchor-link" href="#running-the-scenarios"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Running the scenarios”</span></a></div>
+<p>Everything below runs on synthetic data, with no account, credential or private database, from a clone of the repository:</p>
+<div class="expressive-code"><link rel="stylesheet" href="/RavenRS/_astro/ec.w36nc.css"><script type="module" src="/RavenRS/_astro/ec.0vx5m.js"></script><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="bash"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">cargo</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">test</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-p</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">ravenrs-app-requests</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="cargo test -p ravenrs-app-requests"><div></div></button></div></figure></div>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="bash"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">cargo</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">test</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-p</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">ravenrs-app</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">--test</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">suite</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">manifest::</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="cargo test -p ravenrs-app --test suite manifest::"><div></div></button></div></figure></div>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="bash"><code><div class="ec-line"><div class="code"><span style="--0:#82AAFF;--1:#3B61B0">cargo</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">test</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">-p</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">ravenrs-app-sqlite</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#82AAFF;--1:#3B61B0">--test</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">suite</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">space::a_database_held_by_another_connection_is_a_temporary_failure</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="cargo test -p ravenrs-app-sqlite --test suite space::a_database_held_by_another_connection_is_a_temporary_failure"><div></div></button></div></figure></div>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="bash"><code><div class="ec-line"><div class="code"><span style="--0:#C5E478;--1:#3B61B0">cd</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">examples/contracts/associacao</span><span style="--0:#D6DEEB;--1:#403F53"> &amp;&amp; </span><span style="--0:#82AAFF;--1:#3B61B0">cargo</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">run</span><span style="--0:#D6DEEB;--1:#403F53"> &amp;&amp; </span><span style="--0:#82AAFF;--1:#3B61B0">cargo</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">test</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="cd examples/contracts/associacao &amp;&amp; cargo run &amp;&amp; cargo test"><div></div></button></div></figure></div>
+<div class="expressive-code"><figure class="frame is-terminal not-content"><figcaption class="header"><span class="title"></span><span class="sr-only">Terminal window</span></figcaption><pre data-language="bash"><code><div class="ec-line"><div class="code"><span style="--0:#C5E478;--1:#3B61B0">cd</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">examples/contracts/cursos</span><span style="--0:#D6DEEB;--1:#403F53"> &amp;&amp; </span><span style="--0:#82AAFF;--1:#3B61B0">cargo</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">run</span><span style="--0:#D6DEEB;--1:#403F53"> &amp;&amp; </span><span style="--0:#82AAFF;--1:#3B61B0">cargo</span><span style="--0:#D6DEEB;--1:#403F53"> </span><span style="--0:#ECC48D;--1:#3B61B0">test</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="cd examples/contracts/cursos &amp;&amp; cargo run &amp;&amp; cargo test"><div></div></button></div></figure></div>
+<p>They cover C02 as far as <code dir="auto">master</code> goes, the minimum of C06 and C07, C19, the failure meanings of contract 3 and the module checks of contract 1. Every other scenario is followed in its owner issue, in the table above, with its checklist; none is claimed done here.</p>
+<p>The <code dir="auto">ravenrs-mcp</code> server answers the same questions: <code dir="auto">app_contracts</code> lists the scenarios and the groups with their owners, and <code dir="auto">parity_status</code> with <code dir="auto">document: application</code> reads <a href="/RavenRS/docs/app-parity/">APP-PARITY.md</a>.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="what-a-pull-request-shows">What a pull request shows</h2><a class="sl-anchor-link" href="#what-a-pull-request-shows"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “What a pull request shows”</span></a></div>
+<ol>
+<li>The scenarios it serves, its implementation issue and the version or commit of what it depends on.</li>
+<li>The public contract and a compiling example of an outside application configuring and using it; configuration kept apart from domain code.</li>
+<li>The behavior of UI, service and worker, with failures, rollback and resume where they apply.</li>
+<li>A matrix of hosts, databases and providers: implemented and tested, partial, not supported or planned, with the command that checked it.</li>
+<li>Tests and steps anyone can repeat with synthetic data.</li>
+<li>The rows of <a href="/RavenRS/docs/app-parity/">APP-PARITY.md</a> and this page updated in the same change; two uses from different sectors once the package is consumable.</li>
+</ol></div><footer class="sl-flex" data-astro-cid-ddtxxk7k=""><div class="meta sl-flex" data-astro-cid-ddtxxk7k=""><a href="https://github.com/alexkads/RavenRS/edit/master/docs/APP-CONTRACTS.md" class="sl-flex print:hidden" data-astro-cid-qlekgd3o=""><svg data-astro-cid-qlekgd3o="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;" data-astro-cid-hkc32dio=""><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"></path></svg>Edit page</a></div><div class="pagination-links print:hidden" dir="ltr" data-astro-cid-b5raizh3=""><a href="/RavenRS/docs/versioning/" rel="prev" data-astro-cid-b5raizh3=""><svg data-astro-cid-b5raizh3="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;" data-astro-cid-hkc32dio=""><path d="M17 11H9.41l3.3-3.29a1.004 1.004 0 1 0-1.42-1.42l-5 5a1 1 0 0 0-.21.33 1 1 0 0 0 0 .76 1 1 0 0 0 .21.33l5 5a1.002 1.002 0 0 0 1.639-.325 1 1 0 0 0-.219-1.095L9.41 13H17a1 1 0 0 0 0-2Z"></path></svg><span data-astro-cid-b5raizh3="">Previous<br data-astro-cid-b5raizh3=""><span class="link-title" data-astro-cid-b5raizh3="">Versions &amp; upgrades</span></span></a><a href="/RavenRS/docs/app-coverage/" rel="next" data-astro-cid-b5raizh3=""><svg data-astro-cid-b5raizh3="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;" data-astro-cid-hkc32dio=""><path d="M17.92 11.62a1.001 1.001 0 0 0-.21-.33l-5-5a1.003 1.003 0 1 0-1.42 1.42l3.3 3.29H7a1 1 0 0 0 0 2h7.59l-3.3 3.29a1.002 1.002 0 0 0 .325 1.639 1 1 0 0 0 1.095-.219l5-5a1 1 0 0 0 .21-.33 1 1 0 0 0 0-.76Z"></path></svg><span data-astro-cid-b5raizh3="">Next<br data-astro-cid-b5raizh3=""><span class="link-title" data-astro-cid-b5raizh3="">Cobertura do ravenrs-app para aplicações corporativas</span></span></a></div></footer></div></div></main></div></div></div></div></body></html>

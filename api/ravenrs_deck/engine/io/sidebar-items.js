@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["file_len","read_file","write_file"]};

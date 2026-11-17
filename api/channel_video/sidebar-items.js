@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BRAND","DEFAULT_SPEAKER","SIZE"],"fn":["chosen_speaker","edit","export","films","finance","frames","gallery","main","narrate","record","spoken_sound","wav_of"]};

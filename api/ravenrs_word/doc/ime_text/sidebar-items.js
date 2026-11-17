@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_IME_TEXT_BYTES"],"enum":["DeleteUnit"],"struct":["ImeDelete","ImeWindow","VisibleParagraph"]};

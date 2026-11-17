@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BROKEN_STUDIO_APP","EXPENSE_APP","STUDIO_APP"],"fn":["block","broken_scenario","expense_app","from_scenarios","link","opens_apart","scenario","scenario_of","self_test","toolbox"]};

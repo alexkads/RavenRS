@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CAPACIDADES_PADRAO","PREFIXO"],"enum":["OnUnhandled","Operacao","Resposta","SituacaoRazao"],"fn":["cancelar","confirmar","consultar","continuar","desfazer","estornar","iniciar","pendencias"],"mod":["cenarios"],"struct":["Handler","RequisicaoSimulada","SimuladorProvedor"]};

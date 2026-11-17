@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DASH_PERCENT","MAX_DASH_STOPS"],"enum":["LineDash"]};

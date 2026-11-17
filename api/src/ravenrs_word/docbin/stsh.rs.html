@@ -1,0 +1,195 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>stsh.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="ravenrs_word" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../src-files.js"></script><script defer="" src="../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-word/src/docbin/stsh.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_word/docbin/stsh.rs.html"><meta property="og:title" content="stsh.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-word/src/docbin/stsh.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_word/docbin/stsh.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="stsh.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-word/src/docbin/stsh.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"stsh.rs - source","description":"Source of the Rust file `crates/ravenrs-word/src/docbin/stsh.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_word/docbin/stsh.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_word/docbin/</div>stsh.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! The stylesheet (`STSH`) and the font table (`SttbfFfn`) from the Table stream
+<a href="#2" id="2" data-nosnippet="">2</a>//! ([MS-DOC] §2.9.271 and §2.9.247).
+<a href="#3" id="3" data-nosnippet="">3</a>
+<a href="#4" id="4" data-nosnippet="">4</a></span><span class="kw">use </span><span class="kw">crate</span>::docbin::DocbinError;
+<a href="#5" id="5" data-nosnippet="">5</a>
+<a href="#6" id="6" data-nosnippet="">6</a><span class="doccomment">/// Largest stylesheet we accept (styles are 0x0FFE max by the spec; stay stricter).
+<a href="#7" id="7" data-nosnippet="">7</a></span><span class="kw">const </span>MAX_STYLES: usize = <span class="number">4096</span>;
+<a href="#8" id="8" data-nosnippet="">8</a>
+<a href="#9" id="9" data-nosnippet="">9</a><span class="doccomment">/// One raw style record (`STD`).
+<a href="#10" id="10" data-nosnippet="">10</a></span><span class="attr">#[derive(Clone, Debug, Default)]
+<a href="#11" id="11" data-nosnippet="">11</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>RawStyle {
+<a href="#12" id="12" data-nosnippet="">12</a>    <span class="doccomment">/// 1 paragraph, 2 character, 3 table, 4 numbering.
+<a href="#13" id="13" data-nosnippet="">13</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) stk: u8,
+<a href="#14" id="14" data-nosnippet="">14</a>    <span class="doccomment">/// Zero-based index of the parent style; 0x0FFF = none.
+<a href="#15" id="15" data-nosnippet="">15</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) istd_base: u16,
+<a href="#16" id="16" data-nosnippet="">16</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) name: String,
+<a href="#17" id="17" data-nosnippet="">17</a>    <span class="doccomment">/// Paragraph-formatting UPX grpprl (paragraph styles).
+<a href="#18" id="18" data-nosnippet="">18</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) papx: Vec&lt;u8&gt;,
+<a href="#19" id="19" data-nosnippet="">19</a>    <span class="doccomment">/// Character-formatting UPX grpprl (paragraph and character styles).
+<a href="#20" id="20" data-nosnippet="">20</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) chpx: Vec&lt;u8&gt;,
+<a href="#21" id="21" data-nosnippet="">21</a>}
+<a href="#22" id="22" data-nosnippet="">22</a>
+<a href="#23" id="23" data-nosnippet="">23</a><span class="doccomment">/// The stylesheet's standard fonts, the ones text takes when neither its style nor its own
+<a href="#24" id="24" data-nosnippet="">24</a>/// formatting names a font: font-table indexes of the ASCII, East Asian and other
+<a href="#25" id="25" data-nosnippet="">25</a>/// (non-East-Asian, non-ASCII) fonts (`Stshif.rgftcStandardChpStsh`, [MS-DOC] §2.9.273) and the
+<a href="#26" id="26" data-nosnippet="">26</a>/// complex-script font (`Stshi.ftcBi`, §2.9.272). `None` where the header is too short for one.
+<a href="#27" id="27" data-nosnippet="">27</a></span><span class="attr">#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+<a href="#28" id="28" data-nosnippet="">28</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>StandardFonts {
+<a href="#29" id="29" data-nosnippet="">29</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) ascii: <span class="prelude-ty">Option</span>&lt;u16&gt;,
+<a href="#30" id="30" data-nosnippet="">30</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) east_asian: <span class="prelude-ty">Option</span>&lt;u16&gt;,
+<a href="#31" id="31" data-nosnippet="">31</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) other: <span class="prelude-ty">Option</span>&lt;u16&gt;,
+<a href="#32" id="32" data-nosnippet="">32</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) bidi: <span class="prelude-ty">Option</span>&lt;u16&gt;,
+<a href="#33" id="33" data-nosnippet="">33</a>}
+<a href="#34" id="34" data-nosnippet="">34</a>
+<a href="#35" id="35" data-nosnippet="">35</a><span class="doccomment">/// `StshiLsd.cbLSD`: the size of a latent style's `LSD` ([MS-DOC] `StshiLsd`).
+<a href="#36" id="36" data-nosnippet="">36</a></span><span class="kw">const </span>LSD_SIZE: u16 = <span class="number">4</span>;
+<a href="#37" id="37" data-nosnippet="">37</a>
+<a href="#38" id="38" data-nosnippet="">38</a><span class="doccomment">/// The [`StandardFonts`] in the header (`Stshi`) of the `STSH` at `table[fc..fc+lcb]`: Word 365
+<a href="#39" id="39" data-nosnippet="">39</a>/// writes Aptos there while the font table's first entry is still Times New Roman (#5066).
+<a href="#40" id="40" data-nosnippet="">40</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>standard_fonts(table: <span class="kw-2">&amp;</span>[u8], fc: u32, lcb: u32) -&gt; StandardFonts {
+<a href="#41" id="41" data-nosnippet="">41</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(stsh) = (fc <span class="kw">as </span>usize).checked_add(lcb <span class="kw">as </span>usize).and_then(|end| table.get(fc <span class="kw">as </span>usize..end)) <span class="kw">else </span>{ <span class="kw">return </span>StandardFonts::default() };
+<a href="#42" id="42" data-nosnippet="">42</a>    <span class="kw">let </span>cb_stshi = stsh.get(<span class="number">0</span>..<span class="number">2</span>).map_or(<span class="number">0</span>, |b| u16::from_le_bytes([b[<span class="number">0</span>], b[<span class="number">1</span>]]) <span class="kw">as </span>usize);
+<a href="#43" id="43" data-nosnippet="">43</a>    <span class="kw">let </span>stshi = stsh.get(<span class="number">2</span>..).map_or(<span class="kw-2">&amp;</span>[][..], |s| s.get(..cb_stshi.min(s.len())).unwrap_or(<span class="kw-2">&amp;</span>[]));
+<a href="#44" id="44" data-nosnippet="">44</a>    <span class="comment">// Stshif: cstd, cbSTDBaseInFile, flags, stiMaxWhenSaved, istdMaxFixedWhenSaved,
+<a href="#45" id="45" data-nosnippet="">45</a>    // nVerBuiltInNamesWhenSaved (2 bytes each), then rgftcStandardChpStsh (3 × 2); ftcBi follows.
+<a href="#46" id="46" data-nosnippet="">46</a>    </span><span class="kw">let </span>at = |o: usize| stshi.get(o..o + <span class="number">2</span>).map(|b| u16::from_le_bytes([b[<span class="number">0</span>], b[<span class="number">1</span>]]));
+<a href="#47" id="47" data-nosnippet="">47</a>    <span class="comment">// ftcBi is optional, and the latent style data (`StshiLsd`, whose `cbLSD` MUST be 4) follows
+<a href="#48" id="48" data-nosnippet="">48</a>    // it: a 4 right after it says it is there, a 4 in its place with more data after says it was
+<a href="#49" id="49" data-nosnippet="">49</a>    // left out. A header that ends right after the field (as Word 97's) has it, a 4 included.
+<a href="#50" id="50" data-nosnippet="">50</a>    </span><span class="kw">let </span>bidi = <span class="kw">match </span>(at(<span class="number">18</span>), at(<span class="number">20</span>)) {
+<a href="#51" id="51" data-nosnippet="">51</a>        (b, <span class="prelude-val">Some</span>(LSD_SIZE) | <span class="prelude-val">None</span>) =&gt; b,
+<a href="#52" id="52" data-nosnippet="">52</a>        (<span class="prelude-val">Some</span>(LSD_SIZE), <span class="prelude-val">Some</span>(<span class="kw">_</span>)) =&gt; <span class="prelude-val">None</span>,
+<a href="#53" id="53" data-nosnippet="">53</a>        (b, <span class="kw">_</span>) =&gt; b,
+<a href="#54" id="54" data-nosnippet="">54</a>    };
+<a href="#55" id="55" data-nosnippet="">55</a>    StandardFonts { ascii: at(<span class="number">12</span>), east_asian: at(<span class="number">14</span>), other: at(<span class="number">16</span>), bidi }
+<a href="#56" id="56" data-nosnippet="">56</a>}
+<a href="#57" id="57" data-nosnippet="">57</a>
+<a href="#58" id="58" data-nosnippet="">58</a><span class="doccomment">/// Parse the `STSH` at `table[fc..fc+lcb]`.
+<a href="#59" id="59" data-nosnippet="">59</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>parse(table: <span class="kw-2">&amp;</span>[u8], fc: u32, lcb: u32) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;RawStyle&gt;, DocbinError&gt; {
+<a href="#60" id="60" data-nosnippet="">60</a>    <span class="kw">let </span>fc = fc <span class="kw">as </span>usize;
+<a href="#61" id="61" data-nosnippet="">61</a>    <span class="kw">let </span>lcb = lcb <span class="kw">as </span>usize;
+<a href="#62" id="62" data-nosnippet="">62</a>    <span class="kw">let </span>end = fc.checked_add(lcb).ok_or_else(|| DocbinError::Malformed(<span class="string">"STSH overflow"</span>.into()))<span class="question-mark">?</span>;
+<a href="#63" id="63" data-nosnippet="">63</a>    <span class="kw">let </span>stsh = table.get(fc..end).ok_or_else(|| DocbinError::Malformed(<span class="string">"STSH outside the Table stream"</span>.into()))<span class="question-mark">?</span>;
+<a href="#64" id="64" data-nosnippet="">64</a>    <span class="kw">if </span>stsh.len() &lt; <span class="number">4 </span>{
+<a href="#65" id="65" data-nosnippet="">65</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new());
+<a href="#66" id="66" data-nosnippet="">66</a>    }
+<a href="#67" id="67" data-nosnippet="">67</a>    <span class="comment">// LPStshi: cbStshi u16 + Stshi; the style count and the size of each Stdf are what we need.
+<a href="#68" id="68" data-nosnippet="">68</a>    </span><span class="kw">let </span>cb_stshi = u16::from_le_bytes([stsh[<span class="number">0</span>], stsh[<span class="number">1</span>]]) <span class="kw">as </span>usize;
+<a href="#69" id="69" data-nosnippet="">69</a>    <span class="kw">let </span>stshi = stsh.get(<span class="number">2</span>..<span class="number">2 </span>+ cb_stshi).unwrap_or(<span class="kw-2">&amp;</span>[]);
+<a href="#70" id="70" data-nosnippet="">70</a>    <span class="kw">if </span>stshi.len() &lt; <span class="number">4 </span>{
+<a href="#71" id="71" data-nosnippet="">71</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new());
+<a href="#72" id="72" data-nosnippet="">72</a>    }
+<a href="#73" id="73" data-nosnippet="">73</a>    <span class="kw">let </span>cstd = u16::from_le_bytes([stshi[<span class="number">0</span>], stshi[<span class="number">1</span>]]) <span class="kw">as </span>usize;
+<a href="#74" id="74" data-nosnippet="">74</a>    <span class="kw">let </span>cb_std_base = u16::from_le_bytes([stshi[<span class="number">2</span>], stshi[<span class="number">3</span>]]) <span class="kw">as </span>usize;
+<a href="#75" id="75" data-nosnippet="">75</a>    <span class="comment">// 10 (Word 97) or 18 (with StdfPost2000); anything else is corrupt but tolerated at 10.
+<a href="#76" id="76" data-nosnippet="">76</a>    </span><span class="kw">let </span>cb_std_base = <span class="kw">if </span>cb_std_base == <span class="number">0x12 </span>{ <span class="number">18 </span>} <span class="kw">else </span>{ <span class="number">10 </span>};
+<a href="#77" id="77" data-nosnippet="">77</a>    <span class="kw">let </span>cstd = cstd.min(MAX_STYLES);
+<a href="#78" id="78" data-nosnippet="">78</a>    <span class="kw">let </span><span class="kw-2">mut </span>rest = stsh.get(<span class="number">2 </span>+ cb_stshi..).unwrap_or(<span class="kw-2">&amp;</span>[]);
+<a href="#79" id="79" data-nosnippet="">79</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::with_capacity(cstd);
+<a href="#80" id="80" data-nosnippet="">80</a>    <span class="kw">for _ in </span><span class="number">0</span>..cstd {
+<a href="#81" id="81" data-nosnippet="">81</a>        <span class="kw">if </span>rest.len() &lt; <span class="number">2 </span>|| out.len() &gt;= MAX_STYLES {
+<a href="#82" id="82" data-nosnippet="">82</a>            <span class="kw">break</span>;
+<a href="#83" id="83" data-nosnippet="">83</a>        }
+<a href="#84" id="84" data-nosnippet="">84</a>        <span class="kw">let </span>cb_std = u16::from_le_bytes([rest[<span class="number">0</span>], rest[<span class="number">1</span>]]) <span class="kw">as </span>usize;
+<a href="#85" id="85" data-nosnippet="">85</a>        <span class="kw">let </span>(std, next) = rest.split_at(rest.len().min(<span class="number">2 </span>+ cb_std));
+<a href="#86" id="86" data-nosnippet="">86</a>        rest = next;
+<a href="#87" id="87" data-nosnippet="">87</a>        <span class="kw">if </span>cb_std == <span class="number">0 </span>{
+<a href="#88" id="88" data-nosnippet="">88</a>            out.push(RawStyle::default()); <span class="comment">// empty style: keeps istd numbering aligned
+<a href="#89" id="89" data-nosnippet="">89</a>            </span><span class="kw">continue</span>;
+<a href="#90" id="90" data-nosnippet="">90</a>        }
+<a href="#91" id="91" data-nosnippet="">91</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(stdf) = std.get(<span class="number">2</span>..<span class="number">2 </span>+ cb_std_base.min(cb_std.saturating_sub(<span class="number">2</span>))) <span class="kw">else </span>{
+<a href="#92" id="92" data-nosnippet="">92</a>            out.push(RawStyle::default());
+<a href="#93" id="93" data-nosnippet="">93</a>            <span class="kw">continue</span>;
+<a href="#94" id="94" data-nosnippet="">94</a>        };
+<a href="#95" id="95" data-nosnippet="">95</a>        <span class="comment">// StdfBase ([MS-DOC] §2.9.260, 10 bytes): sti(12)+flags(4); stk(4)+istdBase(12);
+<a href="#96" id="96" data-nosnippet="">96</a>        // cupx(4)+istdNext(12); bchUpe(16) (= cbStd); grfstd(16). istdBase is a zero-based
+<a href="#97" id="97" data-nosnippet="">97</a>        // index into the stylesheet, 0x0FFF meaning "no parent".
+<a href="#98" id="98" data-nosnippet="">98</a>        </span><span class="kw">let </span>stk = (stdf.get(<span class="number">2</span>).copied().unwrap_or(<span class="number">1</span>) &amp; <span class="number">0x0F</span>).max(<span class="number">1</span>);
+<a href="#99" id="99" data-nosnippet="">99</a>        <span class="kw">let </span>w1 = stdf.get(<span class="number">2</span>..<span class="number">4</span>).map(|b| u16::from_le_bytes([b[<span class="number">0</span>], b[<span class="number">1</span>]])).unwrap_or(<span class="number">0xFFF1</span>);
+<a href="#100" id="100" data-nosnippet="">100</a>        <span class="kw">let </span>istd_base = w1 &gt;&gt; <span class="number">4</span>;
+<a href="#101" id="101" data-nosnippet="">101</a>        <span class="kw">let </span>w2 = stdf.get(<span class="number">4</span>..<span class="number">6</span>).map(|b| u16::from_le_bytes([b[<span class="number">0</span>], b[<span class="number">1</span>]])).unwrap_or(<span class="number">0</span>);
+<a href="#102" id="102" data-nosnippet="">102</a>        <span class="kw">let </span>cupx = (w2 &amp; <span class="number">0x0F</span>) <span class="kw">as </span>usize;
+<a href="#103" id="103" data-nosnippet="">103</a>        <span class="kw">let </span>_istd_next = w2 &gt;&gt; <span class="number">4</span>; <span class="comment">// next-paragraph style; unused for now
+<a href="#104" id="104" data-nosnippet="">104</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>at = <span class="number">2 </span>+ cb_std_base;
+<a href="#105" id="105" data-nosnippet="">105</a>        <span class="comment">// xstzName: Xst (cch u16 + UTF-16LE) + terminator u16.
+<a href="#106" id="106" data-nosnippet="">106</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>name = String::new();
+<a href="#107" id="107" data-nosnippet="">107</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(cch) = std.get(at..at + <span class="number">2</span>).map(|b| u16::from_le_bytes([b[<span class="number">0</span>], b[<span class="number">1</span>]])).map(|c| (c <span class="kw">as </span>usize).min(<span class="number">256</span>)) {
+<a href="#108" id="108" data-nosnippet="">108</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(units) = std.get(at + <span class="number">2</span>..at + <span class="number">2 </span>+ cch * <span class="number">2</span>) {
+<a href="#109" id="109" data-nosnippet="">109</a>                <span class="kw">let </span>chars: Vec&lt;u16&gt; = units.as_chunks::&lt;<span class="number">2</span>&gt;().<span class="number">0</span>.iter().map(|c| u16::from_le_bytes(<span class="kw-2">*</span>c)).collect();
+<a href="#110" id="110" data-nosnippet="">110</a>                name = String::from_utf16_lossy(<span class="kw-2">&amp;</span>chars);
+<a href="#111" id="111" data-nosnippet="">111</a>            }
+<a href="#112" id="112" data-nosnippet="">112</a>            at += <span class="number">2 </span>+ cch * <span class="number">2 </span>+ <span class="number">2</span>;
+<a href="#113" id="113" data-nosnippet="">113</a>        }
+<a href="#114" id="114" data-nosnippet="">114</a>        <span class="comment">// grLPUpxSw: cupx entries, each cbUpx u16 + data (+ pad to even).
+<a href="#115" id="115" data-nosnippet="">115</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>upxs: Vec&lt;Vec&lt;u8&gt;&gt; = Vec::new();
+<a href="#116" id="116" data-nosnippet="">116</a>        <span class="kw">for _ in </span><span class="number">0</span>..cupx.min(<span class="number">3</span>) {
+<a href="#117" id="117" data-nosnippet="">117</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(cb) = std.get(at..at + <span class="number">2</span>).map(|b| u16::from_le_bytes([b[<span class="number">0</span>], b[<span class="number">1</span>]])).map(|v| v <span class="kw">as </span>usize) <span class="kw">else </span>{ <span class="kw">break </span>};
+<a href="#118" id="118" data-nosnippet="">118</a>            <span class="kw">let </span>data = std.get(at + <span class="number">2</span>..at + <span class="number">2 </span>+ cb).unwrap_or(<span class="kw-2">&amp;</span>[]).to_vec();
+<a href="#119" id="119" data-nosnippet="">119</a>            upxs.push(data);
+<a href="#120" id="120" data-nosnippet="">120</a>            at += <span class="number">2 </span>+ cb + (cb &amp; <span class="number">1</span>); <span class="comment">// padded to even; cb in the header excludes the pad
+<a href="#121" id="121" data-nosnippet="">121</a>        </span>}
+<a href="#122" id="122" data-nosnippet="">122</a>        <span class="comment">// Paragraph styles: UPX0 is a PAPX (istd u16 + grpprl), UPX1 a raw grpprl of
+<a href="#123" id="123" data-nosnippet="">123</a>        // character sprms; character styles: UPX0 is the character grpprl.
+<a href="#124" id="124" data-nosnippet="">124</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>papx = Vec::new();
+<a href="#125" id="125" data-nosnippet="">125</a>        <span class="kw">let </span><span class="kw-2">mut </span>chpx = Vec::new();
+<a href="#126" id="126" data-nosnippet="">126</a>        <span class="kw">if </span>stk == <span class="number">1 </span>{
+<a href="#127" id="127" data-nosnippet="">127</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = upxs.first() {
+<a href="#128" id="128" data-nosnippet="">128</a>                papx = u.get(<span class="number">2</span>..).unwrap_or(<span class="kw-2">&amp;</span>[]).to_vec(); <span class="comment">// skip the istd of GrpPrlAndIstd
+<a href="#129" id="129" data-nosnippet="">129</a>            </span>}
+<a href="#130" id="130" data-nosnippet="">130</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = upxs.get(<span class="number">1</span>) {
+<a href="#131" id="131" data-nosnippet="">131</a>                chpx = u.clone();
+<a href="#132" id="132" data-nosnippet="">132</a>            }
+<a href="#133" id="133" data-nosnippet="">133</a>        } <span class="kw">else if </span>stk == <span class="number">2
+<a href="#134" id="134" data-nosnippet="">134</a>            </span>&amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(u) = upxs.first()
+<a href="#135" id="135" data-nosnippet="">135</a>        {
+<a href="#136" id="136" data-nosnippet="">136</a>            chpx = u.clone();
+<a href="#137" id="137" data-nosnippet="">137</a>        }
+<a href="#138" id="138" data-nosnippet="">138</a>        out.push(RawStyle { stk, istd_base, name, papx, chpx });
+<a href="#139" id="139" data-nosnippet="">139</a>    }
+<a href="#140" id="140" data-nosnippet="">140</a>    <span class="prelude-val">Ok</span>(out)
+<a href="#141" id="141" data-nosnippet="">141</a>}
+<a href="#142" id="142" data-nosnippet="">142</a>
+<a href="#143" id="143" data-nosnippet="">143</a><span class="doccomment">/// Font names from the `SttbfFfn` at `table[fc..fc+lcb]` ([MS-DOC] §2.9.286): an STTB
+<a href="#144" id="144" data-nosnippet="">144</a>/// (§2.2.4) whose entries are FFN records (§2.9.82). Each entry is a length (`cchData`: a
+<a href="#145" id="145" data-nosnippet="">145</a>/// one-byte byte count in the non-extended table the spec requires, a two-byte count of
+<a href="#146" id="146" data-nosnippet="">146</a>/// 16-bit units in an extended one) followed by the FFN, and that length alone decides where
+<a href="#147" id="147" data-nosnippet="">147</a>/// the next entry starts: an FFN ends with its primary name and an optional alternate name
+<a href="#148" id="148" data-nosnippet="">148</a>/// (`xszAlt`), so scanning for the primary name's terminator would land inside the latter.
+<a href="#149" id="149" data-nosnippet="">149</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>fonts(table: <span class="kw-2">&amp;</span>[u8], fc: u32, lcb: u32) -&gt; Vec&lt;String&gt; {
+<a href="#150" id="150" data-nosnippet="">150</a>    <span class="kw">let </span>end = <span class="kw">match </span>(fc <span class="kw">as </span>usize).checked_add(lcb <span class="kw">as </span>usize) {
+<a href="#151" id="151" data-nosnippet="">151</a>        <span class="prelude-val">Some</span>(e) <span class="kw">if </span>e &lt;= table.len() =&gt; e,
+<a href="#152" id="152" data-nosnippet="">152</a>        <span class="kw">_ </span>=&gt; <span class="kw">return </span>Vec::new(),
+<a href="#153" id="153" data-nosnippet="">153</a>    };
+<a href="#154" id="154" data-nosnippet="">154</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(sttb) = table.get(fc <span class="kw">as </span>usize..end) <span class="kw">else </span>{ <span class="kw">return </span>Vec::new() };
+<a href="#155" id="155" data-nosnippet="">155</a>    <span class="kw">let </span>u16at = |o: usize| -&gt; <span class="prelude-ty">Option</span>&lt;u16&gt; { sttb.get(o..o.checked_add(<span class="number">2</span>)<span class="question-mark">?</span>).map(|b| u16::from_le_bytes([b[<span class="number">0</span>], b[<span class="number">1</span>]])) };
+<a href="#156" id="156" data-nosnippet="">156</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(first) = u16at(<span class="number">0</span>) <span class="kw">else </span>{ <span class="kw">return </span>Vec::new() };
+<a href="#157" id="157" data-nosnippet="">157</a>    <span class="comment">// FFN: ffid(1) wWeight(2) chs(1) ixchSzAlt(1) panose(10) fs(24) = 39 bytes, then the
+<a href="#158" id="158" data-nosnippet="">158</a>    // primary name, NUL-terminated, as UTF-16LE in the Word 97 files we accept (8-bit names
+<a href="#159" id="159" data-nosnippet="">159</a>    // from older writers fall back to Windows-1252).
+<a href="#160" id="160" data-nosnippet="">160</a>    </span><span class="kw">let </span>name_of = |ffn: <span class="kw-2">&amp;</span>[u8]| -&gt; String {
+<a href="#161" id="161" data-nosnippet="">161</a>        <span class="kw">let </span>tail = ffn.get(FFN_HEADER.min(ffn.len())..).unwrap_or(<span class="kw-2">&amp;</span>[]);
+<a href="#162" id="162" data-nosnippet="">162</a>        <span class="kw">let </span>units: Vec&lt;u16&gt; = tail.as_chunks::&lt;<span class="number">2</span>&gt;().<span class="number">0</span>.iter().map(|c| u16::from_le_bytes(<span class="kw-2">*</span>c)).take_while(|<span class="kw-2">&amp;</span>u| u != <span class="number">0</span>).take(<span class="number">64</span>).collect();
+<a href="#163" id="163" data-nosnippet="">163</a>        <span class="kw">let </span>s = String::from_utf16_lossy(<span class="kw-2">&amp;</span>units);
+<a href="#164" id="164" data-nosnippet="">164</a>        <span class="kw">if </span>s.chars().any(|c| c <span class="kw">as </span>u32 &gt; <span class="number">0x7F </span>|| c.is_ascii_graphic() || c == <span class="string">' '</span>) || s.is_empty() {
+<a href="#165" id="165" data-nosnippet="">165</a>            s
+<a href="#166" id="166" data-nosnippet="">166</a>        } <span class="kw">else </span>{
+<a href="#167" id="167" data-nosnippet="">167</a>            <span class="comment">// An 8-bit name reads as garbage through UTF-16; fall back to Windows-1252.
+<a href="#168" id="168" data-nosnippet="">168</a>            </span>tail.iter().take_while(|&amp;&amp;b| b != <span class="number">0</span>).take(<span class="number">64</span>).map(|<span class="kw-2">&amp;</span>b| <span class="kw">crate</span>::doc::encoding::cp1252(b)).collect()
+<a href="#169" id="169" data-nosnippet="">169</a>        }
+<a href="#170" id="170" data-nosnippet="">170</a>    };
+<a href="#171" id="171" data-nosnippet="">171</a>    <span class="comment">// STTB header: [fExtend 0xFFFF] cData(2) cbExtra(2); each entry is followed by cbExtra
+<a href="#172" id="172" data-nosnippet="">172</a>    // bytes (0 for font tables, but skip them if present).
+<a href="#173" id="173" data-nosnippet="">173</a>    </span><span class="kw">let </span>(extended, cdata, cb_extra, <span class="kw-2">mut </span>at) =
+<a href="#174" id="174" data-nosnippet="">174</a>        <span class="kw">if </span>first == <span class="number">0xFFFF </span>{ (<span class="bool-val">true</span>, u16at(<span class="number">2</span>).unwrap_or(<span class="number">0</span>), u16at(<span class="number">4</span>).unwrap_or(<span class="number">0</span>), <span class="number">6usize</span>) } <span class="kw">else </span>{ (<span class="bool-val">false</span>, first, u16at(<span class="number">2</span>).unwrap_or(<span class="number">0</span>), <span class="number">4usize</span>) };
+<a href="#175" id="175" data-nosnippet="">175</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
+<a href="#176" id="176" data-nosnippet="">176</a>    <span class="kw">for _ in </span><span class="number">0</span>..cdata.min(<span class="number">1024</span>) {
+<a href="#177" id="177" data-nosnippet="">177</a>        <span class="kw">let </span>(len_bytes, cb) = <span class="kw">if </span>extended {
+<a href="#178" id="178" data-nosnippet="">178</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(cb) = u16at(at) <span class="kw">else </span>{ <span class="kw">break </span>};
+<a href="#179" id="179" data-nosnippet="">179</a>            (<span class="number">2usize</span>, usize::from(cb).saturating_mul(<span class="number">2</span>))
+<a href="#180" id="180" data-nosnippet="">180</a>        } <span class="kw">else </span>{
+<a href="#181" id="181" data-nosnippet="">181</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>cb) = sttb.get(at) <span class="kw">else </span>{ <span class="kw">break </span>};
+<a href="#182" id="182" data-nosnippet="">182</a>            (<span class="number">1usize</span>, usize::from(cb))
+<a href="#183" id="183" data-nosnippet="">183</a>        };
+<a href="#184" id="184" data-nosnippet="">184</a>        <span class="kw">let </span>start = at.saturating_add(len_bytes);
+<a href="#185" id="185" data-nosnippet="">185</a>        <span class="kw">let </span>stop = start.saturating_add(cb);
+<a href="#186" id="186" data-nosnippet="">186</a>        <span class="comment">// A record cut short by the end of the table still yields what it holds.
+<a href="#187" id="187" data-nosnippet="">187</a>        </span>out.push(name_of(sttb.get(start..stop.min(sttb.len())).unwrap_or(<span class="kw-2">&amp;</span>[])));
+<a href="#188" id="188" data-nosnippet="">188</a>        at = stop.saturating_add(usize::from(cb_extra));
+<a href="#189" id="189" data-nosnippet="">189</a>    }
+<a href="#190" id="190" data-nosnippet="">190</a>    out
+<a href="#191" id="191" data-nosnippet="">191</a>}
+<a href="#192" id="192" data-nosnippet="">192</a>
+<a href="#193" id="193" data-nosnippet="">193</a><span class="doccomment">/// Bytes of an FFN before its primary name ([MS-DOC] §2.9.82).
+<a href="#194" id="194" data-nosnippet="">194</a></span><span class="kw">const </span>FFN_HEADER: usize = <span class="number">39</span>;
+</code></pre></div></section></main></body></html>

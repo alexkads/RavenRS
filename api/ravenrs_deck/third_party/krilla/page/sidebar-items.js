@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["NumberingStyle"],"struct":["Page","PageLabel","PageSettings"]};

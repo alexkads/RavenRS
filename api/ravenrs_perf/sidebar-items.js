@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["COUNTED_ROUNDS","REPORTED_ONLY","SCALE","VIEWPORT"],"enum":["Class"],"fn":["ceiling","hover_between","hover_buttons","nothing","resize","scroll_at"],"mod":["capacity","scenes"],"struct":["Bench","Ceiling","FrameTime","Outcome","PerfScene","Setup","Visit"],"type":["Counters","Step"]};

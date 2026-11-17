@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["certificado_recusado","indisponivel","recusar","resposta_perdida","timeout"]};

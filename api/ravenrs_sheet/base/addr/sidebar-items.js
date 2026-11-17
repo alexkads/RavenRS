@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_COLS","MAX_ROWS"],"fn":["category_levels","col_to_letters","letters_to_col","parse_a1_prefix","quote_sheet","sheet_needs_quotes","split_areas","split_sheet","unquote_sheet"],"struct":["CategoryLevels","CellRef","RangeRef"]};

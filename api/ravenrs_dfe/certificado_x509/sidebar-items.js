@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["HashCertificado"],"fn":["eh_do_laboratorio"],"struct":["InfoCertificado"]};

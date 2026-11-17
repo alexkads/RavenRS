@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["bpmn_format","example_collaboration","example_process","next","notation","run_rules"],"mod":["elements","plan","rules","xml"]};

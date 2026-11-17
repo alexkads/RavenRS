@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Owner"],"fn":["background","body","detach_placeholder","effects","fill","font_family","level_style","line","master_list_style","para","parents","run","show_master_shapes","text_color","xfrm"],"struct":["Ctx"]};

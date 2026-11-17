@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Tok"],"fn":["tokenize","tokenize_locale"],"struct":["LexError","Token"]};

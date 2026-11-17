@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["NS_NFE","NS_SOAP12"],"enum":["Servico"],"fn":["acao_do_content_type","envelope","request"]};

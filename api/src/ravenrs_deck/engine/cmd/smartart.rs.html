@@ -1,0 +1,403 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>smartart.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="ravenrs_deck" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../src-files.js"></script><script defer="" src="../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-deck/src/engine/cmd/smartart.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_deck/engine/cmd/smartart.rs.html"><meta property="og:title" content="smartart.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-deck/src/engine/cmd/smartart.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_deck/engine/cmd/smartart.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="smartart.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-deck/src/engine/cmd/smartart.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"smartart.rs - source","description":"Source of the Rust file `crates/ravenrs-deck/src/engine/cmd/smartart.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_deck/engine/cmd/smartart.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_deck/engine/cmd/</div>smartart.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! SmartArt: a diagram's outline (the Text Pane) and the shapes generated from it.
+<a href="#2" id="2" data-nosnippet="">2</a>//!
+<a href="#3" id="3" data-nosnippet="">3</a>//! A SmartArt graphic is a group whose `diagram` holds its layout and its nodes (text + outline
+<a href="#4" id="4" data-nosnippet="">4</a>//! level). Every edit changes the nodes and regenerates the group's children inside the group's
+<a href="#5" id="5" data-nosnippet="">5</a>//! child rectangle, so the diagram keeps its size and place. Text typed straight into a diagram
+<a href="#6" id="6" data-nosnippet="">6</a>//! shape is read back into the nodes before each regeneration.
+<a href="#7" id="7" data-nosnippet="">7</a>
+<a href="#8" id="8" data-nosnippet="">8</a></span><span class="kw">use </span><span class="kw">crate</span>::color::SchemeSlot;
+<a href="#9" id="9" data-nosnippet="">9</a><span class="kw">use </span><span class="kw">crate</span>::geom::Xfrm;
+<a href="#10" id="10" data-nosnippet="">10</a><span class="kw">use </span><span class="kw">crate</span>::model::style::{Gradient, GradientShape, GradientStop, Shadow};
+<a href="#11" id="11" data-nosnippet="">11</a><span class="kw">use </span><span class="kw">crate</span>::model::text::{Align, AutoFit, Paragraph, TextBody};
+<a href="#12" id="12" data-nosnippet="">12</a><span class="kw">use </span><span class="kw">crate</span>::model::{ColorRef, ColorTransform, Diagram, DiagramNode, Effects, Fill, Geom, Line, Presentation, Shape, ShapeId, ShapeKind, ShapeStyle};
+<a href="#13" id="13" data-nosnippet="">13</a><span class="kw">use </span>serde_json::{Value, json};
+<a href="#14" id="14" data-nosnippet="">14</a>
+<a href="#15" id="15" data-nosnippet="">15</a><span class="kw">use super</span>::{CommandSpec, NO_ID_SPACE, bad, bool_or, cmd, current_shapes, has_selection, shape_of, str_param, targets, xfrm_of};
+<a href="#16" id="16" data-nosnippet="">16</a><span class="kw">use </span><span class="kw">crate</span>::engine::{EngineError, <span class="prelude-ty">Result</span>, Session};
+<a href="#17" id="17" data-nosnippet="">17</a>
+<a href="#18" id="18" data-nosnippet="">18</a><span class="kw">mod </span>diagrams;
+<a href="#19" id="19" data-nosnippet="">19</a><span class="kw">mod </span>edit;
+<a href="#20" id="20" data-nosnippet="">20</a><span class="kw">mod </span>layout;
+<a href="#21" id="21" data-nosnippet="">21</a><span class="kw">mod </span>nodes;
+<a href="#22" id="22" data-nosnippet="">22</a><span class="kw">mod </span>paint;
+<a href="#23" id="23" data-nosnippet="">23</a>
+<a href="#24" id="24" data-nosnippet="">24</a><span class="kw">use </span>edit::{
+<a href="#25" id="25" data-nosnippet="">25</a>    add_node, change_colors, change_layout, change_style, demote, from_text, nodes, promote, remove_node, set_nodes, set_picture, to_shapes, to_text,
+<a href="#26" id="26" data-nosnippet="">26</a>};
+<a href="#27" id="27" data-nosnippet="">27</a><span class="kw">pub use </span>edit::{insert, selected};
+<a href="#28" id="28" data-nosnippet="">28</a><span class="kw">pub use </span>nodes::{add, demote_node, nodes_from_lines, normalize, promote_node, remove};
+<a href="#29" id="29" data-nosnippet="">29</a><span class="kw">pub use </span>paint::{BRICK_CAMERA, is_3d, layout};
+<a href="#30" id="30" data-nosnippet="">30</a><span class="attr">#[cfg(test)]
+<a href="#31" id="31" data-nosnippet="">31</a></span><span class="kw">use </span>paint::{MIN_SCALE, accent, layout_items, shade};
+<a href="#32" id="32" data-nosnippet="">32</a>
+<a href="#33" id="33" data-nosnippet="">33</a><span class="doccomment">/// Deepest outline level the Text Pane allows.
+<a href="#34" id="34" data-nosnippet="">34</a></span><span class="kw">pub const </span>MAX_LEVEL: u8 = <span class="number">8</span>;
+<a href="#35" id="35" data-nosnippet="">35</a><span class="doccomment">/// Most top-level shapes a layout draws.
+<a href="#36" id="36" data-nosnippet="">36</a></span><span class="kw">const </span>MAX_SHAPES: usize = <span class="number">40</span>;
+<a href="#37" id="37" data-nosnippet="">37</a>
+<a href="#38" id="38" data-nosnippet="">38</a><span class="doccomment">/// DeckCraft's layouts, with the names PowerPoint's gallery gives them.
+<a href="#39" id="39" data-nosnippet="">39</a></span><span class="kw">pub const </span>LAYOUTS: [(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str); <span class="number">45</span>] = [
+<a href="#40" id="40" data-nosnippet="">40</a>    (<span class="string">"list"</span>, <span class="string">"Vertical Bullet List"</span>),
+<a href="#41" id="41" data-nosnippet="">41</a>    (<span class="string">"blockList"</span>, <span class="string">"Basic Block List"</span>),
+<a href="#42" id="42" data-nosnippet="">42</a>    (<span class="string">"hBulletList"</span>, <span class="string">"Horizontal Bullet List"</span>),
+<a href="#43" id="43" data-nosnippet="">43</a>    (<span class="string">"process"</span>, <span class="string">"Basic Process"</span>),
+<a href="#44" id="44" data-nosnippet="">44</a>    (<span class="string">"chevron"</span>, <span class="string">"Basic Chevron Process"</span>),
+<a href="#45" id="45" data-nosnippet="">45</a>    (<span class="string">"verticalProcess"</span>, <span class="string">"Vertical Process"</span>),
+<a href="#46" id="46" data-nosnippet="">46</a>    (<span class="string">"stepUp"</span>, <span class="string">"Step Up Process"</span>),
+<a href="#47" id="47" data-nosnippet="">47</a>    (<span class="string">"cycle"</span>, <span class="string">"Basic Cycle"</span>),
+<a href="#48" id="48" data-nosnippet="">48</a>    (<span class="string">"blockCycle"</span>, <span class="string">"Block Cycle"</span>),
+<a href="#49" id="49" data-nosnippet="">49</a>    (<span class="string">"radial"</span>, <span class="string">"Basic Radial"</span>),
+<a href="#50" id="50" data-nosnippet="">50</a>    (<span class="string">"hierarchy"</span>, <span class="string">"Hierarchy"</span>),
+<a href="#51" id="51" data-nosnippet="">51</a>    (<span class="string">"pyramid"</span>, <span class="string">"Basic Pyramid"</span>),
+<a href="#52" id="52" data-nosnippet="">52</a>    (<span class="string">"invertedPyramid"</span>, <span class="string">"Inverted Pyramid"</span>),
+<a href="#53" id="53" data-nosnippet="">53</a>    (<span class="string">"matrix"</span>, <span class="string">"Basic Matrix"</span>),
+<a href="#54" id="54" data-nosnippet="">54</a>    (<span class="string">"titledMatrix"</span>, <span class="string">"Titled Matrix"</span>),
+<a href="#55" id="55" data-nosnippet="">55</a>    (<span class="string">"pictureList"</span>, <span class="string">"Vertical Picture List"</span>),
+<a href="#56" id="56" data-nosnippet="">56</a>    (<span class="string">"pictureCaption"</span>, <span class="string">"Picture Caption List"</span>),
+<a href="#57" id="57" data-nosnippet="">57</a>    (<span class="string">"pictureProcess"</span>, <span class="string">"Picture Accent Process"</span>),
+<a href="#58" id="58" data-nosnippet="">58</a>    (<span class="string">"pictureHList"</span>, <span class="string">"Horizontal Picture List"</span>),
+<a href="#59" id="59" data-nosnippet="">59</a>    (<span class="string">"timeline"</span>, <span class="string">"Basic Timeline"</span>),
+<a href="#60" id="60" data-nosnippet="">60</a>    (<span class="string">"venn"</span>, <span class="string">"Basic Venn"</span>),
+<a href="#61" id="61" data-nosnippet="">61</a>    (<span class="string">"target"</span>, <span class="string">"Basic Target"</span>),
+<a href="#62" id="62" data-nosnippet="">62</a>    (<span class="string">"textCycle"</span>, <span class="string">"Text Cycle"</span>),
+<a href="#63" id="63" data-nosnippet="">63</a>    (<span class="string">"continuousCycle"</span>, <span class="string">"Continuous Cycle"</span>),
+<a href="#64" id="64" data-nosnippet="">64</a>    (<span class="string">"horizontalHierarchy"</span>, <span class="string">"Horizontal Hierarchy"</span>),
+<a href="#65" id="65" data-nosnippet="">65</a>    (<span class="string">"gridMatrix"</span>, <span class="string">"Grid Matrix"</span>),
+<a href="#66" id="66" data-nosnippet="">66</a>    (<span class="string">"gear"</span>, <span class="string">"Gear"</span>),
+<a href="#67" id="67" data-nosnippet="">67</a>    (<span class="string">"funnel"</span>, <span class="string">"Funnel"</span>),
+<a href="#68" id="68" data-nosnippet="">68</a>    (<span class="string">"segmentedCycle"</span>, <span class="string">"Segmented Cycle"</span>),
+<a href="#69" id="69" data-nosnippet="">69</a>    (<span class="string">"multidirectionalCycle"</span>, <span class="string">"Multidirectional Cycle"</span>),
+<a href="#70" id="70" data-nosnippet="">70</a>    (<span class="string">"orgChart"</span>, <span class="string">"Organization Chart"</span>),
+<a href="#71" id="71" data-nosnippet="">71</a>    (<span class="string">"halfCircleOrgChart"</span>, <span class="string">"Half Circle Organization Chart"</span>),
+<a href="#72" id="72" data-nosnippet="">72</a>    (<span class="string">"cycleMatrix"</span>, <span class="string">"Cycle Matrix"</span>),
+<a href="#73" id="73" data-nosnippet="">73</a>    (<span class="string">"segmentedPyramid"</span>, <span class="string">"Segmented Pyramid"</span>),
+<a href="#74" id="74" data-nosnippet="">74</a>    (<span class="string">"pie"</span>, <span class="string">"Basic Pie"</span>),
+<a href="#75" id="75" data-nosnippet="">75</a>    (<span class="string">"nameTitleOrgChart"</span>, <span class="string">"Name and Title Organization Chart"</span>),
+<a href="#76" id="76" data-nosnippet="">76</a>    (<span class="string">"verticalBoxList"</span>, <span class="string">"Vertical Box List"</span>),
+<a href="#77" id="77" data-nosnippet="">77</a>    (<span class="string">"trapezoidList"</span>, <span class="string">"Trapezoid List"</span>),
+<a href="#78" id="78" data-nosnippet="">78</a>    (<span class="string">"tableList"</span>, <span class="string">"Table List"</span>),
+<a href="#79" id="79" data-nosnippet="">79</a>    (<span class="string">"accentProcess"</span>, <span class="string">"Accent Process"</span>),
+<a href="#80" id="80" data-nosnippet="">80</a>    (<span class="string">"continuousBlockProcess"</span>, <span class="string">"Continuous Block Process"</span>),
+<a href="#81" id="81" data-nosnippet="">81</a>    (<span class="string">"bendingProcess"</span>, <span class="string">"Basic Bending Process"</span>),
+<a href="#82" id="82" data-nosnippet="">82</a>    (<span class="string">"linearVenn"</span>, <span class="string">"Linear Venn"</span>),
+<a href="#83" id="83" data-nosnippet="">83</a>    (<span class="string">"stackedVenn"</span>, <span class="string">"Stacked Venn"</span>),
+<a href="#84" id="84" data-nosnippet="">84</a>    (<span class="string">"nestedTarget"</span>, <span class="string">"Nested Target"</span>),
+<a href="#85" id="85" data-nosnippet="">85</a>];
+<a href="#86" id="86" data-nosnippet="">86</a><span class="doccomment">/// SmartArt Styles.
+<a href="#87" id="87" data-nosnippet="">87</a></span><span class="kw">pub const </span>STYLES: [(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str); <span class="number">9</span>] = [
+<a href="#88" id="88" data-nosnippet="">88</a>    (<span class="string">"flat"</span>, <span class="string">"Simple Fill"</span>),
+<a href="#89" id="89" data-nosnippet="">89</a>    (<span class="string">"subtle"</span>, <span class="string">"Subtle Effect"</span>),
+<a href="#90" id="90" data-nosnippet="">90</a>    (<span class="string">"intense"</span>, <span class="string">"Intense Effect"</span>),
+<a href="#91" id="91" data-nosnippet="">91</a>    (<span class="string">"outline"</span>, <span class="string">"White Outline"</span>),
+<a href="#92" id="92" data-nosnippet="">92</a>    (<span class="string">"polished"</span>, <span class="string">"Polished"</span>),
+<a href="#93" id="93" data-nosnippet="">93</a>    (<span class="string">"inset"</span>, <span class="string">"Inset"</span>),
+<a href="#94" id="94" data-nosnippet="">94</a>    (<span class="string">"cartoon"</span>, <span class="string">"Cartoon"</span>),
+<a href="#95" id="95" data-nosnippet="">95</a>    (<span class="string">"powder"</span>, <span class="string">"Powder"</span>),
+<a href="#96" id="96" data-nosnippet="">96</a>    (<span class="string">"brick"</span>, <span class="string">"Brick Scene"</span>),
+<a href="#97" id="97" data-nosnippet="">97</a>];
+<a href="#98" id="98" data-nosnippet="">98</a><span class="doccomment">/// Change Colors.
+<a href="#99" id="99" data-nosnippet="">99</a></span><span class="kw">pub const </span>COLORS: [(<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str); <span class="number">17</span>] = [
+<a href="#100" id="100" data-nosnippet="">100</a>    (<span class="string">"colorful"</span>, <span class="string">"Colorful"</span>),
+<a href="#101" id="101" data-nosnippet="">101</a>    (<span class="string">"range23"</span>, <span class="string">"Colorful Range - Accent Colors 2 to 3"</span>),
+<a href="#102" id="102" data-nosnippet="">102</a>    (<span class="string">"range34"</span>, <span class="string">"Colorful Range - Accent Colors 3 to 4"</span>),
+<a href="#103" id="103" data-nosnippet="">103</a>    (<span class="string">"range45"</span>, <span class="string">"Colorful Range - Accent Colors 4 to 5"</span>),
+<a href="#104" id="104" data-nosnippet="">104</a>    (<span class="string">"range56"</span>, <span class="string">"Colorful Range - Accent Colors 5 to 6"</span>),
+<a href="#105" id="105" data-nosnippet="">105</a>    (<span class="string">"accent1"</span>, <span class="string">"Accent 1"</span>),
+<a href="#106" id="106" data-nosnippet="">106</a>    (<span class="string">"accent2"</span>, <span class="string">"Accent 2"</span>),
+<a href="#107" id="107" data-nosnippet="">107</a>    (<span class="string">"accent3"</span>, <span class="string">"Accent 3"</span>),
+<a href="#108" id="108" data-nosnippet="">108</a>    (<span class="string">"accent4"</span>, <span class="string">"Accent 4"</span>),
+<a href="#109" id="109" data-nosnippet="">109</a>    (<span class="string">"accent5"</span>, <span class="string">"Accent 5"</span>),
+<a href="#110" id="110" data-nosnippet="">110</a>    (<span class="string">"accent6"</span>, <span class="string">"Accent 6"</span>),
+<a href="#111" id="111" data-nosnippet="">111</a>    (<span class="string">"accent1Grad"</span>, <span class="string">"Gradient Range - Accent 1"</span>),
+<a href="#112" id="112" data-nosnippet="">112</a>    (<span class="string">"accent2Grad"</span>, <span class="string">"Gradient Range - Accent 2"</span>),
+<a href="#113" id="113" data-nosnippet="">113</a>    (<span class="string">"accent3Grad"</span>, <span class="string">"Gradient Range - Accent 3"</span>),
+<a href="#114" id="114" data-nosnippet="">114</a>    (<span class="string">"accent4Grad"</span>, <span class="string">"Gradient Range - Accent 4"</span>),
+<a href="#115" id="115" data-nosnippet="">115</a>    (<span class="string">"accent5Grad"</span>, <span class="string">"Gradient Range - Accent 5"</span>),
+<a href="#116" id="116" data-nosnippet="">116</a>    (<span class="string">"accent6Grad"</span>, <span class="string">"Gradient Range - Accent 6"</span>),
+<a href="#117" id="117" data-nosnippet="">117</a>];
+<a href="#118" id="118" data-nosnippet="">118</a>
+<a href="#119" id="119" data-nosnippet="">119</a><span class="doccomment">/// The gallery category a layout is shown under in Convert to SmartArt and Change Layout.
+<a href="#120" id="120" data-nosnippet="">120</a></span><span class="kw">pub fn </span>category(kind: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+<a href="#121" id="121" data-nosnippet="">121</a>    <span class="kw">match </span>kind {
+<a href="#122" id="122" data-nosnippet="">122</a>        <span class="string">"pictureList" </span>| <span class="string">"pictureCaption" </span>| <span class="string">"pictureProcess" </span>| <span class="string">"pictureHList" </span>=&gt; <span class="string">"picture"</span>,
+<a href="#123" id="123" data-nosnippet="">123</a>        <span class="string">"process"
+<a href="#124" id="124" data-nosnippet="">124</a>        </span>| <span class="string">"chevron"
+<a href="#125" id="125" data-nosnippet="">125</a>        </span>| <span class="string">"verticalProcess"
+<a href="#126" id="126" data-nosnippet="">126</a>        </span>| <span class="string">"stepUp"
+<a href="#127" id="127" data-nosnippet="">127</a>        </span>| <span class="string">"timeline"
+<a href="#128" id="128" data-nosnippet="">128</a>        </span>| <span class="string">"gear"
+<a href="#129" id="129" data-nosnippet="">129</a>        </span>| <span class="string">"funnel"
+<a href="#130" id="130" data-nosnippet="">130</a>        </span>| <span class="string">"accentProcess"
+<a href="#131" id="131" data-nosnippet="">131</a>        </span>| <span class="string">"continuousBlockProcess"
+<a href="#132" id="132" data-nosnippet="">132</a>        </span>| <span class="string">"bendingProcess" </span>=&gt; <span class="string">"process"</span>,
+<a href="#133" id="133" data-nosnippet="">133</a>        <span class="string">"cycle" </span>| <span class="string">"blockCycle" </span>| <span class="string">"textCycle" </span>| <span class="string">"continuousCycle" </span>| <span class="string">"segmentedCycle" </span>| <span class="string">"multidirectionalCycle" </span>| <span class="string">"pie" </span>=&gt; <span class="string">"cycle"</span>,
+<a href="#134" id="134" data-nosnippet="">134</a>        <span class="string">"hierarchy" </span>| <span class="string">"horizontalHierarchy" </span>| <span class="string">"orgChart" </span>| <span class="string">"halfCircleOrgChart" </span>| <span class="string">"nameTitleOrgChart" </span>=&gt; <span class="string">"hierarchy"</span>,
+<a href="#135" id="135" data-nosnippet="">135</a>        <span class="string">"radial" </span>| <span class="string">"venn" </span>| <span class="string">"target" </span>| <span class="string">"linearVenn" </span>| <span class="string">"stackedVenn" </span>| <span class="string">"nestedTarget" </span>=&gt; <span class="string">"relationship"</span>,
+<a href="#136" id="136" data-nosnippet="">136</a>        <span class="string">"matrix" </span>| <span class="string">"titledMatrix" </span>| <span class="string">"gridMatrix" </span>| <span class="string">"cycleMatrix" </span>=&gt; <span class="string">"matrix"</span>,
+<a href="#137" id="137" data-nosnippet="">137</a>        <span class="string">"pyramid" </span>| <span class="string">"invertedPyramid" </span>| <span class="string">"segmentedPyramid" </span>=&gt; <span class="string">"pyramid"</span>,
+<a href="#138" id="138" data-nosnippet="">138</a>        <span class="kw">_ </span>=&gt; <span class="string">"list"</span>,
+<a href="#139" id="139" data-nosnippet="">139</a>    }
+<a href="#140" id="140" data-nosnippet="">140</a>}
+<a href="#141" id="141" data-nosnippet="">141</a>
+<a href="#142" id="142" data-nosnippet="">142</a><span class="doccomment">/// A layout's gallery picture: the graphic drawn with sample nodes (or `nodes`) in a 320 × 200 pt
+<a href="#143" id="143" data-nosnippet="">143</a>/// group at the origin, in the style and colours given, with no text in the samples.
+<a href="#144" id="144" data-nosnippet="">144</a></span><span class="kw">pub fn </span>preview(kind: <span class="kw-2">&amp;</span>str, style: <span class="kw-2">&amp;</span>str, colors: <span class="kw-2">&amp;</span>str, nodes: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[DiagramNode]&gt;) -&gt; Shape {
+<a href="#145" id="145" data-nosnippet="">145</a>    <span class="kw">let </span>sample = |levels: <span class="kw-2">&amp;</span>[u8]| -&gt; Vec&lt;DiagramNode&gt; { levels.iter().map(|l| DiagramNode { level: <span class="kw-2">*</span>l, ..Default::default() }).collect() };
+<a href="#146" id="146" data-nosnippet="">146</a>    <span class="kw">let </span>nodes = <span class="kw">match </span>nodes {
+<a href="#147" id="147" data-nosnippet="">147</a>        <span class="prelude-val">Some</span>(n) <span class="kw">if </span>!n.is_empty() =&gt; n.to_vec(),
+<a href="#148" id="148" data-nosnippet="">148</a>        <span class="kw">_ </span>=&gt; <span class="kw">match </span>category(kind) {
+<a href="#149" id="149" data-nosnippet="">149</a>            <span class="string">"hierarchy" </span>=&gt; sample(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">1</span>]),
+<a href="#150" id="150" data-nosnippet="">150</a>            <span class="string">"matrix" </span>=&gt; sample(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]),
+<a href="#151" id="151" data-nosnippet="">151</a>            <span class="string">"list" </span><span class="kw">if </span>kind != <span class="string">"blockList" </span>&amp;&amp; kind != <span class="string">"tableList" </span>=&gt; sample(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">1</span>]),
+<a href="#152" id="152" data-nosnippet="">152</a>            <span class="kw">_ </span>=&gt; sample(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]),
+<a href="#153" id="153" data-nosnippet="">153</a>        },
+<a href="#154" id="154" data-nosnippet="">154</a>    };
+<a href="#155" id="155" data-nosnippet="">155</a>    <span class="kw">let </span>d = Diagram { kind: kind.into(), nodes, style: style.into(), colors: colors.into(), ..Default::default() };
+<a href="#156" id="156" data-nosnippet="">156</a>    <span class="kw">let </span>area = Xfrm::new(<span class="number">0.0</span>, <span class="number">0.0</span>, <span class="number">320.0</span>, <span class="number">200.0</span>);
+<a href="#157" id="157" data-nosnippet="">157</a>    <span class="kw">let </span><span class="kw-2">mut </span>children = layout(<span class="kw-2">&amp;</span>d, area);
+<a href="#158" id="158" data-nosnippet="">158</a>    <span class="kw">for </span>(k, c) <span class="kw">in </span>children.iter_mut().enumerate() {
+<a href="#159" id="159" data-nosnippet="">159</a>        c.id = ShapeId(<span class="number">10_000 </span>+ k <span class="kw">as </span>u32);
+<a href="#160" id="160" data-nosnippet="">160</a>    }
+<a href="#161" id="161" data-nosnippet="">161</a>    Shape {
+<a href="#162" id="162" data-nosnippet="">162</a>        id: ShapeId(<span class="number">9_999</span>),
+<a href="#163" id="163" data-nosnippet="">163</a>        name: <span class="string">"Diagram preview"</span>.into(),
+<a href="#164" id="164" data-nosnippet="">164</a>        xfrm: <span class="prelude-val">Some</span>(area),
+<a href="#165" id="165" data-nosnippet="">165</a>        kind: ShapeKind::Group { children, child: area },
+<a href="#166" id="166" data-nosnippet="">166</a>        ..Default::default()
+<a href="#167" id="167" data-nosnippet="">167</a>    }
+<a href="#168" id="168" data-nosnippet="">168</a>}
+<a href="#169" id="169" data-nosnippet="">169</a>
+<a href="#170" id="170" data-nosnippet="">170</a><span class="kw">pub fn </span>is_kind(k: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href="#171" id="171" data-nosnippet="">171</a>    LAYOUTS.iter().any(|(id, <span class="kw">_</span>)| <span class="kw-2">*</span>id == k)
+<a href="#172" id="172" data-nosnippet="">172</a>}
+<a href="#173" id="173" data-nosnippet="">173</a>
+<a href="#174" id="174" data-nosnippet="">174</a><span class="kw">pub fn </span>specs() -&gt; Vec&lt;CommandSpec&gt; {
+<a href="#175" id="175" data-nosnippet="">175</a>    <span class="macro">vec!</span>[
+<a href="#176" id="176" data-nosnippet="">176</a>        <span class="macro">cmd!</span>(
+<a href="#177" id="177" data-nosnippet="">177</a>            query <span class="string">"smartArt.nodes"</span>,
+<a href="#178" id="178" data-nosnippet="">178</a>            <span class="string">"Text Pane"</span>,
+<a href="#179" id="179" data-nosnippet="">179</a>            [<span class="string">"Diagram Design"</span>, <span class="string">"Create Graphic"</span>],
+<a href="#180" id="180" data-nosnippet="">180</a>            <span class="prelude-val">None</span>,
+<a href="#181" id="181" data-nosnippet="">181</a>            <span class="string">"{id?} → {id, kind, nodes: [{text, level}]} (id: the Diagram group or one of its shapes; default the selection)"</span>,
+<a href="#182" id="182" data-nosnippet="">182</a>            has_selection,
+<a href="#183" id="183" data-nosnippet="">183</a>            nodes
+<a href="#184" id="184" data-nosnippet="">184</a>        ),
+<a href="#185" id="185" data-nosnippet="">185</a>        <span class="macro">cmd!</span>(
+<a href="#186" id="186" data-nosnippet="">186</a>            <span class="string">"smartArt.setNodes"</span>,
+<a href="#187" id="187" data-nosnippet="">187</a>            <span class="string">"Edit Diagram Text"</span>,
+<a href="#188" id="188" data-nosnippet="">188</a>            [<span class="string">"Diagram Design"</span>, <span class="string">"Create Graphic"</span>],
+<a href="#189" id="189" data-nosnippet="">189</a>            <span class="prelude-val">None</span>,
+<a href="#190" id="190" data-nosnippet="">190</a>            <span class="string">"{id?, nodes?: [{text, level}], lines?: [string] (leading tabs set the level), index?, text?, title?} (index + text edits one node; title: its Name and Title box)"</span>,
+<a href="#191" id="191" data-nosnippet="">191</a>            has_selection,
+<a href="#192" id="192" data-nosnippet="">192</a>            set_nodes
+<a href="#193" id="193" data-nosnippet="">193</a>        ),
+<a href="#194" id="194" data-nosnippet="">194</a>        <span class="macro">cmd!</span>(
+<a href="#195" id="195" data-nosnippet="">195</a>            <span class="string">"smartArt.addNode"</span>,
+<a href="#196" id="196" data-nosnippet="">196</a>            <span class="string">"Add Shape"</span>,
+<a href="#197" id="197" data-nosnippet="">197</a>            [<span class="string">"Diagram Design"</span>, <span class="string">"Create Graphic"</span>],
+<a href="#198" id="198" data-nosnippet="">198</a>            <span class="prelude-val">None</span>,
+<a href="#199" id="199" data-nosnippet="">199</a>            <span class="string">"{id?, index?, position?: after|before|below|above|assistant, text?} → {index} (default: after the last node)"</span>,
+<a href="#200" id="200" data-nosnippet="">200</a>            has_selection,
+<a href="#201" id="201" data-nosnippet="">201</a>            add_node
+<a href="#202" id="202" data-nosnippet="">202</a>        ),
+<a href="#203" id="203" data-nosnippet="">203</a>        <span class="macro">cmd!</span>(
+<a href="#204" id="204" data-nosnippet="">204</a>            <span class="string">"smartArt.removeNode"</span>,
+<a href="#205" id="205" data-nosnippet="">205</a>            <span class="string">"Remove Shape"</span>,
+<a href="#206" id="206" data-nosnippet="">206</a>            [<span class="string">"Diagram Design"</span>, <span class="string">"Create Graphic"</span>],
+<a href="#207" id="207" data-nosnippet="">207</a>            <span class="prelude-val">None</span>,
+<a href="#208" id="208" data-nosnippet="">208</a>            <span class="string">"{id?, index} (its sub-points move up one level)"</span>,
+<a href="#209" id="209" data-nosnippet="">209</a>            has_selection,
+<a href="#210" id="210" data-nosnippet="">210</a>            remove_node
+<a href="#211" id="211" data-nosnippet="">211</a>        ),
+<a href="#212" id="212" data-nosnippet="">212</a>        <span class="macro">cmd!</span>(<span class="string">"smartArt.promote"</span>, <span class="string">"Promote"</span>, [<span class="string">"Diagram Design"</span>, <span class="string">"Create Graphic"</span>], <span class="prelude-val">None</span>, <span class="string">"{id?, index}"</span>, has_selection, promote),
+<a href="#213" id="213" data-nosnippet="">213</a>        <span class="macro">cmd!</span>(<span class="string">"smartArt.demote"</span>, <span class="string">"Demote"</span>, [<span class="string">"Diagram Design"</span>, <span class="string">"Create Graphic"</span>], <span class="prelude-val">None</span>, <span class="string">"{id?, index}"</span>, has_selection, demote),
+<a href="#214" id="214" data-nosnippet="">214</a>        <span class="macro">cmd!</span>(
+<a href="#215" id="215" data-nosnippet="">215</a>            <span class="string">"smartArt.layout"</span>,
+<a href="#216" id="216" data-nosnippet="">216</a>            <span class="string">"Change Layout"</span>,
+<a href="#217" id="217" data-nosnippet="">217</a>            [<span class="string">"Diagram Design"</span>, <span class="string">"Layouts"</span>],
+<a href="#218" id="218" data-nosnippet="">218</a>            <span class="prelude-val">None</span>,
+<a href="#219" id="219" data-nosnippet="">219</a>            <span class="string">"{id?, kind: list|blockList|hBulletList|process|chevron|verticalProcess|stepUp|cycle|blockCycle|radial|hierarchy|pyramid|invertedPyramid|matrix|titledMatrix|pictureList|pictureCaption|pictureProcess|pictureHList|timeline|venn|target|textCycle|continuousCycle|horizontalHierarchy|gridMatrix|gear|funnel|segmentedCycle|multidirectionalCycle|orgChart|halfCircleOrgChart|cycleMatrix|segmentedPyramid|pie|nameTitleOrgChart|verticalBoxList|trapezoidList|tableList|accentProcess|continuousBlockProcess|bendingProcess|linearVenn|stackedVenn|nestedTarget}"</span>,
+<a href="#220" id="220" data-nosnippet="">220</a>            has_selection,
+<a href="#221" id="221" data-nosnippet="">221</a>            change_layout
+<a href="#222" id="222" data-nosnippet="">222</a>        ),
+<a href="#223" id="223" data-nosnippet="">223</a>        <span class="macro">cmd!</span>(
+<a href="#224" id="224" data-nosnippet="">224</a>            <span class="string">"smartArt.fromText"</span>,
+<a href="#225" id="225" data-nosnippet="">225</a>            <span class="string">"Convert to Diagram"</span>,
+<a href="#226" id="226" data-nosnippet="">226</a>            [<span class="string">"Home"</span>, <span class="string">"Paragraph"</span>],
+<a href="#227" id="227" data-nosnippet="">227</a>            <span class="prelude-val">None</span>,
+<a href="#228" id="228" data-nosnippet="">228</a>            <span class="string">"{id?, kind?} → {id} (a text box or placeholder becomes a Diagram graphic in its place: one node per paragraph, indent levels kept)"</span>,
+<a href="#229" id="229" data-nosnippet="">229</a>            has_selection,
+<a href="#230" id="230" data-nosnippet="">230</a>            from_text
+<a href="#231" id="231" data-nosnippet="">231</a>        ),
+<a href="#232" id="232" data-nosnippet="">232</a>        <span class="macro">cmd!</span>(
+<a href="#233" id="233" data-nosnippet="">233</a>            <span class="string">"smartArt.toText"</span>,
+<a href="#234" id="234" data-nosnippet="">234</a>            <span class="string">"Convert to Text"</span>,
+<a href="#235" id="235" data-nosnippet="">235</a>            [<span class="string">"Diagram Design"</span>, <span class="string">"Reset"</span>],
+<a href="#236" id="236" data-nosnippet="">236</a>            <span class="prelude-val">None</span>,
+<a href="#237" id="237" data-nosnippet="">237</a>            <span class="string">"{id?} → {id} (the graphic becomes a text box of its outline, bulleted by level)"</span>,
+<a href="#238" id="238" data-nosnippet="">238</a>            has_selection,
+<a href="#239" id="239" data-nosnippet="">239</a>            to_text
+<a href="#240" id="240" data-nosnippet="">240</a>        ),
+<a href="#241" id="241" data-nosnippet="">241</a>        <span class="macro">cmd!</span>(
+<a href="#242" id="242" data-nosnippet="">242</a>            <span class="string">"smartArt.toShapes"</span>,
+<a href="#243" id="243" data-nosnippet="">243</a>            <span class="string">"Convert to Shapes"</span>,
+<a href="#244" id="244" data-nosnippet="">244</a>            [<span class="string">"Diagram Design"</span>, <span class="string">"Reset"</span>],
+<a href="#245" id="245" data-nosnippet="">245</a>            <span class="prelude-val">None</span>,
+<a href="#246" id="246" data-nosnippet="">246</a>            <span class="string">"{id?} (the graphic becomes a plain group of its shapes; the outline is dropped)"</span>,
+<a href="#247" id="247" data-nosnippet="">247</a>            has_selection,
+<a href="#248" id="248" data-nosnippet="">248</a>            to_shapes
+<a href="#249" id="249" data-nosnippet="">249</a>        ),
+<a href="#250" id="250" data-nosnippet="">250</a>        <span class="macro">cmd!</span>(
+<a href="#251" id="251" data-nosnippet="">251</a>            <span class="string">"smartArt.picture"</span>,
+<a href="#252" id="252" data-nosnippet="">252</a>            <span class="string">"Insert Picture in Diagram"</span>,
+<a href="#253" id="253" data-nosnippet="">253</a>            [<span class="string">"Diagram Design"</span>, <span class="string">"Create Graphic"</span>],
+<a href="#254" id="254" data-nosnippet="">254</a>            <span class="prelude-val">None</span>,
+<a href="#255" id="255" data-nosnippet="">255</a>            <span class="string">"{id?, index, data?: base64 | path?: string | reset?: bool} (the node's picture placeholder in picture layouts)"</span>,
+<a href="#256" id="256" data-nosnippet="">256</a>            has_selection,
+<a href="#257" id="257" data-nosnippet="">257</a>            set_picture
+<a href="#258" id="258" data-nosnippet="">258</a>        ),
+<a href="#259" id="259" data-nosnippet="">259</a>        <span class="macro">cmd!</span>(
+<a href="#260" id="260" data-nosnippet="">260</a>            <span class="string">"smartArt.style"</span>,
+<a href="#261" id="261" data-nosnippet="">261</a>            <span class="string">"Diagram Styles"</span>,
+<a href="#262" id="262" data-nosnippet="">262</a>            [<span class="string">"Diagram Design"</span>, <span class="string">"Diagram Styles"</span>],
+<a href="#263" id="263" data-nosnippet="">263</a>            <span class="prelude-val">None</span>,
+<a href="#264" id="264" data-nosnippet="">264</a>            <span class="string">"{id?, style: flat|subtle|intense|outline|polished|inset|cartoon|powder|brick}"</span>,
+<a href="#265" id="265" data-nosnippet="">265</a>            has_selection,
+<a href="#266" id="266" data-nosnippet="">266</a>            change_style
+<a href="#267" id="267" data-nosnippet="">267</a>        ),
+<a href="#268" id="268" data-nosnippet="">268</a>        <span class="macro">cmd!</span>(
+<a href="#269" id="269" data-nosnippet="">269</a>            <span class="string">"smartArt.colors"</span>,
+<a href="#270" id="270" data-nosnippet="">270</a>            <span class="string">"Change Colors"</span>,
+<a href="#271" id="271" data-nosnippet="">271</a>            [<span class="string">"Diagram Design"</span>, <span class="string">"Diagram Styles"</span>],
+<a href="#272" id="272" data-nosnippet="">272</a>            <span class="prelude-val">None</span>,
+<a href="#273" id="273" data-nosnippet="">273</a>            <span class="string">"{id?, colors: colorful|range23|range34|range45|range56|accent1|…|accent6|accent1Grad|…|accent6Grad}"</span>,
+<a href="#274" id="274" data-nosnippet="">274</a>            has_selection,
+<a href="#275" id="275" data-nosnippet="">275</a>            change_colors
+<a href="#276" id="276" data-nosnippet="">276</a>        ),
+<a href="#277" id="277" data-nosnippet="">277</a>    ]
+<a href="#278" id="278" data-nosnippet="">278</a>}
+<a href="#279" id="279" data-nosnippet="">279</a>
+<a href="#280" id="280" data-nosnippet="">280</a><span class="attr">#[cfg(test)]
+<a href="#281" id="281" data-nosnippet="">281</a></span><span class="kw">mod </span>tests {
+<a href="#282" id="282" data-nosnippet="">282</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#283" id="283" data-nosnippet="">283</a>
+<a href="#284" id="284" data-nosnippet="">284</a>    <span class="kw">fn </span>lv(n: <span class="kw-2">&amp;</span>[DiagramNode]) -&gt; Vec&lt;u8&gt; {
+<a href="#285" id="285" data-nosnippet="">285</a>        n.iter().map(|x| x.level).collect()
+<a href="#286" id="286" data-nosnippet="">286</a>    }
+<a href="#287" id="287" data-nosnippet="">287</a>    <span class="kw">fn </span>mk(levels: <span class="kw-2">&amp;</span>[u8]) -&gt; Vec&lt;DiagramNode&gt; {
+<a href="#288" id="288" data-nosnippet="">288</a>        levels
+<a href="#289" id="289" data-nosnippet="">289</a>            .iter()
+<a href="#290" id="290" data-nosnippet="">290</a>            .enumerate()
+<a href="#291" id="291" data-nosnippet="">291</a>            .map(|(i, l)| DiagramNode { text: <span class="macro">format!</span>(<span class="string">"n{i}"</span>), level: <span class="kw-2">*</span>l, picture: <span class="prelude-val">None</span>, assistant: <span class="bool-val">false</span>, title: String::new() })
+<a href="#292" id="292" data-nosnippet="">292</a>            .collect()
+<a href="#293" id="293" data-nosnippet="">293</a>    }
+<a href="#294" id="294" data-nosnippet="">294</a>
+<a href="#295" id="295" data-nosnippet="">295</a>    <span class="attr">#[test]
+<a href="#296" id="296" data-nosnippet="">296</a>    </span><span class="kw">fn </span>outline_edits() {
+<a href="#297" id="297" data-nosnippet="">297</a>        <span class="kw">let </span><span class="kw-2">mut </span>n = mk(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>]);
+<a href="#298" id="298" data-nosnippet="">298</a>        <span class="macro">assert_eq!</span>(add(<span class="kw-2">&amp;mut </span>n, <span class="prelude-val">Some</span>(<span class="number">0</span>), <span class="string">"after"</span>, <span class="string">"x"</span>), <span class="number">3</span>, <span class="string">"after the node's sub-points"</span>);
+<a href="#299" id="299" data-nosnippet="">299</a>        <span class="macro">assert_eq!</span>(lv(<span class="kw-2">&amp;</span>n), [<span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>]);
+<a href="#300" id="300" data-nosnippet="">300</a>        <span class="macro">assert_eq!</span>(add(<span class="kw-2">&amp;mut </span>n, <span class="prelude-val">Some</span>(<span class="number">0</span>), <span class="string">"below"</span>, <span class="string">"y"</span>), <span class="number">3</span>);
+<a href="#301" id="301" data-nosnippet="">301</a>        <span class="macro">assert_eq!</span>(lv(<span class="kw-2">&amp;</span>n), [<span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>]);
+<a href="#302" id="302" data-nosnippet="">302</a>        <span class="macro">assert_eq!</span>(add(<span class="kw-2">&amp;mut </span>n, <span class="prelude-val">Some</span>(<span class="number">0</span>), <span class="string">"above"</span>, <span class="string">"z"</span>), <span class="number">0</span>);
+<a href="#303" id="303" data-nosnippet="">303</a>        <span class="macro">assert_eq!</span>(lv(<span class="kw-2">&amp;</span>n), [<span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>]);
+<a href="#304" id="304" data-nosnippet="">304</a>        <span class="macro">assert!</span>(remove(<span class="kw-2">&amp;mut </span>n, <span class="number">1</span>));
+<a href="#305" id="305" data-nosnippet="">305</a>        <span class="macro">assert_eq!</span>(lv(<span class="kw-2">&amp;</span>n), [<span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>]);
+<a href="#306" id="306" data-nosnippet="">306</a>        <span class="macro">assert!</span>(!promote_node(<span class="kw-2">&amp;mut </span>n, <span class="number">0</span>));
+<a href="#307" id="307" data-nosnippet="">307</a>        <span class="macro">assert!</span>(!demote_node(<span class="kw-2">&amp;mut </span>n, <span class="number">0</span>), <span class="string">"nothing above the first node"</span>);
+<a href="#308" id="308" data-nosnippet="">308</a>        <span class="macro">assert!</span>(!demote_node(<span class="kw-2">&amp;mut </span>n, <span class="number">2</span>) || lv(<span class="kw-2">&amp;</span>n)[<span class="number">2</span>] == <span class="number">2</span>);
+<a href="#309" id="309" data-nosnippet="">309</a>        <span class="kw">let </span><span class="kw-2">mut </span>m = mk(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]);
+<a href="#310" id="310" data-nosnippet="">310</a>        <span class="macro">assert!</span>(demote_node(<span class="kw-2">&amp;mut </span>m, <span class="number">1</span>));
+<a href="#311" id="311" data-nosnippet="">311</a>        <span class="macro">assert_eq!</span>(lv(<span class="kw-2">&amp;</span>m), [<span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>], <span class="string">"sub-points move with their node"</span>);
+<a href="#312" id="312" data-nosnippet="">312</a>        <span class="macro">assert!</span>(promote_node(<span class="kw-2">&amp;mut </span>m, <span class="number">1</span>));
+<a href="#313" id="313" data-nosnippet="">313</a>        <span class="macro">assert_eq!</span>(lv(<span class="kw-2">&amp;</span>m), [<span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]);
+<a href="#314" id="314" data-nosnippet="">314</a>        <span class="kw">let </span><span class="kw-2">mut </span>bad = mk(<span class="kw-2">&amp;</span>[<span class="number">2</span>, <span class="number">4</span>, <span class="number">0</span>]);
+<a href="#315" id="315" data-nosnippet="">315</a>        normalize(<span class="kw-2">&amp;mut </span>bad);
+<a href="#316" id="316" data-nosnippet="">316</a>        <span class="macro">assert_eq!</span>(lv(<span class="kw-2">&amp;</span>bad), [<span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>]);
+<a href="#317" id="317" data-nosnippet="">317</a>        <span class="macro">assert_eq!</span>(lv(<span class="kw-2">&amp;</span>nodes_from_lines([<span class="string">"A"</span>, <span class="string">"\tB"</span>, <span class="string">"\t\tC"</span>, <span class="string">""</span>, <span class="string">"D"</span>])), [<span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">0</span>]);
+<a href="#318" id="318" data-nosnippet="">318</a>    }
+<a href="#319" id="319" data-nosnippet="">319</a>
+<a href="#320" id="320" data-nosnippet="">320</a>    <span class="attr">#[test]
+<a href="#321" id="321" data-nosnippet="">321</a>    </span><span class="kw">fn </span>layouts_map_nodes_to_shapes() {
+<a href="#322" id="322" data-nosnippet="">322</a>        <span class="kw">let </span>area = Xfrm::new(<span class="number">0.0</span>, <span class="number">0.0</span>, <span class="number">800.0</span>, <span class="number">400.0</span>);
+<a href="#323" id="323" data-nosnippet="">323</a>        <span class="kw">let </span>d = Diagram { kind: <span class="string">"blockList"</span>.into(), nodes: mk(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>]), ..Default::default() };
+<a href="#324" id="324" data-nosnippet="">324</a>        <span class="kw">let </span>v = layout(<span class="kw-2">&amp;</span>d, area);
+<a href="#325" id="325" data-nosnippet="">325</a>        <span class="macro">assert_eq!</span>(v.len(), <span class="number">2</span>);
+<a href="#326" id="326" data-nosnippet="">326</a>        <span class="kw">let </span>t = v[<span class="number">0</span>].text.as_ref().map(|b| b.paragraphs.len());
+<a href="#327" id="327" data-nosnippet="">327</a>        <span class="macro">assert_eq!</span>(t, <span class="prelude-val">Some</span>(<span class="number">3</span>), <span class="string">"sub-points are bullets in their parent's shape"</span>);
+<a href="#328" id="328" data-nosnippet="">328</a>        <span class="kw">let </span>h = Diagram { kind: <span class="string">"hierarchy"</span>.into(), nodes: mk(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">1</span>]), ..Default::default() };
+<a href="#329" id="329" data-nosnippet="">329</a>        <span class="kw">let </span>v = layout(<span class="kw-2">&amp;</span>h, area);
+<a href="#330" id="330" data-nosnippet="">330</a>        <span class="macro">assert_eq!</span>(v.len(), <span class="number">4 </span>+ <span class="number">3</span>, <span class="string">"a box per node and a line per parent link"</span>);
+<a href="#331" id="331" data-nosnippet="">331</a>        <span class="kw">for </span>sh <span class="kw">in </span><span class="kw-2">&amp;</span>v {
+<a href="#332" id="332" data-nosnippet="">332</a>            <span class="kw">let </span>x = sh.xfrm.unwrap_or_default();
+<a href="#333" id="333" data-nosnippet="">333</a>            <span class="macro">assert!</span>(x.x &gt;= -<span class="number">0.01 </span>&amp;&amp; x.x + x.w &lt;= <span class="number">800.01 </span>&amp;&amp; x.y &gt;= -<span class="number">0.01 </span>&amp;&amp; x.y + x.h &lt;= <span class="number">400.01</span>, <span class="string">"{x:?}"</span>);
+<a href="#334" id="334" data-nosnippet="">334</a>        }
+<a href="#335" id="335" data-nosnippet="">335</a>        <span class="macro">assert!</span>(layout(<span class="kw-2">&amp;</span>Diagram { kind: <span class="string">"cycle"</span>.into(), ..Default::default() }, area).is_empty());
+<a href="#336" id="336" data-nosnippet="">336</a>        <span class="comment">// Vertical Bullet List: a bar per top node, its sub-points in a box below.
+<a href="#337" id="337" data-nosnippet="">337</a>        </span><span class="kw">let </span>v = layout_items(<span class="kw-2">&amp;</span>Diagram { kind: <span class="string">"list"</span>.into(), nodes: mk(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>, <span class="number">0</span>]), ..Default::default() }, area);
+<a href="#338" id="338" data-nosnippet="">338</a>        <span class="kw">let </span>maps: Vec&lt;Vec&lt;usize&gt;&gt; = v.into_iter().map(|(<span class="kw">_</span>, m)| m).collect();
+<a href="#339" id="339" data-nosnippet="">339</a>        <span class="macro">assert_eq!</span>(maps, [<span class="macro">vec!</span>[<span class="number">0</span>], <span class="macro">vec!</span>[<span class="number">1</span>, <span class="number">2</span>], <span class="macro">vec!</span>[<span class="number">3</span>]]);
+<a href="#340" id="340" data-nosnippet="">340</a>    }
+<a href="#341" id="341" data-nosnippet="">341</a>
+<a href="#342" id="342" data-nosnippet="">342</a>    <span class="attr">#[test]
+<a href="#343" id="343" data-nosnippet="">343</a>    </span><span class="kw">fn </span>every_layout_shows_every_node_inside_its_area() {
+<a href="#344" id="344" data-nosnippet="">344</a>        <span class="kw">let </span>area = Xfrm::new(<span class="number">50.0</span>, <span class="number">40.0</span>, <span class="number">800.0</span>, <span class="number">400.0</span>);
+<a href="#345" id="345" data-nosnippet="">345</a>        <span class="kw">for </span>(kind, <span class="kw">_</span>) <span class="kw">in </span>LAYOUTS {
+<a href="#346" id="346" data-nosnippet="">346</a>            <span class="kw">for </span>style <span class="kw">in </span>std::iter::once(<span class="string">""</span>).chain(STYLES.iter().map(|(k, <span class="kw">_</span>)| <span class="kw-2">*</span>k)) {
+<a href="#347" id="347" data-nosnippet="">347</a>                <span class="kw">let </span>d = Diagram {
+<a href="#348" id="348" data-nosnippet="">348</a>                    kind: kind.into(),
+<a href="#349" id="349" data-nosnippet="">349</a>                    nodes: mk(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>, <span class="number">0</span>]),
+<a href="#350" id="350" data-nosnippet="">350</a>                    style: style.into(),
+<a href="#351" id="351" data-nosnippet="">351</a>                    colors: <span class="string">"accent2"</span>.into(),
+<a href="#352" id="352" data-nosnippet="">352</a>                    ..Default::default()
+<a href="#353" id="353" data-nosnippet="">353</a>                };
+<a href="#354" id="354" data-nosnippet="">354</a>                <span class="kw">let </span>items = layout_items(<span class="kw-2">&amp;</span>d, area);
+<a href="#355" id="355" data-nosnippet="">355</a>                <span class="kw">let </span><span class="kw-2">mut </span>shown: Vec&lt;usize&gt; = items.iter().flat_map(|(<span class="kw">_</span>, m)| m.clone()).collect();
+<a href="#356" id="356" data-nosnippet="">356</a>                shown.sort_unstable();
+<a href="#357" id="357" data-nosnippet="">357</a>                <span class="comment">// Gear draws three gears, as PowerPoint does: the fourth group isn't shown.
+<a href="#358" id="358" data-nosnippet="">358</a>                </span><span class="kw">let </span>want: Vec&lt;usize&gt; = (<span class="number">0</span>..<span class="kw">if </span>kind == <span class="string">"gear" </span>{ <span class="number">5 </span>} <span class="kw">else </span>{ <span class="number">6 </span>}).collect();
+<a href="#359" id="359" data-nosnippet="">359</a>                <span class="macro">assert_eq!</span>(shown, want, <span class="string">"{kind}"</span>);
+<a href="#360" id="360" data-nosnippet="">360</a>                <span class="kw">for </span>(sh, <span class="kw">_</span>) <span class="kw">in </span><span class="kw-2">&amp;</span>items {
+<a href="#361" id="361" data-nosnippet="">361</a>                    <span class="kw">let </span>x = sh.xfrm.unwrap_or_default();
+<a href="#362" id="362" data-nosnippet="">362</a>                    <span class="kw">let </span>(cx, cy) = (x.x + x.w / <span class="number">2.0</span>, x.y + x.h / <span class="number">2.0</span>);
+<a href="#363" id="363" data-nosnippet="">363</a>                    <span class="macro">assert!</span>(x.w.is_finite() &amp;&amp; x.h.is_finite() &amp;&amp; x.w &gt;= <span class="number">0.0 </span>&amp;&amp; x.h &gt;= <span class="number">0.0</span>, <span class="string">"{kind} {x:?}"</span>);
+<a href="#364" id="364" data-nosnippet="">364</a>                    <span class="macro">assert!</span>((<span class="number">49.0</span>..=<span class="number">851.0</span>).contains(<span class="kw-2">&amp;</span>cx) &amp;&amp; (<span class="number">39.0</span>..=<span class="number">441.0</span>).contains(<span class="kw-2">&amp;</span>cy), <span class="string">"{kind} {x:?}"</span>);
+<a href="#365" id="365" data-nosnippet="">365</a>                }
+<a href="#366" id="366" data-nosnippet="">366</a>            }
+<a href="#367" id="367" data-nosnippet="">367</a>        }
+<a href="#368" id="368" data-nosnippet="">368</a>    }
+<a href="#369" id="369" data-nosnippet="">369</a>
+<a href="#370" id="370" data-nosnippet="">370</a>    <span class="attr">#[test]
+<a href="#371" id="371" data-nosnippet="">371</a>    </span><span class="kw">fn </span>long_words_shrink_to_fit_their_shape() {
+<a href="#372" id="372" data-nosnippet="">372</a>        <span class="kw">let </span>d = Diagram { kind: <span class="string">"pyramid"</span>.into(), nodes: nodes_from_lines([<span class="string">"Internationalisation"</span>, <span class="string">"Build"</span>, <span class="string">"Test"</span>]), ..Default::default() };
+<a href="#373" id="373" data-nosnippet="">373</a>        <span class="kw">let </span>items = layout_items(<span class="kw-2">&amp;</span>d, Xfrm::new(<span class="number">0.0</span>, <span class="number">0.0</span>, <span class="number">600.0</span>, <span class="number">300.0</span>));
+<a href="#374" id="374" data-nosnippet="">374</a>        <span class="kw">let </span>size = |k: usize| items[k].<span class="number">0</span>.text.as_ref().and_then(|b| b.paragraphs[<span class="number">0</span>].runs[<span class="number">0</span>].props.size).unwrap_or(<span class="number">0.0</span>);
+<a href="#375" id="375" data-nosnippet="">375</a>        <span class="macro">assert!</span>(size(<span class="number">0</span>) &lt; <span class="number">20.0 </span>&amp;&amp; size(<span class="number">0</span>) &gt;= <span class="number">20.0 </span>* MIN_SCALE - <span class="number">0.5</span>, <span class="string">"the tip's long word shrinks: {}"</span>, size(<span class="number">0</span>));
+<a href="#376" id="376" data-nosnippet="">376</a>        <span class="macro">assert!</span>((size(<span class="number">1</span>) - <span class="number">20.0</span>).abs() &lt; <span class="number">1e-9</span>, <span class="string">"short words keep their size"</span>);
+<a href="#377" id="377" data-nosnippet="">377</a>    }
+<a href="#378" id="378" data-nosnippet="">378</a>
+<a href="#379" id="379" data-nosnippet="">379</a>    <span class="attr">#[test]
+<a href="#380" id="380" data-nosnippet="">380</a>    </span><span class="kw">fn </span>colour_variants_pick_accents() {
+<a href="#381" id="381" data-nosnippet="">381</a>        <span class="kw">let </span>d = |c: <span class="kw-2">&amp;</span>str| Diagram { colors: c.into(), ..Default::default() };
+<a href="#382" id="382" data-nosnippet="">382</a>        <span class="macro">assert_eq!</span>(
+<a href="#383" id="383" data-nosnippet="">383</a>            (accent(<span class="kw-2">&amp;</span>d(<span class="string">"range45"</span>), <span class="number">0</span>), accent(<span class="kw-2">&amp;</span>d(<span class="string">"range45"</span>), <span class="number">1</span>), accent(<span class="kw-2">&amp;</span>d(<span class="string">"range45"</span>), <span class="number">2</span>)),
+<a href="#384" id="384" data-nosnippet="">384</a>            (SchemeSlot::Accent4, SchemeSlot::Accent5, SchemeSlot::Accent4)
+<a href="#385" id="385" data-nosnippet="">385</a>        );
+<a href="#386" id="386" data-nosnippet="">386</a>        <span class="macro">assert_eq!</span>(accent(<span class="kw-2">&amp;</span>d(<span class="string">"accent3Grad"</span>), <span class="number">4</span>), SchemeSlot::Accent3);
+<a href="#387" id="387" data-nosnippet="">387</a>        <span class="macro">assert!</span>(shade(<span class="kw-2">&amp;</span>d(<span class="string">"accent3Grad"</span>), <span class="number">1</span>).is_some() &amp;&amp; shade(<span class="kw-2">&amp;</span>d(<span class="string">"accent3"</span>), <span class="number">1</span>).is_none());
+<a href="#388" id="388" data-nosnippet="">388</a>    }
+<a href="#389" id="389" data-nosnippet="">389</a>
+<a href="#390" id="390" data-nosnippet="">390</a>    <span class="attr">#[test]
+<a href="#391" id="391" data-nosnippet="">391</a>    </span><span class="kw">fn </span>assistants_sit_beside_their_parent() {
+<a href="#392" id="392" data-nosnippet="">392</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = mk(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">1</span>, <span class="number">1</span>]);
+<a href="#393" id="393" data-nosnippet="">393</a>        <span class="kw">let </span>a = add(<span class="kw-2">&amp;mut </span>v, <span class="prelude-val">Some</span>(<span class="number">0</span>), <span class="string">"assistant"</span>, <span class="string">"Aide"</span>);
+<a href="#394" id="394" data-nosnippet="">394</a>        <span class="macro">assert_eq!</span>((a, v[<span class="number">1</span>].level, v[<span class="number">1</span>].assistant), (<span class="number">1</span>, <span class="number">1</span>, <span class="bool-val">true</span>));
+<a href="#395" id="395" data-nosnippet="">395</a>        <span class="kw">let </span>d = Diagram { kind: <span class="string">"orgChart"</span>.into(), nodes: v, ..Default::default() };
+<a href="#396" id="396" data-nosnippet="">396</a>        <span class="kw">let </span>items = layout_items(<span class="kw-2">&amp;</span>d, Xfrm::new(<span class="number">0.0</span>, <span class="number">0.0</span>, <span class="number">600.0</span>, <span class="number">400.0</span>));
+<a href="#397" id="397" data-nosnippet="">397</a>        <span class="kw">let </span>boxed = |k: usize| items.iter().find(|(<span class="kw">_</span>, m)| m == <span class="kw-2">&amp;</span><span class="macro">vec!</span>[k]).and_then(|(s, <span class="kw">_</span>)| s.xfrm).unwrap_or_default();
+<a href="#398" id="398" data-nosnippet="">398</a>        <span class="kw">let </span>(ceo, aide, kid) = (boxed(<span class="number">0</span>), boxed(<span class="number">1</span>), boxed(<span class="number">2</span>));
+<a href="#399" id="399" data-nosnippet="">399</a>        <span class="macro">assert!</span>(aide.y &gt; ceo.y &amp;&amp; aide.y &lt; kid.y, <span class="string">"the assistant's row is between its parent and the children"</span>);
+<a href="#400" id="400" data-nosnippet="">400</a>        <span class="macro">assert!</span>(aide.x &gt; ceo.x, <span class="string">"beside the parent's trunk"</span>);
+<a href="#401" id="401" data-nosnippet="">401</a>    }
+<a href="#402" id="402" data-nosnippet="">402</a>}
+</code></pre></div></section></main></body></html>

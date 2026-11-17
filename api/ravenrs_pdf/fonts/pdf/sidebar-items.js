@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["base_font_name","embedded_sfnt","embedded_sfnt_within","glyph_text","glyph_unicode","recovered_thai_map"],"struct":["ExistingThaiRun","LegacyThaiFont","Metrics"]};

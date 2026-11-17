@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://alexkads.github.io/RavenRS/sitemap.xml

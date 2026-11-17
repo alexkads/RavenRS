@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DECODE_MEMORY_BUDGET"],"struct":["PictureShape"]};

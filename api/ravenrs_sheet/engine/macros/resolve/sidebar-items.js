@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ResolveError"],"fn":["a1","interpolate","is_ref_key","is_token","quote_sheet","reads_as_token","resolve_params","resolve_ref","resolve_token"],"struct":["Env","Place"]};

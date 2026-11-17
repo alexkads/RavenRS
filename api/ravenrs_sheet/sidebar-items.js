@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["base","calc","chart","craft","engine","formula","functions","math","model","numfmt","pdf","xlsx"]};

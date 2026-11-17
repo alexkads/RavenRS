@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Action","Align","Anchor","AutoFit","Bullet","Caps","RunKind","Spacing","Strike","TextDir","TextOverflow"],"fn":["safe_url"],"struct":["BodyProps","Hyperlink","LevelStyle","ListStyle","ParaProps","Paragraph","Run","RunProps","TabStop","TextBody"]};

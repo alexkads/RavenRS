@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["Annot","Article","BibEntry","BlockQuote","Caption","Code","Datetime","Div","Em","Figure","Form","Formula","Hn","Index","InlineQuote","L","LBody","LI","Lbl","Link","NonStruct","Note","P","Part","Reference","Section","Span","Strong","TBody","TD","TFoot","TH","THead","TOC","TOCI","TR","Table","Terms","Title"]};

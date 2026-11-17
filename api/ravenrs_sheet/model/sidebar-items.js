@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_FONT","DEFAULT_FONT_SIZE"],"mod":["cell","features","macros","password","preserved","python","sheet","store","style","workbook"]};

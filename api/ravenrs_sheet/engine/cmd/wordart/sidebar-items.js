@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_TEXT","MAX_CHARS","STYLES"],"fn":["specs"],"struct":["WordArtStyle"]};

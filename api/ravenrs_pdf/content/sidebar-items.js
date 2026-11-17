@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["contains","num","ops","overlaps","parse","serialize_ops","string","write_op"],"struct":["Matrix","Op","Ops","Parsed","Pieces"]};

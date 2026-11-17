@@ -1,0 +1,472 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>track.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="ravenrs_deck" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../../src-files.js"></script><script defer="" src="../../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-deck/src/craft/media/matroska/track.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_deck/craft/media/matroska/track.rs.html"><meta property="og:title" content="track.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-deck/src/craft/media/matroska/track.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_deck/craft/media/matroska/track.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="track.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-deck/src/craft/media/matroska/track.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"track.rs - source","description":"Source of the Rust file `crates/ravenrs-deck/src/craft/media/matroska/track.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_deck/craft/media/matroska/track.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_deck/craft/media/matroska/</div>track.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! Track descriptions (RFC 9559 §5.1.4).
+<a href="#2" id="2" data-nosnippet="">2</a>
+<a href="#3" id="3" data-nosnippet="">3</a></span><span class="kw">use </span><span class="kw">crate</span>::craft::media::matroska::codec::Codec;
+<a href="#4" id="4" data-nosnippet="">4</a>
+<a href="#5" id="5" data-nosnippet="">5</a><span class="doccomment">/// Track type (`TrackType`).
+<a href="#6" id="6" data-nosnippet="">6</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+<a href="#7" id="7" data-nosnippet="">7</a></span><span class="kw">pub enum </span>TrackKind {
+<a href="#8" id="8" data-nosnippet="">8</a>    Video,
+<a href="#9" id="9" data-nosnippet="">9</a>    Audio,
+<a href="#10" id="10" data-nosnippet="">10</a>    Complex,
+<a href="#11" id="11" data-nosnippet="">11</a>    Logo,
+<a href="#12" id="12" data-nosnippet="">12</a>    Subtitle,
+<a href="#13" id="13" data-nosnippet="">13</a>    Buttons,
+<a href="#14" id="14" data-nosnippet="">14</a>    Control,
+<a href="#15" id="15" data-nosnippet="">15</a>    Metadata,
+<a href="#16" id="16" data-nosnippet="">16</a>    Other(u8),
+<a href="#17" id="17" data-nosnippet="">17</a>}
+<a href="#18" id="18" data-nosnippet="">18</a>
+<a href="#19" id="19" data-nosnippet="">19</a><span class="kw">impl </span>TrackKind {
+<a href="#20" id="20" data-nosnippet="">20</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>from_type(t: u64) -&gt; TrackKind {
+<a href="#21" id="21" data-nosnippet="">21</a>        <span class="kw">match </span>t {
+<a href="#22" id="22" data-nosnippet="">22</a>            <span class="number">1 </span>=&gt; TrackKind::Video,
+<a href="#23" id="23" data-nosnippet="">23</a>            <span class="number">2 </span>=&gt; TrackKind::Audio,
+<a href="#24" id="24" data-nosnippet="">24</a>            <span class="number">3 </span>=&gt; TrackKind::Complex,
+<a href="#25" id="25" data-nosnippet="">25</a>            <span class="number">0x10 </span>=&gt; TrackKind::Logo,
+<a href="#26" id="26" data-nosnippet="">26</a>            <span class="number">0x11 </span>=&gt; TrackKind::Subtitle,
+<a href="#27" id="27" data-nosnippet="">27</a>            <span class="number">0x12 </span>=&gt; TrackKind::Buttons,
+<a href="#28" id="28" data-nosnippet="">28</a>            <span class="number">0x20 </span>=&gt; TrackKind::Control,
+<a href="#29" id="29" data-nosnippet="">29</a>            <span class="number">0x21 </span>=&gt; TrackKind::Metadata,
+<a href="#30" id="30" data-nosnippet="">30</a>            n =&gt; TrackKind::Other(n <span class="kw">as </span>u8),
+<a href="#31" id="31" data-nosnippet="">31</a>        }
+<a href="#32" id="32" data-nosnippet="">32</a>    }
+<a href="#33" id="33" data-nosnippet="">33</a>}
+<a href="#34" id="34" data-nosnippet="">34</a>
+<a href="#35" id="35" data-nosnippet="">35</a><span class="doccomment">/// SMPTE ST 2086 mastering display metadata (`MasteringMetadata`). Chromaticities are CIE 1931 xy,
+<a href="#36" id="36" data-nosnippet="">36</a>/// luminance in cd/m².
+<a href="#37" id="37" data-nosnippet="">37</a></span><span class="attr">#[derive(Clone, Debug, Default, PartialEq)]
+<a href="#38" id="38" data-nosnippet="">38</a></span><span class="kw">pub struct </span>MasteringMetadata {
+<a href="#39" id="39" data-nosnippet="">39</a>    <span class="doccomment">/// Red, green, blue primaries as (x, y).
+<a href="#40" id="40" data-nosnippet="">40</a>    </span><span class="kw">pub </span>primaries: [(f64, f64); <span class="number">3</span>],
+<a href="#41" id="41" data-nosnippet="">41</a>    <span class="kw">pub </span>white_point: (f64, f64),
+<a href="#42" id="42" data-nosnippet="">42</a>    <span class="kw">pub </span>luminance_max: f64,
+<a href="#43" id="43" data-nosnippet="">43</a>    <span class="kw">pub </span>luminance_min: f64,
+<a href="#44" id="44" data-nosnippet="">44</a>}
+<a href="#45" id="45" data-nosnippet="">45</a>
+<a href="#46" id="46" data-nosnippet="">46</a><span class="doccomment">/// `Colour` element. Code points use ITU-T H.273 values (as Matroska does).
+<a href="#47" id="47" data-nosnippet="">47</a></span><span class="attr">#[derive(Clone, Debug, Default, PartialEq)]
+<a href="#48" id="48" data-nosnippet="">48</a></span><span class="kw">pub struct </span>Color {
+<a href="#49" id="49" data-nosnippet="">49</a>    <span class="doccomment">/// `MatrixCoefficients` (H.273; 2 = unspecified).
+<a href="#50" id="50" data-nosnippet="">50</a>    </span><span class="kw">pub </span>matrix_coefficients: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#51" id="51" data-nosnippet="">51</a>    <span class="kw">pub </span>bits_per_channel: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#52" id="52" data-nosnippet="">52</a>    <span class="kw">pub </span>chroma_subsampling_horz: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#53" id="53" data-nosnippet="">53</a>    <span class="kw">pub </span>chroma_subsampling_vert: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#54" id="54" data-nosnippet="">54</a>    <span class="kw">pub </span>cb_subsampling_horz: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#55" id="55" data-nosnippet="">55</a>    <span class="kw">pub </span>cb_subsampling_vert: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#56" id="56" data-nosnippet="">56</a>    <span class="kw">pub </span>chroma_siting_horz: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#57" id="57" data-nosnippet="">57</a>    <span class="kw">pub </span>chroma_siting_vert: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#58" id="58" data-nosnippet="">58</a>    <span class="doccomment">/// `Range`: 0 unspecified, 1 broadcast (limited), 2 full, 3 defined by matrix/transfer.
+<a href="#59" id="59" data-nosnippet="">59</a>    </span><span class="kw">pub </span>range: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#60" id="60" data-nosnippet="">60</a>    <span class="doccomment">/// `TransferCharacteristics` (H.273).
+<a href="#61" id="61" data-nosnippet="">61</a>    </span><span class="kw">pub </span>transfer_characteristics: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#62" id="62" data-nosnippet="">62</a>    <span class="doccomment">/// `Primaries` (H.273).
+<a href="#63" id="63" data-nosnippet="">63</a>    </span><span class="kw">pub </span>primaries: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#64" id="64" data-nosnippet="">64</a>    <span class="doccomment">/// Maximum content light level (cd/m²).
+<a href="#65" id="65" data-nosnippet="">65</a>    </span><span class="kw">pub </span>max_cll: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#66" id="66" data-nosnippet="">66</a>    <span class="doccomment">/// Maximum frame-average light level (cd/m²).
+<a href="#67" id="67" data-nosnippet="">67</a>    </span><span class="kw">pub </span>max_fall: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#68" id="68" data-nosnippet="">68</a>    <span class="kw">pub </span>mastering: <span class="prelude-ty">Option</span>&lt;MasteringMetadata&gt;,
+<a href="#69" id="69" data-nosnippet="">69</a>}
+<a href="#70" id="70" data-nosnippet="">70</a>
+<a href="#71" id="71" data-nosnippet="">71</a><span class="kw">impl </span>Color {
+<a href="#72" id="72" data-nosnippet="">72</a>    <span class="doccomment">/// True if `Range` says full range.
+<a href="#73" id="73" data-nosnippet="">73</a>    </span><span class="kw">pub fn </span>full_range(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#74" id="74" data-nosnippet="">74</a>        <span class="self">self</span>.range == <span class="prelude-val">Some</span>(<span class="number">2</span>)
+<a href="#75" id="75" data-nosnippet="">75</a>    }
+<a href="#76" id="76" data-nosnippet="">76</a>}
+<a href="#77" id="77" data-nosnippet="">77</a>
+<a href="#78" id="78" data-nosnippet="">78</a><span class="doccomment">/// `Video` element.
+<a href="#79" id="79" data-nosnippet="">79</a></span><span class="attr">#[derive(Clone, Debug, Default, PartialEq)]
+<a href="#80" id="80" data-nosnippet="">80</a></span><span class="kw">pub struct </span>VideoInfo {
+<a href="#81" id="81" data-nosnippet="">81</a>    <span class="kw">pub </span>pixel_width: u32,
+<a href="#82" id="82" data-nosnippet="">82</a>    <span class="kw">pub </span>pixel_height: u32,
+<a href="#83" id="83" data-nosnippet="">83</a>    <span class="doccomment">/// `DisplayWidth`/`DisplayHeight`, in `display_unit` (0 = pixels, 3 = display aspect ratio).
+<a href="#84" id="84" data-nosnippet="">84</a>    </span><span class="kw">pub </span>display_width: <span class="prelude-ty">Option</span>&lt;u32&gt;,
+<a href="#85" id="85" data-nosnippet="">85</a>    <span class="kw">pub </span>display_height: <span class="prelude-ty">Option</span>&lt;u32&gt;,
+<a href="#86" id="86" data-nosnippet="">86</a>    <span class="kw">pub </span>display_unit: u64,
+<a href="#87" id="87" data-nosnippet="">87</a>    <span class="doccomment">/// Crop (top, bottom, left, right) in pixels.
+<a href="#88" id="88" data-nosnippet="">88</a>    </span><span class="kw">pub </span>crop: (u32, u32, u32, u32),
+<a href="#89" id="89" data-nosnippet="">89</a>    <span class="doccomment">/// `FlagInterlaced`: 0 undetermined, 1 interlaced, 2 progressive.
+<a href="#90" id="90" data-nosnippet="">90</a>    </span><span class="kw">pub </span>flag_interlaced: u64,
+<a href="#91" id="91" data-nosnippet="">91</a>    <span class="doccomment">/// `FieldOrder` (0 progressive, 1 tff, 2 undetermined, 6 bff, 9/14 interleaved).
+<a href="#92" id="92" data-nosnippet="">92</a>    </span><span class="kw">pub </span>field_order: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#93" id="93" data-nosnippet="">93</a>    <span class="kw">pub </span>stereo_mode: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#94" id="94" data-nosnippet="">94</a>    <span class="doccomment">/// `AlphaMode`: 1 if BlockAdditions carry alpha.
+<a href="#95" id="95" data-nosnippet="">95</a>    </span><span class="kw">pub </span>alpha_mode: u64,
+<a href="#96" id="96" data-nosnippet="">96</a>    <span class="doccomment">/// `ColourSpace` FourCC (uncompressed video).
+<a href="#97" id="97" data-nosnippet="">97</a>    </span><span class="kw">pub </span>color_space: <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">4</span>]&gt;,
+<a href="#98" id="98" data-nosnippet="">98</a>    <span class="kw">pub </span>color: <span class="prelude-ty">Option</span>&lt;Color&gt;,
+<a href="#99" id="99" data-nosnippet="">99</a>    <span class="kw">pub </span>projection: <span class="prelude-ty">Option</span>&lt;Projection&gt;,
+<a href="#100" id="100" data-nosnippet="">100</a>}
+<a href="#101" id="101" data-nosnippet="">101</a>
+<a href="#102" id="102" data-nosnippet="">102</a><span class="doccomment">/// `Projection` element (RFC 9559 §5.1.4.1.28.41): pose angles in degrees.
+<a href="#103" id="103" data-nosnippet="">103</a></span><span class="attr">#[derive(Clone, Debug, Default, PartialEq)]
+<a href="#104" id="104" data-nosnippet="">104</a></span><span class="kw">pub struct </span>Projection {
+<a href="#105" id="105" data-nosnippet="">105</a>    <span class="doccomment">/// 0 rectangular, 1 equirectangular, 2 cubemap, 3 mesh.
+<a href="#106" id="106" data-nosnippet="">106</a>    </span><span class="kw">pub </span>projection_type: u64,
+<a href="#107" id="107" data-nosnippet="">107</a>    <span class="doccomment">/// Clockwise around the up vector.
+<a href="#108" id="108" data-nosnippet="">108</a>    </span><span class="kw">pub </span>yaw: f64,
+<a href="#109" id="109" data-nosnippet="">109</a>    <span class="doccomment">/// Counter-clockwise around the right vector.
+<a href="#110" id="110" data-nosnippet="">110</a>    </span><span class="kw">pub </span>pitch: f64,
+<a href="#111" id="111" data-nosnippet="">111</a>    <span class="doccomment">/// Counter-clockwise around the forward vector.
+<a href="#112" id="112" data-nosnippet="">112</a>    </span><span class="kw">pub </span>roll: f64,
+<a href="#113" id="113" data-nosnippet="">113</a>}
+<a href="#114" id="114" data-nosnippet="">114</a>
+<a href="#115" id="115" data-nosnippet="">115</a><span class="kw">impl </span>VideoInfo {
+<a href="#116" id="116" data-nosnippet="">116</a>    <span class="doccomment">/// Clockwise quarter turns (0–3) to display a rectangular video, from `ProjectionPoseRoll`
+<a href="#117" id="117" data-nosnippet="">117</a>    /// (a counter-clockwise angle, so −90 is a quarter turn clockwise). None for other
+<a href="#118" id="118" data-nosnippet="">118</a>    /// projections, flips (non-zero yaw / pitch) or angles that are not a multiple of 90°.
+<a href="#119" id="119" data-nosnippet="">119</a>    </span><span class="kw">pub fn </span>display_rotation(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u8&gt; {
+<a href="#120" id="120" data-nosnippet="">120</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(p) = <span class="kw-2">&amp;</span><span class="self">self</span>.projection <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Some</span>(<span class="number">0</span>) };
+<a href="#121" id="121" data-nosnippet="">121</a>        <span class="kw">if </span>p.projection_type != <span class="number">0 </span>|| p.yaw != <span class="number">0.0 </span>|| p.pitch != <span class="number">0.0 </span>|| p.roll % <span class="number">90.0 </span>!= <span class="number">0.0 </span>{
+<a href="#122" id="122" data-nosnippet="">122</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#123" id="123" data-nosnippet="">123</a>        }
+<a href="#124" id="124" data-nosnippet="">124</a>        <span class="prelude-val">Some</span>((-(p.roll / <span class="number">90.0</span>) <span class="kw">as </span>i64).rem_euclid(<span class="number">4</span>) <span class="kw">as </span>u8)
+<a href="#125" id="125" data-nosnippet="">125</a>    }
+<a href="#126" id="126" data-nosnippet="">126</a>
+<a href="#127" id="127" data-nosnippet="">127</a>    <span class="doccomment">/// Pixel aspect ratio derived from the display size (pixels or aspect-ratio units), reduced.
+<a href="#128" id="128" data-nosnippet="">128</a>    </span><span class="kw">pub fn </span>pixel_aspect(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; (u32, u32) {
+<a href="#129" id="129" data-nosnippet="">129</a>        <span class="kw">let </span>pw = <span class="self">self</span>.pixel_width.saturating_sub(<span class="self">self</span>.crop.<span class="number">2</span>.saturating_add(<span class="self">self</span>.crop.<span class="number">3</span>)) <span class="kw">as </span>u64;
+<a href="#130" id="130" data-nosnippet="">130</a>        <span class="kw">let </span>ph = <span class="self">self</span>.pixel_height.saturating_sub(<span class="self">self</span>.crop.<span class="number">0</span>.saturating_add(<span class="self">self</span>.crop.<span class="number">1</span>)) <span class="kw">as </span>u64;
+<a href="#131" id="131" data-nosnippet="">131</a>        <span class="kw">let </span>(<span class="prelude-val">Some</span>(dw), <span class="prelude-val">Some</span>(dh)) = (<span class="self">self</span>.display_width, <span class="self">self</span>.display_height) <span class="kw">else </span>{ <span class="kw">return </span>(<span class="number">1</span>, <span class="number">1</span>) };
+<a href="#132" id="132" data-nosnippet="">132</a>        <span class="kw">if </span>pw == <span class="number">0 </span>|| ph == <span class="number">0 </span>|| dw == <span class="number">0 </span>|| dh == <span class="number">0 </span>|| !<span class="macro">matches!</span>(<span class="self">self</span>.display_unit, <span class="number">0 </span>| <span class="number">3</span>) {
+<a href="#133" id="133" data-nosnippet="">133</a>            <span class="kw">return </span>(<span class="number">1</span>, <span class="number">1</span>);
+<a href="#134" id="134" data-nosnippet="">134</a>        }
+<a href="#135" id="135" data-nosnippet="">135</a>        <span class="comment">// PAR = (dw/dh) / (pw/ph)
+<a href="#136" id="136" data-nosnippet="">136</a>        </span><span class="kw">let </span>(n, d) = (dw <span class="kw">as </span>u64 * ph, dh <span class="kw">as </span>u64 * pw);
+<a href="#137" id="137" data-nosnippet="">137</a>        <span class="kw">let </span>g = gcd(n, d);
+<a href="#138" id="138" data-nosnippet="">138</a>        ((n / g) <span class="kw">as </span>u32, (d / g) <span class="kw">as </span>u32)
+<a href="#139" id="139" data-nosnippet="">139</a>    }
+<a href="#140" id="140" data-nosnippet="">140</a>}
+<a href="#141" id="141" data-nosnippet="">141</a>
+<a href="#142" id="142" data-nosnippet="">142</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>gcd(<span class="kw-2">mut </span>a: u64, <span class="kw-2">mut </span>b: u64) -&gt; u64 {
+<a href="#143" id="143" data-nosnippet="">143</a>    <span class="kw">while </span>b != <span class="number">0 </span>{
+<a href="#144" id="144" data-nosnippet="">144</a>        (a, b) = (b, a % b);
+<a href="#145" id="145" data-nosnippet="">145</a>    }
+<a href="#146" id="146" data-nosnippet="">146</a>    a.max(<span class="number">1</span>)
+<a href="#147" id="147" data-nosnippet="">147</a>}
+<a href="#148" id="148" data-nosnippet="">148</a>
+<a href="#149" id="149" data-nosnippet="">149</a><span class="doccomment">/// `Audio` element.
+<a href="#150" id="150" data-nosnippet="">150</a></span><span class="attr">#[derive(Clone, Debug, PartialEq)]
+<a href="#151" id="151" data-nosnippet="">151</a></span><span class="kw">pub struct </span>AudioInfo {
+<a href="#152" id="152" data-nosnippet="">152</a>    <span class="doccomment">/// `SamplingFrequency` (Hz).
+<a href="#153" id="153" data-nosnippet="">153</a>    </span><span class="kw">pub </span>sampling_frequency: f64,
+<a href="#154" id="154" data-nosnippet="">154</a>    <span class="doccomment">/// `OutputSamplingFrequency` (e.g. SBR output rate).
+<a href="#155" id="155" data-nosnippet="">155</a>    </span><span class="kw">pub </span>output_sampling_frequency: <span class="prelude-ty">Option</span>&lt;f64&gt;,
+<a href="#156" id="156" data-nosnippet="">156</a>    <span class="kw">pub </span>channels: u64,
+<a href="#157" id="157" data-nosnippet="">157</a>    <span class="kw">pub </span>bit_depth: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#158" id="158" data-nosnippet="">158</a>}
+<a href="#159" id="159" data-nosnippet="">159</a>
+<a href="#160" id="160" data-nosnippet="">160</a><span class="kw">impl </span>Default <span class="kw">for </span>AudioInfo {
+<a href="#161" id="161" data-nosnippet="">161</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href="#162" id="162" data-nosnippet="">162</a>        <span class="self">Self </span>{ sampling_frequency: <span class="number">8000.0</span>, output_sampling_frequency: <span class="prelude-val">None</span>, channels: <span class="number">1</span>, bit_depth: <span class="prelude-val">None </span>}
+<a href="#163" id="163" data-nosnippet="">163</a>    }
+<a href="#164" id="164" data-nosnippet="">164</a>}
+<a href="#165" id="165" data-nosnippet="">165</a>
+<a href="#166" id="166" data-nosnippet="">166</a><span class="doccomment">/// One `ContentEncoding`.
+<a href="#167" id="167" data-nosnippet="">167</a></span><span class="attr">#[derive(Clone, Debug, PartialEq)]
+<a href="#168" id="168" data-nosnippet="">168</a></span><span class="kw">pub enum </span>ContentEncoding {
+<a href="#169" id="169" data-nosnippet="">169</a>    <span class="doccomment">/// `ContentCompAlgo` 3: the given bytes were stripped from the start of every frame.
+<a href="#170" id="170" data-nosnippet="">170</a>    </span>HeaderStripping { bytes: Vec&lt;u8&gt;, scope: u64 },
+<a href="#171" id="171" data-nosnippet="">171</a>    <span class="doccomment">/// Other compression (0 zlib, 1 bzlib, 2 lzo1x): not supported for reading frame data.
+<a href="#172" id="172" data-nosnippet="">172</a>    /// `algo` is `u64::MAX` for a chain of more encodings than a reader checks.
+<a href="#173" id="173" data-nosnippet="">173</a>    </span>Compression { algo: u64, settings: Vec&lt;u8&gt;, scope: u64 },
+<a href="#174" id="174" data-nosnippet="">174</a>    <span class="doccomment">/// Encryption (not supported for reading frame data).
+<a href="#175" id="175" data-nosnippet="">175</a>    </span>Encryption { scope: u64 },
+<a href="#176" id="176" data-nosnippet="">176</a>}
+<a href="#177" id="177" data-nosnippet="">177</a>
+<a href="#178" id="178" data-nosnippet="">178</a><span class="doccomment">/// One entry of a track's sample (frame) table.
+<a href="#179" id="179" data-nosnippet="">179</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+<a href="#180" id="180" data-nosnippet="">180</a></span><span class="kw">pub struct </span>Sample {
+<a href="#181" id="181" data-nosnippet="">181</a>    <span class="doccomment">/// Byte offset of the (stored) frame data in the file.
+<a href="#182" id="182" data-nosnippet="">182</a>    </span><span class="kw">pub </span>offset: u64,
+<a href="#183" id="183" data-nosnippet="">183</a>    <span class="doccomment">/// Stored size (excluding header-stripped bytes; see [`Track::sample_size`]).
+<a href="#184" id="184" data-nosnippet="">184</a>    </span><span class="kw">pub </span>size: u32,
+<a href="#185" id="185" data-nosnippet="">185</a>    <span class="doccomment">/// Presentation timestamp in the track timebase (`TimestampScale` ticks).
+<a href="#186" id="186" data-nosnippet="">186</a>    </span><span class="kw">pub </span>pts: i64,
+<a href="#187" id="187" data-nosnippet="">187</a>    <span class="doccomment">/// Duration in timebase ticks (from `BlockDuration` or `DefaultDuration`), 0 if unknown.
+<a href="#188" id="188" data-nosnippet="">188</a>    </span><span class="kw">pub </span>duration: u64,
+<a href="#189" id="189" data-nosnippet="">189</a>    <span class="kw">pub </span>keyframe: bool,
+<a href="#190" id="190" data-nosnippet="">190</a>    <span class="doccomment">/// Index of the owning cluster in [`crate::craft::media::matroska::MkvFile::clusters`].
+<a href="#191" id="191" data-nosnippet="">191</a>    </span><span class="kw">pub </span>cluster: u32,
+<a href="#192" id="192" data-nosnippet="">192</a>    <span class="doccomment">/// Offset of the block element (SimpleBlock / BlockGroup) header.
+<a href="#193" id="193" data-nosnippet="">193</a>    </span><span class="kw">pub </span>block_offset: u64,
+<a href="#194" id="194" data-nosnippet="">194</a>    <span class="doccomment">/// Index of this frame within a laced block.
+<a href="#195" id="195" data-nosnippet="">195</a>    </span><span class="kw">pub </span>lace: u16,
+<a href="#196" id="196" data-nosnippet="">196</a>    <span class="doccomment">/// (offset, size) of the block's `BlockAdditional` with `BlockAddID` 1, when it has one and
+<a href="#197" id="197" data-nosnippet="">197</a>    /// is not laced. In WebM this is the alpha layer of a VP8/VP9 track with `AlphaMode` 1: a
+<a href="#198" id="198" data-nosnippet="">198</a>    /// second, independently coded stream whose luma plane is the frame's alpha.
+<a href="#199" id="199" data-nosnippet="">199</a>    </span><span class="kw">pub </span>addition: <span class="prelude-ty">Option</span>&lt;(u64, u32)&gt;,
+<a href="#200" id="200" data-nosnippet="">200</a>}
+<a href="#201" id="201" data-nosnippet="">201</a>
+<a href="#202" id="202" data-nosnippet="">202</a><span class="doccomment">/// A Matroska track (`TrackEntry`) plus, once indexed, its sample table.
+<a href="#203" id="203" data-nosnippet="">203</a></span><span class="attr">#[derive(Clone, Debug)]
+<a href="#204" id="204" data-nosnippet="">204</a></span><span class="kw">pub struct </span>Track {
+<a href="#205" id="205" data-nosnippet="">205</a>    <span class="kw">pub </span>number: u64,
+<a href="#206" id="206" data-nosnippet="">206</a>    <span class="kw">pub </span>uid: u64,
+<a href="#207" id="207" data-nosnippet="">207</a>    <span class="kw">pub </span>kind: TrackKind,
+<a href="#208" id="208" data-nosnippet="">208</a>    <span class="kw">pub </span>enabled: bool,
+<a href="#209" id="209" data-nosnippet="">209</a>    <span class="kw">pub </span>default: bool,
+<a href="#210" id="210" data-nosnippet="">210</a>    <span class="kw">pub </span>forced: bool,
+<a href="#211" id="211" data-nosnippet="">211</a>    <span class="kw">pub </span>hearing_impaired: bool,
+<a href="#212" id="212" data-nosnippet="">212</a>    <span class="kw">pub </span>lacing: bool,
+<a href="#213" id="213" data-nosnippet="">213</a>    <span class="doccomment">/// `DefaultDuration` in nanoseconds.
+<a href="#214" id="214" data-nosnippet="">214</a>    </span><span class="kw">pub </span>default_duration_ns: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href="#215" id="215" data-nosnippet="">215</a>    <span class="kw">pub </span>name: String,
+<a href="#216" id="216" data-nosnippet="">216</a>    <span class="doccomment">/// `Language` (ISO 639-2, default `eng`).
+<a href="#217" id="217" data-nosnippet="">217</a>    </span><span class="kw">pub </span>language: String,
+<a href="#218" id="218" data-nosnippet="">218</a>    <span class="kw">pub </span>language_bcp47: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#219" id="219" data-nosnippet="">219</a>    <span class="kw">pub </span>codec_id: String,
+<a href="#220" id="220" data-nosnippet="">220</a>    <span class="kw">pub </span>codec_private: Vec&lt;u8&gt;,
+<a href="#221" id="221" data-nosnippet="">221</a>    <span class="kw">pub </span>codec_name: String,
+<a href="#222" id="222" data-nosnippet="">222</a>    <span class="kw">pub </span>codec: Codec,
+<a href="#223" id="223" data-nosnippet="">223</a>    <span class="doccomment">/// `CodecDelay` in nanoseconds.
+<a href="#224" id="224" data-nosnippet="">224</a>    </span><span class="kw">pub </span>codec_delay_ns: u64,
+<a href="#225" id="225" data-nosnippet="">225</a>    <span class="doccomment">/// `SeekPreRoll` in nanoseconds.
+<a href="#226" id="226" data-nosnippet="">226</a>    </span><span class="kw">pub </span>seek_pre_roll_ns: u64,
+<a href="#227" id="227" data-nosnippet="">227</a>    <span class="kw">pub </span>video: <span class="prelude-ty">Option</span>&lt;VideoInfo&gt;,
+<a href="#228" id="228" data-nosnippet="">228</a>    <span class="kw">pub </span>audio: <span class="prelude-ty">Option</span>&lt;AudioInfo&gt;,
+<a href="#229" id="229" data-nosnippet="">229</a>    <span class="kw">pub </span>encodings: Vec&lt;ContentEncoding&gt;,
+<a href="#230" id="230" data-nosnippet="">230</a>    <span class="doccomment">/// Timebase numerator/denominator in seconds: `TimestampScale / 1e9`, reduced.
+<a href="#231" id="231" data-nosnippet="">231</a>    </span><span class="kw">pub </span>timebase: (u64, u64),
+<a href="#232" id="232" data-nosnippet="">232</a>    <span class="doccomment">/// Frame table (empty unless the file was opened with indexing).
+<a href="#233" id="233" data-nosnippet="">233</a>    </span><span class="kw">pub </span>samples: Vec&lt;Sample&gt;,
+<a href="#234" id="234" data-nosnippet="">234</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) sync: Vec&lt;u32&gt;,
+<a href="#235" id="235" data-nosnippet="">235</a>}
+<a href="#236" id="236" data-nosnippet="">236</a>
+<a href="#237" id="237" data-nosnippet="">237</a><span class="kw">impl </span>Track {
+<a href="#238" id="238" data-nosnippet="">238</a>    <span class="doccomment">/// What a decoder needs for this track, in the container-neutral form the codec crates take
+<a href="#239" id="239" data-nosnippet="">239</a>    /// (`CodecPrivate` is already in that form).
+<a href="#240" id="240" data-nosnippet="">240</a>    </span><span class="kw">pub fn </span>codec_params(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::craft::media::CodecParams {
+<a href="#241" id="241" data-nosnippet="">241</a>        <span class="kw">use </span><span class="kw">crate</span>::craft::media::CodecId <span class="kw">as </span>Id;
+<a href="#242" id="242" data-nosnippet="">242</a>        <span class="kw">let </span>(id, extradata) = <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.codec {
+<a href="#243" id="243" data-nosnippet="">243</a>            Codec::Avc { avcc } =&gt; (Id::H264, avcc.clone()),
+<a href="#244" id="244" data-nosnippet="">244</a>            Codec::Hevc { hvcc } =&gt; (Id::Hevc, hvcc.clone()),
+<a href="#245" id="245" data-nosnippet="">245</a>            Codec::Vp8 =&gt; (Id::Vp8, Vec::new()),
+<a href="#246" id="246" data-nosnippet="">246</a>            Codec::Vp9 { private } =&gt; (Id::Vp9, private.clone()),
+<a href="#247" id="247" data-nosnippet="">247</a>            Codec::Av1 { av1c } =&gt; (Id::Av1, av1c.clone()),
+<a href="#248" id="248" data-nosnippet="">248</a>            Codec::ProRes { .. } =&gt; (Id::ProRes, Vec::new()),
+<a href="#249" id="249" data-nosnippet="">249</a>            Codec::Apv { apvc } =&gt; (Id::Apv, apvc.clone()),
+<a href="#250" id="250" data-nosnippet="">250</a>            Codec::Mjpeg =&gt; (Id::Mjpeg, Vec::new()),
+<a href="#251" id="251" data-nosnippet="">251</a>            Codec::Aac { asc } =&gt; (Id::Aac, asc.clone()),
+<a href="#252" id="252" data-nosnippet="">252</a>            Codec::Opus { head } =&gt; (Id::Opus, head.clone()),
+<a href="#253" id="253" data-nosnippet="">253</a>            Codec::Vorbis { headers } =&gt; (Id::Vorbis, <span class="kw">crate</span>::craft::media::xiph_lace(headers).unwrap_or_default()),
+<a href="#254" id="254" data-nosnippet="">254</a>            Codec::Flac { private } =&gt; (Id::Flac, private.clone()),
+<a href="#255" id="255" data-nosnippet="">255</a>            Codec::Pcm { .. } =&gt; (Id::Pcm, Vec::new()),
+<a href="#256" id="256" data-nosnippet="">256</a>            Codec::Ac3 =&gt; (Id::Ac3, Vec::new()),
+<a href="#257" id="257" data-nosnippet="">257</a>            Codec::Eac3 =&gt; (Id::Eac3, Vec::new()),
+<a href="#258" id="258" data-nosnippet="">258</a>            Codec::Mp3 =&gt; (Id::Mp3, Vec::new()),
+<a href="#259" id="259" data-nosnippet="">259</a>            Codec::Mp2 =&gt; (Id::Mp2, Vec::new()),
+<a href="#260" id="260" data-nosnippet="">260</a>            Codec::Mp1 =&gt; (Id::Mp1, Vec::new()),
+<a href="#261" id="261" data-nosnippet="">261</a>            <span class="comment">// the ALACSpecificConfig, as MP4's `alac` box holds it after its FullBox header
+<a href="#262" id="262" data-nosnippet="">262</a>            </span>Codec::Other(id) <span class="kw">if </span>id == <span class="string">"A_ALAC" </span>=&gt; (Id::Alac, <span class="self">self</span>.codec_private.clone()),
+<a href="#263" id="263" data-nosnippet="">263</a>            Codec::VfwFourcc { fourcc: [<span class="string">b'A'</span>, <span class="string">b'V'</span>, <span class="string">b'd'</span>, <span class="string">b'n' </span>| <span class="string">b'h'</span>], .. } =&gt; (Id::Dnxhd, Vec::new()),
+<a href="#264" id="264" data-nosnippet="">264</a>            <span class="kw">_ </span>=&gt; (Id::Unknown, Vec::new()),
+<a href="#265" id="265" data-nosnippet="">265</a>        };
+<a href="#266" id="266" data-nosnippet="">266</a>        <span class="kw">let </span><span class="kw-2">mut </span>p = <span class="kw">crate</span>::craft::media::CodecParams::new(id).with_extradata(extradata);
+<a href="#267" id="267" data-nosnippet="">267</a>        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.codec {
+<a href="#268" id="268" data-nosnippet="">268</a>            Codec::ProRes { fourcc: <span class="prelude-val">Some</span>(tag) } | Codec::VfwFourcc { fourcc: tag, .. } =&gt; p = p.with_tag(<span class="kw-2">*</span>tag),
+<a href="#269" id="269" data-nosnippet="">269</a>            <span class="kw">_ </span>=&gt; {}
+<a href="#270" id="270" data-nosnippet="">270</a>        }
+<a href="#271" id="271" data-nosnippet="">271</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = <span class="kw-2">&amp;</span><span class="self">self</span>.video {
+<a href="#272" id="272" data-nosnippet="">272</a>            p = p.with_size(v.pixel_width, v.pixel_height);
+<a href="#273" id="273" data-nosnippet="">273</a>        }
+<a href="#274" id="274" data-nosnippet="">274</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(a) = <span class="kw-2">&amp;</span><span class="self">self</span>.audio {
+<a href="#275" id="275" data-nosnippet="">275</a>            p = p.with_sample_rate(a.sampling_frequency.round() <span class="kw">as </span>u32).with_channels(u16::try_from(a.channels).unwrap_or(<span class="number">0</span>));
+<a href="#276" id="276" data-nosnippet="">276</a>        }
+<a href="#277" id="277" data-nosnippet="">277</a>        <span class="kw">if let </span>Codec::Opus { .. } = <span class="self">self</span>.codec {
+<a href="#278" id="278" data-nosnippet="">278</a>            <span class="comment">// Opus always decodes at 48 kHz; a muxer may have declared the input rate instead
+<a href="#279" id="279" data-nosnippet="">279</a>            </span>p = p.with_sample_rate(<span class="number">48_000</span>);
+<a href="#280" id="280" data-nosnippet="">280</a>        }
+<a href="#281" id="281" data-nosnippet="">281</a>        <span class="kw">if let </span>Codec::Pcm { float, big_endian, bits } = <span class="self">self</span>.codec {
+<a href="#282" id="282" data-nosnippet="">282</a>            <span class="comment">// 8-bit integer PCM is unsigned in Matroska, as in WAV.
+<a href="#283" id="283" data-nosnippet="">283</a>            </span>p = p.with_pcm(<span class="kw">if </span>float {
+<a href="#284" id="284" data-nosnippet="">284</a>                <span class="kw">crate</span>::craft::media::PcmFormat::float(bits, big_endian)
+<a href="#285" id="285" data-nosnippet="">285</a>            } <span class="kw">else </span>{
+<a href="#286" id="286" data-nosnippet="">286</a>                <span class="kw">crate</span>::craft::media::PcmFormat::int(bits, bits &gt; <span class="number">8</span>, big_endian)
+<a href="#287" id="287" data-nosnippet="">287</a>            });
+<a href="#288" id="288" data-nosnippet="">288</a>        }
+<a href="#289" id="289" data-nosnippet="">289</a>        p
+<a href="#290" id="290" data-nosnippet="">290</a>    }
+<a href="#291" id="291" data-nosnippet="">291</a>
+<a href="#292" id="292" data-nosnippet="">292</a>    <span class="doccomment">/// Bytes prepended to every frame by header-stripping compression, if any.
+<a href="#293" id="293" data-nosnippet="">293</a>    </span><span class="kw">pub fn </span>stripped_header(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[u8]&gt; {
+<a href="#294" id="294" data-nosnippet="">294</a>        <span class="self">self</span>.encodings.iter().find_map(|e| <span class="kw">match </span>e {
+<a href="#295" id="295" data-nosnippet="">295</a>            ContentEncoding::HeaderStripping { bytes, scope } <span class="kw">if </span>scope &amp; <span class="number">1 </span>!= <span class="number">0 </span>=&gt; <span class="prelude-val">Some</span>(bytes.as_slice()),
+<a href="#296" id="296" data-nosnippet="">296</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#297" id="297" data-nosnippet="">297</a>        })
+<a href="#298" id="298" data-nosnippet="">298</a>    }
+<a href="#299" id="299" data-nosnippet="">299</a>
+<a href="#300" id="300" data-nosnippet="">300</a>    <span class="doccomment">/// True if frames can be returned verbatim or with header stripping undone.
+<a href="#301" id="301" data-nosnippet="">301</a>    </span><span class="kw">pub fn </span>frames_readable(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#302" id="302" data-nosnippet="">302</a>        <span class="self">self</span>.encodings.iter().all(|e| <span class="kw">match </span>e {
+<a href="#303" id="303" data-nosnippet="">303</a>            ContentEncoding::HeaderStripping { .. } =&gt; <span class="bool-val">true</span>,
+<a href="#304" id="304" data-nosnippet="">304</a>            ContentEncoding::Compression { scope, .. } | ContentEncoding::Encryption { scope } =&gt; scope &amp; <span class="number">1 </span>== <span class="number">0</span>,
+<a href="#305" id="305" data-nosnippet="">305</a>        })
+<a href="#306" id="306" data-nosnippet="">306</a>    }
+<a href="#307" id="307" data-nosnippet="">307</a>
+<a href="#308" id="308" data-nosnippet="">308</a>    <span class="doccomment">/// Bytes to put in front of a stored frame of `stored_size` bytes to get the codec frame:
+<a href="#309" id="309" data-nosnippet="">309</a>    /// header-stripped bytes, or for `V_PRORES` the 8-byte frame header (`size` + `icpf`) that the
+<a href="#310" id="310" data-nosnippet="">310</a>    /// Matroska ProRes mapping omits.
+<a href="#311" id="311" data-nosnippet="">311</a>    </span><span class="kw">pub fn </span>frame_prefix(<span class="kw-2">&amp;</span><span class="self">self</span>, stored_size: u64) -&gt; Vec&lt;u8&gt; {
+<a href="#312" id="312" data-nosnippet="">312</a>        <span class="kw">let </span><span class="kw-2">mut </span>p = <span class="self">self</span>.stripped_header().map(&lt;[u8]&gt;::to_vec).unwrap_or_default();
+<a href="#313" id="313" data-nosnippet="">313</a>        <span class="kw">if </span><span class="macro">matches!</span>(<span class="self">self</span>.codec, Codec::ProRes { .. }) {
+<a href="#314" id="314" data-nosnippet="">314</a>            <span class="kw">let </span>total = stored_size + p.len() <span class="kw">as </span>u64 + <span class="number">8</span>;
+<a href="#315" id="315" data-nosnippet="">315</a>            <span class="kw">let </span><span class="kw-2">mut </span>h = (total <span class="kw">as </span>u32).to_be_bytes().to_vec();
+<a href="#316" id="316" data-nosnippet="">316</a>            h.extend_from_slice(<span class="string">b"icpf"</span>);
+<a href="#317" id="317" data-nosnippet="">317</a>            h.extend_from_slice(<span class="kw-2">&amp;</span>p);
+<a href="#318" id="318" data-nosnippet="">318</a>            p = h;
+<a href="#319" id="319" data-nosnippet="">319</a>        }
+<a href="#320" id="320" data-nosnippet="">320</a>        p
+<a href="#321" id="321" data-nosnippet="">321</a>    }
+<a href="#322" id="322" data-nosnippet="">322</a>
+<a href="#323" id="323" data-nosnippet="">323</a>    <span class="doccomment">/// Length of [`frame_prefix`](Self::frame_prefix), without building it.
+<a href="#324" id="324" data-nosnippet="">324</a>    </span><span class="kw">pub fn </span>frame_prefix_len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
+<a href="#325" id="325" data-nosnippet="">325</a>        <span class="kw">let </span>stripped = <span class="self">self</span>.stripped_header().map_or(<span class="number">0</span>, &lt;[u8]&gt;::len) <span class="kw">as </span>u64;
+<a href="#326" id="326" data-nosnippet="">326</a>        <span class="kw">if </span><span class="macro">matches!</span>(<span class="self">self</span>.codec, Codec::ProRes { .. }) { stripped + <span class="number">8 </span>} <span class="kw">else </span>{ stripped }
+<a href="#327" id="327" data-nosnippet="">327</a>    }
+<a href="#328" id="328" data-nosnippet="">328</a>
+<a href="#329" id="329" data-nosnippet="">329</a>    <span class="doccomment">/// Frame size of sample `i` as returned by `read_sample` / packets (stored size plus prefix).
+<a href="#330" id="330" data-nosnippet="">330</a>    </span><span class="kw">pub fn </span>sample_size(<span class="kw-2">&amp;</span><span class="self">self</span>, i: usize) -&gt; <span class="prelude-ty">Option</span>&lt;u64&gt; {
+<a href="#331" id="331" data-nosnippet="">331</a>        <span class="kw">let </span>s = <span class="self">self</span>.samples.get(i)<span class="question-mark">?</span>;
+<a href="#332" id="332" data-nosnippet="">332</a>        <span class="prelude-val">Some</span>(s.size <span class="kw">as </span>u64 + <span class="self">self</span>.frame_prefix_len())
+<a href="#333" id="333" data-nosnippet="">333</a>    }
+<a href="#334" id="334" data-nosnippet="">334</a>
+<a href="#335" id="335" data-nosnippet="">335</a>    <span class="doccomment">/// Indices of keyframe samples, ascending by file order.
+<a href="#336" id="336" data-nosnippet="">336</a>    </span><span class="kw">pub fn </span>keyframes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>[u32] {
+<a href="#337" id="337" data-nosnippet="">337</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.sync
+<a href="#338" id="338" data-nosnippet="">338</a>    }
+<a href="#339" id="339" data-nosnippet="">339</a>
+<a href="#340" id="340" data-nosnippet="">340</a>    <span class="doccomment">/// Timebase ticks → nanoseconds.
+<a href="#341" id="341" data-nosnippet="">341</a>    </span><span class="kw">pub fn </span>ticks_to_ns(<span class="kw-2">&amp;</span><span class="self">self</span>, t: i64) -&gt; i64 {
+<a href="#342" id="342" data-nosnippet="">342</a>        <span class="kw">let </span>ns = t <span class="kw">as </span>i128 * <span class="self">self</span>.timebase.<span class="number">0 </span><span class="kw">as </span>i128 * <span class="number">1_000_000_000 </span>/ <span class="self">self</span>.timebase.<span class="number">1 </span><span class="kw">as </span>i128;
+<a href="#343" id="343" data-nosnippet="">343</a>        ns.clamp(i64::MIN <span class="kw">as </span>i128, i64::MAX <span class="kw">as </span>i128) <span class="kw">as </span>i64
+<a href="#344" id="344" data-nosnippet="">344</a>    }
+<a href="#345" id="345" data-nosnippet="">345</a>
+<a href="#346" id="346" data-nosnippet="">346</a>    <span class="doccomment">/// Nanoseconds → timebase ticks (floor).
+<a href="#347" id="347" data-nosnippet="">347</a>    </span><span class="kw">pub fn </span>ns_to_ticks(<span class="kw-2">&amp;</span><span class="self">self</span>, ns: i64) -&gt; i64 {
+<a href="#348" id="348" data-nosnippet="">348</a>        <span class="kw">let </span>n = ns <span class="kw">as </span>i128 * <span class="self">self</span>.timebase.<span class="number">1 </span><span class="kw">as </span>i128;
+<a href="#349" id="349" data-nosnippet="">349</a>        <span class="kw">let </span>d = <span class="self">self</span>.timebase.<span class="number">0 </span><span class="kw">as </span>i128 * <span class="number">1_000_000_000</span>;
+<a href="#350" id="350" data-nosnippet="">350</a>        n.div_euclid(d) <span class="kw">as </span>i64
+<a href="#351" id="351" data-nosnippet="">351</a>    }
+<a href="#352" id="352" data-nosnippet="">352</a>
+<a href="#353" id="353" data-nosnippet="">353</a>    <span class="doccomment">/// Index of the last sample with `pts &lt;= t` (in file order), or the first sample.
+<a href="#354" id="354" data-nosnippet="">354</a>    </span><span class="kw">pub fn </span>sample_at_pts(<span class="kw-2">&amp;</span><span class="self">self</span>, t: i64) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+<a href="#355" id="355" data-nosnippet="">355</a>        <span class="kw">if </span><span class="self">self</span>.samples.is_empty() {
+<a href="#356" id="356" data-nosnippet="">356</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#357" id="357" data-nosnippet="">357</a>        }
+<a href="#358" id="358" data-nosnippet="">358</a>        <span class="kw">let </span><span class="kw-2">mut </span>best: <span class="prelude-ty">Option</span>&lt;usize&gt; = <span class="prelude-val">None</span>;
+<a href="#359" id="359" data-nosnippet="">359</a>        <span class="kw">for </span>(i, s) <span class="kw">in </span><span class="self">self</span>.samples.iter().enumerate() {
+<a href="#360" id="360" data-nosnippet="">360</a>            <span class="kw">if </span>s.pts &lt;= t &amp;&amp; best.is_none_or(|b| s.pts &gt;= <span class="self">self</span>.samples[b].pts) {
+<a href="#361" id="361" data-nosnippet="">361</a>                best = <span class="prelude-val">Some</span>(i);
+<a href="#362" id="362" data-nosnippet="">362</a>            }
+<a href="#363" id="363" data-nosnippet="">363</a>        }
+<a href="#364" id="364" data-nosnippet="">364</a>        <span class="prelude-val">Some</span>(best.unwrap_or(<span class="number">0</span>))
+<a href="#365" id="365" data-nosnippet="">365</a>    }
+<a href="#366" id="366" data-nosnippet="">366</a>
+<a href="#367" id="367" data-nosnippet="">367</a>    <span class="doccomment">/// Index of the keyframe with the greatest `pts &lt;= t` (the first keyframe if none precedes `t`).
+<a href="#368" id="368" data-nosnippet="">368</a>    </span><span class="kw">pub fn </span>keyframe_before_pts(<span class="kw-2">&amp;</span><span class="self">self</span>, t: i64) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+<a href="#369" id="369" data-nosnippet="">369</a>        <span class="kw">let </span><span class="kw-2">mut </span>best: <span class="prelude-ty">Option</span>&lt;usize&gt; = <span class="prelude-val">None</span>;
+<a href="#370" id="370" data-nosnippet="">370</a>        <span class="kw">for </span><span class="kw-2">&amp;</span>k <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.sync {
+<a href="#371" id="371" data-nosnippet="">371</a>            <span class="kw">let </span>s = <span class="kw-2">&amp;</span><span class="self">self</span>.samples[k <span class="kw">as </span>usize];
+<a href="#372" id="372" data-nosnippet="">372</a>            <span class="kw">if </span>s.pts &lt;= t &amp;&amp; best.is_none_or(|b| s.pts &gt;= <span class="self">self</span>.samples[b].pts) {
+<a href="#373" id="373" data-nosnippet="">373</a>                best = <span class="prelude-val">Some</span>(k <span class="kw">as </span>usize);
+<a href="#374" id="374" data-nosnippet="">374</a>            }
+<a href="#375" id="375" data-nosnippet="">375</a>        }
+<a href="#376" id="376" data-nosnippet="">376</a>        best.or_else(|| <span class="self">self</span>.sync.first().map(|<span class="kw-2">&amp;</span>k| k <span class="kw">as </span>usize))
+<a href="#377" id="377" data-nosnippet="">377</a>    }
+<a href="#378" id="378" data-nosnippet="">378</a>
+<a href="#379" id="379" data-nosnippet="">379</a>    <span class="doccomment">/// Index of the nearest keyframe at or before sample `index` in file order.
+<a href="#380" id="380" data-nosnippet="">380</a>    </span><span class="kw">pub fn </span>sync_sample_before(<span class="kw-2">&amp;</span><span class="self">self</span>, index: usize) -&gt; usize {
+<a href="#381" id="381" data-nosnippet="">381</a>        <span class="kw">match </span><span class="self">self</span>.sync.binary_search(<span class="kw-2">&amp;</span>(index <span class="kw">as </span>u32)) {
+<a href="#382" id="382" data-nosnippet="">382</a>            <span class="prelude-val">Ok</span>(i) =&gt; <span class="self">self</span>.sync[i] <span class="kw">as </span>usize,
+<a href="#383" id="383" data-nosnippet="">383</a>            <span class="prelude-val">Err</span>(<span class="number">0</span>) =&gt; <span class="number">0</span>,
+<a href="#384" id="384" data-nosnippet="">384</a>            <span class="prelude-val">Err</span>(i) =&gt; <span class="self">self</span>.sync[i - <span class="number">1</span>] <span class="kw">as </span>usize,
+<a href="#385" id="385" data-nosnippet="">385</a>        }
+<a href="#386" id="386" data-nosnippet="">386</a>    }
+<a href="#387" id="387" data-nosnippet="">387</a>}
+<a href="#388" id="388" data-nosnippet="">388</a>
+<a href="#389" id="389" data-nosnippet="">389</a><span class="attr">#[cfg(any())]
+<a href="#390" id="390" data-nosnippet="">390</a></span><span class="kw">mod </span>rotation_tests {
+<a href="#391" id="391" data-nosnippet="">391</a>    <span class="kw">use super</span>::{Projection, VideoInfo};
+<a href="#392" id="392" data-nosnippet="">392</a>
+<a href="#393" id="393" data-nosnippet="">393</a>    <span class="kw">fn </span>with_roll(projection_type: u64, yaw: f64, pitch: f64, roll: f64) -&gt; VideoInfo {
+<a href="#394" id="394" data-nosnippet="">394</a>        VideoInfo { projection: <span class="prelude-val">Some</span>(Projection { projection_type, yaw, pitch, roll }), ..Default::default() }
+<a href="#395" id="395" data-nosnippet="">395</a>    }
+<a href="#396" id="396" data-nosnippet="">396</a>
+<a href="#397" id="397" data-nosnippet="">397</a>    <span class="attr">#[cfg(any())]
+<a href="#398" id="398" data-nosnippet="">398</a>    </span><span class="kw">fn </span>display_rotation_maps_rectangular_roll_to_clockwise_quarter_turns() {
+<a href="#399" id="399" data-nosnippet="">399</a>        <span class="macro">assert_eq!</span>(VideoInfo::default().display_rotation(), <span class="prelude-val">Some</span>(<span class="number">0</span>), <span class="string">"no Projection: as stored"</span>);
+<a href="#400" id="400" data-nosnippet="">400</a>        <span class="comment">// ProjectionPoseRoll is counter-clockwise: -90 is a quarter turn clockwise
+<a href="#401" id="401" data-nosnippet="">401</a>        </span><span class="kw">for </span>(roll, turns) <span class="kw">in </span>[(<span class="number">0.0</span>, <span class="number">0</span>), (-<span class="number">90.0</span>, <span class="number">1</span>), (<span class="number">180.0</span>, <span class="number">2</span>), (-<span class="number">180.0</span>, <span class="number">2</span>), (<span class="number">90.0</span>, <span class="number">3</span>), (-<span class="number">270.0</span>, <span class="number">3</span>), (<span class="number">270.0</span>, <span class="number">1</span>), (<span class="number">360.0</span>, <span class="number">0</span>)] {
+<a href="#402" id="402" data-nosnippet="">402</a>            <span class="macro">assert_eq!</span>(with_roll(<span class="number">0</span>, <span class="number">0.0</span>, <span class="number">0.0</span>, roll).display_rotation(), <span class="prelude-val">Some</span>(turns), <span class="string">"roll {roll}"</span>);
+<a href="#403" id="403" data-nosnippet="">403</a>        }
+<a href="#404" id="404" data-nosnippet="">404</a>    }
+<a href="#405" id="405" data-nosnippet="">405</a>
+<a href="#406" id="406" data-nosnippet="">406</a>    <span class="attr">#[cfg(any())]
+<a href="#407" id="407" data-nosnippet="">407</a>    </span><span class="kw">fn </span>display_rotation_leaves_non_rectangular_flipped_and_odd_angles_alone() {
+<a href="#408" id="408" data-nosnippet="">408</a>        <span class="macro">assert_eq!</span>(with_roll(<span class="number">1</span>, <span class="number">0.0</span>, <span class="number">0.0</span>, -<span class="number">90.0</span>).display_rotation(), <span class="prelude-val">None</span>, <span class="string">"equirectangular"</span>);
+<a href="#409" id="409" data-nosnippet="">409</a>        <span class="macro">assert_eq!</span>(with_roll(<span class="number">0</span>, <span class="number">180.0</span>, <span class="number">0.0</span>, <span class="number">0.0</span>).display_rotation(), <span class="prelude-val">None</span>, <span class="string">"yaw flip"</span>);
+<a href="#410" id="410" data-nosnippet="">410</a>        <span class="macro">assert_eq!</span>(with_roll(<span class="number">0</span>, <span class="number">0.0</span>, <span class="number">180.0</span>, <span class="number">0.0</span>).display_rotation(), <span class="prelude-val">None</span>, <span class="string">"pitch flip"</span>);
+<a href="#411" id="411" data-nosnippet="">411</a>        <span class="macro">assert_eq!</span>(with_roll(<span class="number">0</span>, <span class="number">0.0</span>, <span class="number">0.0</span>, <span class="number">45.0</span>).display_rotation(), <span class="prelude-val">None</span>, <span class="string">"not a quarter turn"</span>);
+<a href="#412" id="412" data-nosnippet="">412</a>        <span class="macro">assert_eq!</span>(with_roll(<span class="number">0</span>, <span class="number">0.0</span>, <span class="number">0.0</span>, f64::NAN).display_rotation(), <span class="prelude-val">None</span>, <span class="string">"malformed angle"</span>);
+<a href="#413" id="413" data-nosnippet="">413</a>    }
+<a href="#414" id="414" data-nosnippet="">414</a>}
+<a href="#415" id="415" data-nosnippet="">415</a>
+<a href="#416" id="416" data-nosnippet="">416</a><span class="attr">#[cfg(any())]
+<a href="#417" id="417" data-nosnippet="">417</a></span><span class="kw">mod </span>aspect_overflow_tests {
+<a href="#418" id="418" data-nosnippet="">418</a>    <span class="kw">use </span><span class="kw">super</span>::VideoInfo;
+<a href="#419" id="419" data-nosnippet="">419</a>
+<a href="#420" id="420" data-nosnippet="">420</a>    <span class="attr">#[cfg(any())]
+<a href="#421" id="421" data-nosnippet="">421</a>    </span><span class="kw">fn </span>hostile_crop_sums_do_not_overflow() {
+<a href="#422" id="422" data-nosnippet="">422</a>        <span class="kw">let </span>video = VideoInfo {
+<a href="#423" id="423" data-nosnippet="">423</a>            pixel_width: <span class="number">640</span>,
+<a href="#424" id="424" data-nosnippet="">424</a>            pixel_height: <span class="number">480</span>,
+<a href="#425" id="425" data-nosnippet="">425</a>            display_width: <span class="prelude-val">Some</span>(<span class="number">640</span>),
+<a href="#426" id="426" data-nosnippet="">426</a>            display_height: <span class="prelude-val">Some</span>(<span class="number">480</span>),
+<a href="#427" id="427" data-nosnippet="">427</a>            crop: (u32::MAX, <span class="number">1</span>, u32::MAX, <span class="number">1</span>),
+<a href="#428" id="428" data-nosnippet="">428</a>            ..Default::default()
+<a href="#429" id="429" data-nosnippet="">429</a>        };
+<a href="#430" id="430" data-nosnippet="">430</a>        <span class="macro">assert_eq!</span>(video.pixel_aspect(), (<span class="number">1</span>, <span class="number">1</span>));
+<a href="#431" id="431" data-nosnippet="">431</a>    }
+<a href="#432" id="432" data-nosnippet="">432</a>
+<a href="#433" id="433" data-nosnippet="">433</a>    <span class="attr">#[cfg(any())]
+<a href="#434" id="434" data-nosnippet="">434</a>    </span><span class="kw">fn </span>ordinary_pixel_aspect_is_unchanged() {
+<a href="#435" id="435" data-nosnippet="">435</a>        <span class="kw">let </span>video = VideoInfo { pixel_width: <span class="number">1920</span>, pixel_height: <span class="number">1080</span>, display_width: <span class="prelude-val">Some</span>(<span class="number">1440</span>), display_height: <span class="prelude-val">Some</span>(<span class="number">1080</span>), ..Default::default() };
+<a href="#436" id="436" data-nosnippet="">436</a>        <span class="macro">assert_eq!</span>(video.pixel_aspect(), (<span class="number">3</span>, <span class="number">4</span>));
+<a href="#437" id="437" data-nosnippet="">437</a>    }
+<a href="#438" id="438" data-nosnippet="">438</a>}
+<a href="#439" id="439" data-nosnippet="">439</a>
+<a href="#440" id="440" data-nosnippet="">440</a><span class="attr">#[cfg(any())]
+<a href="#441" id="441" data-nosnippet="">441</a></span><span class="kw">mod </span>codec_params_tests {
+<a href="#442" id="442" data-nosnippet="">442</a>    <span class="kw">use </span><span class="kw">crate</span>::craft::media::CodecId;
+<a href="#443" id="443" data-nosnippet="">443</a>    <span class="kw">use </span><span class="kw">crate</span>::craft::media::matroska::mux::{MkvWriter, MuxOptions, TrackSpec};
+<a href="#444" id="444" data-nosnippet="">444</a>    <span class="kw">use </span><span class="kw">crate</span>::craft::media::matroska::{Demuxer, TrackKind};
+<a href="#445" id="445" data-nosnippet="">445</a>
+<a href="#446" id="446" data-nosnippet="">446</a>    <span class="attr">#[cfg(any())]
+<a href="#447" id="447" data-nosnippet="">447</a>    </span><span class="kw">fn </span>alac_dnx_and_opus_match_mp4() {
+<a href="#448" id="448" data-nosnippet="">448</a>        <span class="kw">let </span>cookie: Vec&lt;u8&gt; = (<span class="number">0</span>..<span class="number">24</span>).collect();
+<a href="#449" id="449" data-nosnippet="">449</a>        <span class="kw">let </span><span class="kw-2">mut </span>alac = TrackSpec::new(TrackKind::Audio, <span class="string">"A_ALAC"</span>);
+<a href="#450" id="450" data-nosnippet="">450</a>        alac.codec_private = cookie.clone();
+<a href="#451" id="451" data-nosnippet="">451</a>        alac.audio = <span class="prelude-val">Some</span>((<span class="number">44_100.0</span>, <span class="number">2</span>, <span class="prelude-val">Some</span>(<span class="number">16</span>)));
+<a href="#452" id="452" data-nosnippet="">452</a>        <span class="kw">let </span><span class="kw-2">mut </span>bih = <span class="macro">vec!</span>[<span class="number">0u8</span>; <span class="number">40</span>];
+<a href="#453" id="453" data-nosnippet="">453</a>        bih[<span class="number">16</span>..<span class="number">20</span>].copy_from_slice(<span class="string">b"AVdn"</span>);
+<a href="#454" id="454" data-nosnippet="">454</a>        <span class="kw">let </span><span class="kw-2">mut </span>dnx = TrackSpec::new(TrackKind::Video, <span class="string">"V_MS/VFW/FOURCC"</span>);
+<a href="#455" id="455" data-nosnippet="">455</a>        dnx.codec_private = bih;
+<a href="#456" id="456" data-nosnippet="">456</a>        dnx.video_size = <span class="prelude-val">Some</span>((<span class="number">1920</span>, <span class="number">1080</span>));
+<a href="#457" id="457" data-nosnippet="">457</a>        <span class="kw">let </span><span class="kw-2">mut </span>opus = TrackSpec::new(TrackKind::Audio, <span class="string">"A_OPUS"</span>);
+<a href="#458" id="458" data-nosnippet="">458</a>        opus.codec_private = [<span class="string">b"OpusHead"</span>.as_slice(), <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">0x38</span>, <span class="number">0x01</span>, <span class="number">0x44</span>, <span class="number">0xAC</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]].concat();
+<a href="#459" id="459" data-nosnippet="">459</a>        opus.audio = <span class="prelude-val">Some</span>((<span class="number">44_100.0</span>, <span class="number">2</span>, <span class="prelude-val">None</span>)); <span class="comment">// the input rate, as some muxers write it
+<a href="#460" id="460" data-nosnippet="">460</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>m = MkvWriter::new(std::io::Cursor::new(Vec::new()), <span class="macro">vec!</span>[alac, dnx, opus], MuxOptions::default()).unwrap();
+<a href="#461" id="461" data-nosnippet="">461</a>        <span class="kw">for </span>t <span class="kw">in </span><span class="number">0</span>..<span class="number">3 </span>{
+<a href="#462" id="462" data-nosnippet="">462</a>            m.write_frame(t, <span class="number">0</span>, <span class="bool-val">true</span>, <span class="kw-2">&amp;</span>[<span class="number">0</span>; <span class="number">4</span>], <span class="prelude-val">None</span>).unwrap();
+<a href="#463" id="463" data-nosnippet="">463</a>        }
+<a href="#464" id="464" data-nosnippet="">464</a>        <span class="kw">let </span>bytes = m.finish().unwrap().into_inner();
+<a href="#465" id="465" data-nosnippet="">465</a>        <span class="kw">let </span>d = Demuxer::from_slice(<span class="kw-2">&amp;</span>bytes).unwrap();
+<a href="#466" id="466" data-nosnippet="">466</a>        <span class="kw">let </span>p: Vec&lt;<span class="kw">_</span>&gt; = d.tracks().iter().map(|t| t.codec_params()).collect();
+<a href="#467" id="467" data-nosnippet="">467</a>        <span class="macro">assert_eq!</span>((p[<span class="number">0</span>].codec, p[<span class="number">0</span>].extradata.as_slice()), (CodecId::Alac, cookie.as_slice()));
+<a href="#468" id="468" data-nosnippet="">468</a>        <span class="macro">assert_eq!</span>((p[<span class="number">1</span>].codec, p[<span class="number">1</span>].tag), (CodecId::Dnxhd, <span class="prelude-val">Some</span>(<span class="kw-2">*</span><span class="string">b"AVdn"</span>)));
+<a href="#469" id="469" data-nosnippet="">469</a>        <span class="macro">assert_eq!</span>((p[<span class="number">2</span>].codec, p[<span class="number">2</span>].sample_rate, p[<span class="number">2</span>].channels), (CodecId::Opus, <span class="prelude-val">Some</span>(<span class="number">48_000</span>), <span class="prelude-val">Some</span>(<span class="number">2</span>)));
+<a href="#470" id="470" data-nosnippet="">470</a>    }
+<a href="#471" id="471" data-nosnippet="">471</a>}
+</code></pre></div></section></main></body></html>

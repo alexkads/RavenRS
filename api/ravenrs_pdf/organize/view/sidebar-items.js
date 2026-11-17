@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Layout","Magnification","Navigation"],"fn":["displays_doc_title","initial_view","set_initial_view"],"struct":["InitialView"]};

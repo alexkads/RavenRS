@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["C_ORGAO_NACIONAL","TP_EVENTO_CANCELAMENTO","VER_PROC"],"enum":["QrCode","TipoManifestacao"],"fn":["chave_de","codigo_numerico","consulta_protocolo","consulta_status","dist_por_chave","dist_por_nsu","id_cancelamento","lote","lote_evento"]};

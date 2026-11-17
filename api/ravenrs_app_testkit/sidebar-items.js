@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PERSON","UNIT"],"enum":["Behavior"],"fn":["fixture_entities","person_entity","unit_entity"],"mod":["contract","roles"],"struct":["Clock","FakeSink","Fixture","Organization"]};

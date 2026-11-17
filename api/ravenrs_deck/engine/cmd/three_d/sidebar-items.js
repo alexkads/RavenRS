@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ALL_CAMERAS","ALL_LIGHTS","ALL_MATERIALS","BEVELS","CAMERAS","LIGHTS","LIGHT_DIRS","MATERIALS"],"fn":["store"],"struct":["Bevel","Shape3d"]};

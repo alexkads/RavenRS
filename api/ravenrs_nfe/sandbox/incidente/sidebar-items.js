@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Veredito"],"fn":["fonte_da_regra"],"struct":["Incidente","RetornoReal"]};

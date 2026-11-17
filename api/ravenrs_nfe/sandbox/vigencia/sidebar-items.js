@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["VIGENCIAS"],"fn":["em_vigor"],"struct":["Vigencia"]};

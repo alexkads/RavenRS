@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["URL_DISTRIBUICAO","URL_EVENTO_NACIONAL"],"fn":["url_consulta_chave","url_qr_code","url_servico"]};

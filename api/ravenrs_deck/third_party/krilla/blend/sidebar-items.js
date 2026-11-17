@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["BlendMode"],"struct":["GroupOptions","Overprint"]};

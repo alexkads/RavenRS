@@ -1,0 +1,340 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>slide_setup.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="ravenrs_deck" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../../src-files.js"></script><script defer="" src="../../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-deck/src/engine/cmd/design/slide_setup.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_deck/engine/cmd/design/slide_setup.rs.html"><meta property="og:title" content="slide_setup.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-deck/src/engine/cmd/design/slide_setup.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_deck/engine/cmd/design/slide_setup.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="slide_setup.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-deck/src/engine/cmd/design/slide_setup.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"slide_setup.rs - source","description":"Source of the Rust file `crates/ravenrs-deck/src/engine/cmd/design/slide_setup.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_deck/engine/cmd/design/slide_setup.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_deck/engine/cmd/design/</div>slide_setup.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="kw">use super</span>::{
+<a href="#2" id="2" data-nosnippet="">2</a>    Arc, NO_ID_SPACE, PhType, <span class="prelude-ty">Result</span>, Run, RunKind, Session, Shape, ShapeId, Size, TextBody, Value, bad, bool_or, bool_param, defaults, f64_param,
+<a href="#3" id="3" data-nosnippet="">3</a>    json, ok, str_param,
+<a href="#4" id="4" data-nosnippet="">4</a>};
+<a href="#5" id="5" data-nosnippet="">5</a>
+<a href="#6" id="6" data-nosnippet="">6</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>scale_shapes(shapes: <span class="kw-2">&amp;mut </span>[Shape], sx: f64, sy: f64, k: f64, ox: f64, oy: f64) {
+<a href="#7" id="7" data-nosnippet="">7</a>    <span class="kw">for </span>sh <span class="kw">in </span>shapes {
+<a href="#8" id="8" data-nosnippet="">8</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(x) = sh.xfrm.as_mut() {
+<a href="#9" id="9" data-nosnippet="">9</a>            x.x = x.x * sx + ox;
+<a href="#10" id="10" data-nosnippet="">10</a>            x.y = x.y * sy + oy;
+<a href="#11" id="11" data-nosnippet="">11</a>            x.w <span class="kw-2">*</span>= sx;
+<a href="#12" id="12" data-nosnippet="">12</a>            x.h <span class="kw-2">*</span>= sy;
+<a href="#13" id="13" data-nosnippet="">13</a>        }
+<a href="#14" id="14" data-nosnippet="">14</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(t) = sh.text.as_mut() {
+<a href="#15" id="15" data-nosnippet="">15</a>            <span class="kw">crate</span>::model::edit::format_all(t, <span class="kw-2">&amp;</span>|r| {
+<a href="#16" id="16" data-nosnippet="">16</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(sz) = r.size.as_mut() {
+<a href="#17" id="17" data-nosnippet="">17</a>                    <span class="kw-2">*</span>sz = (<span class="kw-2">*</span>sz * k).max(<span class="number">1.0</span>);
+<a href="#18" id="18" data-nosnippet="">18</a>                }
+<a href="#19" id="19" data-nosnippet="">19</a>            });
+<a href="#20" id="20" data-nosnippet="">20</a>        }
+<a href="#21" id="21" data-nosnippet="">21</a>    }
+<a href="#22" id="22" data-nosnippet="">22</a>}
+<a href="#23" id="23" data-nosnippet="">23</a>
+<a href="#24" id="24" data-nosnippet="">24</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>slide_size(s: <span class="kw-2">&amp;mut </span>Session, p: <span class="kw-2">&amp;</span>Value) -&gt; <span class="prelude-ty">Result</span>&lt;Value&gt; {
+<a href="#25" id="25" data-nosnippet="">25</a>    <span class="kw">let </span>size = <span class="kw">if let </span><span class="prelude-val">Some</span>(pre) = str_param(p, <span class="string">"preset"</span>) {
+<a href="#26" id="26" data-nosnippet="">26</a>        <span class="kw">let </span>k = pre.to_ascii_lowercase();
+<a href="#27" id="27" data-nosnippet="">27</a>        <span class="kw">let </span>found = defaults::SLIDE_SIZES.iter().find(|(l, <span class="kw">_</span>, <span class="kw">_</span>)| l.to_ascii_lowercase().starts_with(<span class="kw-2">&amp;</span>k) || l.to_ascii_lowercase().contains(<span class="kw-2">&amp;</span>k));
+<a href="#28" id="28" data-nosnippet="">28</a>        <span class="kw">let </span>(<span class="kw">_</span>, w, h) = found.ok_or_else(|| bad(<span class="string">"design.slideSize"</span>, <span class="macro">format!</span>(<span class="string">"unknown preset `{pre}`"</span>)))<span class="question-mark">?</span>;
+<a href="#29" id="29" data-nosnippet="">29</a>        Size::new(<span class="kw-2">*</span>w, <span class="kw-2">*</span>h)
+<a href="#30" id="30" data-nosnippet="">30</a>    } <span class="kw">else </span>{
+<a href="#31" id="31" data-nosnippet="">31</a>        Size::new(
+<a href="#32" id="32" data-nosnippet="">32</a>            f64_param(p, <span class="string">"w"</span>).ok_or_else(|| bad(<span class="string">"design.slideSize"</span>, <span class="string">"missing `w`"</span>))<span class="question-mark">?</span>.clamp(<span class="number">72.0</span>, <span class="number">4032.0</span>),
+<a href="#33" id="33" data-nosnippet="">33</a>            f64_param(p, <span class="string">"h"</span>).ok_or_else(|| bad(<span class="string">"design.slideSize"</span>, <span class="string">"missing `h`"</span>))<span class="question-mark">?</span>.clamp(<span class="number">72.0</span>, <span class="number">4032.0</span>),
+<a href="#34" id="34" data-nosnippet="">34</a>        )
+<a href="#35" id="35" data-nosnippet="">35</a>    };
+<a href="#36" id="36" data-nosnippet="">36</a>    <span class="kw">let </span>size = <span class="kw">match </span>str_param(p, <span class="string">"orientation"</span>) {
+<a href="#37" id="37" data-nosnippet="">37</a>        <span class="prelude-val">Some</span>(<span class="string">"portrait"</span>) <span class="kw">if </span>size.width &gt; size.height =&gt; Size::new(size.height, size.width),
+<a href="#38" id="38" data-nosnippet="">38</a>        <span class="prelude-val">Some</span>(<span class="string">"landscape"</span>) <span class="kw">if </span>size.height &gt; size.width =&gt; Size::new(size.height, size.width),
+<a href="#39" id="39" data-nosnippet="">39</a>        <span class="prelude-val">Some</span>(<span class="string">"portrait" </span>| <span class="string">"landscape"</span>) | <span class="prelude-val">None </span>=&gt; size,
+<a href="#40" id="40" data-nosnippet="">40</a>        <span class="prelude-val">Some</span>(o) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(bad(<span class="string">"design.slideSize"</span>, <span class="macro">format!</span>(<span class="string">"unknown orientation `{o}`"</span>))),
+<a href="#41" id="41" data-nosnippet="">41</a>    };
+<a href="#42" id="42" data-nosnippet="">42</a>    <span class="kw">let </span>mode = str_param(p, <span class="string">"scale"</span>).unwrap_or(<span class="string">"ensureFit"</span>).to_string();
+<a href="#43" id="43" data-nosnippet="">43</a>    s.edit(|doc, <span class="kw">_</span>| {
+<a href="#44" id="44" data-nosnippet="">44</a>        <span class="kw">let </span>old = doc.slide_size;
+<a href="#45" id="45" data-nosnippet="">45</a>        <span class="kw">let </span>(sx, sy) = (size.width / old.width.max(<span class="number">1.0</span>), size.height / old.height.max(<span class="number">1.0</span>));
+<a href="#46" id="46" data-nosnippet="">46</a>        <span class="kw">let </span>(sx, sy, k, ox, oy) = <span class="kw">match </span>mode.as_str() {
+<a href="#47" id="47" data-nosnippet="">47</a>            <span class="string">"none" </span>=&gt; (<span class="number">1.0</span>, <span class="number">1.0</span>, <span class="number">1.0</span>, <span class="number">0.0</span>, <span class="number">0.0</span>),
+<a href="#48" id="48" data-nosnippet="">48</a>            <span class="string">"maximize" </span>=&gt; {
+<a href="#49" id="49" data-nosnippet="">49</a>                <span class="kw">let </span>k = sx.max(sy);
+<a href="#50" id="50" data-nosnippet="">50</a>                (k, k, k, (size.width - old.width * k) / <span class="number">2.0</span>, (size.height - old.height * k) / <span class="number">2.0</span>)
+<a href="#51" id="51" data-nosnippet="">51</a>            }
+<a href="#52" id="52" data-nosnippet="">52</a>            <span class="kw">_ </span>=&gt; {
+<a href="#53" id="53" data-nosnippet="">53</a>                <span class="kw">let </span>k = sx.min(sy);
+<a href="#54" id="54" data-nosnippet="">54</a>                (k, k, k, (size.width - old.width * k) / <span class="number">2.0</span>, (size.height - old.height * k) / <span class="number">2.0</span>)
+<a href="#55" id="55" data-nosnippet="">55</a>            }
+<a href="#56" id="56" data-nosnippet="">56</a>        };
+<a href="#57" id="57" data-nosnippet="">57</a>        <span class="comment">// Masters and layouts stretch to the new size; slides scale by mode.
+<a href="#58" id="58" data-nosnippet="">58</a>        </span><span class="kw">let </span>(msx, msy) = (size.width / old.width.max(<span class="number">1.0</span>), size.height / old.height.max(<span class="number">1.0</span>));
+<a href="#59" id="59" data-nosnippet="">59</a>        <span class="kw">for </span>m <span class="kw">in </span><span class="kw-2">&amp;mut </span>doc.masters {
+<a href="#60" id="60" data-nosnippet="">60</a>            <span class="kw">let </span>m = Arc::make_mut(m);
+<a href="#61" id="61" data-nosnippet="">61</a>            scale_shapes(<span class="kw-2">&amp;mut </span>m.shapes, msx, msy, <span class="number">1.0</span>, <span class="number">0.0</span>, <span class="number">0.0</span>);
+<a href="#62" id="62" data-nosnippet="">62</a>            <span class="kw">for </span>l <span class="kw">in </span><span class="kw-2">&amp;mut </span>m.layouts {
+<a href="#63" id="63" data-nosnippet="">63</a>                scale_shapes(<span class="kw-2">&amp;mut </span>l.shapes, msx, msy, <span class="number">1.0</span>, <span class="number">0.0</span>, <span class="number">0.0</span>);
+<a href="#64" id="64" data-nosnippet="">64</a>            }
+<a href="#65" id="65" data-nosnippet="">65</a>        }
+<a href="#66" id="66" data-nosnippet="">66</a>        <span class="kw">for </span>sl <span class="kw">in </span><span class="kw-2">&amp;mut </span>doc.slides {
+<a href="#67" id="67" data-nosnippet="">67</a>            scale_shapes(<span class="kw-2">&amp;mut </span>Arc::make_mut(sl).shapes, sx, sy, k, ox, oy);
+<a href="#68" id="68" data-nosnippet="">68</a>        }
+<a href="#69" id="69" data-nosnippet="">69</a>        doc.slide_size = size;
+<a href="#70" id="70" data-nosnippet="">70</a>        <span class="prelude-val">Ok</span>(())
+<a href="#71" id="71" data-nosnippet="">71</a>    })<span class="question-mark">?</span>;
+<a href="#72" id="72" data-nosnippet="">72</a>    <span class="prelude-val">Ok</span>(<span class="macro">json!</span>({<span class="string">"w"</span>: size.width, <span class="string">"h"</span>: size.height}))
+<a href="#73" id="73" data-nosnippet="">73</a>}
+<a href="#74" id="74" data-nosnippet="">74</a>
+<a href="#75" id="75" data-nosnippet="">75</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>header_footer(s: <span class="kw-2">&amp;mut </span>Session, p: <span class="kw-2">&amp;</span>Value) -&gt; <span class="prelude-ty">Result</span>&lt;Value&gt; {
+<a href="#76" id="76" data-nosnippet="">76</a>    s.edit(|doc, sel| {
+<a href="#77" id="77" data-nosnippet="">77</a>        <span class="kw">let </span>hf = <span class="kw-2">&amp;mut </span>doc.header_footer;
+<a href="#78" id="78" data-nosnippet="">78</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = bool_param(p, <span class="string">"date"</span>) {
+<a href="#79" id="79" data-nosnippet="">79</a>            hf.date = v;
+<a href="#80" id="80" data-nosnippet="">80</a>        }
+<a href="#81" id="81" data-nosnippet="">81</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = str_param(p, <span class="string">"dateText"</span>) {
+<a href="#82" id="82" data-nosnippet="">82</a>            hf.date_text = v.into();
+<a href="#83" id="83" data-nosnippet="">83</a>        }
+<a href="#84" id="84" data-nosnippet="">84</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = str_param(p, <span class="string">"dateFormat"</span>) {
+<a href="#85" id="85" data-nosnippet="">85</a>            <span class="comment">// Refused rather than ignored: a format that renders nothing would leave the
+<a href="#86" id="86" data-nosnippet="">86</a>            // placeholder showing its saved text for ever.
+<a href="#87" id="87" data-nosnippet="">87</a>            </span><span class="kw">if </span>!<span class="kw">crate</span>::text::datetime::DATE_KINDS.contains(<span class="kw-2">&amp;</span>v) {
+<a href="#88" id="88" data-nosnippet="">88</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(bad(<span class="string">"design.headerFooter"</span>, <span class="string">"dateFormat: one of datetime1…datetime13"</span>));
+<a href="#89" id="89" data-nosnippet="">89</a>            }
+<a href="#90" id="90" data-nosnippet="">90</a>            hf.date_format = v.into();
+<a href="#91" id="91" data-nosnippet="">91</a>        }
+<a href="#92" id="92" data-nosnippet="">92</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = bool_param(p, <span class="string">"slideNumber"</span>) {
+<a href="#93" id="93" data-nosnippet="">93</a>            hf.slide_number = v;
+<a href="#94" id="94" data-nosnippet="">94</a>        }
+<a href="#95" id="95" data-nosnippet="">95</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = bool_param(p, <span class="string">"footer"</span>) {
+<a href="#96" id="96" data-nosnippet="">96</a>            hf.footer = v;
+<a href="#97" id="97" data-nosnippet="">97</a>        }
+<a href="#98" id="98" data-nosnippet="">98</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = str_param(p, <span class="string">"footerText"</span>) {
+<a href="#99" id="99" data-nosnippet="">99</a>            hf.footer_text = v.into();
+<a href="#100" id="100" data-nosnippet="">100</a>            hf.footer = hf.footer || !v.is_empty();
+<a href="#101" id="101" data-nosnippet="">101</a>        }
+<a href="#102" id="102" data-nosnippet="">102</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = bool_param(p, <span class="string">"hideOnTitle"</span>) {
+<a href="#103" id="103" data-nosnippet="">103</a>            hf.hide_on_title = v;
+<a href="#104" id="104" data-nosnippet="">104</a>        }
+<a href="#105" id="105" data-nosnippet="">105</a>        <span class="kw">let </span>hf = hf.clone();
+<a href="#106" id="106" data-nosnippet="">106</a>        <span class="kw">let </span>date_given = str_param(p, <span class="string">"dateText"</span>).is_some();
+<a href="#107" id="107" data-nosnippet="">107</a>        <span class="kw">let </span>format_given = str_param(p, <span class="string">"dateFormat"</span>).is_some();
+<a href="#108" id="108" data-nosnippet="">108</a>        <span class="kw">let </span>all = bool_or(p, <span class="string">"all"</span>, <span class="bool-val">true</span>);
+<a href="#109" id="109" data-nosnippet="">109</a>        <span class="kw">let </span>list: Vec&lt;usize&gt; = <span class="kw">if </span>all { (<span class="number">0</span>..doc.slides.len()).collect() } <span class="kw">else </span>{ <span class="macro">vec!</span>[sel.slide] };
+<a href="#110" id="110" data-nosnippet="">110</a>        <span class="kw">for </span>i <span class="kw">in </span>list {
+<a href="#111" id="111" data-nosnippet="">111</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(layout) = doc.slides.get(i).map(|x| x.layout) <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href="#112" id="112" data-nosnippet="">112</a>            <span class="kw">let </span>lay = doc.layout(layout).map(|(<span class="kw">_</span>, l)| l.clone());
+<a href="#113" id="113" data-nosnippet="">113</a>            <span class="kw">let </span>is_title = lay.as_ref().is_some_and(|l| l.kind == <span class="kw">crate</span>::model::LayoutType::Title);
+<a href="#114" id="114" data-nosnippet="">114</a>            <span class="kw">let </span>want = |k: PhType| {
+<a href="#115" id="115" data-nosnippet="">115</a>                !(hf.hide_on_title &amp;&amp; is_title)
+<a href="#116" id="116" data-nosnippet="">116</a>                    &amp;&amp; <span class="kw">match </span>k {
+<a href="#117" id="117" data-nosnippet="">117</a>                        PhType::Date =&gt; hf.date,
+<a href="#118" id="118" data-nosnippet="">118</a>                        PhType::SlideNum =&gt; hf.slide_number,
+<a href="#119" id="119" data-nosnippet="">119</a>                        PhType::Footer =&gt; hf.footer,
+<a href="#120" id="120" data-nosnippet="">120</a>                        <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
+<a href="#121" id="121" data-nosnippet="">121</a>                    }
+<a href="#122" id="122" data-nosnippet="">122</a>            };
+<a href="#123" id="123" data-nosnippet="">123</a>            <span class="kw">let </span><span class="kw-2">mut </span>new_ids = <span class="macro">vec!</span>[];
+<a href="#124" id="124" data-nosnippet="">124</a>            <span class="kw">for _ in </span><span class="number">0</span>..<span class="number">3 </span>{
+<a href="#125" id="125" data-nosnippet="">125</a>                new_ids.push(ShapeId(doc.alloc_id().ok_or_else(|| bad(<span class="string">"design.headerFooter"</span>, NO_ID_SPACE))<span class="question-mark">?</span>));
+<a href="#126" id="126" data-nosnippet="">126</a>            }
+<a href="#127" id="127" data-nosnippet="">127</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(sl) = doc.slides.get_mut(i) <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href="#128" id="128" data-nosnippet="">128</a>            <span class="kw">let </span>sl = Arc::make_mut(sl);
+<a href="#129" id="129" data-nosnippet="">129</a>            <span class="kw">for </span>(n, k) <span class="kw">in </span>[PhType::Date, PhType::Footer, PhType::SlideNum].into_iter().enumerate() {
+<a href="#130" id="130" data-nosnippet="">130</a>                <span class="kw">let </span>has = sl.shapes.iter().position(|x| x.ph_type() == <span class="prelude-val">Some</span>(k));
+<a href="#131" id="131" data-nosnippet="">131</a>                <span class="kw">match </span>(has, want(k)) {
+<a href="#132" id="132" data-nosnippet="">132</a>                    (<span class="prelude-val">Some</span>(pos), <span class="bool-val">false</span>) =&gt; {
+<a href="#133" id="133" data-nosnippet="">133</a>                        sl.shapes.remove(pos);
+<a href="#134" id="134" data-nosnippet="">134</a>                    }
+<a href="#135" id="135" data-nosnippet="">135</a>                    (<span class="prelude-val">None</span>, <span class="bool-val">true</span>) =&gt; {
+<a href="#136" id="136" data-nosnippet="">136</a>                        <span class="kw">let </span>lp = lay.as_ref().and_then(|l| l.shapes.iter().find(|x| x.ph_type() == <span class="prelude-val">Some</span>(k)).cloned());
+<a href="#137" id="137" data-nosnippet="">137</a>                        <span class="kw">let </span><span class="prelude-val">Some</span>(lp) = lp <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href="#138" id="138" data-nosnippet="">138</a>                        <span class="kw">let </span>body = <span class="kw">match </span>k {
+<a href="#139" id="139" data-nosnippet="">139</a>                            PhType::SlideNum =&gt; TextBody {
+<a href="#140" id="140" data-nosnippet="">140</a>                                paragraphs: <span class="macro">vec!</span>[<span class="kw">crate</span>::model::Paragraph {
+<a href="#141" id="141" data-nosnippet="">141</a>                                    runs: <span class="macro">vec!</span>[Run {
+<a href="#142" id="142" data-nosnippet="">142</a>                                        text: <span class="string">"‹#›"</span>.into(),
+<a href="#143" id="143" data-nosnippet="">143</a>                                        props: Default::default(),
+<a href="#144" id="144" data-nosnippet="">144</a>                                        kind: RunKind::Field { field: <span class="string">"slidenum"</span>.into() },
+<a href="#145" id="145" data-nosnippet="">145</a>                                    }],
+<a href="#146" id="146" data-nosnippet="">146</a>                                    ..Default::default()
+<a href="#147" id="147" data-nosnippet="">147</a>                                }],
+<a href="#148" id="148" data-nosnippet="">148</a>                                ..Default::default()
+<a href="#149" id="149" data-nosnippet="">149</a>                            },
+<a href="#150" id="150" data-nosnippet="">150</a>                            PhType::Date <span class="kw">if </span>hf.date_text.is_empty() =&gt; TextBody {
+<a href="#151" id="151" data-nosnippet="">151</a>                                paragraphs: <span class="macro">vec!</span>[<span class="kw">crate</span>::model::Paragraph {
+<a href="#152" id="152" data-nosnippet="">152</a>                                    runs: <span class="macro">vec!</span>[Run {
+<a href="#153" id="153" data-nosnippet="">153</a>                                        text: date_now(<span class="kw-2">&amp;</span>hf.date_format),
+<a href="#154" id="154" data-nosnippet="">154</a>                                        props: Default::default(),
+<a href="#155" id="155" data-nosnippet="">155</a>                                        kind: RunKind::Field { field: date_kind(<span class="kw-2">&amp;</span>hf.date_format).into() },
+<a href="#156" id="156" data-nosnippet="">156</a>                                    }],
+<a href="#157" id="157" data-nosnippet="">157</a>                                    ..Default::default()
+<a href="#158" id="158" data-nosnippet="">158</a>                                }],
+<a href="#159" id="159" data-nosnippet="">159</a>                                ..Default::default()
+<a href="#160" id="160" data-nosnippet="">160</a>                            },
+<a href="#161" id="161" data-nosnippet="">161</a>                            PhType::Date =&gt; TextBody::from_text(<span class="kw-2">&amp;</span>hf.date_text),
+<a href="#162" id="162" data-nosnippet="">162</a>                            <span class="kw">_ </span>=&gt; TextBody::from_text(<span class="kw-2">&amp;</span>hf.footer_text),
+<a href="#163" id="163" data-nosnippet="">163</a>                        };
+<a href="#164" id="164" data-nosnippet="">164</a>                        sl.shapes.push(Shape {
+<a href="#165" id="165" data-nosnippet="">165</a>                            id: new_ids.get(n).copied().unwrap_or_default(),
+<a href="#166" id="166" data-nosnippet="">166</a>                            name: lp.name.clone(),
+<a href="#167" id="167" data-nosnippet="">167</a>                            ph: lp.ph.clone(),
+<a href="#168" id="168" data-nosnippet="">168</a>                            text: <span class="prelude-val">Some</span>(body),
+<a href="#169" id="169" data-nosnippet="">169</a>                            ..Default::default()
+<a href="#170" id="170" data-nosnippet="">170</a>                        });
+<a href="#171" id="171" data-nosnippet="">171</a>                    }
+<a href="#172" id="172" data-nosnippet="">172</a>                    (<span class="prelude-val">Some</span>(pos), <span class="bool-val">true</span>) <span class="kw">if </span>k == PhType::Footer =&gt; {
+<a href="#173" id="173" data-nosnippet="">173</a>                        <span class="kw">if let </span><span class="prelude-val">Some</span>(sh) = sl.shapes.get_mut(pos) {
+<a href="#174" id="174" data-nosnippet="">174</a>                            sh.text = <span class="prelude-val">Some</span>(TextBody::from_text(<span class="kw-2">&amp;</span>hf.footer_text));
+<a href="#175" id="175" data-nosnippet="">175</a>                        }
+<a href="#176" id="176" data-nosnippet="">176</a>                    }
+<a href="#177" id="177" data-nosnippet="">177</a>                    (<span class="prelude-val">Some</span>(pos), <span class="bool-val">true</span>) <span class="kw">if </span>k == PhType::Date &amp;&amp; (date_given || format_given) =&gt; {
+<a href="#178" id="178" data-nosnippet="">178</a>                        <span class="kw">if let </span><span class="prelude-val">Some</span>(sh) = sl.shapes.get_mut(pos) {
+<a href="#179" id="179" data-nosnippet="">179</a>                            set_date(sh, <span class="kw-2">&amp;</span>hf.date_text, <span class="kw-2">&amp;</span>hf.date_format);
+<a href="#180" id="180" data-nosnippet="">180</a>                        }
+<a href="#181" id="181" data-nosnippet="">181</a>                    }
+<a href="#182" id="182" data-nosnippet="">182</a>                    <span class="kw">_ </span>=&gt; {}
+<a href="#183" id="183" data-nosnippet="">183</a>                }
+<a href="#184" id="184" data-nosnippet="">184</a>            }
+<a href="#185" id="185" data-nosnippet="">185</a>        }
+<a href="#186" id="186" data-nosnippet="">186</a>        <span class="prelude-val">Ok</span>(())
+<a href="#187" id="187" data-nosnippet="">187</a>    })<span class="question-mark">?</span>;
+<a href="#188" id="188" data-nosnippet="">188</a>    ok()
+<a href="#189" id="189" data-nosnippet="">189</a>}
+<a href="#190" id="190" data-nosnippet="">190</a>
+<a href="#191" id="191" data-nosnippet="">191</a><span class="doccomment">/// The date field type `format` names, `datetime1` when it is empty or unknown.
+<a href="#192" id="192" data-nosnippet="">192</a></span><span class="kw">fn </span>date_kind(format: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;</span>str {
+<a href="#193" id="193" data-nosnippet="">193</a>    <span class="kw">if </span><span class="kw">crate</span>::text::datetime::DATE_KINDS.contains(<span class="kw-2">&amp;</span>format) { format } <span class="kw">else </span>{ <span class="string">"datetime1" </span>}
+<a href="#194" id="194" data-nosnippet="">194</a>}
+<a href="#195" id="195" data-nosnippet="">195</a>
+<a href="#196" id="196" data-nosnippet="">196</a><span class="doccomment">/// The saved text of a date field of `format`, as it shows now.
+<a href="#197" id="197" data-nosnippet="">197</a></span><span class="kw">fn </span>date_now(format: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href="#198" id="198" data-nosnippet="">198</a>    <span class="kw">let </span>kind = date_kind(format);
+<a href="#199" id="199" data-nosnippet="">199</a>    <span class="kw">crate</span>::text::datetime::DateTime::now_local().and_then(|now| <span class="kw">crate</span>::text::datetime::field_text(kind, <span class="prelude-val">None</span>, now)).unwrap_or_else(today)
+<a href="#200" id="200" data-nosnippet="">200</a>}
+<a href="#201" id="201" data-nosnippet="">201</a>
+<a href="#202" id="202" data-nosnippet="">202</a><span class="doccomment">/// Point a slide's date placeholder at a fixed date (its own plain text) or, for an empty
+<a href="#203" id="203" data-nosnippet="">203</a>/// `fixed`, at an automatic date field (one it already has keeps its format).
+<a href="#204" id="204" data-nosnippet="">204</a></span><span class="kw">fn </span>set_date(sh: <span class="kw-2">&amp;mut </span>Shape, fixed: <span class="kw-2">&amp;</span>str, format: <span class="kw-2">&amp;</span>str) {
+<a href="#205" id="205" data-nosnippet="">205</a>    <span class="kw">let </span>runs = || sh.text.iter().flat_map(|t| <span class="kw-2">&amp;</span>t.paragraphs).flat_map(|p| <span class="kw-2">&amp;</span>p.runs);
+<a href="#206" id="206" data-nosnippet="">206</a>    <span class="kw">let </span>field_now = runs().find_map(|r| <span class="kw">match </span><span class="kw-2">&amp;</span>r.kind {
+<a href="#207" id="207" data-nosnippet="">207</a>        RunKind::Field { field } <span class="kw">if </span><span class="kw">crate</span>::text::datetime::is_date_field(field) =&gt; <span class="prelude-val">Some</span>(field.clone()),
+<a href="#208" id="208" data-nosnippet="">208</a>        <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#209" id="209" data-nosnippet="">209</a>    });
+<a href="#210" id="210" data-nosnippet="">210</a>    <span class="kw">let </span>has_field = field_now.is_some();
+<a href="#211" id="211" data-nosnippet="">211</a>    <span class="kw">let </span>props = runs().next().map(|r| r.props.clone()).unwrap_or_default();
+<a href="#212" id="212" data-nosnippet="">212</a>    <span class="kw">let </span>want = date_kind(format);
+<a href="#213" id="213" data-nosnippet="">213</a>    <span class="kw">let </span>(text, kind) = <span class="kw">match </span>fixed {
+<a href="#214" id="214" data-nosnippet="">214</a>        <span class="comment">// Automatic: keep the field, but follow a format that has changed.
+<a href="#215" id="215" data-nosnippet="">215</a>        </span><span class="string">"" </span><span class="kw">if </span>field_now.as_deref() == <span class="prelude-val">Some</span>(want) =&gt; <span class="kw">return</span>,
+<a href="#216" id="216" data-nosnippet="">216</a>        <span class="string">"" </span><span class="kw">if </span>has_field &amp;&amp; format.is_empty() =&gt; <span class="kw">return</span>,
+<a href="#217" id="217" data-nosnippet="">217</a>        <span class="string">"" </span>=&gt; (date_now(format), RunKind::Field { field: want.into() }),
+<a href="#218" id="218" data-nosnippet="">218</a>        <span class="kw">_ if </span>!has_field &amp;&amp; sh.text.as_ref().is_some_and(|t| t.text() == fixed) =&gt; <span class="kw">return</span>,
+<a href="#219" id="219" data-nosnippet="">219</a>        <span class="kw">_ </span>=&gt; (fixed.to_string(), RunKind::Text),
+<a href="#220" id="220" data-nosnippet="">220</a>    };
+<a href="#221" id="221" data-nosnippet="">221</a>    <span class="kw">let </span>para = <span class="kw">crate</span>::model::Paragraph { runs: <span class="macro">vec!</span>[Run { text, props, kind }], ..Default::default() };
+<a href="#222" id="222" data-nosnippet="">222</a>    sh.text = <span class="prelude-val">Some</span>(TextBody { paragraphs: <span class="macro">vec!</span>[para], ..sh.text.clone().unwrap_or_default() });
+<a href="#223" id="223" data-nosnippet="">223</a>}
+<a href="#224" id="224" data-nosnippet="">224</a>
+<a href="#225" id="225" data-nosnippet="">225</a><span class="doccomment">/// Today's local date as a `datetime1` field shows it (M/D/YYYY): the saved text of a new date
+<a href="#226" id="226" data-nosnippet="">226</a>/// field. Empty where there is no clock (wasm).
+<a href="#227" id="227" data-nosnippet="">227</a></span><span class="kw">pub fn </span>today() -&gt; String {
+<a href="#228" id="228" data-nosnippet="">228</a>    date_field_text(<span class="string">"datetime1"</span>)
+<a href="#229" id="229" data-nosnippet="">229</a>}
+<a href="#230" id="230" data-nosnippet="">230</a>
+<a href="#231" id="231" data-nosnippet="">231</a><span class="doccomment">/// What date field `kind` shows now (empty if unknown or there is no clock).
+<a href="#232" id="232" data-nosnippet="">232</a></span><span class="kw">pub fn </span>date_field_text(kind: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href="#233" id="233" data-nosnippet="">233</a>    <span class="kw">use </span><span class="kw">crate</span>::text::datetime::{DateTime, field_text};
+<a href="#234" id="234" data-nosnippet="">234</a>    DateTime::now_local().and_then(|now| field_text(kind, <span class="prelude-val">None</span>, now)).unwrap_or_default()
+<a href="#235" id="235" data-nosnippet="">235</a>}
+<a href="#236" id="236" data-nosnippet="">236</a>
+<a href="#237" id="237" data-nosnippet="">237</a><span class="doccomment">/// Days since 1970-01-01 → (year, month, day), exact for every `i64`.
+<a href="#238" id="238" data-nosnippet="">238</a></span><span class="kw">pub fn </span>civil(z: i64) -&gt; (i64, u32, u32) {
+<a href="#239" id="239" data-nosnippet="">239</a>    <span class="kw">use </span>chrono::Datelike;
+<a href="#240" id="240" data-nosnippet="">240</a>    <span class="comment">// `NaiveDate` covers only about ±262143 years, and the Gregorian calendar repeats every 400
+<a href="#241" id="241" data-nosnippet="">241</a>    // years (146_097 days). chrono converts the day within its cycle and whole cycles go back
+<a href="#242" id="242" data-nosnippet="">242</a>    // into the year (an i128 for i64::MAX/MIN). 1970-01-01 is `num_days_from_ce` 719_163, and
+<a href="#243" id="243" data-nosnippet="">243</a>    // 0..146_097 days from it always fits.
+<a href="#244" id="244" data-nosnippet="">244</a>    </span><span class="kw">let </span>(cycles, rest) = (z.div_euclid(<span class="number">146_097</span>), z.rem_euclid(<span class="number">146_097</span>));
+<a href="#245" id="245" data-nosnippet="">245</a>    <span class="kw">match </span>i32::try_from(rest + <span class="number">719_163</span>).ok().and_then(chrono::NaiveDate::from_num_days_from_ce_opt) {
+<a href="#246" id="246" data-nosnippet="">246</a>        <span class="prelude-val">Some</span>(d) =&gt; {
+<a href="#247" id="247" data-nosnippet="">247</a>            <span class="kw">let </span>y = i128::from(d.year()) + i128::from(cycles) * <span class="number">400</span>;
+<a href="#248" id="248" data-nosnippet="">248</a>            (i64::try_from(y).unwrap_or(<span class="kw">if </span>y &lt; <span class="number">0 </span>{ i64::MIN } <span class="kw">else </span>{ i64::MAX }), d.month(), d.day())
+<a href="#249" id="249" data-nosnippet="">249</a>        }
+<a href="#250" id="250" data-nosnippet="">250</a>        <span class="prelude-val">None </span>=&gt; (<span class="number">1970</span>, <span class="number">1</span>, <span class="number">1</span>),
+<a href="#251" id="251" data-nosnippet="">251</a>    }
+<a href="#252" id="252" data-nosnippet="">252</a>}
+<a href="#253" id="253" data-nosnippet="">253</a>
+<a href="#254" id="254" data-nosnippet="">254</a><span class="attr">#[cfg(test)]
+<a href="#255" id="255" data-nosnippet="">255</a></span><span class="kw">mod </span>header_footer_date_tests {
+<a href="#256" id="256" data-nosnippet="">256</a>    <span class="kw">use </span><span class="kw">crate</span>::model::PhType;
+<a href="#257" id="257" data-nosnippet="">257</a>    <span class="kw">use </span><span class="kw">crate</span>::model::text::RunKind;
+<a href="#258" id="258" data-nosnippet="">258</a>    <span class="kw">use </span>serde_json::json;
+<a href="#259" id="259" data-nosnippet="">259</a>
+<a href="#260" id="260" data-nosnippet="">260</a>    <span class="kw">use </span><span class="kw">crate</span>::engine::Session;
+<a href="#261" id="261" data-nosnippet="">261</a>
+<a href="#262" id="262" data-nosnippet="">262</a>    <span class="doccomment">/// The date field of the Date placeholders of every slide: (saved text, field type).
+<a href="#263" id="263" data-nosnippet="">263</a>    </span><span class="kw">fn </span>dates(s: <span class="kw-2">&amp;</span>Session) -&gt; Vec&lt;(String, <span class="prelude-ty">Option</span>&lt;String&gt;)&gt; {
+<a href="#264" id="264" data-nosnippet="">264</a>        <span class="kw">let </span>d = <span class="kw-2">&amp;</span>s.doc().unwrap().doc;
+<a href="#265" id="265" data-nosnippet="">265</a>        d.slides
+<a href="#266" id="266" data-nosnippet="">266</a>            .iter()
+<a href="#267" id="267" data-nosnippet="">267</a>            .flat_map(|sl| sl.shapes.iter())
+<a href="#268" id="268" data-nosnippet="">268</a>            .filter(|sh| sh.ph_type() == <span class="prelude-val">Some</span>(PhType::Date))
+<a href="#269" id="269" data-nosnippet="">269</a>            .flat_map(|sh| sh.text.iter())
+<a href="#270" id="270" data-nosnippet="">270</a>            .flat_map(|t| t.paragraphs.iter())
+<a href="#271" id="271" data-nosnippet="">271</a>            .flat_map(|p| p.runs.iter())
+<a href="#272" id="272" data-nosnippet="">272</a>            .map(|r| {
+<a href="#273" id="273" data-nosnippet="">273</a>                <span class="kw">let </span>kind = <span class="kw">match </span><span class="kw-2">&amp;</span>r.kind {
+<a href="#274" id="274" data-nosnippet="">274</a>                    RunKind::Field { field } =&gt; <span class="prelude-val">Some</span>(field.clone()),
+<a href="#275" id="275" data-nosnippet="">275</a>                    <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#276" id="276" data-nosnippet="">276</a>                };
+<a href="#277" id="277" data-nosnippet="">277</a>                (r.text.clone(), kind)
+<a href="#278" id="278" data-nosnippet="">278</a>            })
+<a href="#279" id="279" data-nosnippet="">279</a>            .collect()
+<a href="#280" id="280" data-nosnippet="">280</a>    }
+<a href="#281" id="281" data-nosnippet="">281</a>
+<a href="#282" id="282" data-nosnippet="">282</a>    <span class="kw">fn </span>sample(kind: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href="#283" id="283" data-nosnippet="">283</a>        <span class="kw">let </span>now = <span class="kw">crate</span>::text::datetime::DateTime::now_local().expect(<span class="string">"a local date"</span>);
+<a href="#284" id="284" data-nosnippet="">284</a>        <span class="kw">crate</span>::text::datetime::field_text(kind, <span class="prelude-val">None</span>, now).expect(<span class="string">"a sample"</span>)
+<a href="#285" id="285" data-nosnippet="">285</a>    }
+<a href="#286" id="286" data-nosnippet="">286</a>
+<a href="#287" id="287" data-nosnippet="">287</a>    <span class="doccomment">/// Runs `design.headerFooter` and checks the slide's date run is an automatic `kind` field.
+<a href="#288" id="288" data-nosnippet="">288</a>    /// The clock is read before and after the command, so a second ticking over between the
+<a href="#289" id="289" data-nosnippet="">289</a>    /// command and the read cannot fail the comparison. Returns the run text.
+<a href="#290" id="290" data-nosnippet="">290</a>    </span><span class="kw">fn </span>run_automatic(s: <span class="kw-2">&amp;mut </span>Session, params: serde_json::Value, kind: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href="#291" id="291" data-nosnippet="">291</a>        <span class="kw">let </span>before = sample(kind);
+<a href="#292" id="292" data-nosnippet="">292</a>        s.execute(<span class="string">"design.headerFooter"</span>, <span class="kw-2">&amp;</span>params).unwrap();
+<a href="#293" id="293" data-nosnippet="">293</a>        <span class="kw">let </span>after = sample(kind);
+<a href="#294" id="294" data-nosnippet="">294</a>        <span class="kw">let </span>got = dates(s);
+<a href="#295" id="295" data-nosnippet="">295</a>        <span class="macro">assert_eq!</span>(got.len(), <span class="number">1</span>, <span class="string">"{got:?}"</span>);
+<a href="#296" id="296" data-nosnippet="">296</a>        <span class="macro">assert_eq!</span>(got[<span class="number">0</span>].<span class="number">1</span>.as_deref(), <span class="prelude-val">Some</span>(kind));
+<a href="#297" id="297" data-nosnippet="">297</a>        <span class="macro">assert!</span>(got[<span class="number">0</span>].<span class="number">0 </span>== before || got[<span class="number">0</span>].<span class="number">0 </span>== after, <span class="string">"{got:?} is neither {before:?} nor {after:?}"</span>);
+<a href="#298" id="298" data-nosnippet="">298</a>        got[<span class="number">0</span>].<span class="number">0</span>.clone()
+<a href="#299" id="299" data-nosnippet="">299</a>    }
+<a href="#300" id="300" data-nosnippet="">300</a>
+<a href="#301" id="301" data-nosnippet="">301</a>    <span class="doccomment">/// Header &amp; Footer's automatic date takes the format it is given. `HeaderFooter::date_format`
+<a href="#302" id="302" data-nosnippet="">302</a>    /// existed for this and was never read: the placeholder was always `datetime1`, and a
+<a href="#303" id="303" data-nosnippet="">303</a>    /// `dateFormat` parameter was accepted and silently dropped.
+<a href="#304" id="304" data-nosnippet="">304</a>    </span><span class="attr">#[test]
+<a href="#305" id="305" data-nosnippet="">305</a>    </span><span class="kw">fn </span>the_automatic_date_takes_the_format_it_is_given() {
+<a href="#306" id="306" data-nosnippet="">306</a>        <span class="kw">let </span><span class="kw-2">mut </span>s = Session::with_new();
+<a href="#307" id="307" data-nosnippet="">307</a>
+<a href="#308" id="308" data-nosnippet="">308</a>        <span class="comment">// Default: the short date, as before.
+<a href="#309" id="309" data-nosnippet="">309</a>        </span>run_automatic(<span class="kw-2">&amp;mut </span>s, <span class="macro">json!</span>({<span class="string">"date"</span>: <span class="bool-val">true</span>, <span class="string">"dateText"</span>: <span class="string">""</span>, <span class="string">"all"</span>: <span class="bool-val">true</span>}), <span class="string">"datetime1"</span>);
+<a href="#310" id="310" data-nosnippet="">310</a>
+<a href="#311" id="311" data-nosnippet="">311</a>        <span class="comment">// A format: the field type changes and the saved text is that format's.
+<a href="#312" id="312" data-nosnippet="">312</a>        </span>run_automatic(<span class="kw-2">&amp;mut </span>s, <span class="macro">json!</span>({<span class="string">"date"</span>: <span class="bool-val">true</span>, <span class="string">"dateFormat"</span>: <span class="string">"datetime5"</span>, <span class="string">"all"</span>: <span class="bool-val">true</span>}), <span class="string">"datetime5"</span>);
+<a href="#313" id="313" data-nosnippet="">313</a>        <span class="macro">assert_eq!</span>(s.doc().unwrap().doc.header_footer.date_format, <span class="string">"datetime5"</span>);
+<a href="#314" id="314" data-nosnippet="">314</a>
+<a href="#315" id="315" data-nosnippet="">315</a>        <span class="comment">// A time format works the same way, and these two differ, so the format is really read.
+<a href="#316" id="316" data-nosnippet="">316</a>        </span><span class="kw">let </span>time = run_automatic(<span class="kw-2">&amp;mut </span>s, <span class="macro">json!</span>({<span class="string">"date"</span>: <span class="bool-val">true</span>, <span class="string">"dateFormat"</span>: <span class="string">"datetime11"</span>, <span class="string">"all"</span>: <span class="bool-val">true</span>}), <span class="string">"datetime11"</span>);
+<a href="#317" id="317" data-nosnippet="">317</a>        <span class="macro">assert_ne!</span>(time, sample(<span class="string">"datetime5"</span>));
+<a href="#318" id="318" data-nosnippet="">318</a>
+<a href="#319" id="319" data-nosnippet="">319</a>        <span class="comment">// Asking again changes nothing (and does not rewrite the run).
+<a href="#320" id="320" data-nosnippet="">320</a>        </span><span class="kw">let </span>again = run_automatic(<span class="kw-2">&amp;mut </span>s, <span class="macro">json!</span>({<span class="string">"date"</span>: <span class="bool-val">true</span>, <span class="string">"dateFormat"</span>: <span class="string">"datetime11"</span>, <span class="string">"all"</span>: <span class="bool-val">true</span>}), <span class="string">"datetime11"</span>);
+<a href="#321" id="321" data-nosnippet="">321</a>        <span class="macro">assert_eq!</span>(again, time);
+<a href="#322" id="322" data-nosnippet="">322</a>
+<a href="#323" id="323" data-nosnippet="">323</a>        <span class="comment">// A fixed date still wins: plain text, no field.
+<a href="#324" id="324" data-nosnippet="">324</a>        </span>s.execute(<span class="string">"design.headerFooter"</span>, <span class="kw-2">&amp;</span><span class="macro">json!</span>({<span class="string">"date"</span>: <span class="bool-val">true</span>, <span class="string">"dateText"</span>: <span class="string">"4 July 1776"</span>, <span class="string">"all"</span>: <span class="bool-val">true</span>})).unwrap();
+<a href="#325" id="325" data-nosnippet="">325</a>        <span class="macro">assert_eq!</span>(dates(<span class="kw-2">&amp;</span>s), <span class="macro">vec!</span>[(<span class="string">"4 July 1776"</span>.to_string(), <span class="prelude-val">None</span>)]);
+<a href="#326" id="326" data-nosnippet="">326</a>
+<a href="#327" id="327" data-nosnippet="">327</a>        <span class="comment">// Back to automatic: the remembered format comes back, not datetime1.
+<a href="#328" id="328" data-nosnippet="">328</a>        </span>run_automatic(<span class="kw-2">&amp;mut </span>s, <span class="macro">json!</span>({<span class="string">"date"</span>: <span class="bool-val">true</span>, <span class="string">"dateText"</span>: <span class="string">""</span>, <span class="string">"dateFormat"</span>: <span class="string">"datetime11"</span>, <span class="string">"all"</span>: <span class="bool-val">true</span>}), <span class="string">"datetime11"</span>);
+<a href="#329" id="329" data-nosnippet="">329</a>
+<a href="#330" id="330" data-nosnippet="">330</a>        <span class="comment">// An unknown format is refused rather than ignored, and changes nothing.
+<a href="#331" id="331" data-nosnippet="">331</a>        </span><span class="kw">for </span>bad <span class="kw">in </span>[<span class="string">"datetime0"</span>, <span class="string">"datetime14"</span>, <span class="string">"nonsense"</span>, <span class="string">""</span>] {
+<a href="#332" id="332" data-nosnippet="">332</a>            <span class="macro">assert!</span>(s.execute(<span class="string">"design.headerFooter"</span>, <span class="kw-2">&amp;</span><span class="macro">json!</span>({<span class="string">"date"</span>: <span class="bool-val">true</span>, <span class="string">"dateFormat"</span>: bad})).is_err(), <span class="string">"{bad}"</span>);
+<a href="#333" id="333" data-nosnippet="">333</a>        }
+<a href="#334" id="334" data-nosnippet="">334</a>        <span class="macro">assert_eq!</span>(s.doc().unwrap().doc.header_footer.date_format, <span class="string">"datetime11"</span>);
+<a href="#335" id="335" data-nosnippet="">335</a>        <span class="kw">let </span>got = dates(<span class="kw-2">&amp;</span>s);
+<a href="#336" id="336" data-nosnippet="">336</a>        <span class="macro">assert_eq!</span>(got.len(), <span class="number">1</span>, <span class="string">"{got:?}"</span>);
+<a href="#337" id="337" data-nosnippet="">337</a>        <span class="macro">assert_eq!</span>(got[<span class="number">0</span>].<span class="number">1</span>.as_deref(), <span class="prelude-val">Some</span>(<span class="string">"datetime11"</span>));
+<a href="#338" id="338" data-nosnippet="">338</a>    }
+<a href="#339" id="339" data-nosnippet="">339</a>}
+</code></pre></div></section></main></body></html>

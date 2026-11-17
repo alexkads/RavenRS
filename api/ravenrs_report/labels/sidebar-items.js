@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["common_stocks","receipt_page","shelf_label"],"struct":["LabelStock","SheetLayout","ShelfLabelFields"]};

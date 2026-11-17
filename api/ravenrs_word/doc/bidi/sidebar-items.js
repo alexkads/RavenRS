@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["first_strong_is_rtl","has_rtl","is_complex_script","is_rtl_script","is_word_char"]};

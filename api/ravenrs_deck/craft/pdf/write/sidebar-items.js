@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_FONT_BYTES","MAX_FONT_VARIATIONS"],"enum":["WriteError"],"fn":["configuration","font","guard","uri_target"],"mod":["print"],"struct":["Metadata","Writer"]};

@@ -1,0 +1,150 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>archive.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="ravenrs_sheet" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../src-files.js"></script><script defer="" src="../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-sheet/src/craft/zip/archive.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_sheet/craft/zip/archive.rs.html"><meta property="og:title" content="archive.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-sheet/src/craft/zip/archive.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_sheet/craft/zip/archive.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="archive.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-sheet/src/craft/zip/archive.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"archive.rs - source","description":"Source of the Rust file `crates/ravenrs-sheet/src/craft/zip/archive.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_sheet/craft/zip/archive.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_sheet/craft/zip/</div>archive.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! An archive open for reading: entry-count guard, duplicate names, budgeted entry reads.
+<a href="#2" id="2" data-nosnippet="">2</a>
+<a href="#3" id="3" data-nosnippet="">3</a></span><span class="kw">use </span>std::borrow::Cow;
+<a href="#4" id="4" data-nosnippet="">4</a><span class="kw">use </span>std::io::{Cursor, Read};
+<a href="#5" id="5" data-nosnippet="">5</a>
+<a href="#6" id="6" data-nosnippet="">6</a><span class="kw">use </span><span class="kw">crate</span>::craft::zip::preflight::{ReadError, read_entry};
+<a href="#7" id="7" data-nosnippet="">7</a><span class="kw">use </span><span class="kw">crate</span>::craft::zip::{Budget, Error, check_entry_count};
+<a href="#8" id="8" data-nosnippet="">8</a>
+<a href="#9" id="9" data-nosnippet="">9</a><span class="doccomment">/// What an [`Archive`] refuses to exceed. Both numbers are the caller's.
+<a href="#10" id="10" data-nosnippet="">10</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+<a href="#11" id="11" data-nosnippet="">11</a></span><span class="kw">pub struct </span>Limits {
+<a href="#12" id="12" data-nosnippet="">12</a>    <span class="doccomment">/// Most entries the archive may declare.
+<a href="#13" id="13" data-nosnippet="">13</a>    </span><span class="kw">pub </span>max_entries: u64,
+<a href="#14" id="14" data-nosnippet="">14</a>    <span class="doccomment">/// Most bytes all the entries read from the archive may expand to together.
+<a href="#15" id="15" data-nosnippet="">15</a>    </span><span class="kw">pub </span>max_total_bytes: u64,
+<a href="#16" id="16" data-nosnippet="">16</a>}
+<a href="#17" id="17" data-nosnippet="">17</a>
+<a href="#18" id="18" data-nosnippet="">18</a><span class="doccomment">/// A ZIP archive in memory. Nothing is decompressed until an entry is read.
+<a href="#19" id="19" data-nosnippet="">19</a>///
+<a href="#20" id="20" data-nosnippet="">20</a>/// A clone shares the parsed directory and the bytes, and carries a copy of the budget: a
+<a href="#21" id="21" data-nosnippet="">21</a>/// caller that reads through a clone keeps its own count.
+<a href="#22" id="22" data-nosnippet="">22</a></span><span class="attr">#[derive(Clone)]
+<a href="#23" id="23" data-nosnippet="">23</a></span><span class="kw">pub struct </span>Archive&lt;<span class="lifetime">'a</span>&gt; {
+<a href="#24" id="24" data-nosnippet="">24</a>    zip: zip::ZipArchive&lt;Cursor&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]&gt;&gt;,
+<a href="#25" id="25" data-nosnippet="">25</a>    budget: Budget,
+<a href="#26" id="26" data-nosnippet="">26</a>    duplicates: bool,
+<a href="#27" id="27" data-nosnippet="">27</a>}
+<a href="#28" id="28" data-nosnippet="">28</a>
+<a href="#29" id="29" data-nosnippet="">29</a><span class="kw">const </span>CENTRAL_HEADER: <span class="kw-2">&amp;</span>[u8; <span class="number">4</span>] = <span class="string">b"PK\x01\x02"</span>;
+<a href="#30" id="30" data-nosnippet="">30</a><span class="kw">const </span>CENTRAL_HEADER_LEN: usize = <span class="number">46</span>;
+<a href="#31" id="31" data-nosnippet="">31</a>
+<a href="#32" id="32" data-nosnippet="">32</a><span class="doccomment">/// The central directory headers that follow one another from `start`, counted up to `stop`.
+<a href="#33" id="33" data-nosnippet="">33</a></span><span class="kw">fn </span>count_central_headers(bytes: <span class="kw-2">&amp;</span>[u8], start: u64, stop: usize) -&gt; usize {
+<a href="#34" id="34" data-nosnippet="">34</a>    <span class="kw">let </span>u16_at = |at: usize| bytes.get(at..at.checked_add(<span class="number">2</span>)<span class="question-mark">?</span>).map(|b| usize::from(u16::from_le_bytes([b[<span class="number">0</span>], b[<span class="number">1</span>]])));
+<a href="#35" id="35" data-nosnippet="">35</a>    <span class="kw">let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>at) = usize::try_from(start) <span class="kw">else </span>{ <span class="kw">return </span><span class="number">0 </span>};
+<a href="#36" id="36" data-nosnippet="">36</a>    <span class="kw">let </span><span class="kw-2">mut </span>count = <span class="number">0</span>;
+<a href="#37" id="37" data-nosnippet="">37</a>    <span class="kw">while </span>count &lt; stop &amp;&amp; bytes.get(at..).is_some_and(|b| b.starts_with(CENTRAL_HEADER)) {
+<a href="#38" id="38" data-nosnippet="">38</a>        <span class="kw">let </span>(<span class="prelude-val">Some</span>(name), <span class="prelude-val">Some</span>(extra), <span class="prelude-val">Some</span>(comment)) = (u16_at(at + <span class="number">28</span>), u16_at(at + <span class="number">30</span>), u16_at(at + <span class="number">32</span>)) <span class="kw">else </span>{ <span class="kw">break </span>};
+<a href="#39" id="39" data-nosnippet="">39</a>        count += <span class="number">1</span>;
+<a href="#40" id="40" data-nosnippet="">40</a>        at = at.saturating_add(CENTRAL_HEADER_LEN + name + extra + comment);
+<a href="#41" id="41" data-nosnippet="">41</a>    }
+<a href="#42" id="42" data-nosnippet="">42</a>    count
+<a href="#43" id="43" data-nosnippet="">43</a>}
+<a href="#44" id="44" data-nosnippet="">44</a>
+<a href="#45" id="45" data-nosnippet="">45</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Archive&lt;<span class="lifetime">'a</span>&gt; {
+<a href="#46" id="46" data-nosnippet="">46</a>    <span class="doccomment">/// Indexes `bytes`. The declared entry count is checked against
+<a href="#47" id="47" data-nosnippet="">47</a>    /// [`Limits::max_entries`] before `zip` parses the central directory, and again after.
+<a href="#48" id="48" data-nosnippet="">48</a>    </span><span class="kw">pub fn </span>open(bytes: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], limits: Limits) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
+<a href="#49" id="49" data-nosnippet="">49</a>        check_entry_count(bytes, limits.max_entries)<span class="question-mark">?</span>;
+<a href="#50" id="50" data-nosnippet="">50</a>        <span class="kw">let </span>zip = zip::ZipArchive::new(Cursor::new(bytes)).map_err(|e| Error::NotZip(e.to_string()))<span class="question-mark">?</span>;
+<a href="#51" id="51" data-nosnippet="">51</a>        <span class="kw">let </span>found = zip.len() <span class="kw">as </span>u64;
+<a href="#52" id="52" data-nosnippet="">52</a>        <span class="kw">if </span>found &gt; limits.max_entries {
+<a href="#53" id="53" data-nosnippet="">53</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(Error::TooManyEntries { declared: found, limit: limits.max_entries });
+<a href="#54" id="54" data-nosnippet="">54</a>        }
+<a href="#55" id="55" data-nosnippet="">55</a>        <span class="comment">// `zip` keeps one entry per name, so a directory with more headers than `zip` has entries
+<a href="#56" id="56" data-nosnippet="">56</a>        // repeats a name.
+<a href="#57" id="57" data-nosnippet="">57</a>        </span><span class="kw">let </span>duplicates = count_central_headers(bytes, zip.central_directory_start(), zip.len().saturating_add(<span class="number">1</span>)) &gt; zip.len();
+<a href="#58" id="58" data-nosnippet="">58</a>        <span class="prelude-val">Ok</span>(Archive { zip, budget: Budget::new(<span class="string">"archive"</span>, limits.max_total_bytes), duplicates })
+<a href="#59" id="59" data-nosnippet="">59</a>    }
+<a href="#60" id="60" data-nosnippet="">60</a>
+<a href="#61" id="61" data-nosnippet="">61</a>    <span class="doccomment">/// The number of distinct entry names.
+<a href="#62" id="62" data-nosnippet="">62</a>    </span><span class="kw">pub fn </span>len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+<a href="#63" id="63" data-nosnippet="">63</a>        <span class="self">self</span>.zip.len()
+<a href="#64" id="64" data-nosnippet="">64</a>    }
+<a href="#65" id="65" data-nosnippet="">65</a>
+<a href="#66" id="66" data-nosnippet="">66</a>    <span class="kw">pub fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#67" id="67" data-nosnippet="">67</a>        <span class="self">self</span>.zip.is_empty()
+<a href="#68" id="68" data-nosnippet="">68</a>    }
+<a href="#69" id="69" data-nosnippet="">69</a>
+<a href="#70" id="70" data-nosnippet="">70</a>    <span class="doccomment">/// Do two entries share a name? `zip` then keeps one of them, and which one a writer meant
+<a href="#71" id="71" data-nosnippet="">71</a>    /// is not known: a format that must not guess refuses the archive.
+<a href="#72" id="72" data-nosnippet="">72</a>    </span><span class="kw">pub fn </span>has_duplicate_names(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#73" id="73" data-nosnippet="">73</a>        <span class="self">self</span>.duplicates
+<a href="#74" id="74" data-nosnippet="">74</a>    }
+<a href="#75" id="75" data-nosnippet="">75</a>
+<a href="#76" id="76" data-nosnippet="">76</a>    <span class="doccomment">/// The entry names in the archive's order, folders included. A name that is not text is
+<a href="#77" id="77" data-nosnippet="">77</a>    /// left out.
+<a href="#78" id="78" data-nosnippet="">78</a>    </span><span class="kw">pub fn </span>names(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw">impl </span>Iterator&lt;Item = Cow&lt;<span class="lifetime">'_</span>, str&gt;&gt; {
+<a href="#79" id="79" data-nosnippet="">79</a>        <span class="self">self</span>.zip.file_names().filter_map(Result::ok)
+<a href="#80" id="80" data-nosnippet="">80</a>    }
+<a href="#81" id="81" data-nosnippet="">81</a>
+<a href="#82" id="82" data-nosnippet="">82</a>    <span class="doccomment">/// Is there an entry `name` (exactly as stored)?
+<a href="#83" id="83" data-nosnippet="">83</a>    </span><span class="kw">pub fn </span>contains(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href="#84" id="84" data-nosnippet="">84</a>        <span class="self">self</span>.zip.index_for_name(name).is_some()
+<a href="#85" id="85" data-nosnippet="">85</a>    }
+<a href="#86" id="86" data-nosnippet="">86</a>
+<a href="#87" id="87" data-nosnippet="">87</a>    <span class="doccomment">/// The size entry `name` declares. It is a claim, not a measurement.
+<a href="#88" id="88" data-nosnippet="">88</a>    </span><span class="kw">pub fn </span>declared_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;u64&gt; {
+<a href="#89" id="89" data-nosnippet="">89</a>        <span class="kw">let </span>index = <span class="self">self</span>.zip.index_for_name(name)<span class="question-mark">?</span>;
+<a href="#90" id="90" data-nosnippet="">90</a>        <span class="self">self</span>.zip.by_index_raw(index).ok().map(|f| f.size())
+<a href="#91" id="91" data-nosnippet="">91</a>    }
+<a href="#92" id="92" data-nosnippet="">92</a>
+<a href="#93" id="93" data-nosnippet="">93</a>    <span class="doccomment">/// The size entry `name` takes in the archive, compressed. With [`Archive::declared_size`] it
+<a href="#94" id="94" data-nosnippet="">94</a>    /// gives the compression ratio the entry claims.
+<a href="#95" id="95" data-nosnippet="">95</a>    </span><span class="kw">pub fn </span>compressed_size(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;u64&gt; {
+<a href="#96" id="96" data-nosnippet="">96</a>        <span class="kw">let </span>index = <span class="self">self</span>.zip.index_for_name(name)<span class="question-mark">?</span>;
+<a href="#97" id="97" data-nosnippet="">97</a>        <span class="self">self</span>.zip.by_index_raw(index).ok().map(|f| f.compressed_size())
+<a href="#98" id="98" data-nosnippet="">98</a>    }
+<a href="#99" id="99" data-nosnippet="">99</a>
+<a href="#100" id="100" data-nosnippet="">100</a>    <span class="doccomment">/// The first `n` bytes of entry `name` (all of it when it is shorter), or `None` when there
+<a href="#101" id="101" data-nosnippet="">101</a>    /// is no such entry: for telling a file by its signature without inflating it. The bytes are
+<a href="#102" id="102" data-nosnippet="">102</a>    /// charged to the total; a total with less left than the bytes wanted refuses before reading.
+<a href="#103" id="103" data-nosnippet="">103</a>    ///
+<a href="#104" id="104" data-nosnippet="">104</a>    /// The entry's checksum is not checked: it covers the whole entry.
+<a href="#105" id="105" data-nosnippet="">105</a>    </span><span class="kw">pub fn </span>read_head(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, n: usize) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;, Error&gt; {
+<a href="#106" id="106" data-nosnippet="">106</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(index) = <span class="self">self</span>.zip.index_for_name(name) <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) };
+<a href="#107" id="107" data-nosnippet="">107</a>        <span class="kw">let </span>entry = |msg: String| Error::Entry { name: name.to_string(), msg };
+<a href="#108" id="108" data-nosnippet="">108</a>        <span class="kw">let </span>f = <span class="self">self</span>.zip.by_index(index).map_err(|e| entry(e.to_string()))<span class="question-mark">?</span>;
+<a href="#109" id="109" data-nosnippet="">109</a>        <span class="comment">// Never more than the entry declares: a shorter entry costs only what it has.
+<a href="#110" id="110" data-nosnippet="">110</a>        </span><span class="kw">let </span>want = (n <span class="kw">as </span>u64).min(f.size());
+<a href="#111" id="111" data-nosnippet="">111</a>        <span class="kw">if </span><span class="self">self</span>.budget.remaining() &lt; want {
+<a href="#112" id="112" data-nosnippet="">112</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(Error::BudgetSpent { name: name.to_string(), limit: <span class="self">self</span>.budget.limit() });
+<a href="#113" id="113" data-nosnippet="">113</a>        }
+<a href="#114" id="114" data-nosnippet="">114</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::with_capacity(n.min(<span class="number">64 </span>* <span class="number">1024</span>));
+<a href="#115" id="115" data-nosnippet="">115</a>        f.take(want).read_to_end(<span class="kw-2">&amp;mut </span>out).map_err(|e| entry(e.to_string()))<span class="question-mark">?</span>;
+<a href="#116" id="116" data-nosnippet="">116</a>        <span class="self">self</span>.budget.charge(out.len() <span class="kw">as </span>u64).map_err(|e| Error::BudgetSpent { name: name.to_string(), limit: e.limit })<span class="question-mark">?</span>;
+<a href="#117" id="117" data-nosnippet="">117</a>        <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(out))
+<a href="#118" id="118" data-nosnippet="">118</a>    }
+<a href="#119" id="119" data-nosnippet="">119</a>
+<a href="#120" id="120" data-nosnippet="">120</a>    <span class="doccomment">/// The bytes of entry `name`, or `None` when there is no such entry.
+<a href="#121" id="121" data-nosnippet="">121</a>    ///
+<a href="#122" id="122" data-nosnippet="">122</a>    /// The entry may declare, and expand to, at most `max` bytes, and at most what is left of
+<a href="#123" id="123" data-nosnippet="">123</a>    /// [`Limits::max_total_bytes`]. An entry that expands past the size it declares is refused.
+<a href="#124" id="124" data-nosnippet="">124</a>    /// Only the bytes of a read that succeeds are charged to the total.
+<a href="#125" id="125" data-nosnippet="">125</a>    </span><span class="kw">pub fn </span>read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, max: u64) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Vec&lt;u8&gt;&gt;, Error&gt; {
+<a href="#126" id="126" data-nosnippet="">126</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(index) = <span class="self">self</span>.zip.index_for_name(name) <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>) };
+<a href="#127" id="127" data-nosnippet="">127</a>        <span class="kw">let </span>entry = |msg: String| Error::Entry { name: name.to_string(), msg };
+<a href="#128" id="128" data-nosnippet="">128</a>        <span class="kw">let </span>f = <span class="self">self</span>.zip.by_index(index).map_err(|e| entry(e.to_string()))<span class="question-mark">?</span>;
+<a href="#129" id="129" data-nosnippet="">129</a>        <span class="kw">let </span>declared = f.size();
+<a href="#130" id="130" data-nosnippet="">130</a>        <span class="kw">match </span>read_entry(f, declared, max, <span class="kw-2">&amp;mut </span><span class="self">self</span>.budget) {
+<a href="#131" id="131" data-nosnippet="">131</a>            <span class="prelude-val">Ok</span>(data) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(data)),
+<a href="#132" id="132" data-nosnippet="">132</a>            <span class="prelude-val">Err</span>(ReadError::DeclaredTooLarge { limit, .. }) | <span class="prelude-val">Err</span>(ReadError::Overrun { limit }) =&gt; {
+<a href="#133" id="133" data-nosnippet="">133</a>                <span class="prelude-val">Err</span>(Error::EntryTooLarge { name: name.to_string(), limit })
+<a href="#134" id="134" data-nosnippet="">134</a>            }
+<a href="#135" id="135" data-nosnippet="">135</a>            <span class="prelude-val">Err</span>(ReadError::Budget(e)) =&gt; <span class="prelude-val">Err</span>(Error::BudgetSpent { name: name.to_string(), limit: e.limit }),
+<a href="#136" id="136" data-nosnippet="">136</a>            <span class="prelude-val">Err</span>(ReadError::Io(e)) =&gt; <span class="prelude-val">Err</span>(entry(e.to_string())),
+<a href="#137" id="137" data-nosnippet="">137</a>        }
+<a href="#138" id="138" data-nosnippet="">138</a>    }
+<a href="#139" id="139" data-nosnippet="">139</a>
+<a href="#140" id="140" data-nosnippet="">140</a>    <span class="doccomment">/// The total budget: what the entries read so far have used, and what is left.
+<a href="#141" id="141" data-nosnippet="">141</a>    </span><span class="kw">pub fn </span>budget(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Budget {
+<a href="#142" id="142" data-nosnippet="">142</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.budget
+<a href="#143" id="143" data-nosnippet="">143</a>    }
+<a href="#144" id="144" data-nosnippet="">144</a>
+<a href="#145" id="145" data-nosnippet="">145</a>    <span class="doccomment">/// The total budget, for a caller with its own charging rule (charging a failed read, say).
+<a href="#146" id="146" data-nosnippet="">146</a>    </span><span class="kw">pub fn </span>budget_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Budget {
+<a href="#147" id="147" data-nosnippet="">147</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>.budget
+<a href="#148" id="148" data-nosnippet="">148</a>    }
+<a href="#149" id="149" data-nosnippet="">149</a>}
+</code></pre></div></section></main></body></html>

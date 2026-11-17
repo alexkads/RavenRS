@@ -1,0 +1,920 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>document.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="ravenrs_word" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../src-files.js"></script><script defer="" src="../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-word/src/doc/document.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_word/doc/document.rs.html"><meta property="og:title" content="document.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-word/src/doc/document.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_word/doc/document.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="document.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-word/src/doc/document.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"document.rs - source","description":"Source of the Rust file `crates/ravenrs-word/src/doc/document.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_word/doc/document.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_word/doc/</div>document.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="kw">use </span><span class="kw">super</span>::block::{Block, Blocks, BoxBudget};
+<a href="#2" id="2" data-nosnippet="">2</a><span class="kw">use </span><span class="kw">super</span>::compare::{para_block, same_blocks, same_bytes, same_glossary, same_parts};
+<a href="#3" id="3" data-nosnippet="">3</a><span class="kw">use </span><span class="kw">super</span>::error::{DocError, <span class="prelude-ty">Result</span>};
+<a href="#4" id="4" data-nosnippet="">4</a><span class="kw">use </span><span class="kw">super</span>::parts::{MAX_LINKED_BOXES, NoteSeparators, Part, PartKind, PermRange, TextBody, free_id};
+<a href="#5" id="5" data-nosnippet="">5</a><span class="kw">use </span><span class="kw">super</span>::position::{Path, Pos, StoryRef};
+<a href="#6" id="6" data-nosnippet="">6</a><span class="kw">use </span><span class="kw">super</span>::settings::{CoreProps, CustomProp, Settings};
+<a href="#7" id="7" data-nosnippet="">7</a><span class="kw">use </span><span class="kw">super</span>::text_walk::{TextMode, notes_and_boxes, story_word_count_of, text_of, walk};
+<a href="#8" id="8" data-nosnippet="">8</a><span class="kw">use </span>std::sync::Arc;
+<a href="#9" id="9" data-nosnippet="">9</a>
+<a href="#10" id="10" data-nosnippet="">10</a><span class="kw">use super</span>::{BTreeMap, CharProps, Document, InlineObject, Paragraph, SectionProps, StyleSheet, Table, edit, numbering, para, section};
+<a href="#11" id="11" data-nosnippet="">11</a>
+<a href="#12" id="12" data-nosnippet="">12</a><span class="doccomment">/// [`Document::media`] by content, so adding media is linear in the bytes added rather than a
+<a href="#13" id="13" data-nosnippet="">13</a>/// scan of every earlier image (CWE-407). Rebuilt whenever `media` changed size behind its back;
+<a href="#14" id="14" data-nosnippet="">14</a>/// a hit is always checked against `media`, so a stale entry can at worst miss a duplicate.
+<a href="#15" id="15" data-nosnippet="">15</a></span><span class="attr">#[derive(Clone, Default)]
+<a href="#16" id="16" data-nosnippet="">16</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>MediaIndex {
+<a href="#17" id="17" data-nosnippet="">17</a>    by_bytes: std::collections::HashMap&lt;Arc&lt;Vec&lt;u8&gt;&gt;, String&gt;,
+<a href="#18" id="18" data-nosnippet="">18</a>    <span class="doccomment">/// `media.len()` when the index last matched it.
+<a href="#19" id="19" data-nosnippet="">19</a>    </span>len: usize,
+<a href="#20" id="20" data-nosnippet="">20</a>    <span class="doccomment">/// The number after the last generated `image{n}` key, so taken names are probed once.
+<a href="#21" id="21" data-nosnippet="">21</a>    </span>next: usize,
+<a href="#22" id="22" data-nosnippet="">22</a>}
+<a href="#23" id="23" data-nosnippet="">23</a>
+<a href="#24" id="24" data-nosnippet="">24</a><span class="kw">impl </span>MediaIndex {
+<a href="#25" id="25" data-nosnippet="">25</a>    <span class="kw">fn </span>rebuild(<span class="kw-2">&amp;mut </span><span class="self">self</span>, media: <span class="kw-2">&amp;</span>BTreeMap&lt;String, Arc&lt;Vec&lt;u8&gt;&gt;&gt;) {
+<a href="#26" id="26" data-nosnippet="">26</a>        <span class="self">self</span>.by_bytes.clear();
+<a href="#27" id="27" data-nosnippet="">27</a>        <span class="comment">// The first key (in key order) of equal bytes wins, as a scan would find it.
+<a href="#28" id="28" data-nosnippet="">28</a>        </span><span class="kw">for </span>(k, v) <span class="kw">in </span>media.iter().rev() {
+<a href="#29" id="29" data-nosnippet="">29</a>            <span class="self">self</span>.by_bytes.insert(v.clone(), k.clone());
+<a href="#30" id="30" data-nosnippet="">30</a>        }
+<a href="#31" id="31" data-nosnippet="">31</a>        <span class="self">self</span>.len = media.len();
+<a href="#32" id="32" data-nosnippet="">32</a>        <span class="self">self</span>.next = <span class="number">0</span>;
+<a href="#33" id="33" data-nosnippet="">33</a>    }
+<a href="#34" id="34" data-nosnippet="">34</a>
+<a href="#35" id="35" data-nosnippet="">35</a>    <span class="kw">fn </span>find(<span class="kw-2">&amp;</span><span class="self">self</span>, media: <span class="kw-2">&amp;</span>BTreeMap&lt;String, Arc&lt;Vec&lt;u8&gt;&gt;&gt;, bytes: <span class="kw-2">&amp;</span>Vec&lt;u8&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href="#36" id="36" data-nosnippet="">36</a>        <span class="self">self</span>.by_bytes.get(bytes).filter(|k| media.get(<span class="kw-2">*</span>k).is_some_and(|v| <span class="kw-2">**</span>v == <span class="kw-2">*</span>bytes)).cloned()
+<a href="#37" id="37" data-nosnippet="">37</a>    }
+<a href="#38" id="38" data-nosnippet="">38</a>}
+<a href="#39" id="39" data-nosnippet="">39</a>
+<a href="#40" id="40" data-nosnippet="">40</a><span class="kw">impl </span>PartialEq <span class="kw">for </span>MediaIndex {
+<a href="#41" id="41" data-nosnippet="">41</a>    <span class="kw">fn </span>eq(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="kw">_</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) -&gt; bool {
+<a href="#42" id="42" data-nosnippet="">42</a>        <span class="bool-val">true
+<a href="#43" id="43" data-nosnippet="">43</a>    </span>}
+<a href="#44" id="44" data-nosnippet="">44</a>}
+<a href="#45" id="45" data-nosnippet="">45</a>
+<a href="#46" id="46" data-nosnippet="">46</a><span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>MediaIndex {
+<a href="#47" id="47" data-nosnippet="">47</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+<a href="#48" id="48" data-nosnippet="">48</a>        f.write_str(<span class="string">"MediaIndex"</span>)
+<a href="#49" id="49" data-nosnippet="">49</a>    }
+<a href="#50" id="50" data-nosnippet="">50</a>}
+<a href="#51" id="51" data-nosnippet="">51</a>
+<a href="#52" id="52" data-nosnippet="">52</a><span class="kw">impl </span>Default <span class="kw">for </span>Document {
+<a href="#53" id="53" data-nosnippet="">53</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href="#54" id="54" data-nosnippet="">54</a>        Document::new()
+<a href="#55" id="55" data-nosnippet="">55</a>    }
+<a href="#56" id="56" data-nosnippet="">56</a>}
+<a href="#57" id="57" data-nosnippet="">57</a>
+<a href="#58" id="58" data-nosnippet="">58</a><span class="kw">impl </span>Document {
+<a href="#59" id="59" data-nosnippet="">59</a>    <span class="doccomment">/// A blank document: one empty Normal paragraph, Letter, built-in styles.
+<a href="#60" id="60" data-nosnippet="">60</a>    </span><span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
+<a href="#61" id="61" data-nosnippet="">61</a>        Document {
+<a href="#62" id="62" data-nosnippet="">62</a>            body: <span class="macro">vec!</span>[para_block(Paragraph::new())],
+<a href="#63" id="63" data-nosnippet="">63</a>            last_section: SectionProps::default(),
+<a href="#64" id="64" data-nosnippet="">64</a>            parts: BTreeMap::new(),
+<a href="#65" id="65" data-nosnippet="">65</a>            styles: Arc::new(StyleSheet::builtin()),
+<a href="#66" id="66" data-nosnippet="">66</a>            numbering: Arc::default(),
+<a href="#67" id="67" data-nosnippet="">67</a>            comments: BTreeMap::new(),
+<a href="#68" id="68" data-nosnippet="">68</a>            revisions: Vec::new(),
+<a href="#69" id="69" data-nosnippet="">69</a>            settings: Settings::default(),
+<a href="#70" id="70" data-nosnippet="">70</a>            core: CoreProps::default(),
+<a href="#71" id="71" data-nosnippet="">71</a>            sources: Vec::new(),
+<a href="#72" id="72" data-nosnippet="">72</a>            custom_props: Vec::new(),
+<a href="#73" id="73" data-nosnippet="">73</a>            footnote_separators: NoteSeparators::default(),
+<a href="#74" id="74" data-nosnippet="">74</a>            endnote_separators: NoteSeparators::default(),
+<a href="#75" id="75" data-nosnippet="">75</a>            media: BTreeMap::new(),
+<a href="#76" id="76" data-nosnippet="">76</a>            passthrough: BTreeMap::new(),
+<a href="#77" id="77" data-nosnippet="">77</a>            glossary: Vec::new(),
+<a href="#78" id="78" data-nosnippet="">78</a>            media_index: MediaIndex::default(),
+<a href="#79" id="79" data-nosnippet="">79</a>            kept: Default::default(),
+<a href="#80" id="80" data-nosnippet="">80</a>            missing_pictures: Default::default(),
+<a href="#81" id="81" data-nosnippet="">81</a>        }
+<a href="#82" id="82" data-nosnippet="">82</a>    }
+<a href="#83" id="83" data-nosnippet="">83</a>
+<a href="#84" id="84" data-nosnippet="">84</a>    <span class="doccomment">/// A document from plain text, one paragraph per line.
+<a href="#85" id="85" data-nosnippet="">85</a>    </span><span class="kw">pub fn </span>from_text(text: <span class="kw-2">&amp;</span>str) -&gt; <span class="self">Self </span>{
+<a href="#86" id="86" data-nosnippet="">86</a>        <span class="kw">let </span><span class="kw-2">mut </span>d = Document::new();
+<a href="#87" id="87" data-nosnippet="">87</a>        d.body = text.split(<span class="string">'\n'</span>).map(|l| para_block(Paragraph::with_text(l.trim_end_matches(<span class="string">'\r'</span>), CharProps::default()))).collect();
+<a href="#88" id="88" data-nosnippet="">88</a>        d.ensure_nonempty();
+<a href="#89" id="89" data-nosnippet="">89</a>        d
+<a href="#90" id="90" data-nosnippet="">90</a>    }
+<a href="#91" id="91" data-nosnippet="">91</a>
+<a href="#92" id="92" data-nosnippet="">92</a>    <span class="kw">fn </span>fix_cell_blocks(bl: <span class="kw-2">&amp;mut </span>Blocks) {
+<a href="#93" id="93" data-nosnippet="">93</a>        <span class="kw">if </span>bl.is_empty() || <span class="macro">matches!</span>(bl.last().map(|b| <span class="kw-2">&amp;**</span>b), <span class="prelude-val">Some</span>(Block::Table(<span class="kw">_</span>))) {
+<a href="#94" id="94" data-nosnippet="">94</a>            bl.push(para_block(Paragraph::new()));
+<a href="#95" id="95" data-nosnippet="">95</a>        }
+<a href="#96" id="96" data-nosnippet="">96</a>    }
+<a href="#97" id="97" data-nosnippet="">97</a>
+<a href="#98" id="98" data-nosnippet="">98</a>    <span class="kw">fn </span>fix_story_blocks(bl: <span class="kw-2">&amp;mut </span>Blocks) {
+<a href="#99" id="99" data-nosnippet="">99</a>        <span class="kw">if </span>!bl.iter().any(|b| <span class="macro">matches!</span>(<span class="kw-2">**</span>b, Block::Para(<span class="kw">_</span>))) || <span class="macro">matches!</span>(bl.last().map(|b| <span class="kw-2">&amp;**</span>b), <span class="prelude-val">Some</span>(Block::Table(<span class="kw">_</span>))) {
+<a href="#100" id="100" data-nosnippet="">100</a>            bl.push(para_block(Paragraph::new()));
+<a href="#101" id="101" data-nosnippet="">101</a>        }
+<a href="#102" id="102" data-nosnippet="">102</a>        <span class="kw">for </span>b <span class="kw">in </span>bl.iter_mut() {
+<a href="#103" id="103" data-nosnippet="">103</a>            <span class="kw">if let </span>Block::Table(t) = <span class="kw-2">&amp;**</span>b {
+<a href="#104" id="104" data-nosnippet="">104</a>                <span class="kw">let </span>needs = t
+<a href="#105" id="105" data-nosnippet="">105</a>                    .rows
+<a href="#106" id="106" data-nosnippet="">106</a>                    .iter()
+<a href="#107" id="107" data-nosnippet="">107</a>                    .any(|r| r.cells.iter().any(|c| c.blocks.is_empty() || <span class="macro">matches!</span>(c.blocks.last().map(|b| <span class="kw-2">&amp;**</span>b), <span class="prelude-val">Some</span>(Block::Table(<span class="kw">_</span>)))));
+<a href="#108" id="108" data-nosnippet="">108</a>                <span class="kw">if </span>needs &amp;&amp; <span class="kw">let </span>Block::Table(t) = Arc::make_mut(b) {
+<a href="#109" id="109" data-nosnippet="">109</a>                    <span class="kw">for </span>r <span class="kw">in </span><span class="kw-2">&amp;mut </span>t.rows {
+<a href="#110" id="110" data-nosnippet="">110</a>                        <span class="kw">for </span>c <span class="kw">in </span><span class="kw-2">&amp;mut </span>r.cells {
+<a href="#111" id="111" data-nosnippet="">111</a>                            <span class="self">Self</span>::fix_cell_blocks(<span class="kw-2">&amp;mut </span>c.blocks);
+<a href="#112" id="112" data-nosnippet="">112</a>                        }
+<a href="#113" id="113" data-nosnippet="">113</a>                    }
+<a href="#114" id="114" data-nosnippet="">114</a>                }
+<a href="#115" id="115" data-nosnippet="">115</a>            }
+<a href="#116" id="116" data-nosnippet="">116</a>        }
+<a href="#117" id="117" data-nosnippet="">117</a>    }
+<a href="#118" id="118" data-nosnippet="">118</a>
+<a href="#119" id="119" data-nosnippet="">119</a>    <span class="doccomment">/// Every story must hold at least one paragraph, and every cell too.
+<a href="#120" id="120" data-nosnippet="">120</a>    </span><span class="kw">pub fn </span>ensure_nonempty(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href="#121" id="121" data-nosnippet="">121</a>        <span class="self">Self</span>::fix_story_blocks(<span class="kw-2">&amp;mut </span><span class="self">self</span>.body);
+<a href="#122" id="122" data-nosnippet="">122</a>        <span class="kw">for </span>p <span class="kw">in </span><span class="self">self</span>.parts.values_mut() {
+<a href="#123" id="123" data-nosnippet="">123</a>            <span class="kw">if </span>p.blocks.is_empty() {
+<a href="#124" id="124" data-nosnippet="">124</a>                p.blocks.push(para_block(Paragraph::new()));
+<a href="#125" id="125" data-nosnippet="">125</a>            }
+<a href="#126" id="126" data-nosnippet="">126</a>        }
+<a href="#127" id="127" data-nosnippet="">127</a>    }
+<a href="#128" id="128" data-nosnippet="">128</a>
+<a href="#129" id="129" data-nosnippet="">129</a>    <span class="doccomment">/// Whether the document holds the same content as `other`: the same blocks, the same
+<a href="#130" id="130" data-nosnippet="">130</a>    /// styles, lists, settings, comments and the rest.
+<a href="#131" id="131" data-nosnippet="">131</a>    ///
+<a href="#132" id="132" data-nosnippet="">132</a>    /// The blocks are compared by address first: the document is copy-on-write, so a block
+<a href="#133" id="133" data-nosnippet="">133</a>    /// that changed was copied and has another address. Comparing them by value would walk
+<a href="#134" id="134" data-nosnippet="">134</a>    /// the whole document, and this is asked after every command.
+<a href="#135" id="135" data-nosnippet="">135</a>    ///
+<a href="#136" id="136" data-nosnippet="">136</a>    /// Every field is listed, so a new one does not build until someone decides whether a
+<a href="#137" id="137" data-nosnippet="">137</a>    /// change to it counts (the same rule the session's edit snapshot follows).
+<a href="#138" id="138" data-nosnippet="">138</a>    </span><span class="kw">pub fn </span>same_content(<span class="kw-2">&amp;</span><span class="self">self</span>, other: <span class="kw-2">&amp;</span>Document) -&gt; bool {
+<a href="#139" id="139" data-nosnippet="">139</a>        <span class="kw">let </span>Document {
+<a href="#140" id="140" data-nosnippet="">140</a>            body,
+<a href="#141" id="141" data-nosnippet="">141</a>            last_section,
+<a href="#142" id="142" data-nosnippet="">142</a>            parts,
+<a href="#143" id="143" data-nosnippet="">143</a>            styles,
+<a href="#144" id="144" data-nosnippet="">144</a>            numbering,
+<a href="#145" id="145" data-nosnippet="">145</a>            comments,
+<a href="#146" id="146" data-nosnippet="">146</a>            revisions,
+<a href="#147" id="147" data-nosnippet="">147</a>            settings,
+<a href="#148" id="148" data-nosnippet="">148</a>            core,
+<a href="#149" id="149" data-nosnippet="">149</a>            sources,
+<a href="#150" id="150" data-nosnippet="">150</a>            custom_props,
+<a href="#151" id="151" data-nosnippet="">151</a>            footnote_separators,
+<a href="#152" id="152" data-nosnippet="">152</a>            endnote_separators,
+<a href="#153" id="153" data-nosnippet="">153</a>            media,
+<a href="#154" id="154" data-nosnippet="">154</a>            passthrough,
+<a href="#155" id="155" data-nosnippet="">155</a>            glossary,
+<a href="#156" id="156" data-nosnippet="">156</a>            media_index: <span class="kw">_</span>,
+<a href="#157" id="157" data-nosnippet="">157</a>            kept: <span class="kw">_</span>,
+<a href="#158" id="158" data-nosnippet="">158</a>            missing_pictures: <span class="kw">_</span>,
+<a href="#159" id="159" data-nosnippet="">159</a>        } = <span class="self">self</span>;
+<a href="#160" id="160" data-nosnippet="">160</a>        <span class="kw">let </span>Document {
+<a href="#161" id="161" data-nosnippet="">161</a>            body: other_body,
+<a href="#162" id="162" data-nosnippet="">162</a>            last_section: other_section,
+<a href="#163" id="163" data-nosnippet="">163</a>            parts: other_parts,
+<a href="#164" id="164" data-nosnippet="">164</a>            styles: other_styles,
+<a href="#165" id="165" data-nosnippet="">165</a>            numbering: other_numbering,
+<a href="#166" id="166" data-nosnippet="">166</a>            comments: other_comments,
+<a href="#167" id="167" data-nosnippet="">167</a>            revisions: other_revisions,
+<a href="#168" id="168" data-nosnippet="">168</a>            settings: other_settings,
+<a href="#169" id="169" data-nosnippet="">169</a>            core: other_core,
+<a href="#170" id="170" data-nosnippet="">170</a>            sources: other_sources,
+<a href="#171" id="171" data-nosnippet="">171</a>            custom_props: other_props,
+<a href="#172" id="172" data-nosnippet="">172</a>            footnote_separators: other_footnotes,
+<a href="#173" id="173" data-nosnippet="">173</a>            endnote_separators: other_endnotes,
+<a href="#174" id="174" data-nosnippet="">174</a>            media: other_media,
+<a href="#175" id="175" data-nosnippet="">175</a>            passthrough: other_passthrough,
+<a href="#176" id="176" data-nosnippet="">176</a>            glossary: other_glossary,
+<a href="#177" id="177" data-nosnippet="">177</a>            media_index: <span class="kw">_</span>,
+<a href="#178" id="178" data-nosnippet="">178</a>            kept: <span class="kw">_</span>,
+<a href="#179" id="179" data-nosnippet="">179</a>            missing_pictures: <span class="kw">_</span>,
+<a href="#180" id="180" data-nosnippet="">180</a>        } = other;
+<a href="#181" id="181" data-nosnippet="">181</a>        same_blocks(body, other_body)
+<a href="#182" id="182" data-nosnippet="">182</a>            &amp;&amp; same_parts(parts, other_parts)
+<a href="#183" id="183" data-nosnippet="">183</a>            &amp;&amp; last_section == other_section
+<a href="#184" id="184" data-nosnippet="">184</a>            &amp;&amp; styles == other_styles
+<a href="#185" id="185" data-nosnippet="">185</a>            &amp;&amp; numbering == other_numbering
+<a href="#186" id="186" data-nosnippet="">186</a>            &amp;&amp; comments == other_comments
+<a href="#187" id="187" data-nosnippet="">187</a>            &amp;&amp; revisions == other_revisions
+<a href="#188" id="188" data-nosnippet="">188</a>            &amp;&amp; settings == other_settings
+<a href="#189" id="189" data-nosnippet="">189</a>            &amp;&amp; core == other_core
+<a href="#190" id="190" data-nosnippet="">190</a>            &amp;&amp; sources == other_sources
+<a href="#191" id="191" data-nosnippet="">191</a>            &amp;&amp; custom_props == other_props
+<a href="#192" id="192" data-nosnippet="">192</a>            &amp;&amp; footnote_separators == other_footnotes
+<a href="#193" id="193" data-nosnippet="">193</a>            &amp;&amp; endnote_separators == other_endnotes
+<a href="#194" id="194" data-nosnippet="">194</a>            &amp;&amp; same_bytes(media, other_media)
+<a href="#195" id="195" data-nosnippet="">195</a>            &amp;&amp; same_bytes(passthrough, other_passthrough)
+<a href="#196" id="196" data-nosnippet="">196</a>            &amp;&amp; same_glossary(glossary, other_glossary)
+<a href="#197" id="197" data-nosnippet="">197</a>    }
+<a href="#198" id="198" data-nosnippet="">198</a>
+<a href="#199" id="199" data-nosnippet="">199</a>    <span class="kw">pub fn </span>story(<span class="kw-2">&amp;</span><span class="self">self</span>, s: StoryRef) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Blocks&gt; {
+<a href="#200" id="200" data-nosnippet="">200</a>        <span class="kw">match </span>s {
+<a href="#201" id="201" data-nosnippet="">201</a>            StoryRef::Body =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.body),
+<a href="#202" id="202" data-nosnippet="">202</a>            StoryRef::Part(id) =&gt; <span class="self">self</span>.parts.get(<span class="kw-2">&amp;</span>id).map(|p| <span class="kw-2">&amp;</span>p.blocks),
+<a href="#203" id="203" data-nosnippet="">203</a>        }
+<a href="#204" id="204" data-nosnippet="">204</a>    }
+<a href="#205" id="205" data-nosnippet="">205</a>    <span class="kw">pub fn </span>story_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: StoryRef) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;mut </span>Blocks&gt; {
+<a href="#206" id="206" data-nosnippet="">206</a>        <span class="kw">match </span>s {
+<a href="#207" id="207" data-nosnippet="">207</a>            StoryRef::Body =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">&amp;mut </span><span class="self">self</span>.body),
+<a href="#208" id="208" data-nosnippet="">208</a>            StoryRef::Part(id) =&gt; <span class="self">self</span>.parts.get_mut(<span class="kw-2">&amp;</span>id).map(|p| <span class="kw-2">&amp;mut </span>p.blocks).ok_or(DocError::BadStory(s)),
+<a href="#209" id="209" data-nosnippet="">209</a>        }
+<a href="#210" id="210" data-nosnippet="">210</a>    }
+<a href="#211" id="211" data-nosnippet="">211</a>
+<a href="#212" id="212" data-nosnippet="">212</a>    <span class="doccomment">/// The block list that contains the block at `path`.
+<a href="#213" id="213" data-nosnippet="">213</a>    </span><span class="kw">pub fn </span>container(<span class="kw-2">&amp;</span><span class="self">self</span>, s: StoryRef, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Blocks&gt; {
+<a href="#214" id="214" data-nosnippet="">214</a>        <span class="kw">let </span><span class="kw-2">mut </span>bl = <span class="self">self</span>.story(s)<span class="question-mark">?</span>;
+<a href="#215" id="215" data-nosnippet="">215</a>        <span class="kw">let </span>parent = path.parent();
+<a href="#216" id="216" data-nosnippet="">216</a>        <span class="kw">if </span>!parent.len().is_multiple_of(<span class="number">3</span>) {
+<a href="#217" id="217" data-nosnippet="">217</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#218" id="218" data-nosnippet="">218</a>        }
+<a href="#219" id="219" data-nosnippet="">219</a>        <span class="kw">crate</span>::doc::work::steps(<span class="number">1</span>);
+<a href="#220" id="220" data-nosnippet="">220</a>        <span class="kw">for </span>ch <span class="kw">in </span>parent.chunks(<span class="number">3</span>) {
+<a href="#221" id="221" data-nosnippet="">221</a>            <span class="kw">crate</span>::doc::work::steps(<span class="number">1</span>);
+<a href="#222" id="222" data-nosnippet="">222</a>            <span class="kw">let </span>[b, r, c] = ch <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">None </span>};
+<a href="#223" id="223" data-nosnippet="">223</a>            <span class="kw">let </span>Block::Table(t) = <span class="kw-2">&amp;**</span>bl.get(<span class="kw-2">*</span>b <span class="kw">as </span>usize)<span class="question-mark">? </span><span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">None </span>};
+<a href="#224" id="224" data-nosnippet="">224</a>            bl = <span class="kw-2">&amp;</span>t.rows.get(<span class="kw-2">*</span>r <span class="kw">as </span>usize)<span class="question-mark">?</span>.cells.get(<span class="kw-2">*</span>c <span class="kw">as </span>usize)<span class="question-mark">?</span>.blocks;
+<a href="#225" id="225" data-nosnippet="">225</a>        }
+<a href="#226" id="226" data-nosnippet="">226</a>        <span class="prelude-val">Some</span>(bl)
+<a href="#227" id="227" data-nosnippet="">227</a>    }
+<a href="#228" id="228" data-nosnippet="">228</a>
+<a href="#229" id="229" data-nosnippet="">229</a>    <span class="kw">pub fn </span>container_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: StoryRef, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;mut </span>Blocks&gt; {
+<a href="#230" id="230" data-nosnippet="">230</a>        <span class="kw">let </span>bad = || DocError::BadPath(path.to_string());
+<a href="#231" id="231" data-nosnippet="">231</a>        <span class="kw">let </span>parent: Vec&lt;u32&gt; = path.parent().to_vec();
+<a href="#232" id="232" data-nosnippet="">232</a>        <span class="kw">if </span>!parent.len().is_multiple_of(<span class="number">3</span>) {
+<a href="#233" id="233" data-nosnippet="">233</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(bad());
+<a href="#234" id="234" data-nosnippet="">234</a>        }
+<a href="#235" id="235" data-nosnippet="">235</a>        <span class="kw">let </span><span class="kw-2">mut </span>bl = <span class="self">self</span>.story_mut(s)<span class="question-mark">?</span>;
+<a href="#236" id="236" data-nosnippet="">236</a>        <span class="kw">for </span>ch <span class="kw">in </span>parent.chunks(<span class="number">3</span>) {
+<a href="#237" id="237" data-nosnippet="">237</a>            <span class="kw">let </span>[b, r, c] = ch <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Err</span>(bad()) };
+<a href="#238" id="238" data-nosnippet="">238</a>            <span class="kw">let </span>blk = bl.get_mut(<span class="kw-2">*</span>b <span class="kw">as </span>usize).ok_or_else(bad)<span class="question-mark">?</span>;
+<a href="#239" id="239" data-nosnippet="">239</a>            <span class="kw">let </span>Block::Table(t) = Arc::make_mut(blk) <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Err</span>(bad()) };
+<a href="#240" id="240" data-nosnippet="">240</a>            bl = <span class="kw-2">&amp;mut </span>t.rows.get_mut(<span class="kw-2">*</span>r <span class="kw">as </span>usize).ok_or_else(bad)<span class="question-mark">?</span>.cells.get_mut(<span class="kw-2">*</span>c <span class="kw">as </span>usize).ok_or_else(bad)<span class="question-mark">?</span>.blocks;
+<a href="#241" id="241" data-nosnippet="">241</a>        }
+<a href="#242" id="242" data-nosnippet="">242</a>        <span class="prelude-val">Ok</span>(bl)
+<a href="#243" id="243" data-nosnippet="">243</a>    }
+<a href="#244" id="244" data-nosnippet="">244</a>
+<a href="#245" id="245" data-nosnippet="">245</a>    <span class="kw">pub fn </span>block(<span class="kw-2">&amp;</span><span class="self">self</span>, s: StoryRef, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Block&gt; {
+<a href="#246" id="246" data-nosnippet="">246</a>        <span class="self">self</span>.container(s, path)<span class="question-mark">?</span>.get(path.last()).map(|b| <span class="kw-2">&amp;**</span>b)
+<a href="#247" id="247" data-nosnippet="">247</a>    }
+<a href="#248" id="248" data-nosnippet="">248</a>
+<a href="#249" id="249" data-nosnippet="">249</a>    <span class="kw">pub fn </span>para(<span class="kw-2">&amp;</span><span class="self">self</span>, s: StoryRef, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Paragraph&gt; {
+<a href="#250" id="250" data-nosnippet="">250</a>        <span class="self">self</span>.block(s, path)<span class="question-mark">?</span>.as_para()
+<a href="#251" id="251" data-nosnippet="">251</a>    }
+<a href="#252" id="252" data-nosnippet="">252</a>    <span class="kw">pub fn </span>para_at(<span class="kw-2">&amp;</span><span class="self">self</span>, p: <span class="kw-2">&amp;</span>Pos) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Paragraph&gt; {
+<a href="#253" id="253" data-nosnippet="">253</a>        <span class="self">self</span>.para(p.story, <span class="kw-2">&amp;</span>p.path)
+<a href="#254" id="254" data-nosnippet="">254</a>    }
+<a href="#255" id="255" data-nosnippet="">255</a>
+<a href="#256" id="256" data-nosnippet="">256</a>    <span class="kw">pub fn </span>para_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: StoryRef, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;mut </span>Paragraph&gt; {
+<a href="#257" id="257" data-nosnippet="">257</a>        <span class="kw">let </span>i = path.last();
+<a href="#258" id="258" data-nosnippet="">258</a>        <span class="kw">let </span>bl = <span class="self">self</span>.container_mut(s, path)<span class="question-mark">?</span>;
+<a href="#259" id="259" data-nosnippet="">259</a>        <span class="kw">match </span>bl.get_mut(i).map(Arc::make_mut) {
+<a href="#260" id="260" data-nosnippet="">260</a>            <span class="prelude-val">Some</span>(Block::Para(p)) =&gt; <span class="prelude-val">Ok</span>(p),
+<a href="#261" id="261" data-nosnippet="">261</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(DocError::BadPath(path.to_string())),
+<a href="#262" id="262" data-nosnippet="">262</a>        }
+<a href="#263" id="263" data-nosnippet="">263</a>    }
+<a href="#264" id="264" data-nosnippet="">264</a>
+<a href="#265" id="265" data-nosnippet="">265</a>    <span class="kw">pub fn </span>table(<span class="kw-2">&amp;</span><span class="self">self</span>, s: StoryRef, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Table&gt; {
+<a href="#266" id="266" data-nosnippet="">266</a>        <span class="self">self</span>.block(s, path)<span class="question-mark">?</span>.as_table()
+<a href="#267" id="267" data-nosnippet="">267</a>    }
+<a href="#268" id="268" data-nosnippet="">268</a>    <span class="kw">pub fn </span>table_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: StoryRef, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw-2">&amp;mut </span>Table&gt; {
+<a href="#269" id="269" data-nosnippet="">269</a>        <span class="kw">let </span>i = path.last();
+<a href="#270" id="270" data-nosnippet="">270</a>        <span class="kw">let </span>bl = <span class="self">self</span>.container_mut(s, path)<span class="question-mark">?</span>;
+<a href="#271" id="271" data-nosnippet="">271</a>        <span class="kw">match </span>bl.get_mut(i).map(Arc::make_mut) {
+<a href="#272" id="272" data-nosnippet="">272</a>            <span class="prelude-val">Some</span>(Block::Table(t)) =&gt; <span class="prelude-val">Ok</span>(t),
+<a href="#273" id="273" data-nosnippet="">273</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(DocError::BadPath(path.to_string())),
+<a href="#274" id="274" data-nosnippet="">274</a>        }
+<a href="#275" id="275" data-nosnippet="">275</a>    }
+<a href="#276" id="276" data-nosnippet="">276</a>
+<a href="#277" id="277" data-nosnippet="">277</a>    <span class="doccomment">/// Paths of every paragraph in a story, in document order (tables descended, depth-limited).
+<a href="#278" id="278" data-nosnippet="">278</a>    </span><span class="kw">pub fn </span>para_paths(<span class="kw-2">&amp;</span><span class="self">self</span>, s: StoryRef) -&gt; Vec&lt;Path&gt; {
+<a href="#279" id="279" data-nosnippet="">279</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
+<a href="#280" id="280" data-nosnippet="">280</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(bl) = <span class="self">self</span>.story(s) {
+<a href="#281" id="281" data-nosnippet="">281</a>            walk(bl, <span class="kw-2">&amp;mut </span>Vec::new(), <span class="kw-2">&amp;mut </span>out, <span class="number">0</span>);
+<a href="#282" id="282" data-nosnippet="">282</a>        }
+<a href="#283" id="283" data-nosnippet="">283</a>        out
+<a href="#284" id="284" data-nosnippet="">284</a>    }
+<a href="#285" id="285" data-nosnippet="">285</a>
+<a href="#286" id="286" data-nosnippet="">286</a>    <span class="doccomment">/// First and last positions of a story.
+<a href="#287" id="287" data-nosnippet="">287</a>    </span><span class="kw">pub fn </span>start_of(<span class="kw-2">&amp;</span><span class="self">self</span>, s: StoryRef) -&gt; Pos {
+<a href="#288" id="288" data-nosnippet="">288</a>        <span class="kw">let </span>path = <span class="self">self</span>.para_paths(s).into_iter().next().unwrap_or_else(|| Path::top(<span class="number">0</span>));
+<a href="#289" id="289" data-nosnippet="">289</a>        Pos { story: s, path, off: <span class="number">0 </span>}
+<a href="#290" id="290" data-nosnippet="">290</a>    }
+<a href="#291" id="291" data-nosnippet="">291</a>    <span class="kw">pub fn </span>end_of(<span class="kw-2">&amp;</span><span class="self">self</span>, s: StoryRef) -&gt; Pos {
+<a href="#292" id="292" data-nosnippet="">292</a>        <span class="kw">let </span>path = <span class="self">self</span>.para_paths(s).pop().unwrap_or_else(|| Path::top(<span class="number">0</span>));
+<a href="#293" id="293" data-nosnippet="">293</a>        <span class="kw">let </span>off = <span class="self">self</span>.para(s, <span class="kw-2">&amp;</span>path).map(|p| p.len()).unwrap_or(<span class="number">0</span>);
+<a href="#294" id="294" data-nosnippet="">294</a>        Pos { story: s, path, off }
+<a href="#295" id="295" data-nosnippet="">295</a>    }
+<a href="#296" id="296" data-nosnippet="">296</a>
+<a href="#297" id="297" data-nosnippet="">297</a>    <span class="doccomment">/// The position just after the shape that owns text box story `part` (body first, then the
+<a href="#298" id="298" data-nosnippet="">298</a>    /// other parts), for leaving the text box.
+<a href="#299" id="299" data-nosnippet="">299</a>    </span><span class="kw">pub fn </span>text_box_anchor(<span class="kw-2">&amp;</span><span class="self">self</span>, part: u32) -&gt; <span class="prelude-ty">Option</span>&lt;Pos&gt; {
+<a href="#300" id="300" data-nosnippet="">300</a>        <span class="kw">let </span>stories = std::iter::once(StoryRef::Body).chain(<span class="self">self</span>.parts.keys().filter(|k| <span class="kw-2">**</span>k != part).map(|k| StoryRef::Part(<span class="kw-2">*</span>k)));
+<a href="#301" id="301" data-nosnippet="">301</a>        <span class="kw">for </span>story <span class="kw">in </span>stories {
+<a href="#302" id="302" data-nosnippet="">302</a>            <span class="kw">for </span>path <span class="kw">in </span><span class="self">self</span>.para_paths(story) {
+<a href="#303" id="303" data-nosnippet="">303</a>                <span class="kw">let </span><span class="prelude-val">Some</span>(p) = <span class="self">self</span>.para(story, <span class="kw-2">&amp;</span>path) <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href="#304" id="304" data-nosnippet="">304</a>                <span class="kw">for </span>(off, o) <span class="kw">in </span>p.objects_with_offsets() {
+<a href="#305" id="305" data-nosnippet="">305</a>                    <span class="kw">if </span>o.text_boxes().contains(<span class="kw-2">&amp;</span>part) {
+<a href="#306" id="306" data-nosnippet="">306</a>                        <span class="kw">return </span><span class="prelude-val">Some</span>(Pos { story, path, off: off + para::OBJ.len_utf8() });
+<a href="#307" id="307" data-nosnippet="">307</a>                    }
+<a href="#308" id="308" data-nosnippet="">308</a>                }
+<a href="#309" id="309" data-nosnippet="">309</a>            }
+<a href="#310" id="310" data-nosnippet="">310</a>        }
+<a href="#311" id="311" data-nosnippet="">311</a>        <span class="prelude-val">None
+<a href="#312" id="312" data-nosnippet="">312</a>    </span>}
+<a href="#313" id="313" data-nosnippet="">313</a>
+<a href="#314" id="314" data-nosnippet="">314</a>    <span class="doccomment">/// The next / previous paragraph path in document order.
+<a href="#315" id="315" data-nosnippet="">315</a>    </span><span class="kw">pub fn </span>next_para(<span class="kw-2">&amp;</span><span class="self">self</span>, s: StoryRef, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Option</span>&lt;Path&gt; {
+<a href="#316" id="316" data-nosnippet="">316</a>        <span class="kw">let </span>all = <span class="self">self</span>.para_paths(s);
+<a href="#317" id="317" data-nosnippet="">317</a>        <span class="kw">let </span>i = all.binary_search(path).ok()<span class="question-mark">?</span>;
+<a href="#318" id="318" data-nosnippet="">318</a>        all.get(i + <span class="number">1</span>).cloned()
+<a href="#319" id="319" data-nosnippet="">319</a>    }
+<a href="#320" id="320" data-nosnippet="">320</a>    <span class="kw">pub fn </span>prev_para(<span class="kw-2">&amp;</span><span class="self">self</span>, s: StoryRef, path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Option</span>&lt;Path&gt; {
+<a href="#321" id="321" data-nosnippet="">321</a>        <span class="kw">let </span>all = <span class="self">self</span>.para_paths(s);
+<a href="#322" id="322" data-nosnippet="">322</a>        <span class="kw">let </span>i = all.binary_search(path).ok()<span class="question-mark">?</span>;
+<a href="#323" id="323" data-nosnippet="">323</a>        i.checked_sub(<span class="number">1</span>).and_then(|j| all.get(j).cloned())
+<a href="#324" id="324" data-nosnippet="">324</a>    }
+<a href="#325" id="325" data-nosnippet="">325</a>
+<a href="#326" id="326" data-nosnippet="">326</a>    <span class="doccomment">/// Clamp a position into the document (valid path, char boundary).
+<a href="#327" id="327" data-nosnippet="">327</a>    </span><span class="kw">pub fn </span>clamp(<span class="kw-2">&amp;</span><span class="self">self</span>, p: <span class="kw-2">&amp;</span>Pos) -&gt; Pos {
+<a href="#328" id="328" data-nosnippet="">328</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(para) = <span class="self">self</span>.para_at(p) {
+<a href="#329" id="329" data-nosnippet="">329</a>            <span class="kw">return </span>Pos { story: p.story, path: p.path.clone(), off: para.clamp(p.off) };
+<a href="#330" id="330" data-nosnippet="">330</a>        }
+<a href="#331" id="331" data-nosnippet="">331</a>        <span class="kw">let </span>story = <span class="kw">if </span><span class="self">self</span>.story(p.story).is_some() { p.story } <span class="kw">else </span>{ StoryRef::Body };
+<a href="#332" id="332" data-nosnippet="">332</a>        <span class="kw">let </span>all = <span class="self">self</span>.para_paths(story);
+<a href="#333" id="333" data-nosnippet="">333</a>        <span class="kw">let </span>path = all.iter().rev().find(|q| <span class="kw-2">**</span>q &lt;= p.path).or(all.first()).cloned().unwrap_or_else(|| Path::top(<span class="number">0</span>));
+<a href="#334" id="334" data-nosnippet="">334</a>        <span class="kw">let </span>off = <span class="self">self</span>.para(story, <span class="kw-2">&amp;</span>path).map(|q| q.clamp(p.off)).unwrap_or(<span class="number">0</span>);
+<a href="#335" id="335" data-nosnippet="">335</a>        Pos { story, path, off }
+<a href="#336" id="336" data-nosnippet="">336</a>    }
+<a href="#337" id="337" data-nosnippet="">337</a>
+<a href="#338" id="338" data-nosnippet="">338</a>    <span class="doccomment">/// The whole text of a story, paragraphs separated by `\n` (tables: cells by `\t`).
+<a href="#339" id="339" data-nosnippet="">339</a>    </span><span class="kw">pub fn </span>plain_text(<span class="kw-2">&amp;</span><span class="self">self</span>, s: StoryRef) -&gt; String {
+<a href="#340" id="340" data-nosnippet="">340</a>        <span class="self">self</span>.story_text(s, TextMode::Plain)
+<a href="#341" id="341" data-nosnippet="">341</a>    }
+<a href="#342" id="342" data-nosnippet="">342</a>
+<a href="#343" id="343" data-nosnippet="">343</a>    <span class="doccomment">/// [`Self::plain_text`] as it reads on screen: symbol-font characters (Wingdings…) as their
+<a href="#344" id="344" data-nosnippet="">344</a>    /// Unicode equivalents ([`Paragraph::shown_text`]).
+<a href="#345" id="345" data-nosnippet="">345</a>    </span><span class="kw">pub fn </span>shown_text(<span class="kw-2">&amp;</span><span class="self">self</span>, s: StoryRef) -&gt; String {
+<a href="#346" id="346" data-nosnippet="">346</a>        <span class="self">self</span>.story_text(s, TextMode::Shown)
+<a href="#347" id="347" data-nosnippet="">347</a>    }
+<a href="#348" id="348" data-nosnippet="">348</a>
+<a href="#349" id="349" data-nosnippet="">349</a>    <span class="doccomment">/// [`Self::plain_text`] without tracked-deleted runs. A deleted paragraph mark still yields `\n`.
+<a href="#350" id="350" data-nosnippet="">350</a>    </span><span class="kw">pub fn </span>final_text(<span class="kw-2">&amp;</span><span class="self">self</span>, s: StoryRef) -&gt; String {
+<a href="#351" id="351" data-nosnippet="">351</a>        <span class="self">self</span>.story_text(s, TextMode::Final)
+<a href="#352" id="352" data-nosnippet="">352</a>    }
+<a href="#353" id="353" data-nosnippet="">353</a>
+<a href="#354" id="354" data-nosnippet="">354</a>    <span class="kw">fn </span>story_text(<span class="kw-2">&amp;</span><span class="self">self</span>, s: StoryRef, mode: TextMode) -&gt; String {
+<a href="#355" id="355" data-nosnippet="">355</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = String::new();
+<a href="#356" id="356" data-nosnippet="">356</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(bl) = <span class="self">self</span>.story(s) {
+<a href="#357" id="357" data-nosnippet="">357</a>            text_of(bl, <span class="kw-2">&amp;mut </span>out, <span class="number">0</span>, mode);
+<a href="#358" id="358" data-nosnippet="">358</a>        }
+<a href="#359" id="359" data-nosnippet="">359</a>        <span class="kw">if </span>out.ends_with(<span class="string">'\n'</span>) {
+<a href="#360" id="360" data-nosnippet="">360</a>            out.pop();
+<a href="#361" id="361" data-nosnippet="">361</a>        }
+<a href="#362" id="362" data-nosnippet="">362</a>        out
+<a href="#363" id="363" data-nosnippet="">363</a>    }
+<a href="#364" id="364" data-nosnippet="">364</a>
+<a href="#365" id="365" data-nosnippet="">365</a>    <span class="doccomment">/// Section properties in effect for each top-level body block (index → section number), and
+<a href="#366" id="366" data-nosnippet="">366</a>    /// the list of sections.
+<a href="#367" id="367" data-nosnippet="">367</a>    </span><span class="kw">pub fn </span>sections(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(usize, <span class="kw-2">&amp;</span>SectionProps)&gt; {
+<a href="#368" id="368" data-nosnippet="">368</a>        <span class="kw">let </span><span class="kw-2">mut </span>v = Vec::new();
+<a href="#369" id="369" data-nosnippet="">369</a>        <span class="kw">for </span>(i, b) <span class="kw">in </span><span class="self">self</span>.body.iter().enumerate() {
+<a href="#370" id="370" data-nosnippet="">370</a>            <span class="kw">if let </span>Block::Para(p) = <span class="kw-2">&amp;**</span>b
+<a href="#371" id="371" data-nosnippet="">371</a>                &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(s) = <span class="kw-2">&amp;</span>p.section
+<a href="#372" id="372" data-nosnippet="">372</a>            {
+<a href="#373" id="373" data-nosnippet="">373</a>                v.push((i, <span class="kw-2">&amp;**</span>s));
+<a href="#374" id="374" data-nosnippet="">374</a>            }
+<a href="#375" id="375" data-nosnippet="">375</a>        }
+<a href="#376" id="376" data-nosnippet="">376</a>        v.push((<span class="self">self</span>.body.len().saturating_sub(<span class="number">1</span>), <span class="kw-2">&amp;</span><span class="self">self</span>.last_section));
+<a href="#377" id="377" data-nosnippet="">377</a>        v
+<a href="#378" id="378" data-nosnippet="">378</a>    }
+<a href="#379" id="379" data-nosnippet="">379</a>
+<a href="#380" id="380" data-nosnippet="">380</a>    <span class="doccomment">/// The footnote (`endnote` false) or endnote options in effect in section `sect`: its own,
+<a href="#381" id="381" data-nosnippet="">381</a>    /// else the document's, else Word's defaults (footnotes at the page bottom in 1, 2, 3;
+<a href="#382" id="382" data-nosnippet="">382</a>    /// endnotes at the end of the document in i, ii, iii; numbered on through the document).
+<a href="#383" id="383" data-nosnippet="">383</a>    /// Placements that don't apply to the kind fall back to its default.
+<a href="#384" id="384" data-nosnippet="">384</a>    </span><span class="kw">pub fn </span>note_options(<span class="kw-2">&amp;</span><span class="self">self</span>, sect: <span class="kw-2">&amp;</span>SectionProps, endnote: bool) -&gt; section::NoteOptions {
+<a href="#385" id="385" data-nosnippet="">385</a>        <span class="kw">use </span>section::NotePos;
+<a href="#386" id="386" data-nosnippet="">386</a>        <span class="kw">let </span>(own, doc, fmt) = <span class="kw">if </span>endnote {
+<a href="#387" id="387" data-nosnippet="">387</a>            (<span class="kw-2">&amp;</span>sect.endnote_pr, <span class="kw-2">&amp;</span><span class="self">self</span>.settings.endnote_pr, <span class="self">self</span>.settings.endnote_format)
+<a href="#388" id="388" data-nosnippet="">388</a>        } <span class="kw">else </span>{
+<a href="#389" id="389" data-nosnippet="">389</a>            (<span class="kw-2">&amp;</span>sect.footnote_pr, <span class="kw-2">&amp;</span><span class="self">self</span>.settings.footnote_pr, <span class="self">self</span>.settings.footnote_format)
+<a href="#390" id="390" data-nosnippet="">390</a>        };
+<a href="#391" id="391" data-nosnippet="">391</a>        <span class="kw">let </span>pos = own.pos.or(doc.pos);
+<a href="#392" id="392" data-nosnippet="">392</a>        <span class="kw">let </span>pos = <span class="kw">if </span>endnote {
+<a href="#393" id="393" data-nosnippet="">393</a>            pos.filter(|p| <span class="macro">matches!</span>(p, NotePos::SectEnd | NotePos::DocEnd)).unwrap_or(NotePos::DocEnd)
+<a href="#394" id="394" data-nosnippet="">394</a>        } <span class="kw">else </span>{
+<a href="#395" id="395" data-nosnippet="">395</a>            pos.filter(|p| <span class="macro">matches!</span>(p, NotePos::PageBottom | NotePos::BeneathText)).unwrap_or(NotePos::PageBottom)
+<a href="#396" id="396" data-nosnippet="">396</a>        };
+<a href="#397" id="397" data-nosnippet="">397</a>        section::NoteOptions {
+<a href="#398" id="398" data-nosnippet="">398</a>            pos,
+<a href="#399" id="399" data-nosnippet="">399</a>            num_fmt: own.num_fmt.unwrap_or(fmt),
+<a href="#400" id="400" data-nosnippet="">400</a>            num_start: own.num_start.or(doc.num_start).unwrap_or(<span class="number">1</span>).clamp(<span class="number">1</span>, section::MAX_NOTE_START),
+<a href="#401" id="401" data-nosnippet="">401</a>            num_restart: own.num_restart.or(doc.num_restart).unwrap_or_default(),
+<a href="#402" id="402" data-nosnippet="">402</a>        }
+<a href="#403" id="403" data-nosnippet="">403</a>    }
+<a href="#404" id="404" data-nosnippet="">404</a>
+<a href="#405" id="405" data-nosnippet="">405</a>    <span class="doccomment">/// The section that contains top-level body block `block` (index into `sections()`).
+<a href="#406" id="406" data-nosnippet="">406</a>    </span><span class="kw">pub fn </span>section_index_of(<span class="kw-2">&amp;</span><span class="self">self</span>, block: usize) -&gt; usize {
+<a href="#407" id="407" data-nosnippet="">407</a>        <span class="self">self</span>.sections().iter().position(|(end, <span class="kw">_</span>)| block &lt;= <span class="kw-2">*</span>end).unwrap_or(<span class="number">0</span>)
+<a href="#408" id="408" data-nosnippet="">408</a>    }
+<a href="#409" id="409" data-nosnippet="">409</a>
+<a href="#410" id="410" data-nosnippet="">410</a>    <span class="doccomment">/// Mutable section properties for the section containing body block `block`.
+<a href="#411" id="411" data-nosnippet="">411</a>    </span><span class="kw">pub fn </span>section_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: usize) -&gt; <span class="kw-2">&amp;mut </span>SectionProps {
+<a href="#412" id="412" data-nosnippet="">412</a>        <span class="kw">let </span>ends: Vec&lt;usize&gt; = <span class="self">self</span>.sections().iter().map(|(e, <span class="kw">_</span>)| <span class="kw-2">*</span>e).collect();
+<a href="#413" id="413" data-nosnippet="">413</a>        <span class="kw">let </span>idx = ends.iter().position(|e| block &lt;= <span class="kw-2">*</span>e).unwrap_or(ends.len().saturating_sub(<span class="number">1</span>));
+<a href="#414" id="414" data-nosnippet="">414</a>        <span class="kw">if </span>idx + <span class="number">1 </span>&lt; ends.len()
+<a href="#415" id="415" data-nosnippet="">415</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(e) = ends.get(idx)
+<a href="#416" id="416" data-nosnippet="">416</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(Block::Para(p)) = <span class="self">self</span>.body.get_mut(<span class="kw-2">*</span>e).map(Arc::make_mut)
+<a href="#417" id="417" data-nosnippet="">417</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(s) = p.section.as_mut()
+<a href="#418" id="418" data-nosnippet="">418</a>        {
+<a href="#419" id="419" data-nosnippet="">419</a>            <span class="kw">return </span>s;
+<a href="#420" id="420" data-nosnippet="">420</a>        }
+<a href="#421" id="421" data-nosnippet="">421</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>.last_section
+<a href="#422" id="422" data-nosnippet="">422</a>    }
+<a href="#423" id="423" data-nosnippet="">423</a>
+<a href="#424" id="424" data-nosnippet="">424</a>    <span class="doccomment">/// Remove the section break on the mark of top-level body paragraph `block`: its section
+<a href="#425" id="425" data-nosnippet="">425</a>    /// joins the following one ([`SectionProps::absorb`]). False when there is no break there.
+<a href="#426" id="426" data-nosnippet="">426</a>    </span><span class="kw">pub fn </span>remove_section_break(<span class="kw-2">&amp;mut </span><span class="self">self</span>, block: usize) -&gt; bool {
+<a href="#427" id="427" data-nosnippet="">427</a>        <span class="kw">if </span>!<span class="macro">matches!</span>(<span class="self">self</span>.body.get(block).map(|b| <span class="kw-2">&amp;**</span>b), <span class="prelude-val">Some</span>(Block::Para(p)) <span class="kw">if </span>p.section.is_some()) {
+<a href="#428" id="428" data-nosnippet="">428</a>            <span class="kw">return </span><span class="bool-val">false</span>;
+<a href="#429" id="429" data-nosnippet="">429</a>        }
+<a href="#430" id="430" data-nosnippet="">430</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(Block::Para(p)) = <span class="self">self</span>.body.get_mut(block).map(Arc::make_mut) <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
+<a href="#431" id="431" data-nosnippet="">431</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(before) = p.section.take() <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
+<a href="#432" id="432" data-nosnippet="">432</a>        <span class="self">self</span>.section_mut(block).absorb(<span class="kw-2">&amp;</span>before);
+<a href="#433" id="433" data-nosnippet="">433</a>        <span class="bool-val">true
+<a href="#434" id="434" data-nosnippet="">434</a>    </span>}
+<a href="#435" id="435" data-nosnippet="">435</a>
+<a href="#436" id="436" data-nosnippet="">436</a>    <span class="doccomment">/// Allocate a new part id and insert the part. Part ids run out only past `u32::MAX` parts, more
+<a href="#437" id="437" data-nosnippet="">437</a>    /// than memory holds; then nothing is added and the id is 0, which [`free_id`] never gives a part.
+<a href="#438" id="438" data-nosnippet="">438</a>    </span><span class="kw">pub fn </span>add_part(<span class="kw-2">&amp;mut </span><span class="self">self</span>, kind: PartKind, blocks: Blocks) -&gt; u32 {
+<a href="#439" id="439" data-nosnippet="">439</a>        <span class="self">self</span>.try_add_part(kind, blocks).unwrap_or(<span class="number">0</span>)
+<a href="#440" id="440" data-nosnippet="">440</a>    }
+<a href="#441" id="441" data-nosnippet="">441</a>
+<a href="#442" id="442" data-nosnippet="">442</a>    <span class="doccomment">/// [`Document::add_part`], or an error, adding nothing, when every part id is taken.
+<a href="#443" id="443" data-nosnippet="">443</a>    </span><span class="kw">pub fn </span>try_add_part(<span class="kw-2">&amp;mut </span><span class="self">self</span>, kind: PartKind, blocks: Blocks) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
+<a href="#444" id="444" data-nosnippet="">444</a>        <span class="kw">let </span>id = free_id(<span class="self">self</span>.parts.keys().next_back().copied(), <span class="self">self</span>.parts.keys().copied(), <span class="number">1</span>)
+<a href="#445" id="445" data-nosnippet="">445</a>            .ok_or_else(|| DocError::Invalid(<span class="string">"no free part id"</span>.into()))<span class="question-mark">?</span>;
+<a href="#446" id="446" data-nosnippet="">446</a>        <span class="kw">let </span><span class="kw-2">mut </span>part = Part { kind, blocks, body: TextBody::default() };
+<a href="#447" id="447" data-nosnippet="">447</a>        <span class="kw">if </span>part.blocks.is_empty() {
+<a href="#448" id="448" data-nosnippet="">448</a>            part.blocks.push(para_block(Paragraph::new()));
+<a href="#449" id="449" data-nosnippet="">449</a>        }
+<a href="#450" id="450" data-nosnippet="">450</a>        <span class="self">self</span>.parts.insert(id, part);
+<a href="#451" id="451" data-nosnippet="">451</a>        <span class="prelude-val">Ok</span>(id)
+<a href="#452" id="452" data-nosnippet="">452</a>    }
+<a href="#453" id="453" data-nosnippet="">453</a>
+<a href="#454" id="454" data-nosnippet="">454</a>    <span class="doccomment">/// Count words like Word's status bar ([`crate::doc::count_words`], plus generated numbered-list labels).
+<a href="#455" id="455" data-nosnippet="">455</a>    </span><span class="kw">pub fn </span>word_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+<a href="#456" id="456" data-nosnippet="">456</a>        <span class="self">self</span>.story_word_count(StoryRef::Body)
+<a href="#457" id="457" data-nosnippet="">457</a>    }
+<a href="#458" id="458" data-nosnippet="">458</a>
+<a href="#459" id="459" data-nosnippet="">459</a>    <span class="doccomment">/// Word's default count: the body plus its text boxes, footnotes and endnotes.
+<a href="#460" id="460" data-nosnippet="">460</a>    </span><span class="kw">pub fn </span>word_count_including_notes(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+<a href="#461" id="461" data-nosnippet="">461</a>        <span class="self">self</span>.counted_stories().iter().map(|s| <span class="self">self</span>.story_word_count(<span class="kw-2">*</span>s)).sum()
+<a href="#462" id="462" data-nosnippet="">462</a>    }
+<a href="#463" id="463" data-nosnippet="">463</a>
+<a href="#464" id="464" data-nosnippet="">464</a>    <span class="doccomment">/// Word count of one story, including generated numbered-list labels.
+<a href="#465" id="465" data-nosnippet="">465</a>    </span><span class="kw">pub fn </span>story_word_count(<span class="kw-2">&amp;</span><span class="self">self</span>, s: StoryRef) -&gt; usize {
+<a href="#466" id="466" data-nosnippet="">466</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(bl) = <span class="self">self</span>.story(s) <span class="kw">else </span>{ <span class="kw">return </span><span class="number">0 </span>};
+<a href="#467" id="467" data-nosnippet="">467</a>        <span class="kw">let </span><span class="kw-2">mut </span>counters = numbering::Counters::default();
+<a href="#468" id="468" data-nosnippet="">468</a>        story_word_count_of(bl, <span class="kw-2">&amp;</span><span class="self">self</span>.numbering, <span class="kw-2">&amp;</span><span class="self">self</span>.styles, <span class="kw-2">&amp;mut </span>counters, <span class="number">0</span>)
+<a href="#469" id="469" data-nosnippet="">469</a>    }
+<a href="#470" id="470" data-nosnippet="">470</a>
+<a href="#471" id="471" data-nosnippet="">471</a>    <span class="doccomment">/// The body, then the text boxes, footnotes and endnotes it shows (nested ones too), in
+<a href="#472" id="472" data-nosnippet="">472</a>    /// document order. Headers, footers, comments and stories nothing points at aren't included.
+<a href="#473" id="473" data-nosnippet="">473</a>    </span><span class="kw">pub fn </span>counted_stories(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;StoryRef&gt; {
+<a href="#474" id="474" data-nosnippet="">474</a>        <span class="self">self</span>.reachable(<span class="macro">vec!</span>[StoryRef::Body], <span class="kw-2">&amp;</span>notes_and_boxes)
+<a href="#475" id="475" data-nosnippet="">475</a>    }
+<a href="#476" id="476" data-nosnippet="">476</a>
+<a href="#477" id="477" data-nosnippet="">477</a>    <span class="doccomment">/// The stories a reader sees, in reading order: the body, then the headers and footers in
+<a href="#478" id="478" data-nosnippet="">478</a>    /// use, each followed by the notes and text boxes it shows. Hidden stories (a removed header,
+<a href="#479" id="479" data-nosnippet="">479</a>    /// a first-page or even-page header whose option is off, a linked text box's own text) and
+<a href="#480" id="480" data-nosnippet="">480</a>    /// comment text aren't included.
+<a href="#481" id="481" data-nosnippet="">481</a>    </span><span class="kw">pub fn </span>shown_stories(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;StoryRef&gt; {
+<a href="#482" id="482" data-nosnippet="">482</a>        <span class="kw">let </span>followers: std::collections::BTreeSet&lt;u32&gt; = <span class="self">self</span>.text_box_chains().into_iter().flat_map(|c| c.into_iter().skip(<span class="number">1</span>)).collect();
+<a href="#483" id="483" data-nosnippet="">483</a>        <span class="kw">let </span>follow = |o: <span class="kw-2">&amp;</span>InlineObject| {
+<a href="#484" id="484" data-nosnippet="">484</a>            <span class="kw">let </span><span class="kw-2">mut </span>v = notes_and_boxes(o);
+<a href="#485" id="485" data-nosnippet="">485</a>            v.retain(|(id, <span class="kw">_</span>)| !followers.contains(id));
+<a href="#486" id="486" data-nosnippet="">486</a>            v
+<a href="#487" id="487" data-nosnippet="">487</a>        };
+<a href="#488" id="488" data-nosnippet="">488</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = <span class="self">self</span>.reachable(<span class="macro">vec!</span>[StoryRef::Body], <span class="kw-2">&amp;</span>follow);
+<a href="#489" id="489" data-nosnippet="">489</a>        <span class="kw">let </span><span class="kw-2">mut </span>seen: std::collections::BTreeSet&lt;StoryRef&gt; = out.iter().copied().collect();
+<a href="#490" id="490" data-nosnippet="">490</a>        <span class="kw">let </span><span class="kw-2">mut </span>roots = Vec::new();
+<a href="#491" id="491" data-nosnippet="">491</a>        <span class="kw">let </span><span class="kw-2">mut </span>root_seen = std::collections::BTreeSet::new();
+<a href="#492" id="492" data-nosnippet="">492</a>        <span class="kw">let </span>(<span class="kw-2">mut </span>headers, <span class="kw-2">mut </span>footers) = (section::HeaderSet::default(), section::HeaderSet::default());
+<a href="#493" id="493" data-nosnippet="">493</a>        <span class="kw">for </span>(<span class="kw">_</span>, sec) <span class="kw">in </span><span class="self">self</span>.sections() {
+<a href="#494" id="494" data-nosnippet="">494</a>            <span class="comment">// Unset versions are inherited from the previous section.
+<a href="#495" id="495" data-nosnippet="">495</a>            </span><span class="kw">for </span>(set, own) <span class="kw">in </span>[(<span class="kw-2">&amp;mut </span>headers, <span class="kw-2">&amp;</span>sec.headers), (<span class="kw-2">&amp;mut </span>footers, <span class="kw-2">&amp;</span>sec.footers)] {
+<a href="#496" id="496" data-nosnippet="">496</a>                set.default = own.default.or(set.default);
+<a href="#497" id="497" data-nosnippet="">497</a>                set.first = own.first.or(set.first);
+<a href="#498" id="498" data-nosnippet="">498</a>                set.even = own.even.or(set.even);
+<a href="#499" id="499" data-nosnippet="">499</a>                <span class="kw">let </span>first = set.first.filter(|<span class="kw">_</span>| sec.title_page);
+<a href="#500" id="500" data-nosnippet="">500</a>                <span class="kw">let </span>even = set.even.filter(|<span class="kw">_</span>| <span class="self">self</span>.settings.even_odd_headers);
+<a href="#501" id="501" data-nosnippet="">501</a>                <span class="comment">// By the first page each one shows on: page 1, then page 2 (even), then page 3.
+<a href="#502" id="502" data-nosnippet="">502</a>                </span><span class="kw">let </span>order = <span class="kw">if </span>sec.title_page { [first, even, set.default] } <span class="kw">else </span>{ [set.default, even, <span class="prelude-val">None</span>] };
+<a href="#503" id="503" data-nosnippet="">503</a>                <span class="kw">for </span>id <span class="kw">in </span>order.into_iter().flatten() {
+<a href="#504" id="504" data-nosnippet="">504</a>                    <span class="kw">if </span><span class="self">self</span>.parts.get(<span class="kw-2">&amp;</span>id).is_some_and(|p| <span class="macro">matches!</span>(p.kind, PartKind::Header | PartKind::Footer)) &amp;&amp; root_seen.insert(id) {
+<a href="#505" id="505" data-nosnippet="">505</a>                        roots.push(StoryRef::Part(id));
+<a href="#506" id="506" data-nosnippet="">506</a>                    }
+<a href="#507" id="507" data-nosnippet="">507</a>                }
+<a href="#508" id="508" data-nosnippet="">508</a>            }
+<a href="#509" id="509" data-nosnippet="">509</a>        }
+<a href="#510" id="510" data-nosnippet="">510</a>        <span class="kw">for </span>st <span class="kw">in </span><span class="self">self</span>.reachable(roots, <span class="kw-2">&amp;</span>follow) {
+<a href="#511" id="511" data-nosnippet="">511</a>            <span class="kw">if </span>seen.insert(st) {
+<a href="#512" id="512" data-nosnippet="">512</a>                out.push(st);
+<a href="#513" id="513" data-nosnippet="">513</a>            }
+<a href="#514" id="514" data-nosnippet="">514</a>        }
+<a href="#515" id="515" data-nosnippet="">515</a>        out
+<a href="#516" id="516" data-nosnippet="">516</a>    }
+<a href="#517" id="517" data-nosnippet="">517</a>
+<a href="#518" id="518" data-nosnippet="">518</a>    <span class="doccomment">/// Drop the text box stories no box shows any more (a deleted or cut box's text), nested
+<a href="#519" id="519" data-nosnippet="">519</a>    /// ones too. Undo snapshots and the clipboard keep their own copies. Free for a document
+<a href="#520" id="520" data-nosnippet="">520</a>    /// without text boxes; otherwise one pass over its paragraphs. Returns how many went.
+<a href="#521" id="521" data-nosnippet="">521</a>    </span><span class="kw">pub fn </span>prune_text_boxes(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; usize {
+<a href="#522" id="522" data-nosnippet="">522</a>        <span class="kw">if </span>!<span class="self">self</span>.parts.values().any(|p| p.kind == PartKind::TextBox) {
+<a href="#523" id="523" data-nosnippet="">523</a>            <span class="kw">return </span><span class="number">0</span>;
+<a href="#524" id="524" data-nosnippet="">524</a>        }
+<a href="#525" id="525" data-nosnippet="">525</a>        <span class="kw">let </span>roots = std::iter::once(StoryRef::Body)
+<a href="#526" id="526" data-nosnippet="">526</a>            .chain(<span class="self">self</span>.parts.iter().filter(|(<span class="kw">_</span>, p)| p.kind != PartKind::TextBox).map(|(id, <span class="kw">_</span>)| StoryRef::Part(<span class="kw-2">*</span>id)))
+<a href="#527" id="527" data-nosnippet="">527</a>            .collect();
+<a href="#528" id="528" data-nosnippet="">528</a>        <span class="kw">let </span>live = <span class="self">self</span>.reachable(roots, <span class="kw-2">&amp;</span>|o| o.text_boxes().into_iter().map(|id| (id, <span class="kw-2">&amp;</span>[PartKind::TextBox][..])).collect());
+<a href="#529" id="529" data-nosnippet="">529</a>        <span class="kw">let </span>before = <span class="self">self</span>.parts.len();
+<a href="#530" id="530" data-nosnippet="">530</a>        <span class="self">self</span>.parts.retain(|id, p| p.kind != PartKind::TextBox || live.contains(<span class="kw-2">&amp;</span>StoryRef::Part(<span class="kw-2">*</span>id)));
+<a href="#531" id="531" data-nosnippet="">531</a>        <span class="kw">let </span>gone = before - <span class="self">self</span>.parts.len();
+<a href="#532" id="532" data-nosnippet="">532</a>        <span class="kw">if </span>gone &gt; <span class="number">0 </span>{
+<a href="#533" id="533" data-nosnippet="">533</a>            <span class="comment">// A link to a box that went ends the chain there (its id may be reused).
+<a href="#534" id="534" data-nosnippet="">534</a>            </span><span class="kw">let </span>ids: std::collections::BTreeSet&lt;u32&gt; = <span class="self">self</span>.parts.keys().copied().collect();
+<a href="#535" id="535" data-nosnippet="">535</a>            <span class="kw">for </span>p <span class="kw">in </span><span class="self">self</span>.parts.values_mut() {
+<a href="#536" id="536" data-nosnippet="">536</a>                <span class="kw">if </span>p.body.next.is_some_and(|n| !ids.contains(<span class="kw-2">&amp;</span>n)) {
+<a href="#537" id="537" data-nosnippet="">537</a>                    p.body.next = <span class="prelude-val">None</span>;
+<a href="#538" id="538" data-nosnippet="">538</a>                }
+<a href="#539" id="539" data-nosnippet="">539</a>            }
+<a href="#540" id="540" data-nosnippet="">540</a>        }
+<a href="#541" id="541" data-nosnippet="">541</a>        gone
+<a href="#542" id="542" data-nosnippet="">542</a>    }
+<a href="#543" id="543" data-nosnippet="">543</a>
+<a href="#544" id="544" data-nosnippet="">544</a>    <span class="doccomment">/// The chains of linked text boxes (Create Link), each in order from the box holding the
+<a href="#545" id="545" data-nosnippet="">545</a>    /// text: every chain has two or more boxes. A link to a part that isn't a text box, a box
+<a href="#546" id="546" data-nosnippet="">546</a>    /// already linked from another, or links running in a circle are ignored (those boxes show
+<a href="#547" id="547" data-nosnippet="">547</a>    /// their own text); a chain stops after [`MAX_LINKED_BOXES`].
+<a href="#548" id="548" data-nosnippet="">548</a>    </span><span class="kw">pub fn </span>text_box_chains(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;Vec&lt;u32&gt;&gt; {
+<a href="#549" id="549" data-nosnippet="">549</a>        <span class="kw">let </span>is_box = |id: u32| <span class="self">self</span>.parts.get(<span class="kw-2">&amp;</span>id).is_some_and(|p| p.kind == PartKind::TextBox);
+<a href="#550" id="550" data-nosnippet="">550</a>        <span class="comment">// Who links to whom: the first box (by id) to link to a box wins.
+<a href="#551" id="551" data-nosnippet="">551</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>prev: BTreeMap&lt;u32, u32&gt; = BTreeMap::new();
+<a href="#552" id="552" data-nosnippet="">552</a>        <span class="kw">for </span>(id, p) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.parts {
+<a href="#553" id="553" data-nosnippet="">553</a>            <span class="kw">if </span>p.kind != PartKind::TextBox {
+<a href="#554" id="554" data-nosnippet="">554</a>                <span class="kw">continue</span>;
+<a href="#555" id="555" data-nosnippet="">555</a>            }
+<a href="#556" id="556" data-nosnippet="">556</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(n) = p.body.next.filter(|n| <span class="kw-2">*</span>n != <span class="kw-2">*</span>id &amp;&amp; is_box(<span class="kw-2">*</span>n)) {
+<a href="#557" id="557" data-nosnippet="">557</a>                prev.entry(n).or_insert(<span class="kw-2">*</span>id);
+<a href="#558" id="558" data-nosnippet="">558</a>            }
+<a href="#559" id="559" data-nosnippet="">559</a>        }
+<a href="#560" id="560" data-nosnippet="">560</a>        <span class="kw">let </span>next = |id: u32| <span class="self">self</span>.parts.get(<span class="kw-2">&amp;</span>id).and_then(|p| p.body.next).filter(|n| prev.get(n) == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>id));
+<a href="#561" id="561" data-nosnippet="">561</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
+<a href="#562" id="562" data-nosnippet="">562</a>        <span class="kw">for </span>(id, p) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.parts {
+<a href="#563" id="563" data-nosnippet="">563</a>            <span class="kw">if </span>p.kind != PartKind::TextBox || prev.contains_key(id) || next(<span class="kw-2">*</span>id).is_none() {
+<a href="#564" id="564" data-nosnippet="">564</a>                <span class="kw">continue</span>;
+<a href="#565" id="565" data-nosnippet="">565</a>            }
+<a href="#566" id="566" data-nosnippet="">566</a>            <span class="kw">let </span><span class="kw-2">mut </span>chain = <span class="macro">vec!</span>[<span class="kw-2">*</span>id];
+<a href="#567" id="567" data-nosnippet="">567</a>            <span class="kw">let </span><span class="kw-2">mut </span>at = <span class="kw-2">*</span>id;
+<a href="#568" id="568" data-nosnippet="">568</a>            <span class="kw">while let </span><span class="prelude-val">Some</span>(n) = next(at) {
+<a href="#569" id="569" data-nosnippet="">569</a>                <span class="kw">if </span>chain.len() &gt;= MAX_LINKED_BOXES || chain.contains(<span class="kw-2">&amp;</span>n) {
+<a href="#570" id="570" data-nosnippet="">570</a>                    <span class="kw">break</span>;
+<a href="#571" id="571" data-nosnippet="">571</a>                }
+<a href="#572" id="572" data-nosnippet="">572</a>                chain.push(n);
+<a href="#573" id="573" data-nosnippet="">573</a>                at = n;
+<a href="#574" id="574" data-nosnippet="">574</a>            }
+<a href="#575" id="575" data-nosnippet="">575</a>            out.push(chain);
+<a href="#576" id="576" data-nosnippet="">576</a>        }
+<a href="#577" id="577" data-nosnippet="">577</a>        out
+<a href="#578" id="578" data-nosnippet="">578</a>    }
+<a href="#579" id="579" data-nosnippet="">579</a>
+<a href="#580" id="580" data-nosnippet="">580</a>    <span class="doccomment">/// The chain (see [`Document::text_box_chains`]) text box `part` belongs to, if linked.
+<a href="#581" id="581" data-nosnippet="">581</a>    </span><span class="kw">pub fn </span>text_box_chain(<span class="kw-2">&amp;</span><span class="self">self</span>, part: u32) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;u32&gt;&gt; {
+<a href="#582" id="582" data-nosnippet="">582</a>        <span class="self">self</span>.text_box_chains().into_iter().find(|c| c.contains(<span class="kw-2">&amp;</span>part))
+<a href="#583" id="583" data-nosnippet="">583</a>    }
+<a href="#584" id="584" data-nosnippet="">584</a>
+<a href="#585" id="585" data-nosnippet="">585</a>    <span class="doccomment">/// The size (width, height) of the shapes showing text boxes `ids`, in any story (a group
+<a href="#586" id="586" data-nosnippet="">586</a>    /// member's as the group stretches it).
+<a href="#587" id="587" data-nosnippet="">587</a>    </span><span class="kw">pub fn </span>text_box_sizes(<span class="kw-2">&amp;</span><span class="self">self</span>, ids: <span class="kw-2">&amp;</span>std::collections::BTreeSet&lt;u32&gt;) -&gt; BTreeMap&lt;u32, (f32, f32)&gt; {
+<a href="#588" id="588" data-nosnippet="">588</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = BTreeMap::new();
+<a href="#589" id="589" data-nosnippet="">589</a>        <span class="kw">let </span>stories = std::iter::once(<span class="kw-2">&amp;</span><span class="self">self</span>.body).chain(<span class="self">self</span>.parts.values().map(|p| <span class="kw-2">&amp;</span>p.blocks));
+<a href="#590" id="590" data-nosnippet="">590</a>        <span class="kw">for </span>blocks <span class="kw">in </span>stories {
+<a href="#591" id="591" data-nosnippet="">591</a>            <span class="kw">for </span>b <span class="kw">in </span>blocks {
+<a href="#592" id="592" data-nosnippet="">592</a>                edit::each_para(b, <span class="number">0</span>, <span class="kw-2">&amp;mut </span>|p| {
+<a href="#593" id="593" data-nosnippet="">593</a>                    <span class="kw">for </span>o <span class="kw">in </span><span class="kw-2">&amp;</span>p.objects {
+<a href="#594" id="594" data-nosnippet="">594</a>                        <span class="kw">match </span>o {
+<a href="#595" id="595" data-nosnippet="">595</a>                            InlineObject::Shape { story: <span class="prelude-val">Some</span>(id), w, h, .. } <span class="kw">if </span>ids.contains(id) =&gt; {
+<a href="#596" id="596" data-nosnippet="">596</a>                                out.entry(<span class="kw-2">*</span>id).or_insert((<span class="kw-2">*</span>w, <span class="kw-2">*</span>h));
+<a href="#597" id="597" data-nosnippet="">597</a>                            }
+<a href="#598" id="598" data-nosnippet="">598</a>                            InlineObject::Group { w, h, .. } =&gt; {
+<a href="#599" id="599" data-nosnippet="">599</a>                                <span class="kw">for </span>(r, c) <span class="kw">in </span>o.group_rects(<span class="number">0.0</span>, <span class="number">0.0</span>, <span class="kw-2">*</span>w, <span class="kw-2">*</span>h) {
+<a href="#600" id="600" data-nosnippet="">600</a>                                    <span class="kw">if let </span><span class="prelude-val">Some</span>(id) = c.text_box().filter(|id| ids.contains(id)) {
+<a href="#601" id="601" data-nosnippet="">601</a>                                        out.entry(id).or_insert((r[<span class="number">2</span>], r[<span class="number">3</span>]));
+<a href="#602" id="602" data-nosnippet="">602</a>                                    }
+<a href="#603" id="603" data-nosnippet="">603</a>                                }
+<a href="#604" id="604" data-nosnippet="">604</a>                            }
+<a href="#605" id="605" data-nosnippet="">605</a>                            <span class="kw">_ </span>=&gt; {}
+<a href="#606" id="606" data-nosnippet="">606</a>                        }
+<a href="#607" id="607" data-nosnippet="">607</a>                    }
+<a href="#608" id="608" data-nosnippet="">608</a>                });
+<a href="#609" id="609" data-nosnippet="">609</a>            }
+<a href="#610" id="610" data-nosnippet="">610</a>        }
+<a href="#611" id="611" data-nosnippet="">611</a>        out
+<a href="#612" id="612" data-nosnippet="">612</a>    }
+<a href="#613" id="613" data-nosnippet="">613</a>
+<a href="#614" id="614" data-nosnippet="">614</a>    <span class="doccomment">/// Every inline object in reading order: the body's, with each text box's objects where the
+<a href="#615" id="615" data-nosnippet="">615</a>    /// box is (nested boxes too, within a [`BoxBudget`]).
+<a href="#616" id="616" data-nosnippet="">616</a>    </span><span class="kw">pub fn </span>objects_in_reading_order(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FnMut(<span class="kw-2">&amp;</span>InlineObject)) {
+<a href="#617" id="617" data-nosnippet="">617</a>        <span class="self">self</span>.walk_objects(<span class="kw-2">&amp;</span><span class="self">self</span>.body, <span class="kw-2">&amp;mut </span>BoxBudget::default(), <span class="kw-2">&amp;mut </span>|p, k| {
+<a href="#618" id="618" data-nosnippet="">618</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(o) = p.objects.get(k) {
+<a href="#619" id="619" data-nosnippet="">619</a>                f(o);
+<a href="#620" id="620" data-nosnippet="">620</a>            }
+<a href="#621" id="621" data-nosnippet="">621</a>            <span class="bool-val">true
+<a href="#622" id="622" data-nosnippet="">622</a>        </span>});
+<a href="#623" id="623" data-nosnippet="">623</a>    }
+<a href="#624" id="624" data-nosnippet="">624</a>
+<a href="#625" id="625" data-nosnippet="">625</a>    <span class="doccomment">/// Like [`Document::objects_in_reading_order`], with each object's paragraph and index;
+<a href="#626" id="626" data-nosnippet="">626</a>    /// `f` returns whether to go into the object's text box (false: the box is left out).
+<a href="#627" id="627" data-nosnippet="">627</a>    </span><span class="kw">pub fn </span>objects_in_reading_order_at(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FnMut(<span class="kw-2">&amp;</span>Paragraph, usize) -&gt; bool) {
+<a href="#628" id="628" data-nosnippet="">628</a>        <span class="self">self</span>.walk_objects(<span class="kw-2">&amp;</span><span class="self">self</span>.body, <span class="kw-2">&amp;mut </span>BoxBudget::default(), f);
+<a href="#629" id="629" data-nosnippet="">629</a>    }
+<a href="#630" id="630" data-nosnippet="">630</a>
+<a href="#631" id="631" data-nosnippet="">631</a>    <span class="doccomment">/// Like [`Document::objects_in_reading_order_at`], also giving the top-level body block each
+<a href="#632" id="632" data-nosnippet="">632</a>    /// object is in (for objects in text boxes, the block of the box's anchor).
+<a href="#633" id="633" data-nosnippet="">633</a>    </span><span class="kw">pub fn </span>objects_in_reading_order_by_block(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FnMut(usize, <span class="kw-2">&amp;</span>Paragraph, usize) -&gt; bool) {
+<a href="#634" id="634" data-nosnippet="">634</a>        <span class="kw">let </span><span class="kw-2">mut </span>budget = BoxBudget::default();
+<a href="#635" id="635" data-nosnippet="">635</a>        <span class="kw">for </span>(i, b) <span class="kw">in </span><span class="self">self</span>.body.iter().enumerate() {
+<a href="#636" id="636" data-nosnippet="">636</a>            <span class="self">self</span>.walk_objects(std::slice::from_ref(b), <span class="kw-2">&amp;mut </span>budget, <span class="kw-2">&amp;mut </span>|p, k| f(i, p, k));
+<a href="#637" id="637" data-nosnippet="">637</a>        }
+<a href="#638" id="638" data-nosnippet="">638</a>    }
+<a href="#639" id="639" data-nosnippet="">639</a>
+<a href="#640" id="640" data-nosnippet="">640</a>    <span class="doccomment">/// The footnotes and endnotes referenced inside text box story `part` (nested boxes too), in
+<a href="#641" id="641" data-nosnippet="">641</a>    /// reading order.
+<a href="#642" id="642" data-nosnippet="">642</a>    </span><span class="kw">pub fn </span>notes_in_text_box(<span class="kw-2">&amp;</span><span class="self">self</span>, part: u32) -&gt; Vec&lt;u32&gt; {
+<a href="#643" id="643" data-nosnippet="">643</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
+<a href="#644" id="644" data-nosnippet="">644</a>        <span class="kw">let </span><span class="kw-2">mut </span>budget = BoxBudget::default();
+<a href="#645" id="645" data-nosnippet="">645</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(p) = <span class="self">self</span>.parts.get(<span class="kw-2">&amp;</span>part).filter(|p| p.kind == PartKind::TextBox)
+<a href="#646" id="646" data-nosnippet="">646</a>            &amp;&amp; budget.enter(part)
+<a href="#647" id="647" data-nosnippet="">647</a>        {
+<a href="#648" id="648" data-nosnippet="">648</a>            <span class="self">self</span>.walk_objects(<span class="kw-2">&amp;</span>p.blocks, <span class="kw-2">&amp;mut </span>budget, <span class="kw-2">&amp;mut </span>|p, k| {
+<a href="#649" id="649" data-nosnippet="">649</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(InlineObject::NoteRef { id, .. }) = p.objects.get(k) {
+<a href="#650" id="650" data-nosnippet="">650</a>                    out.push(<span class="kw-2">*</span>id);
+<a href="#651" id="651" data-nosnippet="">651</a>                }
+<a href="#652" id="652" data-nosnippet="">652</a>                <span class="bool-val">true
+<a href="#653" id="653" data-nosnippet="">653</a>            </span>});
+<a href="#654" id="654" data-nosnippet="">654</a>            budget.leave();
+<a href="#655" id="655" data-nosnippet="">655</a>        }
+<a href="#656" id="656" data-nosnippet="">656</a>        out
+<a href="#657" id="657" data-nosnippet="">657</a>    }
+<a href="#658" id="658" data-nosnippet="">658</a>
+<a href="#659" id="659" data-nosnippet="">659</a>    <span class="kw">fn </span>walk_objects(<span class="kw-2">&amp;</span><span class="self">self</span>, blocks: <span class="kw-2">&amp;</span>[Arc&lt;Block&gt;], budget: <span class="kw-2">&amp;mut </span>BoxBudget, f: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FnMut(<span class="kw-2">&amp;</span>Paragraph, usize) -&gt; bool) {
+<a href="#660" id="660" data-nosnippet="">660</a>        <span class="kw">for </span>b <span class="kw">in </span>blocks {
+<a href="#661" id="661" data-nosnippet="">661</a>            edit::each_para(b, <span class="number">0</span>, <span class="kw-2">&amp;mut </span>|p| {
+<a href="#662" id="662" data-nosnippet="">662</a>                <span class="kw">for </span>(k, o) <span class="kw">in </span>p.objects.iter().enumerate() {
+<a href="#663" id="663" data-nosnippet="">663</a>                    <span class="kw">if </span>!f(p, k) {
+<a href="#664" id="664" data-nosnippet="">664</a>                        <span class="kw">continue</span>;
+<a href="#665" id="665" data-nosnippet="">665</a>                    }
+<a href="#666" id="666" data-nosnippet="">666</a>                    <span class="kw">for </span>id <span class="kw">in </span>o.text_boxes() {
+<a href="#667" id="667" data-nosnippet="">667</a>                        <span class="kw">if let </span><span class="prelude-val">Some</span>(part) = <span class="self">self</span>.parts.get(<span class="kw-2">&amp;</span>id).filter(|p| p.kind == PartKind::TextBox)
+<a href="#668" id="668" data-nosnippet="">668</a>                            &amp;&amp; budget.enter(id)
+<a href="#669" id="669" data-nosnippet="">669</a>                        {
+<a href="#670" id="670" data-nosnippet="">670</a>                            <span class="self">self</span>.walk_objects(<span class="kw-2">&amp;</span>part.blocks, budget, f);
+<a href="#671" id="671" data-nosnippet="">671</a>                            budget.leave();
+<a href="#672" id="672" data-nosnippet="">672</a>                        }
+<a href="#673" id="673" data-nosnippet="">673</a>                    }
+<a href="#674" id="674" data-nosnippet="">674</a>                }
+<a href="#675" id="675" data-nosnippet="">675</a>            });
+<a href="#676" id="676" data-nosnippet="">676</a>        }
+<a href="#677" id="677" data-nosnippet="">677</a>    }
+<a href="#678" id="678" data-nosnippet="">678</a>
+<a href="#679" id="679" data-nosnippet="">679</a>    <span class="doccomment">/// `roots`, then every story their objects lead to (`follow`: an object's story id and the
+<a href="#680" id="680" data-nosnippet="">680</a>    /// part kinds that count), transitively, in the order found.
+<a href="#681" id="681" data-nosnippet="">681</a>    </span><span class="kw">fn </span>reachable(<span class="kw-2">&amp;</span><span class="self">self</span>, roots: Vec&lt;StoryRef&gt;, follow: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>InlineObject) -&gt; Vec&lt;(u32, <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[PartKind])&gt;) -&gt; Vec&lt;StoryRef&gt; {
+<a href="#682" id="682" data-nosnippet="">682</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = roots;
+<a href="#683" id="683" data-nosnippet="">683</a>        <span class="kw">let </span><span class="kw-2">mut </span>seen: std::collections::BTreeSet&lt;StoryRef&gt; = out.iter().copied().collect();
+<a href="#684" id="684" data-nosnippet="">684</a>        <span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">0</span>;
+<a href="#685" id="685" data-nosnippet="">685</a>        <span class="kw">while let </span><span class="prelude-val">Some</span>(s) = out.get(i).copied() {
+<a href="#686" id="686" data-nosnippet="">686</a>            i += <span class="number">1</span>;
+<a href="#687" id="687" data-nosnippet="">687</a>            <span class="kw">let </span><span class="kw-2">mut </span>found = Vec::new();
+<a href="#688" id="688" data-nosnippet="">688</a>            <span class="kw">for </span>b <span class="kw">in </span><span class="self">self</span>.story(s).into_iter().flatten() {
+<a href="#689" id="689" data-nosnippet="">689</a>                edit::each_para(b, <span class="number">0</span>, <span class="kw-2">&amp;mut </span>|p| {
+<a href="#690" id="690" data-nosnippet="">690</a>                    found.extend(p.objects.iter().flat_map(follow));
+<a href="#691" id="691" data-nosnippet="">691</a>                });
+<a href="#692" id="692" data-nosnippet="">692</a>            }
+<a href="#693" id="693" data-nosnippet="">693</a>            <span class="kw">for </span>(id, kinds) <span class="kw">in </span>found {
+<a href="#694" id="694" data-nosnippet="">694</a>                <span class="kw">if </span><span class="self">self</span>.parts.get(<span class="kw-2">&amp;</span>id).is_some_and(|p| kinds.contains(<span class="kw-2">&amp;</span>p.kind)) &amp;&amp; seen.insert(StoryRef::Part(id)) {
+<a href="#695" id="695" data-nosnippet="">695</a>                    out.push(StoryRef::Part(id));
+<a href="#696" id="696" data-nosnippet="">696</a>                }
+<a href="#697" id="697" data-nosnippet="">697</a>            }
+<a href="#698" id="698" data-nosnippet="">698</a>        }
+<a href="#699" id="699" data-nosnippet="">699</a>        out
+<a href="#700" id="700" data-nosnippet="">700</a>    }
+<a href="#701" id="701" data-nosnippet="">701</a>
+<a href="#702" id="702" data-nosnippet="">702</a>    <span class="doccomment">/// A drawing id no shape uses yet (for gluing a connector to a shape that has none).
+<a href="#703" id="703" data-nosnippet="">703</a>    </span><span class="kw">pub fn </span>next_shape_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+<a href="#704" id="704" data-nosnippet="">704</a>        <span class="kw">let </span><span class="kw-2">mut </span>max = <span class="number">0u32</span>;
+<a href="#705" id="705" data-nosnippet="">705</a>        <span class="kw">let </span><span class="kw-2">mut </span>see = |o: <span class="kw-2">&amp;</span>InlineObject| <span class="kw">match </span>o {
+<a href="#706" id="706" data-nosnippet="">706</a>            InlineObject::Shape { extra, .. } =&gt; max = max.max(extra.id),
+<a href="#707" id="707" data-nosnippet="">707</a>            InlineObject::Group { children, .. } =&gt; {
+<a href="#708" id="708" data-nosnippet="">708</a>                <span class="kw">for </span>c <span class="kw">in </span>children {
+<a href="#709" id="709" data-nosnippet="">709</a>                    <span class="kw">if let </span>InlineObject::Shape { extra, .. } = <span class="kw-2">&amp;</span>c.obj {
+<a href="#710" id="710" data-nosnippet="">710</a>                        max = max.max(extra.id);
+<a href="#711" id="711" data-nosnippet="">711</a>                    }
+<a href="#712" id="712" data-nosnippet="">712</a>                }
+<a href="#713" id="713" data-nosnippet="">713</a>            }
+<a href="#714" id="714" data-nosnippet="">714</a>            <span class="kw">_ </span>=&gt; {}
+<a href="#715" id="715" data-nosnippet="">715</a>        };
+<a href="#716" id="716" data-nosnippet="">716</a>        <span class="kw">for </span>blocks <span class="kw">in </span>std::iter::once(<span class="kw-2">&amp;</span><span class="self">self</span>.body).chain(<span class="self">self</span>.parts.values().map(|p| <span class="kw-2">&amp;</span>p.blocks)) {
+<a href="#717" id="717" data-nosnippet="">717</a>            <span class="kw">for </span>b <span class="kw">in </span>blocks {
+<a href="#718" id="718" data-nosnippet="">718</a>                edit::each_para(b, <span class="number">0</span>, <span class="kw-2">&amp;mut </span>|p| p.objects.iter().for_each(<span class="kw-2">&amp;mut </span>see));
+<a href="#719" id="719" data-nosnippet="">719</a>            }
+<a href="#720" id="720" data-nosnippet="">720</a>        }
+<a href="#721" id="721" data-nosnippet="">721</a>        max.saturating_add(<span class="number">1</span>).max(<span class="number">1</span>)
+<a href="#722" id="722" data-nosnippet="">722</a>    }
+<a href="#723" id="723" data-nosnippet="">723</a>
+<a href="#724" id="724" data-nosnippet="">724</a>    <span class="doccomment">/// Change every inline object in every story (paragraphs inside tables too), copying only
+<a href="#725" id="725" data-nosnippet="">725</a>    /// the blocks whose paragraphs `wants` says have objects to change.
+<a href="#726" id="726" data-nosnippet="">726</a>    </span><span class="kw">pub fn </span>objects_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>, wants: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>InlineObject) -&gt; bool, f: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FnMut(<span class="kw-2">&amp;mut </span>InlineObject)) {
+<a href="#727" id="727" data-nosnippet="">727</a>        <span class="kw">let </span><span class="kw-2">mut </span>stories: Vec&lt;<span class="kw-2">&amp;mut </span>Blocks&gt; = <span class="macro">vec!</span>[<span class="kw-2">&amp;mut </span><span class="self">self</span>.body];
+<a href="#728" id="728" data-nosnippet="">728</a>        stories.extend(<span class="self">self</span>.parts.values_mut().map(|p| <span class="kw-2">&amp;mut </span>p.blocks));
+<a href="#729" id="729" data-nosnippet="">729</a>        <span class="kw">for </span>blocks <span class="kw">in </span>stories {
+<a href="#730" id="730" data-nosnippet="">730</a>            <span class="kw">for </span>b <span class="kw">in </span>blocks.iter_mut() {
+<a href="#731" id="731" data-nosnippet="">731</a>                <span class="kw">let </span><span class="kw-2">mut </span>any = <span class="bool-val">false</span>;
+<a href="#732" id="732" data-nosnippet="">732</a>                edit::each_para(b, <span class="number">0</span>, <span class="kw-2">&amp;mut </span>|p| any |= p.objects.iter().any(wants));
+<a href="#733" id="733" data-nosnippet="">733</a>                <span class="kw">if </span>any {
+<a href="#734" id="734" data-nosnippet="">734</a>                    edit::each_para_mut(Arc::make_mut(b), <span class="number">0</span>, <span class="kw-2">&amp;mut </span>|p| {
+<a href="#735" id="735" data-nosnippet="">735</a>                        <span class="kw">if </span>p.objects.iter().any(wants) {
+<a href="#736" id="736" data-nosnippet="">736</a>                            p.objects.iter_mut().filter(|o| wants(o)).for_each(<span class="kw-2">&amp;mut *</span>f);
+<a href="#737" id="737" data-nosnippet="">737</a>                            p.touch();
+<a href="#738" id="738" data-nosnippet="">738</a>                        }
+<a href="#739" id="739" data-nosnippet="">739</a>                    });
+<a href="#740" id="740" data-nosnippet="">740</a>                }
+<a href="#741" id="741" data-nosnippet="">741</a>            }
+<a href="#742" id="742" data-nosnippet="">742</a>        }
+<a href="#743" id="743" data-nosnippet="">743</a>    }
+<a href="#744" id="744" data-nosnippet="">744</a>
+<a href="#745" id="745" data-nosnippet="">745</a>    <span class="doccomment">/// [`Document::objects_mut`] for filling in what an object shows from what it is (a chart's
+<a href="#746" id="746" data-nosnippet="">746</a>    /// drawing from its data), which doesn't change the document: the markup kept as read for
+<a href="#747" id="747" data-nosnippet="">747</a>    /// the paragraphs and tables holding them (see [`crate::doc::kept`]) follows them.
+<a href="#748" id="748" data-nosnippet="">748</a>    </span><span class="kw">pub fn </span>fill_objects(<span class="kw-2">&amp;mut </span><span class="self">self</span>, wants: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Fn(<span class="kw-2">&amp;</span>InlineObject) -&gt; bool, f: <span class="kw-2">&amp;mut </span><span class="kw">dyn </span>FnMut(<span class="kw-2">&amp;mut </span>InlineObject)) {
+<a href="#749" id="749" data-nosnippet="">749</a>        <span class="comment">// The stories (text boxes', notes') as read before, when filling changes one: they stay
+<a href="#750" id="750" data-nosnippet="">750</a>        // as read after it, so the paragraphs showing them keep their markup.
+<a href="#751" id="751" data-nosnippet="">751</a>        </span><span class="kw">let </span>holds = |b: <span class="kw-2">&amp;</span>Arc&lt;Block&gt;| {
+<a href="#752" id="752" data-nosnippet="">752</a>            <span class="kw">let </span><span class="kw-2">mut </span>any = <span class="bool-val">false</span>;
+<a href="#753" id="753" data-nosnippet="">753</a>            edit::each_para(b, <span class="number">0</span>, <span class="kw-2">&amp;mut </span>|p| any |= p.objects.iter().any(wants));
+<a href="#754" id="754" data-nosnippet="">754</a>            any
+<a href="#755" id="755" data-nosnippet="">755</a>        };
+<a href="#756" id="756" data-nosnippet="">756</a>        <span class="kw">let </span>as_read: Vec&lt;u32&gt; = <span class="kw">match </span><span class="self">self</span>.kept.get() {
+<a href="#757" id="757" data-nosnippet="">757</a>            <span class="prelude-val">Some</span>(k) <span class="kw">if </span>!k.story_fps.is_empty() &amp;&amp; <span class="self">self</span>.parts.values().any(|p| p.blocks.iter().any(holds)) =&gt; {
+<a href="#758" id="758" data-nosnippet="">758</a>                k.story_fps.iter().filter(|(id, fp)| <span class="kw-2">**</span>fp == <span class="kw">crate</span>::doc::kept::story_fingerprint(<span class="self">self</span>, <span class="kw-2">**</span>id)).map(|(id, <span class="kw">_</span>)| <span class="kw-2">*</span>id).collect()
+<a href="#759" id="759" data-nosnippet="">759</a>            }
+<a href="#760" id="760" data-nosnippet="">760</a>            <span class="kw">_ </span>=&gt; Vec::new(),
+<a href="#761" id="761" data-nosnippet="">761</a>        };
+<a href="#762" id="762" data-nosnippet="">762</a>        <span class="kw">let </span><span class="kw-2">mut </span>moves: Vec&lt;<span class="kw">crate</span>::doc::kept::Moved&gt; = Vec::new();
+<a href="#763" id="763" data-nosnippet="">763</a>        <span class="kw">let </span><span class="kw-2">mut </span>stories: Vec&lt;<span class="kw-2">&amp;mut </span>Blocks&gt; = <span class="macro">vec!</span>[<span class="kw-2">&amp;mut </span><span class="self">self</span>.body];
+<a href="#764" id="764" data-nosnippet="">764</a>        stories.extend(<span class="self">self</span>.parts.values_mut().map(|p| <span class="kw-2">&amp;mut </span>p.blocks));
+<a href="#765" id="765" data-nosnippet="">765</a>        <span class="kw">for </span>blocks <span class="kw">in </span>stories {
+<a href="#766" id="766" data-nosnippet="">766</a>            <span class="kw">for </span>b <span class="kw">in </span>blocks.iter_mut() {
+<a href="#767" id="767" data-nosnippet="">767</a>                <span class="kw">let </span><span class="kw-2">mut </span>any = <span class="bool-val">false</span>;
+<a href="#768" id="768" data-nosnippet="">768</a>                edit::each_para(b, <span class="number">0</span>, <span class="kw-2">&amp;mut </span>|p| any |= p.objects.iter().any(wants));
+<a href="#769" id="769" data-nosnippet="">769</a>                <span class="kw">if </span>!any {
+<a href="#770" id="770" data-nosnippet="">770</a>                    <span class="kw">continue</span>;
+<a href="#771" id="771" data-nosnippet="">771</a>                }
+<a href="#772" id="772" data-nosnippet="">772</a>                <span class="kw">let </span>before = <span class="kw">crate</span>::doc::kept::identities(b);
+<a href="#773" id="773" data-nosnippet="">773</a>                edit::each_para_mut(Arc::make_mut(b), <span class="number">0</span>, <span class="kw-2">&amp;mut </span>|p| {
+<a href="#774" id="774" data-nosnippet="">774</a>                    <span class="kw">if </span>p.objects.iter().any(wants) {
+<a href="#775" id="775" data-nosnippet="">775</a>                        p.objects.iter_mut().filter(|o| wants(o)).for_each(<span class="kw-2">&amp;mut *</span>f);
+<a href="#776" id="776" data-nosnippet="">776</a>                        p.touch();
+<a href="#777" id="777" data-nosnippet="">777</a>                    }
+<a href="#778" id="778" data-nosnippet="">778</a>                });
+<a href="#779" id="779" data-nosnippet="">779</a>                moves.push((before, <span class="kw">crate</span>::doc::kept::identities(b)));
+<a href="#780" id="780" data-nosnippet="">780</a>            }
+<a href="#781" id="781" data-nosnippet="">781</a>        }
+<a href="#782" id="782" data-nosnippet="">782</a>        <span class="kw">let </span>refreshed: Vec&lt;(u32, u64)&gt; = as_read.into_iter().map(|id| (id, <span class="kw">crate</span>::doc::kept::story_fingerprint(<span class="self">self</span>, id))).collect();
+<a href="#783" id="783" data-nosnippet="">783</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(k) = <span class="self">self</span>.kept.get_mut() {
+<a href="#784" id="784" data-nosnippet="">784</a>            <span class="kw">for </span>(before, after) <span class="kw">in </span>moves {
+<a href="#785" id="785" data-nosnippet="">785</a>                k.follow(<span class="kw-2">&amp;</span>before, <span class="kw-2">&amp;</span>after);
+<a href="#786" id="786" data-nosnippet="">786</a>            }
+<a href="#787" id="787" data-nosnippet="">787</a>            k.story_fps.extend(refreshed);
+<a href="#788" id="788" data-nosnippet="">788</a>        }
+<a href="#789" id="789" data-nosnippet="">789</a>    }
+<a href="#790" id="790" data-nosnippet="">790</a>
+<a href="#791" id="791" data-nosnippet="">791</a>    <span class="doccomment">/// Repair every paragraph's runs (see [`Paragraph::normalize`]); for models from untrusted
+<a href="#792" id="792" data-nosnippet="">792</a>    /// JSON, whose run lengths may overflow, fall short or split a character.
+<a href="#793" id="793" data-nosnippet="">793</a>    </span><span class="kw">pub fn </span>normalize_runs(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href="#794" id="794" data-nosnippet="">794</a>        <span class="kw">let </span><span class="kw-2">mut </span>stories: Vec&lt;<span class="kw-2">&amp;mut </span>Blocks&gt; = <span class="macro">vec!</span>[<span class="kw-2">&amp;mut </span><span class="self">self</span>.body];
+<a href="#795" id="795" data-nosnippet="">795</a>        stories.extend(<span class="self">self</span>.parts.values_mut().map(|p| <span class="kw-2">&amp;mut </span>p.blocks));
+<a href="#796" id="796" data-nosnippet="">796</a>        <span class="kw">for </span>blocks <span class="kw">in </span>stories {
+<a href="#797" id="797" data-nosnippet="">797</a>            <span class="kw">for </span>b <span class="kw">in </span>blocks.iter_mut() {
+<a href="#798" id="798" data-nosnippet="">798</a>                edit::each_para_mut(Arc::make_mut(b), <span class="number">0</span>, <span class="kw-2">&amp;mut </span>Paragraph::normalize);
+<a href="#799" id="799" data-nosnippet="">799</a>            }
+<a href="#800" id="800" data-nosnippet="">800</a>        }
+<a href="#801" id="801" data-nosnippet="">801</a>    }
+<a href="#802" id="802" data-nosnippet="">802</a>
+<a href="#803" id="803" data-nosnippet="">803</a>    <span class="doccomment">/// Number of paragraphs in the body (all depths).
+<a href="#804" id="804" data-nosnippet="">804</a>    </span><span class="kw">pub fn </span>paragraph_count(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+<a href="#805" id="805" data-nosnippet="">805</a>        <span class="self">self</span>.para_paths(StoryRef::Body).len()
+<a href="#806" id="806" data-nosnippet="">806</a>    }
+<a href="#807" id="807" data-nosnippet="">807</a>
+<a href="#808" id="808" data-nosnippet="">808</a>    <span class="doccomment">/// Add a media item; returns its key (deduplicated by content).
+<a href="#809" id="809" data-nosnippet="">809</a>    </span><span class="kw">pub fn </span>add_media(<span class="kw-2">&amp;mut </span><span class="self">self</span>, bytes: Vec&lt;u8&gt;, ext: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href="#810" id="810" data-nosnippet="">810</a>        <span class="kw">let </span>ix = <span class="kw-2">&amp;mut </span><span class="self">self</span>.media_index;
+<a href="#811" id="811" data-nosnippet="">811</a>        <span class="kw">if </span>ix.len != <span class="self">self</span>.media.len() {
+<a href="#812" id="812" data-nosnippet="">812</a>            ix.rebuild(<span class="kw-2">&amp;</span><span class="self">self</span>.media);
+<a href="#813" id="813" data-nosnippet="">813</a>        }
+<a href="#814" id="814" data-nosnippet="">814</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(k) = ix.find(<span class="kw-2">&amp;</span><span class="self">self</span>.media, <span class="kw-2">&amp;</span>bytes) {
+<a href="#815" id="815" data-nosnippet="">815</a>            <span class="kw">return </span>k;
+<a href="#816" id="816" data-nosnippet="">816</a>        }
+<a href="#817" id="817" data-nosnippet="">817</a>        <span class="kw">if </span>ix.by_bytes.contains_key(<span class="kw-2">&amp;</span>bytes) {
+<a href="#818" id="818" data-nosnippet="">818</a>            <span class="comment">// Stale (`media` was edited directly without changing its size): look again.
+<a href="#819" id="819" data-nosnippet="">819</a>            </span>ix.rebuild(<span class="kw-2">&amp;</span><span class="self">self</span>.media);
+<a href="#820" id="820" data-nosnippet="">820</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(k) = ix.find(<span class="kw-2">&amp;</span><span class="self">self</span>.media, <span class="kw-2">&amp;</span>bytes) {
+<a href="#821" id="821" data-nosnippet="">821</a>                <span class="kw">return </span>k;
+<a href="#822" id="822" data-nosnippet="">822</a>            }
+<a href="#823" id="823" data-nosnippet="">823</a>        }
+<a href="#824" id="824" data-nosnippet="">824</a>        <span class="kw">let </span>n = <span class="self">self</span>.media.len().saturating_add(<span class="number">1</span>);
+<a href="#825" id="825" data-nosnippet="">825</a>        <span class="kw">let </span><span class="kw-2">mut </span>i = n.max(ix.next);
+<a href="#826" id="826" data-nosnippet="">826</a>        <span class="kw">let </span><span class="kw-2">mut </span>key = <span class="macro">format!</span>(<span class="string">"image{i}.{ext}"</span>);
+<a href="#827" id="827" data-nosnippet="">827</a>        <span class="kw">while </span><span class="self">self</span>.media.contains_key(<span class="kw-2">&amp;</span>key) {
+<a href="#828" id="828" data-nosnippet="">828</a>            i = i.saturating_add(<span class="number">1</span>);
+<a href="#829" id="829" data-nosnippet="">829</a>            key = <span class="macro">format!</span>(<span class="string">"image{i}.{ext}"</span>);
+<a href="#830" id="830" data-nosnippet="">830</a>        }
+<a href="#831" id="831" data-nosnippet="">831</a>        <span class="kw">let </span>bytes = Arc::new(bytes);
+<a href="#832" id="832" data-nosnippet="">832</a>        <span class="self">self</span>.media.insert(key.clone(), bytes.clone());
+<a href="#833" id="833" data-nosnippet="">833</a>        ix.by_bytes.entry(bytes).or_insert_with(|| key.clone());
+<a href="#834" id="834" data-nosnippet="">834</a>        ix.len = <span class="self">self</span>.media.len();
+<a href="#835" id="835" data-nosnippet="">835</a>        ix.next = i.saturating_add(<span class="number">1</span>);
+<a href="#836" id="836" data-nosnippet="">836</a>        key
+<a href="#837" id="837" data-nosnippet="">837</a>    }
+<a href="#838" id="838" data-nosnippet="">838</a>
+<a href="#839" id="839" data-nosnippet="">839</a>    <span class="doccomment">/// The value of a custom property (names compare case-insensitively, as in Word).
+<a href="#840" id="840" data-nosnippet="">840</a>    </span><span class="kw">pub fn </span>custom_prop(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt; {
+<a href="#841" id="841" data-nosnippet="">841</a>        <span class="self">self</span>.custom_props.iter().find(|p| p.name.eq_ignore_ascii_case(name)).map(|p| p.value.as_str())
+<a href="#842" id="842" data-nosnippet="">842</a>    }
+<a href="#843" id="843" data-nosnippet="">843</a>
+<a href="#844" id="844" data-nosnippet="">844</a>    <span class="doccomment">/// Set a custom text property, replacing one of the same name in place.
+<a href="#845" id="845" data-nosnippet="">845</a>    </span><span class="kw">pub fn </span>set_custom_prop(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, value: <span class="kw-2">&amp;</span>str) {
+<a href="#846" id="846" data-nosnippet="">846</a>        <span class="kw">match </span><span class="self">self</span>.custom_props.iter_mut().find(|p| p.name.eq_ignore_ascii_case(name)) {
+<a href="#847" id="847" data-nosnippet="">847</a>            <span class="prelude-val">Some</span>(p) =&gt; {
+<a href="#848" id="848" data-nosnippet="">848</a>                p.kind = <span class="string">"lpwstr"</span>.into();
+<a href="#849" id="849" data-nosnippet="">849</a>                p.value = value.to_string();
+<a href="#850" id="850" data-nosnippet="">850</a>            }
+<a href="#851" id="851" data-nosnippet="">851</a>            <span class="prelude-val">None </span>=&gt; {
+<a href="#852" id="852" data-nosnippet="">852</a>                <span class="self">self</span>.custom_props.push(CustomProp { name: name.to_string(), kind: <span class="string">"lpwstr"</span>.into(), value: value.to_string(), ..Default::default() })
+<a href="#853" id="853" data-nosnippet="">853</a>            }
+<a href="#854" id="854" data-nosnippet="">854</a>        }
+<a href="#855" id="855" data-nosnippet="">855</a>    }
+<a href="#856" id="856" data-nosnippet="">856</a>
+<a href="#857" id="857" data-nosnippet="">857</a>    <span class="doccomment">/// Remove a custom property. Returns whether it existed.
+<a href="#858" id="858" data-nosnippet="">858</a>    </span><span class="kw">pub fn </span>remove_custom_prop(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href="#859" id="859" data-nosnippet="">859</a>        <span class="kw">let </span>n = <span class="self">self</span>.custom_props.len();
+<a href="#860" id="860" data-nosnippet="">860</a>        <span class="self">self</span>.custom_props.retain(|p| !p.name.eq_ignore_ascii_case(name));
+<a href="#861" id="861" data-nosnippet="">861</a>        <span class="self">self</span>.custom_props.len() != n
+<a href="#862" id="862" data-nosnippet="">862</a>    }
+<a href="#863" id="863" data-nosnippet="">863</a>
+<a href="#864" id="864" data-nosnippet="">864</a>    <span class="doccomment">/// Ranges that stay editable while the document is protected (Restrict Editing exceptions),
+<a href="#865" id="865" data-nosnippet="">865</a>    /// in document order across every story: the [`InlineObject::PermStart`]'s id, group and
+<a href="#866" id="866" data-nosnippet="">866</a>    /// editor, its start (just after the marker) and its end (at the matching
+<a href="#867" id="867" data-nosnippet="">867</a>    /// [`InlineObject::PermEnd`], or the end of the story when it has none).
+<a href="#868" id="868" data-nosnippet="">868</a>    </span><span class="kw">pub fn </span>perm_ranges(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;PermRange&gt; {
+<a href="#869" id="869" data-nosnippet="">869</a>        <span class="kw">let </span><span class="kw-2">mut </span>out: Vec&lt;PermRange&gt; = Vec::new();
+<a href="#870" id="870" data-nosnippet="">870</a>        <span class="kw">let </span>stories = std::iter::once(StoryRef::Body).chain(<span class="self">self</span>.parts.keys().map(|k| StoryRef::Part(<span class="kw-2">*</span>k)));
+<a href="#871" id="871" data-nosnippet="">871</a>        <span class="kw">for </span>story <span class="kw">in </span>stories {
+<a href="#872" id="872" data-nosnippet="">872</a>            <span class="comment">// Open ranges by id, latest last (an end closes the latest open range of its id).
+<a href="#873" id="873" data-nosnippet="">873</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>open: BTreeMap&lt;u32, Vec&lt;usize&gt;&gt; = BTreeMap::new();
+<a href="#874" id="874" data-nosnippet="">874</a>            <span class="kw">for </span>path <span class="kw">in </span><span class="self">self</span>.para_paths(story) {
+<a href="#875" id="875" data-nosnippet="">875</a>                <span class="kw">let </span><span class="prelude-val">Some</span>(p) = <span class="self">self</span>.para(story, <span class="kw-2">&amp;</span>path) <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href="#876" id="876" data-nosnippet="">876</a>                <span class="kw">for </span>(off, o) <span class="kw">in </span>p.objects_with_offsets() {
+<a href="#877" id="877" data-nosnippet="">877</a>                    <span class="kw">match </span>o {
+<a href="#878" id="878" data-nosnippet="">878</a>                        InlineObject::PermStart { id, group, editor } =&gt; {
+<a href="#879" id="879" data-nosnippet="">879</a>                            <span class="kw">let </span>start = Pos { story, path: path.clone(), off: off + para::OBJ.len_utf8() };
+<a href="#880" id="880" data-nosnippet="">880</a>                            open.entry(<span class="kw-2">*</span>id).or_default().push(out.len());
+<a href="#881" id="881" data-nosnippet="">881</a>                            out.push(PermRange { id: <span class="kw-2">*</span>id, group: group.clone(), editor: editor.clone(), start: start.clone(), end: start });
+<a href="#882" id="882" data-nosnippet="">882</a>                        }
+<a href="#883" id="883" data-nosnippet="">883</a>                        InlineObject::PermEnd { id } =&gt; {
+<a href="#884" id="884" data-nosnippet="">884</a>                            <span class="kw">if let </span><span class="prelude-val">Some</span>(i) = open.get_mut(id).and_then(Vec::pop)
+<a href="#885" id="885" data-nosnippet="">885</a>                                &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(r) = out.get_mut(i)
+<a href="#886" id="886" data-nosnippet="">886</a>                            {
+<a href="#887" id="887" data-nosnippet="">887</a>                                r.end = Pos { story, path: path.clone(), off };
+<a href="#888" id="888" data-nosnippet="">888</a>                            }
+<a href="#889" id="889" data-nosnippet="">889</a>                        }
+<a href="#890" id="890" data-nosnippet="">890</a>                        <span class="kw">_ </span>=&gt; {}
+<a href="#891" id="891" data-nosnippet="">891</a>                    }
+<a href="#892" id="892" data-nosnippet="">892</a>                }
+<a href="#893" id="893" data-nosnippet="">893</a>            }
+<a href="#894" id="894" data-nosnippet="">894</a>            <span class="comment">// A range left open runs to the end of its story.
+<a href="#895" id="895" data-nosnippet="">895</a>            </span><span class="kw">let </span>end = <span class="self">self</span>.end_of(story);
+<a href="#896" id="896" data-nosnippet="">896</a>            <span class="kw">for </span>i <span class="kw">in </span>open.into_values().flatten() {
+<a href="#897" id="897" data-nosnippet="">897</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = out.get_mut(i) {
+<a href="#898" id="898" data-nosnippet="">898</a>                    r.end = end.clone();
+<a href="#899" id="899" data-nosnippet="">899</a>                }
+<a href="#900" id="900" data-nosnippet="">900</a>            }
+<a href="#901" id="901" data-nosnippet="">901</a>        }
+<a href="#902" id="902" data-nosnippet="">902</a>        out
+<a href="#903" id="903" data-nosnippet="">903</a>    }
+<a href="#904" id="904" data-nosnippet="">904</a>
+<a href="#905" id="905" data-nosnippet="">905</a>    <span class="doccomment">/// Bookmark names in the body, in order.
+<a href="#906" id="906" data-nosnippet="">906</a>    </span><span class="kw">pub fn </span>bookmarks(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;(String, Pos)&gt; {
+<a href="#907" id="907" data-nosnippet="">907</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
+<a href="#908" id="908" data-nosnippet="">908</a>        <span class="kw">for </span>path <span class="kw">in </span><span class="self">self</span>.para_paths(StoryRef::Body) {
+<a href="#909" id="909" data-nosnippet="">909</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(p) = <span class="self">self</span>.para(StoryRef::Body, <span class="kw-2">&amp;</span>path) {
+<a href="#910" id="910" data-nosnippet="">910</a>                <span class="kw">for </span>(off, o) <span class="kw">in </span>p.objects_with_offsets() {
+<a href="#911" id="911" data-nosnippet="">911</a>                    <span class="kw">if let </span>InlineObject::BookmarkStart { name } = o {
+<a href="#912" id="912" data-nosnippet="">912</a>                        out.push((name.clone(), Pos { story: StoryRef::Body, path: path.clone(), off }));
+<a href="#913" id="913" data-nosnippet="">913</a>                    }
+<a href="#914" id="914" data-nosnippet="">914</a>                }
+<a href="#915" id="915" data-nosnippet="">915</a>            }
+<a href="#916" id="916" data-nosnippet="">916</a>        }
+<a href="#917" id="917" data-nosnippet="">917</a>        out
+<a href="#918" id="918" data-nosnippet="">918</a>    }
+<a href="#919" id="919" data-nosnippet="">919</a>}
+</code></pre></div></section></main></body></html>

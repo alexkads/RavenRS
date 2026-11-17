@@ -1,0 +1,497 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>math.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="ravenrs_word" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../src-files.js"></script><script defer="" src="../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-word/src/docx/read/math.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_word/docx/read/math.rs.html"><meta property="og:title" content="math.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-word/src/docx/read/math.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_word/docx/read/math.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="math.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-word/src/docx/read/math.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"math.rs - source","description":"Source of the Rust file `crates/ravenrs-word/src/docx/read/math.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_word/docx/read/math.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_word/docx/read/</div>math.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! Office Math (OMML, ECMA-376 Part 1 §22.1) → [`crate::doc::math`] tree.
+<a href="#2" id="2" data-nosnippet="">2</a>
+<a href="#3" id="3" data-nosnippet="">3</a></span><span class="kw">use </span><span class="kw">crate</span>::doc::math::{
+<a href="#4" id="4" data-nosnippet="">4</a>    Arg, BrkBin, BrkBinSub, ColJc, FracKind, LimLoc, MAX_DEPTH, MNode, MRun, MScr, MSty, Math, MathJc, MathProps, ScriptKind, merge_runs,
+<a href="#5" id="5" data-nosnippet="">5</a>};
+<a href="#6" id="6" data-nosnippet="">6</a><span class="kw">use </span><span class="kw">crate</span>::doc::props::Rgb;
+<a href="#7" id="7" data-nosnippet="">7</a><span class="kw">use </span><span class="kw">crate</span>::doc::symbol_fonts;
+<a href="#8" id="8" data-nosnippet="">8</a>
+<a href="#9" id="9" data-nosnippet="">9</a><span class="kw">use </span><span class="kw">crate</span>::docx::xml::El;
+<a href="#10" id="10" data-nosnippet="">10</a>
+<a href="#11" id="11" data-nosnippet="">11</a><span class="doccomment">/// An `m:oMath` element as an equation (structure plus its source XML).
+<a href="#12" id="12" data-nosnippet="">12</a></span><span class="kw">pub fn </span>read_omath(e: <span class="kw-2">&amp;</span>El, jc: MathJc) -&gt; Math {
+<a href="#13" id="13" data-nosnippet="">13</a>    Math { nodes: merge_runs(arg(e, <span class="number">0</span>)), omml: e.to_xml(), jc, linear: <span class="bool-val">false </span>}
+<a href="#14" id="14" data-nosnippet="">14</a>}
+<a href="#15" id="15" data-nosnippet="">15</a>
+<a href="#16" id="16" data-nosnippet="">16</a><span class="doccomment">/// A colour every math run shares, taken off the runs: it is the equation's own colour, as
+<a href="#17" id="17" data-nosnippet="">17</a>/// [`write_equation`](crate::docx::write::math::write_equation) spreads it (#1467). The source OMML
+<a href="#18" id="18" data-nosnippet="">18</a>/// is kept: the writer replaces it only when the colour changes.
+<a href="#19" id="19" data-nosnippet="">19</a></span><span class="kw">pub fn </span>lift_color(math: <span class="kw-2">&amp;mut </span>Math) -&gt; <span class="prelude-ty">Option</span>&lt;Rgb&gt; {
+<a href="#20" id="20" data-nosnippet="">20</a>    <span class="kw">let </span>(<span class="kw-2">mut </span>shared, <span class="kw-2">mut </span>uniform) = (<span class="prelude-val">None</span>, <span class="bool-val">true</span>);
+<a href="#21" id="21" data-nosnippet="">21</a>    <span class="kw">crate</span>::doc::math_edit::each_run_mut(<span class="kw-2">&amp;mut </span>math.nodes, <span class="kw-2">&amp;mut </span>|r| <span class="kw">match </span>shared {
+<a href="#22" id="22" data-nosnippet="">22</a>        <span class="prelude-val">None </span>=&gt; shared = <span class="prelude-val">Some</span>(r.color),
+<a href="#23" id="23" data-nosnippet="">23</a>        <span class="prelude-val">Some</span>(c) =&gt; uniform &amp;= c == r.color,
+<a href="#24" id="24" data-nosnippet="">24</a>    });
+<a href="#25" id="25" data-nosnippet="">25</a>    <span class="kw">let </span>c = shared.flatten().filter(|<span class="kw">_</span>| uniform)<span class="question-mark">?</span>;
+<a href="#26" id="26" data-nosnippet="">26</a>    <span class="kw">crate</span>::doc::math_edit::each_run_mut(<span class="kw-2">&amp;mut </span>math.nodes, <span class="kw-2">&amp;mut </span>|r| r.color = <span class="prelude-val">None</span>);
+<a href="#27" id="27" data-nosnippet="">27</a>    <span class="prelude-val">Some</span>(c)
+<a href="#28" id="28" data-nosnippet="">28</a>}
+<a href="#29" id="29" data-nosnippet="">29</a>
+<a href="#30" id="30" data-nosnippet="">30</a><span class="doccomment">/// `m:oMathParaPr/m:jc`.
+<a href="#31" id="31" data-nosnippet="">31</a></span><span class="kw">pub fn </span>para_jc(para: <span class="kw-2">&amp;</span>El) -&gt; MathJc {
+<a href="#32" id="32" data-nosnippet="">32</a>    <span class="kw">match </span>para.child(<span class="string">"m:oMathParaPr"</span>).and_then(|p| p.child(<span class="string">"m:jc"</span>)).and_then(|j| j.attr(<span class="string">"m:val"</span>)) {
+<a href="#33" id="33" data-nosnippet="">33</a>        <span class="prelude-val">Some</span>(<span class="string">"left"</span>) =&gt; MathJc::Left,
+<a href="#34" id="34" data-nosnippet="">34</a>        <span class="prelude-val">Some</span>(<span class="string">"right"</span>) =&gt; MathJc::Right,
+<a href="#35" id="35" data-nosnippet="">35</a>        <span class="prelude-val">Some</span>(<span class="string">"center"</span>) =&gt; MathJc::Center,
+<a href="#36" id="36" data-nosnippet="">36</a>        <span class="kw">_ </span>=&gt; MathJc::CenterGroup,
+<a href="#37" id="37" data-nosnippet="">37</a>    }
+<a href="#38" id="38" data-nosnippet="">38</a>}
+<a href="#39" id="39" data-nosnippet="">39</a>
+<a href="#40" id="40" data-nosnippet="">40</a><span class="doccomment">/// The settings part's `m:mathPr`: how display equations wrap.
+<a href="#41" id="41" data-nosnippet="">41</a></span><span class="kw">pub fn </span>read_math_pr(e: <span class="kw-2">&amp;</span>El) -&gt; MathProps {
+<a href="#42" id="42" data-nosnippet="">42</a>    <span class="kw">let </span><span class="kw-2">mut </span>m = MathProps::default();
+<a href="#43" id="43" data-nosnippet="">43</a>    <span class="kw">let </span>pr = <span class="prelude-val">Some</span>(e);
+<a href="#44" id="44" data-nosnippet="">44</a>    m.brk_bin = <span class="kw">match </span>val(pr, <span class="string">"m:brkBin"</span>) {
+<a href="#45" id="45" data-nosnippet="">45</a>        <span class="prelude-val">Some</span>(<span class="string">"after"</span>) =&gt; BrkBin::After,
+<a href="#46" id="46" data-nosnippet="">46</a>        <span class="prelude-val">Some</span>(<span class="string">"repeat"</span>) =&gt; BrkBin::Repeat,
+<a href="#47" id="47" data-nosnippet="">47</a>        <span class="kw">_ </span>=&gt; BrkBin::Before,
+<a href="#48" id="48" data-nosnippet="">48</a>    };
+<a href="#49" id="49" data-nosnippet="">49</a>    m.brk_bin_sub = <span class="kw">match </span>val(pr, <span class="string">"m:brkBinSub"</span>) {
+<a href="#50" id="50" data-nosnippet="">50</a>        <span class="prelude-val">Some</span>(<span class="string">"-+"</span>) =&gt; BrkBinSub::MinusPlus,
+<a href="#51" id="51" data-nosnippet="">51</a>        <span class="prelude-val">Some</span>(<span class="string">"+-"</span>) =&gt; BrkBinSub::PlusMinus,
+<a href="#52" id="52" data-nosnippet="">52</a>        <span class="kw">_ </span>=&gt; BrkBinSub::MinusMinus,
+<a href="#53" id="53" data-nosnippet="">53</a>    };
+<a href="#54" id="54" data-nosnippet="">54</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(v) = e.child(<span class="string">"m:wrapIndent"</span>).and_then(|c| <span class="kw">crate</span>::docx::units::tw(c, <span class="string">"m:val"</span>)).filter(|v| v.is_finite() &amp;&amp; <span class="kw-2">*</span>v &gt;= <span class="number">0.0</span>) {
+<a href="#55" id="55" data-nosnippet="">55</a>        m.wrap_indent = v.min(<span class="number">1584.0</span>);
+<a href="#56" id="56" data-nosnippet="">56</a>    }
+<a href="#57" id="57" data-nosnippet="">57</a>    m.wrap_right = prop(pr, <span class="string">"m:wrapRight"</span>, <span class="bool-val">false</span>);
+<a href="#58" id="58" data-nosnippet="">58</a>    m
+<a href="#59" id="59" data-nosnippet="">59</a>}
+<a href="#60" id="60" data-nosnippet="">60</a>
+<a href="#61" id="61" data-nosnippet="">61</a><span class="doccomment">/// OMML on/off property: absent `m:val` = on.
+<a href="#62" id="62" data-nosnippet="">62</a></span><span class="kw">fn </span>on(e: <span class="kw-2">&amp;</span>El) -&gt; bool {
+<a href="#63" id="63" data-nosnippet="">63</a>    <span class="kw">match </span>e.attr(<span class="string">"m:val"</span>) {
+<a href="#64" id="64" data-nosnippet="">64</a>        <span class="prelude-val">None </span>=&gt; <span class="bool-val">true</span>,
+<a href="#65" id="65" data-nosnippet="">65</a>        <span class="prelude-val">Some</span>(v) =&gt; !<span class="macro">matches!</span>(v.trim(), <span class="string">"0" </span>| <span class="string">"false" </span>| <span class="string">"off" </span>| <span class="string">"False" </span>| <span class="string">"FALSE"</span>),
+<a href="#66" id="66" data-nosnippet="">66</a>    }
+<a href="#67" id="67" data-nosnippet="">67</a>}
+<a href="#68" id="68" data-nosnippet="">68</a>
+<a href="#69" id="69" data-nosnippet="">69</a><span class="doccomment">/// An on/off property `name` in the properties element `pr` (absent = `default`).
+<a href="#70" id="70" data-nosnippet="">70</a></span><span class="kw">fn </span>prop(pr: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>El&gt;, name: <span class="kw-2">&amp;</span>str, default: bool) -&gt; bool {
+<a href="#71" id="71" data-nosnippet="">71</a>    pr.and_then(|p| p.child(name)).map(on).unwrap_or(default)
+<a href="#72" id="72" data-nosnippet="">72</a>}
+<a href="#73" id="73" data-nosnippet="">73</a>
+<a href="#74" id="74" data-nosnippet="">74</a><span class="doccomment">/// A character property (`m:chr`, `m:begChr`…): `None` when absent, `Some(None)` when empty.
+<a href="#75" id="75" data-nosnippet="">75</a></span><span class="kw">fn </span>chr(pr: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>El&gt;, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Option</span>&lt;char&gt;&gt; {
+<a href="#76" id="76" data-nosnippet="">76</a>    <span class="kw">let </span>c = pr<span class="question-mark">?</span>.child(name)<span class="question-mark">?</span>;
+<a href="#77" id="77" data-nosnippet="">77</a>    <span class="kw">match </span>c.attr(<span class="string">"m:val"</span>) {
+<a href="#78" id="78" data-nosnippet="">78</a>        <span class="prelude-val">Some</span>(v) =&gt; <span class="prelude-val">Some</span>(v.chars().next()),
+<a href="#79" id="79" data-nosnippet="">79</a>        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Some</span>(<span class="prelude-val">None</span>),
+<a href="#80" id="80" data-nosnippet="">80</a>    }
+<a href="#81" id="81" data-nosnippet="">81</a>}
+<a href="#82" id="82" data-nosnippet="">82</a>
+<a href="#83" id="83" data-nosnippet="">83</a><span class="kw">fn </span>val&lt;<span class="lifetime">'a</span>&gt;(pr: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>El&gt;, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt; {
+<a href="#84" id="84" data-nosnippet="">84</a>    pr.and_then(|p| p.child(name)).and_then(|c| c.attr(<span class="string">"m:val"</span>))
+<a href="#85" id="85" data-nosnippet="">85</a>}
+<a href="#86" id="86" data-nosnippet="">86</a>
+<a href="#87" id="87" data-nosnippet="">87</a><span class="doccomment">/// The argument held by child `name` of `e`.
+<a href="#88" id="88" data-nosnippet="">88</a></span><span class="kw">fn </span>sub_arg(e: <span class="kw-2">&amp;</span>El, name: <span class="kw-2">&amp;</span>str, depth: usize) -&gt; Arg {
+<a href="#89" id="89" data-nosnippet="">89</a>    e.child(name).map(|c| arg(c, depth + <span class="number">1</span>)).unwrap_or_default()
+<a href="#90" id="90" data-nosnippet="">90</a>}
+<a href="#91" id="91" data-nosnippet="">91</a>
+<a href="#92" id="92" data-nosnippet="">92</a><span class="doccomment">/// Read the math content of an element (`m:oMath`, `m:e`, `m:num`…).
+<a href="#93" id="93" data-nosnippet="">93</a></span><span class="kw">fn </span>arg(e: <span class="kw-2">&amp;</span>El, depth: usize) -&gt; Arg {
+<a href="#94" id="94" data-nosnippet="">94</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
+<a href="#95" id="95" data-nosnippet="">95</a>    <span class="kw">if </span>depth &gt; MAX_DEPTH {
+<a href="#96" id="96" data-nosnippet="">96</a>        <span class="kw">return </span>out;
+<a href="#97" id="97" data-nosnippet="">97</a>    }
+<a href="#98" id="98" data-nosnippet="">98</a>    <span class="kw">for </span>k <span class="kw">in </span>e.els() {
+<a href="#99" id="99" data-nosnippet="">99</a>        node(k, depth, <span class="kw-2">&amp;mut </span>out);
+<a href="#100" id="100" data-nosnippet="">100</a>    }
+<a href="#101" id="101" data-nosnippet="">101</a>    out
+<a href="#102" id="102" data-nosnippet="">102</a>}
+<a href="#103" id="103" data-nosnippet="">103</a>
+<a href="#104" id="104" data-nosnippet="">104</a><span class="kw">fn </span>node(k: <span class="kw-2">&amp;</span>El, depth: usize, out: <span class="kw-2">&amp;mut </span>Arg) {
+<a href="#105" id="105" data-nosnippet="">105</a>    <span class="kw">let </span>d = depth + <span class="number">1</span>;
+<a href="#106" id="106" data-nosnippet="">106</a>    <span class="kw">match </span>k.name.as_str() {
+<a href="#107" id="107" data-nosnippet="">107</a>        <span class="string">"m:r" </span>=&gt; {
+<a href="#108" id="108" data-nosnippet="">108</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = run(k) {
+<a href="#109" id="109" data-nosnippet="">109</a>                out.push(MNode::Run(r));
+<a href="#110" id="110" data-nosnippet="">110</a>            }
+<a href="#111" id="111" data-nosnippet="">111</a>        }
+<a href="#112" id="112" data-nosnippet="">112</a>        <span class="comment">// Word puts ordinary runs in math zones for normal text in some files.
+<a href="#113" id="113" data-nosnippet="">113</a>        </span><span class="string">"w:r" </span>=&gt; {
+<a href="#114" id="114" data-nosnippet="">114</a>            <span class="kw">let </span>text = run_text(k);
+<a href="#115" id="115" data-nosnippet="">115</a>            <span class="kw">if </span>!text.is_empty() {
+<a href="#116" id="116" data-nosnippet="">116</a>                <span class="kw">let </span><span class="kw-2">mut </span>r = MRun { text, nor: <span class="bool-val">true</span>, sty: <span class="prelude-val">Some</span>(MSty::Plain), ..Default::default() };
+<a href="#117" id="117" data-nosnippet="">117</a>                wrpr(k.child(<span class="string">"w:rPr"</span>), <span class="kw-2">&amp;mut </span>r);
+<a href="#118" id="118" data-nosnippet="">118</a>                out.push(MNode::Run(r));
+<a href="#119" id="119" data-nosnippet="">119</a>            }
+<a href="#120" id="120" data-nosnippet="">120</a>        }
+<a href="#121" id="121" data-nosnippet="">121</a>        <span class="string">"m:f" </span>=&gt; {
+<a href="#122" id="122" data-nosnippet="">122</a>            <span class="kw">let </span>pr = k.child(<span class="string">"m:fPr"</span>);
+<a href="#123" id="123" data-nosnippet="">123</a>            <span class="kw">let </span>kind = <span class="kw">match </span>val(pr, <span class="string">"m:type"</span>) {
+<a href="#124" id="124" data-nosnippet="">124</a>                <span class="prelude-val">Some</span>(<span class="string">"skw"</span>) =&gt; FracKind::Skewed,
+<a href="#125" id="125" data-nosnippet="">125</a>                <span class="prelude-val">Some</span>(<span class="string">"lin"</span>) =&gt; FracKind::Linear,
+<a href="#126" id="126" data-nosnippet="">126</a>                <span class="prelude-val">Some</span>(<span class="string">"noBar"</span>) =&gt; FracKind::NoBar,
+<a href="#127" id="127" data-nosnippet="">127</a>                <span class="kw">_ </span>=&gt; FracKind::Bar,
+<a href="#128" id="128" data-nosnippet="">128</a>            };
+<a href="#129" id="129" data-nosnippet="">129</a>            out.push(MNode::Frac { kind, num: sub_arg(k, <span class="string">"m:num"</span>, d), den: sub_arg(k, <span class="string">"m:den"</span>, d) });
+<a href="#130" id="130" data-nosnippet="">130</a>        }
+<a href="#131" id="131" data-nosnippet="">131</a>        <span class="string">"m:sSup" </span>=&gt; out.push(MNode::Script { kind: ScriptKind::Sup, base: sub_arg(k, <span class="string">"m:e"</span>, d), sub: Vec::new(), sup: sub_arg(k, <span class="string">"m:sup"</span>, d) }),
+<a href="#132" id="132" data-nosnippet="">132</a>        <span class="string">"m:sSub" </span>=&gt; out.push(MNode::Script { kind: ScriptKind::Sub, base: sub_arg(k, <span class="string">"m:e"</span>, d), sub: sub_arg(k, <span class="string">"m:sub"</span>, d), sup: Vec::new() }),
+<a href="#133" id="133" data-nosnippet="">133</a>        <span class="string">"m:sSubSup" </span>=&gt; {
+<a href="#134" id="134" data-nosnippet="">134</a>            out.push(MNode::Script { kind: ScriptKind::SubSup, base: sub_arg(k, <span class="string">"m:e"</span>, d), sub: sub_arg(k, <span class="string">"m:sub"</span>, d), sup: sub_arg(k, <span class="string">"m:sup"</span>, d) })
+<a href="#135" id="135" data-nosnippet="">135</a>        }
+<a href="#136" id="136" data-nosnippet="">136</a>        <span class="string">"m:sPre" </span>=&gt; {
+<a href="#137" id="137" data-nosnippet="">137</a>            out.push(MNode::Script { kind: ScriptKind::Pre, base: sub_arg(k, <span class="string">"m:e"</span>, d), sub: sub_arg(k, <span class="string">"m:sub"</span>, d), sup: sub_arg(k, <span class="string">"m:sup"</span>, d) })
+<a href="#138" id="138" data-nosnippet="">138</a>        }
+<a href="#139" id="139" data-nosnippet="">139</a>        <span class="string">"m:rad" </span>=&gt; {
+<a href="#140" id="140" data-nosnippet="">140</a>            <span class="kw">let </span>pr = k.child(<span class="string">"m:radPr"</span>);
+<a href="#141" id="141" data-nosnippet="">141</a>            out.push(MNode::Rad { deg: sub_arg(k, <span class="string">"m:deg"</span>, d), deg_hide: prop(pr, <span class="string">"m:degHide"</span>, <span class="bool-val">false</span>), e: sub_arg(k, <span class="string">"m:e"</span>, d) });
+<a href="#142" id="142" data-nosnippet="">142</a>        }
+<a href="#143" id="143" data-nosnippet="">143</a>        <span class="string">"m:nary" </span>=&gt; {
+<a href="#144" id="144" data-nosnippet="">144</a>            <span class="kw">let </span>pr = k.child(<span class="string">"m:naryPr"</span>);
+<a href="#145" id="145" data-nosnippet="">145</a>            <span class="kw">let </span>chr = chr(pr, <span class="string">"m:chr"</span>).map(|c| c.unwrap_or(<span class="string">'∫'</span>)).unwrap_or(<span class="string">'∫'</span>);
+<a href="#146" id="146" data-nosnippet="">146</a>            <span class="kw">let </span>lim_loc = <span class="kw">match </span>val(pr, <span class="string">"m:limLoc"</span>) {
+<a href="#147" id="147" data-nosnippet="">147</a>                <span class="prelude-val">Some</span>(<span class="string">"undOvr"</span>) =&gt; <span class="prelude-val">Some</span>(LimLoc::UndOvr),
+<a href="#148" id="148" data-nosnippet="">148</a>                <span class="prelude-val">Some</span>(<span class="string">"subSup"</span>) =&gt; <span class="prelude-val">Some</span>(LimLoc::SubSup),
+<a href="#149" id="149" data-nosnippet="">149</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#150" id="150" data-nosnippet="">150</a>            };
+<a href="#151" id="151" data-nosnippet="">151</a>            out.push(MNode::Nary {
+<a href="#152" id="152" data-nosnippet="">152</a>                chr,
+<a href="#153" id="153" data-nosnippet="">153</a>                lim_loc,
+<a href="#154" id="154" data-nosnippet="">154</a>                grow: prop(pr, <span class="string">"m:grow"</span>, <span class="bool-val">false</span>),
+<a href="#155" id="155" data-nosnippet="">155</a>                sub_hide: prop(pr, <span class="string">"m:subHide"</span>, <span class="bool-val">false</span>),
+<a href="#156" id="156" data-nosnippet="">156</a>                sup_hide: prop(pr, <span class="string">"m:supHide"</span>, <span class="bool-val">false</span>),
+<a href="#157" id="157" data-nosnippet="">157</a>                sub: sub_arg(k, <span class="string">"m:sub"</span>, d),
+<a href="#158" id="158" data-nosnippet="">158</a>                sup: sub_arg(k, <span class="string">"m:sup"</span>, d),
+<a href="#159" id="159" data-nosnippet="">159</a>                e: sub_arg(k, <span class="string">"m:e"</span>, d),
+<a href="#160" id="160" data-nosnippet="">160</a>            });
+<a href="#161" id="161" data-nosnippet="">161</a>        }
+<a href="#162" id="162" data-nosnippet="">162</a>        <span class="string">"m:d" </span>=&gt; {
+<a href="#163" id="163" data-nosnippet="">163</a>            <span class="kw">let </span>pr = k.child(<span class="string">"m:dPr"</span>);
+<a href="#164" id="164" data-nosnippet="">164</a>            <span class="kw">let </span>beg = chr(pr, <span class="string">"m:begChr"</span>).unwrap_or(<span class="prelude-val">Some</span>(<span class="string">'('</span>));
+<a href="#165" id="165" data-nosnippet="">165</a>            <span class="kw">let </span>end = chr(pr, <span class="string">"m:endChr"</span>).unwrap_or(<span class="prelude-val">Some</span>(<span class="string">')'</span>));
+<a href="#166" id="166" data-nosnippet="">166</a>            <span class="kw">let </span>sep = chr(pr, <span class="string">"m:sepChr"</span>).unwrap_or(<span class="prelude-val">Some</span>(<span class="string">'|'</span>));
+<a href="#167" id="167" data-nosnippet="">167</a>            <span class="kw">let </span>elems: Vec&lt;Arg&gt; = k.children(<span class="string">"m:e"</span>).map(|e| arg(e, d)).collect();
+<a href="#168" id="168" data-nosnippet="">168</a>            out.push(MNode::Delim {
+<a href="#169" id="169" data-nosnippet="">169</a>                beg,
+<a href="#170" id="170" data-nosnippet="">170</a>                end,
+<a href="#171" id="171" data-nosnippet="">171</a>                sep,
+<a href="#172" id="172" data-nosnippet="">172</a>                grow: prop(pr, <span class="string">"m:grow"</span>, <span class="bool-val">true</span>),
+<a href="#173" id="173" data-nosnippet="">173</a>                shp_match: val(pr, <span class="string">"m:shp"</span>) == <span class="prelude-val">Some</span>(<span class="string">"match"</span>),
+<a href="#174" id="174" data-nosnippet="">174</a>                elems: <span class="kw">if </span>elems.is_empty() { <span class="macro">vec!</span>[Vec::new()] } <span class="kw">else </span>{ elems },
+<a href="#175" id="175" data-nosnippet="">175</a>            });
+<a href="#176" id="176" data-nosnippet="">176</a>        }
+<a href="#177" id="177" data-nosnippet="">177</a>        <span class="string">"m:func" </span>=&gt; out.push(MNode::Func { name: sub_arg(k, <span class="string">"m:fName"</span>, d), e: sub_arg(k, <span class="string">"m:e"</span>, d) }),
+<a href="#178" id="178" data-nosnippet="">178</a>        <span class="string">"m:limLow" </span>=&gt; out.push(MNode::Lim { upper: <span class="bool-val">false</span>, e: sub_arg(k, <span class="string">"m:e"</span>, d), lim: sub_arg(k, <span class="string">"m:lim"</span>, d) }),
+<a href="#179" id="179" data-nosnippet="">179</a>        <span class="string">"m:limUpp" </span>=&gt; out.push(MNode::Lim { upper: <span class="bool-val">true</span>, e: sub_arg(k, <span class="string">"m:e"</span>, d), lim: sub_arg(k, <span class="string">"m:lim"</span>, d) }),
+<a href="#180" id="180" data-nosnippet="">180</a>        <span class="string">"m:acc" </span>=&gt; {
+<a href="#181" id="181" data-nosnippet="">181</a>            <span class="kw">let </span>c = chr(k.child(<span class="string">"m:accPr"</span>), <span class="string">"m:chr"</span>).map(|c| c.unwrap_or(<span class="string">'\u{302}'</span>)).unwrap_or(<span class="string">'\u{302}'</span>);
+<a href="#182" id="182" data-nosnippet="">182</a>            out.push(MNode::Acc { chr: c, e: sub_arg(k, <span class="string">"m:e"</span>, d) });
+<a href="#183" id="183" data-nosnippet="">183</a>        }
+<a href="#184" id="184" data-nosnippet="">184</a>        <span class="string">"m:bar" </span>=&gt; out.push(MNode::Bar { top: val(k.child(<span class="string">"m:barPr"</span>), <span class="string">"m:pos"</span>) == <span class="prelude-val">Some</span>(<span class="string">"top"</span>), e: sub_arg(k, <span class="string">"m:e"</span>, d) }),
+<a href="#185" id="185" data-nosnippet="">185</a>        <span class="string">"m:borderBox" </span>=&gt; {
+<a href="#186" id="186" data-nosnippet="">186</a>            <span class="kw">let </span>pr = k.child(<span class="string">"m:borderBoxPr"</span>);
+<a href="#187" id="187" data-nosnippet="">187</a>            out.push(MNode::BorderBox {
+<a href="#188" id="188" data-nosnippet="">188</a>                hide: [prop(pr, <span class="string">"m:hideTop"</span>, <span class="bool-val">false</span>), prop(pr, <span class="string">"m:hideBot"</span>, <span class="bool-val">false</span>), prop(pr, <span class="string">"m:hideLeft"</span>, <span class="bool-val">false</span>), prop(pr, <span class="string">"m:hideRight"</span>, <span class="bool-val">false</span>)],
+<a href="#189" id="189" data-nosnippet="">189</a>                strike: [
+<a href="#190" id="190" data-nosnippet="">190</a>                    prop(pr, <span class="string">"m:strikeH"</span>, <span class="bool-val">false</span>),
+<a href="#191" id="191" data-nosnippet="">191</a>                    prop(pr, <span class="string">"m:strikeV"</span>, <span class="bool-val">false</span>),
+<a href="#192" id="192" data-nosnippet="">192</a>                    prop(pr, <span class="string">"m:strikeBLTR"</span>, <span class="bool-val">false</span>),
+<a href="#193" id="193" data-nosnippet="">193</a>                    prop(pr, <span class="string">"m:strikeTLBR"</span>, <span class="bool-val">false</span>),
+<a href="#194" id="194" data-nosnippet="">194</a>                ],
+<a href="#195" id="195" data-nosnippet="">195</a>                e: sub_arg(k, <span class="string">"m:e"</span>, d),
+<a href="#196" id="196" data-nosnippet="">196</a>            });
+<a href="#197" id="197" data-nosnippet="">197</a>        }
+<a href="#198" id="198" data-nosnippet="">198</a>        <span class="string">"m:box" </span>=&gt; out.push(MNode::Boxed { e: sub_arg(k, <span class="string">"m:e"</span>, d) }),
+<a href="#199" id="199" data-nosnippet="">199</a>        <span class="string">"m:groupChr" </span>=&gt; {
+<a href="#200" id="200" data-nosnippet="">200</a>            <span class="kw">let </span>pr = k.child(<span class="string">"m:groupChrPr"</span>);
+<a href="#201" id="201" data-nosnippet="">201</a>            <span class="kw">let </span>c = chr(pr, <span class="string">"m:chr"</span>).map(|c| c.unwrap_or(<span class="string">'\u{23DF}'</span>)).unwrap_or(<span class="string">'\u{23DF}'</span>);
+<a href="#202" id="202" data-nosnippet="">202</a>            out.push(MNode::GroupChr { chr: c, top: val(pr, <span class="string">"m:pos"</span>) == <span class="prelude-val">Some</span>(<span class="string">"top"</span>), e: sub_arg(k, <span class="string">"m:e"</span>, d) });
+<a href="#203" id="203" data-nosnippet="">203</a>        }
+<a href="#204" id="204" data-nosnippet="">204</a>        <span class="string">"m:eqArr" </span>=&gt; out.push(MNode::EqArr { rows: k.children(<span class="string">"m:e"</span>).map(|e| arg(e, d)).collect() }),
+<a href="#205" id="205" data-nosnippet="">205</a>        <span class="string">"m:m" </span>=&gt; {
+<a href="#206" id="206" data-nosnippet="">206</a>            <span class="kw">let </span><span class="kw-2">mut </span>col_jc = Vec::new();
+<a href="#207" id="207" data-nosnippet="">207</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(mcs) = k.child(<span class="string">"m:mPr"</span>).and_then(|p| p.child(<span class="string">"m:mcs"</span>)) {
+<a href="#208" id="208" data-nosnippet="">208</a>                <span class="kw">for </span>mc <span class="kw">in </span>mcs.children(<span class="string">"m:mc"</span>) {
+<a href="#209" id="209" data-nosnippet="">209</a>                    <span class="kw">let </span>pr = mc.child(<span class="string">"m:mcPr"</span>);
+<a href="#210" id="210" data-nosnippet="">210</a>                    <span class="kw">let </span>jc = <span class="kw">match </span>val(pr, <span class="string">"m:mcJc"</span>) {
+<a href="#211" id="211" data-nosnippet="">211</a>                        <span class="prelude-val">Some</span>(<span class="string">"left"</span>) =&gt; ColJc::Left,
+<a href="#212" id="212" data-nosnippet="">212</a>                        <span class="prelude-val">Some</span>(<span class="string">"right"</span>) =&gt; ColJc::Right,
+<a href="#213" id="213" data-nosnippet="">213</a>                        <span class="kw">_ </span>=&gt; ColJc::Center,
+<a href="#214" id="214" data-nosnippet="">214</a>                    };
+<a href="#215" id="215" data-nosnippet="">215</a>                    <span class="kw">let </span>count = val(pr, <span class="string">"m:count"</span>).and_then(|c| c.trim().parse::&lt;usize&gt;().ok()).unwrap_or(<span class="number">1</span>).clamp(<span class="number">1</span>, <span class="number">64</span>);
+<a href="#216" id="216" data-nosnippet="">216</a>                    <span class="kw">for _ in </span><span class="number">0</span>..count {
+<a href="#217" id="217" data-nosnippet="">217</a>                        <span class="kw">if </span>col_jc.len() &lt; <span class="number">64 </span>{
+<a href="#218" id="218" data-nosnippet="">218</a>                            col_jc.push(jc);
+<a href="#219" id="219" data-nosnippet="">219</a>                        }
+<a href="#220" id="220" data-nosnippet="">220</a>                    }
+<a href="#221" id="221" data-nosnippet="">221</a>                }
+<a href="#222" id="222" data-nosnippet="">222</a>            }
+<a href="#223" id="223" data-nosnippet="">223</a>            <span class="kw">let </span>rows = k.children(<span class="string">"m:mr"</span>).take(<span class="number">1000</span>).map(|r| r.children(<span class="string">"m:e"</span>).take(<span class="number">64</span>).map(|e| arg(e, d)).collect()).collect();
+<a href="#224" id="224" data-nosnippet="">224</a>            out.push(MNode::Matrix { rows, col_jc });
+<a href="#225" id="225" data-nosnippet="">225</a>        }
+<a href="#226" id="226" data-nosnippet="">226</a>        <span class="string">"m:phant" </span>=&gt; {
+<a href="#227" id="227" data-nosnippet="">227</a>            <span class="kw">let </span>pr = k.child(<span class="string">"m:phantPr"</span>);
+<a href="#228" id="228" data-nosnippet="">228</a>            out.push(MNode::Phant {
+<a href="#229" id="229" data-nosnippet="">229</a>                show: prop(pr, <span class="string">"m:show"</span>, <span class="bool-val">true</span>),
+<a href="#230" id="230" data-nosnippet="">230</a>                zero_wid: prop(pr, <span class="string">"m:zeroWid"</span>, <span class="bool-val">false</span>),
+<a href="#231" id="231" data-nosnippet="">231</a>                zero_asc: prop(pr, <span class="string">"m:zeroAsc"</span>, <span class="bool-val">false</span>),
+<a href="#232" id="232" data-nosnippet="">232</a>                zero_desc: prop(pr, <span class="string">"m:zeroDesc"</span>, <span class="bool-val">false</span>),
+<a href="#233" id="233" data-nosnippet="">233</a>                e: sub_arg(k, <span class="string">"m:e"</span>, d),
+<a href="#234" id="234" data-nosnippet="">234</a>            });
+<a href="#235" id="235" data-nosnippet="">235</a>        }
+<a href="#236" id="236" data-nosnippet="">236</a>        <span class="comment">// Tracked insertions show; deletions don't. Hyperlinks, simple fields and direction
+<a href="#237" id="237" data-nosnippet="">237</a>        // wrappers (EG_PContentMath, §22.1.2.77) keep their runs (#1273).
+<a href="#238" id="238" data-nosnippet="">238</a>        </span><span class="string">"w:ins" </span>| <span class="string">"w:moveTo" </span>| <span class="string">"w:smartTag" </span>| <span class="string">"w:customXml" </span>| <span class="string">"w:hyperlink" </span>| <span class="string">"w:fldSimple" </span>| <span class="string">"w:dir" </span>| <span class="string">"w:bdo" </span>| <span class="string">"m:oMath" </span><span class="kw">if </span>depth &lt;= MAX_DEPTH =&gt; {
+<a href="#239" id="239" data-nosnippet="">239</a>            <span class="kw">for </span>c <span class="kw">in </span>k.els() {
+<a href="#240" id="240" data-nosnippet="">240</a>                node(c, d, out);
+<a href="#241" id="241" data-nosnippet="">241</a>            }
+<a href="#242" id="242" data-nosnippet="">242</a>        }
+<a href="#243" id="243" data-nosnippet="">243</a>        <span class="comment">// Markup compatibility: the math choice (we read math), else the fallback.
+<a href="#244" id="244" data-nosnippet="">244</a>        </span><span class="string">"mc:AlternateContent" </span><span class="kw">if </span>depth &lt;= MAX_DEPTH =&gt; {
+<a href="#245" id="245" data-nosnippet="">245</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = k.child(<span class="string">"mc:Choice"</span>).or_else(|| k.child(<span class="string">"mc:Fallback"</span>)) {
+<a href="#246" id="246" data-nosnippet="">246</a>                <span class="kw">for </span>c <span class="kw">in </span>c.els() {
+<a href="#247" id="247" data-nosnippet="">247</a>                    node(c, d, out);
+<a href="#248" id="248" data-nosnippet="">248</a>                }
+<a href="#249" id="249" data-nosnippet="">249</a>            }
+<a href="#250" id="250" data-nosnippet="">250</a>        }
+<a href="#251" id="251" data-nosnippet="">251</a>        <span class="string">"w:sdt" </span>=&gt; {
+<a href="#252" id="252" data-nosnippet="">252</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = k.child(<span class="string">"w:sdtContent"</span>) {
+<a href="#253" id="253" data-nosnippet="">253</a>                <span class="kw">for </span>c <span class="kw">in </span>c.els() {
+<a href="#254" id="254" data-nosnippet="">254</a>                    node(c, d, out);
+<a href="#255" id="255" data-nosnippet="">255</a>                }
+<a href="#256" id="256" data-nosnippet="">256</a>            }
+<a href="#257" id="257" data-nosnippet="">257</a>        }
+<a href="#258" id="258" data-nosnippet="">258</a>        <span class="kw">_ </span>=&gt; {}
+<a href="#259" id="259" data-nosnippet="">259</a>    }
+<a href="#260" id="260" data-nosnippet="">260</a>}
+<a href="#261" id="261" data-nosnippet="">261</a>
+<a href="#262" id="262" data-nosnippet="">262</a><span class="doccomment">/// `m:t` (and `w:t`) text of a run, with symbol characters (`w:sym`) and special hyphens.
+<a href="#263" id="263" data-nosnippet="">263</a>/// Text in a symbol font (Symbol, Wingdings…) becomes its Unicode equivalent: the math font has
+<a href="#264" id="264" data-nosnippet="">264</a>/// no glyphs at those private-use codes (#1273).
+<a href="#265" id="265" data-nosnippet="">265</a></span><span class="kw">fn </span>run_text(r: <span class="kw-2">&amp;</span>El) -&gt; String {
+<a href="#266" id="266" data-nosnippet="">266</a>    <span class="kw">let </span>font = r.child(<span class="string">"w:rPr"</span>).and_then(|p| p.child(<span class="string">"w:rFonts"</span>)).and_then(|f| f.attr(<span class="string">"w:ascii"</span>).or_else(|| f.attr(<span class="string">"w:hAnsi"</span>))).unwrap_or(<span class="string">""</span>);
+<a href="#267" id="267" data-nosnippet="">267</a>    <span class="kw">let </span><span class="kw-2">mut </span>s = String::new();
+<a href="#268" id="268" data-nosnippet="">268</a>    <span class="kw">for </span>c <span class="kw">in </span>r.els() {
+<a href="#269" id="269" data-nosnippet="">269</a>        <span class="kw">match </span>c.name.as_str() {
+<a href="#270" id="270" data-nosnippet="">270</a>            <span class="string">"m:t" </span>| <span class="string">"w:t" </span>=&gt; s.push_str(<span class="kw-2">&amp;</span>symbol_fonts::map_text(font, <span class="kw-2">&amp;</span>c.text())),
+<a href="#271" id="271" data-nosnippet="">271</a>            <span class="string">"w:tab" </span>=&gt; s.push(<span class="string">'\t'</span>),
+<a href="#272" id="272" data-nosnippet="">272</a>            <span class="string">"w:noBreakHyphen" </span>=&gt; s.push(<span class="string">'\u{2011}'</span>),
+<a href="#273" id="273" data-nosnippet="">273</a>            <span class="string">"w:sym" </span>=&gt; {
+<a href="#274" id="274" data-nosnippet="">274</a>                <span class="kw">let </span>ch = c.attr(<span class="string">"w:char"</span>).and_then(|h| u32::from_str_radix(h.trim(), <span class="number">16</span>).ok()).and_then(char::from_u32).filter(|c| <span class="kw-2">*</span>c <span class="kw">as </span>u32 &gt;= <span class="number">0x20</span>);
+<a href="#275" id="275" data-nosnippet="">275</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(ch) = ch {
+<a href="#276" id="276" data-nosnippet="">276</a>                    <span class="kw">let </span>f = c.attr(<span class="string">"w:font"</span>).unwrap_or(font);
+<a href="#277" id="277" data-nosnippet="">277</a>                    s.push(symbol_fonts::symbol_char(f, ch).unwrap_or(ch));
+<a href="#278" id="278" data-nosnippet="">278</a>                }
+<a href="#279" id="279" data-nosnippet="">279</a>            }
+<a href="#280" id="280" data-nosnippet="">280</a>            <span class="kw">_ </span>=&gt; {}
+<a href="#281" id="281" data-nosnippet="">281</a>        }
+<a href="#282" id="282" data-nosnippet="">282</a>    }
+<a href="#283" id="283" data-nosnippet="">283</a>    s
+<a href="#284" id="284" data-nosnippet="">284</a>}
+<a href="#285" id="285" data-nosnippet="">285</a>
+<a href="#286" id="286" data-nosnippet="">286</a><span class="kw">fn </span>run(r: <span class="kw-2">&amp;</span>El) -&gt; <span class="prelude-ty">Option</span>&lt;MRun&gt; {
+<a href="#287" id="287" data-nosnippet="">287</a>    <span class="kw">let </span>text = run_text(r);
+<a href="#288" id="288" data-nosnippet="">288</a>    <span class="kw">if </span>text.is_empty() {
+<a href="#289" id="289" data-nosnippet="">289</a>        <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#290" id="290" data-nosnippet="">290</a>    }
+<a href="#291" id="291" data-nosnippet="">291</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = MRun { text, ..Default::default() };
+<a href="#292" id="292" data-nosnippet="">292</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(pr) = r.child(<span class="string">"m:rPr"</span>) {
+<a href="#293" id="293" data-nosnippet="">293</a>        out.sty = <span class="kw">match </span>pr.child(<span class="string">"m:sty"</span>).and_then(|s| s.attr(<span class="string">"m:val"</span>)) {
+<a href="#294" id="294" data-nosnippet="">294</a>            <span class="prelude-val">Some</span>(<span class="string">"p"</span>) =&gt; <span class="prelude-val">Some</span>(MSty::Plain),
+<a href="#295" id="295" data-nosnippet="">295</a>            <span class="prelude-val">Some</span>(<span class="string">"b"</span>) =&gt; <span class="prelude-val">Some</span>(MSty::Bold),
+<a href="#296" id="296" data-nosnippet="">296</a>            <span class="prelude-val">Some</span>(<span class="string">"i"</span>) =&gt; <span class="prelude-val">Some</span>(MSty::Italic),
+<a href="#297" id="297" data-nosnippet="">297</a>            <span class="prelude-val">Some</span>(<span class="string">"bi"</span>) =&gt; <span class="prelude-val">Some</span>(MSty::BoldItalic),
+<a href="#298" id="298" data-nosnippet="">298</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#299" id="299" data-nosnippet="">299</a>        };
+<a href="#300" id="300" data-nosnippet="">300</a>        out.scr = <span class="kw">match </span>pr.child(<span class="string">"m:scr"</span>).and_then(|s| s.attr(<span class="string">"m:val"</span>)) {
+<a href="#301" id="301" data-nosnippet="">301</a>            <span class="prelude-val">Some</span>(<span class="string">"script"</span>) =&gt; MScr::Script,
+<a href="#302" id="302" data-nosnippet="">302</a>            <span class="prelude-val">Some</span>(<span class="string">"fraktur"</span>) =&gt; MScr::Fraktur,
+<a href="#303" id="303" data-nosnippet="">303</a>            <span class="prelude-val">Some</span>(<span class="string">"double-struck"</span>) =&gt; MScr::DoubleStruck,
+<a href="#304" id="304" data-nosnippet="">304</a>            <span class="prelude-val">Some</span>(<span class="string">"sans-serif"</span>) =&gt; MScr::SansSerif,
+<a href="#305" id="305" data-nosnippet="">305</a>            <span class="prelude-val">Some</span>(<span class="string">"monospace"</span>) =&gt; MScr::Monospace,
+<a href="#306" id="306" data-nosnippet="">306</a>            <span class="kw">_ </span>=&gt; MScr::Roman,
+<a href="#307" id="307" data-nosnippet="">307</a>        };
+<a href="#308" id="308" data-nosnippet="">308</a>        out.nor = pr.child(<span class="string">"m:nor"</span>).is_some_and(on);
+<a href="#309" id="309" data-nosnippet="">309</a>        out.lit = pr.child(<span class="string">"m:lit"</span>).is_some_and(on);
+<a href="#310" id="310" data-nosnippet="">310</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(b) = pr.child(<span class="string">"m:brk"</span>) {
+<a href="#311" id="311" data-nosnippet="">311</a>            <span class="kw">let </span>aln = b.attr(<span class="string">"m:alnAt"</span>).and_then(|v| v.trim().parse::&lt;u32&gt;().ok()).unwrap_or(<span class="number">0</span>);
+<a href="#312" id="312" data-nosnippet="">312</a>            out.brk = <span class="prelude-val">Some</span>(aln.min(<span class="number">255</span>) <span class="kw">as </span>u8);
+<a href="#313" id="313" data-nosnippet="">313</a>        }
+<a href="#314" id="314" data-nosnippet="">314</a>    }
+<a href="#315" id="315" data-nosnippet="">315</a>    wrpr(r.child(<span class="string">"w:rPr"</span>), <span class="kw-2">&amp;mut </span>out);
+<a href="#316" id="316" data-nosnippet="">316</a>    <span class="prelude-val">Some</span>(out)
+<a href="#317" id="317" data-nosnippet="">317</a>}
+<a href="#318" id="318" data-nosnippet="">318</a>
+<a href="#319" id="319" data-nosnippet="">319</a><span class="doccomment">/// The run formatting a math run takes from `w:rPr`: size, colour, normal-text font and weight.
+<a href="#320" id="320" data-nosnippet="">320</a></span><span class="kw">fn </span>wrpr(pr: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>El&gt;, out: <span class="kw-2">&amp;mut </span>MRun) {
+<a href="#321" id="321" data-nosnippet="">321</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(pr) = pr <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href="#322" id="322" data-nosnippet="">322</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(sz) = pr.child(<span class="string">"w:sz"</span>).and_then(|s| s.attr(<span class="string">"w:val"</span>)).and_then(|v| v.trim().parse::&lt;f32&gt;().ok()) {
+<a href="#323" id="323" data-nosnippet="">323</a>        <span class="kw">let </span>pt = sz / <span class="number">2.0</span>;
+<a href="#324" id="324" data-nosnippet="">324</a>        <span class="kw">if </span>pt.is_finite() &amp;&amp; (<span class="number">1.0</span>..=<span class="number">1638.0</span>).contains(<span class="kw-2">&amp;</span>pt) {
+<a href="#325" id="325" data-nosnippet="">325</a>            out.size = <span class="prelude-val">Some</span>(pt);
+<a href="#326" id="326" data-nosnippet="">326</a>        }
+<a href="#327" id="327" data-nosnippet="">327</a>    }
+<a href="#328" id="328" data-nosnippet="">328</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = pr.child(<span class="string">"w:color"</span>).and_then(|c| c.attr(<span class="string">"w:val"</span>)).and_then(Rgb::parse) {
+<a href="#329" id="329" data-nosnippet="">329</a>        out.color = <span class="prelude-val">Some</span>(c);
+<a href="#330" id="330" data-nosnippet="">330</a>    }
+<a href="#331" id="331" data-nosnippet="">331</a>    <span class="kw">if </span>out.nor {
+<a href="#332" id="332" data-nosnippet="">332</a>        <span class="comment">// Symbol-font text was mapped to Unicode: it takes the text font.
+<a href="#333" id="333" data-nosnippet="">333</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(f) =
+<a href="#334" id="334" data-nosnippet="">334</a>            pr.child(<span class="string">"w:rFonts"</span>).and_then(|f| f.attr(<span class="string">"w:ascii"</span>).or_else(|| f.attr(<span class="string">"w:hAnsi"</span>))).filter(|f| !symbol_fonts::is_symbol_font(f))
+<a href="#335" id="335" data-nosnippet="">335</a>        {
+<a href="#336" id="336" data-nosnippet="">336</a>            out.font = <span class="prelude-val">Some</span>(f.to_string());
+<a href="#337" id="337" data-nosnippet="">337</a>        }
+<a href="#338" id="338" data-nosnippet="">338</a>        <span class="kw">let </span>bold = pr.child(<span class="string">"w:b"</span>).is_some_and(<span class="kw">crate</span>::docx::units::on_off);
+<a href="#339" id="339" data-nosnippet="">339</a>        <span class="kw">let </span>italic = pr.child(<span class="string">"w:i"</span>).is_some_and(<span class="kw">crate</span>::docx::units::on_off);
+<a href="#340" id="340" data-nosnippet="">340</a>        <span class="kw">if </span>bold || italic {
+<a href="#341" id="341" data-nosnippet="">341</a>            out.sty = <span class="prelude-val">Some</span>(<span class="kw">match </span>(bold, italic) {
+<a href="#342" id="342" data-nosnippet="">342</a>                (<span class="bool-val">true</span>, <span class="bool-val">true</span>) =&gt; MSty::BoldItalic,
+<a href="#343" id="343" data-nosnippet="">343</a>                (<span class="bool-val">true</span>, <span class="bool-val">false</span>) =&gt; MSty::Bold,
+<a href="#344" id="344" data-nosnippet="">344</a>                <span class="kw">_ </span>=&gt; MSty::Italic,
+<a href="#345" id="345" data-nosnippet="">345</a>            });
+<a href="#346" id="346" data-nosnippet="">346</a>        }
+<a href="#347" id="347" data-nosnippet="">347</a>    }
+<a href="#348" id="348" data-nosnippet="">348</a>}
+<a href="#349" id="349" data-nosnippet="">349</a>
+<a href="#350" id="350" data-nosnippet="">350</a><span class="attr">#[cfg(test)]
+<a href="#351" id="351" data-nosnippet="">351</a></span><span class="kw">mod </span>tests {
+<a href="#352" id="352" data-nosnippet="">352</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#353" id="353" data-nosnippet="">353</a>
+<a href="#354" id="354" data-nosnippet="">354</a>    <span class="kw">fn </span>omath(inner: <span class="kw-2">&amp;</span>str) -&gt; El {
+<a href="#355" id="355" data-nosnippet="">355</a>        <span class="kw">let </span>x = <span class="macro">format!</span>(
+<a href="#356" id="356" data-nosnippet="">356</a>            <span class="string">r#"&lt;m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"&gt;{inner}&lt;/m:oMath&gt;"#
+<a href="#357" id="357" data-nosnippet="">357</a>        </span>);
+<a href="#358" id="358" data-nosnippet="">358</a>        <span class="kw">crate</span>::docx::xml::parse(x.as_bytes()).unwrap()
+<a href="#359" id="359" data-nosnippet="">359</a>    }
+<a href="#360" id="360" data-nosnippet="">360</a>
+<a href="#361" id="361" data-nosnippet="">361</a>    <span class="attr">#[test]
+<a href="#362" id="362" data-nosnippet="">362</a>    </span><span class="kw">fn </span>reads_fraction_radical_and_scripts() {
+<a href="#363" id="363" data-nosnippet="">363</a>        <span class="kw">let </span>e = omath(
+<a href="#364" id="364" data-nosnippet="">364</a>            <span class="string">r#"&lt;m:r&gt;&lt;m:t&gt;x=&lt;/m:t&gt;&lt;/m:r&gt;&lt;m:f&gt;&lt;m:num&gt;&lt;m:r&gt;&lt;m:t&gt;-b±&lt;/m:t&gt;&lt;/m:r&gt;&lt;m:rad&gt;&lt;m:radPr&gt;&lt;m:degHide m:val="1"/&gt;&lt;/m:radPr&gt;&lt;m:deg/&gt;&lt;m:e&gt;&lt;m:sSup&gt;&lt;m:e&gt;&lt;m:r&gt;&lt;m:t&gt;b&lt;/m:t&gt;&lt;/m:r&gt;&lt;/m:e&gt;&lt;m:sup&gt;&lt;m:r&gt;&lt;m:t&gt;2&lt;/m:t&gt;&lt;/m:r&gt;&lt;/m:sup&gt;&lt;/m:sSup&gt;&lt;m:r&gt;&lt;m:t&gt;-4ac&lt;/m:t&gt;&lt;/m:r&gt;&lt;/m:e&gt;&lt;/m:rad&gt;&lt;/m:num&gt;&lt;m:den&gt;&lt;m:r&gt;&lt;m:t&gt;2a&lt;/m:t&gt;&lt;/m:r&gt;&lt;/m:den&gt;&lt;/m:f&gt;"#</span>,
+<a href="#365" id="365" data-nosnippet="">365</a>        );
+<a href="#366" id="366" data-nosnippet="">366</a>        <span class="kw">let </span>m = read_omath(<span class="kw-2">&amp;</span>e, MathJc::CenterGroup);
+<a href="#367" id="367" data-nosnippet="">367</a>        <span class="macro">assert_eq!</span>(m.nodes.len(), <span class="number">2</span>);
+<a href="#368" id="368" data-nosnippet="">368</a>        <span class="kw">let </span>MNode::Frac { num, den, kind } = <span class="kw-2">&amp;</span>m.nodes[<span class="number">1</span>] <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">"{:#?}"</span>, m.nodes) };
+<a href="#369" id="369" data-nosnippet="">369</a>        <span class="macro">assert_eq!</span>(<span class="kw-2">*</span>kind, FracKind::Bar);
+<a href="#370" id="370" data-nosnippet="">370</a>        <span class="macro">assert_eq!</span>(den, <span class="kw-2">&amp;</span><span class="macro">vec!</span>[MNode::Run(MRun::new(<span class="string">"2a"</span>))]);
+<a href="#371" id="371" data-nosnippet="">371</a>        <span class="kw">let </span>MNode::Rad { deg_hide, e, .. } = <span class="kw-2">&amp;</span>num[<span class="number">1</span>] <span class="kw">else </span>{ <span class="macro">panic!</span>() };
+<a href="#372" id="372" data-nosnippet="">372</a>        <span class="macro">assert!</span>(<span class="kw-2">*</span>deg_hide);
+<a href="#373" id="373" data-nosnippet="">373</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(e[<span class="number">0</span>], MNode::Script { kind: ScriptKind::Sup, .. }));
+<a href="#374" id="374" data-nosnippet="">374</a>        <span class="macro">assert_eq!</span>(<span class="kw">crate</span>::doc::math::to_linear(<span class="kw-2">&amp;</span>m.nodes), <span class="string">"x=(-b±√(b^2-4ac))/2a"</span>);
+<a href="#375" id="375" data-nosnippet="">375</a>        <span class="macro">assert!</span>(m.omml.starts_with(<span class="string">"&lt;m:oMath&gt;"</span>));
+<a href="#376" id="376" data-nosnippet="">376</a>    }
+<a href="#377" id="377" data-nosnippet="">377</a>
+<a href="#378" id="378" data-nosnippet="">378</a>    <span class="attr">#[test]
+<a href="#379" id="379" data-nosnippet="">379</a>    </span><span class="kw">fn </span>reads_nary_delims_matrix_and_defaults() {
+<a href="#380" id="380" data-nosnippet="">380</a>        <span class="kw">let </span>e = omath(
+<a href="#381" id="381" data-nosnippet="">381</a>            <span class="string">r#"&lt;m:nary&gt;&lt;m:naryPr&gt;&lt;m:chr m:val="∑"/&gt;&lt;m:limLoc m:val="undOvr"/&gt;&lt;/m:naryPr&gt;&lt;m:sub&gt;&lt;m:r&gt;&lt;m:t&gt;i&lt;/m:t&gt;&lt;/m:r&gt;&lt;/m:sub&gt;&lt;m:sup/&gt;&lt;m:e&gt;&lt;m:r&gt;&lt;m:t&gt;i&lt;/m:t&gt;&lt;/m:r&gt;&lt;/m:e&gt;&lt;/m:nary&gt;&lt;m:d&gt;&lt;m:dPr&gt;&lt;m:begChr m:val="["/&gt;&lt;m:endChr m:val=""/&gt;&lt;/m:dPr&gt;&lt;m:e&gt;&lt;m:r&gt;&lt;m:t&gt;a&lt;/m:t&gt;&lt;/m:r&gt;&lt;/m:e&gt;&lt;m:e&gt;&lt;m:r&gt;&lt;m:t&gt;b&lt;/m:t&gt;&lt;/m:r&gt;&lt;/m:e&gt;&lt;/m:d&gt;&lt;m:nary&gt;&lt;m:e/&gt;&lt;/m:nary&gt;&lt;m:m&gt;&lt;m:mr&gt;&lt;m:e/&gt;&lt;m:e/&gt;&lt;/m:mr&gt;&lt;/m:m&gt;"#</span>,
+<a href="#382" id="382" data-nosnippet="">382</a>        );
+<a href="#383" id="383" data-nosnippet="">383</a>        <span class="kw">let </span>m = read_omath(<span class="kw-2">&amp;</span>e, MathJc::CenterGroup);
+<a href="#384" id="384" data-nosnippet="">384</a>        <span class="kw">let </span>MNode::Nary { chr, lim_loc, .. } = <span class="kw-2">&amp;</span>m.nodes[<span class="number">0</span>] <span class="kw">else </span>{ <span class="macro">panic!</span>() };
+<a href="#385" id="385" data-nosnippet="">385</a>        <span class="macro">assert_eq!</span>((<span class="kw-2">*</span>chr, <span class="kw-2">*</span>lim_loc), (<span class="string">'∑'</span>, <span class="prelude-val">Some</span>(LimLoc::UndOvr)));
+<a href="#386" id="386" data-nosnippet="">386</a>        <span class="kw">let </span>MNode::Delim { beg, end, sep, elems, .. } = <span class="kw-2">&amp;</span>m.nodes[<span class="number">1</span>] <span class="kw">else </span>{ <span class="macro">panic!</span>() };
+<a href="#387" id="387" data-nosnippet="">387</a>        <span class="macro">assert_eq!</span>((<span class="kw-2">*</span>beg, <span class="kw-2">*</span>end, <span class="kw-2">*</span>sep, elems.len()), (<span class="prelude-val">Some</span>(<span class="string">'['</span>), <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="string">'|'</span>), <span class="number">2</span>));
+<a href="#388" id="388" data-nosnippet="">388</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(m.nodes[<span class="number">2</span>], MNode::Nary { chr: <span class="string">'∫'</span>, .. }));
+<a href="#389" id="389" data-nosnippet="">389</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(<span class="kw-2">&amp;</span>m.nodes[<span class="number">3</span>], MNode::Matrix { rows, .. } <span class="kw">if </span>rows.len() == <span class="number">1 </span>&amp;&amp; rows[<span class="number">0</span>].len() == <span class="number">2</span>));
+<a href="#390" id="390" data-nosnippet="">390</a>    }
+<a href="#391" id="391" data-nosnippet="">391</a>
+<a href="#392" id="392" data-nosnippet="">392</a>    <span class="doccomment">/// Every run's text in the tree, in reading order.
+<a href="#393" id="393" data-nosnippet="">393</a>    </span><span class="kw">fn </span>texts(m: <span class="kw-2">&amp;mut </span>Math) -&gt; Vec&lt;String&gt; {
+<a href="#394" id="394" data-nosnippet="">394</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
+<a href="#395" id="395" data-nosnippet="">395</a>        <span class="kw">crate</span>::doc::math_edit::each_run_mut(<span class="kw-2">&amp;mut </span>m.nodes, <span class="kw-2">&amp;mut </span>|r| out.push(r.text.clone()));
+<a href="#396" id="396" data-nosnippet="">396</a>        out
+<a href="#397" id="397" data-nosnippet="">397</a>    }
+<a href="#398" id="398" data-nosnippet="">398</a>
+<a href="#399" id="399" data-nosnippet="">399</a>    <span class="kw">fn </span>t(s: <span class="kw-2">&amp;</span>str) -&gt; String {
+<a href="#400" id="400" data-nosnippet="">400</a>        <span class="macro">format!</span>(<span class="string">"&lt;m:r&gt;&lt;m:t&gt;{s}&lt;/m:t&gt;&lt;/m:r&gt;"</span>)
+<a href="#401" id="401" data-nosnippet="">401</a>    }
+<a href="#402" id="402" data-nosnippet="">402</a>
+<a href="#403" id="403" data-nosnippet="">403</a>    <span class="doccomment">/// #1273: one equation using every Office Math element of ECMA-376 §22.1 (each argument
+<a href="#404" id="404" data-nosnippet="">404</a>    /// holding a distinct marker) keeps every argument's text: nothing is silently dropped.
+<a href="#405" id="405" data-nosnippet="">405</a>    </span><span class="attr">#[test]
+<a href="#406" id="406" data-nosnippet="">406</a>    </span><span class="kw">fn </span>every_omml_element_keeps_its_content() {
+<a href="#407" id="407" data-nosnippet="">407</a>        <span class="kw">let </span>parts = [
+<a href="#408" id="408" data-nosnippet="">408</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:acc&gt;&lt;m:accPr&gt;&lt;m:chr m:val=\"̃\"/&gt;&lt;/m:accPr&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;/m:acc&gt;"</span>, t(<span class="string">"A1"</span>)),
+<a href="#409" id="409" data-nosnippet="">409</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:bar&gt;&lt;m:barPr&gt;&lt;m:pos m:val=\"top\"/&gt;&lt;/m:barPr&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;/m:bar&gt;"</span>, t(<span class="string">"B1"</span>)),
+<a href="#410" id="410" data-nosnippet="">410</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:box&gt;&lt;m:boxPr&gt;&lt;m:opEmu m:val=\"1\"/&gt;&lt;/m:boxPr&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;/m:box&gt;"</span>, t(<span class="string">"C1"</span>)),
+<a href="#411" id="411" data-nosnippet="">411</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:borderBox&gt;&lt;m:borderBoxPr&gt;&lt;m:strikeH/&gt;&lt;/m:borderBoxPr&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;/m:borderBox&gt;"</span>, t(<span class="string">"D1"</span>)),
+<a href="#412" id="412" data-nosnippet="">412</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:d&gt;&lt;m:dPr&gt;&lt;m:begChr m:val=\"[\"/&gt;&lt;/m:dPr&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;/m:d&gt;"</span>, t(<span class="string">"E1"</span>), t(<span class="string">"E2"</span>)),
+<a href="#413" id="413" data-nosnippet="">413</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:eqArr&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;/m:eqArr&gt;"</span>, t(<span class="string">"F1"</span>), t(<span class="string">"F2"</span>)),
+<a href="#414" id="414" data-nosnippet="">414</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:f&gt;&lt;m:fPr&gt;&lt;m:type m:val=\"skw\"/&gt;&lt;/m:fPr&gt;&lt;m:num&gt;{}&lt;/m:num&gt;&lt;m:den&gt;{}&lt;/m:den&gt;&lt;/m:f&gt;"</span>, t(<span class="string">"G1"</span>), t(<span class="string">"G2"</span>)),
+<a href="#415" id="415" data-nosnippet="">415</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:func&gt;&lt;m:fName&gt;{}&lt;/m:fName&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;/m:func&gt;"</span>, t(<span class="string">"H1"</span>), t(<span class="string">"H2"</span>)),
+<a href="#416" id="416" data-nosnippet="">416</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:groupChr&gt;&lt;m:groupChrPr&gt;&lt;m:chr m:val=\"⏞\"/&gt;&lt;m:pos m:val=\"top\"/&gt;&lt;/m:groupChrPr&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;/m:groupChr&gt;"</span>, t(<span class="string">"I1"</span>)),
+<a href="#417" id="417" data-nosnippet="">417</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:limLow&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;m:lim&gt;{}&lt;/m:lim&gt;&lt;/m:limLow&gt;"</span>, t(<span class="string">"J1"</span>), t(<span class="string">"J2"</span>)),
+<a href="#418" id="418" data-nosnippet="">418</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:limUpp&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;m:lim&gt;{}&lt;/m:lim&gt;&lt;/m:limUpp&gt;"</span>, t(<span class="string">"K1"</span>), t(<span class="string">"K2"</span>)),
+<a href="#419" id="419" data-nosnippet="">419</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:m&gt;&lt;m:mr&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;/m:mr&gt;&lt;m:mr&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;m:e/&gt;&lt;/m:mr&gt;&lt;/m:m&gt;"</span>, t(<span class="string">"L1"</span>), t(<span class="string">"L2"</span>), t(<span class="string">"L3"</span>)),
+<a href="#420" id="420" data-nosnippet="">420</a>            <span class="macro">format!</span>(
+<a href="#421" id="421" data-nosnippet="">421</a>                <span class="string">"&lt;m:nary&gt;&lt;m:naryPr&gt;&lt;m:chr m:val=\"∑\"/&gt;&lt;/m:naryPr&gt;&lt;m:sub&gt;{}&lt;/m:sub&gt;&lt;m:sup&gt;{}&lt;/m:sup&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;/m:nary&gt;"</span>,
+<a href="#422" id="422" data-nosnippet="">422</a>                t(<span class="string">"M1"</span>),
+<a href="#423" id="423" data-nosnippet="">423</a>                t(<span class="string">"M2"</span>),
+<a href="#424" id="424" data-nosnippet="">424</a>                t(<span class="string">"M3"</span>)
+<a href="#425" id="425" data-nosnippet="">425</a>            ),
+<a href="#426" id="426" data-nosnippet="">426</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:phant&gt;&lt;m:phantPr&gt;&lt;m:show m:val=\"0\"/&gt;&lt;/m:phantPr&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;/m:phant&gt;"</span>, t(<span class="string">"N1"</span>)),
+<a href="#427" id="427" data-nosnippet="">427</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:rad&gt;&lt;m:deg&gt;{}&lt;/m:deg&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;/m:rad&gt;"</span>, t(<span class="string">"O1"</span>), t(<span class="string">"O2"</span>)),
+<a href="#428" id="428" data-nosnippet="">428</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:sPre&gt;&lt;m:sub&gt;{}&lt;/m:sub&gt;&lt;m:sup&gt;{}&lt;/m:sup&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;/m:sPre&gt;"</span>, t(<span class="string">"P1"</span>), t(<span class="string">"P2"</span>), t(<span class="string">"P3"</span>)),
+<a href="#429" id="429" data-nosnippet="">429</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:sSub&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;m:sub&gt;{}&lt;/m:sub&gt;&lt;/m:sSub&gt;"</span>, t(<span class="string">"Q1"</span>), t(<span class="string">"Q2"</span>)),
+<a href="#430" id="430" data-nosnippet="">430</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:sSubSup&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;m:sub&gt;{}&lt;/m:sub&gt;&lt;m:sup&gt;{}&lt;/m:sup&gt;&lt;/m:sSubSup&gt;"</span>, t(<span class="string">"R1"</span>), t(<span class="string">"R2"</span>), t(<span class="string">"R3"</span>)),
+<a href="#431" id="431" data-nosnippet="">431</a>            <span class="macro">format!</span>(<span class="string">"&lt;m:sSup&gt;&lt;m:e&gt;{}&lt;/m:e&gt;&lt;m:sup&gt;{}&lt;/m:sup&gt;&lt;/m:sSup&gt;"</span>, t(<span class="string">"S1"</span>), t(<span class="string">"S2"</span>)),
+<a href="#432" id="432" data-nosnippet="">432</a>            <span class="comment">// Run-level wrappers allowed in math (EG_PContentMath): hyperlinks, simple fields,
+<a href="#433" id="433" data-nosnippet="">433</a>            // tracked insertions, content controls, markup compatibility.
+<a href="#434" id="434" data-nosnippet="">434</a>            </span><span class="macro">format!</span>(<span class="string">"&lt;w:hyperlink w:anchor=\"x\"&gt;{}&lt;/w:hyperlink&gt;"</span>, t(<span class="string">"T1"</span>)),
+<a href="#435" id="435" data-nosnippet="">435</a>            <span class="macro">format!</span>(<span class="string">"&lt;w:fldSimple w:instr=\"QUOTE\"&gt;{}&lt;/w:fldSimple&gt;"</span>, t(<span class="string">"T2"</span>)),
+<a href="#436" id="436" data-nosnippet="">436</a>            <span class="macro">format!</span>(<span class="string">"&lt;w:ins w:id=\"1\" w:author=\"a\"&gt;{}&lt;/w:ins&gt;"</span>, t(<span class="string">"T3"</span>)),
+<a href="#437" id="437" data-nosnippet="">437</a>            <span class="macro">format!</span>(<span class="string">"&lt;w:sdt&gt;&lt;w:sdtContent&gt;{}&lt;/w:sdtContent&gt;&lt;/w:sdt&gt;"</span>, t(<span class="string">"T4"</span>)),
+<a href="#438" id="438" data-nosnippet="">438</a>            <span class="macro">format!</span>(
+<a href="#439" id="439" data-nosnippet="">439</a>                <span class="string">"&lt;mc:AlternateContent&gt;&lt;mc:Choice Requires=\"m\"&gt;{}&lt;/mc:Choice&gt;&lt;mc:Fallback&gt;&lt;w:r&gt;&lt;w:t&gt;picture&lt;/w:t&gt;&lt;/w:r&gt;&lt;/mc:Fallback&gt;&lt;/mc:AlternateContent&gt;"</span>,
+<a href="#440" id="440" data-nosnippet="">440</a>                t(<span class="string">"T5"</span>)
+<a href="#441" id="441" data-nosnippet="">441</a>            ),
+<a href="#442" id="442" data-nosnippet="">442</a>            <span class="string">"&lt;w:r&gt;&lt;w:t&gt;T6&lt;/w:t&gt;&lt;/w:r&gt;"</span>.to_string(),
+<a href="#443" id="443" data-nosnippet="">443</a>        ];
+<a href="#444" id="444" data-nosnippet="">444</a>        <span class="kw">let </span>x = <span class="macro">format!</span>(
+<a href="#445" id="445" data-nosnippet="">445</a>            <span class="string">r#"&lt;m:oMath xmlns:m="http://schemas.openxmlformats.org/officeDocument/2006/math" xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"&gt;{}&lt;/m:oMath&gt;"#</span>,
+<a href="#446" id="446" data-nosnippet="">446</a>            parts.concat()
+<a href="#447" id="447" data-nosnippet="">447</a>        );
+<a href="#448" id="448" data-nosnippet="">448</a>        <span class="kw">let </span>e = <span class="kw">crate</span>::docx::xml::parse(x.as_bytes()).unwrap();
+<a href="#449" id="449" data-nosnippet="">449</a>        <span class="kw">let </span><span class="kw-2">mut </span>m = read_omath(<span class="kw-2">&amp;</span>e, MathJc::CenterGroup);
+<a href="#450" id="450" data-nosnippet="">450</a>        <span class="kw">let </span>got = texts(<span class="kw-2">&amp;mut </span>m).concat();
+<a href="#451" id="451" data-nosnippet="">451</a>        <span class="kw">let </span>markers = [
+<a href="#452" id="452" data-nosnippet="">452</a>            <span class="string">"A1"</span>, <span class="string">"B1"</span>, <span class="string">"C1"</span>, <span class="string">"D1"</span>, <span class="string">"E1"</span>, <span class="string">"E2"</span>, <span class="string">"F1"</span>, <span class="string">"F2"</span>, <span class="string">"G1"</span>, <span class="string">"G2"</span>, <span class="string">"H1"</span>, <span class="string">"H2"</span>, <span class="string">"I1"</span>, <span class="string">"J1"</span>, <span class="string">"J2"</span>, <span class="string">"K1"</span>, <span class="string">"K2"</span>, <span class="string">"L1"</span>, <span class="string">"L2"</span>, <span class="string">"L3"</span>, <span class="string">"M1"</span>, <span class="string">"M2"</span>, <span class="string">"M3"</span>,
+<a href="#453" id="453" data-nosnippet="">453</a>            <span class="string">"N1"</span>, <span class="string">"O1"</span>, <span class="string">"O2"</span>, <span class="string">"P1"</span>, <span class="string">"P2"</span>, <span class="string">"P3"</span>, <span class="string">"Q1"</span>, <span class="string">"Q2"</span>, <span class="string">"R1"</span>, <span class="string">"R2"</span>, <span class="string">"R3"</span>, <span class="string">"S1"</span>, <span class="string">"S2"</span>, <span class="string">"T1"</span>, <span class="string">"T2"</span>, <span class="string">"T3"</span>, <span class="string">"T4"</span>, <span class="string">"T5"</span>, <span class="string">"T6"</span>,
+<a href="#454" id="454" data-nosnippet="">454</a>        ];
+<a href="#455" id="455" data-nosnippet="">455</a>        <span class="kw">for </span>k <span class="kw">in </span>markers {
+<a href="#456" id="456" data-nosnippet="">456</a>            <span class="macro">assert!</span>(got.contains(k), <span class="string">"{k} dropped from {got}"</span>);
+<a href="#457" id="457" data-nosnippet="">457</a>        }
+<a href="#458" id="458" data-nosnippet="">458</a>        <span class="macro">assert!</span>(!got.contains(<span class="string">"picture"</span>), <span class="string">"the math choice wins over the fallback: {got}"</span>);
+<a href="#459" id="459" data-nosnippet="">459</a>    }
+<a href="#460" id="460" data-nosnippet="">460</a>
+<a href="#461" id="461" data-nosnippet="">461</a>    <span class="doccomment">/// #1273: deleted text stays out; symbol characters and symbol-font text become Unicode.
+<a href="#462" id="462" data-nosnippet="">462</a>    </span><span class="attr">#[test]
+<a href="#463" id="463" data-nosnippet="">463</a>    </span><span class="kw">fn </span>symbols_and_deletions_in_math() {
+<a href="#464" id="464" data-nosnippet="">464</a>        <span class="kw">let </span>e = omath(
+<a href="#465" id="465" data-nosnippet="">465</a>            <span class="string">r#"&lt;m:r&gt;&lt;m:t&gt;x&lt;/m:t&gt;&lt;/m:r&gt;&lt;w:del w:id="1" w:author="a"&gt;&lt;m:r&gt;&lt;m:t&gt;gone&lt;/m:t&gt;&lt;/m:r&gt;&lt;/w:del&gt;&lt;m:r&gt;&lt;w:sym w:font="Symbol" w:char="F061"/&gt;&lt;/m:r&gt;&lt;m:r&gt;&lt;w:rPr&gt;&lt;w:rFonts w:ascii="Symbol" w:hAnsi="Symbol"/&gt;&lt;/w:rPr&gt;&lt;m:t&gt;&amp;#xF062;&lt;/m:t&gt;&lt;w:noBreakHyphen/&gt;&lt;/m:r&gt;&lt;w:r&gt;&lt;w:rPr&gt;&lt;w:rFonts w:ascii="Symbol"/&gt;&lt;/w:rPr&gt;&lt;w:t&gt;&amp;#xF067;&lt;/w:t&gt;&lt;/w:r&gt;"#</span>,
+<a href="#466" id="466" data-nosnippet="">466</a>        );
+<a href="#467" id="467" data-nosnippet="">467</a>        <span class="kw">let </span><span class="kw-2">mut </span>m = read_omath(<span class="kw-2">&amp;</span>e, MathJc::CenterGroup);
+<a href="#468" id="468" data-nosnippet="">468</a>        <span class="kw">let </span>got = texts(<span class="kw-2">&amp;mut </span>m).concat();
+<a href="#469" id="469" data-nosnippet="">469</a>        <span class="macro">assert_eq!</span>(got, <span class="string">"xαβ\u{2011}γ"</span>);
+<a href="#470" id="470" data-nosnippet="">470</a>        <span class="kw">let </span><span class="kw-2">mut </span>font = <span class="prelude-val">None</span>;
+<a href="#471" id="471" data-nosnippet="">471</a>        <span class="kw">crate</span>::doc::math_edit::each_run_mut(<span class="kw-2">&amp;mut </span>m.nodes, <span class="kw-2">&amp;mut </span>|r| {
+<a href="#472" id="472" data-nosnippet="">472</a>            <span class="kw">if </span>r.nor {
+<a href="#473" id="473" data-nosnippet="">473</a>                font = <span class="prelude-val">Some</span>(r.font.clone());
+<a href="#474" id="474" data-nosnippet="">474</a>            }
+<a href="#475" id="475" data-nosnippet="">475</a>        });
+<a href="#476" id="476" data-nosnippet="">476</a>        <span class="macro">assert_eq!</span>(font, <span class="prelude-val">Some</span>(<span class="prelude-val">None</span>), <span class="string">"mapped symbol text takes the text font"</span>);
+<a href="#477" id="477" data-nosnippet="">477</a>    }
+<a href="#478" id="478" data-nosnippet="">478</a>
+<a href="#479" id="479" data-nosnippet="">479</a>    <span class="doccomment">/// Hostile nesting through the wrappers is bounded (no stack overflow, no panic).
+<a href="#480" id="480" data-nosnippet="">480</a>    </span><span class="attr">#[test]
+<a href="#481" id="481" data-nosnippet="">481</a>    </span><span class="kw">fn </span>deeply_nested_wrappers_are_bounded() {
+<a href="#482" id="482" data-nosnippet="">482</a>        <span class="comment">// Deeper than the math limit, within the XML parser's own depth limit.
+<a href="#483" id="483" data-nosnippet="">483</a>        </span><span class="kw">let </span>n = <span class="number">120</span>;
+<a href="#484" id="484" data-nosnippet="">484</a>        <span class="kw">let </span>inner = <span class="macro">format!</span>(<span class="string">"{}{}{}"</span>, <span class="string">"&lt;w:hyperlink&gt;"</span>.repeat(n), t(<span class="string">"deep"</span>), <span class="string">"&lt;/w:hyperlink&gt;"</span>.repeat(n));
+<a href="#485" id="485" data-nosnippet="">485</a>        <span class="kw">let </span>e = omath(<span class="kw-2">&amp;</span>inner);
+<a href="#486" id="486" data-nosnippet="">486</a>        <span class="kw">let _ </span>= read_omath(<span class="kw-2">&amp;</span>e, MathJc::CenterGroup);
+<a href="#487" id="487" data-nosnippet="">487</a>        <span class="kw">let </span>inner = <span class="macro">format!</span>(
+<a href="#488" id="488" data-nosnippet="">488</a>            <span class="string">"{}{}{}"</span>,
+<a href="#489" id="489" data-nosnippet="">489</a>            <span class="string">"&lt;mc:AlternateContent xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"&gt;&lt;mc:Choice Requires=\"m\"&gt;"</span>.repeat(n),
+<a href="#490" id="490" data-nosnippet="">490</a>            t(<span class="string">"deep"</span>),
+<a href="#491" id="491" data-nosnippet="">491</a>            <span class="string">"&lt;/mc:Choice&gt;&lt;/mc:AlternateContent&gt;"</span>.repeat(n)
+<a href="#492" id="492" data-nosnippet="">492</a>        );
+<a href="#493" id="493" data-nosnippet="">493</a>        <span class="kw">let </span>e = omath(<span class="kw-2">&amp;</span>inner);
+<a href="#494" id="494" data-nosnippet="">494</a>        <span class="kw">let _ </span>= read_omath(<span class="kw-2">&amp;</span>e, MathJc::CenterGroup);
+<a href="#495" id="495" data-nosnippet="">495</a>    }
+<a href="#496" id="496" data-nosnippet="">496</a>}
+</code></pre></div></section></main></body></html>

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["align","contours","to_path"],"struct":["Contour","Fade","GeometryMorph"]};

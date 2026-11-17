@@ -1,0 +1,161 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>autonum.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="ravenrs_deck" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../src-files.js"></script><script defer="" src="../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-deck/src/text/autonum.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_deck/text/autonum.rs.html"><meta property="og:title" content="autonum.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-deck/src/text/autonum.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_deck/text/autonum.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="autonum.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-deck/src/text/autonum.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"autonum.rs - source","description":"Source of the Rust file `crates/ravenrs-deck/src/text/autonum.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_deck/text/autonum.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_deck/text/</div>autonum.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="kw">fn </span>roman(<span class="kw-2">mut </span>n: u32, upper: bool) -&gt; String {
+<a href="#2" id="2" data-nosnippet="">2</a>    <span class="kw">let </span>table = [
+<a href="#3" id="3" data-nosnippet="">3</a>        (<span class="number">1000</span>, <span class="string">"m"</span>),
+<a href="#4" id="4" data-nosnippet="">4</a>        (<span class="number">900</span>, <span class="string">"cm"</span>),
+<a href="#5" id="5" data-nosnippet="">5</a>        (<span class="number">500</span>, <span class="string">"d"</span>),
+<a href="#6" id="6" data-nosnippet="">6</a>        (<span class="number">400</span>, <span class="string">"cd"</span>),
+<a href="#7" id="7" data-nosnippet="">7</a>        (<span class="number">100</span>, <span class="string">"c"</span>),
+<a href="#8" id="8" data-nosnippet="">8</a>        (<span class="number">90</span>, <span class="string">"xc"</span>),
+<a href="#9" id="9" data-nosnippet="">9</a>        (<span class="number">50</span>, <span class="string">"l"</span>),
+<a href="#10" id="10" data-nosnippet="">10</a>        (<span class="number">40</span>, <span class="string">"xl"</span>),
+<a href="#11" id="11" data-nosnippet="">11</a>        (<span class="number">10</span>, <span class="string">"x"</span>),
+<a href="#12" id="12" data-nosnippet="">12</a>        (<span class="number">9</span>, <span class="string">"ix"</span>),
+<a href="#13" id="13" data-nosnippet="">13</a>        (<span class="number">5</span>, <span class="string">"v"</span>),
+<a href="#14" id="14" data-nosnippet="">14</a>        (<span class="number">4</span>, <span class="string">"iv"</span>),
+<a href="#15" id="15" data-nosnippet="">15</a>        (<span class="number">1</span>, <span class="string">"i"</span>),
+<a href="#16" id="16" data-nosnippet="">16</a>    ];
+<a href="#17" id="17" data-nosnippet="">17</a>    <span class="kw">let </span><span class="kw-2">mut </span>s = String::new();
+<a href="#18" id="18" data-nosnippet="">18</a>    <span class="kw">if </span>n == <span class="number">0 </span>|| n &gt; <span class="number">3999 </span>{
+<a href="#19" id="19" data-nosnippet="">19</a>        <span class="kw">return </span>n.to_string();
+<a href="#20" id="20" data-nosnippet="">20</a>    }
+<a href="#21" id="21" data-nosnippet="">21</a>    <span class="kw">for </span>(v, r) <span class="kw">in </span>table {
+<a href="#22" id="22" data-nosnippet="">22</a>        <span class="kw">while </span>n &gt;= v {
+<a href="#23" id="23" data-nosnippet="">23</a>            s.push_str(r);
+<a href="#24" id="24" data-nosnippet="">24</a>            n -= v;
+<a href="#25" id="25" data-nosnippet="">25</a>        }
+<a href="#26" id="26" data-nosnippet="">26</a>    }
+<a href="#27" id="27" data-nosnippet="">27</a>    <span class="kw">if </span>upper { s.to_uppercase() } <span class="kw">else </span>{ s }
+<a href="#28" id="28" data-nosnippet="">28</a>}
+<a href="#29" id="29" data-nosnippet="">29</a>
+<a href="#30" id="30" data-nosnippet="">30</a><span class="kw">fn </span>alpha_num(n: u32, upper: bool) -&gt; String {
+<a href="#31" id="31" data-nosnippet="">31</a>    <span class="kw">if </span>n == <span class="number">0 </span>{
+<a href="#32" id="32" data-nosnippet="">32</a>        <span class="kw">return </span>String::new();
+<a href="#33" id="33" data-nosnippet="">33</a>    }
+<a href="#34" id="34" data-nosnippet="">34</a>    <span class="kw">let </span>n = n - <span class="number">1</span>;
+<a href="#35" id="35" data-nosnippet="">35</a>    <span class="kw">let </span>c = (<span class="string">b'a' </span>+ (n % <span class="number">26</span>) <span class="kw">as </span>u8) <span class="kw">as </span>char;
+<a href="#36" id="36" data-nosnippet="">36</a>    <span class="kw">let </span>reps = (n / <span class="number">26 </span>+ <span class="number">1</span>).min(<span class="number">50</span>);
+<a href="#37" id="37" data-nosnippet="">37</a>    <span class="kw">let </span>s: String = std::iter::repeat_n(c, reps <span class="kw">as </span>usize).collect();
+<a href="#38" id="38" data-nosnippet="">38</a>    <span class="kw">if </span>upper { s.to_uppercase() } <span class="kw">else </span>{ s }
+<a href="#39" id="39" data-nosnippet="">39</a>}
+<a href="#40" id="40" data-nosnippet="">40</a>
+<a href="#41" id="41" data-nosnippet="">41</a><span class="doccomment">/// Letters of a numbering alphabet: 1 → the first, past the end the letter doubles ("aa"), as
+<a href="#42" id="42" data-nosnippet="">42</a>/// the Latin alphabetic schemes do.
+<a href="#43" id="43" data-nosnippet="">43</a></span><span class="kw">fn </span>letters(list: <span class="kw-2">&amp;</span>[char], n: u32) -&gt; String {
+<a href="#44" id="44" data-nosnippet="">44</a>    <span class="kw">let </span>len = list.len().max(<span class="number">1</span>) <span class="kw">as </span>u32;
+<a href="#45" id="45" data-nosnippet="">45</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(i) = n.checked_sub(<span class="number">1</span>) <span class="kw">else </span>{ <span class="kw">return </span>String::new() };
+<a href="#46" id="46" data-nosnippet="">46</a>    <span class="kw">let </span>c = list.get((i % len) <span class="kw">as </span>usize).copied().unwrap_or(<span class="string">'?'</span>);
+<a href="#47" id="47" data-nosnippet="">47</a>    std::iter::repeat_n(c, (i / len + <span class="number">1</span>).min(<span class="number">50</span>) <span class="kw">as </span>usize).collect()
+<a href="#48" id="48" data-nosnippet="">48</a>}
+<a href="#49" id="49" data-nosnippet="">49</a>
+<a href="#50" id="50" data-nosnippet="">50</a><span class="doccomment">/// `n` written with the digits `zero..zero+9` (Thai, Devanagari, full-width digits).
+<a href="#51" id="51" data-nosnippet="">51</a></span><span class="kw">fn </span>digits_in(n: u32, zero: char) -&gt; String {
+<a href="#52" id="52" data-nosnippet="">52</a>    n.to_string().chars().map(|d| d.to_digit(<span class="number">10</span>).and_then(|v| char::from_u32(zero <span class="kw">as </span>u32 + v)).unwrap_or(d)).collect()
+<a href="#53" id="53" data-nosnippet="">53</a>}
+<a href="#54" id="54" data-nosnippet="">54</a>
+<a href="#55" id="55" data-nosnippet="">55</a><span class="kw">const </span>CJK_DIGITS: [char; <span class="number">10</span>] = [<span class="string">'〇'</span>, <span class="string">'一'</span>, <span class="string">'二'</span>, <span class="string">'三'</span>, <span class="string">'四'</span>, <span class="string">'五'</span>, <span class="string">'六'</span>, <span class="string">'七'</span>, <span class="string">'八'</span>, <span class="string">'九'</span>];
+<a href="#56" id="56" data-nosnippet="">56</a>
+<a href="#57" id="57" data-nosnippet="">57</a><span class="doccomment">/// Chinese numerals: 10 → 十, 11 → 十一, 25 → 二十五, 105 → 一百零五.
+<a href="#58" id="58" data-nosnippet="">58</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>chinese_num(n: u32) -&gt; String {
+<a href="#59" id="59" data-nosnippet="">59</a>    <span class="kw">if </span>n == <span class="number">0 </span>|| n &gt; <span class="number">99_999 </span>{
+<a href="#60" id="60" data-nosnippet="">60</a>        <span class="kw">return </span>n.to_string();
+<a href="#61" id="61" data-nosnippet="">61</a>    }
+<a href="#62" id="62" data-nosnippet="">62</a>    <span class="kw">let </span>units = [<span class="string">'\0'</span>, <span class="string">'十'</span>, <span class="string">'百'</span>, <span class="string">'千'</span>, <span class="string">'万'</span>];
+<a href="#63" id="63" data-nosnippet="">63</a>    <span class="kw">let </span>ds: Vec&lt;u32&gt; = n.to_string().chars().filter_map(|c| c.to_digit(<span class="number">10</span>)).collect();
+<a href="#64" id="64" data-nosnippet="">64</a>    <span class="kw">let </span><span class="kw-2">mut </span>out = String::new();
+<a href="#65" id="65" data-nosnippet="">65</a>    <span class="kw">let </span><span class="kw-2">mut </span>zero = <span class="bool-val">false</span>;
+<a href="#66" id="66" data-nosnippet="">66</a>    <span class="kw">for </span>(i, d) <span class="kw">in </span>ds.iter().enumerate() {
+<a href="#67" id="67" data-nosnippet="">67</a>        <span class="kw">let </span>place = ds.len() - <span class="number">1 </span>- i;
+<a href="#68" id="68" data-nosnippet="">68</a>        <span class="kw">if </span><span class="kw-2">*</span>d == <span class="number">0 </span>{
+<a href="#69" id="69" data-nosnippet="">69</a>            zero = <span class="bool-val">true</span>;
+<a href="#70" id="70" data-nosnippet="">70</a>            <span class="kw">continue</span>;
+<a href="#71" id="71" data-nosnippet="">71</a>        }
+<a href="#72" id="72" data-nosnippet="">72</a>        <span class="kw">if </span>zero {
+<a href="#73" id="73" data-nosnippet="">73</a>            out.push(<span class="string">'零'</span>);
+<a href="#74" id="74" data-nosnippet="">74</a>            zero = <span class="bool-val">false</span>;
+<a href="#75" id="75" data-nosnippet="">75</a>        }
+<a href="#76" id="76" data-nosnippet="">76</a>        <span class="comment">// "十" alone for 10–19, not "一十".
+<a href="#77" id="77" data-nosnippet="">77</a>        </span><span class="kw">if </span>!(<span class="kw-2">*</span>d == <span class="number">1 </span>&amp;&amp; place == <span class="number">1 </span>&amp;&amp; i == <span class="number">0</span>) {
+<a href="#78" id="78" data-nosnippet="">78</a>            out.push(CJK_DIGITS.get(<span class="kw-2">*</span>d <span class="kw">as </span>usize).copied().unwrap_or(<span class="string">'?'</span>));
+<a href="#79" id="79" data-nosnippet="">79</a>        }
+<a href="#80" id="80" data-nosnippet="">80</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(u) = units.get(place).filter(|u| <span class="kw-2">**</span>u != <span class="string">'\0'</span>) {
+<a href="#81" id="81" data-nosnippet="">81</a>            out.push(<span class="kw-2">*</span>u);
+<a href="#82" id="82" data-nosnippet="">82</a>        }
+<a href="#83" id="83" data-nosnippet="">83</a>    }
+<a href="#84" id="84" data-nosnippet="">84</a>    out
+<a href="#85" id="85" data-nosnippet="">85</a>}
+<a href="#86" id="86" data-nosnippet="">86</a>
+<a href="#87" id="87" data-nosnippet="">87</a><span class="doccomment">/// Text of an auto-number bullet: `arabicPeriod` 3 → "3.". The East Asian, Thai, Hindi, Arabic
+<a href="#88" id="88" data-nosnippet="">88</a>/// and Hebrew schemes are written as PowerPoint draws them: `ea1ChsPeriod` 10 → "十．",
+<a href="#89" id="89" data-nosnippet="">89</a>/// `ea1JpnKorPeriod` 10 → "一〇．" (digit by digit), `arabicDbPeriod` 13 → "１３．",
+<a href="#90" id="90" data-nosnippet="">90</a>/// `thaiAlphaParenR` 4 → "ง)", `hindiAlpha1Period` 1 → "क.", `arabic2Minus` 10 → "ي-"
+<a href="#91" id="91" data-nosnippet="">91</a>/// (abjad order), `circleNumWdWhitePlain` 13 → "③" (those circles go to ten).
+<a href="#92" id="92" data-nosnippet="">92</a></span><span class="kw">pub fn </span>autonum(scheme: <span class="kw-2">&amp;</span>str, n: u32) -&gt; String {
+<a href="#93" id="93" data-nosnippet="">93</a>    <span class="kw">const </span>THAI: [char; <span class="number">41</span>] = [
+<a href="#94" id="94" data-nosnippet="">94</a>        <span class="string">'ก'</span>, <span class="string">'ข'</span>, <span class="string">'ค'</span>, <span class="string">'ง'</span>, <span class="string">'จ'</span>, <span class="string">'ฉ'</span>, <span class="string">'ช'</span>, <span class="string">'ซ'</span>, <span class="string">'ฌ'</span>, <span class="string">'ญ'</span>, <span class="string">'ฎ'</span>, <span class="string">'ฏ'</span>, <span class="string">'ฐ'</span>, <span class="string">'ฑ'</span>, <span class="string">'ฒ'</span>, <span class="string">'ณ'</span>, <span class="string">'ด'</span>, <span class="string">'ต'</span>, <span class="string">'ถ'</span>, <span class="string">'ท'</span>, <span class="string">'ธ'</span>, <span class="string">'น'</span>, <span class="string">'บ'</span>, <span class="string">'ป'</span>, <span class="string">'ผ'</span>, <span class="string">'ฝ'</span>, <span class="string">'พ'</span>, <span class="string">'ฟ'</span>,
+<a href="#95" id="95" data-nosnippet="">95</a>        <span class="string">'ภ'</span>, <span class="string">'ม'</span>, <span class="string">'ย'</span>, <span class="string">'ร'</span>, <span class="string">'ล'</span>, <span class="string">'ว'</span>, <span class="string">'ศ'</span>, <span class="string">'ษ'</span>, <span class="string">'ส'</span>, <span class="string">'ห'</span>, <span class="string">'ฬ'</span>, <span class="string">'อ'</span>, <span class="string">'ฮ'</span>,
+<a href="#96" id="96" data-nosnippet="">96</a>    ];
+<a href="#97" id="97" data-nosnippet="">97</a>    <span class="kw">const </span>HINDI_VOWELS: [char; <span class="number">11</span>] = [<span class="string">'अ'</span>, <span class="string">'आ'</span>, <span class="string">'इ'</span>, <span class="string">'ई'</span>, <span class="string">'उ'</span>, <span class="string">'ऊ'</span>, <span class="string">'ऋ'</span>, <span class="string">'ए'</span>, <span class="string">'ऐ'</span>, <span class="string">'ओ'</span>, <span class="string">'औ'</span>];
+<a href="#98" id="98" data-nosnippet="">98</a>    <span class="kw">const </span>HINDI_CONSONANTS: [char; <span class="number">33</span>] = [
+<a href="#99" id="99" data-nosnippet="">99</a>        <span class="string">'क'</span>, <span class="string">'ख'</span>, <span class="string">'ग'</span>, <span class="string">'घ'</span>, <span class="string">'ङ'</span>, <span class="string">'च'</span>, <span class="string">'छ'</span>, <span class="string">'ज'</span>, <span class="string">'झ'</span>, <span class="string">'ञ'</span>, <span class="string">'ट'</span>, <span class="string">'ठ'</span>, <span class="string">'ड'</span>, <span class="string">'ढ'</span>, <span class="string">'ण'</span>, <span class="string">'त'</span>, <span class="string">'थ'</span>, <span class="string">'द'</span>, <span class="string">'ध'</span>, <span class="string">'न'</span>, <span class="string">'प'</span>, <span class="string">'फ'</span>, <span class="string">'ब'</span>, <span class="string">'भ'</span>, <span class="string">'म'</span>, <span class="string">'य'</span>, <span class="string">'र'</span>, <span class="string">'ल'</span>,
+<a href="#100" id="100" data-nosnippet="">100</a>        <span class="string">'व'</span>, <span class="string">'श'</span>, <span class="string">'ष'</span>, <span class="string">'स'</span>, <span class="string">'ह'</span>,
+<a href="#101" id="101" data-nosnippet="">101</a>    ];
+<a href="#102" id="102" data-nosnippet="">102</a>    <span class="kw">const </span>ARABIC_ALPHABET: [char; <span class="number">28</span>] =
+<a href="#103" id="103" data-nosnippet="">103</a>        [<span class="string">'ا'</span>, <span class="string">'ب'</span>, <span class="string">'ت'</span>, <span class="string">'ث'</span>, <span class="string">'ج'</span>, <span class="string">'ح'</span>, <span class="string">'خ'</span>, <span class="string">'د'</span>, <span class="string">'ذ'</span>, <span class="string">'ر'</span>, <span class="string">'ز'</span>, <span class="string">'س'</span>, <span class="string">'ش'</span>, <span class="string">'ص'</span>, <span class="string">'ض'</span>, <span class="string">'ط'</span>, <span class="string">'ظ'</span>, <span class="string">'ع'</span>, <span class="string">'غ'</span>, <span class="string">'ف'</span>, <span class="string">'ق'</span>, <span class="string">'ك'</span>, <span class="string">'ل'</span>, <span class="string">'م'</span>, <span class="string">'ن'</span>, <span class="string">'ه'</span>, <span class="string">'و'</span>, <span class="string">'ي'</span>];
+<a href="#104" id="104" data-nosnippet="">104</a>    <span class="kw">const </span>ARABIC_ABJAD: [char; <span class="number">28</span>] =
+<a href="#105" id="105" data-nosnippet="">105</a>        [<span class="string">'ا'</span>, <span class="string">'ب'</span>, <span class="string">'ج'</span>, <span class="string">'د'</span>, <span class="string">'ه'</span>, <span class="string">'و'</span>, <span class="string">'ز'</span>, <span class="string">'ح'</span>, <span class="string">'ط'</span>, <span class="string">'ي'</span>, <span class="string">'ك'</span>, <span class="string">'ل'</span>, <span class="string">'م'</span>, <span class="string">'ن'</span>, <span class="string">'س'</span>, <span class="string">'ع'</span>, <span class="string">'ف'</span>, <span class="string">'ص'</span>, <span class="string">'ق'</span>, <span class="string">'ر'</span>, <span class="string">'ش'</span>, <span class="string">'ت'</span>, <span class="string">'ث'</span>, <span class="string">'خ'</span>, <span class="string">'ذ'</span>, <span class="string">'ض'</span>, <span class="string">'ظ'</span>, <span class="string">'غ'</span>];
+<a href="#106" id="106" data-nosnippet="">106</a>    <span class="kw">const </span>HEBREW: [char; <span class="number">22</span>] = [<span class="string">'א'</span>, <span class="string">'ב'</span>, <span class="string">'ג'</span>, <span class="string">'ד'</span>, <span class="string">'ה'</span>, <span class="string">'ו'</span>, <span class="string">'ז'</span>, <span class="string">'ח'</span>, <span class="string">'ט'</span>, <span class="string">'י'</span>, <span class="string">'כ'</span>, <span class="string">'ל'</span>, <span class="string">'מ'</span>, <span class="string">'נ'</span>, <span class="string">'ס'</span>, <span class="string">'ע'</span>, <span class="string">'פ'</span>, <span class="string">'צ'</span>, <span class="string">'ק'</span>, <span class="string">'ר'</span>, <span class="string">'ש'</span>, <span class="string">'ת'</span>];
+<a href="#107" id="107" data-nosnippet="">107</a>    <span class="kw">let </span>circled = |first: u32, count: u32| char::from_u32(first + n.saturating_sub(<span class="number">1</span>) % count).map(String::from).unwrap_or_else(|| n.to_string());
+<a href="#108" id="108" data-nosnippet="">108</a>    <span class="kw">let </span>core = <span class="kw">if </span>scheme.starts_with(<span class="string">"romanUc"</span>) {
+<a href="#109" id="109" data-nosnippet="">109</a>        roman(n, <span class="bool-val">true</span>)
+<a href="#110" id="110" data-nosnippet="">110</a>    } <span class="kw">else if </span>scheme.starts_with(<span class="string">"romanLc"</span>) {
+<a href="#111" id="111" data-nosnippet="">111</a>        roman(n, <span class="bool-val">false</span>)
+<a href="#112" id="112" data-nosnippet="">112</a>    } <span class="kw">else if </span>scheme.starts_with(<span class="string">"alphaUc"</span>) {
+<a href="#113" id="113" data-nosnippet="">113</a>        alpha_num(n, <span class="bool-val">true</span>)
+<a href="#114" id="114" data-nosnippet="">114</a>    } <span class="kw">else if </span>scheme.starts_with(<span class="string">"alphaLc"</span>) {
+<a href="#115" id="115" data-nosnippet="">115</a>        alpha_num(n, <span class="bool-val">false</span>)
+<a href="#116" id="116" data-nosnippet="">116</a>    } <span class="kw">else if </span>scheme.starts_with(<span class="string">"circleNumWdWhite"</span>) {
+<a href="#117" id="117" data-nosnippet="">117</a>        <span class="kw">return </span>circled(<span class="number">0x2460</span>, <span class="number">10</span>);
+<a href="#118" id="118" data-nosnippet="">118</a>    } <span class="kw">else if </span>scheme.starts_with(<span class="string">"circleNumWdBlack"</span>) {
+<a href="#119" id="119" data-nosnippet="">119</a>        <span class="kw">return </span>circled(<span class="number">0x2776</span>, <span class="number">10</span>);
+<a href="#120" id="120" data-nosnippet="">120</a>    } <span class="kw">else if </span>scheme.starts_with(<span class="string">"circleNum"</span>) {
+<a href="#121" id="121" data-nosnippet="">121</a>        <span class="kw">return </span>char::from_u32(<span class="number">0x2460 </span>+ n.saturating_sub(<span class="number">1</span>).min(<span class="number">19</span>)).map(String::from).unwrap_or_else(|| n.to_string());
+<a href="#122" id="122" data-nosnippet="">122</a>    } <span class="kw">else if </span>scheme.starts_with(<span class="string">"ea1Chs"</span>) || scheme.starts_with(<span class="string">"ea1Cht"</span>) {
+<a href="#123" id="123" data-nosnippet="">123</a>        chinese_num(n)
+<a href="#124" id="124" data-nosnippet="">124</a>    } <span class="kw">else if </span>scheme.starts_with(<span class="string">"ea1Jpn"</span>) {
+<a href="#125" id="125" data-nosnippet="">125</a>        n.to_string().chars().map(|d| d.to_digit(<span class="number">10</span>).and_then(|v| CJK_DIGITS.get(v <span class="kw">as </span>usize).copied()).unwrap_or(d)).collect()
+<a href="#126" id="126" data-nosnippet="">126</a>    } <span class="kw">else if </span>scheme.starts_with(<span class="string">"arabicDb"</span>) {
+<a href="#127" id="127" data-nosnippet="">127</a>        digits_in(n, <span class="string">'０'</span>)
+<a href="#128" id="128" data-nosnippet="">128</a>    } <span class="kw">else if </span>scheme.starts_with(<span class="string">"thaiAlpha"</span>) {
+<a href="#129" id="129" data-nosnippet="">129</a>        letters(<span class="kw-2">&amp;</span>THAI, n)
+<a href="#130" id="130" data-nosnippet="">130</a>    } <span class="kw">else if </span>scheme.starts_with(<span class="string">"thaiNum"</span>) {
+<a href="#131" id="131" data-nosnippet="">131</a>        digits_in(n, <span class="string">'๐'</span>)
+<a href="#132" id="132" data-nosnippet="">132</a>    } <span class="kw">else if </span>scheme.starts_with(<span class="string">"hindiAlpha1"</span>) {
+<a href="#133" id="133" data-nosnippet="">133</a>        letters(<span class="kw-2">&amp;</span>HINDI_CONSONANTS, n)
+<a href="#134" id="134" data-nosnippet="">134</a>    } <span class="kw">else if </span>scheme.starts_with(<span class="string">"hindiAlpha"</span>) {
+<a href="#135" id="135" data-nosnippet="">135</a>        letters(<span class="kw-2">&amp;</span>HINDI_VOWELS, n)
+<a href="#136" id="136" data-nosnippet="">136</a>    } <span class="kw">else if </span>scheme.starts_with(<span class="string">"hindiNum"</span>) {
+<a href="#137" id="137" data-nosnippet="">137</a>        digits_in(n, <span class="string">'०'</span>)
+<a href="#138" id="138" data-nosnippet="">138</a>    } <span class="kw">else if </span>scheme.starts_with(<span class="string">"arabic1"</span>) {
+<a href="#139" id="139" data-nosnippet="">139</a>        letters(<span class="kw-2">&amp;</span>ARABIC_ALPHABET, n)
+<a href="#140" id="140" data-nosnippet="">140</a>    } <span class="kw">else if </span>scheme.starts_with(<span class="string">"arabic2"</span>) {
+<a href="#141" id="141" data-nosnippet="">141</a>        letters(<span class="kw-2">&amp;</span>ARABIC_ABJAD, n)
+<a href="#142" id="142" data-nosnippet="">142</a>    } <span class="kw">else if </span>scheme.starts_with(<span class="string">"hebrew2"</span>) {
+<a href="#143" id="143" data-nosnippet="">143</a>        letters(<span class="kw-2">&amp;</span>HEBREW, n)
+<a href="#144" id="144" data-nosnippet="">144</a>    } <span class="kw">else </span>{
+<a href="#145" id="145" data-nosnippet="">145</a>        n.to_string()
+<a href="#146" id="146" data-nosnippet="">146</a>    };
+<a href="#147" id="147" data-nosnippet="">147</a>    <span class="comment">// East Asian schemes end with a full-width full stop.
+<a href="#148" id="148" data-nosnippet="">148</a>    </span><span class="kw">let </span>wide = scheme.starts_with(<span class="string">"ea1"</span>) || scheme.starts_with(<span class="string">"arabicDb"</span>);
+<a href="#149" id="149" data-nosnippet="">149</a>    <span class="kw">if </span>scheme.ends_with(<span class="string">"ParenBoth"</span>) {
+<a href="#150" id="150" data-nosnippet="">150</a>        <span class="macro">format!</span>(<span class="string">"({core})"</span>)
+<a href="#151" id="151" data-nosnippet="">151</a>    } <span class="kw">else if </span>scheme.ends_with(<span class="string">"ParenR"</span>) {
+<a href="#152" id="152" data-nosnippet="">152</a>        <span class="macro">format!</span>(<span class="string">"{core})"</span>)
+<a href="#153" id="153" data-nosnippet="">153</a>    } <span class="kw">else if </span>scheme.ends_with(<span class="string">"Period"</span>) {
+<a href="#154" id="154" data-nosnippet="">154</a>        <span class="macro">format!</span>(<span class="string">"{core}{}"</span>, <span class="kw">if </span>wide { <span class="string">'．' </span>} <span class="kw">else </span>{ <span class="string">'.' </span>})
+<a href="#155" id="155" data-nosnippet="">155</a>    } <span class="kw">else if </span>scheme.ends_with(<span class="string">"Minus"</span>) {
+<a href="#156" id="156" data-nosnippet="">156</a>        <span class="macro">format!</span>(<span class="string">"{core}-"</span>)
+<a href="#157" id="157" data-nosnippet="">157</a>    } <span class="kw">else </span>{
+<a href="#158" id="158" data-nosnippet="">158</a>        core
+<a href="#159" id="159" data-nosnippet="">159</a>    }
+<a href="#160" id="160" data-nosnippet="">160</a>}
+</code></pre></div></section></main></body></html>

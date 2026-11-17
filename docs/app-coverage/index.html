@@ -1,0 +1,1852 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc="" data-has-sidebar="" data-astro-cid-g5ptsecz=""><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Cobertura do ravenrs-app para aplicações corporativas | RavenRS</title><link rel="sitemap" href="/RavenRS/sitemap-index.xml"><link rel="shortcut icon" href="/RavenRS/favicon.svg" type="image/svg+xml"><meta name="generator" content="Astro v7.4.12"><meta name="generator" content="Starlight v0.43.1"><script>
+	(() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+	})();
+</script><link rel="stylesheet" href="/RavenRS/_astro/print.C9eyqPGL.css" media="print"><link rel="stylesheet" href="/RavenRS/_astro/index.BcKmb9jH.css"><style>@layer starlight.components.icon{svg[data-astro-cid-hkc32dio]{color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em;overflow:visible}}
+</style><script type="module" src="/RavenRS/_astro/page.cNngjUgL.js"></script><meta name="description" content="Cobertura do ravenrs-app para aplicações corporativas — the RavenRS guide to native and web applications in Rust."><link rel="canonical" href="https://ravenrs.vercel.app/docs/app-coverage/"><meta property="og:title" content="Cobertura do ravenrs-app para aplicações corporativas | RavenRS"><meta property="og:description" content="Cobertura do ravenrs-app para aplicações corporativas — the RavenRS guide to native and web applications in Rust."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/docs/app-coverage/"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Cobertura do ravenrs-app para aplicações corporativas | RavenRS — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Cobertura do ravenrs-app para aplicações corporativas | RavenRS"><meta name="twitter:description" content="Cobertura do ravenrs-app para aplicações corporativas — the RavenRS guide to native and web applications in Rust."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta name="twitter:image:alt" content="Cobertura do ravenrs-app para aplicações corporativas | RavenRS — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Cobertura do ravenrs-app para aplicações corporativas | RavenRS","description":"Cobertura do ravenrs-app para aplicações corporativas — the RavenRS guide to native and web applications in Rust.","url":"https://ravenrs.vercel.app/docs/app-coverage/","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body data-astro-cid-g5ptsecz=""><a class="sl-skip-link" href="#_top" data-astro-cid-qb7clj6f="">Skip to content</a><div class="page sl-flex" data-astro-cid-yntsjkba=""><header class="header" data-astro-cid-yntsjkba=""><div class="header" data-astro-cid-by6fddyj=""><div class="title-wrapper sl-flex" data-astro-cid-by6fddyj=""><a href="/RavenRS/" class="site-title sl-flex" data-astro-cid-6rvad3va=""><span translate="no" data-astro-cid-6rvad3va="">RavenRS</span></a></div><div class="sl-flex print:hidden" data-astro-cid-by6fddyj=""><site-search data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}" data-astro-cid-b5kgnn7o="true"><button data-open-modal="" disabled="" aria-label="Search" aria-keyshortcuts="Control+K" data-astro-cid-b5kgnn7o=""><svg data-astro-cid-b5kgnn7o="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"></path></svg><span class="sl-hidden md:sl-block" aria-hidden="true" data-astro-cid-b5kgnn7o="">Search</span><kbd class="sl-hidden md:sl-flex" style="display: none" data-astro-cid-b5kgnn7o=""><kbd data-astro-cid-b5kgnn7o="">Ctrl</kbd><kbd data-astro-cid-b5kgnn7o="">K</kbd></kbd></button><dialog style="padding: 0" aria-label="Search" data-astro-cid-b5kgnn7o=""><div class="dialog-frame sl-flex" data-astro-cid-b5kgnn7o=""><button data-close-modal="" class="sl-flex md:sl-hidden" data-astro-cid-b5kgnn7o="">Cancel</button><div class="search-container" data-astro-cid-b5kgnn7o=""><div id="starlight__search" data-astro-cid-b5kgnn7o=""></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/RavenRS/_astro/Search.astro_astro_type_script_index_0_lang.B287-pOx.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group" data-astro-cid-by6fddyj=""><div class="sl-flex social-icons" data-astro-cid-by6fddyj=""><a href="https://github.com/alexkads/RavenRS" rel="me" class="sl-flex" data-astro-cid-n2mnl6yq=""><span class="sr-only" data-astro-cid-n2mnl6yq="">GitHub</span><svg data-astro-cid-n2mnl6yq="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"></path></svg></a></div><starlight-theme-select data-astro-cid-smhvfpqh="true"><label style="--sl-select-width: 6.25em" data-astro-cid-2z5xp7gb=""><span class="sr-only" data-astro-cid-2z5xp7gb="">Select theme</span><span class="icon label-icon" data-astro-cid-2z5xp7gb=""><svg class="sl-theme-icon-dark" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"></path></svg><svg class="sl-theme-icon-light" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"></path></svg><svg class="sl-theme-icon-auto" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"></path></svg></span><select autocomplete="off" data-astro-cid-2z5xp7gb=""><option value="dark" data-astro-cid-2z5xp7gb="">Dark</option><option value="light" data-astro-cid-2z5xp7gb="">Light</option><option value="auto" selected="" data-astro-cid-2z5xp7gb="">Auto</option></select><svg class="icon caret" data-astro-cid-2z5xp7gb="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"></path></svg></label></starlight-theme-select><script>(() => {
+		const theme = (typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme'));
+		if (theme) document.querySelectorAll('starlight-theme-select select').forEach((s) => { s.value = theme; });
+	})();</script><script type="module">var e=`starlight-theme`,t=e=>e===`auto`||e===`dark`||e===`light`?e:`auto`,n=()=>t(typeof localStorage<`u`&&localStorage.getItem(e));function r(t){typeof localStorage<`u`&&localStorage.setItem(e,t===`light`||t===`dark`?t:``)}var i=()=>matchMedia(`(prefers-color-scheme: light)`).matches?`light`:`dark`;function a(e){document.querySelectorAll(`starlight-theme-select select`).forEach(t=>{t.value=e}),document.documentElement.dataset.theme=e===`auto`?i():e,r(e)}matchMedia(`(prefers-color-scheme: light)`).addEventListener(`change`,()=>{n()===`auto`&&a(`auto`)});var o=class extends HTMLElement{constructor(){super(),a(n()),this.querySelector(`select`)?.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&a(t(e.currentTarget.value))})}};customElements.define(`starlight-theme-select`,o);</script><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script></div></div></header><nav class="sidebar print:hidden" aria-label="Main" data-astro-cid-yntsjkba=""><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden" data-astro-cid-r2osgdlg=""><svg class="open-menu" data-astro-cid-r2osgdlg="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"></path></svg><svg class="close-menu" data-astro-cid-r2osgdlg="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"></path></svg><span class="sr-only" data-astro-cid-r2osgdlg="">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover="" id="starlight__sidebar" class="sidebar-pane" data-astro-cid-yntsjkba="true"><div class="sidebar-content sl-flex" data-astro-cid-yntsjkba=""><sl-sidebar-state-persist data-hash="1q49ps1" data-astro-cid-ipdry5cl="true"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level" data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/" class="large" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Home</span></a></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Start here</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Introduction</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/getting-started/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Installation</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/cli/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">CLI &amp; AI assistants</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/ai/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">AI-assisted development</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Build applications</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/architecture/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Architecture</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/design-system/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Design system</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/applications/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Records &amp; forms</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/components/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Component coverage</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Reports</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/reporting/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Create reports</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/report-server/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Report server</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Reference</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/quality/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Quality &amp; accessibility</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/performance/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Performance</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/versioning/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Versions &amp; upgrades</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Technical guides</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-contracts/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Contracts and acceptance scenarios for reusable modules</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-coverage/" aria-current="page" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Cobertura do ravenrs-app para aplicações corporativas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-parity/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Application framework parity</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/automacao-comercial/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Automação comercial: o que existe e o que falta para vender</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/component-audit/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Auditoria técnica de componentes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/component-inventory/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Inventário e projeção de componentes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/developer-platform-plan/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Plataforma de desenvolvimento RavenRS — inventário e proposta</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/nfse/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">NFS-e Padrão Nacional: pesquisa para o PDV (hoje: 05/11/2026)</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/pagamentos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Pagamentos: pinpads, TEF e os quatro provedores</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/perifericos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Periféricos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/project-planning-roadmap/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Capacidades de planejamento para aplicações RavenRS</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/proximas-etapas/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Automação comercial: próximas etapas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/reporting-parity/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">RavenRS Reporting — feature parity</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/site-seo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Site SEO and publication</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/software-coverage/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Cobertura por tipo de software</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/tef-comparativo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">TEF para o PDV: comparativo e recomendação</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Data Studio</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/01-visao-e-requisitos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: visão do produto e requisitos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/02-analise-do-codigo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: análise do código</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/03-matriz-de-componentes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: matriz de componentes reutilizáveis</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/04-lacunas-e-novos-componentes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: lacunas e novos componentes propostos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/05-fluxos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: fluxos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/06-telas/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: especificação das telas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/07-wireframes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: wireframes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/08-arquitetura/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: arquitetura</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/09-modelo-de-dominio/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: modelo de domínio</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/10-mcp-e-conectores/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: MCP, agente e conectores</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/11-schema-mapeamento-transformacoes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: descoberta, schema, mapeamento e transformações</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/12-execucao-e-recuperacao/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: execução e recuperação</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/13-seguranca-privacidade-a11y-i18n/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: segurança, privacidade, acessibilidade, idiomas e desempenho</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/14-referencias-e-roadmap/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: referências e roadmap</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/15-criterios-de-aceitacao/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: critérios de aceitação</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/16-decisoes-em-aberto/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: decisões em aberto</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/cenario-de-referencia/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: cenário de referência</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Tutorials</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/tutorials/ravenrs-app-vscode/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Primeiro app com ravenrs-app no VS Code — RavenDevLab</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Explore</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="7"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/components/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Components</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/playground/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Playground</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/api/ravenrs/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Rust API</span></a></li></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex" data-astro-cid-p4azlveh=""><div class="social-icons" data-astro-cid-p4azlveh=""><a href="https://github.com/alexkads/RavenRS" rel="me" class="sl-flex" data-astro-cid-n2mnl6yq=""><span class="sr-only" data-astro-cid-n2mnl6yq="">GitHub</span><svg data-astro-cid-n2mnl6yq="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"></path></svg></a></div><starlight-theme-select data-astro-cid-smhvfpqh="true"><label style="--sl-select-width: 6.25em" data-astro-cid-2z5xp7gb=""><span class="sr-only" data-astro-cid-2z5xp7gb="">Select theme</span><span class="icon label-icon" data-astro-cid-2z5xp7gb=""><svg class="sl-theme-icon-dark" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"></path></svg><svg class="sl-theme-icon-light" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"></path></svg><svg class="sl-theme-icon-auto" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"></path></svg></span><select autocomplete="off" data-astro-cid-2z5xp7gb=""><option value="dark" data-astro-cid-2z5xp7gb="">Dark</option><option value="light" data-astro-cid-2z5xp7gb="">Light</option><option value="auto" selected="" data-astro-cid-2z5xp7gb="">Auto</option></select><svg class="icon caret" data-astro-cid-2z5xp7gb="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"></path></svg></label></starlight-theme-select><script>(() => {
+		const theme = (typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme'));
+		if (theme) document.querySelectorAll('starlight-theme-select select').forEach((s) => { s.value = theme; });
+	})();</script></div></div></div></sl-sidebar-pane></nav><div class="main-frame" data-astro-cid-yntsjkba=""><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex" data-astro-cid-lrzkfocr=""><aside class="right-sidebar-container print:hidden" data-astro-cid-lrzkfocr=""><div class="right-sidebar" data-astro-cid-lrzkfocr=""><div class="lg:sl-hidden" data-astro-cid-qok35upx=""><mobile-starlight-toc data-min-h="2" data-max-h="3" data-astro-cid-66cqc7ze="true"><nav aria-labelledby="starlight__on-this-page--mobile" data-astro-cid-66cqc7ze=""><details id="starlight__mobile-toc" data-astro-cid-66cqc7ze=""><summary id="starlight__on-this-page--mobile" class="sl-flex" data-astro-cid-66cqc7ze=""><span class="toggle sl-flex" data-astro-cid-66cqc7ze="">On this page<svg class="caret" data-astro-cid-66cqc7ze="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></span><span class="display-current" data-astro-cid-66cqc7ze=""></span></summary><div class="dropdown" data-astro-cid-66cqc7ze=""><ul class="isMobile" style="--depth: 0;" data-astro-cid-jugkfwgx=""><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#_top" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Overview</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#objetivo" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Objetivo</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#metodo-e-limites" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Método e limites</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#visao-geral" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Visão geral</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#achados-que-mudam-a-leitura-do-backlog" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Achados que mudam a leitura do backlog</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#o-que-declarar-configurar-estender-e-ainda-implementar" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">O que declarar, configurar, estender e ainda implementar</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a01-modelo-de-dominio-declarativo-85" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A01 Modelo de domínio declarativo: 85%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a02-telas-geradas-navegacao-e-acessibilidade-75" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A02 Telas geradas, navegação e acessibilidade: 75%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a03-acoes-e-comandos-de-negocio-80" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A03 Ações e comandos de negócio: 80%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a04-validacao-e-regras-declarativas-80" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A04 Validação e regras declarativas: 80%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a05-transacoes-agregados-e-concorrencia-60" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A05 Transações, agregados e concorrência: 60%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a06-persistencia-tipos-e-portabilidade-70" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A06 Persistência, tipos e portabilidade: 70%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a07-autorizacao-em-todas-as-superficies-80" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A07 Autorização em todas as superfícies: 80%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a08-identidade-sessoes-e-sso-60" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A08 Identidade, sessões e SSO: 60%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a09-multiempresa-unidades-e-contexto-35" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A09 Multiempresa, unidades e contexto: 35%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a10-auditoria-historico-e-privacidade-50" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A10 Auditoria, histórico e privacidade: 50%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a11-processos-aprovacoes-e-tarefas-75" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A11 Processos, aprovações e tarefas: 75%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a12-jobs-agendamento-e-notificacoes-45" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A12 Jobs, agendamento e notificações: 45%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a13-api-eventos-e-integracoes-75" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A13 API, eventos e integrações: 75%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a14-importacao-exportacao-e-busca-35" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A14 Importação, exportação e busca: 35%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a15-relatorios-e-saidas-corporativas-60" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A15 Relatórios e saídas corporativas: 60%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a16-paineis-e-analise-de-negocio-60" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A16 Painéis e análise de negócio: 60%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a17-anexos-e-documentos-emitidos-40" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A17 Anexos e documentos emitidos: 40%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a18-colaboracao-e-comunicacao-no-registro-30" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A18 Colaboração e comunicação no registro: 30%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a19-agenda-reservas-e-recursos-40" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A19 Agenda, reservas e recursos: 40%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a20-customizacao-e-modulos-reutilizaveis-75" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A20 Customização e módulos reutilizáveis: 75%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a21-cliente-remoto-tempo-real-e-offline-35" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A21 Cliente remoto, tempo real e offline: 35%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a22-operacao-recuperacao-e-implantacao-55" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A22 Operação, recuperação e implantação: 55%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a23-consumo-por-ia-mcp-e-geracao-60" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A23 Consumo por IA, MCP e geração: 60%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a24-testabilidade-e-contratos-de-consumo-80" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A24 Testabilidade e contratos de consumo: 80%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#gaps-prioritarios-e-encaminhamento" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Gaps prioritários e encaminhamento</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#priorizacao-pelo-trabalho-poupado-ao-consumidor" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Priorização pelo trabalho poupado ao consumidor</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#como-verificar-a-economia-de-tokens-e-o-uso-de-modelos-menores" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Como verificar a economia de tokens e o uso de modelos menores</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#consulta-pelo-mcp-existente" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Consulta pelo MCP existente</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#atualizacao-e-conclusao-de-uma-capacidade" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Atualização e conclusão de uma capacidade</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#capacidades-opcionais-por-dominio" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Capacidades opcionais por domínio</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#verificacao-desta-revisao-documental" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Verificação desta revisão documental</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/RavenRS/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block" data-astro-cid-qok35upx=""><div class="sl-container" data-astro-cid-qok35upx=""><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul style="--depth: 0;" data-astro-cid-jugkfwgx=""><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#_top" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Overview</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#objetivo" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Objetivo</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#metodo-e-limites" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Método e limites</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#visao-geral" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Visão geral</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#achados-que-mudam-a-leitura-do-backlog" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Achados que mudam a leitura do backlog</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#o-que-declarar-configurar-estender-e-ainda-implementar" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">O que declarar, configurar, estender e ainda implementar</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a01-modelo-de-dominio-declarativo-85" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A01 Modelo de domínio declarativo: 85%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a02-telas-geradas-navegacao-e-acessibilidade-75" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A02 Telas geradas, navegação e acessibilidade: 75%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a03-acoes-e-comandos-de-negocio-80" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A03 Ações e comandos de negócio: 80%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a04-validacao-e-regras-declarativas-80" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A04 Validação e regras declarativas: 80%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a05-transacoes-agregados-e-concorrencia-60" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A05 Transações, agregados e concorrência: 60%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a06-persistencia-tipos-e-portabilidade-70" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A06 Persistência, tipos e portabilidade: 70%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a07-autorizacao-em-todas-as-superficies-80" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A07 Autorização em todas as superfícies: 80%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a08-identidade-sessoes-e-sso-60" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A08 Identidade, sessões e SSO: 60%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a09-multiempresa-unidades-e-contexto-35" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A09 Multiempresa, unidades e contexto: 35%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a10-auditoria-historico-e-privacidade-50" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A10 Auditoria, histórico e privacidade: 50%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a11-processos-aprovacoes-e-tarefas-75" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A11 Processos, aprovações e tarefas: 75%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a12-jobs-agendamento-e-notificacoes-45" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A12 Jobs, agendamento e notificações: 45%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a13-api-eventos-e-integracoes-75" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A13 API, eventos e integrações: 75%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a14-importacao-exportacao-e-busca-35" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A14 Importação, exportação e busca: 35%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a15-relatorios-e-saidas-corporativas-60" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A15 Relatórios e saídas corporativas: 60%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a16-paineis-e-analise-de-negocio-60" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A16 Painéis e análise de negócio: 60%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a17-anexos-e-documentos-emitidos-40" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A17 Anexos e documentos emitidos: 40%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a18-colaboracao-e-comunicacao-no-registro-30" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A18 Colaboração e comunicação no registro: 30%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a19-agenda-reservas-e-recursos-40" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A19 Agenda, reservas e recursos: 40%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a20-customizacao-e-modulos-reutilizaveis-75" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A20 Customização e módulos reutilizáveis: 75%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a21-cliente-remoto-tempo-real-e-offline-35" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A21 Cliente remoto, tempo real e offline: 35%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a22-operacao-recuperacao-e-implantacao-55" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A22 Operação, recuperação e implantação: 55%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a23-consumo-por-ia-mcp-e-geracao-60" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A23 Consumo por IA, MCP e geração: 60%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#a24-testabilidade-e-contratos-de-consumo-80" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">A24 Testabilidade e contratos de consumo: 80%</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#gaps-prioritarios-e-encaminhamento" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Gaps prioritários e encaminhamento</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#priorizacao-pelo-trabalho-poupado-ao-consumidor" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Priorização pelo trabalho poupado ao consumidor</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#como-verificar-a-economia-de-tokens-e-o-uso-de-modelos-menores" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Como verificar a economia de tokens e o uso de modelos menores</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#consulta-pelo-mcp-existente" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Consulta pelo MCP existente</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#atualizacao-e-conclusao-de-uma-capacidade" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Atualização e conclusão de uma capacidade</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#capacidades-opcionais-por-dominio" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Capacidades opcionais por domínio</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#verificacao-desta-revisao-documental" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Verificação desta revisão documental</span></a></li></ul></nav></starlight-toc><script type="module" src="/RavenRS/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane" data-astro-cid-lrzkfocr=""><main data-pagefind-body="" lang="en" dir="ltr" data-astro-cid-g5ptsecz=""><div class="content-panel" data-astro-cid-a7po4psb=""><div class="sl-container" data-astro-cid-a7po4psb=""><h1 id="_top" data-astro-cid-bebwqqxs="">Cobertura do ravenrs-app para aplicações corporativas</h1><p class="page-source" data-astro-cid-u72m6wot="">RavenRS 27.1.28 · <a href="index.md" data-astro-cid-u72m6wot="">View Markdown</a></p></div></div><div class="content-panel" data-astro-cid-a7po4psb=""><div class="sl-container" data-astro-cid-a7po4psb=""><div class="sl-markdown-content"><p>Data: 15/11/2026. Base de código: <code dir="auto">3cfedf720</code>; documentação de trabalho: <code dir="auto">1700fe807</code>. Avaliação estática de APIs, guias, exemplos, testes existentes e issues consultadas. A execução de verificações deste documento não transforma os cenários propostos em capacidades entregues.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="objetivo">Objetivo</h2><a class="sl-anchor-link" href="#objetivo"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Objetivo”</span></a></div>
+<p>Permitir que consumidores, inclusive assistidos por modelos de IA com menos recursos, construam aplicações corporativas <strong>declarando o domínio, configurando capacidades e escrevendo principalmente as particularidades do negócio</strong>.</p>
+<p>A cobertura de <a href="/RavenRS/docs/software-coverage/">tipos de software</a> pergunta que experiências visuais e motores estão disponíveis. Esta cobertura pergunta <strong>quanto do fluxo corporativo o framework já absorve e quanto ainda obriga o consumidor a implementar ou integrar</strong>.</p>
+<p>A família inclui o núcleo sem GUI, UI gerada, adaptadores de dados, servidor/cliente remoto, relatórios, biblioteca de registros e módulos opcionais. Não concentrar tudo no crate ravenrs-app:</p>
+<table>
+<thead>
+<tr>
+<th>Camada</th>
+<th>Responsabilidade</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ravenrs-app</td>
+<td>Modelo, contratos, unidade de trabalho, ações, regras, segurança e módulos</td>
+</tr>
+<tr>
+<td>ravenrs-app-ui</td>
+<td>Experiência gerada e extensão de telas/editores</td>
+</tr>
+<tr>
+<td>Adaptadores e serviço</td>
+<td>Persistência, transporte e capacidades específicas do host</td>
+</tr>
+<tr>
+<td>Pacotes opcionais</td>
+<td>Processos, relatórios e funcionalidades compartilháveis</td>
+</tr>
+<tr>
+<td>ravenrs-mcp e CLI</td>
+<td>Descoberta, exemplos, validação disponível e preparação do projeto</td>
+</tr>
+<tr>
+<td>Consumidor</td>
+<td>Domínio, elegibilidade, alçadas, retenção, políticas e integrações próprias</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="metodo-e-limites">Método e limites</h2><a class="sl-anchor-link" href="#metodo-e-limites"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Método e limites”</span></a></div>
+<p>São <strong>24 áreas e 240 capacidades</strong>, dez por área, com pesos iguais:</p>
+<ul>
+<li><strong>1:</strong> suporte público/documentado para o item delimitado, disponível no código analisado.</li>
+<li><strong>0,5:</strong> suporte parcial, caminho por extensão ou composição ainda exige integração relevante.</li>
+<li><strong>0:</strong> entrega apenas planejada ou suporte não comprovado no recorte consultado. Não prova ausência exaustiva nem impossibilidade de construir.</li>
+</ul>
+<p>Índice da área = soma dos pontos / 10 × 100. Trata-se de uma estimativa de cobertura do recorte, não percentual de produto pronto, esforço restante ou redução de tokens. Não há intervalo estatístico nem benchmark de modelos menores nesta análise.</p>
+<p><strong>Não calcular uma média como “o ravenrs-app está X% pronto”.</strong> Os recortes são diferentes e nem todo projeto precisa de SSO, multiempresa, agenda ou offline. “Núcleo” significa capacidade transversal, não dependência obrigatória; os pacotes continuam opcionais quando possível.</p>
+<p>O estado de uma issue não substitui a leitura da entrega: uma issue fechada pode ter escopo menor que a área. Uma issue aberta pode conter itens já implementados. <a href="/RavenRS/docs/app-parity/">APP-PARITY.md</a> descreve APIs/status, <a href="/RavenRS/docs/app-contracts/">APP-CONTRACTS.md</a> define contratos e C01–C19/M01–M19; este documento organiza cobertura, lacunas e prioridade de consumo.</p>
+<p>A inspeção consultou testes como evidência do contrato pretendido, sem afirmar que todos foram executados. Hosts/providers externos precisam de verificação própria. Uma capacidade descrita em memória ou SQLite não se estende automaticamente a web, PostgreSQL ou outro processo.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="visao-geral">Visão geral</h2><a class="sl-anchor-link" href="#visao-geral"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Visão geral”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Área</th>
+<th>Grupo</th>
+<th align="right">Índice na base auditada</th>
+<th>O que ainda pesa no consumidor</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A01 Modelo de domínio declarativo</td>
+<td>Núcleo</td>
+<td align="right">85%</td>
+<td>Campos adicionados dinamicamente ainda são simples; estruturas compostas e validação de todas as diferenças precisam de contratos mais completos.</td>
+</tr>
+<tr>
+<td>A02 Telas geradas, navegação e acessibilidade</td>
+<td>Núcleo</td>
+<td align="right">75%</td>
+<td>ListView remoto não significa que RemoteApp faça paginação integral do servidor. Auditar idiomas, acessibilidade por host, listas aninhadas e layout RTL.</td>
+</tr>
+<tr>
+<td>A03 Ações e comandos de negócio</td>
+<td>Núcleo</td>
+<td align="right">80%</td>
+<td>Completar posicionamento pelo modelo e contratos de comandos reversíveis; cancelamento de uma tarefa não desfaz efeitos externos já realizados.</td>
+</tr>
+<tr>
+<td>A04 Validação e regras declarativas</td>
+<td>Núcleo</td>
+<td align="right">80%</td>
+<td>Propagar estado inválido de edição e contextos nas coleções; validar e diagnosticar alterações de regras em execução. A aplicação continua declarando suas regras.</td>
+</tr>
+<tr>
+<td>A05 Transações, agregados e concorrência</td>
+<td>Núcleo</td>
+<td align="right">60%</td>
+<td>Prioridade: versão atômica na escrita, chaves concorrentes, unidade de trabalho do agregado e idempotência de commits cujo resultado se perdeu.</td>
+</tr>
+<tr>
+<td>A06 Persistência, tipos e portabilidade</td>
+<td>Núcleo</td>
+<td align="right">70%</td>
+<td>Não confundir NUMERIC no PostgreSQL com Decimal exato no Value do app: os números ainda passam por f64. Documentar limites temporais, numéricos e capacidades.</td>
+</tr>
+<tr>
+<td>A07 Autorização em todas as superfícies</td>
+<td>Núcleo</td>
+<td align="right">80%</td>
+<td>Verificar limites de criação em cada adaptador, mensagens de regras, exportações e anexos. #232 está fechada; sua entrega não prova todas as combinações de providers.</td>
+</tr>
+<tr>
+<td>A08 Identidade, sessões e SSO</td>
+<td>Núcleo</td>
+<td align="right">60%</td>
+<td>Providers OIDC/LDAP conforme o projeto, MFA, gestão visual de vínculos e contrato de sessões entre reinícios/instâncias.</td>
+</tr>
+<tr>
+<td>A09 Multiempresa, unidades e contexto</td>
+<td>Núcleo</td>
+<td align="right">35%</td>
+<td>TenantContext e propagação aos serviços, arquivos, cache, jobs, auditoria, provisionamento e troca de organização; combinar licença com permissões.</td>
+</tr>
+<tr>
+<td>A10 Auditoria, histórico e privacidade</td>
+<td>Núcleo</td>
+<td align="right">50%</td>
+<td>Separar trilha de alterações de histórico temporal, retenção e políticas de privacidade. Permissão de campo não substitui toda a gestão de dados pessoais.</td>
+</tr>
+<tr>
+<td>A11 Processos, aprovações e tarefas</td>
+<td>Núcleo</td>
+<td align="right">75%</td>
+<td>Concorrência atômica #241, escalonamento e designer versionado. Fluxos paralelos, compensações e regras especiais dependem do recorte; não se promete BPMN completo.</td>
+</tr>
+<tr>
+<td>A12 Jobs, agendamento e notificações</td>
+<td>Núcleo</td>
+<td align="right">45%</td>
+<td>Scheduler e execução durável, cancelamento cooperativo por provider, notificações com deduplicação e preferências. #66 cobre agendamento no app aberto, não toda a plataforma de jobs.</td>
+</tr>
+<tr>
+<td>A13 API, eventos e integrações</td>
+<td>Núcleo</td>
+<td align="right">75%</td>
+<td>Conectores específicos opcionais, worker independente, propagação de timeout/cancelamento e operação monitorável. Não prometer exactly-once distribuído por existir deduplicação local.</td>
+</tr>
+<tr>
+<td>A14 Importação, exportação e busca</td>
+<td>Núcleo</td>
+<td align="right">35%</td>
+<td>Wizard CSV/XLSX, referências e deduplicação, busca transversal e exportação remota. Toda entrada passa por ObjectSpace, regras e auditoria.</td>
+</tr>
+<tr>
+<td>A15 Relatórios e saídas corporativas</td>
+<td>Núcleo</td>
+<td align="right">60%</td>
+<td>Preservar filtro/escopo em todas as saídas, limitar memória, agendar com identidade e fornecer templates por entidade onde necessário.</td>
+</tr>
+<tr>
+<td>A16 Painéis e análise de negócio</td>
+<td>Dependente do projeto</td>
+<td align="right">60%</td>
+<td>Designer, crossfilter, pivot, layout persistente e agregação no provider; reaproveitar Chart e os controles existentes.</td>
+</tr>
+<tr>
+<td>A17 Anexos e documentos emitidos</td>
+<td>Núcleo</td>
+<td align="right">40%</td>
+<td>Download autorizado, ciclo de vida dos arquivos, sessão de upload e revisão imutável na emissão. Assinatura manuscrita não é assinatura criptográfica.</td>
+</tr>
+<tr>
+<td>A18 Colaboração e comunicação no registro</td>
+<td>Dependente do projeto</td>
+<td align="right">30%</td>
+<td>Histórico e participação, comentários/menções, não lidas, notificações e atualização de telas. #259 cobre conversas, sem cobrir toda colaboração de registro.</td>
+</tr>
+<tr>
+<td>A19 Agenda, reservas e recursos</td>
+<td>Dependente do projeto</td>
+<td align="right">40%</td>
+<td>Recorrência, exceções, fusos e reserva atômica; deixar elegibilidade, calendário e capacidade como políticas do consumidor.</td>
+</tr>
+<tr>
+<td>A20 Customização e módulos reutilizáveis</td>
+<td>Núcleo</td>
+<td align="right">75%</td>
+<td>Editor visual completo, propagação do guard, pontos de extensão e distribuição de pacotes. Não criar um sistema paralelo ao ModuleManifest.</td>
+</tr>
+<tr>
+<td>A21 Cliente remoto, tempo real e offline</td>
+<td>Dependente do projeto</td>
+<td align="right">35%</td>
+<td>Evitar perda de draft na rejeição remota; suportar paginação, referências em lote, eventos de atualização e sincronização com revalidação.</td>
+</tr>
+<tr>
+<td>A22 Operação, recuperação e implantação</td>
+<td>Núcleo</td>
+<td align="right">55%</td>
+<td>Documentar recuperação por adaptador, operação dos jobs, traces e ambientes. doctor verifica ferramentas, não substitui telemetria do app em produção.</td>
+</tr>
+<tr>
+<td>A23 Consumo por IA, MCP e geração</td>
+<td>Produtividade com IA</td>
+<td align="right">60%</td>
+<td>Receitas completas, diagnóstico estruturado, validação de modelo e bateria com modelos menores. O MCP operacional #266 é uma capacidade distinta e opcional.</td>
+</tr>
+<tr>
+<td>A24 Testabilidade e contratos de consumo</td>
+<td>Núcleo</td>
+<td align="right">80%</td>
+<td>Ampliar fluxos de referência e matriz de hosts/providers; um teste ignorado por faltar serviço não prova integração real.</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="achados-que-mudam-a-leitura-do-backlog">Achados que mudam a leitura do backlog</h2><a class="sl-anchor-link" href="#achados-que-mudam-a-leitura-do-backlog"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Achados que mudam a leitura do backlog”</span></a></div>
+<ul>
+<li><strong>O MCP documental já existe.</strong> API, exemplos, guias, contratos, paridade e ferramentas de relatório estão disponíveis. #266 trata um MCP diferente: operar dados e ações de uma aplicação autenticada.</li>
+<li><strong>Aprovação durável não é uma lacuna inteira.</strong> ravenrs-app-requests já tem etapas, tarefas, delegação, decisões idempotentes e retomada. Faltam especializações, concorrência atômica e escalonamento.</li>
+<li><strong>Backup SQLite já existe.</strong> backup.rs implementa snapshot e restauração com stamp; #229 está fechada. Não confundir recuperação de SQLite com a operação de todos os providers.</li>
+<li><strong>CLI já existe.</strong> new, ai e doctor estão documentados; a amplitude de #245 continua além do que esses comandos entregam.</li>
+<li><strong>Outbox e webhook já existem.</strong> #254/#256 e a entrega local de #255 fornecem capacidades reais; não equivalem a um scheduler ou worker distribuído.</li>
+<li><strong>Concorrência permanece um bloqueio transversal.</strong> A bateria dos adaptadores declara lost_updates_detected = false; merge de formulário e erro Conflict não garantem comparação de versão atômica.</li>
+<li><strong>Alguns trackers têm linhas antigas/repetidas.</strong> Há, por exemplo, descrições de relatórios e CLI como futuros ao lado de recursos existentes. Não converter checklist antigo em nota sem conferir código e documentação.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="o-que-declarar-configurar-estender-e-ainda-implementar">O que declarar, configurar, estender e ainda implementar</h2><a class="sl-anchor-link" href="#o-que-declarar-configurar-estender-e-ainda-implementar"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “O que declarar, configurar, estender e ainda implementar”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Fluxo</th>
+<th>O consumidor declara/configura hoje</th>
+<th>Trabalho ainda relevante</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cadastro corporativo</td>
+<td>Entidade, campos, relações, regras, permissões e layouts</td>
+<td>Comportamentos particulares e limites de agregados/edição remota</td>
+</tr>
+<tr>
+<td>Ação de negócio</td>
+<td>Escopo, seleção, critérios e controlador</td>
+<td>Algoritmo do negócio e efeitos externos específicos</td>
+</tr>
+<tr>
+<td>Aprovação</td>
+<td>Pacote requests, etapas, papéis, expressões e política</td>
+<td>Desenho visual, escalonamento e limites de concorrência</td>
+</tr>
+<tr>
+<td>Relatório</td>
+<td>Entidades, parâmetros, permissões e template</td>
+<td>Volume, distribuição agendada e documento emitido versionado</td>
+</tr>
+<tr>
+<td>Integração</td>
+<td>Eventos, provider, webhook e política do worker</td>
+<td>Conector concreto, operação do worker e coordenação entre processos</td>
+</tr>
+<tr>
+<td>App multiempresa/offline</td>
+<td>Políticas e peças de dados disponíveis</td>
+<td>Contexto de tenant e sincronização ainda não consumíveis como fluxo completo</td>
+</tr>
+<tr>
+<td>Assistência ao desenvolvimento</td>
+<td>CLI, MCP documental, guias e checks</td>
+<td>Bateria de tarefas/modelos e validação estruturada de diferenças completas</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="a01-modelo-de-dominio-declarativo-85">A01 Modelo de domínio declarativo: 85%</h2><a class="sl-anchor-link" href="#a01-modelo-de-dominio-declarativo-85"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A01 Modelo de domínio declarativo: 85%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Entidades por derive BusinessObject</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Entidades em tempo de execução</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Campos tipados e metadados de apresentação</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Referências e coleções</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Campos calculados e funções da aplicação</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Singletons e registros não persistidos</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Chaves numéricas, texto e GUID</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Campos adicionais por diferenças do modelo</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Expansão automática de structs em grupos compostos</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Validação do modelo antes de abrir telas</td>
+<td align="right">1</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> Entidades, campos, relações e metadados geram a estrutura comum; a regra de negócio continua no consumidor.</p>
+<p><strong>Lacunas e integração restante:</strong> Campos adicionados dinamicamente ainda são simples; estruturas compostas e validação de todas as diferenças precisam de contratos mais completos.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/70">#70</a>, <a href="https://github.com/alexkads/RavenRS/issues/79">#79</a>, <a href="https://github.com/alexkads/RavenRS/issues/81">#81</a>, <a href="https://github.com/alexkads/RavenRS/issues/437">#437</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/entity.rs">crates/ravenrs-app/src/entity.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/model/generate.rs">crates/ravenrs-app/src/model/generate.rs</a>, <a href="/RavenRS/docs/applications/">docs/APP-FRAMEWORK.md</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Declarar duas entidades relacionadas, gerar lista/detalhe e acrescentar um campo calculado sem duplicar a definição entre UI e serviço.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a02-telas-geradas-navegacao-e-acessibilidade-75">A02 Telas geradas, navegação e acessibilidade: 75%</h2><a class="sl-anchor-link" href="#a02-telas-geradas-navegacao-e-acessibilidade-75"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A02 Telas geradas, navegação e acessibilidade: 75%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Listas e formulários gerados</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Navegação por metadados</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Busca, filtro, ordem e resumo de listas locais</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Layouts de detalhe, grupos e abas</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Variantes de lista e preferências</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Editores de campo substituíveis</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Listas grandes pelo caminho remoto de ListView</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Teclado e semântica acessível das telas geradas</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Idioma/cultura coerentes em todos os editores</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Espelhamento de layout RTL</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> O fluxo cadastro → lista → detalhe usa App, ListView, DetailView, EditorRegistry e SystemModule.</p>
+<p><strong>Lacunas e integração restante:</strong> ListView remoto não significa que RemoteApp faça paginação integral do servidor. Auditar idiomas, acessibilidade por host, listas aninhadas e layout RTL.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/72">#72</a>, <a href="https://github.com/alexkads/RavenRS/issues/73">#73</a>, <a href="https://github.com/alexkads/RavenRS/issues/184">#184</a>, <a href="https://github.com/alexkads/RavenRS/issues/231">#231</a>, <a href="https://github.com/alexkads/RavenRS/issues/401">#401</a>, <a href="https://github.com/alexkads/RavenRS/issues/403">#403</a>, <a href="https://github.com/alexkads/RavenRS/issues/437">#437</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-ui/src/list_view.rs">crates/ravenrs-app-ui/src/list_view.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-ui/src/detail_view.rs">crates/ravenrs-app-ui/src/detail_view.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-ui/src/editors.rs">crates/ravenrs-app-ui/src/editors.rs</a>, <a href="/RavenRS/docs/applications/">docs/APP-FRAMEWORK.md</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Um consumidor declara campos e layouts e usa as mesmas telas com teclado, idioma e permissões, sem montar CRUD à mão.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a03-acoes-e-comandos-de-negocio-80">A03 Ações e comandos de negócio: 80%</h2><a class="sl-anchor-link" href="#a03-acoes-e-comandos-de-negocio-80"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A03 Ações e comandos de negócio: 80%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Novo, salvar, cancelar, excluir e atualizar</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Ações simples, popup, escolha e parâmetro</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Escopo e dependência da seleção</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Critérios e razões de ativação</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Permissão da ação</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Ações dentro do formulário</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Mensagens e resultado da ação</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Ações longas com progresso/cancelamento</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Mapeamento de containers pelo modelo</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Undo/redo genérico e semântica de efeitos de comandos</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> Ações comuns e extensões ficam nos controladores, com estado de ativação e feedback já fornecidos.</p>
+<p><strong>Lacunas e integração restante:</strong> Completar posicionamento pelo modelo e contratos de comandos reversíveis; cancelamento de uma tarefa não desfaz efeitos externos já realizados.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/79">#79</a>, <a href="https://github.com/alexkads/RavenRS/issues/81">#81</a>, <a href="https://github.com/alexkads/RavenRS/issues/82">#82</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/action.rs">crates/ravenrs-app/src/action.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/controller.rs">crates/ravenrs-app/src/controller.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-ui/src/system.rs">crates/ravenrs-app-ui/src/system.rs</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Acrescentar uma ação específica sem reimplementar botões, seleção, permissão e feedback; declarar quando a ação não pode ser desfeita.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a04-validacao-e-regras-declarativas-80">A04 Validação e regras declarativas: 80%</h2><a class="sl-anchor-link" href="#a04-validacao-e-regras-declarativas-80"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A04 Validação e regras declarativas: 80%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Obrigatoriedade, faixas e padrões</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Comparações e critérios de expressão</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Unicidade e regras envolvendo outros registros</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Regras de salvar/excluir e contextos de ações</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Warnings/informações com continuação explícita</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Mensagens parametrizadas por campo</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Validação também sem UI</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Contextos nas coleções aninhadas</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Validação de draft tipado integrada em todos os editores</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Regras no modelo em execução</td>
+<td align="right">0,5</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> Rule, validate e critérios evitam repetir validação em cada formulário e no serviço.</p>
+<p><strong>Lacunas e integração restante:</strong> Propagar estado inválido de edição e contextos nas coleções; validar e diagnosticar alterações de regras em execução. A aplicação continua declarando suas regras.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/79">#79</a>, <a href="https://github.com/alexkads/RavenRS/issues/444">#444</a>, <a href="https://github.com/alexkads/RavenRS/issues/435">#435</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/validation.rs">crates/ravenrs-app/src/validation.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/entity/rules.rs">crates/ravenrs-app/src/entity/rules.rs</a>, <a href="/RavenRS/docs/applications/">docs/APP-FRAMEWORK.md</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Uma regra rejeita igualmente a escrita pela tela e pelo serviço; um draft inválido não confirma silenciosamente um valor anterior.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a05-transacoes-agregados-e-concorrencia-60">A05 Transações, agregados e concorrência: 60%</h2><a class="sl-anchor-link" href="#a05-transacoes-agregados-e-concorrencia-60"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A05 Transações, agregados e concorrência: 60%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Commit e rollback de unidade de trabalho</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Validação e estados no caminho de gravação</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Merge de alterações em campos diferentes</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Erro tipado de conflito</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Auditoria/evento na fronteira documentada de commit</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Contrato de adaptadores declara limites de concorrência</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Versão otimista atômica por registro</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Relações filhas confirmadas/canceladas junto com o formulário pai</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Commit remoto reenviável sem duplicar</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Reserva de chaves/numeração robusta entre processos</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> ObjectSpace, merge_changes e a bateria de contrato já existem; eles não garantem isolamento que o adaptador não declara.</p>
+<p><strong>Lacunas e integração restante:</strong> Prioridade: versão atômica na escrita, chaves concorrentes, unidade de trabalho do agregado e idempotência de commits cujo resultado se perdeu.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/241">#241</a>, <a href="https://github.com/alexkads/RavenRS/issues/332">#332</a>, <a href="https://github.com/alexkads/RavenRS/issues/79">#79</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/space.rs">crates/ravenrs-app/src/space.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-testkit/src/contract.rs">crates/ravenrs-app-testkit/src/contract.rs</a>, <a href="/RavenRS/docs/app-parity/">docs/APP-PARITY.md</a>, <a href="/RavenRS/docs/applications/">docs/APP-FRAMEWORK.md</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Dois escritores da mesma revisão não perdem uma alteração silenciosamente; pai e filhos cancelam juntos; reenvio de um commit produz um efeito.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a06-persistencia-tipos-e-portabilidade-70">A06 Persistência, tipos e portabilidade: 70%</h2><a class="sl-anchor-link" href="#a06-persistencia-tipos-e-portabilidade-70"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A06 Persistência, tipos e portabilidade: 70%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Memória e persistência simples via Storage</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>SQLite gerenciado ou sobre tabelas existentes</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>PostgreSQL pelo contrato SQL</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>PostgREST pelo adaptador próprio</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Migrações e erros de compatibilidade</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Inspeção de schema/modelo/anexos nos diferentes bancos</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Decimal exato de ponta a ponta no modelo e nos critérios</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Instante e fuso preservados como contrato uniforme</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Mesmas capacidades em desktop/web nos adaptadores</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Migração de tenant entre bancos com conferência</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> Vários caminhos de armazenamento e testes de contrato já reduzem o código de integração; suportes variam por adaptador e host.</p>
+<p><strong>Lacunas e integração restante:</strong> Não confundir NUMERIC no PostgreSQL com Decimal exato no Value do app: os números ainda passam por f64. Documentar limites temporais, numéricos e capacidades.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/243">#243</a>, <a href="https://github.com/alexkads/RavenRS/issues/323">#323</a>, <a href="https://github.com/alexkads/RavenRS/issues/331">#331</a>, <a href="https://github.com/alexkads/RavenRS/issues/337">#337</a>, <a href="https://github.com/alexkads/RavenRS/issues/453">#453</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-sqlite/src/lib.rs">crates/ravenrs-app-sqlite/src/lib.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-postgres/src/lib.rs">crates/ravenrs-app-postgres/src/lib.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-postgrest/src/lib.rs">crates/ravenrs-app-postgrest/src/lib.rs</a>, <a href="/RavenRS/docs/applications/">docs/APP-FRAMEWORK.md</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Executar a mesma regra nos adaptadores declarados e preservar os valores dentro dos limites publicados, recusando perda de precisão.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a07-autorizacao-em-todas-as-superficies-80">A07 Autorização em todas as superfícies: 80%</h2><a class="sl-anchor-link" href="#a07-autorizacao-em-todas-as-superficies-80"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A07 Autorização em todas as superfícies: 80%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Papéis e políticas de acesso</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Permissão por entidade e operação</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Permissão por registro</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Permissão por campo</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Permissão de navegação e ação</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Aplicação no SecuredObjectSpace e na API</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Mudança de política em execução</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Autorização uniforme em criação com valores resolvidos no armazenamento</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Ocultação de informação em mensagens/contagens/exports</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Download de anexo com autorização do domínio</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> A política é reutilizável e aplicada na camada de dados; ocultar um botão não é a fronteira de autorização.</p>
+<p><strong>Lacunas e integração restante:</strong> Verificar limites de criação em cada adaptador, mensagens de regras, exportações e anexos. #232 está fechada; sua entrega não prova todas as combinações de providers.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/232">#232</a>, <a href="https://github.com/alexkads/RavenRS/issues/261">#261</a>, <a href="https://github.com/alexkads/RavenRS/issues/226">#226</a>, <a href="https://github.com/alexkads/RavenRS/issues/253">#253</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/security/space.rs">crates/ravenrs-app/src/security/space.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-server/src/lib.rs">crates/ravenrs-app-server/src/lib.rs</a>, <a href="/RavenRS/docs/applications/">docs/APP-FRAMEWORK.md</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> A mesma tentativa proibida é recusada na UI, API, exportação e arquivo, sem revelar campos ou registros protegidos.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a08-identidade-sessoes-e-sso-60">A08 Identidade, sessões e SSO: 60%</h2><a class="sl-anchor-link" href="#a08-identidade-sessoes-e-sso-60"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A08 Identidade, sessões e SSO: 60%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Login local e verificação de senha</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Troca de senha e bloqueio de tentativas</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Administração de usuários e papéis</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Authenticator substituível</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Identidade externa por issuer/subject</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Revogação de sessão no contrato externo</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Provedor OIDC pronto</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>MFA pronto</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Vínculo/desvínculo externo pela UI</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Sessões API persistentes e ciclo distribuído</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> Login local e integração abstrata com identidade externa estão presentes. Aplicações ainda precisam fornecer o provider real.</p>
+<p><strong>Lacunas e integração restante:</strong> Providers OIDC/LDAP conforme o projeto, MFA, gestão visual de vínculos e contrato de sessões entre reinícios/instâncias.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/257">#257</a>, <a href="https://github.com/alexkads/RavenRS/issues/79">#79</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/security/external.rs">crates/ravenrs-app/src/security/external.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/security/directory.rs">crates/ravenrs-app/src/security/directory.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-server/src/lib.rs">crates/ravenrs-app-server/src/lib.rs</a>, <a href="/RavenRS/docs/applications/">docs/APP-FRAMEWORK.md</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Um consumidor configura um provider aceito; revogar acesso impede a próxima operação; claims não ampliam as permissões locais.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a09-multiempresa-unidades-e-contexto-35">A09 Multiempresa, unidades e contexto: 35%</h2><a class="sl-anchor-link" href="#a09-multiempresa-unidades-e-contexto-35"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A09 Multiempresa, unidades e contexto: 35%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Filtragem por unidade com política de registros</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Fixture com organizações e chaves iguais</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Contexto imutável de tenant no runtime inteiro</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Resolução autenticada de tenant no serviço</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Banco por tenant com fábrica/provisionamento</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Troca de tenant limpa sessão, caches e drafts</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Configurações isoladas e defaults por tenant</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Jobs/eventos/anexos sempre no tenant correto</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Migrações e recuperação por tenant</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Módulos/limites habilitados por licença do tenant</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> Políticas, fixtures e eventos com organização dão parte da base. Um campo organization ou bancos separados no teste não implementam o contexto completo.</p>
+<p><strong>Lacunas e integração restante:</strong> TenantContext e propagação aos serviços, arquivos, cache, jobs, auditoria, provisionamento e troca de organização; combinar licença com permissões.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/225">#225</a>, <a href="https://github.com/alexkads/RavenRS/issues/242">#242</a>, <a href="https://github.com/alexkads/RavenRS/issues/243">#243</a>, <a href="https://github.com/alexkads/RavenRS/issues/253">#253</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/settings.rs">crates/ravenrs-app/src/settings.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/outbox.rs">crates/ravenrs-app/src/outbox.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-testkit/src/lib.rs">crates/ravenrs-app-testkit/src/lib.rs</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> T1 e T2 com as mesmas chaves nunca se misturam; trocar organização elimina contexto anterior e não reaproveita permissões.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a10-auditoria-historico-e-privacidade-50">A10 Auditoria, histórico e privacidade: 50%</h2><a class="sl-anchor-link" href="#a10-auditoria-historico-e-privacidade-50"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A10 Auditoria, histórico e privacidade: 50%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Autor e valores antes/depois</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Configuração de auditoria por entidade/campo</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Auditoria de coleções e eventos próprios</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Auditoria no caminho transacional documentado</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Consulta/exportação auditadas por política</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Correlação entre UI, API, job e integração</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Proteção contra alteração do histórico por contrato</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Classificação de dados e mascaramento uniforme</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Retenção, anonimização e exclusão por política</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Visão temporal reconstruível do negócio</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> AuditTrail, AuditSettings e AuditedObjectSpace registram alterações que passam por eles.</p>
+<p><strong>Lacunas e integração restante:</strong> Separar trilha de alterações de histórico temporal, retenção e políticas de privacidade. Permissão de campo não substitui toda a gestão de dados pessoais.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/79">#79</a>, <a href="https://github.com/alexkads/RavenRS/issues/253">#253</a>, <a href="https://github.com/alexkads/RavenRS/issues/261">#261</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/security/audit.rs">crates/ravenrs-app/src/security/audit.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/security/space.rs">crates/ravenrs-app/src/security/space.rs</a>, <a href="/RavenRS/docs/app-contracts/">docs/APP-CONTRACTS.md</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Uma ação de UI, API ou job mantém autoria/correlação; retenção e acesso ao histórico seguem configuração da aplicação. Requisitos jurídicos não são aferidos por esta matriz.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a11-processos-aprovacoes-e-tarefas-75">A11 Processos, aprovações e tarefas: 75%</h2><a class="sl-anchor-link" href="#a11-processos-aprovacoes-e-tarefas-75"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A11 Processos, aprovações e tarefas: 75%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Máquina de estados e transições em código</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Regras de aprovação fornecidas pela aplicação</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Etapas e decisões persistidas</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Caixa de tarefas por papel</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Delegação com vigência</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Retomada após reabrir armazenamento</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Decisão idempotente por identificador</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Decisões simultâneas protegidas atomicamente por versão</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Escalonamento automático por prazo</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Designer de processo versionado em execução</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> O pacote opcional ravenrs-app-requests já resolve uma fatia durável e reutilizável, demonstrada em dois setores.</p>
+<p><strong>Lacunas e integração restante:</strong> Concorrência atômica #241, escalonamento e designer versionado. Fluxos paralelos, compensações e regras especiais dependem do recorte; não se promete BPMN completo.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/258">#258</a>, <a href="https://github.com/alexkads/RavenRS/issues/238">#238</a>, <a href="https://github.com/alexkads/RavenRS/issues/66">#66</a>, <a href="https://github.com/alexkads/RavenRS/issues/241">#241</a>, <a href="https://github.com/alexkads/RavenRS/issues/268">#268</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-requests/README.md">crates/ravenrs-app-requests/README.md</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-requests/src/lib.rs">crates/ravenrs-app-requests/src/lib.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/workflow.rs">crates/ravenrs-app/src/workflow.rs</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Uma aprovação com delegação reinicia na etapa correta; decisão repetida não duplica efeitos; uma proposta de mudança de processo preserva instâncias existentes.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a12-jobs-agendamento-e-notificacoes-45">A12 Jobs, agendamento e notificações: 45%</h2><a class="sl-anchor-link" href="#a12-jobs-agendamento-e-notificacoes-45"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A12 Jobs, agendamento e notificações: 45%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Trabalho de ação fora da UI nativa</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Progresso e pedido de cancelamento</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Lembretes no aplicativo</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Resultado e erro devolvidos à sessão</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Agendamento periódico configurável</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Fila durável de jobs com worker independente</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Coordenação entre processos e recuperação de jobs</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Notificações por canais com preferências</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Caixa de notificações e leitura persistidas</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Escalonamento e relatórios agendados sob identidade</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> Action::background, Session::run_background e Reminder já existem. No web, o trabalho documentado roda inline; não confundir com um worker independente.</p>
+<p><strong>Lacunas e integração restante:</strong> Scheduler e execução durável, cancelamento cooperativo por provider, notificações com deduplicação e preferências. #66 cobre agendamento no app aberto, não toda a plataforma de jobs.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/66">#66</a>, <a href="https://github.com/alexkads/RavenRS/issues/79">#79</a>, <a href="https://github.com/alexkads/RavenRS/issues/255">#255</a>, <a href="https://github.com/alexkads/RavenRS/issues/258">#258</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/job.rs">crates/ravenrs-app/src/job.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-ui/src/session/background.rs">crates/ravenrs-app-ui/src/session/background.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-ui/src/reminders.rs">crates/ravenrs-app-ui/src/reminders.rs</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Reiniciar um worker não perde uma tarefa; reexecutar respeita idempotência; o destinatário recebe a notificação permitida pelo canal configurado.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a13-api-eventos-e-integracoes-75">A13 API, eventos e integrações: 75%</h2><a class="sl-anchor-link" href="#a13-api-eventos-e-integracoes-75"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A13 API, eventos e integrações: 75%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CRUD protegido e filtros/páginas da API</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Batch transacional e endpoints da aplicação</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Descrição OpenAPI e chaves de API</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Outbox gravado com a alteração</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Webhook assinado e deduplicado</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Dispatcher com retries, lease e reconciliação</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Contexto autorizado do worker</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Providers/conectores prontos para os principais serviços</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Cancelamento efetivo de envio em andamento</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Servidor concorrente e escala horizontal aferidos</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> API, Provider/EventSink, outbox e webhooks já evitam reimplementar boa parte das integrações. O dispatcher atual é chamado no processo da aplicação.</p>
+<p><strong>Lacunas e integração restante:</strong> Conectores específicos opcionais, worker independente, propagação de timeout/cancelamento e operação monitorável. Não prometer exactly-once distribuído por existir deduplicação local.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/226">#226</a>, <a href="https://github.com/alexkads/RavenRS/issues/254">#254</a>, <a href="https://github.com/alexkads/RavenRS/issues/255">#255</a>, <a href="https://github.com/alexkads/RavenRS/issues/256">#256</a>, <a href="https://github.com/alexkads/RavenRS/issues/270">#270</a>, <a href="https://github.com/alexkads/RavenRS/issues/82">#82</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-server/src/lib.rs">crates/ravenrs-app-server/src/lib.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-server/src/hooks.rs">crates/ravenrs-app-server/src/hooks.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/outbox.rs">crates/ravenrs-app/src/outbox.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/provider.rs">crates/ravenrs-app/src/provider.rs</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Uma mudança rejeitada não publica evento; resposta perdida é reconciliada; webhook repetido faz um efeito; nenhuma integração usa privilégio universal.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a14-importacao-exportacao-e-busca-35">A14 Importação, exportação e busca: 35%</h2><a class="sl-anchor-link" href="#a14-importacao-exportacao-e-busca-35"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A14 Importação, exportação e busca: 35%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Busca/filtros nas listas locais</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Exportações comuns da lista</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>JSON de registros na persistência simples</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Assistente CSV/XLSX por modelo</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Conversão de referências e política de duplicados na importação</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Erros por linha, prévia e atomicidade de lote</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Exportação integral de consulta remota estável</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Busca global autorizada entre entidades</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Busca facetada com contagens autorizadas</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Busca textual/semântica em anexos com escopo</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> A lista e a persistência simples têm saídas próprias. Importar JSON que substitui a base não equivale a importar registros de negócio por usuário.</p>
+<p><strong>Lacunas e integração restante:</strong> Wizard CSV/XLSX, referências e deduplicação, busca transversal e exportação remota. Toda entrada passa por ObjectSpace, regras e auditoria.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/228">#228</a>, <a href="https://github.com/alexkads/RavenRS/issues/454">#454</a>, <a href="https://github.com/alexkads/RavenRS/issues/79">#79</a>, <a href="https://github.com/alexkads/RavenRS/issues/391">#391</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-ui/src/list_view.rs">crates/ravenrs-app-ui/src/list_view.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/space.rs">crates/ravenrs-app/src/space.rs</a>, <a href="/RavenRS/docs/applications/">docs/APP-FRAMEWORK.md</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Importar uma planilha com linha inválida apresenta prévia e erros, sem escrita parcial indevida; busca/export respeitam exatamente o escopo do usuário.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a15-relatorios-e-saidas-corporativas-60">A15 Relatórios e saídas corporativas: 60%</h2><a class="sl-anchor-link" href="#a15-relatorios-e-saidas-corporativas-60"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A15 Relatórios e saídas corporativas: 60%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Relatório da lista</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Relatórios guardados como registros</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Designer embutido</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Dados de entidades, parâmetros e permissões</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Saída PDF/XLSX do motor</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Impressão por integração disponível</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Filtro/busca iguais entre lista e relatório</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Leitura em volume sem carregar tudo em memória</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Entrega agendada executada com autorização</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Mail merge integrado ao modelo</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> ravenrs-app-report já une relatórios ao aplicativo. A avaliação inclui a integração e não somente formatos suportados pelo motor.</p>
+<p><strong>Lacunas e integração restante:</strong> Preservar filtro/escopo em todas as saídas, limitar memória, agendar com identidade e fornecer templates por entidade onde necessário.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/181">#181</a>, <a href="https://github.com/alexkads/RavenRS/issues/261">#261</a>, <a href="https://github.com/alexkads/RavenRS/issues/79">#79</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-report/src/lib.rs">crates/ravenrs-app-report/src/lib.rs</a>, <a href="/RavenRS/docs/applications/">docs/APP-FRAMEWORK.md</a>, <a href="/RavenRS/docs/reporting-parity/">docs/REPORTING-PARITY.md</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Lista, prévia, PDF e envio reproduzem o mesmo filtro e autorização; um relatório grande não pressupõe memória ilimitada.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a16-paineis-e-analise-de-negocio-60">A16 Painéis e análise de negócio: 60%</h2><a class="sl-anchor-link" href="#a16-paineis-e-analise-de-negocio-60"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A16 Painéis e análise de negócio: 60%”</span></a></div>
+<p>Grupo: <strong>Dependente do projeto</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>DashboardInfo e DashboardView</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Painéis analíticos declarados em código</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>KPIs e gráficos sobre entidades</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Painéis editados como registros</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Intervalos/filtros por tile</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Mesma seleção/filtro entre card, gráfico e export</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Designer visual com layout persistido</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Pivot integrado ao modelo</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Agregação remota e cache com escopo</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Falha de um tile isolada e diagnosticável</td>
+<td align="right">0,5</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> Há dashboards e AnalyticsModule/AnalyticsPanel. Editar os registros de um painel não fornece automaticamente um designer visual.</p>
+<p><strong>Lacunas e integração restante:</strong> Designer, crossfilter, pivot, layout persistente e agregação no provider; reaproveitar Chart e os controles existentes.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/68">#68</a>, <a href="https://github.com/alexkads/RavenRS/issues/203">#203</a>, <a href="https://github.com/alexkads/RavenRS/issues/403">#403</a>, <a href="https://github.com/alexkads/RavenRS/issues/432">#432</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-ui/src/dashboard.rs">crates/ravenrs-app-ui/src/dashboard.rs</a>, <a href="/RavenRS/docs/app-parity/">docs/APP-PARITY.md</a>, <a href="/RavenRS/docs/applications/">docs/APP-FRAMEWORK.md</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Card, lista, gráfico e exportação usam o mesmo período/escopo; dado protegido não aparece como zero; uma falha não inutiliza todo o painel.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a17-anexos-e-documentos-emitidos-40">A17 Anexos e documentos emitidos: 40%</h2><a class="sl-anchor-link" href="#a17-anexos-e-documentos-emitidos-40"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A17 Anexos e documentos emitidos: 40%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>AttachmentStore desacoplado do registro</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Arquivos/imagens em formulários</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Implementação de anexos em memória e SQLite</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Download com autorização do registro no contrato</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Limpeza/retenção de anexos substituídos</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Upload grande em blocos com cancelamento</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Documento emitido congelado na revisão usada</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Hash/verificação do documento emitido</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Ciclo de assinatura por contrato de provider</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Preview de arquivos externos no app</td>
+<td align="right">0,5</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> Anexos têm armazenamento próprio e UI. O contrato de armazenamento por chave não decide sozinho quem pode baixar um documento.</p>
+<p><strong>Lacunas e integração restante:</strong> Download autorizado, ciclo de vida dos arquivos, sessão de upload e revisão imutável na emissão. Assinatura manuscrita não é assinatura criptográfica.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/261">#261</a>, <a href="https://github.com/alexkads/RavenRS/issues/447">#447</a>, <a href="https://github.com/alexkads/RavenRS/issues/404">#404</a>, <a href="https://github.com/alexkads/RavenRS/issues/405">#405</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/files.rs">crates/ravenrs-app/src/files.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-ui/src/editors.rs">crates/ravenrs-app-ui/src/editors.rs</a>, <a href="/RavenRS/docs/app-parity/">docs/APP-PARITY.md</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Conhecer a chave de um arquivo não permite baixá-lo; uma emissão antiga conserva dados, modelo e conteúdo mesmo após editar o template.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a18-colaboracao-e-comunicacao-no-registro-30">A18 Colaboração e comunicação no registro: 30%</h2><a class="sl-anchor-link" href="#a18-colaboracao-e-comunicacao-no-registro-30"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A18 Colaboração e comunicação no registro: 30%”</span></a></div>
+<p>Grupo: <strong>Dependente do projeto</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Widgets de conversa e anexos</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Entidades genéricas de notas/pessoas</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Trilha de alteração do registro</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Conversa persistida e membros</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Não lidas por participante</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Comentários/menções ligados ao registro</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Seguir registro e preferências</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Política de histórico ao sair de um grupo</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Entrega de mensagens com estado e retries</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Presença e assinatura de mudanças autorizadas</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> Widgets, LibraryModule, auditoria e eventos são peças aproveitáveis; a composição de colaboração precisa de módulo próprio.</p>
+<p><strong>Lacunas e integração restante:</strong> Histórico e participação, comentários/menções, não lidas, notificações e atualização de telas. #259 cobre conversas, sem cobrir toda colaboração de registro.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/259">#259</a>, <a href="https://github.com/alexkads/RavenRS/issues/79">#79</a>, <a href="https://github.com/alexkads/RavenRS/issues/255">#255</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-library/src/lib.rs">crates/ravenrs-app-library/src/lib.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/security/audit.rs">crates/ravenrs-app/src/security/audit.rs</a>, <a href="/RavenRS/docs/app-parity/">docs/APP-PARITY.md</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Quem saiu de uma conversa vê somente o histórico permitido; mensagem reenviada não duplica; comentário e menção obedecem à permissão do registro.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a19-agenda-reservas-e-recursos-40">A19 Agenda, reservas e recursos: 40%</h2><a class="sl-anchor-link" href="#a19-agenda-reservas-e-recursos-40"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A19 Agenda, reservas e recursos: 40%”</span></a></div>
+<p>Grupo: <strong>Dependente do projeto</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Lista como calendário mensal</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Scheduler por recurso</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Movimentação/redimensionamento pelo editor</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Tipos de recorrência nos widgets</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Série/ocorrência persistidas no modelo de app</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Edição isolada de ocorrência e exceções</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Política de fuso e horário de verão</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Reserva concorrente da última vaga</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Disponibilidade, buffers e bloqueios</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Dia/semana por horas integrados e consistentes</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> Listas podem usar Calendar/Scheduler. A presença de RecurrenceRule/RecurrenceEditor no widget não entrega persistência de série no aplicativo.</p>
+<p><strong>Lacunas e integração restante:</strong> Recorrência, exceções, fusos e reserva atômica; deixar elegibilidade, calendário e capacidade como políticas do consumidor.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/227">#227</a>, <a href="https://github.com/alexkads/RavenRS/issues/241">#241</a>, <a href="https://github.com/alexkads/RavenRS/issues/441">#441</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-ui/src/list_editors.rs">crates/ravenrs-app-ui/src/list_editors.rs</a>, <a href="/RavenRS/docs/app-parity/">docs/APP-PARITY.md</a>, <a href="/RavenRS/docs/app-contracts/">docs/APP-CONTRACTS.md</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Duas reservas da última capacidade confirmam apenas uma; mudar uma ocorrência conserva a série; a hora permanece correta nas mudanças de fuso.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a20-customizacao-e-modulos-reutilizaveis-75">A20 Customização e módulos reutilizáveis: 75%</h2><a class="sl-anchor-link" href="#a20-customizacao-e-modulos-reutilizaveis-75"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A20 Customização e módulos reutilizáveis: 75%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ModelLayers e diferenças persistíveis</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Preferências/configurações por escopo</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Editores, controladores e serviços substituíveis</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>ModuleManifest com versão/dependências</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Validação de targets, capabilities e conflitos</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Registros comuns prontos em LibraryModule</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>ModelEditor de todas as camadas/estruturas</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Feature/license guard integrado em todas as superfícies</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Distribuição de módulos e ferramentas de instalação</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Extensões em runtime isoladas e versionadas</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> Módulos e diferenças já evitam copiar funcionalidades; o modelo por camadas e manifestos formam uma base importante.</p>
+<p><strong>Lacunas e integração restante:</strong> Editor visual completo, propagação do guard, pontos de extensão e distribuição de pacotes. Não criar um sistema paralelo ao ModuleManifest.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/82">#82</a>, <a href="https://github.com/alexkads/RavenRS/issues/271">#271</a>, <a href="https://github.com/alexkads/RavenRS/issues/242">#242</a>, <a href="https://github.com/alexkads/RavenRS/issues/437">#437</a>, <a href="https://github.com/alexkads/RavenRS/issues/245">#245</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/manifest.rs">crates/ravenrs-app/src/manifest.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app/src/model/layers.rs">crates/ravenrs-app/src/model/layers.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-ui/src/model_editor.rs">crates/ravenrs-app-ui/src/model_editor.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-library/src/lib.rs">crates/ravenrs-app-library/src/lib.rs</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> O mesmo módulo é configurado em dois projetos sem copiar código; desativá-lo preserva leitura/exportação permitidas e bloqueia escrita também no serviço.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a21-cliente-remoto-tempo-real-e-offline-35">A21 Cliente remoto, tempo real e offline: 35%</h2><a class="sl-anchor-link" href="#a21-cliente-remoto-tempo-real-e-offline-35"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A21 Cliente remoto, tempo real e offline: 35%”</span></a></div>
+<p>Grupo: <strong>Dependente do projeto</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RemoteApp/RemoteDatabase sobre API</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Persistência simples local/browser</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Batch remoto com revalidação no serviço</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Lista remota com paginação sem carregar toda a réplica</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Falha assíncrona mantém draft/formulário recuperável</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Notificações de mudanças entre clientes</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Fila offline persistida e reconciliação</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Permissão revogada durante offline é reavaliada</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Referências a novos registros no mesmo commit remoto</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Conflitos de sincronização com decisão explícita</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> Há cliente remoto e armazenamento local. A réplica em memória do cliente remoto não é uma solução offline durável.</p>
+<p><strong>Lacunas e integração restante:</strong> Evitar perda de draft na rejeição remota; suportar paginação, referências em lote, eventos de atualização e sincronização com revalidação.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/226">#226</a>, <a href="https://github.com/alexkads/RavenRS/issues/240">#240</a>, <a href="https://github.com/alexkads/RavenRS/issues/241">#241</a>, <a href="https://github.com/alexkads/RavenRS/issues/332">#332</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-remote/src/lib.rs">crates/ravenrs-app-remote/src/lib.rs</a>, <a href="/RavenRS/docs/applications/">docs/APP-FRAMEWORK.md</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Sem rede, alterações compatíveis ficam pendentes; ao retornar, o servidor confirma ou apresenta recusa/conflito sem perder o trabalho digitado.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a22-operacao-recuperacao-e-implantacao-55">A22 Operação, recuperação e implantação: 55%</h2><a class="sl-anchor-link" href="#a22-operacao-recuperacao-e-implantacao-55"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A22 Operação, recuperação e implantação: 55%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Backup SQLite consistente e inspecionável</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Restore SQLite com verificação de stamp</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Migrações e recusa de incompatibilidade</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Health básico e falhas tipadas</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>CLI de diagnóstico da instalação/versões</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Plano de backup/recuperação dos demais providers</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Observabilidade correlacionada de ações/queries/jobs</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Painel de operação e incidentes</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Migração entre bancos/tenants e rollback operacional</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Capacidade e implantação concorrente aferidas</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> Backup/restore SQLite já existem em backup.rs (#229 fechada); cargo ravenrs doctor já diagnostica o ambiente de desenvolvimento.</p>
+<p><strong>Lacunas e integração restante:</strong> Documentar recuperação por adaptador, operação dos jobs, traces e ambientes. doctor verifica ferramentas, não substitui telemetria do app em produção.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/229">#229</a>, <a href="https://github.com/alexkads/RavenRS/issues/243">#243</a>, <a href="https://github.com/alexkads/RavenRS/issues/79">#79</a>, <a href="https://github.com/alexkads/RavenRS/issues/245">#245</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-sqlite/src/backup.rs">crates/ravenrs-app-sqlite/src/backup.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/cargo-ravenrs/src/mcp.rs">crates/cargo-ravenrs/src/mcp.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-server/src/lib.rs">crates/ravenrs-app-server/src/lib.rs</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Restaurar numa instalação limpa confere aplicação, tenant e migrações; erro de provider tem diagnóstico útil; capacidade publicada vem de medição.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a23-consumo-por-ia-mcp-e-geracao-60">A23 Consumo por IA, MCP e geração: 60%</h2><a class="sl-anchor-link" href="#a23-consumo-por-ia-mcp-e-geracao-60"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A23 Consumo por IA, MCP e geração: 60%”</span></a></div>
+<p>Grupo: <strong>Produtividade com IA</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>MCP documental de API e exemplos</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Busca de guias por seção e filtros</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Contratos e paridade do app pelo MCP</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Validação de expressões e layouts de relatório</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>CLI new/ai/doctor e instruções versionadas</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Validação estruturada de uma diferença completa do app via ferramenta dedicada</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>Receitas curtas verificadas para fluxos corporativos</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Geração incremental de entidade/módulo e saída JSON uniforme</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Benchmark de tarefas com modelos menores e tokens medidos</td>
+<td align="right">0</td>
+</tr>
+<tr>
+<td>MCP operacional gerado para dados/ações do aplicativo</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> O MCP existente já reduz pesquisa e adivinhação; a CLI configura assistentes e versões. O servidor documental não opera os dados dos consumidores.</p>
+<p><strong>Lacunas e integração restante:</strong> Receitas completas, diagnóstico estruturado, validação de modelo e bateria com modelos menores. O MCP operacional #266 é uma capacidade distinta e opcional.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/81">#81</a>, <a href="https://github.com/alexkads/RavenRS/issues/245">#245</a>, <a href="https://github.com/alexkads/RavenRS/issues/266">#266</a>, <a href="https://github.com/alexkads/RavenRS/issues/274">#274</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-mcp/README.md">crates/ravenrs-mcp/README.md</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-mcp/src/server.rs">crates/ravenrs-mcp/src/server.rs</a>, <a href="/RavenRS/docs/cli/">crates/cargo-ravenrs/README.md</a>, <a href="/RavenRS/docs/ai/">docs/AI_DEVELOPMENT.md</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Um modelo menor cria e modifica um fluxo corporativo usando somente APIs públicas, MCP e checks; medir todos os tokens e intervenções, não apenas o código final.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="a24-testabilidade-e-contratos-de-consumo-80">A24 Testabilidade e contratos de consumo: 80%</h2><a class="sl-anchor-link" href="#a24-testabilidade-e-contratos-de-consumo-80"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “A24 Testabilidade e contratos de consumo: 80%”</span></a></div>
+<p>Grupo: <strong>Núcleo</strong>.</p>
+<table>
+<thead>
+<tr>
+<th>Capacidade avaliada</th>
+<th align="right">Pontos</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Testes de UI sem janela</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Fixture com organizações/chaves repetidas</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Relógio controlado</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Provider falso com falhas e resposta perdida</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Bateria de contrato reutilizável por adaptador</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Capacidades/limites declarados pelo adaptador</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Dois consumidores de setores distintos</td>
+<td align="right">1</td>
+</tr>
+<tr>
+<td>Exemplo de referência para cada fluxo desta matriz</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Matriz real de hosts/providers em cada entrega</td>
+<td align="right">0,5</td>
+</tr>
+<tr>
+<td>Regressão de usabilidade com modelos menores por release</td>
+<td align="right">0</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Já absorvido pelo framework:</strong> Testkit, contratos de armazenamento, cenários C01–C19 e testes de UI já fornecem uma base de verificação reutilizável.</p>
+<p><strong>Lacunas e integração restante:</strong> Ampliar fluxos de referência e matriz de hosts/providers; um teste ignorado por faltar serviço não prova integração real.</p>
+<p><strong>Backlog relacionado:</strong> <a href="https://github.com/alexkads/RavenRS/issues/268">#268</a>, <a href="https://github.com/alexkads/RavenRS/issues/336">#336</a>, <a href="https://github.com/alexkads/RavenRS/issues/253">#253</a>, <a href="https://github.com/alexkads/RavenRS/issues/81">#81</a>. As referências podem cobrir somente parte da lacuna; não representam promessa de fechamento integral da área.</p>
+<p><strong>Evidência:</strong> <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-testkit/README.md">crates/ravenrs-app-testkit/README.md</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-testkit/src/contract.rs">crates/ravenrs-app-testkit/src/contract.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-ui/tests/suite/e2e.rs">crates/ravenrs-app-ui/tests/suite/e2e.rs</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/examples/contracts/associacao/Cargo.toml">examples/contracts/associacao/Cargo.toml</a>, <a href="https://github.com/alexkads/RavenRS/blob/master/examples/contracts/cursos/Cargo.toml">examples/contracts/cursos/Cargo.toml</a>.</p>
+<p><strong>Fluxo para comprovar o consumo:</strong> Um pacote externo executa a bateria com um adaptador/provider falso e prova sucesso, recusa e retomada sem precisar dos dados de um produto.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="gaps-prioritarios-e-encaminhamento">Gaps prioritários e encaminhamento</h2><a class="sl-anchor-link" href="#gaps-prioritarios-e-encaminhamento"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Gaps prioritários e encaminhamento”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Gap</th>
+<th>Entrega reutilizável necessária</th>
+<th>Encaminhamento</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>G01 Concorrência e commit desconhecido</td>
+<td>Versão atômica, chaves robustas e reenvio idempotente</td>
+<td>#241 e #332; não encerrar pelo merge de campos atual</td>
+</tr>
+<tr>
+<td>G02 Unidade de trabalho do agregado</td>
+<td>Pai/filhos, coleções e ações com fronteira de commit/cancelamento explícita</td>
+<td>#79 para decompor; #434 melhora grid, mas não resolve sozinho a semântica do app</td>
+</tr>
+<tr>
+<td>G03 Cliente remoto sem perda de edição</td>
+<td>Preservar draft na rejeição, referências novas no lote e paginação do servidor</td>
+<td>Lacunas documentadas em APP-FRAMEWORK; relacionar #226/#240/#241, sem reabrir automaticamente #226</td>
+</tr>
+<tr>
+<td>G04 Contexto de empresa</td>
+<td>Resolver e propagar tenant a sessão, dados, arquivos, jobs e caches</td>
+<td>#225; #242 para recursos/licença; #243 para migração</td>
+</tr>
+<tr>
+<td>G05 Precisão do domínio</td>
+<td>Tipos exatos por todas as camadas, critérios e formatos</td>
+<td>#337 trata armazenamento; #453 trata grid; detalhar camada de app em #79</td>
+</tr>
+<tr>
+<td>G06 Importação e exportação de negócio</td>
+<td>Wizard, referências, duplicados, validação por linha e export remoto</td>
+<td>#228 e #454</td>
+</tr>
+<tr>
+<td>G07 Execução durável e notificações</td>
+<td>Worker, fila, retomada, escalonamento, canais e preferências</td>
+<td>#66 cobre scheduler no app; complementar via #79/#253 para o restante</td>
+</tr>
+<tr>
+<td>G08 Identidade pronta para configurar</td>
+<td>Provider OIDC, MFA conforme necessidade e gestão de vínculos</td>
+<td>#257 está fechada e exclui provider real/MFA; decompor complemento, não declarar SSO pronto por completo</td>
+</tr>
+<tr>
+<td>G09 Documento e arquivo autorizado</td>
+<td>Download autorizado, revisão imutável, hash e ciclo de vida</td>
+<td>#261 e #447; #404/#405 fornecem editores/viewers, sem substituir autorização</td>
+</tr>
+<tr>
+<td>G10 Colaboração do registro</td>
+<td>Comentários, participantes, menções, não lidas e política de histórico</td>
+<td>#259 cobre conversas; outros recortes em #79</td>
+</tr>
+<tr>
+<td>G11 Histórico/privacidade e operação</td>
+<td>Correlação, retenção, observabilidade e recuperação por provider</td>
+<td>#79/#253; #229 já entrega backup SQLite, não todo o programa de operação</td>
+</tr>
+<tr>
+<td>G12 Sincronização e telas atualizadas</td>
+<td>Fila offline, autorização na volta, conflitos e notificações de alterações</td>
+<td>#240/#241; assinaturas em tempo real precisam de contrato próprio</td>
+</tr>
+<tr>
+<td>G13 Designer e customização</td>
+<td>Designer sobre ModelLayers e guard aplicado em UI/serviço</td>
+<td>#437/#402, #242 e #82; não gerar outro framework de telas</td>
+</tr>
+<tr>
+<td>G14 Consumo por modelos menores</td>
+<td>Receitas, validação estruturada, descoberta curta e medição</td>
+<td>#81/#245; #266 é operação de dados por IA, distinta da assistência para construir apps</td>
+</tr>
+</tbody>
+</table>
+<p>Esta é uma lista de encaminhamentos. Onde há apenas épico ou issue relacionada, falta decompor o escopo antes da implementação. A busca não foi exaustiva a ponto de afirmar que não existe outra issue específica. Não foram abertas ou alteradas issues nesta revisão.</p>
+<p>A #238 evolui o FlowCanvas e contribui com ferramentas de edição de grafos; ela
+não especifica sozinha um designer de processos executáveis e versionados. Esse
+complemento de A11 precisa de escopo próprio antes de ser considerado coberto.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="priorizacao-pelo-trabalho-poupado-ao-consumidor">Priorização pelo trabalho poupado ao consumidor</h2><a class="sl-anchor-link" href="#priorizacao-pelo-trabalho-poupado-ao-consumidor"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Priorização pelo trabalho poupado ao consumidor”</span></a></div>
+<p><strong>Primeiro: corrigir contratos que afetam vários fluxos.</strong> G01–G06 evitam que cada projeto tenha de inventar concorrência, agregados, recuperação de formulário remoto, multiempresa, precisão e importação. Aplicações locais simples não precisam esperar por todos os itens.</p>
+<p><strong>Depois: consolidar recursos corporativos reutilizáveis.</strong> G07–G13 cobrem jobs, identidade, documentos, colaboração, operação, sincronização e customização. Escolher o recorte necessário aos próximos projetos e entregar o fluxo integrado.</p>
+<p><strong>Durante todas as entregas: A23/A24.</strong> Um recurso não está simples de consumir só porque tem uma API. Seu contrato, receita, exemplos e diagnóstico precisam ser encontrados por MCP e verificados com um consumidor externo.</p>
+<p>Evitar criar dezenas de componentes para substituir recursos que já existem. UI vai em widgets/app-ui; motor e contratos ficam sem GUI; adaptadores e funcionalidades de domínio ficam em pacotes opcionais.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="como-verificar-a-economia-de-tokens-e-o-uso-de-modelos-menores">Como verificar a economia de tokens e o uso de modelos menores</h2><a class="sl-anchor-link" href="#como-verificar-a-economia-de-tokens-e-o-uso-de-modelos-menores"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Como verificar a economia de tokens e o uso de modelos menores”</span></a></div>
+<p>Definir uma bateria pequena de tarefas reais, com dados sintéticos e critérios automáticos. Fixar revisão do RavenRS, configuração do MCP, modelo/versão, ferramentas, orçamento e prompt; repetir para observar variabilidade.</p>
+<table>
+<thead>
+<tr>
+<th>Tarefa de referência</th>
+<th>Configuração e comportamento esperado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>T01 Cadastro relacionado</td>
+<td>Entidades, regra, lista/detalhe, relação e permissão por registro</td>
+</tr>
+<tr>
+<td>T02 Ação de negócio</td>
+<td>Transição válida, recusa explicada e auditoria</td>
+</tr>
+<tr>
+<td>T03 Relatório</td>
+<td>Filtro, parâmetros e PDF reproduzíveis sob autorização</td>
+</tr>
+<tr>
+<td>T04 Aprovação</td>
+<td>Etapas, delegação, reinício e decisão repetida sem efeito duplicado</td>
+</tr>
+<tr>
+<td>T05 Importação</td>
+<td>Mapeamento, duplicados e linha inválida; manter como tarefa bloqueada até entregar o gap</td>
+</tr>
+<tr>
+<td>T06 Alteração incremental</td>
+<td>Acrescentar campo/regra/relação em projeto existente sem regenerar seu código específico</td>
+</tr>
+<tr>
+<td>T07 Integração</td>
+<td>Evento, provider falso, resposta perdida e reconciliação</td>
+</tr>
+<tr>
+<td>T08 Reuso em outro setor</td>
+<td>Mesmo módulo em segundo app, com políticas diferentes e sem cópia</td>
+</tr>
+</tbody>
+</table>
+<p>Medir por tarefa: sucesso nos critérios, tokens totais de entrada/saída incluindo ferramentas e tentativas, uso de cache informado separadamente, chamadas MCP, falhas de compilação/teste, intervenções humanas, tempo e código repetitivo restante. Custo monetário depende do modelo e não é sinônimo de tokens.</p>
+<p>Comparar o mesmo objetivo e os mesmos critérios, com repetições. Uma tarefa bloqueada por capacidade ausente não é “falha do modelo”. Um resultado que só funcionou após intervenção humana não entra como sucesso autônomo.</p>
+<p><strong>Não há ganho percentual de tokens demonstrado nesta cobertura.</strong> O objetivo é transformar a proposta em evidência: um modelo menor conseguir compor uma capacidade que já está resolvida, com pouco contexto e sem reinventar infraestrutura.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="consulta-pelo-mcp-existente">Consulta pelo MCP existente</h2><a class="sl-anchor-link" href="#consulta-pelo-mcp-existente"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Consulta pelo MCP existente”</span></a></div>
+<p>O build.rs de ravenrs-mcp inclui automaticamente os Markdown de docs no binário. Após reconstruir/instalar a versão que contém esta documentação, usar a ferramenta guides com estes argumentos:</p>
+<p>Listar seções do documento:</p>
+<div class="expressive-code"><link rel="stylesheet" href="/RavenRS/_astro/ec.w36nc.css"><script type="module" src="/RavenRS/_astro/ec.0vx5m.js"></script><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="json"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">{</span><span style="--0:#7FDBCA;--1:#096E72">"document"</span><span style="--0:#D6DEEB;--1:#403F53">:</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">APP-COVERAGE</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">}</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="{&quot;document&quot;:&quot;APP-COVERAGE&quot;}"><div></div></button></div></figure></div>
+<p>Ler somente a área de consumo por IA:</p>
+<div class="expressive-code"><figure class="frame not-content"><figcaption class="header"></figcaption><pre data-language="json"><code><div class="ec-line"><div class="code"><span style="--0:#D6DEEB;--1:#403F53">{</span><span style="--0:#7FDBCA;--1:#096E72">"document"</span><span style="--0:#D6DEEB;--1:#403F53">:</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">APP-COVERAGE</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span><span style="--0:#7FDBCA;--1:#096E72">"section"</span><span style="--0:#D6DEEB;--1:#403F53">:</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#C789D6;--1:#7C5686">A23</span><span style="--0:#D9F5DD;--1:#111111">"</span><span style="--0:#D6DEEB;--1:#403F53">,</span><span style="--0:#7FDBCA;--1:#096E72">"limit"</span><span style="--0:#D6DEEB;--1:#403F53">:</span><span style="--0:#F78C6C;--1:#AA0982">1</span><span style="--0:#D6DEEB;--1:#403F53">}</span></div></div></code></pre><div class="copy"><div aria-live="polite"></div><button title="Copy to clipboard" data-copied="Copied!" data-code="{&quot;document&quot;:&quot;APP-COVERAGE&quot;,&quot;section&quot;:&quot;A23&quot;,&quot;limit&quot;:1}"><div></div></button></div></figure></div>
+<p>Para a orientação de implementação, cruzar component_api/search_api/component_examples com guides de APP-FRAMEWORK, app_contracts e parity_status com document = application. As notas desta cobertura são retrato de uma base; API e limites da versão instalada continuam sendo o contrato de consumo.</p>
+<p>O novo guia não adiciona ferramenta nem muda permissões do servidor. Um binário instalado antes desta revisão não recebe o documento sem atualização.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="atualizacao-e-conclusao-de-uma-capacidade">Atualização e conclusão de uma capacidade</h2><a class="sl-anchor-link" href="#atualizacao-e-conclusao-de-uma-capacidade"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Atualização e conclusão de uma capacidade”</span></a></div>
+<p>Para cada entrega: atualizar evidência e base auditada; revisar somente os itens afetados; recalcular a nota; ligar o exemplo/contrato público e registrar os hosts/providers realmente verificados.</p>
+<p>“100%” significa que os dez itens daquele recorte foram comprovados como consumíveis, não que todos os recursos de todo software corporativo existam. Reavaliar o recorte quando um projeto real revelar requisito recorrente.</p>
+<p>O resultado desejado é que o consumidor declare seu negócio e use os contratos existentes. Não exigir que ele reimplemente infraestrutura genérica; não exigir que toda regra específica de um setor entre no núcleo.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="capacidades-opcionais-por-dominio">Capacidades opcionais por domínio</h2><a class="sl-anchor-link" href="#capacidades-opcionais-por-dominio"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Capacidades opcionais por domínio”</span></a></div>
+<p>Cobrança/recebimento (#262), passes/dispositivos (#263), formulários publicados (#260), páginas/portal (#264), planejamento (#457), fiscal e pagamentos por providers têm valor, mas não são requisitos obrigatórios para todo app. Mantê-los em pacotes opcionais, sobre autorização, eventos, documentos e contratos comuns.</p>
+<p>A profundidade setorial deve vir de um projeto consumidor e de dois usos distintos antes de generalizar. A <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-app-library/README.md">biblioteca existente</a> já oferece registros comuns; ela não deve fixar alçadas, elegibilidade, impostos ou políticas de um setor.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="verificacao-desta-revisao-documental">Verificação desta revisão documental</h2><a class="sl-anchor-link" href="#verificacao-desta-revisao-documental"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Verificação desta revisão documental”</span></a></div>
+<ul>
+<li>Recalculadas as 240 notas e os 24 índices; conferidos os links locais de evidência.</li>
+<li>Check padrão do repositório aprovado em 18 s (17 s na tabela de etapas), com build reutilizado; alteração documental não selecionou testes de pacotes.</li>
+<li>Executados separadamente os testes de ravenrs-mcp: 11 unitários e 22 de integração aprovados.</li>
+<li>Reconstruído o binário do MCP e consultado por um cliente stdio real: guides lista o documento e devolve cada uma das 24 áreas por seção, sem truncamento.</li>
+<li>A consulta de A23 retornou 1.913 caracteres; isso demonstra consulta pontual, sem constituir contagem de tokens nem ganho comprovado para um modelo.</li>
+<li>Não foram executados os futuros fluxos corporativos, benchmarks de modelos ou integrações externas desta matriz.</li>
+</ul></div><footer class="sl-flex" data-astro-cid-ddtxxk7k=""><div class="meta sl-flex" data-astro-cid-ddtxxk7k=""><a href="https://github.com/alexkads/RavenRS/edit/master/docs/APP-COVERAGE.md" class="sl-flex print:hidden" data-astro-cid-qlekgd3o=""><svg data-astro-cid-qlekgd3o="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;" data-astro-cid-hkc32dio=""><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"></path></svg>Edit page</a></div><div class="pagination-links print:hidden" dir="ltr" data-astro-cid-b5raizh3=""><a href="/RavenRS/docs/app-contracts/" rel="prev" data-astro-cid-b5raizh3=""><svg data-astro-cid-b5raizh3="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;" data-astro-cid-hkc32dio=""><path d="M17 11H9.41l3.3-3.29a1.004 1.004 0 1 0-1.42-1.42l-5 5a1 1 0 0 0-.21.33 1 1 0 0 0 0 .76 1 1 0 0 0 .21.33l5 5a1.002 1.002 0 0 0 1.639-.325 1 1 0 0 0-.219-1.095L9.41 13H17a1 1 0 0 0 0-2Z"></path></svg><span data-astro-cid-b5raizh3="">Previous<br data-astro-cid-b5raizh3=""><span class="link-title" data-astro-cid-b5raizh3="">Contracts and acceptance scenarios for reusable modules</span></span></a><a href="/RavenRS/docs/app-parity/" rel="next" data-astro-cid-b5raizh3=""><svg data-astro-cid-b5raizh3="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;" data-astro-cid-hkc32dio=""><path d="M17.92 11.62a1.001 1.001 0 0 0-.21-.33l-5-5a1.003 1.003 0 1 0-1.42 1.42l3.3 3.29H7a1 1 0 0 0 0 2h7.59l-3.3 3.29a1.002 1.002 0 0 0 .325 1.639 1 1 0 0 0 1.095-.219l5-5a1 1 0 0 0 .21-.33 1 1 0 0 0 0-.76Z"></path></svg><span data-astro-cid-b5raizh3="">Next<br data-astro-cid-b5raizh3=""><span class="link-title" data-astro-cid-b5raizh3="">Application framework parity</span></span></a></div></footer></div></div></main></div></div></div></div></body></html>

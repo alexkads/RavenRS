@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["VERSAO_CONTRATO"],"enum":["OperacaoAuxiliar","ResultadoAuxiliar"],"fn":["atender"],"struct":["CanalLocal","CanalProcesso","PedidoAuxiliar","ProvedorAuxiliar","RespostaAuxiliar"],"trait":["CanalLinhas"]};

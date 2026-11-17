@@ -1,0 +1,101 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>cmyk_group.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="ravenrs_pdf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../src-files.js"></script><script defer="" src="../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-pdf/src/third_party/hayro_interpret/cmyk_group.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_pdf/third_party/hayro_interpret/cmyk_group.rs.html"><meta property="og:title" content="cmyk_group.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-pdf/src/third_party/hayro_interpret/cmyk_group.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_pdf/third_party/hayro_interpret/cmyk_group.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="cmyk_group.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-pdf/src/third_party/hayro_interpret/cmyk_group.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"cmyk_group.rs - source","description":"Source of the Rust file `crates/ravenrs-pdf/src/third_party/hayro_interpret/cmyk_group.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_pdf/third_party/hayro_interpret/cmyk_group.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_pdf/third_party/hayro_interpret/</div>cmyk_group.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! PdfCraft patch (70): an isolated transparency group that blends in `DeviceCMYK`.
+<a href="#2" id="2" data-nosnippet="">2</a>//!
+<a href="#3" id="3" data-nosnippet="">3</a>//! ISO 32000-2 §11.3.4: a group's elements blend in the group's colour space, and the
+<a href="#4" id="4" data-nosnippet="">4</a>//! components of a subtractive space are complemented before the blend function and
+<a href="#5" id="5" data-nosnippet="">5</a>//! complemented back after it. The renderer composites in RGB, which gives other colours
+<a href="#6" id="6" data-nosnippet="">6</a>//! wherever a blend mode meets CMYK artwork: `0 1 0 0 k` (magenta) under `0 0 0 1 k` (black)
+<a href="#7" id="7" data-nosnippet="">7</a>//! with `/BM /Difference` is green when blended in CMYK (`|(1,0,1,1) − (1,1,1,0)|`
+<a href="#8" id="8" data-nosnippet="">8</a>//! complemented back is `1 0 1 0`) and magenta when blended in RGB.
+<a href="#9" id="9" data-nosnippet="">9</a>//!
+<a href="#10" id="10" data-nosnippet="">10</a>//! An *isolated* group starts from a transparent backdrop of its own (§11.4.7), so its
+<a href="#11" id="11" data-nosnippet="">11</a>//! interior can be computed apart from the page and handed back as finished pixels. A device
+<a href="#12" id="12" data-nosnippet="">12</a>//! that can blend in CMYK takes such a group through [`Device::draw_isolated_cmyk_group`] and
+<a href="#13" id="13" data-nosnippet="">13</a>//! interprets it with [`CmykGroup::interpret`] as often as it needs; every other device, and a
+<a href="#14" id="14" data-nosnippet="">14</a>//! device that declines, gets the group's contents as before.
+<a href="#15" id="15" data-nosnippet="">15</a>
+<a href="#16" id="16" data-nosnippet="">16</a></span><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::InterpreterSettings;
+<a href="#17" id="17" data-nosnippet="">17</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::context::{Context, InterpreterCache};
+<a href="#18" id="18" data-nosnippet="">18</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::device::Device;
+<a href="#19" id="19" data-nosnippet="">19</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::interpret::state::{ClipType, State};
+<a href="#20" id="20" data-nosnippet="">20</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_interpret::x_object::{FormXObject, interpret_form_contents};
+<a href="#21" id="21" data-nosnippet="">21</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_syntax::object::dict::keys::{CS, GROUP};
+<a href="#22" id="22" data-nosnippet="">22</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_syntax::object::{Dict, Name};
+<a href="#23" id="23" data-nosnippet="">23</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_syntax::page::Resources;
+<a href="#24" id="24" data-nosnippet="">24</a><span class="kw">use </span><span class="kw">crate</span>::third_party::hayro_syntax::xref::XRef;
+<a href="#25" id="25" data-nosnippet="">25</a><span class="kw">use </span>kurbo::{Affine, Rect, Shape};
+<a href="#26" id="26" data-nosnippet="">26</a><span class="kw">use </span>std::ops::Deref;
+<a href="#27" id="27" data-nosnippet="">27</a>
+<a href="#28" id="28" data-nosnippet="">28</a><span class="doccomment">/// An isolated, non-knockout transparency group whose blending colour space is `DeviceCMYK`,
+<a href="#29" id="29" data-nosnippet="">29</a>/// captured where it is painted (PdfCraft patch (70); see the module documentation).
+<a href="#30" id="30" data-nosnippet="">30</a></span><span class="kw">pub struct </span>CmykGroup&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
+<a href="#31" id="31" data-nosnippet="">31</a>    form: <span class="kw-2">&amp;</span><span class="lifetime">'b </span>FormXObject&lt;<span class="lifetime">'a</span>&gt;,
+<a href="#32" id="32" data-nosnippet="">32</a>    resources: <span class="kw-2">&amp;</span><span class="lifetime">'b </span>Resources&lt;<span class="lifetime">'a</span>&gt;,
+<a href="#33" id="33" data-nosnippet="">33</a>    <span class="doccomment">/// The graphics state the group's contents start with: the state at `Do`, after the
+<a href="#34" id="34" data-nosnippet="">34</a>    /// form's `/Matrix`, with the group's own opacity, soft mask and blend mode already taken
+<a href="#35" id="35" data-nosnippet="">35</a>    /// by the layer the group is composited through.
+<a href="#36" id="36" data-nosnippet="">36</a>    </span>state: State&lt;<span class="lifetime">'a</span>&gt;,
+<a href="#37" id="37" data-nosnippet="">37</a>    root_transform: Affine,
+<a href="#38" id="38" data-nosnippet="">38</a>    bbox: Rect,
+<a href="#39" id="39" data-nosnippet="">39</a>    interpreter_cache: InterpreterCache&lt;<span class="lifetime">'a</span>&gt;,
+<a href="#40" id="40" data-nosnippet="">40</a>    settings: InterpreterSettings,
+<a href="#41" id="41" data-nosnippet="">41</a>    xref: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>XRef,
+<a href="#42" id="42" data-nosnippet="">42</a>    nesting_depth: u32,
+<a href="#43" id="43" data-nosnippet="">43</a>}
+<a href="#44" id="44" data-nosnippet="">44</a>
+<a href="#45" id="45" data-nosnippet="">45</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; CmykGroup&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
+<a href="#46" id="46" data-nosnippet="">46</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(form: <span class="kw-2">&amp;</span><span class="lifetime">'b </span>FormXObject&lt;<span class="lifetime">'a</span>&gt;, resources: <span class="kw-2">&amp;</span><span class="lifetime">'b </span>Resources&lt;<span class="lifetime">'a</span>&gt;, context: <span class="kw-2">&amp;</span>Context&lt;<span class="lifetime">'a</span>&gt;) -&gt; <span class="self">Self </span>{
+<a href="#47" id="47" data-nosnippet="">47</a>        <span class="kw">let </span><span class="kw-2">mut </span>state = context.get().clone();
+<a href="#48" id="48" data-nosnippet="">48</a>        <span class="comment">// The clips in force belong to the device the group is composited onto; contents
+<a href="#49" id="49" data-nosnippet="">49</a>        // interpreted on their own push and pop only the clips they set themselves.
+<a href="#50" id="50" data-nosnippet="">50</a>        </span>state.clips = Vec::&lt;ClipType&gt;::new();
+<a href="#51" id="51" data-nosnippet="">51</a>        <span class="self">Self </span>{
+<a href="#52" id="52" data-nosnippet="">52</a>            form,
+<a href="#53" id="53" data-nosnippet="">53</a>            resources,
+<a href="#54" id="54" data-nosnippet="">54</a>            state,
+<a href="#55" id="55" data-nosnippet="">55</a>            root_transform: context.root_transform(),
+<a href="#56" id="56" data-nosnippet="">56</a>            bbox: context.bbox(),
+<a href="#57" id="57" data-nosnippet="">57</a>            interpreter_cache: context.interpreter_cache.clone(),
+<a href="#58" id="58" data-nosnippet="">58</a>            settings: context.settings.clone(),
+<a href="#59" id="59" data-nosnippet="">59</a>            xref: context.xref,
+<a href="#60" id="60" data-nosnippet="">60</a>            nesting_depth: context.nesting_depth(),
+<a href="#61" id="61" data-nosnippet="">61</a>        }
+<a href="#62" id="62" data-nosnippet="">62</a>    }
+<a href="#63" id="63" data-nosnippet="">63</a>
+<a href="#64" id="64" data-nosnippet="">64</a>    <span class="doccomment">/// The device-space box the group can paint: its `/BBox` under the current transform,
+<a href="#65" id="65" data-nosnippet="">65</a>    /// within the area being drawn.
+<a href="#66" id="66" data-nosnippet="">66</a>    </span><span class="kw">pub fn </span>device_bbox(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Rect {
+<a href="#67" id="67" data-nosnippet="">67</a>        <span class="kw">let </span>[x0, y0, x1, y1] = <span class="self">self</span>.form.bbox;
+<a href="#68" id="68" data-nosnippet="">68</a>        <span class="kw">let </span>user = Rect::new(x0 <span class="kw">as </span>f64, y0 <span class="kw">as </span>f64, x1 <span class="kw">as </span>f64, y1 <span class="kw">as </span>f64);
+<a href="#69" id="69" data-nosnippet="">69</a>        <span class="kw">let </span>device = (<span class="self">self</span>.state.ctm * user.to_path(<span class="number">0.1</span>)).bounding_box();
+<a href="#70" id="70" data-nosnippet="">70</a>        device.intersect(<span class="self">self</span>.bbox)
+<a href="#71" id="71" data-nosnippet="">71</a>    }
+<a href="#72" id="72" data-nosnippet="">72</a>
+<a href="#73" id="73" data-nosnippet="">73</a>    <span class="doccomment">/// Interpret the group's contents into `device`, with device space moved by `offset`
+<a href="#74" id="74" data-nosnippet="">74</a>    /// (so a device covering only [`Self::device_bbox`] can start at its corner).
+<a href="#75" id="75" data-nosnippet="">75</a>    </span><span class="kw">pub fn </span>interpret(<span class="kw-2">&amp;</span><span class="self">self</span>, device: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>Device&lt;<span class="lifetime">'a</span>&gt;, offset: (f64, f64)) {
+<a href="#76" id="76" data-nosnippet="">76</a>        <span class="kw">let </span>shift = Affine::translate((-offset.<span class="number">0</span>, -offset.<span class="number">1</span>));
+<a href="#77" id="77" data-nosnippet="">77</a>        <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.clone();
+<a href="#78" id="78" data-nosnippet="">78</a>        state.ctm = shift * state.ctm;
+<a href="#79" id="79" data-nosnippet="">79</a>        <span class="kw">let </span><span class="kw-2">mut </span>context = Context::new_with(
+<a href="#80" id="80" data-nosnippet="">80</a>            shift * <span class="self">self</span>.root_transform,
+<a href="#81" id="81" data-nosnippet="">81</a>            shift.transform_rect_bbox(<span class="self">self</span>.bbox),
+<a href="#82" id="82" data-nosnippet="">82</a>            <span class="kw-2">&amp;</span><span class="self">self</span>.interpreter_cache,
+<a href="#83" id="83" data-nosnippet="">83</a>            <span class="self">self</span>.xref,
+<a href="#84" id="84" data-nosnippet="">84</a>            <span class="self">self</span>.settings.clone(),
+<a href="#85" id="85" data-nosnippet="">85</a>            state,
+<a href="#86" id="86" data-nosnippet="">86</a>            <span class="self">self</span>.nesting_depth,
+<a href="#87" id="87" data-nosnippet="">87</a>        );
+<a href="#88" id="88" data-nosnippet="">88</a>        interpret_form_contents(<span class="self">self</span>.resources, <span class="self">self</span>.form, <span class="kw-2">&amp;mut </span>context, device);
+<a href="#89" id="89" data-nosnippet="">89</a>    }
+<a href="#90" id="90" data-nosnippet="">90</a>}
+<a href="#91" id="91" data-nosnippet="">91</a>
+<a href="#92" id="92" data-nosnippet="">92</a><span class="doccomment">/// Whether `form`'s transparency group blends in `DeviceCMYK`: it says so in its `/CS`.
+<a href="#93" id="93" data-nosnippet="">93</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>blends_in_device_cmyk(form: <span class="kw-2">&amp;</span>Dict&lt;<span class="lifetime">'_</span>&gt;) -&gt; bool {
+<a href="#94" id="94" data-nosnippet="">94</a>    form.get::&lt;Dict&lt;<span class="lifetime">'_</span>&gt;&gt;(GROUP).and_then(|g| g.get::&lt;Name&lt;<span class="lifetime">'_</span>&gt;&gt;(CS)).is_some_and(|cs| <span class="macro">matches!</span>(cs.deref(), <span class="string">b"DeviceCMYK" </span>| <span class="string">b"CMYK"</span>))
+<a href="#95" id="95" data-nosnippet="">95</a>}
+<a href="#96" id="96" data-nosnippet="">96</a>
+<a href="#97" id="97" data-nosnippet="">97</a><span class="doccomment">/// Whether `form`'s transparency group names a blending colour space of its own (`/CS`).
+<a href="#98" id="98" data-nosnippet="">98</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>names_a_blending_space(form: <span class="kw-2">&amp;</span>Dict&lt;<span class="lifetime">'_</span>&gt;) -&gt; bool {
+<a href="#99" id="99" data-nosnippet="">99</a>    form.get::&lt;Dict&lt;<span class="lifetime">'_</span>&gt;&gt;(GROUP).is_some_and(|g| g.contains_key(CS))
+<a href="#100" id="100" data-nosnippet="">100</a>}
+</code></pre></div></section></main></body></html>

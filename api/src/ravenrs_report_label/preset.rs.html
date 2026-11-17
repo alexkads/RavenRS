@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>preset.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="ravenrs_report_label" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../static.files/src-script-813739b1.js"></script><script defer="" src="../../src-files.js"></script><script defer="" src="../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-report-label/src/preset.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_report_label/preset.rs.html"><meta property="og:title" content="preset.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-report-label/src/preset.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_report_label/preset.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="preset.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-report-label/src/preset.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"preset.rs - source","description":"Source of the Rust file `crates/ravenrs-report-label/src/preset.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_report_label/preset.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_report_label/</div>preset.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! The printers among the drivers that come with the program. This is only a view of that catalog,
+<a href="#2" id="2" data-nosnippet="">2</a>//! for choosing by name: what is known about each one lives in `ravenrs-perifericos`.
+<a href="#3" id="3" data-nosnippet="">3</a>
+<a href="#4" id="4" data-nosnippet="">4</a></span><span class="kw">use </span>std::sync::OnceLock;
+<a href="#5" id="5" data-nosnippet="">5</a>
+<a href="#6" id="6" data-nosnippet="">6</a><span class="kw">use </span>ravenrs_perifericos::{Ajustes, Manifesto, TipoPeriferico, manifestos_embutidos};
+<a href="#7" id="7" data-nosnippet="">7</a>
+<a href="#8" id="8" data-nosnippet="">8</a><span class="kw">use </span><span class="kw">crate</span>::language::Language;
+<a href="#9" id="9" data-nosnippet="">9</a>
+<a href="#10" id="10" data-nosnippet="">10</a><span class="doccomment">/// A printer model and the languages it takes, the first one preferred. The choice stays editable.
+<a href="#11" id="11" data-nosnippet="">11</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq)]
+<a href="#12" id="12" data-nosnippet="">12</a></span><span class="kw">pub struct </span>PrinterPreset {
+<a href="#13" id="13" data-nosnippet="">13</a>    <span class="doccomment">/// The exact model.
+<a href="#14" id="14" data-nosnippet="">14</a>    </span><span class="kw">pub </span>name: String,
+<a href="#15" id="15" data-nosnippet="">15</a>    <span class="doccomment">/// The driver this comes from.
+<a href="#16" id="16" data-nosnippet="">16</a>    </span><span class="kw">pub </span>driver_id: String,
+<a href="#17" id="17" data-nosnippet="">17</a>    <span class="doccomment">/// Its languages. PPLB is [`Language::Epl`].
+<a href="#18" id="18" data-nosnippet="">18</a>    </span><span class="kw">pub </span>languages: Vec&lt;Language&gt;,
+<a href="#19" id="19" data-nosnippet="">19</a>    <span class="doccomment">/// What differs on this model, for [`LabelJob::ajustes`](crate::LabelJob::ajustes).
+<a href="#20" id="20" data-nosnippet="">20</a>    </span><span class="kw">pub </span>ajustes: Ajustes,
+<a href="#21" id="21" data-nosnippet="">21</a>    <span class="doccomment">/// What to set on the printer before using it, to show to whoever installs it.
+<a href="#22" id="22" data-nosnippet="">22</a>    </span><span class="kw">pub </span>setup: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#23" id="23" data-nosnippet="">23</a>}
+<a href="#24" id="24" data-nosnippet="">24</a>
+<a href="#25" id="25" data-nosnippet="">25</a><span class="kw">fn </span>preset_de(driver: <span class="kw-2">&amp;</span>Manifesto) -&gt; <span class="prelude-ty">Option</span>&lt;PrinterPreset&gt; {
+<a href="#26" id="26" data-nosnippet="">26</a>    <span class="kw">if </span>!<span class="macro">matches!</span>(driver.tipo, TipoPeriferico::ImpressoraTermica | TipoPeriferico::Etiquetadora) {
+<a href="#27" id="27" data-nosnippet="">27</a>        <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#28" id="28" data-nosnippet="">28</a>    }
+<a href="#29" id="29" data-nosnippet="">29</a>    <span class="kw">let </span>protocolos = std::iter::once(<span class="kw-2">&amp;</span>driver.protocolo).chain(<span class="kw-2">&amp;</span>driver.protocolos_alternativos);
+<a href="#30" id="30" data-nosnippet="">30</a>    <span class="prelude-val">Some</span>(PrinterPreset {
+<a href="#31" id="31" data-nosnippet="">31</a>        name: driver.nome_do_modelo().to_owned(),
+<a href="#32" id="32" data-nosnippet="">32</a>        driver_id: driver.id.clone(),
+<a href="#33" id="33" data-nosnippet="">33</a>        languages: protocolos.filter_map(|protocolo| Language::do_protocolo(protocolo.nome)).collect(),
+<a href="#34" id="34" data-nosnippet="">34</a>        ajustes: driver.ajustes,
+<a href="#35" id="35" data-nosnippet="">35</a>        setup: driver.instalacao.clone(),
+<a href="#36" id="36" data-nosnippet="">36</a>    })
+<a href="#37" id="37" data-nosnippet="">37</a>}
+<a href="#38" id="38" data-nosnippet="">38</a>
+<a href="#39" id="39" data-nosnippet="">39</a><span class="doccomment">/// The printers known by name.
+<a href="#40" id="40" data-nosnippet="">40</a></span><span class="kw">pub fn </span>presets() -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>[PrinterPreset] {
+<a href="#41" id="41" data-nosnippet="">41</a>    <span class="kw">static </span>PRESETS: OnceLock&lt;Vec&lt;PrinterPreset&gt;&gt; = OnceLock::new();
+<a href="#42" id="42" data-nosnippet="">42</a>    PRESETS.get_or_init(|| manifestos_embutidos().iter().filter_map(preset_de).collect())
+<a href="#43" id="43" data-nosnippet="">43</a>}
+<a href="#44" id="44" data-nosnippet="">44</a>
+<a href="#45" id="45" data-nosnippet="">45</a><span class="attr">#[cfg(test)]
+<a href="#46" id="46" data-nosnippet="">46</a></span><span class="kw">mod </span>tests {
+<a href="#47" id="47" data-nosnippet="">47</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#48" id="48" data-nosnippet="">48</a>
+<a href="#49" id="49" data-nosnippet="">49</a>    <span class="attr">#[test]
+<a href="#50" id="50" data-nosnippet="">50</a>    </span><span class="kw">fn </span>every_preset_has_a_language_and_a_distinct_name() {
+<a href="#51" id="51" data-nosnippet="">51</a>        <span class="macro">assert_eq!</span>(presets().len(), <span class="number">9</span>);
+<a href="#52" id="52" data-nosnippet="">52</a>        <span class="kw">for </span>(index, preset) <span class="kw">in </span>presets().iter().enumerate() {
+<a href="#53" id="53" data-nosnippet="">53</a>            <span class="macro">assert!</span>(!preset.languages.is_empty(), <span class="string">"{}"</span>, preset.name);
+<a href="#54" id="54" data-nosnippet="">54</a>            <span class="macro">assert!</span>(presets().iter().skip(index + <span class="number">1</span>).all(|other| other.name != preset.name));
+<a href="#55" id="55" data-nosnippet="">55</a>        }
+<a href="#56" id="56" data-nosnippet="">56</a>    }
+<a href="#57" id="57" data-nosnippet="">57</a>
+<a href="#58" id="58" data-nosnippet="">58</a>    <span class="attr">#[test]
+<a href="#59" id="59" data-nosnippet="">59</a>    </span><span class="kw">fn </span>no_preset_has_only_a_brand_for_a_name() {
+<a href="#60" id="60" data-nosnippet="">60</a>        <span class="kw">for </span>vague <span class="kw">in </span>[<span class="string">"TSC"</span>, <span class="string">"Argox"</span>, <span class="string">"Elgin"</span>, <span class="string">"Epson"</span>, <span class="string">"Zebra"</span>] {
+<a href="#61" id="61" data-nosnippet="">61</a>            <span class="macro">assert!</span>(presets().iter().all(|preset| preset.name != vague), <span class="string">"{vague}"</span>);
+<a href="#62" id="62" data-nosnippet="">62</a>        }
+<a href="#63" id="63" data-nosnippet="">63</a>    }
+<a href="#64" id="64" data-nosnippet="">64</a>
+<a href="#65" id="65" data-nosnippet="">65</a>    <span class="attr">#[test]
+<a href="#66" id="66" data-nosnippet="">66</a>    </span><span class="kw">fn </span>printers_keep_their_languages_and_adjustments() {
+<a href="#67" id="67" data-nosnippet="">67</a>        <span class="kw">let </span>find = |name: <span class="kw-2">&amp;</span>str| presets().iter().find(|preset| preset.name == name);
+<a href="#68" id="68" data-nosnippet="">68</a>        <span class="kw">for </span>name <span class="kw">in </span>[<span class="string">"Epson TM-T20"</span>, <span class="string">"Elgin i9"</span>, <span class="string">"Bematech MP-4200 TH"</span>] {
+<a href="#69" id="69" data-nosnippet="">69</a>            <span class="macro">assert_eq!</span>(
+<a href="#70" id="70" data-nosnippet="">70</a>                find(name).map(|preset| preset.languages.clone()),
+<a href="#71" id="71" data-nosnippet="">71</a>                <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[Language::EscPos]),
+<a href="#72" id="72" data-nosnippet="">72</a>                <span class="string">"{name}"
+<a href="#73" id="73" data-nosnippet="">73</a>            </span>);
+<a href="#74" id="74" data-nosnippet="">74</a>        }
+<a href="#75" id="75" data-nosnippet="">75</a>        <span class="macro">assert_eq!</span>(
+<a href="#76" id="76" data-nosnippet="">76</a>            find(<span class="string">"Elgin L42 Pro"</span>).map(|preset| preset.languages.clone()),
+<a href="#77" id="77" data-nosnippet="">77</a>            <span class="prelude-val">Some</span>(<span class="macro">vec!</span>[Language::Zpl, Language::Epl, Language::Ppla])
+<a href="#78" id="78" data-nosnippet="">78</a>        );
+<a href="#79" id="79" data-nosnippet="">79</a>        <span class="kw">let </span>bematech = find(<span class="string">"Bematech MP-4200 TH"</span>);
+<a href="#80" id="80" data-nosnippet="">80</a>        <span class="macro">assert!</span>(bematech.is_some_and(|preset| preset.setup.is_some() &amp;&amp; preset.ajustes.bipe.is_some()));
+<a href="#81" id="81" data-nosnippet="">81</a>    }
+<a href="#82" id="82" data-nosnippet="">82</a>}
+</code></pre></div></section></main></body></html>

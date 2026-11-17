@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["EXTENSIONS","MAX_ZIP_ENTRIES"],"fn":["export","export_with","import","import_on"],"mod":["comments","html","latex","markdown","mathml","mht","model","odt","rtf","sheet","txt"],"struct":["ExportOptions"]};

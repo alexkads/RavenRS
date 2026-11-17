@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["arredondar","calcular"],"struct":["Totais","TotaisItem"]};

@@ -1,0 +1,67 @@
+# RavenRS
+
+> An open-source Rust GUI framework: one declarative, reactive UI for Windows, macOS, Linux and WebAssembly, with GPU rendering, semantic design tokens, records, forms and reporting.
+
+Framework version: 27.1.28. License: MIT OR Apache-2.0.
+
+Start with `npx create-ravenrs minha-loja`. For exact APIs, check the project's Cargo.toml and use its version-matched RavenRS MCP server (`cargo ravenrs mcp`).
+
+## Official guides
+
+- [Introduction](https://alexkads.github.io/RavenRS/docs/index.md)
+- [Installation](https://alexkads.github.io/RavenRS/docs/getting-started/index.md)
+- [CLI & AI assistants](https://alexkads.github.io/RavenRS/docs/cli/index.md)
+- [AI-assisted development](https://alexkads.github.io/RavenRS/docs/ai/index.md)
+- [Architecture](https://alexkads.github.io/RavenRS/docs/architecture/index.md)
+- [Design system](https://alexkads.github.io/RavenRS/docs/design-system/index.md)
+- [Records & forms](https://alexkads.github.io/RavenRS/docs/applications/index.md)
+- [Component coverage](https://alexkads.github.io/RavenRS/docs/components/index.md)
+- [Create reports](https://alexkads.github.io/RavenRS/docs/reporting/index.md)
+- [Report server](https://alexkads.github.io/RavenRS/docs/report-server/index.md)
+- [Quality & accessibility](https://alexkads.github.io/RavenRS/docs/quality/index.md)
+- [Performance](https://alexkads.github.io/RavenRS/docs/performance/index.md)
+- [Versions & upgrades](https://alexkads.github.io/RavenRS/docs/versioning/index.md)
+- [Contracts and acceptance scenarios for reusable modules](https://alexkads.github.io/RavenRS/docs/app-contracts/index.md)
+- [Cobertura do ravenrs-app para aplicações corporativas](https://alexkads.github.io/RavenRS/docs/app-coverage/index.md)
+- [Application framework parity](https://alexkads.github.io/RavenRS/docs/app-parity/index.md)
+- [Automação comercial: o que existe e o que falta para vender](https://alexkads.github.io/RavenRS/docs/automacao-comercial/index.md)
+- [Auditoria técnica de componentes](https://alexkads.github.io/RavenRS/docs/component-audit/index.md)
+- [Inventário e projeção de componentes](https://alexkads.github.io/RavenRS/docs/component-inventory/index.md)
+- [Plataforma de desenvolvimento RavenRS — inventário e proposta](https://alexkads.github.io/RavenRS/docs/developer-platform-plan/index.md)
+- [NFS-e Padrão Nacional: pesquisa para o PDV (hoje: 05/11/2026)](https://alexkads.github.io/RavenRS/docs/nfse/index.md)
+- [Pagamentos: pinpads, TEF e os quatro provedores](https://alexkads.github.io/RavenRS/docs/pagamentos/index.md)
+- [Periféricos](https://alexkads.github.io/RavenRS/docs/perifericos/index.md)
+- [Capacidades de planejamento para aplicações RavenRS](https://alexkads.github.io/RavenRS/docs/project-planning-roadmap/index.md)
+- [Automação comercial: próximas etapas](https://alexkads.github.io/RavenRS/docs/proximas-etapas/index.md)
+- [RavenRS Reporting — feature parity](https://alexkads.github.io/RavenRS/docs/reporting-parity/index.md)
+- [Site SEO and publication](https://alexkads.github.io/RavenRS/docs/site-seo/index.md)
+- [Cobertura por tipo de software](https://alexkads.github.io/RavenRS/docs/software-coverage/index.md)
+- [TEF para o PDV: comparativo e recomendação](https://alexkads.github.io/RavenRS/docs/tef-comparativo/index.md)
+- [Raven Data Studio](https://alexkads.github.io/RavenRS/docs/data-studio/index.md)
+- [Raven Data Studio: visão do produto e requisitos](https://alexkads.github.io/RavenRS/docs/data-studio/01-visao-e-requisitos/index.md)
+- [Raven Data Studio: análise do código](https://alexkads.github.io/RavenRS/docs/data-studio/02-analise-do-codigo/index.md)
+- [Raven Data Studio: matriz de componentes reutilizáveis](https://alexkads.github.io/RavenRS/docs/data-studio/03-matriz-de-componentes/index.md)
+- [Raven Data Studio: lacunas e novos componentes propostos](https://alexkads.github.io/RavenRS/docs/data-studio/04-lacunas-e-novos-componentes/index.md)
+- [Raven Data Studio: fluxos](https://alexkads.github.io/RavenRS/docs/data-studio/05-fluxos/index.md)
+- [Raven Data Studio: especificação das telas](https://alexkads.github.io/RavenRS/docs/data-studio/06-telas/index.md)
+- [Raven Data Studio: wireframes](https://alexkads.github.io/RavenRS/docs/data-studio/07-wireframes/index.md)
+- [Raven Data Studio: arquitetura](https://alexkads.github.io/RavenRS/docs/data-studio/08-arquitetura/index.md)
+- [Raven Data Studio: modelo de domínio](https://alexkads.github.io/RavenRS/docs/data-studio/09-modelo-de-dominio/index.md)
+- [Raven Data Studio: MCP, agente e conectores](https://alexkads.github.io/RavenRS/docs/data-studio/10-mcp-e-conectores/index.md)
+- [Raven Data Studio: descoberta, schema, mapeamento e transformações](https://alexkads.github.io/RavenRS/docs/data-studio/11-schema-mapeamento-transformacoes/index.md)
+- [Raven Data Studio: execução e recuperação](https://alexkads.github.io/RavenRS/docs/data-studio/12-execucao-e-recuperacao/index.md)
+- [Raven Data Studio: segurança, privacidade, acessibilidade, idiomas e desempenho](https://alexkads.github.io/RavenRS/docs/data-studio/13-seguranca-privacidade-a11y-i18n/index.md)
+- [Raven Data Studio: referências e roadmap](https://alexkads.github.io/RavenRS/docs/data-studio/14-referencias-e-roadmap/index.md)
+- [Raven Data Studio: critérios de aceitação](https://alexkads.github.io/RavenRS/docs/data-studio/15-criterios-de-aceitacao/index.md)
+- [Raven Data Studio: decisões em aberto](https://alexkads.github.io/RavenRS/docs/data-studio/16-decisoes-em-aberto/index.md)
+- [Raven Data Studio: cenário de referência](https://alexkads.github.io/RavenRS/docs/data-studio/cenario-de-referencia/index.md)
+- [Primeiro app com ravenrs-app no VS Code — RavenDevLab](https://alexkads.github.io/RavenRS/docs/tutorials/ravenrs-app-vscode/index.md)
+
+## Source and tools
+
+- [Repository](https://github.com/alexkads/RavenRS)
+- [Published Rust API](https://docs.rs/ravenrs/27.1.28/ravenrs/)
+- [npm preparer](https://www.npmjs.com/package/create-ravenrs)
+- [Combined guides](https://alexkads.github.io/RavenRS/llms-full.txt)
+
+These files provide readable context; they do not guarantee AI indexing or training.

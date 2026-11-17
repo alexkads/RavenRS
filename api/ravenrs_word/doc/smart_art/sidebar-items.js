@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_ITEMS","MAX_LEVEL","MAX_TEXT"],"enum":["SmartArtColors","SmartArtLayout"],"fn":["clean_text"],"struct":["SmartArtItem","SmartArtSpec"]};

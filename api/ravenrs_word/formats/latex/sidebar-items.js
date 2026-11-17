@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_SOURCE"],"fn":["escape_text","export","import","latex_to_linear","linear_to_latex","parse"]};

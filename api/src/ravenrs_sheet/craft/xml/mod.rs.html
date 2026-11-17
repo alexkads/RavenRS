@@ -1,0 +1,82 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="ravenrs_sheet" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../src-files.js"></script><script defer="" src="../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-sheet/src/craft/xml/mod.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_sheet/craft/xml/mod.rs.html"><meta property="og:title" content="mod.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-sheet/src/craft/xml/mod.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_sheet/craft/xml/mod.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="mod.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-sheet/src/craft/xml/mod.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"mod.rs - source","description":"Source of the Rust file `crates/ravenrs-sheet/src/craft/xml/mod.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_sheet/craft/xml/mod.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_sheet/craft/xml/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="attr">#![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
+<a href="#2" id="2" data-nosnippet="">2</a></span><span class="doccomment">//! Bounded XML for hostile input.
+<a href="#3" id="3" data-nosnippet="">3</a>//!
+<a href="#4" id="4" data-nosnippet="">4</a>//! - [`parse`] and [`Options::parse`] read bytes into an owned tree of [`El`] and [`Node`], with
+<a href="#5" id="5" data-nosnippet="">5</a>//!   limits on input size, nesting, node count and attributes per element ([`Limits`]).
+<a href="#6" id="6" data-nosnippet="">6</a>//! - [`Options::parse_streaming`] hands repeated elements to a callback, so a large part never
+<a href="#7" id="7" data-nosnippet="">7</a>//!   becomes a whole tree. [`Options::events`] is the pull reader underneath.
+<a href="#8" id="8" data-nosnippet="">8</a>//! - [`Names`] chooses how names are read: as written, by local name, or rewritten to the
+<a href="#9" id="9" data-nosnippet="">9</a>//!   caller's canonical prefixes by namespace URI.
+<a href="#10" id="10" data-nosnippet="">10</a>//! - [`esc`], [`esc_attr`], [`El::to_xml`], [`El::to_xml_pretty`] and [`Writer`] write XML.
+<a href="#11" id="11" data-nosnippet="">11</a>//!
+<a href="#12" id="12" data-nosnippet="">12</a>//! No document type definition is processed, and no entity is expanded except the five
+<a href="#13" id="13" data-nosnippet="">13</a>//! predefined ones (`&amp;amp;` `&amp;lt;` `&amp;gt;` `&amp;quot;` `&amp;apos;`) and numeric character references.
+<a href="#14" id="14" data-nosnippet="">14</a>//! The text the reader produces is therefore never more than three times its input.
+<a href="#15" id="15" data-nosnippet="">15</a>//!
+<a href="#16" id="16" data-nosnippet="">16</a>//! ```
+<a href="#17" id="17" data-nosnippet="">17</a>//! let root = ravenrs_sheet::craft::xml::parse(b"&lt;a x='1'&gt;&lt;b&gt;one &amp;amp; two&lt;/b&gt;&lt;b/&gt;&lt;/a&gt;")?;
+<a href="#18" id="18" data-nosnippet="">18</a>//! assert_eq!(root.attr_u32("x"), Some(1));
+<a href="#19" id="19" data-nosnippet="">19</a>//! assert_eq!(root.child("b").map(|b| b.text().into_owned()).as_deref(), Some("one &amp; two"));
+<a href="#20" id="20" data-nosnippet="">20</a>//! assert_eq!(root.to_xml(), r#"&lt;a x="1"&gt;&lt;b&gt;one &amp;amp; two&lt;/b&gt;&lt;b/&gt;&lt;/a&gt;"#);
+<a href="#21" id="21" data-nosnippet="">21</a>//! # Ok::&lt;(), ravenrs_sheet::craft::xml::Error&gt;(())
+<a href="#22" id="22" data-nosnippet="">22</a>//! ```
+<a href="#23" id="23" data-nosnippet="">23</a>
+<a href="#24" id="24" data-nosnippet="">24</a></span><span class="attr">#[cfg(doctest)]
+<a href="#25" id="25" data-nosnippet="">25</a>#[doc = <span class="macro">include_str!</span>(<span class="string">"README.md"</span>)]
+<a href="#26" id="26" data-nosnippet="">26</a></span><span class="kw">struct </span>ReadmeExamples;
+<a href="#27" id="27" data-nosnippet="">27</a>
+<a href="#28" id="28" data-nosnippet="">28</a><span class="kw">mod </span>read;
+<a href="#29" id="29" data-nosnippet="">29</a><span class="kw">mod </span>tree;
+<a href="#30" id="30" data-nosnippet="">30</a><span class="kw">pub mod </span>value;
+<a href="#31" id="31" data-nosnippet="">31</a><span class="kw">mod </span>write;
+<a href="#32" id="32" data-nosnippet="">32</a>
+<a href="#33" id="33" data-nosnippet="">33</a><span class="kw">pub use </span>read::{
+<a href="#34" id="34" data-nosnippet="">34</a>    AttrValueHook, Canonical, Doctype, ElementHook, Event, Events, Limits, Names, NsName, Options, Scope, UnknownEntity, XML_NS, entity, parse,
+<a href="#35" id="35" data-nosnippet="">35</a>    to_utf8, unescape,
+<a href="#36" id="36" data-nosnippet="">36</a>};
+<a href="#37" id="37" data-nosnippet="">37</a><span class="kw">pub use </span>tree::{Descendants, El, Local, Node, Pat};
+<a href="#38" id="38" data-nosnippet="">38</a><span class="kw">pub use </span>write::{DECL, DECL_STANDALONE, Tag, Writer, esc, esc_attr, is_name, is_xml_char, push_esc, push_esc_attr};
+<a href="#39" id="39" data-nosnippet="">39</a>
+<a href="#40" id="40" data-nosnippet="">40</a><span class="doccomment">/// Why a document was not read.
+<a href="#41" id="41" data-nosnippet="">41</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
+<a href="#42" id="42" data-nosnippet="">42</a></span><span class="kw">pub enum </span>Error {
+<a href="#43" id="43" data-nosnippet="">43</a>    <span class="doccomment">/// The input is longer than [`Limits::max_input`].
+<a href="#44" id="44" data-nosnippet="">44</a>    </span><span class="attr">#[error(<span class="string">"the XML is larger than {0} bytes"</span>)]
+<a href="#45" id="45" data-nosnippet="">45</a>    </span>TooLarge(usize),
+<a href="#46" id="46" data-nosnippet="">46</a>    <span class="doccomment">/// Elements nest deeper than [`Limits::max_depth`].
+<a href="#47" id="47" data-nosnippet="">47</a>    </span><span class="attr">#[error(<span class="string">"XML elements nest deeper than {0} levels"</span>)]
+<a href="#48" id="48" data-nosnippet="">48</a>    </span>TooDeep(usize),
+<a href="#49" id="49" data-nosnippet="">49</a>    <span class="doccomment">/// The tree would hold more than [`Limits::max_nodes`] nodes.
+<a href="#50" id="50" data-nosnippet="">50</a>    </span><span class="attr">#[error(<span class="string">"the XML holds more than {0} nodes"</span>)]
+<a href="#51" id="51" data-nosnippet="">51</a>    </span>TooManyNodes(usize),
+<a href="#52" id="52" data-nosnippet="">52</a>    <span class="doccomment">/// One start tag has more than [`Limits::max_attrs`] attributes.
+<a href="#53" id="53" data-nosnippet="">53</a>    </span><span class="attr">#[error(<span class="string">"an XML element has more than {0} attributes"</span>)]
+<a href="#54" id="54" data-nosnippet="">54</a>    </span>TooManyAttrs(usize),
+<a href="#55" id="55" data-nosnippet="">55</a>    <span class="doccomment">/// The tree would hold more than [`Limits::max_attrs_total`] attributes.
+<a href="#56" id="56" data-nosnippet="">56</a>    </span><span class="attr">#[error(<span class="string">"the XML holds more than {0} attributes"</span>)]
+<a href="#57" id="57" data-nosnippet="">57</a>    </span>TooManyAttrsTotal(usize),
+<a href="#58" id="58" data-nosnippet="">58</a>    <span class="doccomment">/// The document has a document type declaration that [`Options::doctype`] refuses.
+<a href="#59" id="59" data-nosnippet="">59</a>    </span><span class="attr">#[error(<span class="string">"the XML has a document type declaration, which is not accepted"</span>)]
+<a href="#60" id="60" data-nosnippet="">60</a>    </span>Doctype,
+<a href="#61" id="61" data-nosnippet="">61</a>    <span class="doccomment">/// A reference to an entity that is neither predefined nor numeric, with
+<a href="#62" id="62" data-nosnippet="">62</a>    /// [`UnknownEntity::Error`].
+<a href="#63" id="63" data-nosnippet="">63</a>    </span><span class="attr">#[error(<span class="string">"the entity `&amp;{name};` at byte {at} is not defined"</span>)]
+<a href="#64" id="64" data-nosnippet="">64</a>    </span>UnknownEntity { at: usize, name: String },
+<a href="#65" id="65" data-nosnippet="">65</a>    <span class="doccomment">/// Text that is not UTF-8, in a strict parse.
+<a href="#66" id="66" data-nosnippet="">66</a>    </span><span class="attr">#[error(<span class="string">"the XML is not valid UTF-8 at byte {0}"</span>)]
+<a href="#67" id="67" data-nosnippet="">67</a>    </span>Encoding(usize),
+<a href="#68" id="68" data-nosnippet="">68</a>    <span class="doccomment">/// Markup that cannot be read. `at` is a byte offset into the UTF-8 text ([`to_utf8`]).
+<a href="#69" id="69" data-nosnippet="">69</a>    </span><span class="attr">#[error(<span class="string">"malformed XML at byte {at}: {msg}"</span>)]
+<a href="#70" id="70" data-nosnippet="">70</a>    </span>Syntax { at: usize, msg: String },
+<a href="#71" id="71" data-nosnippet="">71</a>    <span class="doccomment">/// There is no root element.
+<a href="#72" id="72" data-nosnippet="">72</a>    </span><span class="attr">#[error(<span class="string">"the XML has no root element"</span>)]
+<a href="#73" id="73" data-nosnippet="">73</a>    </span>NoRoot,
+<a href="#74" id="74" data-nosnippet="">74</a>}
+<a href="#75" id="75" data-nosnippet="">75</a>
+<a href="#76" id="76" data-nosnippet="">76</a><span class="kw">impl </span>Error {
+<a href="#77" id="77" data-nosnippet="">77</a>    <span class="doccomment">/// Was a limit exceeded (as opposed to the markup being wrong)?
+<a href="#78" id="78" data-nosnippet="">78</a>    </span><span class="kw">pub fn </span>is_limit(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#79" id="79" data-nosnippet="">79</a>        <span class="macro">matches!</span>(<span class="self">self</span>, Error::TooLarge(<span class="kw">_</span>) | Error::TooDeep(<span class="kw">_</span>) | Error::TooManyNodes(<span class="kw">_</span>) | Error::TooManyAttrs(<span class="kw">_</span>) | Error::TooManyAttrsTotal(<span class="kw">_</span>))
+<a href="#80" id="80" data-nosnippet="">80</a>    }
+<a href="#81" id="81" data-nosnippet="">81</a>}
+</code></pre></div></section></main></body></html>

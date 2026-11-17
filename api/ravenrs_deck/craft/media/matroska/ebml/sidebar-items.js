@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Lacing","Size"],"fn":["crc32","crc32_update","float","int","parse_lacing","read_id","read_size","read_svint","read_vint","string","uint","verify_crc","vint_len","write_id","write_size","write_unknown_size"],"struct":["Children","Elem"]};

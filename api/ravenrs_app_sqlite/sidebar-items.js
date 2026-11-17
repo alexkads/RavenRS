@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["COPIES_KEPT"],"enum":["BackupError"],"fn":["entities_from_schema"],"struct":["BackupInfo","BackupStamp","Backups","KeptCopy","SqlWords","SqliteAttachmentStore","SqliteBackend","SqliteModelStore","TableMap"],"trait":["SqliteBackups"],"type":["SqliteBuilder","SqliteDatabase","SqliteObjectSpace"]};

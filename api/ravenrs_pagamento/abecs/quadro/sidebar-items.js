@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ACK","CAN","DC3","EOT","ETB","NAK","SYN","TAMANHO_MAXIMO_PACOTE"],"enum":["EventoQuadro"],"fn":["codificar_pacote","crc16"],"struct":["Decodificador","PacoteGrande"]};

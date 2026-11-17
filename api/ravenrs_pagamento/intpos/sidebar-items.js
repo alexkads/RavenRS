@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["TEMPO_RESPOSTA_MS","TEMPO_STS_MS"],"enum":["Perfil","RespostaGerenciador"],"struct":["ArquivoIntPos","Caminhos","GerenciadorSimulado","ProvedorArquivos","RelogioComGerenciador"]};

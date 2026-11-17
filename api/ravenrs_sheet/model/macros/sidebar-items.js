@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MACRO_VERSION","MAX_MACROS","MAX_MACRO_COLUMNS","MAX_MACRO_DEPTH","MAX_MACRO_NAME","MAX_MACRO_PERMISSIONS","MAX_MACRO_REF","MAX_MACRO_SHORTCUT","MAX_MACRO_STEPS","MAX_MACRO_TEXT"],"enum":["ColType","CompareOp","InputKind","OnConflict","RepeatOf","StepKind"],"fn":["check_version"],"struct":["Macro","Macros","NamedInput","OutputRule","Step"]};

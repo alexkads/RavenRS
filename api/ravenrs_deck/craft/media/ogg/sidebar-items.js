@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_OPUS_GRANULE"],"enum":["Codec","Error"],"fn":["crc32","crc32_update","open","opus_packet_samples","sniff"],"struct":["OggFile","OpusTiming","Packet","Stream","VorbisInfo"],"type":["Result"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["CATALOG"],"enum":["Band","LineAnchor"],"fn":["adjust_count","adjust_defaults","band_of_line","handles","is_follow","is_supported","warp"],"struct":["Guide","Mapper","Preset","Warp","WarpHandle","WarpLine"]};

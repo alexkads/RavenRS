@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["apply_idea","ideas_for","specs"],"type":["Idea"]};

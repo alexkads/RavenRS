@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Causa","Evidencia"],"fn":["autopsia_assinatura","autopsia_contra_original","primeira_divergencia"],"struct":["AutopsiaAssinatura","CausaProvavel","Divergencia"]};

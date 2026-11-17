@@ -1,0 +1,829 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc="" data-has-sidebar="" data-astro-cid-g5ptsecz=""><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Raven Data Studio: especificação das telas | RavenRS</title><link rel="sitemap" href="/RavenRS/sitemap-index.xml"><link rel="shortcut icon" href="/RavenRS/favicon.svg" type="image/svg+xml"><meta name="generator" content="Astro v7.4.12"><meta name="generator" content="Starlight v0.43.1"><script>
+	(() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+	})();
+</script><link rel="stylesheet" href="/RavenRS/_astro/print.C9eyqPGL.css" media="print"><link rel="stylesheet" href="/RavenRS/_astro/index.BcKmb9jH.css"><style>@layer starlight.components.icon{svg[data-astro-cid-hkc32dio]{color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em;overflow:visible}}
+</style><script type="module" src="/RavenRS/_astro/page.cNngjUgL.js"></script><meta name="description" content="Raven Data Studio: especificação das telas — the RavenRS guide to native and web applications in Rust."><link rel="canonical" href="https://ravenrs.vercel.app/docs/data-studio/06-telas/"><meta property="og:title" content="Raven Data Studio: especificação das telas | RavenRS"><meta property="og:description" content="Raven Data Studio: especificação das telas — the RavenRS guide to native and web applications in Rust."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/docs/data-studio/06-telas/"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Raven Data Studio: especificação das telas | RavenRS — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Raven Data Studio: especificação das telas | RavenRS"><meta name="twitter:description" content="Raven Data Studio: especificação das telas — the RavenRS guide to native and web applications in Rust."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta name="twitter:image:alt" content="Raven Data Studio: especificação das telas | RavenRS — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Raven Data Studio: especificação das telas | RavenRS","description":"Raven Data Studio: especificação das telas — the RavenRS guide to native and web applications in Rust.","url":"https://ravenrs.vercel.app/docs/data-studio/06-telas/","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body data-astro-cid-g5ptsecz=""><a class="sl-skip-link" href="#_top" data-astro-cid-qb7clj6f="">Skip to content</a><div class="page sl-flex" data-astro-cid-yntsjkba=""><header class="header" data-astro-cid-yntsjkba=""><div class="header" data-astro-cid-by6fddyj=""><div class="title-wrapper sl-flex" data-astro-cid-by6fddyj=""><a href="/RavenRS/" class="site-title sl-flex" data-astro-cid-6rvad3va=""><span translate="no" data-astro-cid-6rvad3va="">RavenRS</span></a></div><div class="sl-flex print:hidden" data-astro-cid-by6fddyj=""><site-search data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}" data-astro-cid-b5kgnn7o="true"><button data-open-modal="" disabled="" aria-label="Search" aria-keyshortcuts="Control+K" data-astro-cid-b5kgnn7o=""><svg data-astro-cid-b5kgnn7o="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"></path></svg><span class="sl-hidden md:sl-block" aria-hidden="true" data-astro-cid-b5kgnn7o="">Search</span><kbd class="sl-hidden md:sl-flex" style="display: none" data-astro-cid-b5kgnn7o=""><kbd data-astro-cid-b5kgnn7o="">Ctrl</kbd><kbd data-astro-cid-b5kgnn7o="">K</kbd></kbd></button><dialog style="padding: 0" aria-label="Search" data-astro-cid-b5kgnn7o=""><div class="dialog-frame sl-flex" data-astro-cid-b5kgnn7o=""><button data-close-modal="" class="sl-flex md:sl-hidden" data-astro-cid-b5kgnn7o="">Cancel</button><div class="search-container" data-astro-cid-b5kgnn7o=""><div id="starlight__search" data-astro-cid-b5kgnn7o=""></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/RavenRS/_astro/Search.astro_astro_type_script_index_0_lang.B287-pOx.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group" data-astro-cid-by6fddyj=""><div class="sl-flex social-icons" data-astro-cid-by6fddyj=""><a href="https://github.com/alexkads/RavenRS" rel="me" class="sl-flex" data-astro-cid-n2mnl6yq=""><span class="sr-only" data-astro-cid-n2mnl6yq="">GitHub</span><svg data-astro-cid-n2mnl6yq="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"></path></svg></a></div><starlight-theme-select data-astro-cid-smhvfpqh="true"><label style="--sl-select-width: 6.25em" data-astro-cid-2z5xp7gb=""><span class="sr-only" data-astro-cid-2z5xp7gb="">Select theme</span><span class="icon label-icon" data-astro-cid-2z5xp7gb=""><svg class="sl-theme-icon-dark" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"></path></svg><svg class="sl-theme-icon-light" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"></path></svg><svg class="sl-theme-icon-auto" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"></path></svg></span><select autocomplete="off" data-astro-cid-2z5xp7gb=""><option value="dark" data-astro-cid-2z5xp7gb="">Dark</option><option value="light" data-astro-cid-2z5xp7gb="">Light</option><option value="auto" selected="" data-astro-cid-2z5xp7gb="">Auto</option></select><svg class="icon caret" data-astro-cid-2z5xp7gb="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"></path></svg></label></starlight-theme-select><script>(() => {
+		const theme = (typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme'));
+		if (theme) document.querySelectorAll('starlight-theme-select select').forEach((s) => { s.value = theme; });
+	})();</script><script type="module">var e=`starlight-theme`,t=e=>e===`auto`||e===`dark`||e===`light`?e:`auto`,n=()=>t(typeof localStorage<`u`&&localStorage.getItem(e));function r(t){typeof localStorage<`u`&&localStorage.setItem(e,t===`light`||t===`dark`?t:``)}var i=()=>matchMedia(`(prefers-color-scheme: light)`).matches?`light`:`dark`;function a(e){document.querySelectorAll(`starlight-theme-select select`).forEach(t=>{t.value=e}),document.documentElement.dataset.theme=e===`auto`?i():e,r(e)}matchMedia(`(prefers-color-scheme: light)`).addEventListener(`change`,()=>{n()===`auto`&&a(`auto`)});var o=class extends HTMLElement{constructor(){super(),a(n()),this.querySelector(`select`)?.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&a(t(e.currentTarget.value))})}};customElements.define(`starlight-theme-select`,o);</script><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script></div></div></header><nav class="sidebar print:hidden" aria-label="Main" data-astro-cid-yntsjkba=""><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden" data-astro-cid-r2osgdlg=""><svg class="open-menu" data-astro-cid-r2osgdlg="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"></path></svg><svg class="close-menu" data-astro-cid-r2osgdlg="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"></path></svg><span class="sr-only" data-astro-cid-r2osgdlg="">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover="" id="starlight__sidebar" class="sidebar-pane" data-astro-cid-yntsjkba="true"><div class="sidebar-content sl-flex" data-astro-cid-yntsjkba=""><sl-sidebar-state-persist data-hash="1q49ps1" data-astro-cid-ipdry5cl="true"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level" data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/" class="large" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Home</span></a></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Start here</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Introduction</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/getting-started/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Installation</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/cli/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">CLI &amp; AI assistants</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/ai/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">AI-assisted development</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Build applications</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/architecture/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Architecture</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/design-system/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Design system</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/applications/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Records &amp; forms</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/components/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Component coverage</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Reports</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/reporting/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Create reports</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/report-server/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Report server</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Reference</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/quality/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Quality &amp; accessibility</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/performance/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Performance</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/versioning/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Versions &amp; upgrades</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Technical guides</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-contracts/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Contracts and acceptance scenarios for reusable modules</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-coverage/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Cobertura do ravenrs-app para aplicações corporativas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-parity/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Application framework parity</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/automacao-comercial/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Automação comercial: o que existe e o que falta para vender</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/component-audit/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Auditoria técnica de componentes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/component-inventory/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Inventário e projeção de componentes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/developer-platform-plan/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Plataforma de desenvolvimento RavenRS — inventário e proposta</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/nfse/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">NFS-e Padrão Nacional: pesquisa para o PDV (hoje: 05/11/2026)</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/pagamentos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Pagamentos: pinpads, TEF e os quatro provedores</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/perifericos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Periféricos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/project-planning-roadmap/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Capacidades de planejamento para aplicações RavenRS</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/proximas-etapas/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Automação comercial: próximas etapas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/reporting-parity/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">RavenRS Reporting — feature parity</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/site-seo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Site SEO and publication</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/software-coverage/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Cobertura por tipo de software</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/tef-comparativo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">TEF para o PDV: comparativo e recomendação</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Data Studio</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/01-visao-e-requisitos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: visão do produto e requisitos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/02-analise-do-codigo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: análise do código</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/03-matriz-de-componentes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: matriz de componentes reutilizáveis</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/04-lacunas-e-novos-componentes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: lacunas e novos componentes propostos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/05-fluxos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: fluxos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/06-telas/" aria-current="page" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: especificação das telas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/07-wireframes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: wireframes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/08-arquitetura/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: arquitetura</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/09-modelo-de-dominio/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: modelo de domínio</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/10-mcp-e-conectores/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: MCP, agente e conectores</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/11-schema-mapeamento-transformacoes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: descoberta, schema, mapeamento e transformações</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/12-execucao-e-recuperacao/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: execução e recuperação</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/13-seguranca-privacidade-a11y-i18n/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: segurança, privacidade, acessibilidade, idiomas e desempenho</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/14-referencias-e-roadmap/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: referências e roadmap</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/15-criterios-de-aceitacao/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: critérios de aceitação</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/16-decisoes-em-aberto/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: decisões em aberto</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/cenario-de-referencia/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: cenário de referência</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Tutorials</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/tutorials/ravenrs-app-vscode/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Primeiro app com ravenrs-app no VS Code — RavenDevLab</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Explore</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="7"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/components/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Components</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/playground/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Playground</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/api/ravenrs/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Rust API</span></a></li></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex" data-astro-cid-p4azlveh=""><div class="social-icons" data-astro-cid-p4azlveh=""><a href="https://github.com/alexkads/RavenRS" rel="me" class="sl-flex" data-astro-cid-n2mnl6yq=""><span class="sr-only" data-astro-cid-n2mnl6yq="">GitHub</span><svg data-astro-cid-n2mnl6yq="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"></path></svg></a></div><starlight-theme-select data-astro-cid-smhvfpqh="true"><label style="--sl-select-width: 6.25em" data-astro-cid-2z5xp7gb=""><span class="sr-only" data-astro-cid-2z5xp7gb="">Select theme</span><span class="icon label-icon" data-astro-cid-2z5xp7gb=""><svg class="sl-theme-icon-dark" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"></path></svg><svg class="sl-theme-icon-light" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"></path></svg><svg class="sl-theme-icon-auto" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"></path></svg></span><select autocomplete="off" data-astro-cid-2z5xp7gb=""><option value="dark" data-astro-cid-2z5xp7gb="">Dark</option><option value="light" data-astro-cid-2z5xp7gb="">Light</option><option value="auto" selected="" data-astro-cid-2z5xp7gb="">Auto</option></select><svg class="icon caret" data-astro-cid-2z5xp7gb="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"></path></svg></label></starlight-theme-select><script>(() => {
+		const theme = (typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme'));
+		if (theme) document.querySelectorAll('starlight-theme-select select').forEach((s) => { s.value = theme; });
+	})();</script></div></div></div></sl-sidebar-pane></nav><div class="main-frame" data-astro-cid-yntsjkba=""><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex" data-astro-cid-lrzkfocr=""><aside class="right-sidebar-container print:hidden" data-astro-cid-lrzkfocr=""><div class="right-sidebar" data-astro-cid-lrzkfocr=""><div class="lg:sl-hidden" data-astro-cid-qok35upx=""><mobile-starlight-toc data-min-h="2" data-max-h="3" data-astro-cid-66cqc7ze="true"><nav aria-labelledby="starlight__on-this-page--mobile" data-astro-cid-66cqc7ze=""><details id="starlight__mobile-toc" data-astro-cid-66cqc7ze=""><summary id="starlight__on-this-page--mobile" class="sl-flex" data-astro-cid-66cqc7ze=""><span class="toggle sl-flex" data-astro-cid-66cqc7ze="">On this page<svg class="caret" data-astro-cid-66cqc7ze="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></span><span class="display-current" data-astro-cid-66cqc7ze=""></span></summary><div class="dropdown" data-astro-cid-66cqc7ze=""><ul class="isMobile" style="--depth: 0;" data-astro-cid-jugkfwgx=""><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#_top" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Overview</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#regras-que-valem-para-todas-as-telas" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Regras que valem para todas as telas</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#1-projetos" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">1. Projetos</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#2-novo-projeto-por-intencao" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">2. Novo projeto por intenção</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#3-conexoes-mcp-e-capacidades" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">3. Conexões MCP e capacidades</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#4-selecao-de-origem-e-destino" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">4. Seleção de origem e destino</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#5-perfil-dos-dados" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">5. Perfil dos dados</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#6-proposta-de-schema" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">6. Proposta de schema</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#7-comparacao-e-ddl" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">7. Comparação e DDL</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#8-canvas" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">8. Canvas</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#9-grade" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">9. Grade</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#10-transformacoes" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">10. Transformações</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#11-conflitos" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">11. Conflitos</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#12-simulacao" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">12. Simulação</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#13-revisao-final" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">13. Revisão final</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#14-execucao" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">14. Execução</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#15-recuperacao" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">15. Recuperação</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#16-resultado" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">16. Resultado</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/RavenRS/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block" data-astro-cid-qok35upx=""><div class="sl-container" data-astro-cid-qok35upx=""><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul style="--depth: 0;" data-astro-cid-jugkfwgx=""><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#_top" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Overview</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#regras-que-valem-para-todas-as-telas" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Regras que valem para todas as telas</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#1-projetos" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">1. Projetos</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#2-novo-projeto-por-intencao" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">2. Novo projeto por intenção</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#3-conexoes-mcp-e-capacidades" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">3. Conexões MCP e capacidades</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#4-selecao-de-origem-e-destino" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">4. Seleção de origem e destino</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#5-perfil-dos-dados" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">5. Perfil dos dados</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#6-proposta-de-schema" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">6. Proposta de schema</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#7-comparacao-e-ddl" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">7. Comparação e DDL</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#8-canvas" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">8. Canvas</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#9-grade" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">9. Grade</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#10-transformacoes" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">10. Transformações</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#11-conflitos" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">11. Conflitos</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#12-simulacao" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">12. Simulação</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#13-revisao-final" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">13. Revisão final</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#14-execucao" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">14. Execução</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#15-recuperacao" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">15. Recuperação</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#16-resultado" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">16. Resultado</span></a></li></ul></nav></starlight-toc><script type="module" src="/RavenRS/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane" data-astro-cid-lrzkfocr=""><main data-pagefind-body="" lang="en" dir="ltr" data-astro-cid-g5ptsecz=""><div class="content-panel" data-astro-cid-a7po4psb=""><div class="sl-container" data-astro-cid-a7po4psb=""><h1 id="_top" data-astro-cid-bebwqqxs="">Raven Data Studio: especificação das telas</h1><p class="page-source" data-astro-cid-u72m6wot="">RavenRS 27.1.28 · <a href="index.md" data-astro-cid-u72m6wot="">View Markdown</a></p></div></div><div class="content-panel" data-astro-cid-a7po4psb=""><div class="sl-container" data-astro-cid-a7po4psb=""><div class="sl-markdown-content"><p>Cada tela segue o mesmo roteiro: <strong>objetivo, composição, componentes, ações, estados, acessibilidade, dependências e critérios de aceitação</strong>. Os números vêm do <a href="/RavenRS/docs/data-studio/cenario-de-referencia/">cenário de referência</a>. Os componentes são os da <a href="/RavenRS/docs/data-studio/03-matriz-de-componentes/">matriz</a>, usados pela fachada <code dir="auto">ravenrs::widgets</code>. Os códigos N-x, E-x e M-x remetem a <a href="/RavenRS/docs/data-studio/04-lacunas-e-novos-componentes/">04-lacunas-e-novos-componentes.md</a>.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="regras-que-valem-para-todas-as-telas">Regras que valem para todas as telas</h2><a class="sl-anchor-link" href="#regras-que-valem-para-todas-as-telas"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Regras que valem para todas as telas”</span></a></div>
+<ul>
+<li><strong>Moldura.</strong> <code dir="auto">Sidebar</code> à esquerda (grupos Projetos, Conexões, Execuções e Modelos), <code dir="auto">Breadcrumb</code> no alto, <code dir="auto">Toolbar</code> com as ações da tela e <code dir="auto">StatusBar</code> embaixo. Nesta barra ficam a versão do plano, o estado da simulação e a execução em segundo plano.</li>
+<li><strong>Área de trabalho do projeto.</strong> A partir da tela 5 o projeto abre num <code dir="auto">DockArea</code>. O centro mostra o documento ativo (<code dir="auto">DocumentTabs</code>). À direita fica o inspetor e embaixo a lista de problemas (<code dir="auto">IssueList</code>, N-3). A conversa fica num painel à direita, que pode ser fechado. O layout do dock é salvo em <code dir="auto">ProjectViewState</code> com <code dir="auto">DockLayout::to_text</code>.</li>
+<li><strong>Assistente guiado.</strong> As etapas 4 a 13 também aparecem como um <code dir="auto">StepIndicator</code> vertical no topo da <code dir="auto">Sidebar</code> do projeto. O indicador mostra <code dir="auto">Done</code>, <code dir="auto">Current</code>, <code dir="auto">Upcoming</code> e <code dir="auto">Error</code>, e o motivo vai em <code dir="auto">IndicatorStep::note</code>. Clicar numa etapa leva à tela correspondente. O assistente e as telas livres mostram o mesmo plano.</li>
+<li><strong>Estados.</strong> Sempre com ícone e palavra, nunca só cor: <code dir="auto">Badge</code> com <code dir="auto">Tone</code> e <code dir="auto">icon</code>.</li>
+<li><strong>Problemas.</strong> Ficam na <code dir="auto">IssueList</code> ou numa coluna da grade. <code dir="auto">Toast</code> só confirma uma ação (“Versão 7 gravada”) e nunca é o único lugar de um erro.</li>
+<li><strong>Sugestões da IA.</strong> Aparecem como provisórias, com o selo “Sugestão” e o ícone de faísca. Cada uma tem Aceitar e Recusar. “Aceitar todas as de confiança alta” só aparece quando a política do projeto permite.</li>
+<li><strong>Janela estreita (&lt; 900 px).</strong> A <code dir="auto">Sidebar</code> vira gaveta (<code dir="auto">narrow_below</code>). Inspetor e conversa viram <code dir="auto">Sheet</code> e o canvas cede o lugar à grade.</li>
+<li><strong>Teclado global.</strong>
+<ul>
+<li>Cmd/Ctrl+K abre a <code dir="auto">CommandPalette</code>.</li>
+<li>Cmd/Ctrl+Z e Shift+Cmd/Ctrl+Z desfazem e refazem <code dir="auto">PlanPatch</code>.</li>
+<li>F6 percorre as regiões (navegação, documento, inspetor, problemas, conversa).</li>
+<li>Cmd/Ctrl+Enter faz a ação principal da tela.</li>
+</ul>
+</li>
+</ul>
+<hr>
+<div class="sl-heading-wrapper level-h2"><h2 id="1-projetos">1. Projetos</h2><a class="sl-anchor-link" href="#1-projetos"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “1. Projetos”</span></a></div>
+<p><strong>Objetivo.</strong> Ver todos os projetos de importação, retomar um deles ou criar outro.</p>
+<p><strong>Composição.</strong> É uma lista administrativa gerada pelo <code dir="auto">ravenrs-app-ui</code> (<code dir="auto">ListView</code> sobre <code dir="auto">DataGrid</code>) a partir da entidade <code dir="auto">ImportProject</code>. As colunas são nome, estado, origem → destino, última execução, versão aprovada e dono. Uma busca fica acima da lista.</p>
+<p><strong>Componentes.</strong></p>
+<ul>
+<li><code dir="auto">ListView</code> (ravenrs-app-ui) e <code dir="auto">DataGrid</code>.</li>
+<li><code dir="auto">Badge</code> para o estado.</li>
+<li><code dir="auto">Toolbar</code>: Novo projeto, Duplicar, Arquivar.</li>
+<li><code dir="auto">EmptyState</code>.</li>
+<li><code dir="auto">Skeleton</code>.</li>
+</ul>
+<p><strong>Ações.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Ação</th>
+<th>Disponível quando</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Novo projeto</td>
+<td>permissão <code dir="auto">Create</code> em <code dir="auto">ImportProject</code></td>
+<td>abre a tela 2</td>
+</tr>
+<tr>
+<td>Abrir (Enter ou duplo clique)</td>
+<td>sempre</td>
+<td>abre a última tela visitada do projeto</td>
+</tr>
+<tr>
+<td>Duplicar</td>
+<td>um selecionado</td>
+<td>cria uma cópia em <code dir="auto">Rascunho</code>, com o plano sem aprovação e sem simulação</td>
+</tr>
+<tr>
+<td>Arquivar</td>
+<td>estado ≠ <code dir="auto">Executando</code></td>
+<td>pede confirmação (<code dir="auto">ConfirmDialog::ask_plainly</code>)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Estados.</strong></p>
+<ul>
+<li><strong>Vazio:</strong> <code dir="auto">EmptyState</code> com o texto “Nenhum projeto ainda” e a ação Novo projeto.</li>
+<li><strong>Carregando:</strong> linhas <code dir="auto">Skeleton</code>.</li>
+<li><strong>Erro do banco do módulo:</strong> <code dir="auto">Alert</code> com a ação Tentar de novo.</li>
+<li><strong>Projeto <code dir="auto">Executando</code>:</strong> fica com <code dir="auto">Spinner</code> na coluna de estado.</li>
+</ul>
+<p><strong>Acessibilidade.</strong> A grade tem teclado completo e o estado é lido como texto (“Concluído com pendências”).</p>
+<p><strong>Dependências.</strong> Nenhuma nova.</p>
+<p><strong>Critérios de aceitação.</strong></p>
+<ul>
+<li>Com o projeto do cenário concluído, a lista mostra “Concluído com pendências · 83 fora”.</li>
+<li>Um usuário sem <code dir="auto">Create</code> não vê Novo projeto.</li>
+<li>Arquivar um projeto em execução não fica disponível, e o motivo aparece na dica.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="2-novo-projeto-por-intencao">2. Novo projeto por intenção</h2><a class="sl-anchor-link" href="#2-novo-projeto-por-intencao"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “2. Novo projeto por intenção”</span></a></div>
+<p><strong>Objetivo.</strong> Começar escrevendo o pedido em linguagem natural ou começar vazio.</p>
+<p><strong>Composição.</strong></p>
+<ul>
+<li><strong>Centro:</strong> um campo grande com o pedido, os exemplos abaixo e as escolhas rápidas de origem e destino (conexões já cadastradas ou “Nova conexão”).</li>
+<li><strong>Ao enviar:</strong> a conversa ocupa a área e mostra o plano inicial como um card de proposta (M-5).</li>
+</ul>
+<p><strong>Componentes.</strong></p>
+<ul>
+<li><code dir="auto">Chat</code>: <code dir="auto">.intro</code>, <code dir="auto">.examples</code>, <code dir="auto">.on_send</code>, <code dir="auto">.busy</code>.</li>
+<li><code dir="auto">ChatMessage::assistant_writing</code> para o texto em fluxo.</li>
+<li><code dir="auto">ChatMessage::card</code> para a proposta.</li>
+<li><code dir="auto">AttachmentStrip</code> para arquivos CSV anexados.</li>
+<li><code dir="auto">DropZone</code>.</li>
+<li><code dir="auto">Select</code> para as conexões.</li>
+<li><code dir="auto">Button</code> para “Começar vazio”.</li>
+</ul>
+<p><strong>Ações.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Ação</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Enviar pedido</td>
+<td>o agente propõe a versão 1. O card lista o que entendeu (conexões, entidades, casos detectados) e o que precisa decidir.</td>
+</tr>
+<tr>
+<td>Anexar CSV (arrastar ou escolher)</td>
+<td>cria conexões CSV provisórias. Acima do limite de memória da <code dir="auto">DropZone</code>, pede o <code dir="auto">OpenDialog</code> nativo.</td>
+</tr>
+<tr>
+<td>Aceitar proposta</td>
+<td>cria o projeto em <code dir="auto">Descoberto</code> e vai para a tela 4</td>
+</tr>
+<tr>
+<td>Ajustar (“separe também o telefone”)</td>
+<td>gera uma nova proposta sobre a anterior</td>
+</tr>
+<tr>
+<td>Começar vazio</td>
+<td>cria o projeto em <code dir="auto">Rascunho</code>, sem IA</td>
+</tr>
+<tr>
+<td>Parar</td>
+<td>interrompe a geração. Fica fora do <code dir="auto">Chat</code>, num botão ao lado, até existir a E-7.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Estados.</strong></p>
+<ul>
+<li><strong>Modelo local ausente:</strong> <code dir="auto">Alert</code> com o texto “Nenhum modelo instalado. Baixe um em Configurações de IA ou comece vazio”.</li>
+<li><strong>Geração em curso:</strong> <code dir="auto">Chat::busy</code>.</li>
+<li><strong>Resposta inválida do modelo:</strong> “Não consegui montar o plano; tente reformular”, com o motivo técnico em detalhes. Depois de 2 tentativas, oferece começar vazio.</li>
+</ul>
+<p><strong>Acessibilidade.</strong></p>
+<ul>
+<li>O texto em fluxo é anunciado por região viva educada, só ao terminar cada frase.</li>
+<li>O card de proposta é um grupo com título e as ações chegam por Tab.</li>
+</ul>
+<p><strong>Dependências.</strong> M-5, M-8, E-7 (parar).</p>
+<p><strong>Critérios de aceitação.</strong></p>
+<ul>
+<li>O pedido de referência gera uma proposta com 2 origens (CLIENTES e PEDIDOS) e 3 entidades de destino.</li>
+<li>A proposta traz as pendências “CPF duplicado (37 grupos)”, “Situação sem correspondência” e “Endereço sem divisão segura”.</li>
+<li>Nenhuma conexão é criada sem o usuário confirmar.</li>
+<li>Sem modelo instalado, o produto continua utilizável por “Começar vazio”.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="3-conexoes-mcp-e-capacidades">3. Conexões MCP e capacidades</h2><a class="sl-anchor-link" href="#3-conexoes-mcp-e-capacidades"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “3. Conexões MCP e capacidades”</span></a></div>
+<p><strong>Objetivo.</strong> Cadastrar e testar conexões (CSV, banco relacional e, na fase Avançado, servidores MCP externos) e ver o que cada uma sabe fazer.</p>
+<p><strong>Composição.</strong></p>
+<ul>
+<li><strong>Esquerda:</strong> lista de conexões.</li>
+<li><strong>Direita:</strong> formulário (<code dir="auto">FormLayout</code>) com os parâmetros, botão Testar e a tabela de capacidades.</li>
+<li><strong>Para MCP:</strong> lista de ferramentas do servidor, com a permissão de cada uma.</li>
+</ul>
+<p><strong>Componentes.</strong></p>
+<ul>
+<li><code dir="auto">ListView</code> / <code dir="auto">DataGrid</code>.</li>
+<li><code dir="auto">FormLayout</code>, <code dir="auto">FormGroup</code>, <code dir="auto">FormField</code>.</li>
+<li><code dir="auto">TextField</code>, com <code dir="auto">secure()</code> para a senha.</li>
+<li><code dir="auto">NumberField</code> para a porta.</li>
+<li><code dir="auto">Select</code> para tipo, codificação e separador.</li>
+<li><code dir="auto">Button</code>.</li>
+<li><code dir="auto">DataGrid</code> das capacidades, com as colunas capacidade, situação e observação.</li>
+<li><code dir="auto">Badge</code>.</li>
+<li><code dir="auto">Alert</code>.</li>
+</ul>
+<p><strong>Ações.</strong></p>
+<table>
+<thead>
+<tr>
+<th>Ação</th>
+<th>Resultado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Testar</td>
+<td>chama <code dir="auto">Connector::check</code>. Mostra o tempo, a versão do servidor e as capacidades, e grava <code dir="auto">last_check</code>.</td>
+</tr>
+<tr>
+<td>Salvar</td>
+<td>grava os parâmetros. O segredo vai para o cofre do sistema e o formulário guarda só a referência.</td>
+</tr>
+<tr>
+<td>Liberar ferramenta MCP (Avançado)</td>
+<td>muda a permissão da ferramenta: bloqueada, leitura ou escrita. Escrita pede <code dir="auto">ConfirmDialog::ask_typing</code> com o nome da ferramenta.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Capacidades mostradas.</strong></p>
+<ul>
+<li><strong>Ler estrutura:</strong> CSV ✅ · PostgreSQL ✅</li>
+<li><strong>Ler em páginas:</strong> CSV ✅ (por posição) · PostgreSQL ✅ (por chave)</li>
+<li><strong>Escrever:</strong> CSV — · PostgreSQL ✅</li>
+<li><strong>Criar tabelas:</strong> CSV — · PostgreSQL ✅ (transacional)</li>
+<li><strong>Upsert idempotente:</strong> CSV — · PostgreSQL ✅</li>
+<li><strong>Execução isolada:</strong> CSV — · PostgreSQL 🟡 (depende de permissão para criar schema)</li>
+</ul>
+<p><strong>Estados.</strong></p>
+<ul>
+<li><strong>Falha de conexão:</strong> <code dir="auto">Alert</code> <code dir="auto">Danger</code> com a categoria (Conexão, Permissão, Tempo esgotado) e a mensagem do servidor.</li>
+<li><strong>Teste em curso:</strong> <code dir="auto">Spinner</code> no botão.</li>
+<li><strong>Segredo ausente no cofre:</strong> “Senha não encontrada neste computador”.</li>
+</ul>
+<p><strong>Acessibilidade.</strong></p>
+<ul>
+<li>Cada linha de capacidade é lida como “Criar tabelas: sim, transacional”.</li>
+<li>O resultado do teste é anunciado.</li>
+</ul>
+<p><strong>Dependências.</strong> N-5 (só no Avançado).</p>
+<p><strong>Critérios de aceitação.</strong></p>
+<ul>
+<li>A senha nunca aparece no JSON do plano, no log nem no relatório. O teste confere o JSON exportado.</li>
+<li>Uma conexão CSV não oferece escrita e a tela de destino não a lista.</li>
+<li>Uma ferramenta MCP começa bloqueada.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="4-selecao-de-origem-e-destino">4. Seleção de origem e destino</h2><a class="sl-anchor-link" href="#4-selecao-de-origem-e-destino"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “4. Seleção de origem e destino”</span></a></div>
+<p><strong>Objetivo.</strong> Escolher quais estruturas da origem entram e qual conexão recebe.</p>
+<p><strong>Composição.</strong></p>
+<ul>
+<li><strong>Duas colunas:</strong> <code dir="auto">TreeView</code> da origem (conexão → schema → tabela → coluna) e <code dir="auto">TreeView</code> do destino.</li>
+<li><strong>Nas tabelas:</strong> as marcas (<code dir="auto">checked</code>) indicam o que entra.</li>
+<li><strong>Nó preguiçoso:</strong> expandir lê a estrutura sob demanda.</li>
+<li><strong>Rótulo:</strong> a contagem de linhas vai junto do nome (“CLIENTES · 1.248”).</li>
+</ul>
+<p><strong>Componentes.</strong></p>
+<ul>
+<li><code dir="auto">TreeView</code>: <code dir="auto">.lazy()</code>, <code dir="auto">on_expand</code>, <code dir="auto">.checked</code>, <code dir="auto">.filter</code>, <code dir="auto">.height</code> (virtualizada).</li>
+<li><code dir="auto">TextField</code> para a busca.</li>
+<li><code dir="auto">Badge</code> para “estimado” ou “exato”.</li>
+<li><code dir="auto">Toolbar</code>.</li>
+</ul>
+<p><strong>Ações.</strong></p>
+<ul>
+<li>Marcar ou desmarcar tabela.</li>
+<li>Atualizar estrutura (gera um novo snapshot).</li>
+<li>Trocar conexão.</li>
+<li>Continuar: grava o <code dir="auto">SourceSnapshot</code> e vai para o Perfil.</li>
+</ul>
+<p><strong>Estados.</strong></p>
+<ul>
+<li><strong>Carregando nó:</strong> indicador no nó (E-6). Até existir, um <code dir="auto">Spinner</code> na linha “Carregando…”.</li>
+<li><strong>Estrutura mudou desde o último snapshot:</strong> <code dir="auto">Alert</code> <code dir="auto">Warning</code> com a diferença (“PEDIDOS: coluna nova OBS”) e a ação Usar a nova estrutura.</li>
+</ul>
+<p><strong>Acessibilidade.</strong></p>
+<ul>
+<li>Árvore com setas e espaço para marcar.</li>
+<li>A contagem é lida junto do nome.</li>
+</ul>
+<p><strong>Dependências.</strong> E-6.</p>
+<p><strong>Critérios de aceitação.</strong></p>
+<ul>
+<li>No cenário, marcar CLIENTES e PEDIDOS grava um snapshot com 2 estruturas e o fingerprint de cada uma.</li>
+<li>Uma árvore com 5.000 tabelas rola sem travar, porque é virtualizada e preguiçosa.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="5-perfil-dos-dados">5. Perfil dos dados</h2><a class="sl-anchor-link" href="#5-perfil-dos-dados"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “5. Perfil dos dados”</span></a></div>
+<p><strong>Objetivo.</strong> Entender os dados antes de decidir: tipos, nulos, padrões, duplicidades e relacionamentos.</p>
+<p><strong>Composição.</strong></p>
+<ul>
+<li><strong>Centro:</strong> grade de colunas da estrutura selecionada, com as colunas campo, tipo declarado, tipo inferido, confiança, nulos, vazios, distintos, padrão e base.</li>
+<li><strong>Abaixo:</strong> amostra das linhas (<code dir="auto">DataGrid</code> remoto).</li>
+<li><strong>Inspetor:</strong> histograma simples de valores frequentes da coluna e exemplos.</li>
+<li><strong>Problemas:</strong> “CPF com pontuação em 806”, “CEP sem zero inicial em 211”, “37 CPFs repetidos”, “Vínculo PEDIDOS.COD_CLI → CLIENTES.COD_CLI inferido (99,7%)”.</li>
+</ul>
+<p><strong>Componentes.</strong></p>
+<ul>
+<li><code dir="auto">DataGrid</code>: <code dir="auto">.cell_style</code>, <code dir="auto">GridColumn::template</code> para ícone e texto da confiança.</li>
+<li><code dir="auto">DataGrid::remote(RemoteRows)</code> para a amostra.</li>
+<li><code dir="auto">IssueList</code> (N-3).</li>
+<li><code dir="auto">Badge</code>.</li>
+<li><code dir="auto">Stat</code> para linhas e colunas.</li>
+<li><code dir="auto">PropertyRow</code> no inspetor.</li>
+</ul>
+<p><strong>Ações.</strong></p>
+<ul>
+<li>Recalcular sobre o conjunto inteiro, quando a origem permite pushdown.</li>
+<li>Marcar coluna como sensível, para mascarar na conversa e no relatório.</li>
+<li>Escolher chave candidata para a análise de duplicidade.</li>
+<li>Aceitar vínculo inferido.</li>
+</ul>
+<p><strong>Estados.</strong></p>
+<ul>
+<li><strong>Perfil em cálculo:</strong> <code dir="auto">ProgressBar</code> por estrutura.</li>
+<li><strong>Perfil só sobre amostra:</strong> um selo em cada número (“amostra de 200”).</li>
+<li><strong>Coluna 100% nula:</strong> aviso.</li>
+</ul>
+<p><strong>Acessibilidade.</strong> A base de cada número é lida junto (“318 vazios, conjunto inteiro”).</p>
+<p><strong>Dependências.</strong> N-3, M-7.</p>
+<p><strong>Critérios de aceitação.</strong></p>
+<ul>
+<li><code dir="auto">FONE</code> mostra “318 vazios · conjunto inteiro”.</li>
+<li><code dir="auto">CEP</code> mostra o tipo declarado <code dir="auto">INTEGER</code>, o tipo inferido “CEP (texto de 8)” e a confiança Alta.</li>
+<li>O vínculo inferido mostra a evidência “5.298 de 5.312”.</li>
+<li>A amostra nunca pede mais de uma página de 200 linhas por vez.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="6-proposta-de-schema">6. Proposta de schema</h2><a class="sl-anchor-link" href="#6-proposta-de-schema"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “6. Proposta de schema”</span></a></div>
+<p><strong>Objetivo.</strong> Decidir a estrutura do destino: usar existente, alterar, criar ou intermediária.</p>
+<p><strong>Composição.</strong></p>
+<ul>
+<li><strong>Esquerda:</strong> lista de entidades de destino, com a disposição em <code dir="auto">Badge</code> (Usar, Alterar, Criar, Intermediária).</li>
+<li><strong>Centro:</strong> grade de campos da entidade selecionada, com as colunas nome, tipo lógico, precisão, nulo, padrão, chave, legado, origem da proposta (IA ou usuário) e estado.</li>
+<li><strong>Inspetor:</strong> propriedades do campo.</li>
+</ul>
+<p><strong>Componentes.</strong></p>
+<ul>
+<li><code dir="auto">VirtualList</code> ou <code dir="auto">DataGrid</code> para as entidades.</li>
+<li><code dir="auto">DataGrid</code> com <code dir="auto">on_cell_edit</code> para o nome. O tipo é editado no inspetor até existir a E-3.</li>
+<li><code dir="auto">FormLayout</code>.</li>
+<li><code dir="auto">Select</code> para o tipo lógico.</li>
+<li><code dir="auto">NumberField</code> para precisão e escala.</li>
+<li><code dir="auto">Checkbox</code> para nulo (<code dir="auto">inputs.rs:166</code>).</li>
+<li><code dir="auto">Badge</code>.</li>
+<li><code dir="auto">Toolbar</code>: Nova entidade, Novo campo, Comparar e DDL.</li>
+</ul>
+<p><strong>Ações.</strong></p>
+<ul>
+<li>Aceitar ou recusar sugestão.</li>
+<li>Mudar tipo.</li>
+<li>Marcar como chave ou como legado.</li>
+<li>Criar entidade.</li>
+<li>Marcar como intermediária.</li>
+</ul>
+<p>Toda mudança é um <code dir="auto">PlanPatch</code> relevante, que invalida a simulação.</p>
+<p><strong>Estados.</strong></p>
+<ul>
+<li><strong>Tipo incompatível com a origem</strong> (ex.: <code dir="auto">CHAR(11)</code> para CPF com pontuação sem a regra <code dir="auto">KeepDigits</code>): problema “Valores de origem não cabem: 806”.</li>
+<li><strong>Entidade sem chave:</strong> problema bloqueante.</li>
+</ul>
+<p><strong>Acessibilidade.</strong> O estado de cada campo é lido, e as sugestões trazem “sugestão da IA, confiança alta”.</p>
+<p><strong>Dependências.</strong> E-3 (opcional).</p>
+<p><strong>Critérios de aceitação.</strong></p>
+<ul>
+<li>O cenário propõe <code dir="auto">customers</code> como Alterar (+ <code dir="auto">legacy_id</code>), <code dir="auto">customer_addresses</code> e <code dir="auto">orders</code> como Criar, e a lista de mescla como Intermediária.</li>
+<li>Mudar <code dir="auto">orders.total</code> para <code dir="auto">NUMERIC(10,2)</code> invalida a simulação. A <code dir="auto">StatusBar</code> passa a mostrar “Simulação desatualizada”.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="7-comparacao-e-ddl">7. Comparação e DDL</h2><a class="sl-anchor-link" href="#7-comparacao-e-ddl"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “7. Comparação e DDL”</span></a></div>
+<p><strong>Objetivo.</strong> Revisar exatamente o que mudará no destino.</p>
+<p><strong>Composição.</strong></p>
+<ul>
+<li><strong>Abas</strong> (<code dir="auto">Tabs</code>): Por entidade e Comandos.</li>
+<li><strong>Por entidade:</strong> grade destino atual × proposto, com as colunas campo, atual, proposto e mudança, marcadas com <code dir="auto">+</code>, <code dir="auto">~</code> e <code dir="auto">−</code> além da cor.</li>
+<li><strong>Comandos:</strong> DDL em <code dir="auto">CodeEditor</code> somente leitura. No MVP fica em <code dir="auto">CodeLanguage::Plain</code> e, depois da E-2, em <code dir="auto">Sql</code>.</li>
+<li><strong>Versões:</strong> um <code dir="auto">TextDiff</code> (N-2) compara o DDL da versão aprovada com o da atual.</li>
+</ul>
+<p><strong>Componentes.</strong></p>
+<ul>
+<li><code dir="auto">Tabs</code>.</li>
+<li><code dir="auto">DataGrid</code>.</li>
+<li><code dir="auto">CodeEditor</code> com <code dir="auto">.read_only</code> e <code dir="auto">.line_numbers</code>. Exige a feature <code dir="auto">code</code>.</li>
+<li><code dir="auto">CodeDiagnostic</code> para avisos como “ADD COLUMN NOT NULL sem padrão em tabela com 4.310 linhas”.</li>
+<li><code dir="auto">TextDiff</code> (N-2).</li>
+<li><code dir="auto">Button</code> para copiar e exportar <code dir="auto">.sql</code>.</li>
+</ul>
+<p><strong>Ações.</strong></p>
+<ul>
+<li>Copiar DDL.</li>
+<li>Exportar <code dir="auto">.sql</code>.</li>
+<li>Ir ao campo: um clique na linha do DDL leva à tela 6.</li>
+<li>Comparar com outra versão.</li>
+</ul>
+<p><strong>Estados.</strong></p>
+<ul>
+<li><strong>Sem mudanças de schema:</strong> <code dir="auto">EmptyState</code> “Nenhuma alteração de estrutura”.</li>
+<li><strong>Adaptador sem DDL:</strong> “Este destino não cria tabelas; crie-as antes ou escolha outro destino”.</li>
+</ul>
+<p><strong>Acessibilidade.</strong></p>
+<ul>
+<li>O <code dir="auto">CodeEditor</code> é lido linha a linha.</li>
+<li>Cada diagnóstico é alcançável por F8.</li>
+<li>A comparação tem alternativa tabular na aba Por entidade.</li>
+</ul>
+<p><strong>Dependências.</strong> E-2, N-2.</p>
+<p><strong>Critérios de aceitação.</strong></p>
+<ul>
+<li>O DDL do cenário é igual ao de <a href="/RavenRS/docs/data-studio/11-schema-mapeamento-transformacoes/#ddl-proposto-do-cen%C3%A1rio-texto-revis%C3%A1vel">11-schema-mapeamento-transformacoes.md</a>.</li>
+<li>O DDL é gerado pelo adaptador (<code dir="auto">render_ddl</code>), nunca pela IA.</li>
+<li>Nenhum comando é executado nesta tela.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="8-canvas">8. Canvas</h2><a class="sl-anchor-link" href="#8-canvas"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “8. Canvas”</span></a></div>
+<p><strong>Objetivo.</strong> Ver e editar as relações origem → destino de forma visual. É uma vista do mesmo plano da grade.</p>
+<p><strong>Composição.</strong></p>
+<ul>
+<li><strong>Disposição:</strong> entidades de origem à esquerda e de destino à direita, como cartões com a lista de campos (<code dir="auto">SchemaDiagram</code>, N-1). No meio ficam os nós de regra quando há transformação.</li>
+<li><strong>Ligações:</strong> cada ligação é um <code dir="auto">FieldMapping</code>.</li>
+<li><strong>Apoio:</strong> minimapa e controles de zoom no canto.</li>
+<li><strong>Barra do canvas:</strong> filtro (Todas, Só pendências, Só a entidade selecionada), Organizar e Buscar campo.</li>
+</ul>
+<p><strong>Componentes.</strong></p>
+<ul>
+<li><code dir="auto">FlowCanvas</code> por baixo do <code dir="auto">SchemaDiagram</code> (N-1): <code dir="auto">FlowViewport</code>, <code dir="auto">FlowSelection</code>, <code dir="auto">FlowValidator</code>, <code dir="auto">.minimap(true)</code>, <code dir="auto">.controls(true)</code>, <code dir="auto">.grid</code>.</li>
+<li><code dir="auto">Toolbar</code>.</li>
+<li><code dir="auto">SegmentedControl</code> para o filtro.</li>
+<li><code dir="auto">TextField</code> para a busca.</li>
+</ul>
+<p><strong>Ações (ponteiro).</strong></p>
+<ul>
+<li>Arrastar de uma porta de campo de origem até uma de destino cria o mapeamento. A porta incompatível fica vermelha e mostra o motivo (“texto não cabe em DATE sem regra de data”).</li>
+<li>Clicar numa ligação a seleciona e o inspetor mostra o <code dir="auto">MappingInspector</code>.</li>
+<li>Shift-arrastar no fundo seleciona por retângulo.</li>
+<li>Delete remove o mapeamento selecionado.</li>
+</ul>
+<p><strong>Ações (teclado).</strong></p>
+<ul>
+<li>Tab percorre os nós, e as setas percorrem os campos do nó (N-1).</li>
+<li>Enter num campo de origem inicia uma ligação. As setas escolhem o destino entre os compatíveis, Enter confirma e Esc cancela (portas pelo teclado do <code dir="auto">FlowCanvas</code>, já no PR #389).</li>
+<li><code dir="auto">+</code>, <code dir="auto">-</code> e <code dir="auto">0</code> controlam o zoom.</li>
+</ul>
+<p><strong>Estados.</strong></p>
+<ul>
+<li><strong>Muitas ligações</strong> (mais de 300 visíveis): o filtro vai para Só a entidade selecionada e um aviso diz quantas ficaram escondidas.</li>
+<li><strong>Entidade recolhida:</strong> as ligações se juntam no cabeçalho com a contagem.</li>
+</ul>
+<p><strong>Acessibilidade.</strong></p>
+<ul>
+<li>A <strong>grade (tela 9) é a alternativa completa</strong> e qualquer operação do canvas existe nela.</li>
+<li>Cada nó é lido como “customers, destino, 6 campos, 1 pendência”.</li>
+<li>Cada ligação é lida como “CLIENTES.CPF para customers.document, regra Só dígitos”.</li>
+</ul>
+<p><strong>Dependências.</strong> E-1 (organizar sozinho, grupos, desempenho), N-1, M-2. O <code dir="auto">FlowHistory</code> do PR #389 não é usado: o histórico é o do plano.</p>
+<p><strong>Critérios de aceitação.</strong></p>
+<ul>
+<li>Selecionar <code dir="auto">orders.status</code> na grade seleciona a mesma ligação no canvas e vice-versa.</li>
+<li>Mover nós não invalida a simulação.</li>
+<li>Ligar <code dir="auto">PEDIDOS.DATA</code> direto a <code dir="auto">orders.ordered_at</code> é aceito com a sugestão de regra <code dir="auto">ParseDate("dd/MM/yyyy")</code>.</li>
+<li>O teste de interação cobre criar, recusar e apagar ligação pelo ponteiro e pelo teclado.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="9-grade">9. Grade</h2><a class="sl-anchor-link" href="#9-grade"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “9. Grade”</span></a></div>
+<p><strong>Objetivo.</strong> Mapear e revisar campo a campo, com todas as informações em colunas. É a vista principal e acessível do mapeamento.</p>
+<p><strong>Composição.</strong></p>
+<ul>
+<li><strong>Colunas:</strong> entidade de destino, campo de destino, tipo, origem, regras (em resumo), política, estado, confiança, problemas e exemplo antes → depois.</li>
+<li><strong>Agrupamento:</strong> por entidade.</li>
+<li><strong>Inspetor:</strong> <code dir="auto">MappingInspector</code> (M-3).</li>
+</ul>
+<p><strong>Componentes.</strong></p>
+<ul>
+<li><code dir="auto">DataGrid</code>: <code dir="auto">.group_by</code>, <code dir="auto">.selection_mode(Multiple)</code>, <code dir="auto">.cell_style</code>, <code dir="auto">GridColumn::template</code> para <code dir="auto">Badge</code> com ícone, <code dir="auto">.row_detail</code> para exemplos, <code dir="auto">.search_panel</code>.</li>
+<li><code dir="auto">LookupField::remote</code> no inspetor para escolher a origem (E-8 mostra o tipo).</li>
+<li><code dir="auto">ExpressionEditor</code> para regra <code dir="auto">Expression</code>.</li>
+<li><code dir="auto">IssueList</code>.</li>
+</ul>
+<p><strong>Ações.</strong></p>
+<ul>
+<li>Escolher origem.</li>
+<li>Definir constante.</li>
+<li>Marcar como ignorado.</li>
+<li>Adicionar regra.</li>
+<li>Aceitar ou recusar sugestão (uma, as selecionadas, ou as de confiança alta).</li>
+<li>Filtrar por “só pendências”.</li>
+</ul>
+<p><strong>Estados.</strong></p>
+<ul>
+<li><strong>Campo obrigatório sem origem:</strong> linha com <code dir="auto">Badge</code> Danger “Sem origem · bloqueia”.</li>
+<li><strong>Sugestão:</strong> <code dir="auto">Badge</code> Accent “Sugestão · alta”.</li>
+<li><strong>Mapeado:</strong> <code dir="auto">Badge</code> Success “Mapeado”.</li>
+</ul>
+<p><strong>Acessibilidade.</strong></p>
+<ul>
+<li>Teclado completo da grade.</li>
+<li>O estado e a confiança são texto.</li>
+<li>O detalhe da linha (antes/depois) abre com a seta para a direita.</li>
+</ul>
+<p><strong>Dependências.</strong> E-3, E-8, M-1, M-3.</p>
+<p><strong>Critérios de aceitação.</strong></p>
+<ul>
+<li>O cenário mostra 22 campos de destino nas 3 entidades: 6 em <code dir="auto">customers</code>, 10 em <code dir="auto">customer_addresses</code> e 6 em <code dir="auto">orders</code>, cada um com estado.</li>
+<li>Não fica nenhum obrigatório sem origem depois de aceitar a proposta.</li>
+<li>Aceitar a sugestão de <code dir="auto">orders.status</code> cria <code dir="auto">Trim</code> → <code dir="auto">Case(Upper)</code> → <code dir="auto">MapValues</code> com 6 correspondências (cobrindo os 7 valores conhecidos, já que <code dir="auto">Cancelado</code> vira <code dir="auto">CANCELADO</code>) e 1 pendência (<code dir="auto">X</code>).</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="10-transformacoes">10. Transformações</h2><a class="sl-anchor-link" href="#10-transformacoes"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “10. Transformações”</span></a></div>
+<p><strong>Objetivo.</strong> Ver, ordenar e testar as regras de cada campo, com o antes e o depois.</p>
+<p><strong>Composição.</strong></p>
+<ul>
+<li><strong>Esquerda:</strong> campos com regra.</li>
+<li><strong>Centro:</strong> a pilha de regras do campo, em ordem e arrastável, com política de nulo e de erro.</li>
+<li><strong>Abaixo:</strong> grade antes → depois sobre a amostra, com as contagens afetados, sem mudança, erro e nulo.</li>
+</ul>
+<p><strong>Componentes.</strong></p>
+<ul>
+<li><code dir="auto">VirtualList</code>.</li>
+<li><code dir="auto">DataGrid</code> para a pilha, com reordenação por menu “Mover para cima/baixo”.</li>
+<li><code dir="auto">DataGrid</code> para o antes/depois.</li>
+<li><code dir="auto">ExpressionEditor</code>.</li>
+<li><code dir="auto">Select</code> para a operação.</li>
+<li><code dir="auto">TextField</code> para os parâmetros.</li>
+<li><code dir="auto">Stat</code>.</li>
+<li><code dir="auto">IssueList</code>.</li>
+</ul>
+<p><strong>Ações.</strong></p>
+<ul>
+<li>Adicionar, remover, reordenar, testar e salvar como modelo (Evolução).</li>
+<li>Na tabela de valores (<code dir="auto">MapValues</code>): editar as correspondências em grade.</li>
+</ul>
+<p><strong>Estados.</strong></p>
+<ul>
+<li><strong>Regra com erro em parte da amostra:</strong> “2 de 200 não leem a data”, com as linhas filtráveis.</li>
+<li><strong>Exemplo da IA que não bate:</strong> a regra é recusada com o motivo.</li>
+</ul>
+<p><strong>Acessibilidade.</strong> Ordem da pilha anunciada (“regra 2 de 3, Só dígitos”).</p>
+<p><strong>Dependências.</strong> N-3.</p>
+<p><strong>Critérios de aceitação.</strong></p>
+<ul>
+<li><code dir="auto">CLIENTES.NOME</code> <code dir="auto">MARIA  DA SILVA </code> vira <code dir="auto">Maria da Silva</code>.</li>
+<li><code dir="auto">CEP</code> <code dir="auto">1310100</code> vira <code dir="auto">01310100</code>.</li>
+<li><code dir="auto">VALOR</code> <code dir="auto">1.234,56</code> vira <code dir="auto">1234.56</code>.</li>
+<li><code dir="auto">ENDERECO</code> de 1890 vai para revisão com o motivo “sem número reconhecível”.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="11-conflitos">11. Conflitos</h2><a class="sl-anchor-link" href="#11-conflitos"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “11. Conflitos”</span></a></div>
+<p><strong>Objetivo.</strong> Decidir o que fazer quando o registro já existe no destino, quando há duplicados na origem e quando falta referência.</p>
+<p><strong>Composição.</strong></p>
+<ul>
+<li><strong>Um cartão por entidade</strong> (<code dir="auto">FormGroup</code>) com:
+<ul>
+<li>chave de casamento;</li>
+<li>ação ao existir (Inserir, Atualizar, Ignorar, Upsert ou Revisão);</li>
+<li>campos atualizáveis;</li>
+<li>vazio na origem;</li>
+<li>duplicado na origem, com a regra de sobrevivente;</li>
+<li>referência ausente.</li>
+</ul>
+</li>
+<li><strong>Ao lado:</strong> prévia com as contagens desta política e exemplos.</li>
+</ul>
+<p><strong>Componentes.</strong></p>
+<ul>
+<li><code dir="auto">FormLayout</code>.</li>
+<li><code dir="auto">Select</code>.</li>
+<li><code dir="auto">TagBox</code> (<code dir="auto">tag_box.rs:37</code>) ou lista de <code dir="auto">Checkbox</code> para os campos atualizáveis.</li>
+<li><code dir="auto">SegmentedControl</code>.</li>
+<li><code dir="auto">DataGrid</code> para os exemplos (ex.: 1042 e 2231 mesclados).</li>
+<li><code dir="auto">Stat</code>.</li>
+</ul>
+<p><strong>Ações.</strong></p>
+<ul>
+<li>Mudar política, o que invalida a simulação.</li>
+<li>Ver grupos duplicados.</li>
+<li>Escolher sobrevivente manualmente num grupo. Isso vira decisão registrada.</li>
+</ul>
+<p><strong>Estados.</strong> Upsert num destino sem <code dir="auto">idempotent_upsert</code>: aviso “Idempotência por conferência; mais lento”.</p>
+<p><strong>Acessibilidade.</strong> Cada política é lida com o efeito (“Upsert por document: 142 atualizam, 1.060 inserem”).</p>
+<p><strong>Dependências.</strong> Nenhuma nova.</p>
+<p><strong>Critérios de aceitação.</strong></p>
+<ul>
+<li>O cenário mostra customers com 142 atualizações e 1.060 inserções, e 37 grupos mesclados.</li>
+<li>Os pedidos mostram 14 rejeitados por referência ausente e 31 retidos.</li>
+<li>O campo <code dir="auto">name</code> não pode ser marcado como atualizável sem confirmação, porque a política do projeto o protege.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="12-simulacao">12. Simulação</h2><a class="sl-anchor-link" href="#12-simulacao"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “12. Simulação”</span></a></div>
+<p><strong>Objetivo.</strong> Ver o resultado previsto antes de executar e saber exatamente o tipo de simulação feita.</p>
+<p><strong>Composição.</strong></p>
+<ul>
+<li><strong>Cabeçalho:</strong> modo (<code dir="auto">Badge</code>: “Validação local”, “Comandos gerados” ou “Execução isolada”), cobertura (“conjunto inteiro” ou “amostra de 200”), versão do plano e data.</li>
+<li><strong>Corpo:</strong> grade por entidade com as colunas lidos, inserir, atualizar, mesclar, rejeitar, revisar, reter e total gravado, mais a conta de chegada.</li>
+<li><strong>Abaixo:</strong> <code dir="auto">IssueList</code> com erros e pendências e um link para as mudanças de schema (tela 7).</li>
+</ul>
+<p><strong>Componentes.</strong></p>
+<ul>
+<li><code dir="auto">Badge</code>.</li>
+<li><code dir="auto">Stat</code>.</li>
+<li><code dir="auto">DataGrid</code> com rodapé de totais (<code dir="auto">.footer</code>, <code dir="auto">GridColumn::summary</code>).</li>
+<li><code dir="auto">IssueList</code>.</li>
+<li><code dir="auto">ProgressBar</code> durante a simulação.</li>
+<li><code dir="auto">SplitButton</code>: Simular, com Simular em amostra e Execução isolada no menu.</li>
+</ul>
+<p><strong>Ações.</strong></p>
+<ul>
+<li>Simular de novo.</li>
+<li>Trocar o modo.</li>
+<li>Abrir problema, que leva à regra ou ao campo.</li>
+<li>Ir para a Revisão final.</li>
+</ul>
+<p><strong>Estados.</strong></p>
+<ul>
+<li><strong>Desatualizada:</strong> <code dir="auto">Alert</code> Warning “O plano mudou depois desta simulação (versão 7 → 8)”. Os números ficam acinzentados com o rótulo “desatualizado”, e a ação é Simular de novo.</li>
+<li><strong>Em curso:</strong> <code dir="auto">ProgressBar</code> por entidade.</li>
+<li><strong>Falhou:</strong> <code dir="auto">Alert</code> Danger com a causa.</li>
+</ul>
+<p><strong>Acessibilidade.</strong></p>
+<ul>
+<li>Conclusão anunciada com o resumo: “Simulação concluída: 8.031 gravações, 83 fora, 4 pendências”.</li>
+</ul>
+<p><strong>Dependências.</strong> N-3.</p>
+<p><strong>Critérios de aceitação.</strong></p>
+<ul>
+<li>A conta fecha:
+<ul>
+<li>customers: 1.248 lidos = 1.202 gravados + 37 mesclados + 9 em revisão;</li>
+<li>orders: 5.312 = 5.261 + 14 + 31 + 6;</li>
+<li>customer_addresses: 1.568.</li>
+</ul>
+</li>
+<li>A simulação em amostra nunca mostra “conjunto inteiro”.</li>
+<li>Mudar qualquer regra marca a simulação como desatualizada.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="13-revisao-final">13. Revisão final</h2><a class="sl-anchor-link" href="#13-revisao-final"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “13. Revisão final”</span></a></div>
+<p><strong>Objetivo.</strong> Aprovar conscientemente o que será feito.</p>
+<p><strong>Composição.</strong></p>
+<ul>
+<li><strong>Resumo em linguagem simples:</strong>
+<ul>
+<li>“Vai alterar 1 tabela e criar 2”;</li>
+<li>“Vai gravar 8.031 linhas”;</li>
+<li>“83 registros ficam fora (lista)”;</li>
+<li>“Não há desfazer automático: cada lote é atômico e a execução é retomável”.</li>
+</ul>
+</li>
+<li><strong>Pendências:</strong> bloqueantes em vermelho e não bloqueantes em amarelo, cada uma com a decisão.</li>
+<li><strong>Avisos de ambiente:</strong> destino gerido por um app RavenRS não deve ter outro processo criando registros ao mesmo tempo.</li>
+<li><strong>Caixa de confirmação</strong> e botão Aprovar.</li>
+</ul>
+<p><strong>Componentes.</strong></p>
+<ul>
+<li><code dir="auto">RichText</code>.</li>
+<li><code dir="auto">IssueList</code>.</li>
+<li><code dir="auto">Alert</code>.</li>
+<li><code dir="auto">PropertyRow</code>.</li>
+<li><code dir="auto">ConfirmDialog::ask_typing</code>: digitar o nome do destino quando há DDL.</li>
+<li><code dir="auto">Button</code>.</li>
+</ul>
+<p><strong>Ações.</strong></p>
+<ul>
+<li>Resolver pendência, que leva à tela da pendência.</li>
+<li>Aprovar, que grava a <code dir="auto">Approval</code> com usuário e data.</li>
+<li>Voltar.</li>
+</ul>
+<p><strong>Estados.</strong></p>
+<ul>
+<li><strong>Pendência bloqueante aberta:</strong> Aprovar desabilitado, com o motivo.</li>
+<li><strong>Simulação desatualizada:</strong> Aprovar desabilitado com “Simule de novo”.</li>
+<li><strong>Sem permissão de aprovar:</strong> o botão não aparece. A mensagem diz quem pode.</li>
+</ul>
+<p><strong>Acessibilidade.</strong> O motivo de Aprovar desabilitado é a descrição do botão, lida pelo leitor.</p>
+<p><strong>Dependências.</strong> N-3.</p>
+<p><strong>Critérios de aceitação.</strong></p>
+<ul>
+<li>No cenário, as decisões C1 (sobrevivente) e C10 (status <code dir="auto">X</code> para revisão) precisam estar resolvidas antes de aprovar.</li>
+<li>C3 e C9 são não bloqueantes e vão para a fila de revisão.</li>
+<li>Aprovar grava um evento de auditoria.</li>
+<li>Mudar o plano depois de aprovar revoga a aprovação.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="14-execucao">14. Execução</h2><a class="sl-anchor-link" href="#14-execucao"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “14. Execução”</span></a></div>
+<p><strong>Objetivo.</strong> Acompanhar a carga.</p>
+<p><strong>Composição.</strong></p>
+<ul>
+<li><strong>Linha do tempo das fases:</strong> Preparando, Schema, Carga, Reconciliação e Relatório, em <code dir="auto">StepIndicator</code> horizontal.</li>
+<li><strong>Por entidade:</strong> <code dir="auto">ProgressBar</code> com lidos, gravados, rejeitados, em revisão e taxa, além de lote atual / total estimado.</li>
+<li><strong>Abaixo:</strong> <code dir="auto">IssueList</code> ao vivo.</li>
+<li><strong>Botões:</strong> Pausar (Evolução) e Cancelar.</li>
+</ul>
+<p><strong>Componentes.</strong></p>
+<ul>
+<li><code dir="auto">StepIndicator</code>.</li>
+<li><code dir="auto">ProgressBar</code> com <code dir="auto">.label</code> e <code dir="auto">.detail</code>.</li>
+<li><code dir="auto">Badge</code>.</li>
+<li><code dir="auto">Stat</code>.</li>
+<li><code dir="auto">IssueList</code>.</li>
+<li><code dir="auto">StatusBar</code> com o progresso global.</li>
+<li><code dir="auto">ConfirmDialog</code> para cancelar.</li>
+<li><code dir="auto">Toast</code> só para “Execução concluída” quando a janela não está em foco.</li>
+</ul>
+<p><strong>Ações.</strong></p>
+<ul>
+<li>Cancelar: pede confirmação com o texto “termina o lote atual; os lotes gravados ficam”.</li>
+<li>Pausar.</li>
+<li>Abrir rejeitados.</li>
+<li>Fechar a tela: a execução continua e a <code dir="auto">StatusBar</code> mostra o progresso.</li>
+</ul>
+<p><strong>Estados.</strong></p>
+<ul>
+<li><strong>Em curso:</strong> o padrão.</li>
+<li><strong>Pausado.</strong></li>
+<li><strong>Cancelando…</strong></li>
+<li><strong>Nova tentativa</strong> de lote: “lote 3 de customers, tentativa 2 de 3”.</li>
+<li><strong>Bloqueado:</strong> a origem mudou.</li>
+<li><strong>Falhou:</strong> ação Ir para Recuperação.</li>
+</ul>
+<p><strong>Acessibilidade.</strong></p>
+<ul>
+<li>Progresso anunciado a cada 10% e em toda mudança de estado, por região viva educada. Falha usa região assertiva.</li>
+<li>Os números da tela não são relidos a cada atualização.</li>
+</ul>
+<p><strong>Dependências.</strong> M-6, N-3.</p>
+<p><strong>Critérios de aceitação.</strong></p>
+<ul>
+<li>A interface recebe no máximo 4 eventos por segundo e nunca recebe registros.</li>
+<li>Cancelar no meio do lote 3 deixa exatamente os lotes 1 a 3 gravados, com o checkpoint coerente.</li>
+<li>O total estimado aparece como ”≈” até a leitura terminar.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="15-recuperacao">15. Recuperação</h2><a class="sl-anchor-link" href="#15-recuperacao"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “15. Recuperação”</span></a></div>
+<p><strong>Objetivo.</strong> Entender o que aconteceu numa falha ou cancelamento e continuar com segurança.</p>
+<p><strong>Composição.</strong></p>
+<ul>
+<li><strong>Diagnóstico:</strong> o que falhou, em qual lote e com qual categoria de erro.</li>
+<li><strong>Estado dos lotes:</strong> uma grade com entidade, lote, faixa da origem e estado (<code dir="auto">Committed</code>, <code dir="auto">Failed</code>, <code dir="auto">Pending</code>).</li>
+<li><strong>Ação recomendada:</strong> retomar do checkpoint, corrigir e simular de novo, ou abandonar.</li>
+</ul>
+<p><strong>Componentes.</strong></p>
+<ul>
+<li><code dir="auto">Alert</code>.</li>
+<li><code dir="auto">DataGrid</code>.</li>
+<li><code dir="auto">PropertyRow</code>.</li>
+<li><code dir="auto">Badge</code>.</li>
+<li><code dir="auto">Button</code>.</li>
+<li><code dir="auto">ConfirmDialog</code>.</li>
+</ul>
+<p><strong>Ações.</strong></p>
+<ul>
+<li><strong>Retomar</strong> (Evolução; no MVP, nova execução idempotente do mesmo plano).</li>
+<li><strong>Exportar diagnóstico.</strong></li>
+<li><strong>Abrir o plano.</strong></li>
+</ul>
+<p><strong>Estados.</strong></p>
+<ul>
+<li><strong>Origem mudou:</strong> retomar fica bloqueado, com o texto “simule de novo”.</li>
+<li><strong>Falha de permissão:</strong> “O usuário do destino não pode criar índices”.</li>
+</ul>
+<p><strong>Acessibilidade.</strong> O diagnóstico é o primeiro item focado ao abrir.</p>
+<p><strong>Dependências.</strong> Nenhuma nova.</p>
+<p><strong>Critérios de aceitação.</strong></p>
+<ul>
+<li>Uma falha simulada de conexão no lote 4 de orders mostra os lotes 1 a 3 como <code dir="auto">Committed</code> e o 4 como <code dir="auto">Failed</code>.</li>
+<li>Retomar termina com as mesmas contagens de uma execução sem falha (5.261 pedidos) e sem duplicar nenhum.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="16-resultado">16. Resultado</h2><a class="sl-anchor-link" href="#16-resultado"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “16. Resultado”</span></a></div>
+<p><strong>Objetivo.</strong> Fechar a importação: o que entrou, o que ficou fora e a prova disso.</p>
+<p><strong>Composição.</strong></p>
+<ul>
+<li><strong>Cabeçalho:</strong> <code dir="auto">Stat</code> para gravados, atualizados, fora e duração.</li>
+<li><strong>Reconciliação:</strong> uma grade com as conferências e o estado de cada uma (“CLIENTES: 1.248 = 1.202 + 37 + 9 ✓”).</li>
+<li><strong>Abas:</strong>
+<ul>
+<li>Rejeitados: 14.</li>
+<li>Em revisão: 9 + 23 + 6.</li>
+<li>Retidos: 31.</li>
+<li>Relatório.</li>
+</ul>
+</li>
+</ul>
+<p><strong>Componentes.</strong></p>
+<ul>
+<li><code dir="auto">Stat</code>.</li>
+<li><code dir="auto">DataGrid::remote</code> para rejeitados e revisão.</li>
+<li><code dir="auto">Tabs</code>.</li>
+<li><code dir="auto">Badge</code>.</li>
+<li><code dir="auto">SplitButton</code> Exportar: Relatório PDF, Relatório XLSX, Rejeitados (CSV fiel), Grade atual.</li>
+<li><code dir="auto">EmptyState</code>.</li>
+</ul>
+<p><strong>Ações.</strong></p>
+<ul>
+<li><strong>Exportar relatório:</strong> usa o motor de relatórios.</li>
+<li><strong>Exportar rejeitados (CSV fiel):</strong> o motor escreve o arquivo a partir do registro original.</li>
+<li><strong>Exportar a grade atual:</strong> <code dir="auto">ravenrs-grid-export</code>, com o que está na tela.</li>
+<li><strong>Resolver revisão:</strong> decisão por registro (Evolução), seguida de uma execução complementar.</li>
+<li><strong>Duplicar como modelo.</strong></li>
+</ul>
+<p><strong>Estados.</strong></p>
+<ul>
+<li><strong>Sem rejeitados:</strong> <code dir="auto">EmptyState</code> “Nada ficou de fora”.</li>
+<li><strong>Divergência na reconciliação:</strong> <code dir="auto">Badge</code> Danger “Diverge” com o detalhe.</li>
+</ul>
+<p><strong>Acessibilidade.</strong> O resumo é o título da página e é lido ao abrir.</p>
+<p><strong>Dependências.</strong> N-3.</p>
+<p><strong>Critérios de aceitação.</strong></p>
+<ul>
+<li>Os números são idênticos aos do cenário: 1.202, 1.568, 5.261 e 83.</li>
+<li>O CSV fiel dos rejeitados tem as mesmas colunas de PEDIDOS, mais <code dir="auto">motivo</code> e <code dir="auto">regra</code>, e a linha 88019 com <code dir="auto">VALOR</code> <code dir="auto">45,00</code>, sem reformatar.</li>
+<li>Exportar a grade gera um arquivo diferente, com as colunas visíveis.</li>
+</ul></div><footer class="sl-flex" data-astro-cid-ddtxxk7k=""><div class="meta sl-flex" data-astro-cid-ddtxxk7k=""><a href="https://github.com/alexkads/RavenRS/edit/master/docs/data-studio/06-telas.md" class="sl-flex print:hidden" data-astro-cid-qlekgd3o=""><svg data-astro-cid-qlekgd3o="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;" data-astro-cid-hkc32dio=""><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"></path></svg>Edit page</a></div><div class="pagination-links print:hidden" dir="ltr" data-astro-cid-b5raizh3=""><a href="/RavenRS/docs/data-studio/05-fluxos/" rel="prev" data-astro-cid-b5raizh3=""><svg data-astro-cid-b5raizh3="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;" data-astro-cid-hkc32dio=""><path d="M17 11H9.41l3.3-3.29a1.004 1.004 0 1 0-1.42-1.42l-5 5a1 1 0 0 0-.21.33 1 1 0 0 0 0 .76 1 1 0 0 0 .21.33l5 5a1.002 1.002 0 0 0 1.639-.325 1 1 0 0 0-.219-1.095L9.41 13H17a1 1 0 0 0 0-2Z"></path></svg><span data-astro-cid-b5raizh3="">Previous<br data-astro-cid-b5raizh3=""><span class="link-title" data-astro-cid-b5raizh3="">Raven Data Studio: fluxos</span></span></a><a href="/RavenRS/docs/data-studio/07-wireframes/" rel="next" data-astro-cid-b5raizh3=""><svg data-astro-cid-b5raizh3="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;" data-astro-cid-hkc32dio=""><path d="M17.92 11.62a1.001 1.001 0 0 0-.21-.33l-5-5a1.003 1.003 0 1 0-1.42 1.42l3.3 3.29H7a1 1 0 0 0 0 2h7.59l-3.3 3.29a1.002 1.002 0 0 0 .325 1.639 1 1 0 0 0 1.095-.219l5-5a1 1 0 0 0 .21-.33 1 1 0 0 0 0-.76Z"></path></svg><span data-astro-cid-b5raizh3="">Next<br data-astro-cid-b5raizh3=""><span class="link-title" data-astro-cid-b5raizh3="">Raven Data Studio: wireframes</span></span></a></div></footer></div></div></main></div></div></div></div></body></html>

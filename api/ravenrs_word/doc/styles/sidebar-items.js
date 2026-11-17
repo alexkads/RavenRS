@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["BODY_FONT","HEADING_BLUE","HEADING_FONT"],"enum":["StyleKind","TablePart"],"fn":["part_borders"],"struct":["PartFormat","PartSet","Style","StyleSheet","TableStyleParts","TableStyleProps"]};

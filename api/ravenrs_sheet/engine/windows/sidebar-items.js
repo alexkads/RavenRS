@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Target"],"fn":["is_window_command"],"struct":["TargetGuard","WindowState","WindowView"]};

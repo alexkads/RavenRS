@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Color","RegularColor","SpecialColor"],"mod":["cmyk","device_n","luma","rgb","separation"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GpuError"],"fn":["gpu_report","preferred_surface_format","render_to_rgba","render_with","surface_report"],"struct":["CableDrawer","GpuCables","GpuContext","RenderStats","Renderer"]};

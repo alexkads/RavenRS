@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["SLIDE_SIZES","STANDARD","WIDE"],"fn":["blank_presentation","build_master","default_text_style","layout_of_kind","master_styles","new_presentation","new_slide"]};

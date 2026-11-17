@@ -1,0 +1,576 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>layout.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="ravenrs_pdf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../src-files.js"></script><script defer="" src="../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-pdf/src/render/text/layout.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_pdf/render/text/layout.rs.html"><meta property="og:title" content="layout.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-pdf/src/render/text/layout.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_pdf/render/text/layout.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="layout.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-pdf/src/render/text/layout.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"layout.rs - source","description":"Source of the Rust file `crates/ravenrs-pdf/src/render/text/layout.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_pdf/render/text/layout.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_pdf/render/text/</div>layout.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="kw">use </span><span class="kw">super</span>::device::{DIRECTION_TOLERANCE, Drawn, WORD_GAP};
+<a href="#2" id="2" data-nosnippet="">2</a><span class="kw">use </span><span class="kw">super</span>::order::{
+<a href="#3" id="3" data-nosnippet="">3</a>    NONE, REDRAW_CANDIDATES, Run, SAME_LINE_GAP, Scratch, Seg, fingerprint, is_script_on, measure_cluster_gaps, place_glyphs, redraws, restarts_run,
+<a href="#4" id="4" data-nosnippet="">4</a>    reverse_rtl, same_line,
+<a href="#5" id="5" data-nosnippet="">5</a>};
+<a href="#6" id="6" data-nosnippet="">6</a><span class="kw">use super</span>::{HashMap, PageText, TextGlyph};
+<a href="#7" id="7" data-nosnippet="">7</a>
+<a href="#8" id="8" data-nosnippet="">8</a><span class="doccomment">/// Glyphs in reading order, as indices into the page's glyphs, with their lines and word gaps.
+<a href="#9" id="9" data-nosnippet="">9</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">struct </span>Flow {
+<a href="#10" id="10" data-nosnippet="">10</a>    <span class="doccomment">/// The top of the flow's topmost glyph in view space.
+<a href="#11" id="11" data-nosnippet="">11</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) top: f32,
+<a href="#12" id="12" data-nosnippet="">12</a>    <span class="doccomment">/// The quarter turn whose frame the flow was laid out in.
+<a href="#13" id="13" data-nosnippet="">13</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) quarter: <span class="prelude-ty">Option</span>&lt;u8&gt;,
+<a href="#14" id="14" data-nosnippet="">14</a>    <span class="kw">pub</span>(<span class="kw">super</span>) ids: Vec&lt;usize&gt;,
+<a href="#15" id="15" data-nosnippet="">15</a>    <span class="kw">pub</span>(<span class="kw">super</span>) line_of: Vec&lt;u32&gt;,
+<a href="#16" id="16" data-nosnippet="">16</a>    <span class="kw">pub</span>(<span class="kw">super</span>) space_before: Vec&lt;bool&gt;,
+<a href="#17" id="17" data-nosnippet="">17</a>}
+<a href="#18" id="18" data-nosnippet="">18</a>
+<a href="#19" id="19" data-nosnippet="">19</a><span class="doccomment">/// Lay out the page's glyphs `ids`, giving each the box at the same position in `rects`.
+<a href="#20" id="20" data-nosnippet="">20</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>arrange_flow(glyphs: <span class="kw-2">&amp;</span>[Drawn], ids: Vec&lt;usize&gt;, rects: Vec&lt;[f32; <span class="number">4</span>]&gt;, quarter: <span class="prelude-ty">Option</span>&lt;u8&gt;) -&gt; Flow {
+<a href="#21" id="21" data-nosnippet="">21</a>    <span class="kw">let </span>top = ids.iter().filter_map(|<span class="kw-2">&amp;</span>i| glyphs.get(i)).map(|g| g.<span class="number">2</span>.rect[<span class="number">1</span>]).fold(f32::INFINITY, f32::min);
+<a href="#22" id="22" data-nosnippet="">22</a>    <span class="kw">let </span>framed: Vec&lt;TextGlyph&gt; = ids.iter().zip(rects).filter_map(|(<span class="kw-2">&amp;</span>i, rect)| glyphs.get(i).map(|g| TextGlyph { rect, ..g.<span class="number">2</span>.clone() })).collect();
+<a href="#23" id="23" data-nosnippet="">23</a>    <span class="kw">let </span>(order, line_of, space_before) = arrange(<span class="kw-2">&amp;</span>framed);
+<a href="#24" id="24" data-nosnippet="">24</a>    <span class="kw">let </span>ids = order.into_iter().filter_map(|k| ids.get(k).copied()).collect();
+<a href="#25" id="25" data-nosnippet="">25</a>    Flow { top, quarter, ids, line_of, space_before }
+<a href="#26" id="26" data-nosnippet="">26</a>}
+<a href="#27" id="27" data-nosnippet="">27</a>
+<a href="#28" id="28" data-nosnippet="">28</a><span class="doccomment">/// Boxes for a run of glyphs set along a curve: each glyph's box along its own direction, placed
+<a href="#29" id="29" data-nosnippet="">29</a>/// where the pen moved in the previous glyph's direction. The path straightened out.
+<a href="#30" id="30" data-nosnippet="">30</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>unrolled&lt;<span class="lifetime">'g</span>&gt;(run: <span class="kw">impl </span>Iterator&lt;Item = <span class="kw-2">&amp;</span><span class="lifetime">'g </span>Drawn&gt;) -&gt; Vec&lt;[f32; <span class="number">4</span>]&gt; {
+<a href="#31" id="31" data-nosnippet="">31</a>    <span class="kw">let </span><span class="kw-2">mut </span>pen = [<span class="number">0.0</span>, <span class="number">0.0</span>];
+<a href="#32" id="32" data-nosnippet="">32</a>    <span class="kw">let </span><span class="kw-2">mut </span>previous: <span class="prelude-ty">Option</span>&lt;([f64; <span class="number">2</span>], [f64; <span class="number">4</span>])&gt; = <span class="prelude-val">None</span>;
+<a href="#33" id="33" data-nosnippet="">33</a>    run.map(|(<span class="kw">_</span>, u, g)| {
+<a href="#34" id="34" data-nosnippet="">34</a>        <span class="kw">let </span>b = along_baseline(<span class="kw-2">&amp;</span>g.quad, <span class="kw-2">*</span>u);
+<a href="#35" id="35" data-nosnippet="">35</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>((pu, pb)) = previous {
+<a href="#36" id="36" data-nosnippet="">36</a>            <span class="kw">let </span>at = along_baseline(<span class="kw-2">&amp;</span>g.quad, pu);
+<a href="#37" id="37" data-nosnippet="">37</a>            pen = [pen[<span class="number">0</span>] + at[<span class="number">0</span>] - pb[<span class="number">0</span>], pen[<span class="number">1</span>] + (at[<span class="number">1</span>] + at[<span class="number">3</span>] - pb[<span class="number">1</span>] - pb[<span class="number">3</span>]) / <span class="number">2.0</span>];
+<a href="#38" id="38" data-nosnippet="">38</a>        }
+<a href="#39" id="39" data-nosnippet="">39</a>        previous = <span class="prelude-val">Some</span>((<span class="kw-2">*</span>u, b));
+<a href="#40" id="40" data-nosnippet="">40</a>        <span class="kw">let </span>half = (b[<span class="number">3</span>] - b[<span class="number">1</span>]) / <span class="number">2.0</span>;
+<a href="#41" id="41" data-nosnippet="">41</a>        [pen[<span class="number">0</span>], pen[<span class="number">1</span>] - half, pen[<span class="number">0</span>] + b[<span class="number">2</span>] - b[<span class="number">0</span>], pen[<span class="number">1</span>] + half].map(|c| c <span class="kw">as </span>f32)
+<a href="#42" id="42" data-nosnippet="">42</a>    })
+<a href="#43" id="43" data-nosnippet="">43</a>    .collect()
+<a href="#44" id="44" data-nosnippet="">44</a>}
+<a href="#45" id="45" data-nosnippet="">45</a>
+<a href="#46" id="46" data-nosnippet="">46</a><span class="doccomment">/// View-space box → the frame where text runs left to right, for text running `quarter` × 90°
+<a href="#47" id="47" data-nosnippet="">47</a>/// clockwise from that in a `w` × `h` view (1: text runs downwards).
+<a href="#48" id="48" data-nosnippet="">48</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>to_upright(r: [f32; <span class="number">4</span>], quarter: u8, w: f32, h: f32) -&gt; [f32; <span class="number">4</span>] {
+<a href="#49" id="49" data-nosnippet="">49</a>    <span class="kw">let </span>[x0, y0, x1, y1] = r;
+<a href="#50" id="50" data-nosnippet="">50</a>    <span class="kw">match </span>quarter {
+<a href="#51" id="51" data-nosnippet="">51</a>        <span class="number">1 </span>=&gt; [y0, w - x1, y1, w - x0],
+<a href="#52" id="52" data-nosnippet="">52</a>        <span class="number">2 </span>=&gt; [w - x1, h - y1, w - x0, h - y0],
+<a href="#53" id="53" data-nosnippet="">53</a>        <span class="number">3 </span>=&gt; [h - y1, x0, h - y0, x1],
+<a href="#54" id="54" data-nosnippet="">54</a>        <span class="kw">_ </span>=&gt; r,
+<a href="#55" id="55" data-nosnippet="">55</a>    }
+<a href="#56" id="56" data-nosnippet="">56</a>}
+<a href="#57" id="57" data-nosnippet="">57</a>
+<a href="#58" id="58" data-nosnippet="">58</a><span class="doccomment">/// Whether two writing directions are close enough to share a frame ([`DIRECTION_TOLERANCE`]).
+<a href="#59" id="59" data-nosnippet="">59</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>compatible(a: [f64; <span class="number">2</span>], b: [f64; <span class="number">2</span>]) -&gt; bool {
+<a href="#60" id="60" data-nosnippet="">60</a>    a[<span class="number">0</span>] * b[<span class="number">0</span>] + a[<span class="number">1</span>] * b[<span class="number">1</span>] &gt; <span class="number">0.0 </span>&amp;&amp; (a[<span class="number">0</span>] * b[<span class="number">1</span>] - a[<span class="number">1</span>] * b[<span class="number">0</span>]).abs() &lt;= DIRECTION_TOLERANCE
+<a href="#61" id="61" data-nosnippet="">61</a>}
+<a href="#62" id="62" data-nosnippet="">62</a>
+<a href="#63" id="63" data-nosnippet="">63</a><span class="doccomment">/// Whether glyph `g` continues the line of glyph `p` (content order), by the test `layout` uses
+<a href="#64" id="64" data-nosnippet="">64</a>/// for consecutive glyphs, taken in `p`'s own frame. The direction may turn by less than half a
+<a href="#65" id="65" data-nosnippet="">65</a>/// quarter turn, as text set along a curve does.
+<a href="#66" id="66" data-nosnippet="">66</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>continues(p: <span class="kw-2">&amp;</span>Drawn, g: <span class="kw-2">&amp;</span>Drawn) -&gt; bool {
+<a href="#67" id="67" data-nosnippet="">67</a>    <span class="kw">let </span>(pu, gu) = (p.<span class="number">1</span>, g.<span class="number">1</span>);
+<a href="#68" id="68" data-nosnippet="">68</a>    <span class="kw">if </span>(pu[<span class="number">0</span>] * gu[<span class="number">1</span>] - pu[<span class="number">1</span>] * gu[<span class="number">0</span>]).abs() &gt;= pu[<span class="number">0</span>] * gu[<span class="number">0</span>] + pu[<span class="number">1</span>] * gu[<span class="number">1</span>] {
+<a href="#69" id="69" data-nosnippet="">69</a>        <span class="kw">return </span><span class="bool-val">false</span>;
+<a href="#70" id="70" data-nosnippet="">70</a>    }
+<a href="#71" id="71" data-nosnippet="">71</a>    <span class="kw">let </span>(pb, gb, own) = (along_baseline(<span class="kw-2">&amp;</span>p.<span class="number">2</span>.quad, pu), along_baseline(<span class="kw-2">&amp;</span>g.<span class="number">2</span>.quad, pu), along_baseline(<span class="kw-2">&amp;</span>g.<span class="number">2</span>.quad, gu));
+<a href="#72" id="72" data-nosnippet="">72</a>    <span class="kw">let </span>h = (pb[<span class="number">3</span>] - pb[<span class="number">1</span>]).min(own[<span class="number">3</span>] - own[<span class="number">1</span>]).max(<span class="number">0.1</span>);
+<a href="#73" id="73" data-nosnippet="">73</a>    <span class="kw">let </span>cy = |b: [f64; <span class="number">4</span>]| (b[<span class="number">1</span>] + b[<span class="number">3</span>]) / <span class="number">2.0</span>;
+<a href="#74" id="74" data-nosnippet="">74</a>    (cy(gb) - cy(pb)).abs() &lt; h * <span class="number">0.5 </span>&amp;&amp; gb[<span class="number">0</span>] - pb[<span class="number">2</span>] &lt; h * <span class="number">3.0 </span>&amp;&amp; gb[<span class="number">0</span>] &gt; pb[<span class="number">0</span>] - h * <span class="number">2.0
+<a href="#75" id="75" data-nosnippet="">75</a></span>}
+<a href="#76" id="76" data-nosnippet="">76</a>
+<a href="#77" id="77" data-nosnippet="">77</a><span class="doccomment">/// A view-space quad → its box in the frame where `u` runs left to right and `u` turned a
+<a href="#78" id="78" data-nosnippet="">78</a>/// quarter clockwise runs downwards. Along `u` it spans the middles of the quad's start and end
+<a href="#79" id="79" data-nosnippet="">79</a>/// sides, so a skewed glyph is no wider than its advance; across, it spans every corner.
+<a href="#80" id="80" data-nosnippet="">80</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>along_baseline(quad: <span class="kw-2">&amp;</span>[[f32; <span class="number">2</span>]; <span class="number">4</span>], u: [f64; <span class="number">2</span>]) -&gt; [f64; <span class="number">4</span>] {
+<a href="#81" id="81" data-nosnippet="">81</a>    <span class="kw">let </span>p = quad.map(|[x, y]| [f64::from(x) * u[<span class="number">0</span>] + f64::from(y) * u[<span class="number">1</span>], f64::from(y) * u[<span class="number">0</span>] - f64::from(x) * u[<span class="number">1</span>]]);
+<a href="#82" id="82" data-nosnippet="">82</a>    <span class="kw">let </span>(a0, a1) = ((p[<span class="number">0</span>][<span class="number">0</span>] + p[<span class="number">3</span>][<span class="number">0</span>]) / <span class="number">2.0</span>, (p[<span class="number">1</span>][<span class="number">0</span>] + p[<span class="number">2</span>][<span class="number">0</span>]) / <span class="number">2.0</span>);
+<a href="#83" id="83" data-nosnippet="">83</a>    <span class="kw">let </span>(c0, c1) = p.iter().fold((f64::INFINITY, f64::NEG_INFINITY), |(lo, hi), q| (lo.min(q[<span class="number">1</span>]), hi.max(q[<span class="number">1</span>])));
+<a href="#84" id="84" data-nosnippet="">84</a>    [a0.min(a1), c0, a0.max(a1), c1]
+<a href="#85" id="85" data-nosnippet="">85</a>}
+<a href="#86" id="86" data-nosnippet="">86</a>
+<a href="#87" id="87" data-nosnippet="">87</a><span class="doccomment">/// The inverse of [`to_upright`].
+<a href="#88" id="88" data-nosnippet="">88</a></span><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>from_upright(r: [f32; <span class="number">4</span>], quarter: u8, w: f32, h: f32) -&gt; [f32; <span class="number">4</span>] {
+<a href="#89" id="89" data-nosnippet="">89</a>    <span class="kw">let </span>[u0, v0, u1, v1] = r;
+<a href="#90" id="90" data-nosnippet="">90</a>    <span class="kw">match </span>quarter {
+<a href="#91" id="91" data-nosnippet="">91</a>        <span class="number">1 </span>=&gt; [w - v1, u0, w - v0, u1],
+<a href="#92" id="92" data-nosnippet="">92</a>        <span class="number">2 </span>=&gt; [w - u1, h - v1, w - u0, h - v0],
+<a href="#93" id="93" data-nosnippet="">93</a>        <span class="number">3 </span>=&gt; [v0, h - u1, v1, h - u0],
+<a href="#94" id="94" data-nosnippet="">94</a>        <span class="kw">_ </span>=&gt; r,
+<a href="#95" id="95" data-nosnippet="">95</a>    }
+<a href="#96" id="96" data-nosnippet="">96</a>}
+<a href="#97" id="97" data-nosnippet="">97</a>
+<a href="#98" id="98" data-nosnippet="">98</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>is_rtl(c: char) -&gt; bool {
+<a href="#99" id="99" data-nosnippet="">99</a>    <span class="macro">matches!</span>(c <span class="kw">as </span>u32, <span class="number">0x0590</span>..=<span class="number">0x08FF </span>| <span class="number">0xFB1D</span>..=<span class="number">0xFDFF </span>| <span class="number">0xFE70</span>..=<span class="number">0xFEFF </span>| <span class="number">0x10800</span>..=<span class="number">0x10FFF </span>| <span class="number">0x1E800</span>..=<span class="number">0x1EFFF</span>)
+<a href="#100" id="100" data-nosnippet="">100</a>}
+<a href="#101" id="101" data-nosnippet="">101</a>
+<a href="#102" id="102" data-nosnippet="">102</a><span class="doccomment">/// Scripts written with explicit spaces whose combining signs can sit apart from their base
+<a href="#103" id="103" data-nosnippet="">103</a>/// (Indic, Thai, Lao, Myanmar, Khmer): never infer a space next to such a sign in a tight cluster.
+<a href="#104" id="104" data-nosnippet="">104</a></span><span class="kw">fn </span>is_complex(c: char) -&gt; bool {
+<a href="#105" id="105" data-nosnippet="">105</a>    <span class="macro">matches!</span>(c <span class="kw">as </span>u32, <span class="number">0x0300</span>..=<span class="number">0x036F </span>| <span class="number">0x0900</span>..=<span class="number">0x0DFF </span>| <span class="number">0x0E00</span>..=<span class="number">0x0EFF </span>| <span class="number">0x1000</span>..=<span class="number">0x109F </span>| <span class="number">0x1780</span>..=<span class="number">0x17FF</span>)
+<a href="#106" id="106" data-nosnippet="">106</a>}
+<a href="#107" id="107" data-nosnippet="">107</a>
+<a href="#108" id="108" data-nosnippet="">108</a><span class="doccomment">/// Whether `text` is only combining marks (Unicode Mn and Me, which take bidi class NSM) of a
+<a href="#109" id="109" data-nosnippet="">109</a>/// left-to-right script: Thai tone marks and above or below vowels, Indic signs such as virama,
+<a href="#110" id="110" data-nosnippet="">110</a>/// Latin combining accents. Right-to-left marks are ordered with their script by [`reverse_rtl`].
+<a href="#111" id="111" data-nosnippet="">111</a></span><span class="kw">fn </span>is_mark(text: <span class="kw-2">&amp;</span>str) -&gt; bool {
+<a href="#112" id="112" data-nosnippet="">112</a>    !text.is_empty() &amp;&amp; text.chars().all(|c| unicode_bidi::bidi_class(c) == unicode_bidi::BidiClass::NSM &amp;&amp; !is_rtl(c))
+<a href="#113" id="113" data-nosnippet="">113</a>}
+<a href="#114" id="114" data-nosnippet="">114</a>
+<a href="#115" id="115" data-nosnippet="">115</a><span class="doccomment">/// How far from the glyph before it, as a fraction of its height, a combining mark may start and
+<a href="#116" id="116" data-nosnippet="">116</a>/// still ride on it. A zero-advance mark starts at the pen after its base, give or take a small
+<a href="#117" id="117" data-nosnippet="">117</a>/// mark-positioning offset, and its ink is drawn back over the base.
+<a href="#118" id="118" data-nosnippet="">118</a></span><span class="kw">const </span>MARK_REACH: f32 = <span class="number">0.3</span>;
+<a href="#119" id="119" data-nosnippet="">119</a>
+<a href="#120" id="120" data-nosnippet="">120</a><span class="doccomment">/// Whether glyph `m`, drawn right after `p` in one run, is a combining mark on `p`: ISO 32000-2
+<a href="#121" id="121" data-nosnippet="">121</a>/// §9.10 leaves extraction to the processor, and Unicode stores a mark after its base, as the
+<a href="#122" id="122" data-nosnippet="">122</a>/// content stream draws it here. The mark then stays after `p` in reading order however far its
+<a href="#123" id="123" data-nosnippet="">123</a>/// own box sits along the line; sorting by x alone moved a Thai tone mark that starts a hair past
+<a href="#124" id="124" data-nosnippet="">124</a>/// its base's advance after the next letter (#6517).
+<a href="#125" id="125" data-nosnippet="">125</a></span><span class="kw">fn </span>rides_on(p: <span class="kw-2">&amp;</span>TextGlyph, m: <span class="kw-2">&amp;</span>TextGlyph) -&gt; bool {
+<a href="#126" id="126" data-nosnippet="">126</a>    <span class="kw">let </span>reach = MARK_REACH * (m.rect[<span class="number">3</span>] - m.rect[<span class="number">1</span>]).max(<span class="number">0.1</span>);
+<a href="#127" id="127" data-nosnippet="">127</a>    is_mark(<span class="kw-2">&amp;</span>m.text)
+<a href="#128" id="128" data-nosnippet="">128</a>        &amp;&amp; p.text.chars().any(|c| !c.is_whitespace())
+<a href="#129" id="129" data-nosnippet="">129</a>        &amp;&amp; !p.text.chars().any(is_rtl)
+<a href="#130" id="130" data-nosnippet="">130</a>        &amp;&amp; m.rect[<span class="number">0</span>] &gt;= p.rect[<span class="number">0</span>] - reach
+<a href="#131" id="131" data-nosnippet="">131</a>        &amp;&amp; m.rect[<span class="number">0</span>] &lt;= p.rect[<span class="number">2</span>] + reach
+<a href="#132" id="132" data-nosnippet="">132</a>}
+<a href="#133" id="133" data-nosnippet="">133</a>
+<a href="#134" id="134" data-nosnippet="">134</a><span class="doccomment">/// How far, as a fraction of its letter's height, a combining mark's em box may sit above or below the letter's and
+<a href="#135" id="135" data-nosnippet="">135</a>/// still ride on it. A tone mark lifted over an upper vowel can be drawn more than half an em higher, past where a
+<a href="#136" id="136" data-nosnippet="">136</a>/// glyph of its own would start a new line.
+<a href="#137" id="137" data-nosnippet="">137</a></span><span class="kw">const </span>MARK_RISE: f32 = <span class="number">1.0</span>;
+<a href="#138" id="138" data-nosnippet="">138</a>
+<a href="#139" id="139" data-nosnippet="">139</a><span class="doccomment">/// Whether glyph `m`, drawn right after glyph `p` (a letter, or a mark riding on letter `a`), rides on that cluster:
+<a href="#140" id="140" data-nosnippet="">140</a>/// on `p` itself, or, for a mark stacked on another one, on its letter `a`.
+<a href="#141" id="141" data-nosnippet="">141</a></span><span class="kw">fn </span>rides_on_cluster(glyphs: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>TextGlyph], p: usize, a: usize, m: <span class="kw-2">&amp;</span>TextGlyph) -&gt; bool {
+<a href="#142" id="142" data-nosnippet="">142</a>    glyphs.get(p).is_some_and(|pg| rides_on(pg, m)) || (a != p &amp;&amp; glyphs.get(a).is_some_and(|ag| rides_on(ag, m)))
+<a href="#143" id="143" data-nosnippet="">143</a>}
+<a href="#144" id="144" data-nosnippet="">144</a>
+<a href="#145" id="145" data-nosnippet="">145</a><span class="doccomment">/// Glyph `i` continues the run of glyph `i - 1`: when it is a combining mark on that glyph's cluster, it joins it.
+<a href="#146" id="146" data-nosnippet="">146</a></span><span class="kw">fn </span>attach_mark(glyphs: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>TextGlyph], anchor: <span class="kw-2">&amp;mut </span>[usize], i: usize) {
+<a href="#147" id="147" data-nosnippet="">147</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(p) = i.checked_sub(<span class="number">1</span>) <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href="#148" id="148" data-nosnippet="">148</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>a) = anchor.get(p) <span class="kw">else </span>{ <span class="kw">return </span>};
+<a href="#149" id="149" data-nosnippet="">149</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(mg) = glyphs.get(i)
+<a href="#150" id="150" data-nosnippet="">150</a>        &amp;&amp; rides_on_cluster(glyphs, p, a, mg)
+<a href="#151" id="151" data-nosnippet="">151</a>        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(slot) = anchor.get_mut(i)
+<a href="#152" id="152" data-nosnippet="">152</a>    {
+<a href="#153" id="153" data-nosnippet="">153</a>        <span class="kw-2">*</span>slot = a;
+<a href="#154" id="154" data-nosnippet="">154</a>    }
+<a href="#155" id="155" data-nosnippet="">155</a>}
+<a href="#156" id="156" data-nosnippet="">156</a>
+<a href="#157" id="157" data-nosnippet="">157</a><span class="kw">fn </span>is_cjk(c: char) -&gt; bool {
+<a href="#158" id="158" data-nosnippet="">158</a>    <span class="macro">matches!</span>(c <span class="kw">as </span>u32, <span class="number">0x2E80</span>..=<span class="number">0x9FFF </span>| <span class="number">0xAC00</span>..=<span class="number">0xD7AF </span>| <span class="number">0xF900</span>..=<span class="number">0xFAFF </span>| <span class="number">0xFF00</span>..=<span class="number">0xFFEF </span>| <span class="number">0x20000</span>..=<span class="number">0x3134F </span>| <span class="number">0x1100</span>..=<span class="number">0x11FF</span>)
+<a href="#159" id="159" data-nosnippet="">159</a>}
+<a href="#160" id="160" data-nosnippet="">160</a>
+<a href="#161" id="161" data-nosnippet="">161</a><span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>union(a: <span class="kw-2">&amp;mut </span>[f32; <span class="number">4</span>], b: <span class="kw-2">&amp;</span>[f32; <span class="number">4</span>]) {
+<a href="#162" id="162" data-nosnippet="">162</a>    a[<span class="number">0</span>] = a[<span class="number">0</span>].min(b[<span class="number">0</span>]);
+<a href="#163" id="163" data-nosnippet="">163</a>    a[<span class="number">1</span>] = a[<span class="number">1</span>].min(b[<span class="number">1</span>]);
+<a href="#164" id="164" data-nosnippet="">164</a>    a[<span class="number">2</span>] = a[<span class="number">2</span>].max(b[<span class="number">2</span>]);
+<a href="#165" id="165" data-nosnippet="">165</a>    a[<span class="number">3</span>] = a[<span class="number">3</span>].max(b[<span class="number">3</span>]);
+<a href="#166" id="166" data-nosnippet="">166</a>}
+<a href="#167" id="167" data-nosnippet="">167</a>
+<a href="#168" id="168" data-nosnippet="">168</a><span class="doccomment">/// Reading-order layout. Glyphs are reordered so that `glyphs` is in reading order, lines are
+<a href="#169" id="169" data-nosnippet="">169</a>/// numbered in that order, and word gaps are inferred per line.
+<a href="#170" id="170" data-nosnippet="">170</a>///
+<a href="#171" id="171" data-nosnippet="">171</a>/// Heuristics (documented so they can be tuned and tested; plan/architecture.md §8):
+<a href="#172" id="172" data-nosnippet="">172</a>/// 1. *Segments:* consecutive glyphs (content order) on one baseline with no column-sized gap.
+<a href="#173" id="173" data-nosnippet="">173</a>///    A smaller glyph right next to the previous one (a sub- or superscript) stays in the segment.
+<a href="#174" id="174" data-nosnippet="">174</a>///    Segments on the same baseline that nearly touch are merged (text drawn out of order).
+<a href="#175" id="175" data-nosnippet="">175</a>/// 2. *Blocks:* segments stacked with line-sized gaps and overlapping horizontally.
+<a href="#176" id="176" data-nosnippet="">176</a>/// 3. *Block order:* repeatedly take the top-most remaining block, preferring a block to its left
+<a href="#177" id="177" data-nosnippet="">177</a>///    that overlaps it vertically (so columns read left, then right). A column goes on first (#3658):
+<a href="#178" id="178" data-nosnippet="">178</a>///    the nearest block below the last one, overlapping it horizontally and at most 2.5 heights of
+<a href="#179" id="179" data-nosnippet="">179</a>///    its last line below it, comes next, unless an unread block sits above it in its own span, sits
+<a href="#180" id="180" data-nosnippet="">180</a>///    beside it on its left, or shares its first line (the first lines overlap by at least 30% of the
+<a href="#181" id="181" data-nosnippet="">181</a>///    taller one: a table or form row, which reads across, even with labels and values in different
+<a href="#182" id="182" data-nosnippet="">182</a>///    sizes or on shifted baselines).
+<a href="#183" id="183" data-nosnippet="">183</a>///    Known limit: when a paragraph in the next column starts on the same line as the continuation
+<a href="#184" id="184" data-nosnippet="">184</a>///    (text on a baseline grid), it counts as a row and the top-most rule applies, so the column
+<a href="#185" id="185" data-nosnippet="">185</a>///    order of #3658 is lost there. Telling prose from a row in that case needs more evidence.
+<a href="#186" id="186" data-nosnippet="">186</a>/// 4. Within a segment glyphs run left to right; runs of right-to-left script are reversed so the
+<a href="#187" id="187" data-nosnippet="">187</a>///    text comes out in logical order. A block whose first line sits on the baseline of the line read
+<a href="#188" id="188" data-nosnippet="">188</a>///    just before it, to its right and less than [`SAME_LINE_GAP`] heights away, continues that line
+<a href="#189" id="189" data-nosnippet="">189</a>///    after a space (a label and its value, words drawn out of order or in another size). A block of
+<a href="#190" id="190" data-nosnippet="">190</a>///    several lines does so only after a one-line block narrower than [`SAME_LINE_GAP`] heights (a
+<a href="#191" id="191" data-nosnippet="">191</a>///    label): beside a wider one, or the last line of a column, it is the next column.
+<a href="#192" id="192" data-nosnippet="">192</a></span><span class="kw">pub fn </span>layout(glyphs: Vec&lt;TextGlyph&gt;) -&gt; PageText {
+<a href="#193" id="193" data-nosnippet="">193</a>    <span class="kw">let </span>(order, line_of, space_before) = arrange(<span class="kw-2">&amp;</span>glyphs);
+<a href="#194" id="194" data-nosnippet="">194</a>    <span class="kw">let </span><span class="kw-2">mut </span>slots: Vec&lt;<span class="prelude-ty">Option</span>&lt;TextGlyph&gt;&gt; = glyphs.into_iter().map(<span class="prelude-val">Some</span>).collect();
+<a href="#195" id="195" data-nosnippet="">195</a>    <span class="comment">// Each glyph is emitted exactly once.
+<a href="#196" id="196" data-nosnippet="">196</a>    </span><span class="kw">let </span>glyphs = order.iter().filter_map(|i| slots.get_mut(<span class="kw-2">*</span>i).and_then(Option::take)).collect();
+<a href="#197" id="197" data-nosnippet="">197</a>    PageText { glyphs, line_of, space_before, truncated: <span class="bool-val">false </span>}
+<a href="#198" id="198" data-nosnippet="">198</a>}
+<a href="#199" id="199" data-nosnippet="">199</a>
+<a href="#200" id="200" data-nosnippet="">200</a><span class="doccomment">/// [`layout`] as the reading order of indices into `glyphs`, with each one's line and word gap.
+<a href="#201" id="201" data-nosnippet="">201</a></span><span class="kw">fn </span>arrange(glyphs: <span class="kw-2">&amp;</span>[TextGlyph]) -&gt; (Vec&lt;usize&gt;, Vec&lt;u32&gt;, Vec&lt;bool&gt;) {
+<a href="#202" id="202" data-nosnippet="">202</a>    <span class="comment">// Drop "fake bold" duplicates: the same character redrawn at (almost) the same place. A redraw
+<a href="#203" id="203" data-nosnippet="">203</a>    // also overlaps most of its own width: a narrow letter in condensed text (80 Tz and below) sits
+<a href="#204" id="204" data-nosnippet="">204</a>    // closer than a fifth of its height to its double, as the second "l" of "Alle" (#1467), and
+<a href="#205" id="205" data-nosnippet="">205</a>    // OCR layers squeeze words to 20 Tz and below (#2457). Only a zero-width mark, which has no
+<a href="#206" id="206" data-nosnippet="">206</a>    // width to overlap, is matched by its height alone.
+<a href="#207" id="207" data-nosnippet="">207</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>keep = <span class="macro">vec!</span>[<span class="bool-val">true</span>; glyphs.len()];
+<a href="#208" id="208" data-nosnippet="">208</a>    <span class="kw">for </span>i <span class="kw">in </span><span class="number">1</span>..glyphs.len() {
+<a href="#209" id="209" data-nosnippet="">209</a>        <span class="kw">let </span>g = <span class="kw-2">&amp;</span>glyphs[i];
+<a href="#210" id="210" data-nosnippet="">210</a>        <span class="kw">let </span>h = (g.rect[<span class="number">3</span>] - g.rect[<span class="number">1</span>]).max(<span class="number">0.1</span>);
+<a href="#211" id="211" data-nosnippet="">211</a>        <span class="kw">let </span>w = g.rect[<span class="number">2</span>] - g.rect[<span class="number">0</span>];
+<a href="#212" id="212" data-nosnippet="">212</a>        <span class="kw">let </span>dx = <span class="kw">if </span>w &gt; <span class="number">0.0 </span>{ (h * <span class="number">0.2</span>).min(w * <span class="number">0.5</span>) } <span class="kw">else </span>{ h * <span class="number">0.2 </span>};
+<a href="#213" id="213" data-nosnippet="">213</a>        <span class="kw">for </span>j <span class="kw">in </span>(i.saturating_sub(<span class="number">4</span>)..i).rev() {
+<a href="#214" id="214" data-nosnippet="">214</a>            <span class="kw">let </span>p = <span class="kw-2">&amp;</span>glyphs[j];
+<a href="#215" id="215" data-nosnippet="">215</a>            <span class="kw">if </span>keep[j] &amp;&amp; p.text == g.text &amp;&amp; (p.rect[<span class="number">0</span>] - g.rect[<span class="number">0</span>]).abs() &lt; dx &amp;&amp; (p.rect[<span class="number">1</span>] - g.rect[<span class="number">1</span>]).abs() &lt; h * <span class="number">0.2 </span>{
+<a href="#216" id="216" data-nosnippet="">216</a>                keep[i] = <span class="bool-val">false</span>;
+<a href="#217" id="217" data-nosnippet="">217</a>                <span class="kw">break</span>;
+<a href="#218" id="218" data-nosnippet="">218</a>            }
+<a href="#219" id="219" data-nosnippet="">219</a>        }
+<a href="#220" id="220" data-nosnippet="">220</a>    }
+<a href="#221" id="221" data-nosnippet="">221</a>    <span class="kw">let </span>kept: Vec&lt;usize&gt; = (<span class="number">0</span>..glyphs.len()).filter(|i| keep[<span class="kw-2">*</span>i]).collect();
+<a href="#222" id="222" data-nosnippet="">222</a>    <span class="kw">let </span>glyphs: Vec&lt;<span class="kw-2">&amp;</span>TextGlyph&gt; = kept.iter().map(|i| <span class="kw-2">&amp;</span>glyphs[<span class="kw-2">*</span>i]).collect();
+<a href="#223" id="223" data-nosnippet="">223</a>    <span class="kw">let </span>n = glyphs.len();
+<a href="#224" id="224" data-nosnippet="">224</a>    <span class="kw">if </span>n == <span class="number">0 </span>{
+<a href="#225" id="225" data-nosnippet="">225</a>        <span class="kw">return </span>Default::default();
+<a href="#226" id="226" data-nosnippet="">226</a>    }
+<a href="#227" id="227" data-nosnippet="">227</a>    <span class="kw">let </span>height = |i: usize| (glyphs[i].rect[<span class="number">3</span>] - glyphs[i].rect[<span class="number">1</span>]).max(<span class="number">0.1</span>);
+<a href="#228" id="228" data-nosnippet="">228</a>    <span class="kw">let </span>cy = |i: usize| (glyphs[i].rect[<span class="number">1</span>] + glyphs[i].rect[<span class="number">3</span>]) / <span class="number">2.0</span>;
+<a href="#229" id="229" data-nosnippet="">229</a>
+<a href="#230" id="230" data-nosnippet="">230</a>    <span class="comment">// 1. Segments in content order. Every run is a range of consecutive glyphs.
+<a href="#231" id="231" data-nosnippet="">231</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>segs: Vec&lt;Seg&gt; = Vec::new();
+<a href="#232" id="232" data-nosnippet="">232</a>    <span class="comment">// `anchor[i]`: the glyph a combining mark rides on (the first glyph of its cluster), or `i`.
+<a href="#233" id="233" data-nosnippet="">233</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>anchor: Vec&lt;usize&gt; = (<span class="number">0</span>..n).collect();
+<a href="#234" id="234" data-nosnippet="">234</a>    <span class="kw">let </span><span class="kw-2">mut </span>run_start_x = <span class="number">0.0</span>;
+<a href="#235" id="235" data-nosnippet="">235</a>    <span class="kw">let </span><span class="kw-2">mut </span>furthest_progress = <span class="number">0.0</span>;
+<a href="#236" id="236" data-nosnippet="">236</a>    <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..n {
+<a href="#237" id="237" data-nosnippet="">237</a>        <span class="kw">let </span>g = glyphs[i].rect;
+<a href="#238" id="238" data-nosnippet="">238</a>        <span class="kw">let </span>hi = height(i);
+<a href="#239" id="239" data-nosnippet="">239</a>        <span class="kw">let </span>cont = segs.last().is_some_and(|s| {
+<a href="#240" id="240" data-nosnippet="">240</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(last) = s.first.end.checked_sub(<span class="number">1</span>) <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
+<a href="#241" id="241" data-nosnippet="">241</a>            <span class="comment">// A glyph after a combining mark continues from the mark's letter, and a mark on that letter's cluster
+<a href="#242" id="242" data-nosnippet="">242</a>            // stays on its line even when drawn raised or lowered by up to an em (`MARK_RISE`).
+<a href="#243" id="243" data-nosnippet="">243</a>            </span><span class="kw">let </span>p = anchor.get(last).copied().unwrap_or(last);
+<a href="#244" id="244" data-nosnippet="">244</a>            <span class="kw">if </span>rides_on_cluster(<span class="kw-2">&amp;</span>glyphs, last, p, glyphs[i]) &amp;&amp; (cy(i) - cy(p)).abs() &lt; height(p) * MARK_RISE {
+<a href="#245" id="245" data-nosnippet="">245</a>                <span class="kw">return </span><span class="bool-val">true</span>;
+<a href="#246" id="246" data-nosnippet="">246</a>            }
+<a href="#247" id="247" data-nosnippet="">247</a>            <span class="kw">let </span>ph = height(p).min(hi);
+<a href="#248" id="248" data-nosnippet="">248</a>            <span class="kw">let </span>sh = s.h.min(hi);
+<a href="#249" id="249" data-nosnippet="">249</a>            <span class="kw">let </span>gap = g[<span class="number">0</span>] - glyphs[p].rect[<span class="number">2</span>];
+<a href="#250" id="250" data-nosnippet="">250</a>            <span class="comment">// A sub- or superscript is a smaller glyph on a shifted baseline: its em box centre sits off the line by
+<a href="#251" id="251" data-nosnippet="">251</a>            // more than half its own height, but by less than half the height of the full-size glyph beside it.
+<a href="#252" id="252" data-nosnippet="">252</a>            </span><span class="kw">let </span>centre_limit = <span class="kw">if </span>gap.abs() &lt; ph { height(p).max(hi) * <span class="number">0.5 </span>} <span class="kw">else </span>{ ph * <span class="number">0.5 </span>};
+<a href="#253" id="253" data-nosnippet="">253</a>            <span class="kw">let </span>same_line = ((cy(i) - cy(p)).abs() &lt; centre_limit &amp;&amp; gap &lt; ph * <span class="number">3.0</span>)
+<a href="#254" id="254" data-nosnippet="">254</a>                || ((cy(i) - s.cy()).abs() &lt; sh * <span class="number">0.3 </span>&amp;&amp; (s.h / hi - <span class="number">1.0</span>).abs() &lt; <span class="number">0.35 </span>&amp;&amp; gap &lt; sh * <span class="number">3.0</span>);
+<a href="#255" id="255" data-nosnippet="">255</a>            <span class="kw">let </span>on_seg = gap &lt; s.h * <span class="number">1.2 </span>&amp;&amp; (is_script_on(<span class="kw-2">&amp;</span>s.bbox, s.h, <span class="kw-2">&amp;</span>g, hi) || is_script_on(<span class="kw-2">&amp;</span>g, hi, <span class="kw-2">&amp;</span>s.bbox, s.h));
+<a href="#256" id="256" data-nosnippet="">256</a>            (same_line || on_seg) &amp;&amp; g[<span class="number">0</span>] &gt; glyphs[p].rect[<span class="number">0</span>] - sh * <span class="number">2.0
+<a href="#257" id="257" data-nosnippet="">257</a>        </span>});
+<a href="#258" id="258" data-nosnippet="">258</a>        <span class="kw">let </span>reset = cont &amp;&amp; segs.last().is_some_and(|s| restarts_run(<span class="kw-2">&amp;</span>glyphs, s.first.start, i, furthest_progress));
+<a href="#259" id="259" data-nosnippet="">259</a>        <span class="kw">if </span>cont
+<a href="#260" id="260" data-nosnippet="">260</a>            &amp;&amp; !reset
+<a href="#261" id="261" data-nosnippet="">261</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(s) = segs.last_mut()
+<a href="#262" id="262" data-nosnippet="">262</a>        {
+<a href="#263" id="263" data-nosnippet="">263</a>            attach_mark(<span class="kw-2">&amp;</span>glyphs, <span class="kw-2">&amp;mut </span>anchor, i);
+<a href="#264" id="264" data-nosnippet="">264</a>            s.first.end = i + <span class="number">1</span>;
+<a href="#265" id="265" data-nosnippet="">265</a>            s.extend_box(<span class="kw-2">&amp;</span>g, hi);
+<a href="#266" id="266" data-nosnippet="">266</a>            furthest_progress = furthest_progress.max((g[<span class="number">0</span>] - run_start_x).abs()).max((g[<span class="number">2</span>] - run_start_x).abs());
+<a href="#267" id="267" data-nosnippet="">267</a>        } <span class="kw">else </span>{
+<a href="#268" id="268" data-nosnippet="">268</a>            segs.push(Seg::new(Run { start: i, end: i + <span class="number">1 </span>}, g, hi));
+<a href="#269" id="269" data-nosnippet="">269</a>            run_start_x = g[<span class="number">0</span>];
+<a href="#270" id="270" data-nosnippet="">270</a>            furthest_progress = <span class="number">0.0</span>;
+<a href="#271" id="271" data-nosnippet="">271</a>        }
+<a href="#272" id="272" data-nosnippet="">272</a>    }
+<a href="#273" id="273" data-nosnippet="">273</a>    <span class="comment">// A run that redraws an earlier run at the same place (doubled or shadowed text) is dropped, as a doubled glyph is
+<a href="#274" id="274" data-nosnippet="">274</a>    // above. Runs are keyed by a fingerprint of their glyph texts and a grid cell a fifth of a line high. A key leads to
+<a href="#275" id="275" data-nosnippet="">275</a>    // the latest retained run with it, and `older[k]` links each retained run to the previous one with the same key, so
+<a href="#276" id="276" data-nosnippet="">276</a>    // the earlier candidates are checked newest first, up to `REDRAW_CANDIDATES`. Both exist only for this pass.
+<a href="#277" id="277" data-nosnippet="">277</a>    </span><span class="kw">let </span>retained = {
+<a href="#278" id="278" data-nosnippet="">278</a>        <span class="kw">let </span>candidates = segs.iter().filter(|s| s.first.len() &gt;= <span class="number">2</span>).count();
+<a href="#279" id="279" data-nosnippet="">279</a>        <span class="kw">let </span><span class="kw-2">mut </span>latest: HashMap&lt;(u64, i32, i32), usize&gt; = HashMap::with_capacity(candidates);
+<a href="#280" id="280" data-nosnippet="">280</a>        <span class="kw">let </span><span class="kw-2">mut </span>older = <span class="macro">vec!</span>[NONE; segs.len()];
+<a href="#281" id="281" data-nosnippet="">281</a>        <span class="kw">let </span><span class="kw-2">mut </span>kept_runs = <span class="number">0</span>;
+<a href="#282" id="282" data-nosnippet="">282</a>        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..segs.len() {
+<a href="#283" id="283" data-nosnippet="">283</a>            <span class="kw">let </span>run = segs[i].first;
+<a href="#284" id="284" data-nosnippet="">284</a>            <span class="kw">if </span>run.len() &gt;= <span class="number">2 </span>{
+<a href="#285" id="285" data-nosnippet="">285</a>                <span class="kw">let </span>tol = <span class="number">0.2 </span>* segs[i].h;
+<a href="#286" id="286" data-nosnippet="">286</a>                <span class="kw">let </span>(cx, cy_) = ((glyphs[run.start].rect[<span class="number">0</span>] / tol).floor() <span class="kw">as </span>i32, (glyphs[run.start].rect[<span class="number">1</span>] / tol).floor() <span class="kw">as </span>i32);
+<a href="#287" id="287" data-nosnippet="">287</a>                <span class="kw">let </span>fp = fingerprint(<span class="kw-2">&amp;</span>glyphs, run);
+<a href="#288" id="288" data-nosnippet="">288</a>                <span class="kw">let </span><span class="kw-2">mut </span>checks = REDRAW_CANDIDATES;
+<a href="#289" id="289" data-nosnippet="">289</a>                <span class="kw">let </span>twin = (-<span class="number">1</span>..=<span class="number">1i32</span>).any(|dx| {
+<a href="#290" id="290" data-nosnippet="">290</a>                    (-<span class="number">1</span>..=<span class="number">1i32</span>).any(|dy| {
+<a href="#291" id="291" data-nosnippet="">291</a>                        <span class="kw">let </span><span class="kw-2">mut </span>link = latest.get(<span class="kw-2">&amp;</span>(fp, cx.saturating_add(dx), cy_.saturating_add(dy))).copied();
+<a href="#292" id="292" data-nosnippet="">292</a>                        <span class="kw">while let </span><span class="prelude-val">Some</span>(k) = link {
+<a href="#293" id="293" data-nosnippet="">293</a>                            <span class="kw">let </span><span class="prelude-val">Some</span>(prev) = segs.get(k) <span class="kw">else </span>{ <span class="kw">break </span>};
+<a href="#294" id="294" data-nosnippet="">294</a>                            <span class="kw">if </span>checks == <span class="number">0 </span>{
+<a href="#295" id="295" data-nosnippet="">295</a>                                <span class="kw">return </span><span class="bool-val">false</span>;
+<a href="#296" id="296" data-nosnippet="">296</a>                            }
+<a href="#297" id="297" data-nosnippet="">297</a>                            checks -= <span class="number">1</span>;
+<a href="#298" id="298" data-nosnippet="">298</a>                            <span class="kw">if </span>redraws(<span class="kw-2">&amp;</span>glyphs, prev.first, run) {
+<a href="#299" id="299" data-nosnippet="">299</a>                                <span class="kw">return </span><span class="bool-val">true</span>;
+<a href="#300" id="300" data-nosnippet="">300</a>                            }
+<a href="#301" id="301" data-nosnippet="">301</a>                            link = older.get(k).copied().filter(|<span class="kw-2">&amp;</span>o| o != NONE);
+<a href="#302" id="302" data-nosnippet="">302</a>                        }
+<a href="#303" id="303" data-nosnippet="">303</a>                        <span class="bool-val">false
+<a href="#304" id="304" data-nosnippet="">304</a>                    </span>})
+<a href="#305" id="305" data-nosnippet="">305</a>                });
+<a href="#306" id="306" data-nosnippet="">306</a>                <span class="kw">if </span>twin {
+<a href="#307" id="307" data-nosnippet="">307</a>                    <span class="kw">continue</span>;
+<a href="#308" id="308" data-nosnippet="">308</a>                }
+<a href="#309" id="309" data-nosnippet="">309</a>                older[kept_runs] = latest.insert((fp, cx, cy_), kept_runs).unwrap_or(NONE);
+<a href="#310" id="310" data-nosnippet="">310</a>            }
+<a href="#311" id="311" data-nosnippet="">311</a>            segs.swap(kept_runs, i);
+<a href="#312" id="312" data-nosnippet="">312</a>            kept_runs += <span class="number">1</span>;
+<a href="#313" id="313" data-nosnippet="">313</a>        }
+<a href="#314" id="314" data-nosnippet="">314</a>        kept_runs
+<a href="#315" id="315" data-nosnippet="">315</a>    };
+<a href="#316" id="316" data-nosnippet="">316</a>    segs.truncate(retained);
+<a href="#317" id="317" data-nosnippet="">317</a>    <span class="comment">// Merge same-baseline segments that nearly touch, then attach any remaining superscript or
+<a href="#318" id="318" data-nosnippet="">318</a>    // subscript segments to the closest host line segment they sit on.
+<a href="#319" id="319" data-nosnippet="">319</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>merged = <span class="bool-val">true</span>;
+<a href="#320" id="320" data-nosnippet="">320</a>    <span class="kw">while </span>merged {
+<a href="#321" id="321" data-nosnippet="">321</a>        merged = <span class="bool-val">false</span>;
+<a href="#322" id="322" data-nosnippet="">322</a>        <span class="lifetime">'outer</span>: <span class="kw">for </span>a <span class="kw">in </span><span class="number">0</span>..segs.len() {
+<a href="#323" id="323" data-nosnippet="">323</a>            <span class="kw">for </span>b <span class="kw">in </span><span class="number">0</span>..segs.len() {
+<a href="#324" id="324" data-nosnippet="">324</a>                <span class="kw">if </span>a == b {
+<a href="#325" id="325" data-nosnippet="">325</a>                    <span class="kw">continue</span>;
+<a href="#326" id="326" data-nosnippet="">326</a>                }
+<a href="#327" id="327" data-nosnippet="">327</a>                <span class="kw">let </span>(sa, sb) = (<span class="kw-2">&amp;</span>segs[a], <span class="kw-2">&amp;</span>segs[b]);
+<a href="#328" id="328" data-nosnippet="">328</a>                <span class="kw">let </span>h = sa.h.min(sb.h);
+<a href="#329" id="329" data-nosnippet="">329</a>                <span class="kw">let </span>gap = (sb.bbox[<span class="number">0</span>] - sa.bbox[<span class="number">2</span>]).max(sa.bbox[<span class="number">0</span>] - sb.bbox[<span class="number">2</span>]);
+<a href="#330" id="330" data-nosnippet="">330</a>                <span class="kw">if </span>(sa.cy() - sb.cy()).abs() &lt; h * <span class="number">0.3 </span>&amp;&amp; (sa.h / sb.h - <span class="number">1.0</span>).abs() &lt; <span class="number">0.35 </span>&amp;&amp; gap &lt; h * <span class="number">1.2 </span>{
+<a href="#331" id="331" data-nosnippet="">331</a>                    <span class="kw">let </span>sb = segs.remove(b);
+<a href="#332" id="332" data-nosnippet="">332</a>                    <span class="kw">let </span>a = <span class="kw">if </span>b &lt; a { a - <span class="number">1 </span>} <span class="kw">else </span>{ a };
+<a href="#333" id="333" data-nosnippet="">333</a>                    segs[a].merge(sb);
+<a href="#334" id="334" data-nosnippet="">334</a>                    merged = <span class="bool-val">true</span>;
+<a href="#335" id="335" data-nosnippet="">335</a>                    <span class="kw">break </span><span class="lifetime">'outer</span>;
+<a href="#336" id="336" data-nosnippet="">336</a>                }
+<a href="#337" id="337" data-nosnippet="">337</a>            }
+<a href="#338" id="338" data-nosnippet="">338</a>        }
+<a href="#339" id="339" data-nosnippet="">339</a>        <span class="kw">if </span>!merged {
+<a href="#340" id="340" data-nosnippet="">340</a>            <span class="kw">let </span><span class="kw-2">mut </span>b = <span class="number">0</span>;
+<a href="#341" id="341" data-nosnippet="">341</a>            <span class="kw">while </span>b &lt; segs.len() {
+<a href="#342" id="342" data-nosnippet="">342</a>                <span class="kw">let </span>sb = <span class="kw-2">&amp;</span>segs[b];
+<a href="#343" id="343" data-nosnippet="">343</a>                <span class="kw">let </span>best_host = (<span class="number">0</span>..segs.len())
+<a href="#344" id="344" data-nosnippet="">344</a>                    .filter(|<span class="kw-2">&amp;</span>a| {
+<a href="#345" id="345" data-nosnippet="">345</a>                        <span class="kw">if </span>a == b {
+<a href="#346" id="346" data-nosnippet="">346</a>                            <span class="kw">return </span><span class="bool-val">false</span>;
+<a href="#347" id="347" data-nosnippet="">347</a>                        }
+<a href="#348" id="348" data-nosnippet="">348</a>                        <span class="kw">let </span>sa = <span class="kw-2">&amp;</span>segs[a];
+<a href="#349" id="349" data-nosnippet="">349</a>                        <span class="kw">let </span>gap = (sb.bbox[<span class="number">0</span>] - sa.bbox[<span class="number">2</span>]).max(sa.bbox[<span class="number">0</span>] - sb.bbox[<span class="number">2</span>]);
+<a href="#350" id="350" data-nosnippet="">350</a>                        sa.bbox[<span class="number">2</span>] - sa.bbox[<span class="number">0</span>] &gt; sb.bbox[<span class="number">2</span>] - sb.bbox[<span class="number">0</span>] &amp;&amp; gap &lt; sa.h * <span class="number">1.2 </span>&amp;&amp; is_script_on(<span class="kw-2">&amp;</span>sa.bbox, sa.h, <span class="kw-2">&amp;</span>sb.bbox, sb.h)
+<a href="#351" id="351" data-nosnippet="">351</a>                    })
+<a href="#352" id="352" data-nosnippet="">352</a>                    .min_by(|<span class="kw-2">&amp;</span>a1, <span class="kw-2">&amp;</span>a2| (segs[a1].cy() - sb.cy()).abs().total_cmp(<span class="kw-2">&amp;</span>(segs[a2].cy() - sb.cy()).abs()));
+<a href="#353" id="353" data-nosnippet="">353</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(a) = best_host {
+<a href="#354" id="354" data-nosnippet="">354</a>                    <span class="kw">let </span>sb = segs.remove(b);
+<a href="#355" id="355" data-nosnippet="">355</a>                    <span class="kw">let </span>a = <span class="kw">if </span>b &lt; a { a - <span class="number">1 </span>} <span class="kw">else </span>{ a };
+<a href="#356" id="356" data-nosnippet="">356</a>                    segs[a].merge(sb);
+<a href="#357" id="357" data-nosnippet="">357</a>                    merged = <span class="bool-val">true</span>;
+<a href="#358" id="358" data-nosnippet="">358</a>                } <span class="kw">else </span>{
+<a href="#359" id="359" data-nosnippet="">359</a>                    b += <span class="number">1</span>;
+<a href="#360" id="360" data-nosnippet="">360</a>                }
+<a href="#361" id="361" data-nosnippet="">361</a>            }
+<a href="#362" id="362" data-nosnippet="">362</a>        }
+<a href="#363" id="363" data-nosnippet="">363</a>    }
+<a href="#364" id="364" data-nosnippet="">364</a>
+<a href="#365" id="365" data-nosnippet="">365</a>    <span class="comment">// 2. Blocks.
+<a href="#366" id="366" data-nosnippet="">366</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>by_top: Vec&lt;usize&gt; = (<span class="number">0</span>..segs.len()).collect();
+<a href="#367" id="367" data-nosnippet="">367</a>    by_top.sort_by(|a, b| segs[<span class="kw-2">*</span>a].bbox[<span class="number">1</span>].total_cmp(<span class="kw-2">&amp;</span>segs[<span class="kw-2">*</span>b].bbox[<span class="number">1</span>]));
+<a href="#368" id="368" data-nosnippet="">368</a>    <span class="kw">let </span><span class="kw-2">mut </span>blocks: Vec&lt;(Vec&lt;usize&gt;, [f32; <span class="number">4</span>])&gt; = Vec::new();
+<a href="#369" id="369" data-nosnippet="">369</a>    <span class="kw">for </span>si <span class="kw">in </span>by_top {
+<a href="#370" id="370" data-nosnippet="">370</a>        <span class="kw">let </span>s = <span class="kw-2">&amp;</span>segs[si];
+<a href="#371" id="371" data-nosnippet="">371</a>        <span class="kw">let </span>target = blocks.iter().position(|(members, bb)| {
+<a href="#372" id="372" data-nosnippet="">372</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>m) = members.last() <span class="kw">else </span>{ <span class="kw">return </span><span class="bool-val">false </span>};
+<a href="#373" id="373" data-nosnippet="">373</a>            <span class="kw">let </span>last = <span class="kw-2">&amp;</span>segs[m];
+<a href="#374" id="374" data-nosnippet="">374</a>            <span class="kw">let </span>vgap = s.bbox[<span class="number">1</span>] - last.bbox[<span class="number">3</span>];
+<a href="#375" id="375" data-nosnippet="">375</a>            <span class="kw">let </span>overlap = s.bbox[<span class="number">2</span>].min(bb[<span class="number">2</span>]) - s.bbox[<span class="number">0</span>].max(bb[<span class="number">0</span>]);
+<a href="#376" id="376" data-nosnippet="">376</a>            <span class="kw">let </span>minw = (s.bbox[<span class="number">2</span>] - s.bbox[<span class="number">0</span>]).min(bb[<span class="number">2</span>] - bb[<span class="number">0</span>]).max(<span class="number">1.0</span>);
+<a href="#377" id="377" data-nosnippet="">377</a>            vgap &gt; -last.h * <span class="number">0.5 </span>&amp;&amp; vgap &lt; last.h.max(s.h) * <span class="number">1.1 </span>&amp;&amp; overlap &gt; minw * <span class="number">0.3 </span>&amp;&amp; (last.h / s.h - <span class="number">1.0</span>).abs() &lt; <span class="number">0.6
+<a href="#378" id="378" data-nosnippet="">378</a>        </span>});
+<a href="#379" id="379" data-nosnippet="">379</a>        <span class="kw">match </span>target {
+<a href="#380" id="380" data-nosnippet="">380</a>            <span class="prelude-val">Some</span>(b) =&gt; {
+<a href="#381" id="381" data-nosnippet="">381</a>                blocks[b].<span class="number">0</span>.push(si);
+<a href="#382" id="382" data-nosnippet="">382</a>                <span class="kw">let </span>bb = s.bbox;
+<a href="#383" id="383" data-nosnippet="">383</a>                union(<span class="kw-2">&amp;mut </span>blocks[b].<span class="number">1</span>, <span class="kw-2">&amp;</span>bb);
+<a href="#384" id="384" data-nosnippet="">384</a>            }
+<a href="#385" id="385" data-nosnippet="">385</a>            <span class="prelude-val">None </span>=&gt; blocks.push((<span class="macro">vec!</span>[si], s.bbox)),
+<a href="#386" id="386" data-nosnippet="">386</a>        }
+<a href="#387" id="387" data-nosnippet="">387</a>    }
+<a href="#388" id="388" data-nosnippet="">388</a>
+<a href="#389" id="389" data-nosnippet="">389</a>    <span class="comment">// 3. Block order.
+<a href="#390" id="390" data-nosnippet="">390</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>remaining: Vec&lt;usize&gt; = (<span class="number">0</span>..blocks.len()).collect();
+<a href="#391" id="391" data-nosnippet="">391</a>    <span class="kw">let </span><span class="kw-2">mut </span>block_order: Vec&lt;usize&gt; = Vec::with_capacity(blocks.len());
+<a href="#392" id="392" data-nosnippet="">392</a>    <span class="comment">// A block to the left of `cb` that shares at least half the height of the shorter one: it reads first.
+<a href="#393" id="393" data-nosnippet="">393</a>    </span><span class="kw">let </span>beside_left = |cb: <span class="kw-2">&amp;</span>[f32; <span class="number">4</span>], lb: <span class="kw-2">&amp;</span>[f32; <span class="number">4</span>]| {
+<a href="#394" id="394" data-nosnippet="">394</a>        <span class="kw">let </span>v = lb[<span class="number">3</span>].min(cb[<span class="number">3</span>]) - lb[<span class="number">1</span>].max(cb[<span class="number">1</span>]);
+<a href="#395" id="395" data-nosnippet="">395</a>        lb[<span class="number">2</span>] &lt;= cb[<span class="number">0</span>] + <span class="number">1.0 </span>&amp;&amp; v &gt; <span class="number">0.5 </span>* (lb[<span class="number">3</span>] - lb[<span class="number">1</span>]).min(cb[<span class="number">3</span>] - cb[<span class="number">1</span>])
+<a href="#396" id="396" data-nosnippet="">396</a>    };
+<a href="#397" id="397" data-nosnippet="">397</a>    <span class="comment">// The box of a block's first line. Every block is created with one segment, so the block's own box is a fallback
+<a href="#398" id="398" data-nosnippet="">398</a>    // that is never used.
+<a href="#399" id="399" data-nosnippet="">399</a>    </span><span class="kw">let </span>first_line = |b: usize| blocks[b].<span class="number">0</span>.first().and_then(|<span class="kw-2">&amp;</span>s| segs.get(s)).map_or(blocks[b].<span class="number">1</span>, |s| s.bbox);
+<a href="#400" id="400" data-nosnippet="">400</a>    <span class="kw">while let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>top) = remaining.iter().min_by(|a, b| blocks[<span class="kw-2">**</span>a].<span class="number">1</span>[<span class="number">1</span>].total_cmp(<span class="kw-2">&amp;</span>blocks[<span class="kw-2">**</span>b].<span class="number">1</span>[<span class="number">1</span>])) {
+<a href="#401" id="401" data-nosnippet="">401</a>        <span class="comment">// A column goes on past a paragraph gap (#3658): the nearest block below the one just read that overlaps it
+<a href="#402" id="402" data-nosnippet="">402</a>        // horizontally comes next, if the gap above it is at most two and a half heights of the last line read (a
+<a href="#403" id="403" data-nosnippet="">403</a>        // footer, a footnote or a caption under a figure is further) and no other unread block
+<a href="#404" id="404" data-nosnippet="">404</a>        // - sits above it in its own horizontal span (the rest of a column above a full-width heading or footnote),
+<a href="#405" id="405" data-nosnippet="">405</a>        // - is beside it on its left, or
+<a href="#406" id="406" data-nosnippet="">406</a>        // - shares its first line: their first lines overlap by at least 30% of the taller one (a table or form row,
+<a href="#407" id="407" data-nosnippet="">407</a>        //   which reads across, even with labels and values in different sizes or on shifted baselines; a line that
+<a href="#408" id="408" data-nosnippet="">408</a>        //   only touches it, or a small superscript or footnote marker, is not a row).
+<a href="#409" id="409" data-nosnippet="">409</a>        </span><span class="kw">let </span>next_in_column = block_order.last().and_then(|<span class="kw-2">&amp;</span>prev| {
+<a href="#410" id="410" data-nosnippet="">410</a>            <span class="kw">let </span>pb = blocks[prev].<span class="number">1</span>;
+<a href="#411" id="411" data-nosnippet="">411</a>            <span class="comment">// The gap is measured in the height of the block's last line, which borders it.
+<a href="#412" id="412" data-nosnippet="">412</a>            </span><span class="kw">let </span>pl = blocks[prev].<span class="number">0</span>.last().and_then(|<span class="kw-2">&amp;</span>s| segs.get(s)).map_or(pb, |s| s.bbox);
+<a href="#413" id="413" data-nosnippet="">413</a>            <span class="kw">let </span>tol = (pl[<span class="number">3</span>] - pl[<span class="number">1</span>]).max(<span class="number">0.1</span>) * <span class="number">0.5</span>;
+<a href="#414" id="414" data-nosnippet="">414</a>            <span class="kw">let </span>c = remaining
+<a href="#415" id="415" data-nosnippet="">415</a>                .iter()
+<a href="#416" id="416" data-nosnippet="">416</a>                .copied()
+<a href="#417" id="417" data-nosnippet="">417</a>                .filter(|<span class="kw-2">&amp;</span>c| {
+<a href="#418" id="418" data-nosnippet="">418</a>                    <span class="kw">let </span>cb = blocks[c].<span class="number">1</span>;
+<a href="#419" id="419" data-nosnippet="">419</a>                    <span class="kw">let </span>overlap = cb[<span class="number">2</span>].min(pb[<span class="number">2</span>]) - cb[<span class="number">0</span>].max(pb[<span class="number">0</span>]);
+<a href="#420" id="420" data-nosnippet="">420</a>                    <span class="kw">let </span>minw = (cb[<span class="number">2</span>] - cb[<span class="number">0</span>]).min(pb[<span class="number">2</span>] - pb[<span class="number">0</span>]).max(<span class="number">1.0</span>);
+<a href="#421" id="421" data-nosnippet="">421</a>                    cb[<span class="number">1</span>] &gt;= pb[<span class="number">3</span>] - tol &amp;&amp; overlap &gt; minw * <span class="number">0.3
+<a href="#422" id="422" data-nosnippet="">422</a>                </span>})
+<a href="#423" id="423" data-nosnippet="">423</a>                .min_by(|a, b| blocks[<span class="kw-2">*</span>a].<span class="number">1</span>[<span class="number">1</span>].total_cmp(<span class="kw-2">&amp;</span>blocks[<span class="kw-2">*</span>b].<span class="number">1</span>[<span class="number">1</span>]))<span class="question-mark">?</span>;
+<a href="#424" id="424" data-nosnippet="">424</a>            <span class="kw">let </span>cb = blocks[c].<span class="number">1</span>;
+<a href="#425" id="425" data-nosnippet="">425</a>            <span class="kw">if </span>cb[<span class="number">1</span>] - pb[<span class="number">3</span>] &gt;= tol * <span class="number">5.0 </span>{
+<a href="#426" id="426" data-nosnippet="">426</a>                <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#427" id="427" data-nosnippet="">427</a>            }
+<a href="#428" id="428" data-nosnippet="">428</a>            <span class="kw">let </span>cl = first_line(c);
+<a href="#429" id="429" data-nosnippet="">429</a>            <span class="kw">let </span>blocked = remaining.iter().any(|<span class="kw-2">&amp;</span>r| {
+<a href="#430" id="430" data-nosnippet="">430</a>                <span class="kw">if </span>r == c {
+<a href="#431" id="431" data-nosnippet="">431</a>                    <span class="kw">return </span><span class="bool-val">false</span>;
+<a href="#432" id="432" data-nosnippet="">432</a>                }
+<a href="#433" id="433" data-nosnippet="">433</a>                <span class="kw">let </span>rb = blocks[r].<span class="number">1</span>;
+<a href="#434" id="434" data-nosnippet="">434</a>                <span class="kw">let </span>rl = first_line(r);
+<a href="#435" id="435" data-nosnippet="">435</a>                <span class="kw">let </span>shared = rl[<span class="number">3</span>].min(cl[<span class="number">3</span>]) - rl[<span class="number">1</span>].max(cl[<span class="number">1</span>]);
+<a href="#436" id="436" data-nosnippet="">436</a>                <span class="kw">let </span>row = shared &gt; <span class="number">0.3 </span>* (rl[<span class="number">3</span>] - rl[<span class="number">1</span>]).max(cl[<span class="number">3</span>] - cl[<span class="number">1</span>]);
+<a href="#437" id="437" data-nosnippet="">437</a>                (rb[<span class="number">1</span>] &lt; cb[<span class="number">1</span>] &amp;&amp; rb[<span class="number">2</span>].min(cb[<span class="number">2</span>]) &gt; rb[<span class="number">0</span>].max(cb[<span class="number">0</span>])) || beside_left(<span class="kw-2">&amp;</span>cb, <span class="kw-2">&amp;</span>rb) || row
+<a href="#438" id="438" data-nosnippet="">438</a>            });
+<a href="#439" id="439" data-nosnippet="">439</a>            (!blocked).then_some(c)
+<a href="#440" id="440" data-nosnippet="">440</a>        });
+<a href="#441" id="441" data-nosnippet="">441</a>        <span class="kw">let </span>pick = next_in_column.unwrap_or_else(|| {
+<a href="#442" id="442" data-nosnippet="">442</a>            <span class="kw">let </span>tb = blocks[top].<span class="number">1</span>;
+<a href="#443" id="443" data-nosnippet="">443</a>            remaining
+<a href="#444" id="444" data-nosnippet="">444</a>                .iter()
+<a href="#445" id="445" data-nosnippet="">445</a>                .copied()
+<a href="#446" id="446" data-nosnippet="">446</a>                .filter(|c| beside_left(<span class="kw-2">&amp;</span>tb, <span class="kw-2">&amp;</span>blocks[<span class="kw-2">*</span>c].<span class="number">1</span>))
+<a href="#447" id="447" data-nosnippet="">447</a>                .min_by(|a, b| blocks[<span class="kw-2">*</span>a].<span class="number">1</span>[<span class="number">0</span>].total_cmp(<span class="kw-2">&amp;</span>blocks[<span class="kw-2">*</span>b].<span class="number">1</span>[<span class="number">0</span>]))
+<a href="#448" id="448" data-nosnippet="">448</a>                .unwrap_or(top)
+<a href="#449" id="449" data-nosnippet="">449</a>        });
+<a href="#450" id="450" data-nosnippet="">450</a>        remaining.retain(|r| <span class="kw-2">*</span>r != pick);
+<a href="#451" id="451" data-nosnippet="">451</a>        block_order.push(pick);
+<a href="#452" id="452" data-nosnippet="">452</a>    }
+<a href="#453" id="453" data-nosnippet="">453</a>
+<a href="#454" id="454" data-nosnippet="">454</a>    <span class="comment">// 4. Emit each segment in block order. Its glyphs are placed here, into scratch that every segment reuses, and
+<a href="#455" id="455" data-nosnippet="">455</a>    // appended straight to the output. Blocks and their order use only segment boxes, so placement can wait until now.
+<a href="#456" id="456" data-nosnippet="">456</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>order: Vec&lt;usize&gt; = Vec::with_capacity(n);
+<a href="#457" id="457" data-nosnippet="">457</a>    <span class="kw">let </span><span class="kw-2">mut </span>line_of: Vec&lt;u32&gt; = Vec::with_capacity(n);
+<a href="#458" id="458" data-nosnippet="">458</a>    <span class="kw">let </span><span class="kw-2">mut </span>space_before: Vec&lt;bool&gt; = Vec::with_capacity(n);
+<a href="#459" id="459" data-nosnippet="">459</a>    <span class="kw">let </span><span class="kw-2">mut </span>line = <span class="number">0u32</span>;
+<a href="#460" id="460" data-nosnippet="">460</a>    <span class="kw">let </span><span class="kw-2">mut </span>sc = Scratch { anchor, ..Default::default() };
+<a href="#461" id="461" data-nosnippet="">461</a>    <span class="comment">// `spaces[w]`: a word gap left of the w-th glyph of the segment, by position on the line, not by drawing order
+<a href="#462" id="462" data-nosnippet="">462</a>    // (#1062). Reused by every segment.
+<a href="#463" id="463" data-nosnippet="">463</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>spaces: Vec&lt;bool&gt; = Vec::new();
+<a href="#464" id="464" data-nosnippet="">464</a>    <span class="comment">// The segment emitted last, whether it had right-to-left text, and whether its block is that one line.
+<a href="#465" id="465" data-nosnippet="">465</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>last: <span class="prelude-ty">Option</span>&lt;(usize, bool, bool)&gt; = <span class="prelude-val">None</span>;
+<a href="#466" id="466" data-nosnippet="">466</a>    <span class="kw">for </span>b <span class="kw">in </span>block_order {
+<a href="#467" id="467" data-nosnippet="">467</a>        <span class="kw">for </span>(k, <span class="kw-2">&amp;</span>si) <span class="kw">in </span>blocks[b].<span class="number">0</span>.iter().enumerate() {
+<a href="#468" id="468" data-nosnippet="">468</a>            place_glyphs(<span class="kw-2">&amp;</span>glyphs, <span class="kw-2">&amp;</span>height, <span class="kw-2">&amp;</span>segs[si], <span class="kw-2">&amp;mut </span>sc);
+<a href="#469" id="469" data-nosnippet="">469</a>            <span class="kw">let </span>h = segs[si].h;
+<a href="#470" id="470" data-nosnippet="">470</a>            measure_cluster_gaps(<span class="kw-2">&amp;</span>glyphs, <span class="kw-2">&amp;mut </span>sc);
+<a href="#471" id="471" data-nosnippet="">471</a>            <span class="comment">// The text of the cluster that glyph `i` belongs to: its base's.
+<a href="#472" id="472" data-nosnippet="">472</a>            </span><span class="kw">let </span>cluster_text = |i: usize| sc.anchor.get(i).and_then(|<span class="kw-2">&amp;</span>a| glyphs.get(a)).map_or(<span class="string">""</span>, |g| g.text.as_str());
+<a href="#473" id="473" data-nosnippet="">473</a>            <span class="comment">// Word gaps relative to this line's typical letter gap (handles tracking).
+<a href="#474" id="474" data-nosnippet="">474</a>            // Long runs of repeated punctuation belong to leaders, not letter tracking: a TOC leader
+<a href="#475" id="475" data-nosnippet="">475</a>            // must not raise the threshold above the word gaps in its title (#3086).
+<a href="#476" id="476" data-nosnippet="">476</a>            </span>sc.gaps.clear();
+<a href="#477" id="477" data-nosnippet="">477</a>            sc.gaps.extend(sc.placed.windows(<span class="number">2</span>).enumerate().filter_map(|(w, pair)| {
+<a href="#478" id="478" data-nosnippet="">478</a>                <span class="kw">let </span><span class="kw-2">&amp;</span>[p, c] = pair <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">None </span>};
+<a href="#479" id="479" data-nosnippet="">479</a>                <span class="kw">let </span>gap = (<span class="kw-2">*</span>sc.cluster_gap.get(w + <span class="number">1</span>)<span class="question-mark">?</span>)<span class="question-mark">?</span>;
+<a href="#480" id="480" data-nosnippet="">480</a>                <span class="kw">let </span>(p, c) = (glyphs.get(p)<span class="question-mark">?</span>, glyphs.get(c)<span class="question-mark">?</span>);
+<a href="#481" id="481" data-nosnippet="">481</a>                <span class="kw">if </span>p.text == c.text &amp;&amp; p.text.chars().all(|ch| !ch.is_alphanumeric() &amp;&amp; !ch.is_whitespace()) {
+<a href="#482" id="482" data-nosnippet="">482</a>                    <span class="comment">// Keep short tracked punctuation, including an ellipsis with a final period.
+<a href="#483" id="483" data-nosnippet="">483</a>                    // Treat five or more matching glyphs as a leader. Three neighbours on each
+<a href="#484" id="484" data-nosnippet="">484</a>                    // side suffice to classify this pair, bounding work even on long runs.
+<a href="#485" id="485" data-nosnippet="">485</a>                    </span><span class="kw">let </span>same = |&amp;&amp;i: &amp;&amp;usize| glyphs.get(i).is_some_and(|g| g.text == p.text);
+<a href="#486" id="486" data-nosnippet="">486</a>                    <span class="kw">let </span>before = sc.placed.get(..w).unwrap_or_default().iter().rev().take(<span class="number">3</span>).take_while(same).count();
+<a href="#487" id="487" data-nosnippet="">487</a>                    <span class="kw">let </span>after = sc.placed.get(w.saturating_add(<span class="number">2</span>)..).unwrap_or_default().iter().take(<span class="number">3</span>).take_while(same).count();
+<a href="#488" id="488" data-nosnippet="">488</a>                    <span class="kw">if </span>before + after &gt;= <span class="number">3 </span>{
+<a href="#489" id="489" data-nosnippet="">489</a>                        <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#490" id="490" data-nosnippet="">490</a>                    }
+<a href="#491" id="491" data-nosnippet="">491</a>                }
+<a href="#492" id="492" data-nosnippet="">492</a>                <span class="prelude-val">Some</span>(gap)
+<a href="#493" id="493" data-nosnippet="">493</a>            }));
+<a href="#494" id="494" data-nosnippet="">494</a>            sc.gaps.sort_by(f32::total_cmp);
+<a href="#495" id="495" data-nosnippet="">495</a>            <span class="kw">let </span>typical = sc.gaps.get(sc.gaps.len() / <span class="number">3</span>).copied().unwrap_or(<span class="number">0.0</span>).max(<span class="number">0.0</span>);
+<a href="#496" id="496" data-nosnippet="">496</a>            <span class="kw">let </span>threshold = (typical + h * WORD_GAP).max(h * WORD_GAP);
+<a href="#497" id="497" data-nosnippet="">497</a>            spaces.clear();
+<a href="#498" id="498" data-nosnippet="">498</a>            spaces.resize(sc.placed.len(), <span class="bool-val">false</span>);
+<a href="#499" id="499" data-nosnippet="">499</a>            <span class="kw">for </span>(w, pair) <span class="kw">in </span>sc.placed.windows(<span class="number">2</span>).enumerate() {
+<a href="#500" id="500" data-nosnippet="">500</a>                <span class="kw">let </span><span class="kw-2">&amp;</span>[p, c] = pair <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href="#501" id="501" data-nosnippet="">501</a>                <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="prelude-val">Some</span>(gap)) = sc.cluster_gap.get(w + <span class="number">1</span>) <span class="kw">else </span>{ <span class="kw">continue </span>};
+<a href="#502" id="502" data-nosnippet="">502</a>                <span class="kw">let </span>(pt, ct) = (cluster_text(p), cluster_text(c));
+<a href="#503" id="503" data-nosnippet="">503</a>                <span class="kw">let </span>cjk = pt.chars().any(is_cjk) &amp;&amp; ct.chars().any(is_cjk) &amp;&amp; gap &lt; h * <span class="number">0.5</span>;
+<a href="#504" id="504" data-nosnippet="">504</a>                <span class="comment">// A combining sign that rides on no glyph before it (drawn apart from its base, or in a run of its own)
+<a href="#505" id="505" data-nosnippet="">505</a>                // may sit anywhere over its base, so it never takes a space next to it. Two base letters of these
+<a href="#506" id="506" data-nosnippet="">506</a>                // scripts are measured like any others: a Thai or Indic word gap is narrower than half an em.
+<a href="#507" id="507" data-nosnippet="">507</a>                </span><span class="kw">let </span>loose_sign = |t: <span class="kw-2">&amp;</span>str| is_mark(t) &amp;&amp; t.chars().any(is_complex);
+<a href="#508" id="508" data-nosnippet="">508</a>                <span class="kw">let </span>tight_cluster = (loose_sign(pt) || loose_sign(ct)) &amp;&amp; gap &lt; h * <span class="number">0.6</span>;
+<a href="#509" id="509" data-nosnippet="">509</a>                <span class="kw">let </span>run_start = sc.breaks.binary_search(<span class="kw-2">&amp;</span>c).is_ok();
+<a href="#510" id="510" data-nosnippet="">510</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(space) = spaces.get_mut(w + <span class="number">1</span>) {
+<a href="#511" id="511" data-nosnippet="">511</a>                    <span class="kw-2">*</span>space = (gap &gt; threshold || run_start)
+<a href="#512" id="512" data-nosnippet="">512</a>                        &amp;&amp; !cjk
+<a href="#513" id="513" data-nosnippet="">513</a>                        &amp;&amp; !tight_cluster
+<a href="#514" id="514" data-nosnippet="">514</a>                        &amp;&amp; !pt.trim().is_empty()
+<a href="#515" id="515" data-nosnippet="">515</a>                        &amp;&amp; !ct.trim().is_empty()
+<a href="#516" id="516" data-nosnippet="">516</a>                        &amp;&amp; !pt.ends_with(char::is_whitespace)
+<a href="#517" id="517" data-nosnippet="">517</a>                        &amp;&amp; !ct.starts_with(char::is_whitespace);
+<a href="#518" id="518" data-nosnippet="">518</a>                }
+<a href="#519" id="519" data-nosnippet="">519</a>            }
+<a href="#520" id="520" data-nosnippet="">520</a>            <span class="comment">// Right-to-left spans are reversed (visual → logical) with their gaps, and only then is a second copy made.
+<a href="#521" id="521" data-nosnippet="">521</a>            </span><span class="kw">let </span>has_rtl = sc.placed.iter().any(|<span class="kw-2">&amp;</span>i| glyphs[i].text.chars().any(is_rtl));
+<a href="#522" id="522" data-nosnippet="">522</a>            <span class="kw">if </span>has_rtl {
+<a href="#523" id="523" data-nosnippet="">523</a>                sc.logical.clear();
+<a href="#524" id="524" data-nosnippet="">524</a>                sc.logical.extend_from_slice(<span class="kw-2">&amp;</span>sc.placed);
+<a href="#525" id="525" data-nosnippet="">525</a>                reverse_rtl(<span class="kw-2">&amp;</span>glyphs, <span class="kw-2">&amp;</span>sc.anchor, <span class="kw-2">&amp;mut </span>sc.logical, <span class="kw-2">&amp;mut </span>spaces);
+<a href="#526" id="526" data-nosnippet="">526</a>            }
+<a href="#527" id="527" data-nosnippet="">527</a>            <span class="kw">let </span>idx: <span class="kw-2">&amp;</span>[usize] = <span class="kw">if </span>has_rtl { <span class="kw-2">&amp;</span>sc.logical } <span class="kw">else </span>{ <span class="kw-2">&amp;</span>sc.placed };
+<a href="#528" id="528" data-nosnippet="">528</a>            <span class="kw">let </span>joined = joins_line(<span class="kw-2">&amp;</span>segs, last, si, k == <span class="number">0</span>, blocks[b].<span class="number">0</span>.len() &gt; <span class="number">1</span>, has_rtl);
+<a href="#529" id="529" data-nosnippet="">529</a>            <span class="kw">let </span>start = order.len();
+<a href="#530" id="530" data-nosnippet="">530</a>            order.extend_from_slice(idx);
+<a href="#531" id="531" data-nosnippet="">531</a>            <span class="comment">// `spaces[0]` stays false: the first glyph of a segment never takes a space, unless it joins a line.
+<a href="#532" id="532" data-nosnippet="">532</a>            </span>space_before.extend(spaces.iter().take(idx.len()));
+<a href="#533" id="533" data-nosnippet="">533</a>            space_before.resize(order.len(), <span class="bool-val">false</span>);
+<a href="#534" id="534" data-nosnippet="">534</a>            line = put_on_line(<span class="kw-2">&amp;mut </span>line_of, <span class="kw-2">&amp;mut </span>space_before, start..order.len(), line, <span class="kw-2">&amp;</span>segs[si], joined);
+<a href="#535" id="535" data-nosnippet="">535</a>            last = <span class="prelude-val">Some</span>((si, has_rtl, blocks[b].<span class="number">0</span>.len() == <span class="number">1</span>));
+<a href="#536" id="536" data-nosnippet="">536</a>        }
+<a href="#537" id="537" data-nosnippet="">537</a>    }
+<a href="#538" id="538" data-nosnippet="">538</a>    (order.into_iter().map(|i| kept[i]).collect(), line_of, space_before)
+<a href="#539" id="539" data-nosnippet="">539</a>}
+<a href="#540" id="540" data-nosnippet="">540</a>
+<a href="#541" id="541" data-nosnippet="">541</a><span class="doccomment">/// Puts the reading-order glyphs `glyphs` of segment `seg` on their line: `line`, or the line
+<a href="#542" id="542" data-nosnippet="">542</a>/// before it when `seg` continues the line of `joined` (see [`joins_line`]), with a space before
+<a href="#543" id="543" data-nosnippet="">543</a>/// its first glyph when the two are a word gap apart. Returns the line the next segment starts on.
+<a href="#544" id="544" data-nosnippet="">544</a></span><span class="kw">fn </span>put_on_line(line_of: <span class="kw-2">&amp;mut </span>Vec&lt;u32&gt;, space_before: <span class="kw-2">&amp;mut </span>[bool], glyphs: std::ops::Range&lt;usize&gt;, line: u32, seg: <span class="kw-2">&amp;</span>Seg, joined: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Seg&gt;) -&gt; u32 {
+<a href="#545" id="545" data-nosnippet="">545</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(p) = joined <span class="kw">else </span>{
+<a href="#546" id="546" data-nosnippet="">546</a>        line_of.resize(glyphs.end, line);
+<a href="#547" id="547" data-nosnippet="">547</a>        <span class="kw">return </span>line.saturating_add(<span class="number">1</span>);
+<a href="#548" id="548" data-nosnippet="">548</a>    };
+<a href="#549" id="549" data-nosnippet="">549</a>    line_of.resize(glyphs.end, line.saturating_sub(<span class="number">1</span>));
+<a href="#550" id="550" data-nosnippet="">550</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(space) = space_before.get_mut(glyphs.start) {
+<a href="#551" id="551" data-nosnippet="">551</a>        <span class="kw-2">*</span>space = seg.bbox[<span class="number">0</span>] - p.bbox[<span class="number">2</span>] &gt; WORD_GAP * p.h.min(seg.h);
+<a href="#552" id="552" data-nosnippet="">552</a>    }
+<a href="#553" id="553" data-nosnippet="">553</a>    line
+<a href="#554" id="554" data-nosnippet="">554</a>}
+<a href="#555" id="555" data-nosnippet="">555</a>
+<a href="#556" id="556" data-nosnippet="">556</a><span class="doccomment">/// The segment read just before (`last`, with whether it had right-to-left text) whose line segment
+<a href="#557" id="557" data-nosnippet="">557</a>/// `si` goes on, when `si` is the first line of its block (`first`) and sits on that line's baseline
+<a href="#558" id="558" data-nosnippet="">558</a>/// to its right (a label and its value, a word drawn out of order or set in another size).
+<a href="#559" id="559" data-nosnippet="">559</a>/// Same-baseline segments are always in different blocks. A column of several lines is read after
+<a href="#560" id="560" data-nosnippet="">560</a>/// the column to its left ends, so their lines don't meet. A paragraph of several lines that starts
+<a href="#561" id="561" data-nosnippet="">561</a>/// beside a line as wide as [`SAME_LINE_GAP`] heights or more is the next column, not that line's
+<a href="#562" id="562" data-nosnippet="">562</a>/// value, so it starts a line of its own; only a narrower line that is a block of its own (a label)
+<a href="#563" id="563" data-nosnippet="">563</a>/// takes it: the short last line of a column of several lines is no label (review on #4468). One-line
+<a href="#564" id="564" data-nosnippet="">564</a>/// paragraphs of two columns that share a baseline cannot be told from a table row, and are further
+<a href="#565" id="565" data-nosnippet="">565</a>/// apart than [`same_line`] allows unless the left one fills its column. Right-to-left lines are
+<a href="#566" id="566" data-nosnippet="">566</a>/// left alone: their blocks still read left first.
+<a href="#567" id="567" data-nosnippet="">567</a></span><span class="kw">fn </span>joins_line(segs: <span class="kw-2">&amp;</span>[Seg], last: <span class="prelude-ty">Option</span>&lt;(usize, bool, bool)&gt;, si: usize, first: bool, paragraph: bool, has_rtl: bool) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Seg&gt; {
+<a href="#568" id="568" data-nosnippet="">568</a>    <span class="kw">let </span>(p, p_rtl, p_alone) = last<span class="question-mark">?</span>;
+<a href="#569" id="569" data-nosnippet="">569</a>    <span class="kw">if </span>!first || p_rtl || has_rtl {
+<a href="#570" id="570" data-nosnippet="">570</a>        <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#571" id="571" data-nosnippet="">571</a>    }
+<a href="#572" id="572" data-nosnippet="">572</a>    <span class="kw">let </span>(p, s) = (segs.get(p)<span class="question-mark">?</span>, segs.get(si)<span class="question-mark">?</span>);
+<a href="#573" id="573" data-nosnippet="">573</a>    <span class="kw">let </span>label = p_alone &amp;&amp; p.bbox[<span class="number">2</span>] - p.bbox[<span class="number">0</span>] &lt; SAME_LINE_GAP * p.h;
+<a href="#574" id="574" data-nosnippet="">574</a>    (same_line(p, s) &amp;&amp; (!paragraph || label)).then_some(p)
+<a href="#575" id="575" data-nosnippet="">575</a>}
+</code></pre></div></section></main></body></html>

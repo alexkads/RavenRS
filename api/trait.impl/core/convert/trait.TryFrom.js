@@ -1,0 +1,9 @@
+(function() {
+    const implementors = Object.fromEntries([["ravenrs_deck",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.99.1/core/convert/trait.TryFrom.html\" title=\"trait core::convert::TryFrom\">TryFrom</a>&lt;ColorSpace&gt; for <a class=\"enum\" href=\"ravenrs_deck/third_party/krilla/image/enum.ImageColorspace.html\" title=\"enum ravenrs_deck::third_party::krilla::image::ImageColorspace\">ImageColorspace</a>",0]]]]);
+    if (window.register_implementors) {
+        window.register_implementors(implementors);
+    } else {
+        window.pending_implementors = implementors;
+    }
+})()
+//{"start":59,"fragment_lengths":[379]}

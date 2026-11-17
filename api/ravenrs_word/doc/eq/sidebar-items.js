@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["EncloseShape","EncloseStyle","OAlign"],"fn":["fits_enclosure","is_full_width","parse_overstrike"],"struct":["Enclosure","Overstrike"]};

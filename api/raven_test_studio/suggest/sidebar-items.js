@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Writer"],"fn":["prompt","scenarios_in","suggest","targets_on","unknown_target"],"struct":["Suggestion","Suggestions"]};

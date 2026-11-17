@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Falha","Quando"],"struct":["RegraDeFalha"]};

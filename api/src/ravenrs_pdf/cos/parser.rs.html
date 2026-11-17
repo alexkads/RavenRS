@@ -1,0 +1,887 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>parser.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="ravenrs_pdf" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../src-files.js"></script><script defer="" src="../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-pdf/src/cos/parser.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_pdf/cos/parser.rs.html"><meta property="og:title" content="parser.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-pdf/src/cos/parser.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_pdf/cos/parser.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="parser.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-pdf/src/cos/parser.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"parser.rs - source","description":"Source of the Rust file `crates/ravenrs-pdf/src/cos/parser.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_pdf/cos/parser.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_pdf/cos/</div>parser.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! Lexer and object parser (ISO 32000-2 §7.2–7.3), tolerant of common real-world damage.
+<a href="#2" id="2" data-nosnippet="">2</a>//!
+<a href="#3" id="3" data-nosnippet="">3</a>//! The parser works on a byte slice and a position; it never allocates for skipped data and
+<a href="#4" id="4" data-nosnippet="">4</a>//! never panics on malformed input (every index is bounds-checked). Depth is limited to defend
+<a href="#5" id="5" data-nosnippet="">5</a>//! against pathological nesting.
+<a href="#6" id="6" data-nosnippet="">6</a>
+<a href="#7" id="7" data-nosnippet="">7</a></span><span class="kw">use </span>std::sync::Arc;
+<a href="#8" id="8" data-nosnippet="">8</a>
+<a href="#9" id="9" data-nosnippet="">9</a><span class="kw">use </span><span class="kw">crate</span>::cos::object::{Dict, ObjRef, Object, PdfString, Stream};
+<a href="#10" id="10" data-nosnippet="">10</a><span class="kw">use </span><span class="kw">crate</span>::cos::{Bytes, CosError};
+<a href="#11" id="11" data-nosnippet="">11</a>
+<a href="#12" id="12" data-nosnippet="">12</a><span class="kw">const </span>MAX_DEPTH: usize = <span class="number">128</span>;
+<a href="#13" id="13" data-nosnippet="">13</a><span class="doccomment">/// Objects one top-level [`Lexer::object`] call may build. Real arrays (page trees, parent
+<a href="#14" id="14" data-nosnippet="">14</a>/// trees, widths) stay far below; a decompressed object stream of `0 0 0 ...` does not.
+<a href="#15" id="15" data-nosnippet="">15</a></span><span class="kw">const </span>MAX_NODES: usize = <span class="number">1 </span>&lt;&lt; <span class="number">22</span>;
+<a href="#16" id="16" data-nosnippet="">16</a>
+<a href="#17" id="17" data-nosnippet="">17</a><span class="doccomment">/// One of the six PDF whitespace characters (ISO 32000-2 §7.2.3, Table 1).
+<a href="#18" id="18" data-nosnippet="">18</a></span><span class="kw">pub fn </span>is_whitespace(b: u8) -&gt; bool {
+<a href="#19" id="19" data-nosnippet="">19</a>    <span class="macro">matches!</span>(b, <span class="string">b'\0' </span>| <span class="string">b'\t' </span>| <span class="string">b'\n' </span>| <span class="string">b'\x0C' </span>| <span class="string">b'\r' </span>| <span class="string">b' '</span>)
+<a href="#20" id="20" data-nosnippet="">20</a>}
+<a href="#21" id="21" data-nosnippet="">21</a>
+<a href="#22" id="22" data-nosnippet="">22</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>is_delimiter(b: u8) -&gt; bool {
+<a href="#23" id="23" data-nosnippet="">23</a>    <span class="macro">matches!</span>(b, <span class="string">b'(' </span>| <span class="string">b')' </span>| <span class="string">b'&lt;' </span>| <span class="string">b'&gt;' </span>| <span class="string">b'[' </span>| <span class="string">b']' </span>| <span class="string">b'{' </span>| <span class="string">b'}' </span>| <span class="string">b'/' </span>| <span class="string">b'%'</span>)
+<a href="#24" id="24" data-nosnippet="">24</a>}
+<a href="#25" id="25" data-nosnippet="">25</a>
+<a href="#26" id="26" data-nosnippet="">26</a><span class="kw">fn </span>is_regular(b: u8) -&gt; bool {
+<a href="#27" id="27" data-nosnippet="">27</a>    !is_whitespace(b) &amp;&amp; !is_delimiter(b)
+<a href="#28" id="28" data-nosnippet="">28</a>}
+<a href="#29" id="29" data-nosnippet="">29</a>
+<a href="#30" id="30" data-nosnippet="">30</a><span class="doccomment">/// A cursor over PDF bytes.
+<a href="#31" id="31" data-nosnippet="">31</a></span><span class="kw">pub struct </span>Lexer&lt;<span class="lifetime">'a</span>&gt; {
+<a href="#32" id="32" data-nosnippet="">32</a>    <span class="kw">pub </span>data: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
+<a href="#33" id="33" data-nosnippet="">33</a>    <span class="kw">pub </span>pos: usize,
+<a href="#34" id="34" data-nosnippet="">34</a>    <span class="doccomment">/// Objects built by the current top-level [`Lexer::object`] call.
+<a href="#35" id="35" data-nosnippet="">35</a>    </span>nodes: usize,
+<a href="#36" id="36" data-nosnippet="">36</a>}
+<a href="#37" id="37" data-nosnippet="">37</a>
+<a href="#38" id="38" data-nosnippet="">38</a><span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Lexer&lt;<span class="lifetime">'a</span>&gt; {
+<a href="#39" id="39" data-nosnippet="">39</a>    <span class="kw">pub fn </span>new(data: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8], pos: usize) -&gt; <span class="self">Self </span>{
+<a href="#40" id="40" data-nosnippet="">40</a>        <span class="self">Self </span>{ data, pos: pos.min(data.len()), nodes: <span class="number">0 </span>}
+<a href="#41" id="41" data-nosnippet="">41</a>    }
+<a href="#42" id="42" data-nosnippet="">42</a>
+<a href="#43" id="43" data-nosnippet="">43</a>    <span class="kw">fn </span>peek(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;u8&gt; {
+<a href="#44" id="44" data-nosnippet="">44</a>        <span class="self">self</span>.data.get(<span class="self">self</span>.pos).copied()
+<a href="#45" id="45" data-nosnippet="">45</a>    }
+<a href="#46" id="46" data-nosnippet="">46</a>
+<a href="#47" id="47" data-nosnippet="">47</a>    <span class="doccomment">/// Skip whitespace and comments.
+<a href="#48" id="48" data-nosnippet="">48</a>    </span><span class="kw">pub fn </span>skip_ws(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href="#49" id="49" data-nosnippet="">49</a>        <span class="kw">while let </span><span class="prelude-val">Some</span>(b) = <span class="self">self</span>.peek() {
+<a href="#50" id="50" data-nosnippet="">50</a>            <span class="kw">if </span>is_whitespace(b) {
+<a href="#51" id="51" data-nosnippet="">51</a>                <span class="self">self</span>.pos += <span class="number">1</span>;
+<a href="#52" id="52" data-nosnippet="">52</a>            } <span class="kw">else if </span>b == <span class="string">b'%' </span>{
+<a href="#53" id="53" data-nosnippet="">53</a>                <span class="kw">while let </span><span class="prelude-val">Some</span>(c) = <span class="self">self</span>.peek() {
+<a href="#54" id="54" data-nosnippet="">54</a>                    <span class="kw">if </span>c == <span class="string">b'\n' </span>|| c == <span class="string">b'\r' </span>{
+<a href="#55" id="55" data-nosnippet="">55</a>                        <span class="kw">break</span>;
+<a href="#56" id="56" data-nosnippet="">56</a>                    }
+<a href="#57" id="57" data-nosnippet="">57</a>                    <span class="self">self</span>.pos += <span class="number">1</span>;
+<a href="#58" id="58" data-nosnippet="">58</a>                }
+<a href="#59" id="59" data-nosnippet="">59</a>            } <span class="kw">else </span>{
+<a href="#60" id="60" data-nosnippet="">60</a>                <span class="kw">break</span>;
+<a href="#61" id="61" data-nosnippet="">61</a>            }
+<a href="#62" id="62" data-nosnippet="">62</a>        }
+<a href="#63" id="63" data-nosnippet="">63</a>    }
+<a href="#64" id="64" data-nosnippet="">64</a>
+<a href="#65" id="65" data-nosnippet="">65</a>    <span class="doccomment">/// Read a run of regular characters (a keyword or number).
+<a href="#66" id="66" data-nosnippet="">66</a>    </span><span class="kw">pub fn </span>token(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8] {
+<a href="#67" id="67" data-nosnippet="">67</a>        <span class="kw">let </span>start = <span class="self">self</span>.pos.min(<span class="self">self</span>.data.len());
+<a href="#68" id="68" data-nosnippet="">68</a>        <span class="kw">while </span><span class="self">self</span>.peek().is_some_and(is_regular) {
+<a href="#69" id="69" data-nosnippet="">69</a>            <span class="self">self</span>.pos += <span class="number">1</span>;
+<a href="#70" id="70" data-nosnippet="">70</a>        }
+<a href="#71" id="71" data-nosnippet="">71</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.data[start..<span class="self">self</span>.pos]
+<a href="#72" id="72" data-nosnippet="">72</a>    }
+<a href="#73" id="73" data-nosnippet="">73</a>
+<a href="#74" id="74" data-nosnippet="">74</a>    <span class="doccomment">/// `true` (and consumes it) if the next token is exactly `kw`.
+<a href="#75" id="75" data-nosnippet="">75</a>    </span><span class="kw">pub fn </span>eat_keyword(<span class="kw-2">&amp;mut </span><span class="self">self</span>, kw: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
+<a href="#76" id="76" data-nosnippet="">76</a>        <span class="self">self</span>.skip_ws();
+<a href="#77" id="77" data-nosnippet="">77</a>        <span class="kw">let </span>end = <span class="self">self</span>.pos + kw.len();
+<a href="#78" id="78" data-nosnippet="">78</a>        <span class="kw">if </span><span class="self">self</span>.data.get(<span class="self">self</span>.pos..end) == <span class="prelude-val">Some</span>(kw) &amp;&amp; <span class="self">self</span>.data.get(end).is_none_or(|b| !is_regular(<span class="kw-2">*</span>b)) {
+<a href="#79" id="79" data-nosnippet="">79</a>            <span class="self">self</span>.pos = end;
+<a href="#80" id="80" data-nosnippet="">80</a>            <span class="bool-val">true
+<a href="#81" id="81" data-nosnippet="">81</a>        </span>} <span class="kw">else </span>{
+<a href="#82" id="82" data-nosnippet="">82</a>            <span class="bool-val">false
+<a href="#83" id="83" data-nosnippet="">83</a>        </span>}
+<a href="#84" id="84" data-nosnippet="">84</a>    }
+<a href="#85" id="85" data-nosnippet="">85</a>
+<a href="#86" id="86" data-nosnippet="">86</a>    <span class="kw">fn </span>err(<span class="kw-2">&amp;</span><span class="self">self</span>, what: <span class="kw-2">&amp;</span>str) -&gt; CosError {
+<a href="#87" id="87" data-nosnippet="">87</a>        CosError::Syntax { offset: <span class="self">self</span>.pos, detail: what.to_string() }
+<a href="#88" id="88" data-nosnippet="">88</a>    }
+<a href="#89" id="89" data-nosnippet="">89</a>
+<a href="#90" id="90" data-nosnippet="">90</a>    <span class="doccomment">/// Parse one direct object. References `N G R` are recognised.
+<a href="#91" id="91" data-nosnippet="">91</a>    </span><span class="kw">pub fn </span>object(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Object, CosError&gt; {
+<a href="#92" id="92" data-nosnippet="">92</a>        <span class="self">self</span>.nodes = <span class="number">0</span>;
+<a href="#93" id="93" data-nosnippet="">93</a>        <span class="self">self</span>.object_depth(<span class="number">0</span>)
+<a href="#94" id="94" data-nosnippet="">94</a>    }
+<a href="#95" id="95" data-nosnippet="">95</a>
+<a href="#96" id="96" data-nosnippet="">96</a>    <span class="kw">fn </span>over_budget(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href="#97" id="97" data-nosnippet="">97</a>        <span class="self">self</span>.nodes &gt; MAX_NODES
+<a href="#98" id="98" data-nosnippet="">98</a>    }
+<a href="#99" id="99" data-nosnippet="">99</a>
+<a href="#100" id="100" data-nosnippet="">100</a>    <span class="kw">fn </span>object_depth(<span class="kw-2">&amp;mut </span><span class="self">self</span>, depth: usize) -&gt; <span class="prelude-ty">Result</span>&lt;Object, CosError&gt; {
+<a href="#101" id="101" data-nosnippet="">101</a>        <span class="kw">if </span>depth &gt; MAX_DEPTH {
+<a href="#102" id="102" data-nosnippet="">102</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="self">self</span>.err(<span class="string">"nesting too deep"</span>));
+<a href="#103" id="103" data-nosnippet="">103</a>        }
+<a href="#104" id="104" data-nosnippet="">104</a>        <span class="self">self</span>.nodes = <span class="self">self</span>.nodes.saturating_add(<span class="number">1</span>);
+<a href="#105" id="105" data-nosnippet="">105</a>        <span class="kw">if </span><span class="self">self</span>.over_budget() {
+<a href="#106" id="106" data-nosnippet="">106</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="self">self</span>.err(<span class="string">"object too large"</span>));
+<a href="#107" id="107" data-nosnippet="">107</a>        }
+<a href="#108" id="108" data-nosnippet="">108</a>        <span class="self">self</span>.skip_ws();
+<a href="#109" id="109" data-nosnippet="">109</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(b) = <span class="self">self</span>.peek() <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="self">self</span>.err(<span class="string">"unexpected end of data"</span>)) };
+<a href="#110" id="110" data-nosnippet="">110</a>        <span class="kw">match </span>b {
+<a href="#111" id="111" data-nosnippet="">111</a>            <span class="string">b'/' </span>=&gt; {
+<a href="#112" id="112" data-nosnippet="">112</a>                <span class="self">self</span>.pos += <span class="number">1</span>;
+<a href="#113" id="113" data-nosnippet="">113</a>                <span class="prelude-val">Ok</span>(Object::Name(<span class="self">self</span>.name_body()))
+<a href="#114" id="114" data-nosnippet="">114</a>            }
+<a href="#115" id="115" data-nosnippet="">115</a>            <span class="string">b'(' </span>=&gt; {
+<a href="#116" id="116" data-nosnippet="">116</a>                <span class="self">self</span>.pos += <span class="number">1</span>;
+<a href="#117" id="117" data-nosnippet="">117</a>                <span class="prelude-val">Ok</span>(Object::String(PdfString { bytes: <span class="self">self</span>.literal_string()<span class="question-mark">?</span>, hex: <span class="bool-val">false </span>}))
+<a href="#118" id="118" data-nosnippet="">118</a>            }
+<a href="#119" id="119" data-nosnippet="">119</a>            <span class="string">b'&lt;' </span><span class="kw">if </span><span class="self">self</span>.data.get(<span class="self">self</span>.pos + <span class="number">1</span>) == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b'&lt;'</span>) =&gt; {
+<a href="#120" id="120" data-nosnippet="">120</a>                <span class="self">self</span>.pos += <span class="number">2</span>;
+<a href="#121" id="121" data-nosnippet="">121</a>                <span class="prelude-val">Ok</span>(Object::Dict(<span class="self">self</span>.dict_body(depth)<span class="question-mark">?</span>))
+<a href="#122" id="122" data-nosnippet="">122</a>            }
+<a href="#123" id="123" data-nosnippet="">123</a>            <span class="string">b'&lt;' </span>=&gt; {
+<a href="#124" id="124" data-nosnippet="">124</a>                <span class="self">self</span>.pos += <span class="number">1</span>;
+<a href="#125" id="125" data-nosnippet="">125</a>                <span class="prelude-val">Ok</span>(Object::String(PdfString { bytes: <span class="self">self</span>.hex_string()<span class="question-mark">?</span>, hex: <span class="bool-val">true </span>}))
+<a href="#126" id="126" data-nosnippet="">126</a>            }
+<a href="#127" id="127" data-nosnippet="">127</a>            <span class="string">b'[' </span>=&gt; {
+<a href="#128" id="128" data-nosnippet="">128</a>                <span class="self">self</span>.pos += <span class="number">1</span>;
+<a href="#129" id="129" data-nosnippet="">129</a>                <span class="kw">let </span><span class="kw-2">mut </span>items = Vec::new();
+<a href="#130" id="130" data-nosnippet="">130</a>                <span class="kw">loop </span>{
+<a href="#131" id="131" data-nosnippet="">131</a>                    <span class="self">self</span>.skip_ws();
+<a href="#132" id="132" data-nosnippet="">132</a>                    <span class="kw">match </span><span class="self">self</span>.peek() {
+<a href="#133" id="133" data-nosnippet="">133</a>                        <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="self">self</span>.err(<span class="string">"unterminated array"</span>)),
+<a href="#134" id="134" data-nosnippet="">134</a>                        <span class="prelude-val">Some</span>(<span class="string">b']'</span>) =&gt; {
+<a href="#135" id="135" data-nosnippet="">135</a>                            <span class="self">self</span>.pos += <span class="number">1</span>;
+<a href="#136" id="136" data-nosnippet="">136</a>                            <span class="kw">break</span>;
+<a href="#137" id="137" data-nosnippet="">137</a>                        }
+<a href="#138" id="138" data-nosnippet="">138</a>                        <span class="kw">_ </span>=&gt; {
+<a href="#139" id="139" data-nosnippet="">139</a>                            <span class="kw">let </span>before = <span class="self">self</span>.pos;
+<a href="#140" id="140" data-nosnippet="">140</a>                            <span class="kw">match </span><span class="self">self</span>.object_depth(depth + <span class="number">1</span>) {
+<a href="#141" id="141" data-nosnippet="">141</a>                                <span class="prelude-val">Ok</span>(o) =&gt; items.push(o),
+<a href="#142" id="142" data-nosnippet="">142</a>                                <span class="prelude-val">Err</span>(e) <span class="kw">if </span><span class="self">self</span>.over_budget() =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(e),
+<a href="#143" id="143" data-nosnippet="">143</a>                                <span class="comment">// Tolerate junk inside arrays by skipping one byte.
+<a href="#144" id="144" data-nosnippet="">144</a>                                </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="kw">if </span><span class="self">self</span>.pos == before =&gt; <span class="self">self</span>.pos += <span class="number">1</span>,
+<a href="#145" id="145" data-nosnippet="">145</a>                                <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(e),
+<a href="#146" id="146" data-nosnippet="">146</a>                            }
+<a href="#147" id="147" data-nosnippet="">147</a>                        }
+<a href="#148" id="148" data-nosnippet="">148</a>                    }
+<a href="#149" id="149" data-nosnippet="">149</a>                }
+<a href="#150" id="150" data-nosnippet="">150</a>                <span class="prelude-val">Ok</span>(Object::Array(items))
+<a href="#151" id="151" data-nosnippet="">151</a>            }
+<a href="#152" id="152" data-nosnippet="">152</a>            <span class="string">b'+' </span>| <span class="string">b'-' </span>| <span class="string">b'.' </span>| <span class="string">b'0'</span>..=<span class="string">b'9' </span>=&gt; <span class="self">self</span>.number_or_ref(),
+<a href="#153" id="153" data-nosnippet="">153</a>            <span class="kw">_ </span>=&gt; {
+<a href="#154" id="154" data-nosnippet="">154</a>                <span class="kw">let </span>start = <span class="self">self</span>.pos;
+<a href="#155" id="155" data-nosnippet="">155</a>                <span class="kw">let </span>tok = <span class="self">self</span>.token();
+<a href="#156" id="156" data-nosnippet="">156</a>                <span class="kw">match </span>tok {
+<a href="#157" id="157" data-nosnippet="">157</a>                    <span class="string">b"true" </span>=&gt; <span class="prelude-val">Ok</span>(Object::Bool(<span class="bool-val">true</span>)),
+<a href="#158" id="158" data-nosnippet="">158</a>                    <span class="string">b"false" </span>=&gt; <span class="prelude-val">Ok</span>(Object::Bool(<span class="bool-val">false</span>)),
+<a href="#159" id="159" data-nosnippet="">159</a>                    <span class="string">b"null" </span>=&gt; <span class="prelude-val">Ok</span>(Object::Null),
+<a href="#160" id="160" data-nosnippet="">160</a>                    <span class="string">b"" </span>=&gt; {
+<a href="#161" id="161" data-nosnippet="">161</a>                        <span class="self">self</span>.pos = start + <span class="number">1</span>;
+<a href="#162" id="162" data-nosnippet="">162</a>                        <span class="prelude-val">Err</span>(CosError::Syntax { offset: start, detail: <span class="macro">format!</span>(<span class="string">"unexpected byte 0x{b:02x}"</span>) })
+<a href="#163" id="163" data-nosnippet="">163</a>                    }
+<a href="#164" id="164" data-nosnippet="">164</a>                    other =&gt; <span class="prelude-val">Err</span>(CosError::Syntax { offset: start, detail: <span class="macro">format!</span>(<span class="string">"unexpected keyword {:?}"</span>, String::from_utf8_lossy(other)) }),
+<a href="#165" id="165" data-nosnippet="">165</a>                }
+<a href="#166" id="166" data-nosnippet="">166</a>            }
+<a href="#167" id="167" data-nosnippet="">167</a>        }
+<a href="#168" id="168" data-nosnippet="">168</a>    }
+<a href="#169" id="169" data-nosnippet="">169</a>
+<a href="#170" id="170" data-nosnippet="">170</a>    <span class="kw">fn </span>name_body(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; Vec&lt;u8&gt; {
+<a href="#171" id="171" data-nosnippet="">171</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
+<a href="#172" id="172" data-nosnippet="">172</a>        <span class="kw">while let </span><span class="prelude-val">Some</span>(b) = <span class="self">self</span>.peek() {
+<a href="#173" id="173" data-nosnippet="">173</a>            <span class="kw">if </span>!is_regular(b) {
+<a href="#174" id="174" data-nosnippet="">174</a>                <span class="kw">break</span>;
+<a href="#175" id="175" data-nosnippet="">175</a>            }
+<a href="#176" id="176" data-nosnippet="">176</a>            <span class="self">self</span>.pos += <span class="number">1</span>;
+<a href="#177" id="177" data-nosnippet="">177</a>            <span class="kw">if </span>b == <span class="string">b'#'
+<a href="#178" id="178" data-nosnippet="">178</a>                </span>&amp;&amp; <span class="kw">let </span>(<span class="prelude-val">Some</span>(h), <span class="prelude-val">Some</span>(l)) = (<span class="self">self</span>.data.get(<span class="self">self</span>.pos).and_then(|c| hexval(<span class="kw-2">*</span>c)), <span class="self">self</span>.data.get(<span class="self">self</span>.pos + <span class="number">1</span>).and_then(|c| hexval(<span class="kw-2">*</span>c)))
+<a href="#179" id="179" data-nosnippet="">179</a>            {
+<a href="#180" id="180" data-nosnippet="">180</a>                out.push(h &lt;&lt; <span class="number">4 </span>| l);
+<a href="#181" id="181" data-nosnippet="">181</a>                <span class="self">self</span>.pos += <span class="number">2</span>;
+<a href="#182" id="182" data-nosnippet="">182</a>                <span class="kw">continue</span>;
+<a href="#183" id="183" data-nosnippet="">183</a>            }
+<a href="#184" id="184" data-nosnippet="">184</a>            out.push(b);
+<a href="#185" id="185" data-nosnippet="">185</a>        }
+<a href="#186" id="186" data-nosnippet="">186</a>        out
+<a href="#187" id="187" data-nosnippet="">187</a>    }
+<a href="#188" id="188" data-nosnippet="">188</a>
+<a href="#189" id="189" data-nosnippet="">189</a>    <span class="kw">fn </span>literal_string(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CosError&gt; {
+<a href="#190" id="190" data-nosnippet="">190</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
+<a href="#191" id="191" data-nosnippet="">191</a>        <span class="kw">let </span><span class="kw-2">mut </span>depth = <span class="number">1usize</span>;
+<a href="#192" id="192" data-nosnippet="">192</a>        <span class="kw">while let </span><span class="prelude-val">Some</span>(b) = <span class="self">self</span>.peek() {
+<a href="#193" id="193" data-nosnippet="">193</a>            <span class="self">self</span>.pos += <span class="number">1</span>;
+<a href="#194" id="194" data-nosnippet="">194</a>            <span class="kw">match </span>b {
+<a href="#195" id="195" data-nosnippet="">195</a>                <span class="string">b'(' </span>=&gt; {
+<a href="#196" id="196" data-nosnippet="">196</a>                    depth += <span class="number">1</span>;
+<a href="#197" id="197" data-nosnippet="">197</a>                    out.push(b);
+<a href="#198" id="198" data-nosnippet="">198</a>                }
+<a href="#199" id="199" data-nosnippet="">199</a>                <span class="string">b')' </span>=&gt; {
+<a href="#200" id="200" data-nosnippet="">200</a>                    depth -= <span class="number">1</span>;
+<a href="#201" id="201" data-nosnippet="">201</a>                    <span class="kw">if </span>depth == <span class="number">0 </span>{
+<a href="#202" id="202" data-nosnippet="">202</a>                        <span class="kw">return </span><span class="prelude-val">Ok</span>(out);
+<a href="#203" id="203" data-nosnippet="">203</a>                    }
+<a href="#204" id="204" data-nosnippet="">204</a>                    out.push(b);
+<a href="#205" id="205" data-nosnippet="">205</a>                }
+<a href="#206" id="206" data-nosnippet="">206</a>                <span class="string">b'\\' </span>=&gt; {
+<a href="#207" id="207" data-nosnippet="">207</a>                    <span class="kw">let </span><span class="prelude-val">Some</span>(e) = <span class="self">self</span>.peek() <span class="kw">else </span>{ <span class="kw">break </span>};
+<a href="#208" id="208" data-nosnippet="">208</a>                    <span class="self">self</span>.pos += <span class="number">1</span>;
+<a href="#209" id="209" data-nosnippet="">209</a>                    <span class="kw">match </span>e {
+<a href="#210" id="210" data-nosnippet="">210</a>                        <span class="string">b'n' </span>=&gt; out.push(<span class="string">b'\n'</span>),
+<a href="#211" id="211" data-nosnippet="">211</a>                        <span class="string">b'r' </span>=&gt; out.push(<span class="string">b'\r'</span>),
+<a href="#212" id="212" data-nosnippet="">212</a>                        <span class="string">b't' </span>=&gt; out.push(<span class="string">b'\t'</span>),
+<a href="#213" id="213" data-nosnippet="">213</a>                        <span class="string">b'b' </span>=&gt; out.push(<span class="number">8</span>),
+<a href="#214" id="214" data-nosnippet="">214</a>                        <span class="string">b'f' </span>=&gt; out.push(<span class="number">12</span>),
+<a href="#215" id="215" data-nosnippet="">215</a>                        <span class="string">b'(' </span>| <span class="string">b')' </span>| <span class="string">b'\\' </span>=&gt; out.push(e),
+<a href="#216" id="216" data-nosnippet="">216</a>                        <span class="string">b'\r' </span>=&gt; {
+<a href="#217" id="217" data-nosnippet="">217</a>                            <span class="kw">if </span><span class="self">self</span>.peek() == <span class="prelude-val">Some</span>(<span class="string">b'\n'</span>) {
+<a href="#218" id="218" data-nosnippet="">218</a>                                <span class="self">self</span>.pos += <span class="number">1</span>;
+<a href="#219" id="219" data-nosnippet="">219</a>                            }
+<a href="#220" id="220" data-nosnippet="">220</a>                        }
+<a href="#221" id="221" data-nosnippet="">221</a>                        <span class="string">b'\n' </span>=&gt; {}
+<a href="#222" id="222" data-nosnippet="">222</a>                        <span class="string">b'0'</span>..=<span class="string">b'7' </span>=&gt; {
+<a href="#223" id="223" data-nosnippet="">223</a>                            <span class="kw">let </span><span class="kw-2">mut </span>v = (e - <span class="string">b'0'</span>) <span class="kw">as </span>u32;
+<a href="#224" id="224" data-nosnippet="">224</a>                            <span class="kw">for _ in </span><span class="number">0</span>..<span class="number">2 </span>{
+<a href="#225" id="225" data-nosnippet="">225</a>                                <span class="kw">match </span><span class="self">self</span>.peek() {
+<a href="#226" id="226" data-nosnippet="">226</a>                                    <span class="prelude-val">Some</span>(d @ <span class="string">b'0'</span>..=<span class="string">b'7'</span>) =&gt; {
+<a href="#227" id="227" data-nosnippet="">227</a>                                        v = v * <span class="number">8 </span>+ (d - <span class="string">b'0'</span>) <span class="kw">as </span>u32;
+<a href="#228" id="228" data-nosnippet="">228</a>                                        <span class="self">self</span>.pos += <span class="number">1</span>;
+<a href="#229" id="229" data-nosnippet="">229</a>                                    }
+<a href="#230" id="230" data-nosnippet="">230</a>                                    <span class="kw">_ </span>=&gt; <span class="kw">break</span>,
+<a href="#231" id="231" data-nosnippet="">231</a>                                }
+<a href="#232" id="232" data-nosnippet="">232</a>                            }
+<a href="#233" id="233" data-nosnippet="">233</a>                            out.push((v &amp; <span class="number">0xFF</span>) <span class="kw">as </span>u8);
+<a href="#234" id="234" data-nosnippet="">234</a>                        }
+<a href="#235" id="235" data-nosnippet="">235</a>                        other =&gt; out.push(other),
+<a href="#236" id="236" data-nosnippet="">236</a>                    }
+<a href="#237" id="237" data-nosnippet="">237</a>                }
+<a href="#238" id="238" data-nosnippet="">238</a>                <span class="comment">// End-of-line markers inside strings are normalised to \n (§7.3.4.2).
+<a href="#239" id="239" data-nosnippet="">239</a>                </span><span class="string">b'\r' </span>=&gt; {
+<a href="#240" id="240" data-nosnippet="">240</a>                    <span class="kw">if </span><span class="self">self</span>.peek() == <span class="prelude-val">Some</span>(<span class="string">b'\n'</span>) {
+<a href="#241" id="241" data-nosnippet="">241</a>                        <span class="self">self</span>.pos += <span class="number">1</span>;
+<a href="#242" id="242" data-nosnippet="">242</a>                    }
+<a href="#243" id="243" data-nosnippet="">243</a>                    out.push(<span class="string">b'\n'</span>);
+<a href="#244" id="244" data-nosnippet="">244</a>                }
+<a href="#245" id="245" data-nosnippet="">245</a>                other =&gt; out.push(other),
+<a href="#246" id="246" data-nosnippet="">246</a>            }
+<a href="#247" id="247" data-nosnippet="">247</a>        }
+<a href="#248" id="248" data-nosnippet="">248</a>        <span class="prelude-val">Err</span>(<span class="self">self</span>.err(<span class="string">"unterminated string"</span>))
+<a href="#249" id="249" data-nosnippet="">249</a>    }
+<a href="#250" id="250" data-nosnippet="">250</a>
+<a href="#251" id="251" data-nosnippet="">251</a>    <span class="kw">fn </span>hex_string(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;u8&gt;, CosError&gt; {
+<a href="#252" id="252" data-nosnippet="">252</a>        <span class="kw">let </span><span class="kw-2">mut </span>out = Vec::new();
+<a href="#253" id="253" data-nosnippet="">253</a>        <span class="kw">let </span><span class="kw-2">mut </span>hi: <span class="prelude-ty">Option</span>&lt;u8&gt; = <span class="prelude-val">None</span>;
+<a href="#254" id="254" data-nosnippet="">254</a>        <span class="kw">while let </span><span class="prelude-val">Some</span>(b) = <span class="self">self</span>.peek() {
+<a href="#255" id="255" data-nosnippet="">255</a>            <span class="self">self</span>.pos += <span class="number">1</span>;
+<a href="#256" id="256" data-nosnippet="">256</a>            <span class="kw">if </span>b == <span class="string">b'&gt;' </span>{
+<a href="#257" id="257" data-nosnippet="">257</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(h) = hi {
+<a href="#258" id="258" data-nosnippet="">258</a>                    out.push(h &lt;&lt; <span class="number">4</span>);
+<a href="#259" id="259" data-nosnippet="">259</a>                }
+<a href="#260" id="260" data-nosnippet="">260</a>                <span class="kw">return </span><span class="prelude-val">Ok</span>(out);
+<a href="#261" id="261" data-nosnippet="">261</a>            }
+<a href="#262" id="262" data-nosnippet="">262</a>            <span class="kw">if </span>is_whitespace(b) {
+<a href="#263" id="263" data-nosnippet="">263</a>                <span class="kw">continue</span>;
+<a href="#264" id="264" data-nosnippet="">264</a>            }
+<a href="#265" id="265" data-nosnippet="">265</a>            <span class="kw">let </span><span class="prelude-val">Some</span>(v) = hexval(b) <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="self">self</span>.err(<span class="string">"invalid hex digit"</span>)) };
+<a href="#266" id="266" data-nosnippet="">266</a>            <span class="kw">match </span>hi.take() {
+<a href="#267" id="267" data-nosnippet="">267</a>                <span class="prelude-val">None </span>=&gt; hi = <span class="prelude-val">Some</span>(v),
+<a href="#268" id="268" data-nosnippet="">268</a>                <span class="prelude-val">Some</span>(h) =&gt; out.push(h &lt;&lt; <span class="number">4 </span>| v),
+<a href="#269" id="269" data-nosnippet="">269</a>            }
+<a href="#270" id="270" data-nosnippet="">270</a>        }
+<a href="#271" id="271" data-nosnippet="">271</a>        <span class="prelude-val">Err</span>(<span class="self">self</span>.err(<span class="string">"unterminated hex string"</span>))
+<a href="#272" id="272" data-nosnippet="">272</a>    }
+<a href="#273" id="273" data-nosnippet="">273</a>
+<a href="#274" id="274" data-nosnippet="">274</a>    <span class="kw">fn </span>dict_body(<span class="kw-2">&amp;mut </span><span class="self">self</span>, depth: usize) -&gt; <span class="prelude-ty">Result</span>&lt;Dict, CosError&gt; {
+<a href="#275" id="275" data-nosnippet="">275</a>        <span class="kw">let </span><span class="kw-2">mut </span>d = Dict::new();
+<a href="#276" id="276" data-nosnippet="">276</a>        <span class="kw">loop </span>{
+<a href="#277" id="277" data-nosnippet="">277</a>            <span class="self">self</span>.skip_ws();
+<a href="#278" id="278" data-nosnippet="">278</a>            <span class="kw">match </span><span class="self">self</span>.peek() {
+<a href="#279" id="279" data-nosnippet="">279</a>                <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="self">self</span>.err(<span class="string">"unterminated dictionary"</span>)),
+<a href="#280" id="280" data-nosnippet="">280</a>                <span class="prelude-val">Some</span>(<span class="string">b'&gt;'</span>) <span class="kw">if </span><span class="self">self</span>.data.get(<span class="self">self</span>.pos + <span class="number">1</span>) == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b'&gt;'</span>) =&gt; {
+<a href="#281" id="281" data-nosnippet="">281</a>                    <span class="self">self</span>.pos += <span class="number">2</span>;
+<a href="#282" id="282" data-nosnippet="">282</a>                    <span class="kw">return </span><span class="prelude-val">Ok</span>(d);
+<a href="#283" id="283" data-nosnippet="">283</a>                }
+<a href="#284" id="284" data-nosnippet="">284</a>                <span class="prelude-val">Some</span>(<span class="string">b'/'</span>) =&gt; {
+<a href="#285" id="285" data-nosnippet="">285</a>                    <span class="self">self</span>.pos += <span class="number">1</span>;
+<a href="#286" id="286" data-nosnippet="">286</a>                    <span class="kw">let </span>key = <span class="self">self</span>.name_body();
+<a href="#287" id="287" data-nosnippet="">287</a>                    <span class="self">self</span>.skip_ws();
+<a href="#288" id="288" data-nosnippet="">288</a>                    <span class="comment">// A key directly followed by `&gt;&gt;` has no value: treat as null. (A following
+<a href="#289" id="289" data-nosnippet="">289</a>                    // `/` is a name *value*, so it cannot signal a missing value.)
+<a href="#290" id="290" data-nosnippet="">290</a>                    </span><span class="kw">if </span><span class="self">self</span>.peek() == <span class="prelude-val">Some</span>(<span class="string">b'&gt;'</span>) &amp;&amp; <span class="self">self</span>.data.get(<span class="self">self</span>.pos + <span class="number">1</span>) == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b'&gt;'</span>) {
+<a href="#291" id="291" data-nosnippet="">291</a>                        d.set(key, Object::Null);
+<a href="#292" id="292" data-nosnippet="">292</a>                        <span class="kw">continue</span>;
+<a href="#293" id="293" data-nosnippet="">293</a>                    }
+<a href="#294" id="294" data-nosnippet="">294</a>                    <span class="kw">let </span>value = <span class="self">self</span>.object_depth(depth + <span class="number">1</span>)<span class="question-mark">?</span>;
+<a href="#295" id="295" data-nosnippet="">295</a>                    d.set(key, value);
+<a href="#296" id="296" data-nosnippet="">296</a>                }
+<a href="#297" id="297" data-nosnippet="">297</a>                <span class="prelude-val">Some</span>(<span class="kw">_</span>) =&gt; {
+<a href="#298" id="298" data-nosnippet="">298</a>                    <span class="comment">// Tolerate garbage between entries (seen in damaged files): skip a token.
+<a href="#299" id="299" data-nosnippet="">299</a>                    </span><span class="kw">let </span>before = <span class="self">self</span>.pos;
+<a href="#300" id="300" data-nosnippet="">300</a>                    <span class="kw">let _ </span>= <span class="self">self</span>.object_depth(depth + <span class="number">1</span>);
+<a href="#301" id="301" data-nosnippet="">301</a>                    <span class="kw">if </span><span class="self">self</span>.over_budget() {
+<a href="#302" id="302" data-nosnippet="">302</a>                        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="self">self</span>.err(<span class="string">"object too large"</span>));
+<a href="#303" id="303" data-nosnippet="">303</a>                    }
+<a href="#304" id="304" data-nosnippet="">304</a>                    <span class="kw">if </span><span class="self">self</span>.pos == before {
+<a href="#305" id="305" data-nosnippet="">305</a>                        <span class="self">self</span>.pos += <span class="number">1</span>;
+<a href="#306" id="306" data-nosnippet="">306</a>                    }
+<a href="#307" id="307" data-nosnippet="">307</a>                }
+<a href="#308" id="308" data-nosnippet="">308</a>            }
+<a href="#309" id="309" data-nosnippet="">309</a>        }
+<a href="#310" id="310" data-nosnippet="">310</a>    }
+<a href="#311" id="311" data-nosnippet="">311</a>
+<a href="#312" id="312" data-nosnippet="">312</a>    <span class="kw">fn </span>number_or_ref(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Object, CosError&gt; {
+<a href="#313" id="313" data-nosnippet="">313</a>        <span class="kw">let </span>start = <span class="self">self</span>.pos;
+<a href="#314" id="314" data-nosnippet="">314</a>        <span class="kw">let </span>first = <span class="self">self</span>.number()<span class="question-mark">?</span>;
+<a href="#315" id="315" data-nosnippet="">315</a>        <span class="comment">// Look ahead for "G R" to form a reference.
+<a href="#316" id="316" data-nosnippet="">316</a>        </span><span class="kw">if let </span>Object::Int(n) = first
+<a href="#317" id="317" data-nosnippet="">317</a>            &amp;&amp; n &gt;= <span class="number">0
+<a href="#318" id="318" data-nosnippet="">318</a>        </span>{
+<a href="#319" id="319" data-nosnippet="">319</a>            <span class="kw">let </span>save = <span class="self">self</span>.pos;
+<a href="#320" id="320" data-nosnippet="">320</a>            <span class="self">self</span>.skip_ws();
+<a href="#321" id="321" data-nosnippet="">321</a>            <span class="kw">if </span><span class="self">self</span>.peek().is_some_and(|b| b.is_ascii_digit()) {
+<a href="#322" id="322" data-nosnippet="">322</a>                <span class="kw">let </span>gstart = <span class="self">self</span>.pos;
+<a href="#323" id="323" data-nosnippet="">323</a>                <span class="kw">let </span>g = <span class="self">self</span>.token();
+<a href="#324" id="324" data-nosnippet="">324</a>                <span class="kw">if </span>g.iter().all(u8::is_ascii_digit) &amp;&amp; <span class="self">self</span>.eat_keyword(<span class="string">b"R"</span>) {
+<a href="#325" id="325" data-nosnippet="">325</a>                    <span class="kw">let </span>generation = std::str::from_utf8(g).ok().and_then(|s| s.parse::&lt;u32&gt;().ok()).unwrap_or(<span class="number">0</span>);
+<a href="#326" id="326" data-nosnippet="">326</a>                    <span class="kw">if </span>n &lt;= u32::MAX <span class="kw">as </span>i64 {
+<a href="#327" id="327" data-nosnippet="">327</a>                        <span class="kw">return </span><span class="prelude-val">Ok</span>(Object::Ref(ObjRef::new(n <span class="kw">as </span>u32, generation.min(u16::MAX <span class="kw">as </span>u32) <span class="kw">as </span>u16)));
+<a href="#328" id="328" data-nosnippet="">328</a>                    }
+<a href="#329" id="329" data-nosnippet="">329</a>                }
+<a href="#330" id="330" data-nosnippet="">330</a>                <span class="kw">let _ </span>= gstart;
+<a href="#331" id="331" data-nosnippet="">331</a>            }
+<a href="#332" id="332" data-nosnippet="">332</a>            <span class="self">self</span>.pos = save;
+<a href="#333" id="333" data-nosnippet="">333</a>        }
+<a href="#334" id="334" data-nosnippet="">334</a>        <span class="kw">let _ </span>= start;
+<a href="#335" id="335" data-nosnippet="">335</a>        <span class="prelude-val">Ok</span>(first)
+<a href="#336" id="336" data-nosnippet="">336</a>    }
+<a href="#337" id="337" data-nosnippet="">337</a>
+<a href="#338" id="338" data-nosnippet="">338</a>    <span class="kw">fn </span>number(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Object, CosError&gt; {
+<a href="#339" id="339" data-nosnippet="">339</a>        <span class="kw">let </span>start = <span class="self">self</span>.pos;
+<a href="#340" id="340" data-nosnippet="">340</a>        <span class="kw">let </span>tok = <span class="self">self</span>.token();
+<a href="#341" id="341" data-nosnippet="">341</a>        <span class="kw">let </span>s = std::str::from_utf8(tok).map_err(|<span class="kw">_</span>| <span class="self">self</span>.err(<span class="string">"bad number"</span>))<span class="question-mark">?</span>;
+<a href="#342" id="342" data-nosnippet="">342</a>        <span class="kw">if </span>s.contains(<span class="string">'.'</span>) {
+<a href="#343" id="343" data-nosnippet="">343</a>            <span class="comment">// Tolerate forms like "--5", "5-" or "1.2.3" by parsing the longest valid prefix.
+<a href="#344" id="344" data-nosnippet="">344</a>            // Only a doubled sign needs a cleaned copy: a page of InDesign `/PieceInfo` is
+<a href="#345" id="345" data-nosnippet="">345</a>            // thousands of plain reals, and building a copy and a substring search for each
+<a href="#346" id="346" data-nosnippet="">346</a>            // was a large part of reading one (#5873).
+<a href="#347" id="347" data-nosnippet="">347</a>            </span><span class="kw">let </span>t = s.trim_start_matches(<span class="string">'+'</span>);
+<a href="#348" id="348" data-nosnippet="">348</a>            <span class="kw">let </span>cleaned = <span class="kw">if </span>t.as_bytes().windows(<span class="number">2</span>).any(|w| w == <span class="string">b"--"</span>) { std::borrow::Cow::Owned(t.replacen(<span class="string">"--"</span>, <span class="string">"-"</span>, <span class="number">1</span>)) } <span class="kw">else </span>{ t.into() };
+<a href="#349" id="349" data-nosnippet="">349</a>            <span class="kw">let </span>v = cleaned.get(..real_prefix_len(cleaned.as_bytes())).and_then(|p| parse_counted::&lt;f64&gt;(p).ok());
+<a href="#350" id="350" data-nosnippet="">350</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(Object::Real(v.unwrap_or(<span class="number">0.0</span>)));
+<a href="#351" id="351" data-nosnippet="">351</a>        }
+<a href="#352" id="352" data-nosnippet="">352</a>        <span class="comment">// Tolerate a doubled sign ("--280") like the real branch does.
+<a href="#353" id="353" data-nosnippet="">353</a>        </span><span class="kw">let </span>t = s.trim_start_matches(<span class="string">'+'</span>);
+<a href="#354" id="354" data-nosnippet="">354</a>        <span class="kw">let </span>cleaned = t.strip_prefix(<span class="string">'-'</span>).filter(|r| r.starts_with(<span class="string">'-'</span>)).unwrap_or(t);
+<a href="#355" id="355" data-nosnippet="">355</a>        <span class="kw">match </span>cleaned.parse::&lt;i64&gt;() {
+<a href="#356" id="356" data-nosnippet="">356</a>            <span class="prelude-val">Ok</span>(v) =&gt; <span class="prelude-val">Ok</span>(Object::Int(v)),
+<a href="#357" id="357" data-nosnippet="">357</a>            <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
+<a href="#358" id="358" data-nosnippet="">358</a>                <span class="comment">// Out-of-range integers are treated as reals (§7.3.3 allows implementation limits).
+<a href="#359" id="359" data-nosnippet="">359</a>                </span>cleaned.parse::&lt;f64&gt;().map(Object::Real).map_err(|<span class="kw">_</span>| CosError::Syntax { offset: start, detail: <span class="macro">format!</span>(<span class="string">"bad number {s:?}"</span>) })
+<a href="#360" id="360" data-nosnippet="">360</a>            }
+<a href="#361" id="361" data-nosnippet="">361</a>        }
+<a href="#362" id="362" data-nosnippet="">362</a>    }
+<a href="#363" id="363" data-nosnippet="">363</a>}
+<a href="#364" id="364" data-nosnippet="">364</a>
+<a href="#365" id="365" data-nosnippet="">365</a><span class="doccomment">/// Length of the longest prefix of `s` that reads as a decimal number: a sign, digits with at
+<a href="#366" id="366" data-nosnippet="">366</a>/// most one `.`, and an exponent with digits. Zero when that prefix has no digit. Found in one
+<a href="#367" id="367" data-nosnippet="">367</a>/// pass so a long damaged token is converted once, not once per shorter prefix.
+<a href="#368" id="368" data-nosnippet="">368</a></span><span class="kw">fn </span>real_prefix_len(s: <span class="kw-2">&amp;</span>[u8]) -&gt; usize {
+<a href="#369" id="369" data-nosnippet="">369</a>    <span class="kw">let </span>digits = |from: usize| s.get(from..).map_or(<span class="number">0</span>, |r| r.iter().take_while(|b| b.is_ascii_digit()).count());
+<a href="#370" id="370" data-nosnippet="">370</a>    <span class="kw">let </span><span class="kw-2">mut </span>at = usize::from(<span class="macro">matches!</span>(s.first(), <span class="prelude-val">Some</span>(<span class="string">b'+' </span>| <span class="string">b'-'</span>)));
+<a href="#371" id="371" data-nosnippet="">371</a>    <span class="kw">let </span>int = digits(at);
+<a href="#372" id="372" data-nosnippet="">372</a>    at += int;
+<a href="#373" id="373" data-nosnippet="">373</a>    <span class="kw">let </span><span class="kw-2">mut </span>frac = <span class="number">0</span>;
+<a href="#374" id="374" data-nosnippet="">374</a>    <span class="kw">if </span>s.get(at) == <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b'.'</span>) {
+<a href="#375" id="375" data-nosnippet="">375</a>        frac = digits(at + <span class="number">1</span>);
+<a href="#376" id="376" data-nosnippet="">376</a>        at += <span class="number">1 </span>+ frac;
+<a href="#377" id="377" data-nosnippet="">377</a>    }
+<a href="#378" id="378" data-nosnippet="">378</a>    <span class="kw">if </span>int + frac == <span class="number">0 </span>{
+<a href="#379" id="379" data-nosnippet="">379</a>        <span class="kw">return </span><span class="number">0</span>;
+<a href="#380" id="380" data-nosnippet="">380</a>    }
+<a href="#381" id="381" data-nosnippet="">381</a>    <span class="kw">if </span><span class="macro">matches!</span>(s.get(at), <span class="prelude-val">Some</span>(<span class="string">b'e' </span>| <span class="string">b'E'</span>)) {
+<a href="#382" id="382" data-nosnippet="">382</a>        <span class="kw">let </span>sign = usize::from(<span class="macro">matches!</span>(s.get(at + <span class="number">1</span>), <span class="prelude-val">Some</span>(<span class="string">b'+' </span>| <span class="string">b'-'</span>)));
+<a href="#383" id="383" data-nosnippet="">383</a>        <span class="kw">let </span>exp = digits(at + <span class="number">1 </span>+ sign);
+<a href="#384" id="384" data-nosnippet="">384</a>        <span class="kw">if </span>exp &gt; <span class="number">0 </span>{
+<a href="#385" id="385" data-nosnippet="">385</a>            at += <span class="number">1 </span>+ sign + exp;
+<a href="#386" id="386" data-nosnippet="">386</a>        }
+<a href="#387" id="387" data-nosnippet="">387</a>    }
+<a href="#388" id="388" data-nosnippet="">388</a>    at
+<a href="#389" id="389" data-nosnippet="">389</a>}
+<a href="#390" id="390" data-nosnippet="">390</a>
+<a href="#391" id="391" data-nosnippet="">391</a><span class="attr">#[cfg(test)]
+<a href="#392" id="392" data-nosnippet="">392</a></span><span class="macro">thread_local!</span> {
+<a href="#393" id="393" data-nosnippet="">393</a>    <span class="doccomment">/// Bytes searched for `endstream` on this thread.
+<a href="#394" id="394" data-nosnippet="">394</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">static </span>ENDSTREAM_SCAN: std::cell::Cell&lt;usize&gt; = <span class="kw">const </span>{ std::cell::Cell::new(<span class="number">0</span>) };
+<a href="#395" id="395" data-nosnippet="">395</a>    <span class="doccomment">/// Bytes handed to number conversion on this thread.
+<a href="#396" id="396" data-nosnippet="">396</a>    </span><span class="kw">static </span>NUMBER_BYTES: std::cell::Cell&lt;usize&gt; = <span class="kw">const </span>{ std::cell::Cell::new(<span class="number">0</span>) };
+<a href="#397" id="397" data-nosnippet="">397</a>}
+<a href="#398" id="398" data-nosnippet="">398</a>
+<a href="#399" id="399" data-nosnippet="">399</a><span class="kw">fn </span>parse_counted&lt;T: std::str::FromStr&gt;(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;T, T::Err&gt; {
+<a href="#400" id="400" data-nosnippet="">400</a>    <span class="attr">#[cfg(test)]
+<a href="#401" id="401" data-nosnippet="">401</a>    </span>NUMBER_BYTES.with(|c| c.set(c.get() + s.len()));
+<a href="#402" id="402" data-nosnippet="">402</a>    s.parse()
+<a href="#403" id="403" data-nosnippet="">403</a>}
+<a href="#404" id="404" data-nosnippet="">404</a>
+<a href="#405" id="405" data-nosnippet="">405</a><span class="kw">fn </span>hexval(b: u8) -&gt; <span class="prelude-ty">Option</span>&lt;u8&gt; {
+<a href="#406" id="406" data-nosnippet="">406</a>    <span class="kw">match </span>b {
+<a href="#407" id="407" data-nosnippet="">407</a>        <span class="string">b'0'</span>..=<span class="string">b'9' </span>=&gt; <span class="prelude-val">Some</span>(b - <span class="string">b'0'</span>),
+<a href="#408" id="408" data-nosnippet="">408</a>        <span class="string">b'a'</span>..=<span class="string">b'f' </span>=&gt; <span class="prelude-val">Some</span>(b - <span class="string">b'a' </span>+ <span class="number">10</span>),
+<a href="#409" id="409" data-nosnippet="">409</a>        <span class="string">b'A'</span>..=<span class="string">b'F' </span>=&gt; <span class="prelude-val">Some</span>(b - <span class="string">b'A' </span>+ <span class="number">10</span>),
+<a href="#410" id="410" data-nosnippet="">410</a>        <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#411" id="411" data-nosnippet="">411</a>    }
+<a href="#412" id="412" data-nosnippet="">412</a>}
+<a href="#413" id="413" data-nosnippet="">413</a>
+<a href="#414" id="414" data-nosnippet="">414</a><span class="doccomment">/// Parse an indirect object at `offset`: `N G obj &lt;object&gt; [stream…endstream] endobj`.
+<a href="#415" id="415" data-nosnippet="">415</a>/// `resolve_length` resolves an indirect `/Length`. Returns the object and its (num, gen).
+<a href="#416" id="416" data-nosnippet="">416</a></span><span class="kw">pub fn </span>parse_indirect(data: <span class="kw-2">&amp;</span>[u8], offset: usize, resolve_length: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Fn(ObjRef) -&gt; <span class="prelude-ty">Option</span>&lt;i64&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(ObjRef, Object), CosError&gt; {
+<a href="#417" id="417" data-nosnippet="">417</a>    parse_indirect_in(data, <span class="prelude-val">None</span>, offset, resolve_length, <span class="prelude-val">None</span>)
+<a href="#418" id="418" data-nosnippet="">418</a>}
+<a href="#419" id="419" data-nosnippet="">419</a>
+<a href="#420" id="420" data-nosnippet="">420</a><span class="doccomment">/// [`parse_indirect`] for a document's own bytes: stream data points into `data` instead of
+<a href="#421" id="421" data-nosnippet="">421</a>/// being copied out of it.
+<a href="#422" id="422" data-nosnippet="">422</a>/// `endstreams` is the document's [`EndstreamIndex`] for `data`.
+<a href="#423" id="423" data-nosnippet="">423</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>parse_indirect_shared(
+<a href="#424" id="424" data-nosnippet="">424</a>    data: <span class="kw-2">&amp;</span>Arc&lt;Vec&lt;u8&gt;&gt;,
+<a href="#425" id="425" data-nosnippet="">425</a>    offset: usize,
+<a href="#426" id="426" data-nosnippet="">426</a>    resolve_length: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Fn(ObjRef) -&gt; <span class="prelude-ty">Option</span>&lt;i64&gt;,
+<a href="#427" id="427" data-nosnippet="">427</a>    endstreams: <span class="kw-2">&amp;</span>EndstreamIndex,
+<a href="#428" id="428" data-nosnippet="">428</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(ObjRef, Object), CosError&gt; {
+<a href="#429" id="429" data-nosnippet="">429</a>    parse_indirect_in(data, <span class="prelude-val">Some</span>(data), offset, resolve_length, <span class="prelude-val">Some</span>(endstreams))
+<a href="#430" id="430" data-nosnippet="">430</a>}
+<a href="#431" id="431" data-nosnippet="">431</a>
+<a href="#432" id="432" data-nosnippet="">432</a><span class="doccomment">/// Where `endstream` occurs in a document's bytes, found once, the first time a stream's
+<a href="#433" id="433" data-nosnippet="">433</a>/// /Length is wrong or missing. Searching the rest of the file for each such stream instead
+<a href="#434" id="434" data-nosnippet="">434</a>/// makes many of them ending at one late `endstream` quadratic to read.
+<a href="#435" id="435" data-nosnippet="">435</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>EndstreamIndex = std::sync::OnceLock&lt;Vec&lt;usize&gt;&gt;;
+<a href="#436" id="436" data-nosnippet="">436</a>
+<a href="#437" id="437" data-nosnippet="">437</a><span class="kw">fn </span>endstream_offsets(data: <span class="kw-2">&amp;</span>[u8]) -&gt; Vec&lt;usize&gt; {
+<a href="#438" id="438" data-nosnippet="">438</a>    <span class="attr">#[cfg(test)]
+<a href="#439" id="439" data-nosnippet="">439</a>    </span>ENDSTREAM_SCAN.with(|c| c.set(c.get() + data.len()));
+<a href="#440" id="440" data-nosnippet="">440</a>    data.windows(<span class="number">9</span>).enumerate().filter(|(i, w)| <span class="kw-2">*</span>w == <span class="string">b"endstream" </span>&amp;&amp; endstream_at(data, <span class="kw-2">*</span>i)).map(|(i, <span class="kw">_</span>)| i).collect()
+<a href="#441" id="441" data-nosnippet="">441</a>}
+<a href="#442" id="442" data-nosnippet="">442</a>
+<a href="#443" id="443" data-nosnippet="">443</a><span class="kw">fn </span>parse_indirect_in(
+<a href="#444" id="444" data-nosnippet="">444</a>    data: <span class="kw-2">&amp;</span>[u8],
+<a href="#445" id="445" data-nosnippet="">445</a>    shared: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Arc&lt;Vec&lt;u8&gt;&gt;&gt;,
+<a href="#446" id="446" data-nosnippet="">446</a>    offset: usize,
+<a href="#447" id="447" data-nosnippet="">447</a>    resolve_length: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Fn(ObjRef) -&gt; <span class="prelude-ty">Option</span>&lt;i64&gt;,
+<a href="#448" id="448" data-nosnippet="">448</a>    endstreams: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>EndstreamIndex&gt;,
+<a href="#449" id="449" data-nosnippet="">449</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(ObjRef, Object), CosError&gt; {
+<a href="#450" id="450" data-nosnippet="">450</a>    <span class="kw">let </span><span class="kw-2">mut </span>lx = Lexer::new(data, offset);
+<a href="#451" id="451" data-nosnippet="">451</a>    lx.skip_ws();
+<a href="#452" id="452" data-nosnippet="">452</a>    <span class="kw">let </span>num_tok = lx.token();
+<a href="#453" id="453" data-nosnippet="">453</a>    lx.skip_ws();
+<a href="#454" id="454" data-nosnippet="">454</a>    <span class="kw">let </span>gen_tok = lx.token();
+<a href="#455" id="455" data-nosnippet="">455</a>    <span class="kw">let </span>parse_u = |t: <span class="kw-2">&amp;</span>[u8]| std::str::from_utf8(t).ok().and_then(|s| s.parse::&lt;u64&gt;().ok());
+<a href="#456" id="456" data-nosnippet="">456</a>    <span class="kw">let </span>(<span class="prelude-val">Some</span>(num), <span class="prelude-val">Some</span>(generation)) = (parse_u(num_tok), parse_u(gen_tok)) <span class="kw">else </span>{
+<a href="#457" id="457" data-nosnippet="">457</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(CosError::Syntax { offset, detail: <span class="string">"expected object header"</span>.into() });
+<a href="#458" id="458" data-nosnippet="">458</a>    };
+<a href="#459" id="459" data-nosnippet="">459</a>    <span class="kw">if </span>!lx.eat_keyword(<span class="string">b"obj"</span>) {
+<a href="#460" id="460" data-nosnippet="">460</a>        <span class="kw">return </span><span class="prelude-val">Err</span>(CosError::Syntax { offset: lx.pos, detail: <span class="string">"expected 'obj'"</span>.into() });
+<a href="#461" id="461" data-nosnippet="">461</a>    }
+<a href="#462" id="462" data-nosnippet="">462</a>    <span class="kw">let </span>id = ObjRef::new(num.min(u32::MAX <span class="kw">as </span>u64) <span class="kw">as </span>u32, generation.min(u16::MAX <span class="kw">as </span>u64) <span class="kw">as </span>u16);
+<a href="#463" id="463" data-nosnippet="">463</a>    <span class="kw">let </span>obj = <span class="kw">match </span>lx.object() {
+<a href="#464" id="464" data-nosnippet="">464</a>        <span class="prelude-val">Ok</span>(o) =&gt; o,
+<a href="#465" id="465" data-nosnippet="">465</a>        <span class="comment">// "N G obj endobj" (empty) is treated as null.
+<a href="#466" id="466" data-nosnippet="">466</a>        </span><span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="kw">if </span>lx.eat_keyword(<span class="string">b"endobj"</span>) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>((id, Object::Null)),
+<a href="#467" id="467" data-nosnippet="">467</a>        <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(e),
+<a href="#468" id="468" data-nosnippet="">468</a>    };
+<a href="#469" id="469" data-nosnippet="">469</a>    lx.skip_ws();
+<a href="#470" id="470" data-nosnippet="">470</a>    <span class="kw">if let </span>Object::Dict(dict) = <span class="kw-2">&amp;</span>obj
+<a href="#471" id="471" data-nosnippet="">471</a>        &amp;&amp; lx.eat_keyword(<span class="string">b"stream"</span>)
+<a href="#472" id="472" data-nosnippet="">472</a>    {
+<a href="#473" id="473" data-nosnippet="">473</a>        <span class="comment">// The keyword is followed by CRLF or LF (a lone CR is tolerated). Microsoft Reporting
+<a href="#474" id="474" data-nosnippet="">474</a>        // Services writes a space first (`stream \r\n`); spaces and tabs count only when a line
+<a href="#475" id="475" data-nosnippet="">475</a>        // break follows, so they are never taken from the data.
+<a href="#476" id="476" data-nosnippet="">476</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>eol = lx.pos;
+<a href="#477" id="477" data-nosnippet="">477</a>        <span class="kw">while </span><span class="macro">matches!</span>(data.get(eol), <span class="prelude-val">Some</span>(<span class="string">b' ' </span>| <span class="string">b'\t'</span>)) {
+<a href="#478" id="478" data-nosnippet="">478</a>            eol += <span class="number">1</span>;
+<a href="#479" id="479" data-nosnippet="">479</a>        }
+<a href="#480" id="480" data-nosnippet="">480</a>        <span class="kw">if </span><span class="macro">matches!</span>(data.get(eol), <span class="prelude-val">Some</span>(<span class="string">b'\r' </span>| <span class="string">b'\n'</span>)) {
+<a href="#481" id="481" data-nosnippet="">481</a>            lx.pos = eol;
+<a href="#482" id="482" data-nosnippet="">482</a>        }
+<a href="#483" id="483" data-nosnippet="">483</a>        <span class="kw">match </span>(data.get(lx.pos), data.get(lx.pos + <span class="number">1</span>)) {
+<a href="#484" id="484" data-nosnippet="">484</a>            (<span class="prelude-val">Some</span>(<span class="string">b'\r'</span>), <span class="prelude-val">Some</span>(<span class="string">b'\n'</span>)) =&gt; lx.pos += <span class="number">2</span>,
+<a href="#485" id="485" data-nosnippet="">485</a>            (<span class="prelude-val">Some</span>(<span class="string">b'\n'</span>), <span class="kw">_</span>) | (<span class="prelude-val">Some</span>(<span class="string">b'\r'</span>), <span class="kw">_</span>) =&gt; lx.pos += <span class="number">1</span>,
+<a href="#486" id="486" data-nosnippet="">486</a>            <span class="kw">_ </span>=&gt; {}
+<a href="#487" id="487" data-nosnippet="">487</a>        }
+<a href="#488" id="488" data-nosnippet="">488</a>        <span class="kw">let </span>start = lx.pos;
+<a href="#489" id="489" data-nosnippet="">489</a>        <span class="kw">let </span>declared = <span class="kw">match </span>dict.get(<span class="string">b"Length"</span>) {
+<a href="#490" id="490" data-nosnippet="">490</a>            <span class="prelude-val">Some</span>(Object::Int(n)) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>n),
+<a href="#491" id="491" data-nosnippet="">491</a>            <span class="prelude-val">Some</span>(Object::Ref(r)) =&gt; resolve_length(<span class="kw-2">*</span>r),
+<a href="#492" id="492" data-nosnippet="">492</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#493" id="493" data-nosnippet="">493</a>        };
+<a href="#494" id="494" data-nosnippet="">494</a>        <span class="comment">// A /Length that fits in the file (not negative, and no wrap on a 32-bit target).
+<a href="#495" id="495" data-nosnippet="">495</a>        </span><span class="kw">let </span>fits = declared.and_then(|l| usize::try_from(l).ok()).filter(|l| start.checked_add(<span class="kw-2">*</span>l).is_some_and(|end| end &lt;= data.len()));
+<a href="#496" id="496" data-nosnippet="">496</a>        <span class="comment">// What follows the /Length bytes, white space aside.
+<a href="#497" id="497" data-nosnippet="">497</a>        </span><span class="kw">let </span>after = |len: usize| {
+<a href="#498" id="498" data-nosnippet="">498</a>            <span class="kw">let </span><span class="kw-2">mut </span>after = Lexer::new(data, start.saturating_add(len));
+<a href="#499" id="499" data-nosnippet="">499</a>            after.skip_ws();
+<a href="#500" id="500" data-nosnippet="">500</a>            data.get(after.pos..).unwrap_or_default()
+<a href="#501" id="501" data-nosnippet="">501</a>        };
+<a href="#502" id="502" data-nosnippet="">502</a>        <span class="kw">let </span>len = <span class="kw">match </span>fits {
+<a href="#503" id="503" data-nosnippet="">503</a>            <span class="comment">// The /Length ends at `endstream`, or where it would be: misspelt (`endstrea`), or
+<a href="#504" id="504" data-nosnippet="">504</a>            // left out before `endobj` or the end of the file. The stream is the bytes its /Length
+<a href="#505" id="505" data-nosnippet="">505</a>            // gives, "how many bytes of the PDF file are used for the stream's data" (ISO 32000-2
+<a href="#506" id="506" data-nosnippet="">506</a>            // §7.3.8.2), as other readers take it. A producer that wrote `endstrea` after every
+<a href="#507" id="507" data-nosnippet="">507</a>            // stream lost every font and every page's content, and searching on would run into a
+<a href="#508" id="508" data-nosnippet="">508</a>            // later object's `endstream`.
+<a href="#509" id="509" data-nosnippet="">509</a>            </span><span class="prelude-val">Some</span>(l) <span class="kw">if </span>at_stream_end(after(l)) =&gt; l,
+<a href="#510" id="510" data-nosnippet="">510</a>            <span class="comment">// Wrong or missing /Length: search for "endstream" (§7.3.8.1 recovery). With none
+<a href="#511" id="511" data-nosnippet="">511</a>            // left in the file, a /Length that fits is still the stream's extent.
+<a href="#512" id="512" data-nosnippet="">512</a>            </span><span class="kw">_ </span>=&gt; <span class="kw">match </span>find_endstream(data, start, endstreams) {
+<a href="#513" id="513" data-nosnippet="">513</a>                <span class="prelude-val">Some</span>(end) =&gt; end - start,
+<a href="#514" id="514" data-nosnippet="">514</a>                <span class="prelude-val">None </span>=&gt; fits.ok_or_else(|| CosError::Syntax { offset: start, detail: <span class="string">"stream without endstream"</span>.into() })<span class="question-mark">?</span>,
+<a href="#515" id="515" data-nosnippet="">515</a>            },
+<a href="#516" id="516" data-nosnippet="">516</a>        };
+<a href="#517" id="517" data-nosnippet="">517</a>        <span class="kw">let </span>range = start..start + len;
+<a href="#518" id="518" data-nosnippet="">518</a>        <span class="kw">let </span>raw = <span class="kw">match </span>shared {
+<a href="#519" id="519" data-nosnippet="">519</a>            <span class="prelude-val">Some</span>(buf) =&gt; Bytes::view(buf, range),
+<a href="#520" id="520" data-nosnippet="">520</a>            <span class="prelude-val">None </span>=&gt; data.get(range).map(|r| Bytes::from(r.to_vec())),
+<a href="#521" id="521" data-nosnippet="">521</a>        }
+<a href="#522" id="522" data-nosnippet="">522</a>        .ok_or_else(|| CosError::Syntax { offset: start, detail: <span class="string">"stream data past the end of the file"</span>.into() })<span class="question-mark">?</span>;
+<a href="#523" id="523" data-nosnippet="">523</a>        <span class="kw">let </span><span class="kw-2">mut </span>dict = dict.clone();
+<a href="#524" id="524" data-nosnippet="">524</a>        dict.set(<span class="string">b"Length"</span>.to_vec(), Object::Int(raw.len() <span class="kw">as </span>i64));
+<a href="#525" id="525" data-nosnippet="">525</a>        <span class="kw">return </span><span class="prelude-val">Ok</span>((id, Object::Stream(Stream { dict, raw })));
+<a href="#526" id="526" data-nosnippet="">526</a>    }
+<a href="#527" id="527" data-nosnippet="">527</a>    <span class="prelude-val">Ok</span>((id, obj))
+<a href="#528" id="528" data-nosnippet="">528</a>}
+<a href="#529" id="529" data-nosnippet="">529</a>
+<a href="#530" id="530" data-nosnippet="">530</a><span class="doccomment">/// Whether `rest`, what follows a stream's /Length bytes with white space skipped, is where the
+<a href="#531" id="531" data-nosnippet="">531</a>/// stream ends. A whole `endstream` token is: a token runs on through regular characters (ISO
+<a href="#532" id="532" data-nosnippet="">532</a>/// 32000-2 §7.2.3), so payload such as `endstreamer` is not one. A misspelt `endstream`
+<a href="#533" id="533" data-nosnippet="">533</a>/// (`endstrea`), an `endobj` with the `endstream` left out, or both, end it only where the object
+<a href="#534" id="534" data-nosnippet="">534</a>/// ends as well, before the end of the data, another object's `N G obj` header, or `xref`,
+<a href="#535" id="535" data-nosnippet="">535</a>/// `trailer` or `startxref`: payload such as `endobj more` or `endobject`, where a wrong /Length
+<a href="#536" id="536" data-nosnippet="">536</a>/// stops, is not, and the search for `endstream` runs instead. So does anything else but the end
+<a href="#537" id="537" data-nosnippet="">537</a>/// of the data.
+<a href="#538" id="538" data-nosnippet="">538</a></span><span class="kw">fn </span>at_stream_end(rest: <span class="kw-2">&amp;</span>[u8]) -&gt; bool {
+<a href="#539" id="539" data-nosnippet="">539</a>    <span class="kw">let </span><span class="kw-2">mut </span>lx = Lexer::new(rest, <span class="number">0</span>);
+<a href="#540" id="540" data-nosnippet="">540</a>    <span class="kw">if </span>lx.eat_keyword(<span class="string">b"endstream"</span>) {
+<a href="#541" id="541" data-nosnippet="">541</a>        <span class="kw">return </span><span class="bool-val">true</span>;
+<a href="#542" id="542" data-nosnippet="">542</a>    }
+<a href="#543" id="543" data-nosnippet="">543</a>    <span class="kw">let </span>misspelt = lx.eat_keyword(<span class="string">b"endstrea"</span>);
+<a href="#544" id="544" data-nosnippet="">544</a>    <span class="kw">let </span>endobj = lx.eat_keyword(<span class="string">b"endobj"</span>);
+<a href="#545" id="545" data-nosnippet="">545</a>    lx.skip_ws();
+<a href="#546" id="546" data-nosnippet="">546</a>    <span class="kw">if </span>lx.pos &gt;= rest.len() {
+<a href="#547" id="547" data-nosnippet="">547</a>        <span class="kw">return </span><span class="bool-val">true</span>;
+<a href="#548" id="548" data-nosnippet="">548</a>    }
+<a href="#549" id="549" data-nosnippet="">549</a>    <span class="kw">if </span>!(misspelt || endobj) {
+<a href="#550" id="550" data-nosnippet="">550</a>        <span class="kw">return </span><span class="bool-val">false</span>;
+<a href="#551" id="551" data-nosnippet="">551</a>    }
+<a href="#552" id="552" data-nosnippet="">552</a>    <span class="kw">if </span>[<span class="kw-2">&amp;</span><span class="string">b"xref"</span>[..], <span class="string">b"trailer"</span>, <span class="string">b"startxref"</span>].iter().any(|kw| Lexer::new(rest, lx.pos).eat_keyword(kw)) {
+<a href="#553" id="553" data-nosnippet="">553</a>        <span class="kw">return </span><span class="bool-val">true</span>;
+<a href="#554" id="554" data-nosnippet="">554</a>    }
+<a href="#555" id="555" data-nosnippet="">555</a>    <span class="kw">let </span>number = |lx: <span class="kw-2">&amp;mut </span>Lexer| {
+<a href="#556" id="556" data-nosnippet="">556</a>        lx.skip_ws();
+<a href="#557" id="557" data-nosnippet="">557</a>        <span class="kw">let </span>t = lx.token();
+<a href="#558" id="558" data-nosnippet="">558</a>        !t.is_empty() &amp;&amp; t.iter().all(u8::is_ascii_digit)
+<a href="#559" id="559" data-nosnippet="">559</a>    };
+<a href="#560" id="560" data-nosnippet="">560</a>    number(<span class="kw-2">&amp;mut </span>lx) &amp;&amp; number(<span class="kw-2">&amp;mut </span>lx) &amp;&amp; lx.eat_keyword(<span class="string">b"obj"</span>)
+<a href="#561" id="561" data-nosnippet="">561</a>}
+<a href="#562" id="562" data-nosnippet="">562</a>
+<a href="#563" id="563" data-nosnippet="">563</a><span class="doccomment">/// Whether a whole `endstream` token starts at `at` in `data`: one followed by a regular
+<a href="#564" id="564" data-nosnippet="">564</a>/// character (`endstreamer`) is payload (ISO 32000-2 §7.2.3).
+<a href="#565" id="565" data-nosnippet="">565</a></span><span class="kw">fn </span>endstream_at(data: <span class="kw-2">&amp;</span>[u8], at: usize) -&gt; bool {
+<a href="#566" id="566" data-nosnippet="">566</a>    data.get(at..).is_some_and(|d| d.starts_with(<span class="string">b"endstream"</span>)) &amp;&amp; !data.get(at.saturating_add(<span class="number">9</span>)).copied().is_some_and(is_regular)
+<a href="#567" id="567" data-nosnippet="">567</a>}
+<a href="#568" id="568" data-nosnippet="">568</a>
+<a href="#569" id="569" data-nosnippet="">569</a><span class="doccomment">/// Offset where stream data ends (before the EOL preceding "endstream").
+<a href="#570" id="570" data-nosnippet="">570</a></span><span class="kw">fn </span>find_endstream(data: <span class="kw-2">&amp;</span>[u8], from: usize, endstreams: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>EndstreamIndex&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+<a href="#571" id="571" data-nosnippet="">571</a>    <span class="kw">let </span>at = <span class="kw">match </span>endstreams {
+<a href="#572" id="572" data-nosnippet="">572</a>        <span class="prelude-val">Some</span>(index) =&gt; {
+<a href="#573" id="573" data-nosnippet="">573</a>            <span class="kw">let </span>index = index.get_or_init(|| endstream_offsets(data));
+<a href="#574" id="574" data-nosnippet="">574</a>            index.get(index.partition_point(|<span class="kw-2">&amp;</span>p| p &lt; from)).copied()<span class="question-mark">?
+<a href="#575" id="575" data-nosnippet="">575</a>        </span>}
+<a href="#576" id="576" data-nosnippet="">576</a>        <span class="prelude-val">None </span>=&gt; {
+<a href="#577" id="577" data-nosnippet="">577</a>            <span class="kw">let </span>hay = data.get(from..)<span class="question-mark">?</span>;
+<a href="#578" id="578" data-nosnippet="">578</a>            <span class="kw">let </span>found = hay.windows(<span class="number">9</span>).enumerate().position(|(i, w)| w == <span class="string">b"endstream" </span>&amp;&amp; endstream_at(hay, i));
+<a href="#579" id="579" data-nosnippet="">579</a>            <span class="attr">#[cfg(test)]
+<a href="#580" id="580" data-nosnippet="">580</a>            </span>ENDSTREAM_SCAN.with(|c| c.set(c.get() + found.map_or(hay.len(), |p| p + <span class="number">9</span>)));
+<a href="#581" id="581" data-nosnippet="">581</a>            found<span class="question-mark">? </span>+ from
+<a href="#582" id="582" data-nosnippet="">582</a>        }
+<a href="#583" id="583" data-nosnippet="">583</a>    };
+<a href="#584" id="584" data-nosnippet="">584</a>    <span class="kw">let </span><span class="kw-2">mut </span>end = at;
+<a href="#585" id="585" data-nosnippet="">585</a>    <span class="kw">if </span>end &gt; from &amp;&amp; data[end - <span class="number">1</span>] == <span class="string">b'\n' </span>{
+<a href="#586" id="586" data-nosnippet="">586</a>        end -= <span class="number">1</span>;
+<a href="#587" id="587" data-nosnippet="">587</a>    }
+<a href="#588" id="588" data-nosnippet="">588</a>    <span class="kw">if </span>end &gt; from &amp;&amp; data[end - <span class="number">1</span>] == <span class="string">b'\r' </span>{
+<a href="#589" id="589" data-nosnippet="">589</a>        end -= <span class="number">1</span>;
+<a href="#590" id="590" data-nosnippet="">590</a>    }
+<a href="#591" id="591" data-nosnippet="">591</a>    <span class="prelude-val">Some</span>(end)
+<a href="#592" id="592" data-nosnippet="">592</a>}
+<a href="#593" id="593" data-nosnippet="">593</a>
+<a href="#594" id="594" data-nosnippet="">594</a><span class="attr">#[cfg(test)]
+<a href="#595" id="595" data-nosnippet="">595</a></span><span class="kw">mod </span>tests {
+<a href="#596" id="596" data-nosnippet="">596</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#597" id="597" data-nosnippet="">597</a>
+<a href="#598" id="598" data-nosnippet="">598</a>    <span class="attr">#[test]
+<a href="#599" id="599" data-nosnippet="">599</a>    </span><span class="kw">fn </span>numbers_with_multibyte_garbage_do_not_panic() {
+<a href="#600" id="600" data-nosnippet="">600</a>        <span class="comment">// From `cargo xtask fuzz`: "2 0 obj\n.\u{2014}" (an em dash after a dot).
+<a href="#601" id="601" data-nosnippet="">601</a>        </span><span class="kw">let </span>doc = <span class="kw">crate</span>::cos::Document::open(std::sync::Arc::new(<span class="string">"2 0 obj\n.\u{2014}\n"</span>.as_bytes().to_vec()));
+<a href="#602" id="602" data-nosnippet="">602</a>        <span class="macro">assert!</span>(doc.is_err());
+<a href="#603" id="603" data-nosnippet="">603</a>        <span class="kw">for </span>t <span class="kw">in </span>[<span class="string">".\u{2014}"</span>, <span class="string">"1.\u{e9}5"</span>, <span class="string">"-.\u{1F600}"</span>, <span class="string">"+.5\u{2014}"</span>] {
+<a href="#604" id="604" data-nosnippet="">604</a>            <span class="kw">let _ </span>= Lexer::new(t.as_bytes(), <span class="number">0</span>).object();
+<a href="#605" id="605" data-nosnippet="">605</a>        }
+<a href="#606" id="606" data-nosnippet="">606</a>        <span class="macro">assert_eq!</span>(Lexer::new(<span class="string">"1.5\u{2014}"</span>.as_bytes(), <span class="number">0</span>).object().unwrap(), Object::Real(<span class="number">1.5</span>));
+<a href="#607" id="607" data-nosnippet="">607</a>    }
+<a href="#608" id="608" data-nosnippet="">608</a>
+<a href="#609" id="609" data-nosnippet="">609</a>    <span class="attr">#[test]
+<a href="#610" id="610" data-nosnippet="">610</a>    </span><span class="kw">fn </span>a_damaged_real_is_converted_once() {
+<a href="#611" id="611" data-nosnippet="">611</a>        <span class="kw">let </span>token = <span class="macro">format!</span>(<span class="string">"1.{}{}"</span>, <span class="string">"5"</span>.repeat(<span class="number">2_000</span>), <span class="string">"x"</span>.repeat(<span class="number">20_000</span>));
+<a href="#612" id="612" data-nosnippet="">612</a>        NUMBER_BYTES.with(|c| c.set(<span class="number">0</span>));
+<a href="#613" id="613" data-nosnippet="">613</a>        <span class="kw">let </span><span class="prelude-val">Ok</span>(Object::Real(v)) = Lexer::new(token.as_bytes(), <span class="number">0</span>).object() <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">"not a real"</span>) };
+<a href="#614" id="614" data-nosnippet="">614</a>        <span class="kw">let </span>converted = NUMBER_BYTES.with(|c| c.get());
+<a href="#615" id="615" data-nosnippet="">615</a>        <span class="macro">assert!</span>(converted &lt;= token.len(), <span class="string">"{converted} bytes converted for a {}-byte token"</span>, token.len());
+<a href="#616" id="616" data-nosnippet="">616</a>        <span class="macro">assert!</span>((v - <span class="number">1.5555</span>).abs() &lt; <span class="number">1e-3</span>);
+<a href="#617" id="617" data-nosnippet="">617</a>        <span class="comment">// The longest numeric prefix wins, as before.
+<a href="#618" id="618" data-nosnippet="">618</a>        </span><span class="kw">for </span>(t, want) <span class="kw">in
+<a href="#619" id="619" data-nosnippet="">619</a>            </span>[(<span class="string">"1.2.3"</span>, <span class="number">1.2</span>), (<span class="string">"--5."</span>, -<span class="number">5.0</span>), (<span class="string">"+.5x"</span>, <span class="number">0.5</span>), (<span class="string">"5.-"</span>, <span class="number">5.0</span>), (<span class="string">"1.5e3"</span>, <span class="number">1500.0</span>), (<span class="string">"1.5e+"</span>, <span class="number">1.5</span>), (<span class="string">"-.x"</span>, <span class="number">0.0</span>), (<span class="string">"."</span>, <span class="number">0.0</span>), (<span class="string">"-inf."</span>, <span class="number">0.0</span>)]
+<a href="#620" id="620" data-nosnippet="">620</a>        {
+<a href="#621" id="621" data-nosnippet="">621</a>            <span class="macro">assert_eq!</span>(Lexer::new(t.as_bytes(), <span class="number">0</span>).object().ok(), <span class="prelude-val">Some</span>(Object::Real(want)), <span class="string">"{t}"</span>);
+<a href="#622" id="622" data-nosnippet="">622</a>        }
+<a href="#623" id="623" data-nosnippet="">623</a>    }
+<a href="#624" id="624" data-nosnippet="">624</a>
+<a href="#625" id="625" data-nosnippet="">625</a>    <span class="kw">fn </span>obj(s: <span class="kw-2">&amp;</span>str) -&gt; Object {
+<a href="#626" id="626" data-nosnippet="">626</a>        Lexer::new(s.as_bytes(), <span class="number">0</span>).object().unwrap_or_else(|e| <span class="macro">panic!</span>(<span class="string">"{s}: {e}"</span>))
+<a href="#627" id="627" data-nosnippet="">627</a>    }
+<a href="#628" id="628" data-nosnippet="">628</a>
+<a href="#629" id="629" data-nosnippet="">629</a>    <span class="attr">#[test]
+<a href="#630" id="630" data-nosnippet="">630</a>    </span><span class="kw">fn </span>doubled_sign_integer_reads_like_the_real_form() {
+<a href="#631" id="631" data-nosnippet="">631</a>        <span class="comment">// Some writers emit a TJ kerning as "--280"; the real form "--280.0" is already read.
+<a href="#632" id="632" data-nosnippet="">632</a>        </span><span class="macro">assert_eq!</span>(obj(<span class="string">"--280.0"</span>), Object::Real(-<span class="number">280.0</span>));
+<a href="#633" id="633" data-nosnippet="">633</a>        <span class="macro">assert_eq!</span>(obj(<span class="string">"--280"</span>), Object::Int(-<span class="number">280</span>));
+<a href="#634" id="634" data-nosnippet="">634</a>        <span class="kw">match </span>obj(<span class="string">"[(Hello) --280 (World)]"</span>) {
+<a href="#635" id="635" data-nosnippet="">635</a>            Object::Array(items) =&gt; {
+<a href="#636" id="636" data-nosnippet="">636</a>                <span class="macro">assert_eq!</span>(items.len(), <span class="number">3</span>);
+<a href="#637" id="637" data-nosnippet="">637</a>                <span class="macro">assert_eq!</span>(items[<span class="number">1</span>], Object::Int(-<span class="number">280</span>));
+<a href="#638" id="638" data-nosnippet="">638</a>            }
+<a href="#639" id="639" data-nosnippet="">639</a>            other =&gt; <span class="macro">panic!</span>(<span class="string">"not an array: {other:?}"</span>),
+<a href="#640" id="640" data-nosnippet="">640</a>        }
+<a href="#641" id="641" data-nosnippet="">641</a>    }
+<a href="#642" id="642" data-nosnippet="">642</a>
+<a href="#643" id="643" data-nosnippet="">643</a>    <span class="attr">#[test]
+<a href="#644" id="644" data-nosnippet="">644</a>    </span><span class="kw">fn </span>scalars() {
+<a href="#645" id="645" data-nosnippet="">645</a>        <span class="macro">assert_eq!</span>(obj(<span class="string">"true"</span>), Object::Bool(<span class="bool-val">true</span>));
+<a href="#646" id="646" data-nosnippet="">646</a>        <span class="macro">assert_eq!</span>(obj(<span class="string">"null"</span>), Object::Null);
+<a href="#647" id="647" data-nosnippet="">647</a>        <span class="macro">assert_eq!</span>(obj(<span class="string">"  -17 "</span>), Object::Int(-<span class="number">17</span>));
+<a href="#648" id="648" data-nosnippet="">648</a>        <span class="macro">assert_eq!</span>(obj(<span class="string">"+42"</span>), Object::Int(<span class="number">42</span>));
+<a href="#649" id="649" data-nosnippet="">649</a>        <span class="macro">assert_eq!</span>(obj(<span class="string">"-.5"</span>), Object::Real(-<span class="number">0.5</span>));
+<a href="#650" id="650" data-nosnippet="">650</a>        <span class="macro">assert_eq!</span>(obj(<span class="string">"4."</span>), Object::Real(<span class="number">4.0</span>));
+<a href="#651" id="651" data-nosnippet="">651</a>        <span class="macro">assert_eq!</span>(obj(<span class="string">"99999999999999999999"</span>), Object::Real(<span class="number">1e20</span>));
+<a href="#652" id="652" data-nosnippet="">652</a>        <span class="macro">assert_eq!</span>(obj(<span class="string">"12 0 R"</span>), Object::Ref(ObjRef::new(<span class="number">12</span>, <span class="number">0</span>)));
+<a href="#653" id="653" data-nosnippet="">653</a>        <span class="macro">assert_eq!</span>(obj(<span class="string">"12 0 obj"</span>).as_int(), <span class="prelude-val">Some</span>(<span class="number">12</span>), <span class="string">"12 followed by 0 obj is not a reference"</span>);
+<a href="#654" id="654" data-nosnippet="">654</a>    }
+<a href="#655" id="655" data-nosnippet="">655</a>
+<a href="#656" id="656" data-nosnippet="">656</a>    <span class="attr">#[test]
+<a href="#657" id="657" data-nosnippet="">657</a>    </span><span class="kw">fn </span>names_decode_hex_escapes() {
+<a href="#658" id="658" data-nosnippet="">658</a>        <span class="macro">assert_eq!</span>(obj(<span class="string">"/A#20B"</span>), Object::Name(<span class="string">b"A B"</span>.to_vec()));
+<a href="#659" id="659" data-nosnippet="">659</a>        <span class="macro">assert_eq!</span>(obj(<span class="string">"/Adobe#"</span>), Object::Name(<span class="string">b"Adobe#"</span>.to_vec()));
+<a href="#660" id="660" data-nosnippet="">660</a>        <span class="macro">assert_eq!</span>(obj(<span class="string">"/"</span>), Object::Name(Vec::new()));
+<a href="#661" id="661" data-nosnippet="">661</a>    }
+<a href="#662" id="662" data-nosnippet="">662</a>
+<a href="#663" id="663" data-nosnippet="">663</a>    <span class="attr">#[test]
+<a href="#664" id="664" data-nosnippet="">664</a>    </span><span class="kw">fn </span>literal_strings() {
+<a href="#665" id="665" data-nosnippet="">665</a>        <span class="kw">let </span>s = |x: <span class="kw-2">&amp;</span>str| obj(x).as_string().expect(<span class="string">"string"</span>).bytes.clone();
+<a href="#666" id="666" data-nosnippet="">666</a>        <span class="macro">assert_eq!</span>(s(<span class="string">"(a (nested) b)"</span>), <span class="string">b"a (nested) b"</span>);
+<a href="#667" id="667" data-nosnippet="">667</a>        <span class="macro">assert_eq!</span>(s(<span class="string">r"(\n\t\\\(\))"</span>), <span class="string">b"\n\t\\()"</span>);
+<a href="#668" id="668" data-nosnippet="">668</a>        <span class="macro">assert_eq!</span>(s(<span class="string">r"(\101\1011)"</span>), <span class="string">b"AA1"</span>);
+<a href="#669" id="669" data-nosnippet="">669</a>        <span class="macro">assert_eq!</span>(s(<span class="string">"(line\\\ncontinued)"</span>), <span class="string">b"linecontinued"</span>);
+<a href="#670" id="670" data-nosnippet="">670</a>        <span class="macro">assert_eq!</span>(s(<span class="string">"(cr\r\nlf)"</span>), <span class="string">b"cr\nlf"</span>);
+<a href="#671" id="671" data-nosnippet="">671</a>    }
+<a href="#672" id="672" data-nosnippet="">672</a>
+<a href="#673" id="673" data-nosnippet="">673</a>    <span class="attr">#[test]
+<a href="#674" id="674" data-nosnippet="">674</a>    </span><span class="kw">fn </span>hex_strings() {
+<a href="#675" id="675" data-nosnippet="">675</a>        <span class="kw">let </span>s = obj(<span class="string">"&lt;48 65 6C6c6f7&gt;"</span>);
+<a href="#676" id="676" data-nosnippet="">676</a>        <span class="macro">assert_eq!</span>(s.as_string().unwrap().bytes, <span class="string">b"Hellop"</span>);
+<a href="#677" id="677" data-nosnippet="">677</a>        <span class="macro">assert!</span>(s.as_string().unwrap().hex);
+<a href="#678" id="678" data-nosnippet="">678</a>    }
+<a href="#679" id="679" data-nosnippet="">679</a>
+<a href="#680" id="680" data-nosnippet="">680</a>    <span class="attr">#[test]
+<a href="#681" id="681" data-nosnippet="">681</a>    </span><span class="kw">fn </span>arrays_and_dicts() {
+<a href="#682" id="682" data-nosnippet="">682</a>        <span class="kw">let </span>o = obj(<span class="string">"&lt;&lt; /Type /Page /Kids [1 0 R 2 0 R] /Box [0 0 612.5 792] /Nested &lt;&lt; /A true &gt;&gt; /Empty &gt;&gt;"</span>);
+<a href="#683" id="683" data-nosnippet="">683</a>        <span class="kw">let </span>d = o.as_dict().unwrap();
+<a href="#684" id="684" data-nosnippet="">684</a>        <span class="macro">assert_eq!</span>(d.name(<span class="string">b"Type"</span>), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="string">b"Page"</span>[..]));
+<a href="#685" id="685" data-nosnippet="">685</a>        <span class="macro">assert_eq!</span>(d.get(<span class="string">b"Kids"</span>).unwrap().as_array().unwrap().len(), <span class="number">2</span>);
+<a href="#686" id="686" data-nosnippet="">686</a>        <span class="macro">assert_eq!</span>(d.get(<span class="string">b"Box"</span>).unwrap().as_array().unwrap()[<span class="number">2</span>], Object::Real(<span class="number">612.5</span>));
+<a href="#687" id="687" data-nosnippet="">687</a>        <span class="macro">assert_eq!</span>(d.get(<span class="string">b"Empty"</span>), <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>Object::Null));
+<a href="#688" id="688" data-nosnippet="">688</a>    }
+<a href="#689" id="689" data-nosnippet="">689</a>
+<a href="#690" id="690" data-nosnippet="">690</a>    <span class="attr">#[test]
+<a href="#691" id="691" data-nosnippet="">691</a>    </span><span class="kw">fn </span>comments_are_whitespace() {
+<a href="#692" id="692" data-nosnippet="">692</a>        <span class="macro">assert_eq!</span>(obj(<span class="string">"% hello\n  [1 % two\n 3]"</span>), Object::Array(<span class="macro">vec!</span>[Object::Int(<span class="number">1</span>), Object::Int(<span class="number">3</span>)]));
+<a href="#693" id="693" data-nosnippet="">693</a>    }
+<a href="#694" id="694" data-nosnippet="">694</a>
+<a href="#695" id="695" data-nosnippet="">695</a>    <span class="attr">#[test]
+<a href="#696" id="696" data-nosnippet="">696</a>    </span><span class="kw">fn </span>indirect_stream_with_wrong_length_recovers() {
+<a href="#697" id="697" data-nosnippet="">697</a>        <span class="kw">let </span>data = <span class="string">b"7 0 obj\n&lt;&lt; /Length 999 &gt;&gt;\nstream\nHELLO\nendstream\nendobj\n"</span>;
+<a href="#698" id="698" data-nosnippet="">698</a>        <span class="kw">let </span>(id, o) = parse_indirect(data, <span class="number">0</span>, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="prelude-val">None</span>).unwrap();
+<a href="#699" id="699" data-nosnippet="">699</a>        <span class="macro">assert_eq!</span>(id, ObjRef::new(<span class="number">7</span>, <span class="number">0</span>));
+<a href="#700" id="700" data-nosnippet="">700</a>        <span class="kw">let </span>Object::Stream(s) = o <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">"stream expected"</span>) };
+<a href="#701" id="701" data-nosnippet="">701</a>        <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>s.raw[..], <span class="string">b"HELLO"</span>);
+<a href="#702" id="702" data-nosnippet="">702</a>        <span class="macro">assert_eq!</span>(s.dict.int(<span class="string">b"Length"</span>), <span class="prelude-val">Some</span>(<span class="number">5</span>));
+<a href="#703" id="703" data-nosnippet="">703</a>    }
+<a href="#704" id="704" data-nosnippet="">704</a>
+<a href="#705" id="705" data-nosnippet="">705</a>    <span class="doccomment">/// With no `endstream` left in the file, as a producer that writes `endstrea` leaves every
+<a href="#706" id="706" data-nosnippet="">706</a>    /// stream, a stream is the bytes its /Length gives, "how many bytes of the PDF file are used
+<a href="#707" id="707" data-nosnippet="">707</a>    /// for the stream's data" (ISO 32000-2 §7.3.8.2): it was an error, and the object null, so
+<a href="#708" id="708" data-nosnippet="">708</a>    /// such a file lost every font and page content. A /Length past the file, or none, is still
+<a href="#709" id="709" data-nosnippet="">709</a>    /// no stream.
+<a href="#710" id="710" data-nosnippet="">710</a>    </span><span class="attr">#[test]
+<a href="#711" id="711" data-nosnippet="">711</a>    </span><span class="kw">fn </span>indirect_stream_without_endstream_is_its_length() {
+<a href="#712" id="712" data-nosnippet="">712</a>        <span class="kw">for </span>end <span class="kw">in </span>[<span class="kw-2">&amp;</span><span class="string">b"\r\nendstrea\rendobj\r\n"</span>[..], <span class="string">b"\nendobj\n"</span>, <span class="string">b""</span>] {
+<a href="#713" id="713" data-nosnippet="">713</a>            <span class="kw">let </span><span class="kw-2">mut </span>data = <span class="string">b"7 0 obj\n&lt;&lt; /Length 5 &gt;&gt;\nstream\r\nHELLO"</span>.to_vec();
+<a href="#714" id="714" data-nosnippet="">714</a>            data.extend_from_slice(end);
+<a href="#715" id="715" data-nosnippet="">715</a>            <span class="kw">let </span>(<span class="kw">_</span>, o) = parse_indirect(<span class="kw-2">&amp;</span>data, <span class="number">0</span>, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="prelude-val">None</span>).unwrap();
+<a href="#716" id="716" data-nosnippet="">716</a>            <span class="kw">let </span>Object::Stream(s) = o <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">"stream expected"</span>) };
+<a href="#717" id="717" data-nosnippet="">717</a>            <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>s.raw[..], <span class="string">b"HELLO"</span>, <span class="string">"{end:?}"</span>);
+<a href="#718" id="718" data-nosnippet="">718</a>        }
+<a href="#719" id="719" data-nosnippet="">719</a>        <span class="macro">assert!</span>(parse_indirect(<span class="string">b"7 0 obj\n&lt;&lt; /Length 6 &gt;&gt;\nstream\nHELLO"</span>, <span class="number">0</span>, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="prelude-val">None</span>).is_err(), <span class="string">"past the file"</span>);
+<a href="#720" id="720" data-nosnippet="">720</a>        <span class="macro">assert!</span>(parse_indirect(<span class="string">b"7 0 obj\n&lt;&lt; &gt;&gt;\nstream\nHELLO\nendstrea\nendobj\n"</span>, <span class="number">0</span>, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="prelude-val">None</span>).is_err(), <span class="string">"no /Length"</span>);
+<a href="#721" id="721" data-nosnippet="">721</a>    }
+<a href="#722" id="722" data-nosnippet="">722</a>
+<a href="#723" id="723" data-nosnippet="">723</a>    <span class="doccomment">/// A stream ending in `endstrea` is its /Length even when a later object does have an
+<a href="#724" id="724" data-nosnippet="">724</a>    /// `endstream`: the search for one would otherwise run on into that object and take its
+<a href="#725" id="725" data-nosnippet="">725</a>    /// header and data as this stream's.
+<a href="#726" id="726" data-nosnippet="">726</a>    </span><span class="attr">#[test]
+<a href="#727" id="727" data-nosnippet="">727</a>    </span><span class="kw">fn </span>a_stream_without_endstream_is_not_read_into_a_later_one() {
+<a href="#728" id="728" data-nosnippet="">728</a>        <span class="kw">let </span>data = <span class="string">b"7 0 obj\n&lt;&lt; /Length 5 &gt;&gt;\nstream\r\nHELLO\r\nendstrea\rendobj\r\n8 0 obj\n&lt;&lt; /Length 5 &gt;&gt;\nstream\nWORLD\nendstream\nendobj\n"</span>;
+<a href="#729" id="729" data-nosnippet="">729</a>        <span class="kw">let </span>second = data.windows(<span class="number">7</span>).position(|w| w == <span class="string">b"8 0 obj"</span>).unwrap();
+<a href="#730" id="730" data-nosnippet="">730</a>        <span class="kw">for </span>(offset, want) <span class="kw">in </span>[(<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="string">b"HELLO"</span>[..]), (second, <span class="string">b"WORLD"</span>)] {
+<a href="#731" id="731" data-nosnippet="">731</a>            <span class="kw">let </span>(<span class="kw">_</span>, o) = parse_indirect(data, offset, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="prelude-val">None</span>).unwrap();
+<a href="#732" id="732" data-nosnippet="">732</a>            <span class="kw">let </span>Object::Stream(s) = o <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">"stream expected at {offset}"</span>) };
+<a href="#733" id="733" data-nosnippet="">733</a>            <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>s.raw[..], want, <span class="string">"at {offset}"</span>);
+<a href="#734" id="734" data-nosnippet="">734</a>        }
+<a href="#735" id="735" data-nosnippet="">735</a>        <span class="comment">// Through the loader's shared index of `endstream` offsets as well.
+<a href="#736" id="736" data-nosnippet="">736</a>        </span><span class="kw">let </span>index = EndstreamIndex::new();
+<a href="#737" id="737" data-nosnippet="">737</a>        <span class="kw">let </span>(<span class="kw">_</span>, o) = parse_indirect_in(data, <span class="prelude-val">None</span>, <span class="number">0</span>, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>index)).unwrap();
+<a href="#738" id="738" data-nosnippet="">738</a>        <span class="kw">let </span>Object::Stream(s) = o <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">"stream expected"</span>) };
+<a href="#739" id="739" data-nosnippet="">739</a>        <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>s.raw[..], <span class="string">b"HELLO"</span>);
+<a href="#740" id="740" data-nosnippet="">740</a>    }
+<a href="#741" id="741" data-nosnippet="">741</a>
+<a href="#742" id="742" data-nosnippet="">742</a>    <span class="doccomment">/// The same for a stream whose `endstream` is left out before `endobj`: the later object's
+<a href="#743" id="743" data-nosnippet="">743</a>    /// `endstream` is not this stream's end.
+<a href="#744" id="744" data-nosnippet="">744</a>    </span><span class="attr">#[test]
+<a href="#745" id="745" data-nosnippet="">745</a>    </span><span class="kw">fn </span>a_stream_ending_at_endobj_is_not_read_into_a_later_one() {
+<a href="#746" id="746" data-nosnippet="">746</a>        <span class="kw">let </span>data = <span class="string">b"7 0 obj\n&lt;&lt; /Length 5 &gt;&gt;\nstream\nHELLO\nendobj\n8 0 obj\n&lt;&lt; /Length 5 &gt;&gt;\nstream\nWORLD\nendstream\nendobj\n"</span>;
+<a href="#747" id="747" data-nosnippet="">747</a>        <span class="kw">let </span>(<span class="kw">_</span>, o) = parse_indirect(data, <span class="number">0</span>, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="prelude-val">None</span>).unwrap();
+<a href="#748" id="748" data-nosnippet="">748</a>        <span class="kw">let </span>Object::Stream(s) = o <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">"stream expected"</span>) };
+<a href="#749" id="749" data-nosnippet="">749</a>        <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>s.raw[..], <span class="string">b"HELLO"</span>);
+<a href="#750" id="750" data-nosnippet="">750</a>    }
+<a href="#751" id="751" data-nosnippet="">751</a>
+<a href="#752" id="752" data-nosnippet="">752</a>    <span class="doccomment">/// A wrong /Length that stops before payload bytes beginning like an end marker (`endobject`,
+<a href="#753" id="753" data-nosnippet="">753</a>    /// `endstreak`, `endstreamer`) is not taken for the stream's end: a token runs on through
+<a href="#754" id="754" data-nosnippet="">754</a>    /// regular characters (ISO 32000-2 §7.2.3), so the search for `endstream` finds the whole
+<a href="#755" id="755" data-nosnippet="">755</a>    /// payload, and skips `endstreamer` too, by itself and through the loader's shared index.
+<a href="#756" id="756" data-nosnippet="">756</a>    </span><span class="attr">#[test]
+<a href="#757" id="757" data-nosnippet="">757</a>    </span><span class="kw">fn </span>a_length_ending_inside_a_longer_word_is_not_an_end_marker() {
+<a href="#758" id="758" data-nosnippet="">758</a>        <span class="kw">for </span>word <span class="kw">in </span>[<span class="string">"endobject"</span>, <span class="string">"endstreak"</span>, <span class="string">"endstreamer"</span>] {
+<a href="#759" id="759" data-nosnippet="">759</a>            <span class="kw">let </span>pdf = <span class="macro">format!</span>(<span class="string">"7 0 obj\n&lt;&lt; /Length 5 &gt;&gt;\nstream\nHELLO {word} more\nendstream\nendobj\n"</span>);
+<a href="#760" id="760" data-nosnippet="">760</a>            <span class="kw">let </span>(<span class="kw">_</span>, o) = parse_indirect(pdf.as_bytes(), <span class="number">0</span>, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="prelude-val">None</span>).unwrap();
+<a href="#761" id="761" data-nosnippet="">761</a>            <span class="kw">let </span>Object::Stream(s) = o <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">"stream expected"</span>) };
+<a href="#762" id="762" data-nosnippet="">762</a>            <span class="macro">assert_eq!</span>(s.raw[..], <span class="kw-2">*</span><span class="macro">format!</span>(<span class="string">"HELLO {word} more"</span>).as_bytes(), <span class="string">"{word}"</span>);
+<a href="#763" id="763" data-nosnippet="">763</a>            <span class="kw">let </span>index = EndstreamIndex::new();
+<a href="#764" id="764" data-nosnippet="">764</a>            <span class="kw">let </span>(<span class="kw">_</span>, o) = parse_indirect_in(pdf.as_bytes(), <span class="prelude-val">None</span>, <span class="number">0</span>, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>index)).unwrap();
+<a href="#765" id="765" data-nosnippet="">765</a>            <span class="kw">let </span>Object::Stream(s) = o <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">"stream expected"</span>) };
+<a href="#766" id="766" data-nosnippet="">766</a>            <span class="macro">assert_eq!</span>(s.raw[..], <span class="kw-2">*</span><span class="macro">format!</span>(<span class="string">"HELLO {word} more"</span>).as_bytes(), <span class="string">"{word}, indexed"</span>);
+<a href="#767" id="767" data-nosnippet="">767</a>        }
+<a href="#768" id="768" data-nosnippet="">768</a>        <span class="comment">// Whole markers still end it, followed by white space, a delimiter or the end of the data.
+<a href="#769" id="769" data-nosnippet="">769</a>        </span><span class="kw">for </span>tail <span class="kw">in </span>[<span class="string">"endobj\n"</span>, <span class="string">"endstrea%"</span>, <span class="string">"endobj"</span>] {
+<a href="#770" id="770" data-nosnippet="">770</a>            <span class="kw">let </span>pdf = <span class="macro">format!</span>(<span class="string">"7 0 obj\n&lt;&lt; /Length 5 &gt;&gt;\nstream\nHELLO\n{tail}"</span>);
+<a href="#771" id="771" data-nosnippet="">771</a>            <span class="kw">let </span>(<span class="kw">_</span>, o) = parse_indirect(pdf.as_bytes(), <span class="number">0</span>, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="prelude-val">None</span>).unwrap();
+<a href="#772" id="772" data-nosnippet="">772</a>            <span class="kw">let </span>Object::Stream(s) = o <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">"stream expected"</span>) };
+<a href="#773" id="773" data-nosnippet="">773</a>            <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>s.raw[..], <span class="string">b"HELLO"</span>, <span class="string">"{tail:?}"</span>);
+<a href="#774" id="774" data-nosnippet="">774</a>        }
+<a href="#775" id="775" data-nosnippet="">775</a>    }
+<a href="#776" id="776" data-nosnippet="">776</a>
+<a href="#777" id="777" data-nosnippet="">777</a>    <span class="doccomment">/// A whole `endobj` or `endstrea` token where a wrong /Length stops is payload, not the
+<a href="#778" id="778" data-nosnippet="">778</a>    /// stream's end, unless the object ends there too: what follows is the end of the data,
+<a href="#779" id="779" data-nosnippet="">779</a>    /// another object's header, or `xref`, `trailer` or `startxref`. Otherwise the search for
+<a href="#780" id="780" data-nosnippet="">780</a>    /// `endstream` finds the whole payload.
+<a href="#781" id="781" data-nosnippet="">781</a>    </span><span class="attr">#[test]
+<a href="#782" id="782" data-nosnippet="">782</a>    </span><span class="kw">fn </span>an_end_marker_inside_the_payload_does_not_end_the_stream() {
+<a href="#783" id="783" data-nosnippet="">783</a>        <span class="kw">for </span>payload <span class="kw">in </span>[<span class="string">"endobj more"</span>, <span class="string">"endstrea more"</span>, <span class="string">"endstrea endobj more"</span>, <span class="string">"endobj 12 more"</span>] {
+<a href="#784" id="784" data-nosnippet="">784</a>            <span class="kw">let </span>pdf = <span class="macro">format!</span>(<span class="string">"7 0 obj\n&lt;&lt; /Length 5 &gt;&gt;\nstream\nHELLO {payload}\nendstream\nendobj\n"</span>);
+<a href="#785" id="785" data-nosnippet="">785</a>            <span class="kw">let </span>(<span class="kw">_</span>, o) = parse_indirect(pdf.as_bytes(), <span class="number">0</span>, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="prelude-val">None</span>).unwrap();
+<a href="#786" id="786" data-nosnippet="">786</a>            <span class="kw">let </span>Object::Stream(s) = o <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">"stream expected"</span>) };
+<a href="#787" id="787" data-nosnippet="">787</a>            <span class="macro">assert_eq!</span>(s.raw[..], <span class="kw-2">*</span><span class="macro">format!</span>(<span class="string">"HELLO {payload}"</span>).as_bytes(), <span class="string">"{payload}"</span>);
+<a href="#788" id="788" data-nosnippet="">788</a>        }
+<a href="#789" id="789" data-nosnippet="">789</a>        <span class="comment">// Where the object does end, the /Length is the stream, also with an `endstream` later.
+<a href="#790" id="790" data-nosnippet="">790</a>        </span><span class="kw">for </span>next <span class="kw">in </span>[<span class="string">"8 0 obj\n&lt;&lt; &gt;&gt;"</span>, <span class="string">"%c\n12 0 obj"</span>, <span class="string">"xref"</span>, <span class="string">"trailer"</span>, <span class="string">"startxref"</span>] {
+<a href="#791" id="791" data-nosnippet="">791</a>            <span class="kw">for </span>marker <span class="kw">in </span>[<span class="string">"endobj"</span>, <span class="string">"endstrea\nendobj"</span>, <span class="string">"endstrea"</span>] {
+<a href="#792" id="792" data-nosnippet="">792</a>                <span class="kw">let </span>pdf = <span class="macro">format!</span>(<span class="string">"7 0 obj\n&lt;&lt; /Length 5 &gt;&gt;\nstream\nHELLO\n{marker}\n{next}\nstream\nWORLD\nendstream\nendobj\n"</span>);
+<a href="#793" id="793" data-nosnippet="">793</a>                <span class="kw">let </span>(<span class="kw">_</span>, o) = parse_indirect(pdf.as_bytes(), <span class="number">0</span>, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="prelude-val">None</span>).unwrap();
+<a href="#794" id="794" data-nosnippet="">794</a>                <span class="kw">let </span>Object::Stream(s) = o <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">"stream expected"</span>) };
+<a href="#795" id="795" data-nosnippet="">795</a>                <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>s.raw[..], <span class="string">b"HELLO"</span>, <span class="string">"{marker:?} then {next:?}"</span>);
+<a href="#796" id="796" data-nosnippet="">796</a>            }
+<a href="#797" id="797" data-nosnippet="">797</a>        }
+<a href="#798" id="798" data-nosnippet="">798</a>    }
+<a href="#799" id="799" data-nosnippet="">799</a>    <span class="doccomment">/// Without an `endstream`, the /Length is trusted as written when it fits, also when it is
+<a href="#800" id="800" data-nosnippet="">800</a>    /// wrong, and an indirect one is resolved first; one that doesn't fit, a negative one and one
+<a href="#801" id="801" data-nosnippet="">801</a>    /// too large for any file are errors rather than wrapped into a short read.
+<a href="#802" id="802" data-nosnippet="">802</a>    </span><span class="attr">#[test]
+<a href="#803" id="803" data-nosnippet="">803</a>    </span><span class="kw">fn </span>a_stream_without_endstream_takes_its_length_only_when_it_fits() {
+<a href="#804" id="804" data-nosnippet="">804</a>        <span class="kw">let </span>stream = |length: <span class="kw-2">&amp;</span>str, tail: <span class="kw-2">&amp;</span>str| <span class="macro">format!</span>(<span class="string">"7 0 obj\n&lt;&lt; /Length {length} &gt;&gt;\nstream\nHELLO{tail}"</span>);
+<a href="#805" id="805" data-nosnippet="">805</a>        <span class="kw">let </span>raw = |pdf: <span class="kw-2">&amp;</span>str, lookup: <span class="kw-2">&amp;</span><span class="kw">dyn </span>Fn(ObjRef) -&gt; <span class="prelude-ty">Option</span>&lt;i64&gt;| <span class="kw">match </span>parse_indirect(pdf.as_bytes(), <span class="number">0</span>, lookup) {
+<a href="#806" id="806" data-nosnippet="">806</a>            <span class="prelude-val">Ok</span>((<span class="kw">_</span>, Object::Stream(s))) =&gt; <span class="prelude-val">Ok</span>(s.raw.to_vec()),
+<a href="#807" id="807" data-nosnippet="">807</a>            <span class="prelude-val">Ok</span>((<span class="kw">_</span>, other)) =&gt; <span class="macro">panic!</span>(<span class="string">"{pdf:?} is {other:?}"</span>),
+<a href="#808" id="808" data-nosnippet="">808</a>            <span class="prelude-val">Err</span>(e) =&gt; <span class="prelude-val">Err</span>(e),
+<a href="#809" id="809" data-nosnippet="">809</a>        };
+<a href="#810" id="810" data-nosnippet="">810</a>        <span class="kw">let </span>none = |<span class="kw">_</span>: ObjRef| <span class="prelude-val">None</span>;
+<a href="#811" id="811" data-nosnippet="">811</a>        <span class="comment">// Wrong but fitting: the bytes it gives, not the bytes up to `endstrea`.
+<a href="#812" id="812" data-nosnippet="">812</a>        </span><span class="macro">assert_eq!</span>(raw(<span class="kw-2">&amp;</span>stream(<span class="string">"3"</span>, <span class="string">"\nendstrea\nendobj\n"</span>), <span class="kw-2">&amp;</span>none).unwrap(), <span class="string">b"HEL"</span>);
+<a href="#813" id="813" data-nosnippet="">813</a>        <span class="comment">// Exactly to the end of the file, and nothing at all.
+<a href="#814" id="814" data-nosnippet="">814</a>        </span><span class="macro">assert_eq!</span>(raw(<span class="kw-2">&amp;</span>stream(<span class="string">"5"</span>, <span class="string">""</span>), <span class="kw-2">&amp;</span>none).unwrap(), <span class="string">b"HELLO"</span>);
+<a href="#815" id="815" data-nosnippet="">815</a>        <span class="macro">assert_eq!</span>(raw(<span class="kw-2">&amp;</span>stream(<span class="string">"0"</span>, <span class="string">"\nendstrea\nendobj\n"</span>), <span class="kw-2">&amp;</span>none).unwrap(), <span class="string">b""</span>);
+<a href="#816" id="816" data-nosnippet="">816</a>        <span class="comment">// Indirect, resolved through the lookup.
+<a href="#817" id="817" data-nosnippet="">817</a>        </span><span class="kw">let </span>lookup = |r: ObjRef| (r == ObjRef::new(<span class="number">9</span>, <span class="number">0</span>)).then_some(<span class="number">4</span>);
+<a href="#818" id="818" data-nosnippet="">818</a>        <span class="macro">assert_eq!</span>(raw(<span class="kw-2">&amp;</span>stream(<span class="string">"9 0 R"</span>, <span class="string">"\nendstrea\nendobj\n"</span>), <span class="kw-2">&amp;</span>lookup).unwrap(), <span class="string">b"HELL"</span>);
+<a href="#819" id="819" data-nosnippet="">819</a>        <span class="macro">assert!</span>(raw(<span class="kw-2">&amp;</span>stream(<span class="string">"9 0 R"</span>, <span class="string">"\nendstrea\nendobj\n"</span>), <span class="kw-2">&amp;</span>none).is_err(), <span class="string">"an unresolved /Length"</span>);
+<a href="#820" id="820" data-nosnippet="">820</a>        <span class="comment">// One past the end, negative, the largest integer and one beyond it.
+<a href="#821" id="821" data-nosnippet="">821</a>        </span><span class="kw">for </span>length <span class="kw">in </span>[<span class="string">"6"</span>, <span class="string">"-1"</span>, <span class="string">"-9223372036854775808"</span>, <span class="string">"9223372036854775807"</span>, <span class="string">"18446744073709551621"</span>] {
+<a href="#822" id="822" data-nosnippet="">822</a>            <span class="macro">assert!</span>(raw(<span class="kw-2">&amp;</span>stream(length, <span class="string">""</span>), <span class="kw-2">&amp;</span>none).is_err(), <span class="string">"/Length {length}"</span>);
+<a href="#823" id="823" data-nosnippet="">823</a>        }
+<a href="#824" id="824" data-nosnippet="">824</a>    }
+<a href="#825" id="825" data-nosnippet="">825</a>
+<a href="#826" id="826" data-nosnippet="">826</a>    <span class="attr">#[test]
+<a href="#827" id="827" data-nosnippet="">827</a>    </span><span class="kw">fn </span>indirect_stream_with_a_space_before_the_line_break() {
+<a href="#828" id="828" data-nosnippet="">828</a>        <span class="comment">// `stream \r\n` as Microsoft Reporting Services writes it: the data starts after the
+<a href="#829" id="829" data-nosnippet="">829</a>        // line break, so the /Length is still right and the data keeps no leading space.
+<a href="#830" id="830" data-nosnippet="">830</a>        </span><span class="kw">for </span>eol <span class="kw">in </span>[<span class="kw-2">&amp;</span><span class="string">b" \r\n"</span>[..], <span class="string">b" \n"</span>, <span class="string">b"\t \r"</span>] {
+<a href="#831" id="831" data-nosnippet="">831</a>            <span class="kw">let </span><span class="kw-2">mut </span>data = <span class="string">b"7 0 obj\n&lt;&lt; /Length 5 &gt;&gt;\nstream"</span>.to_vec();
+<a href="#832" id="832" data-nosnippet="">832</a>            data.extend_from_slice(eol);
+<a href="#833" id="833" data-nosnippet="">833</a>            data.extend_from_slice(<span class="string">b"HELLO\r\nendstream\nendobj\n"</span>);
+<a href="#834" id="834" data-nosnippet="">834</a>            <span class="kw">let </span>(<span class="kw">_</span>, o) = parse_indirect(<span class="kw-2">&amp;</span>data, <span class="number">0</span>, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="prelude-val">None</span>).unwrap();
+<a href="#835" id="835" data-nosnippet="">835</a>            <span class="kw">let </span>Object::Stream(s) = o <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">"stream expected"</span>) };
+<a href="#836" id="836" data-nosnippet="">836</a>            <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>s.raw[..], <span class="string">b"HELLO"</span>, <span class="string">"{eol:?}"</span>);
+<a href="#837" id="837" data-nosnippet="">837</a>        }
+<a href="#838" id="838" data-nosnippet="">838</a>        <span class="comment">// Spaces with no line break after them are data, not a keyword terminator.
+<a href="#839" id="839" data-nosnippet="">839</a>        </span><span class="kw">let </span>data = <span class="string">b"7 0 obj\n&lt;&lt; /Length 7 &gt;&gt;\nstream   HELLO\nendstream\nendobj\n"</span>;
+<a href="#840" id="840" data-nosnippet="">840</a>        <span class="kw">let </span>(<span class="kw">_</span>, o) = parse_indirect(data, <span class="number">0</span>, <span class="kw-2">&amp;</span>|<span class="kw">_</span>| <span class="prelude-val">None</span>).unwrap();
+<a href="#841" id="841" data-nosnippet="">841</a>        <span class="kw">let </span>Object::Stream(s) = o <span class="kw">else </span>{ <span class="macro">panic!</span>(<span class="string">"stream expected"</span>) };
+<a href="#842" id="842" data-nosnippet="">842</a>        <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>s.raw[..], <span class="string">b"   HELLO"</span>);
+<a href="#843" id="843" data-nosnippet="">843</a>    }
+<a href="#844" id="844" data-nosnippet="">844</a>
+<a href="#845" id="845" data-nosnippet="">845</a>    <span class="attr">#[test]
+<a href="#846" id="846" data-nosnippet="">846</a>    </span><span class="kw">fn </span>indirect_length_is_resolved() {
+<a href="#847" id="847" data-nosnippet="">847</a>        <span class="kw">let </span>data = <span class="string">b"7 0 obj\n&lt;&lt; /Length 8 0 R &gt;&gt;\nstream\r\nAB\r\nendstream\nendobj\n"</span>;
+<a href="#848" id="848" data-nosnippet="">848</a>        <span class="kw">let </span>(<span class="kw">_</span>, o) = parse_indirect(data, <span class="number">0</span>, <span class="kw-2">&amp;</span>|r| (r.num == <span class="number">8</span>).then_some(<span class="number">2</span>)).unwrap();
+<a href="#849" id="849" data-nosnippet="">849</a>        <span class="kw">let </span>Object::Stream(s) = o <span class="kw">else </span>{ <span class="macro">panic!</span>() };
+<a href="#850" id="850" data-nosnippet="">850</a>        <span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>s.raw[..], <span class="string">b"AB"</span>);
+<a href="#851" id="851" data-nosnippet="">851</a>    }
+<a href="#852" id="852" data-nosnippet="">852</a>
+<a href="#853" id="853" data-nosnippet="">853</a>    <span class="attr">#[test]
+<a href="#854" id="854" data-nosnippet="">854</a>    </span><span class="kw">fn </span>garbage_never_panics() {
+<a href="#855" id="855" data-nosnippet="">855</a>        <span class="kw">for </span>input <span class="kw">in </span>[<span class="string">"&lt;&lt;"</span>, <span class="string">"["</span>, <span class="string">"("</span>, <span class="string">"&lt;"</span>, <span class="string">"&lt;&lt; /A"</span>, <span class="string">"[1 2"</span>, <span class="string">")"</span>, <span class="string">"]"</span>, <span class="string">"&gt;&gt;"</span>, <span class="string">"&lt;&lt;&gt;&gt;&gt;"</span>, <span class="string">"1 0"</span>, <span class="string">"\0\0"</span>, <span class="string">"/A#"</span>, <span class="string">"&lt;zz&gt;"</span>, <span class="string">"((("</span>] {
+<a href="#856" id="856" data-nosnippet="">856</a>            <span class="kw">let _ </span>= Lexer::new(input.as_bytes(), <span class="number">0</span>).object();
+<a href="#857" id="857" data-nosnippet="">857</a>        }
+<a href="#858" id="858" data-nosnippet="">858</a>        <span class="kw">let </span>deep = <span class="string">"["</span>.repeat(<span class="number">10_000</span>);
+<a href="#859" id="859" data-nosnippet="">859</a>        <span class="macro">assert!</span>(Lexer::new(deep.as_bytes(), <span class="number">0</span>).object().is_err());
+<a href="#860" id="860" data-nosnippet="">860</a>    }
+<a href="#861" id="861" data-nosnippet="">861</a>
+<a href="#862" id="862" data-nosnippet="">862</a>    <span class="attr">#[test]
+<a href="#863" id="863" data-nosnippet="">863</a>    </span><span class="kw">fn </span>one_object_has_a_node_budget() {
+<a href="#864" id="864" data-nosnippet="">864</a>        <span class="comment">// A wide array (from a tiny compressed object stream) must not grow without bound.
+<a href="#865" id="865" data-nosnippet="">865</a>        </span><span class="kw">let </span>wide = |n: usize| <span class="macro">format!</span>(<span class="string">"[{}]"</span>, <span class="string">"0 "</span>.repeat(n));
+<a href="#866" id="866" data-nosnippet="">866</a>        <span class="kw">let </span>at_cap = Lexer::new(wide(MAX_NODES - <span class="number">1</span>).as_bytes(), <span class="number">0</span>).object();
+<a href="#867" id="867" data-nosnippet="">867</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(at_cap, <span class="prelude-val">Ok</span>(Object::Array(<span class="kw-2">ref </span>items)) <span class="kw">if </span>items.len() == MAX_NODES - <span class="number">1</span>));
+<a href="#868" id="868" data-nosnippet="">868</a>        <span class="macro">assert!</span>(Lexer::new(wide(MAX_NODES).as_bytes(), <span class="number">0</span>).object().is_err());
+<a href="#869" id="869" data-nosnippet="">869</a>        <span class="comment">// The same inside a dictionary value and behind tolerated junk.
+<a href="#870" id="870" data-nosnippet="">870</a>        </span><span class="macro">assert!</span>(Lexer::new(<span class="macro">format!</span>(<span class="string">"&lt;&lt; /A {} &gt;&gt;"</span>, wide(MAX_NODES)).as_bytes(), <span class="number">0</span>).object().is_err());
+<a href="#871" id="871" data-nosnippet="">871</a>        <span class="macro">assert!</span>(Lexer::new(<span class="macro">format!</span>(<span class="string">"[[{}] ]"</span>, <span class="string">"0 "</span>.repeat(MAX_NODES)).as_bytes(), <span class="number">0</span>).object().is_err());
+<a href="#872" id="872" data-nosnippet="">872</a>        <span class="comment">// The budget is per top-level object: a lexer reused for many operands keeps working.
+<a href="#873" id="873" data-nosnippet="">873</a>        </span><span class="kw">let </span>two = wide(MAX_NODES - <span class="number">1</span>).repeat(<span class="number">2</span>);
+<a href="#874" id="874" data-nosnippet="">874</a>        <span class="kw">let </span><span class="kw-2">mut </span>lx = Lexer::new(two.as_bytes(), <span class="number">0</span>);
+<a href="#875" id="875" data-nosnippet="">875</a>        <span class="macro">assert!</span>(lx.object().is_ok() &amp;&amp; lx.object().is_ok());
+<a href="#876" id="876" data-nosnippet="">876</a>    }
+<a href="#877" id="877" data-nosnippet="">877</a>
+<a href="#878" id="878" data-nosnippet="">878</a>    <span class="doccomment">/// A plain real is read without a cleaned copy of its token; the forms that need one read
+<a href="#879" id="879" data-nosnippet="">879</a>    /// as they did (#5873).
+<a href="#880" id="880" data-nosnippet="">880</a>    </span><span class="attr">#[test]
+<a href="#881" id="881" data-nosnippet="">881</a>    </span><span class="kw">fn </span>reals_read_the_same_with_and_without_a_doubled_sign() {
+<a href="#882" id="882" data-nosnippet="">882</a>        <span class="kw">for </span>(token, want) <span class="kw">in </span>[(<span class="string">"1.5"</span>, <span class="number">1.5</span>), (<span class="string">"-375.993"</span>, -<span class="number">375.993</span>), (<span class="string">"+2.25"</span>, <span class="number">2.25</span>), (<span class="string">"--5.5"</span>, -<span class="number">5.5</span>), (<span class="string">"1.2.3"</span>, <span class="number">1.2</span>), (<span class="string">"-.5"</span>, -<span class="number">0.5</span>), (<span class="string">"0.0"</span>, <span class="number">0.0</span>)] {
+<a href="#883" id="883" data-nosnippet="">883</a>            <span class="macro">assert_eq!</span>(Lexer::new(token.as_bytes(), <span class="number">0</span>).object().unwrap(), Object::Real(want), <span class="string">"{token}"</span>);
+<a href="#884" id="884" data-nosnippet="">884</a>        }
+<a href="#885" id="885" data-nosnippet="">885</a>    }
+<a href="#886" id="886" data-nosnippet="">886</a>}
+</code></pre></div></section></main></body></html>

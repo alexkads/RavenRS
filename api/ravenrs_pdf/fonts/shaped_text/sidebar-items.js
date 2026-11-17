@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["GLYPHS_PER_FONT"],"enum":["Piece"],"fn":["add_type3_font","appearance_lines","clusters","first_undrawable","first_undrawable_in_line","is_thai","joins_previous","pieces_width","store_streams","thai_message","thai_pieces","thai_reach","thai_refusal","thai_width"],"struct":["ShapedFonts"]};

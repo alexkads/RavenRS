@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["change_case","change_case_parts","char_move","cluster_end","delete","delete_word","end","format","format_all","insert","insert_body","next_case","para_down","para_up","props_at","replace_text","slice","text_range","word_at","word_move"],"type":["Pos"]};

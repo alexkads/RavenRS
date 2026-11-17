@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["TEMPO_ACK_MS","TEMPO_RESPOSTA_MS","TENTATIVAS"],"enum":["ErroSessao","EventoSessao","FalhaEnlace"],"struct":["Sessao"]};

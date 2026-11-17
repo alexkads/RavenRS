@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["VIEW"],"fn":["find","icons","outline","path_data","stroke_width"],"struct":["Icon"]};

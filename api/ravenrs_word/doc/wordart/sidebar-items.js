@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ART_STYLES","DRAWN_WARPS","MAX_ADJ","MAX_ADJ_VALUE","MAX_OUTLINE","MAX_REFLECTION_GAP","MAX_STOPS","WARP_PRESETS"],"enum":["TextFill"],"fn":["art_style"],"struct":["GradStop","Reflection","TextEffects","TextOutline","TextWarp"]};

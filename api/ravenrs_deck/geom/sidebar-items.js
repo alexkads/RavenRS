@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["EMU_PER_CM","EMU_PER_IN","EMU_PER_PT"],"enum":["PathEl","Unit"],"fn":["dist_to_segment","emu_to_pt","group_child_affine","near_path","preset_flatten","pt_to_emu","snap"],"mod":["morph","preset","squircle","warp"],"struct":["Affine","BezPath","Point","Rect","Size","Vec2","Xfrm"],"trait":["KurboShape"]};

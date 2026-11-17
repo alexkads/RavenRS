@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["XlsxExportError"],"fn":["to_csv","to_xlsx"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["INHERITABLE","MAX_INHERITED_COPIES","MAX_USER_UNIT"],"fn":["pages","view_matrix_for"],"struct":["Page"]};

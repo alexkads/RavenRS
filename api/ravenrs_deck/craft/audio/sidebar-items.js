@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["LOOKAHEAD_PACKETS"],"enum":["AudioError","BitDepth","EncodeFormat","SampleFormat","Speaker"],"mod":["opus"],"struct":["AudioBuffer","AudioInfo","BwfInfo","ChannelLayout","EncodeOptions","TrackDecoder"],"type":["Result"]};

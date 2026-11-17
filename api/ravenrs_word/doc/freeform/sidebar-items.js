@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_INK_PER_PAGE","MAX_PATHS","MAX_POINTS"],"enum":["InkTool"],"struct":["FreePath","Freeform"]};

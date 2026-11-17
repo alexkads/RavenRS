@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ConnectError","Statements"],"struct":["PostgresBackend","PostgresOptions","SqlWords","TableMap"],"type":["PostgresBuilder","PostgresDatabase","PostgresObjectSpace"]};

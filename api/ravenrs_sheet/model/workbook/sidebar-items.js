@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["EQUATION_BUDGET_MESSAGE","MAX_EQUATION_LAYOUT_BYTES"],"enum":["CalcMode","ShowObjects"],"struct":["ActiveSheet","CalcSettings","DefinedName","DocProps","PhoneticProps","PhoneticRun","PhoneticString","Workbook","WorkbookView"]};

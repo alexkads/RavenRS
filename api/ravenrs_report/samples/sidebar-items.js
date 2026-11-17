@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["customer_list","invoice","invoice_data","sales_by_region","sales_dashboard","sales_data"]};

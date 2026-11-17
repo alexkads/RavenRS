@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["SMALLEST_WORDS"],"fn":["fit"],"struct":["DiagramLabel","FittedDiagram"]};

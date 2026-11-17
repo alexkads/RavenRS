@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["write_to_folder"],"struct":["Mail","SmtpMailer"],"trait":["Mailer"]};

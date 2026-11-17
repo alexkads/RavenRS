@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["GridExportFormat","GridTableKind","ViewRow"],"fn":["check_formula","formula_value","group_keys","matches_filter","rows_for_column_values","run_query","to_csv","to_table","to_tsv"],"struct":["GridQuery","GridTable","GridTableColumn","QueryResult"]};

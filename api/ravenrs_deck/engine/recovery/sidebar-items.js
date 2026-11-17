@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_REOPEN"],"fn":["default_dir","discard","instance_id","list","open","save"]};

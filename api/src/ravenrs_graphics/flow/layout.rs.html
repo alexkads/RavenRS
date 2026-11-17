@@ -1,0 +1,753 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>layout.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="ravenrs_graphics" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../src-files.js"></script><script defer="" src="../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-graphics/src/flow/layout.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_graphics/flow/layout.rs.html"><meta property="og:title" content="layout.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-graphics/src/flow/layout.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_graphics/flow/layout.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="layout.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-graphics/src/flow/layout.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"layout.rs - source","description":"Source of the Rust file `crates/ravenrs-graphics/src/flow/layout.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_graphics/flow/layout.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_graphics/flow/</div>layout.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! Arranging a diagram by itself, in layers: every connection runs one way, from one layer to a
+<a href="#2" id="2" data-nosnippet="">2</a>//! later one, and the nodes of a layer are ordered so that lines cross as little as they can.
+<a href="#3" id="3" data-nosnippet="">3</a>//!
+<a href="#4" id="4" data-nosnippet="">4</a>//! It is the usual layered method, kept small: cycles are broken by turning back the
+<a href="#5" id="5" data-nosnippet="">5</a>//! connections that close them, each node goes to the layer after the longest path that reaches
+<a href="#6" id="6" data-nosnippet="">6</a>//! it, the nodes of each layer are ordered by the average place of their neighbours over a few
+<a href="#7" id="7" data-nosnippet="">7</a>//! sweeps, and each node then moves towards its neighbours as far as the room in its layer lets
+<a href="#8" id="8" data-nosnippet="">8</a>//! it, so a chain comes out straight.
+<a href="#9" id="9" data-nosnippet="">9</a>
+<a href="#10" id="10" data-nosnippet="">10</a></span><span class="kw">use super</span>::{FlowGraph, FlowNode};
+<a href="#11" id="11" data-nosnippet="">11</a>
+<a href="#12" id="12" data-nosnippet="">12</a><span class="doccomment">/// The way the layers follow one another.
+<a href="#13" id="13" data-nosnippet="">13</a></span><span class="attr">#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+<a href="#14" id="14" data-nosnippet="">14</a>#[non_exhaustive]
+<a href="#15" id="15" data-nosnippet="">15</a>#[cfg_attr(feature = <span class="string">"live"</span>, ravenrs_live::expose(part = <span class="string">"variants"</span>))]
+<a href="#16" id="16" data-nosnippet="">16</a></span><span class="kw">pub enum </span>FlowDirection {
+<a href="#17" id="17" data-nosnippet="">17</a>    <span class="doccomment">/// From left to right: the first layer is the leftmost column.
+<a href="#18" id="18" data-nosnippet="">18</a>    </span><span class="attr">#[default]
+<a href="#19" id="19" data-nosnippet="">19</a>    </span>Right,
+<a href="#20" id="20" data-nosnippet="">20</a>    <span class="doccomment">/// From top to bottom: the first layer is the top row.
+<a href="#21" id="21" data-nosnippet="">21</a>    </span>Down,
+<a href="#22" id="22" data-nosnippet="">22</a>}
+<a href="#23" id="23" data-nosnippet="">23</a>
+<a href="#24" id="24" data-nosnippet="">24</a><span class="doccomment">/// The arrangement [`FlowLayout`] makes.
+<a href="#25" id="25" data-nosnippet="">25</a></span><span class="attr">#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+<a href="#26" id="26" data-nosnippet="">26</a>#[non_exhaustive]
+<a href="#27" id="27" data-nosnippet="">27</a>#[cfg_attr(feature = <span class="string">"live"</span>, ravenrs_live::expose(part = <span class="string">"variants"</span>))]
+<a href="#28" id="28" data-nosnippet="">28</a></span><span class="kw">pub enum </span>FlowLayoutKind {
+<a href="#29" id="29" data-nosnippet="">29</a>    <span class="doccomment">/// Layers in which every connection runs one way and few lines cross: for flows.
+<a href="#30" id="30" data-nosnippet="">30</a>    </span><span class="attr">#[default]
+<a href="#31" id="31" data-nosnippet="">31</a>    </span>Layered,
+<a href="#32" id="32" data-nosnippet="">32</a>    <span class="doccomment">/// A tree, as an org chart: each node centred over the nodes it leads to, which sit side by
+<a href="#33" id="33" data-nosnippet="">33</a>    /// side. A node reached from two others hangs under the first; a forest is trees side by
+<a href="#34" id="34" data-nosnippet="">34</a>    /// side.
+<a href="#35" id="35" data-nosnippet="">35</a>    </span>Tree,
+<a href="#36" id="36" data-nosnippet="">36</a>    <span class="doccomment">/// A mind map: the first node nothing leads to in the middle, half its branches growing to
+<a href="#37" id="37" data-nosnippet="">37</a>    /// the right and half to the left, each as a tree.
+<a href="#38" id="38" data-nosnippet="">38</a>    </span>MindMap,
+<a href="#39" id="39" data-nosnippet="">39</a>}
+<a href="#40" id="40" data-nosnippet="">40</a>
+<a href="#41" id="41" data-nosnippet="">41</a><span class="doccomment">/// How [`FlowLayout::apply`] arranges a diagram: the kind of arrangement, the direction and
+<a href="#42" id="42" data-nosnippet="">42</a>/// the room between layers and between the nodes of a layer, in units of the diagram.
+<a href="#43" id="43" data-nosnippet="">43</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq)]
+<a href="#44" id="44" data-nosnippet="">44</a>#[cfg_attr(feature = <span class="string">"live"</span>, ravenrs_live::expose(part = <span class="string">"fields"</span>))]
+<a href="#45" id="45" data-nosnippet="">45</a></span><span class="kw">pub struct </span>FlowLayout {
+<a href="#46" id="46" data-nosnippet="">46</a>    <span class="doccomment">/// Layers or a tree.
+<a href="#47" id="47" data-nosnippet="">47</a>    </span><span class="kw">pub </span>kind: FlowLayoutKind,
+<a href="#48" id="48" data-nosnippet="">48</a>    <span class="doccomment">/// The way the layers follow one another.
+<a href="#49" id="49" data-nosnippet="">49</a>    </span><span class="kw">pub </span>direction: FlowDirection,
+<a href="#50" id="50" data-nosnippet="">50</a>    <span class="doccomment">/// The room between one layer and the next.
+<a href="#51" id="51" data-nosnippet="">51</a>    </span><span class="kw">pub </span>layer_gap: f32,
+<a href="#52" id="52" data-nosnippet="">52</a>    <span class="doccomment">/// The room between two nodes of a layer.
+<a href="#53" id="53" data-nosnippet="">53</a>    </span><span class="kw">pub </span>node_gap: f32,
+<a href="#54" id="54" data-nosnippet="">54</a>}
+<a href="#55" id="55" data-nosnippet="">55</a>
+<a href="#56" id="56" data-nosnippet="">56</a><span class="kw">impl </span>Default <span class="kw">for </span>FlowLayout {
+<a href="#57" id="57" data-nosnippet="">57</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href="#58" id="58" data-nosnippet="">58</a>        <span class="self">Self</span>::new(FlowDirection::Right)
+<a href="#59" id="59" data-nosnippet="">59</a>    }
+<a href="#60" id="60" data-nosnippet="">60</a>}
+<a href="#61" id="61" data-nosnippet="">61</a>
+<a href="#62" id="62" data-nosnippet="">62</a><span class="doccomment">/// How many times the order of the layers is swept, down and back up.
+<a href="#63" id="63" data-nosnippet="">63</a></span><span class="kw">const </span>SWEEPS: usize = <span class="number">4</span>;
+<a href="#64" id="64" data-nosnippet="">64</a>
+<a href="#65" id="65" data-nosnippet="">65</a><span class="attr">#[cfg_attr(feature = <span class="string">"live"</span>, ravenrs_live::expose)]
+<a href="#66" id="66" data-nosnippet="">66</a></span><span class="kw">impl </span>FlowLayout {
+<a href="#67" id="67" data-nosnippet="">67</a>    <span class="doccomment">/// Layers in this direction, 96 units apart, with 48 between the nodes of a layer.
+<a href="#68" id="68" data-nosnippet="">68</a>    </span><span class="kw">pub fn </span>new(direction: FlowDirection) -&gt; <span class="self">Self </span>{
+<a href="#69" id="69" data-nosnippet="">69</a>        <span class="self">Self </span>{ kind: FlowLayoutKind::Layered, direction, layer_gap: <span class="number">96.0</span>, node_gap: <span class="number">48.0 </span>}
+<a href="#70" id="70" data-nosnippet="">70</a>    }
+<a href="#71" id="71" data-nosnippet="">71</a>
+<a href="#72" id="72" data-nosnippet="">72</a>    <span class="doccomment">/// A tree growing in this direction, as an org chart (down) or a mind map (right).
+<a href="#73" id="73" data-nosnippet="">73</a>    </span><span class="kw">pub fn </span>tree(direction: FlowDirection) -&gt; <span class="self">Self </span>{
+<a href="#74" id="74" data-nosnippet="">74</a>        <span class="self">Self </span>{ kind: FlowLayoutKind::Tree, ..<span class="self">Self</span>::new(direction) }
+<a href="#75" id="75" data-nosnippet="">75</a>    }
+<a href="#76" id="76" data-nosnippet="">76</a>
+<a href="#77" id="77" data-nosnippet="">77</a>    <span class="doccomment">/// A mind map growing to both sides of its middle idea.
+<a href="#78" id="78" data-nosnippet="">78</a>    </span><span class="kw">pub fn </span>mind_map() -&gt; <span class="self">Self </span>{
+<a href="#79" id="79" data-nosnippet="">79</a>        <span class="self">Self </span>{ kind: FlowLayoutKind::MindMap, ..<span class="self">Self</span>::new(FlowDirection::Right) }
+<a href="#80" id="80" data-nosnippet="">80</a>    }
+<a href="#81" id="81" data-nosnippet="">81</a>
+<a href="#82" id="82" data-nosnippet="">82</a>    <span class="doccomment">/// With this room between layers and between the nodes of a layer.
+<a href="#83" id="83" data-nosnippet="">83</a>    </span><span class="kw">pub fn </span>gaps(<span class="kw-2">mut </span><span class="self">self</span>, layer_gap: f32, node_gap: f32) -&gt; <span class="self">Self </span>{
+<a href="#84" id="84" data-nosnippet="">84</a>        <span class="self">self</span>.layer_gap = layer_gap.max(<span class="number">0.0</span>);
+<a href="#85" id="85" data-nosnippet="">85</a>        <span class="self">self</span>.node_gap = node_gap.max(<span class="number">0.0</span>);
+<a href="#86" id="86" data-nosnippet="">86</a>        <span class="self">self
+<a href="#87" id="87" data-nosnippet="">87</a>    </span>}
+<a href="#88" id="88" data-nosnippet="">88</a>
+<a href="#89" id="89" data-nosnippet="">89</a>    <span class="doccomment">/// Where each node goes, its left and top edges, in the order of `graph.nodes`. The
+<a href="#90" id="90" data-nosnippet="">90</a>    /// arranged diagram starts where the diagram started: its box keeps its top left corner.
+<a href="#91" id="91" data-nosnippet="">91</a>    ///
+<a href="#92" id="92" data-nosnippet="">92</a>    /// Only the nodes outside any group are arranged, with a group standing for everything in
+<a href="#93" id="93" data-nosnippet="">93</a>    /// it and its connections; what a group holds moves with it and keeps its own arrangement.
+<a href="#94" id="94" data-nosnippet="">94</a>    </span><span class="kw">pub fn </span>positions(<span class="kw-2">&amp;</span><span class="self">self</span>, graph: <span class="kw-2">&amp;</span>FlowGraph) -&gt; Vec&lt;(f32, f32)&gt; {
+<a href="#95" id="95" data-nosnippet="">95</a>        <span class="kw">let </span>outer = FlowGraph {
+<a href="#96" id="96" data-nosnippet="">96</a>            <span class="comment">// The app's data of the whole diagram stays with the diagram.
+<a href="#97" id="97" data-nosnippet="">97</a>            </span>data: serde_json::Value::Null,
+<a href="#98" id="98" data-nosnippet="">98</a>            nodes: graph.nodes.iter().filter(|n| n.parent.is_none()).cloned().collect(),
+<a href="#99" id="99" data-nosnippet="">99</a>            edges: graph
+<a href="#100" id="100" data-nosnippet="">100</a>                .edges
+<a href="#101" id="101" data-nosnippet="">101</a>                .iter()
+<a href="#102" id="102" data-nosnippet="">102</a>                .map(|e| {
+<a href="#103" id="103" data-nosnippet="">103</a>                    <span class="kw">let </span><span class="kw-2">mut </span>e = e.clone();
+<a href="#104" id="104" data-nosnippet="">104</a>                    e.from.node = graph.top(<span class="kw-2">&amp;</span>e.from.node);
+<a href="#105" id="105" data-nosnippet="">105</a>                    e.to.node = graph.top(<span class="kw-2">&amp;</span>e.to.node);
+<a href="#106" id="106" data-nosnippet="">106</a>                    e
+<a href="#107" id="107" data-nosnippet="">107</a>                })
+<a href="#108" id="108" data-nosnippet="">108</a>                .collect(),
+<a href="#109" id="109" data-nosnippet="">109</a>        };
+<a href="#110" id="110" data-nosnippet="">110</a>        <span class="kw">let </span>placed = <span class="self">self</span>.arrange(<span class="kw-2">&amp;</span>outer);
+<a href="#111" id="111" data-nosnippet="">111</a>        graph
+<a href="#112" id="112" data-nosnippet="">112</a>            .nodes
+<a href="#113" id="113" data-nosnippet="">113</a>            .iter()
+<a href="#114" id="114" data-nosnippet="">114</a>            .map(|n| {
+<a href="#115" id="115" data-nosnippet="">115</a>                <span class="kw">let </span>top = graph.top(<span class="kw-2">&amp;</span>n.id);
+<a href="#116" id="116" data-nosnippet="">116</a>                <span class="kw">let </span>moved = outer.nodes.iter().zip(<span class="kw-2">&amp;</span>placed).find(|(o, <span class="kw">_</span>)| o.id == top);
+<a href="#117" id="117" data-nosnippet="">117</a>                <span class="kw">match </span>moved {
+<a href="#118" id="118" data-nosnippet="">118</a>                    <span class="prelude-val">Some</span>((o, (x, y))) =&gt; (n.x + x - o.x, n.y + y - o.y),
+<a href="#119" id="119" data-nosnippet="">119</a>                    <span class="prelude-val">None </span>=&gt; (n.x, n.y),
+<a href="#120" id="120" data-nosnippet="">120</a>                }
+<a href="#121" id="121" data-nosnippet="">121</a>            })
+<a href="#122" id="122" data-nosnippet="">122</a>            .collect()
+<a href="#123" id="123" data-nosnippet="">123</a>    }
+<a href="#124" id="124" data-nosnippet="">124</a>
+<a href="#125" id="125" data-nosnippet="">125</a>    <span class="doccomment">/// Where each node of a diagram with no groups goes.
+<a href="#126" id="126" data-nosnippet="">126</a>    </span><span class="kw">fn </span>arrange(<span class="kw-2">&amp;</span><span class="self">self</span>, graph: <span class="kw-2">&amp;</span>FlowGraph) -&gt; Vec&lt;(f32, f32)&gt; {
+<a href="#127" id="127" data-nosnippet="">127</a>        <span class="kw">let </span>n = graph.nodes.len();
+<a href="#128" id="128" data-nosnippet="">128</a>        <span class="kw">if </span>n == <span class="number">0 </span>{
+<a href="#129" id="129" data-nosnippet="">129</a>            <span class="kw">return </span>Vec::new();
+<a href="#130" id="130" data-nosnippet="">130</a>        }
+<a href="#131" id="131" data-nosnippet="">131</a>        <span class="kw">let </span>links = links(graph);
+<a href="#132" id="132" data-nosnippet="">132</a>        <span class="kw">let </span>places = <span class="kw">match </span><span class="self">self</span>.kind {
+<a href="#133" id="133" data-nosnippet="">133</a>            FlowLayoutKind::Tree =&gt; <span class="self">self</span>.tree_places(<span class="kw-2">&amp;</span>graph.nodes, <span class="kw-2">&amp;</span>links),
+<a href="#134" id="134" data-nosnippet="">134</a>            FlowLayoutKind::MindMap =&gt; <span class="self">self</span>.mind_places(<span class="kw-2">&amp;</span>graph.nodes, <span class="kw-2">&amp;</span>links),
+<a href="#135" id="135" data-nosnippet="">135</a>            <span class="kw">_ </span>=&gt; {
+<a href="#136" id="136" data-nosnippet="">136</a>                <span class="kw">let </span>layer = layers(n, <span class="kw-2">&amp;</span>links);
+<a href="#137" id="137" data-nosnippet="">137</a>                <span class="kw">let </span><span class="kw-2">mut </span>order = order(n, <span class="kw-2">&amp;</span>links, <span class="kw-2">&amp;</span>layer);
+<a href="#138" id="138" data-nosnippet="">138</a>                <span class="self">self</span>.place(<span class="kw-2">&amp;</span>graph.nodes, <span class="kw-2">&amp;</span>links, <span class="kw-2">&amp;</span>layer, <span class="kw-2">&amp;mut </span>order)
+<a href="#139" id="139" data-nosnippet="">139</a>            }
+<a href="#140" id="140" data-nosnippet="">140</a>        };
+<a href="#141" id="141" data-nosnippet="">141</a>        <span class="kw">let </span>origin = graph.bounds().map_or((<span class="number">0.0</span>, <span class="number">0.0</span>), |b| (b.x(), b.y()));
+<a href="#142" id="142" data-nosnippet="">142</a>        <span class="kw">let </span>(least_x, least_y) =
+<a href="#143" id="143" data-nosnippet="">143</a>            places.iter().fold((f32::INFINITY, f32::INFINITY), |(x, y), p| (x.min(p.<span class="number">0</span>), y.min(p.<span class="number">1</span>)));
+<a href="#144" id="144" data-nosnippet="">144</a>        places.into_iter().map(|(x, y)| (x - least_x + origin.<span class="number">0</span>, y - least_y + origin.<span class="number">1</span>)).collect()
+<a href="#145" id="145" data-nosnippet="">145</a>    }
+<a href="#146" id="146" data-nosnippet="">146</a>
+<a href="#147" id="147" data-nosnippet="">147</a>    <span class="doccomment">/// Moves every node of `graph` where [`Self::positions`] puts it. Says whether any moved.
+<a href="#148" id="148" data-nosnippet="">148</a>    /// A mind map also turns the ports of the nodes left of the middle to face it: their way in
+<a href="#149" id="149" data-nosnippet="">149</a>    /// on the right, their way out on the left.
+<a href="#150" id="150" data-nosnippet="">150</a>    </span><span class="kw">pub fn </span>apply(<span class="kw-2">&amp;</span><span class="self">self</span>, graph: <span class="kw-2">&amp;mut </span>FlowGraph) -&gt; bool {
+<a href="#151" id="151" data-nosnippet="">151</a>        <span class="kw">let </span>places = <span class="self">self</span>.positions(graph);
+<a href="#152" id="152" data-nosnippet="">152</a>        <span class="kw">let </span><span class="kw-2">mut </span>moved = <span class="bool-val">false</span>;
+<a href="#153" id="153" data-nosnippet="">153</a>        <span class="kw">for </span>(node, (x, y)) <span class="kw">in </span>graph.nodes.iter_mut().zip(places) {
+<a href="#154" id="154" data-nosnippet="">154</a>            <span class="kw">if </span>node.x != x || node.y != y {
+<a href="#155" id="155" data-nosnippet="">155</a>                node.x = x;
+<a href="#156" id="156" data-nosnippet="">156</a>                node.y = y;
+<a href="#157" id="157" data-nosnippet="">157</a>                moved = <span class="bool-val">true</span>;
+<a href="#158" id="158" data-nosnippet="">158</a>            }
+<a href="#159" id="159" data-nosnippet="">159</a>        }
+<a href="#160" id="160" data-nosnippet="">160</a>        <span class="kw">if </span><span class="self">self</span>.kind == FlowLayoutKind::MindMap
+<a href="#161" id="161" data-nosnippet="">161</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(middle) = middle_of(graph)
+<a href="#162" id="162" data-nosnippet="">162</a>        {
+<a href="#163" id="163" data-nosnippet="">163</a>            <span class="kw">let </span>centre = graph.nodes[middle].rect().center().x;
+<a href="#164" id="164" data-nosnippet="">164</a>            <span class="kw">for </span>(i, node) <span class="kw">in </span>graph.nodes.iter_mut().enumerate() {
+<a href="#165" id="165" data-nosnippet="">165</a>                <span class="kw">let </span>left = i != middle &amp;&amp; node.rect().center().x &lt; centre;
+<a href="#166" id="166" data-nosnippet="">166</a>                <span class="kw">for </span>port <span class="kw">in </span><span class="kw-2">&amp;mut </span>node.ports {
+<a href="#167" id="167" data-nosnippet="">167</a>                    <span class="kw">if </span>!port.side.is_horizontal() {
+<a href="#168" id="168" data-nosnippet="">168</a>                        <span class="kw">continue</span>;
+<a href="#169" id="169" data-nosnippet="">169</a>                    }
+<a href="#170" id="170" data-nosnippet="">170</a>                    <span class="kw">let </span>wanted = <span class="kw">match </span>(port.direction == <span class="kw">super</span>::PortDirection::Input, left) {
+<a href="#171" id="171" data-nosnippet="">171</a>                        (<span class="bool-val">true</span>, <span class="bool-val">false</span>) | (<span class="bool-val">false</span>, <span class="bool-val">true</span>) =&gt; <span class="kw">super</span>::PortSide::Left,
+<a href="#172" id="172" data-nosnippet="">172</a>                        <span class="kw">_ </span>=&gt; <span class="kw">super</span>::PortSide::Right,
+<a href="#173" id="173" data-nosnippet="">173</a>                    };
+<a href="#174" id="174" data-nosnippet="">174</a>                    <span class="kw">if </span>port.side != wanted {
+<a href="#175" id="175" data-nosnippet="">175</a>                        port.side = wanted;
+<a href="#176" id="176" data-nosnippet="">176</a>                        moved = <span class="bool-val">true</span>;
+<a href="#177" id="177" data-nosnippet="">177</a>                    }
+<a href="#178" id="178" data-nosnippet="">178</a>                }
+<a href="#179" id="179" data-nosnippet="">179</a>            }
+<a href="#180" id="180" data-nosnippet="">180</a>        }
+<a href="#181" id="181" data-nosnippet="">181</a>        moved
+<a href="#182" id="182" data-nosnippet="">182</a>    }
+<a href="#183" id="183" data-nosnippet="">183</a>
+<a href="#184" id="184" data-nosnippet="">184</a>    <span class="doccomment">/// Where each node of a mind map goes: the branches of the middle split between the right
+<a href="#185" id="185" data-nosnippet="">185</a>    /// and the left, each half a tree, the left one mirrored.
+<a href="#186" id="186" data-nosnippet="">186</a>    </span><span class="kw">fn </span>mind_places(<span class="kw-2">&amp;</span><span class="self">self</span>, nodes: <span class="kw-2">&amp;</span>[FlowNode], links: <span class="kw-2">&amp;</span>[(usize, usize)]) -&gt; Vec&lt;(f32, f32)&gt; {
+<a href="#187" id="187" data-nosnippet="">187</a>        <span class="kw">let </span>n = nodes.len();
+<a href="#188" id="188" data-nosnippet="">188</a>        <span class="kw">let </span>reached: Vec&lt;bool&gt; = (<span class="number">0</span>..n).map(|i| links.iter().any(|(<span class="kw">_</span>, b)| <span class="kw-2">*</span>b == i)).collect();
+<a href="#189" id="189" data-nosnippet="">189</a>        <span class="kw">let </span>middle = (<span class="number">0</span>..n).find(|i| !reached[<span class="kw-2">*</span>i]).unwrap_or(<span class="number">0</span>);
+<a href="#190" id="190" data-nosnippet="">190</a>        <span class="kw">let </span>branches: Vec&lt;usize&gt; = links.iter().filter(|(a, <span class="kw">_</span>)| <span class="kw-2">*</span>a == middle).map(|(<span class="kw">_</span>, b)| <span class="kw-2">*</span>b).collect();
+<a href="#191" id="191" data-nosnippet="">191</a>        <span class="kw">let </span>half = branches.len().div_ceil(<span class="number">2</span>);
+<a href="#192" id="192" data-nosnippet="">192</a>        <span class="kw">let </span>under = |from: usize| -&gt; Vec&lt;usize&gt; {
+<a href="#193" id="193" data-nosnippet="">193</a>            <span class="kw">let </span><span class="kw-2">mut </span>found = <span class="macro">vec!</span>[from];
+<a href="#194" id="194" data-nosnippet="">194</a>            <span class="kw">let </span><span class="kw-2">mut </span>i = <span class="number">0</span>;
+<a href="#195" id="195" data-nosnippet="">195</a>            <span class="kw">while </span>i &lt; found.len() {
+<a href="#196" id="196" data-nosnippet="">196</a>                <span class="kw">for </span>(a, b) <span class="kw">in </span>links {
+<a href="#197" id="197" data-nosnippet="">197</a>                    <span class="kw">if </span><span class="kw-2">*</span>a == found[i] &amp;&amp; !found.contains(b) &amp;&amp; <span class="kw-2">*</span>b != middle {
+<a href="#198" id="198" data-nosnippet="">198</a>                        found.push(<span class="kw-2">*</span>b);
+<a href="#199" id="199" data-nosnippet="">199</a>                    }
+<a href="#200" id="200" data-nosnippet="">200</a>                }
+<a href="#201" id="201" data-nosnippet="">201</a>                i += <span class="number">1</span>;
+<a href="#202" id="202" data-nosnippet="">202</a>            }
+<a href="#203" id="203" data-nosnippet="">203</a>            found
+<a href="#204" id="204" data-nosnippet="">204</a>        };
+<a href="#205" id="205" data-nosnippet="">205</a>        <span class="kw">let </span>side = |chosen: <span class="kw-2">&amp;</span>[usize]| -&gt; Vec&lt;usize&gt; {
+<a href="#206" id="206" data-nosnippet="">206</a>            <span class="kw">let </span><span class="kw-2">mut </span>all = <span class="macro">vec!</span>[middle];
+<a href="#207" id="207" data-nosnippet="">207</a>            <span class="kw">for </span>b <span class="kw">in </span>chosen {
+<a href="#208" id="208" data-nosnippet="">208</a>                <span class="kw">for </span>i <span class="kw">in </span>under(<span class="kw-2">*</span>b) {
+<a href="#209" id="209" data-nosnippet="">209</a>                    <span class="kw">if </span>!all.contains(<span class="kw-2">&amp;</span>i) {
+<a href="#210" id="210" data-nosnippet="">210</a>                        all.push(i);
+<a href="#211" id="211" data-nosnippet="">211</a>                    }
+<a href="#212" id="212" data-nosnippet="">212</a>                }
+<a href="#213" id="213" data-nosnippet="">213</a>            }
+<a href="#214" id="214" data-nosnippet="">214</a>            all
+<a href="#215" id="215" data-nosnippet="">215</a>        };
+<a href="#216" id="216" data-nosnippet="">216</a>        <span class="kw">let </span>(right, left) = (side(<span class="kw-2">&amp;</span>branches[..half]), side(<span class="kw-2">&amp;</span>branches[half..]));
+<a href="#217" id="217" data-nosnippet="">217</a>        <span class="kw">let </span>tree = |members: <span class="kw-2">&amp;</span>[usize]| -&gt; Vec&lt;(f32, f32)&gt; {
+<a href="#218" id="218" data-nosnippet="">218</a>            <span class="kw">let </span>sub: Vec&lt;FlowNode&gt; = members.iter().map(|i| nodes[<span class="kw-2">*</span>i].clone()).collect();
+<a href="#219" id="219" data-nosnippet="">219</a>            <span class="kw">let </span>sub_links: Vec&lt;(usize, usize)&gt; = links
+<a href="#220" id="220" data-nosnippet="">220</a>                .iter()
+<a href="#221" id="221" data-nosnippet="">221</a>                .filter_map(|(a, b)| {
+<a href="#222" id="222" data-nosnippet="">222</a>                    <span class="prelude-val">Some</span>((members.iter().position(|m| m == a)<span class="question-mark">?</span>, members.iter().position(|m| m == b)<span class="question-mark">?</span>))
+<a href="#223" id="223" data-nosnippet="">223</a>                })
+<a href="#224" id="224" data-nosnippet="">224</a>                .collect();
+<a href="#225" id="225" data-nosnippet="">225</a>            <span class="self">Self </span>{ kind: FlowLayoutKind::Tree, direction: FlowDirection::Right, ..<span class="kw-2">*</span><span class="self">self </span>}
+<a href="#226" id="226" data-nosnippet="">226</a>                .tree_places(<span class="kw-2">&amp;</span>sub, <span class="kw-2">&amp;</span>sub_links)
+<a href="#227" id="227" data-nosnippet="">227</a>        };
+<a href="#228" id="228" data-nosnippet="">228</a>        <span class="kw">let </span><span class="kw-2">mut </span>places: Vec&lt;(f32, f32)&gt; = nodes.iter().map(|n| (n.x, n.y)).collect();
+<a href="#229" id="229" data-nosnippet="">229</a>        <span class="kw">let </span>r = tree(<span class="kw-2">&amp;</span>right);
+<a href="#230" id="230" data-nosnippet="">230</a>        <span class="kw">let </span>(rx, ry) = r[<span class="number">0</span>];
+<a href="#231" id="231" data-nosnippet="">231</a>        <span class="kw">for </span>(k, i) <span class="kw">in </span>right.iter().enumerate() {
+<a href="#232" id="232" data-nosnippet="">232</a>            places[<span class="kw-2">*</span>i] = (r[k].<span class="number">0 </span>- rx, r[k].<span class="number">1 </span>- ry);
+<a href="#233" id="233" data-nosnippet="">233</a>        }
+<a href="#234" id="234" data-nosnippet="">234</a>        <span class="kw">if </span>left.len() &gt; <span class="number">1 </span>{
+<a href="#235" id="235" data-nosnippet="">235</a>            <span class="kw">let </span>l = tree(<span class="kw-2">&amp;</span>left);
+<a href="#236" id="236" data-nosnippet="">236</a>            <span class="kw">let </span>(lx, ly) = l[<span class="number">0</span>];
+<a href="#237" id="237" data-nosnippet="">237</a>            <span class="kw">let </span>w = nodes[middle].width;
+<a href="#238" id="238" data-nosnippet="">238</a>            <span class="kw">for </span>(k, i) <span class="kw">in </span>left.iter().enumerate().skip(<span class="number">1</span>) {
+<a href="#239" id="239" data-nosnippet="">239</a>                <span class="comment">// Mirrored: as far left of the middle's left edge as the tree put it right.
+<a href="#240" id="240" data-nosnippet="">240</a>                </span><span class="kw">let </span>dx = l[k].<span class="number">0 </span>- lx;
+<a href="#241" id="241" data-nosnippet="">241</a>                places[<span class="kw-2">*</span>i] = (w - dx - nodes[<span class="kw-2">*</span>i].width, l[k].<span class="number">1 </span>- ly);
+<a href="#242" id="242" data-nosnippet="">242</a>            }
+<a href="#243" id="243" data-nosnippet="">243</a>        }
+<a href="#244" id="244" data-nosnippet="">244</a>        <span class="comment">// What no branch reaches stays below, in a row.
+<a href="#245" id="245" data-nosnippet="">245</a>        </span><span class="kw">let </span>placed: Vec&lt;usize&gt; = right.iter().chain(<span class="kw-2">&amp;</span>left).copied().collect();
+<a href="#246" id="246" data-nosnippet="">246</a>        <span class="kw">let </span>bottom = placed.iter().map(|i| places[<span class="kw-2">*</span>i].<span class="number">1 </span>+ nodes[<span class="kw-2">*</span>i].height).fold(<span class="number">0.0_f32</span>, f32::max);
+<a href="#247" id="247" data-nosnippet="">247</a>        <span class="kw">let </span><span class="kw-2">mut </span>x = <span class="number">0.0</span>;
+<a href="#248" id="248" data-nosnippet="">248</a>        <span class="kw">for </span>i <span class="kw">in </span>(<span class="number">0</span>..n).filter(|i| !placed.contains(i)) {
+<a href="#249" id="249" data-nosnippet="">249</a>            places[i] = (x, bottom + <span class="self">self</span>.layer_gap);
+<a href="#250" id="250" data-nosnippet="">250</a>            x += nodes[i].width + <span class="self">self</span>.node_gap;
+<a href="#251" id="251" data-nosnippet="">251</a>        }
+<a href="#252" id="252" data-nosnippet="">252</a>        places
+<a href="#253" id="253" data-nosnippet="">253</a>    }
+<a href="#254" id="254" data-nosnippet="">254</a>
+<a href="#255" id="255" data-nosnippet="">255</a>    <span class="doccomment">/// Where each node goes in a tree: the left and top edges.
+<a href="#256" id="256" data-nosnippet="">256</a>    </span><span class="kw">fn </span>tree_places(<span class="kw-2">&amp;</span><span class="self">self</span>, nodes: <span class="kw-2">&amp;</span>[FlowNode], links: <span class="kw-2">&amp;</span>[(usize, usize)]) -&gt; Vec&lt;(f32, f32)&gt; {
+<a href="#257" id="257" data-nosnippet="">257</a>        <span class="kw">let </span>n = nodes.len();
+<a href="#258" id="258" data-nosnippet="">258</a>        <span class="comment">// Who hangs under whom: walked breadth first from the nodes nothing leads to, then from
+<a href="#259" id="259" data-nosnippet="">259</a>        // the first node not reached yet, so that a cycle still becomes a tree.
+<a href="#260" id="260" data-nosnippet="">260</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>children: Vec&lt;Vec&lt;usize&gt;&gt; = <span class="macro">vec!</span>[Vec::new(); n];
+<a href="#261" id="261" data-nosnippet="">261</a>        <span class="kw">let </span><span class="kw-2">mut </span>depth = <span class="macro">vec!</span>[<span class="number">0usize</span>; n];
+<a href="#262" id="262" data-nosnippet="">262</a>        <span class="kw">let </span><span class="kw-2">mut </span>seen = <span class="macro">vec!</span>[<span class="bool-val">false</span>; n];
+<a href="#263" id="263" data-nosnippet="">263</a>        <span class="kw">let </span><span class="kw-2">mut </span>walked: Vec&lt;usize&gt; = Vec::with_capacity(n);
+<a href="#264" id="264" data-nosnippet="">264</a>        <span class="kw">let </span><span class="kw-2">mut </span>roots: Vec&lt;usize&gt; = Vec::new();
+<a href="#265" id="265" data-nosnippet="">265</a>        <span class="kw">let </span>starts: Vec&lt;usize&gt; =
+<a href="#266" id="266" data-nosnippet="">266</a>            (<span class="number">0</span>..n).filter(|<span class="kw-2">&amp;</span>i| !links.iter().any(|<span class="kw-2">&amp;</span>(<span class="kw">_</span>, b)| b == i)).chain(<span class="number">0</span>..n).collect();
+<a href="#267" id="267" data-nosnippet="">267</a>        <span class="kw">for </span>start <span class="kw">in </span>starts {
+<a href="#268" id="268" data-nosnippet="">268</a>            <span class="kw">if </span>seen[start] {
+<a href="#269" id="269" data-nosnippet="">269</a>                <span class="kw">continue</span>;
+<a href="#270" id="270" data-nosnippet="">270</a>            }
+<a href="#271" id="271" data-nosnippet="">271</a>            seen[start] = <span class="bool-val">true</span>;
+<a href="#272" id="272" data-nosnippet="">272</a>            roots.push(start);
+<a href="#273" id="273" data-nosnippet="">273</a>            <span class="kw">let </span><span class="kw-2">mut </span>next = std::collections::VecDeque::from([start]);
+<a href="#274" id="274" data-nosnippet="">274</a>            <span class="kw">while let </span><span class="prelude-val">Some</span>(u) = next.pop_front() {
+<a href="#275" id="275" data-nosnippet="">275</a>                walked.push(u);
+<a href="#276" id="276" data-nosnippet="">276</a>                <span class="kw">for </span><span class="kw-2">&amp;</span>(a, b) <span class="kw">in </span>links {
+<a href="#277" id="277" data-nosnippet="">277</a>                    <span class="kw">if </span>a == u &amp;&amp; !seen[b] {
+<a href="#278" id="278" data-nosnippet="">278</a>                        seen[b] = <span class="bool-val">true</span>;
+<a href="#279" id="279" data-nosnippet="">279</a>                        depth[b] = depth[u] + <span class="number">1</span>;
+<a href="#280" id="280" data-nosnippet="">280</a>                        children[u].push(b);
+<a href="#281" id="281" data-nosnippet="">281</a>                        next.push_back(b);
+<a href="#282" id="282" data-nosnippet="">282</a>                    }
+<a href="#283" id="283" data-nosnippet="">283</a>                }
+<a href="#284" id="284" data-nosnippet="">284</a>            }
+<a href="#285" id="285" data-nosnippet="">285</a>        }
+<a href="#286" id="286" data-nosnippet="">286</a>        <span class="comment">// How wide each subtree is across the layers, the deepest first.
+<a href="#287" id="287" data-nosnippet="">287</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>span = <span class="macro">vec!</span>[<span class="number">0.0_f32</span>; n];
+<a href="#288" id="288" data-nosnippet="">288</a>        <span class="kw">for </span><span class="kw-2">&amp;</span>u <span class="kw">in </span>walked.iter().rev() {
+<a href="#289" id="289" data-nosnippet="">289</a>            <span class="kw">let </span>own = <span class="self">self</span>.extents(<span class="kw-2">&amp;</span>nodes[u]).<span class="number">1</span>;
+<a href="#290" id="290" data-nosnippet="">290</a>            <span class="kw">let </span>below: f32 = children[u].iter().map(|<span class="kw-2">&amp;</span>c| span[c]).sum::&lt;f32&gt;()
+<a href="#291" id="291" data-nosnippet="">291</a>                + <span class="self">self</span>.node_gap * children[u].len().saturating_sub(<span class="number">1</span>) <span class="kw">as </span>f32;
+<a href="#292" id="292" data-nosnippet="">292</a>            span[u] = own.max(below);
+<a href="#293" id="293" data-nosnippet="">293</a>        }
+<a href="#294" id="294" data-nosnippet="">294</a>        <span class="comment">// Along the layers: each depth as deep as its deepest node.
+<a href="#295" id="295" data-nosnippet="">295</a>        </span><span class="kw">let </span>levels = depth.iter().copied().max().map_or(<span class="number">0</span>, |d| d + <span class="number">1</span>);
+<a href="#296" id="296" data-nosnippet="">296</a>        <span class="kw">let </span><span class="kw-2">mut </span>along = <span class="macro">vec!</span>[<span class="number">0.0_f32</span>; levels];
+<a href="#297" id="297" data-nosnippet="">297</a>        <span class="kw">let </span><span class="kw-2">mut </span>at = <span class="number">0.0</span>;
+<a href="#298" id="298" data-nosnippet="">298</a>        <span class="kw">for </span>(d, slot) <span class="kw">in </span>along.iter_mut().enumerate() {
+<a href="#299" id="299" data-nosnippet="">299</a>            <span class="kw-2">*</span>slot = at;
+<a href="#300" id="300" data-nosnippet="">300</a>            <span class="kw">let </span>deepest =
+<a href="#301" id="301" data-nosnippet="">301</a>                (<span class="number">0</span>..n).filter(|<span class="kw-2">&amp;</span>i| depth[i] == d).map(|i| <span class="self">self</span>.extents(<span class="kw-2">&amp;</span>nodes[i]).<span class="number">0</span>).fold(<span class="number">0.0</span>, f32::max);
+<a href="#302" id="302" data-nosnippet="">302</a>            at += deepest + <span class="self">self</span>.layer_gap;
+<a href="#303" id="303" data-nosnippet="">303</a>        }
+<a href="#304" id="304" data-nosnippet="">304</a>        <span class="comment">// Across: each subtree in its own band, its root centred over it.
+<a href="#305" id="305" data-nosnippet="">305</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>centre = <span class="macro">vec!</span>[<span class="number">0.0_f32</span>; n];
+<a href="#306" id="306" data-nosnippet="">306</a>        <span class="kw">let </span><span class="kw-2">mut </span>bands: Vec&lt;(usize, f32)&gt; = Vec::new();
+<a href="#307" id="307" data-nosnippet="">307</a>        <span class="kw">let </span><span class="kw-2">mut </span>edge = <span class="number">0.0</span>;
+<a href="#308" id="308" data-nosnippet="">308</a>        <span class="kw">for </span><span class="kw-2">&amp;</span>r <span class="kw">in </span><span class="kw-2">&amp;</span>roots {
+<a href="#309" id="309" data-nosnippet="">309</a>            bands.push((r, edge));
+<a href="#310" id="310" data-nosnippet="">310</a>            edge += span[r] + <span class="self">self</span>.node_gap;
+<a href="#311" id="311" data-nosnippet="">311</a>        }
+<a href="#312" id="312" data-nosnippet="">312</a>        <span class="kw">while let </span><span class="prelude-val">Some</span>((u, start)) = bands.pop() {
+<a href="#313" id="313" data-nosnippet="">313</a>            centre[u] = start + span[u] / <span class="number">2.0</span>;
+<a href="#314" id="314" data-nosnippet="">314</a>            <span class="kw">let </span>below: f32 = children[u].iter().map(|<span class="kw-2">&amp;</span>c| span[c]).sum::&lt;f32&gt;()
+<a href="#315" id="315" data-nosnippet="">315</a>                + <span class="self">self</span>.node_gap * children[u].len().saturating_sub(<span class="number">1</span>) <span class="kw">as </span>f32;
+<a href="#316" id="316" data-nosnippet="">316</a>            <span class="kw">let </span><span class="kw-2">mut </span>child = start + (span[u] - below) / <span class="number">2.0</span>;
+<a href="#317" id="317" data-nosnippet="">317</a>            <span class="kw">for </span><span class="kw-2">&amp;</span>c <span class="kw">in </span><span class="kw-2">&amp;</span>children[u] {
+<a href="#318" id="318" data-nosnippet="">318</a>                bands.push((c, child));
+<a href="#319" id="319" data-nosnippet="">319</a>                child += span[c] + <span class="self">self</span>.node_gap;
+<a href="#320" id="320" data-nosnippet="">320</a>            }
+<a href="#321" id="321" data-nosnippet="">321</a>        }
+<a href="#322" id="322" data-nosnippet="">322</a>        (<span class="number">0</span>..n)
+<a href="#323" id="323" data-nosnippet="">323</a>            .map(|i| {
+<a href="#324" id="324" data-nosnippet="">324</a>                <span class="kw">let </span>(<span class="kw">_</span>, across) = <span class="self">self</span>.extents(<span class="kw-2">&amp;</span>nodes[i]);
+<a href="#325" id="325" data-nosnippet="">325</a>                <span class="kw">let </span>(a, c) = (along[depth[i]], centre[i] - across / <span class="number">2.0</span>);
+<a href="#326" id="326" data-nosnippet="">326</a>                <span class="kw">match </span><span class="self">self</span>.direction {
+<a href="#327" id="327" data-nosnippet="">327</a>                    FlowDirection::Right =&gt; (a, c),
+<a href="#328" id="328" data-nosnippet="">328</a>                    FlowDirection::Down =&gt; (c, a),
+<a href="#329" id="329" data-nosnippet="">329</a>                }
+<a href="#330" id="330" data-nosnippet="">330</a>            })
+<a href="#331" id="331" data-nosnippet="">331</a>            .collect()
+<a href="#332" id="332" data-nosnippet="">332</a>    }
+<a href="#333" id="333" data-nosnippet="">333</a>
+<a href="#334" id="334" data-nosnippet="">334</a>    <span class="doccomment">/// The size of a node along the layers (its extent in the direction they follow) and across.
+<a href="#335" id="335" data-nosnippet="">335</a>    </span><span class="kw">fn </span>extents(<span class="kw-2">&amp;</span><span class="self">self</span>, node: <span class="kw-2">&amp;</span>FlowNode) -&gt; (f32, f32) {
+<a href="#336" id="336" data-nosnippet="">336</a>        <span class="kw">match </span><span class="self">self</span>.direction {
+<a href="#337" id="337" data-nosnippet="">337</a>            FlowDirection::Right =&gt; (node.width, node.height),
+<a href="#338" id="338" data-nosnippet="">338</a>            FlowDirection::Down =&gt; (node.height, node.width),
+<a href="#339" id="339" data-nosnippet="">339</a>        }
+<a href="#340" id="340" data-nosnippet="">340</a>    }
+<a href="#341" id="341" data-nosnippet="">341</a>
+<a href="#342" id="342" data-nosnippet="">342</a>    <span class="doccomment">/// The left and top edge of each node, with layers and orders already chosen.
+<a href="#343" id="343" data-nosnippet="">343</a>    </span><span class="kw">fn </span>place(
+<a href="#344" id="344" data-nosnippet="">344</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href="#345" id="345" data-nosnippet="">345</a>        nodes: <span class="kw-2">&amp;</span>[FlowNode],
+<a href="#346" id="346" data-nosnippet="">346</a>        links: <span class="kw-2">&amp;</span>[(usize, usize)],
+<a href="#347" id="347" data-nosnippet="">347</a>        layer: <span class="kw-2">&amp;</span>[usize],
+<a href="#348" id="348" data-nosnippet="">348</a>        order: <span class="kw-2">&amp;mut </span>[Vec&lt;usize&gt;],
+<a href="#349" id="349" data-nosnippet="">349</a>    ) -&gt; Vec&lt;(f32, f32)&gt; {
+<a href="#350" id="350" data-nosnippet="">350</a>        <span class="comment">// Along the layers: each layer as deep as its deepest node.
+<a href="#351" id="351" data-nosnippet="">351</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>along = Vec::with_capacity(order.len());
+<a href="#352" id="352" data-nosnippet="">352</a>        <span class="kw">let </span><span class="kw-2">mut </span>at = <span class="number">0.0</span>;
+<a href="#353" id="353" data-nosnippet="">353</a>        <span class="kw">for </span>members <span class="kw">in </span>order.iter() {
+<a href="#354" id="354" data-nosnippet="">354</a>            along.push(at);
+<a href="#355" id="355" data-nosnippet="">355</a>            <span class="kw">let </span>depth = members.iter().map(|<span class="kw-2">&amp;</span>i| <span class="self">self</span>.extents(<span class="kw-2">&amp;</span>nodes[i]).<span class="number">0</span>).fold(<span class="number">0.0</span>, f32::max);
+<a href="#356" id="356" data-nosnippet="">356</a>            at += depth + <span class="self">self</span>.layer_gap;
+<a href="#357" id="357" data-nosnippet="">357</a>        }
+<a href="#358" id="358" data-nosnippet="">358</a>        <span class="comment">// Across: the centre of each node, the first layer packed, each later one pulled
+<a href="#359" id="359" data-nosnippet="">359</a>        // towards the centres of the neighbours before it.
+<a href="#360" id="360" data-nosnippet="">360</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>centre = <span class="macro">vec!</span>[<span class="number">0.0_f32</span>; nodes.len()];
+<a href="#361" id="361" data-nosnippet="">361</a>        <span class="kw">for </span>(l, members) <span class="kw">in </span>order.iter().enumerate() {
+<a href="#362" id="362" data-nosnippet="">362</a>            <span class="kw">let </span>wanted: Vec&lt;<span class="prelude-ty">Option</span>&lt;f32&gt;&gt; = members
+<a href="#363" id="363" data-nosnippet="">363</a>                .iter()
+<a href="#364" id="364" data-nosnippet="">364</a>                .map(|<span class="kw-2">&amp;</span>i| {
+<a href="#365" id="365" data-nosnippet="">365</a>                    <span class="kw">let </span>near: Vec&lt;f32&gt; = links
+<a href="#366" id="366" data-nosnippet="">366</a>                        .iter()
+<a href="#367" id="367" data-nosnippet="">367</a>                        .filter_map(|<span class="kw-2">&amp;</span>(a, b)| <span class="kw">match </span>() {
+<a href="#368" id="368" data-nosnippet="">368</a>                            <span class="kw">_ if </span>b == i &amp;&amp; layer[a] &lt; l =&gt; <span class="prelude-val">Some</span>(centre[a]),
+<a href="#369" id="369" data-nosnippet="">369</a>                            <span class="kw">_ if </span>a == i &amp;&amp; layer[b] &lt; l =&gt; <span class="prelude-val">Some</span>(centre[b]),
+<a href="#370" id="370" data-nosnippet="">370</a>                            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#371" id="371" data-nosnippet="">371</a>                        })
+<a href="#372" id="372" data-nosnippet="">372</a>                        .collect();
+<a href="#373" id="373" data-nosnippet="">373</a>                    (!near.is_empty()).then(|| near.iter().sum::&lt;f32&gt;() / near.len() <span class="kw">as </span>f32)
+<a href="#374" id="374" data-nosnippet="">374</a>                })
+<a href="#375" id="375" data-nosnippet="">375</a>                .collect();
+<a href="#376" id="376" data-nosnippet="">376</a>            <span class="self">self</span>.spread(nodes, members, <span class="kw-2">&amp;</span>wanted, <span class="kw-2">&amp;mut </span>centre);
+<a href="#377" id="377" data-nosnippet="">377</a>        }
+<a href="#378" id="378" data-nosnippet="">378</a>        order.iter().enumerate().flat_map(|(l, members)| members.iter().map(<span class="kw">move </span>|<span class="kw-2">&amp;</span>i| (l, i))).fold(
+<a href="#379" id="379" data-nosnippet="">379</a>            <span class="macro">vec!</span>[(<span class="number">0.0</span>, <span class="number">0.0</span>); nodes.len()],
+<a href="#380" id="380" data-nosnippet="">380</a>            |<span class="kw-2">mut </span>out, (l, i)| {
+<a href="#381" id="381" data-nosnippet="">381</a>                <span class="kw">let </span>(<span class="kw">_</span>, across) = <span class="self">self</span>.extents(<span class="kw-2">&amp;</span>nodes[i]);
+<a href="#382" id="382" data-nosnippet="">382</a>                <span class="kw">let </span>(a, c) = (along[l], centre[i] - across / <span class="number">2.0</span>);
+<a href="#383" id="383" data-nosnippet="">383</a>                out[i] = <span class="kw">match </span><span class="self">self</span>.direction {
+<a href="#384" id="384" data-nosnippet="">384</a>                    FlowDirection::Right =&gt; (a, c),
+<a href="#385" id="385" data-nosnippet="">385</a>                    FlowDirection::Down =&gt; (c, a),
+<a href="#386" id="386" data-nosnippet="">386</a>                };
+<a href="#387" id="387" data-nosnippet="">387</a>                out
+<a href="#388" id="388" data-nosnippet="">388</a>            },
+<a href="#389" id="389" data-nosnippet="">389</a>        )
+<a href="#390" id="390" data-nosnippet="">390</a>    }
+<a href="#391" id="391" data-nosnippet="">391</a>
+<a href="#392" id="392" data-nosnippet="">392</a>    <span class="doccomment">/// Places the centres of one layer, in its order: as near as each wants to be, at least a
+<a href="#393" id="393" data-nosnippet="">393</a>    /// gap apart, and shifted as a whole so that, on average, each is where it wanted.
+<a href="#394" id="394" data-nosnippet="">394</a>    </span><span class="kw">fn </span>spread(<span class="kw-2">&amp;</span><span class="self">self</span>, nodes: <span class="kw-2">&amp;</span>[FlowNode], members: <span class="kw-2">&amp;</span>[usize], wanted: <span class="kw-2">&amp;</span>[<span class="prelude-ty">Option</span>&lt;f32&gt;], centre: <span class="kw-2">&amp;mut </span>[f32]) {
+<a href="#395" id="395" data-nosnippet="">395</a>        <span class="kw">let </span>half = |i: usize| <span class="self">self</span>.extents(<span class="kw-2">&amp;</span>nodes[i]).<span class="number">1 </span>/ <span class="number">2.0</span>;
+<a href="#396" id="396" data-nosnippet="">396</a>        <span class="comment">// Packed from zero, for the nodes that want nowhere in particular.
+<a href="#397" id="397" data-nosnippet="">397</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>packed = Vec::with_capacity(members.len());
+<a href="#398" id="398" data-nosnippet="">398</a>        <span class="kw">let </span><span class="kw-2">mut </span>edge = <span class="number">0.0</span>;
+<a href="#399" id="399" data-nosnippet="">399</a>        <span class="kw">for </span><span class="kw-2">&amp;</span>i <span class="kw">in </span>members {
+<a href="#400" id="400" data-nosnippet="">400</a>            packed.push(edge + half(i));
+<a href="#401" id="401" data-nosnippet="">401</a>            edge += half(i) * <span class="number">2.0 </span>+ <span class="self">self</span>.node_gap;
+<a href="#402" id="402" data-nosnippet="">402</a>        }
+<a href="#403" id="403" data-nosnippet="">403</a>        <span class="kw">let </span><span class="kw-2">mut </span>placed: Vec&lt;f32&gt; = Vec::with_capacity(members.len());
+<a href="#404" id="404" data-nosnippet="">404</a>        <span class="kw">for </span>(k, <span class="kw-2">&amp;</span>i) <span class="kw">in </span>members.iter().enumerate() {
+<a href="#405" id="405" data-nosnippet="">405</a>            <span class="kw">let </span>want = wanted[k].unwrap_or(packed[k]);
+<a href="#406" id="406" data-nosnippet="">406</a>            <span class="kw">let </span>least = <span class="kw">match </span>k {
+<a href="#407" id="407" data-nosnippet="">407</a>                <span class="number">0 </span>=&gt; f32::NEG_INFINITY,
+<a href="#408" id="408" data-nosnippet="">408</a>                <span class="kw">_ </span>=&gt; placed[k - <span class="number">1</span>] + half(members[k - <span class="number">1</span>]) + <span class="self">self</span>.node_gap + half(i),
+<a href="#409" id="409" data-nosnippet="">409</a>            };
+<a href="#410" id="410" data-nosnippet="">410</a>            placed.push(want.max(least));
+<a href="#411" id="411" data-nosnippet="">411</a>        }
+<a href="#412" id="412" data-nosnippet="">412</a>        <span class="kw">let </span>pulled: Vec&lt;(f32, f32)&gt; =
+<a href="#413" id="413" data-nosnippet="">413</a>            placed.iter().zip(wanted).filter_map(|(p, w)| w.map(|w| (<span class="kw-2">*</span>p, w))).collect();
+<a href="#414" id="414" data-nosnippet="">414</a>        <span class="kw">let </span>shift = <span class="kw">match </span>pulled.len() {
+<a href="#415" id="415" data-nosnippet="">415</a>            <span class="number">0 </span>=&gt; <span class="number">0.0</span>,
+<a href="#416" id="416" data-nosnippet="">416</a>            count =&gt; pulled.iter().map(|(p, w)| w - p).sum::&lt;f32&gt;() / count <span class="kw">as </span>f32,
+<a href="#417" id="417" data-nosnippet="">417</a>        };
+<a href="#418" id="418" data-nosnippet="">418</a>        <span class="kw">for </span>(<span class="kw-2">&amp;</span>i, p) <span class="kw">in </span>members.iter().zip(placed) {
+<a href="#419" id="419" data-nosnippet="">419</a>            centre[i] = p + shift;
+<a href="#420" id="420" data-nosnippet="">420</a>        }
+<a href="#421" id="421" data-nosnippet="">421</a>    }
+<a href="#422" id="422" data-nosnippet="">422</a>}
+<a href="#423" id="423" data-nosnippet="">423</a>
+<a href="#424" id="424" data-nosnippet="">424</a><span class="doccomment">/// The connections between two different nodes, by index, once each, ignoring the ports.
+<a href="#425" id="425" data-nosnippet="">425</a>/// The middle of a mind map: the first node nothing leads to.
+<a href="#426" id="426" data-nosnippet="">426</a></span><span class="kw">fn </span>middle_of(graph: <span class="kw-2">&amp;</span>FlowGraph) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+<a href="#427" id="427" data-nosnippet="">427</a>    (<span class="number">0</span>..graph.nodes.len()).find(|i| !graph.edges.iter().any(|e| e.to.node == graph.nodes[<span class="kw-2">*</span>i].id))
+<a href="#428" id="428" data-nosnippet="">428</a>}
+<a href="#429" id="429" data-nosnippet="">429</a>
+<a href="#430" id="430" data-nosnippet="">430</a><span class="kw">fn </span>links(graph: <span class="kw-2">&amp;</span>FlowGraph) -&gt; Vec&lt;(usize, usize)&gt; {
+<a href="#431" id="431" data-nosnippet="">431</a>    <span class="kw">let </span>index = |id: <span class="kw-2">&amp;</span>str| graph.nodes.iter().position(|n| n.id == id);
+<a href="#432" id="432" data-nosnippet="">432</a>    <span class="kw">let </span><span class="kw-2">mut </span>links: Vec&lt;(usize, usize)&gt; = Vec::new();
+<a href="#433" id="433" data-nosnippet="">433</a>    <span class="kw">for </span>edge <span class="kw">in </span><span class="kw-2">&amp;</span>graph.edges {
+<a href="#434" id="434" data-nosnippet="">434</a>        <span class="kw">if let </span>(<span class="prelude-val">Some</span>(a), <span class="prelude-val">Some</span>(b)) = (index(<span class="kw-2">&amp;</span>edge.from.node), index(<span class="kw-2">&amp;</span>edge.to.node))
+<a href="#435" id="435" data-nosnippet="">435</a>            &amp;&amp; a != b
+<a href="#436" id="436" data-nosnippet="">436</a>            &amp;&amp; !links.contains(<span class="kw-2">&amp;</span>(a, b))
+<a href="#437" id="437" data-nosnippet="">437</a>        {
+<a href="#438" id="438" data-nosnippet="">438</a>            links.push((a, b));
+<a href="#439" id="439" data-nosnippet="">439</a>        }
+<a href="#440" id="440" data-nosnippet="">440</a>    }
+<a href="#441" id="441" data-nosnippet="">441</a>    links
+<a href="#442" id="442" data-nosnippet="">442</a>}
+<a href="#443" id="443" data-nosnippet="">443</a>
+<a href="#444" id="444" data-nosnippet="">444</a><span class="doccomment">/// The layer of each node: one after the longest path that reaches it, once the connections
+<a href="#445" id="445" data-nosnippet="">445</a>/// that close a cycle are turned back.
+<a href="#446" id="446" data-nosnippet="">446</a></span><span class="kw">fn </span>layers(n: usize, links: <span class="kw-2">&amp;</span>[(usize, usize)]) -&gt; Vec&lt;usize&gt; {
+<a href="#447" id="447" data-nosnippet="">447</a>    <span class="kw">let </span>forward = acyclic(n, links);
+<a href="#448" id="448" data-nosnippet="">448</a>    <span class="kw">let </span><span class="kw-2">mut </span>incoming = <span class="macro">vec!</span>[<span class="number">0usize</span>; n];
+<a href="#449" id="449" data-nosnippet="">449</a>    <span class="kw">for </span><span class="kw-2">&amp;</span>(<span class="kw">_</span>, b) <span class="kw">in </span><span class="kw-2">&amp;</span>forward {
+<a href="#450" id="450" data-nosnippet="">450</a>        incoming[b] += <span class="number">1</span>;
+<a href="#451" id="451" data-nosnippet="">451</a>    }
+<a href="#452" id="452" data-nosnippet="">452</a>    <span class="kw">let </span><span class="kw-2">mut </span>ready: Vec&lt;usize&gt; = (<span class="number">0</span>..n).filter(|<span class="kw-2">&amp;</span>i| incoming[i] == <span class="number">0</span>).rev().collect();
+<a href="#453" id="453" data-nosnippet="">453</a>    <span class="kw">let </span><span class="kw-2">mut </span>layer = <span class="macro">vec!</span>[<span class="number">0usize</span>; n];
+<a href="#454" id="454" data-nosnippet="">454</a>    <span class="kw">while let </span><span class="prelude-val">Some</span>(a) = ready.pop() {
+<a href="#455" id="455" data-nosnippet="">455</a>        <span class="kw">for </span><span class="kw-2">&amp;</span>(<span class="kw">_</span>, b) <span class="kw">in </span>forward.iter().filter(|(from, <span class="kw">_</span>)| <span class="kw-2">*</span>from == a) {
+<a href="#456" id="456" data-nosnippet="">456</a>            layer[b] = layer[b].max(layer[a] + <span class="number">1</span>);
+<a href="#457" id="457" data-nosnippet="">457</a>            incoming[b] -= <span class="number">1</span>;
+<a href="#458" id="458" data-nosnippet="">458</a>            <span class="kw">if </span>incoming[b] == <span class="number">0 </span>{
+<a href="#459" id="459" data-nosnippet="">459</a>                ready.push(b);
+<a href="#460" id="460" data-nosnippet="">460</a>            }
+<a href="#461" id="461" data-nosnippet="">461</a>        }
+<a href="#462" id="462" data-nosnippet="">462</a>    }
+<a href="#463" id="463" data-nosnippet="">463</a>    layer
+<a href="#464" id="464" data-nosnippet="">464</a>}
+<a href="#465" id="465" data-nosnippet="">465</a>
+<a href="#466" id="466" data-nosnippet="">466</a><span class="doccomment">/// The connections with those that close a cycle turned back, found by walking the nodes in
+<a href="#467" id="467" data-nosnippet="">467</a>/// their order, depth first.
+<a href="#468" id="468" data-nosnippet="">468</a></span><span class="kw">fn </span>acyclic(n: usize, links: <span class="kw-2">&amp;</span>[(usize, usize)]) -&gt; Vec&lt;(usize, usize)&gt; {
+<a href="#469" id="469" data-nosnippet="">469</a>    <span class="comment">// 0 not seen, 1 on the path being walked, 2 done.
+<a href="#470" id="470" data-nosnippet="">470</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>state = <span class="macro">vec!</span>[<span class="number">0u8</span>; n];
+<a href="#471" id="471" data-nosnippet="">471</a>    <span class="kw">let </span><span class="kw-2">mut </span>back: Vec&lt;(usize, usize)&gt; = Vec::new();
+<a href="#472" id="472" data-nosnippet="">472</a>    <span class="kw">for </span>start <span class="kw">in </span><span class="number">0</span>..n {
+<a href="#473" id="473" data-nosnippet="">473</a>        <span class="kw">if </span>state[start] != <span class="number">0 </span>{
+<a href="#474" id="474" data-nosnippet="">474</a>            <span class="kw">continue</span>;
+<a href="#475" id="475" data-nosnippet="">475</a>        }
+<a href="#476" id="476" data-nosnippet="">476</a>        <span class="kw">let </span><span class="kw-2">mut </span>stack: Vec&lt;(usize, usize)&gt; = <span class="macro">vec!</span>[(start, <span class="number">0</span>)];
+<a href="#477" id="477" data-nosnippet="">477</a>        state[start] = <span class="number">1</span>;
+<a href="#478" id="478" data-nosnippet="">478</a>        <span class="kw">while let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span>(node, <span class="kw-2">ref mut </span>next)) = stack.last_mut() {
+<a href="#479" id="479" data-nosnippet="">479</a>            <span class="kw">let </span>out: Vec&lt;usize&gt; = links.iter().filter(|(a, <span class="kw">_</span>)| <span class="kw-2">*</span>a == node).map(|(<span class="kw">_</span>, b)| <span class="kw-2">*</span>b).collect();
+<a href="#480" id="480" data-nosnippet="">480</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>target) = out.get(<span class="kw-2">*</span>next) {
+<a href="#481" id="481" data-nosnippet="">481</a>                <span class="kw-2">*</span>next += <span class="number">1</span>;
+<a href="#482" id="482" data-nosnippet="">482</a>                <span class="kw">match </span>state[target] {
+<a href="#483" id="483" data-nosnippet="">483</a>                    <span class="number">0 </span>=&gt; {
+<a href="#484" id="484" data-nosnippet="">484</a>                        state[target] = <span class="number">1</span>;
+<a href="#485" id="485" data-nosnippet="">485</a>                        stack.push((target, <span class="number">0</span>));
+<a href="#486" id="486" data-nosnippet="">486</a>                    }
+<a href="#487" id="487" data-nosnippet="">487</a>                    <span class="number">1 </span>=&gt; back.push((node, target)),
+<a href="#488" id="488" data-nosnippet="">488</a>                    <span class="kw">_ </span>=&gt; {}
+<a href="#489" id="489" data-nosnippet="">489</a>                }
+<a href="#490" id="490" data-nosnippet="">490</a>            } <span class="kw">else </span>{
+<a href="#491" id="491" data-nosnippet="">491</a>                state[node] = <span class="number">2</span>;
+<a href="#492" id="492" data-nosnippet="">492</a>                stack.pop();
+<a href="#493" id="493" data-nosnippet="">493</a>            }
+<a href="#494" id="494" data-nosnippet="">494</a>        }
+<a href="#495" id="495" data-nosnippet="">495</a>    }
+<a href="#496" id="496" data-nosnippet="">496</a>    links.iter().map(|<span class="kw-2">&amp;</span>(a, b)| <span class="kw">if </span>back.contains(<span class="kw-2">&amp;</span>(a, b)) { (b, a) } <span class="kw">else </span>{ (a, b) }).collect()
+<a href="#497" id="497" data-nosnippet="">497</a>}
+<a href="#498" id="498" data-nosnippet="">498</a>
+<a href="#499" id="499" data-nosnippet="">499</a><span class="doccomment">/// The nodes of each layer, ordered so that lines cross little: first as the diagram has them,
+<a href="#500" id="500" data-nosnippet="">500</a>/// then by the average place of their neighbours in the layer before (sweeping down) and after
+<a href="#501" id="501" data-nosnippet="">501</a>/// (sweeping up).
+<a href="#502" id="502" data-nosnippet="">502</a></span><span class="kw">fn </span>order(n: usize, links: <span class="kw-2">&amp;</span>[(usize, usize)], layer: <span class="kw-2">&amp;</span>[usize]) -&gt; Vec&lt;Vec&lt;usize&gt;&gt; {
+<a href="#503" id="503" data-nosnippet="">503</a>    <span class="kw">let </span>count = layer.iter().copied().max().map_or(<span class="number">0</span>, |m| m + <span class="number">1</span>);
+<a href="#504" id="504" data-nosnippet="">504</a>    <span class="kw">let </span><span class="kw-2">mut </span>order: Vec&lt;Vec&lt;usize&gt;&gt; = <span class="macro">vec!</span>[Vec::new(); count];
+<a href="#505" id="505" data-nosnippet="">505</a>    <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..n {
+<a href="#506" id="506" data-nosnippet="">506</a>        order[layer[i]].push(i);
+<a href="#507" id="507" data-nosnippet="">507</a>    }
+<a href="#508" id="508" data-nosnippet="">508</a>    <span class="kw">let </span>neighbours = |i: usize, of: usize| -&gt; Vec&lt;usize&gt; {
+<a href="#509" id="509" data-nosnippet="">509</a>        links
+<a href="#510" id="510" data-nosnippet="">510</a>            .iter()
+<a href="#511" id="511" data-nosnippet="">511</a>            .filter_map(|<span class="kw-2">&amp;</span>(a, b)| <span class="kw">match </span>() {
+<a href="#512" id="512" data-nosnippet="">512</a>                <span class="kw">_ if </span>a == i &amp;&amp; layer[b] == of =&gt; <span class="prelude-val">Some</span>(b),
+<a href="#513" id="513" data-nosnippet="">513</a>                <span class="kw">_ if </span>b == i &amp;&amp; layer[a] == of =&gt; <span class="prelude-val">Some</span>(a),
+<a href="#514" id="514" data-nosnippet="">514</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#515" id="515" data-nosnippet="">515</a>            })
+<a href="#516" id="516" data-nosnippet="">516</a>            .collect()
+<a href="#517" id="517" data-nosnippet="">517</a>    };
+<a href="#518" id="518" data-nosnippet="">518</a>    <span class="kw">for </span>sweep <span class="kw">in </span><span class="number">0</span>..SWEEPS * <span class="number">2 </span>{
+<a href="#519" id="519" data-nosnippet="">519</a>        <span class="kw">let </span>down = sweep % <span class="number">2 </span>== <span class="number">0</span>;
+<a href="#520" id="520" data-nosnippet="">520</a>        <span class="kw">let </span>layers: Vec&lt;usize&gt; =
+<a href="#521" id="521" data-nosnippet="">521</a>            <span class="kw">if </span>down { (<span class="number">1</span>..count).collect() } <span class="kw">else </span>{ (<span class="number">0</span>..count.saturating_sub(<span class="number">1</span>)).rev().collect() };
+<a href="#522" id="522" data-nosnippet="">522</a>        <span class="kw">for </span>l <span class="kw">in </span>layers {
+<a href="#523" id="523" data-nosnippet="">523</a>            <span class="kw">let </span>other = <span class="kw">if </span>down { l - <span class="number">1 </span>} <span class="kw">else </span>{ l + <span class="number">1 </span>};
+<a href="#524" id="524" data-nosnippet="">524</a>            <span class="kw">let </span>place = |j: usize| order[other].iter().position(|<span class="kw-2">&amp;</span>k| k == j).unwrap_or(<span class="number">0</span>) <span class="kw">as </span>f32;
+<a href="#525" id="525" data-nosnippet="">525</a>            <span class="kw">let </span><span class="kw-2">mut </span>keyed: Vec&lt;(f32, usize)&gt; = order[l]
+<a href="#526" id="526" data-nosnippet="">526</a>                .iter()
+<a href="#527" id="527" data-nosnippet="">527</a>                .enumerate()
+<a href="#528" id="528" data-nosnippet="">528</a>                .map(|(k, <span class="kw-2">&amp;</span>i)| {
+<a href="#529" id="529" data-nosnippet="">529</a>                    <span class="kw">let </span>near = neighbours(i, other);
+<a href="#530" id="530" data-nosnippet="">530</a>                    <span class="kw">let </span>key = <span class="kw">match </span>near.len() {
+<a href="#531" id="531" data-nosnippet="">531</a>                        <span class="number">0 </span>=&gt; k <span class="kw">as </span>f32,
+<a href="#532" id="532" data-nosnippet="">532</a>                        count =&gt; near.iter().map(|<span class="kw-2">&amp;</span>j| place(j)).sum::&lt;f32&gt;() / count <span class="kw">as </span>f32,
+<a href="#533" id="533" data-nosnippet="">533</a>                    };
+<a href="#534" id="534" data-nosnippet="">534</a>                    (key, i)
+<a href="#535" id="535" data-nosnippet="">535</a>                })
+<a href="#536" id="536" data-nosnippet="">536</a>                .collect();
+<a href="#537" id="537" data-nosnippet="">537</a>            keyed.sort_by(|a, b| a.<span class="number">0</span>.total_cmp(<span class="kw-2">&amp;</span>b.<span class="number">0</span>));
+<a href="#538" id="538" data-nosnippet="">538</a>            order[l] = keyed.into_iter().map(|(<span class="kw">_</span>, i)| i).collect();
+<a href="#539" id="539" data-nosnippet="">539</a>        }
+<a href="#540" id="540" data-nosnippet="">540</a>    }
+<a href="#541" id="541" data-nosnippet="">541</a>    order
+<a href="#542" id="542" data-nosnippet="">542</a>}
+<a href="#543" id="543" data-nosnippet="">543</a>
+<a href="#544" id="544" data-nosnippet="">544</a><span class="attr">#[cfg(test)]
+<a href="#545" id="545" data-nosnippet="">545</a></span><span class="kw">mod </span>mind_tests {
+<a href="#546" id="546" data-nosnippet="">546</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#547" id="547" data-nosnippet="">547</a>    <span class="kw">use </span><span class="kw">crate</span>::flow::{FlowEdge, FlowEndpoint, FlowPort};
+<a href="#548" id="548" data-nosnippet="">548</a>
+<a href="#549" id="549" data-nosnippet="">549</a>    <span class="attr">#[test]
+<a href="#550" id="550" data-nosnippet="">550</a>    </span><span class="kw">fn </span>a_mind_map_grows_to_both_sides_and_turns_the_ports_of_the_left() {
+<a href="#551" id="551" data-nosnippet="">551</a>        <span class="kw">let </span>idea = |id: <span class="kw-2">&amp;</span>str| {
+<a href="#552" id="552" data-nosnippet="">552</a>            FlowNode::new(id, <span class="string">"idea"</span>, id, <span class="number">0.0</span>, <span class="number">0.0</span>)
+<a href="#553" id="553" data-nosnippet="">553</a>                .size(<span class="number">120.0</span>, <span class="number">40.0</span>)
+<a href="#554" id="554" data-nosnippet="">554</a>                .port(FlowPort::input(<span class="string">"in"</span>).side(<span class="kw">crate</span>::flow::PortSide::Left))
+<a href="#555" id="555" data-nosnippet="">555</a>                .port(FlowPort::output(<span class="string">"out"</span>).side(<span class="kw">crate</span>::flow::PortSide::Right))
+<a href="#556" id="556" data-nosnippet="">556</a>        };
+<a href="#557" id="557" data-nosnippet="">557</a>        <span class="kw">let </span><span class="kw-2">mut </span>g = FlowGraph::new();
+<a href="#558" id="558" data-nosnippet="">558</a>        <span class="kw">for </span>id <span class="kw">in </span>[<span class="string">"m"</span>, <span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>, <span class="string">"d"</span>, <span class="string">"a1"</span>] {
+<a href="#559" id="559" data-nosnippet="">559</a>            g = g.node(idea(id));
+<a href="#560" id="560" data-nosnippet="">560</a>        }
+<a href="#561" id="561" data-nosnippet="">561</a>        <span class="kw">for </span>(i, (from, to)) <span class="kw">in
+<a href="#562" id="562" data-nosnippet="">562</a>            </span>[(<span class="string">"m"</span>, <span class="string">"a"</span>), (<span class="string">"m"</span>, <span class="string">"b"</span>), (<span class="string">"m"</span>, <span class="string">"c"</span>), (<span class="string">"m"</span>, <span class="string">"d"</span>), (<span class="string">"a"</span>, <span class="string">"a1"</span>)].iter().enumerate()
+<a href="#563" id="563" data-nosnippet="">563</a>        {
+<a href="#564" id="564" data-nosnippet="">564</a>            g = g.edge(FlowEdge::new(
+<a href="#565" id="565" data-nosnippet="">565</a>                <span class="macro">format!</span>(<span class="string">"e{i}"</span>),
+<a href="#566" id="566" data-nosnippet="">566</a>                FlowEndpoint::new(<span class="kw-2">*</span>from, <span class="string">"out"</span>),
+<a href="#567" id="567" data-nosnippet="">567</a>                FlowEndpoint::new(<span class="kw-2">*</span>to, <span class="string">"in"</span>),
+<a href="#568" id="568" data-nosnippet="">568</a>            ));
+<a href="#569" id="569" data-nosnippet="">569</a>        }
+<a href="#570" id="570" data-nosnippet="">570</a>        FlowLayout::mind_map().apply(<span class="kw-2">&amp;mut </span>g);
+<a href="#571" id="571" data-nosnippet="">571</a>        <span class="kw">let </span>x = |id: <span class="kw-2">&amp;</span>str| g.find_node(id).map_or(<span class="number">0.0</span>, |n| n.rect().center().x);
+<a href="#572" id="572" data-nosnippet="">572</a>        <span class="kw">let </span>m = x(<span class="string">"m"</span>);
+<a href="#573" id="573" data-nosnippet="">573</a>        <span class="macro">assert!</span>(x(<span class="string">"a"</span>) &gt; m &amp;&amp; x(<span class="string">"b"</span>) &gt; m &amp;&amp; x(<span class="string">"a1"</span>) &gt; x(<span class="string">"a"</span>), <span class="string">"half to the right"</span>);
+<a href="#574" id="574" data-nosnippet="">574</a>        <span class="macro">assert!</span>(x(<span class="string">"c"</span>) &lt; m &amp;&amp; x(<span class="string">"d"</span>) &lt; m, <span class="string">"half to the left"</span>);
+<a href="#575" id="575" data-nosnippet="">575</a>        <span class="kw">let </span>side = |id: <span class="kw-2">&amp;</span>str, port: <span class="kw-2">&amp;</span>str| g.find_node(id).and_then(|n| n.find_port(port)).map(|p| p.side);
+<a href="#576" id="576" data-nosnippet="">576</a>        <span class="macro">assert_eq!</span>(side(<span class="string">"c"</span>, <span class="string">"in"</span>), <span class="prelude-val">Some</span>(<span class="kw">crate</span>::flow::PortSide::Right), <span class="string">"facing the middle"</span>);
+<a href="#577" id="577" data-nosnippet="">577</a>        <span class="macro">assert_eq!</span>(side(<span class="string">"c"</span>, <span class="string">"out"</span>), <span class="prelude-val">Some</span>(<span class="kw">crate</span>::flow::PortSide::Left));
+<a href="#578" id="578" data-nosnippet="">578</a>        <span class="macro">assert_eq!</span>(side(<span class="string">"a"</span>, <span class="string">"in"</span>), <span class="prelude-val">Some</span>(<span class="kw">crate</span>::flow::PortSide::Left));
+<a href="#579" id="579" data-nosnippet="">579</a>        <span class="kw">let </span>before = g.clone();
+<a href="#580" id="580" data-nosnippet="">580</a>        FlowLayout::mind_map().apply(<span class="kw-2">&amp;mut </span>g);
+<a href="#581" id="581" data-nosnippet="">581</a>        <span class="macro">assert_eq!</span>(g, before, <span class="string">"arranging again changes nothing"</span>);
+<a href="#582" id="582" data-nosnippet="">582</a>    }
+<a href="#583" id="583" data-nosnippet="">583</a>}
+<a href="#584" id="584" data-nosnippet="">584</a>
+<a href="#585" id="585" data-nosnippet="">585</a><span class="attr">#[cfg(test)]
+<a href="#586" id="586" data-nosnippet="">586</a></span><span class="kw">mod </span>tests {
+<a href="#587" id="587" data-nosnippet="">587</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#588" id="588" data-nosnippet="">588</a>    <span class="kw">use </span><span class="kw">crate</span>::flow::{FlowEdge, FlowEndpoint, FlowPort};
+<a href="#589" id="589" data-nosnippet="">589</a>    <span class="kw">use </span>ravenrs_core::{Point, Rect};
+<a href="#590" id="590" data-nosnippet="">590</a>
+<a href="#591" id="591" data-nosnippet="">591</a>    <span class="kw">fn </span>node(id: <span class="kw-2">&amp;</span>str) -&gt; FlowNode {
+<a href="#592" id="592" data-nosnippet="">592</a>        FlowNode::new(id, <span class="string">"step"</span>, id, <span class="number">500.0</span>, <span class="number">500.0</span>).port(FlowPort::input(<span class="string">"in"</span>)).port(FlowPort::output(<span class="string">"out"</span>))
+<a href="#593" id="593" data-nosnippet="">593</a>    }
+<a href="#594" id="594" data-nosnippet="">594</a>
+<a href="#595" id="595" data-nosnippet="">595</a>    <span class="kw">fn </span>link(id: <span class="kw-2">&amp;</span>str, from: <span class="kw-2">&amp;</span>str, to: <span class="kw-2">&amp;</span>str) -&gt; FlowEdge {
+<a href="#596" id="596" data-nosnippet="">596</a>        FlowEdge::new(id, FlowEndpoint::new(from, <span class="string">"out"</span>), FlowEndpoint::new(to, <span class="string">"in"</span>))
+<a href="#597" id="597" data-nosnippet="">597</a>    }
+<a href="#598" id="598" data-nosnippet="">598</a>
+<a href="#599" id="599" data-nosnippet="">599</a>    <span class="kw">fn </span>at(graph: <span class="kw-2">&amp;</span>FlowGraph, id: <span class="kw-2">&amp;</span>str) -&gt; (f32, f32) {
+<a href="#600" id="600" data-nosnippet="">600</a>        graph.find_node(id).map(|n| (n.x, n.y)).unwrap_or((f32::NAN, f32::NAN))
+<a href="#601" id="601" data-nosnippet="">601</a>    }
+<a href="#602" id="602" data-nosnippet="">602</a>
+<a href="#603" id="603" data-nosnippet="">603</a>    <span class="attr">#[test]
+<a href="#604" id="604" data-nosnippet="">604</a>    </span><span class="kw">fn </span>a_chain_comes_out_straight_from_where_the_diagram_was() {
+<a href="#605" id="605" data-nosnippet="">605</a>        <span class="kw">let </span><span class="kw-2">mut </span>g = FlowGraph::new()
+<a href="#606" id="606" data-nosnippet="">606</a>            .node(node(<span class="string">"c"</span>))
+<a href="#607" id="607" data-nosnippet="">607</a>            .node(FlowNode { x: <span class="number">40.0</span>, y: <span class="number">24.0</span>, ..node(<span class="string">"a"</span>) })
+<a href="#608" id="608" data-nosnippet="">608</a>            .node(node(<span class="string">"b"</span>))
+<a href="#609" id="609" data-nosnippet="">609</a>            .edge(link(<span class="string">"e1"</span>, <span class="string">"a"</span>, <span class="string">"b"</span>))
+<a href="#610" id="610" data-nosnippet="">610</a>            .edge(link(<span class="string">"e2"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>));
+<a href="#611" id="611" data-nosnippet="">611</a>        <span class="macro">assert!</span>(FlowLayout::default().apply(<span class="kw-2">&amp;mut </span>g));
+<a href="#612" id="612" data-nosnippet="">612</a>        <span class="comment">// 200 wide and 96 apart: one column every 296 units, on one line.
+<a href="#613" id="613" data-nosnippet="">613</a>        </span><span class="macro">assert_eq!</span>(at(<span class="kw-2">&amp;</span>g, <span class="string">"a"</span>), (<span class="number">40.0</span>, <span class="number">24.0</span>));
+<a href="#614" id="614" data-nosnippet="">614</a>        <span class="macro">assert_eq!</span>(at(<span class="kw-2">&amp;</span>g, <span class="string">"b"</span>), (<span class="number">336.0</span>, <span class="number">24.0</span>));
+<a href="#615" id="615" data-nosnippet="">615</a>        <span class="macro">assert_eq!</span>(at(<span class="kw-2">&amp;</span>g, <span class="string">"c"</span>), (<span class="number">632.0</span>, <span class="number">24.0</span>));
+<a href="#616" id="616" data-nosnippet="">616</a>        <span class="macro">assert!</span>(!FlowLayout::default().apply(<span class="kw-2">&amp;mut </span>g), <span class="string">"arranging again changes nothing"</span>);
+<a href="#617" id="617" data-nosnippet="">617</a>    }
+<a href="#618" id="618" data-nosnippet="">618</a>
+<a href="#619" id="619" data-nosnippet="">619</a>    <span class="attr">#[test]
+<a href="#620" id="620" data-nosnippet="">620</a>    </span><span class="kw">fn </span>down_puts_the_layers_in_rows() {
+<a href="#621" id="621" data-nosnippet="">621</a>        <span class="kw">let </span><span class="kw-2">mut </span>g = FlowGraph::new().node(node(<span class="string">"a"</span>)).node(node(<span class="string">"b"</span>)).edge(link(<span class="string">"e1"</span>, <span class="string">"a"</span>, <span class="string">"b"</span>));
+<a href="#622" id="622" data-nosnippet="">622</a>        FlowLayout::new(FlowDirection::Down).gaps(<span class="number">40.0</span>, <span class="number">20.0</span>).apply(<span class="kw-2">&amp;mut </span>g);
+<a href="#623" id="623" data-nosnippet="">623</a>        <span class="macro">assert_eq!</span>(at(<span class="kw-2">&amp;</span>g, <span class="string">"b"</span>), (<span class="number">500.0</span>, <span class="number">500.0 </span>+ <span class="number">84.0 </span>+ <span class="number">40.0</span>));
+<a href="#624" id="624" data-nosnippet="">624</a>    }
+<a href="#625" id="625" data-nosnippet="">625</a>
+<a href="#626" id="626" data-nosnippet="">626</a>    <span class="attr">#[test]
+<a href="#627" id="627" data-nosnippet="">627</a>    </span><span class="kw">fn </span>a_branch_spreads_and_its_source_sits_between_them() {
+<a href="#628" id="628" data-nosnippet="">628</a>        <span class="kw">let </span><span class="kw-2">mut </span>g = FlowGraph::new()
+<a href="#629" id="629" data-nosnippet="">629</a>            .node(node(<span class="string">"a"</span>))
+<a href="#630" id="630" data-nosnippet="">630</a>            .node(node(<span class="string">"b"</span>))
+<a href="#631" id="631" data-nosnippet="">631</a>            .node(node(<span class="string">"c"</span>))
+<a href="#632" id="632" data-nosnippet="">632</a>            .edge(link(<span class="string">"e1"</span>, <span class="string">"a"</span>, <span class="string">"b"</span>))
+<a href="#633" id="633" data-nosnippet="">633</a>            .edge(link(<span class="string">"e2"</span>, <span class="string">"a"</span>, <span class="string">"c"</span>));
+<a href="#634" id="634" data-nosnippet="">634</a>        FlowLayout::default().apply(<span class="kw-2">&amp;mut </span>g);
+<a href="#635" id="635" data-nosnippet="">635</a>        <span class="kw">let </span>(a, b, c) = (at(<span class="kw-2">&amp;</span>g, <span class="string">"a"</span>), at(<span class="kw-2">&amp;</span>g, <span class="string">"b"</span>), at(<span class="kw-2">&amp;</span>g, <span class="string">"c"</span>));
+<a href="#636" id="636" data-nosnippet="">636</a>        <span class="macro">assert_eq!</span>(b.<span class="number">0</span>, c.<span class="number">0</span>);
+<a href="#637" id="637" data-nosnippet="">637</a>        <span class="macro">assert_eq!</span>((c.<span class="number">1 </span>- b.<span class="number">1</span>).abs(), <span class="number">84.0 </span>+ <span class="number">48.0</span>, <span class="string">"a gap apart"</span>);
+<a href="#638" id="638" data-nosnippet="">638</a>        <span class="macro">assert!</span>((a.<span class="number">1 </span>- (b.<span class="number">1 </span>+ c.<span class="number">1</span>) / <span class="number">2.0</span>).abs() &lt; <span class="number">0.01</span>, <span class="string">"{a:?} {b:?} {c:?}"</span>);
+<a href="#639" id="639" data-nosnippet="">639</a>        <span class="kw">let </span>boxes: Vec&lt;<span class="kw">_</span>&gt; = g.nodes.iter().map(FlowNode::rect).collect();
+<a href="#640" id="640" data-nosnippet="">640</a>        <span class="kw">for </span>(i, r) <span class="kw">in </span>boxes.iter().enumerate() {
+<a href="#641" id="641" data-nosnippet="">641</a>            <span class="kw">for </span>s <span class="kw">in </span><span class="kw-2">&amp;</span>boxes[i + <span class="number">1</span>..] {
+<a href="#642" id="642" data-nosnippet="">642</a>                <span class="macro">assert!</span>(r.max_x() &lt;= s.x() || s.max_x() &lt;= r.x() || r.max_y() &lt;= s.y() || s.max_y() &lt;= r.y());
+<a href="#643" id="643" data-nosnippet="">643</a>            }
+<a href="#644" id="644" data-nosnippet="">644</a>        }
+<a href="#645" id="645" data-nosnippet="">645</a>    }
+<a href="#646" id="646" data-nosnippet="">646</a>
+<a href="#647" id="647" data-nosnippet="">647</a>    <span class="attr">#[test]
+<a href="#648" id="648" data-nosnippet="">648</a>    </span><span class="kw">fn </span>a_cycle_still_gets_layers_and_crossings_are_undone() {
+<a href="#649" id="649" data-nosnippet="">649</a>        <span class="comment">// a → b → c → a, and two lines that would cross in the order given.
+<a href="#650" id="650" data-nosnippet="">650</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>g = FlowGraph::new()
+<a href="#651" id="651" data-nosnippet="">651</a>            .node(node(<span class="string">"a"</span>))
+<a href="#652" id="652" data-nosnippet="">652</a>            .node(node(<span class="string">"b"</span>))
+<a href="#653" id="653" data-nosnippet="">653</a>            .node(node(<span class="string">"c"</span>))
+<a href="#654" id="654" data-nosnippet="">654</a>            .edge(link(<span class="string">"e1"</span>, <span class="string">"a"</span>, <span class="string">"b"</span>))
+<a href="#655" id="655" data-nosnippet="">655</a>            .edge(link(<span class="string">"e2"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>))
+<a href="#656" id="656" data-nosnippet="">656</a>            .edge(link(<span class="string">"e3"</span>, <span class="string">"c"</span>, <span class="string">"a"</span>));
+<a href="#657" id="657" data-nosnippet="">657</a>        FlowLayout::default().apply(<span class="kw-2">&amp;mut </span>g);
+<a href="#658" id="658" data-nosnippet="">658</a>        <span class="kw">let </span>xs = [at(<span class="kw-2">&amp;</span>g, <span class="string">"a"</span>).<span class="number">0</span>, at(<span class="kw-2">&amp;</span>g, <span class="string">"b"</span>).<span class="number">0</span>, at(<span class="kw-2">&amp;</span>g, <span class="string">"c"</span>).<span class="number">0</span>];
+<a href="#659" id="659" data-nosnippet="">659</a>        <span class="macro">assert!</span>(xs[<span class="number">0</span>] &lt; xs[<span class="number">1</span>] &amp;&amp; xs[<span class="number">1</span>] &lt; xs[<span class="number">2</span>], <span class="string">"{xs:?}"</span>);
+<a href="#660" id="660" data-nosnippet="">660</a>
+<a href="#661" id="661" data-nosnippet="">661</a>        <span class="kw">let </span><span class="kw-2">mut </span>crossed = FlowGraph::new()
+<a href="#662" id="662" data-nosnippet="">662</a>            .node(node(<span class="string">"p"</span>))
+<a href="#663" id="663" data-nosnippet="">663</a>            .node(node(<span class="string">"q"</span>))
+<a href="#664" id="664" data-nosnippet="">664</a>            .node(node(<span class="string">"x"</span>))
+<a href="#665" id="665" data-nosnippet="">665</a>            .node(node(<span class="string">"y"</span>))
+<a href="#666" id="666" data-nosnippet="">666</a>            .edge(link(<span class="string">"e1"</span>, <span class="string">"p"</span>, <span class="string">"y"</span>))
+<a href="#667" id="667" data-nosnippet="">667</a>            .edge(link(<span class="string">"e2"</span>, <span class="string">"q"</span>, <span class="string">"x"</span>));
+<a href="#668" id="668" data-nosnippet="">668</a>        FlowLayout::default().apply(<span class="kw-2">&amp;mut </span>crossed);
+<a href="#669" id="669" data-nosnippet="">669</a>        <span class="kw">let </span>above = |a: <span class="kw-2">&amp;</span>str, b: <span class="kw-2">&amp;</span>str| at(<span class="kw-2">&amp;</span>crossed, a).<span class="number">1 </span>&lt; at(<span class="kw-2">&amp;</span>crossed, b).<span class="number">1</span>;
+<a href="#670" id="670" data-nosnippet="">670</a>        <span class="macro">assert_eq!</span>(above(<span class="string">"p"</span>, <span class="string">"q"</span>), above(<span class="string">"y"</span>, <span class="string">"x"</span>), <span class="string">"the lines run side by side"</span>);
+<a href="#671" id="671" data-nosnippet="">671</a>    }
+<a href="#672" id="672" data-nosnippet="">672</a>
+<a href="#673" id="673" data-nosnippet="">673</a>    <span class="attr">#[test]
+<a href="#674" id="674" data-nosnippet="">674</a>    </span><span class="kw">fn </span>a_group_is_arranged_as_one_box_and_what_it_holds_moves_with_it() {
+<a href="#675" id="675" data-nosnippet="">675</a>        <span class="kw">let </span><span class="kw-2">mut </span>g = FlowGraph::new()
+<a href="#676" id="676" data-nosnippet="">676</a>            .node(FlowNode::new_group(<span class="string">"g"</span>, <span class="string">"Checks"</span>, Rect::new(<span class="number">1000.0</span>, <span class="number">0.0</span>, <span class="number">248.0</span>, <span class="number">264.0</span>)))
+<a href="#677" id="677" data-nosnippet="">677</a>            .node(FlowNode { x: <span class="number">1024.0</span>, y: <span class="number">48.0</span>, ..node(<span class="string">"b"</span>) }.parent(<span class="string">"g"</span>))
+<a href="#678" id="678" data-nosnippet="">678</a>            .node(FlowNode { x: <span class="number">1024.0</span>, y: <span class="number">156.0</span>, ..node(<span class="string">"c"</span>) }.parent(<span class="string">"g"</span>))
+<a href="#679" id="679" data-nosnippet="">679</a>            .node(FlowNode { x: <span class="number">0.0</span>, y: <span class="number">0.0</span>, ..node(<span class="string">"a"</span>) })
+<a href="#680" id="680" data-nosnippet="">680</a>            .edge(link(<span class="string">"e1"</span>, <span class="string">"a"</span>, <span class="string">"b"</span>))
+<a href="#681" id="681" data-nosnippet="">681</a>            .edge(link(<span class="string">"e2"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>));
+<a href="#682" id="682" data-nosnippet="">682</a>        FlowLayout::default().apply(<span class="kw-2">&amp;mut </span>g);
+<a href="#683" id="683" data-nosnippet="">683</a>        <span class="comment">// The group comes after `a`, as the line into what it holds says, and keeps its inside.
+<a href="#684" id="684" data-nosnippet="">684</a>        </span><span class="kw">let </span>(a, group, b, c) = (at(<span class="kw-2">&amp;</span>g, <span class="string">"a"</span>), at(<span class="kw-2">&amp;</span>g, <span class="string">"g"</span>), at(<span class="kw-2">&amp;</span>g, <span class="string">"b"</span>), at(<span class="kw-2">&amp;</span>g, <span class="string">"c"</span>));
+<a href="#685" id="685" data-nosnippet="">685</a>        <span class="comment">// The box of everything keeps its corner, and `a` lines up with the middle of the group.
+<a href="#686" id="686" data-nosnippet="">686</a>        </span><span class="macro">assert_eq!</span>((a.<span class="number">0</span>, group.<span class="number">1</span>), (<span class="number">0.0</span>, <span class="number">0.0</span>));
+<a href="#687" id="687" data-nosnippet="">687</a>        <span class="macro">assert_eq!</span>(a.<span class="number">1 </span>+ <span class="number">42.0</span>, group.<span class="number">1 </span>+ <span class="number">132.0</span>);
+<a href="#688" id="688" data-nosnippet="">688</a>        <span class="macro">assert_eq!</span>(group.<span class="number">0</span>, <span class="number">200.0 </span>+ <span class="number">96.0</span>);
+<a href="#689" id="689" data-nosnippet="">689</a>        <span class="macro">assert_eq!</span>((b.<span class="number">0 </span>- group.<span class="number">0</span>, b.<span class="number">1 </span>- group.<span class="number">1</span>), (<span class="number">24.0</span>, <span class="number">48.0</span>));
+<a href="#690" id="690" data-nosnippet="">690</a>        <span class="macro">assert_eq!</span>((c.<span class="number">0 </span>- b.<span class="number">0</span>, c.<span class="number">1 </span>- b.<span class="number">1</span>), (<span class="number">0.0</span>, <span class="number">108.0</span>));
+<a href="#691" id="691" data-nosnippet="">691</a>    }
+<a href="#692" id="692" data-nosnippet="">692</a>
+<a href="#693" id="693" data-nosnippet="">693</a>    <span class="attr">#[test]
+<a href="#694" id="694" data-nosnippet="">694</a>    </span><span class="kw">fn </span>a_tree_centres_each_node_over_what_it_leads_to() {
+<a href="#695" id="695" data-nosnippet="">695</a>        <span class="comment">// root → three children, each with two grandchildren, drawn down as an org chart.
+<a href="#696" id="696" data-nosnippet="">696</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>g = FlowGraph::new().node(node(<span class="string">"root"</span>));
+<a href="#697" id="697" data-nosnippet="">697</a>        <span class="kw">let </span><span class="kw-2">mut </span>k = <span class="number">0</span>;
+<a href="#698" id="698" data-nosnippet="">698</a>        <span class="kw">for </span>c <span class="kw">in </span>[<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>] {
+<a href="#699" id="699" data-nosnippet="">699</a>            g = g.node(node(c)).edge(link(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"r{c}"</span>), <span class="string">"root"</span>, c));
+<a href="#700" id="700" data-nosnippet="">700</a>            <span class="kw">for _ in </span><span class="number">0</span>..<span class="number">2 </span>{
+<a href="#701" id="701" data-nosnippet="">701</a>                k += <span class="number">1</span>;
+<a href="#702" id="702" data-nosnippet="">702</a>                <span class="kw">let </span>id = <span class="macro">format!</span>(<span class="string">"{c}{k}"</span>);
+<a href="#703" id="703" data-nosnippet="">703</a>                g = g.node(node(<span class="kw-2">&amp;</span>id)).edge(link(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"e{id}"</span>), c, <span class="kw-2">&amp;</span>id));
+<a href="#704" id="704" data-nosnippet="">704</a>            }
+<a href="#705" id="705" data-nosnippet="">705</a>        }
+<a href="#706" id="706" data-nosnippet="">706</a>        FlowLayout::tree(FlowDirection::Down).apply(<span class="kw-2">&amp;mut </span>g);
+<a href="#707" id="707" data-nosnippet="">707</a>        <span class="kw">let </span>middle =
+<a href="#708" id="708" data-nosnippet="">708</a>            |id: <span class="kw-2">&amp;</span>str| g.find_node(id).map(|n| n.rect().center()).unwrap_or(Point::new(f32::NAN, <span class="number">0.0</span>));
+<a href="#709" id="709" data-nosnippet="">709</a>        <span class="kw">let </span>(root, a, b, c) = (middle(<span class="string">"root"</span>), middle(<span class="string">"a"</span>), middle(<span class="string">"b"</span>), middle(<span class="string">"c"</span>));
+<a href="#710" id="710" data-nosnippet="">710</a>        <span class="macro">assert!</span>((root.x - b.x).abs() &lt; <span class="number">0.01</span>, <span class="string">"the root over the middle child: {root:?} {b:?}"</span>);
+<a href="#711" id="711" data-nosnippet="">711</a>        <span class="macro">assert!</span>(a.y == b.y &amp;&amp; b.y == c.y &amp;&amp; a.y &gt; root.y, <span class="string">"children on one row below"</span>);
+<a href="#712" id="712" data-nosnippet="">712</a>        <span class="macro">assert!</span>((middle(<span class="string">"a"</span>).x - (middle(<span class="string">"a1"</span>).x + middle(<span class="string">"a2"</span>).x) / <span class="number">2.0</span>).abs() &lt; <span class="number">0.01</span>, <span class="string">"a over its two"</span>);
+<a href="#713" id="713" data-nosnippet="">713</a>        <span class="macro">assert!</span>(middle(<span class="string">"a1"</span>).y &gt; a.y);
+<a href="#714" id="714" data-nosnippet="">714</a>        <span class="kw">let </span>boxes: Vec&lt;<span class="kw">_</span>&gt; = g.nodes.iter().map(FlowNode::rect).collect();
+<a href="#715" id="715" data-nosnippet="">715</a>        <span class="kw">for </span>(i, r) <span class="kw">in </span>boxes.iter().enumerate() {
+<a href="#716" id="716" data-nosnippet="">716</a>            <span class="kw">for </span>s <span class="kw">in </span><span class="kw-2">&amp;</span>boxes[i + <span class="number">1</span>..] {
+<a href="#717" id="717" data-nosnippet="">717</a>                <span class="macro">assert!</span>(
+<a href="#718" id="718" data-nosnippet="">718</a>                    r.max_x() &lt;= s.x() || s.max_x() &lt;= r.x() || r.max_y() &lt;= s.y() || s.max_y() &lt;= r.y(),
+<a href="#719" id="719" data-nosnippet="">719</a>                    <span class="string">"{r:?} {s:?}"
+<a href="#720" id="720" data-nosnippet="">720</a>                </span>);
+<a href="#721" id="721" data-nosnippet="">721</a>            }
+<a href="#722" id="722" data-nosnippet="">722</a>        }
+<a href="#723" id="723" data-nosnippet="">723</a>    }
+<a href="#724" id="724" data-nosnippet="">724</a>
+<a href="#725" id="725" data-nosnippet="">725</a>    <span class="attr">#[test]
+<a href="#726" id="726" data-nosnippet="">726</a>    </span><span class="kw">fn </span>a_tree_of_a_cycle_and_a_forest_still_places_every_node() {
+<a href="#727" id="727" data-nosnippet="">727</a>        <span class="kw">let </span><span class="kw-2">mut </span>g = FlowGraph::new()
+<a href="#728" id="728" data-nosnippet="">728</a>            .node(node(<span class="string">"a"</span>))
+<a href="#729" id="729" data-nosnippet="">729</a>            .node(node(<span class="string">"b"</span>))
+<a href="#730" id="730" data-nosnippet="">730</a>            .node(node(<span class="string">"c"</span>))
+<a href="#731" id="731" data-nosnippet="">731</a>            .node(node(<span class="string">"lone"</span>))
+<a href="#732" id="732" data-nosnippet="">732</a>            .edge(link(<span class="string">"e1"</span>, <span class="string">"a"</span>, <span class="string">"b"</span>))
+<a href="#733" id="733" data-nosnippet="">733</a>            .edge(link(<span class="string">"e2"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>))
+<a href="#734" id="734" data-nosnippet="">734</a>            .edge(link(<span class="string">"e3"</span>, <span class="string">"c"</span>, <span class="string">"a"</span>));
+<a href="#735" id="735" data-nosnippet="">735</a>        FlowLayout::tree(FlowDirection::Right).apply(<span class="kw-2">&amp;mut </span>g);
+<a href="#736" id="736" data-nosnippet="">736</a>        <span class="kw">let </span>xs: Vec&lt;f32&gt; = [<span class="string">"a"</span>, <span class="string">"b"</span>, <span class="string">"c"</span>].iter().map(|id| at(<span class="kw-2">&amp;</span>g, id).<span class="number">0</span>).collect();
+<a href="#737" id="737" data-nosnippet="">737</a>        <span class="macro">assert!</span>(xs[<span class="number">0</span>] &lt; xs[<span class="number">1</span>] &amp;&amp; xs[<span class="number">1</span>] &lt; xs[<span class="number">2</span>], <span class="string">"{xs:?}"</span>);
+<a href="#738" id="738" data-nosnippet="">738</a>        <span class="macro">assert!</span>(g.nodes.iter().all(|n| n.x.is_finite() &amp;&amp; n.y.is_finite()));
+<a href="#739" id="739" data-nosnippet="">739</a>        <span class="kw">let </span>boxes: Vec&lt;<span class="kw">_</span>&gt; = g.nodes.iter().map(FlowNode::rect).collect();
+<a href="#740" id="740" data-nosnippet="">740</a>        <span class="kw">let </span>apart = |r: <span class="kw-2">&amp;</span>Rect, s: <span class="kw-2">&amp;</span>Rect| {
+<a href="#741" id="741" data-nosnippet="">741</a>            r.max_x() &lt;= s.x() || s.max_x() &lt;= r.x() || r.max_y() &lt;= s.y() || s.max_y() &lt;= r.y()
+<a href="#742" id="742" data-nosnippet="">742</a>        };
+<a href="#743" id="743" data-nosnippet="">743</a>        <span class="macro">assert!</span>(boxes[..<span class="number">3</span>].iter().all(|b| apart(b, <span class="kw-2">&amp;</span>boxes[<span class="number">3</span>])), <span class="string">"the lone node beside the tree"</span>);
+<a href="#744" id="744" data-nosnippet="">744</a>    }
+<a href="#745" id="745" data-nosnippet="">745</a>
+<a href="#746" id="746" data-nosnippet="">746</a>    <span class="attr">#[test]
+<a href="#747" id="747" data-nosnippet="">747</a>    </span><span class="kw">fn </span>nothing_to_arrange() {
+<a href="#748" id="748" data-nosnippet="">748</a>        <span class="macro">assert!</span>(FlowLayout::default().positions(<span class="kw-2">&amp;</span>FlowGraph::new()).is_empty());
+<a href="#749" id="749" data-nosnippet="">749</a>        <span class="kw">let </span><span class="kw-2">mut </span>alone = FlowGraph::new().node(node(<span class="string">"a"</span>));
+<a href="#750" id="750" data-nosnippet="">750</a>        <span class="macro">assert!</span>(!FlowLayout::default().apply(<span class="kw-2">&amp;mut </span>alone));
+<a href="#751" id="751" data-nosnippet="">751</a>    }
+<a href="#752" id="752" data-nosnippet="">752</a>}
+</code></pre></div></section></main></body></html>

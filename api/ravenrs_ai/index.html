@@ -1,0 +1,258 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>ravenrs_ai - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="ravenrs_ai" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../static.files/storage-41dd4d93.js"></script><script defer="" src="../crates.js"></script><script defer="" src="../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-044be391.svg"><meta name="description" content="ravenrs-ai"><link rel="canonical" href="https://ravenrs.vercel.app/api/ravenrs_ai/"><meta property="og:title" content="ravenrs_ai - Rust"><meta property="og:description" content="ravenrs-ai"><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/ravenrs_ai/"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="ravenrs_ai - Rust"><meta name="twitter:description" content="ravenrs-ai"><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"ravenrs_ai - Rust","description":"ravenrs-ai","url":"https://ravenrs.vercel.app/api/ravenrs_ai/","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc mod crate"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Crate ravenrs_ai</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../ravenrs_ai/index.html">ravenrs_<wbr>ai</a><span class="version">27.1.28</span></h2></div><div class="sidebar-elems"><ul class="block"><li><a id="all-types" href="all.html">All Items</a></li></ul><section id="rustdoc-toc"><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#ravenrs-ai" title="ravenrs-ai">ravenrs-ai</a><ul><li><a href="#what-is-here" title="What is here">What is here</a></li><li><a href="#text-models" title="Text models">Text models</a></li><li><a href="#voice" title="Voice">Voice</a></li><li><a href="#how-kokoro-speaks" title="How Kokoro speaks">How Kokoro speaks</a></li><li><a href="#using-the-voice-outside-a-ravenrs-app" title="Using the voice outside a RavenRS app">Using the voice outside a RavenRS app</a></li><li><a href="#files-memory-and-folder" title="Files, memory and folder">Files, memory and folder</a></li><li><a href="#limits" title="Limits">Limits</a></li><li><a href="#checking-by-ear" title="Checking by ear">Checking by ear</a></li></ul></li></ul><h3><a href="#structs">Crate Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1>Crate <span>ravenrs_<wbr>ai</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../src/ravenrs_ai/lib.rs.html#1-27">Source</a> </span></div><details class="toggle top-doc" open=""><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><h2 id="ravenrs-ai"><a class="doc-anchor" href="#ravenrs-ai">§</a>ravenrs-ai</h2>
+<p>Local AI models for a RavenRS app: models that write text, one that hears and two that speak. Nothing
+here talks to the network except the download someone asks for, and what is asked of a model stays
+on the machine. Everything runs on the CPU in plain Rust with
+<a href="https://github.com/huggingface/candle">candle</a>, so building an app needs nothing but Cargo: no
+Python, no ONNX runtime, no espeak-ng.</p>
+<h3 id="what-is-here"><a class="doc-anchor" href="#what-is-here">§</a>What is here</h3><div><table><thead><tr><th>Type</th><th>What it is for</th><th>Needs the UI thread?</th></tr></thead><tbody>
+<tr><td><code>Machine</code>, <code>LocalModel::fits</code></td><td>How much memory and disk there are, and whether a model fits. Models that do not fit are not offered.</td><td>No</td></tr>
+<tr><td><code>ModelFolder</code></td><td>Downloads a model’s files with progress and cancelling, checks each SHA-256 before installing, and removes them. A broken download never looks installed.</td><td>No (it blocks)</td></tr>
+<tr><td><code>CATALOG</code>, <code>VOICE_CATALOG</code>, <code>HEARING_CATALOG</code>, <code>model_by_id</code></td><td>The models this crate knows, each pinned to a commit and a hash.</td><td>No</td></tr>
+<tr><td><code>ModelManager</code></td><td>The screen for all of it: lists what fits, downloads, cancels, tries for speed, puts to use and removes.</td><td>Yes, it is a <code>View</code></td></tr>
+<tr><td><code>LocalEngine</code></td><td>A text model in memory: <code>generate</code> blocks until the answer is written.</td><td>No (it blocks)</td></tr>
+<tr><td><code>LocalAssistant</code></td><td>A <code>LocalEngine</code> on its own thread, which lets go of its memory after two minutes without a question.</td><td>Built from the UI</td></tr>
+<tr><td><code>tool_rules</code>, <code>read_tool_call</code>, <code>Tool</code>, <code>ToolCall</code></td><td>Lets a text model choose one of the app’s tools; the app does the work.</td><td>No</td></tr>
+<tr><td><code>SpeechEngine</code></td><td>A voice in memory: <code>speak</code> turns text into 24 kHz mono samples.</td><td>No (it blocks)</td></tr>
+<tr><td><code>LocalVoice</code></td><td>A <code>SpeechEngine</code> on its own thread, which hands back ready clips one sentence at a time.</td><td>Built from the UI</td></tr>
+<tr><td><code>VoiceManager</code></td><td>The screen for the voice: which model, which speaker, read answers aloud or not.</td><td>Yes, it is a <code>View</code></td></tr>
+<tr><td><code>Transcriber</code></td><td>Whisper, which turns 16 kHz samples into text.</td><td>No (it blocks)</td></tr>
+</tbody></table>
+</div>
+<p>Everything that blocks (<code>download</code>, <code>LocalEngine::load</code>, <code>SpeechEngine::load</code>, <code>generate</code>, <code>speak</code>)
+belongs on a thread of its own. The <code>Local…</code> types already do that for you.</p>
+<h3 id="text-models"><a class="doc-anchor" href="#text-models">§</a>Text models</h3>
+<p>The catalog has LFM3, Gemma 3, Qwen 2.5, Qwen3, Llama 3.2, Phi-3 and Mistral, from 0.4 to 5 GB, and
+says how many requests each understood when that was measured. Measured with Qwen3 1.7B on an
+Apple M2 Pro: 1.1 GB to download, 4.3 GB of memory at the peak, about 1 second for a short answer,
+and about 3.3 MB more in the app.</p>
+<p>Asked to choose the right moment among 16 passages, it did worse than the text search, so it writes
+answers about what the search found. Asked to choose one of eight tools, it got most requests right,
+so <code>tool_rules</code> and <code>read_tool_call</code> let it choose what the app should do. It only chooses: the app
+reads the data and does the work, so a model never makes up a number, and whatever it answers beyond
+the tools offered is no choice at all.</p>
+<p>LFM3 is not in candle yet, so this crate reads it itself (<code>src/lfm3.rs</code>). LFM3 1.7B needs 4 GB of
+memory at the peak and chose the right tool in 27 of 32 requests. Its license, LFM Open 1.0, allows
+commercial use only below 10 million dollars of annual revenue.</p>
+<h3 id="voice"><a class="doc-anchor" href="#voice">§</a>Voice</h3>
+<p><code>VOICE_CATALOG</code> has two models. Both answer through the same <code>SpeechEngine</code>, which picks the code by
+<code>LocalModel::family</code>.</p>
+<div><table><thead><tr><th></th><th>Kokoro 82M (<code>kokoro-82m</code>)</th><th>LFM3 Audio 2B (<code>lfm3-audio-2b-q4</code>)</th></tr></thead><tbody>
+<tr><td>License</td><td>Apache 2.0</td><td>LFM Open 1.0</td></tr>
+<tr><td>Download</td><td>329 MB</td><td>1.3 GB, quantized GGUF</td></tr>
+<tr><td>Memory at the peak</td><td>1.7 GB</td><td>4.5 GB</td></tr>
+<tr><td>Speed on an Apple M2 Pro</td><td>about 2.5 times the speed of speech</td><td>about the speed of speech</td></tr>
+<tr><td>Languages</td><td>Brazilian Portuguese only</td><td>the 19 of <code>SPEECH_LANGUAGES</code></td></tr>
+<tr><td>Voices</td><td><code>pf_dora</code>, <code>pm_alex</code>, <code>pm_santa</code> (<code>KOKORO_SPEAKERS</code>)</td><td>female or male (<code>SpeechVoice</code>)</td></tr>
+<tr><td>What of <code>SpeechSettings</code> it reads</td><td><code>language</code> (must be <code>"Portuguese"</code>), <code>speaker</code> or else <code>voice</code>, <code>seed</code></td><td>all of it: the prompt, sampling, repetition, <code>seed</code></td></tr>
+</tbody></table>
+</div>
+<p>Kokoro is the voice RavenRS uses: <code>pf_dora</code> was chosen for the channel videos and <code>pm_santa</code> for the
+training films of Raven Finanças. Without a <code>speaker</code>, Kokoro speaks as <code>pf_dora</code> for
+<code>SpeechVoice::Female</code> and <code>pm_alex</code> for <code>SpeechVoice::Male</code>.</p>
+<h4 id="three-ways-in"><a class="doc-anchor" href="#three-ways-in">§</a>Three ways in</h4>
+<p>Pick the lowest level that does the job.</p>
+<p><strong>1. <code>SpeechEngine</code>: text in, samples out.</strong> No UI, no threads, no RavenRS app needed. This is the
+one to use from a command line, a test, a build step or an app with another UI toolkit.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>ravenrs_ai::{ModelFolder, SPEECH_RATE, SpeechEngine, SpeechSettings, model_by_id};
+<span class="kw">use </span>std::sync::atomic::AtomicBool;
+
+<span class="kw">let </span>folder = ModelFolder::new(<span class="string">"/path/to/models"</span>);
+<span class="kw">let </span>model = model_by_id(<span class="string">"kokoro-82m"</span>).expect(<span class="string">"in the catalog"</span>);
+<span class="comment">// Once: about 329 MB, each file checked by its hash. Blocks until the end.
+</span>folder.download(<span class="kw-2">&amp;</span>model, <span class="kw-2">&amp;</span>|received, total| <span class="macro">eprintln!</span>(<span class="string">"{received} of {total}"</span>), <span class="kw-2">&amp;</span>AtomicBool::new(<span class="bool-val">false</span>))<span class="question-mark">?</span>;
+
+<span class="comment">// Takes a few seconds; keep the engine and reuse it.
+</span><span class="kw">let </span><span class="kw-2">mut </span>engine = SpeechEngine::load(<span class="kw-2">&amp;</span>folder, <span class="kw-2">&amp;</span>model)<span class="question-mark">?</span>;
+<span class="kw">let </span>settings = SpeechSettings { speaker: <span class="prelude-val">Some</span>(<span class="string">"pm_santa"</span>.into()), ..SpeechSettings::default() };
+
+<span class="kw">let </span>text = <span class="string">"Olá! Este é o seu resumo do mês."</span>;
+<span class="kw">let </span><span class="kw-2">mut </span>sound: Vec&lt;f32&gt; = Vec::new();
+<span class="kw">for </span>piece <span class="kw">in </span>engine.pieces(text) {
+    <span class="comment">// `go_on` hears how many pieces are done; returning false stops with what is ready.
+    </span>sound.extend(engine.speak(<span class="kw-2">&amp;</span>piece, <span class="kw-2">&amp;</span>settings, <span class="kw-2">&amp;mut </span>|<span class="kw">_</span>| <span class="bool-val">true</span>)<span class="question-mark">?</span>);
+}
+<span class="comment">// Mono samples between -1 and 1, at SPEECH_RATE (24 000) per second.
+</span><span class="macro">eprintln!</span>(<span class="string">"{:.1} s of speech"</span>, sound.len() <span class="kw">as </span>f32 / SPEECH_RATE <span class="kw">as </span>f32);</code></pre></div>
+<p><code>speak</code> can take a whole paragraph, but <code>pieces</code> is better: Kokoro says short sentences weakly, so
+<code>pieces</code> joins those under 60 letters with the next, and each piece comes back sooner than the whole.</p>
+<p><strong>2. <code>LocalVoice</code>: the same on its own thread, inside a RavenRS app.</strong> It loads the model on the
+first <code>say</code>, speaks a piece at a time, and lets go of the memory after two minutes of silence.
+<code>say</code> replaces anything still being said; <code>stop</code> silences it. When a piece is ready it calls the
+<code>UiWaker</code>, and the next build plays it:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>ravenrs_ai::{LocalVoice, ModelFolder, SpeechSettings, model_by_id};
+<span class="kw">use </span>ravenrs_widgets::{Sound, UiWaker};
+
+<span class="kw">let </span>voice = LocalVoice::new(ModelFolder::new(<span class="string">"/path/to/models"</span>), model_by_id(<span class="string">"kokoro-82m"</span>).unwrap());
+voice.say(<span class="string">"Você tem três contas para pagar esta semana."</span>.into(), SpeechSettings::default(), UiWaker::default());
+
+<span class="comment">// In the `build` of a view that stays on screen while it speaks, with `cx.sound()`:
+</span><span class="kw">fn </span>build_part(voice: <span class="kw-2">&amp;</span>LocalVoice, sound: <span class="kw-2">&amp;</span>Sound) {
+    voice.play_ready(sound);
+}</code></pre></div>
+<p><strong>3. <code>VoiceManager</code>: the screen and the settings.</strong> It is a <code>View</code> with the model list, the speaker,
+“read answers aloud” and, for LFM3 Audio, the sampling sliders. It keeps them in
+<code>voice-settings.json</code> in the models’ folder and holds a <code>LocalVoice</code> for the model in use. The
+assistant of Raven Finanças (<code>examples/family-finance/src/ui/assistant.rs</code>) uses it as is:
+<code>voices.say(spoken(text), waker)</code> when an answer arrives, and <code>voices.play_ready(cx.sound())</code> while
+building.</p>
+<h4 id="live-or-recorded-ahead"><a class="doc-anchor" href="#live-or-recorded-ahead">§</a>Live, or recorded ahead</h4>
+<p>A voice can speak <strong>live</strong>, as the assistant does, or be <strong>recorded ahead</strong> of time, as the training
+films of Raven Finanças are. Recorded ahead, whoever watches needs no model, no download and no
+memory for it: the app carries the sound.</p>
+<p>How the training narration is made (<code>record_narration</code> in
+<code>examples/family-finance/tests/suite/training.rs</code>):</p>
+<ol>
+<li>It gathers every text the films say: each hotspot’s title and text, and the opening and closing
+cards.</li>
+<li>Each text goes through <code>family_finance::ui::spoken</code> first, which writes money, dates and numbers
+in words (<code>R$ 1.234,56</code> → “mil duzentos e trinta e quatro reais e cinquenta e seis centavos”),
+since Kokoro leaves digits out.</li>
+<li><code>SpeechEngine</code> with <code>kokoro-82m</code> and <code>speaker: Some("pm_santa")</code> says each piece of
+<code>engine.pieces(text)</code>, with a quarter of a second of silence after each.</li>
+<li><code>ravenrs_movie::Narration::pack(&amp;recordings, SPEECH_RATE)</code> packs every <code>(text, samples)</code> into one
+file, <code>assets/treinamentos/narracao.voz</code> (about 5 MB for every film: 16 kHz, ADPCM, one level of
+loudness for all).</li>
+<li>The app embeds it with <code>include_bytes!</code> and gives <code>Narration::new(bytes)</code> to the films. A text is
+found by its exact words; a text that changed and was not recorded again is said by the system’s
+voice until it is.</li>
+</ol>
+<div class="example-wrap"><pre class="language-sh"><code># Everything again, about 25 minutes:
+FF_AI_MODELS=/path/to/models cargo test --release -p family-finance --test suite training::record_narration -- --ignored --nocapture
+# Only what narracao.voz does not say yet, added to it:
+FF_NARRATION_ADD=1 FF_AI_MODELS=/path/to/models cargo test --release -p family-finance --test suite training::record_narration -- --ignored --nocapture
+# Six takes of texts 12 and 40, as WAV, to choose by ear; then pack the folder:
+FF_NARRATION_TAKES=12,40 FF_NARRATION_WAVS=/path/to/wavs FF_AI_MODELS=/path/to/models cargo test --release -p family-finance --test suite training::record_narration -- --ignored
+FF_NARRATION_WAVS=/path/to/wavs cargo test --release -p family-finance --test suite training::pack_narration -- --ignored</code></pre></div>
+<p><code>FF_NARRATION_SPEAKER</code> picks another Kokoro voice, <code>FF_NARRATION_MODEL</code> another model, and
+<code>FF_NARRATION_MISSING=1</code> records only what a WAV folder does not have yet. The videos of the channel
+are made the same way, in <code>examples/channel-video/src/main.rs</code>. Check new speech with an independent
+recognizer (Whisper, <code>Transcriber</code>) rather than only reading the text: a missing phoneme rule is heard,
+not seen.</p>
+<h3 id="how-kokoro-speaks"><a class="doc-anchor" href="#how-kokoro-speaks">§</a>How Kokoro speaks</h3>
+<p>Kokoro is a StyleTTS 2 model with an iSTFTNet decoder. <code>src/kokoro.rs</code> follows its published PyTorch
+code (<code>kokoro/model.py</code>, <code>modules.py</code>, <code>istftnet.py</code>) stage by stage, and the test
+<code>kokoro_matches_the_published_code</code> compares each stage with numbers that code wrote. One call to
+<code>SpeechEngine::speak</code> goes:</p>
+<ol>
+<li><strong>Text to phonemes</strong> (<code>src/phonemes.rs</code>, <code>phonemes_pt_br</code>). This crate’s own rules for Brazilian
+Portuguese, written from the spelling: accents mark the stress, the ending decides it when there
+is none, a short list keeps the open vowels spelling does not show, and words change before the
+next one (<code>as contas do banco</code> → <code>as kˈoŋtæz dʊ bˈɐ̃ŋkʊ</code>). It replaces espeak-ng, which is GPL. On
+the films of Raven Finanças the result matches espeak-ng in 99.8% of the characters, and in 99.4%
+on sentences the rules were not written from. Digits are left out.</li>
+<li><strong>Phonemes to pieces</strong> (<code>phoneme_pieces</code> in <code>src/speech.rs</code>): at most 400 phonemes, cut where a
+sentence or clause ends, and never more than the 510 the model takes, since it rushes at the end
+of its longest.</li>
+<li><strong>Phonemes to numbers</strong> (<code>Kokoro::ids</code>): each phoneme is looked up in the <code>vocab</code> of
+<code>config.json</code>; what it does not know is dropped, and a 0 opens and closes the piece.</li>
+<li><strong>The voice’s style</strong> (<code>Voice::style</code>). A voice file (<code>pf_dora.pt</code>…) is a PyTorch zip of
+<code>(510, 1, 256)</code> floats: one style for each length of text. The row for the number of phonemes is
+taken; its first 128 numbers are the timbre, the last 128 the prosody.</li>
+<li><strong>Reading</strong> (<code>Albert</code>): a small ALBERT, one layer used twelve times, reads the ids; a linear layer
+brings it to 512 channels.</li>
+<li><strong>Durations</strong> (<code>Predictor::encode</code>, <code>durations</code>): LSTMs over the reading and the prosody say how
+many frames each phoneme lasts, rounded as PyTorch rounds. <code>speed</code> divides them; it is fixed at 1.</li>
+<li><strong>Pitch and loudness</strong> (<code>pitch_and_loudness</code>): each phoneme’s features are repeated for its
+frames, and two stacks of style-conditioned blocks (AdaIN) write the pitch (F0) and loudness of
+every half frame.</li>
+<li><strong>Sound</strong> (<code>Decoder</code>). A text encoder reads the ids again for the sound itself. The decoder joins
+that with pitch, loudness and the timbre. A source of sines at the pitch and its eight harmonics,
+with noise where the voice is unvoiced, is shaped by two transposed convolutions (×10, then ×6)
+and snake residual blocks into a spectrum of 11 magnitudes and 11 phases, and an inverse STFT
+(<code>src/spectrum.rs</code>, 20-point Hann window, hop 5) turns it into samples. Each frame of step 6
+becomes 600 samples: 25 ms at 24 kHz.</li>
+</ol>
+<p>The noise of step 8 comes from <code>SpeechSettings::seed</code>, with its own generator (<code>Noise</code>), so the same
+text, voice and seed sound the same on every machine. It is not bit for bit the published code: the
+near-silent bins change phase with the smallest difference, so two runs of the PyTorch code with
+different seeds differ by about as much as this one differs from it.</p>
+<h3 id="using-the-voice-outside-a-ravenrs-app"><a class="doc-anchor" href="#using-the-voice-outside-a-ravenrs-app">§</a>Using the voice outside a RavenRS app</h3>
+<p><code>SpeechEngine</code> needs none of the UI: give it a <code>ModelFolder</code> and a <code>LocalModel</code>, and it gives back
+<code>Vec&lt;f32&gt;</code>. An app with another toolkit (GPUI, egui, a server) uses only that, and plays the samples
+with whatever it already has. With <a href="https://crates.io/crates/rodio">rodio</a>:</p>
+
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use </span>ravenrs_ai::{ModelFolder, SPEECH_RATE, SpeechEngine, SpeechSettings, model_by_id};
+<span class="kw">use </span>std::sync::mpsc;
+
+<span class="comment">// A thread of its own: loading takes seconds and each piece blocks.
+</span><span class="kw">let </span>(say, heard) = mpsc::channel::&lt;String&gt;();
+std::thread::spawn(<span class="kw">move </span>|| {
+    <span class="kw">let </span>model = model_by_id(<span class="string">"kokoro-82m"</span>).unwrap();
+    <span class="kw">let </span><span class="kw-2">mut </span>engine = SpeechEngine::load(<span class="kw-2">&amp;</span>ModelFolder::new(models_dir), <span class="kw-2">&amp;</span>model).unwrap();
+    <span class="kw">let </span>settings = SpeechSettings { speaker: <span class="prelude-val">Some</span>(<span class="string">"pf_dora"</span>.into()), ..SpeechSettings::default() };
+    <span class="kw">let </span>stream = rodio::OutputStreamBuilder::open_default_stream().unwrap();
+    <span class="kw">let </span>sink = rodio::Sink::connect_new(stream.mixer());
+    <span class="kw">for </span>text <span class="kw">in </span>heard {
+        sink.stop();
+        <span class="kw">for </span>piece <span class="kw">in </span>engine.pieces(<span class="kw-2">&amp;</span>text) {
+            <span class="kw">let </span>sound = engine.speak(<span class="kw-2">&amp;</span>piece, <span class="kw-2">&amp;</span>settings, <span class="kw-2">&amp;mut </span>|<span class="kw">_</span>| <span class="bool-val">true</span>).unwrap();
+            <span class="comment">// Each piece queues behind the last, so speech starts after the first.
+            </span>sink.append(rodio::buffer::SamplesBuffer::new(<span class="number">1</span>, SPEECH_RATE, sound));
+        }
+    }
+});
+say.send(<span class="string">"Bem-vindo de volta."</span>.into()).unwrap();</code></pre></div>
+<p>What to know before bringing it in:</p>
+<ul>
+<li><strong>Dependencies.</strong> The crate depends on <code>ravenrs-widgets</code> for <code>ModelManager</code>, <code>VoiceManager</code> and
+<code>LocalVoice</code>, so it compiles them even when only <code>SpeechEngine</code> is used. They do not draw anything
+until asked, and nothing of them conflicts with another toolkit, but the build is longer.</li>
+<li><strong>Model files.</strong> Download them with <code>ModelFolder::download</code> (or point a <code>ModelFolder</code> at a folder
+that already has <code>kokoro-82m/</code> from another app); see the layout below. The URLs are pinned to a
+commit of <code>hexgrad/Kokoro-82M</code> on Hugging Face and each file is checked by its SHA-256.</li>
+<li><strong>Text.</strong> Write numbers, money, dates and acronyms in words before <code>speak</code>
+(<code>examples/family-finance/src/ui/spoken.rs</code> is one way). Only Portuguese.</li>
+<li><strong>Recorded ahead.</strong> For fixed texts (a tour, a tutorial), record once and ship the sound, as
+described above, so the people who use the app download nothing.</li>
+</ul>
+<h3 id="files-memory-and-folder"><a class="doc-anchor" href="#files-memory-and-folder">§</a>Files, memory and folder</h3>
+<p><code>ModelFolder::new(root)</code> keeps each model in <code>root/&lt;id&gt;/</code>, under the names of its <code>ModelFile</code>s:</p>
+<div class="example-wrap"><pre class="language-text"><code>root/
+  kokoro-82m/
+    model.pth      327 MB  the weights (kokoro-v1_0.pth)
+    config.json      2 KB  the phoneme vocabulary
+    pf_dora.pt     523 KB  one voice each
+    pm_alex.pt
+    pm_santa.pt
+  voice-settings.json      what VoiceManager remembers</code></pre></div>
+<p>A model is installed when every file is there with the right size; the hash is checked when it
+arrives, and a download in progress has its own name, so it never looks installed. <code>LocalModel::fits</code>
+asks for the model’s peak memory (1.7 GB for Kokoro) plus room for the system, and disk for what is
+not there yet.</p>
+<h3 id="limits"><a class="doc-anchor" href="#limits">§</a>Limits</h3>
+<ul>
+<li>Kokoro leaves digits out: write numbers in words (alexkads/RavenRS#96).</li>
+<li>Kokoro speaks only Brazilian Portuguese, with the three voices above; LFM3 Audio speaks the others.</li>
+<li>CPU only. Measured on macOS; Linux and Windows are not checked yet (alexkads/RavenRS#98).</li>
+<li>Speech recognition (<code>Transcriber</code>, Whisper) exists, but capturing the microphone does not, so there
+is no voice chat yet.</li>
+</ul>
+<h3 id="checking-by-ear"><a class="doc-anchor" href="#checking-by-ear">§</a>Checking by ear</h3>
+<p>These need the real model and run only when asked (<code>--ignored</code>), in release:</p>
+<div class="example-wrap"><pre class="language-sh"><code># Three sentences, each with another Kokoro voice, into RAVENRS_AI_MODELS/fala-N.wav, with timings:
+RAVENRS_AI_MODELS=/path/to/models cargo test --release -p ravenrs-ai --test manager real_speech -- --ignored --nocapture
+# One sentence, one voice, one file. This one reads a clone of hexgrad/Kokoro-82M as Hugging Face
+# names it (kokoro-v1_0.pth, config.json, voices/pm_alex.pt), not a ModelFolder; RAVENRS_SAY_PHONEMES
+# gives the phonemes as they are, to hear the model apart from the rules:
+RAVENRS_KOKORO=/path/to/Kokoro-82M RAVENRS_SAY="Olá, tudo bem?" RAVENRS_VOICE=pm_alex RAVENRS_SAY_OUT=ola.wav cargo test --release -p ravenrs-ai kokoro_says -- --ignored
+# Every stage against references written by the published PyTorch code:
+RAVENRS_KOKORO=/path/to/Kokoro-82M RAVENRS_KOKORO_REF=/path/to/references cargo test --release -p ravenrs-ai kokoro_matches -- --ignored --nocapture</code></pre></div>
+<p>When something sounds wrong, compare the phonemes of the same sentence first
+(the test <code>phonemes_close_to_espeak</code> in <code>src/phonemes.rs</code> does it against what espeak-ng writes): so far a wrong word has been a missing phoneme
+rule, not the model.</p>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Generated.html" title="struct ravenrs_ai::Generated">Generated</a></dt><dd>What a generation cost.</dd><dt><a class="struct" href="struct.LocalAssistant.html" title="struct ravenrs_ai::LocalAssistant">Local<wbr>Assistant</a></dt><dd>A model that answers on its own thread. Dropping it ends the thread and frees
+the memory.</dd><dt><a class="struct" href="struct.LocalEngine.html" title="struct ravenrs_ai::LocalEngine">Local<wbr>Engine</a></dt><dd>A model loaded in memory. Loading takes a while and generating blocks, so keep it
+away from the UI thread.</dd><dt><a class="struct" href="struct.LocalModel.html" title="struct ravenrs_ai::LocalModel">Local<wbr>Model</a></dt><dd>A model an app knows how to use.</dd><dt><a class="struct" href="struct.LocalVoice.html" title="struct ravenrs_ai::LocalVoice">Local<wbr>Voice</a></dt><dd>A model that speaks on its own thread. Dropping it ends the thread and frees the
+memory.</dd><dt><a class="struct" href="struct.Machine.html" title="struct ravenrs_ai::Machine">Machine</a></dt><dd>What a machine has, for deciding which models to offer.</dd><dt><a class="struct" href="struct.ModelFile.html" title="struct ravenrs_ai::ModelFile">Model<wbr>File</a></dt><dd>A file of a model, pinned to one published version.</dd><dt><a class="struct" href="struct.ModelFolder.html" title="struct ravenrs_ai::ModelFolder">Model<wbr>Folder</a></dt><dd>A folder that holds models, each in a folder of its own.</dd><dt><a class="struct" href="struct.ModelManager.html" title="struct ravenrs_ai::ModelManager">Model<wbr>Manager</a></dt><dd>The models of a list that fit this machine, to download, try, use and remove. A
+model that does not fit is not offered, unless it is already installed and still
+fits in memory. Build it once and keep it: downloads belong to it.</dd><dt><a class="struct" href="struct.ModelManagerLabels.html" title="struct ravenrs_ai::ModelManagerLabels">Model<wbr>Manager<wbr>Labels</a></dt><dd>The words a <a href="struct.ModelManager.html" title="struct ravenrs_ai::ModelManager"><code>ModelManager</code></a> shows. English by default.</dd><dt><a class="struct" href="struct.SpeechEngine.html" title="struct ravenrs_ai::SpeechEngine">Speech<wbr>Engine</a></dt><dd>The voice in memory: Kokoro 82M or LFM3 Audio, by the model’s family. Loading takes a
+while and speaking blocks, so keep it away from the UI thread.</dd><dt><a class="struct" href="struct.SpeechSettings.html" title="struct ravenrs_ai::SpeechSettings">Speech<wbr>Settings</a></dt><dd>How to speak. The default is what the model card recommends, in Portuguese.</dd><dt><a class="struct" href="struct.Tool.html" title="struct ravenrs_ai::Tool">Tool</a></dt><dd>Something a model can ask the app to do.</dd><dt><a class="struct" href="struct.ToolCall.html" title="struct ravenrs_ai::ToolCall">Tool<wbr>Call</a></dt><dd>What a model chose.</dd><dt><a class="struct" href="struct.Transcribed.html" title="struct ravenrs_ai::Transcribed">Transcribed</a></dt><dd>What a transcription found.</dd><dt><a class="struct" href="struct.Transcriber.html" title="struct ravenrs_ai::Transcriber">Transcriber</a></dt><dd>Whisper, loaded and ready to hear.</dd><dt><a class="struct" href="struct.VoiceLabels.html" title="struct ravenrs_ai::VoiceLabels">Voice<wbr>Labels</a></dt><dd>What the voice screen says.</dd><dt><a class="struct" href="struct.VoiceManager.html" title="struct ravenrs_ai::VoiceManager">Voice<wbr>Manager</a></dt><dd>The screen for the voice: which model speaks, and how. The values start as its model
+card recommends, and are kept in the models’ folder.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.EngineError.html" title="enum ravenrs_ai::EngineError">Engine<wbr>Error</a></dt><dd>Why a model did not run.</dd><dt><a class="enum" href="enum.ModelError.html" title="enum ravenrs_ai::ModelError">Model<wbr>Error</a></dt><dd>Why a model did not arrive. Nothing half done stays looking installed.</dd><dt><a class="enum" href="enum.ModelFamily.html" title="enum ravenrs_ai::ModelFamily">Model<wbr>Family</a></dt><dd>The kind of model, which decides how it runs and how to talk to it.</dd><dt><a class="enum" href="enum.ModelState.html" title="enum ravenrs_ai::ModelState">Model<wbr>State</a></dt><dd>Where a model stands in a folder.</dd><dt><a class="enum" href="enum.SpeechVoice.html" title="enum ravenrs_ai::SpeechVoice">Speech<wbr>Voice</a></dt><dd>Which of its voices the model speaks with.</dd></dl><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><dl class="item-table"><dt><a class="constant" href="constant.CATALOG.html" title="constant ravenrs_ai::CATALOG">CATALOG</a></dt><dd>The models that can be offered, smallest first. Only their files are listed: a
+model comes to the machine only when someone asks for it.</dd><dt><a class="constant" href="constant.HEARING_CATALOG.html" title="constant ravenrs_ai::HEARING_CATALOG">HEARING_<wbr>CATALOG</a></dt><dd>The models that hear: speech becomes text with a
+<a href="struct.Transcriber.html" title="struct ravenrs_ai::Transcriber"><code>Transcriber</code></a>. Offered apart, like <a href="constant.VOICE_CATALOG.html" title="constant ravenrs_ai::VOICE_CATALOG"><code>VOICE_CATALOG</code></a>.</dd><dt><a class="constant" href="constant.HEARING_RATE.html" title="constant ravenrs_ai::HEARING_RATE">HEARING_<wbr>RATE</a></dt><dd>The rate a transcriber hears at: give it mono samples at 16 kHz.</dd><dt><a class="constant" href="constant.KOKORO_SPEAKERS.html" title="constant ravenrs_ai::KOKORO_SPEAKERS">KOKORO_<wbr>SPEAKERS</a></dt><dd>The voices of Kokoro 82M in Brazilian Portuguese, by the names its makers gave them.</dd><dt><a class="constant" href="constant.SPEECH_LANGUAGES.html" title="constant ravenrs_ai::SPEECH_LANGUAGES">SPEECH_<wbr>LANGUAGES</a></dt><dd>The languages the model speaks, with the English name its prompt asks for.</dd><dt><a class="constant" href="constant.SPEECH_RATE.html" title="constant ravenrs_ai::SPEECH_RATE">SPEECH_<wbr>RATE</a></dt><dd>How many samples of sound a second has.</dd><dt><a class="constant" href="constant.VOICE_CATALOG.html" title="constant ravenrs_ai::VOICE_CATALOG">VOICE_<wbr>CATALOG</a></dt><dd>The models that speak, best first. They are offered apart from <a href="constant.CATALOG.html" title="constant ravenrs_ai::CATALOG"><code>CATALOG</code></a>, since an app
+uses one of each.</dd></dl><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><dl class="item-table"><dt><a class="fn" href="fn.model_by_id.html" title="fn ravenrs_ai::model_by_id">model_<wbr>by_<wbr>id</a></dt><dd>A model of <a href="constant.CATALOG.html" title="constant ravenrs_ai::CATALOG"><code>CATALOG</code></a> by its id.</dd><dt><a class="fn" href="fn.read_tool_call.html" title="fn ravenrs_ai::read_tool_call">read_<wbr>tool_<wbr>call</a></dt><dd>Reads what a model answered. Anything but a known tool, however it is written,
+is no choice at all, so a model cannot ask for what the app did not offer.</dd><dt><a class="fn" href="fn.sentences.html" title="fn ravenrs_ai::sentences">sentences</a></dt><dd>The sentences of <code>text</code>, which is how the model says long texts best.</dd><dt><a class="fn" href="fn.tool_rules.html" title="fn ravenrs_ai::tool_rules">tool_<wbr>rules</a></dt><dd>Instructions that make a model answer with one tool. Pass them as the system
+text of <a href="struct.LocalAssistant.html#method.write" title="method ravenrs_ai::LocalAssistant::write"><code>LocalAssistant::write</code></a>, with the person’s
+words as the question.</dd></dl></section></div></main></body></html>

@@ -1,0 +1,335 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>settings.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="ravenrs_word" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../src-files.js"></script><script defer="" src="../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-word/src/doc/settings.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_word/doc/settings.rs.html"><meta property="og:title" content="settings.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-word/src/doc/settings.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_word/doc/settings.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="settings.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-word/src/doc/settings.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"settings.rs - source","description":"Source of the Rust file `crates/ravenrs-word/src/doc/settings.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_word/doc/settings.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_word/doc/</div>settings.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="kw">use super</span>::{Deserialize, Rgb, Serialize, math, section, styles};
+<a href="#2" id="2" data-nosnippet="">2</a>
+<a href="#3" id="3" data-nosnippet="">3</a><span class="doccomment">/// A bibliography source.
+<a href="#4" id="4" data-nosnippet="">4</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
+<a href="#5" id="5" data-nosnippet="">5</a>#[serde(default, rename_all = <span class="string">"camelCase"</span>)]
+<a href="#6" id="6" data-nosnippet="">6</a></span><span class="kw">pub struct </span>Source {
+<a href="#7" id="7" data-nosnippet="">7</a>    <span class="doccomment">/// Unique tag cited by CITATION fields.
+<a href="#8" id="8" data-nosnippet="">8</a>    </span><span class="kw">pub </span>tag: String,
+<a href="#9" id="9" data-nosnippet="">9</a>    <span class="doccomment">/// book, bookSection, article (journal), periodical, conference, report, website, film, other
+<a href="#10" id="10" data-nosnippet="">10</a>    </span><span class="kw">pub </span>kind: String,
+<a href="#11" id="11" data-nosnippet="">11</a>    <span class="doccomment">/// "Last, First; Last, First"
+<a href="#12" id="12" data-nosnippet="">12</a>    </span><span class="kw">pub </span>author: String,
+<a href="#13" id="13" data-nosnippet="">13</a>    <span class="doccomment">/// A corporate author ("World Health Organization"): written as it is, never split into
+<a href="#14" id="14" data-nosnippet="">14</a>    /// names, and in place of `author` when set (Create Source › Corporate Author, `b:Corporate`,
+<a href="#15" id="15" data-nosnippet="">15</a>    /// #4848).
+<a href="#16" id="16" data-nosnippet="">16</a>    </span><span class="kw">pub </span>corporate: String,
+<a href="#17" id="17" data-nosnippet="">17</a>    <span class="kw">pub </span>title: String,
+<a href="#18" id="18" data-nosnippet="">18</a>    <span class="kw">pub </span>year: String,
+<a href="#19" id="19" data-nosnippet="">19</a>    <span class="kw">pub </span>publisher: String,
+<a href="#20" id="20" data-nosnippet="">20</a>    <span class="kw">pub </span>city: String,
+<a href="#21" id="21" data-nosnippet="">21</a>    <span class="kw">pub </span>journal: String,
+<a href="#22" id="22" data-nosnippet="">22</a>    <span class="kw">pub </span>volume: String,
+<a href="#23" id="23" data-nosnippet="">23</a>    <span class="kw">pub </span>pages: String,
+<a href="#24" id="24" data-nosnippet="">24</a>    <span class="kw">pub </span>url: String,
+<a href="#25" id="25" data-nosnippet="">25</a>    <span class="doccomment">/// More bibliography fields (Create Source › Show All Bibliography Fields).
+<a href="#26" id="26" data-nosnippet="">26</a>    </span><span class="kw">pub </span>editor: String,
+<a href="#27" id="27" data-nosnippet="">27</a>    <span class="kw">pub </span>edition: String,
+<a href="#28" id="28" data-nosnippet="">28</a>    <span class="kw">pub </span>issue: String,
+<a href="#29" id="29" data-nosnippet="">29</a>    <span class="kw">pub </span>month: String,
+<a href="#30" id="30" data-nosnippet="">30</a>    <span class="kw">pub </span>day: String,
+<a href="#31" id="31" data-nosnippet="">31</a>    <span class="doccomment">/// Date accessed (websites).
+<a href="#32" id="32" data-nosnippet="">32</a>    </span><span class="kw">pub </span>accessed: String,
+<a href="#33" id="33" data-nosnippet="">33</a>    <span class="kw">pub </span>doi: String,
+<a href="#34" id="34" data-nosnippet="">34</a>}
+<a href="#35" id="35" data-nosnippet="">35</a>
+<a href="#36" id="36" data-nosnippet="">36</a><span class="doccomment">/// A custom document property (File › Info › Properties › Custom). Citation managers keep
+<a href="#37" id="37" data-nosnippet="">37</a>/// their per-document preferences here (Zotero: `ZOTERO_PREF_1`, `ZOTERO_PREF_2`…).
+<a href="#38" id="38" data-nosnippet="">38</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize, Default)]
+<a href="#39" id="39" data-nosnippet="">39</a>#[serde(default, rename_all = <span class="string">"camelCase"</span>)]
+<a href="#40" id="40" data-nosnippet="">40</a></span><span class="kw">pub struct </span>CustomProp {
+<a href="#41" id="41" data-nosnippet="">41</a>    <span class="kw">pub </span>name: String,
+<a href="#42" id="42" data-nosnippet="">42</a>    <span class="doccomment">/// OOXML variant type: `lpwstr`, `i4`, `r8`, `bool`, `filetime`…, or `raw` when `value` is
+<a href="#43" id="43" data-nosnippet="">43</a>    /// the property's XML content kept verbatim (vectors, blobs).
+<a href="#44" id="44" data-nosnippet="">44</a>    </span><span class="kw">pub </span>kind: String,
+<a href="#45" id="45" data-nosnippet="">45</a>    <span class="kw">pub </span>value: String,
+<a href="#46" id="46" data-nosnippet="">46</a>    <span class="doccomment">/// Bookmark associated with this property (`linkTarget`), retained without evaluating it.
+<a href="#47" id="47" data-nosnippet="">47</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href="#48" id="48" data-nosnippet="">48</a>    </span><span class="kw">pub </span>link_target: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#49" id="49" data-nosnippet="">49</a>    <span class="doccomment">/// Declared in an ODF document as a user field (§7.4.7 `text:user-field-decl`) rather than
+<a href="#50" id="50" data-nosnippet="">50</a>    /// a document property: written back as one.
+<a href="#51" id="51" data-nosnippet="">51</a>    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"std::ops::Not::not"</span>)]
+<a href="#52" id="52" data-nosnippet="">52</a>    </span><span class="kw">pub </span>odf_user_field: bool,
+<a href="#53" id="53" data-nosnippet="">53</a>}
+<a href="#54" id="54" data-nosnippet="">54</a>
+<a href="#55" id="55" data-nosnippet="">55</a><span class="doccomment">/// Document properties (File › Info).
+<a href="#56" id="56" data-nosnippet="">56</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Serialize, Deserialize, Default)]
+<a href="#57" id="57" data-nosnippet="">57</a>#[serde(default, rename_all = <span class="string">"camelCase"</span>)]
+<a href="#58" id="58" data-nosnippet="">58</a></span><span class="kw">pub struct </span>CoreProps {
+<a href="#59" id="59" data-nosnippet="">59</a>    <span class="kw">pub </span>title: String,
+<a href="#60" id="60" data-nosnippet="">60</a>    <span class="kw">pub </span>subject: String,
+<a href="#61" id="61" data-nosnippet="">61</a>    <span class="kw">pub </span>creator: String,
+<a href="#62" id="62" data-nosnippet="">62</a>    <span class="kw">pub </span>keywords: String,
+<a href="#63" id="63" data-nosnippet="">63</a>    <span class="kw">pub </span>description: String,
+<a href="#64" id="64" data-nosnippet="">64</a>    <span class="kw">pub </span>category: String,
+<a href="#65" id="65" data-nosnippet="">65</a>    <span class="kw">pub </span>last_modified_by: String,
+<a href="#66" id="66" data-nosnippet="">66</a>    <span class="kw">pub </span>created: String,
+<a href="#67" id="67" data-nosnippet="">67</a>    <span class="kw">pub </span>modified: String,
+<a href="#68" id="68" data-nosnippet="">68</a>    <span class="kw">pub </span>revision: u32,
+<a href="#69" id="69" data-nosnippet="">69</a>}
+<a href="#70" id="70" data-nosnippet="">70</a>
+<a href="#71" id="71" data-nosnippet="">71</a><span class="attr">#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+<a href="#72" id="72" data-nosnippet="">72</a>#[serde(default, rename_all = <span class="string">"camelCase"</span>)]
+<a href="#73" id="73" data-nosnippet="">73</a></span><span class="kw">pub struct </span>Settings {
+<a href="#74" id="74" data-nosnippet="">74</a>    <span class="kw">pub </span>track_changes: bool,
+<a href="#75" id="75" data-nosnippet="">75</a>    <span class="doccomment">/// Record a tracked cut and paste of a sentence or paragraph as a move (Track moves); off
+<a href="#76" id="76" data-nosnippet="">76</a>    /// when the file has `w:doNotTrackMoves` (ECMA-376 §17.15.1.29), and then it is an
+<a href="#77" id="77" data-nosnippet="">77</a>    /// ordinary deletion and insertion.
+<a href="#78" id="78" data-nosnippet="">78</a>    </span><span class="kw">pub </span>track_moves: bool,
+<a href="#79" id="79" data-nosnippet="">79</a>    <span class="doccomment">/// Default tab stop interval, points.
+<a href="#80" id="80" data-nosnippet="">80</a>    </span><span class="kw">pub </span>default_tab: f32,
+<a href="#81" id="81" data-nosnippet="">81</a>    <span class="kw">pub </span>even_odd_headers: bool,
+<a href="#82" id="82" data-nosnippet="">82</a>    <span class="kw">pub </span>mirror_margins: bool,
+<a href="#83" id="83" data-nosnippet="">83</a>    <span class="kw">pub </span>auto_hyphenation: bool,
+<a href="#84" id="84" data-nosnippet="">84</a>    <span class="doccomment">/// Hyphenation zone (`w:hyphenationZone`), points: a line is hyphenated only when breaking
+<a href="#85" id="85" data-nosnippet="">85</a>    /// it at a word boundary would leave more than this empty at its end.
+<a href="#86" id="86" data-nosnippet="">86</a>    </span><span class="kw">pub </span>hyphenation_zone: f32,
+<a href="#87" id="87" data-nosnippet="">87</a>    <span class="doccomment">/// Words in capitals may be hyphenated (`w:doNotHyphenateCaps` turns it off).
+<a href="#88" id="88" data-nosnippet="">88</a>    </span><span class="kw">pub </span>hyphenate_caps: bool,
+<a href="#89" id="89" data-nosnippet="">89</a>    <span class="doccomment">/// Most consecutive lines that may end with a hyphen (`w:consecutiveHyphenLimit`); 0 = no limit.
+<a href="#90" id="90" data-nosnippet="">90</a>    </span><span class="kw">pub </span>consecutive_hyphen_limit: u32,
+<a href="#91" id="91" data-nosnippet="">91</a>    <span class="kw">pub </span>page_color: <span class="prelude-ty">Option</span>&lt;Rgb&gt;,
+<a href="#92" id="92" data-nosnippet="">92</a>    <span class="doccomment">/// Picture or texture page background (Design › Page Color › Fill Effects), drawn over the colour.
+<a href="#93" id="93" data-nosnippet="">93</a>    </span><span class="kw">pub </span>page_picture: <span class="prelude-ty">Option</span>&lt;PagePicture&gt;,
+<a href="#94" id="94" data-nosnippet="">94</a>    <span class="kw">pub </span>watermark: <span class="prelude-ty">Option</span>&lt;Watermark&gt;,
+<a href="#95" id="95" data-nosnippet="">95</a>    <span class="doccomment">/// Theme fonts (major = headings, minor = body).
+<a href="#96" id="96" data-nosnippet="">96</a>    </span><span class="kw">pub </span>major_font: String,
+<a href="#97" id="97" data-nosnippet="">97</a>    <span class="kw">pub </span>minor_font: String,
+<a href="#98" id="98" data-nosnippet="">98</a>    <span class="doccomment">/// Theme colours: dk1 lt1 dk2 lt2 accent1..6 hlink folHlink.
+<a href="#99" id="99" data-nosnippet="">99</a>    </span><span class="kw">pub </span>theme_colors: Vec&lt;Rgb&gt;,
+<a href="#100" id="100" data-nosnippet="">100</a>    <span class="kw">pub </span>theme_name: String,
+<a href="#101" id="101" data-nosnippet="">101</a>    <span class="kw">pub </span>footnote_format: section::NumFormat,
+<a href="#102" id="102" data-nosnippet="">102</a>    <span class="kw">pub </span>endnote_format: section::NumFormat,
+<a href="#103" id="103" data-nosnippet="">103</a>    <span class="doccomment">/// The document's footnote and endnote placement, start and restart (`w:footnotePr` /
+<a href="#104" id="104" data-nosnippet="">104</a>    /// `w:endnotePr` in the settings); sections may override them.
+<a href="#105" id="105" data-nosnippet="">105</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"section::NoteProps::is_empty"</span>)]
+<a href="#106" id="106" data-nosnippet="">106</a>    </span><span class="kw">pub </span>footnote_pr: section::NoteProps,
+<a href="#107" id="107" data-nosnippet="">107</a>    <span class="attr">#[serde(skip_serializing_if = <span class="string">"section::NoteProps::is_empty"</span>)]
+<a href="#108" id="108" data-nosnippet="">108</a>    </span><span class="kw">pub </span>endnote_pr: section::NoteProps,
+<a href="#109" id="109" data-nosnippet="">109</a>    <span class="doccomment">/// Restrict Editing, when enforced: `readOnly`, `comments`, `trackedChanges`, `forms`, or
+<a href="#110" id="110" data-nosnippet="">110</a>    /// `none` when only formatting is restricted (`w:documentProtection w:edit`).
+<a href="#111" id="111" data-nosnippet="">111</a>    </span><span class="kw">pub </span>protection: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#112" id="112" data-nosnippet="">112</a>    <span class="doccomment">/// Restrict Editing limits formatting to the styles that aren't locked, and forbids direct
+<a href="#113" id="113" data-nosnippet="">113</a>    /// formatting (`w:formatting="1"`).
+<a href="#114" id="114" data-nosnippet="">114</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"std::ops::Not::not"</span>)]
+<a href="#115" id="115" data-nosnippet="">115</a>    </span><span class="kw">pub </span>protect_formatting: bool,
+<a href="#116" id="116" data-nosnippet="">116</a>    <span class="doccomment">/// The protection password's hash, as the file's `w:documentProtection` attributes
+<a href="#117" id="117" data-nosnippet="">117</a>    /// (`w:algorithmName`, `w:hashValue`, `w:saltValue`, `w:spinCount`, or the older
+<a href="#118" id="118" data-nosnippet="">118</a>    /// `w:cryptAlgorithmSid`, `w:hash`, `w:salt`…). Empty: no password.
+<a href="#119" id="119" data-nosnippet="">119</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Vec::is_empty"</span>)]
+<a href="#120" id="120" data-nosnippet="">120</a>    </span><span class="kw">pub </span>protect_hash: Vec&lt;(String, String)&gt;,
+<a href="#121" id="121" data-nosnippet="">121</a>    <span class="doccomment">/// Word compatibility mode the document is laid out in (`compatibilityMode`): 15 for Word
+<a href="#122" id="122" data-nosnippet="">122</a>    /// 2013 and later, which places a table's border at the margin rather than its text and lets
+<a href="#123" id="123" data-nosnippet="">123</a>    /// justified lines shrink their spaces to fit more text.
+<a href="#124" id="124" data-nosnippet="">124</a>    </span><span class="kw">pub </span>compat_mode: u32,
+<a href="#125" id="125" data-nosnippet="">125</a>    <span class="doccomment">/// Fonts the document's font table classes as roman (serif, `w:family w:val="roman"`): Word
+<a href="#126" id="126" data-nosnippet="">126</a>    /// draws one that isn't installed in a serif face.
+<a href="#127" id="127" data-nosnippet="">127</a>    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"Vec::is_empty"</span>)]
+<a href="#128" id="128" data-nosnippet="">128</a>    </span><span class="kw">pub </span>roman_fonts: Vec&lt;String&gt;,
+<a href="#129" id="129" data-nosnippet="">129</a>    <span class="doccomment">/// `w:doNotUseHTMLParagraphAutoSpacing`: the space between two paragraphs is the first's space
+<a href="#130" id="130" data-nosnippet="">130</a>    /// after plus the second's space before, not the larger of the two.
+<a href="#131" id="131" data-nosnippet="">131</a>    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"std::ops::Not::not"</span>)]
+<a href="#132" id="132" data-nosnippet="">132</a>    </span><span class="kw">pub </span>sum_paragraph_spacing: bool,
+<a href="#133" id="133" data-nosnippet="">133</a>    <span class="doccomment">/// `w:doNotExpandShiftReturn`: a justified line that ends in a manual line break keeps its
+<a href="#134" id="134" data-nosnippet="">134</a>    /// natural spacing; by default Word stretches it to the margin like a wrapped line.
+<a href="#135" id="135" data-nosnippet="">135</a>    </span><span class="attr">#[serde(default, skip_serializing_if = <span class="string">"std::ops::Not::not"</span>)]
+<a href="#136" id="136" data-nosnippet="">136</a>    </span><span class="kw">pub </span>do_not_expand_shift_return: bool,
+<a href="#137" id="137" data-nosnippet="">137</a>    <span class="doccomment">/// Keep contextual paragraph spacing inside legacy table cells (`allowSpaceOfSameStyleInTable`).
+<a href="#138" id="138" data-nosnippet="">138</a>    /// Word ignores the layout override in compatibility mode 15, but the flag still round-trips.
+<a href="#139" id="139" data-nosnippet="">139</a>    </span><span class="kw">pub </span>allow_space_of_same_style_in_table: bool,
+<a href="#140" id="140" data-nosnippet="">140</a>    <span class="doccomment">/// Drawing grid spacing in points, across and down (View › Gridlines); ECMA-376's default is 1/8 inch.
+<a href="#141" id="141" data-nosnippet="">141</a>    </span><span class="kw">pub </span>grid_h: f32,
+<a href="#142" id="142" data-nosnippet="">142</a>    <span class="kw">pub </span>grid_v: f32,
+<a href="#143" id="143" data-nosnippet="">143</a>    <span class="doccomment">/// Equation options (`m:mathPr`), when the document has them.
+<a href="#144" id="144" data-nosnippet="">144</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href="#145" id="145" data-nosnippet="">145</a>    </span><span class="kw">pub </span>math: <span class="prelude-ty">Option</span>&lt;math::MathProps&gt;,
+<a href="#146" id="146" data-nosnippet="">146</a>    <span class="doccomment">/// Citation and bibliography style (References › Style) by name, when the document
+<a href="#147" id="147" data-nosnippet="">147</a>    /// records one (OOXML's `b:Sources/@StyleName`).
+<a href="#148" id="148" data-nosnippet="">148</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href="#149" id="149" data-nosnippet="">149</a>    </span><span class="kw">pub </span>bib_style: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#150" id="150" data-nosnippet="">150</a>    <span class="doccomment">/// The template the document is attached to (Tools › Templates and Add-ins): the target of
+<a href="#151" id="151" data-nosnippet="">151</a>    /// `w:attachedTemplate`'s relationship, a path or `file:` URL as the file gives it.
+<a href="#152" id="152" data-nosnippet="">152</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href="#153" id="153" data-nosnippet="">153</a>    </span><span class="kw">pub </span>attached_template: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href="#154" id="154" data-nosnippet="">154</a>    <span class="doccomment">/// Update the document's styles from the attached template when it is opened (`w:linkStyles`).
+<a href="#155" id="155" data-nosnippet="">155</a>    </span><span class="kw">pub </span>link_styles: bool,
+<a href="#156" id="156" data-nosnippet="">156</a>    <span class="doccomment">/// The zoom the document was saved at (`w:zoom`), restored when it is opened; `None` for 100%
+<a href="#157" id="157" data-nosnippet="">157</a>    /// without a fit mode.
+<a href="#158" id="158" data-nosnippet="">158</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href="#159" id="159" data-nosnippet="">159</a>    </span><span class="kw">pub </span>zoom: <span class="prelude-ty">Option</span>&lt;Zoom&gt;,
+<a href="#160" id="160" data-nosnippet="">160</a>    <span class="doccomment">/// Remove personal information when saving (`w:removePersonalInformation`, ECMA-376
+<a href="#161" id="161" data-nosnippet="">161</a>    /// §17.15.1.70): the saved file names comment and revision authors "Author" and leaves out
+<a href="#162" id="162" data-nosnippet="">162</a>    /// the document's creator and last-modified-by. The open document keeps its real values.
+<a href="#163" id="163" data-nosnippet="">163</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"std::ops::Not::not"</span>)]
+<a href="#164" id="164" data-nosnippet="">164</a>    </span><span class="kw">pub </span>remove_personal_info: bool,
+<a href="#165" id="165" data-nosnippet="">165</a>    <span class="doccomment">/// Remove date and time from annotations when saving (`w:removeDateAndTime`, §17.15.1.69):
+<a href="#166" id="166" data-nosnippet="">166</a>    /// comments and tracked changes are saved without `w:date`.
+<a href="#167" id="167" data-nosnippet="">167</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"std::ops::Not::not"</span>)]
+<a href="#168" id="168" data-nosnippet="">168</a>    </span><span class="kw">pub </span>remove_date_time: bool,
+<a href="#169" id="169" data-nosnippet="">169</a>    <span class="doccomment">/// The document was opened from ODF: the standard's rules that differ from Word's apply as
+<a href="#170" id="170" data-nosnippet="">170</a>    /// it is laid out.
+<a href="#171" id="171" data-nosnippet="">171</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href="#172" id="172" data-nosnippet="">172</a>    </span><span class="kw">pub </span>odf: <span class="prelude-ty">Option</span>&lt;OdfLayout&gt;,
+<a href="#173" id="173" data-nosnippet="">173</a>}
+<a href="#174" id="174" data-nosnippet="">174</a>
+<a href="#175" id="175" data-nosnippet="">175</a><span class="doccomment">/// A document opened from ODF, for the layout: rules of the standard that differ from Word's (a
+<a href="#176" id="176" data-nosnippet="">176</a>/// paragraph's padding takes room on a side without a border, XSL's box model) apply, and what
+<a href="#177" id="177" data-nosnippet="">177</a>/// the file says about laying it out.
+<a href="#178" id="178" data-nosnippet="">178</a></span><span class="attr">#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+<a href="#179" id="179" data-nosnippet="">179</a>#[serde(default, rename_all = <span class="string">"camelCase"</span>)]
+<a href="#180" id="180" data-nosnippet="">180</a></span><span class="kw">pub struct </span>OdfLayout {
+<a href="#181" id="181" data-nosnippet="">181</a>    <span class="doccomment">/// Tab stops are measured from the paragraph's left indent, default ones too (LibreOffice's
+<a href="#182" id="182" data-nosnippet="">182</a>    /// `TabsRelativeToIndent` in the file; from the margin when it doesn't say). The document's
+<a href="#183" id="183" data-nosnippet="">183</a>    /// explicit stops are held from the margin either way; the default ones are counted from the
+<a href="#184" id="184" data-nosnippet="">184</a>    /// indent.
+<a href="#185" id="185" data-nosnippet="">185</a>    </span><span class="kw">pub </span>tabs_from_indent: bool,
+<a href="#186" id="186" data-nosnippet="">186</a>}
+<a href="#187" id="187" data-nosnippet="">187</a>
+<a href="#188" id="188" data-nosnippet="">188</a><span class="doccomment">/// A saved zoom: a percentage, or a fit mode (the percentage it last came to).
+<a href="#189" id="189" data-nosnippet="">189</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+<a href="#190" id="190" data-nosnippet="">190</a>#[serde(rename_all = <span class="string">"camelCase"</span>)]
+<a href="#191" id="191" data-nosnippet="">191</a></span><span class="kw">pub struct </span>Zoom {
+<a href="#192" id="192" data-nosnippet="">192</a>    <span class="doccomment">/// 10–500.
+<a href="#193" id="193" data-nosnippet="">193</a>    </span><span class="kw">pub </span>percent: u32,
+<a href="#194" id="194" data-nosnippet="">194</a>    <span class="kw">pub </span>fit: <span class="prelude-ty">Option</span>&lt;ZoomFit&gt;,
+<a href="#195" id="195" data-nosnippet="">195</a>}
+<a href="#196" id="196" data-nosnippet="">196</a>
+<a href="#197" id="197" data-nosnippet="">197</a><span class="doccomment">/// View › Zoom's fit modes a document can be saved in.
+<a href="#198" id="198" data-nosnippet="">198</a></span><span class="attr">#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+<a href="#199" id="199" data-nosnippet="">199</a>#[serde(rename_all = <span class="string">"camelCase"</span>)]
+<a href="#200" id="200" data-nosnippet="">200</a></span><span class="kw">pub enum </span>ZoomFit {
+<a href="#201" id="201" data-nosnippet="">201</a>    OnePage,
+<a href="#202" id="202" data-nosnippet="">202</a>    PageWidth,
+<a href="#203" id="203" data-nosnippet="">203</a>    TextWidth,
+<a href="#204" id="204" data-nosnippet="">204</a>}
+<a href="#205" id="205" data-nosnippet="">205</a>
+<a href="#206" id="206" data-nosnippet="">206</a><span class="doccomment">/// Word's compatibility mode for documents that don't state one.
+<a href="#207" id="207" data-nosnippet="">207</a></span><span class="kw">pub const </span>LEGACY_COMPAT_MODE: u32 = <span class="number">12</span>;
+<a href="#208" id="208" data-nosnippet="">208</a>
+<a href="#209" id="209" data-nosnippet="">209</a><span class="doccomment">/// The compatibility mode of documents created by Word 2013 and later, and by WordCraft.
+<a href="#210" id="210" data-nosnippet="">210</a></span><span class="kw">pub const </span>COMPAT_MODE_CURRENT: u32 = <span class="number">15</span>;
+<a href="#211" id="211" data-nosnippet="">211</a>
+<a href="#212" id="212" data-nosnippet="">212</a><span class="doccomment">/// Word's hyphenation zone when a document doesn't set one (0.25"), points.
+<a href="#213" id="213" data-nosnippet="">213</a></span><span class="kw">pub const </span>DEFAULT_HYPHENATION_ZONE: f32 = <span class="number">18.0</span>;
+<a href="#214" id="214" data-nosnippet="">214</a>
+<a href="#215" id="215" data-nosnippet="">215</a><span class="doccomment">/// ECMA-376 §17.15.1.44/45: 180 twentieths of a point when a document doesn't say.
+<a href="#216" id="216" data-nosnippet="">216</a></span><span class="kw">pub const </span>DEFAULT_GRID: f32 = <span class="number">9.0</span>;
+<a href="#217" id="217" data-nosnippet="">217</a>
+<a href="#218" id="218" data-nosnippet="">218</a><span class="doccomment">/// A picture fill for the page background (`v:background/v:fill` with an image).
+<a href="#219" id="219" data-nosnippet="">219</a></span><span class="attr">#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+<a href="#220" id="220" data-nosnippet="">220</a>#[serde(default)]
+<a href="#221" id="221" data-nosnippet="">221</a></span><span class="kw">pub struct </span>PagePicture {
+<a href="#222" id="222" data-nosnippet="">222</a>    <span class="doccomment">/// Key into [`Document::media`](crate::doc::Document::media).
+<a href="#223" id="223" data-nosnippet="">223</a>    </span><span class="kw">pub </span>media: String,
+<a href="#224" id="224" data-nosnippet="">224</a>    <span class="doccomment">/// `v:fill/@type` (`tile`, `frame`, `tile`...); tiled when `tile`, stretched to the page otherwise.
+<a href="#225" id="225" data-nosnippet="">225</a>    </span><span class="kw">pub </span>fill_type: String,
+<a href="#226" id="226" data-nosnippet="">226</a>    <span class="doccomment">/// `o:title` of the fill (texture name), kept for round trip.
+<a href="#227" id="227" data-nosnippet="">227</a>    </span><span class="kw">pub </span>title: String,
+<a href="#228" id="228" data-nosnippet="">228</a>}
+<a href="#229" id="229" data-nosnippet="">229</a>
+<a href="#230" id="230" data-nosnippet="">230</a><span class="attr">#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+<a href="#231" id="231" data-nosnippet="">231</a>#[serde(default)]
+<a href="#232" id="232" data-nosnippet="">232</a></span><span class="kw">pub struct </span>Watermark {
+<a href="#233" id="233" data-nosnippet="">233</a>    <span class="kw">pub </span>text: String,
+<a href="#234" id="234" data-nosnippet="">234</a>    <span class="kw">pub </span>font: String,
+<a href="#235" id="235" data-nosnippet="">235</a>    <span class="kw">pub </span>color: Rgb,
+<a href="#236" id="236" data-nosnippet="">236</a>    <span class="kw">pub </span>diagonal: bool,
+<a href="#237" id="237" data-nosnippet="">237</a>    <span class="kw">pub </span>semitransparent: bool,
+<a href="#238" id="238" data-nosnippet="">238</a>    <span class="doccomment">/// The shape's box (its `style` width and height, points), which the text is stretched to
+<a href="#239" id="239" data-nosnippet="">239</a>    /// fill (`v:textpath fitshape`); `None`: the box Word's Design › Watermark gives
+<a href="#240" id="240" data-nosnippet="">240</a>    /// ([`Watermark::frame`]).
+<a href="#241" id="241" data-nosnippet="">241</a>    </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
+<a href="#242" id="242" data-nosnippet="">242</a>    </span><span class="kw">pub </span>size: <span class="prelude-ty">Option</span>&lt;[f32; <span class="number">2</span>]&gt;,
+<a href="#243" id="243" data-nosnippet="">243</a>}
+<a href="#244" id="244" data-nosnippet="">244</a>
+<a href="#245" id="245" data-nosnippet="">245</a><span class="kw">impl </span>Default <span class="kw">for </span>Watermark {
+<a href="#246" id="246" data-nosnippet="">246</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href="#247" id="247" data-nosnippet="">247</a>        Watermark {
+<a href="#248" id="248" data-nosnippet="">248</a>            text: <span class="string">"DRAFT"</span>.into(),
+<a href="#249" id="249" data-nosnippet="">249</a>            font: styles::BODY_FONT.into(),
+<a href="#250" id="250" data-nosnippet="">250</a>            color: Rgb(<span class="number">0xC0</span>, <span class="number">0xC0</span>, <span class="number">0xC0</span>),
+<a href="#251" id="251" data-nosnippet="">251</a>            diagonal: <span class="bool-val">true</span>,
+<a href="#252" id="252" data-nosnippet="">252</a>            semitransparent: <span class="bool-val">true</span>,
+<a href="#253" id="253" data-nosnippet="">253</a>            size: <span class="prelude-val">None</span>,
+<a href="#254" id="254" data-nosnippet="">254</a>        }
+<a href="#255" id="255" data-nosnippet="">255</a>    }
+<a href="#256" id="256" data-nosnippet="">256</a>}
+<a href="#257" id="257" data-nosnippet="">257</a>
+<a href="#258" id="258" data-nosnippet="">258</a><span class="kw">impl </span>Watermark {
+<a href="#259" id="259" data-nosnippet="">259</a>    <span class="doccomment">/// The box the text fills on a page `page_w` × `page_h` (points): its own size, else half the
+<a href="#260" id="260" data-nosnippet="">260</a>    /// page diagonal across (half the page width when not diagonal), as high as the text's length
+<a href="#261" id="261" data-nosnippet="">261</a>    /// makes it. Centred on the margins and, when diagonal, turned 45° counterclockwise (Word's
+<a href="#262" id="262" data-nosnippet="">262</a>    /// `rotation:315`).
+<a href="#263" id="263" data-nosnippet="">263</a>    </span><span class="kw">pub fn </span>frame(<span class="kw-2">&amp;</span><span class="self">self</span>, page_w: f32, page_h: f32) -&gt; [f32; <span class="number">2</span>] {
+<a href="#264" id="264" data-nosnippet="">264</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>([w, h]) = <span class="self">self</span>.size.filter(|[w, h]| w.is_finite() &amp;&amp; h.is_finite() &amp;&amp; <span class="kw-2">*</span>w &gt; <span class="number">0.0 </span>&amp;&amp; <span class="kw-2">*</span>h &gt; <span class="number">0.0</span>) {
+<a href="#265" id="265" data-nosnippet="">265</a>            <span class="kw">return </span>[w.min(<span class="number">4000.0</span>), h.min(<span class="number">4000.0</span>)];
+<a href="#266" id="266" data-nosnippet="">266</a>        }
+<a href="#267" id="267" data-nosnippet="">267</a>        <span class="kw">let </span>(pw, ph) = (<span class="kw">crate</span>::geom::finite(page_w).clamp(<span class="number">72.0</span>, <span class="number">4000.0</span>), <span class="kw">crate</span>::geom::finite(page_h).clamp(<span class="number">72.0</span>, <span class="number">4000.0</span>));
+<a href="#268" id="268" data-nosnippet="">268</a>        <span class="kw">let </span>across = <span class="kw">if </span><span class="self">self</span>.diagonal { (pw * pw + ph * ph).sqrt() } <span class="kw">else </span>{ pw };
+<a href="#269" id="269" data-nosnippet="">269</a>        <span class="kw">let </span>width = (across * <span class="number">0.5</span>).clamp(<span class="number">36.0</span>, <span class="number">2000.0</span>);
+<a href="#270" id="270" data-nosnippet="">270</a>        <span class="kw">let </span>chars = <span class="self">self</span>.text.chars().take(<span class="number">200</span>).count().max(<span class="number">1</span>) <span class="kw">as </span>f32;
+<a href="#271" id="271" data-nosnippet="">271</a>        [width, (width / (<span class="number">0.55 </span>* chars)).clamp(<span class="number">12.0</span>, <span class="number">400.0</span>)]
+<a href="#272" id="272" data-nosnippet="">272</a>    }
+<a href="#273" id="273" data-nosnippet="">273</a>}
+<a href="#274" id="274" data-nosnippet="">274</a>
+<a href="#275" id="275" data-nosnippet="">275</a><span class="doccomment">/// Our default theme colours.
+<a href="#276" id="276" data-nosnippet="">276</a></span><span class="kw">pub const </span>THEME_COLORS: [Rgb; <span class="number">12</span>] = [
+<a href="#277" id="277" data-nosnippet="">277</a>    Rgb(<span class="number">0x00</span>, <span class="number">0x00</span>, <span class="number">0x00</span>),
+<a href="#278" id="278" data-nosnippet="">278</a>    Rgb(<span class="number">0xFF</span>, <span class="number">0xFF</span>, <span class="number">0xFF</span>),
+<a href="#279" id="279" data-nosnippet="">279</a>    Rgb(<span class="number">0x0E</span>, <span class="number">0x28</span>, <span class="number">0x41</span>),
+<a href="#280" id="280" data-nosnippet="">280</a>    Rgb(<span class="number">0xE8</span>, <span class="number">0xE8</span>, <span class="number">0xE8</span>),
+<a href="#281" id="281" data-nosnippet="">281</a>    Rgb(<span class="number">0x15</span>, <span class="number">0x60</span>, <span class="number">0x82</span>),
+<a href="#282" id="282" data-nosnippet="">282</a>    Rgb(<span class="number">0xE9</span>, <span class="number">0x71</span>, <span class="number">0x32</span>),
+<a href="#283" id="283" data-nosnippet="">283</a>    Rgb(<span class="number">0x19</span>, <span class="number">0x6B</span>, <span class="number">0x24</span>),
+<a href="#284" id="284" data-nosnippet="">284</a>    Rgb(<span class="number">0x0F</span>, <span class="number">0x9E</span>, <span class="number">0xD5</span>),
+<a href="#285" id="285" data-nosnippet="">285</a>    Rgb(<span class="number">0xA0</span>, <span class="number">0x2B</span>, <span class="number">0x93</span>),
+<a href="#286" id="286" data-nosnippet="">286</a>    Rgb(<span class="number">0x4E</span>, <span class="number">0xA7</span>, <span class="number">0x2E</span>),
+<a href="#287" id="287" data-nosnippet="">287</a>    Rgb(<span class="number">0x46</span>, <span class="number">0x78</span>, <span class="number">0x86</span>),
+<a href="#288" id="288" data-nosnippet="">288</a>    Rgb(<span class="number">0x96</span>, <span class="number">0x60</span>, <span class="number">0x7D</span>),
+<a href="#289" id="289" data-nosnippet="">289</a>];
+<a href="#290" id="290" data-nosnippet="">290</a>
+<a href="#291" id="291" data-nosnippet="">291</a><span class="kw">impl </span>Default <span class="kw">for </span>Settings {
+<a href="#292" id="292" data-nosnippet="">292</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href="#293" id="293" data-nosnippet="">293</a>        Settings {
+<a href="#294" id="294" data-nosnippet="">294</a>            track_changes: <span class="bool-val">false</span>,
+<a href="#295" id="295" data-nosnippet="">295</a>            track_moves: <span class="bool-val">true</span>,
+<a href="#296" id="296" data-nosnippet="">296</a>            default_tab: <span class="number">36.0</span>,
+<a href="#297" id="297" data-nosnippet="">297</a>            even_odd_headers: <span class="bool-val">false</span>,
+<a href="#298" id="298" data-nosnippet="">298</a>            mirror_margins: <span class="bool-val">false</span>,
+<a href="#299" id="299" data-nosnippet="">299</a>            auto_hyphenation: <span class="bool-val">false</span>,
+<a href="#300" id="300" data-nosnippet="">300</a>            hyphenation_zone: DEFAULT_HYPHENATION_ZONE,
+<a href="#301" id="301" data-nosnippet="">301</a>            hyphenate_caps: <span class="bool-val">true</span>,
+<a href="#302" id="302" data-nosnippet="">302</a>            consecutive_hyphen_limit: <span class="number">0</span>,
+<a href="#303" id="303" data-nosnippet="">303</a>            page_color: <span class="prelude-val">None</span>,
+<a href="#304" id="304" data-nosnippet="">304</a>            page_picture: <span class="prelude-val">None</span>,
+<a href="#305" id="305" data-nosnippet="">305</a>            watermark: <span class="prelude-val">None</span>,
+<a href="#306" id="306" data-nosnippet="">306</a>            major_font: styles::HEADING_FONT.into(),
+<a href="#307" id="307" data-nosnippet="">307</a>            minor_font: styles::BODY_FONT.into(),
+<a href="#308" id="308" data-nosnippet="">308</a>            theme_colors: THEME_COLORS.to_vec(),
+<a href="#309" id="309" data-nosnippet="">309</a>            theme_name: <span class="string">"Craft"</span>.into(),
+<a href="#310" id="310" data-nosnippet="">310</a>            footnote_format: section::NumFormat::Decimal,
+<a href="#311" id="311" data-nosnippet="">311</a>            endnote_format: section::NumFormat::LowerRoman,
+<a href="#312" id="312" data-nosnippet="">312</a>            footnote_pr: section::NoteProps::default(),
+<a href="#313" id="313" data-nosnippet="">313</a>            endnote_pr: section::NoteProps::default(),
+<a href="#314" id="314" data-nosnippet="">314</a>            protection: <span class="prelude-val">None</span>,
+<a href="#315" id="315" data-nosnippet="">315</a>            protect_formatting: <span class="bool-val">false</span>,
+<a href="#316" id="316" data-nosnippet="">316</a>            protect_hash: Vec::new(),
+<a href="#317" id="317" data-nosnippet="">317</a>            compat_mode: COMPAT_MODE_CURRENT,
+<a href="#318" id="318" data-nosnippet="">318</a>            roman_fonts: Vec::new(),
+<a href="#319" id="319" data-nosnippet="">319</a>            sum_paragraph_spacing: <span class="bool-val">false</span>,
+<a href="#320" id="320" data-nosnippet="">320</a>            do_not_expand_shift_return: <span class="bool-val">false</span>,
+<a href="#321" id="321" data-nosnippet="">321</a>            allow_space_of_same_style_in_table: <span class="bool-val">false</span>,
+<a href="#322" id="322" data-nosnippet="">322</a>            grid_h: DEFAULT_GRID,
+<a href="#323" id="323" data-nosnippet="">323</a>            grid_v: DEFAULT_GRID,
+<a href="#324" id="324" data-nosnippet="">324</a>            math: <span class="prelude-val">None</span>,
+<a href="#325" id="325" data-nosnippet="">325</a>            bib_style: <span class="prelude-val">None</span>,
+<a href="#326" id="326" data-nosnippet="">326</a>            attached_template: <span class="prelude-val">None</span>,
+<a href="#327" id="327" data-nosnippet="">327</a>            link_styles: <span class="bool-val">false</span>,
+<a href="#328" id="328" data-nosnippet="">328</a>            zoom: <span class="prelude-val">None</span>,
+<a href="#329" id="329" data-nosnippet="">329</a>            remove_personal_info: <span class="bool-val">false</span>,
+<a href="#330" id="330" data-nosnippet="">330</a>            remove_date_time: <span class="bool-val">false</span>,
+<a href="#331" id="331" data-nosnippet="">331</a>            odf: <span class="prelude-val">None</span>,
+<a href="#332" id="332" data-nosnippet="">332</a>        }
+<a href="#333" id="333" data-nosnippet="">333</a>    }
+<a href="#334" id="334" data-nosnippet="">334</a>}
+</code></pre></div></section></main></body></html>

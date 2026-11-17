@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MIN_COLUMN_WIDTH"],"enum":["TableBorder"],"fn":["cell_block","in_range","selected_range","specs","table_frame"],"struct":["TableFrame"]};

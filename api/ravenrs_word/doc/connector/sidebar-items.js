@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_CORNER","MAX_CORNER","MAX_SITE"],"enum":["ArrowKind","ArrowSize","LineCap"],"fn":["arrow_unit","connector_segs","corner_radius","end_direction","ends","nearest_site","reroute_group","route","site_point","sites"],"struct":["ArrowStyle","ConnEnd","Frame","HorizontalRule","ShapeExtra"]};

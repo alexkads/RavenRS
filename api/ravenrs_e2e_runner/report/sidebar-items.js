@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["FORMATS","NOT_VERIFIED","NOT_VERIFIED_APART","NOT_VERIFIED_HEADED"],"fn":["deliver","folder_name","render","schema"],"struct":["Report"]};

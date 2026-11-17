@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PT_BR"],"fn":["address","country","event","file_record","note","organization","person","task"],"struct":["LibraryModule"]};

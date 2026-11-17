@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["add_user_word","dictionary","find_in","install","is_correct","misspelt","paragraph_words","repeated","search_dirs","set_user_dictionary_path","user_dictionary_path","user_generation"],"struct":["Dictionary","Word"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["to_bool","to_f64","to_i32","to_i32_lossy","to_i64","to_i64_lossy","to_u32","to_u32_lossy"]};

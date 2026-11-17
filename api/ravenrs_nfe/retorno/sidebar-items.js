@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Situacao"],"fn":["descricao_c_stat","ler_autorizacao","ler_consulta","ler_distribuicao","ler_evento","ler_status","situacao_de"],"struct":["Autorizacao","ConsultaProtocolo","DocumentoDfe","LoteDfe","Protocolo","Retorno","RetornoEvento","StatusServico"]};

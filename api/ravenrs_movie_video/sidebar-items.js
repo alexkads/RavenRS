@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Layout","VideoError"],"fn":["chapters","subtitles"],"struct":["Video","VideoFormat","VideoReport"]};

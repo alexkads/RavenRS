@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["APPROVED","CAN_TELL_STATUS","DECISION","DELEGATION","DISPATCH_JOB","OUTBOX","REJECTED","REQUEST","TASK"],"enum":["Decided","Emitted","Outcome"],"fn":["forbid_self_decision","task_reader"],"struct":["Decision","Dispatcher","Event","OutboxModule","Report","RequestsModule","Step"],"trait":["EventSink","Provider"],"type":["Policy"]};

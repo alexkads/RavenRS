@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["function_list","number_stored_as_text","pasteable_names","specs"]};

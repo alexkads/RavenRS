@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["AUTO_SPACING","MAX_DROP_CAP_DISTANCE"],"struct":["ResolvedChar","ResolvedPara"]};

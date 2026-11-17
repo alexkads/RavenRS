@@ -1,0 +1,589 @@
+<!DOCTYPE html><html lang="en" dir="ltr" data-theme="dark" data-has-toc="" data-has-sidebar="" data-astro-cid-g5ptsecz=""><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Automação comercial: o que existe e o que falta para vender | RavenRS</title><link rel="sitemap" href="/RavenRS/sitemap-index.xml"><link rel="shortcut icon" href="/RavenRS/favicon.svg" type="image/svg+xml"><meta name="generator" content="Astro v7.4.12"><meta name="generator" content="Starlight v0.43.1"><script>
+	(() => {
+		const storedTheme =
+			typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme');
+		const theme =
+			storedTheme ||
+			(window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+		document.documentElement.dataset.theme = theme === 'light' ? 'light' : 'dark';
+	})();
+</script><link rel="stylesheet" href="/RavenRS/_astro/print.C9eyqPGL.css" media="print"><link rel="stylesheet" href="/RavenRS/_astro/index.BcKmb9jH.css"><style>@layer starlight.components.icon{svg[data-astro-cid-hkc32dio]{color:var(--sl-icon-color);font-size:var(--sl-icon-size,1em);width:1em;height:1em;overflow:visible}}
+</style><script type="module" src="/RavenRS/_astro/page.cNngjUgL.js"></script><meta name="description" content="Automação comercial: o que existe e o que falta para vender — the RavenRS guide to native and web applications in Rust."><link rel="canonical" href="https://ravenrs.vercel.app/docs/automacao-comercial/"><meta property="og:title" content="Automação comercial: o que existe e o que falta para vender | RavenRS"><meta property="og:description" content="Automação comercial: o que existe e o que falta para vender — the RavenRS guide to native and web applications in Rust."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/docs/automacao-comercial/"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Automação comercial: o que existe e o que falta para vender | RavenRS — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="Automação comercial: o que existe e o que falta para vender | RavenRS"><meta name="twitter:description" content="Automação comercial: o que existe e o que falta para vender — the RavenRS guide to native and web applications in Rust."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/documentation.png"><meta name="twitter:image:alt" content="Automação comercial: o que existe e o que falta para vender | RavenRS — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"Automação comercial: o que existe e o que falta para vender | RavenRS","description":"Automação comercial: o que existe e o que falta para vender — the RavenRS guide to native and web applications in Rust.","url":"https://ravenrs.vercel.app/docs/automacao-comercial/","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body data-astro-cid-g5ptsecz=""><a class="sl-skip-link" href="#_top" data-astro-cid-qb7clj6f="">Skip to content</a><div class="page sl-flex" data-astro-cid-yntsjkba=""><header class="header" data-astro-cid-yntsjkba=""><div class="header" data-astro-cid-by6fddyj=""><div class="title-wrapper sl-flex" data-astro-cid-by6fddyj=""><a href="/RavenRS/" class="site-title sl-flex" data-astro-cid-6rvad3va=""><span translate="no" data-astro-cid-6rvad3va="">RavenRS</span></a></div><div class="sl-flex print:hidden" data-astro-cid-by6fddyj=""><site-search data-translations="{&quot;placeholder&quot;:&quot;Search&quot;}" data-astro-cid-b5kgnn7o="true"><button data-open-modal="" disabled="" aria-label="Search" aria-keyshortcuts="Control+K" data-astro-cid-b5kgnn7o=""><svg data-astro-cid-b5kgnn7o="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.71 20.29 18 16.61A9 9 0 1 0 16.61 18l3.68 3.68a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.39ZM11 18a7 7 0 1 1 0-14 7 7 0 0 1 0 14Z"></path></svg><span class="sl-hidden md:sl-block" aria-hidden="true" data-astro-cid-b5kgnn7o="">Search</span><kbd class="sl-hidden md:sl-flex" style="display: none" data-astro-cid-b5kgnn7o=""><kbd data-astro-cid-b5kgnn7o="">Ctrl</kbd><kbd data-astro-cid-b5kgnn7o="">K</kbd></kbd></button><dialog style="padding: 0" aria-label="Search" data-astro-cid-b5kgnn7o=""><div class="dialog-frame sl-flex" data-astro-cid-b5kgnn7o=""><button data-close-modal="" class="sl-flex md:sl-hidden" data-astro-cid-b5kgnn7o="">Cancel</button><div class="search-container" data-astro-cid-b5kgnn7o=""><div id="starlight__search" data-astro-cid-b5kgnn7o=""></div></div></div></dialog></site-search><script>
+	(() => {
+		const openBtn = document.querySelector('button[data-open-modal]');
+		const shortcut = openBtn?.querySelector('kbd');
+		if (!openBtn || !(shortcut instanceof HTMLElement)) return;
+		const platformKey = shortcut.querySelector('kbd');
+		if (platformKey && /(Mac|iPhone|iPod|iPad)/i.test(navigator.platform)) {
+			platformKey.textContent = '⌘';
+			openBtn.setAttribute('aria-keyshortcuts', 'Meta+K');
+		}
+		shortcut.style.display = '';
+	})();
+</script><script type="module" src="/RavenRS/_astro/Search.astro_astro_type_script_index_0_lang.B287-pOx.js"></script></div><div class="sl-hidden md:sl-flex print:hidden right-group" data-astro-cid-by6fddyj=""><div class="sl-flex social-icons" data-astro-cid-by6fddyj=""><a href="https://github.com/alexkads/RavenRS" rel="me" class="sl-flex" data-astro-cid-n2mnl6yq=""><span class="sr-only" data-astro-cid-n2mnl6yq="">GitHub</span><svg data-astro-cid-n2mnl6yq="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"></path></svg></a></div><starlight-theme-select data-astro-cid-smhvfpqh="true"><label style="--sl-select-width: 6.25em" data-astro-cid-2z5xp7gb=""><span class="sr-only" data-astro-cid-2z5xp7gb="">Select theme</span><span class="icon label-icon" data-astro-cid-2z5xp7gb=""><svg class="sl-theme-icon-dark" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"></path></svg><svg class="sl-theme-icon-light" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"></path></svg><svg class="sl-theme-icon-auto" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"></path></svg></span><select autocomplete="off" data-astro-cid-2z5xp7gb=""><option value="dark" data-astro-cid-2z5xp7gb="">Dark</option><option value="light" data-astro-cid-2z5xp7gb="">Light</option><option value="auto" selected="" data-astro-cid-2z5xp7gb="">Auto</option></select><svg class="icon caret" data-astro-cid-2z5xp7gb="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"></path></svg></label></starlight-theme-select><script>(() => {
+		const theme = (typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme'));
+		if (theme) document.querySelectorAll('starlight-theme-select select').forEach((s) => { s.value = theme; });
+	})();</script><script type="module">var e=`starlight-theme`,t=e=>e===`auto`||e===`dark`||e===`light`?e:`auto`,n=()=>t(typeof localStorage<`u`&&localStorage.getItem(e));function r(t){typeof localStorage<`u`&&localStorage.setItem(e,t===`light`||t===`dark`?t:``)}var i=()=>matchMedia(`(prefers-color-scheme: light)`).matches?`light`:`dark`;function a(e){document.querySelectorAll(`starlight-theme-select select`).forEach(t=>{t.value=e}),document.documentElement.dataset.theme=e===`auto`?i():e,r(e)}matchMedia(`(prefers-color-scheme: light)`).addEventListener(`change`,()=>{n()===`auto`&&a(`auto`)});var o=class extends HTMLElement{constructor(){super(),a(n()),this.querySelector(`select`)?.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&a(t(e.currentTarget.value))})}};customElements.define(`starlight-theme-select`,o);</script><script type="module">var e=class extends HTMLElement{constructor(){super();let e=this.querySelector(`select`);e&&(e.addEventListener(`change`,e=>{e.currentTarget instanceof HTMLSelectElement&&(window.location.pathname=e.currentTarget.value)}),window.addEventListener(`pageshow`,t=>{if(!t.persisted)return;let n=e.querySelector(`option[selected]`)?.index;n!==e.selectedIndex&&(e.selectedIndex=n??0)}))}};customElements.define(`starlight-lang-select`,e);</script></div></div></header><nav class="sidebar print:hidden" aria-label="Main" data-astro-cid-yntsjkba=""><button popovertarget="starlight__sidebar" class="sl-menu-button sl-flex md:sl-hidden print:hidden" data-astro-cid-r2osgdlg=""><svg class="open-menu" data-astro-cid-r2osgdlg="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M3 8h18a1 1 0 1 0 0-2H3a1 1 0 0 0 0 2Zm18 8H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Zm0-5H3a1 1 0 0 0 0 2h18a1 1 0 0 0 0-2Z"></path></svg><svg class="close-menu" data-astro-cid-r2osgdlg="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="m13.41 12 6.3-6.29a1.004 1.004 0 1 0-1.42-1.42L12 10.59l-6.29-6.3a1.004 1.004 0 0 0-1.42 1.42l6.3 6.29-6.3 6.29a1 1 0 0 0 0 1.42.998.998 0 0 0 1.42 0l6.29-6.3 6.29 6.3a.999.999 0 0 0 1.42 0 1 1 0 0 0 0-1.42L13.41 12Z"></path></svg><span class="sr-only" data-astro-cid-r2osgdlg="">Menu</span></button><script type="module">var e=class extends HTMLElement{constructor(){super();let e=matchMedia(`(min-width: 50em)`),t=()=>{this.popover=e.matches?null:`auto`};t(),e.addEventListener(`change`,()=>t()),this.addEventListener(`toggle`,({newState:e})=>this.trapFocus(e===`open`))}trapFocus(e){document.querySelectorAll(`.main-frame, .sl-skip-link`).forEach(t=>{t.toggleAttribute(`inert`,e)})}};customElements.define(`sl-sidebar-pane`,e);</script><sl-sidebar-pane popover="" id="starlight__sidebar" class="sidebar-pane" data-astro-cid-yntsjkba="true"><div class="sidebar-content sl-flex" data-astro-cid-yntsjkba=""><sl-sidebar-state-persist data-hash="1q49ps1" data-astro-cid-ipdry5cl="true"><script aria-hidden="true">
+		(() => {
+			try {
+				if (!matchMedia('(min-width: 50em)').matches) return;
+				/** @type {HTMLElement | null} */
+				const target = document.querySelector('sl-sidebar-state-persist');
+				const state = JSON.parse(sessionStorage.getItem('sl-sidebar-state') || '0');
+				if (!target || !state || target.dataset.hash !== state.hash) return;
+				window._starlightScrollRestore = state.scroll;
+				customElements.define(
+					'sl-sidebar-restore',
+					class SidebarRestore extends HTMLElement {
+						connectedCallback() {
+							try {
+								const idx = parseInt(this.dataset.index || '');
+								const details = this.closest('details');
+								if (details && typeof state.open[idx] === 'boolean') details.open = state.open[idx];
+							} catch {}
+						}
+					}
+				);
+			} catch {}
+		})();
+	</script><ul class="top-level" data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/" class="large" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Home</span></a></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Start here</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="0"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Introduction</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/getting-started/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Installation</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/cli/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">CLI &amp; AI assistants</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/ai/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">AI-assisted development</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Build applications</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="1"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/architecture/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Architecture</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/design-system/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Design system</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/applications/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Records &amp; forms</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/components/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Component coverage</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Reports</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="2"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/reporting/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Create reports</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/report-server/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Report server</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Reference</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="3"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/quality/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Quality &amp; accessibility</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/performance/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Performance</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/versioning/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Versions &amp; upgrades</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Technical guides</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="4"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-contracts/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Contracts and acceptance scenarios for reusable modules</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-coverage/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Cobertura do ravenrs-app para aplicações corporativas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/app-parity/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Application framework parity</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/automacao-comercial/" aria-current="page" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Automação comercial: o que existe e o que falta para vender</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/component-audit/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Auditoria técnica de componentes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/component-inventory/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Inventário e projeção de componentes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/developer-platform-plan/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Plataforma de desenvolvimento RavenRS — inventário e proposta</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/nfse/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">NFS-e Padrão Nacional: pesquisa para o PDV (hoje: 05/11/2026)</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/pagamentos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Pagamentos: pinpads, TEF e os quatro provedores</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/perifericos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Periféricos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/project-planning-roadmap/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Capacidades de planejamento para aplicações RavenRS</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/proximas-etapas/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Automação comercial: próximas etapas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/reporting-parity/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">RavenRS Reporting — feature parity</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/site-seo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Site SEO and publication</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/software-coverage/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Cobertura por tipo de software</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/tef-comparativo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">TEF para o PDV: comparativo e recomendação</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Data Studio</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="5"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/01-visao-e-requisitos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: visão do produto e requisitos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/02-analise-do-codigo/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: análise do código</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/03-matriz-de-componentes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: matriz de componentes reutilizáveis</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/04-lacunas-e-novos-componentes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: lacunas e novos componentes propostos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/05-fluxos/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: fluxos</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/06-telas/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: especificação das telas</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/07-wireframes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: wireframes</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/08-arquitetura/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: arquitetura</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/09-modelo-de-dominio/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: modelo de domínio</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/10-mcp-e-conectores/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: MCP, agente e conectores</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/11-schema-mapeamento-transformacoes/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: descoberta, schema, mapeamento e transformações</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/12-execucao-e-recuperacao/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: execução e recuperação</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/13-seguranca-privacidade-a11y-i18n/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: segurança, privacidade, acessibilidade, idiomas e desempenho</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/14-referencias-e-roadmap/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: referências e roadmap</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/15-criterios-de-aceitacao/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: critérios de aceitação</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/16-decisoes-em-aberto/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: decisões em aberto</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/data-studio/cenario-de-referencia/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Raven Data Studio: cenário de referência</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Tutorials</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="6"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/docs/tutorials/ravenrs-app-vscode/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Primeiro app com ravenrs-app no VS Code — RavenDevLab</span></a></li></ul></details></li><li data-astro-cid-rmhv4bp6=""><details open="" data-astro-cid-rmhv4bp6=""><summary data-astro-cid-rmhv4bp6=""><span class="group-label" data-astro-cid-rmhv4bp6=""><span class="large" data-astro-cid-rmhv4bp6="">Explore</span></span><svg class="caret" data-astro-cid-rmhv4bp6="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.25rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></summary><sl-sidebar-restore data-index="7"></sl-sidebar-restore><ul data-astro-cid-rmhv4bp6=""><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/components/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Components</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/playground/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Playground</span></a></li><li data-astro-cid-rmhv4bp6=""><a href="/RavenRS/RavenRS/api/ravenrs/" data-astro-cid-rmhv4bp6=""><span data-astro-cid-rmhv4bp6="">Rust API</span></a></li></ul></details></li></ul><script aria-hidden="true">
+		(() => {
+			const scroller = document.getElementById('starlight__sidebar');
+			if (!window._starlightScrollRestore || !scroller) return;
+			scroller.scrollTop = window._starlightScrollRestore;
+			delete window._starlightScrollRestore;
+		})();
+	</script></sl-sidebar-state-persist><div class="md:sl-hidden"><div class="mobile-preferences sl-flex" data-astro-cid-p4azlveh=""><div class="social-icons" data-astro-cid-p4azlveh=""><a href="https://github.com/alexkads/RavenRS" rel="me" class="sl-flex" data-astro-cid-n2mnl6yq=""><span class="sr-only" data-astro-cid-n2mnl6yq="">GitHub</span><svg data-astro-cid-n2mnl6yq="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M12 .3a12 12 0 0 0-3.8 23.38c.6.12.83-.26.83-.57L9 21.07c-3.34.72-4.04-1.61-4.04-1.61-.55-1.39-1.34-1.76-1.34-1.76-1.08-.74.09-.73.09-.73 1.2.09 1.83 1.24 1.83 1.24 1.08 1.83 2.81 1.3 3.5 1 .1-.78.42-1.31.76-1.61-2.67-.3-5.47-1.33-5.47-5.93 0-1.31.47-2.38 1.24-3.22-.14-.3-.54-1.52.1-3.18 0 0 1-.32 3.3 1.23a11.5 11.5 0 0 1 6 0c2.28-1.55 3.29-1.23 3.29-1.23.64 1.66.24 2.88.12 3.18a4.65 4.65 0 0 1 1.23 3.22c0 4.61-2.8 5.63-5.48 5.92.42.36.81 1.1.81 2.22l-.01 3.29c0 .31.2.69.82.57A12 12 0 0 0 12 .3Z"></path></svg></a></div><starlight-theme-select data-astro-cid-smhvfpqh="true"><label style="--sl-select-width: 6.25em" data-astro-cid-2z5xp7gb=""><span class="sr-only" data-astro-cid-2z5xp7gb="">Select theme</span><span class="icon label-icon" data-astro-cid-2z5xp7gb=""><svg class="sl-theme-icon-dark" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21.64 13a1 1 0 0 0-1.05-.14 8.049 8.049 0 0 1-3.37.73 8.15 8.15 0 0 1-8.14-8.1 8.59 8.59 0 0 1 .25-2A1 1 0 0 0 8 2.36a10.14 10.14 0 1 0 14 11.69 1 1 0 0 0-.36-1.05Zm-9.5 6.69A8.14 8.14 0 0 1 7.08 5.22v.27a10.15 10.15 0 0 0 10.14 10.14 9.784 9.784 0 0 0 2.1-.22 8.11 8.11 0 0 1-7.18 4.32v-.04Z"></path></svg><svg class="sl-theme-icon-light" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M5 12a1 1 0 0 0-1-1H3a1 1 0 0 0 0 2h1a1 1 0 0 0 1-1Zm.64 5-.71.71a1 1 0 0 0 0 1.41 1 1 0 0 0 1.41 0l.71-.71A1 1 0 0 0 5.64 17ZM12 5a1 1 0 0 0 1-1V3a1 1 0 0 0-2 0v1a1 1 0 0 0 1 1Zm5.66 2.34a1 1 0 0 0 .7-.29l.71-.71a1 1 0 1 0-1.41-1.41l-.66.71a1 1 0 0 0 0 1.41 1 1 0 0 0 .66.29Zm-12-.29a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.71-.71a1.004 1.004 0 1 0-1.43 1.41l.73.71ZM21 11h-1a1 1 0 0 0 0 2h1a1 1 0 0 0 0-2Zm-2.64 6A1 1 0 0 0 17 18.36l.71.71a1 1 0 0 0 1.41 0 1 1 0 0 0 0-1.41l-.76-.66ZM12 6.5a5.5 5.5 0 1 0 5.5 5.5A5.51 5.51 0 0 0 12 6.5Zm0 9a3.5 3.5 0 1 1 0-7 3.5 3.5 0 0 1 0 7Zm0 3.5a1 1 0 0 0-1 1v1a1 1 0 0 0 2 0v-1a1 1 0 0 0-1-1Z"></path></svg><svg class="sl-theme-icon-auto" data-astro-cid-smhvfpqh="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M21 14h-1V7a3 3 0 0 0-3-3H7a3 3 0 0 0-3 3v7H3a1 1 0 0 0-1 1v2a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-2a1 1 0 0 0-1-1ZM6 7a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7H6V7Zm14 10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-1h16v1Z"></path></svg></span><select autocomplete="off" data-astro-cid-2z5xp7gb=""><option value="dark" data-astro-cid-2z5xp7gb="">Dark</option><option value="light" data-astro-cid-2z5xp7gb="">Light</option><option value="auto" selected="" data-astro-cid-2z5xp7gb="">Auto</option></select><svg class="icon caret" data-astro-cid-2z5xp7gb="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1em;" data-astro-cid-hkc32dio=""><path d="M17 9.17a1 1 0 0 0-1.41 0L12 12.71 8.46 9.17a1 1 0 1 0-1.41 1.42l4.24 4.24a1.002 1.002 0 0 0 1.42 0L17 10.59a1.002 1.002 0 0 0 0-1.42Z"></path></svg></label></starlight-theme-select><script>(() => {
+		const theme = (typeof localStorage !== 'undefined' && localStorage.getItem('starlight-theme'));
+		if (theme) document.querySelectorAll('starlight-theme-select select').forEach((s) => { s.value = theme; });
+	})();</script></div></div></div></sl-sidebar-pane></nav><div class="main-frame" data-astro-cid-yntsjkba=""><script type="module">var e=document.getElementById(`starlight__sidebar`),t=e?.querySelector(`sl-sidebar-state-persist`),n=`sl-sidebar-state`,r=()=>{let r=[],i=t?.dataset.hash||``;try{let e=sessionStorage.getItem(n),t=JSON.parse(e||`{}`);Array.isArray(t.open)&&t.hash===i&&(r=t.open)}catch{}return{hash:i,open:r,scroll:e?.scrollTop||0}},i=e=>{try{sessionStorage.setItem(n,JSON.stringify(e))}catch{}},a=()=>i(r()),o=(e,t)=>{let n=r();n.open[t]=e,i(n)};t?.addEventListener(`click`,e=>{if(!(e.target instanceof Element))return;let t=e.target.closest(`summary`)?.closest(`details`);if(!t)return;let n=t.querySelector(`sl-sidebar-restore`),r=parseInt(n?.dataset.index||``);isNaN(r)||o(!t.open,r)}),addEventListener(`visibilitychange`,()=>{document.visibilityState===`hidden`&&a()});</script><div class="lg:sl-flex" data-astro-cid-lrzkfocr=""><aside class="right-sidebar-container print:hidden" data-astro-cid-lrzkfocr=""><div class="right-sidebar" data-astro-cid-lrzkfocr=""><div class="lg:sl-hidden" data-astro-cid-qok35upx=""><mobile-starlight-toc data-min-h="2" data-max-h="3" data-astro-cid-66cqc7ze="true"><nav aria-labelledby="starlight__on-this-page--mobile" data-astro-cid-66cqc7ze=""><details id="starlight__mobile-toc" data-astro-cid-66cqc7ze=""><summary id="starlight__on-this-page--mobile" class="sl-flex" data-astro-cid-66cqc7ze=""><span class="toggle sl-flex" data-astro-cid-66cqc7ze="">On this page<svg class="caret" data-astro-cid-66cqc7ze="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1rem;" data-astro-cid-hkc32dio=""><path d="m14.83 11.29-4.24-4.24a1 1 0 1 0-1.42 1.41L12.71 12l-3.54 3.54a1 1 0 0 0 0 1.41 1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.24-4.24a1.002 1.002 0 0 0 0-1.42Z"></path></svg></span><span class="display-current" data-astro-cid-66cqc7ze=""></span></summary><div class="dropdown" data-astro-cid-66cqc7ze=""><ul class="isMobile" style="--depth: 0;" data-astro-cid-jugkfwgx=""><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#_top" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Overview</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#1-o-que-existe-hoje" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">1. O que existe hoje</span></a><ul class="isMobile" style="--depth: 1;" data-astro-cid-jugkfwgx=""><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#caixa-e-cadastro" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Caixa e cadastro</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#nota-fiscal" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Nota fiscal</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#impressao" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Impressão</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#perifericos" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Periféricos</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#pagamento" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Pagamento</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#o-que-o-framework-ganhou-com-isso" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">O que o framework ganhou com isso</span></a></li></ul></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#2-o-que-falta-para-vender" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">2. O que falta para vender</span></a><ul class="isMobile" style="--depth: 1;" data-astro-cid-jugkfwgx=""><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#bloco-a-provar-que-funciona-de-verdade" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Bloco A: provar que funciona de verdade</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#bloco-b-o-fiscal-que-um-cliente-precisa-no-primeiro-dia" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Bloco B: o fiscal que um cliente precisa no primeiro dia</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#bloco-c-a-loja-funcionando-no-dia-a-dia" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Bloco C: a loja funcionando no dia a dia</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#bloco-d-o-produto-que-se-instala-e-se-mantem" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Bloco D: o produto que se instala e se mantém</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#bloco-e-o-negocio" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Bloco E: o negócio</span></a></li></ul></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#3-hardware-a-comprar-para-testar" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">3. Hardware a comprar para testar</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#4-revisao-juridica-e-contabil-a-contratar" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">4. Revisão jurídica e contábil a contratar</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#5-decisoes-que-so-o-dono-pode-tomar" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">5. Decisões que só o dono pode tomar</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#6-como-manter-este-documento" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">6. Como manter este documento</span></a></li></ul></div></details></nav></mobile-starlight-toc><script type="module" src="/RavenRS/_astro/MobileTableOfContents.astro_astro_type_script_index_0_lang.C3fM4Kra.js"></script></div><div class="right-sidebar-panel sl-hidden lg:sl-block" data-astro-cid-qok35upx=""><div class="sl-container" data-astro-cid-qok35upx=""><starlight-toc data-min-h="2" data-max-h="3"><nav aria-labelledby="starlight__on-this-page"><h2 id="starlight__on-this-page">On this page</h2><ul style="--depth: 0;" data-astro-cid-jugkfwgx=""><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#_top" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">Overview</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#1-o-que-existe-hoje" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">1. O que existe hoje</span></a><ul style="--depth: 1;" data-astro-cid-jugkfwgx=""><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#caixa-e-cadastro" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Caixa e cadastro</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#nota-fiscal" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Nota fiscal</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#impressao" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Impressão</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#perifericos" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Periféricos</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#pagamento" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Pagamento</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#o-que-o-framework-ganhou-com-isso" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">O que o framework ganhou com isso</span></a></li></ul></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#2-o-que-falta-para-vender" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">2. O que falta para vender</span></a><ul style="--depth: 1;" data-astro-cid-jugkfwgx=""><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#bloco-a-provar-que-funciona-de-verdade" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Bloco A: provar que funciona de verdade</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#bloco-b-o-fiscal-que-um-cliente-precisa-no-primeiro-dia" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Bloco B: o fiscal que um cliente precisa no primeiro dia</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#bloco-c-a-loja-funcionando-no-dia-a-dia" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Bloco C: a loja funcionando no dia a dia</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#bloco-d-o-produto-que-se-instala-e-se-mantem" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Bloco D: o produto que se instala e se mantém</span></a></li><li style="--depth: 1;" data-astro-cid-jugkfwgx=""><a href="#bloco-e-o-negocio" style="--depth: 1;" data-astro-cid-jugkfwgx=""><span style="--depth: 1;" data-astro-cid-jugkfwgx="">Bloco E: o negócio</span></a></li></ul></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#3-hardware-a-comprar-para-testar" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">3. Hardware a comprar para testar</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#4-revisao-juridica-e-contabil-a-contratar" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">4. Revisão jurídica e contábil a contratar</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#5-decisoes-que-so-o-dono-pode-tomar" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">5. Decisões que só o dono pode tomar</span></a></li><li style="--depth: 0;" data-astro-cid-jugkfwgx=""><a href="#6-como-manter-este-documento" style="--depth: 0;" data-astro-cid-jugkfwgx=""><span style="--depth: 0;" data-astro-cid-jugkfwgx="">6. Como manter este documento</span></a></li></ul></nav></starlight-toc><script type="module" src="/RavenRS/_astro/TableOfContents.astro_astro_type_script_index_0_lang.BpJaGz7G.js"></script></div></div></div></aside><div class="main-pane" data-astro-cid-lrzkfocr=""><main data-pagefind-body="" lang="en" dir="ltr" data-astro-cid-g5ptsecz=""><div class="content-panel" data-astro-cid-a7po4psb=""><div class="sl-container" data-astro-cid-a7po4psb=""><h1 id="_top" data-astro-cid-bebwqqxs="">Automação comercial: o que existe e o que falta para vender</h1><p class="page-source" data-astro-cid-u72m6wot="">RavenRS 27.1.28 · <a href="index.md" data-astro-cid-u72m6wot="">View Markdown</a></p></div></div><div class="content-panel" data-astro-cid-a7po4psb=""><div class="sl-container" data-astro-cid-a7po4psb=""><div class="sl-markdown-content"><p><strong>Finalidade.</strong> Isto começou como POC, mas reúne o que é preciso para lançar um produto profissional de automação comercial para pequenas e médias empresas. Este documento é o mapa desse caminho.</p>
+<p><strong>Situação hoje.</strong> Tudo o que é fiscal ou de pagamento é <strong>beta, prova de conceito</strong>. Nenhuma nota foi enviada a um servidor real da SEFAZ. Nenhuma etiqueta ou cupom saiu em impressora física. Nenhum pagamento passou por pinpad ou provedor real. Produção está bloqueada no código.</p>
+<p>Este documento não traz prazos, porque nenhum foi estimado. Também não é parecer jurídico, fiscal ou contábil.</p>
+<p>Documentos ligados:</p>
+<ul>
+<li><a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-nfe/REGRAS.md"><code dir="auto">crates/ravenrs-nfe/REGRAS.md</code></a>: de onde veio cada regra fiscal e o que ficou sem fonte.</li>
+<li><a href="/RavenRS/docs/pagamentos/"><code dir="auto">docs/PAGAMENTOS.md</code></a>: pagamentos, origem das regras e homologação de cada provedor.</li>
+<li><a href="/RavenRS/docs/tef-comparativo/"><code dir="auto">docs/TEF-COMPARATIVO.md</code></a>: comparativo de TEF.</li>
+<li><a href="/RavenRS/docs/perifericos/"><code dir="auto">docs/PERIFERICOS.md</code></a>: periféricos como dados.</li>
+<li><a href="/RavenRS/docs/nfse/"><code dir="auto">docs/NFSE.md</code></a>: pesquisa da NFS-e no Padrão Nacional.</li>
+<li><a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-report-label/FONTES.md"><code dir="auto">crates/ravenrs-report-label/FONTES.md</code></a>: o que cada manual de impressora confirmou.</li>
+<li><a href="https://github.com/alexkads/RavenRS/blob/master/examples/mini-pdv/README.md"><code dir="auto">examples/mini-pdv/README.md</code></a>: como rodar o caixa e o que testar por tecla.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="1-o-que-existe-hoje">1. O que existe hoje</h2><a class="sl-anchor-link" href="#1-o-que-existe-hoje"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “1. O que existe hoje”</span></a></div>
+<p>A coluna “Como foi verificado” diz o que de fato aconteceu. “Sem janela” quer dizer teste automático que dirige a tela pela árvore de acessibilidade, sem abrir janela.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="caixa-e-cadastro">Caixa e cadastro</h3><a class="sl-anchor-link" href="#caixa-e-cadastro"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Caixa e cadastro”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>O quê</th>
+<th>Crate</th>
+<th>Como foi verificado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Carrinho, <code dir="auto">quantidade*código</code>, totais em decimal exato, formas de pagamento e troco</td>
+<td><code dir="auto">ravenrs-pos</code></td>
+<td>Testes do crate</td>
+</tr>
+<tr>
+<td>Tela do caixa só pelo teclado, com leitor de código, venda pendente, cliente e observação</td>
+<td><code dir="auto">ravenrs-app-pos</code></td>
+<td><code dir="auto">examples/mini-pdv/tests/caixa.rs</code>, sem janela; telas olhadas em PNG. Sem leitor físico</td>
+</tr>
+<tr>
+<td>Produtos com GTIN validado, NCM, CFOP, CSOSN, unidade e preço</td>
+<td><code dir="auto">ravenrs-app-pos</code>, editor <code dir="auto">Gtin</code> em <code dir="auto">ravenrs-app-ui</code></td>
+<td>Testes sem janela</td>
+</tr>
+<tr>
+<td>Clientes com endereço, para a nota grande</td>
+<td><code dir="auto">ravenrs-app-pos</code></td>
+<td>Testes sem janela</td>
+</tr>
+<tr>
+<td>Bloqueio de tela com PIN</td>
+<td><code dir="auto">Session::lock</code> em <code dir="auto">ravenrs-app-ui</code></td>
+<td>Testes sem janela. Não é fronteira de segurança sozinho</td>
+</tr>
+<tr>
+<td>Registros em SQLite</td>
+<td><code dir="auto">ravenrs-app-sqlite</code></td>
+<td>Testes do crate e do framework</td>
+</tr>
+<tr>
+<td>Entrada de nota de fornecedor, estoque, custo médio, códigos próprios e formação de preço</td>
+<td><code dir="auto">ravenrs-pos</code>, <code dir="auto">ravenrs-app-pos</code></td>
+<td><strong>Em desenvolvimento enquanto este texto foi escrito.</strong> Confira o estado no código antes de contar com isso</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h3"><h3 id="nota-fiscal">Nota fiscal</h3><a class="sl-anchor-link" href="#nota-fiscal"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Nota fiscal”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>O quê</th>
+<th>Crate</th>
+<th>Como foi verificado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>NFC-e (65) e NF-e (55), síncrono, Simples Nacional (CRT 1, CSOSN 102 e 500)</td>
+<td><code dir="auto">ravenrs-nfe</code></td>
+<td>XML validado com <code dir="auto">xmllint</code> contra o XSD <code dir="auto">PL_010</code>, em cópias do sped-nfe. <strong>Nunca foi a um servidor real</strong></td>
+</tr>
+<tr>
+<td>Chave de acesso, DV, CNPJ alfanumérico</td>
+<td><code dir="auto">ravenrs-nfe</code></td>
+<td>Testes do crate; DV do CNPJ de memória, ver <code dir="auto">REGRAS.md</code></td>
+</tr>
+<tr>
+<td>C14N inclusiva e XMLDSig, SHA-1 ou SHA-256</td>
+<td><code dir="auto">ravenrs-dfe</code>, comum à NF-e e à NFS-e</td>
+<td>C14N comparada com <code dir="auto">xmllint --c14n</code>; assinatura SHA-1 verificada com <code dir="auto">openssl</code>; SHA-256 só nos testes do crate</td>
+</tr>
+<tr>
+<td>NFS-e do Padrão Nacional: DPS, emissão, recuperação pelo Id, consulta, cancelamento e convênio</td>
+<td><code dir="auto">ravenrs-nfse</code></td>
+<td>Só contra o <code dir="auto">SefinSandbox</code>. Ordem lida no XSD v1.01, sem <code dir="auto">xmllint</code>. <strong>Nunca foi à Sefin</strong></td>
+</tr>
+<tr>
+<td>DANFSe A4 no editor de relatórios</td>
+<td><code dir="auto">ravenrs-app-nfe</code></td>
+<td>Teste do render: uma página, aviso, chave e QR acima de 1,52 cm. Endereço do QR não confirmado</td>
+</tr>
+<tr>
+<td>Venda de serviço no caixa (F8): cadastro de serviço com <code dir="auto">cTribNac</code>, NFS-e em segundo plano, DPS guardada antes do envio, reenvio da mesma DPS depois de reabrir o programa, cancelamento e DANFSe na tela</td>
+<td><code dir="auto">ravenrs-app-nfe</code> (<code dir="auto">servico</code>), <code dir="auto">ravenrs-app-pos</code></td>
+<td><code dir="auto">examples/mini-pdv/tests/caixa.rs</code>, contra o <code dir="auto">SefinSandbox</code>: autorizada, resposta perdida, timeout e programa fechado com a DPS pendente. Sem pagamento por TEF e sem venda mista</td>
+</tr>
+<tr>
+<td>SOAP 1.2, status, autorização, consulta e cancelamento</td>
+<td><code dir="auto">ravenrs-nfe</code></td>
+<td>Só contra o sandbox</td>
+</tr>
+<tr>
+<td>Rede real com A1, TLS verificado, mTLS</td>
+<td><code dir="auto">ravenrs-nfe</code>, feature <code dir="auto">http</code></td>
+<td>Servidor mTLS local, com certificado de teste. <strong>Nunca falou com a SEFAZ</strong></td>
+</tr>
+<tr>
+<td>Sandbox da SEFAZ no estilo MSW, que confere assinatura, ordem, totais e duplicidade</td>
+<td><code dir="auto">ravenrs-nfe::sandbox</code></td>
+<td>Testes do crate. Passar nele não garante autorização real</td>
+</tr>
+<tr>
+<td>Diagnóstico de rejeição, autópsia de assinatura, laboratório de certificados, máscara de dados pessoais</td>
+<td><code dir="auto">ravenrs-nfe::sandbox</code></td>
+<td>Testes do crate. Em desenvolvimento</td>
+</tr>
+<tr>
+<td>Emitente, notas emitidas, consulta, cancelamento e avisos que não fecham</td>
+<td><code dir="auto">ravenrs-app-nfe</code></td>
+<td>Testes sem janela</td>
+</tr>
+<tr>
+<td>Troca de NFC-e autorizada por NF-e (cancela e emite outra)</td>
+<td><code dir="auto">ravenrs-app-nfe</code>, <code dir="auto">ravenrs-app-pos</code></td>
+<td>Teste sem janela. <strong>Regra fiscal sem validação de contador</strong></td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h3"><h3 id="impressao">Impressão</h3><a class="sl-anchor-link" href="#impressao"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Impressão”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>O quê</th>
+<th>Crate</th>
+<th>Como foi verificado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Relatório em ZPL II, EPL2/PPLB, PPLA, TSPL e ESC/POS</td>
+<td><code dir="auto">ravenrs-report-label</code></td>
+<td>Bytes lidos de volta por um parser de teste e códigos lidos por um decodificador independente (<code dir="auto">rxing</code>). <strong>Nunca impresso</strong></td>
+</tr>
+<tr>
+<td>Saída por TCP 9100, CUPS, arquivo <code dir="auto">.prn</code>, compartilhamento do Windows</td>
+<td><code dir="auto">ravenrs-report-label</code></td>
+<td>Testes do crate. O caminho do Windows não foi executado</td>
+</tr>
+<tr>
+<td>Cupom em bobina de 80 e 58 mm, com QR Code, personalizável</td>
+<td><code dir="auto">ravenrs-app-nfe</code>, editor padrão</td>
+<td>Testes sem janela. Campos obrigatórios protegidos e “SEM VALOR FISCAL” obrigatório</td>
+</tr>
+<tr>
+<td>DANFE A4 como relatório guardado</td>
+<td><code dir="auto">ravenrs-app-nfe</code>, editor padrão</td>
+<td>Teste sem janela. <strong>Sem conferência com o leiaute oficial</strong></td>
+</tr>
+<tr>
+<td>Etiqueta de gôndola, com prévia em pontos</td>
+<td><code dir="auto">ravenrs-app-pos</code>, <code dir="auto">ravenrs-report</code> (<code dir="auto">labels</code>)</td>
+<td>Testes sem janela e telas em PNG</td>
+</tr>
+<tr>
+<td>Corte, gaveta, bipe e avanço como controles do layout</td>
+<td><code dir="auto">ravenrs-report</code>, <code dir="auto">ravenrs-report-designer</code></td>
+<td>Testes de bytes. Sem gaveta nem impressora de verdade</td>
+</tr>
+<tr>
+<td>Editor de relatórios como único editor de layouts, com “Impressora direta”</td>
+<td><code dir="auto">ravenrs-report-designer</code></td>
+<td>Testes do editor</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h3"><h3 id="perifericos">Periféricos</h3><a class="sl-anchor-link" href="#perifericos"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Periféricos”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>O quê</th>
+<th>Crate</th>
+<th>Como foi verificado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Impressoras, etiquetadoras, pinpads e leitores descritos como dados, em manifestos versionados com catálogo assinado</td>
+<td><code dir="auto">ravenrs-perifericos</code></td>
+<td><strong>Em desenvolvimento enquanto este texto foi escrito.</strong> Confira o estado no código</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h3"><h3 id="pagamento">Pagamento</h3><a class="sl-anchor-link" href="#pagamento"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Pagamento”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>O quê</th>
+<th>Crate</th>
+<th>Como foi verificado</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Interface comum, diário que grava antes de agir e recuperação depois de queda de energia</td>
+<td><code dir="auto">ravenrs-pagamento</code></td>
+<td>Testes do crate. Em desenvolvimento</td>
+</tr>
+<tr>
+<td>Simulador de provedor, protocolo ABECS, arquivos IntPos, adaptadores</td>
+<td><code dir="auto">ravenrs-pagamento</code></td>
+<td>Só contra o simulador. <strong>Nunca testado com pinpad, cartão ou provedor real.</strong> Ver <a href="/RavenRS/docs/pagamentos/"><code dir="auto">PAGAMENTOS.md</code></a></td>
+</tr>
+<tr>
+<td>Ligação com a tela do caixa</td>
+<td></td>
+<td><strong>Ainda não existe</strong></td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h3"><h3 id="o-que-o-framework-ganhou-com-isso">O que o framework ganhou com isso</h3><a class="sl-anchor-link" href="#o-que-o-framework-ganhou-com-isso"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “O que o framework ganhou com isso”</span></a></div>
+<p>Avisos de módulo, trabalho em segundo plano, registro único, numeração sem buraco, rascunhos, janela de balcão, teclas F e Alt, <code dir="auto">KeyBar</code>, <code dir="auto">ScanField</code> e tema por aplicação entraram em <code dir="auto">ravenrs-app</code>, <code dir="auto">ravenrs-app-ui</code> e <code dir="auto">ravenrs-widgets</code>. <code dir="auto">examples/feature-center</code> demonstra cada um, e <code dir="auto">examples/feature-center/tests/tour.rs</code> os testa sem janela.</p>
+<div class="sl-heading-wrapper level-h2"><h2 id="2-o-que-falta-para-vender">2. O que falta para vender</h2><a class="sl-anchor-link" href="#2-o-que-falta-para-vender"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “2. O que falta para vender”</span></a></div>
+<p>A ordem dos blocos é a recomendada. Cada bloco destrava o seguinte. Quando a coluna “De quem depende” diz <strong>dono</strong> ou <strong>contrato</strong>, o desenvolvimento não avança sozinho.</p>
+<div class="sl-heading-wrapper level-h3"><h3 id="bloco-a-provar-que-funciona-de-verdade">Bloco A: provar que funciona de verdade</h3><a class="sl-anchor-link" href="#bloco-a-provar-que-funciona-de-verdade"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Bloco A: provar que funciona de verdade”</span></a></div>
+<p>Sem isto, nada do resto importa. Aqui se descobre quanto do que está pronto sobrevive ao mundo real.</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>O que é</th>
+<th>De quem depende</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Certificado A1 e contribuinte credenciado</td>
+<td>Compra do A1 e um CNPJ credenciado em homologação. A SEFAZ pode rejeitar com 203 sem credenciamento</td>
+<td><strong>Dono</strong></td>
+</tr>
+<tr>
+<td>Hardware para testar</td>
+<td>Certificado A1, pinpad PPC930 ou equivalente, etiquetadora, impressora térmica de cupom, leitor, gaveta. Ver seção 3</td>
+<td><strong>Dono</strong></td>
+</tr>
+<tr>
+<td>Homologação real da NF-e e NFC-e</td>
+<td>Status, autorização, consulta, cancelamento, QR Code. Prova endereços, TLS, ação SOAP, <code dir="auto">urlChave</code> e regras por UF</td>
+<td>Depende do A1</td>
+</tr>
+<tr>
+<td>Impressão física</td>
+<td>Cada marca e linguagem, densidade, corte, gaveta, leitura por leitor real. Há um relato de falha ao carregar imagem na L42 Pro; se acontecer, é preciso um modo com fontes e barras nativas</td>
+<td>Depende do hardware</td>
+</tr>
+<tr>
+<td>Windows e Linux como alvo real</td>
+<td>Caixa de loja costuma ser Windows. Teclas, impressão, SQLite, instalador, em máquina real</td>
+<td><strong>Dono</strong>: só ele testa nesses sistemas</td>
+</tr>
+<tr>
+<td>Pagamento real</td>
+<td>Contrato ou credenciamento com pelo menos um provedor, e homologação dele. Ligar o crate à tela do caixa</td>
+<td><strong>Contrato</strong> e <strong>dono</strong>: qual provedor primeiro</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h3"><h3 id="bloco-b-o-fiscal-que-um-cliente-precisa-no-primeiro-dia">Bloco B: o fiscal que um cliente precisa no primeiro dia</h3><a class="sl-anchor-link" href="#bloco-b-o-fiscal-que-um-cliente-precisa-no-primeiro-dia"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Bloco B: o fiscal que um cliente precisa no primeiro dia”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>O que é</th>
+<th>De quem depende</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>UFs</td>
+<td>Hoje a tabela só tem SP, RS, PR, MG, SC, RJ, ES e DF, em homologação. Escolher por onde começar, conferir endereços e regras de cada uma</td>
+<td><strong>Dono</strong>: quais UFs no lançamento</td>
+</tr>
+<tr>
+<td>Liberar produção</td>
+<td>Abrir <code dir="auto">tpAmb=1</code>, com bloqueios próprios, depois de homologar. Hoje não existe caminho no código</td>
+<td><strong>Dono</strong>, depois de homologar</td>
+</tr>
+<tr>
+<td>Contingência da NFC-e (offline)</td>
+<td>Emitir sem internet, guardar e transmitir depois, com regras de prazo. Sem isso, a loja para quando a internet cai</td>
+<td>Desenvolvimento. Conferir regra por UF</td>
+</tr>
+<tr>
+<td>EPEC</td>
+<td>Contingência da NF-e modelo 55</td>
+<td>Desenvolvimento</td>
+</tr>
+<tr>
+<td>Inutilização de numeração</td>
+<td>Fora da POC porque está sendo extinta em algumas UFs. Conferir onde ainda vale</td>
+<td>Desenvolvimento</td>
+</tr>
+<tr>
+<td>Carta de correção</td>
+<td>Evento da NF-e</td>
+<td>Desenvolvimento</td>
+</tr>
+<tr>
+<td>Manifestação do destinatário</td>
+<td>Para quem recebe NF-e, e para a entrada de mercadoria</td>
+<td>Desenvolvimento. Decidir se entra na primeira versão: <strong>dono</strong></td>
+</tr>
+<tr>
+<td>CRT 3 e IBS/CBS</td>
+<td>Regime Normal e reforma tributária. CRT 3 exige <code dir="auto">IBSCBS</code> em homologação desde 01/07/2026, segundo fonte secundária. A obrigatoriedade para CRT 1 a partir de 2027 não foi conferida</td>
+<td><strong>Dono</strong>: atender só Simples no início ou não. Contador para a regra</td>
+</tr>
+<tr>
+<td>Lei 12.741 (<code dir="auto">vTotTrib</code>)</td>
+<td>Lacuna declarada em <code dir="auto">REGRAS.md</code></td>
+<td>Desenvolvimento</td>
+</tr>
+<tr>
+<td>NFS-e</td>
+<td>Motor, sandbox, DANFSe e venda de serviço no caixa existem, só contra o sandbox. Faltam a produção restrita, o pagamento do serviço pelo TEF e a venda mista. As decisões do dono estão em <a href="/RavenRS/docs/nfse/"><code dir="auto">NFSE.md</code></a></td>
+<td><strong>Dono</strong> para as decisões; contador para a venda mista</td>
+</tr>
+<tr>
+<td>Fim do autorizador assíncrono</td>
+<td>Já só usamos o síncrono. Acompanhar notas técnicas, porque o leiaute continua mudando</td>
+<td>Contínuo</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h3"><h3 id="bloco-c-a-loja-funcionando-no-dia-a-dia">Bloco C: a loja funcionando no dia a dia</h3><a class="sl-anchor-link" href="#bloco-c-a-loja-funcionando-no-dia-a-dia"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Bloco C: a loja funcionando no dia a dia”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>O que é</th>
+<th>De quem depende</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Abertura e fechamento de caixa, sangria e suprimento</td>
+<td>Não existem. Sem isso o caixa não fecha o dia</td>
+<td>Desenvolvimento</td>
+</tr>
+<tr>
+<td>Perfis e permissões do operador</td>
+<td>O framework já tem papéis e auditoria (<code dir="auto">SecuredApp</code>); o <code dir="auto">mini-pdv</code> não usa. Definir o que pede senha de gerente: cancelar item, desconto, sangria</td>
+<td>Desenvolvimento. Regras: <strong>dono</strong></td>
+</tr>
+<tr>
+<td>Estoque, compras e entradas</td>
+<td>Parte em desenvolvimento. Falta inventário, ajuste, baixa na venda e relatórios</td>
+<td>Desenvolvimento</td>
+</tr>
+<tr>
+<td>Balança e etiqueta de peso</td>
+<td>Código de balança (prefixo 20), etiqueta de peso e leitura de balança no caixa</td>
+<td>Desenvolvimento e hardware</td>
+</tr>
+<tr>
+<td>Relatórios gerenciais</td>
+<td>Vendas por dia, por produto, por forma de pagamento. O motor de relatórios já existe</td>
+<td>Desenvolvimento</td>
+</tr>
+<tr>
+<td>SPED e XMLs para o contador</td>
+<td>Guardar os XMLs pelo prazo legal, exportar por período. SPED Fiscal e o que mais o contador pedir</td>
+<td>Contador define o que é exigido</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h3"><h3 id="bloco-d-o-produto-que-se-instala-e-se-mantem">Bloco D: o produto que se instala e se mantém</h3><a class="sl-anchor-link" href="#bloco-d-o-produto-que-se-instala-e-se-mantem"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Bloco D: o produto que se instala e se mantém”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>O que é</th>
+<th>De quem depende</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Instalação</td>
+<td>Instalador por sistema, configuração guiada de emitente, A1 e impressora</td>
+<td>Desenvolvimento</td>
+</tr>
+<tr>
+<td>Atualização automática</td>
+<td><code dir="auto">family-finance</code> tem um caminho. O caixa não pode atualizar no meio da venda, e leiaute fiscal muda por data</td>
+<td>Desenvolvimento</td>
+</tr>
+<tr>
+<td>Backup</td>
+<td>Do SQLite e dos XMLs, com restauração testada. XML fiscal perdido é problema legal</td>
+<td>Desenvolvimento. Onde guardar: <strong>dono</strong></td>
+</tr>
+<tr>
+<td>Mais de um caixa na mesma loja</td>
+<td>Hoje é um SQLite por máquina. Numeração e estoque compartilhados pedem um servidor local</td>
+<td><strong>Dono</strong>: o que entra na primeira versão</td>
+</tr>
+<tr>
+<td>Guarda segura do A1 e do CSC</td>
+<td>Hoje a senha fica em memória. Falta onde guardar o PFX na máquina do cliente</td>
+<td>Desenvolvimento e revisão de segurança</td>
+</tr>
+<tr>
+<td>Suporte</td>
+<td>Canal, horário, acesso remoto, diagnóstico. O relato de bug em <code dir="auto">ravenrs-movie</code> e <code dir="auto">sandbox::analisar</code> podem ajudar</td>
+<td><strong>Dono</strong></td>
+</tr>
+<tr>
+<td>LGPD</td>
+<td>CPF e endereço de cliente nas notas e no banco. Base legal, prazo de guarda, resposta ao titular, máscara em logs (já há <code dir="auto">sandbox::mascara</code>). Contrato com o cliente: quem é controlador e quem é operador</td>
+<td><strong>Dono</strong> e jurídico</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h3"><h3 id="bloco-e-o-negocio">Bloco E: o negócio</h3><a class="sl-anchor-link" href="#bloco-e-o-negocio"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “Bloco E: o negócio”</span></a></div>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>O que é</th>
+<th>De quem depende</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Licenciamento comercial versus MIT/Apache</td>
+<td>O RavenRS é MIT ou Apache-2.0, e continua. O produto precisa de modelo próprio: repositório separado, licença comercial, chave de ativação. Decidir o que fica aberto. Os crates de <code dir="auto">crates/ravenrs-nfe</code> e afins hoje saem sob MIT/Apache</td>
+<td><strong>Dono</strong> e jurídico</td>
+</tr>
+<tr>
+<td>Preço, contrato, responsabilidade</td>
+<td>Modelo de cobrança e limite de responsabilidade por nota errada ou caixa parado</td>
+<td><strong>Dono</strong> e jurídico</td>
+</tr>
+<tr>
+<td>Marca</td>
+<td>O plano usa o PDV Alterdata só como inspiração de fluxo. O produto precisa de nome e identidade próprios, e o desenho final precisa de revisão para não copiar telas de terceiros</td>
+<td><strong>Dono</strong></td>
+</tr>
+<tr>
+<td>Certificações por exigência local</td>
+<td>Algumas UFs ou segmentos podem exigir credenciamento de software. Conferir antes de prometer</td>
+<td>Jurídico e contador</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="3-hardware-a-comprar-para-testar">3. Hardware a comprar para testar</h2><a class="sl-anchor-link" href="#3-hardware-a-comprar-para-testar"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “3. Hardware a comprar para testar”</span></a></div>
+<p>Sem modelos definitivos: a lista diz o que testar, não o que recomendar a clientes. Os modelos abaixo saíram do plano e de anúncios, e a compatibilidade está em <a href="https://github.com/alexkads/RavenRS/blob/master/crates/ravenrs-report-label/FONTES.md"><code dir="auto">FONTES.md</code></a> com o grau de confiança.</p>
+<table>
+<thead>
+<tr>
+<th>Item</th>
+<th>Para quê</th>
+<th>Observação</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Certificado A1 de CNPJ real</td>
+<td>Homologação de NF-e e NFC-e, produção restrita da NFS-e</td>
+<td>Depende de contribuinte credenciado</td>
+</tr>
+<tr>
+<td>Pinpad PPC930 (Gertec) ou equivalente</td>
+<td>ABECS e TEF</td>
+<td>Confirmar o modelo com o provedor escolhido</td>
+</tr>
+<tr>
+<td>Etiquetadora</td>
+<td>ZPL, EPL/PPLB, PPLA, TSPL</td>
+<td>Elgin L42 Pro cobre várias linguagens, segundo anúncios. Testar também uma Zebra ou TSC, se possível</td>
+</tr>
+<tr>
+<td>Térmica de cupom, 80 mm</td>
+<td>ESC/POS, corte, gaveta, QR Code</td>
+<td>Conferir largura real em pontos</td>
+</tr>
+<tr>
+<td>Gaveta de dinheiro</td>
+<td>Comando de abrir</td>
+<td>Liga na impressora</td>
+</tr>
+<tr>
+<td>Leitor de código de barras</td>
+<td><code dir="auto">ScanField</code>, ritmo, GTIN</td>
+<td>Com fio, em modo teclado</td>
+</tr>
+<tr>
+<td>Balança, quando chegar o bloco C</td>
+<td>Etiqueta de peso</td>
+<td>Depois</td>
+</tr>
+</tbody>
+</table>
+<div class="sl-heading-wrapper level-h2"><h2 id="4-revisao-juridica-e-contabil-a-contratar">4. Revisão jurídica e contábil a contratar</h2><a class="sl-anchor-link" href="#4-revisao-juridica-e-contabil-a-contratar"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “4. Revisão jurídica e contábil a contratar”</span></a></div>
+<p>Nada disto foi revisado por profissional. As decisões abaixo foram tomadas com cautela, mas não são pareceres.</p>
+<ul>
+<li><strong>Uso do ACBr (LGPL-2.1+) como referência.</strong> O RavenRS é MIT/Apache, e portar unidade por unidade pode gerar obra derivada. A regra adotada: as regras saem do MOC, dos XSD e das notas técnicas, o ACBr só confere comportamento, e nada foi copiado. <code dir="auto">REGRAS.md</code> e <code dir="auto">FONTES.md</code> registram a origem. Pedir revisão disso antes de vender.</li>
+<li><strong>Protocolo ABECS.</strong> Conferir licença, uso permitido e se há exigência de certificação para implementar e distribuir. Ver <a href="/RavenRS/docs/pagamentos/"><code dir="auto">PAGAMENTOS.md</code></a>.</li>
+<li><strong>Certificação e PCI.</strong> O crate não captura cartão nem pede senha, e isso deve continuar assim. Confirmar o que cada provedor exige.</li>
+<li><strong>Troca de NFC-e autorizada por NF-e.</strong> O caixa cancela uma e emite a outra, com aviso de prazo. Precisa de validação de contador antes de ir a qualquer cliente: prazo, motivo, e se a operação é aceita em cada UF.</li>
+<li><strong>Certificados e dados pessoais.</strong> Guarda do A1 do cliente, LGPD e retenção de XML.</li>
+<li><strong>Contratos do produto:</strong> licença de uso, suporte, responsabilidade fiscal do cliente e do fornecedor.</li>
+</ul>
+<div class="sl-heading-wrapper level-h2"><h2 id="5-decisoes-que-so-o-dono-pode-tomar">5. Decisões que só o dono pode tomar</h2><a class="sl-anchor-link" href="#5-decisoes-que-so-o-dono-pode-tomar"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “5. Decisões que só o dono pode tomar”</span></a></div>
+<p>Em ordem de quanto cada uma destrava:</p>
+<ol>
+<li>Comprar o A1 e o hardware da seção 3, e qual CNPJ usar em homologação.</li>
+<li>Qual provedor de pagamento primeiro, e o contrato com ele.</li>
+<li>Quais UFs e quais regimes (só Simples ou também Normal) no lançamento.</li>
+<li>Se NFS-e e venda mista entram na primeira versão.</li>
+<li>Um caixa por loja ou vários na primeira versão.</li>
+<li>Modelo comercial e o que fica aberto sob MIT/Apache.</li>
+<li>Contratar a revisão jurídica e o contador da seção 4.</li>
+</ol>
+<div class="sl-heading-wrapper level-h2"><h2 id="6-como-manter-este-documento">6. Como manter este documento</h2><a class="sl-anchor-link" href="#6-como-manter-este-documento"><span aria-hidden="true" class="sl-anchor-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12.11 15.39-3.88 3.88a2.52 2.52 0 0 1-3.5 0 2.47 2.47 0 0 1 0-3.5l3.88-3.88a1 1 0 1 0-1.42-1.42l-3.88 3.89a4.48 4.48 0 0 0 6.33 6.33l3.89-3.88a1 1 0 0 0-1.42-1.42m8.58-12.08a4.49 4.49 0 0 0-6.33 0l-3.89 3.88a1 1 0 1 0 1.42 1.42l3.88-3.88a2.52 2.52 0 0 1 3.5 0 2.47 2.47 0 0 1 0 3.5l-3.88 3.88a1 1 0 0 0 0 1.42 1 1 0 0 0 1.42 0l3.88-3.89a4.49 4.49 0 0 0 0-6.33M8.83 15.17a1 1 0 0 0 .71.29 1 1 0 0 0 .71-.29l4.92-4.92a1 1 0 1 0-1.42-1.42l-4.92 4.92a1 1 0 0 0 0 1.42"></path></svg></span><span class="sr-only" data-pagefind-ignore="">Section titled “6. Como manter este documento”</span></a></div>
+<p>Cada linha da seção 1 precisa dizer a verdade sobre como foi verificada. Quando um item for provado de verdade, por exemplo a primeira autorização real, diga o que rodou e quando. Item novo da seção 2 entra com quem decide.</p></div><footer class="sl-flex" data-astro-cid-ddtxxk7k=""><div class="meta sl-flex" data-astro-cid-ddtxxk7k=""><a href="https://github.com/alexkads/RavenRS/edit/master/docs/AUTOMACAO-COMERCIAL.md" class="sl-flex print:hidden" data-astro-cid-qlekgd3o=""><svg data-astro-cid-qlekgd3o="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.2em;" data-astro-cid-hkc32dio=""><path d="M22 7.24a1 1 0 0 0-.29-.71l-4.24-4.24a1 1 0 0 0-1.1-.22 1 1 0 0 0-.32.22l-2.83 2.83L2.29 16.05a1 1 0 0 0-.29.71V21a1 1 0 0 0 1 1h4.24a1 1 0 0 0 .76-.29l10.87-10.93L21.71 8c.1-.1.17-.2.22-.33a1 1 0 0 0 0-.24v-.14l.07-.05ZM6.83 20H4v-2.83l9.93-9.93 2.83 2.83L6.83 20ZM18.17 8.66l-2.83-2.83 1.42-1.41 2.82 2.82-1.41 1.42Z"></path></svg>Edit page</a></div><div class="pagination-links print:hidden" dir="ltr" data-astro-cid-b5raizh3=""><a href="/RavenRS/docs/app-parity/" rel="prev" data-astro-cid-b5raizh3=""><svg data-astro-cid-b5raizh3="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;" data-astro-cid-hkc32dio=""><path d="M17 11H9.41l3.3-3.29a1.004 1.004 0 1 0-1.42-1.42l-5 5a1 1 0 0 0-.21.33 1 1 0 0 0 0 .76 1 1 0 0 0 .21.33l5 5a1.002 1.002 0 0 0 1.639-.325 1 1 0 0 0-.219-1.095L9.41 13H17a1 1 0 0 0 0-2Z"></path></svg><span data-astro-cid-b5raizh3="">Previous<br data-astro-cid-b5raizh3=""><span class="link-title" data-astro-cid-b5raizh3="">Application framework parity</span></span></a><a href="/RavenRS/docs/component-audit/" rel="next" data-astro-cid-b5raizh3=""><svg data-astro-cid-b5raizh3="true" aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="--sl-icon-size: 1.5rem;" data-astro-cid-hkc32dio=""><path d="M17.92 11.62a1.001 1.001 0 0 0-.21-.33l-5-5a1.003 1.003 0 1 0-1.42 1.42l3.3 3.29H7a1 1 0 0 0 0 2h7.59l-3.3 3.29a1.002 1.002 0 0 0 .325 1.639 1 1 0 0 0 1.095-.219l5-5a1 1 0 0 0 .21-.33 1 1 0 0 0 0-.76Z"></path></svg><span data-astro-cid-b5raizh3="">Next<br data-astro-cid-b5raizh3=""><span class="link-title" data-astro-cid-b5raizh3="">Auditoria técnica de componentes</span></span></a></div></footer></div></div></main></div></div></div></div></body></html>

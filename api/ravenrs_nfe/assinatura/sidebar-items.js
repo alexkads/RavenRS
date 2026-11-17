@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["FalhaAssinatura","HashAssinatura"],"fn":["assinar_envelopado","assinar_rsa","pem_certificate","sign_enveloped","verificar_envelopado","verify_enveloped"],"struct":["Algoritmo","RsaSigner"],"trait":["Signer"]};

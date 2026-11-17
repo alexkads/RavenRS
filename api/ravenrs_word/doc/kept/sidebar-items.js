@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MAX_KEPT_BYTES"],"fn":["comments_fingerprint","fingerprint","identities","pages_fingerprint","run_fingerprint","story_fingerprint","styles_fingerprint","table_fingerprint","while_writing"],"struct":["Identities","Kept","KeptXml"],"type":["Moved"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["PP_DSPGRSZ","PP_DSPTXTSZ","PP_MFSUP","PP_MNNAME","PP_MODEL","PP_SERNUM","PP_SOVER","PP_SPECVER","PP_VALUE","TAMANHO_MAXIMO_MLR"],"enum":["Comando","ErroComando","MensagemGcd","TipoMidia"],"fn":["comando_inicio_midia","de_latin1"],"struct":["InformacaoGeral","RespostaAbecs","StatusAbecs"]};

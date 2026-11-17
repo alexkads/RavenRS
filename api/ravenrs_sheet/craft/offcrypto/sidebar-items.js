@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["DEFAULT_SPIN_COUNT","MAX_PASSWORD_CHARS"],"enum":["Error"],"fn":["check","check_password","decrypt","decrypt_streams","encrypt","encrypt_with_spin_count","is_encrypted"],"mod":["protection"]};

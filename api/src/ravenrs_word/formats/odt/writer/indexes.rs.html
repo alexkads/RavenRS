@@ -1,0 +1,157 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><title>indexes.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-0c87338a.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="ravenrs_word" data-themes="" data-resource-suffix="" data-rustdoc-version="1.99.1 (58cf8f9c3 2026-10-13)" data-channel="1.99.1" data-search-js="search-cf4fc35e.js" data-stringdex-js="stringdex-b5109af9.js" data-settings-js="settings-170eb4bf.js"><script src="../../../../../static.files/storage-41dd4d93.js"></script><script defer="" src="../../../../../static.files/src-script-813739b1.js"></script><script defer="" src="../../../../../src-files.js"></script><script defer="" src="../../../../../static.files/main-417ebf0a.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-9f56287d.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../../../../static.files/favicon-044be391.svg"><meta name="description" content="Source of the Rust file `crates/ravenrs-word/src/formats/odt/writer/indexes.rs`."><link rel="canonical" href="https://ravenrs.vercel.app/api/src/ravenrs_word/formats/odt/writer/indexes.rs.html"><meta property="og:title" content="indexes.rs - source"><meta property="og:description" content="Source of the Rust file `crates/ravenrs-word/src/formats/odt/writer/indexes.rs`."><meta property="og:type" content="article"><meta property="og:url" content="https://ravenrs.vercel.app/api/src/ravenrs_word/formats/odt/writer/indexes.rs.html"><meta property="og:site_name" content="RavenRS"><meta property="og:locale" content="en_US"><meta property="og:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:secure_url" content="https://ravenrs.vercel.app/assets/social/api.png"><meta property="og:image:type" content="image/png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Rust API reference — RavenRS Rust GUI framework"><meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="indexes.rs - source"><meta name="twitter:description" content="Source of the Rust file `crates/ravenrs-word/src/formats/odt/writer/indexes.rs`."><meta name="twitter:image" content="https://ravenrs.vercel.app/assets/social/api.png"><meta name="twitter:image:alt" content="Rust API reference — RavenRS"><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"TechArticle","headline":"indexes.rs - source","description":"Source of the Rust file `crates/ravenrs-word/src/formats/odt/writer/indexes.rs`.","url":"https://ravenrs.vercel.app/api/src/ravenrs_word/formats/odt/writer/indexes.rs.html","version":"27.1.28","about":{"@id":"https://ravenrs.vercel.app/#source"}},{"@type":"SoftwareSourceCode","@id":"https://ravenrs.vercel.app/#source","name":"RavenRS","description":"Build declarative Rust interfaces for Windows, macOS, Linux and WebAssembly. Explore 190 components, reactive state, business apps and reporting.","programmingLanguage":"Rust","codeRepository":"https://github.com/alexkads/RavenRS","version":"27.1.28","license":["https://github.com/alexkads/RavenRS/blob/master/LICENSE-MIT","https://github.com/alexkads/RavenRS/blob/master/LICENSE-APACHE"],"url":"https://ravenrs.vercel.app/"}]}</script></head><body class="rustdoc src"><a class="skip-main-content" href="#main-content">Skip to main content</a><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><section id="main-content" class="content" tabindex="-1"><div class="main-heading"><h1><div class="sub-heading">ravenrs_word/formats/odt/writer/</div>indexes.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href="#1" id="1" data-nosnippet="">1</a><span class="doccomment">//! Tables of contents and other generated indexes written (ODF 1.3 §8): a WordCraft table — a
+<a href="#2" id="2" data-nosnippet="">2</a>//! `TOC`, `INDEX` or `BIBLIOGRAPHY` field in its heading followed by its entries, or the field
+<a href="#3" id="3" data-nosnippet="">3</a>//! around its entries — becomes the ODF index with its title, its source (what LibreOffice
+<a href="#4" id="4" data-nosnippet="">4</a>//! regenerates it from) and its entries as last generated.
+<a href="#5" id="5" data-nosnippet="">5</a>
+<a href="#6" id="6" data-nosnippet="">6</a></span><span class="kw">use super</span>::{FBlock, Inline, Para, Writer, x};
+<a href="#7" id="7" data-nosnippet="">7</a>
+<a href="#8" id="8" data-nosnippet="">8</a><span class="doccomment">/// What a Word index field stands for in ODF.
+<a href="#9" id="9" data-nosnippet="">9</a></span><span class="attr">#[derive(Clone, Debug, PartialEq)]
+<a href="#10" id="10" data-nosnippet="">10</a></span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) <span class="kw">enum </span>IndexKind {
+<a href="#11" id="11" data-nosnippet="">11</a>    <span class="doccomment">/// A table of contents of headings down to this outline level (`TOC \o "1-n"`).
+<a href="#12" id="12" data-nosnippet="">12</a>    </span>Contents(u8),
+<a href="#13" id="13" data-nosnippet="">13</a>    <span class="doccomment">/// A table of figures (or of any captioned thing): `TOC \c "Figure"`.
+<a href="#14" id="14" data-nosnippet="">14</a>    </span>Captions(String),
+<a href="#15" id="15" data-nosnippet="">15</a>    <span class="doccomment">/// An alphabetical index (`INDEX`).
+<a href="#16" id="16" data-nosnippet="">16</a>    </span>Alphabetical,
+<a href="#17" id="17" data-nosnippet="">17</a>    <span class="doccomment">/// A bibliography (`BIBLIOGRAPHY`).
+<a href="#18" id="18" data-nosnippet="">18</a>    </span>Bibliography,
+<a href="#19" id="19" data-nosnippet="">19</a>}
+<a href="#20" id="20" data-nosnippet="">20</a>
+<a href="#21" id="21" data-nosnippet="">21</a><span class="doccomment">/// The quoted (or bare) argument of switch `\sw` in field code `instr`.
+<a href="#22" id="22" data-nosnippet="">22</a></span><span class="kw">fn </span>switch_arg(instr: <span class="kw-2">&amp;</span>str, sw: char) -&gt; <span class="prelude-ty">Option</span>&lt;String&gt; {
+<a href="#23" id="23" data-nosnippet="">23</a>    <span class="kw">let </span>at = instr.find(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"\\{sw}"</span>))<span class="question-mark">?</span>;
+<a href="#24" id="24" data-nosnippet="">24</a>    <span class="kw">let </span>rest = instr.get(at + <span class="number">2</span>..)<span class="question-mark">?</span>.trim_start();
+<a href="#25" id="25" data-nosnippet="">25</a>    <span class="kw">let </span>arg = <span class="kw">match </span>rest.strip_prefix(<span class="string">'"'</span>) {
+<a href="#26" id="26" data-nosnippet="">26</a>        <span class="prelude-val">Some</span>(q) =&gt; q.split(<span class="string">'"'</span>).next()<span class="question-mark">?</span>,
+<a href="#27" id="27" data-nosnippet="">27</a>        <span class="prelude-val">None </span>=&gt; rest.split_whitespace().next()<span class="question-mark">?</span>,
+<a href="#28" id="28" data-nosnippet="">28</a>    };
+<a href="#29" id="29" data-nosnippet="">29</a>    (!arg.starts_with(<span class="string">'\\'</span>)).then(|| arg.chars().take(<span class="number">64</span>).collect())
+<a href="#30" id="30" data-nosnippet="">30</a>}
+<a href="#31" id="31" data-nosnippet="">31</a>
+<a href="#32" id="32" data-nosnippet="">32</a><span class="doccomment">/// The index field code `instr` is, if it is one.
+<a href="#33" id="33" data-nosnippet="">33</a></span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) <span class="kw">fn </span>index_kind(instr: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;IndexKind&gt; {
+<a href="#34" id="34" data-nosnippet="">34</a>    <span class="kw">let </span>name = instr.split_whitespace().next()<span class="question-mark">?</span>.to_ascii_uppercase();
+<a href="#35" id="35" data-nosnippet="">35</a>    <span class="kw">match </span>name.as_str() {
+<a href="#36" id="36" data-nosnippet="">36</a>        <span class="string">"TOC" </span>=&gt; <span class="kw">match </span>switch_arg(instr, <span class="string">'c'</span>).or_else(|| switch_arg(instr, <span class="string">'C'</span>)) {
+<a href="#37" id="37" data-nosnippet="">37</a>            <span class="prelude-val">Some</span>(c) =&gt; <span class="prelude-val">Some</span>(IndexKind::Captions(c)),
+<a href="#38" id="38" data-nosnippet="">38</a>            <span class="prelude-val">None </span>=&gt; {
+<a href="#39" id="39" data-nosnippet="">39</a>                <span class="comment">// `\o "1-3"`: the deepest level shown (3 when none is given, as Word's default).
+<a href="#40" id="40" data-nosnippet="">40</a>                </span><span class="kw">let </span>deepest =
+<a href="#41" id="41" data-nosnippet="">41</a>                    switch_arg(instr, <span class="string">'o'</span>).and_then(|r| r.rsplit(<span class="string">'-'</span>).next().and_then(|n| n.trim().parse::&lt;u8&gt;().ok())).unwrap_or(<span class="number">3</span>).clamp(<span class="number">1</span>, <span class="number">10</span>);
+<a href="#42" id="42" data-nosnippet="">42</a>                <span class="prelude-val">Some</span>(IndexKind::Contents(deepest))
+<a href="#43" id="43" data-nosnippet="">43</a>            }
+<a href="#44" id="44" data-nosnippet="">44</a>        },
+<a href="#45" id="45" data-nosnippet="">45</a>        <span class="string">"INDEX" </span>=&gt; <span class="prelude-val">Some</span>(IndexKind::Alphabetical),
+<a href="#46" id="46" data-nosnippet="">46</a>        <span class="string">"BIBLIOGRAPHY" </span>=&gt; <span class="prelude-val">Some</span>(IndexKind::Bibliography),
+<a href="#47" id="47" data-nosnippet="">47</a>        <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#48" id="48" data-nosnippet="">48</a>    }
+<a href="#49" id="49" data-nosnippet="">49</a>}
+<a href="#50" id="50" data-nosnippet="">50</a>
+<a href="#51" id="51" data-nosnippet="">51</a><span class="doccomment">/// The field code an ODF index stands for in Word (the reverse of [`index_kind`]).
+<a href="#52" id="52" data-nosnippet="">52</a></span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) <span class="kw">fn </span>index_instr(kind: <span class="kw-2">&amp;</span>IndexKind) -&gt; String {
+<a href="#53" id="53" data-nosnippet="">53</a>    <span class="kw">match </span>kind {
+<a href="#54" id="54" data-nosnippet="">54</a>        IndexKind::Contents(n) =&gt; <span class="macro">format!</span>(<span class="string">"TOC \\o \"1-{n}\" \\h \\z \\u"</span>),
+<a href="#55" id="55" data-nosnippet="">55</a>        IndexKind::Captions(c) =&gt; <span class="macro">format!</span>(<span class="string">"TOC \\h \\z \\c \"{}\""</span>, c.replace(<span class="string">'"'</span>, <span class="string">""</span>)),
+<a href="#56" id="56" data-nosnippet="">56</a>        IndexKind::Alphabetical =&gt; <span class="string">"INDEX"</span>.into(),
+<a href="#57" id="57" data-nosnippet="">57</a>        IndexKind::Bibliography =&gt; <span class="string">"BIBLIOGRAPHY"</span>.into(),
+<a href="#58" id="58" data-nosnippet="">58</a>    }
+<a href="#59" id="59" data-nosnippet="">59</a>}
+<a href="#60" id="60" data-nosnippet="">60</a>
+<a href="#61" id="61" data-nosnippet="">61</a><span class="doccomment">/// Whether `p`'s paragraph style is an index entry's (WordCraft's TOC, table of figures, index
+<a href="#62" id="62" data-nosnippet="">62</a>/// and bibliography styles).
+<a href="#63" id="63" data-nosnippet="">63</a></span><span class="kw">fn </span>is_entry(p: <span class="kw-2">&amp;</span>Para) -&gt; bool {
+<a href="#64" id="64" data-nosnippet="">64</a>    <span class="kw">let </span>style = p.extra.as_ref().and_then(|x| x.style.as_deref()).unwrap_or(<span class="string">""</span>);
+<a href="#65" id="65" data-nosnippet="">65</a>    (style.starts_with(<span class="string">"TOC"</span>) &amp;&amp; style != <span class="string">"TOCHeading"</span>) || style == <span class="string">"TableofFigures" </span>|| style.starts_with(<span class="string">"Index"</span>) || style == <span class="string">"Bibliography"
+<a href="#66" id="66" data-nosnippet="">66</a></span>}
+<a href="#67" id="67" data-nosnippet="">67</a>
+<a href="#68" id="68" data-nosnippet="">68</a><span class="doccomment">/// An index starting at `blocks[i]`: how many blocks it takes, its kind, and whether its first
+<a href="#69" id="69" data-nosnippet="">69</a>/// block is its title. Either a paragraph holding an index field followed by its entries (as
+<a href="#70" id="70" data-nosnippet="">70</a>/// WordCraft inserts a table), or a field starting a paragraph and ending in a later one.
+<a href="#71" id="71" data-nosnippet="">71</a></span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) <span class="kw">fn </span>index_at(blocks: <span class="kw-2">&amp;</span>[FBlock], i: usize) -&gt; <span class="prelude-ty">Option</span>&lt;(usize, IndexKind, bool)&gt; {
+<a href="#72" id="72" data-nosnippet="">72</a>    <span class="kw">let </span><span class="prelude-val">Some</span>(FBlock::Para(p)) = blocks.get(i) <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">None </span>};
+<a href="#73" id="73" data-nosnippet="">73</a>    <span class="comment">// A heading holding the field, anywhere in it.
+<a href="#74" id="74" data-nosnippet="">74</a>    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(kind) = p.inlines.iter().find_map(|inl| <span class="kw">match </span>inl {
+<a href="#75" id="75" data-nosnippet="">75</a>        Inline::Field { instr, .. } =&gt; index_kind(instr),
+<a href="#76" id="76" data-nosnippet="">76</a>        <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href="#77" id="77" data-nosnippet="">77</a>    }) {
+<a href="#78" id="78" data-nosnippet="">78</a>        <span class="kw">let </span>entries =
+<a href="#79" id="79" data-nosnippet="">79</a>            blocks.get(i + <span class="number">1</span>..).unwrap_or(<span class="kw-2">&amp;</span>[]).iter().take_while(|b| <span class="macro">matches!</span>(b, FBlock::Para(q) <span class="kw">if </span>is_entry(q) &amp;&amp; q.list.is_none())).count();
+<a href="#80" id="80" data-nosnippet="">80</a>        <span class="kw">return </span><span class="prelude-val">Some</span>((entries + <span class="number">1</span>, kind, <span class="bool-val">true</span>));
+<a href="#81" id="81" data-nosnippet="">81</a>    }
+<a href="#82" id="82" data-nosnippet="">82</a>    <span class="comment">// A field starting the paragraph.
+<a href="#83" id="83" data-nosnippet="">83</a>    </span><span class="kw">for </span>inline <span class="kw">in </span><span class="kw-2">&amp;</span>p.inlines {
+<a href="#84" id="84" data-nosnippet="">84</a>        <span class="kw">match </span>inline {
+<a href="#85" id="85" data-nosnippet="">85</a>            Inline::FieldStart(instr) =&gt; {
+<a href="#86" id="86" data-nosnippet="">86</a>                <span class="kw">let </span>kind = index_kind(instr)<span class="question-mark">?</span>;
+<a href="#87" id="87" data-nosnippet="">87</a>                <span class="comment">// Its end: where the fields opened from here close.
+<a href="#88" id="88" data-nosnippet="">88</a>                </span><span class="kw">let </span><span class="kw-2">mut </span>open = <span class="number">0usize</span>;
+<a href="#89" id="89" data-nosnippet="">89</a>                <span class="kw">for </span>(k, b) <span class="kw">in </span>blocks.get(i..).unwrap_or(<span class="kw-2">&amp;</span>[]).iter().enumerate() {
+<a href="#90" id="90" data-nosnippet="">90</a>                    <span class="kw">let </span>FBlock::Para(q) = b <span class="kw">else </span>{ <span class="kw">return </span><span class="prelude-val">None </span>};
+<a href="#91" id="91" data-nosnippet="">91</a>                    <span class="kw">for </span>inl <span class="kw">in </span><span class="kw-2">&amp;</span>q.inlines {
+<a href="#92" id="92" data-nosnippet="">92</a>                        <span class="kw">match </span>inl {
+<a href="#93" id="93" data-nosnippet="">93</a>                            Inline::FieldStart(<span class="kw">_</span>) =&gt; open += <span class="number">1</span>,
+<a href="#94" id="94" data-nosnippet="">94</a>                            Inline::FieldEnd =&gt; {
+<a href="#95" id="95" data-nosnippet="">95</a>                                open = open.saturating_sub(<span class="number">1</span>);
+<a href="#96" id="96" data-nosnippet="">96</a>                                <span class="kw">if </span>open == <span class="number">0 </span>{
+<a href="#97" id="97" data-nosnippet="">97</a>                                    <span class="kw">return </span><span class="prelude-val">Some</span>((k + <span class="number">1</span>, kind, <span class="bool-val">false</span>));
+<a href="#98" id="98" data-nosnippet="">98</a>                                }
+<a href="#99" id="99" data-nosnippet="">99</a>                            }
+<a href="#100" id="100" data-nosnippet="">100</a>                            <span class="kw">_ </span>=&gt; {}
+<a href="#101" id="101" data-nosnippet="">101</a>                        }
+<a href="#102" id="102" data-nosnippet="">102</a>                    }
+<a href="#103" id="103" data-nosnippet="">103</a>                }
+<a href="#104" id="104" data-nosnippet="">104</a>                <span class="kw">return </span><span class="prelude-val">None</span>;
+<a href="#105" id="105" data-nosnippet="">105</a>            }
+<a href="#106" id="106" data-nosnippet="">106</a>            Inline::Text(t, <span class="kw">_</span>) <span class="kw">if </span>t.trim().is_empty() =&gt; {}
+<a href="#107" id="107" data-nosnippet="">107</a>            Inline::Anchor(<span class="kw">_</span>) =&gt; {}
+<a href="#108" id="108" data-nosnippet="">108</a>            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
+<a href="#109" id="109" data-nosnippet="">109</a>        }
+<a href="#110" id="110" data-nosnippet="">110</a>    }
+<a href="#111" id="111" data-nosnippet="">111</a>    <span class="prelude-val">None
+<a href="#112" id="112" data-nosnippet="">112</a></span>}
+<a href="#113" id="113" data-nosnippet="">113</a>
+<a href="#114" id="114" data-nosnippet="">114</a><span class="kw">impl </span>Writer {
+<a href="#115" id="115" data-nosnippet="">115</a>    <span class="doccomment">/// The index `blocks` of `kind` (its first block its title when `titled`).
+<a href="#116" id="116" data-nosnippet="">116</a>    </span><span class="kw">pub</span>(<span class="kw">in </span><span class="kw">crate</span>::formats::odt) <span class="kw">fn </span>index(<span class="kw-2">&amp;mut </span><span class="self">self</span>, blocks: <span class="kw-2">&amp;</span>[FBlock], kind: <span class="kw-2">&amp;</span>IndexKind, titled: bool, out: <span class="kw-2">&amp;mut </span>String) {
+<a href="#117" id="117" data-nosnippet="">117</a>        <span class="self">self</span>.indexes += <span class="number">1</span>;
+<a href="#118" id="118" data-nosnippet="">118</a>        <span class="kw">let </span>n = <span class="self">self</span>.indexes;
+<a href="#119" id="119" data-nosnippet="">119</a>        <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">"{}Index{n}"</span>, <span class="self">self</span>.prefix);
+<a href="#120" id="120" data-nosnippet="">120</a>        <span class="kw">let </span>(element, source) = <span class="kw">match </span>kind {
+<a href="#121" id="121" data-nosnippet="">121</a>            IndexKind::Contents(levels) =&gt; {
+<a href="#122" id="122" data-nosnippet="">122</a>                <span class="comment">// An entry per level as LibreOffice makes it: linked text, a right tab with dots
+<a href="#123" id="123" data-nosnippet="">123</a>                // and the page number.
+<a href="#124" id="124" data-nosnippet="">124</a>                </span><span class="kw">let </span>templates: String = (<span class="number">1</span>..=<span class="kw-2">*</span>levels)
+<a href="#125" id="125" data-nosnippet="">125</a>                    .map(|l| {
+<a href="#126" id="126" data-nosnippet="">126</a>                        <span class="macro">format!</span>(
+<a href="#127" id="127" data-nosnippet="">127</a>                            <span class="string">"&lt;text:table-of-content-entry-template text:outline-level=\"{l}\" text:style-name=\"Contents_20_{l}\"&gt;&lt;text:index-entry-link-start/&gt;&lt;text:index-entry-chapter/&gt;&lt;text:index-entry-text/&gt;&lt;text:index-entry-tab-stop style:type=\"right\" style:leader-char=\".\"/&gt;&lt;text:index-entry-page-number/&gt;&lt;text:index-entry-link-end/&gt;&lt;/text:table-of-content-entry-template&gt;"
+<a href="#128" id="128" data-nosnippet="">128</a>                        </span>)
+<a href="#129" id="129" data-nosnippet="">129</a>                    })
+<a href="#130" id="130" data-nosnippet="">130</a>                    .collect();
+<a href="#131" id="131" data-nosnippet="">131</a>                (
+<a href="#132" id="132" data-nosnippet="">132</a>                    <span class="string">"text:table-of-content"</span>,
+<a href="#133" id="133" data-nosnippet="">133</a>                    <span class="macro">format!</span>(<span class="string">"&lt;text:table-of-content-source text:outline-level=\"{levels}\"&gt;{templates}&lt;/text:table-of-content-source&gt;"</span>),
+<a href="#134" id="134" data-nosnippet="">134</a>                )
+<a href="#135" id="135" data-nosnippet="">135</a>            }
+<a href="#136" id="136" data-nosnippet="">136</a>            IndexKind::Captions(c) =&gt; (
+<a href="#137" id="137" data-nosnippet="">137</a>                <span class="string">"text:illustration-index"</span>,
+<a href="#138" id="138" data-nosnippet="">138</a>                <span class="macro">format!</span>(<span class="string">"&lt;text:illustration-index-source text:caption-sequence-name=\"{}\" text:caption-sequence-format=\"text\"/&gt;"</span>, x(c)),
+<a href="#139" id="139" data-nosnippet="">139</a>            ),
+<a href="#140" id="140" data-nosnippet="">140</a>            IndexKind::Alphabetical =&gt; (<span class="string">"text:alphabetical-index"</span>, <span class="string">"&lt;text:alphabetical-index-source/&gt;"</span>.to_string()),
+<a href="#141" id="141" data-nosnippet="">141</a>            IndexKind::Bibliography =&gt; (<span class="string">"text:bibliography"</span>, <span class="string">"&lt;text:bibliography-source/&gt;"</span>.to_string()),
+<a href="#142" id="142" data-nosnippet="">142</a>        };
+<a href="#143" id="143" data-nosnippet="">143</a>        out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;{element} text:name=\"{name}\"&gt;{source}&lt;text:index-body&gt;"</span>));
+<a href="#144" id="144" data-nosnippet="">144</a>        <span class="kw">let </span>(title, entries) = <span class="kw">if </span>titled { blocks.split_at(blocks.len().min(<span class="number">1</span>)) } <span class="kw">else </span>{ (<span class="kw-2">&amp;</span>[][..], blocks) };
+<a href="#145" id="145" data-nosnippet="">145</a>        <span class="kw">if </span>!title.is_empty() {
+<a href="#146" id="146" data-nosnippet="">146</a>            out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;text:index-title text:name=\"{name}_Head\"&gt;"</span>));
+<a href="#147" id="147" data-nosnippet="">147</a>            <span class="self">self</span>.blocks(title, out, <span class="number">1</span>);
+<a href="#148" id="148" data-nosnippet="">148</a>            out.push_str(<span class="string">"&lt;/text:index-title&gt;"</span>);
+<a href="#149" id="149" data-nosnippet="">149</a>        }
+<a href="#150" id="150" data-nosnippet="">150</a>        <span class="self">self</span>.in_index = <span class="bool-val">true</span>;
+<a href="#151" id="151" data-nosnippet="">151</a>        <span class="self">self</span>.blocks(entries, out, <span class="number">1</span>);
+<a href="#152" id="152" data-nosnippet="">152</a>        <span class="self">self</span>.in_index = <span class="bool-val">false</span>;
+<a href="#153" id="153" data-nosnippet="">153</a>        <span class="self">self</span>.close_ins(out);
+<a href="#154" id="154" data-nosnippet="">154</a>        out.push_str(<span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"&lt;/text:index-body&gt;&lt;/{element}&gt;\n"</span>));
+<a href="#155" id="155" data-nosnippet="">155</a>    }
+<a href="#156" id="156" data-nosnippet="">156</a>}
+</code></pre></div></section></main></body></html>

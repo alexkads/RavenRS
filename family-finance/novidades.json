@@ -1,0 +1,15 @@
+{
+  "versao": "0.1.43",
+  "titulo": "O teste pode rodar com a janela aberta.",
+  "importante": false,
+  "novidades": [
+    "Quando o Raven Test Studio pede a janela (--headed), o app abre a janela de verdade na família de exemplo em memória e o teste roda nela, à vista. Os seus dados nunca são abertos."
+  ],
+  "por_que_atualizar": "Para acompanhar na tela os testes do app.",
+  "contribuidores": [
+    "Alex S S Fonseca"
+  ],
+  "issues": [
+    729
+  ]
+}

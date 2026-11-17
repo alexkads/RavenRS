@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Fill","GradientFlip","GradientKind","PathShape"],"struct":["Gradient"]};
