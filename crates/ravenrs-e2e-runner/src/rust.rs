@@ -9,7 +9,8 @@ use crate::session::Step;
 /// `scenario` as a Rust test of the package whose binary is `binary`. The Open blocks open that
 /// binary; a block that cannot run is refused with its title.
 pub fn test(scenario: &Scenario, binary: &str, source: &str) -> Result<String, String> {
-    let name = ident(&scenario.name);
+    // The title may be a Rust keyword, or the name of one of the helpers below.
+    let name = format!("scenario_{}", ident(&scenario.name));
     let mut steps = String::new();
     let mut opened = false;
     for block in &scenario.blocks {
