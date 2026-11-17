@@ -1,5 +1,25 @@
 [
   {
+    "versao": "0.1.14",
+    "data": "2026-11-17",
+    "titulo": "Agora dá para ver o teste rodando na janela do app.",
+    "importante": false,
+    "novidades": [
+      "--headed roda o cenário com a janela real do app na tela, nos dados de teste dele, com os mesmos blocos, esperas e códigos de quando roda sem janela.",
+      "--slow-mo <ms> espera entre os passos para acompanhar, sem mudar o resultado: o relógio do app para entre um passo e outro.",
+      "--step começa pausado: Enter roda um bloco, c continua, p pausa e q para; --keep-open on-failure deixa a janela aberta no fim para ver onde falhou.",
+      "Fechar a janela no meio do teste ou pedir janela num computador sem tela dá um código claro (E2E_WINDOW_CLOSED, E2E_NO_WINDOW), e o relatório diz se rodou com janela e em qual sistema.",
+      "O e2e.toml do projeto aceita window, slow_mo e keep_open; a linha de comando vale mais, e --headless desliga a janela."
+    ],
+    "por_que_atualizar": "Para acompanhar um cenário, entender uma falha e mostrar o fluxo na janela de verdade, sem montar outro roteiro.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      729
+    ]
+  },
+  {
     "versao": "0.1.13",
     "data": "2026-11-16",
     "titulo": "A falha vem com o filme.",

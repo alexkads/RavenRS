@@ -17,6 +17,20 @@ if std::env::args().nth(1).as_deref() == Some(ravenrs_e2e_wire::SERVE_FLAG) {
 
 Nothing else may write to standard output while it serves.
 
+## With the real window
+
+Opened with `--e2e-serve --e2e-window` (`WINDOW_FLAG`, what `--headed` sends), an app that supports it shows its real window and answers the same commands on the interface the window shows. It builds its view as usual, on its test data, and hands `ravenrs::native::run_driven` a `Headed` driver:
+
+```rust,ignore
+let args: Vec<String> = std::env::args().collect();
+if args.iter().any(|a| a == ravenrs_e2e_wire::WINDOW_FLAG) {
+    let driver = ravenrs_e2e_wire::Headed::new(ravenrs_e2e_wire::Hello::of("My App"));
+    return ravenrs::native::run_driven(my_app_with_sample_data(), WindowOptions::new("My App — teste"), driver);
+}
+```
+
+The window's platform lends its `Ui` to the driver on the main thread whenever a command arrives; standard input is read on a thread of its own, so the window keeps drawing between steps. Each command goes through the same code as with no window, so the codes and the screen in a failure are the same. The hello says `window: true`; a tool that asked for the window and hears no such hello refuses with `E2E_NO_WINDOW`. Between steps the app's clock runs at most `SETTLE` (0.6 s) and then stands still until the next one, so a pace a person can follow never changes a verdict. While driven, the person's mouse and keyboard do not reach the window; closing it answers the waiting step with `E2E_WINDOW_CLOSED`. `Command::Release` ends the test and leaves the window to the person; `Client::release` sends it and waits for the window to be closed. The test window has no tray, single copy or app id, so it never reaches a copy of the app the person has open.
+
 ## How a tool drives it
 
 ```rust,ignore

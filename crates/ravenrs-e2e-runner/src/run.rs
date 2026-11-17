@@ -6,9 +6,10 @@ use std::time::Instant;
 
 use ravenrs_e2e_wire::{EXTENSION, Scenario};
 
-use crate::driver::{Driver, FilmMode};
+use crate::driver::{Driver, FilmMode, Inspection};
 use crate::report::Report;
 use crate::session::{Opener, Outcome, Step};
+use crate::window::{Control, Window};
 
 /// The `.raventest` files at `path`: the file itself, or every one in the folder, in name order.
 pub fn files_at(path: &Path) -> Result<Vec<PathBuf>, String> {
@@ -49,6 +50,10 @@ pub struct RunOptions {
     pub film: FilmMode,
     /// Where each run is kept, a folder per scenario; films go there too.
     pub out: Option<PathBuf>,
+    /// With or without the app's window, at what pace, and whether it stays at the end.
+    pub window: Window,
+    /// What the person watching asks for (pause, one more block, stop), when they can ask.
+    pub control: Option<Control>,
 }
 
 impl RunOptions {
@@ -93,11 +98,38 @@ pub fn run(title: &str, scenarios: &[Scenario], open: Opener) -> Report {
 
 /// [`run`] as `options` say.
 pub fn run_with(title: &str, scenarios: &[Scenario], open: Opener, options: &RunOptions) -> Report {
+    run_kept(title, scenarios, open, options).0
+}
+
+/// [`run_files_with`], also giving the window left open at the end, when `options` keep it
+/// ([`crate::window::KeepOpen`]): print the report, then tell the person and wait on it.
+pub fn run_files_kept(
+    path: &Path,
+    open: Opener,
+    options: &RunOptions,
+) -> Result<(Report, Option<Inspection>), String> {
+    let scenarios = read(&files_at(path)?)?;
+    let title = title_of(path, &scenarios);
+    Ok(run_kept(&title, &scenarios, open, options))
+}
+
+/// [`run_with`], also giving the window left open at the end, when `options` keep it.
+pub fn run_kept(
+    title: &str,
+    scenarios: &[Scenario],
+    open: Opener,
+    options: &RunOptions,
+) -> (Report, Option<Inspection>) {
     let started = Instant::now();
     let blocks: Vec<_> = scenarios.iter().flat_map(|s| s.blocks.iter()).collect();
-    let mut driver = Driver::new(open).filming(options.film, options.folder_of(title));
+    let mut driver = Driver::new(open)
+        .filming(options.film, options.folder_of(title))
+        .presenting(options.window, options.control.clone());
     let mut outcomes: Vec<Outcome> = Vec::new();
     for block in &blocks {
+        if !driver.turn() {
+            break;
+        }
         let id = format!("b{}", outcomes.len() + 1);
         let outcome = driver.step(Step::of(block), &id, block.kind.word(), &block.title, &block.line());
         let failed = outcome.error.is_some();
@@ -109,7 +141,7 @@ pub fn run_with(title: &str, scenarios: &[Scenario], open: Opener, options: &Run
     let failed = outcomes.iter().any(|o| o.error.is_some());
     driver.end(failed);
     let not_run = blocks.iter().skip(outcomes.len()).map(|b| b.title.clone()).collect();
-    Report {
+    let report = Report {
         scenario: title.to_owned(),
         outcomes,
         total: blocks.len(),
@@ -119,5 +151,9 @@ pub fn run_with(title: &str, scenarios: &[Scenario], open: Opener, options: &Run
         not_run,
         films: driver.films(),
         film_note: driver.film_note(),
-    }
+        window: options.window.mode,
+        slow_mo_ms: u64::try_from(options.window.slow_mo.as_millis()).unwrap_or(u64::MAX),
+        stopped: driver.stopped(),
+    };
+    (report, driver.inspection())
 }

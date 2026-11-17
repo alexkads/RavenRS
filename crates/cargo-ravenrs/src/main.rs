@@ -73,6 +73,21 @@ enum E2eCommand {
         /// always; the e2e.toml's, else never.
         #[arg(long, default_value = "")]
         film: String,
+        /// Show the app's real window while the scenarios run (the e2e.toml's window, else none).
+        #[arg(long)]
+        headed: bool,
+        /// No window, even when the e2e.toml asks for it.
+        #[arg(long)]
+        headless: bool,
+        /// With the window: milliseconds to wait after each step, to follow it.
+        #[arg(long, value_name = "MS")]
+        slow_mo: Option<String>,
+        /// With the window: leave it open at the end (never, on-failure or always).
+        #[arg(long, value_name = "QUANDO")]
+        keep_open: Option<String>,
+        /// With the window: start paused; Enter runs one block, c carries on, p pauses, q stops.
+        #[arg(long)]
+        step: bool,
     },
     /// Print the JSON Schema of the report (report) or of a scenario as JSON (scenario).
     Schema {
@@ -137,8 +152,27 @@ async fn main() {
         Commands::Doctor => cargo_ravenrs::doctor(std::path::Path::new(".")),
         Commands::E2e { command } => std::process::exit(match command {
             E2eCommand::Install { project } => cargo_ravenrs::e2e::install(project.as_deref()),
-            E2eCommand::Run { path, project, format, out, film } => {
-                cargo_ravenrs::e2e::run(&cargo_ravenrs::e2e::RunAsk { project, path, format, out, film })
+            E2eCommand::Run {
+                path,
+                project,
+                format,
+                out,
+                film,
+                headed,
+                headless,
+                slow_mo,
+                keep_open,
+                step,
+            } => {
+                let window = ravenrs_e2e_runner::window::Ask { headed, headless, slow_mo, keep_open, step };
+                cargo_ravenrs::e2e::run(&cargo_ravenrs::e2e::RunAsk {
+                    project,
+                    path,
+                    format,
+                    out,
+                    film,
+                    window,
+                })
             }
             E2eCommand::List { project, json } => cargo_ravenrs::e2e::list(project.as_deref(), json),
             E2eCommand::Schema { which } => cargo_ravenrs::e2e::schema(&which),

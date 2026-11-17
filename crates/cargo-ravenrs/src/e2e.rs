@@ -82,6 +82,8 @@ pub struct RunAsk {
     pub out: Option<PathBuf>,
     /// `never`, `on-failure` or `always`; empty for the `e2e.toml`'s, else never.
     pub film: String,
+    /// With or without the app's window, at what pace, whether it stays and starts paused.
+    pub window: ravenrs_e2e_runner::window::Ask,
 }
 
 /// The exit code a run ends with: 0 when every scenario passed, 1 when one failed, 2 when
@@ -143,22 +145,41 @@ pub fn run(ask: &RunAsk) -> i32 {
             }
         }
     };
-    let options = run::RunOptions { film, out: Some(out.clone()) };
+    let (window, control) = match config.window_from(&ask.window) {
+        Ok(chosen) => chosen,
+        Err(why) => {
+            eprintln!("{why}");
+            return 2;
+        }
+    };
+    if let Some(control) = &control {
+        ravenrs_e2e_runner::window::steer_when_terminal(control);
+    }
+    let options = run::RunOptions { film, out: Some(out.clone()), window, control };
     let mut worst = 0;
     let mut reports: Vec<Report> = Vec::new();
+    let mut kept = Vec::new();
     for folder in &folders {
-        match run::run_files_with(folder, app::open, &options) {
-            Ok(report) => {
+        match run::run_files_kept(folder, app::open, &options) {
+            Ok((report, inspection)) => {
                 worst = worst.max(report.exit_code());
                 reports.push(report);
+                kept.extend(inspection);
             }
             Err(why) => {
                 eprintln!("{why}");
                 worst = 2;
             }
         }
+        if options.control.as_ref().is_some_and(ravenrs_e2e_runner::window::Control::is_stopped) {
+            break;
+        }
     }
     report::deliver(&reports, ask.path.is_none(), &format, Some(&out));
+    // The report first, then the windows left to look at.
+    for inspection in kept {
+        inspection.hold();
+    }
     worst
 }
 

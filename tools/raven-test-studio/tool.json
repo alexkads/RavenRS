@@ -2,12 +2,13 @@
   "name": "Raven Test Studio",
   "also_called": ["RTS"],
   "package": "raven-test-studio",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "summary": "The end-to-end test tool of RavenRS, RTS for short: a scenario is a flow of blocks run against a RavenRS app with ravenrs-e2e, and the report tells a person or an AI what failed, why, how to fix it and what the screen showed.",
   "when_to_use": [
     "After changing a RavenRS screen or component, to prove it still works from the outside, with real clicks and typing.",
     "When an AI needs a verdict it can act on: the JSON report has a stable code, the meaning, the fix and the screen of each failure.",
-    "To know whether the Studio itself still works: the self-test opens another Studio and tests it."
+    "To know whether the Studio itself still works: the self-test opens another Studio and tests it.",
+    "To watch a scenario run on the app's real window (--headed), at a pace a person can follow, pausing or going one block at a time, and to look at the screen where it failed."
   ],
   "commands": [
     { "command": "raven-test-studio", "does": "Opens the window, with no scenario: a Studio installed from scratch brings none. A scenario shows as a flow, with Rodar, Rodar sem cache, Próximo passo, Delegar ao Codex and Parar, and the log of each block. Delegar ao Codex hands the scenario on the canvas to the Codex CLI (cheapest model, reading only) in a thread of its own: the window keeps answering, Parar ends the agent, the agent's card shows in the log, and the blocks are marked by the Studio's own run of the same scenario, never by what the agent said. With no Codex installed the button is off and the log says why. On opening it tests itself and says so in the status bar. Closing the window keeps it beside the clock, as Raven Finanças does, with a menu that shows how the self-test went, runs it again (Rodar autoteste) and offers an update that is ready (Reiniciar para atualizar); launching it again opens the copy already running." },
@@ -18,6 +19,11 @@
     { "command": "raven-test-studio --run <scenario> --format junit", "does": "The report as JUnit XML, for build servers and test tools: a testsuite per report, a testcase per block with its time, the failure with its stable code in type, and the blocks after it as skipped." },
     { "command": "raven-test-studio --run <scenario> --format html", "does": "The report as one HTML page with nothing from the network: the summary, a table of the blocks with result, time and code, and the failure with its meaning, fix and the app's screen; light and dark, fits a phone. --out also keeps it as relatorio.html." },
     { "command": "raven-test-studio --run <scenario> --film on-failure --out <folder>", "does": "Films the app each Open block opens, over the test channel, and keeps the film of the one a block failed on as <folder>/<scenario>/filme-N.ravenmovie, to open in a MoviePlayer; always keeps every film, never films nothing. The report lists the films (films) and says why an app was not filmed (film_note): an app compiled into the Studio, or one served without filming, is not, and the run goes on. --film needs --out or --project. A run that films does not use the cache." },
+    {"command": "raven-test-studio --run <scenario> --headed", "does": "Runs the same scenario with the app's real window on screen: the app is opened with --e2e-serve --e2e-window, shows its window on its own test data (Raven Finanças: the sample family in memory, never the person's database), and every block acts on the interface the window shows, with the same targets, waits, checks and codes as with no window. The person's mouse and keyboard do not reach the window while the test drives it. An app that cannot show its window, or a Linux with no graphical session, is refused with E2E_NO_WINDOW before any block; with no window stays the default. The report says window: headed and the system it ran on."},
+    {"command": "raven-test-studio --run <scenario> --headed --slow-mo <ms>", "does": "Waits <ms> after each block so a person can follow it. The wait is the tool's, not a step: it has no timeout, and the app's clock stops 0.6 s after each step until the next one, so a notice that a later block checks never expires because the run is slow. The same scenario passes or fails the same way at any pace."},
+    {"command": "raven-test-studio --run <scenario> --headed --step", "does": "Starts paused before the first block; in the terminal, Enter runs exactly one more block, c carries on, p pauses and q stops. Any run with the window can be steered this way when its standard input is a terminal. While paused the window keeps drawing and answering. A stopped run reports the blocks left as not run, stopped: true, and fails."},
+    {"command": "raven-test-studio --run <scenario> --headed --keep-open <never|on-failure|always>", "does": "Leaves the window open at the end (on-failure: only when a block failed), showing the screen as the run left it; the report prints first, then the Studio waits until the person closes the window, and the app ends with it. never, the default, closes it with the run, so nothing waits on a person. Closing the window while the test drives it fails the block waiting with E2E_WINDOW_CLOSED."},
+    {"command": "raven-test-studio --run <scenario> --headless", "does": "No window, even when the project's e2e.toml says window = \"headed\". The command line always wins over e2e.toml (window, slow_mo, keep_open)."},
     { "command": "raven-test-studio --run <scenario> --format jsonl", "does": "The run as one JSON event per line: start, a step per block with its time and result, skipped, and end with the verdict. It is what trace.jsonl keeps." },
     { "command": "raven-test-studio --run <scenario> --out <folder>", "does": "Keeps the run in <folder>/<scenario>/: relatorio.json, trace.jsonl and, when it failed, arvore.txt with the app's screen at that moment (removed by a later pass). With --project it is the project's target/e2e by default, where cargo builds it. Where it kept them goes to stderr, so stdout stays only the report. --format with any other value is refused with exit code 2." },
     { "command": "raven-test-studio --run <scenario> --no-cache", "does": "Runs again even when the cache has the answer." },
@@ -70,7 +76,11 @@
       "cached_at",
       "not_verified",
       "films",
-      "film_note"
+      "film_note",
+      "window",
+      "slow_mo_ms",
+      "platform",
+      "stopped"
     ],
     "block_fields": [
       "step",
@@ -105,7 +115,9 @@
     { "code": "E2E_WIRE", "means": "An app opened apart answered outside the test channel's protocol.", "fix": "Nothing else may write to the app's standard output while it serves." },
     { "code": "E2E_NO_FILM", "means": "The app under test was asked to film and did not: it is served without filming, nothing was being filmed, or the film could not be kept.", "fix": "Serve the app with ravenrs_e2e_wire::serve_filmed and ravenrs_movie::ChannelFilm, or run without filming." },
     { "code": "E2E_NO_FRAME", "means": "The app under test does not provide vector frames, or could not capture its current frame.", "fix": "Serve the app with ravenrs_movie::ChannelFilm to provide single-frame ravenmovie data through Client::frame." },
-    { "code": "E2E_NO_SOURCE", "means": "The target has no declared source location, or source instrumentation is disabled.", "fix": "Enable e2e-source in the app under test and declare the target with test_id. Query it with Client::source." }
+    { "code": "E2E_NO_SOURCE", "means": "The target has no declared source location, or source instrumentation is disabled.", "fix": "Enable e2e-source in the app under test and declare the target with test_id. Query it with Client::source." },
+    {"code": "E2E_NO_WINDOW", "means": "A window was asked for (--headed) and the app cannot show one: it does not support the window on the test channel, or the computer has no graphical session.", "fix": "Run without --headed, or update the app (it serves the window with ravenrs_e2e_wire::Headed and ravenrs::native::run_driven), in a session with a screen."},
+    {"code": "E2E_WINDOW_CLOSED", "means": "The app's window was closed while the test drove it.", "fix": "Leave the window open until the end, or stop the run with q in the terminal."}
   ],
   "cache": "A scenario that did not change, on a build that did not change, comes back at once from ~/Library/Caches/ravenrs/test-studio/runs.json (the user's cache folder on Linux and Windows) and says from_cache. Editing a block or building again runs it again.",
   "ai": {
@@ -124,8 +136,11 @@
   "limits": [
     "Linux and Windows have not been run.",
     "The window delegates to Codex; choosing Claude or a model from the window is not there yet (the command line and the pane take them).",
-    "Comparing a screen with its design board is phase F14 of #627."
+    "Comparing a screen with its design board is phase F14 of #627.",
+    "With the window (--headed), pause, next block, stop and the pace are steered from the terminal; buttons for them in the Studio's window wait for their design (#729).",
+    "With the window, a step that waits holds the window's drawing until it ends; between steps the window draws and animates as usual.",
+    "The window mode was run on macOS; Linux and Windows are pending."
   ],
-  "issues": [627, 632, 634, 637, 643, 658],
+  "issues": [627, 632, 634, 637, 643, 658, 729],
   "blocks_note": "Every step waits up to 2 s for its target to be ready (there, uncovered, enabled, in sight, or a check that holds) before it fails with its own code; the session's clock moves meanwhile, so timers fire and work done in the background shows. Lists with keys give rows the test id row:<key>, a DataGrid with key_column row:<key value>, a TreeView item:<key>, a FlowCanvas node node:<id>."
 }

@@ -1,17 +1,15 @@
 {
-  "versao": "0.1.42",
-  "titulo": "Treinamentos regravados, e o teste pode filmar o app.",
+  "versao": "0.1.43",
+  "titulo": "O teste pode rodar com a janela aberta.",
   "importante": false,
   "novidades": [
-    "Os seis treinamentos foram gravados de novo com a tela de hoje.",
-    "Quando o Raven Test Studio testa o app e um passo falha, ele pode guardar o filme do que aconteceu, para ver como foi."
+    "Quando o Raven Test Studio pede a janela (--headed), o app abre a janela de verdade na família de exemplo em memória e o teste roda nela, à vista. Os seus dados nunca são abertos."
   ],
-  "por_que_atualizar": "Para ver os treinamentos com as telas como estão agora.",
+  "por_que_atualizar": "Para acompanhar na tela os testes do app.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    672,
-    674
+    729
   ]
 }

@@ -48,6 +48,6 @@ An app can add `features = ["e2e-source", "mock-data"]` in `[package.metadata.ra
 
 ## What it does not do
 
-- It does not draw: the app runs with no window and no GPU, so a run proves behaviour, not looks.
+- With no window (the default) it does not draw: the app runs with no GPU, so a run proves behaviour, not looks. `window::Window` with `WindowMode::Headed` (`--headed`) opens the app's real window instead; `window::Control` pauses, runs one more block or stops a run, `Driver::presenting` paces it, and `KeepOpen` leaves the window open at the end (`Driver::inspection`). `Config::window_from` reads the command line over `e2e.toml`.
 - Project discovery does not build anything. The first Open block builds a source app; installed and explicit binaries are never rebuilt.
 - Linux and Windows have not been run yet ([#636](https://github.com/alexkads/RavenRS/issues/636)).
