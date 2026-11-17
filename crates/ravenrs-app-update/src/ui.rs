@@ -89,6 +89,9 @@ pub fn day_label(iso: &str) -> Option<String> {
         .then(|| format!("{day}/{month}/{year}"))
 }
 
+/// How the app opens a local file with the system.
+type OpenFile = Rc<dyn Fn(&Path)>;
+
 /// The "Novidades" dialog and, when an update failed, its details: whether they are open and on
 /// which version. Clone it freely; the copies are the same dialog.
 #[derive(Clone)]
@@ -96,7 +99,7 @@ pub struct NewsDialog {
     open: State<bool>,
     at: State<usize>,
     details: State<bool>,
-    open_file: Option<Rc<dyn Fn(&Path)>>,
+    open_file: Option<OpenFile>,
 }
 
 impl std::fmt::Debug for NewsDialog {
