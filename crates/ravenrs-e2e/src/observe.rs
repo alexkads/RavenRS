@@ -1,4 +1,4 @@
-//! Watching a session as it runs: what a film of a test needs (`ravenrs-movie`'s `TestFilm`),
+//! Watching a session as it runs: what a film of a test needs (`ravenrs-movie`'s `SessionFilm`),
 //! and nothing a test that does not watch pays for.
 
 use ravenrs_core::{Color, Point, Primitive, Size};
@@ -31,7 +31,6 @@ impl E2e {
     /// Tells `observer` about everything the session draws and does from now on, starting with
     /// the frame on the screen; it replaces any other.
     pub fn observe(&mut self, mut observer: Box<dyn FrameObserver>) {
-        observer.pointer(self.pointer);
         observer.frame(self.ui.scene().primitives());
         self.observer = Some(observer);
     }
@@ -80,5 +79,64 @@ impl E2e {
         if let Some(observer) = &mut self.observer {
             observer.key();
         }
+    }
+}
+
+/// Input as raw as a platform's, for whoever scripts a session step by step, such as
+/// `ravenrs-movie`'s `Recorder`, which paces a training as a person would: each call sends one
+/// event, tells the observer and draws what follows, with no checks on what is under it.
+impl E2e {
+    /// Moves the pointer to `at`.
+    pub fn pointer_to(&mut self, at: Point) {
+        self.move_to(at);
+    }
+
+    /// Presses the primary button at `at`.
+    pub fn mouse_down(&mut self, at: Point) {
+        self.pointer = at;
+        self.observed_click(at);
+        self.send(&ravenrs_core::Event::PointerDown {
+            position: at,
+            button: ravenrs_core::PointerButton::Primary,
+        });
+    }
+
+    /// Lets go of the primary button at `at`.
+    pub fn mouse_up(&mut self, at: Point) {
+        self.pointer = at;
+        self.send(&ravenrs_core::Event::PointerUp {
+            position: at,
+            button: ravenrs_core::PointerButton::Primary,
+        });
+    }
+
+    /// Presses `key` with `modifiers`, without letting it go.
+    pub fn key_down(&mut self, key: ravenrs_core::Key, modifiers: ravenrs_core::Modifiers) {
+        self.observed_key();
+        self.send(&ravenrs_core::Event::KeyDown { key, modifiers });
+    }
+
+    /// Turns the wheel by `delta` over `at`.
+    pub fn scroll_at(&mut self, at: Point, delta: Point) {
+        self.send(&ravenrs_core::Event::Scroll { position: at, delta });
+    }
+
+    /// Gives the keyboard focus to the node `id` of the tree, as assistive technology does.
+    pub fn focus(&mut self, id: u64) {
+        self.ui.perform_action(id, ravenrs_core::AccessAction::Focus);
+        self.frame();
+    }
+
+    /// Draws one frame at `seconds` on the session's clock, which only moves forward: what a
+    /// script that keeps its own pace calls once per frame of its film.
+    pub fn frame_at(&mut self, seconds: f64) {
+        self.clock = self.clock.max(seconds);
+        self.ui.set_time(self.clock);
+        self.frame();
+    }
+
+    /// Every node `query` finds, in reading order.
+    pub fn find_all(&self, query: &crate::Query) -> crate::E2eResult<Vec<ravenrs_core::AccessNode>> {
+        Ok(self.candidates(query)?.into_iter().cloned().collect())
     }
 }

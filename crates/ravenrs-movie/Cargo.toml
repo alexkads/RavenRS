@@ -21,7 +21,7 @@ live = ["dep:ravenrs-live", "ravenrs-widgets/live"]
 ravenrs-live = { workspace = true, optional = true }
 ravenrs-app-i18n.workspace = true
 ravenrs-core.workspace = true
-# Films an end-to-end test session (TestFilm), and the app's session over the test channel.
+# Films an end-to-end session (SessionFilm, Recorder), and an app's session over the test channel.
 ravenrs-e2e.workspace = true
 ravenrs-e2e-wire.workspace = true
 ravenrs-layout.workspace = true

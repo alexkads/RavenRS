@@ -1,11 +1,13 @@
 //! Records a film by running the real app from a script, with no window.
 
-use ravenrs_core::{AccessAction, AccessNode, Event, Key, Modifiers, Point, PointerButton, Role, Size};
+use ravenrs_core::{AccessNode, Key, Modifiers, Point, Role, Size};
+use ravenrs_e2e::{E2e, Query};
 use ravenrs_style::Theme;
 use ravenrs_widgets::{Ui, View};
 
-use crate::movie::{FilmBuilder, Hotspot, HotspotKind, Movie, MovieError};
+use crate::movie::{Hotspot, HotspotKind, Movie, MovieError};
 use crate::narration::Narration;
+use crate::session_film::{Pace, SessionFilm};
 
 const FRAME: f64 = 1.0 / 30.0;
 /// How fast the pointer travels, in logical pixels a second, and its limits.
@@ -65,11 +67,13 @@ fn reading_seconds(title: &str, text: &str) -> f64 {
 #[derive(Debug)]
 #[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct Recorder {
-    ui: Ui,
+    /// The app, driven as a test drives it: the same session, finding and input as `ravenrs-e2e`.
+    e2e: E2e,
     clock: f64,
     pointer: Point,
     logical: Size,
-    film: FilmBuilder,
+    /// The film, at a person's pace: the same writer a test films with.
+    film: SessionFilm,
     narration: Option<Narration>,
 }
 
@@ -77,17 +81,15 @@ pub struct Recorder {
 impl Recorder {
     /// Films `root` in a window of `size`.
     pub fn new(root: impl View + 'static, theme: Theme, size: Size) -> Self {
-        let mut ui = Ui::new(root, theme);
-        ui.set_viewport(size, 1.0);
-        ui.set_time(0.0);
-        ui.update();
-        let background = ui.scene().clear_color();
+        let mut e2e = E2e::new(root, theme).viewport(size, 1.0);
+        e2e.frame_at(0.0);
+        let film = SessionFilm::start(&mut e2e, Pace::Person);
         let mut recorder = Self {
-            ui,
+            e2e,
             clock: 0.0,
             pointer: Point::new(size.width / 2.0, size.height / 2.0),
             logical: size,
-            film: FilmBuilder::new(size, background),
+            film,
             narration: None,
         };
         recorder.tick();
@@ -118,45 +120,49 @@ impl Recorder {
         (self.clock * 1000.0) as u64
     }
 
-    /// Advances the clock by one frame and notes what the app draws.
+    /// Advances the clock by one frame and films what the app draws.
     fn tick(&mut self) {
         self.clock += FRAME;
-        self.ui.set_time(self.clock);
-        self.ui.update();
-        let at = self.milliseconds();
-        self.film.frame(at, self.ui.scene().primitives());
+        self.film.at(self.milliseconds());
+        self.e2e.frame_at(self.clock);
     }
 
+    /// What is called `name`, found as a test finds it: `#id` by its test id, a text by the
+    /// exact name, and, when that is not one thing, what a person would reach for: the one
+    /// that takes input first, then a name that starts with it.
     fn find(&mut self, name: &str) -> Result<AccessNode, RecordError> {
-        let tree = self.ui.access_tree();
-        // `#id` is a test id, as `ravenrs-e2e` reads a target: the same script runs as a test.
-        if let Some(id) = name.strip_prefix('#') {
-            return tree.nodes.iter().find(|n| n.test_id.as_deref() == Some(id.trim())).cloned().ok_or_else(
-                || RecordError::NotOnScreen {
-                    name: name.to_owned(),
-                    available: tree
-                        .nodes
-                        .iter()
-                        .filter_map(|n| n.test_id.as_ref().map(|t| format!("#{t}")))
-                        .collect(),
-                },
-            );
-        }
-        let named = |n: &&AccessNode| n.name.as_deref() == Some(name);
-        let starts = |n: &&AccessNode| n.name.as_deref().is_some_and(|text| text.starts_with(name));
-        let interactive =
-            |n: &&AccessNode| n.focusable || n.role == Role::Button || n.role == Role::TextInput;
-        let found = tree
-            .nodes
-            .iter()
-            .find(|n| named(n) && interactive(n))
-            .or_else(|| tree.nodes.iter().find(|n| named(n)))
-            .or_else(|| tree.nodes.iter().find(|n| starts(n) && interactive(n)))
-            .or_else(|| tree.nodes.iter().find(|n| starts(n)));
-        found.cloned().ok_or_else(|| RecordError::NotOnScreen {
+        let not_found = |e2e: &E2e, ids: bool| RecordError::NotOnScreen {
             name: name.to_owned(),
-            available: tree.nodes.iter().filter(|n| n.focusable).filter_map(|n| n.name.clone()).collect(),
-        })
+            available: e2e
+                .tree()
+                .nodes
+                .iter()
+                .filter_map(|n| {
+                    if ids {
+                        n.test_id.as_ref().map(|t| format!("#{t}"))
+                    } else {
+                        n.name.clone().filter(|_| n.focusable)
+                    }
+                })
+                .collect(),
+        };
+        if let Some(id) = name.strip_prefix('#') {
+            return self.e2e.find(&Query::test_id(id.trim())).map_err(|_| not_found(&self.e2e, true));
+        }
+        let interactive = |n: &AccessNode| n.focusable || n.role == Role::Button || n.role == Role::TextInput;
+        let exact = self.e2e.find_all(&Query::text(name)).unwrap_or_default();
+        if let Some(found) = exact.iter().find(|n| interactive(n)).or_else(|| exact.first()) {
+            return Ok(found.clone());
+        }
+        let starts = |n: &&AccessNode| n.name.as_deref().is_some_and(|text| text.starts_with(name));
+        let nodes = &self.e2e.tree().nodes;
+        nodes
+            .iter()
+            .filter(starts)
+            .find(|n| interactive(n))
+            .or_else(|| nodes.iter().find(starts))
+            .cloned()
+            .ok_or_else(|| not_found(&self.e2e, false))
     }
 
     /// Lets the film run with nothing happening.
@@ -170,7 +176,7 @@ impl Recorder {
 
     /// Starts a chapter here.
     pub fn chapter(&mut self, title: &str, text: &str) -> &mut Self {
-        self.film.chapter(title, text, self.milliseconds());
+        self.film.chapter(title, text);
         self
     }
 
@@ -208,7 +214,7 @@ impl Recorder {
         let distance = (target.x - start.x).hypot(target.y - start.y);
         let travel = f64::from(distance / POINTER_SPEED).clamp(POINTER_TRAVEL.0, POINTER_TRAVEL.1);
         let begin = self.clock;
-        self.film.pointer(self.milliseconds(), start);
+        self.e2e.pointer_to(start);
         while self.clock - begin < travel {
             let t = ((self.clock - begin) / travel) as f32;
             let progress = t * t * (3.0 - 2.0 * t);
@@ -216,13 +222,11 @@ impl Recorder {
                 start.x + (target.x - start.x) * progress,
                 start.y + (target.y - start.y) * progress,
             );
-            self.film.pointer(self.milliseconds(), self.pointer);
-            self.ui.handle_event(&Event::PointerMove { position: self.pointer });
+            self.e2e.pointer_to(self.pointer);
             self.tick();
         }
         self.pointer = target;
-        self.film.pointer(self.milliseconds(), target);
-        self.ui.handle_event(&Event::PointerMove { position: target });
+        self.e2e.pointer_to(target);
         self.tick();
         Ok(self)
     }
@@ -231,10 +235,9 @@ impl Recorder {
     pub fn click(&mut self, name: &str) -> Result<&mut Self, RecordError> {
         self.move_to(name)?;
         let position = self.pointer;
-        self.film.click(self.milliseconds(), position);
-        self.ui.handle_event(&Event::PointerDown { position, button: PointerButton::Primary });
+        self.e2e.mouse_down(position);
         self.tick();
-        self.ui.handle_event(&Event::PointerUp { position, button: PointerButton::Primary });
+        self.e2e.mouse_up(position);
         Ok(self.wait(0.5))
     }
 
@@ -243,7 +246,7 @@ impl Recorder {
         self.click(name)?;
         // A click on a field in a dialog can land on its label: the keyboard has to get there.
         let id = self.find(name)?.id;
-        self.ui.perform_action(id, AccessAction::Focus);
+        self.e2e.focus(id);
         for character in text.chars() {
             self.press(Key::Character(character.to_string()));
             self.wait(SECONDS_PER_LETTER);
@@ -253,8 +256,7 @@ impl Recorder {
 
     /// Presses a key.
     pub fn press(&mut self, key: Key) -> &mut Self {
-        self.film.key(self.milliseconds());
-        self.ui.handle_event(&Event::KeyDown { key, modifiers: Modifiers::default() });
+        self.e2e.key_down(key, Modifiers::default());
         self.tick();
         self
     }
@@ -265,7 +267,7 @@ impl Recorder {
         const STEPS: u16 = 15;
         for _ in 0..STEPS {
             let delta = Point::new(0.0, -pixels / f32::from(STEPS));
-            self.ui.handle_event(&Event::Scroll { position: self.pointer, delta });
+            self.e2e.scroll_at(self.pointer, delta);
             self.tick();
         }
         self.wait(0.3)
@@ -325,12 +327,17 @@ impl Recorder {
 
     /// The UI being filmed, for what a script cannot say by name.
     pub fn ui_mut(&mut self) -> &mut Ui {
-        &mut self.ui
+        self.e2e.ui_mut()
+    }
+
+    /// The session being filmed, to reach a part as a test does.
+    pub fn e2e_mut(&mut self) -> &mut E2e {
+        &mut self.e2e
     }
 
     /// Ends the recording.
-    pub fn finish(self) -> Result<Movie, RecordError> {
+    pub fn finish(mut self) -> Result<Movie, RecordError> {
         let duration = self.milliseconds();
-        Ok(self.film.finish(duration)?)
+        Ok(self.film.finish(&mut self.e2e, duration)?)
     }
 }

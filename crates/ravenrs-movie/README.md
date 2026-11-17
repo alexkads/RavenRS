@@ -75,4 +75,11 @@ controls, and `SocialFrame`, the same moment laid out for a phone screen with th
 film. `Movie::following` brings the camera close to each spot explained, and `Soundtrack` gives
 the whole sound as samples. The `ravenrs-movie-video` crate turns these into a video file.
 
-**Films of tests.** `TestFilm::start(&mut e2e)` films a [`ravenrs-e2e`](../ravenrs-e2e) session as the test runs, and `finish` gives the `Movie`. It goes at a test's pace: each frame the session draws lasts a thirtieth of a second, the pointer jumps, and each step marked with `E2e::mark_step` becomes a chapter. Nothing comes from the wall clock, so two runs give the same bytes, and a protected field stays hidden as the session draws it. An app opened apart films its own session over the test channel when it is served with `ravenrs_e2e_wire::serve_filmed(hello, session, ChannelFilm::default())`: the tool sends `Film { path }` and `FilmStop`, and the app keeps the `.ravenmovie` there. A `Recorder` script finds `#test-id` as a test does, so a training and a test name parts the same way.
+**One film writer for every purpose.** `SessionFilm` is how every film is made from what an app draws and does:
+
+- a test films its [`ravenrs-e2e`](../ravenrs-e2e) session with `SessionFilm::start(&mut e2e, Pace::Test)`: each frame lasts a thirtieth of a second, the pointer jumps, and each step marked with `E2e::mark_step` becomes a chapter;
+- the `Recorder` drives the same kind of session at a person's pace (`Pace::Person`), with the pointer gliding, letters one at a time, boxes and voice. It finds parts as a test does: `#id` by test id, a text by its exact name, and only then the one that takes input, or a name that starts with it;
+- the `FlightRecorder` feeds it what the running app paints, at the app's clock (`SessionFilm::new`, `at`, `frame`, `movie`), for a bug report;
+- an app opened apart films its own session over the test channel with `ravenrs_e2e_wire::serve_filmed(hello, session, ChannelFilm::default())`.
+
+Nothing comes from the wall clock in a test or a training, so two runs give the same bytes. A protected field stays hidden as the session draws it. A frame drawn at the moment of the last one takes its place, since a player shows one picture per moment.

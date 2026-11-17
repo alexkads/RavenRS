@@ -14,9 +14,9 @@ mod player;
 mod project;
 mod record;
 mod search;
+mod session_film;
 mod social;
 mod soundtrack;
-mod test_film;
 // What the generated registrations name views as.
 #[cfg(feature = "live")]
 #[allow(unused_imports)]
@@ -36,9 +36,9 @@ pub use project::{
 };
 pub use record::{RecordError, Recorder};
 pub use search::{Answer, Moment, MomentKind, MovieLibrary};
+pub use session_film::{ChannelFilm, Pace, SessionFilm};
 pub use social::SocialFrame;
 pub use soundtrack::Soundtrack;
-pub use test_film::{ChannelFilm, TestFilm};
 
 /// Registers this crate's types with a playground's interpreter (feature `live`).
 #[cfg(feature = "live")]
