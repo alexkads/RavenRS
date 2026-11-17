@@ -25,6 +25,33 @@ fn broken() -> Report {
     run_named(&kept("quebrado.raventest"), None).unwrap()
 }
 
+#[test]
+fn a_wait_timeout_does_not_claim_the_app_stopped_and_keeps_its_details() {
+    use ravenrs_e2e_wire::{Client, Command as WireCommand};
+    let mut process = Command::new(env!("CARGO_BIN_EXE_raven-test-studio"));
+    process.arg("--e2e-serve");
+    let mut client = Client::spawn(process, std::time::Duration::from_secs(20)).unwrap();
+    let failure =
+        client.send(&WireCommand::Wait { target: "#never-created".into(), text: None }).unwrap_err();
+    assert_eq!(failure.code, "E2E_TIMEOUT");
+    let detail = failure.message.clone();
+    let screen = failure.screen.clone();
+    assert!(!screen.is_empty());
+    assert!(
+        client.send(&WireCommand::Snapshot).unwrap().is_some(),
+        "a condition timeout leaves the app alive"
+    );
+    let report = Report::refused_with("Wait", "Studio", failure.into());
+    assert!(!report.text().contains("encerrado"), "{}", report.text());
+    let json = report.json();
+    assert_eq!(json["blocks"][0]["code"], "E2E_TIMEOUT");
+    assert_eq!(json["blocks"][0]["detail"], detail);
+    assert_eq!(json["blocks"][0]["screen"], screen);
+    let junit = Report::junit(&[report]);
+    assert!(junit.contains("type=\"E2E_TIMEOUT\""));
+    assert!(!junit.contains("encerrado"), "{junit}");
+}
+
 /// `report` as if every block of it had passed.
 fn passed(report: &Report) -> Report {
     let mut good = report.clone();

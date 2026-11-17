@@ -139,8 +139,10 @@ fn in_portuguese(code: &str) -> (&'static str, Option<&'static str>) {
             ),
         ),
         "E2E_TIMEOUT" => (
-            "o app testado não respondeu a tempo e foi encerrado",
-            Some("confira se o passo abre algo que espera por quem usa, como um diálogo do sistema"),
+            "o passo excedeu o tempo limite",
+            Some(
+                "confira no detalhe se a condição esperada não ficou pronta ou se o canal deixou de responder",
+            ),
         ),
         "E2E_WIRE" => ("o app testado respondeu fora do protocolo do canal de teste", None),
         "E2E_NO_FILM" => (
