@@ -194,6 +194,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- The aggregated HTML report links to each film's real file URL, so equal film names in different scenario folders no longer collide. Saved per-scenario pages keep portable relative links; file URL escaping handles spaces, Unicode and `#`. ([#690](https://github.com/alexkads/RavenRS/issues/690))
 - The public API snapshot includes the e2e drivers already delivered in F3, so the local gate no longer reports them as unexpected additions. ([#684](https://github.com/alexkads/RavenRS/issues/684))
 - `cargo ravenrs e2e rust`: generated test names have a `scenario_` prefix, so titles such as `type`, `self`, `open` and `step` compile without reserved words or collisions with the generated helpers. ([#678](https://github.com/alexkads/RavenRS/issues/678))
 - Raven Test Studio and `cargo ravenrs e2e run`: a relative `--out` keeps the film beside the report even when the app under test runs in another project's folder. ([#676](https://github.com/alexkads/RavenRS/issues/676))

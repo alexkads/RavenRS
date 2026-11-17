@@ -6,6 +6,15 @@ use crate::report::Report;
 
 /// `reports` as one self-contained page.
 pub fn page(reports: &[Report]) -> String {
+    render(reports, None)
+}
+
+/// A page kept in `folder`, so films beside it can have portable relative links.
+pub(crate) fn page_in(reports: &[Report], folder: &std::path::Path) -> String {
+    render(reports, Some(folder))
+}
+
+fn render(reports: &[Report], folder: Option<&std::path::Path>) -> String {
     let passed = reports.iter().filter(|r| r.passed()).count();
     let blocks: usize = reports.iter().map(|r| r.total).sum();
     let ms: u64 = reports.iter().map(|r| r.duration_ms).sum();
@@ -19,7 +28,7 @@ pub fn page(reports: &[Report]) -> String {
         seconds(ms)
     );
     for report in reports {
-        body.push_str(&scenario(report));
+        body.push_str(&scenario(report, folder));
     }
     if let Some(report) = reports.first() {
         body.push_str("<footer><h2>Não verificado</h2><ul>");
@@ -35,7 +44,7 @@ pub fn page(reports: &[Report]) -> String {
     )
 }
 
-fn scenario(report: &Report) -> String {
+fn scenario(report: &Report, folder: Option<&std::path::Path>) -> String {
     let state = if report.passed() { "passed" } else { "failed" };
     let mut out = format!(
         "<section class=\"{state}\"><h2>{}</h2><p class=\"summary\">{} · {}{}</p>\
@@ -92,15 +101,17 @@ fn scenario(report: &Report) -> String {
     if !report.films.is_empty() || report.film_note.is_some() {
         out.push_str("<div class=\"films\"><h3>Filme</h3><ul>");
         for film in &report.films {
-            // The film sits beside the page, in the same folder, when the run was kept.
             let name = std::path::Path::new(film)
                 .file_name()
                 .map_or_else(|| film.clone(), |n| n.to_string_lossy().into_owned());
-            out.push_str(&format!(
-                "<li><a href=\"{}\">{}</a> <small>abre no MoviePlayer</small></li>",
-                esc(&name),
-                esc(&name)
-            ));
+            match film_href(film, folder) {
+                Some(href) => out.push_str(&format!(
+                    "<li><a href=\"{}\">{}</a> <small>abre no MoviePlayer</small></li>",
+                    esc(&href),
+                    esc(&name)
+                )),
+                None => out.push_str(&format!("<li>{} <small>caminho indisponível</small></li>", esc(film))),
+            }
         }
         if let Some(note) = &report.film_note {
             out.push_str(&format!("<li>{}</li>", esc(note)));
@@ -109,6 +120,21 @@ fn scenario(report: &Report) -> String {
     }
     out.push_str("</section>");
     out
+}
+
+fn film_href(film: &str, folder: Option<&std::path::Path>) -> Option<String> {
+    // Existing symlinks resolve to the real file; a missing old artifact still gets a path.
+    let path = std::fs::canonicalize(film).or_else(|_| std::path::absolute(film)).ok()?;
+    let url = url::Url::from_file_path(&path).ok()?;
+    if let Some(folder) = folder
+        && let Ok(folder) = std::fs::canonicalize(folder).or_else(|_| std::path::absolute(folder))
+        && path.parent() == Some(folder.as_path())
+        && let Ok(base) = url::Url::from_directory_path(folder)
+        && let Some(relative) = base.make_relative(&url)
+    {
+        return Some(relative);
+    }
+    Some(url.into())
 }
 
 /// Text that goes inside an element or an attribute.

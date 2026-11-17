@@ -79,6 +79,8 @@ raven-test-studio --project ~/meu-app --run-all --film on-failure --out target/e
 
 The same film modes work with `cargo ravenrs e2e run`; its `e2e.toml` can set `film = "on-failure"` when the command line does not give `--film`.
 
+The aggregated `--format html` output links to each film's local file URL. A saved `relatorio.html` beside its film uses a relative link, so moving the scenario's folder keeps it working.
+
 Source apps compile before they open the test channel. A build error is `E2E_APP_BUILD`, with the Rust diagnostic, source file and line in the report; a compiled app that does not open its channel is `E2E_APP_START`. The build has up to 15 minutes, with process-group cleanup on timeout; the app then has 20 seconds to open the channel. Installed and explicit binaries are not rebuilt.
 
 **Where the scenarios live**

@@ -49,6 +49,55 @@ fn a_kept_run_has_its_page() {
     let _ = std::fs::remove_dir_all(&out);
 }
 
+#[test]
+fn aggregate_film_links_find_each_file_and_saved_pages_remain_portable() {
+    let root = std::env::temp_dir().join(format!("rts-html-links-{}", std::process::id()));
+    let out = root.join("suíte # & anexos");
+    let reports: Vec<_> = ["One", "Two"]
+        .into_iter()
+        .map(|name| {
+            let folder = out.join(name);
+            std::fs::create_dir_all(&folder).unwrap();
+            let film = folder.join("filme-1.ravenmovie");
+            std::fs::write(&film, b"a film attachment").unwrap();
+            let mut report = failed();
+            report.scenario = name.to_owned();
+            report.films = vec![film.to_string_lossy().into_owned()];
+            report
+        })
+        .collect();
+    let hrefs = |html: &str| -> Vec<String> {
+        html.split("href=\"")
+            .skip(1)
+            .map(|part| part.split('"').next().unwrap().replace("&amp;", "&"))
+            .collect()
+    };
+    let aggregate = report::render(&reports, true, "html");
+    let links = hrefs(&aggregate);
+    assert_eq!(links.len(), 2);
+    assert_ne!(links[0], links[1], "equal film names in different folders need different links");
+    for (link, report) in links.iter().zip(&reports) {
+        assert!(link.contains("%20") && link.contains("%23"), "{link}");
+        let url = url::Url::parse(link).unwrap();
+        assert_eq!(url.scheme(), "file");
+        assert_eq!(url.fragment(), None);
+        assert_eq!(url.query(), None);
+        assert_eq!(url.to_file_path().unwrap(), std::fs::canonicalize(&report.films[0]).unwrap());
+    }
+    let saved = reports[0].save(&out).unwrap();
+    let page = std::fs::read_to_string(saved.join("relatorio.html")).unwrap();
+    let links = hrefs(&page);
+    assert_eq!(links, ["filme-1.ravenmovie"]);
+    let moved = root.join("moved");
+    std::fs::rename(saved, &moved).unwrap();
+    let base = url::Url::from_directory_path(&moved).unwrap();
+    assert!(
+        base.join(&links[0]).unwrap().to_file_path().unwrap().is_file(),
+        "the page and film can move together"
+    );
+    std::fs::remove_dir_all(root).unwrap();
+}
+
 /// Every `.raventest` file kept in the repository.
 fn every_scenario() -> Vec<PathBuf> {
     let root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");

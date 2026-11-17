@@ -22,6 +22,8 @@ serde_json.workspace = true
 regex-lite.workspace = true
 # Reads e2e.toml.
 toml_edit = "0.22"
+# Local file URLs for film links, including Unicode/escaping and platform path rules.
+url = { version = "2.5", features = ["std"] }
 
 [dev-dependencies]
 serde_json.workspace = true

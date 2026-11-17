@@ -358,7 +358,7 @@ impl Report {
         let json = serde_json::to_string_pretty(&self.json()).unwrap_or_default();
         std::fs::write(dir.join("relatorio.json"), json + "\n")?;
         std::fs::write(dir.join("trace.jsonl"), self.trace())?;
-        std::fs::write(dir.join("relatorio.html"), crate::html::page(std::slice::from_ref(self)))?;
+        std::fs::write(dir.join("relatorio.html"), crate::html::page_in(std::slice::from_ref(self), &dir))?;
         let tree = dir.join("arvore.txt");
         match self.failure().and_then(|f| f.screen.as_ref()) {
             Some(screen) => std::fs::write(&tree, format!("{screen}\n"))?,

@@ -23,6 +23,8 @@ Around it:
 
 The first block that fails stops the run, and the blocks after it are reported as not run.
 
+The aggregated HTML output uses local file URLs for films, so different scenarios can keep the same film filename and the page can be saved anywhere. A `relatorio.html` saved beside its film uses a relative link, so the folder can be moved together. The `url` crate handles platform file paths and escaping; generating these links makes no network request.
+
 ## Using it
 
 ```rust,no_run
