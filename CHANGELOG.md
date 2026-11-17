@@ -6,6 +6,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Breaking
 
+- `ravenrs-e2e-runner::app::scenarios` (also reexported by the Studio) returns `Box<session::Failure>` instead of `String` on failure, preserving the same typed diagnostics as the app opener. ([#692](https://github.com/alexkads/RavenRS/issues/692))
 - `ravenrs-e2e-runner::app::App` has a `features` field for source test builds; field-by-field literals need it (`..App::default()` keeps Cargo defaults). ([#687](https://github.com/alexkads/RavenRS/issues/687))
 - `ravenrs-e2e-wire`: `Command` has `Source { target }`, and `Reply` has an optional `source` field; exhaustive matches and field-by-field reply literals need updating. ([#685](https://github.com/alexkads/RavenRS/issues/685))
 - `ravenrs-e2e-wire`: `Command` has `Frame`, and `Reply` has an optional `frame` field. Exhaustive matches and field-by-field reply literals need updating. Existing `Filming` implementations keep compiling through the default frame method. ([#683](https://github.com/alexkads/RavenRS/issues/683))
@@ -194,6 +195,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- Raven Test Studio: preflight of an app's embedded scenarios (`--run financas`) preserves build/start error codes, details and fixes in JSON and JUnit, just as running scenario files does. Malformed embedded scenarios remain parse errors. ([#692](https://github.com/alexkads/RavenRS/issues/692))
 - The aggregated HTML report links to each film's real file URL, so equal film names in different scenario folders no longer collide. Saved per-scenario pages keep portable relative links; file URL escaping handles spaces, Unicode and `#`. ([#690](https://github.com/alexkads/RavenRS/issues/690))
 - The public API snapshot includes the e2e drivers already delivered in F3, so the local gate no longer reports them as unexpected additions. ([#684](https://github.com/alexkads/RavenRS/issues/684))
 - `cargo ravenrs e2e rust`: generated test names have a `scenario_` prefix, so titles such as `type`, `self`, `open` and `step` compile without reserved words or collisions with the generated helpers. ([#678](https://github.com/alexkads/RavenRS/issues/678))
