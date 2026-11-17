@@ -174,6 +174,11 @@ pub enum Command {
     FilmStop,
     /// The current vector frame, in [`Reply::frame`], encoded as a single-frame `.ravenmovie`.
     Frame,
+    /// Where the target's test id was declared, in [`Reply::source`].
+    Source {
+        /// `#id` for a test id, or the accessible text.
+        target: String,
+    },
     /// The screen as text, as [`E2e::snapshot`] writes it.
     Snapshot,
     /// Ends the session; the app exits.
@@ -205,6 +210,9 @@ impl Command {
             Self::Snapshot => return Ok(Some(e2e.snapshot())),
             Self::Frame => {
                 return Err(Failure::of(codes::NO_FRAME, "this app is served without vector frames"));
+            }
+            Self::Source { .. } => {
+                return Err(Failure::of(codes::WIRE, "use E2e::source for an in-process source query"));
             }
             Self::Film { .. } | Self::FilmStop => {
                 return Err(Failure::of(codes::NO_FILM, "this app is served without filming"));
@@ -270,7 +278,8 @@ impl Command {
             | Self::Bye
             | Self::Film { .. }
             | Self::FilmStop
-            | Self::Frame => Ok(()),
+            | Self::Frame
+            | Self::Source { .. } => Ok(()),
         }
     }
 }
@@ -321,6 +330,24 @@ impl std::fmt::Display for Failure {
 
 impl std::error::Error for Failure {}
 
+/// The source location transported across the channel. The app only copies the static
+/// declaration path when asked; its ordinary accessibility tree carries no source metadata.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Source {
+    /// The file path as recorded by the Rust compiler.
+    pub file: String,
+    /// The one-based line.
+    pub line: u32,
+    /// The one-based column.
+    pub column: u32,
+}
+
+impl From<&std::panic::Location<'_>> for Source {
+    fn from(location: &std::panic::Location<'_>) -> Self {
+        Self { file: location.file().to_owned(), line: location.line(), column: location.column() }
+    }
+}
+
 /// The app's answer to one command.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Reply {
@@ -332,6 +359,9 @@ pub struct Reply {
     /// The current vector frame, a single-frame `.ravenmovie`, for [`Command::Frame`].
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub frame: Option<Vec<u8>>,
+    /// The declared source location, for [`Command::Source`].
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<Source>,
     /// Why it failed, when it did.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failure: Option<Failure>,
@@ -351,6 +381,18 @@ impl Reply {
         Self { ok: true, frame: Some(bytes), ..Self::default() }
     }
 
+    /// A successful source-location reply.
+    pub fn source(source: Source) -> Self {
+        Self { ok: true, source: Some(source), ..Self::default() }
+    }
+
+    /// The declared source location, preserving a query failure or refusing an empty reply.
+    pub fn into_source(mut self) -> Result<Source, Failure> {
+        let source = self.source.take();
+        self.into_result()?;
+        source.ok_or_else(|| Failure::of(codes::WIRE, "the app answered without a source location"))
+    }
+
     /// The vector frame, or the app's failure. A successful reply without a frame is a
     /// protocol error, so an unavailable preview never looks like an empty screen.
     pub fn into_frame(mut self) -> Result<Vec<u8>, Failure> {
@@ -364,6 +406,9 @@ impl Reply {
         if self.ok {
             if self.frame.is_some() {
                 return Err(Failure::of(codes::WIRE, "use Client::frame to receive a vector frame"));
+            }
+            if self.source.is_some() {
+                return Err(Failure::of(codes::WIRE, "use Client::source to receive a source location"));
             }
             Ok(self.snapshot)
         } else {

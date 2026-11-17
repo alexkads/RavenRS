@@ -104,7 +104,8 @@
     { "code": "E2E_TIMEOUT", "means": "A wait block ran out of time, or an app opened apart did not answer a step in time and was ended.", "fix": "Read the screen in the report to see what it was waiting for; check whether the step opens something that waits for a person, such as a system dialog." },
     { "code": "E2E_WIRE", "means": "An app opened apart answered outside the test channel's protocol.", "fix": "Nothing else may write to the app's standard output while it serves." },
     { "code": "E2E_NO_FILM", "means": "The app under test was asked to film and did not: it is served without filming, nothing was being filmed, or the film could not be kept.", "fix": "Serve the app with ravenrs_e2e_wire::serve_filmed and ravenrs_movie::ChannelFilm, or run without filming." },
-    { "code": "E2E_NO_FRAME", "means": "The app under test does not provide vector frames, or could not capture its current frame.", "fix": "Serve the app with ravenrs_movie::ChannelFilm to provide single-frame ravenmovie data through Client::frame." }
+    { "code": "E2E_NO_FRAME", "means": "The app under test does not provide vector frames, or could not capture its current frame.", "fix": "Serve the app with ravenrs_movie::ChannelFilm to provide single-frame ravenmovie data through Client::frame." },
+    { "code": "E2E_NO_SOURCE", "means": "The target has no declared source location, or source instrumentation is disabled.", "fix": "Enable e2e-source in the app under test and declare the target with test_id. Query it with Client::source." }
   ],
   "cache": "A scenario that did not change, on a build that did not change, comes back at once from ~/Library/Caches/ravenrs/test-studio/runs.json (the user's cache folder on Linux and Windows) and says from_cache. Editing a block or building again runs it again.",
   "ai": {

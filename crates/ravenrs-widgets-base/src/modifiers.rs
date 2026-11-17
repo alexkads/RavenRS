@@ -69,8 +69,15 @@ pub trait ViewExt: View + Sized {
     /// `Button::new("Save").test_id("save")`. The id stays the same when the screen around the
     /// view is reordered or wrapped, is not read by screen readers, and becomes `data-testid`
     /// on the web; see [`BuildCx::test_id`] and [`TestId`].
+    /// With `e2e-source`, also keeps this call site's file, line and column for source queries.
+    #[cfg_attr(feature = "e2e-source", track_caller)]
     fn test_id(self, id: impl Into<String>) -> TestId<Self> {
-        TestId { content: self, id: id.into() }
+        TestId {
+            content: self,
+            id: id.into(),
+            #[cfg(feature = "e2e-source")]
+            source: std::panic::Location::caller(),
+        }
     }
 }
 
@@ -79,12 +86,16 @@ pub trait ViewExt: View + Sized {
 pub struct TestId<V> {
     content: V,
     id: String,
+    #[cfg(feature = "e2e-source")]
+    source: &'static std::panic::Location<'static>,
 }
 
 impl<V: View> View for TestId<V> {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let node = self.content.build(cx);
         cx.test_id(node, &self.id);
+        #[cfg(feature = "e2e-source")]
+        cx.test_source(node, self.source);
         node
     }
 }

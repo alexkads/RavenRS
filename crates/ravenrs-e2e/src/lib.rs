@@ -164,6 +164,18 @@ impl E2e {
         self.resolve(query).cloned()
     }
 
+    /// Where the target's test id was declared. Requires `e2e-source` in the app under test;
+    /// targets without a recorded declaration fail with `E2E_NO_SOURCE` rather than guessing.
+    pub fn source(&self, query: &Query) -> E2eResult<&'static std::panic::Location<'static>> {
+        let node = self.find(query)?;
+        if let Some(source) = self.ui.test_source(node.id) {
+            return Ok(source);
+        }
+        Err(E2eError::new(ErrorCode::NoSource, "the target has no declared source location")
+            .hint("enable e2e-source in the app under test and declare the target with test_id")
+            .screen(self.snapshot()))
+    }
+
     /// How many nodes `query` finds (ignoring [`Query::nth`]).
     pub fn count(&self, query: &Query) -> E2eResult<usize> {
         Ok(self.candidates(query)?.len())

@@ -45,6 +45,7 @@ fn commands_and_replies_read_back_as_written() {
         Command::Mention { target: "#resultado".into(), text: "Ana".into() },
         Command::Snapshot,
         Command::Frame,
+        Command::Source { target: "#save".into() },
         Command::Bye,
     ] {
         let line = serde_json::to_string(&command).unwrap();
@@ -57,6 +58,7 @@ fn commands_and_replies_read_back_as_written() {
     assert_eq!(back.into_result().unwrap_err().code, "E2E_TIMEOUT");
     let old: Reply = serde_json::from_str(r#"{"ok":true,"snapshot":"screen"}"#).unwrap();
     assert_eq!(old.frame, None, "old peers need not send a frame field");
+    assert_eq!(old.source, None, "old peers need not send source metadata");
     assert_eq!(old.into_result().unwrap().as_deref(), Some("screen"));
     let frame = Reply::frame(vec![1, 2, 3]);
     let back: Reply = serde_json::from_str(&serde_json::to_string(&frame).unwrap()).unwrap();
@@ -67,6 +69,12 @@ fn commands_and_replies_read_back_as_written() {
         "a generic result must not discard a frame"
     );
     assert_eq!(Reply::of(Ok(None)).into_frame().unwrap_err().code, codes::WIRE);
+    let source = ravenrs_e2e_wire::Source { file: "src/app.rs".into(), line: 42, column: 7 };
+    let reply = Reply::source(source.clone());
+    let back: Reply = serde_json::from_str(&serde_json::to_string(&reply).unwrap()).unwrap();
+    assert_eq!(back.into_source().unwrap(), source);
+    assert_eq!(reply.into_result().unwrap_err().code, codes::WIRE);
+    assert_eq!(Reply::of(Ok(None)).into_source().unwrap_err().code, codes::WIRE);
 }
 
 #[test]
@@ -159,6 +167,15 @@ fn child() -> Process {
 fn a_tool_drives_the_app_in_a_child_process() {
     let mut app = Client::spawn(child(), Duration::from_secs(60)).unwrap();
     assert_eq!(app.app(), "Formulário");
+    #[cfg(feature = "e2e-source")]
+    {
+        let source = app.source("#nome").unwrap();
+        assert!(source.file.ends_with("wire.rs"));
+        let line = include_str!("wire.rs").lines().nth(source.line as usize - 1).unwrap();
+        assert!(line.contains("test_id(\"nome\")"), "{source:?}: {line}");
+    }
+    #[cfg(not(feature = "e2e-source"))]
+    assert_eq!(app.source("#nome").unwrap_err().code, "E2E_NO_SOURCE");
     assert_eq!(app.frame().unwrap_err().code, codes::NO_FRAME, "this child has no frame adapter");
     app.send(&Command::Type { target: "#nome".into(), text: "Caio".into() }).unwrap();
     app.send(&Command::Click { target: "#salvar".into() }).unwrap();

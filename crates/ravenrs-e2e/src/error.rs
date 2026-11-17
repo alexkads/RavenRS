@@ -22,6 +22,8 @@ pub enum ErrorCode {
     Expectation,
     /// What a step waited for did not happen in time.
     Timeout,
+    /// The target has no declared source location, or source instrumentation is disabled.
+    NoSource,
 }
 
 impl ErrorCode {
@@ -36,6 +38,7 @@ impl ErrorCode {
             Self::ProtectedValue => "E2E_PROTECTED_VALUE",
             Self::Expectation => "E2E_EXPECTATION",
             Self::Timeout => "E2E_TIMEOUT",
+            Self::NoSource => "E2E_NO_SOURCE",
         }
     }
 }

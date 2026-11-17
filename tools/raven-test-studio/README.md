@@ -171,7 +171,7 @@ claude --plugin-dir tools/raven-test-studio/claude-pane
 
 ## Limits for now
 
-- The channel provides vector frames through `Client::frame()` (a single-frame `.ravenmovie`); displaying the live preview in the Studio is F9. `e2e_source`, `attach` to an app already open with permission on screen, and `cargo ravenrs e2e install` are the rest of phase F6 of #627.
+- The channel provides vector frames through `Client::frame()` (a single-frame `.ravenmovie`); displaying the live preview in the Studio is F9. With `e2e-source` in the app, `Client::source("#id")` returns where its test id was declared. Build the Studio itself with `cargo build -p raven-test-studio --features e2e-source` to query its origins. Untagged views, `attach` to an app already open with permission on screen, and `cargo ravenrs e2e install` are the rest of phase F6 of #627.
 - The window delegates to Codex only. Claude and another model are chosen on the command line and in the pane, not yet in the window.
 - Linux and Windows have not been run.
 - The comparison of each screen with its design board is phase F14.

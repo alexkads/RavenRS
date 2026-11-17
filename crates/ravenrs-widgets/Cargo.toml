@@ -34,6 +34,7 @@ ravenrs-lottie = { workspace = true, optional = true }
 
 [features]
 default = ["decode", "charts", "flow", "lottie"]
+e2e-source = ["ravenrs-widgets-base/e2e-source"]
 # PNG and JPEG decoding for `Image::from_bytes`.
 decode = ["ravenrs-widgets-base/decode", "ravenrs-widgets-kit/decode"]
 # `Chart`, `BarChart`, `AreaChart` and `Barcode`, drawn with `ravenrs-graphics`.

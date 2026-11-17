@@ -104,6 +104,12 @@ Rows with keys have test ids that stay with the data when it sorts, filters or s
 
 `E2e::primitives()` reads the current display list without advancing time or changing the observer. It is what the channel's frame adapter encodes with the same `SessionFilm` writer; protected fields are already hidden in the drawing.
 
+## Finding a target's declaration
+
+Enable `e2e-source` in the app under test (`ravenrs`, `ravenrs-widgets`, `ravenrs-e2e` and `ravenrs-e2e-wire` expose the feature). `E2e::source(&query)` returns the static Rust caller location of `ViewExt::test_id` or `BuildCx::test_id`. It follows the test id when a container passes it to its first accessible child, and a child's own id keeps its own origin. The declaration stays the same when the screen is reordered.
+
+Without the feature, no location is stored. A target without a recorded declaration fails with `E2E_NO_SOURCE`; missing or ambiguous targets keep their normal query error. Origins are metadata in the UI's test map, not fields read by screen readers or included in the text snapshot. Untagged views have no inferred origin. Paths are as recorded by the compiler and may reflect path remapping; the editor integration comes later.
+
 ## Limits for now
 
 - It runs in the test's process. An app in another process is driven through [`ravenrs-e2e-wire`](../ravenrs-e2e-wire).

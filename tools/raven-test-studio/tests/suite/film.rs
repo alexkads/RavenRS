@@ -50,6 +50,23 @@ fn a_client_receives_the_vector_frame_of_another_studio_and_what_an_action_chang
 }
 
 #[test]
+fn a_client_queries_a_studios_declared_source_only_when_instrumentation_is_enabled() {
+    let mut process = std::process::Command::new(env!("CARGO_BIN_EXE_raven-test-studio"));
+    process.arg("--e2e-serve");
+    let mut client = ravenrs_e2e_wire::Client::spawn(process, std::time::Duration::from_secs(20)).unwrap();
+    #[cfg(feature = "e2e-source")]
+    {
+        let source = client.source("#run").unwrap();
+        assert!(source.file.ends_with("src/lib.rs"), "{source:?}");
+        let line = include_str!("../../src/lib.rs").lines().nth(source.line as usize - 1).unwrap();
+        assert!(line.contains("test_id(id)"), "{source:?}: {line}");
+    }
+    #[cfg(not(feature = "e2e-source"))]
+    assert_eq!(client.source("#run").unwrap_err().code, "E2E_NO_SOURCE");
+    assert_eq!(client.source("#missing").unwrap_err().code, "E2E_NOT_FOUND");
+}
+
+#[test]
 fn a_failure_keeps_the_film_of_the_app_it_failed_on() {
     let (dir, file) = scenario("falha", FAILS);
     let report = on_a_studio_apart(&file, FilmMode::OnFailure, &dir.join("out"));

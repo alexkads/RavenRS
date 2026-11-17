@@ -13,6 +13,9 @@ documentation = "https://docs.rs/ravenrs-e2e"
 keywords = ["gui", "testing", "e2e", "accessibility"]
 categories = ["gui", "development-tools::testing"]
 
+[features]
+e2e-source = ["ravenrs-widgets-base/e2e-source"]
+
 [dependencies]
 ravenrs-core.workspace = true
 ravenrs-style.workspace = true
