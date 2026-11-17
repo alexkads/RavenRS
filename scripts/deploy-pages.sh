@@ -14,7 +14,7 @@ fi
 
 site="$(mktemp -d)"
 trap 'rm -rf "$site"' EXIT
-./scripts/build-site.sh "$site"
+RAVENRS_SITE_URL="${RAVENRS_SITE_URL:-https://alexkads.github.io/RavenRS}" ./scripts/build-site.sh "$site"
 touch "$site/.nojekyll"
 
 cd "$site"

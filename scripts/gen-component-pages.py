@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Generates one page per component under <out>/, from the list in
-site/components/index.html and the examples in examples/component-gallery/src/samples/.
+site/public/components/index.html and the examples in examples/component-gallery/src/samples/.
 The code on a page is the example the gallery compiles, so it cannot go stale."""
 import html
 import pathlib
@@ -9,7 +9,7 @@ import sys
 
 root = pathlib.Path(__file__).resolve().parent.parent
 out = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else root / "target/site-preview/components"
-listing = (root / "site/components/index.html").read_text()
+listing = (root / "site/public/components/index.html").read_text()
 source = "".join(
     path.read_text() for path in sorted((root / "examples/component-gallery/src/samples").glob("*.rs"))
 )

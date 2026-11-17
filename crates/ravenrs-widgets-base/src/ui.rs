@@ -326,7 +326,7 @@ impl fmt::Debug for Ui {
     }
 }
 
-#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part1"))]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "part2"))]
 impl Ui {
     /// A runtime for `root` under `theme`, with an 800×600 viewport at scale 1.
     pub fn new(root: impl View + 'static, theme: Theme) -> Self {

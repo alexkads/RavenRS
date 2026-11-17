@@ -1,0 +1,29 @@
+{
+  "name": "ravenrs-site",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "description": "Astro + Starlight website and documentation for RavenRS.",
+  "dependencies": {
+    "@astrojs/markdown-remark": "7.3.0",
+    "@astrojs/starlight": "0.43.1",
+    "@resvg/resvg-js": "2.6.2",
+    "astro": "7.4.12",
+    "parse5": "8.1.1",
+    "unist-util-visit": "5.1.0",
+    "zod": "4.6.7"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.12",
+    "typescript": "6.0.3"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "test": "node ../scripts/test-starlight.mjs"
+  }
+}

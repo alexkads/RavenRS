@@ -1,6 +1,6 @@
 import { createRequire } from "node:module";
 const require = createRequire(
-  new URL("../../site/docs/package.json", import.meta.url),
+  new URL("../../site/package.json", import.meta.url),
 );
 const { parse, serialize, parseFragment } = await import(
   require.resolve("parse5")

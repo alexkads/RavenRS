@@ -11,6 +11,7 @@ use crate::Ui;
 
 /// Who is in control of the window after a driver's turn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Driving {
     /// The driver: the window still draws, resizes and animates, but the person's pointer and
     /// keyboard do not reach the interface, so they cannot change the test halfway.

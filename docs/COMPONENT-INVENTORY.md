@@ -4,7 +4,7 @@ Data: 15/11/2026. Base: `6b50ff874`.
 
 ## Critério reproduzível
 
-A fonte da contagem atual é `site/components/index.html`, a mesma usada por `scripts/check-component-list.py`. Contar nomes únicos em links `data-api=...struct.Nome.html` resulta em **181 entradas**. O catálogo inclui primitivas, controles, composições e alguns tipos auxiliares; não equivale a 181 famílias independentes.
+A fonte da contagem atual é `site/public/components/index.html`, a mesma usada por `scripts/check-component-list.py`. Contar nomes únicos em links `data-api=...struct.Nome.html` resulta em **181 entradas**. O catálogo inclui primitivas, controles, composições e alguns tipos auxiliares; não equivale a 181 famílias independentes.
 
 Não somar um tipo de gráfico adicional como novo widget quando a mesma API `Chart` passa a desenhá-lo. Não contar enums, eventos, providers, motores, formatos de arquivo ou issues como componentes visuais. Melhorias de virtualização, edição, exportação e validação preservam a identidade do componente.
 
@@ -61,7 +61,7 @@ Por isso, a resposta comparável é **181 catalogados hoje e aproximadamente 206
 ```python
 from pathlib import Path
 import re
-page = Path("site/components/index.html").read_text()
+page = Path("site/public/components/index.html").read_text()
 names = set(re.findall(r'data-api="(?:\w+/)*struct\.(\w+)\.html"', page))
 print(len(names))  # 181 no commit auditado
 ```

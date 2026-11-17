@@ -1,0 +1,30 @@
+export const corePages = [
+  ["Start here", "", "Introduction", "docs/README.md"],
+  ["Start here", "getting-started", "Installation", "docs/GETTING_STARTED.md"],
+  [
+    "Start here",
+    "cli",
+    "CLI & AI assistants",
+    "crates/cargo-ravenrs/README.md",
+  ],
+  ["Start here", "ai", "AI-assisted development", "docs/AI_DEVELOPMENT.md"],
+  ["Build applications", "architecture", "Architecture", "ARCHITECTURE.md"],
+  [
+    "Build applications",
+    "design-system",
+    "Design system",
+    "docs/design-system/README.md",
+  ],
+  [
+    "Build applications",
+    "applications",
+    "Records & forms",
+    "docs/APP-FRAMEWORK.md",
+  ],
+  ["Build applications", "components", "Component coverage", "docs/PARITY.md"],
+  ["Reports", "reporting", "Create reports", "docs/REPORTING.md"],
+  ["Reports", "report-server", "Report server", "docs/REPORT-SERVER.md"],
+  ["Reference", "quality", "Quality & accessibility", "docs/QUALITY.md"],
+  ["Reference", "performance", "Performance", "docs/PERFORMANCE.md"],
+  ["Reference", "versioning", "Versions & upgrades", "docs/VERSIONING.md"],
+];
