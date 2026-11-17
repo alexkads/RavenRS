@@ -29,7 +29,7 @@ pub fn known(name: &str) -> Option<App> {
 }
 
 /// The scenarios the app named `name` brings, read from its hello.
-pub fn scenarios(name: &str) -> Option<Result<Vec<ravenrs_e2e_wire::Scenario>, String>> {
+pub fn scenarios(name: &str) -> Option<Result<Vec<ravenrs_e2e_wire::Scenario>, Box<Failure>>> {
     know_finance();
     ravenrs_e2e_runner::app::scenarios(name)
 }

@@ -54,18 +54,25 @@ pub struct Report {
 impl Report {
     /// A run that could not start: its first block failed with `why`, before any app opened.
     pub fn refused(scenario: &str, block: &str, why: &str) -> Self {
+        Self::refused_with(scenario, block, runner::Failure::plain(why))
+    }
+
+    /// A run refused before its scenarios could start, preserving the structured failure
+    /// from opening the app or reading its embedded scenarios. Use [`Self::refused`] for a
+    /// plain message; neither constructor infers a code from the message's text.
+    pub fn refused_with(scenario: &str, block: &str, failure: runner::Failure) -> Self {
         let outcome = Outcome {
             id: "open".to_owned(),
             kind: "open".to_owned(),
             title: format!("Abrir o {block}"),
             line: block.to_owned(),
-            error: Some(why.to_owned()),
-            code: None,
-            meaning: None,
-            detail: None,
-            fix: None,
-            close: Vec::new(),
-            screen: None,
+            error: Some(failure.message),
+            code: failure.code,
+            meaning: failure.meaning,
+            detail: failure.detail,
+            fix: failure.fix,
+            close: failure.close,
+            screen: failure.screen,
             ms: 0,
         };
         Self {

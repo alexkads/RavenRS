@@ -172,19 +172,21 @@ pub const BUILD_TIME: Duration = Duration::from_secs(900);
 
 /// The scenarios the app named `name` brings, read from its hello: the `.raventest` files of its
 /// `tests/e2e/`, embedded in the app. `None` when the Studio does not know the app.
-pub fn scenarios(name: &str) -> Option<Result<Vec<ravenrs_e2e_wire::Scenario>, String>> {
+/// Opening failures keep their structured code and diagnostics; absent or malformed scenarios
+/// return a plain failure without inventing a build/start code.
+pub fn scenarios(name: &str) -> Option<Result<Vec<ravenrs_e2e_wire::Scenario>, Box<Failure>>> {
     let app = known(name)?;
-    Some(start(&app).map_err(|error| error.to_string()).and_then(|client| {
+    Some(start(&app).and_then(|client| {
         if client.scenarios().is_empty() {
-            return Err(format!(
+            return Err(Box::new(Failure::plain(format!(
                 "O {} aberto não traz cenários na pasta tests/e2e; atualize-o, ou rode um arquivo .raventest com --run",
                 app.name
-            ));
+            ))));
         }
         client
             .scenarios()
             .iter()
-            .map(|text| ravenrs_e2e_wire::Scenario::parse(text).map_err(|e| format!("cenário do {}: {e}", app.name)))
+            .map(|text| ravenrs_e2e_wire::Scenario::parse(text).map_err(|e| Box::new(Failure::plain(format!("cenário do {}: {e}", app.name)))))
             .collect()
     }))
 }

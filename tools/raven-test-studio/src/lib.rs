@@ -612,7 +612,7 @@ pub fn run_bundled_with(
         "autoteste" => sample::self_test(),
         "financas" => match apps::scenarios(apps::FINANCE_APP) {
             Some(Ok(scenarios)) => sample::from_scenarios(&scenarios),
-            Some(Err(why)) => return Some(report::Report::refused(title, apps::FINANCE_APP, &why)),
+            Some(Err(why)) => return Some(report::Report::refused_with(title, apps::FINANCE_APP, *why)),
             None => {
                 return Some(report::Report::refused(
                     title,
