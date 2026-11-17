@@ -37,7 +37,7 @@ preserving notes outside the block. An unmarked existing skill is preserved and 
 
 `cargo ravenrs e2e run` runs the project's end-to-end scenarios with no window and no Raven Test Studio, with [`ravenrs-e2e-runner`](../ravenrs-e2e-runner), the engine the Studio uses too:
 
-- with no path, it runs the `tests/e2e/*.raventest` of every app of the project that speaks the test channel ([`ravenrs-e2e-wire`](../ravenrs-e2e-wire)), opening each from the project's code with `cargo run`;
+- with no path, it runs the `tests/e2e/*.raventest` of every app of the project that speaks the test channel ([`ravenrs-e2e-wire`](../ravenrs-e2e-wire)), compiling each with Cargo and opening the executable Cargo reports. A compiler error is `E2E_APP_BUILD`, with Rust's source location and diagnostic in the report; a compiled app that cannot open its channel is `E2E_APP_START`;
 - with a path (`cargo ravenrs e2e run tests/e2e/pedido.raventest`, or a folder), it runs those files, opening the apps they name from the project before any installed copy;
 - `--format` is `text`, `json`, `jsonl` (one event per line, with the time of each step), `junit` (for build servers) or `html` (a page with the summary, each step and the failure);
 - each run is kept in `target/e2e/<scenario>/` (`--out` for another folder): `relatorio.json`, `relatorio.html`, `trace.jsonl` and, on a failure, `arvore.txt` with the app's screen;

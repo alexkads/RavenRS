@@ -297,7 +297,7 @@ pub fn suggest(found: &Found, project: &Path, writer: &Writer, write: bool) -> R
     }
     let screen = match crate::apps::open(&found.name) {
         Some(Ok(mut session)) => session.screen().unwrap_or_default(),
-        Some(Err(why)) => return Err(why),
+        Some(Err(why)) => return Err(why.to_string()),
         None => return Err(format!("o Studio não sabe abrir o {}", found.name)),
     };
     let existing: Vec<String> = found.scenarios.iter().filter_map(|(_, read)| read.clone().ok()).collect();

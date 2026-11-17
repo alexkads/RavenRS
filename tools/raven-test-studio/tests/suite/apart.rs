@@ -72,7 +72,7 @@ fn something_that_is_not_the_app_fails_to_open_with_a_reason() {
     // This test binary does not speak the channel: it rejects the option and ends.
     let this = std::env::current_exe().expect("this binary");
     let why = open_finance_from(&this).expect_err("not an app on the channel");
-    assert!(why.starts_with("[E2E_APP_START]"), "{why}");
+    assert_eq!(why.code.as_deref(), Some("E2E_APP_START"), "{why}");
 }
 
 #[test]

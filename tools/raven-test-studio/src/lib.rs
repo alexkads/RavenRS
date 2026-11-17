@@ -75,7 +75,7 @@ fn icon(kind: &str) -> IconName {
 /// scenario, or another Studio whose scenario fails on purpose, compiled in; or an app opened
 /// apart in a child process, such as Raven Finanças ([`apps`]). A Studio opened here runs its
 /// own scenario the same way, so the Studio can test the Studio.
-pub fn open(name: &str) -> Option<Result<runner::Session, String>> {
+pub fn open(name: &str) -> Option<Result<runner::Session, Box<runner::Failure>>> {
     let studio = |scenario: FlowGraph| {
         Ok(runner::Session::Here(Box::new(ravenrs_e2e::E2e::new(
             app_with(scenario, Rc::new(MemoryStorage::default())),

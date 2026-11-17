@@ -6,11 +6,11 @@ use std::path::{Path, PathBuf};
 
 use ravenrs_e2e_runner::report::{FORMATS, render};
 use ravenrs_e2e_runner::run::{files_at, run_files};
-use ravenrs_e2e_runner::session::{Session, Step};
+use ravenrs_e2e_runner::session::{Failure, Session, Step};
 use ravenrs_e2e_wire::{Block, Command, Kind};
 
 /// Knows no app: every Open block fails.
-fn nothing(_: &str) -> Option<Result<Session, String>> {
+fn nothing(_: &str) -> Option<Result<Session, Box<Failure>>> {
     None
 }
 

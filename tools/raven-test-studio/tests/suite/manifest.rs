@@ -42,7 +42,8 @@ fn every_flag_in_the_manifest_is_one_the_program_reads() {
 fn every_error_code_of_ravenrs_e2e_and_of_the_test_channel_is_explained() {
     let error = include_str!("../../../../crates/ravenrs-e2e/src/error.rs");
     let channel = include_str!("../../../../crates/ravenrs-e2e-wire/src/lib.rs");
-    let codes: Vec<&str> = [error, channel]
+    let build = include_str!("../../../../crates/ravenrs-e2e-runner/src/build.rs");
+    let codes: Vec<&str> = [error, channel, build]
         .into_iter()
         .flat_map(|source| source.split('"'))
         .filter(|part| part.starts_with("E2E_") && !part.contains(' '))

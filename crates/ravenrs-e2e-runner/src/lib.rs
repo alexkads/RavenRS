@@ -4,7 +4,7 @@
 //! - [`project`] reads a Rust project without building it: its RavenRS packages, which are apps,
 //!   whether each speaks the test channel (`ravenrs-e2e-wire`), its `.raventest` scenarios and
 //!   the screens it builds.
-//! - [`app`] opens an app apart, in a child process with no window: its code with `cargo run`, a
+//! - [`app`] opens an app apart, in a child process with no window: its code compiled by [`build`], a
 //!   copy the installer put on the computer, or a binary a variable names.
 //! - [`session`] is what a run drives and how each step goes: the step a block stands for, and
 //!   why it failed, by its stable code, with the meaning and the fix in Portuguese.
@@ -27,6 +27,7 @@
 #![recursion_limit = "256"]
 
 pub mod app;
+pub mod build;
 pub mod config;
 pub mod driver;
 pub mod html;

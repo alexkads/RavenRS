@@ -6,7 +6,7 @@ use std::path::Path;
 
 pub use ravenrs_e2e_runner::app::*;
 
-use ravenrs_e2e_runner::session::Session;
+use ravenrs_e2e_runner::session::{Failure, Session};
 
 /// The name Raven Finanças declares, which `--run financas` opens.
 pub const FINANCE_APP: &str = "Raven Finanças";
@@ -35,12 +35,12 @@ pub fn scenarios(name: &str) -> Option<Result<Vec<ravenrs_e2e_wire::Scenario>, S
 }
 
 /// Opens the app named `name` apart, if it is one the Studio knows.
-pub fn open(name: &str) -> Option<Result<Session, String>> {
+pub fn open(name: &str) -> Option<Result<Session, Box<Failure>>> {
     know_finance();
     ravenrs_e2e_runner::app::open(name)
 }
 
 /// Opens Raven Finanças from `binary`, as its variable does.
-pub fn open_finance_from(binary: &Path) -> Result<Session, String> {
+pub fn open_finance_from(binary: &Path) -> Result<Session, Box<Failure>> {
     open_from(binary)
 }

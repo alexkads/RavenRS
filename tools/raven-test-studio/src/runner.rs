@@ -27,7 +27,7 @@ pub fn step_of(node: &FlowNode) -> Result<Step, String> {
 }
 
 /// Opens the sample form, the only app this module knows by itself.
-pub fn open_sample(name: &str) -> Option<Result<Session, String>> {
+pub fn open_sample(name: &str) -> Option<Result<Session, Box<Failure>>> {
     (name.is_empty() || name == sample::EXPENSE_APP)
         .then(|| Ok(Session::Here(Box::new(E2e::new(sample::expense_app(), Theme::raven_light())))))
 }
