@@ -161,7 +161,16 @@ impl Driver {
         let Some(session) = self.session.as_mut() else {
             return;
         };
-        let path = folder.join(format!("filme-{}.ravenmovie", self.films.made + 1));
+        // The app may run from another project. Resolve the caller's path before it crosses
+        // the channel; canonicalize would require the output folder to exist already.
+        let path = match std::path::absolute(folder.join(format!("filme-{}.ravenmovie", self.films.made + 1)))
+        {
+            Ok(path) => path,
+            Err(error) => {
+                self.films.note = Some(format!("o {app} não começou a filmar: {error}"));
+                return;
+            }
+        };
         match session.run(&Command::Film { path: path.display().to_string() }) {
             Ok(_) => {
                 self.films.made += 1;

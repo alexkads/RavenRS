@@ -17,7 +17,7 @@ Every tool runs the blocks with the same `driver::Driver`: it opens the app a bl
 
 Around it:
 
-- `config` reads an app's `e2e.toml` (`folder`, `format`, `out`; the planned keys are read and said to do nothing yet; anything else is refused with the key);
+- `config` reads an app's `e2e.toml` (`folder`, `format`, `out`, `film`; the planned keys are read and said to do nothing yet; anything else is refused with the key);
 - `report::schema()` and `ravenrs_e2e_wire::scenario_schema()` are the JSON Schemas (2020-12) of the report and of a scenario as JSON (`Scenario::to_json`, `Scenario::from_json`);
 - `rust::test` turns a scenario into a Rust integration test of its app, which compiles and runs with `cargo test`.
 
