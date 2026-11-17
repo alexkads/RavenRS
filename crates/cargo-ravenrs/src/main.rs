@@ -38,6 +38,40 @@ enum Commands {
     },
     /// Check versions, AI configuration and the registered MCP server.
     Doctor,
+    /// End-to-end scenarios (.raventest) of the project, with no window.
+    E2e {
+        #[command(subcommand)]
+        command: E2eCommand,
+    },
+}
+
+#[derive(Debug, Subcommand)]
+enum E2eCommand {
+    /// Run the scenarios: every app's tests/e2e, or the file or folder given. Exit code 0
+    /// when all passed, 1 when one failed, 2 when nothing could run.
+    Run {
+        /// A .raventest file or a folder of them.
+        path: Option<PathBuf>,
+        /// The project's folder; the current one by default.
+        #[arg(long)]
+        project: Option<PathBuf>,
+        /// text, json, jsonl (one event per line) or junit (XML for build servers).
+        #[arg(long, default_value = "text")]
+        format: String,
+        /// Where to keep relatorio.json, trace.jsonl and, on a failure, arvore.txt; the
+        /// project's target/e2e by default.
+        #[arg(long)]
+        out: Option<PathBuf>,
+    },
+    /// List the project's RavenRS packages, apps, test channel, scenarios and screens.
+    List {
+        /// The project's folder; the current one by default.
+        #[arg(long)]
+        project: Option<PathBuf>,
+        /// As JSON, for a tool.
+        #[arg(long)]
+        json: bool,
+    },
 }
 
 #[tokio::main(flavor = "current_thread")]
@@ -74,6 +108,12 @@ async fn main() {
         }
         Commands::Ai { plugin } => cargo_ravenrs::configure_ai(std::path::Path::new("."), plugin),
         Commands::Doctor => cargo_ravenrs::doctor(std::path::Path::new(".")),
+        Commands::E2e { command } => std::process::exit(match command {
+            E2eCommand::Run { path, project, format, out } => {
+                cargo_ravenrs::e2e::run(&cargo_ravenrs::e2e::RunAsk { project, path, format, out })
+            }
+            E2eCommand::List { project, json } => cargo_ravenrs::e2e::list(project.as_deref(), json),
+        }),
     };
     if let Err(error) = result {
         eprintln!("Erro: {error}");

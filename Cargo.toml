@@ -68,6 +68,7 @@ ravenrs-app-remote = { version = "27.1.28", path = "crates/ravenrs-app-remote" }
 ravenrs-app-testkit = { version = "27.1.28", path = "crates/ravenrs-app-testkit" }
 ravenrs-e2e = { version = "27.1.28", path = "crates/ravenrs-e2e" }
 ravenrs-e2e-wire = { version = "27.1.28", path = "crates/ravenrs-e2e-wire" }
+ravenrs-e2e-runner = { version = "27.1.28", path = "crates/ravenrs-e2e-runner" }
 ravenrs-app-requests = { version = "27.1.28", path = "crates/ravenrs-app-requests" }
 ravenrs-app-library = { version = "27.1.28", path = "crates/ravenrs-app-library" }
 ravenrs-app-nfe = { version = "27.1.28", path = "crates/ravenrs-app-nfe" }

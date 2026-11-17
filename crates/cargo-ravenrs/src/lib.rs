@@ -1,5 +1,6 @@
 //! Offline project generation and version-matched AI tooling for RavenRS.
 mod ai;
+pub mod e2e;
 mod mcp;
 mod project;
 mod versions;

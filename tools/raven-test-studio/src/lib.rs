@@ -623,7 +623,7 @@ pub fn run_bundled(name: &str, cache: Option<&mut cache::RunCache>) -> Option<re
     {
         return Some(report);
     }
-    let report = report::Report::of(title, graph, Run::new(open));
+    let report = report::of(title, graph, Run::new(open));
     if let (Some(c), Some(k)) = (cache, kept.as_deref()) {
         // A cache that cannot be written only means the next run runs again.
         let _ = c.put(k, &report);
@@ -680,7 +680,7 @@ pub fn run_files(path: &std::path::Path) -> Result<report::Report, String> {
             format!("{} cenários de {}", many.len(), shown.display())
         }
     };
-    Ok(report::Report::of(&title, sample::from_scenarios(&scenarios), Run::new(open)))
+    Ok(report::of(&title, sample::from_scenarios(&scenarios), Run::new(open)))
 }
 
 /// The Studio opening with its own test, "O Studio testa o Studio", keeping its scenarios in

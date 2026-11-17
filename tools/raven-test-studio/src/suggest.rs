@@ -341,7 +341,7 @@ pub fn suggest(found: &Found, project: &Path, writer: &Writer, write: bool) -> R
                 }
                 Ok(scenario) => {
                     let graph = crate::sample::from_scenarios(std::slice::from_ref(&scenario));
-                    suggestion.report = Some(Report::of(&scenario.name, graph, Run::new(crate::open)));
+                    suggestion.report = Some(crate::report::of(&scenario.name, graph, Run::new(crate::open)));
                     suggestion.scenario = Some(scenario);
                 }
             }

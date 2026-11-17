@@ -35,6 +35,16 @@ is written. Keep personal instructions outside the managed blocks. The local ski
 copied byte-for-byte from the versioned plugin, and its marked body can be updated while
 preserving notes outside the block. An unmarked existing skill is preserved and reported.
 
+`cargo ravenrs e2e run` runs the project's end-to-end scenarios with no window and no Raven Test Studio, with [`ravenrs-e2e-runner`](../ravenrs-e2e-runner), the engine the Studio uses too:
+
+- with no path, it runs the `tests/e2e/*.raventest` of every app of the project that speaks the test channel ([`ravenrs-e2e-wire`](../ravenrs-e2e-wire)), opening each from the project's code with `cargo run`;
+- with a path (`cargo ravenrs e2e run tests/e2e/pedido.raventest`, or a folder), it runs those files, opening the apps they name from the project before any installed copy;
+- `--format` is `text`, `json`, `jsonl` (one event per line, with the time of each step) or `junit` (for build servers);
+- each run is kept in `target/e2e/<scenario>/` (`--out` for another folder): `relatorio.json`, `trace.jsonl` and, on a failure, `arvore.txt` with the app's screen;
+- the exit code is 0 when every scenario passed, 1 when one failed and 2 when nothing could run.
+
+`cargo ravenrs e2e list` says which packages are made with RavenRS, which are apps, whether each speaks the test channel, its scenarios and the screens it builds (`--json` for a tool). `--project <folder>` points either command at another project.
+
 `doctor` compares RavenRS dependency versions with the CLI, checks managed
 files, and runs initialize + tools/list through all four registered commands. It reports
 stale files and versions with a nonzero exit code. Projects made with `--no-ai` are checked

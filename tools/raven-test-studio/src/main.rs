@@ -347,37 +347,15 @@ fn run_all(
     std::process::ExitCode::from(u8::try_from(worst).unwrap_or(1))
 }
 
-/// Keeps each report in `out`, when given, and prints them all in `format`; the JSON is a list
-/// when `list`, else the one report. Where they were kept goes to stderr, so the JSON, JSONL or
-/// XML on stdout stays only that.
+/// Keeps each report in `out`, when given, and prints them all in `format`, as
+/// `ravenrs-e2e-runner` does for `cargo ravenrs e2e`.
 fn show(
     reports: &[raven_test_studio::report::Report],
     list: bool,
     format: &str,
     out: Option<&std::path::Path>,
 ) {
-    use raven_test_studio::report::Report;
-    if let Some(out) = out {
-        for report in reports {
-            match report.save(out) {
-                Ok(dir) => eprintln!("{}: gravado em {}", report.scenario, dir.display()),
-                Err(e) => eprintln!("{}: não gravou em {}: {e}", report.scenario, out.display()),
-            }
-        }
-    }
-    match format {
-        "json" => {
-            let all: Vec<_> = reports.iter().map(Report::json).collect();
-            let value = match all.as_slice() {
-                [one] if !list => one.clone(),
-                _ => serde_json::Value::Array(all),
-            };
-            println!("{}", serde_json::to_string_pretty(&value).unwrap_or_default());
-        }
-        "jsonl" => reports.iter().for_each(|r| print!("{}", r.trace())),
-        "junit" => print!("{}", Report::junit(reports)),
-        _ => reports.iter().for_each(|r| println!("{}\n", r.text())),
-    }
+    raven_test_studio::report::deliver(reports, list, format, out);
 }
 
 /// Runs a bundled scenario, or `.raventest` files by path, with no window and prints the report.

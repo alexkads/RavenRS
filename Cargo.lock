@@ -1025,6 +1025,7 @@ name = "cargo-ravenrs"
 version = "27.1.28"
 dependencies = [
  "clap",
+ "ravenrs-e2e-runner",
  "ravenrs-mcp",
  "ravenrs-project",
  "serde_json",
@@ -5915,8 +5916,8 @@ dependencies = [
  "ravenrs-ai",
  "ravenrs-app-update",
  "ravenrs-e2e",
+ "ravenrs-e2e-runner",
  "ravenrs-e2e-wire",
- "regex-lite",
  "serde_json",
  "tracing-subscriber",
 ]
@@ -6359,6 +6360,16 @@ dependencies = [
  "ravenrs-style",
  "ravenrs-widgets",
  "ravenrs-widgets-base",
+]
+
+[[package]]
+name = "ravenrs-e2e-runner"
+version = "27.1.28"
+dependencies = [
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
+ "regex-lite",
+ "serde_json",
 ]
 
 [[package]]

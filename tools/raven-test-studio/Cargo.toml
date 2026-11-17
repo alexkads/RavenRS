@@ -16,9 +16,9 @@ ravenrs-e2e.workspace = true
 # Drives apps opened apart, such as Raven Finanças, and answers on the channel itself
 # (--e2e-serve), so the Studio can be tested by another Studio in a process of its own.
 ravenrs-e2e-wire.workspace = true
+# Runs and reports scenarios: the engine the Studio shares with cargo ravenrs e2e.
+ravenrs-e2e-runner.workspace = true
 serde_json.workspace = true
-# Finds the views and test ids in the sources of a project the Studio is pointed at.
-regex-lite.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # Hands a scenario to Codex or Claude, as Raven Flows calls them.
