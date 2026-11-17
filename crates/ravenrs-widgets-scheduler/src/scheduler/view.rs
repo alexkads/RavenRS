@@ -460,6 +460,9 @@ struct Editing {
     view_width: Rc<Cell<f32>>,
     /// A stretch of the content that has to come into view.
     reveal: Rc<Cell<Option<(f32, f32)>>>,
+    /// The event a click chose, which takes the focus once it is the keyboard's way in, so the
+    /// arrows move the event that was clicked and not the one that had the focus.
+    focus: Rc<Cell<Option<u64>>>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -864,6 +867,8 @@ impl View for Bar<'_> {
             node,
             Semantics::new(Role::Button).name(e.title.clone()).description(range).selected(self.selected),
         );
+        // Found by its id, which stays with it when it moves.
+        cx.test_id(node, &format!("event:{}", e.id));
         let menu_at: State<Option<Point>> = cx.use_state(|| None);
         if let Some(menu) = self.menu.clone() {
             let (write, selection, id) = (menu_at.clone(), self.selection.clone(), e.id);
@@ -902,13 +907,18 @@ impl View for Bar<'_> {
         if self.tab_stop {
             cx.focusable(node, theme.radii.sm);
             cx.on_key(node, self.key_handler());
+            if self.editing.focus.get() == Some(e.id) {
+                self.editing.focus.set(None);
+                cx.request_focus_node(node);
+            }
         }
-        let (selection, id) = (self.selection.clone(), e.id);
+        let (selection, id, focus) = (self.selection.clone(), e.id, self.editing.focus.clone());
         cx.on_click(
             node,
             Rc::new(move || {
                 if let Some(selection) = &selection {
                     selection.set(Some(id));
+                    focus.set(Some(id));
                 }
             }),
         );
@@ -1296,6 +1306,7 @@ impl View for Scheduler {
         drag_scroll.set(scroll.x);
         let view_width: Rc<Cell<f32>> = cx.use_state(|| Rc::new(Cell::new(0.0))).get();
         let reveal: Rc<Cell<Option<(f32, f32)>>> = cx.use_state(|| Rc::new(Cell::new(None))).get();
+        let focus: Rc<Cell<Option<u64>>> = cx.use_state(|| Rc::new(Cell::new(None))).get();
         let drag_pointer: Rc<Cell<Option<(f32, f32)>>> = cx.use_state(|| Rc::new(Cell::new(None))).get();
         let drag_follow: FollowOn = cx.use_state(|| Rc::new(RefCell::new(None))).get();
         // Opens at now, once its size is known, with some of what came before in view.
@@ -1336,6 +1347,7 @@ impl View for Scheduler {
             follow_on: drag_follow.clone(),
             view_width: view_width.clone(),
             reveal: reveal.clone(),
+            focus,
         };
 
         view_width.set(view.width);
@@ -1610,6 +1622,7 @@ impl View for Scheduler {
                         Paint::None,
                     );
                     cx.semantics(node, Semantics::new(Role::Row).name(resource.name.clone()));
+                    cx.test_id(node, &format!("resource:{}", resource.id));
                     names.push(node);
                     if !self.card || y + height < area {
                         names.push(band(

@@ -86,7 +86,8 @@ impl E2eError {
         Self { code, message: message.into(), hint: None, similar: Vec::new(), screen: String::new() }
     }
 
-    pub(crate) fn hint(mut self, hint: impl Into<String>) -> Self {
+    /// With how to fix it, said after the message.
+    pub fn hint(mut self, hint: impl Into<String>) -> Self {
         self.hint = Some(hint.into());
         self
     }

@@ -15,6 +15,8 @@ use ravenrs_widgets_kit::*;
 pub mod dock;
 #[doc(hidden)]
 pub mod ribbon;
+#[cfg(feature = "testing")]
+pub mod testing;
 
 pub use dock::{
     DockArea, DockChange, DockChild, DockCloseAction, DockDrop, DockEdge, DockGuard, DockLayout,

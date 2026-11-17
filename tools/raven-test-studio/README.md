@@ -49,6 +49,7 @@ The blocks are those of a `.raventest` file. Every step waits up to 2 s for its 
 | Escolher | picks the option |
 | Expandir, Recolher | opens or closes the item |
 | Rolar até | scrolls the target into sight |
+| Arrastar | drags the target to the part after `=`: `#port:<node>:<port> = #port:<node>:<port>` joins two nodes of a diagram |
 | Esperar | waits up to 5 s, `E2E_TIMEOUT` otherwise |
 | Conferir, Conferir que menciona | checks the value, or what the part mentions |
 

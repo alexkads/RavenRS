@@ -28,6 +28,8 @@ const OPTIONS: [Role; 8] = [
 impl Locator<'_> {
     /// Puts `text` in the field in place of what it has: a text field is cleared and typed
     /// into, a number (slider, spin button) is moved with the arrow keys until it shows the value.
+    /// A cell of a grid is opened with a double click, as a person edits it, and the new text is
+    /// confirmed with Enter; a cell marked read only fails with `E2E_DISABLED`.
     pub fn fill(self, text: &str) -> E2eResult {
         let query = self.query;
         let e2e = self.e2e;
@@ -36,6 +38,9 @@ impl Locator<'_> {
             return Err(E2eError::new(ErrorCode::Disabled, format!("{query}: it is read only"))
                 .hint("check what makes it editable first")
                 .screen(e2e.screen()));
+        }
+        if node.role == Role::Cell {
+            return e2e.edit_cell(&query, point, text);
         }
         if e2e.tree.focus != Some(node.id) {
             e2e.button(point, PointerButton::Primary);
@@ -95,6 +100,28 @@ impl Locator<'_> {
 }
 
 impl E2e {
+    /// Opens the cell at `point` with a double click, replaces the editor's text and confirms it.
+    fn edit_cell(&mut self, query: &Query, point: Point, text: &str) -> E2eResult {
+        self.button(point, PointerButton::Primary);
+        self.button(point, PointerButton::Primary);
+        self.send(&Event::DoubleClick { position: point });
+        let editor = self.tree.focus.and_then(|id| self.tree.get(id)).map(|n| n.role);
+        if !matches!(editor, Some(Role::TextInput | Role::SpinButton | Role::ComboBox)) {
+            return Err(E2eError::new(
+                ErrorCode::Disabled,
+                format!("{query}: the cell did not open an editor"),
+            )
+            .hint("only cells of editable columns open one with a double click")
+            .screen(self.screen()));
+        }
+        let all = Modifiers { meta: true, ..Modifiers::default() };
+        self.press_with(Key::Character("a".into()), all);
+        self.press(Key::Backspace);
+        self.type_text(text);
+        self.press(Key::Enter);
+        Ok(())
+    }
+
     fn step_number(&mut self, query: &Query, text: &str) -> E2eResult {
         let wanted: f64 = text.trim().replace(',', ".").parse().map_err(|_| {
             E2eError::new(ErrorCode::Expectation, format!("{query}: it takes a number, not {text:?}"))

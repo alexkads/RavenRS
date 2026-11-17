@@ -22,6 +22,7 @@
 //! | `select` | `escolher` | picks the option (the text) in a list or combo box |
 //! | `expand`, `collapse` | `expandir`, `recolher` | opens or closes the item |
 //! | `scroll` | `rolar` | scrolls the target into sight |
+//! | `drag` | `arrastar` | drags the target to the part after `=` (`drag #port:a:out = #port:b:in`) |
 //! | `wait` | `esperar` | waits for the target, and for it to mention the text, if given |
 //! | `check` | `conferir` | the target's value, or name, is exactly the text |
 //! | `mention` | `mencionar` | the target's name or description contains the text |
@@ -67,6 +68,8 @@ pub enum Kind {
     Scroll,
     /// Waits for the target to show, and to mention the text when there is one.
     Wait,
+    /// Drags the target to the part the text names.
+    Drag,
 }
 
 impl Kind {
@@ -84,6 +87,7 @@ impl Kind {
             Self::Collapse => "collapse",
             Self::Scroll => "scroll",
             Self::Wait => "wait",
+            Self::Drag => "drag",
         }
     }
 
@@ -101,12 +105,13 @@ impl Kind {
             "collapse" | "recolher" => Self::Collapse,
             "scroll" | "rolar" => Self::Scroll,
             "wait" | "esperar" | "aguardar" => Self::Wait,
+            "drag" | "arrastar" => Self::Drag,
             _ => return None,
         })
     }
 
     fn needs_text(self) -> bool {
-        matches!(self, Self::Type | Self::Check | Self::Mention | Self::Fill | Self::Select)
+        matches!(self, Self::Type | Self::Check | Self::Mention | Self::Fill | Self::Select | Self::Drag)
     }
 
     fn takes_text(self) -> bool {
@@ -151,6 +156,7 @@ impl Block {
             Kind::Collapse => Command::Collapse { target },
             Kind::Scroll => Command::Scroll { target },
             Kind::Wait => Command::Wait { target, text: self.text.clone() },
+            Kind::Drag => Command::Drag { target, to: text },
         })
     }
 }
@@ -181,8 +187,8 @@ impl fmt::Display for ScenarioError {
 
 impl std::error::Error for ScenarioError {}
 
-const WORDS: &str = "open, click, type, check, mention, fill, select, expand, collapse, scroll, wait \
-     (ou abrir, clicar, digitar, conferir, mencionar, preencher, escolher, expandir, recolher, rolar, esperar)";
+const WORDS: &str = "open, click, type, check, mention, fill, select, expand, collapse, scroll, wait, drag \
+     (ou abrir, clicar, digitar, conferir, mencionar, preencher, escolher, expandir, recolher, rolar, esperar, arrastar)";
 
 impl Scenario {
     /// Reads a `.raventest` file.

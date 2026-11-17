@@ -150,6 +150,14 @@ pub enum Command {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         text: Option<String>,
     },
+    /// Drags the target to the part `to` finds, as [`ravenrs_e2e::Locator::drag_to`]: a node of
+    /// a diagram to a place, or a port to another port to join them.
+    Drag {
+        /// `#id` or the text shown: what is dragged.
+        target: String,
+        /// `#id` or the text shown: where it is dropped.
+        to: String,
+    },
     /// The screen as text, as [`E2e::snapshot`] writes it.
     Snapshot,
     /// Ends the session; the app exits.
@@ -209,7 +217,8 @@ impl Command {
             | Self::Fill { target, .. }
             | Self::Select { target, .. }
             | Self::Expand { target }
-            | Self::Collapse { target } => Some(target),
+            | Self::Collapse { target }
+            | Self::Drag { target, .. } => Some(target),
             _ => None,
         }
     }
@@ -224,6 +233,7 @@ impl Command {
             Self::Expand { target: t } => e2e.locate(target(t)).expand(),
             Self::Collapse { target: t } => e2e.locate(target(t)).collapse(),
             Self::Scroll { target: t } => e2e.locate(target(t)).scroll_into_view(),
+            Self::Drag { target: t, to } => e2e.locate(target(t)).drag_to(&target(to)),
             Self::Check { target: t, text } => {
                 let q = target(t);
                 match e2e.find(&q) {

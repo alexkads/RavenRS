@@ -66,6 +66,8 @@ const DEFAULT_VIEWPORT: Size = Size::new(1280.0, 800.0);
 const SCREEN_LINES: usize = 80;
 /// Pointer moves on the way of a drag, so drag handlers see it travel.
 const DRAG_STEPS: u32 = 8;
+/// How far the pointer moves, on each axis, before a drag looks for where to drop.
+const DRAG_START: f32 = 6.0;
 /// Frames past the first a step may take to settle, so a screen that keeps asking for one
 /// does not hang the test.
 const SETTLE_FRAMES: u32 = 4;
@@ -200,6 +202,12 @@ impl E2e {
                 self.next_ref += 1;
             }
         }
+    }
+
+    /// A failure with `code`, `message` and the screen as it is now: what a driver of a
+    /// component (such as a grid's) returns when a step of its own cannot be done.
+    pub fn failure(&self, code: ErrorCode, message: impl Into<String>) -> E2eError {
+        E2eError::new(code, message).screen(self.screen())
     }
 
     fn screen(&self) -> String {
@@ -474,12 +482,25 @@ impl<'a> Locator<'a> {
     }
 
     /// Drags the node to the middle of the one `to` finds, with the primary button held.
+    ///
+    /// `to` is looked for once the drag has started, as a person looks for where to drop: what
+    /// shows only during a drag, such as the free ports of a diagram, can be the target. When it
+    /// is not there, the button is let go where it was pressed and the step fails.
     pub fn drag_to(self, to: &Query) -> E2eResult {
         let (_, from) = self.e2e.target(&self.query)?;
-        let end = self.e2e.resolve(to)?.bounds.center();
         let button = PointerButton::Primary;
         self.e2e.move_to(from);
         self.e2e.send(&Event::PointerDown { position: from, button });
+        // A few points away, so the component sees a drag and not a click.
+        self.e2e.move_to(Point::new(from.x + DRAG_START, from.y + DRAG_START));
+        let end = match self.e2e.resolve(to) {
+            Ok(node) => node.bounds.center(),
+            Err(e) => {
+                self.e2e.move_to(from);
+                self.e2e.send(&Event::PointerUp { position: from, button });
+                return Err(e);
+            }
+        };
         for step in 1..=DRAG_STEPS {
             let t = step as f32 / DRAG_STEPS as f32;
             let p = Point::new(from.x + (end.x - from.x) * t, from.y + (end.y - from.y) * t);

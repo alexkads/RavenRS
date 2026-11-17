@@ -2,7 +2,7 @@
   "name": "Raven Test Studio",
   "also_called": ["RTS"],
   "package": "raven-test-studio",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "summary": "The end-to-end test tool of RavenRS, RTS for short: a scenario is a flow of blocks run against a RavenRS app with ravenrs-e2e, and the report tells a person or an AI what failed, why, how to fix it and what the screen showed.",
   "when_to_use": [
     "After changing a RavenRS screen or component, to prove it still works from the outside, with real clicks and typing.",
@@ -46,11 +46,12 @@
     { "kind": "open", "subtitle": "the app to open", "does": "Opens an app the Studio knows: compiled in (the sample form, another Studio) or apart in a child process over the test channel (Raven Finanças)." },
     { "kind": "click", "subtitle": "#test-id or the visible name", "does": "Clicks the part with a real pointer event, scrolling to it first when it is out of sight (even a row a long list has not built yet)." },
     { "kind": "type", "subtitle": "#test-id = text", "does": "Focuses the field and types the text with real key events." },
-    { "kind": "fill", "subtitle": "#test-id = text", "does": "Puts the text in the field in place of what it has; a slider or spin button is moved with the arrow keys to the number." },
+    { "kind": "fill", "subtitle": "#test-id = text", "does": "Puts the text in the field in place of what it has; a slider or spin button is moved with the arrow keys to the number; a DataGrid cell (#cell:<key>:<column>) is opened with a double click, written and confirmed with Enter, and a cell that does not edit fails with E2E_DISABLED." },
     { "kind": "select", "subtitle": "#test-id = option", "does": "Picks the option: opens a combo box or menu first, or clicks it inside a list, tab list or group shown in place." },
     { "kind": "expand", "subtitle": "#test-id", "does": "Opens the item (a tree item, a group row), if it is closed; fails with E2E_EXPECTATION on a part that does not open." },
     { "kind": "collapse", "subtitle": "#test-id", "does": "Closes the item, if it is open." },
     { "kind": "scroll", "subtitle": "#test-id", "does": "Turns the wheel over the part that scrolls until the target is in sight." },
+    { "kind": "drag", "subtitle": "#from = #to", "does": "Drags the part to the one after =, with the primary button held; the place to drop is looked for once the drag started, so what shows only while dragging (the free ports of a diagram) can be it. Joins two nodes of a FlowCanvas with #port:<node>:<port> on each side." },
     { "kind": "wait", "subtitle": "#test-id [= text]", "does": "Waits up to 5 s for the target to show, and to mention the text when given; fails with E2E_TIMEOUT." },
     { "kind": "check", "subtitle": "#test-id = expected value", "does": "Checks the value or the name the part shows." },
     { "kind": "mention", "subtitle": "#test-id = text", "does": "Checks that the part's name or description mentions the text." }
