@@ -8,11 +8,11 @@ use ravenrs_e2e_runner::config::Config;
 use ravenrs_e2e_runner::report::{self, Report, render};
 use ravenrs_e2e_runner::run::run_files;
 use ravenrs_e2e_runner::rust;
-use ravenrs_e2e_runner::session::Session;
+use ravenrs_e2e_runner::session::{Failure, Session};
 use ravenrs_e2e_wire::{Scenario, scenario_schema};
 use serde_json::Value;
 
-fn nothing(_: &str) -> Option<Result<Session, String>> {
+fn nothing(_: &str) -> Option<Result<Session, Box<Failure>>> {
     None
 }
 

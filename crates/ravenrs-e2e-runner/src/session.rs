@@ -32,7 +32,7 @@ impl Session {
 
 /// Opens the app a scenario's Open block names: `None` when there is no app by that name, the
 /// reason when there is one and it could not be opened.
-pub type Opener = fn(&str) -> Option<Result<Session, String>>;
+pub type Opener = fn(&str) -> Option<Result<Session, Box<Failure>>>;
 
 /// One step a block stands for.
 #[derive(Clone, Debug, PartialEq)]
@@ -96,6 +96,14 @@ impl Failure {
     }
 }
 
+impl std::fmt::Display for Failure {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for Failure {}
+
 /// What a failure means and how to fix it, in Portuguese, by its stable code. The detail from
 /// `ravenrs-e2e` (which query, what was found) follows the meaning.
 fn in_portuguese(code: &str) -> (&'static str, Option<&'static str>) {
@@ -120,6 +128,10 @@ fn in_portuguese(code: &str) -> (&'static str, Option<&'static str>) {
             ("o valor é secreto e nunca é mostrado", Some("confira o que o app faz com o valor, como entrar"))
         }
         "E2E_EXPECTATION" => ("a conferência não bateu", None),
+        "E2E_APP_BUILD" => (
+            "o app testado não compilou",
+            Some("corrija os erros do Cargo/Rust no arquivo e na linha indicados e rode o cenário de novo"),
+        ),
         "E2E_APP_START" => (
             "o app testado não abriu ou fechou no meio",
             Some(
@@ -179,7 +191,7 @@ pub fn perform(session: &mut Option<Session>, step: &Step, open: Opener) -> Resu
             // The app a previous Open block started ends before the next one starts.
             *session = None;
             let opened = open(name).ok_or_else(|| Box::new(no_app(name)))?;
-            *session = Some(opened.map_err(|reason| Box::new(Failure::plain(reason)))?);
+            *session = Some(opened?);
             return Ok(());
         }
         Step::Do(command) => command,

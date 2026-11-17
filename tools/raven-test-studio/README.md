@@ -79,6 +79,8 @@ raven-test-studio --project ~/meu-app --run-all --film on-failure --out target/e
 
 The same film modes work with `cargo ravenrs e2e run`; its `e2e.toml` can set `film = "on-failure"` when the command line does not give `--film`.
 
+Source apps compile before they open the test channel. A build error is `E2E_APP_BUILD`, with the Rust diagnostic, source file and line in the report; a compiled app that does not open its channel is `E2E_APP_START`. The build has up to 15 minutes, with process-group cleanup on timeout; the app then has 20 seconds to open the channel. Installed and explicit binaries are not rebuilt.
+
 **Where the scenarios live**
 
 A Studio installed from scratch brings **no test scenarios**: the window opens empty. Its only own test is its health check, "O Studio testa o Studio", shown in the status bar. Scenarios are `.raventest` files (one block per line, words in English or Portuguese, see [`ravenrs-e2e-wire`](../../crates/ravenrs-e2e-wire)), and where they live is the QA team's choice:
@@ -118,7 +120,7 @@ installed = ["Applications/Raven Finanças.app/Contents/MacOS/family-finance", "
 
 **A real app, apart: Raven Finanças**
 
-`--run financas` opens Raven Finanças in a child process with no window, over the test channel [`ravenrs-e2e-wire`](../../crates/ravenrs-e2e-wire), and runs the scenarios it brings (today, an expense checked in the month). The app runs on its sample family in memory on a fixed day; the database of the person using it is never opened. The Studio takes the app from `RAVEN_FINANCAS`, else the installed copy if it is 0.1.39 or later, else `cargo run` inside the checkout. An older installed copy is never given `--e2e-serve`: it would read it as the path of a database.
+`--run financas` opens Raven Finanças in a child process with no window, over the test channel [`ravenrs-e2e-wire`](../../crates/ravenrs-e2e-wire), and runs the scenarios it brings (today, an expense checked in the month). The app runs on its sample family in memory on a fixed day; the database of the person using it is never opened. The Studio takes the app from `RAVEN_FINANCAS`, else the installed copy if it is 0.1.39 or later, else a Cargo build inside the checkout, followed by the executable Cargo reports. An older installed copy is never given `--e2e-serve`: it would read it as the path of a database.
 
 Closing the window keeps the Studio beside the clock, as Raven Finanças does: its menu opens the window again or quits, and launching it again opens the copy already running. When its window opens, the Studio runs its self-test first (from the cache when nothing changed) and says how it went in the status bar.
 
@@ -169,7 +171,7 @@ claude --plugin-dir tools/raven-test-studio/claude-pane
 
 ## Limits for now
 
-- Frames over the channel, `E2E_APP_BUILD`, `attach` to an app already open with permission on screen, and `cargo ravenrs e2e install` are the rest of phase F6 of #627.
+- Frames over the channel, `attach` to an app already open with permission on screen, and `cargo ravenrs e2e install` are the rest of phase F6 of #627.
 - The window delegates to Codex only. Claude and another model are chosen on the command line and in the pane, not yet in the window.
 - Linux and Windows have not been run.
 - The comparison of each screen with its design board is phase F14.

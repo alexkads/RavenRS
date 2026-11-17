@@ -6369,6 +6369,7 @@ version = "27.1.28"
 dependencies = [
  "ravenrs-e2e",
  "ravenrs-e2e-wire",
+ "ravenrs-process",
  "regex-lite",
  "serde_json",
  "toml_edit 0.22.27",

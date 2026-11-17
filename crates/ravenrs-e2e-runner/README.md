@@ -9,7 +9,7 @@ Part of phase F5 of [#627](https://github.com/alexkads/RavenRS/issues/627) ([#66
 A scenario is a `.raventest` file, one block per line (see [`ravenrs-e2e-wire`](../ravenrs-e2e-wire)). The runner:
 
 1. **reads the project** (`project::read`) with `cargo metadata`, without building it. It finds the packages made with RavenRS, which are apps, whether each speaks the test channel (`--e2e-serve`), its `tests/e2e/` scenarios and the screens it builds;
-2. **opens the app a scenario names** (`app::open`) in a child process with no window. It uses the app's code with `cargo run` when the project declares it in `[package.metadata.ravenrs.e2e]`, else an installed copy that speaks the channel, else the binary its variable names;
+2. **opens the app a scenario names** (`app::open`) in a child process with no window. For a source project it first compiles the app with `cargo build --message-format=json-render-diagnostics` and opens the executable Cargo reports, honoring its target directory. An explicit binary or an installed copy that speaks the channel opens directly;
 3. **runs each block** (`session::perform`) as a step on the test channel. A failure comes back with its stable code (`E2E_NOT_FOUND`, `E2E_COVERED`, `E2E_TIMEOUT`, …), its meaning and fix in Portuguese, what came close and the app's screen;
 4. **reports** (`report::Report`) as text, JSON, JSON lines (`trace`), JUnit or one HTML page (`html`), and keeps each run in a folder: `relatorio.json`, `relatorio.html`, `trace.jsonl` and, on a failure, `arvore.txt`.
 
@@ -40,8 +40,10 @@ report::deliver(&reports, true, "junit", Some(&project.e2e_folder()));
 
 A tool that ships apps of its own makes them known with `app::know`, as the Studio does with Raven Finanças. It can also pass its own opener: the Studio's opens the apps compiled into it before any apart.
 
+An opener returns `Option<Result<Session, Box<session::Failure>>>`: `None` for an unknown app, a session when it opened, and a typed failure otherwise. It preserves the failure code, detail and fix through every report. `build::compile` uses `ravenrs-process` for streaming Cargo's two output streams, the build deadline and ending the process group. Compiler errors are `E2E_APP_BUILD`, with the rendered Rust diagnostic (source file, line and suggestions) in `detail`; a compiled app that does not open its channel is `E2E_APP_START`. Only the last 16 compiler diagnostics and 16 stderr lines are kept. The first build can take minutes (`app::BUILD_TIME`, 15 minutes); after it finishes, the app has `app::READY_TIME` (20 seconds) to open its channel.
+
 ## What it does not do
 
 - It does not draw: the app runs with no window and no GPU, so a run proves behaviour, not looks.
-- It does not build the app beforehand. `cargo run` builds it on the first Open block, which may take minutes the first time (`app::BUILD_TIME`).
+- Project discovery does not build anything. The first Open block builds a source app; installed and explicit binaries are never rebuilt.
 - Linux and Windows have not been run yet ([#636](https://github.com/alexkads/RavenRS/issues/636)).

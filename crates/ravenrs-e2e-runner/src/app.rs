@@ -9,7 +9,7 @@
 //! app with no checkout.
 //!
 //! An app is found the way a person has it: a path in its variable; for an app of the project
-//! the Studio was pointed at, its code with `cargo run` in that project; then the copy the
+//! the Studio was pointed at, its code built with Cargo in that project; then the copy the
 //! installer put on this computer; then, inside the RavenRS checkout, its code. An installed copy
 //! from before the test channel is never opened with `--e2e-serve`: it would read the option as
 //! the path of a database and open its window.
@@ -22,7 +22,7 @@ use std::time::Duration;
 use ravenrs_e2e_wire::{Client, SERVE_FLAG};
 use serde_json::Value;
 
-use crate::session::Session;
+use crate::session::{Failure, Session};
 
 /// An app the Studio opens apart, as its `Cargo.toml` declares it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -39,7 +39,7 @@ pub struct App {
     pub variable: String,
     /// Where its installer puts it, from the home folder.
     pub installed: Vec<String>,
-    /// The project to run its code in with `cargo run`, and whether that comes before an
+    /// The project to build its code in with Cargo, and whether that comes before an
     /// installed copy (it does for a project the Studio was pointed at).
     pub source: Option<PathBuf>,
     /// Whether its code comes before the installed copy.
@@ -162,14 +162,14 @@ pub fn known(name: &str) -> Option<App> {
 
 /// How long an installed app has to say hello.
 pub const READY_TIME: Duration = Duration::from_secs(20);
-/// How long an app built first with `cargo run` has to say hello.
+/// How long Cargo may build an app before its process group is stopped.
 pub const BUILD_TIME: Duration = Duration::from_secs(900);
 
 /// The scenarios the app named `name` brings, read from its hello: the `.raventest` files of its
 /// `tests/e2e/`, embedded in the app. `None` when the Studio does not know the app.
 pub fn scenarios(name: &str) -> Option<Result<Vec<ravenrs_e2e_wire::Scenario>, String>> {
     let app = known(name)?;
-    Some(start(&app).and_then(|client| {
+    Some(start(&app).map_err(|error| error.to_string()).and_then(|client| {
         if client.scenarios().is_empty() {
             return Err(format!(
                 "O {} aberto não traz cenários na pasta tests/e2e; atualize-o, ou rode um arquivo .raventest com --run",
@@ -185,52 +185,55 @@ pub fn scenarios(name: &str) -> Option<Result<Vec<ravenrs_e2e_wire::Scenario>, S
 }
 
 /// Opens the app named `name` apart, if it is one the Studio knows.
-pub fn open(name: &str) -> Option<Result<Session, String>> {
+pub fn open(name: &str) -> Option<Result<Session, Box<Failure>>> {
     let app = known(name)?;
     Some(start(&app).map(Session::Apart))
 }
 
-fn start(app: &App) -> Result<Client, String> {
-    let (mut process, time) = find(app)?;
+fn start(app: &App) -> Result<Client, Box<Failure>> {
+    let mut process = match find(app).map_err(start_failure)? {
+        Launch::Binary(path) => Process::new(path),
+        Launch::Source(root) => {
+            let binary = crate::build::compile(&root, &app.package, &app.binary, BUILD_TIME)?;
+            let mut process = Process::new(binary);
+            process.current_dir(root);
+            process
+        }
+    };
     process.arg(SERVE_FLAG);
-    Client::spawn(process, time).map_err(|f| {
-        let tail = if f.screen.is_empty() { String::new() } else { format!("\n{}", f.screen) };
-        format!("[{}] Não deu para abrir o {}: {}{tail}", f.code, app.name, f.message)
-    })
+    Client::spawn(process, READY_TIME).map_err(|failure| Box::new(failure.into()))
 }
 
-/// `cargo run` of the app's binary in `root`.
-fn cargo_run(app: &App, root: &Path) -> Process {
-    let mut cargo = Process::new("cargo");
-    cargo.current_dir(root).args(["run", "-q", "-p", &app.package, "--bin", &app.binary, "--"]);
-    cargo
+enum Launch {
+    Binary(PathBuf),
+    Source(PathBuf),
 }
 
-/// The command that runs the app, and how long it may take to answer.
-fn find(app: &App) -> Result<(Process, Duration), String> {
+/// Installed and explicit binaries run directly; source projects compile first.
+fn find(app: &App) -> Result<Launch, String> {
     if let Some(path) = &app.binary_path {
-        return Ok((Process::new(path), READY_TIME));
+        return Ok(Launch::Binary(path.clone()));
     }
     if let Some(path) =
         Some(&app.variable).filter(|v| !v.is_empty()).and_then(std::env::var_os).map(PathBuf::from)
     {
-        return Ok((Process::new(path), READY_TIME));
+        return Ok(Launch::Binary(path));
     }
     if app.source_first
         && let Some(root) = &app.source
     {
-        return Ok((cargo_run(app, root), BUILD_TIME));
+        return Ok(Launch::Source(root.clone()));
     }
     let found = installed(app).into_iter().map(|path| {
         let version = version_of(&path);
         (path, version)
     });
     let too_old = match pick_installed(found, &app.since) {
-        Ok(path) => return Ok((Process::new(path), READY_TIME)),
+        Ok(path) => return Ok(Launch::Binary(path)),
         Err(too_old) => too_old,
     };
     if let Some(root) = &app.source {
-        return Ok((cargo_run(app, root), BUILD_TIME));
+        return Ok(Launch::Source(root.clone()));
     }
     Err(match too_old {
         Some(v) => format!(
@@ -264,10 +267,14 @@ pub fn pick_installed(
 }
 
 /// Opens the app at `binary` apart, as its variable does.
-pub fn open_from(binary: &Path) -> Result<Session, String> {
+pub fn open_from(binary: &Path) -> Result<Session, Box<Failure>> {
     let mut process = Process::new(binary);
     process.arg(SERVE_FLAG);
-    Client::spawn(process, READY_TIME).map(Session::Apart).map_err(|f| format!("[{}] {}", f.code, f.message))
+    Client::spawn(process, READY_TIME).map(Session::Apart).map_err(|failure| Box::new(failure.into()))
+}
+
+fn start_failure(detail: String) -> Box<Failure> {
+    Box::new(ravenrs_e2e_wire::Failure::of(ravenrs_e2e_wire::codes::APP_START, detail).into())
 }
 
 /// Where the installer puts the app, for this person.

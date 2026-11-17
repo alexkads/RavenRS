@@ -94,14 +94,16 @@ fn film_with_nowhere_to_keep_it_is_refused() {
 }
 
 /// The child uses a different working folder, as an app opened with `--project` does.
-fn studio_in_another_folder(_: &str) -> Option<Result<raven_test_studio::runner::Session, String>> {
+fn studio_in_another_folder(
+    _: &str,
+) -> Option<Result<raven_test_studio::runner::Session, Box<raven_test_studio::runner::Failure>>> {
     let child_folder = std::env::temp_dir().join(format!("rts-film-child-{}", std::process::id()));
     let mut command = std::process::Command::new(env!("CARGO_BIN_EXE_raven-test-studio"));
     command.current_dir(child_folder).arg("--e2e-serve");
     Some(
         ravenrs_e2e_wire::Client::spawn(command, std::time::Duration::from_secs(20))
             .map(raven_test_studio::runner::Session::Apart)
-            .map_err(|error| error.message),
+            .map_err(|error| Box::new(error.into())),
     )
 }
 
