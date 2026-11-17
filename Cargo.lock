@@ -2269,7 +2269,7 @@ checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
 name = "family-finance"
-version = "0.1.43"
+version = "0.1.44"
 dependencies = [
  "image",
  "jiff",
@@ -2377,6 +2377,7 @@ dependencies = [
  "ravenrs-app-server",
  "ravenrs-app-sqlite",
  "ravenrs-app-ui",
+ "ravenrs-app-update",
  "ravenrs-core",
  "ravenrs-criteria",
  "ravenrs-render",
@@ -5893,7 +5894,7 @@ dependencies = [
 
 [[package]]
 name = "raven-flows"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "image",
  "pollster",
@@ -5910,7 +5911,7 @@ dependencies = [
 
 [[package]]
 name = "raven-test-studio"
-version = "0.1.14"
+version = "0.1.15"
 dependencies = [
  "ravenrs",
  "ravenrs-agent-cli",
@@ -6256,6 +6257,11 @@ name = "ravenrs-app-update"
 version = "27.1.28"
 dependencies = [
  "ravenrs-core",
+ "ravenrs-e2e",
+ "ravenrs-layout",
+ "ravenrs-reactive",
+ "ravenrs-style",
+ "ravenrs-widgets",
  "serde",
  "serde_json",
  "tracing",

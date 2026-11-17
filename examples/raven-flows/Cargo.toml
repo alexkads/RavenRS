@@ -2,7 +2,7 @@
 name = "raven-flows"
 description = "An automation app made only of RavenRS components: flows of nodes drawn on a FlowCanvas, run for real by ravenrs-flows and kept by ravenrs-flows-runtime."
 # The app's own version, read by its news, as Raven Finanças does.
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 # ravenrs-flows-runtime needs 1.89 (rusqlite 0.41), one above the workspace.
 rust-version = "1.89"
@@ -13,7 +13,7 @@ publish = false
 ravenrs = { workspace = true, features = ["code"] }
 ravenrs-flows.workspace = true
 ravenrs-flows-runtime.workspace = true
-ravenrs-app-update.workspace = true
+ravenrs-app-update = { workspace = true, features = ["ui"] }
 # The nodes of the Codex CLI and the Claude CLI.
 ravenrs-agent-cli.workspace = true
 serde.workspace = true

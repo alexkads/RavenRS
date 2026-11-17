@@ -135,7 +135,7 @@ impl App {
             menu_folded: State::new(None),
             palette: State::new(false),
             sidebar,
-            news: updates::NewsDialog::new(),
+            news: updates::news_dialog(),
             training,
             recorder,
             reporter,

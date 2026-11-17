@@ -1,5 +1,23 @@
 [
   {
+    "versao": "0.1.15",
+    "data": "2026-11-17",
+    "titulo": "As novidades de cada versão aparecem na janela, como no Raven Finanças.",
+    "importante": false,
+    "novidades": [
+      "Clicar na versão, na barra de baixo, abre as novidades da versão em uso, e dá para navegar pelas anteriores.",
+      "Cada versão mostra o que mudou, por que atualizar, quem contribuiu e as issues, que abrem no navegador.",
+      "Os botões Novidades, Como atualizar e Detalhes do aviso de versão nova agora abrem o que dizem, em vez de só fechar o aviso."
+    ],
+    "por_que_atualizar": "Para saber o que cada versão trouxe sem sair da janela.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      744
+    ]
+  },
+  {
     "versao": "0.1.14",
     "data": "2026-11-17",
     "titulo": "Agora dá para ver o teste rodando na janela do app.",

@@ -32,7 +32,7 @@ use std::rc::Rc;
 
 use ravenrs::core::{MemoryStorage, Storage};
 use ravenrs::prelude::*;
-use ravenrs_app_update::{NoticeAction, Updater};
+use ravenrs_app_update::Updater;
 
 use crate::runner::{Outcome, Run};
 pub use ravenrs_e2e_runner::run::RunOptions;
@@ -100,6 +100,8 @@ pub struct Studio {
     storage: Rc<dyn Storage>,
     scenario: FlowGraph,
     updater: Updater,
+    /// The news of each version and the details of a failed update, as every RavenRS app shows them.
+    news: ravenrs_app_update::ui::NewsDialog,
     /// How the Studio's own test went when the window opened; `None` for a Studio that did not
     /// test itself, as the one a scenario opens.
     health: Option<report::Report>,
@@ -119,10 +121,14 @@ impl Studio {
         self
     }
 
-    /// The bar at the bottom: the version, how the Studio's own test went, and the updater's
-    /// notice when there is one.
+    /// The bar at the bottom: the version, which opens its news, how the Studio's own test went,
+    /// and the updater's notice when there is one, as every RavenRS app shows it.
     fn status_bar(&self) -> StatusBar {
-        let version = StatusBar::text(format!("Raven Test Studio {VERSION}"));
+        let version = ravenrs_app_update::ui::version_button(
+            format!("Raven Test Studio · versão {VERSION}"),
+            &self.updater,
+            &self.news,
+        );
         let bar = match &self.health {
             Some(health) => {
                 let (said, tone) = if health.passed() {
@@ -140,37 +146,7 @@ impl Studio {
             }
             None => StatusBar::new().left((version,)),
         };
-        let Some(notice) = self.updater.notice() else { return bar };
-        let buttons: Vec<Button> = notice
-            .actions
-            .iter()
-            .filter(|action| {
-                !matches!(action, NoticeAction::News | NoticeAction::HowToUpdate | NoticeAction::Details)
-            })
-            .map(|&action| self.notice_button(action))
-            .collect();
-        let bar = bar.center((
-            StatusBar::text(notice.text).foreground(Semantic::Ink).truncate().grow(1.0),
-            HStack::new(buttons).spacing(4.0),
-        ));
-        if notice.important { bar.center_tone(Tone::Warning) } else { bar }
-    }
-
-    /// A button of the updater's notice, doing what Raven Finanças does with it.
-    fn notice_button(&self, action: NoticeAction) -> Button {
-        let updater = self.updater.clone();
-        let button = StatusBar::action(action.label());
-        let button = if action.is_primary() { button.style(ButtonStyle::Primary) } else { button };
-        button.on_click(move || match action {
-            NoticeAction::Update | NoticeAction::Retry => {
-                if let Some(news) = updater.status().news().cloned() {
-                    updater.install(news);
-                }
-            }
-            NoticeAction::Reopen => updater.reopen(),
-            NoticeAction::CheckAgain => updater.ask(),
-            _ => updater.dismiss(),
-        })
+        ravenrs_app_update::ui::with_notice(bar, &self.updater, &self.news)
     }
 }
 
@@ -189,8 +165,13 @@ impl View for Studio {
         // What was chosen on the icon's menu, then the menu as the window now stands.
         if let Some(link) = &self.tray {
             for id in link.take() {
-                if self.updater.tray_select(&id).is_some() {
-                    continue;
+                match self.updater.tray_select(&id) {
+                    Some(ravenrs_app_update::TrayChoice::News) => {
+                        self.news.show_latest();
+                        continue;
+                    }
+                    Some(_) => continue,
+                    None => {}
                 }
                 #[cfg(not(target_arch = "wasm32"))]
                 if id == tray::RUN_SELF_TEST {
@@ -320,6 +301,7 @@ impl View for Studio {
                 .align(Align::Stretch)
                 .grow(1.0),
                 self.status_bar(),
+                self.news.view(&self.updater),
             ))
             .spacing(0.0)
             .align(Align::Stretch)
@@ -568,6 +550,17 @@ fn run_log(outcomes: &[Outcome], total: usize, from_cache: bool, delegation: &De
     .padding(16.0)
 }
 
+/// A closed news dialog; on the desktop it opens the installer's log with the system.
+fn news_dialog() -> ravenrs_app_update::ui::NewsDialog {
+    let dialog = ravenrs_app_update::ui::NewsDialog::new();
+    #[cfg(not(target_arch = "wasm32"))]
+    let dialog = dialog.on_open_file(|log| {
+        // A log that does not open leaves its end on screen, in the details.
+        let _ = ravenrs::native::open_with_system(log);
+    });
+    dialog
+}
+
 fn studio(
     storage: Rc<dyn Storage>,
     scenario: FlowGraph,
@@ -578,6 +571,7 @@ fn studio(
         storage,
         scenario,
         updater,
+        news: news_dialog(),
         health,
         tray: None,
         #[cfg(not(target_arch = "wasm32"))]

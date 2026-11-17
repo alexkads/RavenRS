@@ -1533,3 +1533,40 @@ fn text_shows_the_type_scale_and_keeps_truncated_and_reactive_content_accessible
     c.press("Alterar conteúdo");
     assert!(c.says("Vinculado: 2") && c.says("Calculado: 4"));
 }
+
+#[test]
+fn the_news_of_each_version_open_on_the_version_running_the_newest_and_a_failure() {
+    let mut c = Center::memory("ana");
+    c.press("Novidades da versão");
+    assert!(c.says("Novidades fechadas"), "{:?}", c.texts());
+    // The version in the status bar opens the news of the version running. A modal dialog is
+    // all the tree shows, so its own count says which version is open.
+    c.press("Raven Exemplo · versão 0.2.0");
+    for said in [
+        "2 de 3",
+        "Instalada",
+        "Busca em todas as colunas",
+        "Quem contribuiu",
+        "Alex S S Fonseca, Matheus",
+        "#729",
+        "#731",
+    ] {
+        assert!(c.says(said), "{said}: {:?}", c.texts());
+    }
+    c.key(ravenrs_core::Key::Escape);
+    assert!(c.says("Novidades fechadas"), "Esc closes it: {:?}", c.texts());
+    c.press("Mais recente");
+    for said in ["1 de 3", "Nova", "Por que atualizar", "Como atualizar", "Relatórios agendados"] {
+        assert!(c.says(said), "{said}: {:?}", c.texts());
+    }
+    c.key(ravenrs_core::Key::Escape);
+    c.press("Versão em uso");
+    assert!(c.says("2 de 3"), "{:?}", c.texts());
+    c.key(ravenrs_core::Key::Escape);
+    c.press("Detalhes de uma falha");
+    assert!(c.says("Detalhes da atualização"), "{:?}", c.texts());
+    c.press("Abrir o registro");
+    c.key(ravenrs_core::Key::Escape);
+    assert!(c.says("detalhes fechados"), "{:?}", c.texts());
+    assert!(c.says(".raven-exemplo-do-centro"), "the log is asked of the system: {:?}", c.texts());
+}

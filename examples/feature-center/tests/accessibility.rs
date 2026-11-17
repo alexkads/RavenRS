@@ -92,6 +92,7 @@ macro_rules! demonstrations {
 demonstrations! {
     botoes => "Botões",
     texto => "Texto",
+    novidades_da_versao => "Novidades da versão",
     diagrama_de_fluxo => "Diagrama de fluxo",
     cabos => "Cabos",
     painel_de_tomadas => "Painel de tomadas",
