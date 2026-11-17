@@ -1,19 +1,19 @@
 {
-  "versao": "0.1.13",
-  "titulo": "A falha vem com o filme.",
+  "versao": "0.1.14",
+  "titulo": "Agora dá para ver o teste rodando na janela do app.",
   "importante": false,
   "novidades": [
-    "--film on-failure filma o app testado e guarda o filme de quando um passo falha, ao lado do relatório; --film always guarda todos.",
-    "O relatório lista os filmes, e a página HTML tem o link para abrir cada um.",
-    "O Studio aberto à parte para ser testado também filma.",
-    "Quem roda os passos agora é um só, o mesmo do cargo ravenrs e2e."
+    "--headed roda o cenário com a janela real do app na tela, nos dados de teste dele, com os mesmos blocos, esperas e códigos de quando roda sem janela.",
+    "--slow-mo <ms> espera entre os passos para acompanhar, sem mudar o resultado: o relógio do app para entre um passo e outro.",
+    "--step começa pausado: Enter roda um bloco, c continua, p pausa e q para; --keep-open on-failure deixa a janela aberta no fim para ver onde falhou.",
+    "Fechar a janela no meio do teste ou pedir janela num computador sem tela dá um código claro (E2E_WINDOW_CLOSED, E2E_NO_WINDOW), e o relatório diz se rodou com janela e em qual sistema.",
+    "O e2e.toml do projeto aceita window, slow_mo e keep_open; a linha de comando vale mais, e --headless desliga a janela."
   ],
-  "por_que_atualizar": "Para ver no MoviePlayer o que levou a uma falha, sem rodar de novo.",
+  "por_que_atualizar": "Para acompanhar um cenário, entender uma falha e mostrar o fluxo na janela de verdade, sem montar outro roteiro.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    672,
-    674
+    729
   ]
 }

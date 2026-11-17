@@ -15,14 +15,24 @@
 //! to that coding agent, with its cheapest model unless `--model` names another, and checks its
 //! verdict by running the scenario here.
 //!
+//! `--headed` runs the scenarios with the app's real window on screen, on its test data, with the
+//! same blocks and codes: `--slow-mo <ms>` waits after each step, `--step` starts paused (Enter
+//! runs one block, c carries on, p pauses, q stops) and `--keep-open on-failure|always` leaves the
+//! window to look at the end. With no window is the default.
+//!
 //! `--atualizacao` says whether there is a newer Studio (`--format json` for a tool, as the
 //! Claude pane asks), and `--atualizar` installs it, printing each stage.
 
 use raven_test_studio::cache::{self, RunCache};
 
 /// Every option the Studio reads; any other is refused.
-const OPTIONS: [&str; 19] = [
+const OPTIONS: [&str; 24] = [
     "--versao",
+    "--headed",
+    "--headless",
+    "--slow-mo",
+    "--keep-open",
+    "--step",
     "--film",
     "--out",
     "--e2e-serve",
@@ -69,6 +79,12 @@ fn main() -> std::process::ExitCode {
              --format junit                          o XML JUnit que servidores de build leem\n\
              --format html                           uma página com o resumo, os passos e a falha\n\
              --film <never|on-failure|always>        filma o app; on-failure guarda só o filme da falha\n\
+             --headed                                roda com a janela real do app na tela (padrão: sem janela)\n\
+             --slow-mo <ms>                          com a janela: espera entre os passos, para acompanhar\n\
+             --step                                  com a janela: começa pausado; Enter = próximo passo,\n\
+                                                     c = continuar, p = pausar, q = parar\n\
+             --keep-open <never|on-failure|always>   com a janela: deixa-a aberta no fim para inspecionar\n\
+             --headless                              sem janela, mesmo que o e2e.toml peça\n\
              --out <pasta>                           grava relatorio.json e .html, trace.jsonl e, na falha,\n\
                                                      arvore.txt (com --project: o target/e2e do projeto)\n\
              --no-cache, --clear-cache               roda de novo / esquece o cache\n\
@@ -103,6 +119,25 @@ fn main() -> std::process::ExitCode {
                 return std::process::ExitCode::from(2);
             }
         },
+    };
+    // The window: the command line, over the e2e.toml of the project, over no window.
+    let config = match value("--project") {
+        Some(folder) => ravenrs_e2e_runner::config::Config::read(std::path::Path::new(&folder)),
+        None => Ok(ravenrs_e2e_runner::config::Config::default()),
+    };
+    let ask = ravenrs_e2e_runner::window::Ask {
+        headed: has("--headed"),
+        headless: has("--headless"),
+        slow_mo: value("--slow-mo"),
+        keep_open: value("--keep-open"),
+        step: has("--step"),
+    };
+    let (window, control) = match config.and_then(|config| config.window_from(&ask)) {
+        Ok(chosen) => chosen,
+        Err(why) => {
+            eprintln!("{why}");
+            return std::process::ExitCode::from(2);
+        }
     };
     // Another Studio drives this one with no window over the test channel, to test it in a
     // process of its own; it brings no scenario.
@@ -170,7 +205,7 @@ fn main() -> std::process::ExitCode {
         // A run of a project keeps what it found where cargo keeps what it builds.
         out = out.or_else(|| Some(project.e2e_folder()));
         if has("--run-all") {
-            let Some(options) = run_options(film, out) else {
+            let Some(options) = run_options(film, out, window, control) else {
                 return std::process::ExitCode::from(2);
             };
             return run_all(&project, &format, &options);
@@ -190,7 +225,7 @@ fn main() -> std::process::ExitCode {
     }
     if let Some(name) = scenario {
         let mut kept = if has("--no-cache") { None } else { cache::default_file().map(|f| RunCache::at(&f)) };
-        let Some(options) = run_options(film, out) else {
+        let Some(options) = run_options(film, out, window, control) else {
             return std::process::ExitCode::from(2);
         };
         return report(&name, &format, &options, kept.as_mut());
@@ -354,12 +389,17 @@ fn suggest(
 fn run_options(
     film: raven_test_studio::runner::FilmMode,
     out: Option<std::path::PathBuf>,
+    window: ravenrs_e2e_runner::window::Window,
+    control: Option<ravenrs_e2e_runner::window::Control>,
 ) -> Option<raven_test_studio::RunOptions> {
     if film != raven_test_studio::runner::FilmMode::Never && out.is_none() {
         eprintln!("--film precisa de onde guardar o filme: diga --out <pasta>, ou rode com --project");
         return None;
     }
-    Some(raven_test_studio::RunOptions { film, out })
+    if let Some(control) = &control {
+        ravenrs_e2e_runner::window::steer_when_terminal(control);
+    }
+    Some(raven_test_studio::RunOptions { film, out, window, control })
 }
 
 fn run_all(
@@ -374,19 +414,27 @@ fn run_all(
     }
     let mut worst = 0;
     let mut reports = Vec::new();
+    let mut kept = Vec::new();
     for folder in folders {
-        match raven_test_studio::run_files_with(&folder, options) {
-            Ok(report) => {
+        match raven_test_studio::run_files_kept(&folder, options) {
+            Ok((report, inspection)) => {
                 worst = worst.max(report.exit_code());
                 reports.push(report);
+                kept.extend(inspection);
             }
             Err(why) => {
                 eprintln!("{why}");
                 worst = 2;
             }
         }
+        if options.control.as_ref().is_some_and(ravenrs_e2e_runner::window::Control::is_stopped) {
+            break;
+        }
     }
     show(&reports, true, format, options.out.as_deref());
+    for inspection in kept {
+        inspection.hold();
+    }
     std::process::ExitCode::from(u8::try_from(worst).unwrap_or(1))
 }
 
@@ -408,8 +456,8 @@ fn report(
     options: &raven_test_studio::RunOptions,
     cache: Option<&mut RunCache>,
 ) -> std::process::ExitCode {
-    let report = match raven_test_studio::run_named_with(name, cache, options) {
-        Ok(report) => report,
+    let (report, inspection) = match raven_test_studio::run_named_kept(name, cache, options) {
+        Ok(kept) => kept,
         Err(why) => {
             eprintln!("{why}");
             return std::process::ExitCode::from(2);
@@ -417,5 +465,8 @@ fn report(
     };
     let code = report.exit_code();
     show(std::slice::from_ref(&report), false, format, options.out.as_deref());
+    if let Some(inspection) = inspection {
+        inspection.hold();
+    }
     std::process::ExitCode::from(u8::try_from(code).unwrap_or(1))
 }

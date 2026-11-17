@@ -176,6 +176,7 @@ pub use dock::{
     DockLayoutError, DockNode, DockPanel, DockPanelKind, DockTabBar,
 };
 pub use dock_side::DockSide;
+pub use ravenrs_widgets_base::{Driving, UiDriver};
 pub use editors::{DateTime, DateTimePicker, MaskedField, NumberField, TextArea, Time, TimePicker};
 pub use event_calendar::{CalendarEvent, CalendarView, EventCalendar, RecurrenceEditor};
 pub use expression_editor::ExpressionEditor;

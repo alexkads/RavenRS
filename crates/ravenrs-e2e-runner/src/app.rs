@@ -19,7 +19,7 @@ use std::process::Command as Process;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use ravenrs_e2e_wire::{Client, SERVE_FLAG};
+use ravenrs_e2e_wire::{Client, SERVE_FLAG, WINDOW_FLAG, codes};
 use serde_json::Value;
 
 use crate::session::{Failure, Session};
@@ -165,6 +165,22 @@ pub fn known(name: &str) -> Option<App> {
     find(&LEARNED).or_else(|| find(&KNOWN))
 }
 
+/// Whether the apps this process opens show their window: set once by the tool from `--headed`
+/// (see [`crate::window`]), read by every Open block of every run.
+static WINDOW: Mutex<crate::window::WindowMode> = Mutex::new(crate::window::WindowMode::Headless);
+
+/// Opens the apps of every run of this process with their window, or without it.
+pub fn set_window(mode: crate::window::WindowMode) {
+    if let Ok(mut window) = WINDOW.lock() {
+        *window = mode;
+    }
+}
+
+/// Whether the apps this process opens show their window.
+pub fn window() -> crate::window::WindowMode {
+    WINDOW.lock().map(|w| *w).unwrap_or_default()
+}
+
 /// How long an installed app has to say hello.
 pub const READY_TIME: Duration = Duration::from_secs(20);
 /// How long Cargo may build an app before its process group is stopped.
@@ -198,7 +214,7 @@ pub fn open(name: &str) -> Option<Result<Session, Box<Failure>>> {
 }
 
 fn start(app: &App) -> Result<Client, Box<Failure>> {
-    let mut process = match find(app).map_err(start_failure)? {
+    let process = match find(app).map_err(start_failure)? {
         Launch::Binary(path) => Process::new(path),
         Launch::Source(root) => {
             let binary = crate::build::compile_with_features(
@@ -213,8 +229,37 @@ fn start(app: &App) -> Result<Client, Box<Failure>> {
             process
         }
     };
+    spawn(process, &app.name)
+}
+
+/// Opens `process` on the test channel, with its window when this process asks for it
+/// ([`set_window`]): an app that cannot show it, or a computer with no screen, is refused with
+/// `E2E_NO_WINDOW` before any step, never run with no window in its place.
+fn spawn(mut process: Process, name: &str) -> Result<Client, Box<Failure>> {
+    let headed = window() == crate::window::WindowMode::Headed;
+    if headed {
+        crate::window::graphic_session().map_err(|why| no_window(why, None))?;
+    }
     process.arg(SERVE_FLAG);
-    Client::spawn(process, READY_TIME).map_err(|failure| Box::new(failure.into()))
+    if headed {
+        process.arg(WINDOW_FLAG);
+    }
+    let client = Client::spawn(process, READY_TIME).map_err(|failure| Box::new(failure.into()))?;
+    if headed && !client.window() {
+        return Err(no_window(
+            format!("o {name} aberto não mostra a janela no canal de teste"),
+            Some(format!(
+                "atualize o {name}, ou sirva-o com ravenrs_e2e_wire::Headed e ravenrs::native::run_driven; sem --headed ele roda sem janela"
+            )),
+        ));
+    }
+    Ok(client)
+}
+
+fn no_window(detail: String, fix: Option<String>) -> Box<Failure> {
+    let mut failure = ravenrs_e2e_wire::Failure::of(codes::NO_WINDOW, detail);
+    failure.fix = fix;
+    Box::new(failure.into())
 }
 
 enum Launch {
@@ -281,9 +326,8 @@ pub fn pick_installed(
 
 /// Opens the app at `binary` apart, as its variable does.
 pub fn open_from(binary: &Path) -> Result<Session, Box<Failure>> {
-    let mut process = Process::new(binary);
-    process.arg(SERVE_FLAG);
-    Client::spawn(process, READY_TIME).map(Session::Apart).map_err(|failure| Box::new(failure.into()))
+    let name = binary.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+    spawn(Process::new(binary), &name).map(Session::Apart)
 }
 
 fn start_failure(detail: String) -> Box<Failure> {

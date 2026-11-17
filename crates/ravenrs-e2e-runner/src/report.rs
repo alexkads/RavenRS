@@ -26,6 +26,14 @@ pub const NOT_VERIFIED_APART: [&str; 3] = [
     "a comparação com as pranchetas do design vem na F14 da #627",
 ];
 
+/// What a run with the app's real window on screen could not check, said in its report; the
+/// systems it did not run on come from [`crate::window::other_systems`].
+pub const NOT_VERIFIED_HEADED: [&str; 3] = [
+    "o app testado rodou à parte, com a janela real na tela, nos dados de teste do app: os dados de quem usa não foram tocados",
+    "Linux e Windows não rodaram aqui",
+    "a comparação com as pranchetas do design vem na F14 da #627",
+];
+
 /// A finished run of a scenario.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Report {
@@ -49,6 +57,12 @@ pub struct Report {
     pub films: Vec<String>,
     /// Why an app was not filmed, when it was asked to be.
     pub film_note: Option<String>,
+    /// Whether the apps showed their window (`--headed`).
+    pub window: crate::window::WindowMode,
+    /// How long the run waited after each step, for a person to follow it.
+    pub slow_mo_ms: u64,
+    /// Whether the person watching stopped the run before its end.
+    pub stopped: bool,
 }
 
 impl Report {
@@ -85,12 +99,22 @@ impl Report {
             not_run: Vec::new(),
             films: Vec::new(),
             film_note: None,
+            window: crate::app::window(),
+            slow_mo_ms: 0,
+            stopped: false,
         }
     }
 
-    /// What this run could not check.
-    pub fn not_verified(&self) -> [&'static str; 3] {
-        if self.apart { NOT_VERIFIED_APART } else { NOT_VERIFIED }
+    /// What this run could not check, with the systems it did not run on.
+    pub fn not_verified(&self) -> Vec<&'static str> {
+        let mut said = match (self.window, self.apart) {
+            (crate::window::WindowMode::Headed, _) => NOT_VERIFIED_HEADED,
+            (_, true) => NOT_VERIFIED_APART,
+            (_, false) => NOT_VERIFIED,
+        }
+        .to_vec();
+        said[1] = crate::window::other_systems();
+        said
     }
 
     /// A report read back from what [`Report::json`] wrote.
@@ -139,6 +163,13 @@ impl Report {
                 .map(|a| a.iter().filter_map(Value::as_str).map(str::to_owned).collect())
                 .unwrap_or_default(),
             film_note: text(value, "film_note"),
+            window: value
+                .get("window")
+                .and_then(Value::as_str)
+                .and_then(crate::window::WindowMode::read)
+                .unwrap_or_default(),
+            slow_mo_ms: value.get("slow_mo_ms").and_then(Value::as_u64).unwrap_or_default(),
+            stopped: value.get("stopped").and_then(Value::as_bool).unwrap_or_default(),
         })
     }
 
@@ -165,6 +196,15 @@ impl Report {
             if self.passed() { "passou" } else { "falhou" },
             runner::summary(&self.outcomes, self.total)
         );
+        if self.window == crate::window::WindowMode::Headed {
+            out.push_str(&format!("\ncom a janela do app na tela, em {}", crate::window::this_system()));
+            if self.slow_mo_ms > 0 {
+                out.push_str(&format!(", {} ms entre os passos", self.slow_mo_ms));
+            }
+        }
+        if self.stopped {
+            out.push_str("\nparado por quem acompanhava antes do fim");
+        }
         if self.cached_at.is_some() {
             out.push_str(
                 "\ndo cache: nem o cenário nem o build mudaram desde a última vez (--no-cache roda de novo)",
@@ -243,6 +283,10 @@ impl Report {
             "not_run": self.not_run,
             "films": self.films,
             "film_note": self.film_note,
+            "window": self.window.word(),
+            "slow_mo_ms": self.slow_mo_ms,
+            "platform": crate::window::this_system(),
+            "stopped": self.stopped,
         })
     }
 }
@@ -258,6 +302,9 @@ impl Report {
             "total": self.total,
             "opened_apart": self.apart,
             "from_cache": self.cached_at.is_some(),
+            "window": self.window.word(),
+            "slow_mo_ms": self.slow_mo_ms,
+            "platform": crate::window::this_system(),
         })];
         for (i, o) in self.outcomes.iter().enumerate() {
             lines.push(json!({
@@ -469,6 +516,10 @@ pub fn schema() -> Value {
             "not_run": { "type": "array", "items": text, "description": "titles of the blocks after a failure" },
             "films": { "type": "array", "items": text, "description": "the .ravenmovie files kept of the apps the run drove" },
             "film_note": { "type": ["string", "null"], "description": "why an app was not filmed, when it was asked to be" },
+            "window": { "enum": ["headless", "headed"], "description": "whether the apps showed their real window (--headed)" },
+            "slow_mo_ms": { "type": "integer", "minimum": 0, "description": "how long the run waited after each step, for a person to follow it" },
+            "platform": { "type": "string", "description": "the system the run ran on: macos, linux or windows" },
+            "stopped": { "type": "boolean", "description": "the person watching stopped the run before its end" },
             "blocks": { "type": "array", "items": {
                 "type": "object",
                 "required": ["step", "id", "kind", "title", "line", "result"],

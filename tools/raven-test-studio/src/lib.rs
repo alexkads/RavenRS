@@ -606,18 +606,34 @@ pub fn run_bundled_with(
     cache: Option<&mut cache::RunCache>,
     options: &RunOptions,
 ) -> Option<report::Report> {
-    let cache = if options.film == runner::FilmMode::Never { cache } else { None };
+    run_bundled_kept(name, cache, options).map(|(report, _)| report)
+}
+
+/// [`run_bundled_with`], also giving the window left open at the end, when the run keeps it. A
+/// run with the window runs again, since the person wants to see it.
+pub fn run_bundled_kept(
+    name: &str,
+    cache: Option<&mut cache::RunCache>,
+    options: &RunOptions,
+) -> Option<(report::Report, Option<runner::Inspection>)> {
+    let cache =
+        if options.film == runner::FilmMode::Never && !options.window.headed() { cache } else { None };
     let (key, title) = SCENARIOS.iter().find(|(key, _)| *key == name)?;
     let graph = match *key {
         "autoteste" => sample::self_test(),
         "financas" => match apps::scenarios(apps::FINANCE_APP) {
             Some(Ok(scenarios)) => sample::from_scenarios(&scenarios),
-            Some(Err(why)) => return Some(report::Report::refused_with(title, apps::FINANCE_APP, *why)),
+            Some(Err(why)) => {
+                return Some((report::Report::refused_with(title, apps::FINANCE_APP, *why), None));
+            }
             None => {
-                return Some(report::Report::refused(
-                    title,
-                    apps::FINANCE_APP,
-                    "o Studio não conhece o Raven Finanças",
+                return Some((
+                    report::Report::refused(
+                        title,
+                        apps::FINANCE_APP,
+                        "o Studio não conhece o Raven Finanças",
+                    ),
+                    None,
                 ));
             }
         },
@@ -633,14 +649,21 @@ pub fn run_bundled_with(
     if let (Some(c), Some(k)) = (cache.as_deref(), kept.as_deref())
         && let Some(report) = c.get(k)
     {
-        return Some(report);
+        return Some((report, None));
     }
-    let report = report::of(title, graph, Run::new(open).filming(options.film, options.folder_of(title)));
+    let (report, inspection) = report::kept(title, graph, run_for(title, options));
     if let (Some(c), Some(k)) = (cache, kept.as_deref()) {
         // A cache that cannot be written only means the next run runs again.
         let _ = c.put(k, &report);
     }
-    Some(report)
+    Some((report, inspection))
+}
+
+/// A run of the scenario called `title` as `options` say: filming, the window and its pace.
+fn run_for(title: &str, options: &RunOptions) -> Run {
+    Run::new(open)
+        .filming(options.film, options.folder_of(title))
+        .presenting(options.window, options.control.clone())
 }
 
 /// Runs what `name` says: a name of [`SCENARIOS`], or the path of a `.raventest` file or of a
@@ -655,12 +678,21 @@ pub fn run_named_with(
     cache: Option<&mut cache::RunCache>,
     options: &RunOptions,
 ) -> Result<report::Report, String> {
-    if let Some(report) = run_bundled_with(name, cache, options) {
-        return Ok(report);
+    run_named_kept(name, cache, options).map(|(report, _)| report)
+}
+
+/// [`run_named_with`], also giving the window left open at the end, when the run keeps it.
+pub fn run_named_kept(
+    name: &str,
+    cache: Option<&mut cache::RunCache>,
+    options: &RunOptions,
+) -> Result<(report::Report, Option<runner::Inspection>), String> {
+    if let Some(kept) = run_bundled_kept(name, cache, options) {
+        return Ok(kept);
     }
     let path = std::path::Path::new(name);
     if path.exists() {
-        return run_files_with(path, options);
+        return run_files_kept(path, options);
     }
     let known: Vec<&str> = SCENARIOS.iter().map(|(key, _)| *key).collect();
     Err(format!(
@@ -678,11 +710,18 @@ pub fn run_files(path: &std::path::Path) -> Result<report::Report, String> {
 /// [`run_files`] as `options` say. The files are read as `cargo ravenrs e2e` reads them, and run
 /// on the Studio's diagram, which opens the apps compiled into the Studio too.
 pub fn run_files_with(path: &std::path::Path, options: &RunOptions) -> Result<report::Report, String> {
+    run_files_kept(path, options).map(|(report, _)| report)
+}
+
+/// [`run_files_with`], also giving the window left open at the end, when the run keeps it.
+pub fn run_files_kept(
+    path: &std::path::Path,
+    options: &RunOptions,
+) -> Result<(report::Report, Option<runner::Inspection>), String> {
     use ravenrs_e2e_runner::run::{files_at, read, title_of};
     let scenarios = read(&files_at(path)?)?;
     let title = title_of(path, &scenarios);
-    let run = Run::new(open).filming(options.film, options.folder_of(&title));
-    Ok(report::of(&title, sample::from_scenarios(&scenarios), run))
+    Ok(report::kept(&title, sample::from_scenarios(&scenarios), run_for(&title, options)))
 }
 
 /// The Studio opening with its own test, "O Studio testa o Studio", keeping its scenarios in

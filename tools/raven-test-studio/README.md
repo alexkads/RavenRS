@@ -53,6 +53,24 @@ The blocks are those of a `.raventest` file. Every step waits up to 2 s for its 
 | Esperar | waits up to 5 s, `E2E_TIMEOUT` otherwise |
 | Conferir, Conferir que menciona | checks the value, or what the part mentions |
 
+**With the app's real window, to watch it run (`--headed`)**
+
+```bash
+cargo run -p raven-test-studio -- --run financas --headed --slow-mo 500
+cargo run -p raven-test-studio -- --run financas --headed --step --keep-open on-failure
+```
+
+`--headed` opens the app with `--e2e-serve --e2e-window`: it shows its real window on its own test data (Raven Finanças: the sample family in memory, never the person's database) and every block acts on the interface the window shows, with the same targets, waits, checks and codes. A scenario that passes with no window passes with it, unchanged, and a wrong expectation fails on the same step with the same code. While the test drives the window, the person's mouse and keyboard do not reach it.
+
+- `--slow-mo <ms>` waits after each block, in the Studio, while the window keeps drawing. The wait is not a step and has no timeout, and the app's clock stops 0.6 s after each step until the next one (`ravenrs_e2e_wire::SETTLE`), so a slow run never lets a notice expire that a later block checks.
+- `--step` starts paused. In the terminal, Enter runs exactly one block, `c` carries on, `p` pauses and `q` stops; any run with the window takes these keys when its input is a terminal. A stopped run reports `stopped: true`, the blocks left as not run, and fails.
+- `--keep-open never|on-failure|always` leaves the window open at the end, showing where the run stopped. The report prints first; the Studio then waits until the window is closed, and the app ends with it. `never` is the default, so nothing waits on a person.
+- Closing the window during the test fails the waiting block with `E2E_WINDOW_CLOSED`. An app that cannot show its window, or a Linux with no graphical session (`DISPLAY`/`WAYLAND_DISPLAY`), fails the Open block with `E2E_NO_WINDOW` before anything runs.
+- `--headless` turns the window off even when the project's `e2e.toml` says `window = "headed"`; the command line always wins over `window`, `slow_mo` and `keep_open` there.
+- The report carries `window`, `slow_mo_ms`, `platform` and `stopped`. Only macOS has run with the window so far.
+
+The buttons for these controls in the Studio's window wait for their design (#729); today they are in the terminal.
+
 **With no window, for a person or a tool**
 
 ```bash

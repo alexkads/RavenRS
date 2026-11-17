@@ -27,9 +27,25 @@ From a RavenRS checkout with no install:
 cargo run -q -p raven-test-studio -- --run autoteste --format json
 ```
 
-The exit code is 0 when it passed, 1 when it failed and 2 when there is no such scenario or the `--format` is not one of `text`, `json`, `jsonl`, `junit`.
+The exit code is 0 when it passed, 1 when it failed and 2 when there is no such scenario or the `--format` is not one of `text`, `json`, `jsonl`, `junit`, `html`, or a window option is wrong (such as `--slow-mo` without `--headed`).
 
 `--format junit` gives JUnit XML for a build server, `--format html` a page to open in a browser, and `--format jsonl` one event per line with the time of each step. `--out <folder>` keeps the run in `<folder>/<scenario>/` (`relatorio.json`, `trace.jsonl` and, on a failure, `arvore.txt` with the app's screen); with `--project` it is the project's `target/e2e`. To read a failure again, open that `arvore.txt` instead of running the scenario again; with `--film on-failure` the folder also has `filme-1.ravenmovie`, the film of the app up to the failure.
+
+## Watching it run: the app's real window (`--headed`)
+
+By default nothing opens on screen: that is what build servers and agents need. To **see** the scenario run, add `--headed`: the app opens its real window on its test data (Raven Finanças: the sample family in memory, never the person's database) and every block acts on what the window shows, with the same targets, waits, checks and codes. The file does not change: a scenario that passes with no window passes with it, and a wrong expectation fails on the same step with the same code.
+
+```bash
+raven-test-studio --run financas --headed --slow-mo 500
+```
+
+- `--slow-mo <ms>` waits after each block to follow it. It never makes a step fail: the app's clock stops 0.6 s after each step until the next one, so a notice a later block checks does not expire because the run is slow.
+- `--step` starts paused; in the terminal, **Enter** runs exactly one block, **c** carries on, **p** pauses, **q** stops (a stopped run fails with `stopped: true` and the blocks left as not run). Any run with the window takes these keys when its input is a terminal.
+- `--keep-open on-failure` (or `always`) leaves the window open at the end, showing where the run stopped; the report prints first, then the Studio waits until the window is closed. The default, `never`, closes it, so never use `on-failure`/`always` in a run nobody watches.
+- While the test drives the window the person's mouse and keyboard do not reach it; closing it fails the waiting block with `E2E_WINDOW_CLOSED`. An app that cannot show its window, or a Linux with no graphical session, fails the Open block with `E2E_NO_WINDOW`: run without `--headed`.
+- `e2e.toml` may set `window = "headed"`, `slow_mo` and `keep_open`; the command line wins, and `--headless` turns the window off.
+- The report says `window` (`headed`/`headless`), `slow_mo_ms`, `platform` and `stopped`. Only macOS has run with the window; say Linux and Windows are pending.
+- An app serves the window with `ravenrs_e2e_wire::Headed` and `ravenrs::native::run_driven` when it is opened with `--e2e-serve --e2e-window` (Raven Finanças from 0.1.43).
 
 ## Testing a real app: Raven Finanças
 

@@ -7,7 +7,16 @@ pub use ravenrs_e2e_runner::report::*;
 use crate::runner::{self, Run};
 
 /// Runs `graph` to the end with `run` and reports it under `scenario`.
-pub fn of(scenario: &str, mut graph: FlowGraph, mut run: Run) -> Report {
+pub fn of(scenario: &str, graph: FlowGraph, run: Run) -> Report {
+    kept(scenario, graph, run).0
+}
+
+/// [`of`], also giving the window left open at the end, when the run keeps it.
+pub fn kept(
+    scenario: &str,
+    mut graph: FlowGraph,
+    mut run: Run,
+) -> (Report, Option<crate::runner::Inspection>) {
     let total = runner::path(&graph).len();
     let apart = crate::sample::opens_apart(&graph);
     let started = std::time::Instant::now();
@@ -20,7 +29,8 @@ pub fn of(scenario: &str, mut graph: FlowGraph, mut run: Run) -> Report {
         .map(|n| n.title.clone())
         .collect();
     let (films, film_note) = run.films();
-    Report {
+    let window = run.window();
+    let report = Report {
         scenario: scenario.to_owned(),
         outcomes,
         total,
@@ -30,5 +40,10 @@ pub fn of(scenario: &str, mut graph: FlowGraph, mut run: Run) -> Report {
         not_run,
         films,
         film_note,
-    }
+        window: window.mode,
+        slow_mo_ms: u64::try_from(window.slow_mo.as_millis()).unwrap_or(u64::MAX),
+        stopped: run.stopped(),
+    };
+    let inspection = run.inspection();
+    (report, inspection)
 }

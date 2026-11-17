@@ -5,9 +5,13 @@
 //! format = "junit"       # how `cargo ravenrs e2e run` reports, when --format is not given
 //! out = "target/e2e"     # where each run is kept, when --out is not given
 //! film = "on-failure"    # keep the film of the app a scenario failed on (never, always)
+//! window = "headed"      # show the app's real window (headless, the default, shows none)
+//! slow_mo = 500          # with the window: milliseconds to wait after each step
+//! keep_open = "on-failure" # with the window: leave it open at the end (never, always)
 //! ```
 //!
-//! `app`, `window`, `themes` and `load` are the keys #627 plans next; they are read
+//! The options of the command line come first: `--headed`, `--slow-mo` and `--keep-open` win
+//! over `window`, `slow_mo` and `keep_open`. `app`, `themes` and `load` are the keys #627 plans next; they are read
 //! and said to have no effect yet. Any other key, or a value of the wrong kind, is refused with
 //! the file and the key, so a typo never runs a suite with choices nobody made.
 
@@ -19,7 +23,7 @@ use crate::report::FORMATS;
 pub const FILE: &str = "e2e.toml";
 
 /// Keys #627 plans for the file, read now and used later.
-pub const PLANNED: [&str; 4] = ["app", "window", "themes", "load"];
+pub const PLANNED: [&str; 3] = ["app", "themes", "load"];
 
 /// What an `e2e.toml` says.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -32,6 +36,12 @@ pub struct Config {
     pub out: Option<PathBuf>,
     /// When to film the apps a run opens.
     pub film: Option<crate::driver::FilmMode>,
+    /// Whether the apps show their window.
+    pub window: Option<crate::window::WindowMode>,
+    /// With the window, how long to wait after each step.
+    pub slow_mo: Option<std::time::Duration>,
+    /// With the window, whether it stays open at the end.
+    pub keep_open: Option<crate::window::KeepOpen>,
     /// Planned keys the file has, which do nothing yet.
     pub planned: Vec<String>,
 }
@@ -43,6 +53,9 @@ impl Default for Config {
             format: None,
             out: None,
             film: None,
+            window: None,
+            slow_mo: None,
+            keep_open: None,
             planned: Vec::new(),
         }
     }
@@ -91,16 +104,105 @@ impl Config {
                         )
                     })?);
                 }
+                "window" => {
+                    let word = as_text()?;
+                    config.window = Some(crate::window::WindowMode::read(&word).ok_or_else(|| {
+                        format!(
+                            "window não aceita {word:?}; aceita: {}",
+                            crate::window::WindowMode::WORDS.join(", ")
+                        )
+                    })?);
+                }
+                "slow_mo" => {
+                    let ms = item.as_integer().and_then(|ms| u64::try_from(ms).ok()).ok_or_else(|| {
+                        "slow_mo precisa ser um número de milissegundos, 0 ou mais".to_owned()
+                    })?;
+                    config.slow_mo = Some(std::time::Duration::from_millis(ms));
+                }
+                "keep_open" => {
+                    let word = as_text()?;
+                    config.keep_open = Some(crate::window::KeepOpen::read(&word).ok_or_else(|| {
+                        format!(
+                            "keep_open não aceita {word:?}; aceita: {}",
+                            crate::window::KeepOpen::WORDS.join(", ")
+                        )
+                    })?);
+                }
                 planned if PLANNED.contains(&planned) => config.planned.push(planned.to_owned()),
                 other => {
                     return Err(format!(
-                        "chave desconhecida {other:?}; as que o e2e.toml entende: folder, format, out, film (e, ainda sem efeito, {})",
+                        "chave desconhecida {other:?}; as que o e2e.toml entende: folder, format, out, film, window, slow_mo, keep_open (e, ainda sem efeito, {})",
                         PLANNED.join(", ")
                     ));
                 }
             }
         }
         Ok(config)
+    }
+
+    /// How the run shows the apps: what the command line says (`None` when it said nothing),
+    /// over what the file says, over the defaults. A pace or a window kept open with no window
+    /// is refused, as [`crate::window::Window::check`] says.
+    pub fn window_with(
+        &self,
+        mode: Option<crate::window::WindowMode>,
+        slow_mo: Option<std::time::Duration>,
+        keep_open: Option<crate::window::KeepOpen>,
+    ) -> Result<crate::window::Window, String> {
+        let mode = mode.or(self.window).unwrap_or_default();
+        let window = crate::window::Window {
+            mode,
+            slow_mo: slow_mo
+                .or(self.slow_mo.filter(|_| mode == crate::window::WindowMode::Headed))
+                .unwrap_or_default(),
+            keep_open: keep_open
+                .or(self.keep_open.filter(|_| mode == crate::window::WindowMode::Headed))
+                .unwrap_or_default(),
+        };
+        window.check()?;
+        Ok(window)
+    }
+
+    /// How a run shows the apps, from what a command line asked and this file: the window, its
+    /// pace and whether it stays, and the control the person at the terminal steers (paused
+    /// before the first block with `--step`). `Err` says which option is wrong, in its words.
+    pub fn window_from(
+        &self,
+        ask: &crate::window::Ask,
+    ) -> Result<(crate::window::Window, Option<crate::window::Control>), String> {
+        use crate::window::{Control, KeepOpen, WindowMode};
+        if ask.headed && ask.headless {
+            return Err("escolha --headed ou --headless, não os dois".to_owned());
+        }
+        let mode = match (ask.headed, ask.headless) {
+            (true, _) => Some(WindowMode::Headed),
+            (_, true) => Some(WindowMode::Headless),
+            _ => None,
+        };
+        let slow_mo = match &ask.slow_mo {
+            None => None,
+            Some(ms) => Some(std::time::Duration::from_millis(ms.trim().parse::<u64>().map_err(|_| {
+                format!("--slow-mo precisa de milissegundos, como --slow-mo 500, não {ms:?}")
+            })?)),
+        };
+        let keep_open = match &ask.keep_open {
+            None => None,
+            Some(word) => Some(KeepOpen::read(word).ok_or_else(|| {
+                format!("--keep-open não aceita {word:?}; aceita: {}", KeepOpen::WORDS.join(", "))
+            })?),
+        };
+        let window = self.window_with(mode, slow_mo, keep_open)?;
+        if ask.step && !window.headed() {
+            return Err("--step só vale com a janela: acrescente --headed".to_owned());
+        }
+        let control = window.headed().then(|| {
+            let control = Control::new(window.slow_mo);
+            if ask.step {
+                control.pause();
+            }
+            control
+        });
+        Ok((window, control))
     }
 
     /// What to tell about the planned keys the file has, if any.

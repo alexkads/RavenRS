@@ -99,6 +99,7 @@ fn command_code(command: &Command) -> String {
         Command::Source { target } => format!("Command::Source {{ target: {} }}", s(target)),
         Command::Snapshot => "Command::Snapshot".to_owned(),
         Command::Bye => "Command::Bye".to_owned(),
+        Command::Release => "Command::Release".to_owned(),
     }
 }
 

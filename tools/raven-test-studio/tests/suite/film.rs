@@ -24,7 +24,7 @@ fn on_a_studio_apart(file: &Path, film: FilmMode, out: &Path) -> raven_test_stud
         binary_path: Some(env!("CARGO_BIN_EXE_raven-test-studio").into()),
         ..raven_test_studio::apps::App::default()
     });
-    let options = RunOptions { film, out: Some(out.to_path_buf()) };
+    let options = RunOptions { film, out: Some(out.to_path_buf()), ..RunOptions::default() };
     run_named_with(file.to_str().unwrap(), None, &options).unwrap()
 }
 
@@ -110,7 +110,7 @@ fn an_app_that_does_not_film_does_not_fail_the_run() {
         "sem-filme",
         "scenario: Sem filme\nabrir Novo lançamento\ndigitar #descricao = Feira | Descrição\n",
     );
-    let options = RunOptions { film: FilmMode::Always, out: Some(dir.join("out")) };
+    let options = RunOptions { film: FilmMode::Always, out: Some(dir.join("out")), ..RunOptions::default() };
     let report = run_named_with(file.to_str().unwrap(), None, &options).unwrap();
     assert!(report.passed(), "{}", report.text());
     assert!(report.films.is_empty());
@@ -156,7 +156,7 @@ fn a_relative_out_keeps_films_beside_the_report_when_the_child_runs_elsewhere() 
     assert!(!expected_out.exists(), "the output folder need not exist yet");
     for (text, film) in [(FAILS, FilmMode::OnFailure), (PASSES, FilmMode::Always)] {
         let scenario = ravenrs_e2e_wire::Scenario::parse(text).unwrap();
-        let options = RunOptions { film, out: Some(relative_out.clone()) };
+        let options = RunOptions { film, out: Some(relative_out.clone()), ..RunOptions::default() };
         let report = ravenrs_e2e_runner::run::run_with(
             &scenario.name,
             std::slice::from_ref(&scenario),

@@ -8,6 +8,8 @@
 //!   copy the installer put on the computer, or a binary a variable names.
 //! - [`session`] is what a run drives and how each step goes: the step a block stands for, and
 //!   why it failed, by its stable code, with the meaning and the fix in Portuguese.
+//! - [`window`] runs with the app's real window on screen (`--headed`): the pace a person can
+//!   follow, pause, one more block, stop, and the window kept open to look at a failure.
 //! - [`run`] runs `.raventest` files straight from their blocks, and [`report`] says how it went
 //!   as text, JSON, JSON lines or JUnit, and keeps it in a folder (`relatorio.json`,
 //!   `trace.jsonl`, `arvore.txt`).
@@ -36,3 +38,4 @@ pub mod report;
 pub mod run;
 pub mod rust;
 pub mod session;
+pub mod window;
