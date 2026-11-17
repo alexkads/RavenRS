@@ -141,6 +141,9 @@ pub fn of_metadata(root: &Path, metadata: &Value) -> Project {
                 Ok(config) => (config, None),
                 Err(why) => (crate::config::Config::default(), Some(why)),
             };
+            let config_error = App::declaration_error(package)
+                .map(|why| format!("{}: {why}", manifest.display()))
+                .or(config_error);
             Some(Found {
                 name: declared.as_ref().map_or_else(|| package_name.clone(), |d| d.name.clone()),
                 package: package_name,
@@ -231,6 +234,12 @@ fn screens_in(root: &Path, files: &[PathBuf]) -> Vec<Screen> {
 }
 
 impl Project {
+    /// Refuses execution when an app's test configuration is invalid, while discovery can
+    /// still show every error. Both command-line tools use this before opening an app.
+    pub fn check_configs(&self) -> Result<(), String> {
+        let errors: Vec<&str> = self.found.iter().filter_map(|found| found.config_error.as_deref()).collect();
+        if errors.is_empty() { Ok(()) } else { Err(errors.join("\n")) }
+    }
     /// Where a run of this project keeps what it found: `e2e` inside the folder cargo builds
     /// this project into, as `cargo metadata` says (the workspace's `target`, or
     /// `CARGO_TARGET_DIR` and `build.target-dir` when set), so git never sees it.
@@ -241,7 +250,7 @@ impl Project {
     /// Makes the apps of the project known by name, its code before any installed copy, so its
     /// scenarios open them.
     pub fn learn_apps(&self) {
-        for found in self.found.iter().filter(|f| f.is_app() && f.channel) {
+        for found in self.found.iter().filter(|f| f.is_app() && f.channel && f.config_error.is_none()) {
             let declared = found.declared.clone().unwrap_or_default();
             apps::learn(App {
                 name: found.name.clone(),
@@ -280,6 +289,8 @@ impl Project {
                     "binaries": f.binaries,
                     "channel": f.channel,
                     "declared": f.declared.is_some(),
+                    "features": f.declared.as_ref().map(|app| app.features.as_slice()).unwrap_or_default(),
+                    "config_error": f.config_error,
                     "next": next_step(f),
                     "scenarios": f.scenarios.iter().map(|(file, read)| match read {
                         Ok(name) => json!({ "file": file.strip_prefix(&self.root).unwrap_or(file), "name": name }),
@@ -317,6 +328,11 @@ impl Project {
                 if f.channel { "sim" } else { "não" },
                 f.scenarios.len(),
             ));
+            if let Some(app) = &f.declared
+                && !app.features.is_empty()
+            {
+                out.push_str(&format!("  features de teste: {}\n", app.features.join(", ")));
+            }
             for (file, read) in &f.scenarios {
                 let shown = file.strip_prefix(&self.root).unwrap_or(file).display().to_string();
                 match read {
@@ -325,7 +341,7 @@ impl Project {
                 }
             }
             if let Some(why) = &f.config_error {
-                out.push_str(&format!("  e2e.toml não lê: {why}\n"));
+                out.push_str(&format!("  configuração de teste não lê: {why}\n"));
             }
             if let Some(next) = next_step(f) {
                 out.push_str(&format!("  próximo passo: {next}\n"));

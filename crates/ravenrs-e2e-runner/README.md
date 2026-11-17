@@ -42,6 +42,8 @@ A tool that ships apps of its own makes them known with `app::know`, as the Stud
 
 An opener returns `Option<Result<Session, Box<session::Failure>>>`: `None` for an unknown app, a session when it opened, and a typed failure otherwise. It preserves the failure code, detail and fix through every report. `build::compile` uses `ravenrs-process` for streaming Cargo's two output streams, the build deadline and ending the process group. Compiler errors are `E2E_APP_BUILD`, with the rendered Rust diagnostic (source file, line and suggestions) in `detail`; a compiled app that does not open its channel is `E2E_APP_START`. Only the last 16 compiler diagnostics and 16 stderr lines are kept. The first build can take minutes (`app::BUILD_TIME`, 15 minutes); after it finishes, the app has `app::READY_TIME` (20 seconds) to open its channel.
 
+An app can add `features = ["e2e-source", "mock-data"]` in `[package.metadata.ravenrs.e2e]`. These are the app's own Cargo features, enabled only for its source test build through `build::compile_with_features`; ordinary and installed binaries keep their build choices. Omit the list for Cargo defaults. Unknown features fail the build; a malformed list is a configuration error before execution. `App::declared_in` uses the existing TOML parser for inline and multiline arrays and shares the same interpretation as Cargo metadata. `Project::check_configs` is the shared execution guard used by both tools; discovery still lists the errors and the selected features.
+
 ## What it does not do
 
 - It does not draw: the app runs with no window and no GPU, so a run proves behaviour, not looks.

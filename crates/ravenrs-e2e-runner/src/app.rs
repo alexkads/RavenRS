@@ -39,6 +39,8 @@ pub struct App {
     pub variable: String,
     /// Where its installer puts it, from the home folder.
     pub installed: Vec<String>,
+    /// Cargo features enabled only when this tool builds the app for a test.
+    pub features: Vec<String>,
     /// The project to build its code in with Cargo, and whether that comes before an
     /// installed copy (it does for a project the Studio was pointed at).
     pub source: Option<PathBuf>,
@@ -67,6 +69,7 @@ impl App {
             since: text("since"),
             variable: text("variable"),
             installed,
+            features: features_of(e2e).ok()?,
             source: None,
             source_first: false,
             binary_path: None,
@@ -74,52 +77,54 @@ impl App {
     }
 
     /// The same declaration read from the text of a `Cargo.toml`, for the app the Studio knows
-    /// when it is built. Only what the declaration uses is read: `key = "text"` and lists of texts.
+    /// when it is built. TOML syntax is read by the same parser used for suite configuration;
+    /// its declaration is then interpreted exactly as Cargo's JSON metadata.
     pub fn declared_in(manifest: &str) -> Option<Self> {
-        let mut package = serde_json::Map::new();
-        let mut e2e = serde_json::Map::new();
-        let mut section = String::new();
-        let mut list: Option<(String, Vec<Value>)> = None;
-        for raw in manifest.lines() {
-            let line = raw.split(" #").next().unwrap_or_default().trim();
-            if let Some((key, items)) = list.as_mut() {
-                if line.starts_with(']') {
-                    e2e.insert(key.clone(), Value::Array(std::mem::take(items)));
-                    list = None;
-                } else if let Some(item) = quoted(line.trim_end_matches(',')) {
-                    items.push(Value::String(item));
-                }
-                continue;
-            }
-            if line.starts_with('[') {
-                section = line.trim_matches(|c| c == '[' || c == ']').to_owned();
-                continue;
-            }
-            let Some((key, value)) = line.split_once('=') else { continue };
-            let (key, value) = (key.trim(), value.trim());
-            match section.as_str() {
-                "package" if key == "name" => {
-                    package.insert("name".into(), Value::String(quoted(value)?));
-                }
-                "package.metadata.ravenrs.e2e" if value == "[" => list = Some((key.to_owned(), Vec::new())),
-                "package.metadata.ravenrs.e2e" => {
-                    if let Some(text) = quoted(value) {
-                        e2e.insert(key.to_owned(), Value::String(text));
-                    }
-                }
-                _ => {}
-            }
-        }
-        if e2e.is_empty() {
-            return None;
-        }
-        package.insert("metadata".into(), serde_json::json!({ "ravenrs": { "e2e": Value::Object(e2e) } }));
-        Self::declared(&Value::Object(package))
+        let document: toml_edit::DocumentMut = manifest.parse().ok()?;
+        let package = document.get("package")?;
+        let name = package.get("name")?.as_str()?;
+        let declaration = package.get("metadata")?.get("ravenrs")?.get("e2e")?.as_table_like()?;
+        let e2e: serde_json::Map<String, Value> = declaration
+            .iter()
+            .map(|(key, item)| {
+                let value = if let Some(text) = item.as_str() {
+                    Value::String(text.to_owned())
+                } else if let Some(array) = item.as_array() {
+                    Value::Array(
+                        array
+                            .iter()
+                            .map(|item| {
+                                item.as_str().map_or(Value::Null, |text| Value::String(text.to_owned()))
+                            })
+                            .collect(),
+                    )
+                } else {
+                    Value::Null
+                };
+                (key.to_owned(), value)
+            })
+            .collect();
+        Self::declared(&serde_json::json!({ "name": name, "metadata": { "ravenrs": { "e2e": e2e } } }))
+    }
+
+    pub(crate) fn declaration_error(package: &Value) -> Option<String> {
+        let e2e = package.pointer("/metadata/ravenrs/e2e")?;
+        features_of(e2e).err()
     }
 }
 
-fn quoted(text: &str) -> Option<String> {
-    text.trim().strip_prefix('"')?.strip_suffix('"').map(str::to_owned)
+fn features_of(e2e: &Value) -> Result<Vec<String>, String> {
+    let Some(value) = e2e.get("features") else { return Ok(Vec::new()) };
+    let why =
+        || "package.metadata.ravenrs.e2e.features precisa ser uma lista de textos não vazios".to_owned();
+    value
+        .as_array()
+        .ok_or_else(why)?
+        .iter()
+        .map(|feature| {
+            feature.as_str().filter(|text| !text.trim().is_empty()).map(str::to_owned).ok_or_else(why)
+        })
+        .collect()
 }
 
 /// The apps learned from projects opened in this run, before the ones the Studio knows.
@@ -194,7 +199,13 @@ fn start(app: &App) -> Result<Client, Box<Failure>> {
     let mut process = match find(app).map_err(start_failure)? {
         Launch::Binary(path) => Process::new(path),
         Launch::Source(root) => {
-            let binary = crate::build::compile(&root, &app.package, &app.binary, BUILD_TIME)?;
+            let binary = crate::build::compile_with_features(
+                &root,
+                &app.package,
+                &app.binary,
+                &app.features,
+                BUILD_TIME,
+            )?;
             let mut process = Process::new(binary);
             process.current_dir(root);
             process

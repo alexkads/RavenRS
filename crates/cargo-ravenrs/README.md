@@ -50,6 +50,8 @@ An `e2e.toml` next to an app's `Cargo.toml` keeps the suite's choices: `folder` 
 
 `cargo ravenrs e2e list` says which packages are made with RavenRS, which are apps, whether each speaks the test channel, its scenarios and the screens it builds (`--json` for a tool). `--project <folder>` points either command at another project.
 
+`features = ["e2e-source"]` in the app's `[package.metadata.ravenrs.e2e]` enables its named Cargo features for source test builds only. This is separate from `e2e.toml`. Omit it for defaults; the app must define the selected features. Discovery lists the choices and configuration errors; execution refuses malformed lists before opening an app.
+
 `doctor` compares RavenRS dependency versions with the CLI, checks managed
 files, and runs initialize + tools/list through all four registered commands. It reports
 stale files and versions with a nonzero exit code. Projects made with `--no-ai` are checked

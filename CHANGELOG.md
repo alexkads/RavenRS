@@ -6,6 +6,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Breaking
 
+- `ravenrs-e2e-runner::app::App` has a `features` field for source test builds; field-by-field literals need it (`..App::default()` keeps Cargo defaults). ([#687](https://github.com/alexkads/RavenRS/issues/687))
 - `ravenrs-e2e-wire`: `Command` has `Source { target }`, and `Reply` has an optional `source` field; exhaustive matches and field-by-field reply literals need updating. ([#685](https://github.com/alexkads/RavenRS/issues/685))
 - `ravenrs-e2e-wire`: `Command` has `Frame`, and `Reply` has an optional `frame` field. Exhaustive matches and field-by-field reply literals need updating. Existing `Filming` implementations keep compiling through the default frame method. ([#683](https://github.com/alexkads/RavenRS/issues/683))
 - `ravenrs-e2e-runner`: `session::Opener`, `app::open` and `app::open_from` (also reexported by the Studio) return `Box<session::Failure>` instead of `String`, preserving error codes and diagnostics from opening an app. A custom opener can return `Box::new(Failure::plain(message))` for a plain error. ([#681](https://github.com/alexkads/RavenRS/issues/681))
@@ -47,6 +48,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- Apps can declare Cargo test-build features in `[package.metadata.ravenrs.e2e]`. Both runners preserve them through discovery and pass them to the shared build executor; malformed lists are refused before execution. The Studio declares its optional source instrumentation for project test builds. ([#687](https://github.com/alexkads/RavenRS/issues/687))
 - Optional test-source instrumentation: `e2e-source` records the caller of `ViewExt::test_id` and `BuildCx::test_id`, and `E2e::source` / `Client::source` return its file, line and column. The origin follows a container's test id, never enters the screen reader's tree, and is absent in default builds. Untagged targets refuse with `E2E_NO_SOURCE`. ([#685](https://github.com/alexkads/RavenRS/issues/685))
 - Vector frames over the test channel: `Client::frame()` receives the current display list and assets as a single-frame `.ravenmovie`, provided by `ChannelFilm` through the existing `SessionFilm` writer. Capture needs no GPU or file, does not advance time and leaves an ongoing film recording. Apps without a frame adapter return `E2E_NO_FRAME`. ([#683](https://github.com/alexkads/RavenRS/issues/683))
 - `ravenrs-e2e-runner`: source apps compile before their test channel opens, through `build::compile` and the shared `ravenrs-process` executor. Cargo's JSON selects the executable, honors custom target directories and carries rendered Rust errors with source locations as `E2E_APP_BUILD`; a compiled app without a channel stays `E2E_APP_START`. ([#681](https://github.com/alexkads/RavenRS/issues/681))
