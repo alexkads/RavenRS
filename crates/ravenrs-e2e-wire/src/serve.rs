@@ -20,6 +20,12 @@ pub fn serve(hello: Hello, session: E2e) -> io::Result<()> {
 /// What films the app's session when a tool asks (`ravenrs_movie::ChannelFilm` does), for
 /// [`serve_filmed`]: the channel only says when to start and stop.
 pub trait Filming {
+    /// The current display list as one `.ravenmovie` frame. Capturing must not advance the
+    /// session or replace its observer. Existing film-only adapters may leave this unsupported.
+    fn frame(&mut self, e2e: &E2e) -> Result<Vec<u8>, String> {
+        let _ = e2e;
+        Err("this app provides no vector frames".to_owned())
+    }
     /// Starts filming `e2e`, to keep the film at `path`.
     fn start(&mut self, e2e: &mut E2e, path: &Path);
     /// Stops filming `e2e`, keeps the film and says where.
@@ -70,6 +76,13 @@ pub fn serve_with(
                     Some(Err(why)) => Err(Failure::of(codes::NO_FILM, why)),
                     None => Ok(None),
                 })
+            }
+            Ok(Command::Frame) if filming.is_some() => {
+                match filming.as_deref_mut().map(|film| film.frame(&session)) {
+                    Some(Ok(bytes)) => Reply::frame(bytes),
+                    Some(Err(why)) => Reply::of(Err(Failure::of(codes::NO_FRAME, why))),
+                    None => Reply::of(Err(Failure::of(codes::NO_FRAME, "no vector-frame adapter"))),
+                }
             }
             Ok(command) => Reply::of(command.apply(&mut session)),
             Err(e) => Reply::of(Err(Failure::of(codes::WIRE, format!("not a command of this channel: {e}")))),

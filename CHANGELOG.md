@@ -6,6 +6,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Breaking
 
+- `ravenrs-e2e-wire`: `Command` has `Frame`, and `Reply` has an optional `frame` field. Exhaustive matches and field-by-field reply literals need updating. Existing `Filming` implementations keep compiling through the default frame method. ([#683](https://github.com/alexkads/RavenRS/issues/683))
 - `ravenrs-e2e-runner`: `session::Opener`, `app::open` and `app::open_from` (also reexported by the Studio) return `Box<session::Failure>` instead of `String`, preserving error codes and diagnostics from opening an app. A custom opener can return `Box::new(Failure::plain(message))` for a plain error. ([#681](https://github.com/alexkads/RavenRS/issues/681))
 - `ravenrs-movie`: `TestFilm` is gone; `SessionFilm` with `Pace::Test` does what it did (`SessionFilm::start(&mut e2e, Pace::Test)`, `finish(&mut e2e, duration_ms)`). The `Recorder` now drives a `ravenrs-e2e` session and films with `SessionFilm` at a person's pace; its API is the same, and `Recorder::e2e_mut` reaches the session. ([#672](https://github.com/alexkads/RavenRS/issues/672))
 - `ravenrs-e2e-wire`: `Command` has `Film` and `FilmStop`; an exhaustive `match` needs the new arms. ([#670](https://github.com/alexkads/RavenRS/issues/670))
@@ -45,6 +46,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- Vector frames over the test channel: `Client::frame()` receives the current display list and assets as a single-frame `.ravenmovie`, provided by `ChannelFilm` through the existing `SessionFilm` writer. Capture needs no GPU or file, does not advance time and leaves an ongoing film recording. Apps without a frame adapter return `E2E_NO_FRAME`. ([#683](https://github.com/alexkads/RavenRS/issues/683))
 - `ravenrs-e2e-runner`: source apps compile before their test channel opens, through `build::compile` and the shared `ravenrs-process` executor. Cargo's JSON selects the executable, honors custom target directories and carries rendered Rust errors with source locations as `E2E_APP_BUILD`; a compiled app without a channel stays `E2E_APP_START`. ([#681](https://github.com/alexkads/RavenRS/issues/681))
 - Filmed failures: `--film never|on-failure|always` in `cargo ravenrs e2e run` and Raven Test Studio 0.1.13 (and `film` in `e2e.toml`) films each app an Open block opens, over the test channel, and keeps `filme-N.ravenmovie` beside the run's report; on failure only the film of the app a block failed on stays. The report gains `films` and `film_note` (JSON, schema, text, HTML link, JUnit attachment). One driver runs every step for every tool, `ravenrs_e2e_runner::driver::Driver`, which the Studio's diagram uses too. Raven Finanças 0.1.42 and the Studio are served with filming (`serve_filmed`, `ChannelFilm`). ([#674](https://github.com/alexkads/RavenRS/issues/674))
 - One film writer for every purpose: `ravenrs_movie::SessionFilm` films tests (`Pace::Test`), the `Recorder`'s trainings (`Pace::Person`), the `FlightRecorder`'s bug reports (fed by hand with `new`, `at`, `frame`, `pointer`, `click`, `key`, `movie`) and apps over the test channel (`ChannelFilm`). `ravenrs-e2e` gains raw input for scripts (`pointer_to`, `mouse_down`, `mouse_up`, `key_down`, `scroll_at`, `focus`, `frame_at`) and `find_all`. A `FilmBuilder` frame drawn at the moment of the last one replaces it. Raven Finanças's six trainings were recorded again this way. ([#672](https://github.com/alexkads/RavenRS/issues/672))
@@ -188,6 +190,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- The public API snapshot includes the e2e drivers already delivered in F3, so the local gate no longer reports them as unexpected additions. ([#684](https://github.com/alexkads/RavenRS/issues/684))
 - `cargo ravenrs e2e rust`: generated test names have a `scenario_` prefix, so titles such as `type`, `self`, `open` and `step` compile without reserved words or collisions with the generated helpers. ([#678](https://github.com/alexkads/RavenRS/issues/678))
 - Raven Test Studio and `cargo ravenrs e2e run`: a relative `--out` keeps the film beside the report even when the app under test runs in another project's folder. ([#676](https://github.com/alexkads/RavenRS/issues/676))
 - Raven Test Studio: the app opener takes its session type from the shared runner directly, removing the three-module cycle that blocked the local gate. ([#677](https://github.com/alexkads/RavenRS/issues/677))

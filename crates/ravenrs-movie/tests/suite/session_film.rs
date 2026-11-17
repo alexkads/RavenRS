@@ -7,7 +7,7 @@ use std::io::Cursor;
 
 use ravenrs_core::Size;
 use ravenrs_e2e::E2e;
-use ravenrs_e2e_wire::{Command, Hello, Reply, serve_on, serve_with};
+use ravenrs_e2e_wire::{Command, Filming, Hello, Reply, serve_on, serve_with};
 use ravenrs_movie::{ChannelFilm, Movie, Pace, Recorder, SessionFilm};
 use ravenrs_reactive::State;
 use ravenrs_style::Theme;
@@ -89,6 +89,7 @@ fn an_app_served_with_filming_keeps_the_film_where_the_tool_says() {
     let input = lines(&[
         Command::Film { path: path.display().to_string() },
         Command::Type { target: "#nome".into(), text: "Ana".into() },
+        Command::Frame,
         Command::Click { target: "#salvar".into() },
         Command::FilmStop,
         Command::Bye,
@@ -98,10 +99,36 @@ fn an_app_served_with_filming_keeps_the_film_where_the_tool_says() {
     serve_with(Hello::of("Formulário"), session(), Cursor::new(input), &mut output, Some(&mut film)).unwrap();
     let answers = replies(&output);
     assert!(answers.iter().all(|r| r.ok), "{answers:?}");
-    assert_eq!(answers[3].snapshot.as_deref(), Some(path.display().to_string().as_str()));
+    let frame = Movie::from_bytes(answers[2].frame.as_deref().unwrap()).unwrap();
+    assert_eq!(frame.logical_size(), Size::new(480.0, 320.0));
+    assert_eq!(answers[4].snapshot.as_deref(), Some(path.display().to_string().as_str()));
     let movie = Movie::from_bytes(&std::fs::read(&path).unwrap()).unwrap();
     assert!(movie.click_before(u64::MAX).is_some());
     let _ = std::fs::remove_dir_all(path.parent().unwrap());
+}
+
+#[test]
+fn vector_frames_repeat_without_moving_time_and_change_after_an_action() {
+    let mut e2e = session();
+    let mut adapter = ChannelFilm::default();
+    let clock = e2e.clock();
+    let first = adapter.frame(&e2e).unwrap();
+    assert_eq!(first, adapter.frame(&e2e).unwrap());
+    assert_eq!(e2e.clock(), clock, "capture does not advance the session");
+    let movie = Movie::from_bytes(&first).unwrap();
+    assert!(movie.draw_list(0).is_some_and(|(_, draws)| !draws.is_empty()));
+    e2e.by_test_id("nome").fill("Ana").unwrap();
+    assert_ne!(first, adapter.frame(&e2e).unwrap());
+}
+
+#[test]
+fn a_vector_frame_keeps_passwords_hidden() {
+    let capture = |secret| {
+        let mut e2e = session();
+        e2e.by_test_id("senha").type_text(secret).unwrap();
+        ChannelFilm::default().frame(&e2e).unwrap()
+    };
+    assert_eq!(capture("segredo1"), capture("outra123"), "equal-length secrets draw the same hidden field");
 }
 
 #[test]

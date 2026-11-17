@@ -102,6 +102,8 @@ Rows with keys have test ids that stay with the data when it sorts, filters or s
 
 `E2e::observe` hands a `FrameObserver` every frame the session draws, each pointer move, click and key, and each step a test marks with `E2e::mark_step`. `ravenrs-movie`'s `SessionFilm` uses it to film a test, and its `Recorder` scripts a training on a session with the raw input (`pointer_to`, `mouse_down`, `mouse_up`, `key_down`, `scroll_at`, `focus`, `frame_at`) and `find_all`. With no observer nothing is called and nothing is kept.
 
+`E2e::primitives()` reads the current display list without advancing time or changing the observer. It is what the channel's frame adapter encodes with the same `SessionFilm` writer; protected fields are already hidden in the drawing.
+
 ## Limits for now
 
 - It runs in the test's process. An app in another process is driven through [`ravenrs-e2e-wire`](../ravenrs-e2e-wire).

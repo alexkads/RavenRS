@@ -149,6 +149,10 @@ fn in_portuguese(code: &str) -> (&'static str, Option<&'static str>) {
                 "sirva o app com ravenrs_e2e_wire::serve_filmed e ravenrs_movie::ChannelFilm, ou rode sem filmar",
             ),
         ),
+        "E2E_NO_FRAME" => (
+            "o app testado não forneceu o quadro vetorial",
+            Some("sirva o app com ravenrs_movie::ChannelFilm para fornecer quadros pelo canal"),
+        ),
         _ => ("o passo falhou", None),
     }
 }

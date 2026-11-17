@@ -11,7 +11,7 @@ The `serve` feature is on by default: every RavenRS app carries the channel, clo
 ```rust,ignore
 if std::env::args().nth(1).as_deref() == Some(ravenrs_e2e_wire::SERVE_FLAG) {
     let session = E2e::new(my_app_with_sample_data(), Theme::raven_light());
-    return ravenrs_e2e_wire::serve("My App", session);
+    return ravenrs_e2e_wire::serve(ravenrs_e2e_wire::Hello::of("My App"), session);
 }
 ```
 
@@ -28,13 +28,15 @@ app.send(&Command::Click { target: "Salvar lançamento".into() })?;
 let screen = app.send(&Command::Snapshot)?;
 ```
 
-A target is `#id` for a test id, or the text shown. A failed step comes back as a `Failure` with its stable code (`E2E_NOT_FOUND`, `E2E_EXPECTATION`…), how to fix it, what came close and the screen of the app as it was. The channel adds three codes:
+A target is `#id` for a test id, or the text shown. A failed step comes back as a `Failure` with its stable code (`E2E_NOT_FOUND`, `E2E_EXPECTATION`…), how to fix it, what came close and the screen of the app as it was. The channel adds these codes:
 
 | Code | Means |
 |---|---|
 | `E2E_APP_START` | the app did not start, or ended before saying hello or during a step |
 | `E2E_TIMEOUT` | a `wait` ran out of time, or the app did not answer a step in time and the client ended it |
 | `E2E_WIRE` | a line that is not part of this protocol |
+| `E2E_NO_FILM` | the app has no film adapter, or could not keep the film |
+| `E2E_NO_FRAME` | the app has no vector-frame adapter, or could not capture the frame |
 
 The child ends when the `Client` is dropped.
 
@@ -52,10 +54,14 @@ tool → {"op":"bye"}
 app  → {"ok":true}
 ```
 
-Commands: `click`, `type`, `fill`, `select`, `expand`, `collapse`, `scroll`, `wait` (with an optional `text`), `check` (value, or name when there is no value, is exactly the text), `mention` (name or description contains the text), `snapshot` and `bye`.
+Commands: `click`, `type`, `fill`, `select`, `expand`, `collapse`, `scroll`, `drag`, `wait` (with an optional `text`), `check` (value, or name when there is no value, is exactly the text), `mention` (name or description contains the text), `snapshot`, `frame`, `film`, `film_stop` and `bye`.
+
+`frame` answers with `{"ok":true,"frame":[/* bytes */]}`: a single-frame `.ravenmovie` containing the app's current display list and assets. `Client::frame()` returns those bytes; decode with `ravenrs_movie::Movie::from_bytes` and show in MoviePlayer. The app supplies `ChannelFilm::default()` to `serve_filmed`, the same adapter it uses to film. There is no GPU, shared temporary file, clock advance or change to a film in progress. A `Filming` implementation that only films can leave its new `frame` method unimplemented and gets `E2E_NO_FRAME`. Plain `serve` also refuses frames. `Client::send` is for ordinary commands: it refuses to discard frame data and tells the caller to use `Client::frame`.
+
+`Reply.frame` is optional, so replies from older peers still read. The protocol remains version 1: existing commands keep their meaning, and the additional command and field are optional. A peer from before `frame` reports an unsupported command as `E2E_WIRE`. The source build stage is in `ravenrs-e2e-runner`, which reports `E2E_APP_BUILD` with Rust's source location before opening this channel.
 
 A step does not fail for being early. It tries again for up to `PATIENCE` (2 s), with the session's clock moving, while its target is not there, covered, disabled or out of sight, or its check does not hold yet. When time runs out, it fails with its own code. An action on a part out of sight scrolls to it first, even a row a long list has not built. `wait` waits up to `WAIT` (5 s) and fails with `E2E_TIMEOUT`. In a `.raventest` file the words are `fill`/`preencher`, `select`/`escolher`, `expand`/`expandir`, `collapse`/`recolher`, `scroll`/`rolar` and `wait`/`esperar`.
 
 ## Not yet
 
-From the rest of F6: frames over the channel, `E2E_APP_BUILD` with file and line, `e2e_source`, `attach` to a running app by local socket with permission on screen, `cargo ravenrs e2e install`, and the `create-ravenrs` template.
+From the rest of F6: `e2e_source`, `attach` to a running app by local socket with permission on screen, `cargo ravenrs e2e install`, and the `create-ravenrs` template. The Studio's live preview using these vector frames comes in F9.

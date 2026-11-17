@@ -44,6 +44,7 @@ fn commands_and_replies_read_back_as_written() {
         Command::Check { target: "#resultado".into(), text: "Salvo: Ana".into() },
         Command::Mention { target: "#resultado".into(), text: "Ana".into() },
         Command::Snapshot,
+        Command::Frame,
         Command::Bye,
     ] {
         let line = serde_json::to_string(&command).unwrap();
@@ -54,6 +55,41 @@ fn commands_and_replies_read_back_as_written() {
     let failed = Reply::of(Err(Failure::of(codes::TIMEOUT, "slow")));
     let back: Reply = serde_json::from_str(&serde_json::to_string(&failed).unwrap()).unwrap();
     assert_eq!(back.into_result().unwrap_err().code, "E2E_TIMEOUT");
+    let old: Reply = serde_json::from_str(r#"{"ok":true,"snapshot":"screen"}"#).unwrap();
+    assert_eq!(old.frame, None, "old peers need not send a frame field");
+    assert_eq!(old.into_result().unwrap().as_deref(), Some("screen"));
+    let frame = Reply::frame(vec![1, 2, 3]);
+    let back: Reply = serde_json::from_str(&serde_json::to_string(&frame).unwrap()).unwrap();
+    assert_eq!(back.into_frame().unwrap(), [1, 2, 3]);
+    assert_eq!(
+        frame.into_result().unwrap_err().code,
+        codes::WIRE,
+        "a generic result must not discard a frame"
+    );
+    assert_eq!(Reply::of(Ok(None)).into_frame().unwrap_err().code, codes::WIRE);
+}
+
+#[test]
+fn an_existing_film_only_adapter_refuses_frames_with_a_stable_code() {
+    struct FilmOnly;
+    impl ravenrs_e2e_wire::Filming for FilmOnly {
+        fn start(&mut self, _: &mut E2e, _: &std::path::Path) {}
+        fn stop(&mut self, _: &mut E2e) -> Result<std::path::PathBuf, String> {
+            Err("not filming".into())
+        }
+    }
+    let mut output = Vec::new();
+    ravenrs_e2e_wire::serve_with(
+        Hello::of("Film only"),
+        session(),
+        Cursor::new("{\"op\":\"frame\"}\n{\"op\":\"bye\"}\n"),
+        &mut output,
+        Some(&mut FilmOnly),
+    )
+    .unwrap();
+    let answer: Reply =
+        serde_json::from_str(std::str::from_utf8(&output).unwrap().lines().nth(1).unwrap()).unwrap();
+    assert_eq!(answer.into_frame().unwrap_err().code, codes::NO_FRAME);
 }
 
 #[test]
@@ -123,6 +159,7 @@ fn child() -> Process {
 fn a_tool_drives_the_app_in_a_child_process() {
     let mut app = Client::spawn(child(), Duration::from_secs(60)).unwrap();
     assert_eq!(app.app(), "Formulário");
+    assert_eq!(app.frame().unwrap_err().code, codes::NO_FRAME, "this child has no frame adapter");
     app.send(&Command::Type { target: "#nome".into(), text: "Caio".into() }).unwrap();
     app.send(&Command::Click { target: "#salvar".into() }).unwrap();
     app.send(&Command::Check { target: "#resultado".into(), text: "Salvo: Caio".into() }).unwrap();
