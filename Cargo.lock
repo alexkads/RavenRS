@@ -5893,6 +5893,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "raven-component-book"
+version = "0.1.0"
+dependencies = [
+ "component-gallery",
+ "ravenrs",
+ "ravenrs-app-update",
+ "ravenrs-e2e",
+ "serde_json",
+ "swash",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "raven-flows"
 version = "0.1.1"
 dependencies = [

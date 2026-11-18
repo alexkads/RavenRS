@@ -982,6 +982,7 @@ field grid::query::QueryResult::matched
 field grid::query::QueryResult::rows
 field grid::query::QueryResult::totals
 fn apple_keys
+fn book::all
 fn days_in_month
 fn decode_image
 fn distance_to_cable
@@ -1268,6 +1269,20 @@ impl Clone for grid::query::GridTableColumn
 impl Clone for grid::query::GridTableKind
 impl Clone for grid::query::QueryResult
 impl Clone for grid::query::ViewRow
+impl ComponentBook for Alert
+impl ComponentBook for Avatar
+impl ComponentBook for Badge
+impl ComponentBook for Button
+impl ComponentBook for Card
+impl ComponentBook for Checkbox
+impl ComponentBook for IconButton
+impl ComponentBook for ProgressBar
+impl ComponentBook for SegmentedControl
+impl ComponentBook for Select
+impl ComponentBook for Slider
+impl ComponentBook for Tabs
+impl ComponentBook for TextField
+impl ComponentBook for Toggle
 impl Copy for AnchorPoint
 impl Copy for BoxHandle
 impl Copy for BoxTransform
@@ -4686,6 +4701,7 @@ method testing::SchedulerDriver::move_event
 method testing::SchedulerDriver::move_to_resource
 method testing::SchedulerDriver::new
 method testing::SchedulerDriver::resize_event
+mod book
 mod grid
 mod grid::query
 mod testing
@@ -4732,6 +4748,7 @@ reexport PortSide = ravenrs_graphics::flow::PortSide
 reexport SankeyAlign = ravenrs_graphics::sankey::SankeyAlign
 reexport Symbology = ravenrs_barcode::Symbology
 reexport TextAlign = ravenrs_text::TextAlign
+reexport book::* = ravenrs_widgets_base::book
 reexport cable = ravenrs_core::cable
 struct AccessibleControl
 struct Accordion

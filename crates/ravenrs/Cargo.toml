@@ -24,6 +24,8 @@ charts = ["ravenrs-widgets/charts"]
 flow = ["ravenrs-widgets/flow"]
 # `Lottie`, a player of Lottie animations of our own.
 lottie = ["ravenrs-widgets/lottie"]
+# The stories of the components, for RavenComponentBook (`ravenrs::widgets::book`).
+book = ["ravenrs-widgets/book"]
 # `CodeEditor` and `Playground`, with a monospaced font embedded.
 code = ["ravenrs-widgets/code"]
 # `LiveRunner`, which runs edited examples in a `Playground` without a compiler.
