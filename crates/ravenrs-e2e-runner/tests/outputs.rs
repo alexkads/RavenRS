@@ -237,10 +237,23 @@ fn a_scenario_becomes_a_rust_test_of_its_app() {
 fn generated_tests_compile_with_reserved_titles_and_helper_names() {
     // Use the real channel library Cargo built for this suite, without another Cargo build
     // or a second dependency tree. The generated tests only compile; they do not open an app.
-    let dependencies = std::env::current_exe().unwrap().parent().unwrap().to_path_buf();
-    let wire = std::fs::read_dir(&dependencies)
-        .unwrap()
-        .map(|entry| entry.unwrap().path())
+    // Cargo kept every library beside the test (target/debug/deps); its newer build directory
+    // keeps each unit apart (target/debug/build/<package>/<hash>/out). Both are searched.
+    let exe = std::env::current_exe().unwrap();
+    let mut dependencies = vec![exe.parent().unwrap().to_path_buf()];
+    if let Some(profile) = exe.ancestors().skip(1).find(|p| p.join("build").is_dir()) {
+        for package in std::fs::read_dir(profile.join("build")).unwrap().flatten() {
+            for unit in std::fs::read_dir(package.path()).into_iter().flatten().flatten() {
+                let out = unit.path().join("out");
+                if out.is_dir() {
+                    dependencies.push(out);
+                }
+            }
+        }
+    }
+    let wire = dependencies
+        .iter()
+        .flat_map(|dir| std::fs::read_dir(dir).unwrap().map(|entry| entry.unwrap().path()))
         .filter(|path| {
             path.file_name().is_some_and(|name| {
                 let name = name.to_string_lossy();
@@ -284,8 +297,7 @@ fn generated_tests_compile_with_reserved_titles_and_helper_names() {
         .args(["--edition=2024", "--test", "--emit=metadata"])
         .arg("--extern")
         .arg(format!("ravenrs_e2e_wire={}", wire.display()))
-        .arg("-L")
-        .arg(format!("dependency={}", dependencies.display()))
+        .args(dependencies.iter().flat_map(|dir| ["-L".to_owned(), format!("dependency={}", dir.display())]))
         .arg("--out-dir")
         .arg(&folder)
         .arg(&source)
