@@ -46,7 +46,7 @@ impl ComponentBook for Badge {
 }
 ```
 
-List it in the `stories()` of the crate's `book` module. The book's tests check that a story only sets settings the component declares.
+List it in the `stories()` of the crate's `book` module and take it out of `pendentes.json`. The book's tests check that a story only sets settings the component declares, and `scripts/rcb-coverage.py`, in `check.sh`, refuses a public component that neither implements `ComponentBook` nor is listed in `pendentes.json` with its issue (#754).
 
 ## Limits
 

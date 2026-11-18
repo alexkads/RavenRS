@@ -46,7 +46,7 @@ fn segmented(args: &Args) -> AnyView {
 
 impl ComponentBook for Checkbox {
     fn book() -> Meta {
-        Meta::new("Forms/Checkbox", checkbox)
+        Meta::new("Actions and inputs/Checkbox", checkbox)
             .summary("Check box with its label; clicking the label toggles it.")
             .arg(ArgType::text("label", "I accept the terms"))
             .arg(ArgType::bool("checked", true))
@@ -60,7 +60,7 @@ impl ComponentBook for Checkbox {
 
 impl ComponentBook for Toggle {
     fn book() -> Meta {
-        Meta::new("Forms/Toggle", toggle)
+        Meta::new("Actions and inputs/Toggle", toggle)
             .summary("On and off switch for a setting that applies at once.")
             .arg(ArgType::text("label", "Push notifications"))
             .arg(ArgType::bool("on", true))
@@ -75,7 +75,7 @@ impl ComponentBook for Toggle {
 
 impl ComponentBook for Slider {
     fn book() -> Meta {
-        Meta::new("Forms/Slider", slider)
+        Meta::new("Actions and inputs/Slider", slider)
             .summary("Picks a number in a range by dragging, with keys and an optional value at the side.")
             .arg(ArgType::text("label", "Volume"))
             .arg(ArgType::number("value", 0.6, -5.0, 5.0, 0.1))
