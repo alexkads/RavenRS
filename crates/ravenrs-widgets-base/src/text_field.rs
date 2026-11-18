@@ -886,7 +886,7 @@ impl View for TextField {
         let border = if focused {
             Border { width: 1.5, color: accent }
         } else {
-            let base = theme.color(Semantic::Border);
+            let base = theme.color(Semantic::ControlBorder);
             Border {
                 width: 1.0,
                 color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),
