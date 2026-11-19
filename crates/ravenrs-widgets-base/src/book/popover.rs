@@ -24,24 +24,6 @@ fn render(args: &Args) -> AnyView {
     Box::new({
         let arg_min_width = args.number("min_width") as f32;
         let arg_padding = args.number("padding") as f32;
-        let arg_placement = match args.choice("placement") {
-            "Above" => Placement::Above,
-            "Right" => Placement::Right,
-            "AboveCenter" => Placement::AboveCenter,
-            "RightCenter" => Placement::RightCenter,
-            "LeftCenter" => Placement::LeftCenter,
-            "RightEnd" => Placement::RightEnd,
-            "LeftStart" => Placement::LeftStart,
-            "LeftEnd" => Placement::LeftEnd,
-            "Fill" => Placement::Fill,
-            "BottomRight" => Placement::BottomRight,
-            "BottomLeft" => Placement::BottomLeft,
-            "BottomCenter" => Placement::BottomCenter,
-            "TopLeft" => Placement::TopLeft,
-            "TopCenter" => Placement::TopCenter,
-            "TopRight" => Placement::TopRight,
-            _ => Placement::Below,
-        };
         let arg_surface = args.bool("surface");
 
         let open = State::new(args.bool("open"));
@@ -58,7 +40,6 @@ fn render(args: &Args) -> AnyView {
             );
             it = it.min_width(arg_min_width);
             it = it.padding(arg_padding);
-            it = it.placement(arg_placement.clone());
             it = it.surface(arg_surface);
             it
         }
@@ -73,38 +54,9 @@ impl ComponentBook for Popover<AnyView, AnyView> {
             .summary("Floating content anchored below a view.")
             .arg(ArgType::number("min_width", 220.0, 0.0, 880.0, 1.0))
             .arg(ArgType::number("padding", 16.0, 0.0, 64.0, 1.0))
-            .arg(ArgType::choice(
-                "placement",
-                &[
-                    "Below",
-                    "Above",
-                    "Right",
-                    "AboveCenter",
-                    "RightCenter",
-                    "LeftCenter",
-                    "RightEnd",
-                    "LeftStart",
-                    "LeftEnd",
-                    "Fill",
-                    "BottomRight",
-                    "BottomLeft",
-                    "BottomCenter",
-                    "TopLeft",
-                    "TopCenter",
-                    "TopRight",
-                ],
-                "Below",
-            ))
             .arg(ArgType::bool("surface", true))
             .arg(ArgType::bool("open", false).description("How the example starts."))
             .story("Example", Args::new())
-            .story("Placement: Above", Args::new().with("placement", ArgValue::choice("Above")))
-            .story("Placement: Right", Args::new().with("placement", ArgValue::choice("Right")))
-            .story("Placement: AboveCenter", Args::new().with("placement", ArgValue::choice("AboveCenter")))
-            .story("Placement: RightCenter", Args::new().with("placement", ArgValue::choice("RightCenter")))
-            .story("Placement: LeftCenter", Args::new().with("placement", ArgValue::choice("LeftCenter")))
-            .story("Placement: RightEnd", Args::new().with("placement", ArgValue::choice("RightEnd")))
-            .story("Placement: LeftStart", Args::new().with("placement", ArgValue::choice("LeftStart")))
-            .story("Placement: LeftEnd", Args::new().with("placement", ArgValue::choice("LeftEnd")))
+            .story("Open", Args::new().with("open", true))
     }
 }
