@@ -46,6 +46,7 @@ fn picture(hue: f32) -> ImageData {
 """
 BEGIN, END = "// rcb-scaffold: begin", "// rcb-scaffold: end"
 NUMBERS = {"f32", "f64", "usize", "u8", "u16", "u32", "u64", "i32", "i64", "isize"}
+MAX_CHOICES = 12
 SAFE_BOOLS = {"disabled", "read_only", "selected", "loading"}
 STATES = ["disabled", "loading", "read_only", "selected", "compact", "error", "empty", "open"]
 # Calls that change what a component is about, not how it looks: never settings.
@@ -252,7 +253,9 @@ def kind_of(params, enums):
         return "num", p
     if p in ("impl Into<String>", "impl Into<str>", "String", "&str") or p.startswith("impl Into<String"):
         return "text", None
-    if p in enums and enums[p]:
+    # An enum of a few looks (a style, a size, a state) is a choice; one of hundreds, as the
+    # icons, is not: the story keeps the example's, and the card names it.
+    if p in enums and 2 <= len(enums[p]) <= MAX_CHOICES:
         return "choice", p
     return None, None
 
