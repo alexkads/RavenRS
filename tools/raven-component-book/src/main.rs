@@ -7,7 +7,8 @@
 //! passed); `--versao` prints the version.
 
 /// Every option the book reads; any other is refused.
-const OPTIONS: [&str; 6] = ["--versao", "--self-test", "--json", "--claude-design", "--sha", "--help"];
+const OPTIONS: [&str; 7] =
+    ["--versao", "--self-test", "--json", "--claude-design", "--sha", "--verify", "--help"];
 
 fn main() -> std::process::ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -23,6 +24,7 @@ fn main() -> std::process::ExitCode {
              raven-component-book                          abre o livro\n\
              --json <pasta>                                o JSON de cada componente e o index.json\n\
              --claude-design <pasta> [--sha <commit>]      os arquivos do design system do Claude Design em <pasta>/project\n\
+             --verify <pasta>                              compara uma cópia do publicado com o que o RCB gera\n\
              --self-test                                   desenha e mede cada história, sem janela\n\
              --versao                                      a versão",
             raven_component_book::VERSION
@@ -43,6 +45,28 @@ fn main() -> std::process::ExitCode {
             Err(why) => {
                 eprintln!("o autoteste falhou: {why}");
                 std::process::ExitCode::FAILURE
+            }
+        };
+    }
+    if let Some(folder) = value("--verify") {
+        return match raven_component_book::export::verify(std::path::Path::new(&folder)) {
+            Ok(drift) if drift.is_clean() => {
+                println!("o design system publicado é exatamente o que o RCB gera");
+                std::process::ExitCode::SUCCESS
+            }
+            Ok(drift) => {
+                for (what, list) in
+                    [("mudou", &drift.changed), ("falta", &drift.missing), ("sobra", &drift.extra)]
+                {
+                    for path in list {
+                        println!("{what}: {path}");
+                    }
+                }
+                std::process::ExitCode::FAILURE
+            }
+            Err(e) => {
+                eprintln!("não deu para comparar: {e}");
+                std::process::ExitCode::from(2)
             }
         };
     }

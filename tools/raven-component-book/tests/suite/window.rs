@@ -29,10 +29,12 @@ fn choosing_a_component_shows_its_stories_and_changing_a_setting_redraws_it() {
 }
 
 #[test]
-fn a_pending_component_says_so() {
+fn a_component_outside_the_widgets_shows_its_own_stories() {
     let mut book = book();
     book.by_test_id("search").fill("MoviePlayer").expect("the search");
     book.by_test_id("component:MoviePlayer").click().expect("MoviePlayer in the sidebar");
     let screen = book.snapshot();
-    assert!(screen.contains("histórias pendentes"), "{screen}");
+    assert!(screen.contains("Application/MoviePlayer"), "{screen}");
+    assert!(!screen.contains("histórias pendentes"), "it gives its own stories:\n{screen}");
+    assert!(screen.contains("0 pendentes"), "the status bar counts none pending:\n{screen}");
 }

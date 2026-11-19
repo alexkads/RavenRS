@@ -13,6 +13,7 @@
 pub mod export;
 pub mod index;
 pub mod measure;
+pub mod tokens;
 pub mod versao;
 
 use std::rc::Rc;

@@ -23,6 +23,10 @@ const SAMPLES: [&str; 11] = [
 /// The public API of the components, one line per thing a user can name.
 const PUBLIC_API: &str = include_str!("../../../crates/ravenrs-widgets/public-api.txt");
 
+/// Pieces the gallery shows on their own that are parts of another component, not components:
+/// each is a story of the one it belongs to.
+pub const PARTS: [(&str, &str); 1] = [("ChartReference", "Chart")];
+
 /// A component of the book.
 #[derive(Clone, Debug)]
 pub struct Entry {
@@ -134,13 +138,16 @@ fn leak(text: String) -> &'static str {
 /// of the gallery with no `ComponentBook` yet, its example as a pending story. Families follow
 /// the site's list.
 pub fn entries() -> Vec<Entry> {
-    let mut out: Vec<Entry> = ravenrs::widgets::book::all()
+    let mut metas = ravenrs::widgets::book::all();
+    metas.extend(ravenrs_app_ui::book::stories());
+    metas.extend(ravenrs_movie::book::stories());
+    let mut out: Vec<Entry> = metas
         .into_iter()
         .map(|meta| Entry { code: sample_code(meta.component()), meta, pending: false })
         .collect();
     let rows = catalog();
     for name in component_gallery::samples::NAMES {
-        if out.iter().any(|e| e.name() == *name) {
+        if out.iter().any(|e| e.name() == *name) || PARTS.iter().any(|(part, _)| part == name) {
             continue;
         }
         let row = rows.iter().find(|r| r.name == *name);
