@@ -24,6 +24,8 @@ ravenrs-live = { workspace = true, optional = true }
 ravenrs-text.workspace = true
 
 [features]
+# The stories of its components, for RavenComponentBook (`book::stories`).
+book = ["ravenrs-widgets-base/book", "ravenrs-widgets-kit/book"]
 code = ["ravenrs-text/mono"]
 live = ["dep:ravenrs-live", "ravenrs-widgets-base/live", "ravenrs-widgets-kit/live", "ravenrs-core/live", "ravenrs-style/live", "ravenrs-layout/live"]
 

@@ -6,7 +6,7 @@ use ravenrs::widgets::book::all;
 #[test]
 fn every_component_that_gives_stories_has_at_least_one_and_names_only_its_own_settings() {
     let metas = all();
-    assert!(metas.len() >= 14, "the first batch of components gives its stories");
+    assert!(metas.len() >= 170, "the components give their stories");
     for meta in &metas {
         assert!(!meta.stories.is_empty(), "{} has no story", meta.title);
         assert!(meta.title.contains('/'), "{} has no family", meta.title);

@@ -362,17 +362,21 @@ pub fn self_test() -> Result<String, String> {
         return Err(format!("{} aparece duas vezes", twice[0]));
     }
     let mut stories = 0;
+    let mut empty = Vec::new();
     for entry in entries.iter().filter(|e| !e.pending) {
         for story in &entry.meta.stories {
             let args = entry.meta.args_of(story);
             for (id, theme) in measure::themes() {
                 let m = measure::measure(&entry.meta, story, &args, theme);
                 if m.paint.is_empty() {
-                    return Err(format!("{} / {} não desenha nada no tema {id}", entry.name(), story.name));
+                    empty.push(format!("{} / {} ({id})", entry.name(), story.name));
                 }
             }
             stories += 1;
         }
+    }
+    if !empty.is_empty() {
+        return Err(format!("{} histórias não desenham nada: {}", empty.len(), empty.join("; ")));
     }
     let pending = entries.iter().filter(|e| e.pending).count();
     Ok(format!("Autoteste: {} componentes, {stories} histórias medidas, {pending} pendentes", entries.len()))

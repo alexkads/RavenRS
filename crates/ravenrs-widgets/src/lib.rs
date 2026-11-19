@@ -80,6 +80,13 @@ pub mod book {
     pub fn all() -> Vec<Meta> {
         let mut all = ravenrs_widgets_base::book::stories();
         all.extend(ravenrs_widgets_kit::book::stories());
+        all.extend(ravenrs_widgets_lists::book::stories());
+        all.extend(ravenrs_widgets_grid::book::stories());
+        all.extend(ravenrs_widgets_scheduler::book::stories());
+        all.extend(ravenrs_widgets_dock::book::stories());
+        all.extend(ravenrs_widgets_imaging::book::stories());
+        all.extend(ravenrs_widgets_charts::book::stories());
+        all.extend(ravenrs_widgets_chat::book::stories());
         all
     }
 }

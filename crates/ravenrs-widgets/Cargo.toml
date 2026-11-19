@@ -46,7 +46,7 @@ lottie = ["dep:ravenrs-lottie", "ravenrs-widgets-imaging/lottie"]
 # The drivers of `ravenrs_widgets::testing`, for tests written with ravenrs-e2e.
 testing = ["flow", "ravenrs-widgets-grid/testing", "ravenrs-widgets-charts/testing", "ravenrs-widgets-scheduler/testing", "ravenrs-widgets-dock/testing"]
 # The stories of the components, for RavenComponentBook (`book::all`).
-book = ["ravenrs-widgets-base/book", "ravenrs-widgets-kit/book"]
+book = ["ravenrs-widgets-base/book", "ravenrs-widgets-kit/book", "ravenrs-widgets-lists/book", "ravenrs-widgets-grid/book", "ravenrs-widgets-scheduler/book", "ravenrs-widgets-dock/book", "ravenrs-widgets-imaging/book", "ravenrs-widgets-charts/book", "ravenrs-widgets-chat/book"]
 # `CodeEditor` and `Playground`, with Fira Mono embedded in `ravenrs-text`.
 code = ["ravenrs-widgets-chat/code"]
 # `LiveRunner`: the Playground runs edited examples with the interpreter of ravenrs-live.

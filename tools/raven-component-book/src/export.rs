@@ -19,6 +19,9 @@ const GUIDE: &str = include_str!("../../../docs/design-system/README.md");
 /// The font of RavenRS's icons, so the previews draw them as RavenRS does.
 const ICON_FONT: &[u8] = include_bytes!("../../../crates/ravenrs-text/fonts/RavenIcons.ttf");
 
+/// How big a preview may grow, in bytes, under the 256 KB the design tool reads.
+const PREVIEW_BUDGET: usize = 240 * 1024;
+
 /// The radius tokens, by value, as `docs/design-system/tokens.json` names them.
 const RADII: [(f64, &str); 4] =
     [(6.0, "radius-sm"), (10.0, "radius-md"), (16.0, "radius-lg"), (24.0, "radius-xl")];
@@ -543,13 +546,26 @@ fn preview(entry: &Entry, stories: &[MeasuredStory]) -> String {
         "<style>\n@font-face { font-family: RavenIcons; src: url(../../fonts/RavenIcons.ttf); }\n\
          body { margin: 0; background: var(--bg-000); }\n\
          .book { display: flex; flex-direction: column; gap: 20px; padding: 16px; font-family: var(--font-sans); }\n\
+         .more { margin: 0; font: 400 13px/18px var(--font-sans); color: var(--ink-muted); }\n\
          .story h3 { margin: 0 0 8px; font: 600 12px/16px var(--font-sans); letter-spacing: .4px; text-transform: uppercase; color: var(--ink-muted); }\n\
          </style>\n<div class=\"book\">\n",
     );
-    for s in stories {
+    // The design tool reads a preview of at most 256 KB: stories go in while they fit, the first
+    // always, and the rest are named, since the JSON beside the card has every one of them.
+    let mut left_out = Vec::new();
+    for (i, s) in stories.iter().enumerate() {
         if let Some((_, m)) = s.themes.first() {
-            let _ = writeln!(t, "<section class=\"story\"><h3>{}</h3>{}</section>", escape(s.name), svg(m));
+            let section =
+                format!("<section class=\"story\"><h3>{}</h3>{}</section>\n", escape(s.name), svg(m));
+            if i > 0 && t.len() + section.len() > PREVIEW_BUDGET {
+                left_out.push(escape(s.name));
+                continue;
+            }
+            t.push_str(&section);
         }
+    }
+    if !left_out.is_empty() {
+        let _ = writeln!(t, "<p class=\"more\">Also in {}.json: {}.</p>", entry.name(), left_out.join(", "));
     }
     t.push_str("</div>\n<script></script>\n");
     t

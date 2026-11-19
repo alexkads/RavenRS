@@ -31,8 +31,8 @@ fn choosing_a_component_shows_its_stories_and_changing_a_setting_redraws_it() {
 #[test]
 fn a_pending_component_says_so() {
     let mut book = book();
-    book.by_test_id("search").fill("DataGrid").expect("the search");
-    book.by_test_id("component:DataGrid").click().expect("DataGrid in the sidebar");
+    book.by_test_id("search").fill("Chat").expect("the search");
+    book.by_test_id("component:Chat").click().expect("Chat in the sidebar");
     let screen = book.snapshot();
     assert!(screen.contains("histórias pendentes"), "{screen}");
 }

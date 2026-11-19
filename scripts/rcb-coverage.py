@@ -30,7 +30,7 @@ from component_inventory import root, widget_components
 PENDING = root / "tools/raven-component-book/pendentes.json"
 CATALOG = root / "site/components/index.html"
 IMPL = re.compile(r"^impl(?:<[^>]*>)? ComponentBook for (\w+)", re.M)
-LISTED = re.compile(r"\b(\w+)(?:::<[^>]*>)?::book\(\)")
+LISTED = re.compile(r"\b(\w+)(?:::<[^>]*>)?::book\(\)|<crate::(\w+)(?:<[^>]*>)? as [\w:]*ComponentBook>::book\(\)")
 TITLE = re.compile(r'Meta::new\(\s*"([^"/]+)/(\w+)"')
 
 
@@ -65,7 +65,7 @@ def main():
         for found in IMPL.finditer(text):
             line = text[: found.start()].count("\n") + 1
             implemented[(crate, found.group(1))] = f"{path.relative_to(root)}:{line}"
-        listed.update(LISTED.findall(text))
+        listed.update(a or b for a, b in LISTED.findall(text))
         for found in TITLE.finditer(text):
             titles[found.group(2)] = (found.group(1), f"{path.relative_to(root)}:{text[: found.start()].count(chr(10)) + 1}")
 

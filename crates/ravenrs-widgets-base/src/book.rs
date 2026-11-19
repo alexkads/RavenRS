@@ -107,6 +107,9 @@ pub fn stories() -> Vec<Meta> {
         Avatar::book(),
         ProgressBar::book(),
     ]
+    .into_iter()
+    .chain(generated())
+    .collect()
 }
 
 /// The value of one setting of a story.
@@ -401,3 +404,150 @@ impl Meta {
         (story.render.as_ref().unwrap_or(&self.render))(args)
     }
 }
+
+// rcb-scaffold: begin
+mod anchor;
+mod aspect_ratio;
+mod button_group;
+mod calendar;
+mod canvas;
+mod carousel;
+mod collapse;
+mod color_pair;
+mod color_picker;
+mod color_swatch;
+mod combobox;
+mod command_palette;
+mod context_menu;
+mod count_up;
+mod date_picker;
+mod date_range_picker;
+mod dialog;
+mod divider;
+mod dropdown_menu;
+mod favorite_toggle;
+mod footer;
+mod form_field;
+mod glass_card;
+mod grid;
+mod help_tip;
+mod hover_card;
+mod icon;
+mod image;
+mod input_otp;
+mod kbd;
+mod label;
+mod link;
+mod menubar;
+mod nine_point_anchor;
+mod page_header;
+mod pagination;
+mod patch_panel;
+mod popover;
+mod property_row;
+mod quarter_turn;
+mod radio_group;
+mod scroll_edge_arrow;
+mod scroll_linked;
+mod scroll_scene;
+mod scroll_view;
+mod section;
+mod sheet;
+mod skeleton;
+mod spacer;
+mod spinner;
+mod split_handle;
+mod split_panes;
+mod splitter;
+mod stat;
+mod status_bar;
+mod stepper;
+mod sticky;
+mod swatch_grid;
+mod text;
+mod theme_switcher;
+mod ticker;
+mod title_bar;
+mod toaster;
+mod toggle_button;
+mod toggle_group;
+mod tool_rail;
+mod tooltip;
+mod z_stack;
+mod zoom_control;
+
+/// The stories written by scripts/rcb-scaffold.py, in name order.
+pub(crate) fn generated() -> Vec<Meta> {
+    let mut all = Vec::new();
+    all.push(<crate::Anchor<AnyView> as ComponentBook>::book());
+    all.push(<crate::AspectRatio<AnyView> as ComponentBook>::book());
+    all.push(<crate::ButtonGroup as ComponentBook>::book());
+    all.push(<crate::Calendar as ComponentBook>::book());
+    all.push(<crate::Canvas as ComponentBook>::book());
+    all.push(<crate::Carousel as ComponentBook>::book());
+    all.push(<crate::Collapse as ComponentBook>::book());
+    all.push(<crate::ColorPair as ComponentBook>::book());
+    all.push(<crate::ColorPicker as ComponentBook>::book());
+    all.push(<crate::ColorSwatch as ComponentBook>::book());
+    all.push(<crate::Combobox as ComponentBook>::book());
+    all.push(<crate::CommandPalette as ComponentBook>::book());
+    all.push(<crate::ContextMenu<AnyView> as ComponentBook>::book());
+    all.push(<crate::CountUp as ComponentBook>::book());
+    all.push(<crate::DatePicker as ComponentBook>::book());
+    all.push(<crate::DateRangePicker as ComponentBook>::book());
+    all.push(<crate::Dialog as ComponentBook>::book());
+    all.push(<crate::Divider as ComponentBook>::book());
+    all.push(<crate::DropdownMenu as ComponentBook>::book());
+    all.push(<crate::FavoriteToggle as ComponentBook>::book());
+    all.push(<crate::Footer as ComponentBook>::book());
+    all.push(<crate::FormField<AnyView> as ComponentBook>::book());
+    all.push(<crate::GlassCard<AnyView> as ComponentBook>::book());
+    all.push(<crate::Grid<(AnyView,)> as ComponentBook>::book());
+    all.push(<crate::HelpTip as ComponentBook>::book());
+    all.push(<crate::HoverCard<AnyView, AnyView> as ComponentBook>::book());
+    all.push(<crate::Icon as ComponentBook>::book());
+    all.push(<crate::Image as ComponentBook>::book());
+    all.push(<crate::InputOtp as ComponentBook>::book());
+    all.push(<crate::Kbd as ComponentBook>::book());
+    all.push(<crate::Label as ComponentBook>::book());
+    all.push(<crate::Link as ComponentBook>::book());
+    all.push(<crate::Menubar as ComponentBook>::book());
+    all.push(<crate::NinePointAnchor as ComponentBook>::book());
+    all.push(<crate::PageHeader as ComponentBook>::book());
+    all.push(<crate::Pagination as ComponentBook>::book());
+    all.push(<crate::PatchPanel as ComponentBook>::book());
+    all.push(<crate::Popover<AnyView, AnyView> as ComponentBook>::book());
+    all.push(<crate::PropertyRow as ComponentBook>::book());
+    all.push(<crate::QuarterTurn<AnyView> as ComponentBook>::book());
+    all.push(<crate::RadioGroup as ComponentBook>::book());
+    all.push(<crate::ScrollEdgeArrow<(AnyView,)> as ComponentBook>::book());
+    all.push(<crate::ScrollLinked<AnyView> as ComponentBook>::book());
+    all.push(<crate::ScrollScene<AnyView> as ComponentBook>::book());
+    all.push(<crate::ScrollView<(AnyView,)> as ComponentBook>::book());
+    all.push(<crate::Section<(AnyView,)> as ComponentBook>::book());
+    all.push(<crate::Sheet as ComponentBook>::book());
+    all.push(<crate::Skeleton as ComponentBook>::book());
+    all.push(<crate::Spacer as ComponentBook>::book());
+    all.push(<crate::Spinner as ComponentBook>::book());
+    all.push(<crate::SplitHandle as ComponentBook>::book());
+    all.push(<crate::SplitPanes as ComponentBook>::book());
+    all.push(<crate::Splitter<AnyView, AnyView> as ComponentBook>::book());
+    all.push(<crate::Stat as ComponentBook>::book());
+    all.push(<crate::StatusBar as ComponentBook>::book());
+    all.push(<crate::Stepper as ComponentBook>::book());
+    all.push(<crate::Sticky<AnyView> as ComponentBook>::book());
+    all.push(<crate::SwatchGrid as ComponentBook>::book());
+    all.push(<crate::Text as ComponentBook>::book());
+    all.push(<crate::ThemeSwitcher as ComponentBook>::book());
+    all.push(<crate::Ticker<AnyView> as ComponentBook>::book());
+    all.push(<crate::TitleBar as ComponentBook>::book());
+    all.push(<crate::Toaster as ComponentBook>::book());
+    all.push(<crate::ToggleButton as ComponentBook>::book());
+    all.push(<crate::ToggleGroup as ComponentBook>::book());
+    all.push(<crate::ToolRail as ComponentBook>::book());
+    all.push(<crate::Tooltip<AnyView> as ComponentBook>::book());
+    all.push(<crate::ZStack<(AnyView,)> as ComponentBook>::book());
+    all.push(<crate::ZoomControl as ComponentBook>::book());
+    all
+}
+// rcb-scaffold: end
