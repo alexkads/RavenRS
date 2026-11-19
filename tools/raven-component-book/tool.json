@@ -1,0 +1,24 @@
+{
+  "name": "RavenComponentBook",
+  "also_called": ["RCB", "raven-component-book"],
+  "package": "raven-component-book",
+  "version": "0.1.0",
+  "summary": "The book of every RavenRS component, kept as Storybook keeps stories, whose mission is to give a design tool such as Claude Design everything it needs to design screens RavenRS builds as they were drawn: each component's settings and stories, measured from what RavenRS paints, exported as JSON and as the files of a design system.",
+  "when_to_use": [
+    "Before designing a screen in Claude Design: export the design system so the design uses only components that exist, with their real measurements.",
+    "To know what a component can be set to and how big, round, filled and spaced RavenRS draws it, by token.",
+    "After adding or changing a component: give it a ComponentBook and check its stories draw and measure."
+  ],
+  "commands": [
+    { "command": "raven-component-book", "does": "Opens the book: components by family with a search, the chosen story drawn live, its settings (Controles) changing it at once, its measurements (Medidas) and its code (Código). The status bar says how many components give stories and how many are pending, and the version opens the news of each version. Closing the window keeps it beside the clock." },
+    { "command": "raven-component-book --claude-design <folder> [--sha <commit>]", "does": "Writes the files of the Design System type under <folder>/project/: README.md (the guide, with the rule to compose only the listed components, and every component), tokens.json, fonts/RavenIcons.ttf, and per component README.md (settings, stories, anatomy of every story), preview.html (vector, colors by token) and <Component>.json." },
+    { "command": "raven-component-book --json <folder>", "does": "Writes <Component>.json for every component (settings, API, code, every story measured in Raven Dark and Raven Light, anatomy) and index.json, as Storybook's index." },
+    { "command": "raven-component-book --self-test", "does": "Draws and measures every story in both themes with no window; exit code 0 when every one paints." },
+    { "command": "raven-component-book --versao", "does": "Prints the version." }
+  ],
+  "limits": [
+    "14 components give their own stories through ComponentBook; the others are pending and show their gallery example as one story with no settings.",
+    "It writes files; publishing them to a design system artifact is done apart.",
+    "Measurements are taken at 760 points wide."
+  ]
+}

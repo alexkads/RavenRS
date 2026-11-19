@@ -1,0 +1,18 @@
+{
+  "versao": "0.1.0",
+  "titulo": "O RavenComponentBook nasce: as histórias de cada componente e tudo o que o Claude Design precisa para desenhar telas que o RavenRS monta como foram desenhadas.",
+  "importante": false,
+  "novidades": [
+    "Cada componente dá as suas histórias pela trait ComponentBook, como um arquivo .stories do Storybook: onde fica no livro, as configurações com seus controles e os estados nomeados.",
+    "O livro desenha a história ao vivo, deixa mudar as configurações e mede o que o RavenRS pinta: partes, tamanhos, raios, fundos, bordas, fontes, ícones e recuos, com as cores pelos tokens do tema.",
+    "--json grava o JSON de cada componente e o index.json; --claude-design grava o design system do Claude Design com o guia, a ficha de cada componente e um preview vetorial feito das medidas, sem fotos.",
+    "Os componentes que ainda não dão histórias aparecem pelo exemplo da galeria, marcados como pendentes."
+  ],
+  "por_que_atualizar": "Para que um design feito no Claude Design use só componentes que existem, com as medidas que o RavenRS desenha.",
+  "contribuidores": [
+    "Alex S S Fonseca"
+  ],
+  "issues": [
+    753
+  ]
+}

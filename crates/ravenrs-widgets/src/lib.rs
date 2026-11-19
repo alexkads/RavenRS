@@ -69,6 +69,28 @@ use ravenrs_widgets_imaging::imaging;
 #[allow(unused_imports)]
 use ravenrs_widgets_imaging::lottie;
 
+/// The stories of the components, as Storybook keeps them, for RavenComponentBook: each
+/// component gives its [`book::Meta`] through [`book::ComponentBook`], and [`book::all`] lists
+/// them (feature `book`).
+pub mod book {
+    pub use ravenrs_widgets_base::book::*;
+
+    /// The stories of every component that gives them, family by family.
+    #[cfg(feature = "book")]
+    pub fn all() -> Vec<Meta> {
+        let mut all = ravenrs_widgets_base::book::stories();
+        all.extend(ravenrs_widgets_kit::book::stories());
+        all.extend(ravenrs_widgets_lists::book::stories());
+        all.extend(ravenrs_widgets_grid::book::stories());
+        all.extend(ravenrs_widgets_scheduler::book::stories());
+        all.extend(ravenrs_widgets_dock::book::stories());
+        all.extend(ravenrs_widgets_imaging::book::stories());
+        all.extend(ravenrs_widgets_charts::book::stories());
+        all.extend(ravenrs_widgets_chat::book::stories());
+        all
+    }
+}
+
 /// Drivers for tests written with `ravenrs-e2e` (feature `testing`): they edit, sort and
 /// filter a `DataGrid`, join the nodes of a `FlowCanvas`, move the events of a `Scheduler` and
 /// float the panels of a `DockArea` by keys, as a person does, never by pixels.

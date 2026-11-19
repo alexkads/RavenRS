@@ -27,6 +27,8 @@ ravenrs-graphics = { workspace = true, optional = true }
 ravenrs-e2e = { workspace = true, optional = true }
 
 [features]
+# The stories of its components, for RavenComponentBook (`book::stories`).
+book = ["ravenrs-widgets-base/book", "ravenrs-widgets-kit/book"]
 charts = ["dep:ravenrs-graphics"]
 flow = ["dep:ravenrs-graphics"]
 # `testing::FlowCanvasDriver`, for tests written with ravenrs-e2e.

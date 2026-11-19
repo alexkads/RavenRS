@@ -25,6 +25,8 @@ ravenrs-animation.workspace = true
 ravenrs-lottie = { workspace = true, optional = true }
 
 [features]
+# The stories of its components, for RavenComponentBook (`book::stories`).
+book = ["ravenrs-widgets-base/book", "ravenrs-widgets-kit/book"]
 lottie = ["dep:ravenrs-lottie"]
 live = ["dep:ravenrs-live", "ravenrs-widgets-base/live", "ravenrs-widgets-kit/live", "ravenrs-core/live", "ravenrs-style/live", "ravenrs-layout/live", "ravenrs-lottie?/live"]
 

@@ -32,6 +32,8 @@ default = ["decode"]
 e2e-source = []
 # PNG and JPEG decoding for `Image::from_bytes`.
 decode = ["dep:image"]
+# The stories of its components, for RavenComponentBook (`book::stories`).
+book = []
 # The types of the base exposed to the playground's interpreter.
 live = ["dep:ravenrs-live", "ravenrs-core/live", "ravenrs-style/live", "ravenrs-layout/live", "ravenrs-text/live"]
 

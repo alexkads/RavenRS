@@ -134,10 +134,10 @@ impl Track {
                 }
             }
             Sizing::Known(size_of) => {
-                for i in 0..count {
+                for (i, slot) in self.sizes.iter_mut().enumerate().take(count) {
                     let size = size_of(i) + list.spacing;
-                    if (self.sizes[i] - size).abs() > f32::EPSILON {
-                        self.sizes[i] = size;
+                    if (*slot - size).abs() > f32::EPSILON {
+                        *slot = size;
                         changed = true;
                     }
                 }
