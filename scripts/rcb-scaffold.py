@@ -154,25 +154,24 @@ def default_variant(enum):
 
 
 def constructor_defaults(name, crate):
-    """method -> literal default, read from the setter (`self.field = value`) and the constructor
-    (`field: literal`) of the component's sources."""
+    """method -> literal default, read from the setters (`self.field = value`) and the
+    constructor (`field: literal`) of every `impl` block of the component in its crate."""
     source = "\n".join(p.read_text() for p in (ROOT / "crates" / crate / "src").rglob("*.rs") if "/book/" not in str(p))
-    at = re.search(rf"impl(?:<[^>]*>)? {name}(?:<[^>]*>)? \{{", source)
-    if not at:
-        return {}
-    end = balanced(source, source.index("{", at.start()))
-    body = source[at.start():end or len(source)]
-    ctor = re.search(r"pub fn new\([^)]*\)[^{]*\{", body)
-    fields = {}
-    if ctor:
-        cbody = body[ctor.end() - 1:balanced(body, ctor.end() - 1) or len(body)]
-        for field, value in re.findall(r"\b(\w+): (true|false|-?\d+(?:\.\d+)?(?:_?f32)?|\w+::\w+)\s*[,}]", cbody):
-            fields.setdefault(field, value)
-    out = {}
-    for method, param, field in re.findall(r"pub fn (\w+)\(mut self, (\w+): [^)]*\) -> Self \{\s*self\.(\w+)(?:\.\w+)? = (?:Some\()?", body):
-        if field in fields:
-            out[method] = fields[field]
-    return out
+    fields, setters = {}, {}
+    for at in re.finditer(rf"\bimpl(?:<[^>]*>)? {name}(?:<[^>]*>)? \{{", source):
+        end = balanced(source, at.end() - 1)
+        body = source[at.start():end or len(source)]
+        # Every `Self { field: value, ... }` the impl builds, as `new` or a helper it calls.
+        for lit in re.finditer(r"\bSelf \{", body):
+            close = balanced(body, lit.end() - 1)
+            cbody = body[lit.end() - 1:close or len(body)]
+            for field, value in re.findall(
+                r"\b(\w+): (true|false|-?\d+(?:\.\d+)?(?:_?f32)?|(?:\w+::)+\w+)\s*[,}]", cbody
+            ):
+                fields.setdefault(field, value)
+        for method, param, field in re.findall(r"pub fn (\w+)\(mut self, (\w+): [^)]*\) -> Self \{\s*self\.(\w+)(?:\.\w+)? = (?:Some\()?", body):
+            setters.setdefault(method, field)
+    return {m: fields[f] for m, f in setters.items() if f in fields}
 
 
 def balanced(text, start):
@@ -309,7 +308,8 @@ def build(name, body, methods, enums, family, summary, known=None):
         elif kind == "bool" and (method in known or method in SAFE_BOOLS):
             settings.append(("bool", method, None, known.get(method, "false") == "true"))
         elif kind == "choice":
-            default = known.get(method, "").split("::")[-1] if "::" in known.get(method, "") else default_variant(ty)
+            # Only the component's own default: an enum's #[default] may be another's.
+            default = known.get(method, "").split("::")[-1] if "::" in known.get(method, "") else None
             if default and default in enums[ty]:
                 settings.append(("choice", method, ty, default))
             else:

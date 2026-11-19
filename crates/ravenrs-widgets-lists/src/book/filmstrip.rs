@@ -34,6 +34,7 @@ fn render(args: &Args) -> AnyView {
         let arg_cell_width = args.number("cell_width") as f32;
         let arg_height = args.number("height") as f32;
         let arg_label = args.text("label");
+        let arg_spacing = args.number("spacing") as f32;
 
         let selected = State::new(BTreeSet::from([2_usize]));
         {
@@ -60,6 +61,7 @@ fn render(args: &Args) -> AnyView {
             if !arg_label.is_empty() {
                 it = it.label(arg_label.clone());
             }
+            it = it.spacing(arg_spacing);
             it
         }
     })
@@ -73,6 +75,7 @@ impl ComponentBook for Filmstrip {
             .arg(ArgType::number("cell_width", 120.0, 0.0, 480.0, 1.0))
             .arg(ArgType::number("height", 112.0, 0.0, 448.0, 1.0))
             .arg(ArgType::text("label", "").description("Empty leaves it as the component has it."))
+            .arg(ArgType::number("spacing", 6.0, 0.0, 24.0, 0.1))
             .story("Example", Args::new())
             .story("Mode: None", Args::new().with("mode", ArgValue::choice("None")))
             .story("Mode: Single", Args::new().with("mode", ArgValue::choice("Single")))

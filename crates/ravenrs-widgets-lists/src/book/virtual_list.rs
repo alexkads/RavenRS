@@ -28,8 +28,11 @@ fn render(args: &Args) -> AnyView {
     Box::new({
         let arg_height = args.number("height") as f32;
         let arg_bare = args.bool("bare");
+        let arg_follow_end = args.bool("follow_end");
         let arg_horizontal = args.bool("horizontal");
         let arg_label = args.text("label");
+        let arg_padding = args.number("padding") as f32;
+        let arg_spacing = args.number("spacing") as f32;
 
         // Ten thousand rows of different heights: only what shows exists.
         let selected = State::new(None::<usize>);
@@ -45,12 +48,15 @@ fn render(args: &Args) -> AnyView {
             if arg_bare {
                 it = it.bare();
             }
+            it = it.follow_end(arg_follow_end);
             if arg_horizontal {
                 it = it.horizontal();
             }
             if !arg_label.is_empty() {
                 it = it.label(arg_label.clone());
             }
+            it = it.padding(arg_padding);
+            it = it.spacing(arg_spacing);
             it
         }
     })
@@ -64,8 +70,11 @@ impl ComponentBook for VirtualList {
             )
             .arg(ArgType::number("height", 260.0, 0.0, 1040.0, 1.0))
             .arg(ArgType::bool("bare", false))
+            .arg(ArgType::bool("follow_end", false))
             .arg(ArgType::bool("horizontal", false))
             .arg(ArgType::text("label", "").description("Empty leaves it as the component has it."))
+            .arg(ArgType::number("padding", 0.0, 0.0, 1.0, 0.01))
+            .arg(ArgType::number("spacing", 0.0, 0.0, 1.0, 0.01))
             .story("Example", Args::new())
     }
 }
