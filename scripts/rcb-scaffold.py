@@ -558,12 +558,19 @@ def register():
         def gate(ty):
             name = ty.split("<")[0]
             found = re.search(r'#\[cfg\((feature = "[^"]+")\)\]\s*pub use [^;]*\b' + name + r'\b[^;]*;', lib)
+            if not found:
+                # Or the module that defines it is behind a feature: `#[cfg(...)] pub mod flow_layers;`.
+                for m in re.finditer(r'#\[cfg\((feature = "[^"]+")\)\]\s*(?:#\[[^\]]*\]\s*)*pub mod (\w+);', lib):
+                    module = crate_dir / "src" / f"{m.group(2)}.rs"
+                    if module.exists() and re.search(rf"pub struct {name}\b", module.read_text()):
+                        found = m
+                        break
             return f"#[cfg({found.group(1)})]\n" if found else ""
         mods = "\n".join(f"{gate(ty)}mod {stem};" for stem, ty in types)
         trait = "ComponentBook" if crate_dir.name == "ravenrs-widgets-base" else "ravenrs_widgets_base::book::ComponentBook"
         pushes = "\n".join(f"    {gate(ty).strip() + chr(10) + '    ' if gate(ty) else ''}all.push(<crate::{ty} as {trait}>::book());" for _, ty in types)
         uses = "" if crate_dir.name == "ravenrs-widgets-base" else "#[allow(unused_imports)]\nuse ravenrs_widgets_base::AnyView;\n"
-        block = f"{BEGIN}\n{mods}\n{uses}\n/// The stories written by scripts/rcb-scaffold.py, in name order.\n#[allow(\n    clippy::vec_init_then_push,\n    reason = \"an entry may sit behind a feature, as its component does\"\n)]\npub(crate) fn generated() -> Vec<Meta> {{\n    let mut all = Vec::new();\n{pushes}\n    all\n}}\n{END}"
+        block = f"{BEGIN}\n{mods}\n{uses}\n/// The stories written by scripts/rcb-scaffold.py, in name order.\n#[allow(\n    unused_mut,\n    clippy::vec_init_then_push,\n    reason = \"an entry may sit behind a feature, as its component does\"\n)]\npub(crate) fn generated() -> Vec<Meta> {{\n    let mut all = Vec::new();\n{pushes}\n    all\n}}\n{END}"
         if not book.exists():
             crate = crate_dir.name
             book.write_text(

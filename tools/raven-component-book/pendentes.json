@@ -1,14 +1,2 @@
 {"pendentes": [
-{"crate": "ravenrs-widgets-chat", "tipo": "Chat", "issue": 756},
-{"crate": "ravenrs-widgets-chat", "tipo": "CodeEditor", "issue": 756},
-{"crate": "ravenrs-widgets-chat", "tipo": "FloatingPanel", "issue": 756},
-{"crate": "ravenrs-widgets-chat", "tipo": "Playground", "issue": 756},
-{"crate": "ravenrs-widgets-base", "tipo": "SplashScreen", "issue": 758},
-{"crate": "ravenrs-widgets-charts", "tipo": "FlowInspector", "issue": 759},
-{"crate": "ravenrs-widgets-charts", "tipo": "FlowLayers", "issue": 759},
-{"crate": "ravenrs-widgets-charts", "tipo": "FlowLibrary", "issue": 759},
-{"crate": "ravenrs-widgets-charts", "tipo": "FlowToolbox", "issue": 759},
-{"crate": "ravenrs-widgets-kit", "tipo": "KeyBar", "issue": 761},
-{"crate": "ravenrs-widgets-imaging", "tipo": "CompareView", "issue": 762},
-{"crate": "ravenrs-widgets-imaging", "tipo": "Lottie", "issue": 762}
 ]}

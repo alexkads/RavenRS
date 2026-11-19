@@ -1290,8 +1290,10 @@ impl ComponentBook for CardView
 impl ComponentBook for Carousel
 impl ComponentBook for Chart
 impl ComponentBook for ChartCard
+impl ComponentBook for Chat
 impl ComponentBook for Checkbox
 impl ComponentBook for CodeBlock
+impl ComponentBook for CodeEditor
 impl ComponentBook for Collapse
 impl ComponentBook for ColorPair
 impl ComponentBook for ColorPicker
@@ -1299,6 +1301,7 @@ impl ComponentBook for ColorSwatch
 impl ComponentBook for ColorWheel
 impl ComponentBook for Combobox
 impl ComponentBook for CommandPalette
+impl ComponentBook for CompareView
 impl ComponentBook for ConfirmDialog
 impl ComponentBook for ContextMenu
 impl ComponentBook for CountUp
@@ -1327,13 +1330,19 @@ impl ComponentBook for FileBrowser
 impl ComponentBook for FileUpload
 impl ComponentBook for Filmstrip
 impl ComponentBook for FilterBuilder
+impl ComponentBook for FloatingPanel
 impl ComponentBook for FloatingToolbar
 impl ComponentBook for FlowCanvas
+impl ComponentBook for FlowInspector
+impl ComponentBook for FlowLayers
+impl ComponentBook for FlowLibrary
+impl ComponentBook for FlowToolbox
 impl ComponentBook for Footer
 impl ComponentBook for FormField
 impl ComponentBook for FormLayout
 impl ComponentBook for GlassCard
 impl ComponentBook for Grid
+impl ComponentBook for HStack
 impl ComponentBook for HelpTip
 impl ComponentBook for HeroBanner
 impl ComponentBook for Histogram
@@ -1347,10 +1356,12 @@ impl ComponentBook for ImageLightbox
 impl ComponentBook for InlineRename
 impl ComponentBook for InputOtp
 impl ComponentBook for Kbd
+impl ComponentBook for KeyBar
 impl ComponentBook for Label
 impl ComponentBook for Link
 impl ComponentBook for List
 impl ComponentBook for LookupField
+impl ComponentBook for Lottie
 impl ComponentBook for Marquee
 impl ComponentBook for MaskedField
 impl ComponentBook for Menubar
@@ -1365,6 +1376,7 @@ impl ComponentBook for PagedDocumentView
 impl ComponentBook for Pagination
 impl ComponentBook for ParameterForm
 impl ComponentBook for PatchPanel
+impl ComponentBook for Playground
 impl ComponentBook for Popover
 impl ComponentBook for ProgressBar
 impl ComponentBook for PropertyRow
@@ -1402,6 +1414,7 @@ impl ComponentBook for Slider
 impl ComponentBook for SortableList
 impl ComponentBook for Spacer
 impl ComponentBook for Spinner
+impl ComponentBook for SplashScreen
 impl ComponentBook for SplitButton
 impl ComponentBook for SplitHandle
 impl ComponentBook for SplitPanes
@@ -1436,6 +1449,7 @@ impl ComponentBook for Toolbar
 impl ComponentBook for Tooltip
 impl ComponentBook for TransformHandles
 impl ComponentBook for TreeView
+impl ComponentBook for VStack
 impl ComponentBook for ValueSlider
 impl ComponentBook for VirtualList
 impl ComponentBook for Wizard

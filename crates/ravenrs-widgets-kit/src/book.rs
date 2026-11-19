@@ -36,6 +36,7 @@ mod icon_tile;
 #[cfg(feature = "decode")]
 mod image_field;
 mod inline_rename;
+mod key_bar;
 mod list;
 mod lookup_field;
 mod masked_field;
@@ -70,7 +71,11 @@ mod wizard;
 use ravenrs_widgets_base::AnyView;
 
 /// The stories written by scripts/rcb-scaffold.py, in name order.
-#[allow(clippy::vec_init_then_push, reason = "an entry may sit behind a feature, as its component does")]
+#[allow(
+    unused_mut,
+    clippy::vec_init_then_push,
+    reason = "an entry may sit behind a feature, as its component does"
+)]
 pub(crate) fn generated() -> Vec<Meta> {
     let mut all = Vec::new();
     all.push(<crate::Accordion as ravenrs_widgets_base::book::ComponentBook>::book());
@@ -94,6 +99,7 @@ pub(crate) fn generated() -> Vec<Meta> {
     #[cfg(feature = "decode")]
     all.push(<crate::ImageField as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::InlineRename as ravenrs_widgets_base::book::ComponentBook>::book());
+    all.push(<crate::KeyBar as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::List<(AnyView,)> as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::LookupField as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::MaskedField as ravenrs_widgets_base::book::ComponentBook>::book());

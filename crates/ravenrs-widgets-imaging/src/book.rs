@@ -12,11 +12,14 @@ pub fn stories() -> Vec<Meta> {
 
 // rcb-scaffold: begin
 mod color_wheel;
+mod compare_view;
 mod crop_overlay;
 mod curve_editor;
 mod eyedropper;
 mod histogram;
 mod image_lightbox;
+#[cfg(feature = "lottie")]
+mod lottie;
 mod marquee;
 mod minimap;
 mod protractor;
@@ -29,15 +32,22 @@ mod zoom_pan_view;
 use ravenrs_widgets_base::AnyView;
 
 /// The stories written by scripts/rcb-scaffold.py, in name order.
-#[allow(clippy::vec_init_then_push, reason = "an entry may sit behind a feature, as its component does")]
+#[allow(
+    unused_mut,
+    clippy::vec_init_then_push,
+    reason = "an entry may sit behind a feature, as its component does"
+)]
 pub(crate) fn generated() -> Vec<Meta> {
     let mut all = Vec::new();
     all.push(<crate::ColorWheel as ravenrs_widgets_base::book::ComponentBook>::book());
+    all.push(<crate::CompareView as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::CropOverlay as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::CurveEditor as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::Eyedropper as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::Histogram as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::ImageLightbox as ravenrs_widgets_base::book::ComponentBook>::book());
+    #[cfg(feature = "lottie")]
+    all.push(<crate::Lottie as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::Marquee as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::Minimap as ravenrs_widgets_base::book::ComponentBook>::book());
     all.push(<crate::Protractor as ravenrs_widgets_base::book::ComponentBook>::book());

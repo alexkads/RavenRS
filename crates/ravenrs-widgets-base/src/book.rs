@@ -82,6 +82,8 @@ mod inputs;
 #[cfg(feature = "book")]
 mod select;
 #[cfg(feature = "book")]
+mod stacks;
+#[cfg(feature = "book")]
 mod text_field;
 
 /// The stories of the components of this crate that give them, in the order the book lists
@@ -89,8 +91,8 @@ mod text_field;
 #[cfg(feature = "book")]
 pub fn stories() -> Vec<Meta> {
     use crate::{
-        Alert, Avatar, Badge, Button, Card, Checkbox, IconButton, ProgressBar, SegmentedControl, Select,
-        Slider, TextField, Toggle,
+        Alert, Avatar, Badge, Button, Card, Checkbox, HStack, IconButton, ProgressBar, SegmentedControl,
+        Select, Slider, Text, TextField, Toggle, VStack,
     };
     vec![
         Button::book(),
@@ -106,6 +108,8 @@ pub fn stories() -> Vec<Meta> {
         Alert::book(),
         Avatar::book(),
         ProgressBar::book(),
+        <HStack<(Button, Button, Badge)> as ComponentBook>::book(),
+        <VStack<(Text, Text, Button)> as ComponentBook>::book(),
     ]
     .into_iter()
     .chain(generated())
@@ -456,6 +460,7 @@ mod sheet;
 mod skeleton;
 mod spacer;
 mod spinner;
+mod splash_screen;
 mod split_handle;
 mod split_panes;
 mod splitter;
@@ -477,7 +482,11 @@ mod z_stack;
 mod zoom_control;
 
 /// The stories written by scripts/rcb-scaffold.py, in name order.
-#[allow(clippy::vec_init_then_push, reason = "an entry may sit behind a feature, as its component does")]
+#[allow(
+    unused_mut,
+    clippy::vec_init_then_push,
+    reason = "an entry may sit behind a feature, as its component does"
+)]
 pub(crate) fn generated() -> Vec<Meta> {
     let mut all = Vec::new();
     all.push(<crate::Anchor<AnyView> as ComponentBook>::book());
@@ -530,6 +539,7 @@ pub(crate) fn generated() -> Vec<Meta> {
     all.push(<crate::Skeleton as ComponentBook>::book());
     all.push(<crate::Spacer as ComponentBook>::book());
     all.push(<crate::Spinner as ComponentBook>::book());
+    all.push(<crate::SplashScreen as ComponentBook>::book());
     all.push(<crate::SplitHandle as ComponentBook>::book());
     all.push(<crate::SplitPanes as ComponentBook>::book());
     all.push(<crate::Splitter<AnyView, AnyView> as ComponentBook>::book());
