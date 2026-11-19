@@ -29,6 +29,7 @@ mod zoom_pan_view;
 use ravenrs_widgets_base::AnyView;
 
 /// The stories written by scripts/rcb-scaffold.py, in name order.
+#[allow(clippy::vec_init_then_push, reason = "an entry may sit behind a feature, as its component does")]
 pub(crate) fn generated() -> Vec<Meta> {
     let mut all = Vec::new();
     all.push(<crate::ColorWheel as ravenrs_widgets_base::book::ComponentBook>::book());

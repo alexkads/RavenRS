@@ -558,7 +558,7 @@ def register():
         trait = "ComponentBook" if crate_dir.name == "ravenrs-widgets-base" else "ravenrs_widgets_base::book::ComponentBook"
         pushes = "\n".join(f"    {gate(ty).strip() + chr(10) + '    ' if gate(ty) else ''}all.push(<crate::{ty} as {trait}>::book());" for _, ty in types)
         uses = "" if crate_dir.name == "ravenrs-widgets-base" else "#[allow(unused_imports)]\nuse ravenrs_widgets_base::AnyView;\n"
-        block = f"{BEGIN}\n{mods}\n{uses}\n/// The stories written by scripts/rcb-scaffold.py, in name order.\npub(crate) fn generated() -> Vec<Meta> {{\n    let mut all = Vec::new();\n{pushes}\n    all\n}}\n{END}"
+        block = f"{BEGIN}\n{mods}\n{uses}\n/// The stories written by scripts/rcb-scaffold.py, in name order.\n#[allow(clippy::vec_init_then_push, reason = \"an entry may sit behind a feature, as its component does\")]\npub(crate) fn generated() -> Vec<Meta> {{\n    let mut all = Vec::new();\n{pushes}\n    all\n}}\n{END}"
         if not book.exists():
             crate = crate_dir.name
             book.write_text(
