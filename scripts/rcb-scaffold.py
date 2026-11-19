@@ -24,6 +24,7 @@ A component the script cannot handle stays pending; `--report` says why.
 """
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 
@@ -523,6 +524,10 @@ def main():
         path.write_text(text)
         report[name] = "written"
     register()
+    # What the script writes is kept as rustfmt writes it, so check.sh finds nothing to change.
+    written = [str(p) for p in (ROOT / "crates").glob("ravenrs-widgets*/src/book/*.rs") if p.read_text().startswith(MARK)]
+    written += [str(p) for p in (ROOT / "crates").glob("ravenrs-widgets*/src/book.rs")]
+    subprocess.run(["rustfmt", "--edition", "2024", "--config-path", str(ROOT / "rustfmt.toml"), *written], check=False)
     json.dump(report, sys.stdout, indent=1, ensure_ascii=False)
 
 
@@ -558,7 +563,7 @@ def register():
         trait = "ComponentBook" if crate_dir.name == "ravenrs-widgets-base" else "ravenrs_widgets_base::book::ComponentBook"
         pushes = "\n".join(f"    {gate(ty).strip() + chr(10) + '    ' if gate(ty) else ''}all.push(<crate::{ty} as {trait}>::book());" for _, ty in types)
         uses = "" if crate_dir.name == "ravenrs-widgets-base" else "#[allow(unused_imports)]\nuse ravenrs_widgets_base::AnyView;\n"
-        block = f"{BEGIN}\n{mods}\n{uses}\n/// The stories written by scripts/rcb-scaffold.py, in name order.\n#[allow(clippy::vec_init_then_push, reason = \"an entry may sit behind a feature, as its component does\")]\npub(crate) fn generated() -> Vec<Meta> {{\n    let mut all = Vec::new();\n{pushes}\n    all\n}}\n{END}"
+        block = f"{BEGIN}\n{mods}\n{uses}\n/// The stories written by scripts/rcb-scaffold.py, in name order.\n#[allow(\n    clippy::vec_init_then_push,\n    reason = \"an entry may sit behind a feature, as its component does\"\n)]\npub(crate) fn generated() -> Vec<Meta> {{\n    let mut all = Vec::new();\n{pushes}\n    all\n}}\n{END}"
         if not book.exists():
             crate = crate_dir.name
             book.write_text(
