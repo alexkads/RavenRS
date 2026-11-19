@@ -5,5 +5,6 @@
 
 mod book;
 mod export;
+mod guardian;
 mod novidades;
 mod window;

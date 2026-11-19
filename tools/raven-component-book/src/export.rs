@@ -12,12 +12,15 @@ use serde_json::{Value, json};
 use crate::index::{self, Entry};
 use crate::measure::{self, Measured};
 
-/// The tokens the design system holds, the same file `ravenrs-style` mirrors.
-const TOKENS: &str = include_str!("../../../docs/design-system/tokens.json");
 /// The design system's guide, which the book puts in front of the index of components.
 const GUIDE: &str = include_str!("../../../docs/design-system/README.md");
 /// The font of RavenRS's icons, so the previews draw them as RavenRS does.
 const ICON_FONT: &[u8] = include_bytes!("../../../crates/ravenrs-text/fonts/RavenIcons.ttf");
+/// The text faces RavenRS embeds in every build, the same files the previews draw with.
+const INTER_REGULAR: &[u8] = include_bytes!("../../../crates/ravenrs-text/fonts/Inter-Regular.ttf");
+const INTER_SEMIBOLD: &[u8] = include_bytes!("../../../crates/ravenrs-text/fonts/Inter-SemiBold.ttf");
+/// When the design system was made in the design tool: the index keeps it as its marker.
+const CREATED_ON: &str = "2026-10-31T22:28:36Z";
 
 /// How big a preview may grow, in bytes, under the 256 KB the design tool reads.
 const PREVIEW_BUDGET: usize = 240 * 1024;
@@ -431,6 +434,8 @@ fn guide_with_index(entries: &[Entry]) -> String {
          - **Compose, do not invent.** A piece the screen needs that no component gives goes on a note called *Missing from the library* on the artboard, with what it should do. It joins the library before the screen is built.\n\
          - Colors are tokens (`var(--accent)`), never new colors; spacing follows the 4px grid (`space-*`); corners follow `radius-*`.\n\
          - Icons are RavenRS icons, by the names in the cards (`trash-2`, `search`); the `RavenIcons` font draws them.\n\n\
+         ## Changing this system\n\n\
+         RavenComponentBook writes every file of this system from the RavenRS code, and the design tool takes them as they are: nothing here is edited by hand. To change a component, change its stories (`ComponentBook`) or the component itself; to change a color, a size, a corner or a font, change the tokens of `ravenrs-style`. Then RavenComponentBook writes the system again.\n\n\
          ## Components\n\n\
          | Family | Component | What it is | Stories |\n|---|---|---|---|\n",
     );
@@ -571,50 +576,203 @@ fn preview(entry: &Entry, stories: &[MeasuredStory]) -> String {
     t
 }
 
-/// The tokens of the design system, with where they came from.
-fn tokens(sha: &str) -> Value {
-    let mut tokens: Value = serde_json::from_str(TOKENS).unwrap_or_else(|_| json!({}));
-    tokens["meta"] = json!({
-        "source": "github",
-        "repo": "alexkads/RavenRS",
-        "ref": sha,
-        "paths": {"tokens": ["docs/design-system/tokens.json"], "components": ["tools/raven-component-book"]},
-        "note": "Written by RavenComponentBook (raven-component-book --claude-design); ravenrs-style mirrors these values.",
-    });
-    if let Some(fonts) = tokens["type"]["fonts"].as_array_mut() {
-        fonts.push(json!({"family": "RavenIcons", "file": "fonts/RavenIcons.ttf", "weight": "400"}));
-    }
-    tokens
+/// What differs between a copy of the published design system (its `project/` folder, as the
+/// design tool serves it) and what RavenComponentBook writes now: files that changed, that are
+/// missing and that should not be there. The design tool's own files (`api/`, `manifest.json`)
+/// and the time and commit of the index's `lastChange` do not count.
+#[derive(Debug, Default)]
+pub struct Drift {
+    /// Published, with other content.
+    pub changed: Vec<String>,
+    /// Written by RavenComponentBook, not published.
+    pub missing: Vec<String>,
+    /// Published, not written by RavenComponentBook.
+    pub extra: Vec<String>,
 }
 
-/// Writes the files of the design system under `<dir>/project/`: the guide with every
-/// component, the tokens, the icon font, and for each component its card, its vector preview
-/// and its JSON. `sha` is the commit they were made from.
+impl Drift {
+    /// Nothing differs.
+    pub fn is_clean(&self) -> bool {
+        self.changed.is_empty() && self.missing.is_empty() && self.extra.is_empty()
+    }
+}
+
+/// A file as it compares: the index without the time and commit of its last change, the
+/// tokens without the commit they came from.
+fn comparable(path: &str, bytes: Vec<u8>) -> Vec<u8> {
+    let mut json: Value = match path {
+        "project/design-system.json" | "project/tokens.json" => {
+            serde_json::from_slice(&bytes).unwrap_or_default()
+        }
+        _ => return bytes,
+    };
+    if let Some(change) = json["lastChange"].as_object_mut() {
+        change.remove("at");
+        change.remove("via");
+    }
+    if let Some(meta) = json["meta"].as_object_mut() {
+        meta.remove("ref");
+    }
+    serde_json::to_vec(&json).unwrap_or_default()
+}
+
+/// Compares `published` (a folder holding `project/`) with what RavenComponentBook writes now.
+pub fn verify(published: &Path) -> std::io::Result<Drift> {
+    let fresh = std::env::temp_dir().join(format!("raven-component-book-verify-{}", std::process::id()));
+    let written = write_claude_design(&fresh, "verify")?;
+    let mut drift = Drift::default();
+    for path in &written {
+        match std::fs::read(published.join(path)) {
+            Ok(bytes) => {
+                let new = std::fs::read(fresh.join(path))?;
+                if comparable(path, bytes) != comparable(path, new) {
+                    drift.changed.push(path.clone());
+                }
+            }
+            Err(_) => drift.missing.push(path.clone()),
+        }
+    }
+    let mut stack = vec![published.join("project")];
+    while let Some(dir) = stack.pop() {
+        for item in std::fs::read_dir(&dir).into_iter().flatten().flatten() {
+            let path = item.path();
+            let rel = path
+                .strip_prefix(published)
+                .map(|p| p.to_string_lossy().replace('\\', "/"))
+                .unwrap_or_default();
+            if rel.starts_with("project/api/") || rel == "project/manifest.json" {
+                continue;
+            }
+            if path.is_dir() {
+                stack.push(path);
+            } else if !written.contains(&rel) {
+                drift.extra.push(rel);
+            }
+        }
+    }
+    std::fs::remove_dir_all(&fresh).ok();
+    drift.extra.sort();
+    Ok(drift)
+}
+
+/// The time now, as ISO-8601 in UTC, for the index's `lastChange`.
+fn now_utc() -> String {
+    let secs =
+        std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs()) as i64;
+    let (days, rest) = (secs.div_euclid(86_400), secs.rem_euclid(86_400));
+    // Days to a civil date (Howard Hinnant's algorithm).
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z - era * 146_097;
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    format!("{year:04}-{month:02}-{day:02}T{:02}:{:02}:{:02}Z", rest / 3600, rest % 3600 / 60, rest % 60)
+}
+
+/// The index of the design system: its name, the marker of the day it was made, and
+/// `"editing": "code"`, which keeps the design tool's page from changing what RavenComponentBook
+/// writes. A change goes through a component's `ComponentBook` or the tokens of `ravenrs-style`.
+fn design_system_index(sha: &str, components: usize) -> Value {
+    json!({
+        "v": 3,
+        "layout": "files",
+        "createdOnFiles": {"v": 1, "at": CREATED_ON},
+        "editing": "code",
+        "title": "RavenRS",
+        "namespace": "RavenRS",
+        "libraries": [],
+        "sections": {},
+        "groups": [],
+        "assetGroups": {},
+        "blobs": {},
+        "docs": {"sections": []},
+        "lastChange": {
+            "by": "RavenComponentBook",
+            "at": now_utc(),
+            "via": format!("RavenComponentBook · alexkads/RavenRS@{sha}"),
+            "note": format!("Written whole by raven-component-book --claude-design: {components} components and the tokens of ravenrs-style."),
+        },
+    })
+}
+
+/// The cover, drawn from the tokens: the palette as blocks and the tiles of a dense interface cut
+/// by the radius tokens, right of the name, as the design tool's cover asks.
+fn cover() -> String {
+    // Blocks, tiles and gaps on the spacing scale; corners from the radius scale.
+    let tiles = [
+        ("b-panel r-md", 240, 24, 120, 48),
+        ("b-panel r-md", 384, 24, 72, 48),
+        ("b-panel r-md", 240, 96, 48, 48),
+        ("b-panel r-md", 312, 96, 48, 48),
+        ("b-panel r-md", 384, 96, 48, 48),
+        ("b-panel r-md", 240, 168, 48, 48),
+        ("b-accent r-md", 312, 168, 48, 48),
+        ("b-panel r-md", 384, 168, 48, 48),
+    ];
+    let mut svg = String::from(
+        "  <!--\n    blocks: bg-200 slab 288x276 (radius-xl), bg-300 168x120 (radius-xl), accent 168x108 (radius-xl), accent-hover pill 120x24, ink pill 72x24\n    arrangement: one tall slab bleeding off the top with satellites to its left, like a window with a sidebar and a primary button\n    pattern: geometric, modular, dense UI (a GPU-drawn component kit): tiles cut by radius-md on the slab, one merged wide like a toolbar\n    scales: pitch 48 (space-12) and gap 24 (space-6); radii radius-xl, radius-md, pills at half their height\n  -->\n  <svg width=\"480\" height=\"300\" viewBox=\"0 0 480 300\" aria-hidden=\"true\">\n    <rect class=\"b-canvas r-xl\" x=\"216\" y=\"-24\" width=\"288\" height=\"276\"/>\n    <rect class=\"b-panel r-xl\" x=\"24\" y=\"24\" width=\"168\" height=\"120\"/>\n    <rect class=\"b-accent r-xl\" x=\"24\" y=\"168\" width=\"168\" height=\"108\"/>\n",
+    );
+    for (class, x, y, w, h) in tiles {
+        let _ =
+            writeln!(svg, "    <rect class=\"{class}\" x=\"{x}\" y=\"{y}\" width=\"{w}\" height=\"{h}\"/>");
+    }
+    svg.push_str("    <rect class=\"b-hover\" x=\"48\" y=\"204\" width=\"120\" height=\"24\" rx=\"12\"/>\n    <rect class=\"b-ink\" x=\"48\" y=\"56\" width=\"72\" height=\"24\" rx=\"12\"/>\n  </svg>\n");
+    let tagline = GUIDE
+        .lines()
+        .find(|l| !l.starts_with('#') && !l.trim().is_empty())
+        .and_then(|l| l.split(". ").next())
+        .unwrap_or("Beautiful native interfaces, powered by Rust");
+    format!(
+        "<!-- @dsCard height=300 -->\n<style>\n  .cover {{ position: relative; width: 960px; height: 300px; background: var(--bg-000); overflow: hidden; font-family: var(--font-sans); }}\n  .cover svg {{ position: absolute; left: 480px; top: 0; }}\n  .b-canvas {{ fill: var(--bg-200); }}\n  .b-panel {{ fill: var(--bg-300); }}\n  .b-accent {{ fill: var(--accent); }}\n  .b-hover {{ fill: var(--accent-hover); }}\n  .b-ink {{ fill: var(--ink); }}\n  .r-xl {{ rx: var(--radius-xl); }}\n  .r-md {{ rx: var(--radius-md); }}\n  .name {{ position: absolute; left: 40px; bottom: 72px; margin: 0; max-width: 440px; font-size: 96px; line-height: .92; font-weight: 600; letter-spacing: -2px; color: var(--ink); }}\n  .tag {{ position: absolute; left: 40px; bottom: 40px; margin: 0; max-width: 440px; font-size: 14px; line-height: 20px; color: var(--ink-muted); }}\n</style>\n<div class=\"cover\">\n{svg}  <p class=\"name\">RavenRS</p>\n  <p class=\"tag\">{}.</p>\n</div>\n<script></script>\n",
+        escape(tagline.trim_end_matches('.'))
+    )
+}
+
+/// Writes the whole design system under `<dir>/project/`, everything the design tool shows: the
+/// index, the guide with every component, the tokens read from `ravenrs-style` and their CSS, the
+/// fonts, the cover, and for each component its card, its vector preview and its JSON. Nothing
+/// else belongs to the design system: a published file not in the returned list is removed.
+/// `sha` is the commit it comes from.
 pub fn write_claude_design(dir: &Path, sha: &str) -> std::io::Result<Vec<String>> {
     let project = dir.join("project");
     std::fs::create_dir_all(project.join("fonts"))?;
+    std::fs::create_dir_all(project.join("components/Cover"))?;
     let entries = index::entries();
-    let mut written = vec![
-        "project/README.md".to_owned(),
-        "project/tokens.json".to_owned(),
-        "project/fonts/RavenIcons.ttf".to_owned(),
-    ];
-    std::fs::write(project.join("README.md"), guide_with_index(&entries))?;
-    std::fs::write(project.join("tokens.json"), serde_json::to_string_pretty(&tokens(sha))?)?;
-    std::fs::write(project.join("fonts/RavenIcons.ttf"), ICON_FONT)?;
+    let tokens = crate::tokens::tokens(sha);
+    let mut written = Vec::new();
+    let mut put = |path: &str, bytes: &[u8]| -> std::io::Result<()> {
+        std::fs::write(dir.join(path), bytes)?;
+        written.push(path.to_owned());
+        Ok(())
+    };
+    put("project/README.md", guide_with_index(&entries).as_bytes())?;
+    put("project/tokens.json", serde_json::to_string_pretty(&tokens)?.as_bytes())?;
+    put("project/tokens.css", crate::tokens::css(&tokens).as_bytes())?;
+    put("project/fonts/Inter-Regular.ttf", INTER_REGULAR)?;
+    put("project/fonts/Inter-SemiBold.ttf", INTER_SEMIBOLD)?;
+    put("project/fonts/RavenIcons.ttf", ICON_FONT)?;
+    put("project/components/Cover/preview.html", cover().as_bytes())?;
     for entry in &entries {
         let stories = measure_entry(entry);
-        let folder = project.join("components").join(entry.name());
-        std::fs::create_dir_all(&folder)?;
-        std::fs::write(folder.join("README.md"), card_readme(entry, &stories))?;
-        std::fs::write(folder.join("preview.html"), preview(entry, &stories))?;
-        std::fs::write(
-            folder.join(format!("{}.json", entry.name())),
-            serde_json::to_string(&component_json(entry, &stories))?,
+        let folder = format!("project/components/{}", entry.name());
+        std::fs::create_dir_all(dir.join(&folder))?;
+        put(&format!("{folder}/README.md"), card_readme(entry, &stories).as_bytes())?;
+        put(&format!("{folder}/preview.html"), preview(entry, &stories).as_bytes())?;
+        put(
+            &format!("{folder}/{}.json", entry.name()),
+            serde_json::to_string(&component_json(entry, &stories))?.as_bytes(),
         )?;
-        for file in ["README.md", "preview.html", &format!("{}.json", entry.name())] {
-            written.push(format!("project/components/{}/{file}", entry.name()));
-        }
     }
+    // The index last, as the design tool asks; then the list of everything, for the publisher.
+    put(
+        "project/design-system.json",
+        serde_json::to_string(&design_system_index(sha, entries.len()))?.as_bytes(),
+    )?;
+    let list = written.join("\n") + "\n";
+    std::fs::write(dir.join("files.txt"), list)?;
     Ok(written)
 }

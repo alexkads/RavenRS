@@ -1,6 +1,9 @@
 #![doc = include_str!("../README.md")]
 
 mod assistant;
+/// The stories of its components, for RavenComponentBook (feature `book`).
+#[cfg(feature = "book")]
+pub mod book;
 mod chat;
 mod composition;
 mod editor;

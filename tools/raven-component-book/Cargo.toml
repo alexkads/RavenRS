@@ -3,7 +3,7 @@ name = "raven-component-book"
 description = "RavenComponentBook: the stories of every RavenRS component, as Storybook keeps them, drawn live with their settings, measured from what RavenRS paints, and exported as JSON and as the design system the design tool reads."
 # The tool's own version, read by its news, as Raven Finanças and Raven Test Studio do: raising
 # it is what announces an update to the copies installed with install.cmd.
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -14,6 +14,9 @@ ravenrs = { workspace = true, features = ["tray", "book"] }
 ravenrs-app-update = { workspace = true, features = ["ui"] }
 # The components that do not give their stories yet are shown by their example in the gallery,
 # marked as pending, until each gives its own `ComponentBook`.
+# The window of an application and the film components give their stories too.
+ravenrs-app-ui = { workspace = true, features = ["book"] }
+ravenrs-movie = { workspace = true, features = ["book"] }
 component-gallery = { path = "../../examples/component-gallery" }
 serde_json.workspace = true
 # Reads the fonts of the scene back into letters, weights and families.

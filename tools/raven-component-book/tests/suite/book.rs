@@ -27,8 +27,16 @@ fn every_component_that_gives_stories_has_at_least_one_and_names_only_its_own_se
 fn the_book_lists_every_component_of_the_gallery_once() {
     let entries = index::entries();
     for name in component_gallery::samples::NAMES {
+        // A part of another component is one of its stories, not a component of the book.
+        if let Some((_, owner)) = index::PARTS.iter().find(|(part, _)| part == name) {
+            assert!(entries.iter().any(|e| e.name() == *owner), "{name} is a story of {owner}");
+            continue;
+        }
         assert_eq!(entries.iter().filter(|e| e.name() == *name).count(), 1, "{name}");
     }
+    // Every component gives its own stories: none is left to its gallery example.
+    let pending: Vec<_> = entries.iter().filter(|e| e.pending).map(|e| e.name()).collect();
+    assert!(pending.is_empty(), "pending: {pending:?}");
     let button = entries.iter().find(|e| e.name() == "Button").expect("Button");
     assert!(!button.pending, "Button gives its own stories");
     assert!(button.methods().contains(&"style"));

@@ -14,6 +14,8 @@ keywords = ["video", "manual", "gui", "wasm"]
 categories = ["gui", "multimedia::video"]
 
 [features]
+# The stories of its components, for RavenComponentBook (`book::stories`).
+book = ["ravenrs-widgets/book"]
 # Registers its types with the playground's interpreter.
 live = ["dep:ravenrs-live", "ravenrs-widgets/live"]
 

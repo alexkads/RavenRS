@@ -1,5 +1,25 @@
 [
   {
+    "versao": "0.1.1",
+    "data": "2026-11-19",
+    "titulo": "O RavenComponentBook passa a gerar o design system inteiro e a guardá-lo.",
+    "importante": false,
+    "novidades": [
+      "--claude-design grava o design system completo: o índice travado em editing: code, o guia, os tokens lidos do ravenrs-style e o tokens.css, as fontes Inter e RavenIcons, a capa e cada componente. O Claude Design recebe a pasta como saiu, sem mudanças.",
+      "Os tokens vêm do código (temas, tipografia, espaços, raios, sombras e movimento); do docs/ só vem o texto que diz para que cada um serve.",
+      "--verify <pasta> compara uma cópia do publicado com o que o RCB gera e lista o que mudou, o que falta e o que sobra.",
+      "AppShell, MoviePlayer e MovieAssistant dão as suas histórias, e a linha de meta (ChartReference) é uma história do Chart: nenhum componente fica pendente.",
+      "Um teste acusa quando o docs/design-system/tokens.json diverge do ravenrs-style ou quando um token não diz para que serve."
+    ],
+    "por_que_atualizar": "Para que o design system seja um só, gerado do código, e qualquer mudança passe pelos componentes ou pelos tokens.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      754
+    ]
+  },
+  {
     "versao": "0.1.0",
     "data": "2026-11-18",
     "titulo": "O RavenComponentBook nasce: as histórias de cada componente e tudo o que o Claude Design precisa para desenhar telas que o RavenRS monta como foram desenhadas.",
