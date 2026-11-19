@@ -26,12 +26,14 @@ fn render(args: &Args) -> AnyView {
     Box::new({
         let arg_label = args.text("label");
         let arg_clearable = args.bool("clearable");
+        let arg_max = args.number("max") as u32;
+        let arg_size = args.number("size") as f32;
         let arg_tone = match args.choice("tone") {
+            "Neutral" => Tone::Neutral,
             "Accent" => Tone::Accent,
             "Success" => Tone::Success,
-            "Warning" => Tone::Warning,
             "Danger" => Tone::Danger,
-            _ => Tone::Neutral,
+            _ => Tone::Warning,
         };
 
         let score = State::new(args.number("score") as _);
@@ -42,6 +44,8 @@ fn render(args: &Args) -> AnyView {
                 if arg_clearable {
                     it = it.clearable();
                 }
+                it = it.max(arg_max);
+                it = it.size(arg_size);
                 it = it.tone(arg_tone.clone());
                 it
             },
@@ -57,12 +61,14 @@ impl ComponentBook for Rating {
             .summary("Stars for a score, to read or to give with the pointer and the keyboard.")
             .arg(ArgType::text("label", "Photo rating"))
             .arg(ArgType::bool("clearable", true))
-            .arg(ArgType::choice("tone", &["Neutral", "Accent", "Success", "Warning", "Danger"], "Neutral"))
+            .arg(ArgType::number("max", 5.0, 0.0, 20.0, 1.0))
+            .arg(ArgType::number("size", 18.0, 0.0, 72.0, 1.0))
+            .arg(ArgType::choice("tone", &["Neutral", "Accent", "Success", "Warning", "Danger"], "Warning"))
             .arg(ArgType::number("score", 3.0, 0.0, 12.0, 1.0).description("How the example starts."))
             .story("Example", Args::new())
+            .story("Tone: Neutral", Args::new().with("tone", ArgValue::choice("Neutral")))
             .story("Tone: Accent", Args::new().with("tone", ArgValue::choice("Accent")))
             .story("Tone: Success", Args::new().with("tone", ArgValue::choice("Success")))
-            .story("Tone: Warning", Args::new().with("tone", ArgValue::choice("Warning")))
             .story("Tone: Danger", Args::new().with("tone", ArgValue::choice("Danger")))
     }
 }

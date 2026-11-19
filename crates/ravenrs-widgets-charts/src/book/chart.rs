@@ -31,12 +31,6 @@ fn render(args: &Args) -> AnyView {
         let arg_align_axis_ends = args.bool("align_axis_ends");
         let arg_alt = args.text("alt");
         let arg_animate_changes = args.bool("animate_changes");
-        let arg_bars_from = match args.choice("bars_from") {
-            "Top" => ChartBarFrom::Top,
-            "Left" => ChartBarFrom::Left,
-            "Right" => ChartBarFrom::Right,
-            _ => ChartBarFrom::Bottom,
-        };
         let arg_concentric = args.bool("concentric");
         let arg_dots = args.bool("dots");
         let arg_gradient = args.bool("gradient");
@@ -80,7 +74,6 @@ fn render(args: &Args) -> AnyView {
             if arg_animate_changes {
                 it = it.animate_changes();
             }
-            it = it.bars_from(arg_bars_from.clone());
             if arg_concentric {
                 it = it.concentric();
             }
@@ -162,7 +155,6 @@ impl ComponentBook for Chart {
             .arg(ArgType::bool("align_axis_ends", false))
             .arg(ArgType::text("alt", "").description("Empty leaves it as the component has it."))
             .arg(ArgType::bool("animate_changes", false))
-            .arg(ArgType::choice("bars_from", &["Bottom", "Top", "Left", "Right"], "Bottom"))
             .arg(ArgType::bool("concentric", false))
             .arg(ArgType::bool("dots", false))
             .arg(ArgType::bool("gradient", false))
@@ -187,9 +179,6 @@ impl ComponentBook for Chart {
             .arg(ArgType::bool("tracks", false))
             .arg(ArgType::bool("vary_colors", false))
             .story("Example", Args::new())
-            .story("Bars from: Top", Args::new().with("bars_from", ArgValue::choice("Top")))
-            .story("Bars from: Left", Args::new().with("bars_from", ArgValue::choice("Left")))
-            .story("Bars from: Right", Args::new().with("bars_from", ArgValue::choice("Right")))
             .story("Legend at: Top", Args::new().with("legend_at", ArgValue::choice("Top")))
     }
 }

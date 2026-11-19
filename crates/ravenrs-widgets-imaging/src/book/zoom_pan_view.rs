@@ -27,6 +27,8 @@ use std::rc::Rc;
 fn render(args: &Args) -> AnyView {
     Box::new({
         let arg_label = args.text("label");
+        let arg_grow = args.number("grow") as f32;
+        let arg_inertia = args.bool("inertia");
 
         let view = State::new(ZoomView::fit());
         let content = Size::new(1200.0, 800.0);
@@ -45,6 +47,8 @@ fn render(args: &Args) -> AnyView {
         VStack::new((ZoomControl::new(view.binding()), {
             let mut it = ZoomPanView::custom(view.binding(), content, picture).size(420.0, 200.0);
             it = it.label(arg_label.clone());
+            it = it.grow(arg_grow);
+            it = it.inertia(arg_inertia);
             it
         }))
         .spacing(8.0)
@@ -56,6 +60,8 @@ impl ComponentBook for ZoomPanView {
         Meta::new("Media/ZoomPanView", render)
             .summary("Zoom and pan with pinch, wheel, drag, keys and inertia, within limits.")
             .arg(ArgType::text("label", "Sample picture"))
+            .arg(ArgType::number("grow", 1.0, 0.0, 4.0, 0.1))
+            .arg(ArgType::bool("inertia", true))
             .story("Example", Args::new())
     }
 }

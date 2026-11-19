@@ -26,7 +26,9 @@ use std::rc::Rc;
 #[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
 fn render(args: &Args) -> AnyView {
     Box::new({
+        let arg_grip = args.bool("grip");
         let arg_label = args.text("label");
+        let arg_spacing = args.number("spacing") as f32;
 
         let layers = State::new(vec!["Exposure", "Curves", "Grain", "Vignette"]);
         view_fn(move || {
@@ -41,9 +43,11 @@ fn render(args: &Args) -> AnyView {
                             list.insert(to, layer);
                         });
                     });
+                it = it.grip(arg_grip);
                 if !arg_label.is_empty() {
                     it = it.label(arg_label.clone());
                 }
+                it = it.spacing(arg_spacing);
                 it
             }
         })
@@ -54,7 +58,9 @@ impl ComponentBook for SortableList {
     fn book() -> Meta {
         Meta::new("Data/SortableList", render)
             .summary("Rows put in order by a drag or with Alt and the arrows.")
+            .arg(ArgType::bool("grip", true))
             .arg(ArgType::text("label", "").description("Empty leaves it as the component has it."))
+            .arg(ArgType::number("spacing", 2.0, 0.0, 8.0, 0.1))
             .story("Example", Args::new())
     }
 }

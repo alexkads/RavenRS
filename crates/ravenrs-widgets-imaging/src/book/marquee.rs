@@ -26,6 +26,7 @@ use std::rc::Rc;
 #[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
 fn render(args: &Args) -> AnyView {
     Box::new({
+        let arg_animated = args.bool("animated");
         let arg_label = args.text("label");
 
         let lasso = [
@@ -37,6 +38,7 @@ fn render(args: &Args) -> AnyView {
         HStack::new((
             {
                 let mut it = Marquee::rect(Rect::new(20.0, 20.0, 110.0, 100.0)).size(150.0, 140.0);
+                it = it.animated(arg_animated);
                 if !arg_label.is_empty() {
                     it = it.label(arg_label.clone());
                 }
@@ -52,6 +54,7 @@ impl ComponentBook for Marquee {
     fn book() -> Meta {
         Meta::new("Media/Marquee", render)
             .summary("Marching ants around a rectangle, a path or loose segments.")
+            .arg(ArgType::bool("animated", true))
             .arg(ArgType::text("label", "").description("Empty leaves it as the component has it."))
             .story("Example", Args::new())
     }
