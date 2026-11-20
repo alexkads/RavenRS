@@ -95,6 +95,7 @@ pub mod book {
 /// filter a `DataGrid`, join the nodes of a `FlowCanvas`, move the events of a `Scheduler` and
 /// float the panels of a `DockArea` by keys, as a person does, never by pixels.
 #[cfg(feature = "testing")]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 pub mod testing {
     pub use ravenrs_widgets_charts::testing::FlowCanvasDriver;
     pub use ravenrs_widgets_dock::testing::DockDriver;

@@ -5,7 +5,8 @@ use ravenrs::prelude::*;
 samples! {
     "TreeView" => tree_view, "DataInspector" => data_inspector, "TileLayout" => tile_layout, "CardView" => card_view, "DataGrid" => data_grid,
     "Table" => table, "List" => list, "Stat" => stat, "Chart" => chart, "ChartReference" => chart_reference,
-    "SankeyChart" => sankey_chart, "FlowCanvas" => flow_canvas, "PatchPanel" => patch_panel, "ChartCard" => chart_card, "BarChart" => bar_chart,
+    "SankeyChart" => sankey_chart, "FlowCanvas" => flow_canvas,
+    "FlowInspector" => flow_inspector, "FlowLayers" => flow_layers, "FlowLibrary" => flow_library, "FlowToolbox" => flow_toolbox, "PatchPanel" => patch_panel, "ChartCard" => chart_card, "BarChart" => bar_chart,
     "AreaChart" => area_chart, "Barcode" => barcode, "Timeline" => timeline, "PropertyRow" => property_row,
     "VirtualList" => virtual_list, "PagedDocumentView" => paged_document_view,
     "FileBrowser" => file_browser, "SortableList" => sortable_list,
@@ -433,5 +434,69 @@ fn data_inspector() -> impl View {
             { "order": 102, "customer": { "name": "Bia" } }]"#,
     )
     .label("Orders")
+}
+// end
+
+// sample: FlowInspector, 420
+fn flow_inspector() -> impl View {
+    let graph =
+        State::new(FlowGraph::new().node(FlowNode::new("step", "action", "Review order", 40.0, 80.0)));
+    let selection = State::new(FlowSelection::node("step"));
+    let history = State::new(FlowHistory::new());
+    HStack::new((
+        FlowCanvas::new(graph.binding())
+            .selection(selection.binding())
+            .history(history.binding())
+            .size(520.0, 380.0),
+        FlowInspector::new(graph.binding(), selection.binding()).history(history.binding()),
+    ))
+}
+// end
+
+// sample: FlowLayers, 420
+fn flow_layers() -> impl View {
+    let graph = State::new(
+        FlowGraph::new()
+            .node(FlowNode::new("review", "action", "Review order", 40.0, 80.0))
+            .node(FlowNode::new("send", "action", "Send receipt", 280.0, 180.0)),
+    );
+    let selection = State::new(FlowSelection::default());
+    let history = State::new(FlowHistory::new());
+    HStack::new((
+        FlowLayers::new(graph.binding(), selection.binding()).history(history.binding()),
+        FlowCanvas::new(graph.binding())
+            .selection(selection.binding())
+            .history(history.binding())
+            .size(520.0, 380.0),
+    ))
+}
+// end
+
+// sample: FlowLibrary, 420
+fn flow_library() -> impl View {
+    let graph = State::new(FlowGraph::new().node(FlowNode::new("step", "action", "New diagram", 40.0, 80.0)));
+    let history = State::new(FlowHistory::new());
+    HStack::new((
+        FlowLibrary::new(graph.binding()).history(history.binding()),
+        FlowCanvas::new(graph.binding()).history(history.binding()).size(520.0, 380.0),
+    ))
+}
+// end
+
+// sample: FlowToolbox, 420
+fn flow_toolbox() -> impl View {
+    let graph = State::new(FlowGraph::new());
+    let arrivals = State::new(None::<FlowNode>);
+    HStack::new((
+        FlowToolbox::new()
+            .group("Flow")
+            .model("Step", FlowNode::new("step", "action", "New step", 0.0, 0.0))
+            .model(
+                "Choice",
+                FlowNode::new("choice", "condition", "Choose a path", 0.0, 0.0).shape(FlowShape::Diamond),
+            )
+            .arrivals(arrivals.binding()),
+        FlowCanvas::new(graph.binding()).arrivals(arrivals.binding()).size(520.0, 380.0),
+    ))
 }
 // end

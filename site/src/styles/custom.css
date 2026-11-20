@@ -1,0 +1,12 @@
+:root {
+  --sl-color-accent-low: #232044;
+  --sl-color-accent: #9985ed;
+  --sl-color-accent-high: #d7ceff;
+  --sl-content-width: 52rem;
+}
+:root[data-theme='light'] {
+  --sl-color-accent-low: #eee9ff;
+  --sl-color-accent: #6950bd;
+  --sl-color-accent-high: #37226d;
+}
+.hero h1 { max-width: 14ch; }

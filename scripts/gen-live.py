@@ -289,6 +289,9 @@ def generate(target):
                     out.append(line)
                     continue
                 ty = found["ty"]
+                # Inline modules keep their own feature gates on the registration call.
+                if is_module:
+                    cfg += "".join(f"    {attr}\n" for attr in above if attr.startswith("#[cfg("))
                 if ty in name_gates and not module_cfg:
                     cfg = f"    #[cfg({name_gates[ty]})]\n"
                 if wanted is not None and ty not in wanted:

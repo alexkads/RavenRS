@@ -6,6 +6,12 @@ Vercel URL as its canonical. Keep both origins accessible; no custom domain is r
 
 ## Build and validate locally
 
+The home page and documentation use **Astro + Starlight**, configured in
+`site/`. Run `npm ci --prefix site --ignore-scripts` followed by
+`npm run dev --prefix site` to preview the portal without compiling Rust.
+See [the site maintainer guide](../site/README.md) for source files and checks.
+The complete build retains the component pages, interactive examples and Rust API.
+
 ```bash
 ./scripts/build-site.sh /tmp/ravenrs-site
 node scripts/check-site-seo.mjs /tmp/ravenrs-site
@@ -31,7 +37,7 @@ RAVENRS_SITE_ASSETS_FROM=/tmp/published-gh-pages \
   ./scripts/build-site.sh /tmp/ravenrs-site
 ```
 
-The input must contain `api/`, the home WASM and gallery WASM. The builder checks
+The input must contain `api/` and the gallery WASM. The builder checks
 the API release and refuses an output nested inside the input. This option is
 not for publishing changes to Rust applications or framework code. Obtain the
 input from the repository's `gh-pages` branch; never use an untrusted artifact.

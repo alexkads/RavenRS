@@ -4,3 +4,9 @@
 /target-*/
 
 **/node_modules/
+
+# Generated Astro portal content and build outputs
+/site/.astro/
+/site/.generated/
+/site/dist/
+/site/src/content/docs/

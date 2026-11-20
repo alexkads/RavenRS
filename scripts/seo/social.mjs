@@ -2,7 +2,7 @@ import { createRequire } from "node:module";
 import { writeFile, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 const require = createRequire(
-  new URL("../../site/docs/package.json", import.meta.url),
+  new URL("../../site/package.json", import.meta.url),
 );
 const { Resvg } = require("@resvg/resvg-js");
 const root = resolve(new URL("../..", import.meta.url).pathname);
