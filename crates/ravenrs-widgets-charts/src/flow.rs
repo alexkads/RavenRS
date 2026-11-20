@@ -623,6 +623,7 @@ pub struct FlowCanvas {
     minimap: bool,
     locked: bool,
     read_only: bool,
+    wheel_pans: bool,
     execution: Option<FlowRunView>,
     open_end: Option<Rc<Vec<(String, FlowNode)>>>,
     cables: bool,
@@ -671,6 +672,7 @@ impl FlowCanvas {
             minimap: true,
             locked: false,
             read_only: false,
+            wheel_pans: true,
             execution: None,
             open_end: None,
             cables: false,
@@ -915,6 +917,14 @@ impl FlowCanvas {
     /// so nothing unlocks it.
     pub fn read_only(mut self, read_only: bool) -> Self {
         self.read_only = read_only;
+        self
+    }
+
+    /// Whether the wheel and the two-finger swipe pan the diagram (on by default). Off, they
+    /// go to what holds the canvas, so a page scrolls past a diagram set in it instead of
+    /// stopping on it; dragging and the keys still pan.
+    pub fn pan_with_wheel(mut self, pans: bool) -> Self {
+        self.wheel_pans = pans;
         self
     }
 
@@ -3284,8 +3294,10 @@ impl View for FlowCanvas {
                 moved.memory.pointer.set(Some(Point::new(at.x - frame.x(), at.y - frame.y())));
             }),
         );
-        let wheeled = flow.clone();
-        cx.on_wheel(root, Rc::new(move |delta| wheeled.pan_by(delta.x, delta.y)));
+        if self.wheel_pans {
+            let wheeled = flow.clone();
+            cx.on_wheel(root, Rc::new(move |delta| wheeled.pan_by(delta.x, delta.y)));
+        }
         let pinched = flow.clone();
         cx.on_pinch(
             root,

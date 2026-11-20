@@ -3497,6 +3497,7 @@ method FlowCanvas::notation
 method FlowCanvas::on_change
 method FlowCanvas::on_export
 method FlowCanvas::open_end
+method FlowCanvas::pan_with_wheel
 method FlowCanvas::ports_on_hover
 method FlowCanvas::quick_create
 method FlowCanvas::range
