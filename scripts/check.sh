@@ -189,7 +189,8 @@ step "every tool in tools/ is a product: version, news, installer, icons, tests 
 step "the feature center shows every component with every feature (skill ravenrs-feature-center)"
 ./scripts/feature-center-coverage.py
 
-step "every component follows RCB: ComponentBook with its stories, or pending with its issue (#754)"
+step "every component follows RCB: ComponentBook with its stories, or pending with its issue (#754, #768)"
+./scripts/rcb-coverage.py --self-test
 ./scripts/rcb-coverage.py
 
 if [ "${1:-}" != "--full" ]; then

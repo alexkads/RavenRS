@@ -98,5 +98,35 @@ impl ComponentBook for Sidebar<(AnyView,)> {
             .story("Side: Right", Args::new().with("side", ArgValue::choice("Right")))
             .story("Variant: Floating", Args::new().with("variant", ArgValue::choice("Floating")))
             .story("Variant: Inset", Args::new().with("variant", ArgValue::choice("Inset")))
+            .story_with("Compact, with sections", Args::new(), compact_with_sections)
     }
+}
+
+/// The sidebar of an application with many pages, as Raven Finanças has it: a brand with its
+/// subtitle, a command search, sections with a title, compact items (32 pt), a count and the
+/// items kept at the foot.
+fn compact_with_sections(_: &Args) -> AnyView {
+    let item = |icon: IconName, name: &str| SidebarItem::new(icon, name).compact();
+    let content: Vec<AnyView> = vec![
+        Box::new(item(IconName::Search, "Search commands").shortcut("⌘K")),
+        Box::new(SidebarSection::new("Day to day")),
+        Box::new(item(IconName::LayoutDashboard, "Overview")),
+        Box::new(item(IconName::List, "Transactions").selected(true)),
+        Box::new(item(IconName::CreditCard, "Bills").badge(Badge::new("2").tone(Tone::Danger))),
+        Box::new(SidebarSection::new("Reports")),
+        Box::new(item(IconName::ChartPie, "Reports")),
+    ];
+    Box::new(
+        Sidebar::new(content)
+            .header(SidebarBrand::new(Icon::new(IconName::Wallet), "Raven").subtitle("Family finances"))
+            .footer(
+                VStack::new((
+                    item(IconName::Settings, "Settings"),
+                    item(IconName::PanelLeft, "Fold menu").shortcut("⌘B"),
+                ))
+                .spacing(4.0)
+                .align(Align::Stretch),
+            )
+            .height(460.0),
+    )
 }

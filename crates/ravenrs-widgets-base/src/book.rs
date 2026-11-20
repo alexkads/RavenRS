@@ -321,6 +321,74 @@ impl std::fmt::Debug for Story {
     }
 }
 
+/// How a component takes space along one axis.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Extent {
+    /// Stretches to what its parent gives it.
+    Fill,
+    /// As large as its content.
+    Hug,
+    /// Always this many points.
+    Fixed(f32),
+}
+
+impl Extent {
+    /// The word the book writes for it: `fill`, `hug` or `fixed`.
+    pub fn word(self) -> &'static str {
+        match self {
+            Self::Fill => "fill",
+            Self::Hug => "hug",
+            Self::Fixed(_) => "fixed",
+        }
+    }
+}
+
+/// How a component sizes, for what measuring cannot tell by itself: a width a setting fixes,
+/// a limit the layout does not show at the widths the book measures. What is left out is read
+/// from the component, laid out in parents of three widths.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Sizing {
+    /// Along the width; `None` reads it from the layout.
+    pub width: Option<Extent>,
+    /// Along the height; `None` reads it from the layout.
+    pub height: Option<Extent>,
+    /// The narrowest it gets, in points.
+    pub min_width: Option<f32>,
+    /// The widest it gets, in points.
+    pub max_width: Option<f32>,
+}
+
+impl Sizing {
+    /// Nothing declared: everything is read from the layout.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Declares how it takes the width.
+    pub fn width(mut self, extent: Extent) -> Self {
+        self.width = Some(extent);
+        self
+    }
+
+    /// Declares how it takes the height.
+    pub fn height(mut self, extent: Extent) -> Self {
+        self.height = Some(extent);
+        self
+    }
+
+    /// Declares the narrowest it gets.
+    pub fn min_width(mut self, points: f32) -> Self {
+        self.min_width = Some(points);
+        self
+    }
+
+    /// Declares the widest it gets.
+    pub fn max_width(mut self, points: f32) -> Self {
+        self.max_width = Some(points);
+        self
+    }
+}
+
 /// A component in the book: where it sits, what it is, its settings and its stories.
 #[derive(Clone)]
 pub struct Meta {
@@ -332,6 +400,8 @@ pub struct Meta {
     pub arg_types: Vec<ArgType>,
     /// Its named states.
     pub stories: Vec<Story>,
+    /// How it sizes, where measuring cannot tell.
+    pub sizing: Sizing,
     render: Render,
 }
 
@@ -348,7 +418,20 @@ impl std::fmt::Debug for Meta {
 impl Meta {
     /// A component at `title` (`"Actions/Button"`), drawn by `render` from its settings.
     pub fn new(title: &'static str, render: impl Fn(&Args) -> AnyView + 'static) -> Self {
-        Self { title, summary: "", arg_types: Vec::new(), stories: Vec::new(), render: Rc::new(render) }
+        Self {
+            title,
+            summary: "",
+            arg_types: Vec::new(),
+            stories: Vec::new(),
+            sizing: Sizing::default(),
+            render: Rc::new(render),
+        }
+    }
+
+    /// Declares how it sizes, for what measuring cannot tell.
+    pub fn sizing(mut self, sizing: Sizing) -> Self {
+        self.sizing = sizing;
+        self
     }
 
     /// Says what it is.

@@ -13,6 +13,8 @@
 pub mod export;
 pub mod index;
 pub mod measure;
+pub mod patterns;
+pub mod replay;
 pub mod tokens;
 pub mod versao;
 
@@ -353,8 +355,8 @@ pub fn installed_app() -> Localized<Book> {
 }
 
 /// The book tests itself: every component is listed once, every story draws and measures in
-/// both themes with parts and paint, and every measured color is a token or a color of a story's
-/// own. Returns what it checked.
+/// the three themes with parts and paint, and in parents of every width of [`measure::WIDTHS`].
+/// Returns what it checked.
 pub fn self_test() -> Result<String, String> {
     let entries = index::entries();
     let mut names: Vec<&str> = entries.iter().map(index::Entry::name).collect();
@@ -373,6 +375,13 @@ pub fn self_test() -> Result<String, String> {
                     empty.push(format!("{} / {} ({id})", entry.name(), story.name));
                 }
             }
+            let dark = measure::themes()[0].1;
+            for width in measure::WIDTHS {
+                let m = measure::measure_at(&entry.meta, story, &args, dark, width);
+                if m.paint.is_empty() {
+                    empty.push(format!("{} / {} ({width} pt)", entry.name(), story.name));
+                }
+            }
             stories += 1;
         }
     }
@@ -380,5 +389,8 @@ pub fn self_test() -> Result<String, String> {
         return Err(format!("{} histórias não desenham nada: {}", empty.len(), empty.join("; ")));
     }
     let pending = entries.iter().filter(|e| e.pending).count();
-    Ok(format!("Autoteste: {} componentes, {stories} histórias medidas, {pending} pendentes", entries.len()))
+    let (components, widths) = (entries.len(), measure::WIDTHS.len());
+    Ok(format!(
+        "Autoteste: {components} componentes, {stories} histórias medidas em {widths} larguras, {pending} pendentes"
+    ))
 }

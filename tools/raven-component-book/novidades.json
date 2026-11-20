@@ -1,19 +1,38 @@
 {
-  "versao": "0.1.1",
-  "titulo": "O RavenComponentBook passa a gerar o design system inteiro e a guardá-lo.",
+  "versao": "0.1.2",
+  "titulo": "O RavenComponentBook diz como cada componente se dimensiona, como reage ao ponteiro, ao foco, ao clique e ao teclado, e mede tudo também no glass.",
   "importante": false,
   "novidades": [
-    "--claude-design grava o design system completo: o índice travado em editing: code, o guia, os tokens lidos do ravenrs-style e o tokens.css, as fontes Inter e RavenIcons, a capa e cada componente. O Claude Design recebe a pasta como saiu, sem mudanças.",
-    "Os tokens vêm do código (temas, tipografia, espaços, raios, sombras e movimento); do docs/ só vem o texto que diz para que cada um serve.",
-    "--verify <pasta> compara uma cópia do publicado com o que o RCB gera e lista o que mudou, o que falta e o que sobra.",
-    "AppShell, MoviePlayer e MovieAssistant dão as suas histórias, e a linha de meta (ChartReference) é uma história do Chart: nenhum componente fica pendente.",
-    "Um teste acusa quando o docs/design-system/tokens.json diverge do ravenrs-style ou quando um token não diz para que serve."
+    "Cada história é medida em pais de 320, 760 e 1200 pt; 760 continua sendo a referência da anatomia e do preview.",
+    "O JSON de cada componente e de cada história ganha sizing: largura fill, hug ou fixed, limites, quanto um pai estreito aperta, se a altura acompanha a largura, e as três medidas.",
+    "A ficha de cada componente ganha a seção Sizing, com uma frase do tipo \"Fills the width of its parent: 288, 728, 1168 pt wide\".",
+    "O preview mostra a primeira história ao lado dela mesma num pai de 320 pt.",
+    "O ComponentBook pode declarar o que a medida não mostra (Meta::sizing com Sizing e Extent), e o declarado prevalece.",
+    "O autoteste mede cada história nas três larguras.",
+    "A anatomia da ficha passa a trazer também o painel do diálogo, títulos, rótulos, navegação, barras de ferramentas, menus, listas e dicas, com raio, fundo, fonte e recuo, e não só os controles.",
+    "A ficha mede os estados de interação sem uma linha a mais no ComponentBook: o ponteiro sobre o primeiro controle, o foco trazido com Tab e o botão segurado. A seção Interaction diz o token que muda em cada um (fill accent → accent-hover, o anel focus-ring), o JSON traz as mudanças e a cena, o preview desenha os estados que mudam, e um controle que não reage aparece em ignores.",
+    "Cada história também é medida no Raven Glass, e as cores que ficam entre dois tokens (a borda que se aproxima da tinta no hover) ganham nome, mix(ink, border, 25), e viram color-mix no preview: a interface acompanha o tema escolhido, glass incluído. O scrim, chart-1, chart-grid e guide passam a ser reconhecidos como tokens.",
+    "A ficha ganha a seção Behavior: os eventos (on_*), as teclas que o primeiro controle trata depois de focado (o RCB aperta setas, Enter, Espaço, Esc, Home e End e vê o que muda; Esc conta quando fecha o que outra tecla abriu), o papel e o nome de acessibilidade e a ordem de foco com Tab.",
+    "A ficha do Icon traz todos os ícones com o caractere de cada um na fonte RavenIcons.",
+    "A guarda rcb-coverage.py cobra o conteúdo: uma história por opção de cada escolha de até 12 (salvo a amostra de ícones; uma história como \"All sizes\" vale por todas), uma história com cada estado (disabled, read_only, loading, error) ligado, e pelo menos uma história. O que faltar entra no pendentes.json com \"conteudo\": true e a issue, e --self-test confere as regras. Alert, Badge, Checkbox, FileUpload, IconButton, ProgressBar, Select, TextField e Toggle ganharam as histórias que faltavam.",
+    "Padrões de tela, feitos só com componentes e medidos como eles, em patterns/: formulário com rótulos, dica e erro (FormPattern), página com barra lateral (SidebarPage), lista com busca e filtros sobre a DataGrid (FilteredGrid), confirmação (Confirmation) e página vazia (EmptyPage). O guia lista os padrões, e cada um mostra como fica num pai de 320 pt.",
+    "Correção: os recortes dos previews tinham o mesmo id em todas as histórias, e o navegador recortava uma história com o recorte de outra; agora cada desenho tem os seus.",
+    "Cada desenho do preview leva data-rcb=\"Componente/História\", e o guia pede ao Claude Design que mantenha a marca no que desenhar: é o primeiro passo do teste de reprodução.",
+    "As 87 histórias geradas foram revisadas (Overlays, Data, Layout, Display and feedback e Media): nenhuma tem mais a marca do rcb-scaffold, faixas em pontos onde iam de 0 a 1, e cada família ganhou os estados que faltavam (Toaster com um aviso, DropdownMenu aberto, Text com a escala de tipos, DataGrid listrada e compacta).",
+    "Correção: o tamanho de uma história passa a contar texto, ícones e desenhos, e não só retângulos; o Icon media 1 × 1.",
+    "A Sidebar ganha a história Compact, with sections: marca com subtítulo, busca de comandos, seções com título, itens compactos de 32 pt, contador e itens no rodapé, como um app com muitas páginas a monta (lacuna 12 da #768).",
+    "--replay <tela.rcb.json> confere se o RavenRS monta cada peça de uma tela do Claude Design como foi desenhada: o desenho marca cada componente com data-rcb e data-rcb-args, um script da prancheta (no guia) grava as caixas, e o livro desenha cada história com as mesmas configurações num pai da largura da caixa e aponta o que diverge mais de 1 pt, o componente, a história, a configuração ou a opção que não existe. Sai com 1 quando algo diverge. A tela da Fase 0 é o teste."
   ],
-  "por_que_atualizar": "Para que o design system seja um só, gerado do código, e qualquer mudança passe pelos componentes ou pelos tokens.",
+  "por_que_atualizar": "Para o Claude Design saber o que estica e o que se ajusta ao conteúdo, em vez de copiar a largura de uma medida só.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    754
+    768,
+    758,
+    759,
+    760,
+    761,
+    762
   ]
 }

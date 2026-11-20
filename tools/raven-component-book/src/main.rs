@@ -7,8 +7,8 @@
 //! passed); `--versao` prints the version.
 
 /// Every option the book reads; any other is refused.
-const OPTIONS: [&str; 7] =
-    ["--versao", "--self-test", "--json", "--claude-design", "--sha", "--verify", "--help"];
+const OPTIONS: [&str; 8] =
+    ["--versao", "--self-test", "--json", "--claude-design", "--sha", "--verify", "--replay", "--help"];
 
 fn main() -> std::process::ExitCode {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -25,6 +25,7 @@ fn main() -> std::process::ExitCode {
              --json <pasta>                                o JSON de cada componente e o index.json\n\
              --claude-design <pasta> [--sha <commit>]      os arquivos do design system do Claude Design em <pasta>/project\n\
              --verify <pasta>                              compara uma cópia do publicado com o que o RCB gera\n\
+             --replay <tela.rcb.json>                      confere se o RavenRS monta cada peça de uma tela do design como foi desenhada\n\
              --self-test                                   desenha e mede cada história, sem janela\n\
              --versao                                      a versão",
             raven_component_book::VERSION
@@ -45,6 +46,28 @@ fn main() -> std::process::ExitCode {
             Err(why) => {
                 eprintln!("o autoteste falhou: {why}");
                 std::process::ExitCode::FAILURE
+            }
+        };
+    }
+    if let Some(file) = value("--replay") {
+        let checked = std::fs::read_to_string(&file)
+            .map_err(|e| format!("não deu para ler {file}: {e}"))
+            .and_then(|json| raven_component_book::replay::replay(&json));
+        return match checked {
+            Ok(replay) if replay.divergences.is_empty() => {
+                println!("{} peças conferidas: o RavenRS monta todas como foram desenhadas", replay.compared);
+                std::process::ExitCode::SUCCESS
+            }
+            Ok(replay) => {
+                for d in &replay.divergences {
+                    println!("{d}");
+                }
+                println!("{} de {} peças divergem", replay.divergences.len(), replay.compared);
+                std::process::ExitCode::FAILURE
+            }
+            Err(why) => {
+                eprintln!("{why}");
+                std::process::ExitCode::from(2)
             }
         };
     }

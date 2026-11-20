@@ -1,0 +1,9 @@
+{
+  "screen": "Novo lançamento (Raven Finanças, Fase 0 da #768)",
+  "elements": [
+    {"rcb": "SegmentedControl/Two options", "args": {"label": "Tipo", "options": "Despesa, Receita", "selected": 0}, "box": [24, 94, 166, 36]},
+    {"rcb": "TextField/Empty", "args": {"placeholder": "Ex.: Supermercado"}, "box": [24, 166, 392, 40]},
+    {"rcb": "Button/Secondary", "args": {"label": "Cancelar"}, "box": [110, 456, 101, 40]},
+    {"rcb": "Button/Primary", "args": {"label": "Salvar lançamento", "icon": "check"}, "box": [221, 456, 195, 40]}
+  ]
+}

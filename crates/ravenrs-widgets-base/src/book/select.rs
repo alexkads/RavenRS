@@ -44,5 +44,8 @@ impl ComponentBook for Select {
                     .with("searchable", true),
             )
             .story("Disabled", Args::new().with("disabled", true))
+            .story("Read only", Args::new().with("read_only", true))
+            .story("Mini", Args::new().with("size", ArgValue::choice("Mini")))
+            .story("Large", Args::new().with("size", ArgValue::choice("Large")))
     }
 }
