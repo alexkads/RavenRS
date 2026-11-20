@@ -188,6 +188,18 @@ fn the_wheel_pans_and_a_pinch_zooms_around_the_pointer() {
 }
 
 #[test]
+fn without_wheel_panning_the_wheel_leaves_the_view_for_the_page() {
+    // A diagram set in a page that scrolls: the wheel over it must scroll the page.
+    let mut rig = rig_with(graph(), |canvas| canvas.pan_with_wheel(false));
+    rig.ui
+        .handle_event(&Event::Scroll { position: Point::new(300.0, 300.0), delta: Point::new(-10.0, -20.0) });
+    settle(&mut rig.ui);
+    assert_eq!(rig.view.get().offset, Point::new(0.0, 0.0), "the wheel did not pan");
+    drag(&mut rig.ui, Point::new(300.0, 500.0), Point::new(340.0, 470.0));
+    assert_eq!(rig.view.get().offset, Point::new(40.0, -30.0), "a drag still pans");
+}
+
+#[test]
 fn connecting_two_ports_adds_the_connection_and_selects_it() {
     let mut rig = rig();
     // From the output of `a` (right edge, halfway down) to the input of `b`.
