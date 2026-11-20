@@ -575,9 +575,10 @@ impl Interaction {
     }
 }
 
-/// `story` of `meta` brought to `state` on its first control a person can focus, in `theme`, in
-/// a parent of the reference [`WIDTH`]: the control's name and what the stage shows then. `None`
-/// when the story has no such control.
+/// `story` of `meta` brought to `state` in `theme`, in a parent of the reference [`WIDTH`]: the
+/// pointer on its first control that is neither selected nor checked (else its first), the focus
+/// where Tab takes it. Returns the control's name and what the stage shows then; `None` when the
+/// story has no control.
 pub fn measure_interaction(
     meta: &Meta,
     story: &Story,
@@ -588,7 +589,17 @@ pub fn measure_interaction(
     use ravenrs::core::{Event, Key, Modifiers, PointerButton};
     let mut ui = staged(meta, story, args, theme, WIDTH, Align::Start);
     let tree = ui.access_tree();
-    let target = tree.nodes.iter().skip(1).find(|n| n.focusable && !n.disabled)?;
+    // The pointer goes to a control at rest: one already selected or checked often looks the
+    // same under it, and would hide how the others react. The focus goes where Tab takes it.
+    let controls: Vec<&AccessNode> =
+        tree.nodes.iter().skip(1).filter(|n| n.focusable && !n.disabled).collect();
+    let at_rest = controls
+        .iter()
+        .find(|n| n.selected != Some(true) && !matches!(n.toggled, Some(ravenrs::core::Toggled::True)));
+    let target = match state {
+        Interaction::Focus => controls.first(),
+        _ => at_rest.or(controls.first()),
+    }?;
     let name = target.name.clone().unwrap_or_default();
     let b = target.bounds;
     let center = Point::new(b.origin.x + b.size.width / 2.0, b.origin.y + b.size.height / 2.0);

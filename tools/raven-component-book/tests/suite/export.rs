@@ -309,3 +309,13 @@ fn the_sidebar_shows_its_compact_items_and_sections() {
     let item = parts.iter().find(|p| p["name"] == "Transactions").expect("an item");
     assert_eq!(item["bounds"][3], 32.0, "a compact item is 32 pt tall: {item}");
 }
+
+#[test]
+fn the_pointer_goes_to_a_control_at_rest() {
+    // The selected tab looks the same under the pointer; another tab shows how tabs react.
+    let tabs = entry("Tabs");
+    let json = component_json(&tabs, &measure_entry(&tabs));
+    let interaction = &json["interaction"];
+    assert!(interaction["reacts_to"].to_string().contains("Hover"), "{interaction}");
+    assert_ne!(interaction["Hover"]["control"], interaction["Focus"]["control"], "{interaction}");
+}
