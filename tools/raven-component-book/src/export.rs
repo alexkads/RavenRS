@@ -10,7 +10,7 @@ use ravenrs::widgets::book::{ArgValue, Control};
 use serde_json::{Value, json};
 
 use crate::index::{self, Entry};
-use crate::measure::{self, Fit, Measured};
+use crate::measure::{self, Fit, Interaction, Measured};
 
 /// The design system's guide, which the book puts in front of the index of components.
 const GUIDE: &str = include_str!("../../../docs/design-system/README.md");
@@ -80,6 +80,22 @@ pub struct MeasuredStory {
     pub narrow: Measured,
     /// How it sizes, from the parents of [`measure::WIDTHS`].
     pub fit: Fit,
+    /// For the first story, in Raven Dark: the pointer over its first control, the focus on it
+    /// and the button held down on it. Empty for the other stories and when it has no control.
+    pub interactions: Vec<Reaction>,
+}
+
+/// A state of [`Interaction`] measured on a story's first control.
+#[derive(Clone, Debug)]
+pub struct Reaction {
+    /// Which state.
+    pub state: Interaction,
+    /// The control it was brought to, by its accessible name.
+    pub control: String,
+    /// What the stage shows in it.
+    pub measured: Measured,
+    /// What changed against the story at rest; empty when the control does not react.
+    pub changes: Vec<Value>,
 }
 
 /// Measures every story of `entry` in both themes, and in Raven Dark in the parents of the
@@ -89,7 +105,8 @@ pub fn measure_entry(entry: &Entry) -> Vec<MeasuredStory> {
         .meta
         .stories
         .iter()
-        .map(|story| {
+        .enumerate()
+        .map(|(i, story)| {
             let args = entry.meta.args_of(story);
             let themes: Vec<(&'static str, Measured)> = measure::themes()
                 .into_iter()
@@ -107,10 +124,22 @@ pub fn measure_entry(entry: &Entry) -> Vec<MeasuredStory> {
                 &[(narrowest, narrow.main_box()), (reference, at_reference), (widest, wide)],
                 Some(stretched),
             );
+            let interactions = match (i, themes.first()) {
+                (0, Some((_, rest))) => Interaction::ALL
+                    .into_iter()
+                    .filter_map(|state| {
+                        let (control, measured) =
+                            measure::measure_interaction(&entry.meta, story, &args, dark, state)?;
+                        let changes = measure::changes(rest, &measured);
+                        Some(Reaction { state, control, measured, changes })
+                    })
+                    .collect(),
+                _ => Vec::new(),
+            };
             let args = json!(
                 args.iter().map(|(k, v)| (k.to_owned(), arg_value(v))).collect::<serde_json::Map<_, _>>()
             );
-            MeasuredStory { name: story.name, args, themes, narrow, fit }
+            MeasuredStory { name: story.name, args, themes, narrow, fit, interactions }
         })
         .collect()
 }
@@ -137,6 +166,7 @@ pub fn component_json(entry: &Entry, stories: &[MeasuredStory]) -> Value {
         "code": entry.code,
         "anatomy": anatomy,
         "sizing": stories.first().map(|s| s.fit.json()),
+        "interaction": interaction_json(stories),
         "stories": stories.iter().map(|s| json!({
             "id": format!("{}--{}", id_of(entry.meta.title), id_of(s.name)),
             "name": s.name,
@@ -145,6 +175,77 @@ pub fn component_json(entry: &Entry, stories: &[MeasuredStory]) -> Value {
             "themes": s.themes.iter().map(|(id, m)| (id.to_string(), m.json())).collect::<serde_json::Map<_, _>>(),
         })).collect::<Vec<_>>(),
     })
+}
+
+/// How the first story's first control reacts: for each state, the control, what changed and,
+/// when something did, what the stage shows; `reacts_to` and `ignores` name the states.
+fn interaction_json(stories: &[MeasuredStory]) -> Value {
+    let Some(first) = stories.first() else { return Value::Null };
+    if first.interactions.is_empty() {
+        return Value::Null;
+    }
+    let mut out = serde_json::Map::new();
+    let (mut reacts, mut ignores) = (Vec::new(), Vec::new());
+    for r in &first.interactions {
+        if r.changes.is_empty() {
+            ignores.push(r.state.name());
+        } else {
+            reacts.push(r.state.name());
+            out.insert(
+                r.state.name().into(),
+                json!({"control": r.control, "story": first.name, "changes": r.changes, "dark": r.measured.json()}),
+            );
+        }
+    }
+    out.insert("reacts_to".into(), json!(reacts));
+    out.insert("ignores".into(), json!(ignores));
+    Value::Object(out)
+}
+
+/// One line per state for a person: on which control, and the tokens that change.
+fn interaction_lines(first: &MeasuredStory) -> Vec<String> {
+    first
+        .interactions
+        .iter()
+        .map(|r| {
+            if r.changes.is_empty() {
+                return format!("- **{}**: \"{}\" does not change.", r.state.name(), r.control);
+            }
+            let said: Vec<String> = r
+                .changes
+                .iter()
+                .take(4)
+                .map(|c| {
+                    if let Some(added) = c.get("added") {
+                        let look = added.get("border").map_or_else(
+                            || added.get("fill").cloned().unwrap_or(Value::Null).to_string(),
+                            |b| format!("border {} {}", b["width"], b["color"]),
+                        );
+                        format!(
+                            "adds a {} ({})",
+                            added["kind"].as_str().unwrap_or("shape"),
+                            look.replace('"', "")
+                        )
+                    } else if c.get("removed").is_some() {
+                        "takes a shape away".to_owned()
+                    } else {
+                        let to = c["to"].as_object().cloned().unwrap_or_default();
+                        to.iter()
+                            .map(|(k, v)| {
+                                format!(
+                                    "{k} {} → {}",
+                                    c["from"][k].to_string().replace('"', ""),
+                                    v.to_string().replace('"', "")
+                                )
+                            })
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    }
+                })
+                .collect();
+            format!("- **{}** on \"{}\": {}.", r.state.name(), r.control, said.join("; "))
+        })
+        .collect()
 }
 
 fn rect_of(v: &Value) -> Option<[f64; 4]> {
@@ -529,6 +630,16 @@ fn card_readme(entry: &Entry, stories: &[MeasuredStory]) -> String {
             }
         }
     }
+    if let Some(first) = stories.first().filter(|s| !s.interactions.is_empty()) {
+        let _ = writeln!(
+            t,
+            "\n## Interaction\n\nThe pointer over the first control, the focus brought to it with Tab and the button held down on it, measured in Raven Dark on the story {}:\n",
+            first.name
+        );
+        for line in interaction_lines(first) {
+            let _ = writeln!(t, "{line}");
+        }
+    }
     let rows = anatomy_of(stories);
     if !rows.is_empty() {
         t.push_str("\n## Anatomy (Raven Dark, every story)\n\nMeasured from what RavenRS paints, in points. Colors are tokens; `token@N` is the token at N% opacity. Parts that measure the same are listed once, with the story they come from.\n\n| Story | Part | Size | Radius | Fill | Border | Text | Icon | Left padding |\n|---|---|---|---|---|---|---|---|---|\n");
@@ -627,6 +738,22 @@ fn preview(entry: &Entry, stories: &[MeasuredStory]) -> String {
             }
             if i > 0 && t.len() + section.len() > PREVIEW_BUDGET {
                 left_out.push(escape(s.name));
+                continue;
+            }
+            t.push_str(&section);
+        }
+    }
+    // The states the first control reacts to, while they fit.
+    if let Some(first) = stories.first() {
+        for r in first.interactions.iter().filter(|r| !r.changes.is_empty()) {
+            let section = format!(
+                "<section class=\"story\"><h3>{} · {}</h3>{}</section>\n",
+                escape(first.name),
+                r.state.name(),
+                svg(&r.measured)
+            );
+            if t.len() + section.len() > PREVIEW_BUDGET {
+                left_out.push(format!("{} · {}", escape(first.name), r.state.name()));
                 continue;
             }
             t.push_str(&section);

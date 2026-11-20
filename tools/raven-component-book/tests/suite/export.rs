@@ -177,3 +177,23 @@ fn an_open_dialog_sizes_by_its_panel_not_by_the_button_that_opened_it() {
     assert_eq!(open.fit.width, ravenrs::widgets::book::Extent::Hug, "{:?}", open.fit);
     assert_eq!(open.fit.sizes[1].1.0, 460.0, "the width the story gives it");
 }
+
+#[test]
+fn a_button_says_what_changes_under_the_pointer_the_focus_and_a_press() {
+    let entry = entry("Button");
+    let json = component_json(&entry, &measure_entry(&entry));
+    let interaction = &json["interaction"];
+    assert_eq!(interaction["reacts_to"], serde_json::json!(["Hover", "Focus", "Pressed"]), "{interaction}");
+    let hover = interaction["Hover"]["changes"].to_string();
+    assert!(hover.contains("accent-hover"), "{hover}");
+    let focus = interaction["Focus"]["changes"].to_string();
+    assert!(focus.contains("focus-ring"), "the ring has the focus token: {focus}");
+    assert_eq!(interaction["Hover"]["control"], "Save");
+}
+
+#[test]
+fn a_divider_has_no_control_and_no_states() {
+    let entry = entry("Divider");
+    let json = component_json(&entry, &measure_entry(&entry));
+    assert!(json["interaction"].is_null(), "{}", json["interaction"]);
+}

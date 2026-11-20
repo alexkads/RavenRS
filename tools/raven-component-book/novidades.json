@@ -1,6 +1,6 @@
 {
   "versao": "0.1.2",
-  "titulo": "O RavenComponentBook diz como cada componente se dimensiona: se estica até o pai ou se ajusta ao conteúdo, com as medidas em três larguras.",
+  "titulo": "O RavenComponentBook diz como cada componente se dimensiona e como reage ao ponteiro, ao foco e ao clique.",
   "importante": false,
   "novidades": [
     "Cada história é medida em pais de 320, 760 e 1200 pt; 760 continua sendo a referência da anatomia e do preview.",
@@ -9,7 +9,8 @@
     "O preview mostra a primeira história ao lado dela mesma num pai de 320 pt.",
     "O ComponentBook pode declarar o que a medida não mostra (Meta::sizing com Sizing e Extent), e o declarado prevalece.",
     "O autoteste mede cada história nas três larguras.",
-    "A anatomia da ficha passa a trazer também o painel do diálogo, títulos, rótulos, navegação, barras de ferramentas, menus, listas e dicas, com raio, fundo, fonte e recuo, e não só os controles."
+    "A anatomia da ficha passa a trazer também o painel do diálogo, títulos, rótulos, navegação, barras de ferramentas, menus, listas e dicas, com raio, fundo, fonte e recuo, e não só os controles.",
+    "A ficha mede os estados de interação sem uma linha a mais no ComponentBook: o ponteiro sobre o primeiro controle, o foco trazido com Tab e o botão segurado. A seção Interaction diz o token que muda em cada um (fill accent → accent-hover, o anel focus-ring), o JSON traz as mudanças e a cena, o preview desenha os estados que mudam, e um controle que não reage aparece em ignores."
   ],
   "por_que_atualizar": "Para o Claude Design saber o que estica e o que se ajusta ao conteúdo, em vez de copiar a largura de uma medida só.",
   "contribuidores": [

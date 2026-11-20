@@ -286,6 +286,12 @@ pub fn measure_stretched(meta: &Meta, story: &Story, args: &Args, theme: Theme, 
 }
 
 fn measure_in(meta: &Meta, story: &Story, args: &Args, theme: Theme, width: f32, align: Align) -> Measured {
+    let mut ui = staged(meta, story, args, theme, width, align);
+    read(&mut ui, &theme, width)
+}
+
+/// The story on the stage, its motion settled.
+fn staged(meta: &Meta, story: &Story, args: &Args, theme: Theme, width: f32, align: Align) -> Ui {
     let view = meta.render(story, args);
     let content: AnyView = Box::new(VStack::new((view,)).align(align).padding(MARGIN));
     let mut ui = Ui::new(Stage { content, width }, theme);
@@ -295,10 +301,15 @@ fn measure_in(meta: &Meta, story: &Story, args: &Args, theme: Theme, width: f32,
     ui.set_time(5.0);
     ui.update();
     ui.update();
+    ui
+}
+
+/// What the stage shows now, measured.
+fn read(ui: &mut Ui, theme: &Theme, width: f32) -> Measured {
     let tree = ui.access_tree();
     let parts: Vec<Value> = tree.nodes.iter().skip(1).map(node).collect();
     // The first rectangle is the canvas behind the story.
-    let paint: Vec<Value> = ui.scene().primitives().iter().skip(1).map(|p| shape(p, &theme)).collect();
+    let paint: Vec<Value> = ui.scene().primitives().iter().skip(1).map(|p| shape(p, theme)).collect();
     let (mut right, mut bottom) = (0.0_f64, 0.0_f64);
     let mut reach = |r: &Value| {
         if let Some([x, y, w, h]) =
@@ -445,4 +456,110 @@ pub fn fit_of(declared: &Sizing, sizes: &[(f32, (f64, f64))], stretched: Option<
         stretches: declared.width.is_none() && stretches,
         sizes: sizes.to_vec(),
     }
+}
+
+/// A state a person brings a control to, which the book measures without a line in its
+/// `ComponentBook`: the pointer over it, the keyboard focus on it, the button held down on it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Interaction {
+    /// The pointer rests over it.
+    Hover,
+    /// The keyboard brought the focus to it, with Tab.
+    Focus,
+    /// The primary button is held down on it.
+    Pressed,
+}
+
+impl Interaction {
+    /// The three, in the order a person meets them.
+    pub const ALL: [Self; 3] = [Self::Hover, Self::Focus, Self::Pressed];
+
+    /// Its name, as the book lists it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Hover => "Hover",
+            Self::Focus => "Focus",
+            Self::Pressed => "Pressed",
+        }
+    }
+}
+
+/// `story` of `meta` brought to `state` on its first control a person can focus, in `theme`, in
+/// a parent of the reference [`WIDTH`]: the control's name and what the stage shows then. `None`
+/// when the story has no such control.
+pub fn measure_interaction(
+    meta: &Meta,
+    story: &Story,
+    args: &Args,
+    theme: Theme,
+    state: Interaction,
+) -> Option<(String, Measured)> {
+    use ravenrs::core::{Event, Key, Modifiers, PointerButton};
+    let mut ui = staged(meta, story, args, theme, WIDTH, Align::Start);
+    let tree = ui.access_tree();
+    let target = tree.nodes.iter().skip(1).find(|n| n.focusable && !n.disabled)?;
+    let name = target.name.clone().unwrap_or_default();
+    let b = target.bounds;
+    let center = Point::new(b.origin.x + b.size.width / 2.0, b.origin.y + b.size.height / 2.0);
+    match state {
+        Interaction::Hover => {
+            ui.handle_event(&Event::PointerMove { position: center });
+        }
+        Interaction::Focus => {
+            ui.handle_event(&Event::KeyDown { key: Key::Tab, modifiers: Modifiers::default() });
+        }
+        Interaction::Pressed => {
+            ui.handle_event(&Event::PointerMove { position: center });
+            ui.handle_event(&Event::PointerDown { position: center, button: PointerButton::Primary });
+        }
+    }
+    // Frame by frame, as a window would, for two seconds: a tween advances by the frames it is
+    // given, and a jump of the clock would leave it halfway.
+    for frame in 1..=120 {
+        ui.set_time(5.0 + f64::from(frame) / 60.0);
+        ui.update();
+    }
+    Some((name, read(&mut ui, &theme, WIDTH)))
+}
+
+/// What a state changed in what the stage paints: each shape that took another fill, border,
+/// shadow, color or frame, from what to what, and each shape that came or went, as a focus ring.
+/// Shapes pair in drawing order when both lists are as long, else by kind and place.
+pub fn changes(before: &Measured, after: &Measured) -> Vec<Value> {
+    const LOOKS: [&str; 5] = ["fill", "border", "shadow", "color", "rect"];
+    let visible = |p: &&Value| p["kind"] != "clip" && p["kind"] != "unclip";
+    let (was, now): (Vec<&Value>, Vec<&Value>) =
+        (before.paint.iter().filter(visible).collect(), after.paint.iter().filter(visible).collect());
+    let place = |p: &Value| json!([p["kind"], p.get("rect").or_else(|| p.get("x")), p.get("text")]);
+    let pairs: Vec<(Option<&Value>, Option<&Value>)> = if was.len() == now.len() {
+        was.iter().zip(&now).map(|(a, b)| (Some(*a), Some(*b))).collect()
+    } else {
+        let mut pairs: Vec<(Option<&Value>, Option<&Value>)> =
+            now.iter().map(|b| (was.iter().find(|a| place(a) == place(b)).copied(), Some(*b))).collect();
+        pairs.extend(
+            was.iter().filter(|a| !now.iter().any(|b| place(b) == place(a))).map(|a| (Some(*a), None)),
+        );
+        pairs
+    };
+    let mut out = Vec::new();
+    for (a, b) in pairs {
+        match (a, b) {
+            (Some(a), Some(b)) => {
+                let (mut from, mut to) = (serde_json::Map::new(), serde_json::Map::new());
+                for look in LOOKS {
+                    if a.get(look) != b.get(look) {
+                        from.insert(look.into(), a.get(look).cloned().unwrap_or(Value::Null));
+                        to.insert(look.into(), b.get(look).cloned().unwrap_or(Value::Null));
+                    }
+                }
+                if !to.is_empty() {
+                    out.push(json!({"shape": b["kind"], "text": b.get("text"), "from": from, "to": to}));
+                }
+            }
+            (None, Some(b)) => out.push(json!({"added": b})),
+            (Some(a), None) => out.push(json!({"removed": a})),
+            (None, None) => {}
+        }
+    }
+    out
 }
