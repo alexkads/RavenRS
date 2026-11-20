@@ -300,3 +300,12 @@ fn an_icon_measures_as_large_as_it_draws() {
     // Three icons, the first 24 pt, side by side 12 apart: a row, not a point.
     assert!(w >= 90.0 && h >= 20.0, "{w} × {h}");
 }
+
+#[test]
+fn the_sidebar_shows_its_compact_items_and_sections() {
+    let stories = measure_entry(&entry("Sidebar"));
+    let compact = stories.iter().find(|s| s.name == "Compact, with sections").expect("story");
+    let parts = &compact.themes[0].1.parts;
+    let item = parts.iter().find(|p| p["name"] == "Transactions").expect("an item");
+    assert_eq!(item["bounds"][3], 32.0, "a compact item is 32 pt tall: {item}");
+}

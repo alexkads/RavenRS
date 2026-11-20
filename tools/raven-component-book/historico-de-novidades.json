@@ -21,7 +21,8 @@
       "Correção: os recortes dos previews tinham o mesmo id em todas as histórias, e o navegador recortava uma história com o recorte de outra; agora cada desenho tem os seus.",
       "Cada desenho do preview leva data-rcb=\"Componente/História\", e o guia pede ao Claude Design que mantenha a marca no que desenhar: é o primeiro passo do teste de reprodução.",
       "As 87 histórias geradas foram revisadas (Overlays, Data, Layout, Display and feedback e Media): nenhuma tem mais a marca do rcb-scaffold, faixas em pontos onde iam de 0 a 1, e cada família ganhou os estados que faltavam (Toaster com um aviso, DropdownMenu aberto, Text com a escala de tipos, DataGrid listrada e compacta).",
-      "Correção: o tamanho de uma história passa a contar texto, ícones e desenhos, e não só retângulos; o Icon media 1 × 1."
+      "Correção: o tamanho de uma história passa a contar texto, ícones e desenhos, e não só retângulos; o Icon media 1 × 1.",
+      "A Sidebar ganha a história Compact, with sections: marca com subtítulo, busca de comandos, seções com título, itens compactos de 32 pt, contador e itens no rodapé, como um app com muitas páginas a monta (lacuna 12 da #768)."
     ],
     "por_que_atualizar": "Para o Claude Design saber o que estica e o que se ajusta ao conteúdo, em vez de copiar a largura de uma medida só.",
     "contribuidores": [
