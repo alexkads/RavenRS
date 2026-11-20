@@ -337,6 +337,8 @@ pub fn measure_stretched(meta: &Meta, story: &Story, args: &Args, theme: Theme, 
 }
 
 fn measure_in(meta: &Meta, story: &Story, args: &Args, theme: Theme, width: f32, align: Align) -> Measured {
+    // What declares that it fills its parent is given a parent that stretches it.
+    let align = if meta.sizing.width == Some(Extent::Fill) { Align::Stretch } else { align };
     let mut ui = staged(meta, story, args, theme, width, align);
     read(&mut ui, &theme, width)
 }

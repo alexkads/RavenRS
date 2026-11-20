@@ -81,7 +81,17 @@ fn the_design_system_has_a_card_a_preview_and_a_json_for_every_component() {
     assert!(tokens["type"]["fonts"].as_array().unwrap().iter().any(|f| f["family"] == "RavenIcons"));
     // The index, the guide, the tokens and their CSS, three fonts and the cover, then three
     // files per component.
-    assert_eq!(written.len(), 8 + index::entries().len() * 3);
+    // … and three per pattern.
+    let patterns = raven_component_book::patterns::entries();
+    assert_eq!(written.len(), 8 + (index::entries().len() + patterns.len()) * 3);
+    assert_eq!(patterns.len(), 5);
+    for p in &patterns {
+        let folder = project.join("patterns").join(p.name());
+        let preview = std::fs::read_to_string(folder.join("preview.html")).expect("pattern preview");
+        assert!(preview.starts_with("<!-- @dsCard group=\"Patterns\""), "{}", p.name());
+        assert!(preview.contains("<svg"), "{} draws", p.name());
+        assert!(readme.contains(&format!("| `{}` |", p.name())), "the guide lists {}", p.name());
+    }
     // The card says how a component sizes, and the preview shows it beside the narrowest parent.
     let field = project.join("components/TextField");
     let card = std::fs::read_to_string(field.join("README.md")).expect("card");

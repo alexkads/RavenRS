@@ -126,8 +126,10 @@ pub fn measure_entry(entry: &Entry) -> Vec<MeasuredStory> {
                 &[(narrowest, narrow.main_box()), (reference, at_reference), (widest, wide)],
                 Some(stretched),
             );
+            // A pattern's controls are measured on their own cards; its card shows the screen.
+            let screen = entry.meta.family() == "Patterns";
             let interactions = match (i, themes.first()) {
-                (0, Some((_, rest))) => Interaction::ALL
+                (0, Some((_, rest))) if !screen => Interaction::ALL
                     .into_iter()
                     .filter_map(|state| {
                         let (control, measured) =
@@ -138,8 +140,11 @@ pub fn measure_entry(entry: &Entry) -> Vec<MeasuredStory> {
                     .collect(),
                 _ => Vec::new(),
             };
-            let keys =
-                if i == 0 { measure::keys_handled(&entry.meta, story, &args, dark) } else { Vec::new() };
+            let keys = if i == 0 && !screen {
+                measure::keys_handled(&entry.meta, story, &args, dark)
+            } else {
+                Vec::new()
+            };
             let args = json!(
                 args.iter().map(|(k, v)| (k.to_owned(), arg_value(v))).collect::<serde_json::Map<_, _>>()
             );
@@ -468,6 +473,11 @@ pub fn svg(m: &Measured) -> String {
     let mut defs = String::new();
     let mut open = 0usize;
     let mut clip = 0usize;
+    // The ids of the clips are unique in a page with several pictures, and the same on every run:
+    // they start with a hash of what the picture draws.
+    let tag = m.paint.iter().fold(0xcbf2_9ce4_8422_2325_u64, |h, p| {
+        p.to_string().bytes().fold(h, |h, b| (h ^ u64::from(b)).wrapping_mul(0x0100_0000_01b3))
+    }) % 0xff_ffff;
     for p in &m.paint {
         match p["kind"].as_str().unwrap_or_default() {
             "rect" => {
@@ -552,9 +562,9 @@ pub fn svg(m: &Measured) -> String {
                 clip += 1;
                 let _ = write!(
                     defs,
-                    "<clipPath id=\"c{clip}\"><rect x=\"{x}\" y=\"{y}\" width=\"{rw}\" height=\"{rh}\"/></clipPath>"
+                    "<clipPath id=\"c{tag:x}-{clip}\"><rect x=\"{x}\" y=\"{y}\" width=\"{rw}\" height=\"{rh}\"/></clipPath>"
                 );
-                let _ = write!(out, "<g clip-path=\"url(#c{clip})\">");
+                let _ = write!(out, "<g clip-path=\"url(#c{tag:x}-{clip})\">");
                 open += 1;
             }
             "unclip" if open > 0 => {
@@ -630,8 +640,15 @@ fn guide_with_index(entries: &[Entry]) -> String {
         );
     }
     text.push_str(
-        "\nCharts take their series from `chart-1` to `chart-5`; alignment guides take `guide`.\n\n## ",
+        "\nCharts take their series from `chart-1` to `chart-5`; alignment guides take `guide`.\n\n\
+         ## Patterns\n\n\
+         Small screens made only of the components above, measured like them, under `patterns/`: start a screen from the one closest to it, and keep its spaces and what stretches.\n\n\
+         | Pattern | What it is |\n|---|---|\n",
     );
+    for p in crate::patterns::entries() {
+        let _ = writeln!(text, "| `{}` | {} |", p.name(), p.meta.summary.trim_end_matches('.'));
+    }
+    text.push_str("\n## ");
     text.push_str(rest);
     text.replace("`raven-style`", "`ravenrs-style`")
 }
@@ -1091,6 +1108,18 @@ pub fn write_claude_design(dir: &Path, sha: &str) -> std::io::Result<Vec<String>
         put(
             &format!("{folder}/{}.json", entry.name()),
             serde_json::to_string(&component_json(entry, &stories))?.as_bytes(),
+        )?;
+    }
+    // The patterns: small screens made of components, measured and exported the same way.
+    for pattern in crate::patterns::entries() {
+        let stories = measure_entry(&pattern);
+        let folder = format!("project/patterns/{}", pattern.name());
+        std::fs::create_dir_all(dir.join(&folder))?;
+        put(&format!("{folder}/README.md"), card_readme(&pattern, &stories).as_bytes())?;
+        put(&format!("{folder}/preview.html"), preview(&pattern, &stories).as_bytes())?;
+        put(
+            &format!("{folder}/{}.json", pattern.name()),
+            serde_json::to_string(&component_json(&pattern, &stories))?.as_bytes(),
         )?;
     }
     // The index last, as the design tool asks; then the list of everything, for the publisher.
