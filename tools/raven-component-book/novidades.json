@@ -1,6 +1,6 @@
 {
   "versao": "0.1.2",
-  "titulo": "O RavenComponentBook diz como cada componente se dimensiona, como reage ao ponteiro, ao foco e ao clique, e mede tudo também no glass.",
+  "titulo": "O RavenComponentBook diz como cada componente se dimensiona, como reage ao ponteiro, ao foco, ao clique e ao teclado, e mede tudo também no glass.",
   "importante": false,
   "novidades": [
     "Cada história é medida em pais de 320, 760 e 1200 pt; 760 continua sendo a referência da anatomia e do preview.",
@@ -11,7 +11,9 @@
     "O autoteste mede cada história nas três larguras.",
     "A anatomia da ficha passa a trazer também o painel do diálogo, títulos, rótulos, navegação, barras de ferramentas, menus, listas e dicas, com raio, fundo, fonte e recuo, e não só os controles.",
     "A ficha mede os estados de interação sem uma linha a mais no ComponentBook: o ponteiro sobre o primeiro controle, o foco trazido com Tab e o botão segurado. A seção Interaction diz o token que muda em cada um (fill accent → accent-hover, o anel focus-ring), o JSON traz as mudanças e a cena, o preview desenha os estados que mudam, e um controle que não reage aparece em ignores.",
-    "Cada história também é medida no Raven Glass, e as cores que ficam entre dois tokens (a borda que se aproxima da tinta no hover) ganham nome, mix(ink, border, 25), e viram color-mix no preview: a interface acompanha o tema escolhido, glass incluído. O scrim, chart-1, chart-grid e guide passam a ser reconhecidos como tokens."
+    "Cada história também é medida no Raven Glass, e as cores que ficam entre dois tokens (a borda que se aproxima da tinta no hover) ganham nome, mix(ink, border, 25), e viram color-mix no preview: a interface acompanha o tema escolhido, glass incluído. O scrim, chart-1, chart-grid e guide passam a ser reconhecidos como tokens.",
+    "A ficha ganha a seção Behavior: os eventos (on_*), as teclas que o primeiro controle trata depois de focado (o RCB aperta setas, Enter, Espaço, Esc, Home e End e vê o que muda; Esc conta quando fecha o que outra tecla abriu), o papel e o nome de acessibilidade e a ordem de foco com Tab.",
+    "A ficha do Icon traz todos os ícones com o caractere de cada um na fonte RavenIcons."
   ],
   "por_que_atualizar": "Para o Claude Design saber o que estica e o que se ajusta ao conteúdo, em vez de copiar a largura de uma medida só.",
   "contribuidores": [

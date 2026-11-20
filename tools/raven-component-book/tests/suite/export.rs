@@ -88,6 +88,12 @@ fn the_design_system_has_a_card_a_preview_and_a_json_for_every_component() {
     assert!(card.contains("## Sizing\n\nFills the width of its parent"), "{card}");
     let preview = std::fs::read_to_string(field.join("preview.html")).expect("preview");
     assert!(preview.contains("320 pt parent"), "the reference beside the narrowest parent");
+    // Every icon has its character in RavenIcons on the card of Icon.
+    let icons = std::fs::read_to_string(project.join("components/Icon/README.md")).expect("Icon");
+    assert!(icons.contains("| `wallet` | `Wallet` | `&#xe204;` |"), "{icons}");
+    // The card says what a person does with a component.
+    let select = std::fs::read_to_string(project.join("components/Select/README.md")).expect("Select");
+    assert!(select.contains("## Behavior") && select.contains("`ArrowDown`"), "{select}");
     // The interface follows the theme, glass included: no fixed color in the previews of the
     // pieces a screen is made of. Data keeps its own colors (pixels, swatches, channels).
     for name in [
@@ -251,4 +257,26 @@ fn a_color_between_two_tokens_is_named_by_them() {
     let name = token_of(quarter, &theme);
     assert!(name.starts_with("mix("), "{name}");
     assert!(name.ends_with(", 25)") || name.ends_with(", 75)"), "a quarter of one over the other: {name}");
+}
+
+#[test]
+fn the_card_says_what_a_person_does_with_a_component() {
+    let select = entry("Select");
+    let json = component_json(&select, &measure_entry(&select));
+    let behavior = &json["behavior"];
+    assert_eq!(behavior["role"], "ComboBox", "{behavior}");
+    let keys = behavior["keys"].to_string();
+    for key in ["ArrowDown", "Enter", "Escape"] {
+        assert!(keys.contains(key), "{key} opens or moves the list: {keys}");
+    }
+    assert_eq!(behavior["focus_order"][0]["role"], "ComboBox", "{behavior}");
+    let button = entry("Button");
+    let json = component_json(&button, &measure_entry(&button));
+    let behavior = &json["behavior"];
+    assert!(behavior["events"].to_string().contains("on_click"), "{behavior}");
+    // Its click calls `on_click`, which the story does not show; Escape only takes the focus.
+    assert!(!behavior["keys"].to_string().contains("Escape"), "{behavior}");
+    let divider = entry("Divider");
+    let json = component_json(&divider, &measure_entry(&divider));
+    assert_eq!(json["behavior"]["keys"], serde_json::json!([]), "{}", json["behavior"]);
 }

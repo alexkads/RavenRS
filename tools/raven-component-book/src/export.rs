@@ -83,6 +83,8 @@ pub struct MeasuredStory {
     /// For the first story, in Raven Dark: the pointer over its first control, the focus on it
     /// and the button held down on it. Empty for the other stories and when it has no control.
     pub interactions: Vec<Reaction>,
+    /// For the first story: the keys of [`measure::KEYS`] its first control handles once focused.
+    pub keys: Vec<&'static str>,
 }
 
 /// A state of [`Interaction`] measured on a story's first control.
@@ -136,10 +138,12 @@ pub fn measure_entry(entry: &Entry) -> Vec<MeasuredStory> {
                     .collect(),
                 _ => Vec::new(),
             };
+            let keys =
+                if i == 0 { measure::keys_handled(&entry.meta, story, &args, dark) } else { Vec::new() };
             let args = json!(
                 args.iter().map(|(k, v)| (k.to_owned(), arg_value(v))).collect::<serde_json::Map<_, _>>()
             );
-            MeasuredStory { name: story.name, args, themes, narrow, fit, interactions }
+            MeasuredStory { name: story.name, args, themes, narrow, fit, interactions, keys }
         })
         .collect()
 }
@@ -167,6 +171,7 @@ pub fn component_json(entry: &Entry, stories: &[MeasuredStory]) -> Value {
         "anatomy": anatomy,
         "sizing": stories.first().map(|s| s.fit.json()),
         "interaction": interaction_json(stories),
+        "behavior": behavior_json(entry, stories),
         "stories": stories.iter().map(|s| json!({
             "id": format!("{}--{}", id_of(entry.meta.title), id_of(s.name)),
             "name": s.name,
@@ -200,6 +205,28 @@ fn interaction_json(stories: &[MeasuredStory]) -> Value {
     out.insert("reacts_to".into(), json!(reacts));
     out.insert("ignores".into(), json!(ignores));
     Value::Object(out)
+}
+
+/// What a person does with the component, from its first story at rest: the events its builder
+/// offers (`on_*`), the keys its first control handles once focused, the role and name the
+/// accessibility tree gives its first part, and the controls in the order Tab reaches them.
+fn behavior_json(entry: &Entry, stories: &[MeasuredStory]) -> Value {
+    let events: Vec<&str> = entry.methods().into_iter().filter(|m| m.starts_with("on_")).collect();
+    let Some(first) = stories.first() else { return json!({"events": events}) };
+    let parts = first.themes.first().map(|(_, m)| m.parts.as_slice()).unwrap_or_default();
+    let root = parts.first();
+    let focus: Vec<Value> = parts
+        .iter()
+        .filter(|p| p["focusable"] == true)
+        .map(|p| json!({"role": p["role"], "name": p.get("name")}))
+        .collect();
+    json!({
+        "events": events,
+        "keys": first.keys,
+        "role": root.map(|p| p["role"].clone()),
+        "name": root.and_then(|p| p.get("name").cloned()),
+        "focus_order": focus,
+    })
 }
 
 /// One line per state for a person: on which control, and the tokens that change.
@@ -246,6 +273,19 @@ fn interaction_lines(first: &MeasuredStory) -> Vec<String> {
             format!("- **{}** on \"{}\": {}.", r.state.name(), r.control, said.join("; "))
         })
         .collect()
+}
+
+/// Every icon by the name the cards use, with its character in the `RavenIcons` font, so a
+/// design draws it as RavenRS does: `<span style="font-family: RavenIcons">&#xe204;</span>`.
+fn icon_table() -> String {
+    use ravenrs::prelude::IconName;
+    let mut t = String::from(
+        "\n## Every icon\n\nEach icon is one character of the `RavenIcons` font (in `fonts/`): write it as `&#x…;` in a span whose `font-family` is `RavenIcons`, sized like text.\n\n| Name | `IconName` | Character |\n|---|---|---|\n",
+    );
+    for icon in IconName::ALL {
+        let _ = writeln!(t, "| `{}` | `{icon:?}` | `&#x{:x};` |", icon.name(), u32::from(icon.glyph()));
+    }
+    t
 }
 
 fn rect_of(v: &Value) -> Option<[f64; 4]> {
@@ -646,6 +686,36 @@ fn card_readme(entry: &Entry, stories: &[MeasuredStory]) -> String {
             let _ = writeln!(t, "{line}");
         }
     }
+    let behavior = behavior_json(entry, stories);
+    let list = |v: &Value| {
+        v.as_array().map(|a| {
+            a.iter().filter_map(Value::as_str).map(|x| format!("`{x}`")).collect::<Vec<_>>().join(", ")
+        })
+    };
+    let mut lines = Vec::new();
+    if let Some(events) = list(&behavior["events"]).filter(|e| !e.is_empty()) {
+        lines.push(format!("- **Events**: {events}."));
+    }
+    if let Some(keys) = list(&behavior["keys"]).filter(|k| !k.is_empty()) {
+        lines.push(format!("- **Keys** its first control handles once focused: {keys}."));
+    }
+    if let Some(role) = behavior["role"].as_str() {
+        let name = behavior["name"].as_str().map(|n| format!(" \"{n}\"")).unwrap_or_default();
+        lines.push(format!("- **Accessibility**: role `{role}`{name}."));
+    }
+    if let Some(order) = behavior["focus_order"].as_array().filter(|o| !o.is_empty()) {
+        let said: Vec<String> = order
+            .iter()
+            .map(|p| match p["name"].as_str() {
+                Some(n) => format!("{} \"{n}\"", p["role"].as_str().unwrap_or_default()),
+                None => p["role"].as_str().unwrap_or_default().to_owned(),
+            })
+            .collect();
+        lines.push(format!("- **Focus order** (Tab): {}.", said.join(" → ")));
+    }
+    if !lines.is_empty() {
+        let _ = writeln!(t, "\n## Behavior\n\n{}", lines.join("\n"));
+    }
     let rows = anatomy_of(stories);
     if !rows.is_empty() {
         t.push_str("\n## Anatomy (Raven Dark, every story)\n\nMeasured from what RavenRS paints, in points. Colors are tokens; `token@N` is the token at N% opacity. Parts that measure the same are listed once, with the story they come from.\n\n| Story | Part | Size | Radius | Fill | Border | Text | Icon | Left padding |\n|---|---|---|---|---|---|---|---|---|\n");
@@ -698,6 +768,9 @@ fn card_readme(entry: &Entry, stories: &[MeasuredStory]) -> String {
     }
     if let Some(code) = &entry.code {
         let _ = write!(t, "\n## Example\n\n```rust\n{code}\n```\n");
+    }
+    if entry.name() == "Icon" {
+        t.push_str(&icon_table());
     }
     let _ = write!(t, "\nEvery number above is in `{}.json` beside this card.\n", entry.name());
     t

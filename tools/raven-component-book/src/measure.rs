@@ -614,3 +614,85 @@ pub fn changes(before: &Measured, after: &Measured) -> Vec<Value> {
     }
     out
 }
+
+/// The keys the book presses on a focused control to learn which it handles.
+pub const KEYS: [&str; 9] =
+    ["ArrowDown", "ArrowUp", "ArrowLeft", "ArrowRight", "Enter", "Space", "Escape", "Home", "End"];
+
+fn key_named(name: &str) -> Option<ravenrs::core::Key> {
+    use ravenrs::core::Key;
+    Some(match name {
+        "ArrowDown" => Key::ArrowDown,
+        "ArrowUp" => Key::ArrowUp,
+        "ArrowLeft" => Key::ArrowLeft,
+        "ArrowRight" => Key::ArrowRight,
+        "Enter" => Key::Enter,
+        "Space" => Key::Space,
+        "Escape" => Key::Escape,
+        "Home" => Key::Home,
+        "End" => Key::End,
+        _ => return None,
+    })
+}
+
+/// Lets the stage run a second, frame by frame, as a window would.
+fn settle(ui: &mut Ui, from: f64) -> f64 {
+    for frame in 1..=60 {
+        ui.set_time(from + f64::from(frame) / 60.0);
+        ui.update();
+    }
+    from + 1.0
+}
+
+/// The keys of [`KEYS`] that change what `story` of `meta` shows once Tab brought the focus to
+/// its first control, in `theme`: what the control does with the keyboard, measured rather than
+/// declared. A key whose effect the story does not show, as Enter on a button that only calls
+/// its `on_click`, is not among them. Empty when the story has no control.
+pub fn keys_handled(meta: &Meta, story: &Story, args: &Args, theme: Theme) -> Vec<&'static str> {
+    use ravenrs::core::{Event, Key, Modifiers};
+    let focused = || {
+        let mut ui = staged(meta, story, args, theme, WIDTH, Align::Start);
+        let any = ui.access_tree().nodes.iter().skip(1).any(|n| n.focusable && !n.disabled);
+        any.then(|| {
+            ui.handle_event(&Event::KeyDown { key: Key::Tab, modifiers: Modifiers::default() });
+            let clock = settle(&mut ui, 5.0);
+            (ui, clock)
+        })
+    };
+    let Some((mut ui, _)) = focused() else { return Vec::new() };
+    let rest = read(&mut ui, &theme, WIDTH);
+    let press = |name: &str| {
+        let (Some((mut ui, clock)), Some(key)) = (focused(), key_named(name)) else { return None };
+        ui.handle_event(&Event::KeyDown { key, modifiers: Modifiers::default() });
+        let clock = settle(&mut ui, clock);
+        Some((ui, clock))
+    };
+    // Losing the focus ring is not handling the key: the focus only went away.
+    let ring = |c: &Value| c.get("removed").is_some_and(|r| r["border"]["color"] == "focus-ring");
+    let mut handled: Vec<&'static str> = KEYS
+        .into_iter()
+        .filter(|name| {
+            press(name).is_some_and(|(mut ui, _)| {
+                changes(&rest, &read(&mut ui, &theme, WIDTH)).iter().any(|c| !ring(c))
+            })
+        })
+        .collect();
+    // Escape closes what a key opened: a list, a menu or a dialog.
+    const OPENED: [&str; 3] = ["ListBox", "Menu", "Dialog"];
+    let opens = |ui: &mut Ui| {
+        ui.access_tree().nodes.iter().any(|n| OPENED.iter().any(|r| format!("{:?}", n.role) == *r))
+    };
+    if !handled.contains(&"Escape") {
+        let opener =
+            handled.iter().copied().find(|name| press(name).is_some_and(|(mut ui, _)| opens(&mut ui)));
+        if let Some((mut ui, clock)) = opener.and_then(press) {
+            let open = read(&mut ui, &theme, WIDTH);
+            ui.handle_event(&Event::KeyDown { key: Key::Escape, modifiers: Modifiers::default() });
+            settle(&mut ui, clock);
+            if !changes(&open, &read(&mut ui, &theme, WIDTH)).is_empty() {
+                handled.push("Escape");
+            }
+        }
+    }
+    handled
+}
