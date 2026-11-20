@@ -353,7 +353,7 @@ pub fn installed_app() -> Localized<Book> {
 }
 
 /// The book tests itself: every component is listed once, every story draws and measures in
-/// both themes with parts and paint, and in parents of every width of [`measure::WIDTHS`].
+/// the three themes with parts and paint, and in parents of every width of [`measure::WIDTHS`].
 /// Returns what it checked.
 pub fn self_test() -> Result<String, String> {
     let entries = index::entries();

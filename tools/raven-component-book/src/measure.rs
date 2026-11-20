@@ -44,16 +44,18 @@ impl View for Stage {
     }
 }
 
-/// The two themes the book measures, by the id the design system gives them.
-pub fn themes() -> [(&'static str, Theme); 2] {
-    [("dark", Theme::raven_dark()), ("light", Theme::raven_light())]
+/// The themes the book measures, by the id the design system gives them: Raven Dark, the
+/// reference, Raven Light and Raven Glass.
+pub fn themes() -> [(&'static str, Theme); 3] {
+    [("dark", Theme::raven_dark()), ("light", Theme::raven_light()), ("glass", Theme::raven_glass())]
 }
 
 fn round(v: f32) -> f64 {
     (f64::from(v) * 100.0).round() / 100.0
 }
 
-fn hex(c: Color) -> String {
+/// A color as `#rrggbb`, or `#rrggbbaa` when it is not opaque.
+pub fn hex(c: Color) -> String {
     let byte = |v: f32| (v.clamp(0.0, 1.0) * 255.0).round() as u8;
     let (r, g, b, a) = (byte(c.r), byte(c.g), byte(c.b), byte(c.a));
     if a == 255 { format!("#{r:02x}{g:02x}{b:02x}") } else { format!("#{r:02x}{g:02x}{b:02x}{a:02x}") }
@@ -65,10 +67,12 @@ pub fn token_of(c: Color, theme: &Theme) -> String {
     if c.a <= 0.004 {
         return "transparent".to_owned();
     }
-    let same = |a: Color| [a.r - c.r, a.g - c.g, a.b - c.b].iter().all(|d| d.abs() < 0.006);
-    let roles = Semantic::TOKENS.iter().chain(Semantic::CHART_TOKENS.iter());
-    for role in roles {
-        let color = theme.color(*role);
+    // A translucent color is stored with fewer steps per channel once blended, so it gets a
+    // wider margin: the accent at 18% comes back a few levels off.
+    let margin = if c.a < 0.6 { 0.016 } else { 0.006 };
+    let same = |a: Color| [a.r - c.r, a.g - c.g, a.b - c.b].iter().all(|d| d.abs() < margin);
+    for role in published_roles() {
+        let color = theme.color(role);
         if same(color) {
             let alpha = c.a / color.a.max(0.001);
             return if alpha > 0.995 {
@@ -78,7 +82,54 @@ pub fn token_of(c: Color, theme: &Theme) -> String {
             };
         }
     }
-    hex(c)
+    mix_of(c, theme).unwrap_or_else(|| hex(c))
+}
+
+/// Every color the design system publishes in `tokens.css`, in the order a match is tried: the
+/// ones a theme chooses first, so the accent is named `accent` and not `chart-1`.
+pub fn published_roles() -> Vec<Semantic> {
+    let derived = [Semantic::Scrim, Semantic::Chart1, Semantic::ChartGrid, Semantic::Guide];
+    Semantic::TOKENS.iter().chain(Semantic::CHART_TOKENS.iter()).chain(derived.iter()).copied().collect()
+}
+
+/// A color between two tokens, as a hover that moves a border toward the ink: `mix(ink, border,
+/// 25)` is 25% of `ink` over `border`, mixed in sRGB as CSS `color-mix` does. `None` when no pair
+/// of tokens makes it.
+fn mix_of(c: Color, theme: &Theme) -> Option<String> {
+    if c.a < 0.995 {
+        return None;
+    }
+    let roles = published_roles();
+    let channels = |x: Color| [x.r, x.g, x.b];
+    let mut best: Option<(f32, String)> = None;
+    for a in &roles {
+        for b in &roles {
+            let (ca, cb) = (theme.color(*a), theme.color(*b));
+            if a == b || ca.a < 0.995 || cb.a < 0.995 {
+                continue;
+            }
+            // The share of `a` each channel asks for; they must agree.
+            let shares: Vec<f32> = channels(ca)
+                .iter()
+                .zip(channels(cb))
+                .zip(channels(c))
+                .filter(|((x, y), _)| (*x - y).abs() > 0.02)
+                .map(|((x, y), z)| (z - y) / (x - y))
+                .collect();
+            let Some(&first) = shares.first() else { continue };
+            if !(0.02..=0.98).contains(&first) {
+                continue;
+            }
+            let t = shares.iter().sum::<f32>() / shares.len() as f32;
+            let mixed =
+                channels(ca).iter().zip(channels(cb)).map(|(x, y)| y + (x - y) * t).collect::<Vec<_>>();
+            let error = mixed.iter().zip(channels(c)).map(|(m, z)| (m - z).abs()).fold(0.0_f32, f32::max);
+            if error < 0.006 && best.as_ref().is_none_or(|(e, _)| error < *e) {
+                best = Some((error, format!("mix({}, {}, {:.0})", a.token(), b.token(), t * 100.0)));
+            }
+        }
+    }
+    best.map(|(_, name)| name)
 }
 
 fn rect(r: Rect) -> Value {

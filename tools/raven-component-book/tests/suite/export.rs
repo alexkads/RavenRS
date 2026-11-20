@@ -88,6 +88,33 @@ fn the_design_system_has_a_card_a_preview_and_a_json_for_every_component() {
     assert!(card.contains("## Sizing\n\nFills the width of its parent"), "{card}");
     let preview = std::fs::read_to_string(field.join("preview.html")).expect("preview");
     assert!(preview.contains("320 pt parent"), "the reference beside the narrowest parent");
+    // The interface follows the theme, glass included: no fixed color in the previews of the
+    // pieces a screen is made of. Data keeps its own colors (pixels, swatches, channels).
+    for name in [
+        "Button",
+        "TextField",
+        "Select",
+        "Checkbox",
+        "Toggle",
+        "Card",
+        "Dialog",
+        "ConfirmDialog",
+        "Sheet",
+        "Tabs",
+        "Sidebar",
+        "FormField",
+    ] {
+        let preview =
+            std::fs::read_to_string(project.join("components").join(name).join("preview.html")).expect(name);
+        let fixed: Vec<&str> = preview
+            .match_indices(":#")
+            .map(|(i, _)| &preview[i.saturating_sub(6)..(i + 11).min(preview.len())])
+            .filter(|around| {
+                around.contains("fill:#") || around.contains("stroke:#") || around.contains("color:#")
+            })
+            .collect();
+        assert!(fixed.len() <= 1, "{name} has fixed colors: {fixed:?}");
+    }
     std::fs::remove_dir_all(&dir).ok();
 }
 
@@ -196,4 +223,32 @@ fn a_divider_has_no_control_and_no_states() {
     let entry = entry("Divider");
     let json = component_json(&entry, &measure_entry(&entry));
     assert!(json["interaction"].is_null(), "{}", json["interaction"]);
+}
+
+#[test]
+fn every_story_is_measured_in_glass_too() {
+    let entry = entry("Card");
+    let json = component_json(&entry, &measure_entry(&entry));
+    for story in json["stories"].as_array().expect("stories") {
+        for theme in ["dark", "light", "glass"] {
+            assert!(story["themes"][theme]["paint"].as_array().is_some_and(|p| !p.is_empty()), "{theme}");
+        }
+    }
+}
+
+#[test]
+fn a_color_between_two_tokens_is_named_by_them() {
+    use raven_component_book::measure::token_of;
+    use ravenrs::prelude::*;
+    let theme = Theme::raven_dark();
+    let (ink, border) = (theme.color(Semantic::Ink), theme.color(Semantic::Border));
+    let quarter = Color::rgba(
+        border.r + (ink.r - border.r) * 0.25,
+        border.g + (ink.g - border.g) * 0.25,
+        border.b + (ink.b - border.b) * 0.25,
+        1.0,
+    );
+    let name = token_of(quarter, &theme);
+    assert!(name.starts_with("mix("), "{name}");
+    assert!(name.ends_with(", 25)") || name.ends_with(", 75)"), "a quarter of one over the other: {name}");
 }

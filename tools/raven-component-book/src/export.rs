@@ -67,14 +67,14 @@ fn arg_types(entry: &Entry) -> Value {
     json!(rows)
 }
 
-/// A story measured in both themes, with its settings.
+/// A story measured in the three themes, with its settings.
 #[derive(Clone, Debug)]
 pub struct MeasuredStory {
     /// The story's name.
     pub name: &'static str,
     /// The settings it was drawn with.
     pub args: Value,
-    /// Raven Dark, then Raven Light.
+    /// Raven Dark, then Raven Light and Raven Glass.
     pub themes: Vec<(&'static str, Measured)>,
     /// In Raven Dark, in the narrowest parent of [`measure::WIDTHS`].
     pub narrow: Measured,
@@ -98,7 +98,7 @@ pub struct Reaction {
     pub changes: Vec<Value>,
 }
 
-/// Measures every story of `entry` in both themes, and in Raven Dark in the parents of the
+/// Measures every story of `entry` in the three themes, and in Raven Dark in the parents of the
 /// other [`measure::WIDTHS`] to tell how it sizes.
 pub fn measure_entry(entry: &Entry) -> Vec<MeasuredStory> {
     entry
@@ -149,7 +149,7 @@ fn id_of(title: &str) -> String {
 }
 
 /// The JSON of one component: where it sits, its settings, its API, the code of its example and
-/// every story measured in both themes, with the anatomy of the first.
+/// every story measured in the three themes, with the anatomy of the first.
 pub fn component_json(entry: &Entry, stories: &[MeasuredStory]) -> Value {
     let variants: serde_json::Map<String, Value> =
         entry.variants().into_iter().map(|(e, v)| (e.to_owned(), json!(v))).collect();
@@ -401,6 +401,12 @@ fn css_color(v: &Value) -> String {
     }
     if name.starts_with('#') {
         return name.to_owned();
+    }
+    if let Some(inner) = name.strip_prefix("mix(").and_then(|m| m.strip_suffix(')')) {
+        let parts: Vec<&str> = inner.split(", ").collect();
+        if let [a, b, share] = parts.as_slice() {
+            return format!("color-mix(in srgb, var(--{a}) {share}%, var(--{b}))");
+        }
     }
     match name.split_once('@') {
         Some((token, share)) => format!("color-mix(in srgb, var(--{token}) {share}%, transparent)"),
@@ -697,6 +703,60 @@ fn card_readme(entry: &Entry, stories: &[MeasuredStory]) -> String {
     t
 }
 
+/// `svg` with every `color-mix` of two tokens written as the color it makes in Raven Dark: shorter,
+/// for a story too large for the design tool with the mixes named.
+fn flatten_mixes(svg: &str) -> String {
+    const START: &str = "color-mix(in srgb, var(--";
+    let theme = measure::themes()[0].1;
+    let color_of = |token: &str| {
+        measure::published_roles().into_iter().find(|r| r.token() == token).map(|r| theme.color(r))
+    };
+    let mut out = String::with_capacity(svg.len());
+    let mut rest = svg;
+    while let Some(at) = rest.find(START) {
+        out.push_str(&rest[..at]);
+        let tail = &rest[at + START.len()..];
+        // `accent) 18%, transparent)`: a token at a share of its opacity.
+        let faded = tail.find(")").and_then(|close| {
+            let (token, more) = (&tail[..close], &tail[close + 2..]);
+            let (share, after) = more.split_once("%, transparent)")?;
+            let c = color_of(token)?;
+            let alpha = c.a * share.parse::<f32>().ok()? / 100.0;
+            Some((measure::hex(ravenrs::prelude::Color::rgba(c.r, c.g, c.b, alpha)), after))
+        });
+        if let Some((color, after)) = faded {
+            out.push_str(&color);
+            rest = after;
+            continue;
+        }
+        let Some(end) = tail.find("))") else { break };
+        // `a) 25%, var(--b`
+        let inner = &tail[..end];
+        let parsed = inner.split_once(") ").and_then(|(a, more)| {
+            let (share, b) = more.split_once("%, var(--")?;
+            Some((a, share.parse::<f32>().ok()? / 100.0, b))
+        });
+        match parsed.and_then(|(a, t, b)| Some((color_of(a)?, t, color_of(b)?))) {
+            Some((ca, t, cb)) if !inner.contains("transparent") => {
+                let mix = |x: f32, y: f32| y + (x - y) * t;
+                out.push_str(&measure::hex(ravenrs::prelude::Color::rgba(
+                    mix(ca.r, cb.r),
+                    mix(ca.g, cb.g),
+                    mix(ca.b, cb.b),
+                    1.0,
+                )));
+                rest = &tail[end + 2..];
+            }
+            _ => {
+                out.push_str(START);
+                rest = tail;
+            }
+        }
+    }
+    out.push_str(rest);
+    out
+}
+
 fn preview(entry: &Entry, stories: &[MeasuredStory]) -> String {
     let height: f64 =
         stories.iter().map(|s| s.themes.first().map_or(0.0, |(_, m)| m.size.1) + 44.0).sum::<f64>() + 24.0;
@@ -735,6 +795,9 @@ fn preview(entry: &Entry, stories: &[MeasuredStory]) -> String {
                 if t.len() + beside.len() <= PREVIEW_BUDGET {
                     section = beside;
                 }
+            }
+            if i == 0 && t.len() + section.len() > PREVIEW_BUDGET {
+                section = flatten_mixes(&section);
             }
             if i > 0 && t.len() + section.len() > PREVIEW_BUDGET {
                 left_out.push(escape(s.name));
