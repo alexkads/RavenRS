@@ -292,3 +292,11 @@ fn the_card_says_what_a_person_does_with_a_component() {
     let json = component_json(&divider, &measure_entry(&divider));
     assert_eq!(json["behavior"]["keys"], serde_json::json!([]), "{}", json["behavior"]);
 }
+
+#[test]
+fn an_icon_measures_as_large_as_it_draws() {
+    let stories = measure_entry(&entry("Icon"));
+    let (w, h) = stories[0].themes[0].1.size;
+    // Three icons, the first 24 pt, side by side 12 apart: a row, not a point.
+    assert!(w >= 90.0 && h >= 20.0, "{w} × {h}");
+}

@@ -382,6 +382,44 @@ fn read(ui: &mut Ui, theme: &Theme, width: f32) -> Measured {
     for p in &paint {
         reach(&p["rect"]);
     }
+    // Text and icons are runs of letters, and drawings are paths: they reach as far as they
+    // draw, so an icon alone measures its size and not a point.
+    for primitive in ui.scene().primitives().iter().skip(1) {
+        let (mut x0, mut y0, mut x1, mut y1) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
+        let mut take = |x: f32, y: f32| {
+            (x0, y0, x1, y1) = (x0.min(x), y0.min(y), x1.max(x), y1.max(y));
+        };
+        match primitive {
+            Primitive::Glyphs(run) => {
+                // A lone glyph is an icon, as wide as it is tall; a letter, about six tenths.
+                let advance = if run.glyphs.len() == 1 { run.size } else { run.size * 0.6 };
+                for g in run.glyphs.iter() {
+                    take(g.x, g.y - run.size * 0.8);
+                    take(g.x + advance, g.y + run.size * 0.2);
+                }
+            }
+            Primitive::Path(path) => {
+                let [a, b, c, d, e, f] = path.transform;
+                let mut point = |q: Point| take(a * q.x + c * q.y + e, b * q.x + d * q.y + f);
+                for element in path.elements.iter() {
+                    match element {
+                        PathElement::MoveTo(q) | PathElement::LineTo(q) => point(*q),
+                        PathElement::CubicTo(q1, q2, q3) => {
+                            point(*q1);
+                            point(*q2);
+                            point(*q3);
+                        }
+                        PathElement::Close => {}
+                    }
+                }
+            }
+            _ => continue,
+        }
+        if x1 >= x0 {
+            let m = f64::from(MARGIN);
+            reach(&json!([f64::from(x0) - m, f64::from(y0) - m, f64::from(x1 - x0), f64::from(y1 - y0)]));
+        }
+    }
     Measured { size: (right.ceil().max(1.0), bottom.ceil().max(1.0)), parts, paint }
 }
 
