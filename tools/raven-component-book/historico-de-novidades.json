@@ -1,5 +1,27 @@
 [
   {
+    "versao": "0.1.2",
+    "data": "2026-11-20",
+    "titulo": "O RavenComponentBook diz como cada componente se dimensiona: se estica até o pai ou se ajusta ao conteúdo, com as medidas em três larguras.",
+    "importante": false,
+    "novidades": [
+      "Cada história é medida em pais de 320, 760 e 1200 pt; 760 continua sendo a referência da anatomia e do preview.",
+      "O JSON de cada componente e de cada história ganha sizing: largura fill, hug ou fixed, limites, quanto um pai estreito aperta, se a altura acompanha a largura, e as três medidas.",
+      "A ficha de cada componente ganha a seção Sizing, com uma frase do tipo \"Fills the width of its parent: 288, 728, 1168 pt wide\".",
+      "O preview mostra a primeira história ao lado dela mesma num pai de 320 pt.",
+      "O ComponentBook pode declarar o que a medida não mostra (Meta::sizing com Sizing e Extent), e o declarado prevalece.",
+      "O autoteste mede cada história nas três larguras.",
+      "A anatomia da ficha passa a trazer também o painel do diálogo, títulos, rótulos, navegação, barras de ferramentas, menus, listas e dicas, com raio, fundo, fonte e recuo, e não só os controles."
+    ],
+    "por_que_atualizar": "Para o Claude Design saber o que estica e o que se ajusta ao conteúdo, em vez de copiar a largura de uma medida só.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      768
+    ]
+  },
+  {
     "versao": "0.1.1",
     "data": "2026-11-19",
     "titulo": "O RavenComponentBook passa a gerar o design system inteiro e a guardá-lo.",

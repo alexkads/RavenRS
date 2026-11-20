@@ -10,7 +10,7 @@ use ravenrs::widgets::book::{ArgValue, Control};
 use serde_json::{Value, json};
 
 use crate::index::{self, Entry};
-use crate::measure::{self, Measured};
+use crate::measure::{self, Fit, Measured};
 
 /// The design system's guide, which the book puts in front of the index of components.
 const GUIDE: &str = include_str!("../../../docs/design-system/README.md");
@@ -76,9 +76,14 @@ pub struct MeasuredStory {
     pub args: Value,
     /// Raven Dark, then Raven Light.
     pub themes: Vec<(&'static str, Measured)>,
+    /// In Raven Dark, in the narrowest parent of [`measure::WIDTHS`].
+    pub narrow: Measured,
+    /// How it sizes, from the parents of [`measure::WIDTHS`].
+    pub fit: Fit,
 }
 
-/// Measures every story of `entry` in both themes.
+/// Measures every story of `entry` in both themes, and in Raven Dark in the parents of the
+/// other [`measure::WIDTHS`] to tell how it sizes.
 pub fn measure_entry(entry: &Entry) -> Vec<MeasuredStory> {
     entry
         .meta
@@ -86,14 +91,26 @@ pub fn measure_entry(entry: &Entry) -> Vec<MeasuredStory> {
         .iter()
         .map(|story| {
             let args = entry.meta.args_of(story);
-            let themes = measure::themes()
+            let themes: Vec<(&'static str, Measured)> = measure::themes()
                 .into_iter()
                 .map(|(id, theme)| (id, measure::measure(&entry.meta, story, &args, theme)))
                 .collect();
+            let dark = measure::themes()[0].1;
+            let [narrowest, reference, widest] = measure::WIDTHS;
+            let narrow = measure::measure_at(&entry.meta, story, &args, dark, narrowest);
+            let wide = measure::measure_at(&entry.meta, story, &args, dark, widest).main_box();
+            let at_reference = themes.first().map_or((0.0, 0.0), |(_, m)| m.main_box());
+            let stretched =
+                measure::measure_stretched(&entry.meta, story, &args, dark, reference).main_box().0;
+            let fit = measure::fit_of(
+                &entry.meta.sizing,
+                &[(narrowest, narrow.main_box()), (reference, at_reference), (widest, wide)],
+                Some(stretched),
+            );
             let args = json!(
                 args.iter().map(|(k, v)| (k.to_owned(), arg_value(v))).collect::<serde_json::Map<_, _>>()
             );
-            MeasuredStory { name: story.name, args, themes }
+            MeasuredStory { name: story.name, args, themes, narrow, fit }
         })
         .collect()
 }
@@ -119,10 +136,12 @@ pub fn component_json(entry: &Entry, stories: &[MeasuredStory]) -> Value {
         "api": {"methods": entry.methods(), "variants": variants},
         "code": entry.code,
         "anatomy": anatomy,
+        "sizing": stories.first().map(|s| s.fit.json()),
         "stories": stories.iter().map(|s| json!({
             "id": format!("{}--{}", id_of(entry.meta.title), id_of(s.name)),
             "name": s.name,
             "args": s.args,
+            "sizing": s.fit.json(),
             "themes": s.themes.iter().map(|(id, m)| (id.to_string(), m.json())).collect::<serde_json::Map<_, _>>(),
         })).collect::<Vec<_>>(),
     })
@@ -141,7 +160,9 @@ fn named(value: f64, table: &[(f64, &'static str)]) -> Value {
 /// size, the rectangle drawn for it (corners, fill, border, shadow), its text and icon, and the
 /// space from its edge to its text. Parts that measure the same are listed once.
 pub fn anatomy(m: &Measured) -> Vec<Value> {
-    const PIECES: [&str; 18] = [
+    // The pieces a design draws: controls, and the surfaces and texts around them, so the panel
+    // of a dialog, its title and the label over a field have their corner, fill and font too.
+    const PIECES: [&str; 26] = [
         "Button",
         "Link",
         "CheckBox",
@@ -160,6 +181,14 @@ pub fn anatomy(m: &Measured) -> Vec<Value> {
         "ProgressIndicator",
         "Image",
         "Row",
+        "Dialog",
+        "Heading",
+        "Label",
+        "Navigation",
+        "Toolbar",
+        "Menu",
+        "ListBox",
+        "Tooltip",
     ];
     let mut rows: Vec<Value> = Vec::new();
     let mut seen: Vec<String> = Vec::new();
@@ -208,7 +237,10 @@ pub fn anatomy(m: &Measured) -> Vec<Value> {
                 }
             }
         }
-        let start = icon.and_then(|i| i["x"].as_f64()).or_else(|| text.and_then(|t| t["x"][0].as_f64()));
+        // The inner space is to whatever starts first: an icon before a label, or the title of
+        // a dialog before its close button.
+        let starts = [icon.and_then(|i| i["x"].as_f64()), text.and_then(|t| t["x"][0].as_f64())];
+        let start = starts.into_iter().flatten().reduce(f64::min);
         if let Some(x) = start {
             row.insert("padding_left".into(), named((x - bounds[0]).round(), &SPACES));
         }
@@ -430,6 +462,7 @@ fn guide_with_index(entries: &[Entry]) -> String {
         "\n\n## Designing with this system\n\n\
          Every screen designed with this system must be buildable with RavenRS as it is. So:\n\n\
          - **Use only the components listed below**, by their names. Each one has a card with its settings, its stories and its anatomy: the sizes, corners, fills, borders, fonts and inner spaces RavenRS draws, measured from the library itself by RavenComponentBook. Draw them with those numbers.\n\
+         - **Size them as the card says.** Its *Sizing* tells whether a component fills the width of its parent or hugs its content, with the size it takes in parents of 320, 760 and 1200 pt. A field that fills its column stretches with it; a button that hugs its label keeps its width.\n\
          - **Change a component only through its settings** (the `argTypes` of its card). A variant, size or state that is not there does not exist.\n\
          - **Compose, do not invent.** A piece the screen needs that no component gives goes on a note called *Missing from the library* on the artboard, with what it should do. It joins the library before the screen is built.\n\
          - Colors are tokens (`var(--accent)`), never new colors; spacing follows the 4px grid (`space-*`); corners follow `radius-*`.\n\
@@ -480,6 +513,21 @@ fn card_readme(entry: &Entry, stories: &[MeasuredStory]) -> String {
     for s in stories {
         let size = s.themes.first().map_or((0.0, 0.0), |(_, m)| m.size);
         let _ = writeln!(t, "- **{}**: {} × {} pt, settings `{}`", s.name, size.0, size.1, s.args);
+    }
+    if let Some(first) = stories.first() {
+        let _ = writeln!(t, "\n## Sizing\n\n{}", first.fit.sentence());
+        // A story that sizes another way is named with its own sentence.
+        let differs = |s: &&MeasuredStory| {
+            (s.fit.width, s.fit.reflows, s.fit.max_width)
+                != (first.fit.width, first.fit.reflows, first.fit.max_width)
+        };
+        let others: Vec<&MeasuredStory> = stories.iter().skip(1).filter(differs).collect();
+        if !others.is_empty() {
+            t.push('\n');
+            for s in others {
+                let _ = writeln!(t, "- **{}**: {}", s.name, s.fit.sentence());
+            }
+        }
     }
     let rows = anatomy_of(stories);
     if !rows.is_empty() {
@@ -551,6 +599,7 @@ fn preview(entry: &Entry, stories: &[MeasuredStory]) -> String {
         "<style>\n@font-face { font-family: RavenIcons; src: url(../../fonts/RavenIcons.ttf); }\n\
          body { margin: 0; background: var(--bg-000); }\n\
          .book { display: flex; flex-direction: column; gap: 20px; padding: 16px; font-family: var(--font-sans); }\n\
+         .widths { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }\n\
          .more { margin: 0; font: 400 13px/18px var(--font-sans); color: var(--ink-muted); }\n\
          .story h3 { margin: 0 0 8px; font: 600 12px/16px var(--font-sans); letter-spacing: .4px; text-transform: uppercase; color: var(--ink-muted); }\n\
          </style>\n<div class=\"book\">\n",
@@ -560,8 +609,22 @@ fn preview(entry: &Entry, stories: &[MeasuredStory]) -> String {
     let mut left_out = Vec::new();
     for (i, s) in stories.iter().enumerate() {
         if let Some((_, m)) = s.themes.first() {
-            let section =
+            let mut section =
                 format!("<section class=\"story\"><h3>{}</h3>{}</section>\n", escape(s.name), svg(m));
+            if i == 0 {
+                // The reference beside the narrowest parent, so the design sees how it sizes,
+                // when both fit in what the design tool reads.
+                let beside = format!(
+                    "<div class=\"widths\">{}<section class=\"story\"><h3>{} · {} pt parent</h3>{}</section></div>\n",
+                    section.trim_end(),
+                    escape(s.name),
+                    measure::WIDTHS[0],
+                    svg(&s.narrow)
+                );
+                if t.len() + beside.len() <= PREVIEW_BUDGET {
+                    section = beside;
+                }
+            }
             if i > 0 && t.len() + section.len() > PREVIEW_BUDGET {
                 left_out.push(escape(s.name));
                 continue;

@@ -3,7 +3,7 @@ name = "raven-component-book"
 description = "RavenComponentBook: the stories of every RavenRS component, as Storybook keeps them, drawn live with their settings, measured from what RavenRS paints, and exported as JSON and as the design system the design tool reads."
 # The tool's own version, read by its news, as Raven Finanças and Raven Test Studio do: raising
 # it is what announces an update to the copies installed with install.cmd.
-version = "0.1.1"
+version = "0.1.2"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true

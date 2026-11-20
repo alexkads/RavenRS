@@ -5,7 +5,7 @@
     "raven-component-book"
   ],
   "package": "raven-component-book",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "summary": "The book of every RavenRS component, kept as Storybook keeps stories, and the guardian of the RavenRS design system: it writes the whole system the design tool reads (index, guide, tokens from ravenrs-style, fonts, cover and every component measured from what RavenRS paints), and checks that what is published is exactly what it writes.",
   "when_to_use": [
     "Before designing a screen in Claude Design: export the design system so the design uses only components that exist, with their real measurements.",

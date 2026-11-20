@@ -10,11 +10,15 @@ use std::collections::HashMap;
 use ravenrs::core::{AccessNode, Brush, Color, PathElement, PathPaint, Primitive, Rect};
 use ravenrs::layout::{Axis, LayoutStyle};
 use ravenrs::prelude::*;
-use ravenrs::widgets::book::{Args, Meta, Story};
+use ravenrs::widgets::book::{Args, Extent, Meta, Sizing, Story};
 use serde_json::{Value, json};
 
-/// The width a story is laid out in, in points: about a form column or a card.
+/// The width a story is laid out in, in points: about a form column or a card. It is the
+/// reference: the anatomy, the preview and the size of a story are measured at it.
 pub const WIDTH: f32 = 760.0;
+/// The widths of the parents a story is also laid out in, to tell what fills from what hugs
+/// its content: a phone, the reference and a wide window.
+pub const WIDTHS: [f32; 3] = [320.0, WIDTH, 1200.0];
 /// The tallest a story may be, in points.
 pub const HEIGHT: f32 = 1100.0;
 /// The margin around a story, in points; what is measured starts after it.
@@ -23,13 +27,14 @@ pub const MARGIN: f32 = 16.0;
 /// One story drawn with its settings, on the canvas of the theme.
 struct Stage {
     content: AnyView,
+    width: f32,
 }
 
 impl View for Stage {
     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
         let inner = cx.child(&self.content);
         let style = LayoutStyle {
-            width: Some(WIDTH),
+            width: Some(self.width),
             height: Some(HEIGHT),
             align: Align::Stretch,
             ..LayoutStyle::stack(Axis::Vertical)
@@ -245,18 +250,46 @@ pub struct Measured {
 }
 
 impl Measured {
+    /// The box a story sizes by: the panel of an open dialog, menu or list, or the column of a
+    /// navigation, which float or sit beside the button or content that comes with them; else
+    /// everything it draws.
+    pub fn main_box(&self) -> (f64, f64) {
+        const SURFACES: [&str; 5] = ["Dialog", "Navigation", "Menu", "ListBox", "Tooltip"];
+        let surface = self.parts.iter().filter(|p| SURFACES.iter().any(|r| p["role"] == *r)).find_map(|p| {
+            let r: Vec<f64> = p["bounds"].as_array()?.iter().filter_map(Value::as_f64).collect();
+            (r.len() == 4 && r[2] > 0.0 && r[3] > 0.0).then_some((r[2], r[3]))
+        });
+        surface.unwrap_or(self.size)
+    }
+
     /// As JSON.
     pub fn json(&self) -> Value {
         json!({"size": [self.size.0, self.size.1], "parts": self.parts, "paint": self.paint})
     }
 }
 
-/// Draws `story` of `meta` with `args` in `theme`, lets its motion settle, and measures it.
+/// Draws `story` of `meta` with `args` in `theme`, lets its motion settle, and measures it, in
+/// a parent of the reference [`WIDTH`].
 pub fn measure(meta: &Meta, story: &Story, args: &Args, theme: Theme) -> Measured {
+    measure_at(meta, story, args, theme, WIDTH)
+}
+
+/// [`measure`] in a parent `width` points wide, that leaves its children at their own width.
+pub fn measure_at(meta: &Meta, story: &Story, args: &Args, theme: Theme, width: f32) -> Measured {
+    measure_in(meta, story, args, theme, width, Align::Start)
+}
+
+/// [`measure`] in a parent `width` points wide that stretches its children to its width, as a
+/// form column does.
+pub fn measure_stretched(meta: &Meta, story: &Story, args: &Args, theme: Theme, width: f32) -> Measured {
+    measure_in(meta, story, args, theme, width, Align::Stretch)
+}
+
+fn measure_in(meta: &Meta, story: &Story, args: &Args, theme: Theme, width: f32, align: Align) -> Measured {
     let view = meta.render(story, args);
-    let content: AnyView = Box::new(VStack::new((view,)).align(Align::Start).padding(MARGIN));
-    let mut ui = Ui::new(Stage { content }, theme);
-    ui.set_viewport(Size::new(WIDTH, HEIGHT), 1.0);
+    let content: AnyView = Box::new(VStack::new((view,)).align(align).padding(MARGIN));
+    let mut ui = Ui::new(Stage { content, width }, theme);
+    ui.set_viewport(Size::new(width, HEIGHT), 1.0);
     ui.set_time(0.0);
     ui.update();
     ui.set_time(5.0);
@@ -271,7 +304,7 @@ pub fn measure(meta: &Meta, story: &Story, args: &Args, theme: Theme) -> Measure
         if let Some([x, y, w, h]) =
             r.as_array().and_then(|a| a.iter().map(Value::as_f64).collect::<Option<Vec<_>>>()).as_deref()
         {
-            if *w < f64::from(WIDTH) {
+            if *w < f64::from(width) {
                 right = right.max(x + w);
             }
             if *h < f64::from(HEIGHT) {
@@ -286,4 +319,130 @@ pub fn measure(meta: &Meta, story: &Story, args: &Args, theme: Theme) -> Measure
         reach(&p["rect"]);
     }
     Measured { size: (right.ceil().max(1.0), bottom.ceil().max(1.0)), parts, paint }
+}
+
+/// How a story sizes: what its component declares, and for the rest what its layout does in
+/// parents of the [`WIDTHS`], with the size it takes in each.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Fit {
+    /// How it takes the width.
+    pub width: Extent,
+    /// How it takes the height.
+    pub height: Extent,
+    /// The narrowest it gets, as the component declares it.
+    pub min_width: Option<f64>,
+    /// How narrow the narrowest parent squeezed it, below what its content asks for.
+    pub narrows_to: Option<f64>,
+    /// The widest it gets, declared or seen when it stopped growing in the widest parent.
+    pub max_width: Option<f64>,
+    /// Its height changes with the width, as text or a row that wraps.
+    pub reflows: bool,
+    /// Hugging its content, it takes the whole width of a parent that stretches its children,
+    /// as a form column does.
+    pub stretches: bool,
+    /// The parent's width and the size taken in it, narrowest first.
+    pub sizes: Vec<(f32, (f64, f64))>,
+}
+
+impl Fit {
+    /// As JSON: `{"width": "fill", "height": "hug", "min_width": …, "max_width": …,
+    /// "narrows_to": …, "reflows": false, "sizes": {"320": [w, h], …}}`.
+    pub fn json(&self) -> Value {
+        let extent = |e: Extent| match e {
+            Extent::Fixed(points) => json!({"fixed": round(points)}),
+            other => json!(other.word()),
+        };
+        let sizes: serde_json::Map<String, Value> =
+            self.sizes.iter().map(|(w, (sw, sh))| (format!("{w}"), json!([sw, sh]))).collect();
+        json!({
+            "width": extent(self.width), "height": extent(self.height),
+            "min_width": self.min_width, "max_width": self.max_width, "narrows_to": self.narrows_to,
+            "reflows": self.reflows, "stretches": self.stretches, "sizes": sizes,
+        })
+    }
+
+    /// One sentence for a person: how it takes the width, its limits and whether it reflows.
+    pub fn sentence(&self) -> String {
+        let at = |w: f32| self.sizes.iter().find(|(p, _)| *p == w).map(|(_, s)| *s);
+        let parents = WIDTHS.iter().map(|w| format!("{w}")).collect::<Vec<_>>().join(", ");
+        let mut t = match self.width {
+            Extent::Fill => {
+                let widths = self.sizes.iter().map(|(_, (w, _))| format!("{w}")).collect::<Vec<_>>();
+                format!(
+                    "Fills the width of its parent: {} pt wide in parents of {parents} pt",
+                    widths.join(", ")
+                )
+            }
+            Extent::Hug => {
+                let (w, h) = at(WIDTH).unwrap_or_default();
+                format!("Hugs its content: {w} × {h} pt in a parent of {WIDTH} pt")
+            }
+            Extent::Fixed(points) => format!("Always {} pt wide", round(points)),
+        };
+        if let Some(min) = self.min_width {
+            t.push_str(&format!("; never narrower than {min} pt"));
+        }
+        if let Some(narrow) = self.narrows_to {
+            t.push_str(&format!("; in a parent of {} pt it narrows to {narrow} pt", WIDTHS[0]));
+        }
+        if let Some(max) = self.max_width {
+            t.push_str(&format!("; never wider than {max} pt"));
+        }
+        if self.stretches {
+            t.push_str(
+                "; in a parent that stretches its children, as a form column, it takes the whole width",
+            );
+        }
+        if self.reflows {
+            t.push_str("; its height follows the width, as its content wraps");
+        }
+        t.push('.');
+        t
+    }
+}
+
+/// How `story` of `meta` sizes, laid out with `args` in parents of the [`WIDTHS`] in `theme`.
+/// What the component declares in its [`Sizing`] wins over what the layout shows.
+pub fn fit(meta: &Meta, story: &Story, args: &Args, theme: Theme) -> Fit {
+    let sizes: Vec<(f32, (f64, f64))> =
+        WIDTHS.iter().map(|&w| (w, measure_at(meta, story, args, theme, w).main_box())).collect();
+    let stretched = measure_stretched(meta, story, args, theme, WIDTH).main_box().0;
+    fit_of(&meta.sizing, &sizes, Some(stretched))
+}
+
+/// [`fit`] from the sizes already measured, one per parent width, narrowest first, and the
+/// width taken in a parent of [`WIDTH`] that stretches its children, when it was measured.
+pub fn fit_of(declared: &Sizing, sizes: &[(f32, (f64, f64))], stretched: Option<f64>) -> Fit {
+    // A part as wide as the room the stage leaves fills it; a point of slack for rounding.
+    let room = |parent: f32| f64::from(parent - 2.0 * MARGIN);
+    let fills: Vec<bool> = sizes.iter().map(|(p, (w, _))| (w - room(*p)).abs() <= 1.0).collect();
+    let widths: Vec<f64> = sizes.iter().map(|(_, (w, _))| *w).collect();
+    let (first, last) = (widths.first().copied().unwrap_or(0.0), widths.last().copied().unwrap_or(0.0));
+    let reference = sizes.iter().find(|(p, _)| *p == WIDTH).map_or(first, |(_, (w, _))| *w);
+    let (mut width, mut narrows_to, mut max_width) = (Extent::Hug, None, None);
+    if fills.iter().all(|f| *f) {
+        width = Extent::Fill;
+    } else if fills.first() == Some(&true) && last > reference + 1.0 {
+        // It grew with the parent and stopped short of the widest one: it fills up to a limit.
+        width = Extent::Fill;
+        max_width = Some(last);
+    }
+    if width == Extent::Hug && first + 1.0 < reference {
+        // The narrowest parent squeezed it below the size its content asks for.
+        narrows_to = Some(first);
+    }
+    let heights: Vec<f64> = sizes.iter().map(|(_, (_, h))| *h).collect();
+    let reflows = heights.iter().any(|h| (h - heights[0]).abs() > 1.0);
+    let stretches = width == Extent::Hug
+        && stretched.is_some_and(|w| (w - room(WIDTH)).abs() <= 1.0 && w > reference + 1.0);
+    Fit {
+        width: declared.width.unwrap_or(width),
+        height: declared.height.unwrap_or(Extent::Hug),
+        min_width: declared.min_width.map(f64::from),
+        narrows_to,
+        max_width: declared.max_width.map(f64::from).or(max_width),
+        reflows,
+        stretches: declared.width.is_none() && stretches,
+        sizes: sizes.to_vec(),
+    }
 }
