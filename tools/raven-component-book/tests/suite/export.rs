@@ -98,6 +98,8 @@ fn the_design_system_has_a_card_a_preview_and_a_json_for_every_component() {
     assert!(card.contains("## Sizing\n\nFills the width of its parent"), "{card}");
     let preview = std::fs::read_to_string(field.join("preview.html")).expect("preview");
     assert!(preview.contains("320 pt parent"), "the reference beside the narrowest parent");
+    assert!(preview.contains("<svg data-rcb=\"TextField/Empty\" "), "each picture says what it draws");
+    assert!(readme.contains("data-rcb"), "the guide asks the design to keep the marks");
     // Every icon has its character in RavenIcons on the card of Icon.
     let icons = std::fs::read_to_string(project.join("components/Icon/README.md")).expect("Icon");
     assert!(icons.contains("| `wallet` | `Wallet` | `&#xe204;` |"), "{icons}");

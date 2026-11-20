@@ -16,7 +16,8 @@
     "A ficha do Icon traz todos os ícones com o caractere de cada um na fonte RavenIcons.",
     "A guarda rcb-coverage.py cobra o conteúdo: uma história por opção de cada escolha de até 12 (salvo a amostra de ícones; uma história como \"All sizes\" vale por todas), uma história com cada estado (disabled, read_only, loading, error) ligado, e pelo menos uma história. O que faltar entra no pendentes.json com \"conteudo\": true e a issue, e --self-test confere as regras. Alert, Badge, Checkbox, FileUpload, IconButton, ProgressBar, Select, TextField e Toggle ganharam as histórias que faltavam.",
     "Padrões de tela, feitos só com componentes e medidos como eles, em patterns/: formulário com rótulos, dica e erro (FormPattern), página com barra lateral (SidebarPage), lista com busca e filtros sobre a DataGrid (FilteredGrid), confirmação (Confirmation) e página vazia (EmptyPage). O guia lista os padrões, e cada um mostra como fica num pai de 320 pt.",
-    "Correção: os recortes dos previews tinham o mesmo id em todas as histórias, e o navegador recortava uma história com o recorte de outra; agora cada desenho tem os seus."
+    "Correção: os recortes dos previews tinham o mesmo id em todas as histórias, e o navegador recortava uma história com o recorte de outra; agora cada desenho tem os seus.",
+    "Cada desenho do preview leva data-rcb=\"Componente/História\", e o guia pede ao Claude Design que mantenha a marca no que desenhar: é o primeiro passo do teste de reprodução."
   ],
   "por_que_atualizar": "Para o Claude Design saber o que estica e o que se ajusta ao conteúdo, em vez de copiar a largura de uma medida só.",
   "contribuidores": [

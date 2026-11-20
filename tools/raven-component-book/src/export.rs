@@ -619,6 +619,7 @@ fn guide_with_index(entries: &[Entry]) -> String {
         "\n\n## Designing with this system\n\n\
          Every screen designed with this system must be buildable with RavenRS as it is. So:\n\n\
          - **Use only the components listed below**, by their names. Each one has a card with its settings, its stories and its anatomy: the sizes, corners, fills, borders, fonts and inner spaces RavenRS draws, measured from the library itself by RavenComponentBook. Draw them with those numbers.\n\
+         - **Keep the marks.** Each picture in a card carries `data-rcb=\"Component/Story\"`. Put the same attribute on the element that draws that component in a screen, with the story it starts from, so the screen can be built and checked back in RavenRS.\n\
          - **Size them as the card says.** Its *Sizing* tells whether a component fills the width of its parent or hugs its content, with the size it takes in parents of 320, 760 and 1200 pt. A field that fills its column stretches with it; a button that hugs its label keeps its width.\n\
          - **Change a component only through its settings** (the `argTypes` of its card). A variant, size or state that is not there does not exist.\n\
          - **Compose, do not invent.** A piece the screen needs that no component gives goes on a note called *Missing from the library* on the artboard, with what it should do. It joins the library before the screen is built.\n\
@@ -847,6 +848,12 @@ fn flatten_mixes(svg: &str) -> String {
     out
 }
 
+/// `svg` marked with the component and story it draws, `data-rcb="Button/Primary"`: a design
+/// keeps the mark on what it draws from it, so the screen can be built back from the design.
+fn marked(svg: &str, component: &str, story: &str) -> String {
+    svg.replacen("<svg ", &format!("<svg data-rcb=\"{}/{}\" ", escape(component), escape(story)), 1)
+}
+
 fn preview(entry: &Entry, stories: &[MeasuredStory]) -> String {
     let height: f64 =
         stories.iter().map(|s| s.themes.first().map_or(0.0, |(_, m)| m.size.1) + 44.0).sum::<f64>() + 24.0;
@@ -870,8 +877,11 @@ fn preview(entry: &Entry, stories: &[MeasuredStory]) -> String {
     let mut left_out = Vec::new();
     for (i, s) in stories.iter().enumerate() {
         if let Some((_, m)) = s.themes.first() {
-            let mut section =
-                format!("<section class=\"story\"><h3>{}</h3>{}</section>\n", escape(s.name), svg(m));
+            let mut section = format!(
+                "<section class=\"story\"><h3>{}</h3>{}</section>\n",
+                escape(s.name),
+                marked(&svg(m), entry.name(), s.name)
+            );
             if i == 0 {
                 // The reference beside the narrowest parent, so the design sees how it sizes,
                 // when both fit in what the design tool reads.
@@ -880,7 +890,7 @@ fn preview(entry: &Entry, stories: &[MeasuredStory]) -> String {
                     section.trim_end(),
                     escape(s.name),
                     measure::WIDTHS[0],
-                    svg(&s.narrow)
+                    marked(&svg(&s.narrow), entry.name(), s.name)
                 );
                 if t.len() + beside.len() <= PREVIEW_BUDGET {
                     section = beside;
@@ -903,7 +913,7 @@ fn preview(entry: &Entry, stories: &[MeasuredStory]) -> String {
                 "<section class=\"story\"><h3>{} · {}</h3>{}</section>\n",
                 escape(first.name),
                 r.state.name(),
-                svg(&r.measured)
+                marked(&svg(&r.measured), entry.name(), &format!("{} · {}", first.name, r.state.name()))
             );
             if t.len() + section.len() > PREVIEW_BUDGET {
                 left_out.push(format!("{} · {}", escape(first.name), r.state.name()));
