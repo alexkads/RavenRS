@@ -319,3 +319,20 @@ fn the_pointer_goes_to_a_control_at_rest() {
     assert!(interaction["reacts_to"].to_string().contains("Hover"), "{interaction}");
     assert_ne!(interaction["Hover"]["control"], interaction["Focus"]["control"], "{interaction}");
 }
+
+#[test]
+fn the_sidebar_page_folds_its_sidebar_in_a_narrow_window() {
+    let page = raven_component_book::patterns::entries()
+        .into_iter()
+        .find(|p| p.name() == "SidebarPage")
+        .expect("pattern");
+    let stories = measure_entry(&page);
+    let navigation_at_320 = stories[0]
+        .narrow
+        .parts
+        .iter()
+        .any(|p| p["role"] == "Navigation" && p["bounds"][2].as_f64().unwrap_or(0.0) > 100.0);
+    assert!(!navigation_at_320, "at 320 pt the sidebar opens as a sheet and takes no room");
+    let navigation_at_760 = stories[0].themes[0].1.parts.iter().any(|p| p["role"] == "Navigation");
+    assert!(navigation_at_760, "at 760 pt it sits beside the page");
+}

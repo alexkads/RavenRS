@@ -80,7 +80,9 @@ fn sidebar_page() -> impl View {
                 SidebarItem::new(IconName::Settings, "Settings"),
             ),
         ),))
-        .state(state),
+        .state(state)
+        // In a narrow window it takes no room and opens as a sheet, as an application asks.
+        .narrow_below(600.0),
         VStack::new((
             PageHeader::new("Customers")
                 .description("Everyone who bought this year.")
