@@ -15,7 +15,8 @@
       "A ficha mede os estados de interação sem uma linha a mais no ComponentBook: o ponteiro sobre o primeiro controle, o foco trazido com Tab e o botão segurado. A seção Interaction diz o token que muda em cada um (fill accent → accent-hover, o anel focus-ring), o JSON traz as mudanças e a cena, o preview desenha os estados que mudam, e um controle que não reage aparece em ignores.",
       "Cada história também é medida no Raven Glass, e as cores que ficam entre dois tokens (a borda que se aproxima da tinta no hover) ganham nome, mix(ink, border, 25), e viram color-mix no preview: a interface acompanha o tema escolhido, glass incluído. O scrim, chart-1, chart-grid e guide passam a ser reconhecidos como tokens.",
       "A ficha ganha a seção Behavior: os eventos (on_*), as teclas que o primeiro controle trata depois de focado (o RCB aperta setas, Enter, Espaço, Esc, Home e End e vê o que muda; Esc conta quando fecha o que outra tecla abriu), o papel e o nome de acessibilidade e a ordem de foco com Tab.",
-      "A ficha do Icon traz todos os ícones com o caractere de cada um na fonte RavenIcons."
+      "A ficha do Icon traz todos os ícones com o caractere de cada um na fonte RavenIcons.",
+      "A guarda rcb-coverage.py cobra o conteúdo: uma história por opção de cada escolha de até 12 (salvo a amostra de ícones; uma história como \"All sizes\" vale por todas), uma história com cada estado (disabled, read_only, loading, error) ligado, e pelo menos uma história. O que faltar entra no pendentes.json com \"conteudo\": true e a issue, e --self-test confere as regras. Alert, Badge, Checkbox, FileUpload, IconButton, ProgressBar, Select, TextField e Toggle ganharam as histórias que faltavam."
     ],
     "por_que_atualizar": "Para o Claude Design saber o que estica e o que se ajusta ao conteúdo, em vez de copiar a largura de uma medida só.",
     "contribuidores": [

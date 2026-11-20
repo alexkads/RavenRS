@@ -1,8 +1,10 @@
 //! The stories of `Badge`, `Alert`, `Avatar` and `ProgressBar`.
 
+use ravenrs_layout::Align;
+
 use super::button::{ICONS, icon};
 use super::{ArgType, ArgValue, Args, ComponentBook, Meta};
-use crate::{Alert, AnyView, Avatar, Badge, ProgressBar, Tone};
+use crate::{Alert, AnyView, Avatar, Badge, ProgressBar, Tone, VStack};
 
 const TONES: &[&str] = &["Neutral", "Accent", "Success", "Warning", "Danger"];
 
@@ -83,6 +85,7 @@ impl ComponentBook for Badge {
                     .with("text", "Draft")
                     .with("outline", true),
             )
+            .story("Warning", Args::new().with("tone", ArgValue::choice("Warning")).with("text", "Pending"))
     }
 }
 
@@ -113,6 +116,7 @@ impl ComponentBook for Alert {
                     .with("tone", ArgValue::choice("Warning"))
                     .with("compact", true),
             )
+            .story_with("All tones", Args::new(), all_alert_tones)
     }
 }
 
@@ -142,5 +146,20 @@ impl ComponentBook for ProgressBar {
                 "With label",
                 Args::new().with("label", "Copying").with("percent", true).with("detail", "12 of 30 photos"),
             )
+            .story_with("All tones", Args::new(), all_progress_tones)
     }
+}
+
+fn all_alert_tones(_: &Args) -> AnyView {
+    let rows: Vec<AnyView> = TONES
+        .iter()
+        .map(|name| Box::new(Alert::new(*name, "Shown in this tone.").tone(tone(name))) as AnyView)
+        .collect();
+    Box::new(VStack::new(rows).spacing(8.0).align(Align::Stretch))
+}
+
+fn all_progress_tones(_: &Args) -> AnyView {
+    let rows: Vec<AnyView> =
+        TONES.iter().map(|name| Box::new(ProgressBar::new(0.6).tone(tone(name))) as AnyView).collect();
+    Box::new(VStack::new(rows).spacing(12.0).align(Align::Stretch))
 }

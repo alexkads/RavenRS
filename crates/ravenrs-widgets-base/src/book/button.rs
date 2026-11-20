@@ -1,5 +1,6 @@
 //! The stories of `Button` and `IconButton`.
 
+use ravenrs_layout::Align;
 use ravenrs_reactive::State;
 
 use super::{ArgType, ArgValue, Args, ComponentBook, Meta};
@@ -66,6 +67,22 @@ fn icon_button(args: &Args) -> AnyView {
             .disabled(args.bool("disabled"))
             .selected(args.bool("selected")),
     )
+}
+
+fn all_icon_styles(_: &Args) -> AnyView {
+    let row: Vec<AnyView> = STYLES
+        .iter()
+        .map(|name| Box::new(IconButton::new(IconName::Pencil).label(*name).style(style(name))) as AnyView)
+        .collect();
+    Box::new(HStack::new(row).spacing(8.0).wrap())
+}
+
+fn all_icon_sizes(_: &Args) -> AnyView {
+    let row: Vec<AnyView> = SIZES
+        .iter()
+        .map(|name| Box::new(IconButton::new(IconName::Pencil).label(*name).size(size(name))) as AnyView)
+        .collect();
+    Box::new(HStack::new(row).spacing(8.0).align(Align::Center).wrap())
 }
 
 fn all_styles(_: &Args) -> AnyView {
@@ -152,5 +169,8 @@ impl ComponentBook for IconButton {
                     .with("label", "New"),
             )
             .story("Selected", Args::new().with("selected", true))
+            .story("Disabled", Args::new().with("disabled", true))
+            .story_with("All styles", Args::new(), all_icon_styles)
+            .story_with("All sizes", Args::new(), all_icon_sizes)
     }
 }

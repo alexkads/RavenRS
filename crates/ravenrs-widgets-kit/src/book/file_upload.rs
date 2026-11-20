@@ -1,5 +1,5 @@
 //! The stories of `FileUpload`, from the gallery's example. Reviewed: read-only with no files
-//! shows nothing, so it has no story of its own.
+//! shows nothing, so its read-only story has a file already picked.
 
 #[allow(unused_imports)]
 use crate::*;
@@ -37,6 +37,18 @@ fn render(args: &Args) -> AnyView {
     })
 }
 
+/// Read-only with a file already picked: with none, it shows nothing.
+fn read_only(args: &Args) -> AnyView {
+    let picked = PickedFile::new("contrato.pdf", vec![0_u8; 182_000]);
+    let files = State::new(vec![picked]);
+    Box::new(
+        FileUpload::new(files.binding())
+            .accept(["pdf", "png", "jpg"])
+            .label(args.text("label"))
+            .read_only(true),
+    )
+}
+
 impl ComponentBook for FileUpload {
     fn book() -> Meta {
         Meta::new("Actions and inputs/FileUpload", render)
@@ -47,5 +59,6 @@ impl ComponentBook for FileUpload {
             .arg(ArgType::bool("read_only", false))
             .story("Example", Args::new())
             .story("Disabled", Args::new().with("disabled", true))
+            .story_with("Read only", Args::new().with("read_only", true), read_only)
     }
 }
