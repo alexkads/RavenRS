@@ -14,6 +14,7 @@ pub mod export;
 pub mod index;
 pub mod measure;
 pub mod patterns;
+pub mod replay;
 pub mod tokens;
 pub mod versao;
 

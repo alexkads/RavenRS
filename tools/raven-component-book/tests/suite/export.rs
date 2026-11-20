@@ -100,6 +100,10 @@ fn the_design_system_has_a_card_a_preview_and_a_json_for_every_component() {
     assert!(preview.contains("320 pt parent"), "the reference beside the narrowest parent");
     assert!(preview.contains("<svg data-rcb=\"TextField/Empty\" "), "each picture says what it draws");
     assert!(readme.contains("data-rcb"), "the guide asks the design to keep the marks");
+    assert!(
+        readme.contains("## Checking a screen") && readme.contains("querySelectorAll('[data-rcb]')"),
+        "the guide gives the script that writes a screen"
+    );
     // Every icon has its character in RavenIcons on the card of Icon.
     let icons = std::fs::read_to_string(project.join("components/Icon/README.md")).expect("Icon");
     assert!(icons.contains("| `wallet` | `Wallet` | `&#xe204;` |"), "{icons}");
@@ -335,4 +339,65 @@ fn the_sidebar_page_folds_its_sidebar_in_a_narrow_window() {
     assert!(!navigation_at_320, "at 320 pt the sidebar opens as a sheet and takes no room");
     let navigation_at_760 = stories[0].themes[0].1.parts.iter().any(|p| p["role"] == "Navigation");
     assert!(navigation_at_760, "at 760 pt it sits beside the page");
+}
+
+const FASE0: &str = include_str!("../fixtures/fase0-novo-lancamento.rcb.json");
+
+#[test]
+fn the_screen_of_phase_zero_is_built_as_it_was_drawn() {
+    // The boxes are those RavenRS laid the "Novo lançamento" dialog of Raven Finanças out in.
+    let replay = raven_component_book::replay::replay(FASE0).expect("a screen");
+    assert_eq!(replay.compared, 4);
+    assert!(replay.divergences.is_empty(), "{:#?}", replay.divergences);
+}
+
+#[test]
+fn a_piece_drawn_another_size_is_pointed_out() {
+    // The Save button drawn 48 pt tall, as no size of Button is with these settings.
+    let altered = FASE0.replace("\"box\": [221, 456, 195, 40]", "\"box\": [221, 456, 195, 48]");
+    let replay = raven_component_book::replay::replay(&altered).expect("a screen");
+    assert_eq!(replay.divergences.len(), 1, "{:#?}", replay.divergences);
+    let said = replay.divergences[0].to_string();
+    assert!(
+        said.contains("Button/Primary") && said.contains("height 48 in the design, 40 in RavenRS"),
+        "{said}"
+    );
+}
+
+#[test]
+fn a_piece_the_library_does_not_have_is_pointed_out() {
+    let invented = r#"{"elements": [
+        {"rcb": "Chip/Example", "box": [0, 0, 60, 24]},
+        {"rcb": "Button/Huge", "box": [0, 0, 60, 24]},
+        {"rcb": "Button/Primary", "args": {"glow": true}, "box": [0, 0, 72, 40]},
+        {"rcb": "Button/Primary", "args": {"style": "Neon"}, "box": [0, 0, 72, 40]}
+    ]}"#;
+    let replay = raven_component_book::replay::replay(invented).expect("a screen");
+    let said: Vec<String> = replay.divergences.iter().map(ToString::to_string).collect();
+    assert_eq!(said.len(), 4, "{said:#?}");
+    assert!(said[0].contains("no component \"Chip\""), "{said:#?}");
+    assert!(said[1].contains("no story \"Huge\""), "{said:#?}");
+    assert!(said[2].contains("no setting \"glow\""), "{said:#?}");
+    assert!(said[3].contains("no option \"Neon\""), "{said:#?}");
+}
+
+#[test]
+fn the_replay_exits_with_one_when_a_piece_diverges() {
+    let dir = std::env::temp_dir().join(format!("rcb-replay-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).expect("folder");
+    let (good, bad) = (dir.join("good.rcb.json"), dir.join("bad.rcb.json"));
+    std::fs::write(&good, FASE0).expect("write");
+    std::fs::write(&bad, FASE0.replace("[110, 456, 101, 40]", "[110, 456, 101, 48]")).expect("write");
+    let run = |file: &std::path::Path| {
+        std::process::Command::new(env!("CARGO_BIN_EXE_raven-component-book"))
+            .arg("--replay")
+            .arg(file)
+            .output()
+            .expect("runs")
+    };
+    assert_eq!(run(&good).status.code(), Some(0), "{}", String::from_utf8_lossy(&run(&good).stdout));
+    let failed = run(&bad);
+    assert_eq!(failed.status.code(), Some(1));
+    assert!(String::from_utf8_lossy(&failed.stdout).contains("Button/Secondary"));
+    let _ = std::fs::remove_dir_all(&dir);
 }

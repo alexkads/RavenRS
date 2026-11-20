@@ -619,12 +619,15 @@ fn guide_with_index(entries: &[Entry]) -> String {
         "\n\n## Designing with this system\n\n\
          Every screen designed with this system must be buildable with RavenRS as it is. So:\n\n\
          - **Use only the components listed below**, by their names. Each one has a card with its settings, its stories and its anatomy: the sizes, corners, fills, borders, fonts and inner spaces RavenRS draws, measured from the library itself by RavenComponentBook. Draw them with those numbers.\n\
-         - **Keep the marks.** Each picture in a card carries `data-rcb=\"Component/Story\"`. Put the same attribute on the element that draws that component in a screen, with the story it starts from, so the screen can be built and checked back in RavenRS.\n\
+         - **Keep the marks.** Each picture in a card carries `data-rcb=\"Component/Story\"`. Put the same attribute on the element that draws that component in a screen, with the story it starts from, the settings you changed in `data-rcb-args` as JSON (`data-rcb-args='{\"label\":\"Cancel\"}'`), and `data-rcb-screen=\"<name>\"` on the screen's root. RavenRS then checks the screen piece by piece (see *Checking a screen*).\n\
          - **Size them as the card says.** Its *Sizing* tells whether a component fills the width of its parent or hugs its content, with the size it takes in parents of 320, 760 and 1200 pt. A field that fills its column stretches with it; a button that hugs its label keeps its width.\n\
          - **Change a component only through its settings** (the `argTypes` of its card). A variant, size or state that is not there does not exist.\n\
          - **Compose, do not invent.** A piece the screen needs that no component gives goes on a note called *Missing from the library* on the artboard, with what it should do. It joins the library before the screen is built.\n\
          - Colors are tokens (`var(--accent)`), never new colors; spacing follows the 4px grid (`space-*`); corners follow `radius-*`.\n\
          - Icons are RavenRS icons, by the names in the cards (`trash-2`, `search`); the `RavenIcons` font draws them.\n\n\
+         ## Checking a screen\n\n\
+         An artboard that keeps the marks can be checked against RavenRS. Run this script in it: it saves `<screen>.rcb.json` with every marked element, its settings and its box, and `raven-component-book --replay <file>` says which pieces RavenRS would not build at that size (1 pt of tolerance; a little more for the width of a label, which a browser lays out wider).\n\n\
+         ```js\n{script}\n```\n\n\
          ## Changing this system\n\n\
          RavenComponentBook writes every file of this system from the RavenRS code, and the design tool takes them as they are: nothing here is edited by hand. To change a component, change its stories (`ComponentBook`) or the component itself; to change a color, a size, a corner or a font, change the tokens of `ravenrs-style`. Then RavenComponentBook writes the system again.\n\n\
          ## Components\n\n\
@@ -651,7 +654,7 @@ fn guide_with_index(entries: &[Entry]) -> String {
     }
     text.push_str("\n## ");
     text.push_str(rest);
-    text.replace("`raven-style`", "`ravenrs-style`")
+    text.replace("`raven-style`", "`ravenrs-style`").replace("{script}", crate::replay::SCRIPT)
 }
 
 fn card_readme(entry: &Entry, stories: &[MeasuredStory]) -> String {
