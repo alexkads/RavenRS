@@ -39,7 +39,10 @@ impl CiPlugin for Rotas {
             })
             .public(),
             Route::new("GET", "/api/rotas/quem", |request: &HttpRequest| {
-                HttpResponse::json(200, &json!({ "quem": request.actor, "papeis": request.roles, "roda": request.may_run() }))
+                HttpResponse::json(
+                    200,
+                    &json!({ "quem": request.actor, "papeis": request.roles, "roda": request.may_run() }),
+                )
             }),
             Route::new("GET", "/api/rotas/texto", |_: &HttpRequest| HttpResponse::text(200, "olá")),
         ]
@@ -60,7 +63,11 @@ fn server(name: &str) -> Server {
     ci.add_plugin(Arc::new(Fake::new(Point::PipelineFormat)));
     ci.apply_plugins().expect("on");
     let users = raven_ci_core::api::users_file(&disk.dir);
-    assert_eq!(create_user(&users, "ana", PASSWORD, ROLE_READ).expect("first"), ROLE_ADMIN, "the first is an admin");
+    assert_eq!(
+        create_user(&users, "ana", PASSWORD, ROLE_READ).expect("first"),
+        ROLE_ADMIN,
+        "the first is an admin"
+    );
     create_user(&users, "bia", PASSWORD, ROLE_RUN).expect("bia");
     create_user(&users, "caio", PASSWORD, ROLE_READ).expect("caio");
     assert!(create_user(&users, "bia", PASSWORD, ROLE_RUN).is_err(), "a name already there");
@@ -90,7 +97,9 @@ impl Server {
         }
         let answer = self.api.handle(request);
         let body = match &answer.raw {
-            Some((_, bytes)) => serde_json::from_slice(bytes).unwrap_or_else(|_| json!(String::from_utf8_lossy(bytes))),
+            Some((_, bytes)) => {
+                serde_json::from_slice(bytes).unwrap_or_else(|_| json!(String::from_utf8_lossy(bytes)))
+            }
             None => answer.body.clone(),
         };
         (answer.status, body)
@@ -100,7 +109,9 @@ impl Server {
 #[test]
 fn no_one_signed_in_reads_nothing_of_the_ci() {
     let mut server = server("api-anonimo");
-    for path in ["/api/ci/jobs", "/api/ci/queue", "/api/ci/build?job=x&number=1", "/api/rotas/quem", "/api/me"] {
+    for path in
+        ["/api/ci/jobs", "/api/ci/queue", "/api/ci/build?job=x&number=1", "/api/rotas/quem", "/api/me"]
+    {
         assert_eq!(server.get(path, None).0, 401, "{path}");
         assert_eq!(server.get(path, Some("um-token-que-nao-vale")).0, 401, "{path}");
     }
@@ -109,7 +120,10 @@ fn no_one_signed_in_reads_nothing_of_the_ci() {
 #[test]
 fn someone_signed_in_reads_the_jobs_a_build_and_only_the_new_lines_of_its_log() {
     let mut server = server("api-leitura");
-    server.ci.save_job(JobSpec::new("apps/site", "fake-lines", "Build: compila\nTeste: testa")).expect("saved");
+    server
+        .ci
+        .save_job(JobSpec::new("apps/site", "fake-lines", "Build: compila\nTeste: testa"))
+        .expect("saved");
     let n = server.ci.request_build(BuildRequest::new("apps/site", "teste")).expect("asked").number;
     server.ci.work_until_idle("e1").expect("runs");
     let token = server.token("caio");
@@ -124,7 +138,8 @@ fn someone_signed_in_reads_the_jobs_a_build_and_only_the_new_lines_of_its_log() 
     let lines = all.as_array().expect("lines");
     assert!(lines.len() >= 2, "{all}");
     let second = lines[1]["seq"].as_u64().expect("seq");
-    let (_, after) = server.get(&format!("/api/ci/log?job=apps/site&number={n}&after={second}"), Some(&token));
+    let (_, after) =
+        server.get(&format!("/api/ci/log?job=apps/site&number={n}&after={second}"), Some(&token));
     assert_eq!(after.as_array().map(Vec::len), Some(lines.len() - 2));
     let (status, missing) = server.get("/api/ci/build?job=apps/site&number=99", Some(&token));
     assert_eq!(status, 404, "{missing}");
@@ -179,7 +194,10 @@ fn the_triggers_the_jobs_name_are_watched_and_a_wrong_one_is_said() {
     let problems = ci.watch_triggers();
     assert_eq!(probe.watched(), ["vigiado"]);
     assert_eq!(problems.len(), 2, "{problems:?}");
-    assert!(problems.iter().any(|p| p.contains("o gatilho cron de quebrado: falta o plugin")), "{problems:?}");
+    assert!(
+        problems.iter().any(|p| p.contains("o gatilho cron de quebrado: falta o plugin")),
+        "{problems:?}"
+    );
     let number = probe.fire("vigiado").expect("fired");
     ci.work_until_idle("e1").expect("runs");
     assert_eq!(ci.build("vigiado", number).expect("build").cause, "disparado pelo gatilho falso");

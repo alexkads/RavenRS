@@ -28,31 +28,34 @@ fn failed(e: impl std::fmt::Display) -> CiError {
 /// The value after `flag` in `args`, if it is there.
 fn flag<'a>(args: &[&'a str], flag: &str) -> Result<Option<&'a str>, CiError> {
     match args.iter().position(|a| *a == flag) {
-        Some(at) => args.get(at + 1).copied().map(Some).ok_or_else(|| CiError::settings(flag, "precisa de um valor")),
+        Some(at) => {
+            args.get(at + 1).copied().map(Some).ok_or_else(|| CiError::settings(flag, "precisa de um valor"))
+        }
         None => Ok(None),
     }
 }
 
-/// Waits for Ctrl+C or, on Linux and macOS, `SIGTERM`.
-async fn told_to_stop() {
+/// What stops the server: Ctrl+C or, on Linux and macOS, `SIGTERM`. Made before the server says
+/// where it listens, so a signal sent as soon as it starts is not lost; it has to be made inside
+/// the runtime.
+fn stopping() -> Result<impl std::future::Future<Output = ()>, CiError> {
     #[cfg(unix)]
     {
         use tokio::signal::unix::{SignalKind, signal};
-        match signal(SignalKind::terminate()) {
-            Ok(mut term) => {
-                tokio::select! {
-                    _ = tokio::signal::ctrl_c() => {}
-                    _ = term.recv() => {}
-                }
+        let mut term = signal(SignalKind::terminate()).map_err(failed)?;
+        let mut interrupt = signal(SignalKind::interrupt()).map_err(failed)?;
+        Ok(async move {
+            tokio::select! {
+                _ = term.recv() => {}
+                _ = interrupt.recv() => {}
             }
-            Err(_) => {
-                let _ = tokio::signal::ctrl_c().await;
-            }
-        }
+        })
     }
     #[cfg(not(unix))]
     {
-        let _ = tokio::signal::ctrl_c().await;
+        Ok(async {
+            let _ = tokio::signal::ctrl_c().await;
+        })
     }
 }
 
@@ -68,14 +71,13 @@ pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<
         writeln!(out, "aviso: {problem}").map_err(failed)?;
     }
     let running = Executors::start(ci.clone(), executors, POLL);
-    let runtime = tokio::runtime::Builder::new_multi_thread()
-        .worker_threads(2)
-        .enable_all()
-        .build()
-        .map_err(failed)?;
+    let runtime =
+        tokio::runtime::Builder::new_multi_thread().worker_threads(2).enable_all().build().map_err(failed)?;
     let users = api::users_file(data);
     let served: Result<(), CiError> = runtime.block_on(async {
-        let listener = tokio::net::TcpListener::bind(&address).await.map_err(|e| failed(format!("{address}: {e}")))?;
+        let stop = stopping()?;
+        let listener =
+            tokio::net::TcpListener::bind(&address).await.map_err(|e| failed(format!("{address}: {e}")))?;
         let at = listener.local_addr().map_err(failed)?;
         writeln!(out, "Raven CI em http://{at}, com {executors} executor(es)").map_err(failed)?;
         out.flush().map_err(failed)?;
@@ -88,7 +90,7 @@ pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<
         let make = move || api::service(made.clone(), &users);
         tokio::select! {
             result = ravenrs_app_server::serve_with(listener, options, make) => result.map_err(failed),
-            () = told_to_stop() => Ok(()),
+            () = stop => Ok(()),
         }
     });
     ci.unwatch_triggers();
@@ -101,13 +103,20 @@ pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<
 }
 
 /// `raven-ci usuario criar NOME [--papel PAPEL]`, with the password on the first line of `input`.
-pub fn create_user(data: &Path, name: &str, args: &[&str], input: &mut dyn BufRead, out: &mut dyn Write) -> Result<i32, CiError> {
+pub fn create_user(
+    data: &Path,
+    name: &str,
+    args: &[&str],
+    input: &mut dyn BufRead,
+    out: &mut dyn Write,
+) -> Result<i32, CiError> {
     let role = flag(args, "--papel")?.unwrap_or(ROLE_RUN);
     let mut password = String::new();
     input.read_line(&mut password).map_err(failed)?;
     let password = password.trim_end_matches(['\r', '\n']);
     if password.is_empty() {
-        writeln!(out, "a senha vem na primeira linha da entrada: echo SENHA | raven-ci usuario criar {name}").map_err(failed)?;
+        writeln!(out, "a senha vem na primeira linha da entrada: echo SENHA | raven-ci usuario criar {name}")
+            .map_err(failed)?;
         return Ok(2);
     }
     std::fs::create_dir_all(data).map_err(failed)?;

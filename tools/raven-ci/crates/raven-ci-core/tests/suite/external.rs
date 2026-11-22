@@ -160,7 +160,13 @@ fn a_plugin_with_no_call_for_its_idle_time_is_stopped() {
         assert!(began.elapsed() < Duration::from_secs(5), "stopped after its 400 ms idle");
         std::thread::sleep(Duration::from_millis(50));
     }
-    assert!(ravenrs_metrics::rss_bytes_of(pid).is_none() || cfg!(windows), "the process is gone");
+    // A process just ended may still show for a moment, as a zombie holding no memory.
+    let gone = || ravenrs_metrics::rss_bytes_of(pid).is_none_or(|bytes| bytes == 0);
+    let began = Instant::now();
+    while !gone() && !cfg!(windows) && began.elapsed() < Duration::from_secs(2) {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    assert!(gone() || cfg!(windows), "the process is gone");
     rebel.stop();
 }
 

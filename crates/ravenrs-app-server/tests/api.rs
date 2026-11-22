@@ -1087,9 +1087,14 @@ fn someone_turned_off_loses_settings_too_and_a_key_has_no_preferences() {
 fn a_fallback_answers_its_own_paths_knows_who_asked_and_leaves_the_rest_to_the_api() {
     let database = database();
     let service = ApiService::new(maker(&database), roles()).unwrap().fallback(|request, who| {
-        match (request.method.as_str(), request.path.iter().map(String::as_str).collect::<Vec<_>>().as_slice()) {
+        match (
+            request.method.as_str(),
+            request.path.iter().map(String::as_str).collect::<Vec<_>>().as_slice(),
+        ) {
             ("POST", ["hooks", "x"]) => Some(ApiResponse::json(202, json!({ "body": request.body.len() }))),
-            ("GET", ["metrics"]) => Some(ApiResponse::raw(200, "text/plain; version=0.0.4", b"up 1\n".to_vec())),
+            ("GET", ["metrics"]) => {
+                Some(ApiResponse::raw(200, "text/plain; version=0.0.4", b"up 1\n".to_vec()))
+            }
             ("GET", ["api", "ci", "me"]) => Some(match who() {
                 Some(caller) => ApiResponse::json(
                     200,

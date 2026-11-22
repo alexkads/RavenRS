@@ -127,7 +127,8 @@ fn answer(status: u16, body: &Json) -> Response {
 /// `bytes` of the type `content_type`, as a fallback answered them.
 fn raw(status: u16, content_type: &str, bytes: Vec<u8>) -> Response {
     let status = StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
-    let kind = HeaderValue::from_str(content_type).unwrap_or(HeaderValue::from_static("application/octet-stream"));
+    let kind =
+        HeaderValue::from_str(content_type).unwrap_or(HeaderValue::from_static("application/octet-stream"));
     (status, [(header::CONTENT_TYPE, kind)], bytes).into_response()
 }
 
@@ -236,7 +237,8 @@ async fn answered(worker: &Worker, request: Request<Body>) -> Response {
             .iter()
             .filter(|(name, _)| {
                 let name = name.as_str();
-                name.starts_with("x-ravenrs-") || worker.headers.iter().any(|prefix| name.starts_with(prefix.as_str()))
+                name.starts_with("x-ravenrs-")
+                    || worker.headers.iter().any(|prefix| name.starts_with(prefix.as_str()))
             })
             .filter_map(|(name, value)| Some((name.as_str().to_owned(), value.to_str().ok()?.to_owned())))
             .collect(),
@@ -256,7 +258,9 @@ async fn answered(worker: &Worker, request: Request<Body>) -> Response {
         return stream(worker, asked, &topic, after).await;
     }
     match ask(worker, asked).await {
-        Some(ApiResponse { status, raw: Some((content_type, bytes)), .. }) => raw(status, &content_type, bytes),
+        Some(ApiResponse { status, raw: Some((content_type, bytes)), .. }) => {
+            raw(status, &content_type, bytes)
+        }
         Some(response) => answer(response.status, &response.body),
         None => busy(),
     }
@@ -370,7 +374,10 @@ fn work(mut service: ApiService, waiting: &Mutex<mpsc::Receiver<Asked>>) {
         let answered = catch_unwind(AssertUnwindSafe(|| service.handle(request)));
         let response = answered.unwrap_or_else(|_| {
             tracing::error!("a request panicked");
-            ApiResponse::json(500, json!({ "error": "internal", "message": "Something went wrong on the server." }))
+            ApiResponse::json(
+                500,
+                json!({ "error": "internal", "message": "Something went wrong on the server." }),
+            )
         });
         let _ = reply.send(response);
     }

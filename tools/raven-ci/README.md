@@ -57,6 +57,8 @@ cargo run -p raven-ci -- --plugins tools/raven-ci/plugins plugins listar
 | `raven-ci plugins info NOME` | one plugin: dependencies, permissions declared and granted, configuration, memory, audit |
 | `raven-ci plugins ligar NOME` / `desligar NOME` | switches it, and says what else changed |
 | `raven-ci <comando>` | a command a plugin brings, such as `raven-ci hello Ana` |
+| `raven-ci servir [--endereco HOST:PORTA] [--executores N]` | the server: HTTP with sign-in (`/health` open; `/api/ci/jobs`, `build`, `log?after=`, `queue` and the routes of the plugins behind a token), the executors and the triggers of the jobs; it stops on Ctrl+C or `SIGTERM` |
+| `echo SENHA \| raven-ci usuario criar NOME [--papel P]` | someone who may sign in; the first is an administrator, then `Executores` (asks for builds) or `Leitores` (reads) |
 | `raven-ci --self-test` | a core in memory with a fake plugin for every point, and builds through them |
 | `raven-ci --versao` | the version |
 
@@ -73,6 +75,8 @@ folder and in each `--plugins PASTA`.
 | `git` | scm | fetches a branch, a commit, or a pull request merged onto its target into the folder of the build; the credential goes as a header, never as an argument |
 | `lock` | step | named locks (`lock = "maquina"` in a stage) on the same files `flock` uses, let go when the build ends however it ends, never handed to the programs a step starts |
 | `workspace-cleanup` | build hook | refuses a build when the disk of its folder has less free space than `workspace.min_free_gb` (5 GB unless said) |
+| `api-trigger` | trigger, route | `POST /api/ci/run` with `{"job", "parameters"}` asks for a build of a job whose `triggers` say `{"id": "api"}`, for someone with the role `Executores` or an administrator |
+| `cron` | trigger | `cron` (a schedule in a time zone, or `every = "1h"`) and `poll` (`git ls-remote` of a branch every `5m`, a build when it moved) |
 
 ```toml
 [[parameters]]

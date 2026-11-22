@@ -1,0 +1,22 @@
+[package]
+name = "raven-ci-plugin-api-trigger"
+description = "The plugin api-trigger of Raven CI: POST /api/ci/run asks for a build of a job that accepts it, with its parameters, for someone who may run builds."
+version = "0.1.0"
+edition.workspace = true
+# raven-ci-core, which the tests use, needs 1.89 (ravenrs-flows-runtime, rusqlite 0.41).
+rust-version = "1.89"
+license.workspace = true
+publish = false
+
+[dependencies]
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
+ravenrs-app.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+raven-ci-core = { path = "../raven-ci-core" }
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api", features = ["testing"] }
+ravenrs-app-server.workspace = true
+
+[lints]
+workspace = true

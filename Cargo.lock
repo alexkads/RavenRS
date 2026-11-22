@@ -6008,6 +6008,8 @@ version = "0.1.0"
 dependencies = [
  "raven-ci-core",
  "raven-ci-plugin-api",
+ "raven-ci-plugin-api-trigger",
+ "raven-ci-plugin-cron",
  "raven-ci-plugin-format-toml",
  "raven-ci-plugin-git",
  "raven-ci-plugin-lock",
@@ -6053,6 +6055,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "raven-ci-plugin-api-trigger"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-app-server",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-cron"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-git",
+ "ravenrs-schedule",
+ "serde_json",
+]
+
+[[package]]
 name = "raven-ci-plugin-format-toml"
 version = "0.1.0"
 dependencies = [
@@ -6061,6 +6086,7 @@ dependencies = [
  "raven-ci-plugin-shell",
  "ravenrs-app",
  "ravenrs-flows",
+ "ravenrs-schedule",
  "serde_json",
  "toml",
 ]

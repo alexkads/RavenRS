@@ -145,33 +145,11 @@ impl Reader<'_> {
     }
 }
 
-/// `30s`, `10m`, `1h30m`, `500ms` in milliseconds.
+/// `30s`, `10m`, `1h30m`, `500ms` in milliseconds, read by `ravenrs-schedule` as every period of
+/// the house is.
 fn parse_duration(text: &str) -> Option<u64> {
-    let text = text.trim();
-    if text.is_empty() {
-        return None;
-    }
-    let mut total = 0u64;
-    let mut rest = text;
-    while !rest.is_empty() {
-        let digits = rest.find(|c: char| !c.is_ascii_digit()).unwrap_or(rest.len());
-        if digits == 0 {
-            return None;
-        }
-        let amount: u64 = rest[..digits].parse().ok()?;
-        rest = &rest[digits..];
-        let unit = rest.find(|c: char| c.is_ascii_digit()).unwrap_or(rest.len());
-        let per = match &rest[..unit] {
-            "ms" => 1,
-            "s" => 1000,
-            "m" | "min" => 60_000,
-            "h" => 3_600_000,
-            _ => return None,
-        };
-        total = total.checked_add(amount.checked_mul(per)?)?;
-        rest = &rest[unit..];
-    }
-    Some(total)
+    let period = ravenrs_schedule::parse_period(text).ok()?;
+    u64::try_from(period.as_millis()).ok()
 }
 
 /// A TOML value as JSON, for the parameters of a step.

@@ -32,8 +32,8 @@ use std::sync::Arc;
 
 use raven_ci_plugin_api::{CiError, HttpRequest, ROLE_ADMIN, ROLE_READ, ROLE_RUN};
 use ravenrs_app::{
-    ObjectSpace, Query, Role, SECURITY_ROLE, SECURITY_USER, SECURITY_USER_ROLE, SpaceMaker, UserDirectory, Value,
-    hash_password, security_entities,
+    ObjectSpace, Query, Role, SECURITY_ROLE, SECURITY_USER, SECURITY_USER_ROLE, SpaceMaker, UserDirectory,
+    Value, hash_password, security_entities,
 };
 use ravenrs_app_server::{ApiRequest, ApiResponse, ApiService, Caller};
 use ravenrs_app_sqlite::{SqliteDatabase, TableMap};
@@ -59,10 +59,11 @@ fn failed(e: impl std::fmt::Display) -> CiError {
 /// What makes units of work over the people in `file`: each thread that answers opens it.
 pub fn users(file: &Path) -> Result<SpaceMaker, CiError> {
     let connection = Rc::new(rusqlite::Connection::open(file).map_err(failed)?);
-    let builder = security_entities().into_iter().try_fold(SqliteDatabase::builder(connection), |builder, entity| {
-        let table = TableMap::new(format!("ci_{}", entity.name.to_lowercase()));
-        builder.managed(entity, table)
-    });
+    let builder =
+        security_entities().into_iter().try_fold(SqliteDatabase::builder(connection), |builder, entity| {
+            let table = TableMap::new(format!("ci_{}", entity.name.to_lowercase()));
+            builder.managed(entity, table)
+        });
     let database = builder.map_err(failed)?.build();
     Ok(Rc::new(move || Box::new(database.space()) as Box<dyn ObjectSpace>))
 }
@@ -78,7 +79,10 @@ pub fn create_user(file: &Path, name: &str, password: &str, role: &str) -> Resul
         return Ok(ROLE_ADMIN.to_owned());
     }
     if !roles().iter().any(|known| known.name() == role) {
-        return Err(CiError::settings("papel", format!("{role} não existe; use {ROLE_ADMIN}, {ROLE_RUN} ou {ROLE_READ}")));
+        return Err(CiError::settings(
+            "papel",
+            format!("{role} não existe; use {ROLE_ADMIN}, {ROLE_RUN} ou {ROLE_READ}"),
+        ));
     }
     let name = name.trim();
     if name.is_empty() {
@@ -147,10 +151,10 @@ fn to_json(value: &impl serde::Serialize) -> Json {
 /// What the core answers `request`, or `None` for a path that is not its own.
 fn answer(ci: &Ci, request: &ApiRequest, who: &mut dyn FnMut() -> Option<Caller>) -> Option<ApiResponse> {
     let path: Vec<&str> = request.path.iter().map(String::as_str).collect();
-    if let ["api", "ci", what] = path.as_slice() {
-        if request.method != "GET" {
-            return None;
-        }
+    if let ["api", "ci", what] = path.as_slice()
+        && request.method == "GET"
+        && READS.contains(what)
+    {
         if who().is_none() {
             return Some(unauthorized());
         }
@@ -158,6 +162,10 @@ fn answer(ci: &Ci, request: &ApiRequest, who: &mut dyn FnMut() -> Option<Caller>
     }
     plugin_route(ci, request, &path, who)
 }
+
+/// What the core reads at `GET /api/ci/{what}`; any other path under `/api/ci/` is a plugin's,
+/// as `POST /api/ci/run`.
+const READS: [&str; 5] = ["jobs", "builds", "build", "log", "queue"];
 
 /// The parameter `name` of the query, or a refusal saying it is missing.
 fn wanted<'q>(query: &'q BTreeMap<String, String>, name: &str) -> Result<&'q str, CiError> {
@@ -186,8 +194,7 @@ fn read(ci: &Ci, what: &str, query: &BTreeMap<String, String>) -> Result<ApiResp
             let after = query.get("after").and_then(|a| a.parse().ok()).unwrap_or(0);
             to_json(&ci.build_log(job, n, after)?)
         }
-        "queue" => to_json(&ci.queue()?),
-        _ => return Ok(json(404, &json!({ "error": "not_found", "message": format!("não há /api/ci/{what}") }))),
+        _ => to_json(&ci.queue()?),
     };
     Ok(json(200, &body))
 }
@@ -200,13 +207,21 @@ fn plugin_route(
     who: &mut dyn FnMut() -> Option<Caller>,
 ) -> Option<ApiResponse> {
     let joined = format!("/{}", path.join("/"));
-    let route = ci.registry().on().iter().flat_map(|plugin| plugin.routes()).find(|route| route.matches(&request.method, &joined))?;
+    let route = ci
+        .registry()
+        .on()
+        .iter()
+        .flat_map(|plugin| plugin.routes())
+        .find(|route| route.matches(&request.method, &joined))?;
     let caller = if route.public {
         if !joined.starts_with(OPEN_PREFIX) {
-            return Some(json(500, &json!({
-                "error": "ci",
-                "message": format!("a rota pública {} não está em {OPEN_PREFIX}", route.path),
-            })));
+            return Some(json(
+                500,
+                &json!({
+                    "error": "ci",
+                    "message": format!("a rota pública {} não está em {OPEN_PREFIX}", route.path),
+                }),
+            ));
         }
         None
     } else {

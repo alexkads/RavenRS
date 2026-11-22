@@ -12,6 +12,8 @@ publish = false
 raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
 ravenrs-app.workspace = true
 ravenrs-flows.workspace = true
+# Periods (30s, 1h30m), read as every period of the house is.
+ravenrs-schedule.workspace = true
 serde_json.workspace = true
 # Reads the file keeping where each value is, to say the line of each error.
 toml = { version = "1", default-features = false, features = ["parse", "serde", "std"] }
