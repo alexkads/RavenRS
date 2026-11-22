@@ -4,7 +4,9 @@ use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Insets, Key, LinearGradient, Point, Quad, Rect, Role};
+use ravenrs_core::{
+    AccessAction, Border, Color, CursorIcon, Insets, Key, LinearGradient, Point, Quad, Rect, Role,
+};
 use ravenrs_layout::{Align, Axis, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle};
@@ -551,6 +553,23 @@ impl View for ColorPicker {
         if !state.accepts_input() {
             return node;
         }
+        // Opened and closed as by a click, and given a color as `#3B82F6`.
+        let (shown, value) = (open.clone(), self.value.clone());
+        cx.on_access(
+            node,
+            &[AccessAction::Expand, AccessAction::Collapse, AccessAction::SetValue],
+            move |action, text| match action {
+                AccessAction::SetValue => {
+                    let Some(color) = text.and_then(parse_hex) else { return false };
+                    value.set(Some(color));
+                    true
+                }
+                _ => {
+                    shown.set(action == AccessAction::Expand);
+                    true
+                }
+            },
+        );
         let toggle = open.clone();
         cx.on_click(node, Rc::new(move || toggle.update(|o| *o = !*o)));
         let opener = open.clone();
