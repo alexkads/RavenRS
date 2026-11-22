@@ -25,7 +25,7 @@ use std::time::{Duration, Instant};
 
 pub use hooks::{
     ORGANIZATION_HEADER, SIGNATURE_HEADER, WEBHOOK_EVENT, Webhook, WebhookContext, WebhookHandler, sign,
-    webhook_event_entity,
+    verify, webhook_event_entity,
 };
 pub use http::{ApiOptions, router, router_with, serve, serve_with};
 pub use keys::{IssuedKey, issue_key, revoke_key};
