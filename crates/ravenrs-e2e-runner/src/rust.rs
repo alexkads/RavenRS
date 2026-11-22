@@ -78,6 +78,9 @@ fn command_code(command: &Command) -> String {
         Command::Mention { target, text } => {
             format!("Command::Mention {{ target: {}, text: {} }}", s(target), s(text))
         }
+        Command::Expect { target, state } => {
+            format!("Command::Expect {{ target: {}, state: {} }}", s(target), s(state))
+        }
         Command::Fill { target, text } => {
             format!("Command::Fill {{ target: {}, text: {} }}", s(target), s(text))
         }

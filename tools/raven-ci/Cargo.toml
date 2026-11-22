@@ -1,0 +1,23 @@
+[package]
+name = "raven-ci"
+description = "Raven CI: a small CI/CD server whose every function is a plugin, with the queue, the model of builds and the register of plugins in its core."
+version = "0.1.0"
+edition.workspace = true
+# ravenrs-flows-runtime (rusqlite 0.41) needs 1.89, one above the workspace.
+rust-version = "1.89"
+license.workspace = true
+publish = false
+
+[dependencies]
+raven-ci-core = { path = "crates/raven-ci-core" }
+# The fake plugins: the self-test plugs one of each extension point in.
+raven-ci-plugin-api = { path = "crates/raven-ci-plugin-api", features = ["testing"] }
+ravenrs-app-update.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+ravenrs-process.workspace = true
+
+[lints]
+workspace = true

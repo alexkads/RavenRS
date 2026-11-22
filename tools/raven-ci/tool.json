@@ -1,0 +1,62 @@
+{
+  "name": "Raven CI",
+  "also_called": [
+    "RCI",
+    "raven-ci"
+  ],
+  "package": "raven-ci",
+  "version": "0.1.0",
+  "summary": "A small CI/CD server whose core holds only the queue, the model of jobs and builds and the register of plugins; every function of a CI (pipeline formats, steps, git, providers, triggers, publishers, agents) is a plugin, compiled in or a program of any language over JSON-RPC.",
+  "when_to_use": [
+    "To see which plugins Raven CI has, whether each is on, and why one was refused.",
+    "To switch a plugin on or off without restarting anything.",
+    "To check that the core and the API of plugins work on this machine (--self-test)."
+  ],
+  "commands": [
+    {
+      "command": "raven-ci plugins listar [--format json]",
+      "does": "Lists every plugin: version, origin (compiled in or external), state (on, off, or refused with the reason) and the points it offers."
+    },
+    {
+      "command": "raven-ci plugins info NOME [--format json]",
+      "does": "Shows one plugin: dependencies with the versions accepted, permissions declared and granted, configuration and memory."
+    },
+    {
+      "command": "raven-ci plugins ligar NOME",
+      "does": "Switches the plugin on and says what else changed."
+    },
+    {
+      "command": "raven-ci plugins desligar NOME",
+      "does": "Switches the plugin off, with the plugins that need it, and says which."
+    },
+    {
+      "command": "raven-ci <comando de plugin> ...",
+      "does": "Runs a subcommand a plugin brings, such as `raven-ci hello Ana` from the example plugin."
+    },
+    {
+      "command": "raven-ci --self-test",
+      "does": "Puts a core together in memory with a fake plugin for every extension point and runs a build through all of them; exit code 0 when it passed."
+    },
+    {
+      "command": "raven-ci --versao",
+      "does": "Prints the version."
+    }
+  ],
+  "options": [
+    {
+      "option": "--dados PASTA",
+      "does": "The folder of its data (also RAVEN_CI_HOME); ~/.raven-ci by default. The external plugins are found in its plugins/ folder and in the folders given with --plugins."
+    },
+    {
+      "option": "--plugins PASTA",
+      "does": "Another folder of external plugins, one folder per plugin with its plugin.toml."
+    }
+  ],
+  "limits": [
+    "It has no window and no HTTP server yet: the panel, the agents and the API come in the next phases of #803.",
+    "No plugin for real work ships yet (shell, git, GitHub, TOML pipelines): they are phase 2 of #803.",
+    "Switching a plugin on or off from the command line changes what the next start of the server loads; the core switches them live, with no restart, through its API.",
+    "The memory of a plugin compiled in is not measured apart from the server's; an external plugin's is, on Linux and macOS."
+  ],
+  "window": false
+}

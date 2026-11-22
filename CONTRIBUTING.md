@@ -111,7 +111,7 @@ Every app with a window in `examples/` and `tools/` (an independent workspace to
   ravenrs-e2e-wire = { workspace = true, features = ["serve"] }
   ```
 
-- [ ] `tests/e2e/` keeps `.raventest` scenarios that open the app and check what it did (`check`, `mention`), not only click. Find parts by test id or by the text a screen reader reads, never by position; a text that shows twice needs a test id (`display`, `item:<key>`).
+- [ ] `tests/e2e/` keeps `.raventest` scenarios that open the app and check what it did (`check`, `mention`, `expect` for a state), not only click. Find parts by test id or by the text a screen reader reads, never by position; a text that shows twice needs a test id (`display`, `item:<key>`).
 - [ ] the app brings them, so a Studio installed anywhere runs them: `pub const SCENARIOS: [&str; 1] = [include_str!("../tests/e2e/abrir.raventest")];` in `lib.rs`.
 - [ ] `main.rs` answers the channel before any window, with data in memory or in a folder of its own under the temporary folder, never the person's:
 

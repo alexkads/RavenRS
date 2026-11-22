@@ -71,7 +71,9 @@ pub trait ComponentBook: View {
         Self: Sized;
 }
 
-#[cfg(feature = "book")]
+// The other stories use its icons and its sizes (DropdownMenu, #831), so it is always there;
+// without the book, what only the book's list uses is left unused.
+#[cfg_attr(not(feature = "book"), allow(dead_code))]
 mod button;
 #[cfg(feature = "book")]
 mod card;

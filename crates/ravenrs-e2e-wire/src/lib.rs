@@ -163,6 +163,14 @@ pub enum Command {
         /// The option, as it is shown.
         text: String,
     },
+    /// The target is in the state the text names, as [`State::read`] reads it: checked,
+    /// unchecked, disabled, enabled, focused, visible, or `count N` parts.
+    Expect {
+        /// `#id` or the text shown.
+        target: String,
+        /// The state, in English or in Portuguese.
+        state: String,
+    },
     /// Opens the item, if it is closed.
     Expand {
         /// `#id` or the text shown.
@@ -236,6 +244,50 @@ pub enum Command {
     /// Ends the test and leaves the window to the person, to look at how the app was left; the
     /// app exits when the person closes it. With no window, the same as [`Command::Bye`].
     Release,
+}
+
+/// A state an [`Command::Expect`] checks, read from its English or its Portuguese word.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum State {
+    /// A check box, switch or toggle that is on.
+    Checked,
+    /// A check box, switch or toggle that is off.
+    Unchecked,
+    /// A part that does not respond to input.
+    Disabled,
+    /// A part that responds to input.
+    Enabled,
+    /// The part with the keyboard focus.
+    Focused,
+    /// A part with a size, its middle inside the window.
+    Visible,
+    /// Exactly this many parts match the target.
+    Count(usize),
+}
+
+impl State {
+    /// The words a state is written with, for whoever writes a scenario.
+    pub const WORDS: &'static str = "checked, unchecked, disabled, enabled, focused, visible ou count N \
+        (marcado, desmarcado, desabilitado, habilitado, com-foco, visivel, quantidade N)";
+
+    /// The state `text` names, in English or in Portuguese; why not, in Portuguese.
+    pub fn read(text: &str) -> Result<Self, String> {
+        let text = text.trim().to_lowercase();
+        let mut words = text.split_whitespace();
+        let state = match (words.next(), words.next(), words.next()) {
+            (Some("checked" | "marcado" | "ligado"), None, _) => Self::Checked,
+            (Some("unchecked" | "desmarcado" | "desligado"), None, _) => Self::Unchecked,
+            (Some("disabled" | "desabilitado"), None, _) => Self::Disabled,
+            (Some("enabled" | "habilitado"), None, _) => Self::Enabled,
+            (Some("focused" | "com-foco" | "focado"), None, _) => Self::Focused,
+            (Some("visible" | "visivel" | "visível"), None, _) => Self::Visible,
+            (Some("count" | "quantidade"), Some(n), None) => Self::Count(
+                n.parse().map_err(|_| format!("{n} não é uma quantidade: count N, com N inteiro"))?,
+            ),
+            _ => return Err(format!("estado desconhecido \"{text}\"; os que existem: {}", Self::WORDS)),
+        };
+        Ok(state)
+    }
 }
 
 /// What a step needs to find: `#id` is a test id, anything else is the text shown.
@@ -332,6 +384,20 @@ impl Command {
                 }
             }
             Self::Mention { target: t, text } => e2e.locate(target(t)).expect().to_mention(text),
+            Self::Expect { target: t, state } => {
+                let state = State::read(state)
+                    .map_err(|why| e2e.failure(ravenrs_e2e::ErrorCode::Expectation, why))?;
+                let expect = e2e.locate(target(t)).expect();
+                match state {
+                    State::Checked => expect.to_be_checked(),
+                    State::Unchecked => expect.to_be_unchecked(),
+                    State::Disabled => expect.to_be_disabled(),
+                    State::Enabled => expect.to_be_enabled(),
+                    State::Focused => expect.to_be_focused(),
+                    State::Visible => expect.to_be_visible(),
+                    State::Count(count) => expect.to_have_count(count),
+                }
+            }
             Self::Wait { .. }
             | Self::Snapshot
             | Self::Bye

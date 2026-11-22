@@ -56,6 +56,8 @@ pub enum Kind {
     Check,
     /// The target's name or description contains the text.
     Mention,
+    /// The target is in the state the text names (checked, disabled, `count N`...).
+    Expect,
     /// Puts the text in the field in place of what it has.
     Fill,
     /// Picks the option (the text) in a list or a combo box.
@@ -87,6 +89,7 @@ impl Kind {
             Self::Type => "type",
             Self::Check => "check",
             Self::Mention => "mention",
+            Self::Expect => "expect",
             Self::Fill => "fill",
             Self::Select => "select",
             Self::Expand => "expand",
@@ -108,6 +111,7 @@ impl Kind {
             "type" | "digitar" => Self::Type,
             "check" | "conferir" => Self::Check,
             "mention" | "mencionar" | "menciona" => Self::Mention,
+            "expect" | "estar" => Self::Expect,
             "fill" | "preencher" => Self::Fill,
             "select" | "escolher" => Self::Select,
             "expand" | "expandir" | "abrir-item" => Self::Expand,
@@ -128,6 +132,7 @@ impl Kind {
             Self::Type
                 | Self::Check
                 | Self::Mention
+                | Self::Expect
                 | Self::Fill
                 | Self::Select
                 | Self::Drag
@@ -171,6 +176,7 @@ impl Block {
             Kind::Type => Command::Type { target, text },
             Kind::Check => Command::Check { target, text },
             Kind::Mention => Command::Mention { target, text },
+            Kind::Expect => Command::Expect { target, state: text },
             Kind::Fill => Command::Fill { target, text },
             Kind::Select => Command::Select { target, text },
             Kind::Expand => Command::Expand { target },
@@ -211,8 +217,8 @@ impl fmt::Display for ScenarioError {
 
 impl std::error::Error for ScenarioError {}
 
-const WORDS: &str = "open, click, type, check, mention, fill, select, expand, collapse, scroll, wait, drag \
-     (ou abrir, clicar, digitar, conferir, mencionar, preencher, escolher, expandir, recolher, rolar, esperar, arrastar)";
+const WORDS: &str = "open, click, type, check, mention, expect, fill, select, expand, collapse, scroll, wait, drag \
+     (ou abrir, clicar, digitar, conferir, mencionar, estar, preencher, escolher, expandir, recolher, rolar, esperar, arrastar)";
 
 impl Scenario {
     /// The scenario as JSON, the form [`scenario_schema`] describes: what a tool or an AI that
@@ -261,6 +267,11 @@ impl Scenario {
             if kind.needs_text() && body.is_none() {
                 return Err(at(i + 1, format!("bloco {}: {} precisa de \"text\"", i + 1, kind.word())));
             }
+            if kind == Kind::Expect
+                && let Some(Err(why)) = body.as_deref().map(crate::State::read)
+            {
+                return Err(at(i + 1, format!("bloco {}: {why}", i + 1)));
+            }
             let title = text("title").filter(|t| !t.trim().is_empty()).unwrap_or_else(|| word.clone());
             blocks.push(Block { kind, target, text: body.filter(|_| kind.takes_text()), title });
         }
@@ -307,6 +318,11 @@ impl Scenario {
                     kind.word(),
                     kind.word()
                 )));
+            }
+            if kind == Kind::Expect
+                && let Some(Err(why)) = text.as_deref().map(crate::State::read)
+            {
+                return Err(at(why));
             }
             let title = title.filter(|t| !t.is_empty()).map_or_else(|| line.to_owned(), str::to_owned);
             blocks.push(Block { kind, target, text, title });
@@ -428,6 +444,7 @@ pub fn scenario_schema() -> serde_json::Value {
         Kind::Type,
         Kind::Check,
         Kind::Mention,
+        Kind::Expect,
         Kind::Fill,
         Kind::Select,
         Kind::Expand,
@@ -442,10 +459,11 @@ pub fn scenario_schema() -> serde_json::Value {
     .iter()
     .map(|k| k.word())
     .collect();
-    let needs: Vec<&str> = [Kind::Type, Kind::Check, Kind::Mention, Kind::Fill, Kind::Select, Kind::Drag]
-        .iter()
-        .map(|k| k.word())
-        .collect();
+    let needs: Vec<&str> =
+        [Kind::Type, Kind::Check, Kind::Mention, Kind::Expect, Kind::Fill, Kind::Select, Kind::Drag]
+            .iter()
+            .map(|k| k.word())
+            .collect();
     serde_json::json!({
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "$id": "https://github.com/alexkads/RavenRS/schemas/raventest.json",
@@ -466,7 +484,7 @@ pub fn scenario_schema() -> serde_json::Value {
                     "properties": {
                         "kind": { "enum": words, "description": "the English word; the file also reads the Portuguese ones" },
                         "target": { "type": "string", "minLength": 1, "description": "#test-id, the text shown, or for open the app's name" },
-                        "text": { "type": "string", "description": "what to type, check or pick; for drag, where to drop" },
+                        "text": { "type": "string", "description": "what to type, check or pick; for expect, the state (checked, disabled, count N...); for drag, where to drop" },
                         "title": { "type": "string", "description": "how the block is called in reports" }
                     },
                     "if": { "properties": { "kind": { "enum": needs } } },
