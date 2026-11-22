@@ -244,7 +244,7 @@ A autorização de ações deve ser explícita: `can_use_action` permite ações
 | Persistência de execuções | ✅ | `Runtime`, `crates/ravenrs-flows-runtime/src/runtime.rs:186`, sobre SQLite: execuções, passos com o JSON de cada nó, eventos e arquivos à parte (`Runtime::put_blob`, `crates/ravenrs-flows-runtime/src/runtime.rs:508`) | Outro banco além do SQLite | BIBLIOTECA: `ravenrs-flows-runtime` |
 | Métricas | ⬜ | Não encontrado contrato de métricas de execução; busca `B8`: `metrics`, `prometheus`, `opentelemetry` na camada de aplicação e servidor | Contadores, histogramas e filas com dimensões limitadas; health/readiness do executor e gatilhos | BIBLIOTECA: `L27` |
 
-O servidor atual processa o estado da aplicação em uma thread própria, uma requisição por vez, conforme `crates/ravenrs-app-server/src/http.rs`. Um endpoint não deve bloquear essa thread executando o fluxo inteiro.
+O servidor processa o estado da aplicação em threads próprias, uma requisição por vez em cada uma, conforme `crates/ravenrs-app-server/src/http.rs`. Com `ApiOptions::workers(n)` são `n` ao mesmo tempo (#807), mas um endpoint que roda o fluxo inteiro ainda ocupa uma delas até o fim. Por isso o fluxo continua na fila durável, e o endpoint só o enfileira.
 
 ### 12. Experiência geral
 

@@ -6,6 +6,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Breaking
 
+- The function that makes the `ApiService` of `ravenrs_app_server::router`, `router_with`, `serve` and `serve_with` is now `Fn() + Send + Sync`, not `FnOnce`, since each thread that answers calls it once. A closure that only builds the service from what it captures, as all of them in this repository, does not change (#807).
+
 - Four examples are tools now, with their own version, installer, news, icons, `--versao` and `--self-test`: **Raven Code (RCD)** in `tools/raven-code`, **Raven Movie Editor (RME)** in `tools/raven-movie-editor` (package `raven-movie-editor`), **Raven Report Designer (RRD)** in `tools/raven-report-designer` (package `raven-report-designer`) and **Raven Channel Video (RCV)** in `tools/raven-channel-video` (package `raven-channel-video`). A tool with no window says `"window": false` in its `tool.json` (#798).
 
 - The feature center is the **Raven Feature Center (RFC)**, named as the other tools are (RTS, RCB): `tools/raven-feature-center`, package `raven-feature-center` (`cargo run -p raven-feature-center`), window "Raven Feature Center" (#796).
@@ -58,10 +60,12 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 ### Added
 
 - Every type of `ravenrs-widgets-base` is in the testability contract of the RTS (#737, last lot): `Stepper` and `ColorPicker` take `SetValue` (a whole number, a color as `#3B82F6`); `ColorPicker` and `DateRangePicker` open and close with `Expand` and `Collapse`; the jacks of a `PatchPanel` are `jack:<id>`, the dots of a `Carousel` `slide:<n>`, the colors of a `SwatchGrid` `swatch:<name>`, and the points of a `NinePointAnchor` `option:<name>` and take `Select`.
+- `ApiOptions::workers(n)` in `ravenrs-app-server`: that many requests answered at the same time, each by a thread with its own service, so one slow request no longer holds up the rest. The threads share who is signed in: signing in on one, signing out, a session running out and a new password count on all of them, and the limit on tries to sign in adds up across them. The default stays one thread (#807).
 
 - 50 more types of `ravenrs-widgets-base` are in the testability contract of the RTS (#737, third lot): the segments of a `SegmentedControl` and the items of a `ToggleGroup` are `option:<label>`, the pages of a `Pagination` are `page:<n>`, and the display and layout components are found by the test id the app gives them, which a test of RavenComponentBook checks on every story of every component the contract lists as keeping it. `Canvas`, `Icon`, `Skeleton`, `AspectRatio` and `CablePlug` have nothing to find, and the contract says why.
 
 - The overlays of `ravenrs-widgets-base` keep the testability contract of the RTS (#737, second lot): `Dialog`, `Sheet`, `CommandPalette`, the menus and the toasts close with `Dismiss`; `DropdownMenu`, `ContextMenu` and the titles of a `Menubar` (`menu:<title>`) open with `ShowMenu`, `Expand` and `Collapse`, and a `Popover` with `Expand` and `Collapse`; menu items are `item:<label>`, commands `option:<label>`, toasts `toast:<id>`, and the close buttons `close`. `BuildCx::on_access` called again on a node adds to what it takes.
+
 - `ravenrs-schedule`, the scheduling engine of the report server, made to be shared with the app framework, Raven Flows and Raven CI, with no runtime of its own: the `cron` schedules move to it unchanged, and it adds `Trigger::cron` (in a time zone) and `Trigger::every`, `check` (one pass: seed, wait, run or record a miss, and the next run to store first), `Misfire::Within` and `Misfire::Always` (however many were missed, at most one runs) and `Running`, the guard that keeps one job from running twice. `ravenrs-report-server` uses it, and `ravenrs_report_server::cron` stays as a re-export (#804).
 
 - The input controls of `ravenrs-widgets-base` keep the testability contract of the RTS (#737, first lot): `TextField`, `Slider`, `Combobox`, `DatePicker` and `InputOtp` take `SetValue`; `Select`, `Combobox` and `DatePicker` open and close with `Expand` and `Collapse`; the options of `Select`, `Combobox` and `RadioGroup` are `option:<value>` and take `Select`; the days of the calendar are `day:<yyyy-mm-dd>` and take `Select`. `ravenrs-e2e` says so when a component refuses a value or an action.
