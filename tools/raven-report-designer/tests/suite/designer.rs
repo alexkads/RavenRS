@@ -2,9 +2,9 @@
 //! field onto a band, undo, and an accessibility audit of its controls.
 #![allow(clippy::expect_used, reason = "test helpers fail loudly")]
 
+use raven_report_designer::Designer;
 use ravenrs::core::{Event, Key, Modifiers, PointerButton, Toggled};
 use ravenrs::prelude::*;
-use raven_report_designer::Designer;
 
 fn designer() -> Ui {
     let mut ui = Ui::new(Designer::new(), Theme::raven_light());

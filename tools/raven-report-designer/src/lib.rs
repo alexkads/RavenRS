@@ -4,7 +4,6 @@
 use ravenrs::prelude::*;
 pub use ravenrs_report_designer::Designer;
 
-
 pub mod versao;
 
 /// Builds the designer with no window, as the installer and an agent ask it to. Returns what

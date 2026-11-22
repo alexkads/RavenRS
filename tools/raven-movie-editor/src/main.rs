@@ -32,9 +32,11 @@ mod versao;
 
 /// Opens the editor on a made-up film with no window. Returns what it checked.
 fn self_test() -> Result<String, String> {
-    let film = ravenrs::movie::FilmBuilder::new(Size::new(640.0, 400.0), Color::rgb(0.1, 0.1, 0.12))
-        .finish(1000)
-        .map_err(|e| e.to_string())?;
+    // A film of one empty frame, then a click: enough for the editor's timeline and player.
+    let mut builder = ravenrs::movie::FilmBuilder::new(Size::new(640.0, 400.0), Color::rgb(0.1, 0.1, 0.12));
+    builder.frame(0, &[]);
+    builder.click(500, Point::new(320.0, 200.0));
+    let film = builder.finish(1000).map_err(|e| e.to_string())?;
     let editor = MovieEditor::new(EditorState::new(film))
         .labels(EditorLabels::pt_br())
         .player_labels(MovieLabels::pt_br());
@@ -90,7 +92,9 @@ fn main() -> Result<(), PlatformError> {
             }
         });
     // Closing the window keeps the editor beside the clock, as the other tools do.
-    let tray = ravenrs::native::SystemTray::new("Raven Movie Editor").open("Abrir o Raven Movie Editor").quit("Sair");
+    let tray = ravenrs::native::SystemTray::new("Raven Movie Editor")
+        .open("Abrir o Raven Movie Editor")
+        .quit("Sair");
     let identity = ravenrs::native::AppIdentity::new(versao::APP.package)
         .labels(ravenrs::prelude::Labels::pt_br())
         .new_issue_url("https://github.com/alexkads/RavenRS/issues/new")

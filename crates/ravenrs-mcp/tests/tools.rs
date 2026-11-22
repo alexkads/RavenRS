@@ -194,7 +194,10 @@ fn feature_center_shows_pages_and_what_waits() {
     assert_eq!(cables["status"], "shown");
     assert_eq!(cables["page"], "Cabos");
     assert_eq!(cables["id"], "CablePlugDemo");
-    assert_eq!(cables["run"], "cargo run -p raven-feature-center -- --modo componentes --pagina CablePlugDemo");
+    assert_eq!(
+        cables["run"],
+        "cargo run -p raven-feature-center -- --modo componentes --pagina CablePlugDemo"
+    );
     assert!(cables["source"].as_str().unwrap().ends_with("graficos/cabos.rs"));
     assert!(cables["features"].as_array().unwrap().contains(&json!("physics")));
 

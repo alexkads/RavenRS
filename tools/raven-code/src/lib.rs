@@ -31,7 +31,6 @@ use std::path::PathBuf;
 
 use project::Project;
 
-
 pub mod versao;
 
 /// Builds the editor on the sample project with no window, as the installer and an agent ask

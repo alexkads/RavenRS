@@ -372,7 +372,8 @@ fn main() {
         return;
     }
     let out = PathBuf::from(
-        args.get(2).expect("usage: raven-channel-video record|narrate|export OUT [--voz pf_dora|pm_alex|pm_santa]"),
+        args.get(2)
+            .expect("usage: raven-channel-video record|narrate|export OUT [--voz pf_dora|pm_alex|pm_santa]"),
     );
     std::fs::create_dir_all(&out).expect("folder");
     match args[1].as_str() {

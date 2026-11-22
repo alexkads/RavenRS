@@ -16,7 +16,9 @@ pub static APP: InstalledApp = InstalledApp {
     env_prefix: "RCD",
     installed_env: "RAVEN_CODE_INSTALLED",
     news_urls: &["https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-code/novidades.json"],
-    history_urls: &["https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-code/historico-de-novidades.json"],
+    history_urls: &[
+        "https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-code/historico-de-novidades.json",
+    ],
     installer_url: "https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-code/install.cmd",
     issues_url: "https://github.com/alexkads/RavenRS/issues",
     version: env!("CARGO_PKG_VERSION"),

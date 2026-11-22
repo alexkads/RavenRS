@@ -28,7 +28,9 @@ fn main() -> Result<(), ravenrs::native::PlatformError> {
         .size(1440.0, 900.0)
         .follow_system_theme();
     // Closing the window keeps the designer beside the clock, as the other tools do.
-    let tray = ravenrs::native::SystemTray::new("Raven Report Designer").open("Abrir o Raven Report Designer").quit("Sair");
+    let tray = ravenrs::native::SystemTray::new("Raven Report Designer")
+        .open("Abrir o Raven Report Designer")
+        .quit("Sair");
     let identity = ravenrs::native::AppIdentity::new(raven_report_designer::versao::APP.package)
         .labels(ravenrs::prelude::Labels::pt_br())
         .new_issue_url("https://github.com/alexkads/RavenRS/issues/new")
