@@ -1,6 +1,10 @@
 //! RavenRS Report Designer: an end-user report designer running on the
 //! desktop and in the browser. The designer itself is in `ravenrs-report-designer`.
 
+/// The scenarios of Raven Test Studio the tool brings, one per file of `tests/e2e/`: the Studio
+/// gets them when it opens the tool with `--e2e-serve`, and the tests play them.
+pub const SCENARIOS: [&str; 1] = [include_str!("../tests/e2e/abrir.raventest")];
+
 use ravenrs::prelude::*;
 pub use ravenrs_report_designer::Designer;
 

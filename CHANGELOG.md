@@ -59,6 +59,14 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- RavenComponentBook: `--replay` takes any icon of the `Icon` card in an `icon` setting, not only the sample the cards offer; `DropdownMenu` gets the `label` and `icon` settings, `Select` gets `fill`, and the books of `Sidebar` (items with a state and an action) and `FlowCanvas` (cables; nodes with their own content and a selection) get new stories. The workspace screen of the Fermata UX is a replay fixture that RavenRS builds as drawn. ([#831](https://github.com/alexkads/RavenRS/issues/831))
+
+- `check.sh` checks that every app with a window in `examples/` and `tools/` keeps scenarios the Raven Test Studio finds and runs (`scripts/e2e-scenarios.py`): the `[package.metadata.ravenrs.e2e]` declaration, the test channel, `tests/e2e/` scenarios that check something, and a test that plays them. CONTRIBUTING.md describes the pattern; the contracts and Raven Channel Video stay listed as having no window (#702). RavenComponentBook joins with a scenario of its own, and the Studio's own scenarios now play on `cargo test` too.
+
+- The Raven Feature Center, Raven Code, Raven Movie Editor and Raven Report Designer have scenarios of the Raven Test Studio in `tests/e2e/` and answer it with `--e2e-serve` (#702, fifth lot). Raven Code edits and saves on a sample project of its own (`sample_in`, `e2e_session`; the editor of each file is `editor:<path>`), and Raven Movie Editor saves a chapter into a folder of its own, reopened by its test.
+
+- Raven Finanças has four more scenarios of the Raven Test Studio (an income, an entry with no amount, changing months and paying a bill), and its test in a process of its own opens one app per scenario, as the Studio does. `raven-flows` and `mini-pdv` have scenarios too, `raven-flows` in a folder of its own under the temporary folder with runs done at once (#702, fourth lot).
+
 - `flow-chat-bot`, `flow-design-board`, `flow-whiteboard`, `bpmn-editor` and `dock-workbench` have scenarios of the Raven Test Studio in `tests/e2e/`, served with `--e2e-serve` on data in memory (#702, third lot).
 
 - `grid-poc`, `quick-plan`, `spreadsheet`, `site-home` and `component-gallery` have scenarios of the Raven Test Studio in `tests/e2e/` (#702, second lot). `Scenario::play_served` in `ravenrs-e2e-wire` plays a scenario on an app opened with `--e2e-serve` in a process of its own, for an app that is only a binary, as `grid-poc`. The click counter of the home page is `clicks`.

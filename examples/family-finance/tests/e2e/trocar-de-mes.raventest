@@ -1,0 +1,10 @@
+scenario: Raven Finanças: trocar de mês
+// O mês do dia, novembro de 2026, e o anterior, com o resumo de cada um.
+open Raven Finanças                                          | Abrir o Raven Finanças
+click #item:Lançamentos                                      | Ir aos lançamentos
+check novembro de 2026 = novembro de 2026                    | Começa no mês do dia
+mention Entrou R$ 10.000,00 · saiu R$ 4.917,07 · sobrou R$ 5.082,93 = sobrou R$ 5.082,93 | Com o resumo de novembro
+click Mês anterior                                           | Ir ao mês anterior
+check outubro de 2026 = outubro de 2026                      | Mostra outubro
+click Ir para este mês                                       | Voltar ao mês do dia
+check novembro de 2026 = novembro de 2026                    | De volta a novembro

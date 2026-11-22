@@ -7,6 +7,11 @@ rust-version.workspace = true
 license.workspace = true
 publish = false
 
+# How Raven Test Studio (RTS) finds and opens this tool on the test channel (--e2e-serve).
+[package.metadata.ravenrs.e2e]
+app = "Raven Code"
+binary = "raven-code"
+
 [dependencies]
 ravenrs-app-update.workspace = true
 ravenrs = { workspace = true, features = ["code", "tray"] }
@@ -15,6 +20,9 @@ serde_json.workspace = true
 ravenrs-process.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# The test channel, closed until the tool is opened with --e2e-serve.
+ravenrs-e2e.workspace = true
+ravenrs-e2e-wire = { workspace = true, features = ["serve"] }
 tracing-subscriber.workspace = true
 
 [dev-dependencies]

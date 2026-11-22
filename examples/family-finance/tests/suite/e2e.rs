@@ -49,27 +49,36 @@ fn empty_home(name: &str) -> PathBuf {
     folder
 }
 
-#[test]
-fn the_studio_drives_the_app_in_a_child_process_without_touching_its_data() {
-    let home = empty_home("filho");
+/// The app on the test channel, with `home` standing for the home of the person using it.
+fn process_in(home: &Path) -> Process {
     let mut process = Process::new(env!("CARGO_BIN_EXE_family-finance"));
     process
         .arg(e2e::SERVE_FLAG)
-        .current_dir(&home)
-        .env("HOME", &home)
-        .env("USERPROFILE", &home)
-        .env("LOCALAPPDATA", &home)
-        .env("XDG_DATA_HOME", &home);
-    let mut app = Client::spawn(process, Duration::from_secs(60)).unwrap();
-    assert_eq!(app.app(), e2e::APP_NAME);
-    assert_eq!(app.scenarios(), e2e::SCENARIOS, "the hello brings the app's scenarios");
+        .current_dir(home)
+        .env("HOME", home)
+        .env("USERPROFILE", home)
+        .env("LOCALAPPDATA", home)
+        .env("XDG_DATA_HOME", home);
+    process
+}
+
+#[test]
+fn the_studio_drives_the_app_in_a_child_process_without_touching_its_data() {
+    let home = empty_home("filho");
+    // One app per scenario, as the Studio opens it: what one scenario saves is not there for the next.
+    let mut last = None;
     for scenario in scenarios() {
+        let mut app = Client::spawn(process_in(&home), Duration::from_secs(60)).unwrap();
+        assert_eq!(app.app(), e2e::APP_NAME);
+        assert_eq!(app.scenarios(), e2e::SCENARIOS, "the hello brings the app's scenarios");
         for command in commands(&scenario) {
             if let Err(f) = app.send(&command) {
                 panic!("{}: {command:?} failed: {f}\n{}", scenario.name, f.screen);
             }
         }
+        last = Some(app);
     }
+    let mut app = last.expect("at least one scenario");
     let missing = app.send(&Command::Click { target: "#nao-existe".into() }).unwrap_err();
     assert_eq!(missing.code, "E2E_NOT_FOUND");
     drop(app);

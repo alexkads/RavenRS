@@ -38,3 +38,14 @@ From a checkout: `cargo run -p raven-movie-editor`.
 ## As a product
 
 It follows [tools/README.md](../README.md): its own version (`Cargo.toml`), the news of each version (`novidades.json`, `historico-de-novidades.json`), the installer made from `crates/ravenrs-app-update/install.cmd.in` (`install.cmd`), `--versao` and `--self-test`, and `tests/suite/`, which runs both on the binary.
+
+## End-to-end tests (Raven Test Studio)
+
+The scenarios of this tool are in `tests/e2e/`, as `.raventest` files the Raven Test Studio reads: on a made-up film of one second, it puts a chapter and a title card at the needle and saves; the test reopens the saved film and checks the chapter. Saving writes into a folder of its own under the temporary folder, or the one `RAVEN_MOVIE_EDITOR_E2E_DIR` names. The tool brings them (`SCENARIOS`), and `tests/suite/scenarios.rs` plays them on every `cargo test`.
+
+```bash
+raven-test-studio --project tools/raven-movie-editor --run-all --no-cache --format json --out target/e2e/raven-movie-editor
+```
+
+The tool answers the Studio when opened with `--e2e-serve`, with no window; its name on the channel is "Raven Movie Editor" (`[package.metadata.ravenrs.e2e]` in `Cargo.toml`).
+

@@ -1103,3 +1103,16 @@ Também foram procurados `fixed_collection`, `fixedcollection`, `parameterform`,
 - Ausências fora dos termos e caminhos pesquisados.
 
 As fases e os tamanhos são propostas de construção sustentadas pela leitura; não representam implementação entregue.
+
+## End-to-end tests (Raven Test Studio)
+
+The scenarios of this example are in `tests/e2e/`, as `.raventest` files the Raven Test Studio reads: the sample flow is on the list; a new flow opens in the editor, runs and shows on the list. The session keeps its flows in a folder of its own under the system's temporary folder, and runs them on the calling thread (`Worker::Inline`), so a step is over when its click is. The app brings them (`SCENARIOS`), and `tests/scenarios.rs` plays them on every `cargo test`.
+
+To run them as the Studio does, with the app in a process of its own, no window and no cache:
+
+```bash
+raven-test-studio --project examples/raven-flows --run-all --no-cache --format json --out target/e2e/raven-flows
+```
+
+The app answers the Studio when opened with `--e2e-serve`; the data of the person using it is never opened. Its name on the channel, which the `open` block of a scenario uses, is "Raven Flows" (`[package.metadata.ravenrs.e2e]` in `Cargo.toml`). A step that fails says the step, why, and the screen of the app at that moment; with `--film` the report keeps a film of the failure.
+

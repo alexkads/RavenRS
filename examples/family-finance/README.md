@@ -123,3 +123,22 @@ Still open:
 * **More text to translate.** `Ribbon`, `Carousel`, `InputOtp`, `validate::email`, `validate::min_length` and a grid's yes/no values are still in English.
 
 Missing in the app itself: transfers between accounts, so a credit card's balance has no way to be paid off, and the chosen theme is not remembered.
+
+## End-to-end tests (Raven Test Studio)
+
+The scenarios of Raven Finanças are in `tests/e2e/`, as `.raventest` files the Raven Test Studio reads. They run on the sample family, in memory, on 15/11/2026:
+
+| File | What it checks |
+|---|---|
+| `lancar-despesa.raventest` | an expense is saved and shows in the month, with its amount |
+| `lancar-receita.raventest` | an income is saved, shows as an entry and adds to the summary of the month |
+| `validar-lancamento.raventest` | an entry with no amount stays open and says what is missing; with the amount, it saves |
+| `trocar-de-mes.raventest` | the month of the day, with its summary, then the month before and back |
+| `pagar-conta.raventest` | a bill is paid for the amount it expected and moves to the paid ones; the next month's comes in its place |
+
+The app brings them (`e2e::SCENARIOS`), and `tests/suite/e2e.rs` plays them in this process and in a process of its own, one app per scenario, as the Studio opens it, checking nothing is written where the person keeps data. To run them as the Studio does:
+
+```bash
+raven-test-studio --project examples/family-finance --run-all --no-cache --format json --out target/e2e/family-finance
+```
+
