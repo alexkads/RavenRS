@@ -36,6 +36,8 @@ pub mod flow_notation;
 #[cfg(feature = "flow")]
 #[doc(hidden)]
 pub mod flow_toolbox;
+#[cfg(feature = "indicators")]
+pub mod indicators;
 #[cfg(feature = "charts")]
 #[doc(hidden)]
 pub mod sankey;

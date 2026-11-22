@@ -131,6 +131,8 @@ argon2 = { version = "0.5", default-features = false, features = ["alloc", "pass
 uuid = { version = "1", default-features = false, features = ["v4", "js"] }
 rusqlite = { version = "0.41", features = ["bundled"] }
 trybuild = "1"
+# The GUI-free indicator engine of StockChart (#426): TA-Lib-matched SMA, EMA, RSI, MACD and Bollinger.
+fin-primitives = { version = "4.0.1", default-features = false, features = ["indicators"] }
 
 [workspace.lints.rust]
 unsafe_code = "forbid"

@@ -25,12 +25,15 @@ ravenrs-animation.workspace = true
 ravenrs-text.workspace = true
 ravenrs-graphics = { workspace = true, optional = true }
 ravenrs-e2e = { workspace = true, optional = true }
+fin-primitives = { workspace = true, optional = true }
 
 [features]
 # The stories of its components, for RavenComponentBook (`book::stories`).
 book = ["ravenrs-widgets-base/book", "ravenrs-widgets-kit/book"]
 charts = ["dep:ravenrs-graphics"]
 flow = ["dep:ravenrs-graphics"]
+# `indicators`: the GUI-free indicator engine for StockChart (#426).
+indicators = ["dep:fin-primitives"]
 # `testing::FlowCanvasDriver`, for tests written with ravenrs-e2e.
 testing = ["flow", "dep:ravenrs-e2e"]
 live = ["dep:ravenrs-live", "ravenrs-widgets-base/live", "ravenrs-widgets-kit/live", "ravenrs-core/live", "ravenrs-style/live", "ravenrs-layout/live", "ravenrs-graphics?/live"]
