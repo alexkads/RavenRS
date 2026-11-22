@@ -16,6 +16,11 @@ For a released version, add `--tag vYY.R.P` to `cargo install`. This crate embed
 sources and is installed from Git, rather than crates.io. From a checkout use
 `cargo install --path crates/cargo-ravenrs --locked`.
 
+Since it does not come from crates.io, nothing updates it by itself. It says when it is behind:
+a command it does not know (one a newer skill names) answers with the installed version and the
+install command, with exit code 2; `cargo ravenrs --version` and `cargo ravenrs doctor` warn when the
+project asks for another RavenRS, and say whether to update or to install that project's tag.
+
 `new` asks for the template and target in a terminal. With `--yes` or redirected input,
 it defaults to `hello` and `desktop`. Templates are `hello`, `app`, `app-sqlite`, and
 `relatorios`; targets are `desktop`, `web`, and `both`. SQLite is used on the desktop;

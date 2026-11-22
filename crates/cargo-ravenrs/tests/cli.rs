@@ -530,3 +530,41 @@ fn doctor_reads_inherited_renamed_and_target_versions_without_touching_manifests
     assert_eq!(fs::read_to_string(root.join("Cargo.toml")).unwrap(), before[0]);
     assert_eq!(fs::read_to_string(root.join("tools/cli/Cargo.toml")).unwrap(), before[2]);
 }
+
+#[test]
+fn an_unknown_command_says_the_version_and_how_to_update() {
+    let dir = TempDir::new().unwrap();
+    let out = cli(dir.path(), &["ravenrs", "comando-futuro"]);
+    assert_eq!(out.status.code(), Some(2));
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains(env!("CARGO_PKG_VERSION")), "{err}");
+    assert!(err.contains("'comando-futuro'"), "{err}");
+    assert!(err.contains("cargo install --git https://github.com/alexkads/RavenRS cargo-ravenrs"), "{err}");
+}
+
+#[test]
+fn version_warns_when_the_project_uses_a_newer_ravenrs() {
+    let dir = TempDir::new().unwrap();
+    fs::write(
+        dir.path().join("Cargo.toml"),
+        "[package]\nname = \"futuro\"\nversion = \"0.1.0\"\n\n[dependencies]\nravenrs = \"=999.1.0\"\n",
+    )
+    .unwrap();
+    let out = cli(dir.path(), &["ravenrs", "--version"]);
+    assert!(out.status.success());
+    let err = String::from_utf8_lossy(&out.stderr);
+    assert!(err.contains("mais novo"), "{err}");
+    let doctor = cli(dir.path(), &["ravenrs", "doctor"]);
+    let said = String::from_utf8_lossy(&doctor.stderr).to_string() + &String::from_utf8_lossy(&doctor.stdout);
+    assert!(!doctor.status.success());
+    assert!(said.contains("mais novo") && said.contains("cargo install --git"), "{said}");
+}
+
+#[test]
+fn version_says_nothing_more_when_the_project_matches() {
+    let dir = TempDir::new().unwrap();
+    write_project(dir.path(), "hello", "desktop");
+    let out = cli(dir.path(), &["ravenrs", "--version"]);
+    assert!(out.status.success());
+    assert!(out.stderr.is_empty(), "{}", String::from_utf8_lossy(&out.stderr));
+}

@@ -31,15 +31,42 @@ pub(crate) fn ensure_current(root: &Path) -> Result<(), String> {
     for declared in versions {
         if declared.version.trim_start_matches(['=', '^', '~']) != crate::VERSION {
             return Err(format!(
-                "{} ({}) usa {}, mas cargo-ravenrs usa {}. Instale a tag correspondente.",
+                "{} ({}) usa {}, mas cargo-ravenrs usa {}. {}",
                 declared.package,
                 declared.origin,
                 declared.version,
-                crate::VERSION
+                crate::VERSION,
+                update_hint(&declared.version)
             ));
         }
     }
     Ok(())
+}
+
+/// How to install the tool again: the same command, newer or older.
+pub const UPDATE: &str = "cargo install --git https://github.com/alexkads/RavenRS cargo-ravenrs --locked --force";
+
+/// What to do when the project asks for `version` and the tool has another one.
+fn update_hint(version: &str) -> String {
+    let wanted = version.trim_start_matches(['=', '^', '~']);
+    if newer(wanted, crate::VERSION) {
+        format!("O projeto usa um RavenRS mais novo que esta ferramenta. Atualize com: {UPDATE}")
+    } else {
+        format!("Instale a tag correspondente: {UPDATE} --tag v{wanted}")
+    }
+}
+
+/// Whether version `a` comes after `b`, comparing the numbers part by part.
+pub(crate) fn newer(a: &str, b: &str) -> bool {
+    let parts = |v: &str| v.split('.').map(|p| p.parse::<u64>().unwrap_or(0)).collect::<Vec<_>>();
+    parts(a) > parts(b)
+}
+
+/// A warning for `--version`, when the project at `root` asks for another RavenRS.
+pub fn version_warning(root: &Path) -> Option<String> {
+    let declared = ravenrs_versions(root).ok()?;
+    let other = declared.iter().find(|d| d.version.trim_start_matches(['=', '^', '~']) != crate::VERSION)?;
+    Some(format!("aviso: {} ({}) usa {}. {}", other.package, other.origin, other.version, update_hint(&other.version)))
 }
 
 fn manifest(path: &Path) -> Result<DocumentMut, String> {
