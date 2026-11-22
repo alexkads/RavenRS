@@ -54,7 +54,7 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use raven_ci_plugin_api::{
     AgentArgs, AgentLauncher, Attachment, BuildStatus, CiError, LaunchRequest, LaunchedAgent, PLUGIN_KEY,
@@ -1432,8 +1432,15 @@ impl LaunchedAgent for ChildAgent {
         self.alive.load(Ordering::SeqCst)
     }
 
+    /// Stops the agent and waits, a little past the grace of the polite stop, for it to be gone
+    /// (#908): a server stopped by its service manager that only asked would leave its agents
+    /// running on their own once it ends.
     fn stop(&self) {
         self.control.stop();
+        let until = Instant::now() + ravenrs_process::GRACE + Duration::from_secs(1);
+        while self.alive.load(Ordering::SeqCst) && Instant::now() < until {
+            std::thread::sleep(Duration::from_millis(20));
+        }
         for undo in std::mem::take(&mut *self.at_stop.lock().unwrap_or_else(PoisonError::into_inner)) {
             undo();
         }
