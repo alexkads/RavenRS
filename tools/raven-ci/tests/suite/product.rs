@@ -13,7 +13,7 @@ fn it_tests_itself_with_a_fake_plugin_for_every_point() {
     let out =
         Command::new(env!("CARGO_BIN_EXE_raven-ci")).arg("--self-test").output().expect("the binary runs");
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
-    assert!(String::from_utf8_lossy(&out.stdout).starts_with("Autoteste: 12 plugins falsos"));
+    assert!(String::from_utf8_lossy(&out.stdout).starts_with("Autoteste: 13 plugins falsos"));
 }
 
 #[test]

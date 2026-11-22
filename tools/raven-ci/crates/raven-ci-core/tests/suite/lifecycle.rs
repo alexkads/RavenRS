@@ -145,7 +145,7 @@ fn setup() -> Setup {
     let reporter = Fake::new(Point::StatusReporter);
     let notifier = Fake::new(Point::Notifier);
     let (statuses, events) = (reporter.probe(), notifier.probe());
-    for fake in [Fake::new(Point::Scm), Fake::new(Point::Publisher), reporter, notifier] {
+    for fake in [Fake::new(Point::Scm), Fake::new(Point::Publisher), Fake::new(Point::BuildHook), reporter, notifier] {
         ci.add_plugin(Arc::new(fake));
     }
     ci.apply_plugins().expect("on");
@@ -339,4 +339,31 @@ fn a_rerun_does_what_the_first_build_did_around_its_steps() {
     let again = ci.rebuild("de-novo", n, None).expect("again");
     ci.work_until_idle("e1").expect("runs");
     assert!(texts(&ci, "de-novo", again).contains(&"post".to_owned()));
+}
+
+#[test]
+fn a_hook_refuses_a_build_before_its_code_and_hears_how_the_others_ended() {
+    let Setup { ci, .. } = setup();
+    ci.save_job(job("cheio", json!({ "steps": [{ "file": "nunca.txt" }] })).settings(json!({
+        "fake-hook": { "refuse": "o disco tem 1 GB livre, menos que os 5 GB pedidos" },
+        "scm": { "id": "fake-scm", "url": "x" },
+    })))
+    .expect("saved");
+    let n = ci.request_build(BuildRequest::new("cheio", "teste")).expect("asked").number;
+    ci.work_until_idle("e1").expect("runs");
+    let build = ci.build("cheio", n).expect("build");
+    assert_eq!(build.status, BuildStatus::Failed);
+    assert!(build.reason.as_deref().unwrap_or_default().contains("menos que os 5 GB"), "{build:?}");
+    assert!(!texts(&ci, "cheio", n).iter().any(|l| l.starts_with("buscando")), "the code was not fetched");
+}
+
+#[test]
+fn the_folders_above_a_build_left_empty_go_with_it() {
+    let Setup { ci, .. } = setup();
+    ci.save_job(job("apps/web/site", json!({ "steps": [{ "file": "a.txt" }] }))).expect("saved");
+    let n = ci.request_build(BuildRequest::new("apps/web/site", "teste")).expect("asked").number;
+    ci.work_until_idle("e1").expect("runs");
+    let workspace = ci.workspace("apps/web/site", n);
+    let root = workspace.ancestors().nth(4).expect("the folder of every build").to_path_buf();
+    assert!(!root.join("apps").exists(), "{} was left", root.join("apps").display());
 }

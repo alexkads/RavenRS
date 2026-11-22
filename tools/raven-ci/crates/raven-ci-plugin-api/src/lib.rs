@@ -46,6 +46,7 @@
 //! | Pipeline format | [`PipelineFormat`] | reading a pipeline file into a flow |
 //! | Routes | [`Route`] | addresses of the HTTP API |
 //! | CLI command | [`CliCommand`] | subcommands of `raven-ci` |
+//! | Build hook | [`BuildHook`] | what is done to every build, before and after it: refusing it with no room on the disk |
 //! | Screens | [`Module::view_controllers`](ravenrs_app::Module::view_controllers) and [`DashboardInfo`](ravenrs_app::DashboardInfo) | a page, a tab on the page of a build, an item of the menu |
 //!
 //! Each trait says, on its own page, what it is for, how the core calls it and how to write one.
@@ -107,6 +108,7 @@ mod build;
 mod cli;
 mod credential;
 mod error;
+mod hook;
 mod host;
 mod http;
 mod permission;
@@ -125,6 +127,7 @@ pub use build::{BuildContext, BuildLog, BuildScope, MemoryLog, ScopeGuard, enter
 pub use cli::CliCommand;
 pub use credential::CredentialKind;
 pub use error::CiError;
+pub use hook::BuildHook;
 pub use host::Host;
 pub use http::{HttpRequest, HttpResponse, Route};
 pub use permission::Permission;

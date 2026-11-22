@@ -8,7 +8,7 @@ use ravenrs_flows::Catalog;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AgentLauncher, BranchSource, CiError, CliCommand, CredentialKind, Host, Notifier, PipelineFormat,
+    AgentLauncher, BranchSource, BuildHook, CiError, CliCommand, CredentialKind, Host, Notifier, PipelineFormat,
     Publisher, Route, Scm, StatusReporter, Trigger,
 };
 
@@ -132,6 +132,11 @@ pub trait CiPlugin: Module + Send + Sync {
     fn cli_commands(&self) -> Vec<Arc<dyn CliCommand>> {
         Vec::new()
     }
+
+    /// What it does to every build, before and after it.
+    fn build_hooks(&self) -> Vec<Arc<dyn BuildHook>> {
+        Vec::new()
+    }
 }
 
 /// An extension point, as the list of plugins names what each offers.
@@ -165,11 +170,13 @@ pub enum Point {
     CliCommand,
     /// Screens of the panel.
     Screens,
+    /// What is done to every build, before and after it.
+    BuildHook,
 }
 
 impl Point {
     /// Every point, in the order of the table of the crate's documentation.
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 14] = [
         Self::Step,
         Self::Scm,
         Self::BranchSource,
@@ -183,6 +190,7 @@ impl Point {
         Self::Routes,
         Self::CliCommand,
         Self::Screens,
+        Self::BuildHook,
     ];
 
     /// Its name, as JSON and a `plugin.toml` write it: `branch_source`.
@@ -201,6 +209,7 @@ impl Point {
             Self::Routes => "routes",
             Self::CliCommand => "cli_command",
             Self::Screens => "screens",
+            Self::BuildHook => "build_hook",
         }
     }
 
@@ -235,6 +244,7 @@ pub fn points_of(plugin: &dyn CiPlugin) -> Vec<Point> {
         !plugin.routes().is_empty(),
         !plugin.cli_commands().is_empty(),
         !plugin.view_controllers().is_empty() || !plugin.window_controllers().is_empty(),
+        !plugin.build_hooks().is_empty(),
     ];
     Point::ALL.into_iter().zip(offers).filter_map(|(point, offered)| offered.then_some(point)).collect()
 }

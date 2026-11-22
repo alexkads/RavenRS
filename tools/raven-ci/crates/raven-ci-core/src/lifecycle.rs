@@ -4,7 +4,9 @@
 //! The queue runs the steps; everything around them happens here, in this order, on the thread
 //! of the executor that took the build:
 //!
-//! 1. **The folder**: `espacos/<job>/<number>` in the folder of data, made empty.
+//! 1. **The folder**: `espacos/<job>/<number>` in the folder of data, made empty. Then each
+//!    [`BuildHook`](raven_ci_plugin_api::BuildHook) of the plugins on is asked whether the build
+//!    goes on; a refusal ends it as failed before any step.
 //! 2. **The code**: when the job's settings name an `scm`, its plugin fetches into the folder.
 //!    A failure ends the build as failed before any step, with the reason.
 //! 3. **Pending**: each `status` of the job's settings gets `pending` for the commit fetched;
@@ -14,7 +16,7 @@
 //!    limit in the pipeline, the build is cancelled when it passes.
 //! 5. **Post steps**: `always`, then `success` or `failure`, in the same folder and log.
 //! 6. **Publishers**: each publisher of the pipeline takes what it finds in the folder, and the
-//!    core keeps it with the build.
+//!    core keeps it with the build. Then each hook hears how the build ended.
 //! 7. **The end**: each `status` gets `success` or `failure`, each `notify` hears the end, and
 //!    the folder is removed, unless the job's settings say `workspace.keep`.
 //!
@@ -223,13 +225,19 @@ impl Ci {
             workspace: workspace.clone(),
             run: row.run_id.clone(),
         };
+        if let Err(reason) = self.hooks_before(&settings, &context) {
+            logger.core(&reason);
+            runtime.fail(&row.run_id, worker, &reason).map_err(runtime_error)?;
+            finish(&self.workspaces, &workspace, keep, &logger);
+            return Ok(());
+        }
         let commit = match self.fetch(&settings, &context, &logger) {
             Ok(commit) => commit,
             Err(e) => {
                 let reason = format!("buscar o código: {e}");
                 logger.core(&reason);
                 runtime.fail(&row.run_id, worker, &reason).map_err(runtime_error)?;
-                finish(&workspace, keep, &logger);
+                finish(&self.workspaces, &workspace, keep, &logger);
                 return Ok(());
             }
         };
@@ -257,7 +265,7 @@ impl Ci {
             environment.insert(name.clone(), as_variable(value));
         }
         environment.extend(extras.environment.clone());
-        let guard = raven_ci_plugin_api::enter(BuildScope::new(context, logger.clone(), environment));
+        let guard = raven_ci_plugin_api::enter(BuildScope::new(context.clone(), logger.clone(), environment));
 
         let (stop_watch, watched) = channel::<()>();
         let watchdog = extras.timeout_ms.map(|ms| {
@@ -281,6 +289,7 @@ impl Ci {
         if status.ended() {
             self.post(&extras, row, passed, &logger);
             self.publish(&extras, row, &info(status), &workspace, &logger);
+            self.hooks_after(&settings, &context, status, &logger);
         }
         drop(guard);
         if status.ended() {
@@ -288,9 +297,28 @@ impl Ci {
             self.report(&settings, &row.job, commit.as_deref(), state, status.words(), &logger);
             self.notify(&settings, &BuildEvent::Ended(info(status)), &logger);
             logger.core(&format!("terminou: {}", status.words()));
-            finish(&workspace, keep, &logger);
+            finish(&self.workspaces, &workspace, keep, &logger);
         }
         Ok(())
+    }
+
+    /// Asks each hook of the plugins on whether the build goes on; the first refusal, in words.
+    fn hooks_before(&self, settings: &Value, context: &BuildContext) -> Result<(), String> {
+        for hook in self.registry.on().iter().flat_map(|plugin| plugin.build_hooks()) {
+            let own = settings.get(hook.id()).cloned().unwrap_or(Value::Null);
+            hook.before(context, &own).map_err(|e| format!("{}: {e}", hook.id()))?;
+        }
+        Ok(())
+    }
+
+    /// Tells each hook of the plugins on how the build ended.
+    fn hooks_after(&self, settings: &Value, context: &BuildContext, status: BuildStatus, logger: &BuildLogger) {
+        for hook in self.registry.on().iter().flat_map(|plugin| plugin.build_hooks()) {
+            let own = settings.get(hook.id()).cloned().unwrap_or(Value::Null);
+            if let Err(e) = hook.after(context, status, &own) {
+                logger.core(&format!("{}: {e}", hook.id()));
+            }
+        }
     }
 
     /// Fetches the code the job's settings name; the commit, or `None` when they name no `scm`.
@@ -443,8 +471,9 @@ impl Ci {
     }
 }
 
-/// Removes the build's folder, unless the job keeps it.
-fn finish(workspace: &Path, keep: bool, logger: &BuildLogger) {
+/// Removes the build's folder, unless the job keeps it, and each folder above it that is left
+/// empty, up to `root` (the folder of every build), which stays.
+fn finish(root: &Path, workspace: &Path, keep: bool, logger: &BuildLogger) {
     if keep {
         logger.core(&format!("a pasta {} fica, como o job pede", workspace.display()));
         return;
@@ -454,9 +483,12 @@ fn finish(workspace: &Path, keep: bool, logger: &BuildLogger) {
     {
         logger.core(&format!("apagar a pasta {}: {e}", workspace.display()));
     }
-    // The folder of the job goes too, when no other build of it is there.
-    if let Some(parent) = workspace.parent() {
-        let _ = std::fs::remove_dir(parent);
+    let mut above = workspace.parent();
+    while let Some(folder) = above {
+        if folder == root || !folder.starts_with(root) || std::fs::remove_dir(folder).is_err() {
+            break;
+        }
+        above = folder.parent();
     }
 }
 

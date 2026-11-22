@@ -147,6 +147,14 @@ pub fn run() -> Result<String, String> {
     ci.enable_plugin("fake-step").map_err(said)?;
     check(ci.request_build(BuildRequest::new("autoteste/passa", "autoteste")).is_ok(), "o passo não voltou")?;
 
+    check(
+        probes.iter().any(|p| p.hooked().iter().any(|seen| seen.starts_with("depois autoteste/passa#"))),
+        "o gancho não viu os builds",
+    )?;
+
+    // The trigger holds the core to ask for builds; letting it go lets the core go, with its
+    // folder in memory.
+    trigger.unwatch("autoteste/passa");
     let real = builtin_build()?;
     Ok(format!(
         "Autoteste: {count} plugins falsos, um por ponto de extensão, ligados e usados; um build passou, outro falhou como devia, e um plugin desligou e voltou sem reiniciar; {real}"
