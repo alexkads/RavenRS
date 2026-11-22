@@ -33,6 +33,7 @@
 //! # Ok::<(), raven_ci_plugin_api::CiError>(())
 //! ```
 
+pub mod agents;
 pub mod api;
 pub mod credentials;
 pub mod external;
@@ -60,6 +61,7 @@ use serde_json::Value;
 
 pub use host::{MemorySecrets, NoSecrets, Secrets, ServerLog};
 pub use lifecycle::WORKSPACES_DIR;
+pub use lifecycle::{BuildOrder, BuildSite};
 pub use model::{AttachmentRef, Build, Folder, JobSpec, LogLine, Stage, StepView};
 pub use registry::{Memory, Origin, PluginState, PluginView, Registry, Requirement};
 pub use store::{AuditEntry, PluginRow, Store};
@@ -123,6 +125,8 @@ pub struct Ci {
     workspaces: PathBuf,
     /// The vault of credentials, for a core with a folder.
     credentials: Option<Arc<credentials::Credentials>>,
+    /// The build agents it knows.
+    agents: agents::Agents,
 }
 
 impl Drop for Ci {
@@ -197,6 +201,12 @@ impl Ci {
             None => None,
         };
         let secrets = Arc::new(credentials::Either { vault: credentials.clone(), given: options.secrets });
+        agents::prepare(&store.db())?;
+        let agents = agents::Agents::new(
+            options.data_dir.as_deref().map(api::users_file),
+            secrets.clone(),
+            store.now_ms(),
+        );
         let registry = Registry::new(store.clone(), plugins_dir, secrets, log.clone());
         Ok(Self {
             store,
@@ -207,6 +217,7 @@ impl Ci {
             temporary,
             workspaces,
             credentials,
+            agents,
         })
     }
 
@@ -513,7 +524,7 @@ impl Ci {
     /// job and number, or `None` when nothing was due. Once it ends, the job's retention runs.
     pub fn work_once(&self, worker: &str) -> Result<Option<(String, u64)>, CiError> {
         let runtime = self.runtime();
-        let Some(run_id) = runtime.claim(worker).map_err(runtime_error)? else { return Ok(None) };
+        let Some(run_id) = self.claim_local(&runtime, worker)? else { return Ok(None) };
         let row = model::build_by_run(&self.db(), &run_id)?;
         let Some(row) = row else {
             // A run of the same queue that is not a build: the Test Studio's, say.
@@ -710,10 +721,11 @@ impl std::fmt::Debug for Executors {
 }
 
 impl Executors {
-    /// `count` executors on `ci`, looking at the queue every `poll` when it is empty.
+    /// `count` executors on `ci`, looking at the queue every `poll` when it is empty. With none,
+    /// the server runs no build itself and leaves every one to its agents.
     pub fn start(ci: Arc<Ci>, count: usize, poll: Duration) -> Self {
         let stop = Arc::new(AtomicBool::new(false));
-        let threads = (1..=count.max(1))
+        let threads = (1..=count)
             .filter_map(|n| {
                 let (ci, stop) = (ci.clone(), stop.clone());
                 let name = format!("executor-{n}");

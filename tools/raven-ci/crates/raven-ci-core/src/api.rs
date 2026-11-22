@@ -50,7 +50,12 @@ pub const OPEN_PREFIX: &str = "/hooks/";
 
 /// The roles of the CI, as the server knows them.
 pub fn roles() -> Vec<Role> {
-    vec![Role::new(ROLE_ADMIN).administrative(), Role::new(ROLE_RUN), Role::new(ROLE_READ)]
+    vec![
+        Role::new(ROLE_ADMIN).administrative(),
+        Role::new(ROLE_RUN),
+        Role::new(ROLE_READ),
+        Role::new(crate::agents::ROLE_AGENT),
+    ]
 }
 
 fn failed(e: impl std::fmt::Display) -> CiError {
@@ -152,6 +157,9 @@ fn to_json(value: &impl serde::Serialize) -> Json {
 /// What the core answers `request`, or `None` for a path that is not its own.
 fn answer(ci: &Ci, request: &ApiRequest, who: &mut dyn FnMut() -> Option<Caller>) -> Option<ApiResponse> {
     let path: Vec<&str> = request.path.iter().map(String::as_str).collect();
+    if let Some(answered) = crate::agents::answer(ci, request, &path, who) {
+        return Some(answered);
+    }
     if path.as_slice() == ["api", "ci", "credentials"] && request.method == "GET" {
         return Some(match who() {
             None => unauthorized(),

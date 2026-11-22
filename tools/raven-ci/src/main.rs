@@ -8,6 +8,7 @@
 //! raven-ci plugins desligar NOME
 //! raven-ci servir [--endereco HOST:PORTA] [--executores N]
 //! echo SENHA | raven-ci usuario criar NOME [--papel PAPEL]
+//! raven-ci agentes listar|token NOME|remover NOME|modelos|modelo NOME …
 //! raven-ci <comando de um plugin> ...
 //! raven-ci --self-test
 //! raven-ci --versao
@@ -17,6 +18,7 @@
 //! its `plugins/` folder and in each `--plugins PASTA`.
 #![allow(clippy::print_stdout, clippy::print_stderr, reason = "a tool run from the terminal")]
 
+mod agentes;
 mod cli;
 mod plugins;
 mod self_test;

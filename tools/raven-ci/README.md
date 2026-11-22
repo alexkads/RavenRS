@@ -86,6 +86,21 @@ moves:
 - The job of a head that is gone is removed (after `branches.orphan_days` days, 0 unless said).
 - The token is a credential: `echo '{"token": "ghp_…"}' | raven-ci credencial criar github --tipo token`.
 
+## Build agents
+
+The server can leave its builds to agents: `raven-ci-agent`, a program of about 10 MB at rest that
+connects out to the server (HTTP and SSE, nothing open where it runs), takes builds by a lease of
+the queue and runs them with only the plugins each one needs. A job asks for one with
+`agent = { label = "linux" }`; with no agent connected that has the label, a template brings one up
+(`agent-local` on this machine, as another user; `agent-remote` on another, through SSH). An agent
+that falls comes back and resumes its build; one that does not leaves it interrupted after the
+grace time. See [Build agents](docs/agents.md).
+
+```text
+raven-ci agentes token linux-1 --rotulos linux
+RAVEN_CI_AGENT_TOKEN=rva_… raven-ci-agent --servidor http://ci.local:8080 --nome linux-1 --rotulos linux
+```
+
 ## The plugins that come with it
 
 | Plugin | Point | What it does |

@@ -21,6 +21,16 @@
 //!    the folder is removed, unless the job's settings say `workspace.keep`.
 //!
 //! What fails in 5, 6 and 7 goes to the build's log and does not change how it ended.
+//!
+//! # Where it runs
+//!
+//! The same life runs on the server, for its own executors, and on a build agent (see
+//! [`agents`](crate::agents)). What differs is said by a [`BuildSite`]: where the steps run and
+//! where the log, what is taken and the end go. On the server the site is the queue itself; on an
+//! agent, the server over HTTP. A build that its worker left halfway (an agent that fell, a server
+//! that stopped) and that the same folder takes up again goes on from the code it had fetched:
+//! the folder keeps a note of it beside it (`<number>.estado`), and the steps resume from the
+//! checkpoint of the queue.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -30,10 +40,10 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
 
 use raven_ci_plugin_api::{
-    BuildContext, BuildEvent, BuildInfo, BuildLog, BuildScope, BuildStatus, CheckoutRequest, CiError,
-    CommitState, CommitStatus, PostSteps, PostWhen, Reference, Use,
+    Attachment, BuildContext, BuildEvent, BuildInfo, BuildLog, BuildScope, BuildStatus, CheckoutRequest,
+    CiError, CommitState, CommitStatus, PostSteps, PostWhen, Reference, Use,
 };
-use ravenrs_flows::{Executor, FlowDefinition, Item, NodeStatus, Plan};
+use ravenrs_flows::{Catalog, Executor, FlowDefinition, Item, NodeStatus, Plan};
 use ravenrs_flows_runtime::Runtime;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
@@ -57,6 +67,9 @@ pub(crate) struct Extras {
     pub publishers: Vec<Use>,
     #[serde(default)]
     pub timeout_ms: Option<u64>,
+    /// Where the build runs, when the pipeline says: a label, a launcher.
+    #[serde(default)]
+    pub agent: Option<Use>,
 }
 
 /// Post steps as kept: the flow in its JSON.
@@ -78,6 +91,7 @@ impl Extras {
                 .collect(),
             publishers: pipeline.publishers.clone(),
             timeout_ms: pipeline.timeout_ms,
+            agent: pipeline.agent.clone(),
         }
     }
 
@@ -85,7 +99,7 @@ impl Extras {
         serde_json::to_value(self).unwrap_or(Value::Null)
     }
 
-    fn from_value(value: &Value) -> Self {
+    pub(crate) fn from_value(value: &Value) -> Self {
         serde_json::from_value(value.clone()).unwrap_or_default()
     }
 
@@ -126,7 +140,12 @@ pub(crate) struct BuildLogger {
 }
 
 impl BuildLogger {
-    fn new(store: Arc<Store>, job: &str, number: u64, server: Arc<ServerLog>) -> Result<Self, CiError> {
+    pub(crate) fn new(
+        store: Arc<Store>,
+        job: &str,
+        number: u64,
+        server: Arc<ServerLog>,
+    ) -> Result<Self, CiError> {
         let last = model::last_log_seq(&store.db(), job, number)?;
         Ok(Self {
             store,
@@ -137,11 +156,11 @@ impl BuildLogger {
             hidden: Mutex::default(),
         })
     }
+}
 
-    /// A line the core writes, with no step.
-    fn core(&self, text: &str) {
-        self.line("", text);
-    }
+/// A line the core writes to the log of a build, with no step.
+fn core(log: &dyn BuildLog, text: &str) {
+    log.line("", text);
 }
 
 impl BuildLog for BuildLogger {
@@ -197,116 +216,197 @@ impl Ci {
         model::log_after(&self.db(), job, number, after)
     }
 
-    /// Runs the build of `row`, which `worker` took from the queue, with everything around its
-    /// steps (see the [module](self)).
+    /// Runs the build of `row`, which `worker` took from the queue, here, with everything around
+    /// its steps (see the [module](self)).
     pub(crate) fn run_build(
         &self,
         runtime: &Arc<Runtime>,
         row: &BuildRow,
         worker: &str,
     ) -> Result<(), CiError> {
-        let settings = self.job(&row.job).map(|job| job.settings).unwrap_or(Value::Null);
-        let extras = Extras::from_value(&row.extras);
+        let order = self.order_of(row);
         let logger = Arc::new(BuildLogger::new(self.store.clone(), &row.job, row.number, self.log.clone())?);
-        let workspace = self.workspace(&row.job, row.number);
-        let keep = settings.pointer("/workspace/keep").and_then(Value::as_bool) == Some(true);
-        let _ = std::fs::remove_dir_all(&workspace);
-        if let Err(e) = std::fs::create_dir_all(&workspace) {
-            let reason = format!("a pasta do build {}: {e}", workspace.display());
-            logger.core(&reason);
-            runtime.fail(&row.run_id, worker, &reason).map_err(runtime_error)?;
-            return Ok(());
-        }
-        logger.core(&format!("build {} #{} em {}", row.job, row.number, workspace.display()));
+        let site = LocalSite {
+            ci: self,
+            runtime: runtime.clone(),
+            order: &order,
+            worker,
+            logger,
+            commit: Mutex::default(),
+        };
+        self.run_order(&order, &site)
+    }
 
-        let context = BuildContext {
+    /// The order to run the build of `row`: its job's settings as they are now, and what its
+    /// pipeline said.
+    pub(crate) fn order_of(&self, row: &BuildRow) -> BuildOrder {
+        BuildOrder {
             job: row.job.clone(),
             number: row.number,
-            workspace: workspace.clone(),
             run: row.run_id.clone(),
-        };
-        if let Err(reason) = self.hooks_before(&settings, &context) {
-            logger.core(&reason);
-            runtime.fail(&row.run_id, worker, &reason).map_err(runtime_error)?;
-            finish(&self.workspaces, &workspace, keep, &logger);
-            return Ok(());
+            parameters: row.parameters.clone(),
+            settings: self.job(&row.job).map(|job| job.settings).unwrap_or(Value::Null),
+            extras: row.extras.clone(),
         }
-        let commit = match self.fetch(&settings, &context, &logger) {
-            Ok(commit) => commit,
-            Err(e) => {
-                let reason = format!("buscar o código: {e}");
-                logger.core(&reason);
-                runtime.fail(&row.run_id, worker, &reason).map_err(runtime_error)?;
-                finish(&self.workspaces, &workspace, keep, &logger);
+    }
+
+    /// Runs `order` with everything around its steps (see the [module](self)), with the plugins on
+    /// here, in a folder of [`workspace`](Self::workspace); `site` says where the steps run and
+    /// where the log, what is taken and the end go. What a build agent calls for each build it
+    /// takes, with the server as its site.
+    pub fn run_order(&self, order: &BuildOrder, site: &dyn BuildSite) -> Result<(), CiError> {
+        let settings = &order.settings;
+        let extras = Extras::from_value(&order.extras);
+        let log = site.log();
+        let workspace = self.workspace(&order.job, order.number);
+        let keep = settings.pointer("/workspace/keep").and_then(Value::as_bool) == Some(true);
+        let context = BuildContext {
+            job: order.job.clone(),
+            number: order.number,
+            workspace: workspace.clone(),
+            run: order.run.clone(),
+        };
+        let resumed = Resume::read(&workspace).filter(|resume| resume.run == order.run);
+        let commit = if let Some(resume) = &resumed {
+            core(
+                log.as_ref(),
+                &format!(
+                    "retomado em {}: o código já estava aqui{}",
+                    workspace.display(),
+                    resume.commit.as_deref().map(|c| format!(", no commit {c}")).unwrap_or_default()
+                ),
+            );
+            resume.commit.clone()
+        } else {
+            let _ = std::fs::remove_dir_all(&workspace);
+            if let Err(e) = std::fs::create_dir_all(&workspace) {
+                let reason = format!("a pasta do build {}: {e}", workspace.display());
+                core(log.as_ref(), &reason);
+                return site.fail(&reason);
+            }
+            core(log.as_ref(), &format!("build {} #{} em {}", order.job, order.number, workspace.display()));
+            if let Err(reason) = self.hooks_before(settings, &context) {
+                core(log.as_ref(), &reason);
+                site.fail(&reason)?;
+                finish(&self.workspaces, &workspace, keep, log.as_ref());
                 return Ok(());
             }
+            let commit = match self.fetch(settings, &context, log.as_ref()) {
+                Ok(commit) => commit,
+                Err(e) => {
+                    let reason = format!("buscar o código: {e}");
+                    core(log.as_ref(), &reason);
+                    site.fail(&reason)?;
+                    finish(&self.workspaces, &workspace, keep, log.as_ref());
+                    return Ok(());
+                }
+            };
+            Resume { run: order.run.clone(), commit: commit.clone() }.write(&workspace);
+            site.started(commit.as_deref());
+            commit
         };
         let info = |status| BuildInfo {
-            job: row.job.clone(),
-            number: row.number,
+            job: order.job.clone(),
+            number: order.number,
             status,
             url: None,
-            parameters: row.parameters.clone(),
+            parameters: order.parameters.clone(),
             commit: commit.clone(),
         };
-        // The status of a pull request goes to its own commit, which the provider shows on it,
-        // and not to the merge built.
-        let reported = settings
-            .pointer(&format!("/{}/commit", crate::multibranch::HEAD_KEY))
-            .and_then(Value::as_str)
-            .map(str::to_owned)
-            .or_else(|| commit.clone());
-        self.report(&settings, &row.job, reported.as_deref(), CommitState::Pending, "rodando", &logger);
-        self.notify(&settings, &BuildEvent::Started(info(BuildStatus::Running)), &logger);
 
         let mut environment = BTreeMap::from([
-            ("JOB_NAME".to_owned(), row.job.clone()),
-            ("BUILD_NUMBER".to_owned(), row.number.to_string()),
+            ("JOB_NAME".to_owned(), order.job.clone()),
+            ("BUILD_NUMBER".to_owned(), order.number.to_string()),
             ("BRANCH_NAME".to_owned(), context.head().to_owned()),
             ("WORKSPACE".to_owned(), workspace.display().to_string()),
         ]);
         if let Some(commit) = &commit {
             environment.insert("GIT_COMMIT".to_owned(), commit.clone());
         }
-        for (name, value) in &row.parameters {
+        for (name, value) in &order.parameters {
             environment.insert(name.clone(), as_variable(value));
         }
+        environment.extend(site.environment());
         environment.extend(extras.environment.clone());
-        let guard = raven_ci_plugin_api::enter(BuildScope::new(context.clone(), logger.clone(), environment));
+        let guard = raven_ci_plugin_api::enter(BuildScope::new(context.clone(), log.clone(), environment));
 
+        let catalog = self.registry.catalog();
         let (stop_watch, watched) = channel::<()>();
-        let watchdog = extras.timeout_ms.map(|ms| {
-            let (runtime, run) = (runtime.clone(), row.run_id.clone());
-            std::thread::spawn(move || {
-                if watched.recv_timeout(Duration::from_millis(ms)) == Err(RecvTimeoutError::Timeout) {
-                    let _ = runtime.cancel(&run, &format!("passou do prazo de {} s do pipeline", ms / 1000));
-                }
-            })
-        });
-        let executed = runtime.execute(&row.run_id, worker).map_err(runtime_error);
-        drop(stop_watch);
-        if let Some(watchdog) = watchdog {
-            let _ = watchdog.join();
-        }
-        executed?;
+        let status = std::thread::scope(|scope| {
+            if let Some(ms) = extras.timeout_ms {
+                scope.spawn(move || {
+                    if watched.recv_timeout(Duration::from_millis(ms)) == Err(RecvTimeoutError::Timeout) {
+                        site.cancel(&format!("passou do prazo de {} s do pipeline", ms / 1000));
+                    }
+                });
+            }
+            let status = site.steps(&catalog);
+            drop(stop_watch);
+            status
+        })?;
 
-        let status =
-            self.build(&row.job, row.number).map(|build| build.status).unwrap_or(BuildStatus::Failed);
         let passed = status == BuildStatus::Succeeded;
         if status.ended() {
-            self.post(&extras, row, passed, &logger);
-            self.publish(&extras, row, &info(status), &workspace, &logger);
-            self.hooks_after(&settings, &context, status, &logger);
+            self.post(&extras, order, passed, log.as_ref());
+            self.publish(&extras, &info(status), &workspace, site, log.as_ref());
+            self.hooks_after(settings, &context, status, log.as_ref());
         }
         drop(guard);
         if status.ended() {
-            let state = if passed { CommitState::Success } else { CommitState::Failure };
-            self.report(&settings, &row.job, reported.as_deref(), state, status.words(), &logger);
-            self.notify(&settings, &BuildEvent::Ended(info(status)), &logger);
-            logger.core(&format!("terminou: {}", status.words()));
-            finish(&self.workspaces, &workspace, keep, &logger);
+            site.ended(status);
+            core(log.as_ref(), &format!("terminou: {}", status.words()));
+            finish(&self.workspaces, &workspace, keep, log.as_ref());
         }
         Ok(())
+    }
+
+    /// The commit whose status a build reports: a pull request's own commit, which the provider
+    /// shows on it (and not the merge built), else the one fetched.
+    fn reported(settings: &Value, commit: Option<&str>) -> Option<String> {
+        settings
+            .pointer(&format!("/{}/commit", crate::multibranch::HEAD_KEY))
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .or_else(|| commit.map(str::to_owned))
+    }
+
+    /// The code of `order` is fetched at `commit`: its commit is pending and the notices hear the
+    /// build started.
+    pub(crate) fn announce_start(&self, order: &BuildOrder, commit: Option<&str>, log: &dyn BuildLog) {
+        let reported = Self::reported(&order.settings, commit);
+        self.report(&order.settings, &order.job, reported.as_deref(), CommitState::Pending, "rodando", log);
+        let info = BuildInfo {
+            job: order.job.clone(),
+            number: order.number,
+            status: BuildStatus::Running,
+            url: None,
+            parameters: order.parameters.clone(),
+            commit: commit.map(str::to_owned),
+        };
+        self.notify(&order.settings, &BuildEvent::Started(info), log);
+    }
+
+    /// `order` ended `status`: its commit's status and the notices.
+    pub(crate) fn announce_end(
+        &self,
+        order: &BuildOrder,
+        commit: Option<&str>,
+        status: BuildStatus,
+        log: &dyn BuildLog,
+    ) {
+        let reported = Self::reported(&order.settings, commit);
+        let state =
+            if status == BuildStatus::Succeeded { CommitState::Success } else { CommitState::Failure };
+        self.report(&order.settings, &order.job, reported.as_deref(), state, status.words(), log);
+        let info = BuildInfo {
+            job: order.job.clone(),
+            number: order.number,
+            status,
+            url: None,
+            parameters: order.parameters.clone(),
+            commit: commit.map(str::to_owned),
+        };
+        self.notify(&order.settings, &BuildEvent::Ended(info), log);
     }
 
     /// Asks each hook of the plugins on whether the build goes on; the first refusal, in words.
@@ -319,17 +419,11 @@ impl Ci {
     }
 
     /// Tells each hook of the plugins on how the build ended.
-    fn hooks_after(
-        &self,
-        settings: &Value,
-        context: &BuildContext,
-        status: BuildStatus,
-        logger: &BuildLogger,
-    ) {
+    fn hooks_after(&self, settings: &Value, context: &BuildContext, status: BuildStatus, log: &dyn BuildLog) {
         for hook in self.registry.on().iter().flat_map(|plugin| plugin.build_hooks()) {
             let own = settings.get(hook.id()).cloned().unwrap_or(Value::Null);
             if let Err(e) = hook.after(context, status, &own) {
-                logger.core(&format!("{}: {e}", hook.id()));
+                core(log, &format!("{}: {e}", hook.id()));
             }
         }
     }
@@ -339,7 +433,7 @@ impl Ci {
         &self,
         settings: &Value,
         context: &BuildContext,
-        logger: &BuildLogger,
+        log: &dyn BuildLog,
     ) -> Result<Option<String>, CiError> {
         let Some(scm) = settings.get("scm") else { return Ok(None) };
         let scm: ScmUse = serde_json::from_value(scm.clone())
@@ -361,8 +455,8 @@ impl Ci {
             credential: scm.credential,
             merge_onto_target: scm.merge_onto_target,
         };
-        let checkout = plugin.checkout(&request, &|line| logger.line("checkout", line))?;
-        logger.core(&format!("código no commit {}", checkout.commit));
+        let checkout = plugin.checkout(&request, &|line| log.line("checkout", line))?;
+        core(log, &format!("código no commit {}", checkout.commit));
         Ok(Some(checkout.commit))
     }
 
@@ -374,14 +468,14 @@ impl Ci {
         commit: Option<&str>,
         state: CommitState,
         description: &str,
-        logger: &BuildLogger,
+        log: &dyn BuildLog,
     ) {
         let Some(commit) = commit else { return };
         let on = self.registry.on();
         for entry in uses(settings, "status") {
             let id = entry.get("id").and_then(Value::as_str).unwrap_or_default();
             let Some(reporter) = on.iter().flat_map(|p| p.status_reporters()).find(|r| r.id() == id) else {
-                logger.core(&format!("status: falta o plugin {id}"));
+                core(log, &format!("status: falta o plugin {id}"));
                 continue;
             };
             let status = CommitStatus {
@@ -396,55 +490,58 @@ impl Ci {
                 url: None,
             };
             if let Err(e) = reporter.report(&status, &entry) {
-                logger.core(&format!("status {id}: {e}"));
+                core(log, &format!("status {id}: {e}"));
             }
         }
     }
 
     /// Tells each `notify` of the job's settings about `event`.
-    fn notify(&self, settings: &Value, event: &BuildEvent, logger: &BuildLogger) {
+    fn notify(&self, settings: &Value, event: &BuildEvent, log: &dyn BuildLog) {
         let on = self.registry.on();
         for entry in uses(settings, "notify") {
             let id = entry.get("id").and_then(Value::as_str).unwrap_or_default();
             let Some(notifier) = on.iter().flat_map(|p| p.notifiers()).find(|n| n.id() == id) else {
-                logger.core(&format!("aviso: falta o plugin {id}"));
+                core(log, &format!("aviso: falta o plugin {id}"));
                 continue;
             };
             if let Err(e) = notifier.notify(event, &entry) {
-                logger.core(&format!("aviso {id}: {e}"));
+                core(log, &format!("aviso {id}: {e}"));
             }
         }
     }
 
     /// Runs the post steps due after steps that `passed` (or not), in the build's scope.
-    fn post(&self, extras: &Extras, row: &BuildRow, passed: bool, logger: &BuildLogger) {
+    fn post(&self, extras: &Extras, order: &BuildOrder, passed: bool, log: &dyn BuildLog) {
         let catalog = self.registry.catalog();
-        let item = start_item(&row.job, &row.parameters);
+        let item = start_item(&order.job, &order.parameters);
         for post in extras.post() {
             if !post.when.runs_after(passed) {
                 continue;
             }
             let when = serde_json::to_value(post.when).ok().and_then(|v| v.as_str().map(str::to_owned));
             let when = when.unwrap_or_default();
-            logger.core(&format!("post {when}"));
+            core(log, &format!("post {when}"));
             let plan = match Plan::compile(&post.flow, &catalog) {
                 Ok(plan) => plan,
                 Err(errors) => {
                     let said: Vec<String> = errors.iter().map(ToString::to_string).collect();
-                    logger.core(&format!("post {when}: {}", said.join("; ")));
+                    core(log, &format!("post {when}: {}", said.join("; ")));
                     continue;
                 }
             };
             let run = Executor::new(&plan, &catalog)
-                .run_id(row.run_id.clone())
+                .run_id(order.run.clone())
                 .start_with(post.start.clone(), vec![item.clone()])
                 .run();
             for (node, part) in &run.nodes {
                 if part.status == NodeStatus::Failed {
-                    logger.core(&format!(
-                        "post {when}: o passo {node} falhou: {}",
-                        part.error.clone().unwrap_or_default()
-                    ));
+                    core(
+                        log,
+                        &format!(
+                            "post {when}: o passo {node} falhou: {}",
+                            part.error.clone().unwrap_or_default()
+                        ),
+                    );
                 }
             }
         }
@@ -454,31 +551,34 @@ impl Ci {
     fn publish(
         &self,
         extras: &Extras,
-        row: &BuildRow,
         info: &BuildInfo,
         workspace: &Path,
-        logger: &BuildLogger,
+        site: &dyn BuildSite,
+        log: &dyn BuildLog,
     ) {
         let on = self.registry.on();
         for wanted in &extras.publishers {
             let Some(publisher) = on.iter().flat_map(|p| p.publishers()).find(|p| p.id() == wanted.id) else {
-                logger.core(&format!(
-                    "publicador {}: falta o plugin {}",
-                    wanted.id,
-                    wanted.plugin.as_deref().unwrap_or(&wanted.id)
-                ));
+                core(
+                    log,
+                    &format!(
+                        "publicador {}: falta o plugin {}",
+                        wanted.id,
+                        wanted.plugin.as_deref().unwrap_or(&wanted.id)
+                    ),
+                );
                 continue;
             };
             match publisher.publish(info, &wanted.settings, workspace) {
                 Ok(attachments) => {
                     for attachment in attachments {
-                        match self.attach(&row.job, row.number, &attachment) {
-                            Ok(_) => logger.core(&format!("{}: {} guardado", wanted.id, attachment.name)),
-                            Err(e) => logger.core(&format!("{}: {}: {e}", wanted.id, attachment.name)),
+                        match site.attach(&attachment) {
+                            Ok(_) => core(log, &format!("{}: {} guardado", wanted.id, attachment.name)),
+                            Err(e) => core(log, &format!("{}: {}: {e}", wanted.id, attachment.name)),
                         }
                     }
                 }
-                Err(e) => logger.core(&format!("publicador {}: {e}", wanted.id)),
+                Err(e) => core(log, &format!("publicador {}: {e}", wanted.id)),
             }
         }
     }
@@ -486,15 +586,16 @@ impl Ci {
 
 /// Removes the build's folder, unless the job keeps it, and each folder above it that is left
 /// empty, up to `root` (the folder of every build), which stays.
-fn finish(root: &Path, workspace: &Path, keep: bool, logger: &BuildLogger) {
+fn finish(root: &Path, workspace: &Path, keep: bool, log: &dyn BuildLog) {
+    Resume::forget(workspace);
     if keep {
-        logger.core(&format!("a pasta {} fica, como o job pede", workspace.display()));
+        core(log, &format!("a pasta {} fica, como o job pede", workspace.display()));
         return;
     }
     if let Err(e) = std::fs::remove_dir_all(workspace)
         && e.kind() != std::io::ErrorKind::NotFound
     {
-        logger.core(&format!("apagar a pasta {}: {e}", workspace.display()));
+        core(log, &format!("apagar a pasta {}: {e}", workspace.display()));
     }
     let mut above = workspace.parent();
     while let Some(folder) = above {
@@ -510,4 +611,158 @@ fn finish(root: &Path, workspace: &Path, keep: bool, logger: &BuildLogger) {
 /// criteria language `[Parameters.X]` is the older spelling of `?X`, a parameter of the query.
 pub(crate) fn start_item(job: &str, parameters: &Map<String, Value>) -> Item {
     Item::new(json!({ "job": job, "params": Value::Object(parameters.clone()) }))
+}
+
+/// A build to run, as the side that runs it gets it: which build, the settings of its job and
+/// what its pipeline said besides the flow. Plain data: it goes to an agent as JSON.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BuildOrder {
+    /// The job, by its path.
+    pub job: String,
+    /// The build's number.
+    pub number: u64,
+    /// The id of its run in the queue.
+    pub run: String,
+    /// The values of its parameters.
+    pub parameters: Map<String, Value>,
+    /// The settings of its job: `scm`, `workspace`, `status`, `notify` and the hooks'.
+    pub settings: Value,
+    /// What its pipeline said besides the flow: environment, post steps, publishers, time limit,
+    /// agent.
+    pub extras: Value,
+}
+
+/// Where the steps of a build run and where what it leaves goes, for [`Ci::run_order`].
+///
+/// **Its role.** The life of a build is the same on the server and on an agent; what differs is
+/// here. On the server the steps run in the queue and the log goes to the core's file. On an agent
+/// the steps run there and everything else goes to the server, which keeps the queue, the log, the
+/// attachments and the status.
+///
+/// **How it works.** `run_order` calls, in order: [`fail`](Self::fail) when the build cannot start
+/// (no folder, a hook said no, the code could not be fetched), else [`started`](Self::started)
+/// once the code is there, [`steps`](Self::steps), and [`ended`](Self::ended) once the post
+/// steps, the publishers and the hooks are done. [`cancel`](Self::cancel) may come from another
+/// thread at any time while the steps run: the time limit of the pipeline, a limit of the agent.
+pub trait BuildSite: Sync {
+    /// The build's log.
+    fn log(&self) -> Arc<dyn BuildLog>;
+
+    /// Variables the steps get besides the build's own: the limits of an agent, say.
+    fn environment(&self) -> BTreeMap<String, String> {
+        BTreeMap::new()
+    }
+
+    /// Ends the build as failed, saying `reason`, before any step.
+    fn fail(&self, reason: &str) -> Result<(), CiError>;
+
+    /// The code is in the folder, at `commit` when there is one.
+    fn started(&self, commit: Option<&str>);
+
+    /// Runs the steps, with the build's scope entered, with the kinds of `catalog`; how the build
+    /// ended, or [`BuildStatus::Running`] when its worker lost it on the way.
+    fn steps(&self, catalog: &Catalog) -> Result<BuildStatus, CiError>;
+
+    /// Cancels the steps, saying `reason`.
+    fn cancel(&self, reason: &str);
+
+    /// Keeps what a publisher took.
+    fn attach(&self, attachment: &Attachment) -> Result<(), CiError>;
+
+    /// The build ended `status`, with its post steps, publishers and hooks done.
+    fn ended(&self, status: BuildStatus);
+}
+
+/// The note beside a build's folder that says its code was fetched, for a worker that takes the
+/// same build up again in the same folder.
+#[derive(Debug, Serialize, Deserialize)]
+struct Resume {
+    run: String,
+    commit: Option<String>,
+}
+
+impl Resume {
+    fn file(workspace: &Path) -> PathBuf {
+        workspace.with_extension("estado")
+    }
+
+    fn read(workspace: &Path) -> Option<Self> {
+        if !workspace.is_dir() {
+            return None;
+        }
+        serde_json::from_str(&std::fs::read_to_string(Self::file(workspace)).ok()?).ok()
+    }
+
+    fn write(&self, workspace: &Path) {
+        if let Ok(text) = serde_json::to_string(self) {
+            let _ = std::fs::write(Self::file(workspace), text);
+        }
+    }
+
+    fn forget(workspace: &Path) {
+        let _ = std::fs::remove_file(Self::file(workspace));
+    }
+}
+
+/// The site of a build the server runs itself, on one of its executors.
+struct LocalSite<'a> {
+    ci: &'a Ci,
+    runtime: Arc<Runtime>,
+    order: &'a BuildOrder,
+    worker: &'a str,
+    logger: Arc<BuildLogger>,
+    commit: Mutex<Option<String>>,
+}
+
+impl BuildSite for LocalSite<'_> {
+    fn log(&self) -> Arc<dyn BuildLog> {
+        self.logger.clone()
+    }
+
+    fn fail(&self, reason: &str) -> Result<(), CiError> {
+        self.runtime.fail(&self.order.run, self.worker, reason).map_err(runtime_error)?;
+        Ok(())
+    }
+
+    fn started(&self, commit: Option<&str>) {
+        *self.commit.lock().unwrap_or_else(PoisonError::into_inner) = commit.map(str::to_owned);
+        self.ci.announce_start(self.order, commit, self.logger.as_ref());
+    }
+
+    fn steps(&self, _: &Catalog) -> Result<BuildStatus, CiError> {
+        // A step that runs for longer than the lease writes nothing; the lease is renewed while it
+        // runs, so another executor does not take the build halfway.
+        let (stop, stopped) = channel::<()>();
+        let every = Duration::from_millis((self.runtime.lease_length() / 4).max(10));
+        let executed = std::thread::scope(|scope| {
+            scope.spawn(move || {
+                while stopped.recv_timeout(every) == Err(RecvTimeoutError::Timeout) {
+                    let _ = self.runtime.renew(&self.order.run, self.worker);
+                }
+            });
+            let executed = self.runtime.execute(&self.order.run, self.worker).map_err(runtime_error);
+            drop(stop);
+            executed
+        })?;
+        if executed == ravenrs_flows_runtime::RunStatus::Running {
+            return Ok(BuildStatus::Running);
+        }
+        Ok(self
+            .ci
+            .build(&self.order.job, self.order.number)
+            .map_or(BuildStatus::Failed, |build| build.status))
+    }
+
+    fn cancel(&self, reason: &str) {
+        let _ = self.runtime.cancel(&self.order.run, reason);
+    }
+
+    fn attach(&self, attachment: &Attachment) -> Result<(), CiError> {
+        self.ci.attach(&self.order.job, self.order.number, attachment).map(|_| ())
+    }
+
+    fn ended(&self, status: BuildStatus) {
+        let commit = self.commit.lock().unwrap_or_else(PoisonError::into_inner).clone();
+        self.ci.announce_end(self.order, commit.as_deref(), status, self.logger.as_ref());
+    }
 }

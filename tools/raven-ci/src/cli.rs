@@ -22,6 +22,8 @@ pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--f
                           guarda no cofre; os campos vêm em JSON na entrada
   credencial listar       as credenciais, sem os valores
   credencial apagar NOME  revoga e apaga
+  agentes listar|token|remover|modelos|modelo
+                          os agentes que rodam os builds fora do servidor
   <comando> ...           um comando que um plugin ligado traz
   --self-test             confere o núcleo com um plugin falso de cada ponto
   --versao                a versão";
@@ -196,6 +198,7 @@ impl Invocation {
                 write(out, &format!("{USAGE}\n"))?;
                 Ok(2)
             }
+            ["agentes", args @ ..] => crate::agentes::command(&ci, args, self.json, out),
             [name, args @ ..] => {
                 let command = ci
                     .registry()

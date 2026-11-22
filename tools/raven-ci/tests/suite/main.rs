@@ -8,6 +8,7 @@
     reason = "tests fail loudly and say what they skip"
 )]
 
+mod agentes;
 mod plugins;
 mod product;
 mod server;

@@ -10,9 +10,11 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
+use raven_ci_core::agents;
 use raven_ci_core::{Ci, Executors, api};
 use raven_ci_plugin_api::{CiError, ROLE_RUN};
 use ravenrs_app_server::ApiOptions;
+use ravenrs_app_server::LiveChannels;
 
 /// Where it listens unless told: this machine only.
 pub const DEFAULT_ADDRESS: &str = "127.0.0.1:8080";
@@ -59,14 +61,25 @@ fn stopping() -> Result<impl std::future::Future<Output = ()>, CiError> {
     }
 }
 
-/// `raven-ci servir [--endereco HOST:PORTA] [--executores N]`.
+/// `raven-ci servir [--endereco HOST:PORTA] [--executores N] [--tolerancia-agente SEGUNDOS]
+/// [--url-agentes URL]`. With `--executores 0` the server runs no build itself: agents do.
 pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<i32, CiError> {
     let address = flag(args, "--endereco")?.unwrap_or(DEFAULT_ADDRESS).to_owned();
     let executors: usize = match flag(args, "--executores")? {
         Some(n) => n.parse().map_err(|_| CiError::settings("--executores", "tem que ser um número"))?,
         None => 1,
     };
+    if let Some(seconds) = flag(args, "--tolerancia-agente")? {
+        let seconds: u64 = seconds
+            .parse()
+            .map_err(|_| CiError::settings("--tolerancia-agente", "tem que ser um número de segundos"))?;
+        ci.set_agent_grace(Duration::from_secs(seconds));
+    }
+    let agents_url = flag(args, "--url-agentes")?.map(str::to_owned);
+    let channels = LiveChannels::new();
+    ci.set_agent_live(channels.clone());
     let ci = Arc::new(ci);
+    let watching = ci.watch_agents(Duration::from_secs(1));
     for problem in ci.watch_triggers() {
         writeln!(out, "aviso: {problem}").map_err(failed)?;
     }
@@ -79,13 +92,22 @@ pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<
         let listener =
             tokio::net::TcpListener::bind(&address).await.map_err(|e| failed(format!("{address}: {e}")))?;
         let at = listener.local_addr().map_err(failed)?;
+        // Agents brought up on this machine reach it at its own address.
+        let reach = if at.ip().is_unspecified() {
+            format!("http://127.0.0.1:{}", at.port())
+        } else {
+            format!("http://{at}")
+        };
+        ci.set_agent_server(agents_url.as_deref().unwrap_or(&reach));
         writeln!(out, "Raven CI em http://{at}, com {executors} executor(es)").map_err(failed)?;
         out.flush().map_err(failed)?;
         let options = ApiOptions::new()
             .workers(HTTP_WORKERS)
             .open(api::OPEN_PREFIX)
             .pass_header("x-")
-            .pass_header("content-type");
+            .pass_header("content-type")
+            .open(agents::JOIN_PATH)
+            .live(channels);
         let made = ci.clone();
         let make = move || api::service(made.clone(), &users);
         tokio::select! {
@@ -94,6 +116,8 @@ pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<
         }
     });
     ci.unwatch_triggers();
+    watching.stop();
+    ci.stop_launched_agents();
     running.stop();
     runtime.shutdown_timeout(Duration::from_secs(5));
     served?;
