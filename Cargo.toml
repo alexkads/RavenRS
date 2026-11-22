@@ -81,6 +81,7 @@ ravenrs-report-xlsx = { version = "27.1.28", path = "crates/ravenrs-report-xlsx"
 ravenrs-sheet = { version = "27.1.28", path = "crates/ravenrs-sheet" }
 ravenrs-spreadsheet = { version = "27.1.28", path = "crates/ravenrs-spreadsheet" }
 ravenrs-report-server = { version = "27.1.28", path = "crates/ravenrs-report-server" }
+ravenrs-metrics = { version = "27.1.28", path = "crates/ravenrs-metrics" }
 ravenrs-git = { version = "27.1.28", path = "crates/ravenrs-git" }
 ravenrs-schedule = { version = "27.1.28", path = "crates/ravenrs-schedule" }
 ravenrs-secrets = { version = "27.1.28", path = "crates/ravenrs-secrets" }

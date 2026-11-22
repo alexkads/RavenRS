@@ -59,6 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `ravenrs-metrics`, metrics in the Prometheus text format with no dependencies: a `Registry` of counters, gauges and histograms with labels, safe from any thread, `render()` for a `/metrics` route with `CONTENT_TYPE`, and `process_rss_bytes()`, the memory the process holds, on Linux. Bad names, names taken and the wrong number of label values are errors, not panics (#820).
+
 - `ravenrs-git`, git for RavenRS services over the git installed: shallow `clone`, `fetch` with refspecs, `fetch_pull_request` (`refs/pull/N/head` as `<remote>/pr/N`), `checkout` with no branch, `rev_parse`, `ls_remote`, and `merge`, which names the files of a conflict and undoes it. A `Credential` goes in the child's environment as `http.extraHeader`, never as an argument nor in the remote's address, and every command runs without the user's git configuration and never asks for a password (#817).
 
 - `ravenrs-secrets`, the vault: secrets sealed with ChaCha20-Poly1305 under a key kept apart from them (`KeyFile`, `KeyFromEnv`, or the system's store with the feature `system-keyring`), an opaque `SecretRef` for documents and exports, separate rights to use (`use_with`), reveal and administer, rotation, revocation, `MemoryStorage` and `FileStorage`, and one `Redactor` that keeps every value handed out of text as `•••`. `ravenrs-agent-cli` masks with the same `redact` (#815, part of #546).
