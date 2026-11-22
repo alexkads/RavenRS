@@ -4637,6 +4637,7 @@ method Ui::perform_action
 method Ui::phase_times
 method Ui::scale
 method Ui::scene
+method Ui::scroll_frames
 method Ui::set_cable_world
 method Ui::set_clipboard
 method Ui::set_file_picker

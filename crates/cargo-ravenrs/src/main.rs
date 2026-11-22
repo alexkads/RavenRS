@@ -122,7 +122,10 @@ async fn main() {
     if args.get(1).is_some_and(|arg| arg == "ravenrs") {
         args.remove(1);
     }
-    let cli = Cli::parse_from(args);
+    let cli = match Cli::try_parse_from(args) {
+        Ok(cli) => cli,
+        Err(error) => explain(error),
+    };
     let result = match cli.command {
         Commands::Mcp => ravenrs_mcp::serve_stdio().await.map_err(|e| e.to_string()),
         Commands::New { name, template, target, yes, no_git, no_ai, no_check, plugin } => {
@@ -200,4 +203,31 @@ fn choose(value: Option<String>, yes: bool, label: &str, default: &str) -> Resul
     let mut answer = String::new();
     std::io::stdin().read_line(&mut answer).map_err(|e| e.to_string())?;
     Ok(if answer.trim().is_empty() { default.into() } else { answer.trim().into() })
+}
+
+/// An unknown command is often one a newer cargo-ravenrs has, named by a newer skill: says the
+/// installed version and how to update. `--version` also says when the project here asks for
+/// another RavenRS. Anything else is clap's own message.
+fn explain(error: clap::Error) -> ! {
+    use clap::error::{ContextKind, ErrorKind};
+    match error.kind() {
+        ErrorKind::InvalidSubcommand => {
+            let name = error.get(ContextKind::InvalidSubcommand).map(ToString::to_string).unwrap_or_default();
+            eprintln!(
+                "erro: o cargo-ravenrs {} não tem o comando '{name}'.\n\
+                 Se ele vem de uma skill ou documentação mais nova, atualize com:\n  {}",
+                cargo_ravenrs::CLI_VERSION,
+                cargo_ravenrs::versions::UPDATE
+            );
+            std::process::exit(2);
+        }
+        ErrorKind::DisplayVersion => {
+            let _ = error.print();
+            if let Some(warning) = cargo_ravenrs::versions::version_warning(std::path::Path::new(".")) {
+                eprintln!("{warning}");
+            }
+            std::process::exit(0);
+        }
+        _ => error.exit(),
+    }
 }

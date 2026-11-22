@@ -5,7 +5,7 @@ mod e2e_install;
 mod mcp;
 mod project;
 mod template;
-mod versions;
+pub mod versions;
 
 pub use ai::configure_ai;
 pub use mcp::doctor;
