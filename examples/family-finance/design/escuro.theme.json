@@ -9,6 +9,7 @@
     "bg-200": "#3c4046",
     "bg-300": "#4a4f55",
     "border": "#585e65",
+    "control-border": "#8a929b",
     "danger": "#ff9c92",
     "focus-ring": "#d4f57f",
     "ink": "#f6f8f2",
