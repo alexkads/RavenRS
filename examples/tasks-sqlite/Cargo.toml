@@ -10,6 +10,11 @@ publish = false
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+# How Raven Test Studio (RTS) finds and opens this app on the test channel (--e2e-serve).
+[package.metadata.ravenrs.e2e]
+app = "Minhas tarefas SQLite"
+binary = "tasks-sqlite"
+
 [dependencies]
 ravenrs.workspace = true
 ravenrs-app.workspace = true
@@ -21,9 +26,14 @@ wasm-bindgen-futures.workspace = true
 console_error_panic_hook.workspace = true
 web-sys = { workspace = true, features = ["console"] }
 
+[dev-dependencies]
+
 [lints]
 workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# The test channel, closed until the app is opened with --e2e-serve.
+ravenrs-e2e.workspace = true
+ravenrs-e2e-wire = { workspace = true, features = ["serve"] }
 ravenrs-app-sqlite.workspace = true
 rusqlite.workspace = true

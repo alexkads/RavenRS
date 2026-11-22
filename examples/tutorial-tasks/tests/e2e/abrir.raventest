@@ -1,0 +1,8 @@
+scenario: Minhas tarefas: criar uma tarefa
+// A lista começa vazia; uma tarefa nova aparece nela depois de salva.
+open Minhas tarefas                          | Abrir as tarefas
+check Nada por aqui ainda. = Nada por aqui ainda. | A lista começa vazia
+click Novo                                   | Nova tarefa
+type #field:title = Comprar pão              | Digitar o título
+click Salvar e fechar                        | Salvar e voltar à lista
+check Comprar pão = Comprar pão              | A tarefa está na lista
