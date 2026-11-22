@@ -5,6 +5,7 @@ mod accessible;
 mod actions;
 mod base_inputs;
 mod base_overlays;
+mod base_rest;
 mod declared;
 mod find;
 mod reach;

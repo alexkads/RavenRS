@@ -958,6 +958,8 @@ impl View for Segment {
             );
         }
         cx.semantics(node, Semantics::new(Role::RadioButton).selected(on).toggled(on));
+        // Found by its label, which stays with it when the segments change order.
+        cx.test_id(node, &format!("option:{}", self.label));
         self.choice.wire(cx, node, 7.0);
         node
     }
