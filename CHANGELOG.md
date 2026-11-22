@@ -59,6 +59,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `grid-poc`, `quick-plan`, `spreadsheet`, `site-home` and `component-gallery` have scenarios of the Raven Test Studio in `tests/e2e/` (#702, second lot). `Scenario::play_served` in `ravenrs-e2e-wire` plays a scenario on an app opened with `--e2e-serve` in a process of its own, for an app that is only a binary, as `grid-poc`. The click counter of the home page is `clicks`.
 - `LogView` and `LogBuffer` in `ravenrs-widgets-lists`: a build log as it comes, in a monospaced font with the colors the program wrote (ANSI 30-37 and 90-97, bold, reset, mapped to the theme's colors, with every other escape taken out), over a `VirtualList` that follows the end, with a search that marks the lines and counts them, sections that fold by click or Expand/Collapse, and the number of a line as a button that points at it (`on_line`). New labels `log_name`, `log_search`, `log_go_to_end`, `log_matches`, `log_folded` and `log_point_line`. It has its RCB stories, its RTS contract and the page "Log de build" in the feature center (#824).
 
 - `ravenrs-metrics`, metrics in the Prometheus text format with no dependencies: a `Registry` of counters, gauges and histograms with labels, safe from any thread, `render()` for a `/metrics` route with `CONTENT_TYPE`, and `process_rss_bytes()`, the memory the process holds, on Linux. Bad names, names taken and the wrong number of label values are errors, not panics (#820).

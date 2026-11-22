@@ -6,3 +6,4 @@
 mod accessibility;
 mod chart_catalog;
 mod projects;
+mod scenarios;
