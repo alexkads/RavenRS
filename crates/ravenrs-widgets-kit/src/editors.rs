@@ -1019,6 +1019,14 @@ impl View for TextArea {
         if state.disabled {
             return node;
         }
+        if state.accepts_input() {
+            // Takes the whole text at once, as a screen reader or a test asks.
+            let whole = self.value.clone();
+            cx.on_access(node, &[ravenrs_core::AccessAction::SetValue], move |_, text| {
+                whole.set(text.unwrap_or_default().to_owned());
+                true
+            });
+        }
 
         // Press places the caret, dragging selects, Shift-click extends.
         let accept: Rc<dyn Fn(usize)> = {

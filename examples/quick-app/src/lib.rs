@@ -1,5 +1,6 @@
 //! A whole application from its records: navigation, lists, forms and commands.
 
+pub mod e2e;
 use ravenrs_app::{BusinessEnum, BusinessObject, ObjectSpaceExt};
 use ravenrs_app_ui::{App, Language};
 

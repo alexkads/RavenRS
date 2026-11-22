@@ -75,6 +75,7 @@ impl ComponentBook for Image {
             .arg(ArgType::number("opacity", 1.0, 0.0, 1.0, 0.05))
             .arg(ArgType::bool("stretch", false))
             .story("Example", Args::new())
+            .story("With a description", Args::new().with("alt", "A crow on a branch"))
             .story("Square corners", Args::new().with("corner_radius", 0.0))
             .story("Content mode: Fit", Args::new().with("content_mode", ArgValue::choice("Fit")))
             .story("Content mode: Fill", Args::new().with("content_mode", ArgValue::choice("Fill")))

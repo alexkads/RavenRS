@@ -60,6 +60,7 @@ impl ComponentBook for IconTile {
             .arg(ArgType::text("label", "").description("Empty leaves it as the component has it."))
             .arg(ArgType::number("size", 48.0, 0.0, 192.0, 1.0))
             .story("Example", Args::new())
+            .story("With a label", Args::new().with("label", "Paid"))
             .story("Small", Args::new().with("size", 32.0))
             .story("Tone: Neutral", Args::new().with("tone", ArgValue::choice("Neutral")))
             .story("Tone: Accent", Args::new().with("tone", ArgValue::choice("Accent")))

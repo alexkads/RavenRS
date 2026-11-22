@@ -926,6 +926,8 @@ version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "tracing-subscriber",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -3042,6 +3044,8 @@ version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "tracing-subscriber",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -5592,6 +5596,8 @@ dependencies = [
  "ravenrs-app-a11y",
  "ravenrs-app-ui",
  "ravenrs-core",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-style",
  "ravenrs-widgets",
  "wasm-bindgen",
@@ -6279,6 +6285,7 @@ dependencies = [
  "ravenrs-barcode",
  "ravenrs-core",
  "ravenrs-criteria",
+ "ravenrs-e2e",
  "ravenrs-grid-export",
  "ravenrs-layout",
  "ravenrs-live",
@@ -7149,6 +7156,7 @@ version = "27.1.28"
 dependencies = [
  "ravenrs-animation",
  "ravenrs-core",
+ "ravenrs-e2e",
  "ravenrs-layout",
  "ravenrs-live",
  "ravenrs-lottie",
@@ -7183,6 +7191,7 @@ name = "ravenrs-widgets-lists"
 version = "27.1.28"
 dependencies = [
  "ravenrs-core",
+ "ravenrs-e2e",
  "ravenrs-layout",
  "ravenrs-live",
  "ravenrs-reactive",
@@ -8679,6 +8688,8 @@ dependencies = [
  "ravenrs-app",
  "ravenrs-app-sqlite",
  "ravenrs-app-ui",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "rusqlite",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -9279,6 +9290,8 @@ dependencies = [
  "ravenrs",
  "ravenrs-app",
  "ravenrs-app-ui",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",

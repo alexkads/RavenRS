@@ -207,8 +207,10 @@
    "crate": "ravenrs-app-pos",
    "tipo": "Caixa",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -243,8 +245,10 @@
    "crate": "ravenrs-app-report",
    "tipo": "AnalyticsPanel",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [
+     "point:<série>:<categoria>"
+    ],
+    "acoes": []
    }
   },
   {
@@ -328,48 +332,66 @@
    "crate": "ravenrs-app-update",
    "tipo": "NewsDialog",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-app-ui",
    "tipo": "ActionButton",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [
+     "action:<id>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-app-ui",
    "tipo": "ActionContainer",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-app-ui",
    "tipo": "App",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [
+     "item:<rótulo>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-app-ui",
    "tipo": "AppShell",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [
+     "item:<rótulo>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-app-ui",
    "tipo": "EntityPane",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [
+     "field:<campo>"
+    ],
+    "acoes": []
    }
   },
   {
@@ -383,8 +405,13 @@
    "crate": "ravenrs-app-ui",
    "tipo": "ListView",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [
+     "row:<chave>"
+    ],
+    "acoes": [
+     "Click"
+    ],
+    "busy": true
    }
   },
   {
@@ -405,8 +432,13 @@
    "crate": "ravenrs-app-ui",
    "tipo": "SecuredApp",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [
+     "login:name",
+     "login:password"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -428,16 +460,20 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "PatchPanel",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "jack:<id>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-base",
    "tipo": "Alert",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": []
    }
   },
   {
@@ -523,8 +559,12 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "Carousel",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "slide:<n>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -549,16 +589,23 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "ColorPair",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-base",
    "tipo": "ColorPicker",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "SetValue"
+    ]
    }
   },
   {
@@ -641,8 +688,15 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "DateRangePicker",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "day:<aaaa-mm-dd>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "Select"
+    ]
    }
   },
   {
@@ -763,8 +817,8 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "Image",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": []
    }
   },
   {
@@ -823,8 +877,13 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "NinePointAnchor",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "option:<nome>"
+    ],
+    "acoes": [
+     "Click",
+     "Select"
+    ]
    }
   },
   {
@@ -1015,32 +1074,38 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "SplashScreen",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "sem_tela": true,
+    "motivo": "tela de abertura passageira, sem nada operável; fica numa camada própria e some sozinha"
    }
   },
   {
    "crate": "ravenrs-widgets-base",
    "tipo": "SplitHandle",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Increment",
+     "Decrement"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-base",
    "tipo": "SplitPanes",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-base",
    "tipo": "Splitter",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Increment",
+     "Decrement"
+    ]
    }
   },
   {
@@ -1063,8 +1128,12 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "Stepper",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Increment",
+     "Decrement",
+     "SetValue"
+    ]
    }
   },
   {
@@ -1079,8 +1148,12 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "SwatchGrid",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "swatch:<nome>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -1106,8 +1179,12 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "ThemeSwitcher",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "option:<rótulo>"
+    ],
+    "acoes": [
+     "Select"
+    ]
    }
   },
   {
@@ -1122,8 +1199,10 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "TitleBar",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -1198,48 +1277,50 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "ZoomControl",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-charts",
    "tipo": "AreaChart",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-charts",
    "tipo": "BarChart",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-charts",
    "tipo": "Barcode",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-charts",
    "tipo": "Chart",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-charts",
    "tipo": "ChartCard",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": []
    }
   },
   {
@@ -1260,104 +1341,129 @@
    "crate": "ravenrs-widgets-charts",
    "tipo": "FlowInspector",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-charts",
    "tipo": "FlowLayers",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-charts",
    "tipo": "FlowLibrary",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-charts",
    "tipo": "FlowToolbox",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-charts",
    "tipo": "SankeyChart",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-chat",
    "tipo": "AttachmentStrip",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-chat",
    "tipo": "AudioPlayerButton",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-chat",
    "tipo": "Chat",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [
+     "message:<n>"
+    ],
+    "acoes": [
+     "Click"
+    ],
+    "busy": true
    }
   },
   {
    "crate": "ravenrs-widgets-chat",
    "tipo": "CodeEditor",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-chat",
    "tipo": "FloatingPanel",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [
+     "orb"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-chat",
    "tipo": "Playground",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-chat",
    "tipo": "RichText",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-chat",
    "tipo": "SelectionBar",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -1379,8 +1485,12 @@
    "crate": "ravenrs-widgets-dock",
    "tipo": "Ribbon",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [
+     "tab:<título>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -1403,576 +1513,707 @@
    "crate": "ravenrs-widgets-imaging",
    "tipo": "ColorWheel",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": [
+     "SetValue"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "CompareView",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "CropOverlay",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": [
+     "SetValue"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "CurveEditor",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "Eyedropper",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "Histogram",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "ImageLightbox",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "Lottie",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "Marquee",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "Minimap",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "Protractor",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "RubberBand",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "RuleOfThirdsGrid",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "sem_tela": true,
+    "motivo": "linhas-guia de composição sobre uma imagem, escondidas do leitor de tela; quem as mostra é a ferramenta de recorte"
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "Ruler",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "TransformHandles",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": [
+     "SetValue"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "ZoomPanView",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "Accordion",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "Breadcrumb",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [
+     "crumb:<rótulo>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "CardView",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "CodeBlock",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "ConfirmDialog",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "DateTimePicker",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "DaySeparator",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "Disclosure",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "Dot",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "DropZone",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "EmptyState",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "ExpressionEditor",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "FileUpload",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [
+     "file:<nome>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "FilterBuilder",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "FloatingToolbar",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "FormLayout",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "HeroBanner",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "IconTile",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "ImageField",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "InlineRename",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "KeyBar",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "List",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "LookupField",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [
+     "option:<valor>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "Select"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "MaskedField",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "ModelPicker",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "MultiProgress",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "NumberField",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "OverlayBadge",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "QuadField",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "sem_tela": true,
+    "motivo": "um campo de quadrados animado, decorativo, sem nada que se leia ou opere"
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "Rating",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Increment",
+     "Decrement"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "ReleaseNotes",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "ScanField",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "ShimmerText",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "ShortcutHintBar",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "ShortcutSheet",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "Sidebar",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [
+     "item:<rótulo>",
+     "section:<título>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "SidebarBrand",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "SplitButton",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "StepBadge",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "StepIndicator",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [
+     "step:<n>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "Table",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "Tabs",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [
+     "tab:<rótulo>"
+    ],
+    "acoes": [
+     "Click",
+     "Select"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "TagBox",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [
+     "remove:<etiqueta>",
+     "option:<valor>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "Select"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "TextArea",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Focus",
+     "SetValue"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "ThemeEditor",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "ThemePicker",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "TileLayout",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "TimePicker",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "Toolbar",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "ValueSlider",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "Wizard",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [
+     "step:<n>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-lists",
    "tipo": "DocumentTabs",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [
+     "tab:<id>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-lists",
    "tipo": "FileBrowser",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [
+     "row:<chave>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-lists",
    "tipo": "Filmstrip",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [
+     "row:<chave>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-lists",
    "tipo": "PagedDocumentView",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-lists",
    "tipo": "SortableList",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [
+     "item:<chave>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -2003,24 +2244,35 @@
    "crate": "ravenrs-widgets-lists",
    "tipo": "YearView",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [
+     "day:<aaaa-mm-dd>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-scheduler",
    "tipo": "EventCalendar",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [
+     "event:<id>",
+     "day:<aaaa-mm-dd>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-scheduler",
    "tipo": "RecurrenceEditor",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -2041,24 +2293,32 @@
    "crate": "ravenrs-widgets-scheduler",
    "tipo": "Timeline",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [
+     "item:<id>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-kit",
    "tipo": "ParameterForm",
    "rts": {
-    "pendente": true,
-    "issue": 738
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-lists",
    "tipo": "DataInspector",
    "rts": {
-    "pendente": true,
-    "issue": 740
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   }
  ]
