@@ -2,7 +2,7 @@
 
 use std::path::Path;
 
-use sysinfo::{Disks, MemoryRefreshKind, RefreshKind, System};
+use sysinfo::{MemoryRefreshKind, RefreshKind, System};
 
 /// What a machine has, for deciding which models to offer.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -26,12 +26,5 @@ impl Machine {
 
 /// The free space of the disk mounted deepest above `folder`.
 fn free_disk(folder: &Path) -> u64 {
-    let absolute = std::path::absolute(folder).unwrap_or_else(|_| folder.to_path_buf());
-    let disks = Disks::new_with_refreshed_list();
-    disks
-        .list()
-        .iter()
-        .filter(|disk| absolute.starts_with(disk.mount_point()))
-        .max_by_key(|disk| disk.mount_point().as_os_str().len())
-        .map_or(0, sysinfo::Disk::available_space)
+    ravenrs_metrics::free_disk_bytes(folder).unwrap_or(0)
 }

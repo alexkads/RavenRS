@@ -6069,6 +6069,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "raven-ci-plugin-workspace"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-metrics",
+ "serde_json",
+]
+
+[[package]]
 name = "raven-code"
 version = "0.1.0"
 dependencies = [
@@ -6240,6 +6253,7 @@ dependencies = [
  "ravenrs-app-i18n",
  "ravenrs-core",
  "ravenrs-layout",
+ "ravenrs-metrics",
  "ravenrs-reactive",
  "ravenrs-style",
  "ravenrs-text",
@@ -6822,6 +6836,9 @@ dependencies = [
 [[package]]
 name = "ravenrs-metrics"
 version = "27.1.28"
+dependencies = [
+ "sysinfo",
+]
 
 [[package]]
 name = "ravenrs-movie"

@@ -393,6 +393,21 @@ impl HistogramSeries {
     }
 }
 
+/// The free space, in bytes, of the disk that holds `folder` (the one mounted deepest above it):
+/// what a service checks before it writes much, as a build or a model download does. `None` when
+/// no disk holds it. Needs the feature `disk`.
+#[cfg(feature = "disk")]
+pub fn free_disk_bytes(folder: &std::path::Path) -> Option<u64> {
+    let absolute = std::path::absolute(folder).unwrap_or_else(|_| folder.to_path_buf());
+    let disks = sysinfo::Disks::new_with_refreshed_list();
+    disks
+        .list()
+        .iter()
+        .filter(|disk| absolute.starts_with(disk.mount_point()))
+        .max_by_key(|disk| disk.mount_point().as_os_str().len())
+        .map(sysinfo::Disk::available_space)
+}
+
 /// The memory the process holds now (its resident set), in bytes. On Linux it is read from
 /// `/proc/self/status`; elsewhere it is `None`, as there is no file to read it from.
 pub fn process_rss_bytes() -> Option<u64> {
