@@ -12,8 +12,11 @@ fn items(count: usize, clicked: &State<Option<usize>>) -> Vec<AnyView> {
     (0..count)
         .map(|i| {
             let c = clicked.clone();
-            Box::new(Button::new(format!("Item {i}")).on_click(move || c.set(Some(i))).test_id(format!("item:{i}")))
-                as AnyView
+            Box::new(
+                Button::new(format!("Item {i}"))
+                    .on_click(move || c.set(Some(i)))
+                    .test_id(format!("item:{i}")),
+            ) as AnyView
         })
         .collect()
 }

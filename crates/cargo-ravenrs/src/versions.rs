@@ -44,7 +44,8 @@ pub(crate) fn ensure_current(root: &Path) -> Result<(), String> {
 }
 
 /// How to install the tool again: the same command, newer or older.
-pub const UPDATE: &str = "cargo install --git https://github.com/alexkads/RavenRS cargo-ravenrs --locked --force";
+pub const UPDATE: &str =
+    "cargo install --git https://github.com/alexkads/RavenRS cargo-ravenrs --locked --force";
 
 /// What to do when the project asks for `version` and the tool has another one.
 fn update_hint(version: &str) -> String {
@@ -66,7 +67,13 @@ pub(crate) fn newer(a: &str, b: &str) -> bool {
 pub fn version_warning(root: &Path) -> Option<String> {
     let declared = ravenrs_versions(root).ok()?;
     let other = declared.iter().find(|d| d.version.trim_start_matches(['=', '^', '~']) != crate::VERSION)?;
-    Some(format!("aviso: {} ({}) usa {}. {}", other.package, other.origin, other.version, update_hint(&other.version)))
+    Some(format!(
+        "aviso: {} ({}) usa {}. {}",
+        other.package,
+        other.origin,
+        other.version,
+        update_hint(&other.version)
+    ))
 }
 
 fn manifest(path: &Path) -> Result<DocumentMut, String> {

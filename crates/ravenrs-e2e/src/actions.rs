@@ -282,13 +282,15 @@ impl E2e {
             }
             // Positive delta scrolls up, toward the start: content moves down.
             let reach = |from: f32, to: f32, size: f32| -> f32 {
-                if middle_outside(from, to, size) { (to - from).signum() * -(size * 0.6).max(40.0) } else { 0.0 }
+                if middle_outside(from, to, size) {
+                    (to - from).signum() * -(size * 0.6).max(40.0)
+                } else {
+                    0.0
+                }
             };
             let center = shown.center();
-            let delta = Point::new(
-                reach(center.x, aim.x, shown.width()),
-                reach(center.y, aim.y, shown.height()),
-            );
+            let delta =
+                Point::new(reach(center.x, aim.x, shown.width()), reach(center.y, aim.y, shown.height()));
             return Some((center, delta));
         }
         None
@@ -340,7 +342,8 @@ impl E2e {
             let frame = parent.bounds;
             if SCROLLERS.contains(&parent.role) && frame.height() > 0.0 && !ports.contains(&frame) {
                 // A part inside another is smaller: keep the nearest first.
-                let place = ports.iter().position(|p| p.width() * p.height() > frame.width() * frame.height());
+                let place =
+                    ports.iter().position(|p| p.width() * p.height() > frame.width() * frame.height());
                 ports.insert(place.unwrap_or(ports.len()), frame);
             }
             at = parent.id;
