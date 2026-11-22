@@ -23,3 +23,4 @@ fn it_tests_itself_with_no_window() {
         .expect("the binary runs");
     assert!(out.status.success(), "{}", String::from_utf8_lossy(&out.stderr));
 }
+mod scenarios;
