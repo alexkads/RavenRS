@@ -84,15 +84,15 @@ pub struct Config {
 /// is the agent's own (its limits).
 const CONTRACT: [&str; 6] = ["--servidor", "--nome", "--token", "--rotulos", "--executores", "--pasta"];
 
-/// What stands for the token when the agent has a key already and came with none.
-const NO_TOKEN: &str = "\u{0}sem-token";
-
 impl Config {
     /// What `args` say, with the variables of `env`: the words of the contract,
     /// [`AgentArgs::from_args`] (`--servidor URL --nome NOME --pasta DIR [--rotulos a,b]
     /// [--executores N]`, and the token in `--token T`, `--token -` for the first line of the input,
-    /// or [`TOKEN_VARIABLE`]), then the limits of [`Limits::from_args`]. The token is needed only the
-    /// first time: an agent that keeps a key in its folder comes back with it.
+    /// or [`TOKEN_VARIABLE`]), then the agent's own words, its limits ([`Limits::from_args`]). The
+    /// words of the limits are taken apart first: the contract stays strict, so a word mistyped is
+    /// refused, and the limits are the agent's own business (in a container or a pod, the container
+    /// limits). The token is needed only the first time: an agent with no token and no key kept in
+    /// its folder is refused when it starts.
     pub fn from_args(args: &[String], env: impl Fn(&str) -> Option<String>) -> Result<Self, String> {
         let (mut contract, mut own) = (Vec::new(), Vec::new());
         let mut words = args.iter();
@@ -106,23 +106,16 @@ impl Config {
         if !contract.iter().any(|w| w == "--pasta") {
             contract.extend(["--pasta".to_owned(), "raven-ci-agente".to_owned()]);
         }
-        let folder =
-            contract.iter().position(|w| w == "--pasta").and_then(|at| contract.get(at + 1)).cloned();
-        let has_key = folder.is_some_and(|folder| read_key(Path::new(&folder)).is_some());
-        let parsed = AgentArgs::from_args(&contract, |name| {
-            env(name).or_else(|| (name == TOKEN_VARIABLE && has_key).then(|| NO_TOKEN.to_owned()))
-        })
-        .map_err(|e| e.to_string())?;
-        let token = match parsed.token.as_str() {
-            NO_TOKEN => None,
+        let parsed = AgentArgs::from_args(&contract, env).map_err(|e| e.to_string())?;
+        let token = match parsed.token.as_deref() {
             // From the first line of the input: what a launcher through SSH sends, so the token
             // shows in no list of processes on either machine.
-            "-" => {
+            Some("-") => {
                 let mut line = String::new();
                 std::io::stdin().read_line(&mut line).map_err(|e| format!("o token na entrada: {e}"))?;
                 Some(line.trim().to_owned()).filter(|t| !t.is_empty())
             }
-            given => Some(given.to_owned()),
+            other => other.map(str::to_owned),
         };
         let limits = Limits::from_args(&own)?;
         let executors = limits.executors(u32::try_from(parsed.executors).unwrap_or(u32::MAX));

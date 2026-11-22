@@ -56,8 +56,11 @@ container, pod): the words `--servidor URL --nome NOME --rotulos a,b --executore
 (`AgentArgs::to_args`) and the token used once in `RAVEN_CI_AGENT_TOKEN` (`AgentArgs::env`), never
 on a command line. A person starting an agent by hand may say `--token T`; `agent-remote` says
 `--token -`, and the agent reads it from its input. The agent's own words (its limits) come after
-those of the contract. The token is needed only the first time: an agent that keeps its key comes
-back with it. It connects by itself, and never leaves by itself: the server calls
+those of the contract, and the agent takes them apart before it reads the contract, which stays
+strict: a word mistyped is refused. Limits are the agent's own business; in a container or a pod,
+the container holds them. The token is needed only the first time
+(`AgentArgs::token` is optional): an agent that keeps its key comes back with it, and one with
+neither a token nor a key refuses to start, saying so. It connects by itself, and never leaves by itself: the server calls
 `LaunchedAgent::stop`.
 
 ## How a job picks its agent
