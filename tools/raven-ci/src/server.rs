@@ -10,7 +10,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
 
-use raven_ci_core::{Ci, Executors, api};
+use raven_ci_core::{Ci, Executors, api, panel};
 use raven_ci_plugin_api::{CiError, ROLE_RUN};
 use ravenrs_app_server::ApiOptions;
 
@@ -20,6 +20,8 @@ pub const DEFAULT_ADDRESS: &str = "127.0.0.1:8080";
 const HTTP_WORKERS: usize = 2;
 /// How often an idle executor looks at the queue.
 const POLL: Duration = Duration::from_millis(500);
+/// How often the live channel looks at what changed.
+const LIVE_EVERY: Duration = Duration::from_millis(300);
 
 fn failed(e: impl std::fmt::Display) -> CiError {
     CiError::failed(e.to_string())
@@ -59,13 +61,15 @@ fn stopping() -> Result<impl std::future::Future<Output = ()>, CiError> {
     }
 }
 
-/// `raven-ci servir [--endereco HOST:PORTA] [--executores N]`.
+/// `raven-ci servir [--endereco HOST:PORTA] [--executores N] [--painel PASTA]`: with `--painel`,
+/// the panel for the browser (`scripts/build-web.sh raven-ci`) is served at `/painel/`.
 pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<i32, CiError> {
     let address = flag(args, "--endereco")?.unwrap_or(DEFAULT_ADDRESS).to_owned();
     let executors: usize = match flag(args, "--executores")? {
         Some(n) => n.parse().map_err(|_| CiError::settings("--executores", "tem que ser um número"))?,
         None => 1,
     };
+    let panel_files = flag(args, "--painel")?.map(std::path::PathBuf::from);
     let ci = Arc::new(ci);
     for problem in ci.watch_triggers() {
         writeln!(out, "aviso: {problem}").map_err(failed)?;
@@ -81,13 +85,28 @@ pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<
         let at = listener.local_addr().map_err(failed)?;
         writeln!(out, "Raven CI em http://{at}, com {executors} executor(es)").map_err(failed)?;
         out.flush().map_err(failed)?;
+        // The live channel of the panel: what changed, from a watch of the core.
+        let channels = ravenrs_app_server::LiveChannels::new();
+        channels.open(panel::LIVE_TOPIC);
+        let publishing = channels.clone();
+        let _watch = panel::LiveWatch::start(ci.clone(), LIVE_EVERY, move |kind, data| {
+            publishing.publish(panel::LIVE_TOPIC, kind, data);
+        });
         let options = ApiOptions::new()
             .workers(HTTP_WORKERS)
+            .live(channels)
+            .open(panel::PANEL_PATH)
             .open(api::OPEN_PREFIX)
             .pass_header("x-")
             .pass_header("content-type");
         let made = ci.clone();
-        let make = move || api::service(made.clone(), &users);
+        let shown = panel::PanelOptions {
+            executors,
+            files: panel_files.clone(),
+            version: crate::versao::VERSION.to_owned(),
+            users_file: Some(users.clone()),
+        };
+        let make = move || api::service_with(made.clone(), &users, shown.clone());
         tokio::select! {
             result = ravenrs_app_server::serve_with(listener, options, make) => result.map_err(failed),
             () = stop => Ok(()),

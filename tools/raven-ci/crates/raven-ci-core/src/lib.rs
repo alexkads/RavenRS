@@ -40,6 +40,7 @@ mod host;
 mod lifecycle;
 mod model;
 pub mod multibranch;
+pub mod panel;
 mod registry;
 mod store;
 

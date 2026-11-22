@@ -15,6 +15,7 @@ pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--f
   plugins ligar NOME      liga o plugin
   plugins desligar NOME   desliga o plugin e os que precisam dele
   servir [--endereco HOST:PORTA] [--executores N]
+  servir ... --painel PASTA   (serve o painel do navegador em /painel/)
                           o servidor: HTTP com login, executores e gatilhos
   usuario criar NOME [--papel Executores|Leitores|Administradores]
                           cria quem pode entrar; a senha vem na entrada

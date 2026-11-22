@@ -7,5 +7,6 @@ mod common;
 mod external;
 mod lifecycle;
 mod model;
+mod panel;
 mod queue;
 mod registry;
