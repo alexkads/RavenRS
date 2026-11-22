@@ -99,6 +99,34 @@ impl fmt::Debug for Paint {
 /// Called with the focused element's key presses; returns true when it handled the key.
 pub type KeyHandler = Rc<dyn Fn(&Key, Modifiers) -> bool>;
 
+/// What a node does when assistive technology or a test asks it for one of the actions it
+/// declared with [`BuildCx::on_access`]: the action, and the text that comes with
+/// [`AccessAction::SetValue`](ravenrs_core::AccessAction::SetValue). Returns whether it did it.
+pub type AccessHandler = Rc<dyn Fn(ravenrs_core::AccessAction, Option<&str>) -> bool>;
+
+/// Whether work done away from the [`Ui`](crate::Ui) is still going, shared with that work: a
+/// thread, a request to a remote `ObjectSpace`. Setting it needs no rebuild; the next
+/// accessibility tree reads it. Cloning gives the same signal.
+#[derive(Clone, Debug, Default)]
+pub struct BusySignal(std::sync::Arc<std::sync::atomic::AtomicBool>);
+
+impl BusySignal {
+    /// A signal that starts free.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Marks the work as going (`true`) or finished (`false`), from any thread.
+    pub fn set(&self, busy: bool) {
+        self.0.store(busy, std::sync::atomic::Ordering::Release);
+    }
+
+    /// Whether the work is still going.
+    pub fn is_busy(&self) -> bool {
+        self.0.load(std::sync::atomic::Ordering::Acquire)
+    }
+}
+
 /// Phase of a pointer drag that started on an element.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
@@ -569,6 +597,12 @@ pub struct Element {
     pub progress_out: Option<(crate::ScrollRange, Rc<std::cell::Cell<f32>>)>,
     /// The id tests and automation find this element by (see [`BuildCx::test_id`]).
     pub test_id: Option<Rc<str>>,
+    /// The actions beyond a click this element takes from assistive technology and tests.
+    pub access: Option<(Vec<ravenrs_core::AccessAction>, AccessHandler)>,
+    /// Busy now, as the view said when it was built.
+    pub busy: bool,
+    /// Busy while this signal says so, read when the accessibility tree is made.
+    pub busy_signal: Option<BusySignal>,
     /// The declaration site of that id, kept only in source-instrumented test builds.
     #[cfg(feature = "e2e-source")]
     pub test_source: Option<&'static std::panic::Location<'static>>,
@@ -626,6 +660,9 @@ impl Element {
             time_link: None,
             progress_out: None,
             test_id: None,
+            access: None,
+            busy: false,
+            busy_signal: None,
             #[cfg(feature = "e2e-source")]
             test_source: None,
             #[cfg(feature = "e2e-source")]
@@ -1235,6 +1272,42 @@ impl<'a> BuildCx<'a> {
     pub fn on_click(&mut self, node: NodeId, handler: Rc<dyn Fn()>) {
         if let Some(e) = self.element_mut(node) {
             e.on_click = Some(handler);
+        }
+    }
+
+    /// The actions beyond a click the node takes from screen readers and tests, and what it
+    /// does for each: open and close ([`Expand`](ravenrs_core::AccessAction::Expand),
+    /// [`Collapse`](ravenrs_core::AccessAction::Collapse)), choose
+    /// ([`Select`](ravenrs_core::AccessAction::Select)), take a value
+    /// ([`SetValue`](ravenrs_core::AccessAction::SetValue), with its text), open its menu or
+    /// close ([`ShowMenu`](ravenrs_core::AccessAction::ShowMenu),
+    /// [`Dismiss`](ravenrs_core::AccessAction::Dismiss)). The node needs [`Semantics`] or focus
+    /// to be in the tree. The handler returns whether it did the action.
+    pub fn on_access(
+        &mut self,
+        node: NodeId,
+        actions: &[ravenrs_core::AccessAction],
+        handler: impl Fn(ravenrs_core::AccessAction, Option<&str>) -> bool + 'static,
+    ) {
+        if let Some(e) = self.element_mut(node) {
+            e.access = Some((actions.to_vec(), Rc::new(handler)));
+        }
+    }
+
+    /// Says the node is busy with work that has not finished, such as loading or waiting for
+    /// an answer: screen readers announce it and tests wait until it is free. For work away
+    /// from the `Ui`, see [`BuildCx::busy_while`].
+    pub fn busy(&mut self, node: NodeId, busy: bool) {
+        if let Some(e) = self.element_mut(node) {
+            e.busy = busy;
+        }
+    }
+
+    /// The node is busy while `signal` says so: the work sets it from its thread, with no
+    /// rebuild, and the next accessibility tree reads it.
+    pub fn busy_while(&mut self, node: NodeId, signal: &BusySignal) {
+        if let Some(e) = self.element_mut(node) {
+            e.busy_signal = Some(signal.clone());
         }
     }
 

@@ -643,6 +643,7 @@ impl View for Chat {
         }
         let messages = self.messages.get();
         let writing = messages.iter().any(ChatMessage::is_writing);
+        let waiting = self.busy || writing;
         let send = Send {
             messages: self.messages.clone(),
             draft: draft.clone(),
@@ -694,7 +695,7 @@ impl View for Chat {
         .spacing(theme.spacing.s2)
         .align(Align::Center);
         let writing = cx.child(&writing);
-        cx.container(
+        let root = cx.container(
             LayoutStyle {
                 spacing: theme.spacing.s3,
                 grow: 1.0,
@@ -704,7 +705,11 @@ impl View for Chat {
             },
             &[conversation, writing],
             Paint::None,
-        )
+        );
+        // Busy while it waits for an answer: screen readers say so, and tests wait for it.
+        cx.semantics(root, Semantics::new(Role::Group));
+        cx.busy(root, waiting);
+        root
     }
 }
 

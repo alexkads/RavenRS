@@ -64,8 +64,12 @@ pub(crate) fn action(action: Action) -> Option<AccessAction> {
         Action::Focus => Some(AccessAction::Focus),
         Action::Increment => Some(AccessAction::Increment),
         Action::Decrement => Some(AccessAction::Decrement),
-        // Expanding and collapsing a disclosure or menu is the same as clicking it.
-        Action::Expand | Action::Collapse => Some(AccessAction::Click),
+        // The `Ui` clicks a node that opens with a click and declares nothing else.
+        Action::Expand => Some(AccessAction::Expand),
+        Action::Collapse => Some(AccessAction::Collapse),
+        Action::SetValue => Some(AccessAction::SetValue),
+        Action::ScrollIntoView => Some(AccessAction::ScrollIntoView),
+        Action::ShowContextMenu => Some(AccessAction::ShowMenu),
         _ => None,
     }
 }
@@ -146,10 +150,24 @@ fn node(n: &AccessNode, scale: f64, is_root: bool) -> Node {
             AccessAction::Focus => Action::Focus,
             AccessAction::Increment => Action::Increment,
             AccessAction::Decrement => Action::Decrement,
+            AccessAction::Expand => Action::Expand,
+            AccessAction::Collapse => Action::Collapse,
+            AccessAction::SetValue => Action::SetValue,
+            AccessAction::ScrollIntoView => Action::ScrollIntoView,
+            AccessAction::ShowMenu => Action::ShowContextMenu,
+            // AccessKit has no actions to choose or close a node: a click on it, or Escape.
             _ => continue,
         });
     }
-    if n.expanded.is_some() && n.actions.contains(&AccessAction::Click) {
+    if n.busy {
+        node.set_busy();
+    }
+    let declares = |a| n.actions.contains(&a);
+    if n.expanded.is_some()
+        && declares(AccessAction::Click)
+        && !declares(AccessAction::Expand)
+        && !declares(AccessAction::Collapse)
+    {
         node.add_action(if n.expanded == Some(true) { Action::Collapse } else { Action::Expand });
     }
     node.set_children(n.children.iter().map(|c| NodeId(*c)).collect::<Vec<_>>());
@@ -235,8 +253,27 @@ mod tests {
     #[test]
     fn actions_map_back() {
         assert_eq!(action(Action::Click), Some(AccessAction::Click));
-        assert_eq!(action(Action::Expand), Some(AccessAction::Click));
         assert_eq!(action(Action::Increment), Some(AccessAction::Increment));
         assert_eq!(action(Action::ScrollDown), None);
+    }
+
+    #[test]
+    fn expand_and_collapse_arrive_as_themselves_not_as_a_click() {
+        assert_eq!(action(Action::Expand), Some(AccessAction::Expand));
+        assert_eq!(action(Action::Collapse), Some(AccessAction::Collapse));
+        assert_eq!(action(Action::SetValue), Some(AccessAction::SetValue));
+        assert_eq!(action(Action::ScrollIntoView), Some(AccessAction::ScrollIntoView));
+        assert_eq!(action(Action::ShowContextMenu), Some(AccessAction::ShowMenu));
+    }
+
+    #[test]
+    fn a_declared_action_and_busy_reach_accesskit() {
+        let mut n = AccessNode::new(7, Role::TreeItem, ravenrs_core::Rect::ZERO);
+        n.expanded = Some(false);
+        n.actions = vec![AccessAction::Click, AccessAction::Expand, AccessAction::Collapse];
+        n.busy = true;
+        let made = node(&n, 1.0, false);
+        assert!(made.supports_action(Action::Expand) && made.supports_action(Action::Collapse));
+        assert!(made.is_busy());
     }
 }

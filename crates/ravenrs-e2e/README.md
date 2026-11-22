@@ -84,11 +84,14 @@ fn renaming() -> E2eResult {
 
 Time is the session's ([#658](https://github.com/alexkads/RavenRS/issues/658)). It moves only with `E2e::advance(seconds)`, a frame at a time, so animations run and timers fire the same on every machine; with no `advance`, an animation never starts. `E2e::wait_until(timeout, check)` looks again until the check holds, moving the clock with real time between looks, so a timer that fires and work done on another thread (which wakes the screen with its `UiWaker`) both show. When time runs out it fails with `E2E_TIMEOUT` and the screen of the last look. `E2e::patiently(patience, step)` tries a step again only while waiting could still fix it (not found, covered, disabled, out of sight, or a check that does not hold yet). When time runs out, it fails with the step's own code. `Locator::wait_for` and `wait_to_mention` are the short forms.
 
+A node marked busy (`BuildCx::busy`, or `busy_while` with a `BusySignal` for work away from the screen) is waited for before any action: first on the session's clock, so work that ends on a timer passes with no real wait, then up to 5 s in real time. Still busy, the action fails with `E2E_TIMEOUT`, saying it was busy. The snapshot writes `busy` on it.
+
 Beyond clicks and keys, a locator can:
 
 - `fill(text)`: put the text in a field in place of what it has, or move a slider or spin button to a number with the arrow keys;
 - `select(option)`: open a combo box or menu and pick the option, or pick it inside a list, tab list or group shown in place;
 - `expand()` and `collapse()`: open or close an item, a tree item with the arrow keys, a group row with a click; a part that says nothing about being open fails with `E2E_EXPECTATION`;
+- `set_value(text)`, `show_menu()`, `dismiss()` and `perform(action)`: ask the node for an action it declares with `BuildCx::on_access`, as assistive technology does, with no typing or clicking. A node that does not declare it fails with `E2E_DISABLED`, naming the action. `expand()`, `collapse()` and `select()` use the declared action when there is one, and input as a person gives it when there is not;
 - `scroll_into_view()`: turn the wheel over the part that scrolls until the node's middle is in sight. It also works for a row a long list has not built yet: it scrolls each list to its end and back until the row shows.
 
 Rows with keys have test ids that stay with the data when it sorts, filters or scrolls:

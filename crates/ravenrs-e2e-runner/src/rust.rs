@@ -86,6 +86,11 @@ fn command_code(command: &Command) -> String {
         }
         Command::Expand { target } => format!("Command::Expand {{ target: {} }}", s(target)),
         Command::Collapse { target } => format!("Command::Collapse {{ target: {} }}", s(target)),
+        Command::SetValue { target, text } => {
+            format!("Command::SetValue {{ target: {}, text: {} }}", s(target), s(text))
+        }
+        Command::ShowMenu { target } => format!("Command::ShowMenu {{ target: {} }}", s(target)),
+        Command::Dismiss { target } => format!("Command::Dismiss {{ target: {} }}", s(target)),
         Command::Scroll { target } => format!("Command::Scroll {{ target: {} }}", s(target)),
         Command::Drag { target, to } => format!("Command::Drag {{ target: {}, to: {} }}", s(target), s(to)),
         Command::Wait { target, text } => format!(

@@ -61,7 +61,7 @@ For a project's source build, `[package.metadata.ravenrs.e2e]` may declare `feat
 
 ## Writing blocks
 
-Blocks are lines of a `.raventest` file: `open`, `click`, `type`, `fill` (replaces what a field has; moves a slider to a number), `select` (picks an option of a combo box, list or tabs), `expand`, `collapse`, `scroll`, `drag` (`drag #from = #to`), `wait` (up to 5 s, `E2E_TIMEOUT` otherwise), `check` and `mention`. They also read in Portuguese: `preencher`, `escolher`, `expandir`, `recolher`, `rolar`, `arrastar`, `esperar`.
+Blocks are lines of a `.raventest` file: `open`, `click`, `type`, `fill` (replaces what a field has; moves a slider to a number), `select` (picks an option of a combo box, list or tabs), `expand`, `collapse`, `set-value`, `show-menu` and `dismiss` (actions the part declares, as a screen reader asks; `E2E_DISABLED` when it does not), `scroll`, `drag` (`drag #from = #to`), `wait` (up to 5 s, `E2E_TIMEOUT` otherwise), `check` and `mention`. They also read in Portuguese: `preencher`, `escolher`, `expandir`, `recolher`, `definir-valor`, `abrir-menu`, `dispensar`, `rolar`, `arrastar`, `esperar`.
 
 Ids that components give a test: `row:<key>` (VirtualList with `key`, DataGrid with `key_column`), `item:<key>` (TreeView), `cell:<key>:<column>`, `column:<column>` and `filter:<column>` (DataGrid; a column is its field, or its title), `node:<id>` and `port:<node>:<port>` (FlowCanvas), `event:<id>` and `resource:<id>` (Scheduler), `panel:<id>`, `floating:<id>` and `floating-move:<id>` (DockArea). Rust tests get drivers for the four with the feature `testing` of `ravenrs-widgets` (`ravenrs_widgets::testing`). `fill #cell:42:Name = Ana` edits a grid cell; `drag #port:a:out = #port:b:in` joins two nodes.
 

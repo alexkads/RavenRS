@@ -163,9 +163,31 @@ impl Ui {
     /// this id (from the latest [`Ui::access_tree`]). Returns true if the UI
     /// needs a redraw.
     pub fn perform_action(&mut self, id: u64, action: AccessAction) -> bool {
+        self.perform(id, action, None)
+    }
+
+    /// Performs [`AccessAction::SetValue`] with this text on the node with this id, for a node
+    /// that declared it with [`BuildCx::on_access`](crate::BuildCx::on_access). Returns true if
+    /// the UI needs a redraw.
+    pub fn set_access_value(&mut self, id: u64, value: &str) -> bool {
+        self.perform(id, AccessAction::SetValue, Some(value))
+    }
+
+    fn perform(&mut self, id: u64, action: AccessAction, value: Option<&str>) -> bool {
         let Some(node) = self.access_map.nodes.get(&id).copied() else { return false };
         let Some(element) = self.elements.get(node.0 as usize) else { return false };
         let widget = element.widget;
+        // What the node declared it does comes first.
+        if let Some((actions, handler)) = &element.access
+            && actions.contains(&action)
+        {
+            let handler = handler.clone();
+            if handler(action, value) {
+                self.needs_build = true;
+                return self.needs_redraw();
+            }
+            return false;
+        }
         match action {
             AccessAction::Click => {
                 if let Some(handler) = element.on_click.clone() {
@@ -184,6 +206,12 @@ impl Ui {
                 if let Some(handler) = element.on_key.clone() {
                     handler(&key, Modifiers::default());
                 }
+            }
+            // A node that opens, closes or is chosen with a click and declares nothing else
+            // does it with that click, as screen readers did before these actions existed.
+            AccessAction::Expand | AccessAction::Collapse | AccessAction::Select => {
+                let Some(handler) = element.on_click.clone() else { return false };
+                handler();
             }
             _ => return false,
         }
@@ -365,6 +393,14 @@ impl Builder<'_> {
         if e.on_key.is_some() && matches!(role, Role::Slider | Role::SpinButton) {
             a.actions.extend([AccessAction::Increment, AccessAction::Decrement]);
         }
+        if let Some((actions, _)) = &e.access {
+            for action in actions {
+                if !a.actions.contains(action) {
+                    a.actions.push(*action);
+                }
+            }
+        }
+        a.busy = e.busy || e.busy_signal.as_ref().is_some_and(crate::context::BusySignal::is_busy);
         self.map.insert(id, node);
         self.nodes.push(a);
         let mut content = e.text.as_deref().map(readable).unwrap_or_default();

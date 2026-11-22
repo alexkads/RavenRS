@@ -1,5 +1,24 @@
 [
   {
+    "versao": "0.1.17",
+    "data": "2026-11-22",
+    "titulo": "Blocos que pedem ao componente o que ele declara, e espera por quem está ocupado.",
+    "importante": false,
+    "novidades": [
+      "Blocos novos: definir-valor, abrir-menu e dispensar pedem ao componente a ação que ele declara, como um leitor de tela pede, sem digitar nem clicar.",
+      "Expandir, recolher e escolher usam a ação do componente quando ele a declara, e o teclado e o clique quando não.",
+      "Um componente ocupado (carregando, esperando resposta) é esperado antes de cada passo, sem sleep; o Chat fica ocupado enquanto espera a resposta.",
+      "O retrato da tela marca busy em quem está ocupado."
+    ],
+    "por_que_atualizar": "Para testar combos, árvores, menus e telas que carregam sem depender de onde clicar nem de quanto esperar.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      735
+    ]
+  },
+  {
     "versao": "0.1.16",
     "data": "2026-11-22",
     "titulo": "Clicar, preencher e escolher alcançam o que está fora da vista.",

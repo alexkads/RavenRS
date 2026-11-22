@@ -22,6 +22,7 @@ ravenrs-style.workspace = true
 ravenrs-widgets-base.workspace = true
 
 [dev-dependencies]
+ravenrs-layout.workspace = true
 ravenrs-reactive.workspace = true
 ravenrs-widgets.workspace = true
 
