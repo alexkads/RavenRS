@@ -14,6 +14,7 @@
 //! | `ui` | The screens: flows, editor, runs and settings |
 
 pub mod casa;
+pub mod e2e;
 pub mod marcas;
 pub mod nos;
 mod ui;

@@ -1,0 +1,12 @@
+scenario: Raven Finanças: lançar receita
+// Na família de exemplo, em memória, em 15/11/2026: lança uma receita e confere no mês.
+open Raven Finanças                          | Abrir o Raven Finanças
+click #item:Lançamentos                      | Ir aos lançamentos
+click #action:NewIncome                      | Nova receita
+type #field:description = Bônus de fim de ano | Digitar a descrição
+type #field:amount = 1.200,00                | Digitar o valor
+click #form:save                             | Salvar o lançamento
+check Lançamento salvo = Lançamento salvo    | O aviso diz que salvou
+check Bônus de fim de ano = Bônus de fim de ano | A receita está no mês
+check +R$ 1.200,00 = +R$ 1.200,00            | Com o valor certo, como entrada
+mention Entrou R$ 11.200,00 · saiu R$ 4.917,07 · sobrou R$ 6.282,93 = Entrou R$ 11.200,00 | O resumo do mês soma a receita

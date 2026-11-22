@@ -1,0 +1,8 @@
+scenario: Mini-PDV: produtos do caixa
+// Em memória, sem enviar nada à SEFAZ: o caixa avisa que é BETA e sandbox, e os produtos de exemplo estão no cadastro.
+open Mini-PDV                                    | Abrir o Mini-PDV
+check SANDBOX = SANDBOX                          | Avisa que é sandbox
+click F3 Produtos                                | Ir aos produtos
+check 7 de 7 linhas = 7 de 7 linhas              | Sete produtos de exemplo
+check Óleo de soja 900 ml = Óleo de soja 900 ml  | O óleo de soja está entre eles
+check R$ 7,39 = R$ 7,39                          | Com o preço certo

@@ -27,7 +27,13 @@ pub const SERVE_FLAG: &str = ravenrs_e2e_wire::SERVE_FLAG;
 pub const APP_NAME: &str = "Raven Finanças";
 
 /// The scenarios the app brings, one per file of `tests/e2e/`.
-pub const SCENARIOS: [&str; 1] = [include_str!("../tests/e2e/lancar-despesa.raventest")];
+pub const SCENARIOS: [&str; 5] = [
+    include_str!("../tests/e2e/lancar-despesa.raventest"),
+    include_str!("../tests/e2e/lancar-receita.raventest"),
+    include_str!("../tests/e2e/pagar-conta.raventest"),
+    include_str!("../tests/e2e/trocar-de-mes.raventest"),
+    include_str!("../tests/e2e/validar-lancamento.raventest"),
+];
 
 /// The day a session lives on, so due dates and the month's totals never move.
 pub fn day() -> Date {

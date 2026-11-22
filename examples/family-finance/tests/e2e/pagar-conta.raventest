@@ -1,0 +1,14 @@
+scenario: Raven Finanças: pagar uma conta
+// Das 17 contas em aberto, paga a energia elétrica pelo valor previsto: ela vai para as pagas, e a
+// do mês seguinte entra no lugar, porque se repete todo mês.
+open Raven Finanças                                      | Abrir o Raven Finanças
+click #item:Contas a pagar                               | Ir às contas a pagar
+mention 17 em aberto somando R$ 10.299,45, das quais R$ 835,90 em atraso. Clique duas vezes em uma conta para pagar. = 17 em aberto | Dezessete contas em aberto
+click #cell:41:Descrição                                 | Escolher a energia elétrica
+click #action:PayBill                                    | Pagar
+check Energia elétrica, com vencimento em 15/11/2026. = Energia elétrica, com vencimento em 15/11/2026. | O pagamento é da energia
+check #field:amount = R$ 286,40                          | Pelo valor previsto
+click #form:save                                         | Confirmar o pagamento
+check Conta paga = Conta paga                            | O aviso diz que pagou
+click #option:Pagas                                      | Ver as pagas
+check #cell:41:Descrição = Energia elétrica              | A energia está entre as pagas
