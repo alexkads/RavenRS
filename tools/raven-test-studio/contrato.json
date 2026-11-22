@@ -1355,64 +1355,83 @@
    "crate": "ravenrs-widgets-chat",
    "tipo": "AttachmentStrip",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-chat",
    "tipo": "AudioPlayerButton",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-chat",
    "tipo": "Chat",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [
+     "message:<n>"
+    ],
+    "acoes": [
+     "Click"
+    ],
+    "busy": true
    }
   },
   {
    "crate": "ravenrs-widgets-chat",
    "tipo": "CodeEditor",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-chat",
    "tipo": "FloatingPanel",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [
+     "orb"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-chat",
    "tipo": "Playground",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-chat",
    "tipo": "RichText",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-chat",
    "tipo": "SelectionBar",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -1462,128 +1481,136 @@
    "crate": "ravenrs-widgets-imaging",
    "tipo": "ColorWheel",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": [
+     "SetValue"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "CompareView",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "CropOverlay",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": [
+     "SetValue"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "CurveEditor",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "Eyedropper",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "Histogram",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "ImageLightbox",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "Lottie",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "Marquee",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "Minimap",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "Protractor",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "RubberBand",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "RuleOfThirdsGrid",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "sem_tela": true,
+    "motivo": "linhas-guia de composição sobre uma imagem, escondidas do leitor de tela; quem as mostra é a ferramenta de recorte"
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "Ruler",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "TransformHandles",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": [
+     "SetValue"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-imaging",
    "tipo": "ZoomPanView",
    "rts": {
-    "pendente": true,
-    "issue": 741
+    "ids": [],
+    "acoes": []
    }
   },
   {

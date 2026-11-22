@@ -59,6 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- Imaging and chat are in the testability contract of the RTS (#741): `ColorWheel` takes `SetValue` with a color as `#ff0000`; `TransformHandles` and `CropOverlay` take their box by value (`x, y, width × height, angle`), and `testing::CropDriver` sets and reads it; the messages of a `Chat` are `message:<n>`, and the sphere of a `FloatingPanel` is `orb` and opens and closes with `Expand` and `Collapse`. `RuleOfThirdsGrid` has no screen.
+
 - `testing::SortableDriver` moves an item of a `SortableList` before another by their keys, with Alt and the arrows as a person does (#740). Each point of a chart is a node of its own, `point:<series>:<category>`, named with its value, so a screen reader reads the data one by one; the commands of a `Ribbon` are `command:<label>`.
 
 - Lists, scheduler, dock and charts are in the testability contract of the RTS (#740): document tabs are `tab:<id>`, the tabs of a `Ribbon` `tab:<title>`, the items of a `SortableList` with a key `item:<key>`, the days of a `YearView` and an `EventCalendar` `day:<yyyy-mm-dd>`, calendar events `event:<id>` and timeline items `item:<id>`. `FileBrowser` and `Filmstrip` keep the `row:<key>` of their list.
