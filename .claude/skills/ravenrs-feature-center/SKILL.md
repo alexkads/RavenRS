@@ -68,6 +68,16 @@ Ele falha, com `arquivo:linha`, quando:
 
 O script confere os recursos pelo nome, não pelo tipo: um `.theme(` de outro tipo também conta como chamada. A conferência de verdade é o passo do tour, que precisa exercitar cada recurso, e não só abrir a página.
 
+## Testabilidade (RTS)
+
+Além da página, todo tipo do `recursos.json` tem uma entrada em `tools/raven-test-studio/contrato.json`, conferida pelo `scripts/rts-coverage.py` no `check.sh` (#734, #736). A entrada fica separada do `recursos.json`, como o `pendentes.json` do RCB, para os dois mudarem em paralelo. Ela é de um destes três tipos:
+
+- **completa**: `ids` (cada um `parte:<chave>`), `acoes` (as que o componente declara com `BuildCx::on_access`), e, quando houver, `busy`, `driver` (do módulo `testing` do crate) e `cenario` (um `.raventest` em `tests/e2e`);
+- `{"sem_tela": true}` para tipo sem nada na tela;
+- `{"pendente": true, "issue": N}` com a issue aberta da família (#737 a #741).
+
+O checklist e um exemplo completo estão em `CONTRIBUTING.md`, na seção "Testability (RTS)". A guarda também recusa `test_id` feito com `format!` fora de `parte:chave`, ou numerado pela posição (`{i}`, `{index}`, `{idx}`).
+
 ## Onde pôr a página
 
 Cada família tem um grupo na navegação e uma pasta. Um componente por página, com o nome dele na página:

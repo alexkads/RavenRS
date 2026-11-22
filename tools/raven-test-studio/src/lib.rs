@@ -527,7 +527,7 @@ fn run_log(outcomes: &[Outcome], total: usize, from_cache: bool, delegation: &De
                 None => format!("{}. {}: passou", i + 1, o.title),
                 Some(e) => format!("{}. {}: {e}", i + 1, o.title),
             };
-            Text::new(line).style(TextStyle::Callout).test_id(format!("log-{}", i + 1))
+            Text::new(line).style(TextStyle::Callout).test_id(format!("log:{}", i + 1))
         })
         .collect();
     VStack::new((

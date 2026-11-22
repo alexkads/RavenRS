@@ -62,7 +62,38 @@ A component is done when it:
 4. Has behavior tests in `crates/ravenrs-widgets/tests/suite/`, declared with `mod` in its `main.rs`, that drive it through `Ui` (click, type, check state). Each package's integration tests are one binary, so they link once; `scripts/check-test-suites.py` fails if a file there is left undeclared.
 5. Appears in the gallery (`examples/component-gallery`), is listed in the README and in `site/components/index.html`, has an example in one of the files of `examples/component-gallery/src/samples/`, and its row in `docs/PARITY.md` is updated.
 6. Has rustdoc on the public type and builder methods.
-7. Runs in the playground: `scripts/gen-live.py` exposes it to the interpreter (the gate fails until it is run), and its example runs from its code, which `coverage_of_the_interpreter` in `examples/component-gallery` checks. The check runs the example interpreted and compiled, and the two have to build as many elements, with no problem later in a paint or a handler. An example the interpreter cannot read yet goes in `examples/component-gallery/live-pending.txt`, with why; today the list is empty.
+7. Is testable by the Raven Test Studio, as the next section says.
+8. Runs in the playground: `scripts/gen-live.py` exposes it to the interpreter (the gate fails until it is run), and its example runs from its code, which `coverage_of_the_interpreter` in `examples/component-gallery` checks. The check runs the example interpreted and compiled, and the two have to build as many elements, with no problem later in a paint or a handler. An example the interpreter cannot read yet goes in `examples/component-gallery/live-pending.txt`, with why; today the list is empty.
+
+## Testability (RTS)
+
+Every public type of the feature center has an entry in `tools/raven-test-studio/contrato.json`, which `scripts/rts-coverage.py` checks in `check.sh` (#734, #736). A component with a screen keeps this contract:
+
+- [ ] every part a test acts on has a name a screen reader reads, or a test id (`BuildCx::test_id`, `ViewExt::test_id`);
+- [ ] the items of a collection have test ids made from their key, `part:<key>` (`row:<key>`, `cell:<key>:<column>`), never from their position, so they stay with the data when the list sorts, filters or scrolls;
+- [ ] the actions beyond a click it takes are declared with `BuildCx::on_access` (`Expand`, `Collapse`, `Select`, `SetValue`, `ShowMenu`, `Dismiss`), and listed in its entry;
+- [ ] while it loads or waits for an answer it says so with `BuildCx::busy` (or `busy_while` and a `BusySignal` for work away from the `Ui`), so tests wait for it with no `sleep`;
+- [ ] a component with a gesture of its own (dragging, joining, resizing) has a driver in the `testing` module of its crate, and, when it helps, a `.raventest` under a `tests/e2e` folder.
+
+A complete entry, for a tree:
+
+```json
+{"crate": "ravenrs-widgets-lists", "tipo": "TreeView",
+ "rts": {"ids": ["item:<chave>"], "acoes": ["Click", "Expand", "Collapse"], "busy": false,
+         "driver": "TreeDriver", "cenario": "tools/raven-feature-center/tests/e2e/arvore.raventest"}}
+```
+
+with the code that keeps it:
+
+```rust
+cx.test_id(row, &format!("item:{}", node.key));
+cx.on_access(row, &[AccessAction::Expand, AccessAction::Collapse], move |action, _| {
+    open.set(action == AccessAction::Expand);
+    true
+});
+```
+
+A type with nothing on the screen is `{"sem_tela": true}`; one that does not keep the contract yet is `{"pendente": true, "issue": N}`, with the open issue of its family (#737 to #741).
 
 ## Code style
 

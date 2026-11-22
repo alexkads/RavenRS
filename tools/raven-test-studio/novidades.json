@@ -1,18 +1,17 @@
 {
-  "versao": "0.1.17",
-  "titulo": "Blocos que pedem ao componente o que ele declara, e espera por quem está ocupado.",
+  "versao": "0.1.18",
+  "titulo": "O contrato de testabilidade de cada componente, cobrado pelo check.sh.",
   "importante": false,
   "novidades": [
-    "Blocos novos: definir-valor, abrir-menu e dispensar pedem ao componente a ação que ele declara, como um leitor de tela pede, sem digitar nem clicar.",
-    "Expandir, recolher e escolher usam a ação do componente quando ele a declara, e o teclado e o clique quando não.",
-    "Um componente ocupado (carregando, esperando resposta) é esperado antes de cada passo, sem sleep; o Chat fica ocupado enquanto espera a resposta.",
-    "O retrato da tela marca busy em quem está ocupado."
+    "tools/raven-test-studio/contrato.json diz, para cada um dos 245 tipos do Raven Feature Center, os ids de teste, as ações que ele atende, o driver e o cenário, ou que ainda está pendente e em qual issue.",
+    "O scripts/rts-coverage.py recusa no check.sh um tipo novo sem entrada, um test_id numerado pela posição e uma ação listada que o código não declara.",
+    "As linhas do registro de execução têm o id #log:N no lugar de #log-N, no padrão parte:chave."
   ],
-  "por_que_atualizar": "Para testar combos, árvores, menus e telas que carregam sem depender de onde clicar nem de quanto esperar.",
+  "por_que_atualizar": "Para que todo componente novo já chegue testável pelo Studio.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    735
+    736
   ]
 }

@@ -57,6 +57,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- The testability contract of the Raven Test Studio is checked: `tools/raven-test-studio/contrato.json` has an entry for each type of the feature center (test ids, actions, driver and scenario, `sem_tela`, or pending with its issue), and `scripts/rts-coverage.py`, in `check.sh`, refuses a type with none, a test id numbered by position and an action the code and the contract disagree on. The Studio's run log has the ids `log:N` (#736).
+
 - Accessible actions `SetValue`, `Expand`, `Collapse`, `Select`, `ScrollIntoView`, `ShowMenu` and `Dismiss`, declared with `BuildCx::on_access`, and `AccessNode::busy`, set with `BuildCx::busy` or `busy_while` and a `BusySignal` for work away from the `Ui`. AccessKit gets them as themselves (Expand and Collapse are no longer a click) and the browser gets `aria-busy`. `ravenrs-e2e` has `set_value`, `show_menu`, `dismiss` and `perform`, waits for a busy node before acting, and `.raventest` reads `set-value`, `show-menu` and `dismiss`. `Chat` is busy while it waits for an answer (#735).
 
 - `cargo-ravenrs` says when it is behind: an unknown command gives the installed version and the install command (exit code 2), and `--version` and `doctor` warn when the project asks for another RavenRS (#751).

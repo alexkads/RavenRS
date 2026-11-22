@@ -157,7 +157,7 @@ pub fn self_test() -> FlowGraph {
         block("passed", "check", "Os cinco passos passaram", "#summary = 5 de 5 passos passaram"),
         block("first-done", "mention", "O primeiro bloco concluiu", "#node:open = Concluído"),
         block("last-done", "mention", "O último bloco concluiu", "#node:check = Concluído"),
-        block("log", "check", "O registro diz o último passo", "#log-5 = 5. Conferir o resultado: passou"),
+        block("log", "check", "O registro diz o último passo", "#log:5 = 5. Conferir o resultado: passou"),
         block("stop", "click", "Parar", "#stop"),
         block("reset", "check", "Voltou ao início", "#summary = Ainda não rodou"),
         block("step-1", "click", "Próximo passo", "#next"),
