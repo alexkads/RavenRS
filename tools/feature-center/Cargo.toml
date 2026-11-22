@@ -1,7 +1,7 @@
 [package]
 name = "feature-center"
 description = "Every feature of the application framework, one small demonstration each, to try and to test."
-version.workspace = true
+version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
@@ -36,7 +36,7 @@ playground = ["dep:component-gallery"]
 
 [dependencies]
 serde_json.workspace = true
-ravenrs.workspace = true
+ravenrs = { workspace = true, features = ["tray"] }
 ravenrs-app-update = { workspace = true, features = ["ui"] }
 ravenrs-widgets.workspace = true
 ravenrs-app = { workspace = true, optional = true }
@@ -50,7 +50,7 @@ ravenrs-app-i18n.workspace = true
 ravenrs-criteria = { workspace = true, features = ["json"] }
 ravenrs-report = { workspace = true, optional = true }
 rust_decimal = { version = "1", default-features = false, features = ["std"], optional = true }
-component-gallery = { path = "../component-gallery", default-features = false, optional = true }
+component-gallery = { path = "../../examples/component-gallery", default-features = false, optional = true }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ravenrs-app-server = { workspace = true, optional = true }
@@ -80,20 +80,9 @@ name = "api"
 required-features = ["app"]
 
 [[test]]
-name = "tour"
-required-features = ["app"]
-
-[[test]]
-name = "accessibility"
-required-features = ["app"]
-
-[[test]]
-name = "opening"
+name = "suite"
+path = "tests/suite/main.rs"
 required-features = ["app", "widgets", "playground"]
-
-[[test]]
-name = "cabos"
-required-features = ["widgets"]
 
 [lints]
 workspace = true

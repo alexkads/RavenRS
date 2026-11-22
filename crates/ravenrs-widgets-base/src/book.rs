@@ -565,6 +565,7 @@ mod z_stack;
 mod zoom_control;
 
 /// The stories written by scripts/rcb-scaffold.py, in name order.
+#[cfg(feature = "book")]
 #[allow(
     unused_mut,
     clippy::vec_init_then_push,

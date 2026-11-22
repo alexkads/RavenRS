@@ -155,12 +155,12 @@ fn every_demonstration_has_its_audit_test() {
     assert!(gone.is_empty(), "the navigation no longer has {gone:?}: take them out of demonstrations!");
 }
 
-/// Every demonstration is also a step of tests/tour.rs, which proves it works and not only that it
+/// Every demonstration is also a step of tests/suite/tour.rs, which proves it works and not only that it
 /// reads well: a new one comes with its step (skill ravenrs-feature-center).
 #[test]
 fn every_demonstration_has_a_step_in_the_tour() {
     let tour = include_str!("tour.rs");
     let visited = |name: &str| tour.contains(&format!("\"{name}\""));
     let missing: Vec<&&str> = DEMONSTRATIONS.iter().filter(|name| !visited(name)).collect();
-    assert!(missing.is_empty(), "no step in tests/tour.rs for {missing:?}: visit each one there");
+    assert!(missing.is_empty(), "no step in tests/suite/tour.rs for {missing:?}: visit each one there");
 }

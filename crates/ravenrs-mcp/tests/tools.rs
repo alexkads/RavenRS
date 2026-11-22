@@ -200,9 +200,15 @@ fn feature_center_shows_pages_and_what_waits() {
 
     let button = client.call("feature_center", json!({ "name": "Button" }));
     let button = &button["components"][0];
-    assert_eq!(button["status"], "waiting");
-    assert_eq!(button["issue"], 579);
-    assert!(button["known_features"].as_array().unwrap().contains(&json!("new")));
+    assert_eq!(button["status"], "shown");
+    assert_eq!(button["page"], "Botões");
+
+    // One that still waits for its page says the issue it waits on and what it already has.
+    let waiting = client.call("feature_center", json!({ "status": "waiting", "limit": 1 }));
+    let waiting = &waiting["components"][0];
+    assert_eq!(waiting["status"], "waiting");
+    assert_eq!(waiting["issue"], 579);
+    assert!(!waiting["known_features"].as_array().unwrap().is_empty(), "{waiting}");
 
     let all = client.call("feature_center", json!({ "status": "shown", "limit": 300 }));
     assert_eq!(all["waiting"], 0);

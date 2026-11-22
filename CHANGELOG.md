@@ -6,6 +6,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Breaking
 
+- The feature center moved from `examples/feature-center` to `tools/feature-center` and is a tool like the others: version 0.1.0 of its own, `install.cmd`, news, icons, `--versao`, `--self-test` and the tray. Paths that named the old folder change; `scripts/build-web.sh` finds a project in `tools/` too (#793).
+
 - `ravenrs-e2e-wire`: `Command` has `Release`, and `Hello` a `window` field; exhaustive matches and field-by-field `Hello` literals need updating (`Hello::of` sets it). `ravenrs-e2e-runner`: `Report` has `window`, `slow_mo_ms` and `stopped`, `RunOptions` has `window` and `control` (`..RunOptions::default()` keeps no window), `Report::not_verified` returns a `Vec`, and `config::PLANNED` no longer lists `window`, now read by `e2e.toml`. ([#729](https://github.com/alexkads/RavenRS/issues/729))
 - With `e2e-source`, the internal `Element` literal has a `view_source` field for the instrumented constructor's caller; `Element::new` initializes it. Default builds do not have this field. ([#698](https://github.com/alexkads/RavenRS/issues/698))
 - `ravenrs-e2e-runner::app::scenarios` (also reexported by the Studio) returns `Box<session::Failure>` instead of `String` on failure, preserving the same typed diagnostics as the app opener. ([#692](https://github.com/alexkads/RavenRS/issues/692))

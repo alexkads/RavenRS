@@ -1,5 +1,5 @@
 //! The feature center: every component and every feature of the RavenRS, one page each, with what
-//! to try (#579). It is also how to know it all still works: `tests/tour.rs` goes through every
+//! to try (#579). It is also how to know it all still works: `tests/suite/tour.rs` goes through every
 //! demonstration, as each of the three people, in memory and in SQLite.
 //!
 //! It opens in more than one way, chosen by [`Opening`] from the command line or the address of the
@@ -16,6 +16,29 @@
 
 pub mod opening;
 pub use opening::{Look, Mode, Opening, Speech};
+
+pub mod versao;
+pub use versao::VERSION;
+
+/// The center tests itself, as the installer and an agent ask it to: every way it opens is
+/// built with no window and must draw something a screen reader reads. Returns what it checked.
+pub fn self_test() -> Result<String, String> {
+    let ways: &[&[&str]] =
+        &[&[], &["--modo", "vitrine"], &["--modo", "componentes"], &["--modo", "playground"]];
+    for way in ways {
+        let opening = Opening::from_arguments(way.iter().map(|a| (*a).to_owned()))?;
+        let mut ui = ravenrs::prelude::Ui::new(view(&opening), window_theme(&opening));
+        ui.set_viewport(ravenrs::prelude::Size::new(1400.0, 900.0), 1.0);
+        for _ in 0..4 {
+            ui.update();
+        }
+        let nodes = ui.access_tree().nodes.len();
+        if nodes < 3 {
+            return Err(format!("{way:?} opened with {nodes} accessible nodes"));
+        }
+    }
+    Ok(format!("Autoteste: {} modos abertos sem janela", ways.len()))
+}
 
 #[cfg(feature = "app")]
 pub mod actions;

@@ -73,7 +73,7 @@ Modules of RavenRS itself, such as the report designer, follow the same rule as 
 
 ## Screens
 
-These rules came out of reviewing `examples/feature-center` screen by screen, and they hold for every component and application.
+These rules came out of reviewing `tools/feature-center` screen by screen, and they hold for every component and application.
 
 - **One action stands out.** A window accents the one action that matters most: Save on a form, New on a list. Everything else in the bar stays a ghost button.
 - **One page margin.** Title, commands, description and content all start on the same line, `space-4` from the page's edge.
