@@ -1590,7 +1590,12 @@ fn the_service_page_writes_the_file_of_each_system_and_plans_with_no_command_run
     c.press("Limite de 1G: sim");
     assert!(!c.says("MemoryMax"), "with no limit, no MemoryMax: {:?}", c.texts());
     c.press("Do sistema todo: não");
-    assert!(c.says("WantedBy=multi-user.target") && c.says("/etc/systemd/system"), "{:?}", c.texts());
+    // For the whole system; the file stays in the folder of the dry run, never in /etc.
+    assert!(
+        c.says("WantedBy=multi-user.target") && c.says("raven-feature-center-servico"),
+        "{:?}",
+        c.texts()
+    );
     c.press("Planejar a instalação");
     assert!(c.says("systemctl enable --now raven-exemplo"), "{:?}", c.texts());
     c.press("Ver o estado");
