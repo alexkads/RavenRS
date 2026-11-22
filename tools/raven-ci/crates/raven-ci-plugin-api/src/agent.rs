@@ -70,7 +70,9 @@ pub const TOKEN_VARIABLE: &str = "RAVEN_CI_AGENT_TOKEN";
 /// the engine; a pod's spec to whoever reads pods), the token is still of one use and lasts 10
 /// minutes, so it is worth nothing once the agent is in. [`from_args`](Self::from_args) reads
 /// the words and the variable back, and also takes `--token T` from a person starting an agent
-/// by hand.
+/// by hand. The token is needed only the first time: an agent that comes back has none
+/// ([`AgentArgs::token`] is `None`) and presents the key it kept when it got in. Only the agent
+/// knows whether it kept one, so the agent is who refuses to start with neither.
 ///
 /// **How to use it.**
 ///
@@ -98,8 +100,9 @@ pub struct AgentArgs {
     pub server: String,
     /// What it is called in the list of agents.
     pub name: String,
-    /// What it says to be let in, used once.
-    pub token: String,
+    /// What it says to be let in, used once: the first time only. An agent that comes back (it
+    /// fell, its machine started again) has none and presents the key it kept when it got in.
+    pub token: Option<String>,
     /// Its labels.
     pub labels: Vec<String>,
     /// How many builds it runs at once.
@@ -115,7 +118,7 @@ impl AgentArgs {
         Self {
             server: request.server.clone(),
             name: name.to_owned(),
-            token: request.token.clone(),
+            token: Some(request.token.clone()),
             labels: request.labels.clone(),
             executors: executors.max(1),
             folder: folder.to_owned(),
@@ -139,13 +142,14 @@ impl AgentArgs {
         words
     }
 
-    /// The environment the agent gets: the token in [`TOKEN_VARIABLE`].
+    /// The environment the agent gets: the token in [`TOKEN_VARIABLE`], when there is one.
     pub fn env(&self) -> Vec<(String, String)> {
-        vec![(TOKEN_VARIABLE.to_owned(), self.token.clone())]
+        self.token.iter().map(|token| (TOKEN_VARIABLE.to_owned(), token.clone())).collect()
     }
 
     /// The arguments read back from `args` and the variables `env` gives: the token from
-    /// `--token` or [`TOKEN_VARIABLE`]. What is missing is refused by the name of its argument.
+    /// `--token` or [`TOKEN_VARIABLE`], or none. What else is missing is refused by the name of its
+    /// argument, and so is a word the contract does not have.
     pub fn from_args(args: &[String], env: impl Fn(&str) -> Option<String>) -> Result<Self, CiError> {
         let mut found: std::collections::HashMap<&str, String> = std::collections::HashMap::new();
         let mut words = args.iter();
@@ -166,15 +170,11 @@ impl AgentArgs {
                 .cloned()
                 .ok_or_else(|| CiError::settings(key, "o raven-ci-agent precisa dele"))
         };
-        let token = match found.get("--token").filter(|t| !t.is_empty()) {
-            Some(token) => token.clone(),
-            None => env(TOKEN_VARIABLE).filter(|t| !t.is_empty()).ok_or_else(|| {
-                CiError::settings(
-                    "--token",
-                    format!("o raven-ci-agent precisa dele, ou da variável {TOKEN_VARIABLE}"),
-                )
-            })?,
-        };
+        let token = found
+            .get("--token")
+            .filter(|t| !t.is_empty())
+            .cloned()
+            .or_else(|| env(TOKEN_VARIABLE).filter(|t| !t.is_empty()));
         let executors = match found.get("--executores") {
             Some(n) => {
                 n.parse::<u64>().map_err(|_| CiError::settings("--executores", "um número inteiro"))?.max(1)
@@ -229,12 +229,14 @@ mod tests {
     fn a_token_on_the_command_line_is_taken_too_and_what_is_missing_is_named() {
         let mut words = args().to_args();
         words.extend(["--token".to_owned(), "tok-manual".to_owned()]);
-        assert_eq!(AgentArgs::from_args(&words, |_| None).expect("read").token, "tok-manual");
-        let without = AgentArgs::from_args(&args().to_args(), |_| None).expect_err("no token");
-        assert!(
-            without.to_string().contains("--token") && without.to_string().contains(TOKEN_VARIABLE),
-            "{without}"
+        assert_eq!(
+            AgentArgs::from_args(&words, |_| None).expect("read").token.as_deref(),
+            Some("tok-manual")
         );
+        // An agent that comes back has no token: the key it kept is what it presents.
+        let back = AgentArgs::from_args(&args().to_args(), |_| None).expect("no token is no error");
+        assert_eq!(back.token, None);
+        assert!(back.env().is_empty(), "no variable for a token that is not there");
         let words: Vec<String> = ["--servidor", "https://x", "--pasta", "/p"].map(str::to_owned).into();
         let missing = AgentArgs::from_args(&words, |_| Some("t".into())).expect_err("no name");
         assert!(missing.to_string().contains("--nome"), "{missing}");
