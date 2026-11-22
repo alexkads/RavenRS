@@ -92,7 +92,13 @@ pub fn pods(pods: &Value) -> Vec<String> {
 /// A refusal of the server (`Error from server (Forbidden)`) in `lines`, explained: who cannot do
 /// what, where.
 pub fn forbidden(lines: &[String]) -> Option<String> {
-    let line = lines.iter().find(|l| l.contains("(Forbidden)") || l.contains(" is forbidden: "))?;
+    if !lines.iter().any(|l| l.contains("(Forbidden)") || l.contains(" is forbidden: ")) {
+        return None;
+    }
+    // kubectl may say it in several lines ("error when retrieving…", then "… is forbidden: User
+    // … cannot …"): read them as one, from where the reason is.
+    let all = lines.iter().map(|l| l.trim()).collect::<Vec<_>>().join(" ");
+    let line = all.find(" is forbidden: ").map_or(all.as_str(), |at| &all[at..]);
     let quoted = |after: &str| -> Option<String> {
         let rest = &line[line.find(after)? + after.len()..];
         let rest = rest.strip_prefix('"')?;
@@ -113,7 +119,7 @@ pub fn forbidden(lines: &[String]) -> Option<String> {
         }
         message.push_str(". Dê a ele um Role (ou ClusterRole) com esse verbo, ou use outra credencial");
     } else {
-        message.push_str(&format!(": {}", line.trim()));
+        message.push_str(&format!(": {}", all.trim()));
     }
     Some(message)
 }
@@ -143,5 +149,19 @@ mod tests {
             )
         );
         assert_eq!(forbidden(&["error: something else".to_owned()]), None);
+        let apply = [
+            "Error from server (Forbidden): error when retrieving current configuration of:",
+            "Resource: \"apps/v1, Resource=deployments\", GroupVersionKind: \"apps/v1, Kind=Deployment\"",
+            "Name: \"site\", Namespace: \"t\"",
+            "from server for: \"site.yml\": deployments.apps \"site\" is forbidden: User \"system:serviceaccount:t:leitor\" cannot get resource \"deployments\" in API group \"apps\" in the namespace \"t\"",
+        ]
+        .map(str::to_owned);
+        assert!(
+            forbidden(&apply)
+                .expect("refused")
+                .contains("o usuário system:serviceaccount:t:leitor não pode get deployments no namespace t"),
+            "{:?}",
+            forbidden(&apply)
+        );
     }
 }

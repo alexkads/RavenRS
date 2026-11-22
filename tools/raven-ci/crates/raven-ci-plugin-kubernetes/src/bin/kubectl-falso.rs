@@ -1,7 +1,8 @@
 //! A `kubectl` that answers what a test tells it, for the tests of the plugin `kubernetes` on
 //! machines with no cluster.
 //!
-//! It reads the folder in the variable `KUBECTL_FALSO`:
+//! It reads the folder in the variable `KUBECTL_FALSO`, or, without it, the folder its
+//! `--context` names (a launcher's kubectl gets only the server's variables):
 //!
 //! - it adds a line with its arguments, joined by spaces, to `chamadas.txt`;
 //! - it answers with the first item of `respostas.json` whose `se` is in its arguments:
@@ -16,8 +17,11 @@ use serde_json::Value;
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     let line = args.join(" ");
-    let Some(dir) = std::env::var_os("KUBECTL_FALSO").map(std::path::PathBuf::from) else {
-        eprintln!("kubectl-falso: falta KUBECTL_FALSO");
+    let context = args.iter().position(|a| a == "--context").and_then(|at| args.get(at + 1)).cloned();
+    let Some(dir) =
+        std::env::var_os("KUBECTL_FALSO").map(std::path::PathBuf::from).or_else(|| context.map(Into::into))
+    else {
+        eprintln!("kubectl-falso: falta KUBECTL_FALSO ou --context com a pasta");
         std::process::exit(2);
     };
     if let Ok(mut calls) =

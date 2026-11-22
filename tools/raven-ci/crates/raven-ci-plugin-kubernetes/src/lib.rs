@@ -25,6 +25,15 @@
 //!   `Pending` pod no node accepts ("sem recurso no cluster") become the failure's message. A
 //!   refusal of the server (`Forbidden`) becomes "o kubeconfig não tem permissão (403)", with who
 //!   cannot do what, where.
+//! - **An agent in a pod** (`agent = { kubernetes = { … } }`, the launcher `kubernetes`): one pod
+//!   per build from the job's model (`image` with the agent in it, `namespace`, `context`,
+//!   `credential`, `resources`, `node_selector`, `sidecars`), `restartPolicy: Never`, the words of
+//!   #893 (`AgentArgs`) for `raven-ci-agent`, the token in a Secret of the pod's own (read by
+//!   `secretKeyRef`, deleted with the pod), and nothing opened in the cluster: the agent connects out. Before
+//!   it, the pods of agents running in the cluster are counted against `max_pods` (10). It waits
+//!   for a node up to `pending_timeout_s` (300): a pod no node takes is deleted with "sem recurso
+//!   no cluster", one whose image does not come at once. `stop` deletes the pod; `timeout_s` sets
+//!   its `activeDeadlineSeconds` and deletes it when it passes.
 //! - **The setting `kubectl`** says where the program is; empty, it is the one in `PATH`.
 //!
 //! # How to use it
@@ -41,17 +50,21 @@
 //! The plugin needs the permissions `ci.process` (it runs `kubectl`) and `ci.secrets` (the
 //! kubeconfigs).
 
+mod agent;
 mod diagnose;
 mod kubectl;
 
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, PoisonError};
 
-use raven_ci_plugin_api::{CiError, CiPlugin, CredentialKind, Host, Permission};
+use raven_ci_plugin_api::{AgentLauncher, CiError, CiPlugin, CredentialKind, Host, Permission};
 use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, Module, ModuleManifest, Rule};
 use ravenrs_flows::{Catalog, NodeError};
 use serde_json::Value;
 
+pub use agent::{
+    AGENT_FOLDER, AGENT_LABEL, KubernetesLauncher, MAX_PODS, PENDING_TIMEOUT, PodAgent, PodPlan, dns,
+};
 pub use diagnose::{forbidden, pods, selector};
 pub use kubectl::{KUBECTL, KUBECTL_ENV, Kubectl, Plan, ROLLOUT_WAIT};
 
@@ -206,6 +219,10 @@ impl CiPlugin for KubernetesPlugin {
 
     fn credential_kinds(&self) -> Vec<Arc<dyn CredentialKind>> {
         vec![Arc::new(Kubeconfig)]
+    }
+
+    fn agent_launchers(&self) -> Vec<Arc<dyn AgentLauncher>> {
+        vec![Arc::new(KubernetesLauncher(self.state.clone()))]
     }
 }
 

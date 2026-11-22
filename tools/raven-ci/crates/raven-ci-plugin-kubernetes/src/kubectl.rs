@@ -23,42 +23,45 @@ pub const ROLLOUT_WAIT: Duration = Duration::from_secs(300);
 /// The variables of the server `kubectl` gets, besides the basic ones of `ravenrs-process`.
 pub const KUBECTL_ENV: &[&str] = &["KUBECONFIG", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY"];
 
-/// A kubeconfig of the vault in a file only its owner reads, outside the build's folder, removed
-/// when dropped.
+/// A folder of a moment, outside the build's folder and readable only by its owner, for a
+/// kubeconfig of the vault and a manifest: removed when dropped.
 #[derive(Debug)]
-struct KubeconfigFile {
+pub(crate) struct Scratch {
     dir: PathBuf,
 }
 
-impl KubeconfigFile {
-    fn write(run: &str, text: &str) -> Result<Self, NodeError> {
+impl Scratch {
+    pub(crate) fn new(whose: &str) -> Result<Self, NodeError> {
         static NEXT: AtomicU64 = AtomicU64::new(0);
-        let safe: String = run.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect();
+        let safe: String = whose.chars().map(|c| if c.is_ascii_alphanumeric() { c } else { '-' }).collect();
         let dir = std::env::temp_dir().join(format!(
             "raven-ci-kube-{}-{safe}-{}",
             std::process::id(),
             NEXT.fetch_add(1, Ordering::SeqCst)
         ));
         let shown = dir.display().to_string();
-        let failed =
-            move |e: std::io::Error| NodeError::new(format!("o kubeconfig de um momento em {shown}: {e}"));
+        let failed = move |e: std::io::Error| NodeError::new(format!("a pasta de um momento {shown}: {e}"));
         std::fs::create_dir_all(&dir).map_err(&failed)?;
-        let file = Self { dir };
+        let scratch = Self { dir };
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            std::fs::set_permissions(&file.dir, std::fs::Permissions::from_mode(0o700)).map_err(&failed)?;
+            std::fs::set_permissions(&scratch.dir, std::fs::Permissions::from_mode(0o700))
+                .map_err(&failed)?;
         }
-        std::fs::write(file.path(), text).map_err(&failed)?;
-        Ok(file)
+        Ok(scratch)
     }
 
-    fn path(&self) -> PathBuf {
-        self.dir.join("config")
+    /// Writes `text` to the file `name` in it, and gives its path.
+    pub(crate) fn write(&self, name: &str, text: &str) -> Result<PathBuf, NodeError> {
+        let path = self.dir.join(name);
+        std::fs::write(&path, text)
+            .map_err(|e| NodeError::new(format!("{} na pasta de um momento: {e}", path.display())))?;
+        Ok(path)
     }
 }
 
-impl Drop for KubeconfigFile {
+impl Drop for Scratch {
     fn drop(&mut self) {
         let _ = std::fs::remove_dir_all(&self.dir);
     }
@@ -215,11 +218,13 @@ impl NodeKind for Kubectl {
             Some(name) => {
                 let text = self.0.secret(name)?;
                 build.log(&cx.node().id, &format!("kubeconfig da credencial {name}"));
-                Some(KubeconfigFile::write(&build.context().run, &text)?)
+                let scratch = Scratch::new(&build.context().run)?;
+                let path = scratch.write("config", &text)?;
+                Some((scratch, path))
             }
             None => None,
         };
-        let path = file.as_ref().map(|f| f.path().display().to_string());
+        let path = file.as_ref().map(|(_, path)| path.display().to_string());
         let call = Call { cx, build: &build, program, base: plan.base(path.as_deref()) };
         let limit = cx.node().timeout_ms.map(Duration::from_millis);
 
@@ -236,15 +241,19 @@ impl NodeKind for Kubectl {
             }
         }
         if let Some(resource) = &plan.rollout {
-            let wait = limit.unwrap_or(ROLLOUT_WAIT);
+            // The step's time limit ends the step: the rollout gives up at three quarters of it,
+            // so the rest is left to look into the pods and say why.
+            let (wait, process) = match limit {
+                Some(limit) => (limit * 3 / 4, limit * 7 / 8),
+                None => (ROLLOUT_WAIT, ROLLOUT_WAIT + Duration::from_secs(30)),
+            };
             let args = vec![
                 "rollout".to_owned(),
                 "status".to_owned(),
                 resource.clone(),
                 format!("--timeout={}s", wait.as_secs().max(1)),
             ];
-            // Its own --timeout says when to give up; the process gets a little more.
-            let watched = call.run(&args, Some(wait + Duration::from_secs(30)))?;
+            let watched = call.run(&args, Some(process))?;
             if watched.end != End::Code(0) {
                 if let Some(refused) = diagnose::forbidden(&watched.errors) {
                     return Err(NodeError::new(refused));
