@@ -60,11 +60,50 @@ cargo run -p raven-ci -- --plugins tools/raven-ci/plugins plugins listar
 | `raven-ci servir [--endereco HOST:PORTA] [--executores N]` | the server: HTTP with sign-in (`/health` open; `/api/ci/jobs`, `build`, `log?after=`, `queue` and the routes of the plugins behind a token), the executors and the triggers of the jobs; it stops on Ctrl+C or `SIGTERM` |
 | `echo SENHA \| raven-ci usuario criar NOME [--papel P]` | someone who may sign in; the first is an administrator, then `Executores` (asks for builds) or `Leitores` (reads) |
 | `raven-ci --self-test` | a core in memory with a fake plugin for every point, and builds through them |
+| `raven-ci rodar JOB [--param NOME=VALOR]... [--esperar]` | asks a server for a build (`POST /api/ci/run`); `--esperar` follows its log and ends with 0 only when it passed |
+| `raven-ci status JOB [NUMERO]` / `log JOB NUMERO [--seguir]` / `resumo` | the build (the last one with no number), its log (followed to its end) and every job with its last build and the queue |
+| `raven-ci evidencia JOB NUMERO PASTA` | downloads the artifacts of the build and its `log.txt` to `PASTA` |
+| `raven-ci servico instalar\|remover\|estado [--memoria 1G] [--endereco …]` | the server as a service of the system: systemd with `MemoryMax`, launchd, or a task of Windows |
 | `raven-ci --versao` | the version |
 
 `--format json` gives the lists and the details as JSON, for agents. The folder of data is
 `--dados PASTA`, `RAVEN_CI_HOME` or `~/.raven-ci`. External plugins are found in its `plugins/`
 folder and in each `--plugins PASTA`.
+
+### From the terminal, against a server
+
+`rodar`, `status`, `log`, `resumo` and `evidencia` speak to a running server, not to the disk:
+`--servidor URL` (or `RAVEN_CI_SERVIDOR`, `http://127.0.0.1:8080` unless said) with a key in
+`RAVEN_CI_TOKEN`. A key for a program is made once, signed in:
+
+```bash
+TOKEN=$(curl -s -X POST http://127.0.0.1:8080/api/auth/token -H 'Content-Type: application/json' -d '{"name":"ana","password":"…"}' | jq -r .token)
+curl -s -X POST http://127.0.0.1:8080/api/auth/keys -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' -d '{"name":"terminal"}'
+```
+
+```bash
+export RAVEN_CI_TOKEN=…
+raven-ci rodar apps/site --param E2E=true --esperar
+raven-ci evidencia apps/site 12 ./evidencia --format json
+```
+
+Every one takes `--format json`; `log --seguir --format json` gives one line of JSON per line of
+the log. A server that does not answer is named, and a missing key says how to put it.
+
+### As a service
+
+`raven-ci servico instalar` writes the file of the system's manager of services and starts the
+server with it, with the data of `--dados` and the binary the installer put in place (or this one):
+
+| System | File | What it gives |
+|---|---|---|
+| Linux | `~/.config/systemd/user/raven-ci.service` (`/etc/systemd/system` with `--sistema`) | `Restart=on-failure`, `MemoryMax=` from `--memoria`, `SIGTERM` to stop; a service of a user runs with the machine after `loginctl enable-linger` |
+| macOS | `~/Library/LaunchAgents/dev.ravenrs.raven-ci.plist` (`/Library/LaunchDaemons` with `--sistema`) | starts at login, starts again when it falls (launchd waits 10 s), output in `<dados>/logs`; macOS enforces no memory limit |
+| Windows | a task of the Task Scheduler | starts at logon (at boot as SYSTEM with `--sistema`), again a minute after it falls; no memory limit |
+
+`RCI_SERVICO=1 sh install.cmd` (or `set RCI_SERVICO=1` before the `.cmd` on Windows) installs or
+restarts the service at the end of the installation, so an update runs the new binary.
+`raven-ci servico estado` ends with 0 only while it runs.
 
 ## A job of many branches on GitHub
 
@@ -86,6 +125,29 @@ moves:
 - The job of a head that is gone is removed (after `branches.orphan_days` days, 0 unless said).
 - The token is a credential: `echo '{"token": "ghp_…"}' | raven-ci credencial criar github --tipo token`.
 
+## A repository on Azure DevOps
+
+The parameterized pipeline of an Azure DevOps repository is a job that fetches with the plugin
+`azure-devops`, takes requests from the API and tells the pull request:
+
+```json
+{
+  "scm": { "id": "azure-devops", "url": "https://dev.azure.com/org/projeto/_git/repo", "credential": "azure",
+           "reference": { "pull_request": { "number": 7, "target": "main" } }, "merge_onto_target": true },
+  "status": [{ "id": "azure-devops", "repository": "https://dev.azure.com/org/projeto/_git/repo", "credential": "azure" }],
+  "triggers": [{ "id": "api" }]
+}
+```
+
+- The PAT is a credential: `echo '{"token": "…"}' | raven-ci credencial criar azure --tipo token`
+  (scope Code, read and status).
+- Azure DevOps has no `refs/pull/N/head`: the plugin asks its API where the pull request comes
+  from and fetches that branch, with the checkout of the plugin `git`.
+- The status goes to the pull request built (`pullRequests/N/statuses`), else to the commit, with
+  `context.genre` `raven-ci` (or `genre` in the entry): what a status policy of a branch asks for.
+- Azure DevOps Server, or a test, takes the address of its collection in the configuration of the
+  plugin: `{"api": "https://ado.empresa/colecao"}`.
+
 ## The plugins that come with it
 
 | Plugin | Point | What it does |
@@ -99,6 +161,9 @@ moves:
 | `cron` | trigger | `cron` (a schedule in a time zone, or `every = "1h"`) and `poll` (`git ls-remote` of a branch every `5m`, a build when it moved) |
 | `credentials` | credential kinds | `token`, `user-password` and `ssh-key`, sealed by name in the core's vault (`raven-ci credencial criar NOME --tipo token`, the fields in JSON on the input); a plugin reads one with `Host::secret`, and every log hides it |
 | `github` | branch source, status | a job of many branches over a GitHub repository: the branches chosen and the open pull requests (forks left out), each with the pipeline of its own head, built merged onto its target, with the status sent to its commit |
+| `azure-devops` | scm, status | fetches a repository of Azure DevOps with the PAT of a credential, a pull request from its source branch merged onto its target, and sends the status to the pull request or the commit |
+| `artifacts` | publisher, routes | keeps the files the patterns of `artifacts = [...]` find (`*`, `**`, `?`, nothing out of the folder), says which pattern found nothing, and gives them back: `GET /api/ci/artifacts?job=&number=` and `GET /api/ci/artifact?id=` |
+| `junit` | publisher, route | reads the JUnit XML of `junit = [...]` with `ravenrs-junit`, keeps the count and the names of what failed with the build, and gives the trend of a job at `GET /api/ci/tests?job=` |
 
 ```toml
 [[parameters]]
@@ -144,6 +209,12 @@ curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven
 - `crates/raven-ci-plugin-lock/tests`: two executors, a holder outside, a program left running.
 - `crates/raven-ci-plugin-workspace/tests`: a build refused for room on the disk.
 - `crates/raven-ci-plugin-github/tests`: a GitHub of the test's own on a free port and a real repository: the scan, the builds merged, the statuses.
+- `crates/raven-ci-plugin-azure-devops/tests`: an Azure DevOps of the test's own and a real repository: the pull request from its source branch, merged, the statuses with the PAT, a PAT refused.
+- `crates/raven-ci-plugin-artifacts/tests`: the patterns, a link out of the folder, a build that keeps its files and the routes.
+- `crates/raven-ci-plugin-junit/tests`: two builds with reports copied by `sh` or `cmd`, one broken, and the trend.
+- `tests/suite/remote.rs`: the commands of the terminal against `raven-ci servir` on a free port.
+- The service is tested by its files on every system and was run for real on macOS (launchd): it
+  came up, answered `/health`, came back after a `kill -9` and left nothing.
 - `crates/raven-ci-plugin-api/tests/suite`: each point through its fake plugin.
 
 The tests of external plugins say they skip when there is no Python 3.
