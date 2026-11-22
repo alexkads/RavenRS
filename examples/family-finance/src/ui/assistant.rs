@@ -19,7 +19,7 @@ use super::store::Store;
 use super::training::{TRAINING_PAGE, TrainingState};
 use crate::model::{Category, Flow, Recurrence, date_label};
 use crate::money::format_brl;
-use crate::ui::spoken::spoken;
+use ravenrs_ai::spoken_pt_br as spoken;
 
 /// What tells the model it is choosing.
 pub const ASSISTANT_INTRO: &str =
@@ -514,14 +514,14 @@ mod tests {
     use super::*;
     use crate::db::Database;
     use crate::seed;
-    use crate::update::Updater;
+    use crate::update;
 
     fn replies() -> Replies {
         let today = Date::new(2026, 11, 15).expect("valid date");
         let db = Database::in_memory().expect("database");
         seed::load_demo(&db, today).expect("seed");
         Replies {
-            store: Store::new(db, today, None, Updater::idle()),
+            store: Store::new(db, today, None, update::idle()),
             forms: Forms::new(),
             page: State::new(0),
             open: State::new(true),

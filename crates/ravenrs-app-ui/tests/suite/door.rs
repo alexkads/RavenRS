@@ -384,3 +384,16 @@ fn without_a_door_the_usual_screen_stays_as_it_was() {
     let card = usual.node(AccessRole::Button, "Sign in").expect("Sign in").bounds;
     assert!((card.width() - (380.0 - 48.0)).abs() < 1.0, "Sign in still takes the card's width: {card:?}");
 }
+
+#[test]
+fn composed_door_test_ids_identify_inputs_and_keep_password_protected() {
+    let behind = Rc::new(Behind::default());
+    let mut world = with_ana(composed(&database(), &behind));
+    for (id, label, protected) in [("login:name", "Name", false), ("login:password", "Password", true)] {
+        let nodes: Vec<_> = world.nodes().into_iter().filter(|n| n.test_id.as_deref() == Some(id)).collect();
+        assert_eq!(nodes.len(), 1, "{id}: {nodes:?}");
+        assert_eq!(nodes[0].role, AccessRole::TextInput);
+        assert_eq!(nodes[0].name.as_deref(), Some(label));
+        assert_eq!(nodes[0].protected, protected);
+    }
+}

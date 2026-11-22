@@ -1,6 +1,6 @@
 # ravenrs-report-designer
 
-The RavenRS report designer is one view, `Designer`, that an application places in a window or a page. With it, a person lays a report out on bands, drags fields from the data onto them, edits properties and previews the paginated result. They can then print it, export it to PDF, Excel or CSV, or send it straight to a label or receipt printer. The same code runs on the desktop and in the browser.
+The RavenRS report designer is one view, `Designer`, that an application places in a window or a page. With it, a person lays a report out on bands, drags fields from the data onto them, edits properties and previews the paginated result. They can then print it, export it to PDF, Excel or CSV, or send it straight to a label or receipt printer. The same code runs on the desktop and in the browser. `tools/raven-report-designer` runs it on its own, and `ravenrs-app-report` opens it inside an application.
 
 Part of [RavenRS](https://github.com/alexkads/RavenRS).
 
@@ -16,7 +16,7 @@ Reach for this crate when people need to *change* a layout. A `Report` comes in.
 
 There are two ways to use it:
 
-- **On its own**, with `Designer::new()`. It opens on a gallery of sample templates, and it offers a wizard that builds a report from a sample data set. This is the playground. `examples/report-designer` runs it in a desktop window (`cargo run -p report-designer`) and on the web page. On the web page, `?report=invoice` opens one sample through `Designer::sample`.
+- **On its own**, with `Designer::new()`. It opens on a gallery of sample templates, and it offers a wizard that builds a report from a sample data set. This is the playground. `tools/raven-report-designer` runs it in a desktop window (`cargo run -p raven-report-designer`) and on the web page. On the web page, `?report=invoice` opens one sample through `Designer::sample`.
 - **Embedded**, with `Designer::embedded(report, save_label, close_label, on_save, on_close)`. It opens on the application's report, with no gallery or wizard, and adds two buttons above the ribbon. Save calls `on_save` with the report as it stands, and Close calls `on_close`. `ravenrs-app-report` opens the stored reports of a business application this way.
 
 ## Use from start to finish
@@ -88,7 +88,7 @@ fn main() -> Result<(), PlatformError> {
 }
 ```
 
-An application built on the `ravenrs` facade writes the same code with `ravenrs::native::run` and `ravenrs::native::WindowOptions`. On the web, it hands the same view to `ravenrs::web::start`, as `examples/report-designer/src/lib.rs` does.
+An application built on the `ravenrs` facade writes the same code with `ravenrs::native::run` and `ravenrs::native::WindowOptions`. On the web, it hands the same view to `ravenrs::web::start`, as `tools/raven-report-designer/src/lib.rs` does.
 
 ### The input
 
@@ -170,6 +170,6 @@ Everything else is the same on both: editing, preview, parameters, undo and the 
   - "could not write the print page"
   - "choosing an image from a file is only available in the browser"
 
-  Install a subscriber to see them. `examples/report-designer` reads `RUST_LOG`, for example `RUST_LOG=info,ravenrs_report_designer=debug`.
+  Install a subscriber to see them. `tools/raven-report-designer` reads `RUST_LOG`, for example `RUST_LOG=info,ravenrs_report_designer=debug`.
 
 For a bug report, send three things: the report's JSON (Copy JSON on the JSON tab, with the data if it can be shared), the platform, and the log lines above.

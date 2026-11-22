@@ -1,0 +1,52 @@
+//! The stories of `ButtonGroup`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #755: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `ButtonGroup`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_label = args.text("label");
+
+        let period = State::new(args.number("period") as _);
+        view_fn(move || {
+            let chosen = period.get();
+            let item = |index, label: &str| {
+                let period = period.clone();
+                let style = if chosen == index { ButtonStyle::Primary } else { ButtonStyle::Secondary };
+                Button::new(label).style(style).on_click(move || period.set(index))
+            };
+            {
+                let mut it = ButtonGroup::new([item(0, "Day"), item(1, "Week"), item(2, "Month")]);
+                it = it.label(arg_label.clone());
+                it
+            }
+        })
+    })
+}
+
+impl ComponentBook for ButtonGroup {
+    fn book() -> Meta {
+        Meta::new("Actions and inputs/ButtonGroup", render)
+            .summary("Buttons glued side by side, as one control.")
+            .arg(ArgType::text("label", "Period"))
+            .arg(ArgType::number("period", 0.0, 0.0, 5.0, 1.0).description("How the example starts."))
+            .story("Example", Args::new())
+    }
+}

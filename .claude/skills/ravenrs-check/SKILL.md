@@ -133,6 +133,7 @@ Os 5m58s são o piso: rodar os testes, os doctests, o `wasm-bindgen` e o `wasm-o
   Para confirmar que é concorrência, rode de novo com `--test-threads=1`.
 - **Teste lento (`SLOW` na saída do nextest):** um `#[test]` que percorre uma lista inteira num laço não se paraleliza. Divida em um teste por item, como foi feito com os filmes em `examples/family-finance/tests/suite/training.rs`, e mantenha um teste que garante que nenhum item ficou sem o seu.
 - **Doctest "can't find crate", ou derive com código de outro branch:** é diretório de build compartilhado (seção acima).
+- **`rts-coverage` (contrato do RTS, #736):** um tipo novo do `recursos.json` precisa de entrada em `tools/raven-test-studio/contrato.json` (completa, `sem_tela` ou `pendente` com a issue da família). A guarda também recusa `test_id` feito com `format!` fora de `parte:chave`, ou numerado pela posição, e ação listada que o código não nomeia (ou declarada com `on_access` e não listada). O checklist está em `CONTRIBUTING.md`, "Testability (RTS)". `scripts/rts-coverage.py --issues` também confere, pelo `gh`, se alguma issue de pendente já fechou; o `check.sh` não usa essa opção, porque roda sem rede.
 
 ## Mexer no check.sh
 

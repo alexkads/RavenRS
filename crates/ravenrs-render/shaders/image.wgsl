@@ -15,7 +15,7 @@ struct Instance {
     @location(0) rect: vec4<f32>,    // x, y, w, h (logical px)
     @location(1) uv: vec4<f32>,      // u0, v0, u1, v1
     @location(2) radii: vec4<f32>,   // tl, tr, br, bl
-    @location(3) params: vec4<f32>,  // opacity
+    @location(3) params: vec4<f32>,  // opacity, cos and sin of the turn around the rect center
 };
 
 struct VsOut {
@@ -34,10 +34,15 @@ fn vs_main(@builtin(vertex_index) vi: u32, inst: Instance) -> VsOut {
     let pad = 1.0;
     let p = inst.rect.xy - vec2<f32>(pad) + corner * (inst.rect.zw + vec2<f32>(pad * 2.0));
     var out: VsOut;
-    let ndc = p / globals.viewport * 2.0 - 1.0;
-    out.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);
     out.half_size = inst.rect.zw * 0.5;
-    out.local = p - (inst.rect.xy + out.half_size);
+    let center = inst.rect.xy + out.half_size;
+    out.local = p - center;
+    let turned = center + vec2<f32>(
+        out.local.x * inst.params.y - out.local.y * inst.params.z,
+        out.local.x * inst.params.z + out.local.y * inst.params.y,
+    );
+    let ndc = turned / globals.viewport * 2.0 - 1.0;
+    out.position = vec4<f32>(ndc.x, -ndc.y, 0.0, 1.0);
     out.t = (p - inst.rect.xy) / max(inst.rect.zw, vec2<f32>(1e-4));
     out.uv = inst.uv;
     out.radii = min(inst.radii, vec4<f32>(min(out.half_size.x, out.half_size.y)));

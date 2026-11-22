@@ -1,0 +1,10 @@
+scenario: Os blocos da caixa de ferramentas abrem e fecham
+// Usa os blocos esperar, expandir e recolher na própria janela do Studio testado.
+open Raven Test Studio                                       | Abrir o Studio testado
+esperar #health = 18 de 18                                   | Esperar a saúde do Studio
+expandir Agir                                                | Abrir o grupo Agir
+mencionar Preencher = Preencher                              | O bloco Preencher aparece
+mencionar Rolar até = Rolar até                              | O bloco Rolar até aparece
+recolher Agir                                                | Fechar o grupo Agir
+expandir Conferir                                            | Abrir o grupo Conferir
+mencionar Esperar = Esperar                                  | O bloco Esperar aparece

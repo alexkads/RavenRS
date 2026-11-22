@@ -1,5 +1,6 @@
 //! The client against the real service, with nothing but the network left out.
 #![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
+#![cfg(feature = "ui")]
 
 use std::cell::RefCell;
 use std::collections::VecDeque;
@@ -507,4 +508,34 @@ fn a_blank_theme_kept_on_the_server_does_not_blank_the_window() {
     again.press("Entrar");
     again.settle();
     assert_ne!(again.0.theme().palette.ink.a, 0.0, "it opens readable, whatever was left");
+}
+
+#[test]
+fn a_route_of_the_application_is_read_as_json_with_the_token_of_whoever_signed_in() {
+    let (client, _) = desktop();
+    let heard = Rc::new(RefCell::new(Vec::new()));
+    let keep = heard.clone();
+    client.get_json("/api/me", move |answer| keep.borrow_mut().push(answer.expect("an answer").0));
+    assert!(!client.signed_in());
+    let _ = signed_in(&client, "bia");
+    assert!(client.signed_in());
+    let keep = heard.clone();
+    client.get_json("/api/me", move |answer| {
+        let (status, body) = answer.expect("an answer");
+        assert_eq!(body["name"], "bia", "{body}");
+        keep.borrow_mut().push(status);
+    });
+    let keep = heard.clone();
+    client.send_json(
+        "POST",
+        "/api/auth/password",
+        &serde_json::json!({ "current": "x", "new": "y" }),
+        move |answer| {
+            keep.borrow_mut().push(answer.expect("an answer").0);
+        },
+    );
+    let said = heard.borrow().clone();
+    assert_eq!(said[..2], [401, 200], "no one signed in, then bia");
+    assert_ne!(said[2], 200, "a wrong current password is refused");
+    assert!(client.url_of("/api/x").ends_with("/api/x"));
 }

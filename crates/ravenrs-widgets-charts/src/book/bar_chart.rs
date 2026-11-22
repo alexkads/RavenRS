@@ -1,0 +1,47 @@
+//! The stories of `BarChart`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #759: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_kit::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `BarChart`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_height = args.number("height") as f32;
+
+        {
+            let mut it =
+                BarChart::new([("Mon", 42.0), ("Tue", 58.0), ("Wed", 51.0), ("Thu", 73.0), ("Fri", 66.0)]);
+            it = it.height(arg_height);
+            it
+        }
+    })
+}
+
+impl ComponentBook for BarChart {
+    fn book() -> Meta {
+        Meta::new("Data/BarChart", render)
+            .summary("Bar chart with labels and faint gridlines.")
+            .arg(ArgType::number("height", 180.0, 0.0, 720.0, 1.0))
+            .story("Example", Args::new())
+    }
+}

@@ -76,7 +76,7 @@ A coluna "Como foi verificado" diz o que de fato aconteceu. "Sem janela" quer di
 
 ### O que o framework ganhou com isso
 
-Avisos de módulo, trabalho em segundo plano, registro único, numeração sem buraco, rascunhos, janela de balcão, teclas F e Alt, `KeyBar`, `ScanField` e tema por aplicação entraram em `ravenrs-app`, `ravenrs-app-ui` e `ravenrs-widgets`. `examples/feature-center` demonstra cada um, e `examples/feature-center/tests/tour.rs` os testa sem janela.
+Avisos de módulo, trabalho em segundo plano, registro único, numeração sem buraco, rascunhos, janela de balcão, teclas F e Alt, `KeyBar`, `ScanField` e tema por aplicação entraram em `ravenrs-app`, `ravenrs-app-ui` e `ravenrs-widgets`. `tools/raven-feature-center` demonstra cada um, e `tools/raven-feature-center/tests/suite/tour.rs` os testa sem janela.
 
 ## 2. O que falta para vender
 

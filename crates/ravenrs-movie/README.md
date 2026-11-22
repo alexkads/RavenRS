@@ -74,3 +74,14 @@ that finds nothing never reaches the model.
 controls, and `SocialFrame`, the same moment laid out for a phone screen with the words under the
 film. `Movie::following` brings the camera close to each spot explained, and `Soundtrack` gives
 the whole sound as samples. The `ravenrs-movie-video` crate turns these into a video file.
+
+**One film writer for every purpose.** `SessionFilm` is how every film is made from what an app draws and does:
+
+- a test films its [`ravenrs-e2e`](../ravenrs-e2e) session with `SessionFilm::start(&mut e2e, Pace::Test)`: each frame lasts a thirtieth of a second, the pointer jumps, and each step marked with `E2e::mark_step` becomes a chapter;
+- the `Recorder` drives the same kind of session at a person's pace (`Pace::Person`), with the pointer gliding, letters one at a time, boxes and voice. It finds parts as a test does: `#id` by test id, a text by its exact name, and only then the one that takes input, or a name that starts with it;
+- the `FlightRecorder` feeds it what the running app paints, at the app's clock (`SessionFilm::new`, `at`, `frame`, `movie`), for a bug report;
+- an app opened apart films its own session over the test channel with `ravenrs_e2e_wire::serve_filmed(hello, session, ChannelFilm::default())`.
+
+The same `ChannelFilm` also provides the current vector frame through `Client::frame()`: the bytes of a single-frame `.ravenmovie`, made with `SessionFilm` and read with `Movie::from_bytes`. This needs no GPU or file in the app. Capturing neither advances the session's clock nor replaces the observer, so a take in progress keeps filming after a preview is requested. Two captures without an action have the same bytes.
+
+Nothing comes from the wall clock in a test or a training, so two runs give the same bytes. A protected field stays hidden as the session draws it. A frame drawn at the moment of the last one takes its place, since a player shows one picture per moment.

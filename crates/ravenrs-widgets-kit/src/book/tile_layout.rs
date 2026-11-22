@@ -1,0 +1,62 @@
+//! The stories of `TileLayout`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #760: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `TileLayout`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_columns = args.number("columns") as usize;
+        let arg_row_height = args.number("row_height") as f32;
+        let arg_locked = args.bool("locked");
+        let arg_min_column_width = args.number("min_column_width") as f32;
+
+        let spots = State::new(vec![TileSpot::new("sales", 2, 1)]);
+        {
+            let mut it = TileLayout::new(spots.binding())
+                .tile(Tile::new("sales", "Sales", Stat::new("This month", "$48,200")))
+                .tile(
+                    Tile::new("bills", "Bills", Stat::new("Open", "12"))
+                        .accessory(Badge::new("3 late").tone(Tone::Danger)),
+                )
+                .tile(Tile::new("stock", "Stock", Stat::new("Items", "1,204")))
+                .tile(Tile::new("people", "People", Stat::new("Active", "37")));
+            it = it.columns(arg_columns);
+            it = it.row_height(arg_row_height);
+            it = it.locked(arg_locked);
+            it = it.min_column_width(arg_min_column_width);
+            it
+        }
+    })
+}
+
+impl ComponentBook for TileLayout {
+    fn book() -> Meta {
+        Meta::new("Layout/TileLayout", render)
+            .summary("A dashboard of tiles to drag and resize.")
+            .arg(ArgType::number("columns", 3.0, 0.0, 12.0, 1.0))
+            .arg(ArgType::number("row_height", 110.0, 0.0, 440.0, 1.0))
+            .arg(ArgType::bool("locked", false))
+            .arg(ArgType::number("min_column_width", 200.0, 0.0, 800.0, 1.0))
+            .story("Example", Args::new())
+            .story("Two columns, locked", Args::new().with("columns", 2.0).with("locked", true))
+    }
+}

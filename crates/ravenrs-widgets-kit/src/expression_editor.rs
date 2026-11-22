@@ -12,8 +12,8 @@ use ravenrs_style::{SPACING, Semantic, TextStyle, Weight};
 use crate::context::{BuildCx, NodeId};
 use crate::text_field::{Cursor, byte_index};
 use crate::{
-    Alert, AnyView, Button, ButtonSize, FilterField, FilterFieldKind, HStack, IconName, ScrollView,
-    SidebarItem, Text, TextArea, TextField, Tone, VStack, View, ViewExt,
+    Alert, AnyView, Button, ButtonSize, FieldDrag, FilterField, FilterFieldKind, HStack, IconName,
+    ScrollView, SidebarItem, Text, TextArea, TextField, Tone, VStack, View, ViewExt,
 };
 
 /// The function groups, in the order of [`Labels::expression_groups`](crate::Labels::expression_groups)
@@ -61,6 +61,8 @@ pub struct ExpressionEditor {
     fields: Vec<FilterField>,
     parameters: Vec<FilterField>,
     rows: usize,
+    /// What the expression works out to over a sample, and whether that failed.
+    preview: Option<(bool, String)>,
 }
 
 impl fmt::Debug for ExpressionEditor {
@@ -76,7 +78,7 @@ impl fmt::Debug for ExpressionEditor {
 impl ExpressionEditor {
     /// An editor of `value`, offering the built-in functions, operators and constants.
     pub fn new(value: Binding<String>) -> Self {
-        Self { value, fields: Vec::new(), parameters: Vec::new(), rows: 5 }
+        Self { value, fields: Vec::new(), parameters: Vec::new(), rows: 5, preview: None }
     }
 
     /// Offers a field, written `[name]`; a dotted name reads a nested value.
@@ -106,6 +108,20 @@ impl ExpressionEditor {
     /// How many lines of the expression show before it scrolls (5 by default).
     pub fn rows(mut self, rows: usize) -> Self {
         self.rows = rows.max(1);
+        self
+    }
+
+    /// What the expression works out to over a sample the app chose, shown under it as the
+    /// person types. Give it again as the text changes.
+    pub fn preview(mut self, result: impl Into<String>) -> Self {
+        self.preview = Some((true, result.into()));
+        self
+    }
+
+    /// Why working the expression out over the sample failed, shown under it apart from a
+    /// result, so a failure never reads as an empty value.
+    pub fn preview_error(mut self, why: impl Into<String>) -> Self {
+        self.preview = Some((false, why.into()));
         self
     }
 
@@ -202,14 +218,20 @@ struct Item {
 
 /// Puts `item` where the caret is, over the selection if there is one.
 fn insert(value: &Binding<String>, cursor: &State<Cursor>, item: &Item) {
+    insert_text(value, cursor, &item.insert, item.back);
+}
+
+/// Writes `insert` over the selection, or at the caret, and leaves the caret `back` characters
+/// before its end.
+fn insert_text(value: &Binding<String>, cursor: &State<Cursor>, insert: &str, back: usize) {
     let text = value.get();
     let chars = text.chars().count();
     let c = cursor.get();
     let caret = c.caret.min(chars);
     let (start, end) = c.selection().map_or((caret, caret), |(a, b)| (a.min(chars), b.min(chars)));
     let (a, b) = (byte_index(&text, start), byte_index(&text, end));
-    value.set(format!("{}{}{}", &text[..a], item.insert, &text[b..]));
-    cursor.set(Cursor::at(start + item.insert.chars().count() - item.back));
+    value.set(format!("{}{}{}", &text[..a], insert, &text[b..]));
+    cursor.set(Cursor::at(start + insert.chars().count() - back));
 }
 
 /// The line and column, from 1, of byte `offset` in `text`.
@@ -372,9 +394,21 @@ impl View for ExpressionEditor {
             None => Box::new(VStack::new(Vec::<AnyView>::new())),
         };
 
+        let preview = self.preview.as_ref().filter(|_| !text.trim().is_empty()).map(|(worked, words)| {
+            if *worked {
+                Alert::message(labels.expression_result.replace("{0}", words)).tone(Tone::Accent).compact()
+            } else {
+                Alert::message(labels.expression_failed.replace("{0}", words)).tone(Tone::Danger).compact()
+            }
+        });
         let editor = VStack::new((
-            TextArea::new(self.value.clone()).rows(self.rows).cursor(cursor.clone()),
+            // Named for screen readers until a label around it gives it a name of its own.
+            TextArea::new(self.value.clone())
+                .placeholder(labels.expression_text.clone())
+                .rows(self.rows)
+                .cursor(cursor.clone()),
             status,
+            preview,
             HStack::new((
                 ScrollView::new((VStack::new(groups).spacing(2.0).align(Align::Stretch),))
                     .width(GROUPS_WIDTH),
@@ -396,6 +430,18 @@ impl View for ExpressionEditor {
         ))
         .spacing(SPACING.s3)
         .align(Align::Stretch);
-        cx.child(&editor)
+        let node = cx.child(&editor);
+        // A field carried from where data is looked at goes in at the caret, as its expression.
+        let (value, caret, refused) = (self.value.clone(), cursor.clone(), labels.param_no_field.clone());
+        cx.drop_target(
+            node,
+            move |p| if FieldDrag::carried(p).is_some() { Ok(()) } else { Err(refused.clone()) },
+            move |p, _| {
+                if let Some(field) = FieldDrag::carried(p) {
+                    insert_text(&value, &caret, &field.expression, 0);
+                }
+            },
+        );
+        node
     }
 }

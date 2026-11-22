@@ -1,0 +1,58 @@
+//! The stories of `ModelPicker`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #756: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `ModelPicker`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let choice = |name: &str, status| ModelChoice {
+            name: name.into(),
+            details: "1.1 GB · License: Apache 2.0".into(),
+            status,
+            in_use: false,
+            result: None,
+            error: None,
+        };
+        // It shows what it is given. `ravenrs_ai::ModelManager` does the work on the desktop.
+        {
+            let mut it = ModelPicker::new(vec![
+                choice("To download", ModelStatus::Available),
+                choice("Arriving", ModelStatus::Downloading(0.4)),
+                ModelChoice {
+                    result: Some("About 20 words per second.".into()),
+                    ..choice("On this machine", ModelStatus::Installed)
+                },
+            ])
+            .on_test(|_| {})
+            .on_use(|_| {});
+            it
+        }
+    })
+}
+
+impl ComponentBook for ModelPicker {
+    fn book() -> Meta {
+        Meta::new("Forms/ModelPicker", render)
+            .summary("Local AI models to download, try, use and remove.")
+            .story("Example", Args::new())
+    }
+}

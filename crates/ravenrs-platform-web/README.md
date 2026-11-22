@@ -6,7 +6,7 @@ It is the web counterpart of `ravenrs-platform-native`, which does the same job 
 
 **Most apps should not depend on this crate directly.** The `ravenrs` facade re-exports all of it as `ravenrs::web` when it is compiled for `wasm32`, next to the prelude with every widget. Depend on `ravenrs-platform-web` only if you assemble the lower crates yourself.
 
-On any target other than `wasm32` this crate compiles to nothing, so a workspace that also builds for the desktop does not need to exclude it.
+On any target other than `wasm32` this crate compiles to almost nothing (only the ARIA of each node, so it is tested on every target), and a workspace that also builds for the desktop does not need to exclude it.
 
 ## Getting started
 

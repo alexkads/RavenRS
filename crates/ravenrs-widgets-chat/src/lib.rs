@@ -7,6 +7,10 @@
 
 // The base and the kit, by the names the components use: `crate::Button`, `crate::Tabs`,
 // `crate::context::BuildCx`.
+/// The stories of the components of this crate (feature `book`).
+#[cfg(feature = "book")]
+pub mod book;
+
 #[allow(unused_imports)]
 use ravenrs_widgets_base::*;
 #[allow(unused_imports)]
@@ -27,7 +31,10 @@ pub mod rich_text;
 
 pub use chat::{Chat, ChatAuthor, ChatMedia, ChatMessage, FloatingPanel};
 #[cfg(feature = "code")]
-pub use code_editor::{CodeDiagnostic, CodeEditor, CodeLanguage, highlight_rust, line_and_column, offset_of};
+pub use code_editor::{
+    CodeCompletion, CodeDiagnostic, CodeEditor, CodeLanguage, find_all, highlight_rust, line_and_column,
+    offset_of,
+};
 pub use conversation::{Attachment, AttachmentStrip, AudioPlayerButton, SelectionBar};
 #[cfg(feature = "code")]
 pub use playground::{Playground, RunOutput, Runner};

@@ -155,6 +155,7 @@ Each call to `render` walks the scene once, in painter's order:
 - **Images** are uploaded once, with a full mip chain, and cached by the image's id. They are drawn with the same rounded-corner mask as quads (`shaders/image.wgsl`). An image larger than the device allows starts at the first mip level that fits.
 - **Text** is rasterized once per glyph, size and subpixel offset (four positions per pixel) with `swash` into an R8 atlas, and drawn as textured quads (`shaders/glyph.wgsl`).
 - **Shapes made of curves** (`PathFill`) are cut into straight pieces and drawn first into a coverage atlas, where each pixel gets the exact area its edges cover (`shaders/path_coverage.wgsl`). The main pass then paints them from that atlas (`shaders/path.wgsl`). A frame with more shapes than one page of the atlas holds is split into more passes, still in order.
+- **Cables** are simulated by a compute shader (`shaders/cable_sim.wgsl`) in a `GpuCables` world and drawn straight from its buffer (`shaders/cable.wgsl`); only four bytes of movement and the points come back, a frame late.
 - **Clips** become scissor rectangles in device pixels, each cut to the one around it. A primitive whose clip is empty is not drawn at all.
 
 Consecutive primitives of the same kind, image and clip share one draw call. Instance buffers are reused and only grow.

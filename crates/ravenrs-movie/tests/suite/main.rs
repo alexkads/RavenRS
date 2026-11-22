@@ -7,3 +7,4 @@ mod assistant;
 mod editor;
 mod flight;
 mod player;
+mod session_film;

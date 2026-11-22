@@ -1,0 +1,57 @@
+//! The stories of `ScanField`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #756: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `ScanField`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_placeholder = args.text("placeholder");
+        let arg_disabled = args.bool("disabled");
+
+        let last = State::new(String::new());
+        let on_scan = last.clone();
+        VStack::new((
+            {
+                let mut it = ScanField::new(move |scan: Scan| {
+                    let source = if scan.from_reader { "a scanner" } else { "the keyboard" };
+                    on_scan.set(format!("{} from {source}", scan.text));
+                });
+                it = it.placeholder(arg_placeholder.clone());
+                it = it.disabled(arg_disabled);
+                it
+            },
+            Text::bound(&last, Clone::clone).foreground(Semantic::InkMuted),
+        ))
+        .spacing(8.0)
+    })
+}
+
+impl ComponentBook for ScanField {
+    fn book() -> Meta {
+        Meta::new("Forms/ScanField", render)
+            .summary("Field for a barcode scanner: keeps the focus, tells a scanner from fingers and empties after each code.")
+            .arg(ArgType::text("placeholder", "Scan or type a code and press Enter"))
+            .arg(ArgType::bool("disabled", false))
+            .story("Example", Args::new())
+            .story("Disabled", Args::new().with("disabled", true))
+    }
+}

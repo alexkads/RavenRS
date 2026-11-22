@@ -1,0 +1,17 @@
+{
+  "versao": "0.1.0",
+  "titulo": "Raven Code vira ferramenta, instalada e atualizada como o Raven Test Studio.",
+  "importante": false,
+  "novidades": [
+    "Mudou de examples/ para tools/raven-code: instala com o install.cmd e se atualiza como as outras ferramentas do RavenRS (RCD).",
+    "--versao diz a versão e --self-test confere, sem janela, que ele abre.",
+    "Fechar a janela o deixa ao lado do relógio, e abrir de novo traz a cópia que já está aberta."
+  ],
+  "por_que_atualizar": "Para ter a ferramenta sempre na versão do master.",
+  "contribuidores": [
+    "Alex S S Fonseca"
+  ],
+  "issues": [
+    798
+  ]
+}

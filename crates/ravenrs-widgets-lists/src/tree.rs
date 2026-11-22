@@ -9,9 +9,10 @@ use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle};
 
-use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
+use crate::context::{BuildCx, NodeId, Paint, Placement, QuadPaint, Semantics};
 use crate::inputs::check_box_around;
-use crate::{IconName, View, util};
+use crate::overlay::{Entry, MenuList};
+use crate::{IconName, MenuItem, View, util};
 
 const LEVEL_INDENT: f32 = 20.0;
 const OVERSCAN: usize = 6;
@@ -176,7 +177,15 @@ pub struct TreeView {
     height: Option<f32>,
     row_height: f32,
     label: Option<String>,
+    context_menu: Option<MenuFor>,
 }
+
+/// The actions of the menu of an item, by the item's key.
+type MenuFor = Rc<dyn Fn(&str) -> Vec<MenuItem>>;
+
+/// Where the menu of an item is open: the item's key, and the point of a right click (none when
+/// the keyboard opened it, and it opens under the item).
+type MenuAt = State<Option<(String, Option<Point>)>>;
 
 impl fmt::Debug for TreeView {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -199,7 +208,16 @@ impl TreeView {
             height: None,
             row_height: 32.0,
             label: None,
+            context_menu: None,
         }
+    }
+
+    /// A menu of actions for an item, made with its key: a right click on the item, Shift+F10
+    /// or the Menu key with the item active selects it and opens the menu there. An empty list
+    /// opens nothing.
+    pub fn context_menu(mut self, items: impl Fn(&str) -> Vec<MenuItem> + 'static) -> Self {
+        self.context_menu = Some(Rc::new(items));
+        self
     }
 
     /// The item selected, by key.
@@ -267,6 +285,7 @@ struct TreeActions {
     on_open: Option<KeyHandler>,
     on_expand: Option<KeyHandler>,
     active: State<Option<String>>,
+    menu: Option<MenuAt>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -310,6 +329,13 @@ impl TreeActions {
                 }
             }
         });
+    }
+
+    /// Selects the item and opens its menu, at `at` or under it.
+    fn open_menu(&self, node: &TreeNode, at: Option<Point>) {
+        let Some(menu) = &self.menu else { return };
+        self.select(node);
+        menu.set(Some((node.key.clone(), at)));
     }
 
     fn open_item(&self, node: &TreeNode) {
@@ -420,6 +446,10 @@ impl View for TreeLine<'_> {
         cx.on_click(row, Rc::new(move || select.select(&item)));
         let (opener, item) = (self.actions.clone(), node.clone());
         cx.on_double_click(row, Rc::new(move || opener.open_item(&item)));
+        if self.actions.menu.is_some() && !node.disabled {
+            let (menu, item) = (self.actions.clone(), node.clone());
+            cx.on_context_menu(row, Rc::new(move |p| menu.open_menu(&item, Some(p))));
+        }
         cx.cursor(row, CursorIcon::Pointer);
         let mut semantics = Semantics::new(Role::TreeItem)
             .name(node.label.clone())
@@ -434,6 +464,8 @@ impl View for TreeLine<'_> {
             semantics = semantics.toggled(check);
         }
         cx.semantics(row, semantics);
+        // Tests find an item by the key the app gave it, wherever the tree shows it.
+        cx.test_id(row, &format!("item:{}", node.key));
         row
     }
 }
@@ -444,8 +476,15 @@ fn key_handler(
     actions: TreeActions,
     reveal: State<bool>,
 ) -> crate::KeyHandler {
-    Rc::new(move |key, _| {
+    Rc::new(move |key, modifiers| {
         let Some(line) = all.get(at) else { return false };
+        // Shift+F10, or the Menu key, which each platform names its own way.
+        let asks_menu = (*key == Key::Function(10) && modifiers.shift)
+            || matches!(key, Key::Other(name) if name.contains("ContextMenu"));
+        if asks_menu && actions.menu.is_some() && !line.node.disabled {
+            actions.open_menu(&line.node, None);
+            return true;
+        }
         let go = |index: usize| {
             if let Some(line) = all.get(index) {
                 actions.active.set(Some(line.node.key.clone()));
@@ -481,6 +520,7 @@ impl View for TreeView {
         let expanded = self.expanded.clone().unwrap_or_else(|| local.binding());
         let active: State<Option<String>> = cx.use_state(|| None);
         let reveal: State<bool> = cx.use_state(|| false);
+        let menu_at: MenuAt = cx.use_state(|| None);
         let all = Rc::new(lines(&self.nodes, &expanded.get(), &self.query));
         let selected = self.selected.as_ref().and_then(Binding::get);
         let checked = self.checked.as_ref().map(Binding::get);
@@ -494,6 +534,7 @@ impl View for TreeView {
             on_open: self.on_open.clone(),
             on_expand: self.on_expand.clone(),
             active: active.clone(),
+            menu: self.context_menu.as_ref().map(|_| menu_at.clone()),
         };
         let rh = self.row_height;
         let focused = cx.is_focused();
@@ -522,6 +563,8 @@ impl View for TreeView {
             &[],
             Paint::None,
         ));
+        // The line the menu opens under, when the keyboard opened it.
+        let mut menu_row = None;
         for i in range.clone() {
             let line = &all[i];
             let row = TreeLine {
@@ -533,7 +576,11 @@ impl View for TreeView {
                 check: checked.as_ref().map(|set| line.node.check_state(set)),
                 row_height: rh,
             };
-            rows.push(cx.keyed_child(util::hash_text(&line.node.key), &row));
+            let built = cx.keyed_child(util::hash_text(&line.node.key), &row);
+            if menu_at.peek().as_ref().is_some_and(|(key, _)| *key == line.node.key) {
+                menu_row = Some(built);
+            }
+            rows.push(built);
         }
         rows.push(cx.container(
             LayoutStyle {
@@ -567,6 +614,27 @@ impl View for TreeView {
         cx.semantics(body, Semantics::new(Role::Tree).name(name));
         cx.focusable(body, 4.0);
         cx.on_key(body, key_handler(all, at, actions, reveal));
+        if let (Some(items), Some((key, point))) = (&self.context_menu, menu_at.get()) {
+            let entries: Vec<Entry> = items(&key).into_iter().map(Entry::Item).collect();
+            let close: Rc<dyn Fn()> = {
+                let menu_at = menu_at.clone();
+                Rc::new(move || menu_at.set(None))
+            };
+            if entries.is_empty() {
+                close();
+            } else {
+                let (anchor, placement) = match point {
+                    Some(p) => (body, Placement::At(p)),
+                    None => (menu_row.unwrap_or(body), Placement::Below),
+                };
+                cx.overlay(
+                    anchor,
+                    placement,
+                    &MenuList { entries: &entries, close: close.clone(), on_side: None },
+                    Some(close),
+                );
+            }
+        }
         body
     }
 }

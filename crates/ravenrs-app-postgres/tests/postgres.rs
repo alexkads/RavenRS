@@ -5,7 +5,9 @@
 
 use std::rc::Rc;
 
-use postgres::{Client, NoTls};
+use postgres::Client;
+
+mod support;
 use ravenrs_app::{
     Access, Criteria, EntityInfo, EnumOption, FieldInfo, FieldKind, ObjectSpace, Operation, PermissionPolicy,
     Query, Role, Rule, SECURITY_ROLE, SECURITY_USER, SECURITY_USER_ROLE, SpaceError, SpaceMaker,
@@ -22,9 +24,9 @@ fn url() -> Option<String> {
 
 /// A connection whose tables go in a schema nobody else uses, dropped at the start of the next run.
 fn client(schema: &str) -> Client {
-    let mut admin = Client::connect(&url().unwrap(), NoTls).unwrap();
+    let mut admin = support::raw(&url().unwrap());
     admin.batch_execute(&format!("DROP SCHEMA IF EXISTS {schema} CASCADE; CREATE SCHEMA {schema}")).unwrap();
-    let mut client = Client::connect(&url().unwrap(), NoTls).unwrap();
+    let mut client = support::raw(&url().unwrap());
     client.batch_execute(&format!("SET search_path TO {schema}")).unwrap();
     client
 }
@@ -187,7 +189,7 @@ fn a_migration_runs_once_and_one_that_fails_leaves_nothing() {
         .unwrap();
     let failed = builder.migration("broken", "CREATE TABLE b (id BIGINT); SELECT nothing FROM nowhere");
     assert!(failed.is_err());
-    let mut check = Client::connect(&url().unwrap(), NoTls).unwrap();
+    let mut check = support::raw(&url().unwrap());
     check.batch_execute("SET search_path TO migrations").unwrap();
     assert_eq!(check.query("SELECT id FROM a", &[]).unwrap().len(), 1);
     let left = check.query(
@@ -300,13 +302,10 @@ fn an_old_table_of_doubles_becomes_numeric_once() {
         )
         .unwrap();
     let open = || {
-        PostgresDatabase::builder(backend(client_in(
-            &mut Client::connect(&url().unwrap(), NoTls).unwrap(),
-            "doubles",
-        )))
-        .managed(rates(), TableMap::new("rates"))
-        .unwrap()
-        .build()
+        PostgresDatabase::builder(backend(client_in(&mut support::raw(&url().unwrap()), "doubles")))
+            .managed(rates(), TableMap::new("rates"))
+            .unwrap()
+            .build()
     };
     let database = open();
     let kind: String = check
@@ -339,11 +338,8 @@ fn a_decimal_migration_that_fails_leaves_the_column_as_it_was() {
              INSERT INTO rates VALUES (1, 1.5, 1e17)",
         )
         .unwrap();
-    let failed = PostgresDatabase::builder(backend(client_in(
-        &mut Client::connect(&url().unwrap(), NoTls).unwrap(),
-        "halfway",
-    )))
-    .managed(rates(), TableMap::new("rates"));
+    let failed = PostgresDatabase::builder(backend(client_in(&mut support::raw(&url().unwrap()), "halfway")))
+        .managed(rates(), TableMap::new("rates"));
     assert!(failed.is_err());
     let kinds: Vec<String> = check
         .query("SELECT data_type::text FROM information_schema.columns WHERE table_schema = 'halfway' AND table_name = 'rates' AND column_name IN ('two', 'six')", &[])
@@ -358,7 +354,7 @@ fn a_decimal_migration_that_fails_leaves_the_column_as_it_was() {
 
 /// A second connection in a schema that is already there.
 fn client_in(_: &mut Client, schema: &str) -> Client {
-    let mut client = Client::connect(&url().unwrap(), NoTls).unwrap();
+    let mut client = support::raw(&url().unwrap());
     client.batch_execute(&format!("SET search_path TO {schema}")).unwrap();
     client
 }

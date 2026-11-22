@@ -1,0 +1,370 @@
+[
+  {
+    "versao": "0.1.18",
+    "data": "2026-11-22",
+    "titulo": "O contrato de testabilidade de cada componente, cobrado pelo check.sh.",
+    "importante": false,
+    "novidades": [
+      "tools/raven-test-studio/contrato.json diz, para cada um dos 245 tipos do Raven Feature Center, os ids de teste, as ações que ele atende, o driver e o cenário, ou que ainda está pendente e em qual issue.",
+      "O scripts/rts-coverage.py recusa no check.sh um tipo novo sem entrada, um test_id numerado pela posição e uma ação listada que o código não declara.",
+      "As linhas do registro de execução têm o id #log:N no lugar de #log-N, no padrão parte:chave."
+    ],
+    "por_que_atualizar": "Para que todo componente novo já chegue testável pelo Studio.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      736
+    ]
+  },
+  {
+    "versao": "0.1.17",
+    "data": "2026-11-22",
+    "titulo": "Blocos que pedem ao componente o que ele declara, e espera por quem está ocupado.",
+    "importante": false,
+    "novidades": [
+      "Blocos novos: definir-valor, abrir-menu e dispensar pedem ao componente a ação que ele declara, como um leitor de tela pede, sem digitar nem clicar.",
+      "Expandir, recolher e escolher usam a ação do componente quando ele a declara, e o teclado e o clique quando não.",
+      "Um componente ocupado (carregando, esperando resposta) é esperado antes de cada passo, sem sleep; o Chat fica ocupado enquanto espera a resposta.",
+      "O retrato da tela marca busy em quem está ocupado."
+    ],
+    "por_que_atualizar": "Para testar combos, árvores, menus e telas que carregam sem depender de onde clicar nem de quanto esperar.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      735
+    ]
+  },
+  {
+    "versao": "0.1.16",
+    "data": "2026-11-22",
+    "titulo": "Clicar, preencher e escolher alcançam o que está fora da vista.",
+    "importante": false,
+    "novidades": [
+      "Antes de agir, o cenário rola até a parte escondida, como uma pessoa faz: um item no fim da barra lateral, um botão no fim de um formulário longo, uma opção numa lista dentro de um diálogo.",
+      "Listas dentro de páginas que rolam são alcançadas pelas duas: a página até a lista, a lista até o item.",
+      "Fora da janela e sem nada que role, o passo continua acusando E2E_NOT_VISIBLE."
+    ],
+    "por_que_atualizar": "Para testar telas na altura de uma janela real, sem aumentar o viewport.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      732
+    ]
+  },
+  {
+    "versao": "0.1.15",
+    "data": "2026-11-17",
+    "titulo": "As novidades de cada versão aparecem na janela, como no Raven Finanças.",
+    "importante": false,
+    "novidades": [
+      "Clicar na versão, na barra de baixo, abre as novidades da versão em uso, e dá para navegar pelas anteriores.",
+      "Cada versão mostra o que mudou, por que atualizar, quem contribuiu e as issues, que abrem no navegador.",
+      "Os botões Novidades, Como atualizar e Detalhes do aviso de versão nova agora abrem o que dizem, em vez de só fechar o aviso."
+    ],
+    "por_que_atualizar": "Para saber o que cada versão trouxe sem sair da janela.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      744
+    ]
+  },
+  {
+    "versao": "0.1.14",
+    "data": "2026-11-17",
+    "titulo": "Agora dá para ver o teste rodando na janela do app.",
+    "importante": false,
+    "novidades": [
+      "--headed roda o cenário com a janela real do app na tela, nos dados de teste dele, com os mesmos blocos, esperas e códigos de quando roda sem janela.",
+      "--slow-mo <ms> espera entre os passos para acompanhar, sem mudar o resultado: o relógio do app para entre um passo e outro.",
+      "--step começa pausado: Enter roda um bloco, c continua, p pausa e q para; --keep-open on-failure deixa a janela aberta no fim para ver onde falhou.",
+      "Fechar a janela no meio do teste ou pedir janela num computador sem tela dá um código claro (E2E_WINDOW_CLOSED, E2E_NO_WINDOW), e o relatório diz se rodou com janela e em qual sistema.",
+      "O e2e.toml do projeto aceita window, slow_mo e keep_open; a linha de comando vale mais, e --headless desliga a janela."
+    ],
+    "por_que_atualizar": "Para acompanhar um cenário, entender uma falha e mostrar o fluxo na janela de verdade, sem montar outro roteiro.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      729
+    ]
+  },
+  {
+    "versao": "0.1.13",
+    "data": "2026-11-16",
+    "titulo": "A falha vem com o filme.",
+    "importante": false,
+    "novidades": [
+      "--film on-failure filma o app testado e guarda o filme de quando um passo falha, ao lado do relatório; --film always guarda todos.",
+      "O relatório lista os filmes, e a página HTML tem o link para abrir cada um.",
+      "O Studio aberto à parte para ser testado também filma.",
+      "Quem roda os passos agora é um só, o mesmo do cargo ravenrs e2e."
+    ],
+    "por_que_atualizar": "Para ver no MoviePlayer o que levou a uma falha, sem rodar de novo.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      672,
+      674
+    ]
+  },
+  {
+    "versao": "0.1.12",
+    "data": "2026-11-16",
+    "titulo": "O teste pode ser filmado.",
+    "importante": false,
+    "novidades": [
+      "Um teste e2e pode virar filme vetorial (.ravenmovie): cada passo marcado vira capítulo, com cliques e teclas, e duas execuções dão o mesmo arquivo.",
+      "Um app servido com filmagem grava o filme da própria sessão quando o RTS pede, pelo canal de teste.",
+      "Senha digitada no teste nunca aparece no filme.",
+      "Roteiros de treinamento podem achar as partes pelo mesmo #id dos testes."
+    ],
+    "por_que_atualizar": "Para ver um teste como ele aconteceu, no MoviePlayer, sem rodar de novo.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      670
+    ]
+  },
+  {
+    "versao": "0.1.11",
+    "data": "2026-11-16",
+    "titulo": "Relatório em página HTML, e os cenários também pelo cargo ravenrs e2e.",
+    "importante": false,
+    "novidades": [
+      "--format html dá uma página com o resumo, cada passo com o resultado e o tempo, e a falha com a correção e a tela; --out a guarda como relatorio.html.",
+      "O motor do Studio agora é o crate ravenrs-e2e-runner: cargo ravenrs e2e run roda os mesmos cenários sem abrir o Studio.",
+      "O cenário vira JSON e tem JSON Schema (cargo ravenrs e2e schema scenario), e o relatório também (schema report).",
+      "Cada app pode ter um e2e.toml com a pasta, o formato e a saída dos testes."
+    ],
+    "por_que_atualizar": "Para ler o resultado de uma suíte no navegador e usar o mesmo motor no terminal e no build.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      666,
+      668
+    ]
+  },
+  {
+    "versao": "0.1.10",
+    "data": "2026-11-16",
+    "titulo": "Editar células da grade, ligar nós do fluxo e arrastar nos cenários.",
+    "importante": false,
+    "novidades": [
+      "Bloco novo Arrastar (drag #de = #até): liga dois nós de um fluxo com #port:<nó>:<porta> dos dois lados, mesmo com portas que só aparecem com o ponteiro em cima.",
+      "Preencher numa célula da grade (#cell:<chave>:<coluna>) abre o editor com duplo clique, escreve e confirma; célula que não se edita falha com E2E_DISABLED.",
+      "Cabeçalhos e filtros da grade têm ids: #column:<coluna> e #filter:<coluna>.",
+      "Para quem testa em Rust: DataGridDriver (editar, ordenar, filtrar) e FlowCanvasDriver (ligar portas), na feature testing."
+    ],
+    "por_que_atualizar": "Para testar telas com grade e fluxo como a pessoa usa, pela chave do dado e não pela posição na tela.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      663
+    ]
+  },
+  {
+    "versao": "0.1.9",
+    "data": "2026-11-16",
+    "titulo": "Relatório em JUnit e JSONL, tempo de cada passo e a tela da falha guardada.",
+    "importante": false,
+    "novidades": [
+      "--format junit dá o XML que servidores de build e ferramentas de teste já leem, com o código da falha e os passos que não rodaram.",
+      "--format jsonl dá um evento por linha, com quanto cada passo levou.",
+      "--out <pasta> guarda relatorio.json, trace.jsonl e, quando falha, arvore.txt com a tela do app; com --project, vai para o target/e2e do projeto.",
+      "Um --format que o Studio não conhece é recusado, em vez de cair no texto."
+    ],
+    "por_que_atualizar": "Para ler uma falha depois sem rodar de novo e plugar o RTS em qualquer ferramenta que entende JUnit.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      661
+    ]
+  },
+  {
+    "versao": "0.1.8",
+    "data": "2026-11-16",
+    "titulo": "O menu ao lado do relógio diz como está o Studio.",
+    "importante": false,
+    "novidades": [
+      "O menu do ícone mostra o resultado do autoteste no topo.",
+      "Rodar autoteste roda de novo com a janela fechada, e o menu mostra o andamento e o resultado.",
+      "Quando uma versão nova termina de instalar, o menu mostra Reiniciar para atualizar, com o número da versão."
+    ],
+    "por_que_atualizar": "Para saber se o Studio está saudável e atualizar sem abrir a janela.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      643
+    ]
+  },
+  {
+    "versao": "0.1.7",
+    "data": "2026-11-16",
+    "titulo": "Cenários que esperam, escolhem, preenchem e rolam, e o Codex pela janela.",
+    "importante": false,
+    "novidades": [
+      "Cada passo espera até 2 s o alvo ficar pronto antes de falhar, com o relógio do teste andando: temporizadores e trabalho em segundo plano aparecem.",
+      "Blocos novos: preencher, escolher, expandir, recolher, rolar e esperar (este falha com E2E_TIMEOUT).",
+      "Linhas de listas, grades e árvores com chave são achadas por #row:<chave> e #item:<chave>, mesmo fora da tela.",
+      "Botão Delegar ao Codex na janela: o Codex trabalha sem travar a tela, Parar o encerra, e o Studio confere o veredito rodando o mesmo cenário.",
+      "As sugestões da IA local só usam alvos que existem na primeira tela do app."
+    ],
+    "por_que_atualizar": "Para testar telas reais sem passos que falham por pressa ou por posição, e pedir o diagnóstico ao Codex sem sair da janela.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      637,
+      650,
+      658
+    ]
+  },
+  {
+    "versao": "0.1.6",
+    "data": "2026-11-16",
+    "titulo": "O Studio se testa com cenários, como qualquer app.",
+    "importante": false,
+    "novidades": [
+      "Os testes do próprio Studio agora são cenários .raventest: saúde, rodar até o fim, passo a passo, parar e cache.",
+      "Um Studio testa outro num processo à parte, pelo canal de teste: raven-test-studio --project tools/raven-test-studio --run-all.",
+      "O Studio instalado continua sem trazer nenhum cenário."
+    ],
+    "por_que_atualizar": "Para que o Studio prove que funciona do mesmo jeito que testa os outros apps.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      656
+    ]
+  },
+  {
+    "versao": "0.1.5",
+    "data": "2026-11-16",
+    "titulo": "Aponte o Studio para um projeto Rust: ele acha o que testar e a IA sugere cenários.",
+    "importante": false,
+    "novidades": [
+      "--project <pasta> lê um projeto Rust sem compilar e mostra os apps e as telas feitos com RavenRS, com arquivo, linha e as marcas de teste.",
+      "--run-all roda os cenários de cada app do projeto, abrindo cada um pelo código do projeto.",
+      "--suggest pede a uma IA, local por padrão, cenários novos a partir da tela do app; o Studio roda cada um e diz quais passaram, e --write os guarda em tests/e2e/sugestoes para você revisar.",
+      "O Studio não guarda mais lista de apps: cada app se declara no próprio Cargo.toml."
+    ],
+    "por_que_atualizar": "Para testar qualquer projeto RavenRS, mesmo os que ainda não têm cenário nenhum.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      654
+    ]
+  },
+  {
+    "versao": "0.1.4",
+    "data": "2026-11-16",
+    "titulo": "O Studio não traz cenários: roda os do app ou da pasta do QA.",
+    "importante": false,
+    "novidades": [
+      "O Studio instalado do zero abre sem nenhum cenário; o autoteste continua, como a saúde do próprio Studio na barra de status.",
+      "Os cenários são arquivos .raventest, um bloco por linha, escritos em inglês ou em português.",
+      "Eles podem ficar no próprio app, em tests/e2e, ou numa pasta do QA: --run <arquivo ou pasta> roda os arquivos, e --run financas roda os que o Raven Finanças traz.",
+      "Uma linha errada no arquivo diz o número da linha e as palavras aceitas."
+    ],
+    "por_que_atualizar": "Para guardar os testes onde a equipe de QA preferir, sem depender do que vem com o Studio.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      652
+    ]
+  },
+  {
+    "versao": "0.1.3",
+    "data": "2026-11-16",
+    "titulo": "O Studio testa o Raven Finanças de verdade.",
+    "importante": false,
+    "novidades": [
+      "O cenário \"Raven Finanças: lançar despesa\" abre o Raven Finanças à parte, num processo sem janela, e lança uma despesa: 9 blocos.",
+      "O app testado roda nos dados de exemplo, na memória, e termina junto com o teste; os dados de quem usa nunca são abertos.",
+      "Um Raven Finanças instalado antes da 0.1.39 não é aberto: o Studio pede para atualizá-lo, ou usa o código do repositório.",
+      "O Studio agora também atende por RTS no MCP do RavenRS e nas skills."
+    ],
+    "por_que_atualizar": "Para testar um app de verdade, e não só os exemplos que vêm com o Studio.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      649
+    ]
+  },
+  {
+    "versao": "0.1.2",
+    "data": "2026-11-16",
+    "titulo": "O painel no Claude avisa da versão nova e atualiza.",
+    "importante": false,
+    "novidades": [
+      "O painel ao lado da conversa no Claude procura versão nova ao começar a sessão e de hora em hora, e mostra o que ela traz.",
+      "\"Atualizar agora\" no painel instala a versão nova com o mesmo instalador da janela, mostrando cada etapa.",
+      "raven-test-studio --atualizacao diz se há versão nova, e --atualizar instala pela linha de comando."
+    ],
+    "por_que_atualizar": "Para saber da versão nova e atualizar sem abrir a janela.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      645
+    ]
+  },
+  {
+    "versao": "0.1.1",
+    "data": "2026-11-16",
+    "titulo": "Fica ao lado do relógio quando a janela fecha.",
+    "importante": false,
+    "novidades": [
+      "Fechar a janela deixa o Studio ao lado do relógio, como o Raven Finanças: o menu do ícone abre a janela de novo ou sai de vez.",
+      "Abrir o Studio com ele já rodando traz a mesma janela, sem uma segunda cópia.",
+      "As ligações do cenário não passam mais por cima do registro, à direita do fluxo."
+    ],
+    "por_que_atualizar": "Para o Studio continuar pronto, sem abrir do zero a cada teste.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      640,
+      641
+    ]
+  },
+  {
+    "versao": "0.1.0",
+    "data": "2026-11-16",
+    "titulo": "Primeira versão: o Studio testa o próprio Studio.",
+    "importante": false,
+    "novidades": [
+      "Um cenário é um fluxo de blocos (abrir, clicar, digitar, conferir), rodado com o ravenrs-e2e contra um app, e cada bloco fica concluído, com o erro ou como não rodou.",
+      "O cenário que vem com ele, O Studio testa o Studio, abre outro Studio e confere rodar, passo a passo, parar e uma falha de propósito: 18 blocos.",
+      "Sem janela, raven-test-studio --self-test ou --run com --format json entrega o relatório para uma pessoa ou para a IA, com o código de cada falha, o que ele quer dizer, como corrigir e a tela do app testado.",
+      "Cache próprio: um cenário que não mudou, num build que não mudou, volta na hora e avisa que veio do cache.",
+      "Um painel ao lado da conversa no Claude, com a ferramenta run_scenario para a IA rodar um cenário e ler o resultado.",
+      "Instala e se atualiza como o Raven Finanças: o install.cmd compila o master neste computador, e o Studio avisa quando há versão nova.",
+      "Vida própria: ao abrir, a janela roda o autoteste e diz na barra de status como foi; o painel no Claude faz o mesmo quando a sessão começa, usando o Studio instalado fora do repositório do RavenRS.",
+      "Delega ao Codex: --delegate codex entrega o cenário ao Codex com o modelo mais barato dele, só lendo; ele roda, lê o relatório e aponta a causa com arquivo e linha, e o Studio roda o mesmo cenário para confirmar a resposta.",
+      "A IA sabe tudo o que ele faz: o servidor MCP do RavenRS responde ravenrs_tools com o tool.json do Studio e lista as skills, a do Studio entre elas."
+    ],
+    "por_que_atualizar": "Para testar telas RavenRS de ponta a ponta, e deixar a IA rodar e ler esses testes.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      627,
+      632,
+      634
+    ]
+  }
+]

@@ -170,7 +170,12 @@ impl Index {
                 item.krate == "ravenrs-widgets"
                     && item.kind == "struct"
                     && self.widget_exports.contains(&item.name)
-                    && (item.traits.contains("View") || item.traits.contains("Component"))
+                    && (item.traits.contains("View")
+                        || item.traits.contains("Component")
+                        // Put on the screen by its own build, like CablePlug.
+                        || item.methods.iter().any(|method| {
+                            method.name == "build" && method.signature.contains("&mut BuildCx")
+                        }))
                     // View plumbing, not something to put on a screen.
                     && item.file != "crates/ravenrs-widgets-base/src/view.rs"
                     && item.file != "crates/ravenrs-widgets-base/src/modifiers.rs"

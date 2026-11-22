@@ -42,6 +42,8 @@ pub use ravenrs_widgets_grid::grid;
 
 // The lists family lives in its own crate, and keeps its module names here.
 #[allow(unused_imports)]
+use ravenrs_widgets_lists::inspector;
+#[allow(unused_imports)]
 use ravenrs_widgets_lists::lists;
 #[allow(unused_imports)]
 use ravenrs_widgets_lists::tree;
@@ -67,6 +69,44 @@ use ravenrs_widgets_imaging::imaging;
 #[allow(unused_imports)]
 use ravenrs_widgets_imaging::lottie;
 
+/// The stories of the components, as Storybook keeps them, for RavenComponentBook: each
+/// component gives its [`book::Meta`] through [`book::ComponentBook`], and [`book::all`] lists
+/// them (feature `book`).
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+pub mod book {
+    pub use ravenrs_widgets_base::book::*;
+
+    /// The stories of every component that gives them, family by family.
+    #[cfg(feature = "book")]
+    pub fn all() -> Vec<Meta> {
+        let mut all = ravenrs_widgets_base::book::stories();
+        all.extend(ravenrs_widgets_kit::book::stories());
+        all.extend(ravenrs_widgets_lists::book::stories());
+        all.extend(ravenrs_widgets_grid::book::stories());
+        all.extend(ravenrs_widgets_scheduler::book::stories());
+        all.extend(ravenrs_widgets_dock::book::stories());
+        all.extend(ravenrs_widgets_imaging::book::stories());
+        all.extend(ravenrs_widgets_charts::book::stories());
+        all.extend(ravenrs_widgets_chat::book::stories());
+        all
+    }
+}
+
+/// Drivers for tests written with `ravenrs-e2e` (feature `testing`): they edit, sort and
+/// filter a `DataGrid`, join the nodes of a `FlowCanvas`, move the events of a `Scheduler`,
+/// float the panels of a `DockArea`, reorder a `SortableList` and set the crop of a `CropOverlay`
+/// by keys and by value, as a person does, never by pixels.
+#[cfg(feature = "testing")]
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+pub mod testing {
+    pub use ravenrs_widgets_charts::testing::FlowCanvasDriver;
+    pub use ravenrs_widgets_dock::testing::DockDriver;
+    pub use ravenrs_widgets_grid::testing::DataGridDriver;
+    pub use ravenrs_widgets_imaging::testing::CropDriver;
+    pub use ravenrs_widgets_lists::testing::SortableDriver;
+    pub use ravenrs_widgets_scheduler::testing::SchedulerDriver;
+}
+
 // The charts family lives in its own crate, and keeps its module names here.
 #[cfg(feature = "charts")]
 #[allow(unused_imports)]
@@ -74,6 +114,16 @@ use ravenrs_widgets_charts::chart;
 #[cfg(feature = "flow")]
 #[allow(unused_imports)]
 use ravenrs_widgets_charts::flow;
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::flow_inspector::FlowInspector;
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::flow_layers::FlowLayers;
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::flow_library::FlowLibrary;
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::flow_notation::{FlowChecks, FlowFileFormat, FlowNotation};
+#[cfg(feature = "flow")]
+pub use ravenrs_widgets_charts::flow_toolbox::FlowToolbox;
 #[cfg(feature = "charts")]
 #[allow(unused_imports)]
 use ravenrs_widgets_charts::sankey;
@@ -95,17 +145,17 @@ use ravenrs_widgets_chat::rich_text;
 // The components of general use live in their own crate, and keep their module names here.
 #[allow(unused_imports)]
 use ravenrs_widgets_base::{
-    button, calendar, canvas, card, choice, clipboard, color_picker, context, date, display, dock_side,
-    extras, file_picker, fill, floating, full_screen, hotkey, icon, icon_set, ids, image, inputs, kbd,
-    labels, link_service, links, localized, modifiers, motion, motion_spec, overlay, page_motion, recurrence,
-    remote, reorder, scroll_link, scroll_scene, selection_mode, sound, stack, summary, system_appearance,
-    text, text_field, time_link, ui, util, view, zoom,
+    button, cable_plug, calendar, canvas, card, choice, clipboard, color_picker, context, date, display,
+    dock_side, extras, field_drag, file_picker, fill, floating, full_screen, hotkey, icon, icon_set, ids,
+    image, inputs, kbd, labels, link_service, links, localized, modifiers, motion, motion_spec, overlay,
+    page_motion, patch_panel, recurrence, remote, reorder, scroll_link, scroll_scene, selection_mode, sound,
+    stack, summary, system_appearance, text, text_field, time_link, turn, ui, util, view, zoom,
 };
 #[allow(unused_imports)]
 use ravenrs_widgets_kit::{
     commands, counter, data, diagnostics, editors, expression_editor, files, filter_builder, form_layout,
-    lookup, model_picker, nav, quad_field, quick_edit, release_notes, shortcuts, status, tag_box, theme,
-    tiles, wizard,
+    lookup, model_picker, nav, parameter_form, quad_field, quick_edit, release_notes, shortcuts, status,
+    tag_box, theme, tiles, wizard,
 };
 
 #[cfg(feature = "live")]
@@ -114,6 +164,7 @@ mod live;
 mod live_list;
 
 pub use button::{Button, ButtonGroup, ButtonSize, ButtonStyle, IconButton};
+pub use cable_plug::{CableAnchor, CablePlug, CableSide, Cables, distance_to_cable};
 pub use calendar::{Calendar, DatePicker, DateRange, DateRangePicker};
 pub use canvas::Canvas;
 pub use card::{Card, GlassCard};
@@ -130,12 +181,16 @@ pub use choice::{
 };
 pub use clipboard::{Clipboard, ClipboardProvider, MemoryClipboard};
 #[cfg(feature = "code")]
-pub use code_editor::{CodeDiagnostic, CodeEditor, CodeLanguage, highlight_rust, line_and_column, offset_of};
+pub use code_editor::{
+    CodeCompletion, CodeDiagnostic, CodeEditor, CodeLanguage, find_all, highlight_rust, line_and_column,
+    offset_of,
+};
 pub use color_picker::ColorPicker;
 pub use commands::{ConfirmDialog, FloatingToolbar, SplitButton, Toolbar, ToolbarAction};
 pub use context::{
-    ActivityObserver, BuildCx, Drag, DragHandler, DragPhase, DrawFn, KeyHandler, LiveFn, NodeId, Paint,
-    PaintCx, Placement, QuadPaint, RichFn, Semantics, UiActivity, WidgetId,
+    AccessHandler, ActivityObserver, BuildCx, BusySignal, Carrying, Drag, DragHandler, DragPayload,
+    DragPhase, DrawFn, DropCheck, DropHandler, KeyHandler, LiveFn, NodeId, Paint, PaintCx, Placement,
+    QuadPaint, RichFn, Semantics, UiActivity, WidgetId,
 };
 pub use conversation::{Attachment, AttachmentStrip, AudioPlayerButton, SelectionBar};
 pub use counter::{KeyBar, KeyBarItem, Scan, ScanField};
@@ -144,7 +199,8 @@ pub use date::{Date, days_in_month, is_leap_year};
 pub use diagnostics::{Diagnostics, DiagnosticsHost};
 pub use display::{Alert, AlertAction, Avatar, Badge, Divider, ProgressBar, Section, Skeleton, Stat, Tone};
 pub use dock::{
-    DockArea, DockChild, DockDrop, DockEdge, DockLayout, DockLayoutError, DockNode, DockPanel, DockTabBar,
+    DockArea, DockChange, DockChild, DockCloseAction, DockDrop, DockEdge, DockGuard, DockLayout,
+    DockLayoutError, DockNode, DockPanel, DockPanelKind, DockTabBar,
 };
 pub use dock_side::DockSide;
 pub use editors::{DateTime, DateTimePicker, MaskedField, NumberField, TextArea, Time, TimePicker};
@@ -154,6 +210,7 @@ pub use extras::{
     AccessibleControl, Carousel, FormField, InputOtp, Menubar, Rule, Spinner, SplitHandle, SplitPane,
     SplitPanes, Splitter, validate,
 };
+pub use field_drag::{FIELD_DRAG, FieldDrag, field_expression};
 pub use file_picker::{FilePicker, FilePickerProvider, FileRequest, NoFilePicker, PickedFile};
 #[cfg(feature = "decode")]
 pub use files::ImageField;
@@ -166,8 +223,12 @@ pub use floating::{
 };
 #[cfg(feature = "flow")]
 pub use flow::{
-    EdgeShape, FlowCanvas, FlowEdge, FlowEndpoint, FlowGraph, FlowKind, FlowNode, FlowNodeStatus, FlowPort,
-    FlowSelection, FlowValidator, FlowViewport, PortDirection, PortSide,
+    EdgeCap, EdgeShape, FLOW_FORMAT, FLOW_NODE_DRAG, FlowCanvas, FlowChange, FlowColors, FlowConnector,
+    FlowContent, FlowDirection, FlowDocument, FlowEdge, FlowEndpoint, FlowExportFormat, FlowExporter,
+    FlowGate, FlowGraph, FlowGuard, FlowHistory, FlowIssue, FlowJsonError, FlowKind, FlowLayout,
+    FlowLayoutKind, FlowNext, FlowNode, FlowNodeRun, FlowNodeStatus, FlowPicture, FlowPort, FlowRun,
+    FlowRunEvent, FlowRunRules, FlowRunView, FlowSelection, FlowShape, FlowShelf, FlowStyle, FlowText,
+    FlowValidator, FlowViewport, NODE_REFS, PortDirection, PortSide,
 };
 pub use form_layout::{FormGroup, FormLayout};
 pub use full_screen::{FullScreen, FullScreenProvider};
@@ -190,13 +251,14 @@ pub use imaging::{
     Protractor, RubberBand, RuleOfThirdsGrid, Ruler, TransformHandles, ZoomPanPaint, ZoomPanView,
 };
 pub use inputs::{Checkbox, RadioGroup, SegmentedControl, Slider, Stepper, ThemeSwitcher, Toggle};
+pub use inspector::{DataInspector, PathStep, SAMPLE, field_path};
 pub use kbd::Kbd;
 pub use labels::Labels;
 pub use link_service::{LinkOpener, Links};
 pub use links::Link;
 pub use lists::{
     DayMark, DocumentTab, DocumentTabs, FileBrowser, FileEntry, FileSort, FileSortColumn, Filmstrip,
-    FilmstripCell, PagedDocumentView, SortableList, VirtualList, YearView,
+    FilmstripCell, LogBuffer, LogView, PagedDocumentView, SortableList, VirtualList, YearView,
 };
 #[cfg(feature = "live")]
 #[doc(hidden)]
@@ -208,7 +270,7 @@ pub use lookup::{LookupField, LookupItem, LookupRequest, LookupResponder};
 #[cfg(feature = "lottie")]
 pub use lottie::Lottie;
 pub use model_picker::{ModelChoice, ModelPicker, ModelPickerLabels, ModelStatus};
-pub use modifiers::{Faded, Styled, ViewExt};
+pub use modifiers::{Faded, Styled, TestId, ViewExt};
 pub use motion::Collapse;
 pub use motion_spec::Motion;
 pub use nav::{
@@ -218,18 +280,23 @@ pub use nav::{
 };
 pub use overlay::{Dialog, DropdownMenu, HelpTip, MenuItem, Popover, Select, Tooltip};
 pub use page_motion::{Anchor, CountUp, Ticker};
+pub use parameter_form::{EXPRESSION_KEY, ParamField, ParamKind, ParamOptions, ParamValues, ParameterForm};
+pub use patch_panel::{Jack, JackFlow, PatchLink, PatchPanel};
 #[cfg(feature = "code")]
 pub use playground::{Playground, RunOutput, Runner};
 pub use quad_field::QuadField;
 pub use quick_edit::{InlineRename, ValueSlider};
+/// The cable model behind [`CablePlug`]: ends, physics, look, textures and worlds.
+pub use ravenrs_core::cable;
 #[cfg(feature = "lottie")]
 pub use ravenrs_lottie::{Animation as LottieAnimation, LottieError};
 pub use ravenrs_text::TextAlign;
+pub use ravenrs_widgets_base::{Driving, UiDriver};
 pub use recurrence::{
     Frequency, RecurrenceEnd, RecurrenceRule, RecurrenceSet, exceptions_text, parse_exceptions,
 };
 pub use release_notes::{CodeBlock, ReleaseNote, ReleaseNotes};
-pub use remote::UiWaker;
+pub use remote::{UiWaker, WindowCloser};
 pub use ribbon::{Ribbon, RibbonGroup, RibbonItem, RibbonPage, RibbonSize};
 pub use rich_text::RichText;
 #[cfg(feature = "charts")]
@@ -253,13 +320,14 @@ pub use summary::Summary;
 pub use system_appearance::SystemAppearance;
 pub use tag_box::TagBox;
 pub use text::Text;
-pub use text_field::TextField;
+pub use text_field::{Cursor, TextField, TextHistory};
 pub use theme::{ThemeEditor, ThemePicker};
 pub use tiles::{CardView, Tile, TileLayout, TileSpot};
 pub use time_link::TimeLink;
 pub use timeline::{Timeline, TimelineEdit, TimelineItem, TimelineMarker, TimelineTrack};
 pub use tree::{TreeNode, TreeView};
-pub use ui::{Ui, UiStats};
+pub use turn::{QuarterTurn, Turn};
+pub use ui::{HOLD_TO_CARRY, Ui, UiStats};
 pub use view::{AnyView, Component, FnView, Keyed, Responsive, View, ViewSeq, responsive, view_fn};
 pub use wizard::{IndicatorStep, StepBadge, StepIndicator, StepState, Wizard, WizardStep};
 pub use zoom::{ZoomControl, ZoomView};

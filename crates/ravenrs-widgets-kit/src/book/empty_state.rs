@@ -1,0 +1,50 @@
+//! The stories of `EmptyState`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #761: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `EmptyState`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_description = args.text("description");
+
+        {
+            let mut it = EmptyState::new("No photos yet")
+                .icon(IconName::Image)
+                .action(Button::new("Import"))
+                .action(Button::new("Learn more").style(ButtonStyle::Ghost));
+            if !arg_description.is_empty() {
+                it = it.description(arg_description.clone());
+            }
+            it
+        }
+    })
+}
+
+impl ComponentBook for EmptyState {
+    fn book() -> Meta {
+        Meta::new("Display and feedback/EmptyState", render)
+            .summary("What an area shows when it has nothing: icon, title, sentence and actions.")
+            .arg(ArgType::text("description", "Import a folder to start. The originals stay where they are."))
+            .story("Example", Args::new())
+            .story("Title only", Args::new().with("description", ""))
+    }
+}

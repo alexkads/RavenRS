@@ -1,0 +1,31 @@
+{
+  "name": "Raven Movie Editor",
+  "also_called": [
+    "RME",
+    "movie-editor"
+  ],
+  "package": "raven-movie-editor",
+  "version": "0.1.0",
+  "summary": "Opens a RavenRS film (.ravenmovie) or a bug report (.ravenbug) and edits it on a timeline: cuts, boxes, narration and chapters. The films come from the Raven Test Studio, the trainings and the bug reports of the apps.",
+  "when_to_use": [
+    "To look at the film of a test that failed in the Raven Test Studio.",
+    "To edit a training film or the film of a bug report before sharing it."
+  ],
+  "commands": [
+    {
+      "command": "raven-movie-editor [<file.ravenmovie | file.ravenbug>]",
+      "does": "Opens the film, or asks for one; a bug report prints what it says in the terminal. Saving keeps the film beside it. Closing the window keeps it beside the clock."
+    },
+    {
+      "command": "raven-movie-editor --self-test",
+      "does": "Opens the editor on a made-up film with no window; exit code 0 when it draws."
+    },
+    {
+      "command": "raven-movie-editor --versao",
+      "does": "Prints the version."
+    }
+  ],
+  "limits": [
+    "It edits RavenRS films, not video files: Raven Channel Video writes those."
+  ]
+}

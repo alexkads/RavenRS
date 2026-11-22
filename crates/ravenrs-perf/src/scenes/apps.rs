@@ -4,12 +4,12 @@ use component_gallery::Gallery;
 use family_finance::db::Database;
 use family_finance::seed;
 use family_finance::ui::App;
-use family_finance::update::Updater;
+use family_finance::update;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use feature_center::seed::PASSWORD;
-use feature_center::{memory_database, watched};
+use raven_feature_center::seed::PASSWORD;
+use raven_feature_center::{memory_database, watched};
 use ravenrs_app_ui::Session;
 use ravenrs_core::{AccessAction, Event, Key, Modifiers, Point, Role};
 use ravenrs_widgets::{AnyView, Date, Ui};
@@ -33,7 +33,7 @@ fn finance(page: usize, interaction: &str) -> Setup {
     if seed::load_demo(&database, today).is_err() {
         panic!("the demo data");
     }
-    let app = App::new(database, today, None, Updater::idle());
+    let app = App::new(database, today, None, update::idle());
     app.open_page(page);
     Setup { root: Box::new(app), step: step(interaction) }
 }
@@ -45,7 +45,7 @@ pub fn finance_tour() -> (AnyView, ravenrs_reactive::State<usize>) {
     if seed::load_demo(&database, today).is_err() {
         panic!("the demo data");
     }
-    let app = App::new(database, today, None, Updater::idle());
+    let app = App::new(database, today, None, update::idle());
     let page = app.page_state();
     (Box::new(app), page)
 }

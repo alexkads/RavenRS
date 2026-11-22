@@ -43,6 +43,7 @@ mod model;
 mod model_node;
 mod module;
 mod module_api;
+mod module_plan;
 mod object;
 mod outbox;
 mod provider;
@@ -84,6 +85,7 @@ pub use model::{
 };
 pub use module::{Application, ApplicationBuilder};
 pub use module_api::{DashboardContent, DashboardInfo, DashboardItem, Module, Notice, NoticeKind};
+pub use module_plan::{ModuleEntry, ModuleHost, ModulePlan, ModuleRefusal, plan_modules};
 pub use object::{BusinessObject, FieldValue, ObjectSpaceExt};
 pub use outbox::{
     Dispatcher, Emitted, Event, OUTBOX_EVENT, OUTBOX_REPROCESS, OutboxModule, Report, outbox_entity,

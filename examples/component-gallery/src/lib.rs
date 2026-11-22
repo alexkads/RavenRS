@@ -1,6 +1,10 @@
 //! The RavenRS component gallery: every built-in component, grouped by
 //! category, with live state. Runs natively and in the browser.
 
+/// The scenarios of Raven Test Studio the app brings, one per file of `tests/e2e/`: the tool
+/// gets them when it opens the app with `--e2e-serve`, and the tests play them.
+pub const SCENARIOS: [&str; 1] = [include_str!("../tests/e2e/abrir.raventest")];
+
 use ravenrs::prelude::*;
 
 mod art;
@@ -480,7 +484,7 @@ impl View for PageBody {
     }
 }
 
-#[cfg(target_arch = "wasm32")]
+#[cfg(all(target_arch = "wasm32", feature = "entry"))]
 mod web_entry {
     use std::cell::RefCell;
 

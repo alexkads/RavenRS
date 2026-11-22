@@ -1,0 +1,6 @@
+scenario: Planilha: orçamento e resumo
+// O orçamento abre em B4; a aba Resumo mostra o maior gasto.
+open Planilha                                   | Abrir a planilha
+check Value or formula = 2400                   | B4 vale 2400
+click Resumo                                    | Ir ao resumo
+check Value or formula = Maior gasto            | O resumo começa pelo maior gasto

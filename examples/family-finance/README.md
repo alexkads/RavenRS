@@ -70,7 +70,7 @@ It uses the token saved in Ajustes, or `TELEGRAM_BOT_TOKEN`, and the account cho
 
 ## Installing and updating
 
-The app is not packaged. It installs and updates by compiling the master branch on the user's machine, the way VintageLightbox does, using `install.cmd`, one file that runs on all three systems. It gets what it needs first, Rust and a C compiler, so the first run can take a while; updates reuse what was compiled. It asks for an administrator's permission only to install those tools.
+The app is not packaged. It installs and updates by compiling the master branch on the user's machine, the way VintageLightbox does, using `install.cmd`, one file that runs on all three systems. How it works, and how another app adopts it, is in [`ravenrs-app-update`](../../crates/ravenrs-app-update/README.md): `src/update.rs` says who Raven Finanças is to it, and `install.cmd` is made from the crate's template (`RAVENRS_WRITE_INSTALLER=1 cargo test -p family-finance update::` writes it again after the template changes). It gets what it needs first, Rust and a C compiler, so the first run can take a while; updates reuse what was compiled. It asks for an administrator's permission only to install those tools.
 
 **Windows 11**, in PowerShell, or download [install.cmd](install.cmd) and double-click it:
 
@@ -96,7 +96,7 @@ When it opens and every hour after that, the app reads `novidades.json` from mas
 
 The training films are in `assets/treinamentos/`, recorded from the app itself: six films, about 16 minutes and 700 KB in all, since a film stores no pixels and no sound. After screens change, a test fails if a script no longer fits, and `FF_RECORD_TRAINING=1 cargo test -p family-finance --test suite training::` records them again.
 
-**To release**, make one commit with three changes: `version` in `Cargo.toml`, `novidades.json`, and the same entry with its `data` on top of `historico-de-novidades.json`. Each entry names who made the version in `contribuidores`, one name per person, as in the git log since the previous version; the news shows them under **Quem contribuiu**. From 0.1.32 on, `issues` lists the numbers of the GitHub issues the version closes, and the news links each one under **Issues resolvidas**. A test holds them together. Make it the last commit of the release: anyone who compiled 0.1.N will not compile another 0.1.N.
+**To release**, make one commit with three changes: `version` in `Cargo.toml`, `novidades.json`, and the same entry with its `data` on top of `historico-de-novidades.json`. Each entry names who made the version in `contribuidores`, one name per person, as in the git log since the previous version; the news shows them under **Quem contribuiu**. From 0.1.32 on, `issues` lists the numbers of the GitHub issues the version closes, and the news links each one under **Issues resolvidas**. A test holds them together (`assert_release_files_agree`, from the crate). Make it the last commit of the release: anyone who compiled 0.1.N will not compile another 0.1.N.
 
 Updates come over HTTPS from this repository, with no signature of their own.
 
@@ -123,3 +123,22 @@ Still open:
 * **More text to translate.** `Ribbon`, `Carousel`, `InputOtp`, `validate::email`, `validate::min_length` and a grid's yes/no values are still in English.
 
 Missing in the app itself: transfers between accounts, so a credit card's balance has no way to be paid off, and the chosen theme is not remembered.
+
+## End-to-end tests (Raven Test Studio)
+
+The scenarios of Raven Finanças are in `tests/e2e/`, as `.raventest` files the Raven Test Studio reads. They run on the sample family, in memory, on 15/11/2026:
+
+| File | What it checks |
+|---|---|
+| `lancar-despesa.raventest` | an expense is saved and shows in the month, with its amount |
+| `lancar-receita.raventest` | an income is saved, shows as an entry and adds to the summary of the month |
+| `validar-lancamento.raventest` | an entry with no amount stays open and says what is missing; with the amount, it saves |
+| `trocar-de-mes.raventest` | the month of the day, with its summary, then the month before and back |
+| `pagar-conta.raventest` | a bill is paid for the amount it expected and moves to the paid ones; the next month's comes in its place |
+
+The app brings them (`e2e::SCENARIOS`), and `tests/suite/e2e.rs` plays them in this process and in a process of its own, one app per scenario, as the Studio opens it, checking nothing is written where the person keeps data. To run them as the Studio does:
+
+```bash
+raven-test-studio --project examples/family-finance --run-all --no-cache --format json --out target/e2e/family-finance
+```
+

@@ -8,7 +8,6 @@
 
 use family_finance::db::Database;
 use family_finance::ui::App;
-use family_finance::update::Updater;
 use family_finance::{seed, themes};
 use ravenrs::core::{AccessAction, AccessNode, AccessTree, Key};
 use ravenrs::movie::{
@@ -628,7 +627,7 @@ fn record(title: &str, file: &str, script: Script) -> Movie {
     let today = Date::new(2026, 11, 15).expect("valid date");
     let db = Database::in_memory().expect("database");
     seed::load_demo(&db, today).expect("seed");
-    let app = App::new(db, today, None, Updater::idle());
+    let app = App::new(db, today, None, family_finance::update::idle());
     let mut take = Recorder::new(app, themes::light(), SIZE).narration(Narration::new(NARRATION));
     script(&mut take).unwrap_or_else(|e| panic!("the script of {title} no longer fits the app: {e}"));
     edit(take.finish().expect("film"), title, file)
@@ -751,7 +750,7 @@ fn the_script_still_fits_the_app(file: &str) {
     let today = Date::new(2026, 11, 15).expect("valid date");
     let db = Database::in_memory().expect("database");
     seed::load_demo(&db, today).expect("seed");
-    let app = App::new(db, today, None, Updater::idle());
+    let app = App::new(db, today, None, family_finance::update::idle());
     let mut take = Recorder::new(app, themes::light(), SIZE);
     if let Err(error) = script(&mut take) {
         panic!("{title}: {error}");
@@ -795,7 +794,7 @@ fn the_assistant_opens_the_film_from_any_screen() {
     let today = Date::new(2026, 11, 15).expect("valid date");
     let db = Database::in_memory().expect("database");
     seed::load_demo(&db, today).expect("seed");
-    let mut ui = Ui::new(App::new(db, today, None, Updater::idle()), themes::light());
+    let mut ui = Ui::new(App::new(db, today, None, family_finance::update::idle()), themes::light());
     ui.set_viewport(SIZE, 1.0);
     ui.update();
 
@@ -905,7 +904,7 @@ fn real_model_answers_in_the_chat_with_the_numbers_of_the_database() {
     let db = Database::open(&path).expect("database");
     seed::load_demo(&db, today).expect("seed");
     let total: i64 = db.accounts().expect("accounts").iter().map(|a| a.balance_cents).sum();
-    let mut ui = Ui::new(App::new(db, today, Some(path), Updater::idle()), themes::light());
+    let mut ui = Ui::new(App::new(db, today, Some(path), family_finance::update::idle()), themes::light());
     ui.set_viewport(SIZE, 1.0);
     ui.update();
     let click = |ui: &mut Ui, name: &str| {
@@ -978,7 +977,7 @@ fn record_narration() {
     if let Ok(only) = std::env::var("FF_NARRATION_TAKES") {
         let wavs = std::env::var("FF_NARRATION_WAVS").expect("FF_NARRATION_WAVS");
         for index in only.split(',').filter_map(|index| index.parse::<usize>().ok()) {
-            let text = family_finance::ui::spoken(&said[index]);
+            let text = ravenrs_ai::spoken_pt_br(&said[index]);
             for take in 1..=6_u64 {
                 let settings = SpeechSettings { seed: take * 7919, ..settings.clone() };
                 let parts = if take % 2 == 0 { vec![text.clone()] } else { engine.pieces(&text) };
@@ -999,7 +998,7 @@ fn record_narration() {
         let mut added = Vec::new();
         for text in said.iter().filter(|text| narration.clip(text).is_none()) {
             let mut sound = Vec::new();
-            for piece in engine.pieces(&family_finance::ui::spoken(text)) {
+            for piece in engine.pieces(&ravenrs_ai::spoken_pt_br(text)) {
                 sound.extend(engine.speak(&piece, &settings, &mut |_| true).expect("sound"));
                 sound.extend_from_slice(&silence);
             }
@@ -1027,7 +1026,7 @@ fn record_narration() {
         }
         for (index, text) in said.iter().filter(|text| !have.contains(*text)).enumerate() {
             let mut sound = Vec::new();
-            for piece in engine.pieces(&family_finance::ui::spoken(text)) {
+            for piece in engine.pieces(&ravenrs_ai::spoken_pt_br(text)) {
                 sound.extend(engine.speak(&piece, &settings, &mut |_| true).expect("sound"));
                 sound.extend_from_slice(&silence);
             }
@@ -1039,7 +1038,7 @@ fn record_narration() {
     }
     for text in said.iter().take(limit.unwrap_or(usize::MAX)) {
         let mut sound = Vec::new();
-        for piece in engine.pieces(&family_finance::ui::spoken(text)) {
+        for piece in engine.pieces(&ravenrs_ai::spoken_pt_br(text)) {
             sound.extend(engine.speak(&piece, &settings, &mut |_| true).expect("sound"));
             sound.extend_from_slice(&silence);
         }

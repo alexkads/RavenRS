@@ -8,6 +8,7 @@ use crate::frame::FrameContext;
 use crate::manifest::{GuardedObjectSpace, ModuleManifest, Target};
 use crate::model::{Diff, MergedModel, ModelLayer, ModelLayers, check_model, generate_model};
 pub use crate::module_api::{DashboardInfo, Module, Notice};
+use crate::module_plan::{ModuleEntry, ModuleHost, plan_modules};
 use crate::{EntityInfo, Frame, ModelError, ModelNode, ObjectSpace};
 
 /// The layer that holds the model's words in the language picked.
@@ -56,117 +57,16 @@ impl Module for SwitchedOff {
     }
 }
 
-/// Refuses what the modules say they cannot work with, naming the module.
-fn check_manifests(modules: &[Box<dyn Module>], host: &Host) -> Result<(), ModelError> {
-    let mut migrations: Vec<(String, String)> = Vec::new();
-    let mut jobs: Vec<(String, String)> = Vec::new();
-    for module in modules {
-        let name = module.name();
-        let manifest = module.manifest();
-        for (other, range) in &manifest.requires {
-            let found = modules
-                .iter()
-                .find(|m| m.name() == other)
-                .ok_or_else(|| ModelError(format!("the module {name} needs {other}, which was not added")))?;
-            match found.manifest().version {
-                Some(version) if range.accepts(version) => {}
-                Some(version) => {
-                    return Err(ModelError(format!(
-                        "the module {name} needs {other} {range}, and {other} is {version}"
-                    )));
-                }
-                None => {
-                    return Err(ModelError(format!(
-                        "the module {name} needs {other} {range}, and {other} says no version"
-                    )));
-                }
-            }
-        }
-        if let Some(target) = host.target
-            && !manifest.targets.is_empty()
-            && !manifest.targets.contains(&target)
-        {
-            return Err(ModelError(format!("the module {name} does not run on {target:?}")));
-        }
-        if let Some(database) = &host.database
-            && !manifest.databases.is_empty()
-            && !manifest.databases.contains(database)
-        {
-            return Err(ModelError(format!("the module {name} does not work on {database}")));
-        }
-        if let Some(missing) = manifest.capabilities.iter().find(|c| !host.capabilities.contains(c)) {
-            return Err(ModelError(format!(
-                "the module {name} needs the capability {missing}, which the host does not offer"
-            )));
-        }
-        for (kind, ids, seen) in
-            [("migration", &manifest.migrations, &mut migrations), ("job", &manifest.jobs, &mut jobs)]
-        {
-            for id in ids {
-                if let Some((_, first)) = seen.iter().find(|(other, _)| other == id) {
-                    return Err(ModelError(format!("the {kind} {id} comes from both {first} and {name}")));
-                }
-                seen.push((id.clone(), name.to_owned()));
-            }
-        }
-    }
-    Ok(())
-}
-
-/// What the host says about where the application runs.
-#[derive(Debug, Default)]
-struct Host {
-    target: Option<Target>,
-    database: Option<String>,
-    capabilities: Vec<String>,
-}
-
 /// Puts modules in an order where each comes after what it depends on, keeping the order they
-/// were added in as far as possible.
-fn in_dependency_order(modules: Vec<Box<dyn Module>>) -> Result<Vec<Box<dyn Module>>, ModelError> {
-    let names: Vec<String> = modules.iter().map(|m| m.name().to_owned()).collect();
-    for (i, name) in names.iter().enumerate() {
-        if names[..i].contains(name) {
-            return Err(ModelError(format!("the module {name} was added twice")));
-        }
+/// were added in as far as possible, and refuses at the first module that does not fit, naming it.
+fn planned(modules: Vec<Box<dyn Module>>, host: &ModuleHost) -> Result<Vec<Box<dyn Module>>, ModelError> {
+    let entries: Vec<ModuleEntry> = modules.iter().map(|module| ModuleEntry::of(module.as_ref())).collect();
+    let plan = plan_modules(&entries, host);
+    if let Some((_, refusal)) = plan.refused.first() {
+        return Err(ModelError(refusal.to_string()));
     }
     let mut waiting: Vec<Option<Box<dyn Module>>> = modules.into_iter().map(Some).collect();
-    let mut placed: Vec<String> = Vec::new();
-    let mut ordered = Vec::with_capacity(waiting.len());
-    while ordered.len() < names.len() {
-        let mut progressed = false;
-        for slot in &mut waiting {
-            let Some(module) = slot.as_ref() else { continue };
-            let mut needs = module.dependencies();
-            needs.extend(
-                module
-                    .manifest()
-                    .requires
-                    .into_iter()
-                    .map(|(name, _)| name)
-                    .filter(|n| !module.dependencies().contains(n)),
-            );
-            if let Some(missing) = needs.iter().find(|d| !names.contains(d)) {
-                return Err(ModelError(format!(
-                    "the module {} depends on {missing}, which was not added",
-                    module.name()
-                )));
-            }
-            if needs.iter().all(|d| placed.contains(d)) {
-                placed.push(module.name().to_owned());
-                if let Some(module) = slot.take() {
-                    ordered.push(module);
-                }
-                progressed = true;
-                break;
-            }
-        }
-        if !progressed {
-            let stuck: Vec<&str> = waiting.iter().flatten().map(|m| m.name()).collect();
-            return Err(ModelError(format!("these modules depend on each other: {}", stuck.join(", "))));
-        }
-    }
-    Ok(ordered)
+    Ok(plan.order.into_iter().filter_map(|i| waiting[i].take()).collect())
 }
 
 /// An application put together: its entities, its model and what makes frames. Layers from
@@ -210,7 +110,7 @@ impl Application {
             dashboards: Vec::new(),
             services: Vec::new(),
             translations: Vec::new(),
-            host: Host::default(),
+            host: ModuleHost::default(),
             off: Vec::new(),
         }
     }
@@ -369,7 +269,7 @@ pub struct ApplicationBuilder {
     dashboards: Vec<DashboardInfo>,
     services: Vec<Rc<dyn Any>>,
     translations: Vec<(String, String)>,
-    host: Host,
+    host: ModuleHost,
     off: Vec<String>,
 }
 
@@ -465,8 +365,7 @@ impl ApplicationBuilder {
                 }
             })
             .collect();
-        let mut modules = in_dependency_order(modules)?;
-        check_manifests(&modules, &self.host)?;
+        let mut modules = planned(modules, &self.host)?;
         let switched_off: Vec<String> = modules
             .iter()
             .filter(|m| self.off.iter().any(|name| name == m.name()))

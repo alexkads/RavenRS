@@ -1,0 +1,48 @@
+[package]
+name = "raven-test-studio"
+description = "Raven Test Studio: end-to-end tests of RavenRS apps as flows of blocks, run with ravenrs-e2e, reported to a person or to the AI that asked, and tested by the Studio itself."
+# The tool's own version, read by its news, as Raven Finanças and Raven Flows do: raising it
+# is what announces an update to the copies installed with install.cmd.
+version = "0.1.18"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[features]
+e2e-source = ["ravenrs/e2e-source", "ravenrs-e2e-wire/e2e-source"]
+
+[dependencies]
+ravenrs = { workspace = true, features = ["tray"] }
+ravenrs-app-update = { workspace = true, features = ["ui"] }
+ravenrs-e2e.workspace = true
+# Drives apps opened apart, such as Raven Finanças, and answers on the channel itself
+# (--e2e-serve), so the Studio can be tested by another Studio in a process of its own.
+ravenrs-e2e-wire.workspace = true
+# Runs and reports scenarios: the engine the Studio shares with cargo ravenrs e2e.
+ravenrs-e2e-runner.workspace = true
+serde_json.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# Hands a scenario to Codex or Claude, as Raven Flows calls them.
+ravenrs-agent-cli.workspace = true
+# Writes scenarios with a text model on this computer, the default for suggestions.
+ravenrs-ai.workspace = true
+tracing-subscriber.workspace = true
+
+[lints]
+workspace = true
+
+# How Raven Test Studio (RTS) finds and opens itself on the test channel (--e2e-serve), when a
+# Studio is pointed at this folder with --project: its scenarios are in tests/e2e/.
+[package.metadata.ravenrs.e2e]
+app = "Raven Test Studio"
+binary = "raven-test-studio"
+since = "0.1.6"
+variable = "RAVEN_TEST_STUDIO"
+features = ["e2e-source"]
+installed = [
+    "Applications/Raven Test Studio.app/Contents/MacOS/raven-test-studio",
+    ".local/bin/raven-test-studio",
+    "AppData/Local/Programs/RavenTestStudio/raven-test-studio.exe",
+]

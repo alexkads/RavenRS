@@ -11,6 +11,9 @@ publish = false
 [dependencies]
 ravenrs-mcp = { path = "../ravenrs-mcp", version = "27.1.28" }
 ravenrs-project.workspace = true
+# `cargo ravenrs e2e`: runs a project's .raventest scenarios with the engine of Raven Test Studio.
+ravenrs-e2e-runner.workspace = true
+ravenrs-e2e-wire.workspace = true
 serde_json.workspace = true
 tokio.workspace = true
 clap = { version = "4", features = ["derive"] }

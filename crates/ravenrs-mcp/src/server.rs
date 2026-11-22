@@ -12,17 +12,23 @@ use serde_json::{Value, json};
 use crate::api::{GUIDES, Index, Item, Member, Usage, code_blocks_with};
 use crate::docs;
 use crate::expression::{self, SchemaInput};
+use crate::feature_center;
 use crate::report::{self, CreateInput};
+use crate::tooling;
 
 /// Members listed per list in one answer, unless a filter narrows them down.
 const MAX_MEMBERS: usize = 60;
 
 const INSTRUCTIONS: &str = "Answers questions about the RavenRS GUI framework for Rust, from the sources and docs \
 of the version this server was built from. Check component_api and component_examples before writing a view \
-instead of guessing builder methods. Use design_tokens to find the semantic name of a color or text style, \
+instead of guessing builder methods, and feature_center for the page of the feature center that shows a component \
+working with all its features. Use design_tokens to find the semantic name of a color or text style, \
 parity_status before promising that a feature exists, app_contracts before writing a module meant for more than one application, validate_expression for filters and report expressions, \
 search_api when you do not know a type's name, and guides for how things work: the application framework, reports, \
 label and receipt printers, NF-e, the SEFAZ sandbox, the point of sale and what they do not prove. \
+To prove a screen works from the outside, ask ravenrs_tools for raven-test-studio, the end-to-end test tool that \
+runs scenarios with real clicks and typing and reports each failure with a stable code, its fix and the screen. \
+skills lists the instructions this repository keeps for coding agents; read the one that fits before working on it. \
 To make a report, read report_layout_format, start from create_report_layout or report_layout_templates, edit the \
 JSON and confirm it with check_report_layout before saving it as a .rvreport.json file.";
 
@@ -69,6 +75,32 @@ struct ParityStatus {
     status: Option<String>,
     /// How many rows to return, up to 200. Defaults to 50.
     limit: Option<usize>,
+}
+
+#[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
+struct FeatureCenter {
+    /// One component, such as CablePlug or EntityInfo.
+    name: Option<String>,
+    /// Only components whose name, crate or page contains this text, such as "widgets-kit" or "Cabos".
+    query: Option<String>,
+    /// Only shown (a page with every feature) or waiting (its page comes with an issue).
+    status: Option<String>,
+    /// How many components to return, up to 300. Defaults to 50.
+    limit: Option<usize>,
+}
+
+#[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
+struct RavenTools {
+    /// One tool, by name or package, such as raven-test-studio. Without it, the list.
+    name: Option<String>,
+}
+
+#[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
+struct Skills {
+    /// One skill by name, such as ravenrs-check or raven-test-studio: returns its whole text.
+    name: Option<String>,
+    /// Only skills whose name or description has all these words, such as "teste e2e".
+    query: Option<String>,
 }
 
 #[derive(Debug, Default, Deserialize, schemars::JsonSchema)]
@@ -144,7 +176,7 @@ impl RavenServer {
 #[tool_router]
 impl RavenServer {
     #[tool(
-        description = "List RavenRS components with their group and one-line summary.",
+        description = "List RavenRS components with their group, one-line summary and, when it has one, the page of the feature center that shows it.",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     fn list_components(&self, Parameters(input): Parameters<ListComponents>) -> CallToolResult {
@@ -165,12 +197,18 @@ impl RavenServer {
                 })
             })
             .map(|(group, item)| {
-                json!({
+                let mut value = json!({
                     "name": item.name,
                     "group": group,
                     "summary": summary(&item.docs),
                     "source": location(&item.file, item.line),
-                })
+                });
+                if let Some(page) =
+                    feature_center::entry(&item.name, &item.krate).and_then(|entry| entry.page())
+                {
+                    value["feature_center"] = json!(page);
+                }
+                value
             })
             .collect();
         CallToolResult::structured(json!({
@@ -182,7 +220,7 @@ impl RavenServer {
     }
 
     #[tool(
-        description = "Show the public API of a component or any other public RavenRS item: docs, constructors and builder methods with their signatures, fields, enum variants, implemented traits, source location and, for components, the quality audit.",
+        description = "Show the public API of a component or any other public RavenRS item: docs, constructors and builder methods with their signatures, fields, enum variants, implemented traits, source location and, for components, the quality audit and where the feature center shows it.",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
     fn component_api(&self, Parameters(input): Parameters<ComponentApi>) -> CallToolResult {
@@ -297,6 +335,35 @@ impl RavenServer {
             input.query.as_deref(),
             input.limit.unwrap_or(10).clamp(1, 50),
         ))
+    }
+
+    #[tool(
+        description = "Where the feature center (tools/raven-feature-center, the showcase every component enters with all its features) shows a component: shown, with its page, the page's id and file, the features it calls and the command and address that open that page alone; or waiting, with the issue its page comes with and the methods it has. With no name, lists them with counts.",
+        annotations(read_only_hint = true, open_world_hint = false)
+    )]
+    fn feature_center(&self, Parameters(input): Parameters<FeatureCenter>) -> CallToolResult {
+        answer(feature_center::search(
+            input.name.as_deref(),
+            input.query.as_deref(),
+            input.status.as_deref(),
+            input.limit.unwrap_or(50).clamp(1, 300),
+        ))
+    }
+
+    #[tool(
+        description = "The installable tools of RavenRS (tools/), such as Raven Test Studio (RTS), the end-to-end test tool. With no name, lists them with version, summary and short names; with a name (or a short name such as RTS), everything the tool offers from its tool.json: when to use it, its commands and exit codes, scenarios, blocks, the fields of its report, the error codes with their meaning and fix, its cache, its pane and AI tools in Claude, how to install it, its limits and its README.",
+        annotations(read_only_hint = true, open_world_hint = false)
+    )]
+    fn ravenrs_tools(&self, Parameters(input): Parameters<RavenTools>) -> CallToolResult {
+        answer(tooling::tools(input.name.as_deref()))
+    }
+
+    #[tool(
+        description = "The skills of the RavenRS repository, the instructions written for coding agents: the project's (.claude/skills: architecture, the check, GitHub flow, coupling, the feature center, fiscal, performance and the engines), the plugin's and the tools' (such as raven-test-studio). With no name, lists them with their description, narrowed by query; with a name, returns the whole text to follow.",
+        annotations(read_only_hint = true, open_world_hint = false)
+    )]
+    fn skills(&self, Parameters(input): Parameters<Skills>) -> CallToolResult {
+        answer(tooling::skills(input.name.as_deref(), input.query.as_deref()))
     }
 
     #[tool(
@@ -416,6 +483,9 @@ fn describe(item: &Item, filter: Option<&str>) -> Value {
         && let Some(quality) = docs::quality_row(&item.name)
     {
         value["quality"] = quality;
+    }
+    if let Some(entry) = feature_center::entry(&item.name, &item.krate) {
+        value["feature_center"] = feature_center::describe(entry);
     }
     value
 }

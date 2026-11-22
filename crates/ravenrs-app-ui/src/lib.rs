@@ -19,6 +19,9 @@
 //! ```
 
 mod app;
+/// The stories of its components, for RavenComponentBook (feature `book`).
+#[cfg(feature = "book")]
+pub mod book;
 mod container;
 mod dashboard;
 mod detail_view;

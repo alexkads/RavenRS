@@ -1,0 +1,87 @@
+//! The stories of `NumberField`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #755: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `NumberField`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_spin_buttons = args.bool("spin_buttons");
+        let arg_label = args.text("label");
+        let arg_decimals = args.number("decimals") as usize;
+        let arg_disabled = args.bool("disabled");
+        let arg_grouping = args.bool("grouping");
+        let arg_placeholder = args.text("placeholder");
+        let arg_prefix = args.text("prefix");
+        let arg_read_only = args.bool("read_only");
+        let arg_step = args.number("step");
+        let arg_suffix = args.text("suffix");
+
+        let (seats, price) = (State::new(Some(12.0)), State::new(Some(129_990_i64)));
+        VStack::new((
+            {
+                let mut it = NumberField::new(seats.binding()).range(0.0, 100.0);
+                if arg_spin_buttons {
+                    it = it.spin_buttons();
+                }
+                it = it.label(arg_label.clone());
+                it = it.decimals(arg_decimals);
+                it = it.disabled(arg_disabled);
+                it = it.grouping(arg_grouping);
+                if !arg_placeholder.is_empty() {
+                    it = it.placeholder(arg_placeholder.clone());
+                }
+                if !arg_prefix.is_empty() {
+                    it = it.prefix(arg_prefix.clone());
+                }
+                it = it.read_only(arg_read_only);
+                it = it.step(arg_step);
+                if !arg_suffix.is_empty() {
+                    it = it.suffix(arg_suffix.clone());
+                }
+                it
+            },
+            NumberField::money(price.binding(), "$").label("Price"),
+        ))
+        .spacing(12.0)
+        .align(Align::Stretch)
+    })
+}
+
+impl ComponentBook for NumberField {
+    fn book() -> Meta {
+        Meta::new("Actions and inputs/NumberField", render)
+            .summary("A typed number or amount of money, formatted when you leave.")
+            .arg(ArgType::bool("spin_buttons", true))
+            .arg(ArgType::text("label", "Seats"))
+            .arg(ArgType::number("decimals", 0.0, 0.0, 10.0, 1.0))
+            .arg(ArgType::bool("disabled", false))
+            .arg(ArgType::bool("grouping", true))
+            .arg(ArgType::text("placeholder", "").description("Empty leaves it as the component has it."))
+            .arg(ArgType::text("prefix", "").description("Empty leaves it as the component has it."))
+            .arg(ArgType::bool("read_only", false))
+            .arg(ArgType::number("step", 1.0, 0.0, 4.0, 0.1))
+            .arg(ArgType::text("suffix", "").description("Empty leaves it as the component has it."))
+            .story("Example", Args::new())
+            .story("Disabled", Args::new().with("disabled", true))
+            .story("Read only", Args::new().with("read_only", true))
+    }
+}

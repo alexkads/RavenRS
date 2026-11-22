@@ -1,0 +1,10 @@
+scenario: Hello World: contar cliques
+// A tela inicial convida a clicar; dois cliques contam dois, e Reset volta ao começo.
+open Hello World                                            | Abrir o Hello World
+check Welcome to RavenRS = Welcome to RavenRS               | O título aparece
+mention Press Get Started to count clicks. = Get Started    | O convite aparece
+click Get Started                                           | Clicar uma vez
+click Get Started                                           | Clicar outra vez
+check Clicked 2 times. = Clicked 2 times.                   | Conta dois cliques
+click Reset                                                 | Voltar ao começo
+check Press Get Started to count clicks. = Press Get Started to count clicks. | O convite volta

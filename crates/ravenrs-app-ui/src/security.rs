@@ -211,20 +211,25 @@ impl DoorParts {
     }
 
     /// The field of the name, with its label, taking the keyboard when the screen opens.
+    /// The input has test id `login:name`, distinct from its visible label.
     pub fn name_field(&self) -> AnyView {
         let inner = &self.gate.0;
         Box::new(FormField::new(
             inner.words.user_name.clone(),
-            TextField::new(text_binding(&inner.name)).autofocus(),
+            TextField::new(text_binding(&inner.name)).autofocus().test_id("login:name"),
         ))
     }
 
     /// The field of the password, with its label, hidden as it is typed. Enter in it signs in.
+    /// The protected input has test id `login:password`.
     pub fn password_field(&self) -> AnyView {
         let (inner, by_key) = (&self.gate.0, self.gate.clone());
         Box::new(FormField::new(
             inner.words.password.clone(),
-            TextField::new(text_binding(&inner.password)).secure().on_submit(move |_| by_key.sign_in()),
+            TextField::new(text_binding(&inner.password))
+                .secure()
+                .on_submit(move |_| by_key.sign_in())
+                .test_id("login:password"),
         ))
     }
 

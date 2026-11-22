@@ -1,0 +1,11 @@
+scenario: Raven Feature Center: entrar e usar os botões
+// Na vitrine, em memória: a Ana já vem na porta; entra, vai aos botões, conta ativações e fixa.
+open Raven Feature Center                    | Abrir o Raven Feature Center
+mention Demonstração: a Ana já vem preenchida, e tudo o que você fizer fica só nesta aba, até recarregar. = a Ana já vem preenchida | A Ana já vem preenchida
+click Entrar                                 | Entrar
+click #item:Botões                           | Ir aos botões
+check Ativações: 0 = Ativações: 0            | Nenhuma ativação ainda
+click Contar ativações                       | Ativar o botão
+check Ativações: 1 = Ativações: 1            | Conta uma ativação
+check Não fixado = Não fixado                | Começa sem fixar
+click Fixar                                  | Fixar

@@ -45,7 +45,7 @@ cargo add ravenrs ravenrs-app ravenrs-app-ui
 To see all of it, clone the repository and run the feature center, with one small demonstration of each feature:
 
 ```bash
-cargo run -p feature-center
+cargo run -p raven-feature-center
 ```
 
 Status: usable today, with the API still moving. Any release before 28.1.0 may hold breaking changes, so pin an exact version.

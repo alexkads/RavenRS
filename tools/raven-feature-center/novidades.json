@@ -1,0 +1,16 @@
+{
+  "versao": "0.1.1",
+  "titulo": "O Centro de Recursos passa a se chamar Raven Feature Center (RFC).",
+  "importante": false,
+  "novidades": [
+    "Novo nome, no padrão das outras ferramentas: Raven Test Studio (RTS), RavenComponentBook (RCB) e Raven Feature Center (RFC).",
+    "A pasta é tools/raven-feature-center e o pacote, raven-feature-center: cargo run -p raven-feature-center abre o centro."
+  ],
+  "por_que_atualizar": "Para achar o centro pelo mesmo nome e sigla nas ferramentas, no MCP e na documentação.",
+  "contribuidores": [
+    "Alex S S Fonseca"
+  ],
+  "issues": [
+    796
+  ]
+}

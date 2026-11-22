@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::labels::Labels;
 
-/// One of the four places a `DockArea` has.
+/// One of the five places a `DockArea` has.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 #[non_exhaustive]
@@ -16,21 +16,23 @@ pub enum DockSide {
     Right,
     /// The strip under the center, between the columns.
     Bottom,
+    /// The strip above the center, between the columns.
+    Top,
     /// What takes the room left.
     Center,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl DockSide {
-    /// The three docks that collapse and have a size of their own.
+    /// The four docks that collapse and have a size of their own.
     #[doc(hidden)]
-    pub const DOCKS: [Self; 3] = [Self::Left, Self::Right, Self::Bottom];
-    /// All four, in the order they are searched.
+    pub const DOCKS: [Self; 4] = [Self::Left, Self::Right, Self::Top, Self::Bottom];
+    /// All five, in the order they are searched.
     #[doc(hidden)]
-    pub const ALL: [Self; 4] = [Self::Center, Self::Left, Self::Right, Self::Bottom];
-    /// All four, in the order a menu lists them.
+    pub const ALL: [Self; 5] = [Self::Center, Self::Left, Self::Right, Self::Top, Self::Bottom];
+    /// All five, in the order a menu lists them.
     #[doc(hidden)]
-    pub const ALL_IN_MENU: [Self; 4] = [Self::Left, Self::Right, Self::Bottom, Self::Center];
+    pub const ALL_IN_MENU: [Self; 5] = [Self::Top, Self::Left, Self::Right, Self::Bottom, Self::Center];
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -41,6 +43,7 @@ impl Labels {
             DockSide::Left => &self.dock_left,
             DockSide::Right => &self.dock_right,
             DockSide::Bottom => &self.dock_bottom,
+            DockSide::Top => &self.dock_top,
             _ => &self.dock_center,
         }
     }
@@ -63,6 +66,46 @@ impl Labels {
     /// The name of the bar that resizes a dock.
     pub fn dock_resize_name(&self, side: DockSide) -> String {
         self.dock_resize.replace("{place}", &self.dock_place_lower(side))
+    }
+
+    /// The name of the button that hides a panel at the edge of its dock.
+    pub fn dock_auto_hide_name(&self, title: &str) -> String {
+        self.dock_auto_hide.replace("{title}", title)
+    }
+
+    /// The name of the button that puts a hidden panel back in its dock.
+    pub fn dock_pin_name(&self, title: &str) -> String {
+        self.dock_pin.replace("{title}", title)
+    }
+
+    /// A hidden panel on its rail, and what is said as it hides.
+    pub fn dock_hidden_name(&self, title: &str, side: DockSide) -> String {
+        self.dock_hidden.replace("{title}", title).replace("{place}", &self.dock_place_lower(side))
+    }
+
+    /// What is said as a hidden panel goes back in its dock.
+    pub fn dock_pinned_name(&self, title: &str) -> String {
+        self.dock_pinned.replace("{title}", title)
+    }
+
+    /// What is said as a panel floats, and the name of its box.
+    pub fn dock_floating_name(&self, title: &str) -> String {
+        self.dock_floating.replace("{title}", title)
+    }
+
+    /// The name of the button that puts a floating panel back.
+    pub fn dock_dock_back_name(&self, title: &str) -> String {
+        self.dock_dock_back.replace("{title}", title)
+    }
+
+    /// The name of the header that moves a floating panel.
+    pub fn dock_move_floating_name(&self, title: &str) -> String {
+        self.dock_move_floating.replace("{title}", title)
+    }
+
+    /// The name of an edge or a corner that resizes a floating panel.
+    pub fn dock_resize_floating_name(&self, title: &str) -> String {
+        self.dock_resize_floating.replace("{title}", title)
     }
 
     /// What is announced after a panel went to a place.

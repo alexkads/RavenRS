@@ -321,7 +321,7 @@ impl View for LookupField {
         let border = if is_open {
             Border { width: 1.5, color: theme.color(Semantic::Accent) }
         } else {
-            let base = theme.color(Semantic::Border);
+            let base = theme.color(Semantic::ControlBorder);
             Border {
                 width: 1.0,
                 color: state.ink(if hovered { base.lerp(theme.color(Semantic::Ink), 0.25) } else { base }),
@@ -359,6 +359,15 @@ impl View for LookupField {
         if !state.accepts_input() {
             return node;
         }
+        let shown = open.clone();
+        cx.on_access(
+            node,
+            &[ravenrs_core::AccessAction::Expand, ravenrs_core::AccessAction::Collapse],
+            move |action, _| {
+                shown.set(action == ravenrs_core::AccessAction::Expand);
+                true
+            },
+        );
         let toggle = open.clone();
         cx.on_click(node, Rc::new(move || toggle.update(|o| *o = !*o)));
         let opener = open.clone();

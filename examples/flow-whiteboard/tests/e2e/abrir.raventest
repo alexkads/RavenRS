@@ -1,0 +1,9 @@
+scenario: Whiteboard: fluxograma salvo e mapa mental
+// O fluxograma de exemplo começa no pedido; salvo com um nome, entra na lista; o mapa mental abre.
+open Whiteboard                                | Abrir o quadro branco
+check #node:start = Pedido chega               | O fluxograma começa no pedido
+fill Nome do fluxo = Pedidos                   | Dar um nome ao fluxograma
+click Salvar                                   | Salvar
+check Salvo = Salvo                            | Ele fica salvo
+check Pedidos 7 nós = Pedidos 7 nós            | E entra na lista
+click #option:Mapa mental                      | Trocar para o mapa mental

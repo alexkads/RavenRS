@@ -88,12 +88,25 @@ fn split_row(line: &str) -> Vec<String> {
     cells.iter().map(|cell| cell.trim().to_owned()).collect()
 }
 
-/// The group of a component in the README's components table.
+/// The group of a component in the README's components table. A part of a listed component,
+/// such as `SidebarItem` or `ListItem`, goes in the group of the longest listed name it starts with.
 pub fn component_group(name: &str) -> String {
     let rows = table_rows(README);
-    let row = rows.iter().find(|row| {
-        row.section == "Components"
-            && row.cells.get(1).is_some_and(|cell| backticked_names(cell).contains(&name))
+    let components = || rows.iter().filter(|row| row.section == "Components");
+    fn listed(row: &Row) -> Vec<&str> {
+        row.cells.get(1).map(|cell| backticked_names(cell)).unwrap_or_default()
+    }
+    let row = components().find(|row| listed(row).contains(&name)).or_else(|| {
+        components()
+            .filter_map(|row| {
+                let owner = listed(row)
+                    .into_iter()
+                    .filter(|owner| name.starts_with(owner))
+                    .max_by_key(|o| o.len())?;
+                Some((owner.len(), row))
+            })
+            .max_by_key(|(len, _)| *len)
+            .map(|(_, row)| row)
     });
     row.and_then(|row| row.cells.first()).map_or_else(|| "Other".to_owned(), Clone::clone)
 }

@@ -1,0 +1,5 @@
+scenario: O Studio testado abre com saúde
+// O Studio aberto por outro Studio já fez o próprio autoteste e diz isso na barra de status.
+open Raven Test Studio                                       | Abrir o Studio testado
+check #health = Autoteste: 18 de 18 passos passaram           | A saúde dele está boa
+check #summary = Ainda não rodou                              | Nada rodou ainda

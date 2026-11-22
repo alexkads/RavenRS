@@ -1,0 +1,29 @@
+[package]
+name = "raven-ci-plugin-github"
+description = "The plugin github of Raven CI: finds the branches chosen and the open pull requests of a repository (forks left out), reads the pipeline of each head, and sends the status of a commit."
+version = "0.1.0"
+edition.workspace = true
+# raven-ci-core, which the tests use, needs 1.89 (ravenrs-flows-runtime, rusqlite 0.41).
+rust-version = "1.89"
+license.workspace = true
+publish = false
+
+[dependencies]
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
+ravenrs-app.workspace = true
+serde_json.workspace = true
+# The REST API of GitHub, over HTTPS.
+ureq = { version = "3.5", default-features = false, features = ["rustls"] }
+
+[dev-dependencies]
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api", features = ["testing"] }
+serde_json.workspace = true
+raven-ci-core = { path = "../raven-ci-core" }
+raven-ci-plugin-credentials = { path = "../raven-ci-plugin-credentials" }
+raven-ci-plugin-format-toml = { path = "../raven-ci-plugin-format-toml" }
+raven-ci-plugin-git = { path = "../raven-ci-plugin-git" }
+raven-ci-plugin-shell = { path = "../raven-ci-plugin-shell" }
+ravenrs-git.workspace = true
+
+[lints]
+workspace = true

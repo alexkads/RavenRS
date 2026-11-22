@@ -14,7 +14,7 @@ A component is ✅ in [PARITY.md](PARITY.md) only when all of these hold:
 6. **Edge cases.** Empty data, a single item, huge counts, non-ASCII text, out-of-range values (clamped, never panicking) and a zero-size viewport.
 7. **Performance.** Meets the [performance contract](#performance-contract) and stays inside the budgets below. Large collections are virtualized.
 8. **Tests.** At least one behavior test that drives it through `Ui` (pointer and keyboard). Property tests for any pure logic. A golden image for any component whose drawing is non-trivial.
-9. **Docs and demo.** A section in the [component gallery](../examples/component-gallery) that shows its variants and states.
+9. **Docs and demo.** A page in the [feature center](../tools/raven-feature-center) that shows every public feature, with a step in its tour, in the same pull request: `scripts/feature-center-coverage.py` fails the check otherwise (#580). Until #579 retires the [component gallery](../examples/component-gallery), the short sample there stays too.
 
 ## Definition of done for a crate's documentation
 
@@ -193,6 +193,12 @@ The size of a WebAssembly build, after `wasm-opt -Oz`:
 | `hello-world`, `charts` on, not using it | 2,806,628 | 1,203,232 |
 | `component-gallery` before charts used it | 3,301,057 | 1,399,745 |
 | `component-gallery` using every chart and code | 3,582,964 | 1,504,909 |
+| `component-gallery` on 2026-11-15, with the playground and every example (#587) | 19,693,812 | 6,161,710 |
+| `raven-feature-center`, `--no-default-features --features widgets` (#587) | 5,487,036 | 2,282,172 |
+| `raven-feature-center`, `--no-default-features --features widgets,playground` (#587) | 19,341,123 | 6,083,834 |
+| `raven-feature-center`, every feature: the whole center, the components and the playground (#587) | 20,123,847 | 6,386,374 |
+
+The feature center replaces the gallery on the site (#579) at about the same size: with the playground it is 78 KB gzipped smaller than the gallery, and the whole center, application framework included, adds 225 KB gzipped to it. The pages of the components alone, with no playground, are a third of that.
 
 Link-time optimization drops what an app does not call, so the feature costs an app without charts about 0.2 KB gzipped. Turning it off saves compile time, not download size. An app that does use charts pays about 105 KB gzipped, its own demos included.
 
@@ -239,7 +245,7 @@ Status against the definition of done. **Behavior** names the test suites that d
 | SplashScreen | splash | | ✅ no focus stop: takes no input, focus leaves the page and returns on close, tested | Status and progress announced, tested |
 | DataGrid | datagrid, properties, editing_and_clipboard | ✅ | ✅ row navigation, Page Up/Down, Enter edits, Cmd/Ctrl+C copies rows as tab-separated text, Cmd/Ctrl+A, tested | See the DataGrid parity table in ARCHITECTURE.md |
 | Table, List, Stat | components | ✅ partial | n/a | |
-| FlowCanvas | flow | ✅ | ✅ arrows move the selection or pan, Shift for four steps, `+`/`-`/`0`, Delete, Escape, Cmd/Ctrl+A, tested | Ports take only the pointer for now; the lines' geometry is tested in `ravenrs-graphics` |
+| FlowCanvas | flow | ✅ | ✅ arrows move the selection or pan, Shift for four steps, `+`/`-`/`0`, Delete, Escape, Cmd/Ctrl+A, Cmd/Ctrl+Z and Shift+Cmd/Ctrl+Z, Cmd/Ctrl+C, X and V, Alt with the arrows to resize, Cmd/Ctrl+G and Shift+Cmd/Ctrl+G to group and ungroup, Cmd/Ctrl+] and [ to bring forward and send back, F2 or Enter to type a title (Enter keeps, Escape gives up), Alt+Shift with the arrows to turn 15° and Alt+Shift+0 to straighten, Cmd/Ctrl+Enter and Cmd/Ctrl+Shift+Enter to make the next node to the right or below, Cmd/Ctrl+Shift+E to open the Export menu, F9 to put a breakpoint on the nodes selected; bend points take Tab, the arrows and Delete; ports take the focus and connect with Enter, each tested | The lines' geometry, the JSON, the history and the layout are tested in `ravenrs-graphics`; the resize corner takes only the pointer, the keys do the same |
 | Chart, BarChart, AreaChart, Barcode | charts, components | ✅ a chart reads its values; a code reads its text or `alt` | n/a | The layout's own tests are in `ravenrs-graphics` |
 | Layout: stacks, Grid, ScrollView, Splitter, AspectRatio, Card, Section | layout_and_content, components, keyboard_and_basics | ✅ partial | 🟡 Splitter arrows, untested | AspectRatio content now fills its box |
 | Link, Anchor, CountUp, Ticker | page_motion | ✅ `Link` is a link with its label, focusable, tested by click | ✅ Enter opens it | Anchors glide, and jump under reduced motion; tickers stand still, tested |

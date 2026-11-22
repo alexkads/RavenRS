@@ -5,7 +5,6 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use family_finance::ui::Opening;
-use family_finance::update::Updater;
 use ravenrs::movie::RecentErrors;
 use ravenrs::prelude::*;
 
@@ -25,7 +24,7 @@ fn opening(path: &Path) -> Ui {
     let root = Opening::new(
         path.to_path_buf(),
         today(),
-        Updater::idle(),
+        family_finance::update::idle(),
         Diagnostics::default(),
         RecentErrors::default(),
     );

@@ -38,12 +38,13 @@ fn interned(name: &str) -> &'static str {
 impl Semantic {
     /// The colors a theme chooses. The others follow from these. The series of a chart after the
     /// first are in [`Semantic::CHART_TOKENS`].
-    pub const TOKENS: [Self; 15] = [
+    pub const TOKENS: [Self; 16] = [
         Self::Canvas,
         Self::Surface,
         Self::SurfaceElevated,
         Self::Control,
         Self::Border,
+        Self::ControlBorder,
         Self::Ink,
         Self::InkMuted,
         Self::Accent,
@@ -67,6 +68,7 @@ impl Semantic {
             Self::SurfaceElevated => "bg-200",
             Self::Control => "bg-300",
             Self::Border => "border",
+            Self::ControlBorder => "control-border",
             Self::Ink => "ink",
             Self::InkMuted => "ink-muted",
             Self::Accent => "accent",
@@ -84,6 +86,7 @@ impl Semantic {
             Self::Chart4 => "chart-4",
             Self::Chart5 => "chart-5",
             Self::ChartGrid => "chart-grid",
+            Self::Guide => "guide",
         }
     }
 }
@@ -98,6 +101,7 @@ impl Palette {
             Semantic::SurfaceElevated => self.bg_200 = color,
             Semantic::Control => self.bg_300 = color,
             Semantic::Border => self.border = color,
+            Semantic::ControlBorder => self.control_border = color,
             Semantic::Ink => self.ink = color,
             Semantic::InkMuted => self.ink_muted = color,
             Semantic::Accent => self.accent = color,
@@ -234,16 +238,21 @@ impl Theme {
         (colors, radii, sizes)
     }
 
-    /// Whether someone can read a window in this theme, and so find their way out of it. A theme
-    /// kept from another time that is not goes unused: a person can make anything while editing,
-    /// and should not open to a blank window because of it.
+    /// Whether someone can read a window in this theme, and so find their way out of it: text on
+    /// every background, and the outline of fields and controls (`control-border`) at 3:1 or more,
+    /// so a field can be found before it is hovered or focused. A theme kept from another time that
+    /// is not goes unused: a person can make anything while editing, and should not open to a
+    /// blank window because of it.
     pub fn is_readable(&self) -> bool {
         let palette = &self.palette;
         let flat = |color: Color| palette.bg_000.lerp(color.with_alpha(1.0), color.a);
         let grounds = [palette.bg_000, palette.bg_100, palette.bg_200];
         let legible = |ink: Color, ground: Color| flat(ink).contrast_ratio(flat(ground)) >= LEAST_CONTRAST;
-        grounds.iter().all(|ground| legible(palette.ink, *ground) && legible(palette.ink_muted, *ground))
-            && legible(palette.on_accent, palette.accent)
+        grounds.iter().all(|ground| {
+            legible(palette.ink, *ground)
+                && legible(palette.ink_muted, *ground)
+                && legible(palette.control_border, *ground)
+        }) && legible(palette.on_accent, palette.accent)
             && TextStyle::TOKENS.iter().all(|style| TEXT_SIZES.contains(&self.typography.get(*style).size))
     }
 
@@ -416,9 +425,32 @@ mod tests {
         let mut same = Theme::raven_light();
         same.palette.ink = same.palette.bg_100;
         assert!(!same.is_readable());
+        let mut faint = Theme::raven_light();
+        faint.palette.control_border = faint.palette.border;
+        assert!(!faint.is_readable(), "a field outline under 3:1 is refused");
         let mut huge = Theme::raven_dark();
         huge.typography.set_size(TextStyle::Body, 96.0);
         assert!(!huge.is_readable());
+    }
+
+    #[test]
+    fn a_field_outline_stands_out_where_a_divider_need_not() {
+        for theme in Theme::builtin() {
+            let p = theme.palette;
+            let flat = |color: Color| p.bg_000.lerp(color.with_alpha(1.0), color.a);
+            for ground in [p.bg_000, p.bg_100, p.bg_200] {
+                let ratio = flat(p.control_border).contrast_ratio(flat(ground));
+                assert!(ratio >= 3.0, "{}: control-border {ratio:.2}:1", theme.name);
+            }
+            assert_ne!(p.border, p.control_border, "{}: dividers keep their own token", theme.name);
+        }
+        let text = r##"{"base": "Raven Light", "color": {"control-border": "#606878"}}"##;
+        let theme = Theme::from_tokens_json(text).expect("reads");
+        assert_eq!(to_hex(theme.color(Semantic::ControlBorder)), "#606878");
+        assert_eq!(theme.palette.border, Theme::raven_light().palette.border);
+        assert!(theme.to_tokens_json().contains("control-border"));
+        let inherited = Theme::from_tokens_json(r#"{"base": "Raven Dark"}"#).expect("reads");
+        assert_eq!(inherited.palette.control_border, Theme::raven_dark().palette.control_border);
     }
 
     #[test]

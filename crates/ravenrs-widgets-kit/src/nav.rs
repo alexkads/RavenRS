@@ -212,6 +212,13 @@ impl View for TabButton {
         if self.disabled {
             return node;
         }
+        // Found by its label, which stays with it when the tabs change order.
+        cx.test_id(node, &format!("tab:{}", self.label));
+        let (chosen, index) = (self.selected.clone(), self.roving.index);
+        cx.on_access(node, &[ravenrs_core::AccessAction::Select], move |_, _| {
+            chosen.set(index);
+            true
+        });
         let (selected, index) = (self.selected.clone(), self.roving.index);
         cx.on_click(node, Rc::new(move || selected.set(index)));
         // Tabs activate as focus moves (WAI-ARIA tabs, automatic activation).
@@ -1227,6 +1234,16 @@ impl View for SidebarGroupTitle<'_> {
         if let Some(open) = &self.open {
             motion::control(cx, node);
             cx.semantics(node, Semantics::new(Role::Button).name(self.title).expanded(open.get()));
+            cx.test_id(node, &format!("section:{}", self.title));
+            let shown = open.clone();
+            cx.on_access(
+                node,
+                &[ravenrs_core::AccessAction::Expand, ravenrs_core::AccessAction::Collapse],
+                move |action, _| {
+                    shown.set(action == ravenrs_core::AccessAction::Expand);
+                    true
+                },
+            );
             let toggle = open.clone();
             cx.on_click(node, Rc::new(move || toggle.update(|o| *o = !*o)));
             cx.focusable(node, theme.radii.md);
@@ -1557,6 +1574,8 @@ impl View for SidebarButton<'_> {
             semantics = semantics.expanded(expanded.get());
         }
         cx.semantics(node, semantics);
+        // Found by its label, wherever it is in the navigation.
+        cx.test_id(node, &format!("item:{}", item.label));
         cx.cursor(node, if item.disabled { CursorIcon::Default } else { CursorIcon::Pointer });
         if !item.disabled {
             let handler = item.on_click.clone();
@@ -1800,6 +1819,7 @@ impl View for BreadcrumbLink<'_> {
             Paint::Quad(QuadPaint { corner_radius: theme.radii.sm, ..QuadPaint::new(fill) }),
         );
         cx.semantics(node, Semantics::new(Role::Link).name(self.label.to_owned()));
+        cx.test_id(node, &format!("crumb:{}", self.label));
         cx.on_click(node, self.go.clone());
         cx.focusable(node, theme.radii.sm);
         cx.cursor(node, CursorIcon::Pointer);
@@ -2013,6 +2033,18 @@ impl View for Disclosure {
                 Rc::new(move || open.update(|o| *o = !*o))
             }
         };
+        // Opened and closed as a screen reader asks: the click, when it is not already there.
+        let flip = toggle.clone();
+        cx.on_access(
+            header,
+            &[ravenrs_core::AccessAction::Expand, ravenrs_core::AccessAction::Collapse],
+            move |action, _| {
+                if (action == ravenrs_core::AccessAction::Expand) != is_open {
+                    flip();
+                }
+                true
+            },
+        );
         cx.on_click(header, toggle);
         cx.focusable(header, 8.0);
         cx.cursor(header, CursorIcon::Pointer);

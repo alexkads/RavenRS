@@ -1,0 +1,62 @@
+//! The stories of `Marquee`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #762: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_kit::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `Marquee`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_animated = args.bool("animated");
+        let arg_label = args.text("label");
+
+        let lasso = [
+            Point::new(20.0, 30.0),
+            Point::new(120.0, 40.0),
+            Point::new(100.0, 120.0),
+            Point::new(30.0, 110.0),
+        ];
+        HStack::new((
+            {
+                let mut it = Marquee::rect(Rect::new(20.0, 20.0, 110.0, 100.0)).size(150.0, 140.0);
+                it = it.animated(arg_animated);
+                if !arg_label.is_empty() {
+                    it = it.label(arg_label.clone());
+                }
+                it
+            },
+            Marquee::path(lasso).size(150.0, 140.0),
+        ))
+        .spacing(12.0)
+    })
+}
+
+impl ComponentBook for Marquee {
+    fn book() -> Meta {
+        Meta::new("Media/Marquee", render)
+            .summary("Marching ants around a rectangle, a path or loose segments.")
+            .arg(ArgType::bool("animated", true))
+            .arg(ArgType::text("label", "").description("Empty leaves it as the component has it."))
+            .story("Example", Args::new())
+            .story("Still", Args::new().with("animated", false))
+    }
+}

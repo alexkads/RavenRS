@@ -12,15 +12,23 @@ use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream};
 use std::sync::Arc;
 use std::time::Duration;
 
-use ravenrs_core::ImageData;
+use std::rc::Rc;
+
+use ravenrs_core::{ImageData, TrayEntry, TrayMenu};
 
 /// Keeps the app running beside the clock when its window is closed. Give it to
 /// [`AppIdentity::close_to_tray`](crate::AppIdentity::close_to_tray).
 ///
-/// The menu has two items: one opens the window again, in the state it was left,
-/// and the other really closes the app. Where the system shows no such icon, such as
-/// plain GNOME, closing the window closes the app as usual: an app hidden behind an
-/// icon that nobody draws could never be closed.
+/// The menu starts with an item that opens the window again, in the state it was left, and
+/// ends with one that really closes the app. Between them go the app's own entries, a
+/// [`TrayMenu`]: its state at the top, things to do, choices with a check mark, submenus and
+/// separators, and an update that is ready ([#643](https://github.com/alexkads/RavenRS/issues/643)).
+/// The app sets the menu whenever its state changes, from any thread, and the icon shows the
+/// new one at once. A choice reaches [`Self::on_select`] on the thread of the interface; an id
+/// that starts with [`OPENS_WINDOW`](ravenrs_core::OPENS_WINDOW) opens the window first.
+///
+/// Where the system shows no such icon, such as plain GNOME, closing the window closes the app
+/// as usual: an app hidden behind an icon that nobody draws could never be closed.
 ///
 /// With it, the app also runs as a single copy: launching it again opens the window of
 /// the copy already running, which keeps two copies from working on the same data.
@@ -29,23 +37,54 @@ use ravenrs_core::ImageData;
 /// same, and closing the window closes the app.
 ///
 /// ```
+/// use ravenrs_core::{TrayEntry, TrayMenu};
 /// use ravenrs_platform_native::SystemTray;
 ///
-/// let tray = SystemTray::new("Notes").open("Open Notes").quit("Quit");
+/// let menu = TrayMenu::new(vec![
+///     TrayEntry::status("Tudo em dia", None),
+///     TrayEntry::item("open:new", "Nova nota").shortcut("CmdOrCtrl+N"),
+/// ]);
+/// let tray = SystemTray::new("Notes")
+///     .open("Open Notes")
+///     .quit("Quit")
+///     .menu(menu.clone())
+///     .on_select(|id| println!("chose {id}"));
 /// ```
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 #[cfg_attr(not(feature = "tray"), allow(dead_code, reason = "no icon to show them on"))]
 pub struct SystemTray {
     name: String,
     open: String,
     quit: String,
+    menu: TrayMenu,
+    on_select: Option<OnSelect>,
+}
+
+/// What hears a choice of the menu.
+type OnSelect = Rc<dyn Fn(&str)>;
+
+impl std::fmt::Debug for SystemTray {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SystemTray")
+            .field("name", &self.name)
+            .field("open", &self.open)
+            .field("quit", &self.quit)
+            .field("menu", &self.menu)
+            .finish_non_exhaustive()
+    }
 }
 
 impl SystemTray {
     /// An icon for the app called `name`, which is also its tooltip.
     pub fn new(name: impl Into<String>) -> Self {
         let name = name.into();
-        Self { open: format!("Open {name}"), quit: "Quit".to_owned(), name }
+        Self {
+            open: format!("Open {name}"),
+            quit: "Quit".to_owned(),
+            name,
+            menu: TrayMenu::default(),
+            on_select: None,
+        }
     }
 
     /// Sets the words of the item that opens the window again.
@@ -59,14 +98,143 @@ impl SystemTray {
         self.quit = label.into();
         self
     }
+
+    /// The app's own entries, between opening the window and quitting. Keep a clone and
+    /// [`TrayMenu::set`] it when the app's state changes; the icon redraws its menu.
+    pub fn menu(mut self, menu: TrayMenu) -> Self {
+        self.menu = menu;
+        self
+    }
+
+    /// What runs when an entry of [`Self::menu`] is chosen, with its id, on the thread of the
+    /// interface. A disabled entry is never chosen.
+    pub fn on_select(mut self, handler: impl Fn(&str) + 'static) -> Self {
+        self.on_select = Some(Rc::new(handler));
+        self
+    }
+
+    /// The app's entries, shared with whoever sets them.
+    pub fn entries(&self) -> &TrayMenu {
+        &self.menu
+    }
+
+    /// Runs [`Self::on_select`] with `id`.
+    pub(crate) fn select(&self, id: &str) {
+        if let Some(handler) = &self.on_select {
+            handler(id);
+        }
+    }
+
+    /// The whole menu as the icon shows it, from the top.
+    #[cfg_attr(not(feature = "tray"), allow(dead_code, reason = "no icon to draw it on"))]
+    pub(crate) fn rows(&self) -> Vec<Row> {
+        rows(&self.open, &self.menu.entries(), &self.quit)
+    }
 }
 
 /// What the person asked for, from the icon or from opening the app a second time.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(not(feature = "tray"), allow(dead_code, reason = "only the icon offers to quit"))]
 pub(crate) enum TrayAction {
     Open,
     Quit,
+    /// An entry of the app's menu, by its id.
+    Select(String),
+}
+
+/// One line of the menu as the system draws it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(not(feature = "tray"), allow(dead_code, reason = "no icon to draw them on"))]
+pub(crate) enum Row {
+    Item { id: String, label: String, enabled: bool, shortcut: Option<String> },
+    Check { id: String, label: String, checked: bool },
+    Sub { label: String, rows: Vec<Row> },
+    Separator,
+}
+
+/// The id of the item that opens the window, and of the one that quits.
+pub(crate) const OPEN: &str = "ravenrs:open";
+pub(crate) const QUIT: &str = "ravenrs:quit";
+/// The id of lines that cannot be chosen.
+const QUIET: &str = "ravenrs:quiet";
+
+fn quiet(label: &str) -> Row {
+    Row::Item { id: QUIET.to_owned(), label: label.to_owned(), enabled: false, shortcut: None }
+}
+
+/// The menu as the system draws it: the app's state first, then "open", the app's entries and
+/// "quit", with separators between the groups; a status or a detail is a line that cannot be
+/// chosen.
+pub(crate) fn rows(open: &str, entries: &[TrayEntry], quit: &str) -> Vec<Row> {
+    let open = Row::Item { id: OPEN.to_owned(), label: open.to_owned(), enabled: true, shortcut: None };
+    let quit = Row::Item { id: QUIT.to_owned(), label: quit.to_owned(), enabled: true, shortcut: None };
+    // The state reads first, as on the menus of the system's own apps.
+    let leading = entries.iter().take_while(|e| matches!(e, TrayEntry::Status { .. })).count();
+    let mut out = level(&entries[..leading]);
+    if !out.is_empty() {
+        out.push(Row::Separator);
+    }
+    out.push(open);
+    let rest = level(&entries[leading..]);
+    if !rest.is_empty() {
+        out.push(Row::Separator);
+        out.extend(rest);
+    }
+    out.push(Row::Separator);
+    out.push(quit);
+    out
+}
+
+fn level(entries: &[TrayEntry]) -> Vec<Row> {
+    let mut out = Vec::new();
+    for entry in entries {
+        match entry {
+            TrayEntry::Status { title, detail } => {
+                out.push(quiet(title));
+                if let Some(detail) = detail {
+                    out.push(quiet(detail));
+                }
+            }
+            TrayEntry::Item { id, label, detail, enabled, shortcut } => {
+                out.push(Row::Item {
+                    id: id.clone(),
+                    label: label.clone(),
+                    enabled: *enabled,
+                    shortcut: shortcut.clone(),
+                });
+                if let Some(detail) = detail {
+                    out.push(quiet(detail));
+                }
+            }
+            TrayEntry::Check { id, label, checked } => {
+                out.push(Row::Check { id: id.clone(), label: label.clone(), checked: *checked });
+            }
+            TrayEntry::Submenu { label, entries } => {
+                out.push(Row::Sub { label: label.clone(), rows: level(entries) });
+            }
+            TrayEntry::Separator => {
+                // Never two in a row, nor one at the start of a group.
+                if !matches!(out.last(), None | Some(Row::Separator)) {
+                    out.push(Row::Separator);
+                }
+            }
+        }
+    }
+    if matches!(out.last(), Some(Row::Separator)) {
+        out.pop();
+    }
+    out
+}
+
+/// What a chosen id means.
+#[cfg_attr(not(feature = "tray"), allow(dead_code, reason = "nothing is chosen"))]
+pub(crate) fn action_of(id: &str) -> Option<TrayAction> {
+    match id {
+        OPEN => Some(TrayAction::Open),
+        QUIT => Some(TrayAction::Quit),
+        QUIET => None,
+        other => Some(TrayAction::Select(other.to_owned())),
+    }
 }
 
 /// Runs on whatever thread the system answers on.
@@ -78,17 +246,28 @@ pub(crate) fn show(tray: &SystemTray, id: &str, icon: &ImageData, notify: Notify
 }
 
 /// An icon on screen.
-pub(crate) struct Shown(#[allow(dead_code, reason = "holding it is what keeps the icon")] system::Icon);
+pub(crate) struct Shown(system::Icon);
+
+impl Shown {
+    /// Draws the menu again, after the app changed its entries.
+    pub(crate) fn refresh(&self, tray: &SystemTray) {
+        if let Err(e) = system::refresh(&self.0, tray) {
+            tracing::warn!(error = %e, "could not redraw the menu of the icon beside the clock");
+        }
+    }
+}
 
 #[cfg(all(feature = "tray", any(target_os = "macos", target_os = "windows")))]
 mod system {
-    use tray_icon::menu::{Menu, MenuEvent, MenuItem, PredefinedMenuItem};
+    use std::str::FromStr as _;
+
+    use tray_icon::menu::accelerator::Accelerator;
+    use tray_icon::menu::{
+        CheckMenuItem, IsMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem, Submenu,
+    };
     use tray_icon::{TrayIcon, TrayIconBuilder};
 
-    use super::{ImageData, Notify, SystemTray, TrayAction};
-
-    const OPEN: &str = "ravenrs:open";
-    const QUIT: &str = "ravenrs:quit";
+    use super::{ImageData, Notify, Row, SystemTray, action_of};
 
     pub(super) type Icon = TrayIcon;
 
@@ -99,24 +278,57 @@ mod system {
         notify: Notify,
     ) -> Result<Icon, String> {
         // Only the first one stays, and they all say the same.
-        MenuEvent::set_event_handler(Some(move |event: MenuEvent| match event.id.as_ref() {
-            OPEN => notify(TrayAction::Open),
-            QUIT => notify(TrayAction::Quit),
-            _ => {}
+        MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
+            if let Some(action) = action_of(event.id.as_ref()) {
+                notify(action);
+            }
         }));
-        let open = MenuItem::with_id(OPEN, &tray.open, true, None);
-        let quit = MenuItem::with_id(QUIT, &tray.quit, true, None);
-        let menu =
-            Menu::with_items(&[&open, &PredefinedMenuItem::separator(), &quit]).map_err(|e| e.to_string())?;
         let image = tray_icon::Icon::from_rgba(icon.pixels().to_vec(), icon.width(), icon.height())
             .map_err(|e| e.to_string())?;
         TrayIconBuilder::new()
             .with_icon(image)
             .with_tooltip(&tray.name)
-            .with_menu(Box::new(menu))
+            .with_menu(Box::new(menu(&tray.rows())?))
             .with_menu_on_left_click(true)
             .build()
             .map_err(|e| e.to_string())
+    }
+
+    pub(super) fn refresh(icon: &Icon, tray: &SystemTray) -> Result<(), String> {
+        icon.set_menu(Some(Box::new(menu(&tray.rows())?)));
+        Ok(())
+    }
+
+    fn menu(rows: &[Row]) -> Result<Menu, String> {
+        let menu = Menu::new();
+        for item in items(rows)? {
+            menu.append(item.as_ref()).map_err(|e| e.to_string())?;
+        }
+        Ok(menu)
+    }
+
+    fn items(rows: &[Row]) -> Result<Vec<Box<dyn IsMenuItem>>, String> {
+        let mut out: Vec<Box<dyn IsMenuItem>> = Vec::new();
+        for row in rows {
+            out.push(match row {
+                Row::Item { id, label, enabled, shortcut } => {
+                    let keys = shortcut.as_deref().and_then(|s| Accelerator::from_str(s).ok());
+                    Box::new(MenuItem::with_id(id.as_str(), label, *enabled, keys))
+                }
+                Row::Check { id, label, checked } => {
+                    Box::new(CheckMenuItem::with_id(id.as_str(), label, true, *checked, None))
+                }
+                Row::Sub { label, rows } => {
+                    let sub = Submenu::new(label, true);
+                    for item in items(rows)? {
+                        sub.append(item.as_ref()).map_err(|e| e.to_string())?;
+                    }
+                    Box::new(sub)
+                }
+                Row::Separator => Box::new(PredefinedMenuItem::separator()),
+            });
+        }
+        Ok(out)
     }
 }
 
@@ -132,6 +344,10 @@ mod system {
 
     pub(super) fn show(_: &SystemTray, _: &str, _: &ImageData, _: Notify) -> Result<Icon, String> {
         Err("this build has no tray icon".to_owned())
+    }
+
+    pub(super) fn refresh(_: &Icon, _: &SystemTray) -> Result<(), String> {
+        Ok(())
     }
 }
 
@@ -243,6 +459,78 @@ mod tests {
             }
         });
         assert!(!ask_running_copy(&id));
+    }
+
+    fn item(id: &str, label: &str, enabled: bool) -> Row {
+        Row::Item { id: id.into(), label: label.into(), enabled, shortcut: None }
+    }
+
+    #[test]
+    fn with_no_entries_the_menu_is_open_and_quit_as_before() {
+        assert_eq!(
+            rows("Abrir", &[], "Sair"),
+            [item(OPEN, "Abrir", true), Row::Separator, item(QUIT, "Sair", true)]
+        );
+    }
+
+    #[test]
+    fn the_menu_is_the_state_then_open_then_the_entries_then_quit() {
+        let entries = [
+            TrayEntry::status("Autoteste: 18 de 18", Some("há 2 min".into())),
+            TrayEntry::item("run", "Rodar autoteste").shortcut("CmdOrCtrl+R"),
+            TrayEntry::check("watch", "Rodar ao abrir", true),
+            TrayEntry::Separator,
+            TrayEntry::Separator,
+            TrayEntry::submenu("Cenários", vec![TrayEntry::item("open:financas", "Raven Finanças")]),
+            TrayEntry::item("ravenrs:update", "Reiniciar para atualizar").detail("Versão 0.1.8 pronta"),
+            TrayEntry::item("off", "Delegar ao Codex").enabled(false),
+            TrayEntry::Separator,
+        ];
+        let quiet = |label: &str| item(QUIET, label, false);
+        assert_eq!(
+            rows("Abrir", &entries, "Sair"),
+            [
+                quiet("Autoteste: 18 de 18"),
+                quiet("há 2 min"),
+                Row::Separator,
+                item(OPEN, "Abrir", true),
+                Row::Separator,
+                Row::Item {
+                    id: "run".into(),
+                    label: "Rodar autoteste".into(),
+                    enabled: true,
+                    shortcut: Some("CmdOrCtrl+R".into())
+                },
+                Row::Check { id: "watch".into(), label: "Rodar ao abrir".into(), checked: true },
+                Row::Separator,
+                Row::Sub {
+                    label: "Cenários".into(),
+                    rows: vec![item("open:financas", "Raven Finanças", true)]
+                },
+                item("ravenrs:update", "Reiniciar para atualizar", true),
+                quiet("Versão 0.1.8 pronta"),
+                item("off", "Delegar ao Codex", false),
+                Row::Separator,
+                item(QUIT, "Sair", true),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_chosen_id_becomes_the_action_and_a_quiet_line_is_nothing() {
+        assert_eq!(action_of(OPEN), Some(TrayAction::Open));
+        assert_eq!(action_of(QUIT), Some(TrayAction::Quit));
+        assert_eq!(action_of(QUIET), None);
+        assert_eq!(action_of("run"), Some(TrayAction::Select("run".into())));
+    }
+
+    #[test]
+    fn a_choice_reaches_the_app() {
+        let heard = Rc::new(std::cell::RefCell::new(Vec::new()));
+        let h = heard.clone();
+        let tray = SystemTray::new("Notes").on_select(move |id| h.borrow_mut().push(id.to_owned()));
+        tray.select("run");
+        assert_eq!(*heard.borrow(), ["run"]);
     }
 
     #[test]

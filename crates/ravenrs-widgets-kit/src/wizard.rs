@@ -373,7 +373,7 @@ impl View for StepIndicator {
         let mut rows = Vec::with_capacity(self.steps.len());
         for (i, step) in self.steps.iter().enumerate() {
             let on_click = self.on_select.clone().map(|select| Rc::new(move || select(i)) as Rc<dyn Fn()>);
-            rows.push(cx.keyed_child(
+            let row = cx.keyed_child(
                 i as u64,
                 &StepRow {
                     number: i + 1,
@@ -383,7 +383,10 @@ impl View for StepIndicator {
                     on_click,
                     stretch: self.vertical,
                 },
-            ));
+            );
+            // The key is the number of the step, as it is shown.
+            cx.test_id(row, &format!("step:{}", i + 1));
+            rows.push(row);
         }
         let style = if self.vertical {
             LayoutStyle { spacing: 4.0, align: Align::Stretch, ..LayoutStyle::stack(Axis::Vertical) }
@@ -463,7 +466,9 @@ impl View for Wizard {
                 on_click,
                 stretch: false,
             };
-            marks.push(cx.keyed_child(index as u64, &mark));
+            let mark = cx.keyed_child(index as u64, &mark);
+            cx.test_id(mark, &format!("step:{}", index + 1));
+            marks.push(mark);
         }
         let header = cx.container(
             LayoutStyle {

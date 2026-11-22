@@ -4,8 +4,8 @@
 use std::rc::Rc;
 
 use ravenrs_app::{
-    AuditTrail, Identity, Object, Permissions, Query, RoleMerge, SECURITY_API_KEY, SecurityContext, Value,
-    local_now,
+    AuditTrail, Identity, Object, Permissions, Query, Role, RoleMerge, SECURITY_API_KEY, SecurityContext,
+    SpaceMaker, UserDirectory, Value, local_now,
 };
 use serde_json::{Map, Value as Json, json};
 use sha2::{Digest, Sha256};
@@ -122,33 +122,19 @@ impl ApiService {
             None => who.0.identity(),
         };
         let roles = roles_asked(&body, &owner, self.merge)?;
-        let mut space = (self.space)();
-        let mut key = space.new_object(SECURITY_API_KEY).map_err(stored)?;
-        let id = uuid::Uuid::new_v4().simple().to_string();
-        let secret = new_secret();
-        key.set("id", id.clone());
-        key.set("name", name);
-        key.set("user_id", owner.key.clone());
-        key.set("roles", roles);
-        key.set("active", true);
-        key.set("secret_hash", hash_of(&secret));
-        if let Some(days) = body.get("expires_in_days") {
-            let days = days
-                .as_i64()
-                .filter(|days| (1..=MOST_DAYS).contains(days))
-                .ok_or_else(|| Failure::bad_request("expires_in_days goes from 1 to ten years."))?;
-            let now = local_now();
-            key.set(
-                "expires",
-                Value::Date(ravenrs_criteria::DateTime { days: now.days + days, seconds: now.seconds }),
-            );
-        }
-        space.insert(key.clone()).map_err(stored)?;
-        space.commit().map_err(stored)?;
+        let days = match body.get("expires_in_days") {
+            Some(days) => Some(
+                days.as_i64()
+                    .filter(|days| (1..=MOST_DAYS).contains(days))
+                    .ok_or_else(|| Failure::bad_request("expires_in_days goes from 1 to ten years."))?,
+            ),
+            None => None,
+        };
+        let (key, secret) = insert_key(&self.space, &owner, name, &roles, days)?;
         note(who, &key, "API key made");
         let mut answer = public(&key);
         if let Some(object) = answer.as_object_mut() {
-            object.insert("key".to_owned(), json!(format!("{PREFIX}{id}_{secret}")));
+            object.insert("key".to_owned(), json!(secret));
         }
         Ok((201, answer))
     }
@@ -238,4 +224,109 @@ fn note(who: &Who, key: &Object, what: &str) {
     if let Some(trail) = &who.1 {
         trail.custom(SECURITY_API_KEY, &key.get("id"), "secret_hash", what);
     }
+}
+
+/// Keeps a new key of `owner`, called `name`, with `roles` (as kept: names joined by commas, or
+/// empty for all of the owner's) and lasting `days` when given; the key as kept, and the key
+/// itself, which shows only here.
+fn insert_key(
+    space: &SpaceMaker,
+    owner: &Identity,
+    name: &str,
+    roles: &str,
+    days: Option<i64>,
+) -> Result<(Object, String), Failure> {
+    let mut space = space();
+    let mut key = space.new_object(SECURITY_API_KEY).map_err(stored)?;
+    let id = uuid::Uuid::new_v4().simple().to_string();
+    let secret = new_secret();
+    key.set("id", id.clone());
+    key.set("name", name);
+    key.set("user_id", owner.key.clone());
+    key.set("roles", roles);
+    key.set("active", true);
+    key.set("secret_hash", hash_of(&secret));
+    if let Some(days) = days {
+        let now = local_now();
+        key.set(
+            "expires",
+            Value::Date(ravenrs_criteria::DateTime { days: now.days + days, seconds: now.seconds }),
+        );
+    }
+    space.insert(key.clone()).map_err(stored)?;
+    space.commit().map_err(stored)?;
+    Ok((key, format!("{PREFIX}{id}_{secret}")))
+}
+
+/// A key a program gets without anyone signing in to ask for it: what a server hands a build
+/// agent that came with a token used once, say.
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct IssuedKey {
+    /// Its id: what [`revoke_key`] takes, and what `GET /api/auth/keys` lists.
+    pub id: String,
+    /// The key, as a program presents it in place of a token. It shows only here.
+    pub key: String,
+}
+
+/// Makes a key for the user `user`, called `name`, over the users and roles that `space` keeps,
+/// as an administrator does at `POST /api/auth/keys`, for the application itself to hand out.
+/// With `roles`, the key keeps only those (each one the user has); with none, all of the user's.
+/// With `expires_in_days` (1 to ten years), it stops working then.
+///
+/// **Its role.** Some programs cannot sign in: a build agent that comes up with a token used once
+/// has no password to give. The application checks what it brought, then makes it a key of its
+/// own, and from then on the agent is checked like anyone else, by the same service.
+///
+/// ```
+/// # use std::rc::Rc;
+/// # use ravenrs_app::{MemoryDatabase, ObjectSpace, Role, UserDirectory, security_entities};
+/// # use ravenrs_app_server::{ApiRequest, ApiService, issue_key};
+/// let database = MemoryDatabase::new(security_entities()).expect("entities");
+/// let space: ravenrs_app::SpaceMaker = Rc::new(move || Box::new(database.space()) as Box<dyn ObjectSpace>);
+/// let roles = vec![Role::new("agent")];
+/// let directory = UserDirectory::new(space.clone(), roles.clone()).expect("directory");
+/// directory.create_first_administrator("ana", "a-long-password").expect("first");
+/// let issued = issue_key(&space, roles.clone(), "ana", "agent linux-1", &[], None).expect("made");
+/// let mut service = ApiService::new(space, roles).expect("service");
+/// let me = service.handle(ApiRequest::new("GET", "/api/me").bearer(issued.key));
+/// assert_eq!(me.status, 200);
+/// ```
+pub fn issue_key(
+    space: &SpaceMaker,
+    roles: Vec<Role>,
+    user: &str,
+    name: &str,
+    keep: &[&str],
+    expires_in_days: Option<i64>,
+) -> Result<IssuedKey, Failure> {
+    if name.trim().is_empty() {
+        return Err(Failure::bad_request("A key has a name."));
+    }
+    if expires_in_days.is_some_and(|days| !(1..=MOST_DAYS).contains(&days)) {
+        return Err(Failure::bad_request("expires_in_days goes from 1 to ten years."));
+    }
+    let directory = UserDirectory::new(space.clone(), roles).map_err(stored)?;
+    let owner = directory
+        .identity_of(user)
+        .map_err(stored)?
+        .ok_or_else(|| Failure::bad_request("There is no such active user."))?;
+    let mut body = Map::new();
+    if !keep.is_empty() {
+        body.insert("roles".to_owned(), json!(keep));
+    }
+    let roles = roles_asked(&body, &owner, RoleMerge::default())?;
+    let (key, secret) = insert_key(space, &owner, name, &roles, expires_in_days)?;
+    Ok(IssuedKey { id: text_of(&key, "id"), key: secret })
+}
+
+/// Forgets the key `id` that [`issue_key`] made, so it no longer works: a build agent removed.
+/// A key that is not there is not an error.
+pub fn revoke_key(space: &SpaceMaker, id: &str) -> Result<(), Failure> {
+    let mut space = space();
+    if space.find(SECURITY_API_KEY, &Value::Text(id.to_owned())).map_err(stored)?.is_some() {
+        space.delete(SECURITY_API_KEY, &Value::Text(id.to_owned())).map_err(stored)?;
+        space.commit().map_err(stored)?;
+    }
+    Ok(())
 }

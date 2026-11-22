@@ -1,10 +1,17 @@
 # The public API of ravenrs-widgets, by the paths its users write.
 # Written by scripts/public-api.py; `--check` fails when it changes. Regenerate it only
 # when the change is meant, and say so in the pull request.
+const EXPRESSION_KEY
+const FIELD_DRAG
+const FLOW_NODE_DRAG
+const HOLD_TO_CARRY
+const SAMPLE
 enum AnchorPoint
 enum BoxHandle
 enum ButtonSize
 enum ButtonStyle
+enum CableAnchor
+enum CableSide
 enum CalendarView
 enum CellAlign
 enum ChartBarFrom
@@ -17,24 +24,33 @@ enum CompareSide
 enum CompositionGuide
 enum ContentMode
 enum ContentSpace
+enum DockChange
+enum DockCloseAction
 enum DockDrop
 enum DockEdge
 enum DockLayoutError
 enum DockNode
+enum DockPanelKind
 enum DockSide
 enum DockTabBar
 enum DragPhase
+enum Driving
 enum FileSortColumn
 enum Fill
 enum FilterFieldKind
 enum FloatingCorner
+enum FlowChange
 enum Frequency
 enum GridExportFormat
 enum GridTableKind
 enum HistogramScale
 enum IconName
+enum JackFlow
 enum ModelStatus
 enum Paint
+enum ParamKind
+enum ParamOptions
+enum PathStep
 enum Placement
 enum RecurrenceEnd
 enum RibbonSize
@@ -51,6 +67,7 @@ enum TimeScale
 enum TimelineEdit
 enum ToastPosition
 enum Tone
+enum Turn
 enum UiActivity
 enum Value
 enum grid::CellAlign
@@ -67,6 +84,8 @@ enum grid::query::ViewRow
 field BoxTransform::angle
 field BoxTransform::pivot
 field BoxTransform::rect
+field BuildCx::focus_chain
+field BuildCx::modifiers_read
 field CalendarEvent::date
 field CalendarEvent::done
 field CalendarEvent::id
@@ -74,10 +93,18 @@ field CalendarEvent::locked
 field CalendarEvent::time
 field CalendarEvent::title
 field CalendarEvent::tone
+field Carrying::keyboard
+field Carrying::over
+field Carrying::payload
+field Carrying::position
+field Carrying::verdict
 field CellEdit::column
 field CellEdit::previous
 field CellEdit::row
 field CellEdit::value
+field CodeCompletion::detail
+field CodeCompletion::insert
+field CodeCompletion::label
 field CodeDiagnostic::column
 field CodeDiagnostic::hint
 field CodeDiagnostic::length
@@ -99,9 +126,12 @@ field DayMark::tone
 field DockChild::node
 field DockChild::share
 field DockPanel::closable
+field DockPanel::close_action
 field DockPanel::icon
 field DockPanel::id
+field DockPanel::kind
 field DockPanel::title
+field DockPanel::unsaved
 field DocumentTab::closable
 field DocumentTab::color
 field DocumentTab::icon
@@ -112,6 +142,8 @@ field Drag::container
 field Drag::frame
 field Drag::phase
 field Drag::position
+field FieldDrag::expression
+field FieldDrag::path
 field FileEntry::icon
 field FileEntry::id
 field FileEntry::is_folder
@@ -133,6 +165,8 @@ field FilterField::name
 field FilterField::values
 field FilterLayout::text
 field FilterLayout::title
+field FlowIssue::nodes
+field FlowIssue::text
 field FlowSelection::edges
 field FlowSelection::nodes
 field FlowViewport::fit
@@ -172,6 +206,11 @@ field GridTableColumn::title
 field GridTableColumn::total
 field HueSaturation::hue
 field HueSaturation::saturation
+field Jack::at
+field Jack::flow
+field Jack::id
+field Jack::label
+field Jack::signal
 field Labels::anchor_names
 field Labels::anchor_point
 field Labels::attachment_remove
@@ -209,6 +248,18 @@ field Labels::close
 field Labels::close_other_tabs
 field Labels::close_tab
 field Labels::close_tabs_to_right
+field Labels::code_close_find
+field Labels::code_find
+field Labels::code_find_count
+field Labels::code_find_next
+field Labels::code_find_previous
+field Labels::code_match_case
+field Labels::code_no_results
+field Labels::code_replace
+field Labels::code_replace_all
+field Labels::code_show_replace
+field Labels::code_suggestions
+field Labels::code_whole_word
 field Labels::color_alpha
 field Labels::color_background
 field Labels::color_foreground
@@ -275,36 +326,57 @@ field Labels::diagnostics_why
 field Labels::diagnostics_why_none
 field Labels::dismiss
 field Labels::dock_area_name
+field Labels::dock_auto_hide
+field Labels::dock_auto_hide_item
 field Labels::dock_bottom
 field Labels::dock_center
 field Labels::dock_close
+field Labels::dock_close_others
 field Labels::dock_close_panel
 field Labels::dock_closed
+field Labels::dock_dock_back
+field Labels::dock_documents
+field Labels::dock_documents_center
 field Labels::dock_empty
+field Labels::dock_float_item
+field Labels::dock_floating
+field Labels::dock_hidden
 field Labels::dock_hide
 field Labels::dock_left
+field Labels::dock_move_floating
 field Labels::dock_move_to
 field Labels::dock_moved
 field Labels::dock_options
+field Labels::dock_pin
+field Labels::dock_pinned
 field Labels::dock_reopen
 field Labels::dock_resize
+field Labels::dock_resize_floating
 field Labels::dock_resize_pair
 field Labels::dock_right
 field Labels::dock_show
 field Labels::dock_split_below
 field Labels::dock_split_right
+field Labels::dock_switcher
 field Labels::dock_tabs_name
+field Labels::dock_tools
+field Labels::dock_tools_docks
+field Labels::dock_top
+field Labels::dock_where_floating
+field Labels::dock_where_hidden
 field Labels::dock_with
 field Labels::document_name
 field Labels::document_tabs_name
 field Labels::expression_constants
 field Labels::expression_error_at
 field Labels::expression_errors
+field Labels::expression_failed
 field Labels::expression_functions
 field Labels::expression_groups
 field Labels::expression_insert
 field Labels::expression_no_match
 field Labels::expression_operators
+field Labels::expression_result
 field Labels::expression_search
 field Labels::expression_signatures
 field Labels::expression_text
@@ -349,12 +421,110 @@ field Labels::filter_remove
 field Labels::filter_starts_with
 field Labels::filter_value
 field Labels::filter_yes
+field Labels::flow_arrange
+field Labels::flow_bend
+field Labels::flow_cancelled
 field Labels::flow_canvas
+field Labels::flow_cap_names
+field Labels::flow_check
+field Labels::flow_check_close
+field Labels::flow_check_found
+field Labels::flow_check_ok
 field Labels::flow_controls
 field Labels::flow_count
+field Labels::flow_debug
 field Labels::flow_disabled
+field Labels::flow_done
+field Labels::flow_export
+field Labels::flow_export_pdf
+field Labels::flow_export_png
+field Labels::flow_export_selection
+field Labels::flow_export_svg
+field Labels::flow_field_animated
+field Labels::flow_field_dashed
+field Labels::flow_field_end
+field Labels::flow_field_fill
+field Labels::flow_field_height
+field Labels::flow_field_kind
+field Labels::flow_field_label
+field Labels::flow_field_line
+field Labels::flow_field_shape
+field Labels::flow_field_start
+field Labels::flow_field_status
+field Labels::flow_field_stroke
+field Labels::flow_field_stroke_width
+field Labels::flow_field_text
+field Labels::flow_field_title
+field Labels::flow_field_width
+field Labels::flow_field_x
+field Labels::flow_field_y
+field Labels::flow_group
+field Labels::flow_input
+field Labels::flow_inspector
+field Labels::flow_inspector_edge
+field Labels::flow_inspector_empty
+field Labels::flow_inspector_mixed
+field Labels::flow_inspector_node
+field Labels::flow_inspector_nodes
+field Labels::flow_inspector_read_only
+field Labels::flow_item_one
+field Labels::flow_items
+field Labels::flow_layer_down
+field Labels::flow_layer_hide
+field Labels::flow_layer_show
+field Labels::flow_layer_up
+field Labels::flow_layers
+field Labels::flow_library
+field Labels::flow_library_count
+field Labels::flow_library_delete
+field Labels::flow_library_delete_message
+field Labels::flow_library_delete_title
+field Labels::flow_library_name
+field Labels::flow_library_new
+field Labels::flow_library_open_file
+field Labels::flow_library_save
+field Labels::flow_library_save_file
+field Labels::flow_library_saved
+field Labels::flow_library_unsaved
+field Labels::flow_library_untitled
+field Labels::flow_line_names
 field Labels::flow_lock
+field Labels::flow_members
+field Labels::flow_no_turn
+field Labels::flow_open_close
+field Labels::flow_open_none
+field Labels::flow_open_search
+field Labels::flow_output
+field Labels::flow_pick_port
+field Labels::flow_pinned
 field Labels::flow_refused
+field Labels::flow_run_breakpoint
+field Labels::flow_run_choose
+field Labels::flow_run_choose_many
+field Labels::flow_run_continue
+field Labels::flow_run_dead_end
+field Labels::flow_run_done
+field Labels::flow_run_ended
+field Labels::flow_run_follow
+field Labels::flow_run_hint
+field Labels::flow_run_looping
+field Labels::flow_run_moved
+field Labels::flow_run_no_start
+field Labels::flow_run_none_chosen
+field Labels::flow_run_start
+field Labels::flow_run_step
+field Labels::flow_run_stop
+field Labels::flow_run_stuck
+field Labels::flow_running
+field Labels::flow_shape_names
+field Labels::flow_skipped
+field Labels::flow_status_names
+field Labels::flow_title
+field Labels::flow_toolbox
+field Labels::flow_toolbox_hint
+field Labels::flow_toolbox_none
+field Labels::flow_toolbox_search
+field Labels::flow_turned
 field Labels::flow_unlock
 field Labels::folder_empty
 field Labels::folder_word
@@ -442,6 +612,30 @@ field Labels::image_invalid
 field Labels::image_none
 field Labels::image_replace
 field Labels::increase
+field Labels::inspector_absent
+field Labels::inspector_boolean
+field Labels::inspector_chosen
+field Labels::inspector_copy
+field Labels::inspector_drag
+field Labels::inspector_empty
+field Labels::inspector_in
+field Labels::inspector_item
+field Labels::inspector_json
+field Labels::inspector_kind
+field Labels::inspector_list
+field Labels::inspector_mode
+field Labels::inspector_more
+field Labels::inspector_next
+field Labels::inspector_number
+field Labels::inspector_object
+field Labels::inspector_path
+field Labels::inspector_present
+field Labels::inspector_previous
+field Labels::inspector_sampled
+field Labels::inspector_schema
+field Labels::inspector_table
+field Labels::inspector_text
+field Labels::inspector_tree
 field Labels::lightbox
 field Labels::lightbox_counter
 field Labels::lightbox_next
@@ -449,6 +643,12 @@ field Labels::lightbox_previous
 field Labels::list_name
 field Labels::listen
 field Labels::loading
+field Labels::log_folded
+field Labels::log_go_to_end
+field Labels::log_matches
+field Labels::log_name
+field Labels::log_point_line
+field Labels::log_search
 field Labels::marquee
 field Labels::minimap
 field Labels::month_year
@@ -468,6 +668,19 @@ field Labels::page_word
 field Labels::panel_minimize
 field Labels::panel_move
 field Labels::panel_restore
+field Labels::param_add
+field Labels::param_apply
+field Labels::param_discard
+field Labels::param_expression
+field Labels::param_fixed
+field Labels::param_load_failed
+field Labels::param_loading
+field Labels::param_mode
+field Labels::param_no_field
+field Labels::param_none
+field Labels::param_remove
+field Labels::param_required
+field Labels::param_retry
 field Labels::pick_color
 field Labels::pick_date
 field Labels::pick_date_range
@@ -623,6 +836,18 @@ field NumberFormat::thousands
 field PaintCx::scale
 field PaintCx::scene
 field PaintCx::text
+field ParamField::default
+field ParamField::depends_on
+field ParamField::expressions
+field ParamField::hint
+field ParamField::kind
+field ParamField::label
+field ParamField::name
+field ParamField::required
+field ParamField::shown_when
+field ParamValues::0
+field PatchLink::from
+field PatchLink::to
 field PickedFile::bytes
 field PickedFile::name
 field PickedFile::size
@@ -763,9 +988,14 @@ field grid::query::QueryResult::matched
 field grid::query::QueryResult::rows
 field grid::query::QueryResult::totals
 fn apple_keys
+fn book::all
 fn days_in_month
 fn decode_image
+fn distance_to_cable
 fn exceptions_text
+fn field_expression
+fn field_path
+fn find_all
 fn grid::query::check_formula
 fn grid::query::formula_value
 fn grid::query::group_keys
@@ -802,10 +1032,16 @@ impl Clone for Barcode
 impl Clone for BoxHandle
 impl Clone for BoxTransform
 impl Clone for Breadcrumb
+impl Clone for BusySignal
 impl Clone for ButtonSize
 impl Clone for ButtonStyle
+impl Clone for CableAnchor
+impl Clone for CablePlug
+impl Clone for CableSide
+impl Clone for Cables
 impl Clone for CalendarEvent
 impl Clone for CalendarView
+impl Clone for Carrying
 impl Clone for CellAlign
 impl Clone for CellEdit
 impl Clone for Chart
@@ -819,6 +1055,7 @@ impl Clone for ChatMedia
 impl Clone for ChatMessage
 impl Clone for Clipboard
 impl Clone for CodeBlock
+impl Clone for CodeCompletion
 impl Clone for CodeDiagnostic
 impl Clone for CodeLanguage
 impl Clone for Column
@@ -837,20 +1074,26 @@ impl Clone for DayMark
 impl Clone for DaySeparator
 impl Clone for Diagnostics
 impl Clone for Divider
+impl Clone for DockChange
 impl Clone for DockChild
+impl Clone for DockCloseAction
 impl Clone for DockDrop
 impl Clone for DockEdge
 impl Clone for DockLayout
 impl Clone for DockLayoutError
 impl Clone for DockNode
 impl Clone for DockPanel
+impl Clone for DockPanelKind
 impl Clone for DockSide
 impl Clone for DockTabBar
 impl Clone for DocumentTab
 impl Clone for Dot
 impl Clone for Drag
+impl Clone for DragPayload
 impl Clone for DragPhase
+impl Clone for Driving
 impl Clone for EyedropperState
+impl Clone for FieldDrag
 impl Clone for FileEntry
 impl Clone for FilePicker
 impl Clone for FileRequest
@@ -862,7 +1105,11 @@ impl Clone for FilterField
 impl Clone for FilterFieldKind
 impl Clone for FilterLayout
 impl Clone for FloatingCorner
+impl Clone for FlowChange
+impl Clone for FlowFileFormat
+impl Clone for FlowIssue
 impl Clone for FlowKind
+impl Clone for FlowNotation
 impl Clone for FlowSelection
 impl Clone for FlowViewport
 impl Clone for Frequency
@@ -892,12 +1139,15 @@ impl Clone for IconName
 impl Clone for IconTile
 impl Clone for Image
 impl Clone for IndicatorStep
+impl Clone for Jack
+impl Clone for JackFlow
 impl Clone for Kbd
 impl Clone for Label
 impl Clone for Labels
 impl Clone for LightboxItem
 impl Clone for Links
 impl Clone for LiveRunner
+impl Clone for LogBuffer
 impl Clone for LookupItem
 impl Clone for LookupRequest
 impl Clone for LookupResponder
@@ -910,6 +1160,13 @@ impl Clone for NoFilePicker
 impl Clone for NodeId
 impl Clone for NumberFormat
 impl Clone for Paint
+impl Clone for ParamField
+impl Clone for ParamKind
+impl Clone for ParamOptions
+impl Clone for ParamValues
+impl Clone for PatchLink
+impl Clone for PatchPanel
+impl Clone for PathStep
 impl Clone for PickedFile
 impl Clone for Placement
 impl Clone for ProgressBar
@@ -956,6 +1213,7 @@ impl Clone for Summary
 impl Clone for SystemAppearance
 impl Clone for Table
 impl Clone for TabsVariant
+impl Clone for TextHistory
 impl Clone for ThemeEditor
 impl Clone for ThemePicker
 impl Clone for ThemeSwitcher
@@ -974,11 +1232,13 @@ impl Clone for Toasts
 impl Clone for Tone
 impl Clone for ToolRailItem
 impl Clone for TreeNode
+impl Clone for Turn
 impl Clone for UiActivity
 impl Clone for UiStats
 impl Clone for UiWaker
 impl Clone for Value
 impl Clone for WidgetId
+impl Clone for WindowCloser
 impl Clone for ZoomPanPaint
 impl Clone for ZoomView
 impl Clone for grid::CellAlign
@@ -1017,11 +1277,203 @@ impl Clone for grid::query::GridTableColumn
 impl Clone for grid::query::GridTableKind
 impl Clone for grid::query::QueryResult
 impl Clone for grid::query::ViewRow
+impl ComponentBook for Accordion
+impl ComponentBook for Alert
+impl ComponentBook for Anchor
+impl ComponentBook for AreaChart
+impl ComponentBook for AspectRatio
+impl ComponentBook for AttachmentStrip
+impl ComponentBook for AudioPlayerButton
+impl ComponentBook for Avatar
+impl ComponentBook for Badge
+impl ComponentBook for BarChart
+impl ComponentBook for Barcode
+impl ComponentBook for Breadcrumb
+impl ComponentBook for Button
+impl ComponentBook for ButtonGroup
+impl ComponentBook for Calendar
+impl ComponentBook for Canvas
+impl ComponentBook for Card
+impl ComponentBook for CardView
+impl ComponentBook for Carousel
+impl ComponentBook for Chart
+impl ComponentBook for ChartCard
+impl ComponentBook for Chat
+impl ComponentBook for Checkbox
+impl ComponentBook for CodeBlock
+impl ComponentBook for CodeEditor
+impl ComponentBook for Collapse
+impl ComponentBook for ColorPair
+impl ComponentBook for ColorPicker
+impl ComponentBook for ColorSwatch
+impl ComponentBook for ColorWheel
+impl ComponentBook for Combobox
+impl ComponentBook for CommandPalette
+impl ComponentBook for CompareView
+impl ComponentBook for ConfirmDialog
+impl ComponentBook for ContextMenu
+impl ComponentBook for CountUp
+impl ComponentBook for CropOverlay
+impl ComponentBook for CurveEditor
+impl ComponentBook for DataGrid
+impl ComponentBook for DataInspector
+impl ComponentBook for DatePicker
+impl ComponentBook for DateRangePicker
+impl ComponentBook for DateTimePicker
+impl ComponentBook for DaySeparator
+impl ComponentBook for Dialog
+impl ComponentBook for Disclosure
+impl ComponentBook for Divider
+impl ComponentBook for DockArea
+impl ComponentBook for DocumentTabs
+impl ComponentBook for Dot
+impl ComponentBook for DropZone
+impl ComponentBook for DropdownMenu
+impl ComponentBook for EmptyState
+impl ComponentBook for EventCalendar
+impl ComponentBook for ExpressionEditor
+impl ComponentBook for Eyedropper
+impl ComponentBook for FavoriteToggle
+impl ComponentBook for FileBrowser
+impl ComponentBook for FileUpload
+impl ComponentBook for Filmstrip
+impl ComponentBook for FilterBuilder
+impl ComponentBook for FloatingPanel
+impl ComponentBook for FloatingToolbar
+impl ComponentBook for FlowCanvas
+impl ComponentBook for FlowInspector
+impl ComponentBook for FlowLayers
+impl ComponentBook for FlowLibrary
+impl ComponentBook for FlowToolbox
+impl ComponentBook for Footer
+impl ComponentBook for FormField
+impl ComponentBook for FormLayout
+impl ComponentBook for GlassCard
+impl ComponentBook for Grid
+impl ComponentBook for HStack
+impl ComponentBook for HelpTip
+impl ComponentBook for HeroBanner
+impl ComponentBook for Histogram
+impl ComponentBook for HoverCard
+impl ComponentBook for Icon
+impl ComponentBook for IconButton
+impl ComponentBook for IconTile
+impl ComponentBook for Image
+impl ComponentBook for ImageField
+impl ComponentBook for ImageLightbox
+impl ComponentBook for InlineRename
+impl ComponentBook for InputOtp
+impl ComponentBook for Kbd
+impl ComponentBook for KeyBar
+impl ComponentBook for Label
+impl ComponentBook for Link
+impl ComponentBook for List
+impl ComponentBook for LogView
+impl ComponentBook for LookupField
+impl ComponentBook for Lottie
+impl ComponentBook for Marquee
+impl ComponentBook for MaskedField
+impl ComponentBook for Menubar
+impl ComponentBook for Minimap
+impl ComponentBook for ModelPicker
+impl ComponentBook for MultiProgress
+impl ComponentBook for NinePointAnchor
+impl ComponentBook for NumberField
+impl ComponentBook for OverlayBadge
+impl ComponentBook for PageHeader
+impl ComponentBook for PagedDocumentView
+impl ComponentBook for Pagination
+impl ComponentBook for ParameterForm
+impl ComponentBook for PatchPanel
+impl ComponentBook for Playground
+impl ComponentBook for Popover
+impl ComponentBook for ProgressBar
+impl ComponentBook for PropertyRow
+impl ComponentBook for Protractor
+impl ComponentBook for QuadField
+impl ComponentBook for QuarterTurn
+impl ComponentBook for RadioGroup
+impl ComponentBook for Rating
+impl ComponentBook for RecurrenceEditor
+impl ComponentBook for ReleaseNotes
+impl ComponentBook for Ribbon
+impl ComponentBook for RichText
+impl ComponentBook for RubberBand
+impl ComponentBook for RuleOfThirdsGrid
+impl ComponentBook for Ruler
+impl ComponentBook for SankeyChart
+impl ComponentBook for ScanField
+impl ComponentBook for Scheduler
+impl ComponentBook for ScrollEdgeArrow
+impl ComponentBook for ScrollLinked
+impl ComponentBook for ScrollScene
+impl ComponentBook for ScrollView
+impl ComponentBook for Section
+impl ComponentBook for SegmentedControl
+impl ComponentBook for Select
+impl ComponentBook for SelectionBar
+impl ComponentBook for Sheet
+impl ComponentBook for ShimmerText
+impl ComponentBook for ShortcutHintBar
+impl ComponentBook for ShortcutSheet
+impl ComponentBook for Sidebar
+impl ComponentBook for SidebarBrand
+impl ComponentBook for Skeleton
+impl ComponentBook for Slider
+impl ComponentBook for SortableList
+impl ComponentBook for Spacer
+impl ComponentBook for Spinner
+impl ComponentBook for SplashScreen
+impl ComponentBook for SplitButton
+impl ComponentBook for SplitHandle
+impl ComponentBook for SplitPanes
+impl ComponentBook for Splitter
+impl ComponentBook for Stat
+impl ComponentBook for StatusBar
+impl ComponentBook for StepBadge
+impl ComponentBook for StepIndicator
+impl ComponentBook for Stepper
+impl ComponentBook for Sticky
+impl ComponentBook for SwatchGrid
+impl ComponentBook for Table
+impl ComponentBook for Tabs
+impl ComponentBook for TagBox
+impl ComponentBook for Text
+impl ComponentBook for TextArea
+impl ComponentBook for TextField
+impl ComponentBook for ThemeEditor
+impl ComponentBook for ThemePicker
+impl ComponentBook for ThemeSwitcher
+impl ComponentBook for Ticker
+impl ComponentBook for TileLayout
+impl ComponentBook for TimePicker
+impl ComponentBook for Timeline
+impl ComponentBook for TitleBar
+impl ComponentBook for Toaster
+impl ComponentBook for Toggle
+impl ComponentBook for ToggleButton
+impl ComponentBook for ToggleGroup
+impl ComponentBook for ToolRail
+impl ComponentBook for Toolbar
+impl ComponentBook for Tooltip
+impl ComponentBook for TransformHandles
+impl ComponentBook for TreeView
+impl ComponentBook for VStack
+impl ComponentBook for ValueSlider
+impl ComponentBook for VirtualList
+impl ComponentBook for Wizard
+impl ComponentBook for YearView
+impl ComponentBook for ZStack
+impl ComponentBook for ZoomControl
+impl ComponentBook for ZoomPanView
+impl ComponentBook for grid::DataGrid
 impl Copy for AnchorPoint
 impl Copy for BoxHandle
 impl Copy for BoxTransform
 impl Copy for ButtonSize
 impl Copy for ButtonStyle
+impl Copy for CableAnchor
+impl Copy for CableSide
 impl Copy for CalendarView
 impl Copy for CellAlign
 impl Copy for ChartBarFrom
@@ -1038,11 +1490,14 @@ impl Copy for Date
 impl Copy for DateRange
 impl Copy for DateTime
 impl Copy for Divider
+impl Copy for DockCloseAction
 impl Copy for DockEdge
+impl Copy for DockPanelKind
 impl Copy for DockSide
 impl Copy for DockTabBar
 impl Copy for Drag
 impl Copy for DragPhase
+impl Copy for Driving
 impl Copy for FileSort
 impl Copy for FileSortColumn
 impl Copy for Fill
@@ -1057,6 +1512,7 @@ impl Copy for HistogramScale
 impl Copy for HueSaturation
 impl Copy for Icon
 impl Copy for IconName
+impl Copy for JackFlow
 impl Copy for ModelStatus
 impl Copy for Motion
 impl Copy for NoFilePicker
@@ -1088,6 +1544,7 @@ impl Copy for TimeScale
 impl Copy for TimelineEdit
 impl Copy for ToastPosition
 impl Copy for Tone
+impl Copy for Turn
 impl Copy for UiActivity
 impl Copy for UiStats
 impl Copy for WidgetId
@@ -1119,10 +1576,15 @@ impl Debug for BoxHandle
 impl Debug for BoxTransform
 impl Debug for Breadcrumb
 impl Debug for BuildCx
+impl Debug for BusySignal
 impl Debug for Button
 impl Debug for ButtonGroup
 impl Debug for ButtonSize
 impl Debug for ButtonStyle
+impl Debug for CableAnchor
+impl Debug for CablePlug
+impl Debug for CableSide
+impl Debug for Cables
 impl Debug for Calendar
 impl Debug for CalendarEvent
 impl Debug for CalendarView
@@ -1130,6 +1592,7 @@ impl Debug for Canvas
 impl Debug for Card
 impl Debug for CardView
 impl Debug for Carousel
+impl Debug for Carrying
 impl Debug for CellAlign
 impl Debug for CellEdit
 impl Debug for Chart
@@ -1146,6 +1609,7 @@ impl Debug for ChatMessage
 impl Debug for Checkbox
 impl Debug for Clipboard
 impl Debug for CodeBlock
+impl Debug for CodeCompletion
 impl Debug for CodeDiagnostic
 impl Debug for CodeEditor
 impl Debug for CodeLanguage
@@ -1172,6 +1636,7 @@ impl Debug for CropArea
 impl Debug for CropOverlay
 impl Debug for CurveEditor
 impl Debug for DataGrid
+impl Debug for DataInspector
 impl Debug for Date
 impl Debug for DatePicker
 impl Debug for DateRange
@@ -1187,20 +1652,25 @@ impl Debug for Dialog
 impl Debug for Disclosure
 impl Debug for Divider
 impl Debug for DockArea
+impl Debug for DockChange
 impl Debug for DockChild
+impl Debug for DockCloseAction
 impl Debug for DockDrop
 impl Debug for DockEdge
 impl Debug for DockLayout
 impl Debug for DockLayoutError
 impl Debug for DockNode
 impl Debug for DockPanel
+impl Debug for DockPanelKind
 impl Debug for DockSide
 impl Debug for DockTabBar
 impl Debug for DocumentTab
 impl Debug for DocumentTabs
 impl Debug for Dot
 impl Debug for Drag
+impl Debug for DragPayload
 impl Debug for DragPhase
+impl Debug for Driving
 impl Debug for DropZone
 impl Debug for DropdownMenu
 impl Debug for EmptyState
@@ -1211,6 +1681,7 @@ impl Debug for EyedropperArea
 impl Debug for EyedropperState
 impl Debug for Faded
 impl Debug for FavoriteToggle
+impl Debug for FieldDrag
 impl Debug for FileBrowser
 impl Debug for FileEntry
 impl Debug for FilePicker
@@ -1229,8 +1700,16 @@ impl Debug for FloatingCorner
 impl Debug for FloatingPanel
 impl Debug for FloatingToolbar
 impl Debug for FlowCanvas
+impl Debug for FlowChange
+impl Debug for FlowFileFormat
+impl Debug for FlowInspector
+impl Debug for FlowIssue
 impl Debug for FlowKind
+impl Debug for FlowLayers
+impl Debug for FlowLibrary
+impl Debug for FlowNotation
 impl Debug for FlowSelection
+impl Debug for FlowToolbox
 impl Debug for FlowViewport
 impl Debug for FnView
 impl Debug for Footer
@@ -1274,6 +1753,8 @@ impl Debug for ImageLightbox
 impl Debug for IndicatorStep
 impl Debug for InlineRename
 impl Debug for InputOtp
+impl Debug for Jack
+impl Debug for JackFlow
 impl Debug for Kbd
 impl Debug for KeyBar
 impl Debug for KeyBarItem
@@ -1287,6 +1768,8 @@ impl Debug for List
 impl Debug for ListItem
 impl Debug for LiveRunner
 impl Debug for Localized
+impl Debug for LogBuffer
+impl Debug for LogView
 impl Debug for LookupField
 impl Debug for LookupItem
 impl Debug for LookupRequest
@@ -1315,6 +1798,14 @@ impl Debug for PagedDocumentView
 impl Debug for Pagination
 impl Debug for Paint
 impl Debug for PaintCx
+impl Debug for ParamField
+impl Debug for ParamKind
+impl Debug for ParamOptions
+impl Debug for ParamValues
+impl Debug for ParameterForm
+impl Debug for PatchLink
+impl Debug for PatchPanel
+impl Debug for PathStep
 impl Debug for PickedFile
 impl Debug for Placement
 impl Debug for Playground
@@ -1324,6 +1815,7 @@ impl Debug for PropertyRow
 impl Debug for Protractor
 impl Debug for QuadField
 impl Debug for QuadPaint
+impl Debug for QuarterTurn
 impl Debug for RadioGroup
 impl Debug for Rating
 impl Debug for RecurrenceEditor
@@ -1412,9 +1904,11 @@ impl Debug for Table
 impl Debug for Tabs
 impl Debug for TabsVariant
 impl Debug for TagBox
+impl Debug for TestId
 impl Debug for Text
 impl Debug for TextArea
 impl Debug for TextField
+impl Debug for TextHistory
 impl Debug for ThemeEditor
 impl Debug for ThemePicker
 impl Debug for ThemeSwitcher
@@ -1451,6 +1945,7 @@ impl Debug for Tooltip
 impl Debug for TransformHandles
 impl Debug for TreeNode
 impl Debug for TreeView
+impl Debug for Turn
 impl Debug for Ui
 impl Debug for UiActivity
 impl Debug for UiStats
@@ -1460,6 +1955,7 @@ impl Debug for Value
 impl Debug for ValueSlider
 impl Debug for VirtualList
 impl Debug for WidgetId
+impl Debug for WindowCloser
 impl Debug for Wizard
 impl Debug for WizardStep
 impl Debug for YearView
@@ -1505,10 +2001,18 @@ impl Debug for grid::query::GridTableColumn
 impl Debug for grid::query::GridTableKind
 impl Debug for grid::query::QueryResult
 impl Debug for grid::query::ViewRow
+impl Debug for testing::CropDriver
+impl Debug for testing::DataGridDriver
+impl Debug for testing::DockDriver
+impl Debug for testing::FlowCanvasDriver
+impl Debug for testing::SchedulerDriver
+impl Debug for testing::SortableDriver
 impl Default for AnchorPoint
 impl Default for AudioPlayerButton
+impl Default for BusySignal
 impl Default for ButtonSize
 impl Default for ButtonStyle
+impl Default for CableSide
 impl Default for CalendarView
 impl Default for CellAlign
 impl Default for ChartBarFrom
@@ -1526,7 +2030,9 @@ impl Default for ContentSpace
 impl Default for DayMark
 impl Default for Diagnostics
 impl Default for Divider
+impl Default for DockCloseAction
 impl Default for DockLayout
+impl Default for DockPanelKind
 impl Default for DockTabBar
 impl Default for Dot
 impl Default for EyedropperState
@@ -1537,7 +2043,10 @@ impl Default for FileSortColumn
 impl Default for FilterFieldKind
 impl Default for FilterLayout
 impl Default for FloatingCorner
+impl Default for FlowIssue
+impl Default for FlowNotation
 impl Default for FlowSelection
+impl Default for FlowToolbox
 impl Default for FlowViewport
 impl Default for Footer
 impl Default for FormGroup
@@ -1554,6 +2063,7 @@ impl Default for KeyBar
 impl Default for Labels
 impl Default for Links
 impl Default for LiveRunner
+impl Default for LogBuffer
 impl Default for MemoryClipboard
 impl Default for Menubar
 impl Default for ModelPickerLabels
@@ -1562,6 +2072,7 @@ impl Default for MultiProgress
 impl Default for NoFilePicker
 impl Default for NumberFormat
 impl Default for Paint
+impl Default for ParamValues
 impl Default for RecurrenceEnd
 impl Default for RecurrenceRule
 impl Default for RecurrenceSet
@@ -1586,6 +2097,7 @@ impl Default for StatusBar
 impl Default for StepState
 impl Default for SystemAppearance
 impl Default for TabsVariant
+impl Default for TextHistory
 impl Default for ThemeEditor
 impl Default for ThemePicker
 impl Default for ThemeSwitcher
@@ -1597,9 +2109,11 @@ impl Default for ToastPosition
 impl Default for Toasts
 impl Default for Tone
 impl Default for Toolbar
+impl Default for Turn
 impl Default for UiStats
 impl Default for UiWaker
 impl Default for Value
+impl Default for WindowCloser
 impl Default for ZoomView
 impl Default for grid::CellAlign
 impl Default for grid::ColumnLayout
@@ -1643,6 +2157,7 @@ impl Eq for AnchorPoint
 impl Eq for BoxHandle
 impl Eq for ButtonSize
 impl Eq for ButtonStyle
+impl Eq for CableSide
 impl Eq for CalendarEvent
 impl Eq for CalendarView
 impl Eq for CellAlign
@@ -1650,6 +2165,7 @@ impl Eq for ChartBarFrom
 impl Eq for ChartIndicator
 impl Eq for ChartLegend
 impl Eq for ChatAuthor
+impl Eq for CodeCompletion
 impl Eq for CodeDiagnostic
 impl Eq for CodeLanguage
 impl Eq for CompareMode
@@ -1659,12 +2175,16 @@ impl Eq for Date
 impl Eq for DateRange
 impl Eq for DateTime
 impl Eq for DayMark
+impl Eq for DockCloseAction
 impl Eq for DockDrop
 impl Eq for DockEdge
 impl Eq for DockLayoutError
+impl Eq for DockPanelKind
 impl Eq for DockSide
 impl Eq for DockTabBar
 impl Eq for DragPhase
+impl Eq for Driving
+impl Eq for FieldDrag
 impl Eq for FileRequest
 impl Eq for FileSort
 impl Eq for FileSortColumn
@@ -1673,6 +2193,8 @@ impl Eq for FilterField
 impl Eq for FilterFieldKind
 impl Eq for FilterLayout
 impl Eq for FloatingCorner
+impl Eq for FlowChange
+impl Eq for FlowIssue
 impl Eq for FlowSelection
 impl Eq for Frequency
 impl Eq for GridCellStyle
@@ -1680,9 +2202,12 @@ impl Eq for GridExportFormat
 impl Eq for HistogramScale
 impl Eq for Hotkey
 impl Eq for IconName
+impl Eq for JackFlow
 impl Eq for LookupItem
 impl Eq for LookupRequest
 impl Eq for NodeId
+impl Eq for PatchLink
+impl Eq for PathStep
 impl Eq for PickedFile
 impl Eq for RecurrenceEnd
 impl Eq for RecurrenceRule
@@ -1703,6 +2228,7 @@ impl Eq for SortLayout
 impl Eq for StepState
 impl Eq for Summary
 impl Eq for TabsVariant
+impl Eq for TextHistory
 impl Eq for TileSpot
 impl Eq for Time
 impl Eq for TimePoint
@@ -1710,6 +2236,7 @@ impl Eq for TimeScale
 impl Eq for TimelineEdit
 impl Eq for ToastPosition
 impl Eq for Tone
+impl Eq for Turn
 impl Eq for UiStats
 impl Eq for WidgetId
 impl Eq for grid::CellAlign
@@ -1726,6 +2253,7 @@ impl Error for DecodeError
 impl Error for DockLayoutError
 impl FilePickerProvider for NoFilePicker
 impl From for Fill
+impl From for ParamValues
 impl From for SidebarParts
 impl From for Value
 impl From for grid::Value
@@ -1741,6 +2269,7 @@ impl Hash for GridExportFormat
 impl Hash for Hotkey
 impl Hash for IconName
 impl Hash for NodeId
+impl Hash for PatchLink
 impl Hash for RecurrenceEnd
 impl Hash for RecurrenceRule
 impl Hash for RecurrenceSet
@@ -1764,6 +2293,8 @@ impl PartialEq for BoxHandle
 impl PartialEq for BoxTransform
 impl PartialEq for ButtonSize
 impl PartialEq for ButtonStyle
+impl PartialEq for CableAnchor
+impl PartialEq for CableSide
 impl PartialEq for CalendarEvent
 impl PartialEq for CalendarView
 impl PartialEq for CellAlign
@@ -1773,6 +2304,7 @@ impl PartialEq for ChartIndicator
 impl PartialEq for ChartLegend
 impl PartialEq for ChartReference
 impl PartialEq for ChatAuthor
+impl PartialEq for CodeCompletion
 impl PartialEq for CodeDiagnostic
 impl PartialEq for CodeLanguage
 impl PartialEq for ColumnLayout
@@ -1785,18 +2317,23 @@ impl PartialEq for Date
 impl PartialEq for DateRange
 impl PartialEq for DateTime
 impl PartialEq for DayMark
+impl PartialEq for DockChange
 impl PartialEq for DockChild
+impl PartialEq for DockCloseAction
 impl PartialEq for DockDrop
 impl PartialEq for DockEdge
 impl PartialEq for DockLayout
 impl PartialEq for DockLayoutError
 impl PartialEq for DockNode
 impl PartialEq for DockPanel
+impl PartialEq for DockPanelKind
 impl PartialEq for DockSide
 impl PartialEq for DockTabBar
 impl PartialEq for DocumentTab
 impl PartialEq for Drag
 impl PartialEq for DragPhase
+impl PartialEq for Driving
+impl PartialEq for FieldDrag
 impl PartialEq for FileEntry
 impl PartialEq for FileRequest
 impl PartialEq for FileSort
@@ -1807,6 +2344,8 @@ impl PartialEq for FilterField
 impl PartialEq for FilterFieldKind
 impl PartialEq for FilterLayout
 impl PartialEq for FloatingCorner
+impl PartialEq for FlowChange
+impl PartialEq for FlowIssue
 impl PartialEq for FlowKind
 impl PartialEq for FlowSelection
 impl PartialEq for FlowViewport
@@ -1825,12 +2364,20 @@ impl PartialEq for HistogramScale
 impl PartialEq for Hotkey
 impl PartialEq for HueSaturation
 impl PartialEq for IconName
+impl PartialEq for Jack
+impl PartialEq for JackFlow
 impl PartialEq for LookupItem
 impl PartialEq for LookupRequest
 impl PartialEq for ModelChoice
 impl PartialEq for ModelStatus
 impl PartialEq for NodeId
 impl PartialEq for NumberFormat
+impl PartialEq for ParamField
+impl PartialEq for ParamKind
+impl PartialEq for ParamOptions
+impl PartialEq for ParamValues
+impl PartialEq for PatchLink
+impl PartialEq for PathStep
 impl PartialEq for PickedFile
 impl PartialEq for Placement
 impl PartialEq for QuadPaint
@@ -1856,6 +2403,7 @@ impl PartialEq for SoundClip
 impl PartialEq for StepState
 impl PartialEq for Summary
 impl PartialEq for TabsVariant
+impl PartialEq for TextHistory
 impl PartialEq for TileSpot
 impl PartialEq for Time
 impl PartialEq for TimeAxis
@@ -1868,6 +2416,7 @@ impl PartialEq for ToastExtras
 impl PartialEq for ToastPosition
 impl PartialEq for Tone
 impl PartialEq for TreeNode
+impl PartialEq for Turn
 impl PartialEq for UiStats
 impl PartialEq for Value
 impl PartialEq for WidgetId
@@ -1967,6 +2516,7 @@ impl View for CountUp
 impl View for CropOverlay
 impl View for CurveEditor
 impl View for DataGrid
+impl View for DataInspector
 impl View for DatePicker
 impl View for DateRangePicker
 impl View for DateTimePicker
@@ -1994,6 +2544,10 @@ impl View for FilterBuilder
 impl View for FloatingPanel
 impl View for FloatingToolbar
 impl View for FlowCanvas
+impl View for FlowInspector
+impl View for FlowLayers
+impl View for FlowLibrary
+impl View for FlowToolbox
 impl View for FnView
 impl View for Footer
 impl View for FormField
@@ -2021,6 +2575,7 @@ impl View for Link
 impl View for List
 impl View for ListItem
 impl View for Localized
+impl View for LogView
 impl View for LookupField
 impl View for Lottie
 impl View for Marquee
@@ -2035,12 +2590,15 @@ impl View for OverlayBadge
 impl View for PageHeader
 impl View for PagedDocumentView
 impl View for Pagination
+impl View for ParameterForm
+impl View for PatchPanel
 impl View for Playground
 impl View for Popover
 impl View for ProgressBar
 impl View for PropertyRow
 impl View for Protractor
 impl View for QuadField
+impl View for QuarterTurn
 impl View for RadioGroup
 impl View for Rating
 impl View for RecurrenceEditor
@@ -2095,6 +2653,7 @@ impl View for SwatchGrid
 impl View for Table
 impl View for Tabs
 impl View for TagBox
+impl View for TestId
 impl View for Text
 impl View for TextArea
 impl View for TextField
@@ -2196,20 +2755,30 @@ method BuildCx::animated
 method BuildCx::animated_numbers
 method BuildCx::appear
 method BuildCx::ask_for_access_tree
+method BuildCx::busy
+method BuildCx::busy_while
+method BuildCx::cables
+method BuildCx::carrying
 method BuildCx::child
 method BuildCx::children
 method BuildCx::clip
 method BuildCx::clipboard
 method BuildCx::container
 method BuildCx::cursor
+method BuildCx::drag_source
+method BuildCx::drop_target
 method BuildCx::empty
 method BuildCx::file_picker
 method BuildCx::files_over
 method BuildCx::floating_overlay
+method BuildCx::flush_overlay
 method BuildCx::focusable
 method BuildCx::foreground
 method BuildCx::full_screen
+method BuildCx::held
+method BuildCx::hit_outline
 method BuildCx::is_focus_visible
+method BuildCx::is_focus_within
 method BuildCx::is_focused
 method BuildCx::is_hover_within
 method BuildCx::is_hovered
@@ -2227,8 +2796,10 @@ method BuildCx::motion
 method BuildCx::nothing_focused
 method BuildCx::now
 method BuildCx::observe_activity
+method BuildCx::on_access
 method BuildCx::on_appear
 method BuildCx::on_click
+method BuildCx::on_close_request
 method BuildCx::on_context_menu
 method BuildCx::on_context_menu_in
 method BuildCx::on_double_click
@@ -2244,6 +2815,8 @@ method BuildCx::pin_left
 method BuildCx::reduced_motion
 method BuildCx::report_frame
 method BuildCx::request_focus
+method BuildCx::rotate
+method BuildCx::scale
 method BuildCx::scroll_horizontally
 method BuildCx::scroll_linked
 method BuildCx::scroll_offset
@@ -2261,6 +2834,7 @@ method BuildCx::shortcut_with_alt
 method BuildCx::shortcut_with_shift
 method BuildCx::sound
 method BuildCx::system_appearance
+method BuildCx::test_id
 method BuildCx::text
 method BuildCx::text_align
 method BuildCx::text_truncated
@@ -2274,7 +2848,11 @@ method BuildCx::viewport
 method BuildCx::wake_at
 method BuildCx::wheel_scrolls_sideways
 method BuildCx::widget_id
+method BuildCx::window_closer
 method BuildCx::with_foreground
+method BusySignal::is_busy
+method BusySignal::new
+method BusySignal::set
 method Button::accessible_description
 method Button::accessible_name
 method Button::disabled
@@ -2290,6 +2868,35 @@ method Button::style
 method Button::trailing_icon
 method ButtonGroup::label
 method ButtonGroup::new
+method CablePlug::anchored
+method CablePlug::between
+method CablePlug::build
+method CablePlug::color
+method CablePlug::dash
+method CablePlug::from
+method CablePlug::gravity
+method CablePlug::grow
+method CablePlug::key
+method CablePlug::loose
+method CablePlug::on_click
+method CablePlug::on_drop
+method CablePlug::physics
+method CablePlug::plug_color
+method CablePlug::plugs
+method CablePlug::release
+method CablePlug::retract
+method CablePlug::shine
+method CablePlug::sides
+method CablePlug::slack
+method CablePlug::texture
+method CablePlug::thickness
+method CablePlug::to
+method CablePlug::to_point
+method CablePlug::via
+method Cables::ids
+method Cables::moving
+method Cables::on_gpu
+method Cables::shape
 method Calendar::new
 method Calendar::range
 method Calendar::today
@@ -2432,9 +3039,11 @@ method ChatMessage::assistant_writing
 method ChatMessage::author
 method ChatMessage::card
 method ChatMessage::formatted
+method ChatMessage::is_writing
 method ChatMessage::media
 method ChatMessage::person
 method ChatMessage::text
+method ChatMessage::when_done
 method Checkbox::disabled
 method Checkbox::leading
 method Checkbox::new
@@ -2443,17 +3052,27 @@ method Clipboard::new
 method Clipboard::read
 method Clipboard::write
 method CodeBlock::new
+method CodeCompletion::detail
+method CodeCompletion::insert
+method CodeCompletion::new
 method CodeDiagnostic::error
 method CodeDiagnostic::hint
 method CodeDiagnostic::warning
 method CodeEditor::caret
+method CodeEditor::completions
 method CodeEditor::diagnostics
 method CodeEditor::fill
 method CodeEditor::focus_request
+method CodeEditor::follow_end
+method CodeEditor::history
+method CodeEditor::hover
 method CodeEditor::indent
 method CodeEditor::language
 method CodeEditor::line_numbers
 method CodeEditor::new
+method CodeEditor::on_complete
+method CodeEditor::on_go_to
+method CodeEditor::on_hover
 method CodeEditor::read_only
 method CodeEditor::rows
 method Collapse::boxed
@@ -2590,6 +3209,14 @@ method DataGrid::sort_by
 method DataGrid::striped
 method DataGrid::toolbar
 method DataGrid::vertical_lines
+method DataInspector::item
+method DataInspector::label
+method DataInspector::limit
+method DataInspector::mode
+method DataInspector::new
+method DataInspector::of
+method DataInspector::on_pick
+method DataInspector::selected
 method Date::add_days
 method Date::add_months
 method Date::day
@@ -2661,24 +3288,40 @@ method Disclosure::switch
 method Disclosure::title_view
 method Divider::horizontal
 method Divider::vertical
+method DockArea::auto_hide
 method DockArea::center_min
 method DockArea::dock_limits
 method DockArea::edge_toggles
+method DockArea::floatable
+method DockArea::free_placement
 method DockArea::height
 method DockArea::label
 method DockArea::movable
 method DockArea::new
+method DockArea::on_change
+method DockArea::on_documents_empty
 method DockArea::on_end
 method DockArea::pane_min
 method DockArea::tab_bar
 method DockLayout::activate
+method DockLayout::auto_hidden_panels
+method DockLayout::auto_hidden_side
+method DockLayout::auto_hidden_size
+method DockLayout::auto_hide
 method DockLayout::bottom
+method DockLayout::bring_to_front
 method DockLayout::center
 method DockLayout::close
 method DockLayout::closed
 method DockLayout::closed_panels
 method DockLayout::contains
+method DockLayout::float
+method DockLayout::floating_home
+method DockLayout::floating_panels
+method DockLayout::floating_rect
 method DockLayout::is_active
+method DockLayout::is_auto_hidden
+method DockLayout::is_floating
 method DockLayout::is_open
 method DockLayout::left
 method DockLayout::move_panel
@@ -2686,20 +3329,27 @@ method DockLayout::new
 method DockLayout::node
 method DockLayout::panels
 method DockLayout::parse
+method DockLayout::pin
 method DockLayout::reconcile
 method DockLayout::reopen
 method DockLayout::right
+method DockLayout::set_auto_hidden_size
+method DockLayout::set_floating_rect
 method DockLayout::set_open
 method DockLayout::set_size
 method DockLayout::side_of
 method DockLayout::size
 method DockLayout::to_text
+method DockLayout::top
 method DockNode::horizontal
 method DockNode::tabs
 method DockNode::vertical
 method DockPanel::closable
+method DockPanel::close_action
 method DockPanel::icon
+method DockPanel::kind
 method DockPanel::new
+method DockPanel::unsaved
 method DocumentTab::closable
 method DocumentTab::color
 method DocumentTab::icon
@@ -2719,6 +3369,10 @@ method Dot::new
 method Dot::size
 method Dot::tone
 method Drag::fraction_x
+method DragPayload::data
+method DragPayload::kind
+method DragPayload::label
+method DragPayload::new
 method DropZone::accept
 method DropZone::choosable
 method DropZone::disabled
@@ -2738,6 +3392,7 @@ method DropdownMenu::icon
 method DropdownMenu::icon_only
 method DropdownMenu::item
 method DropdownMenu::new
+method DropdownMenu::open
 method DropdownMenu::separator
 method DropdownMenu::size
 method DropdownMenu::style
@@ -2759,6 +3414,8 @@ method ExpressionEditor::fields
 method ExpressionEditor::new
 method ExpressionEditor::parameter
 method ExpressionEditor::parameters
+method ExpressionEditor::preview
+method ExpressionEditor::preview_error
 method ExpressionEditor::rows
 method Eyedropper::disabled
 method Eyedropper::hint
@@ -2784,6 +3441,9 @@ method FavoriteToggle::label
 method FavoriteToggle::new
 method FavoriteToggle::size
 method FavoriteToggle::star
+method FieldDrag::carried
+method FieldDrag::new
+method FieldDrag::payload
 method FileBrowser::height
 method FileBrowser::label
 method FileBrowser::mode
@@ -2838,27 +3498,91 @@ method FloatingToolbar::new
 method FloatingToolbar::place
 method FloatingToolbar::separator
 method FloatingToolbar::view
+method FlowCanvas::arrivals
+method FlowCanvas::cables
+method FlowCanvas::checks
+method FlowCanvas::connection
+method FlowCanvas::content
 method FlowCanvas::controls
+method FlowCanvas::editable_titles
+method FlowCanvas::execution
 method FlowCanvas::grid
 method FlowCanvas::grow
+method FlowCanvas::history
 method FlowCanvas::kind
 method FlowCanvas::label
+method FlowCanvas::layout
 method FlowCanvas::locked
 method FlowCanvas::minimap
 method FlowCanvas::new
+method FlowCanvas::next_node
+method FlowCanvas::notation
+method FlowCanvas::on_change
+method FlowCanvas::on_export
+method FlowCanvas::open_end
+method FlowCanvas::pan_with_wheel
+method FlowCanvas::ports_on_hover
+method FlowCanvas::quick_create
 method FlowCanvas::range
+method FlowCanvas::read_only
+method FlowCanvas::resizable
+method FlowCanvas::rotatable
+method FlowCanvas::runs
 method FlowCanvas::selection
 method FlowCanvas::size
 method FlowCanvas::snap
 method FlowCanvas::validate
 method FlowCanvas::view
+method FlowFileFormat::new
+method FlowInspector::history
+method FlowInspector::kind
+method FlowInspector::new
+method FlowInspector::notation
+method FlowInspector::on_change
+method FlowInspector::read_only
+method FlowInspector::width
+method FlowIssue::new
 method FlowKind::new
 method FlowKind::tone
+method FlowLayers::history
+method FlowLayers::new
+method FlowLayers::width
+method FlowLibrary::format
+method FlowLibrary::history
+method FlowLibrary::key
+method FlowLibrary::new
+method FlowLibrary::notation
+method FlowLibrary::selection
+method FlowLibrary::starter
+method FlowLibrary::storage
+method FlowLibrary::title
+method FlowLibrary::view
+method FlowLibrary::width
+method FlowNotation::cables
+method FlowNotation::caption
+method FlowNotation::checks
+method FlowNotation::connection
+method FlowNotation::format
+method FlowNotation::kind
+method FlowNotation::look
+method FlowNotation::model
+method FlowNotation::new
+method FlowNotation::next_node
+method FlowNotation::runs
+method FlowNotation::validate
 method FlowSelection::edge
 method FlowSelection::has_edge
 method FlowSelection::has_node
 method FlowSelection::is_empty
 method FlowSelection::node
+method FlowToolbox::arrivals
+method FlowToolbox::group
+method FlowToolbox::model
+method FlowToolbox::new
+method FlowToolbox::notation
+method FlowToolbox::searchable
+method FlowToolbox::title
+method FlowToolbox::width
 method FlowViewport::at
 method FlowViewport::fit
 method FlowViewport::fitting
@@ -3048,6 +3772,10 @@ method InlineRename::size
 method InlineRename::width
 method InputOtp::new
 method InputOtp::on_complete
+method Jack::at
+method Jack::input
+method Jack::output
+method Jack::signal
 method Kbd::inherit_color
 method Kbd::new
 method KeyBar::item
@@ -3061,13 +3789,21 @@ method Label::ink
 method Label::new
 method Label::required
 method Label::text
+method Labels::dock_auto_hide_name
 method Labels::dock_close_name
 method Labels::dock_closed_name
+method Labels::dock_dock_back_name
+method Labels::dock_floating_name
+method Labels::dock_hidden_name
 method Labels::dock_hide_name
+method Labels::dock_move_floating_name
 method Labels::dock_moved_to
 method Labels::dock_options_name
+method Labels::dock_pin_name
+method Labels::dock_pinned_name
 method Labels::dock_place
 method Labels::dock_resize_between
+method Labels::dock_resize_floating_name
 method Labels::dock_resize_name
 method Labels::dock_show_name
 method Labels::dock_with_name
@@ -3110,6 +3846,20 @@ method ListItem::trailing
 method LiveRunner::new
 method LiveRunner::with_registry
 method Localized::new
+method LogBuffer::clear
+method LogBuffer::is_empty
+method LogBuffer::len
+method LogBuffer::line
+method LogBuffer::new
+method LogBuffer::push
+method LogBuffer::section
+method LogView::follow_end
+method LogView::height
+method LogView::label
+method LogView::line_numbers
+method LogView::new
+method LogView::on_line
+method LogView::searchable
 method LookupField::disabled
 method LookupField::label
 method LookupField::limit
@@ -3145,6 +3895,7 @@ method MaskedField::read_only
 method MaskedField::width
 method MenuItem::checked
 method MenuItem::destructive
+method MenuItem::disabled
 method MenuItem::element
 method MenuItem::icon
 method MenuItem::item
@@ -3223,6 +3974,39 @@ method PagedDocumentView::zoom
 method Pagination::compact
 method Pagination::labels
 method Pagination::new
+method ParamField::default
+method ParamField::depends_on
+method ParamField::expressions
+method ParamField::hint
+method ParamField::new
+method ParamField::required
+method ParamField::shown_when
+method ParamValues::get
+method ParamValues::into_map
+method ParamValues::new
+method ParameterForm::live
+method ParameterForm::new
+method ParameterForm::on_apply
+method ParameterForm::on_discard
+method ParameterForm::on_load
+method ParameterForm::options
+method PatchLink::new
+method PatchPanel::accept
+method PatchPanel::background
+method PatchPanel::color_of
+method PatchPanel::fit
+method PatchPanel::flipped
+method PatchPanel::front
+method PatchPanel::label
+method PatchPanel::new
+method PatchPanel::on_connect
+method PatchPanel::on_disconnect
+method PatchPanel::on_join
+method PatchPanel::pair
+method PatchPanel::retract
+method PatchPanel::size
+method PatchPanel::texture_of
+method PatchPanel::thickness
 method PickedFile::extension
 method PickedFile::new
 method Playground::action
@@ -3262,6 +4046,7 @@ method QuadField::height
 method QuadField::new
 method QuadField::range
 method QuadPaint::new
+method QuarterTurn::new
 method RadioGroup::label
 method RadioGroup::new
 method Rating::clearable
@@ -3298,6 +4083,7 @@ method ReleaseNote::section
 method ReleaseNotes::height
 method ReleaseNotes::new
 method RemoteRows::chunk_size
+method RemoteRows::is_loading
 method RemoteRows::max_chunks
 method RemoteRows::max_in_flight
 method RemoteRows::new
@@ -3462,6 +4248,7 @@ method Semantics::modal
 method Semantics::name
 method Semantics::new
 method Semantics::numeric
+method Semantics::protected
 method Semantics::read_only
 method Semantics::role
 method Semantics::selected
@@ -3693,11 +4480,19 @@ method TextField::on_submit
 method TextField::placeholder
 method TextField::prefix
 method TextField::read_only
+method TextField::recall
 method TextField::secure
 method TextField::select_on_open
 method TextField::size
 method TextField::suffix
 method TextField::width
+method TextHistory::can_redo
+method TextHistory::can_undo
+method TextHistory::clear
+method TextHistory::new
+method TextHistory::record_change
+method TextHistory::redo
+method TextHistory::undo
 method ThemeEditor::new
 method ThemeEditor::theme
 method ThemePicker::new
@@ -3791,6 +4586,7 @@ method Toasts::show
 method Toasts::show_for
 method Toasts::show_until_closed
 method Toasts::show_with
+method Toggle::accessible_name
 method Toggle::disabled
 method Toggle::label
 method Toggle::new
@@ -3850,6 +4646,7 @@ method TreeNode::icon
 method TreeNode::lazy
 method TreeNode::new
 method TreeView::checked
+method TreeView::context_menu
 method TreeView::expanded
 method TreeView::filter
 method TreeView::height
@@ -3859,7 +4656,9 @@ method TreeView::on_expand
 method TreeView::on_open
 method TreeView::row_height
 method TreeView::selected
+method Ui::access_node_at
 method Ui::access_tree
+method Ui::cables
 method Ui::clipboard
 method Ui::cursor
 method Ui::drop_files
@@ -3870,6 +4669,7 @@ method Ui::handle_event
 method Ui::is_animating
 method Ui::is_dragging
 method Ui::links
+method Ui::may_close
 method Ui::needs_redraw
 method Ui::new
 method Ui::next_wake
@@ -3877,6 +4677,9 @@ method Ui::perform_action
 method Ui::phase_times
 method Ui::scale
 method Ui::scene
+method Ui::scroll_frames
+method Ui::set_access_value
+method Ui::set_cable_world
 method Ui::set_clipboard
 method Ui::set_file_picker
 method Ui::set_files_over
@@ -3897,7 +4700,9 @@ method Ui::sound
 method Ui::stats
 method Ui::system_appearance
 method Ui::system_themes
+method Ui::take_close
 method Ui::take_frame_work
+method Ui::test_source
 method Ui::text_system
 method Ui::theme
 method Ui::theme_state
@@ -3946,6 +4751,7 @@ method VirtualList::row_name
 method VirtualList::scroll_to
 method VirtualList::selection
 method VirtualList::spacing
+method WindowCloser::close
 method Wizard::finish_label
 method Wizard::new
 method Wizard::on_cancel
@@ -4081,6 +4887,7 @@ method grid::GridScenario::list_to_json
 method grid::GridScenario::new
 method grid::NumberFormat::format
 method grid::RemoteRows::chunk_size
+method grid::RemoteRows::is_loading
 method grid::RemoteRows::max_chunks
 method grid::RemoteRows::max_in_flight
 method grid::RemoteRows::new
@@ -4097,8 +4904,32 @@ method grid::query::GridQuery::set_filter
 method grid::query::GridQuery::toggle_collapsed
 method grid::query::GridQuery::toggle_group
 method grid::query::GridQuery::toggle_sort
+method testing::CropDriver::new
+method testing::CropDriver::set
+method testing::CropDriver::value
+method testing::DataGridDriver::clear_sort
+method testing::DataGridDriver::edit_cell
+method testing::DataGridDriver::filter
+method testing::DataGridDriver::new
+method testing::DataGridDriver::sort_by
+method testing::DataGridDriver::within
+method testing::DockDriver::dock_back
+method testing::DockDriver::float
+method testing::DockDriver::new
+method testing::FlowCanvasDriver::connect
+method testing::FlowCanvasDriver::move_node
+method testing::FlowCanvasDriver::new
+method testing::SchedulerDriver::move_event
+method testing::SchedulerDriver::move_to_resource
+method testing::SchedulerDriver::new
+method testing::SchedulerDriver::resize_event
+method testing::SortableDriver::move_before
+method testing::SortableDriver::new
+method testing::SortableDriver::order
+mod book
 mod grid
 mod grid::query
+mod testing
 mod validate
 reexport ChartCurve = ravenrs_graphics::plot::Curve
 reexport ChartGrid = ravenrs_graphics::plot::Grid
@@ -4106,20 +4937,44 @@ reexport ChartKind = ravenrs_graphics::chart::ChartKind
 reexport ChartLabelAt = ravenrs_graphics::plot::LabelAt
 reexport ChartPolarGrid = ravenrs_graphics::plot::PolarGrid
 reexport ChartStack = ravenrs_graphics::plot::Stack
+reexport EdgeCap = ravenrs_graphics::flow::EdgeCap
 reexport EdgeShape = ravenrs_graphics::flow::EdgeShape
+reexport FLOW_FORMAT = ravenrs_graphics::flow::FLOW_FORMAT
+reexport FlowColors = ravenrs_graphics::flow::picture::FlowColors
+reexport FlowDirection = ravenrs_graphics::flow::layout::FlowDirection
+reexport FlowDocument = ravenrs_graphics::flow::document::FlowDocument
 reexport FlowEdge = ravenrs_graphics::flow::FlowEdge
 reexport FlowEndpoint = ravenrs_graphics::flow::FlowEndpoint
+reexport FlowExportFormat = ravenrs_graphics::flow::picture::FlowExportFormat
+reexport FlowGate = ravenrs_graphics::flow::run::FlowGate
 reexport FlowGraph = ravenrs_graphics::flow::FlowGraph
+reexport FlowHistory = ravenrs_graphics::flow::FlowHistory
+reexport FlowJsonError = ravenrs_graphics::flow::FlowJsonError
+reexport FlowLayout = ravenrs_graphics::flow::layout::FlowLayout
+reexport FlowLayoutKind = ravenrs_graphics::flow::layout::FlowLayoutKind
 reexport FlowNode = ravenrs_graphics::flow::FlowNode
+reexport FlowNodeRun = ravenrs_graphics::flow::FlowNodeRun
 reexport FlowNodeStatus = ravenrs_graphics::flow::FlowNodeStatus
+reexport FlowPicture = ravenrs_graphics::flow::picture::FlowPicture
 reexport FlowPort = ravenrs_graphics::flow::FlowPort
+reexport FlowRun = ravenrs_graphics::flow::run::FlowRun
+reexport FlowRunEvent = ravenrs_graphics::flow::run::FlowRunEvent
+reexport FlowRunRules = ravenrs_graphics::flow::run::FlowRunRules
+reexport FlowRunView = ravenrs_graphics::flow::FlowRunView
+reexport FlowShape = ravenrs_graphics::flow::FlowShape
+reexport FlowShelf = ravenrs_graphics::flow::document::FlowShelf
+reexport FlowStyle = ravenrs_graphics::flow::style::FlowStyle
+reexport FlowText = ravenrs_graphics::flow::picture::FlowText
 reexport LottieAnimation = ravenrs_lottie::document::Animation
 reexport LottieError = ravenrs_lottie::document::LottieError
+reexport NODE_REFS = ravenrs_graphics::flow::NODE_REFS
 reexport PortDirection = ravenrs_graphics::flow::PortDirection
 reexport PortSide = ravenrs_graphics::flow::PortSide
 reexport SankeyAlign = ravenrs_graphics::sankey::SankeyAlign
 reexport Symbology = ravenrs_barcode::Symbology
 reexport TextAlign = ravenrs_text::TextAlign
+reexport book::* = ravenrs_widgets_base::book
+reexport cable = ravenrs_core::cable
 struct AccessibleControl
 struct Accordion
 struct Alert
@@ -4137,14 +4992,18 @@ struct Barcode
 struct BoxTransform
 struct Breadcrumb
 struct BuildCx
+struct BusySignal
 struct Button
 struct ButtonGroup
+struct CablePlug
+struct Cables
 struct Calendar
 struct CalendarEvent
 struct Canvas
 struct Card
 struct CardView
 struct Carousel
+struct Carrying
 struct CellEdit
 struct Chart
 struct ChartCard
@@ -4156,6 +5015,7 @@ struct ChatMessage
 struct Checkbox
 struct Clipboard
 struct CodeBlock
+struct CodeCompletion
 struct CodeDiagnostic
 struct CodeEditor
 struct Collapse
@@ -4176,6 +5036,7 @@ struct CropArea
 struct CropOverlay
 struct CurveEditor
 struct DataGrid
+struct DataInspector
 struct Date
 struct DatePicker
 struct DateRange
@@ -4198,6 +5059,7 @@ struct DocumentTab
 struct DocumentTabs
 struct Dot
 struct Drag
+struct DragPayload
 struct DropZone
 struct DropdownMenu
 struct EmptyState
@@ -4208,6 +5070,7 @@ struct EyedropperArea
 struct EyedropperState
 struct Faded
 struct FavoriteToggle
+struct FieldDrag
 struct FileBrowser
 struct FileEntry
 struct FilePicker
@@ -4222,8 +5085,15 @@ struct FilterLayout
 struct FloatingPanel
 struct FloatingToolbar
 struct FlowCanvas
+struct FlowFileFormat
+struct FlowInspector
+struct FlowIssue
 struct FlowKind
+struct FlowLayers
+struct FlowLibrary
+struct FlowNotation
 struct FlowSelection
+struct FlowToolbox
 struct FlowViewport
 struct FnView
 struct Footer
@@ -4262,6 +5132,7 @@ struct ImageLightbox
 struct IndicatorStep
 struct InlineRename
 struct InputOtp
+struct Jack
 struct Kbd
 struct KeyBar
 struct KeyBarItem
@@ -4275,6 +5146,8 @@ struct List
 struct ListItem
 struct LiveRunner
 struct Localized
+struct LogBuffer
+struct LogView
 struct LookupField
 struct LookupItem
 struct LookupRequest
@@ -4301,6 +5174,11 @@ struct PageHeader
 struct PagedDocumentView
 struct Pagination
 struct PaintCx
+struct ParamField
+struct ParamValues
+struct ParameterForm
+struct PatchLink
+struct PatchPanel
 struct PickedFile
 struct Playground
 struct Popover
@@ -4309,6 +5187,7 @@ struct PropertyRow
 struct Protractor
 struct QuadField
 struct QuadPaint
+struct QuarterTurn
 struct RadioGroup
 struct Rating
 struct RecurrenceEditor
@@ -4386,9 +5265,11 @@ struct SystemAppearance
 struct Table
 struct Tabs
 struct TagBox
+struct TestId
 struct Text
 struct TextArea
 struct TextField
+struct TextHistory
 struct ThemeEditor
 struct ThemePicker
 struct ThemeSwitcher
@@ -4428,6 +5309,7 @@ struct VStack
 struct ValueSlider
 struct VirtualList
 struct WidgetId
+struct WindowCloser
 struct Wizard
 struct WizardStep
 struct YearView
@@ -4462,6 +5344,12 @@ struct grid::query::GridQuery
 struct grid::query::GridTable
 struct grid::query::GridTableColumn
 struct grid::query::QueryResult
+struct testing::CropDriver
+struct testing::DataGridDriver
+struct testing::DockDriver
+struct testing::FlowCanvasDriver
+struct testing::SchedulerDriver
+struct testing::SortableDriver
 trait ClipboardProvider
 trait Component
 trait FilePickerProvider
@@ -4469,6 +5357,7 @@ trait FullScreenProvider
 trait LinkOpener
 trait Runner
 trait SoundProvider
+trait UiDriver
 trait View
 trait ViewExt
 trait ViewSeq
@@ -4488,6 +5377,10 @@ trait-item SoundProvider::play
 trait-item SoundProvider::speak
 trait-item SoundProvider::speak_clip
 trait-item SoundProvider::stop_speaking
+trait-item UiDriver::drive
+trait-item UiDriver::start
+trait-item UiDriver::time
+trait-item UiDriver::window_closed
 trait-item View::build
 trait-item View::type_name
 trait-item ViewExt::background
@@ -4498,13 +5391,24 @@ trait-item ViewExt::height
 trait-item ViewExt::opacity
 trait-item ViewExt::padding
 trait-item ViewExt::stretch
+trait-item ViewExt::test_id
 trait-item ViewExt::tooltip
 trait-item ViewExt::width
 trait-item ViewSeq::build_each
+type AccessHandler
 type ActivityObserver
 type AnyView
+type DockGuard
 type DragHandler
 type DrawFn
+type DropCheck
+type DropHandler
+type FlowChecks
+type FlowConnector
+type FlowContent
+type FlowExporter
+type FlowGuard
+type FlowNext
 type FlowValidator
 type KeyHandler
 type LiveFn
@@ -4538,6 +5442,14 @@ variant ButtonStyle::Danger
 variant ButtonStyle::Ghost
 variant ButtonStyle::Primary
 variant ButtonStyle::Secondary
+variant CableAnchor::Node
+variant CableAnchor::Point
+variant CableAnchor::Pointer
+variant CableSide::Bottom
+variant CableSide::Center
+variant CableSide::Left
+variant CableSide::Right
+variant CableSide::Top
 variant CalendarView::Day
 variant CalendarView::Month
 variant CalendarView::Week
@@ -4558,6 +5470,7 @@ variant ChatAuthor::Assistant
 variant ChatAuthor::Person
 variant CodeLanguage::Plain
 variant CodeLanguage::Rust
+variant CodeLanguage::Toml
 variant CompareMode::Divider
 variant CompareMode::SideBySide
 variant CompareSide::First
@@ -4572,6 +5485,19 @@ variant ContentMode::Fit
 variant ContentSpace::Fit
 variant ContentSpace::Frame
 variant ContentSpace::View
+variant DockChange::Activate
+variant DockChange::AutoHide
+variant DockChange::Close
+variant DockChange::Collapse
+variant DockChange::Dock
+variant DockChange::Float
+variant DockChange::Move
+variant DockChange::Pin
+variant DockChange::Place
+variant DockChange::Reopen
+variant DockChange::Resize
+variant DockCloseAction::Hide
+variant DockCloseAction::Remove
 variant DockDrop::Side
 variant DockDrop::Split
 variant DockDrop::Tab
@@ -4585,16 +5511,22 @@ variant DockLayoutError::Syntax
 variant DockLayoutError::UnsupportedVersion
 variant DockNode::Split
 variant DockNode::Tabs
+variant DockPanelKind::Document
+variant DockPanelKind::Tool
 variant DockSide::Bottom
 variant DockSide::Center
 variant DockSide::Left
 variant DockSide::Right
+variant DockSide::Top
 variant DockTabBar::Always
 variant DockTabBar::Never
 variant DockTabBar::WhenSeveral
 variant DragPhase::End
 variant DragPhase::Move
 variant DragPhase::Start
+variant Driving::Done
+variant Driving::Driven
+variant Driving::Released
 variant FileSortColumn::Modified
 variant FileSortColumn::Name
 variant FileSortColumn::Size
@@ -4608,6 +5540,23 @@ variant FloatingCorner::BottomLeft
 variant FloatingCorner::BottomRight
 variant FloatingCorner::TopLeft
 variant FloatingCorner::TopRight
+variant FlowChange::Arrange
+variant FlowChange::Bend
+variant FlowChange::Connect
+variant FlowChange::Create
+variant FlowChange::Delete
+variant FlowChange::Edit
+variant FlowChange::Group
+variant FlowChange::Move
+variant FlowChange::Paste
+variant FlowChange::Reconnect
+variant FlowChange::Redo
+variant FlowChange::Rename
+variant FlowChange::Reorder
+variant FlowChange::Resize
+variant FlowChange::Rotate
+variant FlowChange::Undo
+variant FlowChange::Ungroup
 variant Frequency::Daily
 variant Frequency::Monthly
 variant Frequency::Once
@@ -4823,6 +5772,8 @@ variant IconName::X
 variant IconName::Zap
 variant IconName::ZoomIn
 variant IconName::ZoomOut
+variant JackFlow::Input
+variant JackFlow::Output
 variant ModelStatus::Available
 variant ModelStatus::Downloading
 variant ModelStatus::Installed
@@ -4832,6 +5783,19 @@ variant Paint::Live
 variant Paint::None
 variant Paint::Quad
 variant Paint::Rich
+variant ParamKind::Boolean
+variant ParamKind::Choice
+variant ParamKind::Group
+variant ParamKind::List
+variant ParamKind::Loaded
+variant ParamKind::LongText
+variant ParamKind::Number
+variant ParamKind::Text
+variant ParamOptions::Failed
+variant ParamOptions::Loading
+variant ParamOptions::Ready
+variant PathStep::Key
+variant PathStep::Row
 variant Placement::Above
 variant Placement::AboveCenter
 variant Placement::At
@@ -4902,6 +5866,8 @@ variant Tone::Danger
 variant Tone::Neutral
 variant Tone::Success
 variant Tone::Warning
+variant Turn::Clockwise
+variant Turn::CounterClockwise
 variant UiActivity::Clicked
 variant UiActivity::Described
 variant UiActivity::Painted

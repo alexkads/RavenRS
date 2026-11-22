@@ -100,7 +100,7 @@ impl Designer {
     /// The File menu and the Home page offer the gallery and the report wizard, which build
     /// reports from the samples of `ravenrs_report::samples`. There are no Save and Close
     /// buttons: the report leaves through the JSON tab, print and export. This is what
-    /// `examples/report-designer` runs; an application editing its own reports uses
+    /// `tools/raven-report-designer` runs; an application editing its own reports uses
     /// [`Designer::embedded`] instead.
     pub fn new() -> Self {
         Self {
@@ -181,7 +181,7 @@ impl Designer {
     /// The keys are those of [`SAMPLE_KEYS`]: `invoice`, `sales` (300 orders), `sales-10k`
     /// (10,000 orders, to feel how long a large render takes), `dashboard` and `customers`.
     /// An unknown key changes nothing, so the gallery stays open. The web page of
-    /// `examples/report-designer` calls it with the `report` of its address (`?report=invoice`).
+    /// `tools/raven-report-designer` calls it with the `report` of its address (`?report=invoice`).
     /// Loading the sample is one undo step, like any other change.
     pub fn sample(self, key: &str) -> Self {
         let report = match key {
@@ -625,11 +625,27 @@ impl Designer {
     }
 }
 
+/// What a new diagram control shows until its JSON or field is chosen: three steps of a sale,
+/// written by the diagram model itself so that it always reads back.
+fn sample_diagram() -> String {
+    use ravenrs_report::flow::{FlowEdge, FlowEndpoint, FlowGraph, FlowNode, FlowPort};
+    let step = |id: &str, title: &str, x: f32| {
+        FlowNode::new(id, "step", title, x, 0.0).port(FlowPort::input("in")).port(FlowPort::output("out"))
+    };
+    FlowGraph::new()
+        .node(step("a", "Pedido", 0.0))
+        .node(step("b", "Pagamento", 280.0))
+        .node(step("c", "Entrega", 560.0))
+        .edge(FlowEdge::new("e1", FlowEndpoint::new("a", "out"), FlowEndpoint::new("b", "in")))
+        .edge(FlowEdge::new("e2", FlowEndpoint::new("b", "out"), FlowEndpoint::new("c", "in")))
+        .to_json()
+}
+
 /// A control of the toolbox: its name, its icon and how a new one starts.
 type Tool = (&'static str, IconName, fn() -> Control);
 
 /// The controls of the toolbox and of the Insert page, in order.
-const TOOLS: [Tool; 16] =
+const TOOLS: [Tool; 17] =
     [
         ("Rótulo", IconName::Type, || Control::label("Texto").at(0.0, 0.0, 140.0, 18.0)),
         ("Campo", IconName::Database, || Control::field("[Customer]").at(0.0, 0.0, 140.0, 18.0)),
@@ -645,6 +661,7 @@ const TOOLS: [Tool; 16] =
         ("Gráfico", IconName::ChartColumn, || {
             Control::chart(ChartKind::Bar, "[Region]", "[Quantity] * [UnitPrice]").at(0.0, 0.0, 320.0, 180.0)
         }),
+        ("Diagrama", IconName::GitBranch, || Control::diagram(sample_diagram()).at(0.0, 0.0, 360.0, 160.0)),
         ("Caixa de seleção", IconName::CircleCheck, || {
             Control::check_box("[Paid]", "Pago").at(0.0, 0.0, 100.0, 18.0)
         }),
@@ -1161,7 +1178,8 @@ impl View for StatusBar {
                 page.map(muted),
                 muted(render),
                 ZoomBar(e.clone()),
-                self.themes.then(ThemePicker::new),
+                // In Portuguese like the rest of the editor, as the expression editor is (#379).
+                self.themes.then(|| Localized::new(Labels::pt_br(), ThemePicker::new())),
             ))
             .spacing(SPACING.s3)
             .align(Align::Center)
@@ -1488,6 +1506,41 @@ mod tests {
         assert!(Designer::embedded(report(), "Salvar", "Fechar", |_| {}, || {}).theme_menu);
         let kept = Designer::embedded(report(), "Salvar", "Fechar", |_| {}, || {}).theme_menu(false);
         assert!(!kept.theme_menu);
+    }
+
+    #[test]
+    fn the_theme_menu_speaks_portuguese_alone_and_inside_an_application() {
+        // #379: "Follow the system", "Dark", "Light" and "Glass" stood out in an editor in Portuguese.
+        let report = || samples::sales_by_region(3);
+        for designer in [Designer::new(), Designer::embedded(report(), "Salvar", "Fechar", |_| {}, || {})] {
+            let mut ui = ravenrs_widgets::Ui::new(designer, ravenrs_style::Theme::raven_dark());
+            ui.set_viewport(ravenrs_core::Size::new(1400.0, 900.0), 1.0);
+            ui.set_system_dark(true);
+            ui.update();
+            ui.update();
+            // Alone, it opens on the dialog of a new report.
+            if let Some(close) = ui.access_tree().find(ravenrs_core::Role::Button, "Fechar") {
+                ui.perform_action(close.id, ravenrs_core::AccessAction::Click);
+                ui.update();
+                ui.update();
+            }
+            let tree = ui.access_tree();
+            let found = tree.nodes.iter().find(|n| n.name.as_deref() == Some("Tema"));
+            let menu = found
+                .unwrap_or_else(|| {
+                    let named: Vec<_> = tree.nodes.iter().filter_map(|n| n.name.as_deref()).collect();
+                    panic!("no Tema in {named:?}")
+                })
+                .id;
+            ui.perform_action(menu, ravenrs_core::AccessAction::Click);
+            ui.update();
+            ui.update();
+            let names: Vec<String> = ui.access_tree().nodes.iter().filter_map(|n| n.name.clone()).collect();
+            for word in ["Seguir o sistema", "Escuro", "Claro", "Vidro"] {
+                assert!(names.iter().any(|n| n == word), "{word} in {names:?}");
+            }
+            assert!(!names.iter().any(|n| n == "Follow the system" || n == "Glass"), "{names:?}");
+        }
     }
 
     #[test]

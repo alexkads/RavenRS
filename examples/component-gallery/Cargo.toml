@@ -10,6 +10,17 @@ publish = false
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[features]
+default = ["entry"]
+# Its own page in the browser. The feature center uses the examples as a library, with its own page,
+# so it leaves this off (#587).
+entry = []
+
+# How Raven Test Studio (RTS) finds and opens this app on the test channel (--e2e-serve).
+[package.metadata.ravenrs.e2e]
+app = "Componentes"
+binary = "component-gallery"
+
 [dependencies]
 ravenrs = { workspace = true, features = ["code", "live"] }
 ravenrs-grid-export.workspace = true
@@ -18,6 +29,9 @@ ravenrs-app-ui = { workspace = true, features = ["live"] }
 ravenrs-project.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# The test channel, closed until the app is opened with --e2e-serve.
+ravenrs-e2e.workspace = true
+ravenrs-e2e-wire = { workspace = true, features = ["serve"] }
 tracing-subscriber.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

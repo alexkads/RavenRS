@@ -1,6 +1,10 @@
 //! **BETA, proof of concept.** A supermarket checkout: everything it does comes from RavenRS crates,
 //! and this is only how they are put together, with some sample records and the sandbox of the SEFAZ.
 
+/// The scenarios of Raven Test Studio the app brings, one per file of `tests/e2e/`: the tool
+/// gets them when it opens the app with `--e2e-serve`, and the tests play them.
+pub const SCENARIOS: [&str; 1] = [include_str!("../tests/e2e/abrir.raventest")];
+
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 

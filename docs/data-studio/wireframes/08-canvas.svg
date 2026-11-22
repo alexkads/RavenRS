@@ -1,0 +1,150 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 760" width="1280" height="760" role="img" aria-label="Wireframe: Canvas de mapeamento">
+<title>Wireframe: Canvas de mapeamento</title><style>
+:root{--bg:#ffffff;--panel:#f5f6f8;--line:#d4d7dd;--ink:#1d2025;--muted:#5f6673;--accent:#3b5bdb;--ok:#2b8a3e;--warn:#b35c00;--bad:#c92a2a;--chip:#e9ecf2}
+@media (prefers-color-scheme: dark){:root{--bg:#16181c;--panel:#1f2228;--line:#3a3f48;--ink:#e8eaee;--muted:#a3aab6;--accent:#8ea2ff;--ok:#69db7c;--warn:#ffa94d;--bad:#ff8787;--chip:#2a2e36}}
+.bg{fill:var(--bg)} .p{fill:var(--panel);stroke:var(--line)} .l{stroke:var(--line);fill:none}
+.t{fill:var(--ink);font:13px system-ui,sans-serif} .s{fill:var(--muted);font:11px system-ui,sans-serif}
+.h{fill:var(--ink);font:600 15px system-ui,sans-serif} .m{fill:var(--ink);font:11px ui-monospace,monospace}
+.chip{fill:var(--chip);stroke:var(--line)} .acc{fill:var(--accent)} .acct{fill:var(--accent);font:600 12px system-ui,sans-serif}
+.ok{fill:var(--ok);font:600 11px system-ui,sans-serif} .warn{fill:var(--warn);font:600 11px system-ui,sans-serif}
+.bad{fill:var(--bad);font:600 11px system-ui,sans-serif} .btn{fill:var(--accent)} .btnt{fill:#fff;font:600 12px system-ui,sans-serif}
+.edge{stroke:var(--accent);stroke-width:1.6;fill:none} .edgew{stroke:var(--warn);stroke-width:1.6;fill:none;stroke-dasharray:5 4}
+.n{fill:var(--accent);font:600 11px system-ui,sans-serif}
+</style>
+<rect class="bg" width="1280" height="760"/>
+<rect class="p" x="0" y="0" width="1280" height="40" rx="0"/>
+<text class="h" x="16" y="25" text-anchor="start">Raven Data Studio</text>
+<text class="s" x="190" y="25" text-anchor="start">Projetos › Migração legado › Mapeamento</text>
+<rect class="p" x="0" y="40" width="200" height="692" rx="0"/>
+<text class="s" x="16" y="66" text-anchor="start">ETAPAS</text>
+<text class="ok" x="18" y="88" text-anchor="start">✓</text>
+<text class="s" x="36" y="88" text-anchor="start">Origem e destino</text>
+<text class="ok" x="18" y="112" text-anchor="start">✓</text>
+<text class="s" x="36" y="112" text-anchor="start">Perfil</text>
+<text class="ok" x="18" y="136" text-anchor="start">✓</text>
+<text class="s" x="36" y="136" text-anchor="start">Schema</text>
+<text class="ok" x="18" y="160" text-anchor="start">✓</text>
+<text class="s" x="36" y="160" text-anchor="start">Comparação e DDL</text>
+<text class="acct" x="18" y="184" text-anchor="start">●</text>
+<text class="t" x="36" y="184" text-anchor="start">Mapeamento</text>
+<text class="s" x="18" y="208" text-anchor="start">○</text>
+<text class="s" x="36" y="208" text-anchor="start">Transformações</text>
+<text class="s" x="18" y="232" text-anchor="start">○</text>
+<text class="s" x="36" y="232" text-anchor="start">Conflitos</text>
+<text class="s" x="18" y="256" text-anchor="start">○</text>
+<text class="s" x="36" y="256" text-anchor="start">Simulação</text>
+<text class="s" x="18" y="280" text-anchor="start">○</text>
+<text class="s" x="36" y="280" text-anchor="start">Revisão final</text>
+<text class="s" x="18" y="304" text-anchor="start">○</text>
+<text class="s" x="36" y="304" text-anchor="start">Execução</text>
+<text class="s" x="18" y="328" text-anchor="start">○</text>
+<text class="s" x="36" y="328" text-anchor="start">Resultado</text>
+<rect class="p" x="0" y="732" width="1280" height="28" rx="0"/>
+<rect class="p" x="216" y="52" width="1048" height="32" rx="6"/>
+<rect class="chip" x="226" y="57" width="80" height="22" rx="5"/>
+<text class="t" x="266" y="72" text-anchor="middle">Grade</text>
+<rect class="btn" x="312" y="57" width="80" height="22" rx="5"/>
+<text class="btnt" x="352" y="72" text-anchor="middle">Canvas</text>
+<text class="s" x="420" y="73" text-anchor="start">Mostrar: Todas | Só pendências | Só a selecionada</text>
+<text class="s" x="900" y="73" text-anchor="start">⊞ Organizar   🔍 Buscar campo</text>
+<rect class="bg" x="216" y="92" width="1048" height="628" rx="0"/>
+<rect class="p" x="240" y="120" width="220" height="198" rx="6"/>
+<text class="h" x="250" y="140" text-anchor="start">CLIENTES · origem</text>
+<line class="l" x1="240" y1="150" x2="460" y2="150"/>
+<text class="t" x="252" y="166" text-anchor="start">COD_CLI</text>
+<circle cx="240" cy="162" r="4" class="chip"/><circle cx="460" cy="162" r="4" class="chip"/>
+<text class="t" x="252" y="190" text-anchor="start">NOME</text>
+<circle cx="240" cy="186" r="4" class="chip"/><circle cx="460" cy="186" r="4" class="chip"/>
+<text class="t" x="252" y="214" text-anchor="start">CPF</text>
+<circle cx="240" cy="210" r="4" class="chip"/><circle cx="460" cy="210" r="4" class="chip"/>
+<text class="t" x="252" y="238" text-anchor="start">FONE</text>
+<circle cx="240" cy="234" r="4" class="chip"/><circle cx="460" cy="234" r="4" class="chip"/>
+<text class="warn" x="252" y="262" text-anchor="start">ENDERECO</text>
+<circle cx="240" cy="258" r="4" class="chip"/><circle cx="460" cy="258" r="4" class="chip"/>
+<text class="t" x="252" y="286" text-anchor="start">CEP</text>
+<circle cx="240" cy="282" r="4" class="chip"/><circle cx="460" cy="282" r="4" class="chip"/>
+<text class="t" x="252" y="310" text-anchor="start">END_ENTREGA</text>
+<circle cx="240" cy="306" r="4" class="chip"/><circle cx="460" cy="306" r="4" class="chip"/>
+<rect class="p" x="240" y="450" width="220" height="150" rx="6"/>
+<text class="h" x="250" y="470" text-anchor="start">PEDIDOS · origem</text>
+<line class="l" x1="240" y1="480" x2="460" y2="480"/>
+<text class="t" x="252" y="496" text-anchor="start">NUM_PED</text>
+<circle cx="240" cy="492" r="4" class="chip"/><circle cx="460" cy="492" r="4" class="chip"/>
+<text class="t" x="252" y="520" text-anchor="start">COD_CLI</text>
+<circle cx="240" cy="516" r="4" class="chip"/><circle cx="460" cy="516" r="4" class="chip"/>
+<text class="t" x="252" y="544" text-anchor="start">DATA</text>
+<circle cx="240" cy="540" r="4" class="chip"/><circle cx="460" cy="540" r="4" class="chip"/>
+<text class="t" x="252" y="568" text-anchor="start">VALOR</text>
+<circle cx="240" cy="564" r="4" class="chip"/><circle cx="460" cy="564" r="4" class="chip"/>
+<text class="t" x="252" y="592" text-anchor="start">SITUACAO</text>
+<circle cx="240" cy="588" r="4" class="chip"/><circle cx="460" cy="588" r="4" class="chip"/>
+<rect class="p" x="900" y="110" width="220" height="126" rx="6"/>
+<text class="h" x="910" y="130" text-anchor="start">customers · destino</text>
+<line class="l" x1="900" y1="140" x2="1120" y2="140"/>
+<text class="t" x="912" y="156" text-anchor="start">document</text>
+<circle cx="900" cy="152" r="4" class="chip"/><circle cx="1120" cy="152" r="4" class="chip"/>
+<text class="t" x="912" y="180" text-anchor="start">name</text>
+<circle cx="900" cy="176" r="4" class="chip"/><circle cx="1120" cy="176" r="4" class="chip"/>
+<text class="t" x="912" y="204" text-anchor="start">phone</text>
+<circle cx="900" cy="200" r="4" class="chip"/><circle cx="1120" cy="200" r="4" class="chip"/>
+<text class="t" x="912" y="228" text-anchor="start">legacy_id</text>
+<circle cx="900" cy="224" r="4" class="chip"/><circle cx="1120" cy="224" r="4" class="chip"/>
+<rect class="p" x="900" y="280" width="220" height="126" rx="6"/>
+<text class="h" x="910" y="300" text-anchor="start">customer_addresses · destino</text>
+<line class="l" x1="900" y1="310" x2="1120" y2="310"/>
+<text class="t" x="912" y="326" text-anchor="start">street</text>
+<circle cx="900" cy="322" r="4" class="chip"/><circle cx="1120" cy="322" r="4" class="chip"/>
+<text class="t" x="912" y="350" text-anchor="start">number</text>
+<circle cx="900" cy="346" r="4" class="chip"/><circle cx="1120" cy="346" r="4" class="chip"/>
+<text class="t" x="912" y="374" text-anchor="start">postal_code</text>
+<circle cx="900" cy="370" r="4" class="chip"/><circle cx="1120" cy="370" r="4" class="chip"/>
+<text class="t" x="912" y="398" text-anchor="start">kind = 'main'</text>
+<circle cx="900" cy="394" r="4" class="chip"/><circle cx="1120" cy="394" r="4" class="chip"/>
+<rect class="p" x="900" y="470" width="220" height="150" rx="6"/>
+<text class="h" x="910" y="490" text-anchor="start">orders · destino</text>
+<line class="l" x1="900" y1="500" x2="1120" y2="500"/>
+<text class="t" x="912" y="516" text-anchor="start">customer_id</text>
+<circle cx="900" cy="512" r="4" class="chip"/><circle cx="1120" cy="512" r="4" class="chip"/>
+<text class="t" x="912" y="540" text-anchor="start">ordered_at</text>
+<circle cx="900" cy="536" r="4" class="chip"/><circle cx="1120" cy="536" r="4" class="chip"/>
+<text class="t" x="912" y="564" text-anchor="start">total</text>
+<circle cx="900" cy="560" r="4" class="chip"/><circle cx="1120" cy="560" r="4" class="chip"/>
+<text class="warn" x="912" y="588" text-anchor="start">status</text>
+<circle cx="900" cy="584" r="4" class="chip"/><circle cx="1120" cy="584" r="4" class="chip"/>
+<text class="t" x="912" y="612" text-anchor="start">legacy_id</text>
+<circle cx="900" cy="608" r="4" class="chip"/><circle cx="1120" cy="608" r="4" class="chip"/>
+<rect class="chip" x="600" y="232" width="150" height="54" rx="6"/>
+<text class="t" x="612" y="254" text-anchor="start">Só dígitos</text>
+<text class="s" x="612" y="272" text-anchor="start">→ CPF válido</text>
+<rect class="chip" x="600" y="400" width="150" height="54" rx="6"/>
+<text class="t" x="612" y="422" text-anchor="start">Dividir endereço</text>
+<text class="warn" x="612" y="440" text-anchor="start">23 em revisão</text>
+<rect class="chip" x="600" y="560" width="150" height="54" rx="6"/>
+<text class="t" x="612" y="582" text-anchor="start">Tabela de valores</text>
+<text class="warn" x="612" y="600" text-anchor="start">1 pendência</text>
+<path class="edge" d="M460,210 C530.0,210 530.0,259 600,259"/>
+<path class="edge" d="M750,259 C825.0,259 825.0,152 900,152"/>
+<path class="edge" d="M460,186 C680.0,186 680.0,176 900,176"/>
+<path class="edge" d="M460,162 C680.0,162 680.0,224 900,224"/>
+<path class="edgew" d="M460,258 C530.0,258 530.0,427 600,427"/>
+<path class="edgew" d="M750,427 C825.0,427 825.0,322 900,322"/>
+<path class="edgew" d="M750,427 C825.0,427 825.0,346 900,346"/>
+<path class="edge" d="M460,282 C680.0,282 680.0,370 900,370"/>
+<path class="edgew" d="M460,588 C530.0,588 530.0,587 600,587"/>
+<path class="edgew" d="M750,587 C825.0,587 825.0,584 900,584"/>
+<path class="edge" d="M460,540 C680.0,540 680.0,536 900,536"/>
+<path class="edge" d="M460,564 C680.0,564 680.0,560 900,560"/>
+<path class="edge" d="M460,516 C680.0,516 680.0,512 900,512"/>
+<path class="edge" d="M460,492 C680.0,492 680.0,608 900,608"/>
+<circle cx="250" cy="640" r="9" fill="none" stroke="var(--accent)"/>
+<text class="n" x="250" y="644" text-anchor="middle">1</text>
+<text class="s" x="270" y="644" text-anchor="start">tracejado laranja = pendência (não só cor: rótulo no nó)</text>
+<rect class="p" x="1136" y="610" width="120" height="100" rx="6"/>
+<text class="s" x="1146" y="628" text-anchor="start">Minimapa</text>
+<rect class="chip" x="1146" y="638" width="44" height="60" rx="2"/>
+<rect class="chip" x="1200" y="638" width="44" height="60" rx="2"/>
+<rect class="l" x="1156" y="648" width="76" height="40" rx="2"/>
+<rect class="p" x="1136" y="570" width="120" height="30" rx="6"/>
+<text class="t" x="1146" y="590" text-anchor="start">−  100%  +  ⤢</text>
+<text class="s" x="16" y="750" text-anchor="start">Canvas é vista do plano v7 · mover nós não invalida a simulação · alternativa completa: Grade</text>
+</svg>

@@ -12,7 +12,7 @@ samples! {
     "QuadField" => quad_field, "Splitter" => splitter, "SplitPanes" => split_panes,
     "SplitHandle" => split_handle, "DockArea" => dock_area, "Card" => card, "GlassCard" => glass_card,
     "Section" => section, "Divider" => divider, "AspectRatio" => aspect_ratio, "Collapse" => collapse,
-    "ScrollEdgeArrow" => scroll_edge_arrow, "ZStack" => z_stack,
+    "ScrollEdgeArrow" => scroll_edge_arrow, "ZStack" => z_stack, "QuarterTurn" => quarter_turn,
 }
 
 // sample: VStack, 150
@@ -303,16 +303,18 @@ fn dock_area() -> impl View {
             .center(DockNode::tabs(["photo", "grid"]))
             .left(DockNode::tabs(["folders", "search"]), 220.0)
             .right(DockNode::vertical([DockNode::tabs(["layers"]), DockNode::tabs(["history"])]), 200.0)
-            .bottom(DockNode::tabs(["log"]), 110.0),
+            .bottom(DockNode::tabs(["log"]), 110.0)
+            .top(DockNode::tabs(["filters"]), 64.0),
     );
     let panels = vec![
         DockPanel::new("photo", "Photo").icon(IconName::Camera).closable(false),
-        DockPanel::new("grid", "Grid"),
+        DockPanel::new("grid", "Grid").unsaved(true),
         DockPanel::new("folders", "Folders").icon(IconName::Folder),
         DockPanel::new("search", "Search").icon(IconName::Search),
         DockPanel::new("layers", "Layers"),
         DockPanel::new("history", "History"),
         DockPanel::new("log", "Log"),
+        DockPanel::new("filters", "Filters").icon(IconName::Filter),
     ];
     DockArea::new(layout.binding(), panels, |id| -> AnyView {
         Box::new(VStack::new((Text::new(format!("What {id} shows")),)).padding(12.0))
@@ -330,5 +332,16 @@ fn z_stack() -> impl View {
         Badge::new("On top").tone(Tone::Success),
     ))
     .align(Align::Center)
+}
+// end
+
+// sample: QuarterTurn, 110
+fn quarter_turn() -> impl View {
+    HStack::new((
+        QuarterTurn::new(Text::new("Files"), Turn::Clockwise),
+        QuarterTurn::new(Text::new("Search"), Turn::CounterClockwise),
+        Text::new("Names down a narrow strip, read the same by screen readers"),
+    ))
+    .spacing(16.0)
 }
 // end

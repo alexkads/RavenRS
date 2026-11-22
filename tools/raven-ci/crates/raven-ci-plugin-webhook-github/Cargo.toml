@@ -1,0 +1,22 @@
+[package]
+name = "raven-ci-plugin-webhook-github"
+description = "The plugin webhook-github of Raven CI: a signed push or pull request of GitHub asks at once for the build of a branch or the scan of a job of many branches."
+version = "0.1.0"
+edition.workspace = true
+rust-version = "1.89"
+license.workspace = true
+publish = false
+
+[dependencies]
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
+ravenrs-app.workspace = true
+# The HMAC-SHA256 of webhooks and its check in constant time, as every webhook of the house.
+ravenrs-app-server.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api", features = ["testing"] }
+ravenrs-app-server.workspace = true
+
+[lints]
+workspace = true
