@@ -69,6 +69,8 @@ pub enum ProcessError {
     Start(String),
     /// It did not answer in time.
     TimedOut,
+    /// This system cannot do what was asked, with what.
+    Unsupported(String),
 }
 
 impl std::fmt::Display for ProcessError {
@@ -77,6 +79,7 @@ impl std::fmt::Display for ProcessError {
             Self::NotFound(program) => write!(f, "{program} is not installed, or not in PATH"),
             Self::Start(why) => write!(f, "it could not start: {why}"),
             Self::TimedOut => write!(f, "it did not answer in time"),
+            Self::Unsupported(what) => write!(f, "this system cannot {what}"),
         }
     }
 }
@@ -126,6 +129,7 @@ pub struct Spec {
     stdin: bool,
     timeout: Option<Duration>,
     line_limit: usize,
+    user: Option<String>,
 }
 
 impl Spec {
@@ -141,6 +145,7 @@ impl Spec {
             stdin: false,
             timeout: None,
             line_limit: LINE_LIMIT,
+            user: None,
         }
     }
 
@@ -192,6 +197,20 @@ impl Spec {
         self
     }
 
+    /// Runs it as the user `name`, so it reads and writes only what that user may: a build agent
+    /// that must not read the server's files.
+    ///
+    /// On Linux and macOS, a process of root switches the child's user and group itself (the ids
+    /// come from `id`). Anyone else runs it through `sudo -n -u NAME --preserve-env=…`, which fails
+    /// at once, saying so, when sudo has no rule letting this user run the program as `NAME`
+    /// without a password; the rule needs `SETENV` for the variables of [`env`](Self::env), as
+    /// `raven ALL=(ci) NOPASSWD:SETENV: /usr/local/bin/raven-ci-agent`. On Windows it is refused
+    /// with [`ProcessError::Unsupported`]: running as another user there needs that user's password.
+    pub fn user(mut self, name: impl Into<String>) -> Self {
+        self.user = Some(name.into());
+        self
+    }
+
     /// Cuts lines longer than `limit` bytes into lines of that length.
     pub fn line_limit(mut self, limit: usize) -> Self {
         self.line_limit = limit.max(1);
@@ -202,8 +221,14 @@ impl Spec {
     fn command(&self) -> Result<Command, ProcessError> {
         let program = resolve(&self.program)
             .ok_or_else(|| ProcessError::NotFound(self.program.to_string_lossy().into_owned()))?;
-        let mut command = Command::new(program);
-        command.args(&self.args);
+        let mut command = match &self.user {
+            None => {
+                let mut command = Command::new(program);
+                command.args(&self.args);
+                command
+            }
+            Some(user) => as_user(user, program, &self.args, &self.vars)?,
+        };
         if let Some(dir) = &self.dir {
             command.current_dir(dir);
         }
@@ -254,6 +279,54 @@ impl Spec {
     pub fn output(self) -> Result<Output, ProcessError> {
         Ok(self.spawn()?.wait())
     }
+}
+
+/// The command that runs `program` with `args` as `user`. See [`Spec::user`].
+#[cfg(unix)]
+fn as_user(
+    user: &str,
+    program: PathBuf,
+    args: &[OsString],
+    vars: &BTreeMap<String, String>,
+) -> Result<Command, ProcessError> {
+    use std::os::unix::process::CommandExt;
+    let id = |flag: &str, of: Option<&str>| -> Result<u32, ProcessError> {
+        let mut asked = Command::new("id");
+        asked.arg(flag);
+        if let Some(of) = of {
+            asked.arg(of);
+        }
+        let out = asked.output().map_err(|e| ProcessError::Start(format!("id {flag}: {e}")))?;
+        String::from_utf8_lossy(&out.stdout)
+            .trim()
+            .parse()
+            .map_err(|_| ProcessError::Start(format!("there is no user {}", of.unwrap_or("running"))))
+    };
+    if id("-u", None)? == 0 {
+        let (uid, gid) = (id("-u", Some(user))?, id("-g", Some(user))?);
+        let mut command = Command::new(program);
+        command.args(args).uid(uid).gid(gid);
+        return Ok(command);
+    }
+    let sudo = resolve("sudo").ok_or_else(|| ProcessError::NotFound("sudo".to_owned()))?;
+    let mut command = Command::new(sudo);
+    command.args(["-n", "-u", user]);
+    if !vars.is_empty() {
+        let names: Vec<&str> = vars.keys().map(String::as_str).collect();
+        command.arg(format!("--preserve-env={}", names.join(",")));
+    }
+    command.arg("--").arg(program).args(args);
+    Ok(command)
+}
+
+#[cfg(not(unix))]
+fn as_user(
+    user: &str,
+    _: PathBuf,
+    _: &[OsString],
+    _: &BTreeMap<String, String>,
+) -> Result<Command, ProcessError> {
+    Err(ProcessError::Unsupported(format!("run a program as the user {user} without their password")))
 }
 
 /// Starts the child alone: a process group of its own, or with no console window.
@@ -541,4 +614,66 @@ pub fn version(
         .chain(output.stderr)
         .find(|l| !l.trim().is_empty())
         .ok_or(ProcessError::TimedOut)
+}
+
+/// What a process may hold: the most memory, and how many cores' worth of time.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Limits {
+    /// The most memory, in bytes.
+    pub memory_bytes: Option<u64>,
+    /// How many cores' worth of time it gets: `2.0` is two cores, `0.5` half of one.
+    pub cores: Option<f64>,
+}
+
+/// A process put in a cgroup of its own by [`confine`].
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Confined {
+    /// The folder of its cgroup, under `/sys/fs/cgroup`.
+    pub cgroup: PathBuf,
+}
+
+/// Puts the process `pid` (and what it starts from then on) in a cgroup of its own, `name`, under
+/// the one it is in, with `limits`: `memory.max` and `cpu.max` of cgroup v2, which the system holds
+/// whatever the process does. What a build agent does to itself.
+///
+/// It needs the cgroup it is in delegated to its user (a systemd service with `Delegate=yes`) or
+/// root; without that it fails saying which file it could not write, and nothing is changed but
+/// an empty folder. Only Linux has cgroups: elsewhere it is [`ProcessError::Unsupported`].
+#[cfg(target_os = "linux")]
+pub fn confine(pid: u32, name: &str, limits: &Limits) -> Result<Confined, ProcessError> {
+    let failed = |what: &Path, e: std::io::Error| ProcessError::Start(format!("{}: {e}", what.display()));
+    let own = std::fs::read_to_string(format!("/proc/{pid}/cgroup"))
+        .map_err(|e| ProcessError::Start(e.to_string()))?;
+    let relative = own
+        .lines()
+        .find_map(|line| line.strip_prefix("0::"))
+        .ok_or_else(|| ProcessError::Unsupported("find a cgroup v2 (this system has only v1)".to_owned()))?;
+    let base = Path::new("/sys/fs/cgroup").join(relative.trim_start_matches('/'));
+    let cgroup = if base.file_name().is_some_and(|n| n == name) { base.clone() } else { base.join(name) };
+    std::fs::create_dir_all(&cgroup).map_err(|e| failed(&cgroup, e))?;
+    let procs = cgroup.join("cgroup.procs");
+    std::fs::write(&procs, pid.to_string()).map_err(|e| failed(&procs, e))?;
+    if cgroup != base {
+        // A cgroup with processes cannot hand controllers down; the process left it just now.
+        let control = base.join("cgroup.subtree_control");
+        let _ = std::fs::write(&control, "+memory +cpu");
+    }
+    if let Some(bytes) = limits.memory_bytes {
+        let file = cgroup.join("memory.max");
+        std::fs::write(&file, bytes.to_string()).map_err(|e| failed(&file, e))?;
+    }
+    if let Some(cores) = limits.cores {
+        let file = cgroup.join("cpu.max");
+        let quota = (cores * 100_000.0).round().max(1_000.0) as u64;
+        std::fs::write(&file, format!("{quota} 100000")).map_err(|e| failed(&file, e))?;
+    }
+    Ok(Confined { cgroup })
+}
+
+/// Only Linux has cgroups: see the Linux version.
+#[cfg(not(target_os = "linux"))]
+pub fn confine(_pid: u32, _name: &str, _limits: &Limits) -> Result<Confined, ProcessError> {
+    Err(ProcessError::Unsupported(
+        "hold a limit of memory and cores by cgroup, which only Linux has".to_owned(),
+    ))
 }
