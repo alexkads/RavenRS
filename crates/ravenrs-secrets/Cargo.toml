@@ -1,0 +1,36 @@
+[package]
+name = "ravenrs-secrets"
+description = "A vault for RavenRS apps and servers: secrets sealed with ChaCha20-Poly1305, a key kept apart from them, opaque references, separate rights to use, reveal and administer, rotation, revocation and one way to keep values out of logs."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-secrets"
+keywords = ["secrets", "vault", "encryption", "credentials", "redact"]
+categories = ["cryptography", "authentication"]
+
+[features]
+default = []
+# The key in the system's own store: Keychain, Credential Manager or Secret Service. Off by default,
+# since a server with no desktop session has none; it then takes the key from a file or the environment.
+system-keyring = ["dep:keyring"]
+
+[dependencies]
+# Authenticated encryption, from RustCrypto: the record cannot be read or changed without the key.
+chacha20poly1305 = "0.10"
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+# Wipes the key from memory when the vault goes.
+zeroize = "1"
+keyring = { version = "3", optional = true, default-features = false, features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

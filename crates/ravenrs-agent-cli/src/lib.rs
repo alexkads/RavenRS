@@ -493,9 +493,9 @@ impl Cli {
     }
 }
 
-/// `text` with every secret value replaced.
+/// `text` with every secret value replaced, the same way as everywhere else in the house.
 fn redact(text: &str, secrets: &[String]) -> String {
-    secrets.iter().fold(text.to_owned(), |text, secret| text.replace(secret.as_str(), "•••"))
+    ravenrs_secrets::redact(text, secrets)
 }
 
 /// The events of one line the CLI wrote, filling what the answer learns from them.
