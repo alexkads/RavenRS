@@ -33,3 +33,16 @@ python3 -m http.server -d examples/flow-chat-bot/web 8080
 ```
 
 On Linux and Windows, run `cargo run -p flow-chat-bot --release` and check that you can drag a block from the left onto the conversation; join two blocks; Testar conversa, then Próximo passo until the end; Salvar, close and open again: the conversation is there.
+
+## End-to-end tests (Raven Test Studio)
+
+The scenarios of this example are in `tests/e2e/`, as `.raventest` files the Raven Test Studio reads: the sample conversation starts with the keyword and goes on to the welcome; named and saved, it shows on the list with its seven blocks. The app brings them (`SCENARIOS`), and `tests/scenarios.rs` plays them on every `cargo test`.
+
+To run them as the Studio does, with the app in a process of its own, no window and no cache:
+
+```bash
+raven-test-studio --project examples/flow-chat-bot --run-all --no-cache --format json --out target/e2e/flow-chat-bot
+```
+
+The app answers the Studio when opened with `--e2e-serve`, on data in memory: the files it keeps on disk are never opened. Its name on the channel, which the `open` block of a scenario uses, is "Chat automation builder" (`[package.metadata.ravenrs.e2e]` in `Cargo.toml`). A step that fails says the step, why, and the screen of the app at that moment; with `--film` the report keeps a film of the failure.
+
