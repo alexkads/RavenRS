@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks site/components/index.html against the code: every component's API link
+"""Checks site/public/components/index.html against the code: every component's API link
 opens a page of the generated docs, and every public component is listed. Run after
 `cargo doc`. scripts/gen-component-pages.py checks that each one has an example."""
 import os
@@ -8,7 +8,7 @@ import re
 import sys
 
 root = pathlib.Path(__file__).resolve().parent.parent
-page = (root / "site/components/index.html").read_text()
+page = (root / "site/public/components/index.html").read_text()
 links = {
     name: f"ravenrs_widgets/{path}"
     for path, name in re.findall(r'data-api="((?:\w+/)*struct\.(\w+)\.html)"', page)

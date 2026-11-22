@@ -164,7 +164,7 @@ The [getting started guide](https://github.com/alexkads/RavenRS/blob/master/docs
 
 A complete reporting suite in Rust, on the desktop, in the browser and on servers. [Open the designer in your browser](https://alexkads.github.io/RavenRS/designer/) and build a report without installing anything.
 
-![The RavenRS report designer, with bands, a field list and properties](https://raw.githubusercontent.com/alexkads/RavenRS/master/site/assets/report-design.jpg)
+![The RavenRS report designer, with bands, a field list and properties](https://raw.githubusercontent.com/alexkads/RavenRS/master/site/public/assets/report-design.jpg)
 
 - **Engine:** banded reports with nested groups, master-detail, summaries, expressions, parameters, conditional formatting, charts, barcodes and watermarks. A report is a JSON document, so it can live in git or a database, and be written by code. A grouped report of 10,000 rows and 305 pages lays out in 80 ms.
 - **Designer:** a wizard, a ribbon, drag and drop, a field list, a live preview and undo, ready to embed in your own app for your users.

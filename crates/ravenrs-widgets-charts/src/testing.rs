@@ -25,6 +25,7 @@ impl std::fmt::Debug for FlowCanvasDriver<'_> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<'a> FlowCanvasDriver<'a> {
     /// Drives the canvas on the screen. Nodes and ports have keys unique to their diagram, so
     /// two canvases on one screen need different keys.

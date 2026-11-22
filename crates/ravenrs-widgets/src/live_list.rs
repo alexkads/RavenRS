@@ -90,6 +90,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     ravenrs_core::FileStorage::__live_expose_fields(registry);
     #[cfg(not(target_arch = "wasm32"))]
     ravenrs_core::FileStorage::__live_expose(registry);
+    ravenrs_core::TrayEntry::__live_expose_variants(registry);
+    ravenrs_core::TrayEntry::__live_expose(registry);
+    ravenrs_core::TrayMenu::__live_expose_fields(registry);
+    ravenrs_core::TrayMenu::__live_expose(registry);
     ravenrs_style::Semantic::__live_expose_variants(registry);
     ravenrs_style::Palette::__live_expose_fields(registry);
     ravenrs_style::Palette::__live_expose(registry);
@@ -333,6 +337,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::DockSide::__live_expose_variants(registry);
     crate::DockSide::__live_expose(registry);
     crate::Labels::__live_expose(registry);
+    crate::Driving::__live_expose_variants(registry);
     crate::Spinner::__live_expose_fields(registry);
     crate::Spinner::__live_expose(registry);
     crate::Carousel::__live_expose_fields(registry);
@@ -514,9 +519,10 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::Turn::__live_expose_variants(registry);
     crate::QuarterTurn::<crate::AnyView>::__live_expose(registry);
     crate::Ui::__live_expose(registry);
+    crate::Ui::__live_expose_part1(registry);
     crate::UiStats::__live_expose_fields(registry);
     crate::Ui::__live_expose_fields(registry);
-    crate::Ui::__live_expose_part1(registry);
+    crate::Ui::__live_expose_part2(registry);
     crate::Keyed::<crate::AnyView>::__live_expose(registry);
     crate::ZoomView::__live_expose_fields(registry);
     crate::ZoomView::__live_expose(registry);
@@ -1014,6 +1020,8 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::GridCurrent::__live_expose(registry);
     crate::DataGrid::__live_expose(registry);
     crate::DataGrid::__live_expose_part1(registry);
+    #[cfg(feature = "testing")]
+    crate::testing::__live_expose(registry);
     #[cfg(feature = "charts")]
     registry.alias("ChartCurve", "Curve");
     #[cfg(feature = "charts")]
@@ -1225,6 +1233,7 @@ pub(crate) fn expose_all(registry: &mut Registry) {
     crate::live::view::<crate::Table>(registry);
     crate::live::view::<crate::Tabs>(registry);
     crate::live::view::<crate::TagBox>(registry);
+    crate::live::view::<crate::TestId<crate::AnyView>>(registry);
     crate::live::view::<crate::Text>(registry);
     crate::live::view::<crate::TextArea>(registry);
     crate::live::view::<crate::TextField>(registry);

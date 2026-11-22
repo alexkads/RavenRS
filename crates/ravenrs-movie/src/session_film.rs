@@ -43,6 +43,7 @@ const HOLD_MS: u64 = 1000;
 
 /// How the film keeps time.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum Pace {
     /// A test's: each frame drawn moves the film a thirtieth of a second, and the pointer jumps.
     Test,
@@ -84,10 +85,12 @@ impl FrameObserver for Watch {
 
 /// A film of an [`E2e`] session being made. See the [module](self).
 #[derive(Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct SessionFilm {
     take: Rc<RefCell<Take>>,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl SessionFilm {
     /// A film of something `size` large over `background`, fed by hand with [`Self::frame`],
     /// [`Self::pointer`] and the rest: what a recorder of the running app does.
@@ -191,6 +194,7 @@ impl SessionFilm {
 /// [`ravenrs_e2e_wire::serve_filmed`]: `Film { path }` starts a [`SessionFilm`], and `FilmStop`
 /// writes it to that path.
 #[derive(Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct ChannelFilm {
     taking: Option<(SessionFilm, std::path::PathBuf)>,
 }

@@ -1,0 +1,11 @@
+---
+import DefaultPageTitle from '@astrojs/starlight/components/PageTitle.astro';
+const { entry } = Astro.locals.starlightRoute;
+---
+
+<DefaultPageTitle />
+{entry.data.source && <p class="page-source">RavenRS {entry.data.frameworkVersion} · <a href="index.md">View Markdown</a></p>}
+
+<style>
+  .page-source { margin-top: 0.75rem; color: var(--sl-color-gray-2); font-size: var(--sl-text-sm); }
+</style>

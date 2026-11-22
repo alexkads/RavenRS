@@ -49,7 +49,7 @@ const esc = (s) =>
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;");
 const catalog = parse(
-  await readFile(join(root, "site/components/index.html"), "utf8"),
+  await readFile(join(root, "site/public/components/index.html"), "utf8"),
 );
 const components = walk(
   catalog,
@@ -92,7 +92,7 @@ const exampleRoutes = Object.fromEntries(
 );
 await mkdir(join(out, "assets/seo"), { recursive: true });
 for (const file of ["canvas.js", "playground.js"])
-  await copyFile(join(root, "site/seo", file), join(out, "assets/seo", file));
+  await copyFile(join(root, "site/public/assets/seo", file), join(out, "assets/seo", file));
 const playground = await readFile(join(out, "playground/index.html"), "utf8");
 for (const sample of samples) {
   const folder = join(out, "playground/examples", sample.slug);
