@@ -137,3 +137,23 @@ fn a_disabled_part_of_a_collection_refuses_the_action() {
     let mut e2e = session(VStack::new((ribbon,)));
     assert_eq!(e2e.by_test_id("command:Colar").click().unwrap_err().code(), ErrorCode::Disabled);
 }
+
+#[test]
+fn a_grid_is_busy_while_its_rows_are_on_the_way_and_free_when_they_arrive() {
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    use ravenrs_widgets::{DataGrid, GridColumn, GridPage, GridResponder, RemoteRows};
+    // The server answers when the test says: until then the page is on its way.
+    let waiting: Rc<RefCell<Vec<GridResponder>>> = Rc::default();
+    let held = waiting.clone();
+    let rows = RemoteRows::new(move |_, answer| held.borrow_mut().push(answer));
+    let grid = DataGrid::remote(rows, [GridColumn::text("Nome")]);
+    let mut e2e = session(VStack::new((grid,)));
+    assert!(e2e.by_role(ravenrs_core::Role::Grid).node().unwrap().busy, "{}", e2e.snapshot());
+    for answer in waiting.borrow_mut().drain(..) {
+        answer.send(GridPage::new(Vec::new(), false));
+    }
+    e2e.advance(0.1);
+    assert!(!e2e.by_role(ravenrs_core::Role::Grid).node().unwrap().busy);
+}

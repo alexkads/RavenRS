@@ -1596,6 +1596,15 @@ fn the_web_api_page_builds_the_options_the_server_gets() {
     }
     assert!(c.says("Pedido: 0. Conta como 1"), "{:?}", c.texts());
     assert!(c.says("workers: 1"), "zero is one: {:?}", c.texts());
+
+    // live: the channel goes to the server, and what is published gets its id.
+    assert!(c.says("live: None"), "{:?}", c.texts());
+    c.activate("Ligar o canal ao vivo");
+    assert!(c.says("topics: [\"avisos\"]"), "{:?}", c.texts());
+    assert!(c.says("Nenhum evento publicado em avisos."), "{:?}", c.texts());
+    c.press("Publicar evento");
+    c.press("Publicar evento");
+    assert!(c.says("Último evento publicado em avisos: #2."), "{:?}", c.texts());
 }
 
 #[test]

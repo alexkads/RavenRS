@@ -337,6 +337,27 @@ impl Scenario {
     pub fn app(&self) -> &str {
         self.blocks.first().map_or("", |b| b.target.as_str())
     }
+
+    /// Plays the scenario on a session of its app, in this process: each block after the one
+    /// that opens the app, as the tool plays it. An app's tests use it to run its own
+    /// `tests/e2e/` with no channel and no other process. The error names the scenario, the
+    /// step that failed and why, and shows the screen.
+    pub fn play(&self, e2e: &mut ravenrs_e2e::E2e) -> Result<(), String> {
+        for (step, block) in self.blocks.iter().enumerate() {
+            let Some(command) = block.command() else { continue };
+            if let Err(failure) = command.apply(e2e) {
+                return Err(format!(
+                    "{}: passo {} ({}) falhou: {}\n{}",
+                    self.name,
+                    step + 1,
+                    block.title,
+                    failure.message,
+                    failure.screen
+                ));
+            }
+        }
+        Ok(())
+    }
 }
 
 /// The folder of an app where its scenarios live, from the app's package folder.

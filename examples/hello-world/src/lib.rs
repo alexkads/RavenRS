@@ -1,5 +1,9 @@
 //! The UI shared by the native and the web build of the first RavenRS milestone.
 
+/// The scenarios of Raven Test Studio the app brings, one per file of `tests/e2e/`: the tool
+/// gets them when it opens the app with `--e2e-serve`, and `tests/scenarios.rs` plays them.
+pub const SCENARIOS: [&str; 1] = [include_str!("../tests/e2e/abrir.raventest")];
+
 use std::rc::Rc;
 
 use ravenrs::prelude::*;

@@ -4082,6 +4082,7 @@ method ReleaseNote::section
 method ReleaseNotes::height
 method ReleaseNotes::new
 method RemoteRows::chunk_size
+method RemoteRows::is_loading
 method RemoteRows::max_chunks
 method RemoteRows::max_in_flight
 method RemoteRows::new
@@ -4884,6 +4885,7 @@ method grid::GridScenario::list_to_json
 method grid::GridScenario::new
 method grid::NumberFormat::format
 method grid::RemoteRows::chunk_size
+method grid::RemoteRows::is_loading
 method grid::RemoteRows::max_chunks
 method grid::RemoteRows::max_in_flight
 method grid::RemoteRows::new

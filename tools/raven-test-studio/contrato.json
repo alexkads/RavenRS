@@ -207,8 +207,10 @@
    "crate": "ravenrs-app-pos",
    "tipo": "Caixa",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -243,8 +245,10 @@
    "crate": "ravenrs-app-report",
    "tipo": "AnalyticsPanel",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [
+     "point:<série>:<categoria>"
+    ],
+    "acoes": []
    }
   },
   {
@@ -328,48 +332,66 @@
    "crate": "ravenrs-app-update",
    "tipo": "NewsDialog",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-app-ui",
    "tipo": "ActionButton",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [
+     "action:<id>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-app-ui",
    "tipo": "ActionContainer",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-app-ui",
    "tipo": "App",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [
+     "item:<rótulo>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-app-ui",
    "tipo": "AppShell",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [
+     "item:<rótulo>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-app-ui",
    "tipo": "EntityPane",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [
+     "field:<campo>"
+    ],
+    "acoes": []
    }
   },
   {
@@ -383,8 +405,13 @@
    "crate": "ravenrs-app-ui",
    "tipo": "ListView",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [
+     "row:<chave>"
+    ],
+    "acoes": [
+     "Click"
+    ],
+    "busy": true
    }
   },
   {
@@ -405,8 +432,13 @@
    "crate": "ravenrs-app-ui",
    "tipo": "SecuredApp",
    "rts": {
-    "pendente": true,
-    "issue": 739
+    "ids": [
+     "login:name",
+     "login:password"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {

@@ -273,7 +273,10 @@ impl View for ActionButton {
             button = button.icon(icon);
         }
         let session = self.session.clone();
-        cx.child(&button.on_click(move || session.run_action(&action, ActionInput::None)))
+        let node = cx.child(&button.on_click(move || session.run_action(&action, ActionInput::None)));
+        // Found by the id of its action, whatever its caption says in the language on screen.
+        cx.test_id(node, &format!("action:{}", self.id));
+        node
     }
 }
 
