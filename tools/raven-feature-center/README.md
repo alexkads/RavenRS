@@ -3,11 +3,11 @@
 Every feature of the application framework, one small demonstration each, in the navigation by what it shows. Each list says what it is there to show and what to try. It is how to see what the framework does, how to review its screens, and how to know it all still works.
 
 ```bash
-cargo run -p feature-center
+cargo run -p raven-feature-center
 ```
 
 ```bash
-./scripts/build-web.sh feature-center && python3 -m http.server -d tools/feature-center/web 8099
+./scripts/build-web.sh raven-feature-center && python3 -m http.server -d tools/raven-feature-center/web 8099
 ```
 
 On the desktop it keeps its records in SQLite, in `RAVEN_CENTRO` or a file in the temporary folder, so delete that file to start over. In the browser it keeps them in memory and starts over when the page reloads.
@@ -36,7 +36,7 @@ These accounts exist only here. The password of all three is `raven-demo`.
 | Temas | The token editor, changing the whole application at once |
 | Kit | `ExpressionEditor` with every feature: fields and parameters offered, the lines shown, and the preview over a sample order, a result or why it failed. `ParameterForm` with every feature: a schema of text, number, yes or no, choice, a field shown in one mode, an expression, a group, a list of headers, and options of the account that arrive, load or fail |
 | Listas e árvores | `DataInspector` with every feature: orders as table, tree, JSON and schema, the item and field chosen kept between them, absent told from null, a 19-digit number exact, five thousand rows cut with a notice |
-| Gráficos e fluxos | `FlowCanvas` with every feature (options, rules, events, check, run, export, connections as cables), and `CablePlug` in eight uses (flow, processes, a rack, a switchboard, a synthesizer, a network rack, matching columns, a tip tied to a button) and a lab with every knob. `CABLE_SNAPSHOTS=<folder> cargo test -p feature-center --test cabos -- --ignored` draws each with the GPU into PNGs. `PatchPanel` in three uses: the back of a rack with a front that turns around, a switchboard whose cords go home and work in pairs, and a panel with its own rule |
+| Gráficos e fluxos | `FlowCanvas` with every feature (options, rules, events, check, run, export, connections as cables), and `CablePlug` in eight uses (flow, processes, a rack, a switchboard, a synthesizer, a network rack, matching columns, a tip tied to a button) and a lab with every knob. `CABLE_SNAPSHOTS=<folder> cargo test -p raven-feature-center --test cabos -- --ignored` draws each with the GPU into PNGs. `PatchPanel` in three uses: the back of a rack with a front that turns around, a switchboard whose cords go home and work in pairs, and a panel with its own rule |
 | Atualização | `NewsDialog` of `ravenrs-app-update` (feature `ui`): the news of an example app with a newer version, the one installed and an older one, opened on the version running, on the newest and as the details of a failed update, with the version button and the notice of the status bar every RavenRS app shows |
 | Doca e faixa | `DockArea` in three uses: an editor whose documents stay in the center, with a document that will not close while unsaved, one that closes for good, the arrangement kept as text and restored; a photo desk where anything goes anywhere, floats or hides at an edge; and a fixed page of columns that only the app opens and closes. `Ribbon` over a report: the app menu, quick access, large, small and icon-only commands, toggles, a drop-down, a command turned off, a dialog launcher, the contextual page of a table, the search and the open page |
 | Sem armazenamento | A form with no storage behind it |
@@ -44,7 +44,7 @@ These accounts exist only here. The password of all three is `raven-demo`.
 | Segurança | The same documents as each of the three people |
 | Auditoria | Each mode side by side, a field left out, changes in collections |
 | Acessibilidade | Names and descriptions for screen readers from the model, the focus order of a form, an action that says its keys and announces what it did |
-| Balcão | Dados da loja, a record that is one of a kind and opens on its form, and Caixa de exemplo, a counter window with its notice and function keys inside the center (`cargo run -p feature-center -- caixa` opens it on its own) |
+| Balcão | Dados da loja, a record that is one of a kind and opens on its form, and Caixa de exemplo, a counter window with its notice and function keys inside the center (`cargo run -p raven-feature-center -- caixa` opens it on its own) |
 | Registros prontos | Pessoas, Eventos, Países and Endereços from `ravenrs-app-library`, with their rules |
 | Relatórios | Reports people design and keep, and panels |
 | Administração | Users, roles, the audit trail and the model editor, for `ana`; Trocar senha, for everyone |
@@ -66,11 +66,11 @@ The same center opens in four modes, with the same parameters on the command lin
 | `idioma` | `pt-BR`, `en` | The language of the screens |
 
 ```bash
-cargo run -p feature-center -- --modo vitrine --pagina AuditFull_ListView
+cargo run -p raven-feature-center -- --modo vitrine --pagina AuditFull_ListView
 ```
 
 ```bash
-cargo run -p feature-center -- --modo componentes --pagina CablePlugDemo --incorporado --tema claro
+cargo run -p raven-feature-center -- --modo componentes --pagina CablePlugDemo --incorporado --tema claro
 ```
 
 On the web, `index.html?modo=componentes&pagina=CablePlugDemo&incorporado`. A wrong value is refused, saying what it takes; a name it does not know in the address is left alone.
@@ -78,13 +78,13 @@ On the web, `index.html?modo=componentes&pagina=CablePlugDemo&incorporado`. A wr
 What goes in the build is chosen by Cargo features: `app`, the center, its storage and its web API; `widgets`, the pages of the components; `playground`, the examples. All three are on by default. The pages of the site take less:
 
 ```bash
-./scripts/build-web.sh feature-center --no-default-features --features widgets,playground
+./scripts/build-web.sh raven-feature-center --no-default-features --features widgets,playground
 ```
 
 ## Over a web API
 
 ```bash
-cargo run -p feature-center --bin api
+cargo run -p raven-feature-center --bin api
 ```
 
 The same center, with the same roles, people and audit trail, answers as a web API on `127.0.0.1:8090`, in memory or in the SQLite file given after `--`. It prints the address of its OpenAPI document. Sign in at `/api/auth/token` with the accounts above. To let a page on another origin call it, set `RAVEN_API_ORIGIN` to that origin.

@@ -56,7 +56,7 @@
         "-m",
         "http.server",
         "-d",
-        "tools/feature-center/web",
+        "tools/raven-feature-center/web",
         "8099"
       ],
       "port": 8099

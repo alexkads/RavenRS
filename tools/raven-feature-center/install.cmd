@@ -1,6 +1,6 @@
 :<<"::FIM-DO-CMD"
 @echo off
-rem  Raven Centro de Recursos - instalar compilando nesta maquina.
+rem  Raven Feature Center - instalar compilando nesta maquina.
 rem
 rem  Um arquivo so para os tres sistemas:
 rem    Windows ........ baixe e de dois cliques neste arquivo
@@ -8,7 +8,7 @@ rem    Linux e macOS .. baixe e rode: sh install.cmd
 rem
 rem  Esta parte roda o PowerShell que esta mais abaixo e espera uma tecla no fim,
 rem  para a janela nao sumir com a mensagem.
-title Instalando o Raven Centro de Recursos
+title Instalando o Raven Feature Center
 setlocal
 set "RFC_SCRIPT=%~f0"
 powershell -NoProfile -ExecutionPolicy Bypass -Command "[Net.ServicePointManager]::SecurityProtocol=[Net.SecurityProtocolType]::Tls12; try { $t=[IO.File]::ReadAllText($env:RFC_SCRIPT); $n=[char]10; $i=$t.IndexOf($n+'#==POWERSHELL=='); if ($i -lt 0) { throw 'instalador invalido' }; $f=$t.IndexOf($n+'#==FIM-POWERSHELL==',$i); if ($f -le $i) { throw 'instalador incompleto' }; Invoke-Expression $t.Substring($i, $f-$i) } catch { Write-Host ''; Write-Host ('X ' + $_) -ForegroundColor Red; exit 1 }"
@@ -17,7 +17,7 @@ echo.
 if not "%RFC_SEM_PAUSA%"=="1" pause
 exit /b %RFC_RESULTADO%
 ::FIM-DO-CMD
-# Raven Centro de Recursos: the installer and the updater are this one file. The app runs it to update itself.
+# Raven Feature Center: the installer and the updater are this one file. The app runs it to update itself.
 # Made from crates/ravenrs-app-update/install.cmd.in: change that file, then
 # `RAVENRS_WRITE_INSTALLER=1 cargo test` writes this one again.
 #
@@ -95,14 +95,14 @@ Write-Host "> compilando (a primeira vez demora; as seguintes aproveitam o que j
 $env:CARGO_TARGET_DIR = $Alvo
 $env:RAVEN_FEATURE_CENTER_INSTALLED = "1"
 Push-Location $codigo
-try { Correr { cargo build --release -p feature-center } } finally { Pop-Location }
+try { Correr { cargo build --release -p raven-feature-center } } finally { Pop-Location }
 
-$novo = Join-Path $Alvo "release\feature-center.exe"
+$novo = Join-Path $Alvo "release\raven-feature-center.exe"
 $resposta = & $novo --versao
 if ($LASTEXITCODE -ne 0 -or -not $resposta) { throw "o app novo nao abriu (--versao); o instalado continua como estava" }
 
 New-Item -ItemType Directory -Force -Path $Destino | Out-Null
-$instalado = Join-Path $Destino "feature-center.exe"
+$instalado = Join-Path $Destino "raven-feature-center.exe"
 $anterior = "$instalado.anterior"
 if (Test-Path $anterior) { Remove-Item -Force $anterior }
 if (Test-Path $instalado) { Move-Item $instalado $anterior }
@@ -112,21 +112,21 @@ try { Copy-Item $novo $instalado } catch {
 }
 
 $icone = Join-Path $Destino "icon.ico"
-Copy-Item (Join-Path $codigo "tools\feature-center\assets\icon.ico") $icone -Force
+Copy-Item (Join-Path $codigo "tools\raven-feature-center\assets\icon.ico") $icone -Force
 
-$atalho = Join-Path ([Environment]::GetFolderPath("Programs")) "Raven Centro de Recursos.lnk"
+$atalho = Join-Path ([Environment]::GetFolderPath("Programs")) "Raven Feature Center.lnk"
 $s = (New-Object -ComObject WScript.Shell).CreateShortcut($atalho)
 $s.TargetPath = $instalado
 $s.IconLocation = $icone
 $s.Save()
-Write-Host "OK Raven Centro de Recursos $resposta instalado. Abra pelo menu Iniciar." -ForegroundColor Green
+Write-Host "OK Raven Feature Center $resposta instalado. Abra pelo menu Iniciar." -ForegroundColor Green
 #==FIM-POWERSHELL==
 {
 set -eu
 
 FONTE="${RFC_FONTE:-https://github.com/alexkads/RavenRS/archive/refs/heads/master.tar.gz}"
 CASA="${RFC_CASA:-$HOME/.raven-feature-center}"
-NOME="Raven Centro de Recursos"
+NOME="Raven Feature Center"
 
 diga() { printf '\n> %s\n' "$1"; }
 erro() { printf 'X %s\n' "$1" >&2; }
@@ -200,7 +200,7 @@ tar -xzmf "$PACOTE" -C "$CODIGO" --strip-components=1
 diga "compilando (a primeira vez demora; as seguintes aproveitam o que já existe)"
 CARGO_TARGET_DIR="${RFC_TARGET:-$CASA/target}"
 export CARGO_TARGET_DIR
-( cd "$CODIGO" && RAVEN_FEATURE_CENTER_INSTALLED=1 cargo build --release -p feature-center )
+( cd "$CODIGO" && RAVEN_FEATURE_CENTER_INSTALLED=1 cargo build --release -p raven-feature-center )
 
 BINARIO="$CARGO_TARGET_DIR/release/feature-center"
 RESPOSTA="$("$BINARIO" --versao 2>/dev/null | head -1 || true)"
@@ -223,7 +223,7 @@ if [ "$(uname -s)" = Darwin ]; then
   rm -rf "${MONTADO:?}"
   mkdir -p "$MONTADO/Contents/MacOS" "$MONTADO/Contents/Resources"
   cp "$BINARIO" "$MONTADO/Contents/MacOS/feature-center"
-  cp "$CODIGO/tools/feature-center/assets/icon.icns" "$MONTADO/Contents/Resources/icon.icns"
+  cp "$CODIGO/tools/raven-feature-center/assets/icon.icns" "$MONTADO/Contents/Resources/icon.icns"
   # CFBundleVersion changes on every install: that is what makes macOS read the icon again.
   cat > "$MONTADO/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -232,7 +232,7 @@ if [ "$(uname -s)" = Darwin ]; then
 <dict>
 	<key>CFBundleDevelopmentRegion</key><string>Portuguese</string>
 	<key>CFBundleDisplayName</key><string>$NOME</string>
-	<key>CFBundleExecutable</key><string>feature-center</string>
+	<key>CFBundleExecutable</key><string>raven-feature-center</string>
 	<key>CFBundleIconFile</key><string>icon.icns</string>
 	<key>CFBundleIdentifier</key><string>dev.ravenrs.feature-center</string>
 	<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
@@ -282,7 +282,7 @@ PLIST
 else
   DESTINO="${RFC_DESTINO:-$HOME/.local}"
   mkdir -p "$DESTINO/bin" "$DESTINO/share/applications" "$DESTINO/share/icons/hicolor/256x256/apps"
-  cp "$CODIGO/tools/feature-center/assets/icon.png" "$DESTINO/share/icons/hicolor/256x256/apps/feature-center.png"
+  cp "$CODIGO/tools/raven-feature-center/assets/icon.png" "$DESTINO/share/icons/hicolor/256x256/apps/feature-center.png"
   INSTALADO="$DESTINO/bin/feature-center"
   # `mv` is atomic on the same disk, so the installed binary is never half written.
   install -m 755 "$BINARIO" "$INSTALADO.novo" \
@@ -297,8 +297,8 @@ else
 Type=Application
 Name=$NOME
 Exec=$INSTALADO
-Icon=feature-center
-StartupWMClass=feature-center
+Icon=raven-feature-center
+StartupWMClass=raven-feature-center
 Terminal=false
 Categories=Development;
 DESKTOP

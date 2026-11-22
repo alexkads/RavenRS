@@ -28,11 +28,11 @@ else
     ./scripts/build-web.sh hello-world
     ./scripts/build-web.sh quick-app
     ./scripts/build-web.sh quick-plan
-    ./scripts/build-web.sh feature-center
+    ./scripts/build-web.sh raven-feature-center
     ./scripts/build-web.sh component-gallery
     ./scripts/build-web.sh report-designer
     ./scripts/build-web.sh site-home
-    cargo doc --no-deps --workspace --features ravenrs-widgets/code --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude site-home --exclude family-finance --quiet
+    cargo doc --no-deps --workspace --features ravenrs-widgets/code --exclude hello-world --exclude quick-app --exclude quick-plan --exclude raven-feature-center --exclude component-gallery --exclude report-designer --exclude site-home --exclude family-finance --quiet
     ./scripts/check-component-list.py
 fi
 # Markdown is rendered locally; the same docs ship on Pages and Vercel.

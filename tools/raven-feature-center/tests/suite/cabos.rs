@@ -2,7 +2,7 @@
 //! panels plug, unplug, retract and check like the real things, and the lab turns every knob.
 #![allow(clippy::expect_used, reason = "test helpers fail loudly")]
 
-use feature_center::widgets::graficos::cabos::{CablesPage, USES};
+use raven_feature_center::widgets::graficos::cabos::{CablesPage, USES};
 use ravenrs::core::{AccessNode, Event, PointerButton};
 use ravenrs::prelude::*;
 
@@ -187,7 +187,7 @@ fn the_tip_hangs_from_its_button_and_falls_when_hidden() {
 }
 
 /// Draws every use with the GPU world, as a window would, into PNGs in the folder that
-/// `CABLE_SNAPSHOTS` names: `CABLE_SNAPSHOTS=/tmp/x cargo test -p feature-center --test cabos -- --ignored`.
+/// `CABLE_SNAPSHOTS` names: `CABLE_SNAPSHOTS=/tmp/x cargo test -p raven-feature-center --test cabos -- --ignored`.
 #[test]
 #[ignore = "writes pictures; run by hand"]
 fn snapshots() {

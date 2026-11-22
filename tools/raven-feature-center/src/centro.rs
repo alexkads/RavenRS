@@ -110,7 +110,7 @@ fn code_panel() -> AnalyticsPanel {
 /// The application each person gets once they signed in.
 fn application() -> App {
     let words = ReportWords::pt_br;
-    let mut app = App::new("Raven Centro de Recursos")
+    let mut app = App::new("Raven Feature Center")
         .language(Language::BrazilianPortuguese)
         .module(library())
         .module(actions::CenterModule)
@@ -178,7 +178,7 @@ pub fn opened_as<S: ObjectSpace + 'static>(
     let seen = std::rc::Rc::new(seen);
     let (theme, language, page) = (opening.look.map(Look::theme), language_of(opening), opening.page.clone());
     register_is_even();
-    let mut secured = SecuredApp::new("Raven Centro de Recursos", space, move |_person| {
+    let mut secured = SecuredApp::new("Raven Feature Center", space, move |_person| {
         let (seen, page) = (seen.clone(), page.clone());
         let app = application().language(language);
         let app = match theme {
@@ -274,7 +274,7 @@ pub fn api_service(file: Option<&std::path::Path>) -> Result<ravenrs_app_server:
     let wrong = |error: ravenrs_app::SpaceError| error.to_string();
     let service = ravenrs_app_server::ApiService::new(space.clone(), roles())
         .map_err(wrong)?
-        .title("Raven Centro de Recursos")
+        .title("Raven Feature Center")
         .rule_words(ravenrs_app::RuleWords::pt_br())
         .setting("theme", ravenrs_app_server::SettingAccess::PerPerson)
         .audit(audit());
@@ -296,7 +296,7 @@ pub fn sqlite_database(file: &std::path::Path) -> Result<ravenrs_app_sqlite::Sql
     Ok(builder.build())
 }
 
-/// The counter window on its own, with a look of its own: `cargo run -p feature-center -- caixa`.
+/// The counter window on its own, with a look of its own: `cargo run -p raven-feature-center -- caixa`.
 pub fn counter_window() -> AnyView {
     actions::counter_app().theme(ravenrs::prelude::Theme::raven_light()).into_view()
 }
@@ -316,7 +316,7 @@ pub fn remote_over(client: ravenrs_app_remote::RemoteClient) -> Result<AnyView, 
         .map(|entity| entity.name)
         .collect();
     let view = ravenrs_app_remote::RemoteApp::view(
-        "Raven Centro de Recursos",
+        "Raven Feature Center",
         Language::BrazilianPortuguese,
         client,
         // Who can sign in and what was done stay on the server.
@@ -346,6 +346,6 @@ pub fn opened(opening: &Opening) -> AnyView {
     let made = if opening.mode == Mode::Showcase { in_memory_as(opening) } else { kept_as(opening) };
     match made {
         Ok(center) => center.into_view(),
-        Err(why) => Box::new(ravenrs::prelude::Alert::new("Raven Centro de Recursos", why)),
+        Err(why) => Box::new(ravenrs::prelude::Alert::new("Raven Feature Center", why)),
     }
 }

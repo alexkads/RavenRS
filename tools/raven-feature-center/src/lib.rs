@@ -90,7 +90,7 @@ pub fn view(opening: &Opening) -> AnyView {
     };
     made.unwrap_or_else(|| {
         Box::new(Alert::new(
-            "Raven Centro de Recursos",
+            "Raven Feature Center",
             "Este modo não veio nesta compilação: ligue a feature que ele pede (app, widgets ou playground).",
         ))
     })
@@ -124,7 +124,7 @@ mod web_entry {
             let view = match opening() {
                 Ok(opening) => super::view(&opening),
                 Err(why) => {
-                    Box::new(ravenrs::prelude::Alert::new("Raven Centro de Recursos", why)) as super::AnyView
+                    Box::new(ravenrs::prelude::Alert::new("Raven Feature Center", why)) as super::AnyView
                 }
             };
             let theme = opening()

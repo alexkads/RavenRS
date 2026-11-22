@@ -8,8 +8,8 @@ use ravenrs_core::{AccessAction, Event, Key, Modifiers, Role, Size};
 use ravenrs_style::Theme;
 use ravenrs_widgets::Ui;
 
-use feature_center::seed::PASSWORD;
-use feature_center::{memory_database, watched};
+use raven_feature_center::seed::PASSWORD;
+use raven_feature_center::{memory_database, watched};
 
 fn settle(ui: &mut Ui) {
     for _ in 0..4 {

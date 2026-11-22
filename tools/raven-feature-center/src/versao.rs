@@ -3,25 +3,25 @@
 
 use ravenrs_app_update::{InstalledApp, Updater};
 
-/// Raven Centro de Recursos, as installed by compiling the main branch.
+/// Raven Feature Center, as installed by compiling the main branch.
 pub static APP: InstalledApp = InstalledApp {
-    name: "Raven Centro de Recursos",
-    package: "feature-center",
+    name: "Raven Feature Center",
+    package: "raven-feature-center",
     home_dir: ".raven-feature-center",
     bundle_id: "dev.ravenrs.feature-center",
-    icons: "tools/feature-center/assets",
+    icons: "tools/raven-feature-center/assets",
     mac_category: "public.app-category.developer-tools",
     linux_categories: "Development;",
     source: "https://github.com/alexkads/RavenRS/archive/refs/heads/master.tar.gz",
     env_prefix: "RFC",
     installed_env: "RAVEN_FEATURE_CENTER_INSTALLED",
     news_urls: &[
-        "https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/feature-center/novidades.json",
+        "https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-feature-center/novidades.json",
     ],
     history_urls: &[
-        "https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/feature-center/historico-de-novidades.json",
+        "https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-feature-center/historico-de-novidades.json",
     ],
-    installer_url: "https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/feature-center/install.cmd",
+    installer_url: "https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-feature-center/install.cmd",
     issues_url: "https://github.com/alexkads/RavenRS/issues",
     version: env!("CARGO_PKG_VERSION"),
     // The installer sets it when it compiles.
