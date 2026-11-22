@@ -270,6 +270,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- `ravenrs-widgets-base` compiles again without the `book` feature: the book of `DropdownMenu` takes the icons of `Button`'s book, which was only built with it (#851).
+
 - `ravenrs-e2e` reaches a row at the end of a long list: the hunt for a row not built yet scrolls to the end of the list instead of giving up after 240 turns of the wheel (a list of 10,000 rows did not reach row 9,999).
 
 - `YearView` no longer overflows on a day before 1970 (a debug build panicked).
