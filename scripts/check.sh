@@ -193,6 +193,10 @@ step "every component follows RCB: ComponentBook with its stories, or pending wi
 ./scripts/rcb-coverage.py --self-test
 ./scripts/rcb-coverage.py
 
+step "every type keeps the testability contract of the RTS, or is pending with its issue (#734, #736)"
+./scripts/rts-coverage.py --self-test
+./scripts/rts-coverage.py
+
 if [ "${1:-}" != "--full" ]; then
     step "what the change reaches"
     # What the selection leaves out goes unchecked, so the selection has tests of its own.

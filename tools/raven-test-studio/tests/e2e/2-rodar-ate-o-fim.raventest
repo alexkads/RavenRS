@@ -4,4 +4,4 @@ click #run                                                   | Rodar
 check #summary = 5 de 5 passos passaram                       | Os cinco passos passaram
 mention #node:open = Concluído                               | O primeiro bloco concluiu
 mention #node:check = Concluído                              | O último bloco concluiu
-check #log-5 = 5. Conferir o resultado: passou                | O registro diz o último passo
+check #log:5 = 5. Conferir o resultado: passou                | O registro diz o último passo
