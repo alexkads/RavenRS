@@ -366,17 +366,23 @@ impl E2e {
     }
 
     /// The node an action aims at, and the point it aims at, once it is known to take input.
-    fn target(&self, query: &Query) -> E2eResult<(AccessNode, Point)> {
+    /// A node out of sight inside a part that scrolls is scrolled to first, as a person
+    /// scrolls before clicking; out of the window with nothing to scroll, it is not visible.
+    fn target(&mut self, query: &Query) -> E2eResult<(AccessNode, Point)> {
         let node = self.resolve(query)?.clone();
         if node.disabled {
             return Err(E2eError::new(ErrorCode::Disabled, format!("{query}: it is disabled"))
                 .hint("check what enables it first, or expect it to be disabled with `to_be_disabled`")
                 .screen(self.screen()));
         }
-        let window = Rect::from_origin_size(Point::ZERO, self.ui.viewport());
+        if node.bounds.width() > 0.0 && !self.sight(node.id).contains(node.bounds.center()) {
+            self.reveal(query)?;
+        }
+        let node = self.resolve(query)?.clone();
+        let sight = self.sight(node.id);
         let b = node.bounds;
         let point = b.center();
-        if b.width() <= 0.0 || b.height() <= 0.0 || !window.contains(point) {
+        if b.width() <= 0.0 || b.height() <= 0.0 || !sight.contains(point) {
             return Err(E2eError::new(
                 ErrorCode::NotVisible,
                 format!(

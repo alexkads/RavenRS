@@ -131,6 +131,34 @@ impl Ui {
         }
     }
 
+    /// The frames of the parts that scroll around the node `id` of the latest
+    /// [`Ui::access_tree`], the nearest first. A [`ScrollView`](crate::ScrollView) has no
+    /// node of its own in the tree, so this is how tests learn what hides a node inside the
+    /// window and where to turn the wheel to show it.
+    pub fn scroll_frames(&self, id: u64) -> Vec<Rect> {
+        let Some(node) = self.access_map.nodes.get(&id) else { return Vec::new() };
+        let mut parent = vec![usize::MAX; self.elements.len()];
+        for (i, e) in self.elements.iter().enumerate() {
+            for child in &e.children {
+                if let Some(slot) = parent.get_mut(child.0 as usize) {
+                    *slot = i;
+                }
+            }
+        }
+        let mut frames = Vec::new();
+        let mut at = node.0 as usize;
+        while let Some(&up) = parent.get(at) {
+            if up == usize::MAX {
+                break;
+            }
+            if self.elements[up].scroll {
+                frames.push(self.screen_frame(up));
+            }
+            at = up;
+        }
+        frames
+    }
+
     /// Performs an action assistive technology asked for on the node with
     /// this id (from the latest [`Ui::access_tree`]). Returns true if the UI
     /// needs a redraw.

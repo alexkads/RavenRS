@@ -228,28 +228,14 @@ impl E2e {
         }
         for _ in 0..SCROLL_TURNS {
             let node = self.find(query)?;
-            let window = Rect::from_origin_size(Point::ZERO, self.ui.viewport());
-            let port = self.scroller_of(node.id).map_or(window, |s| s.bounds);
-            let sight = port.intersect(&window);
             let middle = node.bounds.center();
-            if sight.contains(middle) {
+            if self.sight(node.id).contains(middle) {
                 return Ok(());
             }
-            let Some(scroller) = self.scroller_of(node.id) else { break };
-            let at = scroller.bounds.intersect(&window).center();
-            // Positive delta scrolls up, toward the start: content moves down.
-            let reach = |from: f32, to: f32, size: f32| -> f32 {
-                if middle_outside(from, to, size) {
-                    (to - from).signum() * -(size * 0.6).max(40.0)
-                } else {
-                    0.0
-                }
-            };
-            let dy = reach(sight.center().y, middle.y, sight.height());
-            let dx = reach(sight.center().x, middle.x, sight.width());
+            let Some((at, delta)) = self.turn_toward(node.id, middle) else { break };
             let before = node.bounds;
             self.move_to(at);
-            self.send(&Event::Scroll { position: at, delta: Point::new(dx, dy) });
+            self.send(&Event::Scroll { position: at, delta });
             if self.find(query)?.bounds == before {
                 break;
             }
@@ -267,6 +253,45 @@ impl E2e {
         )
         .hint("make the window larger with `viewport`, or check that a part that scrolls holds it")
         .screen(self.screen()))
+    }
+
+    /// The part of the window where the node can be seen: the window, cut by every part that
+    /// scrolls around it. A node whose middle is outside it is hidden, even inside the window.
+    pub(crate) fn sight(&self, id: u64) -> Rect {
+        let window = Rect::from_origin_size(Point::ZERO, self.ui.viewport());
+        self.scroll_ports(id).iter().fold(window, |sight, port| sight.intersect(port))
+    }
+
+    /// Where to turn the wheel, and how far, to bring `point` closer to sight. The innermost
+    /// part that scrolls and leaves the point out is turned; when that part is itself out of
+    /// sight (a list far down a page), the part around it is turned toward it first.
+    fn turn_toward(&self, id: u64, point: Point) -> Option<(Point, Point)> {
+        let window = Rect::from_origin_size(Point::ZERO, self.ui.viewport());
+        let chain = self.scroll_ports(id);
+        let mut aim = point;
+        for (k, frame) in chain.iter().enumerate() {
+            let port = if k + 1 == chain.len() { frame.intersect(&window) } else { *frame };
+            if port.contains(aim) {
+                continue;
+            }
+            // What shows of this part: its bounds, cut by the window and the parts around it.
+            let shown = chain[k + 1..].iter().fold(frame.intersect(&window), |r, outer| r.intersect(outer));
+            if shown.width() <= 0.0 || shown.height() <= 0.0 {
+                aim = frame.center();
+                continue;
+            }
+            // Positive delta scrolls up, toward the start: content moves down.
+            let reach = |from: f32, to: f32, size: f32| -> f32 {
+                if middle_outside(from, to, size) { (to - from).signum() * -(size * 0.6).max(40.0) } else { 0.0 }
+            };
+            let center = shown.center();
+            let delta = Point::new(
+                reach(center.x, aim.x, shown.width()),
+                reach(center.y, aim.y, shown.height()),
+            );
+            return Some((center, delta));
+        }
+        None
     }
 
     /// A long list builds only the rows in sight, so a row further down is not on the screen
@@ -306,16 +331,21 @@ impl E2e {
         if self.find(query).is_ok() { Ok(()) } else { Err(missing) }
     }
 
-    /// The nearest part that scrolls around the node.
-    fn scroller_of(&self, id: u64) -> Option<&AccessNode> {
+    /// The frames of the parts that scroll around the node, the nearest first: what the app
+    /// says scrolls (a `ScrollView` has no node of its own) and the lists, grids and trees.
+    fn scroll_ports(&self, id: u64) -> Vec<Rect> {
+        let mut ports = self.ui.scroll_frames(id);
         let mut at = id;
-        loop {
-            let parent = self.tree.nodes.iter().find(|n| n.children.contains(&at))?;
-            if SCROLLERS.contains(&parent.role) && parent.bounds.height() > 0.0 {
-                return Some(parent);
+        while let Some(parent) = self.tree.nodes.iter().find(|n| n.children.contains(&at)) {
+            let frame = parent.bounds;
+            if SCROLLERS.contains(&parent.role) && frame.height() > 0.0 && !ports.contains(&frame) {
+                // A part inside another is smaller: keep the nearest first.
+                let place = ports.iter().position(|p| p.width() * p.height() > frame.width() * frame.height());
+                ports.insert(place.unwrap_or(ports.len()), frame);
             }
             at = parent.id;
         }
+        ports
     }
 }
 
