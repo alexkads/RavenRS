@@ -59,6 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `hello-world`, `calculator`, `quick-app`, `tutorial-tasks` and `tasks-sqlite` have scenarios of the Raven Test Studio in `tests/e2e/`, served with `--e2e-serve` and played on every `cargo test` by `tests/scenarios.rs` (#702). `Scenario::play` in `ravenrs-e2e-wire` plays a scenario on a session in the same process. The display of the calculator is `display`.
+
 - The application framework is in the testability contract of the RTS (#739): an `ActionButton` is `action:<id>`, whatever its caption says in the language on screen; a `DataGrid` with rows on a server (`DataGrid::remote`, the remote `ListView`) is busy while a page is on its way, and `RemoteRows::is_loading` says so. With this, every type of the feature center keeps the contract or has no screen.
 
 - Imaging and chat are in the testability contract of the RTS (#741): `ColorWheel` takes `SetValue` with a color as `#ff0000`; `TransformHandles` and `CropOverlay` take their box by value (`x, y, width × height, angle`), and `testing::CropDriver` sets and reads it; the messages of a `Chat` are `message:<n>`, and the sphere of a `FloatingPanel` is `orb` and opens and closes with `Expand` and `Collapse`. `RuleOfThirdsGrid` has no screen.
