@@ -529,6 +529,10 @@ pub(crate) fn attachment_blob(conn: &Connection, id: i64) -> Result<(String, u64
     .ok_or_else(|| CiError::unavailable(format!("não há o anexo {id}")))
 }
 
+/// The start of the reason of a build the server ended because its agent went quiet past its
+/// grace: such a build is [`BuildStatus::Interrupted`], not cancelled.
+pub const INTERRUPTED: &str = "interrompido:";
+
 /// Where a build is, from its run.
 pub(crate) fn status_of(
     record: &RunRecord,
@@ -538,10 +542,8 @@ pub(crate) fn status_of(
     match (record.status, &record.outcome) {
         (RunStatus::Queued, _) => (BuildStatus::Queued, None),
         (RunStatus::Running | RunStatus::Waiting, _) => (BuildStatus::Running, None),
-        // The server ended it when its agent went quiet past its grace (crate::agents).
-        (RunStatus::Cancelled, Some(RunOutcome::Cancelled { reason }))
-            if reason.starts_with(crate::agents::INTERRUPTED) =>
-        {
+        // The server ended it when its agent went quiet past its grace (see `agents`).
+        (RunStatus::Cancelled, Some(RunOutcome::Cancelled { reason })) if reason.starts_with(INTERRUPTED) => {
             (BuildStatus::Interrupted, Some(reason.clone()))
         }
         (RunStatus::Cancelled, Some(RunOutcome::Cancelled { reason })) => {

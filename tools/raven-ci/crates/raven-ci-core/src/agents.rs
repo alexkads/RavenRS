@@ -1440,8 +1440,9 @@ impl LaunchedAgent for ChildAgent {
     }
 }
 
-/// The start of the reason of a build whose agent went quiet past its grace.
-pub const INTERRUPTED: &str = "interrompido:";
+/// The start of the reason of a build whose agent went quiet past its grace: what the model reads
+/// as [`BuildStatus::Interrupted`].
+pub use crate::model::INTERRUPTED;
 
 /// The settings a launcher gets: the template's, with the agent's name and executors.
 fn with_agent(settings: &Value, name: &str, executors: u32) -> Value {
