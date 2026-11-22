@@ -1,0 +1,26 @@
+{
+  "versao": "0.1.0",
+  "titulo": "Raven CI nasce: o núcleo de um servidor de CI em que tudo é plugin.",
+  "importante": false,
+  "novidades": [
+    "Núcleo com fila, jobs em pastas, builds numerados com estágios e passos, anexos e retenção por job, tudo num arquivo SQLite.",
+    "Fila com prioridade, cancelar (até um build rodando), repetir e juntar pedidos iguais, a mesma do Raven Test Studio.",
+    "API de plugins com um ponto de extensão para cada função do CI, e plugins externos em qualquer linguagem por JSON-RPC, com o exemplo hello em Python.",
+    "raven-ci plugins listar, info, ligar e desligar, com --format json; um plugin que não serve fica de fora dizendo por quê.",
+    "--versao e --self-test, que roda um build com um plugin falso de cada ponto."
+  ],
+  "por_que_atualizar": "É a primeira versão.",
+  "contribuidores": [
+    "Alex S S Fonseca"
+  ],
+  "issues": [
+    803,
+    833,
+    834,
+    835,
+    836,
+    837,
+    838,
+    839
+  ]
+}

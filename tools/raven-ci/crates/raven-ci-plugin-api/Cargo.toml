@@ -1,0 +1,26 @@
+[package]
+name = "raven-ci-plugin-api"
+description = "What a plugin of Raven CI implements: a ravenrs-app Module with one extension point for each thing the CI does, and the host services it asks for by permission."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[features]
+# A fake plugin for each extension point and a fake host, for the tests of the core and the
+# self-test of the tool.
+testing = []
+
+[dependencies]
+ravenrs-app.workspace = true
+ravenrs-app-i18n.workspace = true
+ravenrs-flows.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+raven-ci-plugin-api = { path = ".", features = ["testing"] }
+
+[lints]
+workspace = true

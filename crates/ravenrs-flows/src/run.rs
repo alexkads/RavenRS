@@ -315,6 +315,19 @@ impl<'a> Executor<'a> {
         self
     }
 
+    /// Cancelled by `token`, with the nodes running on the calling thread, as without a token:
+    /// cancelling it stops the run before the next node and reaches the node running through
+    /// its context ([`NodeContext::token`], [`NodeContext::check`], [`NodeContext::sleep`]).
+    /// A node that does not look at its token runs to its end. Nothing runs on another thread,
+    /// so a node that panics takes the caller down as it would with no token, and a run costs
+    /// no thread per node: what a durable runtime wants, where a worker that dies is the
+    /// failure it recovers from.
+    pub fn cancel_cooperatively(mut self, token: CancelToken) -> Self {
+        self.token = token;
+        self.watched = false;
+        self
+    }
+
     /// With the whole run taking at most `ms` milliseconds.
     pub fn time_limit_ms(mut self, ms: u64) -> Self {
         self.time_limit_ms = Some(ms);

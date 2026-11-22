@@ -5,7 +5,8 @@
 //! * [`Counter`] only goes up (builds run), [`Gauge`] goes both ways (builds waiting, memory),
 //!   [`Histogram`] counts observations into ranges (how long builds take).
 //! * Each takes labels: [`Counter::with`] and the others give the series of those label values.
-//! * [`process_rss_bytes`] is the memory the process holds, on Linux.
+//! * [`process_rss_bytes`] is the memory the process holds, on Linux, and [`rss_bytes_of`] the
+//!   memory of another process, such as a child, on Linux and macOS.
 //!
 //! Everything is safe to use from any thread. Names and labels are checked when a metric is made,
 //! and a mistake is an error, never a panic.
@@ -395,7 +396,27 @@ impl HistogramSeries {
 /// The memory the process holds now (its resident set), in bytes. On Linux it is read from
 /// `/proc/self/status`; elsewhere it is `None`, as there is no file to read it from.
 pub fn process_rss_bytes() -> Option<u64> {
-    let status = std::fs::read_to_string("/proc/self/status").ok()?;
+    rss_from_status(&std::fs::read_to_string("/proc/self/status").ok()?)
+}
+
+/// The memory the process `pid` holds now (its resident set), in bytes: a child the service
+/// started, such as a plugin. On Linux it is read from `/proc/<pid>/status`; on macOS `ps` says
+/// it; elsewhere, and when the process is gone, it is `None`.
+pub fn rss_bytes_of(pid: u32) -> Option<u64> {
+    if let Ok(status) = std::fs::read_to_string(format!("/proc/{pid}/status")) {
+        return rss_from_status(&status);
+    }
+    if cfg!(target_os = "macos") {
+        let out =
+            std::process::Command::new("ps").args(["-o", "rss=", "-p", &pid.to_string()]).output().ok()?;
+        let kilobytes: u64 = String::from_utf8_lossy(&out.stdout).trim().parse().ok()?;
+        return kilobytes.checked_mul(1024);
+    }
+    None
+}
+
+/// The resident set of a `/proc/<pid>/status` file, in bytes.
+fn rss_from_status(status: &str) -> Option<u64> {
     let line = status.lines().find(|line| line.starts_with("VmRSS:"))?;
     let kilobytes: u64 =
         line.trim_start_matches("VmRSS:").trim().trim_end_matches("kB").trim().parse().ok()?;

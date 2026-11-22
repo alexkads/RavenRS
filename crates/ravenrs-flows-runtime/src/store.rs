@@ -70,7 +70,11 @@ CREATE TABLE IF NOT EXISTS runs (
     wake_event TEXT,
     started_ms INTEGER,
     created_ms INTEGER NOT NULL,
-    ended_ms INTEGER
+    ended_ms INTEGER,
+    priority INTEGER NOT NULL DEFAULT 0,
+    dedupe_key TEXT,
+    joined INTEGER NOT NULL DEFAULT 0,
+    cancel_requested TEXT
 );
 CREATE INDEX IF NOT EXISTS runs_by_status ON runs (status, created_ms);
 CREATE TABLE IF NOT EXISTS steps (
@@ -93,8 +97,31 @@ pub(crate) fn prepare(conn: &Connection) -> Result<(), StoreError> {
     conn.busy_timeout(std::time::Duration::from_secs(10))?;
     let _ = conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()));
     conn.execute_batch(SCHEMA)?;
+    // Files made before the queue had priorities, keys and cancelling get the columns, empty.
+    let columns: Vec<String> = {
+        let mut stmt = conn.prepare("PRAGMA table_info(runs)")?;
+        let rows = stmt.query_map([], |row| row.get::<_, String>(1))?;
+        rows.collect::<Result<_, _>>()?
+    };
+    for (column, kind) in ADDED_COLUMNS {
+        if !columns.iter().any(|c| c == column) {
+            conn.execute_batch(&format!("ALTER TABLE runs ADD COLUMN {column} {kind}"))?;
+        }
+    }
+    conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS runs_in_line ON runs (status, priority DESC, created_ms);
+         CREATE INDEX IF NOT EXISTS runs_by_key ON runs (dedupe_key, status);",
+    )?;
     Ok(())
 }
+
+/// The columns that came after the first files, and how each is declared.
+const ADDED_COLUMNS: [(&str, &str); 4] = [
+    ("priority", "INTEGER NOT NULL DEFAULT 0"),
+    ("dedupe_key", "TEXT"),
+    ("joined", "INTEGER NOT NULL DEFAULT 0"),
+    ("cancel_requested", "TEXT"),
+];
 
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
@@ -106,8 +133,9 @@ pub(crate) fn new_id(prefix: &str, now_ms: i64) -> String {
 }
 
 /// The run due first that no one holds: asked for, held by a worker whose lease ran out, or
-/// waiting for a time that came. It is given to `worker` until `lease_until`, in one statement
-/// inside a write transaction, so two workers never get the same run.
+/// waiting for a time that came; the highest priority first and, among equals, the oldest. It is
+/// given to `worker` until `lease_until`, in one statement inside a write transaction, so two
+/// workers never get the same run.
 pub(crate) fn claim(
     conn: &mut Connection,
     worker: &str,
@@ -123,7 +151,7 @@ pub(crate) fn claim(
                  WHERE status = 'queued'
                     OR (status = 'running' AND lease_until < ?2)
                     OR (status = 'waiting' AND wake_at IS NOT NULL AND wake_at <= ?2)
-                 ORDER BY created_ms, id LIMIT 1)
+                 ORDER BY priority DESC, created_ms, id LIMIT 1)
              RETURNING id",
             params![worker, now_ms, lease_until],
             |row| row.get(0),
