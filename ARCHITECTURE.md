@@ -111,6 +111,7 @@ ravenrs-movie          ──► ravenrs-widgets (recorded draw lists ──► 
 ravenrs-e2e            ──► ravenrs-widgets-base (end-to-end tests: find by test id, role or text, real input events, the screen as text; no widget family)
 ravenrs-e2e-wire       ──► ravenrs-e2e (the test channel: a tool drives an app in a child process with no window, one JSON line per step; feature `serve` on the app's side)
 ravenrs-ai             ──► ravenrs-widgets (models on the machine; desktop only)
+ravenrs-schedule       (leaf, only jiff: cron, triggers, misfire and the running guard; no runtime; used by ravenrs-report-server, and the engine for the app framework's tasks #66, Raven Flows #537 and Raven CI #803)
         ▲
         ├── ravenrs-report-server  (HTTP, schedules, delivery; only this crate has a runtime)
         │
@@ -192,7 +193,8 @@ There are no cycles. `ravenrs-render` also uses `ravenrs-text`, and the platform
 | `ravenrs-spreadsheet` | `lib` (`Spreadsheet`, labels), `state` (`SpreadsheetState`), `surface` (the painted grid, pointer and keys), `geometry` |
 | `ravenrs-ai` | `machine` (memory and disk), `models` (`LocalModel`, `ModelFolder`: download checked by hash, remove), `catalog`, `manager` (`ModelManager`). Desktop only |
 | `ravenrs-movie` | `movie` (the film: draw lists, each thing stored once), `project` (non-destructive edits), `composition` (one moment drawn), `record` (`Recorder`), `player` (with sound and the boxes that explain each step), `search` (`MovieLibrary`), `assistant` (`MovieAssistant`), `chat` (`MovieChat`), `editor`, `flight` (`FlightRecorder`, `BugReporter`) |
-| `ravenrs-report-server` | `config`, `store`, `cron`, `job`, `render`, `deliver`, `scheduler`, `http`, `main` |
+| `ravenrs-report-server` | `config`, `store`, `job`, `render`, `deliver`, `scheduler`, `http`, `main` (`cron` re-exported from `ravenrs-schedule`) |
+| `ravenrs-schedule` | `cron`, `trigger`, `running` |
 | `ravenrs-mcp` | `api` (index of the public API, parsed from embedded sources), `docs`, `expression`, `server` |
 | `ravenrs-lint` | `rules` (the syntax-tree walk and `allow` comments), `config` (`[metadata.ravenrs-lint]`), `workspace` (`cargo metadata`), `report` (compiler-style and JSON), `init` (strict lints, agents' instructions) |
 | `ravenrs-xcache` | `args` (what a rustc command line asks for, and whether it can be kept), `paths` (the build directory and the checkout, taken out with `--remap-path-prefix`, and the search for a path left in an artifact), `store` (files by SHA-256, results, manifests, the log of requests), `wrapper` (look up, restore, or compile and keep) |
