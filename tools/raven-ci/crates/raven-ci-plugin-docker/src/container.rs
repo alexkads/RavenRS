@@ -69,9 +69,11 @@ pub struct RunPlan {
 }
 
 impl RunPlan {
-    /// The arguments of `docker run` for this plan.
+    /// The arguments of `docker create` for this plan. The container is made first and started
+    /// after (`start -a`): a build cancelled while the engine was still making it would leave it
+    /// behind, made after its removal.
     pub fn args(&self) -> Vec<String> {
-        let mut args: Vec<String> = ["run", "--rm", "--name", &self.name].map(str::to_owned).into();
+        let mut args: Vec<String> = ["create", "--rm", "--name", &self.name].map(str::to_owned).into();
         for label in [
             format!("{LABEL}={}", self.run),
             format!("raven-ci.job={}", self.job),
@@ -160,12 +162,10 @@ pub fn fetch_image(
     if watched.end == End::Code(0) {
         return Ok(());
     }
-    let why = watched.last_error();
-    Err(NodeError::new(if why.is_empty() {
-        format!("buscar imagem: a imagem {image} não foi encontrada nem baixada")
-    } else {
-        format!("buscar imagem: a imagem {image} não foi encontrada nem baixada: {why}")
-    }))
+    Err(NodeError::new(format!(
+        "buscar imagem: a imagem {image} não foi encontrada nem baixada: {}",
+        said(&watched.errors)
+    )))
 }
 
 /// The step `container`. See the [crate](crate).
@@ -226,11 +226,15 @@ impl NodeKind for Container {
                 .then_some(network)
         });
         let plan = RunPlan {
+            // The build's run and this process tell it apart from a container of another server
+            // or of a server before this one on the same engine.
             name: format!(
-                "raven-ci-{}-{}-{}-{}",
+                "raven-ci-{}-{}-{}-{}-{}-{}",
                 slug(&context.job),
                 context.number,
                 slug(&step),
+                short(&context.run),
+                std::process::id(),
                 NEXT.fetch_add(1, Ordering::SeqCst)
             ),
             run: context.run.clone(),
@@ -247,20 +251,37 @@ impl NodeKind for Container {
             nice: cx.parameter("nice").and_then(Value::as_i64),
             script,
         };
-        let mut spec = engine.command(plan.args()).dir(&context.workspace);
-        for (name, value) in by_name {
-            spec = spec.env(name, value);
+        let mut create = engine.command(plan.args()).dir(&context.workspace).timeout(crate::engine::QUICK);
+        for (name, value) in &by_name {
+            // `-e NAME` takes the value from the command's environment when the container is made.
+            create = create.env(name, value);
         }
-        if let Some(ms) = cx.node().timeout_ms {
-            spec = spec.timeout(Duration::from_millis(ms));
+        let made =
+            create.output().map_err(|e| NodeError::new(format!("o {} não rodou: {e}", engine.name())))?;
+        if made.end != End::Code(0) {
+            return Err(NodeError::new(format!(
+                "o {} não criou o contêiner: {}",
+                engine.name(),
+                said(&made.stderr)
+            )));
         }
-        log(&format!("rodando em {image}, como {}", describe(plan.run_as)));
         let name = plan.name.clone();
         let stop = || {
             // Stopping the command does not stop the container: the engine runs it.
             let _ = engine.ask(["rm", "-f", "-v", &name]);
         };
-        let watched = watch(cx, spec, &log, &stop)?;
+        let mut spec = engine.command(["start", "-a", &name]).dir(&context.workspace);
+        if let Some(ms) = cx.node().timeout_ms {
+            spec = spec.timeout(Duration::from_millis(ms));
+        }
+        log(&format!("rodando em {image}, como {}", describe(plan.run_as)));
+        let watched = match watch(cx, spec, &log, &stop) {
+            Ok(watched) => watched,
+            Err(why) => {
+                stop();
+                return Err(why);
+            }
+        };
         if watched.end == End::TimedOut {
             stop();
         }
@@ -268,11 +289,29 @@ impl NodeKind for Container {
             End::Code(125) => Err(NodeError::new(format!(
                 "o {} não rodou o contêiner: {}",
                 engine.name(),
-                watched.last_error()
+                said(&watched.errors)
             ))),
             end => ended(end, cx.node().retry.is_some()).map(|()| BuildScope::pass_on(cx)),
         }
     }
+}
+
+/// The last eight letters or digits of `run`: enough to tell two builds apart in a name.
+fn short(run: &str) -> String {
+    let kept: Vec<char> = slug(run).chars().filter(char::is_ascii_alphanumeric).collect();
+    kept[kept.len().saturating_sub(8)..].iter().collect()
+}
+
+/// What an engine said when it refused: its line of error (`Error response from daemon: …`),
+/// not the advice after it (`Run 'docker run --help'…`).
+pub(crate) fn said(lines: &[String]) -> String {
+    let lines: Vec<&str> = lines.iter().map(|l| l.trim()).filter(|l| !l.is_empty()).collect();
+    lines
+        .iter()
+        .find(|l| l.contains("Error") || l.starts_with("error"))
+        .or(lines.last())
+        .map(|l| (*l).to_owned())
+        .unwrap_or_else(|| "sem mensagem".to_owned())
 }
 
 fn describe(run_as: RunAs) -> String {
@@ -310,6 +349,7 @@ mod tests {
     #[test]
     fn the_run_has_the_label_the_user_the_folder_and_ends_with_the_script() {
         let args = plan().args();
+        assert_eq!(&args[..3], ["create", "--rm", "--name"], "made first, started after");
         let has = |pair: [&str; 2]| args.windows(2).any(|w| w[0] == pair[0] && w[1] == pair[1]);
         assert!(has(["--label", "raven-ci.build=run-1"]), "{args:?}");
         assert!(has(["--user", "501:20"]), "{args:?}");
@@ -339,6 +379,18 @@ mod tests {
         assert!(!args.contains(&"--user".to_owned()), "{args:?}");
         let tail: Vec<&str> = args[args.len() - 7..].iter().map(String::as_str).collect();
         assert_eq!(tail, ["rust:1", "-n", "5", "sh", "-e", "-c", "cargo --version"]);
+    }
+
+    #[test]
+    fn a_refusal_says_the_error_not_the_advice() {
+        let lines = [
+            "docker: Error response from daemon: Conflict.",
+            "",
+            "Run 'docker run --help' for more information",
+        ]
+        .map(str::to_owned);
+        assert_eq!(said(&lines), "docker: Error response from daemon: Conflict.");
+        assert_eq!(short("docker-teste-1097806-3"), "10978063");
     }
 
     #[test]

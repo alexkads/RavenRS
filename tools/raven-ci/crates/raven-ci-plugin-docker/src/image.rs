@@ -93,9 +93,11 @@ fn run(
     let watched = watch(cx, spec, &log, &|| {})?;
     match watched.end {
         End::Code(0) => Ok(()),
-        End::Code(_) if !watched.last_error().is_empty() => {
-            Err(NodeError::new(format!("o {} falhou: {}", engine.name(), watched.last_error())))
-        }
+        End::Code(_) if !watched.last_error().is_empty() => Err(NodeError::new(format!(
+            "o {} falhou: {}",
+            engine.name(),
+            crate::container::said(&watched.errors)
+        ))),
         end => ended(end, cx.node().retry.is_some()),
     }
 }

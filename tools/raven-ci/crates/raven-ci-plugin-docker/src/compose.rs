@@ -22,7 +22,7 @@ pub const WAIT: Duration = Duration::from_secs(120);
 /// How often the wait asks the engine.
 const ASK_EVERY: Duration = Duration::from_secs(1);
 
-/// A service as `compose ps --format json` says it.
+/// A service of a compose project, as `inspect` says it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Service {
     /// Its name in the compose file.
@@ -35,29 +35,25 @@ pub struct Service {
     pub exit_code: i64,
 }
 
-/// The services in the output of `compose ps --format json`: one object per line (Compose 2.21
-/// on) or one array (before).
-pub fn services(output: &str) -> Vec<Service> {
-    let read = |value: &Value| Service {
-        name: value
-            .get("Service")
-            .or_else(|| value.get("Name"))
-            .and_then(Value::as_str)
-            .unwrap_or_default()
-            .to_owned(),
-        state: value.get("State").and_then(Value::as_str).unwrap_or_default().to_lowercase(),
-        health: value.get("Health").and_then(Value::as_str).unwrap_or_default().to_lowercase(),
-        exit_code: value.get("ExitCode").and_then(Value::as_i64).unwrap_or(0),
-    };
-    let mut found = Vec::new();
-    for line in output.lines().map(str::trim).filter(|l| !l.is_empty()) {
-        match serde_json::from_str::<Value>(line) {
-            Ok(Value::Array(items)) => found.extend(items.iter().map(read)),
-            Ok(value @ Value::Object(_)) => found.push(read(&value)),
-            _ => {}
-        }
-    }
-    found
+/// How [`services`] asks `inspect` for each container of a project: its service, state, exit
+/// code and health, the last empty when the service has no healthcheck.
+pub const INSPECT_FORMAT: &str = "{{index .Config.Labels \"com.docker.compose.service\"}}|{{.State.Status}}|{{.State.ExitCode}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}";
+
+/// The services in the lines `inspect --format` [`INSPECT_FORMAT`] wrote, one per container.
+/// `inspect` rather than `compose ps`: only it tells a service with no healthcheck from one
+/// whose first check has not come yet.
+pub fn services(lines: &[String]) -> Vec<Service> {
+    lines
+        .iter()
+        .filter_map(|line| {
+            let mut parts = line.trim().splitn(4, '|');
+            let name = parts.next().filter(|n| !n.is_empty())?.to_owned();
+            let state = parts.next().unwrap_or_default().to_lowercase();
+            let exit_code = parts.next().and_then(|c| c.trim().parse().ok()).unwrap_or(0);
+            let health = parts.next().unwrap_or_default().trim().to_lowercase();
+            Some(Service { name, state, health, exit_code })
+        })
+        .collect()
 }
 
 /// Where the services stand.
@@ -151,11 +147,11 @@ impl NodeKind for Compose {
                 if watched.end != End::Code(0) {
                     return Err(NodeError::new(format!(
                         "o compose up falhou: {}",
-                        if watched.last_error().is_empty() { "sem mensagem" } else { watched.last_error() }
+                        crate::container::said(&watched.errors)
                     )));
                 }
                 if cx.parameter("wait").and_then(Value::as_bool).unwrap_or(true) {
-                    wait(cx, &command, limit, &log)?;
+                    wait(cx, &engine, &command, limit, &log)?;
                 }
                 Ok(BuildScope::pass_on(cx))
             }
@@ -164,30 +160,43 @@ impl NodeKind for Compose {
     }
 }
 
-/// Waits until the services are ready, at most `limit`, saying in the log which it waits for
-/// when that changes.
+/// Waits until the services are ready twice in a row (a service that falls as it starts is
+/// caught), at most `limit`, saying in the log which it waits for when that changes.
 fn wait(
     cx: &NodeContext<'_>,
+    engine: &crate::engine::Engine,
     command: &dyn Fn(&[String]) -> ravenrs_process::Spec,
     limit: Duration,
     log: &dyn Fn(&str),
 ) -> Result<(), NodeError> {
     let until = Instant::now() + limit;
-    let args = ["ps", "--all", "--format", "json"].map(str::to_owned);
+    let ids = ["ps", "--all", "-q"].map(str::to_owned);
     let mut said = Vec::new();
+    let mut ready_before = false;
     loop {
         cx.check()?;
-        let output = command(&args)
+        let listed = command(&ids)
             .timeout(crate::engine::QUICK)
             .output()
             .map_err(|e| NodeError::new(format!("compose ps não rodou: {e}")))?;
-        match health(&services(&output.stdout.join("\n"))) {
-            Health::Ready => {
+        let containers: Vec<String> =
+            listed.stdout.iter().map(|l| l.trim().to_owned()).filter(|l| !l.is_empty()).collect();
+        let found = if containers.is_empty() {
+            Vec::new()
+        } else {
+            let mut args = vec!["inspect".to_owned(), "--format".to_owned(), INSPECT_FORMAT.to_owned()];
+            args.extend(containers);
+            services(&engine.lines(args))
+        };
+        match health(&found) {
+            Health::Ready if ready_before => {
                 log("serviços prontos");
                 return Ok(());
             }
+            Health::Ready => ready_before = true,
             Health::Broken(why) => return Err(NodeError::new(why)),
             Health::Waiting(names) => {
+                ready_before = false;
                 if Instant::now() >= until {
                     return Err(NodeError::timed_out(format!(
                         "os serviços não ficaram prontos em {} s: {}",
@@ -209,28 +218,38 @@ fn wait(
 mod tests {
     use super::*;
 
+    fn read(lines: &[&str]) -> Vec<Service> {
+        services(&lines.iter().map(|l| (*l).to_owned()).collect::<Vec<_>>())
+    }
+
     #[test]
-    fn services_are_read_one_per_line_or_in_an_array() {
-        let lines = r#"{"Service":"db","State":"running","Health":"healthy","ExitCode":0}
-{"Service":"fila","State":"running","Health":"","ExitCode":0}"#;
-        let array = r#"[{"Service":"db","State":"running","Health":"starting","ExitCode":0}]"#;
-        assert_eq!(services(lines).len(), 2);
-        assert_eq!(health(&services(lines)), Health::Ready);
-        assert_eq!(health(&services(array)), Health::Waiting(vec!["db (starting)".into()]));
+    fn services_are_read_from_inspect_one_per_container() {
+        let both = read(&["db|running|0|healthy", "fila|running|0|"]);
+        assert_eq!(both.len(), 2);
+        assert_eq!(health(&both), Health::Ready);
+        assert_eq!(health(&read(&["db|running|0|starting"])), Health::Waiting(vec!["db (starting)".into()]));
     }
 
     #[test]
     fn an_unhealthy_service_or_one_that_stopped_badly_breaks_the_wait() {
-        let sick = r#"{"Service":"db","State":"running","Health":"unhealthy","ExitCode":0}"#;
-        assert_eq!(health(&services(sick)), Health::Broken("o serviço db ficou unhealthy".into()));
-        let fell = r#"{"Service":"migra","State":"exited","Health":"","ExitCode":2}"#;
-        assert_eq!(health(&services(fell)), Health::Broken("o serviço migra parou com o código 2".into()));
-        let done = r#"{"Service":"migra","State":"exited","Health":"","ExitCode":0}"#;
-        assert_eq!(health(&services(done)), Health::Ready, "a job of setup that ended well is ready");
+        assert_eq!(
+            health(&read(&["db|running|0|unhealthy"])),
+            Health::Broken("o serviço db ficou unhealthy".into())
+        );
+        assert_eq!(
+            health(&read(&["web|exited|127|"])),
+            Health::Broken("o serviço web parou com o código 127".into())
+        );
+        assert_eq!(
+            health(&read(&["migra|exited|0|"])),
+            Health::Ready,
+            "a job of setup that ended well is ready"
+        );
     }
 
     #[test]
     fn nothing_listed_yet_is_waiting() {
-        assert!(matches!(health(&services("")), Health::Waiting(_)));
+        assert!(matches!(health(&read(&[])), Health::Waiting(_)));
+        assert!(read(&["", "|running|0|"]).is_empty(), "a line with no service is not one");
     }
 }

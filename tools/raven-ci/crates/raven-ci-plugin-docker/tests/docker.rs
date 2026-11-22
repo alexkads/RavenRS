@@ -3,9 +3,13 @@
 //! build that fails or is cancelled, the files of the folder owned by the agent, and compose
 //! waiting for health.
 //!
-//! Each test is skipped, saying so, when the machine has no engine, or when the engine is
-//! another machine's (a context over `ssh://` or `tcp://`): a remote engine does not see this
-//! machine's folders. `RAVEN_CI_TESTE_DOCKER_REMOTO=1` runs them against it anyway.
+//! They run only when asked, with `RAVEN_CI_TESTES_DOCKER=1`, so a `check.sh` never reaches an
+//! engine on its own. Asked, each test is still skipped, saying so, when the machine has no
+//! engine, or when the engine is another machine's (a context over `ssh://` or `tcp://`): a
+//! remote engine does not see this machine's folders, so these run on the machine of the engine.
+//!
+//! Everything a test makes on the engine has the label `raven-ci-teste=<id>` besides the
+//! plugin's own, and the test removes what has it when it ends: the engine may be shared.
 #![allow(clippy::expect_used, clippy::print_stderr, reason = "tests fail loudly and say why they skip")]
 
 use std::collections::BTreeMap;
@@ -21,6 +25,10 @@ use serde_json::json;
 
 /// The engine of this machine, or `None`, saying why the test is skipped.
 fn engine() -> Option<Engine> {
+    if std::env::var_os("RAVEN_CI_TESTES_DOCKER").is_none() {
+        eprintln!("aviso: teste pulado, os testes reais de Docker rodam só com RAVEN_CI_TESTES_DOCKER=1");
+        return None;
+    }
     let engine = match Engine::find("") {
         Ok(engine) => engine,
         Err(why) => {
@@ -28,15 +36,13 @@ fn engine() -> Option<Engine> {
             return None;
         }
     };
-    if std::env::var_os("RAVEN_CI_TESTE_DOCKER_REMOTO").is_none() {
-        let host = std::env::var("DOCKER_HOST").ok().or_else(|| {
-            // Read from the configuration only: asking the engine would already reach the other machine.
-            engine.lines(["context", "inspect", "--format", "{{.Endpoints.docker.Host}}"]).into_iter().next()
-        });
-        if let Some(host) = host.filter(|h| h.starts_with("ssh://") || h.starts_with("tcp://")) {
-            eprintln!("aviso: teste pulado, o motor {host} é de outra máquina e não vê as pastas desta");
-            return None;
-        }
+    let host = std::env::var("DOCKER_HOST").ok().or_else(|| {
+        // Read from the configuration only: asking the engine would already reach the other machine.
+        engine.lines(["context", "inspect", "--format", "{{.Endpoints.docker.Host}}"]).into_iter().next()
+    });
+    if let Some(host) = host.filter(|h| h.starts_with("ssh://") || h.starts_with("tcp://")) {
+        eprintln!("aviso: teste pulado, o motor {host} é de outra máquina e não vê as pastas desta");
+        return None;
     }
     if !engine.ask(["info"]).is_ok_and(|o| o.end.success()) {
         eprintln!("aviso: teste pulado, o {} não responde (o motor está parado?)", engine.name());
@@ -50,7 +56,11 @@ struct Build {
     workspace: PathBuf,
     run: String,
     guard: Option<ScopeGuard>,
+    engine: Option<Engine>,
 }
+
+/// The label of what a test makes on the engine.
+const TEST_LABEL: &str = "raven-ci-teste";
 
 impl Build {
     /// Ends the build: what it asked to undo at its end runs.
@@ -62,11 +72,25 @@ impl Build {
 impl Drop for Build {
     fn drop(&mut self) {
         self.guard.take();
+        // Whatever the test made and the plugin did not remove, by the test's label only.
+        if let Some(engine) = &self.engine {
+            let filter = format!("label={TEST_LABEL}={}", self.run);
+            let containers = engine.lines(["ps", "-aq", "--filter", &filter]);
+            if !containers.is_empty() {
+                let _ = engine.ask(["rm", "-f", "-v"].into_iter().map(str::to_owned).chain(containers));
+            }
+            for kind in ["network", "volume"] {
+                let found = engine.lines([kind, "ls", "-q", "--filter", &filter]);
+                if !found.is_empty() {
+                    let _ = engine.ask([kind, "rm"].into_iter().map(str::to_owned).chain(found));
+                }
+            }
+        }
         let _ = std::fs::remove_dir_all(&self.workspace);
     }
 }
 
-fn build(environment: &[(&str, &str)]) -> Build {
+fn build(engine: &Engine, environment: &[(&str, &str)]) -> Build {
     static NEXT: AtomicU64 = AtomicU64::new(0);
     let run = format!("docker-teste-{}-{}", std::process::id(), NEXT.fetch_add(1, Ordering::SeqCst));
     // Under the home, which Docker Desktop and Podman machine share with their VM; /tmp may not be.
@@ -79,13 +103,29 @@ fn build(environment: &[(&str, &str)]) -> Build {
     let context =
         BuildContext { job: "site".into(), number: 1, workspace: workspace.clone(), run: run.clone() };
     let guard = enter(BuildScope::new(context, log.clone(), environment));
-    Build { log, workspace, run, guard: Some(guard) }
+    Build { log, workspace, run, guard: Some(guard), engine: Some(engine.clone()) }
 }
 
-fn container(image: &str, script: &str) -> NodeDef {
+/// A step `container` of `build` in `image`, with `args` before the image.
+fn container_with(build: &Build, image: &str, script: &str, args: &[&str]) -> NodeDef {
+    let mut words = vec!["--label".to_owned(), format!("{TEST_LABEL}={}", build.run)];
+    words.extend(args.iter().map(|a| (*a).to_owned()));
     NodeDef::new("passo", CONTAINER)
-        .parameter("container", json!({ "image": image }))
+        .parameter("container", json!({ "image": image, "args": words }))
         .parameter("script", json!(script))
+}
+
+fn container(build: &Build, image: &str, script: &str) -> NodeDef {
+    container_with(build, image, script, &[])
+}
+
+/// A compose file with `services` (YAML, two spaces in, `LABELS` where each service's labels
+/// go), labelled for the test: its services and its network.
+fn compose_file(build: &Build, services: &str) {
+    let label = format!("{TEST_LABEL}: {}", build.run);
+    let services = services.replace("LABELS", &format!("labels:\n      {label}"));
+    let text = format!("services:\n{services}networks:\n  default:\n    labels:\n      {label}\n");
+    std::fs::write(build.workspace.join("compose.yml"), text).expect("the compose file");
 }
 
 fn run_in(build: &Build, engine: &Engine, nodes: Vec<NodeDef>, token: Option<CancelToken>) -> Run {
@@ -120,8 +160,8 @@ fn left(engine: &Engine, build: &Build) -> Vec<String> {
 #[test]
 fn cargo_version_runs_inside_rust_1() {
     let Some(engine) = engine() else { return };
-    let mut build = build(&[]);
-    let run = run_in(&build, &engine, vec![container("rust:1", "cargo --version")], None);
+    let mut build = build(&engine, &[]);
+    let run = run_in(&build, &engine, vec![container(&build, "rust:1", "cargo --version")], None);
     assert_eq!(
         run.nodes["passo"].status,
         NodeStatus::Done,
@@ -137,9 +177,9 @@ fn cargo_version_runs_inside_rust_1() {
 #[test]
 fn an_image_that_does_not_exist_fails_at_fetching_it_with_its_name() {
     let Some(engine) = engine() else { return };
-    let build = build(&[]);
+    let build = build(&engine, &[]);
     let image = "raven-ci-teste/nao-existe:0";
-    let run = run_in(&build, &engine, vec![container(image, "true")], None);
+    let run = run_in(&build, &engine, vec![container(&build, image, "true")], None);
     let part = &run.nodes["passo"];
     assert_eq!(part.status, NodeStatus::Failed);
     let error = part.error.clone().unwrap_or_default();
@@ -149,7 +189,7 @@ fn an_image_that_does_not_exist_fails_at_fetching_it_with_its_name() {
 #[test]
 fn a_cancelled_build_leaves_no_container_nor_volume() {
     let Some(engine) = engine() else { return };
-    let mut build = build(&[]);
+    let mut build = build(&engine, &[]);
     let token = CancelToken::new();
     let cancel = token.clone();
     let canceller = std::thread::spawn(move || {
@@ -158,8 +198,7 @@ fn a_cancelled_build_leaves_no_container_nor_volume() {
     });
     let began = Instant::now();
     // The anonymous volume stands for what a step leaves on the engine.
-    let mut node = container("alpine:3", "sleep 60");
-    node.parameters.insert("container".into(), json!({ "image": "alpine:3", "args": ["-v", "/dados"] }));
+    let node = container_with(&build, "alpine:3", "sleep 60", &["-v", "/dados"]);
     let run = run_in(&build, &engine, vec![node], Some(token));
     canceller.join().expect("joined");
     assert_eq!(run.nodes["passo"].status, NodeStatus::Cancelled, "{:?}", run.nodes["passo"]);
@@ -171,8 +210,8 @@ fn a_cancelled_build_leaves_no_container_nor_volume() {
 #[test]
 fn a_failed_build_leaves_nothing_and_says_the_code() {
     let Some(engine) = engine() else { return };
-    let mut build = build(&[]);
-    let run = run_in(&build, &engine, vec![container("alpine:3", "exit 3")], None);
+    let mut build = build(&engine, &[]);
+    let run = run_in(&build, &engine, vec![container(&build, "alpine:3", "exit 3")], None);
     assert!(
         run.nodes["passo"].error.as_deref().unwrap_or_default().contains("código 3"),
         "{:?}",
@@ -185,11 +224,15 @@ fn a_failed_build_leaves_nothing_and_says_the_code() {
 #[test]
 fn a_file_made_in_the_container_belongs_to_the_agent_and_secrets_stay_out_of_the_arguments() {
     let Some(engine) = engine() else { return };
-    let build = build(&[("TOKEN", "tok-docker-123456")]);
+    let build = build(&engine, &[("TOKEN", "tok-docker-123456")]);
     let run = run_in(
         &build,
         &engine,
-        vec![container("alpine:3", "echo \"$TOKEN\" > feito.txt; id -u; cat /proc/1/cmdline | tr '\\0' ' '")],
+        vec![container(
+            &build,
+            "alpine:3",
+            "echo \"$TOKEN\" > feito.txt; id -u; cat /proc/1/cmdline | tr '\\0' ' '",
+        )],
         None,
     );
     assert_eq!(
@@ -214,14 +257,13 @@ fn a_file_made_in_the_container_belongs_to_the_agent_and_secrets_stay_out_of_the
 #[test]
 fn compose_waits_for_health_and_the_container_reaches_the_service() {
     let Some(engine) = engine() else { return };
-    let mut build = build(&[]);
-    std::fs::write(
-        build.workspace.join("compose.yml"),
-        "services:\n  web:\n    image: alpine:3\n    command: [\"sh\", \"-c\", \"mkdir -p /w && echo ok > /w/index.html && httpd -f -p 8080 -h /w\"]\n    healthcheck:\n      test: [\"CMD\", \"wget\", \"-q\", \"-O-\", \"http://localhost:8080/\"]\n      interval: 1s\n      retries: 20\n",
-    )
-    .expect("the compose file");
+    let mut build = build(&engine, &[]);
+    compose_file(
+        &build,
+        "  web:\n    image: busybox:1.36\n    LABELS\n    command: [\"sh\", \"-c\", \"mkdir -p /w && echo ok > /w/index.html && httpd -f -p 8080 -h /w\"]\n    healthcheck:\n      test: [\"CMD\", \"wget\", \"-q\", \"-O-\", \"http://localhost:8080/\"]\n      interval: 1s\n      retries: 20\n",
+    );
     let up = NodeDef::new("servicos", COMPOSE).parameter("file", json!("compose.yml"));
-    let test = container("alpine:3", "wget -q -O- http://web:8080/");
+    let test = container(&build, "busybox:1.36", "wget -q -O- http://web:8080/");
     let run = run_in(&build, &engine, vec![up, test], None);
     assert_eq!(
         run.nodes["servicos"].status,
@@ -245,17 +287,86 @@ fn compose_waits_for_health_and_the_container_reaches_the_service() {
 }
 
 #[test]
+fn a_service_that_falls_as_it_starts_fails_the_wait_with_its_code() {
+    let Some(engine) = engine() else { return };
+    let mut build = build(&engine, &[]);
+    compose_file(
+        &build,
+        "  web:\n    image: alpine:3\n    LABELS\n    command: [\"sh\", \"-c\", \"exit 127\"]\n",
+    );
+    let up = NodeDef::new("servicos", COMPOSE).parameter("file", json!("compose.yml"));
+    let run = run_in(&build, &engine, vec![up], None);
+    let error = run.nodes["servicos"].error.clone().unwrap_or_default();
+    assert!(error.contains("o serviço web parou com o código 127"), "{error}\n{:?}", build.log.texts());
+    build.end();
+}
+
+#[test]
 fn an_unhealthy_service_fails_the_wait_with_its_name() {
     let Some(engine) = engine() else { return };
-    let mut build = build(&[]);
-    std::fs::write(
-        build.workspace.join("compose.yml"),
-        "services:\n  db:\n    image: alpine:3\n    command: [\"sleep\", \"60\"]\n    healthcheck:\n      test: [\"CMD\", \"false\"]\n      interval: 1s\n      retries: 1\n",
-    )
-    .expect("the compose file");
+    let mut build = build(&engine, &[]);
+    compose_file(
+        &build,
+        "  db:\n    image: alpine:3\n    LABELS\n    command: [\"sleep\", \"60\"]\n    healthcheck:\n      test: [\"CMD\", \"false\"]\n      interval: 1s\n      retries: 1\n",
+    );
     let up = NodeDef::new("servicos", COMPOSE).parameter("file", json!("compose.yml"));
     let run = run_in(&build, &engine, vec![up], None);
     let error = run.nodes["servicos"].error.clone().unwrap_or_default();
     assert!(error.contains("o serviço db ficou unhealthy"), "{error}\n{:?}", build.log.texts());
     build.end();
+}
+
+#[test]
+#[cfg(unix)]
+fn an_agent_comes_up_in_a_container_with_the_words_of_the_contract_and_stop_removes_it() {
+    use raven_ci_plugin_api::{AgentLauncher, LaunchRequest};
+    use raven_ci_plugin_docker::DockerLauncher;
+
+    let Some(engine) = engine() else { return };
+    let build = build(&engine, &[]);
+    // A raven-ci-agent stand-in until #893: it says what it got and waits, as an agent would.
+    let fake = build.workspace.join("raven-ci-agent");
+    std::fs::write(
+        &fake,
+        "#!/bin/sh\necho \"agente falso: $* token=$RAVEN_CI_AGENT_TOKEN\"\nexec sleep 300\n",
+    )
+    .expect("the fake");
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&fake, std::fs::Permissions::from_mode(0o755)).expect("runnable");
+    }
+    let request = LaunchRequest {
+        build: Some("site#1".into()),
+        labels: vec!["build:site#1".into()],
+        settings: json!({
+            "image": "alpine:3",
+            "agent_binary": fake.display().to_string(),
+            "args": ["--label", format!("raven-ci-teste={}", build.run)],
+        }),
+        server: "http://host.docker.internal:8080".into(),
+        token: "tok-uso-unico".into(),
+    };
+    let agent = DockerLauncher(State::with_engine(engine.clone())).launch(&request).expect("it comes up");
+    let name = agent.name();
+    assert!(agent.alive(), "the agent {name} is not running");
+    let said = engine.lines(["logs", &name]).join("\n");
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut said = said;
+    while !said.contains("agente falso") && Instant::now() < deadline {
+        std::thread::sleep(Duration::from_millis(200));
+        said = engine.ask(["logs", &name]).map(|o| o.stdout.join("\n")).unwrap_or_default();
+    }
+    let words = format!(
+        "--servidor http://host.docker.internal:8080 --nome {name} --rotulos build:site#1 --executores 1"
+    );
+    assert!(said.contains(&words), "{said}");
+    assert!(said.contains("token=tok-uso-unico"), "the token came by the environment: {said}");
+    let inspected = engine.lines(["inspect", "--format", "{{json .Args}}", &name]).join(" ");
+    assert!(!inspected.contains("tok-uso-unico"), "the token is not in the words: {inspected}");
+    agent.stop();
+    assert!(!agent.alive());
+    assert!(
+        engine.lines(["ps", "-aq", "--filter", &format!("name=^{name}$")]).is_empty(),
+        "the container outlived stop"
+    );
 }
