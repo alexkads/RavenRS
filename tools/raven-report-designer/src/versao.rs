@@ -1,0 +1,51 @@
+//! Who Raven Report Designer is to the installer and the updater of `ravenrs-app-update`, the same that
+//! install and update Raven Finanças and the other tools: its name, folders and addresses.
+
+use ravenrs_app_update::InstalledApp;
+
+/// Raven Report Designer, as installed by compiling the main branch.
+pub static APP: InstalledApp = InstalledApp {
+    name: "Raven Report Designer",
+    package: "raven-report-designer",
+    home_dir: ".raven-report-designer",
+    bundle_id: "dev.ravenrs.raven-report-designer",
+    icons: "tools/raven-report-designer/assets",
+    mac_category: "public.app-category.developer-tools",
+    linux_categories: "Development;",
+    source: "https://github.com/alexkads/RavenRS/archive/refs/heads/master.tar.gz",
+    env_prefix: "RRD",
+    installed_env: "RAVEN_REPORT_DESIGNER_INSTALLED",
+    news_urls: &[
+        "https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-report-designer/novidades.json",
+    ],
+    history_urls: &[
+        "https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-report-designer/historico-de-novidades.json",
+    ],
+    installer_url: "https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-report-designer/install.cmd",
+    issues_url: "https://github.com/alexkads/RavenRS/issues",
+    version: env!("CARGO_PKG_VERSION"),
+    // The installer sets it when it compiles.
+    installed: option_env!("RAVEN_REPORT_DESIGNER_INSTALLED").is_some(),
+    history: include_str!("../historico-de-novidades.json"),
+};
+
+/// The version, the one its news speak of.
+pub const VERSION: &str = APP.version;
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::APP;
+
+    #[test]
+    fn the_three_release_files_agree() {
+        ravenrs_app_update::assert_release_files_agree(Path::new(env!("CARGO_MANIFEST_DIR")));
+    }
+
+    #[test]
+    fn the_installer_is_the_one_the_template_makes() {
+        let file = Path::new(env!("CARGO_MANIFEST_DIR")).join("install.cmd");
+        ravenrs_app_update::assert_installer_is_current(&APP, &file);
+    }
+}

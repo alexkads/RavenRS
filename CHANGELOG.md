@@ -6,6 +6,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Breaking
 
+- Four examples are tools now, with their own version, installer, news, icons, `--versao` and `--self-test`: **Raven Code (RCD)** in `tools/raven-code`, **Raven Movie Editor (RME)** in `tools/raven-movie-editor` (package `raven-movie-editor`), **Raven Report Designer (RRD)** in `tools/raven-report-designer` (package `raven-report-designer`) and **Raven Channel Video (RCV)** in `tools/raven-channel-video` (package `raven-channel-video`). A tool with no window says `"window": false` in its `tool.json` (#798).
+
 - The feature center is the **Raven Feature Center (RFC)**, named as the other tools are (RTS, RCB): `tools/raven-feature-center`, package `raven-feature-center` (`cargo run -p raven-feature-center`), window "Raven Feature Center" (#796).
 
 - The feature center moved from `examples/feature-center` to `tools/feature-center` and is a tool like the others: version 0.1.0 of its own, `install.cmd`, news, icons, `--versao`, `--self-test` and the tray. Paths that named the old folder change; `scripts/build-web.sh` finds a project in `tools/` too (#793).

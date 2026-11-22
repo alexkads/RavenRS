@@ -52,9 +52,14 @@ for manifest in sorted(root.glob("tools/*/Cargo.toml")):
             if test not in body:
                 problems.append(f"{name}: src/versao.rs needs the test {test}")
     main = tool / "src/main.rs"
+    # A tool run from the terminal says so in its card ("window": false) and has no tray.
+    try:
+        windowed = json.loads((tool / "tool.json").read_text()).get("window", True) is not False
+    except (OSError, ValueError):
+        windowed = True
     if main.exists() and "--versao" not in main.read_text():
         problems.append(f"{name}: src/main.rs needs --versao, which the installer runs")
-    if main.exists() and "close_to_tray" not in main.read_text():
+    if windowed and main.exists() and "close_to_tray" not in main.read_text():
         problems.append(f"{name}: src/main.rs needs close_to_tray, so closing the window keeps it beside the clock")
     if main.exists() and '"--self-test"' not in main.read_text():
         problems.append(f"{name}: src/main.rs needs --self-test, the tool testing itself with no window")

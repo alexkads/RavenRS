@@ -41,10 +41,10 @@ fn success(output: &Output) {
 fn templates_embed_the_versioned_examples_and_published_dependencies() {
     let workspace = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     for (template, example) in [
-        ("hello", "hello-world"),
-        ("app", "tutorial-tasks"),
-        ("app-sqlite", "tasks-sqlite"),
-        ("relatorios", "report-designer"),
+        ("hello", "examples/hello-world"),
+        ("app", "examples/tutorial-tasks"),
+        ("app-sqlite", "examples/tasks-sqlite"),
+        ("relatorios", "tools/raven-report-designer"),
     ] {
         for target in ["desktop", "web", "both"] {
             let files = project_files("sample-app", template, target).unwrap();
@@ -69,10 +69,7 @@ fn templates_embed_the_versioned_examples_and_published_dependencies() {
             assert!(scenario.blocks.len() > 1, "the initial scenario checks the screen");
             assert_eq!(files.iter().any(|f| f.path == "web/index.html"), target != "desktop");
             let source = &files.iter().find(|f| f.path == "src/lib.rs").unwrap().contents;
-            assert_eq!(
-                source,
-                &fs::read_to_string(workspace.join(format!("examples/{example}/src/lib.rs"))).unwrap()
-            );
+            assert_eq!(source, &fs::read_to_string(workspace.join(format!("{example}/src/lib.rs"))).unwrap());
         }
     }
     for name in ["../bad", "0app", "fn", "match", "CON", "com1", "has space"] {

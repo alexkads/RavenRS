@@ -1,0 +1,45 @@
+{
+  "name": "Raven Channel Video",
+  "also_called": [
+    "RCV",
+    "channel-video"
+  ],
+  "package": "raven-channel-video",
+  "version": "0.1.0",
+  "summary": "Records the videos of the RavenRS channel from the real apps: it drives them as a person would, narrates the boxes with the local Kokoro voice and writes the wide and vertical videos, subtitles, chapters and cover.",
+  "when_to_use": [
+    "To record a new video of the channel, or record one again after the apps changed.",
+    "To look at single moments of a film as pictures before exporting."
+  ],
+  "commands": [
+    {
+      "command": "raven-channel-video record OUT",
+      "does": "Writes the films into OUT."
+    },
+    {
+      "command": "raven-channel-video narrate OUT --voz pm_santa",
+      "does": "Records what the boxes say with the local voice (pf_dora, pm_alex or pm_santa)."
+    },
+    {
+      "command": "raven-channel-video export OUT",
+      "does": "Writes the wide and the vertical video, the subtitles, the chapters and a cover."
+    },
+    {
+      "command": "raven-channel-video frames OUT 0:6000",
+      "does": "Draws single moments (film:ms) as pictures."
+    },
+    {
+      "command": "raven-channel-video --self-test",
+      "does": "Builds the screens it records with no window; exit code 0 when they draw."
+    },
+    {
+      "command": "raven-channel-video --versao",
+      "does": "Prints the version."
+    }
+  ],
+  "limits": [
+    "It has no window: it is run from the terminal.",
+    "The voice needs the local models (FF_AI_MODELS)."
+  ],
+  "window": false
+}

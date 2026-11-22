@@ -116,7 +116,7 @@ ravenrs-ai             ──► ravenrs-widgets (models on the machine; desktop
         │
 ravenrs-report-label    ──► ravenrs-report, ravenrs-text  (Document ──► printer language; no GUI)
 ravenrs-report-designer ──► ravenrs-report-viewer, ravenrs-report-export, ravenrs-report-label, ravenrs-widgets  (the designer)
-examples/report-designer  ──► ravenrs, ravenrs-report-designer
+tools/raven-report-designer  ──► ravenrs, ravenrs-report-designer
 
 ravenrs-dfe        (BETA: XML, C14N, XMLDSig, `Transport`, sandbox handlers, certificates; shared by the fiscal engines)
 ravenrs-nfe        ──► ravenrs-dfe, ravenrs-barcode  (BETA: NF-e and NFC-e with no GUI; everything leaves through `Transport`)
@@ -216,7 +216,7 @@ The widgets are ten crates, and applications see one: `ravenrs-widgets`. `ravenr
 | `counter` | `KeyBar`, `ScanField`: keys always in sight and a field for a scanner, with nothing about shops |
 | `grid/` | `DataGrid`: `query` (pure pipeline), `model`, `view` |
 
-Examples use the public API, among them `raven-feature-center`, every feature of the application framework, and: `hello-world`, `component-gallery` (one demo per component), `report-designer` and `family-finance`, a desktop app on SQLite that also finds what is missing in the framework. The design tokens are defined in [docs/design-system](docs/design-system), and `ravenrs-style` mirrors them value for value.
+Examples use the public API, among them `raven-feature-center`, every feature of the application framework, and: `hello-world`, `component-gallery` (one demo per component), `raven-report-designer` and `family-finance`, a desktop app on SQLite that also finds what is missing in the framework. The design tokens are defined in [docs/design-system](docs/design-system), and `ravenrs-style` mirrors them value for value.
 
 ## 4. The frame pipeline
 
@@ -350,7 +350,7 @@ Report (model: JSON or builder) + data ──► ReportEngine (engine) ──►
                                                paint_page ──► Scene ──► on-screen preview
 ```
 
-Expressions in a report come from `ravenrs-criteria`, and text is measured with the same Parley stack as the UI. `wizard` builds a finished table report from a data source, and `samples` holds the templates. The designer is `examples/report-designer`, built on `Ribbon` and the other public components: `editor` (shared state), `surface` (bands and controls), `props` (property grid), `preview` (document viewer).
+Expressions in a report come from `ravenrs-criteria`, and text is measured with the same Parley stack as the UI. `wizard` builds a finished table report from a data source, and `samples` holds the templates. The designer is `tools/raven-report-designer`, built on `Ribbon` and the other public components: `editor` (shared state), `surface` (bands and controls), `props` (property grid), `preview` (document viewer).
 
 Phase R1 is done. `ravenrs-report-pdf`, `ravenrs-report-xlsx` export the `Document` to PDF, XLSX and CSV, also in the browser. `ravenrs-report-server` stores layouts, renders over HTTP and delivers scheduled reports ([docs/REPORT-SERVER.md](docs/REPORT-SERVER.md)). `ravenrs-report-viewer` shows documents with thumbnails and search, and asks for parameters; [docs/REPORTING.md](docs/REPORTING.md) has the design and phases, and [docs/REPORTING-PARITY.md](docs/REPORTING-PARITY.md) tracks each feature.
 

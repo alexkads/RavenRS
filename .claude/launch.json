@@ -32,7 +32,7 @@
         "-m",
         "http.server",
         "-d",
-        "examples/report-designer/web",
+        "tools/raven-report-designer/web",
         "8094"
       ],
       "port": 8094

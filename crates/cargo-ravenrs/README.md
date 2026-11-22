@@ -25,7 +25,7 @@ project asks for another RavenRS, and say whether to update or to install that p
 it defaults to `hello` and `desktop`. Templates are `hello`, `app`, `app-sqlite`, and
 `relatorios`; targets are `desktop`, `web`, and `both`. SQLite is used on the desktop;
 the SQLite template uses IndexedDB in the browser. Source files are embedded from
-`examples/hello-world`, `tutorial-tasks`, `tasks-sqlite`, and `report-designer`.
+`examples/hello-world`, `tutorial-tasks`, `tasks-sqlite`, and `raven-report-designer`.
 
 Flags: `--no-git`, `--no-ai`, `--no-check`, and `--plugin`. The last flag writes a
 version-pinned Claude marketplace registration instead of copying the local skill.

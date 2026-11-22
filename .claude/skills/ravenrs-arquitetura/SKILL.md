@@ -58,7 +58,7 @@ Se o código contradisser um documento, confie no código e corrija o documento 
 | Servidor de relatórios | `crates/ravenrs-report-server/src/`: `http`, `scheduler`, `store`, `cron`, `deliver` | `docs/REPORT-SERVER.md`, `crates/ravenrs-report-server/tests/server.rs` |
 | Visualizador de relatórios | `crates/ravenrs-report-viewer/src/`: `lib` (`DocumentViewer`), `search`, `parameters` | `crates/ravenrs-report-viewer/tests/viewer.rs` |
 | Filmes de treinamento e relato de bug | `crates/ravenrs-movie/src/`: `movie`, `project`, `composition`, `record`, `player`, `editor`, `flight` | Testes em `crates/ravenrs-movie/tests/`; filme é lista de desenho, nunca pixels |
-| Editor de relatórios | `crates/ravenrs-report-designer/src/`; `examples/report-designer` só o executa | `examples/report-designer/tests/designer.rs` |
+| Editor de relatórios | `crates/ravenrs-report-designer/src/`; `tools/raven-report-designer` só o executa | `tools/raven-report-designer/tests/designer.rs` |
 | Papel, colunas, bobina, comandos da impressora | `labels.rs` e `model.rs` em `crates/ravenrs-report/src/`; painel em `crates/ravenrs-report-designer/src/props.rs`, impressão direta em `thermal.rs` | `docs/REPORTING.md`, `docs/REPORTING-PARITY.md` |
 | Etiqueta e cupom na impressora: ZPL, EPL/PPLB, PPLA, TSPL, ESC/POS | `crates/ravenrs-report-label/src/`: `raster`, `language`, `output`, `preset` | `crates/ravenrs-report-label/tests/`, `FONTES.md` |
 | NF-e, NFC-e e sandbox, sem GUI | `crates/ravenrs-nfe/src/`; o sandbox em `sandbox/` | `REGRAS.md`, skill `ravenrs-fiscal` |
