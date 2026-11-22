@@ -63,6 +63,8 @@ impl View for FlowPage {
         let titles = cx.use_state(|| true);
         let told = cx.use_state(|| false);
         let read_only = cx.use_state(|| false);
+        // Off, the wheel scrolls this page past the diagram instead of panning it.
+        let wheel = cx.use_state(|| true);
         let grid = cx.use_state(|| 1_usize);
         let layout = cx.use_state(|| 0_usize);
 
@@ -146,6 +148,7 @@ impl View for FlowPage {
             .editable_titles(titles.get())
             .range(0.5, 2.0)
             .read_only(read_only.get())
+            .pan_with_wheel(wheel.get())
             .label("Diagrama de exemplo")
             .size(wide, 460.0)
             .grow(0.0);
@@ -165,7 +168,8 @@ impl View for FlowPage {
         let a = arrivals.clone();
         let options = Grid::new(
             if narrow { 1 } else { 4 },
-            (
+            // A list, not a tuple: there are more switches than a tuple of views holds.
+            vec![
                 Toggle::new(cables.binding()).label("Ligações como cabos"),
                 Toggle::new(locked.binding()).label("Travado"),
                 Toggle::new(minimap.binding()).label("Mapa"),
@@ -178,7 +182,8 @@ impl View for FlowPage {
                 Toggle::new(titles.binding()).label("Títulos editáveis"),
                 Toggle::new(told.binding()).label("Execução de fora"),
                 Toggle::new(read_only.binding()).label("Só leitura"),
-            ),
+                Toggle::new(wheel.binding()).label("Roda move o diagrama"),
+            ],
         );
         cx.child(
             &VStack::new((

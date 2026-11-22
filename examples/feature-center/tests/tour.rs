@@ -1226,6 +1226,7 @@ fn the_flow_diagram_shows_every_feature_and_its_connections_hang_as_cables() {
         "Redimensionar",
         "Girar",
         "Títulos editáveis",
+        "Roda move o diagrama",
     ] {
         c.activate(option);
         assert!(c.says("Diagrama de exemplo"), "{option} keeps the canvas");
