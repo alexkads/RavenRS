@@ -8,8 +8,9 @@ program of any language that speaks JSON-RPC.
 
 Phase 1 of [#803](https://github.com/alexkads/RavenRS/issues/803) made the core and the API of
 plugins. Phase 2 brings the plugins that do real work, starting with the life of a build around its
-steps (#861), the format `.raven-ci.toml` (#862) and the step `sh` (#863). Git, GitHub, the other
-plugins, the agents, the panel and the HTTP API come next.
+steps (#861), the format `.raven-ci.toml` (#862), the step `sh` (#863), git (#870), locks (#871)
+and room on the disk (#872). GitHub, Azure DevOps, triggers, the HTTP API, the other plugins, the
+agents and the panel come next.
 
 ## How it works
 
@@ -69,6 +70,9 @@ folder and in each `--plugins PASTA`.
 |---|---|---|
 | `format-toml` | pipeline format | reads `.raven-ci.toml`: stages, steps, parameters, `when`, `parallel`, `post`, `timeout`, `retry`, `lock`, `container`, `artifacts`, `junit`; every error with its line |
 | `shell` | step | `sh`: runs a command in the folder of the build with each line in the log, `nice`, a time limit and cancelling |
+| `git` | scm | fetches a branch, a commit, or a pull request merged onto its target into the folder of the build; the credential goes as a header, never as an argument |
+| `lock` | step | named locks (`lock = "maquina"` in a stage) on the same files `flock` uses, let go when the build ends however it ends, never handed to the programs a step starts |
+| `workspace-cleanup` | build hook | refuses a build when the disk of its folder has less free space than `workspace.min_free_gb` (5 GB unless said) |
 
 ```toml
 [[parameters]]
@@ -110,6 +114,9 @@ curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven
 - `crates/raven-ci-plugin-format-toml/tests`: what the format reads, its errors, and pipelines run
   for real with `sh`.
 - `crates/raven-ci-plugin-shell/tests`: the step `sh`, with scripts for `sh` and for `cmd`.
+- `crates/raven-ci-plugin-git/tests`: a real repository made by the test, cloned by `file://`.
+- `crates/raven-ci-plugin-lock/tests`: two executors, a holder outside, a program left running.
+- `crates/raven-ci-plugin-workspace/tests`: a build refused for room on the disk.
 - `crates/raven-ci-plugin-api/tests/suite`: each point through its fake plugin.
 
 The tests of external plugins say they skip when there is no Python 3.
