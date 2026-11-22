@@ -857,6 +857,8 @@ dependencies = [
  "console_error_panic_hook",
  "ravenrs",
  "ravenrs-ai",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-flow-bpmn",
  "ravenrs-flow-export",
  "tracing-subscriber",
@@ -2067,6 +2069,8 @@ dependencies = [
  "image",
  "pollster",
  "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "tracing-subscriber",
 ]
 
@@ -2480,6 +2484,8 @@ version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-flow-export",
  "tracing-subscriber",
  "wasm-bindgen",
@@ -2493,6 +2499,8 @@ version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-flow-export",
  "tracing-subscriber",
  "wasm-bindgen",
@@ -2506,6 +2514,8 @@ version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-flow-export",
  "tracing-subscriber",
  "wasm-bindgen",
