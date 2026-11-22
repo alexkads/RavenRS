@@ -8,6 +8,7 @@ mod base_overlays;
 mod base_rest;
 mod declared;
 mod find;
+mod kit;
 mod reach;
 mod snapshot;
 mod source;

@@ -536,6 +536,7 @@ impl View for FileRow<'_> {
             Paint::None,
         );
         cx.semantics(node, Semantics::new(Role::ListItem).name(self.file.name.clone()));
+        cx.test_id(node, &format!("file:{}", self.file.name));
         node
     }
 }
