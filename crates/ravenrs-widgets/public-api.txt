@@ -3984,6 +3984,7 @@ method ParamField::shown_when
 method ParamValues::get
 method ParamValues::into_map
 method ParamValues::new
+method ParameterForm::live
 method ParameterForm::new
 method ParameterForm::on_apply
 method ParameterForm::on_discard
@@ -4585,6 +4586,7 @@ method Toasts::show
 method Toasts::show_for
 method Toasts::show_until_closed
 method Toasts::show_with
+method Toggle::accessible_name
 method Toggle::disabled
 method Toggle::label
 method Toggle::new
@@ -5468,6 +5470,7 @@ variant ChatAuthor::Assistant
 variant ChatAuthor::Person
 variant CodeLanguage::Plain
 variant CodeLanguage::Rust
+variant CodeLanguage::Toml
 variant CompareMode::Divider
 variant CompareMode::SideBySide
 variant CompareSide::First

@@ -342,6 +342,7 @@ pub struct ParameterForm {
     on_load: Option<Load>,
     on_apply: Option<Apply>,
     on_discard: Option<Rc<dyn Fn()>>,
+    live: bool,
 }
 
 impl std::fmt::Debug for ParameterForm {
@@ -354,7 +355,23 @@ impl std::fmt::Debug for ParameterForm {
 impl ParameterForm {
     /// A form of `fields` over `values`. The fields' defaults fill what the values lack.
     pub fn new(fields: Vec<ParamField>, values: Binding<ParamValues>) -> Self {
-        Self { fields, values, options: BTreeMap::new(), on_load: None, on_apply: None, on_discard: None }
+        Self {
+            fields,
+            values,
+            options: BTreeMap::new(),
+            on_load: None,
+            on_apply: None,
+            on_discard: None,
+            live: false,
+        }
+    }
+
+    /// Each change goes to `values` at once, with no Aplicar or Descartar: for a form inside a
+    /// dialog whose own buttons decide, as Disparar. A required field left empty is still marked,
+    /// and [`on_apply`](Self::on_apply) hears every change.
+    pub fn live(mut self, live: bool) -> Self {
+        self.live = live;
+        self
     }
 
     /// The options the app has now for the [`ParamKind::Loaded`] field `field`; with none, it
@@ -749,6 +766,43 @@ impl View for ParameterForm {
             })
             .collect();
         let changed = parts.draft_map() != committed;
+        if self.live {
+            let now = draft.get();
+            let mut wrong = Vec::new();
+            missing(&self.fields, &now, &labels.param_required, &mut wrong);
+            if errors.get() != wrong {
+                errors.set(wrong);
+            }
+            if changed {
+                let given = ParamValues(now.as_object().cloned().unwrap_or_default());
+                seen.set(given.0.clone());
+                self.values.set(given.clone());
+                if let Some(on_apply) = &self.on_apply {
+                    on_apply(&given);
+                }
+            }
+            let rows: Vec<AnyView> = self
+                .fields
+                .iter()
+                .filter(|f| shown(f, &now))
+                .map(|f| parts.field(f, vec![Step::Key(f.name.clone())]))
+                .collect();
+            let wrong: Vec<AnyView> = errors
+                .get()
+                .into_iter()
+                .map(|e| -> AnyView {
+                    Box::new(Text::new(e).style(TextStyle::Callout).foreground(Semantic::Danger))
+                })
+                .collect();
+            return cx.child(
+                &VStack::new((
+                    VStack::new(rows).spacing(12.0).align(Align::Stretch),
+                    VStack::new(wrong).spacing(4.0),
+                ))
+                .spacing(14.0)
+                .align(Align::Stretch),
+            );
+        }
 
         let (fields, values, apply_draft, apply_errors, on_apply) =
             (self.fields.clone(), self.values.clone(), draft.clone(), errors.clone(), self.on_apply.clone());

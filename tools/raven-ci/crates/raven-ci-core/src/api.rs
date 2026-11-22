@@ -129,6 +129,23 @@ pub fn service(ci: Arc<Ci>, users_file: &Path) -> Result<ApiService, String> {
     Ok(service.fallback(move |request, who| answer(&ci, request, who)))
 }
 
+/// The service of [`service`], with what the panel needs besides: the routes of
+/// [`panel`](crate::panel), its files and what the server says of itself (`options`).
+pub fn service_with(
+    ci: Arc<Ci>,
+    users_file: &Path,
+    options: crate::panel::PanelOptions,
+) -> Result<ApiService, String> {
+    let maker = users(users_file).map_err(|e| e.to_string())?;
+    UserDirectory::new(maker.clone(), roles()).map_err(|e| e.to_string())?;
+    let service = ApiService::new(maker, roles()).map_err(|e| e.to_string())?.title("Raven CI");
+    let mut options = options;
+    options.users_file.get_or_insert_with(|| users_file.to_path_buf());
+    Ok(service.fallback(move |request, who| {
+        crate::panel::answer(&ci, &options, request, who).or_else(|| answer(&ci, request, who))
+    }))
+}
+
 /// The file of people of the core whose data is in `dir`.
 pub fn users_file(dir: &Path) -> PathBuf {
     dir.join(USERS_FILE)

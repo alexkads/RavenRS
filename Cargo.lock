@@ -6093,6 +6093,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "raven-ci-painel"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "image",
+ "pollster",
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-api-trigger",
+ "ravenrs",
+ "ravenrs-app",
+ "ravenrs-app-remote",
+ "ravenrs-app-server",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "raven-ci-plugin-agent-local"
 version = "0.1.0"
 dependencies = [

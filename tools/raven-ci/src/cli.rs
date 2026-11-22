@@ -18,6 +18,7 @@ pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--f
                           [--debug] no perfil dev, mais rápido de compilar
   servir [--endereco HOST:PORTA] [--executores N]
                           o servidor: HTTP com login, executores e gatilhos
+  servir ... --painel PASTA   serve o painel do navegador em /painel/
   usuario criar NOME [--papel Executores|Leitores|Administradores]
                           cria quem pode entrar; a senha vem na entrada
   credencial criar NOME --tipo token|user-password|ssh-key

@@ -61,6 +61,7 @@ impl ChoiceOption {
 pub struct Toggle {
     value: Binding<bool>,
     label: Option<String>,
+    accessible_name: Option<String>,
     small: bool,
     state: util::EditorState,
 }
@@ -69,7 +70,15 @@ pub struct Toggle {
 impl Toggle {
     /// A switch bound to `value`.
     pub fn new(value: Binding<bool>) -> Self {
-        Self { value, label: None, small: false, state: util::EditorState::default() }
+        Self { value, label: None, accessible_name: None, small: false, state: util::EditorState::default() }
+    }
+
+    /// What a screen reader and a test call it, as "Ligar docker", with no text on the screen: for
+    /// a switch in a cell of a grid, where the row already says what it is about. A visible
+    /// [`label`](Self::label) stays as it is; this one is what is read.
+    pub fn accessible_name(mut self, name: impl Into<String>) -> Self {
+        self.accessible_name = Some(name.into());
+        self
     }
 
     /// A smaller switch, 32 by 18 logical pixels instead of 40 by 24, for dense lists.
@@ -155,7 +164,12 @@ impl View for Toggle {
             ));
         }
         let node = row(cx, &children);
-        cx.semantics(node, state.semantics(Semantics::new(Role::Switch).toggled(on)));
+        let semantics = Semantics::new(Role::Switch).toggled(on);
+        let semantics = match &self.accessible_name {
+            Some(name) => semantics.name(name.clone()),
+            None => semantics,
+        };
+        cx.semantics(node, state.semantics(semantics));
         if state.accepts_input() {
             let value = self.value.clone();
             make_interactive(cx, node, 8.0, Rc::new(move || value.update(|v| *v = !*v)));

@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use raven_ci_core::agents;
-use raven_ci_core::{Ci, Executors, api};
+use raven_ci_core::{Ci, Executors, api, panel};
 use raven_ci_plugin_api::{CiError, ROLE_RUN};
 use ravenrs_app_server::ApiOptions;
 use ravenrs_app_server::LiveChannels;
@@ -22,6 +22,8 @@ pub const DEFAULT_ADDRESS: &str = "127.0.0.1:8080";
 const HTTP_WORKERS: usize = 2;
 /// How often an idle executor looks at the queue.
 const POLL: Duration = Duration::from_millis(500);
+/// How often the live channel looks at what changed.
+const LIVE_EVERY: Duration = Duration::from_millis(300);
 
 fn failed(e: impl std::fmt::Display) -> CiError {
     CiError::failed(e.to_string())
@@ -61,9 +63,10 @@ fn stopping() -> Result<impl std::future::Future<Output = ()>, CiError> {
     }
 }
 
-/// `raven-ci servir [--endereco HOST:PORTA] [--executores N] [--config ARQUIVO]
+/// `raven-ci servir [--endereco HOST:PORTA] [--executores N] [--config ARQUIVO] [--painel PASTA]
 /// [--tolerancia-agente SEGUNDOS] [--url-agentes URL]`. With `--executores 0` the server runs no
-/// build itself: agents do.
+/// build itself: agents do. With `--painel`, the panel for the browser (`scripts/build-web.sh
+/// raven-ci`) is served at `/painel/`.
 pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<i32, CiError> {
     let address = flag(args, "--endereco")?.unwrap_or(DEFAULT_ADDRESS).to_owned();
     let executors: usize = match flag(args, "--executores")? {
@@ -77,8 +80,10 @@ pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<
         ci.set_agent_grace(Duration::from_secs(seconds));
     }
     let agents_url = flag(args, "--url-agentes")?.map(str::to_owned);
+    // One live channel for everything: the topics of the agents, opened here, and the panel's.
     let channels = LiveChannels::new();
     ci.set_agent_live(channels.clone());
+    let panel_files = flag(args, "--painel")?.map(std::path::PathBuf::from);
     let ci = Arc::new(ci);
     // The routes of the plugins read what the builds left through the core.
     ci.share();
@@ -112,15 +117,28 @@ pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<
         ci.set_agent_server(agents_url.as_deref().unwrap_or(&reach));
         writeln!(out, "Raven CI em http://{at}, com {executors} executor(es)").map_err(failed)?;
         out.flush().map_err(failed)?;
+        // The panel's topic on the same channel: what changed, from a watch of the core.
+        channels.open(panel::LIVE_TOPIC);
+        let publishing = channels.clone();
+        let _watch = panel::LiveWatch::start(ci.clone(), LIVE_EVERY, move |kind, data| {
+            publishing.publish(panel::LIVE_TOPIC, kind, data);
+        });
         let options = ApiOptions::new()
             .workers(HTTP_WORKERS)
+            .live(channels)
+            .open(panel::PANEL_PATH)
             .open(api::OPEN_PREFIX)
             .pass_header("x-")
             .pass_header("content-type")
-            .open(agents::JOIN_PATH)
-            .live(channels);
+            .open(agents::JOIN_PATH);
         let made = ci.clone();
-        let make = move || api::service(made.clone(), &users);
+        let shown = panel::PanelOptions {
+            executors,
+            files: panel_files.clone(),
+            version: crate::versao::VERSION.to_owned(),
+            users_file: Some(users.clone()),
+        };
+        let make = move || api::service_with(made.clone(), &users, shown.clone());
         tokio::select! {
             result = ravenrs_app_server::serve_with(listener, options, make) => result.map_err(failed),
             () = stop => Ok(()),

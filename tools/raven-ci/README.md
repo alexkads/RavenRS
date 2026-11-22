@@ -237,6 +237,25 @@ failure = ["echo falhou"]
 
 The whole format is in the documentation of `crates/raven-ci-plugin-format-toml`.
 
+## The panel
+
+`crates/raven-ci-painel` is the panel, the same code on the desktop and in the browser, made only
+of RavenRS components. It runs no code of the server: it reads the API with `RemoteClient` and hears
+the topic `ci` of the live channel (`/api/live/ci`: `build`, `line` and `plugins`), so a build's log
+and status arrive with no reload. Its pages: Jobs (folders, last build, trend, Disparar), a build
+(stages on a `FlowCanvas`, the log in a `LogView`, tests, artifacts, parameters, Repetir and
+Cancelar), the queue and the executors on a `Scheduler`, the pipeline with its errors on their
+lines, plugins, credentials, people and the audit. A plugin puts a page in the menu or a tab on the
+page of a build through its model (`raven_ci_core::panel` says how), and leaves when switched off.
+
+```sh
+cargo run -p raven-ci-painel -- --servidor http://127.0.0.1:8080   # on the desktop
+scripts/build-web.sh raven-ci                                        # for the browser
+raven-ci servir --painel tools/raven-ci/web                          # then open /painel/
+```
+
+Pictures of each page are in `docs/painel/`.
+
 ## Writing a plugin
 
 [docs/writing-a-plugin.md](docs/writing-a-plugin.md) explains both kinds, the manifest of an

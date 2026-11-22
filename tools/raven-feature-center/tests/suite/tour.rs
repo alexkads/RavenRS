@@ -1329,6 +1329,14 @@ fn the_parameter_form_builds_from_a_schema_and_gives_back_only_on_apply() {
     assert!(c.says("Não deu para carregar as opções"));
     c.press("Tentar de novo");
     assert!(c.says("Pediu as opções de account"));
+
+    // live: the form of the dialog gives back each change at once, with no buttons of its own.
+    assert!(c.says("Branch do disparo é obrigatório"), "the empty required field is marked: {:?}", c.texts());
+    c.type_into("Branch do disparo", "develop");
+    assert!(c.says("\"branch\":\"develop\""), "{:?}", c.texts());
+    assert!(!c.says("Branch do disparo é obrigatório"), "{:?}", c.texts());
+    let applies = c.ui.access_tree().nodes.iter().filter(|n| n.name.as_deref() == Some("Aplicar")).count();
+    assert_eq!(applies, 1, "only the first form has Aplicar");
 }
 
 #[test]
@@ -1417,6 +1425,35 @@ impl Center {
         self.settle();
         self.ui.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some(name))
     }
+}
+
+#[test]
+fn toggles_switch_with_a_label_compact_or_only_an_accessible_name() {
+    let mut c = Center::memory("ana");
+    c.press("Chaves");
+    // new and label: on to begin with, and clicking the label switches it off.
+    assert!(c.says("Avisos no celular: ligada"), "{:?}", c.texts());
+    c.activate("Avisos no celular");
+    assert!(c.says("Avisos no celular: desligada"), "{:?}", c.texts());
+    // small: the compact switch is shorter and switches the same.
+    c.activate("Resumo por e-mail");
+    assert!(c.says("Resumo por e-mail: ligada"), "{:?}", c.texts());
+    let tree = c.ui.access_tree();
+    let small = tree.find(Role::Switch, "Resumo por e-mail").expect("the small switch").bounds.height();
+    let large = tree.find(Role::Switch, "Avisos no celular").expect("the switch").bounds.height();
+    assert!(small < large, "small {small}, large {large}");
+    // accessible_name: no text on the screen, and still found and switched by its name.
+    let tree = c.ui.access_tree();
+    let named: Vec<_> = tree.nodes.iter().filter(|n| n.name.as_deref() == Some("Ligar docker")).collect();
+    assert_eq!(named.len(), 1, "only the switch has the name, no text shows it: {named:?}");
+    assert_eq!(named[0].role, Role::Switch);
+    c.activate("Ligar docker");
+    assert!(c.says("Plugin docker: ligada"), "{:?}", c.texts());
+    // disabled and read_only: neither changes.
+    let tree = c.ui.access_tree();
+    assert!(tree.find(Role::Switch, "Indisponível").expect("disabled").disabled);
+    c.activate("Só leitura");
+    assert!(c.ui.access_tree().find(Role::Switch, "Só leitura").expect("read only").read_only);
 }
 
 #[test]
@@ -1715,6 +1752,20 @@ fn the_build_log_shows_colors_folds_its_stages_searches_and_points_at_a_line() {
     assert!(!c.texts().iter().any(|text| text.contains('\u{1b}')), "no ANSI code shows");
     assert!(c.says("Log do build 42") || c.has_name("Log do build 42"), "its label: {:?}", c.texts());
 
+    // A long line keeps the height of one line and does not run into the next (#899): the list
+    // scrolls across to it instead of breaking it.
+    let tree = c.ui.access_tree();
+    let item = |number: usize| {
+        let start = format!("Apontar a linha {number} ");
+        tree.nodes
+            .iter()
+            .find(|n| n.role == Role::ListItem && n.name.as_deref().is_some_and(|t| t.starts_with(&start)))
+    };
+    let (long, next) = (item(8), item(7));
+    let long = long.expect("the long line").bounds;
+    assert!(long.height() <= 20.5, "one line high: {long:?}");
+    assert!(next.expect("the line before").bounds.max_y() <= long.origin.y + 0.5, "no overlap");
+
     // The search marks the lines that hold it.
     c.type_into("Buscar no log", "fail");
     assert!(c.says("1 linhas com o termo"), "{:?}", c.texts());
@@ -1733,7 +1784,7 @@ fn the_build_log_shows_colors_folds_its_stages_searches_and_points_at_a_line() {
     // A new line comes, and the settings change what shows.
     c.press("Chegar linha nova");
     assert!(c.says("nova::linha_1"), "{:?}", c.texts());
-    assert!(c.says("8 linhas no log."), "{:?}", c.texts());
+    assert!(c.says("9 linhas no log."), "{:?}", c.texts());
     c.activate("Números das linhas");
     assert!(!c.has_name("Apontar a linha 2"), "no numbers");
     c.activate("Busca");

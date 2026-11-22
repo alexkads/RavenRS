@@ -1,0 +1,14 @@
+scenario: Raven CI: um plugin desligado sai do menu
+// A administradora vê a página Travas do plugin de demonstração; desligado, a página sai do menu.
+open Raven CI                                          | Abrir o painel do Raven CI
+fill Usuário = ana                                     | Escrever o usuário
+fill Senha = senha-do-teste-e2e                        | Escrever a senha
+click Entrar                                           | Entrar
+click #item:Travas                                     | Abrir a página que o plugin pôs no menu
+mention compilacao = compilacao                        | A página mostra a trava do plugin
+click #item:Plugins                                    | Ir aos plugins
+click Ligar demonstracao                               | Desligar o plugin de demonstração
+mention Plugin demonstracao desligado. = desligado     | O aviso diz que desligou
+click #item:Credenciais                                | Ir às credenciais
+click #item:Usuários e papéis                          | Ir aos usuários
+mention ana = ana                                      | A administradora está na lista
