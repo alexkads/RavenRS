@@ -540,7 +540,8 @@ impl Ci {
     /// ([`Host::attachments`](raven_ci_plugin_api::Host::attachments)), and a job saved or applied
     /// has its triggers watched again ([`watch_job`](Self::watch_job)). The server does it when
     /// it starts; a core never shared answers the hosts [`CiError::Unavailable`] and watches no
-    /// trigger of a job saved later. Weak: the core holds the hosts.
+    /// trigger of a job saved later. Calling it again changes nothing. Weak: the core holds the
+    /// hosts. Whoever holds the core in an `Arc` calls it: the server, and tests.
     pub fn share(self: &Arc<Self>) {
         let _ = self.shared.set(Arc::downgrade(self));
         let lent: Weak<dyn host::Attachments> = Arc::downgrade(self) as Weak<dyn host::Attachments>;

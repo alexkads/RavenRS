@@ -146,3 +146,21 @@ fn a_build_whose_patterns_find_nothing_says_so_and_allow_empty_lets_it_be() {
     assert!(log.contains("nenhum artefato achado em dist/*.tar.gz"), "{log}");
     assert!(ci.attachments("vazio", 1).expect("attachments").is_empty());
 }
+
+#[test]
+fn a_core_not_shared_says_how_and_sharing_twice_changes_nothing() {
+    let plugin = Arc::new(ArtifactsPlugin::new());
+    let ci = Arc::new(Ci::in_memory().expect("a core"));
+    ci.add_plugin(plugin.clone());
+    ci.apply_plugins().expect("on");
+    let (status, _, body) =
+        get(&plugin, "/api/ci/artifacts", &[("job", "a".to_owned()), ("number", "1".to_owned())]);
+    let said = String::from_utf8_lossy(&body).into_owned();
+    assert_eq!(status, 404, "{said}");
+    assert!(said.contains("chame Ci::share"), "it says what to do: {said}");
+    ci.share();
+    ci.share();
+    let (status, _, body) =
+        get(&plugin, "/api/ci/artifacts", &[("job", "a".to_owned()), ("number", "1".to_owned())]);
+    assert_eq!((status, body.as_slice()), (200, b"[]".as_slice()));
+}

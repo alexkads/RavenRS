@@ -142,10 +142,11 @@ impl PluginHost {
 
     /// The core, while it lends its attachments.
     fn lent(&self) -> Result<Arc<dyn Attachments>, CiError> {
-        self.attachments
-            .get()
-            .and_then(Weak::upgrade)
-            .ok_or_else(|| CiError::unavailable("o núcleo não deu os anexos aos plugins (Ci::share)"))
+        self.attachments.get().and_then(Weak::upgrade).ok_or_else(|| {
+            CiError::unavailable(
+                "os anexos só estão ao alcance dos plugins num núcleo compartilhado: chame Ci::share",
+            )
+        })
     }
 
     /// Applies the migrations not applied yet to the plugin's own database, each once, in order.
