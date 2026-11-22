@@ -1605,6 +1605,53 @@ fn the_web_api_page_builds_the_options_the_server_gets() {
     c.press("Publicar evento");
     c.press("Publicar evento");
     assert!(c.says("Último evento publicado em avisos: #2."), "{:?}", c.texts());
+
+    // open and pass_header: the webhooks of other services come in with no token, with their headers.
+    assert!(c.says("open: []"), "{:?}", c.texts());
+    c.activate("Receber avisos de outros serviços");
+    assert!(c.says("open: [\"/hooks/\"]"), "{:?}", c.texts());
+    assert!(c.says("headers: [\"x-hub-\"]"), "{:?}", c.texts());
+}
+
+#[test]
+fn the_page_of_the_api_service_asks_each_feature_through_handle() {
+    let mut c = Center::memory("ana");
+    c.press("Serviço da API");
+    assert!(c.says("Nenhum pedido ainda."), "{:?}", c.texts());
+
+    // new, handle and session_lifetime: ana signs in, and the session lasts 30 minutes.
+    c.press("Entrar como ana");
+    assert!(c.says("Entrar: 200: a sessão dura 1800 s"), "{:?}", c.texts());
+    // setting: a preference of her own, kept and read back.
+    c.press("Guardar o tema escuro");
+    assert!(c.says("Tema: 200: tema \"escuro\""), "{:?}", c.texts());
+    // endpoint: a command of the center's, run as whoever called it.
+    c.press("Somar 2 e 3");
+    assert!(c.says("Somar: 200: soma 5.0"), "{:?}", c.texts());
+    // title and hide: the description has its name and leaves the entity out.
+    c.press("Ler a descrição");
+    assert!(c.says("API do Centro de Recursos; AuditOwner fica de fora: sim"), "{:?}", c.texts());
+    // webhook: a signed notice is taken, a forged one refused.
+    c.press("Receber aviso assinado");
+    assert!(c.says("assinado: 2"), "{:?}", c.texts());
+    assert!(!c.says("com assinatura falsa: 2"), "{:?}", c.texts());
+    // fallback: the route answers only while it is on, as text (ApiResponse::raw).
+    c.press("Pedir /api/hora");
+    assert!(c.says("Hora: 404"), "off, no one knows it: {:?}", c.texts());
+    c.activate("Ligar a rota /api/hora");
+    c.press("Pedir /api/hora");
+    assert!(c.says("Hora: 200 text/plain: 12:00 para ana"), "{:?}", c.texts());
+    // authenticator: a guest comes in by an invitation.
+    c.press("Entrar com convite");
+    assert!(c.says("Convite: 200: visitante entrou por convite"), "{:?}", c.texts());
+    // sign_ins_a_minute: after 3 tries a minute, the address waits.
+    c.press("Errar a senha 4 vezes");
+    assert!(c.says("429"), "the fourth try waits: {:?}", c.texts());
+    // role_merge, rule_words and audit: how the roles add up changes the service.
+    assert!(c.says("Papéis: um que permita basta."), "{:?}", c.texts());
+    c.activate("Todos os papéis");
+    assert!(c.says("Papéis: todos precisam permitir."), "{:?}", c.texts());
+    assert!(c.says("as regras falam português"), "{:?}", c.texts());
 }
 
 #[test]
