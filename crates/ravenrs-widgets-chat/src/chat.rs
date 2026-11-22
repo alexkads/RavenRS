@@ -518,10 +518,13 @@ impl View for Conversation {
             children.push(cx.child(empty.as_ref()));
         }
         for (i, message) in self.messages.iter().enumerate() {
-            children.push(cx.keyed_child(
+            let bubble = cx.keyed_child(
                 i as u64,
                 &Bubble(message.clone(), self.on_listen.clone(), self.on_link.clone()),
-            ));
+            );
+            // A conversation only grows at its end: the number of a message is its key.
+            cx.test_id(bubble, &format!("message:{}", i + 1));
+            children.push(bubble);
         }
         let node = cx.container(
             LayoutStyle {
@@ -1046,6 +1049,17 @@ impl View for Orb {
             paint,
         );
         cx.semantics(node, Semantics::new(Role::Button).name(self.title.clone()).expanded(self.open.get()));
+        // The panel lives in a layer of its own: the sphere is how a test finds it.
+        cx.test_id(node, "orb");
+        let shown = self.open.clone();
+        cx.on_access(
+            node,
+            &[ravenrs_core::AccessAction::Expand, ravenrs_core::AccessAction::Collapse],
+            move |action, _| {
+                shown.set(action == ravenrs_core::AccessAction::Expand);
+                true
+            },
+        );
         // A drag starts with the press, and the sphere is still under the pointer at
         // the release: only moving away from where it was pressed makes it a drag.
         let pressed = cx.use_state(|| Rc::new(Cell::new(None::<Point>))).get();

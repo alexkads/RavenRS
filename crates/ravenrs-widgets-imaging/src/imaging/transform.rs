@@ -8,8 +8,8 @@ use std::fmt;
 use std::rc::Rc;
 
 use ravenrs_core::{
-    Color, CursorIcon, FillRule, Insets, Key, Modifiers, PathElement, PathFill, Point, Quad, Rect, Role,
-    Scene, Size,
+    AccessAction, Color, CursorIcon, FillRule, Insets, Key, Modifiers, PathElement, PathFill, Point, Quad,
+    Rect, Role, Scene, Size,
 };
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, Observer};
@@ -850,6 +850,25 @@ impl View for TransformHandles {
         if self.disabled {
             return root;
         }
+        // Takes a box by value, as it reads it: `x, y, width × height, angle` (the angle may go).
+        let (typed, pivot) = (self.value.clone(), current.pivot);
+        cx.on_access(surface, &[AccessAction::SetValue], move |_, text| {
+            let numbers: Vec<f32> = text
+                .unwrap_or_default()
+                .split(|c: char| !(c.is_ascii_digit() || c == '.' || c == '-'))
+                .filter_map(|n| n.parse().ok())
+                .collect();
+            let Some([x, y, width, height]) = numbers.get(..4).and_then(|n| <[f32; 4]>::try_from(n).ok())
+            else {
+                return false;
+            };
+            if width <= 0.0 || height <= 0.0 {
+                return false;
+            }
+            let angle = numbers.get(4).copied().unwrap_or(0.0);
+            typed.set(BoxTransform { rect: Rect::new(x, y, width, height), angle, pivot });
+            true
+        });
         cx.focusable(surface, 0.0);
         cx.cursor(surface, cursor_of(hover.get(), current.angle));
         let modifiers = cx.modifiers();

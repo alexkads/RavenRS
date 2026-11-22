@@ -7146,6 +7146,7 @@ version = "27.1.28"
 dependencies = [
  "ravenrs-animation",
  "ravenrs-core",
+ "ravenrs-e2e",
  "ravenrs-layout",
  "ravenrs-live",
  "ravenrs-lottie",
