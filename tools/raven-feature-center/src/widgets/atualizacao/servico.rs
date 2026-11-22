@@ -92,7 +92,7 @@ impl View for ServicePage {
         let toggle = |label: &'static str, on: bool, flip: Box<dyn Fn()>| {
             Button::new(format!("{label}: {}", if on { "sim" } else { "não" }))
                 .style(ButtonStyle::Secondary)
-                .on_click(move || flip())
+                .on_click(flip)
         };
         cx.child(
             &VStack::new((
