@@ -13,6 +13,7 @@ raven-ci-core = { path = "crates/raven-ci-core" }
 # The fake plugins: the self-test plugs one of each extension point in.
 raven-ci-plugin-api = { path = "crates/raven-ci-plugin-api", features = ["testing"] }
 raven-ci-plugin-api-trigger = { path = "crates/raven-ci-plugin-api-trigger" }
+raven-ci-plugin-agent-local = { path = "crates/raven-ci-plugin-agent-local" }
 raven-ci-plugin-cron = { path = "crates/raven-ci-plugin-cron" }
 raven-ci-plugin-credentials = { path = "crates/raven-ci-plugin-credentials" }
 raven-ci-plugin-format-toml = { path = "crates/raven-ci-plugin-format-toml" }

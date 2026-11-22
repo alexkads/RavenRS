@@ -6007,6 +6007,7 @@ name = "raven-ci"
 version = "0.1.0"
 dependencies = [
  "raven-ci-core",
+ "raven-ci-plugin-agent-local",
  "raven-ci-plugin-api",
  "raven-ci-plugin-api-trigger",
  "raven-ci-plugin-credentials",
@@ -6031,6 +6032,7 @@ name = "raven-ci-agent"
 version = "0.1.0"
 dependencies = [
  "raven-ci-core",
+ "raven-ci-plugin-agent-local",
  "raven-ci-plugin-api",
  "raven-ci-plugin-format-toml",
  "raven-ci-plugin-git",
@@ -6069,6 +6071,17 @@ dependencies = [
  "sha2 0.10.9",
  "toml",
  "uuid",
+]
+
+[[package]]
+name = "raven-ci-plugin-agent-local"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-process",
+ "serde_json",
 ]
 
 [[package]]

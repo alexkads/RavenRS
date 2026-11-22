@@ -2,4 +2,5 @@
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 
 mod common;
+mod launch;
 mod run;

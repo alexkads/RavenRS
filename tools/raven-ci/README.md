@@ -114,6 +114,7 @@ RAVEN_CI_AGENT_TOKEN=rva_… raven-ci-agent --servidor http://ci.local:8080 --no
 | `cron` | trigger | `cron` (a schedule in a time zone, or `every = "1h"`) and `poll` (`git ls-remote` of a branch every `5m`, a build when it moved) |
 | `credentials` | credential kinds | `token`, `user-password` and `ssh-key`, sealed by name in the core's vault (`raven-ci credencial criar NOME --tipo token`, the fields in JSON on the input); a plugin reads one with `Host::secret`, and every log hides it |
 | `github` | branch source, status | a job of many branches over a GitHub repository: the branches chosen and the open pull requests (forks left out), each with the pipeline of its own head, built merged onto its target, with the status sent to its commit |
+| `agent-local` | agent launcher | brings `raven-ci-agent` up on the server's machine for a template of agents, as another user when it says one (`sudo -n`, or switched by root), so the server runs with `--executores 0` |
 
 ```toml
 [[parameters]]

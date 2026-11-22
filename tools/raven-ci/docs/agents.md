@@ -130,11 +130,12 @@ raven-ci servir --executores 0
 - `programa`: the agent's program; by default `raven-ci-agent` beside `raven-ci`.
 - `pasta`: the agent's folder; by default `agentes/<name>` in the server's folder of data.
 - `usuario`: the user it runs as. As root, the server switches the user of the child itself. As
-  anyone else, it runs `sudo -n -u <user> --`, which fails at once, saying so, when sudo has no
-  rule for it. A rule that lets the server's user run the agent as `ci`:
+  anyone else, it runs `sudo -n -u <user> --preserve-env=RAVEN_CI_AGENT_TOKEN --`, which fails at
+  once, saying so, when sudo has no rule for it. A rule that lets the server's user run the agent
+  as `ci` (`SETENV` lets the token through):
 
   ```text
-  raven ALL=(ci) NOPASSWD: /usr/local/bin/raven-ci-agent
+  raven ALL=(ci) NOPASSWD:SETENV: /usr/local/bin/raven-ci-agent
   ```
 
   On Windows a user of its own is not done yet, and the launch is refused saying so.

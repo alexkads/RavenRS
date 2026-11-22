@@ -55,8 +55,7 @@ use crate::plugins::Plugins;
 pub use crate::site::AgentSite;
 use crate::site::RemoteSecrets;
 
-/// The variable the token used once may come in, so it does not show in the list of processes.
-pub const TOKEN_VAR: &str = "RAVEN_CI_AGENT_TOKEN";
+pub use raven_ci_core::agents::TOKEN_VAR;
 
 /// The file, in the agent's folder, that keeps its key.
 pub const KEY_FILE: &str = "chave";

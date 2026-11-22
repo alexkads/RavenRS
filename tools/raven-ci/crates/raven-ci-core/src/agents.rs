@@ -367,7 +367,13 @@ struct State {
     /// The parts of attachments on their way, by run and name.
     parts: HashMap<(String, String), Vec<u8>>,
     launched: Vec<Launched>,
+    /// Until when a template (or a build's launcher) is not tried again, after a launch that
+    /// failed or an agent that died before it came in.
+    backoff: HashMap<String, i64>,
 }
+
+/// How long a template that failed waits before the next try.
+const BACKOFF_MS: i64 = 30_000;
 
 /// What the core keeps of its agents. See the [module](self).
 pub(crate) struct Agents {
@@ -1087,9 +1093,14 @@ impl Ci {
             if any_with_label {
                 continue;
             }
+            let key = launch_key(row, &wanted, &self.agent_templates()?);
+            if self.agents.state().backoff.get(&key).is_some_and(|until| now < *until) {
+                continue;
+            }
             if let Err(e) = self.launch_for(row, &wanted, now) {
                 let said = format!("{} #{}: subir um agente: {e}", row.job, row.number);
                 self.log.write(&said);
+                self.agents.state().backoff.insert(key, now + BACKOFF_MS);
             }
         }
         Ok(())
@@ -1185,6 +1196,7 @@ impl Ci {
         let templates: BTreeMap<String, AgentTemplate> =
             self.agent_templates().unwrap_or_default().into_iter().map(|t| (t.name.clone(), t)).collect();
         let mut going: Vec<(String, String)> = Vec::new();
+        let mut failed: Vec<String> = Vec::new();
         {
             let mut state = self.agents.state();
             let seen: HashMap<String, (bool, bool)> = state
@@ -1198,6 +1210,11 @@ impl Ci {
                 let (idle, connected) = seen.get(&launched.name).copied().unwrap_or((true, false));
                 if !launched.agent.alive() {
                     going.push((launched.name.clone(), "o processo dele acabou".to_owned()));
+                    if !seen.contains_key(&launched.name) {
+                        let key =
+                            launched.template.clone().or_else(|| launched.build.clone()).unwrap_or_default();
+                        failed.push(key);
+                    }
                     launched.agent.stop();
                     return false;
                 }
@@ -1221,6 +1238,9 @@ impl Ci {
                 }
                 true
             });
+            for key in failed {
+                state.backoff.insert(key, now + BACKOFF_MS);
+            }
         }
         for (name, why) in going {
             self.log.write(&format!("agente {name} parado: {why}"));
@@ -1257,6 +1277,119 @@ impl Ci {
     }
 }
 
+/// The variable an agent's token used once comes in, so it does not show in the list of processes.
+pub const TOKEN_VAR: &str = "RAVEN_CI_AGENT_TOKEN";
+
+/// The name of the agent a launch is for: what the core put in its settings.
+pub fn launch_name(request: &LaunchRequest) -> String {
+    request.settings.get("name").and_then(Value::as_str).unwrap_or("agente").to_owned()
+}
+
+/// A text setting of a launch.
+pub fn launch_text<'r>(request: &'r LaunchRequest, key: &str) -> Option<&'r str> {
+    request.settings.get(key).and_then(Value::as_str).filter(|text| !text.is_empty())
+}
+
+/// The arguments of `raven-ci-agent` for `request`, with its folder `dir` where it runs: the
+/// server, the name, the labels, the executors and the limits (`nucleos`, `memoria`, `disco`) the
+/// template says. The token goes apart, in [`TOKEN_VAR`]. What every launcher of the agent's own
+/// program (`agent-local`, `agent-remote`) passes it.
+pub fn agent_arguments(request: &LaunchRequest, dir: &str) -> Vec<String> {
+    let executors = request.settings.get("executors").and_then(Value::as_u64).unwrap_or(1);
+    let mut args = vec![
+        "--servidor".to_owned(),
+        request.server.clone(),
+        "--nome".to_owned(),
+        launch_name(request),
+        "--pasta".to_owned(),
+        dir.to_owned(),
+        "--rotulos".to_owned(),
+        request.labels.join(","),
+        "--executores".to_owned(),
+        executors.to_string(),
+    ];
+    for (key, flag) in [("nucleos", "--nucleos"), ("memoria", "--memoria"), ("disco", "--disco")] {
+        let value = match request.settings.get(key) {
+            Some(Value::String(text)) if !text.is_empty() => Some(text.clone()),
+            Some(Value::Number(n)) => Some(n.to_string()),
+            _ => None,
+        };
+        if let Some(value) = value {
+            args.push(flag.to_owned());
+            args.push(value);
+        }
+    }
+    args
+}
+
+/// An agent that is a program this server started: the agent itself (`agent-local`) or what
+/// reaches it on another machine (`ssh`, for `agent-remote`). What it writes goes to `log`, a line
+/// at a time; [`LaunchedAgent::stop`] stops it with what it started.
+pub struct ChildAgent {
+    name: String,
+    control: ravenrs_process::Control,
+    alive: Arc<AtomicBool>,
+    at_stop: Mutex<Vec<Box<dyn FnOnce() + Send>>>,
+}
+
+impl std::fmt::Debug for ChildAgent {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ChildAgent").field("name", &self.name).finish_non_exhaustive()
+    }
+}
+
+impl ChildAgent {
+    /// Starts `spec` as the agent `name`, telling `log` each line it writes.
+    pub fn start(
+        name: &str,
+        spec: ravenrs_process::Spec,
+        log: impl Fn(&str) + Send + 'static,
+    ) -> Result<Self, CiError> {
+        let running = spec.spawn().map_err(|e| CiError::failed(format!("subir o agente {name}: {e}")))?;
+        let control = running.control();
+        let alive = Arc::new(AtomicBool::new(true));
+        let (watching, who) = (alive.clone(), name.to_owned());
+        std::thread::Builder::new()
+            .name(format!("raven-ci-agente-{name}"))
+            .spawn(move || {
+                for event in running.events() {
+                    match event {
+                        ravenrs_process::Event::Out(line) | ravenrs_process::Event::Err(line) => {
+                            log(&format!("[{who}] {line}"));
+                        }
+                        ravenrs_process::Event::Ended(end) => log(&format!("[{who}] terminou: {end:?}")),
+                    }
+                }
+                watching.store(false, Ordering::SeqCst);
+            })
+            .map_err(|e| CiError::failed(e.to_string()))?;
+        Ok(Self { name: name.to_owned(), control, alive, at_stop: Mutex::default() })
+    }
+
+    /// Runs `undo` once it stops: a key file removed, say.
+    pub fn at_stop(self, undo: impl FnOnce() + Send + 'static) -> Self {
+        self.at_stop.lock().unwrap_or_else(PoisonError::into_inner).push(Box::new(undo));
+        self
+    }
+}
+
+impl LaunchedAgent for ChildAgent {
+    fn name(&self) -> String {
+        self.name.clone()
+    }
+
+    fn alive(&self) -> bool {
+        self.alive.load(Ordering::SeqCst)
+    }
+
+    fn stop(&self) {
+        self.control.stop();
+        for undo in std::mem::take(&mut *self.at_stop.lock().unwrap_or_else(PoisonError::into_inner)) {
+            undo();
+        }
+    }
+}
+
 /// The start of the reason of a build whose agent went quiet past its grace.
 pub const INTERRUPTED: &str = "interrompido:";
 
@@ -1269,6 +1402,17 @@ fn with_agent(settings: &Value, name: &str, executors: u32) -> Value {
     settings.insert("name".to_owned(), json!(name));
     settings.entry("executors").or_insert(json!(executors));
     Value::Object(settings)
+}
+
+/// What a failed launch for `row` waits by: its template, or its run for a launcher of one build.
+fn launch_key(row: &BuildRow, wanted: &Use, templates: &[AgentTemplate]) -> String {
+    if wanted.id == "label" {
+        let label = wanted.settings.get("label").and_then(Value::as_str).unwrap_or_default();
+        if let Some(template) = templates.iter().find(|t| t.labels.iter().any(|l| l == label)) {
+            return template.name.clone();
+        }
+    }
+    row.run_id.clone()
 }
 
 /// Whether a build names an agent, so the server's own executors leave it.
