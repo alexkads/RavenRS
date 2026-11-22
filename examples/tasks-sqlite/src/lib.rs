@@ -1,4 +1,8 @@
 //! A task list built with ravenrs-app.
+/// The scenarios of Raven Test Studio the app brings, one per file of `tests/e2e/`: the tool
+/// gets them when it opens the app with `--e2e-serve`, and `tests/scenarios.rs` plays them.
+pub const SCENARIOS: [&str; 1] = [include_str!("../tests/e2e/abrir.raventest")];
+
 use ravenrs_app::BusinessObject;
 use ravenrs_app_ui::{App, Language};
 

@@ -4,6 +4,7 @@
 //! threads share who is signed in through [`crate::shared::Shared`].
 
 use std::collections::BTreeMap;
+use std::convert::Infallible;
 use std::io;
 use std::net::SocketAddr;
 use std::panic::{AssertUnwindSafe, catch_unwind};
@@ -14,11 +15,14 @@ use axum::Router;
 use axum::body::{Body, to_bytes};
 use axum::extract::{ConnectInfo, DefaultBodyLimit, Request, State};
 use axum::http::{HeaderValue, Method, StatusCode, header};
+use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::{IntoResponse, Response};
 use serde_json::{Value as Json, json};
 use tokio::net::TcpListener;
+use tokio::sync::broadcast::error::RecvError;
 use tokio::sync::{mpsc, oneshot};
 
+use crate::live::{Listening, LiveChannels, LiveEvent};
 use crate::shared::Shared;
 use crate::{ApiRequest, ApiResponse, ApiService};
 
@@ -42,6 +46,7 @@ type Asked = (ApiRequest, oneshot::Sender<ApiResponse>);
 struct Worker {
     asking: mpsc::Sender<Asked>,
     origins: Arc<Vec<String>>,
+    live: Option<LiveChannels>,
 }
 
 /// How the service meets the outside.
@@ -50,11 +55,12 @@ struct Worker {
 pub struct ApiOptions {
     origins: Vec<String>,
     workers: usize,
+    live: Option<LiveChannels>,
 }
 
 impl Default for ApiOptions {
     fn default() -> Self {
-        Self { origins: Vec::new(), workers: 1 }
+        Self { origins: Vec::new(), workers: 1, live: None }
     }
 }
 
@@ -70,6 +76,13 @@ impl ApiOptions {
     /// the thread that made it, so a service over one stays with one thread.
     pub fn workers(mut self, workers: usize) -> Self {
         self.workers = workers.max(1);
+        self
+    }
+
+    /// Streams the topics of `channels` at `GET /api/live/{topic}`, as Server-Sent Events, to
+    /// whoever may read `/api/me`. Keep a clone of `channels` to publish to them.
+    pub fn live(mut self, channels: LiveChannels) -> Self {
+        self.live = Some(channels);
         self
     }
 
@@ -198,14 +211,118 @@ async fn answered(worker: &Worker, request: Request<Body>) -> Response {
             .collect(),
         body: body.to_vec(),
     };
+    if let (true, [api, live, topic]) = (asked.method == "GET", asked.path.as_slice())
+        && api == "api"
+        && live == "live"
+    {
+        let after = parts
+            .headers
+            .get("last-event-id")
+            .and_then(|value| value.to_str().ok())
+            .or_else(|| asked.query.get("after").map(String::as_str))
+            .and_then(|text| text.trim().parse().ok());
+        let topic = topic.clone();
+        return stream(worker, asked, &topic, after).await;
+    }
+    match ask(worker, asked).await {
+        Some(response) => answer(response.status, &response.body),
+        None => busy(),
+    }
+}
+
+/// Hands a request to the threads that answer, and waits for the answer; `None` when they are
+/// too busy or too slow.
+async fn ask(worker: &Worker, asked: ApiRequest) -> Option<ApiResponse> {
     let (reply, answered) = oneshot::channel();
-    if worker.asking.try_send((asked, reply)).is_err() {
-        return busy();
+    worker.asking.try_send((asked, reply)).ok()?;
+    tokio::time::timeout(ANSWER_WITHIN, answered).await.ok()?.ok()
+}
+
+/// Asks whether whoever sent `asked` may read `/api/me`: the same check as every route behind a
+/// token, done by the threads that answer, which know tokens, keys and who was turned off.
+async fn may_listen(worker: &Worker, asked: &ApiRequest) -> Option<ApiResponse> {
+    let mut probe = asked.clone();
+    probe.path = vec!["api".to_owned(), "me".to_owned()];
+    probe.query.clear();
+    probe.body.clear();
+    ask(worker, probe).await
+}
+
+fn not_found() -> Response {
+    answer(404, &json!({ "error": "not_found", "message": "There is no such route." }))
+}
+
+/// What one open stream is at.
+struct Stream {
+    worker: Worker,
+    asked: ApiRequest,
+    missed: std::collections::VecDeque<LiveEvent>,
+    gap: bool,
+    coming: tokio::sync::broadcast::Receiver<LiveEvent>,
+    last: u64,
+    tick: tokio::time::Interval,
+}
+
+fn event_of(event: &LiveEvent) -> Event {
+    Event::default().id(event.id.to_string()).event(&event.kind).data(event.data.to_string())
+}
+
+/// The next thing to send on a stream, or `None` when it ends: a gap, what it missed, what comes,
+/// and every tick a new look at whether it may still listen.
+async fn next(mut stream: Stream) -> Option<(Result<Event, Infallible>, Stream)> {
+    loop {
+        if stream.gap {
+            stream.gap = false;
+            return Some((Ok(Event::default().event("gap").data("{}")), stream));
+        }
+        if let Some(event) = stream.missed.pop_front() {
+            stream.last = event.id;
+            return Some((Ok(event_of(&event)), stream));
+        }
+        tokio::select! {
+            got = stream.coming.recv() => match got {
+                Ok(event) if event.id > stream.last => {
+                    stream.last = event.id;
+                    return Some((Ok(event_of(&event)), stream));
+                }
+                Ok(_) => {}
+                Err(RecvError::Lagged(_)) => stream.gap = true,
+                Err(RecvError::Closed) => return None,
+            },
+            _ = stream.tick.tick() => {
+                if !may_listen(&stream.worker, &stream.asked).await.is_some_and(|answer| answer.status == 200) {
+                    return None;
+                }
+            }
+        }
     }
-    match tokio::time::timeout(ANSWER_WITHIN, answered).await {
-        Ok(Ok(response)) => answer(response.status, &response.body),
-        _ => busy(),
+}
+
+/// Opens a stream of `topic` for whoever sent `asked`, from after the event `after`.
+async fn stream(worker: &Worker, asked: ApiRequest, topic: &str, after: Option<u64>) -> Response {
+    let Some(channels) = worker.live.clone().filter(|channels| channels.is_open(topic)) else {
+        return not_found();
+    };
+    match may_listen(worker, &asked).await {
+        Some(answered) if answered.status == 200 => {}
+        Some(refused) => return answer(refused.status, &refused.body),
+        None => return busy(),
     }
+    let Some(Listening { missed, gap, coming }) = channels.listen(topic, after) else { return not_found() };
+    let every = channels.check();
+    let tick = tokio::time::interval_at(tokio::time::Instant::now() + every, every);
+    let state = Stream {
+        worker: worker.clone(),
+        asked,
+        missed: missed.into(),
+        gap,
+        coming,
+        last: after.unwrap_or(0),
+        tick,
+    };
+    Sse::new(futures_util::stream::unfold(state, next))
+        .keep_alive(KeepAlive::new().interval(every))
+        .into_response()
 }
 
 /// Answers what comes in `waiting` until it closes. The threads take turns at it: whoever is free
@@ -270,10 +387,11 @@ pub fn router_with(
             .map_err(io::Error::other)?;
     }
     drop(made);
-    Ok(Router::new()
-        .fallback(handle)
-        .layer(DefaultBodyLimit::max(BODY_LIMIT))
-        .with_state(Worker { asking: sender, origins: Arc::new(options.origins) }))
+    Ok(Router::new().fallback(handle).layer(DefaultBodyLimit::max(BODY_LIMIT)).with_state(Worker {
+        asking: sender,
+        origins: Arc::new(options.origins),
+        live: options.live,
+    }))
 }
 
 /// Serves the API on this listener until it fails.

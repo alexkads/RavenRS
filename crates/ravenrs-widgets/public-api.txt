@@ -1991,10 +1991,12 @@ impl Debug for grid::query::GridTableColumn
 impl Debug for grid::query::GridTableKind
 impl Debug for grid::query::QueryResult
 impl Debug for grid::query::ViewRow
+impl Debug for testing::CropDriver
 impl Debug for testing::DataGridDriver
 impl Debug for testing::DockDriver
 impl Debug for testing::FlowCanvasDriver
 impl Debug for testing::SchedulerDriver
+impl Debug for testing::SortableDriver
 impl Default for AnchorPoint
 impl Default for AudioPlayerButton
 impl Default for BusySignal
@@ -4054,6 +4056,7 @@ method ReleaseNote::section
 method ReleaseNotes::height
 method ReleaseNotes::new
 method RemoteRows::chunk_size
+method RemoteRows::is_loading
 method RemoteRows::max_chunks
 method RemoteRows::max_in_flight
 method RemoteRows::new
@@ -4856,6 +4859,7 @@ method grid::GridScenario::list_to_json
 method grid::GridScenario::new
 method grid::NumberFormat::format
 method grid::RemoteRows::chunk_size
+method grid::RemoteRows::is_loading
 method grid::RemoteRows::max_chunks
 method grid::RemoteRows::max_in_flight
 method grid::RemoteRows::new
@@ -4872,6 +4876,9 @@ method grid::query::GridQuery::set_filter
 method grid::query::GridQuery::toggle_collapsed
 method grid::query::GridQuery::toggle_group
 method grid::query::GridQuery::toggle_sort
+method testing::CropDriver::new
+method testing::CropDriver::set
+method testing::CropDriver::value
 method testing::DataGridDriver::clear_sort
 method testing::DataGridDriver::edit_cell
 method testing::DataGridDriver::filter
@@ -4888,6 +4895,9 @@ method testing::SchedulerDriver::move_event
 method testing::SchedulerDriver::move_to_resource
 method testing::SchedulerDriver::new
 method testing::SchedulerDriver::resize_event
+method testing::SortableDriver::move_before
+method testing::SortableDriver::new
+method testing::SortableDriver::order
 mod book
 mod grid
 mod grid::query
@@ -5304,10 +5314,12 @@ struct grid::query::GridQuery
 struct grid::query::GridTable
 struct grid::query::GridTableColumn
 struct grid::query::QueryResult
+struct testing::CropDriver
 struct testing::DataGridDriver
 struct testing::DockDriver
 struct testing::FlowCanvasDriver
 struct testing::SchedulerDriver
+struct testing::SortableDriver
 trait ClipboardProvider
 trait Component
 trait FilePickerProvider

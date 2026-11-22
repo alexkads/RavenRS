@@ -51,6 +51,9 @@ impl ToUnicodeCMap {
         Self::from_sections(cmap_sections)
     }
 
+    // RavenRS patch: clippy 1.100 reads the loop below as needless_range_loop, but the index is
+    // also the code length (index + 1), so it stays as the upstream wrote it.
+    #[allow(clippy::needless_range_loop, reason = "the index is also the code length")]
     fn from_sections(cmap_sections: Vec<CMapSection>) -> Result<ToUnicodeCMap, UnicodeCMapError> {
         let mut cmap = Self::new();
         for section in cmap_sections {

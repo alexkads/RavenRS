@@ -16,6 +16,8 @@ categories = ["development-tools"]
 [dependencies]
 ravenrs-flows.workspace = true
 ravenrs-process.workspace = true
+# The one way the house keeps secret values out of text.
+ravenrs-secrets.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 

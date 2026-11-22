@@ -13,6 +13,7 @@ mod hooks;
 mod http;
 mod json;
 mod keys;
+mod live;
 mod openapi;
 mod pattern;
 mod shared;
@@ -27,6 +28,7 @@ pub use hooks::{
     webhook_event_entity,
 };
 pub use http::{ApiOptions, router, router_with, serve, serve_with};
+pub use live::{LiveChannels, LiveEvent};
 use ravenrs_app::{
     APP_SETTING, AuditSettings, AuditTrail, AuditedObjectSpace, AuthError, Authenticator, CONTEXT_DELETE,
     CONTEXT_SAVE, Credentials, Criteria, EntityInfo, FieldKind, Object, ObjectSpace, Operation,
