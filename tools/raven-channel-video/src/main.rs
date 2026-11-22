@@ -194,7 +194,7 @@ fn spoken_sound(
     let silence = vec![0.0_f32; (ravenrs_ai::SPEECH_RATE / 4) as usize];
     let mut sound = Vec::new();
     // Short sentences go together: Kokoro says a few words alone with a flat tune.
-    for piece in engine.pieces(&family_finance::ui::spoken(text)) {
+    for piece in engine.pieces(&ravenrs_ai::spoken_pt_br(text)) {
         sound.extend(engine.speak(&piece, settings, &mut |_| true).expect("sound"));
         sound.extend_from_slice(&silence);
     }
