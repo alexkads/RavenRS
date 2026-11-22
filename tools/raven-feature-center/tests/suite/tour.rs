@@ -1329,6 +1329,14 @@ fn the_parameter_form_builds_from_a_schema_and_gives_back_only_on_apply() {
     assert!(c.says("Não deu para carregar as opções"));
     c.press("Tentar de novo");
     assert!(c.says("Pediu as opções de account"));
+
+    // live: the form of the dialog gives back each change at once, with no buttons of its own.
+    assert!(c.says("Branch do disparo é obrigatório"), "the empty required field is marked: {:?}", c.texts());
+    c.type_into("Branch do disparo", "develop");
+    assert!(c.says("\"branch\":\"develop\""), "{:?}", c.texts());
+    assert!(!c.says("Branch do disparo é obrigatório"), "{:?}", c.texts());
+    let applies = c.ui.access_tree().nodes.iter().filter(|n| n.name.as_deref() == Some("Aplicar")).count();
+    assert_eq!(applies, 1, "only the first form has Aplicar");
 }
 
 #[test]
