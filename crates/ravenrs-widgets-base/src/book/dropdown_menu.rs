@@ -1,6 +1,7 @@
 //! The stories of `DropdownMenu`, from the component gallery's example, by scripts/rcb-scaffold.py.
 //! Reviewed for #758: it is no longer written over.
 
+use crate::book::button::{ICONS, icon};
 #[allow(unused_imports)]
 use crate::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
 #[allow(unused_imports)]
@@ -39,13 +40,16 @@ fn render(args: &Args) -> AnyView {
         };
 
         {
-            let mut it = DropdownMenu::new("Actions")
+            let mut it = DropdownMenu::new(args.text("label"))
                 .item(MenuItem::new("Edit").icon(IconName::Pencil).shortcut("⌘E"))
                 .item(MenuItem::new("Share").icon(IconName::Share2))
                 .item(MenuItem::new("Export").item(MenuItem::new("As PDF")).item(MenuItem::new("As CSV")))
                 .item(MenuItem::new("Show grid").checked(true))
                 .item(MenuItem::new("Label").element(Badge::new("Family").tone(Tone::Accent)))
                 .item(MenuItem::new("Delete").icon(IconName::Trash2).destructive());
+            if let Some(name) = icon(args.choice("icon")) {
+                it = it.icon(name);
+            }
             if arg_separator {
                 it = it.separator();
             }
@@ -64,6 +68,8 @@ impl ComponentBook for DropdownMenu {
     fn book() -> Meta {
         Meta::new("Overlays/DropdownMenu", render)
             .summary("Button that opens a list of actions, with submenus and check marks.")
+            .arg(ArgType::text("label", "Actions").description("The words on the button; start with a verb."))
+            .arg(ArgType::choice("icon", ICONS, "none").description("An icon before the label."))
             .arg(ArgType::bool("separator", true))
             .arg(ArgType::bool("icon_only", false))
             .arg(ArgType::choice("size", &["Small", "Medium", "Large", "Mini"], "Medium"))
@@ -77,5 +83,12 @@ impl ComponentBook for DropdownMenu {
             .story("Style: Primary", Args::new().with("style", ArgValue::choice("Primary")))
             .story("Style: Ghost", Args::new().with("style", ArgValue::choice("Ghost")))
             .story("Style: Danger", Args::new().with("style", ArgValue::choice("Danger")))
+            .story(
+                "Primary with icon",
+                Args::new()
+                    .with("style", ArgValue::choice("Primary"))
+                    .with("label", "New project")
+                    .with("icon", ArgValue::choice("plus")),
+            )
     }
 }

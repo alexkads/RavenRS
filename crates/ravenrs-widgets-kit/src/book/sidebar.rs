@@ -99,6 +99,7 @@ impl ComponentBook for Sidebar<(AnyView,)> {
             .story("Variant: Floating", Args::new().with("variant", ArgValue::choice("Floating")))
             .story("Variant: Inset", Args::new().with("variant", ArgValue::choice("Inset")))
             .story_with("Compact, with sections", Args::new(), compact_with_sections)
+            .story_with("Items with a state and an action", Args::new(), items_with_state_and_action)
     }
 }
 
@@ -128,5 +129,41 @@ fn compact_with_sections(_: &Args) -> AnyView {
                 .align(Align::Stretch),
             )
             .height(460.0),
+    )
+}
+
+/// Items that say a state with a badge in its tone and icon, and carry an action of their own, as
+/// the list of agents of a workspace: a count on the chosen one, a delete button, a group action
+/// (#831).
+fn items_with_state_and_action(_: &Args) -> AnyView {
+    let delete = |name: &str| {
+        IconButton::new(IconName::Trash2).label(format!("Delete {name}")).size(ButtonSize::Small)
+    };
+    Box::new(
+        Sidebar::new((
+            SidebarGroup::new(
+                "Workspaces",
+                (
+                    SidebarItem::new(IconName::Layers, "shop-api")
+                        .selected(true)
+                        .count("5")
+                        .action(delete("shop-api")),
+                    SidebarItem::new(IconName::Layers, "website").action(delete("website")),
+                ),
+            )
+            .action(IconButton::new(IconName::Plus).label("New workspace").size(ButtonSize::Small)),
+            SidebarGroup::new(
+                "Agents",
+                (
+                    SidebarItem::new(IconName::Sparkles, "Planner")
+                        .badge(Badge::new("running").tone(Tone::Warning).icon(IconName::LoaderCircle)),
+                    SidebarItem::new(IconName::Code, "Builder")
+                        .badge(Badge::new("ready").tone(Tone::Success).icon(IconName::Check)),
+                    SidebarItem::new(IconName::Terminal, "Tests")
+                        .badge(Badge::new("failed").tone(Tone::Danger).icon(IconName::X)),
+                ),
+            ),
+        ))
+        .height(420.0),
     )
 }

@@ -199,5 +199,81 @@ impl ComponentBook for FlowCanvas {
             .story("Example", Args::new())
             .story("Read only", Args::new().with("read_only", true))
             .story("Json", Args::new().with("json", true))
+            .story("Cables", Args::new().with("cables", true))
+            .story_with("Cards and a selection", Args::new(), cards_and_selection)
     }
+}
+
+/// Nodes that draw their own card (`content`), as an app that shows its own state in each node,
+/// joined by cables, with one of them selected (#831).
+fn cards_and_selection(_: &Args) -> AnyView {
+    let graph = State::new(
+        FlowGraph::new()
+            .node(
+                FlowNode::new("plan", "agent", "Planner", 0.0, 48.0)
+                    .size(248.0, 128.0)
+                    .status(FlowNodeStatus::Running)
+                    .port(FlowPort::output("out").side(PortSide::Right)),
+            )
+            .node(
+                FlowNode::new("build", "agent", "Builder", 312.0, 48.0)
+                    .size(248.0, 128.0)
+                    .status(FlowNodeStatus::Success)
+                    .port(FlowPort::input("in").side(PortSide::Left))
+                    .port(FlowPort::output("out").side(PortSide::Bottom)),
+            )
+            .node(
+                FlowNode::new("review", "agent", "Reviewer", 312.0, 240.0)
+                    .size(248.0, 128.0)
+                    .port(FlowPort::input("in").side(PortSide::Top)),
+            )
+            .edge(
+                FlowEdge::new("e1", FlowEndpoint::new("plan", "out"), FlowEndpoint::new("build", "in"))
+                    .animated(true),
+            )
+            .edge(FlowEdge::new("e2", FlowEndpoint::new("build", "out"), FlowEndpoint::new("review", "in"))),
+    );
+    let selection = State::new(FlowSelection::node("review"));
+    let card = |node: &FlowNode| -> Option<AnyView> {
+        let (state, tone, icon) = match node.status {
+            FlowNodeStatus::Running => ("running", Tone::Warning, IconName::LoaderCircle),
+            FlowNodeStatus::Success => ("ready", Tone::Success, IconName::Check),
+            _ => ("waiting", Tone::Neutral, IconName::Clock),
+        };
+        Some(Box::new(
+            VStack::new((
+                HStack::new((
+                    Text::new(node.title.clone()).font_weight(Weight::SEMIBOLD).truncate().grow(1.0),
+                    Badge::new(state).tone(tone).icon(icon),
+                ))
+                .align(Align::Center)
+                .spacing(8.0),
+                Text::new("Claude Code · read only")
+                    .style(TextStyle::Callout)
+                    .foreground(Semantic::InkMuted)
+                    .truncate(),
+                Text::new("No output yet")
+                    .style(TextStyle::Callout)
+                    .foreground(Semantic::InkMuted)
+                    .truncate()
+                    .padding(8.0)
+                    .background(Semantic::Canvas)
+                    .corner_radius(ravenrs_style::RADII.md)
+                    .stretch(),
+            ))
+            .spacing(8.0)
+            .align(Align::Stretch)
+            .padding(12.0)
+            .grow(1.0),
+        ))
+    };
+    Box::new(
+        FlowCanvas::new(graph.binding())
+            .selection(selection.binding())
+            .content(card)
+            .cables(true)
+            .minimap(false)
+            .kind("agent", FlowKind::new(IconName::Sparkles, "Agent"))
+            .size(880.0, 420.0),
+    )
 }
