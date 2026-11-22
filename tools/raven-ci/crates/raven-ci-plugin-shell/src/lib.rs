@@ -30,6 +30,11 @@
 //!
 //! A format makes a node of kind [`SH`] with the parameters `script` and, when it wants, `nice`.
 //! The plugin needs the permission `ci.process`.
+//!
+//! A step of another plugin that runs a program (`container` of `docker`, `kubectl` of
+//! `kubernetes`) watches it with [`watch`], the same loop `sh` uses: each line to the log, the
+//! program stopped when the build is cancelled or runs out of time, and the last lines of its
+//! errors kept for the message of a failure.
 
 use std::sync::{Arc, Mutex, PoisonError};
 use std::time::Duration;
@@ -98,6 +103,86 @@ impl CiPlugin for ShellPlugin {
     }
 }
 
+/// How many of the last lines of its errors [`watch`] keeps.
+pub const KEPT_ERRORS: usize = 20;
+
+/// What [`watch`] saw of a program that ended on its own or was stopped by its own time limit.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Watched {
+    /// How it ended.
+    pub end: End,
+    /// The last lines of its errors, up to [`KEPT_ERRORS`], in order: what a failure says.
+    pub errors: Vec<String>,
+}
+
+impl Watched {
+    /// The last line of its errors that says something, or an empty text.
+    pub fn last_error(&self) -> &str {
+        self.errors.iter().rev().map(|line| line.trim()).find(|line| !line.is_empty()).unwrap_or_default()
+    }
+}
+
+/// Runs `spec` for the node of `cx`, giving each line it writes to `log` as it comes, and
+/// watching the build: when it is cancelled or the node passes its time limit, `on_stop` runs
+/// first (what stops what the program started elsewhere: `docker rm -f` of its container) and
+/// then the program is stopped with every program it started, and the reason is the error.
+///
+/// It fails when the program does not start; otherwise it gives how it ended, with the last lines
+/// of its errors.
+pub fn watch(
+    cx: &NodeContext<'_>,
+    spec: Spec,
+    log: &dyn Fn(&str),
+    on_stop: &dyn Fn(),
+) -> Result<Watched, NodeError> {
+    let running = spec.spawn().map_err(|e| NodeError::new(format!("o comando não começou: {e}")))?;
+    let control = running.control();
+    let mut errors: std::collections::VecDeque<String> = std::collections::VecDeque::new();
+    let mut stopped: Option<NodeError> = None;
+    let end = loop {
+        match running.next_within(LOOK_EVERY) {
+            Some(Event::Out(line)) => log(&line),
+            Some(Event::Err(line)) => {
+                log(&line);
+                if errors.len() == KEPT_ERRORS {
+                    errors.pop_front();
+                }
+                errors.push_back(line);
+            }
+            Some(Event::Ended(end)) => break end,
+            None => {}
+        }
+        if stopped.is_none()
+            && let Err(why) = cx.check()
+        {
+            log(&format!("parando o comando: {}", why.message));
+            on_stop();
+            control.stop();
+            stopped = Some(why);
+        }
+    };
+    match stopped {
+        Some(why) => Err(why),
+        None => Ok(Watched { end, errors: errors.into() }),
+    }
+}
+
+/// How `end` reads as the end of a step: code 0 is fine; any other code fails with "o comando
+/// terminou com o código N", worth trying again when `retry` (the node has a `retry`, as in a
+/// `retry` of a Jenkinsfile); a time limit and a stop fail as such.
+pub fn ended(end: End, retry: bool) -> Result<(), NodeError> {
+    match end {
+        End::Code(0) => Ok(()),
+        End::Code(code) if retry => {
+            Err(NodeError::retryable(format!("o comando terminou com o código {code}")))
+        }
+        End::Code(code) => Err(NodeError::new(format!("o comando terminou com o código {code}"))),
+        End::Signal(signal) => Err(NodeError::new(format!("o comando foi morto pelo sinal {signal}"))),
+        End::TimedOut => Err(NodeError::timed_out("o comando passou do prazo e foi parado")),
+        End::Stopped => Err(NodeError::cancelled("o comando foi parado")),
+    }
+}
+
 /// The step `sh`. See the [crate](crate).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Sh;
@@ -138,37 +223,7 @@ impl NodeKind for Sh {
             // A second guard: the run stops waiting at its deadline, and this stops the program.
             spec = spec.timeout(Duration::from_millis(ms));
         }
-        let running = spec.spawn().map_err(|e| NodeError::new(format!("o comando não começou: {e}")))?;
-        let control = running.control();
-        let mut stopped: Option<NodeError> = None;
-        let end = loop {
-            match running.next_within(LOOK_EVERY) {
-                Some(Event::Out(line) | Event::Err(line)) => log(&line),
-                Some(Event::Ended(end)) => break end,
-                None => {}
-            }
-            if stopped.is_none()
-                && let Err(why) = cx.check()
-            {
-                log(&format!("parando o comando: {}", why.message));
-                control.stop();
-                stopped = Some(why);
-            }
-        };
-        if let Some(why) = stopped {
-            return Err(why);
-        }
-        match end {
-            End::Code(0) => Ok(BuildScope::pass_on(cx)),
-            // With a retry on its node, a command that failed is worth trying again, as in a
-            // `retry` of a Jenkinsfile; without, it is not.
-            End::Code(code) if cx.node().retry.is_some() => {
-                Err(NodeError::retryable(format!("o comando terminou com o código {code}")))
-            }
-            End::Code(code) => Err(NodeError::new(format!("o comando terminou com o código {code}"))),
-            End::Signal(signal) => Err(NodeError::new(format!("o comando foi morto pelo sinal {signal}"))),
-            End::TimedOut => Err(NodeError::timed_out("o comando passou do prazo e foi parado")),
-            End::Stopped => Err(NodeError::cancelled("o comando foi parado")),
-        }
+        let end = watch(cx, spec, &log, &|| {})?.end;
+        ended(end, cx.node().retry.is_some()).map(|()| BuildScope::pass_on(cx))
     }
 }
