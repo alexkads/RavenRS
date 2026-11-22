@@ -25,6 +25,9 @@ pub enum BuildStatus {
     Cancelled,
     /// It took longer than its limit.
     TimedOut,
+    /// The agent that ran it went quiet past its grace time, and the server ended it: no one
+    /// cancelled it and no step failed.
+    Interrupted,
 }
 
 impl BuildStatus {
@@ -42,6 +45,7 @@ impl BuildStatus {
             Self::Failed => "falhou",
             Self::Cancelled => "cancelado",
             Self::TimedOut => "passou do prazo",
+            Self::Interrupted => "interrompido",
         }
     }
 }
@@ -220,4 +224,16 @@ pub trait Notifier: Send + Sync {
 
     /// Tells about `event`, by `settings`.
     fn notify(&self, event: &BuildEvent, settings: &Value) -> Result<(), CiError>;
+}
+
+#[cfg(test)]
+mod interrupted {
+    use super::BuildStatus;
+
+    #[test]
+    fn an_interrupted_build_ended_and_says_so() {
+        assert!(BuildStatus::Interrupted.ended());
+        assert_eq!(BuildStatus::Interrupted.words(), "interrompido");
+        assert_eq!(serde_json::to_value(BuildStatus::Interrupted).expect("JSON"), "interrupted");
+    }
 }
