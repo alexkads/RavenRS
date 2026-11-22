@@ -14,6 +14,34 @@ pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--f
   plugins info NOME       versão, dependências, permissões, configuração e memória
   plugins ligar NOME      liga o plugin
   plugins desligar NOME   desliga o plugin e os que precisam dele
+  plugins compilar PASTA  compila um plugin em Rust (traits padrão) e o instala
+                          [--debug] no perfil dev, mais rápido de compilar
+  servir [--endereco HOST:PORTA] [--executores N]
+                          o servidor: HTTP com login, executores e gatilhos
+  servir ... --painel PASTA   serve o painel do navegador em /painel/
+  usuario criar NOME [--papel Executores|Leitores|Administradores]
+                          cria quem pode entrar; a senha vem na entrada
+  credencial criar NOME --tipo token|user-password|ssh-key
+                          guarda no cofre; os campos vêm em JSON na entrada
+  credencial listar       as credenciais, sem os valores
+  credencial apagar NOME  revoga e apaga
+  rodar JOB [--param NOME=VALOR]... [--prioridade N] [--esperar]
+                          pede um build ao servidor; --esperar segue o log até o fim
+  status JOB [NUMERO]     o build (o último, sem número): estado, etapas e anexos
+  log JOB NUMERO [--seguir]
+                          o log do build; --seguir até ele acabar
+  resumo                  cada job com o último build, e a fila
+  evidencia JOB NUMERO PASTA
+                          baixa os artefatos e o log do build para PASTA
+                          (estes cinco falam com --servidor URL ou RAVEN_CI_SERVIDOR,
+                          com a chave em RAVEN_CI_TOKEN)
+  aplicar ARQUIVO [--remover] [--servidor URL]
+                          a configuração como código: jobs, pastas e plugins do arquivo
+  servir --config ARQUIVO aplica o arquivo ao subir
+  servico instalar|remover|estado [--memoria 1G] [--endereco HOST:PORTA] [--executores N] [--sistema]
+                          o servidor como serviço do sistema (systemd, launchd ou Windows)
+  agentes listar|token|remover|modelos|modelo
+                          os agentes que rodam os builds fora do servidor
   <comando> ...           um comando que um plugin ligado traz
   --self-test             confere o núcleo com um plugin falso de cada ponto
   --versao                a versão";
@@ -48,6 +76,8 @@ impl Invocation {
                 },
                 // What comes after a command belongs to it, flags included.
                 _ if !words.is_empty() && words[0] != "plugins" => words.push(arg.clone()),
+                // The one option of a word of plugins: plugins compilar PASTA --debug.
+                "--debug" if words.first().is_some_and(|w| w == "plugins") => words.push(arg.clone()),
                 flag if flag.starts_with("--") => return Err(format!("opção desconhecida: {flag}")),
                 _ => words.push(arg.clone()),
             }
@@ -60,7 +90,20 @@ impl Invocation {
 
     /// Runs it, writing to `out`; the exit code.
     pub fn run(&self, out: &mut dyn Write) -> Result<i32, CiError> {
+        // The commands that speak to a server open no core on this disk.
+        if let Some(said) = crate::remote::run(&self.words, self.json, out) {
+            return said;
+        }
+        if let [first, rest @ ..] = self.words.as_slice()
+            && first == "servico"
+        {
+            let rest: Vec<&str> = rest.iter().map(String::as_str).collect();
+            return crate::service::run(&self.data, &rest, self.json, out);
+        }
         let ci = Ci::open(&self.data)?;
+        for plugin in crate::plugins::builtin() {
+            ci.add_plugin(plugin);
+        }
         ci.discover_plugins(&self.data.join(PLUGINS_DIR));
         for dir in &self.plugin_dirs {
             ci.discover_plugins(dir);
@@ -118,10 +161,81 @@ impl Invocation {
                     }
                 }
             }
+            ["plugins", "compilar", folder] => {
+                crate::compilar::run(std::path::Path::new(folder), &self.data, false, out)
+            }
+            ["plugins", "compilar", "--debug", folder] | ["plugins", "compilar", folder, "--debug"] => {
+                crate::compilar::run(std::path::Path::new(folder), &self.data, true, out)
+            }
             ["plugins", ..] => {
                 write(out, &format!("{USAGE}\n"))?;
                 Ok(2)
             }
+            ["servir", args @ ..] => crate::server::serve(ci, &self.data, args, out),
+            ["aplicar", args @ ..] => crate::apply::local(&ci, args, self.json, out),
+            ["usuario", "criar", name, args @ ..] => {
+                let stdin = std::io::stdin();
+                crate::server::create_user(&self.data, name, args, &mut stdin.lock(), out)
+            }
+            ["credencial", "criar", name, args @ ..] => {
+                let Some(kind) = args.iter().position(|a| *a == "--tipo").and_then(|at| args.get(at + 1))
+                else {
+                    write(out, "diga o tipo: --tipo token, user-password ou ssh-key\n")?;
+                    return Ok(2);
+                };
+                let mut text = String::new();
+                std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)
+                    .map_err(|e| CiError::failed(e.to_string()))?;
+                let Ok(fields) = serde_json::from_str::<serde_json::Value>(&text) else {
+                    write(
+                        out,
+                        "os campos vêm em JSON na entrada: echo '{\"token\": \"...\"}' | raven-ci credencial criar NOME --tipo token\n",
+                    )?;
+                    return Ok(2);
+                };
+                match ci.save_credential(name, kind, &fields, std::env::var("USER").ok().as_deref()) {
+                    Ok(()) => {
+                        write(out, &format!("{name}: guardada no cofre, do tipo {kind}\n"))?;
+                        Ok(0)
+                    }
+                    Err(why) => {
+                        write(out, &format!("{why}\n"))?;
+                        Ok(2)
+                    }
+                }
+            }
+            ["credencial", "listar"] => {
+                let list = ci.credentials()?;
+                if self.json {
+                    write(out, &json(&list)?)?;
+                } else if list.is_empty() {
+                    write(out, "nenhuma credencial\n")?;
+                } else {
+                    for credential in &list {
+                        write(out, &format!("{:<24}{}\n", credential.name, credential.kind))?;
+                    }
+                }
+                Ok(0)
+            }
+            ["credencial", "apagar", name] => match ci.delete_credential(name) {
+                Ok(()) => {
+                    write(out, &format!("{name}: revogada e apagada\n"))?;
+                    Ok(0)
+                }
+                Err(why) => {
+                    write(out, &format!("{why}\n"))?;
+                    Ok(2)
+                }
+            },
+            ["credencial", ..] => {
+                write(out, &format!("{USAGE}\n"))?;
+                Ok(2)
+            }
+            ["usuario", ..] => {
+                write(out, &format!("{USAGE}\n"))?;
+                Ok(2)
+            }
+            ["agentes", args @ ..] => crate::agentes::command(&ci, args, self.json, out),
             [name, args @ ..] => {
                 let command = ci
                     .registry()

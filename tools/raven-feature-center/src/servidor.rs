@@ -24,16 +24,23 @@ pub fn channels() -> LiveChannels {
     channels
 }
 
-/// The options as `src/bin/api.rs` builds them, from what the page has.
-pub fn options(origins: &[String], workers: i32, live: Option<&LiveChannels>) -> ApiOptions {
+/// The prefix of the paths that come in with no token, for the webhooks of other services.
+pub const OPEN_PREFIX: &str = "/hooks/";
+/// The headers of those webhooks the service is handed besides its own.
+pub const PASSED_HEADER: &str = "x-hub-";
+
+/// The options as `src/bin/api.rs` builds them, from what the page has; `hooks` opens
+/// [`OPEN_PREFIX`] with no token and hands over the headers starting with [`PASSED_HEADER`].
+pub fn options(origins: &[String], workers: i32, live: Option<&LiveChannels>, hooks: bool) -> ApiOptions {
     let threads = usize::try_from(workers).unwrap_or(0);
     let options = origins
         .iter()
         .fold(ApiOptions::new().workers(threads), |options, origin| options.allow_origin(origin.clone()));
-    match live {
+    let options = match live {
         Some(channels) => options.live(channels.clone()),
         None => options,
-    }
+    };
+    if hooks { options.open(OPEN_PREFIX).pass_header(PASSED_HEADER) } else { options }
 }
 
 /// Every feature of `ApiOptions` on one page.
@@ -46,6 +53,8 @@ impl View for ApiOptionsPage {
         let origins = cx.use_state(Vec::<String>::new);
         let workers = cx.use_state(|| 1_i32);
         let live = cx.use_state(|| false);
+        let hooks = cx.use_state(|| false);
+        let shown_hooks = hooks.clone();
         let published = cx.use_state(|| 0_u64);
         let channels = cx.use_state(channels);
         let (sending, counted) = (channels.clone(), published.clone());
@@ -126,11 +135,23 @@ impl View for ApiOptionsPage {
                 .spacing(8.0)
                 .align(Align::Start),
                 VStack::new((
+                    Text::new("Avisos de outros serviços").style(TextStyle::Headline),
+                    Text::new(format!(
+                        "Um provedor que avisa (um webhook) não tem token: {OPEN_PREFIX} entra sem ele, e quem \
+                         responde confere a assinatura. Os cabeçalhos {PASSED_HEADER}* chegam ao serviço, que \
+                         assina com eles."
+                    ))
+                    .foreground(Semantic::InkMuted),
+                    Toggle::new(hooks.binding()).label("Receber avisos de outros serviços"),
+                ))
+                .spacing(8.0)
+                .align(Align::Start),
+                VStack::new((
                 Text::new("O que o servidor recebe").style(TextStyle::Headline),
                 Text::dynamic(move || {
                     let channels = shown_channels.get();
                     let live = shown_live.get().then_some(&channels);
-                    format!("{:?}", options(&shown_origins.get(), shown_workers.get(), live))
+                    format!("{:?}", options(&shown_origins.get(), shown_workers.get(), live, shown_hooks.get()))
                 }),
                 Text::new("Como abrir").style(TextStyle::Headline),
                 Text::new(format!(

@@ -339,6 +339,20 @@
    }
   },
   {
+   "crate": "ravenrs-app-update",
+   "tipo": "ServiceManager",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
+   "crate": "ravenrs-app-update",
+   "tipo": "ServiceSpec",
+   "rts": {
+    "sem_tela": true
+   }
+  },
+  {
    "crate": "ravenrs-app-ui",
    "tipo": "ActionButton",
    "rts": {

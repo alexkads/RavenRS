@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Raven CI</title>
+    <style>
+      html, body { height: 100%; margin: 0; overflow: hidden; background: #0b0d12; color: #eef1f7; font-family: system-ui, sans-serif; }
+      /* The canvas is sized by CSS; RavenRS matches its backing store to the device pixel ratio. */
+      #raven-canvas { display: block; width: 100vw; height: 100vh; }
+      .raven-error { position: fixed; inset: auto 16px 16px 16px; max-width: 560px; padding: 16px 20px; border-radius: 12px;
+        background: #181c25; border: 1px solid #2a3040; color: #eef1f7; line-height: 1.5; }
+    </style>
+  </head>
+  <body>
+    <canvas id="raven-canvas" aria-label="Painel do Raven CI"></canvas>
+    <script type="module">
+      // Served by raven-ci servir --painel tools/raven-ci/web, at /painel/: the panel talks to the
+      // server that served this page.
+      import init from "./pkg/raven_ci_painel.js";
+      init();
+    </script>
+  </body>
+</html>

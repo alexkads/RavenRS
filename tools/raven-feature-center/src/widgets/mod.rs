@@ -37,6 +37,13 @@ pub const PAGES: &[Page] = &[
         make: || Box::new(basicos::botoes::ButtonsPage),
     },
     Page {
+        id: basicos::chaves::ID,
+        caption: basicos::chaves::PAGE,
+        group: "Básicos",
+        icon: IconName::Settings,
+        make: || Box::new(basicos::chaves::TogglesPage),
+    },
+    Page {
         id: basicos::texto::ID,
         caption: basicos::texto::PAGE,
         group: "Básicos",
@@ -112,6 +119,13 @@ pub const PAGES: &[Page] = &[
         group: "Atualização",
         icon: IconName::Download,
         make: || Box::new(atualizacao::novidades::NewsPage),
+    },
+    Page {
+        id: atualizacao::servico::ID,
+        caption: atualizacao::servico::PAGE,
+        group: "Atualização",
+        icon: IconName::Server,
+        make: || Box::new(atualizacao::servico::ServicePage),
     },
 ];
 

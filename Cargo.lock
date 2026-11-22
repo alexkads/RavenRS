@@ -6004,41 +6004,356 @@ dependencies = [
 
 [[package]]
 name = "raven-ci"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "raven-ci-core",
+ "raven-ci-plugin-agent-local",
+ "raven-ci-plugin-agent-remote",
  "raven-ci-plugin-api",
+ "raven-ci-plugin-api-trigger",
+ "raven-ci-plugin-artifacts",
+ "raven-ci-plugin-azure-devops",
+ "raven-ci-plugin-credentials",
+ "raven-ci-plugin-cron",
+ "raven-ci-plugin-docker",
+ "raven-ci-plugin-format-jenkinsfile",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-git",
+ "raven-ci-plugin-github",
+ "raven-ci-plugin-junit",
+ "raven-ci-plugin-kubernetes",
+ "raven-ci-plugin-lock",
+ "raven-ci-plugin-shell",
+ "raven-ci-plugin-webhook-github",
+ "raven-ci-plugin-workspace",
+ "ravenrs-app-server",
  "ravenrs-app-update",
  "ravenrs-process",
  "serde",
  "serde_json",
+ "tokio",
+ "toml",
+ "ureq",
+]
+
+[[package]]
+name = "raven-ci-agent"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-agent-local",
+ "raven-ci-plugin-agent-remote",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-git",
+ "raven-ci-plugin-lock",
+ "raven-ci-plugin-shell",
+ "raven-ci-plugin-workspace",
+ "ravenrs-app-remote",
+ "ravenrs-app-server",
+ "ravenrs-flows",
+ "ravenrs-flows-runtime",
+ "ravenrs-metrics",
+ "ravenrs-process",
+ "serde",
+ "serde_json",
+ "tokio",
+ "ureq",
+ "uuid",
 ]
 
 [[package]]
 name = "raven-ci-core"
 version = "0.1.0"
 dependencies = [
+ "base64 0.23.1",
  "raven-ci-plugin-api",
  "ravenrs-app",
+ "ravenrs-app-server",
+ "ravenrs-app-sqlite",
  "ravenrs-flows",
  "ravenrs-flows-runtime",
  "ravenrs-metrics",
  "ravenrs-process",
+ "ravenrs-secrets",
  "rusqlite",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "toml",
+ "uuid",
+]
+
+[[package]]
+name = "raven-ci-exemplo-rust"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-painel"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "image",
+ "pollster",
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-api-trigger",
+ "ravenrs",
+ "ravenrs-app",
+ "ravenrs-app-remote",
+ "ravenrs-app-server",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "raven-ci-plugin-agent-local"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-process",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-agent-remote"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-process",
+ "serde_json",
 ]
 
 [[package]]
 name = "raven-ci-plugin-api"
 version = "0.1.0"
 dependencies = [
+ "base64 0.23.1",
  "raven-ci-plugin-api",
  "ravenrs-app",
  "ravenrs-app-i18n",
  "ravenrs-flows",
  "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
+name = "raven-ci-plugin-api-trigger"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-app-server",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-artifacts"
+version = "0.1.0"
+dependencies = [
+ "glob",
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-azure-devops"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-credentials",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-git",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-git",
+ "serde_json",
+ "ureq",
+]
+
+[[package]]
+name = "raven-ci-plugin-credentials"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-cron"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-git",
+ "ravenrs-schedule",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-docker"
+version = "0.1.0"
+dependencies = [
+ "base64 0.23.1",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "ravenrs-process",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-format-jenkinsfile"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-format-toml"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "ravenrs-schedule",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
+name = "raven-ci-plugin-git"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-git",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-github"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-credentials",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-git",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-git",
+ "serde_json",
+ "ureq",
+]
+
+[[package]]
+name = "raven-ci-plugin-junit"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-artifacts",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-junit",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-kubernetes"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "ravenrs-process",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-lock"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-shell"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "ravenrs-process",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-webhook-github"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-app-server",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-workspace"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-metrics",
  "serde_json",
 ]
 
@@ -6214,6 +6529,7 @@ dependencies = [
  "ravenrs-app-i18n",
  "ravenrs-core",
  "ravenrs-layout",
+ "ravenrs-metrics",
  "ravenrs-reactive",
  "ravenrs-style",
  "ravenrs-text",
@@ -6629,6 +6945,7 @@ version = "27.1.28"
 dependencies = [
  "ravenrs-e2e",
  "ravenrs-e2e-wire",
+ "ravenrs-junit",
  "ravenrs-process",
  "ravenrs-style",
  "ravenrs-widgets",
@@ -6732,6 +7049,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-junit"
+version = "27.1.28"
+dependencies = [
+ "quick-xml",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ravenrs-layout"
 version = "27.1.28"
 dependencies = [
@@ -6796,6 +7122,9 @@ dependencies = [
 [[package]]
 name = "ravenrs-metrics"
 version = "27.1.28"
+dependencies = [
+ "sysinfo",
+]
 
 [[package]]
 name = "ravenrs-movie"

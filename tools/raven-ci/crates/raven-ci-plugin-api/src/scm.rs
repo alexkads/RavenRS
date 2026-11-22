@@ -108,9 +108,12 @@ pub struct Head {
 /// **Its role.** A job of many branches is a folder with one job for each head. The core asks
 /// the source what heads there are and makes, keeps or removes the jobs to match.
 ///
-/// **How it works.** The core calls [`discover`](Self::discover) when a trigger asks (a poll, a
-/// webhook) with the settings of the job. A head whose commit changed gets a build; a head that
-/// is gone has its job removed after the days the job says.
+/// **How it works.** A job whose settings say `{"branches": {"id": "github", ...}}` is the model of
+/// a job of many branches. When a trigger asks ([`Builds::scan`](crate::Builds::scan): a schedule,
+/// a webhook), the core calls [`discover`](Self::discover) with those settings and keeps one job
+/// per head, `<job>/<head>`, with the model's pipeline or the one [`file`](Self::file) reads from
+/// the head. A head whose commit changed gets a build; a head that is gone has its job removed
+/// after the days the model says.
 ///
 /// **How to write one.** List what the provider has and leave out what the settings filter out
 /// (forks, branches not chosen). Return every head that passes, not only the ones that changed:
@@ -121,4 +124,12 @@ pub trait BranchSource: Send + Sync {
 
     /// The heads there are now, by the job's `settings`.
     fn discover(&self, settings: &Value) -> Result<Vec<Head>, CiError>;
+
+    /// The file at `path` of `head`, at its commit, when there is one: how the pipeline of each
+    /// branch comes from the branch itself, as a Jenkinsfile does. `None` by default, and when the
+    /// head has no such file; the job's own pipeline is used then.
+    fn file(&self, settings: &Value, head: &Head, path: &str) -> Result<Option<String>, CiError> {
+        let _ = (settings, head, path);
+        Ok(None)
+    }
 }

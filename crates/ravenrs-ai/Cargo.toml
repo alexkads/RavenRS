@@ -27,7 +27,8 @@ ravenrs-widgets.workspace = true
 rustfft = "6"
 serde_json.workspace = true
 sha2 = "0.10"
-sysinfo = { version = "0.38", default-features = false, features = ["system", "disk"] }
+sysinfo = { version = "0.38", default-features = false, features = ["system"] }
+ravenrs-metrics = { workspace = true, features = ["disk"] }
 ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 # The voices are PyTorch files: zip archives that store without compressing.
 zip = { version = "9", default-features = false }

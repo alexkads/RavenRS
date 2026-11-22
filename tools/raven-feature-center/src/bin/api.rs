@@ -17,6 +17,7 @@ fn main() -> std::io::Result<()> {
             &origins,
             workers as i32,
             Some(&raven_feature_center::servidor::channels()),
+            false,
         );
         ravenrs_app_server::serve_with(listener, options, move || {
             raven_feature_center::api_service(file.as_deref())

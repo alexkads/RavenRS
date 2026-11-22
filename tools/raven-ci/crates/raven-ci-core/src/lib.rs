@@ -33,29 +33,41 @@
 //! # Ok::<(), raven_ci_plugin_api::CiError>(())
 //! ```
 
+pub mod agents;
+pub mod api;
+pub mod config;
+pub mod credentials;
 pub mod external;
 mod host;
+mod lifecycle;
 mod model;
+pub mod multibranch;
+pub mod panel;
+pub mod people;
 mod registry;
 mod store;
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
+use std::sync::{OnceLock, Weak};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 use raven_ci_plugin_api::{
     Attachment, BuildRequest, BuildStatus, Builds, CiError, CiPlugin, PipelineFormat, check_settings,
 };
+use raven_ci_plugin_api::{AttachmentInfo, Trigger};
 use ravenrs_app::EntityInfo;
-use ravenrs_flows::{BinaryRef, Clock, FlowDefinition, Item, SystemClock};
+use ravenrs_flows::{BinaryRef, Clock, FlowDefinition, SystemClock};
 use ravenrs_flows_runtime::{Request, Retention, Revision, Runtime, StoreError};
 use serde::Serialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 pub use host::{MemorySecrets, NoSecrets, Secrets, ServerLog};
-pub use model::{AttachmentRef, Build, Folder, JobSpec, Stage, StepView};
+pub use lifecycle::WORKSPACES_DIR;
+pub use lifecycle::{BuildOrder, BuildSite};
+pub use model::{AttachmentRef, Build, Folder, JobSpec, LogLine, Stage, StepView};
 pub use registry::{Memory, Origin, PluginState, PluginView, Registry, Requirement};
 pub use store::{AuditEntry, PluginRow, Store};
 
@@ -114,6 +126,15 @@ pub struct Ci {
     requests: Mutex<()>,
     /// The folder of a core in memory, where its plugins get theirs: removed with it.
     temporary: Option<PathBuf>,
+    /// Where each build gets the folder it runs in.
+    workspaces: PathBuf,
+    /// The vault of credentials, for a core with a folder.
+    credentials: Option<Arc<credentials::Credentials>>,
+    /// The core itself, once it is shared ([`Ci::share`]): what watches the triggers of a job
+    /// saved while the server runs.
+    shared: OnceLock<Weak<Ci>>,
+    /// The build agents it knows.
+    agents: agents::Agents,
 }
 
 impl Drop for Ci {
@@ -175,9 +196,26 @@ impl Ci {
         };
         let temporary =
             options.data_dir.is_none().then(|| plugins_dir.parent().map(Path::to_path_buf)).flatten();
+        let workspaces = plugins_dir.parent().map_or_else(
+            || PathBuf::from(lifecycle::WORKSPACES_DIR),
+            |base| base.join(lifecycle::WORKSPACES_DIR),
+        );
         let store = Arc::new(store);
         let runtime = runtime.clock(ClockOf(options.clock.clone()));
-        let registry = Registry::new(store.clone(), plugins_dir, options.secrets, log.clone());
+        // A core with a folder keeps credentials in a vault of its own; one in memory has only the
+        // secrets it was given.
+        let credentials = match &options.data_dir {
+            Some(dir) => Some(Arc::new(credentials::Credentials::open(dir, store.clone(), log.clone())?)),
+            None => None,
+        };
+        let secrets = Arc::new(credentials::Either { vault: credentials.clone(), given: options.secrets });
+        agents::prepare(&store.db())?;
+        let agents = agents::Agents::new(
+            options.data_dir.as_deref().map(api::users_file),
+            secrets.clone(),
+            store.now_ms(),
+        );
+        let registry = Registry::new(store.clone(), plugins_dir, secrets, log.clone());
         Ok(Self {
             store,
             registry,
@@ -185,6 +223,10 @@ impl Ci {
             log,
             requests: Mutex::default(),
             temporary,
+            workspaces,
+            credentials,
+            shared: OnceLock::new(),
+            agents,
         })
     }
 
@@ -307,6 +349,14 @@ impl Ci {
             CiError::failed(format!("o pipeline de {}: {}", job.name, said.join("; ")))
         })?;
         pipeline.flow.id = job.name.clone();
+        let on: Vec<String> = self.registry.on().iter().map(|plugin| plugin.name().to_owned()).collect();
+        for (plugin, what) in pipeline.needs() {
+            if !on.contains(&plugin) {
+                return Err(CiError::unavailable(format!(
+                    "falta o plugin {plugin}: {what} precisa dele, e ele não está ligado"
+                )));
+            }
+        }
         let catalog = self.registry.catalog();
         for node in &pipeline.flow.nodes {
             if catalog.get(&node.kind, node.version).is_none() {
@@ -323,7 +373,8 @@ impl Ci {
                 problems.into_iter().next().unwrap_or_else(|| CiError::failed("parâmetros"))
             })?;
         }
-        let input = Item::new(json!({ "job": job.name, "parameters": request.parameters }));
+        let input = lifecycle::start_item(&job.name, &request.parameters);
+        let extras = lifecycle::Extras::of(&pipeline).to_value();
         let mut run = Request::new(pipeline.flow.clone())
             .starting(&pipeline.start, vec![input])
             .priority(request.priority);
@@ -352,6 +403,7 @@ impl Ci {
                 parameters: request.parameters,
                 origin: None,
                 created_ms: self.store.now_ms(),
+                extras,
             },
         )?;
         Ok(Ticket { number, joined: false })
@@ -439,6 +491,7 @@ impl Ci {
                 parameters: row.parameters,
                 origin: Some(number),
                 created_ms: self.store.now_ms(),
+                extras: row.extras,
             },
         )?;
         Ok(next)
@@ -475,13 +528,52 @@ impl Ci {
             .ok_or_else(|| CiError::unavailable(format!("os bytes do anexo {id} já foram apagados")))
     }
 
-    /// Takes the build due first and runs it, as `worker`; the job and number, or `None` when
-    /// nothing was due. Once it ends, the job's retention runs.
+    /// What the builds of `job` left of `kind` (`artifact`, `junit`): of the build `number`, or
+    /// of every build of the job kept when `None` (the trend of its tests), the newest build
+    /// first. What [`Host::attachments`](raven_ci_plugin_api::Host::attachments) gives a plugin.
+    pub fn attachments_of(
+        &self,
+        job: &str,
+        number: Option<u64>,
+        kind: &str,
+    ) -> Result<Vec<AttachmentInfo>, CiError> {
+        model::attachment_infos(&self.db(), job, number, kind)
+    }
+
+    /// The attachment `id` with its bytes, read once from the blob of the queue
+    /// ([`attachment_bytes`](Self::attachment_bytes)). What
+    /// [`Host::attachment`](raven_ci_plugin_api::Host::attachment) gives a plugin.
+    pub fn attachment(&self, id: i64) -> Result<(AttachmentInfo, Vec<u8>), CiError> {
+        let info = model::attachment_info(&self.db(), id)?;
+        Ok((info, self.attachment_bytes(id)?))
+    }
+
+    /// Shares this core, held in an `Arc`, with what needs it while the server runs: the hosts of
+    /// the plugins read what builds left through it
+    /// ([`Host::attachments`](raven_ci_plugin_api::Host::attachments)), and a job saved or applied
+    /// has its triggers watched again ([`watch_job`](Self::watch_job)). The server does it when
+    /// it starts; a core never shared answers the hosts [`CiError::Unavailable`] and watches no
+    /// trigger of a job saved later. Calling it again changes nothing. Weak: the core holds the
+    /// hosts. Whoever holds the core in an `Arc` calls it: the server, and tests.
+    pub fn share(self: &Arc<Self>) {
+        let _ = self.shared.set(Arc::downgrade(self));
+        let lent: Weak<dyn host::Attachments> = Arc::downgrade(self) as Weak<dyn host::Attachments>;
+        self.registry.lend_attachments(lent);
+    }
+
+    /// Takes the build due first and runs it, as `worker`, with everything around its steps (its
+    /// folder, its code, the post steps, publishers, status and notices: see `lifecycle`); the
+    /// job and number, or `None` when nothing was due. Once it ends, the job's retention runs.
     pub fn work_once(&self, worker: &str) -> Result<Option<(String, u64)>, CiError> {
         let runtime = self.runtime();
-        let Some(run_id) = runtime.work(worker).map_err(runtime_error)? else { return Ok(None) };
+        let Some(run_id) = self.claim_local(&runtime, worker)? else { return Ok(None) };
         let row = model::build_by_run(&self.db(), &run_id)?;
-        let Some(row) = row else { return Ok(None) };
+        let Some(row) = row else {
+            // A run of the same queue that is not a build: the Test Studio's, say.
+            runtime.execute(&run_id, worker).map_err(runtime_error)?;
+            return Ok(None);
+        };
+        self.run_build(&runtime, &row, worker)?;
         self.prune_job(&row.job)?;
         Ok(Some((row.job, row.number)))
     }
@@ -539,9 +631,136 @@ impl Ci {
     }
 }
 
+impl Ci {
+    /// Starts every trigger the jobs' settings name, as `{"triggers": [{"id": "cron", ...}]}`,
+    /// each with its entry as its settings and this core to ask for builds with; what could not be
+    /// watched, in words, also written to the server's log. Call it again after jobs or plugins
+    /// change: each trigger is told to stop watching the job first.
+    pub fn watch_triggers(self: &Arc<Self>) -> Vec<String> {
+        let mut problems = Vec::new();
+        let jobs = match self.jobs() {
+            Ok(jobs) => jobs,
+            Err(e) => return vec![format!("os jobs: {e}")],
+        };
+        let triggers: Vec<_> = self.registry.on().iter().flat_map(|plugin| plugin.triggers()).collect();
+        for job in &jobs {
+            problems.extend(self.watch_one(job, &triggers));
+        }
+        problems
+    }
+
+    /// Watches again the triggers of the job `name` only, as [`watch_triggers`](Self::watch_triggers)
+    /// does for all: what a job saved or applied while the server runs needs. A job that is no
+    /// more is let go by every trigger. Through the core [`share`](Self::share)d, since a trigger
+    /// keeps the core to ask for builds with; a core never shared says so and watches nothing.
+    pub fn watch_job(&self, name: &str) -> Vec<String> {
+        let Some(me) = self.shared.get().and_then(Weak::upgrade) else {
+            return vec![format!("o gatilho de {name}: o núcleo não foi compartilhado (Ci::share)")];
+        };
+        let triggers: Vec<_> = self.registry.on().iter().flat_map(|plugin| plugin.triggers()).collect();
+        match self.job(name) {
+            Ok(job) => me.watch_one(&job, &triggers),
+            Err(_) => {
+                for trigger in &triggers {
+                    trigger.unwatch(name);
+                }
+                Vec::new()
+            }
+        }
+    }
+
+    /// Lets every trigger go of `job`, then watches the ones its settings name.
+    fn watch_one(self: &Arc<Self>, job: &JobSpec, triggers: &[Arc<dyn Trigger>]) -> Vec<String> {
+        let mut problems = Vec::new();
+        for trigger in triggers {
+            trigger.unwatch(&job.name);
+        }
+        for entry in lifecycle::uses(&job.settings, "triggers") {
+            let id = entry.get("id").and_then(Value::as_str).unwrap_or_default().to_owned();
+            let said = match triggers.iter().find(|trigger| trigger.id() == id) {
+                Some(trigger) => match trigger.watch(&job.name, &entry, self.clone()) {
+                    Ok(()) => None,
+                    Err(e) => Some(format!("o gatilho {id} de {}: {e}", job.name)),
+                },
+                None => Some(format!("o gatilho {id} de {}: falta o plugin que o traz", job.name)),
+            };
+            if let Some(said) = said {
+                self.log.write(&said);
+                problems.push(said);
+            }
+        }
+        problems
+    }
+
+    /// Stops every trigger watching every job: what the server does before it stops.
+    pub fn unwatch_triggers(&self) {
+        let names = self.jobs().map(|jobs| jobs.into_iter().map(|job| job.name).collect::<Vec<_>>());
+        for trigger in self.registry.on().iter().flat_map(|plugin| plugin.triggers()) {
+            for name in names.iter().flatten() {
+                trigger.unwatch(name);
+            }
+        }
+    }
+}
+
+impl Ci {
+    fn vault(&self) -> Result<&credentials::Credentials, CiError> {
+        self.credentials
+            .as_deref()
+            .ok_or_else(|| CiError::unavailable("um núcleo em memória não tem cofre de credenciais"))
+    }
+
+    /// Seals `fields` as the credential `name` of the kind `kind` (a kind a plugin on brings),
+    /// checked against the kind's form; saved again, its value is rotated. `by` is who made it.
+    pub fn save_credential(
+        &self,
+        name: &str,
+        kind: &str,
+        fields: &Value,
+        by: Option<&str>,
+    ) -> Result<(), CiError> {
+        let found = self
+            .registry
+            .on()
+            .iter()
+            .flat_map(|plugin| plugin.credential_kinds())
+            .find(|candidate| candidate.id() == kind)
+            .ok_or_else(|| {
+                CiError::unavailable(format!("nenhum plugin ligado traz credenciais do tipo {kind}"))
+            })?;
+        check_settings(&found.fields(), fields).map_err(|problems| {
+            problems.into_iter().next().unwrap_or_else(|| CiError::failed("os campos da credencial"))
+        })?;
+        let secret = found.secret(fields);
+        if secret.is_empty() {
+            return Err(CiError::settings(kind, "a credencial não tem o valor que o tipo dá aos plugins"));
+        }
+        let mut hidden = found.hidden(fields);
+        hidden.retain(|value| !value.is_empty());
+        self.vault()?.save(name, kind, fields, secret, hidden, by)
+    }
+
+    /// Every credential, with no value.
+    pub fn credentials(&self) -> Result<Vec<credentials::CredentialInfo>, CiError> {
+        match &self.credentials {
+            Some(vault) => vault.list(),
+            None => Ok(Vec::new()),
+        }
+    }
+
+    /// Revokes the credential `name` and forgets it.
+    pub fn delete_credential(&self, name: &str) -> Result<(), CiError> {
+        self.vault()?.delete(name)
+    }
+}
+
 impl Builds for Ci {
     fn request(&self, request: BuildRequest) -> Result<u64, CiError> {
         self.request_build(request).map(|ticket| ticket.number)
+    }
+
+    fn scan(&self, job: &str) -> Result<Vec<String>, CiError> {
+        Ci::scan(self, job)
     }
 }
 
@@ -571,10 +790,11 @@ impl std::fmt::Debug for Executors {
 }
 
 impl Executors {
-    /// `count` executors on `ci`, looking at the queue every `poll` when it is empty.
+    /// `count` executors on `ci`, looking at the queue every `poll` when it is empty. With none,
+    /// the server runs no build itself and leaves every one to its agents.
     pub fn start(ci: Arc<Ci>, count: usize, poll: Duration) -> Self {
         let stop = Arc::new(AtomicBool::new(false));
-        let threads = (1..=count.max(1))
+        let threads = (1..=count)
             .filter_map(|n| {
                 let (ci, stop) = (ci.clone(), stop.clone());
                 let name = format!("executor-{n}");
@@ -604,5 +824,15 @@ impl Executors {
         for thread in self.threads {
             let _ = thread.join();
         }
+    }
+}
+
+impl host::Attachments for Ci {
+    fn of_job(&self, job: &str, number: Option<u64>, kind: &str) -> Result<Vec<AttachmentInfo>, CiError> {
+        self.attachments_of(job, number, kind)
+    }
+
+    fn one(&self, id: i64) -> Result<(AttachmentInfo, Vec<u8>), CiError> {
+        self.attachment(id)
     }
 }

@@ -27,10 +27,11 @@ use ravenrs_flows::{Catalog, FlowDefinition, NodeContext, NodeDef, NodeError, No
 use serde_json::{Value, json};
 
 use crate::{
-    AgentLauncher, Attachment, BranchSource, BuildEvent, BuildInfo, BuildRequest, Builds, Checkout,
-    CheckoutRequest, CiError, CiPlugin, CliCommand, CommitStatus, CredentialKind, FormatError, Head,
-    HeadKind, Host, HttpResponse, LaunchRequest, LaunchedAgent, Migration, Notifier, Permission, Pipeline,
-    PipelineFormat, Point, Publisher, Route, STAGE_KEY, Scm, StatusReporter, Trigger,
+    AgentLauncher, Attachment, BranchSource, BuildContext, BuildEvent, BuildHook, BuildInfo, BuildRequest,
+    BuildStatus, Builds, Checkout, CheckoutRequest, CiError, CiPlugin, CliCommand, CommitStatus,
+    CredentialKind, FormatError, Head, HeadKind, Host, HttpResponse, LaunchRequest, LaunchedAgent, Migration,
+    Notifier, Permission, Pipeline, PipelineFormat, Point, Publisher, Route, STAGE_KEY, Scm, StatusReporter,
+    Trigger,
 };
 
 /// The kind of step the fake of [`Point::Step`] brings.
@@ -163,6 +164,7 @@ pub struct Probe {
     watched: Mutex<BTreeMap<String, Arc<dyn Builds>>>,
     statuses: Mutex<Vec<CommitStatus>>,
     events: Mutex<Vec<BuildEvent>>,
+    hooked: Mutex<Vec<String>>,
 }
 
 impl std::fmt::Debug for Probe {
@@ -208,6 +210,11 @@ impl Probe {
     /// The statuses the fake reporter was given.
     pub fn statuses(&self) -> Vec<CommitStatus> {
         lock(&self.statuses).clone()
+    }
+
+    /// What the fake hook saw: `antes job#n` and `depois job#n status`.
+    pub fn hooked(&self) -> Vec<String> {
+        lock(&self.hooked).clone()
     }
 
     /// The events the fake notifier was told.
@@ -331,6 +338,19 @@ impl Module for Fake {
     fn manifest(&self) -> ModuleManifest {
         self.manifest.clone()
     }
+
+    /// The fake of [`Point::Screens`] puts one view in the model once it started, as a plugin with a
+    /// page of the panel does.
+    fn extend_model(&self, root: &mut ravenrs_app::ModelNode) {
+        if self.offers(Point::Screens) {
+            let view =
+                ravenrs_app::ModelNode::new(format!("{}_View", self.name)).with("Caption", self.name.clone());
+            match root.children.iter_mut().find(|node| node.id == "Views") {
+                Some(views) => views.children.push(view),
+                None => root.children.push(ravenrs_app::ModelNode::new("Views").child(view)),
+            }
+        }
+    }
 }
 
 impl CiPlugin for Fake {
@@ -429,6 +449,33 @@ impl CiPlugin for Fake {
 
     fn cli_commands(&self) -> Vec<Arc<dyn CliCommand>> {
         if self.offers(Point::CliCommand) { vec![Arc::new(FakeCommand)] } else { Vec::new() }
+    }
+
+    fn build_hooks(&self) -> Vec<Arc<dyn BuildHook>> {
+        if self.offers(Point::BuildHook) { vec![Arc::new(FakeHook(self.probe.clone()))] } else { Vec::new() }
+    }
+}
+
+/// The hook `fake-hook`: writes what it saw to its probe, and refuses a build whose settings say
+/// `{"refuse": "why"}`.
+struct FakeHook(Arc<Probe>);
+
+impl BuildHook for FakeHook {
+    fn id(&self) -> &str {
+        "fake-hook"
+    }
+
+    fn before(&self, build: &BuildContext, settings: &Value) -> Result<(), CiError> {
+        lock(&self.0.hooked).push(format!("antes {}#{}", build.job, build.number));
+        match settings.get("refuse").and_then(Value::as_str) {
+            Some(why) => Err(CiError::failed(why)),
+            None => Ok(()),
+        }
+    }
+
+    fn after(&self, build: &BuildContext, status: BuildStatus, _: &Value) -> Result<(), CiError> {
+        lock(&self.0.hooked).push(format!("depois {}#{} {}", build.job, build.number, status.words()));
+        Ok(())
     }
 }
 
@@ -665,11 +712,7 @@ impl PipelineFormat for FakeLines {
             flow = flow.node(node).connect(&previous, "main", &id, "main");
             previous = id;
         }
-        if errors.is_empty() {
-            Ok(Pipeline { flow, start: "start".to_owned(), parameters: Vec::new() })
-        } else {
-            Err(errors)
-        }
+        if errors.is_empty() { Ok(Pipeline::new(flow, "start")) } else { Err(errors) }
     }
 }
 

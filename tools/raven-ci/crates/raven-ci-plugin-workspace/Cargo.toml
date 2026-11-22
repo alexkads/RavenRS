@@ -1,0 +1,23 @@
+[package]
+name = "raven-ci-plugin-workspace"
+description = "The plugin workspace-cleanup of Raven CI: refuses a build when the disk of its folder has less free space than asked, and says how big a folder kept is."
+version = "0.1.0"
+edition.workspace = true
+# raven-ci-core, which the tests use, needs 1.89 (ravenrs-flows-runtime, rusqlite 0.41).
+rust-version = "1.89"
+license.workspace = true
+publish = false
+
+[dependencies]
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
+ravenrs-app.workspace = true
+ravenrs-metrics = { workspace = true, features = ["disk"] }
+serde_json.workspace = true
+
+[dev-dependencies]
+raven-ci-core = { path = "../raven-ci-core" }
+raven-ci-plugin-format-toml = { path = "../raven-ci-plugin-format-toml" }
+raven-ci-plugin-shell = { path = "../raven-ci-plugin-shell" }
+
+[lints]
+workspace = true

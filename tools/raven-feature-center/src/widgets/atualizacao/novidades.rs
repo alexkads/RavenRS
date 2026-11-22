@@ -13,8 +13,8 @@ pub const ID: &str = "NewsDemo";
 pub const PAGE: &str = "Novidades da versão";
 
 /// An app with three versions, the middle one running, so the dialog shows a newer one, the
-/// one installed and an older one.
-static APP: InstalledApp = InstalledApp {
+/// one installed and an older one. The page of the service uses it too.
+pub static APP: InstalledApp = InstalledApp {
     name: "Raven Exemplo",
     package: "raven-exemplo",
     home_dir: ".raven-exemplo-do-centro",

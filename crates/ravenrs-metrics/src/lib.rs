@@ -6,7 +6,9 @@
 //!   [`Histogram`] counts observations into ranges (how long builds take).
 //! * Each takes labels: [`Counter::with`] and the others give the series of those label values.
 //! * [`process_rss_bytes`] is the memory the process holds, on Linux, and [`rss_bytes_of`] the
-//!   memory of another process, such as a child, on Linux and macOS.
+//!   memory of another process, such as a child, on Linux and macOS. With the feature `process`,
+//!   `tree_rss_bytes` is the memory of a process and everything it started, on Linux, macOS and
+//!   Windows.
 //!
 //! Everything is safe to use from any thread. Names and labels are checked when a metric is made,
 //! and a mistake is an error, never a panic.
@@ -393,6 +395,21 @@ impl HistogramSeries {
     }
 }
 
+/// The free space, in bytes, of the disk that holds `folder` (the one mounted deepest above it):
+/// what a service checks before it writes much, as a build or a model download does. `None` when
+/// no disk holds it. Needs the feature `disk`.
+#[cfg(feature = "disk")]
+pub fn free_disk_bytes(folder: &std::path::Path) -> Option<u64> {
+    let absolute = std::path::absolute(folder).unwrap_or_else(|_| folder.to_path_buf());
+    let disks = sysinfo::Disks::new_with_refreshed_list();
+    disks
+        .list()
+        .iter()
+        .filter(|disk| absolute.starts_with(disk.mount_point()))
+        .max_by_key(|disk| disk.mount_point().as_os_str().len())
+        .map(sysinfo::Disk::available_space)
+}
+
 /// The memory the process holds now (its resident set), in bytes. On Linux it is read from
 /// `/proc/self/status`; elsewhere it is `None`, as there is no file to read it from.
 pub fn process_rss_bytes() -> Option<u64> {
@@ -413,6 +430,42 @@ pub fn rss_bytes_of(pid: u32) -> Option<u64> {
         return kilobytes.checked_mul(1024);
     }
     None
+}
+
+/// The memory the process `pid` and every process it started hold now (the sum of their resident
+/// sets), in bytes: what a build agent watches to hold a limit of memory on a build, whose steps
+/// start programs of their own. On Linux, macOS and Windows; `None` when the process is gone.
+/// Needs the feature `process`.
+#[cfg(feature = "process")]
+pub fn tree_rss_bytes(pid: u32) -> Option<u64> {
+    use sysinfo::{Pid, ProcessRefreshKind, ProcessesToUpdate, System};
+    let mut system = System::new();
+    system.refresh_processes_specifics(
+        ProcessesToUpdate::All,
+        true,
+        ProcessRefreshKind::nothing().with_memory(),
+    );
+    let root = Pid::from_u32(pid);
+    let processes = system.processes();
+    processes.get(&root)?;
+    let mut total = 0_u64;
+    for (id, process) in processes {
+        // Up its parents until the root, or the top.
+        let mut at = Some(*id);
+        let mut steps = 0;
+        while let Some(current) = at {
+            if current == root {
+                total = total.saturating_add(process.memory());
+                break;
+            }
+            steps += 1;
+            if steps > 64 {
+                break;
+            }
+            at = processes.get(&current).and_then(sysinfo::Process::parent);
+        }
+    }
+    Some(total)
 }
 
 /// The resident set of a `/proc/<pid>/status` file, in bytes.

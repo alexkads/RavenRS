@@ -91,14 +91,14 @@ fn a_command_of_a_plugin_runs_from_the_command_line() {
 #[test]
 fn a_plugin_refused_shows_why() {
     let data = Data::new("recusa");
-    let broken = data.0.join("plugins/exige-git");
+    let broken = data.0.join("plugins/exige-outro");
     std::fs::create_dir_all(&broken).expect("folder");
     std::fs::write(
         broken.join("plugin.toml"),
-        "name = \"exige-git\"\nversion = \"1.0.0\"\ncommand = \"nada\"\n[requires]\ngit = \"^2\"\n[[commands]]\nname = \"x\"\n",
+        "name = \"exige-outro\"\nversion = \"1.0.0\"\ncommand = \"nada\"\n[requires]\nplugin-que-nao-existe = \"^2\"\n[[commands]]\nname = \"x\"\n",
     )
     .expect("written");
     let listed = text(&data.run(&["plugins", "listar"]));
-    assert!(listed.contains("exige-git"), "{listed}");
-    assert!(listed.contains("  precisa de git, que não está instalado"), "{listed}");
+    assert!(listed.contains("exige-outro"), "{listed}");
+    assert!(listed.contains("  precisa de plugin-que-nao-existe, que não está instalado"), "{listed}");
 }

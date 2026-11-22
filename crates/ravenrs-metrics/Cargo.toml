@@ -13,5 +13,14 @@ documentation = "https://docs.rs/ravenrs-metrics"
 keywords = ["metrics", "prometheus", "monitoring", "observability", "gauge"]
 categories = ["development-tools::profiling"]
 
+[features]
+# free_disk_bytes, through sysinfo's list of disks.
+disk = ["dep:sysinfo", "sysinfo/disk"]
+# tree_rss_bytes, through sysinfo's list of processes.
+process = ["dep:sysinfo", "sysinfo/system"]
+
+[dependencies]
+sysinfo = { version = "0.38", default-features = false, optional = true }
+
 [lints]
 workspace = true

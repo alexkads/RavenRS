@@ -8,8 +8,8 @@ use ravenrs_flows::Catalog;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AgentLauncher, BranchSource, CiError, CliCommand, CredentialKind, Host, Notifier, PipelineFormat,
-    Publisher, Route, Scm, StatusReporter, Trigger,
+    AgentLauncher, BranchSource, BuildHook, CiError, CliCommand, CredentialKind, Host, Notifier,
+    PipelineFormat, Publisher, Route, Scm, StatusReporter, Trigger,
 };
 
 /// A change to a plugin's own database, applied once, in the order given, before the plugin
@@ -132,6 +132,11 @@ pub trait CiPlugin: Module + Send + Sync {
     fn cli_commands(&self) -> Vec<Arc<dyn CliCommand>> {
         Vec::new()
     }
+
+    /// What it does to every build, before and after it.
+    fn build_hooks(&self) -> Vec<Arc<dyn BuildHook>> {
+        Vec::new()
+    }
 }
 
 /// An extension point, as the list of plugins names what each offers.
@@ -165,11 +170,13 @@ pub enum Point {
     CliCommand,
     /// Screens of the panel.
     Screens,
+    /// What is done to every build, before and after it.
+    BuildHook,
 }
 
 impl Point {
     /// Every point, in the order of the table of the crate's documentation.
-    pub const ALL: [Self; 13] = [
+    pub const ALL: [Self; 14] = [
         Self::Step,
         Self::Scm,
         Self::BranchSource,
@@ -183,6 +190,7 @@ impl Point {
         Self::Routes,
         Self::CliCommand,
         Self::Screens,
+        Self::BuildHook,
     ];
 
     /// Its name, as JSON and a `plugin.toml` write it: `branch_source`.
@@ -201,6 +209,7 @@ impl Point {
             Self::Routes => "routes",
             Self::CliCommand => "cli_command",
             Self::Screens => "screens",
+            Self::BuildHook => "build_hook",
         }
     }
 
@@ -234,7 +243,62 @@ pub fn points_of(plugin: &dyn CiPlugin) -> Vec<Point> {
         !plugin.pipeline_formats().is_empty(),
         !plugin.routes().is_empty(),
         !plugin.cli_commands().is_empty(),
-        !plugin.view_controllers().is_empty() || !plugin.window_controllers().is_empty(),
+        has_screens(plugin),
+        !plugin.build_hooks().is_empty(),
     ];
     Point::ALL.into_iter().zip(offers).filter_map(|(point, offered)| offered.then_some(point)).collect()
+}
+
+/// Whether `plugin` puts screens in the application: controllers of a frame or of a window, or
+/// what it adds to the model with [`Module::extend_model`](ravenrs_app::Module::extend_model) (its
+/// views, its items of the menu), which is where the panel reads screens from. The model is the one
+/// generated from the plugin's own entities; a plugin whose `extend_model` leaves it as it was puts
+/// none. Like [`points_of`], it is for a plugin that started.
+pub fn has_screens(plugin: &dyn CiPlugin) -> bool {
+    if !plugin.view_controllers().is_empty() || !plugin.window_controllers().is_empty() {
+        return true;
+    }
+    let Ok(generated) = ravenrs_app::generate_model(&plugin.entities()) else { return false };
+    let mut extended = generated.clone();
+    plugin.extend_model(&mut extended);
+    extended != generated
+}
+
+#[cfg(test)]
+mod tests {
+    use ravenrs_app::{ModelNode, Module};
+
+    use super::*;
+
+    struct Quiet;
+
+    impl Module for Quiet {
+        fn name(&self) -> &str {
+            "quieto"
+        }
+    }
+
+    impl CiPlugin for Quiet {}
+
+    /// A plugin whose screen is a view it adds to the model.
+    struct Painted;
+
+    impl Module for Painted {
+        fn name(&self) -> &str {
+            "pintado"
+        }
+        fn extend_model(&self, root: &mut ModelNode) {
+            root.children.push(ModelNode::new("Views").child(ModelNode::new("Pintado_View")));
+        }
+    }
+
+    impl CiPlugin for Painted {}
+
+    #[test]
+    fn screens_put_in_the_model_count_as_screens() {
+        assert!(!has_screens(&Quiet));
+        assert!(points_of(&Quiet).is_empty());
+        assert!(has_screens(&Painted));
+        assert_eq!(points_of(&Painted), [Point::Screens]);
+    }
 }

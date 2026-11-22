@@ -178,3 +178,29 @@ fn a_route_answers_with_who_asked_and_a_command_writes_to_its_output() {
     assert_eq!(command.run(&["a".into(), "b".into()], &mut out).expect("runs"), 0);
     assert_eq!(out, b"fake: a b\n");
 }
+
+#[test]
+fn a_hook_sees_the_build_before_and_after_and_refuses_what_its_settings_say() {
+    use raven_ci_plugin_api::{BuildContext, BuildStatus};
+    let fake = started(Point::BuildHook);
+    let probe = fake.probe();
+    let hook = fake.build_hooks()[0].clone();
+    let build = BuildContext { job: "site".into(), number: 2, workspace: ".".into(), run: "r".into() };
+    hook.before(&build, &json!({})).expect("goes on");
+    assert!(hook.before(&build, &json!({ "refuse": "sem disco" })).is_err());
+    hook.after(&build, BuildStatus::Succeeded, &serde_json::Value::Null).expect("after");
+    assert_eq!(probe.hooked(), ["antes site#2", "antes site#2", "depois site#2 passou"]);
+}
+
+#[test]
+fn the_fake_of_screens_puts_a_view_in_the_model_once_it_started() {
+    let off = Fake::new(Point::Screens);
+    assert!(!raven_ci_plugin_api::has_screens(&off), "made, it adds nothing");
+    let on = started(Point::Screens);
+    assert!(raven_ci_plugin_api::has_screens(&on));
+    assert_eq!(points_of(&on), [Point::Screens]);
+    let mut model = ravenrs_app::ModelNode::new("Application");
+    ravenrs_app::Module::extend_model(&on, &mut model);
+    let views = model.children.iter().find(|node| node.id == "Views").expect("its views");
+    assert_eq!(views.children[0].id, "fake-screens_View");
+}

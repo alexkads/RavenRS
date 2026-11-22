@@ -1329,6 +1329,14 @@ fn the_parameter_form_builds_from_a_schema_and_gives_back_only_on_apply() {
     assert!(c.says("Não deu para carregar as opções"));
     c.press("Tentar de novo");
     assert!(c.says("Pediu as opções de account"));
+
+    // live: the form of the dialog gives back each change at once, with no buttons of its own.
+    assert!(c.says("Branch do disparo é obrigatório"), "the empty required field is marked: {:?}", c.texts());
+    c.type_into("Branch do disparo", "develop");
+    assert!(c.says("\"branch\":\"develop\""), "{:?}", c.texts());
+    assert!(!c.says("Branch do disparo é obrigatório"), "{:?}", c.texts());
+    let applies = c.ui.access_tree().nodes.iter().filter(|n| n.name.as_deref() == Some("Aplicar")).count();
+    assert_eq!(applies, 1, "only the first form has Aplicar");
 }
 
 #[test]
@@ -1417,6 +1425,35 @@ impl Center {
         self.settle();
         self.ui.access_tree().nodes.iter().any(|n| n.name.as_deref() == Some(name))
     }
+}
+
+#[test]
+fn toggles_switch_with_a_label_compact_or_only_an_accessible_name() {
+    let mut c = Center::memory("ana");
+    c.press("Chaves");
+    // new and label: on to begin with, and clicking the label switches it off.
+    assert!(c.says("Avisos no celular: ligada"), "{:?}", c.texts());
+    c.activate("Avisos no celular");
+    assert!(c.says("Avisos no celular: desligada"), "{:?}", c.texts());
+    // small: the compact switch is shorter and switches the same.
+    c.activate("Resumo por e-mail");
+    assert!(c.says("Resumo por e-mail: ligada"), "{:?}", c.texts());
+    let tree = c.ui.access_tree();
+    let small = tree.find(Role::Switch, "Resumo por e-mail").expect("the small switch").bounds.height();
+    let large = tree.find(Role::Switch, "Avisos no celular").expect("the switch").bounds.height();
+    assert!(small < large, "small {small}, large {large}");
+    // accessible_name: no text on the screen, and still found and switched by its name.
+    let tree = c.ui.access_tree();
+    let named: Vec<_> = tree.nodes.iter().filter(|n| n.name.as_deref() == Some("Ligar docker")).collect();
+    assert_eq!(named.len(), 1, "only the switch has the name, no text shows it: {named:?}");
+    assert_eq!(named[0].role, Role::Switch);
+    c.activate("Ligar docker");
+    assert!(c.says("Plugin docker: ligada"), "{:?}", c.texts());
+    // disabled and read_only: neither changes.
+    let tree = c.ui.access_tree();
+    assert!(tree.find(Role::Switch, "Indisponível").expect("disabled").disabled);
+    c.activate("Só leitura");
+    assert!(c.ui.access_tree().find(Role::Switch, "Só leitura").expect("read only").read_only);
 }
 
 #[test]
@@ -1573,6 +1610,58 @@ fn the_news_of_each_version_open_on_the_version_running_the_newest_and_a_failure
 }
 
 #[test]
+fn the_service_page_writes_the_file_of_each_system_and_plans_with_no_command_run() {
+    let mut c = Center::memory("ana");
+    c.press("Serviço do sistema");
+    assert!(c.says("Gerenciador deste computador:"), "{:?}", c.texts());
+    // systemd, with the limit: the unit of the app's own name, its command and MemoryMax.
+    for said in [
+        "Conferido: o serviço pode ser instalado",
+        "raven-exemplo.service",
+        "MemoryMax=1G",
+        "Restart=on-failure",
+        "\"servir\"",
+    ] {
+        assert!(c.says(said), "{said}: {:?}", c.texts());
+    }
+    c.press("Limite de 1G: sim");
+    assert!(!c.says("MemoryMax"), "with no limit, no MemoryMax: {:?}", c.texts());
+    c.press("Do sistema todo: não");
+    // For the whole system; the file stays in the folder of the dry run, never in /etc.
+    assert!(
+        c.says("WantedBy=multi-user.target") && c.says("raven-feature-center-servico"),
+        "{:?}",
+        c.texts()
+    );
+    c.press("Planejar a instalação");
+    assert!(c.says("systemctl enable --now raven-exemplo"), "{:?}", c.texts());
+    c.press("Ver o estado");
+    assert!(c.says("Estado: instalado") && c.says("systemctl is-active raven-exemplo"), "{:?}", c.texts());
+    c.press("Remover");
+    assert!(c.says("Removido · systemctl disable --now raven-exemplo"), "{:?}", c.texts());
+    c.press("Do sistema todo: sim");
+    c.press("Limite de 1G: não");
+    // launchd: the plist by the bundle id, kept alive, and the limit macOS does not enforce.
+    c.press("launchd");
+    for said in
+        ["dev.ravenrs.raven-exemplo.plist", "<key>RunAtLoad</key><true/>", "O macOS não o aplica", "RUST_LOG"]
+    {
+        assert!(c.says(said), "{said}: {:?}", c.texts());
+    }
+    c.press("Planejar a instalação");
+    assert!(c.says("launchctl bootstrap gui/UID") && c.says("aviso: o macOS não aplica"), "{:?}", c.texts());
+    // Windows: a task at logon, again when it falls.
+    c.press("Windows");
+    assert!(c.says("<LogonTrigger>") && c.says("<RestartOnFailure>"), "{:?}", c.texts());
+    c.press("Planejar a instalação");
+    assert!(c.says("schtasks /Create /TN raven-exemplo"), "{:?}", c.texts());
+    c.press("Remover");
+    // A name by hand, with ServiceSpec::new.
+    c.press("Nome à mão: não");
+    assert!(c.says("raven-exemplo-servidor-tarefa.xml"), "{:?}", c.texts());
+}
+
+#[test]
 fn the_web_api_page_builds_the_options_the_server_gets() {
     let mut c = Center::memory("ana");
     c.press("API web");
@@ -1605,6 +1694,53 @@ fn the_web_api_page_builds_the_options_the_server_gets() {
     c.press("Publicar evento");
     c.press("Publicar evento");
     assert!(c.says("Último evento publicado em avisos: #2."), "{:?}", c.texts());
+
+    // open and pass_header: the webhooks of other services come in with no token, with their headers.
+    assert!(c.says("open: []"), "{:?}", c.texts());
+    c.activate("Receber avisos de outros serviços");
+    assert!(c.says("open: [\"/hooks/\"]"), "{:?}", c.texts());
+    assert!(c.says("headers: [\"x-hub-\"]"), "{:?}", c.texts());
+}
+
+#[test]
+fn the_page_of_the_api_service_asks_each_feature_through_handle() {
+    let mut c = Center::memory("ana");
+    c.press("Serviço da API");
+    assert!(c.says("Nenhum pedido ainda."), "{:?}", c.texts());
+
+    // new, handle and session_lifetime: ana signs in, and the session lasts 30 minutes.
+    c.press("Entrar como ana");
+    assert!(c.says("Entrar: 200: a sessão dura 1800 s"), "{:?}", c.texts());
+    // setting: a preference of her own, kept and read back.
+    c.press("Guardar o tema escuro");
+    assert!(c.says("Tema: 200: tema \"escuro\""), "{:?}", c.texts());
+    // endpoint: a command of the center's, run as whoever called it.
+    c.press("Somar 2 e 3");
+    assert!(c.says("Somar: 200: soma 5.0"), "{:?}", c.texts());
+    // title and hide: the description has its name and leaves the entity out.
+    c.press("Ler a descrição");
+    assert!(c.says("API do Centro de Recursos; AuditOwner fica de fora: sim"), "{:?}", c.texts());
+    // webhook: a signed notice is taken, a forged one refused.
+    c.press("Receber aviso assinado");
+    assert!(c.says("assinado: 2"), "{:?}", c.texts());
+    assert!(!c.says("com assinatura falsa: 2"), "{:?}", c.texts());
+    // fallback: the route answers only while it is on, as text (ApiResponse::raw).
+    c.press("Pedir /api/hora");
+    assert!(c.says("Hora: 404"), "off, no one knows it: {:?}", c.texts());
+    c.activate("Ligar a rota /api/hora");
+    c.press("Pedir /api/hora");
+    assert!(c.says("Hora: 200 text/plain: 12:00 para ana"), "{:?}", c.texts());
+    // authenticator: a guest comes in by an invitation.
+    c.press("Entrar com convite");
+    assert!(c.says("Convite: 200: visitante entrou por convite"), "{:?}", c.texts());
+    // sign_ins_a_minute: after 3 tries a minute, the address waits.
+    c.press("Errar a senha 4 vezes");
+    assert!(c.says("429"), "the fourth try waits: {:?}", c.texts());
+    // role_merge, rule_words and audit: how the roles add up changes the service.
+    assert!(c.says("Papéis: um que permita basta."), "{:?}", c.texts());
+    c.activate("Todos os papéis");
+    assert!(c.says("Papéis: todos precisam permitir."), "{:?}", c.texts());
+    assert!(c.says("as regras falam português"), "{:?}", c.texts());
 }
 
 #[test]
@@ -1615,6 +1751,20 @@ fn the_build_log_shows_colors_folds_its_stages_searches_and_points_at_a_line() {
     assert!(c.says("PASS") && c.says("FAIL"), "the lines: {:?}", c.texts());
     assert!(!c.texts().iter().any(|text| text.contains('\u{1b}')), "no ANSI code shows");
     assert!(c.says("Log do build 42") || c.has_name("Log do build 42"), "its label: {:?}", c.texts());
+
+    // A long line keeps the height of one line and does not run into the next (#899): the list
+    // scrolls across to it instead of breaking it.
+    let tree = c.ui.access_tree();
+    let item = |number: usize| {
+        let start = format!("Apontar a linha {number} ");
+        tree.nodes
+            .iter()
+            .find(|n| n.role == Role::ListItem && n.name.as_deref().is_some_and(|t| t.starts_with(&start)))
+    };
+    let (long, next) = (item(8), item(7));
+    let long = long.expect("the long line").bounds;
+    assert!(long.height() <= 20.5, "one line high: {long:?}");
+    assert!(next.expect("the line before").bounds.max_y() <= long.origin.y + 0.5, "no overlap");
 
     // The search marks the lines that hold it.
     c.type_into("Buscar no log", "fail");
@@ -1634,7 +1784,7 @@ fn the_build_log_shows_colors_folds_its_stages_searches_and_points_at_a_line() {
     // A new line comes, and the settings change what shows.
     c.press("Chegar linha nova");
     assert!(c.says("nova::linha_1"), "{:?}", c.texts());
-    assert!(c.says("8 linhas no log."), "{:?}", c.texts());
+    assert!(c.says("9 linhas no log."), "{:?}", c.texts());
     c.activate("Números das linhas");
     assert!(!c.has_name("Apontar a linha 2"), "no numbers");
     c.activate("Busca");

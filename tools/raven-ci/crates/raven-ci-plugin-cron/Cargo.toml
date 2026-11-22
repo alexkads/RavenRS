@@ -1,0 +1,24 @@
+[package]
+name = "raven-ci-plugin-cron"
+description = "The plugin cron of Raven CI: builds on a schedule (cron in a time zone, or every period) and when a branch of a repository moves, polled with git ls-remote."
+version = "0.1.0"
+edition.workspace = true
+# raven-ci-core, which the tests use, needs 1.89 (ravenrs-flows-runtime, rusqlite 0.41).
+rust-version = "1.89"
+license.workspace = true
+publish = false
+
+[dependencies]
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
+ravenrs-app.workspace = true
+ravenrs-git.workspace = true
+ravenrs-schedule.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+raven-ci-core = { path = "../raven-ci-core" }
+raven-ci-plugin-api = { path = "../raven-ci-plugin-api", features = ["testing"] }
+ravenrs-git.workspace = true
+
+[lints]
+workspace = true

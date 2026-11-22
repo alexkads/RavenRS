@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use raven_ci_plugin_api::{BuildStatus, CiError, STAGE_KEY};
+use raven_ci_plugin_api::{AttachmentInfo, BuildStatus, CiError, STAGE_KEY};
 use ravenrs_flows::{FlowDefinition, NodeRun, NodeStatus, RunOutcome};
 use ravenrs_flows_runtime::{RunRecord, RunStatus};
 use rusqlite::{Connection, OptionalExtension, Row, params};
@@ -57,11 +57,33 @@ CREATE TABLE IF NOT EXISTS ci_attachments (
     summary TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS ci_attachments_by_build ON ci_attachments (job, number);
+CREATE TABLE IF NOT EXISTS ci_log (
+    job TEXT NOT NULL,
+    number INTEGER NOT NULL,
+    seq INTEGER NOT NULL,
+    step TEXT NOT NULL,
+    at_ms INTEGER NOT NULL,
+    text TEXT NOT NULL,
+    PRIMARY KEY (job, number, seq)
+);
 ";
 
 /// Makes the tables of the model when they are not there.
 pub(crate) fn prepare(conn: &Connection) -> Result<(), CiError> {
-    conn.execute_batch(SCHEMA).map_err(db)
+    conn.execute_batch(SCHEMA).map_err(db)?;
+    // A file made before the build kept what its pipeline said besides the flow.
+    let has_extras: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM pragma_table_info('ci_builds') WHERE name = 'extras'",
+            [],
+            |row| row.get(0),
+        )
+        .map_err(db)?;
+    if !has_extras {
+        conn.execute_batch("ALTER TABLE ci_builds ADD COLUMN extras TEXT NOT NULL DEFAULT '{}'")
+            .map_err(db)?;
+    }
+    Ok(())
 }
 
 /// A job as it is asked to be: its name (a path such as `apps/site`), the format of its pipeline
@@ -258,9 +280,12 @@ pub(crate) struct BuildRow {
     pub parameters: Map<String, Value>,
     pub origin: Option<u64>,
     pub created_ms: i64,
+    /// What the pipeline said besides the flow: its environment, post steps, publishers and
+    /// time limit, as [`Extras`](crate::lifecycle::Extras) writes them.
+    pub extras: Value,
 }
 
-const BUILD_COLUMNS: &str = "job, number, run_id, flow, cause, actor, parameters, origin, created_ms";
+const BUILD_COLUMNS: &str = "job, number, run_id, flow, cause, actor, parameters, origin, created_ms, extras";
 
 fn build_row(row: &Row<'_>) -> rusqlite::Result<BuildRow> {
     let parameters: String = row.get(6)?;
@@ -274,6 +299,7 @@ fn build_row(row: &Row<'_>) -> rusqlite::Result<BuildRow> {
         parameters: serde_json::from_str(&parameters).unwrap_or_default(),
         origin: row.get::<_, Option<i64>>(7)?.map(|n| n as u64),
         created_ms: row.get(8)?,
+        extras: serde_json::from_str(&row.get::<_, String>(9)?).unwrap_or(Value::Null),
     })
 }
 
@@ -392,7 +418,7 @@ pub(crate) fn next_number(conn: &Connection, job: &str) -> Result<u64, CiError> 
 
 pub(crate) fn insert_build(conn: &Connection, build: &BuildRow) -> Result<(), CiError> {
     conn.execute(
-        &format!("INSERT INTO ci_builds ({BUILD_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"),
+        &format!("INSERT INTO ci_builds ({BUILD_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"),
         params![
             build.job,
             build.number as i64,
@@ -402,7 +428,8 @@ pub(crate) fn insert_build(conn: &Connection, build: &BuildRow) -> Result<(), Ci
             build.actor,
             Value::Object(build.parameters.clone()).to_string(),
             build.origin.map(|n| n as i64),
-            build.created_ms
+            build.created_ms,
+            build.extras.to_string()
         ],
     )
     .map_err(db)?;
@@ -443,6 +470,7 @@ pub(crate) fn delete_build(conn: &Connection, job: &str, number: u64) -> Result<
     let number = number as i64;
     conn.execute("DELETE FROM ci_attachments WHERE job = ?1 AND number = ?2", params![job, number])
         .map_err(db)?;
+    conn.execute("DELETE FROM ci_log WHERE job = ?1 AND number = ?2", params![job, number]).map_err(db)?;
     conn.execute("DELETE FROM ci_builds WHERE job = ?1 AND number = ?2", params![job, number]).map_err(db)?;
     Ok(())
 }
@@ -491,6 +519,47 @@ pub(crate) fn attachments(conn: &Connection, job: &str, number: u64) -> Result<V
     rows.collect::<Result<_, _>>().map_err(db)
 }
 
+fn attachment_info_of(row: &Row<'_>) -> rusqlite::Result<AttachmentInfo> {
+    let summary: String = row.get(7)?;
+    Ok(AttachmentInfo {
+        id: row.get(0)?,
+        job: row.get(1)?,
+        number: row.get::<_, i64>(2)? as u64,
+        kind: row.get(3)?,
+        name: row.get(4)?,
+        mime: row.get(5)?,
+        size: row.get::<_, i64>(6)? as u64,
+        summary: serde_json::from_str(&summary).unwrap_or(Value::Null),
+    })
+}
+
+const ATTACHMENT_INFO: &str = "SELECT id, job, number, kind, name, mime, size, summary FROM ci_attachments";
+
+/// What the builds of `job` left of `kind`: of the build `number`, or of every build when `None`,
+/// the newest build first and, in a build, in the order they were kept.
+pub(crate) fn attachment_infos(
+    conn: &Connection,
+    job: &str,
+    number: Option<u64>,
+    kind: &str,
+) -> Result<Vec<AttachmentInfo>, CiError> {
+    let sql = format!(
+        "{ATTACHMENT_INFO} WHERE job = ?1 AND kind = ?2 AND (?3 IS NULL OR number = ?3) ORDER BY number DESC, id"
+    );
+    let mut stmt = conn.prepare(&sql).map_err(db)?;
+    let rows =
+        stmt.query_map(params![job, kind, number.map(|n| n as i64)], attachment_info_of).map_err(db)?;
+    rows.collect::<Result<_, _>>().map_err(db)
+}
+
+/// The attachment `id`, all but its bytes.
+pub(crate) fn attachment_info(conn: &Connection, id: i64) -> Result<AttachmentInfo, CiError> {
+    conn.query_row(&format!("{ATTACHMENT_INFO} WHERE id = ?1"), params![id], attachment_info_of)
+        .optional()
+        .map_err(db)?
+        .ok_or_else(|| CiError::unavailable(format!("não há o anexo {id}")))
+}
+
 /// The blob of the attachment `id`, as kept: its type, size and where.
 pub(crate) fn attachment_blob(conn: &Connection, id: i64) -> Result<(String, u64, String), CiError> {
     conn.query_row("SELECT mime, size, blob FROM ci_attachments WHERE id = ?1", params![id], |row| {
@@ -501,6 +570,10 @@ pub(crate) fn attachment_blob(conn: &Connection, id: i64) -> Result<(String, u64
     .ok_or_else(|| CiError::unavailable(format!("não há o anexo {id}")))
 }
 
+/// The start of the reason of a build the server ended because its agent went quiet past its
+/// grace: such a build is [`BuildStatus::Interrupted`], not cancelled.
+pub const INTERRUPTED: &str = "interrompido:";
+
 /// Where a build is, from its run.
 pub(crate) fn status_of(
     record: &RunRecord,
@@ -510,6 +583,10 @@ pub(crate) fn status_of(
     match (record.status, &record.outcome) {
         (RunStatus::Queued, _) => (BuildStatus::Queued, None),
         (RunStatus::Running | RunStatus::Waiting, _) => (BuildStatus::Running, None),
+        // The server ended it when its agent went quiet past its grace (see `agents`).
+        (RunStatus::Cancelled, Some(RunOutcome::Cancelled { reason })) if reason.starts_with(INTERRUPTED) => {
+            (BuildStatus::Interrupted, Some(reason.clone()))
+        }
         (RunStatus::Cancelled, Some(RunOutcome::Cancelled { reason })) => {
             (BuildStatus::Cancelled, Some(reason.clone()))
         }
@@ -575,4 +652,58 @@ fn status_name(status: NodeStatus) -> String {
         .ok()
         .and_then(|v| v.as_str().map(str::to_owned))
         .unwrap_or_else(|| format!("{status:?}"))
+}
+
+/// A line of a build's log.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+pub struct LogLine {
+    /// Its place in the log, from 1: what a reader that follows the log asks after.
+    pub seq: u64,
+    /// The step that wrote it, by its node; empty for what the core wrote.
+    pub step: String,
+    /// When, on the core's clock.
+    pub at_ms: i64,
+    /// The line, with every secret hidden.
+    pub text: String,
+}
+
+pub(crate) fn insert_log(conn: &Connection, job: &str, number: u64, line: &LogLine) -> Result<(), CiError> {
+    conn.execute(
+        "INSERT INTO ci_log (job, number, seq, step, at_ms, text) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        params![job, number as i64, line.seq as i64, line.step, line.at_ms, line.text],
+    )
+    .map_err(db)?;
+    Ok(())
+}
+
+pub(crate) fn log_after(
+    conn: &Connection,
+    job: &str,
+    number: u64,
+    after: u64,
+) -> Result<Vec<LogLine>, CiError> {
+    let mut stmt = conn
+        .prepare("SELECT seq, step, at_ms, text FROM ci_log WHERE job = ?1 AND number = ?2 AND seq > ?3 ORDER BY seq")
+        .map_err(db)?;
+    let rows = stmt
+        .query_map(params![job, number as i64, after as i64], |row| {
+            Ok(LogLine {
+                seq: row.get::<_, i64>(0)? as u64,
+                step: row.get(1)?,
+                at_ms: row.get(2)?,
+                text: row.get(3)?,
+            })
+        })
+        .map_err(db)?;
+    rows.collect::<Result<_, _>>().map_err(db)
+}
+
+pub(crate) fn last_log_seq(conn: &Connection, job: &str, number: u64) -> Result<u64, CiError> {
+    conn.query_row(
+        "SELECT COALESCE(MAX(seq), 0) FROM ci_log WHERE job = ?1 AND number = ?2",
+        params![job, number as i64],
+        |row| row.get::<_, i64>(0),
+    )
+    .map(|n| n as u64)
+    .map_err(db)
 }

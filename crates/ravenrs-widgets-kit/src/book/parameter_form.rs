@@ -42,6 +42,9 @@ fn render(args: &Args) -> AnyView {
                 ],
                 values.binding(),
             );
+            if args.bool("live") {
+                it = it.live(true);
+            }
             it
         }
     })
@@ -51,6 +54,8 @@ impl ComponentBook for ParameterForm {
     fn book() -> Meta {
         Meta::new("Actions and inputs/ParameterForm", render)
             .summary("A form made from a schema of parameters: groups, lists of rows, options that depend on another field, and a value or an expression in each field.")
+            .arg(ArgType::bool("live", false).description("Each change goes back at once, with no Apply or Discard: for a form inside a dialog."))
             .story("Example", Args::new())
+            .story("Live, inside a dialog", Args::new().with("live", true))
     }
 }

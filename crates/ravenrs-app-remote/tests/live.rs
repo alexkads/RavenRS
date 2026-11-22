@@ -1,6 +1,7 @@
 //! Listening to the live channel: reading the stream, coming back where it left off, stopping when
 //! refused, and the whole way from a real server.
 #![allow(clippy::expect_used, clippy::panic, clippy::unwrap_used)]
+#![cfg(feature = "ui")]
 
 use std::io::{BufRead, BufReader, Write};
 use std::net::TcpListener;

@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 use std::fmt;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, Weak};
 
 use raven_ci_plugin_api::{CiError, CiPlugin, Permission, Point, check_settings, points_of};
 use ravenrs_app::{Module, ModuleEntry, ModuleHost, ModuleRefusal, Target, plan_modules};
@@ -13,7 +13,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 use crate::external::{ExternalPlugin, MANIFEST_FILE};
-use crate::host::{PluginHost, Secrets, ServerLog};
+use crate::host::{Attachments, Lent, PluginHost, Secrets, ServerLog};
 use crate::store::{PluginRow, Store};
 
 /// Where a plugin is now.
@@ -135,6 +135,8 @@ pub struct Registry {
     plugins_dir: PathBuf,
     secrets: Arc<dyn Secrets>,
     log: Arc<ServerLog>,
+    /// What the hosts read the attachments of builds from, once the core lends itself.
+    attachments: Lent,
     inner: Mutex<Inner>,
 }
 
@@ -154,7 +156,13 @@ impl Registry {
         secrets: Arc<dyn Secrets>,
         log: Arc<ServerLog>,
     ) -> Self {
-        Self { store, plugins_dir, secrets, log, inner: Mutex::default() }
+        Self { store, plugins_dir, secrets, log, attachments: Lent::default(), inner: Mutex::default() }
+    }
+
+    /// Lets the hosts of plugins read the attachments of builds from `from`: the core, once it
+    /// is shared ([`Ci::share`](crate::Ci::share)). The first one stays.
+    pub(crate) fn lend_attachments(&self, from: Weak<dyn Attachments>) {
+        let _ = self.attachments.set(from);
     }
 
     fn lock(&self) -> MutexGuard<'_, Inner> {
@@ -310,6 +318,7 @@ impl Registry {
             self.store.clone(),
             self.secrets.clone(),
             self.log.clone(),
+            self.attachments.clone(),
         ));
         host.migrate(&plugin.migrations()).map_err(|e| e.to_string())?;
         plugin.start(host).map_err(|e| format!("não ligou: {e}"))

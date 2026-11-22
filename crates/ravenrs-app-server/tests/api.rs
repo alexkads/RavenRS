@@ -1082,3 +1082,42 @@ fn someone_turned_off_loses_settings_too_and_a_key_has_no_preferences() {
         assert_eq!(api.send(ApiRequest::new("GET", path).bearer(&bia)).status, 401, "{path}");
     }
 }
+
+#[test]
+fn a_fallback_answers_its_own_paths_knows_who_asked_and_leaves_the_rest_to_the_api() {
+    let database = database();
+    let service = ApiService::new(maker(&database), roles()).unwrap().fallback(|request, who| {
+        match (
+            request.method.as_str(),
+            request.path.iter().map(String::as_str).collect::<Vec<_>>().as_slice(),
+        ) {
+            ("POST", ["hooks", "x"]) => Some(ApiResponse::json(202, json!({ "body": request.body.len() }))),
+            ("GET", ["metrics"]) => {
+                Some(ApiResponse::raw(200, "text/plain; version=0.0.4", b"up 1\n".to_vec()))
+            }
+            ("GET", ["api", "ci", "me"]) => Some(match who() {
+                Some(caller) => ApiResponse::json(
+                    200,
+                    json!({ "name": caller.name, "roles": caller.roles, "admin": caller.administrator }),
+                ),
+                None => ApiResponse::json(401, json!({ "error": "unauthorized" })),
+            }),
+            _ => None,
+        }
+    });
+    let mut api = Api { service, database };
+    let hook = api.send(ApiRequest::new("POST", "/hooks/x").bytes(b"abc".to_vec()));
+    assert_eq!((hook.status, hook.body["body"].clone()), (202, json!(3)), "a public path asks no one");
+    let metrics = api.send(ApiRequest::new("GET", "/metrics"));
+    assert_eq!(metrics.raw, Some(("text/plain; version=0.0.4".to_owned(), b"up 1\n".to_vec())));
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/ci/me")).status, 401);
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/ci/me").bearer("not-a-token")).status, 401);
+    let token = api.token("ana");
+    let me = api.send(ApiRequest::new("GET", "/api/ci/me").bearer(&token));
+    assert_eq!(me.body["name"], "ana");
+    assert_eq!(me.body["admin"], true);
+    assert_eq!(me.body["roles"], json!(["Administradores"]));
+    // What the fallback leaves goes on to the API as before.
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/me").bearer(&token)).status, 200);
+    assert_eq!(api.send(ApiRequest::new("GET", "/api/data/Order")).status, 401);
+}

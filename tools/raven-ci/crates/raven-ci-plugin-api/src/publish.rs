@@ -25,6 +25,9 @@ pub enum BuildStatus {
     Cancelled,
     /// It took longer than its limit.
     TimedOut,
+    /// The agent that ran it went quiet past its grace time, and the server ended it: no one
+    /// cancelled it and no step failed.
+    Interrupted,
 }
 
 impl BuildStatus {
@@ -42,6 +45,7 @@ impl BuildStatus {
             Self::Failed => "falhou",
             Self::Cancelled => "cancelado",
             Self::TimedOut => "passou do prazo",
+            Self::Interrupted => "interrompido",
         }
     }
 }
@@ -95,6 +99,29 @@ impl Attachment {
         self.summary = summary;
         self
     }
+}
+
+/// An [`Attachment`] the core keeps, as a plugin reads it back through
+/// [`Host::attachments`](crate::Host::attachments): everything but the bytes, which come with
+/// [`Host::attachment`](crate::Host::attachment).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AttachmentInfo {
+    /// Its id, to read the bytes.
+    pub id: i64,
+    /// The job of the build it is of.
+    pub job: String,
+    /// The number of the build.
+    pub number: u64,
+    /// What kind it is: `artifact`, `junit`.
+    pub kind: String,
+    /// Its name, as a path.
+    pub name: String,
+    /// Its type.
+    pub mime: String,
+    /// Its size in bytes.
+    pub size: u64,
+    /// What a screen shows at a glance.
+    pub summary: Value,
 }
 
 /// A way of taking things from a build when its steps end: artifacts, test results, images.
@@ -197,4 +224,16 @@ pub trait Notifier: Send + Sync {
 
     /// Tells about `event`, by `settings`.
     fn notify(&self, event: &BuildEvent, settings: &Value) -> Result<(), CiError>;
+}
+
+#[cfg(test)]
+mod interrupted {
+    use super::BuildStatus;
+
+    #[test]
+    fn an_interrupted_build_ended_and_says_so() {
+        assert!(BuildStatus::Interrupted.ended());
+        assert_eq!(BuildStatus::Interrupted.words(), "interrompido");
+        assert_eq!(serde_json::to_value(BuildStatus::Interrupted).expect("JSON"), "interrupted");
+    }
 }

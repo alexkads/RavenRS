@@ -9,15 +9,26 @@ license.workspace = true
 publish = false
 
 [dependencies]
+# The bytes of an attachment a plugin reads back, in the lines of the protocol.
+base64 = "0.23"
 raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
 ravenrs-app.workspace = true
+# The HTTP API: signing in, keys, and the routes of the plugins through its fallback.
+ravenrs-app-server.workspace = true
+# People and roles, in a file each thread of the server opens.
+ravenrs-app-sqlite.workspace = true
 ravenrs-flows.workspace = true
 ravenrs-flows-runtime.workspace = true
 ravenrs-metrics.workspace = true
 ravenrs-process.workspace = true
+# The vault of credentials.
+ravenrs-secrets.workspace = true
 rusqlite.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+# The tokens agents come in with: random, and kept only as their hash.
+sha2 = "0.10"
+uuid.workspace = true
 # Reads the plugin.toml of an external plugin.
 toml = { version = "1", default-features = false, features = ["parse", "serde", "std"] }
 

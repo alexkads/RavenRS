@@ -32,6 +32,12 @@ impl Trigger {
         Ok(Self::Cron { schedule, zone })
     }
 
+    /// A cron schedule in the time zone of the machine, as a server on someone's own machine
+    /// wants: `0 3 * * *` is three in the morning where it runs.
+    pub fn cron_local(schedule: &str) -> Result<Self, String> {
+        Ok(Self::Cron { schedule: Schedule::parse(schedule)?, zone: TimeZone::system() })
+    }
+
     /// Every `period` from `from`. A period that is zero or negative is refused.
     pub fn every(period: SignedDuration, from: Timestamp) -> Result<Self, String> {
         if period <= SignedDuration::ZERO {
@@ -122,4 +128,20 @@ pub fn check(trigger: &Trigger, misfire: Misfire, next_run: Option<Timestamp>, n
         Misfire::Within(grace) if late > grace => Check::Missed { due, next },
         _ => Check::Run { due, next },
     }
+}
+
+/// A period written as people write it, `30s`, `10m`, `1h30m`, `500ms` or `1d`, for a setting of
+/// how often something runs or how long it may take. A number with no unit, and a period that is
+/// zero or negative, are refused, saying why.
+pub fn parse_period(text: &str) -> Result<SignedDuration, String> {
+    let text = text.trim();
+    if !text.is_empty() && text.chars().all(|c| c.is_ascii_digit()) {
+        return Err(format!("{text:?} has no unit: write 30s, 10m, 1h30m or 500ms"));
+    }
+    let period: SignedDuration =
+        text.parse().map_err(|_| format!("{text:?} is not a period: write 30s, 10m, 1h30m or 500ms"))?;
+    if period <= SignedDuration::ZERO {
+        return Err(format!("{text:?} is not a period: it has to be more than zero"));
+    }
+    Ok(period)
 }

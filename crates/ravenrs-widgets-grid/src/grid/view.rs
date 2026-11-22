@@ -2316,7 +2316,15 @@ impl View for DataRow<'_> {
             );
             if s.editing != Some((row, c)) {
                 // A cell that does not open an editor says so, and a test that fills it is told.
-                cx.semantics(cell, Semantics::new(Role::Cell).read_only(!editable));
+                let semantics = Semantics::new(Role::Cell).read_only(!editable);
+                // A cell drawn by a template, with a text of its own, is called by that text, not
+                // by the names of what the template puts in it (a switch, a badge).
+                let semantics = if col.template.is_some() && col.format.is_some() {
+                    semantics.name(col.display(&value))
+                } else {
+                    semantics
+                };
+                cx.semantics(cell, semantics);
             }
             // With a key column, a test finds a cell by the row's key and the column, and the
             // id passes to the editor while the cell is being edited.

@@ -34,7 +34,7 @@
 //!
 //! | Point | Trait | What it offers |
 //! |---|---|---|
-//! | Step | [`ravenrs_flows::NodeKind`], from [`CiPlugin::steps`] | a kind of step of a pipeline (sh, container, cargo, kubectl) |
+//! | Step | [`ravenrs_flows::NodeKind`], from [`CiPlugin::steps`] | a kind of step of a pipeline (sh, container, cargo, kubectl), which finds its build with [`BuildScope::of`] |
 //! | Scm | [`Scm`] | fetching code: a clone, a reference, a pull request merged onto its target |
 //! | Branch source | [`BranchSource`] | finding the branches and pull requests of a repository (multibranch) |
 //! | Trigger | [`Trigger`] | when a build is asked for: by hand, by the API, by a schedule, a poll or a webhook |
@@ -46,6 +46,7 @@
 //! | Pipeline format | [`PipelineFormat`] | reading a pipeline file into a flow |
 //! | Routes | [`Route`] | addresses of the HTTP API |
 //! | CLI command | [`CliCommand`] | subcommands of `raven-ci` |
+//! | Build hook | [`BuildHook`] | what is done to every build, before and after it: refusing it with no room on the disk |
 //! | Screens | [`Module::view_controllers`](ravenrs_app::Module::view_controllers) and [`DashboardInfo`](ravenrs_app::DashboardInfo) | a page, a tab on the page of a build, an item of the menu |
 //!
 //! Each trait says, on its own page, what it is for, how the core calls it and how to write one.
@@ -101,37 +102,54 @@
 //!
 //! `tools/raven-ci/docs/writing-a-plugin.md` goes through both kinds of plugin, the manifest of an
 //! external one and its protocol.
+//!
+//! # The same plugin, compiled apart
+//!
+//! With the feature `serve`, the `main` of a crate that implements these traits can be
+//! [`serve`]`(plugin)`: the plugin becomes an external one that `raven-ci plugins compilar PASTA`
+//! builds and installs with no new `raven-ci`, and the core reaches each of its points over the
+//! methods of [`protocol`].
 
 mod agent;
+mod build;
 mod cli;
 mod credential;
 mod error;
+mod hook;
 mod host;
 mod http;
 mod permission;
 mod pipeline;
 mod plugin;
+pub mod protocol;
 mod publish;
 mod scm;
+#[cfg(feature = "serve")]
+mod serve;
 mod settings;
 mod trigger;
 
 #[cfg(feature = "testing")]
 pub mod testing;
 
-pub use agent::{AgentLauncher, LaunchRequest, LaunchedAgent};
+pub use agent::{AgentArgs, AgentLauncher, LaunchRequest, LaunchedAgent, TOKEN_VARIABLE};
+pub use build::{BuildContext, BuildLog, BuildScope, MemoryLog, ScopeGuard, enter};
 pub use cli::CliCommand;
 pub use credential::CredentialKind;
 pub use error::CiError;
+pub use hook::BuildHook;
 pub use host::Host;
-pub use http::{HttpRequest, HttpResponse, Route};
+pub use http::{HttpRequest, HttpResponse, ROLE_ADMIN, ROLE_AGENT, ROLE_READ, ROLE_RUN, Route};
 pub use permission::Permission;
-pub use pipeline::{FormatError, Pipeline, PipelineFormat, STAGE_KEY};
-pub use plugin::{CiPlugin, Migration, Point, points_of};
+pub use pipeline::{FormatError, PLUGIN_KEY, Pipeline, PipelineFormat, PostSteps, PostWhen, STAGE_KEY, Use};
+pub use plugin::{CiPlugin, Migration, Point, has_screens, points_of};
+pub use publish::AttachmentInfo;
 pub use publish::{
     Attachment, BuildEvent, BuildInfo, BuildStatus, CommitState, CommitStatus, Notifier, Publisher,
     StatusReporter,
 };
 pub use scm::{BranchSource, Checkout, CheckoutRequest, Head, HeadKind, Reference, Scm};
+#[cfg(feature = "serve")]
+pub use serve::{manifest, serve, serve_with};
 pub use settings::check_settings;
 pub use trigger::{BuildRequest, Builds, Trigger};

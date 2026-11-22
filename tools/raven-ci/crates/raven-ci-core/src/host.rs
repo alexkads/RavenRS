@@ -3,18 +3,38 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, Weak};
 
-use raven_ci_plugin_api::{CiError, Host, Migration, Permission};
+use raven_ci_plugin_api::{AttachmentInfo, CiError, Host, Migration, Permission};
 use rusqlite::{Connection, params};
 use serde_json::Value;
 
 use crate::store::Store;
 
+/// What a host reads the attachments of builds from: the core ([`Ci`](crate::Ci)), with the
+/// methods it already has, so the hosts never repeat its queries nor reach its blobs.
+pub(crate) trait Attachments: Send + Sync {
+    /// What the builds of `job` left of `kind`: of build `number`, or of every build.
+    fn of_job(&self, job: &str, number: Option<u64>, kind: &str) -> Result<Vec<AttachmentInfo>, CiError>;
+
+    /// The attachment `id`, with its bytes.
+    fn one(&self, id: i64) -> Result<(AttachmentInfo, Vec<u8>), CiError>;
+}
+
+/// The core, lent to the hosts once it is shared; weak, since the core holds the hosts.
+pub(crate) type Lent = Arc<OnceLock<Weak<dyn Attachments>>>;
+
 /// Where the secrets plugins ask for come from: the vault, once the plugin of credentials is in.
 pub trait Secrets: Send + Sync {
     /// The secret `name`, when there is one.
     fn get(&self, name: &str) -> Option<String>;
+
+    /// What else a log must hide once `name` is read: the other values of a credential of many
+    /// fields, the forms derived from it.
+    fn hidden(&self, name: &str) -> Vec<String> {
+        let _ = name;
+        Vec::new()
+    }
 }
 
 /// No secrets at all: what a server with no vault has.
@@ -93,6 +113,7 @@ pub(crate) struct PluginHost {
     store: Arc<Store>,
     secrets: Arc<dyn Secrets>,
     log: Arc<ServerLog>,
+    attachments: Lent,
 }
 
 impl fmt::Debug for PluginHost {
@@ -105,6 +126,7 @@ impl fmt::Debug for PluginHost {
 }
 
 impl PluginHost {
+    #[allow(clippy::too_many_arguments, reason = "each is one corner of the server the host gives a plugin")]
     pub(crate) fn new(
         plugin: &str,
         granted: Vec<Permission>,
@@ -113,8 +135,18 @@ impl PluginHost {
         store: Arc<Store>,
         secrets: Arc<dyn Secrets>,
         log: Arc<ServerLog>,
+        attachments: Lent,
     ) -> Self {
-        Self { plugin: plugin.to_owned(), granted, settings, dir, store, secrets, log }
+        Self { plugin: plugin.to_owned(), granted, settings, dir, store, secrets, log, attachments }
+    }
+
+    /// The core, while it lends its attachments.
+    fn lent(&self) -> Result<Arc<dyn Attachments>, CiError> {
+        self.attachments.get().and_then(Weak::upgrade).ok_or_else(|| {
+            CiError::unavailable(
+                "os anexos só estão ao alcance dos plugins num núcleo compartilhado: chame Ci::share",
+            )
+        })
     }
 
     /// Applies the migrations not applied yet to the plugin's own database, each once, in order.
@@ -197,10 +229,26 @@ impl Host for PluginHost {
         let value =
             self.secrets.get(name).ok_or_else(|| CiError::unavailable(format!("não há o segredo {name}")))?;
         self.log.add_hidden(&value);
+        for other in self.secrets.hidden(name) {
+            self.log.add_hidden(&other);
+        }
         Ok(value)
     }
 
     fn log(&self, line: &str) {
         self.log.write(&format!("[{}] {line}", self.plugin));
+    }
+
+    fn attachments(
+        &self,
+        job: &str,
+        number: Option<u64>,
+        kind: &str,
+    ) -> Result<Vec<AttachmentInfo>, CiError> {
+        self.lent()?.of_job(job, number, kind)
+    }
+
+    fn attachment(&self, id: i64) -> Result<(AttachmentInfo, Vec<u8>), CiError> {
+        self.lent()?.one(id)
     }
 }
