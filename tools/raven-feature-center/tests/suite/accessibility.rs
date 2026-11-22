@@ -128,6 +128,7 @@ demonstrations! {
     caixa_de_exemplo => "Caixa de exemplo",
     api_web => "API web",
     leitores_de_tela_e_teclado => "Leitores de tela e teclado",
+    api_service => "Serviço da API",
     pessoas => "Pessoas",
     eventos => "Eventos",
     paises => "Países",

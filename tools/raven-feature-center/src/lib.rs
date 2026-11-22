@@ -53,6 +53,8 @@ pub mod model;
 #[cfg(feature = "app")]
 pub mod seed;
 #[cfg(all(feature = "app", not(target_arch = "wasm32")))]
+pub mod servico;
+#[cfg(all(feature = "app", not(target_arch = "wasm32")))]
 pub mod servidor;
 #[cfg(feature = "app")]
 pub use centro::*;
