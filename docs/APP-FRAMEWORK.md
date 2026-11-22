@@ -565,7 +565,7 @@ Its tests run against a real PostgREST when `RAVENRS_POSTGREST_URL`, `RAVENRS_PO
 
 ```rust,ignore
 ravenrs_app_server::serve(listener, || {
-    // On the thread that serves requests: storage and permissions belong to one thread.
+    // On each thread that serves requests: storage and permissions belong to one thread.
     ApiService::new(space, roles).map(|service| service.audit(settings)).map_err(|e| e.to_string())
 })
 ```
@@ -596,7 +596,7 @@ The top of the navigation can carry the application's brand: `App::brand(IconTil
 It is not OData: the query options are its own, which is the difference to keep in mind for clients made for OData. Money travels in cents, as it is stored, and dates as text. Users, roles and the audit trail are not exposed, whatever the permissions say.
 
 Limits to know:
-- One thread answers everything, one request at a time, as storage belongs to one thread. No throughput has been measured, so none is promised.
+- One thread answers, one request at a time, unless `ApiOptions::workers(n)` asks for more: then `n` threads answer at once, each with its own service made by the same function, and they share who is signed in. That function has to open the same storage each time (a database file or server); records in a `MemoryDatabase` belong to one thread. No throughput has been measured, so none is promised.
 - Tokens live in memory, so a restart asks everyone to sign in again.
 - Plain HTTP only: outside the machine it belongs behind something that does TLS.
 - Tries to sign in are limited by address, and behind a proxy everyone is one address.

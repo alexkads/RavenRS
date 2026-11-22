@@ -1,11 +1,13 @@
-//! HTTP around the service. Storage and permissions belong to one thread, so that thread does all
-//! the work, one request at a time, and the rest here only carries requests to it and answers back.
+//! HTTP around the service. What a service holds belongs to the thread that made it, so each thread
+//! that answers makes its own, and the rest here only carries requests to them and answers back.
+//! With [`ApiOptions::workers`] above one, that many requests are answered at the same time; the
+//! threads share who is signed in through [`crate::shared::Shared`].
 
 use std::collections::BTreeMap;
 use std::io;
 use std::net::SocketAddr;
 use std::panic::{AssertUnwindSafe, catch_unwind};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use axum::Router;
@@ -17,6 +19,7 @@ use serde_json::{Value as Json, json};
 use tokio::net::TcpListener;
 use tokio::sync::{mpsc, oneshot};
 
+use crate::shared::Shared;
 use crate::{ApiRequest, ApiResponse, ApiService};
 
 /// The largest request body.
@@ -25,7 +28,7 @@ const BODY_LIMIT: usize = 4 * 1024 * 1024;
 const SIGN_IN_LIMIT: usize = 64 * 1024;
 /// How long a body has to arrive.
 const BODY_WITHIN: Duration = Duration::from_secs(30);
-/// What the thread that does the work has for a stack. An expression as long as a filter can be
+/// What each thread that does the work has for a stack. An expression as long as a filter can be
 /// nests its parts as deep as it is long, and running out of stack would end the whole process.
 const WORKER_STACK: usize = 32 * 1024 * 1024;
 /// How many requests wait for their turn before more are turned away.
@@ -42,16 +45,32 @@ struct Worker {
 }
 
 /// How the service meets the outside.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 #[non_exhaustive]
 pub struct ApiOptions {
     origins: Vec<String>,
+    workers: usize,
+}
+
+impl Default for ApiOptions {
+    fn default() -> Self {
+        Self { origins: Vec::new(), workers: 1 }
+    }
 }
 
 impl ApiOptions {
-    /// Nothing but what comes from the same place.
+    /// Nothing but what comes from the same place, answered by one thread.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// How many requests are answered at the same time, each by a thread with its own service made
+    /// by `make`; zero counts as one. Above one, `make` has to open the same storage each time it is
+    /// called, as a database file or a database server: records kept in a `MemoryDatabase` belong to
+    /// the thread that made it, so a service over one stays with one thread.
+    pub fn workers(mut self, workers: usize) -> Self {
+        self.workers = workers.max(1);
+        self
     }
 
     /// Lets pages from this origin, such as `https://example.com`, call the service from a browser.
@@ -189,48 +208,69 @@ async fn answered(worker: &Worker, request: Request<Body>) -> Response {
     }
 }
 
+/// Answers what comes in `waiting` until it closes. The threads take turns at it: whoever is free
+/// takes the next request.
+fn work(mut service: ApiService, waiting: &Mutex<mpsc::Receiver<Asked>>) {
+    loop {
+        let next = match waiting.lock() {
+            Ok(mut waiting) => waiting.blocking_recv(),
+            Err(_) => None,
+        };
+        let Some((request, reply)) = next else { return };
+        // One request that goes wrong is that request's problem, and not everyone's after it.
+        let answered = catch_unwind(AssertUnwindSafe(|| service.handle(request)));
+        let response = answered.unwrap_or_else(|_| {
+            tracing::error!("a request panicked");
+            ApiResponse {
+                status: 500,
+                body: json!({ "error": "internal", "message": "Something went wrong on the server." }),
+            }
+        });
+        let _ = reply.send(response);
+    }
+}
+
 /// The routes, over a service made by `make` on a thread of its own, since what it holds belongs to
 /// one thread. It fails if the service cannot be made.
-pub fn router(make: impl FnOnce() -> Result<ApiService, String> + Send + 'static) -> io::Result<Router> {
+pub fn router(make: impl Fn() -> Result<ApiService, String> + Send + Sync + 'static) -> io::Result<Router> {
     router_with(ApiOptions::new(), make)
 }
 
-/// The same, with these options.
+/// The same, with these options. Each of its [`ApiOptions::workers`] calls `make` once, on its own
+/// thread; if any fails, so does this.
 pub fn router_with(
     options: ApiOptions,
-    make: impl FnOnce() -> Result<ApiService, String> + Send + 'static,
+    make: impl Fn() -> Result<ApiService, String> + Send + Sync + 'static,
 ) -> io::Result<Router> {
-    let (sender, mut waiting) = mpsc::channel::<Asked>(WAITING);
+    let (sender, waiting) = mpsc::channel::<Asked>(WAITING);
+    let waiting = Arc::new(Mutex::new(waiting));
+    let make = Arc::new(make);
+    let shared = Arc::new(Shared::default());
     let (made, started) = std::sync::mpsc::channel::<Result<(), String>>();
-    let worker = std::thread::Builder::new().name("ravenrs-app-server".to_owned()).stack_size(WORKER_STACK);
-    worker.spawn(move || {
-        let mut service = match make() {
-            Ok(service) => {
-                let _ = made.send(Ok(()));
-                service
-            }
-            Err(why) => {
-                let _ = made.send(Err(why));
-                return;
-            }
-        };
-        while let Some((request, reply)) = waiting.blocking_recv() {
-            // One request that goes wrong is that request's problem, and not everyone's after it.
-            let answered = catch_unwind(AssertUnwindSafe(|| service.handle(request)));
-            let response = answered.unwrap_or_else(|_| {
-                tracing::error!("a request panicked");
-                ApiResponse {
-                    status: 500,
-                    body: json!({ "error": "internal", "message": "Something went wrong on the server." }),
+    for number in 0..options.workers {
+        let (make, waiting, shared, made) = (make.clone(), waiting.clone(), shared.clone(), made.clone());
+        let name = format!("ravenrs-app-server-{number}");
+        std::thread::Builder::new().name(name).stack_size(WORKER_STACK).spawn(move || {
+            let mut service = match make() {
+                Ok(service) => service,
+                Err(why) => {
+                    let _ = made.send(Err(why));
+                    return;
                 }
-            });
-            let _ = reply.send(response);
-        }
-    })?;
-    started
-        .recv()
-        .map_err(|_| io::Error::other("the service stopped while starting"))?
-        .map_err(io::Error::other)?;
+            };
+            service.share(shared);
+            let _ = made.send(Ok(()));
+            drop(made);
+            work(service, &waiting);
+        })?;
+    }
+    drop(made);
+    for _ in 0..options.workers {
+        started
+            .recv()
+            .map_err(|_| io::Error::other("the service stopped while starting"))?
+            .map_err(io::Error::other)?;
+    }
     Ok(Router::new()
         .fallback(handle)
         .layer(DefaultBodyLimit::max(BODY_LIMIT))
@@ -240,7 +280,7 @@ pub fn router_with(
 /// Serves the API on this listener until it fails.
 pub async fn serve(
     listener: TcpListener,
-    make: impl FnOnce() -> Result<ApiService, String> + Send + 'static,
+    make: impl Fn() -> Result<ApiService, String> + Send + Sync + 'static,
 ) -> io::Result<()> {
     axum::serve(listener, router(make)?.into_make_service_with_connect_info::<SocketAddr>()).await
 }
@@ -249,7 +289,7 @@ pub async fn serve(
 pub async fn serve_with(
     listener: TcpListener,
     options: ApiOptions,
-    make: impl FnOnce() -> Result<ApiService, String> + Send + 'static,
+    make: impl Fn() -> Result<ApiService, String> + Send + Sync + 'static,
 ) -> io::Result<()> {
     axum::serve(listener, router_with(options, make)?.into_make_service_with_connect_info::<SocketAddr>())
         .await

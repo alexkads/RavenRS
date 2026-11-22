@@ -6,6 +6,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Breaking
 
+- The function that makes the `ApiService` of `ravenrs_app_server::router`, `router_with`, `serve` and `serve_with` is now `Fn() + Send + Sync`, not `FnOnce`, since each thread that answers calls it once. A closure that only builds the service from what it captures, as all of them in this repository, does not change (#807).
+
 - Four examples are tools now, with their own version, installer, news, icons, `--versao` and `--self-test`: **Raven Code (RCD)** in `tools/raven-code`, **Raven Movie Editor (RME)** in `tools/raven-movie-editor` (package `raven-movie-editor`), **Raven Report Designer (RRD)** in `tools/raven-report-designer` (package `raven-report-designer`) and **Raven Channel Video (RCV)** in `tools/raven-channel-video` (package `raven-channel-video`). A tool with no window says `"window": false` in its `tool.json` (#798).
 
 - The feature center is the **Raven Feature Center (RFC)**, named as the other tools are (RTS, RCB): `tools/raven-feature-center`, package `raven-feature-center` (`cargo run -p raven-feature-center`), window "Raven Feature Center" (#796).
@@ -56,6 +58,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `Labels` has `flow_arrange`, `flow_input`, `flow_output` and `flow_pick_port`, for the arrange button and the ports of a `FlowCanvas`. Literals with `..Default::default()` do not change.
 
 ### Added
+
+- `ApiOptions::workers(n)` in `ravenrs-app-server`: that many requests answered at the same time, each by a thread with its own service, so one slow request no longer holds up the rest. The threads share who is signed in: signing in on one, signing out, a session running out and a new password count on all of them, and the limit on tries to sign in adds up across them. The default stays one thread (#807).
 
 - `ravenrs-schedule`, the scheduling engine of the report server, made to be shared with the app framework, Raven Flows and Raven CI, with no runtime of its own: the `cron` schedules move to it unchanged, and it adds `Trigger::cron` (in a time zone) and `Trigger::every`, `check` (one pass: seed, wait, run or record a miss, and the next run to store first), `Misfire::Within` and `Misfire::Always` (however many were missed, at most one runs) and `Running`, the guard that keeps one job from running twice. `ravenrs-report-server` uses it, and `ravenrs_report_server::cron` stays as a re-export (#804).
 
