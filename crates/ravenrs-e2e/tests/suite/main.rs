@@ -3,6 +3,7 @@
 
 mod accessible;
 mod actions;
+mod base_inputs;
 mod declared;
 mod find;
 mod reach;

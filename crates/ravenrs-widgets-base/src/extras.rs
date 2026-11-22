@@ -4,7 +4,7 @@ use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Key, Quad, Rect, Role};
+use ravenrs_core::{AccessAction, Border, Color, CursorIcon, Effect, Insets, Key, Quad, Rect, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
@@ -1056,6 +1056,18 @@ impl View for InputOtp {
             .description(format!("{} digits", self.length));
         semantics.fallback_name = true;
         cx.semantics(node, semantics);
+        // Takes the whole code at once, digits only, as a test asks.
+        let (code, len, finished) = (self.value.clone(), self.length, self.on_complete.clone());
+        cx.on_access(node, &[AccessAction::SetValue], move |_, text| {
+            let digits: String =
+                text.unwrap_or_default().chars().filter(char::is_ascii_digit).take(len).collect();
+            let complete = digits.chars().count() == len;
+            code.set(digits.clone());
+            if complete && let Some(d) = &finished {
+                d(digits);
+            }
+            true
+        });
         let (value, len, done) = (self.value.clone(), self.length, self.on_complete.clone());
         cx.on_key(
             node,

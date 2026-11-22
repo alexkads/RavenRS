@@ -81,11 +81,10 @@ def entry_problems(entry, known_actions, crate_source, type_file, drivers, exist
     if rts.get("sem_tela"):
         return []
     out = []
-    if not rts["ids"]:
-        out.append(f"{name}: a complete block lists the test ids of its parts")
+    # A control with no parts of its own (a checkbox) has no ids: its name finds it.
     for test_id in rts["ids"]:
-        if not PART.match(test_id):
-            out.append(f"{name}: test id {test_id!r} is not part:<key>")
+        if not PART.match(test_id) and not re.match(r"^[a-z][a-z-]*$", test_id):
+            out.append(f"{name}: test id {test_id!r} is not part:<key>, nor the name of a single part")
     listed = set(rts.get("acoes", []))
     for action in sorted(listed - known_actions):
         out.append(f"{name}: {action} is not an AccessAction")
@@ -125,6 +124,16 @@ def coverage_problems(manifest, contract):
     return out
 
 
+def view_impl(tipo, texts):
+    """The `impl View for` block of the type, where it declares what it takes; empty if none."""
+    start = re.compile(rf"^impl(?:<[^>]*>)?\s+(?:[\w:]+::)?(?:View|Component)\s+for\s+{re.escape(tipo)}\b", re.M)
+    for text in texts:
+        if found := start.search(text):
+            end = re.search(r"^(?:impl|pub |fn |struct |enum |#\[)", text[found.end():], re.M)
+            return text[found.start(): found.end() + (end.start() if end else len(text))]
+    return ""
+
+
 def sources(folder):
     return {p: p.read_text() for p in folder.rglob("*.rs") if "/tests/" not in str(p)} if folder.exists() else {}
 
@@ -141,7 +150,7 @@ def check(issues=False):
             crates[crate] = sources(root / "crates" / str(crate) / "src")
         files = crates[crate]
         defining = re.compile(rf"pub (?:struct|enum) {re.escape(str(entry.get('tipo')))}\b")
-        type_file = next((t for t in files.values() if defining.search(t)), "")
+        type_file = view_impl(str(entry.get("tipo")), files.values())
         drivers = {d for p, t in files.items() if p.name == "testing.rs" for d in re.findall(r"pub struct (\w+)", t)}
         problems += entry_problems(
             entry, known, "\n".join(files.values()), type_file, drivers, lambda s: (root / s).is_file()

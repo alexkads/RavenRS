@@ -103,9 +103,15 @@ impl Locator<'_> {
         let query = self.query;
         let e2e = self.e2e;
         let node = e2e.declaring(&query, AccessAction::SetValue)?;
-        e2e.ui.set_access_value(node.id, text);
+        // A component that takes the action rebuilds; one that refuses the text does not.
+        let taken = e2e.ui.set_access_value(node.id, text);
         e2e.frame();
-        Ok(())
+        if taken {
+            return Ok(());
+        }
+        Err(E2eError::new(ErrorCode::Expectation, format!("{query}: it did not take the value {text:?}"))
+            .hint("check the values it takes, such as one of its options or a date as 2026-10-31")
+            .screen(e2e.screen()))
     }
 
     /// Opens the node's menu through the action it declares ([`AccessAction::ShowMenu`]).
@@ -150,9 +156,13 @@ impl E2e {
     /// Performs `action` on the node `query` finds, which must declare it.
     fn act(&mut self, query: &Query, action: AccessAction) -> E2eResult {
         let node = self.declaring(query, action)?;
-        self.ui.perform_action(node.id, action);
+        let taken = self.ui.perform_action(node.id, action);
         self.frame();
-        Ok(())
+        if taken {
+            return Ok(());
+        }
+        Err(E2eError::new(ErrorCode::Expectation, format!("{query}: it did not do {action:?}"))
+            .screen(self.screen()))
     }
 
     /// Opens the cell at `point` with a double click, replaces the editor's text and confirms it.

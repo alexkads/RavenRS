@@ -4,7 +4,7 @@ use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Key, Point, Role};
+use ravenrs_core::{AccessAction, Border, Color, CursorIcon, Effect, Insets, Key, Point, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Theme, Weight};
@@ -1156,7 +1156,17 @@ impl View for Options<'_> {
                     aim: None,
                     pointer_in: None,
                 };
-                cx.keyed_child(i as u64, &row)
+                let node = cx.keyed_child(i as u64, &row);
+                // Found by its value, which stays with it when the list changes, and chosen
+                // by the action as by a click.
+                cx.test_id(node, &format!("option:{option}"));
+                let (selected, close) = (self.selected.clone(), self.close.clone());
+                cx.on_access(node, &[AccessAction::Select], move |_, _| {
+                    selected.set(i);
+                    close();
+                    true
+                });
+                node
             })
             .collect();
         let node = panel(cx, &rows, 6.0, self.width);
@@ -1241,6 +1251,12 @@ impl View for Select {
                 highlight.set(Some(selected.get()).filter(|i| *i < count).unwrap_or(0));
             })
         };
+        let (shown, from_start) = (open.clone(), reset.clone());
+        cx.on_access(node, &[AccessAction::Expand, AccessAction::Collapse], move |action, _| {
+            from_start();
+            shown.set(action == AccessAction::Expand);
+            true
+        });
         let (toggle, new_search) = (open.clone(), reset.clone());
         cx.on_click(
             node,
@@ -1636,6 +1652,13 @@ pub fn search_row(
         Paint::Quad(QuadPaint { corner_radius: 7.0, ..QuadPaint::new(fill) }),
     );
     cx.semantics(row, Semantics::new(Role::ListBoxOption).selected(selected).active(highlighted));
+    // Found by its text, which stays with it while the search filters the list.
+    cx.test_id(row, &format!("option:{text}"));
+    let pick = on_pick.clone();
+    cx.on_access(row, &[AccessAction::Select], move |_, _| {
+        pick();
+        true
+    });
     cx.on_click(row, on_pick);
     cx.cursor(row, CursorIcon::Pointer);
     row
