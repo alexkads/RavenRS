@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use raven_ci_plugin_api::CiPlugin;
 use raven_ci_plugin_api_trigger::ApiTriggerPlugin;
+use raven_ci_plugin_azure_devops::AzureDevopsPlugin;
 use raven_ci_plugin_credentials::CredentialsPlugin;
 use raven_ci_plugin_cron::CronPlugin;
 use raven_ci_plugin_format_toml::TomlFormatPlugin;
@@ -26,5 +27,6 @@ pub fn builtin() -> Vec<Arc<dyn CiPlugin>> {
         Arc::new(CronPlugin::new()),
         Arc::new(CredentialsPlugin),
         Arc::new(GithubPlugin::new()),
+        Arc::new(AzureDevopsPlugin::new()),
     ]
 }
