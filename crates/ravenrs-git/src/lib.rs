@@ -294,12 +294,20 @@ impl Git {
     }
 
     /// The refspec of pull request `number` on GitHub (and Azure DevOps, which keeps the same
-    /// `refs/pull/N/head`), into `refs/remotes/<remote>/pr/N`.
+    /// `refs/pull/N/head`), into [`pull_request_head`](Self::pull_request_head). That ref lives
+    /// apart from the remote's branches, so a repository with a branch named `pr` or `pull`, which
+    /// would hold `refs/remotes/<remote>/pr`, does not stop it.
     pub fn pull_request_ref(remote: &str, number: u64) -> String {
-        format!("+refs/pull/{number}/head:refs/remotes/{remote}/pr/{number}")
+        format!("+refs/pull/{number}/head:{}", Self::pull_request_head(remote, number))
     }
 
-    /// Fetches pull request `number` from `remote`, as `<remote>/pr/N`.
+    /// Where [`fetch_pull_request`](Self::fetch_pull_request) puts pull request `number` of
+    /// `remote`: `refs/ravenrs/pull/<remote>/<number>`, to merge or check out.
+    pub fn pull_request_head(remote: &str, number: u64) -> String {
+        format!("refs/ravenrs/pull/{remote}/{number}")
+    }
+
+    /// Fetches pull request `number` from `remote`, to [`pull_request_head`](Self::pull_request_head).
     pub fn fetch_pull_request(&self, remote: &str, number: u64) -> Result<(), GitError> {
         self.fetch(remote, &[&Self::pull_request_ref(remote, number)])
     }

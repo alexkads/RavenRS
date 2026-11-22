@@ -52,6 +52,12 @@ pub trait Builds: Send + Sync {
     /// Asks for a build; its number. A build of the same job with the same parameters still in
     /// the queue takes the request instead, and its number is given.
     fn request(&self, request: BuildRequest) -> Result<u64, CiError>;
+
+    /// Looks again at the branches and pull requests of the job of many branches `job`: makes,
+    /// keeps and removes its jobs and asks for the builds of what moved; what changed, in words.
+    fn scan(&self, job: &str) -> Result<Vec<String>, CiError> {
+        Err(CiError::unavailable(format!("este núcleo não varre o job {job}")))
+    }
 }
 
 /// A way of asking for builds: by hand, by the API, on a schedule, by polling a repository, by a

@@ -8,10 +8,10 @@ use std::sync::{Arc, Mutex};
 
 use raven_ci_core::{Ci, JobSpec};
 use raven_ci_plugin_api::{BuildRequest, BuildStatus, CiError, CiPlugin, Host, Permission};
-use ravenrs_app::{Module, ModuleManifest};
 use raven_ci_plugin_credentials::CredentialsPlugin;
 use raven_ci_plugin_format_toml::TomlFormatPlugin;
 use raven_ci_plugin_shell::ShellPlugin;
+use ravenrs_app::{Module, ModuleManifest};
 use serde_json::json;
 
 /// A plugin that reads the credential `deploy` when it starts, as the git plugin reads its own.
@@ -22,7 +22,10 @@ impl Module for Reader {
         "leitor"
     }
     fn manifest(&self) -> ModuleManifest {
-        ModuleManifest::new().version("1.0.0").unwrap_or_default().capability(Permission::Secrets.capability())
+        ModuleManifest::new()
+            .version("1.0.0")
+            .unwrap_or_default()
+            .capability(Permission::Secrets.capability())
     }
 }
 
@@ -69,7 +72,8 @@ fn everything_in(dir: &Path) -> String {
 #[test]
 fn a_token_is_sealed_listed_with_no_value_and_never_in_clear_on_disk() {
     let (disk, ci) = ci("disco");
-    ci.save_credential("github", "token", &json!({ "token": "ghp_segredo_123456789" }), Some("ana")).expect("saved");
+    ci.save_credential("github", "token", &json!({ "token": "ghp_segredo_123456789" }), Some("ana"))
+        .expect("saved");
     let listed = ci.credentials().expect("listed");
     assert_eq!(listed.len(), 1);
     assert_eq!((listed[0].name.as_str(), listed[0].kind.as_str()), ("github", "token"));
@@ -85,8 +89,13 @@ fn a_token_is_sealed_listed_with_no_value_and_never_in_clear_on_disk() {
 #[test]
 fn a_credential_used_in_a_step_is_hidden_in_the_log_with_what_its_kind_derives() {
     let (_disk, ci) = ci("log");
-    ci.save_credential("deploy", "user-password", &json!({ "user": "robo", "password": "senha-forte-42" }), None)
-        .expect("saved");
+    ci.save_credential(
+        "deploy",
+        "user-password",
+        &json!({ "user": "robo", "password": "senha-forte-42" }),
+        None,
+    )
+    .expect("saved");
     // A plugin reads it; then the log hides it, and `user:password` too.
     let pipeline = if cfg!(windows) {
         "[[stages]]\nname = \"T\"\nsteps = ['echo robo:senha-forte-42 e senha-forte-42']\n"
@@ -101,7 +110,8 @@ fn a_credential_used_in_a_step_is_hidden_in_the_log_with_what_its_kind_derives()
     let n = ci.request_build(BuildRequest::new("site", "teste")).expect("asked").number;
     ci.work_until_idle("e1").expect("runs");
     assert_eq!(ci.build("site", n).expect("build").status, BuildStatus::Succeeded);
-    let log = ci.build_log("site", n, 0).expect("log").into_iter().map(|l| l.text).collect::<Vec<_>>().join("\n");
+    let log =
+        ci.build_log("site", n, 0).expect("log").into_iter().map(|l| l.text).collect::<Vec<_>>().join("\n");
     assert!(log.contains("**** e ****"), "{log}");
     assert!(!log.contains("senha-forte-42"), "{log}");
 }
@@ -109,12 +119,15 @@ fn a_credential_used_in_a_step_is_hidden_in_the_log_with_what_its_kind_derives()
 #[test]
 fn fields_that_do_not_fit_the_kind_and_a_kind_no_plugin_brings_are_refused() {
     let (_disk, ci) = ci("recusa");
-    let missing = ci.save_credential("x", "user-password", &json!({ "user": "robo" }), None).expect_err("no password");
+    let missing =
+        ci.save_credential("x", "user-password", &json!({ "user": "robo" }), None).expect_err("no password");
     assert!(missing.to_string().contains("password"), "{missing}");
-    let unknown = ci.save_credential("x", "token", &json!({ "token": "t", "cor": "azul" }), None).expect_err("a field");
+    let unknown =
+        ci.save_credential("x", "token", &json!({ "token": "t", "cor": "azul" }), None).expect_err("a field");
     assert!(unknown.to_string().contains("cor"), "{unknown}");
     let kind = ci.save_credential("x", "kubeconfig", &json!({}), None).expect_err("no such kind");
     assert!(kind.to_string().contains("kubeconfig"), "{kind}");
-    let name = ci.save_credential("../fora", "token", &json!({ "token": "t-123456" }), None).expect_err("a name");
+    let name =
+        ci.save_credential("../fora", "token", &json!({ "token": "t-123456" }), None).expect_err("a name");
     assert!(name.to_string().contains("não serve"), "{name}");
 }

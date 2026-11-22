@@ -89,7 +89,11 @@ fn vault_error(e: impl std::fmt::Display) -> CiError {
 /// Checks a name of a credential: letters, numbers, `-`, `_` and `.`.
 fn checked(name: &str) -> Result<&str, CiError> {
     let fine = !name.is_empty() && name.chars().all(|c| c.is_alphanumeric() || matches!(c, '-' | '_' | '.'));
-    if fine { Ok(name) } else { Err(CiError::settings("nome", format!("{name:?} não serve: use letras, números, '-', '_' e '.'"))) }
+    if fine {
+        Ok(name)
+    } else {
+        Err(CiError::settings("nome", format!("{name:?} não serve: use letras, números, '-', '_' e '.'")))
+    }
 }
 
 impl Credentials {
@@ -169,7 +173,9 @@ impl Credentials {
     pub fn list(&self) -> Result<Vec<CredentialInfo>, CiError> {
         let db = self.store.db();
         let mut stmt = db
-            .prepare("SELECT name, kind, created_by, created_ms, updated_ms FROM ci_credentials ORDER BY name")
+            .prepare(
+                "SELECT name, kind, created_by, created_ms, updated_ms FROM ci_credentials ORDER BY name",
+            )
             .map_err(crate::store::db)?;
         let rows = stmt
             .query_map([], |row| {
@@ -187,8 +193,9 @@ impl Credentials {
 
     /// Revokes `name` and forgets it.
     pub(crate) fn delete(&self, name: &str) -> Result<(), CiError> {
-        let (secret, _) =
-            self.reference(name)?.ok_or_else(|| CiError::unavailable(format!("não há a credencial {name}")))?;
+        let (secret, _) = self
+            .reference(name)?
+            .ok_or_else(|| CiError::unavailable(format!("não há a credencial {name}")))?;
         self.vault().revoke(&secret, OWNER).map_err(vault_error)?;
         self.store.db().execute("DELETE FROM ci_credentials WHERE name = ?1", params![name]).map_err(db)?;
         Ok(())

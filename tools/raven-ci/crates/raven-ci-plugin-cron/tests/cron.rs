@@ -119,3 +119,22 @@ fn a_poll_asks_for_a_build_when_the_branch_moves_and_not_when_it_stays() {
     assert_eq!(seen.last(), Some(&format!("mudança em main: {}", &second[..7])), "{seen:?}");
     ci.unwatch_triggers();
 }
+
+#[test]
+fn a_scan_keeps_the_jobs_of_a_job_of_many_branches_by_itself() {
+    let ci = ci();
+    ci.add_plugin(Arc::new(raven_ci_plugin_api::testing::Fake::new(Point::BranchSource)));
+    ci.apply_plugins().expect("on");
+    let settings =
+        json!({ "branches": { "id": "fake-branches" }, "triggers": [{ "id": "scan", "every": "100ms" }] });
+    ci.save_job(JobSpec::new("repo", "fake-lines", "Build: ok").settings(settings)).expect("saved");
+    assert!(ci.watch_triggers().is_empty());
+    let began = Instant::now();
+    while ci.job("repo/PR-1").is_err() && began.elapsed() < Duration::from_secs(5) {
+        std::thread::sleep(Duration::from_millis(20));
+    }
+    ci.unwatch_triggers();
+    let jobs: Vec<String> = ci.jobs().expect("jobs").into_iter().map(|job| job.name).collect();
+    assert_eq!(jobs, ["repo", "repo/PR-1", "repo/main"], "the fork PR-2 left out");
+    assert_eq!(causes(&ci, "repo/main"), ["novo: main em a1"]);
+}

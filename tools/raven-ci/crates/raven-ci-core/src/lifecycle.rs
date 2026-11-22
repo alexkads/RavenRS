@@ -249,7 +249,14 @@ impl Ci {
             parameters: row.parameters.clone(),
             commit: commit.clone(),
         };
-        self.report(&settings, &row.job, commit.as_deref(), CommitState::Pending, "rodando", &logger);
+        // The status of a pull request goes to its own commit, which the provider shows on it,
+        // and not to the merge built.
+        let reported = settings
+            .pointer(&format!("/{}/commit", crate::multibranch::HEAD_KEY))
+            .and_then(Value::as_str)
+            .map(str::to_owned)
+            .or_else(|| commit.clone());
+        self.report(&settings, &row.job, reported.as_deref(), CommitState::Pending, "rodando", &logger);
         self.notify(&settings, &BuildEvent::Started(info(BuildStatus::Running)), &logger);
 
         let mut environment = BTreeMap::from([
@@ -294,7 +301,7 @@ impl Ci {
         drop(guard);
         if status.ended() {
             let state = if passed { CommitState::Success } else { CommitState::Failure };
-            self.report(&settings, &row.job, commit.as_deref(), state, status.words(), &logger);
+            self.report(&settings, &row.job, reported.as_deref(), state, status.words(), &logger);
             self.notify(&settings, &BuildEvent::Ended(info(status)), &logger);
             logger.core(&format!("terminou: {}", status.words()));
             finish(&self.workspaces, &workspace, keep, &logger);

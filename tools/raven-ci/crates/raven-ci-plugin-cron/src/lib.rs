@@ -16,6 +16,8 @@
 //!   "credential": "github"}`. Each time it reads the commit of the branch with `git ls-remote`
 //!   (through `ravenrs-git`, with the credential as a header), and asks for a build with the cause
 //!   "mudança em main: abc1234" when it changed, or on its first look.
+//! - **`scan`**: `{"id": "scan", "every": "5m"}` on a job of many branches: each time, the core
+//!   looks again at its branches and pull requests, and asks for the builds of what moved.
 //! - **One thread** looks at every job's triggers each `tick_ms` (1000 unless the plugin's
 //!   configuration says), and asks for builds and polls with no lock held, so a slow repository
 //!   does not hold the others back. Times come from `ravenrs-schedule` (`check`, `Misfire`).
@@ -64,6 +66,8 @@ struct Watch {
     /// The cause of the builds a schedule asks for.
     cause: String,
     poll: Option<Poll>,
+    /// It asks for a scan of a job of many branches, not for a build.
+    scan: bool,
 }
 
 #[derive(Default)]
@@ -151,14 +155,14 @@ impl CiPlugin for CronPlugin {
     }
 
     fn triggers(&self) -> Vec<Arc<dyn Trigger>> {
-        vec![
-            Arc::new(Kind { kind: "cron", state: self.state.clone() }),
-            Arc::new(Kind { kind: "poll", state: self.state.clone() }),
-        ]
+        ["cron", "poll", "scan"]
+            .into_iter()
+            .map(|kind| Arc::new(Kind { kind, state: self.state.clone() }) as Arc<dyn Trigger>)
+            .collect()
     }
 }
 
-/// The trigger `cron` or `poll`.
+/// The trigger `cron`, `poll` or `scan`.
 struct Kind {
     kind: &'static str,
     state: Arc<State>,
@@ -199,7 +203,7 @@ impl Kind {
             }
         };
         let misfire = Misfire::Within(SignedDuration::from_hours(1));
-        Ok(Watch { kind: "cron", when, misfire, next: None, builds, cause, poll: None })
+        Ok(Watch { kind: "cron", when, misfire, next: None, builds, cause, poll: None, scan: false })
     }
 
     fn poll(&self, settings: &Value, builds: Arc<dyn Builds>) -> Result<Watch, CiError> {
@@ -222,6 +226,25 @@ impl Kind {
             builds,
             cause,
             poll: Some(poll),
+            scan: false,
+        })
+    }
+}
+
+impl Kind {
+    fn scan(&self, settings: &Value, builds: Arc<dyn Builds>) -> Result<Watch, CiError> {
+        let every = period(settings, Some(DEFAULT_POLL))?.unwrap_or(SignedDuration::from_mins(5));
+        let when = When::every(every, Timestamp::now()).map_err(|why| CiError::settings("every", why))?;
+        let cause = format!("varredura a cada {every:#}");
+        Ok(Watch {
+            kind: "scan",
+            when,
+            misfire: Misfire::Always,
+            next: None,
+            builds,
+            cause,
+            poll: None,
+            scan: true,
         })
     }
 }
@@ -232,8 +255,11 @@ impl Trigger for Kind {
     }
 
     fn watch(&self, job: &str, settings: &Value, builds: Arc<dyn Builds>) -> Result<(), CiError> {
-        let watch =
-            if self.kind == "cron" { self.cron(settings, builds)? } else { self.poll(settings, builds)? };
+        let watch = match self.kind {
+            "cron" => self.cron(settings, builds)?,
+            "poll" => self.poll(settings, builds)?,
+            _ => self.scan(settings, builds)?,
+        };
         lock(&self.state.watches).entry(job.to_owned()).or_default().push(watch);
         Ok(())
     }
@@ -252,6 +278,7 @@ impl Trigger for Kind {
 /// What a pass decided to do for one trigger, done with no lock held.
 enum Due {
     Ask { builds: Arc<dyn Builds>, job: String, cause: String },
+    Scan { builds: Arc<dyn Builds>, job: String },
     Poll { builds: Arc<dyn Builds>, job: String, index: usize, poll: Poll },
 }
 
@@ -267,8 +294,8 @@ fn pass(state: &State, now: Timestamp) {
                 let runs = match decided {
                     Check::Seeded { next } => {
                         watch.next = next;
-                        // A poll looks at once; a schedule waits for its first time.
-                        watch.poll.is_some()
+                        // A poll and a scan look at once; a schedule waits for its first time.
+                        watch.poll.is_some() || watch.scan
                     }
                     Check::Run { next, .. } => {
                         watch.next = next;
@@ -291,6 +318,7 @@ fn pass(state: &State, now: Timestamp) {
                 let builds = watch.builds.clone();
                 due.push(match &watch.poll {
                     Some(poll) => Due::Poll { builds, job: job.clone(), index, poll: poll.clone() },
+                    None if watch.scan => Due::Scan { builds, job: job.clone() },
                     None => Due::Ask { builds, job: job.clone(), cause: watch.cause.clone() },
                 });
             }
@@ -299,6 +327,13 @@ fn pass(state: &State, now: Timestamp) {
     for one in due {
         match one {
             Due::Ask { builds, job, cause } => ask(&builds, &job, cause, host.as_deref()),
+            Due::Scan { builds, job } => {
+                if let Err(why) = builds.scan(&job)
+                    && let Some(host) = &host
+                {
+                    host.log(&format!("{job}: a varredura falhou: {why}"));
+                }
+            }
             Due::Poll { builds, job, index, poll } => match head_of(&poll, host.as_deref()) {
                 Ok(commit) if poll.last.as_deref() != Some(commit.as_str()) => {
                     let short: String = commit.chars().take(7).collect();

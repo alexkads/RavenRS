@@ -15,7 +15,8 @@
 //! - **A branch**: `clone --branch B` (with `--depth D` when the job asks), in the build's folder.
 //! - **A commit**: a clone, then `checkout --detach` of the commit; when a shallow history does not
 //!   have it, the commit is fetched and checked out again.
-//! - **A pull request**: a clone of its target, then `refs/pull/N/head` fetched as `origin/pr/N`.
+//! - **A pull request**: a clone of its target, then `refs/pull/N/head` fetched apart from the branches
+//!   (`Git::pull_request_head`), so a branch named `pr` does not stop it.
 //!   With `merge_onto_target`, it is merged onto the target with a merge commit of Raven CI's own,
 //!   and the [`Checkout`] says the commit of the target in `merged_onto`; the target's history is
 //!   then fetched whole, since a merge needs the commit both sides come from. A conflict fails the
@@ -179,7 +180,7 @@ impl Scm for GitScm {
                 let git = git.clone_with(&request.url, &options).map_err(said)?;
                 log(&format!("buscando o PR {number}"));
                 git.fetch_pull_request("origin", *number).map_err(said)?;
-                let head = format!("origin/pr/{number}");
+                let head = Git::pull_request_head("origin", *number);
                 if request.merge_onto_target {
                     let onto = git.head().map_err(said)?;
                     log(&format!("mesclando o PR {number} em {target} ({onto})"));

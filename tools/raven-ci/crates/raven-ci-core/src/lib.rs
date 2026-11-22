@@ -39,6 +39,7 @@ pub mod external;
 mod host;
 mod lifecycle;
 mod model;
+pub mod multibranch;
 mod registry;
 mod store;
 
@@ -631,14 +632,22 @@ impl Ci {
 
     /// Seals `fields` as the credential `name` of the kind `kind` (a kind a plugin on brings),
     /// checked against the kind's form; saved again, its value is rotated. `by` is who made it.
-    pub fn save_credential(&self, name: &str, kind: &str, fields: &Value, by: Option<&str>) -> Result<(), CiError> {
+    pub fn save_credential(
+        &self,
+        name: &str,
+        kind: &str,
+        fields: &Value,
+        by: Option<&str>,
+    ) -> Result<(), CiError> {
         let found = self
             .registry
             .on()
             .iter()
             .flat_map(|plugin| plugin.credential_kinds())
             .find(|candidate| candidate.id() == kind)
-            .ok_or_else(|| CiError::unavailable(format!("nenhum plugin ligado traz credenciais do tipo {kind}")))?;
+            .ok_or_else(|| {
+                CiError::unavailable(format!("nenhum plugin ligado traz credenciais do tipo {kind}"))
+            })?;
         check_settings(&found.fields(), fields).map_err(|problems| {
             problems.into_iter().next().unwrap_or_else(|| CiError::failed("os campos da credencial"))
         })?;
@@ -668,6 +677,10 @@ impl Ci {
 impl Builds for Ci {
     fn request(&self, request: BuildRequest) -> Result<u64, CiError> {
         self.request_build(request).map(|ticket| ticket.number)
+    }
+
+    fn scan(&self, job: &str) -> Result<Vec<String>, CiError> {
+        Ci::scan(self, job)
     }
 }
 

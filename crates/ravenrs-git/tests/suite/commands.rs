@@ -26,11 +26,10 @@ fn a_pull_request_is_fetched_and_merged_into_its_target() {
     let listed = clone.ls_remote("origin", &["refs/pull/*"]).unwrap();
     assert_eq!(listed, [(pull.clone(), "refs/pull/7/head".to_owned())]);
     clone.fetch_pull_request("origin", 7).unwrap();
-    assert_eq!(clone.rev_parse("origin/pr/7").unwrap(), pull);
+    let head = Git::pull_request_head("origin", 7);
+    assert_eq!(clone.rev_parse(&head).unwrap(), pull);
 
-    let Merge::Merged(merged) = clone.merge("origin/pr/7", "Merge PR 7").unwrap() else {
-        panic!("it merges")
-    };
+    let Merge::Merged(merged) = clone.merge(&head, "Merge PR 7").unwrap() else { panic!("it merges") };
     assert_eq!(clone.head().unwrap(), merged);
     assert!(clone.dir().join("novo.txt").exists());
     assert_eq!(clone.run(&["log", "-1", "--format=%an <%ae>"]).unwrap(), ["RavenRS <ravenrs@localhost>"]);
@@ -51,7 +50,7 @@ fn a_conflict_names_the_files_and_leaves_the_tree_clean() {
     let before = clone.head().unwrap();
     clone.fetch_pull_request("origin", 8).unwrap();
     assert_eq!(
-        clone.merge("origin/pr/8", "Merge PR 8").unwrap(),
+        clone.merge(&Git::pull_request_head("origin", 8), "Merge PR 8").unwrap(),
         Merge::Conflict(vec!["arquivo.txt".to_owned()])
     );
     assert!(clone.run(&["status", "--porcelain"]).unwrap().is_empty(), "nothing is left half merged");
@@ -78,4 +77,18 @@ fn a_missing_git_and_a_failing_command_say_so() {
     assert!(matches!(missing, Err(GitError::NotInstalled(program)) if program == "git-que-nao-existe"));
     let failed = Git::at(root.path()).run(&["rev-parse", "--verify", "naoexiste"]);
     assert!(matches!(failed, Err(GitError::Failed { code: Some(_), .. })), "{failed:?}");
+}
+
+#[test]
+fn a_branch_named_pr_does_not_stop_a_pull_request_from_being_fetched() {
+    let root = tempfile::tempdir().unwrap();
+    let origin = remote(root.path());
+    origin.work.run(&["checkout", "-q", "-b", "pr"]).unwrap();
+    let pull = commit(&origin.work, "novo.txt", "do PR\n", "o PR");
+    origin.work.run(&["push", "-q", "origin", "pr", "pr:refs/pull/9/head"]).unwrap();
+    // A clone of every branch has `origin/pr`, which `origin/pr/9` could not live beside.
+    let clone = Git::clone(&origin.url, root.path().join("build"), &CloneOptions::new()).unwrap();
+    assert!(clone.rev_parse("origin/pr").is_ok());
+    clone.fetch_pull_request("origin", 9).unwrap();
+    assert_eq!(clone.rev_parse(&Git::pull_request_head("origin", 9)).unwrap(), pull);
 }

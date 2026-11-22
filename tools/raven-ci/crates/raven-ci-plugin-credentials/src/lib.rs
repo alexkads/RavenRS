@@ -135,8 +135,12 @@ impl CredentialKind for SshKey {
     fn hidden(&self, credential: &Value) -> Vec<String> {
         let key = text(credential, "private_key");
         // A key leaks line by line as often as whole: each line long enough to tell is hidden too.
-        let mut hidden: Vec<String> =
-            key.lines().map(str::trim).filter(|line| line.len() >= 16 && !line.starts_with("-----")).map(str::to_owned).collect();
+        let mut hidden: Vec<String> = key
+            .lines()
+            .map(str::trim)
+            .filter(|line| line.len() >= 16 && !line.starts_with("-----"))
+            .map(str::to_owned)
+            .collect();
         hidden.push(key.to_owned());
         hidden.push(text(credential, "passphrase").to_owned());
         hidden

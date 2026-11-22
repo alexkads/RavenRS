@@ -139,7 +139,8 @@ impl Invocation {
                 crate::server::create_user(&self.data, name, args, &mut stdin.lock(), out)
             }
             ["credencial", "criar", name, args @ ..] => {
-                let Some(kind) = args.iter().position(|a| *a == "--tipo").and_then(|at| args.get(at + 1)) else {
+                let Some(kind) = args.iter().position(|a| *a == "--tipo").and_then(|at| args.get(at + 1))
+                else {
                     write(out, "diga o tipo: --tipo token, user-password ou ssh-key\n")?;
                     return Ok(2);
                 };
@@ -147,7 +148,10 @@ impl Invocation {
                 std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)
                     .map_err(|e| CiError::failed(e.to_string()))?;
                 let Ok(fields) = serde_json::from_str::<serde_json::Value>(&text) else {
-                    write(out, "os campos vêm em JSON na entrada: echo '{\"token\": \"...\"}' | raven-ci credencial criar NOME --tipo token\n")?;
+                    write(
+                        out,
+                        "os campos vêm em JSON na entrada: echo '{\"token\": \"...\"}' | raven-ci credencial criar NOME --tipo token\n",
+                    )?;
                     return Ok(2);
                 };
                 match ci.save_credential(name, kind, &fields, std::env::var("USER").ok().as_deref()) {

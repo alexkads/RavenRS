@@ -66,6 +66,26 @@ cargo run -p raven-ci -- --plugins tools/raven-ci/plugins plugins listar
 `--dados PASTA`, `RAVEN_CI_HOME` or `~/.raven-ci`. External plugins are found in its `plugins/`
 folder and in each `--plugins PASTA`.
 
+## A job of many branches on GitHub
+
+The model job holds the settings; the core keeps one job per head under it (`repo/main`,
+`repo/PR-12`), each with the `.raven-ci.toml` of its own head, and asks for a build when a head
+moves:
+
+```json
+{
+  "branches": { "id": "github", "repository": "dono/repo", "credential": "github", "branches": ["main"] },
+  "scm": { "id": "git", "url": "https://github.com/dono/repo.git", "credential": "github" },
+  "status": [{ "id": "github", "repository": "dono/repo", "credential": "github", "context": "raven-ci" }],
+  "triggers": [{ "id": "scan", "every": "5m" }]
+}
+```
+
+- Pull requests of forks are left out (`"forks": true` takes them), and a pull request is built
+  merged onto its target; its status goes to its own commit.
+- The job of a head that is gone is removed (after `branches.orphan_days` days, 0 unless said).
+- The token is a credential: `echo '{"token": "ghp_…"}' | raven-ci credencial criar github --tipo token`.
+
 ## The plugins that come with it
 
 | Plugin | Point | What it does |
@@ -77,6 +97,8 @@ folder and in each `--plugins PASTA`.
 | `workspace-cleanup` | build hook | refuses a build when the disk of its folder has less free space than `workspace.min_free_gb` (5 GB unless said) |
 | `api-trigger` | trigger, route | `POST /api/ci/run` with `{"job", "parameters"}` asks for a build of a job whose `triggers` say `{"id": "api"}`, for someone with the role `Executores` or an administrator |
 | `cron` | trigger | `cron` (a schedule in a time zone, or `every = "1h"`) and `poll` (`git ls-remote` of a branch every `5m`, a build when it moved) |
+| `credentials` | credential kinds | `token`, `user-password` and `ssh-key`, sealed by name in the core's vault (`raven-ci credencial criar NOME --tipo token`, the fields in JSON on the input); a plugin reads one with `Host::secret`, and every log hides it |
+| `github` | branch source, status | a job of many branches over a GitHub repository: the branches chosen and the open pull requests (forks left out), each with the pipeline of its own head, built merged onto its target, with the status sent to its commit |
 
 ```toml
 [[parameters]]
@@ -114,13 +136,14 @@ curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven
 
 - `tools/raven-ci/tests/suite`: the binary as a person and an agent run it.
 - `crates/raven-ci-core/tests/suite`: the register, external plugins with real Python, the model,
-  the queue and the life of a build (`lifecycle.rs`).
+  the queue and the life of a build (`lifecycle.rs`), the API (`api.rs`).
 - `crates/raven-ci-plugin-format-toml/tests`: what the format reads, its errors, and pipelines run
   for real with `sh`.
 - `crates/raven-ci-plugin-shell/tests`: the step `sh`, with scripts for `sh` and for `cmd`.
 - `crates/raven-ci-plugin-git/tests`: a real repository made by the test, cloned by `file://`.
 - `crates/raven-ci-plugin-lock/tests`: two executors, a holder outside, a program left running.
 - `crates/raven-ci-plugin-workspace/tests`: a build refused for room on the disk.
+- `crates/raven-ci-plugin-github/tests`: a GitHub of the test's own on a free port and a real repository: the scan, the builds merged, the statuses.
 - `crates/raven-ci-plugin-api/tests/suite`: each point through its fake plugin.
 
 The tests of external plugins say they skip when there is no Python 3.
