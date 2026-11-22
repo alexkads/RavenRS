@@ -1420,6 +1420,35 @@ impl Center {
 }
 
 #[test]
+fn toggles_switch_with_a_label_compact_or_only_an_accessible_name() {
+    let mut c = Center::memory("ana");
+    c.press("Chaves");
+    // new and label: on to begin with, and clicking the label switches it off.
+    assert!(c.says("Avisos no celular: ligada"), "{:?}", c.texts());
+    c.activate("Avisos no celular");
+    assert!(c.says("Avisos no celular: desligada"), "{:?}", c.texts());
+    // small: the compact switch is shorter and switches the same.
+    c.activate("Resumo por e-mail");
+    assert!(c.says("Resumo por e-mail: ligada"), "{:?}", c.texts());
+    let tree = c.ui.access_tree();
+    let small = tree.find(Role::Switch, "Resumo por e-mail").expect("the small switch").bounds.height();
+    let large = tree.find(Role::Switch, "Avisos no celular").expect("the switch").bounds.height();
+    assert!(small < large, "small {small}, large {large}");
+    // accessible_name: no text on the screen, and still found and switched by its name.
+    let tree = c.ui.access_tree();
+    let named: Vec<_> = tree.nodes.iter().filter(|n| n.name.as_deref() == Some("Ligar docker")).collect();
+    assert_eq!(named.len(), 1, "only the switch has the name, no text shows it: {named:?}");
+    assert_eq!(named[0].role, Role::Switch);
+    c.activate("Ligar docker");
+    assert!(c.says("Plugin docker: ligada"), "{:?}", c.texts());
+    // disabled and read_only: neither changes.
+    let tree = c.ui.access_tree();
+    assert!(tree.find(Role::Switch, "Indisponível").expect("disabled").disabled);
+    c.activate("Só leitura");
+    assert!(c.ui.access_tree().find(Role::Switch, "Só leitura").expect("read only").read_only);
+}
+
+#[test]
 fn buttons_show_every_variant_and_activate_with_the_mouse_enter_and_space() {
     let mut c = Center::memory("ana");
     c.press("Botões");

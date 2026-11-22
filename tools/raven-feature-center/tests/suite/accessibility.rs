@@ -91,6 +91,7 @@ macro_rules! demonstrations {
 
 demonstrations! {
     botoes => "Botões",
+    chaves => "Chaves",
     texto => "Texto",
     novidades_da_versao => "Novidades da versão",
     diagrama_de_fluxo => "Diagrama de fluxo",
@@ -127,8 +128,8 @@ demonstrations! {
     dados_da_loja => "Dados da loja",
     caixa_de_exemplo => "Caixa de exemplo",
     api_web => "API web",
-    leitores_de_tela_e_teclado => "Leitores de tela e teclado",
     api_service => "Serviço da API",
+    leitores_de_tela_e_teclado => "Leitores de tela e teclado",
     pessoas => "Pessoas",
     eventos => "Eventos",
     paises => "Países",

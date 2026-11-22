@@ -134,7 +134,7 @@
 {"crate": "ravenrs-widgets-base", "tipo": "Ticker", "pendente": true, "issue": 579, "conhecidos": ["gap", "new", "reverse", "speed"]},
 {"crate": "ravenrs-widgets-base", "tipo": "TitleBar", "pendente": true, "issue": 579, "conhecidos": ["action", "active", "leading", "maximized", "new", "on_close", "on_context_menu", "on_maximize", "on_minimize"]},
 {"crate": "ravenrs-widgets-base", "tipo": "Toaster", "pendente": true, "issue": 579, "conhecidos": ["bottom_inset", "new", "position"]},
-{"crate": "ravenrs-widgets-base", "tipo": "Toggle", "pendente": true, "issue": 579, "conhecidos": ["disabled", "label", "new", "read_only", "small"]},
+{"crate": "ravenrs-widgets-base", "tipo": "Toggle", "pagina": "Chaves", "recursos": ["accessible_name", "disabled", "label", "new", "read_only", "small"]},
 {"crate": "ravenrs-widgets-base", "tipo": "ToggleButton", "pendente": true, "issue": 579, "conhecidos": ["count", "icon", "new", "pill"]},
 {"crate": "ravenrs-widgets-base", "tipo": "ToggleGroup", "pendente": true, "issue": 579, "conhecidos": ["multiple", "single"]},
 {"crate": "ravenrs-widgets-base", "tipo": "ToolRail", "pendente": true, "issue": 579, "conhecidos": ["columns", "icons_only", "new", "on_drag_tool", "separator", "tool", "width"]},

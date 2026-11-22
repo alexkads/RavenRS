@@ -16,10 +16,14 @@ fn checkbox(args: &Args) -> AnyView {
 
 fn toggle(args: &Args) -> AnyView {
     let on = State::new(args.bool("on"));
-    let mut toggle = Toggle::new(on.binding())
-        .label(args.text("label"))
-        .disabled(args.bool("disabled"))
-        .read_only(args.bool("read_only"));
+    let mut toggle =
+        Toggle::new(on.binding()).disabled(args.bool("disabled")).read_only(args.bool("read_only"));
+    if !args.text("label").is_empty() {
+        toggle = toggle.label(args.text("label"));
+    }
+    if !args.text("accessible_name").is_empty() {
+        toggle = toggle.accessible_name(args.text("accessible_name"));
+    }
     if args.bool("small") {
         toggle = toggle.small();
     }
@@ -66,11 +70,19 @@ impl ComponentBook for Toggle {
             .arg(ArgType::text("label", "Push notifications"))
             .arg(ArgType::bool("on", true))
             .arg(ArgType::bool("small", false).description("The compact switch, for lists and toolbars."))
+            .arg(
+                ArgType::text("accessible_name", "")
+                    .description("What a screen reader calls it, with no text shown."),
+            )
             .arg(ArgType::bool("disabled", false))
             .arg(ArgType::bool("read_only", false))
             .story("On", Args::new())
             .story("Off", Args::new().with("on", false).with("label", "Email digest"))
             .story("Small", Args::new().with("small", true))
+            .story(
+                "Accessible name only",
+                Args::new().with("label", "").with("small", true).with("accessible_name", "Turn docker on"),
+            )
             .story("Disabled", Args::new().with("disabled", true))
             .story("Read only", Args::new().with("read_only", true))
     }
