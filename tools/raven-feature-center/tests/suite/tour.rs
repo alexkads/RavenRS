@@ -1692,6 +1692,20 @@ fn the_build_log_shows_colors_folds_its_stages_searches_and_points_at_a_line() {
     assert!(!c.texts().iter().any(|text| text.contains('\u{1b}')), "no ANSI code shows");
     assert!(c.says("Log do build 42") || c.has_name("Log do build 42"), "its label: {:?}", c.texts());
 
+    // A long line keeps the height of one line and does not run into the next (#899): the list
+    // scrolls across to it instead of breaking it.
+    let tree = c.ui.access_tree();
+    let item = |number: usize| {
+        let start = format!("Apontar a linha {number} ");
+        tree.nodes
+            .iter()
+            .find(|n| n.role == Role::ListItem && n.name.as_deref().is_some_and(|t| t.starts_with(&start)))
+    };
+    let (long, next) = (item(8), item(7));
+    let long = long.expect("the long line").bounds;
+    assert!(long.height() <= 20.5, "one line high: {long:?}");
+    assert!(next.expect("the line before").bounds.max_y() <= long.origin.y + 0.5, "no overlap");
+
     // The search marks the lines that hold it.
     c.type_into("Buscar no log", "fail");
     assert!(c.says("1 linhas com o termo"), "{:?}", c.texts());
@@ -1710,7 +1724,7 @@ fn the_build_log_shows_colors_folds_its_stages_searches_and_points_at_a_line() {
     // A new line comes, and the settings change what shows.
     c.press("Chegar linha nova");
     assert!(c.says("nova::linha_1"), "{:?}", c.texts());
-    assert!(c.says("8 linhas no log."), "{:?}", c.texts());
+    assert!(c.says("9 linhas no log."), "{:?}", c.texts());
     c.activate("Números das linhas");
     assert!(!c.has_name("Apontar a linha 2"), "no numbers");
     c.activate("Busca");

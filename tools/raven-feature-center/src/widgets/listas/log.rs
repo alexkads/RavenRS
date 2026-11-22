@@ -18,6 +18,10 @@ fn build_log() -> LogBuffer {
     log.push("    \u{1b}[32mPASS\u{1b}[0m [0.012s] plan::rejects_cycles\n    \u{1b}[32mPASS\u{1b}[0m [0.040s] claim::lease_is_exclusive");
     log.push("    \u{1b}[33mSLOW\u{1b}[0m [12.4s] registry::reloads_without_restart");
     log.push("    \u{1b}[1;31mFAIL\u{1b}[0m [0.210s] docker::cleans_up_on_cancel");
+    // A long line runs on, as in a terminal, and the list scrolls across to it.
+    log.push(
+        "$ docker run --rm -v /var/lib/raven-ci/espacos/apps/site/42:/w -w /w -u 1000:1000 -e CARGO_TARGET_DIR=/w/target rust:1 cargo nextest run --workspace --retries 2",
+    );
     log
 }
 

@@ -349,7 +349,15 @@ impl View for LogRow {
                         look.weight = 600.0;
                     }
                     let color = theme.color(span.color.unwrap_or(Semantic::Ink));
-                    children.push(cx.text(&span.text, &look, color, LayoutStyle::leaf()));
+                    // A line never breaks, as in a terminal: a long one runs on, and the list
+                    // scrolls across to it (#899).
+                    let width = cx.measure_text(&span.text, &look).width;
+                    children.push(cx.text(
+                        &span.text,
+                        &look,
+                        color,
+                        LayoutStyle { min_width: Some(width), ..LayoutStyle::leaf() },
+                    ));
                 }
                 let fill = if self.anchor.get() == Some(number) {
                     Some(theme.color(Semantic::Accent).with_alpha(0.18))
@@ -394,6 +402,16 @@ impl View for LogView {
             (Rc::new(rows), found)
         };
         let count = rows.len();
+        // The widest line, with its number and the row's room, is how far the list scrolls across.
+        let widest = {
+            let theme = *cx.theme();
+            let mut attrs = util::attrs(&theme, TextStyle::Callout, None);
+            attrs.family = Some("monospace".to_owned());
+            let kept = self.buffer.kept.borrow();
+            let longest = kept.lines.iter().max_by_key(|line| line.plain.chars().count());
+            let text = longest.map_or(0.0, |line| cx.measure_text(&line.plain, &attrs).width);
+            text + if self.line_numbers { 48.0 } else { 0.0 } + 16.0
+        };
         let item = {
             let (buffer, rows, folded, anchor) =
                 (self.buffer.clone(), rows.clone(), folded.clone(), anchor.clone());
@@ -415,6 +433,7 @@ impl View for LogView {
             .row_height(LINE)
             .follow_end(self.follow_end)
             .commands(commands.clone())
+            .scroll_across(widest)
             .height(self.height)
             .label(self.label.clone().unwrap_or_else(|| labels.log_name.clone()));
         let to_end = Button::new(labels.log_go_to_end.clone())
