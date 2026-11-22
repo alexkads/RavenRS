@@ -27,12 +27,16 @@ serde_json.workspace = true
 ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
-web-sys = { workspace = true, features = ["Headers", "Request", "RequestInit", "Response", "Window"] }
+# ReadableStream: the live channel is read from fetch, since an EventSource cannot send a token.
+web-sys = { workspace = true, features = ["Headers", "ReadableStream", "ReadableStreamDefaultReader", "Request", "RequestInit", "Response", "Window"] }
 
 [dev-dependencies]
 ravenrs-app-server.workspace = true
+# A real server for the live channel's tests.
+tokio = { version = "1.54", default-features = false, features = ["net", "rt-multi-thread"] }
 ravenrs-core.workspace = true
 ravenrs-criteria.workspace = true
 

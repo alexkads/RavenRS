@@ -59,6 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- The live channel: `ravenrs-app-server` streams events as they happen at `GET /api/live/{topic}`, as Server-Sent Events, from a `LiveChannels` the application publishes to from any thread (`open`, `publish`, `ApiOptions::live`). Each topic keeps its last 256 events for whoever comes back with `Last-Event-ID`, and sends `gap` when some are gone. The streams take none of the threads that answer, and end when their token does. `ravenrs-app-remote` listens with `RemoteClient::listen`, on the desktop and in the browser (`LiveFeed`, `SseParser`), coming back from the last event when the stream is lost (#810).
+
 - `ApiOptions::workers(n)` in `ravenrs-app-server`: that many requests answered at the same time, each by a thread with its own service, so one slow request no longer holds up the rest. The threads share who is signed in: signing in on one, signing out, a session running out and a new password count on all of them, and the limit on tries to sign in adds up across them. The default stays one thread (#807).
 
 - 50 more types of `ravenrs-widgets-base` are in the testability contract of the RTS (#737, third lot): the segments of a `SegmentedControl` and the items of a `ToggleGroup` are `option:<label>`, the pages of a `Pagination` are `page:<n>`, and the display and layout components are found by the test id the app gives them, which a test of RavenComponentBook checks on every story of every component the contract lists as keeping it. `Canvas`, `Icon`, `Skeleton`, `AspectRatio` and `CablePlug` have nothing to find, and the contract says why.

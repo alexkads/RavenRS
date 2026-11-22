@@ -581,6 +581,7 @@ ravenrs_app_server::serve(listener, || {
 | `POST /api/validate/{entity}` | What the rules would say, with nothing kept |
 | `POST /api/run/{name}` | Something of the application's own, from `ApiService::endpoint`, with the permissions of who calls |
 | `GET /api/openapi.json`, `GET /api/me` | The description of what this person can reach; who they are |
+| `GET /api/live/{topic}` | The events of a topic as they happen, as Server-Sent Events, with `ApiOptions::live` (below) |
 | `GET /health` | The only route that needs no token |
 
 Answers: `400` what was asked does not fit, including any field that cannot be written; `401` no valid token; `403` not allowed; `404` no such record, or one this person cannot see; `409` someone got there first; `422` rules or states refuse it, with `violations`; `429` too many tries to sign in; `503` busy.
@@ -594,6 +595,11 @@ An application with a look of its own gives its themes with `App::themes([light,
 The top of the navigation can carry the application's brand: `App::brand(IconTile::new(IconName::Church))` with `brand_subtitle("Central Church")`. Reduced to icons, only the mark stays, and screen readers hear the title and the line. `App::navigation_count("Lesson", |session| ...)` puts a count beside that item of the navigation, read again whenever records change, with `NavigationCount::spoken` for what screen readers hear ("1 with attendance to take"). Cmd/Ctrl+K opens a command palette with the places the person can open. The list report of `ReportModule` comes out in the colors on screen: the accent and its text for the headers, and the theme's text where it is dark enough for white paper.
 
 It is not OData: the query options are its own, which is the difference to keep in mind for clients made for OData. Money travels in cents, as it is stored, and dates as text. Users, roles and the audit trail are not exposed, whatever the permissions say.
+
+**The live channel** sends events as they happen: a build that changed, a line of log. The application keeps a `LiveChannels`, opens its topics with `open("builds")`, gives a clone to the server with `ApiOptions::live`, and publishes from any thread with `publish("builds", "state", json)`. Whoever may read `/api/me` listens at `GET /api/live/builds`, as Server-Sent Events with an `id`, an `event` and JSON `data`.
+- Each topic keeps its last 256 events. Coming back with `Last-Event-ID` (or `?after=`) gets what came after, and a `gap` event when some are no longer kept, to load again.
+- The streams live on the async side and take none of the threads that answer. Every 15 s (`LiveChannels::checked_every`) a stream checks its token again, through those threads, and ends when it was signed out, ran out or its person was turned off. The same tick keeps proxies from closing it.
+- On the client, `RemoteClient::listen(topic, after, waker)` gives a `LiveFeed`: `drain()` while building takes what came, and the feed asks for that build itself. It comes back after losing the stream, waiting 1 s and up to 30 s, from the last event; refused (401, 403, 404), it stops. In the browser it reads the stream with `fetch`, since an `EventSource` cannot send the token.
 
 Limits to know:
 - One thread answers, one request at a time, unless `ApiOptions::workers(n)` asks for more: then `n` threads answer at once, each with its own service made by the same function, and they share who is signed in. That function has to open the same storage each time (a database file or server); records in a `MemoryDatabase` belong to one thread. No throughput has been measured, so none is promised.
@@ -628,7 +634,7 @@ The server decides everything: the copy only holds what the person can see, so t
 
 Limits to know:
 - Everything the person can see is read when they sign in, so this is for what fits in memory. `DataGrid::remote` over the API, for larger lists, is not done.
-- What someone else changes shows only when this person's own write reads that entity again, or on signing in again.
+- What someone else changes shows only when this person's own write reads that entity again, or on signing in again. `RemoteClient::listen` hears the server's live channel, but `RemoteApp` does not use it yet to read again on its own.
 - A record that refers to another one created in the same commit does not work, since the server gives the key. Keep them in two commits.
 - An address comes from the build (`RAVEN_API_URL` in the center), and never from the page's own address, so a link cannot make a page send a password somewhere else.
 
