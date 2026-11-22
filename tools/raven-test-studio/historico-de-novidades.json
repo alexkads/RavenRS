@@ -1,5 +1,23 @@
 [
   {
+    "versao": "0.1.16",
+    "data": "2026-11-22",
+    "titulo": "Clicar, preencher e escolher alcançam o que está fora da vista.",
+    "importante": false,
+    "novidades": [
+      "Antes de agir, o cenário rola até a parte escondida, como uma pessoa faz: um item no fim da barra lateral, um botão no fim de um formulário longo, uma opção numa lista dentro de um diálogo.",
+      "Listas dentro de páginas que rolam são alcançadas pelas duas: a página até a lista, a lista até o item.",
+      "Fora da janela e sem nada que role, o passo continua acusando E2E_NOT_VISIBLE."
+    ],
+    "por_que_atualizar": "Para testar telas na altura de uma janela real, sem aumentar o viewport.",
+    "contribuidores": [
+      "Alex S S Fonseca"
+    ],
+    "issues": [
+      732
+    ]
+  },
+  {
     "versao": "0.1.15",
     "data": "2026-11-17",
     "titulo": "As novidades de cada versão aparecem na janela, como no Raven Finanças.",

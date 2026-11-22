@@ -51,6 +51,9 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `cargo-ravenrs` says when it is behind: an unknown command gives the installed version and the install command (exit code 2), and `--version` and `doctor` warn when the project asks for another RavenRS (#751).
+- RCB: stories for `FormGroup` (inside `FormLayout`) and for tabs without content, sizes and disabled in `Tabs` (#768).
+
 - `FlowCanvas::pan_with_wheel(false)`: the wheel over a diagram goes to what holds it, so a page scrolls past a diagram set in it; dragging and the keys still pan. ([#790](https://github.com/alexkads/RavenRS/issues/790))
 
 - `ravenrs-app-ui`: `Words` has `access`, the words a screen reader hears, in the language of its catalog, and a session starts with them; an `AppShell` or `EntityForm` made with `Words::pt_br()` no longer announces in English ("Showing Contas"). `Words` is `#[non_exhaustive]`, so the new field breaks nothing. ([#768](https://github.com/alexkads/RavenRS/issues/768))
@@ -209,6 +212,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `create-ravenrs`: a guide for machines with little memory (LLD, two jobs, no debug info), and `npm run test:e2e:linux` takes `--memory`, `--jobs`, `--logs` and `--case`, building `hello`, `app-sqlite` and `relatorios` in a container of 4 GB. ([#220](https://github.com/alexkads/RavenRS/issues/220))
 
 ### Fixed
+
+- `ravenrs-e2e`: actions scroll a target out of sight into view first, also inside nested scroll views and when it is inside the window but hidden by a short scroll view (#732). `Ui::scroll_frames` lists the parts that scroll around a node.
 
 - Timeout reports describe the step's time limit without claiming the app was stopped: a failed `wait` can leave its process answering normally. The original condition or transport detail, code and screen remain in text, JSON and JUnit. ([#697](https://github.com/alexkads/RavenRS/issues/697))
 - Raven Test Studio: preflight of an app's embedded scenarios (`--run financas`) preserves build/start error codes, details and fixes in JSON and JUnit, just as running scenario files does. Malformed embedded scenarios remain parse errors. ([#692](https://github.com/alexkads/RavenRS/issues/692))
