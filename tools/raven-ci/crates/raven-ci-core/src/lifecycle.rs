@@ -312,6 +312,7 @@ impl Ci {
             url: None,
             parameters: order.parameters.clone(),
             commit: commit.clone(),
+            ..BuildInfo::default()
         };
 
         let mut environment = BTreeMap::from([
@@ -379,9 +380,11 @@ impl Ci {
             job: order.job.clone(),
             number: order.number,
             status: BuildStatus::Running,
-            url: None,
+            url: self.panel_url(),
             parameters: order.parameters.clone(),
             commit: commit.map(str::to_owned),
+            previous: self.previous_status(&order.job, order.number),
+            ..BuildInfo::default()
         };
         self.notify(&order.settings, &BuildEvent::Started(info), log);
     }
@@ -402,15 +405,33 @@ impl Ci {
             _ => CommitState::Failure,
         };
         self.report(&order.settings, &order.job, reported.as_deref(), state, status.words(), log);
+        let kept = self.build(&order.job, order.number).ok();
+        let duration_ms = kept.as_ref().map(|build| {
+            let end = build.ended_ms.unwrap_or_else(|| self.store().now_ms());
+            u64::try_from(end.saturating_sub(build.created_ms).max(0)).unwrap_or(0)
+        });
         let info = BuildInfo {
             job: order.job.clone(),
             number: order.number,
             status,
-            url: None,
+            url: self.panel_url(),
             parameters: order.parameters.clone(),
             commit: commit.map(str::to_owned),
+            duration_ms,
+            reason: kept.and_then(|build| build.reason),
+            previous: self.previous_status(&order.job, order.number),
         };
         self.notify(&order.settings, &BuildEvent::Ended(info), log);
+    }
+
+    /// How the last build of `job` before `number` that ended, ended.
+    fn previous_status(&self, job: &str, number: u64) -> Option<BuildStatus> {
+        let builds = self.builds(job).ok()?;
+        builds
+            .into_iter()
+            .filter(|build| build.number < number && build.status.ended())
+            .map(|build| build.status)
+            .next()
     }
 
     /// Asks each hook of the plugins on whether the build goes on; the first refusal, in words.

@@ -127,6 +127,7 @@ mod scm;
 #[cfg(feature = "serve")]
 mod serve;
 mod settings;
+mod snapshot;
 mod trigger;
 
 #[cfg(feature = "testing")]
@@ -145,11 +146,12 @@ pub use pipeline::{FormatError, PLUGIN_KEY, Pipeline, PipelineFormat, PostSteps,
 pub use plugin::{CiPlugin, Migration, Point, has_screens, points_of};
 pub use publish::AttachmentInfo;
 pub use publish::{
-    Attachment, BuildEvent, BuildInfo, BuildStatus, CommitState, CommitStatus, Notifier, Publisher,
-    StatusReporter,
+    Attachment, BuildEvent, BuildInfo, BuildStatus, CommitState, CommitStatus, NoticeWhen, Notifier,
+    Publisher, StatusReporter,
 };
 pub use scm::{BranchSource, Checkout, CheckoutRequest, Head, HeadKind, Reference, Scm};
 #[cfg(feature = "serve")]
 pub use serve::{manifest, serve, serve_with};
 pub use settings::check_settings;
+pub use snapshot::{AgentSnapshot, CiSnapshot, JobSnapshot, PluginSnapshot};
 pub use trigger::{BuildRequest, Builds, Trigger};
