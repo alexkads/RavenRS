@@ -125,17 +125,25 @@ fn as_root_a_child_runs_as_the_user_asked() {
 
 #[test]
 fn confining_a_process_needs_a_delegated_cgroup_on_linux_and_is_refused_elsewhere() {
-    let child = Spec::new(FAKE).args(["sleep", "3000"]).spawn().expect("runs");
-    let limits = ravenrs_process::Limits { memory_bytes: Some(256 * 1024 * 1024), cores: Some(1.5) };
-    let confined = ravenrs_process::confine(child.control().pid(), "ravenrs-process-teste", &limits);
-    child.control().stop();
+    // As a build agent does: it confines itself, and so leaves the cgroup it was in, which can then
+    // hand the controllers down (a cgroup with processes cannot).
+    let limits = ravenrs_process::Limits { memory_bytes: Some(1024 * 1024 * 1024), cores: Some(1.5) };
+    let confined = ravenrs_process::confine(std::process::id(), "ravenrs-process-teste", &limits);
     if cfg!(target_os = "linux") {
         match confined {
             Ok(confined) => {
                 let max = std::fs::read_to_string(confined.cgroup.join("memory.max")).expect("memory.max");
-                assert_eq!(max.trim(), (256 * 1024 * 1024).to_string());
+                assert_eq!(max.trim(), (1024 * 1024 * 1024).to_string());
                 let cpu = std::fs::read_to_string(confined.cgroup.join("cpu.max")).expect("cpu.max");
                 assert!(cpu.starts_with("150000 100000"), "{cpu}");
+                let mine = std::fs::read_to_string("/proc/self/cgroup").expect("cgroup");
+                assert!(mine.contains("ravenrs-process-teste"), "{mine}");
+                // What it starts from then on is held too.
+                let child = Spec::new(FAKE).args(["sleep", "3000"]).spawn().expect("runs");
+                let theirs = std::fs::read_to_string(format!("/proc/{}/cgroup", child.control().pid()))
+                    .expect("cgroup");
+                child.control().stop();
+                assert!(theirs.contains("ravenrs-process-teste"), "{theirs}");
             }
             Err(e) => eprintln!("pulado: este Linux não delega o cgroup a quem roda o teste ({e})"),
         }
