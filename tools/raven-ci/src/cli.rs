@@ -18,6 +18,10 @@ pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--f
                           o servidor: HTTP com login, executores e gatilhos
   usuario criar NOME [--papel Executores|Leitores|Administradores]
                           cria quem pode entrar; a senha vem na entrada
+  credencial criar NOME --tipo token|user-password|ssh-key
+                          guarda no cofre; os campos vêm em JSON na entrada
+  credencial listar       as credenciais, sem os valores
+  credencial apagar NOME  revoga e apaga
   <comando> ...           um comando que um plugin ligado traz
   --self-test             confere o núcleo com um plugin falso de cada ponto
   --versao                a versão";
@@ -133,6 +137,56 @@ impl Invocation {
             ["usuario", "criar", name, args @ ..] => {
                 let stdin = std::io::stdin();
                 crate::server::create_user(&self.data, name, args, &mut stdin.lock(), out)
+            }
+            ["credencial", "criar", name, args @ ..] => {
+                let Some(kind) = args.iter().position(|a| *a == "--tipo").and_then(|at| args.get(at + 1)) else {
+                    write(out, "diga o tipo: --tipo token, user-password ou ssh-key\n")?;
+                    return Ok(2);
+                };
+                let mut text = String::new();
+                std::io::Read::read_to_string(&mut std::io::stdin(), &mut text)
+                    .map_err(|e| CiError::failed(e.to_string()))?;
+                let Ok(fields) = serde_json::from_str::<serde_json::Value>(&text) else {
+                    write(out, "os campos vêm em JSON na entrada: echo '{\"token\": \"...\"}' | raven-ci credencial criar NOME --tipo token\n")?;
+                    return Ok(2);
+                };
+                match ci.save_credential(name, kind, &fields, std::env::var("USER").ok().as_deref()) {
+                    Ok(()) => {
+                        write(out, &format!("{name}: guardada no cofre, do tipo {kind}\n"))?;
+                        Ok(0)
+                    }
+                    Err(why) => {
+                        write(out, &format!("{why}\n"))?;
+                        Ok(2)
+                    }
+                }
+            }
+            ["credencial", "listar"] => {
+                let list = ci.credentials()?;
+                if self.json {
+                    write(out, &json(&list)?)?;
+                } else if list.is_empty() {
+                    write(out, "nenhuma credencial\n")?;
+                } else {
+                    for credential in &list {
+                        write(out, &format!("{:<24}{}\n", credential.name, credential.kind))?;
+                    }
+                }
+                Ok(0)
+            }
+            ["credencial", "apagar", name] => match ci.delete_credential(name) {
+                Ok(()) => {
+                    write(out, &format!("{name}: revogada e apagada\n"))?;
+                    Ok(0)
+                }
+                Err(why) => {
+                    write(out, &format!("{why}\n"))?;
+                    Ok(2)
+                }
+            },
+            ["credencial", ..] => {
+                write(out, &format!("{USAGE}\n"))?;
+                Ok(2)
             }
             ["usuario", ..] => {
                 write(out, &format!("{USAGE}\n"))?;

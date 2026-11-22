@@ -129,3 +129,27 @@ fn the_server_stops_when_a_service_manager_tells_it_to() {
         std::thread::sleep(Duration::from_millis(50));
     }
 }
+
+#[test]
+fn a_credential_is_made_on_the_command_line_listed_only_to_administrators_and_never_with_its_value() {
+    let running = start("credenciais");
+    assert!(create_user(&running.dir, "bia", "Executores").contains("Executores"));
+    let mut child = raven(&running.dir)
+        .args(["credencial", "criar", "github", "--tipo", "token"])
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .spawn()
+        .expect("runs");
+    child.stdin.take().expect("stdin").write_all(br#"{"token": "ghp_do_teste_123456"}"#).expect("written");
+    let made = child.wait_with_output().expect("ends");
+    assert!(made.status.success(), "{}", String::from_utf8_lossy(&made.stdout));
+    let listed = raven(&running.dir).args(["credencial", "listar"]).output().expect("runs");
+    assert!(String::from_utf8_lossy(&listed.stdout).contains("github"));
+    let ana = token(&running, "ana");
+    let (status, list) = get(&running, "/api/ci/credentials", Some(&ana));
+    assert_eq!(status, 200);
+    assert_eq!(list[0]["name"], "github");
+    assert!(!list.to_string().contains("ghp_do_teste"), "{list}");
+    let bia = token(&running, "bia");
+    assert_eq!(get(&running, "/api/ci/credentials", Some(&bia)).0, 403);
+}

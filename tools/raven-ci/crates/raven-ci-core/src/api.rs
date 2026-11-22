@@ -14,6 +14,7 @@
 //! - For anyone signed in, to read: `GET /api/ci/jobs`, `/api/ci/builds?job=`,
 //!   `/api/ci/build?job=&number=` (with its stages and attachments), `/api/ci/log?job=&number=&after=`
 //!   (the lines after `after`, for a reader that follows) and `/api/ci/queue`.
+//! - For administrators: `GET /api/ci/credentials`, the credentials with no value.
 //! - The [`Route`](raven_ci_plugin_api::Route)s of the plugins on: a public one with no one signed
 //!   in (under `/hooks/`, the only paths the server lets in with no token), any other only for
 //!   someone signed in, told their name and roles.
@@ -151,6 +152,15 @@ fn to_json(value: &impl serde::Serialize) -> Json {
 /// What the core answers `request`, or `None` for a path that is not its own.
 fn answer(ci: &Ci, request: &ApiRequest, who: &mut dyn FnMut() -> Option<Caller>) -> Option<ApiResponse> {
     let path: Vec<&str> = request.path.iter().map(String::as_str).collect();
+    if path.as_slice() == ["api", "ci", "credentials"] && request.method == "GET" {
+        return Some(match who() {
+            None => unauthorized(),
+            Some(caller) if !caller.administrator => {
+                json(403, &json!({ "error": "denied", "message": "só administradores veem as credenciais" }))
+            }
+            Some(_) => ci.credentials().map_or_else(|e| from_error(&e), |list| json(200, &to_json(&list))),
+        });
+    }
     if let ["api", "ci", what] = path.as_slice()
         && request.method == "GET"
         && READS.contains(what)

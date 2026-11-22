@@ -34,6 +34,7 @@
 //! ```
 
 pub mod api;
+pub mod credentials;
 pub mod external;
 mod host;
 mod lifecycle;
@@ -119,6 +120,8 @@ pub struct Ci {
     temporary: Option<PathBuf>,
     /// Where each build gets the folder it runs in.
     workspaces: PathBuf,
+    /// The vault of credentials, for a core with a folder.
+    credentials: Option<Arc<credentials::Credentials>>,
 }
 
 impl Drop for Ci {
@@ -186,7 +189,14 @@ impl Ci {
         );
         let store = Arc::new(store);
         let runtime = runtime.clock(ClockOf(options.clock.clone()));
-        let registry = Registry::new(store.clone(), plugins_dir, options.secrets, log.clone());
+        // A core with a folder keeps credentials in a vault of its own; one in memory has only the
+        // secrets it was given.
+        let credentials = match &options.data_dir {
+            Some(dir) => Some(Arc::new(credentials::Credentials::open(dir, store.clone(), log.clone())?)),
+            None => None,
+        };
+        let secrets = Arc::new(credentials::Either { vault: credentials.clone(), given: options.secrets });
+        let registry = Registry::new(store.clone(), plugins_dir, secrets, log.clone());
         Ok(Self {
             store,
             registry,
@@ -195,6 +205,7 @@ impl Ci {
             requests: Mutex::default(),
             temporary,
             workspaces,
+            credentials,
         })
     }
 
@@ -608,6 +619,49 @@ impl Ci {
                 trigger.unwatch(name);
             }
         }
+    }
+}
+
+impl Ci {
+    fn vault(&self) -> Result<&credentials::Credentials, CiError> {
+        self.credentials
+            .as_deref()
+            .ok_or_else(|| CiError::unavailable("um núcleo em memória não tem cofre de credenciais"))
+    }
+
+    /// Seals `fields` as the credential `name` of the kind `kind` (a kind a plugin on brings),
+    /// checked against the kind's form; saved again, its value is rotated. `by` is who made it.
+    pub fn save_credential(&self, name: &str, kind: &str, fields: &Value, by: Option<&str>) -> Result<(), CiError> {
+        let found = self
+            .registry
+            .on()
+            .iter()
+            .flat_map(|plugin| plugin.credential_kinds())
+            .find(|candidate| candidate.id() == kind)
+            .ok_or_else(|| CiError::unavailable(format!("nenhum plugin ligado traz credenciais do tipo {kind}")))?;
+        check_settings(&found.fields(), fields).map_err(|problems| {
+            problems.into_iter().next().unwrap_or_else(|| CiError::failed("os campos da credencial"))
+        })?;
+        let secret = found.secret(fields);
+        if secret.is_empty() {
+            return Err(CiError::settings(kind, "a credencial não tem o valor que o tipo dá aos plugins"));
+        }
+        let mut hidden = found.hidden(fields);
+        hidden.retain(|value| !value.is_empty());
+        self.vault()?.save(name, kind, fields, secret, hidden, by)
+    }
+
+    /// Every credential, with no value.
+    pub fn credentials(&self) -> Result<Vec<credentials::CredentialInfo>, CiError> {
+        match &self.credentials {
+            Some(vault) => vault.list(),
+            None => Ok(Vec::new()),
+        }
+    }
+
+    /// Revokes the credential `name` and forgets it.
+    pub fn delete_credential(&self, name: &str) -> Result<(), CiError> {
+        self.vault()?.delete(name)
     }
 }
 

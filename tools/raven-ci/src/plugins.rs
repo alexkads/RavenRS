@@ -6,6 +6,7 @@ use std::sync::Arc;
 use raven_ci_plugin_api::CiPlugin;
 use raven_ci_plugin_api_trigger::ApiTriggerPlugin;
 use raven_ci_plugin_cron::CronPlugin;
+use raven_ci_plugin_credentials::CredentialsPlugin;
 use raven_ci_plugin_format_toml::TomlFormatPlugin;
 use raven_ci_plugin_git::GitPlugin;
 use raven_ci_plugin_lock::LockPlugin;
@@ -22,5 +23,6 @@ pub fn builtin() -> Vec<Arc<dyn CiPlugin>> {
         Arc::new(WorkspacePlugin::new()),
         Arc::new(ApiTriggerPlugin::new()),
         Arc::new(CronPlugin::new()),
+        Arc::new(CredentialsPlugin),
     ]
 }

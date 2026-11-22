@@ -15,6 +15,13 @@ use crate::store::Store;
 pub trait Secrets: Send + Sync {
     /// The secret `name`, when there is one.
     fn get(&self, name: &str) -> Option<String>;
+
+    /// What else a log must hide once `name` is read: the other values of a credential of many
+    /// fields, the forms derived from it.
+    fn hidden(&self, name: &str) -> Vec<String> {
+        let _ = name;
+        Vec::new()
+    }
 }
 
 /// No secrets at all: what a server with no vault has.
@@ -197,6 +204,9 @@ impl Host for PluginHost {
         let value =
             self.secrets.get(name).ok_or_else(|| CiError::unavailable(format!("não há o segredo {name}")))?;
         self.log.add_hidden(&value);
+        for other in self.secrets.hidden(name) {
+            self.log.add_hidden(&other);
+        }
         Ok(value)
     }
 

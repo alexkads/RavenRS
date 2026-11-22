@@ -6009,6 +6009,7 @@ dependencies = [
  "raven-ci-core",
  "raven-ci-plugin-api",
  "raven-ci-plugin-api-trigger",
+ "raven-ci-plugin-credentials",
  "raven-ci-plugin-cron",
  "raven-ci-plugin-format-toml",
  "raven-ci-plugin-git",
@@ -6036,6 +6037,7 @@ dependencies = [
  "ravenrs-flows-runtime",
  "ravenrs-metrics",
  "ravenrs-process",
+ "ravenrs-secrets",
  "rusqlite",
  "serde",
  "serde_json",
@@ -6062,6 +6064,18 @@ dependencies = [
  "raven-ci-plugin-api",
  "ravenrs-app",
  "ravenrs-app-server",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-credentials"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
  "serde_json",
 ]
 
