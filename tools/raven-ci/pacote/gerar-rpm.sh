@@ -6,7 +6,7 @@
 #   tools/raven-ci/pacote/gerar-rpm.sh PAINEL.tar [LANCAMENTO]
 #
 # PAINEL.tar is the panel for the browser, made where wasm-bindgen is
-# (`scripts/build-web.sh raven-ci`, then `tar -cf painel.tar -C tools/raven-ci/web index.html pkg`).
+# (`scripts/build-web.sh raven-ci`, then `COPYFILE_DISABLE=1 tar --no-xattrs -cf painel.tar -C tools/raven-ci/web index.html pkg` on a Mac).
 # The release binaries are built waiting for the lock of the machine, with 2 jobs and nice, under
 # a limit of memory, so a build never takes the machine down. The .rpm goes to
 # tools/raven-ci/pacote/rpm/.
