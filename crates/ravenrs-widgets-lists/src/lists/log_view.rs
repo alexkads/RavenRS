@@ -16,7 +16,7 @@ use super::log_ansi::{Span, parse};
 use super::virtual_list::{ScrollCommand, VirtualList};
 use crate::context::{BuildCx, NodeId, Paint, QuadPaint, Semantics};
 use crate::view::View;
-use crate::{Button, ButtonSize, ButtonStyle, HStack, Spacer, Text, TextField, VStack, util};
+use crate::{Button, ButtonSize, ButtonStyle, HStack, Icon, IconName, Spacer, Text, TextField, VStack, util};
 
 /// The height of one line, in points.
 const LINE: f32 = 20.0;
@@ -259,7 +259,6 @@ impl View for LogRow {
                 let folded = self.folded.get().contains(&index);
                 let mut bold = attrs.clone();
                 bold.weight = 600.0;
-                let mark = if folded { "▸" } else { "▾" };
                 // What it says is also its name: a screen reader hears how much a fold hides.
                 let mut name = section.title.clone();
                 if folded {
@@ -268,7 +267,11 @@ impl View for LogRow {
                         self.folded_text.replace("{0}", &section.lines.to_string())
                     ));
                 }
-                let text = cx.text(&format!("{mark} {name}"), &bold, theme.color(Semantic::Ink), style(1.0));
+                // The mark is an icon: no embedded font draws ▸ and ▾, and they came out as an
+                // empty box (#849).
+                let chevron = if folded { IconName::ChevronRight } else { IconName::ChevronDown };
+                let mark = cx.child(&Icon::new(chevron).size(14.0).color(theme.color(Semantic::InkMuted)));
+                let text = cx.text(&name, &bold, theme.color(Semantic::Ink), style(1.0));
                 // The section is one button to a screen reader: its title is not read twice.
                 cx.semantics(text, Semantics { hidden: true, ..Semantics::new(Role::Label) });
                 let node = cx.container(
@@ -276,9 +279,10 @@ impl View for LogRow {
                         height: Some(LINE),
                         align: Align::Center,
                         padding: ravenrs_core::Insets::symmetric(0.0, 8.0),
+                        spacing: 6.0,
                         ..LayoutStyle::stack(Axis::Horizontal)
                     },
-                    &[text],
+                    &[mark, text],
                     Paint::Quad(QuadPaint::new(theme.color(Semantic::Control).with_alpha(0.6))),
                 );
                 let (toggle, access) = (self.folded.clone(), self.folded.clone());

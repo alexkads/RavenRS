@@ -1286,7 +1286,7 @@ fn the_data_inspector_shows_the_orders_four_ways_and_keeps_the_field_chosen() {
     c.press("Copiar como expressão");
     assert_eq!(c.ui.clipboard().read().as_deref(), Some("[pedido]"), "or copied as one from the keyboard");
     c.activate("Esquema");
-    assert!(c.says("▸ pedido"), "the field chosen stays chosen");
+    assert!(c.says("→ pedido"), "the field chosen stays chosen");
     assert!(c.says("cliente.cidade"), "a field one order lacks");
     c.activate("JSON");
     assert!(c.says("Campo escolhido: pedido"));
