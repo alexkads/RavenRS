@@ -59,6 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `ravenrs-secrets`, the vault: secrets sealed with ChaCha20-Poly1305 under a key kept apart from them (`KeyFile`, `KeyFromEnv`, or the system's store with the feature `system-keyring`), an opaque `SecretRef` for documents and exports, separate rights to use (`use_with`), reveal and administer, rotation, revocation, `MemoryStorage` and `FileStorage`, and one `Redactor` that keeps every value handed out of text as `•••`. `ravenrs-agent-cli` masks with the same `redact` (#815, part of #546).
+
 - The live channel: `ravenrs-app-server` streams events as they happen at `GET /api/live/{topic}`, as Server-Sent Events, from a `LiveChannels` the application publishes to from any thread (`open`, `publish`, `ApiOptions::live`). Each topic keeps its last 256 events for whoever comes back with `Last-Event-ID`, and sends `gap` when some are gone. The streams take none of the threads that answer, and end when their token does. `ravenrs-app-remote` listens with `RemoteClient::listen`, on the desktop and in the browser (`LiveFeed`, `SseParser`), coming back from the last event when the stream is lost (#810).
 
 - `hello-world`, `calculator`, `quick-app`, `tutorial-tasks` and `tasks-sqlite` have scenarios of the Raven Test Studio in `tests/e2e/`, served with `--e2e-serve` and played on every `cargo test` by `tests/scenarios.rs` (#702). `Scenario::play` in `ravenrs-e2e-wire` plays a scenario on a session in the same process. The display of the calculator is `display`.
