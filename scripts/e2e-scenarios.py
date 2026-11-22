@@ -34,6 +34,7 @@ NO_SCREEN = {
     "examples/contracts/associacao": (707, "prints each notice to the terminal; no window"),
     "examples/contracts/cursos": (708, "prints each notice to the terminal; no window"),
     "tools/raven-channel-video": (705, "a command line that records other apps; no window of its own"),
+    "tools/raven-ci": (803, "a server and a command line for now; its panel, with scenarios, is phase 4 of #803"),
 }
 
 CHECKS = {"check", "conferir", "mention", "mencionar", "menciona"}
