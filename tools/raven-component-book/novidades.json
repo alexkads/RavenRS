@@ -24,7 +24,8 @@
     "--replay <tela.rcb.json> confere se o RavenRS monta cada peça de uma tela do Claude Design como foi desenhada: o desenho marca cada componente com data-rcb e data-rcb-args, um script da prancheta (no guia) grava as caixas, e o livro desenha cada história com as mesmas configurações num pai da largura da caixa e aponta o que diverge mais de 1 pt, o componente, a história, a configuração ou a opção que não existe. Sai com 1 quando algo diverge. A tela da Fase 0 é o teste.",
     "Os temas das aplicações entram no design system: o Raven Finanças grava os seus (claro, escuro e vidro) em examples/family-finance/design com Theme::to_tokens_json, um teste dele confere que o arquivo é o do código, e o RCB os põe no tokens.json e no tokens.css como financas-claro, financas-escuro e financas-vidro. O guia diz como usar: data-theme na raiz da tela.",
     "O EntityForm, o formulário gerado do modelo, tem ficha: um lançamento como o do Finanças, com descrição, largo, com as regras não atendidas e com cada tipo de campo e o editor que o registro dá a ele (texto, inteiro, decimal, dinheiro, data, data e hora, escolha, escolha segmentada, cor, liga e desliga e texto longo).",
-    "Cada história fala uma língua só: as dos componentes em inglês, com dinheiro em dólares no formato inglês (era R$ 1,299.90), e as da família Application em português, com o que é anunciado também (o AppShell dizia Showing Contas)."
+    "Cada história fala uma língua só: as dos componentes em inglês, com dinheiro em dólares no formato inglês (era R$ 1,299.90), e as da família Application em português, com o que é anunciado também (o AppShell dizia Showing Contas).",
+    "O --replay aceita em icon qualquer ícone da ficha do Icon, não só a amostra das fichas; o DropdownMenu ganha as configurações label e icon e a história Primary with icon; o Select ganha fill e a história Fill; a Sidebar ganha Items with a state and an action; o FlowCanvas ganha Cables e Cards and a selection. Lacunas que o replay das telas do Fermata mostrou (#831)."
   ],
   "por_que_atualizar": "Para o Claude Design saber o que estica e o que se ajusta ao conteúdo, em vez de copiar a largura de uma medida só.",
   "contribuidores": [
@@ -36,6 +37,7 @@
     759,
     760,
     761,
-    762
+    762,
+    831
   ]
 }

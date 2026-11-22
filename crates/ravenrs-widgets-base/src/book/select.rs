@@ -14,6 +14,9 @@ fn select(args: &Args) -> AnyView {
         .size(size(args.choice("size")))
         .disabled(args.bool("disabled"))
         .read_only(args.bool("read_only"));
+    if args.bool("fill") {
+        select = select.fill();
+    }
     if args.bool("searchable") {
         select = select.searchable();
     }
@@ -32,6 +35,10 @@ impl ComponentBook for Select {
             .arg(ArgType::number("selected", 0.0, 0.0, 10.0, 1.0))
             .arg(ArgType::choice("size", SIZES, "Medium"))
             .arg(ArgType::bool("searchable", false).description("A search box at the top of the list."))
+            .arg(
+                ArgType::bool("fill", false)
+                    .description("Fills the width of its column, as the fields around it."),
+            )
             .arg(ArgType::bool("disabled", false))
             .arg(ArgType::bool("read_only", false))
             .story("Default", Args::new())
@@ -47,5 +54,6 @@ impl ComponentBook for Select {
             .story("Read only", Args::new().with("read_only", true))
             .story("Mini", Args::new().with("size", ArgValue::choice("Mini")))
             .story("Large", Args::new().with("size", ArgValue::choice("Large")))
+            .story("Fill", Args::new().with("fill", true))
     }
 }

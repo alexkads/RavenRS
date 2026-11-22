@@ -1,0 +1,327 @@
+{
+  "screen": "01-workspace",
+  "elements": [
+    {
+      "rcb": "IconButton/Ghost",
+      "args": {
+        "icon": "plus",
+        "label": "Novo workspace",
+        "size": "Small",
+        "style": "Ghost"
+      },
+      "box": [
+        204,
+        72,
+        32,
+        32
+      ]
+    },
+    {
+      "rcb": "IconButton/Ghost",
+      "args": {
+        "icon": "trash-2",
+        "label": "Excluir loja-api",
+        "size": "Small",
+        "style": "Ghost"
+      },
+      "box": [
+        202,
+        108,
+        32,
+        32
+      ]
+    },
+    {
+      "rcb": "Badge/Warning",
+      "args": {
+        "icon": "loader-circle",
+        "text": "rodando",
+        "tone": "Warning"
+      },
+      "box": [
+        142.46875,
+        275,
+        85.53125,
+        22
+      ]
+    },
+    {
+      "rcb": "Badge/Success with icon",
+      "args": {
+        "icon": "check",
+        "text": "pronto",
+        "tone": "Success"
+      },
+      "box": [
+        168.71875,
+        313,
+        74.875,
+        22
+      ]
+    },
+    {
+      "rcb": "Badge/Neutral",
+      "args": {
+        "icon": "clock",
+        "text": "aguardando",
+        "tone": "Neutral"
+      },
+      "box": [
+        119.9375,
+        351,
+        108.0625,
+        22
+      ]
+    },
+    {
+      "rcb": "Badge/Danger",
+      "args": {
+        "icon": "x",
+        "text": "falhou",
+        "tone": "Danger"
+      },
+      "box": [
+        154.703125,
+        389,
+        73.296875,
+        22
+      ]
+    },
+    {
+      "rcb": "DropdownMenu/Style: Primary",
+      "args": {
+        "icon": "plus",
+        "label": "Novo agente",
+        "style": "Primary"
+      },
+      "box": [
+        412,
+        12,
+        175.75,
+        40
+      ]
+    },
+    {
+      "rcb": "Button/Secondary",
+      "args": {
+        "icon": "file-text",
+        "label": "Nota",
+        "style": "Secondary"
+      },
+      "box": [
+        595.75,
+        12,
+        96.515625,
+        40
+      ]
+    },
+    {
+      "rcb": "Button/Secondary",
+      "args": {
+        "icon": "external-link",
+        "label": "Portal",
+        "style": "Secondary"
+      },
+      "box": [
+        700.265625,
+        12,
+        104.84375,
+        40
+      ]
+    },
+    {
+      "rcb": "Button/Secondary",
+      "args": {
+        "label": "Desenho",
+        "style": "Secondary",
+        "icon": "pencil"
+      },
+      "box": [
+        813.109375,
+        12,
+        126.3125,
+        40
+      ]
+    },
+    {
+      "rcb": "Toggle/On",
+      "args": {
+        "label": "Inteligente",
+        "on": true
+      },
+      "box": [
+        1148.53125,
+        12,
+        123.984375,
+        24
+      ]
+    },
+    {
+      "rcb": "Toggle/On",
+      "args": {
+        "label": "Cabos",
+        "on": true
+      },
+      "box": [
+        1280.515625,
+        12,
+        95.484375,
+        24
+      ]
+    },
+    {
+      "rcb": "IconButton/Ghost",
+      "args": {
+        "icon": "square",
+        "label": "Parar todos",
+        "style": "Ghost"
+      },
+      "box": [
+        1384,
+        12,
+        40,
+        40
+      ]
+    },
+    {
+      "rcb": "Badge/Warning",
+      "args": {
+        "icon": "loader-circle",
+        "text": "rodando",
+        "tone": "Warning"
+      },
+      "box": [
+        421.46875,
+        126,
+        85.53125,
+        22
+      ]
+    },
+    {
+      "rcb": "Badge/Success with icon",
+      "args": {
+        "icon": "check",
+        "text": "pronto",
+        "tone": "Success"
+      },
+      "box": [
+        728.125,
+        126,
+        74.875,
+        22
+      ]
+    },
+    {
+      "rcb": "Badge/Danger",
+      "args": {
+        "icon": "x",
+        "text": "falhou",
+        "tone": "Danger"
+      },
+      "box": [
+        433.703125,
+        378,
+        73.296875,
+        22
+      ]
+    },
+    {
+      "rcb": "Badge/Neutral",
+      "args": {
+        "icon": "clock",
+        "text": "aguardando",
+        "tone": "Neutral"
+      },
+      "box": [
+        694.9375,
+        378,
+        108.0625,
+        22
+      ]
+    },
+    {
+      "rcb": "Badge/Neutral",
+      "args": {
+        "icon": "clock",
+        "text": "aguardando",
+        "tone": "Neutral"
+      },
+      "box": [
+        1185.484375,
+        82,
+        108.0625,
+        22
+      ]
+    },
+    {
+      "rcb": "Select/Default",
+      "args": {
+        "label": "Agente",
+        "fill": true,
+        "options": "Claude Code, Codex, Shell",
+        "selected": 0
+      },
+      "box": [
+        1116,
+        145,
+        308,
+        40
+      ]
+    },
+    {
+      "rcb": "Select/Default",
+      "args": {
+        "label": "Papel",
+        "fill": true,
+        "options": "Revisor, Maestro, Implementador, Testador, Documentador",
+        "selected": 0
+      },
+      "box": [
+        1116,
+        221,
+        308,
+        40
+      ]
+    },
+    {
+      "rcb": "FormField/Filled",
+      "args": {
+        "hint": "Onde o agente roda os comandos.",
+        "required": false,
+        "value": "~/Projects/loja-api"
+      },
+      "box": [
+        1116,
+        277,
+        308,
+        88
+      ]
+    },
+    {
+      "rcb": "TextField/Filled",
+      "args": {
+        "placeholder": "Pasta do projeto",
+        "value": "~/Projects/loja-api"
+      },
+      "box": [
+        1116,
+        301,
+        308,
+        40
+      ]
+    },
+    {
+      "rcb": "Toggle/Off",
+      "args": {
+        "label": "Pode editar arquivos",
+        "on": false
+      },
+      "box": [
+        1116,
+        381,
+        196.03125,
+        24
+      ]
+    }
+  ]
+}
