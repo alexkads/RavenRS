@@ -276,6 +276,7 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Fixed
 
+- `LogView` marks a section that folds with the chevron icons, and `DataInspector` marks the chosen field with →: they drew ▸ and ▾, which no embedded font has, as an empty box. The book refuses a design system with a letter no embedded font draws. ([#849](https://github.com/alexkads/RavenRS/issues/849))
 - `ravenrs-e2e` reaches a row at the end of a long list: the hunt for a row not built yet scrolls to the end of the list instead of giving up after 240 turns of the wheel (a list of 10,000 rows did not reach row 9,999).
 
 - `YearView` no longer overflows on a day before 1970 (a debug build panicked).

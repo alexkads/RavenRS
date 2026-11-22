@@ -73,6 +73,13 @@ fn the_design_system_has_a_card_a_preview_and_a_json_for_every_component() {
         assert!(folder.join("README.md").exists());
         assert!(folder.join(format!("{}.json", entry.name())).exists());
     }
+    // No letter comes out as U+FFFD: that is a glyph no embedded font has, drawn as an empty box,
+    // and the design tool refuses the file (#849).
+    for path in &written {
+        if let Ok(text) = std::fs::read_to_string(dir.join(path)) {
+            assert!(!text.contains('\u{fffd}'), "{path} has a letter no embedded font draws");
+        }
+    }
     let readme = std::fs::read_to_string(project.join("README.md")).expect("readme");
     assert!(readme.contains("Use only the components listed below"));
     assert!(readme.contains("| `Button` |"));
