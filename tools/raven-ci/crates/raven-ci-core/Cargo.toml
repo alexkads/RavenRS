@@ -9,6 +9,8 @@ license.workspace = true
 publish = false
 
 [dependencies]
+# The bytes of an attachment a plugin reads back, in the lines of the protocol.
+base64 = "0.23"
 raven-ci-plugin-api = { path = "../raven-ci-plugin-api" }
 ravenrs-app.workspace = true
 # The HTTP API: signing in, keys, and the routes of the plugins through its fallback.

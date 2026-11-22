@@ -473,6 +473,8 @@ What the plugin asks the server, besides `host/log`, `host/settings`, `host/secr
 | `host/hide` | `call`, `value`; a notification | nothing | nothing |
 | `host/request_build` | `trigger`, `watched` (the job it watches), `request` (a `BuildRequest`) | the number of the build | a job its trigger watches |
 | `host/scan` | `trigger`, `watched`, `job` | what changed, in words | a job its trigger watches |
+| `host/attachments` | `job`, `number` (or `null` for every build kept), `kind` | what the builds left, without the bytes: `[{id, job, number, kind, name, mime, size, summary}]` | nothing |
+| `host/attachment` | `id` | `{info, base64}`: the attachment and its bytes | nothing |
 
 An error carries `data` that says what it is, so it crosses whole: a refusal of the host is still
 *não tem a permissão* on the other side, and a settings error is still the field and the reason.

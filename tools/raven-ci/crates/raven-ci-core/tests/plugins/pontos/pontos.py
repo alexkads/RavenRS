@@ -68,6 +68,15 @@ def answer(method, params, call):
     if method == "step/execute":
         if params["parameters"].get("cair"):
             sys.exit(3)
+        if params["parameters"].get("anexos"):
+            # Reads back what builds left: the list, then the bytes of the first.
+            send({"jsonrpc": "2.0", "id": "a1", "method": "host/attachments",
+                  "params": {"job": "site", "number": None, "kind": "relatorio"}})
+            listed = json.loads(sys.stdin.readline())["result"]
+            send({"jsonrpc": "2.0", "id": "a2", "method": "host/attachment", "params": {"id": listed[0]["id"]}})
+            one = json.loads(sys.stdin.readline())["result"]
+            text = base64.b64decode(one["base64"]).decode()
+            return {"outputs": {"main": [{"nomes": [a["name"] for a in listed], "texto": text}]}}
         send({"jsonrpc": "2.0", "method": "host/hide", "params": {"call": call, "value": "chave-123"}})
         send({"jsonrpc": "2.0", "method": "host/build_log",
               "params": {"call": call, "step": "", "line": "do plugin: chave-123"}})

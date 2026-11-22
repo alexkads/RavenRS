@@ -119,6 +119,10 @@ pub mod method {
     pub const HOST_REQUEST_BUILD: &str = "host/request_build";
     /// [`Builds::scan`](crate::Builds::scan), for a job a trigger of the plugin watches.
     pub const HOST_SCAN: &str = "host/scan";
+    /// [`Host::attachments`](crate::Host::attachments): what builds left, without the bytes.
+    pub const HOST_ATTACHMENTS: &str = "host/attachments";
+    /// [`Host::attachment`](crate::Host::attachment): one attachment, its bytes in base64.
+    pub const HOST_ATTACHMENT: &str = "host/attachment";
 }
 
 fn first_version() -> u32 {

@@ -415,3 +415,77 @@ fn what_a_step_writes_for_its_build_goes_to_the_log_of_the_build_hidden() {
     assert_eq!(log.lines(), [("falar".to_owned(), "do plugin: ****".to_owned())]);
     plugin.stop();
 }
+
+/// A host that keeps the attachments of builds, around the fake one.
+struct WithAttachments(Arc<raven_ci_plugin_api::testing::FakeHost>);
+
+impl raven_ci_plugin_api::Host for WithAttachments {
+    fn plugin(&self) -> &str {
+        self.0.plugin()
+    }
+    fn granted(&self) -> Vec<Permission> {
+        self.0.granted()
+    }
+    fn require(&self, permission: Permission, what: &str) -> Result<(), raven_ci_plugin_api::CiError> {
+        self.0.require(permission, what)
+    }
+    fn settings(&self) -> serde_json::Value {
+        raven_ci_plugin_api::Host::settings(self.0.as_ref())
+    }
+    fn data_dir(&self) -> Result<std::path::PathBuf, raven_ci_plugin_api::CiError> {
+        self.0.data_dir()
+    }
+    fn database(&self) -> Result<std::path::PathBuf, raven_ci_plugin_api::CiError> {
+        self.0.database()
+    }
+    fn secret(&self, name: &str) -> Result<String, raven_ci_plugin_api::CiError> {
+        self.0.secret(name)
+    }
+    fn log(&self, line: &str) {
+        self.0.log(line);
+    }
+    fn attachments(
+        &self,
+        job: &str,
+        number: Option<u64>,
+        kind: &str,
+    ) -> Result<Vec<raven_ci_plugin_api::AttachmentInfo>, raven_ci_plugin_api::CiError> {
+        assert_eq!((job, number, kind), ("site", None, "relatorio"));
+        Ok(vec![relatorio()])
+    }
+    fn attachment(
+        &self,
+        id: i64,
+    ) -> Result<(raven_ci_plugin_api::AttachmentInfo, Vec<u8>), raven_ci_plugin_api::CiError> {
+        assert_eq!(id, 41);
+        Ok((relatorio(), "passou tudo".as_bytes().to_vec()))
+    }
+}
+
+fn relatorio() -> raven_ci_plugin_api::AttachmentInfo {
+    raven_ci_plugin_api::AttachmentInfo {
+        id: 41,
+        job: "site".into(),
+        number: 2,
+        kind: "relatorio".into(),
+        name: "resumo.txt".into(),
+        mime: "text/plain".into(),
+        size: 11,
+        summary: serde_json::json!({}),
+    }
+}
+
+#[test]
+fn a_plugin_reads_back_what_builds_left_through_the_host() {
+    if !python() {
+        return;
+    }
+    let fake = Arc::new(raven_ci_plugin_api::testing::FakeHost::new("pontos", &[]));
+    let plugin = ExternalPlugin::open(&test_plugins().join("pontos")).expect("opens");
+    plugin.start(Arc::new(WithAttachments(fake))).expect("on");
+    let ask = serde_json::json!({ "kind": "diz", "parameters": { "anexos": true }, "inputs": {} });
+    let answer = plugin.call("step/execute", ask).expect("answers");
+    assert_eq!(answer["outputs"]["main"][0]["nomes"], serde_json::json!(["resumo.txt"]));
+    assert_eq!(answer["outputs"]["main"][0]["texto"], "passou tudo");
+    plugin.stop();
+}

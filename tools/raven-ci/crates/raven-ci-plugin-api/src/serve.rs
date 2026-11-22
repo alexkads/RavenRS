@@ -44,6 +44,8 @@ use std::sync::mpsc::{Sender, channel};
 use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
 use std::time::Duration;
 
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD;
 use ravenrs_flows::{Catalog, Item, Mode, NodeContext, NodeDef, Ports};
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value, json};
@@ -54,9 +56,9 @@ use crate::protocol::{
     http_request_from_wire, http_response_to_wire, method,
 };
 use crate::{
-    AgentLauncher, BranchSource, BuildContext, BuildHook, BuildLog, BuildRequest, BuildScope, Builds,
-    CiError, CiPlugin, CliCommand, CredentialKind, Host, LaunchedAgent, Notifier, Permission, PipelineFormat,
-    Publisher, Route, Scm, StatusReporter, Trigger, enter,
+    AgentLauncher, AttachmentInfo, BranchSource, BuildContext, BuildHook, BuildLog, BuildRequest, BuildScope,
+    Builds, CiError, CiPlugin, CliCommand, CredentialKind, Host, LaunchedAgent, Notifier, Permission,
+    PipelineFormat, Publisher, Route, Scm, StatusReporter, Trigger, enter,
 };
 
 /// The longest the plugin waits for the server to answer something it asked.
@@ -278,6 +280,29 @@ impl Host for WireHost {
 
     fn log(&self, line: &str) {
         self.wire.notify(method::HOST_LOG, json!({ "line": line }));
+    }
+
+    fn attachments(
+        &self,
+        job: &str,
+        number: Option<u64>,
+        kind: &str,
+    ) -> Result<Vec<AttachmentInfo>, CiError> {
+        let answer =
+            self.wire.ask(method::HOST_ATTACHMENTS, json!({ "job": job, "number": number, "kind": kind }))?;
+        serde_json::from_value(answer)
+            .map_err(|e| CiError::failed(format!("os anexos que o servidor deu: {e}")))
+    }
+
+    fn attachment(&self, id: i64) -> Result<(AttachmentInfo, Vec<u8>), CiError> {
+        let answer = self.wire.ask(method::HOST_ATTACHMENT, json!({ "id": id }))?;
+        let info = serde_json::from_value(answer.get("info").cloned().unwrap_or(Value::Null))
+            .map_err(|e| CiError::failed(format!("o anexo {id} que o servidor deu: {e}")))?;
+        let text = answer.get("base64").and_then(Value::as_str).unwrap_or_default();
+        let bytes = STANDARD
+            .decode(text.as_bytes())
+            .map_err(|e| CiError::failed(format!("o anexo {id}: base64: {e}")))?;
+        Ok((info, bytes))
     }
 }
 
@@ -633,5 +658,128 @@ impl Server {
             .map(|(port, items)| (port, Value::Array(items.into_iter().map(|item| item.json).collect())))
             .collect();
         Ok(json!({ "outputs": outputs }))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::BufReader;
+    use std::sync::mpsc::Receiver;
+
+    use ravenrs_app::{Module, ModuleManifest};
+
+    use super::*;
+
+    /// A plugin with one command, `anexos`, that lists through its host what builds left.
+    #[derive(Default)]
+    struct Reader {
+        host: Arc<Mutex<Option<Arc<dyn Host>>>>,
+    }
+
+    impl Module for Reader {
+        fn name(&self) -> &str {
+            "leitor"
+        }
+        fn manifest(&self) -> ModuleManifest {
+            ModuleManifest::new().version("0.2.0").unwrap_or_default()
+        }
+    }
+
+    impl CiPlugin for Reader {
+        fn start(&self, host: Arc<dyn Host>) -> Result<(), CiError> {
+            *lock(&self.host) = Some(host);
+            Ok(())
+        }
+        fn cli_commands(&self) -> Vec<Arc<dyn CliCommand>> {
+            vec![Arc::new(Anexos(self.host.clone()))]
+        }
+    }
+
+    struct Anexos(Arc<Mutex<Option<Arc<dyn Host>>>>);
+
+    impl CliCommand for Anexos {
+        fn name(&self) -> &str {
+            "anexos"
+        }
+        fn summary(&self) -> String {
+            String::new()
+        }
+        fn run(&self, _: &[String], out: &mut dyn Write) -> Result<i32, CiError> {
+            let host = lock(&self.0).clone().ok_or_else(|| CiError::unavailable("sem host"))?;
+            let listed = host.attachments("site", Some(3), "junit")?;
+            let (_, bytes) = host.attachment(listed[0].id)?;
+            writeln!(out, "{} {}", listed[0].name, String::from_utf8_lossy(&bytes))
+                .map_err(|e| CiError::failed(e.to_string()))?;
+            Ok(0)
+        }
+    }
+
+    /// What the plugin writes, one message per line.
+    struct Lines(Sender<Value>, Vec<u8>);
+
+    impl Write for Lines {
+        fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+            self.1.extend_from_slice(buf);
+            while let Some(at) = self.1.iter().position(|b| *b == b'\n') {
+                let line: Vec<u8> = self.1.drain(..=at).collect();
+                if let Ok(message) = serde_json::from_slice(&line) {
+                    let _ = self.0.send(message);
+                }
+            }
+            Ok(buf.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    fn next(said: &Receiver<Value>) -> Value {
+        said.recv_timeout(Duration::from_secs(10)).expect("the plugin said something")
+    }
+
+    #[test]
+    fn the_host_of_a_served_plugin_asks_the_server_and_waits_for_its_answer() {
+        let (input, mut to_plugin) = std::io::pipe().expect("a pipe");
+        let (tx, said) = channel();
+        let served = std::thread::spawn(move || {
+            serve_with(Arc::new(Reader::default()), BufReader::new(input), Lines(tx, Vec::new()));
+        });
+        let mut send = |message: Value| writeln!(to_plugin, "{message}").expect("written");
+        send(json!({ "jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {} }));
+        let hello = next(&said);
+        assert_eq!(
+            (hello["result"]["name"].as_str(), hello["result"]["version"].as_str()),
+            (Some("leitor"), Some("0.2.0"))
+        );
+        assert_eq!(hello["result"]["api"], API_VERSION);
+
+        send(
+            json!({ "jsonrpc": "2.0", "id": 2, "method": "cli/run", "params": { "command": "anexos", "args": [] } }),
+        );
+        let asked = next(&said);
+        assert_eq!(asked["method"], "host/attachments");
+        assert_eq!(asked["params"], json!({ "job": "site", "number": 3, "kind": "junit" }));
+        let info = json!({ "id": 9, "job": "site", "number": 3, "kind": "junit", "name": "junit.xml", "mime": "text/xml", "size": 2, "summary": {} });
+        send(json!({ "jsonrpc": "2.0", "id": asked["id"], "result": [info.clone()] }));
+        let asked = next(&said);
+        assert_eq!(
+            (asked["method"].as_str(), &asked["params"]),
+            (Some("host/attachment"), &json!({ "id": 9 }))
+        );
+        send(
+            json!({ "jsonrpc": "2.0", "id": asked["id"], "result": { "info": info, "base64": STANDARD.encode("ok") } }),
+        );
+        let done = next(&said);
+        assert_eq!(done["id"], 2);
+        assert_eq!(done["result"], json!({ "code": 0, "output": "junit.xml ok\n" }));
+
+        send(
+            json!({ "jsonrpc": "2.0", "id": 3, "method": "cli/run", "params": { "command": "nenhum", "args": [] } }),
+        );
+        let refused = next(&said);
+        assert_eq!(refused["error"]["data"]["kind"], "unavailable", "an error crosses whole: {refused}");
+
+        send(json!({ "jsonrpc": "2.0", "method": "shutdown" }));
+        served.join().expect("it ends on shutdown");
     }
 }

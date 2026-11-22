@@ -47,6 +47,8 @@ use std::sync::mpsc::{RecvTimeoutError, Sender, channel};
 use std::sync::{Arc, Mutex, MutexGuard, Weak};
 use std::time::{Duration, Instant};
 
+use base64::Engine as _;
+use base64::engine::general_purpose::STANDARD;
 use raven_ci_plugin_api::protocol::{
     API_VERSION, AttachmentWire, CredentialDecl, FormatDecl, PROTOCOL, PipelineWire, PluginToml, RouteDecl,
     api_accepts, entity_of, error_from_wire, error_to_wire, format_errors_from_wire, http_request_to_wire,
@@ -938,6 +940,15 @@ impl Link {
                 self.builds_of(params)?.request(request).map(|number| json!(number))
             }
             method::HOST_SCAN => self.builds_of(params)?.scan(&text("job")).map(|said| json!(said)),
+            method::HOST_ATTACHMENTS => {
+                let number = params.get("number").and_then(Value::as_u64);
+                host.attachments(&text("job"), number, &text("kind")).map(|list| json!(list))
+            }
+            method::HOST_ATTACHMENT => {
+                let id = params.get("id").and_then(Value::as_i64).unwrap_or_default();
+                host.attachment(id)
+                    .map(|(info, bytes)| json!({ "info": info, "base64": STANDARD.encode(bytes) }))
+            }
             other => Err(CiError::failed(format!("o host não tem o método {other}"))),
         }
     }
