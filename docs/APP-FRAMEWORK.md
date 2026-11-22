@@ -580,6 +580,7 @@ ravenrs_app_server::serve(listener, || {
 | `POST /api/batch` | Several writes that stay or go together |
 | `POST /api/validate/{entity}` | What the rules would say, with nothing kept |
 | `POST /api/run/{name}` | Something of the application's own, from `ApiService::endpoint`, with the permissions of who calls |
+| any path its `ApiService::fallback` answers | Routes of the application that change while it runs (the plugins of a CI), asked before the others, knowing who called (`Caller`); a raw body with its own type through `ApiResponse::raw`, and paths with no token through `ApiOptions::open` |
 | `GET /api/openapi.json`, `GET /api/me` | The description of what this person can reach; who they are |
 | `GET /api/live/{topic}` | The events of a topic as they happen, as Server-Sent Events, with `ApiOptions::live` (below) |
 | `GET /health` | The only route that needs no token |

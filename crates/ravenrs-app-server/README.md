@@ -17,4 +17,6 @@ serve(listener, || {
 # }
 ```
 
-`LiveChannels` with `ApiOptions::live` streams events at `GET /api/live/{topic}`, as Server-Sent Events. See the [application framework guide](../../docs/APP-FRAMEWORK.md) for the routes. It speaks plain HTTP: put it behind something that does TLS before leaving the machine.
+`LiveChannels` with `ApiOptions::live` streams events at `GET /api/live/{topic}`, as Server-Sent Events.
+
+An application whose routes change while it runs, as the plugins of a CI switched on and off, answers them with `ApiService::fallback`: it is asked first, with the request and a way to know who sent it (`Caller`: name, roles, whether an administrator), checked as every route checks a token, and it answers or leaves the request to the API. `ApiResponse::raw` answers a body that is not JSON with its own `Content-Type`, as the text of `/metrics`. A path a service of another company calls with no token, as a webhook, is opened with `ApiOptions::open("/hooks/")`, and its headers come with `ApiOptions::pass_header("x-hub-")`; everything else with no token is still turned away before its body is read. See the [application framework guide](../../docs/APP-FRAMEWORK.md) for the routes. It speaks plain HTTP: put it behind something that does TLS before leaving the machine.

@@ -138,7 +138,38 @@ pub struct ApiResponse {
     pub status: u16,
     /// The body.
     pub body: Json,
+    /// A body that is not JSON, with its `Content-Type`: what a [`fallback`](ApiService::fallback)
+    /// answers for the text of metrics, say. When it is there, it is what is sent, and `body` is not.
+    pub raw: Option<(String, Vec<u8>)>,
 }
+
+impl ApiResponse {
+    /// `body` as JSON, with `status`.
+    pub fn json(status: u16, body: Json) -> Self {
+        Self { status, body, raw: None }
+    }
+
+    /// `bytes` of the type `content_type`, with `status`.
+    pub fn raw(status: u16, content_type: impl Into<String>, bytes: Vec<u8>) -> Self {
+        Self { status, body: Json::Null, raw: Some((content_type.into(), bytes)) }
+    }
+}
+
+/// Who sent a request, as a [`fallback`](ApiService::fallback) is told.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct Caller {
+    /// Their name.
+    pub name: String,
+    /// The names of their roles.
+    pub roles: Vec<String>,
+    /// Whether one of their roles is administrative.
+    pub administrator: bool,
+}
+
+/// What a [`fallback`](ApiService::fallback) is given: the request, and a way to know who sent it,
+/// asked only when it matters (a public route does not ask).
+pub type Fallback = Rc<dyn Fn(&ApiRequest, &mut dyn FnMut() -> Option<Caller>) -> Option<ApiResponse>>;
 
 /// What a request's answer is when it does not work out.
 #[derive(Debug)]
@@ -183,7 +214,7 @@ impl Failure {
         if let (Some(operation), Some(object)) = (self.operation, body.as_object_mut()) {
             object.insert("operation".to_owned(), json!(operation));
         }
-        ApiResponse { status: self.status, body }
+        ApiResponse::json(self.status, body)
     }
 }
 
@@ -260,6 +291,7 @@ pub struct ApiService {
     settings: Option<Rc<dyn SettingsStore>>,
     declared: BTreeMap<String, SettingAccess>,
     hooks: BTreeMap<String, Webhook>,
+    fallback: Option<Fallback>,
 }
 
 impl std::fmt::Debug for ApiService {
@@ -334,6 +366,7 @@ impl ApiService {
             settings,
             declared: BTreeMap::new(),
             hooks: BTreeMap::new(),
+            fallback: None,
         })
     }
 
@@ -402,6 +435,31 @@ impl ApiService {
         self
     }
 
+    /// Asks `fallback` first, for every request: what an application whose routes
+    /// change while it runs (the plugins of a CI, switched on and off) answers on its own paths.
+    /// It is given the request and a way to know who sent it, which checks the token as every
+    /// route does and gives `None` for no one; it answers, or says `None` and the request goes on
+    /// to the routes of the API. A path that no one signed in should reach without a token has to
+    /// be opened in [`ApiOptions::open`](crate::ApiOptions::open) too.
+    pub fn fallback(
+        mut self,
+        fallback: impl Fn(&ApiRequest, &mut dyn FnMut() -> Option<Caller>) -> Option<ApiResponse> + 'static,
+    ) -> Self {
+        self.fallback = Some(Rc::new(fallback));
+        self
+    }
+
+    /// Who sent `request`, by its token or key; `None` for no one or a token that is not good.
+    fn caller_of(&mut self, request: &ApiRequest) -> Option<Caller> {
+        let (context, _) = self.session_of(request).ok()?;
+        let identity = context.identity();
+        Some(Caller {
+            name: identity.name.clone(),
+            roles: identity.roles.iter().map(|role| role.name().to_owned()).collect(),
+            administrator: identity.roles.iter().any(Role::is_administrative),
+        })
+    }
+
     /// Adds something of the application's own, run with the permissions of whoever calls it.
     pub fn endpoint(
         mut self,
@@ -414,8 +472,14 @@ impl ApiService {
 
     /// Answers a request.
     pub fn handle(&mut self, request: ApiRequest) -> ApiResponse {
+        if let Some(fallback) = self.fallback.clone() {
+            let mut who = || self.caller_of(&request);
+            if let Some(answer) = fallback(&request, &mut who) {
+                return answer;
+            }
+        }
         match self.route(&request) {
-            Ok((status, body)) => ApiResponse { status, body },
+            Ok((status, body)) => ApiResponse::json(status, body),
             Err(failure) => failure.into_response(),
         }
     }

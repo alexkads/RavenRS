@@ -213,3 +213,39 @@ fn tries_to_sign_in_add_up_across_threads() {
     }
     assert_eq!(server.sign_in("ana", "errada").0, 429, "the fifth try, on whichever thread, is refused");
 }
+
+#[test]
+fn an_open_path_comes_with_no_token_its_headers_and_a_raw_answer_keeps_its_type() {
+    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build().unwrap();
+    let listener = runtime.block_on(tokio::net::TcpListener::bind("127.0.0.1:0")).unwrap();
+    let address = listener.local_addr().unwrap();
+    let options = ApiOptions::new().open("/hooks/").pass_header("x-hub-");
+    runtime.spawn(ravenrs_app_server::serve_with(listener, options, || {
+        Ok(service(20)?.fallback(|request, _| {
+            let path: Vec<&str> = request.path.iter().map(String::as_str).collect();
+            match path.as_slice() {
+                ["hooks", "github"] => Some(ravenrs_app_server::ApiResponse::raw(
+                    200,
+                    "text/plain; charset=utf-8",
+                    request.headers.get("x-hub-signature-256").cloned().unwrap_or_default().into_bytes(),
+                )),
+                ["fechado"] => Some(ravenrs_app_server::ApiResponse::json(200, json!({}))),
+                _ => None,
+            }
+        }))
+    }));
+    let server = Server { address, runtime };
+    let agent = ureq::Agent::config_builder().http_status_as_error(false).build().new_agent();
+    let mut hook = agent
+        .post(&format!("http://{address}/hooks/github"))
+        .header("X-Hub-Signature-256", "sha256=abc")
+        .header("X-Outro", "não passa")
+        .send("{}")
+        .unwrap();
+    assert_eq!(hook.status().as_u16(), 200);
+    assert_eq!(hook.headers().get("content-type").unwrap(), "text/plain; charset=utf-8");
+    assert_eq!(hook.body_mut().read_to_string().unwrap(), "sha256=abc");
+    let closed = agent.get(&format!("http://{address}/fechado")).call().unwrap();
+    assert_eq!(closed.status().as_u16(), 401, "a path that is not open still needs a token");
+    drop(server);
+}

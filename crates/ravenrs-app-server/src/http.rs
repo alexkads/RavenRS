@@ -47,6 +47,8 @@ struct Worker {
     asking: mpsc::Sender<Asked>,
     origins: Arc<Vec<String>>,
     live: Option<LiveChannels>,
+    open: Arc<Vec<String>>,
+    headers: Arc<Vec<String>>,
 }
 
 /// How the service meets the outside.
@@ -56,11 +58,13 @@ pub struct ApiOptions {
     origins: Vec<String>,
     workers: usize,
     live: Option<LiveChannels>,
+    open: Vec<String>,
+    headers: Vec<String>,
 }
 
 impl Default for ApiOptions {
     fn default() -> Self {
-        Self { origins: Vec::new(), workers: 1, live: None }
+        Self { origins: Vec::new(), workers: 1, live: None, open: Vec::new(), headers: Vec::new() }
     }
 }
 
@@ -86,6 +90,22 @@ impl ApiOptions {
         self
     }
 
+    /// Lets requests whose path starts with `prefix`, such as `/hooks/`, reach the service with no
+    /// token, as a webhook of another service comes: what answers them (a
+    /// [`fallback`](crate::ApiService::fallback)) checks a signature of its own. Everything else
+    /// with no token is still turned away before its body is read.
+    pub fn open(mut self, prefix: impl Into<String>) -> Self {
+        self.open.push(prefix.into());
+        self
+    }
+
+    /// Hands the headers whose lowercase names start with `prefix` (`x-hub-`, `x-github-`,
+    /// `content-type`) to the service too, besides the `x-ravenrs-*` ones it always gets.
+    pub fn pass_header(mut self, prefix: impl Into<String>) -> Self {
+        self.headers.push(prefix.into().to_ascii_lowercase());
+        self
+    }
+
     /// Lets pages from this origin, such as `https://example.com`, call the service from a browser.
     /// There is no way to allow every origin: each one that may call is named.
     pub fn allow_origin(mut self, origin: impl Into<String>) -> Self {
@@ -102,6 +122,13 @@ fn answer(status: u16, body: &Json) -> Response {
         response.headers_mut().insert(header::WWW_AUTHENTICATE, header::HeaderValue::from_static("Bearer"));
     }
     response
+}
+
+/// `bytes` of the type `content_type`, as a fallback answered them.
+fn raw(status: u16, content_type: &str, bytes: Vec<u8>) -> Response {
+    let status = StatusCode::from_u16(status).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+    let kind = HeaderValue::from_str(content_type).unwrap_or(HeaderValue::from_static("application/octet-stream"));
+    (status, [(header::CONTENT_TYPE, kind)], bytes).into_response()
 }
 
 fn busy() -> Response {
@@ -186,7 +213,8 @@ async fn answered(worker: &Worker, request: Request<Body>) -> Response {
     // Nobody who has not signed in gets to make it read a large body. A webhook signs its body
     // instead, and the service checks the signature before reading it.
     let signing_in = parts.uri.path() == "/api/auth/token";
-    let hook = parts.uri.path().starts_with("/api/hooks/");
+    let hook = parts.uri.path().starts_with("/api/hooks/")
+        || worker.open.iter().any(|prefix| parts.uri.path().starts_with(prefix.as_str()));
     if bearer.is_none() && !signing_in && !hook {
         return answer(401, &json!({ "error": "unauthorized", "message": "A valid token is required." }));
     }
@@ -206,7 +234,10 @@ async fn answered(worker: &Worker, request: Request<Body>) -> Response {
         headers: parts
             .headers
             .iter()
-            .filter(|(name, _)| name.as_str().starts_with("x-ravenrs-"))
+            .filter(|(name, _)| {
+                let name = name.as_str();
+                name.starts_with("x-ravenrs-") || worker.headers.iter().any(|prefix| name.starts_with(prefix.as_str()))
+            })
             .filter_map(|(name, value)| Some((name.as_str().to_owned(), value.to_str().ok()?.to_owned())))
             .collect(),
         body: body.to_vec(),
@@ -225,6 +256,7 @@ async fn answered(worker: &Worker, request: Request<Body>) -> Response {
         return stream(worker, asked, &topic, after).await;
     }
     match ask(worker, asked).await {
+        Some(ApiResponse { status, raw: Some((content_type, bytes)), .. }) => raw(status, &content_type, bytes),
         Some(response) => answer(response.status, &response.body),
         None => busy(),
     }
@@ -338,10 +370,7 @@ fn work(mut service: ApiService, waiting: &Mutex<mpsc::Receiver<Asked>>) {
         let answered = catch_unwind(AssertUnwindSafe(|| service.handle(request)));
         let response = answered.unwrap_or_else(|_| {
             tracing::error!("a request panicked");
-            ApiResponse {
-                status: 500,
-                body: json!({ "error": "internal", "message": "Something went wrong on the server." }),
-            }
+            ApiResponse::json(500, json!({ "error": "internal", "message": "Something went wrong on the server." }))
         });
         let _ = reply.send(response);
     }
@@ -391,6 +420,8 @@ pub fn router_with(
         asking: sender,
         origins: Arc::new(options.origins),
         live: options.live,
+        open: Arc::new(options.open),
+        headers: Arc::new(options.headers),
     }))
 }
 
