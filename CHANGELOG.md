@@ -59,6 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `.raventest` scenarios check the state of a part with `expect` (`estar` in Portuguese): `checked`, `unchecked`, `disabled`, `enabled`, `focused`, `visible` or `count N`, also read as `marcado`, `desmarcado`, `desabilitado`, `habilitado`, `com-foco`, `visivel` and `quantidade N`. An unknown state is refused when the scenario is read. The block goes over the channel as `Command::Expect`, is in the Studio's palette and in the Rust it writes, and `ravenrs-e2e` gains `to_be_unchecked`. RavenComponentBook's scenario now checks that its `disabled` setting turns on and the story's button turns disabled (#846).
+
 - `check.sh` checks that every app with a window in `examples/` and `tools/` keeps scenarios the Raven Test Studio finds and runs (`scripts/e2e-scenarios.py`): the `[package.metadata.ravenrs.e2e]` declaration, the test channel, `tests/e2e/` scenarios that check something, and a test that plays them. CONTRIBUTING.md describes the pattern; the contracts and Raven Channel Video stay listed as having no window (#702). RavenComponentBook joins with a scenario of its own, and the Studio's own scenarios now play on `cargo test` too.
 
 - The Raven Feature Center, Raven Code, Raven Movie Editor and Raven Report Designer have scenarios of the Raven Test Studio in `tests/e2e/` and answer it with `--e2e-serve` (#702, fifth lot). Raven Code edits and saves on a sample project of its own (`sample_in`, `e2e_session`; the editor of each file is `editor:<path>`), and Raven Movie Editor saves a chapter into a folder of its own, reopened by its test.

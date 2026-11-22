@@ -46,7 +46,7 @@ pub fn app_icon() -> Option<ImageData> {
 }
 
 /// The kinds of block, with the word the canvas and the inspector show for each.
-pub const KINDS: [(&str, &str); 15] = [
+pub const KINDS: [(&str, &str); 16] = [
     ("open", "Início"),
     ("click", "Clicar"),
     ("type", "Digitar"),
@@ -62,6 +62,7 @@ pub const KINDS: [(&str, &str); 15] = [
     ("wait", "Esperar"),
     ("check", "Conferir"),
     ("mention", "Conferir que menciona"),
+    ("expect", "Conferir o estado"),
 ];
 
 fn icon(kind: &str) -> IconName {

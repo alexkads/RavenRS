@@ -52,6 +52,7 @@ The blocks are those of a `.raventest` file. Every step waits up to 2 s for its 
 | Arrastar | drags the target to the part after `=`: `#port:<node>:<port> = #port:<node>:<port>` joins two nodes of a diagram |
 | Esperar | waits up to 5 s, `E2E_TIMEOUT` otherwise |
 | Conferir, Conferir que menciona | checks the value, or what the part mentions |
+| Conferir o estado | checks the state of the part (`expect #id = checked`): checked, unchecked, disabled, enabled, focused, visible, or `count N` |
 
 **With the app's real window, to watch it run (`--headed`)**
 
