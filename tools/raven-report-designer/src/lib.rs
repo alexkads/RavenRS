@@ -4,23 +4,6 @@
 use ravenrs::prelude::*;
 pub use ravenrs_report_designer::Designer;
 
-pub mod versao;
-
-/// Builds the designer with no window, as the installer and an agent ask it to. Returns what
-/// it checked.
-pub fn self_test() -> Result<String, String> {
-    let mut ui = ravenrs::prelude::Ui::new(app(), ravenrs::prelude::Theme::raven_dark());
-    ui.set_viewport(ravenrs::prelude::Size::new(1440.0, 900.0), 1.0);
-    for _ in 0..4 {
-        ui.update();
-    }
-    let nodes = ui.access_tree().nodes.len();
-    if nodes < 3 {
-        return Err(format!("o designer abriu com {nodes} nós acessíveis"));
-    }
-    Ok("Autoteste: o designer abre sem janela".to_owned())
-}
-
 /// The app, for the native runner and the web entry point.
 pub fn app() -> impl View {
     Designer::new()

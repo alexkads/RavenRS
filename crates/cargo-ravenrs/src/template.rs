@@ -4,11 +4,12 @@ use ravenrs_project::{Project, ProjectFile};
 use toml_edit::{DocumentMut, Item, Value, value};
 
 const WORKSPACE: &str = include_str!("../../../Cargo.toml");
+/// The manifest and the `lib.rs` of a project of the workspace (`examples/…` or `tools/…`).
 macro_rules! example {
-    ($name:literal) => {
+    ($folder:literal) => {
         (
-            include_str!(concat!("../../../examples/", $name, "/Cargo.toml")),
-            include_str!(concat!("../../../examples/", $name, "/src/lib.rs")),
+            include_str!(concat!("../../../", $folder, "/Cargo.toml")),
+            include_str!(concat!("../../../", $folder, "/src/lib.rs")),
         )
     };
 }
@@ -22,10 +23,10 @@ pub fn project_files(name: &str, template: &str, target: &str) -> Result<Vec<Pro
         return Err("Alvo inválido: desktop, web ou both.".into());
     }
     let (manifest, source) = match template {
-        "hello" => example!("hello-world"),
-        "app" => example!("tutorial-tasks"),
-        "app-sqlite" => example!("tasks-sqlite"),
-        "relatorios" => example!("raven-report-designer"),
+        "hello" => example!("examples/hello-world"),
+        "app" => example!("examples/tutorial-tasks"),
+        "app-sqlite" => example!("examples/tasks-sqlite"),
+        "relatorios" => example!("tools/raven-report-designer"),
         _ => return Err("Modelo inválido: hello, app, app-sqlite ou relatorios.".into()),
     };
     let project = Project::new(name).source(source);
