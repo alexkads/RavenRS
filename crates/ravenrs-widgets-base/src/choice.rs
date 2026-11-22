@@ -198,6 +198,8 @@ impl View for GroupItem<'_> {
             _ => (false, Rc::new(|| {})),
         };
         let node = toggle_item(cx, on, *icon, label, ToggleLook::default(), action);
+        // Found by its label, which stays with it when the items change order.
+        cx.test_id(node, &format!("option:{label}"));
         // A toolbar: arrows move focus only; Space or Enter toggles.
         self.roving.wire(cx, node, None);
         node
@@ -348,6 +350,8 @@ impl View for Pagination {
                         .size(ButtonSize::Small)
                         .on_click(move || b.set(p));
                     let node = cx.keyed_child(p as u64, &button);
+                    // The key is the number of the page, as it is shown.
+                    cx.test_id(node, &format!("page:{}", p + 1));
                     cx.update_semantics(node, |s| s.selected = Some(p == current));
                     items.push(node);
                 }
