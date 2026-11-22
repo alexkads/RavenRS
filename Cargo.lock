@@ -6011,9 +6011,11 @@ dependencies = [
  "raven-ci-plugin-api-trigger",
  "raven-ci-plugin-credentials",
  "raven-ci-plugin-cron",
+ "raven-ci-plugin-docker",
  "raven-ci-plugin-format-toml",
  "raven-ci-plugin-git",
  "raven-ci-plugin-github",
+ "raven-ci-plugin-kubernetes",
  "raven-ci-plugin-lock",
  "raven-ci-plugin-shell",
  "raven-ci-plugin-workspace",
@@ -6107,6 +6109,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "raven-ci-plugin-docker"
+version = "0.1.0"
+dependencies = [
+ "base64 0.23.1",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "ravenrs-process",
+ "serde_json",
+]
+
+[[package]]
 name = "raven-ci-plugin-format-toml"
 version = "0.1.0"
 dependencies = [
@@ -6147,6 +6162,18 @@ dependencies = [
  "ravenrs-git",
  "serde_json",
  "ureq",
+]
+
+[[package]]
+name = "raven-ci-plugin-kubernetes"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "ravenrs-process",
+ "serde_json",
 ]
 
 [[package]]

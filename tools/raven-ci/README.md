@@ -100,6 +100,8 @@ moves:
 | `cron` | trigger | `cron` (a schedule in a time zone, or `every = "1h"`) and `poll` (`git ls-remote` of a branch every `5m`, a build when it moved) |
 | `credentials` | credential kinds | `token`, `user-password` and `ssh-key`, sealed by name in the core's vault (`raven-ci credencial criar NOME --tipo token`, the fields in JSON on the input); a plugin reads one with `Host::secret`, and every log hides it |
 | `github` | branch source, status | a job of many branches over a GitHub repository: the branches chosen and the open pull requests (forks left out), each with the pipeline of its own head, built merged onto its target, with the status sent to its commit |
+| `docker` | steps, credential kind | `container` (a stage with `container = { image }`): the script in the image with the build's folder mounted and the agent's user, no file of root left; `docker-build`/`docker-push` with a `registry` credential; `compose` up with the wait for health; every container, network, volume and compose project of the build removed at its end, however it ends. Docker or Podman, through their command |
+| `kubernetes` | step, credential kind | `kubectl` with `namespace` and `context` declared: `apply` and `rollout status`, the `kubeconfig` of the vault in a file of a moment; `ImagePullBackOff`, `OOMKilled`, `Pending` with no resource and a 403 told in clear words |
 
 ```toml
 [[parameters]]
@@ -149,6 +151,8 @@ curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven
 - `crates/raven-ci-plugin-lock/tests`: two executors, a holder outside, a program left running.
 - `crates/raven-ci-plugin-workspace/tests`: a build refused for room on the disk.
 - `crates/raven-ci-plugin-github/tests`: a GitHub of the test's own on a free port and a real repository: the scan, the builds merged, the statuses.
+- `crates/raven-ci-plugin-docker/tests`: the machine's real Docker or Podman (`rust:1`, an image that does not exist, a cancelled build, compose with health); skipped, saying so, with no engine or with an engine of another machine.
+- `crates/raven-ci-plugin-kubernetes/tests`: `kubectl-falso`, a kubectl in Rust that answers what each test says, for the arguments, the kubeconfig and each message of a stuck rollout.
 - `crates/raven-ci-plugin-api/tests/suite`: each point through its fake plugin.
 
 The tests of external plugins say they skip when there is no Python 3.
