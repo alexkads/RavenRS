@@ -19,7 +19,7 @@
 //! | `GET /api/ci/attachment?id=` | signed in | the bytes of what a build left |
 //! | `POST /api/ci/pipeline/check` | signed in | the errors of a pipeline, with their lines |
 //! | `POST /api/ci/cancel`, `/rebuild`, `/priority` | Executores, Administradores | acting on a build |
-//! | `POST /api/ci/job` | Administradores | saving a job, checked first |
+//! | `POST /api/ci/job` | Administradores | saving a job (`name`, `format`, `pipeline`, `settings`), checked first |
 //! | `GET /api/ci/plugins`, `POST /api/ci/plugins/enable`, `/disable` | Administradores | the plugins |
 //! | `GET /api/ci/users`, `POST /api/ci/users` | Administradores | people and their roles |
 //! | `GET /api/ci/audit?plugin=&limit=` | Administradores | what plugins and people did, the newest first |
@@ -236,6 +236,11 @@ fn act(
                     old
                 }
                 Err(_) => JobSpec::new(name, format, pipeline),
+            };
+            // The settings of the plugins it names (its triggers, say), when given.
+            let spec = match asked.get("settings") {
+                Some(settings @ Json::Object(_)) => spec.settings(settings.clone()),
+                _ => spec,
             };
             ci.save_job(spec)?;
             record(ci, &caller.name, &format!("salvou o pipeline de {name}"));
@@ -625,7 +630,7 @@ fn audit(ci: &Ci, plugin: Option<&str>, limit: usize) -> Result<Json, CiError> {
             .map_err(crate::store::db)?;
         lines.extend(rows.filter_map(Result::ok));
     }
-    lines.sort_by(|a, b| b.0.cmp(&a.0));
+    lines.sort_by_key(|line| std::cmp::Reverse(line.0));
     lines.truncate(limit);
     Ok(Json::Array(lines.into_iter().map(|(_, line)| line).collect()))
 }

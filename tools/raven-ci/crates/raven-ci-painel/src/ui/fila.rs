@@ -11,7 +11,7 @@ use super::{Pagina, S, jobs, nada};
 use crate::texto;
 
 /// The stretch of time shown: the last two hours and a little after now.
-const BEFORE_MIN: i64 = 120;
+const BEFORE_MIN: i64 = 60;
 const AFTER_MIN: i64 = 15;
 
 /// The page of the queue and the executors.
@@ -81,7 +81,7 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
         start: TimePoint::from_minutes(now - BEFORE_MIN),
         end: TimePoint::from_minutes(now + AFTER_MIN),
         scale: TimeScale::Hours,
-        tick_width: 360.0,
+        tick_width: 720.0,
     });
     let open = {
         let s = s.clone();
@@ -141,7 +141,7 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
     Box::new(
         VStack::new((
             PageHeader::new("Fila e agentes").description(format!(
-                "Onde cada build rodou nas últimas 2 horas, por executor. Horário do servidor (UTC), agora {}.",
+                "Onde cada build rodou na última hora, por executor. Horário do servidor (UTC), agora {}.",
                 texto::clock(now_ms)
             )),
             Card::new(timeline).padding(0.0),

@@ -33,7 +33,7 @@ pub(super) fn page(s: &Rc<S>) -> AnyView {
     let queued = overview["queued"].as_u64().unwrap_or(0);
     let oldest = overview["oldest_queued_ms"].as_i64().map_or_else(
         || "Ninguém esperando".to_owned(),
-        |t| format!("O mais antigo espera {}", texto::ago(t, now).replace("há ", "há ")),
+        |t| format!("O mais antigo espera {}", texto::ago(t, now)),
     );
     let running = overview["running"].as_u64().unwrap_or(0);
     let executors = server["executors"].as_u64().unwrap_or(0);

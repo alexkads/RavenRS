@@ -128,10 +128,15 @@ impl S {
     }
 }
 
-/// How each stage went, on its card.
-fn run_view(stages: &[Json], reason: Option<&str>) -> FlowRunView {
+/// How each stage went, on its card. While the build runs, the first stage still waiting is the
+/// one running: the core marks a stage only when one of its steps ends.
+fn run_view(stages: &[Json], reason: Option<&str>, running: bool) -> FlowRunView {
+    let current = running
+        .then(|| stages.iter().position(|st| st["status"] == "pending" || st["status"] == "running"))
+        .flatten();
     stages.iter().enumerate().fold(FlowRunView::new(), |view, (i, stage)| {
-        let status = match stage["status"].as_str().unwrap_or_default() {
+        let said = if Some(i) == current { "running" } else { stage["status"].as_str().unwrap_or_default() };
+        let status = match said {
             "done" => FlowNodeStatus::Success,
             "failed" => FlowNodeStatus::Error(reason.unwrap_or("falhou").to_owned()),
             "running" => FlowNodeStatus::Running,
@@ -205,7 +210,7 @@ pub(super) fn page(s: &Rc<S>, job: &str, number: u64) -> AnyView {
 
     let reason = build["reason"].as_str();
     let canvas = FlowCanvas::new(s.graph.binding())
-        .execution(run_view(&stages, reason))
+        .execution(run_view(&stages, reason, status == "running"))
         .read_only(true)
         .controls(true)
         .minimap(false)
@@ -220,7 +225,7 @@ pub(super) fn page(s: &Rc<S>, job: &str, number: u64) -> AnyView {
             header,
             progress,
             Card::new(canvas).padding(8.0),
-            HStack::new((main, aside)).spacing(20.0).align(Align::Start).wrap(),
+            HStack::new((main, aside)).spacing(20.0).align(Align::Start),
         ))
         .spacing(16.0)
         .padding(24.0)
@@ -427,7 +432,7 @@ fn details(body: &Json, now: i64) -> AnyView {
                 Text::new("ESTÁGIOS").style(TextStyle::Caption).foreground(Semantic::InkMuted),
                 VStack::new(stages).spacing(4.0).align(Align::Stretch),
             ))
-            .spacing(10.0)
+            .spacing(12.0)
             .align(Align::Stretch),
         )
         .padding(16.0),))

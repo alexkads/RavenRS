@@ -55,9 +55,8 @@ pub(super) fn plugins(s: &Rc<S>) -> AnyView {
             let (name, enabled) = text.rsplit_once('|').unwrap_or((&text, "false"));
             let (name, enabled) = (name.to_owned(), enabled == "true");
             let s = s.clone();
-            let label = format!("Ligar {name}");
             let binding = Binding::new(move || enabled, move |want: bool| switch(&s, &name, want));
-            Box::new(Toggle::new(binding).small().label(label))
+            Box::new(Toggle::new(binding).small().label(if enabled { "Ligado" } else { "Desligado" }))
         }
     };
     let open = {
@@ -87,7 +86,7 @@ pub(super) fn plugins(s: &Rc<S>) -> AnyView {
                 };
                 Box::new(Badge::new(state).tone(tone))
             }),
-            GridColumn::text("Ligado").width(90.0).template(toggle),
+            GridColumn::text("Ligado").width(140.0).template(toggle),
         ],
     )
     .key_column(0)
@@ -165,7 +164,7 @@ fn sheet(s: &Rc<S>, all: &[Json]) -> AnyView {
         if items.is_empty() {
             Box::new(Text::new("nenhuma").foreground(Semantic::InkMuted))
         } else {
-            Box::new(HStack::new(items).spacing(6.0).wrap())
+            Box::new(HStack::new(items).spacing(8.0).wrap())
         }
     };
     let requires: Vec<PropertyRow> = p["requires"]
@@ -198,7 +197,7 @@ fn sheet(s: &Rc<S>, all: &[Json]) -> AnyView {
         caption("AUDITORIA DESTE PLUGIN"),
         audit_grid(&s.audit.get(), 220.0),
     ))
-    .spacing(10.0)
+    .spacing(12.0)
     .align(Align::Stretch);
     Box::new(
         Sheet::new(s.sheet_open.binding(), name).description("Ficha do plugin").content(content).width(420.0),
@@ -326,7 +325,7 @@ pub(super) fn users(s: &Rc<S>) -> AnyView {
             Select::new(s.new_role.binding(), ROLES).label("Papel"),
             Button::new("Criar usuário").icon(IconName::Plus).on_click(create),
         ))
-        .spacing(10.0)
+        .spacing(12.0)
         .align(Align::Stretch),
     )
     .padding(16.0);

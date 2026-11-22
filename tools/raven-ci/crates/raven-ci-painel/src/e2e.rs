@@ -204,7 +204,7 @@ pub fn server(folder: &Path) -> Result<(Arc<Ci>, RemoteClient), String> {
         ci.work_until_idle("executor-1").map_err(|e| failed(&e))?;
     }
     // The plugin api-trigger takes requests only for the jobs it watches.
-    for problem in ci.watch_triggers() {
+    if let Some(problem) = ci.watch_triggers().into_iter().next() {
         return Err(problem);
     }
     let options =
