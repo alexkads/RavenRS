@@ -217,6 +217,10 @@ RAVEN_CI_AGENT_TOKEN=rva_… raven-ci-agent --servidor http://ci.local:8080 --no
 | `azure-devops` | scm, status | fetches a repository of Azure DevOps with the PAT of a credential, a pull request from its source branch merged onto its target, and sends the status to the pull request or the commit |
 | `artifacts` | publisher, routes | keeps the files the patterns of `artifacts = [...]` find (`*`, `**`, `?`, nothing out of the folder), says which pattern found nothing, and gives them back: `GET /api/ci/artifacts?job=&number=` and `GET /api/ci/artifact?id=` |
 | `junit` | publisher, route | reads the JUnit XML of `junit = [...]` with `ravenrs-junit`, keeps the count and the names of what failed with the build, and gives the trend of a job at `GET /api/ci/tests?job=` |
+| `cargo` | step, publisher | `{ cargo = "clippy -p site -- -D warnings" }`: cargo with `--message-format=json-diagnostic-rendered-ansi` where it takes it, each diagnostic rendered in the log and kept with its file and line in the attachment `cargo-diagnostics.json` (kind `cargo`, the counts in its summary); one `CARGO_TARGET_DIR` per job kept between builds, held by a lock on a file; `ravenrs-xcache` as the `RUSTC_WRAPPER` with `xcache = true`. The format adds the publisher by itself |
+| `email` | notifier | `{"notify": [{"id": "email", "to": ["ana@example.com"], "when": "falha"}]}` on a job: a message through `ravenrs-mail` with the job, the number, how it ended, how long it took, why, the commit and the panel; `when` is `falha` (the default), `mudanca` or `sempre`. The SMTP server and the credential `user-password` are in the plugin's settings |
+| `webhook-out` | notifier | `{"id": "webhook", "url": "https://…", "secret": "NOME"}`: the end of a build posted as JSON, signed with `X-Raven-CI-Signature: sha256=…` when there is a secret, tried again after 1 s, 4 s and 16 s on a 5xx, a 429 or no answer, on a thread of its own |
+| `metrics` | routes | `GET /api/ci/metrics` for someone signed in, and `GET /hooks/metrics` with no sign-in when its settings say `open = true`: the queue, the builds kept by status, the last build of each job, the agents, the plugins, the memory of each external plugin and of the server, in the Prometheus format, from `Host::snapshot` |
 | `agent-local` | agent launcher | brings `raven-ci-agent` up on the server's machine for a template of agents, as another user when it says one (`sudo -n`, or switched by root), so the server runs with `--executores 0` |
 | `agent-remote` | agent launcher | brings `raven-ci-agent` up on another machine through `ssh` (the token on its input, a key of the vault when the template names one); the agent connects back |
 
@@ -288,6 +292,9 @@ curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven
 - `crates/raven-ci-plugin-webhook-github/tests`: signed and unsigned deliveries, a secret of one
   repository naming another, a delivery sent twice, pull requests that move and ones that do not;
   `tests/suite/webhook.rs` does it on `raven-ci servir` with a credential of the vault.
+- `crates/raven-ci-plugin-cargo/tests`: a crate the test makes, compiled for real: an error and a warning in the log and in the attachment, the target of a job kept between builds and apart from another job's, a missing cargo and a missing `ravenrs-xcache`.
+- `crates/raven-ci-plugin-email/tests` and `crates/raven-ci-plugin-webhook-out/tests`: builds run in the core telling a mailer of the test and an HTTP server of the test on a free port; `falha`, `mudanca` and `sempre`, the signature, the tries again and what a job says wrong.
+- `crates/raven-ci-plugin-metrics/tests` and `tests/suite/metrics.rs`: the series of a picture of the server, of a core with builds, and the two routes on `raven-ci servir`.
 - `crates/raven-ci-plugin-shell/tests`: the step `sh`, with scripts for `sh` and for `cmd`.
 - `crates/raven-ci-plugin-git/tests`: a real repository made by the test, cloned by `file://`.
 - `crates/raven-ci-plugin-lock/tests`: two executors, a holder outside, a program left running.

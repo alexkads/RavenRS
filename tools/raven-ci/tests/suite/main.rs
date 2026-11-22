@@ -11,6 +11,7 @@
 mod agentes;
 mod compilado;
 mod config;
+mod metrics;
 mod plugins;
 mod product;
 mod remote;

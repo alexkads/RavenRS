@@ -6013,9 +6013,11 @@ dependencies = [
  "raven-ci-plugin-api-trigger",
  "raven-ci-plugin-artifacts",
  "raven-ci-plugin-azure-devops",
+ "raven-ci-plugin-cargo",
  "raven-ci-plugin-credentials",
  "raven-ci-plugin-cron",
  "raven-ci-plugin-docker",
+ "raven-ci-plugin-email",
  "raven-ci-plugin-format-jenkinsfile",
  "raven-ci-plugin-format-toml",
  "raven-ci-plugin-git",
@@ -6023,8 +6025,10 @@ dependencies = [
  "raven-ci-plugin-junit",
  "raven-ci-plugin-kubernetes",
  "raven-ci-plugin-lock",
+ "raven-ci-plugin-metrics",
  "raven-ci-plugin-shell",
  "raven-ci-plugin-webhook-github",
+ "raven-ci-plugin-webhook-out",
  "raven-ci-plugin-workspace",
  "ravenrs-app-server",
  "ravenrs-app-update",
@@ -6193,6 +6197,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "raven-ci-plugin-cargo"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "ravenrs-process",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "raven-ci-plugin-credentials"
 version = "0.1.0"
 dependencies = [
@@ -6226,6 +6245,19 @@ dependencies = [
  "ravenrs-app",
  "ravenrs-flows",
  "ravenrs-process",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-email"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-mail",
  "serde_json",
 ]
 
@@ -6324,6 +6356,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "raven-ci-plugin-metrics"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-metrics",
+ "serde_json",
+]
+
+[[package]]
 name = "raven-ci-plugin-shell"
 version = "0.1.0"
 dependencies = [
@@ -6342,6 +6387,20 @@ dependencies = [
  "ravenrs-app",
  "ravenrs-app-server",
  "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-webhook-out"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-app-server",
+ "serde_json",
+ "ureq",
 ]
 
 [[package]]
@@ -7106,6 +7165,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-mail"
+version = "27.1.28"
+dependencies = [
+ "lettre",
+]
+
+[[package]]
 name = "ravenrs-mcp"
 version = "27.1.28"
 dependencies = [
@@ -7455,7 +7521,7 @@ version = "27.1.28"
 dependencies = [
  "axum",
  "jiff",
- "lettre",
+ "ravenrs-mail",
  "ravenrs-report",
  "ravenrs-report-export",
  "ravenrs-schedule",

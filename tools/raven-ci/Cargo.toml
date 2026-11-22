@@ -1,7 +1,7 @@
 [package]
 name = "raven-ci"
 description = "Raven CI: a small CI/CD server whose every function is a plugin, with the queue, the model of builds and the register of plugins in its core."
-version = "0.1.1"
+version = "0.1.2"
 edition.workspace = true
 # ravenrs-flows-runtime (rusqlite 0.41) needs 1.89, one above the workspace.
 rust-version = "1.89"
@@ -17,9 +17,11 @@ raven-ci-plugin-agent-local = { path = "crates/raven-ci-plugin-agent-local" }
 raven-ci-plugin-agent-remote = { path = "crates/raven-ci-plugin-agent-remote" }
 raven-ci-plugin-artifacts = { path = "crates/raven-ci-plugin-artifacts" }
 raven-ci-plugin-azure-devops = { path = "crates/raven-ci-plugin-azure-devops" }
+raven-ci-plugin-cargo = { path = "crates/raven-ci-plugin-cargo" }
 raven-ci-plugin-cron = { path = "crates/raven-ci-plugin-cron" }
 raven-ci-plugin-credentials = { path = "crates/raven-ci-plugin-credentials" }
 raven-ci-plugin-docker = { path = "crates/raven-ci-plugin-docker" }
+raven-ci-plugin-email = { path = "crates/raven-ci-plugin-email" }
 raven-ci-plugin-format-jenkinsfile = { path = "crates/raven-ci-plugin-format-jenkinsfile" }
 raven-ci-plugin-format-toml = { path = "crates/raven-ci-plugin-format-toml" }
 raven-ci-plugin-git = { path = "crates/raven-ci-plugin-git" }
@@ -27,9 +29,11 @@ raven-ci-plugin-github = { path = "crates/raven-ci-plugin-github" }
 raven-ci-plugin-junit = { path = "crates/raven-ci-plugin-junit" }
 raven-ci-plugin-kubernetes = { path = "crates/raven-ci-plugin-kubernetes" }
 raven-ci-plugin-lock = { path = "crates/raven-ci-plugin-lock" }
+raven-ci-plugin-metrics = { path = "crates/raven-ci-plugin-metrics" }
 raven-ci-plugin-shell = { path = "crates/raven-ci-plugin-shell" }
 raven-ci-plugin-workspace = { path = "crates/raven-ci-plugin-workspace" }
 raven-ci-plugin-webhook-github = { path = "crates/raven-ci-plugin-webhook-github" }
+raven-ci-plugin-webhook-out = { path = "crates/raven-ci-plugin-webhook-out" }
 ravenrs-app-server.workspace = true
 ravenrs-app-update.workspace = true
 # plugins compilar: runs cargo and the plugin it built.
