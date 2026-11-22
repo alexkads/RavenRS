@@ -26,7 +26,7 @@ fn render(args: &Args) -> AnyView {
 
         HStack::new((
             {
-                let mut it = Stat::new("Revenue", "R$ 128.450").delta("+12.4%", true);
+                let mut it = Stat::new("Revenue", "$128,450").delta("+12.4%", true);
                 if arg_large {
                     it = it.large();
                 }

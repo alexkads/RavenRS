@@ -64,7 +64,7 @@ impl ComponentBook for TextField {
                 Args::new()
                     .with("value", "49,90")
                     .with("size", ArgValue::choice("Small"))
-                    .with("prefix", "R$")
+                    .with("prefix", "$")
                     .with("suffix", "per month"),
             )
             .story(

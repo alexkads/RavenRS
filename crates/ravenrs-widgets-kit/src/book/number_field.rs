@@ -59,7 +59,7 @@ fn render(args: &Args) -> AnyView {
                 }
                 it
             },
-            NumberField::money(price.binding(), "R$ ").label("Price"),
+            NumberField::money(price.binding(), "$").label("Price"),
         ))
         .spacing(12.0)
         .align(Align::Stretch)

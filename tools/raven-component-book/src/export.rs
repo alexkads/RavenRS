@@ -652,6 +652,15 @@ fn guide_with_index(entries: &[Entry]) -> String {
     for p in crate::patterns::entries() {
         let _ = writeln!(text, "| `{}` | {} |", p.name(), p.meta.summary.trim_end_matches('.'));
     }
+    text.push_str(
+        "\n## Themes of the applications\n\n\
+         Applications made with RavenRS choose their own colors. A screen designed for one of them takes its theme: put `data-theme=\"<id>\"` on the screen's root, and every `var(--token)` follows it. Only the colors and shadows change; sizes, corners and type are the system's.\n\n\
+         | Theme | `data-theme` | Accent |\n|---|---|---|\n",
+    );
+    for (id, name, theme) in crate::tokens::themes().into_iter().skip(3) {
+        let accent = crate::tokens::hex(theme.color(ravenrs::prelude::Semantic::Accent));
+        let _ = writeln!(text, "| {name} | `{id}` | `{accent}` |");
+    }
     text.push_str("\n## ");
     text.push_str(rest);
     text.replace("`raven-style`", "`ravenrs-style`").replace("{script}", crate::replay::SCRIPT)

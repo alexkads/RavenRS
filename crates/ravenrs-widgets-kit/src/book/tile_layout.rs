@@ -32,7 +32,7 @@ fn render(args: &Args) -> AnyView {
         let spots = State::new(vec![TileSpot::new("sales", 2, 1)]);
         {
             let mut it = TileLayout::new(spots.binding())
-                .tile(Tile::new("sales", "Sales", Stat::new("This month", "R$ 48,200")))
+                .tile(Tile::new("sales", "Sales", Stat::new("This month", "$48,200")))
                 .tile(
                     Tile::new("bills", "Bills", Stat::new("Open", "12"))
                         .accessory(Badge::new("3 late").tone(Tone::Danger)),

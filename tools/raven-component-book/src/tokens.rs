@@ -11,13 +11,30 @@ use serde_json::{Map, Value, json};
 /// What people write about the tokens: usage, samples, fonts, notes.
 const NOTES: &str = include_str!("../../../docs/design-system/tokens.json");
 
-/// The themes, the first one first, as the design tool reads them.
-pub fn themes() -> [(&'static str, &'static str, Theme); 3] {
-    [
+/// The themes of the applications made with RavenRS in this repository, as each one writes them
+/// with `Theme::to_tokens_json` (a test of the application keeps the file equal to its code):
+/// the id the design system gives the theme, and the file.
+pub const APP_THEMES: [(&str, &str); 3] = [
+    ("financas-claro", include_str!("../../../examples/family-finance/design/claro.theme.json")),
+    ("financas-escuro", include_str!("../../../examples/family-finance/design/escuro.theme.json")),
+    ("financas-vidro", include_str!("../../../examples/family-finance/design/vidro.theme.json")),
+];
+
+/// The themes, the first one first, as the design tool reads them: the three of RavenRS, then
+/// those of the applications, so a screen designed for one of them has its colors.
+pub fn themes() -> Vec<(&'static str, &'static str, Theme)> {
+    let mut all = vec![
         ("dark", "Raven Dark", Theme::raven_dark()),
         ("light", "Raven Light", Theme::raven_light()),
         ("glass", "Raven Glass", Theme::raven_glass()),
-    ]
+    ];
+    for (id, json) in APP_THEMES {
+        // A file that does not read is caught by the test of the book; the system goes without it.
+        if let Ok(theme) = Theme::from_tokens_json(json) {
+            all.push((id, theme.name, theme));
+        }
+    }
+    all
 }
 
 /// Every color role with a token name, in the order the guide speaks of them.

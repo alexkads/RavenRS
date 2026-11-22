@@ -60,7 +60,7 @@ fn render(args: &Args) -> AnyView {
                 [
                     GridColumn::number("ID").width(90.0),
                     GridColumn::text("Customer").width(220.0).editable(),
-                    GridColumn::currency("MRR", "R$ ", 2).width(150.0).summary(Summary::Sum),
+                    GridColumn::currency("MRR", "$", 2).width(150.0).summary(Summary::Sum),
                 ],
             );
             it = it.height(arg_height);

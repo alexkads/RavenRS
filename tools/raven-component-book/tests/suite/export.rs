@@ -401,3 +401,74 @@ fn the_replay_exits_with_one_when_a_piece_diverges() {
     assert!(String::from_utf8_lossy(&failed.stdout).contains("Button/Secondary"));
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+#[test]
+fn the_themes_of_the_applications_are_in_the_system() {
+    // Every file an application wrote reads back as a theme.
+    for (id, json) in raven_component_book::tokens::APP_THEMES {
+        assert!(ravenrs::prelude::Theme::from_tokens_json(json).is_ok(), "{id} does not read");
+    }
+    let tokens = raven_component_book::tokens::tokens("test");
+    let ids: Vec<&str> = tokens["color"]["themes"]
+        .as_array()
+        .expect("themes")
+        .iter()
+        .filter_map(|t| t["id"].as_str())
+        .collect();
+    assert!(
+        ids.contains(&"financas-claro")
+            && ids.contains(&"financas-escuro")
+            && ids.contains(&"financas-vidro"),
+        "{ids:?}"
+    );
+    let accent = tokens["color"]["tokens"]
+        .as_array()
+        .expect("colors")
+        .iter()
+        .find(|t| t["name"] == "accent")
+        .expect("accent");
+    assert_eq!(accent["value"]["financas-claro"], "#7ac70c", "the accent of Raven Finanças");
+    let css = raven_component_book::tokens::css(&tokens);
+    assert!(css.contains("[data-theme=\"financas-claro\"] {\n  --bg-000:"), "{css}");
+}
+
+#[test]
+fn every_story_speaks_one_language() {
+    // The application stories are in Portuguese, what is announced included.
+    let shell = measure_entry(&entry("AppShell"));
+    let parts =
+        shell[0].themes[0].1.parts.iter().map(|p| p["name"].to_string()).collect::<Vec<_>>().join(" ");
+    assert!(parts.contains("Mostrando Contas") && !parts.contains("Showing"), "{parts}");
+    // The component stories are in English: money in dollars, in the English format.
+    let field = measure_entry(&entry("NumberField"));
+    let price = field[0].themes[0].1.parts.iter().find(|p| p["name"] == "Price").expect("price");
+    assert_eq!(price["value"], "$1,299.90", "{price}");
+}
+
+#[test]
+fn an_entity_form_shows_its_fields_with_their_editors() {
+    let stories = measure_entry(&entry("EntityForm"));
+    let names = |i: usize| -> Vec<(String, String)> {
+        stories[i].themes[0].1.parts.iter().map(|p| (p["role"].to_string(), p["name"].to_string())).collect()
+    };
+    let new = names(0);
+    for (role, name) in [
+        ("RadioGroup", "Tipo"),
+        ("TextInput", "Descrição"),
+        ("ComboBox", "Conta"),
+        ("Button", "Salvar lançamento"),
+    ] {
+        assert!(new.iter().any(|(r, n)| r.contains(role) && n.contains(name)), "{role} {name} in {new:?}");
+    }
+    let dialog = stories[0].themes[0].1.parts.iter().find(|p| p["role"] == "Dialog").expect("a window");
+    assert_eq!(dialog["bounds"][2], 440.0, "440 wide by default");
+    let wide = stories.iter().find(|s| s.name == "Wide").expect("Wide");
+    let dialog = wide.themes[0].1.parts.iter().find(|p| p["role"] == "Dialog").expect("a window");
+    assert_eq!(dialog["bounds"][2], 600.0);
+    let rules = stories.iter().find(|s| s.name == "Rules not met").expect("rules");
+    let said = rules.themes[0].1.parts.iter().map(|p| p["name"].to_string()).collect::<Vec<_>>().join(" ");
+    assert!(
+        stories[0].themes[0].1.parts.len() < rules.themes[0].1.parts.len(),
+        "the rules add their messages: {said}"
+    );
+}

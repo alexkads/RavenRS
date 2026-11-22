@@ -127,7 +127,7 @@ fn filtered_grid() -> impl View {
             [
                 GridColumn::text("Invoice").width(140.0),
                 GridColumn::text("Customer").width(240.0),
-                GridColumn::currency("Amount", "R$ ", 2).width(160.0).summary(Summary::Sum),
+                GridColumn::currency("Amount", "$", 2).width(160.0).summary(Summary::Sum),
             ],
         )
         .striped(true)

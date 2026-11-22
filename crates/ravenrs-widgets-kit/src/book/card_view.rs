@@ -40,7 +40,7 @@ fn render(args: &Args) -> AnyView {
                 Box::new(
                     VStack::new((
                         Text::new(format!("Customer {i}")).font_weight(Weight::SEMIBOLD),
-                        Text::new(format!("R$ {},00", 100 + i * 7)).foreground(Semantic::InkMuted),
+                        Text::new(format!("${}.00", 100 + i * 7)).foreground(Semantic::InkMuted),
                     ))
                     .spacing(4.0),
                 )

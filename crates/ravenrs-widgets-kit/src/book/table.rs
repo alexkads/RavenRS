@@ -30,8 +30,8 @@ fn render(args: &Args) -> AnyView {
                 Column::new("Customer").weight(2.0),
                 Column::new("Amount").numeric(),
             ])
-            .row(["INV-1042", "Northwind Labs", "R$ 4.800"])
-            .row(["INV-1043", "Aurora Studio", "R$ 1.720"]);
+            .row(["INV-1042", "Northwind Labs", "$4,800"])
+            .row(["INV-1043", "Aurora Studio", "$1,720"]);
             it
         }
     })
