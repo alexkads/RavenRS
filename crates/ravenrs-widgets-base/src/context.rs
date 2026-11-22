@@ -1282,16 +1282,31 @@ impl<'a> BuildCx<'a> {
     /// ([`SetValue`](ravenrs_core::AccessAction::SetValue), with its text), open its menu or
     /// close ([`ShowMenu`](ravenrs_core::AccessAction::ShowMenu),
     /// [`Dismiss`](ravenrs_core::AccessAction::Dismiss)). The node needs [`Semantics`] or focus
-    /// to be in the tree. The handler returns whether it did the action.
+    /// to be in the tree. The handler returns whether it did the action. Called again on the
+    /// same node, it adds to what the node takes: a component that wraps another (a popover
+    /// around its anchor) keeps the anchor's own actions.
     pub fn on_access(
         &mut self,
         node: NodeId,
         actions: &[ravenrs_core::AccessAction],
         handler: impl Fn(ravenrs_core::AccessAction, Option<&str>) -> bool + 'static,
     ) {
-        if let Some(e) = self.element_mut(node) {
-            e.access = Some((actions.to_vec(), Rc::new(handler)));
-        }
+        let Some(e) = self.element_mut(node) else { return };
+        let new: AccessHandler = Rc::new(handler);
+        e.access =
+            Some(match e.access.take() {
+                None => (actions.to_vec(), new),
+                Some((mut had, old)) => {
+                    let mine = actions.to_vec();
+                    had.retain(|a| !mine.contains(a));
+                    let (inner, outer) = (old, new);
+                    let combined: AccessHandler = Rc::new(move |action, text| {
+                        if mine.contains(&action) { outer(action, text) } else { inner(action, text) }
+                    });
+                    had.extend(actions.iter().copied());
+                    (had, combined)
+                }
+            });
     }
 
     /// Says the node is busy with work that has not finished, such as loading or waiting for

@@ -582,16 +582,26 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "CommandPalette",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "option:<rótulo>"
+    ],
+    "acoes": [
+     "Select",
+     "Dismiss"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-base",
    "tipo": "ContextMenu",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "item:<rótulo>"
+    ],
+    "acoes": [
+     "ShowMenu",
+     "Dismiss"
+    ]
    }
   },
   {
@@ -630,8 +640,12 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "Dialog",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "close"
+    ],
+    "acoes": [
+     "Dismiss"
+    ]
    }
   },
   {
@@ -646,8 +660,16 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "DropdownMenu",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "item:<rótulo>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "ShowMenu",
+     "Dismiss"
+    ]
    }
   },
   {
@@ -768,8 +790,16 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "Menubar",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "menu:<título>",
+     "item:<rótulo>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "ShowMenu"
+    ]
    }
   },
   {
@@ -800,8 +830,11 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "Popover",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Expand",
+     "Collapse"
+    ]
    }
   },
   {
@@ -907,8 +940,12 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "Sheet",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "close"
+    ],
+    "acoes": [
+     "Dismiss"
+    ]
    }
   },
   {
@@ -1066,8 +1103,12 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "Toaster",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "toast:<id>"
+    ],
+    "acoes": [
+     "Dismiss"
+    ]
    }
   },
   {
