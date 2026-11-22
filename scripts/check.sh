@@ -197,6 +197,10 @@ step "every type keeps the testability contract of the RTS, or is pending with i
 ./scripts/rts-coverage.py --self-test
 ./scripts/rts-coverage.py
 
+step "every app with a window keeps scenarios the Raven Test Studio finds and runs (CONTRIBUTING.md, #702)"
+./scripts/e2e-scenarios.py --self-test
+./scripts/e2e-scenarios.py
+
 if [ "${1:-}" != "--full" ]; then
     step "what the change reaches"
     # What the selection leaves out goes unchecked, so the selection has tests of its own.
