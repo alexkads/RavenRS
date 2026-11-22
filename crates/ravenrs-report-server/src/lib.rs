@@ -3,7 +3,8 @@
 //!
 //! * [`config`] reads the server's configuration; secrets come from the environment.
 //! * [`store`] keeps layouts, jobs, history and documents as files.
-//! * [`cron`] parses schedules and finds the next run, time zones included.
+//! * [`cron`] parses schedules and finds the next run, time zones included. It lives in
+//!   `ravenrs-schedule`, shared with the app framework, Raven Flows and Raven CI.
 //! * [`job`] is the job format and its validation.
 //! * [`render`] resolves a layout's data and writes the output files.
 //! * [`deliver`] sends files by email or writes them to a folder.
@@ -14,7 +15,7 @@
 //! administrative identity, its API token, and is meant to run as one instance.
 
 pub mod config;
-pub mod cron;
+pub use ravenrs_schedule::cron;
 pub mod deliver;
 pub mod http;
 pub mod job;
