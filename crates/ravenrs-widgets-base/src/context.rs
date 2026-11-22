@@ -99,6 +99,36 @@ impl fmt::Debug for Paint {
 /// Called with the focused element's key presses; returns true when it handled the key.
 pub type KeyHandler = Rc<dyn Fn(&Key, Modifiers) -> bool>;
 
+/// What a node does when assistive technology or a test asks it for one of the actions it
+/// declared with [`BuildCx::on_access`]: the action, and the text that comes with
+/// [`AccessAction::SetValue`](ravenrs_core::AccessAction::SetValue). Returns whether it did it.
+pub type AccessHandler = Rc<dyn Fn(ravenrs_core::AccessAction, Option<&str>) -> bool>;
+
+/// Whether work done away from the [`Ui`](crate::Ui) is still going, shared with that work: a
+/// thread, a request to a remote `ObjectSpace`. Setting it needs no rebuild; the next
+/// accessibility tree reads it. Cloning gives the same signal.
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct BusySignal(std::sync::Arc<std::sync::atomic::AtomicBool>);
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl BusySignal {
+    /// A signal that starts free.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Marks the work as going (`true`) or finished (`false`), from any thread.
+    pub fn set(&self, busy: bool) {
+        self.0.store(busy, std::sync::atomic::Ordering::Release);
+    }
+
+    /// Whether the work is still going.
+    pub fn is_busy(&self) -> bool {
+        self.0.load(std::sync::atomic::Ordering::Acquire)
+    }
+}
+
 /// Phase of a pointer drag that started on an element.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[non_exhaustive]
@@ -139,6 +169,96 @@ impl Drag {
 
 /// Called for each phase of a pointer drag on an element.
 pub type DragHandler = Rc<dyn Fn(Drag)>;
+
+/// What a drag between components carries: a kind the target checks, the words people see by
+/// the pointer and screen readers hear, and the app's own value.
+///
+/// ```
+/// use ravenrs_widgets::DragPayload;
+///
+/// let payload = DragPayload::new("flow-node", "Decision", 7_u32);
+/// assert_eq!((payload.kind(), payload.label()), ("flow-node", "Decision"));
+/// assert_eq!(payload.data::<u32>(), Some(&7));
+/// assert_eq!(payload.data::<String>(), None);
+/// ```
+#[derive(Clone)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct DragPayload {
+    kind: Rc<str>,
+    label: Rc<str>,
+    data: Rc<dyn std::any::Any>,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl DragPayload {
+    /// Carrying `data`, of this `kind`, called `label`.
+    pub fn new(kind: &str, label: &str, data: impl std::any::Any) -> Self {
+        Self { kind: kind.into(), label: label.into(), data: Rc::new(data) }
+    }
+
+    /// What sort of thing it is, for targets to check.
+    pub fn kind(&self) -> &str {
+        &self.kind
+    }
+
+    /// What it is called.
+    pub fn label(&self) -> &str {
+        &self.label
+    }
+
+    /// The value it carries, if it is a `T`.
+    pub fn data<T: std::any::Any>(&self) -> Option<&T> {
+        self.data.downcast_ref()
+    }
+}
+
+impl fmt::Debug for DragPayload {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("DragPayload")
+            .field("kind", &self.kind)
+            .field("label", &self.label)
+            .finish_non_exhaustive()
+    }
+}
+
+/// Whether a drop target takes what is carried, and why not.
+pub type DropCheck = Rc<dyn Fn(&DragPayload) -> Result<(), String>>;
+/// Takes what was dropped, with where it was dropped in the target's own coordinates (from
+/// its top left corner).
+pub type DropHandler = Rc<dyn Fn(&DragPayload, Point)>;
+
+/// Something being carried, as a component sees it while it builds ([`BuildCx::carrying`]).
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct Carrying {
+    /// What is carried.
+    pub payload: DragPayload,
+    /// Where it is, on screen.
+    pub position: Point,
+    /// It is over this component's own drop target.
+    pub over: bool,
+    /// Whether the target it is over takes it, and why not.
+    pub verdict: Option<Result<(), String>>,
+    /// It is carried with the keys.
+    pub keyboard: bool,
+}
+
+/// A drag between components in progress, kept by the runtime.
+#[derive(Clone, Debug)]
+#[doc(hidden)]
+pub struct Carry {
+    pub payload: DragPayload,
+    pub source: WidgetId,
+    /// Where it is, on screen.
+    pub at: Point,
+    pub pressed: Point,
+    /// It moved far enough to be a drag rather than a press.
+    pub started: bool,
+    pub keyboard: bool,
+    /// The drop target under it and whether it takes it.
+    pub over: Option<WidgetId>,
+    pub verdict: Option<Result<(), String>>,
+}
 
 /// What just happened in the UI, for something watching it as a whole.
 #[derive(Clone, Copy, Debug)]
@@ -264,6 +384,8 @@ pub struct Semantics {
     /// The name is a guess (an icon's name) that a tooltip may replace.
     #[doc(hidden)]
     pub fallback_name: bool,
+    #[doc(hidden)]
+    pub protected: bool,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -286,6 +408,7 @@ impl Semantics {
             hidden: false,
             active: false,
             fallback_name: false,
+            protected: false,
         }
     }
 
@@ -293,6 +416,13 @@ impl Semantics {
     /// (decorations, duplicated content).
     pub fn hidden() -> Self {
         Self { hidden: true, ..Self::new(Role::Group) }
+    }
+
+    /// Marks the value as secret (a password field): assistive technology and tests are told
+    /// it is protected, and the value given is the masked one.
+    pub fn protected(mut self) -> Self {
+        self.protected = true;
+        self
     }
 
     /// The role.
@@ -374,6 +504,9 @@ impl Semantics {
     }
 }
 
+/// How close to the edge of the window a layer goes, unless it is flush.
+const OVERLAY_MARGIN: f32 = 4.0;
+
 #[allow(missing_debug_implementations)] // internal: shared with the components' crates, hidden
 #[doc(hidden)]
 pub struct Overlay {
@@ -384,6 +517,8 @@ pub struct Overlay {
     pub on_dismiss: Option<Rc<dyn Fn()>>,
     /// Stays below every other layer, whenever it was built.
     pub floating: bool,
+    /// How close to the edge of the window it may go.
+    pub margin: f32,
 }
 
 #[allow(missing_debug_implementations)] // internal: shared with the components' crates, hidden
@@ -413,7 +548,19 @@ pub struct Element {
     pub rebuild_on_scroll: bool,
     /// Visual offset applied to the children's positions.
     pub translate: Point,
+    /// Turn of the node and everything in it around its center, in radians, clockwise on
+    /// screen; painting and the pointer both follow it, layout does not.
+    pub rotation: f32,
+    /// Size of the node and everything in it as painted, from its top left corner; painting
+    /// and the pointer follow it, layout does not.
+    pub scale: f32,
     pub on_double_click: Option<Rc<dyn Fn()>>,
+    /// Picked up and carried to drop targets.
+    pub drag_source: Option<DragPayload>,
+    /// Takes what is carried here.
+    pub drop_target: Option<(DropCheck, DropHandler)>,
+    /// The pointer finds the node only inside this outline, from its top left corner.
+    pub hit_outline: Option<Rc<[Point]>>,
     pub on_pinch: Option<Rc<dyn Fn(f32)>>,
     /// Takes the wheel over it, before any scroll container around it.
     pub on_wheel: Option<Rc<dyn Fn(Point)>>,
@@ -450,6 +597,20 @@ pub struct Element {
     pub time_link: Option<crate::TimeLink>,
     /// Told the scroll progress along this range before each paint.
     pub progress_out: Option<(crate::ScrollRange, Rc<std::cell::Cell<f32>>)>,
+    /// The id tests and automation find this element by (see [`BuildCx::test_id`]).
+    pub test_id: Option<Rc<str>>,
+    /// The actions beyond a click this element takes from assistive technology and tests.
+    pub access: Option<(Vec<ravenrs_core::AccessAction>, AccessHandler)>,
+    /// Busy now, as the view said when it was built.
+    pub busy: bool,
+    /// Busy while this signal says so, read when the accessibility tree is made.
+    pub busy_signal: Option<BusySignal>,
+    /// The declaration site of that id, kept only in source-instrumented test builds.
+    #[cfg(feature = "e2e-source")]
+    pub test_source: Option<&'static std::panic::Location<'static>>,
+    /// The view constructor's caller, used when no explicit test tag supplies an origin.
+    #[cfg(feature = "e2e-source")]
+    pub view_source: Option<&'static std::panic::Location<'static>>,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -473,7 +634,12 @@ impl Element {
             scroll_x: false,
             rebuild_on_scroll: false,
             translate: Point::ZERO,
+            rotation: 0.0,
+            scale: 1.0,
             on_double_click: None,
+            drag_source: None,
+            drop_target: None,
+            hit_outline: None,
             on_pinch: None,
             on_wheel: None,
             scrolls_with_widget: false,
@@ -495,6 +661,14 @@ impl Element {
             on_appear: None,
             time_link: None,
             progress_out: None,
+            test_id: None,
+            access: None,
+            busy: false,
+            busy_signal: None,
+            #[cfg(feature = "e2e-source")]
+            test_source: None,
+            #[cfg(feature = "e2e-source")]
+            view_source: None,
         }
     }
 
@@ -507,6 +681,7 @@ impl Element {
             || self.cursor.is_some()
             || self.focus_radius.is_some()
             || self.on_drag.is_some()
+            || self.drag_source.is_some()
     }
 }
 
@@ -583,6 +758,10 @@ pub struct BuildCx<'a> {
     /// The views that asked about the pointer, so that it moving elsewhere rebuilds nothing.
     #[doc(hidden)]
     pub hover_readers: Rc<RefCell<HashSet<WidgetId>>>,
+    /// The focused widget and every widget around it, from the last frame.
+    pub focus_chain: Rc<[WidgetId]>,
+    /// Whether a view read the keys held with [`BuildCx::held`], to be built again when they change.
+    pub modifiers_read: Rc<std::cell::Cell<bool>>,
     #[doc(hidden)]
     pub view_profile: Option<Rc<RefCell<dyn BuildTiming>>>,
     #[doc(hidden)]
@@ -594,6 +773,11 @@ pub struct BuildCx<'a> {
     #[doc(hidden)]
     pub overlays: Vec<Overlay>,
     floating_overlays: u64,
+    /// The cables built this build, placed after the layout.
+    pub(crate) cables: Vec<crate::cable_plug::CableRequest>,
+    /// The window's cables, to read their shapes back.
+    #[doc(hidden)]
+    pub cable_world: Option<crate::cable_plug::Cables>,
     #[doc(hidden)]
     pub text: &'a mut TextSystem,
     #[doc(hidden)]
@@ -619,6 +803,12 @@ pub struct BuildCx<'a> {
     scoped: HashMap<std::any::TypeId, Rc<dyn Any>>,
     #[doc(hidden)]
     pub shortcuts: Vec<Shortcut>,
+    /// What the views asked before the window closes; see [`Self::on_close_request`].
+    #[doc(hidden)]
+    pub close_guards: Vec<Rc<dyn Fn() -> bool>>,
+    /// Set by a [`WindowCloser`](crate::WindowCloser), read by the platform.
+    #[doc(hidden)]
+    pub closer: crate::WindowCloser,
     #[doc(hidden)]
     pub activity: Option<ActivityObserver>,
     #[doc(hidden)]
@@ -645,6 +835,8 @@ pub struct BuildCx<'a> {
     pub file_picker: crate::FilePicker,
     #[doc(hidden)]
     pub files_over: State<bool>,
+    #[doc(hidden)]
+    pub carry: Option<Carry>,
     #[doc(hidden)]
     pub appearance: crate::SystemAppearance,
     #[doc(hidden)]
@@ -690,6 +882,8 @@ impl<'a> BuildCx<'a> {
     ) -> Self {
         Self {
             hover_readers: Rc::default(),
+            focus_chain: Rc::from([]),
+            modifiers_read: Rc::default(),
             view_profile: None,
             // Read through the state so a theme change rebuilds the UI.
             theme: theme_state.get(),
@@ -697,6 +891,8 @@ impl<'a> BuildCx<'a> {
             viewport,
             overlays: Vec::new(),
             floating_overlays: 0,
+            cables: Vec::new(),
+            cable_world: None,
             text,
             layout,
             elements,
@@ -710,6 +906,8 @@ impl<'a> BuildCx<'a> {
             ui_waker,
             scoped: HashMap::new(),
             shortcuts: Vec::new(),
+            close_guards: Vec::new(),
+            closer: crate::WindowCloser::default(),
             activity: None,
             access_tree_asked: false,
             wake: None,
@@ -723,6 +921,7 @@ impl<'a> BuildCx<'a> {
             full_screen: crate::FullScreen::default(),
             file_picker: crate::FilePicker::default(),
             files_over: State::new(false),
+            carry: None,
             appearance: crate::SystemAppearance::default(),
             motions: Vec::new(),
             motion_clock: 0.0,
@@ -753,6 +952,21 @@ impl<'a> BuildCx<'a> {
     /// The theme in effect for this build.
     pub fn theme(&self) -> &Theme {
         &self.theme
+    }
+
+    /// Asks `may_close` before the window closes, as when its close button is pressed. When it
+    /// returns false the window stays, and the view asks its own question (unsaved changes,
+    /// say) and closes it afterwards with a [`window_closer`](Self::window_closer). Ask it on
+    /// every build that should hold the window; one that stops asking lets it close.
+    pub fn on_close_request(&mut self, may_close: impl Fn() -> bool + 'static) {
+        self.close_guards.push(Rc::new(may_close));
+    }
+
+    /// A handle that closes the window when called, without asking
+    /// [`on_close_request`](Self::on_close_request) again: what a view calls once its question
+    /// is answered.
+    pub fn window_closer(&self) -> crate::WindowCloser {
+        self.closer.clone()
     }
 
     /// A handle that asks for a rebuild from another thread; see [`UiWaker`](crate::UiWaker).
@@ -934,6 +1148,12 @@ impl<'a> BuildCx<'a> {
         self.interaction.focused.is_none()
     }
 
+    /// Keyboard focus is on this view or on any element inside it. A change of focus builds the
+    /// views again, so it is current on every build.
+    pub fn is_focus_within(&self) -> bool {
+        self.focus_chain.contains(&self.widget_id())
+    }
+
     /// Keyboard focus is on this view.
     pub fn is_focused(&self) -> bool {
         self.interaction.focused == Some(self.widget_id())
@@ -1057,6 +1277,57 @@ impl<'a> BuildCx<'a> {
         }
     }
 
+    /// The actions beyond a click the node takes from screen readers and tests, and what it
+    /// does for each: open and close ([`Expand`](ravenrs_core::AccessAction::Expand),
+    /// [`Collapse`](ravenrs_core::AccessAction::Collapse)), choose
+    /// ([`Select`](ravenrs_core::AccessAction::Select)), take a value
+    /// ([`SetValue`](ravenrs_core::AccessAction::SetValue), with its text), open its menu or
+    /// close ([`ShowMenu`](ravenrs_core::AccessAction::ShowMenu),
+    /// [`Dismiss`](ravenrs_core::AccessAction::Dismiss)). The node needs [`Semantics`] or focus
+    /// to be in the tree. The handler returns whether it did the action. Called again on the
+    /// same node, it adds to what the node takes: a component that wraps another (a popover
+    /// around its anchor) keeps the anchor's own actions.
+    pub fn on_access(
+        &mut self,
+        node: NodeId,
+        actions: &[ravenrs_core::AccessAction],
+        handler: impl Fn(ravenrs_core::AccessAction, Option<&str>) -> bool + 'static,
+    ) {
+        let Some(e) = self.element_mut(node) else { return };
+        let new: AccessHandler = Rc::new(handler);
+        e.access =
+            Some(match e.access.take() {
+                None => (actions.to_vec(), new),
+                Some((mut had, old)) => {
+                    let mine = actions.to_vec();
+                    had.retain(|a| !mine.contains(a));
+                    let (inner, outer) = (old, new);
+                    let combined: AccessHandler = Rc::new(move |action, text| {
+                        if mine.contains(&action) { outer(action, text) } else { inner(action, text) }
+                    });
+                    had.extend(actions.iter().copied());
+                    (had, combined)
+                }
+            });
+    }
+
+    /// Says the node is busy with work that has not finished, such as loading or waiting for
+    /// an answer: screen readers announce it and tests wait until it is free. For work away
+    /// from the `Ui`, see [`BuildCx::busy_while`].
+    pub fn busy(&mut self, node: NodeId, busy: bool) {
+        if let Some(e) = self.element_mut(node) {
+            e.busy = busy;
+        }
+    }
+
+    /// The node is busy while `signal` says so: the work sets it from its thread, with no
+    /// rebuild, and the next accessibility tree reads it.
+    pub fn busy_while(&mut self, node: NodeId, signal: &BusySignal) {
+        if let Some(e) = self.element_mut(node) {
+            e.busy_signal = Some(signal.clone());
+        }
+    }
+
     /// Describes the node to screen readers; see [`Semantics`].
     pub fn semantics(&mut self, node: NodeId, semantics: Semantics) {
         if let Some(e) = self.element_mut(node) {
@@ -1130,6 +1401,36 @@ impl<'a> BuildCx<'a> {
         }
         if let Some(description) = description {
             s.description = Some(description.to_owned());
+        }
+    }
+
+    /// Tags the node with an id that tests and automation find it by, which does not change
+    /// when the screen around it is reordered or wrapped. It is not read by screen readers; on
+    /// the web it becomes `data-testid`. A node that does not show to assistive technology
+    /// passes the id to the first one inside it. Components use it to tag their own parts;
+    /// apps use [`ViewExt::test_id`](crate::ViewExt::test_id).
+    #[cfg_attr(feature = "e2e-source", track_caller)]
+    pub fn test_id(&mut self, node: NodeId, id: &str) {
+        if let Some(e) = self.element_mut(node) {
+            e.test_id = Some(Rc::from(id));
+            #[cfg(feature = "e2e-source")]
+            {
+                e.test_source = Some(std::panic::Location::caller());
+            }
+        }
+    }
+
+    #[cfg(feature = "e2e-source")]
+    pub(crate) fn test_source(&mut self, node: NodeId, source: &'static std::panic::Location<'static>) {
+        if let Some(e) = self.element_mut(node) {
+            e.test_source = Some(source);
+        }
+    }
+
+    #[cfg(feature = "e2e-source")]
+    pub(crate) fn view_source(&mut self, node: NodeId, source: &'static std::panic::Location<'static>) {
+        if let Some(e) = self.element_mut(node) {
+            e.view_source = Some(source);
         }
     }
 
@@ -1405,6 +1706,14 @@ impl<'a> BuildCx<'a> {
         }
     }
 
+    /// The keys held now (Ctrl, Shift, Alt, Cmd), for a view that looks different while one is held,
+    /// such as a list shown while Ctrl is down. The views are built again when one is pressed or let
+    /// go.
+    pub fn held(&self) -> Modifiers {
+        self.modifiers_read.set(true);
+        self.modifiers.get()
+    }
+
     /// Keyboard modifiers as of the latest input event, readable from click
     /// handlers (e.g. Shift-click to extend a selection).
     pub fn modifiers(&self) -> Rc<std::cell::Cell<Modifiers>> {
@@ -1500,6 +1809,88 @@ impl<'a> BuildCx<'a> {
         }
     }
 
+    /// Turns the node and its subtree around the node's center by `radians`, clockwise on
+    /// screen. Layout is unchanged; painting turns everything inside, text and images too, and
+    /// the pointer finds the node, and what is in it, where it shows. Screen readers get the
+    /// box around the turned node. Turns of nodes inside one another add up.
+    ///
+    /// ```
+    /// use ravenrs_widgets::{BuildCx, NodeId, View};
+    ///
+    /// struct Tilted;
+    /// impl View for Tilted {
+    ///     fn build(&self, cx: &mut BuildCx<'_>) -> NodeId {
+    ///         let node = cx.child(&ravenrs_widgets::Text::new("Tilted"));
+    ///         cx.rotate(node, 0.2);
+    ///         node
+    ///     }
+    /// }
+    /// ```
+    pub fn rotate(&mut self, node: NodeId, radians: f32) {
+        if let Some(e) = self.element_mut(node) {
+            e.rotation = radians;
+        }
+    }
+
+    /// Paints the node and its subtree `factor` times their laid out size, from the node's top
+    /// left corner, and has the pointer find them where they show. Layout is unchanged: lay a
+    /// subtree out at its natural size and show it at a zoom, text still sharp at that size.
+    /// With [`Self::rotate`] too, the scale comes first and the turn goes around the scaled
+    /// node's middle.
+    pub fn scale(&mut self, node: NodeId, factor: f32) {
+        if let Some(e) = self.element_mut(node) {
+            e.scale = factor.max(0.0);
+        }
+    }
+
+    /// Lets the node be picked up and carried to a [`Self::drop_target`]: pressed and dragged
+    /// with the pointer, or, focused, picked up with Space, moved with the arrows (Shift for
+    /// four times as far), dropped with Enter and given up with Escape. While it is carried, a
+    /// tag with its label follows it and screen readers hear the label, or why the target under
+    /// it refuses.
+    pub fn drag_source(&mut self, node: NodeId, payload: DragPayload) {
+        if let Some(e) = self.element_mut(node) {
+            e.drag_source = Some(payload);
+        }
+    }
+
+    /// Takes what is carried and dropped on the node: `check` says whether it takes it (and,
+    /// when not, why), `on_drop` gets it with where it landed, from the node's top left corner.
+    /// While something is carried, [`Self::carrying`] tells the node, for a preview of its own.
+    pub fn drop_target(
+        &mut self,
+        node: NodeId,
+        check: impl Fn(&DragPayload) -> Result<(), String> + 'static,
+        on_drop: impl Fn(&DragPayload, Point) + 'static,
+    ) {
+        if let Some(e) = self.element_mut(node) {
+            e.drop_target = Some((Rc::new(check), Rc::new(on_drop)));
+        }
+    }
+
+    /// What is being carried between components, if anything is, and whether it is over this
+    /// view's own drop target.
+    pub fn carrying(&self) -> Option<Carrying> {
+        let carry = self.carry.as_ref().filter(|c| c.started)?;
+        let over = carry.over == Some(self.widget_id());
+        Some(Carrying {
+            payload: carry.payload.clone(),
+            position: carry.at,
+            over,
+            verdict: over.then(|| carry.verdict.clone()).flatten(),
+            keyboard: carry.keyboard,
+        })
+    }
+
+    /// Has the pointer find the node only inside `outline`, a closed polygon in the node's own
+    /// coordinates (from its top left corner), instead of its whole box: a diamond or a round
+    /// button. Its children are found as ever.
+    pub fn hit_outline(&mut self, node: NodeId, outline: impl Into<Rc<[Point]>>) {
+        if let Some(e) = self.element_mut(node) {
+            e.hit_outline = Some(outline.into());
+        }
+    }
+
     /// Calls `handler` on a double click on the node.
     pub fn on_double_click(&mut self, node: NodeId, handler: Rc<dyn Fn()>) {
         if let Some(e) = self.element_mut(node) {
@@ -1552,9 +1943,44 @@ impl<'a> BuildCx<'a> {
         view: &dyn View,
         on_dismiss: Option<Rc<dyn Fn()>>,
     ) {
-        let slot = self.overlays.len();
         let gap = self.theme.spacing.s2;
-        self.overlays.push(Overlay { root: anchor, anchor, placement, gap, on_dismiss, floating: false });
+        self.push_overlay(key, anchor, placement, view, on_dismiss, gap, OVERLAY_MARGIN);
+    }
+
+    /// Like [`Self::overlay`], for a layer that touches its anchor, with no gap, and may reach
+    /// the edge of the window: a panel that opens out of a rail at the side of a window.
+    pub fn flush_overlay(
+        &mut self,
+        anchor: NodeId,
+        placement: Placement,
+        view: &dyn View,
+        on_dismiss: Option<Rc<dyn Fn()>>,
+    ) {
+        let key = 0x6f76_6572_6c61_7900 + self.overlays.len() as u64;
+        self.push_overlay(key, anchor, placement, view, on_dismiss, 0.0, 0.0);
+    }
+
+    #[allow(clippy::too_many_arguments, reason = "the parts of one layer")]
+    fn push_overlay(
+        &mut self,
+        key: u64,
+        anchor: NodeId,
+        placement: Placement,
+        view: &dyn View,
+        on_dismiss: Option<Rc<dyn Fn()>>,
+        gap: f32,
+        margin: f32,
+    ) {
+        let slot = self.overlays.len();
+        self.overlays.push(Overlay {
+            root: anchor,
+            anchor,
+            placement,
+            gap,
+            on_dismiss,
+            floating: false,
+            margin,
+        });
         let outer = self.foreground.take();
         let root = self.keyed_child(key, view);
         self.foreground = outer;
@@ -1577,11 +2003,30 @@ impl<'a> BuildCx<'a> {
             gap,
             on_dismiss: None,
             floating: true,
+            margin: OVERLAY_MARGIN,
         });
         let outer = self.foreground.take();
         let root = self.keyed_child(key, view);
         self.foreground = outer;
         self.overlays[slot].root = root;
+    }
+
+    /// Adds a cable to the window for this build; see [`CablePlug`](crate::CablePlug).
+    #[doc(hidden)]
+    pub fn cable(&mut self, plug: crate::CablePlug) {
+        let owner = self.widget_id().raw();
+        let index = self.cables.iter().filter(|r| r.owner == owner).count() as u64;
+        self.cables.push(crate::cable_plug::CableRequest { plug, owner, index });
+    }
+
+    /// The window's cables, to read where they are: for components that draw cables
+    /// on their own canvas and need their shapes for the pointer.
+    pub fn cables(&self) -> crate::Cables {
+        self.cable_world.clone().unwrap_or_else(|| {
+            crate::Cables(std::rc::Rc::new(std::cell::RefCell::new(Box::new(
+                ravenrs_core::cable::CpuCables::new(),
+            ))))
+        })
     }
 
     fn element_mut(&mut self, node: NodeId) -> Option<&mut Element> {
@@ -1637,4 +2082,11 @@ pub trait BuildTiming {
     fn enter(&mut self, name: &'static str, elements: usize, shapes: u64);
     /// The view started last ends, with this many elements and shapes made by then.
     fn leave(&mut self, elements: usize, shapes: u64);
+}
+
+impl crate::cable_plug::CablePlug {
+    /// Adds the cable to the window for this build.
+    pub fn build(self, cx: &mut BuildCx<'_>) {
+        cx.cable(self);
+    }
 }

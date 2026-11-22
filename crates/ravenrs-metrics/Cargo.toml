@@ -1,0 +1,26 @@
+[package]
+name = "ravenrs-metrics"
+description = "Metrics for RavenRS services in the Prometheus text format: counters, gauges and histograms with labels, safe from any thread, and the memory the process holds."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-metrics"
+keywords = ["metrics", "prometheus", "monitoring", "observability", "gauge"]
+categories = ["development-tools::profiling"]
+
+[features]
+# free_disk_bytes, through sysinfo's list of disks.
+disk = ["dep:sysinfo", "sysinfo/disk"]
+# tree_rss_bytes, through sysinfo's list of processes.
+process = ["dep:sysinfo", "sysinfo/system"]
+
+[dependencies]
+sysinfo = { version = "0.38", default-features = false, optional = true }
+
+[lints]
+workspace = true

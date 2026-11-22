@@ -393,6 +393,8 @@ impl View for ItemView<'_> {
             semantics = semantics.expanded(open.get());
         }
         cx.semantics(node, semantics);
+        // Found by its label, which is what names a command of the ribbon.
+        cx.test_id(node, &format!("command:{}", item.label));
         if item.enabled {
             let (action, toggle, menu_open) = (item.action.clone(), item.toggle.clone(), open.clone());
             cx.on_click(
@@ -739,6 +741,7 @@ impl View for Ribbon {
                     popup: popup.clone(),
                 },
             );
+            cx.test_id(tab, &format!("tab:{}", page.title));
             if let Some((name, tone)) = &page.category {
                 let color = tone_color(&theme, *tone);
                 let cap = util::label(cx, &name.to_uppercase(), TextStyle::Caption, None, color);

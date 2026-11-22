@@ -1020,3 +1020,15 @@ fn a_list_can_show_records_no_storage_keeps() {
     w.settle();
     assert!(session.form_record().is_some(), "and a form opens with nothing behind it");
 }
+
+#[test]
+fn an_action_that_cannot_run_yet_is_found_by_its_id_and_refuses() {
+    // #739: "Close" asks for a row; with none chosen it is faded, and a test that presses it is
+    // told so, as a person who cannot press it.
+    let (session, _database) = screen_session();
+    let mut e2e = ravenrs_e2e::E2e::new(Screen(session.clone(), None, false), Theme::raven_dark())
+        .viewport(Size::new(1200.0, 800.0), 1.0);
+    let refused = e2e.by_test_id("action:Close").click().unwrap_err();
+    assert_eq!(refused.code(), ravenrs_e2e::ErrorCode::Disabled, "{refused}");
+    assert_eq!(e2e.by_test_id("action:Flag").count().unwrap(), 1);
+}

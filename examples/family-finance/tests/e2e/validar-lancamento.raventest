@@ -1,0 +1,12 @@
+scenario: Raven Finanças: lançamento sem valor não salva
+// Um lançamento sem valor fica aberto e diz o que falta; com o valor, salva.
+open Raven Finanças                          | Abrir o Raven Finanças
+click #item:Lançamentos                      | Ir aos lançamentos
+click #action:NewExpense                     | Nova despesa
+type #field:description = Revisão do carro   | Digitar só a descrição
+click #form:save                             | Tentar salvar
+check Preencha este campo. = Preencha este campo. | Diz que falta o valor
+check #field:description = Revisão do carro | O lançamento continua aberto, com a descrição
+type #field:amount = 420,00                  | Digitar o valor
+click #form:save                             | Salvar de novo
+check Lançamento salvo = Lançamento salvo    | Agora salva

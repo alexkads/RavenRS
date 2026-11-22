@@ -3,6 +3,7 @@
 use crate::PerfScene;
 
 pub mod apps;
+mod cables;
 mod components;
 mod curve;
 
@@ -10,6 +11,7 @@ mod curve;
 pub fn all() -> Vec<PerfScene> {
     let mut scenes = curve::scenes();
     scenes.extend(components::scenes());
+    scenes.extend(cables::scenes());
     scenes.extend(apps::scenes());
     scenes
 }

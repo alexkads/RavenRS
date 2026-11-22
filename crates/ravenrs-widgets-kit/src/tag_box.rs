@@ -227,15 +227,16 @@ impl View for TagBox {
             if state.accepts_input() {
                 let (selected, key) = (self.selected.clone(), key.clone());
                 let name = format!("{} {caption}", cx.labels().tag_remove);
-                parts.push(
-                    cx.keyed_child(
-                        util::hash_text(&key),
-                        &IconButton::new(IconName::X)
-                            .label(name)
-                            .size(ButtonSize::Small)
-                            .on_click(move || selected.update(|chosen| chosen.retain(|k| *k != key))),
-                    ),
+                let remove = cx.keyed_child(
+                    util::hash_text(&key),
+                    &IconButton::new(IconName::X)
+                        .label(name)
+                        .size(ButtonSize::Small)
+                        .on_click(move || selected.update(|chosen| chosen.retain(|k| *k != key))),
                 );
+                // The button that removes a tag is found by the tag it removes.
+                cx.test_id(remove, &format!("remove:{caption}"));
+                parts.push(remove);
             }
             let tag = cx.container(
                 LayoutStyle {
@@ -310,6 +311,15 @@ impl View for TagBox {
         if !state.accepts_input() {
             return node;
         }
+        let shown = open.clone();
+        cx.on_access(
+            node,
+            &[ravenrs_core::AccessAction::Expand, ravenrs_core::AccessAction::Collapse],
+            move |action, _| {
+                shown.set(action == ravenrs_core::AccessAction::Expand);
+                true
+            },
+        );
         let toggle = open.clone();
         cx.on_click(node, Rc::new(move || toggle.update(|o| *o = !*o)));
         let (opener, selected) = (open.clone(), self.selected.clone());

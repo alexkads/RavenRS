@@ -80,3 +80,29 @@ impl UiWaker {
         }
     }
 }
+
+/// Closes the window a view is in, from a click handler or later; see
+/// [`BuildCx::window_closer`](crate::context::BuildCx::window_closer).
+#[derive(Clone, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
+pub struct WindowCloser(std::rc::Rc<std::cell::Cell<bool>>);
+
+impl fmt::Debug for WindowCloser {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("WindowCloser").field("asked", &self.0.get()).finish()
+    }
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl WindowCloser {
+    /// Closes the window once the event being handled is over.
+    pub fn close(&self) {
+        self.0.set(true);
+    }
+
+    /// Whether a close was asked, forgetting it: the platform reads it.
+    #[doc(hidden)]
+    pub fn take(&self) -> bool {
+        self.0.replace(false)
+    }
+}

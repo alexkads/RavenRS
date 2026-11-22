@@ -134,10 +134,10 @@ impl Track {
                 }
             }
             Sizing::Known(size_of) => {
-                for i in 0..count {
+                for (i, slot) in self.sizes.iter_mut().enumerate().take(count) {
                     let size = size_of(i) + list.spacing;
-                    if (self.sizes[i] - size).abs() > f32::EPSILON {
-                        self.sizes[i] = size;
+                    if (*slot - size).abs() > f32::EPSILON {
+                        *slot = size;
                         changed = true;
                     }
                 }
@@ -534,6 +534,10 @@ impl View for Row<'_> {
             semantics = semantics.name(name(self.index));
         }
         cx.semantics(node, semantics);
+        // Tests find a row by its key, which stays with the data as rows move.
+        if let Some(key) = &list.key {
+            cx.test_id(node, &format!("row:{}", key(self.index)));
+        }
         if let Some(pick) = &self.pick {
             let (pick, index) = (pick.clone(), self.index);
             cx.on_click(node, Rc::new(move || pick(index)));

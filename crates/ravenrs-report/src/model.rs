@@ -436,6 +436,8 @@ pub enum ControlKind {
     PrinterCommand(PrinterCommand),
     /// A chart of the rows in scope, or of a nested list.
     Chart(Chart),
+    /// A flow diagram (a process, a flowchart, an org chart), drawn to fit the control.
+    Diagram(Diagram),
 }
 
 /// A chart.
@@ -459,6 +461,19 @@ pub struct Chart {
     pub format: Option<String>,
     /// An array field of the current row to chart, instead of the rows in scope.
     pub data_member: Option<String>,
+}
+
+/// A flow diagram: the JSON a `FlowCanvas` keeps (`FlowGraph::to_json`), fixed or from a
+/// field, drawn whole inside the control on paper colors, its titles as text.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct Diagram {
+    /// The diagram, as JSON.
+    pub json: String,
+    /// An expression giving the JSON, such as `[Process]`; it wins over `json`.
+    pub expression: Option<String>,
+    /// Only these nodes, by id, and the connections between them; every node when empty.
+    pub only: Vec<String>,
 }
 
 /// A chart's series.
@@ -1130,6 +1145,14 @@ impl Control {
                 series: vec![ChartSeries::new("", value)],
                 ..Chart::default()
             }),
+            ..Self::default()
+        }
+    }
+
+    /// A flow diagram drawn from `json` (as `FlowGraph::to_json` writes it), to fit the control.
+    pub fn diagram(json: impl Into<String>) -> Self {
+        Self {
+            kind: ControlKind::Diagram(Diagram { json: json.into(), ..Diagram::default() }),
             ..Self::default()
         }
     }

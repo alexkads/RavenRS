@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 680" width="1280" height="680" role="img" aria-label="Wireframe: Execução">
+<title>Wireframe: Execução</title><style>
+:root{--bg:#ffffff;--panel:#f5f6f8;--line:#d4d7dd;--ink:#1d2025;--muted:#5f6673;--accent:#3b5bdb;--ok:#2b8a3e;--warn:#b35c00;--bad:#c92a2a;--chip:#e9ecf2}
+@media (prefers-color-scheme: dark){:root{--bg:#16181c;--panel:#1f2228;--line:#3a3f48;--ink:#e8eaee;--muted:#a3aab6;--accent:#8ea2ff;--ok:#69db7c;--warn:#ffa94d;--bad:#ff8787;--chip:#2a2e36}}
+.bg{fill:var(--bg)} .p{fill:var(--panel);stroke:var(--line)} .l{stroke:var(--line);fill:none}
+.t{fill:var(--ink);font:13px system-ui,sans-serif} .s{fill:var(--muted);font:11px system-ui,sans-serif}
+.h{fill:var(--ink);font:600 15px system-ui,sans-serif} .m{fill:var(--ink);font:11px ui-monospace,monospace}
+.chip{fill:var(--chip);stroke:var(--line)} .acc{fill:var(--accent)} .acct{fill:var(--accent);font:600 12px system-ui,sans-serif}
+.ok{fill:var(--ok);font:600 11px system-ui,sans-serif} .warn{fill:var(--warn);font:600 11px system-ui,sans-serif}
+.bad{fill:var(--bad);font:600 11px system-ui,sans-serif} .btn{fill:var(--accent)} .btnt{fill:#fff;font:600 12px system-ui,sans-serif}
+.edge{stroke:var(--accent);stroke-width:1.6;fill:none} .edgew{stroke:var(--warn);stroke-width:1.6;fill:none;stroke-dasharray:5 4}
+.n{fill:var(--accent);font:600 11px system-ui,sans-serif}
+</style>
+<rect class="bg" width="1280" height="680"/>
+<rect class="p" x="0" y="0" width="1280" height="40" rx="0"/>
+<text class="h" x="16" y="25" text-anchor="start">Raven Data Studio</text>
+<text class="s" x="190" y="25" text-anchor="start">Projetos › Migração legado › Execução</text>
+<rect class="p" x="0" y="40" width="200" height="612" rx="0"/>
+<text class="s" x="16" y="66" text-anchor="start">ETAPAS</text>
+<text class="ok" x="18" y="88" text-anchor="start">✓</text>
+<text class="s" x="36" y="88" text-anchor="start">Origem e destino</text>
+<text class="ok" x="18" y="112" text-anchor="start">✓</text>
+<text class="s" x="36" y="112" text-anchor="start">Perfil</text>
+<text class="ok" x="18" y="136" text-anchor="start">✓</text>
+<text class="s" x="36" y="136" text-anchor="start">Schema</text>
+<text class="ok" x="18" y="160" text-anchor="start">✓</text>
+<text class="s" x="36" y="160" text-anchor="start">Comparação e DDL</text>
+<text class="ok" x="18" y="184" text-anchor="start">✓</text>
+<text class="s" x="36" y="184" text-anchor="start">Mapeamento</text>
+<text class="ok" x="18" y="208" text-anchor="start">✓</text>
+<text class="s" x="36" y="208" text-anchor="start">Transformações</text>
+<text class="ok" x="18" y="232" text-anchor="start">✓</text>
+<text class="s" x="36" y="232" text-anchor="start">Conflitos</text>
+<text class="ok" x="18" y="256" text-anchor="start">✓</text>
+<text class="s" x="36" y="256" text-anchor="start">Simulação</text>
+<text class="ok" x="18" y="280" text-anchor="start">✓</text>
+<text class="s" x="36" y="280" text-anchor="start">Revisão final</text>
+<text class="acct" x="18" y="304" text-anchor="start">●</text>
+<text class="t" x="36" y="304" text-anchor="start">Execução</text>
+<text class="s" x="18" y="328" text-anchor="start">○</text>
+<text class="s" x="36" y="328" text-anchor="start">Resultado</text>
+<rect class="p" x="0" y="652" width="1280" height="28" rx="0"/>
+<text class="ok" x="230" y="72" text-anchor="start">✓ Preparando</text>
+<text class="ok" x="430" y="72" text-anchor="start">✓ Schema</text>
+<text class="acct" x="630" y="72" text-anchor="start">● Carga</text>
+<text class="s" x="830" y="72" text-anchor="start">○ Reconciliação</text>
+<text class="s" x="1030" y="72" text-anchor="start">○ Relatório</text>
+<line class="l" x1="220" y1="84" x2="1264" y2="84"/>
+<rect class="p" x="216" y="108" width="1048" height="72" rx="6"/>
+<text class="h" x="232" y="132" text-anchor="start">customers</text>
+<rect class="chip" x="1120" y="120" width="93.0" height="17" rx="8"/>
+<text class="ok" x="1127" y="132" text-anchor="start">✓ Concluída</text>
+<rect class="chip" x="232" y="144" width="800" height="10" rx="5"/>
+<rect class="btn" x="232" y="144" width="800.0" height="10" rx="5"/>
+<text class="s" x="232" y="172" text-anchor="start">1.202 gravados · 9 revisão · 2 de 2 lotes</text>
+<text class="t" x="1050" y="154" text-anchor="start">100%</text>
+<rect class="p" x="216" y="192" width="1048" height="72" rx="6"/>
+<text class="h" x="232" y="216" text-anchor="start">customer_addresses</text>
+<rect class="chip" x="1120" y="204" width="93.0" height="17" rx="8"/>
+<text class="ok" x="1127" y="216" text-anchor="start">✓ Concluída</text>
+<rect class="chip" x="232" y="228" width="800" height="10" rx="5"/>
+<rect class="btn" x="232" y="228" width="800.0" height="10" rx="5"/>
+<text class="s" x="232" y="256" text-anchor="start">1.568 gravados · 23 revisão · 2 de 2 lotes</text>
+<text class="t" x="1050" y="238" text-anchor="start">100%</text>
+<rect class="p" x="216" y="276" width="1048" height="72" rx="6"/>
+<text class="h" x="232" y="300" text-anchor="start">orders</text>
+<rect class="chip" x="1120" y="288" width="100.0" height="17" rx="8"/>
+<text class="acct" x="1127" y="300" text-anchor="start">● Carregando</text>
+<rect class="chip" x="232" y="312" width="800" height="10" rx="5"/>
+<rect class="btn" x="232" y="312" width="416.0" height="10" rx="5"/>
+<text class="s" x="232" y="340" text-anchor="start">2.740 gravados · 7 rejeitados · lote 3 de ≈6 · 1.850/s</text>
+<text class="t" x="1050" y="322" text-anchor="start">52%</text>
+<circle cx="1250" cy="300" r="9" fill="none" stroke="var(--accent)"/>
+<text class="n" x="1250" y="304" text-anchor="middle">1</text>
+<text class="s" x="232" y="380" text-anchor="start">Anúncio a cada 10% e em toda mudança de estado; números não são relidos a cada atualização.</text>
+<rect class="p" x="216" y="396" width="1048" height="180" rx="6"/>
+<text class="h" x="232" y="420" text-anchor="start">Problemas ao vivo (16)</text>
+<text class="bad" x="240" y="450" text-anchor="start">✕ 88019 · referencia_ausente (cliente 9999)</text>
+<text class="warn" x="240" y="476" text-anchor="start">⚠ 88021 · SITUACAO = X → revisão</text>
+<text class="warn" x="240" y="502" text-anchor="start">⚠ 88020 · retido: cliente 1777 em revisão</text>
+<rect class="chip" x="216" y="594" width="83" height="26" rx="6"/>
+<text class="t" x="257.5" y="611" text-anchor="middle">Cancelar…</text>
+<rect class="chip" x="330" y="594" width="62" height="26" rx="6"/>
+<text class="t" x="361.0" y="611" text-anchor="middle">Pausar</text>
+<text class="s" x="450" y="612" text-anchor="start">Cancelar termina o lote atual; os lotes gravados ficam. Não há desfazer automático.</text>
+<circle cx="1250" cy="606" r="9" fill="none" stroke="var(--accent)"/>
+<text class="n" x="1250" y="610" text-anchor="middle">2</text>
+<text class="s" x="16" y="670" text-anchor="start">Executando plano v7 · 00:00:07 · você pode fechar esta tela; o progresso continua aqui</text>
+</svg>

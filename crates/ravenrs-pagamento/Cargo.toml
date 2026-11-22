@@ -26,6 +26,8 @@ serde.workspace = true
 serde_json.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# The helper process of TEF, stopped with what it starts.
+ravenrs-process.workspace = true
 ureq = { version = "3.5", default-features = false, features = ["rustls"], optional = true }
 # Without "libudev": it would ask for a system library on Linux, and enumeration is not essential.
 serialport = { version = "4.10", default-features = false, optional = true }

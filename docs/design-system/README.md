@@ -68,13 +68,13 @@ Rules for components:
 | Data | `DataGrid`, `Table`, `List`, `Stat`, `Chart`, `AreaChart`, `BarChart`, `Barcode`, `Avatar`, `Image`, `Carousel` |
 | Feedback | `Alert`, `ProgressBar`, `Skeleton`, `Spinner` |
 
-Charts take their series from `chart-1` to `chart-5`, which each theme defines to read on its background. They mean nothing on their own, unlike `success` and `danger`, so a series never looks like a warning. Use a status color for a value only when it says that status, such as a budget over its limit. Their gridlines take `chart-grid`, which follows `border`.
+Charts take their series from `chart-1` to `chart-5`, which each theme defines to read on its background. They mean nothing on their own, unlike `success` and `danger`, so a series never looks like a warning. Use a status color for a value only when it says that status, such as a budget over its limit. Their gridlines take `chart-grid`, which follows `border`. Alignment guides, the lines a dragged shape snaps to in editors such as `FlowCanvas`, take `guide`: magenta in every theme, so they are never taken for the selection (accent) or the keyboard focus (focus ring).
 
 Modules of RavenRS itself, such as the report designer, follow the same rule as any app: they use these components and tokens, and what is missing joins the library first. Printed paper is the one surface that stays light in every theme, drawn with Raven Light tokens.
 
 ## Screens
 
-These rules came out of reviewing `examples/feature-center` screen by screen, and they hold for every component and application.
+These rules came out of reviewing `tools/raven-feature-center` screen by screen, and they hold for every component and application.
 
 - **One action stands out.** A window accents the one action that matters most: Save on a form, New on a list. Everything else in the bar stays a ghost button.
 - **One page margin.** Title, commands, description and content all start on the same line, `space-4` from the page's edge.

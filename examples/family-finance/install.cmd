@@ -18,6 +18,8 @@ if not "%FF_SEM_PAUSA%"=="1" pause
 exit /b %FF_RESULTADO%
 ::FIM-DO-CMD
 # Raven Finanças: the installer and the updater are this one file. The app runs it to update itself.
+# Made from crates/ravenrs-app-update/install.cmd.in: change that file, then
+# `RAVENRS_WRITE_INSTALLER=1 cargo test` writes this one again.
 #
 # Each interpreter reads only its part. `cmd` runs the block above and stops at
 # `exit /b`. `sh` passes that block and the PowerShell one as two heredocs given
@@ -32,6 +34,7 @@ exit /b %FF_RESULTADO%
 #   FF_CASA      where the code and the build go (default: ~/.raven-financas)
 #   FF_DESTINO   where the app goes
 #   FF_TARGET    the Cargo build folder (default: inside FF_CASA)
+#   FF_SERVICO   1 installs it as a service of the system at the end, with `family-finance servico instalar`
 : <<'#==FIM-POWERSHELL=='
 #==POWERSHELL==
 $ErrorActionPreference = "Stop"
@@ -118,6 +121,10 @@ $s.TargetPath = $instalado
 $s.IconLocation = $icone
 $s.Save()
 Write-Host "OK Raven Financas $resposta instalado. Abra pelo menu Iniciar." -ForegroundColor Green
+if ($env:FF_SERVICO -eq "1") {
+    Write-Host "> instalando o servico" -ForegroundColor Cyan
+    Correr { & $instalado servico instalar }
+}
 #==FIM-POWERSHELL==
 {
 set -eu
@@ -277,6 +284,7 @@ PLIST
   LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
   [ -x "$LSREGISTER" ] && "$LSREGISTER" -f "$DESTINO/$NOME.app" || true
   printf '\nOK %s %s instalado em %s. Abra pelo Launchpad ou com: open -a "%s"\n' "$NOME" "$RESPOSTA" "$DESTINO" "$NOME"
+  SERVICO_BIN="$DESTINO/$NOME.app/Contents/MacOS/family-finance"
 else
   DESTINO="${FF_DESTINO:-$HOME/.local}"
   mkdir -p "$DESTINO/bin" "$DESTINO/share/applications" "$DESTINO/share/icons/hicolor/256x256/apps"
@@ -303,6 +311,12 @@ DESKTOP
   command -v update-desktop-database >/dev/null 2>&1 \
     && update-desktop-database "$DESTINO/share/applications" >/dev/null 2>&1 || true
   printf '\nOK %s %s instalado em %s.\n' "$NOME" "$RESPOSTA" "$INSTALADO"
+  SERVICO_BIN="$INSTALADO"
+fi
+# With FF_SERVICO=1 an app that is a server installs itself as a service of the system.
+if [ "${FF_SERVICO:-}" = 1 ]; then
+  diga "instalando o serviço"
+  "$SERVICO_BIN" servico instalar || { erro "o app foi instalado, mas o serviço não"; exit 1; }
 fi
 # Fim do instalador. Apagar a pasta de compilação é seguro: ela volta na próxima atualização.
 }

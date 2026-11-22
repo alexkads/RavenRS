@@ -37,6 +37,8 @@ Se reprovar, descubra a causa antes de qualquer outra coisa. Só atualize a base
 cargo run --release -p ravenrs-perf -- gate --bless
 ```
 
+Para pôr na baseline só uma cena nova, sem levar junto mudanças de outras cenas que ninguém revisou, passe um filtro: `gate --bless cables` grava só as entradas que casam com o nome e mantém as outras como estavam. `gate cables` compara só essas.
+
 Sem GPU, o gate falha de propósito. Fora do macOS, só os tetos reprovam; diferença de baseline vira aviso, porque a baseline é do Mac de referência.
 
 ## 2. Relatório de contadores
@@ -107,7 +109,7 @@ Só para saber se a aplicação continua funcionando, com janela de verdade num 
 ./scripts/vm-linux.sh test family-finance
 ```
 
-Liga a VM `ravenrs-linux`, instala o compilador, os pacotes `-dev` e o Rust, copia este checkout, compila, abre o app sob o `twm`, confirma que ele continua vivo depois de 30 s e salva uma captura da tela. Leva uns 10 minutos, porque compila do zero. Olhe a captura com a ferramenta de leitura de imagem, porque processo vivo não prova que desenhou. Repita com outros exemplos, como `feature-center` e `component-gallery`. O título da janela sai com acentos trocados: é o `twm`, não o app.
+Liga a VM `ravenrs-linux`, instala o compilador, os pacotes `-dev` e o Rust, copia este checkout, compila, abre o app sob o `twm`, confirma que ele continua vivo depois de 30 s e salva uma captura da tela. Leva uns 10 minutos, porque compila do zero. Olhe a captura com a ferramenta de leitura de imagem, porque processo vivo não prova que desenhou. Repita com outros exemplos, como `raven-feature-center` e `component-gallery`. O título da janela sai com acentos trocados: é o `twm`, não o app.
 
 **Sempre termine com `stop`, mesmo depois de uma falha:**
 
@@ -132,6 +134,34 @@ Aumenta cada tipo de trabalho até o frame não caber, contando até a GPU termi
 ## Componente novo
 
 Todo componente entra numa cena em `crates/ravenrs-perf/src/scenes/`, com `covers` listando o nome dele, no pior caso realista. Rodar `gate --bless` e revisar o diff fica para quando ele pedir a medição. O contrato completo está em `docs/QUALITY.md`.
+
+## Cabos
+
+As cenas `cables` (200 `CablePlug` entre tomadas) e `flow-cables` (`FlowCanvas` com 60 nós ligados por cabos) ficam em `crates/ravenrs-perf/src/scenes/cables.rs`. O arnês dá a cada cena o mundo de cabos da GPU, como uma janela. Com `--cpu-cables`, usa o gêmeo na CPU, que é o que o WebGL2 roda:
+
+```bash
+cargo run --release -p ravenrs-perf -- report cables --cpu-cables
+```
+
+```bash
+cargo run --release -p ravenrs-perf -- time cables --cpu-cables
+```
+
+O que olhar:
+- `draws` em `drag`: os corpos de uma sequência de cabos vão juntos e os plugues depois, então são poucos draws. Um draw por cabo quer dizer que os plugues voltaram a ser intercalados.
+- `frames` em `idle`: precisa ser 0. Acima disso, um cabo parado ainda pede quadro.
+- Os dois mundos assentam no mesmo quadro. Se a GPU disser "parado" antes da CPU, o cabo congela no meio da queda.
+
+Medido em 15/11/2026 (p99, ms, melhor de 3):
+
+| Cena | Mundo na GPU: ui / render | Gêmeo na CPU: ui / render / GPU |
+|---|---|---|
+| cables/drag | 0,42 / 0,24 | 0,89 / 1,40 / 8,58 |
+| flow-cables/drag | 0,99 / 0,40 | 1,09 / 0,62 / 4,05 |
+
+O gêmeo na CPU passa da meta de GPU (3 ms) com 200 cabos, porque cada cabo vira caminhos rasterizados. Isso vale para o WebGL2.
+
+A cena `flow-cables-large` é o FlowCanvas com 1.000 nós e 1.935 ligações que a #238 pede para medir. Ao arrastar um nó, o tempo de CPU (ui, p99) era 268 ms com cabos e 27 ms com linhas. O culpado era o `build`, que percorria todas as ligações para cada nó. Com as portas indexadas por nó, o tempo caiu para 17,4 ms com cabos e 16,3 ms com linhas. O gêmeo na CPU fica em 73 ms. Ainda passa da meta de interação (4 ms); a #238 segue com "desenhar só o que aparece".
 
 ## Caixa e etiquetas
 

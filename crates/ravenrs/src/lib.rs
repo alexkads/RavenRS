@@ -28,7 +28,7 @@ pub use ravenrs_widgets as widgets;
 pub mod native {
     pub use ravenrs_platform_native::{
         AppIdentity, OpenDialog, PlatformError, SaveDialog, SystemNotifier, SystemTray, WindowOptions,
-        diagnose, open_url, open_with_system, run, run_as, run_with_icon,
+        diagnose, open_url, open_with_system, run, run_as, run_driven, run_with_icon,
     };
 }
 

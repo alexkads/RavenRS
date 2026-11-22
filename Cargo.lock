@@ -22,7 +22,7 @@ dependencies = [
  "atspi-common",
  "phf 0.14.0",
  "serde",
- "zvariant",
+ "zvariant 5.15.1",
 ]
 
 [[package]]
@@ -78,7 +78,7 @@ dependencies = [
  "futures-lite",
  "futures-util",
  "serde",
- "zbus",
+ "zbus 5.19.0",
 ]
 
 [[package]]
@@ -127,6 +127,16 @@ dependencies = [
 
 [[package]]
 name = "aead"
+version = "0.5.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d122413f284cf2d62fb1b7db97e02edb8cda96d769b16e443a4f6195e35662b0"
+dependencies = [
+ "crypto-common 0.1.7",
+ "generic-array",
+]
+
+[[package]]
+name = "aead"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1973cfbc1a2daf9cf550e74e1f088c28e7f7d8c1e1418fb6c9dc5184b7e84c99"
@@ -163,7 +173,7 @@ version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f2b8006a0c83f52b62ba44a97b58bf76fe2f70a329e588f67f89691d93d498f"
 dependencies = [
- "aead",
+ "aead 0.6.1",
  "aes 0.9.2",
  "cipher 0.5.2",
  "ctr",
@@ -597,11 +607,11 @@ dependencies = [
  "enumflags2",
  "serde",
  "static_assertions",
- "zbus",
+ "zbus 5.19.0",
  "zbus-lockstep",
  "zbus-lockstep-macros",
- "zbus_names",
- "zvariant",
+ "zbus_names 4.3.5",
+ "zvariant 5.15.1",
 ]
 
 [[package]]
@@ -612,7 +622,7 @@ checksum = "2230e48787ed3eb4088996eab66a32ca20c0b67bbd4fd6cdfe79f04f1f04c9fc"
 dependencies = [
  "atspi-common",
  "serde",
- "zbus",
+ "zbus 5.19.0",
 ]
 
 [[package]]
@@ -841,6 +851,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "bpmn-editor"
+version = "27.1.28"
+dependencies = [
+ "console_error_panic_hook",
+ "ravenrs",
+ "ravenrs-ai",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
+ "ravenrs-flow-bpmn",
+ "ravenrs-flow-export",
+ "tracing-subscriber",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "brotli"
 version = "8.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -911,6 +938,8 @@ version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "tracing-subscriber",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -1010,6 +1039,8 @@ name = "cargo-ravenrs"
 version = "27.1.28"
 dependencies = [
  "clap",
+ "ravenrs-e2e-runner",
+ "ravenrs-e2e-wire",
  "ravenrs-mcp",
  "ravenrs-project",
  "serde_json",
@@ -1100,6 +1131,17 @@ checksum = "f079e83a288787bcd14a6aea84cee5c87a67c5a3e660c30f557a3d24761b3527"
 
 [[package]]
 name = "chacha20"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c3613f74bd2eac03dad61bd53dbe620703d4371614fe0bc3b9f04dd36fe4e818"
+dependencies = [
+ "cfg-if",
+ "cipher 0.4.4",
+ "cpufeatures 0.2.17",
+]
+
+[[package]]
+name = "chacha20"
 version = "0.10.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65c35e4b699c7e15ccbe7ee35c005e4fc0a278d22238a2857e6ce2dadeda1b06"
@@ -1110,14 +1152,16 @@ dependencies = [
 ]
 
 [[package]]
-name = "channel-video"
-version = "27.1.28"
+name = "chacha20poly1305"
+version = "0.10.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "10cd79432192d1c0f4e1a0fef9527696cc039165d729fb41b3f4f4f354c2dc35"
 dependencies = [
- "component-gallery",
- "family-finance",
- "ravenrs",
- "ravenrs-ai",
- "ravenrs-movie-video",
+ "aead 0.5.2",
+ "chacha20 0.9.1",
+ "cipher 0.4.4",
+ "poly1305",
+ "zeroize",
 ]
 
 [[package]]
@@ -1178,6 +1222,7 @@ checksum = "773f3b9af64447d2ce9850330c473515014aa235e6a783b02db81ff39e4a3dad"
 dependencies = [
  "crypto-common 0.1.7",
  "inout 0.1.4",
+ "zeroize",
 ]
 
 [[package]]
@@ -1334,6 +1379,8 @@ dependencies = [
  "ravenrs",
  "ravenrs-app",
  "ravenrs-app-ui",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-grid-export",
  "ravenrs-project",
  "tracing-subscriber",
@@ -1613,6 +1660,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "78c8292055d1c1df0cce5d180393dc8cce0abec0a7102adb6c7b1eef6016d60a"
 dependencies = [
  "generic-array",
+ "rand_core 0.6.4",
  "typenum",
 ]
 
@@ -1792,6 +1840,36 @@ name = "data-encoding"
 version = "2.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4583a4551df46e2792f82ceeac45e850d2e2d5debba0b91f102385cda5b11f06"
+
+[[package]]
+name = "dbus"
+version = "0.9.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3ab69f03cc8c4340c9c8e315114e1658e6775a9b16a04357973aa21cec22b32e"
+dependencies = [
+ "libc",
+ "libdbus-sys",
+ "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "dbus-secret-service"
+version = "4.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f09471353f53b2f583ca422638cfe48a375050cdcb9e46a442b04123e74163f5"
+dependencies = [
+ "aes 0.8.4",
+ "block-padding 0.3.3",
+ "cbc 0.1.2",
+ "dbus",
+ "fastrand",
+ "hkdf",
+ "libc",
+ "num",
+ "once_cell",
+ "sha2 0.10.9",
+ "zeroize",
+]
 
 [[package]]
 name = "der"
@@ -1982,6 +2060,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab8ecd87370524b461f8557c119c405552c396ed91fc0a8eec68679eab26f94a"
 dependencies = [
  "libloading",
+]
+
+[[package]]
+name = "dock-workbench"
+version = "27.1.28"
+dependencies = [
+ "image",
+ "pollster",
+ "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -2242,7 +2332,7 @@ checksum = "7360491ce676a36bf9bb3c56c1aa791658183a54d2744120f27285738d90465a"
 
 [[package]]
 name = "family-finance"
-version = "0.1.38"
+version = "0.1.44"
 dependencies = [
  "image",
  "jiff",
@@ -2255,7 +2345,10 @@ dependencies = [
  "ravenrs-app",
  "ravenrs-app-sqlite",
  "ravenrs-app-ui",
+ "ravenrs-app-update",
  "ravenrs-criteria",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-report",
  "ravenrs-report-export",
  "ravenrs-report-viewer",
@@ -2330,38 +2423,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b97b65636e5b9ef369943878ac74335ba1c55c1cb6adbf1e2c293c624248d693"
 
 [[package]]
-name = "feature-center"
-version = "27.1.28"
-dependencies = [
- "console_error_panic_hook",
- "image",
- "pollster",
- "ravenrs",
- "ravenrs-app",
- "ravenrs-app-a11y",
- "ravenrs-app-library",
- "ravenrs-app-remote",
- "ravenrs-app-report",
- "ravenrs-app-server",
- "ravenrs-app-sqlite",
- "ravenrs-app-ui",
- "ravenrs-core",
- "ravenrs-criteria",
- "ravenrs-render",
- "ravenrs-report",
- "ravenrs-report-label",
- "ravenrs-style",
- "ravenrs-widgets",
- "rusqlite",
- "rust_decimal",
- "serde_json",
- "tokio",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
 name = "fiat-crypto"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2415,6 +2476,51 @@ dependencies = [
  "num-traits",
  "rand 0.9.5",
  "rand_distr",
+]
+
+[[package]]
+name = "flow-chat-bot"
+version = "27.1.28"
+dependencies = [
+ "console_error_panic_hook",
+ "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
+ "ravenrs-flow-export",
+ "tracing-subscriber",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "flow-design-board"
+version = "27.1.28"
+dependencies = [
+ "console_error_panic_hook",
+ "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
+ "ravenrs-flow-export",
+ "tracing-subscriber",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "flow-whiteboard"
+version = "27.1.28"
+dependencies = [
+ "console_error_panic_hook",
+ "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
+ "ravenrs-flow-export",
+ "tracing-subscriber",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]
@@ -2875,6 +2981,8 @@ name = "grid-poc"
 version = "27.1.28"
 dependencies = [
  "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "tracing-subscriber",
 ]
 
@@ -3016,6 +3124,8 @@ version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "tracing-subscriber",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -3033,6 +3143,24 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+
+[[package]]
+name = "hkdf"
+version = "0.12.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7b5f8eb2ad728638ea2c7d47a21db23b7b58a72ed6a38256b8a1849f15fbbdf7"
+dependencies = [
+ "hmac 0.12.1",
+]
+
+[[package]]
+name = "hmac"
+version = "0.12.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6c49c37c09c17a53d937dfbb742eb3a961d65a994e6bcdcf37e7399d0cc8ab5e"
+dependencies = [
+ "digest 0.10.7",
+]
 
 [[package]]
 name = "hmac"
@@ -3630,6 +3758,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "keyring"
+version = "3.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "eebcc3aff044e5944a8fbaf69eb277d11986064cba30c468730e8b9909fb551c"
+dependencies = [
+ "byteorder",
+ "dbus-secret-service",
+ "log",
+ "secret-service",
+ "security-framework 2.11.1",
+ "security-framework 3.7.0",
+ "windows-sys 0.60.2",
+ "zeroize",
+]
+
+[[package]]
 name = "khronos-egl"
 version = "6.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3663,7 +3807,7 @@ dependencies = [
  "pastey",
  "serde",
  "task-local",
- "zbus",
+ "zbus 5.19.0",
 ]
 
 [[package]]
@@ -3717,6 +3861,15 @@ name = "libc"
 version = "0.2.191"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65cd87c9a6d60536580b316ad985726104730a5151c99845f2490428ef91240a"
+
+[[package]]
+name = "libdbus-sys"
+version = "0.2.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "328c4789d42200f1eeec05bd86c9c13c7f091d2ba9a6ea35acdf51f31bc0f043"
+dependencies = [
+ "pkg-config",
+]
 
 [[package]]
 name = "libloading"
@@ -3957,6 +4110,8 @@ dependencies = [
  "ravenrs-app-sqlite",
  "ravenrs-app-ui",
  "ravenrs-core",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-nfe",
  "ravenrs-pagamento",
  "ravenrs-report",
@@ -4024,13 +4179,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
-]
-
-[[package]]
-name = "movie-editor"
-version = "27.1.28"
-dependencies = [
- "ravenrs",
 ]
 
 [[package]]
@@ -4158,6 +4306,19 @@ dependencies = [
 
 [[package]]
 name = "nix"
+version = "0.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71e2746dc3a24dd78b3cfcb7be93368c6de9963d30f43a6a73998a9cf4b17b46"
+dependencies = [
+ "bitflags 2.13.2",
+ "cfg-if",
+ "cfg_aliases",
+ "libc",
+ "memoffset",
+]
+
+[[package]]
+name = "nix"
 version = "0.31.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf20d2fde8ff38632c426f1165ed7436270b44f199fc55284c38276f9db47c3d"
@@ -4198,7 +4359,7 @@ dependencies = [
  "mac-notification-sys",
  "serde",
  "tauri-winrt-notification",
- "zbus",
+ "zbus 5.19.0",
 ]
 
 [[package]]
@@ -4764,6 +4925,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
 
 [[package]]
+name = "opaque-debug"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c08d65885ee38876c4f86fa503fb49d7b507c2b62552df7c70b2fce627e06381"
+
+[[package]]
 name = "openh264"
 version = "0.9.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4858,7 +5025,7 @@ dependencies = [
  "der 0.8.3",
  "des",
  "hex",
- "hmac",
+ "hmac 0.13.0",
  "pkcs12",
  "pkcs5",
  "pkcs8 0.11.0",
@@ -4995,7 +5162,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "112d82ceb8c5bf524d9af484d4e4970c9fd5a0cc15ba14ad93dccd28873b0629"
 dependencies = [
  "digest 0.11.3",
- "hmac",
+ "hmac 0.13.0",
 ]
 
 [[package]]
@@ -5358,6 +5525,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2f3a9f18d041e6d0e102a0a46750538147e5e8992d3b4873aaafee2520b00ce3"
 
 [[package]]
+name = "poly1305"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8159bd90725d2df49889a078b54f4f79e87f1f8a8444194cdca81d38f5393abf"
+dependencies = [
+ "cpufeatures 0.2.17",
+ "opaque-debug",
+ "universal-hash 0.5.1",
+]
+
+[[package]]
 name = "polycool"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5374,7 +5552,7 @@ checksum = "f0fa31d631f2b2cb2a544d0aa321ce847a94764d701ca2becc411138b93d49cd"
 dependencies = [
  "cpubits",
  "cpufeatures 0.3.1",
- "universal-hash",
+ "universal-hash 0.6.1",
 ]
 
 [[package]]
@@ -5422,7 +5600,7 @@ dependencies = [
  "byteorder",
  "bytes",
  "fallible-iterator 0.2.0",
- "hmac",
+ "hmac 0.13.0",
  "md-5 0.11.0",
  "memchr",
  "rand 0.10.3",
@@ -5519,7 +5697,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b8530004ccb15eae51c7e40009fbe317f341f804db54dc033eec1c50be28cfa0"
 dependencies = [
  "bitflags 2.13.2",
- "chacha20",
+ "chacha20 0.10.2",
  "core_detect",
  "num-traits",
  "rand 0.10.3",
@@ -5573,6 +5751,8 @@ dependencies = [
  "ravenrs-app-a11y",
  "ravenrs-app-ui",
  "ravenrs-core",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-style",
  "ravenrs-widgets",
  "wasm-bindgen",
@@ -5598,6 +5778,8 @@ dependencies = [
  "ravenrs-app-ui",
  "ravenrs-core",
  "ravenrs-criteria",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-style",
  "ravenrs-widgets",
  "wasm-bindgen",
@@ -5668,7 +5850,7 @@ version = "0.10.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "65c9fb96cbc91e3478eaae79a69fcd3f1ae4ad052e471fe6732fff548984b4af"
 dependencies = [
- "chacha20",
+ "chacha20 0.10.2",
  "getrandom 0.4.3",
  "rand_core 0.10.1",
 ]
@@ -5809,6 +5991,503 @@ dependencies = [
 ]
 
 [[package]]
+name = "raven-channel-video"
+version = "0.1.0"
+dependencies = [
+ "component-gallery",
+ "family-finance",
+ "ravenrs",
+ "ravenrs-ai",
+ "ravenrs-app-update",
+ "ravenrs-movie-video",
+]
+
+[[package]]
+name = "raven-ci"
+version = "0.1.1"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-agent-local",
+ "raven-ci-plugin-agent-remote",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-api-trigger",
+ "raven-ci-plugin-artifacts",
+ "raven-ci-plugin-azure-devops",
+ "raven-ci-plugin-credentials",
+ "raven-ci-plugin-cron",
+ "raven-ci-plugin-docker",
+ "raven-ci-plugin-format-jenkinsfile",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-git",
+ "raven-ci-plugin-github",
+ "raven-ci-plugin-junit",
+ "raven-ci-plugin-kubernetes",
+ "raven-ci-plugin-lock",
+ "raven-ci-plugin-shell",
+ "raven-ci-plugin-webhook-github",
+ "raven-ci-plugin-workspace",
+ "ravenrs-app-server",
+ "ravenrs-app-update",
+ "ravenrs-process",
+ "serde",
+ "serde_json",
+ "tokio",
+ "toml",
+ "ureq",
+]
+
+[[package]]
+name = "raven-ci-agent"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-agent-local",
+ "raven-ci-plugin-agent-remote",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-git",
+ "raven-ci-plugin-lock",
+ "raven-ci-plugin-shell",
+ "raven-ci-plugin-workspace",
+ "ravenrs-app-remote",
+ "ravenrs-app-server",
+ "ravenrs-flows",
+ "ravenrs-flows-runtime",
+ "ravenrs-metrics",
+ "ravenrs-process",
+ "serde",
+ "serde_json",
+ "tokio",
+ "ureq",
+ "uuid",
+]
+
+[[package]]
+name = "raven-ci-core"
+version = "0.1.0"
+dependencies = [
+ "base64 0.23.1",
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-app-server",
+ "ravenrs-app-sqlite",
+ "ravenrs-flows",
+ "ravenrs-flows-runtime",
+ "ravenrs-metrics",
+ "ravenrs-process",
+ "ravenrs-secrets",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "toml",
+ "uuid",
+]
+
+[[package]]
+name = "raven-ci-exemplo-rust"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-painel"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "image",
+ "pollster",
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-api-trigger",
+ "ravenrs",
+ "ravenrs-app",
+ "ravenrs-app-remote",
+ "ravenrs-app-server",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
+ "serde_json",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "raven-ci-plugin-agent-local"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-process",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-agent-remote"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-process",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-api"
+version = "0.1.0"
+dependencies = [
+ "base64 0.23.1",
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-app-i18n",
+ "ravenrs-flows",
+ "serde",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
+name = "raven-ci-plugin-api-trigger"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-app-server",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-artifacts"
+version = "0.1.0"
+dependencies = [
+ "glob",
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-azure-devops"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-credentials",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-git",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-git",
+ "serde_json",
+ "ureq",
+]
+
+[[package]]
+name = "raven-ci-plugin-credentials"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-cron"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-git",
+ "ravenrs-schedule",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-docker"
+version = "0.1.0"
+dependencies = [
+ "base64 0.23.1",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "ravenrs-process",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-format-jenkinsfile"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-format-toml"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "ravenrs-schedule",
+ "serde_json",
+ "toml",
+]
+
+[[package]]
+name = "raven-ci-plugin-git"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-git",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-github"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-credentials",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-git",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-git",
+ "serde_json",
+ "ureq",
+]
+
+[[package]]
+name = "raven-ci-plugin-junit"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-artifacts",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-junit",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-kubernetes"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "ravenrs-process",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-lock"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-shell"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-flows",
+ "ravenrs-process",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-webhook-github"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-plugin-api",
+ "ravenrs-app",
+ "ravenrs-app-server",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-workspace"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-metrics",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-code"
+version = "0.1.0"
+dependencies = [
+ "image",
+ "pollster",
+ "ravenrs",
+ "ravenrs-app-update",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
+ "ravenrs-process",
+ "serde_json",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "raven-component-book"
+version = "0.1.2"
+dependencies = [
+ "component-gallery",
+ "ravenrs",
+ "ravenrs-app-ui",
+ "ravenrs-app-update",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
+ "ravenrs-movie",
+ "serde_json",
+ "swash",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "raven-feature-center"
+version = "0.1.1"
+dependencies = [
+ "component-gallery",
+ "console_error_panic_hook",
+ "image",
+ "pollster",
+ "ravenrs",
+ "ravenrs-app",
+ "ravenrs-app-a11y",
+ "ravenrs-app-i18n",
+ "ravenrs-app-library",
+ "ravenrs-app-remote",
+ "ravenrs-app-report",
+ "ravenrs-app-server",
+ "ravenrs-app-sqlite",
+ "ravenrs-app-ui",
+ "ravenrs-app-update",
+ "ravenrs-core",
+ "ravenrs-criteria",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
+ "ravenrs-render",
+ "ravenrs-report",
+ "ravenrs-report-label",
+ "ravenrs-style",
+ "ravenrs-widgets",
+ "rusqlite",
+ "rust_decimal",
+ "serde_json",
+ "tokio",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "raven-flows"
+version = "0.1.1"
+dependencies = [
+ "image",
+ "pollster",
+ "ravenrs",
+ "ravenrs-agent-cli",
+ "ravenrs-app-update",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
+ "ravenrs-flows",
+ "ravenrs-flows-runtime",
+ "serde",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "raven-movie-editor"
+version = "0.1.0"
+dependencies = [
+ "ravenrs",
+ "ravenrs-app-update",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
+]
+
+[[package]]
+name = "raven-report-designer"
+version = "0.1.0"
+dependencies = [
+ "console_error_panic_hook",
+ "js-sys",
+ "ravenrs",
+ "ravenrs-app-update",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
+ "ravenrs-report-designer",
+ "tracing",
+ "tracing-subscriber",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "raven-test-studio"
+version = "0.1.18"
+dependencies = [
+ "ravenrs",
+ "ravenrs-agent-cli",
+ "ravenrs-ai",
+ "ravenrs-app-update",
+ "ravenrs-e2e",
+ "ravenrs-e2e-runner",
+ "ravenrs-e2e-wire",
+ "serde_json",
+ "tracing-subscriber",
+]
+
+[[package]]
 name = "ravenrs"
 version = "27.1.28"
 dependencies = [
@@ -5830,6 +6509,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-agent-cli"
+version = "27.1.28"
+dependencies = [
+ "ravenrs-flows",
+ "ravenrs-process",
+ "ravenrs-secrets",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "ravenrs-ai"
 version = "27.1.28"
 dependencies = [
@@ -5839,6 +6529,7 @@ dependencies = [
  "ravenrs-app-i18n",
  "ravenrs-core",
  "ravenrs-layout",
+ "ravenrs-metrics",
  "ravenrs-reactive",
  "ravenrs-style",
  "ravenrs-text",
@@ -5999,6 +6690,7 @@ dependencies = [
 name = "ravenrs-app-remote"
 version = "27.1.28"
 dependencies = [
+ "js-sys",
  "ravenrs-app",
  "ravenrs-app-i18n",
  "ravenrs-app-server",
@@ -6010,6 +6702,7 @@ dependencies = [
  "ravenrs-style",
  "ravenrs-widgets",
  "serde_json",
+ "tokio",
  "ureq",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -6052,9 +6745,11 @@ name = "ravenrs-app-server"
 version = "27.1.28"
 dependencies = [
  "axum",
+ "futures-util",
  "ravenrs-app",
  "ravenrs-app-testkit",
  "ravenrs-criteria",
+ "regex-lite",
  "serde_json",
  "sha2 0.10.9",
  "tokio",
@@ -6115,6 +6810,7 @@ dependencies = [
  "ravenrs-barcode",
  "ravenrs-core",
  "ravenrs-criteria",
+ "ravenrs-e2e",
  "ravenrs-grid-export",
  "ravenrs-layout",
  "ravenrs-live",
@@ -6123,6 +6819,22 @@ dependencies = [
  "ravenrs-style",
  "ravenrs-widgets",
  "serde_json",
+]
+
+[[package]]
+name = "ravenrs-app-update"
+version = "27.1.28"
+dependencies = [
+ "ravenrs-core",
+ "ravenrs-e2e",
+ "ravenrs-layout",
+ "ravenrs-reactive",
+ "ravenrs-style",
+ "ravenrs-widgets",
+ "serde",
+ "serde_json",
+ "tracing",
+ "ureq",
 ]
 
 [[package]]
@@ -6216,6 +6928,103 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-e2e"
+version = "27.1.28"
+dependencies = [
+ "ravenrs-core",
+ "ravenrs-layout",
+ "ravenrs-reactive",
+ "ravenrs-style",
+ "ravenrs-widgets",
+ "ravenrs-widgets-base",
+]
+
+[[package]]
+name = "ravenrs-e2e-runner"
+version = "27.1.28"
+dependencies = [
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
+ "ravenrs-junit",
+ "ravenrs-process",
+ "ravenrs-style",
+ "ravenrs-widgets",
+ "regex-lite",
+ "serde_json",
+ "toml_edit 0.22.27",
+ "url",
+]
+
+[[package]]
+name = "ravenrs-e2e-wire"
+version = "27.1.28"
+dependencies = [
+ "ravenrs-core",
+ "ravenrs-e2e",
+ "ravenrs-reactive",
+ "ravenrs-style",
+ "ravenrs-widgets",
+ "ravenrs-widgets-base",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ravenrs-flow-bpmn"
+version = "27.1.28"
+dependencies = [
+ "quick-xml",
+ "ravenrs-core",
+ "ravenrs-reactive",
+ "ravenrs-style",
+ "ravenrs-widgets",
+ "serde_json",
+]
+
+[[package]]
+name = "ravenrs-flow-export"
+version = "27.1.28"
+dependencies = [
+ "image",
+ "ravenrs-core",
+ "ravenrs-graphics",
+ "ravenrs-report",
+ "ravenrs-report-export",
+ "ravenrs-text",
+ "ravenrs-widgets",
+ "swash",
+]
+
+[[package]]
+name = "ravenrs-flows"
+version = "27.1.28"
+dependencies = [
+ "js-sys",
+ "ravenrs-criteria",
+ "ravenrs-graphics",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ravenrs-flows-runtime"
+version = "27.1.28"
+dependencies = [
+ "ravenrs-flows",
+ "rusqlite",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "ravenrs-git"
+version = "27.1.28"
+dependencies = [
+ "ravenrs-process",
+ "tempfile",
+]
+
+[[package]]
 name = "ravenrs-graphics"
 version = "27.1.28"
 dependencies = [
@@ -6223,6 +7032,7 @@ dependencies = [
  "ravenrs-core",
  "ravenrs-live",
  "serde",
+ "serde_json",
  "tiny-skia",
 ]
 
@@ -6235,6 +7045,15 @@ dependencies = [
  "ravenrs-report-export",
  "ravenrs-style",
  "ravenrs-widgets",
+ "serde_json",
+]
+
+[[package]]
+name = "ravenrs-junit"
+version = "27.1.28"
+dependencies = [
+ "quick-xml",
+ "serde",
  "serde_json",
 ]
 
@@ -6301,12 +7120,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-metrics"
+version = "27.1.28"
+dependencies = [
+ "sysinfo",
+]
+
+[[package]]
 name = "ravenrs-movie"
 version = "27.1.28"
 dependencies = [
  "flate2",
  "ravenrs-app-i18n",
  "ravenrs-core",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-layout",
  "ravenrs-live",
  "ravenrs-reactive",
@@ -6362,6 +7190,7 @@ dependencies = [
 name = "ravenrs-pagamento"
 version = "27.1.28"
 dependencies = [
+ "ravenrs-process",
  "serde",
  "serde_json",
  "serialport",
@@ -6435,8 +7264,8 @@ dependencies = [
  "calculator",
  "component-gallery",
  "family-finance",
- "feature-center",
  "pollster",
+ "raven-feature-center",
  "ravenrs-app-ui",
  "ravenrs-core",
  "ravenrs-layout",
@@ -6509,6 +7338,10 @@ dependencies = [
  "serde",
  "serde_json",
 ]
+
+[[package]]
+name = "ravenrs-process"
+version = "27.1.28"
 
 [[package]]
 name = "ravenrs-project"
@@ -6624,6 +7457,7 @@ dependencies = [
  "lettre",
  "ravenrs-report",
  "ravenrs-report-export",
+ "ravenrs-schedule",
  "serde",
  "serde_json",
  "tempfile",
@@ -6666,6 +7500,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ravenrs-schedule"
+version = "27.1.28"
+dependencies = [
+ "jiff",
+]
+
+[[package]]
+name = "ravenrs-secrets"
+version = "27.1.28"
+dependencies = [
+ "chacha20poly1305",
+ "keyring",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "uuid",
+ "zeroize",
+]
+
+[[package]]
 name = "ravenrs-sheet"
 version = "27.1.28"
 dependencies = [
@@ -6674,7 +7528,7 @@ dependencies = [
  "chrono",
  "flate2",
  "getrandom 0.3.4",
- "hmac",
+ "hmac 0.13.0",
  "image",
  "js-sys",
  "log",
@@ -6749,6 +7603,7 @@ dependencies = [
  "ravenrs-animation",
  "ravenrs-core",
  "ravenrs-criteria",
+ "ravenrs-e2e",
  "ravenrs-graphics",
  "ravenrs-layout",
  "ravenrs-live",
@@ -6793,6 +7648,7 @@ version = "27.1.28"
 dependencies = [
  "ravenrs-animation",
  "ravenrs-core",
+ "ravenrs-e2e",
  "ravenrs-graphics",
  "ravenrs-layout",
  "ravenrs-live",
@@ -6825,6 +7681,7 @@ version = "27.1.28"
 dependencies = [
  "proptest",
  "ravenrs-core",
+ "ravenrs-e2e",
  "ravenrs-layout",
  "ravenrs-live",
  "ravenrs-reactive",
@@ -6842,6 +7699,7 @@ version = "27.1.28"
 dependencies = [
  "ravenrs-core",
  "ravenrs-criteria",
+ "ravenrs-e2e",
  "ravenrs-layout",
  "ravenrs-live",
  "ravenrs-reactive",
@@ -6861,6 +7719,7 @@ version = "27.1.28"
 dependencies = [
  "ravenrs-animation",
  "ravenrs-core",
+ "ravenrs-e2e",
  "ravenrs-layout",
  "ravenrs-live",
  "ravenrs-lottie",
@@ -6886,6 +7745,7 @@ dependencies = [
  "ravenrs-widgets",
  "ravenrs-widgets-base",
  "serde",
+ "serde_json",
  "tracing",
 ]
 
@@ -6894,6 +7754,7 @@ name = "ravenrs-widgets-lists"
 version = "27.1.28"
 dependencies = [
  "ravenrs-core",
+ "ravenrs-e2e",
  "ravenrs-layout",
  "ravenrs-live",
  "ravenrs-reactive",
@@ -6901,6 +7762,7 @@ dependencies = [
  "ravenrs-widgets",
  "ravenrs-widgets-base",
  "ravenrs-widgets-kit",
+ "serde_json",
 ]
 
 [[package]]
@@ -6908,6 +7770,7 @@ name = "ravenrs-widgets-scheduler"
 version = "27.1.28"
 dependencies = [
  "ravenrs-core",
+ "ravenrs-e2e",
  "ravenrs-layout",
  "ravenrs-live",
  "ravenrs-reactive",
@@ -6928,7 +7791,7 @@ dependencies = [
  "chrono",
  "encoding_rs",
  "getrandom 0.3.4",
- "hmac",
+ "hmac 0.13.0",
  "image",
  "js-sys",
  "kurbo",
@@ -7168,21 +8031,6 @@ name = "renderdoc-sys"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
-
-[[package]]
-name = "report-designer"
-version = "27.1.28"
-dependencies = [
- "console_error_panic_hook",
- "js-sys",
- "ravenrs",
- "ravenrs-report-designer",
- "tracing",
- "tracing-subscriber",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
 
 [[package]]
 name = "rfd"
@@ -7590,6 +8438,61 @@ dependencies = [
 ]
 
 [[package]]
+name = "secret-service"
+version = "4.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e4d35ad99a181be0a60ffcbe85d680d98f87bdc4d7644ade319b87076b9dbfd4"
+dependencies = [
+ "aes 0.8.4",
+ "cbc 0.1.2",
+ "futures-util",
+ "generic-array",
+ "hkdf",
+ "num",
+ "once_cell",
+ "rand 0.8.8",
+ "serde",
+ "sha2 0.10.9",
+ "zbus 4.4.0",
+]
+
+[[package]]
+name = "security-framework"
+version = "2.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "897b2245f0b511c87893af39b033e5ca9cce68824c4d7e7630b5a1d339658d02"
+dependencies = [
+ "bitflags 2.13.2",
+ "core-foundation 0.9.4",
+ "core-foundation-sys",
+ "libc",
+ "security-framework-sys",
+]
+
+[[package]]
+name = "security-framework"
+version = "3.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b7f4bc775c73d9a02cde8bf7b2ec4c9d12743edf609006c7facc23998404cd1d"
+dependencies = [
+ "bitflags 2.13.2",
+ "core-foundation 0.10.1",
+ "core-foundation-sys",
+ "libc",
+ "security-framework-sys",
+]
+
+[[package]]
+name = "security-framework-sys"
+version = "2.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6ce2691df843ecc5d231c0b14ece2acc3efb62c0a398c7e1d875f3983ce020e3"
+dependencies = [
+ "core-foundation-sys",
+ "libc",
+]
+
+[[package]]
 name = "semver"
 version = "1.0.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7842,6 +8745,8 @@ version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-report",
  "ravenrs-report-viewer",
  "serde_json",
@@ -8001,6 +8906,8 @@ version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",
  "ravenrs",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "ravenrs-spreadsheet",
  "serde_json",
  "tracing-subscriber",
@@ -8403,6 +9310,8 @@ dependencies = [
  "ravenrs-app",
  "ravenrs-app-sqlite",
  "ravenrs-app-ui",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "rusqlite",
  "wasm-bindgen",
  "wasm-bindgen-futures",
@@ -9003,6 +9912,8 @@ dependencies = [
  "ravenrs",
  "ravenrs-app",
  "ravenrs-app-ui",
+ "ravenrs-e2e",
+ "ravenrs-e2e-wire",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "web-sys",
@@ -9132,6 +10043,16 @@ name = "unicode_categories"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39ec24b3121d976906ece63c9daad25b85969647682eee313cb5779fdd69e14e"
+
+[[package]]
+name = "universal-hash"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fc1de2c688dc15305988b563c3854064043356019f97a4b46276fe734c4f07ea"
+dependencies = [
+ "crypto-common 0.1.7",
+ "subtle",
+]
 
 [[package]]
 name = "universal-hash"
@@ -9975,6 +10896,15 @@ dependencies = [
 
 [[package]]
 name = "windows-sys"
+version = "0.60.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2f500e4d28234f72040990ec9d39e3a6b950f9f22d3dba18416c35882612bcb"
+dependencies = [
+ "windows-targets 0.53.5",
+]
+
+[[package]]
+name = "windows-sys"
 version = "0.61.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ae137229bcbd6cdf0f7b80a31df61766145077ddf49416a728b02cb3921ff3fc"
@@ -10006,11 +10936,28 @@ dependencies = [
  "windows_aarch64_gnullvm 0.52.6",
  "windows_aarch64_msvc 0.52.6",
  "windows_i686_gnu 0.52.6",
- "windows_i686_gnullvm",
+ "windows_i686_gnullvm 0.52.6",
  "windows_i686_msvc 0.52.6",
  "windows_x86_64_gnu 0.52.6",
  "windows_x86_64_gnullvm 0.52.6",
  "windows_x86_64_msvc 0.52.6",
+]
+
+[[package]]
+name = "windows-targets"
+version = "0.53.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4945f9f551b88e0d65f3db0bc25c33b8acea4d9e41163edf90dcd0b19f9069f3"
+dependencies = [
+ "windows-link 0.2.1",
+ "windows_aarch64_gnullvm 0.53.1",
+ "windows_aarch64_msvc 0.53.1",
+ "windows_i686_gnu 0.53.1",
+ "windows_i686_gnullvm 0.53.1",
+ "windows_i686_msvc 0.53.1",
+ "windows_x86_64_gnu 0.53.1",
+ "windows_x86_64_gnullvm 0.53.1",
+ "windows_x86_64_msvc 0.53.1",
 ]
 
 [[package]]
@@ -10053,6 +11000,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32a4622180e7a0ec044bb555404c800bc9fd9ec262ec147edd5989ccd0c02cd3"
 
 [[package]]
+name = "windows_aarch64_gnullvm"
+version = "0.53.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9d8416fa8b42f5c947f8482c43e7d89e73a173cead56d044f6a56104a6d1b53"
+
+[[package]]
 name = "windows_aarch64_msvc"
 version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10063,6 +11016,12 @@ name = "windows_aarch64_msvc"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09ec2a7bb152e2252b53fa7803150007879548bc709c039df7627cabbd05d469"
+
+[[package]]
+name = "windows_aarch64_msvc"
+version = "0.53.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b9d782e804c2f632e395708e99a94275910eb9100b2114651e04744e9b125006"
 
 [[package]]
 name = "windows_i686_gnu"
@@ -10077,10 +11036,22 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e9b5ad5ab802e97eb8e295ac6720e509ee4c243f69d781394014ebfe8bbfa0b"
 
 [[package]]
+name = "windows_i686_gnu"
+version = "0.53.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "960e6da069d81e09becb0ca57a65220ddff016ff2d6af6a223cf372a506593a3"
+
+[[package]]
 name = "windows_i686_gnullvm"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0eee52d38c090b3caa76c563b86c3a4bd71ef1a819287c19d586d7334ae8ed66"
+
+[[package]]
+name = "windows_i686_gnullvm"
+version = "0.53.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa7359d10048f68ab8b09fa71c3daccfb0e9b559aed648a8f95469c27057180c"
 
 [[package]]
 name = "windows_i686_msvc"
@@ -10095,6 +11066,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "240948bc05c5e7c6dabba28bf89d89ffce3e303022809e73deaefe4f6ec56c66"
 
 [[package]]
+name = "windows_i686_msvc"
+version = "0.53.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1e7ac75179f18232fe9c285163565a57ef8d3c89254a30685b57d83a38d326c2"
+
+[[package]]
 name = "windows_x86_64_gnu"
 version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10105,6 +11082,12 @@ name = "windows_x86_64_gnu"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "147a5c80aabfbf0c7d901cb5895d1de30ef2907eb21fbbab29ca94c5b08b1a78"
+
+[[package]]
+name = "windows_x86_64_gnu"
+version = "0.53.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9c3842cdd74a865a8066ab39c8a7a473c0778a3f29370b5fd6b4b9aa7df4a499"
 
 [[package]]
 name = "windows_x86_64_gnullvm"
@@ -10119,6 +11102,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "24d5b23dc417412679681396f2b49f3de8c1473deb516bd34410872eff51ed0d"
 
 [[package]]
+name = "windows_x86_64_gnullvm"
+version = "0.53.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0ffa179e2d07eee8ad8f57493436566c7cc30ac536a3379fdf008f47f6bb7ae1"
+
+[[package]]
 name = "windows_x86_64_msvc"
 version = "0.42.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10129,6 +11118,12 @@ name = "windows_x86_64_msvc"
 version = "0.52.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "589f6da84c646204747d1270a2a5661ea66ed1cced2631d546fdfb155959f9ec"
+
+[[package]]
+name = "windows_x86_64_msvc"
+version = "0.53.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d6bbff5f0aada427a1e5a6da5f1f98158182f26556f345ac9e04d36d0ebed650"
 
 [[package]]
 name = "winit"
@@ -10321,6 +11316,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "163b33ed8786455e2fa5d72f554057ce3f3182425434f756cd39c99839d88e23"
 
 [[package]]
+name = "xdg-home"
+version = "1.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ec1cdab258fb55c0da61328dc52c8764709b249011b2cad0454c72f0bf10a1f6"
+dependencies = [
+ "libc",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "xkbcommon-dl"
 version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10382,6 +11387,38 @@ dependencies = [
 
 [[package]]
 name = "zbus"
+version = "4.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bb97012beadd29e654708a0fdb4c84bc046f537aecfde2c3ee0a9e4b4d48c725"
+dependencies = [
+ "async-broadcast",
+ "async-process",
+ "async-recursion",
+ "async-trait",
+ "enumflags2",
+ "event-listener",
+ "futures-core",
+ "futures-sink",
+ "futures-util",
+ "hex",
+ "nix 0.29.0",
+ "ordered-stream",
+ "rand 0.8.8",
+ "serde",
+ "serde_repr",
+ "sha1 0.10.7",
+ "static_assertions",
+ "tracing",
+ "uds_windows",
+ "windows-sys 0.52.0",
+ "xdg-home",
+ "zbus_macros 4.4.0",
+ "zbus_names 3.0.0",
+ "zvariant 4.2.0",
+]
+
+[[package]]
+name = "zbus"
 version = "5.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5db4be7c075cb421e4b7ee645541604239bd243ba7c357511f4ff3a74b555907"
@@ -10410,9 +11447,9 @@ dependencies = [
  "uuid",
  "windows-sys 0.61.2",
  "winnow 1.0.5",
- "zbus_macros",
- "zbus_names",
- "zvariant",
+ "zbus_macros 5.19.0",
+ "zbus_names 4.3.5",
+ "zvariant 5.15.1",
 ]
 
 [[package]]
@@ -10422,7 +11459,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6998de05217a084b7578728a9443d04ea4cd80f2a0839b8d78770b76ccd45863"
 dependencies = [
  "zbus_xml",
- "zvariant",
+ "zvariant 5.15.1",
 ]
 
 [[package]]
@@ -10436,7 +11473,20 @@ dependencies = [
  "syn 2.0.119",
  "zbus-lockstep",
  "zbus_xml",
- "zvariant",
+ "zvariant 5.15.1",
+]
+
+[[package]]
+name = "zbus_macros"
+version = "4.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "267db9407081e90bbfa46d841d3cbc60f59c0351838c4bc65199ecd79ab1983e"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+ "zvariant_utils 2.1.0",
 ]
 
 [[package]]
@@ -10449,9 +11499,20 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.10",
- "zbus_names",
- "zvariant",
- "zvariant_utils",
+ "zbus_names 4.3.5",
+ "zvariant 5.15.1",
+ "zvariant_utils 4.2.0",
+]
+
+[[package]]
+name = "zbus_names"
+version = "3.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b9b1fef7d021261cc16cba64c351d291b715febe0fa10dc3a443ac5a5022e6c"
+dependencies = [
+ "serde",
+ "static_assertions",
+ "zvariant 4.2.0",
 ]
 
 [[package]]
@@ -10462,7 +11523,7 @@ checksum = "812a12be4ead7a59e18ea8f047d08add0066b73bc62fc1467066a2472ae088dd"
 dependencies = [
  "serde",
  "winnow 1.0.5",
- "zvariant",
+ "zvariant 5.15.1",
 ]
 
 [[package]]
@@ -10473,8 +11534,8 @@ checksum = "d1586c021a01ca0a9216dcd874e546382e156a5cbab5fab6cb5f10087e22682a"
 dependencies = [
  "serde",
  "winnow 1.0.5",
- "zbus_names",
- "zvariant",
+ "zbus_names 4.3.5",
+ "zvariant 5.15.1",
 ]
 
 [[package]]
@@ -10649,6 +11710,19 @@ dependencies = [
 
 [[package]]
 name = "zvariant"
+version = "4.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2084290ab9a1c471c38fc524945837734fbf124487e105daec2bb57fd48c81fe"
+dependencies = [
+ "endi",
+ "enumflags2",
+ "serde",
+ "static_assertions",
+ "zvariant_derive 4.2.0",
+]
+
+[[package]]
+name = "zvariant"
 version = "5.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "80bf6d6cd6a4b601acb64cfb8284cdc643fcfa75ef26ae3c46ec8aa4e8a1fbb7"
@@ -10658,8 +11732,21 @@ dependencies = [
  "serde",
  "winnow 1.0.5",
  "zcheapstr",
- "zvariant_derive",
- "zvariant_utils",
+ "zvariant_derive 5.15.1",
+ "zvariant_utils 4.2.0",
+]
+
+[[package]]
+name = "zvariant_derive"
+version = "4.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "73e2ba546bda683a90652bac4a279bc146adad1386f25379cf73200d2002c449"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
+ "zvariant_utils 2.1.0",
 ]
 
 [[package]]
@@ -10672,7 +11759,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 3.0.10",
- "zvariant_utils",
+ "zvariant_utils 4.2.0",
+]
+
+[[package]]
+name = "zvariant_utils"
+version = "2.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c51bcff7cc3dbb5055396bcf774748c3dab426b4b8659046963523cee4808340"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.119",
 ]
 
 [[package]]

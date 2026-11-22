@@ -31,7 +31,7 @@ RavenRS Reporting turns data into paginated documents. It covers what a complete
         └── ravenrs-report-server  HTTP: POST a definition + data, get PDF/XLSX back
 ```
 
-Today `ravenrs-report`, `ravenrs-criteria`, `ravenrs-graphics`, `ravenrs-report-export`, `ravenrs-report-pdf`, `ravenrs-report-xlsx` (XLSX and CSV) and the designer in `examples/report-designer` exist. `ravenrs-report-server` runs them headless ([docs/REPORT-SERVER.md](REPORT-SERVER.md)). `ravenrs-report-viewer` shows documents and asks for parameters. The other exporters arrive in the phases below.
+Today `ravenrs-report`, `ravenrs-criteria`, `ravenrs-graphics`, `ravenrs-report-export`, `ravenrs-report-pdf`, `ravenrs-report-xlsx` (XLSX and CSV) and the designer in `tools/raven-report-designer` exist. `ravenrs-report-server` runs them headless ([docs/REPORT-SERVER.md](REPORT-SERVER.md)). `ravenrs-report-viewer` shows documents and asks for parameters. The other exporters arrive in the phases below.
 
 `ravenrs-report` has no GPU or window dependency, so it runs in servers and tests. Text is measured with the same Parley stack as the UI, so the viewer and the PDF agree to the point.
 
@@ -62,6 +62,7 @@ Today `ravenrs-report`, `ravenrs-criteria`, `ravenrs-graphics`, `ravenrs-report-
     * Table of contents.
   * Graphics: Picture (PNG, JPEG, SVG), Line, Shape.
   * Barcodes: Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF, QR, Data Matrix, PDF417.
+  * Diagrams: a `FlowCanvas` diagram, from its JSON or a field, fitted into the control (`ravenrs_report::diagram::fit`, which a diagram exported alone as PDF uses too).
   * Data visualization:
     * Chart: bar, line, area, pie, doughnut, scatter.
     * Sparkline.

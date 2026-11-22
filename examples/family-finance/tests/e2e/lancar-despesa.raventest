@@ -1,0 +1,11 @@
+scenario: Raven Finanças: lançar despesa
+// Na família de exemplo, em memória, em 15/11/2026: lança uma despesa e confere no mês.
+open Raven Finanças                          | Abrir o Raven Finanças
+click Lançamentos                            | Ir aos lançamentos
+click Nova despesa                           | Nova despesa
+type #field:description = Conserto da pia    | Digitar a descrição
+type #field:amount = 150,75                  | Digitar o valor
+click #form:save                             | Salvar o lançamento
+check Lançamento salvo = Lançamento salvo    | O aviso diz que salvou
+check Conserto da pia = Conserto da pia      | A despesa está no mês
+check -R$ 150,75 = -R$ 150,75                | Com o valor certo

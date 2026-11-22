@@ -86,6 +86,7 @@ impl Semantic {
             Self::Chart4 => "chart-4",
             Self::Chart5 => "chart-5",
             Self::ChartGrid => "chart-grid",
+            Self::Guide => "guide",
         }
     }
 }

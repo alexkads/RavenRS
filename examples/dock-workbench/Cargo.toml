@@ -1,0 +1,29 @@
+[package]
+name = "dock-workbench"
+description = "Three workbenches built on the DockArea: a code editor, an IDE and a chat app, to check that the dock holds a real desktop app together."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+# How Raven Test Studio (RTS) finds and opens this app on the test channel (--e2e-serve).
+[package.metadata.ravenrs.e2e]
+app = "Dock workbench"
+binary = "dock-workbench"
+
+[dependencies]
+ravenrs = { workspace = true, features = ["code"] }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# The test channel, closed until the app is opened with --e2e-serve.
+ravenrs-e2e.workspace = true
+ravenrs-e2e-wire = { workspace = true, features = ["serve"] }
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+image.workspace = true
+pollster.workspace = true
+
+[lints]
+workspace = true

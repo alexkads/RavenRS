@@ -73,3 +73,16 @@ O campo de leitura fica sempre com o foco. Um leitor de código de barras funcio
 Falta testar com leitor físico, impressora física, certificado A1 e servidor real da SEFAZ.
 
 Licença: MIT ou Apache-2.0.
+
+## End-to-end tests (Raven Test Studio)
+
+The scenarios of this example are in `tests/e2e/`, as `.raventest` files the Raven Test Studio reads: the point of sale says it is BETA and a sandbox, and the sample products are in the catalog, with their prices. Nothing is sent to SEFAZ. The app brings them (`SCENARIOS`), and `tests/scenarios.rs` plays them on every `cargo test`.
+
+To run them as the Studio does, with the app in a process of its own, no window and no cache:
+
+```bash
+raven-test-studio --project examples/mini-pdv --run-all --no-cache --format json --out target/e2e/mini-pdv
+```
+
+The app answers the Studio when opened with `--e2e-serve`; the data of the person using it is never opened. Its name on the channel, which the `open` block of a scenario uses, is "Mini-PDV" (`[package.metadata.ravenrs.e2e]` in `Cargo.toml`). A step that fails says the step, why, and the screen of the app at that moment; with `--film` the report keeps a film of the failure.
+

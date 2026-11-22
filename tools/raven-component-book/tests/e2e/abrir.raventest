@@ -1,0 +1,17 @@
+scenario: RavenComponentBook: achar um componente e mudar um ajuste
+// O livro sem atualizações: procura o TextField, vê as histórias dele, procura o Button, o desabilita e troca o rótulo dele.
+open RavenComponentBook                        | Abrir o RavenComponentBook
+fill #search = textf                           | Procurar "textf"
+click #component:TextField                     | Escolher o TextField
+mention Forms/TextField = Forms/TextField      | Mostra o TextField
+mention Password = Password                    | Mostra as histórias dele
+fill #search = Button                          | Procurar "Button"
+click #component:Button                        | Escolher o Button
+check #canvas = Save                           | O botão da história diz Save
+expect #arg:disabled = unchecked               | O ajuste disabled começa desligado
+expect #canvas = enabled                       | O botão começa habilitado
+click #arg:disabled                            | Ligar o disabled
+expect #arg:disabled = checked                 | O ajuste fica ligado
+expect #canvas = disabled                      | A história redesenha o botão desabilitado
+fill #arg:label = Gravar                       | Trocar o rótulo para Gravar
+check #canvas = Gravar                         | A história redesenha com Gravar

@@ -9,6 +9,19 @@ const FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Rgba8Unorm;
 /// Draws a scene at this size, and gives its pixels as RGBA, row by row. Fails when the GPU cannot
 /// give the pixels back.
 pub fn render_to_rgba(gpu: &GpuContext, scene: &Scene, width: u32, height: u32) -> Result<Vec<u8>, String> {
+    let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
+    render_with(gpu, &mut renderer, scene, width, height)
+}
+
+/// Like [`render_to_rgba`], with a renderer of the caller's, made for
+/// `Rgba8Unorm`: one that draws the cables of a [`GpuCables`](crate::GpuCables) world, say.
+pub fn render_with(
+    gpu: &GpuContext,
+    renderer: &mut Renderer,
+    scene: &Scene,
+    width: u32,
+    height: u32,
+) -> Result<Vec<u8>, String> {
     let texture = gpu.device.create_texture(&wgpu::TextureDescriptor {
         label: Some("offscreen"),
         size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
@@ -20,7 +33,6 @@ pub fn render_to_rgba(gpu: &GpuContext, scene: &Scene, width: u32, height: u32) 
         view_formats: &[],
     });
     let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
-    let mut renderer = Renderer::new(&gpu.device, &gpu.queue, FORMAT);
     renderer.render(scene, &view, (width, height), 1.0);
     let padded =
         (width * 4).div_ceil(wgpu::COPY_BYTES_PER_ROW_ALIGNMENT) * wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;

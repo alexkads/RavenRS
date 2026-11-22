@@ -183,6 +183,24 @@ step "the widgets' crates keep their layers: no family depends on another"
 step "every test file runs: tests/suite/ modules are declared"
 ./scripts/check-test-suites.py
 
+step "every tool in tools/ is a product: version, news, installer, icons, tests (tools/README.md)"
+./scripts/check-tools.py
+
+step "the feature center shows every component with every feature (skill ravenrs-feature-center)"
+./scripts/feature-center-coverage.py
+
+step "every component follows RCB: ComponentBook with its stories, or pending with its issue (#754, #768)"
+./scripts/rcb-coverage.py --self-test
+./scripts/rcb-coverage.py
+
+step "every type keeps the testability contract of the RTS, or is pending with its issue (#734, #736)"
+./scripts/rts-coverage.py --self-test
+./scripts/rts-coverage.py
+
+step "every app with a window keeps scenarios the Raven Test Studio finds and runs (CONTRIBUTING.md, #702)"
+./scripts/e2e-scenarios.py --self-test
+./scripts/e2e-scenarios.py
+
 if [ "${1:-}" != "--full" ]; then
     step "what the change reaches"
     # What the selection leaves out goes unchecked, so the selection has tests of its own.
@@ -239,7 +257,7 @@ step "CLI templates: every model and target compiles"
 cargo test -p cargo-ravenrs --test cli -- --ignored
 
 step "clippy (wasm32)"
-cargo clippy -p ravenrs -p ravenrs-widgets -p ravenrs-widgets-base -p ravenrs-widgets-kit -p ravenrs-widgets-grid -p ravenrs-widgets-lists -p ravenrs-widgets-scheduler -p ravenrs-widgets-dock -p ravenrs-widgets-imaging -p ravenrs-widgets-charts -p ravenrs-widgets-chat -p ravenrs-platform-web -p ravenrs-report -p ravenrs-report-pdf -p ravenrs-report-xlsx -p ravenrs-report-viewer -p ravenrs-grid-export -p ravenrs-app -p ravenrs-app-i18n -p ravenrs-app-a11y -p ravenrs-app-ui -p ravenrs-app-remote -p ravenrs-app-library -p ravenrs-app-report -p ravenrs-report-designer -p quick-app -p quick-plan -p feature-center -p calculator -p hello-world -p component-gallery -p report-designer -p ravenrs-sheet -p ravenrs-spreadsheet -p spreadsheet -p tutorial-tasks -p tasks-sqlite -p ravenrs-barcode -p ravenrs-pos -p ravenrs-report-label --target wasm32-unknown-unknown -- -D warnings
+cargo clippy -p ravenrs -p ravenrs-widgets -p ravenrs-widgets-base -p ravenrs-widgets-kit -p ravenrs-widgets-grid -p ravenrs-widgets-lists -p ravenrs-widgets-scheduler -p ravenrs-widgets-dock -p ravenrs-widgets-imaging -p ravenrs-widgets-charts -p ravenrs-widgets-chat -p ravenrs-platform-web -p ravenrs-report -p ravenrs-report-pdf -p ravenrs-report-xlsx -p ravenrs-report-viewer -p ravenrs-grid-export -p ravenrs-app -p ravenrs-app-i18n -p ravenrs-app-a11y -p ravenrs-app-ui -p ravenrs-app-remote -p ravenrs-app-library -p ravenrs-app-report -p ravenrs-report-designer -p quick-app -p quick-plan -p raven-feature-center -p calculator -p hello-world -p component-gallery -p raven-report-designer -p ravenrs-sheet -p ravenrs-spreadsheet -p spreadsheet -p tutorial-tasks -p tasks-sqlite -p ravenrs-barcode -p ravenrs-pos -p ravenrs-report-label --target wasm32-unknown-unknown -- -D warnings
 
 # On their own: together with the rest, Cargo unifies features and rand_core asks for getrandom.
 cargo clippy -p ravenrs-dfe -p ravenrs-nfe -p ravenrs-nfse -p ravenrs-pagamento --target wasm32-unknown-unknown -- -D warnings
@@ -260,7 +278,7 @@ fi
 
 step "minimum supported Rust version (1.88)"
 if rustup toolchain list | grep -q '^1.88'; then
-    cargo +1.88 check --workspace --exclude ravenrs-movie-video --exclude channel-video --exclude tasks-sqlite --exclude ravenrs-sheet --exclude ravenrs-pdf --exclude ravenrs-word --exclude ravenrs-deck --exclude ravenrs-app-testkit --exclude ravenrs-spreadsheet --exclude spreadsheet --exclude ravenrs-app-sqlite --exclude mini-pdv --exclude calculator --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude grid-poc --exclude family-finance --exclude ravenrs-perf
+    cargo +1.88 check --workspace --exclude ravenrs-movie-video --exclude raven-channel-video --exclude tasks-sqlite --exclude ravenrs-sheet --exclude ravenrs-pdf --exclude ravenrs-word --exclude ravenrs-deck --exclude ravenrs-app-testkit --exclude ravenrs-spreadsheet --exclude spreadsheet --exclude ravenrs-app-sqlite --exclude ravenrs-flows-runtime --exclude raven-flows --exclude mini-pdv --exclude calculator --exclude hello-world --exclude quick-app --exclude quick-plan --exclude raven-feature-center --exclude component-gallery --exclude raven-report-designer --exclude grid-poc --exclude family-finance --exclude ravenrs-perf
 else
     echo "skipped: install it with 'rustup toolchain install 1.88'"
 fi
@@ -285,7 +303,7 @@ if [ "${RAVENRS_GATE:-0}" = "1" ]; then
 fi
 
 step "API docs (broken links fail)"
-RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --features ravenrs-widgets/code --exclude channel-video --exclude mini-pdv --exclude calculator --exclude hello-world --exclude quick-app --exclude quick-plan --exclude feature-center --exclude component-gallery --exclude report-designer --exclude grid-poc --exclude family-finance --exclude ravenrs-perf --quiet
+RUSTDOCFLAGS="-D warnings" cargo doc --no-deps --workspace --features ravenrs-widgets/code --exclude raven-channel-video --exclude mini-pdv --exclude calculator --exclude hello-world --exclude quick-app --exclude quick-plan --exclude raven-feature-center --exclude component-gallery --exclude raven-report-designer --exclude grid-poc --exclude family-finance --exclude ravenrs-perf --quiet
 ./scripts/check-component-list.py
 
 step "web builds"
@@ -293,8 +311,8 @@ step "web builds"
 ./scripts/build-web.sh calculator
 ./scripts/build-web.sh quick-app
 ./scripts/build-web.sh quick-plan
-./scripts/build-web.sh feature-center
+./scripts/build-web.sh raven-feature-center
 ./scripts/build-web.sh component-gallery
-./scripts/build-web.sh report-designer
+./scripts/build-web.sh raven-report-designer
 
 done_in "All checks passed"

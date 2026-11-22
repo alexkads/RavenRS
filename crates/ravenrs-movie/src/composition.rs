@@ -191,7 +191,11 @@ impl Composition {
                 frame.y() - camera.origin.y * camera.scale,
             );
             let end = scene.len();
-            scene.apply_effect(start..end, Effect { opacity: 1.0, offset, scale: camera.scale }, Point::ZERO);
+            scene.apply_effect(
+                start..end,
+                Effect { opacity: 1.0, offset, scale: camera.scale, rotation: 0.0 },
+                Point::ZERO,
+            );
             scene.pop_clip();
         });
         let node = cx.container(

@@ -6,8 +6,11 @@
 mod app;
 mod commands;
 mod db;
+mod design_themes;
+mod e2e;
 mod opening;
 mod records;
 mod screens;
 mod telegram;
 mod training;
+mod tray;

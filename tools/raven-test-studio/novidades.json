@@ -1,0 +1,17 @@
+{
+  "versao": "0.1.18",
+  "titulo": "O contrato de testabilidade de cada componente, cobrado pelo check.sh.",
+  "importante": false,
+  "novidades": [
+    "tools/raven-test-studio/contrato.json diz, para cada um dos 245 tipos do Raven Feature Center, os ids de teste, as ações que ele atende, o driver e o cenário, ou que ainda está pendente e em qual issue.",
+    "O scripts/rts-coverage.py recusa no check.sh um tipo novo sem entrada, um test_id numerado pela posição e uma ação listada que o código não declara.",
+    "As linhas do registro de execução têm o id #log:N no lugar de #log-N, no padrão parte:chave."
+  ],
+  "por_que_atualizar": "Para que todo componente novo já chegue testável pelo Studio.",
+  "contribuidores": [
+    "Alex S S Fonseca"
+  ],
+  "issues": [
+    736
+  ]
+}

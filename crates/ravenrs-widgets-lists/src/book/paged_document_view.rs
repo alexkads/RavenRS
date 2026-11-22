@@ -1,0 +1,61 @@
+//! The stories of `PagedDocumentView`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #762: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_kit::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `PagedDocumentView`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_height = args.number("height") as f32;
+        let arg_label = args.text("label");
+
+        let sheet = ImageData::from_fn(120, 170, |x, y| {
+            // Lines of a page, where a real app would hand over a rendered PDF.
+            let line = y % 12 < 3 && (10..110).contains(&x) && (14..156).contains(&y);
+            if line { Color::rgb(0.55, 0.55, 0.6) } else { Color::rgb(0.98, 0.98, 0.97) }
+        });
+        {
+            let mut it = PagedDocumentView::new(
+                48,
+                |_| Size::new(420.0, 595.0),
+                // Page 3 has not been drawn yet: it shows a placeholder of the right size.
+                move |page| sheet.clone().filter(|_| page != 2),
+            );
+            it = it.height(arg_height);
+            if !arg_label.is_empty() {
+                it = it.label(arg_label.clone());
+            }
+            it
+        }
+    })
+}
+
+impl ComponentBook for PagedDocumentView {
+    fn book() -> Meta {
+        Meta::new("Media/PagedDocumentView", render)
+            .summary("A bar with page and zoom over pages built only when they show.")
+            .arg(ArgType::number("height", 400.0, 0.0, 1600.0, 1.0))
+            .arg(ArgType::text("label", "").description("Empty leaves it as the component has it."))
+            .story("Example", Args::new())
+    }
+}

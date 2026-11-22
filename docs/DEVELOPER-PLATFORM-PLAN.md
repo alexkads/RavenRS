@@ -68,9 +68,9 @@ Esta é uma revisão arquitetural, não uma leitura linha a linha dos 449 arquiv
 | `ravenrs-mcp` | Consulta offline de API, tokens, exemplos e paridade | Preservar ferramenta somente leitura; revisar cobertura ao introduzir CLI |
 | `ravenrs-perf` | Medições e gate de desempenho | Preservar cenários atuais; acrescentar medições mobile em equipamento declarado |
 
-Os 11 exemplos inventariados são `hello-world`, `calculator`, `component-gallery`, `grid-poc`, `quick-app`, `quick-plan`, `feature-center`, `report-designer`, `movie-editor`, `family-finance` e `tutorial-tasks`.
+Os 11 exemplos inventariados são `hello-world`, `calculator`, `component-gallery`, `grid-poc`, `quick-app`, `quick-plan`, `raven-feature-center`, `raven-report-designer`, `raven-movie-editor`, `family-finance` e `tutorial-tasks`.
 
-`hello-world` é a referência de UI compartilhada; `quick-app` e `tutorial-tasks`, de templates pequenos; `feature-center`, de integração com o framework de aplicações; a galeria, de componentes. `family-finance` exercita instalação, SQLite, relatórios, atualização e recursos desktop, mas suas dependências tornam inadequado usá-lo como primeiro app mobile.
+`hello-world` é a referência de UI compartilhada; `quick-app` e `tutorial-tasks`, de templates pequenos; `raven-feature-center`, de integração com o framework de aplicações; a galeria, de componentes. `family-finance` exercita instalação, SQLite, relatórios, atualização e recursos desktop, mas suas dependências tornam inadequado usá-lo como primeiro app mobile.
 
 ## 4. Sobreposições encontradas e decisões propostas
 

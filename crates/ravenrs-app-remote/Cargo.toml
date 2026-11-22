@@ -15,24 +15,35 @@ categories = ["gui", "web-programming::http-client"]
 
 [dependencies]
 ravenrs-app.workspace = true
-ravenrs-app-i18n.workspace = true
-ravenrs-app-ui.workspace = true
-ravenrs-layout.workspace = true
+ravenrs-app-i18n = { workspace = true, optional = true }
+ravenrs-app-ui = { workspace = true, optional = true }
+ravenrs-layout = { workspace = true, optional = true }
 ravenrs-reactive.workspace = true
-ravenrs-style.workspace = true
-ravenrs-widgets.workspace = true
+ravenrs-style = { workspace = true, optional = true }
+ravenrs-widgets = { workspace = true, optional = true }
 serde_json.workspace = true
+
+[features]
+default = ["ui"]
+# The screens: signing in and the gate of an application (`RemoteApp`), and `listen` with a
+# `UiWaker`. Without it, the client and the live channel serve a program with no window, such as a
+# build agent.
+ui = ["dep:ravenrs-app-i18n", "dep:ravenrs-app-ui", "dep:ravenrs-layout", "dep:ravenrs-style", "dep:ravenrs-widgets"]
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ureq = { version = "3.5", default-features = false, features = ["rustls"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+js-sys.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
-web-sys = { workspace = true, features = ["Headers", "Request", "RequestInit", "Response", "Window"] }
+# ReadableStream: the live channel is read from fetch, since an EventSource cannot send a token.
+web-sys = { workspace = true, features = ["Headers", "ReadableStream", "ReadableStreamDefaultReader", "Request", "RequestInit", "Response", "Window"] }
 
 [dev-dependencies]
 ravenrs-app-server.workspace = true
+# A real server for the live channel's tests.
+tokio = { version = "1.54", default-features = false, features = ["net", "rt-multi-thread"] }
 ravenrs-core.workspace = true
 ravenrs-criteria.workspace = true
 

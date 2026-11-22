@@ -1,0 +1,171 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 760" width="1280" height="760" role="img" aria-label="Wireframe: Grade de mapeamento">
+<title>Wireframe: Grade de mapeamento</title><style>
+:root{--bg:#ffffff;--panel:#f5f6f8;--line:#d4d7dd;--ink:#1d2025;--muted:#5f6673;--accent:#3b5bdb;--ok:#2b8a3e;--warn:#b35c00;--bad:#c92a2a;--chip:#e9ecf2}
+@media (prefers-color-scheme: dark){:root{--bg:#16181c;--panel:#1f2228;--line:#3a3f48;--ink:#e8eaee;--muted:#a3aab6;--accent:#8ea2ff;--ok:#69db7c;--warn:#ffa94d;--bad:#ff8787;--chip:#2a2e36}}
+.bg{fill:var(--bg)} .p{fill:var(--panel);stroke:var(--line)} .l{stroke:var(--line);fill:none}
+.t{fill:var(--ink);font:13px system-ui,sans-serif} .s{fill:var(--muted);font:11px system-ui,sans-serif}
+.h{fill:var(--ink);font:600 15px system-ui,sans-serif} .m{fill:var(--ink);font:11px ui-monospace,monospace}
+.chip{fill:var(--chip);stroke:var(--line)} .acc{fill:var(--accent)} .acct{fill:var(--accent);font:600 12px system-ui,sans-serif}
+.ok{fill:var(--ok);font:600 11px system-ui,sans-serif} .warn{fill:var(--warn);font:600 11px system-ui,sans-serif}
+.bad{fill:var(--bad);font:600 11px system-ui,sans-serif} .btn{fill:var(--accent)} .btnt{fill:#fff;font:600 12px system-ui,sans-serif}
+.edge{stroke:var(--accent);stroke-width:1.6;fill:none} .edgew{stroke:var(--warn);stroke-width:1.6;fill:none;stroke-dasharray:5 4}
+.n{fill:var(--accent);font:600 11px system-ui,sans-serif}
+</style>
+<rect class="bg" width="1280" height="760"/>
+<rect class="p" x="0" y="0" width="1280" height="40" rx="0"/>
+<text class="h" x="16" y="25" text-anchor="start">Raven Data Studio</text>
+<text class="s" x="190" y="25" text-anchor="start">Projetos › Migração legado › Mapeamento</text>
+<rect class="p" x="0" y="40" width="200" height="692" rx="0"/>
+<text class="s" x="16" y="66" text-anchor="start">ETAPAS</text>
+<text class="ok" x="18" y="88" text-anchor="start">✓</text>
+<text class="s" x="36" y="88" text-anchor="start">Origem e destino</text>
+<text class="ok" x="18" y="112" text-anchor="start">✓</text>
+<text class="s" x="36" y="112" text-anchor="start">Perfil</text>
+<text class="ok" x="18" y="136" text-anchor="start">✓</text>
+<text class="s" x="36" y="136" text-anchor="start">Schema</text>
+<text class="ok" x="18" y="160" text-anchor="start">✓</text>
+<text class="s" x="36" y="160" text-anchor="start">Comparação e DDL</text>
+<text class="acct" x="18" y="184" text-anchor="start">●</text>
+<text class="t" x="36" y="184" text-anchor="start">Mapeamento</text>
+<text class="s" x="18" y="208" text-anchor="start">○</text>
+<text class="s" x="36" y="208" text-anchor="start">Transformações</text>
+<text class="s" x="18" y="232" text-anchor="start">○</text>
+<text class="s" x="36" y="232" text-anchor="start">Conflitos</text>
+<text class="s" x="18" y="256" text-anchor="start">○</text>
+<text class="s" x="36" y="256" text-anchor="start">Simulação</text>
+<text class="s" x="18" y="280" text-anchor="start">○</text>
+<text class="s" x="36" y="280" text-anchor="start">Revisão final</text>
+<text class="s" x="18" y="304" text-anchor="start">○</text>
+<text class="s" x="36" y="304" text-anchor="start">Execução</text>
+<text class="s" x="18" y="328" text-anchor="start">○</text>
+<text class="s" x="36" y="328" text-anchor="start">Resultado</text>
+<rect class="p" x="0" y="732" width="1280" height="28" rx="0"/>
+<rect class="p" x="216" y="52" width="700" height="32" rx="6"/>
+<rect class="btn" x="226" y="57" width="80" height="22" rx="5"/>
+<text class="btnt" x="266" y="72" text-anchor="middle">Grade</text>
+<rect class="chip" x="312" y="57" width="80" height="22" rx="5"/>
+<text class="t" x="352" y="72" text-anchor="middle">Canvas</text>
+<text class="s" x="420" y="73" text-anchor="start">Mostrar:  Todos | Só pendências</text>
+<text class="s" x="700" y="73" text-anchor="start">🔍 Buscar campo</text>
+<rect class="p" x="216" y="92" width="700" height="30" rx="6"/>
+<text class="s" x="224" y="112" text-anchor="start">Destino</text>
+<text class="s" x="394" y="112" text-anchor="start">Tipo</text>
+<text class="s" x="494" y="112" text-anchor="start">Origem</text>
+<text class="s" x="624" y="112" text-anchor="start">Regras</text>
+<text class="s" x="784" y="112" text-anchor="start">Estado</text>
+<rect class="p" x="216" y="122" width="700" height="30" rx="0"/>
+<text class="h" x="224" y="142" text-anchor="start">▾ customers (6)</text>
+<text class="s" x="394" y="142" text-anchor="start"></text>
+<text class="m" x="494" y="142" text-anchor="start"></text>
+<text class="s" x="624" y="142" text-anchor="start"></text>
+<rect class="p" x="216" y="152" width="700" height="30" rx="0"/>
+<text class="t" x="224" y="172" text-anchor="start">  document</text>
+<text class="s" x="394" y="172" text-anchor="start">texto(11)</text>
+<text class="m" x="494" y="172" text-anchor="start">CLIENTES.CPF</text>
+<text class="s" x="624" y="172" text-anchor="start">Só dígitos · CPF</text>
+<rect class="chip" x="784" y="160" width="79.0" height="17" rx="8"/>
+<text class="ok" x="791" y="172" text-anchor="start">✓ Mapeado</text>
+<rect class="p" x="216" y="182" width="700" height="30" rx="0"/>
+<text class="t" x="224" y="202" text-anchor="start">  name</text>
+<text class="s" x="394" y="202" text-anchor="start">texto(120)</text>
+<text class="m" x="494" y="202" text-anchor="start">CLIENTES.NOME</text>
+<text class="s" x="624" y="202" text-anchor="start">Aparar · Espaços · Título</text>
+<rect class="chip" x="784" y="190" width="79.0" height="17" rx="8"/>
+<text class="ok" x="791" y="202" text-anchor="start">✓ Mapeado</text>
+<rect class="p" x="216" y="212" width="700" height="30" rx="0"/>
+<text class="t" x="224" y="232" text-anchor="start">  phone</text>
+<text class="s" x="394" y="232" text-anchor="start">texto(20)</text>
+<text class="m" x="494" y="232" text-anchor="start">CLIENTES.FONE</text>
+<text class="s" x="624" y="232" text-anchor="start">Vazio→nulo · Só dígitos</text>
+<rect class="chip" x="784" y="220" width="121.0" height="17" rx="8"/>
+<text class="acct" x="791" y="232" text-anchor="start">✦ Sugestão alta</text>
+<rect class="p" x="216" y="242" width="700" height="30" rx="0"/>
+<text class="t" x="224" y="262" text-anchor="start">  legacy_id</text>
+<text class="s" x="394" y="262" text-anchor="start">texto(20)</text>
+<text class="m" x="494" y="262" text-anchor="start">CLIENTES.COD_CLI</text>
+<text class="s" x="624" y="262" text-anchor="start">sobrevivente</text>
+<rect class="chip" x="784" y="250" width="79.0" height="17" rx="8"/>
+<text class="ok" x="791" y="262" text-anchor="start">✓ Mapeado</text>
+<rect class="p" x="216" y="272" width="700" height="30" rx="0"/>
+<text class="h" x="224" y="292" text-anchor="start">▾ orders (6)</text>
+<text class="s" x="394" y="292" text-anchor="start"></text>
+<text class="m" x="494" y="292" text-anchor="start"></text>
+<text class="s" x="624" y="292" text-anchor="start"></text>
+<rect class="p" x="216" y="302" width="700" height="30" rx="0"/>
+<text class="t" x="224" y="322" text-anchor="start">  ordered_at</text>
+<text class="s" x="394" y="322" text-anchor="start">data</text>
+<text class="m" x="494" y="322" text-anchor="start">PEDIDOS.DATA</text>
+<text class="s" x="624" y="322" text-anchor="start">Data dd/MM/yyyy</text>
+<rect class="chip" x="784" y="310" width="79.0" height="17" rx="8"/>
+<text class="ok" x="791" y="322" text-anchor="start">✓ Mapeado</text>
+<rect class="p" x="216" y="332" width="700" height="30" rx="0"/>
+<text class="t" x="224" y="352" text-anchor="start">  total</text>
+<text class="s" x="394" y="352" text-anchor="start">decimal(12,2)</text>
+<text class="m" x="494" y="352" text-anchor="start">PEDIDOS.VALOR</text>
+<text class="s" x="624" y="352" text-anchor="start">Decimal . ,</text>
+<rect class="chip" x="784" y="340" width="79.0" height="17" rx="8"/>
+<text class="ok" x="791" y="352" text-anchor="start">✓ Mapeado</text>
+<rect class="p" x="216" y="362" width="700" height="30" rx="0"/>
+<rect class="chip" x="216" y="362" width="700" height="30" rx="0"/>
+<text class="t" x="224" y="382" text-anchor="start">  status</text>
+<text class="s" x="394" y="382" text-anchor="start">enum</text>
+<text class="m" x="494" y="382" text-anchor="start">PEDIDOS.SITUACAO</text>
+<text class="s" x="624" y="382" text-anchor="start">Tabela de valores</text>
+<rect class="chip" x="784" y="370" width="107.0" height="17" rx="8"/>
+<text class="warn" x="791" y="382" text-anchor="start">⚠ 1 pendência</text>
+<rect class="p" x="216" y="392" width="700" height="30" rx="0"/>
+<text class="t" x="224" y="412" text-anchor="start">  customer_id</text>
+<text class="s" x="394" y="412" text-anchor="start">inteiro</text>
+<text class="m" x="494" y="412" text-anchor="start">PEDIDOS.COD_CLI</text>
+<text class="s" x="624" y="412" text-anchor="start">Lookup mapa de ids</text>
+<rect class="chip" x="784" y="400" width="79.0" height="17" rx="8"/>
+<text class="ok" x="791" y="412" text-anchor="start">✓ Mapeado</text>
+<circle cx="905" cy="382" r="9" fill="none" stroke="var(--accent)"/>
+<text class="n" x="905" y="386" text-anchor="middle">1</text>
+<rect class="p" x="930" y="52" width="334" height="420" rx="6"/>
+<text class="h" x="946" y="78" text-anchor="start">Inspetor · orders.status</text>
+<text class="s" x="946" y="106" text-anchor="start">Origem</text>
+<text class="t" x="1040" y="106" text-anchor="start">PEDIDOS.SITUACAO</text>
+<text class="s" x="946" y="128" text-anchor="start">Regras</text>
+<text class="t" x="1040" y="128" text-anchor="start">Aparar → Maiúsculas → Tabela</text>
+<text class="s" x="946" y="150" text-anchor="start">Sem corresp.</text>
+<text class="t" x="1040" y="150" text-anchor="start">Enviar para revisão</text>
+<text class="s" x="946" y="186" text-anchor="start">Tabela de valores</text>
+<text class="m" x="946" y="210" text-anchor="start">ABERTO / A</text>
+<text class="t" x="1080" y="210" text-anchor="start">open</text>
+<text class="s" x="1250" y="210" text-anchor="end">660</text>
+<text class="m" x="946" y="234" text-anchor="start">FATURADO / FAT</text>
+<text class="t" x="1080" y="234" text-anchor="start">invoiced</text>
+<text class="s" x="1250" y="234" text-anchor="end">4.281</text>
+<text class="m" x="946" y="258" text-anchor="start">CANCELADO / CANC</text>
+<text class="t" x="1080" y="258" text-anchor="start">cancelled</text>
+<text class="s" x="1250" y="258" text-anchor="end">365</text>
+<text class="m" x="946" y="282" text-anchor="start">X</text>
+<text class="warn" x="1080" y="282" text-anchor="start">— revisão</text>
+<text class="s" x="1250" y="282" text-anchor="end">6</text>
+<text class="s" x="946" y="320" text-anchor="start">Antes → depois (amostra)</text>
+<text class="m" x="946" y="344" text-anchor="start">FAT → invoiced</text>
+<text class="m" x="946" y="364" text-anchor="start">Cancelado → cancelled</text>
+<text class="warn" x="946" y="384" text-anchor="start">X → (revisão)</text>
+<rect class="btn" x="946" y="420" width="139" height="26" rx="6"/>
+<text class="btnt" x="1015.5" y="437" text-anchor="middle">Decidir pendência</text>
+<circle cx="1250" cy="432" r="9" fill="none" stroke="var(--accent)"/>
+<text class="n" x="1250" y="436" text-anchor="middle">2</text>
+<rect class="p" x="216" y="478" width="1048" height="240" rx="6"/>
+<text class="h" x="232" y="502" text-anchor="start">Problemas (4)   Erros 0 · Avisos 4</text>
+<circle cx="1250" cy="496" r="9" fill="none" stroke="var(--accent)"/>
+<text class="n" x="1250" y="500" text-anchor="middle">3</text>
+<text class="warn" x="232" y="532" text-anchor="start">⚠ Aviso</text>
+<text class="t" x="310" y="532" text-anchor="start">orders.status: 6 pedidos com SITUACAO = X sem correspondência</text>
+<text class="acct" x="1240" y="532" text-anchor="end">Decidir</text>
+<text class="warn" x="232" y="562" text-anchor="start">⚠ Aviso</text>
+<text class="t" x="310" y="562" text-anchor="start">customers.document: 9 CPFs com dígito verificador inválido</text>
+<text class="acct" x="1240" y="562" text-anchor="end">Ver registros</text>
+<text class="warn" x="232" y="592" text-anchor="start">⚠ Aviso</text>
+<text class="t" x="310" y="592" text-anchor="start">customer_addresses: 23 endereços sem divisão segura</text>
+<text class="acct" x="1240" y="592" text-anchor="end">Ver registros</text>
+<text class="warn" x="232" y="622" text-anchor="start">⚠ Aviso</text>
+<text class="t" x="310" y="622" text-anchor="start">customers: 37 grupos de CPF repetido; confirme o sobrevivente</text>
+<text class="acct" x="1240" y="622" text-anchor="end">Decidir</text>
+<text class="s" x="16" y="750" text-anchor="start">Plano v7 · Simulação desatualizada (v6) · 22 campos, 21 mapeados, 1 com pendência</text>
+</svg>

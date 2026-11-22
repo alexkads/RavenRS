@@ -19,9 +19,10 @@ use ravenrs_widgets::{
 use serde::{Deserialize, Serialize};
 
 use crate::editor::{EditorLabels, EditorState, MovieEditor};
-use crate::movie::{FilmBuilder, Movie, MovieError};
+use crate::movie::{Movie, MovieError};
 use crate::player::{MovieLabels, MoviePlayer};
 use crate::project::Region;
+use crate::session_film::{Pace, SessionFilm};
 
 const REPORT_MAGIC: &[u8] = b"RAVENBUG1\n";
 /// The fewest seconds between two frames it keeps: a report does not need more,
@@ -35,10 +36,30 @@ const MARKED_ELEMENTS: usize = 12;
 /// How much the page dims while marking: enough to tell the mode, not to hide the page.
 const MARKING_DIM: f32 = 0.25;
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 struct Stretch {
-    film: FilmBuilder,
+    /// Written at the app's own clock, by the same writer as every other film.
+    film: SessionFilm,
     started: f64,
+}
+
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
+impl Stretch {
+    fn new(size: Size, background: ravenrs_core::Color, started: f64) -> Self {
+        Self { film: SessionFilm::new(size, background, Pace::Person), started }
+    }
+
+    /// Moves the film to `now` on the app's clock.
+    fn at(&self, now: f64) {
+        self.film.at(((now - self.started).max(0.0) * 1000.0) as u64);
+    }
+}
+
+/// What a stretch holds, in the order to write it again.
+enum Mark {
+    Frame(Vec<Primitive>),
+    Pointer(Point),
+    Click(Point),
 }
 
 #[derive(Debug)]
@@ -65,10 +86,10 @@ impl Flight {
         if full {
             self.older = self.newer.take();
             self.last_frame.clear();
-            self.newer = Some(Stretch { film: FilmBuilder::new(self.size, background), started: now });
+            self.newer = Some(Stretch::new(self.size, background, now));
         }
-        self.newer
-            .get_or_insert_with(|| Stretch { film: FilmBuilder::new(self.size, background), started: now })
+        let size = self.size;
+        self.newer.get_or_insert_with(|| Stretch::new(size, background, now))
     }
 
     fn painted(&mut self, scene: &ravenrs_core::Scene, now: f64) {
@@ -83,8 +104,8 @@ impl Flight {
             return;
         }
         let stretch = self.stretch(now, scene.clear_color());
-        let at = ((now - stretch.started).max(0.0) * 1000.0) as u64;
-        stretch.film.frame(at, primitives);
+        stretch.at(now);
+        stretch.film.frame(primitives);
         self.last_frame = primitives.to_vec();
         self.last_at = now;
     }
@@ -95,10 +116,10 @@ impl Flight {
             return;
         }
         if let Some(stretch) = &mut self.newer {
-            let at = ((now - stretch.started).max(0.0) * 1000.0) as u64;
-            stretch.film.pointer(at, position);
+            stretch.at(now);
+            stretch.film.pointer(position);
             if clicked {
-                stretch.film.click(at, position);
+                stretch.film.click(position);
             }
         }
     }
@@ -108,30 +129,39 @@ impl Flight {
         let newer = self.newer.as_ref()?;
         let stretches: Vec<&Stretch> = self.older.iter().chain([newer]).collect();
         let origin = stretches[0].started;
-        let mut whole: Option<FilmBuilder> = None;
+        let mut whole: Option<SessionFilm> = None;
         let mut last_ms = 0;
         for stretch in stretches {
             let ms = ((self.now - stretch.started).max(0.0) * 1000.0) as u64;
-            let Ok(part) = stretch.film.clone().finish(ms) else {
+            let Ok(part) = stretch.film.movie(ms) else {
                 continue;
             };
             let shift = ((stretch.started - origin).max(0.0) * 1000.0) as u64;
-            let logical = part.logical_size();
-            let background = part.background();
-            let film = whole.get_or_insert_with(|| FilmBuilder::new(logical, background));
-            for (at, list) in part.frames() {
-                let drawn: Vec<Primitive> = list.iter().filter_map(|i| part.primitive(*i).cloned()).collect();
-                film.frame(at + shift, &drawn);
-            }
-            for key in part.pointer_keys() {
-                film.pointer(key.at_ms + shift, Point::new(key.x, key.y));
-            }
-            for key in part.click_keys() {
-                film.click(key.at_ms + shift, Point::new(key.x, key.y));
+            let film = whole.get_or_insert_with(|| {
+                SessionFilm::new(part.logical_size(), part.background(), Pace::Person)
+            });
+            // Frames, pointer and clicks in the order they happened: the film only goes forward.
+            let mut marks: Vec<(u64, Mark)> = part
+                .frames()
+                .iter()
+                .map(|(at, list)| {
+                    (*at, Mark::Frame(list.iter().filter_map(|i| part.primitive(*i).cloned()).collect()))
+                })
+                .chain(part.pointer_keys().iter().map(|k| (k.at_ms, Mark::Pointer(Point::new(k.x, k.y)))))
+                .chain(part.click_keys().iter().map(|k| (k.at_ms, Mark::Click(Point::new(k.x, k.y)))))
+                .collect();
+            marks.sort_by_key(|(at, _)| *at);
+            for (at, mark) in marks {
+                film.at(at + shift);
+                match mark {
+                    Mark::Frame(drawn) => film.frame(&drawn),
+                    Mark::Pointer(p) => film.pointer(p),
+                    Mark::Click(p) => film.click(p),
+                }
             }
             last_ms = last_ms.max(ms + shift);
         }
-        whole?.finish(last_ms).ok()
+        whole?.movie(last_ms).ok()
     }
 }
 

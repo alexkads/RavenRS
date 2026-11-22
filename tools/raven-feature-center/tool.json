@@ -1,0 +1,42 @@
+{
+  "name": "Raven Feature Center",
+  "also_called": [
+    "RFC",
+    "feature-center",
+    "Centro de Recursos"
+  ],
+  "package": "raven-feature-center",
+  "version": "0.1.1",
+  "summary": "The showcase of RavenRS: every public component and every feature of the application framework, one small demonstration each, with a tour to try them and the page each component points to in recursos.json.",
+  "when_to_use": [
+    "To see a component or a framework feature working before using it.",
+    "After adding or changing a component: give it a page with every public feature (scripts/feature-center-coverage.py checks it).",
+    "To open one page on its own, embedded, in a theme or a language, for a screenshot or a film."
+  ],
+  "commands": [
+    {
+      "command": "raven-feature-center",
+      "does": "Opens the center: sign in as ana, bia or caio (password raven-demo) and go through the navigation. Closing the window keeps it beside the clock."
+    },
+    {
+      "command": "raven-feature-center --modo vitrine | componentes | playground [--pagina <Nome>] [--incorporado] [--tema claro|escuro] [--idioma en|pt]",
+      "does": "Opens one way of the center, as the site does: the showcase, only the components, the playground, a page from the start."
+    },
+    {
+      "command": "raven-feature-center caixa",
+      "does": "Opens the counter window on its own."
+    },
+    {
+      "command": "raven-feature-center --self-test",
+      "does": "Builds every way the center opens with no window; exit code 0 when each one draws."
+    },
+    {
+      "command": "raven-feature-center --versao",
+      "does": "Prints the version."
+    }
+  ],
+  "limits": [
+    "The data of the demonstrations is made up and lives in memory or in a local SQLite file.",
+    "The web build is made with scripts/build-web.sh raven-feature-center."
+  ]
+}

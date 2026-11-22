@@ -1,0 +1,35 @@
+[package]
+name = "flow-chat-bot"
+description = "An automation builder for chat conversations made with FlowCanvas: triggers, messages with buttons, conditions and actions."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+# How Raven Test Studio (RTS) finds and opens this app on the test channel (--e2e-serve).
+[package.metadata.ravenrs.e2e]
+app = "Chat automation builder"
+binary = "flow-chat-bot"
+
+[dependencies]
+ravenrs.workspace = true
+ravenrs-flow-export.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# The test channel, closed until the app is opened with --e2e-serve.
+ravenrs-e2e.workspace = true
+ravenrs-e2e-wire = { workspace = true, features = ["serve"] }
+tracing-subscriber.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+console_error_panic_hook.workspace = true
+web-sys = { workspace = true, features = ["console"] }
+
+[lints]
+workspace = true

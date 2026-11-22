@@ -1,0 +1,10 @@
+scenario: Calculator: somar e limpar
+// 7 + 8 = 15, depois Clear volta a zero; os botões são achados pelo nome que o leitor de tela lê.
+open Calculator             | Abrir a calculadora
+click 7                     | Digitar 7
+click Add                   | Somar
+click 8                     | Digitar 8
+click Equals                | Igual
+check #display = 15         | O visor mostra 15
+click Clear                 | Limpar
+check #display = 0          | O visor volta a zero

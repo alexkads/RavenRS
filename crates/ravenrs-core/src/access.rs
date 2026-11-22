@@ -171,6 +171,21 @@ pub enum AccessAction {
     Increment,
     /// Lower its value one step.
     Decrement,
+    /// Take this text as its value, in place of what it has: a field, a combo box, a cell.
+    /// The text comes with the request (`Ui::set_access_value`), so the variant carries none.
+    SetValue,
+    /// Open what it shows folded: a tree item, a section, a combo box's list, a menu.
+    Expand,
+    /// Fold what it shows open.
+    Collapse,
+    /// Become the chosen item of its list, tab bar, tree or group, as a click on it would.
+    Select,
+    /// Scroll the parts around it until it is in sight.
+    ScrollIntoView,
+    /// Open its menu: the context menu, or the menu a button with a menu shows.
+    ShowMenu,
+    /// Close it: a dialog, a popover, a menu or a toast, as Escape would.
+    Dismiss,
 }
 
 /// One node of the accessibility tree.
@@ -216,6 +231,14 @@ pub struct AccessNode {
     pub children: Vec<u64>,
     /// Actions assistive technology may request.
     pub actions: Vec<AccessAction>,
+    /// An id the app declared for tests and automation, which stays the same when the
+    /// screen around it changes. Screen readers do not read it.
+    pub test_id: Option<String>,
+    /// The value is secret (a password field): it is shown masked and never given out.
+    pub protected: bool,
+    /// It is busy with work that has not finished (loading, waiting for an answer): what it
+    /// shows may still change. Screen readers say so, and tests wait for it to be free.
+    pub busy: bool,
 }
 
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
@@ -241,6 +264,9 @@ impl AccessNode {
             bounds,
             children: Vec::new(),
             actions: Vec::new(),
+            test_id: None,
+            protected: false,
+            busy: false,
         }
     }
 }
@@ -267,6 +293,11 @@ impl AccessTree {
     /// The first node with this role and name, for tests and tools.
     pub fn find(&self, role: Role, name: &str) -> Option<&AccessNode> {
         self.nodes.iter().find(|n| n.role == role && n.name.as_deref() == Some(name))
+    }
+
+    /// The node the app tagged with this test id, for tests and tools.
+    pub fn by_test_id(&self, test_id: &str) -> Option<&AccessNode> {
+        self.nodes.iter().find(|n| n.test_id.as_deref() == Some(test_id))
     }
 
     /// The node with keyboard focus.

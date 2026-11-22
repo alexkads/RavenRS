@@ -42,8 +42,9 @@ Any other MCP client needs the same command:
 
 | Tool | What it answers | Arguments |
 |---|---|---|
-| `list_components` | Components, with group and summary | `group`, `query` |
-| `component_api` | Docs, signatures, fields, variants, traits, source location and quality audit of any public item | `name`, `filter` |
+| `list_components` | Components, with group, summary and the page of the feature center that shows each one | `group`, `query` |
+| `component_api` | Docs, signatures, fields, variants, traits, source location, quality audit and feature center page of any public item | `name`, `filter` |
+| `feature_center` | Where [`tools/raven-feature-center`](../../tools/raven-feature-center) shows a component with all its features: the page, its id and file, the features it calls and how to open that page alone; or the issue its page waits on | `name`, `query`, `status`, `limit` |
 | `component_examples` | Real code from the examples, rustdoc and the guides | `name`, `limit` |
 | `design_tokens` | Colors per theme, type scale, spacing, radii, shadows, durations and springs, with their Rust names | `category`, `query` |
 | `parity_status` | Status of a feature in `docs/PARITY.md`, `docs/REPORTING-PARITY.md` or, with `document: application`, `docs/APP-PARITY.md` | `document`, `query`, `status`, `limit` |
@@ -83,7 +84,7 @@ using the same rows and save it as sales.rvreport.json.
 
 ## How it works
 
-`build.rs` embeds the Rust sources of every crate and example, and the Markdown at the root, under `docs` and beside each crate. A new crate or document comes in by itself, and it is only read as text: nothing here links against the crates it describes, so a crate with heavy or platform-only dependencies adds none here. On the first tool call, the server parses those sources with [`syn`](https://docs.rs/syn) into an index of public items and of call chains in the examples. The first call takes about 0.1 s in a release build, and later calls are immediate. Because the answers come from the sources, the rustdoc and the docs, there is nothing separate to keep up to date.
+`build.rs` embeds the Rust sources of every crate and example, and the Markdown at the root, under `docs` and beside each crate. `feature_center` reads `tools/raven-feature-center/recursos.json`, the manifest the check keeps exact, and takes each page's id from the `PAGE` and `ID` constants of its file. A new crate or document comes in by itself, and it is only read as text: nothing here links against the crates it describes, so a crate with heavy or platform-only dependencies adds none here. On the first tool call, the server parses those sources with [`syn`](https://docs.rs/syn) into an index of public items and of call chains in the examples. The first call takes about 0.1 s in a release build, and later calls are immediate. Because the answers come from the sources, the rustdoc and the docs, there is nothing separate to keep up to date.
 
 The index reads source text, so it has two limits. It does not resolve names or expand macros, except for the local macro that defines `VStack` and `HStack`, and it cannot see inside macro calls such as `vec![...]` in examples. A test checks that every component the README lists can be found.
 

@@ -1,0 +1,63 @@
+//! The stories of `PatchPanel`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #759: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `PatchPanel`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_label = args.text("label");
+        let arg_retract = args.bool("retract");
+        let arg_thickness = args.number("thickness") as f32;
+
+        let links = State::new(vec![PatchLink::new("left", "in-1")]);
+        {
+            let mut it = PatchPanel::new(
+                vec![
+                    Jack::output("left", "Left out").signal("audio").at(60.0, 50.0),
+                    Jack::output("right", "Right out").signal("audio").at(180.0, 50.0),
+                    Jack::output("tap", "Tap").signal("control").at(320.0, 50.0),
+                    Jack::input("in-1", "Input 1").signal("audio").at(60.0, 210.0),
+                    Jack::input("in-2", "Input 2").signal("audio").at(180.0, 210.0),
+                    Jack::input("pedal", "Pedal").signal("control").at(320.0, 210.0),
+                ],
+                links.binding(),
+            )
+            .size(400.0, 280.0);
+            if !arg_label.is_empty() {
+                it = it.label(arg_label.clone());
+            }
+            it = it.retract(arg_retract);
+            it = it.thickness(arg_thickness);
+            it
+        }
+    })
+}
+
+impl ComponentBook for PatchPanel {
+    fn book() -> Meta {
+        Meta::new("Data/PatchPanel", render)
+            .summary("Jacks joined by cables that hang and swing: plug, refuse, take a plug elsewhere, pairs of cords, a front that turns around, all of it with the keys too.")
+            .arg(ArgType::text("label", "").description("Empty leaves it as the component has it."))
+            .arg(ArgType::bool("retract", false))
+            .arg(ArgType::number("thickness", 6.0, 0.0, 24.0, 0.1))
+            .story("Example", Args::new())
+            .story("Cables retract", Args::new().with("retract", true))
+    }
+}

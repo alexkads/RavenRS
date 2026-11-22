@@ -1,0 +1,69 @@
+//! The stories of `Toolbar`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #755: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `Toolbar`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_label = args.text("label");
+        let arg_separator = args.bool("separator");
+        let arg_aligned_end = args.bool("aligned_end");
+
+        {
+            let mut it = Toolbar::new()
+                .action(
+                    ToolbarAction::new("New")
+                        .icon(IconName::Plus)
+                        .style(ButtonStyle::Primary)
+                        .hotkey(Hotkey::command("n"))
+                        .on_click(|| {}),
+                )
+                .action(ToolbarAction::new("Refresh").icon(IconName::RefreshCw).on_click(|| {}))
+                .action(ToolbarAction::new("Export").icon(IconName::Download).on_click(|| {}))
+                .action(
+                    ToolbarAction::new("Delete")
+                        .icon(IconName::Trash2)
+                        .style(ButtonStyle::Danger)
+                        .disabled(true),
+                );
+            it = it.label(arg_label.clone());
+            if arg_separator {
+                it = it.separator();
+            }
+            if arg_aligned_end {
+                it = it.aligned_end();
+            }
+            it
+        }
+    })
+}
+
+impl ComponentBook for Toolbar {
+    fn book() -> Meta {
+        Meta::new("Actions and inputs/Toolbar", render)
+            .summary("Commands that fold into a menu when out of room.")
+            .arg(ArgType::text("label", "Records"))
+            .arg(ArgType::bool("separator", true))
+            .arg(ArgType::bool("aligned_end", false))
+            .story("Example", Args::new())
+    }
+}

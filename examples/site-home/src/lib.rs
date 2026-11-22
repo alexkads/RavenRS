@@ -3,6 +3,10 @@
 //! On the web it starts from `web_entry` with WebGL2, so it opens in every browser
 //! and phone; `cargo run -p site-home` shows the same page in a window.
 
+/// The scenarios of Raven Test Studio the app brings, one per file of `tests/e2e/`: the tool
+/// gets them when it opens the app with `--e2e-serve`, and the tests play them.
+pub const SCENARIOS: [&str; 1] = [include_str!("../tests/e2e/abrir.raventest")];
+
 use std::rc::Rc;
 
 use ravenrs::core::Key;
@@ -353,7 +357,10 @@ fn step_visual(i: usize, clicks: &State<u32>) -> AnyView {
                     HStack::new((
                         stack((
                             Text::new("CLICKS").style(TextStyle::Caption).foreground(Semantic::InkMuted),
-                            Text::dynamic(move || shown.get().to_string()).style(TextStyle::Metric),
+                            Text::dynamic(move || shown.get().to_string())
+                                .style(TextStyle::Metric)
+                                // The count, as a test finds it: its number is also a step's.
+                                .test_id("clicks"),
                         ))
                         .spacing(4.0),
                         Button::new("Add one").icon(IconName::Plus).on_click(move || inc.update(|n| *n += 1)),

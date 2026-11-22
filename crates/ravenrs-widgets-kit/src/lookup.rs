@@ -359,6 +359,15 @@ impl View for LookupField {
         if !state.accepts_input() {
             return node;
         }
+        let shown = open.clone();
+        cx.on_access(
+            node,
+            &[ravenrs_core::AccessAction::Expand, ravenrs_core::AccessAction::Collapse],
+            move |action, _| {
+                shown.set(action == ravenrs_core::AccessAction::Expand);
+                true
+            },
+        );
         let toggle = open.clone();
         cx.on_click(node, Rc::new(move || toggle.update(|o| *o = !*o)));
         let opener = open.clone();

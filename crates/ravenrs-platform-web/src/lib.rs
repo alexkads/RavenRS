@@ -10,15 +10,22 @@
 //! `WebOptions::backend` can ask for one of them. When none starts, `start`
 //! returns the error and shows a short explanation next to the canvas.
 //!
-//! This crate is empty on non-wasm targets.
+//! This crate is empty on non-wasm targets, but for the ARIA of each node, tested everywhere.
 
-#![cfg(target_arch = "wasm32")]
-
+#[cfg(target_arch = "wasm32")]
 mod access;
+#[cfg(target_arch = "wasm32")]
 mod app;
+#[allow(dead_code, reason = "only the browser uses it; it is here to be tested on every target")]
+mod aria;
+#[cfg(target_arch = "wasm32")]
 mod error;
+#[cfg(target_arch = "wasm32")]
 mod storage;
 
+#[cfg(target_arch = "wasm32")]
 pub use app::{WebApp, WebBackend, WebOptions, start};
+#[cfg(target_arch = "wasm32")]
 pub use error::WebError;
+#[cfg(target_arch = "wasm32")]
 pub use storage::IndexedDbStorage;

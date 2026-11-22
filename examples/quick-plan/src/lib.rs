@@ -1,5 +1,9 @@
 //! One list, shown as a grid, a chart, a month, a timeline and a tree. Nothing but the model changes.
 
+/// The scenarios of Raven Test Studio the app brings, one per file of `tests/e2e/`: the tool
+/// gets them when it opens the app with `--e2e-serve`, and the tests play them.
+pub const SCENARIOS: [&str; 1] = [include_str!("../tests/e2e/abrir.raventest")];
+
 use ravenrs_app::{
     AppearanceRule, EntityInfo, EnumOption, FieldInfo, FieldKind, ObjectSpace, Reminder, StateMachine, Value,
     ViewVariant,

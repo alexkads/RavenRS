@@ -201,6 +201,8 @@ pub struct Button {
     selected: Option<bool>,
     shortcut: Option<String>,
     join: Option<Join>,
+    #[cfg(feature = "e2e-source")]
+    source: &'static std::panic::Location<'static>,
 }
 
 /// Where a button stands in a [`ButtonGroup`].
@@ -219,9 +221,12 @@ impl fmt::Debug for Button {
 #[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl Button {
     /// A primary, medium button with this label. An empty label makes it icon-only.
+    #[cfg_attr(feature = "e2e-source", track_caller)]
     pub fn new(label: impl Into<String>) -> Self {
         Self {
             label: label.into(),
+            #[cfg(feature = "e2e-source")]
+            source: std::panic::Location::caller(),
             on_click: None,
             style: ButtonStyle::Primary,
             size: ButtonSize::Medium,
@@ -416,6 +421,8 @@ impl View for Button {
             semantics.fallback_name = true;
         }
         cx.semantics(node, semantics);
+        #[cfg(feature = "e2e-source")]
+        cx.view_source(node, self.source);
         if !self.disabled {
             if let (Some(handler), false) = (&self.on_click, self.loading) {
                 cx.on_click(node, handler.clone());

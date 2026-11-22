@@ -1,0 +1,63 @@
+//! The stories of `CropOverlay`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #762: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_kit::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `CropOverlay`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_disabled = args.bool("disabled");
+        let arg_label = args.text("label");
+
+        let crop = State::new(CropArea::new(Rect::new(70.0, 30.0, 240.0, 150.0)));
+        let picture = Canvas::new(|frame, scene| {
+            // ravenrs-lint: allow(raw_color) the sky of the stand-in photograph being cropped
+            let sky = LinearGradient::vertical(Color::rgb(0.3, 0.45, 0.7), Color::rgb(0.85, 0.6, 0.45));
+            scene.push_quad(Quad::new(frame, sky));
+        })
+        .size(400.0, 220.0);
+        VStack::new((
+            {
+                let mut it = CropOverlay::new(crop.binding()).stage(picture);
+                it = it.disabled(arg_disabled);
+                if !arg_label.is_empty() {
+                    it = it.label(arg_label.clone());
+                }
+                it
+            },
+            Protractor::new(crop.binding().map(|c| c.angle, |c, angle| c.angle = angle)).width(400.0),
+        ))
+        .spacing(8.0)
+    })
+}
+
+impl ComponentBook for CropOverlay {
+    fn book() -> Meta {
+        Meta::new("Media/CropOverlay", render)
+            .summary("A crop with a veil, proportion and angle, returning the rectangle and the angle.")
+            .arg(ArgType::bool("disabled", false))
+            .arg(ArgType::text("label", "").description("Empty leaves it as the component has it."))
+            .story("Example", Args::new())
+            .story("Disabled", Args::new().with("disabled", true))
+    }
+}

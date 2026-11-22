@@ -1,0 +1,7 @@
+scenario: Raven Plano: tarefas e pessoas
+// A mesma lista do modelo, vista como tarefas, e depois as pessoas do plano.
+open Raven Plano                       | Abrir o Raven Plano
+check 4 de 4 linhas = 4 de 4 linhas    | Quatro tarefas
+click #item:Pessoas                    | Ir às pessoas
+check 2 de 2 linhas = 2 de 2 linhas    | Duas pessoas
+check #cell:1:name = Ana               | Ana é a primeira

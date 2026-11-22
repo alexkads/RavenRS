@@ -1,0 +1,69 @@
+//! The stories of `ChartCard`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #759: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_kit::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `ChartCard`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_title = args.text("title");
+        let arg_description = args.text("description");
+        let arg_note = args.text("note");
+        let arg_centered = args.bool("centered");
+
+        {
+            let mut it = ChartCard::new(
+                Chart::new(ChartKind::Area)
+                    .categories(["Jan", "Feb", "Mar", "Apr", "May", "Jun"])
+                    .series("Desktop", [186.0, 305.0, 237.0, 73.0, 209.0, 214.0])
+                    .series("Mobile", [80.0, 200.0, 120.0, 190.0, 130.0, 140.0])
+                    .stack(ChartStack::Normal)
+                    .gradient()
+                    .height(220.0),
+            )
+            .trend("Up by 5.2% this month", IconName::TrendingUp);
+            it = it.title(arg_title.clone());
+            it = it.description(arg_description.clone());
+            it = it.note(arg_note.clone());
+            if arg_centered {
+                it = it.centered();
+            }
+            it
+        }
+    })
+}
+
+impl ComponentBook for ChartCard<AnyView> {
+    fn book() -> Meta {
+        Meta::new("Data/ChartCard", render)
+            .summary(
+                "A chart's card: title, description, what changes it, tabs with totals, and how it trends.",
+            )
+            .arg(ArgType::text("title", "Visitors"))
+            .arg(ArgType::text("description", "January to June"))
+            .arg(ArgType::text("note", "All channels"))
+            .arg(ArgType::bool("centered", false))
+            .story("Example", Args::new())
+            .story("Centered", Args::new().with("centered", true))
+    }
+}

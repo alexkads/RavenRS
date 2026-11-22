@@ -4,7 +4,7 @@ use std::cell::Cell;
 use std::fmt;
 use std::rc::Rc;
 
-use ravenrs_core::{Border, Color, CursorIcon, Effect, Insets, Key, Quad, Rect, Role};
+use ravenrs_core::{AccessAction, Border, Color, CursorIcon, Effect, Insets, Key, Quad, Rect, Role};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
 use ravenrs_reactive::{Binding, State};
 use ravenrs_style::{Semantic, TextStyle, Weight};
@@ -218,6 +218,8 @@ impl View for Carousel {
                     .name(format!("{} {} {} {n}", labels.carousel_slide, i + 1, labels.grid_of))
                     .selected(on),
             );
+            // The key is the number of the slide, as its name says it.
+            cx.test_id(dot, &format!("slide:{}", i + 1));
             let idx = index.clone();
             cx.on_click(dot, Rc::new(move || idx.set(i)));
             cx.cursor(dot, CursorIcon::Pointer);
@@ -899,6 +901,17 @@ impl View for MenuTitle<'_> {
             Paint::Quad(QuadPaint { corner_radius: 6.0, ..QuadPaint::new(fill) }),
         );
         cx.semantics(node, Semantics::new(Role::MenuItem).expanded(is_open));
+        // Found by its title, and opened and closed as a screen reader asks.
+        cx.test_id(node, &format!("menu:{}", self.bar.menus[i].0));
+        let shown = self.open.clone();
+        cx.on_access(
+            node,
+            &[AccessAction::Expand, AccessAction::Collapse, AccessAction::ShowMenu],
+            move |action, _| {
+                shown.set((action != AccessAction::Collapse).then_some(i));
+                true
+            },
+        );
         let open = self.open.clone();
         cx.on_click(node, Rc::new(move || open.update(|o| *o = if *o == Some(i) { None } else { Some(i) })));
         cx.cursor(node, CursorIcon::Pointer);
@@ -1056,6 +1069,18 @@ impl View for InputOtp {
             .description(format!("{} digits", self.length));
         semantics.fallback_name = true;
         cx.semantics(node, semantics);
+        // Takes the whole code at once, digits only, as a test asks.
+        let (code, len, finished) = (self.value.clone(), self.length, self.on_complete.clone());
+        cx.on_access(node, &[AccessAction::SetValue], move |_, text| {
+            let digits: String =
+                text.unwrap_or_default().chars().filter(char::is_ascii_digit).take(len).collect();
+            let complete = digits.chars().count() == len;
+            code.set(digits.clone());
+            if complete && let Some(d) = &finished {
+                d(digits);
+            }
+            true
+        });
         let (value, len, done) = (self.value.clone(), self.length, self.on_complete.clone());
         cx.on_key(
             node,

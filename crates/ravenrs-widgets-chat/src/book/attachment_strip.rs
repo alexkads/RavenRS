@@ -1,0 +1,54 @@
+//! The stories of `AttachmentStrip`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #756: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_kit::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `AttachmentStrip`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        // The app holds the list, and changes it when told.
+        {
+            let mut it = AttachmentStrip::new([
+                Attachment::new("report.pdf").size(120_000),
+                Attachment::new("beach.jpg").size(2_400_000).icon(IconName::Image).send_as(
+                    ["photo", "document"],
+                    0,
+                    |_how| {},
+                ),
+            ])
+            .on_remove(|_index| {});
+            it
+        }
+        .width(420.0)
+    })
+}
+
+impl ComponentBook for AttachmentStrip {
+    fn book() -> Meta {
+        Meta::new("Forms/AttachmentStrip", render)
+            .summary(
+                "Files about to go with a message, with size, how to send each one and a way to take it out.",
+            )
+            .story("Example", Args::new())
+    }
+}

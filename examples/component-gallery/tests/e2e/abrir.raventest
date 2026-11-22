@@ -1,0 +1,10 @@
+scenario: Componentes: navegar pela galeria
+// Abre na visão geral, vai aos botões e conta um clique; o tema claro fica escolhido.
+open Componentes                                                       | Abrir a galeria
+mention A dashboard assembled only from RavenRS components. Every pixel is drawn on the GPU. = dashboard | Abre na visão geral
+click #item:Buttons                                                    | Ir aos botões
+mention Actions in four styles and three sizes, with icons, focus rings and keyboard support. = four styles | A página dos botões aparece
+check Clicked 0 times. Try Tab and Enter too. = Clicked 0 times. Try Tab and Enter too. | Nenhum clique ainda
+click Get started                                                      | Clicar no botão principal
+check Clicked 1 times. Try Tab and Enter too. = Clicked 1 times. Try Tab and Enter too. | Conta um clique
+click #option:Light                                                    | Trocar para o tema claro

@@ -111,12 +111,15 @@ fn announces_every_tool_as_read_only() {
             "create_report_layout",
             "design_tokens",
             "expression_functions",
+            "feature_center",
             "guides",
             "list_components",
             "parity_status",
+            "ravenrs_tools",
             "report_layout_format",
             "report_layout_templates",
             "search_api",
+            "skills",
             "validate_expression",
         ]
     );
@@ -168,6 +171,60 @@ fn list_components_filters_by_group_and_text() {
 
     let grids = client.call("list_components", json!({ "query": "datagrid" }));
     assert!(names(&grids["components"]).contains(&"DataGrid"));
+
+    // A component put on the screen by its own build, not a view.
+    assert!(listed.contains(&"CablePlug"));
+    let components = all["components"].as_array().unwrap();
+    let group = |name: &str| {
+        components.iter().find(|c| c["name"] == name).map(|c| c["group"].clone()).unwrap_or_default()
+    };
+    for name in ["PatchPanel", "DataInspector", "ParameterForm", "KeyBar", "ScanField", "FlowToolbox"] {
+        assert_ne!(group(name), "Other", "{name} is missing from the README's components table");
+    }
+    assert_eq!(group("SidebarItem"), group("Sidebar"), "a part goes in its owner's group");
+    let cables = components.iter().find(|c| c["name"] == "CablePlug").unwrap();
+    assert_eq!(cables["feature_center"], "Cabos");
+}
+
+#[test]
+fn feature_center_shows_pages_and_what_waits() {
+    let mut client = Client::start();
+    let cables = client.call("feature_center", json!({ "name": "cableplug" }));
+    let cables = &cables["components"][0];
+    assert_eq!(cables["status"], "shown");
+    assert_eq!(cables["page"], "Cabos");
+    assert_eq!(cables["id"], "CablePlugDemo");
+    assert_eq!(
+        cables["run"],
+        "cargo run -p raven-feature-center -- --modo componentes --pagina CablePlugDemo"
+    );
+    assert!(cables["source"].as_str().unwrap().ends_with("graficos/cabos.rs"));
+    assert!(cables["features"].as_array().unwrap().contains(&json!("physics")));
+
+    let button = client.call("feature_center", json!({ "name": "Button" }));
+    let button = &button["components"][0];
+    assert_eq!(button["status"], "shown");
+    assert_eq!(button["page"], "Botões");
+
+    // One that still waits for its page says the issue it waits on and what it already has.
+    let waiting = client.call("feature_center", json!({ "status": "waiting", "limit": 1 }));
+    let waiting = &waiting["components"][0];
+    assert_eq!(waiting["status"], "waiting");
+    assert_eq!(waiting["issue"], 579);
+    assert!(!waiting["known_features"].as_array().unwrap().is_empty(), "{waiting}");
+
+    let all = client.call("feature_center", json!({ "status": "shown", "limit": 300 }));
+    assert_eq!(all["waiting"], 0);
+    assert!(all["shown"].as_u64().unwrap() >= 8, "{all}");
+    assert_eq!(all["total"], all["components"].as_array().unwrap().len());
+
+    let api = client.call("component_api", json!({ "name": "PatchPanel", "filter": "new" }));
+    assert_eq!(api["matches"][0]["feature_center"]["page"], "Painel de tomadas");
+
+    let missing = client.call_err("feature_center", json!({ "name": "NoSuchWidget" }));
+    assert!(missing["error"].as_str().unwrap().contains("recursos.json"));
+    let wrong = client.call_err("feature_center", json!({ "status": "done" }));
+    assert!(wrong["error"].as_str().unwrap().contains("'shown' or 'waiting'"));
 }
 
 #[test]
@@ -228,7 +285,8 @@ fn component_examples_come_from_real_code() {
     assert_eq!(examples.len(), 3);
     for example in examples {
         assert_eq!(example["kind"], "example");
-        assert!(example["source"].as_str().unwrap().starts_with("examples/"));
+        let source = example["source"].as_str().unwrap();
+        assert!(source.starts_with("examples/") || source.starts_with("tools/"), "{source}");
         assert!(example["code"].as_str().unwrap().contains("Button::"), "{example}");
     }
 
@@ -443,6 +501,73 @@ fn an_example_can_come_from_the_guide_of_a_crate() {
     let examples = answer["examples"].as_array().unwrap();
     assert!(!examples.is_empty(), "{answer}");
     assert!(examples.iter().all(|example| example["code"].as_str().unwrap().contains("SefazSandbox")));
+}
+
+#[test]
+fn ravenrs_tools_tells_everything_the_test_studio_offers() {
+    let mut client = Client::start();
+    let all = client.call("ravenrs_tools", json!({}));
+    let packages: Vec<&str> =
+        all["tools"].as_array().unwrap().iter().map(|tool| tool["package"].as_str().unwrap()).collect();
+    assert!(packages.contains(&"raven-test-studio"), "{all}");
+
+    let studio = client.call("ravenrs_tools", json!({ "name": "raven-test-studio" }));
+    assert_eq!(studio["name"], "Raven Test Studio");
+    assert_eq!(names(&studio["scenarios"]), ["autoteste", "financas"]);
+    let codes: Vec<&str> =
+        studio["error_codes"].as_array().unwrap().iter().map(|c| c["code"].as_str().unwrap()).collect();
+    assert!(codes.contains(&"E2E_NOT_FOUND") && codes.contains(&"E2E_COVERED"), "{codes:?}");
+    assert!(studio["commands"].to_string().contains("--format json"), "{studio}");
+    assert_eq!(studio["ai"]["tools"][0]["name"], "run_scenario");
+    assert_eq!(studio["readme"]["document"], "tools/raven-test-studio/README.md");
+    assert!(studio["readme"]["text"].as_str().unwrap().contains("tests itself"));
+
+    // People call it RTS: the list says so, and the short name finds it.
+    let listed =
+        all["tools"].as_array().unwrap().iter().find(|t| t["package"] == "raven-test-studio").unwrap();
+    assert_eq!(listed["also_called"], json!(["RTS"]), "{listed}");
+    assert_eq!(client.call("ravenrs_tools", json!({ "name": "rts" }))["package"], "raven-test-studio");
+
+    // By its name too, and a wrong one names the tools there are.
+    assert_eq!(
+        client.call("ravenrs_tools", json!({ "name": "Raven Test Studio" }))["package"],
+        "raven-test-studio"
+    );
+    let missing = client.call_err("ravenrs_tools", json!({ "name": "nothing-like-this" }));
+    assert!(missing["error"].as_str().unwrap().contains("raven-test-studio"), "{missing}");
+
+    // The tool's README and the folder's are guides as well, and the Studio's code is an example.
+    let guides = client.call("guides", json!({ "document": "tools/" }));
+    assert!(guides.to_string().contains("tools/raven-test-studio/README.md"), "{guides}");
+    let examples = client.call("component_examples", json!({ "name": "E2e", "limit": 10 }));
+    assert!(examples.to_string().contains("tools/raven-test-studio/"), "{examples}");
+}
+
+#[test]
+fn skills_list_search_and_show_every_skill() {
+    let mut client = Client::start();
+    let all = client.call("skills", json!({}));
+    let listed = names(&all["skills"]);
+    for wanted in ["ravenrs", "ravenrs-arquitetura", "ravenrs-check", "ravenrs-github", "raven-test-studio"] {
+        assert!(listed.contains(&wanted), "{wanted} is not among {listed:?}");
+    }
+    let origin = |name: &str| {
+        all["skills"].as_array().unwrap().iter().find(|s| s["name"] == name).unwrap()["origin"].clone()
+    };
+    assert_eq!(origin("ravenrs"), "plugin");
+    assert_eq!(origin("ravenrs-check"), "project");
+    assert_eq!(origin("raven-test-studio"), "tool");
+    assert!(all["skills"].as_array().unwrap().iter().all(|s| !s["description"].as_str().unwrap().is_empty()));
+
+    let found = client.call("skills", json!({ "query": "E2E_ scenario" }));
+    assert_eq!(names(&found["skills"]), ["raven-test-studio"], "{found}");
+
+    let studio = client.call("skills", json!({ "name": "raven-test-studio" }));
+    assert_eq!(studio["path"], "tools/raven-test-studio/claude-pane/skills/raven-test-studio/SKILL.md");
+    let text = studio["text"].as_str().unwrap();
+    assert!(text.starts_with("# Raven Test Studio") && text.contains("run_scenario"), "{text}");
+
+    assert!(client.call_err("skills", json!({ "name": "nothing-like-this" }))["error"].is_string());
 }
 
 #[test]

@@ -1,0 +1,84 @@
+//! The stories of `VirtualList`, from the component gallery's example, by scripts/rcb-scaffold.py.
+//! Reviewed for #759: it is no longer written over.
+
+#[allow(unused_imports)]
+use crate::*;
+#[allow(unused_imports)]
+use ravenrs_core::*;
+#[allow(unused_imports)]
+use ravenrs_layout::*;
+#[allow(unused_imports)]
+use ravenrs_reactive::*;
+#[allow(unused_imports)]
+use ravenrs_style::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_base::book::{ArgType, ArgValue, Args, ComponentBook, Meta};
+#[allow(unused_imports)]
+use ravenrs_widgets_base::*;
+#[allow(unused_imports)]
+use ravenrs_widgets_kit::*;
+#[allow(unused_imports)]
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+#[allow(unused_imports)]
+use std::rc::Rc;
+
+/// The gallery's example of `VirtualList`, with its settings taken from the story.
+#[allow(unused_variables, unused_mut, clippy::redundant_clone, clippy::let_and_return, clippy::clone_on_copy)]
+fn render(args: &Args) -> AnyView {
+    Box::new({
+        let arg_height = args.number("height") as f32;
+        let arg_bare = args.bool("bare");
+        let arg_follow_end = args.bool("follow_end");
+        let arg_horizontal = args.bool("horizontal");
+        let arg_label = args.text("label");
+        let arg_padding = args.number("padding") as f32;
+        let arg_spacing = args.number("spacing") as f32;
+
+        // Ten thousand rows of different heights: only what shows exists.
+        let selected = State::new(None::<usize>);
+        {
+            let mut it = VirtualList::new(10_000, |index| {
+                let tall = 1 + index % 3;
+                let words = vec!["A row that says how tall it is"; tall].join("\n");
+                VStack::new((Text::new(format!("Row {index}")), Text::new(words))).padding(8.0)
+            })
+            .key(|index| index as u64)
+            .selection(selected.binding());
+            it = it.height(arg_height);
+            if arg_bare {
+                it = it.bare();
+            }
+            it = it.follow_end(arg_follow_end);
+            if arg_horizontal {
+                it = it.horizontal();
+            }
+            if !arg_label.is_empty() {
+                it = it.label(arg_label.clone());
+            }
+            it = it.padding(arg_padding);
+            it = it.spacing(arg_spacing);
+            it
+        }
+    })
+}
+
+impl ComponentBook for VirtualList {
+    fn book() -> Meta {
+        Meta::new("Data/VirtualList", render)
+            .summary(
+                "A list of any length with rows of any height, which jumps to a row and stays at the end.",
+            )
+            .arg(ArgType::number("height", 260.0, 0.0, 1040.0, 1.0))
+            .arg(ArgType::bool("bare", false))
+            .arg(ArgType::bool("follow_end", false))
+            .arg(ArgType::bool("horizontal", false))
+            .arg(ArgType::text("label", "").description("Empty leaves it as the component has it."))
+            .arg(
+                ArgType::number("padding", 0.0, 0.0, 48.0, 1.0)
+                    .description("Room around the rows, in points."),
+            )
+            .arg(ArgType::number("spacing", 0.0, 0.0, 48.0, 1.0).description("Room between rows, in points."))
+            .story("Example", Args::new())
+            .story("Spaced", Args::new().with("padding", 8.0).with("spacing", 4.0))
+    }
+}

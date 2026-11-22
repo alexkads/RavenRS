@@ -1,0 +1,7 @@
+scenario: RavenRS Home: contar cliques
+// O contador da página começa em zero; um clique conta um.
+open RavenRS Home                                      | Abrir a página inicial
+check Beautiful native interfaces, powered by Rust. = Beautiful native interfaces, powered by Rust. | O título aparece
+check #clicks = 0                                      | O contador começa em zero
+click Add one                                          | Clicar em Add one
+check #clicks = 1                                      | Conta um clique

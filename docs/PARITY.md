@@ -4,6 +4,11 @@ RavenRS aims to be more complete than the three reference libraries. This table 
 
 Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned. Column S marks whether shadcn/ui ships it; D and T mark two commercial component suites for desktop and web.
 
+These are family-level statuses, not a claim that every feature or combination is
+supported. See the [technical component audit](COMPONENT-AUDIT.md) for source-level
+evidence, basic-control gaps and acceptance scenarios across local/remote data,
+virtualization, editing, keyboard interaction and export.
+
 ## Summary
 
 | | Families tracked | ✅ | 🟡 | ⬜ |
@@ -26,7 +31,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Links, anchors, counters, marquees | ✓ | ✓ | ✓ | ✅ `Link`, `Anchor`, `CountUp` (also counts to a new value, with even digits), `Ticker` with `TimeLink`, `QuadField` |
 | Resizable panels / Splitter | ✓ | ✓ | ✓ | ✅ `Splitter` for two panes, `SplitPanes` for any number with limits, `SplitHandle` for a bar of your own; all move with the keyboard |
 | Tile layout / Dashboard layout | | ✓ | ✓ | ✅ `TileLayout`: drag and resize, also from the keyboard; fewer columns when narrow; a layout to keep; controls in a tile's header (`Tile::accessory`) |
-| Docking / Dock manager | | ✓ | ✓ | ✅ `DockArea`: a tree of splits and tabs in four places; moves by a drag with a mark on the target, by keys or by a menu; bars with limits and keys; docks that collapse and panels that close and come back; an arrangement saved as versioned text, where an unknown id is left out. Floating panels are left out: the app this was modeled on does not float them either |
+| Docking / Dock manager | | ✓ | ✓ | ✅ `DockArea`: a tree of splits and tabs in five places (left, right, top, bottom and center); moves by a drag with a mark on the target, by keys or by a menu; bars with limits and keys; docks that collapse, panels that hide at the edge of their dock (a rail with their names, opening over the rest with a click or the pointer at rest, pinned back) and panels that close and come back; documents kept in the center and tools in the docks (`DockPanelKind`), panels that close for good, an empty center the app fills, a dot on unsaved panels, Ctrl+Tab by the order of use; every change asked of the app first (`on_change`), which can refuse it and say why; an arrangement saved as versioned text, where an unknown id is left out. Panels float over the area in boxes of their own, moved by their header, resized by their edges and docked back onto the tabs of a group or the border of a dock. Floating in a window of its own, outside the main one, is left out until the runtime has more than one window |
 | Window (floating) | | ✓ | ✓ | 🟡 `FloatingPanel::movable`: moves and reduces, does not resize |
 | App bar / Toolbar | | ✓ | ✓ | ✅ `Toolbar`, `ToolbarAction`: what does not fit folds into a menu |
 | Toolbar floating over content | | | ✓ | ✅ `FloatingToolbar`: translucent, placed by side, moved by a handle or the arrows |
@@ -53,7 +58,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Context menu | ✓ | ✓ | ✓ | ✅ `ContextMenu`: submenus, check marks and any view in a row, like `DropdownMenu` |
 | Stepper / Wizard | | ✓ | ✓ | ✅ `Wizard`: a step can refuse to be left or be marked with a problem; steps done can be reopened. `StepIndicator`, `StepBadge` for an app's own layout |
 | Bottom navigation | | | ✓ | ⬜ |
-| TreeView | | ✓ | ✓ | ✅ `TreeView`: keyboard, selection, three-state checks, filter, items on demand, virtualized |
+| TreeView | | ✓ | ✓ | ✅ `TreeView`: keyboard, selection, three-state checks, filter, items on demand, virtualized, a menu of actions per item (right click, Shift+F10, Menu key) |
 | Command palette | ✓ | | | ✅ `CommandPalette` |
 
 ## Buttons and actions
@@ -77,7 +82,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 |---|---|---|---|---|
 | Text box | ✓ | ✓ | ✓ | ✅ `TextField` (selection, clipboard, views before and after the text, clear button, sizes) |
 | Text area (multi-line) | ✓ | ✓ | ✓ | ✅ `TextArea`: wraps, scrolls, builds only the lines in view, grows with the text between two limits |
-| Code editor | | ✓ | | ✅ `CodeEditor` (feature `code`): Fira Mono, line numbers, Rust colors by token, Tab and Shift+Tab indent, Enter keeps the indentation, diagnostics mark the line and underline the columns. No horizontal scrolling or folding yet |
+| Code editor | | ✓ | | ✅ `CodeEditor` (feature `code`): Fira Mono, line numbers, Rust colors by token, Tab and Shift+Tab indent, Enter keeps the indentation, diagnostics mark the line and underline the columns, horizontal scrolling, undo and redo by words, find and replace with capitals and whole words, suggestions under the caret, tips by the pointer and going to a definition, all answered by the app (a language server, say), and a read-only log that follows its end. No folding or several carets yet |
 | Code playground | | | | ✅ `Playground` (feature `code`): one bar, code beside its result, an Output panel with Console (`println!`) and Problems (also from closures that fail later), examples that run when picked, Restore, Ctrl/Cmd+Enter runs through a `Runner`, problems marked on their lines, last result kept and faded, Code/Result/Output tabs with a ⋯ menu below 768 px, and `download` to save what the code makes. The gallery downloads each example as a Cargo project (`ravenrs-project`) that `cargo run`s on the desktop and builds for the browser; `scripts/check.sh --full` builds all of them. `LiveRunner` (feature `live`) runs edited Rust without a compiler through `ravenrs-live`: all 181 gallery examples, each building as many elements as compiled; what it cannot read yet would be listed in `examples/component-gallery/live-pending.txt` |
 | Label | ✓ | ✓ | ✓ | ✅ `Label` |
 | Form, field validation | ✓ | ✓ | ✓ | ✅ `FormField` + validators |
@@ -109,7 +114,7 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Drop zone | | ✓ | ✓ | ✅ `DropZone`: around any content, with the rules of `FileUpload`; every zone lights up during the drag, since platforms say only that files are over the window |
 | Signature | | | ✓ | ⬜ |
 | Rich text editor | | ✓ | ✓ | ⬜ |
-| Code editor | | ✓ | | ⬜ |
+| Code editor | | ✓ | | ✅ `CodeEditor`, as above |
 | Spreadsheet | | ✓ | ✓ | 🟡 `Spreadsheet` (`ravenrs-spreadsheet`): opens XLSX, XLS, ODS and CSV and saves XLSX, 500+ functions with recalculation, editing in the cell and the formula bar, pointer and keyboard selection, clipboard, undo, bold, italic, underline, alignment, number formats, column widths, sheet tabs. Planned: every command on a ribbon, frozen panes, charts and pictures on the sheet, conditional formats drawn, fill handle, find |
 
 ## Data
@@ -148,11 +153,11 @@ Legend: ✅ available · 🟡 partial (what is missing is noted) · ⬜ planned.
 | Scatter, bubble, funnel, financial | | ✓ | ✓ | 🟡 scatter in `Chart`, with a tooltip and cursor when asked; candlestick in `Chart`, with an axis of round numbers, outlines for what rose and the keyboard; bubble and funnel ⬜ |
 | Sankey | | ✓ | ✓ | ✅ `SankeyChart`: alignment, ribbons in a gradient, the rest fading around the focus, arrow keys, every flow read aloud, a clear message when the flows go in a circle |
 | Gauges (linear, circular, arc) | | ✓ | ✓ | ✅ `ProgressBar`, `Chart` with `RadialBar` |
-| Flow diagram (nodes and connections) | | ✓ | ✓ | 🟡 `FlowCanvas`: endless surface with a grid, pan by drag and wheel, zoom by pinch and keys around the pointer, nodes that move on the grid and take focus, ports that check what connects and say why not, curve, step and straight lines with arrows, labels and dashes that travel, selection by press, Shift and rectangle, Delete, a lock, controls and a map. ⬜ undo, copy and paste, JSON, automatic layout, views inside nodes, groups, reconnecting a line by its end |
+| Flow diagram (nodes and connections) | | ✓ | ✓ | ✅ `FlowCanvas`: endless surface with a grid, pan by drag and wheel, zoom by pinch and keys around the pointer, nodes that move on the grid and take focus, ports that check what connects and say why not, curve, step and straight lines with arrows, labels and dashes that travel, selection by press, Shift and rectangle, Delete, a lock, controls and a map. undo and redo, copy, cut and paste with new ids, JSON that is checked as it is read, moving a line's end to another port, ports that connect with the keys, arranging the diagram in layers (left to right or top down) and resizing a node by its corner or with Alt and the arrows, groups that hold nodes, nest, move, copy and go with what they hold, bringing nodes to the front or sending them back, and the app's say before every change (`on_change`), which can refuse it with a reason, a title typed in place (double click, F2 or Enter), the ends of a line (none, arrow, open arrow, diamond, circle), nodes turned by a handle or the keys, their ports and lines turning with them, and any view of the app inside a node (`FlowCanvas::content`), laid out at the node's size and drawn at the zoom; a palette of models to drag in (`FlowToolbox`), properties beside it (`FlowInspector`), bend points, alignment guides, quick creation, colors and lines per node and connection, words alone, layers (`FlowLayers`), the diagrams kept by name with files (`FlowLibrary`), export to PNG, SVG and PDF, notations as data (`FlowNotation`, BPMN 2.0 in `ravenrs-flow-bpmn`), checks written on the nodes and a step-by-step debugger with breakpoints |
 
 The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built with `Chart` and `ChartCard`: all 70 patterns are in the gallery's Charts page, under their names (`examples/component-gallery/src/charts.rs`).
 | Maps | | ✓ | ✓ | ⬜ |
-| Diagram / Org chart | | ✓ | ✓ | ⬜ |
+| Diagram / Org chart | | ✓ | ✓ | ✅ `FlowCanvas` with `FlowLayout::tree`: each node centred over the ones it leads to, down as an org chart or across as a mind map; step lines go around the nodes in their way |
 | QR code / Barcode | | ✓ | ✓ | ✅ `Barcode`: QR Code, Code 128, Code 39, EAN-13, EAN-8, UPC-A, ITF |
 
 ## Overlays and feedback
@@ -231,7 +236,7 @@ The whole [shadcn/ui chart catalog](https://ui.shadcn.com/charts) can be built w
 |---|---|---|---|---|
 | Report engine (bands, groups, summaries, expressions) | | ✓ | ✓ | 🟡 `ravenrs-report`; see [REPORTING-PARITY.md](REPORTING-PARITY.md) |
 | Document viewer (pages, zoom, search, thumbnails) | | ✓ | ✓ | ✅ `ravenrs-report-viewer` |
-| End-user report designer | | ✓ | ✓ | 🟡 `examples/report-designer`, [live](https://alexkads.github.io/RavenRS/designer/) |
+| End-user report designer | | ✓ | ✓ | 🟡 `tools/raven-report-designer`, [live](https://alexkads.github.io/RavenRS/designer/) |
 | Export: PDF, XLSX, DOCX, CSV, HTML, images | | ✓ | ✓ | 🟡 `ravenrs-report-pdf`, `ravenrs-report-xlsx` (XLSX and CSV), SVG per page, Excel, PDF and CSV from `DataGrid`; DOCX, HTML and PNG planned |
 
 ## Platform capabilities

@@ -886,3 +886,32 @@ fn rows_can_have_their_own_colors_and_go_without_lines() {
     let without = striped_ui(DataGrid::new(data(10), columns()).horizontal_lines(false));
     assert!(tops_in(&without, line).len() < tops_in(&with, line).len());
 }
+
+#[test]
+fn a_cell_drawn_by_a_template_with_a_text_of_its_own_is_called_by_that_text() {
+    // The panel of Raven CI puts a switch called "Ligar docker" in a cell; the cell says the state,
+    // so a test that looks for the switch by its name finds one node, not two.
+    let on = State::new(true);
+    let switch = on.clone();
+    let grid = DataGrid::new(
+        GridData::new(vec![vec![Value::from("docker"), Value::from("docker|true")]]),
+        vec![
+            GridColumn::text("Plugin"),
+            GridColumn::text("Ligado")
+                .format(|v| {
+                    if v.key_text().ends_with("|true") { "ligado".to_owned() } else { "desligado".to_owned() }
+                })
+                .template(move |_| -> AnyView {
+                    Box::new(Toggle::new(switch.binding()).small().accessible_name("Ligar docker"))
+                }),
+        ],
+    )
+    .key_column(0);
+    let mut ui = ui_with(grid);
+    let tree = ui.access_tree();
+    let named: Vec<_> = tree.nodes.iter().filter(|n| n.name.as_deref() == Some("Ligar docker")).collect();
+    assert_eq!(named.len(), 1, "{named:?}");
+    assert_eq!(named[0].role, ravenrs_core::Role::Switch);
+    let cell = tree.by_test_id("cell:docker:Ligado").expect("the cell");
+    assert_eq!(cell.name.as_deref(), Some("ligado"));
+}

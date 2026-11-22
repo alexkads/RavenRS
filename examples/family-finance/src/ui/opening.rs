@@ -49,6 +49,7 @@ pub struct Opening {
     steps: RefCell<Option<Receiver<Step>>>,
     app: OnceCell<Rc<App>>,
     failure: RefCell<Option<String>>,
+    tray: Option<super::TrayLink>,
 }
 
 impl std::fmt::Debug for Opening {
@@ -84,7 +85,14 @@ impl Opening {
             steps: RefCell::new(None),
             app: OnceCell::new(),
             failure: RefCell::new(None),
+            tray: None,
         }
+    }
+
+    /// Keeps the menu beside the clock up to date once the app opens; see [`super::TrayLink`].
+    pub fn tray(mut self, link: super::TrayLink) -> Self {
+        self.tray = Some(link);
+        self
     }
 
     fn start(&self, waker: UiWaker) {
@@ -146,6 +154,10 @@ impl Opening {
             self.diagnostics.clone(),
             self.errors.clone(),
         );
+        let app = match &self.tray {
+            Some(link) => app.tray(link.clone()),
+            None => app,
+        };
         let _ = self.app.set(Rc::new(app));
         Ok(())
     }

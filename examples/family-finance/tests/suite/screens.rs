@@ -97,7 +97,7 @@ fn diagnostics_panel() -> (Ui, Diagnostics) {
     let today = Date::new(2026, 11, 15).expect("valid date");
     let db = Database::in_memory().expect("database");
     seed::load_demo(&db, today).expect("seed");
-    let app = App::new(db, today, None, Updater::idle());
+    let app = App::new(db, today, None, family_finance::update::idle());
     let diagnostics = Diagnostics::default();
     diagnostics.set_report_source(|| {
         let adapter = |name: &str, device_type: &str, software| AdapterReport {
@@ -170,7 +170,7 @@ fn draw_the_states() {
         ("comandos", 0, &["Procurar comando"]),
     ];
     for (name, page, steps) in shots {
-        let mut ui = app(themes::light(), page, Updater::idle());
+        let mut ui = app(themes::light(), page, family_finance::update::idle());
         ui.set_viewport(size, 2.0);
         ui.update();
         ui.update();
@@ -184,7 +184,7 @@ fn draw_the_states() {
     for (page, name) in NAMES.iter().enumerate() {
         let db = Database::in_memory().expect("database");
         seed::load_defaults(&db).expect("defaults");
-        let app = App::new(db, today, None, Updater::idle());
+        let app = App::new(db, today, None, family_finance::update::idle());
         app.open_page(page);
         let mut ui = Ui::new(app, themes::light());
         capture(&gpu, &mut ui, size, &folder.join(format!("vazio-{name}.png")));
@@ -192,15 +192,15 @@ fn draw_the_states() {
     // The themes.
     for (theme, label) in [(themes::dark(), "escuro"), (themes::glass(), "vidro")] {
         for (page, name) in NAMES.iter().enumerate() {
-            let mut ui = app(theme, page, Updater::idle());
+            let mut ui = app(theme, page, family_finance::update::idle());
             capture(&gpu, &mut ui, size, &folder.join(format!("{label}-{name}.png")));
         }
-        let mut ui = app(theme, 8, Updater::idle());
+        let mut ui = app(theme, 8, family_finance::update::idle());
         capture(&gpu, &mut ui, size, &folder.join(format!("{label}-treinamentos.png")));
     }
     // The dashboard of one account, in both themes.
     for (theme, label) in [(themes::light(), "claro"), (themes::dark(), "escuro")] {
-        let mut ui = app(theme, 0, Updater::idle());
+        let mut ui = app(theme, 0, family_finance::update::idle());
         ui.set_viewport(size, 2.0);
         ui.update();
         ui.update();
@@ -245,7 +245,7 @@ fn draw_the_states() {
         capture(&gpu, &mut ui, size, &folder.join(format!("painel-trocando-{label}.png")));
     }
     // The agenda under the pointer: the tooltip with its row lit, and a right click.
-    let mut agenda = app(themes::light(), 3, Updater::idle());
+    let mut agenda = app(themes::light(), 3, family_finance::update::idle());
     agenda.set_viewport(size, 2.0);
     for _ in 0..4 {
         agenda.update();
@@ -263,7 +263,7 @@ fn draw_the_states() {
     capture(&gpu, &mut agenda, size, &folder.join("agenda-menu.png"));
 
     // The menu reduced to icons, and a "?" open.
-    let mut menu = app(themes::light(), 2, Updater::idle());
+    let mut menu = app(themes::light(), 2, family_finance::update::idle());
     menu.set_viewport(size, 2.0);
     menu.update();
     menu.update();
@@ -286,7 +286,7 @@ fn draw_the_states() {
     capture(&gpu, &mut menu, size, &folder.join("menu-recolhido.png"));
 
     // The assistant, with an answer, and the sidebar as a sheet in a small window.
-    let mut chat = app(themes::light(), 0, Updater::idle());
+    let mut chat = app(themes::light(), 0, family_finance::update::idle());
     chat.set_viewport(size, 2.0);
     chat.update();
     press(&mut chat, "Assistente");
@@ -294,7 +294,7 @@ fn draw_the_states() {
     capture(&gpu, &mut chat, size, &folder.join("assistente-resposta.png"));
 
     // The bug report, with the box drawn around the problem.
-    let mut report = app(themes::light(), 0, Updater::idle());
+    let mut report = app(themes::light(), 0, family_finance::update::idle());
     report.set_viewport(size, 2.0);
     let mut now = 0.0;
     let mut tick = |ui: &mut Ui, seconds: f64| {
@@ -321,7 +321,7 @@ fn draw_the_states() {
     tick(&mut report, 1.0);
     capture_now(&gpu, &report, size, &folder.join("relato-marcado.png"));
     let small = Size::new(800.0, 640.0);
-    let mut sheet = app(themes::light(), 0, Updater::idle());
+    let mut sheet = app(themes::light(), 0, family_finance::update::idle());
     sheet.set_viewport(small, 2.0);
     sheet.update();
     sheet.update();
@@ -340,7 +340,7 @@ fn draw_the_opening() {
     let Ok(gpu) = pollster::block_on(GpuContext::new(&instance, None)) else { return };
     let size = Size::new(1360.0, 860.0);
     let frames = [0.0, 0.03, 0.08, 0.15, 0.3, 0.6];
-    let mut ui = app(themes::light(), 0, Updater::idle());
+    let mut ui = app(themes::light(), 0, family_finance::update::idle());
     ui.set_viewport(size, 2.0);
     for (i, at) in frames.iter().enumerate() {
         ui.set_time(*at);
@@ -374,7 +374,7 @@ fn draw_the_film() {
     let instance = wgpu::Instance::new(wgpu::InstanceDescriptor::new_without_display_handle_from_env());
     let Ok(gpu) = pollster::block_on(GpuContext::new(&instance, None)) else { return };
     let size = Size::new(1360.0, 860.0);
-    let mut ui = app(themes::light(), 8, Updater::idle());
+    let mut ui = app(themes::light(), 8, family_finance::update::idle());
     ui.set_viewport(size, 2.0);
     ui.set_time(0.0);
     ui.update();
@@ -435,11 +435,11 @@ fn draw_at_other_sizes() {
     for (width, height) in [(800.0, 640.0), (1100.0, 720.0), (1360.0, 860.0), (1920.0, 1080.0)] {
         let size = Size::new(width, height);
         for (page, name) in NAMES.iter().enumerate() {
-            let mut ui = app(themes::light(), page, Updater::idle());
+            let mut ui = app(themes::light(), page, family_finance::update::idle());
             capture(&gpu, &mut ui, size, &folder.join(format!("{name}-{width}.png")));
         }
         // Training: the page, a question, and the moment it opens, with its box.
-        let mut page = app(themes::light(), 8, Updater::idle());
+        let mut page = app(themes::light(), 8, family_finance::update::idle());
         capture(&gpu, &mut page, size, &folder.join(format!("treinamentos-{width}.png")));
         let tree = page.access_tree();
         let field = tree.nodes.iter().find(|n| n.role == Role::TextInput).expect("the question field").id;
@@ -470,7 +470,7 @@ fn draw_every_screen() {
     };
     let size = Size::new(1360.0, 860.0);
     for (page, name) in NAMES.iter().enumerate() {
-        let mut ui = app(themes::light(), page, Updater::idle());
+        let mut ui = app(themes::light(), page, family_finance::update::idle());
         capture(&gpu, &mut ui, size, &folder.join(format!("{name}.png")));
     }
     // The grid, grouped by dragging columns to its panel, one group inside the other.
@@ -480,7 +480,7 @@ fn draw_every_screen() {
             tree.nodes.iter().find(|n| n.role == Role::ColumnHeader && n.name.as_deref() == Some(name));
         found.unwrap_or_else(|| panic!("no {name}")).bounds
     };
-    let mut ui = app(themes::light(), 1, Updater::idle());
+    let mut ui = app(themes::light(), 1, family_finance::update::idle());
     capture(&gpu, &mut ui, size, &folder.join("grade-1-inicial.png"));
     for (name, nudge) in [("Conta", 0.0), ("Categoria", 200.0)] {
         let from = header(&mut ui, name).center();
@@ -516,7 +516,7 @@ fn draw_every_screen() {
     press(&mut ui, Role::RadioButton, "Fórmula");
     capture(&gpu, &mut ui, size, &folder.join("grade-6-formula.png"));
     // A report whose rows have no barcode to leave room for.
-    let mut ui = app(themes::light(), 5, Updater::idle());
+    let mut ui = app(themes::light(), 5, family_finance::update::idle());
     capture(&gpu, &mut ui, size, &folder.join("relatorio-extrato.png"));
     let tree = ui.access_tree();
     let tab = tree
@@ -528,7 +528,7 @@ fn draw_every_screen() {
     // The whole of the first screen, with the pointer over its charts.
     let tall = Size::new(1360.0, 1560.0);
     for (theme, name) in [(themes::light(), "painel-inteiro"), (themes::dark(), "painel-escuro")] {
-        let mut ui = app(theme, 0, Updater::idle());
+        let mut ui = app(theme, 0, family_finance::update::idle());
         capture(&gpu, &mut ui, tall, &folder.join(format!("{name}.png")));
         ui.handle_event(&Event::PointerMove { position: Point::new(800.0, 900.0) });
         ui.update();
@@ -536,9 +536,9 @@ fn draw_every_screen() {
         capture(&gpu, &mut ui, tall, &folder.join(format!("{name}-apontado.png")));
     }
     // The grid and the timeline on the glass theme, whose tokens are translucent.
-    let mut glass = app(themes::glass(), 2, Updater::idle());
+    let mut glass = app(themes::glass(), 2, family_finance::update::idle());
     capture(&gpu, &mut glass, size, &folder.join("contas-vidro.png"));
-    let mut glass = app(themes::glass(), 3, Updater::idle());
+    let mut glass = app(themes::glass(), 3, family_finance::update::idle());
     capture(&gpu, &mut glass, size, &folder.join("agenda-vidro.png"));
 
     // A made-up test: 16 frames a second, most of each spent drawing.
@@ -567,17 +567,17 @@ fn draw_every_screen() {
     }
     capture(&gpu, &mut panel, size, &folder.join("diagnostico.png"));
 
-    let mut ajustes = app(themes::light(), 7, Updater::idle());
+    let mut ajustes = app(themes::light(), 7, family_finance::update::idle());
     capture(&gpu, &mut ajustes, size, &folder.join("ajustes-desempenho.png"));
 
-    let mut dark = app(themes::dark(), 0, Updater::idle());
+    let mut dark = app(themes::dark(), 0, family_finance::update::idle());
     capture(&gpu, &mut dark, size, &folder.join("painel-escuro.png"));
 
     // The training films: the page, moments of the film, and the editor over it.
     let film =
         ravenrs::movie::Movie::from_bytes(include_bytes!("../../assets/treinamentos/lancamentos.ravenmovie"))
             .expect("film");
-    let mut page = app(themes::light(), 8, Updater::idle());
+    let mut page = app(themes::light(), 8, family_finance::update::idle());
     capture(&gpu, &mut page, size, &folder.join("treinamentos.png"));
     // A question, and the moment it opens.
     let field =
@@ -595,7 +595,7 @@ fn draw_every_screen() {
     page.update();
     capture(&gpu, &mut page, size, &folder.join("treinamentos-resposta.png"));
     // The assistant in the corner, before and after a question.
-    let mut chat = app(themes::light(), 0, Updater::idle());
+    let mut chat = app(themes::light(), 0, family_finance::update::idle());
     capture(&gpu, &mut chat, size, &folder.join("assistente-fechado.png"));
     let button = |ui: &mut Ui, name: &str| {
         let tree = ui.access_tree();
@@ -607,7 +607,7 @@ fn draw_every_screen() {
     capture(&gpu, &mut chat, size, &folder.join("assistente-aberto.png"));
     button(&mut chat, "Como pagar uma conta?");
     capture(&gpu, &mut chat, size, &folder.join("assistente-resposta.png"));
-    let mut sphere = app(themes::dark(), 0, Updater::idle());
+    let mut sphere = app(themes::dark(), 0, family_finance::update::idle());
     capture(&gpu, &mut sphere, size, &folder.join("assistente-escuro.png"));
     let total = film.duration_ms();
     for (name, at) in
@@ -637,7 +637,7 @@ fn draw_every_screen() {
     seed::load_demo(&db, today).expect("seed");
     family_finance::backup::keep_daily_copy(&db, &family_finance::backup::copies_folder(&path), today)
         .expect("copy");
-    let mut ui = Ui::new(App::new(db, today, Some(path), Updater::idle()), themes::light());
+    let mut ui = Ui::new(App::new(db, today, Some(path), family_finance::update::idle()), themes::light());
     ui.set_viewport(size, 1.0);
     ui.update();
     let press = |ui: &mut Ui, name: &str| {
@@ -661,7 +661,7 @@ fn draw_every_screen() {
     ui.update();
     capture(&gpu, &mut ui, size, &folder.join("ajustes-restaurar.png"));
 
-    let updater = Updater::idle();
+    let updater = family_finance::update::idle();
     updater.set_status(UpdateStatus::Available(News {
         versao: "0.2.0".to_owned(),
         data: None,
@@ -693,12 +693,12 @@ fn draw_every_screen() {
         ("rodape-em-dia", UpdateStatus::UpToDate),
     ];
     for (name, status) in states {
-        let updater = Updater::idle();
+        let updater = family_finance::update::idle();
         updater.set_status(status);
         let mut foot = app(themes::glass(), 0, updater);
         capture(&gpu, &mut foot, size, &folder.join(format!("{name}.png")));
     }
-    let updater = Updater::idle();
+    let updater = family_finance::update::idle();
     updater.set_status(UpdateStatus::Available(news(false, "0.2.0")));
     let mut dialog = app(themes::light(), 0, updater);
     dialog.set_viewport(size, 2.0);
@@ -709,7 +709,7 @@ fn draw_every_screen() {
     capture(&gpu, &mut dialog, size, &folder.join("novidades.png"));
 
     // Why an update failed, in full: the status bar has no room for it.
-    let updater = Updater::idle();
+    let updater = family_finance::update::idle();
     let reason = "a compilação falhou; veja ~/.raven-financas/atualizacao.log.";
     updater.set_status(UpdateStatus::Failed(news(false, "0.2.0"), reason.to_owned()));
     let mut details = app(themes::light(), 0, updater);
@@ -725,7 +725,7 @@ fn draw_every_screen() {
         (vec![(Role::RadioButton, "Mês")], "agenda-mes"),
         (vec![(Role::Button, "Programar"), (Role::RadioButton, "Semanal")], "dialogo-programar"),
     ] {
-        let mut screen = app(themes::light(), 3, Updater::idle());
+        let mut screen = app(themes::light(), 3, family_finance::update::idle());
         screen.set_viewport(size, 2.0);
         screen.update();
         screen.update();
@@ -745,7 +745,7 @@ fn draw_every_screen() {
     }
 
     // A menu opened from inside a dialog: it sits under its field, above the backdrop.
-    let mut paying = app(themes::light(), 0, Updater::idle());
+    let mut paying = app(themes::light(), 0, family_finance::update::idle());
     paying.set_viewport(size, 2.0);
     paying.update();
     for (role, start) in [(Role::Button, "Pagar "), (Role::ComboBox, "Pagar com")] {
@@ -765,7 +765,7 @@ fn draw_every_screen() {
     for (page, button, name) in
         [(1, "Nova despesa", "dialogo-lancamento"), (2, "Nova conta", "dialogo-conta")]
     {
-        let mut dialog = app(themes::light(), page, Updater::idle());
+        let mut dialog = app(themes::light(), page, family_finance::update::idle());
         dialog.set_viewport(size, 2.0);
         dialog.update();
         let tree = dialog.access_tree();
