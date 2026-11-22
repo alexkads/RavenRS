@@ -3,6 +3,7 @@
 
 mod accessible;
 mod actions;
+mod declared;
 mod find;
 mod reach;
 mod snapshot;

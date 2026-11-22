@@ -68,7 +68,7 @@ tool → {"op":"bye"}
 app  → {"ok":true}
 ```
 
-Commands: `click`, `type`, `fill`, `select`, `expand`, `collapse`, `scroll`, `drag`, `wait` (with an optional `text`), `check` (value, or name when there is no value, is exactly the text), `mention` (name or description contains the text), `snapshot`, `frame`, `source`, `film`, `film_stop` and `bye`.
+Commands: `click`, `type`, `fill`, `select`, `expand`, `collapse`, `set_value`, `show_menu`, `dismiss`, `scroll`, `drag`, `wait` (with an optional `text`), `check` (value, or name when there is no value, is exactly the text), `mention` (name or description contains the text), `snapshot`, `frame`, `source`, `film`, `film_stop` and `bye`.
 
 `frame` answers with `{"ok":true,"frame":[/* bytes */]}`: a single-frame `.ravenmovie` containing the app's current display list and assets. `Client::frame()` returns those bytes; decode with `ravenrs_movie::Movie::from_bytes` and show in MoviePlayer. The app supplies `ChannelFilm::default()` to `serve_filmed`, the same adapter it uses to film. There is no GPU, shared temporary file, clock advance or change to a film in progress. A `Filming` implementation that only films can leave its new `frame` method unimplemented and gets `E2E_NO_FRAME`. Plain `serve` also refuses frames. `Client::send` is for ordinary commands: it refuses to discard frame data and tells the caller to use `Client::frame`.
 
@@ -76,7 +76,7 @@ Commands: `click`, `type`, `fill`, `select`, `expand`, `collapse`, `scroll`, `dr
 
 `Client::source("#save")` sends `{"op":"source","target":"#save"}` and reads `{"ok":true,"source":{"file":"src/app.rs","line":42,"column":7}}`. The app under test must enable `ravenrs-e2e-wire/e2e-source`; `source` works with plain `serve` too and needs no movie adapter. It reports the declaration of the test id, captured with `track_caller`, not a guessed widget implementation. Without instrumentation or a recorded declaration it returns `E2E_NO_SOURCE`; missing and ambiguous queries keep `E2E_NOT_FOUND`/`E2E_AMBIGUOUS`. `Reply.source` is optional for old replies. Use `Client::source`, not `send`, to receive this typed result.
 
-A step does not fail for being early. It tries again for up to `PATIENCE` (2 s), with the session's clock moving, while its target is not there, covered, disabled or out of sight, or its check does not hold yet. When time runs out, it fails with its own code. An action on a part out of sight scrolls to it first, even a row a long list has not built. `wait` waits up to `WAIT` (5 s) and fails with `E2E_TIMEOUT`. In a `.raventest` file the words are `fill`/`preencher`, `select`/`escolher`, `expand`/`expandir`, `collapse`/`recolher`, `scroll`/`rolar` and `wait`/`esperar`.
+A step does not fail for being early. It tries again for up to `PATIENCE` (2 s), with the session's clock moving, while its target is not there, covered, disabled or out of sight, or its check does not hold yet. When time runs out, it fails with its own code. An action on a part out of sight scrolls to it first, even a row a long list has not built. `wait` waits up to `WAIT` (5 s) and fails with `E2E_TIMEOUT`. In a `.raventest` file the words are `fill`/`preencher`, `select`/`escolher`, `expand`/`expandir`, `collapse`/`recolher`, `set-value`/`definir-valor`, `show-menu`/`abrir-menu`, `dismiss`/`dispensar`, `scroll`/`rolar` and `wait`/`esperar`.
 
 ## Not yet
 

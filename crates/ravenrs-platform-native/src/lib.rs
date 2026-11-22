@@ -1092,9 +1092,7 @@ impl ApplicationHandler<UserEvent> for App {
                     }
                     (action, _) => self.ui.perform_action(request.target_node.0, action),
                 };
-                if redraw
-                    && let Some(state) = &self.window
-                {
+                if redraw && let Some(state) = &self.window {
                     state.window.request_redraw();
                 }
             }

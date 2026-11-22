@@ -53,6 +53,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- Accessible actions `SetValue`, `Expand`, `Collapse`, `Select`, `ScrollIntoView`, `ShowMenu` and `Dismiss`, declared with `BuildCx::on_access`, and `AccessNode::busy`, set with `BuildCx::busy` or `busy_while` and a `BusySignal` for work away from the `Ui`. AccessKit gets them as themselves (Expand and Collapse are no longer a click) and the browser gets `aria-busy`. `ravenrs-e2e` has `set_value`, `show_menu`, `dismiss` and `perform`, waits for a busy node before acting, and `.raventest` reads `set-value`, `show-menu` and `dismiss`. `Chat` is busy while it waits for an answer (#735).
+
 - `cargo-ravenrs` says when it is behind: an unknown command gives the installed version and the install command (exit code 2), and `--version` and `doctor` warn when the project asks for another RavenRS (#751).
 - RCB: stories for `FormGroup` (inside `FormLayout`) and for tabs without content, sizes and disabled in `Tabs` (#768).
 

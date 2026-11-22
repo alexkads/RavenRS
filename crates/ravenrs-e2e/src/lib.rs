@@ -72,6 +72,10 @@ const DRAG_STEPS: u32 = 8;
 const DRAG_START: f32 = 6.0;
 /// Frames past the first a step may take to settle, so a screen that keeps asking for one
 /// does not hang the test.
+/// Frames of the session's clock a busy node is given to get free, 5 s at 60 a second.
+const BUSY_FRAMES: usize = 300;
+/// Real time a busy node is given after that, for work away from the screen.
+const BUSY_REAL: std::time::Duration = std::time::Duration::from_secs(5);
 const SETTLE_FRAMES: u32 = 4;
 
 /// What a session for a window holds until it borrows the window's interface.
@@ -375,6 +379,7 @@ impl E2e {
                 .hint("check what enables it first, or expect it to be disabled with `to_be_disabled`")
                 .screen(self.screen()));
         }
+        let node = if node.busy { self.until_free(query)? } else { node };
         if node.bounds.width() > 0.0 && !self.sight(node.id).contains(node.bounds.center()) {
             self.reveal(query)?;
         }
@@ -417,6 +422,37 @@ impl E2e {
             None => {}
         }
         Ok((node, point))
+    }
+
+    /// Waits for a busy node to be free: first on the session's clock, frame by frame, so work
+    /// that ends on a timer passes with no real wait, then in real time, for work away from the
+    /// screen (a thread, a server). Still busy after that, it fails with `E2E_TIMEOUT`.
+    fn until_free(&mut self, query: &Query) -> E2eResult<AccessNode> {
+        for _ in 0..BUSY_FRAMES {
+            self.advance(1.0 / 60.0);
+            let node = self.resolve(query)?;
+            if !node.busy {
+                return Ok(node.clone());
+            }
+        }
+        let start = std::time::Instant::now();
+        while start.elapsed() < BUSY_REAL {
+            std::thread::sleep(std::time::Duration::from_millis(10));
+            self.advance(0.01);
+            let node = self.resolve(query)?;
+            if !node.busy {
+                return Ok(node.clone());
+            }
+        }
+        Err(E2eError::new(
+            ErrorCode::Timeout,
+            format!(
+                "{query}: it was busy and did not get free in {} s",
+                BUSY_FRAMES / 60 + BUSY_REAL.as_secs() as usize
+            ),
+        )
+        .hint("check the work it is busy with, or what keeps it marked busy")
+        .screen(self.screen()))
     }
 
     /// Whether a click landing on `hit` reaches `target`: it is the target, inside it, or around it.

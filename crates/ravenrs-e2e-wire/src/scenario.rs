@@ -70,6 +70,12 @@ pub enum Kind {
     Wait,
     /// Drags the target to the part the text names.
     Drag,
+    /// Gives the target the text as its value through the action it declares, with no typing.
+    SetValue,
+    /// Opens the target's menu through the action it declares.
+    ShowMenu,
+    /// Closes the target (a dialog, a popover, a menu) through the action it declares.
+    Dismiss,
 }
 
 impl Kind {
@@ -88,6 +94,9 @@ impl Kind {
             Self::Scroll => "scroll",
             Self::Wait => "wait",
             Self::Drag => "drag",
+            Self::SetValue => "set-value",
+            Self::ShowMenu => "show-menu",
+            Self::Dismiss => "dismiss",
         }
     }
 
@@ -106,12 +115,24 @@ impl Kind {
             "scroll" | "rolar" => Self::Scroll,
             "wait" | "esperar" | "aguardar" => Self::Wait,
             "drag" | "arrastar" => Self::Drag,
+            "set-value" | "definir-valor" => Self::SetValue,
+            "show-menu" | "abrir-menu" => Self::ShowMenu,
+            "dismiss" | "dispensar" | "fechar" => Self::Dismiss,
             _ => return None,
         })
     }
 
     fn needs_text(self) -> bool {
-        matches!(self, Self::Type | Self::Check | Self::Mention | Self::Fill | Self::Select | Self::Drag)
+        matches!(
+            self,
+            Self::Type
+                | Self::Check
+                | Self::Mention
+                | Self::Fill
+                | Self::Select
+                | Self::Drag
+                | Self::SetValue
+        )
     }
 
     fn takes_text(self) -> bool {
@@ -157,6 +178,9 @@ impl Block {
             Kind::Scroll => Command::Scroll { target },
             Kind::Wait => Command::Wait { target, text: self.text.clone() },
             Kind::Drag => Command::Drag { target, to: text },
+            Kind::SetValue => Command::SetValue { target, text },
+            Kind::ShowMenu => Command::ShowMenu { target },
+            Kind::Dismiss => Command::Dismiss { target },
         })
     }
 }
@@ -370,6 +394,9 @@ pub fn scenario_schema() -> serde_json::Value {
         Kind::Scroll,
         Kind::Wait,
         Kind::Drag,
+        Kind::SetValue,
+        Kind::ShowMenu,
+        Kind::Dismiss,
     ]
     .iter()
     .map(|k| k.word())

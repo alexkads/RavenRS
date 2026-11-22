@@ -2,7 +2,7 @@
   "name": "Raven Test Studio",
   "also_called": ["RTS"],
   "package": "raven-test-studio",
-  "version": "0.1.16",
+  "version": "0.1.17",
   "summary": "The end-to-end test tool of RavenRS, RTS for short: a scenario is a flow of blocks run against a RavenRS app with ravenrs-e2e, and the report tells a person or an AI what failed, why, how to fix it and what the screen showed.",
   "when_to_use": [
     "After changing a RavenRS screen or component, to prove it still works from the outside, with real clicks and typing.",
@@ -58,6 +58,9 @@
     { "kind": "select", "subtitle": "#test-id = option", "does": "Picks the option: opens a combo box or menu first, or clicks it inside a list, tab list or group shown in place." },
     { "kind": "expand", "subtitle": "#test-id", "does": "Opens the item (a tree item, a group row), if it is closed; fails with E2E_EXPECTATION on a part that does not open." },
     { "kind": "collapse", "subtitle": "#test-id", "does": "Closes the item, if it is open." },
+    { "kind": "set-value", "subtitle": "#test-id = value", "does": "Gives the part the value through the action it declares, as a screen reader does, with no typing; fails with E2E_DISABLED on a part that does not declare it." },
+    { "kind": "show-menu", "subtitle": "#test-id", "does": "Opens the part's menu through the action it declares; fails with E2E_DISABLED on a part that does not declare it." },
+    { "kind": "dismiss", "subtitle": "#test-id", "does": "Closes the part (a dialog, a popover, a menu) through the action it declares; fails with E2E_DISABLED on a part that does not declare it." },
     { "kind": "scroll", "subtitle": "#test-id", "does": "Turns the wheel over the part that scrolls until the target is in sight." },
     { "kind": "drag", "subtitle": "#from = #to", "does": "Drags the part to the one after =, with the primary button held; the place to drop is looked for once the drag started, so what shows only while dragging (the free ports of a diagram) can be it. Joins two nodes of a FlowCanvas with #port:<node>:<port> on each side." },
     { "kind": "wait", "subtitle": "#test-id [= text]", "does": "Waits up to 5 s for the target to show, and to mention the text when given; fails with E2E_TIMEOUT." },

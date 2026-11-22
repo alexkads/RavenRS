@@ -6378,6 +6378,7 @@ name = "ravenrs-e2e"
 version = "27.1.28"
 dependencies = [
  "ravenrs-core",
+ "ravenrs-layout",
  "ravenrs-reactive",
  "ravenrs-style",
  "ravenrs-widgets",

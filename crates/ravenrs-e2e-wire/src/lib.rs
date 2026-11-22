@@ -173,6 +173,23 @@ pub enum Command {
         /// `#id` or the text shown.
         target: String,
     },
+    /// Gives the target the text as its value through the action it declares.
+    SetValue {
+        /// `#id` or the text shown.
+        target: String,
+        /// The value.
+        text: String,
+    },
+    /// Opens the target's menu through the action it declares.
+    ShowMenu {
+        /// `#id` or the text shown.
+        target: String,
+    },
+    /// Closes the target through the action it declares.
+    Dismiss {
+        /// `#id` or the text shown.
+        target: String,
+    },
     /// Scrolls the target into sight, even a row a long list has not built yet.
     Scroll {
         /// `#id` or the text shown.
@@ -284,6 +301,9 @@ impl Command {
             | Self::Select { target, .. }
             | Self::Expand { target }
             | Self::Collapse { target }
+            | Self::SetValue { target, .. }
+            | Self::ShowMenu { target }
+            | Self::Dismiss { target }
             | Self::Drag { target, .. } => Some(target),
             _ => None,
         }
@@ -298,6 +318,9 @@ impl Command {
             Self::Select { target: t, text } => e2e.locate(target(t)).select(text),
             Self::Expand { target: t } => e2e.locate(target(t)).expand(),
             Self::Collapse { target: t } => e2e.locate(target(t)).collapse(),
+            Self::SetValue { target: t, text } => e2e.locate(target(t)).set_value(text),
+            Self::ShowMenu { target: t } => e2e.locate(target(t)).show_menu(),
+            Self::Dismiss { target: t } => e2e.locate(target(t)).dismiss(),
             Self::Scroll { target: t } => e2e.locate(target(t)).scroll_into_view(),
             Self::Drag { target: t, to } => e2e.locate(target(t)).drag_to(&target(to)),
             Self::Check { target: t, text } => {

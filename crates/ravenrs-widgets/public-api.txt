@@ -1026,6 +1026,7 @@ impl Clone for Barcode
 impl Clone for BoxHandle
 impl Clone for BoxTransform
 impl Clone for Breadcrumb
+impl Clone for BusySignal
 impl Clone for ButtonSize
 impl Clone for ButtonStyle
 impl Clone for CableAnchor
@@ -1567,6 +1568,7 @@ impl Debug for BoxHandle
 impl Debug for BoxTransform
 impl Debug for Breadcrumb
 impl Debug for BuildCx
+impl Debug for BusySignal
 impl Debug for Button
 impl Debug for ButtonGroup
 impl Debug for ButtonSize
@@ -1995,6 +1997,7 @@ impl Debug for testing::FlowCanvasDriver
 impl Debug for testing::SchedulerDriver
 impl Default for AnchorPoint
 impl Default for AudioPlayerButton
+impl Default for BusySignal
 impl Default for ButtonSize
 impl Default for ButtonStyle
 impl Default for CableSide
@@ -2738,6 +2741,8 @@ method BuildCx::animated
 method BuildCx::animated_numbers
 method BuildCx::appear
 method BuildCx::ask_for_access_tree
+method BuildCx::busy
+method BuildCx::busy_while
 method BuildCx::cables
 method BuildCx::carrying
 method BuildCx::child
@@ -2777,6 +2782,7 @@ method BuildCx::motion
 method BuildCx::nothing_focused
 method BuildCx::now
 method BuildCx::observe_activity
+method BuildCx::on_access
 method BuildCx::on_appear
 method BuildCx::on_click
 method BuildCx::on_close_request
@@ -2830,6 +2836,9 @@ method BuildCx::wheel_scrolls_sideways
 method BuildCx::widget_id
 method BuildCx::window_closer
 method BuildCx::with_foreground
+method BusySignal::is_busy
+method BusySignal::new
+method BusySignal::set
 method Button::accessible_description
 method Button::accessible_name
 method Button::disabled
@@ -4638,6 +4647,7 @@ method Ui::phase_times
 method Ui::scale
 method Ui::scene
 method Ui::scroll_frames
+method Ui::set_access_value
 method Ui::set_cable_world
 method Ui::set_clipboard
 method Ui::set_file_picker
@@ -4944,6 +4954,7 @@ struct Barcode
 struct BoxTransform
 struct Breadcrumb
 struct BuildCx
+struct BusySignal
 struct Button
 struct ButtonGroup
 struct CablePlug
@@ -5342,6 +5353,7 @@ trait-item ViewExt::test_id
 trait-item ViewExt::tooltip
 trait-item ViewExt::width
 trait-item ViewSeq::build_each
+type AccessHandler
 type ActivityObserver
 type AnyView
 type DockGuard

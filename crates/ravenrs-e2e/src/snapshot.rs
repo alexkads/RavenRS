@@ -63,6 +63,9 @@ pub(crate) fn line(node: &AccessNode, reference: Option<u32>, focused: bool) -> 
     if node.modal {
         out.push_str(" modal");
     }
+    if node.busy {
+        out.push_str(" busy");
+    }
     if focused {
         out.push_str(" focused");
     }

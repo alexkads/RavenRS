@@ -1,7 +1,7 @@
 //! The accessible actions a person does with more than a click: fill a field, pick an option,
 //! open or close an item, and scroll a part into sight. Each one is real input, as a person's.
 
-use ravenrs_core::{AccessNode, Event, Key, Modifiers, Point, PointerButton, Rect, Role};
+use ravenrs_core::{AccessAction, AccessNode, Event, Key, Modifiers, Point, PointerButton, Rect, Role};
 
 use crate::{E2e, E2eError, E2eResult, ErrorCode, Locator, Query, descendants};
 
@@ -77,6 +77,10 @@ impl Locator<'_> {
             e2e.button(point, PointerButton::Primary);
         }
         let choice = e2e.option(in_place.then_some(node.id), &query, option)?;
+        // An option that declares how it is chosen is chosen that way; the rest with a click.
+        if e2e.find(&choice)?.actions.contains(&AccessAction::Select) {
+            return e2e.act(&choice, AccessAction::Select);
+        }
         e2e.locate(choice).click()
     }
 
@@ -92,6 +96,38 @@ impl Locator<'_> {
         self.e2e.set_open(&query, false)
     }
 
+    /// Gives the node this text as its value through the action it declares
+    /// ([`AccessAction::SetValue`]), as assistive technology does, with no typing. A node that does
+    /// not declare it fails with `E2E_DISABLED`; [`Self::fill`] types instead.
+    pub fn set_value(self, text: &str) -> E2eResult {
+        let query = self.query;
+        let e2e = self.e2e;
+        let node = e2e.declaring(&query, AccessAction::SetValue)?;
+        e2e.ui.set_access_value(node.id, text);
+        e2e.frame();
+        Ok(())
+    }
+
+    /// Opens the node's menu through the action it declares ([`AccessAction::ShowMenu`]).
+    pub fn show_menu(self) -> E2eResult {
+        let query = self.query;
+        self.e2e.act(&query, AccessAction::ShowMenu)
+    }
+
+    /// Closes the node (a dialog, a popover, a menu) through the action it declares
+    /// ([`AccessAction::Dismiss`]).
+    pub fn dismiss(self) -> E2eResult {
+        let query = self.query;
+        self.e2e.act(&query, AccessAction::Dismiss)
+    }
+
+    /// Asks the node for one of the actions it declares, as assistive technology does. A node
+    /// that does not declare it fails with `E2E_DISABLED`, naming the action.
+    pub fn perform(self, action: AccessAction) -> E2eResult {
+        let query = self.query;
+        self.e2e.act(&query, action)
+    }
+
     /// Turns the wheel over the part that scrolls around the node until its middle is in sight.
     pub fn scroll_into_view(self) -> E2eResult {
         let query = self.query;
@@ -100,6 +136,25 @@ impl Locator<'_> {
 }
 
 impl E2e {
+    /// The node `query` finds, ready for input, once it is known to declare `action`.
+    fn declaring(&mut self, query: &Query, action: AccessAction) -> E2eResult<AccessNode> {
+        let (node, _) = self.target(query)?;
+        if node.actions.contains(&action) {
+            return Ok(node);
+        }
+        Err(E2eError::new(ErrorCode::Disabled, format!("{query}: it does not take the action {action:?}"))
+            .hint("the component declares the actions it takes with `BuildCx::on_access`; use a click or the keys a person would")
+            .screen(self.screen()))
+    }
+
+    /// Performs `action` on the node `query` finds, which must declare it.
+    fn act(&mut self, query: &Query, action: AccessAction) -> E2eResult {
+        let node = self.declaring(query, action)?;
+        self.ui.perform_action(node.id, action);
+        self.frame();
+        Ok(())
+    }
+
     /// Opens the cell at `point` with a double click, replaces the editor's text and confirms it.
     fn edit_cell(&mut self, query: &Query, point: Point, text: &str) -> E2eResult {
         self.button(point, PointerButton::Primary);
@@ -195,9 +250,11 @@ impl E2e {
         if now == open {
             return Ok(());
         }
-        // A tree item opens with the arrow keys once it has the focus; other items, such as a
-        // group row of a grid, open with a click.
-        if node.role == Role::TreeItem {
+        let wanted = if open { AccessAction::Expand } else { AccessAction::Collapse };
+        if node.actions.contains(&wanted) {
+            self.act(query, wanted)?;
+        } else if node.role == Role::TreeItem {
+            // A tree item opens with the arrow keys once it has the focus.
             if self.tree.focus != Some(node.id) {
                 self.button(point, PointerButton::Primary);
             }
@@ -205,6 +262,7 @@ impl E2e {
                 self.press(if open { Key::ArrowRight } else { Key::ArrowLeft });
             }
         } else {
+            // Other items, such as a group row of a grid, open with a click.
             self.button(point, PointerButton::Primary);
         }
         let after = self.find(query)?.expanded;
