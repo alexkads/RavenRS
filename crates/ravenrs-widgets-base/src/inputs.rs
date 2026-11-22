@@ -847,6 +847,15 @@ impl View for Stepper {
         if state.disabled {
             return node;
         }
+        if state.accepts_input() {
+            // Takes a whole number as its value, kept inside its range.
+            let typed = self.value.clone();
+            cx.on_access(node, &[AccessAction::SetValue], move |_, text| {
+                let Some(v) = text.and_then(|t| t.trim().parse::<i32>().ok()) else { return false };
+                typed.set(v.clamp(min, max));
+                true
+            });
+        }
         let value = self.value.clone();
         cx.on_key(
             node,

@@ -57,6 +57,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- Every type of `ravenrs-widgets-base` is in the testability contract of the RTS (#737, last lot): `Stepper` and `ColorPicker` take `SetValue` (a whole number, a color as `#3B82F6`); `ColorPicker` and `DateRangePicker` open and close with `Expand` and `Collapse`; the jacks of a `PatchPanel` are `jack:<id>`, the dots of a `Carousel` `slide:<n>`, the colors of a `SwatchGrid` `swatch:<name>`, and the points of a `NinePointAnchor` `option:<name>` and take `Select`.
+
 - 50 more types of `ravenrs-widgets-base` are in the testability contract of the RTS (#737, third lot): the segments of a `SegmentedControl` and the items of a `ToggleGroup` are `option:<label>`, the pages of a `Pagination` are `page:<n>`, and the display and layout components are found by the test id the app gives them, which a test of RavenComponentBook checks on every story of every component the contract lists as keeping it. `Canvas`, `Icon`, `Skeleton`, `AspectRatio` and `CablePlug` have nothing to find, and the contract says why.
 
 - The overlays of `ravenrs-widgets-base` keep the testability contract of the RTS (#737, second lot): `Dialog`, `Sheet`, `CommandPalette`, the menus and the toasts close with `Dismiss`; `DropdownMenu`, `ContextMenu` and the titles of a `Menubar` (`menu:<title>`) open with `ShowMenu`, `Expand` and `Collapse`, and a `Popover` with `Expand` and `Collapse`; menu items are `item:<label>`, commands `option:<label>`, toasts `toast:<id>`, and the close buttons `close`. `BuildCx::on_access` called again on a node adds to what it takes.

@@ -577,6 +577,8 @@ impl View for Socket {
             format!("{way}{kind}, ligada a {}", others.join(", "))
         });
         cx.semantics(node, semantics);
+        // Found by its id, which the app gives and the cables name.
+        cx.test_id(node, &format!("jack:{}", jack.id));
         cx.focusable(node, radius);
         if shared.aim.get() == Some(i) && !cx.is_focused() {
             cx.request_focus();

@@ -218,6 +218,8 @@ impl View for Carousel {
                     .name(format!("{} {} {} {n}", labels.carousel_slide, i + 1, labels.grid_of))
                     .selected(on),
             );
+            // The key is the number of the slide, as its name says it.
+            cx.test_id(dot, &format!("slide:{}", i + 1));
             let idx = index.clone();
             cx.on_click(dot, Rc::new(move || idx.set(i)));
             cx.cursor(dot, CursorIcon::Pointer);

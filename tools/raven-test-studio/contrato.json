@@ -428,16 +428,20 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "PatchPanel",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "jack:<id>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-base",
    "tipo": "Alert",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": []
    }
   },
   {
@@ -523,8 +527,12 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "Carousel",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "slide:<n>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -549,16 +557,23 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "ColorPair",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-base",
    "tipo": "ColorPicker",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "SetValue"
+    ]
    }
   },
   {
@@ -641,8 +656,15 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "DateRangePicker",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "day:<aaaa-mm-dd>"
+    ],
+    "acoes": [
+     "Click",
+     "Expand",
+     "Collapse",
+     "Select"
+    ]
    }
   },
   {
@@ -763,8 +785,8 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "Image",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": []
    }
   },
   {
@@ -823,8 +845,13 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "NinePointAnchor",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "option:<nome>"
+    ],
+    "acoes": [
+     "Click",
+     "Select"
+    ]
    }
   },
   {
@@ -1015,32 +1042,38 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "SplashScreen",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "sem_tela": true,
+    "motivo": "tela de abertura passageira, sem nada operável; fica numa camada própria e some sozinha"
    }
   },
   {
    "crate": "ravenrs-widgets-base",
    "tipo": "SplitHandle",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Increment",
+     "Decrement"
+    ]
    }
   },
   {
    "crate": "ravenrs-widgets-base",
    "tipo": "SplitPanes",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": []
    }
   },
   {
    "crate": "ravenrs-widgets-base",
    "tipo": "Splitter",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Increment",
+     "Decrement"
+    ]
    }
   },
   {
@@ -1063,8 +1096,12 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "Stepper",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Increment",
+     "Decrement",
+     "SetValue"
+    ]
    }
   },
   {
@@ -1079,8 +1116,12 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "SwatchGrid",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "swatch:<nome>"
+    ],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -1106,8 +1147,12 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "ThemeSwitcher",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [
+     "option:<rótulo>"
+    ],
+    "acoes": [
+     "Select"
+    ]
    }
   },
   {
@@ -1122,8 +1167,10 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "TitleBar",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
@@ -1198,8 +1245,10 @@
    "crate": "ravenrs-widgets-base",
    "tipo": "ZoomControl",
    "rts": {
-    "pendente": true,
-    "issue": 737
+    "ids": [],
+    "acoes": [
+     "Click"
+    ]
    }
   },
   {
