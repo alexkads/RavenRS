@@ -1,20 +1,17 @@
 {
-  "versao": "0.1.2",
-  "titulo": "Raven CI avisa, mede e entende o cargo.",
+  "versao": "0.1.3",
+  "titulo": "Raven CI vira pacote RPM e não deixa agentes para trás.",
   "importante": false,
   "novidades": [
-    "Passo cargo: cada erro e aviso aparece no log e fica guardado no build com o arquivo e a linha, e cada job reaproveita a compilação do build anterior.",
-    "Avisos por e-mail e por webhook quando um build falha, quando volta a passar ou sempre, com o motivo, a duração e o commit.",
-    "O webhook de saída vai assinado e tenta de novo sozinho quando o destino não responde.",
-    "/metrics no formato Prometheus, com a fila, os builds, os agentes e a memória do servidor e de cada plugin, para ver no Grafana."
+    "Pacote RPM para o Fedora: o servidor como serviço do sistema, o agente e o painel no navegador, instalados com um comando.",
+    "O servidor, ao parar, espera os agentes que ele lançou terminarem, em vez de deixá-los rodando sozinhos.",
+    "A memória medida: o servidor usa uns 36 MB com um agente e um build, e o agente uns 16 MB."
   ],
-  "por_que_atualizar": "Para saber que um build quebrou sem abrir o painel, e para acompanhar o servidor de longe.",
+  "por_que_atualizar": "Para instalar o Raven CI como serviço no Fedora e parar o servidor sem deixar agentes órfãos.",
   "contribuidores": [
     "Alex S S Fonseca"
   ],
   "issues": [
-    911,
-    912,
-    913
+    908
   ]
 }

@@ -74,5 +74,5 @@ fi
 %doc %{_docdir}/%{name}/README.md
 
 %changelog
-* Sun Nov 22 2026 Alex <alexkads@users.noreply.github.com> - 0.1.2-1
+* Sun Nov 22 2026 Alex <alexkads@users.noreply.github.com> - 0.1.3-1
 - First package: the server as a service, the agent and the panel for the browser

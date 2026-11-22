@@ -292,6 +292,24 @@ and why the server grows by 21 MiB when the first agent connects is being looked
 
 ## Install it
 
+### On Fedora, with the RPM
+
+Each version of Raven CI has its RPM in the releases of the repository, under the tag
+`raven-ci-v<versão>`:
+
+```bash
+sudo dnf install https://github.com/alexkads/RavenRS/releases/download/raven-ci-v0.1.3/raven-ci-0.1.3-1.fc45.x86_64.rpm
+echo 'uma senha longa' | sudo -u raven-ci raven-ci --dados /var/lib/raven-ci usuario criar ana --papel Administradores
+```
+
+The package brings `raven-ci`, `raven-ci-agent` and the panel for the browser, and starts the
+service `raven-ci` as the user `raven-ci`: data in `/var/lib/raven-ci`, the server on
+`127.0.0.1:8090`, the panel at `/painel/`, `MemoryMax=256M`. Another address or limit goes in a
+drop-in (`sudo systemctl edit raven-ci`). Removing the package (`sudo dnf remove raven-ci`) stops the
+service and keeps the data. The RPM is made by `tools/raven-ci/pacote/gerar-rpm.sh`, on a Fedora.
+
+### With the installer
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven-ci/install.cmd -o /tmp/install.cmd && sh /tmp/install.cmd
 ```
