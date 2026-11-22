@@ -34,7 +34,7 @@
 //!
 //! | Point | Trait | What it offers |
 //! |---|---|---|
-//! | Step | [`ravenrs_flows::NodeKind`], from [`CiPlugin::steps`] | a kind of step of a pipeline (sh, container, cargo, kubectl) |
+//! | Step | [`ravenrs_flows::NodeKind`], from [`CiPlugin::steps`] | a kind of step of a pipeline (sh, container, cargo, kubectl), which finds its build with [`BuildScope::of`] |
 //! | Scm | [`Scm`] | fetching code: a clone, a reference, a pull request merged onto its target |
 //! | Branch source | [`BranchSource`] | finding the branches and pull requests of a repository (multibranch) |
 //! | Trigger | [`Trigger`] | when a build is asked for: by hand, by the API, by a schedule, a poll or a webhook |
@@ -103,6 +103,7 @@
 //! external one and its protocol.
 
 mod agent;
+mod build;
 mod cli;
 mod credential;
 mod error;
@@ -120,13 +121,14 @@ mod trigger;
 pub mod testing;
 
 pub use agent::{AgentLauncher, LaunchRequest, LaunchedAgent};
+pub use build::{BuildContext, BuildLog, BuildScope, MemoryLog, ScopeGuard, enter};
 pub use cli::CliCommand;
 pub use credential::CredentialKind;
 pub use error::CiError;
 pub use host::Host;
 pub use http::{HttpRequest, HttpResponse, Route};
 pub use permission::Permission;
-pub use pipeline::{FormatError, Pipeline, PipelineFormat, STAGE_KEY};
+pub use pipeline::{FormatError, PLUGIN_KEY, Pipeline, PipelineFormat, PostSteps, PostWhen, STAGE_KEY, Use};
 pub use plugin::{CiPlugin, Migration, Point, points_of};
 pub use publish::{
     Attachment, BuildEvent, BuildInfo, BuildStatus, CommitState, CommitStatus, Notifier, Publisher,

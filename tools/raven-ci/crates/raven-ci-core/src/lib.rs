@@ -35,6 +35,7 @@
 
 pub mod external;
 mod host;
+mod lifecycle;
 mod model;
 mod registry;
 mod store;
@@ -49,13 +50,14 @@ use raven_ci_plugin_api::{
     Attachment, BuildRequest, BuildStatus, Builds, CiError, CiPlugin, PipelineFormat, check_settings,
 };
 use ravenrs_app::EntityInfo;
-use ravenrs_flows::{BinaryRef, Clock, FlowDefinition, Item, SystemClock};
+use ravenrs_flows::{BinaryRef, Clock, FlowDefinition, SystemClock};
 use ravenrs_flows_runtime::{Request, Retention, Revision, Runtime, StoreError};
 use serde::Serialize;
-use serde_json::{Value, json};
+use serde_json::Value;
 
 pub use host::{MemorySecrets, NoSecrets, Secrets, ServerLog};
-pub use model::{AttachmentRef, Build, Folder, JobSpec, Stage, StepView};
+pub use lifecycle::WORKSPACES_DIR;
+pub use model::{AttachmentRef, Build, Folder, JobSpec, LogLine, Stage, StepView};
 pub use registry::{Memory, Origin, PluginState, PluginView, Registry, Requirement};
 pub use store::{AuditEntry, PluginRow, Store};
 
@@ -114,6 +116,8 @@ pub struct Ci {
     requests: Mutex<()>,
     /// The folder of a core in memory, where its plugins get theirs: removed with it.
     temporary: Option<PathBuf>,
+    /// Where each build gets the folder it runs in.
+    workspaces: PathBuf,
 }
 
 impl Drop for Ci {
@@ -175,6 +179,10 @@ impl Ci {
         };
         let temporary =
             options.data_dir.is_none().then(|| plugins_dir.parent().map(Path::to_path_buf)).flatten();
+        let workspaces = plugins_dir.parent().map_or_else(
+            || PathBuf::from(lifecycle::WORKSPACES_DIR),
+            |base| base.join(lifecycle::WORKSPACES_DIR),
+        );
         let store = Arc::new(store);
         let runtime = runtime.clock(ClockOf(options.clock.clone()));
         let registry = Registry::new(store.clone(), plugins_dir, options.secrets, log.clone());
@@ -185,6 +193,7 @@ impl Ci {
             log,
             requests: Mutex::default(),
             temporary,
+            workspaces,
         })
     }
 
@@ -307,6 +316,14 @@ impl Ci {
             CiError::failed(format!("o pipeline de {}: {}", job.name, said.join("; ")))
         })?;
         pipeline.flow.id = job.name.clone();
+        let on: Vec<String> = self.registry.on().iter().map(|plugin| plugin.name().to_owned()).collect();
+        for (plugin, what) in pipeline.needs() {
+            if !on.contains(&plugin) {
+                return Err(CiError::unavailable(format!(
+                    "falta o plugin {plugin}: {what} precisa dele, e ele não está ligado"
+                )));
+            }
+        }
         let catalog = self.registry.catalog();
         for node in &pipeline.flow.nodes {
             if catalog.get(&node.kind, node.version).is_none() {
@@ -323,7 +340,8 @@ impl Ci {
                 problems.into_iter().next().unwrap_or_else(|| CiError::failed("parâmetros"))
             })?;
         }
-        let input = Item::new(json!({ "job": job.name, "parameters": request.parameters }));
+        let input = lifecycle::start_item(&job.name, &request.parameters);
+        let extras = lifecycle::Extras::of(&pipeline).to_value();
         let mut run = Request::new(pipeline.flow.clone())
             .starting(&pipeline.start, vec![input])
             .priority(request.priority);
@@ -352,6 +370,7 @@ impl Ci {
                 parameters: request.parameters,
                 origin: None,
                 created_ms: self.store.now_ms(),
+                extras,
             },
         )?;
         Ok(Ticket { number, joined: false })
@@ -439,6 +458,7 @@ impl Ci {
                 parameters: row.parameters,
                 origin: Some(number),
                 created_ms: self.store.now_ms(),
+                extras: row.extras,
             },
         )?;
         Ok(next)
@@ -475,13 +495,19 @@ impl Ci {
             .ok_or_else(|| CiError::unavailable(format!("os bytes do anexo {id} já foram apagados")))
     }
 
-    /// Takes the build due first and runs it, as `worker`; the job and number, or `None` when
-    /// nothing was due. Once it ends, the job's retention runs.
+    /// Takes the build due first and runs it, as `worker`, with everything around its steps (its
+    /// folder, its code, the post steps, publishers, status and notices: see `lifecycle`); the
+    /// job and number, or `None` when nothing was due. Once it ends, the job's retention runs.
     pub fn work_once(&self, worker: &str) -> Result<Option<(String, u64)>, CiError> {
         let runtime = self.runtime();
-        let Some(run_id) = runtime.work(worker).map_err(runtime_error)? else { return Ok(None) };
+        let Some(run_id) = runtime.claim(worker).map_err(runtime_error)? else { return Ok(None) };
         let row = model::build_by_run(&self.db(), &run_id)?;
-        let Some(row) = row else { return Ok(None) };
+        let Some(row) = row else {
+            // A run of the same queue that is not a build: the Test Studio's, say.
+            runtime.execute(&run_id, worker).map_err(runtime_error)?;
+            return Ok(None);
+        };
+        self.run_build(&runtime, &row, worker)?;
         self.prune_job(&row.job)?;
         Ok(Some((row.job, row.number)))
     }

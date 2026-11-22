@@ -547,3 +547,17 @@ fn a_runtime_with_other_kinds_shares_the_queue_even_in_memory() {
     assert_eq!(before.get(&id).expect("kept").status, RunStatus::Finished);
     assert_eq!(sent.load(Ordering::SeqCst), 2, "both send nodes ran with the kind the new catalog has");
 }
+
+#[test]
+fn a_host_fails_a_run_it_took_without_running_it_and_says_why() {
+    let runtime = Runtime::in_memory(Catalog::builtin()).expect("opens");
+    let id = runtime.enqueue(Request::new(simple())).expect("enqueues");
+    let taken = runtime.claim("w").expect("claims");
+    assert_eq!(taken.as_deref(), Some(id.as_str()));
+    let status = runtime.fail(&id, "w", "o checkout falhou").expect("fails");
+    assert_eq!(status, RunStatus::Stopped);
+    let record = runtime.get(&id).expect("kept");
+    assert!(record.ended_ms.is_some());
+    assert!(runtime.parts(&id).expect("parts").is_empty(), "no node ran");
+    assert_eq!(runtime.work("w").expect("works"), None, "nothing left in the queue");
+}

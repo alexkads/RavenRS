@@ -422,6 +422,14 @@ impl Runtime {
         Ok(ran)
     }
 
+    /// Ends `id`, which `worker` holds, as stopped with `reason` and without running it: what a
+    /// host does when what a run needs before its first node failed (fetching code, a folder
+    /// to work in). Its status after.
+    pub fn fail(&self, id: &str, worker: &str, reason: &str) -> Result<RunStatus, StoreError> {
+        let outcome = RunOutcome::Stopped { node: String::new(), reason: reason.to_owned() };
+        self.end(id, worker, &outcome)
+    }
+
     /// Runs `id`, which `worker` holds: from its checkpoint when it ran before. Each step is
     /// written as it happens, and the lease renewed.
     pub fn execute(&self, id: &str, worker: &str) -> Result<RunStatus, StoreError> {
@@ -457,6 +465,7 @@ impl Runtime {
         }
         self.tokens().insert(id.to_owned(), token.clone());
         let mut executor = Executor::new(&plan, &self.catalog)
+            .run_id(id)
             .mode(row.mode)
             .shared_clock(self.clock.clone())
             .events(events)

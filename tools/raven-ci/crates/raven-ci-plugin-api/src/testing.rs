@@ -666,7 +666,7 @@ impl PipelineFormat for FakeLines {
             previous = id;
         }
         if errors.is_empty() {
-            Ok(Pipeline { flow, start: "start".to_owned(), parameters: Vec::new() })
+            Ok(Pipeline::new(flow, "start"))
         } else {
             Err(errors)
         }

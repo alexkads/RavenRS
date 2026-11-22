@@ -226,6 +226,6 @@ impl raven_ci_plugin_api::PipelineFormat for HelloFormat {
                     .parameter("secret", serde_json::json!("token")),
             )
             .connect("start", "main", "ola", "main");
-        Ok(raven_ci_plugin_api::Pipeline { flow, start: "start".into(), parameters: Vec::new() })
+        Ok(raven_ci_plugin_api::Pipeline::new(flow, "start"))
     }
 }
