@@ -52,12 +52,10 @@ fn a_chat_is_busy_until_the_answer_and_its_messages_are_found_by_number() {
     let messages = State::new(vec![ChatMessage::assistant("Olá! Em que posso ajudar?")]);
     let waiting = State::new(false);
     let (m, w) = (messages.clone(), waiting.clone());
-    let (sent, wait) = (messages.clone(), waiting.clone());
     let view = ravenrs_widgets::view_fn(move || {
-        let (sent, wait) = (sent.clone(), wait.clone());
+        let wait = w.clone();
         Chat::new(m.binding()).busy(w.get()).on_send(move |_| wait.set(true)).test_id("chat")
     });
-    let _ = sent;
     let mut e2e = session(view);
     assert_eq!(e2e.by_test_id("message:1").count().unwrap(), 1);
     // Sending makes it wait; the answer arrives later and the wait ends.
@@ -70,5 +68,4 @@ fn a_chat_is_busy_until_the_answer_and_its_messages_are_found_by_number() {
     let answer = e2e.by_test_id("message:2").node().unwrap();
     assert!(!e2e.by_test_id("chat").node().unwrap().busy);
     assert!(e2e.snapshot().contains("Pronto, está feito."), "{answer:?}");
-    let _ = wait;
 }
