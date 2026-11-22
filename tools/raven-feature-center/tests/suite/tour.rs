@@ -1571,3 +1571,29 @@ fn the_news_of_each_version_open_on_the_version_running_the_newest_and_a_failure
     assert!(c.says("detalhes fechados"), "{:?}", c.texts());
     assert!(c.says(".raven-exemplo-do-centro"), "the log is asked of the system: {:?}", c.texts());
 }
+
+#[test]
+fn the_web_api_page_builds_the_options_the_server_gets() {
+    let mut c = Center::memory("ana");
+    c.press("API web");
+    assert!(c.says("Nenhuma origem permitida."), "{:?}", c.texts());
+    assert!(c.says("workers: 1"), "one thread to begin with: {:?}", c.texts());
+
+    // allow_origin: each origin named, and the server gets it.
+    c.type_into("Origem", "https://exemplo.com");
+    c.press("Permitir origem");
+    assert!(c.says("Permitidas: https://exemplo.com."), "{:?}", c.texts());
+    assert!(c.says("origins: [\"https://exemplo.com\"]"), "{:?}", c.texts());
+
+    // workers: more threads, and zero counts as one.
+    c.press("Aumentar");
+    c.press("Aumentar");
+    c.press("Aumentar");
+    assert!(c.says("Pedido: 4."), "{:?}", c.texts());
+    assert!(c.says("workers: 4"), "{:?}", c.texts());
+    for _ in 0..4 {
+        c.press("Diminuir");
+    }
+    assert!(c.says("Pedido: 0. Conta como 1"), "{:?}", c.texts());
+    assert!(c.says("workers: 1"), "zero is one: {:?}", c.texts());
+}

@@ -139,6 +139,16 @@ fn application() -> App {
                 .control(page.caption, page.id),
         );
     }
+    // The server does not run in a browser, so neither does its page.
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        app = app.dashboard(
+            DashboardInfo::new(crate::servidor::ID, crate::servidor::PAGE)
+                .navigation("Servidor")
+                .icon("server")
+                .control(crate::servidor::PAGE, crate::servidor::ID),
+        );
+    }
     app.dashboard(
         DashboardInfo::new(model::COUNTER_WINDOW, "Caixa de exemplo")
             .navigation("Balcão")
@@ -152,6 +162,8 @@ fn application() -> App {
 fn register_controls(session: &Session) {
     session.register_control(THEME_EDITOR, || Box::new(ThemeEditor::new()) as AnyView);
     session.register_control(model::COUNTER_WINDOW, actions::counter_control());
+    #[cfg(not(target_arch = "wasm32"))]
+    session.register_control(crate::servidor::ID, || Box::new(crate::servidor::ApiOptionsPage) as AnyView);
     widgets::register(session);
 }
 
@@ -288,6 +300,8 @@ pub fn api_service(file: Option<&std::path::Path>) -> Result<ravenrs_app_server:
 #[cfg(not(target_arch = "wasm32"))]
 pub fn sqlite_database(file: &std::path::Path) -> Result<ravenrs_app_sqlite::SqliteDatabase, String> {
     let connection = rusqlite::Connection::open(file).map_err(|e| e.to_string())?;
+    // The web API opens the file once for each thread that answers: one waits for another's write.
+    connection.busy_timeout(std::time::Duration::from_secs(5)).map_err(|e| e.to_string())?;
     let mut builder = ravenrs_app_sqlite::SqliteDatabase::builder(std::rc::Rc::new(connection));
     for entity in storage_entities()? {
         let table = ravenrs_app_sqlite::TableMap::new(entity.name.to_lowercase());
