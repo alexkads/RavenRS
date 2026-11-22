@@ -197,4 +197,5 @@ pub fn toolbox() -> FlowToolbox {
         .model("Esperar", block("wait", "wait", "Esperar", "#alvo = texto"))
         .model("Conferir texto", block("check", "check", "Conferir", "#alvo = texto"))
         .model("Conferir que menciona", block("mention", "mention", "Conferir que menciona", "#alvo = texto"))
+        .model("Conferir o estado", block("expect", "expect", "Conferir o estado", "#alvo = checked"))
 }

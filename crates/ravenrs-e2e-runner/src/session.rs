@@ -55,14 +55,21 @@ impl Step {
         }
         let needs_text = matches!(
             block.kind,
-            Kind::Type | Kind::Check | Kind::Mention | Kind::Fill | Kind::Select | Kind::Drag
+            Kind::Type | Kind::Check | Kind::Mention | Kind::Expect | Kind::Fill | Kind::Select | Kind::Drag
         );
         if needs_text && block.text.is_none() {
             return Err(if block.kind == Kind::Drag {
                 "Diga para onde arrastar: #de = #até".to_owned()
+            } else if block.kind == Kind::Expect {
+                format!("Diga o estado depois do alvo: #alvo = {}", ravenrs_e2e_wire::State::WORDS)
             } else {
                 "Diga o texto depois do alvo: #alvo = texto".to_owned()
             });
+        }
+        if block.kind == Kind::Expect
+            && let Some(Err(why)) = block.text.as_deref().map(ravenrs_e2e_wire::State::read)
+        {
+            return Err(why);
         }
         block.command().map(Self::Do).ok_or_else(|| format!("Bloco desconhecido: {}", block.kind.word()))
     }

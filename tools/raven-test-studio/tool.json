@@ -65,7 +65,8 @@
     { "kind": "drag", "subtitle": "#from = #to", "does": "Drags the part to the one after =, with the primary button held; the place to drop is looked for once the drag started, so what shows only while dragging (the free ports of a diagram) can be it. Joins two nodes of a FlowCanvas with #port:<node>:<port> on each side." },
     { "kind": "wait", "subtitle": "#test-id [= text]", "does": "Waits up to 5 s for the target to show, and to mention the text when given; fails with E2E_TIMEOUT." },
     { "kind": "check", "subtitle": "#test-id = expected value", "does": "Checks the value or the name the part shows." },
-    { "kind": "mention", "subtitle": "#test-id = text", "does": "Checks that the part's name or description mentions the text." }
+    { "kind": "mention", "subtitle": "#test-id = text", "does": "Checks that the part's name or description mentions the text." },
+    { "kind": "expect", "subtitle": "#test-id = state", "does": "Checks the part's state: checked, unchecked, disabled, enabled, focused, visible, or count N parts that match; also read in Portuguese (estar #x = marcado, desmarcado, desabilitado, habilitado, com-foco, visivel, quantidade N). An unknown state is refused when the scenario is read." }
   ],
   "report": {
     "fields": [
