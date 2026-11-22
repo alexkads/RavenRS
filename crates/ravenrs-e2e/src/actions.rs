@@ -9,6 +9,10 @@ use crate::{E2e, E2eError, E2eResult, ErrorCode, Locator, Query, descendants};
 const NUMBER_STEPS: usize = 1000;
 /// Wheel turns `scroll_into_view` tries before giving up.
 const SCROLL_TURNS: usize = 60;
+/// Wheel turns a hunt for a row not built yet takes in each direction at most. It stops at the
+/// end of the list, when the screen no longer changes; this only keeps a list that never ends
+/// from turning forever. At most of a page a turn, it reaches the end of a million rows.
+const HUNT_TURNS: usize = 200_000;
 
 /// The roles of the parts that scroll what they hold.
 const SCROLLERS: [Role; 5] = [Role::ScrollView, Role::List, Role::ListBox, Role::Grid, Role::Tree];
@@ -381,7 +385,7 @@ impl E2e {
         for (_, port) in scrollers {
             let at = port.center();
             for down in [true, false] {
-                for _ in 0..SCROLL_TURNS * 4 {
+                for _ in 0..HUNT_TURNS {
                     if self.find(query).is_ok() {
                         return Ok(());
                     }
