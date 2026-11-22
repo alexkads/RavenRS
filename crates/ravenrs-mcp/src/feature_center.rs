@@ -96,17 +96,20 @@ pub fn describe(entry: &Entry) -> Value {
         Some((file, Some(id))) => {
             value["id"] = json!(id);
             value["source"] = json!(file);
-            value["run"] = json!(format!("cargo run -p raven-feature-center -- --modo componentes --pagina {id}"));
+            value["run"] =
+                json!(format!("cargo run -p raven-feature-center -- --modo componentes --pagina {id}"));
             value["web"] = json!(format!("index.html?modo=componentes&pagina={id}"));
         }
         Some((file, None)) => {
             value["source"] = json!(file);
-            value["run"] =
-                json!(format!("cargo run -p raven-feature-center, then open \"{caption}\" in the navigation"));
+            value["run"] = json!(format!(
+                "cargo run -p raven-feature-center, then open \"{caption}\" in the navigation"
+            ));
         }
         None => {
-            value["run"] =
-                json!(format!("cargo run -p raven-feature-center, then open \"{caption}\" in the navigation"));
+            value["run"] = json!(format!(
+                "cargo run -p raven-feature-center, then open \"{caption}\" in the navigation"
+            ));
         }
     }
     value
