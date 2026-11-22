@@ -40,7 +40,7 @@ mod registry;
 mod store;
 
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -112,6 +112,24 @@ pub struct Ci {
     log: Arc<ServerLog>,
     /// One request for a build at a time, so two equal requests never make two numbers.
     requests: Mutex<()>,
+    /// The folder of a core in memory, where its plugins get theirs: removed with it.
+    temporary: Option<PathBuf>,
+}
+
+impl Drop for Ci {
+    fn drop(&mut self) {
+        if let Some(dir) = &self.temporary {
+            let _ = std::fs::remove_dir_all(dir);
+        }
+    }
+}
+
+/// A folder of its own for a core in memory: the process and a count, so two cores of one
+/// process never share it.
+fn memory_dir() -> PathBuf {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let n = NEXT.fetch_add(1, Ordering::SeqCst);
+    std::env::temp_dir().join(format!("raven-ci-memoria-{}-{n}", std::process::id()))
 }
 
 impl std::fmt::Debug for Ci {
@@ -152,18 +170,22 @@ impl Ci {
             None => {
                 let store = Store::in_memory(options.clock.clone())?;
                 let runtime = Runtime::in_memory(ravenrs_flows::Catalog::builtin()).map_err(runtime_error)?;
-                let n = std::process::id();
-                (
-                    store,
-                    runtime,
-                    std::env::temp_dir().join(format!("raven-ci-memoria-{n}")).join(PLUGIN_DATA_DIR),
-                )
+                (store, runtime, memory_dir().join(PLUGIN_DATA_DIR))
             }
         };
+        let temporary =
+            options.data_dir.is_none().then(|| plugins_dir.parent().map(Path::to_path_buf)).flatten();
         let store = Arc::new(store);
         let runtime = runtime.clock(ClockOf(options.clock.clone()));
         let registry = Registry::new(store.clone(), plugins_dir, options.secrets, log.clone());
-        Ok(Self { store, registry, runtime: RwLock::new(Arc::new(runtime)), log, requests: Mutex::default() })
+        Ok(Self {
+            store,
+            registry,
+            runtime: RwLock::new(Arc::new(runtime)),
+            log,
+            requests: Mutex::default(),
+            temporary,
+        })
     }
 
     /// The register of plugins.

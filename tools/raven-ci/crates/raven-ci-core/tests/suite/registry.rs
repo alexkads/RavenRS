@@ -171,3 +171,19 @@ fn the_list_says_where_each_plugin_came_from_what_it_offers_and_its_memory() {
     let json = serde_json::to_value(&view).expect("as JSON");
     assert_eq!(json["state"], json!({ "state": "on" }));
 }
+
+#[test]
+fn a_core_in_memory_takes_the_folders_of_its_plugins_with_it() {
+    let ci = Ci::in_memory().expect("a core");
+    let fake = Fake::new(Point::Scm).named("git").permission(Permission::Disk);
+    let probe = fake.probe();
+    ci.add_plugin(Arc::new(fake));
+    ci.apply_plugins().expect("applies");
+    let dir = probe.host().expect("on").data_dir().expect("its folder");
+    assert!(dir.is_dir());
+    let other = Ci::in_memory().expect("another core");
+    drop(ci);
+    drop(probe);
+    assert!(!dir.exists(), "gone with its core");
+    drop(other);
+}
