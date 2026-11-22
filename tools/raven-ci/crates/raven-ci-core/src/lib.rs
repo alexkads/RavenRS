@@ -62,6 +62,14 @@ pub use store::{AuditEntry, PluginRow, Store};
 /// The name of the core's file in its folder of data.
 pub const DATABASE_FILE: &str = "raven-ci.sqlite";
 
+/// The folder, in the folder of data, where each plugin gets a folder of its own (its files and
+/// its database). External plugins are found apart, in `plugins/` and the folders given.
+pub const PLUGIN_DATA_DIR: &str = "dados-dos-plugins";
+
+/// The folder, in the folder of data, where external plugins are found: one folder per plugin,
+/// each with its `plugin.toml`.
+pub const PLUGINS_DIR: &str = "plugins";
+
 /// A day, in milliseconds.
 const DAY_MS: u64 = 24 * 60 * 60 * 1000;
 
@@ -117,8 +125,8 @@ fn runtime_error(e: StoreError) -> CiError {
 }
 
 impl Ci {
-    /// The core whose data is in `dir`: `raven-ci.sqlite` and a folder of its own per plugin
-    /// under `plugins/`.
+    /// The core whose data is in `dir`: `raven-ci.sqlite`, and a folder of its own per plugin
+    /// under [`PLUGIN_DATA_DIR`].
     pub fn open(dir: &Path) -> Result<Self, CiError> {
         Self::new(CiOptions { data_dir: Some(dir.to_path_buf()), ..CiOptions::default() })
     }
@@ -139,13 +147,17 @@ impl Ci {
                 let store = Store::open(&file, options.clock.clone())?;
                 let runtime =
                     Runtime::open(&file, ravenrs_flows::Catalog::builtin()).map_err(runtime_error)?;
-                (store, runtime, dir.join("plugins"))
+                (store, runtime, dir.join(PLUGIN_DATA_DIR))
             }
             None => {
                 let store = Store::in_memory(options.clock.clone())?;
                 let runtime = Runtime::in_memory(ravenrs_flows::Catalog::builtin()).map_err(runtime_error)?;
                 let n = std::process::id();
-                (store, runtime, std::env::temp_dir().join(format!("raven-ci-memoria-{n}")).join("plugins"))
+                (
+                    store,
+                    runtime,
+                    std::env::temp_dir().join(format!("raven-ci-memoria-{n}")).join(PLUGIN_DATA_DIR),
+                )
             }
         };
         let store = Arc::new(store);

@@ -9,6 +9,15 @@ license.workspace = true
 publish = false
 
 [dependencies]
+raven-ci-core = { path = "crates/raven-ci-core" }
+# The fake plugins: the self-test plugs one of each extension point in.
+raven-ci-plugin-api = { path = "crates/raven-ci-plugin-api", features = ["testing"] }
+ravenrs-app-update.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+ravenrs-process.workspace = true
 
 [lints]
 workspace = true

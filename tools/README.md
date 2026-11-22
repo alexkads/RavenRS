@@ -32,6 +32,7 @@ The tools of RavenRS: apps that people install and use to build with RavenRS, ma
 | [Raven Report Designer](raven-report-designer) (RRD) | The report designer of RavenRS Reporting, on the desktop and in the browser |
 | [Raven Channel Video](raven-channel-video) (RCV) | Records the channel's videos from the real apps, from the terminal |
 | [Raven Test Studio](raven-test-studio) (RTS) | End-to-end tests of RavenRS apps as flows of blocks, reported to a person or to the AI that asked; it tests itself |
+| [Raven CI](raven-ci) (RCI) | A small CI/CD server whose core holds only the queue, the model of builds and the register of plugins; everything else is a plugin, compiled in or of any language over JSON-RPC |
 
 ## Install one
 

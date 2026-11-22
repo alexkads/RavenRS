@@ -6003,6 +6003,14 @@ dependencies = [
 [[package]]
 name = "raven-ci"
 version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "ravenrs-app-update",
+ "ravenrs-process",
+ "serde",
+ "serde_json",
+]
 
 [[package]]
 name = "raven-ci-core"
