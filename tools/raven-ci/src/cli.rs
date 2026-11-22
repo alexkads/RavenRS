@@ -32,6 +32,9 @@ pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--f
                           baixa os artefatos e o log do build para PASTA
                           (estes cinco falam com --servidor URL ou RAVEN_CI_SERVIDOR,
                           com a chave em RAVEN_CI_TOKEN)
+  aplicar ARQUIVO [--remover] [--servidor URL]
+                          a configuração como código: jobs, pastas e plugins do arquivo
+  servir --config ARQUIVO aplica o arquivo ao subir
   servico instalar|remover|estado [--memoria 1G] [--endereco HOST:PORTA] [--executores N] [--sistema]
                           o servidor como serviço do sistema (systemd, launchd ou Windows)
   <comando> ...           um comando que um plugin ligado traz
@@ -156,6 +159,7 @@ impl Invocation {
                 Ok(2)
             }
             ["servir", args @ ..] => crate::server::serve(ci, &self.data, args, out),
+            ["aplicar", args @ ..] => crate::apply::local(&ci, args, self.json, out),
             ["usuario", "criar", name, args @ ..] => {
                 let stdin = std::io::stdin();
                 crate::server::create_user(&self.data, name, args, &mut stdin.lock(), out)

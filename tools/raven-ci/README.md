@@ -63,6 +63,7 @@ cargo run -p raven-ci -- --plugins tools/raven-ci/plugins plugins listar
 | `raven-ci rodar JOB [--param NOME=VALOR]... [--esperar]` | asks a server for a build (`POST /api/ci/run`); `--esperar` follows its log and ends with 0 only when it passed |
 | `raven-ci status JOB [NUMERO]` / `log JOB NUMERO [--seguir]` / `resumo` | the build (the last one with no number), its log (followed to its end) and every job with its last build and the queue |
 | `raven-ci evidencia JOB NUMERO PASTA` | downloads the artifacts of the build and its `log.txt` to `PASTA` |
+| `raven-ci aplicar ARQUIVO [--remover] [--servidor URL]` | the configuration as code: jobs, folders and plugins of a `raven-ci.toml`, applied to the folder of data or to the server running (`servir --config ARQUIVO` applies it when it starts) |
 | `raven-ci servico instalar\|remover\|estado [--memoria 1G] [--endereco …]` | the server as a service of the system: systemd with `MemoryMax`, launchd, or a task of Windows |
 | `raven-ci --versao` | the version |
 
@@ -104,6 +105,35 @@ server with it, with the data of `--dados` and the binary the installer put in p
 `RCI_SERVICO=1 sh install.cmd` (or `set RCI_SERVICO=1` before the `.cmd` on Windows) installs or
 restarts the service at the end of the installation, so an update runs the new binary.
 `raven-ci servico estado` ends with 0 only while it runs.
+
+### The configuration as code
+
+`raven-ci.toml`, kept in a repository, says what the server has:
+
+```toml
+url = "https://ci.empresa.dev"
+
+[plugins.cron]
+settings = { tick_ms = 1000 }
+
+[folders]
+apps = "Aplicativos"
+
+[[jobs]]
+name = "apps/site"
+file = "pipelines/site.raven-ci.toml"    # or pipeline = """…"""; format = "toml" unless said
+keep_builds = 30
+settings = { triggers = [{ id = "cron", every = "1h" }, { id = "api" }], scm = { id = "git", url = "…" } }
+```
+
+- `raven-ci aplicar raven-ci.toml --servidor URL` (an administrator's key in `RAVEN_CI_TOKEN`)
+  applies it to the server running, which watches the triggers of what changed at once: no
+  restart. With no server named, it applies to the folder of data.
+- A job that did not change is left as it is; one no more in the file stays, and is said, until
+  `--remover`. Credentials and builds are never touched. A field the file does not know is
+  refused, naming the job and the field.
+- `POST /api/ci/jobs` saves one job (JSON, with its pipeline) and `POST /api/ci/config[?remover=1]`
+  a whole configuration: only administrators.
 
 ## A job of many branches on GitHub
 
@@ -213,6 +243,7 @@ curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven
 - `crates/raven-ci-plugin-artifacts/tests`: the patterns, a link out of the folder, a build that keeps its files and the routes.
 - `crates/raven-ci-plugin-junit/tests`: two builds with reports copied by `sh` or `cmd`, one broken, and the trend.
 - `tests/suite/remote.rs`: the commands of the terminal against `raven-ci servir` on a free port.
+- `tests/suite/config.rs`: a file applied to a server running, its `cron` job built by the schedule, the file changed and applied again with no restart, `--remover`, and the routes refused to who is not an administrator.
 - The service is tested by its files on every system and was run for real on macOS (launchd): it
   came up, answered `/health`, came back after a `kill -9` and left nothing.
 - `crates/raven-ci-plugin-api/tests/suite`: each point through its fake plugin.

@@ -54,6 +54,7 @@ struct Args {
     priority: Option<i64>,
     wait: bool,
     follow: bool,
+    remove: bool,
 }
 
 impl Args {
@@ -82,6 +83,7 @@ impl Args {
                 }
                 "--esperar" => args.wait = true,
                 "--seguir" => args.follow = true,
+                "--remover" => args.remove = true,
                 flag if flag.starts_with("--") => return Err(format!("opção desconhecida: {flag}")),
                 _ => args.words.push(word.clone()),
             }
@@ -94,7 +96,9 @@ impl Args {
 /// for words that are not these commands. `json` is the `--format json` given before the command.
 pub fn run(words: &[String], json: bool, out: &mut dyn Write) -> Option<Result<i32, CiError>> {
     let command = words.first()?;
-    if !COMMANDS.contains(&command.as_str()) {
+    // `aplicar` is of the folder of data unless a server is named (`crate::apply`).
+    let to_server = command == "aplicar" && crate::apply::to_server(words);
+    if !COMMANDS.contains(&command.as_str()) && !to_server {
         return None;
     }
     Some(run_command(command, &words[1..], json, out))
@@ -117,6 +121,7 @@ fn run_command(command: &str, words: &[String], json: bool, out: &mut dyn Write)
         ("status", [job, number]) => status(&server, job, Some(number), &args, out),
         ("log", [job, number]) => log(&server, job, number, &args, out),
         ("resumo", []) => resumo(&server, &args, out),
+        ("aplicar", [file]) => aplicar(&server, file, &args, out),
         ("evidencia", [job, number, folder]) => {
             evidencia(&server, job, number, Path::new(folder), &args, out)
         }
@@ -472,6 +477,24 @@ fn resumo(server: &Server, args: &Args, out: &mut dyn Write) -> Said {
     }
     let waiting = queue.as_array().map_or(0, Vec::len);
     writeln!(out, "na fila: {waiting}")?;
+    Ok(0)
+}
+
+/// `aplicar ARQUIVO [--remover] --servidor URL`: the file read here, the `file` of its jobs with
+/// it, and the whole sent to `POST /api/ci/config`.
+fn aplicar(server: &Server, file: &str, args: &Args, out: &mut dyn Write) -> Said {
+    let config = raven_ci_core::config::ServerConfig::read(Path::new(file))?;
+    let body = serde_json::to_value(&config).map_err(|e| Refused(e.to_string()))?;
+    let path = if args.remove { "/api/ci/config?remover=1" } else { "/api/ci/config" };
+    let answer = server.post(path, &body)?;
+    let changes: Vec<String> = answer["changes"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .map(str::to_owned)
+        .collect();
+    crate::apply::write_changes(out, &changes, args.json)?;
     Ok(0)
 }
 

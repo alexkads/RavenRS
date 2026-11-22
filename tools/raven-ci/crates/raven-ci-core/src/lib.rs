@@ -34,6 +34,7 @@
 //! ```
 
 pub mod api;
+pub mod config;
 pub mod credentials;
 pub mod external;
 mod host;
@@ -46,17 +47,16 @@ mod store;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard, RwLock};
+use std::sync::{OnceLock, Weak};
 use std::thread::JoinHandle;
 use std::time::Duration;
 
 use raven_ci_plugin_api::{
     Attachment, BuildRequest, BuildStatus, Builds, CiError, CiPlugin, PipelineFormat, check_settings,
 };
+use raven_ci_plugin_api::{AttachmentInfo, Trigger};
 use ravenrs_app::EntityInfo;
 use ravenrs_flows::{BinaryRef, Clock, FlowDefinition, SystemClock};
-use std::sync::Weak;
-
-use raven_ci_plugin_api::AttachmentInfo;
 use ravenrs_flows_runtime::{Request, Retention, Revision, Runtime, StoreError};
 use serde::Serialize;
 use serde_json::Value;
@@ -126,6 +126,9 @@ pub struct Ci {
     workspaces: PathBuf,
     /// The vault of credentials, for a core with a folder.
     credentials: Option<Arc<credentials::Credentials>>,
+    /// The core itself, once it is shared ([`Ci::share`]): what watches the triggers of a job
+    /// saved while the server runs.
+    shared: OnceLock<Weak<Ci>>,
 }
 
 impl Drop for Ci {
@@ -210,6 +213,7 @@ impl Ci {
             temporary,
             workspaces,
             credentials,
+            shared: OnceLock::new(),
         })
     }
 
@@ -531,11 +535,14 @@ impl Ci {
         Ok((info, self.attachment_bytes(id)?))
     }
 
-    /// Lends this core to the hosts of the plugins, so their routes read what builds left
-    /// ([`Host::attachments`](raven_ci_plugin_api::Host::attachments)). The server does it when it
-    /// starts; a core never shared answers them [`CiError::Unavailable`]. Weak: the core holds the
-    /// hosts.
-    pub fn share_attachments(self: &Arc<Self>) {
+    /// Shares this core, held in an `Arc`, with what needs it while the server runs: the hosts of
+    /// the plugins read what builds left through it
+    /// ([`Host::attachments`](raven_ci_plugin_api::Host::attachments)), and a job saved or applied
+    /// has its triggers watched again ([`watch_job`](Self::watch_job)). The server does it when
+    /// it starts; a core never shared answers the hosts [`CiError::Unavailable`] and watches no
+    /// trigger of a job saved later. Weak: the core holds the hosts.
+    pub fn share(self: &Arc<Self>) {
+        let _ = self.shared.set(Arc::downgrade(self));
         let lent: Weak<dyn host::Attachments> = Arc::downgrade(self) as Weak<dyn host::Attachments>;
         self.registry.lend_attachments(lent);
     }
@@ -623,22 +630,49 @@ impl Ci {
         };
         let triggers: Vec<_> = self.registry.on().iter().flat_map(|plugin| plugin.triggers()).collect();
         for job in &jobs {
-            for trigger in &triggers {
-                trigger.unwatch(&job.name);
-            }
-            for entry in lifecycle::uses(&job.settings, "triggers") {
-                let id = entry.get("id").and_then(Value::as_str).unwrap_or_default().to_owned();
-                let said = match triggers.iter().find(|trigger| trigger.id() == id) {
-                    Some(trigger) => match trigger.watch(&job.name, &entry, self.clone()) {
-                        Ok(()) => None,
-                        Err(e) => Some(format!("o gatilho {id} de {}: {e}", job.name)),
-                    },
-                    None => Some(format!("o gatilho {id} de {}: falta o plugin que o traz", job.name)),
-                };
-                if let Some(said) = said {
-                    self.log.write(&said);
-                    problems.push(said);
+            problems.extend(self.watch_one(job, &triggers));
+        }
+        problems
+    }
+
+    /// Watches again the triggers of the job `name` only, as [`watch_triggers`](Self::watch_triggers)
+    /// does for all: what a job saved or applied while the server runs needs. A job that is no
+    /// more is let go by every trigger. Through the core [`share`](Self::share)d, since a trigger
+    /// keeps the core to ask for builds with; a core never shared says so and watches nothing.
+    pub fn watch_job(&self, name: &str) -> Vec<String> {
+        let Some(me) = self.shared.get().and_then(Weak::upgrade) else {
+            return vec![format!("o gatilho de {name}: o núcleo não foi compartilhado (Ci::share)")];
+        };
+        let triggers: Vec<_> = self.registry.on().iter().flat_map(|plugin| plugin.triggers()).collect();
+        match self.job(name) {
+            Ok(job) => me.watch_one(&job, &triggers),
+            Err(_) => {
+                for trigger in &triggers {
+                    trigger.unwatch(name);
                 }
+                Vec::new()
+            }
+        }
+    }
+
+    /// Lets every trigger go of `job`, then watches the ones its settings name.
+    fn watch_one(self: &Arc<Self>, job: &JobSpec, triggers: &[Arc<dyn Trigger>]) -> Vec<String> {
+        let mut problems = Vec::new();
+        for trigger in triggers {
+            trigger.unwatch(&job.name);
+        }
+        for entry in lifecycle::uses(&job.settings, "triggers") {
+            let id = entry.get("id").and_then(Value::as_str).unwrap_or_default().to_owned();
+            let said = match triggers.iter().find(|trigger| trigger.id() == id) {
+                Some(trigger) => match trigger.watch(&job.name, &entry, self.clone()) {
+                    Ok(()) => None,
+                    Err(e) => Some(format!("o gatilho {id} de {}: {e}", job.name)),
+                },
+                None => Some(format!("o gatilho {id} de {}: falta o plugin que o traz", job.name)),
+            };
+            if let Some(said) = said {
+                self.log.write(&said);
+                problems.push(said);
             }
         }
         problems

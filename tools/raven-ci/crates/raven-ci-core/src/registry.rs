@@ -160,7 +160,7 @@ impl Registry {
     }
 
     /// Lets the hosts of plugins read the attachments of builds from `from`: the core, once it
-    /// is shared ([`Ci::share_attachments`](crate::Ci::share_attachments)). The first one stays.
+    /// is shared ([`Ci::share`](crate::Ci::share)). The first one stays.
     pub(crate) fn lend_attachments(&self, from: Weak<dyn Attachments>) {
         let _ = self.attachments.set(from);
     }

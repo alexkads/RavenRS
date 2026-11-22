@@ -126,6 +126,7 @@ impl fmt::Debug for PluginHost {
 }
 
 impl PluginHost {
+    #[allow(clippy::too_many_arguments, reason = "each is one corner of the server the host gives a plugin")]
     pub(crate) fn new(
         plugin: &str,
         granted: Vec<Permission>,
@@ -141,9 +142,10 @@ impl PluginHost {
 
     /// The core, while it lends its attachments.
     fn lent(&self) -> Result<Arc<dyn Attachments>, CiError> {
-        self.attachments.get().and_then(Weak::upgrade).ok_or_else(|| {
-            CiError::unavailable("o núcleo não deu os anexos aos plugins (Ci::share_attachments)")
-        })
+        self.attachments
+            .get()
+            .and_then(Weak::upgrade)
+            .ok_or_else(|| CiError::unavailable("o núcleo não deu os anexos aos plugins (Ci::share)"))
     }
 
     /// Applies the migrations not applied yet to the plugin's own database, each once, in order.

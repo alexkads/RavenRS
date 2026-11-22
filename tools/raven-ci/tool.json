@@ -60,6 +60,10 @@
       "does": "Baixa os artefatos do build (plugin artifacts) e o log.txt para PASTA."
     },
     {
+      "command": "raven-ci aplicar ARQUIVO [--remover] [--servidor URL] [--format json]",
+      "does": "Aplica a configuração como código (raven-ci.toml: jobs, pastas, plugins e a configuração deles, url) à pasta de dados ou, com --servidor, ao servidor no ar, que vigia de novo os gatilhos do que mudou; um job fora do arquivo só sai com --remover."
+    },
+    {
       "command": "raven-ci servico instalar|remover|estado [--memoria 1G] [--endereco HOST:PORTA] [--executores N] [--sistema]",
       "does": "O servidor como serviço do sistema: systemd com MemoryMax, launchd no macOS ou tarefa do Agendador do Windows; estado sai com 0 só se roda."
     },
@@ -91,8 +95,7 @@
     "No plugin for real work ships yet (shell, git, GitHub, TOML pipelines): they are phase 2 of #803.",
     "Switching a plugin on or off from the command line changes what the next start of the server loads; the core switches them live, with no restart, through its API.",
     "The memory of a plugin compiled in is not measured apart from the server's; an external plugin's is, on Linux and macOS.",
-    "The memory limit of the service (servico instalar --memoria) is enforced only by systemd, on Linux; launchd and the Task Scheduler of Windows take no limit.",
-    "A job is not made over the API nor the command line yet: that is the configuration as code of O-02 (#803)."
+    "The memory limit of the service (servico instalar --memoria) is enforced only by systemd, on Linux; launchd and the Task Scheduler of Windows take no limit."
   ],
   "window": false
 }
