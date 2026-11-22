@@ -59,6 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `ravenrs-metrics`, metrics in the Prometheus text format with no dependencies: a `Registry` of counters, gauges and histograms with labels, safe from any thread, `render()` for a `/metrics` route with `CONTENT_TYPE`, and `process_rss_bytes()`, the memory the process holds, on Linux. Bad names, names taken and the wrong number of label values are errors, not panics (#820).
+
 - `testing::SortableDriver` moves an item of a `SortableList` before another by their keys, with Alt and the arrows as a person does (#740). Each point of a chart is a node of its own, `point:<series>:<category>`, named with its value, so a screen reader reads the data one by one; the commands of a `Ribbon` are `command:<label>`.
 
 - Lists, scheduler, dock and charts are in the testability contract of the RTS (#740): document tabs are `tab:<id>`, the tabs of a `Ribbon` `tab:<title>`, the items of a `SortableList` with a key `item:<key>`, the days of a `YearView` and an `EventCalendar` `day:<yyyy-mm-dd>`, calendar events `event:<id>` and timeline items `item:<id>`. `FileBrowser` and `Filmstrip` keep the `row:<key>` of their list.
