@@ -899,6 +899,17 @@ impl View for MenuTitle<'_> {
             Paint::Quad(QuadPaint { corner_radius: 6.0, ..QuadPaint::new(fill) }),
         );
         cx.semantics(node, Semantics::new(Role::MenuItem).expanded(is_open));
+        // Found by its title, and opened and closed as a screen reader asks.
+        cx.test_id(node, &format!("menu:{}", self.bar.menus[i].0));
+        let shown = self.open.clone();
+        cx.on_access(
+            node,
+            &[AccessAction::Expand, AccessAction::Collapse, AccessAction::ShowMenu],
+            move |action, _| {
+                shown.set((action != AccessAction::Collapse).then_some(i));
+                true
+            },
+        );
         let open = self.open.clone();
         cx.on_click(node, Rc::new(move || open.update(|o| *o = if *o == Some(i) { None } else { Some(i) })));
         cx.cursor(node, CursorIcon::Pointer);

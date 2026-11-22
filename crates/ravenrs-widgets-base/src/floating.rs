@@ -7,6 +7,7 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
+use crate::ViewExt as _;
 use ravenrs_animation::Transition;
 use ravenrs_core::{AccessAction, Border, Color, CursorIcon, Effect, Insets, Key, Point, Role, Size};
 use ravenrs_layout::{Align, Axis, Justify, LayoutStyle};
@@ -61,8 +62,23 @@ impl<V: View> View for ContextMenu<V> {
             &[child],
             Paint::None,
         );
+        // Opened by a screen reader or a test, with no pointer: the menu shows below the content.
+        let below: State<bool> = cx.use_state(|| false);
         let open = at.clone();
-        cx.on_context_menu(node, Rc::new(move |p| open.set(Some(p))));
+        let from_pointer = below.clone();
+        cx.on_context_menu(
+            node,
+            Rc::new(move |p| {
+                from_pointer.set(false);
+                open.set(Some(p));
+            }),
+        );
+        let (open, asked) = (at.clone(), below.clone());
+        cx.on_access(child, &[AccessAction::ShowMenu], move |_, _| {
+            asked.set(true);
+            open.set(Some(Point::ZERO));
+            true
+        });
         if let Some(p) = at.get() {
             let close: Rc<dyn Fn()> = {
                 let at = at.clone();
@@ -70,7 +86,7 @@ impl<V: View> View for ContextMenu<V> {
             };
             cx.overlay(
                 node,
-                Placement::At(p),
+                if below.get() { Placement::Below } else { Placement::At(p) },
                 &MenuList { entries: &self.entries, close: close.clone(), on_side: None },
                 Some(close),
             );
@@ -209,7 +225,8 @@ impl View for SheetLayer<'_> {
                 &IconButton::new(IconName::X)
                     .label(cx.labels().close.clone())
                     .size(ButtonSize::Small)
-                    .on_click(move || close.set(false)),
+                    .on_click(move || close.set(false))
+                    .test_id("close"),
             );
             let header = cx.container(
                 LayoutStyle { align: Align::Center, spacing: 12.0, ..LayoutStyle::stack(Axis::Horizontal) },
@@ -245,6 +262,11 @@ impl View for SheetLayer<'_> {
             semantics = semantics.description(d);
         }
         cx.semantics(panel, semantics);
+        let shut = s.open.clone();
+        cx.on_access(panel, &[AccessAction::Dismiss], move |_, _| {
+            shut.set(false);
+            true
+        });
         cx.cursor(panel, CursorIcon::Default);
         let away = s.width.min(viewport.width) * if s.side == Side::Right { 1.0 } else { -1.0 };
         cx.motion(
@@ -856,6 +878,13 @@ impl View for ToastStack<'_> {
             // Announced as it appears; danger toasts interrupt.
             let role = if t.tone == Tone::Danger { Role::Alert } else { Role::Status };
             cx.semantics(card, Semantics::new(role));
+            // Found by its id, which stays with it while the others come and go.
+            cx.test_id(card, &format!("toast:{}", t.id));
+            let (toasts, id) = (self.1.clone(), t.id);
+            cx.on_access(card, &[AccessAction::Dismiss], move |_, _| {
+                toasts.dismiss(id);
+                true
+            });
             cx.cursor(card, CursorIcon::Default);
             // The rest of the stack makes room as one comes or goes.
             cx.motion(
@@ -1116,6 +1145,14 @@ impl View for PaletteLayer<'_> {
                 semantics = semantics.name(c.label.clone()).description(shortcut.clone());
             }
             cx.semantics(row, semantics);
+            // Found by its label, which stays with it while the search filters the list.
+            cx.test_id(row, &format!("option:{}", c.label));
+            let (open, action) = (self.palette.open.clone(), c.action.clone());
+            cx.on_access(row, &[AccessAction::Select], move |_, _| {
+                open.set(false);
+                action();
+                true
+            });
             let (open, action, hl) = (self.palette.open.clone(), c.action.clone(), self.highlight.clone());
             cx.on_click(
                 row,
@@ -1141,6 +1178,11 @@ impl View for PaletteLayer<'_> {
         cx.label_control(field, &palette_name, None);
         let card = panel(cx, &rows, 10.0, (viewport.width - 32.0).clamp(280.0, 560.0));
         cx.semantics(card, Semantics::new(Role::Dialog).name(palette_name).modal());
+        let shut = self.palette.open.clone();
+        cx.on_access(card, &[AccessAction::Dismiss], move |_, _| {
+            shut.set(false);
+            true
+        });
         let scrim = motion::scrim(cx, viewport);
         let backdrop = cx.container(
             LayoutStyle {
