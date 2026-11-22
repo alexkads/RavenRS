@@ -58,6 +58,18 @@ pub struct Labels {
     pub sankey_cycle: String,
     /// A `VirtualList`'s name.
     pub list_name: String,
+    /// What a `LogView` is called.
+    pub log_name: String,
+    /// The search field of a `LogView`.
+    pub log_search: String,
+    /// The button that takes a `LogView` back to its last line and follows it again.
+    pub log_go_to_end: String,
+    /// How many lines of a `LogView` hold what is searched; `{0}` is the count.
+    pub log_matches: String,
+    /// What a folded section of a `LogView` hides; `{0}` is how many lines.
+    pub log_folded: String,
+    /// The number of a line in a `LogView`, as a button that points at it; `{0}` is the number.
+    pub log_point_line: String,
     /// A `Filmstrip`'s name.
     pub filmstrip_name: String,
     /// A `PagedDocumentView`'s name.
@@ -1260,6 +1272,12 @@ impl Labels {
             candle_close: texts.get("widgets.candle_close"),
             sankey_cycle: texts.get("widgets.sankey_cycle"),
             list_name: texts.get("widgets.list_name"),
+            log_name: texts.get("widgets.log_name"),
+            log_search: texts.get("widgets.log_search"),
+            log_go_to_end: texts.get("widgets.log_go_to_end"),
+            log_matches: texts.get("widgets.log_matches"),
+            log_folded: texts.get("widgets.log_folded"),
+            log_point_line: texts.get("widgets.log_point_line"),
             filmstrip_name: texts.get("widgets.filmstrip_name"),
             document_name: texts.get("widgets.document_name"),
             page_word: texts.get("widgets.page_word"),

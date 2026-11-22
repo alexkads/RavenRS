@@ -35,6 +35,7 @@ fn float_keys() -> Modifiers {
     Modifiers { meta: apple, ctrl: !apple, alt: true, ..Modifiers::default() }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<'a> DockDriver<'a> {
     /// Drives the dock area on the screen.
     pub fn new(e2e: &'a mut E2e) -> Self {

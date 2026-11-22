@@ -9,6 +9,7 @@ pub const OPENS_WINDOW: &str = "open:";
 
 /// One entry of a [`TrayMenu`].
 #[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "variants"))]
 pub enum TrayEntry {
     /// The app's state at the top of the menu: a line that cannot be chosen, and a second,
     /// quieter one when there is a detail.
@@ -51,6 +52,7 @@ pub enum TrayEntry {
     Separator,
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TrayEntry {
     /// The state at the top, with an optional second line.
     pub fn status(title: impl Into<String>, detail: Option<String>) -> Self {
@@ -117,6 +119,7 @@ struct Shared {
 /// assert_eq!(menu.entries().len(), 2);
 /// ```
 #[derive(Clone, Default)]
+#[cfg_attr(feature = "live", ravenrs_live::expose(part = "fields"))]
 pub struct TrayMenu(Arc<Shared>);
 
 impl std::fmt::Debug for TrayMenu {
@@ -125,6 +128,7 @@ impl std::fmt::Debug for TrayMenu {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl TrayMenu {
     /// A menu with these entries.
     pub fn new(entries: Vec<TrayEntry>) -> Self {

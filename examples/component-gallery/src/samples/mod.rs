@@ -238,6 +238,7 @@ catalog! {
     "CompareView" => media,
     "ImageLightbox" => media,
     "VirtualList" => data,
+    "LogView" => data,
     "Filmstrip" => media,
     "PagedDocumentView" => data,
     "FileBrowser" => data,

@@ -25,6 +25,7 @@ impl std::fmt::Debug for CropDriver<'_> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<'a> CropDriver<'a> {
     /// Drives the crop the app gave this test id.
     pub fn new(e2e: &'a mut E2e, id: impl Into<String>) -> Self {

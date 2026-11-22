@@ -29,6 +29,7 @@ impl std::fmt::Debug for SortableDriver<'_> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<'a> SortableDriver<'a> {
     /// Drives the sortable list on the screen.
     pub fn new(e2e: &'a mut E2e) -> Self {

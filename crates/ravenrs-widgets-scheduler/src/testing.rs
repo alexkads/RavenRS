@@ -33,6 +33,7 @@ impl std::fmt::Debug for SchedulerDriver<'_> {
     }
 }
 
+#[cfg_attr(feature = "live", ravenrs_live::expose)]
 impl<'a> SchedulerDriver<'a> {
     /// Drives the scheduler on the screen.
     pub fn new(e2e: &'a mut E2e) -> Self {

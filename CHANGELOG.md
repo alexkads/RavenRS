@@ -59,6 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `LogView` and `LogBuffer` in `ravenrs-widgets-lists`: a build log as it comes, in a monospaced font with the colors the program wrote (ANSI 30-37 and 90-97, bold, reset, mapped to the theme's colors, with every other escape taken out), over a `VirtualList` that follows the end, with a search that marks the lines and counts them, sections that fold by click or Expand/Collapse, and the number of a line as a button that points at it (`on_line`). New labels `log_name`, `log_search`, `log_go_to_end`, `log_matches`, `log_folded` and `log_point_line`. It has its RCB stories, its RTS contract and the page "Log de build" in the feature center (#824).
+
 - Imaging and chat are in the testability contract of the RTS (#741): `ColorWheel` takes `SetValue` with a color as `#ff0000`; `TransformHandles` and `CropOverlay` take their box by value (`x, y, width × height, angle`), and `testing::CropDriver` sets and reads it; the messages of a `Chat` are `message:<n>`, and the sphere of a `FloatingPanel` is `orb` and opens and closes with `Expand` and `Collapse`. `RuleOfThirdsGrid` has no screen.
 
 - `testing::SortableDriver` moves an item of a `SortableList` before another by their keys, with Alt and the arrows as a person does (#740). Each point of a chart is a node of its own, `point:<series>:<category>`, named with its value, so a screen reader reads the data one by one; the commands of a `Ribbon` are `command:<label>`.

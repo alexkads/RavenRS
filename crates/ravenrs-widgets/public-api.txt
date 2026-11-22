@@ -643,6 +643,12 @@ field Labels::lightbox_previous
 field Labels::list_name
 field Labels::listen
 field Labels::loading
+field Labels::log_folded
+field Labels::log_go_to_end
+field Labels::log_matches
+field Labels::log_name
+field Labels::log_point_line
+field Labels::log_search
 field Labels::marquee
 field Labels::minimap
 field Labels::month_year
@@ -1141,6 +1147,7 @@ impl Clone for Labels
 impl Clone for LightboxItem
 impl Clone for Links
 impl Clone for LiveRunner
+impl Clone for LogBuffer
 impl Clone for LookupItem
 impl Clone for LookupRequest
 impl Clone for LookupResponder
@@ -1361,6 +1368,7 @@ impl ComponentBook for KeyBar
 impl ComponentBook for Label
 impl ComponentBook for Link
 impl ComponentBook for List
+impl ComponentBook for LogView
 impl ComponentBook for LookupField
 impl ComponentBook for Lottie
 impl ComponentBook for Marquee
@@ -1760,6 +1768,8 @@ impl Debug for List
 impl Debug for ListItem
 impl Debug for LiveRunner
 impl Debug for Localized
+impl Debug for LogBuffer
+impl Debug for LogView
 impl Debug for LookupField
 impl Debug for LookupItem
 impl Debug for LookupRequest
@@ -2053,6 +2063,7 @@ impl Default for KeyBar
 impl Default for Labels
 impl Default for Links
 impl Default for LiveRunner
+impl Default for LogBuffer
 impl Default for MemoryClipboard
 impl Default for Menubar
 impl Default for ModelPickerLabels
@@ -2564,6 +2575,7 @@ impl View for Link
 impl View for List
 impl View for ListItem
 impl View for Localized
+impl View for LogView
 impl View for LookupField
 impl View for Lottie
 impl View for Marquee
@@ -3834,6 +3846,20 @@ method ListItem::trailing
 method LiveRunner::new
 method LiveRunner::with_registry
 method Localized::new
+method LogBuffer::clear
+method LogBuffer::is_empty
+method LogBuffer::len
+method LogBuffer::line
+method LogBuffer::new
+method LogBuffer::push
+method LogBuffer::section
+method LogView::follow_end
+method LogView::height
+method LogView::label
+method LogView::line_numbers
+method LogView::new
+method LogView::on_line
+method LogView::searchable
 method LookupField::disabled
 method LookupField::label
 method LookupField::limit
@@ -5116,6 +5142,8 @@ struct List
 struct ListItem
 struct LiveRunner
 struct Localized
+struct LogBuffer
+struct LogView
 struct LookupField
 struct LookupItem
 struct LookupRequest
