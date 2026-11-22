@@ -1,0 +1,23 @@
+[package]
+name = "ravenrs-git"
+description = "Git for RavenRS services, over the git installed on the machine: shallow clones, pull request refs, merging into the target with the conflicts named, and credentials kept out of the command line and the remote's address."
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+readme = "README.md"
+documentation = "https://docs.rs/ravenrs-git"
+keywords = ["git", "clone", "pull-request", "merge", "ci"]
+categories = ["development-tools"]
+
+[dependencies]
+ravenrs-process.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
+
+[lints]
+workspace = true

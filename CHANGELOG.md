@@ -59,6 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `ravenrs-git`, git for RavenRS services over the git installed: shallow `clone`, `fetch` with refspecs, `fetch_pull_request` (`refs/pull/N/head` as `<remote>/pr/N`), `checkout` with no branch, `rev_parse`, `ls_remote`, and `merge`, which names the files of a conflict and undoes it. A `Credential` goes in the child's environment as `http.extraHeader`, never as an argument nor in the remote's address, and every command runs without the user's git configuration and never asks for a password (#817).
+
 - `ravenrs-secrets`, the vault: secrets sealed with ChaCha20-Poly1305 under a key kept apart from them (`KeyFile`, `KeyFromEnv`, or the system's store with the feature `system-keyring`), an opaque `SecretRef` for documents and exports, separate rights to use (`use_with`), reveal and administer, rotation, revocation, `MemoryStorage` and `FileStorage`, and one `Redactor` that keeps every value handed out of text as `•••`. `ravenrs-agent-cli` masks with the same `redact` (#815, part of #546).
 
 - The live channel: `ravenrs-app-server` streams events as they happen at `GET /api/live/{topic}`, as Server-Sent Events, from a `LiveChannels` the application publishes to from any thread (`open`, `publish`, `ApiOptions::live`). Each topic keeps its last 256 events for whoever comes back with `Last-Event-ID`, and sends `gap` when some are gone. The streams take none of the threads that answer, and end when their token does. `ravenrs-app-remote` listens with `RemoteClient::listen`, on the desktop and in the browser (`LiveFeed`, `SseParser`), coming back from the last event when the stream is lost (#810).
