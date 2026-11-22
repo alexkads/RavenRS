@@ -14,7 +14,7 @@ The tools of RavenRS: apps that people install and use to build with RavenRS, ma
 | `--versao` | in `src/main.rs`, before any window | the installer proves a new binary opens before it replaces the old one |
 | `--self-test` | in `src/main.rs`, with no window, exit code 0 when it passed | a tool tests itself, before anyone trusts it; its window does the same when it opens |
 | What it offers, for AI agents | `tool.json`: summary, when to use it, commands, limits and whatever else it has, kept true by its own tests | the RavenRS MCP server answers `ravenrs_tools` with it, and a skill of the tool's own (`claude-pane/skills/`) is listed by `skills` |
-| Beside the clock when its window closes | `AppIdentity::close_to_tray(SystemTray…)` in `src/main.rs`, with the `tray` feature of `ravenrs` and the app's icon | a tool stays ready, as Raven Finanças does, and runs as one copy |
+| Beside the clock when its window closes | `AppIdentity::close_to_tray(SystemTray…)` in `src/main.rs`, with the `tray` feature of `ravenrs` and the app's icon | a tool stays ready, as Raven Finanças does, and runs as one copy; a tool with no window, run from the terminal, says `"window": false` in its `tool.json` instead |
 | The window named by its package, with the updater's notice | `AppIdentity::new(APP.package)` and a status bar with the notice | it says when there is a new version, as Raven Finanças does |
 | Tests that prove it works, run with no window | `tests/suite/` | a tool is used by people and by AI agents; what it promises is tested |
 | A README that explains its role, how it works and how to use it | `README.md` | how people and agents learn it |
@@ -27,6 +27,10 @@ The tools of RavenRS: apps that people install and use to build with RavenRS, ma
 |---|---|
 | [RavenComponentBook](raven-component-book) (RCB) | The stories of every component, as Storybook keeps them, measured from what RavenRS paints and exported as JSON and as the design system of Claude Design |
 | [Raven Feature Center](raven-feature-center) (RFC) | Every public component and every feature of the application framework, one small demonstration each, with a tour; the showcase every component change goes into |
+| [Raven Code](raven-code) (RCD) | A small editor for Rust projects on the DockArea, the seed of the RavenRS IDE |
+| [Raven Movie Editor](raven-movie-editor) (RME) | Opens and edits the films and bug reports that the RTS, the trainings and the apps record |
+| [Raven Report Designer](raven-report-designer) (RRD) | The report designer of RavenRS Reporting, on the desktop and in the browser |
+| [Raven Channel Video](raven-channel-video) (RCV) | Records the channel's videos from the real apps, from the terminal |
 | [Raven Test Studio](raven-test-studio) (RTS) | End-to-end tests of RavenRS apps as flows of blocks, reported to a person or to the AI that asked; it tests itself |
 
 ## Install one

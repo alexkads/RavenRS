@@ -44,7 +44,7 @@ fn templates_embed_the_versioned_examples_and_published_dependencies() {
         ("hello", "hello-world"),
         ("app", "tutorial-tasks"),
         ("app-sqlite", "tasks-sqlite"),
-        ("relatorios", "report-designer"),
+        ("relatorios", "raven-report-designer"),
     ] {
         for target in ["desktop", "web", "both"] {
             let files = project_files("sample-app", template, target).unwrap();

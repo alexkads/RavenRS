@@ -1,0 +1,25 @@
+[package]
+name = "raven-code"
+description = "Raven Code: a small editor for Rust projects built on the DockArea. It opens a project from disk, edits and saves its files, and builds and runs it with cargo, with the compiler's errors marked in the code."
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+
+[dependencies]
+ravenrs-app-update.workspace = true
+ravenrs = { workspace = true, features = ["code", "tray"] }
+serde_json.workspace = true
+# Cargo and the program it runs, stopped with what they start.
+ravenrs-process.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+image.workspace = true
+pollster.workspace = true
+
+[lints]
+workspace = true

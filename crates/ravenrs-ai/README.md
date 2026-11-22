@@ -155,7 +155,7 @@ FF_NARRATION_WAVS=/path/to/wavs cargo test --release -p family-finance --test su
 
 `FF_NARRATION_SPEAKER` picks another Kokoro voice, `FF_NARRATION_MODEL` another model, and
 `FF_NARRATION_MISSING=1` records only what a WAV folder does not have yet. The videos of the channel
-are made the same way, in `examples/channel-video/src/main.rs`. Check new speech with an independent
+are made the same way, in `tools/raven-channel-video/src/main.rs`. Check new speech with an independent
 recognizer (Whisper, `Transcriber`) rather than only reading the text: a missing phoneme rule is heard,
 not seen.
 

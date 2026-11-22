@@ -25,7 +25,7 @@ pub fn project_files(name: &str, template: &str, target: &str) -> Result<Vec<Pro
         "hello" => example!("hello-world"),
         "app" => example!("tutorial-tasks"),
         "app-sqlite" => example!("tasks-sqlite"),
-        "relatorios" => example!("report-designer"),
+        "relatorios" => example!("raven-report-designer"),
         _ => return Err("Modelo inválido: hello, app, app-sqlite ou relatorios.".into()),
     };
     let project = Project::new(name).source(source);

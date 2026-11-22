@@ -30,9 +30,9 @@ else
     ./scripts/build-web.sh quick-plan
     ./scripts/build-web.sh raven-feature-center
     ./scripts/build-web.sh component-gallery
-    ./scripts/build-web.sh report-designer
+    ./scripts/build-web.sh raven-report-designer
     ./scripts/build-web.sh site-home
-    cargo doc --no-deps --workspace --features ravenrs-widgets/code --exclude hello-world --exclude quick-app --exclude quick-plan --exclude raven-feature-center --exclude component-gallery --exclude report-designer --exclude site-home --exclude family-finance --quiet
+    cargo doc --no-deps --workspace --features ravenrs-widgets/code --exclude hello-world --exclude quick-app --exclude quick-plan --exclude raven-feature-center --exclude component-gallery --exclude raven-report-designer --exclude site-home --exclude family-finance --quiet
     ./scripts/check-component-list.py
 fi
 # Markdown is rendered locally; the same docs ship on Pages and Vercel.
@@ -49,7 +49,7 @@ if [ -z "${RAVENRS_SITE_ASSETS_FROM:-}" ]; then cp -R examples/component-gallery
 cp -R site/playground/. "$site/playground/"
 if [ -z "${RAVENRS_SITE_ASSETS_FROM:-}" ]; then cp -R examples/hello-world/web/. "$site/hello/"; fi
 if [ -z "${RAVENRS_SITE_ASSETS_FROM:-}" ]; then cp -R examples/quick-app/web/. "$site/quick/"; fi
-if [ -z "${RAVENRS_SITE_ASSETS_FROM:-}" ]; then cp -R examples/report-designer/web/. "$site/designer/"; fi
+if [ -z "${RAVENRS_SITE_ASSETS_FROM:-}" ]; then cp -R tools/raven-report-designer/web/. "$site/designer/"; fi
 # What the installed app reads to learn of a new version, when raw.githubusercontent.com does not answer.
 mkdir -p "$site/family-finance"
 cp examples/family-finance/novidades.json examples/family-finance/historico-de-novidades.json "$site/family-finance/"

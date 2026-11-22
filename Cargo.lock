@@ -1127,7 +1127,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "channel-video"
+name = "raven-channel-video"
 version = "27.1.28"
 dependencies = [
  "component-gallery",
@@ -4064,7 +4064,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "movie-editor"
+name = "raven-movie-editor"
 version = "27.1.28"
 dependencies = [
  "ravenrs",
@@ -7430,7 +7430,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19b30a45b0cd0bcca8037f3d0dc3421eaf95327a17cad11964fb8179b4fc4832"
 
 [[package]]
-name = "report-designer"
+name = "raven-report-designer"
 version = "27.1.28"
 dependencies = [
  "console_error_panic_hook",

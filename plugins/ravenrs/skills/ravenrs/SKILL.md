@@ -150,7 +150,7 @@ Serve the folder over HTTP with a page that has `<canvas id="raven-canvas">`. It
 
 ## Working inside the RavenRS repository
 
-- `scripts/build-web.sh <example>` builds `hello-world`, `component-gallery` or `report-designer` for the browser, into `examples/<name>/web/pkg`.
+- `scripts/build-web.sh <example>` builds `hello-world`, `component-gallery` or `raven-report-designer` for the browser, into `examples/<name>/web/pkg`.
 - `scripts/check.sh` is the gate, because the project has no hosted CI. It runs formatting, clippy on native and wasm32, all tests, MSRV, `cargo deny`, docs and the web builds. For a quick pass use `cargo fmt --all --check`, `cargo clippy --workspace --all-targets -- -D warnings` and `cargo test -p <crate>`.
 - A new worktree does not have to compile again what another one compiled. `scripts/check.sh` uses a compiler cache that worktrees share: the repository's own [`ravenrs-xcache`](https://github.com/alexkads/RavenRS/tree/master/crates/ravenrs-xcache), on by default (`RAVENRS_XCACHE=0 scripts/check.sh` turns it off and uses [Kache](https://github.com/kunobi-ninja/kache) when it is installed). Keep one build directory per worktree; never point two worktrees at the same `CARGO_TARGET_DIR`. `ravenrs-xcache stats` and `ravenrs-xcache explain <crate>` say what came from the cache and why something did not.
 - A new component needs rustdoc with an example, semantics, keyboard support, a behavior test through `Ui` and a section in `examples/component-gallery`. Update `docs/PARITY.md` and `CHANGELOG.md` under `[Unreleased]`.

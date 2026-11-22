@@ -1,0 +1,32 @@
+{
+  "name": "Raven Code",
+  "also_called": [
+    "RCD",
+    "raven-code"
+  ],
+  "package": "raven-code",
+  "version": "0.1.0",
+  "summary": "A small editor for Rust projects made only of RavenRS components, on the DockArea: it opens a project from disk, edits and saves its files, builds and runs it with cargo and answers through rust-analyzer. The seed of the RavenRS IDE.",
+  "when_to_use": [
+    "To open and edit a Rust project, build it and run it, in an editor made with RavenRS.",
+    "To try the DockArea, the code editor and the language server together, in a real app."
+  ],
+  "commands": [
+    {
+      "command": "raven-code [<folder>]",
+      "does": "Opens the project in the folder, or the sample project with no folder. Closing the window keeps it beside the clock."
+    },
+    {
+      "command": "raven-code --self-test",
+      "does": "Builds the editor on the sample project with no window; exit code 0 when it draws."
+    },
+    {
+      "command": "raven-code --versao",
+      "does": "Prints the version."
+    }
+  ],
+  "limits": [
+    "rust-analyzer has to be installed for the language features.",
+    "It is the seed of the IDE (#495): debugging and refactoring are not there yet."
+  ]
+}
