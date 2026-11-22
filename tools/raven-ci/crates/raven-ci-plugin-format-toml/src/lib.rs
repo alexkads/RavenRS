@@ -9,8 +9,12 @@
 //! # The file
 //!
 //! ```toml
+//! # Keys of the top come before the first table, or TOML puts them inside it.
+//! artifacts = ["target/*.tar.gz"]   # plugin artifacts
+//! junit = ["**/junit.xml"]          # plugin junit
+//!
 //! [pipeline]
-//! timeout = "30m"          # the whole build; the build is cancelled when it passes
+//! timeout = "30m"         # the whole build; the build is cancelled when it passes
 //! keep = 10                # how many builds the job keeps
 //! agent = "any"            # or { label = "linux" }, { docker = { image = "rust:1" } }, { kubernetes = { … } }
 //!
@@ -48,9 +52,6 @@
 //! [post]
 //! always = ["./limpa.sh"]
 //! failure = ["echo falhou"]
-//!
-//! artifacts = ["target/*.tar.gz"]   # plugin artifacts
-//! junit = ["**/junit.xml"]          # plugin junit
 //! ```
 //!
 //! # How it works

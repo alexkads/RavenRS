@@ -57,6 +57,7 @@ cargo run -p raven-ci -- --plugins tools/raven-ci/plugins plugins listar
 | `raven-ci plugins info NOME` | one plugin: dependencies, permissions declared and granted, configuration, memory, audit |
 | `raven-ci plugins ligar NOME` / `desligar NOME` | switches it, and says what else changed |
 | `raven-ci plugins compilar PASTA` | builds a plugin written in Rust with the standard traits (`cargo build --release`, a target of its own removed at the end) and installs it in `plugins/<nome>/`; refuses one that asks for another `raven-ci-plugin-api` |
+| `raven-ci converter Jenkinsfile [--saida ARQ] [--substituir]` | the `.raven-ci.toml` of a declarative `Jenkinsfile`, with what was not converted, ignored or converted with a difference in comments at its start, each with its line; exits with 1 when a part was not converted (plugin `format-jenkinsfile`) |
 | `raven-ci <comando>` | a command a plugin brings, such as `raven-ci hello Ana` |
 | `raven-ci servir [--endereco HOST:PORTA] [--executores N]` | the server: HTTP with sign-in (`/health` open; `/api/ci/jobs`, `build`, `log?after=`, `queue` and the routes of the plugins behind a token), the executors and the triggers of the jobs; it stops on Ctrl+C or `SIGTERM` |
 | `echo SENHA \| raven-ci usuario criar NOME [--papel P]` | someone who may sign in; the first is an administrator, then `Executores` (asks for builds) or `Leitores` (reads) |
@@ -201,6 +202,7 @@ RAVEN_CI_AGENT_TOKEN=rva_… raven-ci-agent --servidor http://ci.local:8080 --no
 | Plugin | Point | What it does |
 |---|---|---|
 | `format-toml` | pipeline format | reads `.raven-ci.toml`: stages, steps, parameters, `when`, `parallel`, `post`, `timeout`, `retry`, `lock`, `container`, `artifacts`, `junit`; every error with its line |
+| `format-jenkinsfile` | pipeline format, command | reads a declarative `Jenkinsfile` straight, or converts it with `raven-ci converter Jenkinsfile [--saida .raven-ci.toml]`; what it cannot convert (Groovy code, `withCredentials`, steps with no counterpart) is listed with its line and refuses the job, and what Raven CI does alone (`checkout scm`, `cleanWs()`) is ignored, saying why. The flow is made by `format-toml` |
 | `shell` | step | `sh`: runs a command in the folder of the build with each line in the log, `nice`, a time limit and cancelling |
 | `git` | scm | fetches a branch, a commit, or a pull request merged onto its target into the folder of the build; the credential goes as a header, never as an argument |
 | `lock` | step | named locks (`lock = "maquina"` in a stage) on the same files `flock` uses, let go when the build ends however it ends, never handed to the programs a step starts |
@@ -279,6 +281,9 @@ curl -fsSL https://raw.githubusercontent.com/alexkads/RavenRS/master/tools/raven
   the queue and the life of a build (`lifecycle.rs`), the API (`api.rs`).
 - `crates/raven-ci-plugin-format-toml/tests`: what the format reads, its errors, and pipelines run
   for real with `sh`.
+- `crates/raven-ci-plugin-format-jenkinsfile/tests`: Jenkinsfiles converted and read by
+  `format-toml`, each part not converted on its line, the command, and a converted pipeline run
+  for real with the same log as the TOML written by hand.
 - `crates/raven-ci-plugin-shell/tests`: the step `sh`, with scripts for `sh` and for `cmd`.
 - `crates/raven-ci-plugin-git/tests`: a real repository made by the test, cloned by `file://`.
 - `crates/raven-ci-plugin-lock/tests`: two executors, a holder outside, a program left running.

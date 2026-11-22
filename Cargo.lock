@@ -6016,6 +6016,7 @@ dependencies = [
  "raven-ci-plugin-credentials",
  "raven-ci-plugin-cron",
  "raven-ci-plugin-docker",
+ "raven-ci-plugin-format-jenkinsfile",
  "raven-ci-plugin-format-toml",
  "raven-ci-plugin-git",
  "raven-ci-plugin-github",
@@ -6224,6 +6225,18 @@ dependencies = [
  "ravenrs-app",
  "ravenrs-flows",
  "ravenrs-process",
+ "serde_json",
+]
+
+[[package]]
+name = "raven-ci-plugin-format-jenkinsfile"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
  "serde_json",
 ]
 

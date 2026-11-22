@@ -183,5 +183,23 @@ fn builtin_build() -> Result<String, String> {
         "o sh não escreveu no log do build",
     )?;
     check(!ci.workspace("autoteste/toml", number).exists(), "a pasta do build ficou")?;
-    Ok("e um .raven-ci.toml rodou um sh de verdade, com o log e a pasta apagada no fim".to_owned())
+
+    // The same through a declarative Jenkinsfile, read by format-jenkinsfile.
+    let jenkinsfile = "pipeline {\n  agent any\n  stages {\n    stage('Autoteste') {\n      steps {\n        checkout scm\n        echo 'raven-ci-jenkinsfile'\n      }\n    }\n  }\n}\n";
+    ci.save_job(JobSpec::new("autoteste/jenkinsfile", "jenkinsfile", jenkinsfile)).map_err(said)?;
+    let number =
+        ci.request_build(BuildRequest::new("autoteste/jenkinsfile", "autoteste")).map_err(said)?.number;
+    ci.work_until_idle("autoteste").map_err(said)?;
+    let build = ci.build("autoteste/jenkinsfile", number).map_err(said)?;
+    check(
+        build.status == BuildStatus::Succeeded,
+        &format!("o build do Jenkinsfile ficou {:?}: {:?}", build.status, build.reason),
+    )?;
+    let log = ci.build_log("autoteste/jenkinsfile", number, 0).map_err(said)?;
+    check(
+        log.iter().any(|line| line.text.trim() == "raven-ci-jenkinsfile"),
+        "o echo do Jenkinsfile não escreveu no log do build",
+    )?;
+    Ok("e um .raven-ci.toml e um Jenkinsfile declarativo rodaram um sh de verdade, com o log e a pasta apagada no fim"
+        .to_owned())
 }

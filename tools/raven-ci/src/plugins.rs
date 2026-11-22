@@ -12,6 +12,7 @@ use raven_ci_plugin_azure_devops::AzureDevopsPlugin;
 use raven_ci_plugin_credentials::CredentialsPlugin;
 use raven_ci_plugin_cron::CronPlugin;
 use raven_ci_plugin_docker::DockerPlugin;
+use raven_ci_plugin_format_jenkinsfile::JenkinsfilePlugin;
 use raven_ci_plugin_format_toml::TomlFormatPlugin;
 use raven_ci_plugin_git::GitPlugin;
 use raven_ci_plugin_github::GithubPlugin;
@@ -25,6 +26,7 @@ use raven_ci_plugin_workspace::WorkspacePlugin;
 pub fn builtin() -> Vec<Arc<dyn CiPlugin>> {
     vec![
         Arc::new(TomlFormatPlugin),
+        Arc::new(JenkinsfilePlugin),
         Arc::new(ShellPlugin::new()),
         Arc::new(GitPlugin::new()),
         Arc::new(LockPlugin::new()),
