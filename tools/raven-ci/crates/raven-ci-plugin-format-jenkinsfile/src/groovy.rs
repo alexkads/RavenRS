@@ -241,7 +241,9 @@ impl<'s> Lexer<'s> {
                 Tok::Str(self.string()?)
             } else if c.is_ascii_digit() {
                 let mut number = String::new();
-                while let Some(d) = self.peek(0).filter(|d| d.is_ascii_alphanumeric() || *d == '.' || *d == '_') {
+                while let Some(d) =
+                    self.peek(0).filter(|d| d.is_ascii_alphanumeric() || *d == '.' || *d == '_')
+                {
                     number.push(d);
                     self.bump();
                 }
@@ -286,7 +288,10 @@ impl<'s> Lexer<'s> {
                 break;
             }
             if c == '\n' && !triple {
-                return Err(Problem { at, message: format!("o texto aberto com {quote} não fecha na linha") });
+                return Err(Problem {
+                    at,
+                    message: format!("o texto aberto com {quote} não fecha na linha"),
+                });
             }
             if c == '\\' {
                 self.bump();
@@ -303,7 +308,10 @@ impl<'s> Lexer<'s> {
                         match u32::from_str_radix(&hex, 16).ok().and_then(char::from_u32) {
                             Some(ch) => text.push(ch),
                             None => {
-                                return Err(Problem { at: self.at(), message: format!("\\u{hex} não é um caractere") });
+                                return Err(Problem {
+                                    at: self.at(),
+                                    message: format!("\\u{hex} não é um caractere"),
+                                });
                             }
                         }
                     }
@@ -422,7 +430,8 @@ impl Parser<'_> {
                 Some(Token { tok: Tok::Sym('}'), at, .. }) => {
                     if top {
                         let at = *at;
-                        self.problems.push(Problem { at, message: "este } não fecha nenhum bloco".to_owned() });
+                        self.problems
+                            .push(Problem { at, message: "este } não fecha nenhum bloco".to_owned() });
                         self.pos += 1;
                         continue;
                     }
@@ -495,7 +504,9 @@ impl Parser<'_> {
             None => Ok(stmt),
             Some(token) if token.after_newline => Ok(stmt),
             Some(Token { tok: Tok::Sym(';' | '}'), .. }) => Ok(stmt),
-            Some(Token { tok, .. }) => self.fail(format!("não entendi {} depois de {}", shown(tok), stmt.name)),
+            Some(Token { tok, .. }) => {
+                self.fail(format!("não entendi {} depois de {}", shown(tok), stmt.name))
+            }
         }
     }
 
@@ -525,7 +536,9 @@ impl Parser<'_> {
     fn starts_bare_argument(&self) -> bool {
         match self.peek() {
             Some(token) if token.after_newline => false,
-            Some(Token { tok: Tok::Str(_) | Tok::Number(_) | Tok::Ident(_) | Tok::Sym('[' | '-'), .. }) => true,
+            Some(Token {
+                tok: Tok::Str(_) | Tok::Number(_) | Tok::Ident(_) | Tok::Sym('[' | '-'), ..
+            }) => true,
             _ => false,
         }
     }
@@ -619,7 +632,9 @@ impl Parser<'_> {
                     }
                 }
             },
-            other => return Err(Problem { at: token.at, message: format!("não entendi {}", shown(&other)) }),
+            other => {
+                return Err(Problem { at: token.at, message: format!("não entendi {}", shown(&other)) });
+            }
         };
         // An operator after a value is Groovy code, not a declarative value.
         if let Some(Token { tok: Tok::Sym(c), after_newline: false, .. }) = self.peek()
@@ -691,7 +706,8 @@ mod tests {
 
     #[test]
     fn calls_with_and_without_parentheses_keep_their_named_arguments_and_place() {
-        let stmt = one("stage('Build') {\n  sh 'make'\n  timeout(time: 30, unit: 'MINUTES') { echo \"oi\" }\n}");
+        let stmt =
+            one("stage('Build') {\n  sh 'make'\n  timeout(time: 30, unit: 'MINUTES') { echo \"oi\" }\n}");
         assert_eq!(stmt.name, "stage");
         assert_eq!(stmt.positional().next().and_then(|a| a.value.text()).as_deref(), Some("Build"));
         let body = stmt.body();

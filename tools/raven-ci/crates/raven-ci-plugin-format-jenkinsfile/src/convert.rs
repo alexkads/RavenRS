@@ -169,7 +169,8 @@ impl Converter {
                 "options" => self.options(stmt, None),
                 "triggers" => {
                     for trigger in stmt.body() {
-                        let value = trigger.positional().next().and_then(|a| a.value.text()).unwrap_or_default();
+                        let value =
+                            trigger.positional().next().and_then(|a| a.value.text()).unwrap_or_default();
                         let how = match trigger.name.as_str() {
                             "cron" => format!("ponha cron = {value:?} no job (plugin cron)"),
                             "pollSCM" => format!("ponha poll = {value:?} no job (plugin cron)"),
@@ -190,8 +191,12 @@ impl Converter {
                     }
                 }
                 "post" => self.post(stmt),
-                "tools" => self.pending(stmt.at, "tools { }", "o Raven CI não instala ferramentas; use um container"),
-                "libraries" => self.pending(stmt.at, "libraries { }", "bibliotecas compartilhadas são código Groovy"),
+                "tools" => {
+                    self.pending(stmt.at, "tools { }", "o Raven CI não instala ferramentas; use um container")
+                }
+                "libraries" => {
+                    self.pending(stmt.at, "libraries { }", "bibliotecas compartilhadas são código Groovy")
+                }
                 _ => self.unknown(stmt, "o pipeline"),
             }
         }
@@ -271,7 +276,9 @@ impl Converter {
                         "o valor usa interpolação do Groovy; escreva o valor pronto",
                     ),
                 },
-                Some(Value::Number(number)) => self.out.environment.push((entry.name.clone(), number.clone())),
+                Some(Value::Number(number)) => {
+                    self.out.environment.push((entry.name.clone(), number.clone()))
+                }
                 Some(Value::Call(call)) if call.name == "credentials" => self.pending(
                     entry.at,
                     format!("{} = credentials(…)", entry.name),
@@ -303,14 +310,20 @@ impl Converter {
             });
             let choices = match parameter.named("choices").map(|a| &a.value) {
                 Some(Value::List(items)) => items.iter().filter_map(Value::text).collect(),
-                Some(value) => value.text().map(|t| t.lines().map(str::to_owned).collect()).unwrap_or_default(),
+                Some(value) => {
+                    value.text().map(|t| t.lines().map(str::to_owned).collect()).unwrap_or_default()
+                }
                 None => Vec::new(),
             };
             for arg in &parameter.args {
                 if let Some(other) = arg.name.as_deref()
                     && !["name", "defaultValue", "description", "choices", "trim"].contains(&other)
                 {
-                    self.pending(arg.at, format!("{}: {other}", parameter.name), "o parâmetro não tem essa opção");
+                    self.pending(
+                        arg.at,
+                        format!("{}: {other}", parameter.name),
+                        "o parâmetro não tem essa opção",
+                    );
                 }
             }
             self.out.parameters.push(Parameter {
@@ -397,14 +410,20 @@ impl Converter {
         };
         for arg in &rotator.args {
             match arg.name.as_deref() {
-                Some("numToKeepStr" | "numToKeep") => match arg.value.text().and_then(|t| t.parse::<u64>().ok()) {
-                    Some(keep) => self.out.keep = Some(keep),
-                    None => self.pending(arg.at, "numToKeepStr", "tem que ser um número"),
-                },
+                Some("numToKeepStr" | "numToKeep") => {
+                    match arg.value.text().and_then(|t| t.parse::<u64>().ok()) {
+                        Some(keep) => self.out.keep = Some(keep),
+                        None => self.pending(arg.at, "numToKeepStr", "tem que ser um número"),
+                    }
+                }
                 Some(other) => {
                     let empty = arg.value.text().is_some_and(|t| t.is_empty() || t == "-1");
                     if !empty {
-                        self.pending(arg.at, format!("logRotator: {other}"), "o .raven-ci.toml só guarda quantos builds ficam (keep)");
+                        self.pending(
+                            arg.at,
+                            format!("logRotator: {other}"),
+                            "o .raven-ci.toml só guarda quantos builds ficam (keep)",
+                        );
                     }
                 }
                 None => self.pending(arg.at, "logRotator", "diga os argumentos pelo nome"),
@@ -482,15 +501,30 @@ impl Converter {
                     if let Some(arg) = part.positional().next()
                         && matches!(&arg.value, Value::Path(word) if word == "any")
                     {
-                        self.note(NoteKind::Ignored, part.at, "agent any", "o estágio roda no agente do build");
+                        self.note(
+                            NoteKind::Ignored,
+                            part.at,
+                            "agent any",
+                            "o estágio roda no agente do build",
+                        );
                     }
                 }
-                "failFast" => self.pending(part.at, shown(part), "o Raven CI não para os outros ramos de parallel"),
-                "environment" => self.pending(part.at, "environment { }", "o ambiente por estágio não existe; ponha no do pipeline"),
+                "failFast" => {
+                    self.pending(part.at, shown(part), "o Raven CI não para os outros ramos de parallel")
+                }
+                "environment" => self.pending(
+                    part.at,
+                    "environment { }",
+                    "o ambiente por estágio não existe; ponha no do pipeline",
+                ),
                 "input" => self.pending(part.at, "input { }", "o Raven CI não para o build esperando alguém"),
-                "post" => self.pending(part.at, "post { }", "o post por estágio não existe; use o do pipeline"),
+                "post" => {
+                    self.pending(part.at, "post { }", "o post por estágio não existe; use o do pipeline")
+                }
                 "stages" => self.pending(part.at, "stages { }", "estágios dentro de estágio não existem"),
-                "tools" => self.pending(part.at, "tools { }", "o Raven CI não instala ferramentas; use um container"),
+                "tools" => {
+                    self.pending(part.at, "tools { }", "o Raven CI não instala ferramentas; use um container")
+                }
                 _ => self.unknown(part, "o estágio"),
             }
         }
@@ -506,7 +540,11 @@ impl Converter {
             match condition.name.as_str() {
                 "branch" => match condition.positional().next().and_then(|a| a.value.text()) {
                     Some(pattern) if condition.args.len() == 1 => stage.branches.push(pattern),
-                    _ => self.pending(condition.at, shown(condition), "branch só é convertido com o padrão em texto"),
+                    _ => self.pending(
+                        condition.at,
+                        shown(condition),
+                        "branch só é convertido com o padrão em texto",
+                    ),
                 },
                 "changeRequest" if condition.args.is_empty() => stage.pull_request = Some(true),
                 "expression" => {
@@ -522,7 +560,12 @@ impl Converter {
                     }
                 }
                 "beforeAgent" | "beforeInput" | "beforeOptions" => {
-                    self.note(NoteKind::Ignored, condition.at, shown(condition), "o when é decidido antes de tudo");
+                    self.note(
+                        NoteKind::Ignored,
+                        condition.at,
+                        shown(condition),
+                        "o when é decidido antes de tudo",
+                    );
                 }
                 _ => self.pending(
                     condition.at,
@@ -601,7 +644,12 @@ impl Converter {
                     None => self.pending(stmt.at, shown(stmt), "não entendi a duração"),
                 },
                 "retry" => {
-                    match stmt.positional().next().and_then(|a| a.value.text()).and_then(|t| t.parse::<u64>().ok()) {
+                    match stmt
+                        .positional()
+                        .next()
+                        .and_then(|a| a.value.text())
+                        .and_then(|t| t.parse::<u64>().ok())
+                    {
                         Some(times) => {
                             let inner_steps = stmt.body().len();
                             let mut inner = around.clone();
@@ -630,10 +678,20 @@ impl Converter {
                     }
                 }
                 "checkout" => {
-                    if matches!(stmt.positional().next().map(|a| &a.value), Some(Value::Path(p)) if p == "scm") {
-                        self.note(NoteKind::Ignored, stmt.at, "checkout scm", "o núcleo busca o código antes dos passos");
+                    if matches!(stmt.positional().next().map(|a| &a.value), Some(Value::Path(p)) if p == "scm")
+                    {
+                        self.note(
+                            NoteKind::Ignored,
+                            stmt.at,
+                            "checkout scm",
+                            "o núcleo busca o código antes dos passos",
+                        );
                     } else {
-                        self.pending(stmt.at, shown(stmt), "só checkout scm é convertido; outro repositório vai num sh com git");
+                        self.pending(
+                            stmt.at,
+                            shown(stmt),
+                            "só checkout scm é convertido; outro repositório vai num sh com git",
+                        );
                     }
                 }
                 "cleanWs" | "deleteDir" => self.note(
@@ -673,7 +731,11 @@ impl Converter {
             if let Some(other) = arg.name.as_deref()
                 && !["script", "label"].contains(&other)
             {
-                self.pending(arg.at, format!("sh {other}:"), "o Raven CI não devolve a saída do sh para o pipeline");
+                self.pending(
+                    arg.at,
+                    format!("sh {other}:"),
+                    "o Raven CI não devolve a saída do sh para o pipeline",
+                );
                 return None;
             }
         }
@@ -727,7 +789,12 @@ impl Converter {
                 None => paths = arg.value.text(),
                 Some(name) if name == key => paths = arg.value.text(),
                 Some(name) if ignored.contains(&name) => {
-                    self.note(NoteKind::Ignored, arg.at, format!("{}: {name}", stmt.name), "o Raven CI não tem essa opção");
+                    self.note(
+                        NoteKind::Ignored,
+                        arg.at,
+                        format!("{}: {name}", stmt.name),
+                        "o Raven CI não tem essa opção",
+                    );
                 }
                 Some(name) => {
                     self.pending(arg.at, format!("{} {name}:", stmt.name), "o Raven CI não tem essa opção");
@@ -736,7 +803,9 @@ impl Converter {
             }
         }
         match paths {
-            Some(paths) => Some(paths.split(',').map(|p| p.trim().to_owned()).filter(|p| !p.is_empty()).collect()),
+            Some(paths) => {
+                Some(paths.split(',').map(|p| p.trim().to_owned()).filter(|p| !p.is_empty()).collect())
+            }
             None => {
                 self.pending(stmt.at, stmt.name.clone(), "os caminhos têm que ser um texto");
                 None
@@ -766,8 +835,8 @@ fn with_dir(around: &Around, script: &str) -> String {
 
 /// `text` for the shell: as it is when it is safe, between single quotes otherwise.
 fn quoted(text: &str) -> String {
-    let safe = !text.is_empty()
-        && text.chars().all(|c| c.is_ascii_alphanumeric() || "-_./=:,+@%".contains(c));
+    let safe =
+        !text.is_empty() && text.chars().all(|c| c.is_ascii_alphanumeric() || "-_./=:,+@%".contains(c));
     if safe { text.to_owned() } else { format!("'{}'", text.replace('\'', "'\\''")) }
 }
 
@@ -775,7 +844,9 @@ fn quoted(text: &str) -> String {
 fn shown(stmt: &Stmt) -> String {
     let first = stmt.args.first().map(|arg| {
         let value = match &arg.value {
-            Value::Str(text) => text.plain().map_or_else(|| "\"…\"".to_owned(), |t| format!("'{}'", short(&t))),
+            Value::Str(text) => {
+                text.plain().map_or_else(|| "\"…\"".to_owned(), |t| format!("'{}'", short(&t)))
+            }
             Value::Number(n) => n.clone(),
             Value::Bool(b) => b.to_string(),
             Value::Path(p) => p.clone(),
@@ -872,7 +943,9 @@ fn steps_toml(steps: &[Step], indent: &str) -> String {
 
 fn container_toml(container: &Container) -> String {
     match &container.args {
-        Some(args) => format!("{{ image = {}, args = {} }}", toml_string(&container.image), toml_string(args)),
+        Some(args) => {
+            format!("{{ image = {}, args = {} }}", toml_string(&container.image), toml_string(args))
+        }
         None => format!("{{ image = {} }}", toml_string(&container.image)),
     }
 }
@@ -975,7 +1048,12 @@ impl Out {
             } else {
                 out.push_str("parallel = [\n");
                 for (name, steps) in &stage.parallel {
-                    let _ = writeln!(out, "  {{ name = {}, steps = {} }},", toml_string(name), steps_toml(steps, "  "));
+                    let _ = writeln!(
+                        out,
+                        "  {{ name = {}, steps = {} }},",
+                        toml_string(name),
+                        steps_toml(steps, "  ")
+                    );
                 }
                 out.push_str("]\n");
             }

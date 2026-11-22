@@ -6,7 +6,9 @@ use std::sync::Arc;
 
 use raven_ci_core::{Ci, JobSpec, PluginState};
 use raven_ci_plugin_api::{BuildRequest, BuildStatus, CliCommand, PipelineFormat, STAGE_KEY};
-use raven_ci_plugin_format_jenkinsfile::{ConvertCommand, JenkinsfileFormat, JenkinsfilePlugin, NoteKind, convert};
+use raven_ci_plugin_format_jenkinsfile::{
+    ConvertCommand, JenkinsfileFormat, JenkinsfilePlugin, NoteKind, convert,
+};
 use raven_ci_plugin_format_toml::{TomlFormat, TomlFormatPlugin};
 use raven_ci_plugin_shell::ShellPlugin;
 
@@ -115,16 +117,20 @@ fn a_declarative_pipeline_becomes_a_toml_that_format_toml_reads_with_the_same_st
 
     let ignored: Vec<&str> =
         conversion.notes.iter().filter(|n| n.kind == NoteKind::Ignored).map(|n| n.what.as_str()).collect();
-    assert_eq!(ignored, ["timestamps()", "cron('H 2 * * *')", "checkout scm", "archiveArtifacts: fingerprint"]);
+    assert_eq!(
+        ignored,
+        ["timestamps()", "cron('H 2 * * *')", "checkout scm", "archiveArtifacts: fingerprint"]
+    );
     assert!(conversion.toml.contains("ponha cron = \"H 2 * * *\" no job"), "{}", conversion.toml);
 }
 
 #[test]
 fn a_stage_outside_the_branch_is_switched_off_as_in_the_hand_written_toml() {
     let pipeline = JenkinsfileFormat.read("site/PR-3", FULL).expect("reads");
-    let publish = pipeline.flow.nodes.iter().find(|n| {
-        n.parameters.get(STAGE_KEY).and_then(|v| v.as_str()) == Some("Publica") && n.kind == "sh"
-    });
+    let publish =
+        pipeline.flow.nodes.iter().find(|n| {
+            n.parameters.get(STAGE_KEY).and_then(|v| v.as_str()) == Some("Publica") && n.kind == "sh"
+        });
     assert!(publish.expect("the step").disabled);
 }
 
@@ -139,9 +145,13 @@ fn ci() -> Ci {
 
 fn run(ci: &Ci, job: &str, format: &str, text: &str) -> (BuildStatus, Vec<String>) {
     ci.save_job(JobSpec::new(job, format, text).every_request()).expect("saved");
-    let number = ci.request_build(BuildRequest::new(job, "teste").parameter("NOME", "Ana".into())).expect("asked").number;
+    let number = ci
+        .request_build(BuildRequest::new(job, "teste").parameter("NOME", "Ana".into()))
+        .expect("asked")
+        .number;
     ci.work_until_idle("e1").expect("runs");
-    let log = ci.build_log(job, number, 0).expect("log").into_iter().map(|l| l.text.trim().to_owned()).collect();
+    let log =
+        ci.build_log(job, number, 0).expect("log").into_iter().map(|l| l.text.trim().to_owned()).collect();
     (ci.build(job, number).expect("build").status, log)
 }
 
@@ -220,7 +230,12 @@ fn what_it_cannot_convert_is_listed_on_its_line_and_the_rest_is_written() {
     let pending: Vec<(usize, &str)> = conversion.pending().map(|n| (n.line, n.what.as_str())).collect();
     assert_eq!(
         pending,
-        [(12, "script { }"), (16, "${currentBuild.number}"), (19, "stage('Segredo')"), (21, "withCredentials")]
+        [
+            (12, "script { }"),
+            (16, "${currentBuild.number}"),
+            (19, "stage('Segredo')"),
+            (21, "withCredentials")
+        ]
     );
     // The rest is converted, and the notes are comments the TOML still reads.
     let pipeline = TomlFormat.read("x", &conversion.toml).expect(&conversion.toml);
@@ -238,9 +253,9 @@ fn as_a_format_a_part_not_converted_refuses_the_job_on_each_line() {
     assert!(errors[0].message.contains("script"), "{errors:?}");
     // And the core says it when the job is saved or built.
     let ci = ci();
-    let refused = ci.save_job(JobSpec::new("x", "jenkinsfile", PENDING)).and_then(|()| {
-        ci.request_build(BuildRequest::new("x", "teste")).map(|_| ())
-    });
+    let refused = ci
+        .save_job(JobSpec::new("x", "jenkinsfile", PENDING))
+        .and_then(|()| ci.request_build(BuildRequest::new("x", "teste")).map(|_| ()));
     assert!(refused.is_err());
 }
 
@@ -254,7 +269,10 @@ fn a_scripted_pipeline_or_a_file_that_does_not_close_is_said_with_its_line() {
     assert!(open.pending().any(|n| n.line == 5 && n.why.contains("não fecha")), "{:#?}", open.notes);
 
     let nothing = convert("// vazio\n");
-    assert_eq!(nothing.pending().map(|n| n.why.as_str()).collect::<Vec<_>>(), ["não achei o bloco pipeline { }"]);
+    assert_eq!(
+        nothing.pending().map(|n| n.why.as_str()).collect::<Vec<_>>(),
+        ["não achei o bloco pipeline { }"]
+    );
 }
 
 #[test]
@@ -276,7 +294,8 @@ pipeline {
 "#;
     let conversion = convert(text);
     assert!(conversion.complete(), "{:#?}", conversion.notes);
-    let ignored: Vec<(&str, &str)> = conversion.notes.iter().map(|n| (n.what.as_str(), n.why.as_str())).collect();
+    let ignored: Vec<(&str, &str)> =
+        conversion.notes.iter().map(|n| (n.what.as_str(), n.why.as_str())).collect();
     assert_eq!(
         ignored,
         [
