@@ -57,6 +57,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- 50 more types of `ravenrs-widgets-base` are in the testability contract of the RTS (#737, third lot): the segments of a `SegmentedControl` and the items of a `ToggleGroup` are `option:<label>`, the pages of a `Pagination` are `page:<n>`, and the display and layout components are found by the test id the app gives them, which a test of RavenComponentBook checks on every story of every component the contract lists as keeping it. `Canvas`, `Icon`, `Skeleton`, `AspectRatio` and `CablePlug` have nothing to find, and the contract says why.
+
 - The overlays of `ravenrs-widgets-base` keep the testability contract of the RTS (#737, second lot): `Dialog`, `Sheet`, `CommandPalette`, the menus and the toasts close with `Dismiss`; `DropdownMenu`, `ContextMenu` and the titles of a `Menubar` (`menu:<title>`) open with `ShowMenu`, `Expand` and `Collapse`, and a `Popover` with `Expand` and `Collapse`; menu items are `item:<label>`, commands `option:<label>`, toasts `toast:<id>`, and the close buttons `close`. `BuildCx::on_access` called again on a node adds to what it takes.
 - `ravenrs-schedule`, the scheduling engine of the report server, made to be shared with the app framework, Raven Flows and Raven CI, with no runtime of its own: the `cron` schedules move to it unchanged, and it adds `Trigger::cron` (in a time zone) and `Trigger::every`, `check` (one pass: seed, wait, run or record a miss, and the next run to store first), `Misfire::Within` and `Misfire::Always` (however many were missed, at most one runs) and `Running`, the guard that keeps one job from running twice. `ravenrs-report-server` uses it, and `ravenrs_report_server::cron` stays as a re-export (#804).
 
@@ -227,6 +229,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `create-ravenrs`: a guide for machines with little memory (LLD, two jobs, no debug info), and `npm run test:e2e:linux` takes `--memory`, `--jobs`, `--logs` and `--case`, building `hello`, `app-sqlite` and `relatorios` in a container of 4 GB. ([#220](https://github.com/alexkads/RavenRS/issues/220))
 
 ### Fixed
+
+- `YearView` no longer overflows on a day before 1970 (a debug build panicked).
 
 - `ravenrs-e2e`: actions scroll a target out of sight into view first, also inside nested scroll views and when it is inside the window but hidden by a short scroll view (#732). `Ui::scroll_frames` lists the parts that scroll around a node.
 
