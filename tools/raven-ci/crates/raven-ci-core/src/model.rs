@@ -519,7 +519,7 @@ pub(crate) fn attachments(conn: &Connection, job: &str, number: u64) -> Result<V
     rows.collect::<Result<_, _>>().map_err(db)
 }
 
-fn attachment_info(row: &Row<'_>) -> rusqlite::Result<AttachmentInfo> {
+fn attachment_info_of(row: &Row<'_>) -> rusqlite::Result<AttachmentInfo> {
     let summary: String = row.get(7)?;
     Ok(AttachmentInfo {
         id: row.get(0)?,
@@ -547,15 +547,14 @@ pub(crate) fn attachment_infos(
         "{ATTACHMENT_INFO} WHERE job = ?1 AND kind = ?2 AND (?3 IS NULL OR number = ?3) ORDER BY number DESC, id"
     );
     let mut stmt = conn.prepare(&sql).map_err(db)?;
-    let rows = stmt.query_map(params![job, kind, number.map(|n| n as i64)], attachment_info).map_err(db)?;
+    let rows =
+        stmt.query_map(params![job, kind, number.map(|n| n as i64)], attachment_info_of).map_err(db)?;
     rows.collect::<Result<_, _>>().map_err(db)
 }
 
-/// The attachment `id`, and where its bytes are.
-pub(crate) fn attachment_with_blob(conn: &Connection, id: i64) -> Result<(AttachmentInfo, String), CiError> {
-    let sql =
-        "SELECT id, job, number, kind, name, mime, size, summary, blob FROM ci_attachments WHERE id = ?1";
-    conn.query_row(sql, params![id], |row| Ok((attachment_info(row)?, row.get(8)?)))
+/// The attachment `id`, all but its bytes.
+pub(crate) fn attachment_info(conn: &Connection, id: i64) -> Result<AttachmentInfo, CiError> {
+    conn.query_row(&format!("{ATTACHMENT_INFO} WHERE id = ?1"), params![id], attachment_info_of)
         .optional()
         .map_err(db)?
         .ok_or_else(|| CiError::unavailable(format!("não há o anexo {id}")))

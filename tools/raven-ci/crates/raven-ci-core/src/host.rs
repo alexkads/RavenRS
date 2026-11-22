@@ -3,14 +3,26 @@
 use std::collections::{BTreeMap, BTreeSet, VecDeque};
 use std::fmt;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex, MutexGuard};
+use std::sync::{Arc, Mutex, MutexGuard, OnceLock, Weak};
 
 use raven_ci_plugin_api::{AttachmentInfo, CiError, Host, Migration, Permission};
-use ravenrs_flows::BinaryRef;
 use rusqlite::{Connection, params};
 use serde_json::Value;
 
 use crate::store::Store;
+
+/// What a host reads the attachments of builds from: the core ([`Ci`](crate::Ci)), with the
+/// methods it already has, so the hosts never repeat its queries nor reach its blobs.
+pub(crate) trait Attachments: Send + Sync {
+    /// What the builds of `job` left of `kind`: of build `number`, or of every build.
+    fn of_job(&self, job: &str, number: Option<u64>, kind: &str) -> Result<Vec<AttachmentInfo>, CiError>;
+
+    /// The attachment `id`, with its bytes.
+    fn one(&self, id: i64) -> Result<(AttachmentInfo, Vec<u8>), CiError>;
+}
+
+/// The core, lent to the hosts once it is shared; weak, since the core holds the hosts.
+pub(crate) type Lent = Arc<OnceLock<Weak<dyn Attachments>>>;
 
 /// Where the secrets plugins ask for come from: the vault, once the plugin of credentials is in.
 pub trait Secrets: Send + Sync {
@@ -101,6 +113,7 @@ pub(crate) struct PluginHost {
     store: Arc<Store>,
     secrets: Arc<dyn Secrets>,
     log: Arc<ServerLog>,
+    attachments: Lent,
 }
 
 impl fmt::Debug for PluginHost {
@@ -121,8 +134,16 @@ impl PluginHost {
         store: Arc<Store>,
         secrets: Arc<dyn Secrets>,
         log: Arc<ServerLog>,
+        attachments: Lent,
     ) -> Self {
-        Self { plugin: plugin.to_owned(), granted, settings, dir, store, secrets, log }
+        Self { plugin: plugin.to_owned(), granted, settings, dir, store, secrets, log, attachments }
+    }
+
+    /// The core, while it lends its attachments.
+    fn lent(&self) -> Result<Arc<dyn Attachments>, CiError> {
+        self.attachments.get().and_then(Weak::upgrade).ok_or_else(|| {
+            CiError::unavailable("o núcleo não deu os anexos aos plugins (Ci::share_attachments)")
+        })
     }
 
     /// Applies the migrations not applied yet to the plugin's own database, each once, in order.
@@ -221,16 +242,10 @@ impl Host for PluginHost {
         number: Option<u64>,
         kind: &str,
     ) -> Result<Vec<AttachmentInfo>, CiError> {
-        crate::model::attachment_infos(&self.store.db(), job, number, kind)
+        self.lent()?.of_job(job, number, kind)
     }
 
     fn attachment(&self, id: i64) -> Result<(AttachmentInfo, Vec<u8>), CiError> {
-        let (info, location) = crate::model::attachment_with_blob(&self.store.db(), id)?;
-        let blob = BinaryRef { mime: info.mime.clone(), size: info.size, location };
-        let bytes = self
-            .store
-            .blob(&blob)?
-            .ok_or_else(|| CiError::unavailable(format!("os bytes do anexo {id} já foram apagados")))?;
-        Ok((info, bytes))
+        self.lent()?.one(id)
     }
 }

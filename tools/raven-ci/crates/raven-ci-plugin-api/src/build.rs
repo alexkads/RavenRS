@@ -156,9 +156,17 @@ impl BuildScope {
         scopes().lock().unwrap_or_else(PoisonError::into_inner).get(run).cloned()
     }
 
-    /// The scope of the build `number` of `job`, while it runs: what a point called outside a step
-    /// but during the build (a [`Publisher`](crate::Publisher), which gets only the
-    /// [`BuildInfo`](crate::BuildInfo)) uses to write to the build's log.
+    /// The scope of the build `number` of `job`, while it runs.
+    ///
+    /// **Its role.** A step finds its scope by the run of its node ([`of`](Self::of)); the points
+    /// the core calls during the build with no node and no id of the run (a
+    /// [`Publisher`](crate::Publisher), a [`BuildHook`](crate::BuildHook), a
+    /// [`Notifier`](crate::Notifier), which get the job and the number) find it by those, to write to
+    /// the log of the build (a pattern that found nothing, a report that could not be read).
+    ///
+    /// **How it works.** It looks among the scopes entered and not yet dropped. Outside the build
+    /// (before it starts, after its guard is dropped, in a test with no build) it is `None`, and
+    /// the plugin writes to the server's log with [`Host::log`](crate::Host::log) instead.
     pub fn of_build(job: &str, number: u64) -> Option<Arc<Self>> {
         scopes()
             .lock()
@@ -268,5 +276,26 @@ mod tests {
         assert!(BuildScope::find("run-scope-test").is_none());
         assert_eq!(*undone.lock().expect("lock"), ["contêiner", "trava"], "the last asked runs first");
         assert!(log.texts().contains(&"no fim do build: soltar trava".to_owned()));
+    }
+
+    #[test]
+    fn a_scope_is_found_by_its_job_and_number_while_its_guard_is_held() {
+        let log = Arc::new(MemoryLog::new());
+        let context = BuildContext {
+            job: "apps/publica".into(),
+            number: 7,
+            workspace: PathBuf::from("/tmp/x"),
+            run: "run-of-build-test".into(),
+        };
+        assert!(BuildScope::of_build("apps/publica", 7).is_none(), "before the build");
+        let guard = enter(BuildScope::new(context, log.clone(), BTreeMap::new()));
+        let scope = BuildScope::of_build("apps/publica", 7).expect("entered");
+        scope.log("artifacts", "dist/*.zip: nada achado");
+        assert_eq!(log.texts(), ["dist/*.zip: nada achado"]);
+        assert!(BuildScope::of_build("apps/publica", 8).is_none(), "another number");
+        assert!(BuildScope::of_build("apps/outra", 7).is_none(), "another job");
+        drop(scope);
+        drop(guard);
+        assert!(BuildScope::of_build("apps/publica", 7).is_none(), "after the build");
     }
 }

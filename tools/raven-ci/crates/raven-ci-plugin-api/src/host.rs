@@ -56,10 +56,17 @@ pub trait Host: Send + Sync {
     /// Writes a line to the server's log, with the plugin's name.
     fn log(&self, line: &str);
 
-    /// What the builds of `job` left of `kind` (`artifact`, `junit`): of the build `number`, or of
-    /// every build of the job kept when `None`, the newest build first and, in a build, in the
-    /// order they were kept. What a route that downloads artifacts or shows the trend of tests
-    /// reads. A host that keeps no builds answers [`CiError::Unavailable`], as this default does.
+    /// What the builds of `job` left of `kind` (`artifact`, `junit`), without the bytes.
+    ///
+    /// **Its role.** What a [`Publisher`](crate::Publisher) returned is kept by the core, not by
+    /// the plugin; a route that lists artifacts or shows the trend of the tests of a job reads it
+    /// back here.
+    ///
+    /// **How it works.** Of the build `number`, or of every build of the job still kept when
+    /// `None`, the newest build first and, in a build, in the order they were kept. Asks no
+    /// permission: it reads only what builds left, and the route that calls it is behind the
+    /// sign-in. A host that keeps no builds answers [`CiError::Unavailable`], as this default
+    /// does.
     fn attachments(
         &self,
         job: &str,
@@ -70,8 +77,14 @@ pub trait Host: Send + Sync {
         Err(CiError::unavailable("este núcleo não dá os anexos dos builds aos plugins"))
     }
 
-    /// The attachment `id`, with its bytes. [`CiError::Unavailable`] when there is no such
-    /// attachment, its bytes went with the retention, or the host keeps no builds.
+    /// The attachment `id`, with all its bytes in memory.
+    ///
+    /// **Its role and its size.** For attachments the size of a report: a summary of tests, a
+    /// page, a log. The download of a big artifact is the route of the plugin `artifacts`, and
+    /// these bytes are read once from the blob the core keeps them in, with no second copy.
+    ///
+    /// **How it works.** [`CiError::Unavailable`] when there is no such attachment, its bytes went
+    /// with the retention, or the host keeps no builds (this default).
     fn attachment(&self, id: i64) -> Result<(AttachmentInfo, Vec<u8>), CiError> {
         let _ = id;
         Err(CiError::unavailable("este núcleo não dá os anexos dos builds aos plugins"))

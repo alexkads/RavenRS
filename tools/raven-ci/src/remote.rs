@@ -281,6 +281,8 @@ fn words(status: &str) -> &str {
         "failed" => "falhou",
         "cancelled" => "cancelado",
         "timed_out" => "passou do prazo",
+        // The agent of the build went away (#803, phase 3): it ended, neither failed nor cancelled.
+        "interrupted" => "interrompido",
         other => other,
     }
 }

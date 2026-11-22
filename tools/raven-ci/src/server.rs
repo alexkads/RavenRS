@@ -67,6 +67,8 @@ pub fn serve(ci: Ci, data: &Path, args: &[&str], out: &mut dyn Write) -> Result<
         None => 1,
     };
     let ci = Arc::new(ci);
+    // The routes of the plugins read what the builds left through the core.
+    ci.share_attachments();
     for problem in ci.watch_triggers() {
         writeln!(out, "aviso: {problem}").map_err(failed)?;
     }

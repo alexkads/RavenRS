@@ -38,7 +38,8 @@ fn reports() -> Reports {
 fn the_reports_of_each_build_are_counted_and_the_job_has_its_trend() {
     let source = reports();
     let plugin = Arc::new(JunitPlugin::new());
-    let ci = Ci::in_memory().expect("a core");
+    let ci = Arc::new(Ci::in_memory().expect("a core"));
+    ci.share_attachments();
     for one in [plugin.clone() as Arc<dyn CiPlugin>, Arc::new(ShellPlugin::new()), Arc::new(TomlFormatPlugin)]
     {
         ci.add_plugin(one);
@@ -99,7 +100,8 @@ fn the_reports_of_each_build_are_counted_and_the_job_has_its_trend() {
 
 #[test]
 fn a_build_with_no_report_says_so() {
-    let ci = Ci::in_memory().expect("a core");
+    let ci = Arc::new(Ci::in_memory().expect("a core"));
+    ci.share_attachments();
     for one in [
         Arc::new(JunitPlugin::new()) as Arc<dyn CiPlugin>,
         Arc::new(ShellPlugin::new()),

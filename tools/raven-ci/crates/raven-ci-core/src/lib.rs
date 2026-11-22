@@ -54,6 +54,9 @@ use raven_ci_plugin_api::{
 };
 use ravenrs_app::EntityInfo;
 use ravenrs_flows::{BinaryRef, Clock, FlowDefinition, SystemClock};
+use std::sync::Weak;
+
+use raven_ci_plugin_api::AttachmentInfo;
 use ravenrs_flows_runtime::{Request, Retention, Revision, Runtime, StoreError};
 use serde::Serialize;
 use serde_json::Value;
@@ -197,15 +200,11 @@ impl Ci {
             None => None,
         };
         let secrets = Arc::new(credentials::Either { vault: credentials.clone(), given: options.secrets });
-        let runtime = Arc::new(runtime);
-        // The hosts of plugins read attachments through the store; the blobs are the queue's.
-        let blobs = runtime.clone();
-        store.read_blobs_with(Arc::new(move |blob| blobs.blob(blob).map_err(runtime_error)));
         let registry = Registry::new(store.clone(), plugins_dir, secrets, log.clone());
         Ok(Self {
             store,
             registry,
-            runtime: RwLock::new(runtime),
+            runtime: RwLock::new(Arc::new(runtime)),
             log,
             requests: Mutex::default(),
             temporary,
@@ -512,6 +511,35 @@ impl Ci {
             .ok_or_else(|| CiError::unavailable(format!("os bytes do anexo {id} já foram apagados")))
     }
 
+    /// What the builds of `job` left of `kind` (`artifact`, `junit`): of the build `number`, or
+    /// of every build of the job kept when `None` (the trend of its tests), the newest build
+    /// first. What [`Host::attachments`](raven_ci_plugin_api::Host::attachments) gives a plugin.
+    pub fn attachments_of(
+        &self,
+        job: &str,
+        number: Option<u64>,
+        kind: &str,
+    ) -> Result<Vec<AttachmentInfo>, CiError> {
+        model::attachment_infos(&self.db(), job, number, kind)
+    }
+
+    /// The attachment `id` with its bytes, read once from the blob of the queue
+    /// ([`attachment_bytes`](Self::attachment_bytes)). What
+    /// [`Host::attachment`](raven_ci_plugin_api::Host::attachment) gives a plugin.
+    pub fn attachment(&self, id: i64) -> Result<(AttachmentInfo, Vec<u8>), CiError> {
+        let info = model::attachment_info(&self.db(), id)?;
+        Ok((info, self.attachment_bytes(id)?))
+    }
+
+    /// Lends this core to the hosts of the plugins, so their routes read what builds left
+    /// ([`Host::attachments`](raven_ci_plugin_api::Host::attachments)). The server does it when it
+    /// starts; a core never shared answers them [`CiError::Unavailable`]. Weak: the core holds the
+    /// hosts.
+    pub fn share_attachments(self: &Arc<Self>) {
+        let lent: Weak<dyn host::Attachments> = Arc::downgrade(self) as Weak<dyn host::Attachments>;
+        self.registry.lend_attachments(lent);
+    }
+
     /// Takes the build due first and runs it, as `worker`, with everything around its steps (its
     /// folder, its code, the post steps, publishers, status and notices: see `lifecycle`); the
     /// job and number, or `None` when nothing was due. Once it ends, the job's retention runs.
@@ -747,5 +775,15 @@ impl Executors {
         for thread in self.threads {
             let _ = thread.join();
         }
+    }
+}
+
+impl host::Attachments for Ci {
+    fn of_job(&self, job: &str, number: Option<u64>, kind: &str) -> Result<Vec<AttachmentInfo>, CiError> {
+        self.attachments_of(job, number, kind)
+    }
+
+    fn one(&self, id: i64) -> Result<(AttachmentInfo, Vec<u8>), CiError> {
+        self.attachment(id)
     }
 }

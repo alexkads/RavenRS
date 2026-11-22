@@ -86,7 +86,8 @@ fn get(plugin: &ArtifactsPlugin, path: &str, query: &[(&str, String)]) -> (u16, 
 #[test]
 fn a_build_keeps_its_files_says_what_found_nothing_and_the_routes_give_them_back() {
     let plugin = Arc::new(ArtifactsPlugin::new());
-    let ci = Ci::in_memory().expect("a core");
+    let ci = Arc::new(Ci::in_memory().expect("a core"));
+    ci.share_attachments();
     for one in [plugin.clone() as Arc<dyn CiPlugin>, Arc::new(ShellPlugin::new()), Arc::new(TomlFormatPlugin)]
     {
         ci.add_plugin(one);
@@ -125,7 +126,8 @@ fn a_build_keeps_its_files_says_what_found_nothing_and_the_routes_give_them_back
 
 #[test]
 fn a_build_whose_patterns_find_nothing_says_so_and_allow_empty_lets_it_be() {
-    let ci = Ci::in_memory().expect("a core");
+    let ci = Arc::new(Ci::in_memory().expect("a core"));
+    ci.share_attachments();
     for one in [
         Arc::new(ArtifactsPlugin::new()) as Arc<dyn CiPlugin>,
         Arc::new(ShellPlugin::new()),

@@ -3,10 +3,10 @@
 
 use std::fmt;
 use std::path::Path;
-use std::sync::{Arc, Mutex, MutexGuard, OnceLock};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 use raven_ci_plugin_api::{CiError, Permission};
-use ravenrs_flows::{BinaryRef, Clock};
+use ravenrs_flows::Clock;
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::Serialize;
 use serde_json::Value;
@@ -61,15 +61,10 @@ pub struct AuditEntry {
     pub granted: bool,
 }
 
-/// What reads the bytes of a blob of the queue: the attachments of builds live there.
-pub(crate) type BlobReader = Arc<dyn Fn(&BinaryRef) -> Result<Option<Vec<u8>>, CiError> + Send + Sync>;
-
 /// The core's SQLite file.
 pub struct Store {
     conn: Mutex<Connection>,
     clock: Arc<dyn Clock>,
-    /// Set by the core once its queue is made, for the hosts of plugins to read attachments.
-    blobs: OnceLock<BlobReader>,
 }
 
 impl fmt::Debug for Store {
@@ -94,25 +89,12 @@ impl Store {
         let _ = conn.query_row("PRAGMA journal_mode = WAL", [], |_| Ok(()));
         conn.execute_batch(SCHEMA).map_err(db)?;
         crate::model::prepare(&conn)?;
-        Ok(Self { conn: Mutex::new(conn), clock, blobs: OnceLock::new() })
+        Ok(Self { conn: Mutex::new(conn), clock })
     }
 
     /// The connection, for the modules of the core.
     pub(crate) fn db(&self) -> MutexGuard<'_, Connection> {
         self.conn.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
-    }
-
-    /// Reads blobs with `reader` from now on; the first one set stays.
-    pub(crate) fn read_blobs_with(&self, reader: BlobReader) {
-        let _ = self.blobs.set(reader);
-    }
-
-    /// The bytes of `blob`, or `None` when they are gone.
-    pub(crate) fn blob(&self, blob: &BinaryRef) -> Result<Option<Vec<u8>>, CiError> {
-        match self.blobs.get() {
-            Some(reader) => reader(blob),
-            None => Err(CiError::unavailable("este núcleo não tem fila para ler os anexos")),
-        }
     }
 
     /// Now, on the core's clock.
