@@ -32,6 +32,8 @@ pub const USAGE: &str = "uso: raven-ci [--dados PASTA] [--plugins PASTA]… [--f
                           baixa os artefatos e o log do build para PASTA
                           (estes cinco falam com --servidor URL ou RAVEN_CI_SERVIDOR,
                           com a chave em RAVEN_CI_TOKEN)
+  servico instalar|remover|estado [--memoria 1G] [--endereco HOST:PORTA] [--executores N] [--sistema]
+                          o servidor como serviço do sistema (systemd, launchd ou Windows)
   <comando> ...           um comando que um plugin ligado traz
   --self-test             confere o núcleo com um plugin falso de cada ponto
   --versao                a versão";
@@ -81,6 +83,12 @@ impl Invocation {
         // The commands that speak to a server open no core on this disk.
         if let Some(said) = crate::remote::run(&self.words, self.json, out) {
             return said;
+        }
+        if let [first, rest @ ..] = self.words.as_slice()
+            && first == "servico"
+        {
+            let rest: Vec<&str> = rest.iter().map(String::as_str).collect();
+            return crate::service::run(&self.data, &rest, self.json, out);
         }
         let ci = Ci::open(&self.data)?;
         for plugin in crate::plugins::builtin() {

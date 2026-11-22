@@ -34,6 +34,7 @@ exit /b %RCV_RESULTADO%
 #   RCV_CASA      where the code and the build go (default: ~/.raven-channel-video)
 #   RCV_DESTINO   where the app goes
 #   RCV_TARGET    the Cargo build folder (default: inside RCV_CASA)
+#   RCV_SERVICO   1 installs it as a service of the system at the end, with `raven-channel-video servico instalar`
 : <<'#==FIM-POWERSHELL=='
 #==POWERSHELL==
 $ErrorActionPreference = "Stop"
@@ -120,6 +121,10 @@ $s.TargetPath = $instalado
 $s.IconLocation = $icone
 $s.Save()
 Write-Host "OK Raven Channel Video $resposta instalado. Abra pelo menu Iniciar." -ForegroundColor Green
+if ($env:RCV_SERVICO -eq "1") {
+    Write-Host "> instalando o servico" -ForegroundColor Cyan
+    Correr { & $instalado servico instalar }
+}
 #==FIM-POWERSHELL==
 {
 set -eu
@@ -279,6 +284,7 @@ PLIST
   LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister
   [ -x "$LSREGISTER" ] && "$LSREGISTER" -f "$DESTINO/$NOME.app" || true
   printf '\nOK %s %s instalado em %s. Abra pelo Launchpad ou com: open -a "%s"\n' "$NOME" "$RESPOSTA" "$DESTINO" "$NOME"
+  SERVICO_BIN="$DESTINO/$NOME.app/Contents/MacOS/raven-channel-video"
 else
   DESTINO="${RCV_DESTINO:-$HOME/.local}"
   mkdir -p "$DESTINO/bin" "$DESTINO/share/applications" "$DESTINO/share/icons/hicolor/256x256/apps"
@@ -305,6 +311,12 @@ DESKTOP
   command -v update-desktop-database >/dev/null 2>&1 \
     && update-desktop-database "$DESTINO/share/applications" >/dev/null 2>&1 || true
   printf '\nOK %s %s instalado em %s.\n' "$NOME" "$RESPOSTA" "$INSTALADO"
+  SERVICO_BIN="$INSTALADO"
+fi
+# With RCV_SERVICO=1 an app that is a server installs itself as a service of the system.
+if [ "${RCV_SERVICO:-}" = 1 ]; then
+  diga "instalando o serviço"
+  "$SERVICO_BIN" servico instalar || { erro "o app foi instalado, mas o serviço não"; exit 1; }
 fi
 # Fim do instalador. Apagar a pasta de compilação é seguro: ela volta na próxima atualização.
 }
