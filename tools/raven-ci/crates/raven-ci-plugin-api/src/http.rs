@@ -32,6 +32,8 @@ pub const ROLE_ADMIN: &str = "Administradores";
 pub const ROLE_RUN: &str = "Executores";
 /// The role of who only reads jobs, builds and logs.
 pub const ROLE_READ: &str = "Leitores";
+/// The role of a build agent's user: it opens the routes of agents and nothing else.
+pub const ROLE_AGENT: &str = "Agentes";
 
 impl HttpRequest {
     /// Whether who sent it may ask for builds: an administrator, or someone with [`ROLE_RUN`].
