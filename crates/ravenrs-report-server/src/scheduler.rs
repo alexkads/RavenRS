@@ -297,7 +297,12 @@ impl Runner {
                     date,
                 );
                 mailer
-                    .send(&Mail { to: to.clone(), subject, body, attachments: rendered.files.clone() })
+                    .send(&Mail {
+                        to: to.clone(),
+                        subject,
+                        body,
+                        attachments: crate::deliver::attachments(&rendered.files),
+                    })
                     .map_err(|e| format!("email to {target}: {e}"))?;
                 Ok(Delivered { kind: "email".to_owned(), target, files, at })
             }
