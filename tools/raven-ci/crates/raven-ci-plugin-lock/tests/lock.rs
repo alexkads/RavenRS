@@ -52,7 +52,11 @@ fn pipeline(script: &str) -> String {
 }
 
 fn texts(ci: &Ci, job: &str, number: u64) -> Vec<(i64, String)> {
-    ci.build_log(job, number, 0).expect("log").into_iter().map(|l| (l.at_ms, l.text.trim().to_owned())).collect()
+    ci.build_log(job, number, 0)
+        .expect("log")
+        .into_iter()
+        .map(|l| (l.at_ms, l.text.trim().to_owned()))
+        .collect()
 }
 
 fn at(log: &[(i64, String)], text: &str) -> i64 {
@@ -73,14 +77,16 @@ fn ended(ci: &Ci, job: &str, number: u64, limit: Duration) -> BuildStatus {
 
 /// The lock file `maquina`, held by this test as a script outside would hold it.
 fn hold(dir: &Path) -> File {
-    let file = OpenOptions::new().read(true).write(true).create(true).truncate(false).open(dir.join("maquina.lock"));
+    let file =
+        OpenOptions::new().read(true).write(true).create(true).truncate(false).open(dir.join("maquina.lock"));
     let file = file.expect("the file");
     file.lock().expect("held");
     file
 }
 
 fn free(dir: &Path) -> bool {
-    let file = OpenOptions::new().read(true).write(true).create(true).truncate(false).open(dir.join("maquina.lock"));
+    let file =
+        OpenOptions::new().read(true).write(true).create(true).truncate(false).open(dir.join("maquina.lock"));
     file.expect("the file").try_lock().is_ok()
 }
 

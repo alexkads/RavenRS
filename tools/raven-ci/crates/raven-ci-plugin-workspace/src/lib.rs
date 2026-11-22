@@ -118,7 +118,9 @@ impl Room {
         settings
             .get("min_free_gb")
             .and_then(Value::as_f64)
-            .or_else(|| self.host().and_then(|host| host.settings().get("min_free_gb").and_then(Value::as_f64)))
+            .or_else(|| {
+                self.host().and_then(|host| host.settings().get("min_free_gb").and_then(Value::as_f64))
+            })
             .unwrap_or(DEFAULT_MIN_FREE_GB)
     }
 }

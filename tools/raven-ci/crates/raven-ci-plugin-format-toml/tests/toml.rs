@@ -68,7 +68,11 @@ steps = ["cargo test"]
         .collect();
     assert_eq!(
         steps,
-        [("cargo build", "Build", "shell"), ("cargo doc", "Build", "shell"), ("cargo test", "Teste", "shell")]
+        [
+            ("cargo build", "Build", "shell"),
+            ("cargo doc", "Build", "shell"),
+            ("cargo test", "Teste", "shell")
+        ]
     );
     let doc = pipeline.flow.nodes.iter().find(|n| n.id == "e1-2").expect("the second step");
     assert_eq!(doc.title.as_deref(), Some("Documentação"));
@@ -318,4 +322,3 @@ fn retry_tries_a_step_again_until_it_passes() {
     assert_eq!(status, BuildStatus::Succeeded, "{log:#?}");
     assert!(log.contains(&"primeira".to_owned()) && log.contains(&"segunda".to_owned()), "{log:#?}");
 }
-

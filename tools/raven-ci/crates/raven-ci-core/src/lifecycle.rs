@@ -312,7 +312,13 @@ impl Ci {
     }
 
     /// Tells each hook of the plugins on how the build ended.
-    fn hooks_after(&self, settings: &Value, context: &BuildContext, status: BuildStatus, logger: &BuildLogger) {
+    fn hooks_after(
+        &self,
+        settings: &Value,
+        context: &BuildContext,
+        status: BuildStatus,
+        logger: &BuildLogger,
+    ) {
         for hook in self.registry.on().iter().flat_map(|plugin| plugin.build_hooks()) {
             let own = settings.get(hook.id()).cloned().unwrap_or(Value::Null);
             if let Err(e) = hook.after(context, status, &own) {

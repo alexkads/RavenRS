@@ -79,7 +79,11 @@ impl State {
 
     /// Lets go of the lock `name` of the run `run`; whether it was held.
     fn release(&self, run: &str, name: &str) -> bool {
-        self.held.lock().unwrap_or_else(PoisonError::into_inner).remove(&(run.to_owned(), name.to_owned())).is_some()
+        self.held
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .remove(&(run.to_owned(), name.to_owned()))
+            .is_some()
     }
 }
 
@@ -117,7 +121,8 @@ impl CiPlugin for LockPlugin {
             Some(dir) if !dir.is_empty() => PathBuf::from(dir),
             _ => host.data_dir()?.join("travas"),
         };
-        std::fs::create_dir_all(&dir).map_err(|e| CiError::failed(format!("a pasta das travas {}: {e}", dir.display())))?;
+        std::fs::create_dir_all(&dir)
+            .map_err(|e| CiError::failed(format!("a pasta das travas {}: {e}", dir.display())))?;
         *self.state.dir.lock().unwrap_or_else(PoisonError::into_inner) = Some(dir);
         Ok(())
     }
@@ -142,7 +147,9 @@ fn name_of(cx: &NodeContext<'_>) -> Result<String, NodeError> {
     if fine {
         Ok(name.to_owned())
     } else {
-        Err(NodeError::new(format!("{name:?} não serve de nome de trava: use letras, números, '-', '_' e '.'")))
+        Err(NodeError::new(format!(
+            "{name:?} não serve de nome de trava: use letras, números, '-', '_' e '.'"
+        )))
     }
 }
 

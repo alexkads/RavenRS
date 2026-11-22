@@ -145,7 +145,9 @@ fn setup() -> Setup {
     let reporter = Fake::new(Point::StatusReporter);
     let notifier = Fake::new(Point::Notifier);
     let (statuses, events) = (reporter.probe(), notifier.probe());
-    for fake in [Fake::new(Point::Scm), Fake::new(Point::Publisher), Fake::new(Point::BuildHook), reporter, notifier] {
+    for fake in
+        [Fake::new(Point::Scm), Fake::new(Point::Publisher), Fake::new(Point::BuildHook), reporter, notifier]
+    {
         ci.add_plugin(Arc::new(fake));
     }
     ci.apply_plugins().expect("on");

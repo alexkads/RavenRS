@@ -28,10 +28,10 @@ use serde_json::{Value, json};
 
 use crate::{
     AgentLauncher, Attachment, BranchSource, BuildContext, BuildEvent, BuildHook, BuildInfo, BuildRequest,
-    BuildStatus, Builds, Checkout,
-    CheckoutRequest, CiError, CiPlugin, CliCommand, CommitStatus, CredentialKind, FormatError, Head,
-    HeadKind, Host, HttpResponse, LaunchRequest, LaunchedAgent, Migration, Notifier, Permission, Pipeline,
-    PipelineFormat, Point, Publisher, Route, STAGE_KEY, Scm, StatusReporter, Trigger,
+    BuildStatus, Builds, Checkout, CheckoutRequest, CiError, CiPlugin, CliCommand, CommitStatus,
+    CredentialKind, FormatError, Head, HeadKind, Host, HttpResponse, LaunchRequest, LaunchedAgent, Migration,
+    Notifier, Permission, Pipeline, PipelineFormat, Point, Publisher, Route, STAGE_KEY, Scm, StatusReporter,
+    Trigger,
 };
 
 /// The kind of step the fake of [`Point::Step`] brings.

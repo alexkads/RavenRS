@@ -34,7 +34,8 @@ fn build(ci: &Ci, job: &str, settings: Value) -> (BuildStatus, Option<String>, V
 #[test]
 fn a_build_that_asks_more_room_than_the_disk_has_is_refused_before_any_step() {
     let ci = ci();
-    let (status, reason, log) = build(&ci, "grande", json!({ "workspace": { "min_free_gb": 1_000_000_000 } }));
+    let (status, reason, log) =
+        build(&ci, "grande", json!({ "workspace": { "min_free_gb": 1_000_000_000 } }));
     assert_eq!(status, BuildStatus::Failed);
     let reason = reason.unwrap_or_default();
     assert!(reason.contains("GB livres, menos que os 1000000000 GB pedidos"), "{reason}");
@@ -66,5 +67,9 @@ fn a_kept_folder_says_its_size_in_the_log_of_the_server() {
     let ci = ci();
     let (status, _, _) = build(&ci, "fica", json!({ "workspace": { "keep": true, "min_free_gb": 0 } }));
     assert_eq!(status, BuildStatus::Succeeded);
-    assert!(ci.log().lines().iter().any(|l| l.contains("fica #1 (passou) deixou a pasta")), "{:?}", ci.log().lines());
+    assert!(
+        ci.log().lines().iter().any(|l| l.contains("fica #1 (passou) deixou a pasta")),
+        "{:?}",
+        ci.log().lines()
+    );
 }

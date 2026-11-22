@@ -5,6 +5,7 @@ use std::sync::Arc;
 
 use raven_ci_plugin_api::CiPlugin;
 use raven_ci_plugin_format_toml::TomlFormatPlugin;
+use raven_ci_plugin_git::GitPlugin;
 use raven_ci_plugin_lock::LockPlugin;
 use raven_ci_plugin_shell::ShellPlugin;
 use raven_ci_plugin_workspace::WorkspacePlugin;
@@ -14,6 +15,7 @@ pub fn builtin() -> Vec<Arc<dyn CiPlugin>> {
     vec![
         Arc::new(TomlFormatPlugin),
         Arc::new(ShellPlugin::new()),
+        Arc::new(GitPlugin::new()),
         Arc::new(LockPlugin::new()),
         Arc::new(WorkspacePlugin::new()),
     ]

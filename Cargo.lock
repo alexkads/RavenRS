@@ -6009,6 +6009,8 @@ dependencies = [
  "raven-ci-core",
  "raven-ci-plugin-api",
  "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-git",
+ "raven-ci-plugin-lock",
  "raven-ci-plugin-shell",
  "raven-ci-plugin-workspace",
  "ravenrs-app-update",
@@ -6056,6 +6058,19 @@ dependencies = [
  "ravenrs-flows",
  "serde_json",
  "toml",
+]
+
+[[package]]
+name = "raven-ci-plugin-git"
+version = "0.1.0"
+dependencies = [
+ "raven-ci-core",
+ "raven-ci-plugin-api",
+ "raven-ci-plugin-format-toml",
+ "raven-ci-plugin-shell",
+ "ravenrs-app",
+ "ravenrs-git",
+ "serde_json",
 ]
 
 [[package]]

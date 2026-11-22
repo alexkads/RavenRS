@@ -8,8 +8,8 @@ use ravenrs_flows::Catalog;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    AgentLauncher, BranchSource, BuildHook, CiError, CliCommand, CredentialKind, Host, Notifier, PipelineFormat,
-    Publisher, Route, Scm, StatusReporter, Trigger,
+    AgentLauncher, BranchSource, BuildHook, CiError, CliCommand, CredentialKind, Host, Notifier,
+    PipelineFormat, Publisher, Route, Scm, StatusReporter, Trigger,
 };
 
 /// A change to a plugin's own database, applied once, in the order given, before the plugin
