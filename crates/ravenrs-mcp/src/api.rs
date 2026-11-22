@@ -113,9 +113,15 @@ impl Index {
         index
     }
 
-    /// Every public item with this name, in any crate. Case does not matter.
+    /// Every public item with this name, in any crate. Case does not matter. The crates a program
+    /// is made of come before the tools that test it (`ravenrs-e2e*`, `*-testkit`), so `State` is
+    /// the one of `ravenrs-reactive` before the one of the end-to-end wire; otherwise in the order
+    /// of the index.
     pub fn find(&self, name: &str) -> Vec<&Item> {
-        self.items.iter().filter(|item| item.name.eq_ignore_ascii_case(name)).collect()
+        let mut found: Vec<&Item> =
+            self.items.iter().filter(|item| item.name.eq_ignore_ascii_case(name)).collect();
+        found.sort_by_key(|item| testing_tool(&item.krate));
+        found
     }
 
     /// Public items of any crate whose name or docs have every word of `query`, best first: the
@@ -558,6 +564,11 @@ fn edit_distance(a: &str, b: &str) -> usize {
         }
     }
     row[b.len()]
+}
+
+/// Whether `krate` is a tool that tests programs, not a part they are made of.
+fn testing_tool(krate: &str) -> bool {
+    krate.starts_with("ravenrs-e2e") || krate.ends_with("-testkit")
 }
 
 #[cfg(test)]
