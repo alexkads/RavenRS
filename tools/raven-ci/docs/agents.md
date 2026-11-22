@@ -45,7 +45,20 @@ The agent connects out: nothing is open where it runs. It speaks HTTP to the rou
 | `POST fim` | post steps, publishers and hooks are done: status, notices, retention |
 | `POST segredo` | a secret, only while it runs a build; every read goes to the audit |
 
-`GET /api/ci/agents` lists the agents for anyone signed in.
+`GET /api/ci/agents` lists the agents for anyone signed in, and the topic `agentes` of the live
+channel tells how each one is as it changes: events `agent` with `{name, state, labels, busy}`,
+`state` being `conectado`, `sumido` or `removido`.
+
+### What a launcher gives the agent
+
+The contract is `raven_ci_plugin_api::AgentArgs`, the same for every launcher (local, SSH,
+container, pod): the words `--servidor URL --nome NOME --rotulos a,b --executores N --pasta DIR`
+(`AgentArgs::to_args`) and the token used once in `RAVEN_CI_AGENT_TOKEN` (`AgentArgs::env`), never
+on a command line. A person starting an agent by hand may say `--token T`; `agent-remote` says
+`--token -`, and the agent reads it from its input. The agent's own words (its limits) come after
+those of the contract. The token is needed only the first time: an agent that keeps its key comes
+back with it. It connects by itself, and never leaves by itself: the server calls
+`LaunchedAgent::stop`.
 
 ## How a job picks its agent
 
@@ -75,8 +88,9 @@ raven-ci agentes modelos
    name. A launcher gets one in `LaunchRequest::token`; for an agent installed by hand,
    `raven-ci agentes token linux-1 --rotulos linux` prints one.
 2. `POST entrar` spends it, whatever comes of the try, and makes the agent a key of
-   `ravenrs-app-server` for the user `agente:linux-1`, whose only role, `ci-agente`, opens the
-   routes of agents and nothing else (not the credentials, not the jobs to change).
+   `ravenrs-app-server` for the user `agente:linux-1`, whose only role, `Agentes`
+   (`raven_ci_plugin_api::ROLE_AGENT`), opens the routes of agents and nothing else (not the
+   credentials, not the jobs to change).
 3. The agent keeps the key in the file `chave` of its folder, readable only by its owner, and comes
    back with it after it falls. `raven-ci agentes remover linux-1` revokes it.
 
@@ -106,11 +120,13 @@ takes them.
   it the builds it held, with the checkpoint of the queue. It resumes each one with `Lease::run`:
   the steps that ended do not run again, and the step that was running is asked
   (`NodeKind::reconcile`) whether its call happened. A command (`sh`) says it did not, and runs
-  again; the folder kept what it wrote. The note beside the folder (`<number>.estado`) says the code
+  again **from its start**, in the folder that kept what it wrote: a script has to bear running
+  twice, as a stage that Jenkins resumes does. The note beside the folder (`<number>.estado`) says the code
   was fetched, so it is not fetched again. Lines the dead process had not sent are lost, and the
   log says the build was resumed.
-- **It did not come back.** Past the grace time the server ends the build as interrupted, with the
-  status of its commit and the notices, and writes in the log which agent went quiet and how long
+- **It did not come back.** Past the grace time the server ends the build as interrupted
+  (`BuildStatus::Interrupted`, not cancelled: no one cancelled it, and no step failed), with the
+  status `error` on its commit and the notices, and writes in the log which agent went quiet and how long
   ago. When the agent comes back later, its hello is answered with the build to forget: it stops
   what it runs of it and removes the folder.
 

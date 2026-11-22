@@ -57,8 +57,8 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 
 use raven_ci_plugin_api::{
-    AgentLauncher, Attachment, BuildStatus, CiError, LaunchRequest, LaunchedAgent, PLUGIN_KEY, Permission,
-    Use,
+    AgentArgs, AgentLauncher, Attachment, BuildStatus, CiError, LaunchRequest, LaunchedAgent, PLUGIN_KEY,
+    Permission, Use,
 };
 use ravenrs_app::UserDirectory;
 use ravenrs_app_server::{ApiRequest, ApiResponse, Caller, LiveChannels};
@@ -74,8 +74,7 @@ use crate::lifecycle::{BuildLogger, BuildOrder, Extras};
 use crate::model::{self, BuildRow};
 use crate::{Ci, runtime_error};
 
-/// The role of an agent's user: it opens the routes of agents and nothing else.
-pub const ROLE_AGENT: &str = "ci-agente";
+pub use raven_ci_plugin_api::ROLE_AGENT;
 
 /// How long a token used once lasts.
 pub const TOKEN_MS: i64 = 10 * 60 * 1000;
@@ -105,6 +104,11 @@ pub fn build_label(job: &str, number: u64) -> String {
 pub fn worker_of(name: &str) -> String {
     format!("{WORKER_PREFIX}{name}")
 }
+
+/// The topic of the live channel where the server tells how its agents are: events `agent`, with
+/// `{name, state, labels, busy}`, `state` being `conectado`, `sumido` or `removido`. What the
+/// screen of agents listens to.
+pub const AGENTS_TOPIC: &str = "agentes";
 
 /// The topic of the live channel that rings the agent `name`.
 pub fn topic_of(name: &str) -> String {
@@ -351,6 +355,8 @@ struct Seen {
     hello: Hello,
     /// The runs given to it in its session.
     assigned: BTreeSet<String>,
+    /// What the topic of agents was last told of it: its state and how many builds it ran.
+    told: (String, usize),
 }
 
 struct Launched {
@@ -408,6 +414,18 @@ impl Agents {
         self.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
+    /// Tells whoever listens to the topic [`AGENTS_TOPIC`] how the agent `name` is now.
+    fn tell(&self, name: &str, state: &str, labels: &[String], busy: usize) {
+        if let Some(live) = self.live.lock().unwrap_or_else(PoisonError::into_inner).as_ref() {
+            live.open(AGENTS_TOPIC);
+            live.publish(
+                AGENTS_TOPIC,
+                "agent",
+                json!({ "name": name, "state": state, "labels": labels, "busy": busy }),
+            );
+        }
+    }
+
     fn ring(&self, name: &str, kind: &str, data: Value) {
         if let Some(live) = self.live.lock().unwrap_or_else(PoisonError::into_inner).as_ref() {
             let topic = topic_of(name);
@@ -434,6 +452,7 @@ impl Ci {
                 live.open(topic_of(&name));
             }
         }
+        live.open(AGENTS_TOPIC);
         *self.agents.live.lock().unwrap_or_else(PoisonError::into_inner) = Some(live);
     }
 
@@ -601,6 +620,7 @@ impl Ci {
         }
         self.db().execute("DELETE FROM ci_agents WHERE name = ?1", params![name]).map_err(db_error)?;
         self.agents.state().seen.remove(name);
+        self.agents.tell(name, "removido", &[], 0);
         self.log.write(&format!("agente {name} removido"));
         Ok(())
     }
@@ -656,6 +676,7 @@ impl Ci {
                 at_ms: now,
                 hello: hello.clone(),
                 assigned: BTreeSet::new(),
+                told: (String::new(), 0),
             });
             if seen.hello.session != hello.session {
                 seen.assigned.clear();
@@ -663,6 +684,11 @@ impl Ci {
             seen.assigned.extend(hello.running.iter().cloned());
             seen.at_ms = now;
             seen.hello = hello.clone();
+            let now_told = ("conectado".to_owned(), hello.running.len());
+            if seen.told != now_told {
+                seen.told = now_told;
+                self.agents.tell(name, "conectado", &hello.labels, hello.running.len());
+            }
         }
         if let Some(live) = self.agents.live.lock().unwrap_or_else(PoisonError::into_inner).as_ref() {
             live.open(topic_of(name));
@@ -1057,6 +1083,16 @@ impl Ci {
                 waiting.push(row);
             }
         }
+        // Who went quiet: the topic of agents hears it once.
+        {
+            let mut state = self.agents.state();
+            for (name, seen) in &mut state.seen {
+                if now - seen.at_ms > CONNECTED_MS && seen.told.0 != "sumido" {
+                    seen.told = ("sumido".to_owned(), seen.told.1);
+                    self.agents.tell(name, "sumido", &seen.hello.labels, seen.told.1);
+                }
+            }
+        }
         self.dispatch(&waiting, now)?;
         self.tidy_launched(now);
         Ok(())
@@ -1295,9 +1331,6 @@ impl Ci {
     }
 }
 
-/// The variable an agent's token used once comes in, so it does not show in the list of processes.
-pub const TOKEN_VAR: &str = "RAVEN_CI_AGENT_TOKEN";
-
 /// The name of the agent a launch is for: what the core put in its settings.
 pub fn launch_name(request: &LaunchRequest) -> String {
     request.settings.get("name").and_then(Value::as_str).unwrap_or("agente").to_owned()
@@ -1308,24 +1341,18 @@ pub fn launch_text<'r>(request: &'r LaunchRequest, key: &str) -> Option<&'r str>
     request.settings.get(key).and_then(Value::as_str).filter(|text| !text.is_empty())
 }
 
-/// The arguments of `raven-ci-agent` for `request`, with its folder `dir` where it runs: the
-/// server, the name, the labels, the executors and the limits (`nucleos`, `memoria`, `disco`) the
-/// template says. The token goes apart, in [`TOKEN_VAR`]. What every launcher of the agent's own
-/// program (`agent-local`, `agent-remote`) passes it.
-pub fn agent_arguments(request: &LaunchRequest, dir: &str) -> Vec<String> {
+/// The contract of the agent a launcher of the agent's own program starts for `request`, with its
+/// folder `dir` where it runs: [`AgentArgs`] with the name and executors the core put in the
+/// settings. Its words come from [`AgentArgs::to_args`] and the token from [`AgentArgs::env`].
+pub fn launch_args(request: &LaunchRequest, dir: &str) -> AgentArgs {
     let executors = request.settings.get("executors").and_then(Value::as_u64).unwrap_or(1);
-    let mut args = vec![
-        "--servidor".to_owned(),
-        request.server.clone(),
-        "--nome".to_owned(),
-        launch_name(request),
-        "--pasta".to_owned(),
-        dir.to_owned(),
-        "--rotulos".to_owned(),
-        request.labels.join(","),
-        "--executores".to_owned(),
-        executors.to_string(),
-    ];
+    AgentArgs::from_request(request, &launch_name(request), executors, dir)
+}
+
+/// The words of the limits a template gives its agents (`nucleos`, `memoria`, `disco`), which
+/// `raven-ci-agent` takes after the words of its contract.
+pub fn limit_arguments(request: &LaunchRequest) -> Vec<String> {
+    let mut args = Vec::new();
     for (key, flag) in [("nucleos", "--nucleos"), ("memoria", "--memoria"), ("disco", "--disco")] {
         let value = match request.settings.get(key) {
             Some(Value::String(text)) if !text.is_empty() => Some(text.clone()),

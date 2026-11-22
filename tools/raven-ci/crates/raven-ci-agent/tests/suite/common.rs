@@ -186,7 +186,7 @@ impl Agent {
             .args(["--rotulos", labels])
             .args(extra.iter().copied());
         if let Some(token) = token {
-            spec = spec.env(raven_ci_agent::TOKEN_VAR, token);
+            spec = spec.env(raven_ci_agent::TOKEN_VARIABLE, token);
         }
         Self { running: Some(spec.spawn().expect("the agent starts")) }
     }

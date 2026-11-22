@@ -198,7 +198,7 @@ fn the_routes_of_agents_are_only_for_agents_and_an_agent_reaches_nothing_else() 
     ci.remove_agent("linux-1").expect("removed");
     let mut service = api::service(ci.clone(), &api::users_file(&disk.dir)).expect("the service");
     assert_eq!(service.handle(oi(&key)).status, 401, "a removed agent's key opens nothing");
-    assert!(ROLE_AGENT.starts_with("ci-"));
+    assert_eq!(ROLE_AGENT, "Agentes");
 }
 
 #[test]
@@ -313,7 +313,7 @@ fn an_agent_that_falls_gets_its_build_again_and_one_that_does_not_come_back_leav
     clock.advance(62_000);
     ci.tick_agents();
     let build = ci.build("apps/site", number).expect("build");
-    assert!(build.status.ended(), "{build:?}");
+    assert_eq!(build.status, BuildStatus::Interrupted, "{build:?}");
     assert!(build.reason.as_deref().is_some_and(|r| r.starts_with("interrompido:")), "{build:?}");
     let texts: Vec<String> =
         ci.build_log("apps/site", number, 0).expect("log").into_iter().map(|l| l.text).collect();

@@ -46,6 +46,7 @@ use std::time::Duration;
 
 use raven_ci_core::agents::{HELLO_MS, Hello, HelloAnswer, Join, Joined, Task, topic_of};
 use raven_ci_core::{Ci, CiOptions};
+use raven_ci_plugin_api::AgentArgs;
 use ravenrs_flows::CancelToken;
 use serde_json::json;
 
@@ -55,7 +56,7 @@ use crate::plugins::Plugins;
 pub use crate::site::AgentSite;
 use crate::site::RemoteSecrets;
 
-pub use raven_ci_core::agents::TOKEN_VAR;
+pub use raven_ci_plugin_api::TOKEN_VARIABLE;
 
 /// The file, in the agent's folder, that keeps its key.
 pub const KEY_FILE: &str = "chave";
@@ -79,46 +80,61 @@ pub struct Config {
     pub limits: Limits,
 }
 
-/// The value after `flag` in `args`.
-fn value<'a>(args: &'a [String], flag: &str) -> Result<Option<&'a str>, String> {
-    match args.iter().position(|a| a == flag) {
-        Some(at) => {
-            args.get(at + 1).map(|v| Some(v.as_str())).ok_or_else(|| format!("{flag} precisa de um valor"))
-        }
-        None => Ok(None),
-    }
-}
+/// The words of the contract between a launcher and the agent ([`AgentArgs`]); every other word
+/// is the agent's own (its limits).
+const CONTRACT: [&str; 6] = ["--servidor", "--nome", "--token", "--rotulos", "--executores", "--pasta"];
+
+/// What stands for the token when the agent has a key already and came with none.
+const NO_TOKEN: &str = "\u{0}sem-token";
 
 impl Config {
-    /// What `args` say, with the token from `token` when they do not give one:
-    /// `--servidor URL --nome NOME [--token T | --token -] [--pasta DIR] [--rotulos a,b] [--executores N]`
-    /// and the limits of [`Limits::from_args`].
-    pub fn from_args(args: &[String], token: Option<String>) -> Result<Self, String> {
-        let server = value(args, "--servidor")?.ok_or("falta --servidor URL")?.to_owned();
-        let name = value(args, "--nome")?.ok_or("falta --nome NOME")?.to_owned();
-        let dir = value(args, "--pasta")?.map_or_else(|| PathBuf::from("raven-ci-agente"), PathBuf::from);
-        let labels = value(args, "--rotulos")?
-            .map(|all| all.split(',').map(str::trim).filter(|l| !l.is_empty()).map(str::to_owned).collect())
-            .unwrap_or_default();
-        let limits = Limits::from_args(args)?;
-        let executors: u32 = match value(args, "--executores")? {
-            Some(n) => n.parse().map_err(|_| "--executores é um número".to_owned())?,
-            None => 1,
-        };
-        let executors = limits.executors(executors.max(1));
-        let token = match value(args, "--token")? {
+    /// What `args` say, with the variables of `env`: the words of the contract,
+    /// [`AgentArgs::from_args`] (`--servidor URL --nome NOME --pasta DIR [--rotulos a,b]
+    /// [--executores N]`, and the token in `--token T`, `--token -` for the first line of the input,
+    /// or [`TOKEN_VARIABLE`]), then the limits of [`Limits::from_args`]. The token is needed only the
+    /// first time: an agent that keeps a key in its folder comes back with it.
+    pub fn from_args(args: &[String], env: impl Fn(&str) -> Option<String>) -> Result<Self, String> {
+        let (mut contract, mut own) = (Vec::new(), Vec::new());
+        let mut words = args.iter();
+        while let Some(word) = words.next() {
+            let to = if CONTRACT.contains(&word.as_str()) { &mut contract } else { &mut own };
+            to.push(word.clone());
+            if let Some(value) = words.next() {
+                to.push(value.clone());
+            }
+        }
+        if !contract.iter().any(|w| w == "--pasta") {
+            contract.extend(["--pasta".to_owned(), "raven-ci-agente".to_owned()]);
+        }
+        let folder =
+            contract.iter().position(|w| w == "--pasta").and_then(|at| contract.get(at + 1)).cloned();
+        let has_key = folder.is_some_and(|folder| read_key(Path::new(&folder)).is_some());
+        let parsed = AgentArgs::from_args(&contract, |name| {
+            env(name).or_else(|| (name == TOKEN_VARIABLE && has_key).then(|| NO_TOKEN.to_owned()))
+        })
+        .map_err(|e| e.to_string())?;
+        let token = match parsed.token.as_str() {
+            NO_TOKEN => None,
             // From the first line of the input: what a launcher through SSH sends, so the token
             // shows in no list of processes on either machine.
-            Some("-") => {
+            "-" => {
                 let mut line = String::new();
                 std::io::stdin().read_line(&mut line).map_err(|e| format!("o token na entrada: {e}"))?;
-                Some(line.trim().to_owned())
+                Some(line.trim().to_owned()).filter(|t| !t.is_empty())
             }
-            Some(given) => Some(given.to_owned()),
-            None => token,
+            given => Some(given.to_owned()),
         };
-        let token = token.filter(|t| !t.is_empty());
-        Ok(Self { server, name, token, dir, labels, executors, limits })
+        let limits = Limits::from_args(&own)?;
+        let executors = limits.executors(u32::try_from(parsed.executors).unwrap_or(u32::MAX));
+        Ok(Self {
+            server: parsed.server,
+            name: parsed.name,
+            token,
+            dir: PathBuf::from(parsed.folder),
+            labels: parsed.labels,
+            executors,
+            limits,
+        })
     }
 }
 
@@ -216,7 +232,7 @@ impl Agent {
     fn join(&self) -> Result<(), String> {
         let token = self.config.token.clone().ok_or_else(|| {
             format!(
-                "o agente não tem chave em {} e não veio com token ({TOKEN_VAR} ou --token)",
+                "o agente não tem chave em {} e não veio com token ({TOKEN_VARIABLE} ou --token)",
                 self.config.dir.display()
             )
         })?;

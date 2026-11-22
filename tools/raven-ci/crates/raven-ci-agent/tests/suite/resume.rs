@@ -99,7 +99,7 @@ fn an_agent_that_does_not_come_back_leaves_its_build_interrupted_and_forgets_it_
     agent.kill();
     let status = server.wait_end("apps/site", number, Duration::from_secs(30));
     let build = server.ci.build("apps/site", number).expect("build");
-    assert!(status.ended(), "{build:?}");
+    assert_eq!(status, BuildStatus::Interrupted, "{build:?}");
     assert!(build.reason.as_deref().is_some_and(|r| r.contains("o agente some-1 sumiu")), "{build:?}");
     let workspace =
         dir.0.join("dados").join(raven_ci_core::WORKSPACES_DIR).join("apps/site").join(number.to_string());

@@ -538,6 +538,12 @@ pub(crate) fn status_of(
     match (record.status, &record.outcome) {
         (RunStatus::Queued, _) => (BuildStatus::Queued, None),
         (RunStatus::Running | RunStatus::Waiting, _) => (BuildStatus::Running, None),
+        // The server ended it when its agent went quiet past its grace (crate::agents).
+        (RunStatus::Cancelled, Some(RunOutcome::Cancelled { reason }))
+            if reason.starts_with(crate::agents::INTERRUPTED) =>
+        {
+            (BuildStatus::Interrupted, Some(reason.clone()))
+        }
         (RunStatus::Cancelled, Some(RunOutcome::Cancelled { reason })) => {
             (BuildStatus::Cancelled, Some(reason.clone()))
         }

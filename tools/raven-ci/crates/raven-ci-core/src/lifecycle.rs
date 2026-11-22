@@ -395,8 +395,12 @@ impl Ci {
         log: &dyn BuildLog,
     ) {
         let reported = Self::reported(&order.settings, commit);
-        let state =
-            if status == BuildStatus::Succeeded { CommitState::Success } else { CommitState::Failure };
+        let state = match status {
+            BuildStatus::Succeeded => CommitState::Success,
+            // Nothing in the commit failed: the build could not be finished.
+            BuildStatus::Interrupted => CommitState::Error,
+            _ => CommitState::Failure,
+        };
         self.report(&order.settings, &order.job, reported.as_deref(), state, status.words(), log);
         let info = BuildInfo {
             job: order.job.clone(),

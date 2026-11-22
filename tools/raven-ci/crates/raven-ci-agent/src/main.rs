@@ -14,12 +14,11 @@ fn main() {
             "raven-ci-agent --servidor URL --nome NOME [--token T] [--pasta DIR] [--rotulos a,b] [--executores N]\n\
              [--nucleos N] [--memoria 4G] [--disco 20G] [--disco-livre 5G] [--vigia-ms 2000]\n\n\
              O token de uso único também vem em {}.",
-            raven_ci_agent::TOKEN_VAR
+            raven_ci_agent::TOKEN_VARIABLE
         );
         return;
     }
-    let config = match raven_ci_agent::Config::from_args(&args, std::env::var(raven_ci_agent::TOKEN_VAR).ok())
-    {
+    let config = match raven_ci_agent::Config::from_args(&args, |name| std::env::var(name).ok()) {
         Ok(config) => config,
         Err(e) => {
             eprintln!("raven-ci-agent: {e}");

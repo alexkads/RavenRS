@@ -35,7 +35,7 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, PoisonError};
 
-use raven_ci_core::agents::{ChildAgent, agent_arguments, launch_name, launch_text};
+use raven_ci_core::agents::{ChildAgent, launch_args, launch_name, launch_text, limit_arguments};
 use raven_ci_plugin_api::{AgentLauncher, CiError, CiPlugin, Host, LaunchRequest, LaunchedAgent, Permission};
 use ravenrs_app::{Module, ModuleManifest};
 use ravenrs_process::Spec;
@@ -129,8 +129,10 @@ pub fn ssh_arguments(request: &LaunchRequest, key: Option<&str>) -> Result<Vec<S
     let name = launch_name(request);
     let dir = launch_text(request, "pasta").map_or_else(|| format!("raven-ci-agente/{name}"), str::to_owned);
     let mut words = vec![launch_text(request, "programa").unwrap_or("raven-ci-agent").to_owned()];
-    words.extend(agent_arguments(request, &dir));
+    words.extend(launch_args(request, &dir).to_args());
+    // The token on the input, which `ssh` carries and no variable of the other machine shows.
     words.extend(["--token".to_owned(), "-".to_owned()]);
+    words.extend(limit_arguments(request));
     args.push(words.iter().map(|w| quoted(w)).collect::<Vec<_>>().join(" "));
     Ok(args)
 }
@@ -241,8 +243,8 @@ mod tests {
         );
         assert_eq!(
             args[11],
-            "'/opt/raven ci/raven-ci-agent' '--servidor' 'https://ci.local' '--nome' 'mac-1' '--pasta' \
-             'raven-ci-agente/mac-1' '--rotulos' 'mac,arm' '--executores' '2' '--memoria' '8G' '--token' '-'"
+            "'/opt/raven ci/raven-ci-agent' '--servidor' 'https://ci.local' '--nome' 'mac-1' '--rotulos' \
+             'mac,arm' '--executores' '2' '--pasta' 'raven-ci-agente/mac-1' '--token' '-' '--memoria' '8G'"
         );
         assert!(!args.iter().any(|a| a.contains("rva_segredo")), "the token goes on the input");
     }

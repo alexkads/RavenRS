@@ -15,7 +15,8 @@
 //! - it starts the agent's program (the template's `programa`, or `raven-ci-agent` beside the
 //!   program that runs the server) through `ravenrs-process`, with the server's address, the name,
 //!   the labels, the executors and the limits as arguments, and the token used once in
-//!   `RAVEN_CI_AGENT_TOKEN`, so it never shows in the list of processes;
+//!   `RAVEN_CI_AGENT_TOKEN`, so it never shows in the list of processes (the contract of
+//!   `raven_ci_plugin_api::AgentArgs`);
 //! - in the folder `pasta` of the template, or `agentes/<name>` in the plugin's own folder;
 //! - as the user `usuario` of the template, when it says one (`ravenrs_process::Spec::user`: as
 //!   root the user is switched; otherwise `sudo -n`, which needs a rule for it);
@@ -35,7 +36,7 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex, PoisonError};
 
-use raven_ci_core::agents::{ChildAgent, TOKEN_VAR, agent_arguments, launch_name, launch_text};
+use raven_ci_core::agents::{ChildAgent, launch_args, launch_name, launch_text, limit_arguments};
 use raven_ci_plugin_api::{AgentLauncher, CiError, CiPlugin, Host, LaunchRequest, LaunchedAgent, Permission};
 use ravenrs_app::{EntityInfo, FieldInfo, FieldKind, Module, ModuleManifest};
 use ravenrs_process::Spec;
@@ -149,9 +150,11 @@ impl AgentLauncher for Local {
         };
         std::fs::create_dir_all(&dir).map_err(|e| CiError::failed(format!("{}: {e}", dir.display())))?;
         let program = program(request, host.as_ref())?;
-        let mut spec = Spec::new(program)
-            .args(agent_arguments(request, &dir.display().to_string()))
-            .env(TOKEN_VAR, request.token.clone());
+        let args = launch_args(request, &dir.display().to_string());
+        let mut spec = Spec::new(program).args(args.to_args()).args(limit_arguments(request));
+        for (name, value) in args.env() {
+            spec = spec.env(name, value);
+        }
         if let Some(user) = launch_text(request, "usuario") {
             spec = spec.user(user);
         }
