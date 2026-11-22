@@ -59,6 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- Raven Finanças has four more scenarios of the Raven Test Studio (an income, an entry with no amount, changing months and paying a bill), and its test in a process of its own opens one app per scenario, as the Studio does. `raven-flows` and `mini-pdv` have scenarios too, `raven-flows` in a folder of its own under the temporary folder with runs done at once (#702, fourth lot).
+
 - `flow-chat-bot`, `flow-design-board`, `flow-whiteboard`, `bpmn-editor` and `dock-workbench` have scenarios of the Raven Test Studio in `tests/e2e/`, served with `--e2e-serve` on data in memory (#702, third lot).
 
 - `grid-poc`, `quick-plan`, `spreadsheet`, `site-home` and `component-gallery` have scenarios of the Raven Test Studio in `tests/e2e/` (#702, second lot). `Scenario::play_served` in `ravenrs-e2e-wire` plays a scenario on an app opened with `--e2e-serve` in a process of its own, for an app that is only a binary, as `grid-poc`. The click counter of the home page is `clicks`.
