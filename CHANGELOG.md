@@ -59,6 +59,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 
 ### Added
 
+- `testing::SortableDriver` moves an item of a `SortableList` before another by their keys, with Alt and the arrows as a person does (#740). Each point of a chart is a node of its own, `point:<series>:<category>`, named with its value, so a screen reader reads the data one by one; the commands of a `Ribbon` are `command:<label>`.
+
 - Lists, scheduler, dock and charts are in the testability contract of the RTS (#740): document tabs are `tab:<id>`, the tabs of a `Ribbon` `tab:<title>`, the items of a `SortableList` with a key `item:<key>`, the days of a `YearView` and an `EventCalendar` `day:<yyyy-mm-dd>`, calendar events `event:<id>` and timeline items `item:<id>`. `FileBrowser` and `Filmstrip` keep the `row:<key>` of their list.
 
 - The components of `ravenrs-widgets-kit` are in the testability contract of the RTS (#738): tabs are `tab:<label>` and take `Select`; the items and sections of a `Sidebar` are `item:<label>` and `section:<title>` (sections open and close with `Expand` and `Collapse`); breadcrumbs are `crumb:<label>`, wizard steps `step:<n>`, uploaded files `file:<name>` and the remove buttons of a `TagBox` `remove:<tag>`; `Disclosure`, `TagBox` and `LookupField` open and close with `Expand` and `Collapse`; `TextArea` takes `SetValue`. `IconTile` gets a story with a label; `QuadField` has no screen.
@@ -239,6 +241,8 @@ All notable changes to RavenRS are listed here. The format follows [Keep a Chang
 - `create-ravenrs`: a guide for machines with little memory (LLD, two jobs, no debug info), and `npm run test:e2e:linux` takes `--memory`, `--jobs`, `--logs` and `--case`, building `hello`, `app-sqlite` and `relatorios` in a container of 4 GB. ([#220](https://github.com/alexkads/RavenRS/issues/220))
 
 ### Fixed
+
+- `ravenrs-e2e` reaches a row at the end of a long list: the hunt for a row not built yet scrolls to the end of the list instead of giving up after 240 turns of the wheel (a list of 10,000 rows did not reach row 9,999).
 
 - `YearView` no longer overflows on a day before 1970 (a debug build panicked).
 

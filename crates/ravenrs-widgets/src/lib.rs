@@ -92,13 +92,15 @@ pub mod book {
 }
 
 /// Drivers for tests written with `ravenrs-e2e` (feature `testing`): they edit, sort and
-/// filter a `DataGrid`, join the nodes of a `FlowCanvas`, move the events of a `Scheduler` and
-/// float the panels of a `DockArea` by keys, as a person does, never by pixels.
+/// filter a `DataGrid`, join the nodes of a `FlowCanvas`, move the events of a `Scheduler`,
+/// float the panels of a `DockArea` and reorder a `SortableList` by keys, as a person does, never
+/// by pixels.
 #[cfg(feature = "testing")]
 pub mod testing {
     pub use ravenrs_widgets_charts::testing::FlowCanvasDriver;
     pub use ravenrs_widgets_dock::testing::DockDriver;
     pub use ravenrs_widgets_grid::testing::DataGridDriver;
+    pub use ravenrs_widgets_lists::testing::SortableDriver;
     pub use ravenrs_widgets_scheduler::testing::SchedulerDriver;
 }
 

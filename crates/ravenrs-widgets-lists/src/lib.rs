@@ -19,6 +19,8 @@ use ravenrs_widgets_kit::*;
 pub mod inspector;
 #[doc(hidden)]
 pub mod lists;
+#[cfg(feature = "testing")]
+pub mod testing;
 #[doc(hidden)]
 pub mod tree;
 

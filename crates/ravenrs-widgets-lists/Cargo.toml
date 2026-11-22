@@ -22,8 +22,11 @@ ravenrs-reactive.workspace = true
 ravenrs-layout.workspace = true
 ravenrs-style.workspace = true
 ravenrs-live = { workspace = true, optional = true }
+ravenrs-e2e = { workspace = true, optional = true }
 
 [features]
+# `testing::SortableDriver`, for tests written with ravenrs-e2e.
+testing = ["dep:ravenrs-e2e"]
 # The stories of its components, for RavenComponentBook (`book::stories`).
 book = ["ravenrs-widgets-base/book", "ravenrs-widgets-kit/book"]
 live = ["dep:ravenrs-live", "ravenrs-widgets-base/live", "ravenrs-widgets-kit/live", "ravenrs-core/live", "ravenrs-style/live", "ravenrs-layout/live"]
